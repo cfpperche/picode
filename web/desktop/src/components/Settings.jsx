@@ -9,6 +9,7 @@ import ThemeCard from "./ThemeCard.jsx";
 import { notify, toast, toastError } from "../lib/toast.js";
 import { agentFinishNotice } from "@picode/shared/domain/notice.js";
 import { readToastPrefs, persistToastPrefs, TOAST_POSITIONS } from "../lib/toastPrefs.js";
+import { persistReminderPrefs, readReminderPrefs } from "@picode/shared/domain/pinReminder.js";
 import { readContextMenuPrefs, persistContextMenuPrefs, CTX_MODIFIERS } from "../lib/contextMenuPrefs.js";
 import AppKeys from "./AppKeys.jsx";
 import FolderField from "./FolderField.jsx";
@@ -45,6 +46,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
   const [pubUrl, setPubUrl] = useState("");
   const [reachErr, setReachErr] = useState("");
   const [toastPrefs, setToastPrefs] = useState(readToastPrefs);
+  const [remPrefs, setRemPrefs] = useState(() => readReminderPrefs());
   const [ctxPrefs, setCtxPrefs] = useState(readContextMenuPrefs);
 
   useEffect(() => {
@@ -221,6 +223,26 @@ export default function Settings({ hidden, themeMode, onTheme }) {
             <Switch.Root id="toast-finished" className="rx-switch" checked={toastPrefs.announceFinished} onCheckedChange={(v) => saveToast({ announceFinished: v })}>
               <Switch.Thumb className="rx-switch-thumb" />
             </Switch.Root>
+          </div>
+          <div className="set-row">
+            <label htmlFor="toast-reminders">When a pin reminder is due</label>
+            <Switch.Root id="toast-reminders" className="rx-switch" checked={toastPrefs.announceReminders} onCheckedChange={(v) => saveToast({ announceReminders: v })}>
+              <Switch.Thumb className="rx-switch-thumb" />
+            </Switch.Root>
+          </div>
+          <div className="set-row">
+            <label htmlFor="remind-morning">Morning reminders at</label>
+            <input id="remind-morning" type="time" className="set-time" value={remPrefs.morning} onChange={(e) => setRemPrefs(persistReminderPrefs({ ...remPrefs, morning: e.target.value || "09:00" }))} />
+          </div>
+          <div className="set-row">
+            <label htmlFor="remind-snooze">Snooze a reminder for</label>
+            <select id="remind-snooze" className="set-select" value={String(remPrefs.snoozeMin)} onChange={(e) => setRemPrefs(persistReminderPrefs({ ...remPrefs, snoozeMin: Number(e.target.value) }))}>
+              <option value="10">10 minutes</option>
+              <option value="30">30 minutes</option>
+              <option value="60">1 hour</option>
+              <option value="180">3 hours</option>
+              <option value="1440">1 day</option>
+            </select>
           </div>
         </div>
         <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={previewNotice}>Preview</button>

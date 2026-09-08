@@ -12,13 +12,15 @@
 //
 //   level  ok | info | warn | error | busy
 //   channel which announce preference may mute this notice, if any:
-//          "finished" | "needsYou". A notice with no channel is feedback
-//          for something the user just did and is never muted.
+//          "finished" | "needsYou" | "reminder". A notice with no channel
+//          is feedback for something the user just did and is never muted.
 //   actor  who is speaking — { kind, id, name, cli }; cli picks the glyph
 //   status the muted phrase beside the name ("finished · worked for 7s")
 //   title  the sentence the notice is about
 //   meta   footer chips — [{ text, tone: "add" | "del" | "muted" }]
 //   action a way out — [{ label, hash, primary }], at most two
+//   onClose what the close control means beyond hiding the card — a pin
+//          reminder's X marks its Inbox item done (ADR-0100)
 //   key    identity: a second notice with the same key REPLACES the first
 //   target the surface this notice is about. It is what suppression
 //          compares against; the way *out* is always an explicit action,
@@ -32,7 +34,7 @@ export const NOTICE_LEVELS = Object.freeze(["ok", "info", "warn", "error", "busy
 // mirror the push switches: "when an agent needs me", "when a run
 // finishes"). Feedback for an action the user just took has no channel and
 // cannot be muted — silencing "Saved." would silence the app itself.
-export const CHANNELS = Object.freeze(["finished", "needsYou"]);
+export const CHANNELS = Object.freeze(["finished", "needsYou", "reminder"]);
 
 const KIND_LEVEL = Object.freeze({
   ok: "ok",
@@ -116,6 +118,7 @@ export function normalizeNotice(n) {
     actions: normalizeActions(src.actions),
     key: src.key ? String(src.key) : "",
     target: src.target ? String(src.target) : "",
+    onClose: typeof src.onClose === "function" ? src.onClose : null,
     // Infinity is a legitimate value here (a needs-you card outlives the
     // clock), so this cannot be Number.isFinite.
     duration: typeof src.duration === "number" && !Number.isNaN(src.duration) ? src.duration : null,
@@ -154,6 +157,7 @@ export function noticeMuted(n, prefs) {
   const p = prefs || {};
   if (n.channel === "finished") return p.announceFinished === false;
   if (n.channel === "needsYou") return p.announceNeedsYou === false;
+  if (n.channel === "reminder") return p.announceReminders === false;
   return false;
 }
 
@@ -322,4 +326,86 @@ export function needsYouPlan(entries, announced, target) {
   }
   const gone = first ? [] : [...seen].filter((k) => !keys.has(k));
   return { fresh, gone, keys };
+}
+
+// A pin reminder fired (ADR-0100). Sticky like needs-you: it lives until
+// the person closes it (X → the Inbox item goes done, on every device) or
+// snoozes it; the card is a projection of the Inbox row, never the state.
+// `fire` is the pin.reminded payload or an open Inbox item mapped to it:
+// { inboxId, pinId, title, label, catchUp, body }.
+export const REMINDER_KEY = "reminder:";
+export const REMINDERS_COLLAPSED_KEY = "reminders:all";
+export const REMINDER_CARD_CAP = 3;
+
+export function reminderNoticeKey(fire) {
+  return fire && fire.inboxId ? REMINDER_KEY + fire.inboxId : "";
+}
+
+export function reminderNotice(fire, { pinHash, snooze, close } = {}) {
+  const f = fire || {};
+  const status = "reminder" + (f.label ? " · " + f.label : "") + (f.catchUp ? " · was due earlier" : "");
+  const actions = [];
+  if (typeof snooze === "function") actions.push({ label: "Snooze", run: snooze });
+  if (pinHash) actions.push({ label: "Open", hash: pinHash, primary: true });
+  return normalizeNotice({
+    level: "info",
+    channel: "reminder",
+    actor: { kind: "pin", id: f.pinId || "", name: f.title || "Pin" },
+    status,
+    title: f.body || f.title || "Reminder",
+    actions,
+    key: reminderNoticeKey(f),
+    // Never suppressed by the visible surface: the person scheduled it.
+    target: "",
+    duration: Infinity,
+    onClose: typeof close === "function" ? close : null,
+  });
+}
+
+// Above the cap, one card stands for all of them: sonner keeps only
+// `visibleToasts` on screen and queues the rest, and a wall of sticky
+// cards would hide the app. The Inbox is the list.
+export function remindersCollapsedNotice(count, inboxHash) {
+  return normalizeNotice({
+    level: "info",
+    channel: "reminder",
+    actor: { kind: "pin", id: "", name: "Reminders" },
+    status: count + " waiting",
+    title: count + " reminders are waiting for you.",
+    actions: inboxHash ? [{ label: "Open Inbox", hash: inboxHash, primary: true }] : [],
+    key: REMINDERS_COLLAPSED_KEY,
+    target: "",
+    duration: Infinity,
+  });
+}
+
+// An open reminder item (GET /api/inbox?kind=reminder) as a fire.
+export function fireFromInboxItem(it) {
+  const i = it || {};
+  return { inboxId: i.id || "", pinId: i.sourceId || "", title: i.title || "", label: i.reason || "", body: (i.body || "").split("\n")[0], catchUp: /Was due /.test(i.body || "") };
+}
+
+// reminderPlan: given the open (not done, not snoozed) reminder items and
+// the keys currently shown, decide what to raise and what to withdraw.
+// Unlike needsYouPlan there is no silent first pass: a reminder owed on
+// page load is shown — that is the point of it.
+//   returns { show: [notice…], hide: [key…], keys: Set }
+export function reminderPlan(items, shownKeys, { cap = REMINDER_CARD_CAP, notice, collapsed } = {}) {
+  const open = (items || []).filter((it) => it && it.id && it.state !== "done");
+  const shown = new Set(shownKeys || []);
+  const keys = new Set();
+  const show = [];
+  const hide = [];
+  if (open.length > cap) {
+    keys.add(REMINDERS_COLLAPSED_KEY);
+    if (collapsed) show.push(collapsed(open.length));
+  } else {
+    for (const it of open) {
+      const key = REMINDER_KEY + it.id;
+      keys.add(key);
+      if (notice) show.push(notice(fireFromInboxItem(it)));
+    }
+  }
+  for (const k of shown) if (!keys.has(k)) hide.push(k);
+  return { show, hide, keys };
 }

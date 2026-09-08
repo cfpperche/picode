@@ -13,6 +13,23 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Pins: reminders on screen (ADR-0100, slice 3).** The studio has a
+  "Remind me" chip: presets first (in 1 h, in 3 h, tomorrow morning, next
+  Monday morning, every day, every weekday — day presets at a morning hour
+  you can change), then every N hours with "count from when I close it",
+  a date-and-time picker and a cron field; the chip and the sidebar card
+  read the rule back in words with its next fire ("every day at 09:00 ·
+  next tomorrow 09:00"). When a reminder fires, a card with the pin's
+  glyph stays on screen until you act — on the desk and on the phone: X
+  closes it (the Inbox item goes done everywhere), Snooze hides it for an
+  hour, Open lands on the pin. A reminder owed is shown on load too; more
+  than three open reminders collapse into one "N reminders" card that
+  opens the Inbox. Preferences → Notifications gains "When a pin reminder
+  is due" for the card, and the push switches gain the same for the
+  phone. The Inbox app's reminder rows say "Pin" and their "Open pin" goes
+  to the pin. On the phone `#/pins/<id>` opens a read-only pin (title,
+  tags, reminder line, pictures, note) instead of landing on Settings.
+
 - **Pins: reminders, server side (ADR-0100).** `PUT /api/pins/{id}/reminder`
   sets one cadence per pin — `once` at a date and time, `interval` every
   N minutes (at least 5) counted from the schedule or from the moment you
@@ -72,6 +89,10 @@ to the `[Unreleased]` section. The repository's official language is English
   commit; ADR-0086 amended in place (owner-approved).
 
 ### Fixed
+
+- **Pins: opening a pin with a heading or a list no longer restores an
+  "unsaved" draft nobody typed.** The editor normalizes the markdown it
+  loads and announced that as an edit; loading is silent now.
 
 - **Schedules in a zone with daylight-saving time no longer hang the
   daemon.** `internal/cron`'s next-match search stepped the wall clock by

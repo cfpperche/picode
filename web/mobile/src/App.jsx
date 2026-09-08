@@ -11,6 +11,7 @@ import { needsYou } from "./lib/needsYou.js";
 import { asksOnSurface, needsYouPlan } from "@picode/shared/domain/notice.js";
 import { workspaceHash } from "./lib/routes.js";
 import { dismissNotice, notify, toast, toastError } from "./lib/toast.js";
+import { watchReminders } from "@picode/shared/client/reminders.js";
 import { closeTerm } from "./lib/terms.js";
 import { mobileHash, toolHash, tabOf, readWorkSection, writeWorkSection } from "./lib/mobileRoutes.js";
 import { askConfirm } from "./lib/confirm.js";
@@ -26,6 +27,7 @@ import { agentState } from "./components/StateChip.jsx";
 import Now from "./screens/Now.jsx";
 const Inbox = lazy(() => import("./screens/Inbox.jsx"));
 const InboxItem = lazy(() => import("./screens/Inbox.jsx").then(module => ({ default: module.InboxItem })));
+const PinScreen = lazy(() => import("./screens/Pin.jsx"));
 import Work from "./screens/Work.jsx";
 const Agent = lazy(() => import("./screens/Agent.jsx"));
 const TerminalScreen = lazy(() => import("./screens/Terminal.jsx"));
@@ -190,6 +192,13 @@ export default function MobileApp() {
     for (const key of here) dismissNotice(key);
     for (const n of plan.fresh) if (!here.has(n.key)) notify(n);
   }, [entries, route.screen, route.id, loaded]);
+  // Pin reminders (ADR-0100): the same sticky cards as the desk, mirroring
+  // the open reminder items; Open lands on the read-only pin screen.
+  useEffect(() => watchReminders({
+    notify, dismiss: dismissNotice,
+    pinHash: (id) => "#/pins/" + encodeURIComponent(id),
+    inboxHash: "#/inbox",
+  }), []);
 
   const fleetTotal = flatAgents(workspaces, freeAgents).length;
   const inboxApp = apps.find((a) => a.id === "inbox");
@@ -244,6 +253,7 @@ export default function MobileApp() {
   async function onAppGoto(goto) {
     const value = String(goto || "");
     if (value.startsWith("agent:")) openAgent(value.slice("agent:".length));
+    if (value.startsWith("pin:")) push("#/pins/" + encodeURIComponent(value.slice("pin:".length)));
   }
   function openChanges(kind, id, title) {
     if (id) push(mobileHash("changes", id, kind));
@@ -404,6 +414,8 @@ export default function MobileApp() {
         onAgentConfig={patchAgent}
       />
     );
+  } else if (route.screen === "pin") {
+    body = <PinScreen key={route.id} pinId={route.id} onBack={() => goBack(route)} />;
   } else if (route.screen === "inbox" && route.id) {
     body = <InboxItem manifest={inboxApp} itemId={route.id} onBack={() => goBack(route)} onGoto={onAppGoto} />;
   } else if (route.screen === "inbox") {

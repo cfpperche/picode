@@ -1399,8 +1399,31 @@ acknowledgement state; deleting the pin or the rule closes its open item.
 `inbox_items` was rebuilt (as 017) to admit the two enumerations. Push:
 `pin.reminded` → tag `reminder:<inboxId>` under the `reminders`
 preference, `requireInteraction` in `sw.js` where honoured. The Inbox app
-gives the kind an "Open pin" action (`goto: pin:<id>`, resolved by the
-shells in the UI slice).
+gives the kind an "Open pin" action (`goto: pin:<id>`; both shells resolve
+it to the pin) and labels the source "Pin".
+
+**Reminders on screen.** `web/shared/domain/pinReminder.js` holds the
+picker's presets (`buildReminder` → the PUT body, with the browser's IANA
+zone and the viewer's morning hour from `picode-reminder-prefs`), the
+sidebar line (`reminderLine` / `whenNext`: "every day at 09:00 · next
+tomorrow 09:00") and the snooze instant. The desktop studio mounts
+`PinReminderPicker` (Radix Popover) beside Attach and Sketch on an existing
+pin; the chip follows `pin.updated` so a change from elsewhere shows at
+once. `web/shared/client/reminders.js` (`watchReminders`) is the one shell
+integration, called by both apps: on start, `feed.open`/`reset`,
+`pin.reminded` and any `inbox.*` for a reminder item it lists
+`GET /api/inbox?kind=reminder` and runs `reminderPlan` (`notice.js`) —
+one sticky card per open item (`reminderNotice`: `duration: Infinity`,
+key `reminder:<inboxId>`, channel `reminder`, actor kind `pin`, never
+suppressed by the visible surface; X runs `onClose` → the item goes `done`,
+Snooze → `snoozed_until` = now + the viewer's snooze minutes, Open →
+`#/pins/<id>`), or above three open items one collapsed card
+(`reminders:all`, "Open Inbox"). There is no silent first pass: a reminder
+owed on load is shown. The card is a projection of the Inbox row, so a
+close or a snooze on one device withdraws the card on every other through
+`inbox.updated`. The phone has a read-only pin screen (`screens/Pin.jsx`,
+route `pin`, under the Inbox tab) where Open lands; the editor stays on
+the desk.
 
 ### Automations (ADR-0045)
 
@@ -1448,6 +1471,13 @@ change that is not in `events` did not happen — write through the
 store, never around it.
 
 ### Notices — the in-app announcement layer
+
+Channels a viewer can mute: `finished`, `needsYou`, and since ADR-0100
+`reminder` (Preferences → Notifications, "When a pin reminder is due");
+feedback for the person's own action has no channel and is never muted.
+`notify()` normalizes what it is handed, so a caller may pass the bare
+shape. A notice may carry `onClose`: what its X means beyond hiding the
+card (a reminder's X closes its Inbox item).
 
 `web/shared/domain/notice.js` is the model every toast goes through:
 `{ level, channel, actor, status, title, body, meta[], actions[], key,

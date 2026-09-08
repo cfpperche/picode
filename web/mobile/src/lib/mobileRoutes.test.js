@@ -108,3 +108,12 @@ it("opens editor/tree/Git links with owner identity and folder preconditions", (
   assert.equal(mobileRoute("#/git/a/agent").screen, "git");
   assert.equal(mobileRoute("#/git/x/nope").screen, "work");
 });
+
+it("a pin is a read-only screen under the Inbox tab (ADR-0100)", () => {
+  assert.deepEqual(mobileRoute("#/pins/deploy-abc123"), { screen: "pin", id: "deploy-abc123", section: "" });
+  assert.equal(mobileRoute("#/pins/new").screen, "now", "the editor stays on the desk");
+  assert.equal(mobileRoute("#/pins").screen, "now");
+  assert.equal(mobileHash("pin", "deploy-abc123"), "#/pins/deploy-abc123");
+  assert.equal(tabOf({ screen: "pin", id: "x" }), "inbox");
+  assert.equal(parentHash({ screen: "pin", id: "x" }), "#/inbox");
+});

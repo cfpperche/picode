@@ -69,7 +69,7 @@ export async function subscribePush(prefs) {
   if (!sub) {
     sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
   }
-  const body = { ...subJSON(sub), deviceId: deviceId(), prefs: prefs || { actions: true, finished: true } };
+  const body = { ...subJSON(sub), deviceId: deviceId(), prefs: prefs || { actions: true, finished: true, reminders: true } };
   return api("/api/push/subscriptions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 }
 

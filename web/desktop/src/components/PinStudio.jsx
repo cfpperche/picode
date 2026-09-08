@@ -2,9 +2,11 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { IconX, IconClip, IconSketch } from "./Icons.jsx";
 import PageFrame from "./PageFrame.jsx";
 import PinEditor from "./PinEditor.jsx";
+import PinReminderPicker from "./PinReminderPicker.jsx";
 
 const PinSketch = lazy(() => import("./PinSketch.jsx"));
 import { api } from "@picode/shared/client/api.js";
+import { subscribeFeed } from "@picode/shared/client/feed.js";
 import {
   PIN_LIMITS, autoTitle, bodyLimit, clearDraft, draftToRestore, normalizeTag, pinFileSrc,
   readDraft, sameDraft, stripBackgroundFiles, writeDraft,
@@ -105,6 +107,7 @@ export default function PinStudio() {
   const pick = useRef(null);
   const edRef = useRef(null);
   const [sketch, setSketch] = useState(null);
+  const [reminder, setReminder] = useState(null);
   const [tick, setTick] = useState(0);
   const draftId = info.mode === "edit" ? info.id : "";
 
@@ -115,6 +118,7 @@ export default function PinStudio() {
       setDraft(kept ? { ...kept, tagDraft: "" } : blank());
       setRestored(!!kept);
       setFiles([]);
+      setReminder(null);
       setLoaded(true);
       return;
     }
@@ -129,6 +133,7 @@ export default function PinStudio() {
       setDraft({ ...(kept || server), tagDraft: "" });
       setRestored(!!kept);
       setFiles(p.files || []);
+      setReminder(p.reminder || null);
       setLoaded(true);
       const pending = sessionStorage.getItem("picode-sketch");
       if (pending) {
@@ -146,6 +151,15 @@ export default function PinStudio() {
     });
     return () => { stop = true; };
   }, [info.mode, info.id, tick]);
+
+  // The reminder is the server's promise, not part of the draft: a change
+  // made elsewhere (the phone, the engine firing a once) shows here at once.
+  useEffect(() => {
+    if (!info.id) return undefined;
+    return subscribeFeed((ev) => {
+      if (ev.type === "pin.updated" && ev.data && ev.data.id === info.id) setReminder(ev.data.reminder || null);
+    });
+  }, [info.id]);
 
   // Retain the draft while it differs from the server copy; drop it the
   // moment they agree again. A reload or a detour through another tab
@@ -486,6 +500,8 @@ export default function PinStudio() {
               <IconSketch /> Sketch
             </button>
             <span className="pin-attach-hint">Paste, drop, or draw</span>
+            {info.id ? <span className="pin-attach-spacer" /> : null}
+            {info.id ? <PinReminderPicker pinId={info.id} reminder={reminder} onChange={setReminder} /> : null}
           </div>
 
           {files.length ? (

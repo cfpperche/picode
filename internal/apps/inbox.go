@@ -542,6 +542,9 @@ func sourceLabel(h Host, it store.InboxItem) string {
 			return it.SourceID
 		}
 		return "agent"
+	case store.InboxFromPin:
+		// The item's title is the pin's; the source column says what it is.
+		return "Pin"
 	case store.InboxFromTerminal:
 		if h.Store != nil {
 			if t, err := h.Store.GetTerminal(it.SourceID); err == nil && t.Name != "" {

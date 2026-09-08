@@ -59,6 +59,7 @@ import { workspaceStatusPath } from "@picode/shared/domain/statusbar.js";
 import Reconnect from "./components/Reconnect.jsx";
 import { setShell } from "@picode/shared/client/shell.js";
 import { dismissNotice, notify, toast, toastError } from "./lib/toast.js";
+import { watchReminders } from "@picode/shared/client/reminders.js";
 import { agentFinishNotice, asksOnSurface, needsYouPlan } from "@picode/shared/domain/notice.js";
 import { groupTurns } from "@picode/shared/domain/turns.js";
 import { needsYou } from "./lib/needsYou.js";
@@ -858,6 +859,14 @@ export default function App() {
     for (const key of here) dismissNotice(key);
     for (const n of plan.fresh) if (!here.has(n.key)) notify(n);
   }, [workspaces, freeAgents, hash, fleetLoaded]);
+  // Pin reminders (ADR-0100): sticky cards that mirror the open reminder
+  // items in the Inbox — raised on load and on every fire, withdrawn when
+  // the item is closed or snoozed anywhere.
+  useEffect(() => watchReminders({
+    notify, dismiss: dismissNotice,
+    pinHash: (id) => "#/pins/" + encodeURIComponent(id),
+    inboxHash: "#/app/inbox",
+  }), []);
 
   useEffect(() => startReconnectWatch({
     onState: (s) => { if (s === "down") setReconnect(true); },
@@ -2734,6 +2743,8 @@ export default function App() {
                 // Apps can focus an agent's existing tab; "agent:" opens its
                 // interactive TUI (replies land in the terminal itself now).
                 if (g.startsWith("agent:")) openInteractive(g.slice("agent:".length));
+                // A reminder's "Open pin" lands in the studio (ADR-0100).
+                if (g.startsWith("pin:")) location.hash = "#/pins/" + encodeURIComponent(g.slice("pin:".length));
               }}
             />
           ))}

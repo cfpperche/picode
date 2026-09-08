@@ -3,13 +3,13 @@ import * as Switch from "@radix-ui/react-switch";
 import { pushBlockedReason, currentSubscription, subscribePush, unsubscribePush, setPushPrefs, sendTestPush } from "@picode/shared/client/push.js";
 import { toast, toastError } from "../lib/toast.js";
 
-// Push notifications for THIS device (ADR-0047). Two switches — needs me,
-// finished — an Enable/Disable, a Send test. The state is the browser's
+// Push notifications for THIS device (ADR-0047). Three switches — needs me,
+// finished, reminders (ADR-0100) — an Enable/Disable, a Send test. The state is the browser's
 // own subscription, read on mount; the server only holds a copy.
 export default function PushPrefs() {
   const [reason, setReason] = useState(() => pushBlockedReason());
   const [sub, setSub] = useState(undefined); // undefined = loading, null = none
-  const [prefs, setPrefs] = useState({ actions: true, finished: true });
+  const [prefs, setPrefs] = useState({ actions: true, finished: true, reminders: true });
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -61,6 +61,12 @@ export default function PushPrefs() {
             <div className="set-row">
               <label htmlFor="push-finished">When a run finishes</label>
               <Switch.Root id="push-finished" className="rx-switch" checked={prefs.finished} onCheckedChange={(v) => toggle("finished", v)}>
+                <Switch.Thumb className="rx-switch-thumb" />
+              </Switch.Root>
+            </div>
+            <div className="set-row">
+              <label htmlFor="push-reminders">When a pin reminder is due</label>
+              <Switch.Root id="push-reminders" className="rx-switch" checked={prefs.reminders !== false} onCheckedChange={(v) => toggle("reminders", v)}>
                 <Switch.Thumb className="rx-switch-thumb" />
               </Switch.Root>
             </div>

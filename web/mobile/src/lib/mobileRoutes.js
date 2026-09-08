@@ -35,7 +35,6 @@ const DESKTOP_TO_MORE = {
   integrations: "integrations",
   packages: "packages",
   termset: "preferences",
-  pins: "settings",
 };
 
 function strip(hash) {
@@ -83,6 +82,8 @@ export function mobileRoute(hash) {
     return { screen: "more", id: "", section: MORE_SECTIONS.includes(sec) ? sec : "" };
   }
   if (head === "app" && parts[1] === "inbox") return { screen: "inbox", id: "", section: "" };
+  // A pin, read-only (ADR-0100): where a reminder's Open lands on the phone.
+  if (head === "pins" && parts[1] && parts[1] !== "new") return { screen: "pin", id: dec(parts[1]), section: "" };
   if (head === "app" && parts[1]) return { screen: "app", id: dec(parts[1]), section: "", ...(appPath("#" + h) ? { path: appPath("#" + h) } : {}) };
   if (head === "file" || head === "tree" || head === "git") {
     return { screen: "work", id: "", section: "" };
@@ -102,6 +103,7 @@ export function mobileHash(screen, id, section) {
     case "changes": return "#/changes/" + ({ agent: "a", term: "t", workspace: "w" }[section] || "a") + "/" + encodeURIComponent(id);
     case "more": return id ? "#/more/" + encodeURIComponent(id) : "#/more";
     case "app": return "#/app/" + encodeURIComponent(id);
+    case "pin": return "#/pins/" + encodeURIComponent(id);
     default: return "#/";
   }
 }
@@ -111,7 +113,7 @@ export function mobileHash(screen, id, section) {
 export function tabOf(route) {
   if (!route) return "now";
   if (route.screen === "agent" || route.screen === "term" || route.screen === "work" || ["changes", "files", "git"].includes(route.screen)) return "work";
-  if (route.screen === "inbox") return "inbox";
+  if (route.screen === "inbox" || route.screen === "pin") return "inbox";
   if (route.screen === "more" || route.screen === "app") return "more";
   return "now";
 }
@@ -129,6 +131,7 @@ export function parentHash(route) {
     return "#/work";
   }
   if (route.screen === "inbox" && route.id) return "#/inbox";
+  if (route.screen === "pin") return "#/inbox";
   if (route.screen === "more" && route.section) return "#/more";
   return "#/";
 }

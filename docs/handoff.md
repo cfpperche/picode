@@ -52,7 +52,7 @@
 3. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
 4. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan.
 5. CLI prompt door iPhone acceptance; first-class CLI agents refused until protocol convergence (ADR-0091).
-6. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy; pins reminders slices 3–4 (ADR-0100 accepted, server side on main; UI next — `docs/plans/pins-v2.md`).
+6. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy; pins v2 slice 4 — search, starred, archive (migration 037; `docs/plans/pins-v2.md`).
 7. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
 9. Windows clean-machine install (ADR-0098, accepted 2026-09-08): phase 1 = `install-picode` + `install-runtime` bootstrap stages in `picode-desktop.exe`; plan in `docs/plans/windows-clean-install.md`. Owner: Azure Trusted Signing account.
 8. Git graph write actions (ADR-0096) fully shipped — the ask door reaches

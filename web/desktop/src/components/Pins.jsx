@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { IconPlus, IconX } from "./Icons.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
+import { reminderLine } from "@picode/shared/domain/pinReminder.js";
 import { go, pinRoute } from "../lib/routes.js";
 import { toastError } from "../lib/toast.js";
 import { askConfirm } from "../lib/confirm.js";
@@ -72,6 +73,7 @@ export default function Pins() {
               </div>
               {p.tags && p.tags.length ? <div className="pin-card-tags">{p.tags.map((t) => "#" + t).join(" ")}</div> : null}
               {p.fileCount ? <div className="pin-card-files">{p.fileCount} {p.fileCount === 1 ? "file" : "files"}</div> : null}
+              {p.reminder ? <div className="pin-card-remind">{reminderLine(p.reminder)}</div> : null}
             </li>
           ))}
         </ul>

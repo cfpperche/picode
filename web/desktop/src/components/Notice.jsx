@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast as sonner } from "sonner";
 import { terminalCliFaviconUrls, terminalCliLabel, terminalCliMark } from "@picode/shared/domain/terminalCli.js";
-import { IconError, IconGit, IconInfo, IconOk, IconWarn, IconX } from "./Icons.jsx";
+import { IconError, IconGit, IconInfo, IconOk, IconPin, IconWarn, IconX } from "./Icons.jsx";
 
 // The notice card (study: docs/benchmarks/2026-09-07-superset-notifications.md).
 // Three zones, and only the zones the notice actually filled: identity
@@ -19,6 +19,10 @@ const LEVEL_ICON = { ok: IconOk, info: IconInfo, warn: IconWarn, error: IconErro
 // vendor's asset list, fall back to the two-letter mark, never invent a
 // glyph of our own.
 function ActorFace({ actor }) {
+  // A pin speaks with the pin glyph (ADR-0100), never a CLI face.
+  if (actor.kind === "pin") {
+    return <span className="notice-face is-mark is-pin" title={actor.name} aria-hidden="true"><IconPin size={12} /></span>;
+  }
   const urls = terminalCliFaviconUrls(actor.cli);
   const [failed, setFailed] = useState(0);
   const src = failed < urls.length ? urls[failed] : "";
@@ -49,7 +53,7 @@ export default function Notice({ n, id, prefs }) {
   return (
     <div className={cls.join(" ")} role="status" aria-live={n.level === "error" ? "assertive" : "polite"}>
       {p.closeButton ? (
-        <button type="button" className="notice-x" aria-label="Dismiss" onClick={() => sonner.dismiss(id)}>
+        <button type="button" className="notice-x" aria-label="Dismiss" onClick={() => { if (n.onClose) n.onClose(); sonner.dismiss(id); }}>
           <IconX size={13} />
         </button>
       ) : null}

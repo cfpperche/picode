@@ -254,7 +254,9 @@ and its own action row (Done / Snooze / Open pin).
    found and fixed a DST-gap infinite loop in `internal/cron` on the way.
 3. **Reminders, UI** — picker in the studio, sticky notice + collapse card,
    Inbox rows, announce and push prefs, sidebar line; mobile notice twin
-   and the read-only viewer.
+   and the read-only viewer. **Done 2026-09-08**
+   (`docs/handoff/2026-09-08-pins-reminders-ui.md`); the mobile viewer pays
+   slice 1's carry-over.
 4. **List v2** — search, starred, archive.
 
 Slice 2 and 3 land together in one deploy batch; a server that fires

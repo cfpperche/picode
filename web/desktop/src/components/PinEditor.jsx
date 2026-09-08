@@ -57,7 +57,12 @@ export default function PinEditor({ pinId, markdown, onMarkdown, onFiles, onRead
   useEffect(() => {
     if (!editor) return;
     const cur = editor.storage.markdown.getMarkdown();
-    if ((markdown || "") !== cur) editor.commands.setContent(markdown || "");
+    // Loading is not editing: the editor normalizes the markdown it is
+    // given (an H1 becomes a paragraph, list markers change), and an
+    // emitted update would make the studio think the person typed —
+    // retaining a draft and greeting the next visit with "Unsaved changes
+    // restored" for a pin nobody touched.
+    if ((markdown || "") !== cur) editor.commands.setContent(markdown || "", { emitUpdate: false });
   }, [editor, pinId]);
 
   useEffect(() => {

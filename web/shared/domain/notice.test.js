@@ -2,20 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { groupTurns } from "./turns.js";
 import {
-  agentFinishNotice,
-  askNoticeKey,
-  asksOnSurface,
-  changeMeta,
-  changeTotals,
-  finishStatus,
-  lastReplyLine,
-  needsYouNotice,
-  needsYouPlan,
-  noticeDuration,
-  noticeMuted,
-  normalizeNotice,
-  plainNotice,
-  suppressNotice,
+  agentFinishNotice, askNoticeKey, asksOnSurface, changeMeta, changeTotals, finishStatus, lastReplyLine, needsYouNotice, needsYouPlan, normalizeNotice, noticeDuration, noticeMuted, plainNotice, reminderNotice, reminderPlan, remindersCollapsedNotice, suppressNotice,
 } from "./notice.js";
 
 test("plainNotice keeps the legacy three kinds", () => {
@@ -237,4 +224,63 @@ test("asksOnSurface names the cards the user is now looking at", () => {
   assert.deepEqual(asksOnSurface(entries, "#/agent/a2", target), ["ask:a2"]);
   assert.deepEqual(asksOnSurface(entries, "#/settings", target), []);
   assert.deepEqual(asksOnSurface(entries, "", target), []);
+});
+
+test("reminder cards are sticky, keyed by the Inbox item, and close through the item", () => {
+  let closed = 0;
+  let snoozed = 0;
+  const n = reminderNotice({ inboxId: "i1", pinId: "p1", title: "Water the plants", label: "every day at 09:00", body: "Balcony first.", catchUp: true }, {
+    pinHash: "#/pins/p1", snooze: () => { snoozed++; }, close: () => { closed++; },
+  });
+  assert.equal(n.key, "reminder:i1");
+  assert.equal(n.duration, Infinity);
+  assert.equal(n.channel, "reminder");
+  assert.equal(n.actor.kind, "pin");
+  assert.equal(n.actor.name, "Water the plants");
+  assert.equal(n.status, "reminder · every day at 09:00 · was due earlier");
+  assert.equal(n.title, "Balcony first.");
+  assert.deepEqual(n.actions.map((a) => a.label), ["Snooze", "Open"]);
+  assert.equal(n.actions[1].hash, "#/pins/p1");
+  n.actions[0].run(); n.onClose();
+  assert.deepEqual([snoozed, closed], [1, 1]);
+  assert.equal(noticeDuration(n, 4000), Infinity);
+  assert.equal(suppressNotice(n, { target: "#/pins/p1", focused: true }), false, "never suppressed by the surface");
+  assert.equal(noticeMuted(n, { announceReminders: false }), true);
+  assert.equal(noticeMuted(n, {}), false);
+  assert.equal(reminderNotice({ inboxId: "i2", title: "T" }).title, "T");
+  assert.equal(reminderNotice({ inboxId: "i2", title: "T" }).actions.length, 0);
+});
+
+test("reminderPlan raises every open item on the first pass and collapses above the cap", () => {
+  const notice = (f) => reminderNotice(f, { pinHash: "#/pins/" + f.pinId });
+  const collapsed = (n) => remindersCollapsedNotice(n, "#/app/inbox");
+  const items = [
+    { id: "i1", sourceId: "p1", title: "A", reason: "at Tue 09:00", body: "first line\nsecond", state: "unread" },
+    { id: "i2", sourceId: "p2", title: "B", reason: "every day at 09:00", body: "x\n\nWas due Mon 09:00.", state: "read" },
+    { id: "i3", sourceId: "p3", title: "C", state: "done" },
+  ];
+  const first = reminderPlan(items, null, { notice, collapsed });
+  assert.deepEqual([...first.keys], ["reminder:i1", "reminder:i2"]);
+  assert.deepEqual(first.show.map((n) => n.title), ["first line", "x"]);
+  assert.equal(first.show[1].status.includes("was due earlier"), true, "catch-up read from the body");
+  assert.deepEqual(first.hide, []);
+  // i1 closed elsewhere: its card goes; i2 stays and is re-raised (same key replaces).
+  const second = reminderPlan(items.slice(1), first.keys, { notice, collapsed });
+  assert.deepEqual(second.hide, ["reminder:i1"]);
+  assert.deepEqual([...second.keys], ["reminder:i2"]);
+  // Above the cap: one card, and every per-item card is withdrawn.
+  const many = ["a", "b", "c", "d"].map((id) => ({ id, sourceId: "p" + id, title: id, state: "unread" }));
+  const third = reminderPlan(many, second.keys, { notice, collapsed, cap: 3 });
+  assert.deepEqual([...third.keys], ["reminders:all"]);
+  assert.deepEqual(third.hide, ["reminder:i2"]);
+  assert.equal(third.show.length, 1);
+  assert.equal(third.show[0].title, "4 reminders are waiting for you.");
+  assert.equal(third.show[0].actions[0].hash, "#/app/inbox");
+  // Back under the cap: the collapsed card goes, per-item cards return.
+  const fourth = reminderPlan(many.slice(0, 2), third.keys, { notice, collapsed, cap: 3 });
+  assert.deepEqual(fourth.hide, ["reminders:all"]);
+  assert.equal(fourth.show.length, 2);
+  // Nothing open: everything shown is withdrawn.
+  const fifth = reminderPlan([], fourth.keys, { notice, collapsed });
+  assert.deepEqual(fifth.hide.sort(), ["reminder:a", "reminder:b"]);
 });

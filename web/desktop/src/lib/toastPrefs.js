@@ -23,6 +23,7 @@ export function defaultToastPrefs() {
     visibleToasts: 3,
     announceFinished: true,
     announceNeedsYou: true,
+    announceReminders: true,
   };
 }
 
@@ -35,6 +36,7 @@ export function readToastPrefs() {
     d.closeButton = j.closeButton !== false;
     d.announceFinished = j.announceFinished !== false;
     d.announceNeedsYou = j.announceNeedsYou !== false;
+    d.announceReminders = j.announceReminders !== false;
     const dur = Number(j.duration);
     if (Number.isFinite(dur)) d.duration = Math.min(15000, Math.max(1500, dur));
     const n = Number(j.visibleToasts);

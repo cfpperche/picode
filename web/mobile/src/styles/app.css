@@ -2089,7 +2089,7 @@ img.ws-face.term-cli-face {
   min-height: 32px;
 }
 .set-row label { font-size: 13px; }
-.set-row select, .set-row input[type="number"] {
+.set-row select, .set-row input[type="number"], .set-row input[type="time"] {
   background: var(--bg-base); color: var(--text-primary);
   border: 1px solid var(--border); border-radius: var(--radius-ctl);
   height: var(--ctl-h); padding: 0 8px; font: inherit; font-size: 12.5px;
