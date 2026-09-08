@@ -19,8 +19,15 @@ type DayBucket struct {
 }
 
 // ProviderBucket is one provider's totals in the current period.
+//
+// This breakdown answers "what did the credential PiCode holds cost", which
+// is narrower than the window's total spend: a guest CLI signs in with its
+// own account and contributes no row here, so ByProvider does not sum to
+// Current.Cost on a cross-CLI window. Billing records how that spend is
+// paid for, so a consumer can tell metered money from a plan's list price.
 type ProviderBucket struct {
 	Provider string  `json:"provider"` // "unknown" when neither the message nor a model_change line named one
+	Billing  string  `json:"billing,omitempty"`
 	Cost     float64 `json:"cost"`
 	Messages int     `json:"messages"`
 }
@@ -29,6 +36,7 @@ type ProviderBucket struct {
 type ModelBucket struct {
 	Provider string  `json:"provider"`
 	Model    string  `json:"model"`
+	CLI      string  `json:"cli,omitempty"` // which agent CLI spent it; empty when the caller scans one CLI
 	Cost     float64 `json:"cost"`
 	Messages int     `json:"messages"`
 }
@@ -57,9 +65,29 @@ type TokenTotals struct {
 	CacheHit   *float64 `json:"cacheHit,omitempty"`
 }
 
+// CostSplit is the same money as PeriodTotals.Cost, attributed to the token
+// type that incurred it. pi writes usage.cost per type on every message and
+// the scan used to keep only the total; the efficiency panel needs the split
+// to answer "how much of the bill is cache reads".
+type CostSplit struct {
+	Input      float64 `json:"input"`
+	Output     float64 `json:"output"`
+	CacheRead  float64 `json:"cacheRead"`
+	CacheWrite float64 `json:"cacheWrite"`
+}
+
+// Add sums another split into this one.
+func (c *CostSplit) Add(o CostSplit) {
+	c.Input += o.Input
+	c.Output += o.Output
+	c.CacheRead += o.CacheRead
+	c.CacheWrite += o.CacheWrite
+}
+
 // ToolBucket is how many times one tool was called in the current period.
 type ToolBucket struct {
 	Name  string `json:"name"`
+	CLI   string `json:"cli,omitempty"` // tool names are not normalized across CLIs; the mark disambiguates
 	Calls int    `json:"calls"`
 }
 
@@ -78,6 +106,7 @@ type TurnStats struct {
 // and Cwd only — never Preview (the dashboard is an aggregate surface).
 type SessionSpend struct {
 	Path        string  `json:"path"`
+	CLI         string  `json:"cli,omitempty"` // routes the row to that CLI's sessions tab
 	Name        string  `json:"name,omitempty"`
 	Cwd         string  `json:"cwd"`
 	WorkspaceID string  `json:"workspaceId,omitempty"`
@@ -105,7 +134,8 @@ type WindowStats struct {
 	ByModel     []ModelBucket     `json:"byModel"`         // sorted desc by Cost
 	ByWorkspace []WorkspaceBucket `json:"byWorkspace"`     // sorted desc by Cost
 	Tokens      TokenTotals       `json:"tokens"`
-	Tools       []ToolBucket      `json:"tools"` // sorted desc by Calls, top TopTools
+	CostSplit   CostSplit         `json:"costSplit"` // the same money as Current.Cost, by token type
+	Tools       []ToolBucket      `json:"tools"`     // sorted desc by Calls, top TopTools
 	Turns       TurnStats         `json:"turns"`
 	TopSessions []SessionSpend    `json:"topSessions"` // sorted desc by Cost, top TopSessions
 	Series      []DayBucket       `json:"series"`      // one entry per calendar day, zero-filled, ascending
@@ -143,7 +173,9 @@ type statsAcc struct {
 	byDay               map[string]*DayBucket
 	tools               map[string]int
 	tokens              TokenTotals
+	costSplit           CostSplit
 	turns               TurnStats
+	keep                func(cwd string) bool
 }
 
 func newStatsAcc(from, to, priorFrom time.Time, loc *time.Location) *statsAcc {
@@ -167,7 +199,33 @@ func StatsForRange(from, to, priorFrom time.Time, loc *time.Location) (WindowSta
 // equal-length prior window [priorFrom,from) for the delta comparison.
 // priorFrom.IsZero() skips the prior computation (range=all).
 func StatsRoot(root string, from, to, priorFrom time.Time, loc *time.Location) (WindowStats, error) {
+	return statsRoot(root, from, to, priorFrom, loc, true, nil)
+}
+
+// StatsRootUncapped is StatsRoot with the TopTools/TopSessionsN cuts left
+// off. A caller merging several CLIs' windows must rank once over the union,
+// not per CLI: capping pi's tools at eight before the merge drops pi's ninth
+// tool before it is ever compared with another CLI's first.
+func StatsRootUncapped(root string, from, to, priorFrom time.Time, loc *time.Location) (WindowStats, error) {
+	return statsRoot(root, from, to, priorFrom, loc, false, nil)
+}
+
+// StatsRootFiltered is StatsRootUncapped restricted to sessions whose cwd
+// the keep func accepts; a nil keep accepts everything. The predicate comes
+// from the caller, so this package still knows nothing about workspaces or
+// the store (ADR-0042 kept that in the handler) — it only knows how to ask.
+//
+// The filter must run inside the scan, not over its result: tokens, tools,
+// turns and the daily series are never broken down by folder, so a window
+// filtered afterwards would keep totals that its own workspace rows no
+// longer explain.
+func StatsRootFiltered(root string, from, to, priorFrom time.Time, loc *time.Location, keep func(cwd string) bool) (WindowStats, error) {
+	return statsRoot(root, from, to, priorFrom, loc, false, keep)
+}
+
+func statsRoot(root string, from, to, priorFrom time.Time, loc *time.Location, capped bool, keep func(string) bool) (WindowStats, error) {
 	acc := newStatsAcc(from, to, priorFrom, loc)
+	acc.keep = keep
 	if root != "" {
 		ents, err := os.ReadDir(root)
 		if err != nil && !os.IsNotExist(err) {
@@ -180,7 +238,7 @@ func StatsRoot(root string, from, to, priorFrom time.Time, loc *time.Location) (
 			acc.scanDir(filepath.Join(root, e.Name()))
 		}
 	}
-	return acc.result(), nil
+	return acc.result(capped), nil
 }
 
 // Fingerprint is a cheap change detector for a sessions root: the count,
@@ -188,6 +246,12 @@ func StatsRoot(root string, from, to, priorFrom time.Time, loc *time.Location) (
 // session changes its size and mtime; creating or deleting one changes the
 // count. Stat-only — never opens a file — so a caller can check it on every
 // request and only re-run the (expensive) scan when it differs.
+//
+// A root that does not exist fingerprints as empty-but-known ("0:0:0"): a
+// CLI that was never installed has a stable, cacheable state. Only an
+// unnamed or unreadable root returns "", which callers must read as "cannot
+// tell" and therefore as a cache miss — otherwise one uninstalled CLI would
+// disable the dashboard's cache for every other one.
 func Fingerprint(root string) string {
 	if root == "" {
 		return ""
@@ -196,6 +260,9 @@ func Fingerprint(root string) string {
 	var size int64
 	var newest int64
 	ents, err := os.ReadDir(root)
+	if os.IsNotExist(err) {
+		return "0:0:0"
+	}
 	if err != nil {
 		return ""
 	}
@@ -269,6 +336,12 @@ func (a *statsAcc) scanFile(path string, mtime time.Time) {
 	provider := ""
 	model := ""
 	cwd := filepath.Base(filepath.Dir(path)) // fallback: pi's encoded folder name
+	// allow tracks the caller's verdict on the cwd known so far. A file that
+	// never declares one keeps the encoded folder name, which is not a real
+	// path and so matches no claimed workspace — the same verdict a caller
+	// would reach anyway, and why pi's leaked test-fixture directories drop
+	// out of the picode scope for free.
+	allow := a.keep == nil || a.keep(cwd)
 	name := ""
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
@@ -285,6 +358,14 @@ func (a *statsAcc) scanFile(path string, mtime time.Time) {
 		case "session":
 			if c, _ := raw["cwd"].(string); c != "" {
 				cwd = c
+				// pi writes this header on line 1 whenever it names a cwd
+				// at all (verified across every session file on disk,
+				// 2026-09-07), so a rejection here skips the whole file
+				// rather than half of it.
+				if a.keep != nil && !a.keep(cwd) {
+					return
+				}
+				allow = true
 			}
 		case "session_info":
 			if n, _ := raw["name"].(string); n != "" {
@@ -298,12 +379,29 @@ func (a *statsAcc) scanFile(path string, mtime time.Time) {
 				model = m
 			}
 		case "compaction", "compaction_summary":
-			// pi writes no timestamp on the marker; the file's mtime is the
-			// best available "when" and only decides which window it counts in.
-			if a.inCurrent(mtime) {
+			// The marker carries its own RFC3339 timestamp — verified on
+			// 2026-09-07 across every compaction line on this machine's
+			// tree (62/62). mtime stays the fallback for files written
+			// before pi added it. Bucketing by mtime alone charged a long
+			// session's entire compaction history to the day it was last
+			// touched: the fabricated-spike failure ADR-0041 refused for
+			// cost, reached through a different door.
+			if !allow {
+				continue
+			}
+			t := mtime
+			if s, _ := raw["timestamp"].(string); s != "" {
+				if p, err := time.Parse(time.RFC3339, s); err == nil {
+					t = p
+				}
+			}
+			if a.inCurrent(t) {
 				a.turns.Compactions++
 			}
 		case "message":
+			if !allow {
+				continue
+			}
 			ts := entryTS(raw)
 			t := mtime
 			if ts > 0 {
@@ -326,7 +424,7 @@ func (a *statsAcc) scanFile(path string, mtime time.Time) {
 			} else {
 				facts.model = model
 			}
-			a.add(path, cwd, name, t, facts, costFrom(raw["message"]))
+			a.add(path, cwd, name, t, facts, costFrom(raw["message"]), costSplitFrom(raw["message"]))
 		}
 	}
 }
@@ -380,7 +478,7 @@ func factsFrom(msg any) msgFacts {
 // add files one message's cost/count into whichever window t falls in.
 // Only the current window gets the breakdowns; the prior window exists
 // solely for the headline delta.
-func (a *statsAcc) add(path, cwd, name string, t time.Time, f msgFacts, cost float64) {
+func (a *statsAcc) add(path, cwd, name string, t time.Time, f msgFacts, cost float64, split CostSplit) {
 	prov := f.provider
 	if prov == "" {
 		prov = "unknown"
@@ -397,6 +495,7 @@ func (a *statsAcc) add(path, cwd, name string, t time.Time, f msgFacts, cost flo
 	default:
 		a.current.Cost += cost
 		a.current.Messages++
+		a.costSplit.Add(split)
 
 		fa := a.curSessions[path]
 		if fa == nil {
@@ -462,7 +561,7 @@ func (a *statsAcc) add(path, cwd, name string, t time.Time, f msgFacts, cost flo
 	}
 }
 
-func (a *statsAcc) result() WindowStats {
+func (a *statsAcc) result(capped bool) WindowStats {
 	a.current.Sessions = len(a.curSessions)
 	a.prior.Sessions = len(a.priorSessions)
 
@@ -512,7 +611,7 @@ func (a *statsAcc) result() WindowStats {
 		}
 		return sessions[i].Path < sessions[j].Path
 	})
-	if len(sessions) > TopSessionsN {
+	if capped && len(sessions) > TopSessionsN {
 		sessions = sessions[:TopSessionsN]
 	}
 
@@ -526,7 +625,7 @@ func (a *statsAcc) result() WindowStats {
 		}
 		return tools[i].Name < tools[j].Name
 	})
-	if len(tools) > TopTools {
+	if capped && len(tools) > TopTools {
 		tools = tools[:TopTools]
 	}
 
@@ -544,6 +643,7 @@ func (a *statsAcc) result() WindowStats {
 		ByModel:     models,
 		ByWorkspace: workspaces,
 		Tokens:      tok,
+		CostSplit:   a.costSplit,
 		Tools:       tools,
 		Turns:       a.turns,
 		TopSessions: sessions,

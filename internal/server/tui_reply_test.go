@@ -379,6 +379,10 @@ func TestDeliverReplyRefusals(t *testing.T) {
 // The terminal's exact session is mandatory: no fallback to the agent's
 // current pointer, latest file, or pending state.
 func TestResolveReplySessionRequiresItemSessionPath(t *testing.T) {
+	// session.Dir() resolves under $HOME; without this the fixture writes
+	// into the developer's real ~/.pi/agent/sessions.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("USERPROFILE", t.TempDir())
 	cwd := t.TempDir()
 	path := filepath.Join(session.Dir(cwd), "exact.jsonl")
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {

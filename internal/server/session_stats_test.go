@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cfpperche/picode/internal/climetrics"
+	"github.com/cfpperche/picode/internal/clisession"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
 )
@@ -68,12 +70,23 @@ func TestStatsWindow(t *testing.T) {
 	}
 }
 
+// withTestSessionRoot isolates pi's session tree and, since the dashboard
+// went cross-CLI, every other CLI's store too. Isolating only pi would let
+// these tests read the developer's own Claude Code transcripts, which is
+// how they first failed: a real machine's $2,327 leaking into an assertion
+// about a single 0.5 fixture.
 func withTestSessionRoot(t *testing.T) string {
 	t.Helper()
-	old := session.TestRoot
 	dir := t.TempDir()
+
+	oldPi := session.TestRoot
 	session.TestRoot = dir
-	t.Cleanup(func() { session.TestRoot = old })
+	oldClaude := clisession.ClaudeTestRoot
+	clisession.ClaudeTestRoot = filepath.Join(dir, "..", "claude-projects-empty")
+	t.Cleanup(func() {
+		session.TestRoot = oldPi
+		clisession.ClaudeTestRoot = oldClaude
+	})
 	return dir
 }
 
@@ -172,7 +185,7 @@ func TestHandleSessionStatsCacheServesUntilTreeChanges(t *testing.T) {
 	if got := call(); got.Current.Cost != 0.5 {
 		t.Fatalf("first = %+v", got.Current)
 	}
-	key := root + "|all"
+	key := root + "|all|" + string(climetrics.ScopeMachine)
 	sessionStats.mu.Lock()
 	_, cached := sessionStats.entries[key]
 	sessionStats.mu.Unlock()

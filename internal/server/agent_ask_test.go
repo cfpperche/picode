@@ -173,6 +173,12 @@ func tuiAskFixture(t *testing.T) (*httptest.Server, Deps, *store.Store, store.Ag
 	}
 	st := testStore(t)
 	ts, deps := askServer(t, st, "cat")
+	// Isolate the session root: session.Dir() below resolves under $HOME,
+	// and without this the fixture writes into the developer's real
+	// ~/.pi/agent/sessions. cleanupServer already does this for the tests
+	// built on it.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("USERPROFILE", t.TempDir())
 	dir := t.TempDir()
 	_, agent, err := storeWorkspaceWithAgent(st, "App", dir)
 	if err != nil {

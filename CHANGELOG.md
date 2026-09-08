@@ -11,6 +11,25 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **The dashboard counts every agent CLI, not just Pi.** `GET
+  /api/sessions/stats` now aggregates Pi *and* Claude Code sessions (the
+  remaining four CLIs follow), so spend, activity, tokens, tools and turns
+  describe the machine rather than one CLI. On the machine this was built
+  on, the same 7-day window went from **$517.04** to **$1,916.35** — the old
+  number was 27% of the truth, with nothing on screen to say so. Two new
+  breakdowns ride along: `byCli` (which CLI the money went to) and
+  `coverage` (what each CLI can and cannot report), plus code impact,
+  timings and quota windows where a CLI records them. A metric a CLI never
+  writes is reported as *not reported*, never as `0`. A new
+  `?scope=machine|picode` narrows the window to folders a PiCode workspace
+  claims; the default counts everything, as before. (ADR-0097)
+- **Spend now lands on the day it was earned.** A compaction marker is
+  counted on its own timestamp instead of the session file's modification
+  time, so a long-running session no longer dumps its whole compaction
+  history onto the day it was last touched.
+
 ### Fixed
 
 - **Browser-tab icon is back on `/desktop/` and `/mobile/`.** Since the

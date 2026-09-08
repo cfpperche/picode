@@ -24,9 +24,21 @@ import (
 
 var claudeNonAlnum = regexp.MustCompile(`[^A-Za-z0-9]`)
 
-// claudeProjectsRoot is ~/.claude/projects, where Claude Code keeps one
-// directory of transcripts per folder.
-func claudeProjectsRoot() string { return filepath.Join(homeDir(), ".claude", "projects") }
+// ClaudeTestRoot, when set, is ClaudeProjectsRoot() (tests only). It
+// mirrors session.TestRoot so a test that isolates pi's tree can isolate
+// Claude Code's the same way — without it, any test touching the dashboard
+// reads the developer's own transcripts and stops being a test.
+var ClaudeTestRoot string
+
+// ClaudeProjectsRoot is ~/.claude/projects, where Claude Code keeps one
+// directory of transcripts per folder. Exported so climetrics reads the
+// same path this package lists from, rather than spelling it a second time.
+func ClaudeProjectsRoot() string {
+	if ClaudeTestRoot != "" {
+		return ClaudeTestRoot
+	}
+	return filepath.Join(homeDir(), ".claude", "projects")
+}
 
 // claudeProjectDir is Claude Code's directory name for a folder: every
 // byte outside [A-Za-z0-9] becomes "-" (observed: /home/goat/picode →
@@ -185,7 +197,7 @@ func (ClaudeCodeSource) Write(ctx context.Context, t transcript.Timeline, req Wr
 	if strings.TrimSpace(req.Cwd) == "" {
 		return Summary{}, fmt.Errorf("a folder is required")
 	}
-	root := claudeProjectsRoot()
+	root := ClaudeProjectsRoot()
 	localVersion, localModel := claudeNewestFacts(root)
 	version := strings.TrimSpace(req.FormatVersion)
 	if version == "" {

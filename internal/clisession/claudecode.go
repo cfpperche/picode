@@ -20,11 +20,7 @@ type ClaudeCodeSource struct{}
 func (ClaudeCodeSource) CLI() string { return "claude-code" }
 
 func (ClaudeCodeSource) List(cwd string) ([]Summary, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, nil
-	}
-	root := filepath.Join(home, ".claude", "projects")
+	root := ClaudeProjectsRoot()
 	var out []Summary
 	for _, dir := range projectDirs(root) {
 		for _, p := range jsonlFiles(dir) {
