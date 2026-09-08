@@ -23,6 +23,9 @@
   (ADR-0088), deployed `0.1.0+d65e9a1`; Activity default-on + start
   banner on `main` as `06da6771` (not yet deployed). Terminal checklists (ADR-0081)
   on the sidebar card only; absent checklist is silence (ADR-0092). Sessions live under Agent CLIs (ADR-0079).
+  A pane answers a right-click with PiCode's menu (`lib/termMenu.js`; Shift still
+  gives the browser's, the press no longer reaches tmux), and the ADR-0089 message
+  bar opens from it seeded with the selection instead of standing there always.
 - **CLI lifecycle (ADR-0087/0093):** Agent CLIs shows update badges (npm
   registry or vendor `--check`) and runs each CLI's own update/reinstall/
   uninstall/install as a durable `cli_jobs` lane with streamed output,
@@ -65,9 +68,8 @@
 
 - Hermes: live TUI Working→Ready and needs-you confirmed 2026-09-06; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`. OpenCode live Working/Needs you unproven (Activity was off on first deploy).
 - Handoff (ADR-0088/0094): visual pass done 2026-09-07, every state rendered including the live-source warning; upstream formats undocumented (bump = refused write); Codex/Grok list a handed-off session only after a restart or by id; Hermes' importer flattens tool calls.
-- CLI pane-death signal chain unproven; ADR-0085 instruments it — the next
-  deploy that loses sessions is the experiment. ADR-0084 pins nothing for
-  terminals stopped before it shipped (Sessions → "Open in terminal").
+- CLI pane-death signal chain unproven; ADR-0085 instruments it — the next deploy
+  that loses sessions is the experiment. ADR-0084 pins nothing for terminals stopped before it (Sessions → "Open in terminal").
 - `Runtime.Stop` start-lease race: a stop during an in-flight managed start
   returns true without stopping. Windows `Close` kills only the direct child.
 - `internal/server` tests run serially (~55 s); they swap package-level
@@ -82,10 +84,8 @@
 - Task Scheduler retries are not crash recovery (exit-one probe stayed down
   90 s); battery/sleep/sign-in acceptance is owner-controlled.
 - `TestTerminalBrowse` cleanup can leave tmux shells in deleted temp folders.
-- 2026-09-06 incident: a `tmux ls | grep '^picode-' | xargs kill-session`
-  sweep killed 29 sessions, six production ones; `orca-tasks` did not come
-  back. Never kill by shared prefix — only exact names from an isolated
-  fixture's own API.
+- 2026-09-06 incident: a `tmux ls | grep '^picode-'` sweep killed 29 sessions,
+  six of them production. Never kill by prefix — only exact names from a fixture's own API.
 - Feed: ephemeral events can be missed across reconnects (ADR-0048); paste
   fallback acceptance across platforms open.
 - CLI lifecycle: npm data can lag native Claude releases by hours (the badge
@@ -96,5 +96,5 @@
 - Inspector: Files filter covers loaded rows only; This-agent chips show only
   with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: ARM64 hardware, GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
-- Mobile v2: physical IME/PWA/push/resume and microphone acceptance remain open.
-- File writes retain the existing lexical/symlink and non-atomic mtime limits; ADR-0095 documents them.
+- Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance remain open; file writes retain the existing lexical/symlink and non-atomic mtime limits.
+- Notices (2026-09-07): only the agent whose socket is open produces a finish card — a background agent's completion still arrives only via Inbox + phone. Owner's call: retire `closePlace`/`richColors` for *announce finished* / *announce needs-you* switches, and whether needs-you should toast in the browser.

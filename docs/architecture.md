@@ -1311,6 +1311,36 @@ overtake a detached `online` callback. Rule: a state
 change that is not in `events` did not happen — write through the
 store, never around it.
 
+### Notices — the in-app announcement layer
+
+`web/shared/domain/notice.js` is the model every toast goes through:
+`{ level, actor, status, title, body, meta[], actions[], key, target }`.
+It is a pure module (ADR-0072 keeps React out of `web/shared`), so both
+applications share the model and its three policies while each owns the
+card — `web/desktop/src/components/Notice.jsx` draws a 300px card beside
+the inspector rail, `web/mobile/.../Notice.jsx` a full-width one above the
+tab bar. `lib/toast.js` is the single door in both apps: `notify(notice)`
+for the model, `toast(text, kind)` unchanged for the one-line call sites.
+
+The three policies, adapted from Superset's notification manager
+([study](benchmarks/2026-09-07-superset-notifications.md)):
+
+| Policy | Rule |
+|---|---|
+| Lifetime | `ok`/`info` use the user's Duration preference; a notice with an action gets at least 8s; `error`/`warn` get 3× the preference (12–30s), never `Infinity`, because sonner queues everything past `visibleToasts` and an unbounded class would wall the screen off; `busy` waits for its own outcome |
+| Suppression | A notice whose `target` is the focused surface (`location.hash` + `document.hasFocus()`) is dropped. Alerts are never suppressed |
+| Identity | `key` becomes sonner's toast id, so a second notice from the same source replaces the first instead of stacking (`agent:<id>`) |
+
+A settled agent turn builds `agentFinishNotice` from data the browser
+already holds: `turnDurationMs` for "worked for 7s", the `change` on each
+edit/write tool item for the file and line counts, and the turn's last
+assistant sentence. Desktop composes it in `App.jsx` at `agent_settled`;
+mobile's reducer emits a `finished` effect and `useAgentSocket` composes
+it. Both only see the agent whose socket is open — a background agent's
+completion still reaches the human through the Inbox (ADR-0037) and the
+phone (`internal/push/notifier.go`), which own the durable and the
+off-device copies. The toast layer stays ephemeral and persists nothing.
+
 ### Security model (ADR-0007 — supersedes the original localhost-only clause)
 - **HTTPS always** (bind 0.0.0.0): mkcert-issued cert via
   `scripts/setup-cert.sh` (SANs: localhost + LAN + tailscale; CA exported to

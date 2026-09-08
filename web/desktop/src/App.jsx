@@ -3,6 +3,7 @@ import { api, humanizeError, wsURL } from "@picode/shared/client/api.js";
 import { bashLine } from "@picode/shared/domain/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "@picode/shared/domain/theme.js";
 import { readContextMenuPrefs, modifierHeld } from "./lib/contextMenuPrefs.js";
+import { terminalCli, terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { matchAction } from "./lib/appKeys.js";
 import { applyTermChrome } from "@picode/shared/domain/termTheme.js";
 import { closeTerm } from "./lib/terms.js";
@@ -36,6 +37,8 @@ import Devices from "./components/Devices.jsx";
 import Automations from "./components/Automations.jsx";
 import Palette from "./components/Palette.jsx";
 import ContextMenu from "./components/ContextMenu.jsx";
+import { paneAt, paneSelection, paneLink } from "./lib/termActions.js";
+import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
@@ -51,7 +54,9 @@ import { applyChecklists, indexChecklists } from "@picode/shared/domain/checklis
 import { workspaceStatusPath } from "@picode/shared/domain/statusbar.js";
 import Reconnect from "./components/Reconnect.jsx";
 import { setShell } from "@picode/shared/client/shell.js";
-import { toast, toastError } from "./lib/toast.js";
+import { notify, toast, toastError } from "./lib/toast.js";
+import { agentFinishNotice } from "@picode/shared/domain/notice.js";
+import { groupTurns } from "@picode/shared/domain/turns.js";
 import { pendingFollowUps, dropQueued, startEditQueued, saveEditQueued, cancelEditQueued } from "./lib/queue.js";
 import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, askJustAnswered, backAsk, walkReply, noteAsk, unanswerAsk, slashNoteTarget, BACK } from "@picode/shared/domain/askForm.js";
 import { writeAskMemory, mergeAskMemory } from "./lib/askMemory.js";
@@ -219,6 +224,9 @@ export default function App() {
   const [pkgUpdates, setPkgUpdates] = useState([]);
 
   const [terminals, setTerminals] = useState([]);
+  const terminalsRef = useRef([]);
+  terminalsRef.current = terminals;
+  const [termAttach, setTermAttach] = useState(null); // {id, token, text, files}: the message bar this terminal opened
   // Apps host (ADR-0036): manifests + badges from GET /api/apps.
   const [apps, setApps] = useState([]);
   const [appsLoaded, setAppsLoaded] = useState(false);
@@ -370,16 +378,66 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // A right-click inside a pane costs the user their selection before any
+    // `contextmenu` listener runs: xterm drops it on mousedown when the guest
+    // has mouse reporting on (every agent TUI does), and rightClickSelectsWord
+    // then replaces whatever is left with the word under the cursor. So the
+    // selection is read on the mousedown capture — the earliest hook there is
+    // — and used when xterm ends up with nothing. A word xterm did pick still
+    // wins: it is the more precise intent.
+    let held = "";
+    function onCapture(e) {
+      if (e.button !== 2) return;
+      const pane = paneAt(e.target);
+      held = pane ? paneSelection(pane.entry) : "";
+      // The right button belongs to this menu. Without this, xterm forwards
+      // the press to the pane as a mouse report and tmux answers it with its
+      // own menu drawn inside the terminal — two menus over one click. Only
+      // propagation stops: the browser still raises `contextmenu`, which is
+      // where xterm selects the word under the cursor and where the menu is
+      // built (or, with the bypass modifier, where the browser's own menu
+      // takes over).
+      if (pane) e.stopPropagation();
+    }
     function onContextMenu(e) {
-      if (e.target.closest(".xterm, .term-pane")) return; // terminals: untouched for now
       if (paletteOpen) return; // avoid stacking on top of the palette
       const { bypassModifier } = readContextMenuPrefs();
       if (modifierHeld(bypassModifier, e)) return; // let the native/system menu show
       e.preventDefault();
+      // A terminal pane answers for itself: xterm owns the selection, and
+      // what the pane is — a bare shell, a launched CLI, an agent's TUI —
+      // decides which rows exist at all (lib/termMenu.js). Everything else
+      // in the app gets the generic menu.
+      const pane = paneAt(e.target);
+      if (pane) {
+        const record = pane.kind === "term" ? terminalsRef.current.find((t) => t.id === pane.id) || null : null;
+        setCtxMenu({
+          x: e.clientX,
+          y: e.clientY,
+          target: e.target,
+          selection: paneSelection(pane.entry) || held,
+          link: paneLink(pane.entry, e, pane.cwd),
+          term: {
+            id: pane.id,
+            kind: pane.kind,
+            record,
+            // The prompt door is the launch (ADR-0089), so the row follows
+            // exactly what puts the bar on screen — not a TUI we merely see.
+            cli: record && record.launchCli ? terminalCliLabel(record.launchCli) : "",
+            running: !!(record && record.running),
+            shell: !!record && !record.launchCli && !terminalCli(record),
+          },
+        });
+        return;
+      }
       setCtxMenu({ x: e.clientX, y: e.clientY, selection: window.getSelection().toString(), target: e.target });
     }
+    document.addEventListener("mousedown", onCapture, true);
     document.addEventListener("contextmenu", onContextMenu);
-    return () => document.removeEventListener("contextmenu", onContextMenu);
+    return () => {
+      document.removeEventListener("mousedown", onCapture, true);
+      document.removeEventListener("contextmenu", onContextMenu);
+    };
   }, [paletteOpen]);
 
   const loadWorkspaces = useCallback(async () => {
@@ -1226,6 +1284,27 @@ export default function App() {
     };
   }
 
+  // A turn that finished while the user was looking somewhere else is the
+  // one notice worth interrupting for (study:
+  // docs/benchmarks/2026-09-07-superset-notifications.md). Everything the
+  // card shows — how long the turn took, which files it touched, what the
+  // agent said last — is already in `items`; notify() drops it when this
+  // agent's conversation is the focused surface.
+  function announceFinish(agentId) {
+    if (!agentId) return;
+    const turns = groupTurns(itemsRef.current);
+    let last = null;
+    for (const t of turns) if (t.kind === "turn" && t.replies.length) last = t;
+    if (!last) return;
+    const loc = locate(fleetRef.current.workspaces, fleetRef.current.freeAgents, agentId);
+    const found = loc && loc.agent;
+    notify(agentFinishNotice({
+      agent: { id: agentId, name: found ? displayAgentName(found) : "Agent", cli: "pi" },
+      turn: last,
+      target: workspaceHash(agentId),
+    }));
+  }
+
   function handleEvent(env, panel) {
     if (panelRef.current !== panel || panel.stopped || selectedRef.current !== panel.agentId) return;
     const ev = env.event || {};
@@ -1264,6 +1343,7 @@ export default function App() {
           queueMicrotask(() => loadSessions(null, { preferNewest: true }));
         }
         if (automateRef.current) { const aid = env.agentId || (panel && panel.agentId); setTimeout(() => finishAutomate(aid), 0); }
+        announceFinish(panel.agentId);
         if (selectedId) loadStatus();
         fetchRoleState();
         pinNewestSession();
@@ -1573,6 +1653,35 @@ export default function App() {
       await openTermTab(page.id);
     } catch (err) { toastError(err); }
   }
+
+  // The menu's own doors. `ask` seeds the bar with the selection: one line
+  // becomes the message, anything longer is staged as selection.txt so the
+  // CLI reads a whole file instead of a mangled one-line paste
+  // (lib/termMenu.js planAsk, ADR-0089 delivery by path).
+  function openTermAttach(ctx, selection) {
+    const plan = planAsk(selection || "");
+    setTermAttach({
+      id: ctx.id,
+      token: String(Date.now()),
+      text: plan.mode === "text" ? plan.text : "",
+      files: plan.mode === "file" ? [new File([plan.body], plan.name, { type: "text/plain" })] : [],
+    });
+  }
+
+  const termMenuHandlers = {
+    ask: (ctx) => openTermAttach(ctx, ctx.selection),
+    attach: (ctx) => openTermAttach(ctx, ""),
+    "open-link": (ctx) => {
+      if (!ctx.link) return;
+      if (ctx.link.kind === "http") window.open(ctx.link.href, "_blank", "noopener,noreferrer");
+      else openFileTab(ctx.kind === "agent" ? "agent" : "term", ctx.id, ctx.link.path);
+    },
+    rename: (ctx) => renameTerminal(ctx.record),
+    settings: (ctx) => { location.hash = "#/termset/" + encodeURIComponent(ctx.id); },
+    files: (ctx) => openTreeTab("term", ctx.id, ctx.record ? ctx.record.name : ""),
+    "close-tab": (ctx) => closeTab(termTabId(ctx.id)),
+    remove: (ctx) => removeTerminal(ctx.record),
+  };
 
   async function renameTerminal(t) {
     if (!t) return;
@@ -2383,6 +2492,8 @@ export default function App() {
                 hidden={selectedId !== id}
                 error={selectedId === id ? termError : ""}
                 onOpenFile={(p) => openFileTab("term", tid, p)}
+                attach={termAttach && termAttach.id === tid ? termAttach : null}
+                onAttachClose={() => setTermAttach(null)}
               />
             );
           })}
@@ -2772,7 +2883,7 @@ export default function App() {
           if (a.kind === "stop") stopAgent(a.wsId);
         }}
       />
-      <ContextMenu state={ctxMenu} onClose={() => setCtxMenu(null)} themeMode={themeMode} onTheme={setTheme} />
+      <ContextMenu state={ctxMenu} onClose={() => setCtxMenu(null)} themeMode={themeMode} onTheme={setTheme} termHandlers={termMenuHandlers} />
       <Toasts />
       <CreateForm
         open={showForm}

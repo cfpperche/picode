@@ -5,6 +5,7 @@ import {
   Bold,
   Book,
   Bot,
+  CircleCheck,
   Code,
   Check,
   ChevronLeft,
@@ -28,6 +29,7 @@ import {
   Home,
   Image,
   Inbox,
+  Info,
   LayoutGrid,
   Heading2,
   Italic,
@@ -42,6 +44,7 @@ import {
   Moon,
   Paperclip,
   PenLine,
+  OctagonX,
   Package,
   Pencil,
   Pin,
@@ -60,6 +63,7 @@ import {
   Square,
   Sun,
   Terminal,
+  TriangleAlert,
   Trash2,
   User,
   Volume2,
@@ -145,3 +149,10 @@ export const IconList = lucide(List, 14);
 export const IconListOl = lucide(ListOrdered, 14);
 export const IconCode = lucide(Code, 14);
 export const IconQuote = lucide(Quote, 14);
+
+// Notice levels (docs/benchmarks/2026-09-07-superset-notifications.md):
+// the glyph is what a one-line notice has instead of a coloured card.
+export const IconOk = lucide(CircleCheck, 14);
+export const IconInfo = lucide(Info, 14);
+export const IconWarn = lucide(TriangleAlert, 14);
+export const IconError = lucide(OctagonX, 14);

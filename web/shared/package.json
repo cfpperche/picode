@@ -44,6 +44,7 @@
     "./domain/integrations.js": "./domain/integrations.js",
     "./domain/listSearch.js": "./domain/listSearch.js",
     "./domain/mdSafe.js": "./domain/mdSafe.js",
+    "./domain/notice.js": "./domain/notice.js",
     "./domain/overlayAudit.js": "./domain/overlayAudit.js",
     "./domain/pathFilter.js": "./domain/pathFilter.js",
     "./domain/piError.js": "./domain/piError.js",

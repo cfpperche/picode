@@ -1,14 +1,23 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ShellTerm from "./ShellTerm.jsx";
 import TermAttachBar from "./TermAttachBar.jsx";
 import { bumpTermFontSize } from "@picode/shared/domain/termTheme.js";
+import { scheduleTermFit } from "@picode/shared/domain/termFit.js";
+import { terms } from "../lib/terms.js";
 import { api } from "@picode/shared/client/api.js";
 
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
-export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind }) {
+export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind, attach, onAttachClose }) {
   const [resuming, setResuming] = useState(false);
   const [resumeError, setResumeError] = useState("");
+  // The message bar takes height from the pane; tmux hears about it in the
+  // same frame instead of waiting out the resize observer's debounce.
+  const open = !!attach;
+  useEffect(() => {
+    const entry = term && terms.get("sh:" + term.id);
+    if (entry) scheduleTermFit(entry, true);
+  }, [open, term && term.id]);
   if (!term && !error) return null;
   // One-click recovery of the pinned conversation (ADR-0084). The feed
   // flips the terminal to running when the launch lands.
@@ -53,7 +62,9 @@ export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind }
           <div className="term-body">
             <ShellTerm agentId={term.id} session={term.session} active={!hidden} cwd={term.cwd} cwdKind={cwdKind} onOpenFile={onOpenFile} />
           </div>
-          {term.launchCli && term.running ? <TermAttachBar term={term} /> : null}
+          {term.launchCli && term.running && attach ? (
+            <TermAttachBar term={term} seed={attach} onClose={onAttachClose} />
+          ) : null}
         </>
       )}
     </section>

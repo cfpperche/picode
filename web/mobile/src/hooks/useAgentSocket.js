@@ -3,7 +3,10 @@ import { api, wsURL } from "@picode/shared/client/api.js";
 import { reduceAgentEvent, initialAgentState, markSent, markUndelivered, markAborted } from "../lib/agentEvents.js";
 import { answerAsk, unanswerAsk, backAsk, BACK } from "@picode/shared/domain/askForm.js";
 import { bashLine } from "@picode/shared/domain/bashLine.js";
-import { toast, toastError } from "../lib/toast.js";
+import { notify, toast, toastError } from "../lib/toast.js";
+import { agentFinishNotice } from "@picode/shared/domain/notice.js";
+import { groupTurns } from "@picode/shared/domain/turns.js";
+import { workspaceHash } from "../lib/routes.js";
 import { eventsToItems } from "@picode/shared/domain/replay.js";
 import { reconcileTranscript, liveSince, transcriptGate } from "@picode/shared/domain/transcriptMerge.js";
 import { submissionKind } from "../lib/agentDrafts.js";
@@ -32,9 +35,26 @@ export function useAgentSocket(agent, workspaceId = "ws_free") {
     setState(next);
   }
 
+  // A turn that settled while the phone was showing something else. The
+  // card is built from what the reducer already holds: the turn's own
+  // timestamps, its edit tools' line counts, and the agent's last
+  // sentence. notify() drops it when this conversation is on screen.
+  function announceFinish() {
+    if (!agentId) return;
+    let last = null;
+    for (const t of groupTurns(stateRef.current.items)) if (t.kind === "turn" && t.replies.length) last = t;
+    if (!last) return;
+    notify(agentFinishNotice({
+      agent: { id: agentId, name: (agent && agent.name) || "Agent", cli: "pi" },
+      turn: last,
+      target: workspaceHash(agentId),
+    }));
+  }
+
   function runEffect(fx) {
     if (!fx) return;
     if (fx.type === "toast") return fx.level === "error" ? toastError(fx.text) : toast.info(fx.text);
+    if (fx.type === "finished") return announceFinish();
     if (fx.type === "scroll") return setScrollTick((t) => t + 1);
     if (fx.type === "replyUI" && agentId) {
       api("/api/agents/" + agentId + "/ui", {
