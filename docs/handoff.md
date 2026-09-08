@@ -40,14 +40,13 @@
 - Also on `main`: File Tree v2 (0074), Git Graph per worktree (0073),
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
-  at 16 px, tab strip overflow phases 2–4. Extra keys first-open `0.1.0+dfa9f7b`.
-  ADR-0089 attach bar `0.1.0+aca6628`, amended: the staging folder no longer touches the project's own `.gitignore` (a nested one instead) and ages out after 7 days. GitHub repo picker in the clone form (`0.1.0+a2e699c`, accepted live). Workspace card: two actions instead of five, Files/Git graph reading through the workspace even with no agents (ADR-0027/0030), header stayed one line (owner call, same day).
+  at 16 px, tab strip overflow phases 2–4. Extra keys first-open `0.1.0+dfa9f7b`. ADR-0089 attach bar `0.1.0+aca6628`, amended: the staging folder no longer touches the project's own `.gitignore` (a nested one instead) and ages out after 7 days. GitHub repo picker in the clone form (`0.1.0+a2e699c`, accepted live). Workspace card: two actions instead of five (ADR-0027/0030), header stayed one line.
   Managed agents remain Pi-only; guests stay terminals-only (ADR-0091) until a protocol converges. **Desktop user menu v2:** grouped rows with subtitles + in-menu search (`@picode/shared/domain/listSearch.js`); theme/layout radios stay.
+- **Packages config GUI (ADR-0100):** installed list is a filterable row list; pi-roles gets `#/packages/config/pi-roles` — workspace file + agent overlay (AgentCwd rule), effective merge, scoped reset, 409 before overwriting an unparsable file; pi files stay the only source of truth (supersedes 0033 §5). Delivery 2: pi-compact + declarative adapter manifest; mobile config UI still open.
 
 ## In flight (unmerged branches on disk)
 
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
-- `feat/pins-v2` — pins hygiene slice done (review in `docs/plans/pins-v2.md`); reminders ADR-0099 proposed, slices 2–4 wait for the owner.
 
 ## Next up
 
@@ -56,7 +55,7 @@
 3. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
 4. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan.
 5. CLI prompt door iPhone acceptance; first-class CLI agents refused until protocol convergence (ADR-0091).
-6. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
+6. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy; pins reminders slices 2–4 (ADR-0100 proposed, `docs/plans/pins-v2.md`).
 7. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
 9. Windows clean-machine install (ADR-0098, accepted 2026-09-08): phase 1 = `install-picode` + `install-runtime` bootstrap stages in `picode-desktop.exe`; plan in `docs/plans/windows-clean-install.md`. Owner: Azure Trusted Signing account.
 8. Git graph write actions (ADR-0096) fully shipped — the ask door reaches
@@ -91,10 +90,11 @@
 - CLI lifecycle: npm data can lag native Claude releases by hours (the badge
   names the source); grok uninstall guided-only; Windows paths out of scope.
 - Pi has one active credential slot; per-agent OAuth is an owner decision.
+- Rename watch: a branch adding files under `www/` (pre-rename base) would resurrect the dir — they belong in `docs-site/` (open branches touch none, checked 2026-09-08).
 - Tutorial video freshness audits are stale after source relocation; recapture is explicit. Branch protection and CODEOWNERS need the owner; desktop requests `/desktop/favicon.svg` and gets 404.
 - Screenshot fingerprints went stale-advisory with the docs-site rename (docs-shots.mjs hashes into the fingerprint); the next deploy batch recaptures on its own.
 - Inspector: Files filter covers loaded rows only; This-agent chips show only
   with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: ARM64 hardware, GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
-- Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance remain open; file writes retain the existing lexical/symlink and non-atomic mtime limits. iOS standalone: strip workaround needs a real-device re-check after deploy; the `?strip-probe=1` test decides whether buttons can descend into the strip.
+- Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance remain open; file writes retain the existing lexical/symlink and non-atomic mtime limits. iOS standalone strip: on-device confirmation pending; Preferences → Layout (Auto/Low/Screen edge) exposes the dials so the owner tunes without a code change.
 - Notices (2026-09-07): needs-you covers the whole fleet (`agent.state`), but the *finish* card only fires for the agent whose socket is open. Neither card has been exercised against a real pi dialog; both were staged at the HTTP boundary.

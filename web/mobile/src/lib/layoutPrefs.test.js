@@ -1,0 +1,46 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import {
+  readLayoutPrefs, persistLayoutPrefs, defaultLayoutPrefs,
+  resolveBottomBar, BOTTOM_BAR_MODES, BAR_HEIGHTS,
+} from "./layoutPrefs.js";
+
+function memoryStorage(seed = {}) {
+  const mem = { ...seed };
+  globalThis.localStorage = {
+    getItem: (k) => (k in mem ? mem[k] : null),
+    setItem: (k, v) => { mem[k] = String(v); },
+  };
+  globalThis.document = { documentElement: { dataset: {}, style: { setProperty() {} } } };
+  return mem;
+}
+
+test("layout prefs round-trip", () => {
+  memoryStorage();
+  const d = defaultLayoutPrefs();
+  assert.deepEqual(readLayoutPrefs(), d);
+  persistLayoutPrefs({ bottomBar: "edge", barHeight: 64 });
+  assert.deepEqual(readLayoutPrefs(), { bottomBar: "edge", barHeight: 64 });
+});
+
+test("unknown stored values fall back to defaults", () => {
+  memoryStorage({ "picode-layout": JSON.stringify({ bottomBar: "skyward", barHeight: 999 }) });
+  assert.deepEqual(readLayoutPrefs(), { bottomBar: "auto", barHeight: 56 });
+  memoryStorage({ "picode-layout": "not json" });
+  assert.deepEqual(readLayoutPrefs(), { bottomBar: "auto", barHeight: 56 });
+});
+
+test("mode catalogs cover the persisted space", () => {
+  assert.ok(BOTTOM_BAR_MODES.includes(defaultLayoutPrefs().bottomBar));
+  assert.ok(BAR_HEIGHTS.includes(defaultLayoutPrefs().barHeight));
+});
+
+test("auto resolves by the bootstrap's letterbox measurement", () => {
+  memoryStorage();
+  const doc = globalThis.document;
+  doc.documentElement.dataset.standalone = "1";
+  assert.equal(resolveBottomBar("auto"), "low");
+  assert.equal(resolveBottomBar("edge"), "edge");
+  doc.documentElement.dataset.standalone = "";
+  assert.equal(resolveBottomBar("auto"), "default");
+});

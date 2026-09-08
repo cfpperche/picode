@@ -33,6 +33,7 @@ import Providers from "./components/Providers.jsx";
 import Mcps from "./components/Mcps.jsx";
 import Integrations from "./components/Integrations.jsx";
 import Packages from "./components/Packages.jsx";
+import PackagesConfig from "./components/PackagesConfig.jsx";
 import Devices from "./components/Devices.jsx";
 import Automations from "./components/Automations.jsx";
 import Palette from "./components/Palette.jsx";
@@ -45,7 +46,7 @@ import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
-import { ownerLetter, parseRoute, go, providersNew, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId } from "./lib/routes.js";
+import { ownerLetter, parseRoute, packagesConfigRoute, go, providersNew, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import { normalizeManifests } from "@picode/shared/contracts/appPrimitives.js";
 const PinStudio = lazy(() => import("./components/PinStudio.jsx"));
@@ -126,6 +127,7 @@ export default function App() {
   const [host, setHost] = useState("local");
   const [themeMode, setThemeMode] = useState(readThemeMode);
   const [route, setRoute] = useState(() => parseRoute());
+  const [pkgConfigPkg, setPkgConfigPkg] = useState(() => packagesConfigRoute());
   useEffect(() => { setNavigationOpen(false); }, [route, selectedId]);
   const [hash, setHash] = useState(() => (typeof location !== "undefined" ? location.hash : "#/"));
   const [goneId, setGoneId] = useState("");
@@ -371,6 +373,7 @@ export default function App() {
   useEffect(() => {
     const onHash = () => {
       setRoute(parseRoute());
+      setPkgConfigPkg(packagesConfigRoute());
       setHash(location.hash);
     };
     window.addEventListener("hashchange", onHash);
@@ -3011,7 +3014,17 @@ export default function App() {
             if (was === "interactive") await openInteractive(agent.id);
             else await startManaged(agent.id);
           }} />
-        <Packages hidden={route !== "packages"} workspaceId={paneWs ? paneWs.id : ""} workspaceName={paneWs ? paneWs.name : ""} workspacePath={paneWs ? paneWs.path : ""} agentId={agent ? agent.id : ""} agentName={displayAgentName(agent, selected)} updates={pkgUpdates} onUpdates={setPkgUpdates} />
+        <Packages hidden={route !== "packages" || !!pkgConfigPkg} workspaceId={paneWs ? paneWs.id : ""} workspaceName={paneWs ? paneWs.name : ""} workspacePath={paneWs ? paneWs.path : ""} agentId={agent ? agent.id : ""} agentName={displayAgentName(agent, selected)} updates={pkgUpdates} onUpdates={setPkgUpdates} />
+        {route === "packages" && pkgConfigPkg ? (
+          <PackagesConfig
+            pkg={pkgConfigPkg}
+            workspaceId={paneWs ? paneWs.id : ""}
+            workspaceName={paneWs ? paneWs.name : ""}
+            agentId={agent ? agent.id : ""}
+            agentName={displayAgentName(agent, selected)}
+            catalog={catalog}
+          />
+        ) : null}
         <Devices hidden={route !== "devices"} />
         <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />

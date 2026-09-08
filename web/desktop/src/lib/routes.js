@@ -28,7 +28,7 @@ export function parseRoute(hash) {
   if (h === "/providers" || h.startsWith("/providers/")) return "providers";
   if (h === "/mcps") return "mcps";
   if (h === "/integrations" || h.startsWith("/integrations/")) return "integrations";
-  if (h === "/packages") return "packages";
+  if (h === "/packages" || h.startsWith("/packages/")) return "packages";
   if (h === "/devices") return "devices";
   if (h === "/pins" || h.startsWith("/pins/")) return "pins";
   if (h === "/termset" || h.startsWith("/termset/")) return "termset";
@@ -42,6 +42,20 @@ export function parseRoute(hash) {
   if (h.startsWith("/tree/")) return "workspace";
   if (h.startsWith("/app/")) return "workspace";
   return "workspace";
+}
+
+// Package configuration (ADR-0033 amendment #3): "#/packages/config/<pkg>"
+// is the config page for one known adapter; context (workspace/agent) is the
+// same selected pane the list uses, so the URL carries only the package.
+export function packagesConfigRoute(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
+  const m = /^\/packages\/config\/([^/?]+)/.exec(h);
+  if (!m) return null;
+  try { return decodeURIComponent(m[1]); } catch { return m[1]; }
+}
+
+export function packagesConfigHash(pkg) {
+  return "#/packages/config/" + encodeURIComponent(pkg || "");
 }
 
 export function agentRoute(hash) {

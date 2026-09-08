@@ -3,7 +3,7 @@
 - **Date:** 2026-09-08
 - **Status:** proposed — waiting for the owner's call on the scope table at the end
 - **Companion docs:** study `docs/benchmarks/2026-09-08-pins-reminders.md`;
-  ADR draft `docs/decisions/0099-pin-reminders.md` (number provisional —
+  ADR draft `docs/decisions/0100-pin-reminders.md` (number provisional —
   parallel sessions are numbering ADRs too)
 - **Code under review:** `internal/store/pins.go`, `internal/store/pin_files.go`,
   `internal/server/pins.go`, `internal/server/pin_files.go`,
@@ -65,7 +65,7 @@ the person closes it. Around that, v2 pays the hygiene debt above and gives
 the list the three organizing tools every benchmark has (search, keep on
 top, archive).
 
-### Reminder model (owner: the server, in SQLite — ADR-0099)
+### Reminder model (owner: the server, in SQLite — ADR-0100)
 
 ```
 pin_reminders
@@ -249,7 +249,7 @@ and its own action row (Done / Snooze / Open pin).
    concurrent edits no longer overwrite each other; the sidebar follows the
    feed."
 2. **Reminders, server** — migration, store, `internal/remind`, Inbox kind,
-   `pin.reminded`, push case, OpenAPI. ADR-0099 accepted with this slice.
+   `pin.reminded`, push case, OpenAPI. ADR-0100 accepted with this slice.
 3. **Reminders, UI** — picker in the studio, sticky notice + collapse card,
    Inbox rows, announce and push prefs, sidebar line; mobile notice twin
    and the read-only viewer.
@@ -281,4 +281,4 @@ reminders nobody can see is not "done".
 | "Every 24 hours" as interval (drifts) **and** "Every day at HH:MM" as cron, both in the picker | Both, named plainly. |
 | Missed slot policy: fire once at boot | Yes, matches automations and every benchmark that catches up. |
 | Push with `requireInteraction` | Yes, mirrors the sticky card. |
-| ADR number 0099 | Provisional; renumber at merge if a parallel session took it. |
+| ADR number 0100 | Renumbered from 0099 at merge (0099 = package configuration GUI). |

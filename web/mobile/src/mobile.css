@@ -2,7 +2,7 @@
    Mobile owns its frame and copied presentation. Shared theme tokens
    supply colors and fonts; these rules supply touch targets and safe areas.
    Targets: 44px controls and 56px rows. */
-:root { --sa-bottom: env(safe-area-inset-bottom, 0px); }
+:root { --sa-bottom: env(safe-area-inset-bottom, 0px); --m-nav: 56px; }
 /* iOS standalone (Add to Home Screen, WebKit 313800/254868): the platform
    parks a status-bar-sized strip BELOW the layout viewport that no element
    can reach, and still reports env(bottom) inside it — a double count.
@@ -12,16 +12,9 @@
    never the dead band iOS would otherwise fill. */
 html[data-standalone], html[data-standalone] body { --sa-bottom: 0px; background-color: var(--bg-panel); }
 html[data-standalone][data-pushed="1"], html[data-standalone][data-pushed="1"] body { background-color: var(--bg-base); }
-/* Experimental (?strip-probe=1): push the whole shell into the letterboxed
-   strip. If WebKit paints elements below the layout viewport, the tab bar
-   lands on the physical bottom edge — labels visible at screen bottom. If
-   it clips, the labels vanish and the probe answer is NO; reload without
-   the parameter. Never ship this on by default. */
-html[data-strip-probe] #m-app { bottom: calc(-1 * env(safe-area-inset-top, 0px)); }
 #m-app {
   --m-tap: 44px;
   --m-row: 56px;
-  --m-nav: 56px;
   --m-pad: 14px;
   --vv-height: 100dvh;
   --vv-offset-top: 0px;
@@ -92,11 +85,15 @@ html[data-strip-probe] #m-app { bottom: calc(-1 * env(safe-area-inset-top, 0px))
   background: transparent; transition: background 140ms var(--ease-out);
 }
 .m-tab.on::before { background: var(--accent-soft); }
-/* Letterboxed standalone: the layout viewport ends right below the nav, so
-   every scrap of nav padding under the labels is dead reach — anchor the
-   content (and the pill with it) as low as the platform allows. */
-html[data-standalone] .m-tab { justify-content: flex-end; padding-bottom: 5px; }
-html[data-standalone] .m-tab::before { top: auto; bottom: 1px; height: 41px; }
+/* Bottom-bar button position — Preferences → Layout. "low" anchors the
+   content (and its pill) to the bar's bottom edge: on letterboxed installs
+   the layout viewport ends right below the nav, so every scrap of nav
+   padding under the labels is dead reach. "edge" pushes the whole shell
+   into the letterbox strip — some iOS versions paint it, some clip it;
+   it is the user's dial, not a default. */
+html[data-bottombar="low"] .m-tab { justify-content: flex-end; padding-bottom: 5px; }
+html[data-bottombar="low"] .m-tab::before { top: auto; bottom: 1px; height: 41px; }
+html[data-bottombar="edge"] #m-app { bottom: calc(-1 * env(safe-area-inset-top, 0px)); }
 .m-tab-icon, .m-tab-label { position: relative; }
 .m-tab.on .m-tab-label { font-weight: 650; }
 .m-tab-icon { display: inline-flex; }

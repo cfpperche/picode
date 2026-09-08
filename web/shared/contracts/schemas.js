@@ -225,3 +225,48 @@ export const commitMessageSchema = z.object({
     .refine((v) => !/[\0-\x1f\x7f]/.test(v), "One line only: no line breaks or control characters.")
     .refine((v) => !v.startsWith("-"), "A message cannot start with a dash."),
 });
+
+// pi-roles configuration (ADR-0028/0033): one workspace file plus a
+// per-agent overlay. `model` is provider/id; an omitted thinking level
+// leaves the current level alone on that switch. Mirrors the server's
+// validation (internal/pipkg/rolesconfig.go) and the extension's
+// packages/pi-roles/src/logic.ts — the files are the only source of truth.
+export const ROLES_THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
+export const ROLES_BUILTIN = ["default", "vision", "plan"];
+export const ROLES_RESERVED = ["auto", "default", "vision", "plan", "role", "roles"];
+
+export const rolesModelIdSchema = z.string().trim()
+  .min(1, "Pick a model.")
+  .refine((v) => /^[^/]+\/.+/.test(v), "Model must be provider/id, e.g. zai/glm-5.3.");
+
+export const rolesAssignmentSchema = z.object({
+  model: rolesModelIdSchema,
+  thinking: z.enum(ROLES_THINKING_LEVELS).optional(),
+});
+
+export const rolesCustomSchema = z.object({
+  name: z.string().trim()
+    .min(1, "A preset name is required.")
+    .max(64, "Use up to 64 characters.")
+    .refine((v) => /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(v), "Use letters, digits, - or _ (must start with a letter).")
+    .refine((v) => !ROLES_RESERVED.includes(v), "auto, default, vision, plan, role and roles are reserved names."),
+  model: rolesModelIdSchema,
+  thinking: z.enum(ROLES_THINKING_LEVELS).optional(),
+});
+
+export const rolesConfigSchema = z.object({
+  builtin: z.object({
+    default: rolesAssignmentSchema.nullish(),
+    vision: rolesAssignmentSchema.nullish(),
+    plan: rolesAssignmentSchema.nullish(),
+  }),
+  custom: z.array(rolesCustomSchema),
+}).superRefine((v, ctx) => {
+  const names = v.custom.map((c) => c.name);
+  for (const name of names) {
+    if (names.filter((n) => n === name).length > 1) {
+      ctx.addIssue({ code: "custom", message: `Preset "${name}" is duplicated.`, path: ["custom"] });
+      break;
+    }
+  }
+});

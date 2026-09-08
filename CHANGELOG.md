@@ -11,6 +11,34 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Packages: view, edit and reset package configuration (pi-roles first,
+  ADR-0099).** Installed packages render as a compact, filterable list
+  (marketplace keeps its cards) and a package with a known config adapter
+  shows **Configure**. The pi-roles editor (`#/packages/config/pi-roles`)
+  edits the same files the extension reads — the workspace
+  `.pi/roles.json` and the per-agent overlay `.pi/roles/<agentId>.json` —
+  and shows the effective merge: inherited slots are visible (and can be
+  overridden for one agent), overrides can fall back to the workspace
+  value with one click, and each layer can be cleared with a confirmed
+  "Clear file…". A file the parser rejects is reported, never silently
+  overwritten (explicit replace). Saves write atomically, preserve
+  unknown keys, announce on the change feed, and say when they apply
+  ("on the agent's next message").
+
+- **Mobile: Preferences → Layout — fit the shell to your screen.** Two
+  dials with platform-smart defaults: **Bottom bar buttons** (Auto / Low /
+  Screen edge) and **Bottom bar height** (48/56/64px). "Auto" anchors the
+  buttons low only when the bootstrap measured a letterboxed standalone
+  install (WebKit 313800/317153 — the behavior varies by iOS generation and
+  icon install date); "Screen edge" is the former strip-probe experiment as
+  a user choice, honest about the clipping risk in its own label. Applied
+  before first paint, persisted per device like the theme. Side fix: the
+  Preferences tabs kept their choice in the desktop hash space
+  (`#/preferences/<tab>`), which the mobile router can't express — every
+  tab click silently fell back to Appearance; tabs are now component state.
+
 ### Changed
 
 - **Development: the public docs site moved from `www/` to `docs-site/`** —
@@ -68,6 +96,8 @@ to the `[Unreleased]` section. The repository's official language is English
   into the unreachable strip to test whether element painting survives —
   if labels survive at the screen's physical bottom, that offset can become
   the default; if they are clipped, the answer is no.
+  Preferences → Layout now exposes that extension as the user's own
+  **Screen edge** choice (clipping risk stated in the option label).
 - **Mobile: the active-tab pill covers the label, and the installed web
   app no longer shows a dead band above the home indicator.** The active
   pill used to hug the icon only (28px tall) and its bottom edge cut
