@@ -4,14 +4,15 @@ import { Command } from "cmdk";
 
 export default function SearchCombo({
   id, value, onChange, options, label, searchPlaceholder, disabled, footer, icon,
-  triggerClassName, side = "top",
+  triggerClassName, side = "top", align = "start", ariaLabel,
 }) {
   const [open, setOpen] = useState(false);
+  const searchable = searchPlaceholder !== false;
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
-        <button type="button" id={id} className={triggerClassName || "cockpit-chip"} disabled={disabled} aria-expanded={open}>
+        <button type="button" id={id} className={triggerClassName || "cockpit-chip"} disabled={disabled} aria-expanded={open} aria-haspopup="listbox" aria-label={ariaLabel}>
           {icon ? <span className="cockpit-chip-icon">{icon}</span> : null}
           <span className="cockpit-chip-label">{label}</span>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
@@ -23,12 +24,12 @@ export default function SearchCombo({
         <Popover.Content
           className="cockpit-pop cockpit-combo-pop search-combo-pop"
           side={side}
-          align="start"
+          align={align}
           sideOffset={6}
           collisionPadding={8}
         >
-          <Command label={searchPlaceholder || "Search"} loop>
-            <Command.Input className="combo-input" placeholder={searchPlaceholder || "Search"} />
+          <Command label={searchable && searchPlaceholder ? searchPlaceholder : (ariaLabel || label || "Search")} loop>
+            {searchable ? <Command.Input className="combo-input" placeholder={searchPlaceholder || "Search"} /> : null}
             <Command.List className="combo-list">
               <Command.Empty className="combo-empty">No matches</Command.Empty>
               {(options || []).map((o) => (
@@ -39,6 +40,7 @@ export default function SearchCombo({
                   onSelect={() => { if (o.id !== value) onChange(o.id); setOpen(false); }}
                   className={"cockpit-opt" + (o.id === value ? " selected" : "")}
                 >
+                  {o.icon ? <span className="combo-opt-icon">{o.icon}</span> : null}
                   <span>{o.label}</span>
                   {o.hint ? <span className="combo-hint">{o.hint}</span> : null}
                 </Command.Item>

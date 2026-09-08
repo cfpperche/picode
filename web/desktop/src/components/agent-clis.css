@@ -138,8 +138,25 @@
 .cli-settings-heading, .cli-settings-picker, .cli-settings-context { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .cli-settings-heading { justify-content: space-between; margin: 16px 0; }
 .cli-settings-heading h3 { margin: 0; }
-.cli-settings-picker select { height: var(--ctl-h); min-width: 100px; }
 .cli-settings-context { margin: 0 0 16px; }
+
+/* CLI switcher: one --ctl-h combobox with the runtime favicon, shared by
+   Settings, Sessions and the launch form. Not cockpit-chip (28px, faded icon). */
+.cli-combo {
+  display: inline-flex; align-items: center; gap: 8px;
+  box-sizing: border-box; height: var(--ctl-h); min-width: 148px; max-width: 240px;
+  padding: 0 10px; background: var(--bg-base); border: 1px solid var(--border);
+  border-radius: var(--radius-ctl); color: var(--text-primary);
+  font: inherit; font-size: 12.5px; cursor: pointer; white-space: nowrap;
+}
+.cli-combo:hover { background: var(--bg-hover); }
+.cli-combo:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.cli-combo:disabled { opacity: 0.45; cursor: default; }
+.cli-combo .cockpit-chip-icon { opacity: 1; display: flex; }
+.cli-combo .cockpit-chip-label { flex: 1; min-width: 0; text-align: left; color: var(--text-primary); }
+.cli-combo > svg { margin-left: auto; flex: none; color: var(--text-secondary); }
+.cli-combo .ws-face { margin-left: 0; }
+.cli-fields .cli-combo { width: 100%; max-width: none; }
 
 .pi-settings-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 .pi-settings-fields:disabled { opacity: .7; }
