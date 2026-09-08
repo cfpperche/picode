@@ -11,6 +11,20 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Mobile: Preferences → Layout — fit the shell to your screen.** Two
+  dials with platform-smart defaults: **Bottom bar buttons** (Auto / Low /
+  Screen edge) and **Bottom bar height** (48/56/64px). "Auto" anchors the
+  buttons low only when the bootstrap measured a letterboxed standalone
+  install (WebKit 313800/317153 — the behavior varies by iOS generation and
+  icon install date); "Screen edge" is the former strip-probe experiment as
+  a user choice, honest about the clipping risk in its own label. Applied
+  before first paint, persisted per device like the theme. Side fix: the
+  Preferences tabs kept their choice in the desktop hash space
+  (`#/preferences/<tab>`), which the mobile router can't express — every
+  tab click silently fell back to Appearance; tabs are now component state.
+
 ### Fixed
 
 <<<<<<< HEAD

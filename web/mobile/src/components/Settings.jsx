@@ -10,6 +10,7 @@ import { notify, toast, toastError } from "../lib/toast.js";
 import { agentFinishNotice } from "@picode/shared/domain/notice.js";
 import { readToastPrefs, persistToastPrefs, TOAST_POSITIONS } from "../lib/toastPrefs.js";
 import { readContextMenuPrefs, persistContextMenuPrefs, CTX_MODIFIERS } from "../lib/contextMenuPrefs.js";
+import { readLayoutPrefs, persistLayoutPrefs, BAR_HEIGHTS } from "../lib/layoutPrefs.js";
 import AppKeys from "./AppKeys.jsx";
 import FolderField from "./FolderField.jsx";
 import AccessSection from "./AccessSection.jsx";
@@ -46,6 +47,8 @@ export default function Settings({ hidden, themeMode, onTheme }) {
   const [reachErr, setReachErr] = useState("");
   const [toastPrefs, setToastPrefs] = useState(readToastPrefs);
   const [ctxPrefs, setCtxPrefs] = useState(readContextMenuPrefs);
+  const [layoutPrefs, setLayoutPrefs] = useState(readLayoutPrefs);
+  function saveLayout(next) { setLayoutPrefs(persistLayoutPrefs({ ...layoutPrefs, ...next })); }
 
   useEffect(() => {
     if (hidden) return;
@@ -134,23 +137,22 @@ export default function Settings({ hidden, themeMode, onTheme }) {
     }
   }
 
-  const [sec, setSec] = useState(() => prefSection());
-  useEffect(() => {
-    function onHash() { setSec(prefSection()); }
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
-  }, []);
+  // The tab lives in component state: the mobile hash space (#/more/…)
+  // cannot carry a /preferences/<tab> deep link, so hash-derived tabs lost
+  // the chosen section on phone navigation.
+  const [sec, setSec] = useState(prefSection);
   return (
     <PageFrame id="preferences-view" title="Preferences" hidden={hidden}>
       <nav className="pref-tabs" role="tablist" aria-label="Preferences">
-        {[["appearance", "Appearance"], ["shortcuts", "Shortcuts"], ["notifications", "Notifications"], ["server", "Server"], ["backup", "Backup"]].map(([id, label]) => (
-          <a
+        {[["appearance", "Appearance"], ["layout", "Layout"], ["shortcuts", "Shortcuts"], ["notifications", "Notifications"], ["server", "Server"], ["backup", "Backup"]].map(([id, label]) => (
+          <button
             key={id}
-            href={"#/preferences" + (id === "appearance" ? "" : "/" + id)}
+            type="button"
             className="pref-tab"
             role="tab"
             aria-selected={sec === id}
-          >{label}</a>
+            onClick={() => setSec(id)}
+          >{label}</button>
         ))}
       </nav>
 
@@ -161,6 +163,27 @@ export default function Settings({ hidden, themeMode, onTheme }) {
           <ThemeCard option="system" label="System" desc="Match your OS" active={themeMode === "system"} onPick={onTheme} icon={<IconMonitor size={15} />} />
           <ThemeCard option="dark" label="Dark" desc="Low light" active={themeMode === "dark"} onPick={onTheme} icon={<IconMoon size={15} />} />
         </div>
+      </section>
+
+      <section className="settings-section" hidden={sec !== "layout"}>
+        <h3 className="sr-only">Layout</h3>
+        <div className="set-rows">
+          <div className="set-row">
+            <label htmlFor="layout-bottombar">Bottom bar buttons</label>
+            <select id="layout-bottombar" value={layoutPrefs.bottomBar} onChange={(e) => saveLayout({ bottomBar: e.target.value })}>
+              <option value="auto">Auto — adapts to how the app opened</option>
+              <option value="low">Low — closer to the bottom edge</option>
+              <option value="edge">Screen edge — labels can clip on some iPhones</option>
+            </select>
+          </div>
+          <div className="set-row">
+            <label htmlFor="layout-navh">Bottom bar height</label>
+            <select id="layout-navh" value={layoutPrefs.barHeight} onChange={(e) => saveLayout({ barHeight: Number(e.target.value) })}>
+              {BAR_HEIGHTS.map((h) => <option key={h} value={h}>{h === 48 ? "Compact (48px)" : h === 56 ? "Default (56px)" : "Tall (64px)"}</option>)}
+            </select>
+          </div>
+        </div>
+        <p className="set-note">Fits the shell to your screen. "Screen edge" rests the buttons on the phone's physical bottom edge — on iPhones where the system reserves a hidden strip there, the labels may be cut; pick "Low" if so.</p>
       </section>
 
       <section className="settings-section" hidden={sec !== "shortcuts"}>

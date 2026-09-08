@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { overlayAudit } from "@picode/shared/domain/overlayAudit.js";
 import { consoleEgg } from "./lib/consoleEgg.js";
 import { installHashGuard } from "./lib/hashGuard.js";
+import { readLayoutPrefs, applyLayoutPrefs } from "./lib/layoutPrefs.js";
 import App from "./App.jsx";
 import PairingScreen from "./components/PairingScreen.jsx";
 import "./index.css";
@@ -9,6 +10,8 @@ import "./index.css";
 window.__picodeOverlayAudit = overlayAudit;
 consoleEgg();
 installHashGuard();
+// Before first paint: the bar height and button position must not flash.
+applyLayoutPrefs(readLayoutPrefs());
 
 // No StrictMode: xterm + agent websockets must not double-mount.
 createRoot(document.getElementById("root")).render(<App />);
