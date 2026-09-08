@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { IconX, IconClip, IconSketch } from "./Icons.jsx";
+import { IconArchive, IconArchiveRestore, IconClip, IconSketch, IconStar, IconX } from "./Icons.jsx";
 import PageFrame from "./PageFrame.jsx";
 import PinEditor from "./PinEditor.jsx";
 import PinReminderPicker from "./PinReminderPicker.jsx";
@@ -108,6 +108,7 @@ export default function PinStudio() {
   const edRef = useRef(null);
   const [sketch, setSketch] = useState(null);
   const [reminder, setReminder] = useState(null);
+  const [flags, setFlags] = useState({ starred: false, archivedAt: null });
   const [tick, setTick] = useState(0);
   const draftId = info.mode === "edit" ? info.id : "";
 
@@ -119,6 +120,7 @@ export default function PinStudio() {
       setRestored(!!kept);
       setFiles([]);
       setReminder(null);
+      setFlags({ starred: false, archivedAt: null });
       setLoaded(true);
       return;
     }
@@ -134,6 +136,7 @@ export default function PinStudio() {
       setRestored(!!kept);
       setFiles(p.files || []);
       setReminder(p.reminder || null);
+      setFlags({ starred: !!p.starred, archivedAt: p.archivedAt || null });
       setLoaded(true);
       const pending = sessionStorage.getItem("picode-sketch");
       if (pending) {
@@ -157,7 +160,10 @@ export default function PinStudio() {
   useEffect(() => {
     if (!info.id) return undefined;
     return subscribeFeed((ev) => {
-      if (ev.type === "pin.updated" && ev.data && ev.data.id === info.id) setReminder(ev.data.reminder || null);
+      if (ev.type === "pin.updated" && ev.data && ev.data.id === info.id) {
+        setReminder(ev.data.reminder || null);
+        setFlags({ starred: !!ev.data.starred, archivedAt: ev.data.archivedAt || null });
+      }
     });
   }, [info.id]);
 
@@ -400,6 +406,17 @@ export default function PinStudio() {
     go();
   }
 
+  // Keep on top and Archive are not edits of the draft: they write at
+  // once, like the reminder, and the feed echoes them back.
+  async function setFlag(route, body) {
+    if (!info.id) return;
+    try {
+      const p = await api("/api/pins/" + encodeURIComponent(info.id) + "/" + route, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      setFlags({ starred: !!p.starred, archivedAt: p.archivedAt || null });
+      pingList();
+    } catch (e) { toastError(e); }
+  }
+
   function discardRestored() {
     clearDraft(storage(), draftId);
     setDraft(base ? { ...base, tagDraft: "" } : blank());
@@ -547,6 +564,17 @@ export default function PinStudio() {
           />
           <div className="pin-form-actions">
             {info.mode === "edit" ? <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={remove}>Delete</button> : null}
+            {info.mode === "edit" ? (
+              <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setFlag("archived", { archived: !flags.archivedAt })}>
+                {flags.archivedAt ? <IconArchiveRestore /> : <IconArchive />} {flags.archivedAt ? "Unarchive" : "Archive"}
+              </button>
+            ) : null}
+            {info.mode === "edit" ? (
+              <button type="button" className={"btn btn-ghost btn-sm pin-star-btn" + (flags.starred ? " on" : "")} aria-pressed={flags.starred} disabled={busy} onClick={() => setFlag("starred", { starred: !flags.starred })}>
+                <IconStar /> {flags.starred ? "On top" : "Keep on top"}
+              </button>
+            ) : null}
+            {flags.archivedAt ? <span className="pin-archived-note">Archived · reminders paused</span> : null}
             <span className="pin-form-spacer" />
             {bodyStand.near ? (
               <span className={"pin-limit" + (bodyStand.over ? " over" : "")} aria-live="polite">

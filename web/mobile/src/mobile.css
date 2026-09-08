@@ -436,6 +436,7 @@ html[data-bottombar="edge"] #m-app { bottom: calc(-1 * env(safe-area-inset-top, 
 .m-pin-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .m-pin-tag { font-size: 12px; color: var(--text-secondary); background: var(--bg-hover); border-radius: 999px; padding: 2px 8px; }
 .m-pin-remind { font-size: 13px; color: var(--accent); }
+.m-pin-flag { color: var(--accent); background: transparent; border: 1px solid var(--border); }
 .m-pin-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
 .m-pin-gallery img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
 .m-pin-md { font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }

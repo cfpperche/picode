@@ -1376,6 +1376,21 @@ edited sketch keeps its id. Downloads name files per RFC 6266
 `web/shared/domain/pinDraft.js` holds the pure rules (limits, tag folding,
 auto-title from the first file, draft retention, scene stripping).
 
+**List v2 (migration 037).** `pins.starred` keeps a pin on top (`ORDER BY
+starred DESC, updated_at DESC`; starring is not an edit and leaves
+`updated_at` alone); `pins.archived_at` takes it out of the live list.
+`GET /api/pins` is the live list with an `archived` count, `?archived=1`
+the archived list, `?q=words` a search over both — every word must appear
+in the title, a tag or the body (`lower()` on both sides, LIKE
+metacharacters escaped), starred first, live before archived. `POST
+/api/pins/{id}/starred {starred}` and `/archived {archived}` write the
+flags and announce `pin.updated`. Archiving pauses the reminder (the
+engine's due query joins `pins.archived_at IS NULL`) and closes an open
+reminder item; unarchiving resumes the rule, catching up once. The
+sidebar's search input debounces 150 ms and ignores answers to a query
+the person has already replaced; the card's star, archive and delete show
+on hover, on the active card and on starred cards.
+
 **Reminders (ADR-0100, migration 036).** One `pin_reminders` row per pin:
 `kind` ∈ {`once`, `interval`, `cron`}, `at` (UTC) for once, `interval_min`
 + `anchor` ∈ {`schedule`, `completion`} for intervals, a 5-field `cron`

@@ -42,8 +42,14 @@ export default function Pin({ pinId, onBack }) {
       {!pin && !error ? <p className="m-pin-msg">Loading…</p> : null}
       {pin ? (
         <div className="m-pin-body">
-          {pin.tags && pin.tags.length ? <div className="m-pin-tags">{pin.tags.map((t) => <span key={t} className="m-pin-tag">#{t}</span>)}</div> : null}
-          {line ? <div className="m-pin-remind">{line}</div> : null}
+          {pin.tags && pin.tags.length || pin.starred || pin.archivedAt ? (
+            <div className="m-pin-tags">
+              {pin.starred ? <span className="m-pin-tag m-pin-flag">on top</span> : null}
+              {pin.archivedAt ? <span className="m-pin-tag m-pin-flag">archived</span> : null}
+              {(pin.tags || []).map((t) => <span key={t} className="m-pin-tag">#{t}</span>)}
+            </div>
+          ) : null}
+          {line && !pin.archivedAt ? <div className="m-pin-remind">{line}</div> : null}
           {images.length ? (
             <div className="m-pin-gallery">
               {images.map((f) => <img key={f.id} src={pinFileSrc(pin.id, f)} alt={f.name} loading="lazy" />)}

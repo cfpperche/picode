@@ -44,7 +44,7 @@ func TestPinReminderSetAndRead(t *testing.T) {
 	if got.Reminder == nil || got.Reminder.ID != r.ID {
 		t.Fatalf("pin.reminder = %+v", got.Reminder)
 	}
-	list, _ := s.ListPins()
+	list, _ := s.ListPins(PinListFilter{})
 	if list[0].Reminder == nil || list[0].Reminder.Label != "every day at 09:00" {
 		t.Fatalf("list reminder = %+v", list[0].Reminder)
 	}

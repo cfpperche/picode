@@ -62,7 +62,10 @@ import {
   Quote,
   Regex,
   RotateCw,
+  Archive,
+  ArchiveRestore,
   Search,
+  Star,
   Settings,
   SlidersHorizontal,
   Sparkles,
@@ -159,6 +162,9 @@ export const IconScrollEnd = lucide(ArrowDownToLine, 13);
 export const IconTextSize = lucide(Type, 13);
 export const IconClear = lucide(Eraser, 13);
 export const IconSearch = lucide(Search, 13);
+export const IconStar = lucide(Star, 13);
+export const IconArchive = lucide(Archive, 13);
+export const IconArchiveRestore = lucide(ArchiveRestore, 13);
 export const IconCase = lucide(CaseSensitive, 15);
 export const IconRegex = lucide(Regex, 15);
 export const IconWholeWord = lucide(WholeWord, 15);

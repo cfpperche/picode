@@ -327,6 +327,24 @@ body {
 .pin-att-name { display: block; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pin-att-size { font-size: 10px; color: var(--text-secondary); }
 .pin-card-files { margin-top: 2px; font-size: 11px; color: var(--text-secondary); }
+.pins-search {
+  display: flex; align-items: center; gap: 6px; margin: 0 0 8px; padding: 0 8px;
+  height: 30px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+  color: var(--text-secondary);
+}
+.pins-search:focus-within { border-color: var(--accent); }
+.pins-search input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 12.5px; outline: none; }
+.pins-search input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.pin-card-acts { display: inline-flex; align-items: center; gap: 2px; opacity: 0; transition: opacity 120ms; }
+.pin-card:hover .pin-card-acts, .pin-card.active .pin-card-acts, .pin-card:focus-within .pin-card-acts, .pin-card.starred .pin-card-acts { opacity: 1; }
+.pin-card.starred .pin-star, .pin-star.on { color: var(--accent); }
+.pin-star.on svg, .pin-star-btn.on svg { fill: currentColor; }
+.pin-card.archived .pin-card-title { color: var(--text-secondary); }
+.pin-card-archived { margin-top: 2px; font-size: 11px; color: var(--text-secondary); font-style: italic; }
+.pins-archived-link { margin-top: 8px; border: 0; background: transparent; color: var(--text-secondary); font: inherit; font-size: 12px; cursor: pointer; padding: 4px 8px; text-align: left; }
+.pins-archived-link:hover { color: var(--text); }
+.pin-star-btn.on { color: var(--accent); }
+.pin-archived-note { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
 .pin-card-remind { margin-top: 2px; font-size: 11px; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pin-tags {
   display: flex; flex-wrap: wrap; align-items: center; gap: 4px;

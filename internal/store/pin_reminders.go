@@ -202,7 +202,10 @@ func nullIfEmpty(v string) any {
 
 // DueReminderIDs is the engine's question: which enabled rules owe a fire.
 func (s *Store) DueReminderIDs(now time.Time) ([]string, error) {
-	rows, err := s.db.Query(`SELECT id FROM pin_reminders WHERE enabled = 1 AND next_at IS NOT NULL AND next_at <= ? ORDER BY next_at`, now.UTC().Format(time.RFC3339Nano))
+	// An archived pin's reminder is paused: it stays on the row and resumes
+	// (catching up once) when the pin comes back.
+	rows, err := s.db.Query(`SELECT r.id FROM pin_reminders r JOIN pins p ON p.id = r.pin_id
+		WHERE r.enabled = 1 AND r.next_at IS NOT NULL AND r.next_at <= ? AND p.archived_at IS NULL ORDER BY r.next_at`, now.UTC().Format(time.RFC3339Nano))
 	if err != nil {
 		return nil, fmt.Errorf("store: due reminders: %w", err)
 	}

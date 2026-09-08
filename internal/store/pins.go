@@ -48,40 +48,71 @@ type Pin struct {
 	Files     []PinFile `json:"files,omitempty"`
 	// Reminder is the pin's cadence, if any (ADR-0100).
 	Reminder *PinReminder `json:"reminder,omitempty"`
+	// Starred keeps the pin on top of the list; ArchivedAt takes it out of
+	// the sidebar (search still finds it; its reminder is paused).
+	Starred    bool    `json:"starred"`
+	ArchivedAt *string `json:"archivedAt,omitempty"`
 }
 
 // PinSummary is what a list and a feed event carry: never the body. The
 // sidebar renders title, tags and a count; a 100 KB note has no business
 // riding every SSE connection or every tab switch.
 type PinSummary struct {
-	ID        string       `json:"id"`
-	Title     string       `json:"title"`
-	Tags      []string     `json:"tags"`
-	CreatedAt string       `json:"createdAt"`
-	UpdatedAt string       `json:"updatedAt"`
-	FileCount int          `json:"fileCount"`
-	Reminder  *PinReminder `json:"reminder,omitempty"`
+	ID         string       `json:"id"`
+	Title      string       `json:"title"`
+	Tags       []string     `json:"tags"`
+	CreatedAt  string       `json:"createdAt"`
+	UpdatedAt  string       `json:"updatedAt"`
+	FileCount  int          `json:"fileCount"`
+	Reminder   *PinReminder `json:"reminder,omitempty"`
+	Starred    bool         `json:"starred"`
+	ArchivedAt *string      `json:"archivedAt,omitempty"`
 }
 
 func (p Pin) Summary() PinSummary {
-	return PinSummary{ID: p.ID, Title: p.Title, Tags: p.Tags, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt, FileCount: p.FileCount, Reminder: p.Reminder}
+	return PinSummary{ID: p.ID, Title: p.Title, Tags: p.Tags, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt, FileCount: p.FileCount, Reminder: p.Reminder, Starred: p.Starred, ArchivedAt: p.ArchivedAt}
+}
+
+// PinListFilter narrows ListPins. Q searches title, tags and body (every
+// word must appear) across live and archived pins; without Q the list is
+// the live pins, or the archived ones when Archived is set.
+type PinListFilter struct {
+	Q        string
+	Archived bool
 }
 
 func scanPin(row interface{ Scan(...any) error }, p *Pin) error {
 	var tags string
-	if err := row.Scan(&p.ID, &p.Title, &tags, &p.Body, &p.CreatedAt, &p.UpdatedAt); err != nil {
+	var starred int
+	var archived sql.NullString
+	if err := row.Scan(&p.ID, &p.Title, &tags, &p.Body, &p.CreatedAt, &p.UpdatedAt, &starred, &archived); err != nil {
 		return err
 	}
 	p.Tags = decodePackages(tags)
+	p.Starred = starred == 1
+	if archived.Valid {
+		v := archived.String
+		p.ArchivedAt = &v
+	}
 	return nil
 }
 
+const pinSummaryCols = `id, title, tags, created_at, updated_at, starred, archived_at,
+		(SELECT COUNT(1) FROM pin_files f WHERE f.pin_id = pins.id)`
+
 func scanPinSummary(row interface{ Scan(...any) error }, p *PinSummary) error {
 	var tags string
-	if err := row.Scan(&p.ID, &p.Title, &tags, &p.CreatedAt, &p.UpdatedAt, &p.FileCount); err != nil {
+	var starred int
+	var archived sql.NullString
+	if err := row.Scan(&p.ID, &p.Title, &tags, &p.CreatedAt, &p.UpdatedAt, &starred, &archived, &p.FileCount); err != nil {
 		return err
 	}
 	p.Tags = decodePackages(tags)
+	p.Starred = starred == 1
+	if archived.Valid {
+		v := archived.String
+		p.ArchivedAt = &v
+	}
 	return nil
 }
 
@@ -131,9 +162,27 @@ func normalizePin(title string, tags []string, body string) (string, []string, s
 	return title, out, body, nil
 }
 
-func (s *Store) ListPins() ([]PinSummary, error) {
-	rows, err := s.db.Query(`SELECT id, title, tags, created_at, updated_at,
-		(SELECT COUNT(1) FROM pin_files f WHERE f.pin_id = pins.id) FROM pins ORDER BY updated_at DESC`)
+// ListPins: starred first, then most recently updated. A search runs over
+// live and archived pins alike (an archived note is still the note you
+// wrote); every word of the query must appear in the title, a tag or the
+// body. SQLite's LIKE is case-insensitive for ASCII only, so both sides
+// are lower()ed for the rest.
+func (s *Store) ListPins(f PinListFilter) ([]PinSummary, error) {
+	q := `SELECT ` + pinSummaryCols + ` FROM pins WHERE 1=1`
+	args := []any{}
+	if words := strings.Fields(strings.ToLower(f.Q)); len(words) > 0 {
+		for _, w := range words {
+			like := "%" + escapeLike(w) + "%"
+			q += ` AND (lower(title) LIKE ? ESCAPE '\' OR lower(tags) LIKE ? ESCAPE '\' OR lower(body) LIKE ? ESCAPE '\')`
+			args = append(args, like, like, like)
+		}
+	} else if f.Archived {
+		q += ` AND archived_at IS NOT NULL`
+	} else {
+		q += ` AND archived_at IS NULL`
+	}
+	q += ` ORDER BY starred DESC, (archived_at IS NOT NULL), updated_at DESC`
+	rows, err := s.db.Query(q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("store: list pins: %w", err)
 	}
@@ -181,7 +230,7 @@ func (s *Store) PinIDs() ([]string, error) {
 
 func (s *Store) GetPin(id string) (Pin, error) {
 	var p Pin
-	err := scanPin(s.db.QueryRow(`SELECT id, title, tags, body, created_at, updated_at FROM pins WHERE id = ?`, id), &p)
+	err := scanPin(s.db.QueryRow(`SELECT id, title, tags, body, created_at, updated_at, starred, archived_at FROM pins WHERE id = ?`, id), &p)
 	if err == sql.ErrNoRows {
 		return Pin{}, ErrNotFound
 	}
@@ -202,8 +251,7 @@ func (s *Store) GetPin(id string) (Pin, error) {
 
 func (s *Store) pinSummary(id string) (PinSummary, error) {
 	var p PinSummary
-	err := scanPinSummary(s.db.QueryRow(`SELECT id, title, tags, created_at, updated_at,
-		(SELECT COUNT(1) FROM pin_files f WHERE f.pin_id = pins.id) FROM pins WHERE id = ?`, id), &p)
+	err := scanPinSummary(s.db.QueryRow(`SELECT `+pinSummaryCols+` FROM pins WHERE id = ?`, id), &p)
 	if err == sql.ErrNoRows {
 		return PinSummary{}, ErrNotFound
 	}
@@ -293,4 +341,61 @@ func (s *Store) DeletePin(id string) error {
 		return err
 	}
 	return s.commit(tx)
+}
+
+func escapeLike(w string) string {
+	r := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+	return r.Replace(w)
+}
+
+// CountArchivedPins feeds the sidebar's "N archived" line.
+func (s *Store) CountArchivedPins() (int, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT COUNT(1) FROM pins WHERE archived_at IS NOT NULL`).Scan(&n)
+	return n, err
+}
+
+// SetPinStarred keeps the pin on top (or not). Starring is not an edit:
+// updated_at stays, so the order among starred pins is still recency.
+func (s *Store) SetPinStarred(id string, starred bool) (Pin, error) {
+	res, err := s.db.Exec(`UPDATE pins SET starred = ? WHERE id = ?`, boolInt(starred), id)
+	if err != nil {
+		return Pin{}, fmt.Errorf("store: star pin: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return Pin{}, ErrNotFound
+	}
+	p, err := s.GetPin(id)
+	if err != nil {
+		return Pin{}, err
+	}
+	s.note("pin.updated", nil, nil, p.Summary())
+	return p, nil
+}
+
+// SetPinArchived puts the pin away or brings it back. Archiving pauses its
+// reminder (the engine skips archived pins) and closes any reminder item
+// still open — a note put away is not owed. Unarchiving resumes the rule:
+// a slot missed meanwhile fires once, as after downtime.
+func (s *Store) SetPinArchived(id string, archived bool) (Pin, error) {
+	var at any
+	if archived {
+		at = nowUTC()
+	}
+	res, err := s.db.Exec(`UPDATE pins SET archived_at = ? WHERE id = ?`, at, id)
+	if err != nil {
+		return Pin{}, fmt.Errorf("store: archive pin: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return Pin{}, ErrNotFound
+	}
+	if archived {
+		s.closeReminderItems(s.db, id)
+	}
+	p, err := s.GetPin(id)
+	if err != nil {
+		return Pin{}, err
+	}
+	s.note("pin.updated", nil, nil, p.Summary())
+	return p, nil
 }

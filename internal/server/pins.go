@@ -14,6 +14,8 @@ func registerPins(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/pins", handleCreatePin(deps))
 	mux.HandleFunc("PATCH /api/pins/{id}", handleUpdatePin(deps))
 	mux.HandleFunc("DELETE /api/pins/{id}", handleDeletePin(deps))
+	mux.HandleFunc("POST /api/pins/{id}/starred", handlePinStarred(deps))
+	mux.HandleFunc("POST /api/pins/{id}/archived", handlePinArchived(deps))
 }
 
 // pinStatus maps the pin store's typed errors once: what the caller can
@@ -35,14 +37,56 @@ func writePinErr(w http.ResponseWriter, err error) {
 	writeErr(w, pinStatus(err), err.Error())
 }
 
+// GET /api/pins            the live list, starred first
+// GET /api/pins?archived=1 the archived list
+// GET /api/pins?q=words    a search over both (each hit says archivedAt)
+// The response carries the archived count so the sidebar can offer it.
 func handleListPins(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		pins, err := deps.Store.ListPins()
+		f := store.PinListFilter{Q: r.URL.Query().Get("q"), Archived: queryFlag(r, "archived")}
+		pins, err := deps.Store.ListPins(f)
 		if err != nil {
 			writePinErr(w, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"pins": pins})
+		archived, _ := deps.Store.CountArchivedPins()
+		writeJSON(w, http.StatusOK, map[string]any{"pins": pins, "archived": archived})
+	}
+}
+
+func handlePinStarred(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Starred bool `json:"starred"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		p, err := deps.Store.SetPinStarred(r.PathValue("id"), req.Starred)
+		if err != nil {
+			writePinErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, p)
+	}
+}
+
+func handlePinArchived(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Archived bool `json:"archived"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		p, err := deps.Store.SetPinArchived(r.PathValue("id"), req.Archived)
+		if err != nil {
+			writePinErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, p)
 	}
 }
 
