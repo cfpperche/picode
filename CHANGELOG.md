@@ -13,6 +13,22 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Right-click inside a terminal now opens PiCode's own menu**, built from
+  what that pane can actually do: copy, paste and select all; on a running
+  Agent CLI, **Ask <CLI> about this** and **Attach files…**; **Open** for the
+  file or link under the cursor; go to the end and text size; **Clear** on a
+  bare shell only, because a TUI owns its screen; rename, terminal settings,
+  the folder in Files, close the tab and remove the terminal — the last group
+  never on an agent's own TUI pane. Holding the bypass modifier (Shift by
+  default, `Settings → Context menu`) still hands the click to the browser's
+  own menu. The right button no longer reaches tmux, which used to answer it
+  with a second menu drawn inside the terminal.
+- **The terminal's message bar is no longer permanent chrome.** It opens from
+  that menu — empty, or already carrying the selection: one line lands in the
+  message, anything longer is attached as `selection.txt` so the CLI reads a
+  whole file instead of a mangled paste. A close button (or Escape) gives the
+  pane the full height of the editor back.
+
 - **A workspace reaches its own files and history with nobody in it:**
   **Files** and **Git graph** on the workspace card's menu open the project's
   own file tree and commit graph — no agent and no terminal required. The

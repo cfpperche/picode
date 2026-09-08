@@ -1225,6 +1225,13 @@ img.ws-face.term-cli-face {
 .um-item[aria-disabled="true"] { color: var(--text-secondary); cursor: default; }
 .um-item[aria-disabled="true"]:hover { background: none; }
 .um-item[aria-disabled="true"] svg { opacity: .6; }
+/* The accelerator sits at the far edge as plain muted text: the menu shows
+   which key does the same thing, without competing with the label. */
+.um-key {
+  flex: none; font-family: var(--mono); font-size: 11px;
+  color: var(--text-secondary); white-space: nowrap;
+}
+.um-item[data-highlighted] .um-key { color: var(--text-primary); }
 .ctx-tip {
   z-index: 41; max-width: 200px;
   padding: 6px 8px; border-radius: 8px;
@@ -1619,6 +1626,8 @@ img.ws-face.term-cli-face {
   border-radius: 10px;
   background: var(--bg-panel);
 }
+.term-attach-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.term-attach-head .term-attach-empty, .term-attach-head .term-attach-chips { flex: 1; min-width: 0; }
 .term-attach-empty { margin: 0 0 8px; font-size: 13px; color: var(--text-secondary); }
 .term-attach-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .term-attach-row { display: flex; align-items: center; gap: 6px; }

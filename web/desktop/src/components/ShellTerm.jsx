@@ -28,7 +28,14 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
   const cwdRef = useRef(cwd);
   const fileRef = useRef(onOpenFile);
   fileRef.current = onOpenFile;
-  useEffect(() => { cwdRef.current = cwd; }, [cwd]);
+  // The pane carries its own live cwd: the right-click menu resolves the
+  // token under the cursor against it, the same way the Ctrl+click underline
+  // does (lib/termActions.js).
+  useEffect(() => {
+    cwdRef.current = cwd;
+    const entry = terms.get(shellKey(agentId));
+    if (entry && entry.paneEl) entry.paneEl.dataset.termCwd = cwd || "";
+  }, [cwd, agentId]);
 
   useEffect(() => {
     if (!agentId || !session || !hostRef.current) return undefined;
@@ -38,7 +45,11 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
       try {
         const base = cwdKind === "agent" ? "/api/agents/" : "/api/terminals/";
         const page = await api(base + encodeURIComponent(agentId) + "/cwd");
-        if (page && page.cwd) cwdRef.current = page.cwd;
+        if (page && page.cwd) {
+          cwdRef.current = page.cwd;
+          const live = terms.get(id);
+          if (live && live.paneEl) live.paneEl.dataset.termCwd = page.cwd;
+        }
       } catch { /* keep cache */ }
       return cwdRef.current;
     };
@@ -66,6 +77,12 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
     }
     const paneEl = document.createElement("div");
     paneEl.className = "term-pane active";
+    // The right-click menu finds its terminal from the pane it was opened
+    // on (lib/termActions.js): an agent's TUI is not a terminal to rename
+    // or remove, so the pane says which one it is.
+    paneEl.dataset.termId = agentId;
+    paneEl.dataset.termKind = cwdKind === "agent" ? "agent" : "term";
+    paneEl.dataset.termCwd = cwdRef.current || "";
     hostRef.current.appendChild(paneEl);
     const term = new Terminal(xtermOptions());
     const fit = new FitAddon();
