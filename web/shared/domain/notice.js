@@ -7,10 +7,13 @@
 // card is not: desktop draws a 300px card that steps left of the inspector
 // rail, the phone draws a full-width one above the tab bar.
 //
-//   notice := { level, actor, status, title, body, meta[], actions[],
-//               key, target, duration }
+//   notice := { level, channel, actor, status, title, body, meta[],
+//               actions[], key, target, duration }
 //
 //   level  ok | info | warn | error | busy
+//   channel which announce preference may mute this notice, if any:
+//          "finished" | "needsYou". A notice with no channel is feedback
+//          for something the user just did and is never muted.
 //   actor  who is speaking — { kind, id, name, cli }; cli picks the glyph
 //   status the muted phrase beside the name ("finished · worked for 7s")
 //   title  the sentence the notice is about
@@ -24,6 +27,12 @@
 import { fmtElapsed, turnDurationMs } from "./turns.js";
 
 export const NOTICE_LEVELS = Object.freeze(["ok", "info", "warn", "error", "busy"]);
+
+// The two announcements a user can turn off (the Notifications preferences
+// mirror the push switches: "when an agent needs me", "when a run
+// finishes"). Feedback for an action the user just took has no channel and
+// cannot be muted — silencing "Saved." would silence the app itself.
+export const CHANNELS = Object.freeze(["finished", "needsYou"]);
 
 const KIND_LEVEL = Object.freeze({
   ok: "ok",
@@ -98,6 +107,7 @@ export function normalizeNotice(n) {
   const level = NOTICE_LEVELS.includes(src.level) ? src.level : "info";
   return {
     level,
+    channel: CHANNELS.includes(src.channel) ? src.channel : "",
     actor: normalizeActor(src.actor),
     status: clip(src.status, 60),
     title: clip(src.title, MAX_TITLE),
@@ -106,7 +116,9 @@ export function normalizeNotice(n) {
     actions: normalizeActions(src.actions),
     key: src.key ? String(src.key) : "",
     target: src.target ? String(src.target) : "",
-    duration: Number.isFinite(src.duration) ? src.duration : null,
+    // Infinity is a legitimate value here (a needs-you card outlives the
+    // clock), so this cannot be Number.isFinite.
+    duration: typeof src.duration === "number" && !Number.isNaN(src.duration) ? src.duration : null,
   };
 }
 
@@ -124,7 +136,7 @@ export function noticeKey(n) {
 export function noticeDuration(n, base = 4000) {
   const ms = Math.max(1000, Number(base) || 4000);
   if (!n) return ms;
-  if (Number.isFinite(n.duration)) return n.duration;
+  if (typeof n.duration === "number" && !Number.isNaN(n.duration)) return n.duration;
   // A busy notice is replaced by its own outcome, never by the clock.
   if (n.level === "busy") return Infinity;
   if (n.level === "error" || n.level === "warn") {
@@ -134,13 +146,26 @@ export function noticeDuration(n, base = 4000) {
   return ms;
 }
 
+// The announce preferences. Muting is not suppression: a suppressed
+// notice was redundant right now, a muted one is a class of announcement
+// the user turned off.
+export function noticeMuted(n, prefs) {
+  if (!n || !n.channel) return false;
+  const p = prefs || {};
+  if (n.channel === "finished") return p.announceFinished === false;
+  if (n.channel === "needsYou") return p.announceNeedsYou === false;
+  return false;
+}
+
 // Superset's shouldSuppressForVisiblePane, at our granularity: never
-// announce what the user is already looking at. An alert is never
-// suppressed — an error on the visible surface is still news, and it is
-// the only feedback some failures have.
+// announce what the user is already looking at. An error is the exception
+// — it is the only feedback some failures have, and it reports something
+// the user just did rather than something on screen. A needs-you for the
+// conversation already showing its ask card IS redundant, so `warn` is
+// suppressed like the rest.
 export function suppressNotice(n, surface) {
   if (!n || !n.target) return false;
-  if (n.level === "error" || n.level === "warn") return false;
+  if (n.level === "error") return false;
   if (!surface || !surface.focused) return false;
   return surface.target === n.target;
 }
@@ -220,6 +245,7 @@ export function agentFinishNotice({ agent, turn, target, title }) {
   const said = title || lastReplyLine(turn);
   return normalizeNotice({
     level: "ok",
+    channel: "finished",
     actor: { kind: "agent", id: a.id || "", name: a.name || "Agent", cli: a.cli || "pi" },
     status: finishStatus(turn ? turnDurationMs(turn) : 0),
     title: said || "Finished this turn.",
@@ -230,4 +256,70 @@ export function agentFinishNotice({ agent, turn, target, title }) {
     key: a.id ? "agent:" + a.id : "",
     target: target || "",
   });
+}
+
+// An agent stopped and is waiting on a person (ADR-0044's live dialog, as
+// `needsYou` already shapes it for the phone's home queue). Unlike every
+// other notice this one is sticky: it is bounded by the number of agents,
+// deduplicated per agent, and the caller dismisses it the moment the
+// dialog is gone — so it lives exactly as long as the question does.
+// One card per question, not per agent: when an agent answers one dialog
+// and raises the next, the id changes, so the old card is withdrawn and
+// the new question announced instead of the card keeping stale text.
+export function askNoticeKey(entry) {
+  const e = entry || {};
+  if (!e.agentId) return "";
+  return e.dialogId ? "ask:" + e.agentId + ":" + e.dialogId : "ask:" + e.agentId;
+}
+
+export function needsYouNotice(entry, target) {
+  const e = entry || {};
+  const where = e.where ? " · " + e.where : "";
+  return normalizeNotice({
+    level: "warn",
+    channel: "needsYou",
+    actor: { kind: "agent", id: e.agentId || "", name: e.agentName || "Agent", cli: e.cli || "pi" },
+    status: "needs you" + where,
+    title: e.title || "Waiting for your answer.",
+    body: e.message || "",
+    actions: target ? [{ label: "Answer", hash: target, primary: true }] : [],
+    key: askNoticeKey(e),
+    target: target || "",
+    duration: Infinity,
+  });
+}
+
+// A standing needs-you card is the one notice that outlives the clock, so
+// suppression has to keep working after it is on screen: these are the
+// asks the user is now looking at, and their cards should go.
+export function asksOnSurface(entries, surface, target) {
+  if (!surface || !target) return [];
+  const out = [];
+  for (const e of entries || []) {
+    if (!e || e.kind !== "ask" || !e.agentId) continue;
+    if (target(e.agentId) === surface) out.push(askNoticeKey(e));
+  }
+  return out;
+}
+
+// What changed since the last pass over the needs-you queue: which asks
+// are new (announce them) and which are gone (dismiss their card). The
+// caller owns the routes, so it supplies `target(agentId)`.
+// `announced` is null the first time a shell looks at the queue: a page
+// load must not toast a backlog the sidebar and the badge already show,
+// so the first pass only records what is waiting. Superset's rule that
+// status is derived and only the user's own marks are kept.
+export function needsYouPlan(entries, announced, target) {
+  const first = announced == null;
+  const seen = new Set(announced || []);
+  const keys = new Set();
+  const fresh = [];
+  for (const e of entries || []) {
+    if (!e || e.kind !== "ask" || !e.agentId) continue;
+    const key = askNoticeKey(e);
+    keys.add(key);
+    if (!first && !seen.has(key)) fresh.push(needsYouNotice(e, target ? target(e.agentId) : ""));
+  }
+  const gone = first ? [] : [...seen].filter((k) => !keys.has(k));
+  return { fresh, gone, keys };
 }

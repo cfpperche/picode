@@ -54,9 +54,10 @@ import { applyChecklists, indexChecklists } from "@picode/shared/domain/checklis
 import { workspaceStatusPath } from "@picode/shared/domain/statusbar.js";
 import Reconnect from "./components/Reconnect.jsx";
 import { setShell } from "@picode/shared/client/shell.js";
-import { notify, toast, toastError } from "./lib/toast.js";
-import { agentFinishNotice } from "@picode/shared/domain/notice.js";
+import { dismissNotice, notify, toast, toastError } from "./lib/toast.js";
+import { agentFinishNotice, asksOnSurface, needsYouPlan } from "@picode/shared/domain/notice.js";
 import { groupTurns } from "@picode/shared/domain/turns.js";
+import { needsYou } from "./lib/needsYou.js";
 import { pendingFollowUps, dropQueued, startEditQueued, saveEditQueued, cancelEditQueued } from "./lib/queue.js";
 import { putAsk, answerAsk, timeoutAsk, cancelOpenAsks, askJustAnswered, backAsk, walkReply, noteAsk, unanswerAsk, slashNoteTarget, BACK } from "@picode/shared/domain/askForm.js";
 import { writeAskMemory, mergeAskMemory } from "./lib/askMemory.js";
@@ -818,6 +819,24 @@ export default function App() {
     setFreeAgents(next.freeAgents);
     setTerminals(next.terminals);
   }), [loadWorkspaces]);
+  // Needs-you: the fleet's live dialogs, announced as they arrive and
+  // withdrawn as they are answered. `agent.state` (ADR-0048) carries every
+  // dialog edge of every managed agent, so this reaches the agents whose
+  // socket nobody has open — the gap the finish card leaves. Inbox items
+  // stay out: they have a badge, a queue and a push of their own.
+  const announcedAsks = useRef(null);
+  useEffect(() => {
+    const entries = needsYou({ workspaces, freeAgents, inbox: [] });
+    const plan = needsYouPlan(entries, announcedAsks.current, workspaceHash);
+    announcedAsks.current = plan.keys;
+    for (const key of plan.gone) dismissNotice(key);
+    // Opening the conversation answers the card: a sticky notice has to
+    // keep obeying suppression after it is already on screen.
+    const here = new Set(asksOnSurface(entries, hash, workspaceHash));
+    for (const key of here) dismissNotice(key);
+    for (const n of plan.fresh) if (!here.has(n.key)) notify(n);
+  }, [workspaces, freeAgents, hash]);
+
   useEffect(() => startReconnectWatch({
     onState: (s) => { if (s === "down") setReconnect(true); },
   }), []);

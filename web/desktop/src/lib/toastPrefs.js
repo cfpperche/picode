@@ -9,17 +9,20 @@ export const TOAST_POSITIONS = [
   "bottom-right",
 ];
 
-export const TOAST_CLOSE_PLACES = ["inside-right", "edge-left", "edge-right"];
-
+// Where the card sits, how long it stays, and which announcements the user
+// wants at all. `closePlace` and `richColors` retired with the notice card
+// (2026-09-07): the card owns its close control, and a level already reads
+// from the glyph and the border. An older stored value for either is simply
+// ignored — the next write drops it.
 export function defaultToastPrefs() {
   return {
     position: "top-right",
     expand: false,
-    richColors: false,
     closeButton: true,
-    closePlace: "inside-right",
     duration: 4000,
     visibleToasts: 3,
+    announceFinished: true,
+    announceNeedsYou: true,
   };
 }
 
@@ -29,9 +32,9 @@ export function readToastPrefs() {
     const j = JSON.parse(localStorage.getItem(KEY) || "{}");
     if (TOAST_POSITIONS.includes(j.position)) d.position = j.position;
     d.expand = !!j.expand;
-    d.richColors = !!j.richColors;
     d.closeButton = j.closeButton !== false;
-    if (TOAST_CLOSE_PLACES.includes(j.closePlace)) d.closePlace = j.closePlace;
+    d.announceFinished = j.announceFinished !== false;
+    d.announceNeedsYou = j.announceNeedsYou !== false;
     const dur = Number(j.duration);
     if (Number.isFinite(dur)) d.duration = Math.min(15000, Math.max(1500, dur));
     const n = Number(j.visibleToasts);

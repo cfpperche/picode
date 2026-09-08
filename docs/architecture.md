@@ -1314,32 +1314,44 @@ store, never around it.
 ### Notices — the in-app announcement layer
 
 `web/shared/domain/notice.js` is the model every toast goes through:
-`{ level, actor, status, title, body, meta[], actions[], key, target }`.
-It is a pure module (ADR-0072 keeps React out of `web/shared`), so both
-applications share the model and its three policies while each owns the
+`{ level, channel, actor, status, title, body, meta[], actions[], key,
+target }`. It is a pure module (ADR-0072 keeps React out of `web/shared`),
+so both applications share the model and its policies while each owns the
 card — `web/desktop/src/components/Notice.jsx` draws a 300px card beside
 the inspector rail, `web/mobile/.../Notice.jsx` a full-width one above the
 tab bar. `lib/toast.js` is the single door in both apps: `notify(notice)`
-for the model, `toast(text, kind)` unchanged for the one-line call sites.
+for the model, `toast(text, kind)` unchanged for the one-line call sites,
+`dismissNotice(key)` to withdraw one.
 
-The three policies, adapted from Superset's notification manager
+The policies, adapted from Superset's notification manager
 ([study](benchmarks/2026-09-07-superset-notifications.md)):
 
 | Policy | Rule |
 |---|---|
-| Lifetime | `ok`/`info` use the user's Duration preference; a notice with an action gets at least 8s; `error`/`warn` get 3× the preference (12–30s), never `Infinity`, because sonner queues everything past `visibleToasts` and an unbounded class would wall the screen off; `busy` waits for its own outcome |
-| Suppression | A notice whose `target` is the focused surface (`location.hash` + `document.hasFocus()`) is dropped. Alerts are never suppressed |
-| Identity | `key` becomes sonner's toast id, so a second notice from the same source replaces the first instead of stacking (`agent:<id>`) |
+| Muting | A notice's `channel` (`finished`, `needsYou`) names the preference that can silence it. Feedback for something the user just did has no channel and cannot be muted |
+| Lifetime | `ok`/`info` use the user's Duration preference; a notice with an action gets at least 8s; `error`/`warn` get 3× the preference (12–30s) rather than `Infinity`, because sonner queues everything past `visibleToasts` and an unbounded class would wall the screen off; `busy` and a standing needs-you wait for their own outcome |
+| Suppression | A notice whose `target` is the focused surface (`location.hash` + `document.hasFocus()`) is dropped, and a standing one is withdrawn when the user arrives there (`asksOnSurface`). Only an `error` is exempt — it reports what the user just did, not what is on screen |
+| Identity | `key` becomes sonner's toast id, so a second notice from the same source replaces the first instead of stacking (`agent:<id>`, `ask:<id>:<dialog>`) |
 
-A settled agent turn builds `agentFinishNotice` from data the browser
-already holds: `turnDurationMs` for "worked for 7s", the `change` on each
-edit/write tool item for the file and line counts, and the turn's last
-assistant sentence. Desktop composes it in `App.jsx` at `agent_settled`;
-mobile's reducer emits a `finished` effect and `useAgentSocket` composes
-it. Both only see the agent whose socket is open — a background agent's
-completion still reaches the human through the Inbox (ADR-0037) and the
-phone (`internal/push/notifier.go`), which own the durable and the
-off-device copies. The toast layer stays ephemeral and persists nothing.
+**A settled turn** builds `agentFinishNotice` from data the browser already
+holds: `turnDurationMs` for "worked for 7s", the `change` on each edit/write
+tool item for the file and line counts, and the turn's last assistant
+sentence. Desktop composes it in `App.jsx` at `agent_settled`; mobile's
+reducer emits a `finished` effect and `useAgentSocket` composes it. Both
+see only the agent whose socket is open.
+
+**A waiting agent** goes the other way, and covers the whole fleet: the
+runtime's every dialog edge rides `agent.state` (ADR-0048, published in
+`cmd/picode/main.go`), `applyFleet` patches `waiting`/`dialog` onto the
+agent, and `needsYou` shapes the queue both shells already render.
+`needsYouPlan` diffs that queue against what has been announced —
+arrivals become sticky cards, answers withdraw them — and the first pass
+after a page load only records, so a reload never toasts a backlog the
+badge already shows. Mobile keeps quiet on the Now screen, which *is* the
+queue.
+
+The toast layer persists nothing. The Inbox (ADR-0037) owns the durable
+copy and `internal/push/notifier.go` the off-device one.
 
 ### Security model (ADR-0007 — supersedes the original localhost-only clause)
 - **HTTPS always** (bind 0.0.0.0): mkcert-issued cert via

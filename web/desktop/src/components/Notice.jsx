@@ -42,12 +42,9 @@ function runAction(action, id) {
 
 export default function Notice({ n, id, prefs }) {
   const p = prefs || {};
-  const rich = !!p.richColors;
-  const closePlace = p.closePlace || "inside-right";
   const hasFoot = n.meta.length > 0 || n.actions.length > 0;
   const cls = ["notice", "notice-" + n.level, n.actor ? "has-head" : "no-head"];
-  if (rich) cls.push("is-rich");
-  if (p.closeButton) cls.push("has-x", "x-" + closePlace);
+  if (p.closeButton) cls.push("has-x");
 
   return (
     <div className={cls.join(" ")} role="status" aria-live={n.level === "error" ? "assertive" : "polite"}>

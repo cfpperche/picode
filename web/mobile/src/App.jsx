@@ -8,7 +8,9 @@ import { applyChecklists, indexChecklists } from "@picode/shared/domain/checklis
 import { startReconnectWatch } from "@picode/shared/client/reconnect.js";
 import { normalizeManifests } from "@picode/shared/contracts/appPrimitives.js";
 import { needsYou } from "./lib/needsYou.js";
-import { toast, toastError } from "./lib/toast.js";
+import { asksOnSurface, needsYouPlan } from "@picode/shared/domain/notice.js";
+import { workspaceHash } from "./lib/routes.js";
+import { dismissNotice, notify, toast, toastError } from "./lib/toast.js";
 import { closeTerm } from "./lib/terms.js";
 import { mobileHash, toolHash, tabOf, readWorkSection, writeWorkSection } from "./lib/mobileRoutes.js";
 import { askConfirm } from "./lib/confirm.js";
@@ -168,6 +170,23 @@ export default function MobileApp() {
 
   const entries = useMemo(() => needsYou({ workspaces, freeAgents, inbox }), [workspaces, freeAgents, inbox]);
   const running = useMemo(() => flatAgents(workspaces, freeAgents).filter((x) => agentState(x.agent, tuiWorking) !== "stopped"), [workspaces, freeAgents, tuiWorking]);
+  // Needs-you as a card, for the screens that are not the queue. On the
+  // Now screen the queue itself is the answer, so an ask that arrives
+  // there is recorded as seen without a toast on top of its own card.
+  const announcedAsks = useRef(null);
+  useEffect(() => {
+    const plan = needsYouPlan(entries, announcedAsks.current, workspaceHash);
+    announcedAsks.current = plan.keys;
+    for (const key of plan.gone) dismissNotice(key);
+    // The Now screen IS the queue, and an agent screen IS the answer:
+    // on either, the standing cards are what the user already sees.
+    const here = new Set(route.screen === "now"
+      ? plan.keys
+      : asksOnSurface(entries, route.screen === "agent" ? workspaceHash(route.id) : "", workspaceHash));
+    for (const key of here) dismissNotice(key);
+    for (const n of plan.fresh) if (!here.has(n.key)) notify(n);
+  }, [entries, route.screen, route.id]);
+
   const fleetTotal = flatAgents(workspaces, freeAgents).length;
   const inboxApp = apps.find((a) => a.id === "inbox");
   const badges = { now: entries.length, inbox: inboxApp && inboxApp.badge ? inboxApp.badge.count || 0 : 0 };

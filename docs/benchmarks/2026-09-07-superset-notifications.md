@@ -161,13 +161,24 @@ browser's hands at `agent_settled` time, and is thrown away.
   anywhere in the app and adding it is a separate decision with its own
   preference, not a rider on a visual refactor.
 
-## Open question for the owner
+## What the owner decided (2026-09-07)
 
-The seven layout preferences (`closePlace` alone owns three CSS blocks,
-`app.css:3095-3122`) buy very little once the card carries its own close
-affordance, and they are the reason the toast has stayed a box instead of
-becoming a card. Retiring `closePlace` and `richColors` in favour of two
-content switches — *announce finished* and *announce needs-you*, mirroring
-`PushPrefs` — is the change that makes the new model coherent, and it
-removes settings a user may have set. That is the owner's call, not the
-agent's.
+Both follow-ups were approved the same day and shipped with this study.
+
+- **Needs-you reaches the browser**, and unlike the finished card it covers
+  the whole fleet: the runtime already publishes every dialog edge as
+  `agent.state` (ADR-0048), so `needsYou` — the queue the phone's home has
+  rendered since ADR-0044 — is live for every managed agent. A card arrives
+  when a question does and is withdrawn when it is answered, or when the
+  user opens the conversation that answers it. It is the one notice that
+  outlives the clock: bounded by the number of agents, keyed per question,
+  and always taken away by an event rather than a timer.
+- **The preferences inverted.** `closePlace` (three CSS blocks for a close
+  button the card now draws itself) and `richColors` are gone; *When an
+  agent needs me* and *When a run finishes* took their place, worded like
+  the push switches beside them. Muting is not suppression: a muted class
+  is silent, the sidebar badge and the Inbox row are not.
+
+Position, duration, visible-at-once, expand and close button survive
+unchanged. A stored value for a retired key is ignored, and the next write
+drops it — no migration.

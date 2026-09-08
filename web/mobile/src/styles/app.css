@@ -1874,14 +1874,10 @@ img.ws-face.term-cli-face {
   font-size: 13px;
 }
 /* Level is a hairline on the border and a coloured glyph — the card stays
-   the same surface as every other panel. Rich colours (a preference) tint
-   the whole card for people who want the old loud success/error. */
+   the same surface as every other panel. */
 .notice-ok { border-color: color-mix(in srgb, var(--ok) 45%, var(--border-strong)); }
 .notice-warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--border-strong)); }
 .notice-error { border-color: color-mix(in srgb, var(--danger) 45%, var(--border-strong)); }
-.notice-ok.is-rich { background: color-mix(in srgb, var(--ok) 10%, var(--bg-elevated)); }
-.notice-warn.is-rich { background: color-mix(in srgb, var(--warn) 10%, var(--bg-elevated)); }
-.notice-error.is-rich { background: color-mix(in srgb, var(--danger) 10%, var(--bg-elevated)); }
 .notice-glyph { flex: none; margin-top: 1px; color: var(--text-secondary); }
 .notice-ok .notice-glyph { color: var(--ok); }
 .notice-warn .notice-glyph { color: var(--warn); }
@@ -1934,24 +1930,17 @@ img.ws-face.term-cli-face {
 .notice-foot .btn { font-size: 12px; padding: 0 14px; border-radius: 99px; }
 
 .notice-x {
-  position: absolute; z-index: 1;
+  position: absolute; z-index: 1; top: 4px; right: 4px;
   width: 30px; height: 30px; padding: 0;
   display: grid; place-items: center;
   border: 0; background: transparent; border-radius: 6px;
   color: var(--text-secondary); cursor: pointer;
 }
 .notice-x:hover { background: var(--bg-hover); color: var(--text-primary); }
-.notice.x-inside-right .notice-x { top: 4px; right: 4px; }
 /* A one-line notice has no header to align with: centre the control. */
-.notice.no-head.x-inside-right .notice-x { top: 50%; right: 4px; transform: translateY(-50%); }
-.notice.has-x.x-inside-right .notice-head,
-.notice.has-x.x-inside-right .notice-body { padding-inline-end: 40px; }
-.notice.x-edge-right .notice-x, .notice.x-edge-left .notice-x {
-  top: 0; width: 26px; height: 26px; border-radius: 99px;
-  background: var(--bg-elevated); border: 1px solid var(--border-strong);
-}
-.notice.x-edge-right .notice-x { right: 0; transform: translate(35%, -35%); }
-.notice.x-edge-left .notice-x { left: 0; transform: translate(-35%, -35%); }
+.notice.no-head .notice-x { top: 50%; transform: translateY(-50%); }
+.notice.has-x .notice-head,
+.notice.has-x .notice-body { padding-inline-end: 40px; }
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;

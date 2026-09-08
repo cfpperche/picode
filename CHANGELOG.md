@@ -20,6 +20,24 @@ to the `[Unreleased]` section. The repository's official language is English
   back to the terminal. The plain `Ctrl+F` still belongs to whatever runs in
   the pane (`less`, `vim`, readline), and the chord is rebindable in
   Settings → Shortcuts.
+- **A waiting agent says so on the screen you are on, whatever agent it
+  is:** when any managed agent stops for a question, a card names it —
+  `Atlas · needs you · QA`, the question, its detail and an **Answer**
+  button that opens the conversation. Unlike the finished card this one
+  covers the whole fleet, not just the agent you have open: the runtime
+  already publishes every dialog edge on the change feed. The card has no
+  timer — it goes away when the question is answered, or when you open the
+  conversation that answers it — and a reload never replays a backlog the
+  sidebar badge already shows. On the phone the Now screen stays quiet,
+  because that screen *is* the queue.
+- **Notification preferences say what to announce, not where the box
+  sits:** *When an agent needs me* and *When a run finishes*, worded like
+  the push switches above them. Turning one off silences that
+  announcement only — the sidebar badge, the Inbox and the phone are
+  untouched. "Close position" and "Rich colors" are gone: the card draws
+  its own close control, and a level already reads from its glyph and
+  border. Position, duration, visible-at-once, expand and close button are
+  unchanged, and an old stored value is simply ignored.
 
 - **Right-click inside a terminal now opens PiCode's own menu**, built from
   what that pane can actually do: copy, paste and select all; on a running

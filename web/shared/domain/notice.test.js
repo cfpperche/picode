@@ -3,11 +3,16 @@ import { test } from "node:test";
 import { groupTurns } from "./turns.js";
 import {
   agentFinishNotice,
+  askNoticeKey,
+  asksOnSurface,
   changeMeta,
   changeTotals,
   finishStatus,
   lastReplyLine,
+  needsYouNotice,
+  needsYouPlan,
   noticeDuration,
+  noticeMuted,
   normalizeNotice,
   plainNotice,
   suppressNotice,
@@ -58,7 +63,7 @@ test("noticeDuration: alerts outlive confirmations, busy waits for its outcome",
   assert.equal(noticeDuration(normalizeNotice({ level: "error", duration: 1500 }), base), 1500);
 });
 
-test("suppressNotice: never announce the focused surface, always announce an alert", () => {
+test("suppressNotice: never announce the focused surface, always announce an error", () => {
   const ok = normalizeNotice({ level: "ok", title: "Done", target: "#/agent/a1" });
   assert.equal(suppressNotice(ok, { target: "#/agent/a1", focused: true }), true);
   assert.equal(suppressNotice(ok, { target: "#/agent/a2", focused: true }), false);
@@ -69,6 +74,72 @@ test("suppressNotice: never announce the focused surface, always announce an ale
   assert.equal(suppressNotice(normalizeNotice({ level: "ok" }), { target: "#/", focused: true }), false);
   const bad = normalizeNotice({ level: "error", title: "Boom", target: "#/agent/a1" });
   assert.equal(suppressNotice(bad, { target: "#/agent/a1", focused: true }), false);
+  // A needs-you for the conversation already showing its ask card IS
+  // redundant, so warn is suppressed like the rest.
+  const warn = normalizeNotice({ level: "warn", title: "Needs a choice", target: "#/agent/a1" });
+  assert.equal(suppressNotice(warn, { target: "#/agent/a1", focused: true }), true);
+});
+
+test("noticeMuted: the announce switches silence a class, not the app", () => {
+  const finished = agentFinishNotice({ agent: { id: "a1" }, turn: null, target: "#/agent/a1" });
+  const ask = needsYouNotice({ agentId: "a1", agentName: "atlas", title: "Q?" }, "#/agent/a1");
+  assert.equal(finished.channel, "finished");
+  assert.equal(ask.channel, "needsYou");
+  assert.equal(noticeMuted(finished, { announceFinished: false }), true);
+  assert.equal(noticeMuted(finished, { announceFinished: true }), false);
+  assert.equal(noticeMuted(ask, { announceNeedsYou: false }), true);
+  assert.equal(noticeMuted(finished, { announceNeedsYou: false }), false);
+  // Feedback for something the user just did carries no channel.
+  assert.equal(noticeMuted(plainNotice("Saved.", "ok"), { announceFinished: false, announceNeedsYou: false }), false);
+  assert.equal(noticeMuted(finished, {}), false);
+});
+
+test("needsYouNotice carries the question and outlives the clock", () => {
+  const n = needsYouNotice(
+    { agentId: "a1", agentName: "atlas", where: "picode", title: "Run the migration?", message: "drops a table", dialogId: "d1", key: "ask:a1" },
+    "#/agent/a1",
+  );
+  assert.equal(n.level, "warn");
+  assert.equal(n.status, "needs you · picode");
+  assert.equal(n.title, "Run the migration?");
+  assert.equal(n.body, "drops a table");
+  assert.deepEqual(n.actions, [{ label: "Answer", hash: "#/agent/a1", run: null, primary: true }]);
+  assert.equal(n.duration, Infinity);
+  assert.equal(noticeDuration(n, 4000), Infinity);
+  // Keyed by the question, so the next one replaces this card.
+  assert.equal(n.key, "ask:a1:d1");
+  assert.equal(askNoticeKey({ agentId: "a1" }), "ask:a1");
+  assert.equal(askNoticeKey({}), "");
+});
+
+test("needsYouPlan announces arrivals, withdraws answers, and seeds silently", () => {
+  const target = (id) => "#/agent/" + id;
+  const q1 = { kind: "ask", agentId: "a1", agentName: "atlas", title: "Q1", dialogId: "d1" };
+  const q2 = { kind: "ask", agentId: "a1", agentName: "atlas", title: "Q2", dialogId: "d2" };
+  const other = { kind: "inbox", itemId: "i1", title: "not a dialog" };
+
+  // A page load must not toast a backlog the badge already shows.
+  const seeded = needsYouPlan([q1, other], null, target);
+  assert.deepEqual(seeded.fresh, []);
+  assert.deepEqual(seeded.gone, []);
+  assert.deepEqual([...seeded.keys], ["ask:a1:d1"]);
+
+  // Nothing changed.
+  const idle = needsYouPlan([q1], seeded.keys, target);
+  assert.deepEqual(idle.fresh, []);
+  assert.deepEqual(idle.gone, []);
+
+  // Answered, and the next question raised: one card out, one in.
+  const rolled = needsYouPlan([q2], seeded.keys, target);
+  assert.deepEqual(rolled.gone, ["ask:a1:d1"]);
+  assert.equal(rolled.fresh.length, 1);
+  assert.equal(rolled.fresh[0].title, "Q2");
+  assert.equal(rolled.fresh[0].actions[0].hash, "#/agent/a1");
+
+  // Answered and nothing follows.
+  const cleared = needsYouPlan([], rolled.keys, target);
+  assert.deepEqual(cleared.fresh, []);
+  assert.deepEqual(cleared.gone, ["ask:a1:d2"]);
 });
 
 test("changeTotals sums the turn's edits per file", () => {
@@ -153,4 +224,17 @@ test("agentFinishNotice stays truthful when the turn said nothing", () => {
   assert.deepEqual(n.meta, []);
   assert.equal(n.actor.name, "Agent");
   assert.equal(n.actor.cli, "pi");
+});
+
+test("asksOnSurface names the cards the user is now looking at", () => {
+  const target = (id) => "#/agent/" + id;
+  const entries = [
+    { kind: "ask", agentId: "a1", dialogId: "d1" },
+    { kind: "ask", agentId: "a2" },
+    { kind: "inbox", itemId: "i1" },
+  ];
+  assert.deepEqual(asksOnSurface(entries, "#/agent/a1", target), ["ask:a1:d1"]);
+  assert.deepEqual(asksOnSurface(entries, "#/agent/a2", target), ["ask:a2"]);
+  assert.deepEqual(asksOnSurface(entries, "#/settings", target), []);
+  assert.deepEqual(asksOnSurface(entries, "", target), []);
 });
