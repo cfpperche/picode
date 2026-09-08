@@ -144,6 +144,10 @@ independently by mobile; no application imports the other's presentation.
 | Chosen terminal moved or hosts a foreground program | Open plain shell in pinned folder after confirmed 409 | `gitDelivery.test.js` |
 | Run transport error, 401 or 502 | Keep error; no automatic retry or duplicate keystrokes | `gitDelivery.test.js` |
 | Eligible running agent selected | Ask through its existing prompt/TUI door | Inspector domain and server ask tests; browser request contract |
+| Long press on a history row, or Actions on a commit/worktree view (ADR-0096) | Sheet with the shared graph vocabulary for that target: sections, tier 0 rows, write rows; refs drawn on the commit as their own sections | `mobileGraphSheet.test.js`; browser: `gg6-mobile-sheet-list` |
+| Write row chosen | Form: needed fields, door select (prepare / run / ask per running occupant), server-composed preview; tier C through run asks for the typed phrase, submit disabled until it matches | `mobileGraphSheet.test.js` (gate shared with desktop); browser: `gg6-mobile-sheet-tierc` |
+| Delivered | Screen watches `git/head` for ≤30 s while visible, reloads on change or at the deadline | `afterAction` in `screens/Git.jsx` |
+| No catalog from the server | Tier 0 rows only — fails closed, like desktop | `mobileGraphSheet.test.js` |
 
 Emulated acceptance includes 320px, 390px and landscape, both themes,
 loading/empty/blocked/error states, focused overlays and actual screenshot

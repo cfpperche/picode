@@ -119,6 +119,13 @@ to the `[Unreleased]` section. The repository's official language is English
   longer describes a bar that stands under the pane on desktop; it opens
   from the menu now.
   [Agent CLIs](https://cfpperche.github.io/picode/guide/agent-clis).
+- **The git graph's actions on the phone.** A long press on a history row —
+  or **Actions** on a commit or worktree view — opens a sheet with the same
+  vocabulary the desktop graph offers, in the same tiers, through the same
+  doors: prepared in a terminal, run when nobody is working there, or asked
+  of an agent or pi terminal living in that worktree. The exact command is
+  composed by the server and shown before anything is sent; a tier C action
+  through the run door asks you to type a word first.
 - **The worktree removal form names its field.** "Name" over a worktree folder
   read as nothing; it says *Worktree folder name* now, like the create form.
 - **A clean sibling worktree can be removed from its branch pill.** A checkout

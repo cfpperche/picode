@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as Sheet from "./MobileSheet.jsx";
 import GitReadState from "./GitReadState.jsx";
 import GitAncestry from "./GitAncestry.jsx";
@@ -6,7 +6,7 @@ import { gitURL } from "../lib/git/model.js";
 import { groupBranches, matchCommits, walkParams } from "../lib/git/history.js";
 import { useGitRead } from "../lib/git/useGitRead.js";
 
-export default function GitHistory({ owner, root, nonce, blocked, onMoved, onCommit, onWorktree }) {
+export default function GitHistory({ owner, root, nonce, blocked, onMoved, onCommit, onWorktree, onActions, onGraph }) {
   const [limit, setLimit] = useState(100);
   const [retry, setRetry] = useState(0);
   const [query, setQuery] = useState("");
@@ -16,6 +16,9 @@ export default function GitHistory({ owner, root, nonce, blocked, onMoved, onCom
   const walk = walkParams(filters.branches, filters.remotes);
   const { data, error, loading } = useGitRead(gitURL(owner, "git", { root, limit, ...walk }), `${nonce}:${retry}`, onMoved, blocked);
   const commits = data?.commits || [];
+  // The screen keeps the latest graph so a commit opened from here, or the
+  // header's own sheet, can offer the refs and worktrees drawn on it.
+  useEffect(() => { if (data) onGraph?.(data); }, [data, onGraph]);
   const searching = query.trim().length >= 2;
   const matches = useMemo(() => matchCommits(commits, query), [commits, query]);
   const matchList = commits.filter(c => matches.has(c.hash));
@@ -31,7 +34,7 @@ export default function GitHistory({ owner, root, nonce, blocked, onMoved, onCom
     <GitReadState error={error} loading={!data && loading} onRetry={() => setRetry(n => n + 1)} />
     {data ? <>
       {searching ? <p className="m-git-hint" role="status">{matchList.length ? `${matchList.length} matches in loaded history` : "No matches in loaded history."} <button type="button" className="m-git-text-button" onClick={() => setQuery("")}>Clear search</button></p> : null}
-      {commits.length ? <GitAncestry graph={data} refs={refs} query={searching ? query : ""} matches={matches} activeMatch={activeMatch} onCommit={onCommit} onWorktree={onWorktree} /> : <div className="m-git-state"><p>No commits in this history.</p><button type="button" className="btn" onClick={() => { setFilters({ branches: [], remotes: true }); setRetry(n => n + 1); }}>Show all branches</button></div>}
+      {commits.length ? <GitAncestry graph={data} refs={refs} query={searching ? query : ""} matches={matches} activeMatch={activeMatch} onCommit={onCommit} onWorktree={onWorktree} onActions={onActions} /> : <div className="m-git-state"><p>No commits in this history.</p><button type="button" className="btn" onClick={() => { setFilters({ branches: [], remotes: true }); setRetry(n => n + 1); }}>Show all branches</button></div>}
       {data.more ? <button type="button" className="btn m-git-load-more" disabled={loading || limit >= 10000} onClick={() => setLimit(n => Math.min(10000, n * 2))}>{loading ? "Loading…" : limit >= 10000 ? "History limit reached" : "Load earlier commits"}</button> : null}
     </> : null}
     <Sheet.Root open={settings} onOpenChange={setSettings}><Sheet.Portal><Sheet.Overlay className="dlg-overlay" /><Sheet.Content className="dlg m-git-sheet">

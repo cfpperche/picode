@@ -60,3 +60,12 @@ concurrency or isolation guarantees.
   and does not fit a single phone screen.
 - Add a second Git execution service: unnecessary; existing terminal and agent
   channels already provide credentials, output and interlocks.
+
+## Amendment (2026-09-08): the graph's write vocabulary reaches the phone
+
+"It does not claim backend workflows that desktop does not have" was true
+when written; ADR-0096 gave desktop those workflows, and mobile takes them
+through the same shared module (`@picode/shared/domain/graphActions.js`) and
+the same doors, with its own presentation — a long-press sheet
+(`GitGraphActionSheet.jsx`) rather than a context menu. Nothing crosses the
+application boundary but logic.
