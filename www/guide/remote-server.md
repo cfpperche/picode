@@ -131,3 +131,6 @@ Several people on one box? See [Share one server](./shared-server).
   the credential lives on the server.
 - The **trust page** (port 8470) is plain HTTP on the LAN/tailnet only.
   A public deployment (Track D) turns it off.
+
+The terminals on the box are reachable over SSH too — same tmux sessions
+the browser shows. See [Agent terminals over SSH](./ssh-terminals).

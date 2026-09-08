@@ -69,6 +69,7 @@ export default defineConfig({
           { text: "Security and pairing", link: "/guide/security" },
           { text: "On a server", link: "/guide/remote-server" },
           { text: "Share one server", link: "/guide/shared-server" },
+          { text: "Agent terminals over SSH", link: "/guide/ssh-terminals" },
           { text: "Open it to the internet", link: "/guide/public-access" },
           { text: "On your phone", link: "/guide/mobile" },
         ],

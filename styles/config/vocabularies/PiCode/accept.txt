@@ -2,6 +2,7 @@
 # exactly (keeps product names consistently capitalized).
 picode
 pi
+acls
 tmux
 llama\.cpp
 gguf

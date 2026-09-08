@@ -13,6 +13,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Public docs: agent terminals over SSH:** a new guide page shows how to
+  reach PiCode's tmux sessions over SSH (`tmux attach`, read-only
+  supervision with `-r`, Tailscale SSH on a server box) and the one rule:
+  never kill sessions by name pattern.
+  [Agent terminals over SSH](https://cfpperche.github.io/picode/guide/ssh-terminals).
 - **Public docs for moving a conversation between agents:** the Agent CLIs
   guide now explains the two ways a session arrives (a native session, or
   the vendor's own `import` for the SQLite-backed CLIs), the choices in the
