@@ -90,6 +90,7 @@
 - CLI lifecycle: npm data can lag native Claude releases by hours (the badge
   names the source); grok uninstall guided-only; Windows paths out of scope.
 - Pi has one active credential slot; per-agent OAuth is an owner decision.
+- Rename watch: a branch adding files under `www/` (pre-rename base) would resurrect the dir — they belong in `docs-site/` (open branches touch none, checked 2026-09-08).
 - Tutorial video freshness audits are stale after source relocation; recapture is explicit. Branch protection and CODEOWNERS need the owner; desktop requests `/desktop/favicon.svg` and gets 404.
 - Screenshot fingerprints went stale-advisory with the docs-site rename (docs-shots.mjs hashes into the fingerprint); the next deploy batch recaptures on its own.
 - Inspector: Files filter covers loaded rows only; This-agent chips show only
