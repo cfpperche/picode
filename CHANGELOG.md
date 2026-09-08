@@ -70,6 +70,13 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Mobile: the Work list wears the workspace's project favicon.** The
+  workspace groups on the phone's Work screen showed a plain folder icon
+  even when the project has a favicon the desktop sidebar displays. The
+  group head now uses the same `hasFavicon` advertisement and
+  `/api/workspaces/{id}/favicon` endpoint, falling back to the folder
+  icon when the project has none or the file fails to load.
+
 - **Schedules in a zone with daylight-saving time no longer hang the
   daemon.** `internal/cron`'s next-match search stepped the wall clock by
   hour and looped forever across the spring-forward gap (02:00 does not
