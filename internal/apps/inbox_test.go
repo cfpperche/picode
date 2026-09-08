@@ -650,3 +650,50 @@ func TestInboxDeliverReply(t *testing.T) {
 		t.Fatalf("plain respond on interactive agent = %v, want the interactive refusal", err)
 	}
 }
+
+// A question filed by pi in an Agent CLI terminal (sourceKind "terminal")
+// rides the terminal's receiver: the host's DeliverTerminalReply, never the
+// agent task queue. A channelless source refuses visibly and stays open.
+func TestInboxTerminalSourcedReplyRoutesToTheTerminal(t *testing.T) {
+	h := inboxHost(t)
+	app := inboxApp{}
+	ctx := context.Background()
+	var calls []string
+	h.DeliverTerminalReply = func(itemID, verb, text string) (string, error) {
+		calls = append(calls, itemID+":"+verb+":"+text)
+		if err := h.Store.AnnotateInboxItem(itemID, "delivered"); err != nil {
+			return "", err
+		}
+		return "term-7", nil
+	}
+	q := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromTerminal, SourceID: "term-7", Reason: "r", Title: "english?", Body: "?"})
+	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q.ID, Args: map[string]string{"reply": "yes"}}); err != nil {
+		t.Fatalf("terminal respond: %v", err)
+	}
+	if len(calls) != 1 || calls[0] != q.ID+":respond:yes" {
+		t.Fatalf("deliver calls = %v", calls)
+	}
+	if tasks, _ := h.Store.ListTasks("term-7", 5); len(tasks) != 0 {
+		t.Fatalf("terminal reply enqueued an agent task: %+v", tasks)
+	}
+
+	// Without a terminal channel the item cannot be answered silently.
+	h.DeliverTerminalReply = nil
+	q2 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromTerminal, SourceID: "term-8", Reason: "r", Title: "q2", Body: "?"})
+	if _, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q2.ID, Args: map[string]string{"reply": "hi"}}); err == nil {
+		t.Fatalf("terminal respond without a channel succeeded")
+	}
+	if got, _ := h.Store.GetInboxItem(q2.ID); got.State == store.InboxDone {
+		t.Fatalf("channelless terminal item closed")
+	}
+
+	// A legacy system-sourced question refuses with the honest copy.
+	q3 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromSystem, SourceID: "pi (unmanaged)", Reason: "r", Title: "q3", Body: "?"})
+	_, err := app.Action(ctx, h, ActionRequest{Action: "respond", Path: "item/" + q3.ID, Args: map[string]string{"reply": "hi"}})
+	if err == nil || !strings.Contains(err.Error(), "no reply channel") {
+		t.Fatalf("system-sourced respond = %v", err)
+	}
+	if got, _ := h.Store.GetInboxItem(q3.ID); got.State == store.InboxDone {
+		t.Fatalf("system-sourced item closed")
+	}
+}

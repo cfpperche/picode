@@ -7,13 +7,12 @@
 ## Current state
 
 - **Mobile v2:** focused screens, retained drafts, Sessions/Automations, Files/editor and Git workflows (ADR-0095); acceptance in `docs/plans/mobile-v2.md`.
-- **Process (ADR-0086, 2026-09-06):** `picode deploy` refuses while any agent
-  or terminal is mid-turn (`GET /api/deploy/readiness`, loopback); `main`
-  ships in batches (`make deploy-batch`, `picode-deploy.timer` at
-  12:00/18:00/23:00 — `make timers` installs it). A branch closes with
-  `make close`; iterate with `make ci-scoped`; `make ci` runs once on `main`
-  at the merge. `make worktree NAME=x` / `make worktree-gc`. Capture parity
-  is advisory in `make ci`, strict in `close` and the batch.
+- **Process (ADR-0086, 2026-09-06):** `picode deploy` refuses mid-turn
+  (`GET /api/deploy/readiness`); `main` ships in batches (`make deploy-batch`,
+  timer 12:00/18:00/23:00 — `make timers`). Iterate `make ci-scoped`; close
+  with `make close`; `make ci` once on `main` at the merge. `make worktree
+  NAME=x` / `make worktree-gc`. Capture parity advisory in `make ci`, strict
+  in `close` and the batch.
 - **Terminals:** CLI session pin + one-click resume (ADR-0084); flight
   recorder, SIGHUP-immune pane roots and the deploy log (ADR-0085). A dropped
   terminal WebSocket (phone lock, network) reattaches by itself — same xterm,
@@ -23,32 +22,29 @@
   (ADR-0088), deployed `0.1.0+d65e9a1`; Activity default-on + start
   banner on `main` as `06da6771` (not yet deployed). Terminal checklists (ADR-0081)
   on the sidebar card only; absent checklist is silence (ADR-0092). Sessions live under Agent CLIs (ADR-0079).
-  A pane answers a right-click with PiCode's menu (`lib/termMenu.js`; Shift still
-  gives the browser's, the press no longer reaches tmux); the ADR-0089 message bar
-  opens from it seeded with the selection, and Find (Ctrl+Shift+F,
-  `@xterm/addon-search`) floats over the pane without resizing it.
+  Right-click gives PiCode's pane menu (`lib/termMenu.js`); the ADR-0089
+  message bar opens from it seeded with the selection; Find (Ctrl+Shift+F,
+  `@xterm/addon-search`) floats without resizing the pane.
+- **Inbox:** replies to `ask_human` from pi in an Agent CLI terminal reach
+  that terminal's receiver and exact session (ADR-0037 amendment
+  2026-09-09); channelless blocking questions refuse visibly. Needs
+  pi-inbox 0.2.0 per pi session.
 - **CLI lifecycle (ADR-0087/0093):** Agent CLIs shows update badges (npm
   registry or vendor `--check`) and runs each CLI's own update/reinstall/
   uninstall/install as a durable `cli_jobs` lane with streamed output,
   terminal guards and typed uninstall confirmation; interrupted jobs never
-  replay. Unmanageable installs (Homebrew, manual checkouts) get docs
-  links, not controls. Detect fix (symlinks/wrappers) makes real installs
-  classify; E2E in production: hermes 0.18.2 -> 0.21.0 through the surface.
-  ADR-0093 adds install for missing npm-backed CLIs; grok/hermes guided.
+  replay. Unmanageable installs (Homebrew, manual checkouts) get docs links. Detect fix classifies real installs; E2E proven live (hermes 0.18.2→0.21.0); ADR-0093 adds install for missing npm-backed CLIs, grok/hermes guided.
 - **Inspector rail (ADR-0078):** Changes, Files, PR tab, Git actions
   (prepare, run-when-idle, "Ask <agent>" through the agent's own channel).
-- **llama.cpp manager:** deliveries 1–2 deployed (ADR-0080/0083); delivery 4
-  (`#/llama/service`, ADR-0090) as `0.1.0+c694fb2`. On main: old-installation
-  cleanup and empty setup recovery. Delivery 3 guidance remains separate.
+- **llama.cpp manager:** deliveries 1–2 + 4 deployed (ADR-0080/0083/0090;
+  `#/llama/service` as `0.1.0+c694fb2`). On main: old-installation cleanup
+  and empty setup recovery; delivery 3 guidance separate.
 - Also on `main`: File Tree v2 (0074), Git Graph per worktree (0073),
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
   at 16 px, tab strip overflow phases 2–4. Extra keys first-open `0.1.0+dfa9f7b`.
-  ADR-0089 attach bar `0.1.0+aca6628`, amended: the staging folder no longer touches the project's own `.gitignore` (a nested one instead) and ages out after 7 days. GitHub repo picker in the clone form (`0.1.0+a2e699c`, accepted live).
-  Workspace card: two actions instead of five, Files/Git graph reading through the workspace even with no agents (ADR-0027/0030), header stayed one line (owner call, same day).
-  Managed agents remain Pi-only; guests stay terminals-only (ADR-0091) until a protocol converges.
-  **Desktop user menu v2:** grouped rows with subtitles + in-menu search (mobile More
-  pattern, shared matcher `@picode/shared/domain/listSearch.js`); theme/layout radios stay.
+  ADR-0089 attach bar `0.1.0+aca6628`, amended: the staging folder no longer touches the project's own `.gitignore` (a nested one instead) and ages out after 7 days. GitHub repo picker in the clone form (`0.1.0+a2e699c`, accepted live). Workspace card: two actions instead of five, Files/Git graph reading through the workspace even with no agents (ADR-0027/0030), header stayed one line (owner call, same day).
+  Managed agents remain Pi-only; guests stay terminals-only (ADR-0091) until a protocol converges. **Desktop user menu v2:** grouped rows with subtitles + in-menu search (`@picode/shared/domain/listSearch.js`); theme/layout radios stay.
 
 ## In flight (unmerged branches on disk)
 
@@ -63,14 +59,17 @@
 5. CLI prompt door iPhone acceptance; first-class CLI agents refused until protocol convergence (ADR-0091).
 6. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
 7. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
-8. Git graph write actions (ADR-0096): all four phases shipped, reviewed adversarially, and the ask door reaches pi terminals (ADR-0089 amendment, proven live) — thirty-odd actions in risk tiers through ADR-0078's three doors, server-side composer (`internal/gitcmd`), typed confirmation for tier C by the run door, worktree+agent in one gesture, undo where an honest inverse exists. Inspector debts left: `git ls-files` search, per-anchor watch, `+N −M` footer.
+8. Git graph write actions (ADR-0096) fully shipped — the ask door reaches
+   pi terminals (ADR-0089 amendment, proven live). Inspector debts left:
+   `git ls-files` search, per-anchor watch, `+N −M` footer.
 
 ## Known debts / open questions
 
-- Hermes: live TUI Working→Ready and needs-you confirmed 2026-09-06; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`. OpenCode live Working/Needs you unproven (Activity was off on first deploy).
-- Handoff (ADR-0088/0094): visual pass done 2026-09-07, every state rendered including the live-source warning; upstream formats undocumented (bump = refused write); Codex/Grok list a handed-off session only after a restart or by id; Hermes' importer flattens tool calls.
-- CLI pane-death signal chain unproven; ADR-0085 instruments it — the next deploy
-  that loses sessions is the experiment. ADR-0084 pins nothing for terminals stopped before it (Sessions → "Open in terminal").
+- Inbox terminal replies: pi-inbox 0.1.x items (`pi (unmanaged)`) have no
+  address — answered by hand until updated per pi session; daemon death
+  between park and JSONL row = accepted gap (as the terminal ask).
+- Hermes: live TUI Working→Ready and needs-you confirmed 2026-09-06; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`. OpenCode live Working/Needs you unproven (Activity was off on first deploy).- Handoff (ADR-0088/0094): visual pass done 2026-09-07, every state rendered including the live-source warning; upstream formats undocumented (bump = refused write); Codex/Grok list a handed-off session only after a restart or by id; Hermes' importer flattens tool calls.
+- CLI pane-death signal chain unproven; ADR-0085 instruments it — the next deploy that loses sessions is the experiment. ADR-0084 pins nothing for terminals stopped before it (Sessions → "Open in terminal").
 - `Runtime.Stop` start-lease race: a stop during an in-flight managed start
   returns true without stopping. Windows `Close` kills only the direct child.
 - `internal/server` tests run serially (~55 s); they swap package-level
@@ -97,4 +96,4 @@
   with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: ARM64 hardware, GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
 - Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance remain open; file writes retain the existing lexical/symlink and non-atomic mtime limits. iOS standalone: strip workaround needs a real-device re-check after deploy; the `?strip-probe=1` test decides whether buttons can descend into the strip.
-- Notices (2026-09-07): needs-you covers the whole fleet (`agent.state`), but the *finish* card still only fires for the agent whose socket is open — a background agent's completion arrives via Inbox + phone. Neither card has been exercised against a real pi dialog; both were staged at the HTTP boundary.
+- Notices (2026-09-07): needs-you covers the whole fleet (`agent.state`), but the *finish* card only fires for the agent whose socket is open. Neither card has been exercised against a real pi dialog; both were staged at the HTTP boundary.

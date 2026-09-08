@@ -234,11 +234,62 @@ func TestRespondAndForward(t *testing.T) {
 	}
 }
 
+// A blocking question whose source has no delivery channel must fail
+// visibly and stay open — never close as "done" while nothing was sent
+// (the silent swallow found live 2026-09-08: ask_human from a terminal pi
+// filed as "pi (unmanaged)" and the reply was marked done, undelivered).
+func TestRespondAndForwardRefusesChannellessBlockingReply(t *testing.T) {
+	s := openTest(t)
+	q, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxQuestion, SourceKind: InboxFromSystem, SourceID: "pi (unmanaged)", Reason: "r", Title: "english?", Body: "?"})
+	if _, err := s.RespondAndForward(q.ID, VerbRespond, "yes", nil); !errors.Is(err, ErrNoReplyChannel) {
+		t.Fatalf("system-sourced blocking reply = %v; want ErrNoReplyChannel", err)
+	}
+	after, _ := s.GetInboxItem(q.ID)
+	if after.State == InboxDone || !strings.Contains(after.Body, "no reply channel") {
+		t.Fatalf("channelless item = %+v", after)
+	}
+	// ignore stays a legitimate out on a blocking question.
+	q2, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxQuestion, SourceKind: InboxFromSystem, Reason: "r", Title: "q2", Body: "?"})
+	if _, err := s.RespondAndForward(q2.ID, VerbIgnore, "", nil); err != nil {
+		t.Fatalf("ignore: %v", err)
+	}
+	// A terminal-sourced reply never rides the task queue: the caller
+	// delivers through the receiver; the store refuses the silent path.
+	q3, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxQuestion, SourceKind: InboxFromTerminal, SourceID: "term-1", Reason: "r", Title: "q3", Body: "?"})
+	if _, err := s.RespondAndForward(q3.ID, VerbRespond, "hi", nil); !errors.Is(err, ErrNoReplyChannel) {
+		t.Fatalf("terminal-sourced respond = %v; want ErrNoReplyChannel", err)
+	}
+}
+
+// ReopenInboxItem is the task-less reopen for terminal replies: back to
+// unread, response kept for prefill, note appended once.
+func TestReopenInboxItem(t *testing.T) {
+	s := openTest(t)
+	q, _ := s.CreateInboxItem(InboxItemParams{Kind: InboxQuestion, SourceKind: InboxFromTerminal, SourceID: "term-1", Reason: "r", Title: "q", Body: "?"})
+	if _, err := s.RespondInboxItem(q.ID, VerbRespond, "8445"); err != nil {
+		t.Fatalf("respond: %v", err)
+	}
+	got, err := s.ReopenInboxItem(q.ID, "The reply never reached the terminal. Send it again from this item.")
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	if got.State != InboxUnread || got.Response == nil || !strings.Contains(*got.Response, "8445") {
+		t.Fatalf("reopened = state %s response %v", got.State, got.Response)
+	}
+	if !strings.Contains(got.Body, "never reached the terminal") {
+		t.Fatalf("note missing: %+v", got.Body)
+	}
+	// Idempotent on the note; only a done item reopens.
+	if _, err := s.ReopenInboxItem(q.ID, "The reply never reached the terminal. Send it again from this item."); err == nil {
+		t.Fatalf("reopened an already-open item")
+	}
+}
+
 // TestRespondAndForwardInteractiveAgent covers the park-and-wake gap found
 // live: a follow_up queued for an agent running in a TUI/tmux session is
 // never drained (deliverLoop only exists for the RPC runtime). The
-// deliverable callback must refuse before enqueueing — never a silent
-// task that sits forever — and leave the item open with an actionable note.
+// deliverable callback must refuse before enqueueing, not enqueue
+// a reply that sits forever (the gap found live with grok-a7f396).
 func TestRespondAndForwardInteractiveAgent(t *testing.T) {
 	s := openTest(t)
 	ws, _ := s.AddWorkspace("wsx", t.TempDir())

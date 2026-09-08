@@ -30,10 +30,22 @@ test("parseServerJson accepts PiCode's shape, rejects garbage", () => {
 	assert.equal(parseServerJson('{"url":"ftp://x"}').ok, false);
 });
 
-test("agentIdentity uses PICODE_AGENT_ID, falls back honestly", () => {
+test("agentIdentity prefers agent, then terminal, then falls back honestly", () => {
 	assert.deepEqual(agentIdentity({ PICODE_AGENT_ID: "helper-1" }), { sourceKind: "agent", sourceId: "helper-1" });
+	// An Agent CLI terminal's pi (ADR-0089): replies route back to that terminal.
+	assert.deepEqual(agentIdentity({ PICODE_TERM_ID: "term-9" }), { sourceKind: "terminal", sourceId: "term-9" });
+	// An agent identity wins even when a terminal id is also present.
+	assert.deepEqual(agentIdentity({ PICODE_AGENT_ID: "a1", PICODE_TERM_ID: "term-9" }), { sourceKind: "agent", sourceId: "a1" });
 	assert.deepEqual(agentIdentity({}), { sourceKind: "system", sourceId: "pi (unmanaged)" });
-	assert.deepEqual(agentIdentity({ PICODE_AGENT_ID: " " }).sourceKind, "system");
+	assert.deepEqual(agentIdentity({ PICODE_AGENT_ID: " ", PICODE_TERM_ID: " " }).sourceKind, "system");
+});
+
+test("buildAskPayload records the terminal identity and the exact session", () => {
+	const p = buildAskPayload({ question: "merge?" }, { PICODE_TERM_ID: "term-9" }, "/sessions/x.jsonl");
+	assert.equal(p.sourceKind, "terminal");
+	assert.equal(p.sourceId, "term-9");
+	assert.equal(p.sessionPath, "/sessions/x.jsonl");
+	assert.equal(p.blocking, true);
 });
 
 test("buildNotifyPayload validates, defaults and clips", () => {

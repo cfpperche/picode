@@ -1,6 +1,6 @@
 {
   "name": "pi-inbox",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Opt-in inbox tools for pi: notify_human and ask_human file items into PiCode's inbox (ADR-0037).",
   "license": "MIT",
   "type": "module",

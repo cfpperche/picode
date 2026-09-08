@@ -3,7 +3,9 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -136,6 +138,95 @@ func (deps Deps) askTerminal(id, cwd, text string) (askResult, error) {
 		return askResult{}, err
 	}
 	return askResult{Mode: "interactive", Via: "receiver", Proof: true, TaskID: task.ID}, nil
+}
+
+// DeliverTerminalReply answers an Inbox item filed by a pi running in an
+// Agent CLI terminal (sourceKind "terminal", stamped from PICODE_TERM_ID by
+// pi-inbox): the reply travels through that terminal's own receiver with the
+// item's exact session as the destination — the ADR-0089 ask door, reversed.
+// The item parks done once the preflight passes (ADR-0060's contract); every
+// failure path reopens it with the response preserved for prefill. There is
+// deliberately no task row — the task queue belongs to agents (ADR-0089) —
+// so reopen goes through store.ReopenInboxItem and a daemon death between
+// park and JSONL row is the accepted terminal-ask gap.
+func (deps Deps) DeliverTerminalReply(itemID, verb, text string) (termID string, err error) {
+	it, err := deps.Store.GetInboxItem(itemID)
+	if err != nil {
+		return "", err
+	}
+	if it.SourceKind != store.InboxFromTerminal || strings.TrimSpace(it.SourceID) == "" {
+		return "", fmt.Errorf("this item has no terminal")
+	}
+	termID = it.SourceID
+	term, err := deps.Store.GetTerminal(termID)
+	if err != nil {
+		_ = deps.Store.AnnotateInboxItem(itemID, "Reply not delivered: the terminal no longer exists.")
+		return termID, fmt.Errorf("terminal no longer exists: %w", store.ErrNotFound)
+	}
+	name := term.Name
+	if name == "" {
+		name = "This terminal"
+	}
+	key := termReplyKey(termID)
+	// Every refusal names itself and leaves the item open for a retry.
+	if !termHostsPi(deps, termID) {
+		return termID, fmt.Errorf("%s is not running pi, so the reply cannot be delivered", name)
+	}
+	if _, live := deps.TermRuntimes.Get(termID); !live {
+		return termID, fmt.Errorf("%s is not running pi right now. Start it, then send the reply again", name)
+	}
+	if !deps.Replies.receiverFresh(key) {
+		return termID, fmt.Errorf("no receiver is listening in %s. Restart pi there, then send the reply again", name)
+	}
+	sessionPath := strings.TrimSpace(it.SessionPath)
+	if sessionPath == "" {
+		return termID, errors.New("this question predates session tracking — answer it in the terminal")
+	}
+	if !safeSessionPath(sessionPath, session.Dir(term.Cwd)) {
+		return termID, errors.New("the question's session could not be identified safely — answer it in the terminal")
+	}
+	if st, err := os.Stat(sessionPath); err != nil || st.IsDir() || st.Size() == 0 {
+		return termID, errors.New("the question's session no longer exists — answer it in the terminal")
+	}
+	if shown := deps.Replies.receiverSession(key); shown != "" && shown != sessionPath {
+		return termID, errors.New("the terminal is showing a different session now — answer it there, or ask again from the new session")
+	}
+	deps.Replies.mu.Lock()
+	busy := deps.Replies.active[key]
+	if !busy {
+		deps.Replies.active[key] = true
+	}
+	deps.Replies.mu.Unlock()
+	if busy {
+		return termID, fmt.Errorf("%s is already receiving a message. Try again in a moment", name)
+	}
+	defer func() {
+		deps.Replies.mu.Lock()
+		delete(deps.Replies.active, key)
+		deps.Replies.mu.Unlock()
+	}()
+
+	// Park done now; every failure below reopens with the response kept
+	// for prefill (EndInboxReply's contract, task-less).
+	if _, err := deps.Store.RespondInboxItem(itemID, verb, text); err != nil {
+		return termID, err
+	}
+	payload := store.InboxForwardPayload(it, verb, text)
+	task := store.Task{ID: "term-inbox-" + termID + "-" + time.Now().UTC().Format("20060102T150405.000000000"), Payload: payload}
+	baseline := rpc.CaptureDeliveryBaseline(sessionPath)
+	settle := deliverySettle{
+		delivered: func(store.Task) {},
+		failed: func(_ store.Task, reason string) {
+			_, _ = deps.Store.ReopenInboxItem(itemID,
+				"The reply never reached the terminal ("+reason+"). Send it again from this item.")
+		},
+		rowWait: replyRowWait,
+	}
+	if err := deps.deliverViaReceiver(key, sessionPath, task, baseline, settle); err != nil {
+		_, _ = deps.Store.ReopenInboxItem(itemID, "The reply could not be delivered to the terminal. Send it again from this item.")
+		return termID, err
+	}
+	return termID, nil
 }
 
 func handleTerminalAsk(deps Deps) http.HandlerFunc {

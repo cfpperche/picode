@@ -3,9 +3,11 @@
  *
  * notify_human files an FYI into PiCode's inbox; ask_human files a
  * blocking question and ends the turn (terminate: true) — the human's
- * reply arrives later through PiCode's durable delivery path.
- * With no reachable PiCode the tools fail softly: the model gets an
- * explanatory text result, never a thrown error to retry against.
+ * reply arrives later through PiCode's durable delivery path: the
+ * managed delivery loop, the agent TUI's receiver (ADR-0060), or — for
+ * pi launched as an Agent CLI terminal (ADR-0089) — that terminal's own
+ * receiver. With no reachable PiCode the tools fail softly: the model
+ * gets an explanatory text result, never a thrown error to retry against.
  */
 
 import { readFileSync } from "node:fs";

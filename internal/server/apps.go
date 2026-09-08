@@ -28,6 +28,9 @@ func appsHost(deps Deps, r *http.Request) apps.Host {
 		DeliverReply: func(itemID, verb, text string) (string, error) {
 			return deps.DeliverReply(r.Context(), itemID, verb, text)
 		},
+		DeliverTerminalReply: func(itemID, verb, text string) (string, error) {
+			return deps.DeliverTerminalReply(itemID, verb, text)
+		},
 	}
 }
 
