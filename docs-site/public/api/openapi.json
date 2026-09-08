@@ -4573,6 +4573,41 @@
         ]
       }
     },
+    "/api/pins/{id}/archived": {
+      "post": {
+        "operationId": "postApiPinsArchived",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "pins"
+        ]
+      }
+    },
     "/api/pins/{id}/files": {
       "post": {
         "operationId": "postApiPinsFiles",
@@ -4788,6 +4823,41 @@
     "/api/pins/{id}/sketches": {
       "post": {
         "operationId": "postApiPinsSketches",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "pins"
+        ]
+      }
+    },
+    "/api/pins/{id}/starred": {
+      "post": {
+        "operationId": "postApiPinsStarred",
         "parameters": [
           {
             "in": "path",
