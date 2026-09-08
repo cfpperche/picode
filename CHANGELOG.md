@@ -139,6 +139,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Reloading no longer announces every agent that was already waiting:**
+  the needs-you pass could not tell "nothing is waiting" from "nothing has
+  been read yet", so it seeded from the first render's empty fleet and the
+  first real answer looked like a fresh arrival — a reload with three
+  blocked agents raised three sticky cards on top of the badges that
+  already said so. The pass now waits for the fleet to have been read
+  once. A question that arrives while you are looking still announces
+  itself, which is the whole point of the card.
+
 - **Agent CLI attachments no longer dirty the project's `.gitignore` or
   pile up forever:** attaching an image or file to a Claude Code/Codex/
   Grok/Hermes/Pi terminal (ADR-0089) used to append a silent, uncommitted

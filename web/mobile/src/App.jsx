@@ -175,6 +175,10 @@ export default function MobileApp() {
   // there is recorded as seen without a toast on top of its own card.
   const announcedAsks = useRef(null);
   useEffect(() => {
+    // "Nothing is waiting" and "nothing has been read yet" are different
+    // answers: seeding on the empty first render made the first real read
+    // look like an arrival, so a reload announced the whole backlog.
+    if (!loaded) return;
     const plan = needsYouPlan(entries, announcedAsks.current, workspaceHash);
     announcedAsks.current = plan.keys;
     for (const key of plan.gone) dismissNotice(key);
@@ -185,7 +189,7 @@ export default function MobileApp() {
       : asksOnSurface(entries, route.screen === "agent" ? workspaceHash(route.id) : "", workspaceHash));
     for (const key of here) dismissNotice(key);
     for (const n of plan.fresh) if (!here.has(n.key)) notify(n);
-  }, [entries, route.screen, route.id]);
+  }, [entries, route.screen, route.id, loaded]);
 
   const fleetTotal = flatAgents(workspaces, freeAgents).length;
   const inboxApp = apps.find((a) => a.id === "inbox");
