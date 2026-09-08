@@ -3,14 +3,17 @@ import AgentRow from "../components/AgentRow.jsx";
 import TermRow from "../components/TermRow.jsx";
 import { freeTerminals } from "../lib/termGroups.js";
 import { shortPath } from "@picode/shared/domain/repoLine.js";
-import { IconPlus, IconGit, IconFolder, IconSearch, IconX } from "../components/Icons.jsx";
+import { IconPlus, IconGit, IconFolder, IconSearch, IconX, IconAgent, IconTerminal } from "../components/Icons.jsx";
 import { WORK_SECTIONS } from "../lib/mobileRoutes.js";
 import { agentMatchesSearch, terminalMatchesSearch, searchWorkspaceGroups } from "../lib/mobileListSearch.js";
+import { workEmpty } from "../lib/workEmpty.js";
 import PullScreen from "../components/PullScreen.jsx";
+import WsFavicon from "../components/WsFavicon.jsx";
 import "../styles/mobile-lists.css";
 
 const LABELS = { workspaces: "Workspaces", agents: "Agents", terminals: "Terminals" };
-const SEARCH_LABELS = { workspaces: "Search workspaces and their work", agents: "Search free agents", terminals: "Search free terminals" };
+const SEARCH_LABELS = { workspaces: "Search workspaces and their work", agents: "Search agents", terminals: "Search terminals" };
+const EMPTY_ICONS = { workspaces: IconFolder, agents: IconAgent, terminals: IconTerminal };
 let rememberedQuery = "";
 
 // Paseo's workspace grouping, adapted to one focused phone list. Search
@@ -28,7 +31,9 @@ export default function Work({ section, onSection, loaded, error, workspaces, fr
   const rows = sec === "workspaces" ? groups : sec === "agents" ? agents : terms;
   const searching = Boolean(query.trim());
   const create = () => sec === "terminals" ? onNewTerm(null) : onCreate(sec === "agents" ? "free" : "workspace");
-  const addLabel = sec === "workspaces" ? "Add workspace" : sec === "agents" ? "New agent" : "New terminal";
+  const empty = workEmpty(sec, searching);
+  const addLabel = workEmpty(sec, false).action;
+  const EmptyMark = EMPTY_ICONS[sec];
   return (
     <PullScreen scrollKey={"work:" + sec} onRefresh={onRefresh} className="m-v2-lists m-work-v2">
       <div className="m-screen-head m-list-head">
@@ -41,14 +46,15 @@ export default function Work({ section, onSection, loaded, error, workspaces, fr
       </div>
       {error ? <div className="m-list-notice" role="alert"><p>{loaded ? "Couldn’t refresh your work." : "Couldn’t load your work."}</p><button type="button" className="btn btn-sm" onClick={onRefresh}>Try again</button></div> : null}
       {!loaded ? (error ? null : <div className="m-list-loading" role="status" aria-label="Loading work">{[0, 1, 2].map(i => <div className="m-skel" key={i}><span className="skel-line w-70" /><span className="skel-line w-40" /></div>)}</div>) : rows.length === 0 ? (
-        <div className="m-list-empty" role="status">
-          <p>{searching ? "No matching work." : sec === "workspaces" ? "No workspaces yet." : sec === "agents" ? "No free agents yet." : "No free terminals yet."}</p>
-          <button type="button" className="btn btn-sm" onClick={searching ? () => setQuery("") : create}>{searching ? "Clear search" : addLabel}</button>
+        <div className={"m-list-empty" + (empty.page ? " is-page" : "")} role="status">
+          {empty.page ? <EmptyMark size={28} className="m-list-empty-icon" /> : null}
+          <p>{empty.line}</p>
+          <button type="button" className={"btn btn-sm" + (empty.page ? " btn-primary" : "")} onClick={searching ? () => setQuery("") : create}>{empty.action}</button>
         </div>
       ) : sec === "workspaces" ? groups.map(({ workspace: ws, agents: wsAgents, terminals: wsTerms }) => (
         <section key={ws.id} className="m-section m-work-group" aria-label={ws.name}>
           <div className="m-work-group-head">
-            <IconFolder size={17} />
+            <WsFavicon ws={ws} size={17} />
             <div className="m-work-group-title"><h3>{ws.name}</h3><p title={ws.path}>{[shortPath(ws.path), ws.git?.branch].filter(Boolean).join(" · ")}</p></div>
             {ws.git?.dirty ? <button type="button" className="btn btn-ghost btn-sm m-changes-btn" aria-label={ws.git.dirty + " changes in " + ws.name} onClick={() => onOpenChanges("workspace", ws.id, ws.name)}><IconGit size={13} /> {ws.git.dirty}</button> : null}
           </div>

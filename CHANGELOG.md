@@ -79,6 +79,16 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Mobile Work empty states sit in the well.** Agents, terminals and workspaces with nothing to list center one line and a primary create button in the remaining space (muted icon, no essay); a search miss stays at the top with Clear search. Copy drops "free".
+
+- **Sending a message to the terminal no longer toasts "Sent to the
+  terminal."** The user is looking at the pane and sees the message land —
+  the confirmation was chrome talking to itself. The message bar/sheet
+  closes over the visible delivery instead; toasts stay reserved for
+  failures (send errors still surface via `toastError`). Both surfaces
+  changed together: desktop bar (`TermAttachBar.jsx`) and mobile sheet
+  (`TermAttachSheet.jsx`).
+
 - **Settings now lives under Agent CLIs → Settings → Pi (ADR-0101).** Desktop and mobile retain global, trusted workspace, agent and key settings. Old links redirect; contextual URLs preserve the agent on reload. Native settings load independently of terminal setup, and failed saves retain edits.
 
 
@@ -93,6 +103,13 @@ to the `[Unreleased]` section. The repository's official language is English
 - **Pins: opening a pin with a heading or a list no longer restores an
   "unsaved" draft nobody typed.** The editor normalizes the markdown it
   loads and announced that as an edit; loading is silent now.
+
+- **Mobile: the Work list wears the workspace's project favicon.** The
+  workspace groups on the phone's Work screen showed a plain folder icon
+  even when the project has a favicon the desktop sidebar displays. The
+  group head now uses the same `hasFavicon` advertisement and
+  `/api/workspaces/{id}/favicon` endpoint, falling back to the folder
+  icon when the project has none or the file fails to load.
 
 - **Schedules in a zone with daylight-saving time no longer hang the
   daemon.** `internal/cron`'s next-match search stepped the wall clock by
