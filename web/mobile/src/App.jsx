@@ -360,6 +360,9 @@ export default function MobileApp() {
   // A pushed screen (it has the ← header) owns the whole height: the tab
   // bar goes away, Back is the way out.
   const pushed = route.screen === "app" || route.screen === "agent" || route.screen === "term" || ["changes", "files", "git"].includes(route.screen) || (route.screen === "more" && !!route.section) || (route.screen === "inbox" && !!route.id);
+  // iOS standalone: the unreachable bottom strip continues the surface it
+  // sits under — the tab bar's panel, or plain content when pushed.
+  useEffect(() => { document.documentElement.dataset.pushed = pushed ? "1" : ""; }, [pushed]);
   const changeOwner = !["changes", "files", "git"].includes(route.screen) ? null : route.section === "agent" ? findAgent(workspaces, freeAgents, route.id)
     : route.section === "term" ? { term: terminals.find((t) => t.id === route.id) }
     : { workspace: workspaces.find((w) => w.id === route.id) };

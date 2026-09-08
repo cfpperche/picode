@@ -210,6 +210,13 @@ before all three perform their Git reads. See the
 terminal extra-keys accessory stay above the software keyboard
 (ADR-0044); the accessory follows a user tap, not attach-time focus,
 and is not a second QWERTY.
+On iOS home-screen installs (standalone), WebKit parks a status-bar-sized
+strip below the layout viewport that no element can reach and still reports
+`env(safe-area-inset-bottom)` inside it (WebKit 313800/254868); the mobile
+shell detects that mode at bootstrap (`navigator.standalone`), treats the
+bottom inset as already reserved — Safari and Android keep real insets —
+and paints the canvas so the unreachable strip continues the surface above
+it (tab-bar panel on tab screens, content background when pushed).
 Both mobile settings paths save via the agent
 PATCH endpoint; changed tool mode restarts the same runtime, as on desktop.
 The model catalog parser accepts capability rows only when both final columns

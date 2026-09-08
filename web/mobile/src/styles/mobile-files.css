@@ -10,7 +10,7 @@
 .m-file-folder-bar .btn { flex-shrink: 0; }
 .m-file-search { display: flex; gap: 6px; padding: 0 8px 8px; }
 .m-file-search input { flex: 1; min-width: 0; height: var(--ctl-h); background: var(--bg-panel); color: var(--text-primary); border: 1px solid var(--border); border-radius: 8px; padding: 0 9px; font: 13px var(--sans); }
-.m-files-list { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 0 8px env(safe-area-inset-bottom); }
+.m-files-list { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 0 8px var(--sa-bottom); }
 .m-files-list ul { list-style: none; margin: 0; padding: 0; }
 .m-files-list li { border-bottom: 1px solid var(--border); }
 .m-files-list li button { display: flex; align-items: center; gap: 9px; min-height: 44px; width: 100%; padding: 8px; border: 0; background: transparent; color: var(--text-primary); text-align: left; font: 13px var(--sans); }

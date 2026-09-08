@@ -11,6 +11,23 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Fixed
+
+- **Mobile: the active-tab pill covers the label, and the installed web
+  app no longer shows a dead band above the home indicator.** The active
+  pill used to hug the icon only (28px tall) and its bottom edge cut
+  through the label's first two pixels; it now sits behind icon + label as
+  one surface. On iOS home-screen installs (standalone), WebKit parks a
+  status-bar-sized strip *below* the layout viewport that no element can
+  reach and still reports `env(safe-area-inset-bottom)` inside it — a
+  double count that wasted ~81pt under the tab bar (WebKit bugs 313800,
+  254868). The shell now flags iOS standalone at bootstrap
+  (`navigator.standalone`), treats the bottom inset as already reserved
+  (Safari and Android keep real insets), and paints the canvas so the
+  unreachable strip continues the surface it sits under — the tab bar's
+  panel on tab screens, plain content on pushed screens — instead of a
+  black band. Recovers the 34pt of doubled inset for content.
+
 ### Changed
 
 - **The dashboard counts every agent CLI, not just Pi.** `GET

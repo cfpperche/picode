@@ -9,7 +9,7 @@
 .m-agent .m-chat .chat-main { min-height: 0; }
 .m-agent .m-chat .conversation { position: relative; inset: auto; flex: 1; min-height: 0; height: auto; padding: 8px var(--m-pad) 16px; }
 .m-agent .m-chat .composer-wrap {
-  position: relative; inset: auto; flex: none; padding: 4px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  position: relative; inset: auto; flex: none; padding: 4px 8px calc(8px + var(--sa-bottom));
   background: var(--bg-base); pointer-events: auto;
 }
 #m-app.kb-open .m-agent .m-chat .composer-wrap { padding-bottom: 4px; }

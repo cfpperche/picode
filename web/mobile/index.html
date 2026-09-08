@@ -22,6 +22,13 @@
   var dark = mode === "dark" || (mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.dataset.theme = dark ? "dark" : "light";
   document.documentElement.style.colorScheme = dark ? "dark" : "light";
+  /* iOS standalone (Add to Home Screen) keeps a bottom strip outside the
+     layout viewport (WebKit bugs 313800 / 254868): env(bottom) is
+     double-counted there and CSS can only paint the canvas. Flag it before
+     first paint so the shell drops the bottom inset and the tab bar reads
+     as one surface down to the screen edge. navigator.standalone is
+     iOS-only, so Android/Chrome standalone keeps real env() insets. */
+  if (navigator.standalone === true) document.documentElement.dataset.standalone = "1";
 })();
 </script>
 </head>

@@ -2,6 +2,16 @@
    Mobile owns its frame and copied presentation. Shared theme tokens
    supply colors and fonts; these rules supply touch targets and safe areas.
    Targets: 44px controls and 56px rows. */
+:root { --sa-bottom: env(safe-area-inset-bottom, 0px); }
+/* iOS standalone (Add to Home Screen, WebKit 313800/254868): the platform
+   parks a status-bar-sized strip BELOW the layout viewport that no element
+   can reach, and still reports env(bottom) inside it — a double count.
+   Treat the bottom inset as already reserved (insets stay honest in Safari
+   and on Android), paint the canvas so the strip reads as the surface it
+   continues — the tab bar's panel, or plain content on pushed screens —
+   never the dead band iOS would otherwise fill. */
+html[data-standalone], html[data-standalone] body { --sa-bottom: 0px; background-color: var(--bg-panel); }
+html[data-standalone][data-pushed="1"], html[data-standalone][data-pushed="1"] body { background-color: var(--bg-base); }
 #m-app {
   --m-tap: 44px;
   --m-row: 56px;
@@ -20,7 +30,7 @@
   top: var(--vv-offset-top); bottom: auto; right: 0; left: 0;
   height: var(--vv-height); max-height: var(--vv-height);
 }
-#m-app.is-pushed .m-screen { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+#m-app.is-pushed .m-screen { padding-bottom: calc(24px + var(--sa-bottom)); }
 #m-app.is-pushed .m-agent, #m-app.is-pushed .m-term-screen { padding-bottom: 0; }
 #m-app .btn { min-height: var(--m-tap); font-size: 14px; }
 #m-app .btn-sm { min-height: 36px; font-size: 13px; }
@@ -58,21 +68,27 @@
 /* ---- bottom tabs ---- */
 .m-nav {
   flex: none; display: grid; grid-template-columns: repeat(4, 1fr);
-  height: calc(var(--m-nav) + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
+  height: calc(var(--m-nav) + var(--sa-bottom)); padding-bottom: var(--sa-bottom);
   background: var(--bg-panel); border-top: 1px solid var(--border);
 }
 .m-tab {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  position: relative;
   min-height: var(--m-tap); border: 0; background: none; color: var(--text-secondary);
   font: inherit; font-size: 11px; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .m-tab.on { color: var(--accent); }
-.m-tab-icon::before { content: ""; position: absolute; inset: -4px -15px; border-radius: 8px; background: transparent; transition: background 140ms var(--ease-out); }
-.m-tab.on .m-tab-icon::before { background: var(--accent-soft); }
-.m-tab-icon > svg { position: relative; }
-.m-tab-label { position: relative; }
+/* The active pill is one surface behind icon + label — it used to hug the
+   icon only and its bottom edge cut through the label. */
+.m-tab::before {
+  content: ""; position: absolute; left: 50%; transform: translateX(-50%);
+  top: 4px; bottom: 4px; width: 64px; border-radius: 13px;
+  background: transparent; transition: background 140ms var(--ease-out);
+}
+.m-tab.on::before { background: var(--accent-soft); }
+.m-tab-icon, .m-tab-label { position: relative; }
 .m-tab.on .m-tab-label { font-weight: 650; }
-.m-tab-icon { position: relative; display: inline-flex; }
+.m-tab-icon { display: inline-flex; }
 .m-tab-label { line-height: 1; }
 .m-badge {
   position: absolute; top: -6px; left: 12px;
@@ -256,7 +272,7 @@
 .m-chat { flex: 1; min-height: 0; position: relative; display: flex; margin: 0 calc(-1 * var(--m-pad)); }
 .m-chat .chat-main { flex: 1; min-width: 0; position: relative; display: flex; flex-direction: column; }
 .m-chat .conversation { padding: 0 var(--m-pad) 120px; }
-.m-chat .composer-wrap { padding: 20px var(--m-pad) calc(10px + env(safe-area-inset-bottom)); }
+.m-chat .composer-wrap { padding: 20px var(--m-pad) calc(10px + var(--sa-bottom)); }
 #m-app.kb-open .m-chat .composer-wrap { padding-bottom: 10px; }
 .m-chat .m-cta { position: absolute; left: 0; right: 0; top: 0; z-index: 3; padding: 12px var(--m-pad); background: var(--bg-base); border-bottom: 1px solid var(--border); }
 .m-term { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0 calc(-1 * var(--m-pad)); overflow: hidden; }
@@ -403,5 +419,5 @@
 @keyframes m-loading-pulse { to { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) {
   .m-loading-row :is(span, i) { animation: none; }
-  .m-tab-icon::before { transition: none; }
+  .m-tab::before { transition: none; }
 }
