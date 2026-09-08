@@ -13,6 +13,7 @@
   with `make close`; `make ci` once on `main` at the merge. `make worktree
   NAME=x` / `make worktree-gc`. Capture parity advisory in `make ci`, strict
   in `close` and the batch.
+- **Docs site:** `docs-site/` (renamed from `www/` 2026-09-08, owner call): same VitePress build and Pages URL; `www/` reserved for the product website. Make var `DOCS_STAMP`; ADR-0086 emended ("née www/").
 - **Terminals:** CLI session pin + one-click resume (ADR-0084); flight
   recorder, SIGHUP-immune pane roots and the deploy log (ADR-0085). A dropped
   terminal WebSocket (phone lock, network) reattaches by itself — same xterm,
@@ -25,10 +26,7 @@
   Right-click gives PiCode's pane menu (`lib/termMenu.js`); the ADR-0089
   message bar opens from it seeded with the selection; Find (Ctrl+Shift+F,
   `@xterm/addon-search`) floats without resizing the pane.
-- **Inbox:** replies to `ask_human` from pi in an Agent CLI terminal reach
-  that terminal's receiver and exact session (ADR-0037 amendment
-  2026-09-09); channelless blocking questions refuse visibly. Needs
-  pi-inbox 0.2.0 per pi session.
+- **Inbox:** replies to `ask_human` from pi in an Agent CLI terminal reach that terminal's receiver and exact session (ADR-0037 amendment 2026-09-09); channelless blocking questions refuse visibly. Needs pi-inbox 0.2.0 per pi session.
 - **CLI lifecycle (ADR-0087/0093):** Agent CLIs shows update badges (npm
   registry or vendor `--check`) and runs each CLI's own update/reinstall/
   uninstall/install as a durable `cli_jobs` lane with streamed output,
@@ -92,6 +90,7 @@
   names the source); grok uninstall guided-only; Windows paths out of scope.
 - Pi has one active credential slot; per-agent OAuth is an owner decision.
 - Tutorial video freshness audits are stale after source relocation; recapture is explicit. Branch protection and CODEOWNERS need the owner; desktop requests `/desktop/favicon.svg` and gets 404.
+- Screenshot fingerprints went stale-advisory with the docs-site rename (docs-shots.mjs hashes into the fingerprint); the next deploy batch recaptures on its own.
 - Inspector: Files filter covers loaded rows only; This-agent chips show only
   with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: ARM64 hardware, GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
