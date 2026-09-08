@@ -42,6 +42,7 @@
     "./domain/gitOwner.js": "./domain/gitOwner.js",
     "./domain/highlight.js": "./domain/highlight.js",
     "./domain/integrations.js": "./domain/integrations.js",
+    "./domain/listSearch.js": "./domain/listSearch.js",
     "./domain/mdSafe.js": "./domain/mdSafe.js",
     "./domain/overlayAudit.js": "./domain/overlayAudit.js",
     "./domain/pathFilter.js": "./domain/pathFilter.js",

@@ -29,6 +29,15 @@ to the `[Unreleased]` section. The repository's official language is English
   whole file instead of a mangled paste. A close button (or Escape) gives the
   pane the full height of the editor back.
 
+- **Public docs: agent terminals over SSH:** a new guide page shows how to
+  reach PiCode's tmux sessions over SSH (`tmux attach`, read-only
+  supervision with `-r`, Tailscale SSH on a server box) and the one rule:
+  never kill sessions by name pattern.
+  [Agent terminals over SSH](https://cfpperche.github.io/picode/guide/ssh-terminals).
+- **Public docs for moving a conversation between agents:** the Agent CLIs
+  guide now explains the two ways a session arrives (a native session, or
+  the vendor's own `import` for the SQLite-backed CLIs), the choices in the
+  dialog, and what stays behind; the home page names the capability.
 - **A workspace reaches its own files and history with nobody in it:**
   **Files** and **Git graph** on the workspace card's menu open the project's
   own file tree and commit graph — no agent and no terminal required. The
@@ -55,6 +64,14 @@ to the `[Unreleased]` section. The repository's official language is English
   picker next to the URL field.
 
 ### Changed
+
+- **The desktop user menu follows the mobile v2 pattern:** rows are grouped
+  (Tools / Agents and connections / PiCode / Continue) and each carries a
+  one-line description; a search field filters the menu with the same
+  matcher as the phone's More screen; a no-match search says so with a
+  Clear search action. Theme and layout radios stay in the menu; the
+  install button and version hide while searching.
+  Cites `docs/benchmarks/2026-09-07-mobile-v2.md`.
 
 - **The workspace card's actions are two, not five:** a **New** menu (agent,
   shell terminal, Agent CLI terminal) and one overflow menu holding Files,
