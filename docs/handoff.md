@@ -54,7 +54,7 @@
 5. CLI prompt door iPhone acceptance; first-class CLI agents refused until protocol convergence (ADR-0091).
 6. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy; pins v2 slice 4 — search, starred, archive (migration 037; `docs/plans/pins-v2.md`).
 7. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
-9. Windows clean-machine install (ADR-0098, accepted 2026-09-08): phase 1 = `install-picode` + `install-runtime` bootstrap stages in `picode-desktop.exe`; plan in `docs/plans/windows-clean-install.md`. Owner: Azure Trusted Signing account.
+9. Windows clean-machine install (ADR-0098, accepted 2026-09-08): phase 1 = `install-picode` + `install-runtime` bootstrap stages in `picode-desktop.exe`; phase 2 = `install.ps1` one-liner + winget experiment, no paid signing (Trusted Signing excludes Brazil; SignPath needs OSI). Plan: `docs/plans/windows-clean-install.md`.
 8. Git graph write actions (ADR-0096) fully shipped — the ask door reaches
    pi terminals (ADR-0089 amendment, proven live). Inspector debts left:
    `git ls-files` search, per-anchor watch, `+N −M` footer.
