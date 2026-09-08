@@ -73,7 +73,10 @@ to the `[Unreleased]` section. The repository's official language is English
   "Clear file…". A file the parser rejects is reported, never silently
   overwritten (explicit replace). Saves write atomically, preserve
   unknown keys, announce on the change feed, and say when they apply
-  ("on the agent's next message").
+  ("on the agent's next message"). The page follows the house control
+  recipe throughout — selects and inputs share the system's height, radius
+  and focus language in light and dark — and a thinking level cannot be set
+  without a model (it would have been silently dropped on save).
 
 - **Mobile: Preferences → Layout — fit the shell to your screen.** Two
   dials with platform-smart defaults: **Bottom bar buttons** (Auto / Low /
