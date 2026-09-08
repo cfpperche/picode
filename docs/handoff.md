@@ -24,8 +24,9 @@
   banner on `main` as `06da6771` (not yet deployed). Terminal checklists (ADR-0081)
   on the sidebar card only; absent checklist is silence (ADR-0092). Sessions live under Agent CLIs (ADR-0079).
   A pane answers a right-click with PiCode's menu (`lib/termMenu.js`; Shift still
-  gives the browser's, the press no longer reaches tmux), and the ADR-0089 message
-  bar opens from it seeded with the selection instead of standing there always.
+  gives the browser's, the press no longer reaches tmux); the ADR-0089 message bar
+  opens from it seeded with the selection, and Find (Ctrl+Shift+F,
+  `@xterm/addon-search`) floats over the pane without resizing it.
 - **CLI lifecycle (ADR-0087/0093):** Agent CLIs shows update badges (npm
   registry or vendor `--check`) and runs each CLI's own update/reinstall/
   uninstall/install as a durable `cli_jobs` lane with streamed output,
@@ -91,8 +92,7 @@
 - CLI lifecycle: npm data can lag native Claude releases by hours (the badge
   names the source); grok uninstall guided-only; Windows paths out of scope.
 - Pi has one active credential slot; per-agent OAuth is an owner decision.
-- Tutorial video freshness audits are stale after source relocation; recapture/render is explicit. Branch
-  protection and CODEOWNERS need the owner on GitHub. Desktop requests `/desktop/favicon.svg` and gets 404.
+- Tutorial video freshness audits are stale after source relocation; recapture is explicit. Branch protection and CODEOWNERS need the owner; desktop requests `/desktop/favicon.svg` and gets 404.
 - Inspector: Files filter covers loaded rows only; This-agent chips show only
   with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: ARM64 hardware, GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
