@@ -38,6 +38,7 @@ import Automations from "./components/Automations.jsx";
 import Palette from "./components/Palette.jsx";
 import ContextMenu from "./components/ContextMenu.jsx";
 import { graphActions } from "@picode/shared/domain/graphActions.js";
+import GitActionDialog from "./components/GitActionDialog.jsx";
 import { paneAt, paneSelection, paneLink, focusPane } from "./lib/termActions.js";
 import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
@@ -153,6 +154,12 @@ export default function App() {
     });
   }, []);
   const [ctxMenu, setCtxMenu] = useState(null);
+  // The server's action catalog (ADR-0096): which git actions exist and what
+  // risk tier each carries. Read once; with none, the graph offers no write
+  // action at all rather than guessing a tier.
+  const [gitCatalog, setGitCatalog] = useState(null);
+  const [gitAction, setGitAction] = useState(null);
+  const [gitActionTick, setGitActionTick] = useState(0);
   const [treeOpen, setTreeOpen] = useState(false);
   const [sessionOpen, setSessionOpen] = useState(false);
   const [treeMode, setTreeMode] = useState("tree");
@@ -1024,6 +1031,19 @@ export default function App() {
     prepareSurface(loc.agent);
   }
 
+  useEffect(() => {
+    let live = true;
+    api("/api/git/actions")
+      .then((page) => {
+        if (!live) return;
+        const byId = {};
+        for (const a of (page && page.actions) || []) if (a && a.id) byId[a.id] = a;
+        setGitCatalog(byId);
+      })
+      .catch(() => { /* no catalog, no write actions — the graph fails closed */ });
+    return () => { live = false; };
+  }, []);
+
   function revealAgent(id, list) {
     openTab(id, list);
     go("workspace", id);
@@ -1032,10 +1052,19 @@ export default function App() {
   // The git graph's context menu (ADR-0096). The graph resolves what the
   // reader pointed at; the app knows which agents are alive, so the menu is
   // composed here and rendered by the one PiCode context menu.
-  function openGraphMenu({ x, y, target, graph }) {
-    const menu = graphActions(target, graph, { workspaces, freeAgents });
+  // A write row carries everything the form needs: the action, its tier and
+  // the target. The owner and the folder come from the tab the menu was
+  // opened on, so a command is never composed for another repository.
+  function openGraphAction(item, ctx) {
+    if (!item || !ctx || !ctx.owner) return;
+    setGitAction({ item, owner: ctx.owner, root: ctx.root || "", agents: ctx.agents || [] });
+  }
+
+  function openGraphMenu({ x, y, target, graph, owner, root }) {
+    const menu = graphActions(target, graph, { workspaces, freeAgents, catalog: gitCatalog });
     if (!menu.title) return;
-    setCtxMenu({ x, y, graph: menu });
+    const here = (menu.occupants || []).filter((o) => o.running !== false);
+    setCtxMenu({ x, y, graph: menu, graphCtx: { owner, root, agents: here } });
   }
 
   function prepareSurface(a) {
@@ -1072,16 +1101,19 @@ export default function App() {
   // (task queue for a managed agent, receiver or paste for a TUI) and says
   // which, so the note is honest about when the agent acts. The view is not
   // retargeted: the agent's own tab shows the turn.
-  async function askAgentGit(who, text, root, action) {
+  async function askAgentGit(who, text, root, action, verb) {
     try {
       const res = await api("/api/agents/" + encodeURIComponent(who.id) + "/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, root }),
       });
-      toast.info(askedNote(who.name, action, res));
+      // The graph composes thirty-odd actions the rail's own verb table never
+      // knew; when the server named one, that name is what the toast says.
+      toast.info(askedNote(who.name, action, res, verb));
     } catch (e) {
       toastError(e);
+      throw e;
     }
   }
 
@@ -2572,6 +2604,7 @@ export default function App() {
                 onKey={(key) => onGitKey(id, key)}
                 onClose={() => closeTab(id)}
                 onMenu={openGraphMenu}
+                actionTick={gitActionTick}
               />
             );
           })}
@@ -2940,7 +2973,35 @@ export default function App() {
           if (a.kind === "stop") stopAgent(a.wsId);
         }}
       />
-      <ContextMenu state={ctxMenu} onClose={() => setCtxMenu(null)} themeMode={themeMode} onTheme={setTheme} termHandlers={termMenuHandlers} onOpenAgent={revealAgent} />
+      <ContextMenu
+        state={ctxMenu}
+        onClose={() => setCtxMenu(null)}
+        themeMode={themeMode}
+        onTheme={setTheme}
+        termHandlers={termMenuHandlers}
+        onOpenAgent={revealAgent}
+        onGraphAction={openGraphAction}
+      />
+
+      <GitActionDialog
+        open={!!gitAction}
+        owner={gitAction ? gitAction.owner : null}
+        root={gitAction ? gitAction.root : ""}
+        item={gitAction ? gitAction.item : null}
+        agents={gitAction ? gitAction.agents : []}
+        run={!!inspectorPrefs.run}
+        onClose={() => setGitAction(null)}
+        onDeliver={async (command, opts) => {
+          await typeIntoTerminal(gitAction.owner, gitAction.root, command, opts);
+          // The graph learns the outcome by watching, not by return value:
+          // the command was typed or submitted, not finished (ADR-0096).
+          setGitActionTick((n) => n + 1);
+        }}
+        onAsk={async (who, text, action, verb) => {
+          await askAgentGit(who, text, gitAction.root, action, verb);
+          setGitActionTick((n) => n + 1);
+        }}
+      />
       <Toasts />
       <CreateForm
         open={showForm}

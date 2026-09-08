@@ -422,9 +422,25 @@ func mergedBranches(dir string) map[string]struct{} {
 	return set
 }
 
-// loadRemotes lists the configured remote names. A repository with none can
+// Remotes lists the configured remote names. A repository with none can
 // neither push nor pull, and the menu hides both instead of offering a
 // command git would refuse.
+func Remotes(dir string) []string {
+	return loadRemotes(dir)
+}
+
+// Checkout answers the two facts a command needs about where it will run:
+// the current branch and its upstream. A detached HEAD has neither, and says
+// so rather than returning a plausible name (ADR-0096).
+func Checkout(dir string) (branch, upstream string, detached bool) {
+	branch = strings.TrimSpace(git(dir, "rev-parse", "--abbrev-ref", "HEAD"))
+	if branch == "" || branch == "HEAD" {
+		return "", "", true
+	}
+	upstream = strings.TrimSpace(git(dir, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"))
+	return branch, upstream, false
+}
+
 func loadRemotes(dir string) []string {
 	out := git(dir, "remote")
 	remotes := []string{}

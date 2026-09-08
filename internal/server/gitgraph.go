@@ -40,13 +40,18 @@ type worktreeView struct {
 }
 
 type graphView struct {
-	Key         string                    `json:"key"`
-	Name        string                    `json:"name"`
-	Head        string                    `json:"head"`
-	Commits     []gitgraph.Commit         `json:"commits"`
-	Refs        []gitgraph.Ref            `json:"refs"`
-	Worktrees   []worktreeView            `json:"worktrees"`
-	Remotes     []string                  `json:"remotes"`
+	Key       string            `json:"key"`
+	Name      string            `json:"name"`
+	Head      string            `json:"head"`
+	Commits   []gitgraph.Commit `json:"commits"`
+	Refs      []gitgraph.Ref    `json:"refs"`
+	Worktrees []worktreeView    `json:"worktrees"`
+	Remotes   []string          `json:"remotes"`
+	// Root is the owner's canonical folder — the equality precondition every
+	// other owner read uses (ADR-0074). A command composed for this graph
+	// carries it back, so a terminal that moved never receives one meant for
+	// where it used to be.
+	Root        string                    `json:"root"`
 	Uncommitted *gitgraph.UncommittedInfo `json:"uncommitted,omitempty"`
 	More        bool                      `json:"more"`
 	Token       string                    `json:"token,omitempty"`
@@ -173,6 +178,7 @@ func writeGraph(w http.ResponseWriter, r *http.Request, deps Deps, cwd string) {
 	}
 	view := deps.graphView(g)
 	view.Token = token
+	view.Root = canonDir(cwd)
 	writeJSON(w, http.StatusOK, view)
 }
 

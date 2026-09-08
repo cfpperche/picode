@@ -55,7 +55,7 @@ function clampDetail(n) {
 // The graph of one repository (ADR-0022). The owner in `owner` is what the
 // server reads through; the repository it answers with is what the tab is.
 
-export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu }) {
+export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu, actionTick = 0 }) {
   const [graph, setGraph] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -70,6 +70,10 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu 
     return Number.isFinite(n) ? clampDetail(n) : 280;
   });
   const [query, setQuery] = useState("");
+  // What an action delivered, and whether the repository has answered yet
+  // (ADR-0096): a command travels to a terminal or an agent, so the graph
+  // learns the outcome by watching git, not by a return value.
+  const [pending, setPending] = useState(null);
   const keyRef = useRef("");
   // Leaving the tab must not throw away the history the reader scrolled into:
   // the graph stays mounted, so `limit`, the open commit, the search and the
@@ -113,6 +117,42 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu 
     [anchors],
   );
 
+  // The completion signal is ADR-0038's cheap token endpoint — three execs,
+  // no log — polled only while an action is pending and this tab is visible.
+  // No standing timer: ADR-0030 and 0073 refused one, and this one stops.
+  const tokenRef = useRef("");
+  tokenRef.current = graph ? graph.token || "" : "";
+  const loadRef = useRef(null);
+  useEffect(() => {
+    if (!actionTick || !ownerIdRef.current) return undefined;
+    const started = tokenRef.current;
+    setPending({ since: Date.now(), settled: false });
+    let live = true;
+    let tries = 0;
+    const tick = async () => {
+      if (!live) return;
+      tries += 1;
+      if (document.hidden) return;
+      try {
+        const head = await api(`${baseRef.current}${encodeURIComponent(ownerIdRef.current)}/git/head`);
+        if (!live) return;
+        if (head && head.token && head.token !== started) {
+          setPending(null);
+          if (loadRef.current) loadRef.current();
+          clearInterval(timer);
+        }
+      } catch {
+        /* a poll that fails is not an outcome; the deadline still applies */
+      }
+      if (tries >= 30) {
+        setPending((p) => (p ? { ...p, settled: true } : null));
+        clearInterval(timer);
+      }
+    };
+    const timer = setInterval(tick, 1000);
+    return () => { live = false; clearInterval(timer); };
+  }, [actionTick]);
+
   const onSearchKey = (e) => {
     if (e.key !== "Enter" || matchList.length === 0) return;
     e.preventDefault();
@@ -121,6 +161,12 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu 
 
   const base = ownerBase(owner);
   const ownerId = owner ? owner.id : "";
+  // The watch above outlives a re-render, so it reads the owner through refs
+  // rather than closing over values the next render replaces.
+  const baseRef = useRef(base);
+  baseRef.current = base;
+  const ownerIdRef = useRef(ownerId);
+  ownerIdRef.current = ownerId;
 
   // onKey lives in a ref so `load` stays stable across parent re-renders. The
   // App re-renders on every sidebar poll and hands down a fresh onKey closure;
@@ -169,10 +215,16 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu 
     load(limit);
   }, [load, limit]);
 
+  // The pending watch (above) is declared before `load` exists, so it reaches
+  // it through this ref rather than being reordered around it.
+  loadRef.current = () => load(limit);
+
   // Refresh is manual again (back to ADR-0030; the ADR-0038 token poll is
   // gone). With several agents committing, the poll kept a ~340ms graph load
   // in flight so often that busy disabled Load earlier and Refresh most of
-  // the time, and the view jumped underneath the reader.
+  // the time, and the view jumped underneath the reader. The token endpoint
+  // comes back for exactly one job (ADR-0096): watching for the outcome of an
+  // action this surface just delivered, and stopping when it lands.
 
   // Earlier commits load on demand: reaching the bottom of the scroll doubles
   // the window (no button — the scrollbar is the request). The count==limit
@@ -327,6 +379,15 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu 
         ) : null}
       </header>
 
+      {pending ? (
+        <p className={"gg-pending" + (pending.settled ? " gg-pending-slow" : "")} role="status" aria-live="polite">
+          {pending.settled ? (
+            <>Still running. Watch it in the terminal it was sent to, then Refresh.</>
+          ) : (
+            <><span className="gg-pending-dot" aria-hidden="true" />Waiting for the repository to change…</>
+          )}
+        </p>
+      ) : null}
       {error ? <p className="gg-warn">{error}</p> : null}
       {selectedMissing ? (
         <p className="gg-warn">
@@ -351,7 +412,7 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu 
           onSizerDown={onSizerDown}
           onEndReached={onEndReached}
           loadingEarlier={busy}
-          onMenu={onMenu && graph ? (m) => onMenu({ ...m, graph }) : null}
+          onMenu={onMenu && graph ? (m) => onMenu({ ...m, graph, owner, root: graph.root || "" }) : null}
           detail={
             isUncommittedHash(selected) ? (
               anchorFor(selected) ? (

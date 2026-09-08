@@ -133,8 +133,8 @@ const ASK_VERBS = { fetch: "fetch", pull: "pull", push: "push", commit: "commit"
 // askedNote: the toast after an ask, honest about when the agent acts. The
 // server says which door the prompt took: a managed agent's queue (now, or
 // after the turn it is in) or a TUI's terminal.
-export function askedNote(name, action, result) {
-  const verb = ASK_VERBS[action] || "do it";
+export function askedNote(name, action, result, composedVerb = "") {
+  const verb = composedVerb || ASK_VERBS[action] || "do it";
   const who = name || "the agent";
   const r = result || {};
   if (r.mode === "interactive") return `Asked ${who} to ${verb} in its terminal.`;

@@ -3,11 +3,16 @@
 // returns a menu description. Nothing here runs git, navigates, or touches
 // the DOM — the caller does that.
 //
-// Phase 1 carries tier 0 only: the actions that cost no git command at all
-// (clipboard, opening a tab that already exists). Tiers A-C arrive with the
-// delivery doors in phase 2. An item that git would refuse is never listed:
-// a branch checked out in a sibling worktree offers the way into that
-// checkout instead of a checkout git will reject.
+// Tier 0 rows cost no git command at all (clipboard, opening a tab that
+// already exists). Tiers A-C compose a command on the server and travel to
+// one of ADR-0078's three doors. An item git would refuse is never listed: a
+// branch checked out in a sibling worktree offers the way into that checkout
+// instead of a checkout git will reject.
+//
+// The tier of an action is *not* decided here. It comes from the server's
+// catalog (GET /api/git/actions), because a client that believed a tier C
+// action were tier B would skip the confirmation that tier exists for. With
+// no catalog loaded, this module offers tier 0 only — it fails closed.
 
 function basename(p) {
   const s = String(p || "").replace(/\/+$/, "");
@@ -99,27 +104,241 @@ function copyItem(id, label, value) {
 
 const REF_NOUN = { head: "Branch", remote: "Remote branch", tag: "Tag" };
 
-// refSubmenus turns the pills drawn on a row into one submenu each, so every
-// action a pill offers is also reachable from the row itself.
-function refSubmenus(refs, graph, ctx, occupants) {
+// refSections lays each pill drawn on the row out as its own labelled section
+// of the same menu, so every action a pill offers is reachable from the row —
+// a pill is a span inside the row's button and a keyboard cannot point at one
+// (WCAG 2.1.1).
+//
+// Sections rather than submenus, deliberately: a submenu is a second layer of
+// interaction for rows that are one click each, and it puts the leaf a hover
+// away from the label that gives it meaning. The menu grows taller instead,
+// and scrolls inside itself when the window is short.
+function refSections(refs, graph, ctx, occupants) {
   const out = [];
   for (const ref of refs || []) {
     if (!ref || !ref.name || !REF_NOUN[ref.kind]) continue;
     const menu = graphActions({ kind: "ref", ref }, graph, ctx, occupants);
     if (!menu.items.length) continue;
     out.push({
-      id: "ref:" + ref.kind + ":" + ref.name,
-      kind: "sub",
+      id: "section:ref:" + ref.kind + ":" + ref.name,
+      kind: "section",
       label: `${REF_NOUN[ref.kind]} ${ref.name}`,
-      // A submenu can open far from its trigger (Radix flips it away from a
-      // viewport edge), so it names its own subject rather than relying on
-      // the row above it.
-      name: ref.name,
       state: menu.state,
-      items: menu.items,
     });
+    out.push(...menu.items);
   }
   return out;
+}
+
+
+// --- Write actions (ADR-0096 phases 2-4) ----------------------------------
+
+// LABELS is UI copy: what an action is called where the reader meets it. The
+// tier and the fields each needs come from the server's catalog, never from
+// here.
+export const LABELS = {
+  fetch: "Fetch",
+  "fetch-into-local": "Fetch into a local branch…",
+  pull: "Pull (fast-forward only)",
+  "pull-remote": "Pull into current branch",
+  checkout: "Switch to this branch",
+  "checkout-detach": "Check out this commit (detached)",
+  "checkout-remote": "Check out as a local branch…",
+  "create-branch": "Create a branch here…",
+  "create-tag": "Create a tag here…",
+  "create-worktree": "Create a worktree…",
+  "prune-worktrees": "Prune stale worktrees",
+  merge: "Merge into current branch",
+  rebase: "Rebase current onto this",
+  "cherry-pick": "Cherry-pick onto current",
+  revert: "Revert this commit",
+  "reset-soft": "Reset here, keep changes staged",
+  "reset-mixed": "Reset here, keep changes",
+  "rename-branch": "Rename this branch…",
+  "delete-branch": "Delete this branch",
+  commit: "Commit…",
+  "commit-push": "Commit and push…",
+  pr: "Create a pull request",
+  push: "Push",
+  "push-force": "Force-push (with lease)",
+  "push-tag": "Push this tag",
+  "delete-branch-force": "Delete this unmerged branch",
+  "delete-remote-branch": "Delete on the remote",
+  "delete-tag": "Delete this tag",
+  "reset-hard": "Reset here, discard changes",
+  discard: "Discard all uncommitted changes",
+  clean: "Delete every untracked file",
+  "worktree-remove": "Remove this worktree",
+  "worktree-remove-force": "Remove it and its uncommitted work",
+};
+
+// FIELD_LABELS name the one input an action collects, in the words that suit
+// that action rather than the composer's field name.
+export const FIELD_LABELS = {
+  "fetch-into-local": { name: "Local branch name" },
+  "checkout-remote": { name: "Local branch name" },
+  "create-branch": { name: "Branch name" },
+  "create-tag": { name: "Tag name" },
+  "create-worktree": { name: "Worktree folder name" },
+  "rename-branch": { name: "New branch name" },
+  commit: { message: "Commit message" },
+  "commit-push": { message: "Commit message" },
+};
+
+// actionItem turns an id into a menu row, or nothing when the catalog has
+// never heard of it. The catalog is the only source of the tier.
+function actionItem(id, catalog, target) {
+  const info = catalog && catalog[id];
+  if (!info || !LABELS[id]) return null;
+  return {
+    id: "act:" + id,
+    kind: "action",
+    action: id,
+    label: LABELS[id],
+    tier: info.tier,
+    needs: info.needs || [],
+    target,
+  };
+}
+
+function actionItems(ids, catalog, target) {
+  const out = [];
+  for (const id of ids) {
+    const item = actionItem(id, catalog, target);
+    if (item) out.push(item);
+  }
+  return out;
+}
+
+// hasRemote: without one, push, pull and fetch are commands git can only
+// refuse, so the rows do not exist (the reference tool's own rule).
+function hasRemote(graph) {
+  return ((graph && graph.remotes) || []).length > 0;
+}
+
+function localNamed(graph, name) {
+  return ((graph && graph.refs) || []).some((r) => r.kind === "head" && r.name === name);
+}
+
+// commitWriteActions: what may be done to a commit that is not the HEAD the
+// graph was read through. Merging or rebasing onto the commit you are already
+// on is a no-op git would report as "Already up to date" — a row that can
+// only do nothing is not offered.
+function commitWriteActions(commit, graph, catalog) {
+  const isHead = commit.hash === graph.head;
+  // Thirteen rows in one list is a menu nobody reads and a popup that runs
+  // off the bottom of the window. They group by what they do to the
+  // repository: make something new, apply this commit's work somewhere, or
+  // move the branch you are on.
+  const groups = [
+    ["Create", ["create-branch", "create-tag", "create-worktree"]],
+    ["Apply", isHead ? ["revert"] : ["cherry-pick", "revert", "merge", "rebase"]],
+    ["Move this branch", isHead ? ["reset-soft", "reset-mixed", "reset-hard"] : ["checkout-detach", "reset-soft", "reset-mixed", "reset-hard"]],
+  ];
+  const out = [];
+  for (const [label, ids] of groups) {
+    const items = actionItems(ids, catalog, commit.hash);
+    if (!items.length) continue;
+    out.push({ id: "section:" + label, kind: "section", label });
+    out.push(...items);
+  }
+  return out;
+}
+
+// branchWriteActions applies the rules git enforces anyway, before the click:
+// a branch held by another checkout cannot be switched to or deleted, the
+// branch you are on cannot be merged into itself, and only the current branch
+// is what `git push` publishes.
+function branchWriteActions(ref, graph, catalog, { checkedOut, isCurrent }) {
+  const ids = [];
+  if (!checkedOut) ids.push("checkout", "create-worktree");
+  if (!isCurrent) ids.push("merge", "rebase");
+  ids.push("rename-branch");
+  if (isCurrent && hasRemote(graph)) ids.push("push", "push-force");
+  if (!checkedOut) {
+    ids.push(ref.merged ? "delete-branch" : "delete-branch-force");
+  }
+  return actionItems(ids, catalog, ref.name);
+}
+
+function remoteWriteActions(ref, graph, catalog) {
+  const local = ref.name.slice(ref.name.indexOf("/") + 1);
+  const ids = [];
+  if (!localNamed(graph, local)) ids.push("checkout-remote", "fetch-into-local");
+  ids.push("pull-remote", "delete-remote-branch");
+  return actionItems(ids, catalog, ref.name);
+}
+
+function tagWriteActions(ref, graph, catalog) {
+  const ids = hasRemote(graph) ? ["push-tag", "delete-tag"] : ["delete-tag"];
+  return actionItems(ids, catalog, ref.name);
+}
+
+// worktreeWriteActions: only a sibling checkout under the repository's own
+// .worktrees/ can be removed by name, because that is the only shape the
+// composer builds. Removing the checkout you are reading through would pull
+// the floor out from under the command itself.
+function worktreeWriteActions(wt, graph, catalog) {
+  const ids = ["prune-worktrees"];
+  const items = actionItems(ids, catalog, "");
+  if (!wt.self && worktreeSlug(wt, graph)) {
+    for (const id of ["worktree-remove", "worktree-remove-force"]) {
+      const item = actionItem(id, catalog, "");
+      if (item) {
+        item.name = worktreeSlug(wt, graph);
+        items.push(item);
+      }
+    }
+  }
+  return items;
+}
+
+// worktreeSlug is the single segment under .worktrees/ that names a checkout,
+// or "" when the worktree lives somewhere else — the composer only builds
+// `.worktrees/<name>`, so anything else is not offered rather than guessed.
+export function worktreeSlug(wt, graph) {
+  const self = ((graph && graph.worktrees) || []).find((w) => w.self);
+  const root = normDir(self && self.path);
+  const path = normDir(wt && wt.path);
+  if (!root || !path) return "";
+  for (const base of [root, root.replace(/\/\.worktrees\/[^/]+$/, "")]) {
+    const prefix = base + "/.worktrees/";
+    if (path.startsWith(prefix)) {
+      const rest = path.slice(prefix.length);
+      if (rest && !rest.includes("/")) return rest;
+    }
+  }
+  return "";
+}
+
+// uncommittedWriteActions: only the checkout the graph was read through can
+// be committed from here, because the command runs in a terminal sitting in
+// that folder. A sibling worktree's row keeps its Open <agent> row instead —
+// the agent living there is that tree's own door.
+function uncommittedWriteActions(wt, graph, catalog) {
+  if (!wt.self) return [];
+  const ids = ["commit"];
+  if (hasRemote(graph)) ids.push("commit-push");
+  ids.push("discard", "clean");
+  return actionItems(ids, catalog, "");
+}
+
+// repoWriteActions are the ones that need no target: the header's own menu.
+export function repoActions(graph, ctx = {}) {
+  const catalog = ctx.catalog || null;
+  const ids = [];
+  if (hasRemote(graph)) ids.push("fetch", "pull", "push", "pr");
+  ids.push("create-branch");
+  const items = actionItems(ids, catalog, graph.head || "");
+  const occupants = repoOccupants(graph, ctx);
+  return {
+    title: graph.name || "this repository",
+    kind: "repo",
+    state: "",
+    busy: busyLine(occupants),
+    occupants,
+    items,
+  };
 }
 
 // graphActions describes the menu for one target.
@@ -134,7 +353,8 @@ function refSubmenus(refs, graph, ctx, occupants) {
 export function graphActions(target, graph = {}, ctx = {}, known = null) {
   const occupants = known || repoOccupants(graph, ctx);
   const busy = busyLine(occupants);
-  const none = { title: "", kind: "", state: "", items: [], busy };
+  const catalog = ctx.catalog || null;
+  const none = { title: "", kind: "", state: "", items: [], busy, occupants };
   if (!target || !target.kind) return none;
 
   if (target.kind === "commit") {
@@ -145,14 +365,14 @@ export function graphActions(target, graph = {}, ctx = {}, known = null) {
       kind: "commit",
       state: "",
       busy,
+      occupants,
       items: [
         copyItem("copy-hash", "Copy commit hash", c.hash),
         ...(c.subject ? [copyItem("copy-subject", "Copy commit subject", c.subject)] : []),
-        // The pills on this row are spans inside the row's own button, so a
-        // keyboard has no way to point at one. The row's menu therefore
-        // carries each ref as a submenu: right-clicking the pill is the
-        // shortcut, not the only door (WCAG 2.1.1).
-        ...refSubmenus(target.refs, graph, ctx, occupants),
+        ...commitWriteActions(c, graph, catalog),
+        // Right-clicking a pill is the shortcut; the row's own menu is the
+        // door that a keyboard can reach.
+        ...refSections(target.refs, graph, ctx, occupants),
       ],
     };
   }
@@ -165,10 +385,13 @@ export function graphActions(target, graph = {}, ctx = {}, known = null) {
       kind: "worktree",
       state: wt.detached ? "Detached HEAD." : "",
       busy,
+      occupants,
       items: [
         ...openAgentItems(wt, occupants),
         ...(wt.branch ? [copyItem("copy-branch", "Copy branch name", wt.branch)] : []),
         copyItem("copy-path", "Copy worktree path", wt.path),
+        ...(target.uncommitted ? uncommittedWriteActions(wt, graph, catalog) : []),
+        ...worktreeWriteActions(wt, graph, catalog),
       ],
     };
   }
@@ -182,7 +405,8 @@ export function graphActions(target, graph = {}, ctx = {}, known = null) {
       kind: "tag",
       state: "",
       busy,
-      items: [copyItem("copy-tag", "Copy tag name", ref.name)],
+      occupants,
+      items: [copyItem("copy-tag", "Copy tag name", ref.name), ...tagWriteActions(ref, graph, catalog)],
     };
   }
 
@@ -192,7 +416,8 @@ export function graphActions(target, graph = {}, ctx = {}, known = null) {
       kind: "remote",
       state: "",
       busy,
-      items: [copyItem("copy-branch", "Copy branch name", ref.name)],
+      occupants,
+      items: [copyItem("copy-branch", "Copy branch name", ref.name), ...remoteWriteActions(ref, graph, catalog)],
     };
   }
 
@@ -212,9 +437,11 @@ export function graphActions(target, graph = {}, ctx = {}, known = null) {
     kind: "head",
     state,
     busy,
+    occupants,
     items: [
       ...(elsewhere ? openAgentItems(wt, occupants) : []),
       copyItem("copy-branch", "Copy branch name", ref.name),
+      ...branchWriteActions(ref, graph, catalog, { checkedOut: !!wt, isCurrent: !!(wt && wt.self) }),
     ],
   };
 }
@@ -243,4 +470,50 @@ export function trackingTitle(ref) {
   if (ref.behind) parts.push(`${ref.behind} behind`);
   if (!parts.length) return `${ref.name} is level with ${ref.upstream}`;
   return `${ref.name} is ${parts.join(" and ")} ${ref.upstream}`;
+}
+
+// --- Gates (ADR-0096) ------------------------------------------------------
+
+// confirmPhrase is what a reader types before PiCode itself presses Enter on
+// a tier C action. The prepare door needs none: there the human reads the
+// command in their own prompt and submits it, which *is* the confirmation.
+// The run door has no such moment, so it borrows one.
+//
+// The phrase is always something already on screen — the ref, the folder, or
+// the plain word for what is about to be lost — so it can be read off the
+// dialog rather than guessed.
+export function confirmPhrase(action, { target = "", name = "", branch = "" } = {}) {
+  switch (action) {
+    case "delete-branch-force":
+    case "delete-tag":
+    case "delete-remote-branch":
+      return target;
+    case "worktree-remove":
+    case "worktree-remove-force":
+      return name;
+    case "push":
+    case "push-force":
+    case "commit-push":
+      return branch;
+    case "push-tag":
+      return target;
+    case "reset-hard":
+    case "discard":
+    case "clean":
+      return "discard";
+    default:
+      return "";
+  }
+}
+
+// gateFor says what stands between the reader and the delivery.
+//
+//   door    "prepare" | "run" | "ask"
+//   tier    from the server's catalog
+//
+// Asking an agent is never gated here: the agent is a reader too, it acts in
+// its own turn under its own rules, and the prompt says what may be lost.
+export function gateFor({ tier = "", door = "prepare", action = "", target = "", name = "", branch = "" } = {}) {
+  if (door !== "run" || tier !== "C") return { typed: "" };
+  return { typed: confirmPhrase(action, { target, name, branch }) };
 }

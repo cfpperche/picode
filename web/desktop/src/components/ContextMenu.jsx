@@ -3,7 +3,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import {
   IconChat, IconChevronRight, IconClear, IconClip, IconCopy, IconExternal, IconFile, IconFolders,
-  IconAgent, IconMonitor, IconMoon, IconPaste, IconPencil, IconReload, IconScrollEnd, IconSelectAll,
+  IconAgent, IconGit, IconMonitor, IconMoon, IconPaste, IconPencil, IconReload, IconScrollEnd, IconSelectAll,
   IconSearch, IconSettings, IconSun, IconTextSize, IconTrash, IconX,
 } from "./Icons.jsx";
 import { isEditableTarget, insertAtCaret } from "../lib/contextMenuClipboard.js";
@@ -29,7 +29,7 @@ const TERM_ICONS = {
 // pane-detection logic in App.jsx's own listener. DropdownMenu gives what a
 // menu of this size needs anyway — roving focus, typeahead, submenus — which
 // a Popover never had.
-export default function ContextMenu({ state, onClose, themeMode, onTheme, termHandlers, onOpenAgent }) {
+export default function ContextMenu({ state, onClose, themeMode, onTheme, termHandlers, onOpenAgent, onGraphAction }) {
   // Every read of `state` goes through these: the component stays mounted
   // with state === null so Radix keeps owning its own teardown, and the
   // rows below are evaluated on every render, open or not.
@@ -39,6 +39,9 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
   const target = open ? state.target : null;
   const link = open ? state.link : null;
   const graph = open ? state.graph : null;
+  // Read once per render, like `graph` above: a row's handler must not reach
+  // back into `state` at click time, when the menu may already be closing.
+  const graphCtx = open ? state.graphCtx : null;
   const NextThemeIcon = THEME_ICON[themeMode] || IconMonitor;
   const ran = useRef(false);
 
@@ -78,6 +81,8 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
       ran.current = true;
       if (item.kind === "copy") copyText(item.value);
       else if (item.kind === "open-agent" && onOpenAgent) onOpenAgent(item.agentId);
+      // A write row opens the form; nothing is composed or sent from a menu.
+      else if (item.kind === "action" && onGraphAction) onGraphAction(item, graphCtx);
     };
   }
 
@@ -139,6 +144,15 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
 // the facts that decide what may be done to it; phase 1 carries tier 0 rows
 // only, so nothing here runs git. An empty item list renders as the header
 // alone — the reader still learns which checkout holds the branch.
+// A row's icon says what kind of act it is before the label does: copying,
+// opening a tab, or a git command — and a tier C command wears the app's
+// danger colour, as every other destructive row does.
+function graphIcon(item) {
+  if (item.kind === "copy") return <IconCopy />;
+  if (item.kind === "open-agent") return <IconAgent />;
+  return <IconGit />;
+}
+
 function GraphMenu({ menu, onRun }) {
   return (
     <>
@@ -148,32 +162,20 @@ function GraphMenu({ menu, onRun }) {
         {menu.busy ? <span className="um-note um-note-busy">{menu.busy}</span> : null}
       </div>
       {menu.items.length ? <div className="um-divider" /> : null}
-      {menu.items.map((item) => (item.kind === "sub"
+      {menu.items.map((item) => (item.kind === "section"
         ? (
-          <DropdownMenu.Sub key={item.id}>
-            <DropdownMenu.SubTrigger className="um-item">
-              <span className="um-item-name">{item.label}</span>
-              <IconChevronRight size={13} className="um-chev" />
-            </DropdownMenu.SubTrigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.SubContent className="um-popover" sideOffset={2} collisionPadding={8}>
-                <div className="um-head">
-                  <span className="um-head-name">{item.name}</span>
-                  {item.state ? <span className="um-note">{item.state}</span> : null}
-                </div>
-                <div className="um-divider" />
-                {item.items.map((sub) => (
-                  <DropdownMenu.Item key={sub.id} className="um-item" onSelect={onRun(sub)}>
-                    <span className="um-item-name">{sub.kind === "copy" ? <IconCopy /> : <IconAgent />}{sub.label}</span>
-                  </DropdownMenu.Item>
-                ))}
-              </DropdownMenu.SubContent>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Sub>
+          <DropdownMenu.Label key={item.id} className="um-label um-label-mid">
+            {item.label}
+            {item.state ? <span className="um-note">{item.state}</span> : null}
+          </DropdownMenu.Label>
         )
         : (
-          <DropdownMenu.Item key={item.id} className="um-item" onSelect={onRun(item)}>
-            <span className="um-item-name">{item.kind === "copy" ? <IconCopy /> : <IconAgent />}{item.label}</span>
+          <DropdownMenu.Item
+            key={item.id}
+            className={"um-item" + (item.tier === "C" ? " um-danger" : "")}
+            onSelect={onRun(item)}
+          >
+            <span className="um-item-name">{graphIcon(item)}{item.label}</span>
           </DropdownMenu.Item>
         )))}
     </>
