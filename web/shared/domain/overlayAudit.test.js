@@ -43,3 +43,19 @@ test("clipped top is fail", () => {
   assert.equal(r.ok, false);
   assert.equal(r.hits[0].clipTop, true);
 });
+
+for (const [name, wraps, rects, ok] of [
+  ["aligned controls", false, [[10, 36], [10, 36]], true],
+  ["undeclared wrap", false, [[10, 36], [52, 36]], false],
+  ["declared wrap", true, [[10, 36], [10, 36], [52, 36]], true],
+  ["uneven height after wrap", true, [[10, 36], [52, 32]], false],
+  ["misaligned controls on the same wrapped line", true, [[10, 36], [12, 36], [52, 36]], false],
+  ["misaligned controls on a later wrapped line", true, [[10, 36], [52, 36], [54, 36]], false],
+]) test(name, () => {
+  const row = {
+    hasAttribute: name => name === "data-align-wrap" && wraps,
+    children: rects.map(([top, height]) => ({ getBoundingClientRect: () => ({ top, height, width: 100 }) })),
+  };
+  const report = overlayAudit(fakeWin({ top: 40, bottom: 200, left: 10, right: 300, rows: [row] }));
+  assert.equal(report.ok, ok);
+});

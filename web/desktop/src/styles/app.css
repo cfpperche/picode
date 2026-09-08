@@ -771,9 +771,14 @@ body {
 }
 .pkg-search:focus { outline: none; border-color: var(--accent); }
 .pkg-search::placeholder { color: var(--text-secondary); }
-/* Package configuration page (pi-roles). */
-.pkg-back { display: inline-block; margin: 2px 0 10px; font-size: 12px; color: var(--text-secondary); }
+/* Package configuration page (pi-roles) — one control language: selects and
+   inputs share .cfg-fields' recipe (bg-base, border, --radius-ctl, --ctl-h). */
+.pkg-back { display: inline-block; font-size: 12px; color: var(--text-secondary); }
 .pkg-back:hover { color: var(--text-primary); }
+.pkc-top {
+  display: flex; align-items: center; gap: 12px; margin: 2px 0 16px;
+}
+.pkc-top .pkg-scope { margin: 0; }
 .pkg-loading { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
 .pkg-notice {
   margin: 10px 0 0; padding: 10px 12px; font-size: 12.5px; line-height: 1.45;
@@ -790,22 +795,34 @@ body {
 .pkc-section h3 { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin: 0 0 8px; }
 .pkc-row {
   border: 1px solid var(--border); border-radius: var(--radius-ctl);
-  background: var(--bg-panel); padding: 8px 12px; margin-bottom: 6px;
+  background: var(--bg-base); padding: 10px 12px; margin-bottom: 6px;
 }
 .pkc-row.inherited { opacity: 0.75; }
 .pkc-row-head { display: flex; align-items: center; gap: 8px; min-height: 28px; }
 .pkc-row-head .btn { height: 28px; min-height: 28px; }
+.pkc-role-id { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .pkc-role-name { font-size: 13px; font-weight: 650; }
-.pkc-row-fields { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-.pkc-row-fields .pkc-select { min-width: 0; }
-.pkc-select.model { flex: 1; min-width: 200px; max-width: 340px; }
-.pkc-name { width: 180px; margin-top: 0; display: inline-block; }
+.pkc-role-desc { font-size: 11.5px; color: var(--text-secondary); }
+.pkc-row-fields { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.pkc-select, .pkc-input {
+  box-sizing: border-box; height: var(--ctl-h); min-height: var(--ctl-h);
+  padding: 0 8px; font: inherit; font-size: 12.5px;
+  background: var(--bg-panel); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+}
+.pkc-select:focus, .pkc-input:focus { outline: none; border-color: var(--accent); }
+.pkc-select.model { flex: 1; min-width: 220px; }
+.pkc-select.thinking { flex: none; width: 180px; }
+.pkc-input { width: 220px; }
 .pkc-row.add { border-style: dashed; }
+.pkc-row.add .pkc-row-fields { margin-top: 0; }
 .pkc-foot {
   position: sticky; bottom: 0; display: flex; align-items: center; gap: 8px;
   margin: 18px 0 0; padding: 10px 12px;
   border-top: 1px solid var(--border); background: var(--bg-panel);
 }
+.pkc-foot.dirty { border-top-color: var(--accent); }
+.pkc-file.dirty { color: var(--accent); }
 .pkc-foot .pkg-fine { height: var(--ctl-h); line-height: var(--ctl-h); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pkc-dirty { color: var(--accent); margin-top: 6px; }
 .pkg-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
@@ -2989,6 +3006,14 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   padding: 6px; z-index: 40;
   display: flex; flex-direction: column;
 }
+/* Radix measures and positions this portal; absolute offsets hide its width. */
+.search-combo-pop {
+  position: static; left: auto; bottom: auto;
+  min-width: min(260px, var(--radix-popover-content-available-width));
+  max-width: min(320px, var(--radix-popover-content-available-width));
+  max-height: var(--radix-popover-content-available-height);
+}
+.search-combo-pop [cmdk-root], .search-combo-pop .combo-list { min-height: 0; }
 [cmdk-root] { display: flex; flex-direction: column; }
 [cmdk-item][data-selected="true"] { background: var(--bg-hover); }
 .combo-search { padding: 2px 2px 6px; }

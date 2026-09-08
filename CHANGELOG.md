@@ -81,7 +81,10 @@ to the `[Unreleased]` section. The repository's official language is English
   "Clear file…". A file the parser rejects is reported, never silently
   overwritten (explicit replace). Saves write atomically, preserve
   unknown keys, announce on the change feed, and say when they apply
-  ("on the agent's next message").
+  ("on the agent's next message"). The page follows the house control
+  recipe throughout — selects and inputs share the system's height, radius
+  and focus language in light and dark — and a thinking level cannot be set
+  without a model (it would have been silently dropped on save).
 
 - **Mobile: Preferences → Layout — fit the shell to your screen.** Two
   dials with platform-smart defaults: **Bottom bar buttons** (Auto / Low /
@@ -119,6 +122,8 @@ to the `[Unreleased]` section. The repository's official language is English
   commit; ADR-0086 amended in place (owner-approved).
 
 ### Fixed
+
+- **Native settings recovery.** Keep unsaved model patterns across temporary refresh failures, block stale writes until retry succeeds, and leave mobile agent settings and global key bindings usable when Pi defaults cannot be read. Desktop tool-mode restart failures stay visible as partial success and stop the sequence. Tools and Checklist menus now fit within the desktop viewport.
 
 - **Pins: opening a pin with a heading or a list no longer restores an
   "unsaved" draft nobody typed.** The editor normalizes the markdown it

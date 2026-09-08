@@ -408,8 +408,15 @@ The native settings view does not load terminal inventory or installation jobs.
 Explicit agent IDs are validated against Pi's report before looking up their
 workspace. Free agents have no project layer; missing identities and unsupported
 CLIs show recovery actions without falling back to Pi or another agent.
-Pi settings/keys APIs, native files, trust and agent PATCH/restart semantics
-remain unchanged. The mobile conversation keeps its quick settings sheet.
+Pi settings/keys APIs, native files and trust remain unchanged. A transient
+context refresh failure keeps the mounted editor and its drafts, with writes
+blocked until a successful retry. A missing agent/workspace removes the editor.
+Native defaults have a separate loading/error boundary from agent controls and
+key bindings; the mobile quick sheet remains editable when the native file is
+unreadable, without turning guessed defaults into agent overrides.
+A failed desktop restart propagates to the editor as partial success after
+PATCH; a failed stop prevents start. Success is reported only after the full
+sequence completes. Desktop and mobile retain their own runtime UI adapters.
 
 ### CLI terminal launch settings (ADR-0069)
 

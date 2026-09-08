@@ -1790,14 +1790,17 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, agent && agent.id, agent && agent.mode]);
 
-  async function startManaged(id) {
+  async function startManaged(id, opts) {
     const loc = locate(workspaces, freeAgents, id);
-    if (!loc || !loc.agent) return;
+    if (!loc || !loc.agent) {
+      if (opts?.throwErrors) throw new Error("This agent is no longer available.");
+      return;
+    }
     try {
       await api(`/api/agents/${loc.agent.id}/managed/start`, { method: "POST" });
       const list = await refreshFleetFallback();
       openTab(loc.agent.id, list);
-    } catch (err) { toastError(err); }
+    } catch (err) { if (opts?.throwErrors) throw err; toastError(err); }
   }
 
   async function openTermTab(id) {
@@ -1901,7 +1904,10 @@ export default function App() {
 
   async function openInteractive(id, opts) {
     const loc = locate(workspaces, freeAgents, id);
-    if (!loc || !loc.agent) return;
+    if (!loc || !loc.agent) {
+      if (opts?.throwErrors) throw new Error("This agent is no longer available.");
+      return;
+    }
     try {
       const forceRestart = !!(opts && opts.restart);
       const restart = forceRestart ? "?restart=1" : "";
@@ -1915,13 +1921,16 @@ export default function App() {
       if (!opts || opts.dock !== false) {
         setTermWanted((s) => new Set(s).add(loc.agent.id));
       }
-    } catch (err) { toastError(err); }
+    } catch (err) { if (opts?.throwErrors) throw err; toastError(err); }
   }
 
-  async function stopAgent(id) {
+  async function stopAgent(id, opts) {
     if (automateRef.current && automateRef.current.agentId === id) automateRef.current = null;
     const loc = locate(workspaces, freeAgents, id);
-    if (!loc || !loc.agent) return;
+    if (!loc || !loc.agent) {
+      if (opts?.throwErrors) throw new Error("This agent is no longer available.");
+      return;
+    }
     try {
       await api(`/api/agents/${loc.agent.id}/close`, { method: "POST" });
       closeShellTerm(loc.agent.id);
@@ -1933,7 +1942,7 @@ export default function App() {
       setStatus("stopped");
       setItems((cur) => cancelOpenAsks(cur));
       await refreshFleetFallback();
-    } catch (err) { toastError(err); }
+    } catch (err) { if (opts?.throwErrors) throw err; toastError(err); }
   }
 
   async function confirmCleanup({ title, message, path, extraChoices }) {
@@ -2535,9 +2544,13 @@ export default function App() {
       });
       await loadWorkspaces();
       if (modeChanged && was && was !== "stopped") {
-        await stopAgent(agent.id);
-        if (was === "managed") await startManaged(agent.id);
-        else if (was === "interactive") await openInteractive(agent.id, { dock: dockWasOpen });
+        try {
+          await stopAgent(agent.id, { throwErrors: true });
+          if (was === "managed") await startManaged(agent.id, { throwErrors: true });
+          else if (was === "interactive") await openInteractive(agent.id, { dock: dockWasOpen, throwErrors: true });
+        } catch (error) {
+          throw new Error("Settings saved, but the agent could not restart. Check its state and use Start. " + error.message);
+        }
       }
     } catch (e) { if (reportError) toastError(e); else throw e; }
   }

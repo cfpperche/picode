@@ -110,3 +110,11 @@
 .pi-settings-fields:disabled { opacity: .7; }
 
 #m-app .m-more-page .cli-settings-body { padding: 0; }
+
+.pi-settings-notice {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; flex-wrap: wrap; padding: 12px; margin-bottom: 12px;
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  background: var(--bg-base); color: var(--danger); font-size: 13px;
+}
+.pi-settings-notice > span { overflow-wrap: anywhere; }
