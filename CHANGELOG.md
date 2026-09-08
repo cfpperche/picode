@@ -13,6 +13,7 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+<<<<<<< HEAD
 - **Inbox: replies to `ask_human` questions asked from a terminal pi now
   actually reach the terminal.** A pi running as an Agent CLI terminal
   filed questions as `pi (unmanaged)`; the reply path only delivers to
@@ -27,6 +28,20 @@ to the `[Unreleased]` section. The repository's official language is English
   (`pi install -l …/packages/pi-inbox`); items filed by 0.1.x as
   `pi (unmanaged)` must still be answered by hand.
 
+=======
+- **Mobile: the installed web app's tab buttons sit as low as the platform
+  allows.** In standalone the tab content was centered in a 56px bar that
+  ends at the (shortened) layout viewport, leaving ~11px of dead nav below
+  the labels on top of WebKit's unreachable strip; the content and its pill
+  now anchor to the bar's bottom edge there. The standalone detection also
+  **measures instead of assuming** (screen height vs. visual viewport;
+  WebKit 317153 reports the behavior varies with the iOS generation and the
+  icon's install date), so edge-to-edge installs keep their real insets.
+  An opt-in probe, opening the app with `?strip-probe=1`, extends the shell
+  into the unreachable strip to test whether element painting survives —
+  if labels survive at the screen's physical bottom, that offset can become
+  the default; if they are clipped, the answer is no.
+>>>>>>> main
 - **Mobile: the active-tab pill covers the label, and the installed web
   app no longer shows a dead band above the home indicator.** The active
   pill used to hug the icon only (28px tall) and its bottom edge cut
