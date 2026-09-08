@@ -11,6 +11,14 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **Development: the public docs site moved from `www/` to `docs-site/`** —
+  same VitePress build and GitHub Pages URL (`cfpperche.github.io/picode/`);
+  the `www/` name is reserved for the future product website. Make targets
+  (`DOCS_STAMP`), CI workflows, scripts and living docs updated in the same
+  commit; ADR-0086 amended in place (owner-approved).
+
 ### Fixed
 
 - **Mobile: the installed web app's tab buttons sit as low as the platform

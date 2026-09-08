@@ -39,18 +39,18 @@ $(NODE_STAMP): web/package-lock.json
 web: $(NODE_STAMP) ## Build launcher + desktop/mobile into internal/web/public (ADR-0072)
 	cd web && npm run build
 
-WWW_STAMP := www/node_modules/.package-lock.json
+DOCS_STAMP := docs-site/node_modules/.package-lock.json
 
-$(WWW_STAMP): www/package-lock.json
-	cd www && npm ci $(NPM_CI_FLAGS)
-	@touch $(WWW_STAMP)
+$(DOCS_STAMP): docs-site/package-lock.json
+	cd docs-site && npm ci $(NPM_CI_FLAGS)
+	@touch $(DOCS_STAMP)
 
-docs: openapi llms $(WWW_STAMP) ## Build the VitePress public site (GitHub Pages)
-	cd www && npm run build
+docs: openapi llms $(DOCS_STAMP) ## Build the VitePress public site (GitHub Pages)
+	cd docs-site && npm run build
 
 openapi: ## Generate the OpenAPI spec from the server's route registration
-	mkdir -p www/public/api
-	go run ./cmd/picode-openapi > www/public/api/openapi.json
+	mkdir -p docs-site/public/api
+	go run ./cmd/picode-openapi > docs-site/public/api/openapi.json
 
 llms: ## Generate llms.txt (machine-readable map of the docs site)
 	node scripts/docs-llms.mjs
@@ -61,7 +61,7 @@ fixture: ## Run the docs fixture daemon (synthetic seeded UI, 127.0.0.1:18740)
 # Parity principle (docs/benchmarks/2026-09-03-docs-harness.md): the site's
 # images are generated from the current UI, never hand-placed. UI change ⇒
 # re-run docs-shots, or docs-check fails.
-docs-shots: web ## Capture the current UI into www/img (needs agent-browser on PATH)
+docs-shots: web ## Capture the current UI into docs-site/img (needs agent-browser on PATH)
 	go build -o bin/picode-docs-fixture ./cmd/picode-docs-fixture
 	fuser -k 18740/tcp 2>/dev/null || true
 	./bin/picode-docs-fixture & pid=$$!; trap 'kill $$pid 2>/dev/null' EXIT; \
@@ -84,8 +84,8 @@ $(VALE): ## Pinned Vale binary (prose linter), downloaded once into bin/
 	@chmod +x $(VALE)
 
 vale: $(VALE) ## Prose lint on the public docs (spelling + repetition; error gate)
-	$(VALE) --config=.vale.ini --minAlertLevel=error www/*.md www/guide/*.md
-docs-videos: ## Capture stills + render the three docs tutorial videos into www/public/video (needs agent-browser)
+	$(VALE) --config=.vale.ini --minAlertLevel=error docs-site/*.md docs-site/guide/*.md
+docs-videos: ## Capture stills + render the three docs tutorial videos into docs-site/public/video (needs agent-browser)
 	go build -o bin/picode-docs-fixture ./cmd/picode-docs-fixture
 	fuser -k 18740/tcp 2>/dev/null || true
 	./bin/picode-docs-fixture & pid=$$!; trap 'kill $$pid 2>/dev/null' EXIT; \
@@ -203,4 +203,4 @@ worktree-gc: ## Remove worktrees whose branch is merged, tree clean and idle for
 	./scripts/worktree-gc.sh
 
 clean: ## Remove build artifacts
-	rm -rf bin/ web/node_modules/ www/node_modules/ www/.vitepress/dist
+	rm -rf bin/ web/node_modules/ docs-site/node_modules/ docs-site/.vitepress/dist

@@ -31,7 +31,7 @@ pairing link.
 `server.public_url` settings with a Reach-this-server block in
 Preferences; `server.json` advertises `bind` and `publicUrl`; systemd env
 drop-in (`picode install --env`); `picode update` verifies `SHA256SUMS`;
-release-binary install path in `www/guide/remote-server.md`; server
+release-binary install path in `docs-site/guide/remote-server.md`; server
 checks in `provision --dry-run` (pi, tailnet, reach — no separate
 `doctor`); off-box clients via `~/.picode/remote.json` (`picode
 extension-install --server --token --ca`) and `PICODE_URL`/`PICODE_TOKEN`

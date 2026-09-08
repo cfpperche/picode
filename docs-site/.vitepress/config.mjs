@@ -88,7 +88,7 @@ export default defineConfig({
     outline: "deep",
     editLink: {
       pattern:
-        "https://github.com/cfpperche/picode/edit/main/www/:path",
+        "https://github.com/cfpperche/picode/edit/main/docs-site/:path",
       text: "Edit this page on GitHub",
     },
     socialLinks: [

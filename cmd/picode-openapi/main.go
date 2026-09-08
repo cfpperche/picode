@@ -4,9 +4,9 @@
 // runs (server.Routes → registerAll), so it cannot drift from what
 // picode actually serves. CI enforces freshness: scripts/docs-check.mjs
 // re-runs this command and byte-compares against the committed
-// www/public/api/openapi.json.
+// docs-site/public/api/openapi.json.
 //
-//	make openapi   # regenerates www/public/api/openapi.json
+//	make openapi   # regenerates docs-site/public/api/openapi.json
 package main
 
 import (

@@ -8,7 +8,7 @@ verdicts (`.pi/skills/visual-review`) become auditable evidence.
 > here: working captures stay in gitignored `var/screenshots/`, and the
 > reply's `visual-review:` line plus the session's `docs/handoff/` note are
 > the audit trail. The 391 files below remain as the visual history they
-> already are. The four public images are generated into `www/img/`.
+> already are. The four public images are generated into `docs-site/img/`.
 
 ## Rules
 

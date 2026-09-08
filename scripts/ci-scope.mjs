@@ -17,7 +17,7 @@ export function pathScope(rawPath) {
   // These inputs have their own VitePress/parity/Vale job but cannot affect
   // the product binaries or runtime tests.
   if (
-    path.startsWith("www/") ||
+    path.startsWith("docs-site/") ||
     path.startsWith("docs-videos/") ||
     path.startsWith("styles/") ||
     path === ".vale.ini" ||

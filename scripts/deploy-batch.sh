@@ -32,8 +32,8 @@ if ! DOCS_STRICT=1 node scripts/docs-check.mjs >/dev/null 2>&1; then
   if node scripts/docs-check.mjs --strict 2>&1 | grep -q 'inputs changed'; then
     log "public captures are stale; recapturing"
     if make --no-print-directory docs-shots >/tmp/picode-deploy-batch-shots.log 2>&1; then
-      if [ -n "$(git status --porcelain -- www/img)" ]; then
-        git add www/img && git commit -q -m "docs: refresh public captures" && log "committed refreshed captures"
+      if [ -n "$(git status --porcelain -- docs-site/img)" ]; then
+        git add docs-site/img && git commit -q -m "docs: refresh public captures" && log "committed refreshed captures"
         head=$(git rev-parse --short=7 HEAD)
       fi
     else

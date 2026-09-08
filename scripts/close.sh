@@ -26,10 +26,10 @@ base=$(git merge-base main HEAD)
 changed=$(git diff --name-only "$base" HEAD)
 
 # Generated docs artifacts travel with the code that changed them.
-if printf '%s\n' "$changed" | grep -qE '^(internal/|cmd/|www/)'; then
+if printf '%s\n' "$changed" | grep -qE '^(internal/|cmd/|docs-site/)'; then
   make --no-print-directory openapi llms >/dev/null || exit 1
-  if [ -n "$(git status --porcelain -- www/public/api/openapi.json www/public/llms.txt)" ]; then
-    git add www/public/api/openapi.json www/public/llms.txt
+  if [ -n "$(git status --porcelain -- docs-site/public/api/openapi.json docs-site/public/llms.txt)" ]; then
+    git add docs-site/public/api/openapi.json docs-site/public/llms.txt
     git commit -q -m "docs: regenerate OpenAPI and llms.txt" && echo "close: committed regenerated OpenAPI/llms.txt"
   fi
 fi
@@ -39,8 +39,8 @@ if printf '%s\n' "$changed" | grep -q '^web/'; then
   if ! DOCS_STRICT=1 node scripts/docs-check.mjs >/dev/null 2>&1; then
     echo "close: public captures are stale for this diff — recapturing (make docs-shots)"
     make --no-print-directory docs-shots || { echo "close: docs-shots failed; rerun `make docs-shots` (the fixture is flaky on a busy machine)" >&2; exit 1; }
-    if [ -n "$(git status --porcelain -- www/img)" ]; then
-      git add www/img
+    if [ -n "$(git status --porcelain -- docs-site/img)" ]; then
+      git add docs-site/img
       git commit -q -m "docs: refresh public captures" && echo "close: committed refreshed captures"
     fi
   fi

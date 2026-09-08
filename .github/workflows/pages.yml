@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "www/**"
+      - "docs-site/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -29,7 +29,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: www/package-lock.json
+          cache-dependency-path: docs-site/package-lock.json
       # `make docs` regenerates the OpenAPI spec via `go run
       # ./cmd/picode-openapi` — the runner needs the Go toolchain.
       - uses: actions/setup-go@v5
@@ -40,6 +40,6 @@ jobs:
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: www/.vitepress/dist
+          path: docs-site/.vitepress/dist
       - id: deployment
         uses: actions/deploy-pages@v4

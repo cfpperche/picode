@@ -60,7 +60,7 @@ eight changes on 2026-09-06.
 5. **Gates match the diff.** `make ci-scoped` classifies the diff against
    `main` (`scripts/ci-scope.mjs --local`): Go changes test the changed
    packages and their importers; `web/` runs test-js and the embedded
-   build; `www/` runs the site and Vale; metadata runs the fast gates.
+   build; `docs-site/` (née `www/`) runs the site and Vale; metadata runs the fast gates.
    `make ci` remains the whole matrix, run once for the merge on `main`.
 6. **GitHub CI must be green or smaller.** The macOS failures were test
    assumptions (unresolved `/var` symlinks, a 503 asked before request
