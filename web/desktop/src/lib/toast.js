@@ -1,6 +1,6 @@
 import { toast as sonner } from "sonner";
 import { humanizeError } from "@picode/shared/client/api.js";
-import { noticeDuration, noticeMuted, plainNotice, suppressNotice } from "@picode/shared/domain/notice.js";
+import { noticeDuration, noticeMuted, normalizeNotice, plainNotice, suppressNotice } from "@picode/shared/domain/notice.js";
 import { readToastPrefs } from "./toastPrefs.js";
 import { renderNotice } from "../components/Notice.jsx";
 
@@ -27,8 +27,11 @@ function currentSurface() {
   };
 }
 
-export function notify(n) {
-  if (!n) return null;
+export function notify(raw) {
+  if (!raw) return null;
+  // A caller may hand over the bare shape; the policies below read the
+  // normalized one (meta, actions always arrays), so normalize here once.
+  const n = normalizeNotice(raw);
   const prefs = readToastPrefs();
   if (noticeMuted(n, prefs)) return null;
   if (suppressNotice(n, currentSurface())) return null;

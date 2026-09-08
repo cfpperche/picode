@@ -5,10 +5,23 @@ import PinEditor from "./PinEditor.jsx";
 
 const PinSketch = lazy(() => import("./PinSketch.jsx"));
 import { api } from "@picode/shared/client/api.js";
+import {
+  PIN_LIMITS, autoTitle, bodyLimit, clearDraft, draftToRestore, normalizeTag, pinFileSrc,
+  readDraft, sameDraft, stripBackgroundFiles, writeDraft,
+} from "@picode/shared/domain/pinDraft.js";
 import { go, pinRoute } from "../lib/routes.js";
 import { pinFileFromDrop, pinFileURL } from "../lib/pinFileDrop.js";
-import { toast, toastError } from "../lib/toast.js";
+import { notify, toast, toastError } from "../lib/toast.js";
 import { askConfirm } from "../lib/confirm.js";
+
+// The studio keeps three things apart (pins v2 review):
+//   base   — the server copy it loaded (title, tags, body, updatedAt)
+//   draft  — what is on screen; retained in sessionStorage while it
+//            differs from base, so leaving and coming back loses nothing
+//   files  — attachments, each drawn through a versioned URL so an edited
+//            sketch shows its new picture instead of the cached one
+// Save sends base.updatedAt as the precondition: a 409 means someone else
+// wrote first, and the studio offers Reload instead of overwriting them.
 
 function blank() {
   return { title: "", tags: [], body: "", tagDraft: "" };
@@ -18,9 +31,16 @@ function pingList() {
   try { window.dispatchEvent(new Event("picode-pins")); } catch { /* ignore */ }
 }
 
-function fileURL(pinId, f) {
-  return "/api/pins/" + encodeURIComponent(pinId) + "/files/" + encodeURIComponent(f.id);
+function storage() {
+  try { return typeof window !== "undefined" ? window.sessionStorage : null; } catch { return null; }
 }
+
+// A pin the studio created on the way to an attachment: Cancel offers to
+// delete it while it still holds nothing but that attachment.
+function autoKey(id) { return "picode-pin-auto:" + id; }
+function markAuto(id) { try { storage().setItem(autoKey(id), "1"); } catch { /* ignore */ } }
+function isAuto(id) { try { return !!id && storage().getItem(autoKey(id)) === "1"; } catch { return false; } }
+function unmarkAuto(id) { try { storage().removeItem(autoKey(id)); } catch { /* ignore */ } }
 
 function fileExt(name) {
   const m = /\.([a-z0-9]{1,8})$/i.exec(String(name || ""));
@@ -33,21 +53,51 @@ function prettySize(n) {
   return (n / (1024 * 1024)).toFixed(1) + " MB";
 }
 
-async function postFile(pinId, file) {
-  const fd = new FormData();
-  fd.append("file", file);
-  const res = await fetch("/api/pins/" + encodeURIComponent(pinId) + "/files", { method: "POST", body: fd });
+function prettyKB(bytes) {
+  return (bytes / 1000).toFixed(bytes >= 10_000 ? 0 : 1) + " KB";
+}
+
+async function postForm(url, fd) {
+  const res = await fetch(url, { method: "POST", body: fd });
   if (!res.ok) {
     let msg = res.statusText;
     try { msg = (await res.json()).error || msg; } catch { /* keep */ }
-    throw new Error(msg);
+    const err = new Error(msg);
+    err.status = res.status;
+    throw err;
   }
   return res.json();
+}
+
+function postFile(pinId, file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  return postForm("/api/pins/" + encodeURIComponent(pinId) + "/files", fd);
+}
+
+// Swap every reference to a file's URL in the markdown for its current
+// versioned one, so an edited sketch changes picture inside the note too.
+function reversion(md, pinId, f) {
+  const plain = pinFileURL({ pinId, fileId: f.id });
+  const re = new RegExp(plain.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(\\?v=[^)\\s]*)?", "g");
+  return String(md || "").replace(re, pinFileSrc(pinId, f));
+}
+
+// What the server will refuse, said before the round trip.
+function limitError(draft, tags) {
+  if ([...draft.title.trim()].length > PIN_LIMITS.title) return "Title is too long (max " + PIN_LIMITS.title + " characters).";
+  if (tags.length > PIN_LIMITS.tags) return "A pin can have at most " + PIN_LIMITS.tags + " tags.";
+  const long = tags.find((t) => [...t].length > PIN_LIMITS.tag);
+  if (long) return "Tag \"" + long + "\" is too long (max " + PIN_LIMITS.tag + " characters).";
+  if (bodyLimit(draft.body).over) return "The note is too long (max " + prettyKB(PIN_LIMITS.bodyBytes) + ").";
+  return "";
 }
 
 export default function PinStudio() {
   const info = pinRoute();
   const [draft, setDraft] = useState(blank);
+  const [base, setBase] = useState(null);
+  const [restored, setRestored] = useState(false);
   const [files, setFiles] = useState([]);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -55,10 +105,15 @@ export default function PinStudio() {
   const pick = useRef(null);
   const edRef = useRef(null);
   const [sketch, setSketch] = useState(null);
+  const [tick, setTick] = useState(0);
+  const draftId = info.mode === "edit" ? info.id : "";
 
   useEffect(() => {
     if (info.mode === "new") {
-      setDraft(blank());
+      const kept = draftToRestore(readDraft(storage(), ""), null);
+      setBase(null);
+      setDraft(kept ? { ...kept, tagDraft: "" } : blank());
+      setRestored(!!kept);
       setFiles([]);
       setLoaded(true);
       return;
@@ -68,7 +123,11 @@ export default function PinStudio() {
     setLoaded(false);
     api("/api/pins/" + encodeURIComponent(info.id)).then((p) => {
       if (stop) return;
-      setDraft({ title: p.title || "", tags: p.tags || [], body: p.body || "", tagDraft: "" });
+      const server = { title: p.title || "", tags: p.tags || [], body: p.body || "", updatedAt: p.updatedAt || "" };
+      const kept = draftToRestore(readDraft(storage(), p.id), server);
+      setBase(server);
+      setDraft({ ...(kept || server), tagDraft: "" });
+      setRestored(!!kept);
       setFiles(p.files || []);
       setLoaded(true);
       const pending = sessionStorage.getItem("picode-sketch");
@@ -76,7 +135,8 @@ export default function PinStudio() {
         sessionStorage.removeItem("picode-sketch");
         try {
           const opt = JSON.parse(pending);
-          if (opt && opt.baseFileId) setSketch({ source: "annotate", baseFileId: opt.baseFileId, backgroundURL: fileURL(p.id, { id: opt.baseFileId }) });
+          const baseFile = opt && opt.baseFileId ? (p.files || []).find((f) => f.id === opt.baseFileId) : null;
+          if (baseFile) setSketch({ source: "annotate", baseFileId: baseFile.id, backgroundURL: pinFileSrc(p.id, baseFile) });
           else setSketch({ source: "blank" });
         } catch { /* ignore */ }
       }
@@ -85,25 +145,62 @@ export default function PinStudio() {
       go();
     });
     return () => { stop = true; };
-  }, [info.mode, info.id]);
+  }, [info.mode, info.id, tick]);
+
+  // Retain the draft while it differs from the server copy; drop it the
+  // moment they agree again. A reload or a detour through another tab
+  // comes back to the same text.
+  useEffect(() => {
+    if (!loaded) return;
+    const cur = { title: draft.title, tags: draft.tags, body: draft.body };
+    const same = base ? sameDraft(cur, base) : sameDraft(cur, { title: "", tags: [], body: "" });
+    if (same) clearDraft(storage(), draftId);
+    else writeDraft(storage(), draftId, cur, base ? base.updatedAt : "");
+  }, [loaded, draft.title, draft.tags, draft.body, base, draftId]);
+
+  // Closing the tab is the one exit sessionStorage does not survive.
+  useEffect(() => {
+    function onLeave(e) {
+      if (!loaded) return;
+      const cur = { title: draft.title, tags: draft.tags, body: draft.body };
+      const same = base ? sameDraft(cur, base) : sameDraft(cur, { title: "", tags: [], body: "" });
+      if (same) return;
+      e.preventDefault();
+      e.returnValue = "";
+    }
+    window.addEventListener("beforeunload", onLeave);
+    return () => window.removeEventListener("beforeunload", onLeave);
+  }, [loaded, draft.title, draft.tags, draft.body, base]);
+
+  const fileURL = (pinId, f) => pinFileSrc(pinId, f);
 
   function addTag() {
-    const t = draft.tagDraft.trim().replace(/^#/, "").toLowerCase().replace(/\s+/g, "-");
-    if (!t || draft.tags.includes(t) || draft.tags.length >= 16) {
+    const t = normalizeTag(draft.tagDraft);
+    if (!t || draft.tags.includes(t) || draft.tags.length >= PIN_LIMITS.tags) {
       setDraft({ ...draft, tagDraft: "" });
+      return;
+    }
+    if ([...t].length > PIN_LIMITS.tag) {
+      toast("Tags have at most " + PIN_LIMITS.tag + " characters.", "info");
       return;
     }
     setDraft({ ...draft, tags: [...draft.tags, t], tagDraft: "" });
   }
 
-  async function ensurePin() {
+  // A pin created on the way to an attachment: named after the file (or
+  // "Sketch"), never "Untitled", and remembered as auto-made so Cancel can
+  // offer to delete it.
+  async function ensurePin(incoming, fallback) {
     if (info.id) return info.id;
-    const title = draft.title.trim() || "Untitled";
+    const typed = draft.title.trim();
+    const title = autoTitle(typed, incoming, fallback);
     const p = await api("/api/pins", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title, tags: draft.tags, body: draft.body }),
     });
+    clearDraft(storage(), "");
+    if (!typed) markAuto(p.id);
     return p.id;
   }
 
@@ -112,7 +209,7 @@ export default function PinStudio() {
     if (!info.id) {
       setBusy(true);
       try {
-        const id = await ensurePin();
+        const id = await ensurePin([], "Sketch");
         sessionStorage.setItem("picode-sketch", JSON.stringify(intent));
         pingList();
         go("pin:" + id);
@@ -126,12 +223,15 @@ export default function PinStudio() {
           if (!r.ok) throw new Error("Could not open sketch");
           return r.json();
         });
-        setSketch({ id: intent.id, source: "blank", scene });
+        const meta = files.find((f) => f.id === intent.id);
+        const baseFile = meta && meta.baseFileId ? files.find((f) => f.id === meta.baseFileId) : null;
+        setSketch({ id: intent.id, source: meta && meta.source === "annotate" ? "annotate" : "blank", baseFileId: baseFile ? baseFile.id : "", backgroundURL: baseFile ? fileURL(info.id, baseFile) : "", scene });
       } catch (e) { toastError(e); }
       return;
     }
     if (intent.baseFileId) {
-      setSketch({ source: "annotate", baseFileId: intent.baseFileId, backgroundURL: fileURL(info.id, { id: intent.baseFileId }) });
+      const baseFile = files.find((f) => f.id === intent.baseFileId);
+      setSketch({ source: "annotate", baseFileId: intent.baseFileId, backgroundURL: fileURL(info.id, baseFile || { id: intent.baseFileId }) });
       return;
     }
     setSketch({ source: "blank" });
@@ -140,25 +240,28 @@ export default function PinStudio() {
   async function saveSketch({ scene, preview }) {
     if (!info.id) return;
     const fd = new FormData();
-    fd.append("scene", new Blob([JSON.stringify(scene)], { type: "application/json" }));
+    // The annotated picture is kept by reference (baseFileId), so its
+    // bytes never ride the scene and the 2 MB cap is about the drawing.
+    fd.append("scene", new Blob([JSON.stringify(stripBackgroundFiles(scene))], { type: "application/json" }));
     fd.append("preview", preview, "preview.png");
     fd.append("source", sketch && sketch.source === "annotate" ? "annotate" : "blank");
     fd.append("name", "Sketch");
     if (sketch && sketch.id) fd.append("id", sketch.id);
     if (sketch && sketch.baseFileId) fd.append("baseFileId", sketch.baseFileId);
-    const res = await fetch("/api/pins/" + encodeURIComponent(info.id) + "/sketches", { method: "POST", body: fd });
-    if (!res.ok) {
-      let msg = res.statusText;
-      try { msg = (await res.json()).error || msg; } catch { /* keep */ }
-      throw new Error(msg);
-    }
-    const meta = await res.json();
-    setFiles((cur) => {
-      const rest = cur.filter((x) => x.id !== meta.id);
-      return rest.concat([meta]);
-    });
+    const meta = await postForm("/api/pins/" + encodeURIComponent(info.id) + "/sketches", fd);
+    const editing = !!(sketch && sketch.id);
+    setFiles((cur) => cur.filter((x) => x.id !== meta.id).concat([meta]));
     const ed = edRef.current;
-    if (ed) ed.chain().focus().setImage({ src: fileURL(info.id, meta), alt: meta.name }).run();
+    if (editing) {
+      // The note keeps one picture of the sketch, now at its new version.
+      const md = reversion(draft.body, info.id, meta);
+      if (md !== draft.body) {
+        setDraft((d) => ({ ...d, body: md }));
+        if (ed) ed.commands.setContent(md);
+      }
+    } else if (ed) {
+      ed.chain().focus().setImage({ src: fileURL(info.id, meta), alt: meta.name }).run();
+    }
     pingList();
     setSketch(null);
   }
@@ -168,7 +271,7 @@ export default function PinStudio() {
     if (!incoming.length) return;
     setBusy(true);
     try {
-      const id = await ensurePin();
+      const id = await ensurePin(incoming);
       const added = [];
       for (const file of incoming) {
         added.push(await postFile(id, file));
@@ -208,26 +311,85 @@ export default function PinStudio() {
     } catch (e) { toastError(e); }
   }
 
+  // Drop the local text and fetch the server copy again (after a 409).
+  function reload() {
+    clearDraft(storage(), draftId);
+    setRestored(false);
+    setTick((t) => t + 1);
+  }
+
   async function save() {
     const title = draft.title.trim();
     if (!title) { toast("Give the pin a title.", "info"); return; }
     let tags = draft.tags;
-    const pending = draft.tagDraft.trim().replace(/^#/, "").toLowerCase().replace(/\s+/g, "-");
+    const pending = normalizeTag(draft.tagDraft);
     if (pending && !tags.includes(pending)) tags = [...tags, pending];
+    const refused = limitError({ ...draft, title }, tags);
+    if (refused) { toast(refused, "warn"); return; }
     setBusy(true);
     try {
       const body = { title, tags, body: draft.body };
       if (info.mode === "edit" && info.id) {
-        await api("/api/pins/" + encodeURIComponent(info.id), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        const p = await api("/api/pins/" + encodeURIComponent(info.id), {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...body, ifUpdatedAt: base ? base.updatedAt : "" }),
+        });
+        const server = { title: p.title || "", tags: p.tags || [], body: p.body || "", updatedAt: p.updatedAt || "" };
+        setBase(server);
+        setDraft({ ...server, tagDraft: "" });
+        setRestored(false);
+        clearDraft(storage(), info.id);
+        unmarkAuto(info.id);
         pingList();
         toast.ok("Pin saved.");
       } else {
         const p = await api("/api/pins", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        clearDraft(storage(), "");
         pingList();
         go("pin:" + p.id);
       }
-    } catch (e) { toastError(e); }
-    finally { setBusy(false); }
+    } catch (e) {
+      if (e && e.status === 409) {
+        notify({
+          level: "warn",
+          title: e.message || "This pin changed elsewhere.",
+          body: "Your text is kept here until you save it or reload.",
+          actions: [{ label: "Reload", run: reload, primary: true }],
+          key: "pin-conflict:" + info.id,
+        });
+      } else {
+        toastError(e);
+      }
+    } finally { setBusy(false); }
+  }
+
+  async function cancel() {
+    if (info.id && isAuto(info.id) && base && sameDraft({ title: draft.title, tags: draft.tags, body: draft.body }, base)) {
+      const ok = await askConfirm({
+        title: "Keep this pin?",
+        message: "\"" + base.title + "\" was created to hold what you attached. Delete it, or keep it as it is?",
+        confirmLabel: "Delete pin",
+        danger: true,
+      });
+      if (ok) {
+        try {
+          await api("/api/pins/" + encodeURIComponent(info.id), { method: "DELETE" });
+          unmarkAuto(info.id);
+          clearDraft(storage(), info.id);
+          pingList();
+        } catch (e) { toastError(e); return; }
+      } else {
+        unmarkAuto(info.id);
+      }
+    }
+    go();
+  }
+
+  function discardRestored() {
+    clearDraft(storage(), draftId);
+    setDraft(base ? { ...base, tagDraft: "" } : blank());
+    setRestored(false);
   }
 
   async function remove() {
@@ -242,11 +404,15 @@ export default function PinStudio() {
     setBusy(true);
     try {
       await api("/api/pins/" + encodeURIComponent(info.id), { method: "DELETE" });
+      clearDraft(storage(), info.id);
+      unmarkAuto(info.id);
       pingList();
       go();
     } catch (e) { toastError(e); }
     finally { setBusy(false); }
   }
+
+  const bodyStand = bodyLimit(draft.body);
 
   return (
     <PageFrame id="pin-studio" title={info.mode === "edit" ? "Edit pin" : "New pin"}>
@@ -275,12 +441,19 @@ export default function PinStudio() {
             addFiles(e.dataTransfer && e.dataTransfer.files);
           }}
         >
+          {restored ? (
+            <div className="pin-restored" role="status">
+              <span>Unsaved changes restored.</span>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={discardRestored}>Discard</button>
+            </div>
+          ) : null}
           <input
             className="pin-input"
             value={draft.title}
             onChange={(e) => setDraft({ ...draft, title: e.target.value })}
             placeholder="Pin title"
             aria-label="Pin title"
+            maxLength={PIN_LIMITS.title}
             autoFocus
           />
           <div className="pin-tags" aria-label="Pin tags">
@@ -300,6 +473,7 @@ export default function PinStudio() {
               }}
               placeholder={draft.tags.length ? "Add tag" : "Add tags"}
               aria-label="Add pin tag"
+              maxLength={PIN_LIMITS.tag + 1}
             />
           </div>
 
@@ -358,8 +532,13 @@ export default function PinStudio() {
           <div className="pin-form-actions">
             {info.mode === "edit" ? <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={remove}>Delete</button> : null}
             <span className="pin-form-spacer" />
-            <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => go()}>Cancel</button>
-            <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>Save</button>
+            {bodyStand.near ? (
+              <span className={"pin-limit" + (bodyStand.over ? " over" : "")} aria-live="polite">
+                {prettyKB(bodyStand.bytes)} / {prettyKB(bodyStand.max)}
+              </span>
+            ) : null}
+            <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={cancel}>Cancel</button>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={busy || bodyStand.over}>Save</button>
           </div>
         </form>
       ) : null}

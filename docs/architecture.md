@@ -1333,6 +1333,34 @@ access. The ordinary device gate protects all `/api/webhooks` CRUD/test/secret
 routes. See [acceptance tables](plans/integrations.md) and the
 [public guide](../docs-site/guide/integrations.md).
 
+### Pins
+
+Flat, machine-scoped notes (`pins`, migrations 008–010, 035): title, tags,
+a markdown body kept as markdown (TipTap + `tiptap-markdown`, `html:false`),
+attachments and Excalidraw sketches whose bytes live under
+`<data>/pins/<id>/` while `pin_files` holds the metadata. Limits **refuse**
+(400 with the limit named) and never truncate: 200 characters of title,
+40 per tag and 16 tags, 100 KB of body, 8 MB per image, 16 MB per file,
+24 files, 2 MB of drawing per scene — the studio counts the body near the
+cap. `GET /api/pins` is a summary list (no bodies); `GET /api/pins/{id}`
+carries the body and files. `PATCH` accepts `ifUpdatedAt` (or `If-Match`)
+and answers 409 when the row moved on, so two editors never overwrite each
+other silently; the studio retains an unsaved draft in `sessionStorage`
+(`picode-pin-draft:<id>`) until it matches the server copy again. Feed
+events `pin.created` / `pin.updated` carry the same summary the list does,
+`pin.deleted` the id; the sidebar follows them (ADR-0048) and refetches on
+nothing else. An annotated image is kept **by reference** (`base_file_id`):
+the browser strips the picture's bytes from the scene before upload (file
+ids prefixed `bg:`) and rebuilds the background from `/files/{id}` on open,
+so a 6 MB screenshot annotates within the scene cap. Sketch previews and
+scenes are written through a temp file and rename; the row is inserted
+first and rolled back if the bytes fail (same order as uploads). Preview
+URLs carry `?v=<updatedAt>` because the bytes are cached for an hour and an
+edited sketch keeps its id. Downloads name files per RFC 6266
+(`filename*`). Boot sweeps `pins/<id>` directories without a row.
+`web/shared/domain/pinDraft.js` holds the pure rules (limits, tag folding,
+auto-title from the first file, draft retention, scene stripping).
+
 ### Automations (ADR-0045)
 
 `internal/automate` ticks every minute (same shape as the backup loop,

@@ -2,12 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Excalidraw, exportToBlob, convertToExcalidrawElements } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
+import { BG_FILE_PREFIX, missingBackgroundId } from "@picode/shared/domain/pinDraft.js";
 
 function theme() {
   return (typeof document !== "undefined" && document.documentElement.dataset.theme === "light") ? "light" : "dark";
 }
 
-async function imageToScene(url) {
+// The picture behind an annotation, as the Excalidraw file entry it needs.
+// Its id is "bg:" + the picture's URL, so the studio can strip it before
+// upload and put it back on open: the saved scene keeps the picture by
+// reference (the sketch row's baseFileId), never the bytes.
+async function loadImageFile(url, fileId) {
   const res = await fetch(url);
   const blob = await res.blob();
   const dataURL = await new Promise((resolve, reject) => {
@@ -22,20 +27,36 @@ async function imageToScene(url) {
     el.onerror = reject;
     el.src = dataURL;
   });
-  const fileId = "bg" + Date.now();
-  const elements = convertToExcalidrawElements([{
-    type: "image",
-    fileId,
-    x: 0,
-    y: 0,
+  return {
+    file: { mimeType: blob.type || "image/png", id: fileId, dataURL, created: Date.now() },
     width: img.naturalWidth || 800,
     height: img.naturalHeight || 600,
-  }]);
+  };
+}
+
+async function imageToScene(url) {
+  const fileId = BG_FILE_PREFIX + url;
+  const { file, width, height } = await loadImageFile(url, fileId);
+  const elements = convertToExcalidrawElements([{ type: "image", fileId, x: 0, y: 0, width, height }]);
   return {
     elements,
-    files: { [fileId]: { mimeType: blob.type || "image/png", id: fileId, dataURL, created: Date.now() } },
+    files: { [fileId]: file },
     appState: { viewBackgroundColor: theme() === "dark" ? "#121212" : "#ffffff" },
   };
+}
+
+// A saved annotation comes back without its picture; fetch it again under
+// the id the scene expects. If the fetch fails the drawing still opens —
+// the picture is simply absent, which beats refusing to open at all.
+async function restoreBackground(scene, url) {
+  const missing = missingBackgroundId(scene);
+  if (!missing || !url) return scene;
+  try {
+    const { file } = await loadImageFile(url, missing);
+    return { ...scene, files: { ...(scene.files || {}), [missing]: file } };
+  } catch {
+    return scene;
+  }
 }
 
 export default function PinSketch({ open, title, initial, backgroundURL, onSave, onClose, confirmLabel }) {
@@ -47,7 +68,11 @@ export default function PinSketch({ open, title, initial, backgroundURL, onSave,
     if (!open) { setSeed(null); return; }
     let stop = false;
     (async () => {
-      if (initial) { setSeed(initial); return; }
+      if (initial) {
+        const sc = await restoreBackground(initial, backgroundURL);
+        if (!stop) setSeed(sc);
+        return;
+      }
       if (backgroundURL) {
         try {
           const sc = await imageToScene(backgroundURL);

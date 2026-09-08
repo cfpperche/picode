@@ -23,8 +23,15 @@ type PinFile struct {
 	Mime       string `json:"mime"`
 	Size       int64  `json:"size"`
 	CreatedAt  string `json:"createdAt"`
+	UpdatedAt  string `json:"updatedAt"`
 	Source     string `json:"source,omitempty"`
 	BaseFileID string `json:"baseFileId,omitempty"`
+}
+
+const pinFileCols = `id, pin_id, kind, name, mime, size, created_at, updated_at, source, base_file_id`
+
+func scanPinFile(row interface{ Scan(...any) error }, f *PinFile) error {
+	return row.Scan(&f.ID, &f.PinID, &f.Kind, &f.Name, &f.Mime, &f.Size, &f.CreatedAt, &f.UpdatedAt, &f.Source, &f.BaseFileID)
 }
 
 func ClassifyPinFile(name, mime string, size int64) (kind string, err error) {
@@ -32,17 +39,17 @@ func ClassifyPinFile(name, mime string, size int64) (kind string, err error) {
 	ext := strings.ToLower(filepath.Ext(name))
 	switch ext {
 	case ".exe", ".bat", ".cmd", ".com", ".scr", ".msi", ".dll":
-		return "", fmt.Errorf("that file type is not allowed")
+		return "", invalid("that file type is not allowed")
 	}
 	switch mime {
 	case "image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif":
 		if size > MaxPinImageSize {
-			return "", fmt.Errorf("image too large (max 8 MB)")
+			return "", invalid("image too large (max 8 MB)")
 		}
 		return "image", nil
 	}
 	if size > MaxPinFileSize {
-		return "", fmt.Errorf("file too large (max 16 MB)")
+		return "", invalid("file too large (max 16 MB)")
 	}
 	if mime == "" || mime == "application/octet-stream" {
 		mime = "application/octet-stream"
@@ -51,7 +58,7 @@ func ClassifyPinFile(name, mime string, size int64) (kind string, err error) {
 }
 
 func (s *Store) ListPinFiles(pinID string) ([]PinFile, error) {
-	rows, err := s.db.Query(`SELECT id, pin_id, kind, name, mime, size, created_at, source, base_file_id FROM pin_files WHERE pin_id = ? ORDER BY created_at`, pinID)
+	rows, err := s.db.Query(`SELECT `+pinFileCols+` FROM pin_files WHERE pin_id = ? ORDER BY created_at`, pinID)
 	if err != nil {
 		return nil, fmt.Errorf("store: list pin files: %w", err)
 	}
@@ -59,7 +66,7 @@ func (s *Store) ListPinFiles(pinID string) ([]PinFile, error) {
 	out := []PinFile{}
 	for rows.Next() {
 		var f PinFile
-		if err := rows.Scan(&f.ID, &f.PinID, &f.Kind, &f.Name, &f.Mime, &f.Size, &f.CreatedAt, &f.Source, &f.BaseFileID); err != nil {
+		if err := scanPinFile(rows, &f); err != nil {
 			return nil, err
 		}
 		out = append(out, f)
@@ -69,8 +76,7 @@ func (s *Store) ListPinFiles(pinID string) ([]PinFile, error) {
 
 func (s *Store) GetPinFile(pinID, id string) (PinFile, error) {
 	var f PinFile
-	err := s.db.QueryRow(`SELECT id, pin_id, kind, name, mime, size, created_at, source, base_file_id FROM pin_files WHERE id = ? AND pin_id = ?`, id, pinID).
-		Scan(&f.ID, &f.PinID, &f.Kind, &f.Name, &f.Mime, &f.Size, &f.CreatedAt, &f.Source, &f.BaseFileID)
+	err := scanPinFile(s.db.QueryRow(`SELECT `+pinFileCols+` FROM pin_files WHERE id = ? AND pin_id = ?`, id, pinID), &f)
 	if err == sql.ErrNoRows {
 		return PinFile{}, ErrNotFound
 	}
@@ -80,16 +86,33 @@ func (s *Store) GetPinFile(pinID, id string) (PinFile, error) {
 	return f, nil
 }
 
-func (s *Store) AddPinFile(pinID, name, mime string, size int64) (PinFile, error) {
+// roomForPinFile checks the pin exists and is under the attachment cap.
+func (s *Store) roomForPinFile(pinID string) error {
 	if _, err := s.GetPin(pinID); err != nil {
-		return PinFile{}, err
+		return err
 	}
 	n, err := s.countPinFiles(pinID)
 	if err != nil {
-		return PinFile{}, err
+		return err
 	}
 	if n >= MaxPinFiles {
-		return PinFile{}, fmt.Errorf("a pin can have at most %d files", MaxPinFiles)
+		return invalid("a pin can have at most %d files", MaxPinFiles)
+	}
+	return nil
+}
+
+func (s *Store) insertPinFile(f PinFile) error {
+	if _, err := s.db.Exec(`INSERT INTO pin_files (`+pinFileCols+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		f.ID, f.PinID, f.Kind, f.Name, f.Mime, f.Size, f.CreatedAt, f.UpdatedAt, f.Source, f.BaseFileID); err != nil {
+		return fmt.Errorf("store: add pin file: %w", err)
+	}
+	s.notePinUpdated(f.PinID)
+	return nil
+}
+
+func (s *Store) AddPinFile(pinID, name, mime string, size int64) (PinFile, error) {
+	if err := s.roomForPinFile(pinID); err != nil {
+		return PinFile{}, err
 	}
 	kind, err := ClassifyPinFile(name, mime, size)
 	if err != nil {
@@ -103,15 +126,13 @@ func (s *Store) AddPinFile(pinID, name, mime string, size int64) (PinFile, error
 		name = name[:200]
 	}
 	now := nowUTC()
-	f := PinFile{ID: newID(name, "file"), PinID: pinID, Kind: kind, Name: name, Mime: mime, Size: size, CreatedAt: now}
+	f := PinFile{ID: newID(name, "file"), PinID: pinID, Kind: kind, Name: name, Mime: mime, Size: size, CreatedAt: now, UpdatedAt: now}
 	if f.Mime == "" {
 		f.Mime = "application/octet-stream"
 	}
-	if _, err := s.db.Exec(`INSERT INTO pin_files (id, pin_id, kind, name, mime, size, created_at, source, base_file_id) VALUES (?, ?, ?, ?, ?, ?, ?, '', '')`,
-		f.ID, f.PinID, f.Kind, f.Name, f.Mime, f.Size, f.CreatedAt); err != nil {
-		return PinFile{}, fmt.Errorf("store: add pin file: %w", err)
+	if err := s.insertPinFile(f); err != nil {
+		return PinFile{}, err
 	}
-	s.note("pin.updated", nil, nil, idData(pinID))
 	return f, nil
 }
 
@@ -124,7 +145,7 @@ func (s *Store) DeletePinFile(pinID, id string) error {
 	if n == 0 {
 		return ErrNotFound
 	}
-	s.note("pin.updated", nil, nil, idData(pinID))
+	s.notePinUpdated(pinID)
 	return nil
 }
 
@@ -145,58 +166,63 @@ func cleanPinFileName(name string) string {
 	return name
 }
 
+// AddPinSketch records a sketch. baseID, for an annotation, must name an
+// image of the same pin: the sketch keeps the picture by reference and the
+// browser rebuilds the background from /files/{baseId} on open, so the
+// scene never embeds the bytes (finding 4 of the pins v2 review).
 func (s *Store) AddPinSketch(pinID, name, source, baseID string, previewSize int64) (PinFile, error) {
-	if _, err := s.GetPin(pinID); err != nil {
+	if err := s.roomForPinFile(pinID); err != nil {
 		return PinFile{}, err
-	}
-	n, err := s.countPinFiles(pinID)
-	if err != nil {
-		return PinFile{}, err
-	}
-	if n >= MaxPinFiles {
-		return PinFile{}, fmt.Errorf("a pin can have at most %d files", MaxPinFiles)
 	}
 	if previewSize > MaxPinImageSize {
-		return PinFile{}, fmt.Errorf("image too large (max 8 MB)")
+		return PinFile{}, invalid("image too large (max 8 MB)")
 	}
 	if source != "annotate" {
 		source = "blank"
+	}
+	baseID = strings.TrimSpace(baseID)
+	if baseID != "" {
+		base, err := s.GetPinFile(pinID, baseID)
+		if err != nil || base.Kind != "image" {
+			return PinFile{}, invalid("the picture to annotate is not an image of this pin")
+		}
 	}
 	now := nowUTC()
 	f := PinFile{
 		ID: newID("sketch", "sketch"), PinID: pinID, Kind: "sketch",
 		Name: cleanPinFileName(name), Mime: "image/png", Size: previewSize,
-		CreatedAt: now, Source: source, BaseFileID: strings.TrimSpace(baseID),
+		CreatedAt: now, UpdatedAt: now, Source: source, BaseFileID: baseID,
 	}
 	if f.Name == "file" || f.Name == "sketch" {
 		f.Name = "Sketch"
 	}
-	if _, err := s.db.Exec(`INSERT INTO pin_files (id, pin_id, kind, name, mime, size, created_at, source, base_file_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		f.ID, f.PinID, f.Kind, f.Name, f.Mime, f.Size, f.CreatedAt, f.Source, f.BaseFileID); err != nil {
-		return PinFile{}, fmt.Errorf("store: add sketch: %w", err)
+	if err := s.insertPinFile(f); err != nil {
+		return PinFile{}, err
 	}
-	s.note("pin.updated", nil, nil, idData(pinID))
 	return f, nil
 }
 
+// UpdatePinSketch renames and re-sizes a sketch and moves its updatedAt,
+// which is what the preview URL carries as its cache-busting version.
 func (s *Store) UpdatePinSketch(pinID, id, name string, previewSize int64) (PinFile, error) {
 	f, err := s.GetPinFile(pinID, id)
 	if err != nil {
 		return PinFile{}, err
 	}
 	if f.Kind != "sketch" {
-		return PinFile{}, fmt.Errorf("not a sketch")
+		return PinFile{}, invalid("not a sketch")
 	}
 	if previewSize > MaxPinImageSize {
-		return PinFile{}, fmt.Errorf("image too large (max 8 MB)")
+		return PinFile{}, invalid("image too large (max 8 MB)")
 	}
 	if name = cleanPinFileName(name); name != "" && name != "file" {
 		f.Name = name
 	}
 	f.Size = previewSize
-	if _, err := s.db.Exec(`UPDATE pin_files SET name = ?, size = ? WHERE id = ? AND pin_id = ?`, f.Name, f.Size, id, pinID); err != nil {
+	f.UpdatedAt = nowUTC()
+	if _, err := s.db.Exec(`UPDATE pin_files SET name = ?, size = ?, updated_at = ? WHERE id = ? AND pin_id = ?`, f.Name, f.Size, f.UpdatedAt, id, pinID); err != nil {
 		return PinFile{}, fmt.Errorf("store: update sketch: %w", err)
 	}
-	s.note("pin.updated", nil, nil, idData(pinID))
+	s.notePinUpdated(pinID)
 	return f, nil
 }

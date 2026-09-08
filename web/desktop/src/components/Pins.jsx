@@ -1,10 +1,16 @@
 import { useEffect, useState } from "react";
 import { IconPlus, IconX } from "./Icons.jsx";
 import { api } from "@picode/shared/client/api.js";
+import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { go, pinRoute } from "../lib/routes.js";
 import { toastError } from "../lib/toast.js";
 import { askConfirm } from "../lib/confirm.js";
 
+// The list follows the change feed (ADR-0048): every pin.created /
+// pin.updated / pin.deleted carries the summary, so another browser's edit
+// shows here without anyone navigating. `picode-pins` stays as the studio's
+// same-tab nudge for when the feed is down. Nothing reloads on hashchange:
+// the route only decides which card is active.
 export default function Pins() {
   const [pins, setPins] = useState([]);
   const [openId, setOpenId] = useState(() => pinRoute().id);
@@ -18,12 +24,17 @@ export default function Pins() {
 
   useEffect(() => {
     load();
-    const on = () => { load(); setOpenId(pinRoute().id); };
-    window.addEventListener("hashchange", on);
-    window.addEventListener("picode-pins", on);
+    const onHash = () => setOpenId(pinRoute().id);
+    const onPing = () => load();
+    window.addEventListener("hashchange", onHash);
+    window.addEventListener("picode-pins", onPing);
+    const unsub = subscribeFeed((ev) => {
+      if (ev.type === "feed.open" || ev.type === "feed.reset" || (ev.type && ev.type.startsWith("pin."))) load();
+    });
     return () => {
-      window.removeEventListener("hashchange", on);
-      window.removeEventListener("picode-pins", on);
+      window.removeEventListener("hashchange", onHash);
+      window.removeEventListener("picode-pins", onPing);
+      unsub();
     };
   }, []);
 

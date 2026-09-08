@@ -347,6 +347,13 @@ body {
 }
 .pin-form-actions { display: flex; align-items: center; gap: 6px; }
 .pin-form-spacer { flex: 1; }
+.pin-limit { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.pin-limit.over { color: var(--danger); }
+.pin-restored {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 10px; border-radius: 8px; font-size: 12px;
+  background: var(--bg-hover); color: var(--text-secondary);
+}
 
 .form-new { padding: 4px 8px 10px; display: flex; flex-direction: column; gap: 6px; }
 .agent-bar {

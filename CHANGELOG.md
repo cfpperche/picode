@@ -21,7 +21,27 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
-<<<<<<< HEAD
+- **Pins: limits refuse instead of truncating, large screenshots can be
+  annotated, an edited sketch shows its new picture, and two editors no
+  longer overwrite each other.** A title or note over the limit answers
+  400 with the limit spelled out (the studio counts the note near 100 KB)
+  instead of a byte-sliced text that left invalid UTF-8 behind; tags are
+  capped at 40 characters and whitespace folds to one `-`. Annotating an
+  image keeps the picture by reference, so the drawing's 2 MB cap is about
+  the drawing and a 6 MB screenshot annotates fine; the old "scene is
+  required" message for that case is gone. Preview URLs carry the file's
+  version, so re-saving a sketch changes its thumbnail and the picture in
+  the note at once. Save sends the version it loaded and a 409 offers
+  Reload instead of losing the other writer's edit; the studio retains an
+  unsaved draft across navigation and reload ("Unsaved changes restored",
+  Discard). A file dropped on a new pin names the pin after the file, never
+  "Untitled", and Cancel offers to delete a pin created that way. The
+  sidebar follows the change feed instead of refetching on every
+  navigation, and the list no longer carries note bodies (nor do
+  `pin.created` / `pin.updated`, which now share one summary shape).
+  Sketch bytes are written atomically; a boot sweep removes attachment
+  directories whose pin is gone; downloads keep accented names
+  (RFC 6266). Pins v2 review: `docs/plans/pins-v2.md`.
 - **Inbox: replies to `ask_human` questions asked from a terminal pi now
   actually reach the terminal.** A pi running as an Agent CLI terminal
   filed questions as `pi (unmanaged)`; the reply path only delivers to
@@ -36,7 +56,6 @@ to the `[Unreleased]` section. The repository's official language is English
   (`pi install -l …/packages/pi-inbox`); items filed by 0.1.x as
   `pi (unmanaged)` must still be answered by hand.
 
-=======
 - **Mobile: the installed web app's tab buttons sit as low as the platform
   allows.** In standalone the tab content was centered in a 56px bar that
   ends at the (shortened) layout viewport, leaving ~11px of dead nav below
@@ -49,7 +68,6 @@ to the `[Unreleased]` section. The repository's official language is English
   into the unreachable strip to test whether element painting survives —
   if labels survive at the screen's physical bottom, that offset can become
   the default; if they are clipped, the answer is no.
->>>>>>> main
 - **Mobile: the active-tab pill covers the label, and the installed web
   app no longer shows a dead band above the home indicator.** The active
   pill used to hug the icon only (28px tall) and its bottom edge cut

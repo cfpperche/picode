@@ -47,6 +47,7 @@
 ## In flight (unmerged branches on disk)
 
 - `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
+- `feat/pins-v2` — pins hygiene slice done (review in `docs/plans/pins-v2.md`); reminders ADR-0099 proposed, slices 2–4 wait for the owner.
 
 ## Next up
 
