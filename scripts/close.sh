@@ -28,8 +28,8 @@ changed=$(git diff --name-only "$base" HEAD)
 # Generated docs artifacts travel with the code that changed them.
 if printf '%s\n' "$changed" | grep -qE '^(internal/|cmd/|www/)'; then
   make --no-print-directory openapi llms >/dev/null || exit 1
-  if [ -n "$(git status --porcelain -- www/public/api/openapi.json www/llms.txt)" ]; then
-    git add www/public/api/openapi.json www/llms.txt
+  if [ -n "$(git status --porcelain -- www/public/api/openapi.json www/public/llms.txt)" ]; then
+    git add www/public/api/openapi.json www/public/llms.txt
     git commit -q -m "docs: regenerate OpenAPI and llms.txt" && echo "close: committed regenerated OpenAPI/llms.txt"
   fi
 fi

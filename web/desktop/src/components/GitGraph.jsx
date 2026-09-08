@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef } from "react";
 import { layout, layoutUncommitted, isUncommittedHash, branchPath, colourAt, GRID } from "../lib/gitgraph.js";
+import { trackingLabel, trackingTitle } from "@picode/shared/domain/graphActions.js";
 import { IconRemote } from "./Icons.jsx";
 
 // One row per commit, with the branch lines drawn as a single SVG layer behind
@@ -42,10 +43,35 @@ function refLabel(ref) {
   );
 }
 
+// menuAt turns a contextmenu event into the point the menu anchors to. A
+// keyboard press (Shift+F10, the Menu key) reports no coordinates in some
+// browsers and 0,0 in others, so the focused element's own box stands in —
+// otherwise the menu would open in the window's top-left corner.
+function menuAt(e) {
+  if (e.clientX || e.clientY) return { x: e.clientX, y: e.clientY };
+  const box = e.currentTarget.getBoundingClientRect();
+  return { x: Math.round(box.left + 8), y: Math.round(box.bottom) };
+}
+
 export default function GitGraph({
   graph, anchors, showRemoteBranches, selected, onSelect, matches, activeMatch, detail, detailHeight, onSizerDown,
-  onEndReached, loadingEarlier,
+  onEndReached, loadingEarlier, onMenu,
 }) {
+  // A pill is a span inside the row's button, so its own menu must stop the
+  // event from also opening the row's (ADR-0096). Keyboard users reach the
+  // same rows through the submenus the row's menu carries.
+  // The uncommitted row names its branch as a string; the menu wants the ref
+  // that carries the tracking and checkout facts. A branch with no ref row
+  // (a repository with no commits yet) still gets a menu — of its name alone.
+  const refByName = (name) =>
+    (graph.refs || []).find((r) => r.kind === "head" && r.name === name) || { name, kind: "head" };
+
+  const openMenu = (target) => (e) => {
+    if (!onMenu) return;
+    e.preventDefault();
+    e.stopPropagation();
+    onMenu({ ...menuAt(e), target });
+  };
   const commits = graph.commits || [];
   const listRef = useRef(null);
 
@@ -212,10 +238,22 @@ export default function GitGraph({
                     className={rowClass(c.hash, " gg-row-uncommitted")}
                     aria-current={selected === c.hash ? "true" : undefined}
                     onClick={() => onSelect && onSelect(c.hash)}
+                    onContextMenu={openMenu({ kind: "worktree", worktree: wt })}
                   >
                     <span className="gg-refs">
-                      {wt.branch ? <span className="gg-ref gg-ref-head">{wt.branch}</span> : null}
-                      <span className="gg-ref gg-ref-wt" title={wt.path || ""}>
+                      {wt.branch ? (
+                        <span
+                          className="gg-ref gg-ref-head"
+                          onContextMenu={openMenu({ kind: "ref", ref: refByName(wt.branch) })}
+                        >
+                          {wt.branch}
+                        </span>
+                      ) : null}
+                      <span
+                        className="gg-ref gg-ref-wt"
+                        title={wt.path || ""}
+                        onContextMenu={openMenu({ kind: "worktree", worktree: wt })}
+                      >
                         {wt.detached ? basename(wt.path) : wt.branch ? basename(wt.path) : "worktree"}
                       </span>
                       {(wt.agents || []).map((a) => (
@@ -245,14 +283,21 @@ export default function GitGraph({
                 className={rowClass(c.hash)}
                 aria-current={selected === c.hash ? "true" : undefined}
                 onClick={() => onSelect && onSelect(c.hash)}
+                onContextMenu={openMenu({ kind: "commit", commit: c, refs })}
               >
                 <span className="gg-refs">
                   {refs.map((ref) => {
                     const agents = ref.kind === "head" ? agentsByBranch.get(ref.name) : null;
                     return (
-                      <span key={ref.kind + ref.name} className={"gg-ref " + refKindClass(ref.kind)}>
+                      <span
+                        key={ref.kind + ref.name}
+                        className={"gg-ref " + refKindClass(ref.kind)}
+                        title={trackingTitle(ref) || undefined}
+                        onContextMenu={openMenu({ kind: "ref", ref })}
+                      >
                         {ref.kind === "remote" ? <IconRemote /> : null}
                         {refLabel(ref)}
+                        {trackingLabel(ref) ? <span className="gg-ref-track">{trackingLabel(ref)}</span> : null}
                         {agents
                           ? agents.map((a) => (
                               <span key={a.id} className="gg-occupant" title={`Agent ${a.name} works here`}>
@@ -264,7 +309,12 @@ export default function GitGraph({
                     );
                   })}
                   {detached.map((wt) => (
-                    <span key={wt.path} className="gg-ref gg-ref-wt" title={`${wt.path} — detached HEAD`}>
+                    <span
+                      key={wt.path}
+                      className="gg-ref gg-ref-wt"
+                      title={`${wt.path} — detached HEAD`}
+                      onContextMenu={openMenu({ kind: "worktree", worktree: wt })}
+                    >
                       {basename(wt.path)}
                       {(wt.agents || []).map((a) => (
                         <span key={a.id} className="gg-occupant" title={`Agent ${a.name} works here`}>

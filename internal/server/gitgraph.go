@@ -40,12 +40,18 @@ type worktreeView struct {
 }
 
 type graphView struct {
-	Key         string                    `json:"key"`
-	Name        string                    `json:"name"`
-	Head        string                    `json:"head"`
-	Commits     []gitgraph.Commit         `json:"commits"`
-	Refs        []gitgraph.Ref            `json:"refs"`
-	Worktrees   []worktreeView            `json:"worktrees"`
+	Key       string            `json:"key"`
+	Name      string            `json:"name"`
+	Head      string            `json:"head"`
+	Commits   []gitgraph.Commit `json:"commits"`
+	Refs      []gitgraph.Ref    `json:"refs"`
+	Worktrees []worktreeView    `json:"worktrees"`
+	Remotes   []string          `json:"remotes"`
+	// Root is the owner's canonical folder — the equality precondition every
+	// other owner read uses (ADR-0074). A command composed for this graph
+	// carries it back, so a terminal that moved never receives one meant for
+	// where it used to be.
+	Root        string                    `json:"root"`
 	Uncommitted *gitgraph.UncommittedInfo `json:"uncommitted,omitempty"`
 	More        bool                      `json:"more"`
 	Token       string                    `json:"token,omitempty"`
@@ -72,6 +78,11 @@ func registerGitGraphRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/workspaces/{id}/git/commit", handleWorkspaceCommit(deps))
 	mux.HandleFunc("GET /api/agents/{id}/git/head", handleAgentGitHead(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/git/head", handleTerminalGitHead(deps))
+	// The workspace variant was missing from ADR-0038, which shipped the
+	// token for agents and terminals only. A workspace is an owner like the
+	// other two (ADR-0027), and the graph opened through one has to be able
+	// to watch for an action's outcome as well.
+	mux.HandleFunc("GET /api/workspaces/{id}/git/head", handleWorkspaceGitHead(deps))
 	mux.HandleFunc("GET /api/agents/{id}/git/blob", handleAgentGitBlob(deps))
 	mux.HandleFunc("GET /api/terminals/{id}/git/blob", handleTerminalGitBlob(deps))
 	mux.HandleFunc("GET /api/workspaces/{id}/git/blob", handleWorkspaceGitBlob(deps))
@@ -96,6 +107,16 @@ func handleTerminalGitHead(deps Deps) http.HandlerFunc {
 			return
 		}
 		writeGitHead(w, liveTermCwd(deps, r, term))
+	}
+}
+
+func handleWorkspaceGitHead(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cwd, ok := workspaceFilesCwd(deps, w, r.PathValue("id"))
+		if !ok {
+			return
+		}
+		writeGitHead(w, cwd)
 	}
 }
 
@@ -172,6 +193,7 @@ func writeGraph(w http.ResponseWriter, r *http.Request, deps Deps, cwd string) {
 	}
 	view := deps.graphView(g)
 	view.Token = token
+	view.Root = canonDir(cwd)
 	writeJSON(w, http.StatusOK, view)
 }
 
@@ -226,6 +248,7 @@ func (deps Deps) graphView(g *gitgraph.Graph) graphView {
 	view := graphView{
 		Key: g.Key, Name: g.Name, Head: g.Head,
 		Commits: g.Commits, Refs: g.Refs, More: g.More,
+		Remotes:     g.Remotes,
 		Uncommitted: g.Uncommitted,
 		Worktrees:   make([]worktreeView, 0, len(g.Worktrees)),
 	}

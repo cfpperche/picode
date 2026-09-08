@@ -3,7 +3,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import {
   IconChat, IconChevronRight, IconClear, IconClip, IconCopy, IconExternal, IconFile, IconFolders,
-  IconMonitor, IconMoon, IconPaste, IconPencil, IconReload, IconScrollEnd, IconSelectAll,
+  IconAgent, IconGit, IconMonitor, IconMoon, IconPaste, IconPencil, IconReload, IconScrollEnd, IconSelectAll,
   IconSearch, IconSettings, IconSun, IconTextSize, IconTrash, IconX,
 } from "./Icons.jsx";
 import { isEditableTarget, insertAtCaret } from "../lib/contextMenuClipboard.js";
@@ -29,7 +29,7 @@ const TERM_ICONS = {
 // pane-detection logic in App.jsx's own listener. DropdownMenu gives what a
 // menu of this size needs anyway — roving focus, typeahead, submenus — which
 // a Popover never had.
-export default function ContextMenu({ state, onClose, themeMode, onTheme, termHandlers }) {
+export default function ContextMenu({ state, onClose, themeMode, onTheme, termHandlers, onOpenAgent, onGraphAction }) {
   // Every read of `state` goes through these: the component stays mounted
   // with state === null so Radix keeps owning its own teardown, and the
   // rows below are evaluated on every render, open or not.
@@ -38,6 +38,10 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
   const selection = open ? state.selection || "" : "";
   const target = open ? state.target : null;
   const link = open ? state.link : null;
+  const graph = open ? state.graph : null;
+  // Read once per render, like `graph` above: a row's handler must not reach
+  // back into `state` at click time, when the menu may already be closing.
+  const graphCtx = open ? state.graphCtx : null;
   const NextThemeIcon = THEME_ICON[themeMode] || IconMonitor;
   const ran = useRef(false);
 
@@ -61,9 +65,25 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
   }
 
   function copySelection() {
-    navigator.clipboard.writeText(selection)
+    copyText(selection);
+  }
+
+  function copyText(text) {
+    navigator.clipboard.writeText(text)
       .then(() => toast.ok("Copied."))
       .catch(() => toast.error("Clipboard blocked — copy manually with Ctrl+C."));
+  }
+
+  // A graph row acts on the repository the reader is looking at: copying is
+  // done here, and opening an agent belongs to the app that owns the tabs.
+  function runGraph(item) {
+    return () => {
+      ran.current = true;
+      if (item.kind === "copy") copyText(item.value);
+      else if (item.kind === "open-agent" && onOpenAgent) onOpenAgent(item.agentId);
+      // A write row opens the form; nothing is composed or sent from a menu.
+      else if (item.kind === "action" && onGraphAction) onGraphAction(item, graphCtx);
+    };
   }
 
   function pasteInto() {
@@ -87,7 +107,9 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
           onCloseAutoFocus={(e) => e.preventDefault()}
         >
           <Tooltip.Provider delayDuration={300}>
-            {term ? (
+            {graph ? (
+              <GraphMenu menu={graph} onRun={runGraph} />
+            ) : term ? (
               buildTermMenu({ kind: term.kind, selection, cli: term.cli, running: term.running, shell: term.shell, link, findKey: formatChord(primaryChord("app.terminal.find")) })
                 .map((row, i) => (row.sep
                   ? <div key={"s" + i} className="um-divider" />
@@ -115,6 +137,48 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
+  );
+}
+
+// The git graph's menu (ADR-0096). The header is what you pointed at plus
+// the facts that decide what may be done to it; phase 1 carries tier 0 rows
+// only, so nothing here runs git. An empty item list renders as the header
+// alone — the reader still learns which checkout holds the branch.
+// A row's icon says what kind of act it is before the label does: copying,
+// opening a tab, or a git command — and a tier C command wears the app's
+// danger colour, as every other destructive row does.
+function graphIcon(item) {
+  if (item.kind === "copy") return <IconCopy />;
+  if (item.kind === "open-agent") return <IconAgent />;
+  return <IconGit />;
+}
+
+function GraphMenu({ menu, onRun }) {
+  return (
+    <>
+      <div className="um-head">
+        <span className="um-head-name">{menu.title}</span>
+        {menu.state ? <span className="um-note">{menu.state}</span> : null}
+        {menu.busy ? <span className="um-note um-note-busy">{menu.busy}</span> : null}
+      </div>
+      {menu.items.length ? <div className="um-divider" /> : null}
+      {menu.items.map((item) => (item.kind === "section"
+        ? (
+          <DropdownMenu.Label key={item.id} className="um-label um-label-mid">
+            {item.label}
+            {item.state ? <span className="um-note">{item.state}</span> : null}
+          </DropdownMenu.Label>
+        )
+        : (
+          <DropdownMenu.Item
+            key={item.id}
+            className={"um-item" + (item.tier === "C" ? " um-danger" : "")}
+            onSelect={onRun(item)}
+          >
+            <span className="um-item-name">{graphIcon(item)}{item.label}</span>
+          </DropdownMenu.Item>
+        )))}
+    </>
   );
 }
 

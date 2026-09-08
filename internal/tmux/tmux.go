@@ -312,6 +312,26 @@ func (m *Manager) TypeText(ctx context.Context, name, text string) error {
 	return err
 }
 
+// ClearLine empties whatever is already typed at a shell prompt before
+// something else is typed into it.
+//
+// Without it a prepared command that the human never submitted stays on the
+// line and the next one lands glued to its end — measured: a prepared
+// `git switch -c …17210e9` and a later `git worktree add …` arrived as one
+// word and the shell answered "fatal: only one reference expected"
+// (ADR-0096). End-of-line then kill-to-start is what every shell in the
+// caller's own isShell list binds, in emacs and vi insert mode alike.
+//
+// Callers must already have established that the pane sits at a shell prompt;
+// this sends no signal and interrupts nothing.
+func (m *Manager) ClearLine(ctx context.Context, name string) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("tmux clear-line: empty session name")
+	}
+	_, err := m.run(ctx, "send-keys", "-t", name+":", "C-e", "C-u")
+	return err
+}
+
 // PasteText inserts text into the session's pane as a bracketed paste
 // (ADR-0060 reply fallback): the target editor inserts it wholesale, so no
 // keybinding fires and newlines stay literal, then presses Enter to submit.

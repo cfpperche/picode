@@ -37,6 +37,9 @@ import Devices from "./components/Devices.jsx";
 import Automations from "./components/Automations.jsx";
 import Palette from "./components/Palette.jsx";
 import ContextMenu from "./components/ContextMenu.jsx";
+import { graphActions, undoFor } from "@picode/shared/domain/graphActions.js";
+import { ownerBase } from "@picode/shared/domain/gitOwner.js";
+import GitActionDialog from "./components/GitActionDialog.jsx";
 import { paneAt, paneSelection, paneLink, focusPane } from "./lib/termActions.js";
 import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
@@ -152,6 +155,15 @@ export default function App() {
     });
   }, []);
   const [ctxMenu, setCtxMenu] = useState(null);
+  // The server's action catalog (ADR-0096): which git actions exist and what
+  // risk tier each carries. Read once; with none, the graph offers no write
+  // action at all rather than guessing a tier.
+  const [gitCatalog, setGitCatalog] = useState(null);
+  const [gitAction, setGitAction] = useState(null);
+  const [gitActionTick, setGitActionTick] = useState(0);
+  // What the last delivered action was, and how to put it back if it has an
+  // honest inverse (ADR-0096 phase 4).
+  const [gitActionDone, setGitActionDone] = useState(null);
   const [treeOpen, setTreeOpen] = useState(false);
   const [sessionOpen, setSessionOpen] = useState(false);
   const [treeMode, setTreeMode] = useState("tree");
@@ -1023,9 +1035,85 @@ export default function App() {
     prepareSurface(loc.agent);
   }
 
+  useEffect(() => {
+    let live = true;
+    api("/api/git/actions")
+      .then((page) => {
+        if (!live) return;
+        const byId = {};
+        for (const a of (page && page.actions) || []) if (a && a.id) byId[a.id] = a;
+        setGitCatalog(byId);
+      })
+      .catch(() => { /* no catalog, no write actions — the graph fails closed */ });
+    return () => { live = false; };
+  }, []);
+
   function revealAgent(id, list) {
     openTab(id, list);
     go("workspace", id);
+  }
+
+  // The git graph's context menu (ADR-0096). The graph resolves what the
+  // reader pointed at; the app knows which agents are alive, so the menu is
+  // composed here and rendered by the one PiCode context menu.
+  // A write row carries everything the form needs: the action, its tier and
+  // the target. The owner and the folder come from the tab the menu was
+  // opened on, so a command is never composed for another repository.
+  function openGraphAction(item, ctx) {
+    if (!item || !ctx || !ctx.owner) return;
+    // What the repository held before the act, recorded now so an undo can
+    // name a position rather than guess one.
+    const ref = (ctx.refs || []).find((r) => r && r.name === item.target) || null;
+    const before = { head: ctx.head || "", ref: ref ? { name: ref.name, hash: ref.hash } : null };
+    setGitAction({ item, owner: ctx.owner, root: ctx.root || "", agents: ctx.agents || [], before });
+  }
+
+  // "Also start an agent here" (ADR-0096 phase 4). The worktree is created by
+  // a command in a terminal, so its folder appears when git gets there — not
+  // when the POST returns. This waits for the graph to show it, then creates
+  // the agent that lives in it. A worktree that never appears is said so,
+  // rather than an agent pointed at a folder that is not there.
+  async function startAgentInWorktree(owner, slug, agentName) {
+    const wsId = owner.kind === "workspace"
+      ? owner.id
+      : ((locate(workspaces, freeAgents, owner.id) || {}).workspace || {}).id || "";
+    if (!wsId) {
+      toast.info("The worktree command was sent. Start an agent from its row once it exists.");
+      return;
+    }
+    const base = ownerBase(owner) + encodeURIComponent(owner.id) + "/git";
+    for (let i = 0; i < 15; i += 1) {
+      await new Promise((r) => setTimeout(r, 2000));
+      let found = "";
+      try {
+        const g = await api(base + "?limit=1");
+        found = ((g && g.worktrees) || []).map((w) => w.path || "").find((p) => p.endsWith("/.worktrees/" + slug)) || "";
+      } catch {
+        /* a poll that fails is not an answer; the deadline still applies */
+      }
+      if (!found) continue;
+      try {
+        const agent = await api("/api/workspaces/" + encodeURIComponent(wsId) + "/agents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: agentName || slug, workPath: found }),
+        });
+        await loadWorkspaces();
+        toast.ok("Agent " + (agent.name || slug) + " lives in " + slug + " now.");
+        if (agent.id) revealAgent(agent.id);
+      } catch (e) {
+        toastError(e);
+      }
+      return;
+    }
+    toast.info("The worktree has not appeared yet. Start an agent from its row when it does.");
+  }
+
+  function openGraphMenu({ x, y, target, graph, owner, root }) {
+    const menu = graphActions(target, graph, { workspaces, freeAgents, catalog: gitCatalog });
+    if (!menu.title) return;
+    const here = (menu.occupants || []).filter((o) => o.running !== false);
+    setCtxMenu({ x, y, graph: menu, graphCtx: { owner, root, agents: here, head: graph.head, refs: graph.refs } });
   }
 
   function prepareSurface(a) {
@@ -1062,16 +1150,19 @@ export default function App() {
   // (task queue for a managed agent, receiver or paste for a TUI) and says
   // which, so the note is honest about when the agent acts. The view is not
   // retargeted: the agent's own tab shows the turn.
-  async function askAgentGit(who, text, root, action) {
+  async function askAgentGit(who, text, root, action, verb) {
     try {
       const res = await api("/api/agents/" + encodeURIComponent(who.id) + "/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, root }),
       });
-      toast.info(askedNote(who.name, action, res));
+      // The graph composes thirty-odd actions the rail's own verb table never
+      // knew; when the server named one, that name is what the toast says.
+      toast.info(askedNote(who.name, action, res, verb));
     } catch (e) {
       toastError(e);
+      throw e;
     }
   }
 
@@ -2561,6 +2652,13 @@ export default function App() {
                 hidden={selectedId !== id}
                 onKey={(key) => onGitKey(id, key)}
                 onClose={() => closeTab(id)}
+                onMenu={openGraphMenu}
+                actionTick={gitActionTick}
+                done={gitActionDone && gitActionDone.ownerId === o.id ? gitActionDone : null}
+                onUndo={(undo) => openGraphAction(
+                  { id: "act:" + undo.action, kind: "action", action: undo.action, label: "Undo", tier: "B", needs: undo.name ? ["target", "name"] : ["target"], target: undo.target, name: undo.name },
+                  { owner: o, root: (gitAction && gitAction.root) || "", agents: [], head: "", refs: [] },
+                )}
               />
             );
           })}
@@ -2929,7 +3027,42 @@ export default function App() {
           if (a.kind === "stop") stopAgent(a.wsId);
         }}
       />
-      <ContextMenu state={ctxMenu} onClose={() => setCtxMenu(null)} themeMode={themeMode} onTheme={setTheme} termHandlers={termMenuHandlers} />
+      <ContextMenu
+        state={ctxMenu}
+        onClose={() => setCtxMenu(null)}
+        themeMode={themeMode}
+        onTheme={setTheme}
+        termHandlers={termMenuHandlers}
+        onOpenAgent={revealAgent}
+        onGraphAction={openGraphAction}
+      />
+
+      <GitActionDialog
+        open={!!gitAction}
+        owner={gitAction ? gitAction.owner : null}
+        root={gitAction ? gitAction.root : ""}
+        item={gitAction ? gitAction.item : null}
+        agents={gitAction ? gitAction.agents : []}
+        run={!!inspectorPrefs.run}
+        onClose={() => setGitAction(null)}
+        onDeliver={async (command, opts) => {
+          const { owner, root, item, before } = gitAction;
+          await typeIntoTerminal(owner, root, command, opts);
+          // The graph learns the outcome by watching, not by return value:
+          // the command was typed or submitted, not finished (ADR-0096).
+          setGitActionDone({ ownerId: owner.id, verb: opts.verb, undo: undoFor(item.action, before) });
+          setGitActionTick((n) => n + 1);
+          if (opts.alsoAgent && item.action === "create-worktree") {
+            startAgentInWorktree(owner, opts.name, opts.agentName);
+          }
+        }}
+        onAsk={async (who, text, action, verb) => {
+          const { root, item, before } = gitAction;
+          await askAgentGit(who, text, root, action, verb);
+          setGitActionDone({ ownerId: gitAction.owner.id, verb, undo: undoFor(item.action, before) });
+          setGitActionTick((n) => n + 1);
+        }}
+      />
       <Toasts />
       <CreateForm
         open={showForm}
