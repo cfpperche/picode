@@ -256,31 +256,38 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
             {filtered.length === 0 ? (
               <p className="pkg-fine">No installed package matches “{iq}”. <button type="button" className="btn btn-ghost btn-sm" onClick={() => setIq("")}>Clear filter</button></p>
             ) : (
-              <ul className="pkg-rows" role="tabpanel">
+              <ul className="pkg-grid" role="tabpanel">
                 {filtered.map((p) => {
                   const u = behindOf(p);
                   const scopeLabel = p.scope === "project" ? (workspaceName || "workspace") : p.scope === "agent" ? (agentName || "agent") : "machine";
                   return (
-                    <li key={p.scope + ":" + p.source} className="pkg-row">
-                      <div className="pkg-row-main">
-                        <span className="pkg-row-name" title={p.source}>{pkgName(p.source)}</span>
-                        {PKG_DESC[pkgName(p.source)] ? <span className="pkg-row-desc">{PKG_DESC[pkgName(p.source)]}</span> : null}
+                    <li key={p.scope + ":" + p.source} className="pkg-card pkg-card-installed">
+                      <div className="pkg-preview" aria-hidden="true">
+                        <div className="pkg-preview-frame"><span /><span /><span /></div>
                       </div>
-                      <span className="pkg-type">{scopeLabel}</span>
-                      <span className="pkg-row-meta">
-                        {p.kind || ""}
-                        {u && u.latest ? <em className="pkg-behind">{u.latest} available</em> : null}
-                        {p.installedPath ? <em className="pkg-path" title={p.installedPath}>{p.installedPath}</em> : null}
-                      </span>
-                      <span className="pkg-row-actions">
-                        {p.configKind === "roles" ? (
-                          <a className="btn btn-sm" href={packagesConfigHash("pi-roles")}>Configure</a>
-                        ) : null}
-                        {u ? (
-                          <button type="button" className="btn btn-primary btn-sm" onClick={() => updatePkg(p)} disabled={!!job} title={u.current && u.latest ? u.current + " → " + u.latest : undefined}>Update</button>
-                        ) : null}
-                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => remove(p)} disabled={!!job}>Remove</button>
-                      </span>
+                      <div className="pkg-card-body">
+                        <div className="pkg-card-head">
+                          <span className="pkg-card-name" title={p.source}>{pkgName(p.source)}</span>
+                          <span className="pkg-type">{scopeLabel}</span>
+                        </div>
+                        <p className="pkg-card-desc pkg-src" title={PKG_DESC[pkgName(p.source)] || p.source}>{PKG_DESC[pkgName(p.source)] || (p.kind === "path" && p.installedPath ? p.installedPath : p.source)}</p>
+                        <div className="pkg-card-meta">
+                          {p.kind ? <span>{p.kind}</span> : null}
+                          {u && u.current ? <span>{u.current}</span> : null}
+                          {u && u.latest ? <span className="pkg-behind">{u.latest} available</span> : null}
+                          {p.installedPath ? <span className="pkg-path" title={p.installedPath}>{p.installedPath}</span> : null}
+                        </div>
+                        <div className="pkg-card-foot">
+                          {p.configKind === "roles" ? (
+                            <a className="btn btn-sm" href={packagesConfigHash("pi-roles")}>Configure</a>
+                          ) : null}
+                          {u ? (
+                            <button type="button" className="btn btn-primary btn-sm" onClick={() => updatePkg(p)} disabled={!!job} title={u.current && u.latest ? u.current + " → " + u.latest : undefined}>Update</button>
+                          ) : null}
+                          <span className="pkg-foot-spacer" />
+                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => remove(p)} disabled={!!job}>Remove</button>
+                        </div>
+                      </div>
                     </li>
                   );
                 })}
