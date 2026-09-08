@@ -627,6 +627,11 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 img.ws-face.term-cli-face {
   background: transparent; border: 0; padding: 0;
 }
+/* Transparent monochrome vendor SVGs (claude, openai, grok, …) need a light
+   face on dark panels everywhere they render — rows, tabs, inspector, the
+   CLI catalog. Pi and colored raster fallbacks keep their native colors. */
+:root:not([data-theme="light"]) img.term-cli-face[src*="/icons/"],
+:root:not([data-theme="light"]) img.term-cli-face[src="https://grok.com/images/favicon.svg"] { filter: invert(1); }
 @keyframes pulse { 50% { opacity: .35; } }
 .ws-row-menu {
   min-width: 176px; padding: 4px; z-index: 60;

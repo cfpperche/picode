@@ -11,10 +11,6 @@
 .cli-catalog a > span:not(.term-cli-badge) { flex: 1; min-width: 0; }
 .cli-catalog strong { font-weight: 500; display: block; }
 .cli-catalog small { display: block; color: var(--text-secondary); font-size: 11px; margin-top: 3px; }
-/* The existing catalog's transparent monochrome SVGs need a light face on
-   dark panels. Keep Pi and colored raster fallbacks in their native colors. */
-:root:not([data-theme="light"]) #agent-clis-view .term-cli-face[src*="/icons/"],
-:root:not([data-theme="light"]) #agent-clis-view .term-cli-face[src="https://grok.com/images/favicon.svg"] { filter: invert(1); }
 .cli-detail, .cli-editor { padding: 24px; min-width: 0; animation: cli-enter var(--motion-fast) var(--ease-out); }
 .cli-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
 .cli-heading h3, .cli-list-heading h3 { font-size: 14px; font-weight: 600; }

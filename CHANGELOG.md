@@ -77,6 +77,13 @@ to the `[Unreleased]` section. The repository's official language is English
   gap. Automations never hit it because the host zone has no DST; pin
   reminders in a named zone would have.
 
+- **Web: CLI favicons no longer vanish on the dark theme.** The dark-mode
+  invert for transparent monochrome vendor marks was scoped to the Agent
+  CLIs view only, so terminal rows in the mobile Work list and the desktop
+  sidebar, tabs and inspector rendered black-on-dark. The rule now applies
+  on every surface; Pi and colored raster fallbacks keep their native
+  colors.
+
 - **Pins: limits refuse instead of truncating, large screenshots can be
   annotated, an edited sketch shows its new picture, and two editors no
   longer overwrite each other.** A title or note over the limit answers
