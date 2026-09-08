@@ -5,7 +5,7 @@ import { terminalCli, terminalCliFaviconUrls, terminalCliLabel, terminalCliMark 
 // A loaded favicon is the identity, same as ProviderFace: the image fills
 // the slot with no chip behind it. The boxed badge is only for fallback
 // marks (and the unused labeled variant).
-export default function TerminalCliBadge({ term, showLabel = false }) {
+export default function TerminalCliBadge({ term, showLabel = false, decorative = false }) {
   const cli = terminalCli(term);
   const label = cli ? terminalCliLabel(cli) : "Terminal";
   const favicons = cli ? terminalCliFaviconUrls(cli) : [];
@@ -13,16 +13,15 @@ export default function TerminalCliBadge({ term, showLabel = false }) {
   const favicon = failedCount < favicons.length ? favicons[failedCount] : "";
   const showFavicon = Boolean(favicon);
   const failNext = () => setFailedCount((n) => n + 1);
+  const named = decorative ? { alt: "", "aria-hidden": true } : { alt: "", title: label, "aria-label": label };
 
   if (showFavicon && !showLabel) {
     return (
       <img
         className="ws-face term-cli-face"
         src={favicon}
-        alt=""
-        title={label}
-        aria-label={label}
         onError={failNext}
+        {...named}
       />
     );
   }
@@ -31,7 +30,7 @@ export default function TerminalCliBadge({ term, showLabel = false }) {
     "term-cli-badge" +
     (showFavicon ? " has-favicon" : cli ? " cli-" + cli : " is-shell");
   return (
-    <span className={badgeClass} title={label} aria-label={label}>
+    <span className={badgeClass} title={decorative ? undefined : label} aria-label={decorative ? undefined : label} aria-hidden={decorative ? true : undefined}>
       {showFavicon ? (
         <img className="term-cli-favicon" src={favicon} alt="" onError={failNext} />
       ) : cli ? (

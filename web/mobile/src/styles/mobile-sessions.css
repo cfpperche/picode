@@ -83,6 +83,7 @@
 #m-app #sessions-view .sessions-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
 #m-app #sessions-view .sessions-cleanup { height: auto; flex: 1 1 120px; display: flex; flex-direction: column; align-items: stretch; gap: 5px; }
 #m-app #sessions-view .sessions-cleanup select { width: 100%; font-size: 16px; }
+#m-app #sessions-view .sessions-cleanup .cli-combo { width: 100%; max-width: none; }
 #m-app #sessions-view .sessions-search { flex: 1 1 100%; width: 100%; max-width: none; }
 #m-app #sessions-view .sess-row { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 0; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; }
 #m-app #sessions-view .mcp-row-main { min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; }

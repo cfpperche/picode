@@ -2997,6 +2997,9 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   max-height: var(--radix-popover-content-available-height);
 }
 .search-combo-pop [cmdk-root], .search-combo-pop .combo-list { min-height: 0; }
+.search-combo-pop .cockpit-opt { display: flex; align-items: center; gap: 8px; }
+.combo-opt-icon { flex: none; display: inline-flex; align-items: center; }
+.combo-opt-icon .ws-face { margin-left: 0; }
 [cmdk-root] { display: flex; flex-direction: column; }
 [cmdk-item][data-selected="true"] { background: var(--bg-hover); }
 .combo-search { padding: 2px 2px 6px; }

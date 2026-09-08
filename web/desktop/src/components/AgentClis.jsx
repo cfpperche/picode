@@ -14,6 +14,7 @@ import CliTabs from "./CliTabs.jsx";
 import CliSettings from "./CliSettings.jsx";
 import { cliSettingsHash, supportsCliSettings } from "@picode/shared/domain/cliSettings.js";
 import SessionsView from "./SessionsView.jsx";
+import CliCombo from "./CliCombo.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { IconChevronRight } from "./Icons.jsx";
 import { CLIDefaults, LaunchFields, LaunchPreview, confirmDiscard, useLaunchGuard } from "./CliLaunchSettings.jsx";
@@ -250,7 +251,7 @@ function TerminalEditor({ route, data, run, busy }) {
       }); } catch (e) { setError(e.message); }
     }}>
       <div className="cli-fields">
-        <label>CLI<select value={cli.id} onChange={async (e) => { const c = data.clis.find((x) => x.id === e.target.value); if (custom && dirty && !(await confirmDiscard())) return; setCliId(c.id); setDraft(launchDraft(c.config)); setCustom(false); setProfileId(""); setOriginalOverrides({}); }}>{data.clis.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+        <label>CLI<CliCombo ariaLabel="CLI" value={cli.id} options={data.clis} onChange={async (id) => { const c = data.clis.find((x) => x.id === id); if (!c || (custom && dirty && !(await confirmDiscard()))) return; setCliId(c.id); setDraft(launchDraft(c.config)); setCustom(false); setProfileId(""); setOriginalOverrides({}); }} /></label>
         {!existing && data.profiles.some((p) => p.cli === cli.id) ? <label>Launch profile<select value={profileId} onChange={async (e) => { const id = e.target.value; if (custom && dirty && !(await confirmDiscard())) return; const p = data.profiles.find((p) => p.id === id); setProfileId(id); setDraft(launchDraft(p?.config || cli.config)); setCustom(!!p); setOriginalOverrides({}); }}>{<option value="">CLI defaults</option>}{data.profiles.filter((p) => p.cli === cli.id).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label> : null}
         {!existing ? <><label>Name<input autoComplete="off" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label><label>Workspace<select value={form.workspaceId} onChange={(e) => setForm({ ...form, workspaceId: e.target.value, cwd: "" })}><option value="">Free terminal</option>{data.workspaces.filter((w) => w.id !== "ws_free").map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label><label>Folder<input placeholder={form.workspaceId ? "Use workspace folder" : "Use home folder"} value={form.cwd} onChange={(e) => setForm({ ...form, cwd: e.target.value })} /></label></> : null}
         <label className="cli-checkbox"><input type="checkbox" checked={custom} onChange={async (e) => { const checked = e.target.checked; if (!checked && dirty && !(await confirmDiscard())) return; setCustom(checked); if (!checked) { setDraft(launchDraft(cli.config)); setProfileId(""); setOriginalOverrides({}); } }} />Customize this terminal</label>
