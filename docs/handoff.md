@@ -8,14 +8,11 @@
 `git worktree list` is the truth for branches on disk (`make close-summary` prints it); this section holds only what merging one of them must know.
 
 - `feat/herdr-validation`, `feat/picode-video-pilot` — carry `CHANGELOG.md` edits and the pre-ADR-0105 12 KB `docs/handoff.md`. Their next merge of `main` conflicts in both one last time: keep this file's shape and stay under 8 KB; any further changelog line goes to `docs/changelog.d/`.
-- `feat/docs-adversarial` — docs-vs-code sweep fixes + `picode --version`; fragment `docs/changelog.d/docs-adversarial.md`; ff-ready after one more `make close` for the handoff note.
-- `feat/fix-default-context-menu` — one-line web fix (default context menu rows match the terminal menu); ff-ready, fragment `docs/changelog.d/fix-default-context-menu.md`.
-- `feat/apps-native-surface` — Matrix phase 1: ADR-0109 (manifest `surface`, native surface kind), hidden `demo-native` app, `suspendTermSocket`, ShellTerm pane re-claim; fragment `docs/changelog.d/apps-native-surface.md`; main (with ADR-0108) merged in, ff-ready.
 
 ## Next up
 
 1. First release since 0.1.0: `make changelog` on `main`, then `docs/release-process.md` (`[Unreleased]` is 860 lines).
-2. Matrix app (plan `docs/plans/matrix-app.md`, phase 0 study `docs/benchmarks/2026-09-09-matrix-live-grid.md`): phase 2 `feat/matrix-store` (ADR-0108) merged; phase 1 `feat/apps-native-surface` (ADR-0109) ff-ready; phase 3 `feat/matrix-surface` (grid, chunk loading, picker, `nextSlot`/`layoutDiff` in `matrix.js`, registered as `matrix` in `web/desktop/src/lib/nativeApps.js`) after phase 1 merges.
+2. Matrix app (`docs/plans/matrix-app.md`): phases 1/2 merged (ADR-0109 native surfaces, ADR-0108 persistence); phase 3 grid, chunk loading, picker and layout ownership remain. Register the surface as `matrix` in `web/desktop/src/lib/nativeApps.js`; use `nextSlot`/`layoutDiff` in `matrix.js`.
 3. GitHub CI: the next push exercises the ADR-0105 workflow (Ubuntu-only Go matrix, tmux cache); macOS/Windows run on tags or `workflow_dispatch`.
 4. llama delivery 3 live validation; owned-service ARM64 acceptance.
 5. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
@@ -29,7 +26,7 @@
 ## Known debts / open questions
 
 - Process (ADR-0105): worktrees start with a cold Go test cache (results are keyed by directory); `.pi/compact.json` `atPercent 0.5` never fires for large-window models (peaks 379 K) — owner declined config changes 2026-09-09; capture tolerance is a 128 px budget (`scripts/docs-shots.mjs` prints the count per surface; lower it if a real change ever slips through).
-- Communication (ADR-0104/0106): physical-device acceptance remains untested; Grok/Hermes automatic setup remains unavailable. Native session discovery is best effort; never share credentials across conversations. Orphan private setup files after owner deletion need maintenance cleanup; revoked files cannot authenticate. OpenCode inline merging requires JSON objects, not JSONC.
+- Communication (ADR-0104/0106/0107): Claude/OpenCode full model roundtrips await native account capacity (owner); physical-mobile and non-Linux pane/process recovery unverified; custom Codex resume global args/`--` unverified. PTY rechecks cannot eliminate the check-to-write race; uncertain attempts never auto-retry. Never share credentials across conversations. Orphan private setup files after owner deletion need maintenance cleanup; revoked files cannot authenticate. OpenCode inline merging requires JSON objects, not JSONC.
 - Native packages/providers: real downloads, vendor OAuth, real credential changes and device acceptance remain external; mobile package configuration is desktop-only. Decision tables in `docs/plans/cli-native-packages.md` and `cli-native-providers.md`.
 - Native settings: physical iPhone/PWA/IME and a real process restart remain external acceptance; scratch browser tests cover recovery, retained drafts and stopped-agent saves.
 - Inbox terminal replies: pi-inbox 0.1.x items (`pi (unmanaged)`) have no address until each pi session updates; daemon death between park and JSONL row is an accepted gap.
