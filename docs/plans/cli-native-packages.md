@@ -1,7 +1,6 @@
 # Packages under Agent CLIs
 
-Status: implemented; scoped gates and fixture validation passed. Closing and
-main integration follow the repository workflow.
+Status: implemented; scoped gates and fixture validation passed.
 
 Move Pi package management to `#/clis/packages/pi` and known configuration
 editors to `#/clis/packages/pi/config/<package>`. Each app owns its view;

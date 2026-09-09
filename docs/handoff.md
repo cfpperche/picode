@@ -40,7 +40,7 @@
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
   at 16 px, tab strip overflow phases 2–4. Extra keys first-open `0.1.0+dfa9f7b`. ADR-0089 attach bar `0.1.0+aca6628`, amended: the staging folder no longer touches the project's own `.gitignore` (a nested one instead) and ages out after 7 days. GitHub repo picker in the clone form (`0.1.0+a2e699c`, accepted live). Workspace card: two actions instead of five (ADR-0027/0030), header stayed one line.
   Managed agents remain Pi-only; guests stay terminals-only (ADR-0091) until a protocol converges. **Desktop user menu v2:** grouped rows with subtitles + in-menu search (`@picode/shared/domain/listSearch.js`); theme/layout radios stay.
-- **Packages config GUI (ADR-0100):** installed list is a filterable card grid; pi-roles gets `#/packages/config/pi-roles` — workspace file + agent overlay (AgentCwd rule), effective merge, scoped reset, 409 before overwriting an unparsable file; pi files stay the only source of truth (supersedes 0033 §5). Delivery 2: pi-compact + declarative adapter manifest; mobile config UI still open.
+- **Native CLI packages (ADR-0102/0099):** Agent CLIs → Packages at `#/clis/packages/pi`; legacy links redirect with explicit workspace/agent/scope context. Pi APIs and native files remain authoritative. Failed refreshes retain drafts and block writes; changed file targets require confirmed reload. Desktop pi-roles configuration retains independent workspace/agent drafts, scoped clear and malformed-file recovery. Mobile config links offer the desktop layout. Next adapters: pi-compact and a declarative manifest.
 
 ## In flight (unmerged branches on disk)
 
@@ -62,6 +62,7 @@
 
 ## Known debts / open questions
 
+- Native packages: real package-manager downloads and physical-device acceptance remain external; mobile configuration editing is still desktop-only. Fixture/browser coverage includes all rows in `docs/plans/cli-native-packages.md`.
 - Native settings: physical iPhone/PWA/IME and real process restart remain external acceptance; both app adapters have failure coverage, and scratch browser tests cover recovery, retained drafts and stopped-agent saves.
 - Inbox terminal replies: pi-inbox 0.1.x items (`pi (unmanaged)`) have no
   address — answered by hand until updated per pi session; daemon death
@@ -91,7 +92,6 @@
 - Pi has one active credential slot; per-agent OAuth is an owner decision.
 - Rename watch: a branch adding files under `www/` (pre-rename base) would resurrect the dir — they belong in `docs-site/` (open branches touch none, checked 2026-09-08).
 - Tutorial video freshness audits are stale after source relocation; recapture is explicit. Branch protection and CODEOWNERS need the owner; desktop requests `/desktop/favicon.svg` and gets 404.
-- Screenshot fingerprints went stale-advisory with the docs-site rename (docs-shots.mjs hashes into the fingerprint); the next deploy batch recaptures on its own.
 - Inspector: Files filter covers loaded rows only; This-agent chips show only
   with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: ARM64 hardware, GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
