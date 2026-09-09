@@ -5,6 +5,7 @@
 
 ## Current state
 
+- **Session messages (ADR-0104):** embedded MCP, durable inboxes, scoped connection tokens, retry deduplication and explicit acknowledgments; `#/clis/messages` manages opt-in and history on desktop/mobile. Client setup is per conversation; guests remain terminals.
 - **Native CLI settings (ADR-0101):** Settings now lives at `#/clis/settings/pi`; old links redirect, agent URLs preserve scope, desktop/mobile editors keep native Pi APIs and the mobile quick sheet. Recovery preserves drafts, blocks stale writes and reports failed restarts; malformed defaults no longer block mobile agent controls. Settings, Sessions and the new-terminal form share a `--ctl-h` CLI combobox with each runtime's favicon.
 - **Mobile v2:** focused screens, retained drafts, Sessions/Automations, Files/editor and Git workflows (ADR-0095); acceptance in `docs/plans/mobile-v2.md`. Work empty (Agents/Terminals/Workspaces) is one centered line + primary create; search misses stay top-aligned. Workspace favicons share the 22px row-mark size.
 - **Process (ADR-0086, 2026-09-06):** `picode deploy` refuses mid-turn
@@ -57,12 +58,11 @@
 6. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
 7. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
 9. Windows clean-machine install (ADR-0098, accepted 2026-09-08): phase 1 = `install-picode` + `install-runtime` bootstrap stages in `picode-desktop.exe`; phase 2 = `install.ps1` one-liner + winget experiment, no paid signing (Trusted Signing excludes Brazil; SignPath needs OSI). Plan: `docs/plans/windows-clean-install.md`.
-8. Git graph write actions (ADR-0096) fully shipped — the ask door reaches
-   pi terminals (ADR-0089 amendment, proven live). Inspector debts left:
-   `git ls-files` search, per-anchor watch, `+N −M` footer.
+8. Git graph write actions (ADR-0096) shipped; ask reaches pi terminals (ADR-0089, proven live). Inspector debts: `git ls-files` search, per-anchor watch, `+N −M` footer.
 
 ## Known debts / open questions
 
+- Communication: automatic launch wiring/wake and vendor CLI runtime matrix remain later increments. MCP SDK HTTP clients and installed pi-mcp-adapter 2.32.1 tested on owned fixtures; no real model turn or physical-device acceptance. Native session discovery is best effort; never share credentials across conversations.
 - Native packages/providers: real package downloads, vendor OAuth, real credential changes and physical-device acceptance remain external; mobile package configuration is still desktop-only. Owned browser fixtures cover the decision tables in `docs/plans/cli-native-packages.md` and `docs/plans/cli-native-providers.md`.
 - Native settings: physical iPhone/PWA/IME and real process restart remain external acceptance; both app adapters have failure coverage, and scratch browser tests cover recovery, retained drafts and stopped-agent saves.
 - Inbox terminal replies: pi-inbox 0.1.x items (`pi (unmanaged)`) have no

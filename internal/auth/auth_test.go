@@ -350,3 +350,15 @@ func TestModeEnvFallback(t *testing.T) {
 		t.Fatal("unknown values fall back to remote")
 	}
 }
+
+func TestCommunicationTokenNeverGetsOwnerAuthority(t *testing.T) {
+	for _, mode := range []string{ModeOff, ModeRemote, ModeAll} {
+		s, _ := newService(t, mode)
+		for _, path := range []string{"/api/communication", "/api/agents", "/api/events", "/ws/term"} {
+			got := do(s, call{method: "GET", path: path, remote: "127.0.0.1:1234", bearer: store.PeerTokenPrefix + strings.Repeat("a", 64)})
+			if got.Code != 401 {
+				t.Fatalf("%s %s: %d", mode, path, got.Code)
+			}
+		}
+	}
+}

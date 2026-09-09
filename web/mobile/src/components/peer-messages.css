@@ -1,0 +1,26 @@
+.peer-body { display: grid; gap: 20px; padding: 24px; min-width: 0; }
+.peer-heading, .peer-history-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.peer-body h3, .peer-body h4, .peer-body p { margin: 0; }
+.peer-heading p, .peer-connection p, .peer-setup p { color: var(--text-secondary); margin-top: 6px; }
+.peer-picker { display: grid; gap: 8px; max-width: 560px; }
+.peer-body select, .peer-body input { height: var(--ctl-h); width: 100%; min-width: 0; }
+.peer-history-heading select { width: auto; max-width: 100%; }
+.peer-body .btn { min-height: var(--ctl-h); white-space: nowrap; }
+.peer-connection, .peer-setup { border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.peer-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.peer-body details { color: var(--text-secondary); min-width: 0; }
+.peer-body summary { cursor: pointer; padding: 4px 0; }
+.peer-body code { display: block; overflow-wrap: anywhere; margin-top: 8px; }
+.peer-setup label { display: grid; gap: 6px; margin-top: 12px; }
+.peer-setup textarea { width: 100%; resize: vertical; font-family: var(--mono); }
+.peer-history { margin: 0; padding: 0; list-style: none; }
+.peer-history li { padding: 16px 0; border-top: 1px solid var(--border); animation: peer-appear 150ms ease-out; }
+.peer-message-meta { display: flex; align-items: baseline; gap: 8px 16px; flex-wrap: wrap; color: var(--text-secondary); font-size: 12px; }
+.peer-message-meta strong { color: var(--text-primary); overflow-wrap: anywhere; }
+.peer-history p { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 8px; }
+.peer-history small { color: var(--text-secondary); overflow-wrap: anywhere; }
+@keyframes peer-appear { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .peer-history li { animation: none; } }
+
+.peer-body select, .peer-body input, .peer-body textarea { border: 1px solid var(--border-strong); border-radius: var(--radius-ctl); background: var(--bg-base); color: var(--text-primary); padding: 8px 10px; }
+@media (max-width: 719px) { .peer-body { padding: 16px; gap: 16px; } .peer-connection, .peer-setup { padding: 12px; } .peer-body .cli-notice { flex-wrap: wrap; } }

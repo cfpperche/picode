@@ -17,6 +17,7 @@ export function cliLocation(hash = "") {
   if (parts[1] === "profile") return { view: "profile", id: decode(parts[2]), cli: decode(parts[3]) };
   if (parts[1] === "new") return { view: "new", id: decode(parts[2]), ...(params.get("profile") ? { profile: params.get("profile") } : {}), ...(params.get("workspace") ? { workspace: params.get("workspace") } : {}) };
   if (parts[1] === "terminal") return { view: "terminal", id: decode(parts[2]) };
+  if (parts[1] === "messages") return { view: "messages", id: decode(parts[2]) };
   if (parts[1] === "terminals") return { view: "terminals", id: "" };
   // ADR-0079: sessions are a capability of a CLI, not a top-level surface.
   // id is the optional workspace scope (empty = every folder on the machine);
