@@ -18,10 +18,10 @@ func registerPins(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/pins/{id}/archived", handlePinArchived(deps))
 }
 
-// pinStatus maps the pin store's typed errors once: what the caller can
+// storeStatus maps the store's typed errors once (pins, matrices): what the caller can
 // fix is 400, a stale precondition is 409, a missing row is 404, and a
 // store failure is honestly a 500 rather than the caller's fault.
-func pinStatus(err error) int {
+func storeStatus(err error) int {
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		return http.StatusNotFound
@@ -34,7 +34,7 @@ func pinStatus(err error) int {
 }
 
 func writePinErr(w http.ResponseWriter, err error) {
-	writeErr(w, pinStatus(err), err.Error())
+	writeErr(w, storeStatus(err), err.Error())
 }
 
 // GET /api/pins            the live list, starred first
