@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconChat, IconChevronRight, IconEllipsis, IconFolder, IconGit, IconPencil, IconPlay, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
+import { IconChat, IconEllipsis, IconFolder, IconGit, IconPencil, IconPlay, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { repoLine, termLine } from "@picode/shared/domain/repoLine.js";
@@ -254,7 +254,12 @@ export function ChecklistDisclosure({ id, check }) {
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
         onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}
       >
-        <span className={"ws-chev" + (open ? " open" : "")} aria-hidden="true"><IconChevronRight size={12} /></span>
+        {/* No chevron (owner request 2026-09-09): the line reads as plan
+            text, not a disclosure widget — the whole row stays the click
+            target, so expanding needs no arrow. The empty 12px slot keeps
+            the text on the card's 39px text column, aligned with the
+            folder/branch labels below and the expanded steps' text. */}
+        <span className="ws-check-slot" aria-hidden="true" />
         <span className="ws-check-text">{progress.text}</span>
         <span className="ws-check-pos">{progress.pos}</span>
       </button>
