@@ -12,10 +12,28 @@ to the `[Unreleased]` section. The repository's official language is English
 ## [Unreleased]
 
 ### Added
+
 - Direct session messages (ADR-0104): an embedded HTTP MCP endpoint with same-workspace opt-in, scoped credentials, durable receipts, retry deduplication and explicit acknowledgements. Agent CLIs → Messages on desktop/mobile manages connections and history. Client setup is manual per conversation; no automatic agent turn or terminal migration.
 
 
+- **Automations: several schedules per automation.** The editor's
+  Schedule block is now a list: each rule has its own preset (Hourly,
+  Daily, Weekdays, Weekly, Custom), an optional label, its own switch and
+  Remove, plus *Add a schedule* — "weekdays at 09:00 and Saturday at noon"
+  no longer needs two automations. Each rule is its own clock (own jitter,
+  own catch-up, saved in the browser's time zone); the list and the detail
+  summarise every rule; the Runs table names the rule that fired. The API
+  returns `schedules` on every automation (each with `nextFireAt`) and
+  takes `schedules` on create and PATCH; `cron` stays as the one-rule
+  shorthand. Editing a rule's time starts it over instead of catching up
+  a slot it was never asked for. Migration 038 moves existing schedules
+  into rows with their last fire intact. (ADR-0045 amendment 2026-09-09.)
+
 ### Changed
+
+- **Sidebar: PiCode without the build number.** The version string
+  (`v0.1.0+…`) no longer sits next to the name in the sidebar header;
+  it still lives in the user menu.
 
 - **User menu: one Tools group.** After Providers, Settings and Packages
   moved under Agent CLIs, the leftover *Agents and connections* heading

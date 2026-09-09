@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cfpperche/picode/internal/automate"
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
@@ -18,6 +19,14 @@ import (
 // newAutomationServer uses a missing agent command so real runs resolve
 // to the "pi missing" row without spawning anything.
 func newAutomationServer(t *testing.T) (*httptest.Server, *store.Store) {
+	t.Helper()
+	ts, st, _ := newAutomationDeps(t)
+	return ts, st
+}
+
+// newAutomationDeps also hands back the deps, for tests that drive the
+// runner directly.
+func newAutomationDeps(t *testing.T) (*httptest.Server, *store.Store, Deps) {
 	t.Helper()
 	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
 	if err != nil {
@@ -28,7 +37,7 @@ func newAutomationServer(t *testing.T) (*httptest.Server, *store.Store) {
 	deps := Deps{Store: st, Tmux: tmux.New(), Runtime: rt, AgentCmd: "picode-test-no-such-binary"}
 	ts := httptest.NewServer(New("127.0.0.1:0", deps).Handler)
 	t.Cleanup(ts.Close)
-	return ts, st
+	return ts, st, deps
 }
 
 func doJSON(t *testing.T, method, url, body string, hdr map[string]string) (*http.Response, map[string]any) {
@@ -197,7 +206,7 @@ func TestAutomationRunNowBusyAndMessage(t *testing.T) {
 		t.Fatalf("run now = %d %v", res.StatusCode, out)
 	}
 	// A running row makes the next Run now a 409 + skipped/busy.
-	_, _ = st.CreateRun(id, store.TriggerSchedule, store.RunRunning, "")
+	_, _ = st.CreateRun(store.RunParams{AutomationID: id, Trigger: store.TriggerSchedule, Status: store.RunRunning})
 	res, out = doJSON(t, "POST", ts.URL+"/api/automations/"+id+"/run", "", nil)
 	if res.StatusCode != http.StatusConflict || out["run"].(map[string]any)["reason"] != reasonBusy {
 		t.Fatalf("busy = %d %v", res.StatusCode, out)
@@ -254,7 +263,7 @@ func TestAutomationTemplates(t *testing.T) {
 func TestRunWatchExitedUnderTheRun(t *testing.T) {
 	_, st := newAutomationServer(t)
 	a, _, _ := st.CreateAutomation(store.AutomationParams{Name: "x", Action: "start", Prompt: "p", Cron: "0 9 * * *"})
-	run, _ := st.CreateRun(a.ID, store.TriggerManual, store.RunRunning, "")
+	run, _ := st.CreateRun(store.RunParams{AutomationID: a.ID, Trigger: store.TriggerManual, Status: store.RunRunning})
 	w := &runWatch{runner: automationRunner{deps: Deps{Store: st}}, a: a, run: run, agentID: "none"}
 	w.exited(true)
 	deadline := time.Now().Add(2 * time.Second)
@@ -271,12 +280,77 @@ func TestRunWatchExitedUnderTheRun(t *testing.T) {
 		t.Fatal("run not failed after an unexpected stop")
 	}
 
-	run2, _ := st.CreateRun(a.ID, store.TriggerManual, store.RunRunning, "")
+	run2, _ := st.CreateRun(store.RunParams{AutomationID: a.ID, Trigger: store.TriggerManual, Status: store.RunRunning})
 	w2 := &runWatch{runner: automationRunner{deps: Deps{Store: st}}, a: a, run: run2, agentID: "none"}
 	w2.letGo()
 	w2.exited(true)
 	time.Sleep(100 * time.Millisecond)
 	if r, _ := st.GetRun(run2.ID); r.Status != store.RunRunning {
 		t.Fatalf("our own stop must stay silent, got %q", r.Status)
+	}
+}
+
+func TestAutomationSchedulesAPI(t *testing.T) {
+	ts, st, deps := newAutomationDeps(t)
+	res, out := doJSON(t, "POST", ts.URL+"/api/automations", `{"name":"Two","action":"start","prompt":"p","schedules":[
+		{"label":"Morning","cron":"0 9 * * 1-5","tz":"America/Sao_Paulo"},
+		{"label":"Saturday","cron":"0 12 * * 6","tz":"America/Sao_Paulo","enabled":false}]}`, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create = %d %v", res.StatusCode, out)
+	}
+	a := out["automation"].(map[string]any)
+	id := a["id"].(string)
+	if _, has := a["cron"]; has {
+		t.Fatalf("view still carries cron: %v", a)
+	}
+	list := a["schedules"].([]any)
+	if len(list) != 2 {
+		t.Fatalf("schedules = %v", list)
+	}
+	first, second := list[0].(map[string]any), list[1].(map[string]any)
+	if first["label"] != "Morning" || first["tz"] != "America/Sao_Paulo" || first["enabled"] != true || first["nextFireAt"] == nil {
+		t.Fatalf("first = %v", first)
+	}
+	if second["enabled"] != false || second["nextFireAt"] != nil {
+		t.Fatalf("disabled row must not promise a time: %v", second)
+	}
+	if a["nextFireAt"] != first["nextFireAt"] {
+		t.Fatalf("automation nextFireAt %v != earliest schedule %v", a["nextFireAt"], first["nextFireAt"])
+	}
+	// Refusals travel as 400 with the store's words.
+	res, out = doJSON(t, "POST", ts.URL+"/api/automations", `{"name":"Bad","action":"start","prompt":"p","schedules":[{"cron":"0 9 * * *","tz":"Mars/Olympus"}]}`, nil)
+	if res.StatusCode != http.StatusBadRequest || !strings.Contains(out["error"].(string), "time zone") {
+		t.Fatalf("bad zone = %d %v", res.StatusCode, out)
+	}
+	// PATCH with the whole list: keep the first by id, drop the second, add one.
+	res, out = doJSON(t, "PATCH", ts.URL+"/api/automations/"+id, `{"schedules":[
+		{"id":"`+first["id"].(string)+`","label":"Weekday morning","cron":"0 9 * * 1-5","tz":"America/Sao_Paulo"},
+		{"label":"Nightly","cron":"0 23 * * *"}]}`, nil)
+	if res.StatusCode != 200 {
+		t.Fatalf("patch = %d %v", res.StatusCode, out)
+	}
+	list = out["automation"].(map[string]any)["schedules"].([]any)
+	if len(list) != 2 || list[0].(map[string]any)["id"] != first["id"] || list[0].(map[string]any)["label"] != "Weekday morning" ||
+		list[1].(map[string]any)["label"] != "Nightly" || list[1].(map[string]any)["tz"] != "" {
+		t.Fatalf("patched = %v", list)
+	}
+	// A schedule fire records which rule it was; the runs table can say so.
+	got, _ := st.GetAutomation(id)
+	run, err := AutomationRunner(deps).Fire(got, automate.Firing{Trigger: store.TriggerSchedule, ScheduleID: got.Schedules[1].ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run.ScheduleID == nil || *run.ScheduleID != got.Schedules[1].ID {
+		t.Fatalf("run = %+v", run)
+	}
+	res, out = doJSON(t, "GET", ts.URL+"/api/automations/"+id+"/runs?limit=5", "", nil)
+	if res.StatusCode != 200 || out["items"].([]any)[0].(map[string]any)["scheduleId"] != got.Schedules[1].ID {
+		t.Fatalf("runs = %d %v", res.StatusCode, out)
+	}
+	// The one-line convenience still works on both verbs.
+	res, out = doJSON(t, "PATCH", ts.URL+"/api/automations/"+id, `{"cron":"30 6 * * *"}`, nil)
+	list = out["automation"].(map[string]any)["schedules"].([]any)
+	if res.StatusCode != 200 || len(list) != 1 || list[0].(map[string]any)["cron"] != "30 6 * * *" {
+		t.Fatalf("cron patch = %d %v", res.StatusCode, list)
 	}
 }

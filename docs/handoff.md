@@ -1,13 +1,13 @@
 # Handoff — living project state
 
-> Read this first. At most 100 lines (the pre-commit hook refuses more).
-> Session notes: `docs/handoff/` (newest by filename). Deploy history: `~/.picode/var/deploy-log.jsonl` and `git log`. Older prose: `docs/handoff-archive.md`.
+> Read this first. At most 100 lines (the pre-commit hook refuses more). Session notes: `docs/handoff/` (newest by filename). Deploy history: `~/.picode/var/deploy-log.jsonl` and `git log`. Older prose: `docs/handoff-archive.md`.
 
 ## Current state
 
 - **Session messages (ADR-0104):** embedded MCP, durable inboxes, scoped connection tokens, retry deduplication and explicit acknowledgments; `#/clis/messages` manages opt-in and history on desktop/mobile. Client setup is per conversation; guests remain terminals.
 - **Native CLI settings (ADR-0101):** Settings now lives at `#/clis/settings/pi`; old links redirect, agent URLs preserve scope, desktop/mobile editors keep native Pi APIs and the mobile quick sheet. Recovery preserves drafts, blocks stale writes and reports failed restarts; malformed defaults no longer block mobile agent controls. Settings, Sessions and the new-terminal form share a `--ctl-h` CLI combobox with each runtime's favicon.
 - **Mobile v2:** focused screens, retained drafts, Sessions/Automations, Files/editor and Git workflows (ADR-0095); acceptance in `docs/plans/mobile-v2.md`. Work empty (Agents/Terminals/Workspaces) is one centered line + primary create; search misses stay top-aligned. Workspace favicons share the 22px row-mark size.
+- **Automations — many schedules (ADR-0045 amendment 2026-09-09):** `automation_schedules` rows (cron, zone, label, switch, own last fire/jitter/catch-up), `schedule_id` on runs, `schedules` on the API; editor is a list of rules on desktop and mobile. A live schedule-triggered run on scratch is still unobserved (unit-tested).
 - **Process (ADR-0086, 2026-09-06):** `picode deploy` refuses mid-turn
   (`GET /api/deploy/readiness`); `main` ships in batches (`make deploy-batch`,
   timer 12:00/18:00/23:00 — `make timers`). Iterate `make ci-scoped`; close with `make close`; `make ci` once on `main` at the merge. `make worktree NAME=x` / `make worktree-gc`. Capture parity advisory in `make ci`, strict in `close` and the batch.
@@ -40,7 +40,7 @@
   independent desktop/mobile apps (0072), Windows task reliability (0071),
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
   at 16 px, tab strip overflow phases 2–4. Extra keys first-open `0.1.0+dfa9f7b`. ADR-0089 attach bar `0.1.0+aca6628`, amended: the staging folder no longer touches the project's own `.gitignore` (a nested one instead) and ages out after 7 days. GitHub repo picker in the clone form (`0.1.0+a2e699c`, accepted live). Workspace card: two actions instead of five (ADR-0027/0030), header stayed one line.
-  Managed agents remain Pi-only; guests stay terminals-only (ADR-0091) until a protocol converges. **User menu:** Tools (Agent CLIs, Automations, Integrations) + PiCode; in-menu search (`@picode/shared/domain/listSearch.js`); theme/layout radios stay. Mobile More matches.
+  Managed agents remain Pi-only; guests stay terminals-only (ADR-0091) until a protocol converges. **User menu:** Tools (Agent CLIs, Automations, Integrations) + PiCode; in-menu search (`@picode/shared/domain/listSearch.js`); theme/layout radios stay. Mobile More matches. Sidebar brand is the name only — version lives in this menu.
 - **Agent CLIs layout / providers (ADR-0103):** every tab uses its app-owned `AgentClisFrame`: one 1240px desktop maximum, full mobile width, consistent padding and stable alignment. Narrow tabs keep the selected item visible. Since feat/page-width every desktop page frame shares that geometry (fluid to 1240px; map in docs/benchmarks.md). Providers lives at `#/clis/providers/pi`, with Pi-only capability, machine scope, legacy redirects and app-preserving OAuth returns; native accounts, keys, quotas and verification retain their APIs. Refresh errors keep the roster and draft.
 - **Native CLI packages (ADR-0102/0099):** Agent CLIs → Packages at `#/clis/packages/pi`; legacy links redirect with explicit workspace/agent/scope context. Pi APIs and native files remain authoritative. Failed refreshes retain drafts and block writes; changed file targets require confirmed reload. Desktop pi-roles configuration retains independent workspace/agent drafts, scoped clear and malformed-file recovery. Mobile config links offer the desktop layout. Next adapters: pi-compact and a declarative manifest.
 
@@ -58,7 +58,7 @@
 6. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
 7. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
 9. Windows clean-machine install (ADR-0098, accepted 2026-09-08): phase 1 = `install-picode` + `install-runtime` bootstrap stages in `picode-desktop.exe`; phase 2 = `install.ps1` one-liner + winget experiment, no paid signing (Trusted Signing excludes Brazil; SignPath needs OSI). Plan: `docs/plans/windows-clean-install.md`.
-8. Git graph write actions (ADR-0096) shipped; ask reaches pi terminals (ADR-0089, proven live). Inspector debts: `git ls-files` search, per-anchor watch, `+N −M` footer.
+8. Inspector debts (ADR-0096 shipped): `git ls-files` search, per-anchor watch, `+N −M` footer.
 
 ## Known debts / open questions
 

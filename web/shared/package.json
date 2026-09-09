@@ -35,6 +35,7 @@
     "./domain/composerHist.js": "./domain/composerHist.js",
     "./domain/composerImage.js": "./domain/composerImage.js",
     "./domain/cron.js": "./domain/cron.js",
+    "./domain/automationSchedule.js": "./domain/automationSchedule.js",
     "./domain/dashboardStats.js": "./domain/dashboardStats.js",
     "./domain/diff.js": "./domain/diff.js",
     "./domain/feedReducers.js": "./domain/feedReducers.js",

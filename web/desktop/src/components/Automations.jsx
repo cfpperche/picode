@@ -8,7 +8,8 @@ import { askConfirm } from "../lib/confirm.js";
 import { automationSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { relTime, absTime } from "@picode/shared/domain/relTime.js";
 import { sparklinePath } from "../lib/sparkline.js";
-import { PRESETS, DOW, presetToCron, cronToPreset, describeCron, cronError, isValidCron } from "@picode/shared/domain/cron.js";
+import { PRESETS, DOW, describeCron, isValidCron } from "@picode/shared/domain/cron.js";
+import { rowsFromAutomation, rowFromSchedule, rowCron, rowError, rowsToBody, browserZone, describeSchedules, scheduleLabelOf, MAX_SCHEDULES } from "@picode/shared/domain/automationSchedule.js";
 import { readAutomationDraft, writeAutomationDraft, draftFromTemplate } from "../lib/automationDraft.js";
 import { automationRoute, automationsHash, workspaceHash } from "../lib/routes.js";
 import { feedConnected, subscribeFeed } from "@picode/shared/client/feed.js";
@@ -289,7 +290,8 @@ function Suggested({ templates, open }) {
 // (workspace, agent, model, notify) is the facts list on the detail.
 function whenLine(a, agents) {
   const parts = [];
-  if (a.cron) parts.push(describeCron(a.cron));
+  const when = describeSchedules(a.schedules);
+  if (when) parts.push(when);
   if (a.webhook) parts.push("Webhook");
   if (a.action === "message") {
     const ag = (agents || []).find((x) => x.id === a.targetAgentId);
@@ -435,7 +437,7 @@ function Detail({ a, catalog, workspaces, freeAgents, agents, templates, reveal,
 
       <section className="settings-section">
         <h3>Runs</h3>
-        <RunsTable runs={runs} agentId={a.agentId} />
+        <RunsTable runs={runs} agentId={a.agentId} schedules={a.schedules} />
       </section>
     </div>
   );
@@ -459,7 +461,7 @@ function CopyButton({ text, label, small }) {
   );
 }
 
-function RunsTable({ runs, agentId }) {
+function RunsTable({ runs, agentId, schedules }) {
   if (runs === null) return <Skeleton />;
   if (!runs.length) return <p className="settings-desc">No runs yet. Use Run now to try it.</p>;
   return (
@@ -471,7 +473,7 @@ function RunsTable({ runs, agentId }) {
         {runs.map((r) => (
           <tr key={r.id} className={"auto-run" + (r.status === "running" ? " running" : "")}>
             <td title={absTime(r.firedAt)}>{relTime(r.firedAt)}</td>
-            <td>{r.trigger}</td>
+            <td>{r.trigger}{scheduleLabelOf(schedules, r.scheduleId) ? <span className="auto-run-sched"> · {scheduleLabelOf(schedules, r.scheduleId)}</span> : null}</td>
             <td><StatusPill status={r.status} reason={r.reason} /></td>
             <td className="num">{r.status === "skipped" ? "" : money(r.costUsd)}</td>
             <td>{r.sessionPath && agentId ? <a href={workspaceHash(agentId)}>Open agent</a> : null}</td>
@@ -492,7 +494,6 @@ function workspaceOfAgent(agentId, workspaces, freeAgents) {
 }
 
 function emptyForm(initial, workspaces, freeAgents) {
-  const p = cronToPreset(initial && initial.cron ? initial.cron : "0 9 * * 1-5");
   const wsFromAgent = initial && initial.action === "message" ? workspaceOfAgent(initial.targetAgentId, workspaces, freeAgents) : null;
   return {
     origin: initial && initial.source ? { source: initial.source, label: initial.sourceLabel || "" } : null,
@@ -504,12 +505,8 @@ function emptyForm(initial, workspaces, freeAgents) {
     provider: (initial && initial.provider) || "",
     model: (initial && initial.model) || "",
     thinking: (initial && initial.thinking) || "",
-    scheduleOn: initial ? !!initial.cron || !initial.webhook : true,
-    preset: p.kind,
-    time: p.time,
-    dow: p.dow,
-    cron: p.cron,
-    advanced: p.kind === "custom",
+    scheduleOn: initial ? !!(initial.cron || (initial.schedules && initial.schedules.length)) || !initial.webhook : true,
+    schedules: rowsFromAutomation(initial),
     webhook: initial ? !!initial.webhook : false,
     notifyUrl: (initial && initial.notifyUrl) || "",
     maxCostUsd: initial && initial.maxCostUsd ? String(initial.maxCostUsd) : "",
@@ -563,12 +560,13 @@ function Editor({ initial, catalog, workspaces, freeAgents, agents, templates, o
 
   useEffect(() => { if (nameRef.current) nameRef.current.focus(); }, []);
 
-  const cron = f.preset === "custom" ? f.cron : presetToCron({ kind: f.preset, time: f.time, dow: f.dow });
-  const cronErr = f.scheduleOn ? cronError(cron) : "";
+  const setRow = (key, patch) => set({ schedules: f.schedules.map((r) => (r.key === key ? { ...r, ...patch } : r)) });
+  const addRow = () => set({ schedules: [...f.schedules, rowFromSchedule(null)] });
+  const removeRow = (key) => set({ schedules: f.schedules.filter((r) => r.key !== key) });
 
   async function save(e) {
     e.preventDefault();
-    const parsed = parseForm(automationSchema, { ...f, cron });
+    const parsed = parseForm(automationSchema, f);
     if (!parsed.ok) { setErr(parsed.error); return; }
     setErr("");
     setBusy(true);
@@ -579,7 +577,7 @@ function Editor({ initial, catalog, workspaces, freeAgents, agents, templates, o
       targetAgentId: f.action === "message" ? f.targetAgentId : "",
       prompt: f.prompt,
       provider: f.provider, model: f.model, thinking: f.thinking,
-      cron: f.scheduleOn ? cron : "",
+      schedules: f.scheduleOn ? rowsToBody(f.schedules, browserZone()) : [],
       webhook: f.webhook,
       notifyUrl: f.notifyUrl.trim(),
       maxCostUsd: f.maxCostUsd === "" ? 0 : Number(f.maxCostUsd),
@@ -695,27 +693,46 @@ function Editor({ initial, catalog, workspaces, freeAgents, agents, templates, o
           <label htmlFor="auto-schedule-on">Schedule</label>
         </legend>
         {f.scheduleOn ? (
-          <>
-            <Segmented name="auto-preset" value={f.preset} onChange={(v) => set({ preset: v, advanced: v === "custom", cron: v === "custom" ? (cron || f.cron) : f.cron })} options={PRESETS} />
-            {f.preset !== "custom" ? (
-              <div className="auto-inline" data-align-row>
-                {f.preset === "weekly" ? (
-                  <select className="auto-select" value={f.dow} onChange={(e) => set({ dow: Number(e.target.value) })} aria-label="Day of week">
-                    {DOW.map((d, i) => <option key={d} value={i}>{d}</option>)}
-                  </select>
-                ) : null}
-                <label className="auto-inline-label">{f.preset === "hourly" ? "at minute" : "at"}
-                  <input className="dlg-input auto-time" type="time" value={f.time} onChange={(e) => set({ time: e.target.value })} step={60} />
-                </label>
-                <span className="auto-hint">{describeCron(cron) || "Pick a time"}</span>
-              </div>
-            ) : (
-              <div className="auto-inline" data-align-row>
-                <input className="dlg-input auto-cron" value={f.cron} onChange={(e) => set({ cron: e.target.value })} placeholder="*/30 9-18 * * 1-5" aria-label="Cron expression" spellCheck={false} />
-                <span className={"auto-hint" + (cronErr ? " bad" : "")}>{cronErr || "minute · hour · day · month · weekday"}</span>
-              </div>
-            )}
-          </>
+          <div className="auto-scheds">
+            {f.schedules.map((row, i) => {
+              const cron = rowCron(row);
+              const rowErr = rowError(row);
+              return (
+                <div key={row.key} className={"auto-sched" + (row.enabled ? "" : " off")} data-testid="auto-sched">
+                  <div className="auto-sched-head" data-align-row>
+                    <Switch.Root className="rx-switch" checked={row.enabled} onCheckedChange={(v) => setRow(row.key, { enabled: v })} aria-label={"Schedule " + (i + 1) + (row.enabled ? " on" : " off")}>
+                      <Switch.Thumb className="rx-switch-thumb" />
+                    </Switch.Root>
+                    <input className="dlg-input auto-sched-label" value={row.label} onChange={(e) => setRow(row.key, { label: e.target.value })} placeholder={"Label (optional)"} maxLength={40} aria-label={"Schedule " + (i + 1) + " label"} />
+                    {f.schedules.length > 1 ? <button type="button" className="btn btn-ghost btn-sm auto-sched-remove" onClick={() => removeRow(row.key)} aria-label={"Remove schedule " + (i + 1)}><IconTrash /></button> : null}
+                  </div>
+                  <Segmented name={"auto-preset-" + row.key} value={row.preset} onChange={(v) => setRow(row.key, { preset: v, cron: v === "custom" ? (cron || row.cron) : row.cron })} options={PRESETS} />
+                  {row.preset !== "custom" ? (
+                    <div className="auto-inline" data-align-row>
+                      {row.preset === "weekly" ? (
+                        <select className="auto-select" value={row.dow} onChange={(e) => setRow(row.key, { dow: Number(e.target.value) })} aria-label="Day of week">
+                          {DOW.map((d, j) => <option key={d} value={j}>{d}</option>)}
+                        </select>
+                      ) : null}
+                      <label className="auto-inline-label">{row.preset === "hourly" ? "at minute" : "at"}
+                        <input className="dlg-input auto-time" type="time" value={row.time} onChange={(e) => setRow(row.key, { time: e.target.value })} step={60} />
+                      </label>
+                      <span className={"auto-hint" + (rowErr ? " bad" : "")}>{rowErr || describeCron(cron)}</span>
+                    </div>
+                  ) : (
+                    <div className="auto-inline" data-align-row>
+                      <input className="dlg-input auto-cron" value={row.cron} onChange={(e) => setRow(row.key, { cron: e.target.value })} placeholder="*/30 9-18 * * 1-5" aria-label="Cron expression" spellCheck={false} />
+                      <span className={"auto-hint" + (rowErr ? " bad" : "")}>{rowErr || "minute · hour · day · month · weekday"}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <div className="auto-inline" data-align-row>
+              {f.schedules.length < MAX_SCHEDULES ? <button type="button" className="btn btn-ghost btn-sm" onClick={addRow}><IconPlus /> Add a schedule</button> : null}
+              <span className="auto-hint">Each schedule is its own clock in your time zone{browserZone() ? " (" + browserZone() + ")" : ""}; a run names the schedule that fired it.</span>
+            </div>
+          </div>
         ) : null}
       </fieldset>
 

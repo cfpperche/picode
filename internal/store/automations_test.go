@@ -11,14 +11,14 @@ func TestCreateAutomationDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if a.Name != "Nightly" || !a.Enabled || a.WorkspaceID != FreeWorkspaceID || *a.Cron != "0 9 * * 1-5" || !a.Webhook {
+	if a.Name != "Nightly" || !a.Enabled || a.WorkspaceID != FreeWorkspaceID || len(a.Schedules) != 1 || a.Schedules[0].Cron != "0 9 * * 1-5" || !a.Schedules[0].Enabled || a.Schedules[0].TZ != "" || !a.Webhook {
 		t.Fatalf("defaults: %+v", a)
 	}
 	if len(secret) != 64 {
 		t.Fatalf("secret length %d", len(secret))
 	}
 	got, err := s.GetAutomation(a.ID)
-	if err != nil || !got.Webhook || got.MaxCostUSD != nil || got.MaxRuns != nil {
+	if err != nil || !got.Webhook || got.MaxCostUSD != nil || got.MaxRuns != nil || len(got.Schedules) != 1 || got.Schedules[0].AutomationID != a.ID {
 		t.Fatalf("get: %+v %v", got, err)
 	}
 	if _, ok, _ := s.VerifyWebhookSecret(a.ID, secret); !ok {
@@ -48,6 +48,24 @@ func TestCreateAutomationRejects(t *testing.T) {
 		{"no trigger", func(p *AutomationParams) { p.Cron = ""; p.Webhook = false }},
 		{"negative cost", func(p *AutomationParams) { p.MaxCostUSD = -1 }},
 		{"runs without window", func(p *AutomationParams) { p.MaxRuns = 3 }},
+		{"bad schedule cron", func(p *AutomationParams) { p.Schedules = []ScheduleParams{{Cron: "0 9 * *", Enabled: true}} }},
+		{"unknown zone", func(p *AutomationParams) {
+			p.Schedules = []ScheduleParams{{Cron: "0 9 * * *", TZ: "Mars/Olympus", Enabled: true}}
+		}},
+		{"long label", func(p *AutomationParams) {
+			p.Schedules = []ScheduleParams{{Cron: "0 9 * * *", Label: string(make([]byte, 41)), Enabled: true}}
+		}},
+		{"same rule twice", func(p *AutomationParams) {
+			p.Schedules = []ScheduleParams{{Cron: "0 9 * * *", Enabled: true}, {Cron: "0  9 * * *", Enabled: false}}
+		}},
+		{"unknown schedule id", func(p *AutomationParams) {
+			p.Schedules = []ScheduleParams{{ID: "sch-nope", Cron: "0 9 * * *", Enabled: true}}
+		}},
+		{"too many schedules", func(p *AutomationParams) {
+			for i := 0; i < 11; i++ {
+				p.Schedules = append(p.Schedules, ScheduleParams{Cron: "0 " + string(rune('0'+i%10)) + " " + string(rune('1'+i/10)) + " * *", Enabled: true})
+			}
+		}},
 	}
 	for _, b := range bad {
 		p := ok
@@ -103,14 +121,14 @@ func TestRunsLifecycle(t *testing.T) {
 	if r, _ := s.RunningRun(a.ID); r != nil {
 		t.Fatal("nothing running yet")
 	}
-	r1, err := s.CreateRun(a.ID, TriggerSchedule, RunRunning, "")
+	r1, err := s.CreateRun(RunParams{AutomationID: a.ID, Trigger: TriggerSchedule, Status: RunRunning, Reason: ""})
 	if err != nil {
 		t.Fatalf("create run: %v", err)
 	}
 	if r, _ := s.RunningRun(a.ID); r == nil || r.ID != r1.ID {
 		t.Fatal("running run not found")
 	}
-	if _, err := s.CreateRun(a.ID, TriggerManual, RunSkipped, "busy"); err != nil {
+	if _, err := s.CreateRun(RunParams{AutomationID: a.ID, Trigger: TriggerManual, Status: RunSkipped, Reason: "busy"}); err != nil {
 		t.Fatal(err)
 	}
 	if n, _ := s.CountRunsSince(a.ID, time.Now().Add(-time.Hour)); n != 1 {
@@ -137,7 +155,7 @@ func TestRunsLifecycle(t *testing.T) {
 	if len(counts) != 7 || counts[6] != 1 {
 		t.Fatalf("day counts: %v", counts)
 	}
-	if _, err := s.CreateRun(a.ID, "cosmic", RunRunning, ""); err == nil {
+	if _, err := s.CreateRun(RunParams{AutomationID: a.ID, Trigger: "cosmic", Status: RunRunning}); err == nil {
 		t.Fatal("bad trigger accepted")
 	}
 	if err := s.DeleteAutomation(a.ID); err != nil {
@@ -154,8 +172,8 @@ func TestRunsLifecycle(t *testing.T) {
 func TestFailStaleRuns(t *testing.T) {
 	s := openTest(t)
 	a, _, _ := s.CreateAutomation(AutomationParams{Name: "a", Action: AutomationStart, Prompt: "p", Cron: "0 9 * * *"})
-	r, _ := s.CreateRun(a.ID, TriggerSchedule, RunRunning, "")
-	_, _ = s.CreateRun(a.ID, TriggerSchedule, RunDone, "")
+	r, _ := s.CreateRun(RunParams{AutomationID: a.ID, Trigger: TriggerSchedule, Status: RunRunning, Reason: ""})
+	_, _ = s.CreateRun(RunParams{AutomationID: a.ID, Trigger: TriggerSchedule, Status: RunDone, Reason: ""})
 	_ = s.SetRunSession(r.ID, "/tmp/run.jsonl")
 	stale, err := s.FailStaleRuns("daemon restarted", func(p string) float64 {
 		if p == "/tmp/run.jsonl" {
@@ -196,5 +214,111 @@ func TestAutomationNotifyURL(t *testing.T) {
 	got, _ := s.GetAutomation(a.ID)
 	if got.NotifyURL != nil {
 		t.Fatal("not persisted")
+	}
+}
+
+func TestAutomationSchedules(t *testing.T) {
+	s := openTest(t)
+	a, _, err := s.CreateAutomation(AutomationParams{Name: "two", Action: AutomationStart, Prompt: "p", Schedules: []ScheduleParams{
+		{Label: " Morning ", Cron: "0  9 * * 1-5", TZ: "America/Sao_Paulo", Enabled: true},
+		{Label: "Saturday", Cron: "0 12 * * 6", TZ: "America/Sao_Paulo", Enabled: false},
+	}})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if len(a.Schedules) != 2 || a.Schedules[0].Label != "Morning" || a.Schedules[0].Cron != "0 9 * * 1-5" ||
+		a.Schedules[0].Position != 0 || a.Schedules[1].Position != 1 || a.Schedules[1].Enabled ||
+		a.Schedules[0].Location().String() != "America/Sao_Paulo" {
+		t.Fatalf("schedules: %+v", a.Schedules)
+	}
+	// Schedules win over the Cron convenience.
+	both, _, err := s.CreateAutomation(AutomationParams{Name: "both", Action: AutomationStart, Prompt: "p", Cron: "0 1 * * *",
+		Schedules: []ScheduleParams{{Cron: "0 2 * * *", Enabled: true}}})
+	if err != nil || len(both.Schedules) != 1 || both.Schedules[0].Cron != "0 2 * * *" {
+		t.Fatalf("both: %+v %v", both.Schedules, err)
+	}
+	// List carries every automation's rows, in position order.
+	list, _ := s.ListAutomations()
+	for _, it := range list {
+		if it.ID == a.ID && (len(it.Schedules) != 2 || it.Schedules[1].Label != "Saturday") {
+			t.Fatalf("list schedules: %+v", it.Schedules)
+		}
+	}
+
+	// A fire stamps the row, and only that row.
+	first := a.Schedules[0]
+	fired := time.Date(2026, 9, 9, 12, 0, 0, 0, time.UTC)
+	if err := s.TouchScheduleFired(first.ID, fired); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.TouchScheduleFired("sch-nope", fired); err != ErrNotFound {
+		t.Fatalf("touch unknown = %v", err)
+	}
+	a, _ = s.GetAutomation(a.ID)
+	if a.Schedules[0].LastFiredAt == nil || a.Schedules[1].LastFiredAt != nil {
+		t.Fatalf("touch: %+v", a.Schedules)
+	}
+
+	// Reconcile: keep the first (same rule → last fire survives, label
+	// and switch move), edit the second's cron (starts over), add a third.
+	on := true
+	a, err = s.UpdateAutomation(a.ID, AutomationPatch{Schedules: &[]ScheduleParams{
+		{ID: a.Schedules[1].ID, Label: "Saturday", Cron: "30 12 * * 6", TZ: "America/Sao_Paulo", Enabled: true},
+		{ID: first.ID, Label: "Weekday morning", Cron: first.Cron, TZ: first.TZ, Enabled: false},
+		{Label: "Nightly", Cron: "0 23 * * *", Enabled: true},
+	}, Enabled: &on})
+	if err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	if len(a.Schedules) != 3 || a.Schedules[0].Cron != "30 12 * * 6" || a.Schedules[0].LastFiredAt != nil ||
+		a.Schedules[1].ID != first.ID || a.Schedules[1].LastFiredAt == nil || a.Schedules[1].Enabled ||
+		a.Schedules[1].Label != "Weekday morning" || a.Schedules[1].CreatedAt != first.CreatedAt ||
+		a.Schedules[2].Label != "Nightly" || a.Schedules[2].Position != 2 {
+		t.Fatalf("reconciled: %+v", a.Schedules)
+	}
+	if _, err := s.UpdateAutomation(a.ID, AutomationPatch{Schedules: &[]ScheduleParams{{ID: "sch-nope", Cron: "0 1 * * *", Enabled: true}}}); err == nil {
+		t.Fatal("unknown id accepted")
+	}
+	// Dropping every schedule without a webhook is refused; with one it is fine.
+	none := []ScheduleParams{}
+	if _, err := s.UpdateAutomation(a.ID, AutomationPatch{Schedules: &none}); err == nil {
+		t.Fatal("clearing the only trigger must fail")
+	}
+	if _, err := s.SetAutomationWebhook(a.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	a, err = s.UpdateAutomation(a.ID, AutomationPatch{Schedules: &none})
+	if err != nil || len(a.Schedules) != 0 {
+		t.Fatalf("clear: %+v %v", a.Schedules, err)
+	}
+	// The Cron convenience on PATCH is one row in the daemon zone.
+	one := "15 * * * *"
+	a, err = s.UpdateAutomation(a.ID, AutomationPatch{Cron: &one})
+	if err != nil || len(a.Schedules) != 1 || a.Schedules[0].Cron != one || a.Schedules[0].TZ != "" || !a.Schedules[0].Enabled {
+		t.Fatalf("cron patch: %+v %v", a.Schedules, err)
+	}
+	// Deleting the automation takes its rows.
+	if err := s.DeleteAutomation(a.ID); err != nil {
+		t.Fatal(err)
+	}
+	if rows, _ := s.schedulesFor(s.db, a.ID); len(rows) != 0 {
+		t.Fatalf("schedules must cascade: %+v", rows)
+	}
+}
+
+func TestRunRecordsSchedule(t *testing.T) {
+	s := openTest(t)
+	a, _, _ := s.CreateAutomation(AutomationParams{Name: "a", Action: AutomationStart, Prompt: "p", Cron: "0 9 * * *"})
+	r, err := s.CreateRun(RunParams{AutomationID: a.ID, ScheduleID: a.Schedules[0].ID, Trigger: TriggerSchedule, Status: RunRunning})
+	if err != nil || r.ScheduleID == nil || *r.ScheduleID != a.Schedules[0].ID {
+		t.Fatalf("run: %+v %v", r, err)
+	}
+	got, _ := s.GetRun(r.ID)
+	if got.ScheduleID == nil || *got.ScheduleID != a.Schedules[0].ID {
+		t.Fatalf("persisted: %+v", got)
+	}
+	m, _ := s.CreateRun(RunParams{AutomationID: a.ID, Trigger: TriggerManual, Status: RunSkipped, Reason: "busy"})
+	if m.ScheduleID != nil {
+		t.Fatalf("manual run must not name a schedule: %+v", m)
 	}
 }

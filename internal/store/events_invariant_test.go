@@ -289,7 +289,7 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 		{"CreateRun + FinishRun", func(s *Store) {
 			a, _, _ := s.CreateAutomation(AutomationParams{Name: "a", Action: AutomationStart, Prompt: "p", Cron: "0 9 * * *"})
 			s.OnEvent = recorder(s)
-			r, _ := s.CreateRun(a.ID, TriggerManual, RunRunning, "")
+			r, _ := s.CreateRun(RunParams{AutomationID: a.ID, Trigger: TriggerManual, Status: RunRunning})
 			_ = s.SetRunSession(r.ID, "/tmp/x.jsonl")
 			_ = s.FinishRun(r.ID, RunDone, "", 0.1)
 			_ = s.FinishRun(r.ID, RunDone, "", 0.1) // no-op: no second event

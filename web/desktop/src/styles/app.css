@@ -121,13 +121,6 @@ body {
 }
 .brand-name:hover { color: var(--accent); }
 .brand-name:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.brand-ver {
-  font-family: var(--mono); font-size: 11px; color: var(--text-secondary);
-  /* Source builds append the revision (v0.1.0+0550fa2): squeeze with an
-     ellipsis rather than pushing the tabs; the full string is the title. */
-  flex: 0 1 auto; min-width: 0; overflow: hidden;
-  text-overflow: ellipsis; white-space: nowrap;
-}
 .brand-tabs { display: flex; margin-left: auto; align-self: stretch; }
 .brand-tab {
   display: grid; place-items: center;
@@ -4771,6 +4764,15 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .auto-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .auto-inline .btn { height: var(--ctl-h); min-height: var(--ctl-h); }
 .auto-inline .cfg-fields select { height: var(--ctl-h); }
+
+/* Automation schedules (ADR-0045 amendment 2026-09-09): one card per rule. */
+.auto-scheds { display: flex; flex-direction: column; gap: 10px; }
+.auto-sched { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elev, transparent); }
+.auto-sched.off .auto-seg, .auto-sched.off .auto-inline { opacity: 0.55; }
+.auto-sched-head { display: flex; align-items: center; gap: 8px; }
+.auto-field .dlg-input.auto-sched-label { flex: 1 1 160px; width: auto; min-width: 0; max-width: 320px; }
+.auto-sched-remove { margin-left: auto; }
+.auto-run-sched { color: var(--text-secondary); }
 .auto-inline-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-secondary); }
 .auto-field .dlg-input.auto-time { width: 120px; }
 .auto-field .dlg-input.auto-cron { width: 240px; font-family: ui-monospace, monospace; }

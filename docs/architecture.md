@@ -256,7 +256,7 @@ stay on their own routes.
 | `#/integrations` | Integrations (ADR-0075) | `connectors` reuses MCP configuration and shows optional `pi.mcp` package metadata; reviewed standard-definition import adds external services without a binary change. `webhooks` configures signed durable event delivery, tests, pause, removal and secret rotation. Desktop user menu/palette and mobile More link here. |
 | `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / **Use from…** (mirror host configs; Off hides a server). |
 | `#/clis/packages/pi` | Native CLI packages (Pi first) | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. Installed cards are filterable; a package with a known config adapter shows **Configure** → `#/clis/packages/pi/config/<pkg>` (ADR-0099: pi-roles' workspace file + per-agent overlay, effective merge, scoped reset). A behind npm row shows **Update**; the user menu badges when any are. |
-| `#/automations` | Automations (ADR-0045) | list with enable switch, schedule line, 30-day runs sparkline, last run, Run now; `#/automations/new` editor (presets → cron, webhook, limits); `#/automations/<id>` detail + runs table. Polled every 15 s while visible. |
+| `#/automations` | Automations (ADR-0045) | list with enable switch, schedule line (every rule), 30-day runs sparkline, last run, Run now; `#/automations/new` editor (a list of schedules, each presets → cron + label + switch in the browser's zone; webhook, limits); `#/automations/<id>` detail + runs table naming the rule that fired. Polled every 15 s while visible. |
 | `#/devices` | Devices (ADR-0043 + ADR-0049) | one surface for identity and liveness: paired sessions (Forget, Forget offline in one confirmed click, Pair a device with QR/link) with an online dot from the presence ping, which carries the session it came from; unpaired-but-online entries appear only in mode `off`. Access rules and the install token are in Preferences → Server. Auto-minted loopback browser sessions are ephemeral: the housekeeping sweep revokes a row once no authenticated request has refreshed it for 10 minutes, so closed headless-QA browsers leave without a manual Forget (ADR-0049 amendment 2026-09-06). |
 
 A tab owns its surface's state for as long as it is open: terminals, file
@@ -1501,11 +1501,16 @@ the desk.
 
 `internal/automate` ticks every minute (same shape as the backup loop,
 started in `cmd/picode` with the process context, not the HTTP server)
-and asks `Due` for each enabled cron: a slot fires once at slot + a
-deterministic per-automation jitter (≤ half the interval, ≤ 30 min); a
-daemon outage yields at most one `catch-up` run; boot fails any run left
-`running` (`daemon restarted`). `internal/cron` is a stdlib 5-field
-matcher. The runner lives in `internal/server` (`automations_run.go`):
+and asks `Due` for each enabled schedule of each enabled automation
+(`automation_schedules`, migration 038 — one row per rule with its own
+cron, IANA zone (`""` = daemon local), switch and `last_fired_at`; the
+amendment of 2026-09-09): a slot fires once at slot + a deterministic
+per-schedule jitter (≤ half the interval, ≤ 30 min); a daemon outage
+yields at most one `catch-up` run per schedule; boot fails any run left
+`running` (`daemon restarted`). Runs carry `schedule_id` (null for
+webhook and Run now); the runner receives an `automate.Firing`. Editing
+a rule's cron or zone clears its last fire, so it never catches up a slot
+it was not yet asked for. `internal/cron` is a stdlib 5-field matcher. The runner lives in `internal/server` (`automations_run.go`):
 the decision table (`decideFire`) then, for `start`, one agent per
 automation (created lazily) whose `session_path` is cleared so
 `Runtime.Start` mints a fresh session (ADR-0039), `startManaged` +
