@@ -118,7 +118,7 @@ native tool/handshake evidence remains separate.
 | OpenCode Z.AI/max → Claude → OpenCode Z.AI/max | Two messages, both acknowledged; native parts record all four MCP tools completing |
 | Conversation identity | Three distinct active connection IDs bind the three actual terminal/session pairs |
 | Existing native permissions | Only communication tools preapproved in disposable native settings; no product policy change |
-| Model selection | Native OpenCode parts and terminal retain `zai/glm-5.3-flash` with `max` after resume |
+| Model selection | Native OpenCode message metadata retains `zai/glm-5.3-flash` with `max` after resume |
 
 Evidence: `var/screenshots/peer-native-validation-20260909/` contains owner API
 receipts, launch snapshots and filtered native tool events. An earlier Big Pickle

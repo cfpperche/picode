@@ -92,7 +92,6 @@ OpenCode keeps existing inline JSON settings and other MCP servers when adding
 communication. If `OPENCODE_CONFIG_CONTENT` contains JSONC comments or invalid
 JSON, convert it to a JSON object before resuming; PiCode refuses to discard it.
 
-
 ## Verified native conversations
 
 Validation on 2026-09-09 covered messages, replies and acknowledgments after
