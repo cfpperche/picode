@@ -2,6 +2,7 @@ package tmux
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -372,5 +373,83 @@ func TestClearLineEmptiesTheTypedLine(t *testing.T) {
 func TestClearLineRefusesAnEmptyName(t *testing.T) {
 	if err := requireTmux(t).ClearLine(context.Background(), " "); err == nil {
 		t.Error("an empty session name must be refused")
+	}
+}
+
+// scriptedExec answers tmux invocations from a queue — output plus whether
+// the client failed — and succeeds for anything past it. It reproduces the
+// first-server race, which a live server cannot produce on demand.
+type scriptedExec struct {
+	calls []string
+	queue []scriptedReply
+}
+
+type scriptedReply struct {
+	out  string
+	fail bool
+}
+
+func (s *scriptedExec) run(_ context.Context, _ string, args ...string) ([]byte, error) {
+	s.calls = append(s.calls, args[0])
+	if len(s.queue) == 0 {
+		return nil, nil
+	}
+	r := s.queue[0]
+	s.queue = s.queue[1:]
+	if r.fail {
+		return []byte(r.out), errors.New("exit status 1")
+	}
+	return []byte(r.out), nil
+}
+
+// The startup commands retry the client that lost the race to start the
+// first tmux server; every other failure surfaces at once.
+func TestStartupCommandsRetryTheServerStartRace(t *testing.T) {
+	lost := scriptedReply{"server exited unexpectedly\n", true}
+	absent := scriptedReply{"can't find session: x\n", true}
+	present := scriptedReply{"", false}
+	ctx := context.Background()
+	cases := []struct {
+		name      string
+		queue     []scriptedReply
+		call      func(*Manager) (bool, error)
+		wantHas   bool
+		wantErr   bool
+		wantCalls []string // prefix of the tmux subcommands issued
+		exact     bool     // the prefix is the whole call list
+	}{
+		{"has-session: lost once, then present", []scriptedReply{lost, present},
+			func(m *Manager) (bool, error) { return m.HasSession(ctx, "x") },
+			true, false, []string{"has-session", "has-session"}, true},
+		{"has-session: lost twice, then absent", []scriptedReply{lost, lost, absent},
+			func(m *Manager) (bool, error) { return m.HasSession(ctx, "x") },
+			false, false, []string{"has-session", "has-session", "has-session"}, true},
+		{"has-session: lost three times gives up", []scriptedReply{lost, lost, lost},
+			func(m *Manager) (bool, error) { return m.HasSession(ctx, "x") },
+			false, true, []string{"has-session", "has-session", "has-session"}, true},
+		{"has-session: a real failure is not retried", []scriptedReply{{"unknown command: nope\n", true}},
+			func(m *Manager) (bool, error) { return m.HasSession(ctx, "x") },
+			false, true, []string{"has-session"}, true},
+		{"new-session: lost once after the lookup", []scriptedReply{absent, lost, present},
+			func(m *Manager) (bool, error) { return false, m.NewSession(ctx, "x", "/tmp", "cat") },
+			false, false, []string{"has-session", "new-session", "new-session"}, false},
+		{"new-session: a duplicate is not retried", []scriptedReply{absent, {"duplicate session: x\n", true}},
+			func(m *Manager) (bool, error) { return false, m.NewSession(ctx, "x", "/tmp", "cat") },
+			false, true, []string{"has-session", "new-session"}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &scriptedExec{queue: append([]scriptedReply(nil), tc.queue...)}
+			m := &Manager{exec: s.run}
+			has, err := tc.call(m)
+			if has != tc.wantHas || (err != nil) != tc.wantErr {
+				t.Fatalf("got has=%v err=%v, want has=%v err=%v", has, err, tc.wantHas, tc.wantErr)
+			}
+			got := strings.Join(s.calls, " ")
+			want := strings.Join(tc.wantCalls, " ")
+			if (tc.exact && got != want) || (!tc.exact && !strings.HasPrefix(got, want)) {
+				t.Fatalf("tmux calls = %q, want %q", got, want)
+			}
+		})
 	}
 }

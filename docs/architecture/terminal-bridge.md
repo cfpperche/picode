@@ -25,7 +25,10 @@ never depends on the socket — closing the tab ends only the attach.
 session id (used by restart-same-mode and the explicit dead-pane recovery).
 `PasteText` types text into a pane as a bracketed paste plus Enter — the
 ADR-0060 reply fallback. `PaneCommand` and `PaneSessionID` verify transitions. Resize propagates
-via `TIOCSWINSZ` on the attach PTY. Requires tmux ≥ 3.5. Attach and `NewSession` set `extended-keys on` /
+via `TIOCSWINSZ` on the attach PTY. Requires tmux ≥ 3.5. `HasSession` and `NewSession` retry the client's
+"server exited unexpectedly" — the message a client gets when it lost the race to start the first tmux
+server (two terminals created together on a machine with none running); the command never ran, so the
+retry is safe. Attach and `NewSession` set `extended-keys on` /
 `extended-keys-format xterm` (modifyOtherKeys). Probed live: tmux 3.6
 answers only DA1 to a pane's Kitty query, so pi falls back to
 modifyOtherKeys and expects `ESC [27;2;13~`; tmux re-encodes client keys

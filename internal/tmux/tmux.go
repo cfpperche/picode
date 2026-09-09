@@ -41,10 +41,22 @@ type OwnedSession struct {
 
 // Manager wraps tmux CLI operations. All methods are safe for concurrent
 // use (each spawns its own tmux invocation).
-type Manager struct{}
+type Manager struct {
+	// exec runs the tmux binary. Tests script it to reproduce what a live
+	// server cannot on demand: the client that lost the first-server race.
+	exec func(ctx context.Context, stdin string, args ...string) ([]byte, error)
+}
 
 // New returns a Manager.
-func New() *Manager { return &Manager{} }
+func New() *Manager { return &Manager{exec: execTmux} }
+
+func execTmux(ctx context.Context, stdin string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, "tmux", args...)
+	if stdin != "" {
+		cmd.Stdin = strings.NewReader(stdin)
+	}
+	return cmd.CombinedOutput()
+}
 
 // Available reports whether a tmux binary is on PATH.
 func (m *Manager) Available() bool {
@@ -107,30 +119,52 @@ func IsShellSession(name string) bool {
 }
 
 func (m *Manager) run(ctx context.Context, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, "tmux", args...)
-	out, err := cmd.CombinedOutput()
+	return m.runStdin(ctx, "", args...)
+}
+
+// runStdin feeds stdin to tmux (load-buffer reads the buffer content from it).
+func (m *Manager) runStdin(ctx context.Context, stdin string, args ...string) (string, error) {
+	execFn := m.exec
+	if execFn == nil {
+		execFn = execTmux
+	}
+	out, err := execFn(ctx, stdin, args...)
 	if err != nil {
 		return string(out), fmt.Errorf("tmux %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 	}
 	return string(out), nil
 }
 
-// runStdin feeds stdin to tmux (load-buffer reads the buffer content from it).
-func (m *Manager) runStdin(ctx context.Context, stdin string, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, "tmux", args...)
-	cmd.Stdin = strings.NewReader(stdin)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return string(out), fmt.Errorf("tmux %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+// serverStartRace is what a tmux client prints when it lost the race to
+// start the first server: two clients on a socket with no server behind it,
+// one server binds, the other exits, and the losing client sees its
+// connection close with no reply. The command never ran, so the startup
+// commands (has-session, new-session) retry it. Seen on a fresh CI runner
+// where several test packages started tmux at once (2026-09-09); on a
+// workstation it is two terminals created together after a reboot.
+const serverStartRace = "server exited unexpectedly"
+
+func (m *Manager) runStartup(ctx context.Context, args ...string) (string, error) {
+	var out string
+	var err error
+	for attempt := 1; ; attempt++ {
+		out, err = m.run(ctx, args...)
+		if err == nil || attempt >= 3 || !strings.Contains(out, serverStartRace) {
+			return out, err
+		}
+		select {
+		case <-ctx.Done():
+			return out, err
+		case <-time.After(time.Duration(attempt) * 50 * time.Millisecond):
+		}
 	}
-	return string(out), nil
 }
 
 // HasSession reports whether a tmux session with the given name exists.
 // The "=" prefix forces exact-name matching so dots in names can't be
 // parsed as session.window targets.
 func (m *Manager) HasSession(ctx context.Context, name string) (bool, error) {
-	out, err := m.run(ctx, "has-session", "-t", "="+name)
+	out, err := m.runStartup(ctx, "has-session", "-t", "="+name)
 	if err == nil {
 		return true, nil
 	}
@@ -172,7 +206,7 @@ func (m *Manager) NewSessionEnv(ctx context.Context, name, cwd string, extraEnv 
 	}
 	full = append(full, "--", command)
 	full = append(full, args...)
-	if _, err := m.run(ctx, full...); err != nil {
+	if _, err := m.runStartup(ctx, full...); err != nil {
 		return err
 	}
 	_ = m.EnsureExtendedKeys(ctx)
