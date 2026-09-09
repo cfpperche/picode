@@ -5,10 +5,12 @@ per-conversation opt-in/revoke, same-workspace contacts, durable retry receipts,
 non-destructive inbox reads and atomic acknowledgments; no task/runtime changes.
 Desktop/mobile Agent CLIs → Messages manages setup and history.
 Dependency: official MCP Go SDK v1.7.0 replaces handwritten protocol handling.
-Verified: store decision table, HTTP MCP/auth tests, installed pi-mcp-adapter
+Verified: full ci-scoped, race checks, store decision table, HTTP MCP/auth,
+installed pi-mcp-adapter
 2.32.1 discovery/send/retry/read/ack/reply on owned fixtures (no model turns).
 Browser matrix: empty, blocked, setup, retained-history failures, confirm,
-revocation, delayed credential after owner change; both apps on isolated :8473.
+revocation, delayed credential after owner change, history pagination; both apps
+on isolated :8473. A real adapter message refreshed the browser through SSE.
 visual-review: PASS; screenshots in var/screenshots/peer-*; settled overlays ok.
 Validation close/main CI is recorded in the final session result.
 Later increments: launch-time wiring, automatic notification, guest runtime
