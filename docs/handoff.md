@@ -20,7 +20,7 @@
   no `HERMES_HOME` overlay), deployed `0.1.0+405fed1`. OpenCode is a sixth
   (ADR-0088), deployed `0.1.0+d65e9a1`; Activity default-on + start
   banner on `main` as `06da6771` (not yet deployed). Terminal checklists (ADR-0081)
-  on the sidebar card only; absent checklist is silence (ADR-0092). Sessions live under Agent CLIs (ADR-0079).
+  on the sidebar card only; absent checklist is silence (ADR-0092); a parallel mutator no longer clobbers a just-written plan as `undefined/undefined`. Sessions live under Agent CLIs (ADR-0079).
   Right-click gives PiCode's pane menu (`lib/termMenu.js`); the ADR-0089
   message bar opens from it seeded with the selection; Find (Ctrl+Shift+F,
   `@xterm/addon-search`) floats without resizing the pane.
