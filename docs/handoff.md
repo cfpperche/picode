@@ -14,15 +14,16 @@
 ## Next up
 
 1. First release since 0.1.0: `make changelog` on `main`, then `docs/release-process.md` (`[Unreleased]` is 860 lines).
-2. GitHub CI: the next push exercises the ADR-0105 workflow (Ubuntu-only Go matrix, tmux cache); macOS/Windows run on tags or `workflow_dispatch`.
-3. llama delivery 3 live validation; owned-service ARM64 acceptance.
-4. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
-5. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan.
-6. CLI prompt door iPhone acceptance; first-class CLI agents refused until protocol convergence (ADR-0091).
-7. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
-8. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
-9. Windows clean-machine install (ADR-0098): phase 1 = `install-picode` + `install-runtime` stages in `picode-desktop.exe`; phase 2 = `install.ps1` one-liner + winget experiment, no paid signing. Plan: `docs/plans/windows-clean-install.md`.
-10. Inspector debts (ADR-0096): `git ls-files` search, per-anchor watch, `+N −M` footer.
+2. Matrix app (plan `docs/plans/matrix-app.md`, phase 0 study `docs/benchmarks/2026-09-09-matrix-live-grid.md`): phases 1 `feat/apps-native-surface` and 2 `feat/matrix-store` in parallel worktrees, phase 3 after both.
+3. GitHub CI: the next push exercises the ADR-0105 workflow (Ubuntu-only Go matrix, tmux cache); macOS/Windows run on tags or `workflow_dispatch`.
+4. llama delivery 3 live validation; owned-service ARM64 acceptance.
+5. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
+6. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan.
+7. CLI prompt door iPhone acceptance; first-class CLI agents refused until protocol convergence (ADR-0091).
+8. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
+9. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
+10. Windows clean-machine install (ADR-0098): phase 1 = `install-picode` + `install-runtime` stages in `picode-desktop.exe`; phase 2 = `install.ps1` one-liner + winget experiment, no paid signing. Plan: `docs/plans/windows-clean-install.md`.
+11. Inspector debts (ADR-0096): `git ls-files` search, per-anchor watch, `+N −M` footer.
 
 ## Known debts / open questions
 
