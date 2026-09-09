@@ -7,7 +7,7 @@ import { resolve, join } from 'node:path';
 const base = new URL(process.argv[2]);
 assert.ok(['http:','https:'].includes(base.protocol) && ['localhost', '127.0.0.1'].includes(base.hostname));
 const state = await (await fetch(new URL('/api/communication', base))).json();
-assert.ok(state.owners.some(o => o.sessionKey.includes('/var/qa/peer-communication/project/') || o.sessionKey.includes('/var/qa/peer-launch/')), 'Refuse non-owned scratch fixture');
+assert.ok(state.owners.some(o => o.sessionKey.includes('/var/qa/peer-communication/project/') || o.sessionKey.includes('/var/qa/peer-launch/') || (o.ownerId.startsWith('native-') && o.workspaceId.startsWith('native-message-verification-'))), 'Refuse non-owned scratch fixture');
 const out = resolve(process.argv[3] || 'var/screenshots/peer-browser'); mkdirSync(out, {recursive:true});
 const results=[];
 for (const app of ['desktop','mobile']) {
@@ -17,7 +17,7 @@ for (const app of ['desktop','mobile']) {
  const wait=code=>ab('wait','--fn',code);
  const button=name=>ab('find','role','button','click','--name',name,'--exact');
  const pause=ms=>new Promise(r=>setTimeout(r,ms));
- async function capture(name){await pause(550);const audit=ev('window.__picodeOverlayAudit()');assert.equal(audit.ok,true,`${app} ${name}`);assert.ok(ev('document.documentElement.scrollWidth <= innerWidth+1'));ab('screenshot',join(out,`${app}-${name}.png`));writeFileSync(join(out,`${app}-${name}.json`),JSON.stringify(audit));}
+ async function capture(name){await pause(550);const audit=ev('window.__picodeOverlayAudit()');assert.equal(audit.ok,true,`${app} ${name}`);assert.ok(ev('document.documentElement.scrollWidth <= innerWidth+1'));ab('screenshot',join(out,`${app}-${name}.png`)); if(app==='mobile' && ['attention-unconfirmed','attention-notified','error-retains-history'].includes(name)) { ab('eval','document.querySelector(".peer-history")?.scrollIntoView({block:"end"})'); await pause(350); ab('screenshot',join(out,`${app}-${name}-history.png`)); }writeFileSync(join(out,`${app}-${name}.json`),JSON.stringify(audit));}
  try {
   ab('set','viewport',...(app==='desktop'?['1440','1000']:['390','844']));
   ab('open',new URL(`/${app}/${app==='mobile'?'?mobile=1':''}#/clis/messages`,base).href);
@@ -27,7 +27,7 @@ for (const app of ['desktop','mobile']) {
       const path=new URL(String(input),location.origin).pathname, method=options.method||'GET',q=window.qa;
       const reply=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
       if(!path.startsWith('/api/communication'))return window.qaOriginalFetch(input,options);
-      if(method==='GET'&&path==='/api/communication')return q.fail?reply({error:'Unavailable'},503):reply({owners:q.owners,connections:q.connections,endpoint:'/mcp/communication',launchCLIs:q.auto?['pi','codex']:[],launches:q.auto?Object.fromEntries(q.connections.map(p=>[p.id,p.active])):{}});
+      if(method==='GET'&&path==='/api/communication')return q.fail?reply({error:'Unavailable'},503):reply({owners:q.owners,connections:q.connections,endpoint:'/mcp/communication',launchCLIs:q.auto?['pi','codex']:[],launches:q.auto?Object.fromEntries(q.connections.map(p=>[p.id,p.active])):{},live:q.live||{}});
       if(method==='GET'){const before=Number(new URL(String(input),location.origin).searchParams.get('before'))||Infinity;return q.historyFail?reply({error:'Unavailable'},503):reply({messages:q.messages.filter(m=>(path.includes(m.senderId)||path.includes(m.recipientId))&&m.seq<before).sort((a,b)=>b.seq-a.seq).slice(0,100)})}
       q.writes.push({path,method});
       if(method==='POST'&&q.missing)return reply({error:'Install the Pi MCP adapter before connecting.',code:'adapter_missing'},400);
@@ -60,6 +60,9 @@ for (const app of ['desktop','mobile']) {
   assert.ok(ev('qa.writes.some(w=>w.method==="DELETE")'));
   ev('qa.auto=true');button('Refresh');wait('!document.querySelector(".peer-body button").disabled');button('Enable messages');wait('document.querySelector(".peer-body").textContent.includes("Configured · resume to connect")');assert.equal(ev('!!document.querySelector(".peer-setup")'),false);await capture('automatic-ready');ev("document.documentElement.dataset.theme='dark';document.documentElement.style.colorScheme='dark'");await capture('automatic-ready-dark');
   ev("qa.connections=[];qa.missing=true;qa.owners.find(o=>o.ownerId==='qa-terminal').cli='pi'");button('Refresh');wait('document.querySelector(".peer-body").textContent.includes("Messages disabled")');button('Enable messages');wait('document.querySelector(".peer-body").textContent.includes("Open Packages")');await capture('adapter-missing');
+  ev("qa.missing=false;qa.connections=[{...qa.owners[1],id:'fixture-attention',active:true,createdAt:'2026-09-09T12:00:00Z'}];qa.live={'fixture-attention':'needs-you'};qa.messages=[{seq:1,id:'notice',senderId:'fixture-attention',recipientId:'fixture-other',body:'This message is stored while the recipient needs input.',createdAt:'2026-09-09T12:01:00Z',attention:'uncertain',ackedAt:null}]");
+  button('Refresh');wait('document.querySelector(".peer-body").textContent.includes("notification unconfirmed")');assert.equal(ev('!!document.querySelector(".peer-body [role=alert]")'),false);await capture('attention-unconfirmed');
+  ev("qa.live={'fixture-attention':'idle'};qa.messages[0].attention='notified'");button('Refresh');wait('document.querySelector(".peer-body").textContent.includes("Notified · awaiting acknowledgement")');await capture('attention-notified');
   results.push({app,pass:true});
  } finally {ab('close');}
 }

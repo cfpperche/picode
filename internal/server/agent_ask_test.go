@@ -34,7 +34,7 @@ func askServer(t *testing.T, st *store.Store, agentCmd string) (*httptest.Server
 		// New() takes Deps by value: a nil Replies here would be replaced
 		// inside its own copy, invisible to this function's caller. Set it
 		// up front so the test and the running server share one instance.
-		Replies: newTuiReplies(),
+		Replies: NewTuiReplies(),
 	}
 	ts := httptest.NewServer(New("127.0.0.1:0", deps).Handler)
 	t.Cleanup(ts.Close)

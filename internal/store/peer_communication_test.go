@@ -27,14 +27,14 @@ func peerFixture(t *testing.T, s *Store) (PeerConnection, string, PeerConnection
 	if err = s.SetTerminalLaunch(tm.ID, "codex", clilaunch.Overrides{}); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.SetTerminalLastSession(tm.ID, TerminalLastSession{CLI: "codex", SessionID: "codex-session"}); err != nil {
+	if err = s.SetTerminalLastSession(tm.ID, TerminalLastSession{CLI: "codex", SessionID: "codex-session-" + tm.ID}); err != nil {
 		t.Fatal(err)
 	}
 	p, pt, err := s.EnablePeer("agent", a.ID, path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	q, qt, err := s.EnablePeer("terminal", tm.ID, "codex-session")
+	q, qt, err := s.EnablePeer("terminal", tm.ID, "codex-session-"+tm.ID)
 	if err != nil {
 		t.Fatal(err)
 	}

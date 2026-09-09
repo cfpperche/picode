@@ -63,8 +63,8 @@ func TestInterceptDoesNotWriteUserClaudeSettings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("intercept settings missing: %v", err)
 	}
-	if !strings.Contains(string(rawSettings), "TaskCompleted") || !strings.Contains(string(rawSettings), " auto claude-code") {
-		t.Fatalf("settings should map Stop/TaskCompleted via auto:\n%s", rawSettings)
+	if strings.Contains(string(rawSettings), "TaskCompleted") || strings.Contains(string(rawSettings), "SubagentStop") || !strings.Contains(string(rawSettings), "Stop") || !strings.Contains(string(rawSettings), " auto claude-code") {
+		t.Fatalf("settings should map parent Stop via auto:\n%s", rawSettings)
 	}
 	pathEnv := interceptSessionPath(dataDir)
 	if !strings.HasPrefix(pathEnv, "PATH="+interceptBinDir(dataDir)) {
@@ -120,86 +120,16 @@ func TestInterceptCodexAndGrok(t *testing.T) {
 		t.Fatalf("grok enable = %d", res.StatusCode)
 	}
 	body, _ = os.ReadFile(wrapperPath(dataDir, "grok"))
-	if !strings.Contains(string(body), "GROK_HOME=") {
+	if !strings.Contains(string(body), "PICODE_NATIVE_HOOK=") {
 		t.Fatalf("grok wrapper:\n%s", body)
 	}
-	hookJSON := filepath.Join(grokHomeDir(dataDir), "hooks", "picode.json")
+	hookJSON := filepath.Join(nativeAssetsDir(dataDir), "grok.json")
 	raw, err := os.ReadFile(hookJSON)
 	if err != nil {
 		t.Fatalf("grok hooks missing: %v", err)
 	}
 	if !strings.Contains(string(raw), "UserPromptSubmit") {
 		t.Fatalf("grok hooks: %s", raw)
-	}
-}
-
-func TestInterceptHermesPythonPathHooks(t *testing.T) {
-	ts, dataDir := wiringTestServer(t)
-	if res := postJSON(t, ts, "/api/terminals/wiring/hermes/enable", map[string]any{}); res.StatusCode != http.StatusOK {
-		t.Fatalf("hermes enable = %d", res.StatusCode)
-	}
-	body, err := os.ReadFile(wrapperPath(dataDir, "hermes"))
-	if err != nil {
-		t.Fatalf("hermes wrapper missing: %v", err)
-	}
-	got := string(body)
-	if !strings.Contains(got, "name=hermes") || !strings.Contains(got, "runtime-start") {
-		t.Fatalf("hermes wrapper missing presence lease:\n%s", got)
-	}
-	if !strings.Contains(got, "PYTHONPATH=") || !strings.Contains(got, "HERMES_ACCEPT_HOOKS=1") || !strings.Contains(got, "unset PYTHONPATH") {
-		t.Fatalf("hermes wrapper missing PYTHONPATH trampoline unwrap:\n%s", got)
-	}
-	if strings.Contains(got, "HERMES_HOME=") {
-		t.Fatalf("hermes wrapper must not overlay HERMES_HOME:\n%s", got)
-	}
-	home, _ := os.UserHomeDir()
-	if _, err := os.Stat(filepath.Join(home, ".hermes", "config.yaml")); !os.IsNotExist(err) {
-		t.Fatalf("enable must not write ~/.hermes/config.yaml: %v", err)
-	}
-	site := filepath.Join(hermesPythonDir(dataDir), "sitecustomize.py")
-	raw, err := os.ReadFile(site)
-	if err != nil {
-		t.Fatalf("sitecustomize missing: %v", err)
-	}
-	src := string(raw)
-	if !strings.Contains(src, "pre_llm_call") || !strings.Contains(src, "PICODE_HERMES_HOOK") {
-		t.Fatalf("sitecustomize: %s", src)
-	}
-	if !strings.Contains(src, "register_from_config") || strings.Contains(src, "load_config_readonly") {
-		t.Fatalf("sitecustomize must patch register_from_config, not load_config:\n%s", src)
-	}
-	var page struct {
-		Clis []wiringRow `json:"clis"`
-	}
-	res := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals/wiring"))
-	_ = json.NewDecoder(res.Body).Decode(&page)
-	var row *wiringRow
-	for i := range page.Clis {
-		if page.Clis[i].ID == "hermes" {
-			row = &page.Clis[i]
-		}
-	}
-	if row == nil || !row.Wired || !strings.Contains(row.Note, "PYTHONPATH") {
-		t.Fatalf("hermes wiring = %+v", page.Clis)
-	}
-	if strings.Contains(row.Note, "Presence lease only") {
-		t.Fatalf("stale Hermes note: %q", row.Note)
-	}
-}
-
-func TestHermesTrampolineUnwrapSetsPYTHONPATH(t *testing.T) {
-	if _, err := exec.LookPath("sh"); err != nil {
-		t.Skip("sh not on PATH")
-	}
-	root := t.TempDir()
-	dataDir := filepath.Join(root, "data")
-	wrapper, hookLog, envLog := writeHermesInnerProbe(t, dataDir, root)
-	s := runHermesWrapper(t, wrapper, root, hookLog, envLog, "--tui")
-	if !strings.Contains(s, "PYTHONPATH="+hermesPythonDir(dataDir)) {
-		t.Fatalf("inner PYTHONPATH:\n%s", s)
-	}
-	if !strings.Contains(s, "auto hermes") || !strings.Contains(s, "ARGS=--accept-hooks --tui") {
-		t.Fatalf("inner hook/args:\n%s", s)
 	}
 }
 
@@ -220,7 +150,7 @@ func writeHermesInnerProbe(t *testing.T, dataDir, root string) (wrapper, hookLog
 		t.Fatal(err)
 	}
 	inner := filepath.Join(root, "inner-hermes")
-	if err := writeExecutable(inner, "#!/bin/sh\nprintf 'PYTHONPATH=%s\\nHOOK=%s\\nARGS=%s\\n' \"$PYTHONPATH\" \"$PICODE_HERMES_HOOK\" \"$*\" > \"$PICODE_TEST_INNER\"\n"); err != nil {
+	if err := writeExecutable(inner, "#!/bin/sh\nfor arg in \"$@\"; do if [ \"$arg\" = path ]; then printf '%s\\n' \"$HOME/.hermes/config.yaml\"; exit; fi; if [ \"$arg\" = plugins ]; then exit 0; fi; done\nprintf 'PYTHONPATH=%s\\nHOOK=%s\\nARGS=%s\\n' \"$PYTHONPATH\" \"$PICODE_NATIVE_HOOK\" \"$*\" > \"$PICODE_TEST_INNER\"\n"); err != nil {
 		t.Fatal(err)
 	}
 	outer := filepath.Join(root, "hermes")
@@ -237,6 +167,8 @@ func runHermesWrapper(t *testing.T, wrapper, root, hookLog, envLog string, args 
 	cmd.Env = append(os.Environ(),
 		"PATH="+filepath.Dir(wrapper)+string(os.PathListSeparator)+root+string(os.PathListSeparator)+"/usr/bin:/bin",
 		"PICODE_TERM_ID=terminal-test",
+		"HERMES_HOME="+filepath.Join(root, "hermes-home"),
+		"GROK_HOME="+filepath.Join(root, "grok-home"),
 		"PICODE_TEST_HOOK_LOG="+hookLog,
 		"PICODE_TEST_INNER="+envLog,
 	)
@@ -250,7 +182,7 @@ func runHermesWrapper(t *testing.T, wrapper, root, hookLog, envLog string, args 
 	return string(got)
 }
 
-func TestHermesSubcommandSkipsPYTHONPATH(t *testing.T) {
+func TestHermesSubcommandSkipsNativeIntegration(t *testing.T) {
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("sh not on PATH")
 	}
@@ -264,10 +196,10 @@ func TestHermesSubcommandSkipsPYTHONPATH(t *testing.T) {
 		inject  bool
 		wantArg string
 	}{
-		{name: "bare tui", args: []string{"--tui"}, inject: true, wantArg: "--accept-hooks --tui"},
-		{name: "resume", args: []string{"--resume", "sess-1"}, inject: true, wantArg: "--accept-hooks --resume sess-1"},
-		{name: "chat", args: []string{"chat"}, inject: true, wantArg: "--accept-hooks chat"},
-		{name: "prompt args", args: []string{"two words", "$literal"}, inject: true, wantArg: "--accept-hooks two words $literal"},
+		{name: "bare tui", args: []string{"--tui"}, inject: true, wantArg: "--tui"},
+		{name: "resume", args: []string{"--resume", "sess-1"}, inject: true, wantArg: "--resume sess-1"},
+		{name: "chat", args: []string{"chat"}, inject: true, wantArg: "chat"},
+		{name: "prompt args", args: []string{"two words", "$literal"}, inject: true, wantArg: "two words $literal"},
 		{name: "setup", args: []string{"setup"}, wantArg: "setup"},
 		{name: "profile then setup", args: []string{"-p", "private", "setup"}, wantArg: "-p private setup"},
 		{name: "version", args: []string{"version"}, wantArg: "version"},
@@ -278,110 +210,11 @@ func TestHermesSubcommandSkipsPYTHONPATH(t *testing.T) {
 			if !strings.Contains(s, "ARGS="+tc.wantArg) {
 				t.Fatalf("args:\n%s", s)
 			}
-			hasPy := strings.Contains(s, "PYTHONPATH="+hermesPythonDir(dataDir))
+			hasPy := strings.Contains(s, "HOOK="+hookScriptPath(dataDir))
 			if hasPy != tc.inject {
 				t.Fatalf("inject=%v PYTHONPATH:\n%s", tc.inject, s)
 			}
 		})
-	}
-}
-
-func TestHermesSitecustomizeDecisionTable(t *testing.T) {
-	if _, err := exec.LookPath("python3"); err != nil {
-		t.Skip("python3 not on PATH")
-	}
-	root := t.TempDir()
-	dataDir := filepath.Join(root, "data")
-	if err := os.MkdirAll(dataDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := writeHermesIntercept(dataDir, "/tmp/picode-hook"); err != nil {
-		t.Fatal(err)
-	}
-	pyDir := hermesPythonDir(dataDir)
-	agentDir := filepath.Join(pyDir, "agent")
-	if err := os.MkdirAll(agentDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(agentDir, "__init__.py"), []byte(""), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	fake := `def register_from_config(cfg=None, *args, **kwargs):
-    return {"cfg": cfg, "kwargs": kwargs}
-`
-	if err := os.WriteFile(filepath.Join(agentDir, "shell_hooks.py"), []byte(fake), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	harness := filepath.Join(root, "harness.py")
-	body := `import json, os, sys
-import agent.shell_hooks as sh
-orig = {"hooks": {"pre_llm_call": [{"command": "user-hook"}]}, "model": "keep"}
-got = sh.register_from_config(orig, accept_hooks=True)
-print(json.dumps({"orig": orig, "got": got, "pythonpath": os.environ.get("PYTHONPATH")}))
-`
-	if err := os.WriteFile(harness, []byte(body), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	run := func(hook string) map[string]any {
-		t.Helper()
-		cmd := exec.Command("python3", harness)
-		cmd.Dir = root
-		env := []string{
-			"PATH=/usr/bin:/bin",
-			"PYTHONPATH=" + pyDir,
-			"HOME=" + root,
-		}
-		if hook != "" {
-			env = append(env, "PICODE_HERMES_HOOK="+hook)
-		}
-		cmd.Env = env
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("python harness hook=%q: %v: %s", hook, err, out)
-		}
-		var v map[string]any
-		if err := json.Unmarshal(out, &v); err != nil {
-			t.Fatalf("json %q: %v", out, err)
-		}
-		return v
-	}
-
-	// Decision table: empty hook is a no-op; a set hook merges a deepcopy
-	// and strips this sitecustomize directory from child PYTHONPATH.
-	empty := run("")
-	if empty["pythonpath"] != nil && empty["pythonpath"] != "" {
-		t.Fatalf("PYTHONPATH leaked without hook: %v", empty["pythonpath"])
-	}
-	orig := empty["orig"].(map[string]any)
-	if orig["model"] != "keep" {
-		t.Fatalf("orig lost: %v", orig)
-	}
-
-	hook := "/tmp/picode-hook auto hermes"
-	hit := run(hook)
-	if hit["pythonpath"] != nil && hit["pythonpath"] != "" {
-		t.Fatalf("PYTHONPATH leaked after sitecustomize: %v", hit["pythonpath"])
-	}
-	orig = hit["orig"].(map[string]any)
-	hooks := orig["hooks"].(map[string]any)["pre_llm_call"].([]any)
-	if len(hooks) != 1 || hooks[0].(map[string]any)["command"] != "user-hook" {
-		t.Fatalf("original cfg mutated: %v", orig)
-	}
-	got := hit["got"].(map[string]any)["cfg"].(map[string]any)
-	if got["hooks_auto_accept"] != true {
-		t.Fatalf("merged cfg missing auto-accept: %v", got)
-	}
-	merged := got["hooks"].(map[string]any)["pre_llm_call"].([]any)
-	if len(merged) != 2 {
-		t.Fatalf("merged hooks = %v", merged)
-	}
-	cmds := []string{merged[0].(map[string]any)["command"].(string), merged[1].(map[string]any)["command"].(string)}
-	if cmds[0] != "user-hook" || cmds[1] != hook {
-		t.Fatalf("merged commands = %v", cmds)
-	}
-	if _, ok := got["hooks"].(map[string]any)["pre_approval_request"]; !ok {
-		t.Fatalf("missing approval hook: %v", got["hooks"])
 	}
 }
 
@@ -547,7 +380,7 @@ const handlers = new Map();
 load({ on(name, handler) { handlers.set(name, handler); } });
 const handler = handlers.get(event);
 if (!handler) throw new Error(` + "`missing handler: ${event}`" + `);
-await handler({}, { mode, isIdle: () => idle === "true" });
+await handler({}, { mode, isIdle: () => idle === "true", sessionManager: { getSessionId: () => "native-pi", getSessionFile: () => "/fixture/pi.jsonl" } });
 `
 	if err := os.WriteFile(harnessPath, []byte(harness), 0o600); err != nil {
 		t.Fatal(err)
@@ -678,7 +511,7 @@ func TestHookMapPy(t *testing.T) {
 		{`{"hook_event_name":"UserPromptSubmit"}`, "working\n"},
 		{`{"hook_event_name":"SessionStart"}`, "idle\n"},
 		{`{"hook_event_name":"Stop"}`, "idle\n"},
-		{`{"hook_event_name":"TaskCompleted"}`, "idle\n"},
+		{`{"hook_event_name":"TaskCompleted"}`, ""},
 		{`{"type":"agent-turn-complete"}`, "idle\n"},
 		{`{"hook_event_name":"Interrupt"}`, "idle\n"},
 		{`{"hook_event_name":"PermissionRequest"}`, "needs-you\n"},
@@ -688,8 +521,8 @@ func TestHookMapPy(t *testing.T) {
 		{`{"hook_event_name":"on_session_start"}`, "idle\n"},
 		{`{"hook_event_name":"on_session_end"}`, "idle\n"},
 		{`{"hook_event_name":"post_llm_call"}`, "idle\n"},
-		{`{"hook_event_name":"subagent_stop"}`, "idle\n"},
-		{`{"hook_event_name":"on_session_finalize"}`, "idle\n"},
+		{`{"hook_event_name":"subagent_stop"}`, ""},
+		{`{"hook_event_name":"on_session_finalize"}`, "working\n"},
 		{`{"hook_event_name":"on_session_reset"}`, "idle\n"},
 		{`{"hook_event_name":"pre_approval_request"}`, "needs-you\n"},
 		{`{"hook_event_name":"pre_tool_call"}`, ""},
@@ -752,7 +585,7 @@ func TestInterceptWrappersReportRuntimeLifecycle(t *testing.T) {
 	}
 	for _, name := range []string{"claude", "codex", "grok", "hermes", "opencode", "pi"} {
 		path := filepath.Join(root, name)
-		body := "#!/bin/sh\nprintf '%s|%s\\n' \"" + name + "\" \"$*\" >> \"$PICODE_TEST_REAL_LOG\"\n"
+		body := "#!/bin/sh\nif [ \"$1\" = config ] && [ \"$2\" = path ]; then printf '%s\\n' \"$HOME/.hermes/config.yaml\"; exit; fi\nif [ \"$1\" = plugins ]; then exit 0; fi\nprintf '%s|%s\\n' \"" + name + "\" \"$*\" >> \"$PICODE_TEST_REAL_LOG\"\n"
 		if name == "grok" {
 			// Still executable, but its interpreter is absent: the wrapper's
 			// direct launch fails and must still report runtime-end.
@@ -790,6 +623,8 @@ func TestInterceptWrappersReportRuntimeLifecycle(t *testing.T) {
 			cmd.Env = append(os.Environ(),
 				"PATH="+interceptBinDir(dataDir)+string(os.PathListSeparator)+root+string(os.PathListSeparator)+"/usr/bin:/bin",
 				"PICODE_TERM_ID=terminal-test",
+				"HERMES_HOME="+filepath.Join(root, "hermes-home"),
+				"GROK_HOME="+filepath.Join(root, "grok-home"),
 				"PICODE_TEST_HOOK_LOG="+hookLog,
 				"PICODE_TEST_REAL_LOG="+realLog,
 			)
@@ -944,6 +779,8 @@ func TestOpencodeMaintenanceSkipsPresenceLease(t *testing.T) {
 		cmd.Env = append(os.Environ(),
 			"PATH="+interceptBinDir(dataDir)+string(os.PathListSeparator)+root+string(os.PathListSeparator)+"/usr/bin:/bin",
 			"PICODE_TERM_ID=terminal-test",
+			"HERMES_HOME="+filepath.Join(root, "hermes-home"),
+			"GROK_HOME="+filepath.Join(root, "grok-home"),
 			"PICODE_TEST_HOOK_LOG="+hookLog,
 			"PICODE_TEST_REAL_LOG="+realLog,
 		)
@@ -1061,5 +898,42 @@ func TestClaudeSetWiringRefusesEnable(t *testing.T) {
 	_, err := claudeSetWiring("/nope", "", true)
 	if err == nil || !strings.Contains(err.Error(), "refusing") {
 		t.Fatalf("enable must refuse writing user settings: %v", err)
+	}
+}
+
+func TestHermesProfileKeepsNativeRuntimeLease(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("HOME", root)
+	wrapper, hookLog, envLog := writeHermesInnerProbe(t, filepath.Join(root, "data"), root)
+	runHermesWrapper(t, wrapper, root, hookLog, envLog, "-p", "selected", "chat")
+	raw, err := os.ReadFile(hookLog)
+	if err != nil || !strings.Contains(string(raw), "runtime-start|hermes") {
+		t.Fatalf("profile suppressed TUI lease: %s %v", raw, err)
+	}
+}
+
+func TestCodexSubcommandsKeepHookOverrides(t *testing.T) {
+	root := t.TempDir()
+	real := filepath.Join(root, "codex-probe")
+	if err := writeExecutable(real, "#!/bin/sh\nprintf '%s\\000' \"$@\"\n"); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"hello"}, {"resume", "session id"}, {"fork", "session id"}} {
+		body := "real=" + shellQuote(real) + "\n" + codexInvoke([]string{"-c", "hooks.Stop=[]", "-c", "hooks.state={}"})
+		cmd := exec.Command("sh", append([]string{"-c", body, "probe"}, args...)...)
+		raw, err := cmd.Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := strings.Split(strings.TrimSuffix(string(raw), "\x00"), "\x00")
+		want := []string{"-c", "hooks.Stop=[]", "-c", "hooks.state={}"}
+		if args[0] == "resume" || args[0] == "fork" {
+			want = append(append([]string{}, args...), want...)
+		} else {
+			want = append(want, args...)
+		}
+		if strings.Join(got, "\x00") != strings.Join(want, "\x00") {
+			t.Fatalf("%q => %q want %q", args, got, want)
+		}
 	}
 }

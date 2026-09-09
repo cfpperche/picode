@@ -701,8 +701,19 @@ func publishTerminalState(deps Deps, r *http.Request, t store.Terminal, live boo
 // another's conversation in a shared folder. Best effort by design: a
 // failed pin only costs the resume shortcut, never the terminal.
 func pinTerminalLastSession(deps Deps, termID string, runtime TermRuntime) {
-	if deps.Store == nil || runtime.CLI == "" {
+	if deps.Store == nil || runtime.CLI == "" || runtime.SessionID != "" || runtime.CLI == "grok" || runtime.CLI == "hermes" {
 		return
+	}
+	// An enrolled mailbox must never change address through a cwd heuristic,
+	// including after restart when the ephemeral native report is absent.
+	peers, err := deps.Store.ListPeerConnections()
+	if err != nil {
+		return
+	}
+	for _, peer := range peers {
+		if peer.Kind == "terminal" && peer.OwnerID == termID && peer.Active {
+			return
+		}
 	}
 	t, err := deps.Store.GetTerminal(termID)
 	if err != nil {
@@ -855,6 +866,7 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 			return nil, err
 		}
 		if cli.ID == "opencode" {
+			peerOptions.Env["PICODE_OPENCODE_SESSION_ID"] = v.LastSession.SessionID
 			existing, specified := c.Env["OPENCODE_CONFIG_CONTENT"]
 			if !specified {
 				existing = os.Getenv("OPENCODE_CONFIG_CONTENT")
@@ -866,6 +878,20 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 			peerOptions.Env["OPENCODE_CONFIG_CONTENT"] = merged
 		}
 	}
+	// Native tool invocations resolve their own current session. This routing
+	// root and executable contain no bearer, even before enrollment or resume.
+	if c.Integration && (cli.ID == "grok" || cli.ID == "hermes") {
+		peerOptions, err = communication.NativeOptions(deps.DataDir, cli.ID)
+		if err != nil {
+			return nil, err
+		}
+		commands := filepath.Join(dir, "message-bin")
+		if err := writeExecutable(filepath.Join(commands, "picode"), "#!/bin/sh\nexec "+shellQuote(peerOptions.Env["PICODE_MESSAGES_BIN"])+" \"$@\"\n"); err != nil {
+			return nil, err
+		}
+		peerOptions.Env["PATH"] = commands + string(os.PathListSeparator) + cliPath(c)
+	}
+
 	var body strings.Builder
 	body.WriteString("#!/bin/sh\n# PiCode terminal launch. Values below are quoted arguments, never eval.\n")
 	// SIGHUP-immune pane root (ADR-0085): interactive bash ignores SIGHUP and
@@ -900,6 +926,9 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 	}
 	body.WriteString(shellQuote(command))
 	launchArgs := append(append([]string{}, c.Args...), peerOptions.Args...)
+	if cli.ID == "grok" {
+		launchArgs = append(append([]string{}, peerOptions.Args...), c.Args...)
+	}
 	for _, arg := range launchArgs {
 		body.WriteByte(' ')
 		body.WriteString(shellQuote(arg))

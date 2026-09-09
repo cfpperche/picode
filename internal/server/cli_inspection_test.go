@@ -193,6 +193,8 @@ func TestCLIAdapterPreviewMatchesExecution(t *testing.T) {
 	ts, _, home := cleanupServer(t)
 	tool := filepath.Join(home, "fake-cli")
 	script := `#!/bin/sh
+if [ "$1" = config ] && [ "$2" = path ]; then printf '%s\n' "$HOME/.hermes/config.yaml"; exit; fi
+if [ "$1" = plugins ]; then exit 0; fi
 if [ "$1" = --help ]; then printf '%s\n' --dangerously-bypass-hook-trust; exit; fi
 printf '%s\000' "$@" > "$QA_FILE"
 exec cat

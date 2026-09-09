@@ -144,7 +144,8 @@ type TuiReplies struct {
 	acks    map[string]chan replyAck
 }
 
-func newTuiReplies() *TuiReplies {
+// NewTuiReplies creates the shared receiver registry for routes and background delivery.
+func NewTuiReplies() *TuiReplies {
 	return &TuiReplies{
 		Controls: newAgentControls(),
 		hello:    map[string]time.Time{},
@@ -173,9 +174,7 @@ func (t *TuiReplies) HelloSession(key, sessionPath string) {
 	}
 	t.mu.Lock()
 	t.hello[key] = time.Now()
-	if p := strings.TrimSpace(sessionPath); p != "" {
-		t.session[key] = p
-	}
+	t.session[key] = strings.TrimSpace(sessionPath)
 	t.mu.Unlock()
 }
 
@@ -507,10 +506,11 @@ func ReconcilePendingReplies(st *store.Store, dataDir string) {
 // replyFile is the one-shot handoff between the daemon and the receiver
 // extension inside the TUI.
 type replyFile struct {
-	Nonce       string    `json:"nonce"`
-	SessionPath string    `json:"sessionPath"`
-	Payload     string    `json:"payload"`
-	CreatedAt   time.Time `json:"createdAt"`
+	AttentionOnly bool      `json:"attentionOnly,omitempty"`
+	Nonce         string    `json:"nonce"`
+	SessionPath   string    `json:"sessionPath"`
+	Payload       string    `json:"payload"`
+	CreatedAt     time.Time `json:"createdAt"`
 }
 
 func replyDir(dataDir, agentID string) string {
@@ -564,7 +564,7 @@ func handleTuiHello(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusNotFound, "no such agent")
 			return
 		}
-		deps.Replies.Hello(agentID)
+		deps.Replies.HelloSession(agentID, req.Session)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

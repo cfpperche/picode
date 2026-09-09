@@ -143,13 +143,14 @@ if [ "$name" = hermes ]; then
 fi
 for picode_arg in "$@"; do
   case "$picode_arg" in
-    -p|--print|--json|--headless|--non-interactive|--version|-V|--help|-h) picode_tui=0 ;;
+    -p) [ "$name" = hermes ] || picode_tui=0 ;;
+    --print|--json|--headless|--non-interactive|--version|-V|--help|-h) picode_tui=0 ;;
   esac
 done
 picode_run_id="${PICODE_TERM_ID}-$$-$(date +%%s%%N 2>/dev/null || date +%%s)"
 picode_hook=%q
 if [ "$picode_tui" = 1 ] && [ -n "$PICODE_TERM_ID" ]; then
-  export PICODE_TUI_RUN_ID="$picode_run_id"
+  export PICODE_TUI_RUN_ID="$picode_run_id" PICODE_TUI_PID="$$"
   "$picode_hook" runtime-start "$name" "$picode_run_id" "$$" >/dev/null 2>&1 || true
 fi
 `
@@ -161,7 +162,7 @@ func wrapperLifecycle(hook string) string {
 
 // hermesMaintenanceCommands is the first positional after flags that means
 // "not an interactive chat/TUI". Kept in one place so the presence lease and
-// PYTHONPATH passthrough skip the same names.
+// native integration passthrough skip the same names.
 const hermesMaintenanceCommands = `setup|model|moa|fallback|secrets|migrate|gateway|proxy|lsp|postinstall|whatsapp|whatsapp-cloud|slack|send|login|logout|auth|status|cron|webhook|portal|kanban|project|hooks|doctor|security|dump|debug|backup|checkpoints|import|config|console|pairing|skills|bundles|plugins|curator|pets|journey|learning|memory-graph|memory|tools|computer-use|mcp|sessions|insights|claw|version|update|uninstall|acp|profile|completion|dashboard|serve|desktop|gui|logs|prompt-size`
 
 // opencodeMaintenanceCommands is the first positional after flags that means
@@ -302,6 +303,15 @@ func codexHookOverrides(hook string) []string {
 	return out
 }
 
+// Codex resume/fork owns its own -c parser. Root overrides before the
+// subcommand are discarded there, including lifecycle hooks and their trust.
+func codexInvoke(args []string) string {
+	flags := quotedCLIArgs(args)
+	return "case \"${1-}\" in\n" +
+		" resume|fork) \"$real\" \"$@\"" + flags + " ;;\n" +
+		" *) \"$real\"" + flags + " \"$@\" ;;\nesac\n"
+}
+
 func writeCodexIntercept(dataDir, hook string) error {
 	branches := cliIntegrationPlan("codex", dataDir, hook).Branches
 	// --dangerously-bypass-hook-trust is only a capability marker. PiCode
@@ -311,10 +321,10 @@ func writeCodexIntercept(dataDir, hook string) error {
 		wrapperFindReal +
 		wrapperLifecycle(hook) +
 		"if \"$real\" --help 2>&1 | grep -q -- '--dangerously-bypass-hook-trust'; then\n" +
-		"  \"$real\"" + quotedCLIArgs(branches[0].Args) + " \"$@\"\n" +
+		codexInvoke(branches[0].Args) +
 		wrapperLifecycleEnd +
 		"fi\n" +
-		"\"$real\"" + quotedCLIArgs(branches[1].Args) + " \"$@\"\n" +
+		codexInvoke(branches[1].Args) +
 		wrapperLifecycleEnd
 	return writeExecutable(wrapperPath(dataDir, "codex"), body)
 }
@@ -357,7 +367,7 @@ function report(state, ctx) {
   if (!process.env.PICODE_TERM_ID || ctx.mode !== "tui") return Promise.resolve();
   pending = pending.then(() => new Promise((resolve) => {
     try {
-      const child = spawn(reporter, [state, "pi"], { stdio: "ignore" });
+      const child = spawn(reporter, [state, "pi"], { stdio: "ignore", env: { ...process.env, PICODE_NATIVE_SESSION_ID: ctx.sessionManager.getSessionId(), PICODE_NATIVE_SESSION_PATH: ctx.sessionManager.getSessionFile() || "" } });
       child.once("error", resolve);
       child.once("close", resolve);
     } catch {
@@ -410,166 +420,19 @@ func writePiIntercept(dataDir, hook string) error {
 	return writeExecutable(wrapperPath(dataDir, "pi"), wrapper)
 }
 
-func grokHomeDir(dataDir string) string {
-	return filepath.Join(interceptDir(dataDir), "grok-home")
-}
-
 func writeGrokIntercept(dataDir, hook string) error {
-	home := grokHomeDir(dataDir)
-	if err := os.MkdirAll(filepath.Join(home, "hooks"), 0o755); err != nil {
+	if err := writeNativeAssets(dataDir); err != nil {
 		return err
 	}
-	doc := map[string]any{
-		"hooks": map[string]any{
-			"SessionStart": []any{map[string]any{
-				"hooks": []any{map[string]any{"type": "command", "command": hook + " auto grok"}},
-			}},
-			"UserPromptSubmit": []any{map[string]any{
-				"hooks": []any{map[string]any{"type": "command", "command": hook + " auto grok"}},
-			}},
-			"Notification": []any{map[string]any{
-				"hooks": []any{map[string]any{"type": "command", "command": hook + " auto grok"}},
-			}},
-			"Stop": []any{map[string]any{
-				"hooks": []any{map[string]any{"type": "command", "command": hook + " auto grok"}},
-			}},
-			"SessionEnd": []any{map[string]any{
-				"hooks": []any{map[string]any{"type": "command", "command": hook + " auto grok"}},
-			}},
-		},
-	}
-	raw, err := json.MarshalIndent(doc, "", "  ")
-	if err != nil {
-		return err
-	}
-	if err := writeInterceptFile(filepath.Join(home, "hooks", "picode.json"), append(raw, '\n'), 0o600); err != nil {
-		return err
-	}
-	refresh := `user_grok="${HOME}/.grok"
-mkdir -p "$GROK_HOME/hooks"
-if [ -e "$user_grok/auth.json" ]; then ln -sfn "$user_grok/auth.json" "$GROK_HOME/auth.json"; fi
-if [ -e "$user_grok/config.toml" ]; then ln -sfn "$user_grok/config.toml" "$GROK_HOME/config.toml"; fi
-if [ -d "$user_grok/sessions" ]; then ln -sfn "$user_grok/sessions" "$GROK_HOME/sessions"; fi
-`
-	body := "#!/bin/sh\n# PiCode intercept — Grok. Session PATH only. GROK_HOME overlay.\nname=grok\n" +
-		wrapperFindReal +
-		"export GROK_HOME=" + shellQuote(cliIntegrationPlan("grok", dataDir, hook).Environment["GROK_HOME"]) + "\n" +
-		refresh +
-		wrapperLifecycle(hook) +
-		"\"$real\" \"$@\"\n" +
-		wrapperLifecycleEnd
+	body := "#!/bin/sh\n# PiCode native Grok integration.\nname=grok\n" + wrapperFindReal +
+		nativeWrapperSetup(dataDir, hook, "grok") + wrapperLifecycle(hook) + "\"$real\" \"$@\"\n" + wrapperLifecycleEnd
 	return writeExecutable(wrapperPath(dataDir, "grok"), body)
 }
 
-func hermesPythonDir(dataDir string) string {
-	return filepath.Join(interceptDir(dataDir), "hermes-python")
-}
-
-// hermesSitecustomizePy registers PiCode activity hooks through Hermes'
-// shell-hook bridge. It patches agent.shell_hooks.register_from_config
-// with a deepcopy so load_config/save_config never see the extra entries —
-// nothing here writes ~/.hermes/config.yaml. Hermes may still record the
-// hook command in its own shell-hooks-allowlist.json when auto-accepting.
-// The official `hermes` trampoline unsets PYTHONPATH, so the wrapper execs
-// the inner venv console script first. sitecustomize then strips its own
-// directory from PYTHONPATH so child Python tools do not inherit the patch.
-const hermesSitecustomizePy = `import copy
-import os
-import sys
-
-HOOK = os.environ.get("PICODE_HERMES_HOOK", "")
-EVENTS = (
-    "on_session_start", "on_session_end", "on_session_finalize", "on_session_reset",
-    "pre_llm_call", "post_llm_call",
-    "pre_approval_request", "post_approval_response",
-    "subagent_stop",
-)
-
-def _merge(cfg):
-    if not HOOK:
-        return cfg
-    if not isinstance(cfg, dict):
-        cfg = {}
-    hooks = cfg.get("hooks")
-    if not isinstance(hooks, dict):
-        hooks = {}
-        cfg["hooks"] = hooks
-    entry = {"command": HOOK, "timeout": 5}
-    for ev in EVENTS:
-        lst = hooks.get(ev)
-        if not isinstance(lst, list):
-            lst = []
-            hooks[ev] = lst
-        if not any(isinstance(x, dict) and x.get("command") == HOOK for x in lst):
-            lst.append(dict(entry))
-    cfg["hooks_auto_accept"] = True
-    return cfg
-
-def _patch(mod):
-    if getattr(mod, "_picode_hooks", False):
-        return
-    orig = getattr(mod, "register_from_config", None)
-    if callable(orig):
-        def register_from_config(cfg=None, *args, **kwargs):
-            base = copy.deepcopy(cfg) if isinstance(cfg, dict) else {}
-            return orig(_merge(base), *args, **kwargs)
-        mod.register_from_config = register_from_config
-    mod._picode_hooks = True
-
-try:
-    import importlib._bootstrap as _b
-    _orig_find = _b._find_and_load
-    def _find_and_load(name, import_):
-        mod = _orig_find(name, import_)
-        if name == "agent.shell_hooks":
-            try:
-                _patch(mod)
-            except Exception:
-                pass
-        return mod
-    _b._find_and_load = _find_and_load
-except Exception:
-    pass
-
-if "agent.shell_hooks" in sys.modules:
-    try:
-        _patch(sys.modules["agent.shell_hooks"])
-    except Exception:
-        pass
-
-_dir = os.path.dirname(os.path.abspath(__file__))
-_pp = os.environ.get("PYTHONPATH", "")
-_kept = [p for p in _pp.split(os.pathsep) if p and os.path.abspath(p) != os.path.abspath(_dir)]
-if _kept:
-    os.environ["PYTHONPATH"] = os.pathsep.join(_kept)
-else:
-    os.environ.pop("PYTHONPATH", None)
-`
-
 func writeHermesIntercept(dataDir, hook string) error {
-	pyDir := hermesPythonDir(dataDir)
-	if err := os.MkdirAll(pyDir, 0o755); err != nil {
+	if err := writeNativeAssets(dataDir); err != nil {
 		return err
 	}
-	if err := writeInterceptFile(filepath.Join(pyDir, "sitecustomize.py"), []byte(hermesSitecustomizePy), 0o600); err != nil {
-		return err
-	}
-	plan := cliIntegrationPlan("hermes", dataDir, hook)
-	py := plan.Environment["PYTHONPATH"]
-	hookCmd := plan.Environment["PICODE_HERMES_HOOK"]
-	unwrap := `# The public hermes command is often a bash trampoline that unsets
-# PYTHONPATH before exec'ing the venv console script. Follow it so
-# sitecustomize can load. pip/console-script installs skip this.
-if [ -f "$real" ] && head -n 8 "$real" | grep -q "unset PYTHONPATH"; then
-  inner=$(sed -n 's/^exec "\([^"]*\)".*/\1/p' "$real" | head -n 1)
-  if [ -z "$inner" ]; then
-    inner=$(sed -n "s/^exec '\\([^']*\\)'.*/\\1/p" "$real" | head -n 1)
-  fi
-  if [ -n "$inner" ] && [ -x "$inner" ]; then
-    real=$inner
-  fi
-fi
-`
 	passthrough := strings.Replace(`# Named maintenance subcommands skip the session patch, even when flags
 # precede them (hermes -p NAME setup). Session ids after --resume/-r/-c
 # and extra launch arguments are not subcommands.
@@ -596,16 +459,7 @@ for picode_arg in "$@"; do
   esac
 done
 `, "HERMES_MAINT", hermesMaintenanceCommands, 1)
-	body := "#!/bin/sh\n# PiCode intercept — Hermes Agent. Session PATH only. PYTHONPATH hooks; no HERMES_HOME overlay.\nname=hermes\n" +
-		wrapperFindReal +
-		unwrap +
-		passthrough +
-		"export PYTHONPATH=" + shellQuote(py) + "\n" +
-		"export HERMES_ACCEPT_HOOKS=1\n" +
-		"export PICODE_HERMES_HOOK=" + shellQuote(hookCmd) + "\n" +
-		wrapperLifecycle(hook) +
-		"\"$real\"" + quotedCLIArgs(plan.Branches[0].Args) + " \"$@\"\n" +
-		wrapperLifecycleEnd
+	body := "#!/bin/sh\n# PiCode native Hermes plugin.\nname=hermes\n" + wrapperFindReal + passthrough + nativeWrapperSetup(dataDir, hook, "hermes") + wrapperLifecycle(hook) + "\"$real\" \"$@\"\n" + wrapperLifecycleEnd
 	return writeExecutable(wrapperPath(dataDir, "hermes"), body)
 }
 
@@ -655,12 +509,13 @@ const opencodeMapEventJS = `function mapEvent(type, statusType) {
 const opencodeActivityJS = `import { spawn } from "node:child_process"
 
 const HOOK = process.env.PICODE_OPENCODE_HOOK || ""
+let sequence = 0n
 
-function report(state) {
+function report(state, sessionId) {
   if (!HOOK || !process.env.PICODE_TERM_ID) return
   if (state !== "working" && state !== "idle" && state !== "needs-you") return
   try {
-    const child = spawn(HOOK, [state, "opencode"], { stdio: "ignore", detached: true })
+    const child = spawn(HOOK, [state, "opencode"], { stdio: "ignore", detached: true, env: { ...process.env, PICODE_NATIVE_SESSION_ID: sessionId || "", PICODE_NATIVE_SESSION_SEQ: String(sequence = (BigInt(Date.now()) * 1000000n > sequence ? BigInt(Date.now()) * 1000000n : sequence + 1n)) } })
     child.unref()
   } catch {
     // never throw into the TUI
@@ -668,17 +523,47 @@ function report(state) {
 }
 
 ` + opencodeMapEventJS + `
-export default async function picodeActivity() {
+// Only a root receiving a native user message becomes the selected conversation.
+// Other roots and child status events on the local server cannot steal it.
+export default async function picodeActivity({ client }) {
+  let selected = ""
+  let queue = Promise.resolve()
+  const roots = new Map()
+  async function root(id) {
+    if (typeof id !== "string" || !id) return false
+    if (roots.has(id)) return roots.get(id)
+    try {
+      const result = await client.session.get({ path: { id } })
+      const session = result?.data
+      if (!session || session.id !== id) return false
+      const value = !session.parentID
+      if (roots.size >= 128) roots.clear()
+      roots.set(id, value)
+      return value
+    } catch { return false }
+  }
+  const resumed = process.env.PICODE_OPENCODE_SESSION_ID
+  if (await root(resumed)) selected = resumed
+  function ordered(fn) {
+    queue = queue.then(fn).catch(() => {})
+    return queue
+  }
   return {
-    event: async ({ event }) => {
-      const type = event && typeof event.type === "string" ? event.type : ""
-      const status = event && event.properties && event.properties.status
-      const statusType = status && typeof status.type === "string" ? status.type : ""
-      const state = mapEvent(type, statusType)
-      if (state) report(state)
-    },
+    "chat.message": async ({ sessionID }) => ordered(async () => {
+      if (await root(sessionID)) {
+        selected = sessionID
+        report("working", selected)
+      }
+    }),
+    event: async ({ event }) => ordered(async () => {
+      const id = event?.properties?.sessionID
+      if (!selected || id !== selected || !(await root(id))) return
+      const state = mapEvent(event?.type, event?.properties?.status?.type)
+      if (state) report(state, id)
+    }),
   }
 }
+
 `
 
 const opencodeConfigJSON = `{

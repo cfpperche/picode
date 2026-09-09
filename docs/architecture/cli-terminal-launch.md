@@ -131,3 +131,12 @@ navigation through a hash guard installed before route observers, use shared
 Zod schemas, and preview after edits with a debounce (not periodic API polling).
 Feed invalidation keeps profiles and checks current.
 Workspace menus and the palette open the shared terminal editor with context.
+
+
+ADR-0107 amends session pinning for communication: Grok/Hermes pins use native
+reports, and enrolled owners never fall back to cwd/latest-session discovery.
+A resumed native conversation retains its mailbox; `/new` invalidates its prior
+binding. Grok/Hermes tool calls resolve private setup by their current native
+session ID, rather than an inherited bearer. Their launcher installs a small
+native hook/plugin with an ownership receipt; it preserves native homes and
+executable entrypoints. See [direct communication](direct-session-communication.md).

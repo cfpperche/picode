@@ -39,8 +39,8 @@ the same result from its xterm fork). `/api/system` warns if the running
 server is on another format.
 
 Terminal CLI state (ADR-0056) and presence (ADR-0062) are ephemeral:
-scoped wrappers inject Claude, Codex, Grok, Hermes Agent (PYTHONPATH
-sitecustomize, no `HERMES_HOME` overlay), OpenCode (`OPENCODE_CONFIG`
+scoped wrappers inject Claude and Codex hooks, native Grok hooks and Hermes
+plugins (ADR-0107), OpenCode (`OPENCODE_CONFIG`
 session plugin, no data-dir overlay and no write to `~/.config/opencode`),
 or manual Pi TUI hooks; a wrapper
 lease becomes `terminal.runtime`, while lifecycle reports become
@@ -50,7 +50,8 @@ when its pane or process disappears and may recover older sessions from an
 exact `pane_current_command` plus `pane_pid` match, never from pixels. Codex
 hooks are invocation-only `-c` values whose exact SHA-256
 fingerprints are trusted in the same session flags — PiCode never bypasses
-trust and never writes `~/.codex`. For agent invocations, the Pi wrapper
+trust and never writes `~/.codex`. On `resume`/`fork`, overrides follow the
+subcommand arguments because the native subcommand parser discards root overrides. For agent invocations, the Pi wrapper
 prepends one generated `-e <data>/intercept/pi-terminal-state.ts` extension
 without replacing user extensions or arguments. Pi's maintenance/auth
 subcommands and help/version flags bypass injection so their argv[1] dispatch
@@ -70,24 +71,32 @@ is executable in `TestPiTerminalStateExtensionDecisionTable`:
 The two guards keep managed RPC agents, `pi -p`, JSON streams, and inherited
 sub-processes out of terminal state.
 
-Hermes Agent does not get a `HERMES_HOME` overlay: its `state.db` is SQLite
-with WAL files beside the home path, so relocating the home would split the
-user's sessions. The session wrapper unwraps the official trampoline (which
-`unset`s `PYTHONPATH`), sets a session `PYTHONPATH` sitecustomize, and execs
-`--accept-hooks`. sitecustomize patches `agent.shell_hooks.register_from_config`
-with a deepcopy so `load_config` / `save_config` never see PiCode's entries
-and `~/.hermes/config.yaml` is not written. Hermes itself may still record
-the hook command in `shell-hooks-allowlist.json` when auto-accepting.
-Maintenance subcommands (`setup`, `model`, `auth`, …), including after
-`-p`/`--profile`, skip the patch. `pre_tool_call` is not registered (it is a
-gate, not a status signal). The map is executable in `TestHookMapPy`:
+Grok and Hermes preserve their native homes and executable entrypoints. Grok
+loads PiCode's receipted `hooks/picode-native.json`; Hermes loads a native
+`picode-native` plugin, enabled through its own CLI without tool overrides. Its
+selected/sticky profile is resolved by `hermes config path`. Unrelated files are
+preserved and edited integration files refuse replacement. Integration code is
+inert outside a PiCode terminal. Maintenance commands bypass installation.
 
-| Hermes shell-hook event | Lifecycle action |
+| Hermes native plugin event | Lifecycle action |
 |---|---|
 | `pre_llm_call`, `post_approval_response` | publish `working` |
-| `on_session_start`, `on_session_end`, `on_session_reset`, `on_session_finalize`, `post_llm_call`, `subagent_stop` | publish `idle` |
+| `on_session_start`, `on_session_end`, `on_session_reset` | publish `idle` |
 | `pre_approval_request` | publish `needs-you` |
-| `pre_tool_call` (not injected) | no report |
+| Delegated child ID or non-CLI platform | no report |
+
+Grok publishes idle at `SessionStart` and at the final `idle_prompt` notification.
+Its `Stop` hook can request continuation; queued turn-end reports can arrive after
+another prompt with a later dispatch timestamp. They are therefore ignored,
+along with child events and `SessionEnd`; wrapper exit removes presence. This
+conservative policy can delay attention by about a minute. Claude's
+`TaskCompleted` and `SubagentStop` also cannot mark the parent idle.
+
+Native reports carry session identity, sequence and wrapper PID. The server
+publishes identity and activity together and refuses stale incarnations. A
+matching current pane/process can recover a wrapper after server restart;
+another wrapper cannot be displaced. Communication never infers a new address
+from the most recent session file (see [messages](direct-session-communication.md)).
 
 OpenCode does not get an `XDG_DATA_HOME` overlay: `opencode.db` is SQLite
 with WAL files beside the data path, and auth lives in the same directory.
@@ -97,7 +106,11 @@ adds one local plugin; configs merge, so the user's
 `Starting OpenCode...` before exec — OpenCode draws nothing until the
 first frame. Maintenance subcommands (`session`, `auth`, `run`, …) skip
 the plugin and the banner. The map is
-executable in `TestOpencodeActivityMap`:
+executable in `TestOpencodeActivityMap`. Native `chat.message` selects a verified
+root session (`client.session.get` without `parentID`); an exact connected resume
+can seed that selection. Other roots and child events cannot change its identity
+or activity. Reports are serialized before launching hook processes:
+
 
 | OpenCode plugin event | Lifecycle action |
 |---|---|

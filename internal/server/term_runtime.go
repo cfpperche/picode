@@ -26,12 +26,15 @@ const runtimeRunIDCap = 160
 
 // TermRuntime identifies the live CLI process in a project terminal.
 type TermRuntime struct {
-	CLI       string    `json:"cli"`
-	Source    string    `json:"source"`
-	RunID     string    `json:"runId"`
-	PID       int       `json:"pid,omitempty"`
-	ProcStart string    `json:"-"`
-	StartedAt time.Time `json:"startedAt"`
+	SessionID   string    `json:"sessionId,omitempty"`
+	SessionPath string    `json:"-"`
+	SessionSeq  int64     `json:"-"`
+	CLI         string    `json:"cli"`
+	Source      string    `json:"source"`
+	RunID       string    `json:"runId"`
+	PID         int       `json:"pid,omitempty"`
+	ProcStart   string    `json:"-"`
+	StartedAt   time.Time `json:"startedAt"`
 }
 
 // TermRuntimes holds one active CLI lease per terminal. It is intentionally

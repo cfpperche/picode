@@ -10,6 +10,8 @@ export default function PeerMessages({ hidden, ownerKey = "" }) {
 }
 function Mailbox({ hidden, ownerKey }) {
   const m = usePeerCommunication(hidden, ownerKey), [copied, setCopied] = useState(false), [copyError, setCopyError] = useState("");
+  const liveState = m.active && m.data?.live?.[m.active.id];
+  const liveLabel = ({ working: "Working", "needs-you": "Needs your input", idle: "Open", open: "Open" })[liveState];
   const problem = m.error || m.loadError || m.historyError;
   const locked = m.busy || !!m.loadError || !!m.historyError;
   const name = id => m.data?.connections.find(p => p.id === id)?.label || "Removed connection";
@@ -27,8 +29,8 @@ function Mailbox({ hidden, ownerKey }) {
     } catch { setCopyError("Copy failed. Select the credential below to copy it manually."); }
   }
   return <section className="peer-body" aria-label="Session messages">
-    <div className="peer-heading"><div><h3>Messages</h3><p>Direct messages between opted-in conversations.</p></div><button className="btn btn-ghost" disabled={m.loading || m.busy} onClick={() => { m.refresh(); m.readHistory(); }}>{m.loading ? "Refreshing…" : "Refresh"}</button></div>
-    {problem ? <div className="cli-notice is-error" role="alert"><span>{problem}</span>{m.errorCode === "adapter_missing" ? <a className="btn btn-ghost" href="#/clis/packages/pi">Open Packages</a> : <button className="btn btn-ghost" disabled={m.loading} onClick={() => { m.refresh(); m.readHistory(); }}>Try again</button>}</div> : null}
+    <div className="peer-heading"><div><h3>Messages</h3><p>Direct messages between opted-in conversations.</p></div><button className="btn btn-ghost" disabled={m.loading || m.busy} onClick={() => { m.refresh(true); m.readHistory(); }}>{m.loading ? "Refreshing…" : "Refresh"}</button></div>
+    {problem ? <div className="cli-notice is-error" role="alert"><span>{problem}</span>{m.errorCode === "adapter_missing" ? <a className="btn btn-ghost" href="#/clis/packages/pi">Open Packages</a> : <button className="btn btn-ghost" disabled={m.loading} onClick={() => { m.refresh(true); m.readHistory(); }}>Try again</button>}</div> : null}
     {!m.data && !problem ? <div className="cli-loading" aria-label="Loading messages"><div /><div /><div /></div> : null}
     {m.data?.owners.length === 0 ? <div className="cli-notice"><span>No agents or terminals yet.</span><a className="btn btn-primary" href="#/clis/new/pi">New terminal</a></div> : null}
     {!!m.data?.owners.length && <>
@@ -38,9 +40,10 @@ function Mailbox({ hidden, ownerKey }) {
       </select></label>
       {!m.owner ? <div className="cli-notice"><span>This conversation is no longer available.</span><a className="btn btn-ghost" href="#/clis/messages">Choose another</a></div> : <>
         {!m.owner.sessionKey || !m.owner.cli ? <div className="cli-notice"><span>Open a conversation first so PiCode can identify it.</span><a className="btn btn-ghost" href={m.owner.kind === "agent" ? `#/agent/${m.owner.ownerId}` : "#/clis/terminals"}>Open {m.owner.kind === "agent" ? "agent" : "terminals"}</a></div> : <div className="peer-connection">
-          <div><strong>{m.busy ? "Updating connection…" : m.active ? (m.data?.launches?.[m.active.id] ? "Configured · resume to connect" : "Enabled · client setup required") : "Messages disabled"}</strong><p>Only opted-in conversations in this workspace can contact each other.</p></div>
+          <div><strong>{m.busy ? "Updating connection…" : m.active ? (m.data?.launches?.[m.active.id] ? "Configured · resume to connect" : "Enabled · client setup required") : "Messages disabled"}</strong><p>Only opted-in conversations in this workspace can contact each other. New messages can notify an open conversation.</p></div>
           <div className="peer-actions" data-align-row><button className="btn btn-primary" disabled={locked} onClick={() => change("enable")}>{m.busy ? "Updating…" : m.active ? "Replace connection" : "Enable messages"}</button>{m.active ? <button className="btn btn-ghost" disabled={locked} onClick={() => change("disable")}>Disable</button> : null}</div>
           {m.active && m.data?.launches?.[m.active.id] ? <div className="cli-notice"><span>Setup is ready. Resume this conversation when you are ready to reconnect.</span><a className="btn btn-ghost" href={m.owner.kind === "agent" ? `#/agent/${m.owner.ownerId}` : "#/clis/terminals"}>Open {m.owner.kind === "agent" ? "agent" : "terminals"}</a></div> : !m.data?.launchCLIs?.includes(m.owner.cli) ? <p>Automatic setup is not available for this CLI. Follow the <a href="https://cfpperche.github.io/picode/guide/communication" target="_blank" rel="noreferrer">connection guide</a>.</p> : null}
+          {liveLabel ? <p role="status">{liveLabel}</p> : null}
           <details><summary>Recorded conversation</summary><code>{m.owner.sessionKey}</code></details>
         </div>}
         {m.secret ? <section className="peer-setup" aria-label="Connect this conversation"><h4>Connect this conversation</h4><p>Use this credential only for this conversation. It is shown once.</p>
@@ -51,7 +54,7 @@ function Mailbox({ hidden, ownerKey }) {
         <div className="peer-history-heading"><h4>History</h4>{m.connections.length > 1 ? <select aria-label="Connection history" value={m.selected?.id || ""} onChange={e => m.setHistoryId(e.target.value)}>{m.connections.map(p => <option key={p.id} value={p.id}>{p.active ? "Current" : "Previous"} · {new Date(p.createdAt).toLocaleString()}</option>)}</select> : null}</div>
         {!m.selected || m.history?.length === 0 ? <div className="cli-notice"><span>No messages in this connection yet.</span><a className="btn btn-ghost" href="https://cfpperche.github.io/picode/guide/communication" target="_blank" rel="noreferrer">Connection guide</a></div> : !m.history && !m.historyError ? <div className="cli-loading" aria-label="Loading history"><div /><div /></div> : null}
         {!!m.history?.length && <><ol className="peer-history">{m.history.map(message => <li key={message.id}>
-          <div className="peer-message-meta"><strong>{name(message.senderId)} → {name(message.recipientId)}</strong><time dateTime={message.createdAt}>{new Date(message.createdAt).toLocaleString()}</time><span>{message.ackedAt ? "Acknowledged" : "Accepted · awaiting acknowledgement"}</span></div>
+          <div className="peer-message-meta"><strong>{name(message.senderId)} → {name(message.recipientId)}</strong><time dateTime={message.createdAt}>{new Date(message.createdAt).toLocaleString()}</time><span>{message.ackedAt ? "Acknowledged" : message.attention === "notified" ? "Notified · awaiting acknowledgement" : ["attempted", "uncertain"].includes(message.attention) ? "Stored · notification unconfirmed" : "Stored · notification pending"}</span></div>
           <p>{message.body}</p>{message.replyTo ? <small>Reply to {message.replyTo}</small> : null}
         </li>)}</ol>{m.hasOlder ? <button className="btn btn-ghost" disabled={m.reading} onClick={() => m.readHistory(true)}>{m.reading ? "Loading…" : "Older messages"}</button> : null}</>}
       </>}

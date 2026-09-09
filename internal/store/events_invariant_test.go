@@ -44,6 +44,14 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			_ = s.AckPeerMessages(qt, []string{m.ID})
 			_ = s.AckPeerMessages(qt, []string{m.ID})
 		}, []string{"peer.ack"}},
+		{"SetPeerAttention", func(s *Store) {
+			_, token, q, _ := peerFixture(t, s)
+			m, _ := s.SendPeerMessage(token, q.ID, "notice", "hi", "")
+			s.OnEvent = recorder(s)
+			_, _ = s.SetPeerAttention(m.ID, q.ID, "pending", "attempted")
+			_, _ = s.SetPeerAttention(m.ID, q.ID, "pending", "attempted")
+			_, _ = s.SetPeerAttention(m.ID, q.ID, "attempted", "notified")
+		}, []string{"peer.attention", "peer.attention"}},
 		{"SetCLIProfile", func(s *Store) { _ = s.SetCLIProfile(CLIProfile{ID: "p", CLI: "pi", Name: "Profile"}) }, []string{"cli.profile"}},
 		{"DeleteCLIProfile", func(s *Store) {
 			_ = s.SetCLIProfile(CLIProfile{ID: "p", CLI: "pi", Name: "Profile"})

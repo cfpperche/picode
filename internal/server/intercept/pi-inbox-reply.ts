@@ -128,6 +128,11 @@ export default function (pi) {
 					await ack(false, "the terminal is showing a different session");
 					continue;
 				}
+                if (doc.attentionOnly && (!latestCtx?.isIdle?.() || latestCtx?.hasPendingMessages?.() ||
+                    (latestCtx?.hasUI && latestCtx?.ui?.getEditorText?.() !== ""))) {
+                    await ack(false, "the conversation is busy or has a draft");
+                    continue;
+                }
 				try {
 					await pi.sendUserMessage(doc.payload, { deliverAs: "followUp", triggerTurn: true });
 					await ack(true, "");

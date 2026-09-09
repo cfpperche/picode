@@ -114,7 +114,7 @@ func New(addr string, deps Deps) *http.Server {
 		}
 	}
 	if deps.Replies == nil {
-		deps.Replies = newTuiReplies()
+		deps.Replies = NewTuiReplies()
 	}
 
 	if deps.Store != nil && deps.DataDir != "" && deps.LlamaService == nil {

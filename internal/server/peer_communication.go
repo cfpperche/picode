@@ -31,10 +31,33 @@ func registerPeerCommunication(mux Registrar, deps Deps) {
 			return
 		}
 		launches := map[string]bool{}
+		live := map[string]string{}
 		for _, p := range peers {
 			launches[p.ID] = p.Active && communication.HasLaunch(deps.DataDir, p.ID)
+			if !p.Active {
+				continue
+			}
+			if p.Kind == "agent" && deps.Runtime != nil {
+				if ma := deps.Runtime.Get(p.OwnerID); ma != nil {
+					live[p.ID] = "open"
+					state := ma.Snapshot()
+					if state.Streaming {
+						live[p.ID] = "working"
+					}
+					if state.Waiting {
+						live[p.ID] = "needs-you"
+					}
+				}
+			} else if rt, ok := deps.TermRuntimes.Get(p.OwnerID); ok && rt.SessionID == p.SessionKey && processAlive(rt) {
+				live[p.ID] = "open"
+				if deps.TermStates != nil {
+					if state, ok := deps.TermStates.Get(p.OwnerID); ok && state.RunID == rt.RunID && state.SessionID == rt.SessionID && state.SessionSeq == rt.SessionSeq {
+						live[p.ID] = state.State
+					}
+				}
+			}
 		}
-		writeJSON(w, 200, map[string]any{"owners": owners, "connections": peers, "endpoint": communication.Path, "launches": launches, "launchCLIs": []string{"pi", "claude-code", "codex", "opencode"}})
+		writeJSON(w, 200, map[string]any{"owners": owners, "connections": peers, "endpoint": communication.Path, "launches": launches, "live": live, "launchCLIs": []string{"pi", "claude-code", "codex", "opencode", "grok", "hermes"}})
 	})
 	mux.HandleFunc("POST /api/communication", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
@@ -117,6 +140,22 @@ func registerPeerCommunication(mux Registrar, deps Deps) {
 			if err != nil {
 				_ = deps.Store.RevokePeer(p.ID)
 				writeErr(w, 500, "Could not save private launch setup. Replace the connection to retry.")
+				return
+			}
+			// Retired private setups must not make native session lookup ambiguous.
+			previous, cleanupErr := deps.Store.ListPeerConnections()
+			if cleanupErr == nil {
+				for _, old := range previous {
+					if old.ID != p.ID && old.Kind == p.Kind && old.OwnerID == p.OwnerID && !old.Active {
+						if err := communication.RemoveLaunch(deps.DataDir, old.ID); err != nil {
+							cleanupErr = err
+						}
+					}
+				}
+			}
+			if cleanupErr != nil {
+				_ = deps.Store.RevokePeer(p.ID)
+				writeErr(w, 500, "Could not retire previous private setup. Replace the connection to retry.")
 				return
 			}
 			writeJSON(w, 201, map[string]any{"connection": p, "automatic": true})

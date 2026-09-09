@@ -16,13 +16,13 @@ export function usePeerCommunication(hidden, ownerKey) {
   const connections = data?.connections.filter(p => p.kind === owner?.kind && p.ownerId === owner?.ownerId) || [];
   const active = connections.find(p => p.active);
   const selected = connections.find(p => p.id === historyId) || active || connections[0];
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (clearActionError = false) => {
     const gen = ++generation.current;
     setLoading(true);
     try {
       const next = await api("/api/communication");
       if (!Array.isArray(next?.owners) || !Array.isArray(next?.connections)) throw new Error("Invalid communication response.");
-      if (live.current && gen === generation.current) { setData(next); setLoadError(""); }
+      if (live.current && gen === generation.current) { setData(next); setLoadError(""); if (clearActionError) { setError(""); setErrorCode(""); } }
     } catch { if (live.current && gen === generation.current) setLoadError("Couldn’t refresh connections. Last results are still shown."); }
     finally { if (live.current && gen === generation.current) setLoading(false); }
   }, []);

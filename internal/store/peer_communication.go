@@ -38,6 +38,7 @@ type PeerConnection struct {
 	Active    bool    `json:"active"`
 }
 type PeerMessage struct {
+	Attention   string  `json:"attention"`
 	Seq         int64   `json:"seq"`
 	ID          string  `json:"id"`
 	SenderID    string  `json:"senderId"`
@@ -153,6 +154,16 @@ func (s *Store) EnablePeer(kind, id, expectedSession string) (PeerConnection, st
 	if expectedSession == "" || owner.SessionKey != expectedSession || owner.WorkspaceID == "" || owner.CLI == "" {
 		return PeerConnection{}, "", ErrPeerDenied
 	}
+	var duplicate int
+	err = tx.QueryRow(`SELECT count(*) FROM peer_connections p
+ WHERE p.revoked_at IS NULL AND p.cli=? AND p.session_key=?
+ AND NOT (COALESCE(p.agent_id,p.terminal_id)=? AND CASE WHEN p.agent_id IS NOT NULL THEN 'agent' ELSE 'terminal' END=?)`, owner.CLI, owner.SessionKey, id, kind).Scan(&duplicate)
+	if err != nil {
+		return PeerConnection{}, "", err
+	}
+	if duplicate != 0 {
+		return PeerConnection{}, "", fmt.Errorf("%w: this conversation is already connected through another owner", ErrPeerInput)
+	}
 	b := make([]byte, 32)
 	if _, err = rand.Read(b); err != nil {
 		return PeerConnection{}, "", err
@@ -233,10 +244,10 @@ func (s *Store) PeerContacts(token string) ([]PeerConnection, error) {
 	return out, nil
 }
 
-const peerMessageCols = `seq,id,sender_id,recipient_id,request_id,body,COALESCE(reply_to,''),created_at,acked_at`
+const peerMessageCols = `seq,id,sender_id,recipient_id,request_id,body,COALESCE(reply_to,''),created_at,acked_at,attention_status`
 
 func scanPeerMessage(row peerRow) (m PeerMessage, err error) {
-	err = row.Scan(&m.Seq, &m.ID, &m.SenderID, &m.RecipientID, &m.RequestID, &m.Body, &m.ReplyTo, &m.CreatedAt, &m.AckedAt)
+	err = row.Scan(&m.Seq, &m.ID, &m.SenderID, &m.RecipientID, &m.RequestID, &m.Body, &m.ReplyTo, &m.CreatedAt, &m.AckedAt, &m.Attention)
 	return
 }
 func (s *Store) SendPeerMessage(token, to, requestID, body, replyTo string) (PeerMessage, error) {
@@ -286,7 +297,7 @@ func (s *Store) SendPeerMessage(token, to, requestID, body, replyTo string) (Pee
 	if pending >= 1000 || total >= 10000 {
 		return PeerMessage{}, ErrPeerCapacity
 	}
-	m := PeerMessage{ID: "msg_" + rand.Text(), SenderID: me.ID, RecipientID: to, RequestID: requestID, Body: body, ReplyTo: replyTo, CreatedAt: nowUTC()}
+	m := PeerMessage{Attention: "pending", ID: "msg_" + rand.Text(), SenderID: me.ID, RecipientID: to, RequestID: requestID, Body: body, ReplyTo: replyTo, CreatedAt: nowUTC()}
 	result, err := tx.Exec(`INSERT INTO peer_messages(id,sender_id,recipient_id,request_id,body,reply_to,created_at) VALUES(?,?,?,?,?,?,?)`, m.ID, me.ID, to, requestID, body, replyTo, m.CreatedAt)
 	if err != nil {
 		return m, err

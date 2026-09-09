@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
+	"github.com/cfpperche/picode/internal/communication"
 )
 
 var piPassthrough = []string{"auth", "config", "install", "list", "remove", "uninstall", "update", "--help", "-h", "--version", "-v"}
@@ -36,17 +37,10 @@ func cliIntegrationPlan(cli, dir, hook string) clilaunch.IntegrationPlan {
 			full = append(full, "-c", v)
 		}
 		p.Branches = append(p.Branches, clilaunch.Injection{When: "When the installed CLI advertises hook trust support", Args: full}, clilaunch.Injection{When: "Otherwise: completion notification only", Args: []string{"-c", overrides[len(overrides)-1]}})
-	case "grok":
-		p.Summary = "Private activity overlay via GROK_HOME"
-		p.Environment["GROK_HOME"] = grokHomeDir(dir)
-		p.Files = append(p.Files, filepath.Join(grokHomeDir(dir), "hooks", "picode.json"))
-	case "hermes":
-		p.Summary = "Activity hooks via session PYTHONPATH (no HERMES_HOME overlay)"
-		p.Environment["PYTHONPATH"] = hermesPythonDir(dir)
-		p.Environment["HERMES_ACCEPT_HOOKS"] = "1"
-		p.Environment["PICODE_HERMES_HOOK"] = hook + " auto hermes"
-		p.Branches = append(p.Branches, clilaunch.Injection{When: "Interactive invocation (not setup/model/auth/…)", Args: []string{"--accept-hooks"}})
-		p.Files = append(p.Files, filepath.Join(hermesPythonDir(dir), "sitecustomize.py"))
+	case "grok", "hermes":
+		p.Summary = "Native session hooks and plugin (installed on launch)"
+		p.Environment["PICODE_NATIVE_HOOK"] = hook
+		p.Files = append(p.Files, filepath.Join(nativeAssetsDir(dir), "install.py"))
 	case "opencode":
 		p.Summary = "Activity plugin in PiCode terminals only (does not write your OpenCode config)"
 		p.Environment["OPENCODE_CONFIG"] = opencodeConfigFile(dir)
@@ -109,6 +103,17 @@ func launchPlan(deps Deps, cli clilaunch.CLI, base clilaunch.Config, overrides c
 					break
 				}
 			}
+		}
+		if cli.ID == "grok" || cli.ID == "hermes" {
+			if options, err := communication.NativeOptions(deps.DataDir, cli.ID); err == nil {
+				for k, v := range options.Env {
+					p.Injection.Environment[k] = v
+				}
+				if len(options.Args) > 0 {
+					p.Injection.Branches = append(p.Injection.Branches, clilaunch.Injection{When: "Native terminal messages", Args: options.Args})
+				}
+			}
+			p.Injection.Files = append(p.Injection.Files, filepath.Join(dir, "message-bin", "picode"))
 		}
 		p.Injection.Files = append(p.Injection.Files, wrapperPath(dir, cli.Command), hookScriptPath(deps.DataDir))
 		p.ManagedEnv = append(p.ManagedEnv, "PICODE_TUI_RUN_ID")

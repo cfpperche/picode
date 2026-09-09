@@ -77,7 +77,7 @@ func newReplyHarness(t *testing.T) *replyHarness {
 		deps: Deps{
 			Store: st, Tmux: manager, DataDir: dataDir,
 			Runtime: rpc.NewRuntime("/nonexistent-pi", st, nil),
-			Replies: newTuiReplies(),
+			Replies: NewTuiReplies(),
 		},
 		store: st, agent: agent, sessionPath: sessionPath, item: item, name: name,
 	}

@@ -26,7 +26,7 @@ func piTerminalFixture(t *testing.T) (*httptest.Server, Deps, *store.Store, stor
 	deps := Deps{
 		Store: st, Tmux: tmux.New(), DataDir: t.TempDir(),
 		Runtime: rpc.NewRuntime("cat", st, nil), AgentCmd: "cat",
-		Replies: newTuiReplies(), TermRuntimes: NewTermRuntimes(),
+		Replies: NewTuiReplies(), TermRuntimes: NewTermRuntimes(),
 	}
 	ts := httptest.NewServer(New("127.0.0.1:0", deps).Handler)
 	t.Cleanup(ts.Close)

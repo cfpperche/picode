@@ -1,7 +1,7 @@
 package server
 
 // Terminal CLI intercept HTTP (ADR-0056). Enable/disable writes wrappers
-// under <dataDir>/bin — never the user's ~/.claude, ~/.codex, ~/.grok, ~/.pi.
+// under <dataDir>/bin. Grok/Hermes additionally install owned native hooks/plugins.
 
 import (
 	"encoding/json"
@@ -19,7 +19,7 @@ const wiringMarker = "picode-hook"
 // claudeHookEvents are mapped by picode-hook auto (stdin / extra argv JSON).
 var claudeHookEvents = []string{
 	"UserPromptSubmit", "SessionStart",
-	"Stop", "TaskCompleted", "SessionEnd", "SubagentStop",
+	"Stop", "SessionEnd",
 	"Notification",
 }
 
@@ -44,7 +44,7 @@ func claudeSettingsPath() (string, error) { return homeFile(".claude", "settings
 
 func hookScriptPath(dataDir string) string { return filepath.Join(dataDir, wiringMarker) }
 
-const hookMapPy = `import json, sys
+const hookMapPy = `import json, sys, os, time, datetime
 raw = sys.stdin.read()
 if not raw.strip() and len(sys.argv) > 1:
     raw = sys.argv[1]
@@ -52,23 +52,44 @@ try:
     d = json.loads(raw) if raw.strip() else {}
 except Exception:
     sys.exit(0)
-ev = str(d.get("hook_event_name") or d.get("event") or "")
-nt = str(d.get("notification_type") or "")
+ev = str(d.get("hook_event_name") or d.get("hookEventName") or d.get("event") or "")
+nt = str(d.get("notification_type") or d.get("notificationType") or "")
 typ = str(d.get("type") or "")
-if typ == "agent-turn-complete":
-    print("idle")
+cli = os.environ.get("PICODE_HOOK_CLI", "")
+# Child completion never describes the selected parent conversation.
+if ev in ("TaskCompleted", "SubagentStop", "subagent_stop") or any(d.get(k) for k in ("subagentType", "subagent_type", "parentSessionId", "parent_session_id")):
     sys.exit(0)
-working = {"UserPromptSubmit", "user_prompt_submit", "pre_llm_call", "post_approval_response"}
-idle = {"SessionStart", "session_start", "Stop", "TaskCompleted", "SessionEnd", "SubagentStop", "Interrupt", "stop", "session_end", "interrupt", "StopCancelled", "on_session_start", "on_session_end", "on_session_reset", "post_llm_call", "subagent_stop", "on_session_finalize"}
+# Grok Stop is a continuation gate, and queued turn-end timestamps describe
+# dispatch rather than turn order. Only its final session idle notification
+# can authorize attention; ignore all turn-end reports, including legacy hooks.
+if cli == "grok" and ev in ("Stop", "stop", "StopCancelled", "StopFailure", "SessionEnd", "session_end"):
+    sys.exit(0)
+def report(state):
+    if os.environ.get("PICODE_HOOK_REPORT") != "1":
+        print(state); return
+    sid = d.get("session_id") or d.get("sessionId") or d.get("thread_id") or d.get("thread-id") or os.environ.get("PICODE_NATIVE_SESSION_ID", "")
+    path = d.get("transcript_path") or d.get("transcriptPath") or os.environ.get("PICODE_NATIVE_SESSION_PATH", "")
+    seq = int(os.environ.get("PICODE_NATIVE_SESSION_SEQ") or time.time_ns())
+    try:
+        if d.get("timestamp"): seq = int(datetime.datetime.fromisoformat(d["timestamp"].replace("Z", "+00:00")).timestamp()*1e9)
+    except (ValueError,TypeError,AttributeError): pass
+    print(json.dumps({"state":state,"cli":os.environ.get("PICODE_HOOK_CLI", ""),"runId":os.environ.get("PICODE_TUI_RUN_ID", ""),"pid":int(os.environ.get("PICODE_TUI_PID") or "0"),"sessionId":sid,"sessionPath":path,"sessionSeq":seq}))
+if d.get("state") in ("idle","working","needs-you"):
+    report(d["state"]); sys.exit(0)
+if typ == "agent-turn-complete":
+    report("idle")
+    sys.exit(0)
+working = {"SessionEnd", "session_end", "on_session_finalize", "UserPromptSubmit", "user_prompt_submit", "pre_llm_call", "post_approval_response"}
+idle = {"SessionStart", "session_start", "Stop", "SessionEnd", "Interrupt", "stop", "session_end", "interrupt", "StopCancelled", "on_session_start", "on_session_end", "on_session_reset", "post_llm_call"}
 needs_you = {"PermissionRequest", "permission_request", "pre_approval_request"}
 if ev in working:
-    print("working")
+    report("working")
 elif ev in idle:
-    print("idle")
+    report("idle")
 elif ev in needs_you:
-    print("needs-you")
+    report("needs-you")
 elif ev in ("Notification", "notification"):
-    print("idle" if nt in ("agent_completed", "idle_prompt") else "needs-you")
+    report("idle" if nt == "idle_prompt" or (cli != "grok" and nt == "agent_completed") else "needs-you")
 `
 
 const hookScriptTmpl = `#!/bin/sh
@@ -97,21 +118,23 @@ if [ "$state" = "runtime-start" ] || [ "$state" = "runtime-end" ]; then
   exit 0
 fi
 
+MAP="%s/picode-hook-map.py"
+export PICODE_HOOK_REPORT=1 PICODE_HOOK_CLI="$cli"
 if [ "$state" = auto ]; then
-  MAP="%s/picode-hook-map.py"
   if [ -n "$3" ]; then
-    state=$(printf "%%s\n" "$3" | python3 "$MAP" 2>/dev/null)
+    payload=$(printf "%%s\n" "$3" | python3 "$MAP" 2>/dev/null)
   else
-    state=$(python3 "$MAP" 2>/dev/null)
+    payload=$(python3 "$MAP" 2>/dev/null)
   fi
-  [ -n "$state" ] || exit 0
+else
+  payload=$(printf '{"state":"%%s"}' "$state" | python3 "$MAP" 2>/dev/null)
 fi
-run_id=${PICODE_TUI_RUN_ID-}
+[ -n "$payload" ] || exit 0
 curl -fsSk -o /dev/null --max-time 3 \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"state\":\"$state\",\"cli\":\"$cli\",\"runId\":\"$run_id\"}" \
-  "$url/api/terminals/$PICODE_TERM_ID/state" 2>/dev/null || true
+  -d "$payload" "$url/api/terminals/$PICODE_TERM_ID/state" 2>/dev/null || true
+
 `
 
 func ensureHookScript(dataDir string) (string, error) {
@@ -170,7 +193,7 @@ func claudeSetWiring(settingsPath, scriptPath string, enable bool) (bool, error)
 		return false, nil
 	}
 	changed := false
-	for _, event := range claudeHookEvents {
+	for _, event := range append(append([]string{}, claudeHookEvents...), "TaskCompleted", "SubagentStop") {
 		groups, _ := hooks[event].([]any)
 		kept := make([]any, 0, len(groups))
 		for _, g := range groups {
@@ -224,13 +247,13 @@ func wiringRows(dataDir string) []wiringRow {
 			ID: "grok", Label: "Grok", Bin: "grok",
 			Installed: installedOnPath("grok"),
 			Wired:     interceptWired(dataDir, "grok", "grok"),
-			Note:      "GROK_HOME overlay in PiCode's data dir. Auth stays yours.",
+			Note:      "Native hooks installed on launch; your settings are preserved.",
 		},
 		{
 			ID: "hermes", Label: "Hermes Agent", Bin: "hermes",
 			Installed: installedOnPath("hermes"),
 			Wired:     interceptWired(dataDir, "hermes", "hermes"),
-			Note:      "Session PYTHONPATH hooks; no HERMES_HOME overlay. Auth stays yours.",
+			Note:      "Native plugin installed on launch; your settings are preserved.",
 		},
 		{
 			ID: "opencode", Label: "OpenCode", Bin: "opencode",

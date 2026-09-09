@@ -44,10 +44,12 @@ const cliCap = 32
 
 // TermState is a terminal's last reported guest-CLI state.
 type TermState struct {
-	State string    `json:"state"`
-	CLI   string    `json:"cli,omitempty"`
-	RunID string    `json:"runId,omitempty"`
-	At    time.Time `json:"at"`
+	SessionID  string    `json:"sessionId,omitempty"`
+	SessionSeq int64     `json:"sessionSeq,omitempty"`
+	State      string    `json:"state"`
+	CLI        string    `json:"cli,omitempty"`
+	RunID      string    `json:"runId,omitempty"`
+	At         time.Time `json:"at"`
 }
 
 // TermStates holds live guest state per terminal id.
@@ -255,9 +257,13 @@ func handleSetTerminalState(deps Deps) http.HandlerFunc {
 			return
 		}
 		var req struct {
-			State string `json:"state"`
-			CLI   string `json:"cli"`
-			RunID string `json:"runId"`
+			State       string `json:"state"`
+			CLI         string `json:"cli"`
+			RunID       string `json:"runId"`
+			SessionID   string `json:"sessionId"`
+			SessionPath string `json:"sessionPath"`
+			SessionSeq  int64  `json:"sessionSeq"`
+			PID         int    `json:"pid"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
@@ -268,6 +274,9 @@ func handleSetTerminalState(deps Deps) http.HandlerFunc {
 			return
 		}
 		runID := strings.TrimSpace(req.RunID)
+		if req.SessionID != "" && req.PID > 0 {
+			recoverNativeRuntime(r.Context(), deps, id, req.CLI, runID, req.PID)
+		}
 		if deps.TermRuntimes != nil {
 			if runtime, ok := deps.TermRuntimes.Get(id); ok {
 				if runID != "" && runID != runtime.RunID {
@@ -277,7 +286,19 @@ func handleSetTerminalState(deps Deps) http.HandlerFunc {
 				runID = runtime.RunID
 			}
 		}
-		st := reportTermStateForRun(deps, id, req.State, strings.TrimSpace(req.CLI), runID, time.Now())
+		var st TermState
+		if req.SessionID != "" {
+			if err := recordNativeTerminalSession(deps, id, req.CLI, req.RunID, req.SessionID, req.SessionPath, req.SessionSeq, req.State); err != nil {
+				writeErr(w, http.StatusConflict, "Native conversation report is stale or invalid.")
+				return
+			}
+			st, _ = deps.TermStates.Get(id)
+			if deps.Feed != nil {
+				deps.Feed.Ephemeral("terminal.state", map[string]any{"termId": id, "state": st.State, "cli": st.CLI, "runId": st.RunID, "at": st.At})
+			}
+		} else {
+			st = reportTermStateForRun(deps, id, req.State, strings.TrimSpace(req.CLI), runID, time.Now())
+		}
 		writeJSON(w, http.StatusOK, map[string]any{"termId": id, "state": st.State, "cli": st.CLI, "runId": st.RunID, "at": st.At})
 	}
 }

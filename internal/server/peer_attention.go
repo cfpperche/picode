@@ -1,0 +1,354 @@
+package server
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"os"
+	"regexp"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	"github.com/cfpperche/picode/internal/store"
+	"github.com/cfpperche/picode/internal/tmux"
+)
+
+const peerPointer = "PiCode: read pending messages and acknowledge handled ones."
+const peerCLIPointer = "PiCode: run picode messages read; handle messages, then ack their IDs."
+
+var terminalSGR = regexp.MustCompile(`\x1b\[[0-9;:]*m`)
+
+// The screen is an additional conservative input gate. A lifecycle hook and
+// native session binding are mandatory independently of these cursor checks.
+func peerInputMatches(cli string, s tmux.InputSnapshot, expected string) bool {
+	if s.InMode || s.Width < 70 || s.CursorY < 0 || s.CursorY >= len(s.Lines) {
+		return false
+	}
+	if cli == "opencode" {
+		return peerOpenCodeInput(s, expected)
+	}
+	raw := s.Lines[s.CursorY]
+	line := strings.TrimRight(strings.ReplaceAll(terminalSGR.ReplaceAllString(raw, ""), "\u00a0", " "), " \t")
+	if !peerSingleInputRow(cli, s) {
+		return false
+	}
+	marker := "❯"
+	if cli == "codex" {
+		marker = "›"
+	}
+	switch cli {
+	case "grok", "hermes", "claude-code", "codex":
+	default:
+		return false
+	}
+	if expected != "" {
+		return line == marker+" "+expected && s.CursorX == 2+utf8.RuneCountInString(expected)
+	}
+	if s.CursorX != 2 {
+		return false
+	}
+	if line == marker {
+		return true
+	}
+	// Hermes marks its empty-input suggestion italic; normal user input does
+	// not carry that marker. Never infer emptiness from cursor position alone.
+	if (cli == "hermes" || cli == "codex") && strings.HasPrefix(line, marker+" ") && ((cli == "hermes" && strings.Contains(raw, "\x1b[3m")) || (cli == "codex" && strings.Contains(raw, "\x1b[2m"))) {
+		return true
+	}
+	return false
+}
+
+// Recognize the whole composer, not just its cursor row. Unknown layouts and
+// multiline drafts remain pending. Native hooks separately gate permissions.
+func peerSingleInputRow(cli string, s tmux.InputSnapshot) bool {
+	clean := func(n int) string { return strings.TrimSpace(terminalSGR.ReplaceAllString(s.Lines[n], "")) }
+	rule := func(n int) bool {
+		if n < 0 || n >= len(s.Lines) {
+			return false
+		}
+		line := clean(n)
+		return utf8.RuneCountInString(line) >= 10 && strings.Trim(line, "─━") == ""
+	}
+	switch cli {
+	case "codex":
+		y := s.CursorY + 2
+		if y >= len(s.Lines) || clean(y-1) != "" || !strings.Contains(clean(y), " · ") {
+			return false
+		}
+		for n := y + 1; n < len(s.Lines); n++ {
+			if clean(n) != "" {
+				return false
+			}
+		}
+		return true
+	case "grok":
+		// Grok's composer is its final prompt immediately before the status bar.
+		// A continuation below the cursor or a prompt in history cannot match.
+		y := s.CursorY + 1
+		if y >= len(s.Lines) || !strings.Contains(clean(y), "ctrl+o transcript") {
+			return false
+		}
+		for n := y + 1; n < len(s.Lines); n++ {
+			if clean(n) != "" {
+				return false
+			}
+		}
+		return true
+	case "hermes", "claude-code":
+		if !rule(s.CursorY-1) || !rule(s.CursorY+1) {
+			return false
+		}
+		// A rule-shaped user line cannot impersonate the lower border: the real
+		// lower border and any remaining draft would still be visible below it.
+		tail := []string{}
+		for n := s.CursorY + 2; n < len(s.Lines); n++ {
+			if line := clean(n); line != "" {
+				tail = append(tail, line)
+			}
+		}
+		return len(tail) == 0 || (cli == "claude-code" && ((len(tail) == 1 && strings.Contains(tail[0], "? for shortcuts")) || (len(tail) == 2 && strings.Contains(tail[0], " | ") && strings.Contains(tail[1], "shift+tab"))))
+	default:
+		return false
+	}
+}
+
+// OpenCode's standard session composer has three input rows, its model row,
+// a lower border, and a command footer. Require that entire native frame.
+func peerOpenCodeInput(s tmux.InputSnapshot, expected string) bool {
+	y := s.CursorY
+	if y < 2 || y+4 >= len(s.Lines) || s.CursorX != 5+utf8.RuneCountInString(expected) {
+		return false
+	}
+	clean := func(n int) string { return strings.TrimRight(terminalSGR.ReplaceAllString(s.Lines[n], ""), " ") }
+	if clean(y-2) != "" || clean(y-1) != "  ┃" || clean(y+1) != "  ┃" {
+		return false
+	}
+	want := "  ┃"
+	if expected != "" {
+		want += "  " + expected
+	}
+	if clean(y) != want || !strings.HasPrefix(clean(y+2), "  ┃  ") || !strings.Contains(clean(y+2), " · ") {
+		return false
+	}
+	border := clean(y + 3)
+	if !strings.HasPrefix(border, "  ╹") || len(border) < 20 || strings.Trim(strings.TrimPrefix(border, "  ╹"), "▀") != "" || !strings.Contains(clean(y+4), "ctrl+p commands") {
+		return false
+	}
+	for n := y + 5; n < len(s.Lines); n++ {
+		if clean(n) != "" {
+			return false
+		}
+	}
+	return true
+}
+
+// Deliver through Pi's existing native receiver with the originally bound
+// session file. The receiver compares it inside Pi immediately before submit.
+func deliverPeerPointer(ctx context.Context, deps Deps, key, session string) error {
+	if deps.Replies == nil || deps.Replies.receiverSession(key) != session {
+		return errors.New("receiver changed session")
+	}
+	nonce, err := newReplyNonce()
+	if err != nil {
+		return err
+	}
+	ack, done := deps.Replies.registerAck(nonce)
+	defer done()
+	file, err := writeReplyFile(deps.DataDir, key, replyFile{AttentionOnly: true, Nonce: nonce, SessionPath: session, Payload: peerPointer, CreatedAt: time.Now().UTC()})
+	if err != nil {
+		return err
+	}
+	defer os.Remove(file)
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case a := <-ack:
+		if !a.OK {
+			return errors.New(a.Reason)
+		}
+		return nil
+	}
+}
+
+func peerLiveTerminal(deps Deps, p store.PeerConnection) (TermRuntime, bool) {
+	rt, ok := deps.TermRuntimes.Get(p.OwnerID)
+	if !ok || rt.SessionID != p.SessionKey || rt.CLI != p.CLI || rt.RunID == "" || !processAlive(rt) {
+		return rt, false
+	}
+	state, ok := deps.TermStates.Get(p.OwnerID)
+	return rt, ok && state.SessionID == rt.SessionID && state.SessionSeq == rt.SessionSeq && state.RunID == rt.RunID && state.CLI == rt.CLI && state.State == TermIdle
+}
+
+func attentionFinish(deps Deps, m store.PeerMessage, err error) {
+	status := "notified"
+	if err != nil {
+		status = "uncertain"
+	}
+	_, _ = deps.Store.SetPeerAttention(m.ID, m.RecipientID, "attempted", status)
+}
+
+func attemptPeerAttention(ctx context.Context, deps Deps, m store.PeerMessage) {
+	p, err := deps.Store.PeerConnection(m.RecipientID)
+	if err != nil {
+		return
+	}
+	if p.Kind == "agent" {
+		if deps.Runtime == nil {
+			return
+		}
+		ma := deps.Runtime.Get(p.OwnerID)
+		if ma == nil {
+			return
+		}
+		state := ma.Snapshot()
+		if state.Streaming || state.Waiting {
+			return
+		}
+		native, err := ma.GetState(ctx)
+		if err != nil {
+			return
+		}
+		var v struct {
+			SessionFile string `json:"sessionFile"`
+		}
+		if json.Unmarshal(native.Data, &v) != nil || v.SessionFile != p.SessionKey || deps.Replies == nil || deps.Replies.receiverSession(p.OwnerID) != p.SessionKey {
+			return
+		}
+		if ok, err := deps.Store.SetPeerAttention(m.ID, p.ID, "pending", "attempted"); err != nil || !ok {
+			return
+		}
+		attentionFinish(deps, m, deliverPeerPointer(ctx, deps, p.OwnerID, p.SessionKey))
+		return
+	}
+	if deps.Tmux == nil || deps.TermRuntimes == nil || deps.TermStates == nil {
+		return
+	}
+	rt, ok := peerLiveTerminal(deps, p)
+	if !ok {
+		return
+	}
+	if p.CLI == "pi" {
+		if deps.Replies == nil || !deps.Replies.receiverFresh(termReplyKey(p.OwnerID)) {
+			return
+		}
+		terminal, err := deps.Store.GetTerminal(p.OwnerID)
+		if err != nil {
+			return
+		}
+		session, err := deps.terminalAskSession(p.OwnerID, terminal.Cwd)
+		if err != nil || session != rt.SessionPath {
+			return
+		}
+		if ok, err := deps.Store.SetPeerAttention(m.ID, p.ID, "pending", "attempted"); err != nil || !ok {
+			return
+		}
+		err = deliverPeerPointer(ctx, deps, termReplyKey(p.OwnerID), session)
+		attentionFinish(deps, m, err)
+		return
+	}
+	if !tryLockPrompt(p.OwnerID) {
+		return
+	}
+	defer unlockPrompt(p.OwnerID)
+	pointer := peerPointer
+	if p.CLI == "grok" || p.CLI == "hermes" {
+		pointer = peerCLIPointer
+	}
+	name := tmux.ShellSessionName(p.OwnerID)
+	before, err := deps.Tmux.InputSnapshot(ctx, name)
+	if err != nil || !peerInputMatches(p.CLI, before, "") {
+		return
+	}
+	// Require the wrapper to remain in the exact pane's process ancestry.
+	procs := readProcSnapshot()
+	pid := rt.PID
+	for pid > 0 && pid != before.PanePID {
+		pid = procs.ppid[pid]
+	}
+	if pid != before.PanePID {
+		return
+	}
+	check := func(expected string) bool {
+		current, e := deps.Store.PeerConnection(p.ID)
+		if e != nil || current.SessionKey != p.SessionKey {
+			return false
+		}
+		live, ok := peerLiveTerminal(deps, p)
+		if !ok || live.RunID != rt.RunID || live.PID != rt.PID || live.ProcStart != rt.ProcStart {
+			return false
+		}
+		snap, e := deps.Tmux.InputSnapshot(ctx, name)
+		return e == nil && snap.PaneID == before.PaneID && snap.PanePID == before.PanePID && peerInputMatches(p.CLI, snap, expected)
+	}
+	if !check("") {
+		return
+	}
+	if ok, err := deps.Store.SetPeerAttention(m.ID, p.ID, "pending", "attempted"); err != nil || !ok {
+		return
+	}
+	// Any loss of certainty after the durable claim is terminal for this
+	// attempt. Never remove an editor draft or blindly send Enter on retry.
+	if !check("") {
+		attentionFinish(deps, m, context.Canceled)
+		return
+	}
+	if err := deps.Tmux.PasteOnly(ctx, before.PaneID, pointer); err != nil {
+		attentionFinish(deps, m, err)
+		return
+	}
+	timer := time.NewTimer(150 * time.Millisecond)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		attentionFinish(deps, m, ctx.Err())
+		return
+	case <-timer.C:
+	}
+	if !check(pointer) {
+		attentionFinish(deps, m, context.Canceled)
+		return
+	}
+	attentionFinish(deps, m, deps.Tmux.SubmitPane(ctx, before.PaneID))
+}
+
+// One coalesced loop for the server, driven by the feed. The bounded tick also
+// notices local terminal input changes that cannot produce browser feed events.
+func StartPeerAttention(ctx context.Context, deps Deps) {
+	if deps.Store == nil || deps.Feed == nil {
+		return
+	}
+	wake := make(chan struct{}, 1)
+	deps.Feed.Listen(func(e store.Event) {
+		if e.Type == "peer.message" || e.Type == "terminal.state" || e.Type == "terminal.runtime" || e.Type == "agent.state" {
+			select {
+			case wake <- struct{}{}:
+			default:
+			}
+		}
+	})
+	tick := time.NewTicker(3 * time.Second)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-wake:
+		case <-tick.C:
+		}
+		messages, err := deps.Store.PendingPeerAttention()
+		if err != nil {
+			continue
+		}
+		seen := map[string]bool{}
+		for _, m := range messages {
+			if seen[m.RecipientID] {
+				continue
+			}
+			seen[m.RecipientID] = true
+			call, cancel := context.WithTimeout(ctx, 3*time.Second)
+			attemptPeerAttention(call, deps, m)
+			cancel()
+		}
+	}
+}

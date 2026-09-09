@@ -130,3 +130,10 @@ The successful acceptance uses the Z.AI configuration requested by the owner.
 No communication runtime change was needed. Grok/Hermes automatic configuration,
 physical-device acceptance and orphan private-file cleanup remain open. Recipient
 startup and orchestration remain outside this increment.
+
+## Native continuation (ADR-0107)
+
+The Grok/Hermes automatic-setup limits above describe the earlier MCP-only
+validation. The owner approved the common CLI/native-hook approach in
+[unified native messages](unified-native-messages.md), which owns current
+implementation and acceptance evidence. No orchestration is included.
