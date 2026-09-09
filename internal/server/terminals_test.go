@@ -126,8 +126,17 @@ func TestTerminalLiveCwd(t *testing.T) {
 	if !tmux.New().Available() {
 		t.Skip("tmux not installed")
 	}
-	start := t.TempDir()
-	live := t.TempDir()
+	// The daemon reports the cwd the process sees, resolved through
+	// symlinks; macOS keeps TempDir under /var → /private/var.
+	resolve := func(p string) string {
+		r, err := filepath.EvalSymlinks(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	start := resolve(t.TempDir())
+	live := resolve(t.TempDir())
 	if err := os.WriteFile(filepath.Join(live, "ping.txt"), []byte("pong\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}

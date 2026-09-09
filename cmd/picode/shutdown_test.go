@@ -27,6 +27,12 @@ func (f *fakeHTTP) Close() error {
 func TestDrainHTTPDecisionTable(t *testing.T) {
 	// Shutdown that returns, Shutdown that honours drain, Shutdown that
 	// hangs past the hard deadline (the systemd stop-sigterm case).
+	// The bounds prove the call returns and which deadline released it, not
+	// timer precision: a Windows runner took 153 ms to honour the 80 ms hard
+	// deadline (2026-09-09), so each row gets the same generous slack.
+	drain := 40 * time.Millisecond
+	hard := 80 * time.Millisecond
+	slack := 400 * time.Millisecond
 	rows := []struct {
 		name      string
 		hang      bool
@@ -34,9 +40,9 @@ func TestDrainHTTPDecisionTable(t *testing.T) {
 		wantClose bool
 		max       time.Duration
 	}{
-		{name: "returns immediately", max: 80 * time.Millisecond},
-		{name: "honours drain timeout", honour: true, max: 150 * time.Millisecond},
-		{name: "hangs past hard deadline", hang: true, wantClose: true, max: 150 * time.Millisecond},
+		{name: "returns immediately", max: slack},
+		{name: "honours drain timeout", honour: true, max: drain + slack},
+		{name: "hangs past hard deadline", hang: true, wantClose: true, max: hard + slack},
 	}
 	for _, row := range rows {
 		t.Run(row.name, func(t *testing.T) {
@@ -55,8 +61,6 @@ func TestDrainHTTPDecisionTable(t *testing.T) {
 					return ctx.Err()
 				}
 			}
-			drain := 40 * time.Millisecond
-			hard := 80 * time.Millisecond
 			start := time.Now()
 			drainHTTP(f, drain, hard)
 			elapsed := time.Since(start)

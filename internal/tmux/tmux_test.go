@@ -115,7 +115,8 @@ func TestRespawnPanePreservesSessionAndQuotesArgs(t *testing.T) {
 			if string(body) != value {
 				t.Fatalf("quoted env = %q, want %q", body, value)
 			}
-			if command, err := m.PaneCommand(ctx, name); err != nil || command != "sh" {
+			// macOS's /bin/sh is a bash binary and reports itself as such.
+			if command, err := m.PaneCommand(ctx, name); err != nil || (command != "sh" && command != "bash") {
 				t.Fatalf("PaneCommand = %q, %v", command, err)
 			}
 			return
@@ -123,6 +124,18 @@ func TestRespawnPanePreservesSessionAndQuotesArgs(t *testing.T) {
 		time.Sleep(25 * time.Millisecond)
 	}
 	t.Fatal("respawned command did not write its output")
+}
+
+// tmux reports pane paths as the process sees them, resolved through
+// symlinks; macOS keeps TempDir under /var → /private/var, so cwd
+// expectations must be resolved the same way.
+func resolvedTempDir(t *testing.T) string {
+	t.Helper()
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dir
 }
 
 func TestHasSessionMissing(t *testing.T) {
@@ -214,7 +227,7 @@ func TestPaneCwdFollowsProcess(t *testing.T) {
 		t.Fatalf("PaneCwd = %q (err %v), want %q", got, err, want)
 	}
 
-	start := t.TempDir()
+	start := resolvedTempDir(t)
 	name := SessionName("cwd-" + time.Now().Format("150405-000000000"))
 	if err := m.NewSession(ctx, name, start, "sleep", "30"); err != nil {
 		t.Fatalf("NewSession: %v", err)
@@ -225,7 +238,7 @@ func TestPaneCwdFollowsProcess(t *testing.T) {
 	// cwd, so assert convergence rather than scheduler timing.
 	waitCwd(name, start)
 
-	live := t.TempDir()
+	live := resolvedTempDir(t)
 	name2 := SessionName("cwd2-" + time.Now().Format("150405-000000000"))
 	if err := m.NewSession(ctx, name2, start, "sh", "-c", "cd "+live+" && sleep 30"); err != nil {
 		t.Fatalf("NewSession cd: %v", err)
