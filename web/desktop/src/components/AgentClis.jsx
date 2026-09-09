@@ -21,6 +21,7 @@ import SessionsView from "./SessionsView.jsx";
 import CliCombo from "./CliCombo.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { IconChevronRight } from "./Icons.jsx";
+import { termRowMenu } from "../lib/termRowMenu.js";
 import { CLIDefaults, LaunchFields, LaunchPreview, confirmDiscard, useLaunchGuard } from "./CliLaunchSettings.jsx";
 import { CLIProfiles, CLIProfileEditor } from "./CliProfiles.jsx";
 
@@ -31,7 +32,7 @@ function Notice({ children, action, onAction, danger = false }) {
   return <div className={"cli-notice" + (danger ? " is-error" : "")} role={danger ? "alert" : "status"}><span>{children}</span>{action ? <button type="button" className="btn btn-ghost btn-sm" onClick={onAction}>{action}</button> : null}</div>;
 }
 
-export default function AgentClis({ hidden = false, catalog, onCatalogChange, legacyAgentId = "", legacyPackageContext = {}, legacyContextReady = true, packageUpdates = [], onPackageUpdates, onAgentConfig, onOpenAgent = () => {}, onCompactAgent = () => {} }) {
+export default function AgentClis({ hidden = false, catalog, onCatalogChange, legacyAgentId = "", legacyPackageContext = {}, legacyContextReady = true, packageUpdates = [], onPackageUpdates, onAgentConfig, onOpenAgent = () => {}, onCompactAgent = () => {}, onRenameTerm }) {
   const [hash, setHash] = useState(location.hash);
   const route = cliLocation(hash);
   const [data, setData] = useState(null);
@@ -184,17 +185,17 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
         <CLIDefaults cli={selected} editRequested={editRequested.id === selected.id ? editRequested.at : 0} busy={!!busy} onSave={async (c) => { await run("settings", async () => { const v = await api(`/api/clis/${selected.id}`, json("PUT", c)); if (v.problem) toastError(new Error(v.problem)); else toast.ok("Launch settings saved."); }); }} />
         <CLIDiagnostics cli={selected} terminals={data.terminals} busy={!!busy} run={run} />
         <CLIProfiles cli={selected} profiles={data.profiles} run={run} busy={!!busy} />
-        <TerminalList cliName={selected.name} terminals={cliTerminals(data.terminals, selected.id)} workspaces={data.workspaces} busy={busy} onAction={action} onNew={() => navigate("/new/" + selected.id)} />
+        <TerminalList cliName={selected.name} terminals={cliTerminals(data.terminals, selected.id)} workspaces={data.workspaces} busy={busy} onAction={action} onNew={() => navigate("/new/" + selected.id)} onRenameTerm={onRenameTerm} />
         <a className="cli-docs" href={selected.docs} target="_blank" rel="noreferrer">{selected.name} documentation ↗</a>
       </div>
     </div> : null}
-    {data && route.view === "terminals" ? <TerminalList terminals={cliTerminals(data.terminals)} workspaces={data.workspaces} busy={busy} onAction={action} onNew={() => navigate("")} all /> : null}
+    {data && route.view === "terminals" ? <TerminalList terminals={cliTerminals(data.terminals)} workspaces={data.workspaces} busy={busy} onAction={action} onNew={() => navigate("")} all onRenameTerm={onRenameTerm} /> : null}
     {data && (route.view === "new" || route.view === "terminal") ? <TerminalEditor key={hash} route={route} data={data} run={run} busy={!!busy} /> : null}
     {data && route.view === "profile" ? <CLIProfileEditor key={hash} route={route} data={data} run={run} busy={!!busy} /> : null}
   </AgentClisFrame>;
 }
 
-function TerminalList({ terminals, workspaces, busy, onAction, onNew, all, cliName }) {
+function TerminalList({ terminals, workspaces, busy, onAction, onNew, all, cliName, onRenameTerm }) {
   const [query, setQuery] = useState("");
   const filtered = terminals.filter((t) => `${t.name} ${t.cwd} ${t.cli || ""} ${t.launchCli || ""}`.toLowerCase().includes(query.toLowerCase()));
   return <section className="cli-terminals"><div className="cli-list-heading"><h3>{all ? "CLI terminals" : "Terminals"}</h3>{terminals.length > 4 ? <input aria-label="Search terminals" placeholder="Find a terminal…" value={query} onChange={(e) => setQuery(e.target.value)} /> : null}</div>
@@ -206,9 +207,21 @@ function TerminalList({ terminals, workspaces, busy, onAction, onNew, all, cliNa
         <div className="cli-terminal-info"><a href={termHash(t.id)}>{t.name}</a><p>{workspace?.name || "Free terminal"} · <span title={t.cwd}>{t.cwd}</span></p><div className="cli-terminal-meta"><span className={"cli-state is-" + terminalStatus(t)}>{busy.startsWith(t.id + ":") ? "Updating…" : terminalStatusLabel(t)}</span>{t.running && terminalCli(t) && !t.state ? <span>Activity not reported</span> : null}{t.launchPending ? <span>Launch changes pending</span> : null}{t.launchAttempt?.error ? <a className="cli-field-error" href={"#/clis/terminal/" + t.id}>Last launch failed · review settings</a> : null}</div></div>
         <div className="cli-actions" data-align-row data-align-wrap><button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => t.running ? (location.hash = termHash(t.id)) : onAction(t, "start")}>{t.running ? "Open" : "Start"}</button>
           <DropdownMenu.Root><DropdownMenu.Trigger asChild><button className="btn btn-ghost btn-sm cli-more" aria-label={"Actions for " + t.name} disabled={!!busy}>•••</button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
-            <DropdownMenu.Item className="um-item" onSelect={() => navigate("/terminal/" + encodeURIComponent(t.id))}>Launch settings</DropdownMenu.Item>
-            {t.running ? <><DropdownMenu.Item className="um-item" onSelect={() => onAction(t, "restart")}>Restart terminal</DropdownMenu.Item><DropdownMenu.Item className="um-item" onSelect={() => onAction(t, "stop")}>Stop terminal</DropdownMenu.Item></> : null}
-            <DropdownMenu.Separator className="um-divider" /><DropdownMenu.Item className="um-item" onSelect={() => onAction(t, "remove")}>Remove terminal</DropdownMenu.Item>
+            {/* Same menu as the sidebar's terminal rows (termRowMenu.js) — one contract, two surfaces. */}
+            {termRowMenu(t).map((r) => r.sep
+              ? <DropdownMenu.Separator key={"sep"} className="um-divider" />
+              : <DropdownMenu.Item
+                  key={r.id}
+                  className={"um-item" + (r.danger ? " cli-danger-item" : "")}
+                  title={r.title}
+                  onSelect={() => {
+                    if (r.id === "launch") { navigate("/terminal/" + encodeURIComponent(t.id)); return; }
+                    if (r.id === "settings") { location.hash = "#/termset/" + encodeURIComponent(t.id); return; }
+                    if (r.id === "rename") return onRenameTerm && onRenameTerm(t);
+                    return onAction(t, r.id); // start | restart | stop | remove
+                  }}
+                >{r.label}</DropdownMenu.Item>
+            )}
           </DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>
         </div>
       </article>;

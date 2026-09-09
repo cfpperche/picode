@@ -1,0 +1,57 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { termRowMenu } from "./termRowMenu.js";
+
+const ids = (rows) => rows.filter((r) => !r.sep).map((r) => r.id);
+const row = (rows, id) => rows.find((r) => r.id === id);
+
+// Decision table: the menu is a function of the terminal's running state.
+// | t.running | lifecycle rows                |
+// | --------- | ----------------------------- |
+// | truthy    | Restart terminal, Stop terminal |
+// | falsy     | Start terminal                  |
+// Every other row is identical in both states, and both surfaces render
+// from this one module.
+
+test("a running terminal offers restart and stop, not start", () => {
+  const rows = termRowMenu({ id: "t1", running: true });
+  assert.deepEqual(ids(rows), ["rename", "launch", "settings", "restart", "stop", "remove"]);
+});
+
+test("a stopped terminal offers start, not restart or stop", () => {
+  const rows = termRowMenu({ id: "t1", running: false });
+  assert.deepEqual(ids(rows), ["rename", "launch", "settings", "start", "remove"]);
+});
+
+test("an unknown terminal degrades to the stopped shape", () => {
+  assert.deepEqual(ids(termRowMenu()), ids(termRowMenu({ running: false })));
+  assert.deepEqual(ids(termRowMenu({})), ids(termRowMenu({ running: false })));
+});
+
+test("remove is the only dangerous row, everywhere", () => {
+  for (const t of [{ running: true }, { running: false }]) {
+    const rows = termRowMenu(t);
+    assert.equal(rows.filter((r) => !r.sep && r.danger).length, 1);
+    assert.equal(row(rows, "remove").danger, true);
+  }
+});
+
+test("the two surfaces render the same options in the same order", () => {
+  // The order is the contract: identity rows, then lifecycle, then the
+  // dangerous one last. Asserting the full sequence here pins the sidebar
+  // and the Agent CLIs list to one menu.
+  assert.deepEqual(termRowMenu({ running: true }).map((r) => (r.sep ? "sep" : r.id)),
+    ["rename", "launch", "settings", "sep", "restart", "stop", "sep", "remove"]);
+  assert.deepEqual(termRowMenu({ running: false }).map((r) => (r.sep ? "sep" : r.id)),
+    ["rename", "launch", "settings", "sep", "start", "sep", "remove"]);
+});
+
+test("every row answers with a label and a one-line title", () => {
+  for (const t of [{ running: true }, { running: false }]) {
+    for (const r of termRowMenu(t)) {
+      if (r.sep) continue;
+      assert.ok(r.label, JSON.stringify(r));
+      assert.match(r.title, /\.$/, JSON.stringify(r));
+    }
+  }
+});
