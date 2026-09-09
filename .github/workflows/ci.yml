@@ -152,13 +152,20 @@ jobs:
           cd /tmp/tmux-3.5a && sudo make install
           test "$(tmux -V)" = "tmux 3.5a"
 
+      # The daemon runs on macOS too; Homebrew's tmux satisfies the >= 3.5
+      # contract, so the handoff and terminal suites run for real there
+      # instead of answering 503 "Install tmux" (2026-09-09).
+      - name: Install tmux (macOS)
+        if: matrix.os == 'macos-latest'
+        run: brew install tmux && tmux -V
+
       # The suites start tmux from several packages at once on a fresh runner;
       # two clients racing to start the first server leave one of them with
       # "server exited unexpectedly" (TestBridgeResizeControl, 2026-09-09).
       # A detached session keeps one server alive for the whole run — the
       # state every developer machine is already in.
       - name: Keep a tmux server alive for the daemon suite
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os != 'windows-latest'
         run: tmux new-session -d -s ci-keepalive && tmux list-sessions
 
       - uses: actions/setup-go@v7

@@ -13,6 +13,12 @@ import (
 func testExecutionProfile(t *testing.T) ExecutionProfile {
 	t.Helper()
 	dir := t.TempDir()
+	// macOS keeps TempDir under /var → /private/var, and the binary guard
+	// rightly refuses a symlinked parent; a real install path is already
+	// resolved, so resolve this one the same way.
+	if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = resolved
+	}
 	binary := filepath.Join(dir, "llama-server")
 	data := []byte("fixture, never executed")
 	if err := os.WriteFile(binary, data, 0700); err != nil {
