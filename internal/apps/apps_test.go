@@ -2,6 +2,7 @@ package apps
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -16,8 +17,8 @@ func TestRegistry(t *testing.T) {
 	}
 
 	r := NewRegistry(BuiltIns(true)...)
-	if len(r.All()) != 3 {
-		t.Fatalf("demo registry has %d apps, want 3 (inbox + docker + demo)", len(r.All()))
+	if len(r.All()) != 4 {
+		t.Fatalf("demo registry has %d apps, want 4 (inbox + docker + demo + demo-native)", len(r.All()))
 	}
 	a, ok := r.Find("demo")
 	if !ok {
@@ -32,7 +33,47 @@ func TestRegistry(t *testing.T) {
 	}
 	prod := BuiltIns(false)
 	if len(prod) != 2 || prod[0].Manifest().ID != "inbox" || prod[1].Manifest().ID != "docker" {
-		t.Fatalf("BuiltIns(false) = %v, want inbox and docker (demo must stay hidden)", prod)
+		t.Fatalf("BuiltIns(false) = %v, want inbox and docker (both demos must stay hidden)", prod)
+	}
+}
+
+// The native surface (ADR-0109): the manifest carries surface only when
+// set, the primitives routes answer one honest line, and nothing acts.
+func TestNativeDemoApp(t *testing.T) {
+	a := nativeDemoApp{}
+	ctx := context.Background()
+	m := a.Manifest()
+	if m.ID != "demo-native" || m.Name == "" || m.Icon == "" || m.APIVersion != APIVersion || m.Surface != SurfaceNative {
+		t.Fatalf("native demo manifest = %+v", m)
+	}
+	raw, err := json.Marshal(m)
+	if err != nil || !strings.Contains(string(raw), `"surface":"native"`) {
+		t.Fatalf("native manifest JSON = %s, %v (want surface on the wire)", raw, err)
+	}
+	// A primitives app's manifest must look exactly as it did before the
+	// field existed: an older client never sees a key it does not know.
+	raw, _ = json.Marshal(demoApp{}.Manifest())
+	if strings.Contains(string(raw), "surface") {
+		t.Fatalf("primitives manifest JSON = %s (surface must be omitted)", raw)
+	}
+
+	for _, path := range []string{"", "anything/deeper"} {
+		v, err := a.View(ctx, Host{}, path)
+		if err != nil {
+			t.Fatalf("View(%q) error: %v", path, err)
+		}
+		if err := v.Validate(); err != nil {
+			t.Fatalf("View(%q) invalid: %v", path, err)
+		}
+		if len(v.Blocks) != 1 || v.Blocks[0].Type != "detail" || !strings.Contains(v.Blocks[0].Markdown, "opens on the desktop") {
+			t.Fatalf("View(%q) = %+v, want one detail block saying it opens on the desktop", path, v)
+		}
+	}
+	if b, err := a.Badge(ctx, Host{}); err != nil || b != (Badge{}) {
+		t.Fatalf("Badge = %+v, %v (want none)", b, err)
+	}
+	if _, err := a.Action(ctx, Host{}, ActionRequest{Action: "open"}); err == nil {
+		t.Fatalf("Action = nil error, want refusal")
 	}
 }
 

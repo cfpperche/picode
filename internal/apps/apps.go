@@ -1,6 +1,8 @@
 // Package apps is the PiCode apps host (ADR-0036): first-party apps
 // declared by manifests, rendering through schema-driven primitives —
-// never code loaded into the PiCode process or page.
+// never code loaded into the PiCode process or page. A first-party app
+// may instead declare a native surface (ADR-0109): its body is a
+// component compiled into a shell, still never code loaded at runtime.
 package apps
 
 import (
@@ -21,6 +23,11 @@ type Badge struct {
 	Dot   bool `json:"dot,omitempty"`
 }
 
+// SurfaceNative marks an app whose body is a component compiled into a
+// shell (ADR-0109). The shell that has it registers the app id; every
+// other client renders the app's one primitives view instead.
+const SurfaceNative = "native"
+
 // Manifest is everything the UI needs to draw an app before any of its
 // code runs (grid tile, tab title, palette entry).
 type Manifest struct {
@@ -28,6 +35,10 @@ type Manifest struct {
 	Name       string `json:"name"`
 	Icon       string `json:"icon"` // key into the UI icon map; falls back to a letter tile
 	APIVersion int    `json:"apiVersion"`
+	// Surface names how the body renders: "" (omitted) is the primitives
+	// view every shell has; SurfaceNative needs a shell that compiled the
+	// app in. Optional and additive — APIVersion stays 1 (ADR-0109).
+	Surface string `json:"surface,omitempty"`
 }
 
 // Host is the deliberately minimal slice of server dependencies an app
@@ -98,12 +109,13 @@ func (r *Registry) Find(id string) (App, bool) {
 	return nil, false
 }
 
-// BuiltIns assembles the first-party apps. demo adds the hidden QA app
-// (the caller reads PICODE_DEMO_APP; env never reaches this package).
+// BuiltIns assembles the first-party apps. demo adds the hidden QA apps —
+// the primitives demo and the native-surface demo (the caller reads
+// PICODE_DEMO_APP; env never reaches this package).
 func BuiltIns(demo bool) []App {
 	list := []App{inboxApp{}, dockerApp{}}
 	if demo {
-		list = append(list, demoApp{})
+		list = append(list, demoApp{}, nativeDemoApp{})
 	}
 	return list
 }

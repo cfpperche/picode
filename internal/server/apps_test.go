@@ -61,7 +61,7 @@ func TestListAppsWithBadge(t *testing.T) {
 	if code := getJSON(t, ts, "/api/apps", &body); code != http.StatusOK {
 		t.Fatalf("GET /api/apps = %d", code)
 	}
-	if body.APIVersion != apps.APIVersion || len(body.Apps) != 3 {
+	if body.APIVersion != apps.APIVersion || len(body.Apps) != 4 {
 		t.Fatalf("list = %+v", body)
 	}
 	byID := map[string]int{}
@@ -82,6 +82,49 @@ func TestListAppsWithBadge(t *testing.T) {
 	}
 	if b := body.Apps[inboxRow].Badge; b.Count != 0 || b.Dot {
 		t.Fatalf("empty inbox badge = %+v", b)
+	}
+}
+
+// A native app on the wire (ADR-0109): its manifest row says so, a
+// primitives row carries no surface key at all, the view answers one
+// honest block and an action is 400 — what any client that cannot host
+// the surface sees.
+func TestNativeAppOnTheWire(t *testing.T) {
+	ts := newAppsServer(t, apps.NewRegistry(apps.BuiltIns(true)...))
+	var body struct {
+		Apps []map[string]any `json:"apps"`
+	}
+	if code := getJSON(t, ts, "/api/apps", &body); code != http.StatusOK {
+		t.Fatalf("GET /api/apps = %d", code)
+	}
+	rows := map[string]map[string]any{}
+	for _, a := range body.Apps {
+		rows[a["id"].(string)] = a
+	}
+	if got := rows["demo-native"]["surface"]; got != apps.SurfaceNative {
+		t.Fatalf("demo-native surface = %v, want %q", got, apps.SurfaceNative)
+	}
+	if _, has := rows["demo"]["surface"]; has {
+		t.Fatalf("demo row carries a surface key: %v", rows["demo"])
+	}
+	if _, has := rows["inbox"]["surface"]; has {
+		t.Fatalf("inbox row carries a surface key: %v", rows["inbox"])
+	}
+
+	var v apps.View
+	if code := getJSON(t, ts, "/api/apps/demo-native/view", &v); code != http.StatusOK {
+		t.Fatalf("native view = %d", code)
+	}
+	if len(v.Blocks) != 1 || v.Blocks[0].Type != "detail" || !strings.Contains(v.Blocks[0].Markdown, "opens on the desktop") {
+		t.Fatalf("native view = %+v", v)
+	}
+	res, err := http.Post(ts.URL+"/api/apps/demo-native/action", "application/json", bytes.NewBufferString(`{"action":"open"}`))
+	if err != nil {
+		t.Fatalf("post: %v", err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("native action = %d, want 400", res.StatusCode)
 	}
 }
 
