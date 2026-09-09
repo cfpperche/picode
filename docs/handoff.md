@@ -8,6 +8,7 @@
 `git worktree list` is the truth for branches on disk (`make close-summary` prints it); this section holds only what merging one of them must know.
 
 - `feat/herdr-validation`, `feat/picode-video-pilot` — carry `CHANGELOG.md` edits and the pre-ADR-0105 12 KB `docs/handoff.md`. Their next merge of `main` conflicts in both one last time: keep this file's shape and stay under 8 KB; any further changelog line goes to `docs/changelog.d/`.
+- `feat/docs-adversarial` — docs-vs-code sweep fixes + `picode --version`; fragment `docs/changelog.d/docs-adversarial.md`; ff-ready after one more `make close` for the handoff note.
 
 ## Next up
 
