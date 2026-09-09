@@ -1,0 +1,2 @@
+### Added
+- **Matrix API and feed events (ADR-0108).** Matrices — named 12-column grids of agent and terminal panels — are stored, shared across browsers and announced on the change feed: `GET`/`POST /api/matrices`, `GET`/`PATCH`/`DELETE /api/matrices/{id}`, `PATCH …/layout` (the changed subset, 409 when stale), `POST …/panels`, `DELETE …/panels/{panelId}`, and six `matrix.*` events. Limits refuse with the limit named (64 matrices, 500 panels each, 80-character names, panels of at least 4×8 cells). No surface yet — the Matrix app itself is phase 3.

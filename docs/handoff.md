@@ -10,12 +10,12 @@
 - `feat/herdr-validation`, `feat/picode-video-pilot` — carry `CHANGELOG.md` edits and the pre-ADR-0105 12 KB `docs/handoff.md`. Their next merge of `main` conflicts in both one last time: keep this file's shape and stay under 8 KB; any further changelog line goes to `docs/changelog.d/`.
 - `feat/docs-adversarial` — docs-vs-code sweep fixes + `picode --version`; fragment `docs/changelog.d/docs-adversarial.md`; ff-ready after one more `make close` for the handoff note.
 - `feat/fix-default-context-menu` — one-line web fix (default context menu rows match the terminal menu); ff-ready, fragment `docs/changelog.d/fix-default-context-menu.md`.
-- `feat/apps-native-surface` — Matrix phase 1: ADR-0109 (manifest `surface`, native surface kind), hidden `demo-native` app, `suspendTermSocket`, ShellTerm pane re-claim; fragment `docs/changelog.d/apps-native-surface.md`. Merging beside `feat/matrix-store` (ADR-0108): both append a row to `docs/decisions/README.md` — keep both rows; no shared source files.
+- `feat/apps-native-surface` — Matrix phase 1: ADR-0109 (manifest `surface`, native surface kind), hidden `demo-native` app, `suspendTermSocket`, ShellTerm pane re-claim; fragment `docs/changelog.d/apps-native-surface.md`; main (with ADR-0108) merged in, ff-ready.
 
 ## Next up
 
 1. First release since 0.1.0: `make changelog` on `main`, then `docs/release-process.md` (`[Unreleased]` is 860 lines).
-2. Matrix app (plan `docs/plans/matrix-app.md`, phase 0 study `docs/benchmarks/2026-09-09-matrix-live-grid.md`): phase 1 `feat/apps-native-surface` (ADR-0109) ff-ready, phase 2 `feat/matrix-store` (ADR-0108) in flight; phase 3 — the Matrix surface, registered as `matrix` in `web/desktop/src/lib/nativeApps.js` — after both.
+2. Matrix app (plan `docs/plans/matrix-app.md`, phase 0 study `docs/benchmarks/2026-09-09-matrix-live-grid.md`): phase 2 `feat/matrix-store` (ADR-0108) merged; phase 1 `feat/apps-native-surface` (ADR-0109) ff-ready; phase 3 `feat/matrix-surface` (grid, chunk loading, picker, `nextSlot`/`layoutDiff` in `matrix.js`, registered as `matrix` in `web/desktop/src/lib/nativeApps.js`) after phase 1 merges.
 3. GitHub CI: the next push exercises the ADR-0105 workflow (Ubuntu-only Go matrix, tmux cache); macOS/Windows run on tags or `workflow_dispatch`.
 4. llama delivery 3 live validation; owned-service ARM64 acceptance.
 5. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
@@ -52,5 +52,6 @@
 - Inspector: Files filter covers loaded rows only; This-agent chips show only with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: ARM64 hardware, GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
 - Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip on-device confirmation pending (Preferences → Layout exposes the dials).
+- Matrix (ADR-0108): plan §9 row 5 says a minimum panel of 3×6 cells, §4.2 (implemented) says 4×8 — the owner's pick before phase 3 sizes the grid. The API is exercised only by tests until the surface lands.
 - Notices (2026-09-07): needs-you covers the whole fleet, but the finish card only fires for the agent whose socket is open; neither exercised against a real pi dialog.
 - Native surfaces (ADR-0109): `host` has no `openTerminal` — the demo POSTs `/api/terminals/{id}/open` itself and keeps the live record locally (feed rows carry no `session`); closing a terminal's tab while a native app shows its pane disposes the xterm (`closeShellTerm`) and the app body stays blank until it remounts — phase 3's ownership rule (plan §4.5) decides both. The desktop's unsupported tile still explains itself only through `title` (pre-existing pattern).

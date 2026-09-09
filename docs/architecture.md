@@ -184,6 +184,7 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [MCP (Model Context Protocol) support](architecture/mcp.md) | `docs/architecture/mcp.md` |
 | [Integrations (ADR-0075)](architecture/integrations.md) | `docs/architecture/integrations.md` |
 | [Pins](architecture/pins.md) | `docs/architecture/pins.md` |
+| [Matrix (ADR-0108)](architecture/matrix.md) | `docs/architecture/matrix.md` |
 | [Automations (ADR-0045)](architecture/automations.md) | `docs/architecture/automations.md` |
 | [Change feed (ADR-0048)](architecture/change-feed.md) | `docs/architecture/change-feed.md` |
 | [Notices — the in-app announcement layer](architecture/notices.md) | `docs/architecture/notices.md` |
