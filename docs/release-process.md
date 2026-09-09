@@ -27,8 +27,9 @@ GitHub artifacts, not a source deployment.
 2. Review the changes since the previous release. A Stable release needs at
    least one meaningful user-facing highlight or an urgent fix. Do not create
    a release just to satisfy a calendar.
-3. Confirm every user-visible change has an honest entry under `[Unreleased]`
-   in [`CHANGELOG.md`](../CHANGELOG.md).
+3. Run `make changelog` on `main` to fold the `docs/changelog.d/` fragments
+   into `[Unreleased]` (ADR-0105), commit, then confirm every user-visible
+   change has an honest entry in [`CHANGELOG.md`](../CHANGELOG.md).
 4. Add or revise the matching entry in
    [`web/shared/data/whats-new.json`](../web/shared/data/whats-new.json). Keep the
    catalog concise: benefit-led titles and summaries, with no more than nine

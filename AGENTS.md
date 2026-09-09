@@ -11,8 +11,8 @@ agents. One Go binary serves a rich web UI that lets users **create, configure
 and orchestrate Pi agents** across multiple workspaces — including people who
 avoid terminals entirely. The moat: **users control their agents from the
 moment of creation**. Read [README.md](README.md) before substantial work;
-[docs/architecture.md](docs/architecture.md) is 90 KB — read the section the
-table below names, not the file.
+[docs/architecture.md](docs/architecture.md) is an index; the subsystem
+files under `docs/architecture/` are what the table below names.
 
 The direction is a multi-CLI ADE. For the current v1, managed agents remain
 Pi; Agent CLIs manages terminal launches for Pi, Claude Code, Codex, Grok,
@@ -28,7 +28,7 @@ add only what the change needs:
 |---|---|
 | CSS / copy / one component | `.pi/skills/uiux-review/SKILL.md`; the component and its CSS |
 | New or redesigned surface | above + `docs/benchmarks.md` (UI/UX section) + the one `docs/benchmarks/` note it adapts |
-| Handler / store / RPC | the `docs/architecture.md` section for that component; the ADRs its comments cite |
+| Handler / store / RPC | the `docs/architecture/<component>.md` file; the ADRs its comments cite |
 | Protocol, persistence, security model, process | the ADRs it touches (index in `docs/decisions/README.md`); `docs/decisions/template.md` |
 | Docs site (`docs-site/`) | `docs/guidelines.md` |
 
@@ -40,18 +40,22 @@ to "get context"; `git log` and `make close-summary` are cheaper and current.
 1. **Documentation is a living system.** Code and docs travel in the same
    commit. User-facing command help lives in `docs-site/` (VitePress → GitHub
    Pages), not in the app — see [docs/guidelines.md](docs/guidelines.md).
-   - Behavior/architecture changed → update `docs/architecture.md`; add an
-     ADR only for a **boundary**: protocol, persistence, security model,
-     process. A UI refinement never needs one.
-   - Anything user-visible changed → an entry under `[Unreleased]` in
-     `CHANGELOG.md` (Keep a Changelog style).
+   - Behavior/architecture changed → update the `docs/architecture/` file
+     for that subsystem (the index `docs/architecture.md` only links); add
+     an ADR only for a **boundary**: protocol, persistence, security model,
+     process (`make adr NAME=x` seeds it; the Boundary line is mandatory).
+     A UI refinement or a route move never needs one.
+   - Anything user-visible changed → one fragment
+     `docs/changelog.d/<branch-slug>.md` (Keep a Changelog sections inside).
+     `CHANGELOG.md` is assembled by `make changelog` on `main`; the hook
+     refuses direct edits (ADR-0105).
    - **Every session that changes state leaves one note in
      `docs/handoff/<date>-<branch>.md`** (≤ 25 lines, written from
-     `make close-summary`) and keeps `docs/handoff.md` true: current state,
-     in flight, next up, debts — **at most 100 lines**; the pre-commit hook
-     refuses more. Deployment history is `var/deploy-log.jsonl` and
-     `git log`, never prose. Listing shipped work under *In flight* or
-     *Next up* is FAIL.
+     `make close-summary`) and keeps `docs/handoff.md` true: in flight,
+     next up, debts — **at most 100 lines and 8 KB**; the pre-commit hook
+     refuses more, and refuses handoff edits committed directly on `main`.
+     Shipped work is `git log`, the ADR index and the changelog — never
+     handoff prose. Deployment history is `var/deploy-log.jsonl`.
 2. **Never break the build.** A worktree iterates with `make ci-scoped` and
    ends with `make close` (below); the merge on `main` runs `make ci` once.
    If you can't finish, leave the tree compiling and green and record the
@@ -93,13 +97,21 @@ to "get context"; `git log` and `make close-summary` are cheaper and current.
    that alters a documented decision, or declares something permanently
    refused, is the owner's call. A constraint nobody has re-measured is a
    candidate for re-measuring, not a fact.
-7. **Deploy is not part of finishing a branch (ADR-0086).** A branch is done
-   when `main` can fast-forward to it and `make ci` is green there. `main`
-   ships in batches — `make deploy-batch`, by the owner or by the
-   `picode-deploy.timer` (12:00, 18:00, 23:00). `picode deploy` refuses
-   while any agent or terminal is mid-turn; `--force` is the owner's
-   deliberate one-off, never an agent's shortcut. Verify UI work on a
-   scratch instance (`scripts/qa-scratch.sh`), not on production.
+7. **Deploy is the owner's call (ADR-0105).** A branch is done when `main`
+   can fast-forward to it and `make ci` is green there. A branch session
+   never deploys on its own; the owner runs `make deploy` from the root
+   whenever they want `main` live (it refreshes stale public captures
+   first). `picode deploy` refuses while any agent or terminal is
+   mid-turn; `--force` is the owner's deliberate one-off, never an agent's
+   shortcut. Verify UI work on a scratch instance (`scripts/qa-scratch.sh`),
+   not on production.
+8. **One branch, one session (ADR-0105).** The session that did the work
+   ends at the fast-forward; the next task starts in a new terminal. The
+   closing docs are written from `make close-summary` in a subagent or a
+   fresh session, never at the peak context of the working session (the
+   rite cost a median 2.7 M tokens per branch when run in place). Screenshots
+   for visual-review are read in a subagent, so images never sit in the main
+   context.
 
 ## Closing a session (the rite, in one command)
 
@@ -110,10 +122,12 @@ make close         # at the end: scoped gates, regenerated artifacts
                    # fast-forward check, and the closing summary
 ```
 
-Write `CHANGELOG.md` and `docs/handoff/<date>-<branch>.md` from the
-summary — in a fresh, small context if the session is long. Then, from the
-root: `git merge --ff-only <branch> && make ci`. If `main` moved, merge
-`main` into the branch and run `make close` again. Use the skills:
+Write `docs/changelog.d/<branch-slug>.md` and
+`docs/handoff/<date>-<branch>.md` from the summary — in a subagent or a
+fresh session (non-negotiable 8). Then, from the root:
+`git merge --ff-only <branch> && make ci`. If `main` moved, merge `main`
+into the branch and run `make close` again (it reuses a green `ci-scoped`
+when the tree did not change). Use the skills:
 `/skill:quality-gate` (review checklist), `/skill:handoff-update` (the
 note). When a change has **interacting conditions that change the outcome**
 (delete, restore, auth, cascade, run mode, permissions), write a
@@ -142,17 +156,19 @@ For any UI work:
 | `make web` / `make build` | Build React UI → `internal/web/public` / UI + `bin/picode` |
 | `make ci-scoped` / `make close` | Gates for this diff / end-of-session rite |
 | `make ci` | Everything CI runs — the gate for the merge on `main` |
-| `make deploy-batch` | Ship `main` when nobody is mid-turn (what the timer runs) |
-| `make deploy` | Rebuild + restart the installed service; refuses while agents work |
+| `make deploy` | Owner only: rebuild, refresh stale captures, restart the service; refuses while agents work |
+| `make changelog` | Fold `docs/changelog.d/` fragments into `CHANGELOG.md` (on `main`, before a release) |
+| `make adr NAME=x` | Seed the next ADR with its number and index row |
 | `make worktree-gc` | Remove merged, clean, idle worktrees |
-| `make timers` | Install the deploy and cert timers (systemd --user) |
+| `make cert-timer` | Install the weekly certificate check (systemd --user) |
 | `make desktop-restart` | Swap the Windows tray + native-host exes and relaunch via the logon task — the only supported restart; never background a Windows exe from WSL |
 
 ## Repo map
 
 ```
 AGENTS.md          this contract
-docs/              living documentation (handoff.md = project state; handoff/ = session notes)
+docs/              living documentation (handoff.md = in flight/next/debts; handoff/ = session notes;
+                   architecture/ = one file per subsystem; changelog.d/ = changelog fragments)
 docs-site/         public docs (VitePress Markdown → GitHub Pages)
 docs/decisions/    ADRs — one decision per file, immutable once accepted
 docs/screenshots/  frozen visual history (ADR-0086); new evidence stays in var/screenshots/
@@ -164,17 +180,21 @@ internal/server/   HTTP server + API
 internal/web/      UI loader: from disk by default, embedded with `-tags embedui` (ADR-0023).
                    public/ is Vite output and is NOT committed
 web/               Independent desktop/mobile apps + shared contracts/tokens (ADR-0072)
-scripts/           gates, close, worktree, deploy batch, QA scratch instance
+scripts/           gates, close, worktree, changelog assembly, ADR seed, QA scratch instance
 .github/           CI
 ```
 
 ## Architectural decisions
 
 Significant choices (frameworks, protocols, persistence, security model,
-process) go through an **ADR**: copy `docs/decisions/template.md`, check
-`ls docs/decisions .worktrees/*/docs/decisions` for the next free number at
-the moment you write it, argue context → decision → consequences, add the
-index row. Never silently contradict an ADR — supersede it with a new one.
+process) go through an **ADR**: `make adr NAME=<short-title>` allocates the
+number across every worktree, seeds the file from `docs/decisions/template.md`
+and appends the index row. Fill the **Boundary** line first: a change that
+crosses no protocol, persistence, security-model or process boundary is not
+an ADR — it is a paragraph in `docs/architecture/` or a note in `docs/plans/`
+(seventeen ADRs landed in the three days after ADR-0086; four were UI or
+route refinements). Argue context → decision → consequences. Never silently
+contradict an ADR — supersede it with a new one.
 
 ## Style
 

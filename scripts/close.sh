@@ -2,10 +2,12 @@
 # make close — the mechanical end of a worktree session (ADR-0086).
 #
 # What used to be twenty-odd agent turns at peak context: run the gates the
-# diff can break, regenerate the committed artifacts the diff invalidated
-# (OpenAPI, llms.txt, public captures), confirm main can fast-forward, and
-# print the summary the closing docs are written from. It never merges,
-# never deploys, never writes prose.
+# diff can break (or reuse the green run this exact tree already had),
+# regenerate the committed artifacts the diff invalidated (OpenAPI, llms.txt),
+# confirm main can fast-forward, and print the summary the closing docs are
+# written from. It never merges, never deploys, never writes prose. Public
+# captures refresh at `make deploy` (ADR-0105), not here: 85 capture commits
+# in three days came from this step, a third of them for unchanged pixels.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
@@ -20,7 +22,12 @@ if [ -n "$(git status --porcelain)" ]; then
   exit 1
 fi
 
-./scripts/ci-scoped.sh || exit 1
+stamp="$(git rev-parse --git-dir)/picode-ci-scoped.ok"
+if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$(git rev-parse 'HEAD^{tree}')" ]; then
+  echo "close: ci-scoped is already green for this exact tree — not paying the gates twice"
+else
+  ./scripts/ci-scoped.sh || exit 1
+fi
 
 base=$(git merge-base main HEAD)
 changed=$(git diff --name-only "$base" HEAD)
@@ -31,18 +38,6 @@ if printf '%s\n' "$changed" | grep -qE '^(internal/|cmd/|docs-site/)'; then
   if [ -n "$(git status --porcelain -- docs-site/public/api/openapi.json docs-site/public/llms.txt)" ]; then
     git add docs-site/public/api/openapi.json docs-site/public/llms.txt
     git commit -q -m "docs: regenerate OpenAPI and llms.txt" && echo "close: committed regenerated OpenAPI/llms.txt"
-  fi
-fi
-
-# Public captures: only when the UI changed, only when the fingerprint says so.
-if printf '%s\n' "$changed" | grep -q '^web/'; then
-  if ! DOCS_STRICT=1 node scripts/docs-check.mjs >/dev/null 2>&1; then
-    echo "close: public captures are stale for this diff — recapturing (make docs-shots)"
-    make --no-print-directory docs-shots || { echo "close: docs-shots failed; rerun `make docs-shots` (the fixture is flaky on a busy machine)" >&2; exit 1; }
-    if [ -n "$(git status --porcelain -- docs-site/img)" ]; then
-      git add docs-site/img
-      git commit -q -m "docs: refresh public captures" && echo "close: committed refreshed captures"
-    fi
   fi
 fi
 

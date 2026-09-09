@@ -26,14 +26,17 @@ rules live in [AGENTS.md](AGENTS.md) — this file covers the mechanics.
    before declaring done, `/skill:handoff-update` for the session note.
 3. Never break the build: `make ci-scoped` while iterating, `make close`
    at the end, `make ci` on `main` for the merge. A boundary change
-   (protocol, persistence, security, process) → ADR
-   (`docs/decisions/template.md`); a UI refinement never needs one.
+   (protocol, persistence, security, process) → ADR (`make adr NAME=x`);
+   a UI refinement never needs one.
 4. **Work in an isolated git worktree** (`make worktree NAME=<name>`,
    AGENTS.md non-negotiable 5). Do not edit `main` in the primary checkout
    in parallel with another agent. After merge, `make worktree-gc`.
-5. **Do not deploy** (ADR-0086): `main` ships in batches; a branch is done
-   when `main` fast-forwards to it.
-6. Code under `packages/pi-roles/`, `packages/pi-inbox/`, `packages/pi-checklist/`,
+5. **Do not deploy** (ADR-0105): the owner runs `make deploy` when they
+   want it; a branch is done when `main` fast-forwards to it.
+6. **One branch, one session** (ADR-0105): end the session at the merge and
+   write the closing docs from `make close-summary` in a subagent or a
+   fresh session, never at the peak context of the working session.
+7. Code under `packages/pi-roles/`, `packages/pi-inbox/`, `packages/pi-checklist/`,
    `packages/pi-compact/`, and `packages/pi-diff/` is MIT; everything else is PolyForm
    Noncommercial. See [LICENSING.md](LICENSING.md) and ADR-0028.
 
@@ -43,10 +46,10 @@ Code and docs change together, in the same commit:
 
 | You changed... | Then also update... |
 |---|---|
-| Behavior or architecture | `docs/architecture.md` (+ ADR if architectural) |
-| Anything user-visible | `CHANGELOG.md` → `[Unreleased]` |
+| Behavior or architecture | the `docs/architecture/` file for that subsystem (+ ADR if it crosses a boundary) |
+| Anything user-visible | `docs/changelog.d/<branch-slug>.md` — `make changelog` assembles `CHANGELOG.md` on `main` |
 | A slash command users can type | `docs-site/commands.md` heading `{#id}` + pi correlation per [docs/guidelines.md](docs/guidelines.md) |
-| Project state at all | `docs/handoff/<date>-<branch>.md` (≤ 25 lines) + `docs/handoff.md` kept true (≤ 100 lines) |
+| Project state at all | `docs/handoff/<date>-<branch>.md` (≤ 25 lines) + `docs/handoff.md` kept true (≤ 100 lines, ≤ 8 KB: in flight, next up, debts — never shipped work) |
 | A benchmark we hold | `docs/benchmarks.md` with rationale |
 
 ## License of contributions

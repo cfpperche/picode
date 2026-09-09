@@ -1,7 +1,0 @@
-[Unit]
-Description=PiCode — batch deploy of main when no agent is mid-turn (ADR-0086)
-
-[Service]
-Type=oneshot
-WorkingDirectory=%h/picode
-ExecStart=%h/picode/scripts/deploy-batch.sh

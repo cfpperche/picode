@@ -22,10 +22,18 @@ paths=$(
 )
 eval "$(printf '%s\n' "$paths" | node scripts/ci-scope.mjs --local)"
 
+# A green run is remembered per tree (ADR-0105): `make close` reuses it when
+# the tree has not changed since, instead of paying the gates twice.
+stamp() {
+  [ -z "$(git status --porcelain)" ] || return 0
+  git rev-parse 'HEAD^{tree}' > "$(git rev-parse --git-dir)/picode-ci-scoped.ok" 2>/dev/null || true
+}
+
 ran=()
 if [ -n "$SCOPE_FULL" ]; then
   echo "ci-scoped: gate-shaping or unknown paths changed — running the full matrix"
   make --no-print-directory ci
+  stamp
   echo "ci-scoped: PASS (full)"
   exit 0
 fi
@@ -53,7 +61,7 @@ if [ -n "$SCOPE_GO" ]; then
     pkgs="./..."
   fi
   echo "ci-scoped: go test $(printf '%s\n' $pkgs | wc -l | tr -d ' ') package(s)"
-  go test $pkgs
+  ./scripts/go-test.sh $pkgs
   ran+=("go[$(printf '%s\n' $pkgs | wc -l | tr -d ' ')]")
 fi
 
@@ -73,4 +81,5 @@ if [ -n "$SCOPE_METADATA" ] && [ ${#ran[@]} -eq 3 ]; then
   ran+=("metadata")
 fi
 
+stamp
 echo "ci-scoped: PASS ($(IFS=, ; echo "${ran[*]}"); $SCOPE_COUNT path(s) vs $base_ref)"

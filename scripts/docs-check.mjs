@@ -24,9 +24,9 @@ const imgDir = join(root, "docs-site", "img");
 // Capture freshness is advisory unless --strict / DOCS_STRICT=1 (ADR-0086):
 // a stale fingerprint used to fail `make ci` for every CSS change, and the
 // recapture it demanded produced binary conflicts between parallel
-// sessions. The deploy batch and `make close` run the strict form and
-// recapture when it says so; a committed image that was edited by hand
-// still fails everywhere.
+// sessions. `make deploy` runs the strict form and recaptures when it says
+// so (ADR-0105); a committed image that was edited by hand still fails
+// everywhere.
 const strict = process.argv.includes("--strict") || process.env.DOCS_STRICT === "1";
 const fails = [];
 const stale = [];
@@ -95,7 +95,7 @@ try {
 if (stale.length) {
   if (strict) fails.push(...stale);
   else {
-    console.warn("docs-check: public captures are stale (the deploy batch or `make close` recaptures):");
+    console.warn("docs-check: public captures are stale (`make deploy` recaptures; or run `make docs-shots`):");
     for (const f of stale) console.warn("  - " + f);
   }
 }
