@@ -40,7 +40,7 @@
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
   at 16 px, tab strip overflow phases 2–4. Extra keys first-open `0.1.0+dfa9f7b`. ADR-0089 attach bar `0.1.0+aca6628`, amended: the staging folder no longer touches the project's own `.gitignore` (a nested one instead) and ages out after 7 days. GitHub repo picker in the clone form (`0.1.0+a2e699c`, accepted live). Workspace card: two actions instead of five (ADR-0027/0030), header stayed one line.
   Managed agents remain Pi-only; guests stay terminals-only (ADR-0091) until a protocol converges. **Desktop user menu v2:** grouped rows with subtitles + in-menu search (`@picode/shared/domain/listSearch.js`); theme/layout radios stay.
-- **Agent CLIs layout:** every tab uses its app-owned `AgentClisFrame`: one 1240px desktop maximum, full mobile width, consistent card padding and stable tab alignment. Desktop reserves scrollbar space; narrow Sessions and CLI setup actions wrap.
+- **Agent CLIs layout / providers (ADR-0103):** every tab uses its app-owned `AgentClisFrame`: one 1240px desktop maximum, full mobile width, consistent padding and stable alignment. Narrow tabs keep the selected item visible. Providers lives at `#/clis/providers/pi`, with Pi-only capability, machine scope, legacy redirects and app-preserving OAuth returns; native accounts, keys, quotas and verification retain their APIs. Refresh errors keep the roster and draft.
 - **Native CLI packages (ADR-0102/0099):** Agent CLIs → Packages at `#/clis/packages/pi`; legacy links redirect with explicit workspace/agent/scope context. Pi APIs and native files remain authoritative. Failed refreshes retain drafts and block writes; changed file targets require confirmed reload. Desktop pi-roles configuration retains independent workspace/agent drafts, scoped clear and malformed-file recovery. Mobile config links offer the desktop layout. Next adapters: pi-compact and a declarative manifest.
 
 ## In flight (unmerged branches on disk)
@@ -63,7 +63,7 @@
 
 ## Known debts / open questions
 
-- Native packages: real package-manager downloads and physical-device acceptance remain external; mobile configuration editing is still desktop-only. Fixture/browser coverage includes all rows in `docs/plans/cli-native-packages.md`.
+- Native packages/providers: real package downloads, vendor OAuth, real credential changes and physical-device acceptance remain external; mobile package configuration is still desktop-only. Owned browser fixtures cover the decision tables in `docs/plans/cli-native-packages.md` and `docs/plans/cli-native-providers.md`.
 - Native settings: physical iPhone/PWA/IME and real process restart remain external acceptance; both app adapters have failure coverage, and scratch browser tests cover recovery, retained drafts and stopped-agent saves.
 - Inbox terminal replies: pi-inbox 0.1.x items (`pi (unmanaged)`) have no
   address — answered by hand until updated per pi session; daemon death
