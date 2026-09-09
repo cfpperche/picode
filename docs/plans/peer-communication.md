@@ -74,13 +74,13 @@ turns. No untested vendor is described as runtime-compatible.
 | Runtime | Evidence | Limits |
 |---|---|---|
 | Pi 0.85.1 + pi-mcp-adapter 2.32.1 | Real managed Pi → tmux Pi → managed Pi; send/read/reply/ack in both directions; automatic setup through owner API and launcher | Explicit prompts initiated each turn; no wake |
-| Claude Code 2.1.266 | Native model called list_contacts through the generated private MCP file | Scoped fixture capability; no full recorded Claude resume conversation roundtrip |
-| Codex 0.153.4 | Native model called list_contacts through URL/env overrides | Fixture explicitly preapproved only list_contacts; launcher leaves native approval policy unchanged; upstream WebSocket 503 fell back to HTTPS |
-| OpenCode 1.18.29 | Native mcp list reported the HTTP server connected | Handshake only, no model turn |
+| Claude Code 2.1.266 / Haiku 4.5 | Own native conversation resumed through the owner API with private setup; Claude → Codex → Claude and OpenCode → Claude → OpenCode messages, replies and acknowledgments | Explicit prompts; fixture approves only communication tools |
+| Codex 0.153.4 / gpt-5.6-luna | Own native conversation resumed through the owner API; read/ack Claude PING and reply with PONG; Claude acknowledged | Fixture preapproves only communication tools; launcher leaves native approval policy unchanged |
+| OpenCode 1.18.29 / zai/glm-5.3-flash, max | Own native conversation resumed through the owner API; send PING, receive Claude reply, read/ack PONG | Exact owner-requested model/variant; read turn waited about two minutes on the native model stream before completing |
 | Grok 1.0.24 | Installed help inspected: no per-launch MCP config override | Automatic wiring unavailable |
 | Hermes Agent 0.21.1 | Installed hermes_constants.get_config_path resolves HERMES_HOME/config.yaml | Automatic wiring unavailable; no home overlay introduced |
 
-Owned fixture artifacts: `var/screenshots/peer-launch/` (roundtrip receipts,
+Initial fixture artifacts: `var/screenshots/peer-launch-20260909/` (roundtrip receipts,
 native client logs, browser matrix). Anthropic rejected model turns because
 extra usage was exhausted; OpenAI's retired 5.4 variants were unavailable to the
 account. The successful Pi roundtrip used openai-codex/gpt-5.6-luna.
@@ -100,3 +100,33 @@ validation, demonstrating why the explicit local trust attachment is necessary.
 Unit coverage includes self-signed trust, hostname mismatch, remote endpoint
 refusal and preservation/failure of existing CA bundles. CA lookup failures
 happen before token replacement. Certificate/CA changes require replacing setup.
+
+### Native conversation acceptance — follow-up, 2026-09-09
+
+The follow-up closes the guest native-resume gap. Each CLI created a real native
+conversation, resumed it interactively in a PiCode terminal, then stopped. The
+existing runtime sensor pinned that conversation. Automatic Messages setup and
+`POST /api/terminals/{id}/launch/start` with `resume: true` attached its own
+credential. Native session IDs, stored connection bindings, applied resume
+arguments and tool events were checked together; no Pi fixture credential was
+reused for these runs. Tests used an isolated HTTP instance; the earlier HTTPS
+native tool/handshake evidence remains separate.
+
+| Acceptance | Result / evidence |
+|---|---|
+| Claude → Codex → Claude | Two messages, both acknowledged; reply points to the original message |
+| OpenCode Z.AI/max → Claude → OpenCode Z.AI/max | Two messages, both acknowledged; native parts record all four MCP tools completing |
+| Conversation identity | Three distinct active connection IDs bind the three actual terminal/session pairs |
+| Existing native permissions | Only communication tools preapproved in disposable native settings; no product policy change |
+| Model selection | Native OpenCode parts and terminal retain `zai/glm-5.3-flash` with `max` after resume |
+
+Evidence: `var/screenshots/peer-native-validation-20260909/` contains owner API
+receipts, launch snapshots and filtered native tool events. An earlier Big Pickle
+send produced one additional acknowledged fixture message before its connection
+was retired. OpenCode's copied OpenAI credential failed refresh and OpenCode Go
+reported insufficient balance; neither failure establishes a transport defect.
+The successful acceptance uses the Z.AI configuration requested by the owner.
+
+No communication runtime change was needed. Grok/Hermes automatic configuration,
+physical-device acceptance and orphan private-file cleanup remain open. Recipient
+startup and orchestration remain outside this increment.

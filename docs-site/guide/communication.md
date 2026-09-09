@@ -91,3 +91,13 @@ messages still work. There is no automatic history expiry in this release.
 OpenCode keeps existing inline JSON settings and other MCP servers when adding
 communication. If `OPENCODE_CONFIG_CONTENT` contains JSONC comments or invalid
 JSON, convert it to a JSON object before resuming; PiCode refuses to discard it.
+
+
+## Verified native conversations
+
+Validation on 2026-09-09 covered messages, replies and acknowledgments after
+resuming each terminal's own recorded conversation: Claude Code 2.1.266 with
+Codex 0.153.4, and OpenCode 1.18.29 with Claude Code. OpenCode used
+`zai/glm-5.3-flash` with variant `max`. Each turn was explicitly prompted;
+recipients were not started automatically. These are tested combinations,
+not a guarantee that every provider or model can call the tools.
