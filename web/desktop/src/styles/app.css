@@ -1095,10 +1095,13 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   border: 1px solid transparent;
 }
 .ws-item:hover { background: var(--bg-hover); }
+/* Selection reads through the tinted background and the quiet border; the
+   accent bar reads as a blue border around the whole card (owner report
+   2026-09-09), so selection carries no accent. The bar stays on
+   is-needs-you, where it marks attention, not selection. */
 .ws-item.active {
   background: var(--bg-hover);
   border-color: var(--border);
-  box-shadow: inset 2px 0 0 var(--accent);
 }
 .ws-item.is-needs-you { box-shadow: inset 2px 0 0 var(--accent); }
 /* First-line alignment: title, status and row menu share the title line;
@@ -1195,6 +1198,10 @@ img.ws-face.term-cli-face {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ws-context-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The icon never bends: when the row overflows, the span is the part that
+   ellipsizes. Without this, a long path flex-shrinks the folder/git svg to
+   a sliver (caught 2026-09-09 on a deep worktree path). */
+.ws-context-btn svg { flex: none; }
 .ws-context-btn:hover { color: var(--text-primary); }
 .ws-context-git { flex: none; max-width: 48%; }
 .ws-context-git svg { color: var(--accent); }
@@ -2888,16 +2895,17 @@ img.ws-face.term-cli-face {
    on the one being executed, ☐ pending. Live over the feed, no fetch. The
    chevron reuses .ws-chev (the workspace group header's own disclosure
    affordance) so the same rotate-on-open language reads across the sidebar.
-   The chevron sits in its own gutter *before* the text column instead of
-   sharing it (owner refinement 2026-09-06): a text glyph's ink rarely
-   touches its box edge the way the title's plain text does, so aligning the
-   chevron's box to the column still reads as offset from the title above
-   it. The gutter is exactly the chevron's box (16px, --tree-chev) plus the
-   button's gap (5px) = 21px, so the *text* — not the icon — lands on the
-   same 23px column as the title, folder and branch lines (23 − 21 = 2px
-   left margin here), whatever the icon's own inset is. */
-.ws-check-disclosure { margin: 3px 31px 0 2px; min-width: 0; }
-button.ws-check-line { display: flex; align-items: center; gap: 5px; min-width: 0; width: calc(100% + 6px); margin: 0 -3px; font-size: 11.5px; color: var(--text-secondary); padding: 2px 3px; background: none; border: 0; border-radius: 4px; text-align: left; cursor: pointer; }
+   The disclosure sits on the card's 23px metadata column — the same left
+   edge as the folder and branch icons below and the title text above — and
+   the chevron box shrinks to the icons' 12px slot with the same 4px gap
+   (owner report 2026-09-09: the old own-gutter layout left the chevron
+   ~18px left of every other mark on the card). Text therefore starts at
+   23 + 12 + 4 = 39px, on the same column as the folder/branch labels. The
+   button's 3px side padding + negative margins extend the hit area without
+   moving the content (23 − 3 + 3 = 23). */
+.ws-check-disclosure { margin: 3px 31px 0 23px; min-width: 0; }
+.ws-check-line .ws-chev { width: 12px; height: 12px; }
+button.ws-check-line { display: flex; align-items: center; gap: 4px; min-width: 0; width: calc(100% + 6px); margin: 0 -3px; font-size: 11.5px; color: var(--text-secondary); padding: 2px 3px; background: none; border: 0; border-radius: 4px; text-align: left; cursor: pointer; }
 button.ws-check-line:hover, button.ws-check-line:focus-visible { color: var(--text-primary); }
 button.ws-check-line:hover .ws-check-text, button.ws-check-line:focus-visible .ws-check-text,
 button.ws-check-line:hover .ws-chev, button.ws-check-line:focus-visible .ws-chev { color: var(--text-primary); }
@@ -2907,17 +2915,17 @@ button.ws-check-line:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--
 button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-check-pos { color: color-mix(in srgb, var(--text-secondary) 65%, transparent); }
 .ws-check-list { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 150ms ease-out, opacity 150ms ease-out; }
 .ws-check-list.open { grid-template-rows: 1fr; opacity: 1; }
-/* Step glyphs (☑ ◐ ☐) start in the same gutter as the collapsed line's
-   chevron (padding-left: 0, the container is already inset by the gutter);
-   the 7px li gap plus the 14px glyph width match the chevron's own 21px
-   gutter, so step text lands on the same column as the chevron line's
-   text above it. */
+/* Step glyphs (☑ ◐ ☐) start on the same 23px column as the collapsed
+   line's chevron (padding-left: 0, the container is already inset); the
+   4px li gap plus the 12px glyph width match the chevron's own 16px
+   gutter, so step text lands on the same 39px column as the chevron
+   line's text above it. */
 .ws-check-list > ul { overflow: hidden; min-height: 0; margin: 0; padding: 3px 0 2px 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
-.ws-check-list li { display: flex; align-items: baseline; gap: 7px; min-width: 0; font-size: 11.5px; color: var(--text-secondary); }
+.ws-check-list li { display: flex; align-items: baseline; gap: 4px; min-width: 0; font-size: 11.5px; color: var(--text-secondary); }
 .ws-check-list li.completed .ws-check-step-text { color: color-mix(in srgb, var(--text-secondary) 65%, transparent); }
 .ws-check-list li.current .ws-check-step-text { color: var(--text-primary); }
-.ws-check-step-glyph { flex: none; width: 14px; text-align: center; font-family: var(--mono); font-size: 11px; line-height: inherit; color: inherit; }
-.ws-check-list li.current .ws-check-step-glyph .pi-spin { width: 14px; height: auto; font-size: 11px; }
+.ws-check-step-glyph { flex: none; width: 12px; text-align: center; font-family: var(--mono); font-size: 11px; line-height: inherit; color: inherit; }
+.ws-check-list li.current .ws-check-step-glyph .pi-spin { width: 12px; height: auto; font-size: 11px; }
 .ws-check-step-text { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 @media (prefers-reduced-motion: reduce) { .ws-check-list { transition: none; } }
 /* The checklist card in the chat. */

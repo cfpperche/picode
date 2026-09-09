@@ -254,7 +254,7 @@ export function ChecklistDisclosure({ id, check }) {
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
         onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}
       >
-        <span className={"ws-chev" + (open ? " open" : "")} aria-hidden="true"><IconChevronRight /></span>
+        <span className={"ws-chev" + (open ? " open" : "")} aria-hidden="true"><IconChevronRight size={12} /></span>
         <span className="ws-check-text">{progress.text}</span>
         <span className="ws-check-pos">{progress.pos}</span>
       </button>
