@@ -205,7 +205,7 @@ func (s *Store) PeerContacts(token string) ([]PeerConnection, error) {
 	if err != nil {
 		return nil, err
 	}
-	rows, err := tx.Query(`SELECT `+peerCols+` FROM peer_connections WHERE workspace_id=? AND id!=? AND revoked_at IS NULL ORDER BY label,id LIMIT 100`, me.WorkspaceID, me.ID)
+	rows, err := tx.Query(`SELECT `+peerCols+` FROM peer_connections WHERE workspace_id=? AND id!=? AND revoked_at IS NULL ORDER BY label,id`, me.WorkspaceID, me.ID)
 	if err != nil {
 		return nil, err
 	}
