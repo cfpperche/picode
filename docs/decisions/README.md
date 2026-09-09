@@ -110,3 +110,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0103](0103-providers-under-agent-clis.md) | Native Providers under Agent CLIs, machine scope and app-preserving OAuth return | accepted; supersedes 0058 navigation |
 | [0104](0104-peer-communication.md) | Embedded MCP for direct session messages | accepted |
 | [0105](0105-process-cost-second-review.md) | The rite runs in a fresh context, the living docs stop conflicting, deploy is the owner's call: one branch one session, changelog fragments, handoff without shipped work (100 lines and 8 KB), no deploy timer, captures at deploy, sharded server tests, `make adr` with a boundary line, architecture split per subsystem | accepted, amends 0086 |
+| [0106](0106-conversation-launch-setup.md) | Private communication setup on conversation resume | accepted |

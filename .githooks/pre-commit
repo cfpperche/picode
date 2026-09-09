@@ -60,13 +60,27 @@ if ! git diff --cached --check >/dev/null 2>&1; then
   refuse "Whitespace errors in the staged diff (above). Fix them; CI would have refused the push."
 fi
 
-# CHANGELOG.md is assembled from docs/changelog.d/ fragments (ADR-0105). The
-# only legitimate direct edit is that assembly, recognisable by the fragment
-# deletions staged alongside it.
-if staged | grep -qx CHANGELOG.md && ! staged D | grep -q '^docs/changelog\.d/.*\.md$'; then
+# CHANGELOG.md is assembled from docs/changelog.d/ fragments (ADR-0105). Two
+# direct edits are legitimate: the assembly, recognisable by the fragment
+# deletions staged alongside it, and the release cut, which adds a
+# "## [x.y.z]" heading (docs/release-process.md).
+if staged | grep -qx CHANGELOG.md \
+  && ! staged D | grep -q '^docs/changelog\.d/.*\.md$' \
+  && ! git diff --cached -U0 -- CHANGELOG.md | grep -qE '^\+## \[[0-9]'; then
   refuse "CHANGELOG.md is assembled, not edited (ADR-0105)." \
     "Write docs/changelog.d/<branch-slug>.md with '### Added' / '### Fixed' … lines instead;" \
     "'make changelog' folds every fragment into [Unreleased] on main before a release."
+fi
+
+# A fragment that does not parse would only fail at release time, when its
+# author is gone. Check the staged content now; skipped where the assembler
+# is absent (a clone without scripts/, the hook self-test's throwaway repo).
+if [ -f scripts/changelog-assemble.mjs ] && command -v node >/dev/null 2>&1; then
+  for f in $(staged ACMR | grep '^docs/changelog\.d/.*\.md$' | grep -v '/README\.md$'); do
+    err=$(git show ":$f" | node scripts/changelog-assemble.mjs --check 2>&1) \
+      || refuse "$f is not a valid changelog fragment: $err" \
+        "Sections are '### Added' … '### Security', each followed by '- ' lines (docs/changelog.d/README.md)."
+  done
 fi
 
 if [ "$gd" = "$cd" ]; then
@@ -78,7 +92,7 @@ if [ "$gd" = "$cd" ]; then
     if staged ACMR | grep -qE '^(docs/handoff\.md|docs/handoff/|docs/changelog\.d/)'; then
       refuse "Refusing to commit handoff state or changelog fragments directly on main (ADR-0105)." \
         "They belong to the branch that did the work: edit them in its worktree, then" \
-        "git merge --ff-only <branch>. Deploy history is var/deploy-log.jsonl, not prose."
+        "git merge --ff-only <branch>. Deploy history is the data dir's var/deploy-log.jsonl, not prose."
     fi
     exit 0
   fi

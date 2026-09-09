@@ -43,6 +43,9 @@ if git diff --name-only "$base"..HEAD | grep -qE '^docs/decisions/[0-9]{4}-'; th
 fi
 [ "$owed" -eq 0 ] && echo "- nothing: changelog/handoff already travel with the code"
 echo
+echo "## Worktrees on disk (what is in flight — not a list to copy into docs/handoff.md)"
+git worktree list | grep -v ' \[main\]$' | sed 's/^/- /'
+echo
 echo "## Merge"
 if git merge-base --is-ancestor main HEAD; then
   echo "- main can fast-forward to $branch:  cd /home/goat/picode && git merge --ff-only $branch && make ci"

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/clisession"
+	"github.com/cfpperche/picode/internal/communication"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -576,7 +578,7 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 				return
 			}
 			resumeLaunch := *launch
-			args := append([]string{}, ls.ResumeArgs...)
+			args := terminalResumeArgs(ls)
 			resumeLaunch.Overrides.Args = &args
 			prepared, perr := prepareCLITerminal(deps, t.Cwd, &resumeLaunch)
 			if perr != nil {
@@ -840,6 +842,30 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 			return nil, err
 		}
 	}
+	peerOptions := communication.LaunchOptions{Env: map[string]string{}}
+	peer, err := communication.LoadLaunch(deps.Store, deps.DataDir, "terminal", v.TerminalID)
+	if err != nil {
+		return nil, err
+	}
+	// Only the exact native resume recipe receives this conversation's token.
+	// Ordinary fresh starts, forks and manual commands receive no credential.
+	if peer != nil && v.LastSession != nil && len(terminalResumeArgs(v.LastSession)) > 0 && slices.Equal(c.Args, terminalResumeArgs(v.LastSession)) {
+		peerOptions, err = communication.Options(deps.DataDir, *peer)
+		if err != nil {
+			return nil, err
+		}
+		if cli.ID == "opencode" {
+			existing, specified := c.Env["OPENCODE_CONFIG_CONTENT"]
+			if !specified {
+				existing = os.Getenv("OPENCODE_CONFIG_CONTENT")
+			}
+			merged, err := communication.MergeOpenCode(existing, peerOptions.Env["OPENCODE_CONFIG_CONTENT"])
+			if err != nil {
+				return nil, err
+			}
+			peerOptions.Env["OPENCODE_CONFIG_CONTENT"] = merged
+		}
+	}
 	var body strings.Builder
 	body.WriteString("#!/bin/sh\n# PiCode terminal launch. Values below are quoted arguments, never eval.\n")
 	// SIGHUP-immune pane root (ADR-0085): interactive bash ignores SIGHUP and
@@ -861,8 +887,20 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 		fmt.Fprintf(&body, "export %s=%s\n", k, shellQuote(c.Env[k]))
 	}
 	fmt.Fprintf(&body, "export PATH=%s\n", shellQuote(cliPath(c)))
+	if len(peerOptions.Env) > 0 {
+		body.WriteString("env ")
+		peerKeys := []string{}
+		for k := range peerOptions.Env {
+			peerKeys = append(peerKeys, k)
+		}
+		sort.Strings(peerKeys)
+		for _, k := range peerKeys {
+			body.WriteString(shellQuote(k+"="+peerOptions.Env[k]) + " ")
+		}
+	}
 	body.WriteString(shellQuote(command))
-	for _, arg := range c.Args {
+	launchArgs := append(append([]string{}, c.Args...), peerOptions.Args...)
+	for _, arg := range launchArgs {
 		body.WriteByte(' ')
 		body.WriteString(shellQuote(arg))
 	}
@@ -933,4 +971,12 @@ func applyTerminalLaunch(deps Deps, view map[string]any, id string) {
 		binary, _ := resolveCLIExecutable(cli, effective)
 		view["launchPending"] = v.Applied.CLI != v.CLI || v.Applied.Fingerprint != clilaunch.Fingerprint(effective) || binary != v.Applied.Executable || (v.Applied.Identity != "" && v.Applied.Identity != executableIdentity(binary))
 	}
+}
+
+// Pi's catalog uses its own session UI, but a terminal resume needs its file.
+func terminalResumeArgs(ls *store.TerminalLastSession) []string {
+	if ls.CLI == "pi" && ls.Path != "" {
+		return []string{"--session", ls.Path}
+	}
+	return append([]string{}, ls.ResumeArgs...)
 }

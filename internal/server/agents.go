@@ -350,7 +350,7 @@ func handleAgentLogin(deps Deps) http.HandlerFunc {
 				writeErr(w, http.StatusServiceUnavailable, "pi is not installed or not on PATH")
 				return
 			}
-			if err := deps.Tmux.NewSessionEnv(r.Context(), name, store.AgentCwd(wk, agent), agent.SpawnEnv(), deps.AgentCmd, deps.spawnFlags(agent)...); err != nil {
+			if err := deps.startAgentTUI(r.Context(), name, store.AgentCwd(wk, agent), agent); err != nil {
 				writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 				return
 			}
@@ -415,7 +415,7 @@ func handleAgentCommand(deps Deps) http.HandlerFunc {
 			return
 		}
 		if !has {
-			if err := deps.Tmux.NewSessionEnv(r.Context(), name, store.AgentCwd(wk, agent), agent.SpawnEnv(), deps.AgentCmd, deps.spawnFlags(agent)...); err != nil {
+			if err := deps.startAgentTUI(r.Context(), name, store.AgentCwd(wk, agent), agent); err != nil {
 				writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 				return
 			}
@@ -712,7 +712,7 @@ func (deps Deps) openAgentTUI(ctx context.Context, agentID string, restart bool)
 			return false, fmt.Errorf("restart terminal: %w", err)
 		}
 	}
-	if err := deps.Tmux.NewSessionEnv(ctx, name, cwd, agent.SpawnEnv(), deps.AgentCmd, deps.spawnFlags(agent)...); err != nil {
+	if err := deps.startAgentTUI(ctx, name, cwd, agent); err != nil {
 		_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusStopped)
 		return false, fmt.Errorf("start agent: %w", err)
 	}

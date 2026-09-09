@@ -15,7 +15,7 @@ function Mailbox({ hidden, ownerKey }) {
   const name = id => m.data?.connections.find(p => p.id === id)?.label || "Removed connection";
   async function change(action) {
     if (m.active) {
-      const ok = await askConfirm({ title: action === "enable" ? "Replace connection?" : "Disable messages?", message: action === "enable" ? "The current credential will stop working. Connect this conversation again with the new credential." : "This conversation will no longer send or receive new messages. Its history stays available.", confirmLabel: action === "enable" ? "Replace" : "Disable", danger: true });
+      const ok = await askConfirm({ title: action === "enable" ? "Replace connection?" : "Disable messages?", message: action === "enable" ? "The current connection will stop working. Resume this conversation to use its replacement." : "This conversation will no longer send or receive new messages. Its history stays available.", confirmLabel: action === "enable" ? "Replace" : "Disable", danger: true });
       if (!ok) return;
     }
     setCopied(false); setCopyError(""); await m.mutate(action);
@@ -28,7 +28,7 @@ function Mailbox({ hidden, ownerKey }) {
   }
   return <section className="peer-body" aria-label="Session messages">
     <div className="peer-heading"><div><h3>Messages</h3><p>Direct messages between opted-in conversations.</p></div><button className="btn btn-ghost" disabled={m.loading || m.busy} onClick={() => { m.refresh(); m.readHistory(); }}>{m.loading ? "Refreshing…" : "Refresh"}</button></div>
-    {problem ? <div className="cli-notice is-error" role="alert"><span>{problem}</span><button className="btn btn-ghost" disabled={m.loading} onClick={() => { m.refresh(); m.readHistory(); }}>Try again</button></div> : null}
+    {problem ? <div className="cli-notice is-error" role="alert"><span>{problem}</span>{m.errorCode === "adapter_missing" ? <a className="btn btn-ghost" href="#/clis/packages/pi">Open Packages</a> : <button className="btn btn-ghost" disabled={m.loading} onClick={() => { m.refresh(); m.readHistory(); }}>Try again</button>}</div> : null}
     {!m.data && !problem ? <div className="cli-loading" aria-label="Loading messages"><div /><div /><div /></div> : null}
     {m.data?.owners.length === 0 ? <div className="cli-notice"><span>No agents or terminals yet.</span><a className="btn btn-primary" href="#/clis/new/pi">New terminal</a></div> : null}
     {!!m.data?.owners.length && <>
@@ -38,8 +38,9 @@ function Mailbox({ hidden, ownerKey }) {
       </select></label>
       {!m.owner ? <div className="cli-notice"><span>This conversation is no longer available.</span><a className="btn btn-ghost" href="#/clis/messages">Choose another</a></div> : <>
         {!m.owner.sessionKey || !m.owner.cli ? <div className="cli-notice"><span>Open a conversation first so PiCode can identify it.</span><a className="btn btn-ghost" href={m.owner.kind === "agent" ? `#/agent/${m.owner.ownerId}` : "#/clis/terminals"}>Open {m.owner.kind === "agent" ? "agent" : "terminals"}</a></div> : <div className="peer-connection">
-          <div><strong>{m.busy ? "Updating connection…" : m.active ? "Enabled · client setup required" : "Messages disabled"}</strong><p>Only opted-in conversations in this workspace can contact each other.</p></div>
+          <div><strong>{m.busy ? "Updating connection…" : m.active ? (m.data?.launches?.[m.active.id] ? "Configured · resume to connect" : "Enabled · client setup required") : "Messages disabled"}</strong><p>Only opted-in conversations in this workspace can contact each other.</p></div>
           <div className="peer-actions" data-align-row><button className="btn btn-primary" disabled={locked} onClick={() => change("enable")}>{m.busy ? "Updating…" : m.active ? "Replace connection" : "Enable messages"}</button>{m.active ? <button className="btn btn-ghost" disabled={locked} onClick={() => change("disable")}>Disable</button> : null}</div>
+          {m.active && m.data?.launches?.[m.active.id] ? <div className="cli-notice"><span>Setup is ready. Resume this conversation when you are ready to reconnect.</span><a className="btn btn-ghost" href={m.owner.kind === "agent" ? `#/agent/${m.owner.ownerId}` : "#/clis/terminals"}>Open {m.owner.kind === "agent" ? "agent" : "terminals"}</a></div> : !m.data?.launchCLIs?.includes(m.owner.cli) ? <p>Automatic setup is not available for this CLI. Follow the <a href="https://cfpperche.github.io/picode/guide/communication" target="_blank" rel="noreferrer">connection guide</a>.</p> : null}
           <details><summary>Recorded conversation</summary><code>{m.owner.sessionKey}</code></details>
         </div>}
         {m.secret ? <section className="peer-setup" aria-label="Connect this conversation"><h4>Connect this conversation</h4><p>Use this credential only for this conversation. It is shown once.</p>

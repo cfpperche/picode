@@ -79,13 +79,36 @@ export function assemble(changelog, fragments) {
   return [...lines.slice(0, start + 1), ...block, "", ...lines.slice(end)].join("\n");
 }
 
+// Commit time decides the order (a fresh clone gives every file the same
+// mtime); an uncommitted fragment falls back to its mtime.
+function when(root, f) {
+  try {
+    const t = execFileSync("git", ["log", "-1", "--format=%ct", "--", f], { cwd: root, stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim();
+    if (t) return Number(t) * 1000;
+  } catch {}
+  return statSync(f).mtimeMs;
+}
+
 function main() {
+  // --check: parse one fragment from stdin (the pre-commit hook feeds it the
+  // staged blob) and exit non-zero with the reason.
+  if (process.argv.includes("--check")) {
+    try {
+      parseFragment(readFileSync(0, "utf8"));
+    } catch (e) {
+      console.error(e.message);
+      process.exit(1);
+    }
+    return;
+  }
   const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   const dir = join(root, "docs", "changelog.d");
   const files = readdirSync(dir)
     .filter((f) => f.endsWith(".md") && f !== "README.md")
     .map((f) => join(dir, f))
-    .sort((a, b) => statSync(a).mtimeMs - statSync(b).mtimeMs); // oldest first; newest ends on top
+    .sort((a, b) => when(root, a) - when(root, b)); // oldest first; newest ends on top
   if (!files.length) {
     console.log("changelog: no fragments in docs/changelog.d/");
     return;

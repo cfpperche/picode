@@ -5,6 +5,7 @@ import { subscribeFeed } from "@picode/shared/client/feed.js";
 export const peerOwnerKey = owner => `${owner.kind}:${owner.ownerId}`;
 export function usePeerCommunication(hidden, ownerKey) {
   const [data, setData] = useState(null), [loadError, setLoadError] = useState("");
+  const [errorCode, setErrorCode] = useState("");
   const [error, setError] = useState(""), [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true), [secret, setSecret] = useState(null);
   const [historyId, setHistoryId] = useState(""), [history, setHistory] = useState(null);
@@ -56,22 +57,22 @@ export function usePeerCommunication(hidden, ownerKey) {
   useEffect(() => { if (secret && data && !data.connections.some(p => p.id === secret.connection.id && p.active)) setSecret(null); }, [data, secret]);
   async function mutate(action) {
     if (mutating.current || !owner || loadError || historyError) return;
-    mutating.current = true; setBusy(true); setError(""); setSecret(null);
+    mutating.current = true; setBusy(true); setError(""); setErrorCode(""); setSecret(null);
     try {
       if (action === "enable") {
-        const result = await api("/api/communication", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: owner.kind, ownerId: owner.ownerId, sessionKey: owner.sessionKey }) });
+        const result = await api("/api/communication", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: owner.kind, ownerId: owner.ownerId, sessionKey: owner.sessionKey, automatic: !!data?.launchCLIs?.includes(owner.cli) }) });
         if (live.current) {
           // Apply the receipt before exposing the secret; a feed refresh can race it.
           generation.current++;
-          setData(prev => ({ ...prev, connections: [result.connection, ...prev.connections.filter(p => p.id !== result.connection.id).map(p => p.kind === owner.kind && p.ownerId === owner.ownerId ? { ...p, active: false } : p)] }));
-          setHistoryId(result.connection.id); setSecret(result);
+          setData(prev => ({ ...prev, launches: { ...prev.launches, [result.connection.id]: !!result.automatic }, connections: [result.connection, ...prev.connections.filter(p => p.id !== result.connection.id).map(p => p.kind === owner.kind && p.ownerId === owner.ownerId ? { ...p, active: false } : p)] }));
+          setHistoryId(result.connection.id); setSecret(result.automatic ? null : result);
         }
       } else if (active) {
         setData(prev => ({ ...prev, connections: prev.connections.map(p => p.id === active.id ? { ...p, active: false } : p) }));
         await api(`/api/communication/${encodeURIComponent(active.id)}`, { method: "DELETE" });
       }
-    } catch (err) { if (live.current) setError(err.message || "Couldn’t update this connection."); }
+    } catch (err) { if (live.current) { setError(err.message || "Couldn’t update this connection."); setErrorCode(err.body?.code || ""); } }
     finally { mutating.current = false; if (live.current) { setBusy(false); refresh(); } }
   }
-  return { data, owner, connections, active, selected, history, reading, hasOlder, secret, setSecret, loading, busy, error, loadError, historyError, refresh, readHistory, setHistoryId, mutate };
+  return { data, owner, connections, active, selected, history, reading, hasOlder, secret, setSecret, loading, busy, error, errorCode, loadError, historyError, refresh, readHistory, setHistoryId, mutate };
 }

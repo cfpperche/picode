@@ -20,7 +20,7 @@ for the model, `toast(text, kind)` unchanged for the one-line call sites,
 `dismissNotice(key)` to withdraw one.
 
 The policies, adapted from Superset's notification manager
-([study](benchmarks/2026-09-07-superset-notifications.md)):
+([study](../benchmarks/2026-09-07-superset-notifications.md)):
 
 | Policy | Rule |
 |---|---|

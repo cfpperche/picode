@@ -78,16 +78,22 @@ if (cd "$repo/wt" && { printf '# Handoff — living project state\n'; for _ in $
 if (cd "$repo/wt" && printf 'trailing blank \n' > ws.txt && git add ws.txt && git commit -q -m ws 2>/dev/null); then bad "trailing whitespace refused" "a whitespace error was committed"; else ok "trailing whitespace refused"; fi
 if (cd "$repo/wt" && printf 'clean\n' > ws.txt && git add ws.txt && git commit -q -m ws 2>/dev/null); then ok "clean file allowed"; else bad "clean file allowed" "the whitespace check refuses a clean file"; fi
 
-# 2f. The changelog is assembled from fragments (ADR-0105).
+# 2f. The changelog is assembled from fragments (ADR-0105). The assembler is
+# copied in so the hook also parses staged fragments here, as it does in a
+# real checkout.
+for d in "$repo" "$repo/wt"; do mkdir -p "$d/scripts" && cp "$HOOKS/../scripts/changelog-assemble.mjs" "$d/scripts/"; done
 if (cd "$repo/wt" && printf '# Changelog\n\n## [Unreleased]\n\n- edited on a branch\n' > CHANGELOG.md && git add CHANGELOG.md && git commit -q -m "changelog on a branch" 2>/dev/null); then bad "CHANGELOG edit on a branch refused" "a branch edited CHANGELOG.md directly"; else ok "CHANGELOG edit on a branch refused"; fi
 (cd "$repo/wt" && git reset -q && rm -f CHANGELOG.md)
 if (cd "$repo/wt" && mkdir -p docs/changelog.d && printf '### Added\n- a thing\n' > docs/changelog.d/wt.md && git add docs/changelog.d/wt.md && git commit -q -m "fragment" 2>/dev/null); then ok "changelog fragment on a branch allowed"; else bad "changelog fragment on a branch allowed" "the fragment flow is blocked"; fi
+if (cd "$repo/wt" && printf 'no section heading\n' > docs/changelog.d/bad.md && git add docs/changelog.d/bad.md && git commit -q -m "bad fragment" 2>/dev/null); then bad "malformed fragment refused" "a fragment that make changelog cannot parse was committed"; else ok "malformed fragment refused"; fi
+(cd "$repo/wt" && git reset -q && rm -f docs/changelog.d/bad.md)
 if (mkdir -p docs/changelog.d && printf '### Added\n- on main\n' > docs/changelog.d/main.md && git add docs/changelog.d/main.md && git commit -q -m "fragment on main" 2>/dev/null); then bad "fragment written on main refused" "a fragment was committed on main in the root"; else ok "fragment written on main refused"; fi
 git reset -q; rm -rf docs/changelog.d
 PICODE_ALLOW_SWITCH=1 git merge -q --ff-only feat/wt2 >/dev/null 2>&1 || PICODE_ALLOW_SWITCH=1 git merge -q feat/wt2 -m "bring the fragment" >/dev/null 2>&1
 if [ -f docs/changelog.d/wt.md ] && printf '# Changelog\n\n## [Unreleased]\n\n### Added\n\n- a thing\n' > CHANGELOG.md && git rm -q docs/changelog.d/wt.md && git add CHANGELOG.md && git commit -q -m "assemble" 2>/dev/null; then ok "assembly on main (fragment deleted) allowed"; else bad "assembly on main (fragment deleted) allowed" "make changelog cannot commit its result"; fi
 if (printf '# Changelog\n\n## [Unreleased]\n\n- typed on main\n' > CHANGELOG.md && git add CHANGELOG.md && git commit -q -m "changelog on main" 2>/dev/null); then bad "bare CHANGELOG edit on main refused" "main took a direct changelog edit"; else ok "bare CHANGELOG edit on main refused"; fi
 git reset -q; git checkout -q -- CHANGELOG.md 2>/dev/null
+if (printf '# Changelog\n\n## [Unreleased]\n\n## [0.2.0] - 2026-09-10\n\n### Added\n\n- a thing\n' > CHANGELOG.md && git add CHANGELOG.md && git commit -q -m "release 0.2.0" 2>/dev/null); then ok "release cut on main allowed"; else bad "release cut on main allowed" "the hook blocks the version heading the release process writes"; fi
 
 # 2g. Handoff state never lands on main directly (ADR-0105).
 if (mkdir -p docs && printf '# Handoff — living project state\n\nrecorded the merge\n' > docs/handoff.md && git add docs/handoff.md && git commit -q -m "handoff on main" 2>/dev/null); then bad "handoff edit on main refused" "main took a direct handoff edit"; else ok "handoff edit on main refused"; fi

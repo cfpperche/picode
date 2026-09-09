@@ -46,7 +46,7 @@ a root mismatch. Compatible `#/file/`, `#/tree/` and `#/git/` links retain
 owner identity and an optional root precondition. Workspace graph/commit
 reads now match the agent and terminal APIs; supplied roots are checked
 before all three perform their Git reads. See the
-[v2 acceptance table](plans/mobile-v2.md).
+[v2 acceptance table](../plans/mobile-v2.md).
 `#m-app` is pinned to `visualViewport` so the composer and a one-row
 terminal extra-keys accessory stay above the software keyboard
 (ADR-0044); the accessory follows a user tap, not attach-time focus,
@@ -70,7 +70,7 @@ The PWA keeps the root worker registration and scope. Manifest identity
 start URL. Hashed assets have separate launcher/desktop/mobile caches; HTML
 and APIs remain fresh. Cache failures fall back to the network; persistence
 never blocks a successful asset response. Parsed source imports and transitive
-shared build dependencies enforce the headless package boundary. See the [migration inventory and decision table](plans/mobile-decoupling.md).
+shared build dependencies enforce the headless package boundary. See the [migration inventory and decision table](../plans/mobile-decoupling.md).
 **Web Push (ADR-0047):** `internal/push` (stdlib VAPID + RFC 8291) posts
 encrypted messages to each subscribed browser's push service; the store
 holds subscriptions (`/api/push/*`), `sw.js` shows them and routes a tap

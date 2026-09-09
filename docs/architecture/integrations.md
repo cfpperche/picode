@@ -35,5 +35,5 @@ link-local/metadata addresses are refused, including at DNS dial time. No raw
 receiver response or credential-bearing URL enters delivery errors or audit.
 This is outbound data disclosure to an owner-selected service, not agent tool
 access. The ordinary device gate protects all `/api/webhooks` CRUD/test/secret
-routes. See [acceptance tables](plans/integrations.md) and the
+routes. See [acceptance tables](../plans/integrations.md) and the
 [public guide](../docs-site/guide/integrations.md).
