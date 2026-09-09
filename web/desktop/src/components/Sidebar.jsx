@@ -48,7 +48,7 @@ export default function Sidebar({
   onGitGraph,
   onFileTree,
   onOpenDashboard,
-  apps, onOpenApp,
+  apps, nativeApps, onOpenApp,
 }) {
   const [width, setWidth] = useState(() => {
     const n = parseInt(localStorage.getItem(SIDE_KEY) || "", 10);
@@ -175,7 +175,7 @@ export default function Sidebar({
       {tab === "pins" ? (
         <Pins />
       ) : tab === "apps" ? (
-        <AppsGrid apps={apps} onOpen={onOpenApp} />
+        <AppsGrid apps={apps} nativeApps={nativeApps} onOpen={onOpenApp} />
       ) : tab === "terms" ? (
       <div className="side-section">
         <div className="pins-head">

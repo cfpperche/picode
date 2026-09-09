@@ -6,7 +6,7 @@ import { startFeed, subscribeFeed } from "@picode/shared/client/feed.js";
 import { applyTui, touches } from "@picode/shared/domain/feedReducers.js";
 import { applyChecklists, indexChecklists } from "@picode/shared/domain/checklist.js";
 import { startReconnectWatch } from "@picode/shared/client/reconnect.js";
-import { normalizeManifests } from "@picode/shared/contracts/appPrimitives.js";
+import { normalizeManifests, nativeApp } from "@picode/shared/contracts/appPrimitives.js";
 import { needsYou } from "./lib/needsYou.js";
 import { asksOnSurface, needsYouPlan } from "@picode/shared/domain/notice.js";
 import { workspaceHash } from "./lib/routes.js";
@@ -43,6 +43,7 @@ import { usePoll } from "./hooks/usePoll.js";
 import { useVisualViewport } from "./hooks/useVisualViewport.js";
 import { hasUnseenRelease, shouldAutoOpen, readSeenVersion, writeSeenVersion } from "./lib/whatsNew.js";
 import ScreenBoundary, { ScreenError, ScreenLoading } from "./components/ScreenBoundary.jsx";
+import NativeAppNotice from "./components/NativeAppNotice.jsx";
 import { saveAgentConfig } from "./lib/agentConfig.js";
 import { fleetRouteReady } from "./lib/fleetReads.js";
 import { deliverGitCommand } from "./lib/gitDelivery.js";
@@ -385,7 +386,12 @@ export default function MobileApp() {
   if (!fleetRouteReady(route, fleet.known, !!resourceFound)) {
     body = fleetError ? <ScreenError message={fleetError} onRetry={reload} /> : <ScreenLoading />;
   } else if (route.screen === "app") {
-    body = <div className="m-screen m-app-screen"><AppSurface key={route.id} appId={route.id} initialPath={route.path || ""} manifest={apps.find((a) => a.id === route.id)} hidden={false} onClose={() => goBack(route)} onGoto={onAppGoto} onPathChange={(path) => { location.hash = "#/app/" + encodeURIComponent(route.id) + (path ? "/" + path.split("/").map(encodeURIComponent).join("/") : ""); }} /></div>;
+    // A native app (ADR-0109) has no body on the phone: one line and Back,
+    // not a primitives view that would only say it opens on the desktop.
+    const manifest = apps.find((a) => a.id === route.id);
+    body = nativeApp(manifest)
+      ? <NativeAppNotice manifest={manifest} onBack={() => goBack(route)} />
+      : <div className="m-screen m-app-screen"><AppSurface key={route.id} appId={route.id} initialPath={route.path || ""} manifest={manifest} hidden={false} onClose={() => goBack(route)} onGoto={onAppGoto} onPathChange={(path) => { location.hash = "#/app/" + encodeURIComponent(route.id) + (path ? "/" + path.split("/").map(encodeURIComponent).join("/") : ""); }} /></div>;
   } else if (route.screen === "files" || route.screen === "git") {
     const owner = { kind: route.section, id: route.id };
     const title = changeOwner?.agent?.name || changeOwner?.term?.name || changeOwner?.workspace?.name || "Project";

@@ -29,6 +29,10 @@ export function normalizeManifests(payload) {
       name: m.name,
       icon: typeof m.icon === "string" ? m.icon : "",
       apiVersion: Number(m.apiVersion) || 0,
+      // Surface kind (ADR-0109): "" is the primitives view, "native" a
+      // component compiled into a shell. Kept verbatim so the gate below
+      // can refuse a kind this build has never heard of.
+      surface: m.surface == null ? "" : String(m.surface),
       badge: {
         count: Number(m.badge?.count) || 0,
         dot: !!m.badge?.dot,
@@ -38,8 +42,24 @@ export function normalizeManifests(payload) {
   return out;
 }
 
-export function supportedApp(manifest) {
-  return !!manifest && manifest.apiVersion === SUPPORTED_API;
+// supportedApp is the gate a tile and a tab both pass through: the
+// apiVersion this build speaks, and a surface it can draw — primitives on
+// every shell, native only when the shell's registry (a Set of app ids)
+// compiled that app in. The phone passes no registry, so every native app
+// reads as unsupported there; an unknown surface is unsupported everywhere.
+export function supportedApp(manifest, nativeSurfaces) {
+  if (!manifest || manifest.apiVersion !== SUPPORTED_API) return false;
+  const surface = manifest.surface || "";
+  if (surface === "") return true;
+  if (surface === "native") return !!(nativeSurfaces && typeof nativeSurfaces.has === "function" && nativeSurfaces.has(manifest.id));
+  return false;
+}
+
+// nativeApp says whether a manifest wants the native surface at all — the
+// shells use it for copy ("Desktop only", "opens on the desktop"), never
+// for the enable decision, which is supportedApp's.
+export function nativeApp(manifest) {
+  return !!manifest && manifest.surface === "native";
 }
 
 function normalizeAction(a) {

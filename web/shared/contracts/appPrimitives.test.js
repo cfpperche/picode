@@ -4,6 +4,7 @@ import {
   SUPPORTED_API,
   normalizeManifests,
   supportedApp,
+  nativeApp,
   normalizeView,
   aggregateBadge,
   activeAppTab,
@@ -61,10 +62,23 @@ test("normalizeManifests keeps valid rows, drops junk", () => {
   });
   assert.equal(out.length, 2);
   assert.deepEqual(out[0], {
-    id: "demo", name: "Demo", icon: "flask", apiVersion: 1, badge: { count: 3, dot: false },
+    id: "demo", name: "Demo", icon: "flask", apiVersion: 1, surface: "", badge: { count: 3, dot: false },
   });
   assert.equal(out[1].apiVersion, 9);
   assert.equal(out[1].badge.dot, true);
+});
+
+test("normalizeManifests keeps the surface kind verbatim (ADR-0109)", () => {
+  const out = normalizeManifests({ apps: [
+    { id: "inbox", name: "Inbox", apiVersion: 1 },
+    { id: "matrix", name: "Matrix", apiVersion: 1, surface: "native" },
+    { id: "odd", name: "Odd", apiVersion: 1, surface: "hologram" },
+    { id: "num", name: "Num", apiVersion: 1, surface: 7 },
+  ] });
+  assert.deepEqual(out.map((m) => m.surface), ["", "native", "hologram", "7"]);
+  assert.equal(nativeApp(out[1]), true);
+  assert.equal(nativeApp(out[0]), false);
+  assert.equal(nativeApp(null), false);
 });
 
 test("normalizeManifests survives junk payloads", () => {
@@ -77,6 +91,34 @@ test("supportedApp gates on apiVersion", () => {
   assert.equal(supportedApp({ apiVersion: SUPPORTED_API }), true);
   assert.equal(supportedApp({ apiVersion: 99 }), false);
   assert.equal(supportedApp(null), false);
+});
+
+// The decision table of ADR-0109, one assertion per row: the registry a
+// shell passes is a Set of the app ids it compiled in.
+test("supportedApp gates on the surface a shell can draw (ADR-0109)", () => {
+  const desktop = new Set(["matrix"]);
+  const primitives = { id: "inbox", name: "Inbox", apiVersion: SUPPORTED_API, surface: "" };
+  const native = { id: "matrix", name: "Matrix", apiVersion: SUPPORTED_API, surface: "native" };
+  // surface "" (primitives): enabled on any shell, registry or not.
+  assert.equal(supportedApp(primitives, desktop), true);
+  assert.equal(supportedApp(primitives), true);
+  assert.equal(supportedApp(primitives, new Set()), true);
+  // surface "native", id registered (desktop): enabled.
+  assert.equal(supportedApp(native, desktop), true);
+  // surface "native", id not registered (an older desktop bundle): unsupported.
+  assert.equal(supportedApp(native, new Set(["other"])), false);
+  assert.equal(supportedApp(native, new Set()), false);
+  // surface "native" on a shell with no registry at all (mobile): unsupported.
+  assert.equal(supportedApp(native), false);
+  assert.equal(supportedApp(native, null), false);
+  // surface other value: unsupported everywhere, even when the id is registered.
+  assert.equal(supportedApp({ ...native, surface: "hologram" }, desktop), false);
+  assert.equal(supportedApp({ ...primitives, surface: "7" }), false);
+  // apiVersion ≠ 1: unsupported as today, registry or not.
+  assert.equal(supportedApp({ ...native, apiVersion: 2 }, desktop), false);
+  assert.equal(supportedApp({ ...primitives, apiVersion: 0 }), false);
+  // A manifest that predates the field (no surface key) is a primitives app.
+  assert.equal(supportedApp({ id: "old", apiVersion: SUPPORTED_API }, desktop), true);
 });
 
 test("normalizeView refuses unsupported versions", () => {

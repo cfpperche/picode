@@ -46,6 +46,8 @@ import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
 import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
+import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
+import { nativeApps, nativeSurfaceFor } from "./lib/nativeApps.js";
 import { normalizeManifests } from "@picode/shared/contracts/appPrimitives.js";
 const PinStudio = lazy(() => import("./components/PinStudio.jsx"));
 import { startPresence } from "@picode/shared/client/device.js";
@@ -102,6 +104,11 @@ import { createWorkspaceSchema, createWorkspaceCloneSchema, createFreeAgentSchem
 import { parentDir } from "@picode/shared/domain/cloneUrl.js";
 import Toasts from "./components/Toasts.jsx";
 import { useMedia } from "./lib/media.js";
+
+// Native app surfaces this shell compiled in (ADR-0109), by manifest id.
+// The only entry today is the hidden QA demo (the server lists it with
+// PICODE_DEMO_APP=1); the Matrix registers here in phase 3.
+const NATIVE_APPS = nativeApps({ "demo-native": NativeDemoSurface });
 
 export default function App() {
   const narrow = useMedia("(max-width: 767px)");
@@ -2595,6 +2602,7 @@ export default function App() {
         onFileTree={openTreeTab}
         onOpenDashboard={() => { setDashboardPinned(true); setNavigationOpen(false); }}
         apps={apps}
+        nativeApps={NATIVE_APPS}
         onOpenApp={(id) => { openTab(appTabId(id)); if (parseRoute() !== "workspace") location.hash = appHash(id); }}
         onChat={(id) => {
           revealAgent(id);
@@ -2730,28 +2738,55 @@ export default function App() {
               />
             );
           })}
-          {tabs.filter(isAppTab).map((id) => (
-            <AppSurface
-              key={id}
-              appId={tabAppId(id)}
-              initialPath={appRoute(hash) === tabAppId(id) ? appPath(hash) : undefined}
-              onPathChange={(path) => {
-                if (selectedId !== id) return;
-                const next = appHash(tabAppId(id), path);
-                if (location.hash !== next) { history.replaceState(null, "", next); setHash(next); }
-              }}
-              hidden={selectedId !== id}
-              manifest={apps.find((a) => a.id === tabAppId(id)) || null}
-              onClose={() => closeTab(id)}
-              onGoto={(g) => {
-                // Apps can focus an agent's existing tab; "agent:" opens its
-                // interactive TUI (replies land in the terminal itself now).
-                if (g.startsWith("agent:")) openInteractive(g.slice("agent:".length));
-                // A reminder's "Open pin" lands in the studio (ADR-0100).
-                if (g.startsWith("pin:")) location.hash = "#/pins/" + encodeURIComponent(g.slice("pin:".length));
-              }}
-            />
-          ))}
+          {tabs.filter(isAppTab).map((id) => {
+            const appId = tabAppId(id);
+            const manifest = apps.find((a) => a.id === appId) || null;
+            // A native surface (ADR-0109) mounts the registered component
+            // instead of AppSurface — same key, kept mounted and hidden like
+            // every tab — with `host`: the client twin of Go's apps.Host and
+            // the whole API a native app gets. Rebuilt per render like any
+            // prop object; the app reads it and never imports App state.
+            const Native = nativeSurfaceFor(manifest, NATIVE_APPS);
+            if (Native) {
+              return (
+                <Native
+                  key={id}
+                  manifest={manifest}
+                  hidden={selectedId !== id}
+                  onClose={() => closeTab(id)}
+                  host={{
+                    fleet: { workspaces, freeAgents, terminals },
+                    openTabs: tabs,
+                    openTab, openInteractive, revealAgent, openFileTab,
+                    feed: subscribeFeed,
+                  }}
+                />
+              );
+            }
+            return (
+              <AppSurface
+                key={id}
+                appId={appId}
+                nativeSurfaces={NATIVE_APPS.ids}
+                initialPath={appRoute(hash) === appId ? appPath(hash) : undefined}
+                onPathChange={(path) => {
+                  if (selectedId !== id) return;
+                  const next = appHash(appId, path);
+                  if (location.hash !== next) { history.replaceState(null, "", next); setHash(next); }
+                }}
+                hidden={selectedId !== id}
+                manifest={manifest}
+                onClose={() => closeTab(id)}
+                onGoto={(g) => {
+                  // Apps can focus an agent's existing tab; "agent:" opens its
+                  // interactive TUI (replies land in the terminal itself now).
+                  if (g.startsWith("agent:")) openInteractive(g.slice("agent:".length));
+                  // A reminder's "Open pin" lands in the studio (ADR-0100).
+                  if (g.startsWith("pin:")) location.hash = "#/pins/" + encodeURIComponent(g.slice("pin:".length));
+                }}
+              />
+            );
+          })}
           <ChatSurface
             hidden={noTabs || missing || termView || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId)}
             stopped={stopped}

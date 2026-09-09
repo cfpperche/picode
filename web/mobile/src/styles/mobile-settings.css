@@ -75,6 +75,11 @@
 #m-app .m-more-page .app-tile-name { color: var(--text-primary); font-size: 14px; font-weight: 600; white-space: normal; overflow-wrap: anywhere; }
 #m-app .m-more-page .app-tile-note { color: var(--text-secondary); font-size: 12px; }
 #m-app .m-more-page .app-tile-unsupported { opacity: 1; }
+/* A native app's deep link (ADR-0109): one line and Back under the pushed
+   screen's header — the route-state shape inside a padded screen, so the
+   header sits where every other pushed screen's header sits. */
+#m-app .m-native-notice .m-route-state { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 0; color: var(--text-secondary); }
+#m-app .m-native-notice .m-route-state p { margin: 0; font-size: 14px; color: var(--text-primary); }
 #m-app .m-more-page .side-section > .m-settings-empty { margin: 12px var(--m-pad); }
 
 #m-app .m-app-screen { padding: 0; gap: 0; overflow: hidden; }
