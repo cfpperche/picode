@@ -10,6 +10,7 @@
 - `feat/herdr-validation`, `feat/picode-video-pilot` — carry `CHANGELOG.md` edits and the pre-ADR-0105 12 KB `docs/handoff.md`. Their next merge of `main` conflicts in both one last time: keep this file's shape and stay under 8 KB; any further changelog line goes to `docs/changelog.d/`.
 - `feat/docs-adversarial` — docs-vs-code sweep fixes + `picode --version`; fragment `docs/changelog.d/docs-adversarial.md`; ff-ready after one more `make close` for the handoff note.
 - `feat/fix-default-context-menu` — one-line web fix (default context menu rows match the terminal menu); ff-ready, fragment `docs/changelog.d/fix-default-context-menu.md`.
+- `feat/checklist-line-no-chevron` — plan line on workspace cards: no chevron, italic, slot keeps the 39px text column; ff-ready with fragment + handoff note.
 
 ## Next up
 
