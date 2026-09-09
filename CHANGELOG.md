@@ -146,6 +146,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Fixed
 
+- **Stable Agent CLIs layout.** All tabs share the same page width, card
+  padding and tab alignment. Switching to Packages no longer narrows the
+  page; desktop scrolling keeps its horizontal space reserved. Sessions and
+  CLI setup actions wrap within narrow screens.
+
 - **Native settings recovery.** Keep unsaved model patterns across temporary refresh failures, block stale writes until retry succeeds, and leave mobile agent settings and global key bindings usable when Pi defaults cannot be read. Desktop tool-mode restart failures stay visible as partial success and stop the sequence. Tools and Checklist menus now fit within the desktop viewport.
 
 - **Pins: opening a pin with a heading or a list no longer restores an

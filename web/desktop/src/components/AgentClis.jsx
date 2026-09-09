@@ -9,7 +9,7 @@ import { cliLaunchSchema, cliTerminalSchema, parseForm } from "@picode/shared/co
 import { cliLocation, launchDraft, launchConfig, editLaunchOverrides, resolveLaunch, cliTerminals, terminalLaunchCLI, profileOverrides, cliWorkspaceList } from "@picode/shared/domain/cliLaunch.js";
 import { terminalCli, terminalStatusLabel, terminalStatus } from "@picode/shared/domain/terminalCli.js";
 import { termHash } from "../lib/routes.js";
-import PageFrame from "./PageFrame.jsx";
+import AgentClisFrame from "./AgentClisFrame.jsx";
 import CliTabs from "./CliTabs.jsx";
 import CliSettings from "./CliSettings.jsx";
 import CliPackages from "./CliPackages.jsx";
@@ -21,7 +21,6 @@ import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { IconChevronRight } from "./Icons.jsx";
 import { CLIDefaults, LaunchFields, LaunchPreview, confirmDiscard, useLaunchGuard } from "./CliLaunchSettings.jsx";
 import { CLIProfiles, CLIProfileEditor } from "./CliProfiles.jsx";
-import "./agent-clis.css";
 
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 const navigate = (path) => { location.hash = "#/clis" + path; };
@@ -132,7 +131,7 @@ export default function AgentClis({ hidden = false, catalog, legacyAgentId = "",
   if (route.view === "packages") return <CliPackages onPackageUpdates={onPackageUpdates} hidden={hidden} hash={hash} legacyContext={legacyPackageContext} legacyContextReady={legacyContextReady} catalog={catalog} />;
   if (route.view === "settings") return <CliSettings hidden={hidden} hash={hash} legacyAgentId={legacyAgentId} catalog={catalog} onAgentConfig={onAgentConfig} />;
 
-  return <PageFrame id="agent-clis-view" title="Agent CLIs" hidden={hidden} wide>
+  return <AgentClisFrame hidden={hidden}>
     <CliTabs view={route.view} packagesHref={cliPackagesHash("pi", legacyPackageContext)} hasPackageUpdates={packageUpdates.length > 0} />
     {error && route.view !== "sessions" ? <Notice danger action="Try again" onAction={refresh}>{error}</Notice> : null}
     {!data && !error && route.view !== "sessions" ? <div className="cli-loading" aria-label="Loading Agent CLIs"><div /><div /><div /></div> : null}
@@ -156,7 +155,7 @@ export default function AgentClis({ hidden = false, catalog, legacyAgentId = "",
         <TerminalCliBadge term={{ cli: c.id }} /><span><strong>{c.name}</strong><small>{c.installed ? (c.diagnostic?.updateAvailable ? "Update available" : "Installed") : "Not found"}</small></span>{c.diagnostic?.updateAvailable ? <span className="cli-update-pill">Update</span> : null}<IconChevronRight size={14} />
       </a>)}</nav>
       <div className="cli-detail" key={selected.id}>
-        <div className="cli-heading"><div><h3>{selected.name}</h3><p>{selected.diagnostic?.version || (selected.installed ? "Version not checked" : "Not installed")}{selected.diagnostic?.stale ? " · check out of date" : ""}{selected.diagnostic?.updateAvailable ? ` · update available${selected.diagnostic.latest ? " to " + selected.diagnostic.latest : ""}` : ""}</p>{updateLine ? <p>{updateLine}</p> : selected.diagnostic ? <p>Checked {new Date(selected.diagnostic.checkedAt).toLocaleString()}</p> : null}</div><div className="cli-actions" data-align-row>
+        <div className="cli-heading"><div><h3>{selected.name}</h3><p>{selected.diagnostic?.version || (selected.installed ? "Version not checked" : "Not installed")}{selected.diagnostic?.stale ? " · check out of date" : ""}{selected.diagnostic?.updateAvailable ? ` · update available${selected.diagnostic.latest ? " to " + selected.diagnostic.latest : ""}` : ""}</p>{updateLine ? <p>{updateLine}</p> : selected.diagnostic ? <p>Checked {new Date(selected.diagnostic.checkedAt).toLocaleString()}</p> : null}</div><div className="cli-actions" data-align-row data-align-wrap>
           <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => { run("check:" + selected.id, async () => { const d = await api(`/api/clis/${selected.id}/check`, json("POST", {})); if (d.error) toastError(new Error(d.error)); }).catch(() => {}); }}>{busy === "check:" + selected.id ? "Checking…" : "Check setup"}</button>
           {!selected.installed && selected.lifecycle?.canInstall ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("install")}>{lifecycleBusy ? "Working…" : "Install"}</button> : null}
           {selected.installed && selected.lifecycle?.canUpdate && selected.diagnostic?.updateAvailable ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("update")}>{lifecycleBusy ? "Working…" : "Update"}</button> : null}
@@ -188,7 +187,7 @@ export default function AgentClis({ hidden = false, catalog, legacyAgentId = "",
     {data && route.view === "terminals" ? <TerminalList terminals={cliTerminals(data.terminals)} workspaces={data.workspaces} busy={busy} onAction={action} onNew={() => navigate("")} all /> : null}
     {data && (route.view === "new" || route.view === "terminal") ? <TerminalEditor key={hash} route={route} data={data} run={run} busy={!!busy} /> : null}
     {data && route.view === "profile" ? <CLIProfileEditor key={hash} route={route} data={data} run={run} busy={!!busy} /> : null}
-  </PageFrame>;
+  </AgentClisFrame>;
 }
 
 function TerminalList({ terminals, workspaces, busy, onAction, onNew, all, cliName }) {
@@ -201,7 +200,7 @@ function TerminalList({ terminals, workspaces, busy, onAction, onNew, all, cliNa
       return <article className={"cli-terminal-row" + (busy.startsWith(t.id + ":") ? " is-busy" : "")} key={t.id}>
         <TerminalCliBadge term={t} />
         <div className="cli-terminal-info"><a href={termHash(t.id)}>{t.name}</a><p>{workspace?.name || "Free terminal"} · <span title={t.cwd}>{t.cwd}</span></p><div className="cli-terminal-meta"><span className={"cli-state is-" + terminalStatus(t)}>{busy.startsWith(t.id + ":") ? "Updating…" : terminalStatusLabel(t)}</span>{t.running && terminalCli(t) && !t.state ? <span>Activity not reported</span> : null}{t.launchPending ? <span>Launch changes pending</span> : null}{t.launchAttempt?.error ? <a className="cli-field-error" href={"#/clis/terminal/" + t.id}>Last launch failed · review settings</a> : null}</div></div>
-        <div className="cli-actions" data-align-row><button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => t.running ? (location.hash = termHash(t.id)) : onAction(t, "start")}>{t.running ? "Open" : "Start"}</button>
+        <div className="cli-actions" data-align-row data-align-wrap><button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => t.running ? (location.hash = termHash(t.id)) : onAction(t, "start")}>{t.running ? "Open" : "Start"}</button>
           <DropdownMenu.Root><DropdownMenu.Trigger asChild><button className="btn btn-ghost btn-sm cli-more" aria-label={"Actions for " + t.name} disabled={!!busy}>•••</button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
             <DropdownMenu.Item className="um-item" onSelect={() => navigate("/terminal/" + encodeURIComponent(t.id))}>Launch settings</DropdownMenu.Item>
             {t.running ? <><DropdownMenu.Item className="um-item" onSelect={() => onAction(t, "restart")}>Restart terminal</DropdownMenu.Item><DropdownMenu.Item className="um-item" onSelect={() => onAction(t, "stop")}>Stop terminal</DropdownMenu.Item></> : null}
@@ -263,7 +262,7 @@ function TerminalEditor({ route, data, run, busy }) {
       {custom ? <LaunchFields draft={draft} setDraft={setDraft} includeIntegration /> : <p className="cli-muted">Uses {cli.name} launch defaults.</p>}
       {existing?.launchAttempt?.error ? <Notice danger action="Back to terminals" onAction={back}>{existing.launchAttempt.error}</Notice> : null}
       {error ? <p className="cli-field-error" role="alert">{error}</p> : null}
-      <div className="cli-actions" data-align-row><button type="submit" className="btn btn-primary btn-sm" disabled={busy || (!existing && !data.terminalAvailable)}>{busy ? (existing ? "Saving…" : "Opening terminal…") : existing ? "Save launch settings" : "Open terminal"}</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={back}>Cancel</button></div>
+      <div className="cli-actions" data-align-row data-align-wrap><button type="submit" className="btn btn-primary btn-sm" disabled={busy || (!existing && !data.terminalAvailable)}>{busy ? (existing ? "Saving…" : "Opening terminal…") : existing ? "Save launch settings" : "Open terminal"}</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={back}>Cancel</button></div>
       {!custom || settingsPreview.ok ? <LaunchPreview cli={cli.id} overrides={overrides} terminalId={existing?.id} applied={existing?.launchApplied} /> : null}
     </form>}
   </section>;

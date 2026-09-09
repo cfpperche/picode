@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { api } from "@picode/shared/client/api.js";
 import { CLI_SETTINGS, cliSettingsHash, cliSettingsLocation, supportsCliSettings, loadPiSettingsContext } from "@picode/shared/domain/cliSettings.js";
-import PageFrame from "./PageFrame.jsx";
+import AgentClisFrame from "./AgentClisFrame.jsx";
 import CliTabs from "./CliTabs.jsx";
 import CliCombo from "./CliCombo.jsx";
 import PiSettings from "./PiSettings.jsx";
@@ -15,7 +15,7 @@ export default function CliSettings({ hidden, hash, legacyAgentId, catalog, onAg
     if (!hidden && route.redirect) location.replace(route.redirect);
   }, [hidden, route.redirect]);
   const supported = supportsCliSettings(route.id);
-  return <PageFrame id="agent-clis-view" title="Agent CLIs" hidden={hidden} wide>
+  return <AgentClisFrame hidden={hidden}>
     <CliTabs view="settings" packagesHref={"#/clis/packages/pi" + (route.agentId ? "?agentId=" + encodeURIComponent(route.agentId) : "")} />
     <div className="cli-settings-body">
     <div className="cli-settings-heading">
@@ -27,7 +27,7 @@ export default function CliSettings({ hidden, hash, legacyAgentId, catalog, onAg
     {!supported ? <div className="cli-notice" role="status"><span>Settings are not available for this CLI.</span><a className="btn btn-ghost btn-sm" href="#/clis">Back to CLIs</a></div>
       : !hidden && !route.redirect ? <SettingsEditor key={route.id + ":" + route.agentId} route={route} catalog={catalog} onAgentConfig={onAgentConfig} /> : null}
     </div>
-  </PageFrame>;
+  </AgentClisFrame>;
 }
 
 function SettingsEditor({ route, catalog, onAgentConfig }) {

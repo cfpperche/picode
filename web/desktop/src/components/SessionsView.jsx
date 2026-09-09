@@ -345,9 +345,9 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
 
   return (
     <PageFrame id="sessions-view" title={(workspace ? workspace.name + " · " : "") + "Sessions"} wide embedded={embedded}>
-      <div className="sessions-toolbar" data-align-row>
+      <div className="sessions-toolbar">
         <span className="sessions-total">{all ? "All folders · " : (workspace ? workspace.name + " · " : "")}{filtered.length}{query ? " of " + sessions.length : ""} {filtered.length === 1 ? "session" : "sessions"}{isPi ? " · " + fmtBytes(total) + " on disk" : ""}</span>
-        <div className="sessions-actions" data-align-row>
+        <div className="sessions-actions" data-align-row data-align-wrap>
           {!all ? (
             <a className="sessions-scope-link" href={"#/clis/sessions" + (cli !== "pi" ? "?cli=" + encodeURIComponent(cli) : "")} title={"Every " + cliName + " session on this machine, grouped by folder"}>All folders →</a>
           ) : null}

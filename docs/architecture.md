@@ -418,6 +418,10 @@ A failed desktop restart propagates to the editor as partial success after
 PATCH; a failed stop prevents start. Success is reported only after the full
 sequence completes. Desktop and mobile retain their own runtime UI adapters.
 
+Each app owns an `AgentClisFrame` for all Agent CLIs tabs. The desktop frame
+uses one 1240px maximum width, a consistent unpadded card and a stable scrollbar
+gutter; mobile uses the full page width. Route IDs do not control page sizing.
+
 ### Native CLI packages (ADR-0102)
 
 Packages is an independent Agent CLIs view in each app. The shared

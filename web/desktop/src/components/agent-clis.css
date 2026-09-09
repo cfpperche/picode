@@ -1,7 +1,8 @@
-#agent-clis-view .settings-wrap.wide { width: 100%; max-width: 1240px; }
-#agent-clis-view .settings-card { padding: 0; overflow: visible; }
+.cli-page { scrollbar-gutter: stable; }
+.cli-page > .settings-wrap.wide { width: 100%; max-width: 1240px; }
+.cli-page > .settings-wrap > .settings-card { padding: 0; overflow: visible; }
 /* Sessions (ADR-0079) render inside the paddingless Agent CLIs card. */
-#agent-clis-view > .settings-wrap > .settings-card > #sessions-view { padding: 16px 24px 24px; }
+.cli-page > .settings-wrap > .settings-card > #sessions-view { padding: 16px 24px 24px; }
 .cli-tabs { display: flex; gap: 20px; border-bottom: 1px solid var(--border); padding: 0 24px; }
 .cli-tabs a { padding: 16px 0 12px; color: var(--text-secondary); text-decoration: none; border-bottom: 2px solid transparent; }
 .cli-tabs a[aria-current] { color: var(--text-primary); border-color: var(--accent); }
@@ -18,9 +19,10 @@
 .cli-heading h3, .cli-list-heading h3 { font-size: 14px; font-weight: 600; }
 .cli-heading p { color: var(--text-secondary); margin-top: 6px; font-size: 12px; overflow-wrap: anywhere; }
 .cli-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.cli-heading > .cli-actions { flex-wrap: wrap; max-width: 100%; }
 .cli-actions .btn { height: var(--ctl-h); display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
 .cli-notice { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; background: var(--bg-base); border: 1px solid var(--border); border-radius: var(--radius-ctl); font-size: 12px; color: var(--text-secondary); margin: 12px 0; }
-#agent-clis-view > .settings-wrap > .settings-card > .cli-notice { margin: 16px 24px; }
+.cli-page > .settings-wrap > .settings-card > .cli-notice { margin: 16px 24px; }
 .cli-notice span { min-width: 0; overflow-wrap: anywhere; }
 .cli-notice .btn { flex-shrink: 0; }
 .cli-notice.is-error, .cli-field-error { color: var(--danger); }
@@ -105,10 +107,12 @@
   .cli-heading { gap: 12px; }
   .cli-heading > .cli-actions { width: 100%; }
   .cli-heading > .cli-actions .btn { flex: 1; }
+  .cli-heading > .cli-actions .cli-more { flex: 0 0 var(--ctl-h); }
   .cli-notice { flex-wrap: wrap; gap: 8px; }
   .cli-terminal-row { flex-wrap: wrap; gap: 10px; }
   .cli-terminal-row > .cli-actions { margin-left: auto; }
   .cli-tabs ~ .cli-terminals { margin: 16px; }
+  .cli-page > .settings-wrap > .settings-card > #sessions-view { padding: 16px; }
   .cli-summary-grid, .cli-effective .cli-summary-grid { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .cli-summary-grid dd { margin-bottom: 12px; }
   .cli-profile-row { flex-wrap: wrap; }
@@ -162,7 +166,7 @@
 .pi-settings-fields:disabled { opacity: .7; }
 
 .cli-settings-body { padding: 0 24px 24px; }
-@media (max-width: 719px) { .cli-settings-body { padding: 0 16px 16px; } }
+@media (max-width: 767px) { .cli-settings-body { padding: 0 16px 16px; } }
 
 .pi-settings-notice {
   display: flex; align-items: center; justify-content: space-between;

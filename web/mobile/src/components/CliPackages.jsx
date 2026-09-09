@@ -3,7 +3,7 @@ import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { CLI_PACKAGES, cliPackagesHash, cliPackagesLocation, supportsCliPackages, loadPiPackagesContext, packageContextKey } from "@picode/shared/domain/cliPackages.js";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
-import PageFrame from "./PageFrame.jsx";
+import AgentClisFrame from "./AgentClisFrame.jsx";
 import CliTabs from "./CliTabs.jsx";
 import CliCombo from "./CliCombo.jsx";
 import Packages from "./Packages.jsx";
@@ -18,7 +18,7 @@ export default function CliPackages({ hidden, hash, legacyContext = {}, legacyCo
     if (!hidden && legacyContextReady && route.redirect) location.replace(route.redirect);
   }, [hidden, route.redirect, legacyContextReady]);
   const supported = supportsCliPackages(route.id);
-  return <PageFrame id="cli-packages-view" title="Agent CLIs" hidden={hidden} wide>
+  return <AgentClisFrame id="cli-packages-view" hidden={hidden}>
     <CliTabs hasPackageUpdates={hasUpdates} view="packages" packagesHref={cliPackagesHash(route.id, { ...route, pkg: "" })} />
     <div className="cli-settings-body">
       <div className="cli-settings-heading">
@@ -31,7 +31,7 @@ export default function CliPackages({ hidden, hash, legacyContext = {}, legacyCo
         <div className="cli-notice" role="status"><span>{route.invalid ? "This package link is invalid." : !supported ? "Packages are not available for this CLI." : "Configuration is not available for this package."}</span><a className="btn btn-ghost btn-sm" href={route.invalid || !supported ? "#/clis" : cliPackagesHash(route.id, { ...route, pkg: "" })}>{route.invalid || !supported ? "Back to CLIs" : "All packages"}</a></div>
         : route.legacy && !legacyContextReady ? <div className="cli-loading" aria-label="Loading package context"><div /><div /><div /></div> : !hidden && !route.redirect ? <PackagesTarget key={route.id + ":" + route.workspaceId + ":" + route.agentId} route={route} catalog={catalog} onUpdates={(updates, workspaceId) => { setHasUpdates(updates.length > 0); onPackageUpdates?.(updates, workspaceId); }} /> : null}
     </div>
-  </PageFrame>;
+  </AgentClisFrame>;
 }
 
 function PackagesTarget({ route, catalog, onUpdates }) {
