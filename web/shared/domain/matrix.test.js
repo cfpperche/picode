@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { touches } from "./feedReducers.js";
 import {
-  MATRIX_EVENTS, MATRIX_LIMITS, applyMatrixEvent, normalizeMatrix, normalizeMatrixDetail, normalizeMatrixList,
-  normalizePanel, validateCompact, validateName, validatePanel, validatePlacement,
+  LOAD_DWELL_MS, MATRIX_EVENTS, MATRIX_LIMITS, PANEL_DEFAULT, SUSPENDED_MAX, SUSPENDED_TTL_MS, UNLOAD_AFTER_MS,
+  applyMatrixEvent, bindingState, layoutDiff, loadPolicy, nextSlot, normalizeMatrix, normalizeMatrixDetail,
+  normalizeMatrixList, normalizePanel, suspendedToDispose, validateCompact, validateName, validatePanel, validatePlacement,
 } from "./matrix.js";
 
 const summary = (id, name, extra = {}) => ({
@@ -174,4 +175,150 @@ test("deleted drops the summary and the loaded matrix", () => {
   assert.deepEqual(Object.keys(next.byId), ["m2"]);
   assert.equal(applyMatrixEvent(next, { type: "matrix.deleted", data: { id: "m1" } }), next);
   assert.equal(s.list.length, 2, "the previous state is not mutated");
+});
+
+// ---- the surface's arithmetic (plan §4.3–§4.6) ----------------------------
+
+const rect = (id, x, y, w = 4, h = 14) => ({ id, x, y, w, h });
+
+test("nextSlot: the first free slot scanning rows, then the bottom", () => {
+  assert.deepEqual(PANEL_DEFAULT, { w: 4, h: 14 });
+  assert.deepEqual(nextSlot([]), { x: 0, y: 0 });
+  assert.deepEqual(nextSlot([rect("a", 0, 0)]), { x: 4, y: 0 }, "beside the first panel");
+  assert.deepEqual(nextSlot([rect("a", 0, 0), rect("b", 8, 0)]), { x: 4, y: 0 }, "a gap in the first row is taken first");
+  assert.deepEqual(nextSlot([rect("a", 0, 0), rect("b", 4, 0), rect("c", 8, 0)]), { x: 0, y: 14 }, "a full row: the next row");
+  assert.deepEqual(nextSlot([rect("a", 0, 0), rect("b", 4, 0, 8, 8)]), { x: 4, y: 8 }, "under a short panel, beside a tall one");
+  assert.deepEqual(nextSlot([rect("a", 0, 0)], 12, 14), { x: 0, y: 14 }, "a full-width panel goes under everything");
+  assert.deepEqual(nextSlot([rect("a", 0, 0, 12, 8)], 4, 8), { x: 0, y: 8 });
+  assert.deepEqual(nextSlot([rect("a", 0, 0), rect("b", 4, 0, 4, 8), rect("c", 8, 0)], 4, 8), { x: 4, y: 8 }, "a pocket the exact size counts");
+  assert.deepEqual(nextSlot([rect("a", 0, 0), rect("b", 4, 0, 4, 8), rect("c", 8, 0), rect("d", 4, 12)], 4, 8), { x: 0, y: 14 }, "a pocket with a panel under it is too short");
+  assert.deepEqual(nextSlot([rect("a", 0, 0), { id: "junk", x: 1.5 }]), { x: 4, y: 0 }, "a panel without a whole rectangle is ignored");
+  assert.deepEqual(nextSlot([rect("a", 0, 0)], 6, 14, 8), { x: 0, y: 14 }, "cols bounds the candidates");
+});
+
+test("layoutDiff: the changed rectangles of panels present in both layouts", () => {
+  const prev = [rect("a", 0, 0), rect("b", 4, 0), rect("c", 8, 0)];
+  assert.deepEqual(layoutDiff(prev, prev), []);
+  assert.deepEqual(layoutDiff(prev, [rect("a", 0, 14), rect("b", 4, 0), rect("c", 8, 0)]), [{ id: "a", x: 0, y: 14, w: 4, h: 14 }]);
+  assert.deepEqual(layoutDiff(prev, [rect("a", 0, 0), rect("b", 4, 0, 8, 14), rect("c", 8, 14)]), [{ id: "b", x: 4, y: 0, w: 8, h: 14 }, { id: "c", x: 8, y: 14, w: 4, h: 14 }]);
+  assert.deepEqual(layoutDiff(prev, [...prev, rect("new", 0, 14)]), [], "an added panel is its own POST");
+  assert.deepEqual(layoutDiff(prev, [rect("a", 0, 0)]), [], "a removed panel is its own DELETE");
+  assert.deepEqual(layoutDiff(prev, [{ ...rect("a", 0, 14), kind: "terminal", ref: "t1", extra: 1 }]), [{ id: "a", x: 0, y: 14, w: 4, h: 14 }], "only the rectangle travels");
+  assert.deepEqual(layoutDiff(prev, [rect("a", 0, 14, 3, 14), rect("b", 4, 14)]), [{ id: "b", x: 4, y: 14, w: 4, h: 14 }], "an invalid rectangle is left out, the rest still goes");
+  assert.deepEqual(layoutDiff(null, null), []);
+});
+
+// §4.4, one assertion per row.
+const fleet = {
+  workspaces: [{ id: "w1", name: "App", agents: [{ id: "a-int", mode: "interactive" }, { id: "a-man", mode: "managed" }, { id: "a-off", mode: "stopped" }] }],
+  freeAgents: [{ id: "a-free", mode: "managed" }, { id: "a-nomode" }],
+  terminals: [{ id: "t-sh", running: true }, { id: "t-dead", running: false }, { id: "t-cli", running: true, launchCli: "claude" }, { id: "t-cli-off", running: false, launchCli: "claude" }],
+};
+const bound = (kind, ref) => ({ id: "p", kind, ref, x: 0, y: 0, w: 4, h: 14 });
+
+test("bindingState: terminal rows of §4.4", () => {
+  assert.equal(bindingState(bound("terminal", "t-sh"), fleet), "terminal-running");
+  assert.equal(bindingState(bound("terminal", "t-cli"), fleet), "terminal-running");
+  assert.equal(bindingState(bound("terminal", "t-dead"), fleet), "terminal-running", "a plain shell revives on open");
+  assert.equal(bindingState(bound("terminal", "t-cli-off"), fleet), "terminal-stopped", "only a CLI terminal has a stopped state");
+  assert.equal(bindingState(bound("terminal", "t-gone"), fleet), "terminal-gone");
+});
+
+test("bindingState: agent rows of §4.4", () => {
+  assert.equal(bindingState(bound("agent", "a-int"), fleet), "agent-interactive");
+  assert.equal(bindingState(bound("agent", "a-man"), fleet), "agent-managed");
+  assert.equal(bindingState(bound("agent", "a-free"), fleet), "agent-managed", "free agents count");
+  assert.equal(bindingState(bound("agent", "a-off"), fleet), "agent-stopped");
+  assert.equal(bindingState(bound("agent", "a-nomode"), fleet), "agent-stopped");
+  assert.equal(bindingState(bound("agent", "a-gone"), fleet), "agent-gone");
+  assert.equal(bindingState(bound("agent", "w1"), fleet), "agent-gone", "a workspace id is not an agent");
+  assert.equal(bindingState(bound("pin", "x"), fleet), "");
+  assert.equal(bindingState(null, fleet), "");
+  assert.equal(bindingState(bound("terminal", "t-sh"), null), "terminal-gone");
+});
+
+// §4.5, one test per row. `near` is the observer's word plus the surface
+// being visible; the caller runs the policy on every change and at wakeAt.
+const NONE = new Set();
+const run = (entries, now, pinned, timers) => loadPolicy(entries, now, pinned, timers);
+
+test("loadPolicy: a wrapper loads after it stays near for 300 ms, not before", () => {
+  assert.equal(LOAD_DWELL_MS, 300);
+  let r = run([{ id: "p1", near: true, loaded: false }], 1000, NONE, {});
+  assert.deepEqual(r.load, []);
+  assert.equal(r.wakeAt, 1300, "sleep until the dwell ends");
+  r = run([{ id: "p1", near: true, loaded: false }], 1100, NONE, r.timers);
+  assert.deepEqual(r.load, [], "still dwelling");
+  assert.equal(r.wakeAt, 1300, "the deadline does not slide");
+  r = run([{ id: "p1", near: true, loaded: false }], 1300, NONE, r.timers);
+  assert.deepEqual(r.load, ["p1"]);
+  assert.deepEqual(r.timers, {}, "loaded: nothing pending");
+  assert.equal(r.wakeAt, 0);
+});
+
+test("loadPolicy: leaving the margin cancels a pending load at once (a fly-over loads nothing)", () => {
+  let r = run([{ id: "p1", near: true, loaded: false }], 1000, NONE, {});
+  r = run([{ id: "p1", near: false, loaded: false }], 1100, NONE, r.timers);
+  assert.deepEqual(r.load, []);
+  assert.deepEqual(r.timers, {});
+  assert.equal(r.wakeAt, 0);
+  r = run([{ id: "p1", near: true, loaded: false }], 1200, NONE, r.timers);
+  assert.equal(r.wakeAt, 1500, "coming back starts a fresh dwell");
+});
+
+test("loadPolicy: a loaded body unloads 5 s after it left, and coming back cancels that", () => {
+  assert.equal(UNLOAD_AFTER_MS, 5000);
+  let r = run([{ id: "p1", near: false, loaded: true }], 1000, NONE, {});
+  assert.deepEqual(r.unload, []);
+  assert.equal(r.wakeAt, 6000);
+  r = run([{ id: "p1", near: false, loaded: true }], 4000, NONE, r.timers);
+  assert.deepEqual(r.unload, [], "hysteresis: still inside the 5 s");
+  r = run([{ id: "p1", near: true, loaded: true }], 4500, NONE, r.timers);
+  assert.deepEqual(r.timers, {}, "back in view: the unload is dropped");
+  assert.equal(r.wakeAt, 0);
+  r = run([{ id: "p1", near: false, loaded: true }], 5000, NONE, r.timers);
+  r = run([{ id: "p1", near: false, loaded: true }], 10000, NONE, r.timers);
+  assert.deepEqual(r.unload, ["p1"]);
+  assert.deepEqual(r.timers, {});
+});
+
+test("loadPolicy: a pinned panel never unloads; unpinning starts the 5 s from then", () => {
+  const pinned = new Set(["p1"]);
+  let r = run([{ id: "p1", near: false, loaded: true }], 1000, pinned, {});
+  assert.deepEqual(r.unload, []);
+  assert.deepEqual(r.timers, {}, "no unload timer while pinned");
+  r = run([{ id: "p1", near: false, loaded: true }], 60000, pinned, r.timers);
+  assert.deepEqual(r.unload, [], "a minute out of view, still pinned");
+  r = run([{ id: "p1", near: false, loaded: true }], 60000, NONE, r.timers);
+  assert.equal(r.wakeAt, 65000, "unpinned: the clock starts now");
+});
+
+test("loadPolicy: a hidden matrix (every panel reported far) unloads everything after 5 s", () => {
+  const far = ["p1", "p2", "p3"].map((id) => ({ id, near: false, loaded: true }));
+  let r = run(far, 1000, NONE, {});
+  assert.deepEqual(r.unload, []);
+  r = run(far, 6000, NONE, r.timers);
+  assert.deepEqual(r.unload, ["p1", "p2", "p3"]);
+});
+
+test("loadPolicy: mixed panels — wakeAt is the earliest deadline, junk is skipped", () => {
+  let r = run([{ id: "a", near: true, loaded: false }, { id: "b", near: false, loaded: true }, { id: "c", near: true, loaded: true }, { near: true }, null], 1000, NONE, {});
+  assert.equal(r.wakeAt, 1300);
+  assert.deepEqual(Object.keys(r.timers).sort(), ["a", "b"]);
+  r = run([{ id: "a", near: true, loaded: true }, { id: "b", near: false, loaded: true }], 1300, NONE, r.timers);
+  assert.equal(r.wakeAt, 6000, "a loaded, b still counting down");
+  assert.deepEqual(run([], 5, NONE, {}), { load: [], unload: [], timers: {}, wakeAt: 0 });
+  assert.deepEqual(run(null, 5, null, null), { load: [], unload: [], timers: {}, wakeAt: 0 });
+});
+
+test("suspendedToDispose: past 24 instances the oldest go, past 10 min any goes", () => {
+  assert.equal(SUSPENDED_MAX, 24);
+  assert.equal(SUSPENDED_TTL_MS, 600000);
+  const at = (n) => ({ id: "t" + n, at: 1000 + n });
+  const list = Array.from({ length: 26 }, (_, i) => at(i));
+  assert.deepEqual(suspendedToDispose(list, 2000), ["t0", "t1"], "two over the cap: the two oldest");
+  assert.deepEqual(suspendedToDispose(list.slice(0, 24), 2000), []);
+  assert.deepEqual(suspendedToDispose([{ id: "old", at: 0 }, { id: "fresh", at: 500000 }], 600000), ["old"]);
+  assert.deepEqual(suspendedToDispose([{ id: "b", at: 20 }, { id: "a", at: 10 }], 30, 1), ["a"], "sorted by age, not by order");
+  assert.deepEqual(suspendedToDispose([{ id: "x" }, null, { at: 1 }], 5), []);
 });

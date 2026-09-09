@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createWorkspaceSchema, createFreeAgentSchema, mcpAddSchema, pairsToMap, parseForm, appFormSchema, commitMessageSchema, rolesConfigSchema } from "./schemas.js";
+import { createWorkspaceSchema, createFreeAgentSchema, mcpAddSchema, pairsToMap, parseForm, appFormSchema, commitMessageSchema, rolesConfigSchema, matrixNameSchema } from "./schemas.js";
 
 const pick = { provider: "xai", model: "grok-4.6", thinking: "low" };
 
@@ -85,4 +85,11 @@ test("roles config validates like the extension (ADR-0028/0033)", () => {
   assert.match(parseForm(rolesConfigSchema, {
     builtin: {}, custom: [{ name: "x", model: "p/m" }, { name: "x", model: "p/q" }],
   }).error, /duplicated/);
+});
+
+test("matrix name: trimmed, 1–80 characters, the store's messages (ADR-0108)", () => {
+  assert.equal(parseForm(matrixNameSchema, { name: "  " }).error, "name is required");
+  assert.equal(parseForm(matrixNameSchema, { name: "é".repeat(81) }).error, "name is too long (max 80 characters)");
+  assert.equal(parseForm(matrixNameSchema, { name: "😀".repeat(80) }).ok, true, "code points, not UTF-16 units");
+  assert.deepEqual(parseForm(matrixNameSchema, { name: "  Ops  " }).value, { name: "Ops" });
 });

@@ -6,7 +6,12 @@
 // reduces the six feed events over { list: [summaries], byId: { id:
 // { matrix, panels } } }. touches(ev, ["matrix"]) in feedReducers.js keys
 // on the prefix before the first dot, so matrix.panel.* reaches the
-// surface with the rest.
+// surface with the rest. The surface's arithmetic lives here too (plan
+// docs/plans/matrix-app.md §4.3–§4.6): nextSlot, layoutDiff, bindingState,
+// loadPolicy and the suspended-instance LRU — decisions the components
+// only carry out.
+
+import { locate } from "./tree.js";
 
 export const MATRIX_LIMITS = Object.freeze({
   matrices: 64, // per machine
@@ -198,4 +203,138 @@ export function applyMatrixEvent(state, ev) {
     default:
       return s;
   }
+}
+
+// ---- the surface's arithmetic (plan §4.3–§4.6) ----------------------------
+
+// A new panel is 4×14 cells: ≈ 58×20 characters at 1584 px (phase 0 study);
+// minW/minH are the store's 4×8.
+export const PANEL_DEFAULT = Object.freeze({ w: 4, h: 14 });
+// Chunk loading (§4.5): a body mounts after its wrapper has been near the
+// viewport for 300 ms and unmounts 5 s after it left; a suspended xterm is
+// disposed past 24 instances or 10 minutes.
+export const LOAD_DWELL_MS = 300;
+export const UNLOAD_AFTER_MS = 5000;
+export const SUSPENDED_MAX = 24;
+export const SUSPENDED_TTL_MS = 10 * 60 * 1000;
+
+const wholeRect = (p) => !!p && [p.x, p.y, p.w, p.h].every(Number.isInteger);
+const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
+// nextSlot(panels, w, h, cols) -> {x, y}: the first free w×h slot scanning
+// rows top-down and left-to-right, else the row under everything. Only a
+// panel's edges can start a first-free slot (a free rectangle slides up and
+// left until it touches one), so the scan visits edges, not cells.
+export function nextSlot(panels, w = PANEL_DEFAULT.w, h = PANEL_DEFAULT.h, cols = MATRIX_LIMITS.cols) {
+  const rects = (panels || []).filter(wholeRect);
+  const width = Math.min(Math.max(1, w | 0), cols);
+  const height = Math.max(1, h | 0);
+  const ys = new Set([0]);
+  const xs = new Set([0]);
+  let bottom = 0;
+  for (const r of rects) {
+    bottom = Math.max(bottom, r.y + r.h);
+    ys.add(r.y + r.h);
+    xs.add(r.x + r.w);
+  }
+  const rows = [...ys].sort((a, b) => a - b);
+  const columns = [...xs].filter((x) => x + width <= cols).sort((a, b) => a - b);
+  for (const y of rows) {
+    for (const x of columns) {
+      const cand = { x, y, w: width, h: height };
+      if (!rects.some((r) => overlaps(cand, r))) return { x, y };
+    }
+  }
+  return { x: 0, y: bottom };
+}
+
+// layoutDiff(prev, next) -> [{id, x, y, w, h}]: the panels whose rectangle
+// changed between two layouts, which is exactly what PATCH …/layout takes.
+// A panel only in `next` is an add (its own POST), only in `prev` a remove;
+// an invalid rectangle is left out so one bad row cannot sink the batch.
+export function layoutDiff(prev, next) {
+  const before = new Map((prev || []).filter((p) => p && nonEmpty(p.id)).map((p) => [p.id, p]));
+  const out = [];
+  for (const p of next || []) {
+    const b = p && before.get(p.id);
+    if (!b || !wholeRect(p) || validatePlacement(p)) continue;
+    if (b.x !== p.x || b.y !== p.y || b.w !== p.w || b.h !== p.h) out.push({ id: p.id, x: p.x, y: p.y, w: p.w, h: p.h });
+  }
+  return out;
+}
+
+// bindingState(panel, fleet) -> one row of plan §4.4:
+//   terminal-running | terminal-stopped | terminal-gone
+//   agent-interactive | agent-managed | agent-stopped | agent-gone
+// fleet is the host's { workspaces, freeAgents, terminals }. A shell whose
+// tmux session died is still "running" for the panel: opening it revives
+// the shell; only a configured CLI terminal has a stopped state of its own.
+export function bindingState(panel, fleet) {
+  const f = fleet || {};
+  if (!panel) return "";
+  if (panel.kind === "terminal") {
+    const t = (f.terminals || []).find((x) => x && x.id === panel.ref);
+    if (!t) return "terminal-gone";
+    return t.launchCli && t.running === false ? "terminal-stopped" : "terminal-running";
+  }
+  if (panel.kind === "agent") {
+    const loc = locate(f.workspaces, f.freeAgents, panel.ref);
+    const a = loc && loc.agent && loc.agent.id === panel.ref ? loc.agent : null;
+    if (!a) return "agent-gone";
+    if (a.mode === "interactive") return "agent-interactive";
+    if (a.mode === "managed") return "agent-managed";
+    return "agent-stopped";
+  }
+  return "";
+}
+
+// loadPolicy(entries, now, pinned, timers) -> { load, unload, timers, wakeAt }
+// The chunk-loading decision (§4.5), pure so every row has a test:
+//   entries  [{ id, near, loaded }] — near: inside the viewport ± one
+//            height (the observer's word) and the surface visible
+//   pinned   Set of ids that never unload (dragged, resized, focused,
+//            maximized)
+//   timers   the previous call's `timers` — the policy's only memory:
+//            { id: { loadAt } | { unloadAt } }
+// A wrapper loads once it has been near for LOAD_DWELL_MS; leaving cancels
+// a pending load at once. A loaded body unloads UNLOAD_AFTER_MS after it
+// left; coming back cancels the unload. wakeAt is the earliest deadline,
+// 0 when nothing is pending — the caller sleeps until then.
+export function loadPolicy(entries, now, pinned, timers) {
+  const pin = pinned || new Set();
+  const prev = timers || {};
+  const next = {};
+  const load = [];
+  const unload = [];
+  let wakeAt = 0;
+  const wake = (t) => { if (t && (!wakeAt || t < wakeAt)) wakeAt = t; };
+  for (const e of entries || []) {
+    if (!e || !nonEmpty(e.id)) continue;
+    const t = prev[e.id] || {};
+    if (e.near) {
+      if (e.loaded) continue;
+      const loadAt = t.loadAt || now + LOAD_DWELL_MS;
+      if (loadAt <= now) { load.push(e.id); continue; }
+      next[e.id] = { loadAt };
+      wake(loadAt);
+      continue;
+    }
+    if (!e.loaded || pin.has(e.id)) continue;
+    const unloadAt = t.unloadAt || now + UNLOAD_AFTER_MS;
+    if (unloadAt <= now) { unload.push(e.id); continue; }
+    next[e.id] = { unloadAt };
+    wake(unloadAt);
+  }
+  return { load, unload, timers: next, wakeAt };
+}
+
+// suspendedToDispose(suspended, now, max, ttl) -> ids to dispose (§4.5's
+// LRU row): the oldest beyond `max` suspended instances and any suspended
+// for `ttl` or longer. suspended is [{ id, at }], at = when it was parked.
+export function suspendedToDispose(suspended, now, max = SUSPENDED_MAX, ttl = SUSPENDED_TTL_MS) {
+  const list = (suspended || []).filter((s) => s && nonEmpty(s.id) && Number.isFinite(s.at)).sort((a, b) => a.at - b.at);
+  const over = Math.max(0, list.length - max);
+  const out = [];
+  list.forEach((s, i) => { if (i < over || now - s.at >= ttl) out.push(s.id); });
+  return out;
 }

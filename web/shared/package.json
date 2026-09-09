@@ -21,6 +21,7 @@
     "./contracts/appPrimitives.js": "./contracts/appPrimitives.js",
     "./contracts/schemas.js": "./contracts/schemas.js",
     "./data/whats-new.json": "./data/whats-new.json",
+    "./domain/agentStatus.js": "./domain/agentStatus.js",
     "./domain/appGroups.js": "./domain/appGroups.js",
     "./domain/appRefreshQueue.js": "./domain/appRefreshQueue.js",
     "./domain/appSearch.js": "./domain/appSearch.js",

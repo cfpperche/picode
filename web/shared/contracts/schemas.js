@@ -8,6 +8,7 @@ export const llamaServiceSchema = z.object({
 });
 import { looksLikeRepoUrl } from "../domain/cloneUrl.js";
 import { rowsError } from "../domain/automationSchedule.js";
+import { MATRIX_LIMITS } from "../domain/matrix.js";
 
 const required = (label) => z.string().trim().min(1, label + " is required.");
 
@@ -269,4 +270,11 @@ export const rolesConfigSchema = z.object({
       break;
     }
   }
+});
+
+// Matrix names (ADR-0108): the store's own words, counted in characters the
+// way it counts runes, so the dialog and a 400 read the same.
+export const matrixNameSchema = z.object({
+  name: z.string().trim().min(1, "name is required")
+    .refine((s) => Array.from(s).length <= MATRIX_LIMITS.name, `name is too long (max ${MATRIX_LIMITS.name} characters)`),
 });

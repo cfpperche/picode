@@ -10,6 +10,7 @@ import PiSpinner from "./PiSpinner.jsx";
 import { checklistLine, checklistProgress, checklistRows, countDone } from "@picode/shared/domain/checklist.js";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
+import { agentRowStatus, agentStatusLabel } from "@picode/shared/domain/agentStatus.js";
 
 export function RowMenu({ label, children }) {
   return (
@@ -51,7 +52,7 @@ function AgentStatus({ status, stamp }) {
   return (
     <span className={"ws-status is-" + status}>
       {active ? <PiSpinner title="Working" /> : null}
-      <span>{status === "needs-you" ? "Needs you" : status === "working" ? "Working" : status === "interactive" ? "In terminal" : status === "stopped" ? "Stopped" : "Ready"}</span>
+      <span>{agentStatusLabel(status)}</span>
       {age ? <span className="ws-status-age">{age}</span> : null}
     </span>
   );
@@ -113,9 +114,7 @@ export function AgentRow({
   const repo = repoLine(ag, ws);
   const stamp = ag.lastStatusAt || ag.lastStartedAt || ag.createdAt;
   const check = checklists && checklists[ag.id];
-  const waiting = ag.waiting || ag.id === waitingId;
-  const working = !waiting && (ag.streaming || ag.id === workingId || (workingIds || []).includes(ag.id));
-  const status = waiting ? "needs-you" : working ? "working" : mode === "interactive" ? "interactive" : mode === "stopped" ? "stopped" : "ready";
+  const status = agentRowStatus(ag, { workingId, workingIds, waitingId });
   const select = () => onSelect(ag.id);
   return (
     <li className={"ws-item is-" + status + (ag.id === selectedId ? " active" : "")}>
