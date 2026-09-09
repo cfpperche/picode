@@ -110,6 +110,11 @@ func dispatch(cmd string, args []string) bool {
 		runUninstall(args)
 	case cmd == "pair":
 		runPair()
+	case cmd == "version" || cmd == "--version" || cmd == "-v":
+		// ADR-0098's install verification runs `picode --version`; without
+		// this case the leading dash fell through to serve() and a version
+		// probe started a second server.
+		fmt.Println("picode " + version.Build())
 	case cmd == "token":
 		runToken(args)
 	case cmd == "gateway":
@@ -133,6 +138,7 @@ func usage() {
 
 Usage:
   picode [flags]              start the server
+  picode version              print the build identity (--version, -v)
   picode pair                 print a one-time link to pair another device
   picode token [rotate]       print the install token path, or rotate it
   picode install [--env K=V]  copy to ~/.local/bin and start on Linux login (systemd --user)

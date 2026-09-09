@@ -20,15 +20,17 @@ Every operation shows its method, path, and grouping (workspaces, agents, sessio
 Pair once (the same pairing your browser uses — see [Security and pairing](/guide/security)), then reuse that session cookie:
 
 ```bash
-# Pair a shell: prints a URL to approve in your browser
-curl -X POST http://127.0.0.1:8445/api/auth/pair/start
+# Pair a shell: prints a URL to approve in your browser (valid 10 minutes)
+picode pair
 
 # With an approved session cookie, list your workspaces
 curl -b "picode_session=<secret>" http://127.0.0.1:8445/api/workspaces
 ```
 
 ::: tip Ungated mode
-A daemon started with `PICODE_INSECURE=1` (development only) skips pairing entirely — useful when scripting against a throwaway instance.
+For scripting against a throwaway instance, set **Who must pair** to Off
+(`PICODE_AUTH_MODE=off` does the same from the environment). Plain
+`PICODE_INSECURE=1` only disables TLS — pairing still applies.
 :::
 
 ## File Tree folder precondition

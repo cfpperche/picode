@@ -28,3 +28,14 @@ func TestDispatchClaimsKnownCommands(t *testing.T) {
 		}
 	}
 }
+
+// A version probe must never reach serve(): ADR-0098's install check runs
+// `picode --version` through a login shell, and the leading dash used to
+// fall through to the server.
+func TestDispatchClaimsVersionProbes(t *testing.T) {
+	for _, cmd := range []string{"version", "--version", "-v"} {
+		if !dispatch(cmd, nil) {
+			t.Errorf("dispatch(%q) = false, want it handled", cmd)
+		}
+	}
+}

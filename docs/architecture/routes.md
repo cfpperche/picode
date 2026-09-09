@@ -115,7 +115,7 @@ failures retain ordinary browsing. Existing directory exclusions are unchanged.
 
 The file tree's selection is local to its tab: changing Files/Changes only
 changes the navigation list. `FilePane` supplies both standalone and embedded
-layouts from one document controller (`web/src/lib/fileDocument.js`). Dirty
+layouts from one document controller (`web/desktop/src/lib/fileDocument.js`, mirrored in `web/mobile`). Dirty
 replacement, switching to a diff and closing the containing tree tab share
 Save/Discard/Cancel. A failed write retains the editable draft. An unchanged
 refresh preserves editor history/scroll; dirty buffers and edits made while a
