@@ -40,6 +40,7 @@
   Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
   at 16 px, tab strip overflow phases 2–4. Extra keys first-open `0.1.0+dfa9f7b`. ADR-0089 attach bar `0.1.0+aca6628`, amended: the staging folder no longer touches the project's own `.gitignore` (a nested one instead) and ages out after 7 days. GitHub repo picker in the clone form (`0.1.0+a2e699c`, accepted live). Workspace card: two actions instead of five (ADR-0027/0030), header stayed one line.
   Managed agents remain Pi-only; guests stay terminals-only (ADR-0091) until a protocol converges. **Desktop user menu v2:** grouped rows with subtitles + in-menu search (`@picode/shared/domain/listSearch.js`); theme/layout radios stay.
+- **Agent CLIs layout:** every tab uses its app-owned `AgentClisFrame`: one 1240px desktop maximum, full mobile width, consistent card padding and stable tab alignment. Desktop reserves scrollbar space; narrow Sessions and CLI setup actions wrap.
 - **Native CLI packages (ADR-0102/0099):** Agent CLIs → Packages at `#/clis/packages/pi`; legacy links redirect with explicit workspace/agent/scope context. Pi APIs and native files remain authoritative. Failed refreshes retain drafts and block writes; changed file targets require confirmed reload. Desktop pi-roles configuration retains independent workspace/agent drafts, scoped clear and malformed-file recovery. Mobile config links offer the desktop layout. Next adapters: pi-compact and a declarative manifest.
 
 ## In flight (unmerged branches on disk)
