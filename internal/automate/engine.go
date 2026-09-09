@@ -11,16 +11,26 @@ import (
 	"log"
 	"sync"
 	"time"
+	_ "time/tzdata" // schedule zones on hosts without a tz database (Windows)
 
 	"github.com/cfpperche/picode/internal/cron"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
 )
 
+// Firing is one invocation's cause: the trigger, the webhook payload
+// (webhook only) and the schedule row that was due (schedule and
+// catch-up only; "" otherwise) so the run can name it.
+type Firing struct {
+	Trigger    string
+	Payload    string
+	ScheduleID string
+}
+
 // Runner starts (or refuses) one invocation. Skips and failures are the
 // Runner's to record; the Engine only decides that a slot is due.
 type Runner interface {
-	Fire(a store.Automation, trigger, payload string) (store.Run, error)
+	Fire(a store.Automation, f Firing) (store.Run, error)
 }
 
 // Engine ticks and fires. Now is injectable for tests.
@@ -93,7 +103,10 @@ func SessionCost(path string) float64 {
 	return s.Cost
 }
 
-// Tick evaluates every enabled scheduled automation once.
+// Tick evaluates every enabled schedule of every enabled automation
+// once. Each schedule is its own clock: its zone, its jitter, its last
+// fire. Two schedules of one automation due in the same minute both
+// fire; the second lands on the runner's busy row (ADR-0045 table, #3).
 func (e *Engine) Tick() {
 	if e.Store == nil || e.Runner == nil {
 		return
@@ -107,23 +120,28 @@ func (e *Engine) Tick() {
 	}
 	now := e.now().Truncate(time.Minute)
 	for _, a := range items {
-		if !a.Enabled || a.Cron == nil {
+		if !a.Enabled {
 			continue
 		}
-		sched, err := cron.Parse(*a.Cron)
-		if err != nil {
-			continue
-		}
-		slot, trigger, ok := Due(sched, a, now)
-		if !ok {
-			continue
-		}
-		if err := e.Store.TouchAutomationFired(a.ID, slot); err != nil {
-			log.Printf("automate: touch %s: %v", a.ID, err)
-			continue
-		}
-		if _, err := e.Runner.Fire(a, trigger, ""); err != nil {
-			log.Printf("automate: fire %s: %v", a.ID, err)
+		for _, sc := range a.Schedules {
+			if !sc.Enabled {
+				continue
+			}
+			sched, err := cron.Parse(sc.Cron)
+			if err != nil {
+				continue
+			}
+			slot, trigger, ok := Due(sched, sc, now.In(sc.Location()))
+			if !ok {
+				continue
+			}
+			if err := e.Store.TouchScheduleFired(sc.ID, slot); err != nil {
+				log.Printf("automate: touch %s/%s: %v", a.ID, sc.ID, err)
+				continue
+			}
+			if _, err := e.Runner.Fire(a, Firing{Trigger: trigger, ScheduleID: sc.ID}); err != nil {
+				log.Printf("automate: fire %s/%s: %v", a.ID, sc.ID, err)
+			}
 		}
 	}
 }
@@ -146,7 +164,17 @@ func Jitter(id string, interval time.Duration) time.Duration {
 	return time.Duration(int64(h.Sum32())%limitMin) * time.Minute
 }
 
-// NextFire is when automation id fires next after now: the first slot s
+// NextScheduleFire is NextFire for one schedule row: its cron, its zone,
+// its id as the jitter key. False when the cron does not parse.
+func NextScheduleFire(sc store.Schedule, now time.Time) (time.Time, bool) {
+	sched, err := cron.Parse(sc.Cron)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return NextFire(sched, sc.ID, now.In(sc.Location()))
+}
+
+// NextFire is when schedule id fires next after now: the first slot s
 // with s+jitter still ahead, plus that jitter — the same arithmetic Due
 // uses, so the list never promises a time the engine will not keep.
 func NextFire(sched cron.Schedule, id string, now time.Time) (time.Time, bool) {
@@ -158,20 +186,22 @@ func NextFire(sched cron.Schedule, id string, now time.Time) (time.Time, bool) {
 	return s.Add(jitter), true
 }
 
-// Due answers whether automation a should fire at now (minute-truncated).
-// It returns the slot being honoured and its trigger:
+// Due answers whether schedule sc should fire at now (minute-truncated,
+// already in the schedule's zone). It returns the slot being honoured
+// and its trigger:
 //   - schedule: now-jitter matches the cron and that slot has not fired;
 //   - catch-up: the slot is not due now, but at least one slot between
 //     last_fired_at and now was missed (daemon down) — fired once, and the
 //     latest missed slot is what gets stamped, so the backlog collapses.
 //
-// A never-fired automation does not catch up: creating one at 10:00 with
-// "daily at 09:00" waits for tomorrow, as every benchmark does.
-func Due(sched cron.Schedule, a store.Automation, now time.Time) (slot time.Time, trigger string, ok bool) {
-	jitter := Jitter(a.ID, sched.Interval(now))
+// A never-fired schedule does not catch up: creating one at 10:00 with
+// "daily at 09:00" waits for tomorrow, as every benchmark does — and an
+// edited rule starts over (the store clears its last fire).
+func Due(sched cron.Schedule, sc store.Schedule, now time.Time) (slot time.Time, trigger string, ok bool) {
+	jitter := Jitter(sc.ID, sched.Interval(now))
 	var last time.Time
-	if a.LastFiredAt != nil {
-		if t, err := time.Parse(time.RFC3339Nano, *a.LastFiredAt); err == nil {
+	if sc.LastFiredAt != nil {
+		if t, err := time.Parse(time.RFC3339Nano, *sc.LastFiredAt); err == nil {
 			last = t.In(now.Location())
 		}
 	}

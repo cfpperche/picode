@@ -224,3 +224,66 @@ paths now answer 409 while an automation run is on the agent, and a
 process stopped by any other path (an explicit stop) fails the run as
 "stopped during the run" — the run's own stop stays silent
 (`runWatch.letGo`).
+
+## Amendment 2026-09-09 — many schedules per automation
+
+The owner hit the wall the single `cron` column draws: one automation
+cannot run on weekdays at 09:00 *and* on Saturday at noon, or hourly in
+business hours *plus* a nightly summary, and a 5-field expression cannot
+say either. The column also made every schedule share one
+`last_fired_at` (a daemon outage collapsed two missed slots into one
+catch-up, or fired the second twice), one jitter, and one on/off switch.
+The same object, one row per rule, already exists for pins (ADR-0100,
+`pin_reminders`), and Devin's own schedule trigger is a list (RRULE, OR
+between triggers) — this ADR always said "trigger(s)".
+
+**Decision.** The schedule moves out of the `automations` row into
+`automation_schedules` (migration 038): `id`, `automation_id`, `label`
+(≤ 40 chars, optional, "Morning", "Close of day"), `cron` (5-field,
+`internal/cron`), `tz` (IANA zone the wall clock belongs to; the empty
+string means the daemon's local zone and is what migrated rows carry),
+`enabled`, `last_fired_at`, `position`. Migration copies each existing
+`cron` into one row with its `last_fired_at`, then drops `cron` and
+`last_fired_at` from `automations`. `automation_runs` gains a nullable
+`schedule_id` so the runs table can say which rule fired; webhook and
+Run now leave it null. The engine iterates enabled schedules of enabled
+automations: `Due` and `NextFire` take the schedule row, jitter is
+keyed by the schedule id, and the wall clock is evaluated in the row's
+zone. At most ten schedules per automation; two rows with the same
+`cron` and `tz` are refused. The **what** stays on the automation: a
+schedule carries only *when*. A different prompt, agent, model or limit
+per slot is a second automation, not a per-schedule setting — this
+keeps "automation = trigger(s) + prompt + bounds" and the decision table
+intact: two schedules colliding fall on row 3, `skipped / busy`.
+
+The API returns `schedules` on every automation view (each with its own
+`nextFireAt`) and the automation-level `nextFireAt` is the earliest of
+them; `cron` is no longer a field of the view. Create still accepts
+`cron` as a convenience (one schedule, daemon zone — the templates and
+the `/automate` fence keep working) and now `schedules`; PATCH accepts
+`schedules` (the full list; rows carrying an existing `id` are updated
+in place, the rest inserted, the missing ones deleted) or `cron` with
+the same one-row meaning. Editing a schedule's `cron` or `tz` resets its
+`last_fired_at`: a never-fired schedule never catches up, so a rule
+changed at 10:00 from "daily at 09:00" to "hourly" waits for 11:00
+instead of catching up a slot that was never scheduled — the previous
+behaviour on the single column, now a deliberate rule (ADR-0100 does the
+same on edit). Migrated schedules keep their last fire, so nothing
+catches up because of the migration itself; their jitter changes once
+(the key moved from the automation id to the schedule id).
+
+The editor's Schedule block becomes a list: one row per schedule with
+the existing presets (Hourly / Daily / Weekdays / Weekly / Custom), an
+optional label, its own switch and Remove, plus **Add a schedule**; the
+browser's zone is saved on every row it writes. The list and the detail
+summarise all rows ("Weekdays at 09:00 · Sat at 12:00"); the runs table
+shows the schedule's label on schedule and catch-up rows.
+
+Refused: several expressions in the one column (no migration, but the
+shared `last_fired_at`, shared jitter and shared switch above are exactly
+the invariants that are hard to add later); a per-schedule prompt or
+model (a second object hiding inside the first); `next_at`
+materialisation as pins do (automations keep matching + catch-up on
+`last_fired_at`, which is what the catch-up rule and the `nextFireAt`
+promise are written against — one scheduler semantics per table is a
+debt to note, not a reason to rewrite a tested engine).

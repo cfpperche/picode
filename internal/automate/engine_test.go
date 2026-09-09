@@ -11,8 +11,14 @@ import (
 
 type fakeRunner struct{ calls []string }
 
-func (f *fakeRunner) Fire(a store.Automation, trigger, payload string) (store.Run, error) {
-	f.calls = append(f.calls, a.Name+":"+trigger)
+func (f *fakeRunner) Fire(a store.Automation, fi Firing) (store.Run, error) {
+	label := ""
+	for _, sc := range a.Schedules {
+		if sc.ID == fi.ScheduleID && sc.Label != "" {
+			label = "/" + sc.Label
+		}
+	}
+	f.calls = append(f.calls, a.Name+label+":"+fi.Trigger)
 	return store.Run{}, nil
 }
 
@@ -51,7 +57,7 @@ func TestJitterBounded(t *testing.T) {
 
 func TestDue(t *testing.T) {
 	every, _ := cron.Parse("* * * * *") // jitter 0
-	a := store.Automation{ID: "x"}
+	a := store.Schedule{ID: "x"}
 	slot, trig, ok := Due(every, a, local("2026-09-01 10:00"))
 	if !ok || trig != store.TriggerSchedule || !slot.Equal(local("2026-09-01 10:00")) {
 		t.Fatalf("never-fired due = %v %s %v", slot, trig, ok)
@@ -68,7 +74,7 @@ func TestDue(t *testing.T) {
 	}
 
 	daily, _ := cron.Parse("0 9 * * *")
-	b := store.Automation{ID: "daily"}
+	b := store.Schedule{ID: "daily"}
 	j := Jitter("daily", 24*time.Hour)
 	if _, _, ok := Due(daily, b, local("2026-09-01 12:00")); ok {
 		t.Fatal("never-fired daily automation must not catch up")
@@ -109,7 +115,7 @@ func TestTickFiresOncePerSlotAndSkipsDisabled(t *testing.T) {
 		t.Fatalf("calls = %v", fr.calls)
 	}
 	got, _ := st.GetAutomation(on.ID)
-	if got.LastFiredAt == nil {
+	if got.Schedules[0].LastFiredAt == nil {
 		t.Fatal("last_fired_at not stamped")
 	}
 	now = now.Add(time.Minute)
@@ -122,7 +128,7 @@ func TestTickFiresOncePerSlotAndSkipsDisabled(t *testing.T) {
 func TestReconcileFailsStaleRunsAndNotifies(t *testing.T) {
 	st := openStore(t)
 	a, _, _ := st.CreateAutomation(store.AutomationParams{Name: "a", Action: store.AutomationStart, Prompt: "p", Cron: "* * * * *"})
-	r, _ := st.CreateRun(a.ID, store.TriggerSchedule, store.RunRunning, "")
+	r, _ := st.CreateRun(store.RunParams{AutomationID: a.ID, Trigger: store.TriggerSchedule, Status: store.RunRunning})
 	(&Engine{Store: st}).Reconcile()
 	got, _ := st.GetRun(r.ID)
 	if got.Status != store.RunFailed || got.Reason != "daemon restarted" {
@@ -143,12 +149,75 @@ func TestNextFireMatchesDue(t *testing.T) {
 		if !ok || !next.Equal(local("2026-09-01 09:00").Add(j)) {
 			t.Fatalf("next = %v (jitter %v)", next, j)
 		}
-		if _, trig, ok := Due(daily, store.Automation{ID: "x"}, next); !ok || trig != store.TriggerSchedule {
+		if _, trig, ok := Due(daily, store.Schedule{ID: "x"}, next); !ok || trig != store.TriggerSchedule {
 			t.Fatalf("Due disagrees with NextFire at %v", next)
 		}
 	}
 	next, ok := NextFire(daily, "x", local("2026-09-01 12:00"))
 	if !ok || !next.Equal(local("2026-09-02 09:00").Add(j)) {
 		t.Fatalf("tomorrow = %v", next)
+	}
+}
+
+func TestTickFiresEachScheduleOnItsOwnClock(t *testing.T) {
+	st := openStore(t)
+	// Two rules on one automation, in a zone that is not the test host's:
+	// 09:00 on weekdays and 12:00 on Saturday, both America/Sao_Paulo (UTC-3,
+	// no DST since 2019). A disabled third rule never fires.
+	a, _, err := st.CreateAutomation(store.AutomationParams{Name: "two", Action: store.AutomationStart, Prompt: "p", Schedules: []store.ScheduleParams{
+		{Label: "morning", Cron: "0 9 * * 1-5", TZ: "America/Sao_Paulo", Enabled: true},
+		{Label: "saturday", Cron: "0 12 * * 6", TZ: "America/Sao_Paulo", Enabled: true},
+		{Label: "off", Cron: "* * * * *", TZ: "America/Sao_Paulo", Enabled: false},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sp, _ := time.LoadLocation("America/Sao_Paulo")
+	jm := Jitter(a.Schedules[0].ID, 24*time.Hour)
+	js := Jitter(a.Schedules[1].ID, 7*24*time.Hour)
+	fr := &fakeRunner{}
+	var now time.Time
+	e := &Engine{Store: st, Runner: fr, Now: func() time.Time { return now }}
+
+	// Wednesday 2026-09-09 09:00 São Paulo (+ its jitter), expressed in UTC.
+	now = time.Date(2026, 9, 9, 9, 0, 0, 0, sp).Add(jm).UTC()
+	e.Tick()
+	if len(fr.calls) != 1 || fr.calls[0] != "two/morning:schedule" {
+		t.Fatalf("weekday tick = %v", fr.calls)
+	}
+	// Thursday and Friday fire on time; Saturday 12:00 São Paulo (+ its
+	// jitter) is the Saturday rule alone — nothing of the weekday rule is
+	// missed, so nothing catches up.
+	for _, day := range []int{10, 11} {
+		now = time.Date(2026, 9, day, 9, 0, 0, 0, sp).Add(jm).UTC()
+		e.Tick()
+	}
+	now = time.Date(2026, 9, 12, 12, 0, 0, 0, sp).Add(js).UTC()
+	e.Tick()
+	if len(fr.calls) != 4 || fr.calls[3] != "two/saturday:schedule" {
+		t.Fatalf("saturday tick = %v", fr.calls)
+	}
+	got, _ := st.GetAutomation(a.ID)
+	if got.Schedules[0].LastFiredAt == nil || got.Schedules[1].LastFiredAt == nil || got.Schedules[2].LastFiredAt != nil {
+		t.Fatalf("stamps: %+v", got.Schedules)
+	}
+	// Daemon down over Monday: Tuesday noon catches the weekday rule up
+	// once; the Saturday rule has nothing to catch up.
+	now = time.Date(2026, 9, 15, 12, 0, 0, 0, sp).UTC()
+	e.Tick()
+	if len(fr.calls) != 5 || fr.calls[4] != "two/morning:catch-up" {
+		t.Fatalf("catch-up tick = %v", fr.calls)
+	}
+	e.Tick()
+	if len(fr.calls) != 5 {
+		t.Fatalf("catch-up must fire once: %v", fr.calls)
+	}
+	// The automation's own switch silences every rule.
+	off := false
+	_, _ = st.UpdateAutomation(a.ID, store.AutomationPatch{Enabled: &off})
+	now = time.Date(2026, 9, 16, 9, 0, 0, 0, sp).Add(jm).UTC()
+	e.Tick()
+	if len(fr.calls) != 5 {
+		t.Fatalf("disabled automation fired: %v", fr.calls)
 	}
 }

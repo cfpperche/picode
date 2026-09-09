@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/automate"
-	"github.com/cfpperche/picode/internal/cron"
 	"github.com/cfpperche/picode/internal/store"
 )
 
@@ -42,16 +41,42 @@ func handleAutomationTemplates(w http.ResponseWriter, _ *http.Request) {
 
 type automationView struct {
 	store.Automation
-	LastRun    *store.Run `json:"lastRun,omitempty"`
-	Running    bool       `json:"running"`
-	NextFireAt *string    `json:"nextFireAt,omitempty"`
-	Sparkline  []int      `json:"sparkline"`
-	AgentName  string     `json:"agentName,omitempty"`
-	WebhookURL string     `json:"webhookUrl,omitempty"` // where a caller reaches /fire from where it is (ADR-0045 amendment)
+	Schedules  []scheduleView `json:"schedules"` // shadows the store field: each row with its own nextFireAt
+	LastRun    *store.Run     `json:"lastRun,omitempty"`
+	Running    bool           `json:"running"`
+	NextFireAt *string        `json:"nextFireAt,omitempty"` // the earliest enabled schedule's
+	Sparkline  []int          `json:"sparkline"`
+	AgentName  string         `json:"agentName,omitempty"`
+	WebhookURL string         `json:"webhookUrl,omitempty"` // where a caller reaches /fire from where it is (ADR-0045 amendment)
+}
+
+// scheduleView is one schedule row plus when it fires next (absent when
+// the row or the automation is disabled).
+type scheduleView struct {
+	store.Schedule
+	NextFireAt *string `json:"nextFireAt,omitempty"`
 }
 
 func (deps Deps) automationView(a store.Automation, now time.Time) automationView {
-	v := automationView{Automation: a, Sparkline: []int{}}
+	v := automationView{Automation: a, Sparkline: []int{}, Schedules: make([]scheduleView, 0, len(a.Schedules))}
+	var earliest time.Time
+	for _, sc := range a.Schedules {
+		sv := scheduleView{Schedule: sc}
+		if a.Enabled && sc.Enabled {
+			if next, ok := automate.NextScheduleFire(sc, now); ok {
+				s := next.Format(time.RFC3339)
+				sv.NextFireAt = &s
+				if earliest.IsZero() || next.Before(earliest) {
+					earliest = next
+				}
+			}
+		}
+		v.Schedules = append(v.Schedules, sv)
+	}
+	if !earliest.IsZero() {
+		s := earliest.Format(time.RFC3339)
+		v.NextFireAt = &s
+	}
 	if a.Webhook {
 		v.WebhookURL = deps.webhookURL(a.ID)
 	}
@@ -61,14 +86,6 @@ func (deps Deps) automationView(a store.Automation, now time.Time) automationVie
 	}
 	if counts, err := deps.Store.RunCountsByDay(a.ID, 30, now); err == nil {
 		v.Sparkline = counts
-	}
-	if a.Enabled && a.Cron != nil {
-		if sched, err := cron.Parse(*a.Cron); err == nil {
-			if next, ok := automate.NextFire(sched, a.ID, now); ok {
-				s := next.Format(time.RFC3339)
-				v.NextFireAt = &s
-			}
-		}
 	}
 	if a.AgentID != nil {
 		if ag, err := deps.Store.GetAgent(*a.AgentID); err == nil {
@@ -103,21 +120,43 @@ func handleListAutomations(deps Deps) http.HandlerFunc {
 }
 
 type automationBody struct {
-	Name             *string  `json:"name"`
-	Enabled          *bool    `json:"enabled"`
-	WorkspaceID      *string  `json:"workspaceId"`
-	Action           *string  `json:"action"`
-	TargetAgentID    *string  `json:"targetAgentId"`
-	Prompt           *string  `json:"prompt"`
-	Provider         *string  `json:"provider"`
-	Model            *string  `json:"model"`
-	Thinking         *string  `json:"thinking"`
-	Cron             *string  `json:"cron"`
-	Webhook          *bool    `json:"webhook"`
-	NotifyURL        *string  `json:"notifyUrl"`
-	MaxCostUSD       *float64 `json:"maxCostUsd"`
-	MaxRuns          *int     `json:"maxRuns"`
-	MaxRunsWindowMin *int     `json:"maxRunsWindowMin"`
+	Name             *string         `json:"name"`
+	Enabled          *bool           `json:"enabled"`
+	WorkspaceID      *string         `json:"workspaceId"`
+	Action           *string         `json:"action"`
+	TargetAgentID    *string         `json:"targetAgentId"`
+	Prompt           *string         `json:"prompt"`
+	Provider         *string         `json:"provider"`
+	Model            *string         `json:"model"`
+	Thinking         *string         `json:"thinking"`
+	Cron             *string         `json:"cron"`      // one-schedule convenience (daemon zone); read when schedules is absent
+	Schedules        *[]scheduleBody `json:"schedules"` // the whole list; rows with an id are updated in place
+	Webhook          *bool           `json:"webhook"`
+	NotifyURL        *string         `json:"notifyUrl"`
+	MaxCostUSD       *float64        `json:"maxCostUsd"`
+	MaxRuns          *int            `json:"maxRuns"`
+	MaxRunsWindowMin *int            `json:"maxRunsWindowMin"`
+}
+
+// scheduleBody is one schedule as the editor sends it. Enabled defaults
+// to true so a row that only says when is on.
+type scheduleBody struct {
+	ID      string `json:"id"`
+	Label   string `json:"label"`
+	Cron    string `json:"cron"`
+	TZ      string `json:"tz"`
+	Enabled *bool  `json:"enabled"`
+}
+
+func scheduleParams(list *[]scheduleBody) *[]store.ScheduleParams {
+	if list == nil {
+		return nil
+	}
+	out := make([]store.ScheduleParams, 0, len(*list))
+	for _, b := range *list {
+		out = append(out, store.ScheduleParams{ID: b.ID, Label: b.Label, Cron: b.Cron, TZ: b.TZ, Enabled: b.Enabled == nil || *b.Enabled})
+	}
+	return &out
 }
 
 func deref[T any](p *T) T {
@@ -139,7 +178,7 @@ func handleCreateAutomation(deps Deps) http.HandlerFunc {
 			Name: deref(b.Name), WorkspaceID: deref(b.WorkspaceID), Action: deref(b.Action),
 			TargetAgentID: deref(b.TargetAgentID), Prompt: deref(b.Prompt),
 			Provider: deref(b.Provider), Model: deref(b.Model), Thinking: deref(b.Thinking),
-			Cron: deref(b.Cron), Webhook: deref(b.Webhook), NotifyURL: deref(b.NotifyURL), MaxCostUSD: deref(b.MaxCostUSD),
+			Cron: deref(b.Cron), Schedules: deref(scheduleParams(b.Schedules)), Webhook: deref(b.Webhook), NotifyURL: deref(b.NotifyURL), MaxCostUSD: deref(b.MaxCostUSD),
 			MaxRuns: deref(b.MaxRuns), MaxRunsWindowMin: deref(b.MaxRunsWindowMin),
 		})
 		if err != nil {
@@ -193,7 +232,7 @@ func handlePatchAutomation(deps Deps) http.HandlerFunc {
 		a, err := deps.Store.UpdateAutomation(id, store.AutomationPatch{
 			Name: b.Name, Enabled: b.Enabled, WorkspaceID: b.WorkspaceID, Action: b.Action,
 			TargetAgentID: b.TargetAgentID, Prompt: b.Prompt, Provider: b.Provider, Model: b.Model,
-			Thinking: b.Thinking, Cron: b.Cron, NotifyURL: b.NotifyURL, MaxCostUSD: b.MaxCostUSD, MaxRuns: b.MaxRuns,
+			Thinking: b.Thinking, Cron: b.Cron, Schedules: scheduleParams(b.Schedules), NotifyURL: b.NotifyURL, MaxCostUSD: b.MaxCostUSD, MaxRuns: b.MaxRuns,
 			MaxRunsWindowMin: b.MaxRunsWindowMin,
 		})
 		if err != nil {
@@ -247,7 +286,7 @@ func handleRunAutomation(deps Deps) http.HandlerFunc {
 			writeAutomationErr(w, err)
 			return
 		}
-		run, err := AutomationRunner(deps).Fire(a, store.TriggerManual, "")
+		run, err := AutomationRunner(deps).Fire(a, automate.Firing{Trigger: store.TriggerManual})
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
@@ -288,7 +327,7 @@ func handleFireAutomation(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusRequestEntityTooLarge, "payload is larger than "+strconv.Itoa(maxWebhookPayload/1024)+" KB")
 			return
 		}
-		run, err := AutomationRunner(deps).Fire(a, store.TriggerWebhook, string(body))
+		run, err := AutomationRunner(deps).Fire(a, automate.Firing{Trigger: store.TriggerWebhook, Payload: string(body)})
 		if errors.Is(err, errAutomationDisabled) {
 			writeErr(w, http.StatusConflict, "automation is disabled")
 			return

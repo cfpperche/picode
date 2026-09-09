@@ -138,7 +138,8 @@ func (r automationRunner) mode(ctx context.Context, agentID string) agentRunMode
 }
 
 // Fire runs the decision table, records the outcome, and starts the run.
-func (r automationRunner) Fire(a store.Automation, trigger, payload string) (store.Run, error) {
+func (r automationRunner) Fire(a store.Automation, f automate.Firing) (store.Run, error) {
+	trigger := f.Trigger
 	deps := r.deps
 	ctx := context.Background()
 	a, err := deps.Store.GetAutomation(a.ID) // fresh: the toggle may have moved
@@ -175,7 +176,7 @@ func (r automationRunner) Fire(a store.Automation, trigger, payload string) (sto
 	}
 	if d.Status != "" {
 		last, _ := deps.Store.LastRun(a.ID)
-		run, err := deps.Store.CreateRun(a.ID, trigger, d.Status, d.Reason)
+		run, err := deps.Store.CreateRun(store.RunParams{AutomationID: a.ID, ScheduleID: f.ScheduleID, Trigger: trigger, Status: d.Status, Reason: d.Reason})
 		if err != nil {
 			return store.Run{}, err
 		}
@@ -184,11 +185,11 @@ func (r automationRunner) Fire(a store.Automation, trigger, payload string) (sto
 		}
 		return run, nil
 	}
-	body := composeAutomationPrompt(a.Prompt, trigger, payload, time.Now())
+	body := composeAutomationPrompt(a.Prompt, trigger, f.Payload, time.Now())
 	if a.Action == store.AutomationMessage {
-		return r.messageRun(ctx, a, trigger, body)
+		return r.messageRun(ctx, a, f, body)
 	}
-	return r.startRun(ctx, a, trigger, body)
+	return r.startRun(ctx, a, f, body)
 }
 
 // messageRun delivers the prompt to the target agent now (ADR-0045
@@ -197,7 +198,7 @@ func (r automationRunner) Fire(a store.Automation, trigger, payload string) (sto
 // one gets a follow-up turn and stays up. Until 2026-09-02 the message
 // only joined the agent's task queue, which nothing drains while the
 // agent is closed — a "done · queued" run that did nothing.
-func (r automationRunner) messageRun(ctx context.Context, a store.Automation, trigger, body string) (store.Run, error) {
+func (r automationRunner) messageRun(ctx context.Context, a store.Automation, f automate.Firing, body string) (store.Run, error) {
 	deps := r.deps
 	agent, err := deps.Store.GetAgent(*a.TargetAgentID)
 	if err != nil {
@@ -207,13 +208,13 @@ func (r automationRunner) messageRun(ctx context.Context, a store.Automation, tr
 	if ma := deps.Runtime.Get(agent.ID); ma != nil && ma.Observed() {
 		// Another automation's run is on this agent right now.
 		last, _ := deps.Store.LastRun(a.ID)
-		run, err := deps.Store.CreateRun(a.ID, trigger, store.RunSkipped, reasonBusy)
+		run, err := deps.Store.CreateRun(store.RunParams{AutomationID: a.ID, ScheduleID: f.ScheduleID, Trigger: f.Trigger, Status: store.RunSkipped, Reason: reasonBusy})
 		if err == nil && shouldNotifySkip(last, store.RunSkipped, reasonBusy) {
 			r.notify(a, store.InboxFYI, reasonBusy, a.Name+" did not run", "The agent is busy with another automation's run.")
 		}
 		return run, err
 	}
-	run, err := deps.Store.CreateRun(a.ID, trigger, store.RunRunning, "")
+	run, err := deps.Store.CreateRun(store.RunParams{AutomationID: a.ID, ScheduleID: f.ScheduleID, Trigger: f.Trigger, Status: store.RunRunning})
 	if err != nil {
 		return store.Run{}, err
 	}
@@ -293,7 +294,7 @@ func strPtr(p *string) *string {
 	return p
 }
 
-func (r automationRunner) startRun(ctx context.Context, a store.Automation, trigger, body string) (store.Run, error) {
+func (r automationRunner) startRun(ctx context.Context, a store.Automation, f automate.Firing, body string) (store.Run, error) {
 	deps := r.deps
 	agent, err := r.ensureAgent(a)
 	if err != nil {
@@ -308,7 +309,7 @@ func (r automationRunner) startRun(ctx context.Context, a store.Automation, trig
 	if agent, err = deps.Store.UpdateAgent(agent.ID, store.AgentPatch{SessionPath: &empty}); err != nil {
 		return store.Run{}, err
 	}
-	run, err := deps.Store.CreateRun(a.ID, trigger, store.RunRunning, "")
+	run, err := deps.Store.CreateRun(store.RunParams{AutomationID: a.ID, ScheduleID: f.ScheduleID, Trigger: f.Trigger, Status: store.RunRunning})
 	if err != nil {
 		return store.Run{}, err
 	}
