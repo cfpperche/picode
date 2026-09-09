@@ -9,7 +9,9 @@ import { api } from "@picode/shared/client/api.js";
 
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
-export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind, attach, onAttachClose, find, onFindClose }) {
+// autoFocus (default true): the visible pane takes the keyboard. The Matrix
+// passes false for every panel but the focused one (ShellTerm).
+export default function TermSurface({ term, error, hidden, autoFocus = true, onOpenFile, cwdKind, attach, onAttachClose, find, onFindClose }) {
   const [resuming, setResuming] = useState(false);
   const [resumeError, setResumeError] = useState("");
   // The message bar takes height from the pane; tmux hears about it in the
@@ -61,7 +63,7 @@ export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind, 
       ) : (
         <>
           <div className="term-body">
-            <ShellTerm agentId={term.id} session={term.session} active={!hidden} cwd={term.cwd} cwdKind={cwdKind} onOpenFile={onOpenFile} />
+            <ShellTerm agentId={term.id} session={term.session} active={!hidden} autoFocus={autoFocus} cwd={term.cwd} cwdKind={cwdKind} onOpenFile={onOpenFile} />
             {find ? <TermFindBar termId={term.id} onClose={onFindClose} /> : null}
           </div>
           {term.launchCli && term.running && attach ? (

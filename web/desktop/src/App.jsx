@@ -47,6 +47,7 @@ import CreateForm from "./components/CreateForm.jsx";
 import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
+import MatrixSurface from "./components/matrix/MatrixSurface.jsx";
 import { nativeApps, nativeSurfaceFor } from "./lib/nativeApps.js";
 import { normalizeManifests } from "@picode/shared/contracts/appPrimitives.js";
 const PinStudio = lazy(() => import("./components/PinStudio.jsx"));
@@ -108,7 +109,7 @@ import { useMedia } from "./lib/media.js";
 // Native app surfaces this shell compiled in (ADR-0109), by manifest id.
 // The only entry today is the hidden QA demo (the server lists it with
 // PICODE_DEMO_APP=1); the Matrix registers here in phase 3.
-const NATIVE_APPS = nativeApps({ "demo-native": NativeDemoSurface });
+const NATIVE_APPS = nativeApps({ "demo-native": NativeDemoSurface, matrix: MatrixSurface });
 
 export default function App() {
   const narrow = useMedia("(max-width: 767px)");
@@ -2754,6 +2755,12 @@ export default function App() {
                   manifest={manifest}
                   hidden={selectedId !== id}
                   onClose={() => closeTab(id)}
+                  initialPath={appRoute(hash) === appId ? appPath(hash) : undefined}
+                  onPathChange={(path) => {
+                    if (selectedId !== id) return;
+                    const next = appHash(appId, path);
+                    if (location.hash !== next) { history.replaceState(null, "", next); setHash(next); }
+                  }}
                   host={{
                     fleet: { workspaces, freeAgents, terminals },
                     openTabs: tabs,

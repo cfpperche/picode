@@ -1,0 +1,113 @@
+/* Matrix (docs/plans/matrix-app.md; ADR-0108/0109): a live grid of agent and
+   terminal panels. Tokens only; the same header every surface has
+   (.ft-head), the sidebar's status chip (.ws-status), one control height. */
+
+.mx-head-left { flex-wrap: nowrap; }
+.mx-select {
+  height: var(--ctl-h); min-width: 140px; max-width: 260px; padding: 0 28px 0 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  background: var(--bg-elevated); color: var(--text-primary);
+  font: inherit; font-size: 12.5px; box-sizing: border-box; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mx-select:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+.mx-select:focus-visible { outline: none; border-color: var(--accent); }
+.mx-menu-btn { padding: 0 8px; }
+
+/* The scroll container chunk loading observes; the canvas is what
+   react-grid-layout measures. */
+.mx-body { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; position: relative; padding: 8px; }
+.mx-canvas { position: relative; }
+.mx-surface .react-grid-layout { min-height: 40px; }
+
+/* First load: three panel-shaped blocks, chrome only, never invented rows. */
+.mx-skel { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px; }
+.mx-skel > .skel-line { height: 344px; border-radius: var(--radius-ctl); }
+@media (max-width: 880px) { .mx-skel { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* One wrapper per panel: header (drag handle) + body slot. */
+.mx-panel {
+  display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden;
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  animation: mx-enter var(--motion-med) var(--ease-out);
+}
+.mx-panel.is-focused { border-color: var(--accent); }
+.mx-panel.is-pending { opacity: .7; }
+.mx-panel.react-draggable-dragging, .mx-panel.resizing {
+  border-color: var(--border-strong);
+  box-shadow: 0 12px 32px color-mix(in srgb, #000 30%, transparent);
+}
+.mx-head {
+  display: flex; align-items: center; gap: 6px; flex: none; height: 28px; padding: 0 4px 0 8px;
+  border-bottom: 1px solid var(--border); background: var(--bg-panel);
+  font-size: 12px; cursor: grab; user-select: none; -webkit-user-select: none;
+}
+.react-draggable-dragging .mx-head { cursor: grabbing; }
+.mx-face { display: inline-flex; align-items: center; flex: none; }
+.mx-face .ws-face { margin-left: 0; }
+.mx-face .term-cli-face { width: 16px; height: 16px; margin-left: 0; }
+.mx-name { min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.mx-hint { min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: 11px; }
+.mx-head .ws-status { margin-left: auto; }
+.mx-actions { display: inline-flex; align-items: center; gap: 2px; flex: none; cursor: default; }
+.mx-action {
+  width: 24px; height: 24px; padding: 0; display: grid; place-items: center;
+  border: 0; border-radius: 6px; background: transparent; color: var(--text-secondary); cursor: pointer;
+}
+.mx-action:hover { background: var(--bg-hover); color: var(--text-primary); }
+.mx-action:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.mx-action[aria-pressed="true"] { color: var(--accent); }
+.mx-panel-body { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; background: var(--bg-base); }
+.mx-panel-body > .term-surface { padding: 4px; }
+
+/* Unloaded, pending, stopped, gone: one muted line, at most one action. */
+.mx-placeholder {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding: 16px; color: var(--text-secondary); font-size: 12.5px; text-align: center; line-height: 1.4;
+}
+.mx-placeholder .btn { min-height: var(--ctl-h); }
+
+/* react-grid-layout and react-resizable in our tokens. */
+.mx-surface .react-grid-placeholder {
+  background: var(--accent); opacity: .15; border-radius: var(--radius-ctl);
+  transition-duration: 100ms; z-index: 2;
+}
+.mx-surface .react-grid-item > .react-resizable-handle { opacity: 0; transition: opacity var(--motion-fast); z-index: 3; }
+.mx-panel:hover > .react-resizable-handle, .mx-panel.is-focused > .react-resizable-handle { opacity: .8; }
+.mx-surface .react-grid-item > .react-resizable-handle::after { border-color: var(--text-secondary); }
+.mx-surface .react-grid-item > .react-resizable-handle-se { background-image: none; }
+.mx-surface .react-grid-item > .react-resizable-handle-s, .mx-surface .react-grid-item > .react-resizable-handle-e { background-image: none; }
+.mx-surface .react-grid-item > .react-resizable-handle-s::after { transform: none; right: 50%; border-right: 0; width: 24px; }
+.mx-surface .react-grid-item > .react-resizable-handle-e::after { transform: none; bottom: 50%; border-bottom: 0; height: 24px; }
+
+/* Maximize (plan §4.6): the wrapper takes the surface body, the layout is
+   untouched — the grid's transform and size are overridden, nothing moves
+   in the DOM, so the xterm stays mounted and only refits. The surface
+   writes --mx-top/left/w/h from its body rect. */
+.mx-surface.is-max .mx-body { overflow: hidden; }
+.mx-panel.is-max {
+  position: fixed !important; z-index: 30;
+  top: var(--mx-top, 0); left: var(--mx-left, 0);
+  width: var(--mx-w, 100%) !important; height: var(--mx-h, 100%) !important;
+  transform: none !important; transition: none !important;
+  animation: none; box-shadow: 0 16px 48px color-mix(in srgb, #000 35%, transparent);
+}
+.mx-panel.is-max .mx-head { cursor: default; }
+.mx-panel.is-max > .react-resizable-handle { display: none; }
+
+/* Picker and name dialog. */
+.dlg-picker { width: min(480px, calc(100vw - 32px)); }
+.dlg-picker .combo-input { margin-top: 8px; height: var(--ctl-h); box-sizing: border-box; }
+.mx-picker-list { max-height: min(48vh, 360px); margin-top: 6px; }
+.mx-picker-item { display: flex; align-items: center; gap: 8px; }
+.mx-picker-item .ws-face { margin-left: 0; }
+.mx-picker-item .term-cli-face { width: 16px; height: 16px; }
+.mx-picker-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dlg-matrix-name { width: min(420px, calc(100vw - 32px)); }
+.mx-form-error { margin: 8px 0 0; }
+
+@keyframes mx-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .mx-panel { animation: none; }
+  .mx-surface .react-grid-item { transition: none; }
+}

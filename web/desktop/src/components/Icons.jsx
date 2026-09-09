@@ -26,8 +26,11 @@ import {
   File,
   Folder,
   Lock,
+  Maximize2,
+  Minimize2,
   Folders,
   GitBranch,
+  Grid3x3,
   FlaskConical,
   HardDrive,
   Home,
@@ -40,10 +43,8 @@ import {
   Layers,
   List,
   ListOrdered,
-  Maximize2,
   MessageSquare,
   Mic,
-  Minimize2,
   Monitor,
   Moon,
   PanelRight,
@@ -122,6 +123,8 @@ export const IconRemote = lucide(Cloud, 10);
 export const IconFolder = lucide(Folder, 13);
 export const IconFolders = lucide(Folders, 13);
 export const IconGrid = lucide(LayoutGrid, 13);
+// The Matrix app's tile (ADR-0109 icon map): a 3×3 grid, IconGrid's stroke.
+export const IconMatrix = lucide(Grid3x3, 13);
 export const IconFlask = lucide(FlaskConical, 13);
 export const IconInbox = lucide(Inbox, 13);
 export const IconClock = lucide(Clock, 13);

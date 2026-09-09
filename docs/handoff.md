@@ -8,11 +8,12 @@
 `git worktree list` is the truth for branches on disk (`make close-summary` prints it); this section holds only what merging one of them must know.
 
 - `feat/herdr-validation`, `feat/picode-video-pilot` — carry `CHANGELOG.md` edits and the pre-ADR-0105 12 KB `docs/handoff.md`. Their next merge of `main` conflicts in both one last time: keep this file's shape and stay under 8 KB; any further changelog line goes to `docs/changelog.d/`.
+- `feat/matrix-surface` (plan phase 3, session 1 of 2): the surface, chunk loading, picker, save/409 flow, app registration, domain tests and docs are committed; `make ci-scoped` green. Session 2 on the same branch: keyboard (Esc restores, arrows between panels), maximize polish, the browser QA rows of plan §7 on a scratch, the visual card (empty states, 6 panels, 40 panels mid-scroll, picker + `__picodeOverlayAudit`, maximize, dark and light), `docs-site/guide/matrix.md` + nav, then the handoff note and `make close`.
 
 ## Next up
 
 1. First release since 0.1.0: `make changelog` on `main`, then `docs/release-process.md` (`[Unreleased]` is 860 lines).
-2. Matrix app (`docs/plans/matrix-app.md`): phases 1/2 merged (ADR-0109 native surfaces, ADR-0108 persistence); phase 3 grid, chunk loading, picker and layout ownership remain. Register the surface as `matrix` in `web/desktop/src/lib/nativeApps.js`; use `nextSlot`/`layoutDiff` in `matrix.js`.
+2. Matrix phase 4 (`docs/plans/matrix-app.md` §5): desktop `useAgentSocket`, read-only conversation body for managed agents, Needs-you chip; the v1.1 list after it.
 3. GitHub CI: the next push exercises the ADR-0105 workflow (Ubuntu-only Go matrix, tmux cache); macOS/Windows run on tags or `workflow_dispatch`.
 4. llama delivery 3 live validation; owned-service ARM64 acceptance.
 5. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
@@ -49,6 +50,6 @@
 - Inspector: Files filter covers loaded rows only; This-agent chips show only with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: ARM64 hardware, GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
 - Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip on-device confirmation pending (Preferences → Layout exposes the dials).
-- Matrix (ADR-0108): plan §9 row 5 says a minimum panel of 3×6 cells, §4.2 (implemented) says 4×8 — the owner's pick before phase 3 sizes the grid. The API is exercised only by tests until the surface lands.
+- Matrix (ADR-0108/0109): 4×8 minimum confirmed 2026-09-09. Maximize is a fixed-position override of the grid item (a transformed ancestor would break it); the Working chip seeds with one `GET /api/tui-working` per matrix open; the Apps grid capture gains a tile (refreshes at deploy).
 - Notices (2026-09-07): needs-you covers the whole fleet, but the finish card only fires for the agent whose socket is open; neither exercised against a real pi dialog.
-- Native surfaces (ADR-0109): `host` has no `openTerminal` — the demo POSTs `/api/terminals/{id}/open` itself and keeps the live record locally (feed rows carry no `session`); closing a terminal's tab while a native app shows its pane disposes the xterm (`closeShellTerm`) and the app body stays blank until it remounts — phase 3's ownership rule (plan §4.5) decides both. The desktop's unsupported tile still explains itself only through `title` (pre-existing pattern).
+- Native surfaces (ADR-0109): `host` has no `openTerminal` — the demo and the Matrix POST `/api/terminals/{id}/open` themselves (feed rows carry no `session`); a tab closing while a Matrix panel shows its pane remounts the body with a fresh xterm (`paneOwnership.js`). The desktop's unsupported tile still explains itself only through `title` (pre-existing pattern).

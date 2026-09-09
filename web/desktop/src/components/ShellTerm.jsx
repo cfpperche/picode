@@ -24,11 +24,18 @@ export function closeShellTerm(agentId) {
   closeTerm(shellKey(agentId));
 }
 
-export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOpenFile }) {
+// active: this host is visible — claim the pane and fit it. autoFocus
+// (default true): being active also takes the keyboard. A Matrix panel
+// passes false unless it is the one focused panel (plan §4.6): every
+// visible panel re-claims its pane on reveal, exactly one calls
+// term.focus().
+export default function ShellTerm({ agentId, session, active, autoFocus = true, cwd, cwdKind, onOpenFile }) {
   const hostRef = useRef(null);
   const cwdRef = useRef(cwd);
   const fileRef = useRef(onOpenFile);
   fileRef.current = onOpenFile;
+  const focusRef = useRef(autoFocus);
+  focusRef.current = autoFocus;
   // The pane carries its own live cwd: the right-click menu resolves the
   // token under the cursor against it, the same way the Ctrl+click underline
   // does (lib/termActions.js).
@@ -67,7 +74,7 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
         if (entry.paneEl.parentElement !== hostRef.current) hostRef.current.appendChild(entry.paneEl);
         entry.paneEl.classList.add("active");
         scheduleTermFit(entry, true);
-        if (active && entry.term) entry.term.focus();
+        if (active && focusRef.current && entry.term) entry.term.focus();
         if (entry.term && !entry.unwireLinks) {
           entry.unwireLinks = wireTermLinks(entry.term, () => cwdRef.current, onFile, liveCwd);
         }
@@ -79,7 +86,7 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
       if (entry.paneEl.parentElement !== hostRef.current) hostRef.current.appendChild(entry.paneEl);
       entry.paneEl.classList.add("active");
       scheduleTermFit(entry, true);
-      if (active && entry.term) entry.term.focus();
+      if (active && focusRef.current && entry.term) entry.term.focus();
       return () => park(entry.paneEl);
     }
     const paneEl = document.createElement("div");
@@ -123,7 +130,7 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
     connectTermSocket(entry, wsURL("/ws/term?session=" + encodeURIComponent(session)), {
       onOpen: () => {
         scheduleTermFit(entry, true); // resize the fresh tmux attach
-        if (active) term.focus();
+        if (active && focusRef.current) term.focus();
       },
       onMessage: (ev) => {
         if (typeof ev.data === "string") {
@@ -155,8 +162,8 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
     if (hostRef.current && entry.paneEl.parentElement !== hostRef.current) hostRef.current.appendChild(entry.paneEl);
     entry.paneEl.classList.add("active");
     scheduleTermFit(entry, true);
-    entry.term.focus();
-  }, [active, agentId]);
+    if (autoFocus) entry.term.focus();
+  }, [active, autoFocus, agentId]);
 
   useEffect(() => {
     function apply() {

@@ -461,7 +461,7 @@ every panel component twice.
 | 2 | Where matrices live | the store (shared, backed up, on the feed); only "last matrix opened" per browser |
 | 3 | Managed-agent panels in v1 | read-only conversation + Open; the quick reply line is v1.1 |
 | 4 | Library | react-grid-layout 2.2.4 pinned, `extras` fast compactor; dockview only if v2 wants tabs-inside-panels |
-| 5 | Limits | 64 matrices, **500 panels per matrix** (feels unbounded; the cap bounds one read and one event), name 80 chars, min panel **4×8 cells** — the owner said 3×6; phase 0 measured 3 columns as ~43 terminal columns and the store (phase 2, ADR-0108) enforces 4×8; the owner confirms or reverts before phase 3 sizes the grid |
+| 5 | Limits | 64 matrices, **500 panels per matrix** (feels unbounded; the cap bounds one read and one event), name 80 chars, min panel **4×8 cells** — the owner said 3×6; phase 0 measured 3 columns as ~43 terminal columns and the store (phase 2, ADR-0108) enforces 4×8; confirmed 2026-09-09 |
 | 6 | Third surface kind in the manifest (`surface: "native"`, first-party only) | yes — the proposed-API tier ADR-0036 describes, now with a real consumer |
 | 7 | Geometry | v1 rows without end (12 columns, vertical compaction, chunk loading on one axis); the 2D pan-and-zoom canvas as the v2 matrix mode after its own spike |
 
