@@ -12,6 +12,8 @@ import { termHash } from "../lib/routes.js";
 import PageFrame from "./PageFrame.jsx";
 import CliTabs from "./CliTabs.jsx";
 import CliSettings from "./CliSettings.jsx";
+import CliPackages from "./CliPackages.jsx";
+import { cliPackagesHash, supportsCliPackages } from "@picode/shared/domain/cliPackages.js";
 import { cliSettingsHash, supportsCliSettings } from "@picode/shared/domain/cliSettings.js";
 import SessionsView from "./SessionsView.jsx";
 import CliCombo from "./CliCombo.jsx";
@@ -28,7 +30,7 @@ function Notice({ children, action, onAction, danger = false }) {
   return <div className={"cli-notice" + (danger ? " is-error" : "")} role={danger ? "alert" : "status"}><span>{children}</span>{action ? <button type="button" className="btn btn-ghost btn-sm" onClick={onAction}>{action}</button> : null}</div>;
 }
 
-export default function AgentClis({ hidden = false, catalog, legacyAgentId = "", onAgentConfig, onOpenAgent = () => {}, onCompactAgent = () => {} }) {
+export default function AgentClis({ hidden = false, catalog, legacyAgentId = "", legacyPackageContext = {}, legacyContextReady = true, packageUpdates = [], onPackageUpdates, onAgentConfig, onOpenAgent = () => {}, onCompactAgent = () => {} }) {
   const [hash, setHash] = useState(location.hash);
   const route = cliLocation(hash);
   const [data, setData] = useState(null);
@@ -52,13 +54,13 @@ export default function AgentClis({ hidden = false, catalog, legacyAgentId = "",
     return () => window.removeEventListener("hashchange", update);
   }, []);
   useEffect(() => {
-    if (hidden || route.view === "settings") return;
+    if (hidden || ["settings", "packages"].includes(route.view)) return;
     if (hash === "#/preferences/status") location.replace("#/clis");
     // ADR-0079: the old top-level sessions route moved under Agent CLIs.
     if (/^#\/sessions(\/|$)/.test(hash)) location.replace("#/clis/sessions" + hash.slice("#/sessions".length));
   }, [hidden, hash, route.view]);
   useEffect(() => {
-    if (hidden || route.view === "settings") return;
+    if (hidden || ["settings", "packages"].includes(route.view)) return;
     refresh();
     // ADR-0087: refresh stale update checks once per visit, server-side
     // cached — never a polling timer.
@@ -127,10 +129,11 @@ export default function AgentClis({ hidden = false, catalog, legacyAgentId = "",
     });
   };
 
+  if (route.view === "packages") return <CliPackages onPackageUpdates={onPackageUpdates} hidden={hidden} hash={hash} legacyContext={legacyPackageContext} legacyContextReady={legacyContextReady} catalog={catalog} />;
   if (route.view === "settings") return <CliSettings hidden={hidden} hash={hash} legacyAgentId={legacyAgentId} catalog={catalog} onAgentConfig={onAgentConfig} />;
 
   return <PageFrame id="agent-clis-view" title="Agent CLIs" hidden={hidden} wide>
-    <CliTabs view={route.view} />
+    <CliTabs view={route.view} packagesHref={cliPackagesHash("pi", legacyPackageContext)} hasPackageUpdates={packageUpdates.length > 0} />
     {error && route.view !== "sessions" ? <Notice danger action="Try again" onAction={refresh}>{error}</Notice> : null}
     {!data && !error && route.view !== "sessions" ? <div className="cli-loading" aria-label="Loading Agent CLIs"><div /><div /><div /></div> : null}
     {route.view === "sessions" ? <SessionsView
@@ -158,6 +161,7 @@ export default function AgentClis({ hidden = false, catalog, legacyAgentId = "",
           {!selected.installed && selected.lifecycle?.canInstall ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("install")}>{lifecycleBusy ? "Working…" : "Install"}</button> : null}
           {selected.installed && selected.lifecycle?.canUpdate && selected.diagnostic?.updateAvailable ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("update")}>{lifecycleBusy ? "Working…" : "Update"}</button> : null}
           {supportsCliSettings(selected.id) ? <a className="btn btn-ghost btn-sm" href={cliSettingsHash(selected.id)}>Settings</a> : null}
+          {supportsCliPackages(selected.id) ? <a className="btn btn-ghost btn-sm" href={cliPackagesHash(selected.id, legacyPackageContext)}>Packages</a> : null}
           <button className="btn btn-primary btn-sm" disabled={!data.terminalAvailable} onClick={() => navigate("/new/" + selected.id)}>New terminal</button>
           {selected.installed && (selected.lifecycle?.canUpdate || selected.lifecycle?.canReinstall || selected.lifecycle?.uninstall) ? <DropdownMenu.Root><DropdownMenu.Trigger asChild><button className="btn btn-ghost btn-sm cli-more" aria-label={"Lifecycle actions for " + selected.name} disabled={!!lifecycleBusy}>•••</button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
             <DropdownMenu.Item className="um-item" onSelect={checkUpdates}>Check for updates</DropdownMenu.Item>

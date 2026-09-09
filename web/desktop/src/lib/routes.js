@@ -1,3 +1,4 @@
+import { cliPackagesLocation, cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { cliSettingsLocation, cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 // Hash routes. Preferences is PiCode-the-product. Native settings live under Agent CLIs (ADR-0101).
 // Sessions live under Agent CLIs (ADR-0079); /clis/* views are parsed by
@@ -12,7 +13,7 @@ export const ROUTES = {
   llama: "/llama/models",
   mcps: "/mcps",
   integrations: "/integrations",
-  packages: "/packages",
+  packages: "/clis/packages/pi",
   devices: "/devices",
   pins: "/pins",
   termset: "/termset",
@@ -23,13 +24,13 @@ export function parseRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
   if (h === "/preferences/status" || h === "/clis" || h.startsWith("/clis/")) return "clis";
   if (h === "/preferences" || h.startsWith("/preferences/")) return "preferences";
+  if (cliPackagesLocation(h)) return "clis";
   if (cliSettingsLocation(h)) return "clis";
   if (h === "/system") return "system";
   if (h === "/llama" || h.startsWith("/llama/") || h === "/providers/llama") return "llama";
   if (h === "/providers" || h.startsWith("/providers/")) return "providers";
   if (h === "/mcps") return "mcps";
   if (h === "/integrations" || h.startsWith("/integrations/")) return "integrations";
-  if (h === "/packages" || h.startsWith("/packages/")) return "packages";
   if (h === "/devices") return "devices";
   if (h === "/pins" || h.startsWith("/pins/")) return "pins";
   if (h === "/termset" || h.startsWith("/termset/")) return "termset";
@@ -45,18 +46,12 @@ export function parseRoute(hash) {
   return "workspace";
 }
 
-// Package configuration (ADR-0033 amendment #3): "#/packages/config/<pkg>"
-// is the config page for one known adapter; context (workspace/agent) is the
-// same selected pane the list uses, so the URL carries only the package.
+// Compatibility helpers; canonical package URLs carry their own context.
 export function packagesConfigRoute(hash) {
-  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
-  const m = /^\/packages\/config\/([^/?]+)/.exec(h);
-  if (!m) return null;
-  try { return decodeURIComponent(m[1]); } catch { return m[1]; }
+  return cliPackagesLocation(hash || (typeof location !== "undefined" ? location.hash : ""))?.pkg || null;
 }
-
-export function packagesConfigHash(pkg) {
-  return "#/packages/config/" + encodeURIComponent(pkg || "");
+export function packagesConfigHash(pkg, context = {}) {
+  return cliPackagesHash("pi", { ...context, pkg });
 }
 
 export function agentRoute(hash) {

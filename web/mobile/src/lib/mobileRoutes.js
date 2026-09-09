@@ -1,3 +1,4 @@
+import { cliPackagesLocation } from "@picode/shared/domain/cliPackages.js";
 import { cliSettingsLocation } from "@picode/shared/domain/cliSettings.js";
 import { agentRoute, workspaceHash, termRoute, termHash, appPath } from "./routes.js";
 
@@ -48,6 +49,7 @@ function dec(s) {
 
 export function mobileRoute(hash) {
   const h = strip(hash);
+  if (cliPackagesLocation(h)) return { screen: "more", id: "", section: "clis" };
   if (cliSettingsLocation(h)) return { screen: "more", id: "", section: "clis" };
   if (h === "/providers/llama") return { screen: "more", id: "", section: "llama" };
   if (h === "/preferences/status") return { screen: "more", id: "", section: "clis" };

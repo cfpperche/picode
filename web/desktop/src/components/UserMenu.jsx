@@ -33,7 +33,7 @@ export default function UserMenu({ host, version, themeMode, onTheme, onNavigate
       <DropdownMenu.Item key={id} className="um-item" id={"um-" + id} onSelect={() => onNavigate(id)}>
         {Icon ? <Icon className="um-item-ico" /> : null}
         <span className="um-item-text">
-          <span className="um-item-name">{title}{id === "packages" && hasPkgUp ? <span className="um-dot" aria-label="Updates available" /> : null}</span>
+          <span className="um-item-name">{title}{id === "clis" && hasPkgUp ? <span className="um-dot" aria-label="Updates available" /> : null}</span>
           <span className="um-row-sub">{sub}</span>
         </span>
         <IconChevronRight />

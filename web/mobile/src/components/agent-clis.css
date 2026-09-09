@@ -158,3 +158,5 @@
 
 .cli-settings-body { padding: 0 24px 24px; }
 @media (max-width: 719px) { .cli-settings-body { padding: 0 16px 16px; } }
+
+.cli-packages-fields { border: 0; padding: 0; margin: 0; min-width: 0; }

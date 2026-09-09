@@ -4,7 +4,7 @@ Extras for Pi (search, tools, themes). They run with **full access** — only in
 
 Canonical: [pi packages](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md).
 
-In PiCode (`#/packages`) pick a target, then Install. **Installed** lists what each target has (Update when a newer version exists, Remove); **Marketplace** is the pi.dev gallery.
+Open **Agent CLIs → Packages**, select **Pi**, then pick a target and Install. **Installed** lists what each target has (Update when a newer version exists, Remove); **Marketplace** is the pi.dev gallery.
 
 | Target | Who gets it | How |
 |---|---|---|
@@ -14,7 +14,7 @@ In PiCode (`#/packages`) pick a target, then Install. **Installed** lists what e
 
 This agent is PiCode-only. pi has no per-agent install. Restart the agent after adding or removing.
 
-If a package on this machine or in this folder is behind, that row shows **Update**. The user menu marks Packages. Nothing updates until you click. Git and pinned versions stay as they are.
+If a package on this machine or in this folder is behind, that row shows **Update**. The user menu marks Agent CLIs. Nothing updates until you click. Git and pinned versions stay as they are.
 
 **Only this agent's packages** (checkbox): skip machine and folder packages. The agent starts with its own list, or none. Also skips skills/themes discovered from those places. Restart to apply.
 
@@ -45,6 +45,16 @@ Guide: [Compact earlier](/guide/compact).
 Diff panel: install `packages/pi-diff` — an extension, not core — so `/diff`
 in the pi TUI opens a side panel with every changed file and the hunks of the
 one the agent touched last. Guide: [Diff panel for pi](/guide/diff-panel).
+
+## Package links and configuration
+
+The machine view lives at `#/clis/packages/pi`. Links opened from an agent
+retain that agent and its workspace through reloads. Old `#/packages` links
+redirect to the new view. Missing targets show a recovery action.
+
+Known packages such as `pi-roles` offer **Configure** in the desktop layout.
+Their configuration URL retains the workspace and agent. Opening that URL on
+a phone offers **Open desktop layout**, preserving the same target.
 
 ## Tool captures
 

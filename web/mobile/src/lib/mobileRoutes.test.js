@@ -123,3 +123,9 @@ it("pins on the phone: list under More, read-only screen, new and edit forms", (
   assert.equal(parentHash({ screen: "pinEdit", id: "x" }), "#/pins/x");
   assert.equal(parentHash({ screen: "pinEdit", id: "" }), "#/more/pins");
 });
+
+it("native packages and legacy configuration links use Agent CLIs", () => {
+  for (const hash of ["#/packages", "#/more/packages", "#/packages/config/pi-roles", "#/clis/packages/pi?agentId=a", "#/clis/packages/pi/config/pi-roles?workspaceId=w"]) {
+    assert.deepEqual(mobileRoute(hash), { screen: "more", id: "", section: "clis" });
+  }
+});

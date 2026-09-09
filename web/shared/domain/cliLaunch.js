@@ -1,6 +1,9 @@
+import { cliPackagesLocation } from "./cliPackages.js";
 import { cliSettingsLocation } from "./cliSettings.js";
 
 export function cliLocation(hash = "") {
+  const packages = cliPackagesLocation(hash);
+  if (packages) return packages;
   const settings = cliSettingsLocation(hash);
   if (settings) return settings;
   const [path, query] = hash.split("?");

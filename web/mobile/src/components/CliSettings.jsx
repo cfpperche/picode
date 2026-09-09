@@ -16,7 +16,7 @@ export default function CliSettings({ hidden, hash, legacyAgentId, catalog, onAg
   }, [hidden, route.redirect]);
   const supported = supportsCliSettings(route.id);
   return <PageFrame id="agent-clis-view" title="Agent CLIs" hidden={hidden} wide>
-    <CliTabs view="settings" />
+    <CliTabs view="settings" packagesHref={"#/clis/packages/pi" + (route.agentId ? "?agentId=" + encodeURIComponent(route.agentId) : "")} />
     <div className="cli-settings-body">
     <div className="cli-settings-heading">
       <h3>Settings</h3>

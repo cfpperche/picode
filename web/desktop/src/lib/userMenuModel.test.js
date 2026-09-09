@@ -11,7 +11,7 @@ test("every group id resolves to a section; every section is reachable", () => {
 
 test("blank query returns all groups and actions (footer visible)", () => {
   assert.equal(menuGroups("").length, MENU_GROUPS.length);
-  assert.equal(menuGroups("").flatMap(g => g.rows).length, MENU_SECTIONS.length);
+  assert.equal(menuGroups("").flatMap(g => g.rows).length, MENU_SECTIONS.length - 1);
   assert.equal(menuActions("").length, MENU_ACTIONS.length);
   assert.equal(menuHasResults(""), true);
 });
@@ -28,4 +28,9 @@ test("a query with no matches empties the menu (empty state row shows)", () => {
   assert.deepEqual(menuGroups("zzz"), []);
   assert.deepEqual(menuActions("zzz"), []);
   assert.equal(menuHasResults("zzz"), false);
+});
+
+test("Packages is searchable inside Agent CLIs", () => {
+  assert.ok(!menuGroups("").flatMap(g => g.rows).some(row => row[0] === "packages"));
+  assert.ok(menuGroups("packages").some(group => group.title === "Agent CLIs" && group.rows.some(row => row[0] === "packages")));
 });

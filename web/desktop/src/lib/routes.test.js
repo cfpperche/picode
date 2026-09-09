@@ -160,10 +160,10 @@ test("llama manager owns its routes and the legacy link", () => {
  assert.equal(parseRoute("#/providers/new"), "providers");
 });
 
-test("packages config is a packages subroute carrying the adapter name", () => {
-  assert.equal(parseRoute("#/packages"), "packages");
-  assert.equal(parseRoute("#/packages/config/pi-roles"), "packages");
+test("packages config lives under Agent CLIs and retains legacy parsing", () => {
+  assert.equal(parseRoute("#/packages"), "clis");
+  assert.equal(parseRoute("#/packages/config/pi-roles"), "clis");
   assert.equal(packagesConfigRoute("#/packages/config/pi-roles"), "pi-roles");
   assert.equal(packagesConfigRoute("#/packages"), null);
-  assert.equal(packagesConfigHash("pi-roles"), "#/packages/config/pi-roles");
+  assert.equal(packagesConfigHash("pi-roles"), "#/clis/packages/pi/config/pi-roles");
 });

@@ -7,6 +7,13 @@ Codex, Grok, Hermes Agent and OpenCode commands. Managed agents,
 structured chat, packages and automations still use Pi; a CLI terminal is
 not a new type of managed agent.
 
+## Native packages
+
+The **Packages** tab manages Pi packages. Its CLI selector lists the CLIs
+with an implemented package integration; terminal support alone does not add
+package management. Open Packages from an agent to retain its workspace and
+agent target. See [Packages](/guide/packages) for installation and configuration.
+
 ## Open a terminal
 
 1. Choose a CLI and select **Check setup** to verify its executable.

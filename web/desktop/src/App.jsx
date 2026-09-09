@@ -1,3 +1,4 @@
+import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, humanizeError, wsURL } from "@picode/shared/client/api.js";
 import { bashLine } from "@picode/shared/domain/bashLine.js";
@@ -32,8 +33,6 @@ import System from "./components/System.jsx";
 import Providers from "./components/Providers.jsx";
 import Mcps from "./components/Mcps.jsx";
 import Integrations from "./components/Integrations.jsx";
-import Packages from "./components/Packages.jsx";
-import PackagesConfig from "./components/PackagesConfig.jsx";
 import Devices from "./components/Devices.jsx";
 import Automations from "./components/Automations.jsx";
 import Palette from "./components/Palette.jsx";
@@ -46,7 +45,7 @@ import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
-import { ownerLetter, parseRoute, packagesConfigRoute, go, providersNew, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, providersNew, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import { normalizeManifests } from "@picode/shared/contracts/appPrimitives.js";
 const PinStudio = lazy(() => import("./components/PinStudio.jsx"));
@@ -128,7 +127,6 @@ export default function App() {
   const [host, setHost] = useState("local");
   const [themeMode, setThemeMode] = useState(readThemeMode);
   const [route, setRoute] = useState(() => parseRoute());
-  const [pkgConfigPkg, setPkgConfigPkg] = useState(() => packagesConfigRoute());
   useEffect(() => { setNavigationOpen(false); }, [route, selectedId]);
   const [hash, setHash] = useState(() => (typeof location !== "undefined" ? location.hash : "#/"));
   const [goneId, setGoneId] = useState("");
@@ -356,11 +354,7 @@ export default function App() {
     const t = setInterval(() => { if (!feedConnected()) load(); }, 30 * 60 * 1000);
     return () => { stop = true; clearInterval(t); unsub(); };
   }, [pkgWs]);
-  useEffect(() => {
-    if (route !== "packages") return;
-    const q = pkgWs ? "?workspace=" + encodeURIComponent(pkgWs) : "";
-    api("/api/packages/updates" + q).then((p) => setPkgUpdates(p.updates || [])).catch(() => {});
-  }, [route, pkgWs]);
+
 
   useEffect(() => { applyTheme(themeMode); }, [themeMode]);
   useEffect(() => { applyTermChrome(); }, []);
@@ -374,7 +368,6 @@ export default function App() {
   useEffect(() => {
     const onHash = () => {
       setRoute(parseRoute());
-      setPkgConfigPkg(packagesConfigRoute());
       setHash(location.hash);
     };
     window.addEventListener("hashchange", onHash);
@@ -2624,7 +2617,7 @@ export default function App() {
           version,
           themeMode,
           onTheme: setTheme,
-          onNavigate: go,
+          onNavigate: (kind) => { if (kind === "packages") location.hash = cliPackagesHash("pi", { workspaceId: paneWs?.id, agentId: agent?.id }); else go(kind); },
           onWhatsNew: openWhatsNew,
           whatsNewUnread,
           pkgUpdates,
@@ -2905,7 +2898,7 @@ export default function App() {
             composer={{
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
               roleState, onRoleCommand: (cmd) => sendTask(cmd),
-              slashExtra, atAgents, onAgentPage: (name) => go(name, name === "settings" ? agent?.id : undefined), pkgUpdates,
+              slashExtra, atAgents, onAgentPage: (name) => name === "packages" ? (location.hash = cliPackagesHash("pi", { workspaceId: paneWs?.id, agentId: agent?.id })) : go(name, name === "settings" ? agent?.id : undefined), pkgUpdates,
               status, streaming, waiting, onToggleDock: showTerm, onStop: () => selectedId && stopAgent(selectedId),
               tuiWorking: tuiBusy,
               onAbort: abortTurn,
@@ -2979,7 +2972,7 @@ export default function App() {
           ) : null}
         </div>
 
-        <AgentClis catalog={catalog} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} />
+        <AgentClis catalog={catalog} legacyContextReady={bootstrapped} legacyPackageContext={{ workspaceId: paneWs?.id || "", agentId: agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "") }} packageUpdates={pkgUpdates} onPackageUpdates={(updates, workspaceId) => { if ((paneWs?.id || "") === workspaceId) setPkgUpdates(updates); }} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} />
         <Settings
           hidden={route !== "preferences"}
           themeMode={themeMode}
@@ -3035,17 +3028,6 @@ export default function App() {
             if (was === "interactive") await openInteractive(agent.id);
             else await startManaged(agent.id);
           }} />
-        <Packages hidden={route !== "packages" || !!pkgConfigPkg} workspaceId={paneWs ? paneWs.id : ""} workspaceName={paneWs ? paneWs.name : ""} workspacePath={paneWs ? paneWs.path : ""} agentId={agent ? agent.id : ""} agentName={displayAgentName(agent, selected)} updates={pkgUpdates} onUpdates={setPkgUpdates} />
-        {route === "packages" && pkgConfigPkg ? (
-          <PackagesConfig
-            pkg={pkgConfigPkg}
-            workspaceId={paneWs ? paneWs.id : ""}
-            workspaceName={paneWs ? paneWs.name : ""}
-            agentId={agent ? agent.id : ""}
-            agentName={displayAgentName(agent, selected)}
-            catalog={catalog}
-          />
-        ) : null}
         <Devices hidden={route !== "devices"} />
         <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
@@ -3084,6 +3066,7 @@ export default function App() {
         onRun={(a) => {
           if (a.kind === "whats-new") { openWhatsNew(); return; }
           if (a.kind === "inspector") { toggleInspector(); return; }
+          if (a.kind === "packages") { location.hash = cliPackagesHash("pi", { workspaceId: paneWs?.id, agentId: agent?.id }); return; }
           if (a.kind === "cli-new") { location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : ""); return; }
           if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations") { go(a.kind, a.kind === "settings" ? agent?.id : undefined); return; }
           if (a.kind === "app") { openTab(appTabId(a.appId)); if (parseRoute() !== "workspace") location.hash = appHash(a.appId); return; }

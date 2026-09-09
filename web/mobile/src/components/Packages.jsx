@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import { paneContext } from "@picode/shared/domain/tree.js";
@@ -6,10 +6,14 @@ import PageFrame from "./PageFrame.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { pkgName } from "@picode/shared/domain/pkgName.js";
 
-export default function Packages({ hidden, workspaceId, workspaceName, workspacePath, agentId, agentName, updates, onUpdates }) {
+export default function Packages({ hidden, embedded = false, workspaceId, workspaceName, workspacePath, agentId, agentName, updates, onUpdates, beforeMutation = async () => {}, scope = "user", onScopeChange = () => {}, configHash }) {
   const [data, setData] = useState(null);
   const [source, setSource] = useState("");
-  const [scope, setScope] = useState("user");
+  const setScope = onScopeChange;
+  const [loadError, setLoadError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const request = useRef(0);
+  useEffect(() => () => { request.current++; }, []);
   const [q, setQ] = useState("");
   const [hits, setHits] = useState([]);
   const [searching, setSearching] = useState(true);
@@ -39,16 +43,18 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
   }
 
   async function load() {
-    try { setData(await api(listURL())); }
-    catch { setData({ packages: [], capabilities: {}, gallery: "https://pi.dev/packages" }); }
-    await pullUpdates();
+    const seq = ++request.current;
+    setLoading(true);
+    try {
+      const next = await api(listURL());
+      if (seq === request.current) { setData(next); setLoadError(""); }
+    } catch (err) { if (seq === request.current) setLoadError(err.message); }
+    finally { if (seq === request.current) setLoading(false); }
+    if (seq === request.current) await pullUpdates();
   }
 
   useEffect(() => { if (!hidden) load(); }, [hidden, workspaceId, agentId]);
-  useEffect(() => {
-    if (!workspaceId && scope === "project") setScope("user");
-    if (!agentId && scope === "agent") setScope("user");
-  }, [workspaceId, agentId, scope]);
+
 
   useEffect(() => {
     if (hidden || tab !== "marketplace") return;
@@ -74,12 +80,13 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
 
   async function installSource(src) {
     const nextSrc = (src || "").trim();
-    if (!nextSrc || job) return;
+    if (!nextSrc || job || loadError || !data) return;
     if (scope === "project" && !workspaceId) return;
     if (scope === "agent" && !agentId) return;
     setJob({ action: "install", source: nextSrc, scope, cwd: scope === "project" ? workspacePath : "", step: 0, error: "", done: false });
     const tick = startJobTick(setJob, 2);
     try {
+      await beforeMutation();
       const next = await api("/api/packages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -102,11 +109,12 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
   }
 
   async function updatePkg(pkg) {
-    if (!pkg || job || pkg.scope === "agent") return;
+    if (!pkg || job || loadError || !data || pkg.scope === "agent") return;
     const sc = pkg.scope === "project" ? "project" : "user";
     setJob({ action: "update", source: pkg.source, scope: sc, cwd: sc === "project" ? workspacePath : "", step: 0, error: "", done: false });
     const tick = startJobTick(setJob, 2);
     try {
+      await beforeMutation();
       const next = await api("/api/packages/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -130,7 +138,7 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
       confirmLabel: "Remove",
       danger: true,
     });
-    if (!ok || job) return;
+    if (!ok || job || loadError || !data) return;
     const sc = pkg.scope === "project" ? "project" : pkg.scope === "agent" ? "agent" : "user";
     setJob({ action: "remove", source: pkg.source, scope: sc, cwd: sc === "project" ? workspacePath : "", step: 0, error: "", done: false });
     const tick = startJobTick(setJob, 2);
@@ -138,6 +146,7 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
       let url = "/api/packages?source=" + encodeURIComponent(pkg.source) + "&scope=" + sc;
       if (workspaceId) url += "&workspace=" + encodeURIComponent(workspaceId);
       if (agentId) url += "&agent=" + encodeURIComponent(agentId);
+      await beforeMutation();
       const next = await api(url, { method: "DELETE" });
       setJob((j) => j && { ...j, step: 2, done: true });
       setData(next);
@@ -154,7 +163,10 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
   const gallery = (data && data.gallery) || "https://pi.dev/packages";
 
   return (
-    <PageFrame id="packages-view" title="Packages" context={paneContext(agentName, workspaceName)} hidden={hidden} wide>
+    <PageFrame embedded={embedded} id="packages-view" title="Packages" context={paneContext(agentName, workspaceName)} hidden={hidden} wide>
+      {loadError ? <div className="cli-notice is-error" role="alert"><span>{loadError}</span><button type="button" className="btn btn-ghost btn-sm" disabled={loading} onClick={load}>{loading ? "Retrying…" : "Try again"}</button></div> : null}
+      {!data && loading ? <div className="cli-loading" aria-label="Loading packages"><div /><div /><div /></div> : null}
+      <fieldset className="cli-packages-fields" hidden={!data} disabled={!!loadError || !data || !!job}>
       <form className="pkg-by-source" noValidate onSubmit={(e) => { e.preventDefault(); installSource(source); }}>
         <input
           className="dlg-input"
@@ -166,7 +178,7 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
         />
         <button type="submit" className="btn btn-primary btn-sm" disabled={!!job || !source.trim() || (scope === "project" && !workspaceId) || (scope === "agent" && !agentId)}>Install</button>
       </form>
-      <div className="pkg-scope" data-align-row role="radiogroup" aria-label="Install scope">
+      <div className="pkg-scope" data-align-row data-align-wrap role="radiogroup" aria-label="Install scope">
         <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>This machine</button>
         {workspaceId ? (
           <button
@@ -198,13 +210,14 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
             onChange={async (e) => {
               const on = e.target.checked;
               try {
+                await beforeMutation();
                 await api("/api/agents/" + agentId, {
                   method: "PATCH",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ packagesIsolated: on }),
                 });
                 await load();
-              } catch (err) { /* keep checkbox from lying */ await load(); }
+              } catch (err) { setLoadError(err.message); }
             }}
           />
           Only this agent's packages (skip machine and folder). Restart to apply.
@@ -329,6 +342,7 @@ export default function Packages({ hidden, workspaceId, workspaceName, workspace
         </>
       )}
 
+      </fieldset>
       {job ? <JobOverlay job={job} onClose={() => setJob(null)} /> : null}
     </PageFrame>
   );

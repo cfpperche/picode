@@ -1,3 +1,4 @@
+import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { useEffect, useRef, useState } from "react";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import { api, humanizeError } from "@picode/shared/client/api.js";
@@ -343,13 +344,13 @@ export default function Mcps({ hidden, embedded, workspaceId, workspaceName, wor
       ) : !installed ? (
         <div className="mcp-empty">
           <p>Install the MCP adapter to connect services.</p>
-          <a className="btn btn-primary" href="#/packages">Open packages</a>
+          <a className="btn btn-primary" href={cliPackagesHash("pi", { workspaceId, agentId })}>Open packages</a>
         </div>
       ) : (
         <>
           {embedded && !!data?.connectorPackages?.length && <section className="pkg-installed">
             <h3>Connector packages</h3>
-            <ul className="mcp-list">{data.connectorPackages.map(p => <li key={p.scope + p.source} className="mcp-row integration-package"><div className="mcp-row-main"><strong>{p.name}</strong><span className="pkg-fine">Installed · {p.scope === "user" ? "This machine" : "This workspace"}</span></div><a className="btn btn-ghost" href="#/packages">Manage package</a></li>)}</ul>
+            <ul className="mcp-list">{data.connectorPackages.map(p => <li key={p.scope + p.source} className="mcp-row integration-package"><div className="mcp-row-main"><strong>{p.name}</strong><span className="pkg-fine">Installed · {p.scope === "user" ? "This machine" : "This workspace"}</span></div><a className="btn btn-ghost" href={cliPackagesHash("pi", { workspaceId, agentId })}>Manage package</a></li>)}</ul>
             <p className="pkg-fine">Package tools load through the MCP adapter when an agent starts.</p>
           </section>}
           <section className="pkg-installed">

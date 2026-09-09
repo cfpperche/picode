@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import { paneContext } from "@picode/shared/domain/tree.js";
@@ -56,22 +56,29 @@ function draftToConfig(draft) {
   return { builtin, custom };
 }
 
-export default function PackagesConfig({ hidden, pkg, workspaceId, workspaceName, agentId, agentName, catalog }) {
+export default function PackagesConfig({ hidden, embedded = false, pkg, workspaceId, workspaceName, agentId, agentName, catalog, backHash = "#/clis/packages/pi", initialScope = "workspace", onScopeChange = () => {}, beforeMutation = async () => {} }) {
   const [view, setView] = useState(null);
   const [loadErr, setLoadErr] = useState("");
-  const [scope, setScope] = useState("workspace");
+  const scope = initialScope;
+  const setScope = onScopeChange;
   const [drafts, setDrafts] = useState({ workspace: null, agent: null });
   const [saving, setSaving] = useState(false);
   const [conflict, setConflict] = useState("");
   const [note, setNote] = useState("");
+  const [noteError, setNoteError] = useState(false);
   const [adding, setAdding] = useState(false);
+  const current = useRef(null);
+  current.current = { view, drafts, saving };
+  const request = useRef(0);
+  useEffect(() => () => { request.current++; }, []);
+  useEffect(() => { setConflict(""); setNote(""); }, [scope]);
 
   const hasAgentLayer = !!agentId;
   const layer = scope === "agent" && hasAgentLayer ? view?.agent : view?.workspace;
   const other = scope === "agent" && hasAgentLayer ? view?.workspace : null;
   const draft = drafts[scope] || structuredClone(EMPTY);
   const broken = !!(layer && layer.invalid);
-  const readOnly = !view || broken;
+  const readOnly = !view || broken || !!loadErr;
   const dirty = !!view && !broken && !draftEquals(draft, layerToDraft(layer));
 
   const providers = useMemo(
@@ -92,13 +99,20 @@ export default function PackagesConfig({ hidden, pkg, workspaceId, workspaceName
 
   async function load() {
     if (!workspaceId) { setView(null); return; }
-    setLoadErr("");
+    if (current.current.saving) return;
+    const seq = ++request.current;
     try {
       const next = await api(configURL());
+      if (seq !== request.current) return;
+      const previous = current.current;
       setView(next);
-      setDrafts({ workspace: layerToDraft(next.workspace), agent: next.agent ? layerToDraft(next.agent) : null });
+      setLoadErr("");
+      setDrafts({
+        workspace: previous.view && previous.drafts.workspace && !draftEquals(previous.drafts.workspace, layerToDraft(previous.view.workspace)) ? previous.drafts.workspace : layerToDraft(next.workspace),
+        agent: previous.view?.agent && previous.drafts.agent && !draftEquals(previous.drafts.agent, layerToDraft(previous.view.agent)) ? previous.drafts.agent : next.agent ? layerToDraft(next.agent) : null,
+      });
     } catch (err) {
-      setLoadErr(humanizeError(err.message || String(err)));
+      if (seq === request.current) setLoadErr(humanizeError(err.message || String(err)));
     }
   }
 
@@ -152,38 +166,43 @@ export default function PackagesConfig({ hidden, pkg, workspaceId, workspaceName
   }
 
   async function save(force) {
-    if (saving || readOnly) return;
+    if (saving || !view || loadErr || (broken && !force)) return;
     const parsed = rolesConfigSchema.safeParse(draftToConfig(draft));
     if (!parsed.success) {
+      setNoteError(true);
       setNote(parsed.error.issues[0]?.message || "Check the highlighted fields.");
       return;
     }
+    request.current++;
     setSaving(true);
     setConflict("");
     setNote("");
+    setNoteError(false);
     try {
+      await beforeMutation();
       const next = await api("/api/packages/config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           package: "pi-roles", scope, workspaceId,
-          agentId: scope === "agent" ? agentId : undefined,
+          agentId: agentId || undefined,
           config: parsed.data, force: !!force,
         }),
       });
       setView(next);
-      setDrafts({ workspace: layerToDraft(next.workspace), agent: next.agent ? layerToDraft(next.agent) : null });
+      setDrafts(prev => ({ workspace: scope === "workspace" ? layerToDraft(next.workspace) : prev.workspace, agent: scope === "agent" ? (next.agent ? layerToDraft(next.agent) : null) : prev.agent }));
       const rel = scope === "agent" ? next.agent?.rel : next.workspace.rel;
       setNote("Saved to " + rel + ". Roles apply on the agent's next message.");
     } catch (err) {
       if (err.status === 409) setConflict(err.message);
-      else setNote(humanizeError(err.message || String(err)));
+      else { setNoteError(true); setNote(humanizeError(err.message || String(err))); }
     } finally {
       setSaving(false);
     }
   }
 
   async function clearFile() {
+    if (saving || readOnly || !layer?.exists) return;
     const target = scope === "agent" ? view.agent : view.workspace;
     const ok = await askConfirm({
       title: "Clear roles file",
@@ -194,17 +213,22 @@ export default function PackagesConfig({ hidden, pkg, workspaceId, workspaceName
       danger: true,
     });
     if (!ok) return;
+    request.current++;
     setSaving(true);
+    setNote("");
+    setNoteError(false);
     try {
+      await beforeMutation();
       const next = await api(
         "/api/packages/config?package=pi-roles&scope=" + scope + "&workspace=" + encodeURIComponent(workspaceId)
-        + (scope === "agent" ? "&agent=" + encodeURIComponent(agentId) : ""),
+        + (agentId ? "&agent=" + encodeURIComponent(agentId) : ""),
         { method: "DELETE" },
       );
       setView(next);
-      setDrafts({ workspace: layerToDraft(next.workspace), agent: next.agent ? layerToDraft(next.agent) : null });
+      setDrafts(prev => ({ workspace: scope === "workspace" ? layerToDraft(next.workspace) : prev.workspace, agent: scope === "agent" ? (next.agent ? layerToDraft(next.agent) : null) : prev.agent }));
       setNote("Cleared " + target.rel + ".");
     } catch (err) {
+      setNoteError(true);
       setNote(humanizeError(err.message || String(err)));
     } finally {
       setSaving(false);
@@ -215,10 +239,10 @@ export default function PackagesConfig({ hidden, pkg, workspaceId, workspaceName
 
   if (!workspaceId) {
     return (
-      <PageFrame id="packages-config" title={pkg + " settings"} context={paneContext(agentName, workspaceName)} hidden={hidden}>
+      <PageFrame embedded={embedded} id="packages-config" title={pkg + " settings"} context={paneContext(agentName, workspaceName)} hidden={hidden}>
         <div className="pkg-empty">
           <p className="pkg-empty-title">Roles files live in a workspace folder.</p>
-          <p className="pkg-fine">Open a workspace in the sidebar, then come back to configure its packages.</p>
+          <a className="btn btn-sm" href="#/">Open a workspace</a>
         </div>
       </PageFrame>
     );
@@ -229,14 +253,14 @@ export default function PackagesConfig({ hidden, pkg, workspaceId, workspaceName
     : [];
 
   return (
-    <PageFrame id="packages-config" title={pkg + " settings"} context={paneContext(agentName, workspaceName)} hidden={hidden} wide>
+    <PageFrame embedded={embedded} id="packages-config" title={pkg + " settings"} context={paneContext(agentName, workspaceName)} hidden={hidden} wide>
       <div className="pkc-top">
-        <a className="pkg-back" href="#/packages">← All packages</a>
+        <a className="pkg-back" href={backHash}>← All packages</a>
         <span className="pkg-foot-spacer" />
         <div className="pkg-scope" role="radiogroup" aria-label="Which roles file to edit">
-          <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "workspace"} onClick={() => setScope("workspace")}>Workspace — shared</button>
+          <button type="button" role="radio" className="pkg-scope-btn" disabled={saving} aria-checked={scope === "workspace"} onClick={() => setScope("workspace")}>Workspace — shared</button>
           {hasAgentLayer ? (
-            <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "agent"} onClick={() => setScope("agent")}>{agentName || "This agent"} — overrides</button>
+            <button type="button" role="radio" className="pkg-scope-btn" disabled={saving} aria-checked={scope === "agent"} onClick={() => setScope("agent")}>{agentName || "This agent"} — overrides</button>
           ) : null}
         </div>
       </div>
@@ -323,7 +347,7 @@ export default function PackagesConfig({ hidden, pkg, workspaceId, workspaceName
                 providers={providers}
                 thinkingLevels={thinkingLevels}
                 existing={draft.custom.map((c) => c.name)}
-                disabled={saving}
+                disabled={readOnly || saving}
                 onAdd={addCustom}
                 onCancel={() => setAdding(false)}
               />
@@ -332,18 +356,19 @@ export default function PackagesConfig({ hidden, pkg, workspaceId, workspaceName
             )}
           </div>
 
-          <div className={(dirty ? "pkc-foot dirty" : "pkc-foot")} data-align-row>
+          <div className={(dirty ? "pkc-foot dirty" : "pkc-foot")}>
             <span className={dirty ? "pkg-fine pkc-file dirty" : "pkg-fine pkc-file"} title={layer?.path || ""}>
               {layer && layer.exists ? layer.rel : "No file yet"}
               {scope === "agent" ? " · unset slots inherit the workspace file" : ""}
             </span>
-            <span className="pkg-foot-spacer" />
+            <div className="pkc-actions" data-align-row data-align-wrap>
             <button type="button" className="btn btn-ghost btn-sm" disabled={!dirty || saving} onClick={() => setDraft(layerToDraft(layer))}>Discard</button>
             <button type="button" className="btn btn-ghost btn-sm" disabled={readOnly || saving || !layer?.exists} onClick={clearFile}>Clear file…</button>
-            <button type="button" className="btn btn-primary btn-sm" disabled={!dirty || saving} onClick={() => save(false)}>{saving ? "Saving…" : "Save"}</button>
+            <button type="button" className="btn btn-primary btn-sm" disabled={readOnly || !dirty || saving} onClick={() => save(false)}>{saving ? "Saving…" : "Save"}</button>
+            </div>
           </div>
           {dirty ? <p className="pkg-fine pkc-dirty">Unsaved changes in this layer.</p> : null}
-          {note ? <p className="pkg-notice ok" role="status">{note}</p> : null}
+          {note ? <p className={"pkg-notice " + (noteError ? "err" : "ok")} role={noteError ? "alert" : "status"}>{note}</p> : null}
         </>
       ) : null}
     </PageFrame>
@@ -427,7 +452,7 @@ function RoleRow({ name, desc, custom, own, inherited, agentScope, providers, th
           ) : null}
         </>
       ) : (
-        <div className="pkc-row-fields" data-align-row>
+        <div className="pkc-row-fields" data-align-row data-align-wrap>
           <ModelSelect
             id={name}
             model={own?.model || ""}
@@ -460,7 +485,7 @@ function AddPreset({ providers, thinkingLevels, existing, disabled, onAdd, onCan
   const nameBad = !!name && (badShape || reserved || duplicate);
   return (
     <div className="pkc-row add">
-      <div className="pkc-row-fields" data-align-row>
+      <div className="pkc-row-fields" data-align-row data-align-wrap>
         <input
           className="pkc-input"
           value={name}

@@ -552,7 +552,7 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .pkg-by-source { display: flex; gap: 8px; align-items: stretch; margin: 0; }
 .pkg-job {
   position: fixed; inset: 0; z-index: 40;
-  display: grid; place-items: center;
+  display: grid; grid-template-columns: minmax(0, 1fr); place-items: center;
   background: color-mix(in srgb, var(--bg-base) 42%, transparent);
   backdrop-filter: blur(8px);
   padding: 24px;
@@ -560,7 +560,8 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 }
 .reconnect-job { z-index: 80; }
 .pkg-job-card {
-  width: min(440px, 100%);
+  box-sizing: border-box; min-width: 0; width: min(440px, 100%);
+  max-height: calc(100dvh - 48px); overflow: auto;
   padding: 20px 20px 16px;
   background: var(--bg-base); border: 1px solid var(--border-strong);
   border-radius: var(--radius-panel);

@@ -107,6 +107,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Packages under Agent CLIs.** Pi package management and desktop package
+  configuration now have explicit CLI and workspace/agent URLs. Old links
+  redirect with their context, update indicators lead to Agent CLIs, and
+  failed context reads preserve drafts while blocking stale writes.
+
 - **Pins: the reminder picker is a form, not a menu of presets.** Once —
   a date and a time; Repeat — every N hours, or every N days at a time of
   day (one day at a time is a wall-clock rule; several days count as a

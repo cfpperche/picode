@@ -9,6 +9,7 @@ const SELECTORS = [
   ".create-drawer",
   ".rail-pop",
   ".pkg-job",
+  ".pkg-job-card",
   ".img-lite",
   "#inspector",
 ];
