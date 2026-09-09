@@ -23,7 +23,8 @@
 
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, writeFileSync, readFileSync, statSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, statSync, existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -60,6 +61,38 @@ const ab = (args) =>
   execFileSync("agent-browser", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Same size and at most PIXEL_TOLERANCE of the pixels differ by more than a
+// few levels in any channel. pngjs comes with the web app's dependencies.
+const PIXEL_TOLERANCE = 0.0005;
+function nearlyIdentical(a, b) {
+  let PNG;
+  try {
+    ({ PNG } = createRequire(join(root, "web", "package.json"))("pngjs"));
+  } catch {
+    return false;
+  }
+  let x, y;
+  try {
+    x = PNG.sync.read(a);
+    y = PNG.sync.read(b);
+  } catch {
+    return false;
+  }
+  if (x.width !== y.width || x.height !== y.height) return false;
+  const max = Math.floor(x.width * x.height * PIXEL_TOLERANCE);
+  let diff = 0;
+  for (let i = 0; i < x.data.length; i += 4) {
+    if (
+      Math.abs(x.data[i] - y.data[i]) > 8 ||
+      Math.abs(x.data[i + 1] - y.data[i + 1]) > 8 ||
+      Math.abs(x.data[i + 2] - y.data[i + 2]) > 8
+    ) {
+      if (++diff > max) return false;
+    }
+  }
+  return true;
+}
 
 function gitSha() {
   try {
@@ -155,6 +188,7 @@ async function main() {
     // the content but the PNG is a near-solid color, which compresses tiny.
     // A real PiCode surface at these viewports is 30KB+, so a tiny PNG means
     // blank — re-shoot a few times before giving up.
+    const before = existsSync(out) ? readFileSync(out) : null;
     let shot = 0;
     for (;;) {
       ab([...sess, "screenshot", out]);
@@ -163,6 +197,14 @@ async function main() {
       await sleep(1500);
     }
     if (shot > 1) console.log(`    [${s.name}] blank frame — took ${shot} attempts`);
+    // Capture noise (antialiasing, a caret, a 1 px reflow) changed a handful
+    // of pixels in a third of the recaptures and each one became a binary
+    // commit (ADR-0105). Keep the committed bytes when the frame is the same
+    // picture within tolerance, so the sha and the repo stay put.
+    if (before && nearlyIdentical(before, readFileSync(out))) {
+      writeFileSync(out, before);
+      console.log(`    [${s.name}] unchanged within tolerance — kept the committed image`);
+    }
 
     captured[s.name] = {
       profile: s.profile,

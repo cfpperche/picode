@@ -16,10 +16,13 @@ make ci-scoped   # while iterating: only the gates this diff can break
 make close       # at the end: gates + regenerated artifacts + ff check + summary
 ```
 
-`make close` refuses a dirty tree, regenerates OpenAPI/llms.txt/captures
-when the diff invalidated them (and commits them), and tells you whether
-`main` can fast-forward. Do not hand-run gofmt/vet/tests/build one by one
-in twenty turns; if `close` fails, fix the cause and rerun it.
+`make close` refuses a dirty tree, reuses a green `ci-scoped` when the tree
+did not change, regenerates OpenAPI/llms.txt when the diff invalidated them
+(and commits them), and tells you whether `main` can fast-forward. Public
+captures refresh at `make deploy`, not here. Do not hand-run
+gofmt/vet/tests/build one by one in twenty turns; if `close` fails, fix the
+cause and rerun it. Run this gate and the closing docs in a subagent or a
+fresh session (ADR-0105): the working session ends at the merge.
 
 ## The judgement part (read the diff: `git diff --stat main...HEAD`)
 
@@ -33,9 +36,11 @@ in twenty turns; if `close` fails, fix the cause and rerun it.
    (AGENTS.md rule #3). No justification = remove it.
 6. **Store mutation without an event**, or a new poll against `/api/*`
    without a stated reason the feed cannot cover (ADR-0048) → FAIL.
-7. **Changelog**: user-visible → an entry under `[Unreleased]`.
-8. **Docs**: behavior/architecture changed → `docs/architecture.md`; a
-   boundary (protocol, persistence, security, process) → ADR.
+7. **Changelog**: user-visible → a fragment `docs/changelog.d/<branch>.md`
+   (never `CHANGELOG.md`; the hook refuses it).
+8. **Docs**: behavior/architecture changed → the `docs/architecture/` file
+   for that subsystem; a boundary (protocol, persistence, security,
+   process) → `make adr NAME=x`.
 9. **Visual gate** (any user-facing surface changed): `/skill:visual-review`
    and `/skill:uiux-review` on a **scratch instance**
    (`scripts/qa-scratch.sh`), never on production. Screenshots read,
@@ -43,7 +48,8 @@ in twenty turns; if `close` fails, fix the cause and rerun it.
    is FAIL. `eval` JSON is not a visual pass.
 10. **Handoff**: `/skill:handoff-update` (one note in `docs/handoff/`).
 
-Deploy is **not** a step: `main` ships in batches (`make deploy-batch`).
+Deploy is **not** a step: the owner runs `make deploy` when they want it
+(ADR-0105).
 
 ## Report format
 

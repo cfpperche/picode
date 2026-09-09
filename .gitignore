@@ -35,3 +35,7 @@ var/
 
 # Claude Code local config + per-agent worktrees (machine-local)
 .claude/
+
+# Prompt-door staging folder written by the running app (ADR-0089); its own
+# nested .gitignore hides drop/, this hides the folder itself.
+.picode/

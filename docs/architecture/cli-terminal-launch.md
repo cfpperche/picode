@@ -1,0 +1,133 @@
+# CLI terminal launch settings (ADR-0069)
+
+> Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
+
+`internal/clilaunch` holds a small catalog and configuration resolution; it
+does not implement an agent runtime. SQLite tables `cli_configs` and
+`terminal_launches` store defaults and terminal overrides. First boot imports
+catalog rows: Activity reporting defaults **on** unless `enabled.json`
+explicitly lists the CLI as false. A missing key is not false — that freeze
+left OpenCode unwired on its first deploy. `SeedCatalogIntegrationDefaults`
+flips empty default-off rows once. Stored settings always win after that.
+The legacy wiring API updates the same store. Mutators commit `cli.updated`
+or `terminal.launch` invalidation events in their own transaction.
+
+The launcher resolves process environment → CLI defaults → terminal overrides.
+Environment keys merge (a null override removes a default), argument/PATH arrays
+replace defaults, and an explicit empty array clears them. PATH entries prepend
+the service's inherited PATH. PiCode correlation variables, HOME, SHELL,
+GROK_HOME, HERMES_HOME and OPENCODE_CONFIG cannot be overridden through the environment field. An executable
+may be a command name or absolute path; resolution skips PiCode's own wrappers.
+Argument and environment values are individually shell-quoted, never evaluated.
+
+Each launch writes a private generation under `cli-launch/<terminal>/run-*`.
+Integration uses the existing CLI adapter with the resolved executable pinned
+in that generation. Shared executable reporters are replaced atomically.
+Saving configuration never modifies a live generation. The last-applied
+snapshot records CLI identity, executable, fingerprint, redacted common secret
+arguments and environment key names, not environment values. Terminal events
+carry that diagnostic view or an ID, never the full environment configuration.
+Pending changes compare effective settings and CLI identity, not activity.
+Old generations are reclaimed after a successful new launch; Remove deletes
+only that terminal's private launch files, not native CLI data.
+
+`GET /api/clis` resolves installation without starting a conversation;
+`POST /api/clis/<cli>/check` explicitly runs bounded `--version` and checks
+reporter prerequisites. It does not certify authentication or every hook.
+`GET /api/clis/<cli>/sessions?cwd=` lists a CLI's on-disk sessions read-only
+(ADR-0079 phase 2; `internal/clisession`): pi reads its JSONL root, Claude
+Code its `~/.claude/projects` transcripts, Codex its `~/.codex/sessions`
+rollouts, Grok its `~/.grok/sessions` prompt history, Hermes Agent its
+`~/.hermes/state.db` (or `$HERMES_HOME/state.db`) SQLite rows, and OpenCode
+its `~/.local/share/opencode/opencode.db` (or `$XDG_DATA_HOME/opencode/opencode.db`)
+SQLite rows, each parsed defensively (malformed files are skipped, missing
+roots are an empty list). Hermes listing is the active home only (no
+`profiles/` scan), `source` cli/tui with a folder and at least one message;
+preview is the session title. OpenCode listing skips child sessions
+(`parent_id`), archived rows and empty transcripts; timestamps are
+milliseconds; preview is the session title. The OpenCode CLI's own
+`session list` is project-scoped and is not used.
+Rows carry the server-verified resume arguments for that CLI (verified
+2026-09 against each CLI's `--help`: `claude --resume <id>`, `codex resume
+<id>` positional, `grok --resume <id>`, `hermes --resume <id>` on Hermes
+Agent v0.18.2, `opencode --session <id>` on OpenCode 1.18.29); pi's row carries none — pi resumes
+through its own chat flow. Cost is pi-only on this surface: guest formats
+are not shown with per-session spend. Non-Pi sessions open through
+`POST /api/clis/<cli>/terminals` with the resume arguments as launch
+argument overrides — no transcript replay, no writes, no deletes for other
+CLIs' sessions. pi's management surface (delete, auto-clean, resume,
+in-use guards) stays on its own endpoints.
+`POST /api/clis/<cli>/terminals` saves and opens a configured terminal.
+`/api/terminals/<id>/launch` reads/writes overrides; its `start`, `stop`,
+`restart` and `remove` POST routes serialize per terminal. Start is idempotent
+while live, Stop retains configuration, and active destructive actions require
+confirmation. Restart validates the next executable and directory before
+ending the current session. A CLI exit returns to an interactive shell;
+browser/daemon reconnect only reconciles, never restarts work automatically.
+
+Manual CLI commands in ordinary terminals retain session-local wrapper
+instrumentation. Launch defaults apply to the central manager, not to commands
+typed in a shell. Configured CLI, observed presence, observed activity and
+installation/setup checks are separate facts in the UI.
+
+ADR-0070 adds read-only launch inspection and copied profiles. The backend
+`launchPlan` resolver supplies both previews and launch preparation; shared
+`cliIntegrationPlan` argument vectors drive the actual adapter writers and
+their inspectable branches. Preview never runs an executable or writes files.
+It uses symbolic generation paths and explicitly labels Codex's runtime
+capability choice and Pi's maintenance bypass. The actual process environment
+inherits the daemon environment, with settings and correlation keys layered
+on top. Environment values are absent from preview/terminal events.
+
+`cli_profiles` stores named full configurations; applying one copies explicit
+overrides, not a live foreign-key relationship. Updates/removal cannot modify
+terminals already created from it. `cli.profile` events carry IDs only.
+`cli_checks` persists bounded checks (`cli.checked` events); executable path,
+size/mtime and configuration fingerprint determine staleness. Check runs
+`--version` and tests prerequisites, while the separate repair route regenerates
+only private integration files. Observed activity remains ephemeral and is never
+inferred from a prepared file or a version check.
+
+ADR-0087 adds a lifecycle layer in `internal/clilifecycle` and
+`internal/clijob`. Detection classifies the resolved executable's realpath
+(npm, native, vendor, git, unknown) and a per-CLI plan pins the exact argv:
+checks read the npm registry (reusing `pipkg`) or the vendor's own `--check`
+command, and mutations run the vendors' update/reinstall/uninstall commands —
+npm only where the vendor has no command. Update facts (`Latest`,
+`UpdateAvailable`, `UpdateCheckedAt`, `InstallMethod`) live in the
+`cli_checks` diagnostic; `POST /api/clis/<cli>/update-check` refreshes them
+on demand and the surface triggers it once when the stored check is older
+than six hours — there is no browser polling timer. Mutations are durable
+jobs in `cli_jobs` (`cli.job` events): HTTP 202, request-key idempotency, at
+most one active lifecycle job, revision-guarded transitions, bounded output
+tail. Restart recovery marks queued/running jobs `interrupted` and never
+replays an install; a graceful shutdown cancels the command and marks the job
+`interrupted` too. A job refuses while live terminals of that CLI run unless
+the caller confirms; uninstall additionally requires typing the CLI name.
+`unknown` install methods get no mutation controls — only the docs link.
+After a succeeded job the setup check re-runs and update facts reset so no
+stale badge survives.
+
+ADR-0093 closes the cycle for missing CLIs: `install` is offered only when
+the executable is absent, npm-backed for pi/codex/claude-code (the same argv
+as reinstall) through the same job lane, and guided (docs link, no
+executable action) for grok/hermes whose installers are vendor curl scripts.
+Installing an installed CLI is refused — reinstall covers it. The update
+check line no longer reports "failed" for unmanaged installs; the real check
+error text is shown for genuine failures.
+
+`terminal_launches.attempt` retains the latest redacted launch failure/time.
+Snapshots include injected branches/files and executable identity. Pending
+state detects configuration and binary changes; the editor compares next and
+last-applied settings and lists terminals affected by a defaults edit. Restart
+prepares all launch artifacts before stopping the existing process, then uses
+that exact generation. Spawn failure after stopping is reported without claiming
+rollback. Workspace deletion holds terminal locks and collects exact private
+launch directories; native CLI data and unrelated terminal directories survive.
+
+The default view is a read-only summary. Restore clears launch customization
+without changing reporting; Save remains explicit. Editors guard dirty
+navigation through a hash guard installed before route observers, use shared
+Zod schemas, and preview after edits with a debounce (not periodic API polling).
+Feed invalidation keeps profiles and checks current.
+Workspace menus and the palette open the shared terminal editor with context.

@@ -1,100 +1,50 @@
 # Handoff — living project state
 
-> Read this first. At most 100 lines (the pre-commit hook refuses more). Session notes: `docs/handoff/` (newest by filename). Deploy history: `~/.picode/var/deploy-log.jsonl` and `git log`. Older prose: `docs/handoff-archive.md`.
-
-## Current state
-
-- **Session messages (ADR-0104):** embedded MCP, durable inboxes, scoped connection tokens, retry deduplication and explicit acknowledgments; `#/clis/messages` manages opt-in and history on desktop/mobile. Client setup is per conversation; guests remain terminals.
-- **Native CLI settings (ADR-0101):** Settings now lives at `#/clis/settings/pi`; old links redirect, agent URLs preserve scope, desktop/mobile editors keep native Pi APIs and the mobile quick sheet. Recovery preserves drafts, blocks stale writes and reports failed restarts; malformed defaults no longer block mobile agent controls. Settings, Sessions and the new-terminal form share a `--ctl-h` CLI combobox with each runtime's favicon.
-- **Mobile v2:** focused screens, retained drafts, Sessions/Automations, Files/editor and Git workflows (ADR-0095); acceptance in `docs/plans/mobile-v2.md`. Work empty (Agents/Terminals/Workspaces) is one centered line + primary create; search misses stay top-aligned. Workspace favicons share the 22px row-mark size.
-- **Automations — many schedules (ADR-0045 amendment 2026-09-09):** `automation_schedules` rows (cron, zone, label, switch, own last fire/jitter/catch-up), `schedule_id` on runs, `schedules` on the API; editor is a list of rules on desktop and mobile. A live schedule-triggered run on scratch is still unobserved (unit-tested).
-- **Process (ADR-0086, 2026-09-06):** `picode deploy` refuses mid-turn
-  (`GET /api/deploy/readiness`); `main` ships in batches (`make deploy-batch`,
-  timer 12:00/18:00/23:00 — `make timers`). Iterate `make ci-scoped`; close with `make close`; `make ci` once on `main` at the merge. `make worktree NAME=x` / `make worktree-gc`. Capture parity advisory in `make ci`, strict in `close` and the batch.
-- **Docs site:** `docs-site/` (renamed from `www/` 2026-09-08, owner call): same VitePress build and Pages URL; `www/` reserved for the product website. Make var `DOCS_STAMP`; ADR-0086 emended ("née www/").
-- **Terminals:** CLI session pin + one-click resume (ADR-0084); flight
-  recorder, SIGHUP-immune pane roots and the deploy log (ADR-0085). A dropped
-  terminal WebSocket (phone lock, network) reattaches by itself — same xterm,
-  scroll position kept (`web/shared/client/termSocket.js`). Hermes
-  Agent is a fifth Agent CLI (catalog, sessions, PYTHONPATH activity hooks,
-  no `HERMES_HOME` overlay), deployed `0.1.0+405fed1`. OpenCode is a sixth
-  (ADR-0088), deployed `0.1.0+d65e9a1`; Activity default-on + start
-  banner on `main` as `06da6771` (not yet deployed). Terminal checklists (ADR-0081)
-  on the sidebar card only; absent checklist is silence (ADR-0092); a parallel mutator no longer clobbers a just-written plan as `undefined/undefined`. Sessions live under Agent CLIs (ADR-0079).
-  Right-click gives PiCode's pane menu (`lib/termMenu.js`); the ADR-0089
-  message bar opens from it seeded with the selection; Find (Ctrl+Shift+F,
-  `@xterm/addon-search`) floats without resizing the pane.
-- **Inbox:** replies to `ask_human` from pi in an Agent CLI terminal reach that terminal's receiver and exact session (ADR-0037 amendment 2026-09-09); channelless blocking questions refuse visibly. Needs pi-inbox 0.2.0 per pi session.
-- **CLI lifecycle (ADR-0087/0093):** Agent CLIs shows update badges (npm
-  registry or vendor `--check`) and runs each CLI's own update/reinstall/
-  uninstall/install as a durable `cli_jobs` lane with streamed output,
-  terminal guards and typed uninstall confirmation; interrupted jobs never
-  replay. Unmanageable installs (Homebrew, manual checkouts) get docs links. Detect fix classifies real installs; E2E proven live (hermes 0.18.2→0.21.0); ADR-0093 adds install for missing npm-backed CLIs, grok/hermes guided.
-- **Inspector rail (ADR-0078):** Changes, Files, PR tab, Git actions
-  (prepare, run-when-idle, "Ask <agent>" through the agent's own channel).
-- **llama.cpp manager:** deliveries 1–2 + 4 deployed (ADR-0080/0083/0090;
-  `#/llama/service` as `0.1.0+c694fb2`). On main: old-installation cleanup
-  and empty setup recovery; delivery 3 guidance separate.
-- **Git graph listing +/-:** every commit row shows its own diff's line total (`+N −M`, first-parent, merges included; reconciles with the commit detail); hides ≤900px.
-- Also on `main`: File Tree v2 (0074), Git Graph per worktree (0073),
-  independent desktop/mobile apps (0072), Windows task reliability (0071),
-  Agent CLIs v2 (0069), Integrations (0075), Docker v3, identity favicons
-  at 16 px, tab strip overflow phases 2–4. Extra keys first-open `0.1.0+dfa9f7b`. ADR-0089 attach bar `0.1.0+aca6628`, amended: the staging folder no longer touches the project's own `.gitignore` (a nested one instead) and ages out after 7 days. GitHub repo picker in the clone form (`0.1.0+a2e699c`, accepted live). Workspace card: two actions instead of five (ADR-0027/0030), header stayed one line.
-  Managed agents remain Pi-only; guests stay terminals-only (ADR-0091) until a protocol converges. **User menu:** Tools (Agent CLIs, Automations, llama.cpp, Integrations) + PiCode; in-menu search (`@picode/shared/domain/listSearch.js`); theme/layout radios stay. Mobile More matches. Sidebar brand is the name only — version lives in this menu.
-- **Agent CLIs layout / providers (ADR-0103):** every tab uses its app-owned `AgentClisFrame`: one 1240px desktop maximum, full mobile width, consistent padding and stable alignment. Narrow tabs keep the selected item visible. Since feat/page-width every desktop page frame shares that geometry (fluid to 1240px; map in docs/benchmarks.md). Providers lives at `#/clis/providers/pi`, with Pi-only capability, machine scope, legacy redirects and app-preserving OAuth returns; native accounts, keys, quotas and verification retain their APIs. Refresh errors keep the roster and draft.
-- **Native CLI packages (ADR-0102/0099):** Agent CLIs → Packages at `#/clis/packages/pi`; legacy links redirect with explicit workspace/agent/scope context. Pi APIs and native files remain authoritative. Failed refreshes retain drafts and block writes; changed file targets require confirmed reload. Desktop pi-roles configuration retains independent workspace/agent drafts, scoped clear and malformed-file recovery. Mobile config links offer the desktop layout. Next adapters: pi-compact and a declarative manifest.
+> Read this first. At most 100 lines and 8 KB; the pre-commit hook refuses more, and refuses this file committed directly on `main` (ADR-0105).
+> Shipped work: `git log`, `docs/decisions/README.md`, `docs/changelog.d/` + `CHANGELOG.md`. Session notes: `docs/handoff/` (newest by filename). Deploy history: `~/.picode/var/deploy-log.jsonl`.
 
 ## In flight (unmerged branches on disk)
 
-- `feat/picode-feature-video` — skills record clicks and typing, not slideshows.
+- `feat/herdr-validation`, `feat/picode-video-pilot` — carry `CHANGELOG.md` edits made before ADR-0105; they fast-forward as they are, but any further changelog line goes to `docs/changelog.d/`.
+- `feat/card-selection-chevron`, `feat/usermenu-llama` — no living-doc changes yet.
 
 ## Next up
 
-1. First batch deploy (timer 23:00) is unguarded; later ones refuse mid-turn.
-2. llama delivery 3 live validation; owned-service ARM64 acceptance.
-3. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
-4. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan.
-5. CLI prompt door iPhone acceptance; first-class CLI agents refused until protocol convergence (ADR-0091).
-6. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
-7. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
-9. Windows clean-machine install (ADR-0098, accepted 2026-09-08): phase 1 = `install-picode` + `install-runtime` bootstrap stages in `picode-desktop.exe`; phase 2 = `install.ps1` one-liner + winget experiment, no paid signing (Trusted Signing excludes Brazil; SignPath needs OSI). Plan: `docs/plans/windows-clean-install.md`.
-8. Inspector debts (ADR-0096 shipped): `git ls-files` search, per-anchor watch, `+N −M` footer.
+1. First release since 0.1.0: `make changelog` on `main`, then `docs/release-process.md` (`[Unreleased]` is 860 lines).
+2. GitHub CI: the next push exercises the ADR-0105 workflow (Ubuntu-only Go matrix, tmux cache); macOS/Windows run on tags or `workflow_dispatch`.
+3. llama delivery 3 live validation; owned-service ARM64 acceptance.
+4. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
+5. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan.
+6. CLI prompt door iPhone acceptance; first-class CLI agents refused until protocol convergence (ADR-0091).
+7. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
+8. Compaction re-dogfood; historical Inbox rows; remote-mode and browser-preview (owner infra).
+9. Windows clean-machine install (ADR-0098): phase 1 = `install-picode` + `install-runtime` stages in `picode-desktop.exe`; phase 2 = `install.ps1` one-liner + winget experiment, no paid signing. Plan: `docs/plans/windows-clean-install.md`.
+10. Inspector debts (ADR-0096): `git ls-files` search, per-anchor watch, `+N −M` footer.
 
 ## Known debts / open questions
 
-- Communication: automatic launch wiring/wake and vendor CLI runtime matrix remain later increments. MCP SDK HTTP clients and installed pi-mcp-adapter 2.32.1 tested on owned fixtures; no real model turn or physical-device acceptance. Native session discovery is best effort; never share credentials across conversations.
-- Native packages/providers: real package downloads, vendor OAuth, real credential changes and physical-device acceptance remain external; mobile package configuration is still desktop-only. Owned browser fixtures cover the decision tables in `docs/plans/cli-native-packages.md` and `docs/plans/cli-native-providers.md`.
-- Native settings: physical iPhone/PWA/IME and real process restart remain external acceptance; both app adapters have failure coverage, and scratch browser tests cover recovery, retained drafts and stopped-agent saves.
-- Inbox terminal replies: pi-inbox 0.1.x items (`pi (unmanaged)`) have no
-  address — answered by hand until updated per pi session; daemon death
-  between park and JSONL row = accepted gap (as the terminal ask).
-- Hermes: live TUI Working→Ready and needs-you confirmed 2026-09-06; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`. OpenCode live Working/Needs you unproven (Activity was off on first deploy).- Handoff (ADR-0088/0094): visual pass done 2026-09-07, every state rendered including the live-source warning; upstream formats undocumented (bump = refused write); Codex/Grok list a handed-off session only after a restart or by id; Hermes' importer flattens tool calls.
-- CLI pane-death signal chain unproven; ADR-0085 instruments it — the next deploy that loses sessions is the experiment. ADR-0084 pins nothing for terminals stopped before it (Sessions → "Open in terminal").
-- `Runtime.Stop` start-lease race: a stop during an in-flight managed start
-  returns true without stopping. Windows `Close` kills only the direct child.
-- `internal/server` tests run serially (~55 s); they swap package-level
-  probes, so `t.Parallel` would race. Scoping avoids the suite for non-Go diffs.
-- GitHub CI matrix was red 142/157 runs on two macOS assumptions (fixed
-  2026-09-06); watch the next runs before trusting green again.
-- `.git` is 567 MB: UI bundles were committed 339 times and tutorial MP4s
-  re-rendered; a history rewrite is the owner's call.
-- Capture integration (ADR-0054/browser preview): no real emitter-to-RPC run,
-  no slow-consumer/cancellation matrix; hub drops on overflow.
+- Process (ADR-0105): worktrees start with a cold Go test cache (results are keyed by directory); `.pi/compact.json` `atPercent 0.5` never fires for large-window models (peaks 379 K) — owner declined config changes 2026-09-09; capture tolerance is 0.05% of pixels (`scripts/docs-shots.mjs`).
+- Communication (ADR-0104): automatic launch wiring/wake and the vendor CLI runtime matrix are later increments; tested on owned fixtures only, no real model turn or physical-device acceptance; session discovery is best effort; never share credentials across conversations.
+- Native packages/providers: real downloads, vendor OAuth, real credential changes and device acceptance remain external; mobile package configuration is desktop-only. Decision tables in `docs/plans/cli-native-packages.md` and `cli-native-providers.md`.
+- Native settings: physical iPhone/PWA/IME and a real process restart remain external acceptance; scratch browser tests cover recovery, retained drafts and stopped-agent saves.
+- Inbox terminal replies: pi-inbox 0.1.x items (`pi (unmanaged)`) have no address until each pi session updates; daemon death between park and JSONL row is an accepted gap.
+- Hermes: live Working→Ready and needs-you confirmed 2026-09-06; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`. OpenCode live Working/Needs you unproven.
+- Handoff (ADR-0088/0094): upstream formats undocumented (bump = refused write); Codex/Grok list a handed-off session only after a restart or by id; Hermes' importer flattens tool calls.
+- CLI pane-death signal chain unproven; ADR-0085 instruments it. ADR-0084 pins nothing for terminals stopped before it.
+- `Runtime.Stop` start-lease race: a stop during an in-flight managed start returns true without stopping. Windows `Close` kills only the direct child.
+- `internal/server` tests swap package-level probes, so `t.Parallel` would race; `scripts/go-test.sh` shards them by process instead.
+- `.git` is ~530 MB: UI bundles were committed 339 times and tutorial MP4s re-rendered; a history rewrite is the owner's call.
+- Capture integration (ADR-0054/browser preview): no real emitter-to-RPC run, no slow-consumer/cancellation matrix; hub drops on overflow.
 - Webhooks are at-least-once within event retention; receivers dedupe by id.
-- Task Scheduler retries are not crash recovery (exit-one probe stayed down
-  90 s); battery/sleep/sign-in acceptance is owner-controlled.
+- Task Scheduler retries are not crash recovery; battery/sleep/sign-in acceptance is owner-controlled.
 - `TestTerminalBrowse` cleanup can leave tmux shells in deleted temp folders.
-- 2026-09-06 incident: a `tmux ls | grep '^picode-'` sweep killed 29 sessions,
-  six of them production. Never kill by prefix — only exact names from a fixture's own API.
-- Feed: ephemeral events can be missed across reconnects (ADR-0048); paste
-  fallback acceptance across platforms open.
-- CLI lifecycle: npm data can lag native Claude releases by hours (the badge
-  names the source); grok uninstall guided-only; Windows paths out of scope.
+- 2026-09-06 incident: a `tmux ls | grep '^picode-'` sweep killed 29 sessions, six in production. Never kill by prefix — only exact names from a fixture's own API.
+- Feed: ephemeral events can be missed across reconnects (ADR-0048); paste fallback acceptance across platforms open.
+- CLI lifecycle: npm data can lag native Claude releases by hours; grok uninstall guided-only; Windows paths out of scope.
 - Pi has one active credential slot; per-agent OAuth is an owner decision.
-- Rename watch: a branch adding files under `www/` (pre-rename base) would resurrect the dir — they belong in `docs-site/` (open branches touch none, checked 2026-09-08).
+- Rename watch: a branch adding files under `www/` would resurrect the dir — they belong in `docs-site/`.
 - Tutorial video freshness audits are stale after source relocation; recapture is explicit. Branch protection and CODEOWNERS need the owner; desktop requests `/desktop/favicon.svg` and gets 404.
-- Inspector: Files filter covers loaded rows only; This-agent chips show only
-  with the agent's tab selected; `gh pr view` answers cached a minute.
+- Inspector: Files filter covers loaded rows only; This-agent chips show only with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: ARM64 hardware, GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
-- Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance remain open; file writes retain the existing lexical/symlink and non-atomic mtime limits. iOS standalone strip: on-device confirmation pending; Preferences → Layout (Auto/Low/Screen edge) exposes the dials so the owner tunes without a code change.
-- Notices (2026-09-07): needs-you covers the whole fleet (`agent.state`), but the *finish* card only fires for the agent whose socket is open. Neither card has been exercised against a real pi dialog; both were staged at the HTTP boundary.
+- Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip on-device confirmation pending (Preferences → Layout exposes the dials).
+- Notices (2026-09-07): needs-you covers the whole fleet, but the finish card only fires for the agent whose socket is open; neither exercised against a real pi dialog.

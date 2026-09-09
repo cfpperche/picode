@@ -28,9 +28,9 @@ echo
 echo
 echo "## Docs still owed by this branch"
 owed=0
-if ! git diff --name-only "$base"..HEAD | grep -qx 'CHANGELOG.md'; then
+if ! git diff --name-only "$base"..HEAD | grep -q '^docs/changelog\.d/'; then
   if git diff --name-only "$base"..HEAD | grep -qE '^(web/|internal/|cmd/|packages/)'; then
-    echo "- CHANGELOG.md [Unreleased]: no entry yet — user-visible change? add one line"
+    echo "- docs/changelog.d/$slug.md: no fragment yet — user-visible change? '### Added' / '### Fixed' + one line (never edit CHANGELOG.md on a branch)"
     owed=1
   fi
 fi
@@ -50,4 +50,5 @@ else
   echo "- main moved: git merge main (in this worktree), rerun make close, then fast-forward from the root"
 fi
 echo "- after the merge: git worktree remove .worktrees/<name>; git branch -d $branch   (or: make worktree-gc)"
-echo "- deploy is NOT part of closing: the deploy batch (make deploy-batch / timer) ships main"
+echo "- deploy is NOT part of closing: the owner runs 'make deploy' from the root when they want it (ADR-0105)"
+echo "- this session ends here; the next branch starts in a new one (ADR-0105)"

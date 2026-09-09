@@ -1,7 +1,7 @@
 # PiCode — make targets
 # Quality gates are the contract (AGENTS.md); `make ci` mirrors GitHub Actions.
 
-.PHONY: help hooks hooks-check dev ui web docs docs-videos docs-videos-check docs-videos-fresh build restart deploy _deploy deploy-batch timers install test test-js fmt fmt-check vet ci-docs ci ci-scoped close close-summary worktree worktree-gc clean
+.PHONY: help hooks hooks-check dev ui web docs docs-videos docs-videos-check docs-videos-fresh build restart deploy _deploy cert-timer changelog adr install test test-js fmt fmt-check vet ci-docs ci ci-gates ci-scoped close close-summary worktree worktree-gc clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -36,8 +36,20 @@ $(NODE_STAMP): web/package-lock.json
 	cd web && npm ci $(NPM_CI_FLAGS)
 	@touch $(NODE_STAMP)
 
-web: $(NODE_STAMP) ## Build launcher + desktop/mobile into internal/web/public (ADR-0072)
+# Rebuilt only when something under web/ changed (ADR-0105): the Vite build
+# ran up to five times per branch — ci-scoped, close, docs-shots, make ci on
+# main and deploy — for the same sources. The stamp lives in var/ (git-ignored)
+# so the embedded UI never carries it; a missing build output resets it.
+WEB_SRC := $(shell find web -type f -not -path '*/node_modules/*' -not -path '*/dist/*' 2>/dev/null)
+WEB_STAMP := var/web.built
+
+$(WEB_STAMP): $(NODE_STAMP) $(WEB_SRC)
 	cd web && npm run build
+	@mkdir -p var && touch $(WEB_STAMP)
+
+web: ## Build launcher + desktop/mobile into internal/web/public when web/ changed (ADR-0072)
+	@if [ ! -f internal/web/public/index.html ] && [ -f $(WEB_STAMP) ]; then touch -d @0 $(WEB_STAMP); fi
+	@$(MAKE) --no-print-directory $(WEB_STAMP)
 
 DOCS_STAMP := docs-site/node_modules/.package-lock.json
 
@@ -107,29 +119,35 @@ cert: ## Provision/renew the mkcert TLS certificate (scripts/setup-cert.sh)
 install: build ## Copy bin/picode to ~/.local/bin and enable systemd --user
 	./bin/picode install
 
-# Deploy is not part of closing a branch (ADR-0086): every restart ends the
-# managed CLI/agent panes, so main ships in batches — the timer below, or an
-# owner's `make deploy-batch`. `picode deploy` refuses while anyone is
-# mid-turn (exit 2); PICODE_DEPLOY_FORCE=1 overrides for a deliberate one-off.
-deploy: ## Rebuild UI+binary and restart the installed service (serialized; refuses while agents work)
+# Deploy is the owner's call (ADR-0105): a branch session never deploys; the
+# owner runs `make deploy` from the root whenever they want main live. The
+# ADR-0086 guard stays: `picode deploy` refuses while anyone is mid-turn
+# (exit 2); PICODE_DEPLOY_FORCE=1 overrides for a deliberate one-off.
+deploy: ## Rebuild UI+binary, refresh stale public captures, restart the service (owner's call; refuses while agents work)
 	flock -x /tmp/picode-deploy.lock $(MAKE) --no-print-directory _deploy
 
 # Body of deploy, held under the lock: parallel sessions deploying between
 # one agent's gate and its restart have shipped the wrong tree (2026-09-05).
+# Public captures follow the UI here, once per deploy, instead of once per
+# branch in `make close` (85 capture commits in three days).
 _deploy: web
+	@if ! DOCS_STRICT=1 node scripts/docs-check.mjs >/dev/null 2>&1 && node scripts/docs-check.mjs --strict 2>&1 | grep -q 'inputs changed'; then \
+		echo "deploy: public captures are stale — recapturing"; \
+		if $(MAKE) --no-print-directory docs-shots >/tmp/picode-deploy-shots.log 2>&1; then \
+			if [ -n "$$(git status --porcelain -- docs-site/img)" ]; then \
+				git add docs-site/img && git commit -q -m "docs: refresh public captures" && echo "deploy: committed refreshed captures"; \
+			fi; \
+		else echo "deploy: docs-shots failed (see /tmp/picode-deploy-shots.log); deploying without recapture"; fi; \
+	fi
 	go build -tags embedui -o bin/picode ./cmd/picode
 	./bin/picode deploy
 
-deploy-batch: ## Ship main when nobody is mid-turn: recapture stale public images, commit, deploy (what the timer runs)
-	./scripts/deploy-batch.sh
-
-timers: ## Install the systemd user timers (deploy batches at 12:00/18:00/23:00, weekly cert check)
+cert-timer: ## Install the weekly certificate check (systemd --user)
 	mkdir -p ~/.config/systemd/user
-	cp scripts/systemd/picode-deploy.service scripts/systemd/picode-deploy.timer ~/.config/systemd/user/
 	cp scripts/systemd/picode-cert.service scripts/systemd/picode-cert.timer ~/.config/systemd/user/
 	systemctl --user daemon-reload
-	systemctl --user enable --now picode-deploy.timer picode-cert.timer
-	systemctl --user list-timers picode-deploy.timer picode-cert.timer --no-pager
+	systemctl --user enable --now picode-cert.timer
+	systemctl --user list-timers picode-cert.timer --no-pager
 
 build: web ## Build UI + bin/picode (embeds the UI — ADR-0023)
 	go build -tags embedui -o bin/picode ./cmd/picode
@@ -145,8 +163,8 @@ desktop-restart: desktop ## Swap the Windows exes and relaunch the tray via the 
 
 restart: deploy ## Rebuild and restart the systemd service (`picode deploy`)
 
-test: ## Run all Go tests
-	go test ./...
+test: ## Run all Go tests (internal/server sharded across four processes — ADR-0105)
+	./scripts/go-test.sh ./...
 
 test-js: $(NODE_STAMP) ## Run the frontend unit tests and the pi package suites
 	cd web && npm test
@@ -183,7 +201,13 @@ ci-docs: ## Verify committed docs parity, then build the public site
 	$(MAKE) docs-check
 	$(MAKE) docs
 
-ci: hooks-check fmt-check vet test test-js build ci-docs vale ## Everything CI runs — the gate for the merge on main
+# The gates are independent, so they run four at a time (ADR-0105): the Vite
+# build, the docs site and the JS suites overlap the Go tests instead of
+# queueing behind them. --output-sync keeps each gate's log in one piece.
+ci: ## Everything CI runs — the gate for the merge on main
+	$(MAKE) --no-print-directory -j4 --output-sync=target ci-gates
+
+ci-gates: hooks-check fmt-check vet test test-js build ci-docs vale
 
 # A worktree iteration runs what its diff can break (ADR-0086); `make ci`
 # stays the whole matrix for the merge on main.
@@ -195,6 +219,12 @@ close: ## End a worktree session: scoped gates, regenerated artifacts, fast-forw
 
 close-summary: ## Print what the closing docs need (commits, diff, owed files) — write handoff/changelog from this
 	./scripts/close-summary.sh
+
+changelog: ## Fold docs/changelog.d/ fragments into CHANGELOG.md [Unreleased] and stage it (on main, before a release)
+	node scripts/changelog-assemble.mjs
+
+adr: ## Seed the next decision record with its index row: make adr NAME=<short-title> [TITLE="Words"]
+	./scripts/adr-new.sh "$(NAME)" $(if $(TITLE),"$(TITLE)")
 
 worktree: ## New isolated tree ready to build: make worktree NAME=<name> [BRANCH=feat/<name>]
 	./scripts/worktree.sh "$(NAME)" $(BRANCH)

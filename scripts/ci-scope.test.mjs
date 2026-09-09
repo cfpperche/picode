@@ -95,7 +95,13 @@ test("hosted workflow preserves the optimized platform decision table", () => {
   assert.ok(goStart > 0 && embeddedStart > goStart, "go and embedded jobs must remain distinct");
   const goJob = workflow.slice(goStart, embeddedStart);
   assert.doesNotMatch(goJob, /setup-node|make web|make docs|npm ci/);
-  assert.match(goJob, /ubuntu-latest, macos-latest, windows-latest/);
+  // ADR-0105: Ubuntu on every push; macOS and Windows only for a tag or a
+  // manual run — the `changes` job picks the list, the go job consumes it.
+  assert.match(goJob, /os: \$\{\{ fromJSON\(needs\.changes\.outputs\.os\) \}\}/);
+  assert.match(workflow, /os=\["ubuntu-latest","macos-latest","windows-latest"\]/);
+  assert.match(workflow, /os=\["ubuntu-latest"\]/);
+  assert.match(workflow, /refs\/tags\/\* \|\| "\$GITHUB_EVENT_NAME" == workflow_dispatch/);
+  assert.match(goJob, /actions\/cache@v4/);
   assert.match(goJob, /go test -race -run '\^\$' \.\/\.\.\./);
   assert.match(goJob, /matrix\.os != 'windows-latest'/);
   assert.equal((workflow.match(/run: make web/g) ?? []).length, 1);

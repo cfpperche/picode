@@ -61,13 +61,40 @@ if git checkout -q -- . 2>/dev/null; then ok "checkout -- <path> allowed"; else 
 #     A CHANGELOG.md whose first line is the handoff header (or the reverse)
 #     means another session wrote into this worktree — the commit must die.
 if (cd "$repo/wt" && printf '# Handoff — living project state\n\nbody\n' > CHANGELOG.md && git add CHANGELOG.md && git commit -q -m clobber 2>/dev/null); then bad "clobbered CHANGELOG refused" "a handoff copy was committed as the changelog"; else ok "clobbered CHANGELOG refused"; fi
-if (cd "$repo/wt" && printf '# Changelog\n\nAll notable changes.\n' > CHANGELOG.md && mkdir -p docs && printf '# Handoff — living project state\n\nbody\n' > docs/handoff.md && git add CHANGELOG.md docs/handoff.md && git commit -q -m "restore and log" 2>/dev/null); then ok "restored docs commit allowed"; else bad "restored docs commit allowed" "the guard must not block honest docs edits"; fi
+(cd "$repo/wt" && git reset -q && git checkout -q -- CHANGELOG.md 2>/dev/null; rm -f CHANGELOG.md)
+if (cd "$repo/wt" && mkdir -p docs && printf '# Handoff — living project state\n\nbody\n' > docs/handoff.md && git add docs/handoff.md && git commit -q -m "honest handoff" 2>/dev/null); then ok "honest handoff commit in a worktree allowed"; else bad "honest handoff commit in a worktree allowed" "the guard must not block the documented flow"; fi
 if (cd "$repo/wt" && printf '# Changelog\n\nAll notable changes.\n' > docs/handoff.md && git add docs/handoff.md && git commit -q -m clobber2 2>/dev/null); then bad "clobbered handoff refused" "a changelog copy was committed as the handoff"; else ok "clobbered handoff refused"; fi
 
 # 2c. The handoff line cap (ADR-0086): 100 lines pass, 101 are refused.
 if (cd "$repo/wt" && { printf '# Handoff — living project state\n'; for _ in $(seq 99); do echo line; done; } > docs/handoff.md && git add docs/handoff.md && git commit -q -m "handoff at cap" 2>/dev/null); then ok "handoff at 100 lines allowed"; else bad "handoff at 100 lines allowed" "the cap refuses a file at the limit"; fi
 if (cd "$repo/wt" && { printf '# Handoff — living project state\n'; for _ in $(seq 100); do echo line; done; } > docs/handoff.md && git add docs/handoff.md && git commit -q -m "handoff over cap" 2>/dev/null); then bad "handoff over 100 lines refused" "a 101-line handoff was committed"; else ok "handoff over 100 lines refused"; fi
 (cd "$repo/wt" && git checkout -q -- docs/handoff.md 2>/dev/null; git reset -q 2>/dev/null)
+
+# 2d. Byte cap (ADR-0105): the line cap was gamed with 500-byte lines.
+if (cd "$repo/wt" && { printf '# Handoff — living project state\n'; for _ in $(seq 60); do head -c 150 /dev/zero | tr '\0' x; echo; done; } > docs/handoff.md && git add docs/handoff.md && git commit -q -m "handoff over byte cap" 2>/dev/null); then bad "handoff over 8 KB refused" "a 9 KB handoff was committed"; else ok "handoff over 8 KB refused"; fi
+if (cd "$repo/wt" && { printf '# Handoff — living project state\n'; for _ in $(seq 60); do head -c 100 /dev/zero | tr '\0' x; echo; done; } > docs/handoff.md && git add docs/handoff.md && git commit -q -m "handoff under byte cap" 2>/dev/null); then ok "handoff under 8 KB allowed"; else bad "handoff under 8 KB allowed" "the byte cap refuses a 6 KB file"; fi
+
+# 2e. Whitespace errors stop at the commit (ADR-0105), not in an unread CI run.
+if (cd "$repo/wt" && printf 'trailing blank \n' > ws.txt && git add ws.txt && git commit -q -m ws 2>/dev/null); then bad "trailing whitespace refused" "a whitespace error was committed"; else ok "trailing whitespace refused"; fi
+if (cd "$repo/wt" && printf 'clean\n' > ws.txt && git add ws.txt && git commit -q -m ws 2>/dev/null); then ok "clean file allowed"; else bad "clean file allowed" "the whitespace check refuses a clean file"; fi
+
+# 2f. The changelog is assembled from fragments (ADR-0105).
+if (cd "$repo/wt" && printf '# Changelog\n\n## [Unreleased]\n\n- edited on a branch\n' > CHANGELOG.md && git add CHANGELOG.md && git commit -q -m "changelog on a branch" 2>/dev/null); then bad "CHANGELOG edit on a branch refused" "a branch edited CHANGELOG.md directly"; else ok "CHANGELOG edit on a branch refused"; fi
+(cd "$repo/wt" && git reset -q && rm -f CHANGELOG.md)
+if (cd "$repo/wt" && mkdir -p docs/changelog.d && printf '### Added\n- a thing\n' > docs/changelog.d/wt.md && git add docs/changelog.d/wt.md && git commit -q -m "fragment" 2>/dev/null); then ok "changelog fragment on a branch allowed"; else bad "changelog fragment on a branch allowed" "the fragment flow is blocked"; fi
+if (mkdir -p docs/changelog.d && printf '### Added\n- on main\n' > docs/changelog.d/main.md && git add docs/changelog.d/main.md && git commit -q -m "fragment on main" 2>/dev/null); then bad "fragment written on main refused" "a fragment was committed on main in the root"; else ok "fragment written on main refused"; fi
+git reset -q; rm -rf docs/changelog.d
+PICODE_ALLOW_SWITCH=1 git merge -q --ff-only feat/wt2 >/dev/null 2>&1 || PICODE_ALLOW_SWITCH=1 git merge -q feat/wt2 -m "bring the fragment" >/dev/null 2>&1
+if [ -f docs/changelog.d/wt.md ] && printf '# Changelog\n\n## [Unreleased]\n\n### Added\n\n- a thing\n' > CHANGELOG.md && git rm -q docs/changelog.d/wt.md && git add CHANGELOG.md && git commit -q -m "assemble" 2>/dev/null; then ok "assembly on main (fragment deleted) allowed"; else bad "assembly on main (fragment deleted) allowed" "make changelog cannot commit its result"; fi
+if (printf '# Changelog\n\n## [Unreleased]\n\n- typed on main\n' > CHANGELOG.md && git add CHANGELOG.md && git commit -q -m "changelog on main" 2>/dev/null); then bad "bare CHANGELOG edit on main refused" "main took a direct changelog edit"; else ok "bare CHANGELOG edit on main refused"; fi
+git reset -q; git checkout -q -- CHANGELOG.md 2>/dev/null
+
+# 2g. Handoff state never lands on main directly (ADR-0105).
+if (mkdir -p docs && printf '# Handoff — living project state\n\nrecorded the merge\n' > docs/handoff.md && git add docs/handoff.md && git commit -q -m "handoff on main" 2>/dev/null); then bad "handoff edit on main refused" "main took a direct handoff edit"; else ok "handoff edit on main refused"; fi
+git reset -q; rm -rf docs
+if (mkdir -p docs/handoff && printf 'note\n' > docs/handoff/2026-01-01-x.md && git add docs/handoff && git commit -q -m "note on main" 2>/dev/null); then bad "session note on main refused" "main took a session note directly"; else ok "session note on main refused"; fi
+git reset -q; rm -rf docs
+if (date > root2.txt && git add root2.txt && git commit -q -m "ordinary main commit" 2>/dev/null); then ok "ordinary commit on main still allowed"; else bad "ordinary commit on main still allowed" "the living-docs guard is too broad"; fi
 
 # 3. Escape hatch, return home, and the pre-commit belt when off main.
 if PICODE_ALLOW_SWITCH=1 git switch -q feat/existing 2>/dev/null; then ok "PICODE_ALLOW_SWITCH override works"; else bad "PICODE_ALLOW_SWITCH override works" "override refused"; fi
@@ -78,7 +105,7 @@ if git switch -q main 2>/dev/null; then ok "returning to main always allowed"; e
 
 echo
 if [ "$fails" -eq 0 ]; then
-  echo "  git guards verified: the root stays on main, worktrees stay free."
+  echo "  git guards verified: the root stays on main, worktrees stay free, living docs travel by fast-forward."
   exit 0
 fi
 echo "  $fails guard check(s) failed — .githooks is not protecting this repo." >&2
