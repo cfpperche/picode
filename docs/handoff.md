@@ -1,10 +1,10 @@
 # Handoff — living project state
 
-> Read this first. At most 100 lines (the pre-commit hook refuses more).
-> Session notes: `docs/handoff/` (newest by filename). Deploy history: `~/.picode/var/deploy-log.jsonl` and `git log`. Older prose: `docs/handoff-archive.md`.
+> Read this first. At most 100 lines (the pre-commit hook refuses more). Session notes: `docs/handoff/` (newest by filename). Deploy history: `~/.picode/var/deploy-log.jsonl` and `git log`. Older prose: `docs/handoff-archive.md`.
 
 ## Current state
 
+- **Session messages (ADR-0104):** embedded MCP, durable inboxes, scoped connection tokens, retry deduplication and explicit acknowledgments; `#/clis/messages` manages opt-in and history on desktop/mobile. Client setup is per conversation; guests remain terminals.
 - **Native CLI settings (ADR-0101):** Settings now lives at `#/clis/settings/pi`; old links redirect, agent URLs preserve scope, desktop/mobile editors keep native Pi APIs and the mobile quick sheet. Recovery preserves drafts, blocks stale writes and reports failed restarts; malformed defaults no longer block mobile agent controls. Settings, Sessions and the new-terminal form share a `--ctl-h` CLI combobox with each runtime's favicon.
 - **Mobile v2:** focused screens, retained drafts, Sessions/Automations, Files/editor and Git workflows (ADR-0095); acceptance in `docs/plans/mobile-v2.md`. Work empty (Agents/Terminals/Workspaces) is one centered line + primary create; search misses stay top-aligned. Workspace favicons share the 22px row-mark size.
 - **Automations — many schedules (ADR-0045 amendment 2026-09-09):** `automation_schedules` rows (cron, zone, label, switch, own last fire/jitter/catch-up), `schedule_id` on runs, `schedules` on the API; editor is a list of rules on desktop and mobile. A live schedule-triggered run on scratch is still unobserved (unit-tested).
@@ -20,7 +20,7 @@
   no `HERMES_HOME` overlay), deployed `0.1.0+405fed1`. OpenCode is a sixth
   (ADR-0088), deployed `0.1.0+d65e9a1`; Activity default-on + start
   banner on `main` as `06da6771` (not yet deployed). Terminal checklists (ADR-0081)
-  on the sidebar card only; absent checklist is silence (ADR-0092). Sessions live under Agent CLIs (ADR-0079).
+  on the sidebar card only; absent checklist is silence (ADR-0092); a parallel mutator no longer clobbers a just-written plan as `undefined/undefined`. Sessions live under Agent CLIs (ADR-0079).
   Right-click gives PiCode's pane menu (`lib/termMenu.js`); the ADR-0089
   message bar opens from it seeded with the selection; Find (Ctrl+Shift+F,
   `@xterm/addon-search`) floats without resizing the pane.
@@ -62,6 +62,7 @@
 
 ## Known debts / open questions
 
+- Communication: automatic launch wiring/wake and vendor CLI runtime matrix remain later increments. MCP SDK HTTP clients and installed pi-mcp-adapter 2.32.1 tested on owned fixtures; no real model turn or physical-device acceptance. Native session discovery is best effort; never share credentials across conversations.
 - Native packages/providers: real package downloads, vendor OAuth, real credential changes and physical-device acceptance remain external; mobile package configuration is still desktop-only. Owned browser fixtures cover the decision tables in `docs/plans/cli-native-packages.md` and `docs/plans/cli-native-providers.md`.
 - Native settings: physical iPhone/PWA/IME and real process restart remain external acceptance; both app adapters have failure coverage, and scratch browser tests cover recovery, retained drafts and stopped-agent saves.
 - Inbox terminal replies: pi-inbox 0.1.x items (`pi (unmanaged)`) have no

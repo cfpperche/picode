@@ -14,6 +14,7 @@ import {
 	REFUSAL,
 	renderLines,
 	resolveServerUrl,
+	shouldPublish,
 	summarize,
 } from "../src/logic.ts";
 
@@ -89,6 +90,21 @@ test("payload: items, optional session, markers only when set", () => {
 	assert.deepEqual(buildPayload({ sessionId: "s1", blocked: true }, items), { items: [{ text: "a", status: "pending" }], sessionId: "s1", blocked: true });
 	assert.deepEqual(buildPayload({ absent: true }), { items: [], absent: true });
 	assert.deepEqual(buildPayload({ sessionId: "s2", reset: true }), { items: [], sessionId: "s2", reset: true });
+});
+
+test("publish: a blocked/absent marker must not clobber a plan this task already wrote", () => {
+	const items = { items: [{ text: "edit", status: "in-progress" as const }] };
+	const blocked = { items: [], blocked: true as const };
+	const absent = { items: [], absent: true as const };
+	const reset = { items: [], reset: true as const };
+	assert.equal(shouldPublish(blocked, false), true); // new task, clear the previous plan
+	assert.equal(shouldPublish(blocked, true), false); // parallel bash after checklist
+	assert.equal(shouldPublish(absent, false), true); // always-mode reminder
+	assert.equal(shouldPublish(absent, true), false);
+	assert.equal(shouldPublish(items, false), true);
+	assert.equal(shouldPublish(items, true), true);
+	assert.equal(shouldPublish(reset, false), true);
+	assert.equal(shouldPublish(reset, true), true);
 });
 
 test("payload: absent and blocked markers carry no items — stale steps must not read as this task's plan", () => {

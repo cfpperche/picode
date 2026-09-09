@@ -25,6 +25,25 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 		want []string
 	}
 	cases := []tc{
+		{"EnablePeer", func(s *Store) {
+			p, _, _, _ := peerFixture(t, s)
+			s.OnEvent = recorder(s)
+			_, _, _ = s.EnablePeer(p.Kind, p.PeerOwner.OwnerID, p.SessionKey)
+		}, []string{"peer.connection"}},
+		{"RevokePeer", func(s *Store) { p, _, _, _ := peerFixture(t, s); s.OnEvent = recorder(s); _ = s.RevokePeer(p.ID) }, []string{"peer.connection"}},
+		{"SendPeerMessage", func(s *Store) {
+			_, token, q, _ := peerFixture(t, s)
+			s.OnEvent = recorder(s)
+			_, _ = s.SendPeerMessage(token, q.ID, "retry", "hi", "")
+			_, _ = s.SendPeerMessage(token, q.ID, "retry", "hi", "")
+		}, []string{"peer.message"}},
+		{"AckPeerMessages", func(s *Store) {
+			_, token, q, qt := peerFixture(t, s)
+			m, _ := s.SendPeerMessage(token, q.ID, "retry", "hi", "")
+			s.OnEvent = recorder(s)
+			_ = s.AckPeerMessages(qt, []string{m.ID})
+			_ = s.AckPeerMessages(qt, []string{m.ID})
+		}, []string{"peer.ack"}},
 		{"SetCLIProfile", func(s *Store) { _ = s.SetCLIProfile(CLIProfile{ID: "p", CLI: "pi", Name: "Profile"}) }, []string{"cli.profile"}},
 		{"DeleteCLIProfile", func(s *Store) {
 			_ = s.SetCLIProfile(CLIProfile{ID: "p", CLI: "pi", Name: "Profile"})

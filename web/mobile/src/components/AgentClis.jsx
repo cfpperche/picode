@@ -12,6 +12,7 @@ import { termHash } from "../lib/routes.js";
 import AgentClisFrame from "./AgentClisFrame.jsx";
 import CliTabs from "./CliTabs.jsx";
 import CliSettings from "./CliSettings.jsx";
+import PeerMessages from "./PeerMessages.jsx";
 import CliProviders from "./CliProviders.jsx";
 import CliPackages from "./CliPackages.jsx";
 import { cliPackagesHash, supportsCliPackages } from "@picode/shared/domain/cliPackages.js";
@@ -58,7 +59,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
     if (!hidden && /^#\/sessions(\/|$)/.test(hash)) location.replace("#/clis/sessions" + hash.slice("#/sessions".length));
   }, [hidden, hash, route.view]);
   useEffect(() => {
-    if (hidden || ["settings", "packages", "providers"].includes(route.view)) return;
+    if (hidden || ["settings", "packages", "providers", "messages"].includes(route.view)) return;
     refresh();
     // ADR-0087: refresh stale update checks once per visit, server-side
     // cached — never a polling timer.
@@ -123,6 +124,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
     } catch { /* toast from run */ }
   };
 
+  if (route.view === "messages") return <PeerMessages hidden={hidden} ownerKey={route.id} />;
   if (route.view === "providers") return <CliProviders hidden={hidden} hash={hash} onCatalogChange={onCatalogChange} />;
   if (route.view === "packages") return <CliPackages hidden={hidden} hash={hash} legacyContext={legacyPackageContext} legacyContextReady={legacyContextReady} catalog={catalog} />;
   if (route.view === "settings") return <CliSettings hidden={hidden} hash={hash} legacyAgentId={legacyAgentId} catalog={catalog} onAgentConfig={onAgentConfig} />;

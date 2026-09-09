@@ -40,6 +40,17 @@ export function checklistLine(c) {
   return c.absent ? { kind: "absent" } : null;
 }
 
+// checklistProgress(line) -> {text, pos} for the sidebar counter, or null.
+// Absent / unknown / a step missing numbers must not render "undefined/undefined"
+// (ADR-0092: no plan is silence).
+export function checklistProgress(line) {
+  if (!line || line.kind !== "step") return null;
+  const position = Number(line.position);
+  const total = Number(line.total);
+  if (!Number.isFinite(position) || !Number.isFinite(total) || total < 1) return null;
+  return { text: String(line.text || ""), pos: position + "/" + total };
+}
+
 // applyChecklists(map, ev) -> the next map after a feed event.
 export function applyChecklists(map, ev) {
   const cur = map || {};

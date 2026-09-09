@@ -2719,6 +2719,108 @@
         ]
       }
     },
+    "/api/communication": {
+      "get": {
+        "operationId": "getApiCommunication",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "communication"
+        ]
+      },
+      "post": {
+        "operationId": "postApiCommunication",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "communication"
+        ]
+      }
+    },
+    "/api/communication/{id}": {
+      "delete": {
+        "operationId": "deleteApiCommunication",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "communication"
+        ]
+      }
+    },
+    "/api/communication/{id}/messages": {
+      "get": {
+        "operationId": "getApiCommunicationMessages",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "communication"
+        ]
+      }
+    },
     "/api/deploy/readiness": {
       "get": {
         "operationId": "getApiDeployReadiness",
@@ -8041,6 +8143,9 @@
     },
     {
       "name": "clis"
+    },
+    {
+      "name": "communication"
     },
     {
       "name": "deploy"

@@ -182,6 +182,8 @@ func exempt(r *http.Request) bool {
 	// from anywhere else the route is an ordinary guarded API.
 	case p == "/api/deploy/readiness" && r.Method == http.MethodGet && Loopback(r):
 		return true
+	case p == "/mcp/communication":
+		return true // ADR-0104: mandatory connection credential in its own handler.
 	case p == "/pair":
 		return true
 	case r.Method == http.MethodPost && fireRoute.MatchString(p):
@@ -192,7 +194,7 @@ func exempt(r *http.Request) bool {
 
 func guarded(r *http.Request) bool {
 	p := r.URL.Path
-	return strings.HasPrefix(p, "/api/") || strings.HasPrefix(p, "/ws/")
+	return strings.HasPrefix(p, "/api/") || strings.HasPrefix(p, "/ws/") || p == "/mcp/communication"
 }
 
 func isUpgrade(r *http.Request) bool {
@@ -357,6 +359,11 @@ func (s *Service) Wrap(next http.Handler) http.Handler {
 		}
 		if exempt(r) {
 			next.ServeHTTP(w, r)
+			return
+		}
+		// A communication capability never inherits anonymous loopback/admin access.
+		if strings.HasPrefix(bearer(r), store.PeerTokenPrefix) {
+			denied(w, http.StatusUnauthorized, "communication credential cannot access owner API")
 			return
 		}
 		p := s.resolve(r)

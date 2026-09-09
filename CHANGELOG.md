@@ -13,6 +13,9 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- Direct session messages (ADR-0104): an embedded HTTP MCP endpoint with same-workspace opt-in, scoped credentials, durable receipts, retry deduplication and explicit acknowledgements. Agent CLIs → Messages on desktop/mobile manages connections and history. Client setup is manual per conversation; no automatic agent turn or terminal migration.
+
+
 - **Automations: several schedules per automation.** The editor's
   Schedule block is now a list: each rule has its own preset (Hourly,
   Daily, Weekdays, Weekly, Custom), an optional label, its own switch and
@@ -47,6 +50,14 @@ to the `[Unreleased]` section. The repository's official language is English
   narrower centred cards (680px), and Automations, llama.cpp and Terminal
   defaults stop at 1240px instead of 1080px. Workspace surfaces (agents,
   terminals, files, git, apps) are unchanged.
+
+### Fixed
+
+- **Sidebar checklist: no more `undefined/undefined`.** Creating a plan in
+  the same turn as a refused edit/bash posted an empty `blocked` marker that
+  could land after the real list; the disclosure then concatenated missing
+  numbers. Absent plans render as silence again (ADR-0092); a parallel
+  mutator no longer overwrites a plan this task already wrote.
 
 ### Added
 
