@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cfpperche/picode/internal/communication"
 	"github.com/cfpperche/picode/internal/mcp"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
@@ -285,6 +286,14 @@ func (r *Runtime) start(agentID, path string, drain bool) (*ManagedAgent, error)
 	if liveArgs, liveEnv := mcp.AttachLive(r.DataDir, agentID); len(liveArgs) > 0 {
 		args = append(args, liveArgs...)
 		extraEnv = append(extraEnv, liveEnv...)
+	}
+	peerOptions, err := communication.AgentOptions(r.store, r.DataDir, agentID)
+	if err != nil {
+		return nil, err
+	}
+	args = append(args, peerOptions.Args...)
+	for k, v := range peerOptions.Env {
+		extraEnv = append(extraEnv, k+"="+v)
 	}
 	client, err := Start(r.AgentCmd, args, path, extraEnv...)
 	if err != nil {

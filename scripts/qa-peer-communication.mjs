@@ -5,14 +5,14 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 const base = new URL(process.argv[2]);
-assert.ok(base.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(base.hostname));
+assert.ok(['http:','https:'].includes(base.protocol) && ['localhost', '127.0.0.1'].includes(base.hostname));
 const state = await (await fetch(new URL('/api/communication', base))).json();
-assert.ok(state.owners.some(o => o.sessionKey.includes('/var/qa/peer-communication/project/')), 'Refuse non-owned scratch fixture');
+assert.ok(state.owners.some(o => o.sessionKey.includes('/var/qa/peer-communication/project/') || o.sessionKey.includes('/var/qa/peer-launch/')), 'Refuse non-owned scratch fixture');
 const out = resolve(process.argv[3] || 'var/screenshots/peer-browser'); mkdirSync(out, {recursive:true});
 const results=[];
 for (const app of ['desktop','mobile']) {
  const session=`peer-browser-${app}-${process.pid}`;
- const ab=(...args)=>execFileSync('agent-browser',['--session',session,...args],{encoding:'utf8',maxBuffer:4*1024*1024}).trim();
+ const ab=(...args)=>execFileSync('agent-browser',['--session',session,...(base.protocol==='https:'?['--ignore-https-errors']:[]),...args],{encoding:'utf8',maxBuffer:4*1024*1024}).trim();
  const ev=code=>JSON.parse(ab('eval',code));
  const wait=code=>ab('wait','--fn',code);
  const button=name=>ab('find','role','button','click','--name',name,'--exact');
@@ -27,15 +27,16 @@ for (const app of ['desktop','mobile']) {
       const path=new URL(String(input),location.origin).pathname, method=options.method||'GET',q=window.qa;
       const reply=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
       if(!path.startsWith('/api/communication'))return window.qaOriginalFetch(input,options);
-      if(method==='GET'&&path==='/api/communication')return q.fail?reply({error:'Unavailable'},503):reply({owners:q.owners,connections:q.connections,endpoint:'/mcp/communication'});
+      if(method==='GET'&&path==='/api/communication')return q.fail?reply({error:'Unavailable'},503):reply({owners:q.owners,connections:q.connections,endpoint:'/mcp/communication',launchCLIs:q.auto?['pi','codex']:[],launches:q.auto?Object.fromEntries(q.connections.map(p=>[p.id,p.active])):{}});
       if(method==='GET'){const before=Number(new URL(String(input),location.origin).searchParams.get('before'))||Infinity;return q.historyFail?reply({error:'Unavailable'},503):reply({messages:q.messages.filter(m=>(path.includes(m.senderId)||path.includes(m.recipientId))&&m.seq<before).sort((a,b)=>b.seq-a.seq).slice(0,100)})}
       q.writes.push({path,method});
+      if(method==='POST'&&q.missing)return reply({error:'Install the Pi MCP adapter before connecting.',code:'adapter_missing'},400);
       if(method==='DELETE'){q.connections=q.connections.map(p=>path.endsWith(p.id)?{...p,active:false,revokedAt:'2026-09-09T12:00:00Z'}:p);return reply({ok:true})}
       const body=JSON.parse(options.body),owner=q.owners.find(o=>o.ownerId===body.ownerId),id='fixture-connection-'+q.writes.length;
       const connection={...owner,id,active:true,createdAt:'2026-09-09T12:00:00Z',revokedAt:null};
       q.connections=[connection,...q.connections.map(p=>p.ownerId===owner.ownerId?{...p,active:false}:p)];
       if(q.delay)await new Promise(r=>{q.resolve=r});
-      return reply({connection,token:'pcc_browser_fixture_only',endpoint:'/mcp/communication'},201);
+      return reply(q.auto?{connection,automatic:true}:{connection,token:'pcc_browser_fixture_only',endpoint:'/mcp/communication'},201);
     };`);
   button('Refresh');wait('document.querySelector(".peer-body").textContent.includes("No agents or terminals yet.")');await capture('empty');
   ev(`qa.owners=[{kind:'agent',ownerId:'qa-agent',workspaceId:'qa-workspace',label:'Atlas',cli:'pi',sessionKey:''}]`);
@@ -56,7 +57,10 @@ for (const app of ['desktop','mobile']) {
   ev('qa.resolve();qa.delay=false');await pause(600);assert.equal(ev('!!document.querySelector(".peer-setup")'),false,'stale credential appeared');assert.equal(ev('document.querySelector(".peer-picker select").value'),'terminal:qa-terminal');
   button('Enable messages');wait('!!document.querySelector(".peer-setup")');button('Dismiss');button('Disable');wait('!!document.querySelector(":is([role=dialog],[role=alertdialog])")');await pause(550);ab('click',':is([role=dialog],[role=alertdialog]) button:last-child');
   wait('!document.querySelector(":is([role=dialog],[role=alertdialog])")');wait('document.querySelector(".peer-body").textContent.includes("Messages disabled")');
-  assert.ok(ev('qa.writes.some(w=>w.method==="DELETE")'));results.push({app,pass:true});
+  assert.ok(ev('qa.writes.some(w=>w.method==="DELETE")'));
+  ev('qa.auto=true');button('Refresh');wait('!document.querySelector(".peer-body button").disabled');button('Enable messages');wait('document.querySelector(".peer-body").textContent.includes("Configured · resume to connect")');assert.equal(ev('!!document.querySelector(".peer-setup")'),false);await capture('automatic-ready');ev("document.documentElement.dataset.theme='dark';document.documentElement.style.colorScheme='dark'");await capture('automatic-ready-dark');
+  ev("qa.connections=[];qa.missing=true;qa.owners.find(o=>o.ownerId==='qa-terminal').cli='pi'");button('Refresh');wait('document.querySelector(".peer-body").textContent.includes("Messages disabled")');button('Enable messages');wait('document.querySelector(".peer-body").textContent.includes("Open Packages")');await capture('adapter-missing');
+  results.push({app,pass:true});
  } finally {ab('close');}
 }
 writeFileSync(join(out,'result.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results));

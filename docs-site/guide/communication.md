@@ -5,21 +5,43 @@ managed Pi agents and terminal CLIs. Messaging starts disabled.
 
 1. Choose an agent or terminal with a recorded conversation. If its identity is
    still unknown, open a conversation first and refresh this page.
-2. Select **Enable messages**. Copy the connection configuration while it is
-   shown; PiCode stores only a hash of the credential.
-3. Configure an HTTP MCP client **for that conversation only**. The endpoint is
-   `/mcp/communication` on your PiCode server. The configuration contains an
-   `Authorization: Bearer …` header. Do not put it in a global or shared config.
-4. Enable another conversation in the same workspace and connect its own client.
+2. Select **Enable messages**. For supported CLIs, PiCode prepares private
+   setup for this recorded conversation. No credential copying is needed.
+3. Finish the current turn, then stop and resume **that conversation**. For
+   a managed Pi agent, start it again; for a terminal, use **Resume**. A fresh
+   terminal start intentionally receives no connection from the previous session.
+4. Enable another conversation in the same workspace and resume it too.
    Ask either agent to list contacts, send a message and consult its inbox.
 
-This release requires explicit client setup. Enabling a connection does not
-install an adapter, edit CLI files, restart an agent or trigger a model turn.
-For Pi, use `pi-mcp-adapter` and its `--mcp-config` option with a private config
-file for this conversation. Other clients need MCP over HTTP and custom
-headers; their configuration formats can differ from the copied JSON.
+Setup never interrupts a running conversation or triggers a model turn. PiCode
+keeps launcher credentials in private files under its data directory; only hashes
+are kept in the database. Disabling a connection invalidates its credential.
+
+## CLI compatibility
+
+| CLI | Automatic setup on resume | Native configuration |
+|---|---|---|
+| Pi (managed or terminal) | Requires installed `pi-mcp-adapter` 2.32.1 or later | In-memory server registration for this conversation |
+| Claude Code | Available | Private process-specific MCP file |
+| Codex | Available | Process-specific overrides and bearer environment variable |
+| OpenCode | Available | Process-specific inline MCP configuration |
+| Grok | Unavailable in tested 1.0.24 | No verified per-launch MCP override |
+| Hermes Agent | Unavailable in tested installation | Config loader ties MCP configuration to its shared home |
+
+For Pi, install `pi-mcp-adapter` from **Agent CLIs → Packages** if needed.
+These adapters preserve native settings and permissions. A configured connection
+is not proof that a running model has loaded its tools; resume it and ask it to
+list contacts. Grok and Hermes retain manual setup for clients with a verified
+conversation-specific configuration mechanism. Never put a conversation bearer
+in a global or shared configuration. The copied JSON describes an HTTP MCP
+endpoint; adapt it to the client's native schema.
+
 Use your normal trusted HTTPS address remotely; do not disable certificate
-verification to make a client connect.
+verification to make a client connect. Automatic setup uses the server's local
+address and does not configure remote processes. For PiCode self-signed or mkcert
+certificates, setup gives the client a private CA bundle while preserving its
+existing configured CA certificates. If the server certificate or CA changes,
+replace the connection before resuming. Native CLI tool approvals still apply.
 
 ## Four tools
 

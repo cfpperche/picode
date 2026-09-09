@@ -316,7 +316,7 @@ func handleOpen(deps Deps) http.HandlerFunc {
 		}
 		cwd := store.AgentCwd(wk, agent)
 		_ = os.MkdirAll(cwd, 0o755)
-		if err := deps.Tmux.NewSessionEnv(r.Context(), name, cwd, agent.SpawnEnv(), deps.AgentCmd, deps.spawnFlags(agent)...); err != nil {
+		if err := deps.startAgentTUI(r.Context(), name, cwd, agent); err != nil {
 			_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusStopped)
 			writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 			return

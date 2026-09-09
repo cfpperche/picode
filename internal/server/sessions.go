@@ -319,7 +319,7 @@ func restartSameMode(ctx context.Context, deps Deps, wk store.Workspace, agentID
 		return deps.Runtime.Start(agentID, cwd)
 	case modeInteractive:
 		_ = deps.Tmux.KillSession(ctx, tmux.SessionName(agentID))
-		return deps.Tmux.NewSessionEnv(ctx, tmux.SessionName(agentID), cwd, ag.SpawnEnv(), deps.AgentCmd, deps.spawnFlags(ag)...)
+		return deps.startAgentTUI(ctx, tmux.SessionName(agentID), cwd, ag)
 	default:
 		return nil
 	}

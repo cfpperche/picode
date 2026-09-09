@@ -110,3 +110,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0102](0102-packages-under-agent-clis.md) | Native Packages under Agent CLIs, explicit scopes and compatibility redirects | accepted; supersedes 0010/0099 navigation |
 | [0103](0103-providers-under-agent-clis.md) | Native Providers under Agent CLIs, machine scope and app-preserving OAuth return | accepted; supersedes 0058 navigation |
 | [0104](0104-peer-communication.md) | Embedded MCP for direct session messages | accepted |
+| [0106](0106-conversation-launch-setup.md) | Private communication setup on conversation resume | accepted |
