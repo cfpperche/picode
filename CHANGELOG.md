@@ -40,6 +40,10 @@ to the `[Unreleased]` section. The repository's official language is English
   2026-09-06 own-gutter refinement), its text on the folder/branch label
   column, and expanded plan steps follow the same two columns.
 
+- **User menu: llama.cpp in Tools.** The desktop user menu's Tools group
+  now lists **llama.cpp** (models, server connection and local service),
+  matching the mobile More screen; it is searchable like every row.
+  Previously the manager was reachable only through Providers or by URL.
 - **Sidebar: PiCode without the build number.** The version string
   (`v0.1.0+…`) no longer sits next to the name in the sidebar header;
   it still lives in the user menu.
