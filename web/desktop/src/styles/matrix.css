@@ -74,11 +74,17 @@
 }
 .mx-surface .react-grid-item > .react-resizable-handle { opacity: 0; transition: opacity var(--motion-fast); z-index: 3; }
 .mx-panel:hover > .react-resizable-handle, .mx-panel.is-focused > .react-resizable-handle { opacity: .8; }
+.mx-surface .react-grid-item > .react-resizable-handle { background-image: none; }
 .mx-surface .react-grid-item > .react-resizable-handle::after { border-color: var(--text-secondary); }
-.mx-surface .react-grid-item > .react-resizable-handle-se { background-image: none; }
-.mx-surface .react-grid-item > .react-resizable-handle-s, .mx-surface .react-grid-item > .react-resizable-handle-e { background-image: none; }
-.mx-surface .react-grid-item > .react-resizable-handle-s::after { transform: none; right: 50%; border-right: 0; width: 24px; }
-.mx-surface .react-grid-item > .react-resizable-handle-e::after { transform: none; bottom: 50%; border-bottom: 0; height: 24px; }
+/* The edge handles: react-grid-layout rotates the whole handle (45° / 315°),
+   so its corner glyph reads as a stray diagonal line. Unrotated, each edge
+   handle is a short bar at the middle of its edge instead. */
+.mx-surface .react-grid-item > .react-resizable-handle.react-resizable-handle-s,
+.mx-surface .react-grid-item > .react-resizable-handle.react-resizable-handle-e { transform: none; }
+.mx-surface .react-grid-item > .react-resizable-handle-s::after,
+.mx-surface .react-grid-item > .react-resizable-handle-e::after { border: 0; border-radius: 2px; background: var(--text-secondary); }
+.mx-surface .react-grid-item > .react-resizable-handle-s::after { right: auto; left: 50%; bottom: 3px; width: 24px; height: 3px; transform: translateX(-50%); }
+.mx-surface .react-grid-item > .react-resizable-handle-e::after { bottom: auto; right: 3px; top: 50%; width: 3px; height: 24px; transform: translateY(-50%); }
 
 /* Maximize (plan §4.6): the wrapper takes the surface body, the layout is
    untouched — the grid's transform and size are overridden, nothing moves
