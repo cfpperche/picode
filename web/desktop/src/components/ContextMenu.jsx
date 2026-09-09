@@ -232,6 +232,9 @@ function TermRow({ row, onRun }) {
 }
 
 function Item({ icon, label, onSelect, disabled, reason }) {
+  // Icon rides inside `um-item-name`, exactly like TermRow: `.um-item` is
+  // space-between, so an icon left as a direct child shoves the label to the
+  // far edge instead of sitting beside it.
   const btn = (
     <DropdownMenu.Item
       className="um-item"
@@ -239,8 +242,7 @@ function Item({ icon, label, onSelect, disabled, reason }) {
       aria-disabled={disabled ? "true" : undefined}
       onSelect={disabled ? undefined : onSelect}
     >
-      {icon}
-      <span className="um-item-name">{label}</span>
+      <span className="um-item-name">{icon}{label}</span>
     </DropdownMenu.Item>
   );
   if (!disabled || !reason) return btn;
