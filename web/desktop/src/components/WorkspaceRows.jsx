@@ -7,7 +7,7 @@ import { repoLine, termLine } from "@picode/shared/domain/repoLine.js";
 import { relTime, absTime } from "@picode/shared/domain/relTime.js";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import PiSpinner from "./PiSpinner.jsx";
-import { checklistLine, checklistRows, countDone } from "@picode/shared/domain/checklist.js";
+import { checklistLine, checklistProgress, checklistRows, countDone } from "@picode/shared/domain/checklist.js";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 
@@ -212,12 +212,12 @@ export function TermRow({
 // docs/plans/sidebar-checklist-expand.md). The terminal pane does not
 // repeat this line (ADR-0081 amendment 2026-09-07).
 export function ChecklistLine({ line }) {
-  if (!line || line.kind === "absent") return null;
-  const pos = line.position + "/" + line.total;
+  const progress = checklistProgress(line);
+  if (!progress) return null;
   return (
-    <div className="ws-check" title={pos + " · " + line.text}>
-      <span className="ws-check-text">{line.text}</span>
-      <span className="ws-check-pos">{pos}</span>
+    <div className="ws-check" title={progress.pos + " · " + progress.text}>
+      <span className="ws-check-text">{progress.text}</span>
+      <span className="ws-check-pos">{progress.pos}</span>
     </div>
   );
 }
@@ -237,9 +237,9 @@ export function ChecklistLine({ line }) {
 export function ChecklistDisclosure({ id, check }) {
   const [open, setOpen] = useState(false);
   const line = checklistLine(check);
-  if (!line) return null;
+  const progress = checklistProgress(line);
+  if (!progress) return null;
   const listId = "chk-" + id;
-  const pos = line.position + "/" + line.total;
   const items = (check && check.items) || [];
   const done = line.position === line.total && items.length > 0 && countDone(items) === items.length;
   return (
@@ -249,14 +249,14 @@ export function ChecklistDisclosure({ id, check }) {
         className={"ws-check-line" + (done ? " is-done" : "")}
         aria-expanded={open}
         aria-controls={listId}
-        aria-label={"Plan, step " + pos + ": " + line.text}
-        title={pos + " · " + line.text}
+        aria-label={"Plan, step " + progress.pos + ": " + progress.text}
+        title={progress.pos + " · " + progress.text}
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
         onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }}
       >
         <span className={"ws-chev" + (open ? " open" : "")} aria-hidden="true"><IconChevronRight /></span>
-        <span className="ws-check-text">{line.text}</span>
-        <span className="ws-check-pos">{pos}</span>
+        <span className="ws-check-text">{progress.text}</span>
+        <span className="ws-check-pos">{progress.pos}</span>
       </button>
       <div id={listId} className={"ws-check-list" + (open ? " open" : "")} aria-hidden={!open}>
         <ul>

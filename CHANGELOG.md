@@ -47,6 +47,14 @@ to the `[Unreleased]` section. The repository's official language is English
   defaults stop at 1240px instead of 1080px. Workspace surfaces (agents,
   terminals, files, git, apps) are unchanged.
 
+### Fixed
+
+- **Sidebar checklist: no more `undefined/undefined`.** Creating a plan in
+  the same turn as a refused edit/bash posted an empty `blocked` marker that
+  could land after the real list; the disclosure then concatenated missing
+  numbers. Absent plans render as silence again (ADR-0092); a parallel
+  mutator no longer overwrites a plan this task already wrote.
+
 ### Added
 
 - **Pins on the phone: create and edit.** More → Pins lists your pins
