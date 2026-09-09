@@ -2,7 +2,10 @@
 
 - **Date:** 2026-09-09 (revised the same day: name, unbounded matrices, chunk loading)
 - **Status:** accepted by the owner on 2026-09-09 (name and every row of §9
-  confirmed in chat) — next step is phase 0 in `feat/matrix-spike` (§10)
+  confirmed in chat). **Phase 0 done the same day** — measurements and the
+  seven adjustments they forced are in
+  [`docs/benchmarks/2026-09-09-matrix-live-grid.md`](../benchmarks/2026-09-09-matrix-live-grid.md)
+  and folded into §3, §4.1, §4.3, §4.5, §8 below. Next: phases 1 and 2 (§5).
 - **Ask (owner):** a PiCode app that opens a canvas where the user lays out a
   grid of panels; everything that opens as a tab today can become a panel and
   renders **live** (the agent's TUI or its chat). v1 supports Agent CLI
@@ -126,9 +129,9 @@ Facts checked on 2026-09-09 (npm registry, GitHub API, a local smoke test):
 | v2 line | 2.0.0 on 2025-12-09: TypeScript rewrite, hooks (`useContainerWidth`, `useGridLayout`, `useResponsiveLayout`), composable config (`gridConfig`, `dragConfig`, `resizeConfig`, `dropConfig`), pluggable compactors and constraints, position strategies, `GridBackground`, ESM + CJS, `react-grid-layout/legacy` for the v1 API |
 | Large layouts | `react-grid-layout/extras` ships O(n log n) compactors, advertised at 45× (vertical) for 200+ items — the case a 300-panel matrix hits on every drag |
 | Breaking in v2 | `width` is required (the hook measures it); `onDragStart` fires after a 3 px threshold; callback args are read-only; README says React 18+ (peer range still `>= 16.3`) |
-| Runtime deps | `react-draggable` (4.7.1 resolved), `react-resizable`, `resize-observer-polyfill`, `clsx`, `fast-equals`, `prop-types`; two CSS files to import (`react-grid-layout/css/styles.css`, `react-resizable/css/styles.css`) |
-| Size | 447 KB unpacked on disk (cjs + esm + types); shipped delta unmeasured — phase 0 measures |
-| React 19 | Not stated by the project. **Verified here:** renders under React 19.1.1 (server render of a two-item grid, transforms present); the grid item passes `nodeRef` to `DraggableCore`, so React 19's removed `findDOMNode` is not on the path (issue #2073 closed 2025-12-30). Phase 0 confirms drag + resize in a real browser. |
+| Runtime deps | `react-draggable` (4.7.1 resolved), `react-resizable` (3.2.0), `resize-observer-polyfill`, `clsx`, `fast-equals`, `prop-types`; two CSS files to import (`react-grid-layout/css/styles.css`, `react-resizable/css/styles.css`) — the second means **`react-resizable` is declared as a direct dependency too**, or `web/tools/boundaries.mjs` refuses the build |
+| Size | 447 KB unpacked on disk (cjs + esm + types); **shipped delta measured in phase 0: +24 KB gzip JS, +0.9 KB gzip CSS**, all in the main chunk — no lazy import needed |
+| React 19 | Not stated by the project. **Verified:** renders under React 19.1.1; the grid item passes `nodeRef` to `DraggableCore`, so React 19's removed `findDOMNode` is not on the path (issue #2073 closed 2025-12-30). **Phase 0 confirmed drag and resize in a real browser with 300 items and live xterm bodies: 58–60 fps, zero console warnings.** |
 | Known open issues | drag-from-outside edge cases (#2262, #2263, needs-info); a v2 rendering-lag report closed 2026-08-05 (#2240) |
 | Who uses it | Grafana, Metabase, Kibana, HubSpot, Monday (dashboards of live widgets — the same shape as a matrix) |
 
@@ -150,13 +153,15 @@ swap the bodies).
 | `react-resizable-panels` | Split panes only | No grid, no drag-to-reorder. |
 | Hand-rolled CSS grid + `@dnd-kit` | — | "Prefer popular primitives over homemade widgets" (AGENTS.md): compaction and collision are the hard part. |
 
-**Verdict:** adopt react-grid-layout 2.2.4, pinned exactly, v2 API (not the
-legacy wrapper), with the `extras` fast compactor. Dependency line for the
-PR: *mature (12 years, MIT), small API for exactly drag/resize/compaction,
-used by Grafana and Kibana for grids of live widgets, verified rendering
-under React 19.1; nothing in the repo covers collision and compaction.* Keep
-`react-grid-layout/legacy` as the documented fallback if phase 0 finds a v2
-defect.
+**Verdict (confirmed by phase 0):** adopt react-grid-layout 2.2.4, pinned
+exactly, v2 API (not the legacy wrapper), with the `extras` fast compactor
+(0.06 ms vs 1.02 ms per compaction of 300 items — both free, the fast one is
+headroom). Dependency lines for the PR: *react-grid-layout — mature (12
+years, MIT), small API for exactly drag/resize/compaction, used by Grafana
+and Kibana for grids of live widgets, measured under React 19.1; nothing in
+the repo covers collision and compaction. react-resizable — its resize-handle
+CSS, imported by name.* `react-grid-layout/legacy` stays the documented
+fallback.
 
 ## 4. Design
 
@@ -193,8 +198,9 @@ defect.
 - `ShellTerm.jsx` `active` effect re-appends the pane when its host is not
   the current one. `termSocket.js` gains `suspendTermSocket(entry)`
   (reversible stop: close the socket, keep the xterm and the control block;
-  `kickTermSocket` lifts it). Both are one behaviour each, both covered by
-  the browser QA (§7).
+  `kickTermSocket` lifts it — prototyped in phase 0: the same xterm object
+  resumed with its screen intact). Both are one behaviour each, both covered
+  by the browser QA (§7).
 
 ### 4.2 Data model, API, events
 
@@ -216,8 +222,8 @@ One row per panel, not one JSON blob: a drag in a 300-panel matrix must not
 rewrite and re-broadcast 30 KB, and a duplicate binding must be refused by
 the database, not by a loop. `id` is a random panel id (a slot), never
 derived from `ref`. Limits refuse (400, the limit named): 64 matrices,
-**500 panels per matrix**, 80 characters of name, `x + w ≤ 12`, `w ≥ 3`,
-`h ≥ 6`, `y ≥ 0`. `cols` is fixed at 12 in v1 (not stored); rows are
+**500 panels per matrix**, 80 characters of name, `x + w ≤ 12`, `w ≥ 4`,
+`h ≥ 8`, `y ≥ 0`. `cols` is fixed at 12 in v1 (not stored); rows are
 unbounded.
 
 | Route | Does |
@@ -266,9 +272,11 @@ web/desktop/src/styles/matrix.css      imported from index.css like integrations
 Grid configuration: `gridConfig {cols: 12, rowHeight: 24, margin: [8, 8]}`,
 `dragConfig {handle: ".mx-head", cancel: ".mx-actions", threshold: 3}`,
 `resizeConfig {handles: ["se", "s", "e"]}`, `compactor:` the `extras` fast
-vertical compactor, `minW: 3, minH: 6` per panel (a TUI below ~40 columns
-is noise). New panels land at `nextSlot` (first free slot scanning rows,
-then the bottom), size 4×10. Panels are `React.memo`; `onLayoutChange` is
+vertical compactor, `minW: 4, minH: 8` per panel (phase 0: a 4-column panel
+at 1584 px is 58 terminal columns; 3 columns would be ~43, too narrow for any
+real TUI). New panels land at `nextSlot` (first free slot scanning rows,
+then the bottom), size **4×14** (≈ 58×20 characters; the 4×10 the spike used
+gave 14 rows, cramped). Panels are `React.memo`; `onLayoutChange` is
 ignored while the surface is hidden (width 0) and while a drag or resize is
 in progress; the diff against the last saved layout is what gets sent.
 
@@ -302,8 +310,8 @@ game engine loading the chunks around the player.
 
 | Situation | Behaviour |
 |---|---|
-| Panel rect enters the scroll viewport ± one viewport height (`IntersectionObserver` on the surface's scroll container, `rootMargin: 100% 0px`) | **load now**: mount the body; attach (or reconnect) |
-| Panel rect leaves that margin | **unload after 5 s** if still outside (fast scrolling never churns sockets) |
+| Panel rect enters the scroll viewport ± one viewport height (`IntersectionObserver` on the surface's scroll container, `rootMargin: 100% 0px`) and **stays there 300 ms** | **load**: mount the body; attach (or reconnect). Phase 0: without the dwell a 4 s fly-over of 300 wrappers mounted 341 bodies; with it, 6 — while a 1 000 px/s scroll still loaded 27 |
+| Panel rect leaves that margin | **unload after 5 s** if still outside; a pending load is cancelled at once (phase 0: sockets untouched across a fast pass; all twelve suspended 8 s after parking out of view) |
 | Panel is being dragged, resized, focused or maximized | pinned: never unloads |
 | Matrix tab not selected | every panel unloads after the same 5 s: a hidden matrix holds no attaches of its own |
 | Terminal also open as a tab (`host.openTabs` has `t:<id>` or the agent's tab) | the tab owns the attach; unloading only parks the pane |
@@ -313,12 +321,14 @@ game engine loading the chunks around the player.
 | Unloaded body | a muted placeholder with the feed's last state ("Working · 2 min"); the header stays live |
 | Status of 500 unloaded panels | from `terminal.state` / `agent.*` feed events; zero attaches |
 
-Bound: what fits in three viewport heights. On a 1440p screen with 4×10
-panels (≈ 260 px tall) that is about 9 panels per screen, so ≤ 27 live
-attaches for any matrix size. `loadPolicy` is pure (rects, viewport, clock,
-pinned set → load and unload sets) and unit-tested for the hysteresis rows;
-the observer only feeds it rects. A "frozen frame" placeholder (the xterm's
-last screen as text, captured before suspending) is v1.1.
+Bound: what fits in three viewport heights. On a 1440p screen with 4×14
+panels (≈ 440 px tall) that is about 6 panels per screen, so ≤ 18 live
+attaches for any matrix size (phase 0 measured nine live `top` panels at
+≈ 4 % renderer CPU, 60 fps, no long tasks). `loadPolicy` is pure (rects,
+viewport, clock, pinned set → load and unload sets) and unit-tested for the
+dwell and hysteresis rows; the observer only feeds it rects. A "frozen
+frame" placeholder (the xterm's last screen as text, captured before
+suspending) is v1.1.
 
 ### 4.6 Pane ownership and geometry (decision table)
 
@@ -379,7 +389,7 @@ anchor, the rule apps already have); a badge on the Matrix tile.
 
 | # | Branch | Delivers | Gate |
 |---|---|---|---|
-| 0 | `feat/matrix-spike` | RGL 2.2.4 in the desktop bundle with React 19: drag, resize, **300 wrappers with the fast compactor** and nine live xterm bodies on a scratch instance; an `IntersectionObserver` load/unload prototype; bundle delta, idle CPU and attach churn while scrolling measured; `docs/benchmarks/2026-09-09-matrix-live-grid.md` with the receipts; go/no-go on RGL vs dockview. Nothing merges but the note and this plan. | owner reads the note |
+| 0 | `feat/matrix-spike` | **Done 2026-09-09.** RGL 2.2.4 under React 19: drag, resize, 300 wrappers, nine live xterm bodies, the load/unload prototype; bundle, CPU and churn measured; GO for react-grid-layout. Note: `docs/benchmarks/2026-09-09-matrix-live-grid.md`. Only the note and this plan merged. | owner reads the note |
 | 1 | `feat/apps-native-surface` | ADR; `Manifest.Surface`; `supportedApp` gate + tests; desktop native mount + `host` object; phone tile; `ShellTerm` re-claim; `suspendTermSocket` | `make close`; browser QA of tab↔matrix hand-off and suspend/resume |
 | 2 | `feat/matrix-store` | migration 040, store + events + invariant rows, handlers with limits/409, OpenAPI regen, feed reducers | `make close` |
 | 3 | `feat/matrix-surface` (two sessions) | grid, wrappers + chunk loading from day one, terminal + TUI bodies, picker, switcher, empty states, save/409, keyboard, `matrix.css`, visual review, guide page, changelog fragment, architecture file | `make close`; visual card |
@@ -425,22 +435,23 @@ every panel component twice.
   40-panel matrix scrolled mid-way (loaded and placeholder bodies side by
   side), picker open (`window.__picodeOverlayAudit()` ok), maximize, dark
   and light.
-- Budget: a 40-panel matrix with nine live TUI bodies on screen keeps the
-  tab under 10 % idle CPU, dragging stays smooth with 300 wrappers, and a
-  fast scroll through the whole matrix opens no more than one attach per
-  panel that actually stopped in view.
+- Budget (phase 0 set the bar): nine live TUI bodies on screen at ≤ 10 %
+  renderer CPU and 60 fps (measured ≈ 4 % and 60 fps), dragging ≥ 55 fps
+  with 300 wrappers (measured 58–60), and a 4 s fly-over of the whole matrix
+  loading fewer than ten bodies (measured 6 with the 300 ms dwell).
 
 ## 8. Risks
 
 | Risk | Mitigation |
 |---|---|
 | v2 API is nine months old with a bug tail | exact pin; legacy entry as fallback; phase 0 exercises drag, resize, drop, 300 items |
-| attach churn while scrolling | one-viewport margin + 5 s unload hysteresis; measured in phase 0 and in the acceptance row above |
+| attach churn while scrolling | 300 ms load dwell + one-viewport margin + 5 s unload hysteresis; measured in phase 0 (6 loads per fly-over) |
 | `tmux attach` spawn latency on load | one process per load, tens of ms; the placeholder shows the feed state meanwhile — no blank flash |
 | xterm reflow storms while resizing a panel | `termFit` already debounces 150 ms; measure; if needed fit on `onResizeStop` only |
 | pane hand-off regressions in `ShellTerm` | one behaviour change, one browser test, both tab kinds (terminal tab hidden-not-unmounted; agent TUI unmounted) |
 | a `matrix.layout` event after a big compaction is large | bounded by the panel cap (500 rows ≈ 50 KB), rare (removing a top panel), and still smaller than one blob per drag |
-| bundle growth | measured in phase 0; lazy-import the surface (`React.lazy`) if above ~60 KB gzip |
+| bundle growth | measured in phase 0: +24 KB gzip — below the lazy-import threshold |
+| attach teardown after a page reload waits for the bridge's `pongWait` (60 s) | existing behaviour, written down in the study; unload closes the socket explicitly, so its teardown is immediate |
 
 ## 9. Decisions (taken by the owner in chat, 2026-09-09)
 
@@ -456,25 +467,14 @@ every panel component twice.
 
 Changing any row is the owner's call again (AGENTS.md, non-negotiable 6).
 
-## 10. Next step — the phase 0 session
+## 10. Next step — phases 1 and 2
 
-Start in a fresh terminal (one branch, one session):
-
-```bash
-make worktree NAME=matrix-spike
-cp docs/plans/matrix-app.md .worktrees/matrix-spike/docs/plans/   # untracked on main: worktrees do not see it
-cd .worktrees/matrix-spike
-git add docs/plans/matrix-app.md      # the plan travels with the branch
-npm install -w @picode/desktop --save-exact react-grid-layout@2.2.4
-```
-
-Then, on a scratch instance (`scripts/qa-scratch.sh`, `agent-browser
---session matrix-spike`): a throwaway `#/app/matrix` surface behind
-`PICODE_DEMO_APP`-style gating, 300 wrappers with the `extras` vertical
-compactor, nine live `ShellTerm` bodies, an `IntersectionObserver`
-load/unload prototype with the 5 s hysteresis. Record in the benchmark note:
-bundle delta (`vite build` report), idle CPU with nine TUIs, drag smoothness
-at 300 wrappers, attach count while scrolling (`ss` on the scratch daemon),
-and whether React 19 drag/resize/drop show any `findDOMNode` or key warning.
-Close with `make close`; the note and this plan are the branch's only
-lasting files.
+Phase 0 is done (§5). Two worktrees can start now, in parallel and in fresh
+terminals: `make worktree NAME=apps-native-surface` (§4.1: the ADR, the
+manifest field, the gate, the host object, the `ShellTerm` re-claim and
+`suspendTermSocket` with its test) and `make worktree NAME=matrix-store`
+(§4.2: migration 040, store, events, handlers, OpenAPI). Phase 3 starts when
+both have fast-forwarded into `main`. The spike's throwaway component is not
+in the tree; the study names the shape it had (`window.__mx` counters,
+`IntersectionObserver` with `rootMargin: 100% 0px`, a 300 ms load timer and a
+5 s unload timer per wrapper) for whoever writes `loadPolicy`.
