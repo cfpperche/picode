@@ -32,7 +32,7 @@
 - Inbox terminal replies: pi-inbox 0.1.x items (`pi (unmanaged)`) have no address until each pi session updates; daemon death between park and JSONL row is an accepted gap.
 - Hermes: live Working→Ready and needs-you confirmed 2026-09-06; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`. OpenCode live Working/Needs you unproven.
 - Handoff (ADR-0088/0094): upstream formats undocumented (bump = refused write); Codex/Grok list a handed-off session only after a restart or by id; Hermes' importer flattens tool calls.
-- CLI pane-death signal chain unproven; ADR-0085 instruments it. ADR-0084 pins nothing for terminals stopped before it.
+- CLI pane-death (ADR-0085): an owned OpenCode QA stop left two processes after its pane closed; cleaned by exact PID. Signal-chain repair remains separate. ADR-0084 pins nothing for terminals stopped before it.
 - `Runtime.Stop` start-lease race: a stop during an in-flight managed start returns true without stopping. Windows `Close` kills only the direct child.
 - `internal/server` tests swap package-level probes, so `t.Parallel` would race; `scripts/go-test.sh` shards them by process instead.
 - `.git` is ~530 MB: UI bundles were committed 339 times and tutorial MP4s re-rendered; a history rewrite is the owner's call.
