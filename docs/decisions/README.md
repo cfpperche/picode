@@ -40,7 +40,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0033](0033-roles-per-agent-overlay.md) | Model roles per-agent overlay (`PI_ROLES_AGENT` → `.pi/roles/<id>.json`) | accepted |
 | [0034](0034-clone-remote-repository-workspace.md) | Clone a remote repository into a new workspace | accepted |
 | [0035](0035-remove-workspace-delete-local-data.md) | Remove workspace can delete the local folder — opt-in, typed confirmation | accepted |
-| [0036](0036-extensions-host-and-apps-tab.md) | Extensions host — apps on schema-driven primitives, Apps sidebar tab | accepted, amended 2026-08-31 (iframe first-class in marketplace era; primitives frozen) |
+| [0036](0036-extensions-host-and-apps-tab.md) | Extensions host — apps on schema-driven primitives, Apps sidebar tab | accepted, amended 2026-08-31 (iframe first-class in marketplace era; primitives frozen); amended by 0109 (native surface kind for first-party bodies) |
 | [0037](0037-inbox-async-agent-human-messages.md) | Inbox — async agent↔human messages; core data plane, view as first app | accepted, amended 2026-09-02 (consented switch), 2026-09-09 (terminal identity on items; replies ride the terminal's receiver; channelless blocking replies refuse visibly) |
 | [0038](0038-git-graph-v2.md) | Git graph v2 — inline detail, uncommitted row, search, token auto-refresh | accepted, amends 0022, supersedes 0030 on refresh for the graph; write refusal amended by 0078 |
 | [0039](0039-per-agent-session-ownership.md) | Per-agent session ownership, tracked in PiCode (`--session-id` for chat attribution; 0040 adds a private dir for pi's own TUI) | accepted, amends 0006, amended by 0040 |
@@ -111,4 +111,6 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0104](0104-peer-communication.md) | Embedded MCP for direct session messages | accepted |
 | [0105](0105-process-cost-second-review.md) | The rite runs in a fresh context, the living docs stop conflicting, deploy is the owner's call: one branch one session, changelog fragments, handoff without shipped work (100 lines and 8 KB), no deploy timer, captures at deploy, sharded server tests, `make adr` with a boundary line, architecture split per subsystem | accepted, amends 0086 |
 | [0106](0106-conversation-launch-setup.md) | Private communication setup on conversation resume | accepted; amended by 0107 |
-| [0107](0107-unified-native-messages.md) | unified-native-messages | accepted |
+| [0107](0107-unified-native-messages.md) | One mailbox with CLI and native TUI integrations | accepted |
+| [0108](0108-matrix-persistence.md) | Matrix persistence: one row per panel, six feed events, a subset layout patch under ifUpdatedAt | accepted |
+| [0109](0109-native-app-surfaces.md) | Native app surfaces — a first-party app's body may be a component compiled into the shell; the manifest names its surface | accepted, amends 0036 |

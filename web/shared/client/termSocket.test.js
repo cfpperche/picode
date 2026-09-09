@@ -6,6 +6,8 @@ import {
   connectTermSocket,
   dropTermSocket,
   kickTermSocket,
+  suspendTermSocket,
+  isTermSocketSuspended,
 } from "./termSocket.js";
 
 function makeDeps() {
@@ -203,4 +205,65 @@ test("entries that never connected still close cleanly (no __sockCtl)", () => {
   dropTermSocket(entry); // must not throw
   kickTermSocket(entry);
   assert.equal(entry.closedByUser, false, "kick on a bare entry is a no-op");
+});
+
+// The reversible stop (ADR-0109, matrix plan §4.5): a panel scrolled out
+// of view closes its attach without losing the xterm.
+test("suspend closes the socket and never reconnects: no timer, no state write", () => {
+  const deps = makeDeps();
+  const { entry, calls } = setup(deps);
+  deps.created[0].open();
+  suspendTermSocket(entry);
+  assert.equal(isTermSocketSuspended(entry), true);
+  assert.equal(entry.sock.readyState, 3, "socket closed");
+  assert.deepEqual(calls.state, [], "no '— detached —' line while suspended");
+  assert.equal(deps.timers.length, 0, "no retry scheduled");
+  deps.flush();
+  assert.equal(deps.created.length, 1, "nothing reconnected");
+  assert.ok(entry.__sockCtl, "control block kept for the resume");
+  // A suspension taken while a retry was pending cancels that retry too.
+  const again = makeDeps();
+  const second = setup(again);
+  again.created[0].open();
+  second.entry.sock.close(); // dropped: a retry is now pending
+  assert.equal(again.timers.length, 1);
+  suspendTermSocket(second.entry);
+  assert.equal(again.timers.length, 0, "pending retry cancelled");
+  again.flush();
+  assert.equal(again.created.length, 1);
+});
+
+test("kick after suspend reattaches the same entry and resumes normal retries", () => {
+  const deps = makeDeps();
+  const { entry, calls } = setup(deps);
+  deps.created[0].open();
+  suspendTermSocket(entry);
+  kickTermSocket(entry);
+  assert.equal(isTermSocketSuspended(entry), false);
+  assert.equal(deps.created.length, 2, "a new socket for the same entry");
+  assert.equal(entry.sock, deps.created[1]);
+  deps.created[1].open();
+  assert.equal(calls.open, 2, "onOpen fires for the resumed attach");
+  assert.deepEqual(calls.state, [], "still no detached line: the suspend was silent");
+  // Back to normal: a real drop after the resume writes state and retries.
+  entry.sock.close();
+  assert.deepEqual(calls.state, [false]);
+  assert.equal(deps.lastDelay(), 1000);
+});
+
+test("dropTermSocket after suspend wins: closedByUser, no reconnect ever", () => {
+  const deps = makeDeps();
+  const { entry, calls } = setup(deps);
+  deps.created[0].open();
+  suspendTermSocket(entry);
+  dropTermSocket(entry);
+  assert.equal(entry.closedByUser, true);
+  assert.ok(!entry.__sockCtl, "control state removed");
+  assert.equal(isTermSocketSuspended(entry), false, "no control block, no suspension to report");
+  kickTermSocket(entry);
+  deps.visible();
+  deps.online();
+  deps.flush();
+  assert.equal(deps.created.length, 1, "no reattach after a user close");
+  assert.deepEqual(calls.state, []);
 });

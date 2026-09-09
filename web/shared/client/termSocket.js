@@ -8,8 +8,13 @@
 // Contract with the entry object (see mobile/desktop lib/terms.js):
 //   entry.sock          the current WebSocket (replaced on every connect)
 //   entry.closedByUser  set by closeTerm()/dropTermSocket(): stops
-//                       reattach and unwires everything.
-// Control state lives on entry.__sockCtl. Handlers:
+//                       reattach and unwires everything. One-way.
+// Control state lives on entry.__sockCtl; ctl.suspended is the reversible
+// stop (suspendTermSocket/kickTermSocket): the socket is closed and no
+// retry runs, but the xterm, its scrollback and the control block stay so
+// the same instance resumes later — a hidden matrix panel, not a closed
+// terminal (ADR-0109, docs/plans/matrix-app.md §4.5).
+// Handlers:
 //   onOpen()    a connection opened (first or reattach): fit + resize
 //               so the fresh `tmux attach` gets the real size.
 //   onMessage(ev)  every WebSocket message.
@@ -44,6 +49,7 @@ export function connectTermSocket(entry, url, handlers = {}, deps = defaultDeps(
     timer: 0, // pending reconnect timer
     live: false, // true between onopen and the next close
     gaveUp: false, // burst exhausted; a kick restarts it
+    suspended: false, // parked on purpose; a kick lifts it
     unwireWindow: null,
   };
   entry.__sockCtl = ctl;
@@ -55,7 +61,7 @@ export function connectTermSocket(entry, url, handlers = {}, deps = defaultDeps(
       ctl.deps.clearTimer(ctl.timer);
       ctl.timer = 0;
     }
-    if (entry.closedByUser || !dead()) return;
+    if (entry.closedByUser || ctl.suspended || !dead()) return;
     let ws;
     try {
       ws = new deps.WebSocketImpl(ctl.url);
@@ -76,14 +82,15 @@ export function connectTermSocket(entry, url, handlers = {}, deps = defaultDeps(
     ws.onclose = () => {
       const wasLive = ctl.live;
       ctl.live = false;
-      if (entry.closedByUser) return;
+      // A suspended close is silent: no "— detached —" line, no retry.
+      if (entry.closedByUser || ctl.suspended) return;
       if (wasLive && ctl.handlers.onState) ctl.handlers.onState(false);
       schedule();
     };
   }
 
   function schedule() {
-    if (ctl.timer || ctl.gaveUp || entry.closedByUser) return;
+    if (ctl.timer || ctl.gaveUp || entry.closedByUser || ctl.suspended) return;
     ctl.attempts += 1;
     if (ctl.attempts > RECONNECT_BURST) {
       ctl.gaveUp = true;
@@ -98,10 +105,12 @@ export function connectTermSocket(entry, url, handlers = {}, deps = defaultDeps(
   }
 
   // Conditions changed — the page became visible, the network returned,
-  // or the pane was remounted. Retry immediately; a burst that gave up
-  // starts over, so a recreated tmux session still heals.
+  // the pane was remounted, or a suspended panel came back into view.
+  // Retry immediately; a burst that gave up starts over, so a recreated
+  // tmux session still heals.
   function kick() {
     if (entry.closedByUser) return;
+    ctl.suspended = false;
     if (ctl.gaveUp) {
       ctl.gaveUp = false;
       ctl.attempts = 0;
@@ -150,8 +159,36 @@ export function dropTermSocket(entry) {
   delete entry.__sockCtl;
 }
 
-// Reattach now if the socket is dead (visibility, online, remount).
+// Reattach now if the socket is dead (visibility, online, remount), and
+// lift a suspension.
 export function kickTermSocket(entry) {
   const ctl = entry && entry.__sockCtl;
   if (ctl && ctl.kick) ctl.kick();
+}
+
+// Reversible stop: close the socket and stop retrying, keep the xterm and
+// the control block. The window listeners stay wired — a visibility or
+// online event kicks, which is exactly what a panel scrolled back into
+// view wants — but only kickTermSocket lifts the suspension itself.
+export function suspendTermSocket(entry) {
+  const ctl = entry && entry.__sockCtl;
+  if (!ctl) return;
+  ctl.suspended = true;
+  if (ctl.timer) {
+    ctl.deps.clearTimer(ctl.timer);
+    ctl.timer = 0;
+  }
+  const st = entry.sock ? entry.sock.readyState : 3;
+  if (st === CONNECTING || st === OPEN) {
+    try {
+      entry.sock.close();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function isTermSocketSuspended(entry) {
+  const ctl = entry && entry.__sockCtl;
+  return !!(ctl && ctl.suspended);
 }

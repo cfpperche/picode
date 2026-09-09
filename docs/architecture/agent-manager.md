@@ -55,11 +55,14 @@ HTTP API (Go 1.22 method patterns):
   stay uncached and `?refresh=1` bypasses the cache for Retry. Read-only
   metadata; the clone itself still runs git with host credentials.
 - `GET /api/apps` — apps host (ADR-0036): manifests `{id, name, icon,
-  apiVersion}` plus a live `badge` (`count` = actionable, `dot` =
-  activity) per app; the poll target for the Apps tab. A badge failure
-  degrades to no badge, never a failed list. First-party apps only,
-  assembled in `cmd/picode`; the registry seeds the **Inbox** (ADR-0037)
-  and `PICODE_DEMO_APP=1` adds a hidden QA app.
+  apiVersion, surface?}` plus a live `badge` (`count` = actionable, `dot` =
+  activity) per app; the poll target for the Apps tab. `surface` is
+  omitted for a primitives app and `"native"` for a body compiled into a
+  shell (ADR-0109); a native app's view route answers one detail line and
+  its action route 400. A badge failure degrades to no badge, never a
+  failed list. First-party apps only, assembled in `cmd/picode`; the
+  registry seeds the **Inbox** (ADR-0037) and `PICODE_DEMO_APP=1` adds the
+  hidden QA apps — Demo (primitives) and Native demo.
 - `GET /api/apps/{id}/view?path=…` — one screen of an app as a tree of
   UI primitives (list / detail-markdown / form / actions) the SPA
   renders with host components; `apiVersion` gates rendering on both

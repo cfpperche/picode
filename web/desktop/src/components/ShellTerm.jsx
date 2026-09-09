@@ -41,6 +41,12 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
   useEffect(() => {
     if (!agentId || !session || !hostRef.current) return undefined;
     const id = shellKey(agentId);
+    const host = hostRef.current;
+    // Park only what this host still holds (ADR-0109): the same terminal
+    // can be mounted twice — its tab and a native app's panel — and the
+    // pane lives in whichever is visible. Unmounting the other host must
+    // not pull the pane out from under the one showing it.
+    const park = (el) => { if (el.parentElement === host) parkTerm(el); };
     const onFile = (p) => { if (fileRef.current) fileRef.current(p); };
     const liveCwd = async () => {
       try {
@@ -65,7 +71,7 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
         if (entry.term && !entry.unwireLinks) {
           entry.unwireLinks = wireTermLinks(entry.term, () => cwdRef.current, onFile, liveCwd);
         }
-        return () => parkTerm(entry.paneEl);
+        return () => park(entry.paneEl);
       }
       // The attach dropped while we were away. Reattach the SAME instance
       // instead of rebuilding it, so the scrollback survives.
@@ -74,7 +80,7 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
       entry.paneEl.classList.add("active");
       scheduleTermFit(entry, true);
       if (active && entry.term) entry.term.focus();
-      return () => parkTerm(entry.paneEl);
+      return () => park(entry.paneEl);
     }
     const paneEl = document.createElement("div");
     paneEl.className = "term-pane active";
@@ -136,13 +142,17 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
       onGiveUp: () => term.writeln("\r\n\x1b[90mSession ended. Reopen the terminal.\x1b[0m"),
     });
     terms.set(id, entry);
-    return () => parkTerm(paneEl);
+    return () => park(paneEl);
   }, [agentId, session]);
 
   useEffect(() => {
     if (!active || !agentId) return;
     const entry = terms.get(shellKey(agentId));
     if (!entry || !entry.term) return;
+    // The pane follows the visible host (ADR-0109): shown in a native
+    // app's panel and then revealed in its own tab, it comes back here
+    // instead of staying in the hidden host — the tab would be empty.
+    if (hostRef.current && entry.paneEl.parentElement !== hostRef.current) hostRef.current.appendChild(entry.paneEl);
     entry.paneEl.classList.add("active");
     scheduleTermFit(entry, true);
     entry.term.focus();

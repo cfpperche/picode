@@ -39,8 +39,10 @@ const LIST_KEY = "picode-app-split-w";
 // header; an action that returns to the root calls onClose). Undefined
 // keeps the desktop's split. onGoto receives an action's goto directive
 // ("agent:<id>"); each shell opens its
-// own agent terminal surface.
-export default function AppSurface({ appId, hidden, manifest, onClose, initialPath, onPathChange, refreshKey, paneMode, onOpenItem, onGoto }) {
+// own agent terminal surface. nativeSurfaces is the shell's registry of
+// native app ids (ADR-0109): a native app this build did not compile in
+// reaches this surface only by deep link and gets the honest line.
+export default function AppSurface({ appId, hidden, manifest, onClose, initialPath, onPathChange, refreshKey, paneMode, onOpenItem, onGoto, nativeSurfaces }) {
   // Native radio `name` grouping is document-wide, not component-scoped —
   // without a per-mount id, a second open app (or the same app reopened)
   // would fight this one over which segment shows checked.
@@ -212,7 +214,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
   }
 
   const title = (manifest && manifest.name) || appId;
-  const badVersion = manifest && !supportedApp(manifest);
+  const badVersion = manifest && !supportedApp(manifest, nativeSurfaces);
   const split = !!view && view.layout === "split";
   const listBlocks = split ? view.blocks.filter((b) => b.pane === "list") : [];
   const detailBlocks = split ? view.blocks.filter((b) => b.pane !== "list") : [];
@@ -312,7 +314,9 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
 
       {unsupported || badVersion ? (
         <p className="ft-msg">
-          This app needs a newer PiCode — it speaks primitives v{badVersion ? manifest.apiVersion : "?"}, this build renders v{SUPPORTED_API}.
+          {badVersion && manifest.surface && manifest.apiVersion === SUPPORTED_API
+            ? <>This app needs a newer PiCode — its “{manifest.surface}” surface is not in this build.</>
+            : <>This app needs a newer PiCode — it speaks primitives v{badVersion ? manifest.apiVersion : "?"}, this build renders v{SUPPORTED_API}.</>}
         </p>
       ) : error ? (
         <p className="ft-msg">

@@ -2892,23 +2892,22 @@ img.ws-face.term-cli-face {
 .ws-check-pos { flex: none; font-family: var(--mono); font-size: 10.5px; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
 /* The plan disclosure (docs/plans/sidebar-checklist-expand.md): the line is
    a real button; opening reveals every step — ☑ dimmed, the braille spinner
-   on the one being executed, ☐ pending. Live over the feed, no fetch. The
-   chevron reuses .ws-chev (the workspace group header's own disclosure
-   affordance) so the same rotate-on-open language reads across the sidebar.
-   The disclosure sits on the card's 23px metadata column — the same left
-   edge as the folder and branch icons below and the title text above — and
-   the chevron box shrinks to the icons' 12px slot with the same 4px gap
-   (owner report 2026-09-09: the old own-gutter layout left the chevron
-   ~18px left of every other mark on the card). Text therefore starts at
-   23 + 12 + 4 = 39px, on the same column as the folder/branch labels. The
-   button's 3px side padding + negative margins extend the hit area without
-   moving the content (23 − 3 + 3 = 23). */
+   on the one being executed, ☐ pending. Live over the feed, no fetch. No
+   chevron (owner request 2026-09-09): the line reads as plan text, not a
+   disclosure widget — the whole row stays the click target, so expanding
+   needs no arrow, and the italic sets the line in the plan's voice rather
+   than chrome. The disclosure sits on the card's 23px metadata column —
+   the same left edge as the folder and branch icons below and the title
+   text above — and an empty 12px slot with the same 4px gap keeps the text
+   on the icons' text column: 23 + 12 + 4 = 39px, aligned with the
+   folder/branch labels and the expanded steps' text. The button's 3px side
+   padding + negative margins extend the hit area without moving the
+   content (23 − 3 + 3 = 23). */
 .ws-check-disclosure { margin: 3px 31px 0 23px; min-width: 0; }
-.ws-check-line .ws-chev { width: 12px; height: 12px; }
-button.ws-check-line { display: flex; align-items: center; gap: 4px; min-width: 0; width: calc(100% + 6px); margin: 0 -3px; font-size: 11.5px; color: var(--text-secondary); padding: 2px 3px; background: none; border: 0; border-radius: 4px; text-align: left; cursor: pointer; }
+.ws-check-slot { flex: none; width: 12px; height: 12px; }
+button.ws-check-line { display: flex; align-items: center; gap: 4px; min-width: 0; width: calc(100% + 6px); margin: 0 -3px; font-size: 11.5px; font-style: italic; color: var(--text-secondary); padding: 2px 3px; background: none; border: 0; border-radius: 4px; text-align: left; cursor: pointer; }
 button.ws-check-line:hover, button.ws-check-line:focus-visible { color: var(--text-primary); }
-button.ws-check-line:hover .ws-check-text, button.ws-check-line:focus-visible .ws-check-text,
-button.ws-check-line:hover .ws-chev, button.ws-check-line:focus-visible .ws-chev { color: var(--text-primary); }
+button.ws-check-line:hover .ws-check-text, button.ws-check-line:focus-visible .ws-check-text { color: var(--text-primary); }
 button.ws-check-line:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent); }
 /* A finished plan (n/n, every step completed) drops to the same weight as a
    completed step in the expanded list — it stops reading as live activity. */
@@ -2916,9 +2915,9 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .ws-check-list { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 150ms ease-out, opacity 150ms ease-out; }
 .ws-check-list.open { grid-template-rows: 1fr; opacity: 1; }
 /* Step glyphs (☑ ◐ ☐) start on the same 23px column as the collapsed
-   line's chevron (padding-left: 0, the container is already inset); the
-   4px li gap plus the 12px glyph width match the chevron's own 16px
-   gutter, so step text lands on the same 39px column as the chevron
+   line's empty slot (padding-left: 0, the container is already inset); the
+   4px li gap plus the 12px glyph width match the slot's own 16px
+   gutter, so step text lands on the same 39px column as the plan
    line's text above it. */
 .ws-check-list > ul { overflow: hidden; min-height: 0; margin: 0; padding: 3px 0 2px 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
 .ws-check-list li { display: flex; align-items: baseline; gap: 4px; min-width: 0; font-size: 11.5px; color: var(--text-secondary); }
