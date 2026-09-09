@@ -39,3 +39,10 @@ test("Providers is searchable inside Agent CLIs", () => {
   assert.ok(!menuGroups("").flatMap(g => g.rows).some(row => row[0] === "providers"));
   assert.ok(menuGroups("providers").some(group => group.title === "Agent CLIs" && group.rows.some(row => row[0] === "providers")));
 });
+
+test("Tools holds Integrations; Agents and connections is gone", () => {
+  assert.deepEqual(MENU_GROUPS.map(([title]) => title), ["Tools", "PiCode"]);
+  assert.deepEqual(MENU_GROUPS[0][1], ["clis", "automations", "integrations"]);
+  assert.deepEqual(menuGroups("").map(g => g.title), ["Tools", "PiCode"]);
+  assert.deepEqual(menuGroups("").find(g => g.title === "Tools").rows.map(r => r[0]), ["clis", "automations", "integrations"]);
+});

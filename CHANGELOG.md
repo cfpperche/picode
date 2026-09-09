@@ -28,6 +28,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **User menu: one Tools group.** After Providers, Settings and Packages
+  moved under Agent CLIs, the leftover *Agents and connections* heading
+  (Integrations alone) is gone. The desktop user menu and the phone's More
+  screen list Integrations with Agent CLIs and Automations under Tools.
+
 - **Desktop: one panel width for every page.** All routes now share the
   Agent CLIs panel geometry — fluid up to 1240px, centred, same gutters.
   System, Integrations, MCPs, Devices, Preferences and Pins no longer use
