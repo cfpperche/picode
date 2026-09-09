@@ -2568,7 +2568,6 @@ export default function App() {
         }
       }}>
       <Sidebar
-        version={version}
         workspaces={workspaces}
         selectedId={selectedId}
         onNew={() => { setFormKind("workspace"); setShowForm(true); }}

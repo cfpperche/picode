@@ -121,13 +121,6 @@ body {
 }
 .brand-name:hover { color: var(--accent); }
 .brand-name:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.brand-ver {
-  font-family: var(--mono); font-size: 11px; color: var(--text-secondary);
-  /* Source builds append the revision (v0.1.0+0550fa2): squeeze with an
-     ellipsis rather than pushing the tabs; the full string is the title. */
-  flex: 0 1 auto; min-width: 0; overflow: hidden;
-  text-overflow: ellipsis; white-space: nowrap;
-}
 .brand-tabs { display: flex; margin-left: auto; align-self: stretch; }
 .brand-tab {
   display: grid; place-items: center;

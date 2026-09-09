@@ -36,7 +36,7 @@ const SIDE_KEY = "picode-sidebar-w";
 const TAB_KEY = "picode-side-tab";
 
 export default function Sidebar({
-  version, workspaces, selectedId,
+  workspaces, selectedId,
   onNew, onSelect, onRun, onStop, onRemove,
   userMenu, termView, onChat, onTerm,
   freeAgents, onNewFree, onNewAgent, onRemoveAgent, onRenameAgent,
@@ -159,10 +159,6 @@ export default function Sidebar({
       <header className="brand">
         <span className="brand-title">
           <button type="button" className="brand-name" title="Dashboard" onClick={() => onOpenDashboard && onOpenDashboard()}>PiCode</button>
-          {/* Five tabs eat the header (ADR-0036); below ~286px the version
-              would push the name into ellipsis, so it yields (it lives in
-              the user menu too). The name never truncates. */}
-          {width >= 286 ? <span className="brand-ver" id="ver" title={version ? "v" + version : ""}>{version ? "v" + version : "v—"}</span> : null}
         </span>
         <nav className={"brand-tabs" + (width < 240 ? " brand-tabs-tight" : "")} role="tablist" aria-label="Sidebar">
           <button type="button" role="tab" className="brand-tab" aria-selected={tab === "workspaces"} title="Workspaces" aria-label="Workspaces" onClick={() => selectTab("workspaces")}><IconFolders size={16} /></button>

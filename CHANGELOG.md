@@ -28,6 +28,10 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Sidebar: PiCode without the build number.** The version string
+  (`v0.1.0+…`) no longer sits next to the name in the sidebar header;
+  it still lives in the user menu.
+
 - **User menu: one Tools group.** After Providers, Settings and Packages
   moved under Agent CLIs, the leftover *Agents and connections* heading
   (Integrations alone) is gone. The desktop user menu and the phone's More
