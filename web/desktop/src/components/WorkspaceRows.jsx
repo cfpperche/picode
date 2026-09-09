@@ -229,8 +229,8 @@ export function ChecklistLine({ line }) {
 // feed, so opening costs no fetch and updates render in place. Absent and
 // unknown checklists render nothing (ADR-0092) — there is nothing to open.
 //
-// Layout matches ContextLine below it: same 31px text column, no parens
-// around the counter, counter reads as a fixed column at the row's end
+// Layout matches ContextLine below it: the card's 23px metadata column,
+// no parens around the counter, counter reads as a fixed column at the row's end
 // (Linear/GitHub sub-issue idiom) instead of a prefix. A finished plan
 // (position === total and every item completed) dims to the same weight as
 // a completed step, so it stops reading as an open task.
@@ -256,10 +256,12 @@ export function ChecklistDisclosure({ id, check }) {
       >
         {/* No chevron (owner request 2026-09-09): the line reads as plan
             text, not a disclosure widget — the whole row stays the click
-            target, so expanding needs no arrow. The empty 12px slot keeps
-            the text on the card's 39px text column, aligned with the
-            folder/branch labels below and the expanded steps' text. */}
-        <span className="ws-check-slot" aria-hidden="true" />
+            target, so expanding needs no arrow. The line carries no mark
+            of its own, so its text starts on the card's 23px metadata
+            column — the same left edge as the title, subtitle and the
+            folder/branch icons below (owner report 2026-09-09: the ghost
+            slot read as an indent, not an alignment). The expanded steps'
+            glyphs keep that column for the marks, 39px for their text. */}
         <span className="ws-check-text">{progress.text}</span>
         <span className="ws-check-pos">{progress.pos}</span>
       </button>
