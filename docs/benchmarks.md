@@ -69,6 +69,30 @@ state = one line + one action; statusbar = live state, not hints).
 
 ### The bar — every UI change must satisfy
 
+**One page width (the Agent CLIs standard, 2026-09-09)**
+- [ ] Every desktop route renders through `PageFrame`, whose `.settings-wrap`
+      is fluid up to **1240px**, centred, with shared gutters — the geometry
+      ADR-0103 gave Agent CLIs. A page never picks its own width; embedded
+      panes (inside Agent CLIs or dialogs) size to their container.
+- [ ] Route map at the standard's adoption (before → 1240px):
+
+  | Route | View | Width before |
+  |---|---|---|
+  | `#/clis/*` (CLIs, Terminals, Sessions, Settings, Providers, Packages) | `AgentClisFrame` | 1240px (reference) |
+  | `#/system` | `System` | 680px |
+  | `#/integrations` | `Integrations` | 680px |
+  | `#/mcps` | `Mcps` | 680px |
+  | `#/devices` | `Devices` | 680px |
+  | `#/preferences` (+ sections) | `Settings` | 680px |
+  | `#/pins`, `#/pins/new`, `#/pins/:id` | `PinStudio` | 680px |
+  | `#/automations` | `Automations` | 1080px |
+  | `#/llama/*` | `LlamaPanel` | 1080px |
+  | `#/termset` (+ `/:id`) | `TermSettingsPage` | 1080px |
+
+  Workspace surfaces (`#/`, `#/term/*`, `#/file/*`, `#/git/*`, `#/tree/*`,
+  `#/app/*`) are canvases, not page frames — they keep their own layout.
+  Mobile is full-width by design (ADR-0072/0103).
+
 **Control rhythm (shadcn `h-9` / HIG)**
 - [ ] Adjacent controls share `--ctl-h` (36px): input + button in a row are
       the same height. Mismatched heights in one axis are FAIL.

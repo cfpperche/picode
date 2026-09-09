@@ -171,7 +171,7 @@ export default function Automations({ hidden, catalog, workspaces, freeAgents, s
   }
 
   return (
-    <PageFrame id="automations-view" title="Automations" hidden={hidden} wide>
+    <PageFrame id="automations-view" title="Automations" hidden={hidden}>
       {body}
     </PageFrame>
   );

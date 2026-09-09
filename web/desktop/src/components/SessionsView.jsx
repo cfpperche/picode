@@ -344,7 +344,7 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
   const total = data ? data.totalBytes : 0;
 
   return (
-    <PageFrame id="sessions-view" title={(workspace ? workspace.name + " · " : "") + "Sessions"} wide embedded={embedded}>
+    <PageFrame id="sessions-view" title={(workspace ? workspace.name + " · " : "") + "Sessions"} embedded={embedded}>
       <div className="sessions-toolbar">
         <span className="sessions-total">{all ? "All folders · " : (workspace ? workspace.name + " · " : "")}{filtered.length}{query ? " of " + sessions.length : ""} {filtered.length === 1 ? "session" : "sessions"}{isPi ? " · " + fmtBytes(total) + " on disk" : ""}</span>
         <div className="sessions-actions" data-align-row data-align-wrap>

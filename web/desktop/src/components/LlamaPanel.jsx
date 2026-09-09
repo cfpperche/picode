@@ -224,7 +224,7 @@ export default function LlamaPanel({ onRefresh }) {
   }
 
   return (
-    <PageFrame id="llama-manager" title="llama.cpp" wide>
+    <PageFrame id="llama-manager" title="llama.cpp">
       <nav className="llama-nav" aria-label="llama.cpp sections">
         <a className={section === "models" ? "active" : ""} href="#/llama/models" aria-current={section === "models" ? "page" : undefined}>Models</a>
         <a className={section === "server" ? "active" : ""} href="#/llama/server" aria-current={section === "server" ? "page" : undefined}>Server</a>

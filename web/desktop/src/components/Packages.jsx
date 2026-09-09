@@ -175,7 +175,7 @@ export default function Packages({ hidden, embedded = false, workspaceId, worksp
   const gallery = (data && data.gallery) || "https://pi.dev/packages";
 
   return (
-    <PageFrame embedded={embedded} id="packages-view" title="Packages" context={paneContext(agentName, workspaceName)} hidden={hidden} wide>
+    <PageFrame embedded={embedded} id="packages-view" title="Packages" context={paneContext(agentName, workspaceName)} hidden={hidden}>
       {loadError ? <div className="cli-notice is-error" role="alert"><span>{loadError}</span><button type="button" className="btn btn-ghost btn-sm" disabled={loading} onClick={load}>{loading ? "Retrying…" : "Try again"}</button></div> : null}
       {!data && loading ? <div className="cli-loading" aria-label="Loading packages"><div /><div /><div /></div> : null}
       <fieldset className="cli-packages-fields" hidden={!data} disabled={!!loadError || !data || !!job}>

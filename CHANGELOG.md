@@ -11,6 +11,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Changed
+
+- **Desktop: one panel width for every page.** All routes now share the
+  Agent CLIs panel geometry — fluid up to 1240px, centred, same gutters.
+  System, Integrations, MCPs, Devices, Preferences and Pins no longer use
+  narrower centred cards (680px), and Automations, llama.cpp and Terminal
+  defaults stop at 1240px instead of 1080px. Workspace surfaces (agents,
+  terminals, files, git, apps) are unchanged.
+
 ### Added
 
 - **Pins on the phone: create and edit.** More → Pins lists your pins

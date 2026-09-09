@@ -253,7 +253,7 @@ export default function PackagesConfig({ hidden, embedded = false, pkg, workspac
     : [];
 
   return (
-    <PageFrame embedded={embedded} id="packages-config" title={pkg + " settings"} context={paneContext(agentName, workspaceName)} hidden={hidden} wide>
+    <PageFrame embedded={embedded} id="packages-config" title={pkg + " settings"} context={paneContext(agentName, workspaceName)} hidden={hidden}>
       <div className="pkc-top">
         <a className="pkg-back" href={backHash}>← All packages</a>
         <span className="pkg-foot-spacer" />

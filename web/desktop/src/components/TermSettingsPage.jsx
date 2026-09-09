@@ -83,7 +83,7 @@ export default function TermSettingsPage({ hidden, terminals }) {
     : "Only what this terminal changes; the rest follows the defaults.";
 
   return (
-    <PageFrame id="termset-view" title={title} context={context} hidden={hidden} wide>
+    <PageFrame id="termset-view" title={title} context={context} hidden={hidden}>
       {!data || !catalog ? <PageSkeleton /> : (
         <div className="termset-page">
           {isGlobal ? (

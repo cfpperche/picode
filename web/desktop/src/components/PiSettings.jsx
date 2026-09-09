@@ -93,7 +93,7 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
   const canProject = !!(rep && rep.writable && rep.writable.project);
 
   return (
-    <PageFrame id="pi-settings-view" title="Pi settings" embedded={embedded} context={agent ? displayAgentName(agent, workspace) : ""} hidden={hidden} wide>
+    <PageFrame id="pi-settings-view" title="Pi settings" embedded={embedded} context={agent ? displayAgentName(agent, workspace) : ""} hidden={hidden}>
       {loadError ? <div className="pi-settings-notice" role="alert"><span title={loadError}>Could not load Pi defaults.</span><button type="button" className="btn btn-ghost btn-sm" onClick={() => setRetry(value => value + 1)}>Try again</button></div> : null}
       {saveError ? <div className="pi-settings-notice" role="alert"><span>{saveError}</span><button type="button" className="btn btn-ghost btn-sm" onClick={() => setSaveError("")}>Dismiss</button></div> : null}
       {saving ? <p role="status">Saving…</p> : null}

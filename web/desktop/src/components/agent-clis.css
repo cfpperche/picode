@@ -1,5 +1,4 @@
 .cli-page { scrollbar-gutter: stable; }
-.cli-page > .settings-wrap.wide { width: 100%; max-width: 1240px; }
 .cli-page > .settings-wrap > .settings-card { padding: 0; overflow: visible; }
 /* Sessions (ADR-0079) render inside the paddingless Agent CLIs card. */
 .cli-page > .settings-wrap > .settings-card > #sessions-view { padding: 16px 24px 24px; }
