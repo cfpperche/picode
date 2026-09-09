@@ -17,8 +17,8 @@ func TestRegistry(t *testing.T) {
 	}
 
 	r := NewRegistry(BuiltIns(true)...)
-	if len(r.All()) != 4 {
-		t.Fatalf("demo registry has %d apps, want 4 (inbox + docker + demo + demo-native)", len(r.All()))
+	if len(r.All()) != 5 {
+		t.Fatalf("demo registry has %d apps, want 5 (inbox + docker + matrix + demo + demo-native)", len(r.All()))
 	}
 	a, ok := r.Find("demo")
 	if !ok {
@@ -32,8 +32,39 @@ func TestRegistry(t *testing.T) {
 		t.Fatalf("Find(nope) = ok, want miss")
 	}
 	prod := BuiltIns(false)
-	if len(prod) != 2 || prod[0].Manifest().ID != "inbox" || prod[1].Manifest().ID != "docker" {
-		t.Fatalf("BuiltIns(false) = %v, want inbox and docker (both demos must stay hidden)", prod)
+	if len(prod) != 3 || prod[0].Manifest().ID != "inbox" || prod[1].Manifest().ID != "docker" || prod[2].Manifest().ID != "matrix" {
+		t.Fatalf("BuiltIns(false) = %v, want inbox, docker and matrix (both demos must stay hidden)", prod)
+	}
+}
+
+// The Matrix (plan docs/plans/matrix-app.md, ADR-0108/0109) ships in every
+// build as a native surface: no badge, one honest primitives line, no
+// action — the desktop registers the id and renders the grid itself.
+func TestMatrixApp(t *testing.T) {
+	a, ok := NewRegistry(BuiltIns(false)...).Find("matrix")
+	if !ok {
+		t.Fatalf("matrix missing from BuiltIns(false)")
+	}
+	m := a.Manifest()
+	if m.ID != "matrix" || m.Name != "Matrix" || m.Icon != "matrix" || m.APIVersion != APIVersion || m.Surface != SurfaceNative {
+		t.Fatalf("matrix manifest = %+v", m)
+	}
+	ctx := context.Background()
+	if b, err := a.Badge(ctx, Host{}); err != nil || b != (Badge{}) {
+		t.Fatalf("Badge = %+v, %v (want none: plan §4.10)", b, err)
+	}
+	v, err := a.View(ctx, Host{}, "")
+	if err != nil {
+		t.Fatalf("View error: %v", err)
+	}
+	if err := v.Validate(); err != nil {
+		t.Fatalf("View invalid: %v", err)
+	}
+	if len(v.Blocks) != 1 || !strings.Contains(v.Blocks[0].Markdown, "Matrix opens on the desktop") {
+		t.Fatalf("View = %+v", v)
+	}
+	if _, err := a.Action(ctx, Host{}, ActionRequest{Action: "open"}); err == nil {
+		t.Fatalf("Action = nil error, want refusal")
 	}
 }
 

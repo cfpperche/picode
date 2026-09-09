@@ -61,7 +61,7 @@ func TestListAppsWithBadge(t *testing.T) {
 	if code := getJSON(t, ts, "/api/apps", &body); code != http.StatusOK {
 		t.Fatalf("GET /api/apps = %d", code)
 	}
-	if body.APIVersion != apps.APIVersion || len(body.Apps) != 4 {
+	if body.APIVersion != apps.APIVersion || len(body.Apps) != 5 {
 		t.Fatalf("list = %+v", body)
 	}
 	byID := map[string]int{}
@@ -109,6 +109,14 @@ func TestNativeAppOnTheWire(t *testing.T) {
 	}
 	if _, has := rows["inbox"]["surface"]; has {
 		t.Fatalf("inbox row carries a surface key: %v", rows["inbox"])
+	}
+	// The Matrix is the shipped native app: listed in every build with its
+	// surface on the wire, the host icon key and no badge.
+	if got := rows["matrix"]["surface"]; got != apps.SurfaceNative {
+		t.Fatalf("matrix surface = %v, want %q", got, apps.SurfaceNative)
+	}
+	if got := rows["matrix"]["icon"]; got != "matrix" {
+		t.Fatalf("matrix icon = %v, want matrix", got)
 	}
 
 	var v apps.View
