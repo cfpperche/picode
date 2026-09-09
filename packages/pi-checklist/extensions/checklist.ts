@@ -33,6 +33,7 @@ import {
 	resolveDataDir,
 	resolveServerUrl,
 	resolveToken,
+	shouldPublish,
 	STATUSES,
 	summarize,
 	type Item,
@@ -78,26 +79,37 @@ function postJSON(url: URL, body: string): Promise<number> {
 	});
 }
 
-/** Best-effort, never awaited by the model's turn: PiCode absent is not an error here. */
-function publish(payload: Payload): void {
-	const target = publishTarget(process.env);
-	const base = serverUrl();
-	if (!target || !base) return;
-	// Managed agents post under the agent; a pi inside a PiCode terminal
-	// (Agent CLIs, ADR-0069) posts under that terminal so its card can
-	// carry the same line.
-	const path = target.kind === "terminal"
-		? `/api/terminals/${encodeURIComponent(target.id)}/checklist`
-		: `/api/agents/${encodeURIComponent(target.id)}/checklist`;
-	postJSON(new URL(`${base}${path}`), JSON.stringify(payload)).catch(() => {});
-}
-
 export default function piChecklist(pi: ExtensionAPI) {
 	const level = parseLevel(process.env);
 	let items: Item[] | null = null; // the session's list
 	let planned = false; // the checklist tool ran since this task started
 	let reminders = 0; // sent for this task
 	let sessionId = "";
+
+	// Best-effort, never awaited by the model's turn: PiCode absent is not
+	// an error here. POSTs are serialized and `planned` is read at send time
+	// so a parallel mutator's `blocked` marker cannot land after this task's
+	// real list (that empty marker rendered as "undefined/undefined").
+	let posting: Promise<void> = Promise.resolve();
+	function publish(payload: Payload): void {
+		posting = posting.then(async () => {
+			if (!shouldPublish(payload, planned)) return;
+			const target = publishTarget(process.env);
+			const base = serverUrl();
+			if (!target || !base) return;
+			// Managed agents post under the agent; a pi inside a PiCode terminal
+			// (Agent CLIs, ADR-0069) posts under that terminal so its card can
+			// carry the same line.
+			const path = target.kind === "terminal"
+				? `/api/terminals/${encodeURIComponent(target.id)}/checklist`
+				: `/api/agents/${encodeURIComponent(target.id)}/checklist`;
+			try {
+				await postJSON(new URL(`${base}${path}`), JSON.stringify(payload));
+			} catch {
+				/* PiCode unreachable is not an error here */
+			}
+		}).catch(() => {});
+	}
 
 	const tool = defineTool({
 		name: "checklist",

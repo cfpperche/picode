@@ -143,6 +143,18 @@ export interface Payload {
 	reset?: boolean;
 }
 
+/**
+ * Whether this payload should go to PiCode. A blocked/absent marker must
+ * not clobber a plan this task already wrote: the model often calls
+ * `checklist` and a mutator in the same turn, the gate publishes `blocked`
+ * because `planned` is still false, and that POST can land after the real
+ * list — the sidebar then renders the empty marker as "undefined/undefined".
+ */
+export function shouldPublish(payload: Payload, planned: boolean): boolean {
+	if ((payload.blocked || payload.absent) && planned) return false;
+	return true;
+}
+
 /** The body PiCode receives; the agent id travels in the URL. */
 export function buildPayload(
 	opts: { sessionId?: string; absent?: boolean; blocked?: boolean; reset?: boolean } = {},

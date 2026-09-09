@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checklistLine, checklistRows, applyChecklists, indexChecklists, checklistItems, checklistRefusal, currentStep } from "./checklist.js";
+import { checklistLine, checklistProgress, checklistRows, applyChecklists, indexChecklists, checklistItems, checklistRefusal, currentStep } from "./checklist.js";
 import { summarizeArgs } from "./toolArgs.js";
 import { stepLabel } from "./turns.js";
 
@@ -33,6 +33,14 @@ test("line: in-progress step, else first pending, else n/n, else absent, else no
   assert.equal(checklistLine({ items: [] }), null);
   assert.equal(checklistLine(null), null);
   assert.equal(currentStep(undefined), null);
+});
+
+test("progress: only a real step becomes n/n; absent is silence, never undefined/undefined", () => {
+  assert.deepEqual(checklistProgress({ kind: "step", text: "edit", position: 2, total: 3 }), { text: "edit", pos: "2/3" });
+  assert.equal(checklistProgress(null), null);
+  assert.equal(checklistProgress({ kind: "absent" }), null);
+  assert.equal(checklistProgress({ kind: "step", text: "x" }), null);
+  assert.equal(checklistProgress(checklistLine({ items: [], absent: true })), null);
 });
 
 test("reset: the clear event lands as silence — no line until a real list arrives", () => {
