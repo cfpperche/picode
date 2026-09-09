@@ -43,8 +43,9 @@ pointer changes; native CLI session discovery remains best effort (ADR-0084).
 This is not proof of a live recipient. Setup is explicit; no native config files
 are silently rewritten and no running process is restarted.
 
-The first delivery is pull-based. Native automatic notification, launch-time
-credential injection and automatic adapter installation are later increments.
+Communication remains pull-based. ADR-0106 adds launch-time credential
+injection; native automatic notification and adapter installation remain outside
+this increment.
 Interoperability claims name the tested clients; six terminal integrations do
 not imply six working MCP adapters.
 
@@ -60,6 +61,7 @@ not imply six working MCP adapters.
 | Terminal resumes exact recorded recipe | Inject only into the launched command |
 | Fresh start, another session, fork or implicit continue | No conversation credential injected |
 | Owner/workspace/session changed, token revoked | Do not attach stale setup; existing store checks refuse access |
+| OpenCode already has inline JSON configuration | Preserve unrelated keys and MCP servers; resolved CLI override takes precedence over inherited environment; invalid/non-object JSON refuses launch (JSONC inline merging is not supported) |
 | Private setup unreadable or token belongs to another owner | Fail launch visibly; never fall back to another credential |
 | CLI exits to shell | Credential env is confined to exited child; shell does not inherit it |
 | Disable / replace | Old credential fails immediately; history remains |

@@ -176,6 +176,41 @@ func Options(data string, c LaunchConfig) (LaunchOptions, error) {
 	return o, nil
 }
 
+// MergeOpenCode preserves existing inline native settings. Invalid content fails
+// visibly instead of silently dropping the user's configuration.
+func MergeOpenCode(existing, overlay string) (string, error) {
+	config := map[string]json.RawMessage{}
+	if strings.TrimSpace(existing) != "" {
+		if err := json.Unmarshal([]byte(existing), &config); err != nil || config == nil {
+			return "", errors.New("OpenCode inline configuration must be a JSON object before connecting")
+		}
+	}
+	servers := map[string]json.RawMessage{}
+	if raw, ok := config["mcp"]; ok {
+		if err := json.Unmarshal(raw, &servers); err != nil || servers == nil {
+			return "", errors.New("OpenCode inline mcp configuration must be a JSON object before connecting")
+		}
+	}
+	var injected struct {
+		MCP map[string]json.RawMessage `json:"mcp"`
+	}
+	if err := json.Unmarshal([]byte(overlay), &injected); err != nil {
+		return "", err
+	}
+	server, ok := injected.MCP[ServerName]
+	if !ok {
+		return "", errors.New("missing communication server configuration")
+	}
+	servers[ServerName] = server
+	raw, err := json.Marshal(servers)
+	if err != nil {
+		return "", err
+	}
+	config["mcp"] = raw
+	raw, err = json.Marshal(config)
+	return string(raw), err
+}
+
 func AgentOptions(s *store.Store, data, id string) (LaunchOptions, error) {
 	c, err := LoadLaunch(s, data, "agent", id)
 	if err != nil || c == nil {

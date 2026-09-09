@@ -97,3 +97,96 @@ func TestPiTerminalResumeUsesRecordedPath(t *testing.T) {
 		t.Fatalf("resume = %v", got)
 	}
 }
+
+func TestPeerOpenCodeInlineConfiguration(t *testing.T) {
+	data := t.TempDir()
+	st, err := store.Open(filepath.Join(data, "state.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	w, err := st.AddWorkspace("Fixture", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	term, err := st.CreateTerminalIn(w.ID, "Fixture", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	binary := filepath.Join(data, "opencode")
+	if err := os.WriteFile(binary, []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetTerminalLaunch(term.ID, "opencode", clilaunch.Overrides{}); err != nil {
+		t.Fatal(err)
+	}
+	args := []string{"--session", "fixture-session"}
+	if err := st.SetTerminalLastSession(term.ID, store.TerminalLastSession{CLI: "opencode", SessionID: "fixture-session", ResumeArgs: args}); err != nil {
+		t.Fatal(err)
+	}
+	p, token, err := st.EnablePeer("terminal", term.ID, "fixture-session")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := communication.SaveLaunch(data, communication.LaunchConfig{Connection: p, Token: token, URL: "http://localhost" + communication.Path}); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("OPENCODE_CONFIG_CONTENT", `{"model":"inherited-model"}`)
+	for _, tc := range []struct {
+		name string
+		env  map[string]string
+		want string
+		fail bool
+	}{
+		{"inherited", nil, "inherited-model", false},
+		{"resolved override", map[string]string{"OPENCODE_CONFIG_CONTENT": `{"model":"override-model"}`}, "override-model", false},
+		{"explicit empty", map[string]string{"OPENCODE_CONFIG_CONTENT": ""}, "", false},
+		{"invalid override", map[string]string{"OPENCODE_CONFIG_CONTENT": "{"}, "", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := st.SetCLIConfig("opencode", clilaunch.Config{Executable: binary, Env: tc.env}); err != nil {
+				t.Fatal(err)
+			}
+			launch, err := st.TerminalLaunch(term.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			launch.Overrides.Args = &args
+			prepared, err := prepareCLITerminal(Deps{Store: st, DataDir: data}, data, launch)
+			if tc.fail {
+				if err == nil {
+					prepared.discard()
+					t.Fatal("invalid inline config accepted")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer prepared.discard()
+			raw, err := os.ReadFile(prepared.script)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body := string(raw)
+			if !strings.Contains(body, token) || (tc.want != "" && !strings.Contains(body, tc.want)) {
+				t.Fatal("settings missing")
+			}
+			if tc.name != "inherited" && strings.Contains(body, "inherited-model") {
+				t.Fatal("inherited content overrode explicit config")
+			}
+		})
+	}
+	if err := os.WriteFile(filepath.Join(data, "communication", p.ID, "connection.json"), []byte("{"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	launch, err := st.TerminalLaunch(term.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	launch.Overrides.Args = &args
+	if prepared, err := prepareCLITerminal(Deps{Store: st, DataDir: data}, data, launch); err == nil {
+		prepared.discard()
+		t.Fatal("corrupt setup did not stop launch")
+	}
+}

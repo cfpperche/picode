@@ -2,6 +2,7 @@
 
 - **Status**: accepted (owner approval, 2026-09-09)
 - **Date**: 2026-09-09
+- **Boundary**: Persist conversation-scoped bearer credentials in private launcher files and attach them only when resuming that recorded conversation.
 
 ## Context
 

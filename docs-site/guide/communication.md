@@ -87,3 +87,7 @@ Messages survive a PiCode restart. Text is limited to 16 KiB, pages and acknowle
 batches to 100, each recipient to 1,000 pending messages and each directed pair
 to 10,000 total messages. Capacity errors refuse a new send; retries of accepted
 messages still work. There is no automatic history expiry in this release.
+
+OpenCode keeps existing inline JSON settings and other MCP servers when adding
+communication. If `OPENCODE_CONFIG_CONTENT` contains JSONC comments or invalid
+JSON, convert it to a JSON object before resuming; PiCode refuses to discard it.

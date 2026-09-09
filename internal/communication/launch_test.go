@@ -151,3 +151,63 @@ console.log('native session registration isolation passed');`
 		t.Fatalf("Pi extension: %v %s", err, out)
 	}
 }
+
+func TestLaunchUnreadableSetup(t *testing.T) {
+	for _, directory := range []bool{false, true} {
+		t.Run(map[bool]string{false: "malformed JSON", true: "read error"}[directory], func(t *testing.T) {
+			s, p, token, _, _ := fixture(t)
+			data := t.TempDir()
+			if err := SaveLaunch(data, LaunchConfig{Connection: p, Token: token, URL: "http://localhost" + Path}); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(launchDir(data, p.ID), "connection.json")
+			if err := os.Remove(path); err != nil {
+				t.Fatal(err)
+			}
+			var err error
+			if directory {
+				err = os.Mkdir(path, 0700)
+			} else {
+				err = os.WriteFile(path, []byte("{"), 0600)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got, err := LoadLaunch(s, data, p.Kind, p.OwnerID); err == nil || got != nil {
+				t.Fatal("unreadable setup accepted", err)
+			}
+		})
+	}
+}
+
+func TestMergeOpenCodePreservesNativeConfiguration(t *testing.T) {
+	overlay := `{"mcp":{"picode_communication":{"type":"remote","url":"http://localhost","headers":{"Authorization":"Bearer current"}}}}`
+	for _, tc := range []struct {
+		name, existing string
+		valid          bool
+	}{
+		{"empty", "", true},
+		{"native options", `{"model":"native/model","permissions":{"edit":"deny"},"mcp":{"other":{"type":"local"},"picode_communication":{"old":true}}}`, true},
+		{"malformed", "{", false}, {"null", "null", false}, {"array", "[]", false}, {"bad mcp", `{"mcp":[]}`, false}, {"null mcp", `{"mcp":null}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			merged, err := MergeOpenCode(tc.existing, overlay)
+			if (err == nil) != tc.valid {
+				t.Fatalf("valid=%v err=%v", tc.valid, err)
+			}
+			if !tc.valid {
+				return
+			}
+			var got map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(merged), &got); err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(merged, "Bearer current") || strings.Contains(merged, `"old"`) {
+				t.Fatal("current server not authoritative")
+			}
+			if tc.name == "native options" && (string(got["model"]) != `"native/model"` || !strings.Contains(string(got["mcp"]), `"other"`) || string(got["permissions"]) != `{"edit":"deny"}`) {
+				t.Fatal("native settings lost")
+			}
+		})
+	}
+}

@@ -24,7 +24,7 @@
 ## Known debts / open questions
 
 - Process (ADR-0105): worktrees start with a cold Go test cache (results are keyed by directory); `.pi/compact.json` `atPercent 0.5` never fires for large-window models (peaks 379 K) — owner declined config changes 2026-09-09; capture tolerance is 0.05% of pixels (`scripts/docs-shots.mjs`).
-- Communication (ADR-0104): automatic launch wiring/wake and the vendor CLI runtime matrix are later increments; tested on owned fixtures only, no real model turn or physical-device acceptance; session discovery is best effort; never share credentials across conversations.
+- Communication (ADR-0104/0106): full recorded native Claude/Codex resume roundtrips, OpenCode model turns and physical-device acceptance remain untested; vendor model probes used a Pi fixture capability. Grok/Hermes automatic setup remains unavailable; native session discovery is best effort; never share credentials across conversations. Orphan private setup files after owner deletion need maintenance cleanup; revoked files cannot authenticate. OpenCode inline merging requires JSON objects, not JSONC.
 - Native packages/providers: real downloads, vendor OAuth, real credential changes and device acceptance remain external; mobile package configuration is desktop-only. Decision tables in `docs/plans/cli-native-packages.md` and `cli-native-providers.md`.
 - Native settings: physical iPhone/PWA/IME and a real process restart remain external acceptance; scratch browser tests cover recovery, retained drafts and stopped-agent saves.
 - Inbox terminal replies: pi-inbox 0.1.x items (`pi (unmanaged)`) have no address until each pi session updates; daemon death between park and JSONL row is an accepted gap.

@@ -854,6 +854,17 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 		if err != nil {
 			return nil, err
 		}
+		if cli.ID == "opencode" {
+			existing, specified := c.Env["OPENCODE_CONFIG_CONTENT"]
+			if !specified {
+				existing = os.Getenv("OPENCODE_CONFIG_CONTENT")
+			}
+			merged, err := communication.MergeOpenCode(existing, peerOptions.Env["OPENCODE_CONFIG_CONTENT"])
+			if err != nil {
+				return nil, err
+			}
+			peerOptions.Env["OPENCODE_CONFIG_CONTENT"] = merged
+		}
 	}
 	var body strings.Builder
 	body.WriteString("#!/bin/sh\n# PiCode terminal launch. Values below are quoted arguments, never eval.\n")
