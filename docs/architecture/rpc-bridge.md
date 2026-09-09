@@ -19,7 +19,7 @@ medium`), persisted for reload. **Yes / No / Cancel / type** POST
 form just finished.
 Timeout on the request dismisses the card (pi auto-resolves).
 Auto-approve policy stays undecided. Track C:
-[conversation-control-roadmap.md](design/conversation-control-roadmap.md).
+[conversation-control-roadmap.md](../design/conversation-control-roadmap.md).
 
 **Tool captures (ADRs 0057/0076):** a tool may emit
 `details.preview = { image, url?, title?, ts?, source? }` in partial results
@@ -48,6 +48,6 @@ final frame as a session entry, instead of patching pi-agent-browser-native.
 Real-RPC proof, the daemon capture-directory bridge and live/replay UI
 rendering (desktop + mobile) all passed against an unpatched 0.6.6 checkout.
 The superseded in-package patch and the panel are tracked in the
-[delivery plan](plans/browser-preview.md).
+[delivery plan](../plans/browser-preview.md).
 Pi owns raw session persistence; host validation cannot remove pixels already
 written there or bound the raw RPC input before decoding.

@@ -3,10 +3,11 @@
 > Read this first. At most 100 lines and 8 KB; the pre-commit hook refuses more, and refuses this file committed directly on `main` (ADR-0105).
 > Shipped work: `git log`, `docs/decisions/README.md`, `docs/changelog.d/` + `CHANGELOG.md`. Session notes: `docs/handoff/` (newest by filename). Deploy history: `~/.picode/var/deploy-log.jsonl`.
 
-## In flight (unmerged branches on disk)
+## In flight
 
-- `feat/herdr-validation`, `feat/picode-video-pilot` — carry `CHANGELOG.md` edits made before ADR-0105; they fast-forward as they are, but any further changelog line goes to `docs/changelog.d/`.
-- `feat/card-selection-chevron`, `feat/usermenu-llama` — no living-doc changes yet.
+`git worktree list` is the truth for branches on disk (`make close-summary` prints it); this section holds only what merging one of them must know.
+
+- `feat/herdr-validation`, `feat/picode-video-pilot` — carry `CHANGELOG.md` edits and the pre-ADR-0105 12 KB `docs/handoff.md`. Their next merge of `main` conflicts in both one last time: keep this file's shape and stay under 8 KB; any further changelog line goes to `docs/changelog.d/`.
 
 ## Next up
 
@@ -23,7 +24,7 @@
 
 ## Known debts / open questions
 
-- Process (ADR-0105): worktrees start with a cold Go test cache (results are keyed by directory); `.pi/compact.json` `atPercent 0.5` never fires for large-window models (peaks 379 K) — owner declined config changes 2026-09-09; capture tolerance is 0.05% of pixels (`scripts/docs-shots.mjs`).
+- Process (ADR-0105): worktrees start with a cold Go test cache (results are keyed by directory); `.pi/compact.json` `atPercent 0.5` never fires for large-window models (peaks 379 K) — owner declined config changes 2026-09-09; capture tolerance is a 128 px budget (`scripts/docs-shots.mjs` prints the count per surface; lower it if a real change ever slips through).
 - Communication (ADR-0104/0106): full recorded native Claude/Codex resume roundtrips, OpenCode model turns and physical-device acceptance remain untested; vendor model probes used a Pi fixture capability. Grok/Hermes automatic setup remains unavailable; native session discovery is best effort; never share credentials across conversations. Orphan private setup files after owner deletion need maintenance cleanup; revoked files cannot authenticate. OpenCode inline merging requires JSON objects, not JSONC.
 - Native packages/providers: real downloads, vendor OAuth, real credential changes and device acceptance remain external; mobile package configuration is desktop-only. Decision tables in `docs/plans/cli-native-packages.md` and `cli-native-providers.md`.
 - Native settings: physical iPhone/PWA/IME and a real process restart remain external acceptance; scratch browser tests cover recovery, retained drafts and stopped-agent saves.

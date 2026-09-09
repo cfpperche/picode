@@ -55,7 +55,8 @@ to "get context"; `git log` and `make close-summary` are cheaper and current.
      next up, debts — **at most 100 lines and 8 KB**; the pre-commit hook
      refuses more, and refuses handoff edits committed directly on `main`.
      Shipped work is `git log`, the ADR index and the changelog — never
-     handoff prose. Deployment history is `var/deploy-log.jsonl`.
+     handoff prose. Deployment history is `var/deploy-log.jsonl` in the
+     data dir (`~/.picode` by default).
 2. **Never break the build.** A worktree iterates with `make ci-scoped` and
    ends with `make close` (below); the merge on `main` runs `make ci` once.
    If you can't finish, leave the tree compiling and green and record the
@@ -81,7 +82,9 @@ to "get context"; `git log` and `make close-summary` are cheaper and current.
    aborts any `git switch`/`git checkout` that would move the root checkout
    off `main` (switching back to `main` is always allowed), and
    `.githooks/pre-commit` refuses feature commits made there, clobbered
-   living docs, and a handoff over 100 lines. `make hooks` (implied by
+   living docs, a handoff over 100 lines or 8 KB, whitespace errors, direct
+   `CHANGELOG.md` edits, and handoff or fragment commits on `main`
+   (ADR-0105). `make hooks` (implied by
    `make dev` and `make ci`) points git at them; `make hooks-check` proves
    the whole policy on a throwaway repo. A clone that never ran make has no
    guard. Deliberate one-off: `PICODE_ALLOW_SWITCH=1 git switch <branch>`.
@@ -118,7 +121,7 @@ to "get context"; `git log` and `make close-summary` are cheaper and current.
 ```bash
 make ci-scoped     # while iterating: the gates this diff can break
 make close         # at the end: scoped gates, regenerated artifacts
-                   # (OpenAPI, llms.txt, captures if web/ changed),
+                   # (OpenAPI, llms.txt; captures refresh at deploy),
                    # fast-forward check, and the closing summary
 ```
 

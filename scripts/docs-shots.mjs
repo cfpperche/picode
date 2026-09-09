@@ -62,25 +62,30 @@ const ab = (args) =>
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Same size and at most PIXEL_TOLERANCE of the pixels differ by more than a
-// few levels in any channel. pngjs comes with the web app's dependencies.
-const PIXEL_TOLERANCE = 0.0005;
-function nearlyIdentical(a, b) {
+// Number of pixels that differ by more than a few levels in any channel, or
+// Infinity when the two images cannot be compared (size, decode). Counting
+// stops just past the budget. pngjs comes with the web app's dependencies.
+//
+// The budget is absolute, not a share of the frame: 0.05% of 1440×900 was
+// 650 px, enough to hide a swapped 16×16 icon behind the tolerance. 128 px
+// absorbs a caret, a spinner frame or antialiasing on a few glyphs; the
+// count is printed per surface so the budget can be tuned from evidence.
+const PIXEL_BUDGET = 128;
+function pixelDiff(a, b) {
   let PNG;
   try {
     ({ PNG } = createRequire(join(root, "web", "package.json"))("pngjs"));
   } catch {
-    return false;
+    return Infinity;
   }
   let x, y;
   try {
     x = PNG.sync.read(a);
     y = PNG.sync.read(b);
   } catch {
-    return false;
+    return Infinity;
   }
-  if (x.width !== y.width || x.height !== y.height) return false;
-  const max = Math.floor(x.width * x.height * PIXEL_TOLERANCE);
+  if (x.width !== y.width || x.height !== y.height) return Infinity;
   let diff = 0;
   for (let i = 0; i < x.data.length; i += 4) {
     if (
@@ -88,10 +93,10 @@ function nearlyIdentical(a, b) {
       Math.abs(x.data[i + 1] - y.data[i + 1]) > 8 ||
       Math.abs(x.data[i + 2] - y.data[i + 2]) > 8
     ) {
-      if (++diff > max) return false;
+      if (++diff > PIXEL_BUDGET) return diff;
     }
   }
-  return true;
+  return diff;
 }
 
 function gitSha() {
@@ -201,9 +206,14 @@ async function main() {
     // of pixels in a third of the recaptures and each one became a binary
     // commit (ADR-0105). Keep the committed bytes when the frame is the same
     // picture within tolerance, so the sha and the repo stay put.
-    if (before && nearlyIdentical(before, readFileSync(out))) {
-      writeFileSync(out, before);
-      console.log(`    [${s.name}] unchanged within tolerance — kept the committed image`);
+    if (before) {
+      const d = pixelDiff(before, readFileSync(out));
+      if (d <= PIXEL_BUDGET) {
+        writeFileSync(out, before);
+        console.log(`    [${s.name}] ${d} px differ (budget ${PIXEL_BUDGET}) — kept the committed image`);
+      } else if (d !== Infinity) {
+        console.log(`    [${s.name}] more than ${PIXEL_BUDGET} px differ — new capture`);
+      }
     }
 
     captured[s.name] = {

@@ -147,6 +147,7 @@ jobs:
       - name: Install tmux 3.5a (integration tests)
         if: matrix.os == 'ubuntu-latest'
         run: |
+          sudo apt-get update
           sudo apt-get install -y libevent-dev libncurses-dev
           cd /tmp/tmux-3.5a && sudo make install
           test "$(tmux -V)" = "tmux 3.5a"

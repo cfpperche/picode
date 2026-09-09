@@ -48,7 +48,7 @@ $(WEB_STAMP): $(NODE_STAMP) $(WEB_SRC)
 	@mkdir -p var && touch $(WEB_STAMP)
 
 web: ## Build launcher + desktop/mobile into internal/web/public when web/ changed (ADR-0072)
-	@if [ ! -f internal/web/public/index.html ] && [ -f $(WEB_STAMP) ]; then touch -d @0 $(WEB_STAMP); fi
+	@if [ ! -f internal/web/public/index.html ] && [ -f $(WEB_STAMP) ]; then touch -t 197001010000 $(WEB_STAMP); fi
 	@$(MAKE) --no-print-directory $(WEB_STAMP)
 
 DOCS_STAMP := docs-site/node_modules/.package-lock.json
@@ -129,13 +129,14 @@ deploy: ## Rebuild UI+binary, refresh stale public captures, restart the service
 # Body of deploy, held under the lock: parallel sessions deploying between
 # one agent's gate and its restart have shipped the wrong tree (2026-09-05).
 # Public captures follow the UI here, once per deploy, instead of once per
-# branch in `make close` (85 capture commits in three days).
+# branch in `make close` (85 capture commits in three days). The commit
+# names its paths, so whatever the owner had staged stays staged.
 _deploy: web
 	@if ! DOCS_STRICT=1 node scripts/docs-check.mjs >/dev/null 2>&1 && node scripts/docs-check.mjs --strict 2>&1 | grep -q 'inputs changed'; then \
 		echo "deploy: public captures are stale — recapturing"; \
 		if $(MAKE) --no-print-directory docs-shots >/tmp/picode-deploy-shots.log 2>&1; then \
 			if [ -n "$$(git status --porcelain -- docs-site/img)" ]; then \
-				git add docs-site/img && git commit -q -m "docs: refresh public captures" && echo "deploy: committed refreshed captures"; \
+				git add docs-site/img && git commit -q -m "docs: refresh public captures" -- docs-site/img && echo "deploy: committed refreshed captures"; \
 			fi; \
 		else echo "deploy: docs-shots failed (see /tmp/picode-deploy-shots.log); deploying without recapture"; fi; \
 	fi

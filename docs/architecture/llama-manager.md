@@ -17,7 +17,7 @@ Connection fingerprints stay outside public JSON; credentials are not stored
 in jobs. Cancel is available for downloads on the verified b10809 build family.
 `#/llama/activity` follows `llama.job` feed events and refreshes on reconnect;
 its history survives navigation. Service ownership remains delivery 4 in
-[the plan](plans/llama-manager.md).
+[the plan](../plans/llama-manager.md).
 Hugging Face GGUF metadata also exposes file size and a conservative runtime
 memory estimate with contextual guidance; missing size data remains unknown.
 Delivery 4's ownership boundary is ADR-0090: only an explicitly created local
@@ -29,7 +29,7 @@ bounded job history through a CAS store mutation plus `llama.service` events.
 The desktop/mobile `#/llama/service` page has Light/Balanced presets, advanced
 settings, effective argv, reviewed lifecycle actions, cache and diagnostics.
 It adapts Cursor's progressive disclosure and t3code's reload-safe routes from
-the [benchmark study](benchmarks/2026-08-24-adopt-t3code-paseo-cursor.md).
+the [benchmark study](../benchmarks/2026-08-24-adopt-t3code-paseo-cursor.md).
 
 First creation stages empty folders with a random ownership marker and saves
 an intent before atomically publishing the fixed service path. Linux

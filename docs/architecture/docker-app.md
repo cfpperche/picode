@@ -38,5 +38,5 @@ respecting its padding on desktop and phone. Counts summarize running/stopped
 and other actual states. The host stores each app/endpoint/project fold in
 browser preferences; new groups start closed. Search reveals matching groups and clearing it
 restores the saved folds. Presentation changes do not mutate the store or
-Docker. The project-operation foundation from the [v2 plan](plans/docker-v2.md)
+Docker. The project-operation foundation from the [v2 plan](../plans/docker-v2.md)
 is implemented with v3; Compose registration/deployment remains separate work.

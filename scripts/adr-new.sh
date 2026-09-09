@@ -12,13 +12,16 @@ title=${2:-$name}
 slug=$(printf '%s' "$name" | tr 'A-Z' 'a-z' | tr -c 'a-z0-9\n' '-' | sed -E 's/-+/-/g; s/^-//; s/-$//')
 [ -n "$slug" ] || { echo "adr: empty slug from '$name'" >&2; exit 1; }
 
-last=$(ls docs/decisions .worktrees/*/docs/decisions 2>/dev/null | grep -oE '^[0-9]{4}' | sort -u | tail -1)
+# Every checkout counts: the root and each linked worktree. From inside a
+# worktree .worktrees/ is not visible, so the list comes from git itself.
+last=$(git worktree list --porcelain | awk '/^worktree /{ sub(/^worktree /, ""); print $0 "/docs/decisions" }' \
+  | xargs -d '\n' ls 2>/dev/null | grep -oE '^[0-9]{4}' | sort -u | tail -1)
 next=$(printf '%04d' $((10#${last:-0} + 1)))
 file="docs/decisions/$next-$slug.md"
 [ -e "$file" ] && { echo "adr: $file exists" >&2; exit 1; }
 
 awk 'f { print } /^---$/ { f = 1 }' docs/decisions/template.md \
-  | sed -e "s/ADR-NNNN: Title/ADR-$next: $title/" -e "s/YYYY-MM-DD/$(date +%F)/" \
+  | sed -e '1{/^$/d;}' -e "s/ADR-NNNN: Title/ADR-$next: $title/" -e "s/YYYY-MM-DD/$(date +%F)/" \
   > "$file"
 printf '| [%s](%s-%s.md) | %s | proposed |\n' "$next" "$next" "$slug" "$title" >> docs/decisions/README.md
 echo "adr: $file (index row appended; status proposed)"
