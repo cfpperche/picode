@@ -40,9 +40,15 @@ test("Providers is searchable inside Agent CLIs", () => {
   assert.ok(menuGroups("providers").some(group => group.title === "Agent CLIs" && group.rows.some(row => row[0] === "providers")));
 });
 
-test("Tools holds Integrations; Agents and connections is gone", () => {
+test("Tools holds Integrations and llama.cpp; Agents and connections is gone", () => {
   assert.deepEqual(MENU_GROUPS.map(([title]) => title), ["Tools", "PiCode"]);
-  assert.deepEqual(MENU_GROUPS[0][1], ["clis", "automations", "integrations"]);
+  assert.deepEqual(MENU_GROUPS[0][1], ["clis", "automations", "llama", "integrations"]);
   assert.deepEqual(menuGroups("").map(g => g.title), ["Tools", "PiCode"]);
-  assert.deepEqual(menuGroups("").find(g => g.title === "Tools").rows.map(r => r[0]), ["clis", "automations", "integrations"]);
+  assert.deepEqual(menuGroups("").find(g => g.title === "Tools").rows.map(r => r[0]), ["clis", "automations", "llama", "integrations"]);
+});
+
+test("llama.cpp is reachable from Tools and searchable", () => {
+  assert.ok(!menuGroups("").flatMap(g => g.rows).some(row => row[0] === "providers"));
+  assert.ok(menuGroups("").find(g => g.title === "Tools").rows.some(row => row[0] === "llama"));
+  assert.ok(menuGroups("llama").some(group => group.title === "Tools" && group.rows.some(row => row[0] === "llama")));
 });
