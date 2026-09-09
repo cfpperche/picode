@@ -31,6 +31,15 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Sidebar: selection without the blue bar.** A selected agent or
+  terminal card no longer paints the accent bar that read as a blue
+  border around the card — selection is the tinted background plus the
+  quiet border (the bar stays on *Needs you*, where it marks attention).
+  The card's checklist chevron joins the card grid: the `>` now sits on
+  the same column as the folder/branch icons below it (supersedes the
+  2026-09-06 own-gutter refinement), its text on the folder/branch label
+  column, and expanded plan steps follow the same two columns.
+
 - **Sidebar: PiCode without the build number.** The version string
   (`v0.1.0+…`) no longer sits next to the name in the sidebar header;
   it still lives in the user menu.
@@ -48,6 +57,10 @@ to the `[Unreleased]` section. The repository's official language is English
   terminals, files, git, apps) are unchanged.
 
 ### Fixed
+
+- **Sidebar cards: folder/git icons no longer crush on long paths.** A
+  deep workspace path flex-shrank the row's folder or branch SVG to a
+  sliver; the label ellipsizes now and the icon keeps its 12px slot.
 
 - **Sidebar checklist: no more `undefined/undefined`.** Creating a plan in
   the same turn as a refused edit/bash posted an empty `blocked` marker that
