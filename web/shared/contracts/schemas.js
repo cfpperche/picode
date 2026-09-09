@@ -7,7 +7,7 @@ export const llamaServiceSchema = z.object({
   jinja: z.boolean(),
 });
 import { looksLikeRepoUrl } from "../domain/cloneUrl.js";
-import { cronError } from "../domain/cron.js";
+import { rowsError } from "../domain/automationSchedule.js";
 
 const required = (label) => z.string().trim().min(1, label + " is required.");
 
@@ -194,7 +194,7 @@ export const automationSchema = z.object({
   targetAgentId: z.string().trim(),
   prompt: required("Prompt"),
   scheduleOn: z.boolean(),
-  cron: z.string().trim(),
+  schedules: z.array(z.object({ label: z.string(), cron: z.string(), enabled: z.boolean() }).passthrough()),
   webhook: z.boolean(),
   notifyUrl: z.string().trim(),
   maxCostUsd: numField,
@@ -206,7 +206,7 @@ export const automationSchema = z.object({
   if (!v.scheduleOn && !v.webhook) issue("Turn on a schedule or a webhook.");
   if (v.notifyUrl && !/^https?:\/\/[^\s]+$/.test(v.notifyUrl)) issue("Notify URL must be an http(s) address.");
   if (v.scheduleOn) {
-    const err = cronError(v.cron);
+    const err = rowsError(v.schedules);
     if (err) issue(err);
   }
   if (v.maxCostUsd !== "" && !(Number(v.maxCostUsd) > 0)) issue("Max cost must be a number above zero.");

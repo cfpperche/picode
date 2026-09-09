@@ -17,8 +17,12 @@ Open it from the user menu → **Automations**, or `Ctrl+K` → Automations.
 3. **What it does** — *Start a new run* (a fresh session each time on the
    automation's own agent, in the workspace you pick) or *Message an agent*
 4. **Prompt** — what the agent should do each time.
-5. **Schedule** — Hourly, Daily, Weekdays or Weekly at a time, or *Custom*
-   for a cron line (`minute hour day month weekday`, your local time zone).
+5. **Schedule** — one or more rules. Each is Hourly, Daily, Weekdays or
+   Weekly at a time, or *Custom* for a cron line (`minute hour day month
+   weekday`), with an optional label and its own switch. **Add a schedule**
+   for "weekdays at 09:00 and Saturday at noon" or "every 30 minutes in
+   business hours, plus a nightly summary". Times are in your browser's
+   time zone, saved with the rule.
 6. **Webhook** — turn on to get a URL other tools can POST to.
 7. **Limits** — max cost per run, max runs per hour/day/week.
 
@@ -137,7 +141,12 @@ type into it safely.
 ## Timing
 
 Schedules run only while PiCode is running (the machine is on). Each
-automation fires a few minutes after its slot — a fixed offset per
-automation, never more than half the interval — so many "daily at 09:00"
+schedule fires a few minutes after its slot — a fixed offset per
+schedule, never more than half the interval — so many "daily at 09:00"
 automations do not hit your provider at the same second. If PiCode was
-down when a slot passed, the missed work runs **once** when it comes back.
+down when a slot passed, each missed schedule runs **once** when it
+comes back. Two schedules of one automation due in the same minute run
+one after the other; the second is skipped as busy if the first is still
+going. Changing a schedule's time starts it over: it waits for its next
+slot rather than catching up. The Runs table names the schedule that
+fired each run.
