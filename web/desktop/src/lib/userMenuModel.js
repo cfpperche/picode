@@ -1,8 +1,10 @@
 import { matchesListSearch } from "@picode/shared/domain/listSearch.js";
 
 // User menu model — mirrors the mobile v2 More screen groups and copy
-// (docs/benchmarks/2026-09-07-mobile-v2.md). Mobile-only sections (Apps,
-// llama.cpp, Notifications) have no desktop route and stay out of the menu.
+// (docs/benchmarks/2026-09-07-mobile-v2.md). Tools holds Agent CLIs,
+// Automations and Integrations (native providers/packages/settings live
+// under Agent CLIs). Mobile-only sections (Apps, llama.cpp, Notifications)
+// have no desktop route and stay out of the menu.
 export const MENU_SECTIONS = [
   ["clis", "Agent CLIs", "Launches, sessions and CLI configuration"],
   ["automations", "Automations", "Scheduled and triggered work"],
@@ -15,8 +17,7 @@ export const MENU_SECTIONS = [
 ];
 
 export const MENU_GROUPS = [
-  ["Tools", ["clis", "automations"]],
-  ["Agents and connections", ["integrations"]],
+  ["Tools", ["clis", "automations", "integrations"]],
   ["PiCode", ["preferences", "devices", "system"]],
 ];
 

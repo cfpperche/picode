@@ -16,45 +16,20 @@ import PushPrefs from "../components/PushPrefs.jsx";
 import AppsGrid from "../components/AppsGrid.jsx";
 import { IconChevronRight, IconMonitor, IconQR, IconSparkles, IconPlus } from "../components/Icons.jsx";
 import { setShell } from "@picode/shared/client/shell.js";
-import { matchesListSearch } from "../lib/mobileListSearch.js";
+import { MORE_TITLES, moreGroups, moreActions, moreHasResults } from "../lib/moreMenuModel.js";
 import PinsList from "./PinsList.jsx";
 import "../styles/mobile-lists.css";
-
-const SECTIONS = [
-  ["pins", "Pins", "Notes, files and reminders"],
-  ["automations", "Automations", "Scheduled and triggered work"],
-  ["clis", "Agent CLIs", "Launches, sessions and CLI configuration"],
-  ["apps", "Apps", "Docker and other tools"],
-  ["notifications", "Notifications", "Push when an agent needs you"],
-  ["llama", "llama.cpp", "Models and server connection"],
-  ["providers", "Providers", "Accounts, keys, usage"],
-  ["preferences", "Preferences", "Theme, notifications, backup"],
-  ["integrations", "Integrations", "Connectors and event delivery"],
-  ["packages", "Packages", "Skills, extensions, updates"],
-  ["devices", "Devices", "Who is connected"],
-  ["system", "System", "Version, host, paths"],
-];
-
-const TITLES = { ...Object.fromEntries(SECTIONS.map(([id, t]) => [id, t])), mcps: "MCP servers" };
-const GROUPS = [
-  ["Tools", ["pins", "clis", "automations", "apps", "llama"]],
-  ["Agents and connections", ["integrations"]],
-  ["PiCode", ["preferences", "notifications", "devices", "system"]],
-];
 
 // Mobile-owned settings, loaded only when their section opens.
 export default function More({ fleetReady = true, section, apps, catalog, system, version, themeMode, onTheme, last, onRefreshCatalog, onCatalogChange, onShare, onWhatsNew, whatsNewUnread, onBack, onAgentConfig, workspaces = [], freeAgents = [], legacyAgentId = "" }) {
   const [query, setQuery] = useState("");
   if (!section) {
-    const groups = GROUPS.map(([title, ids]) => ({ title, rows: ids.map(id => SECTIONS.find(row => row[0] === id)).filter(row => matchesListSearch(query, title, ...row)) })).filter(group => group.rows.length);
-    if (query.trim() && matchesListSearch(query, "Pi settings", "model thinking prompt")) groups.unshift({ title: "Agent CLIs", rows: [["pi-settings", "Pi settings", "Model, thinking, tools and keys"]] });
-    if (query.trim() && matchesListSearch(query, "Packages", "skills extensions updates")) groups.unshift({ title: "Agent CLIs", rows: [["pi-packages", "Packages", "Pi skills, extensions and updates"]] });
-    if (query.trim() && matchesListSearch(query, "Providers", "accounts keys usage login")) groups.unshift({ title: "Agent CLIs", rows: [["pi-providers", "Providers", "Pi accounts, keys and usage"]] });
-    const actions = [
-      { id: "updates", title: "What’s new", sub: "Release highlights", Icon: IconSparkles, action: onWhatsNew, unread: whatsNewUnread },
-      { id: "pair", title: "Open on another phone", sub: "Pair with a QR code", Icon: IconQR, action: onShare },
-      { id: "desktop", title: "Desktop layout", sub: "Open the desktop workspace", Icon: IconMonitor, action: () => setShell("desktop") },
-    ].filter(row => matchesListSearch(query, row.title, row.sub, row.id));
+    const groups = moreGroups(query);
+    const actions = moreActions(query).map(row => {
+      if (row.id === "updates") return { ...row, Icon: IconSparkles, action: onWhatsNew, unread: whatsNewUnread };
+      if (row.id === "pair") return { ...row, Icon: IconQR, action: onShare };
+      return { ...row, Icon: IconMonitor, action: () => setShell("desktop") };
+    });
     return (
       <div className="m-screen m-v2-lists m-more-v2" aria-label="More">
         <div className="m-screen-head m-list-head">
@@ -86,7 +61,7 @@ export default function More({ fleetReady = true, section, apps, catalog, system
             </button>
           </li>)}</ul>
         </section> : null}
-        {!groups.length && !actions.length ? <div className="m-list-empty" role="status"><p>No matching tools or settings.</p><button type="button" className="btn btn-sm" onClick={() => setQuery("")}>Clear search</button></div> : null}
+        {!moreHasResults(query) ? <div className="m-list-empty" role="status"><p>No matching tools or settings.</p><button type="button" className="btn btn-sm" onClick={() => setQuery("")}>Clear search</button></div> : null}
         {!query.trim() ? <><div className="m-install"><InstallButton /></div>{version ? <p className="m-version">PiCode {version}</p> : null}</> : null}
       </div>
     );
@@ -96,7 +71,7 @@ export default function More({ fleetReady = true, section, apps, catalog, system
   const agentName = agent ? (agent.name && agent.name !== "default" ? agent.name : (workspace ? workspace.name : "")) : "";
   return (
     <div className="m-screen m-more-page">
-      <ScreenHeader title={TITLES[section] || "More"} onBack={section === "clis" && (cliSettingsLocation(location.hash) || cliPackagesLocation(location.hash) || cliProvidersLocation(location.hash)) ? () => { location.hash = "#/clis"; } : onBack}
+      <ScreenHeader title={MORE_TITLES[section] || "More"} onBack={section === "clis" && (cliSettingsLocation(location.hash) || cliPackagesLocation(location.hash) || cliProvidersLocation(location.hash)) ? () => { location.hash = "#/clis"; } : onBack}
         right={section === "pins" ? <button type="button" className="m-head-btn" aria-label="New pin" onClick={() => { location.hash = "#/pins/new"; }}><IconPlus size={18} /></button> : null} />
       {section === "pins" ? <PinsList onOpen={(id) => { location.hash = "#/pins/" + encodeURIComponent(id); }} onNew={() => { location.hash = "#/pins/new"; }} /> : null}
       {section === "apps" ? <AppsGrid apps={apps} onOpen={(id) => { location.hash = "#/app/" + encodeURIComponent(id); }} /> : null}

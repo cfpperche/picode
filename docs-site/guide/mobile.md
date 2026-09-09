@@ -30,9 +30,10 @@ certificate the desktop uses — see [Getting started](/guide/getting-started).
   beside each workspace), **Agents** (free agents, outside any workspace) and
   **Terminals** (free terminals, outside any workspace). **Start** / **Stop** on an agent row,
   **Remove** on a terminal row; **New** creates whatever the view shows.
-- **More** — search grouped tools: Agent CLIs and Sessions, Automations,
-  Agent CLIs (including Providers, Settings and Packages), Preferences, Integrations, Devices, System
-  and Apps. **Desktop layout** opens the desktop shell on this screen.
+- **More** — search grouped tools: **Tools** (Pins, Agent CLIs including
+  Providers, Settings and Packages, Automations, Apps, llama.cpp,
+  Integrations) and **PiCode** (Preferences, Notifications, Devices,
+  System). **Desktop layout** opens the desktop shell on this screen.
 
 Work keeps its view selector and **New** action at the top. Tap **Search**
 to filter by name or folder. Failed refreshes keep the last loaded work
