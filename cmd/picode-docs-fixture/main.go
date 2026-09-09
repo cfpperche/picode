@@ -14,6 +14,7 @@ package main
 import (
 	"flag"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -37,11 +38,17 @@ func main() {
 	llamaservice.RunSupervisor()
 	addr := flag.String("addr", "127.0.0.1:18740", "fixture listen address; use a separate port for concurrent worktrees")
 	flag.Parse()
-	// Never erase another worktree's fixture database. Each invocation owns
-	// a fresh synthetic directory; only this exact directory is disposable.
-	var err error
-	dataDir, err = os.MkdirTemp("", "picode-docs-fixture-")
-	if err != nil {
+	// One directory per listen address, so the path the UI shows (the
+	// inspector prints the workspace) is identical in every capture — a
+	// random MkdirTemp suffix made each recapture a new PNG (2026-09-09).
+	// Concurrent worktrees run on separate ports and never share it, and the
+	// previous run's directory on this port is disposable: the port is
+	// exclusive and `make docs-shots` already kills whatever holds it.
+	dataDir = filepath.Join(os.TempDir(), "picode-docs-fixture-"+portSuffix(*addr))
+	if err := os.RemoveAll(dataDir); err != nil {
+		log.Fatal(err)
+	}
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		log.Fatal(err)
 	}
 	defer os.RemoveAll(dataDir)
@@ -295,4 +302,28 @@ func seedRepo(dir string) {
 	if err := os.Remove(filepath.Join(dir, "internal", "server", "server.go")); err != nil {
 		log.Printf("fixture: seed repo: %v", err)
 	}
+}
+
+// portSuffix names the fixture directory after the listen address: the port
+// alone when the address parses, otherwise the whole address reduced to
+// [A-Za-z0-9._-] so it is always a single safe path element.
+func portSuffix(addr string) string {
+	s := addr
+	if _, port, err := net.SplitHostPort(addr); err == nil && port != "" {
+		s = port
+	}
+	out := make([]byte, 0, len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9', c == '.', c == '_', c == '-':
+			out = append(out, c)
+		default:
+			out = append(out, '_')
+		}
+	}
+	if len(out) == 0 {
+		return "default"
+	}
+	return string(out)
 }
