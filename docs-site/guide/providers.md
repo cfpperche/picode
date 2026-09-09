@@ -1,5 +1,9 @@
 # Providers
 
+Open **Agent CLIs → Providers** and select **Pi** (`#/clis/providers/pi`).
+Accounts apply to this machine. Older Providers links redirect here; other
+CLIs will appear when their provider integration is available.
+
 PiCode reads and writes the same `~/.pi/agent/auth.json` as the pi TUI. Keys are never shown again after save.
 
 Canonical: [pi Providers](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/providers.md).

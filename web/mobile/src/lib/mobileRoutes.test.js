@@ -1,3 +1,4 @@
+import { go } from "./routes.js";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { mobileRoute, mobileHash, toolHash, tabOf, parentHash } from "./mobileRoutes.js";
@@ -37,12 +38,12 @@ describe("mobileRoute", () => {
     assert.equal(mobileRoute("#/changes/x/ag1").screen, "now");
     assert.equal(mobileHash("changes", "t1", "term"), "#/changes/t/t1");
     assert.deepEqual(mobileRoute("#/more"), { screen: "more", id: "", section: "" });
-    assert.deepEqual(mobileRoute("#/more/providers"), { screen: "more", id: "", section: "providers" });
+    assert.deepEqual(mobileRoute("#/more/providers"), { screen: "more", id: "", section: "clis" });
     assert.deepEqual(mobileRoute("#/more/nope"), { screen: "more", id: "", section: "" });
   });
   it("maps desktop hashes to the closest mobile section instead of a dead end", () => {
     assert.equal(mobileRoute("#/preferences/notifications").section, "preferences");
-    assert.equal(mobileRoute("#/providers/new").section, "providers");
+    assert.equal(mobileRoute("#/providers/new").section, "clis");
     assert.equal(mobileRoute("#/termset/t1").section, "preferences");
     assert.equal(mobileRoute("#/app/inbox").screen, "inbox");
     assert.equal(mobileRoute("#/sessions/w1").section, "clis");
@@ -128,4 +129,15 @@ it("native packages and legacy configuration links use Agent CLIs", () => {
   for (const hash of ["#/packages", "#/more/packages", "#/packages/config/pi-roles", "#/clis/packages/pi?agentId=a", "#/clis/packages/pi/config/pi-roles?workspaceId=w"]) {
     assert.deepEqual(mobileRoute(hash), { screen: "more", id: "", section: "clis" });
   }
+});
+
+it("native provider navigation and compatibility aliases", () => {
+  for (const hash of ["#/clis/providers/pi", "#/clis/providers/pi/new", "#/providers", "#/providers/new", "#/more/providers", "#/more/providers/new", "#/clis/providers/codex", "#/clis/providers/%ZZ"]) assert.deepEqual(mobileRoute(hash), { screen: "more", id: "", section: "clis" });
+  assert.deepEqual(mobileRoute("#/more/providers/llama?tab=models"), { screen: "more", id: "", section: "llama" });
+});
+
+it("provider command navigation opens canonical list or add", () => {
+  const previous = globalThis.location; globalThis.location = { hash: "" };
+  try { go("providers"); assert.equal(location.hash, "#/clis/providers/pi"); go("providers-new"); assert.equal(location.hash, "#/clis/providers/pi/new"); }
+  finally { globalThis.location = previous; }
 });

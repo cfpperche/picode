@@ -177,3 +177,6 @@
 .pi-settings-notice > span { overflow-wrap: anywhere; }
 
 .cli-packages-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+
+.cli-providers-scope { color: var(--text-secondary); font-size: 12px; margin-bottom: 12px; }
+@media (max-width: 767px) { .cli-tabs { overflow-x: auto; gap: 16px; } .cli-tabs a { flex: none; white-space: nowrap; } }

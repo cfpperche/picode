@@ -1,7 +1,10 @@
+import { cliProvidersLocation } from "./cliProviders.js";
 import { cliPackagesLocation } from "./cliPackages.js";
 import { cliSettingsLocation } from "./cliSettings.js";
 
 export function cliLocation(hash = "") {
+  const providers = cliProvidersLocation(hash);
+  if (providers) return providers;
   const packages = cliPackagesLocation(hash);
   if (packages) return packages;
   const settings = cliSettingsLocation(hash);

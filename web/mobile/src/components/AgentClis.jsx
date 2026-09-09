@@ -12,6 +12,7 @@ import { termHash } from "../lib/routes.js";
 import AgentClisFrame from "./AgentClisFrame.jsx";
 import CliTabs from "./CliTabs.jsx";
 import CliSettings from "./CliSettings.jsx";
+import CliProviders from "./CliProviders.jsx";
 import CliPackages from "./CliPackages.jsx";
 import { cliPackagesHash, supportsCliPackages } from "@picode/shared/domain/cliPackages.js";
 import { cliSettingsHash, supportsCliSettings } from "@picode/shared/domain/cliSettings.js";
@@ -29,7 +30,7 @@ function Notice({ children, action, onAction, danger = false }) {
   return <div className={"cli-notice" + (danger ? " is-error" : "")} role={danger ? "alert" : "status"}><span>{children}</span>{action ? <button type="button" className="btn btn-ghost btn-sm" onClick={onAction}>{action}</button> : null}</div>;
 }
 
-export default function AgentClis({ hidden = false, catalog, legacyAgentId = "", legacyPackageContext = {}, legacyContextReady = true, onAgentConfig }) {
+export default function AgentClis({ hidden = false, catalog, onCatalogChange, legacyAgentId = "", legacyPackageContext = {}, legacyContextReady = true, onAgentConfig }) {
   const [hash, setHash] = useState(location.hash);
   const route = cliLocation(hash);
   const [data, setData] = useState(null);
@@ -57,7 +58,7 @@ export default function AgentClis({ hidden = false, catalog, legacyAgentId = "",
     if (!hidden && /^#\/sessions(\/|$)/.test(hash)) location.replace("#/clis/sessions" + hash.slice("#/sessions".length));
   }, [hidden, hash, route.view]);
   useEffect(() => {
-    if (hidden || ["settings", "packages"].includes(route.view)) return;
+    if (hidden || ["settings", "packages", "providers"].includes(route.view)) return;
     refresh();
     // ADR-0087: refresh stale update checks once per visit, server-side
     // cached — never a polling timer.
@@ -122,6 +123,7 @@ export default function AgentClis({ hidden = false, catalog, legacyAgentId = "",
     } catch { /* toast from run */ }
   };
 
+  if (route.view === "providers") return <CliProviders hidden={hidden} hash={hash} onCatalogChange={onCatalogChange} />;
   if (route.view === "packages") return <CliPackages hidden={hidden} hash={hash} legacyContext={legacyPackageContext} legacyContextReady={legacyContextReady} catalog={catalog} />;
   if (route.view === "settings") return <CliSettings hidden={hidden} hash={hash} legacyAgentId={legacyAgentId} catalog={catalog} onAgentConfig={onAgentConfig} />;
 

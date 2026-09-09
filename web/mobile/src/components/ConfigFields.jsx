@@ -26,7 +26,7 @@ export default function ConfigFields({ catalog, provider, model, thinking, onCha
         {thinking && !levels.includes(thinking) ? <option value={thinking}>{thinking}</option> : null}
         {levels.map((l) => <option key={l} value={l}>{l}</option>)}
       </select>
-      {provider && !models.length ? <p className="m-config-unavailable">{model ? "This model is not in the current catalog." : "No models available."} <a href="#/more/providers">Open Providers</a></p> : null}
+      {provider && !models.length ? <p className="m-config-unavailable">{model ? "This model is not in the current catalog." : "No models available."} <a href="#/clis/providers/pi">Open Providers</a></p> : null}
     </div>
   );
 }

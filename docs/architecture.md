@@ -252,7 +252,7 @@ stay on their own routes.
 | `#/preferences` | PiCode chrome | appearance, **terminal** (xterm look), notifications, server (port, bind, public URL, who must pair, install token), **backup** (ADR-0014); tabs `#/preferences/<section>` |
 | `#/clis` | Agent CLIs | CLI catalog, installation checks, launch defaults and activity-reporting switches. `#/clis/terminals` lists CLI terminals; `#/clis/new/<cli>` and `#/clis/terminal/<id>` edit launches; `#/clis/sessions[?cli=]` (machine-wide, grouped by folder) and `#/clis/sessions/<workspaceId>` (one folder) are the per-CLI session views — pi with full management, Claude Code / Codex / Grok listing and resume-in-terminal (ADR-0079 — the old top-level `#/sessions*` addresses redirect here). Desktop user menu / command palette and mobile More expose their own copies of this surface. The old `#/preferences/status` address redirects here. |
 | `#/system` | Machine facts | host, network, deps, version (read-only) |
-| `#/providers` | Pi providers | catalog + signed-in state; Sign in; search; **plan windows on each account row** from the usage cache, live / stale-with-age / a reason (ADR-0058); vendor identity (email, plan); credential source (vault or an env var); **Verify** via `pi auth check`; **Usage** dialog per vault account (ADR-0031); Pause beside Sign out; 7-day spend per provider; Sign out names the agents and automations that break |
+| `#/clis/providers/pi` | Native providers (Pi) | catalog + signed-in state; Sign in; search; **plan windows on each account row** from the usage cache, live / stale-with-age / a reason (ADR-0058); vendor identity (email, plan); credential source (vault or an env var); **Verify** via `pi auth check`; **Usage** dialog per vault account (ADR-0031); Pause beside Sign out; 7-day spend per provider; Sign out names the agents and automations that break |
 | `#/integrations` | Integrations (ADR-0075) | `connectors` reuses MCP configuration and shows optional `pi.mcp` package metadata; reviewed standard-definition import adds external services without a binary change. `webhooks` configures signed durable event delivery, tests, pause, removal and secret rotation. Desktop user menu/palette and mobile More link here. |
 | `#/mcps` | Pi MCP | adapter manager: list / add / toggle / remove / **Use from…** (mirror host configs; Off hides a server). |
 | `#/clis/packages/pi` | Native CLI packages (Pi first) | machine / workspace (`pi install`) / this agent (`-e` on start) (ADR-0010). Same agent context as MCP. Installed cards are filterable; a package with a known config adapter shows **Configure** → `#/clis/packages/pi/config/<pkg>` (ADR-0099: pi-roles' workspace file + per-agent overlay, effective merge, scoped reset). A behind npm row shows **Update**; the user menu badges when any are. |
@@ -441,6 +441,19 @@ than reporting an empty installation. This view does not load terminal inventory
 or CLI lifecycle jobs. Existing Pi package APIs, commands and persistence stay
 unchanged; the desktop roles editor remains native-file-backed. Mobile config
 links offer the desktop layout with the same URL until a mobile editor exists.
+
+### Native CLI providers (ADR-0103)
+
+Providers uses each app's `AgentClisFrame` at `#/clis/providers/pi`; `/new`
+opens Add provider. A shared route/capability helper names Pi explicitly and
+redirects legacy desktop/mobile links. Unsupported identities and explicit
+agent/workspace scopes block editing; accounts still belong to the machine.
+The editor loads its catalog independently of terminal inventory, retains
+successful rows and drafts during refresh failures and offers retry. Successful
+refreshes also update the app's model catalog. OAuth returns to the same app's
+canonical list; closed/unmounted editors ignore late login completions.
+Native provider APIs, the active Pi auth slot, extra-account vault and quota
+semantics remain unchanged. The llama.cpp manager keeps its separate route.
 
 ### CLI terminal launch settings (ADR-0069)
 
@@ -777,7 +790,7 @@ Per-agent provider/model/thinking is stored on `agents` and passed as
 `GET /api/providers/{id}/usage` (ADR-0031) reads the active slot.
 `GET /api/providers/{id}/accounts/{aid}/usage` reads that vault row
 without swapping `auth.json` (refresh writes the row; `auth.json` only
-if it is active). Catalog `quotaKind` on each account tells `#/providers`
+if it is active). Catalog `quotaKind` on each account tells `#/clis/providers/pi`
 when to show Usage (`oauth` or `api_key`). Banked resets (Codex, Grok)
 ride `resets[]`; `POST …/usage/reset` redeems one after the UI confirms.
 Grok resets also try `~/.grok/auth.json` then `GROK_COOKIE`.

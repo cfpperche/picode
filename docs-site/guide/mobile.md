@@ -31,7 +31,7 @@ certificate the desktop uses — see [Getting started](/guide/getting-started).
   **Terminals** (free terminals, outside any workspace). **Start** / **Stop** on an agent row,
   **Remove** on a terminal row; **New** creates whatever the view shows.
 - **More** — search grouped tools: Agent CLIs and Sessions, Automations,
-  Providers, Settings, Preferences, Integrations, Packages, Devices, System
+  Agent CLIs (including Providers, Settings and Packages), Preferences, Integrations, Devices, System
   and Apps. **Desktop layout** opens the desktop shell on this screen.
 
 Work keeps its view selector and **New** action at the top. Tap **Search**

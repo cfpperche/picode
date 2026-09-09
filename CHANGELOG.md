@@ -107,6 +107,11 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Changed
 
+- **Providers under Agent CLIs.** Pi accounts, keys, quotas and verification
+  now live in Agent CLIs → Providers, with a CLI selector and explicit machine
+  scope. Old links and login shortcuts redirect; OAuth returns to the same
+  desktop/mobile app. Failed catalog refreshes keep the current roster.
+
 - **Packages under Agent CLIs.** Pi package management and desktop package
   configuration now have explicit CLI and workspace/agent URLs. Old links
   redirect with their context, update indicators lead to Agent CLIs, and

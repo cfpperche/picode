@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Command } from "cmdk";
@@ -7,6 +7,7 @@ import { api } from "@picode/shared/client/api.js";
 import { toast, toastError } from "../lib/toast.js";
 import { apiKeySchema, llamaLoginSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { go } from "../lib/routes.js";
+import { cliProvidersReturnTo } from "@picode/shared/domain/cliProviders.js";
 
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { readRecents, pushRecent, removeRecent, clearRecents, rememberProviders } from "@picode/shared/domain/providerRecents.js";
@@ -57,7 +58,10 @@ function AccountName({ provider, acc, onSaved }) {
   );
 }
 
-export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantAdd }) {
+export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedded = false }) {
+  const previousWantAdd = useRef(wantAdd);
+  const oauthAttempt = useRef(0);
+  useEffect(() => () => { oauthAttempt.current++; }, []);
   const list = catalog && catalog.providers ? catalog.providers : [];
   const signed = list.filter((p) => p.signedIn);
   const [add, setAdd] = useState(false);
@@ -107,8 +111,10 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
   }, [hidden]);
 
   useEffect(() => {
-    if (hidden || !wantAdd) return;
-    openAdd();
+    if (hidden) return;
+    if (wantAdd) openAdd();
+    else if (previousWantAdd.current) closeAdd();
+    previousWantAdd.current = wantAdd;
   }, [hidden, wantAdd]);
 
 
@@ -227,6 +233,9 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
   }
 
   function closeAdd() {
+    oauthAttempt.current++;
+    setWaiting(false);
+    setBusy(false);
     setAdd(false);
     setPick(null);
     setKey("");
@@ -243,6 +252,9 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
   }
 
   function goBack() {
+    oauthAttempt.current++;
+    setWaiting(false);
+    setBusy(false);
     if ((step === "key" || step === "oauth") && pick && pick.login === "both") {
       setStep("method");
       return;
@@ -312,21 +324,26 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
 
   async function startAccount() {
     if (!pick) return;
+    const attempt = ++oauthAttempt.current;
+    const current = () => attempt === oauthAttempt.current;
     setBusy(true);
     setErr("");
     try {
       const res = await api("/api/oauth/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: pick.id, returnTo: location.origin + "/#/providers" }),
+        body: JSON.stringify({ provider: pick.id, returnTo: cliProvidersReturnTo(location.href) }),
       });
+      if (!current()) return;
       if (res && res.userCode) setUserCode(res.userCode);
       if (res && res.url) window.open(res.url, "_blank", "noopener");
       setWaiting(true);
       const t0 = Date.now();
       while (Date.now() - t0 < 5 * 60 * 1000) {
         await new Promise((r) => setTimeout(r, 1000));
+        if (!current()) return;
         const st = await api("/api/oauth/status");
+        if (!current()) return;
         if (st && st.done) {
           setWaiting(false);
           if (st.error) { setErr(st.error); return; }
@@ -340,16 +357,17 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
       }
       setWaiting(false);
     } catch (ex) {
-      toastError(ex);
+      if (!current()) return;
+      setErr(ex.message);
       setWaiting(false);
     } finally {
-      setBusy(false);
+      if (current()) setBusy(false);
     }
   }
 
   return (
-    <PageFrame id="providers-view" title="Providers" hidden={hidden}>
-      <div className="set-row prov-bar">
+    <PageFrame id="providers-view" title="Providers" hidden={hidden} embedded={embedded}>
+      <div className="set-row prov-bar" data-align-row={signed.length > 3 ? true : undefined}>
         {signed.length > 3 ? (
           <input
             className="prov-search"
@@ -364,11 +382,11 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
       </div>
       <section className="settings-section">
         {signed.length === 0 ? (
-          <p className="side-empty">No providers yet. Add a provider to sign in.</p>
+          <p className="side-empty">No providers connected.</p>
         ) : (
           <ul className="prov-list">
             {rosterRows.length === 0 ? (
-              <li className="side-empty">No provider matches “{query}”.</li>
+              <li className="side-empty">No provider matches “{query}”. <button type="button" className="btn btn-ghost btn-sm" onClick={() => setQuery("")}>Clear search</button></li>
             ) : null}
             {rosterRows.map((p) => {
               const envVar = sourceLabel(p);
@@ -528,7 +546,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
               <div className="prov-methods">
                 <button type="button" className="btn btn-primary" onClick={() => setStep("key")}>Sign in with an API key</button>
                 <button type="button" className="btn btn-ghost" onClick={() => setStep("oauth")}>Sign in with an account</button>
-                <div className="dlg-actions">
+                <div className="dlg-actions" data-align-row data-align-wrap>
                   <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>Back</button>
                 </div>
               </div>
@@ -538,7 +556,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
               <div>
                 {userCode ? <p className="oauth-code">{userCode}</p> : null}
                 <p className="form-error" hidden={!err}>{err}</p>
-                <div className="dlg-actions">
+                <div className="dlg-actions" data-align-row data-align-wrap>
                   <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>Back</button>
                   {canAccount ? (
                     <button type="button" className="btn btn-primary btn-sm" disabled={busy || waiting} onClick={startAccount}>{waiting ? "Waiting…" : "Continue in browser"}</button>
@@ -554,7 +572,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
                 <input type="url" autoComplete="off" placeholder="http://127.0.0.1:8080" value={llamaUrl} onChange={(e) => setLlamaUrl(e.target.value)} />
                 <input type="password" autoComplete="off" placeholder="API key (optional)" value={key} onChange={(e) => setKey(e.target.value)} />
                 <p className="form-error" hidden={!err}>{err}</p>
-                <div className="dlg-actions">
+                <div className="dlg-actions" data-align-row data-align-wrap>
                   <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>Back</button>
                   <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>Save</button>
                 </div>
@@ -565,7 +583,7 @@ export default function Providers({ hidden, catalog, onSignOut, onRefresh, wantA
               <form className="form-new" noValidate onSubmit={save}>
                 <input type="password" autoComplete="off" placeholder="sk-…" value={key} onChange={(e) => setKey(e.target.value)} />
                 <p className="form-error" hidden={!err}>{err}</p>
-                <div className="dlg-actions">
+                <div className="dlg-actions" data-align-row data-align-wrap>
                   <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>Back</button>
                   <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>Save</button>
                 </div>

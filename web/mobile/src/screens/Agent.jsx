@@ -1,3 +1,4 @@
+import { cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import * as Sheet from "../components/MobileSheet.jsx";
 import ProjectToolsSheet from "../components/ProjectToolsSheet.jsx";
@@ -165,6 +166,7 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
               onAbort={sock.abort}
               agentId={id}
               slashExtra={slashExtra}
+              onSlash={cmd => { if (cmd.run === "go-providers" || cmd.run === "go-providers-new") location.hash = cliProvidersHash("pi", { add: cmd.run === "go-providers-new" }); }}
               statusBar={bar}
               lastReply={sock.state.items.findLast(it => it.kind === "block" && !it.cls && it.text)?.text || ""}
               onSettings={() => setSettingsOpen(true)}

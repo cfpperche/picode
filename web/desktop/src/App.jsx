@@ -30,7 +30,6 @@ import Settings from "./components/Settings.jsx";
 import AgentClis from "./components/AgentClis.jsx";
 import { cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 import System from "./components/System.jsx";
-import Providers from "./components/Providers.jsx";
 import Mcps from "./components/Mcps.jsx";
 import Integrations from "./components/Integrations.jsx";
 import Devices from "./components/Devices.jsx";
@@ -45,7 +44,7 @@ import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
-import { ownerLetter, parseRoute, go, providersNew, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import { normalizeManifests } from "@picode/shared/contracts/appPrimitives.js";
 const PinStudio = lazy(() => import("./components/PinStudio.jsx"));
@@ -2972,7 +2971,7 @@ export default function App() {
           ) : null}
         </div>
 
-        <AgentClis catalog={catalog} legacyContextReady={bootstrapped} legacyPackageContext={{ workspaceId: paneWs?.id || "", agentId: agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "") }} packageUpdates={pkgUpdates} onPackageUpdates={(updates, workspaceId) => { if ((paneWs?.id || "") === workspaceId) setPkgUpdates(updates); }} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} />
+        <AgentClis catalog={catalog} onCatalogChange={setCatalog} legacyContextReady={bootstrapped} legacyPackageContext={{ workspaceId: paneWs?.id || "", agentId: agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "") }} packageUpdates={pkgUpdates} onPackageUpdates={(updates, workspaceId) => { if ((paneWs?.id || "") === workspaceId) setPkgUpdates(updates); }} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} />
         <Settings
           hidden={route !== "preferences"}
           themeMode={themeMode}
@@ -2980,26 +2979,6 @@ export default function App() {
         />
         <System hidden={route !== "system"} version={version} system={system} />
         {route === "llama" ? <LlamaPanel onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} /> : null}
-        <Providers
-          hidden={route !== "providers"}
-          catalog={catalog}
-          wantAdd={providersNew()}
-          onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }}
-          onSignOut={async (provider) => {
-            const ok = await askConfirm({
-              title: "Sign out " + provider,
-              message: "Remove saved credentials for " + provider + " on this machine.",
-              confirmLabel: "Sign out",
-              danger: true,
-            });
-            if (!ok) return;
-            try {
-              await api("/api/providers/" + encodeURIComponent(provider), { method: "DELETE" });
-              setCatalog(await api("/api/catalog"));
-              toast.ok("Signed out of " + provider + ".");
-            } catch (e) { toastError(e); }
-          }}
-        />
         <Mcps
           hidden={route !== "mcps"}
           workspaceId={paneWs ? paneWs.id : ""}

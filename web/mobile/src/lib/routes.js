@@ -1,3 +1,4 @@
+import { cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { cliSettingsLocation, cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 // Mobile route helpers. Tool links live in mobileRoutes; desktop tab identities are absent.
 const PREF_SECTIONS = ["appearance", "layout", "shortcuts", "notifications", "server", "backup"];
@@ -39,6 +40,7 @@ export function prefSection(hash) {
 }
 
 export function go(section) {
+  if (!section || section === "providers" || section === "providers-new") { location.hash = cliProvidersHash("pi", { add: section === "providers-new" }); return; }
   location.hash = "#/more/" + encodeURIComponent(section || "providers");
 }
 

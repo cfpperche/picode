@@ -1,3 +1,4 @@
+import { cliProvidersLocation, cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { cliPackagesLocation, cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { cliSettingsLocation, cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 // Hash routes. Preferences is PiCode-the-product. Native settings live under Agent CLIs (ADR-0101).
@@ -9,7 +10,7 @@ export const ROUTES = {
   clis: "/clis",
   settings: "/clis/settings/pi",
   system: "/system",
-  providers: "/providers",
+  providers: "/clis/providers/pi",
   llama: "/llama/models",
   mcps: "/mcps",
   integrations: "/integrations",
@@ -27,8 +28,8 @@ export function parseRoute(hash) {
   if (cliPackagesLocation(h)) return "clis";
   if (cliSettingsLocation(h)) return "clis";
   if (h === "/system") return "system";
-  if (h === "/llama" || h.startsWith("/llama/") || h === "/providers/llama") return "llama";
-  if (h === "/providers" || h.startsWith("/providers/")) return "providers";
+  if (h === "/llama" || h.startsWith("/llama/") || ["/providers/llama", "/more/providers/llama"].includes(h.split("?")[0])) return "llama";
+  if (cliProvidersLocation(h)) return "clis";
   if (h === "/mcps") return "mcps";
   if (h === "/integrations" || h.startsWith("/integrations/")) return "integrations";
   if (h === "/devices") return "devices";
@@ -178,7 +179,7 @@ export function prefSection(hash) {
 
 export function providersNew(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
-  return h === "/providers/new";
+  return !!cliProvidersLocation(h)?.add;
 }
 
 export function providersLlama(hash) {
@@ -194,7 +195,7 @@ export function go(name, agentId) {
     return;
   }
   if (name === "providers-new") {
-    location.hash = "#/providers/new";
+    location.hash = cliProvidersHash("pi", { add: true });
     return;
   }
   if (name === "providers-llama") {

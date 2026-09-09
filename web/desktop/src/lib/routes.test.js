@@ -18,7 +18,7 @@ test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/settings"), "clis");
   assert.equal(ROUTES.preferences, "/preferences");
   assert.equal(ROUTES.settings, "/clis/settings/pi");
-  assert.equal(parseRoute("#/providers/new"), "providers");
+  assert.equal(parseRoute("#/providers/new"), "clis");
   assert.equal(providersNew("#/providers/new"), true);
   assert.equal(providersLlama("#/providers/llama"), true);
   assert.equal(parseRoute("#/pins/new"), "pins");
@@ -157,7 +157,7 @@ test("app tabs are distinct from every other tab family", () => {
 
 test("llama manager owns its routes and the legacy link", () => {
  for (const hash of ["#/llama", "#/llama/models", "#/llama/server", "#/llama/activity", "#/providers/llama"]) assert.equal(parseRoute(hash), "llama");
- assert.equal(parseRoute("#/providers/new"), "providers");
+ assert.equal(parseRoute("#/providers/new"), "clis");
 });
 
 test("packages config lives under Agent CLIs and retains legacy parsing", () => {
@@ -166,4 +166,16 @@ test("packages config lives under Agent CLIs and retains legacy parsing", () => 
   assert.equal(packagesConfigRoute("#/packages/config/pi-roles"), "pi-roles");
   assert.equal(packagesConfigRoute("#/packages"), null);
   assert.equal(packagesConfigHash("pi-roles"), "#/clis/packages/pi/config/pi-roles");
+});
+
+test("native provider navigation and compatibility aliases", () => {
+  for (const hash of ["#/clis/providers/pi", "#/clis/providers/pi/new", "#/providers", "#/providers/new", "#/more/providers", "#/more/providers/new", "#/clis/providers/codex", "#/clis/providers/%ZZ"]) assert.deepEqual(parseRoute(hash), "clis");
+  assert.deepEqual(parseRoute("#/more/providers/llama?tab=models"), "llama");
+});
+
+test("provider command navigation opens canonical list or add", () => {
+  const previous = globalThis.location;
+  globalThis.location = { hash: "" };
+  try { go("providers"); assert.equal(location.hash, "#/clis/providers/pi"); go("providers-new"); assert.equal(location.hash, "#/clis/providers/pi/new"); }
+  finally { globalThis.location = previous; }
 });

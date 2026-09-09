@@ -80,7 +80,7 @@ Gated Hugging Face repos: export `HF_TOKEN` **in the llama-server process**.
 
 ## 3. In PiCode
 
-Open **Providers → llama.cpp → Manage**, or use `/llama` on desktop.
+Open **Agent CLIs → Providers → llama.cpp → Manage**, or use `/llama` on desktop.
 For a new connection, choose **Set up llama.cpp** in Providers.
 The manager has **Models**, **Server**, **Activity** and **Local service** pages on desktop and mobile:
 

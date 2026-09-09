@@ -86,13 +86,13 @@ Canonical: [pi Compaction](https://github.com/earendil-works/pi/blob/main/packag
 
 ## /login {#login}
 
-Opens Add provider. See [Providers](/guide/providers).
+Opens **Agent CLIs → Providers → Add provider**. See [Providers](/guide/providers).
 
 Canonical: [pi Providers](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/providers.md).
 
 ## /logout {#logout}
 
-Opens `#/providers`. Sign out removes that provider. See [Providers](/guide/providers).
+Opens **Agent CLIs → Providers** (`#/clis/providers/pi`). Sign out removes that provider. See [Providers](/guide/providers).
 
 Canonical: [pi Providers](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/providers.md).
 

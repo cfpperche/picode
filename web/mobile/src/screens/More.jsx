@@ -1,3 +1,4 @@
+import { cliProvidersLocation, cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { cliPackagesLocation, cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { lazy, useState } from "react";
 import { cliSettingsLocation, cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
@@ -8,7 +9,6 @@ const AgentClis = lazy(() => import("../components/AgentClis.jsx"));
 const Automations = lazy(() => import("../components/Automations.jsx"));
 const System = lazy(() => import("../components/System.jsx"));
 const LlamaPanel = lazy(() => import("../components/LlamaPanel.jsx"));
-const Providers = lazy(() => import("../components/Providers.jsx"));
 const Mcps = lazy(() => import("../components/Mcps.jsx"));
 const Integrations = lazy(() => import("../components/Integrations.jsx"));
 import InstallButton from "../components/InstallButton.jsx";
@@ -23,7 +23,7 @@ import "../styles/mobile-lists.css";
 const SECTIONS = [
   ["pins", "Pins", "Notes, files and reminders"],
   ["automations", "Automations", "Scheduled and triggered work"],
-  ["clis", "Agent CLIs", "Settings, packages, launches and sessions"],
+  ["clis", "Agent CLIs", "Launches, sessions and CLI configuration"],
   ["apps", "Apps", "Docker and other tools"],
   ["notifications", "Notifications", "Push when an agent needs you"],
   ["llama", "llama.cpp", "Models and server connection"],
@@ -38,17 +38,18 @@ const SECTIONS = [
 const TITLES = { ...Object.fromEntries(SECTIONS.map(([id, t]) => [id, t])), mcps: "MCP servers" };
 const GROUPS = [
   ["Tools", ["pins", "clis", "automations", "apps", "llama"]],
-  ["Agents and connections", ["providers", "integrations"]],
+  ["Agents and connections", ["integrations"]],
   ["PiCode", ["preferences", "notifications", "devices", "system"]],
 ];
 
 // Mobile-owned settings, loaded only when their section opens.
-export default function More({ fleetReady = true, section, apps, catalog, system, version, themeMode, onTheme, last, onRefreshCatalog, onShare, onWhatsNew, whatsNewUnread, onBack, onAgentConfig, workspaces = [], freeAgents = [], legacyAgentId = "" }) {
+export default function More({ fleetReady = true, section, apps, catalog, system, version, themeMode, onTheme, last, onRefreshCatalog, onCatalogChange, onShare, onWhatsNew, whatsNewUnread, onBack, onAgentConfig, workspaces = [], freeAgents = [], legacyAgentId = "" }) {
   const [query, setQuery] = useState("");
   if (!section) {
     const groups = GROUPS.map(([title, ids]) => ({ title, rows: ids.map(id => SECTIONS.find(row => row[0] === id)).filter(row => matchesListSearch(query, title, ...row)) })).filter(group => group.rows.length);
     if (query.trim() && matchesListSearch(query, "Pi settings", "model thinking prompt")) groups.unshift({ title: "Agent CLIs", rows: [["pi-settings", "Pi settings", "Model, thinking, tools and keys"]] });
     if (query.trim() && matchesListSearch(query, "Packages", "skills extensions updates")) groups.unshift({ title: "Agent CLIs", rows: [["pi-packages", "Packages", "Pi skills, extensions and updates"]] });
+    if (query.trim() && matchesListSearch(query, "Providers", "accounts keys usage login")) groups.unshift({ title: "Agent CLIs", rows: [["pi-providers", "Providers", "Pi accounts, keys and usage"]] });
     const actions = [
       { id: "updates", title: "What’s new", sub: "Release highlights", Icon: IconSparkles, action: onWhatsNew, unread: whatsNewUnread },
       { id: "pair", title: "Open on another phone", sub: "Pair with a QR code", Icon: IconQR, action: onShare },
@@ -64,7 +65,7 @@ export default function More({ fleetReady = true, section, apps, catalog, system
           <ul className="m-list m-menu m-group-list">
           {group.rows.map(([id, title, sub]) => (
             <li key={id} className="m-row">
-              <a className="m-row-main" href={id === "pi-packages" ? cliPackagesHash("pi", { agentId: last?.agent?.id || legacyAgentId }) : id === "pi-settings" ? cliSettingsHash("pi", { agentId: last?.agent?.id || legacyAgentId }) : "#/more/" + id}>
+              <a className="m-row-main" href={id === "pi-providers" ? cliProvidersHash() : id === "pi-packages" ? cliPackagesHash("pi", { agentId: last?.agent?.id || legacyAgentId }) : id === "pi-settings" ? cliSettingsHash("pi", { agentId: last?.agent?.id || legacyAgentId }) : "#/more/" + id}>
                 <span className="m-row-text">
                   <span className="m-row-title">{title}</span>
                   <span className="m-row-sub">{sub}</span>
@@ -95,17 +96,16 @@ export default function More({ fleetReady = true, section, apps, catalog, system
   const agentName = agent ? (agent.name && agent.name !== "default" ? agent.name : (workspace ? workspace.name : "")) : "";
   return (
     <div className="m-screen m-more-page">
-      <ScreenHeader title={TITLES[section] || "More"} onBack={section === "clis" && (cliSettingsLocation(location.hash) || cliPackagesLocation(location.hash)) ? () => { location.hash = "#/clis"; } : onBack}
+      <ScreenHeader title={TITLES[section] || "More"} onBack={section === "clis" && (cliSettingsLocation(location.hash) || cliPackagesLocation(location.hash) || cliProvidersLocation(location.hash)) ? () => { location.hash = "#/clis"; } : onBack}
         right={section === "pins" ? <button type="button" className="m-head-btn" aria-label="New pin" onClick={() => { location.hash = "#/pins/new"; }}><IconPlus size={18} /></button> : null} />
       {section === "pins" ? <PinsList onOpen={(id) => { location.hash = "#/pins/" + encodeURIComponent(id); }} onNew={() => { location.hash = "#/pins/new"; }} /> : null}
       {section === "apps" ? <AppsGrid apps={apps} onOpen={(id) => { location.hash = "#/app/" + encodeURIComponent(id); }} /> : null}
       {section === "devices" ? <Devices hidden={false} /> : null}
-      {section === "clis" ? <AgentClis catalog={catalog} legacyContextReady={fleetReady} legacyPackageContext={{ workspaceId: workspace?.id || "", agentId: agent?.id || legacyAgentId || "" }} legacyAgentId={last?.agent?.id || legacyAgentId} onAgentConfig={onAgentConfig} /> : null}
+      {section === "clis" ? <AgentClis catalog={catalog} onCatalogChange={onCatalogChange} legacyContextReady={fleetReady} legacyPackageContext={{ workspaceId: workspace?.id || "", agentId: agent?.id || legacyAgentId || "" }} legacyAgentId={last?.agent?.id || legacyAgentId} onAgentConfig={onAgentConfig} /> : null}
       {section === "automations" ? <Automations hidden={false} catalog={catalog} system={system} workspaces={workspaces} freeAgents={freeAgents} /> : null}
       {section === "preferences" ? <Settings hidden={false} themeMode={themeMode} onTheme={onTheme} /> : null}
       {section === "system" ? <System hidden={false} version={version} system={system} /> : null}
       {section === "llama" ? <LlamaPanel onRefresh={onRefreshCatalog} /> : null}
-      {section === "providers" ? <Providers hidden={false} catalog={catalog} onRefresh={onRefreshCatalog} /> : null}
       {section === "integrations" ? <Integrations hidden={false}
         workspaceId={workspace?.id || ""} workspaceName={workspace?.name || ""} workspacePath={workspace?.path || ""}
         agentId={agent?.id || ""} agentName={agentName} agentWorkPath={agent?.workPath || ""} agentRunning={!!(agent && agent.mode && agent.mode !== "stopped")} /> : null}

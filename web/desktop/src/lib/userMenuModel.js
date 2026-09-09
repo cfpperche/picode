@@ -4,7 +4,7 @@ import { matchesListSearch } from "@picode/shared/domain/listSearch.js";
 // (docs/benchmarks/2026-09-07-mobile-v2.md). Mobile-only sections (Apps,
 // llama.cpp, Notifications) have no desktop route and stay out of the menu.
 export const MENU_SECTIONS = [
-  ["clis", "Agent CLIs", "Settings, packages, launches and sessions"],
+  ["clis", "Agent CLIs", "Launches, sessions and CLI configuration"],
   ["automations", "Automations", "Scheduled and triggered work"],
   ["providers", "Providers", "Accounts, keys, usage"],
   ["integrations", "Integrations", "Connectors and event delivery"],
@@ -16,7 +16,7 @@ export const MENU_SECTIONS = [
 
 export const MENU_GROUPS = [
   ["Tools", ["clis", "automations"]],
-  ["Agents and connections", ["providers", "integrations"]],
+  ["Agents and connections", ["integrations"]],
   ["PiCode", ["preferences", "devices", "system"]],
 ];
 
@@ -35,6 +35,7 @@ export function menuGroups(query) {
     .filter(group => group.rows.length);
   if (query.trim() && matchesListSearch(query, "Pi settings", "model thinking prompt")) groups.unshift({ title: "Agent CLIs", rows: [["settings", "Pi settings", "Model, thinking, tools and keys"]] });
   if (query.trim() && matchesListSearch(query, "Packages", "skills extensions updates")) groups.unshift({ title: "Agent CLIs", rows: [["packages", "Packages", "Pi skills, extensions and updates"]] });
+  if (query.trim() && matchesListSearch(query, "Providers", "accounts keys usage login")) groups.unshift({ title: "Agent CLIs", rows: [["providers", "Providers", "Pi accounts, keys and usage"]] });
   return groups;
 }
 
