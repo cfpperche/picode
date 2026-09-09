@@ -42,6 +42,7 @@
 - `TestTerminalBrowse` cleanup can leave tmux shells in deleted temp folders.
 - 2026-09-06 incident: a `tmux ls | grep '^picode-'` sweep killed 29 sessions, six in production. Never kill by prefix — only exact names from a fixture's own API.
 - Feed: ephemeral events can be missed across reconnects (ADR-0048); paste fallback acceptance across platforms open.
+- Terminal menus (2026-09-09): web/mobile terminal rows still offer only Remove — the desktop one-menu merge (termRowMenu.js) is not ported; sidebar Remove keeps `DELETE /api/terminals/<id>` while the Agent CLIs list uses `/launch/remove` (same outcome, two paths).
 - CLI lifecycle: npm data can lag native Claude releases by hours; grok uninstall guided-only; Windows paths out of scope.
 - Pi has one active credential slot; per-agent OAuth is an owner decision.
 - Rename watch: a branch adding files under `www/` would resurrect the dir — they belong in `docs-site/`.
