@@ -1901,6 +1901,30 @@ export default function App() {
     } catch (err) { toastError(err); }
   }
 
+  // Start / stop / restart from the sidebar's terminal menu — the same
+  // launch endpoint the Agent CLIs list uses, so one terminal answers to
+  // one set of actions from either surface. The fleet feed patches the
+  // sidebar in place; start opens the terminal like the CLIs list does.
+  async function launchTerminalAction(t, op) {
+    if (!t || !op) return;
+    const destructive = op === "remove" || (t.running && op !== "start");
+    if (destructive && !(await askConfirm({
+      title: `${op === "stop" ? "Stop" : op === "restart" ? "Restart" : "Remove"} ${t.name || "terminal"}?`,
+      message: t.running ? "This ends the processes running in this terminal." : "Remove this saved terminal and its launch settings?",
+      confirmLabel: op === "stop" ? "Stop terminal" : op === "restart" ? "Restart terminal" : "Remove terminal",
+      danger: true,
+    }))) return;
+    try {
+      await api(`/api/terminals/${encodeURIComponent(t.id)}/launch/${op}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: destructive }),
+      });
+      if (op === "start") location.hash = termHash(t.id);
+      else toast.ok(op === "stop" ? "Terminal stopped." : op === "restart" ? "Terminal restarted." : "Terminal removed.");
+    } catch (err) { toastError(err); }
+  }
+
   async function openInteractive(id, opts) {
     const loc = locate(workspaces, freeAgents, id);
     if (!loc || !loc.agent) {
@@ -2596,8 +2620,10 @@ export default function App() {
         onNewTerm={createTerminal}
         onSelectTerm={(id) => { openTermTab(id); if (parseRoute() !== "workspace") location.hash = termHash(id); }}
         onRemoveTerm={removeTerminal}
+        onLaunchAction={launchTerminalAction}
         onSessions={(id) => { location.hash = sessionsHash(id); }}
         onRenameTerm={renameTerminal}
+        onLaunchAction={launchTerminalAction}
         onGitGraph={openGitTab}
         onFileTree={openTreeTab}
         onOpenDashboard={() => { setDashboardPinned(true); setNavigationOpen(false); }}
@@ -3005,7 +3031,7 @@ export default function App() {
           ) : null}
         </div>
 
-        <AgentClis catalog={catalog} onCatalogChange={setCatalog} legacyContextReady={bootstrapped} legacyPackageContext={{ workspaceId: paneWs?.id || "", agentId: agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "") }} packageUpdates={pkgUpdates} onPackageUpdates={(updates, workspaceId) => { if ((paneWs?.id || "") === workspaceId) setPkgUpdates(updates); }} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} />
+        <AgentClis catalog={catalog} onCatalogChange={setCatalog} legacyContextReady={bootstrapped} legacyPackageContext={{ workspaceId: paneWs?.id || "", agentId: agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "") }} packageUpdates={pkgUpdates} onPackageUpdates={(updates, workspaceId) => { if ((paneWs?.id || "") === workspaceId) setPkgUpdates(updates); }} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} onRenameTerm={renameTerminal} />
         <Settings
           hidden={route !== "preferences"}
           themeMode={themeMode}

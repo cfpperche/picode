@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconChat, IconEllipsis, IconFolder, IconGit, IconPencil, IconPlay, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
+import { IconChat, IconEllipsis, IconFolder, IconGit, IconMode, IconPencil, IconPlay, IconReload, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { repoLine, termLine } from "@picode/shared/domain/repoLine.js";
@@ -10,6 +10,7 @@ import PiSpinner from "./PiSpinner.jsx";
 import { checklistLine, checklistProgress, checklistRows, countDone } from "@picode/shared/domain/checklist.js";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
+import { termRowMenu } from "../lib/termRowMenu.js";
 
 export function RowMenu({ label, children }) {
   return (
@@ -34,9 +35,25 @@ export function RowMenu({ label, children }) {
   );
 }
 
-export function RowMenuItem({ children, onSelect, danger = false }) {
-  return <DropdownMenu.Item className={"ws-row-menu-item" + (danger ? " danger" : "")} onSelect={onSelect}>{children}</DropdownMenu.Item>;
+export function RowMenuItem({ children, onSelect, danger = false, title }) {
+  return <DropdownMenu.Item className={"ws-row-menu-item" + (danger ? " danger" : "")} onSelect={onSelect} title={title}>{children}</DropdownMenu.Item>;
 }
+
+export function RowMenuSep() {
+  return <DropdownMenu.Separator className="ws-row-menu-sep" />;
+}
+
+// One icon per merged terminal-menu row (termRowMenu.js); the labels and
+// order live there, so the sidebar and the Agent CLIs list cannot drift.
+const TERM_ROW_MENU_ICONS = {
+  rename: <IconPencil size={13} />,
+  launch: <IconSettings size={14} />,
+  settings: <IconMode size={14} />,
+  start: <IconPlay size={12} />,
+  restart: <IconReload size={13} />,
+  stop: <IconStop size={12} />,
+  remove: <IconX size={13} />,
+};
 
 function openRow(e, onSelect) {
   if (e.key === "Enter" || e.key === " ") {
@@ -168,7 +185,7 @@ export function TermRow({
   selectedId, onSelectTerm,
   onFileTree, onGitGraph,
   actions = true,
-  onRenameTerm, onRemoveTerm,
+  onRenameTerm, onRemoveTerm, onLaunchAction,
 }) {
   const line = termLine(t);
   const cli = terminalCli(t);
@@ -192,9 +209,22 @@ export function TermRow({
         </div>
         {actions ? (
           <RowMenu label={t.name || "Terminal"}>
-            <RowMenuItem onSelect={() => onRenameTerm && onRenameTerm(t)}><IconPencil size={13} /> Rename</RowMenuItem>
-            <RowMenuItem onSelect={() => { location.hash = "#/termset/" + encodeURIComponent(t.id); }}><IconSettings size={14} /> Terminal settings</RowMenuItem>
-            <RowMenuItem danger onSelect={() => onRemoveTerm && onRemoveTerm(t)}><IconX size={13} /> Remove terminal</RowMenuItem>
+            {termRowMenu(t).map((r) => r.sep ? <RowMenuSep key={"sep"} /> : (
+              <RowMenuItem
+                key={r.id}
+                title={r.title}
+                danger={r.danger}
+                onSelect={() => {
+                  if (r.id === "rename") return onRenameTerm && onRenameTerm(t);
+                  if (r.id === "launch") { location.hash = "#/clis/terminal/" + encodeURIComponent(t.id); return; }
+                  if (r.id === "settings") { location.hash = "#/termset/" + encodeURIComponent(t.id); return; }
+                  if (r.id === "remove") return onRemoveTerm && onRemoveTerm(t);
+                  return onLaunchAction && onLaunchAction(t, r.id); // start | restart | stop
+                }}
+              >
+                {TERM_ROW_MENU_ICONS[r.id]} {r.label}
+              </RowMenuItem>
+            ))}
           </RowMenu>
         ) : null}
       </div>

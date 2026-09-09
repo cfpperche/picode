@@ -1181,6 +1181,7 @@ img.ws-face.term-cli-face {
 .ws-row-menu-item:hover, .ws-row-menu-item[data-highlighted] { background: var(--bg-hover); }
 .ws-row-menu-item.danger { color: var(--danger); }
 .ws-row-menu-item svg { flex: none; color: currentColor; }
+.ws-row-menu-sep { height: 1px; background: var(--border); margin: 6px 4px; }
 .ws-context {
   display: flex; align-items: center; gap: 5px; min-width: 0;
   /* Left inset = identity-mark (16px) + row-hit gap (7px), so this line
