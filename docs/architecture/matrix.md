@@ -18,10 +18,11 @@ CASCADE, kind, ref, x, y, w, h, created_at, UNIQUE(matrix_id, kind,
 ref))`. One row per panel, never one blob: a drag rewrites the rows that
 moved and the unique index refuses a duplicate binding. A panel id is a
 random slot (`panel-` + 12 hex), never derived from `ref`, so the same
-terminal on two matrices is two panels. `kind ∈ {agent, terminal}`; `ref`
-is the agent or terminal id, with **no foreign key on purpose** — the
-store is ignorant of the binding, deleting an agent or terminal leaves the
-panel, and the UI renders the target as gone. `compact ∈ {vertical,
+terminal on two matrices is two panels. `kind ∈ {agent, terminal, note}`
+(the **Kinds** table below says what each `ref` is), with **no foreign key
+on purpose** — the store is ignorant of the binding, deleting an agent, a
+terminal or a pin leaves the panel, and the UI renders the target as gone.
+`compact ∈ {vertical,
 none}` (default `vertical`) and keeps meaning only in grid mode; `mode ∈
 {grid, canvas}` (migration 043, default `grid`, so every row written before
 it reads the meaning its rectangles already had). `cols` is 12 in grid mode
@@ -30,6 +31,20 @@ mutation and is the optimistic-concurrency key. The store
 (`internal/store/matrix.go`) is the only writer; every mutation is one
 transaction with its event appended inside it (ADR-0048), one row per
 mutator in `TestEveryMutationAppendsAnEvent`.
+
+**Kinds** (ADR-0108; the bodies past a live pane are C3 of
+`docs/plans/matrix-canvas.md` §4.2). `kind` is an open text column, so a
+kind is a validator edit on both sides — `internal/store/matrix.go` and
+`web/shared/domain/matrix.js` — and never a migration. The store validates
+the **shape** of a `ref` and never what it points at: whether that pin
+exists is the UI's question, the same rule that lets a deleted terminal
+leave its panel behind.
+
+| Kind | `ref` | Body | Gone when |
+|---|---|---|---|
+| `terminal` | terminal id | the live pane | the terminal is not in the fleet |
+| `agent` | agent id | the live TUI, or the row its mode asks for | the agent is not in the fleet |
+| `note` | pin id | the pin's markdown, read-only, with **Open in Pin Studio** | the pin is not in `GET /api/pins` |
 
 **Routes** (`internal/server/matrix.go`; the auth gate applies as for
 every `/api/*`). Every mutation answers with the payload its event
@@ -103,7 +118,7 @@ with the rest):
 | `matrix.deleted` | `{id}` — the panels go with it, without an event each |
 
 **Client contract** (`web/shared/domain/matrix.js`, pure): `MATRIX_LIMITS`,
-`MATRIX_KINDS`, `MATRIX_COMPACT`, `MATRIX_MODES`, `MATRIX_EVENTS`,
+`MATRIX_KINDS`, `PANE_STATES` / `hasPane`, `MATRIX_COMPACT`, `MATRIX_MODES`, `MATRIX_EVENTS`,
 `UNIT_PX` (8); `normalizeMatrix`,
 `normalizeMatrixList`, `normalizePanel`, `normalizeMatrixDetail` drop junk
 the way `contracts/appPrimitives.js` does (a panel without a whole
@@ -126,9 +141,10 @@ Decision table (every row has a store or handler test —
 | create | 64 matrices exist | 400 "limit: 64 matrices" |
 | create | name empty / > 80 runes / only spaces | 400 naming the limit; never truncated |
 | create | ok | 201 summary; `matrix.created` |
-| add panel | same (kind, ref) already on this matrix | 409 "already on this matrix" |
+| add panel | same (kind, ref) already on this matrix | 409 "already on this matrix" — per kind, so one pin can be a `note` on two matrices and one id may be two kinds |
+| add panel | `note` whose pin does not exist | 201 — the store never asks; `bindingState` is what says *That pin is gone.* |
 | add panel | 500 panels exist | 400 "limit: 500 panels per matrix" |
-| add panel | w < 4, h < 8, x < 0, y < 0, x + w > 12, kind not agent/terminal, ref empty | 400 naming the rule |
+| add panel | w < 4, h < 8, x < 0, y < 0, x + w > 12, kind not agent/terminal/note ("kind must be agent, terminal or note"), ref empty | 400 naming the rule |
 | add panel | ok | 201 `{id, updatedAt, panel}`; `matrix.panel.added`; `updatedAt` bumped |
 | layout patch | `ifUpdatedAt` stale | 409, nothing written |
 | layout patch | a panel id not in this matrix, or a position out of bounds | 400, nothing written (all or nothing) |
@@ -168,13 +184,21 @@ matrix and switching updates the hash. The phone lists the tile as
 | `PanelStill.jsx`, `stills.js` | the two bodies a canvas panel has instead of a live pane — the text still and the name-plate — and the memory-only map of captured screens |
 | `MatrixGrid.jsx` | react-grid-layout 2.2.4, v2 API: `useContainerWidth` on the canvas, `gridConfig {cols 12, rowHeight 24, margin 8}`, drag by `.mx-head` with `.mx-actions` as the cancel zone, `se`/`s`/`e` handles, `fastVerticalCompactor` from `react-grid-layout/extras`, children keyed by panel id, `minW 4 / minH 8` |
 | `Panel.jsx` | the wrapper every panel keeps (and `PanelHead`, which the maximize layer reuses): face, name, hint, the sidebar's chip (`agentRowStatus` / `terminalStatus`), Open · Maximize · Remove from matrix; it observes its own visibility; two memo layers so a grid re-render never touches a body |
-| `PanelBody.jsx`, `TerminalPanel.jsx` | loaded → `TermSurface` (the tab's engine; a terminal first `POST /api/terminals/{id}/open`s for its live record); unloaded → one muted line with the feed's last state; the §4.4 rows below as one line + one action |
-| `PanelPicker.jsx`, `NameDialog.jsx` | cmdk list of the agents and terminals not yet on this matrix, with the sidebar's faces and words; the name form (`matrixNameSchema`, Zod, the store's messages, `noValidate`) |
+| `PanelBody.jsx`, `TerminalPanel.jsx`, `NotePanel.jsx` | `PanelBody` routes by **kind**: a terminal or an agent is `TermSurface` (the tab's engine; a terminal first `POST /api/terminals/{id}/open`s for its live record), a note is `NotePanel` — one `GET /api/pins/{id}` per mount, `react-markdown` + `remarkGfm` over the app's `.md` styles, refetched on that pin's `pin.updated` (it subscribes to the feed itself, as the Inspector does for `git.updated`). Unloaded → one muted line with the feed's last state; the rows below as one line + one action |
+| `PanelFace.jsx` | the mark that says what a panel is bound to, in the header and on the name-plate: a provider face, a CLI badge, or the pin mark |
+| `PanelPicker.jsx`, `NameDialog.jsx` | cmdk list **grouped by kind** — Agents, Terminals, Pins — of what is not yet on this matrix, with the sidebar's faces and words; a group with nothing in it says so under the list with its one action (*No pins yet.* — New pin); the name form (`matrixNameSchema`, Zod, the store's messages, `noValidate`) |
 | `chunkLoader.js`, `paneOwnership.js` | the `IntersectionObserver` glue over the pure `loadPolicy`; what unloading does to an attach |
-| `web/shared/domain/matrix.js` | `nextSlot`, `layoutDiff`, `bindingState`, `loadPolicy` (with the zoom), `zoomBody`, `pointerAtZoom`, `unitsToPx` / `pxToUnits`, `tidyCanvas`, `normalizeViewport`, `suspendedToDispose`, `panelOrder`, `neighborPanel` (+ `PANEL_DEFAULT` 4×14, `PANEL_DEFAULT_CANVAS` 32×42, `CANVAS_ZOOM`, `PANEL_DIRECTIONS`) — one test per row below in `matrix.test.js` |
+| `web/shared/domain/matrix.js` | `nextSlot`, `layoutDiff`, `bindingState`, `hasPane`, `loadPolicy` (with the zoom and the per-row `pane`), `zoomBody`, `pointerAtZoom`, `unitsToPx` / `pxToUnits`, `tidyCanvas`, `normalizeViewport`, `suspendedToDispose`, `panelOrder`, `neighborPanel` (+ `PANEL_DEFAULT` 4×14, `PANEL_DEFAULT_CANVAS` 32×42, `CANVAS_ZOOM`, `PANEL_DIRECTIONS`) — one test per row below in `matrix.test.js` |
 
-**The fleet decides what a panel is bound to**, so the surface draws the
-skeleton until the desktop says it has one: `host.fleet.loaded` is the
+**The fleet decides what a panel is bound to**, and a note's pin follows the
+same rule from the surface's own list: `pins` is `null` until
+`GET /api/pins` answers, and `bindingState` reads a missing list as "not
+read yet", never as gone. That list is read **only when something needs
+it** — the matrix holds a note, or the picker is open — then kept current by
+`pin.*` on the feed and a stale reveal; a matrix of terminals costs no pin
+request at all. It carries summaries, never bodies (`docs/architecture/pins.md`),
+which is why the body reads its own pin. The fleet's own rule: the surface
+draws the skeleton until the desktop says it has one: `host.fleet.loaded` is the
 App's `bootstrapped`, and until it turns true an empty fleet means "not
 read yet", not "deleted". Without it every terminal panel showed *That
 terminal is gone.* for the length of the boot fetch — 15 s on a fixture
@@ -185,7 +209,8 @@ with 45 terminals (each row carries git state). A host that passes no
 and on a reveal older than 10 s; then the feed only: `matrix.*` through
 `applyMatrixEvent`, agents and terminals through the host's fleet,
 `agent.tui` for the Working chip after one `GET /api/tui-working` for the
-agents on the matrix. No timer.
+agents on the matrix, `GET /api/pins` when a note or the picker needs it and
+again on `pin.*`. No timer.
 
 **Binding × fleet** (`bindingState`, plan §4.4):
 
@@ -198,6 +223,8 @@ agents on the matrix. No timer.
 | `agent-managed` | "Managed agent — open to read." (phase 4 brings the conversation) | Open · Remove |
 | `agent-stopped` | "Agent is stopped." — **Run** (`POST /api/agents/{id}/open`; the feed flips the mode and the body swaps in place) | Open · Remove |
 | `agent-gone` | "That agent is gone." | Remove |
+| `note-ready` | the pin's markdown, read-only | Open in Pin Studio · Maximize · Remove |
+| `note-gone` | "That pin is gone." | Remove |
 
 **Chunk loading** (`loadPolicy`, plan §4.5). Observer root: the surface's
 scroll container in grid mode (`rootMargin: 100% 0px` — it only scrolls
@@ -336,15 +363,31 @@ renderer stays crisp, so nothing on screen would say so; the surface has to.
 | focused and engaged | the plane animates to `zoom = 1` before the pane takes keys — Enter engages through the same snap |
 
 The rule is about a **cell**, so it only binds a body that has one.
-`hasPane` (PanelBody.jsx) is the gate on both halves — the `is-inert` /
-`is-still` pointer-events rule and the `.mx-snap` layer: the four rows that
-answer with one line and one action (a managed agent's *Open*, a gone
+`hasPane` (`web/shared/domain/matrix.js`, the allow-list `PANE_STATES`) is
+the gate on all three halves — the `is-inert` / `is-still` pointer-events
+rule, the `.mx-snap` layer, and **the still row of `loadPolicy` itself**:
+the wrapper tells the loader `setPane(id, hasPane(model))` and the pure
+module decides the row, so no component holds an `if` about it. The rows
+that answer with one line and one action (a managed agent's *Open*, a gone
 terminal's *Remove*, a stopped agent's *Run*, the error row's *Try again*)
 keep their own button at every zoom. They have no cell to miss, and a
 visible button that zooms instead of doing what it says is worse than the
 risk it was protecting against. A name-plate is the other way round: below
 0.4 the plate *is* the panel, there is no header left to reach, so it takes
 the layer whatever it is bound to.
+
+**A body that is not a pane** — a note — has no `term.buffer` to capture, so
+the still row never applies to it. It follows the other three:
+
+| Condition | A body with no pane |
+|---|---|
+| in the band, `zoom ≥ 0.4` | renders normally, pointer and all: DOM text scales, and the pointer bug is xterm's alone |
+| `zoom < 0.4` | the same **name-plate** as everything else — down there nothing textual is legible |
+| outside the band, any zoom | unmounted, like every other body: there is no socket to suspend, and mounting again is one fetch |
+
+The band it reports back is still the pane band, because the band is what
+bounds the *attaches*; `zoomBody(zoom, band, pane)` answers both rows from
+one table and `loadPolicy` picks per entry (`matrix.test.js`, three rows).
 
 The band is **hysteretic** — live at 0.8 and above, still below 0.75 — so a
 viewer parked on the boundary does not thrash the attaches, and it flips

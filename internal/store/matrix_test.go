@@ -206,8 +206,9 @@ func TestMatrixPanelRulesRefuse(t *testing.T) {
 		{"x < 0", "terminal", "t", -1, 0, 4, 8, "x must be 0 or more"},
 		{"y < 0", "terminal", "t", 0, -1, 4, 8, "y must be 0 or more"},
 		{"x + w > 12", "terminal", "t", 9, 0, 4, 8, "x + w must be at most 12 columns"},
-		{"kind", "pin", "t", 0, 0, 4, 8, "kind must be agent or terminal"},
+		{"kind", "pin", "t", 0, 0, 4, 8, "kind must be agent, terminal or note"},
 		{"ref empty", "terminal", "  ", 0, 0, 4, 8, "ref is required"},
+		{"note ref empty", "note", " ", 0, 0, 4, 8, "ref is required"},
 	}
 	for _, c := range cases {
 		_, err := s.AddMatrixPanel(m.ID, c.kind, c.ref, c.x, c.y, c.w, c.h)
@@ -221,6 +222,35 @@ func TestMatrixPanelRulesRefuse(t *testing.T) {
 	// The edges are fine: the last columns, a full-width tall panel.
 	addPanel(t, s, m.ID, "terminal", "edge", 8, 0, 4, 8)
 	addPanel(t, s, m.ID, "agent", "wide", 0, 8, 12, 40)
+}
+
+// C3 (docs/plans/matrix-canvas.md §4.2): a note is a binding like any
+// other — its ref is a pin id. The store never asks whether that pin exists
+// (ADR-0108), so a deleted pin's id is accepted and stored verbatim and the
+// UI is what renders the panel as gone; the same pin twice on one matrix is
+// the unique index's conflict.
+func TestMatrixPanelKindNote(t *testing.T) {
+	s := openTest(t)
+	m, _ := s.CreateMatrix("Ops")
+	for i, ref := range []string{"pin-abc123", "a pin that was deleted an hour ago"} {
+		added, err := s.AddMatrixPanel(m.ID, "note", ref, 0, i*8, 4, 8)
+		if err != nil {
+			t.Fatalf("note %q: %v", ref, err)
+		}
+		if added.Panel.Kind != "note" || added.Panel.Ref != ref {
+			t.Fatalf("note %q stored as %q %q", ref, added.Panel.Kind, added.Panel.Ref)
+		}
+	}
+	if _, err := s.AddMatrixPanel(m.ID, "note", "pin-abc123", 0, 16, 4, 8); !errors.Is(err, ErrConflict) {
+		t.Fatalf("the same pin twice: %v", err)
+	}
+	// A note and a terminal may share a ref: the unique index is per (kind, ref).
+	if _, err := s.AddMatrixPanel(m.ID, "terminal", "pin-abc123", 0, 16, 4, 8); err != nil {
+		t.Fatalf("same ref, other kind: %v", err)
+	}
+	if d, _ := s.GetMatrix(m.ID); len(d.Panels) != 3 {
+		t.Fatalf("panels = %d", len(d.Panels))
+	}
 }
 
 // Rows "add panel ok" and "remove panel unknown / ok": the panel id is a

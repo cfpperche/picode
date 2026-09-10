@@ -2,7 +2,8 @@
 
 A **matrix** is one page that shows many agents and terminals side by side,
 live. Each tile is a **panel**: the real screen of that agent or terminal —
-the same one its own tab shows — not a picture of it.
+the same one its own tab shows — not a picture of it. A panel can also hold
+a **pinned note**, so the plan you are working from sits beside the work.
 
 Open it from the **Apps** tab → **Matrix**. Matrices are saved on the
 server, so every browser signed in to your PiCode sees the same ones.
@@ -10,8 +11,9 @@ server, so every browser signed in to your PiCode sees the same ones.
 ## Make one
 
 1. **New matrix**, give it a name.
-2. **Add panel**, then pick an agent or a terminal from the list. Anything
-   already on this matrix is not offered again.
+2. **Add panel**, then pick from the list — it is grouped into **Agents**,
+   **Terminals** and **Pins**. Anything already on this matrix is not
+   offered again.
 3. Repeat. Panels land in the first free slot.
 
 The switcher at the top left of the surface moves between your matrices;
@@ -101,6 +103,7 @@ the panel's body is asleep.
 | The panel is bound to | The body shows |
 |---|---|
 | a running terminal | the live terminal, ready to type in |
+| a pin | the note, formatted and read-only |
 | a stopped CLI terminal | *This CLI terminal is stopped.* — Resume last session |
 | an agent working in its terminal | its live screen |
 | a managed agent | *Managed agent — open to read.* — Open |
@@ -109,7 +112,14 @@ the panel's body is asleep.
 
 **Open** in a panel's header sends you to that agent or terminal's own tab.
 The screen follows you there and comes back when you return to the matrix —
-there is only ever one of it.
+there is only ever one of it. On a note the same button opens **Pin
+Studio**, which is where a note is written; the panel picks the change up
+as soon as you save it.
+
+Notes are not terminals, so the rules that exist for terminals do not apply
+to them: a note takes your clicks and your scrolling at any zoom, and stays
+readable down to 40 %, where — like everything else — it becomes a
+name-plate.
 
 ## Keyboard
 

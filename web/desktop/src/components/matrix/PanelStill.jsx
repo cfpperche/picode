@@ -1,5 +1,4 @@
-import { ProviderFace } from "../ProviderFaces.jsx";
-import TerminalCliBadge from "../TerminalCliBadge.jsx";
+import PanelFace from "./PanelFace.jsx";
 
 // The two bodies a canvas panel has instead of a live pane
 // (docs/plans/matrix-canvas.md §4.3). Both are inert: no xterm, no socket,
@@ -38,11 +37,7 @@ export function PanelStill({ model, still }) {
 export function PanelPlate({ model }) {
   return (
     <div className="mx-plate" role="group" aria-label={model.name + " — " + model.label}>
-      <span className="mx-plate-face" aria-hidden="true">
-        {model.kind === "agent"
-          ? (model.target ? <ProviderFace agent={model.target} /> : <span className="ws-face">?</span>)
-          : <TerminalCliBadge term={model.target || {}} decorative />}
-      </span>
+      <span className="mx-plate-face" aria-hidden="true"><PanelFace model={model} /></span>
       <span className="mx-plate-name">{model.name}</span>
       <span className={"mx-plate-status ws-status is-" + model.status}>{model.label}</span>
     </div>

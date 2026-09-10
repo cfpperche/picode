@@ -1,9 +1,8 @@
 import { forwardRef, memo, useCallback, useEffect, useRef } from "react";
-import { ProviderFace } from "../ProviderFaces.jsx";
-import TerminalCliBadge from "../TerminalCliBadge.jsx";
 import PiSpinner from "../PiSpinner.jsx";
 import { IconCollapse, IconExpand, IconExternal, IconX } from "../Icons.jsx";
 import PanelBody, { hasPane } from "./PanelBody.jsx";
+import PanelFace from "./PanelFace.jsx";
 import { PanelPlate, PanelStill } from "./PanelStill.jsx";
 
 // Panel — one grid item, always rendered (react-grid-layout needs every
@@ -41,17 +40,20 @@ import { PanelPlate, PanelStill } from "./PanelStill.jsx";
 // PanelHead — face, name, hint, the sidebar's chip, Open · Maximize ·
 // Remove. The wrapper's header is the drag handle; the maximize layer
 // renders the same head fixed.
+// What the Open action says per kind: the header's one external-link button
+// takes the panel where it can be worked on, and it has to name that place —
+// a note's is Pin Studio, not "its tab".
+const OPEN_LABEL = { note: "Open in Pin Studio" };
+const GONE = ["terminal-gone", "agent-gone", "note-gone"];
+
 export function PanelHead({ model, loaded, maximized, handlers, fixed, note }) {
-  const gone = model.state === "terminal-gone" || model.state === "agent-gone";
+  const gone = GONE.includes(model.state);
   const canOpen = !gone && !model.pending;
   const canMax = canOpen && model.state !== "agent-stopped" && model.state !== "agent-managed";
+  const openLabel = OPEN_LABEL[model.kind] || "Open in its tab";
   return (
     <div className={"mx-head" + (fixed ? " is-fixed" : "")} title={model.name + (model.hint ? " — " + model.hint : "")}>
-      <span className="mx-face" aria-hidden="true">
-        {model.kind === "agent"
-          ? (model.target ? <ProviderFace agent={model.target} /> : <span className="ws-face">?</span>)
-          : <TerminalCliBadge term={model.target || {}} decorative />}
-      </span>
+      <span className="mx-face" aria-hidden="true"><PanelFace model={model} /></span>
       <span className="mx-name">{model.name}</span>
       {model.hint ? <span className="mx-hint">{model.hint}</span> : null}
       {note ? <span className="mx-note">{note}</span> : null}
@@ -61,7 +63,7 @@ export function PanelHead({ model, loaded, maximized, handlers, fixed, note }) {
       </span>
       <span className="mx-actions nodrag">
         {canOpen ? (
-          <button type="button" className="mx-action" title="Open in its tab" aria-label="Open in its tab" onClick={() => handlers.onOpen(model)}>
+          <button type="button" className="mx-action" title={openLabel} aria-label={openLabel} onClick={() => handlers.onOpen(model)}>
             <IconExternal size={13} />
           </button>
         ) : null}
@@ -127,6 +129,13 @@ const Panel = memo(forwardRef(function Panel({ model, loaded, hidden, focused, e
     loader.observe(id, rootRef.current);
     return () => loader.unobserve(id);
   }, [loader, id]);
+  // Whether this body holds an xterm is what decides its zoom row
+  // (loadPolicy's `pane`): a body with no cell never goes still. It is told,
+  // not guessed, because the loader answers before the body renders.
+  const pane = hasPane(model);
+  useEffect(() => {
+    if (loader) loader.setPane(id, pane);
+  }, [loader, id, pane]);
   // is-inert: a live pane away from zoom 1.0 renders and takes keys, but
   // its pointer lies (C0: the mapped cell is `cell × zoom`), so the body
   // takes no pointer at all and the canvas puts a snap-to-1 layer over it.
@@ -134,7 +143,7 @@ const Panel = memo(forwardRef(function Panel({ model, loaded, hidden, focused, e
   // with one line and one action have no cell to miss, and taking the
   // pointer off them would leave a visible Open or Remove that zooms
   // instead of doing what it says.
-  const gated = hasPane(model) && !maximized;
+  const gated = pane && !maximized;
   const cls = ["mx-panel", className, focused ? "is-focused" : "", maximized ? "is-max" : "", model.pending ? "is-pending" : "",
     bodyKind === "plate" ? "is-plate" : "", gated && bodyKind === "still" ? "is-still" : "", gated && !pointer ? "is-inert" : ""].filter(Boolean).join(" ");
   return (

@@ -174,9 +174,26 @@ func validateCompact(c string) error {
 	return nil
 }
 
+// Panel kinds (ADR-0108; the note/file/diff bodies are C3 of
+// docs/plans/matrix-canvas.md). `kind` is an open text column, so a kind is
+// a validator edit and never a migration. The store stays ignorant of what a
+// ref points at — only its *shape* is a rule, exactly as a deleted terminal
+// leaves its panel behind for the UI to render as gone.
+const (
+	MatrixKindAgent    = "agent"
+	MatrixKindTerminal = "terminal"
+	MatrixKindNote     = "note" // ref: a pin id
+)
+
+// The refusals are the contract, repeated word for word in
+// web/shared/domain/matrix.js so the UI can refuse before asking.
+const matrixKindMsg = "kind must be agent, terminal or note"
+
 func validatePanelBinding(kind, ref string) error {
-	if kind != "agent" && kind != "terminal" {
-		return invalid("kind must be agent or terminal")
+	switch kind {
+	case MatrixKindAgent, MatrixKindTerminal, MatrixKindNote:
+	default:
+		return invalid(matrixKindMsg)
 	}
 	if ref == "" {
 		return invalid("ref is required")

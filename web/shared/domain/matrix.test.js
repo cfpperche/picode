@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { touches } from "./feedReducers.js";
 import {
-  CANVAS_ZOOM, LOAD_DWELL_MS, MATRIX_EVENTS, MATRIX_LIMITS, MATRIX_MODES, PANEL_DEFAULT, PANEL_DEFAULT_CANVAS, PANEL_DIRECTIONS,
+  CANVAS_ZOOM, LOAD_DWELL_MS, MATRIX_EVENTS, MATRIX_KINDS, MATRIX_LIMITS, MATRIX_MODES, PANE_STATES, PANEL_DEFAULT, PANEL_DEFAULT_CANVAS, PANEL_DIRECTIONS,
   SUSPENDED_MAX, SUSPENDED_TTL_MS, TIDY_COLS, TIDY_GAP, UNIT_PX, UNLOAD_AFTER_MS, VIEWPORT_PREFIX, applyMatrixEvent, bindingState,
   canvasToGrid, gridToCanvas, layoutDiff, loadPolicy, neighborPanel, nextSlot, normalizeMatrix, normalizeMatrixDetail,
   normalizeMatrixList, normalizePanel, normalizeViewport, panelDefault, panelOrder, pointerAtZoom, pxToUnits, suspendedToDispose,
-  tidyCanvas, unitsToPx, validateCompact, validateMode, validateName, validatePanel, validatePlacement, viewportKey, zoomBody,
+  hasPane, tidyCanvas, unitsToPx, validateCompact, validateMode, validateName, validatePanel, validatePlacement, viewportKey, zoomBody,
 } from "./matrix.js";
 
 const summary = (id, name, extra = {}) => ({
@@ -46,6 +46,7 @@ test("normalizePanel needs a slot id, a known binding and a whole rectangle", ()
   assert.equal(normalizePanel({ ...panel("p1"), x: 1.5 }), null);
   assert.equal(normalizePanel({ ...panel("p1"), w: "4" }), null);
   assert.equal(normalizePanel({ ...panel("p1"), kind: "pin" }), null);
+  assert.equal(normalizePanel({ ...panel("p1"), kind: "note", ref: "pin-1" }).kind, "note");
   assert.equal(normalizePanel({ ...panel("p1"), ref: "" }), null);
   assert.equal(normalizePanel({ ...panel("p1"), id: 7 }), null);
   assert.equal(normalizePanel(null), null);
@@ -80,11 +81,14 @@ test("validate* refuse in the server's words", () => {
   ];
   for (const [rect, want] of cases) assert.equal(validatePlacement(rect), want, JSON.stringify(rect));
   assert.equal(validatePlacement(null), "x must be a whole number");
-  assert.equal(validatePanel({ kind: "pin", ref: "x", x: 0, y: 0, w: 4, h: 8 }), "kind must be agent or terminal");
+  assert.equal(validatePanel({ kind: "pin", ref: "x", x: 0, y: 0, w: 4, h: 8 }), "kind must be agent, terminal or note");
   assert.equal(validatePanel({ kind: "agent", ref: "  ", x: 0, y: 0, w: 4, h: 8 }), "ref is required");
   assert.equal(validatePanel({ kind: "agent", ref: "a1", x: 0, y: 0, w: 3, h: 8 }), "w must be at least 4 columns");
   assert.equal(validatePanel({ kind: "terminal", ref: "t1", x: 8, y: 0, w: 4, h: 8 }), "");
-  assert.equal(validatePanel(undefined), "kind must be agent or terminal");
+  assert.equal(validatePanel(undefined), "kind must be agent, terminal or note");
+  assert.deepEqual([...MATRIX_KINDS], ["agent", "terminal", "note"]);
+  assert.equal(validatePanel({ kind: "note", ref: "pin-1", x: 0, y: 0, w: 4, h: 8 }), "", "a note binds a pin id");
+  assert.equal(validatePanel({ kind: "note", ref: " ", x: 0, y: 0, w: 4, h: 8 }), "ref is required");
 });
 
 test("created and updated keep the list sorted by name and follow a loaded matrix", () => {
@@ -253,7 +257,7 @@ test("validate* judge a rectangle by the mode it belongs to", () => {
   assert.equal(validatePlacement({ x: -1, y: 0, w: 4, h: 8 }), "x must be 0 or more");
   assert.equal(validatePanel({ kind: "terminal", ref: "t1", x: -40, y: -40, w: 32, h: 28 }, "canvas"), "");
   assert.equal(validatePanel({ kind: "terminal", ref: "t1", x: 0, y: 0, w: 4, h: 8 }, "canvas"), "w must be at least 32 canvas units");
-  assert.equal(validatePanel({ kind: "pin", ref: "t1", x: 0, y: 0, w: 32, h: 42 }, "canvas"), "kind must be agent or terminal");
+  assert.equal(validatePanel({ kind: "pin", ref: "t1", x: 0, y: 0, w: 32, h: 42 }, "canvas"), "kind must be agent, terminal or note");
   // layoutDiff follows the mode, or every canvas move would be dropped.
   const prev = [rect("a", 0, 0, 32, 42)];
   assert.deepEqual(layoutDiff(prev, [rect("a", -8, -8, 40, 40)], "canvas"), [{ id: "a", x: -8, y: -8, w: 40, h: 40 }]);
@@ -380,6 +384,27 @@ test("bindingState: agent rows of §4.4", () => {
   assert.equal(bindingState(bound("pin", "x"), fleet), "");
   assert.equal(bindingState(null, fleet), "");
   assert.equal(bindingState(bound("terminal", "t-sh"), null), "terminal-gone");
+});
+
+// C3 (docs/plans/matrix-canvas.md §4.2): a note's binding is a pin, and the
+// gone row is the pin's deletion — the store never hears of it (ADR-0108).
+test("bindingState: note rows follow the pins list, and nothing is gone before it is read", () => {
+  const pins = [{ id: "pin-1", title: "Release notes" }];
+  assert.equal(bindingState(bound("note", "pin-1"), { ...fleet, pins }), "note-ready");
+  assert.equal(bindingState(bound("note", "pin-2"), { ...fleet, pins }), "note-gone");
+  assert.equal(bindingState(bound("note", "pin-2"), { ...fleet, pins: [] }), "note-gone");
+  assert.equal(bindingState(bound("note", "pin-2"), fleet), "note-ready", "no pins list yet: not read is not gone");
+  assert.equal(bindingState(bound("note", "pin-2"), { ...fleet, pins: null }), "note-ready");
+});
+
+test("hasPane: only a body that is a terminal takes the pointer and still rules", () => {
+  assert.deepEqual([...PANE_STATES], ["terminal-running", "terminal-stopped", "agent-interactive"]);
+  for (const state of PANE_STATES) assert.equal(hasPane({ state }), true, state);
+  for (const state of ["terminal-gone", "agent-gone", "agent-stopped", "agent-managed", "note-ready", "note-gone"]) {
+    assert.equal(hasPane({ state }), false, state);
+  }
+  assert.equal(hasPane({ state: "terminal-running", pending: true }), false, "a pending wrapper has no pane yet");
+  assert.equal(hasPane(null), false);
 });
 
 // §4.5, one test per row. `near` is the observer's word plus the surface
@@ -524,6 +549,40 @@ test("zoom table: the hysteresis — live above 0.8, still below 0.75, in betwee
   assert.equal(zoomBody(1, undefined).band, "live", "no memory: live");
   assert.equal(zoomBody(undefined, undefined).body, "live", "no zoom: grid mode's answer");
   assert.equal(zoomBody(NaN, "still").band, "live", "junk zoom reads as 1.0");
+});
+
+// C3 (docs/plans/matrix-canvas.md §4.2): a body that is not a pane has no
+// `term.buffer` to capture, so the still row never applies to it — it renders
+// normally from 0.4 up and becomes the name-plate below it. The band it
+// reports is still the pane band: the band is what bounds the attaches.
+test("zoom table: a body with no pane never goes still — it reads normally from 0.4 up", () => {
+  const flat = [{ id: "n1", near: true, loaded: true, pane: false }];
+  for (const z of [1.5, 1, 0.8, 0.74, 0.5, 0.4]) {
+    assert.deepEqual(at(z, "live", flat).bodies, { n1: "live" }, "readable at " + z);
+  }
+  assert.deepEqual(at(0.5, "still", flat).bodies, { n1: "live" }, "the still band does not reach it");
+  assert.equal(at(0.5, "still", flat).band, "still", "the pane band is unchanged by it");
+  assert.equal(zoomBody(0.5, "still", false).body, "live");
+  assert.equal(zoomBody(0.5, "still", true).body, "still");
+});
+
+test("zoom table: a body with no pane is still a name-plate below 0.4, and still obeys the band", () => {
+  const flat = (near, loaded) => [{ id: "n1", near, loaded, pane: false }];
+  assert.deepEqual(at(0.39, "still", flat(true, true)).bodies, { n1: "plate" });
+  assert.deepEqual(at(CANVAS_ZOOM.min, "live", flat(true, true)).bodies, { n1: "plate" });
+  // Outside the band it unmounts like any other body: there is no socket to
+  // suspend, and mounting again is a fetch.
+  assert.deepEqual(at(1, "live", flat(false, false)).bodies, { n1: "off" });
+  const r = run(flat(false, true), 6000, NONE, { n1: { unloadAt: 5000 } }, { zoom: 1, band: "live" });
+  assert.deepEqual(r.unload, ["n1"]);
+  assert.deepEqual(r.bodies, { n1: "off" });
+});
+
+test("zoom table: panes and non-panes on one plane are decided per row", () => {
+  const mixed = [{ id: "t1", near: true, loaded: true }, { id: "n1", near: true, loaded: true, pane: false }];
+  assert.deepEqual(at(0.5, "live", mixed).bodies, { t1: "still", n1: "live" });
+  assert.deepEqual(at(1, "live", mixed).bodies, { t1: "live", n1: "live" });
+  assert.deepEqual(at(0.3, "live", mixed).bodies, { t1: "plate", n1: "plate" });
 });
 
 test("zoom table: focused and engaged — the pointer rule is what the snap to 1 exists for", () => {

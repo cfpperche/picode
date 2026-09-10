@@ -157,6 +157,12 @@ export function termsetRoute(hash) {
   try { return decodeURIComponent(m[1]); } catch { return m[1]; }
 }
 
+// Pin Studio (#/pins/<id>) — the one place that builds the studio's hash, so
+// a caller never assembles it by hand.
+export function pinHash(id) {
+  return id ? "#/pins/" + encodeURIComponent(id) : "#/pins";
+}
+
 export function pinRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
   if (h === "/pins" || h === "/pins/new") return { mode: "new", id: "" };

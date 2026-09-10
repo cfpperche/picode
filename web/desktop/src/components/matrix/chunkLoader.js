@@ -35,6 +35,12 @@ export class ChunkLoader {
     this.loaded = new Set();
     this.bodies = {}; // id → off | live | still | plate
     this.pinned = new Set();
+    // Bodies that must not be unmounted even by a hidden matrix, because
+    // unmounting them would throw work away: an editor with unsaved changes
+    // (matrix-canvas.md §4.2). `pinned` is the gesture's and the focus's,
+    // and a hidden matrix drops it; `kept` survives that.
+    this.kept = new Set();
+    this.panes = new Map(); // id → does this body hold an xterm?
     this.timers = {};
     this.hidden = false;
     this.wake = 0;
@@ -98,6 +104,7 @@ export class ChunkLoader {
     if (el && this.observer) this.observer.unobserve(el);
     this.els.delete(id);
     this.near.delete(id);
+    this.panes.delete(id);
     delete this.timers[id];
     if (!this.loaded.has(id) && !Object.hasOwn(this.bodies, id)) return;
     const drop = this.dropping.get(id);
@@ -129,6 +136,28 @@ export class ChunkLoader {
     if (had !== !!on) this.tick();
   }
 
+  // keep(id, on): this body holds unsaved work. It never unloads — not on
+  // the band's 5 s, not when the matrix is hidden — until it says so itself.
+  keep(id, on) {
+    if (!id) return;
+    const had = this.kept.has(id);
+    if (on) this.kept.add(id);
+    else this.kept.delete(id);
+    if (had !== !!on) this.tick();
+  }
+
+  // setPane(id, on): whether this panel's body is a terminal. The zoom's
+  // still rule is about a cell, so a body without one is decided by the
+  // other half of the table (loadPolicy). Unknown reads as a pane, which is
+  // what every panel was before C3.
+  setPane(id, on) {
+    if (!id) return;
+    const had = this.panes.get(id);
+    if (had === !!on) return;
+    this.panes.set(id, !!on);
+    this.tick();
+  }
+
   tick() {
     if (this.wake) {
       clearTimeout(this.wake);
@@ -137,11 +166,11 @@ export class ChunkLoader {
     const now = Date.now();
     const entries = [];
     for (const id of this.els.keys()) {
-      entries.push({ id, near: !this.hidden && !!this.near.get(id), loaded: this.loaded.has(id) });
+      entries.push({ id, near: !this.hidden && !!this.near.get(id), loaded: this.loaded.has(id), pane: this.panes.get(id) !== false });
     }
     // A hidden matrix holds no attaches of its own (plan §4.5): far and
     // unpinned, whatever was focused or maximized when it was last shown.
-    const res = loadPolicy(entries, now, this.hidden ? NONE : this.pinned, this.timers, this.view);
+    const res = loadPolicy(entries, now, this.pinnedNow(), this.timers, this.view);
     this.timers = res.timers;
     this.view = { ...this.view, band: res.band };
     let changed = false;
@@ -159,6 +188,14 @@ export class ChunkLoader {
     }
   }
 
+  // A hidden matrix holds no attaches of its own (plan §4.5), so its
+  // gestures and focus stop pinning — but a body with unsaved work is kept
+  // whatever the matrix is doing.
+  pinnedNow() {
+    if (!this.hidden) return this.kept.size ? new Set([...this.pinned, ...this.kept]) : this.pinned;
+    return this.kept.size ? this.kept : NONE;
+  }
+
   emit() {
     this.onChange(new Set(this.loaded), this.bodies);
   }
@@ -174,6 +211,8 @@ export class ChunkLoader {
     this.near.clear();
     this.loaded.clear();
     this.pinned.clear();
+    this.kept.clear();
+    this.panes.clear();
     this.timers = {};
     this.bodies = {};
     this.beforeChange = null;

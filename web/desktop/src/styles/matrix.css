@@ -69,6 +69,16 @@
 .mx-panel-body { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; background: var(--bg-base); }
 .mx-panel-body > .term-surface { padding: 4px; }
 
+/* A note's body: the pin's markdown, read-only, in the app's own `.md`
+   styles — the panel scrolls it and nothing else. The wheel gate (`nowheel`
+   on .mx-panel-body) already keeps a scroll here from zooming the plane. */
+.mx-md {
+  flex: 1; min-height: 0; overflow: auto; padding: 10px 12px;
+  font-size: 12.5px; line-height: 1.5; color: var(--text-primary);
+}
+.mx-md > .file-skel { padding: 0; }
+.mx-md :first-child { margin-top: 0; }
+
 /* Unloaded, pending, stopped, gone: one muted line, at most one action. */
 .mx-placeholder {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
@@ -128,6 +138,13 @@
 .mx-picker-item .ws-face { margin-left: 0; }
 .mx-picker-item .term-cli-face { width: 16px; height: 16px; }
 .mx-picker-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A group with nothing in it says so under the list, with the one action
+   that fills it — the picker never grows a browser of its own. */
+.mx-picker-empty {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 10px 0 0; color: var(--text-secondary); font-size: 12.5px;
+}
+.mx-picker-empty .btn { min-height: var(--ctl-h); }
 .dlg-matrix-name { width: min(420px, calc(100vw - 32px)); }
 .mx-form-error { margin: 8px 0 0; }
 

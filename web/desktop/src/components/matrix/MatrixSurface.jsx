@@ -9,6 +9,7 @@ import { MATRIX_MODES, applyMatrixEvent, bindingState, canvasToGrid, gridToCanva
 import { paneLeaveKey } from "@picode/shared/domain/termKeys.js";
 import AppIcon from "../AppIcon.jsx";
 import { IconEllipsis, IconGrid, IconPencil, IconPlus, IconTrash } from "../Icons.jsx";
+import { go, pinHash } from "../../lib/routes.js";
 import { notify, toast, toastError } from "../../lib/toast.js";
 import { askConfirm } from "../../lib/confirm.js";
 import MatrixGrid, { compactPanels } from "./MatrixGrid.jsx";
@@ -99,7 +100,19 @@ function buildModel(panel, fleet, workingIds, openTabs, prev) {
   let status = "stopped";
   let label = "Gone";
   let stamp = "";
-  if (panel.kind === "terminal") {
+  if (panel.kind === "note") {
+    // A pin's summary is its own header: the title names it, the tags are
+    // the subdued line, and the chip says what the panel is rather than
+    // inventing a status a note does not have.
+    target = (Array.isArray(fleet.pins) ? fleet.pins : []).find((x) => x && x.id === panel.ref) || null;
+    if (target) {
+      name = target.title || "Untitled note";
+      hint = (target.tags || []).join(" · ");
+      status = "ready";
+      label = "Note";
+      stamp = target.updatedAt || "";
+    }
+  } else if (panel.kind === "terminal") {
     target = (fleet.terminals || []).find((t) => t && t.id === panel.ref) || null;
     if (target) {
       const cli = terminalCli(target);
@@ -179,6 +192,16 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   const [pickerOpen, setPickerOpen] = useState(false);
   const [nameDialog, setNameDialog] = useState(""); // "" | "new" | "rename"
   const [workingIds, setWorkingIds] = useState([]);
+  // The pins a note panel binds (docs/plans/matrix-canvas.md §4.2). `null`
+  // means "not read yet", the same distinction the fleet's `loaded` makes:
+  // before the read, a note is not gone. Summaries only — the body reads its
+  // own pin, because a 100 KB note has no business in this list.
+  const [pins, setPins] = useState(null);
+  const pinsAt = useRef(0);
+  // The pins list is read when something needs it — a note on this matrix,
+  // or the picker offering one — and never otherwise: a matrix of terminals
+  // costs no pin request at all.
+  const pinsNeededRef = useRef(false);
   const hiddenRef = useRef(hidden);
   hiddenRef.current = hidden;
   const gestureRef = useRef(false);
@@ -249,6 +272,16 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       setDetailError(humanizeError(msgOf(e)));
     }
   }, []);
+  const loadPins = useCallback(async () => {
+    try {
+      const d = await api("/api/pins");
+      pinsAt.current = Date.now();
+      setPins(Array.isArray(d && d.pins) ? d.pins.filter((p) => p && p.id) : []);
+    } catch {
+      // The feed reconnect and the next reveal try again; a note panel keeps
+      // the last list it had rather than flashing every pin as gone.
+    }
+  }, []);
   useEffect(() => { loadList(); }, [loadList]);
   const feed = host && host.feed;
   useEffect(() => {
@@ -258,6 +291,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
         if (ev.data && ev.data.first) return;
         loadList();
         if (currentRef.current) loadDetail(currentRef.current);
+        if (pinsNeededRef.current) loadPins();
         return;
       }
       if (ev.type === "agent.tui") { setWorkingIds((cur) => applyTui(cur, ev)); return; }
@@ -269,19 +303,24 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
         if (gone) forgetPane(gone, ownedByTab(kind, gone, (hostRef.current && hostRef.current.openTabs) || NO_PANELS));
         return;
       }
+      // A note follows its pin: the feed carries the summary, so the list
+      // above is patched by refetching it and the body refetches its own
+      // markdown (NotePanel). No timer either side.
+      if (touches(ev, ["pin"])) { if (pinsNeededRef.current) loadPins(); return; }
       if (!touches(ev, ["matrix"])) return;
       // Another client's rows arrive after the gesture ends (plan §4.7).
       if (gestureRef.current) { queuedRef.current.push(ev); return; }
       setStore((s) => settle(applyMatrixEvent(s, ev), ev));
     });
-  }, [feed, loadList, loadDetail]);
+  }, [feed, loadList, loadDetail, loadPins]);
   useEffect(() => {
     if (hidden) return;
     const now = Date.now();
     if (listAt.current && now - listAt.current > REVEAL_STALE_MS) loadList();
     const id = currentRef.current;
     if (id && detailAt.current[id] && now - detailAt.current[id] > REVEAL_STALE_MS) loadDetail(id);
-  }, [hidden, loadList, loadDetail]);
+    if (pinsNeededRef.current && pinsAt.current && now - pinsAt.current > REVEAL_STALE_MS) loadPins();
+  }, [hidden, loadList, loadDetail, loadPins]);
 
   // ---- which matrix -------------------------------------------------------
   const flushRef = useRef(() => {});
@@ -323,6 +362,15 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   const mode = current ? current.mode : "grid";
   modeRef.current = mode;
 
+  // Pins: read once when the first note panel appears or the picker opens,
+  // then only the feed (and a stale reveal). `pins` stays null until then,
+  // which is what keeps a note from reading as gone before the read.
+  const pinsNeeded = pickerOpen || panels.some((p) => p.kind === "note");
+  pinsNeededRef.current = pinsNeeded;
+  useEffect(() => {
+    if (pinsNeeded && !pinsAt.current) loadPins();
+  }, [pinsNeeded, loadPins]);
+
   // The tmux-reported Working state of the agents on this matrix: one read
   // on open and reveal, then agent.tui from the feed (the sidebar's rule).
   const agentRefs = useMemo(() => panels.filter((p) => p.kind === "agent").map((p) => p.ref).sort().join(","), [panels]);
@@ -335,17 +383,20 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
 
   // ---- panel models -------------------------------------------------------
   const modelsRef = useRef(new Map());
+  // What every binding is judged against: the desktop's fleet plus the lists
+  // the other kinds bind (pins). One object so bindingState has one argument.
+  const bindings = useMemo(() => ({ ...fleet, pins }), [fleet, pins]);
   const models = useMemo(() => {
     const prev = modelsRef.current;
     const next = new Map();
     const out = panels.map((p) => {
-      const m = buildModel(p, fleet, workingIds, openTabs, prev.get(p.id));
+      const m = buildModel(p, bindings, workingIds, openTabs, prev.get(p.id));
       next.set(p.id, m);
       return m;
     });
     modelsRef.current = next;
     return out;
-  }, [panels, fleet.workspaces, fleet.freeAgents, fleet.terminals, workingIds, openTabs]);
+  }, [panels, bindings, workingIds, openTabs]);
   useEffect(() => {
     if (focusedId && !models.some((m) => m.id === focusedId)) setFocusedId("");
     if (maximizedId && !models.some((m) => m.id === maximizedId)) setMaximizedId("");
@@ -668,6 +719,8 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     },
     onOpen: (model) => {
       const h = hostRef.current || {};
+      // A note is written in Pin Studio, which is a route and not a tab.
+      if (model.kind === "note") { location.hash = pinHash(model.ref); return; }
       if (model.kind === "terminal") { if (h.openTab) h.openTab("t:" + model.ref); return; }
       if (model.state === "agent-interactive") { if (h.openInteractive) h.openInteractive(model.ref); return; }
       if (h.revealAgent) h.revealAgent(model.ref);
@@ -749,7 +802,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       <div className="app-blank">
         <AppIcon name="matrix" label={title} size={24} />
         <p className="app-blank-title">No matrix yet.</p>
-        <p className="app-blank-sub">A matrix shows many agents and terminals side by side, live.</p>
+        <p className="app-blank-sub">A matrix shows many agents, terminals and notes side by side, live.</p>
         <button type="button" className="btn btn-sm btn-primary" onClick={() => setNameDialog("new")}><IconPlus size={13} /> New matrix</button>
       </div>
     );
@@ -772,7 +825,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       <div className="app-blank">
         <AppIcon name="matrix" label={title} size={24} />
         <p className="app-blank-title">Add your first panel.</p>
-        <p className="app-blank-sub">A panel is one agent or terminal, live on this matrix.</p>
+        <p className="app-blank-sub">A panel is one agent, terminal or note on this matrix.</p>
         <button type="button" className="btn btn-sm btn-primary" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
       </div>
     );
@@ -893,9 +946,11 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       <PanelPicker
         open={pickerOpen}
         fleet={fleet}
+        pins={pins}
         onMatrix={onMatrix}
         workingIds={workingIds}
         onPick={addPanel}
+        onNewPin={() => { setPickerOpen(false); go("pins-new"); }}
         onClose={() => setPickerOpen(false)}
       />
       <NameDialog

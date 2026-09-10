@@ -1,11 +1,16 @@
+import { hasPane } from "@picode/shared/domain/matrix.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
 import TerminalPanel from "./TerminalPanel.jsx";
+import NotePanel from "./NotePanel.jsx";
 
 // PanelBody — the slot under a panel's header (docs/plans/matrix-app.md
-// §4.4, one row each). Loaded: the live pane (TerminalPanel). Unloaded: a
-// muted placeholder with the feed's last state ("Working · 2 min") — the
-// header stays live either way. A binding the fleet cannot serve is one
-// line and one action, whether loaded or not.
+// §4.4, one row each; the kinds beyond a live pane are
+// docs/plans/matrix-canvas.md §4.2). Loaded, the body is what the panel's
+// **kind** binds: a terminal or an agent is the live pane (TerminalPanel), a
+// note is its pin's markdown (NotePanel). Unloaded: a muted placeholder with
+// the feed's last state ("Working · 2 min") — the header stays live either
+// way. A binding the fleet cannot serve is one line and one action, whether
+// loaded or not.
 function Line({ text, action, onAction }) {
   return (
     <div className="mx-placeholder mx-state" role="status">
@@ -15,14 +20,10 @@ function Line({ text, action, onAction }) {
   );
 }
 
-// hasPane(model): does this binding have a terminal to capture a still of?
-// The four rows of §4.4 that answer with one line and one action have no
-// screen, so on a canvas they keep their own words at every zoom instead of
-// being replaced by an empty still.
-const NO_PANE = ["terminal-gone", "agent-gone", "agent-stopped", "agent-managed"];
-export function hasPane(model) {
-  return !!model && !model.pending && !NO_PANE.includes(model.state);
-}
+// hasPane is the domain's (web/shared/domain/matrix.js): the rows whose body
+// *is* a terminal. Re-exported here because this is where the components
+// already ask for it.
+export { hasPane };
 
 export default function PanelBody({ model, loaded, hidden, focused, onOpen, onRemove, onRun, onOpenFile }) {
   switch (model.state) {
@@ -30,6 +31,7 @@ export default function PanelBody({ model, loaded, hidden, focused, onOpen, onRe
     case "agent-gone": return <Line text="That agent is gone." action="Remove" onAction={onRemove} />;
     case "agent-stopped": return <Line text="Agent is stopped." action="Run" onAction={onRun} />;
     case "agent-managed": return <Line text="Managed agent — open to read." action="Open" onAction={onOpen} />;
+    case "note-gone": return <Line text="That pin is gone." action="Remove" onAction={onRemove} />;
     default: break;
   }
   if (model.pending) return <div className="mx-placeholder"><span>Adding…</span></div>;
@@ -40,6 +42,7 @@ export default function PanelBody({ model, loaded, hidden, focused, onOpen, onRe
     </div>
   );
   if (!loaded) return placeholder;
+  if (model.kind === "note") return <NotePanel pinId={model.ref} title={model.name} />;
   return (
     <TerminalPanel
       kind={model.kind}

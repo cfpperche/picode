@@ -244,8 +244,9 @@ func TestMatrixPanelStatuses(t *testing.T) {
 		{"x < 0", "terminal", "t", -1, 0, 4, 8, "x must be 0 or more"},
 		{"y < 0", "terminal", "t", 0, -1, 4, 8, "y must be 0 or more"},
 		{"x + w > 12", "terminal", "t", 9, 0, 4, 8, "x + w must be at most 12 columns"},
-		{"kind", "pin", "t", 0, 0, 4, 8, "kind must be agent or terminal"},
+		{"kind", "pin", "t", 0, 0, 4, 8, "kind must be agent, terminal or note"},
 		{"ref empty", "terminal", "  ", 0, 0, 4, 8, "ref is required"},
+		{"note ref empty", "note", " ", 0, 0, 4, 8, "ref is required"},
 	}
 	for _, c := range cases {
 		if code, out := addPanelReq(t, ts, id, c.kind, c.ref, c.x, c.y, c.w, c.h); code != http.StatusBadRequest || !strings.Contains(errorOf(out), c.want) {
@@ -270,6 +271,28 @@ func TestMatrixPanelStatuses(t *testing.T) {
 	}
 	if n := len(matrixEvents(t, st)); n != 1+store.MaxMatrixPanels {
 		t.Fatalf("events = %d (a refusal must announce nothing)", n)
+	}
+}
+
+// C3 (docs/plans/matrix-canvas.md §4.2) through the handlers: a note binds a
+// pin id, and the store is ignorant of it (ADR-0108) — a pin that does not
+// exist is accepted and read back verbatim, the same pin twice is a 409.
+func TestMatrixPanelKindNote(t *testing.T) {
+	ts, _ := matrixServer(t)
+	m := newMatrix(t, ts, "Ops")
+	id := m["id"].(string)
+	for i, ref := range []string{"pin-abc123", "pin-never-existed"} {
+		code, out := addPanelReq(t, ts, id, "note", ref, 0, i*8, 4, 8)
+		p, _ := out["panel"].(map[string]any)
+		if code != http.StatusCreated || p == nil || p["kind"] != "note" || p["ref"] != ref {
+			t.Fatalf("note %q = %d %v", ref, code, out)
+		}
+	}
+	if code, out := addPanelReq(t, ts, id, "note", "pin-abc123", 0, 90, 4, 8); code != http.StatusConflict || !strings.Contains(errorOf(out), "already on this matrix") {
+		t.Fatalf("duplicate note = %d %v", code, out)
+	}
+	if d := matrixDetail(t, ts, id); d["panelCount"] != float64(2) {
+		t.Fatalf("panels = %v", d["panelCount"])
 	}
 }
 

@@ -37,7 +37,10 @@ export const UNIT_PX = 8;
 const CANVAS_PER_COL = 8;
 const CANVAS_PER_ROW = 3;
 
-export const MATRIX_KINDS = Object.freeze(["agent", "terminal"]);
+// What a panel can be bound to (ADR-0108; the bodies beyond a live pane are
+// C3 of docs/plans/matrix-canvas.md §4.2). `kind` is an open text column, so
+// a kind is a validator edit on both sides and never a migration.
+export const MATRIX_KINDS = Object.freeze(["agent", "terminal", "note"]);
 export const MATRIX_COMPACT = Object.freeze(["vertical", "none"]);
 // The layout mode of a matrix: what its panels' x/y/w/h mean. The first is
 // the default a summary falls back to.
@@ -51,6 +54,10 @@ export const MATRIX_EVENTS = Object.freeze([
   "matrix.panel.removed",
   "matrix.deleted",
 ]);
+
+// The server's refusals, word for word (internal/store/matrix.go), so the UI
+// can refuse before asking and read a 400 back as the same sentence.
+const KIND_MSG = "kind must be agent, terminal or note";
 
 const str = (v) => (typeof v === "string" ? v : "");
 const nonEmpty = (v) => typeof v === "string" && v !== "";
@@ -149,7 +156,7 @@ export function validatePlacement(rect, mode = "grid") {
 // in the server's order: binding first, then the rectangle of that mode.
 export function validatePanel(panel, mode = "grid") {
   const p = panel || {};
-  if (!MATRIX_KINDS.includes(p.kind)) return `kind must be ${MATRIX_KINDS.join(" or ")}`;
+  if (!MATRIX_KINDS.includes(p.kind)) return KIND_MSG;
   if (!str(p.ref).trim()) return "ref is required";
   return validatePlacement(p, mode);
 }
@@ -390,12 +397,22 @@ export function layoutDiff(prev, next, mode = "grid") {
 // bindingState(panel, fleet) -> one row of plan §4.4:
 //   terminal-running | terminal-stopped | terminal-gone
 //   agent-interactive | agent-managed | agent-stopped | agent-gone
-// fleet is the host's { workspaces, freeAgents, terminals }. A shell whose
-// tmux session died is still "running" for the panel: opening it revives
-// the shell; only a configured CLI terminal has a stopped state of its own.
+//   note-ready | note-gone
+// fleet is the host's { workspaces, freeAgents, terminals } plus, for the
+// kinds that bind something else, the list that decides them: `pins` for a
+// note. A shell whose tmux session died is still "running" for the panel:
+// opening it revives the shell; only a configured CLI terminal has a stopped
+// state of its own.
+//
+// A list that has not been read yet is `null`, not `[]` — the same rule the
+// fleet follows (`host.fleet.loaded`): before the read, nothing is gone.
 export function bindingState(panel, fleet) {
   const f = fleet || {};
   if (!panel) return "";
+  if (panel.kind === "note") {
+    if (!Array.isArray(f.pins)) return "note-ready";
+    return f.pins.some((x) => x && x.id === panel.ref) ? "note-ready" : "note-gone";
+  }
   if (panel.kind === "terminal") {
     const t = (f.terminals || []).find((x) => x && x.id === panel.ref);
     if (!t) return "terminal-gone";
@@ -410,6 +427,19 @@ export function bindingState(panel, fleet) {
     return "agent-stopped";
   }
   return "";
+}
+
+// The rows whose body *is* a terminal — the only ones the zoom's pointer and
+// still rules bind, because those rules are about a cell (matrix-canvas.md
+// §4.3). Everything else (the four rows that answer with one line and one
+// action, and every body that is not a pane at all: a note, a file, a diff)
+// keeps its own chrome at every zoom above the name-plate.
+export const PANE_STATES = Object.freeze(["terminal-running", "terminal-stopped", "agent-interactive"]);
+
+// hasPane(model) -> does this panel hold an xterm? PanelBody re-exports it,
+// so the components ask the domain and never a list of their own.
+export function hasPane(model) {
+  return !!model && !model.pending && PANE_STATES.includes(model.state);
 }
 
 // ---- zoom (plan docs/plans/matrix-canvas.md §4.3) -------------------------
@@ -437,19 +467,26 @@ export const CANVAS_ZOOM = Object.freeze({
 // tolerance, not an equality.
 export const ZOOM_EPS = 0.005;
 
-// zoomBody(zoom, band) -> { band, body }: what a *loaded* body renders and
-// the hysteretic band to feed back next time. Live at or above 0.8, still
-// below 0.75, and in between whatever it already was — so a viewer parked on
-// the boundary does not thrash nine sockets (C0: crossing 0.79/0.80
-// suspended and kicked nine attaches). Below 0.4 it is a name-plate whatever
-// the band says.
-export function zoomBody(zoom, band) {
+// zoomBody(zoom, band, pane) -> { band, body }: what a *loaded* body renders
+// and the hysteretic band to feed back next time. Live at or above 0.8,
+// still below 0.75, and in between whatever it already was — so a viewer
+// parked on the boundary does not thrash nine sockets (C0: crossing
+// 0.79/0.80 suspended and kicked nine attaches). Below 0.4 it is a
+// name-plate whatever the band says.
+//
+// `pane` is whether this body is a terminal (hasPane). The still is a
+// picture of `term.buffer.active`, so a body with no buffer has none to
+// show: a note, a file or a diff renders normally from 0.4 up — DOM text
+// scales, and the pointer bug is xterm's alone — and becomes the name-plate
+// below 0.4, where nothing textual is legible. The band it answers with is
+// the pane band either way, because the band is what bounds the attaches.
+export function zoomBody(zoom, band, pane = true) {
   const z = Number.isFinite(zoom) ? zoom : CANVAS_ZOOM.exact;
   let next = band === "still" ? "still" : "live";
   if (z >= CANVAS_ZOOM.live) next = "live";
   else if (z < CANVAS_ZOOM.still) next = "still";
-  const body = z < CANVAS_ZOOM.plate ? "plate" : next === "still" ? "still" : "live";
-  return { band: next, body };
+  if (z < CANVAS_ZOOM.plate) return { band: next, body: "plate" };
+  return { band: next, body: pane && next === "still" ? "still" : "live" };
 }
 
 // pointerAtZoom(zoom) -> may the pointer reach the pane? Only at 1.0.
@@ -460,8 +497,10 @@ export function pointerAtZoom(zoom) {
 // loadPolicy(entries, now, pinned, timers, view)
 //   -> { load, unload, timers, wakeAt, band, bodies }
 // The chunk-loading decision (§4.5), pure so every row has a test:
-//   entries  [{ id, near, loaded }] — near: inside the viewport ± the
-//            observer's margin (its word) and the surface visible
+//   entries  [{ id, near, loaded, pane }] — near: inside the viewport ± the
+//            observer's margin (its word) and the surface visible; pane:
+//            whether this body is a terminal (default true, so grid mode and
+//            every v1 caller are unchanged)
 //   pinned   Set of ids that never unload (dragged, resized, focused,
 //            maximized)
 //   timers   the previous call's `timers` — the policy's only memory:
@@ -474,9 +513,10 @@ export function pointerAtZoom(zoom) {
 // left; coming back cancels the unload. wakeAt is the earliest deadline,
 // 0 when nothing is pending — the caller sleeps until then.
 // `bodies` is what each entry renders now: off (not loaded — the
-// placeholder, and the attach is suspended), live, still or plate. The band
-// is screen-space, so zooming out puts everything in it (C0: 500 of 500 at
-// 0.2); what bounds the attaches down there is the still rule, not the band.
+// placeholder, and the attach is suspended), live, still or plate — the
+// still only for an entry that has a pane. The band is screen-space, so
+// zooming out puts everything in it (C0: 500 of 500 at 0.2); what bounds the
+// attaches down there is the still rule, not the band.
 export function loadPolicy(entries, now, pinned, timers, view) {
   const pin = pinned || new Set();
   const prev = timers || {};
@@ -486,7 +526,11 @@ export function loadPolicy(entries, now, pinned, timers, view) {
   const bodies = {};
   let wakeAt = 0;
   const wake = (t) => { if (t && (!wakeAt || t < wakeAt)) wakeAt = t; };
-  const zoomed = zoomBody(view && view.zoom, view && view.band);
+  const zoom = view && view.zoom;
+  const zoomed = zoomBody(zoom, view && view.band);
+  // Two rows of the same table, decided once instead of per entry: what a
+  // terminal renders at this zoom, and what a body with no cell renders.
+  const flat = zoomBody(zoom, zoomed.band, false).body;
   for (const e of entries || []) {
     if (!e || !nonEmpty(e.id)) continue;
     const t = prev[e.id] || {};
@@ -502,7 +546,7 @@ export function loadPolicy(entries, now, pinned, timers, view) {
       if (unloadAt <= now) { unload.push(e.id); on = false; }
       else { next[e.id] = { unloadAt }; wake(unloadAt); }
     }
-    bodies[e.id] = on ? zoomed.body : "off";
+    bodies[e.id] = on ? (e.pane === false ? flat : zoomed.body) : "off";
   }
   return { load, unload, timers: next, wakeAt, band: zoomed.band, bodies };
 }
