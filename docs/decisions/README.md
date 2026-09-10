@@ -117,3 +117,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0110](0110-workspace-communication-onboarding.md) | Workspace communication preferences and guided connection setup | proposed |
 | [0111](0111-codex-native-message-client.md) | Codex native message client | accepted |
 | [0113](0113-matrix-canvas-mode.md) | Matrix canvas mode: a layout mode per matrix, mode-dependent rectangle units, one transactional switch | accepted, amends 0108 |
+| [0114](0114-browser-surface-stream.md) | browser-surface-stream | proposed |

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import AgentRow from "../components/AgentRow.jsx";
 import TermRow from "../components/TermRow.jsx";
 import { freeTerminals } from "../lib/termGroups.js";
@@ -19,11 +19,31 @@ let rememberedQuery = "";
 
 // Paseo's workspace grouping, adapted to one focused phone list. Search
 // retains the parent folder when it finds an agent or terminal inside it.
-export default function Work({ section, onSection, loaded, error, workspaces, freeAgents, terminals, workingIds, busyId, checklists,
+export default function Work({ section, focusWs, onSection, loaded, error, workspaces, freeAgents, terminals, workingIds, busyId, checklists,
   onOpenAgent, onOpenTerm, onStart, onStop, onRemoveTerm, onCreate, onNewTerm, onOpenChanges, onOpenFiles, onOpenGit, onRefresh }) {
   const [query, updateQuery] = useState(() => rememberedQuery);
   const [searchOpen, setSearchOpen] = useState(() => !!rememberedQuery);
   const focusSearch = useRef(false);
+  const surface = useRef(null);
+  // Back from a workspace's agent or terminal lands here focused on that
+  // group: bring it to the top instead of the remembered list offset.
+  // Runs after PullScreen's restore (children first), so focus wins.
+  // Re-runs as the list changes (feed patch, poll): the scroll is the
+  // live geometry difference, so once settled it is a no-op — but a
+  // clamp with the tail still loading gets corrected when rows arrive.
+  useLayoutEffect(() => {
+    if (!focusWs || !loaded || !surface.current) return;
+    // The section toolbar is sticky inside the scroll box: land the group
+    // just below it, not under it.
+    const bar = surface.current.querySelector(".m-list-head");
+    const sticky = bar ? bar.offsetHeight : 0;
+    const top = surface.current.getBoundingClientRect().top;
+    for (const group of surface.current.querySelectorAll(".m-work-group")) {
+      if (group.dataset.ws !== focusWs) continue;
+      surface.current.scrollTop += group.getBoundingClientRect().top - top - sticky;
+      break;
+    }
+  }, [focusWs, loaded, workspaces]);
   const setQuery = value => { rememberedQuery = value; updateQuery(value); };
   const sec = WORK_SECTIONS.includes(section) ? section : "workspaces";
   const groups = searchWorkspaceGroups(workspaces, terminals, query);
@@ -36,7 +56,7 @@ export default function Work({ section, onSection, loaded, error, workspaces, fr
   const addLabel = workEmpty(sec, false).action;
   const EmptyMark = EMPTY_ICONS[sec];
   return (
-    <PullScreen scrollKey={"work:" + sec} onRefresh={onRefresh} className="m-v2-lists m-work-v2">
+    <PullScreen scrollKey={"work:" + sec} surfaceRef={surface} onRefresh={onRefresh} className="m-v2-lists m-work-v2">
       <div className="m-screen-head m-list-head">
         <div className="m-list-toolbar" data-align-row>
           <select className="m-work-view" aria-label="Work view" value={sec} onChange={event => onSection(event.target.value)}>{WORK_SECTIONS.map(s => <option key={s} value={s}>{LABELS[s]}</option>)}</select>
@@ -53,7 +73,7 @@ export default function Work({ section, onSection, loaded, error, workspaces, fr
           <button type="button" className={"btn btn-sm" + (empty.page ? " btn-primary" : "")} onClick={searching ? () => setQuery("") : create}>{empty.action}</button>
         </div>
       ) : sec === "workspaces" ? groups.map(({ workspace: ws, agents: wsAgents, terminals: wsTerms }) => (
-        <section key={ws.id} className="m-section m-work-group" aria-label={ws.name}>
+        <section key={ws.id} className="m-section m-work-group" data-ws={ws.id} aria-label={ws.name}>
           <div className="m-work-group-head">
             <span className="m-work-group-face"><WsFavicon ws={ws} size={22} /></span>
             <div className="m-work-group-title"><h3>{ws.name}</h3><p title={ws.path}>{[shortPath(ws.path), ws.git?.branch].filter(Boolean).join(" · ")}</p></div>
