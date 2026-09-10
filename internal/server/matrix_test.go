@@ -530,6 +530,15 @@ func TestMatrixModeStatuses(t *testing.T) {
 		t.Fatalf("the switch back did not carry both panels: %v", out["panels"])
 	}
 
+	// A rename travelling with a mode that the store refuses lands nothing:
+	// the name is checked before the switch is attempted.
+	if code, out := patchMatrix(t, ts, id, map[string]any{"mode": "canvas", "name": strings.Repeat("x", 81)}); code != http.StatusBadRequest || !strings.Contains(errorOf(out), "name is too long") {
+		t.Fatalf("mode + broken name = %d %v", code, out)
+	}
+	if d := matrixDetail(t, ts, id); d["mode"] != "grid" || d["name"] != "Ops" {
+		t.Fatalf("a refused patch switched the mode anyway: %v", d)
+	}
+
 	// A rename travelling with a mode: both land, each announcing itself.
 	code, out = patchMatrix(t, ts, id, map[string]any{"mode": "canvas", "name": "Ops board"})
 	if code != http.StatusOK || out["mode"] != "canvas" || out["name"] != "Ops board" || len(out["panels"].([]any)) != 2 {
@@ -539,7 +548,7 @@ func TestMatrixModeStatuses(t *testing.T) {
 		t.Fatalf("after mode + rename = %v", d)
 	}
 
-	want2 := []string{"matrix.created", "matrix.panel.added", "matrix.panel.added", "matrix.mode", "matrix.mode", "matrix.mode", "matrix.updated"}
+	want2 := []string{"matrix.created", "matrix.panel.added", "matrix.panel.added", "matrix.mode", "matrix.mode", "matrix.updated", "matrix.mode"}
 	if got := eventTypes(matrixEvents(t, st)); !reflect.DeepEqual(got, want2) {
 		t.Fatalf("events = %v, want %v", got, want2)
 	}

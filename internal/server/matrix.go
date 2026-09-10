@@ -124,24 +124,26 @@ func handleUpdateMatrix(deps Deps) http.HandlerFunc {
 			writeJSON(w, http.StatusOK, m)
 			return
 		}
-		// The mode moves every panel, so it is its own store method, its own
-		// transaction and its own event. A rename in the same body follows
-		// it, under the updatedAt the switch just wrote.
-		out, err := deps.Store.SetMatrixMode(id, *req.Mode, pre)
-		if err != nil {
-			writeMatrixErr(w, err)
-			return
-		}
+		// A name or compact travelling with a mode goes first: UpdateMatrix
+		// refuses a broken one before it writes anything, so the switch
+		// never lands under a patch that is going to be refused. The mode
+		// follows, under the updatedAt the rename just wrote, because it
+		// moves every panel and is its own store method, its own
+		// transaction and its own event.
 		if req.Name != nil || req.Compact != nil {
-			if pre != "" {
-				pre = out.UpdatedAt
-			}
 			m, err := deps.Store.UpdateMatrix(id, store.MatrixPatch{Name: req.Name, Compact: req.Compact}, pre)
 			if err != nil {
 				writeMatrixErr(w, err)
 				return
 			}
-			out.Matrix = m
+			if pre != "" {
+				pre = m.UpdatedAt
+			}
+		}
+		out, err := deps.Store.SetMatrixMode(id, *req.Mode, pre)
+		if err != nil {
+			writeMatrixErr(w, err)
+			return
 		}
 		writeJSON(w, http.StatusOK, out)
 	}

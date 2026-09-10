@@ -41,7 +41,7 @@ carries, so the client has one reducer path for a response and a frame.
 | `POST /api/matrices {name}` | 201 summary; 400 with the limit named |
 | `GET /api/matrices/{id}` | 200 summary + `panels: [{id, kind, ref, x, y, w, h, createdAt}]` (one read on open; 500 panels ≈ 50 KB) |
 | `PATCH /api/matrices/{id} {name?, compact?, mode?, ifUpdatedAt}` | 200 summary; 400 on an empty patch or a broken rule; 409 when the row moved on |
-| …the same route when `mode` changes it | 200 summary **plus** `panels: [{id, x, y, w, h}]` — every panel the switch moved, the shape the layout patch answers with, so the client has one reducer path. Same mode: the untouched summary, `panels: []`, no event, `updatedAt` unchanged. Unknown mode: 400 "mode must be grid or canvas" |
+| …the same route when `mode` changes it | 200 summary **plus** `panels: [{id, x, y, w, h}]` — every panel the switch moved, the shape the layout patch answers with, so the client has one reducer path. Same mode: the untouched summary, `panels: []`, no event, `updatedAt` unchanged. Unknown mode: 400 "mode must be grid or canvas". A `name`/`compact` in the same body is applied first (its own `matrix.updated`), so a broken one refuses the patch before the switch |
 | `PATCH /api/matrices/{id}/layout {ifUpdatedAt, panels: [{id, x, y, w, h}]}` | the changed subset, one transaction, all or nothing, every rectangle judged by the matrix's current mode; 200 `{id, updatedAt, panels}`; 409 when stale |
 | `POST /api/matrices/{id}/panels {kind, ref, x, y, w, h}` | the client places (`nextSlot`, phase 3), the server validates against the matrix's current mode; 201 `{id, updatedAt, panel}`; 409 on a duplicate binding |
 | `DELETE /api/matrices/{id}/panels/{panelId}` | 204; the feed carries the new `updatedAt` |
