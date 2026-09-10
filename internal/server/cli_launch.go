@@ -33,7 +33,10 @@ type CLITerminals struct {
 	locks sync.Map
 }
 
-func newCLITerminals() *CLITerminals { return &CLITerminals{} }
+// NewCLITerminals shares lifecycle locks between HTTP routes and background preparation.
+func NewCLITerminals() *CLITerminals { return &CLITerminals{} }
+
+func newCLITerminals() *CLITerminals { return NewCLITerminals() }
 func terminalLock(deps Deps, id string) func() {
 	if deps.CLIs == nil {
 		return func() {}
@@ -878,6 +881,11 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 			peerOptions.Env["OPENCODE_CONFIG_CONTENT"] = merged
 		}
 	}
+	if c.Integration && cli.ID == "pi" && len(peerOptions.Args) == 0 {
+		if p, e := deps.Store.PeerParticipant("terminal", v.TerminalID); e == nil && p.Enabled && p.CLI == cli.ID {
+			peerOptions = communication.PiAdapterOptions()
+		}
+	}
 	// Native tool invocations resolve their own current session. This routing
 	// root and executable contain no bearer, even before enrollment or resume.
 	if c.Integration && (cli.ID == "grok" || cli.ID == "hermes") {
@@ -961,6 +969,9 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 }
 
 func (p *preparedCLILaunch) start(deps Deps, r *http.Request, name, cwd string) error {
+	if blocked, e := peerStopPending(deps, p.id); e != nil || blocked {
+		return errors.New("The previous process has not finished closing. Try again after it exits.")
+	}
 	env := append(append([]string{}, p.environment...), "PICODE_TERM_ID="+p.id, "PICODE_TERM_URL="+loopbackURL(deps))
 	if b := interceptBinEnv(deps.DataDir); b != "" {
 		env = append(env, b)

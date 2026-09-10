@@ -2760,6 +2760,154 @@
         ]
       }
     },
+    "/api/communication/workspaces": {
+      "get": {
+        "operationId": "getApiCommunicationWorkspaces",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "communication"
+        ]
+      }
+    },
+    "/api/communication/workspaces/{id}/history": {
+      "get": {
+        "operationId": "getApiCommunicationWorkspacesHistory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "communication"
+        ]
+      }
+    },
+    "/api/communication/workspaces/{id}/open": {
+      "post": {
+        "operationId": "postApiCommunicationWorkspacesOpen",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "communication"
+        ]
+      }
+    },
+    "/api/communication/workspaces/{id}/participants": {
+      "put": {
+        "operationId": "putApiCommunicationWorkspacesParticipants",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "communication"
+        ]
+      }
+    },
+    "/api/communication/workspaces/{id}/test": {
+      "post": {
+        "operationId": "postApiCommunicationWorkspacesTest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "communication"
+        ]
+      }
+    },
     "/api/communication/{id}": {
       "delete": {
         "operationId": "deleteApiCommunication",

@@ -55,7 +55,9 @@ func termHostsPi(deps Deps, id string) bool {
 func handleTerminalTuiHello(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
-			Session string `json:"session"`
+			Session    string `json:"session"`
+			Connection string `json:"connection"`
+			RunID      string `json:"runId"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		id := r.PathValue("id")
@@ -63,7 +65,13 @@ func handleTerminalTuiHello(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusNotFound, "no such terminal")
 			return
 		}
-		deps.Replies.HelloSession(termReplyKey(id), req.Session)
+		if req.RunID != "" {
+			if rt, ok := deps.TermRuntimes.Get(id); ok && rt.RunID != req.RunID {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+		}
+		deps.Replies.helloConnectionProcess(termReplyKey(id), req.Session, req.Connection, req.RunID)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

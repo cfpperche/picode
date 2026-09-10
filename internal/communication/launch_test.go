@@ -129,17 +129,16 @@ func TestPiLaunchRegistrationFollowsNativeSession(t *testing.T) {
 import assert from 'node:assert/strict';
 import {readFileSync,writeFileSync} from 'node:fs';
 const c=JSON.parse(readFileSync(new URL('./connection.json',import.meta.url)));
-let registrations=0,disposed=0;const handlers={};
-const pi={on:(n,h)=>handlers[n]=h,events:{emit:(n,r)=>{assert.equal(n,'pi-mcp-adapter:runtime-register:v1');registrations++;assert.equal(r.definition.headers.Authorization,'Bearer '+c.token);r.result={ok:true,registration:{dispose:async()=>{disposed++}}}}}};
+let registrations=0;const handlers={};
+const pi={on:(n,h)=>handlers[n]=h,events:{emit:(n,r)=>{assert.equal(n,'picode:communication-configure');registrations++;assert.equal(r.config.token,c.token);r.promise=Promise.resolve()}}};
 setup(pi);
 const ctx=value=>({sessionManager:{getSessionFile:()=>value,getSessionId:()=>value}});
 await handlers.session_start({},ctx('another conversation'));assert.equal(registrations,0);
 await handlers.session_start({},ctx(c.connection.sessionKey));assert.equal(registrations,1);
-await handlers.session_before_switch();assert.equal(disposed,1);
+// Disposal belongs to the shared receiver, not the launcher.
 await handlers.session_start({},ctx('another conversation'));assert.equal(registrations,1);
 await handlers.session_start({},ctx(c.connection.sessionKey));assert.equal(registrations,2);
-await handlers.session_before_fork();assert.equal(disposed,2);
-await handlers.session_shutdown();assert.equal(disposed,2);
+
 // A live extension cannot pick up a replacement credential from disk.
 writeFileSync(new URL('./connection.json',import.meta.url),JSON.stringify({...c,token:'replacement'}));
 await handlers.session_start({},ctx(c.connection.sessionKey));assert.equal(registrations,3);

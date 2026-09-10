@@ -173,7 +173,7 @@ func TestTermStateRoundTrip(t *testing.T) {
 	_ = json.NewDecoder(created.Body).Decode(&page)
 	id, _ := page["id"].(string)
 	sess, _ := page["session"].(string)
-	t.Cleanup(func() { _ = tmux.New().KillSession(t.Context(), sess) })
+	killTmuxOnCleanup(t, sess)
 
 	bad := postJSON(t, ts, "/api/terminals/"+id+"/state", map[string]any{"state": "vibing"})
 	if bad.StatusCode != http.StatusBadRequest {

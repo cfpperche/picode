@@ -278,3 +278,10 @@ export const matrixNameSchema = z.object({
   name: z.string().trim().min(1, "name is required")
     .refine((s) => Array.from(s).length <= MATRIX_LIMITS.name, `name is too long (max ${MATRIX_LIMITS.name} characters)`),
 });
+
+export const peerParticipantsSchema = z.object({
+  participants: z.array(z.object({
+    kind: z.enum(["agent", "terminal"]), ownerId: z.string().min(1),
+    enabled: z.boolean(), revision: z.number().int().nonnegative(),
+  })).min(1, "Select a participant first.").max(100, "Update up to 100 participants at a time."),
+});

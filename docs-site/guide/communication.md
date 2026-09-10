@@ -1,25 +1,43 @@
-# Messages between conversations
+# Communication between agents
 
-Open **Agent CLIs → Messages** on desktop or mobile. The selector includes
-managed Pi agents and terminal CLIs. Messaging starts disabled.
+Open the workspace menu and choose **Communication**, or open
+**Agent CLIs → Messages** and choose a workspace. Desktop and mobile show the
+same participants: managed Pi agents and native Agent CLI terminals.
 
-1. Choose an agent or terminal with a recorded conversation. If its identity is
-   still unknown, open a conversation first and refresh this page.
-2. Select **Enable messages**. For supported CLIs, PiCode prepares private
-   setup for this recorded conversation. No credential copying is needed.
-3. Finish the current turn, then stop and resume **that conversation**. For
-   a managed Pi agent, start it again; for a terminal, use **Resume**. A fresh
-   terminal start intentionally receives no connection from the previous session.
-4. Enable another conversation in the same workspace and resume it too.
-   Ask either agent to list contacts, send a message and consult its inbox.
+1. Check the participants you want to connect and select **Apply and connect**.
+2. If one is stopped, select **Open and connect**. Start a normal conversation
+   if it does not have one yet. PiCode prepares its connection automatically.
+3. Once two participants are connected, choose **Run test**. The agents exchange
+   a message, reply and acknowledge receipt using their native tools.
+4. Follow the result and message history in **Activity**. For everyday use, ask
+   an agent to contact another participant by name from its usual conversation.
 
-Setup never interrupts a running conversation or triggers a model turn. PiCode
-keeps launcher credentials in private files under its data directory; only hashes
-are kept in the database. Disabling a connection invalidates its credential.
+Selection applies to future conversations of that participant in this workspace.
+Every conversation still receives its own credential; older credentials cannot
+access the new conversation. Clear a participant’s checkbox and apply to disconnect it.
+An older connection labeled **Current conversation only** remains scoped to that
+conversation until you apply the persistent selection.
+
+**Waiting to connect** means a turn, approval or draft needs to finish. PiCode
+preserves native input and resumes only the exact idle conversation when a CLI
+needs to reload its connection. Pi can load it directly through its connection
+adapter. An older managed Pi process may offer **Reconnect**; this waits for an
+idle process and resumes its existing history. Setup does not start a model turn.
+
+**Connected · not tested** describes setup readiness. **Verified** requires the
+native message, reply and both acknowledgments. A test uses the configured
+models and may wait for their normal tool permissions. If it expires, open the
+conversations to check approvals or model capacity, then run another test.
+An unconfirmed submission is never retried automatically.
+
+**Advanced** contains per-conversation replacement and manual configuration.
+PiCode keeps private setup under its data directory and stores only credential
+hashes in the database. Moving a participant to another workspace or changing
+its CLI requires selection in the new context.
 
 ## CLI compatibility
 
-| CLI | Automatic setup on resume | Native configuration |
+| CLI | Connection preparation | Native configuration |
 |---|---|---|
 | Pi (managed or terminal) | Requires installed `pi-mcp-adapter` 2.32.1 or later | In-memory server registration for this conversation |
 | Claude Code | Available | Private process-specific MCP file |
@@ -29,9 +47,7 @@ are kept in the database. Disabling a connection invalidates its credential.
 | Hermes Agent | Available through its native shell tool | Native plugin and `picode messages`; current conversation selected on each call |
 
 For Pi, install `pi-mcp-adapter` from **Agent CLIs → Packages** if needed.
-These adapters preserve native settings and permissions. A configured connection
-is not proof that a running model has loaded its tools; resume it and ask it to
-list contacts. Grok/Hermes integration files contain no conversation credential.
+These adapters preserve native settings and permissions. Use **Run test** to confirm that both running agents can use their tools. Grok/Hermes integration files contain no conversation credential.
 Their launchers preserve the native executable and home, and install a small
 native integration using an ownership receipt. Hermes uses its selected profile.
 An edited integration file is preserved and installation refuses replacement.

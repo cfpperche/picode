@@ -164,7 +164,13 @@ func TestTerminalLiveCwd(t *testing.T) {
 	if err := m.SendKeys(context.Background(), sess, "cd "+live, "Enter"); err != nil {
 		t.Fatalf("cd: %v", err)
 	}
-	deadline := time.Now().Add(2 * time.Second)
+	// The pane's own shell has to run the `cd` before tmux reports the new
+	// path, so this waits on another process's scheduling, not on our code.
+	// Two seconds was thin: a `make ci` sharing the machine with a second
+	// full suite failed here on 2026-09-09 while the shell was simply late.
+	// The loop leaves as soon as the path lands, so a generous ceiling
+	// costs a passing run nothing.
+	deadline := time.Now().Add(20 * time.Second)
 	var got string
 	for time.Now().Before(deadline) {
 		res := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals/"+id+"/cwd"))

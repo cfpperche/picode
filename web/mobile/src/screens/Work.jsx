@@ -63,6 +63,7 @@ export default function Work({ section, onSection, loaded, error, workspaces, fr
             {wsTerms.map(term => <TermRow key={term.id} term={term} busy={busyId === term.id} onOpen={onOpenTerm} onRemove={onRemoveTerm} />)}
           </ul> : <p className="m-empty-line m-work-empty">No agents or terminals yet.</p>}
           <div className="m-work-group-actions" data-align-row>
+            <a className="btn btn-ghost btn-sm" href={"#/clis/messages/" + encodeURIComponent("workspace:" + ws.id)}>Communication</a>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => onOpenFiles({ kind: "workspace", id: ws.id })}><IconFolder size={13} /> Files</button>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => onOpenGit({ kind: "workspace", id: ws.id })}><IconGit size={13} /> Git</button>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => onCreate("agent", ws)}><IconPlus size={13} /> Agent</button>

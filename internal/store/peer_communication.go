@@ -139,6 +139,14 @@ func (s *Store) AuthorizePeer(token string) (PeerConnection, error) { return pee
 
 // EnablePeer returns a one-time secret. Expected session prevents stale UI opt-in.
 func (s *Store) EnablePeer(kind, id, expectedSession string) (PeerConnection, string, error) {
+	return s.enablePeer(kind, id, expectedSession, nil)
+}
+
+// EnsureParticipantPeer checks persistent consent inside the credential transaction.
+func (s *Store) EnsureParticipantPeer(p PeerParticipant, session string) (PeerConnection, string, error) {
+	return s.enablePeer(p.Kind, p.OwnerID, session, &p)
+}
+func (s *Store) enablePeer(kind, id, expectedSession string, participant *PeerParticipant) (PeerConnection, string, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return PeerConnection{}, "", err
@@ -153,6 +161,36 @@ func (s *Store) EnablePeer(kind, id, expectedSession string) (PeerConnection, st
 	}
 	if expectedSession == "" || owner.SessionKey != expectedSession || owner.WorkspaceID == "" || owner.CLI == "" {
 		return PeerConnection{}, "", ErrPeerDenied
+	}
+	if participant != nil {
+		current, e := scanParticipant(tx.QueryRow(`SELECT `+participantCols+` FROM peer_participants WHERE owner_key=?`, kind+":"+id))
+		if e != nil || !current.Enabled || current.Revision != participant.Revision || current.WorkspaceID != owner.WorkspaceID || current.CLI != owner.CLI {
+			return PeerConnection{}, "", ErrPeerDenied
+		}
+		rows, e := tx.Query(`SELECT `+peerCols+` FROM peer_connections WHERE revoked_at IS NULL AND (agent_id=? OR terminal_id=?)`, id, id)
+		if e != nil {
+			return PeerConnection{}, "", e
+		}
+		var existing PeerConnection
+		for rows.Next() {
+			p, e := scanPeer(rows)
+			if e != nil {
+				rows.Close()
+				return PeerConnection{}, "", e
+			}
+			if p.Kind == kind && p.SessionKey == owner.SessionKey && p.CLI == owner.CLI && p.WorkspaceID == owner.WorkspaceID {
+				existing = p
+			}
+		}
+		e = rows.Err()
+		rows.Close()
+		if e != nil {
+			return PeerConnection{}, "", e
+		}
+		if existing.ID != "" {
+			existing.Active = true
+			return existing, "", nil
+		}
 	}
 	var duplicate int
 	err = tx.QueryRow(`SELECT count(*) FROM peer_connections p

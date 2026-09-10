@@ -164,6 +164,15 @@ func registerPeerCommunication(mux Registrar, deps Deps) {
 		writeJSON(w, 201, map[string]any{"connection": p, "token": secret, "endpoint": communication.Path})
 	})
 	mux.HandleFunc("DELETE /api/communication/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if c, e := deps.Store.PeerConnection(r.PathValue("id")); e == nil {
+			if p, e := deps.Store.PeerParticipant(c.Kind, c.OwnerID); e == nil && p.Enabled {
+				if e = deps.Store.SetPeerParticipants(c.WorkspaceID, []store.PeerSelection{{Kind: c.Kind, OwnerID: c.OwnerID, Enabled: false, Revision: p.Revision}}); e != nil {
+					writeErr(w, 409, "Participation changed. Refresh and try again.")
+					return
+				}
+			}
+		}
+
 		if err := deps.Store.RevokePeer(r.PathValue("id")); err != nil {
 			writeErr(w, 500, err.Error())
 			return

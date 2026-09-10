@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cfpperche/picode/internal/pipkg"
 	"github.com/cfpperche/picode/internal/store"
 )
 
@@ -147,7 +148,7 @@ func Options(data string, c LaunchConfig) (LaunchOptions, error) {
 	if dir == "" {
 		return LaunchOptions{}, store.ErrPeerInput
 	}
-	o := LaunchOptions{Env: map[string]string{}}
+	o := LaunchOptions{Env: map[string]string{"PICODE_PEER_CONNECTION": c.Connection.ID}}
 	if c.CABundle != "" {
 		key := "NODE_EXTRA_CA_CERTS"
 		if c.Connection.CLI == "codex" {
@@ -236,8 +237,15 @@ func MergeOpenCode(existing, overlay string) (string, error) {
 
 func AgentOptions(s *store.Store, data, id string) (LaunchOptions, error) {
 	c, err := LoadLaunch(s, data, "agent", id)
-	if err != nil || c == nil {
+	if err != nil {
 		return LaunchOptions{}, err
+	}
+	if c == nil {
+		p, e := s.PeerParticipant("agent", id)
+		if e != nil || !p.Enabled {
+			return LaunchOptions{}, nil
+		}
+		return PiBootstrapOptions(data), nil
 	}
 	o, err := Options(data, *c)
 	if err != nil {
@@ -257,21 +265,32 @@ func AgentOptions(s *store.Store, data, id string) (LaunchOptions, error) {
 const piLaunchExtension = `import { readFileSync } from "node:fs";
 const config = JSON.parse(readFileSync(new URL("./connection.json", import.meta.url), "utf8"));
 export default function(pi) {
- let registration;
  pi.on("session_start", async (_event, ctx) => {
-  await registration?.dispose(); registration = undefined;
-  const recorded = config.connection.sessionKey;
   const actual = config.connection.kind === "agent" ? ctx.sessionManager.getSessionFile() : ctx.sessionManager.getSessionId();
-  if (actual !== recorded) return;
-  const request = { version: 1, name: "picode_communication", definition: {
-   url: config.url, headers: { Authorization: "Bearer " + config.token }
-  }};
-  pi.events.emit("pi-mcp-adapter:runtime-register:v1", request);
-  if (!request.result?.ok) throw new Error("PiCode messages need pi-mcp-adapter 2.32.1 or later. Check Packages and resume this conversation.");
-  registration = request.result.registration;
+  if (actual !== config.connection.sessionKey) return;
+  const request = {config,ctx};
+  pi.events.emit("picode:communication-configure", request);
+  if (!request.promise) throw new Error("Reopen this PiCode conversation to update its receiver.");
+  await request.promise;
  });
- pi.on("session_before_switch", async () => { await registration?.dispose(); registration = undefined; });
- pi.on("session_before_fork", async () => { await registration?.dispose(); registration = undefined; });
- pi.on("session_shutdown", async () => { await registration?.dispose(); registration = undefined; });
 }
 `
+
+// Pi's idle native receiver can register a new per-conversation connection
+// without restarting the process. The adapter remains user-installed.
+func PiAdapterOptions() LaunchOptions {
+	o := LaunchOptions{Env: map[string]string{}}
+	adapter := filepath.Join(pipkg.UserDir(), "npm", "node_modules", "pi-mcp-adapter", "index.ts")
+	if st, e := os.Stat(adapter); e == nil && !st.IsDir() {
+		o.Args = append(o.Args, "-e", adapter)
+	}
+	return o
+}
+func PiBootstrapOptions(data string) LaunchOptions {
+	o := PiAdapterOptions()
+	receiver := filepath.Join(data, "intercept", "pi-inbox-reply.ts")
+	if st, e := os.Stat(receiver); e == nil && !st.IsDir() {
+		o.Args = append(o.Args, "-e", receiver)
+	}
+	return o
+}

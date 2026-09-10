@@ -8,7 +8,7 @@
 `git worktree list` is the truth for branches on disk (`make close-summary` prints it); this section holds only what merging one of them must know.
 
 - `feat/herdr-validation`, `feat/picode-video-pilot` — carry `CHANGELOG.md` edits and the pre-ADR-0105 12 KB `docs/handoff.md`. Their next merge of `main` conflicts in both one last time: keep this file's shape and stay under 8 KB; any further changelog line goes to `docs/changelog.d/`.
-- `feat/matrix-surface` (plan phase 3, session 1 of 2): the surface, chunk loading, picker, save/409 flow, app registration, domain tests and docs are committed; `make ci-scoped` green. Session 2 on the same branch: keyboard (Esc restores, arrows between panels), maximize polish, the browser QA rows of plan §7 on a scratch, the visual card (empty states, 6 panels, 40 panels mid-scroll, picker + `__picodeOverlayAudit`, maximize, dark and light), `docs-site/guide/matrix.md` + nav, then the handoff note and `make close`.
+- `feat/matrix-surface` (plan phase 3, both sessions): surface, chunk loading, picker, save/409, keyboard, maximize, guide page and the browser QA of §7 are committed and measured (`docs/handoff/2026-09-09-matrix-surface.md`). Next is phase 4.
 
 ## Next up
 
@@ -27,22 +27,24 @@
 ## Known debts / open questions
 
 - Process (ADR-0105): worktrees start with a cold Go test cache (results are keyed by directory); `.pi/compact.json` `atPercent 0.5` never fires for large-window models (peaks 379 K) — owner declined config changes 2026-09-09; capture tolerance is a 128 px budget (`scripts/docs-shots.mjs` prints the count per surface; lower it if a real change ever slips through).
-- Communication (ADR-0104/0106/0107): Claude/OpenCode full model roundtrips await native account capacity (owner); physical-mobile and non-Linux pane/process recovery unverified; custom Codex resume global args/`--` unverified. PTY rechecks cannot eliminate the check-to-write race; uncertain attempts never auto-retry. Never share credentials across conversations. Orphan private setup files after owner deletion need maintenance cleanup; revoked files cannot authenticate. OpenCode inline merging requires JSON objects, not JSONC.
+- Communication (ADR-0104/0106/0107): Claude/OpenCode full model message exchanges await native account capacity (owner); physical-mobile and non-Linux pane/process recovery unverified; custom Codex resume global args/`--` unverified. PTY rechecks cannot eliminate the check-to-write race; uncertain attempts never auto-retry. Never share credentials across conversations. Orphan private setup files after owner deletion need maintenance cleanup; revoked files cannot authenticate. OpenCode inline merging requires JSON objects, not JSONC.
+- Communication onboarding (ADR-0110): Codex SessionStart before a first turn unverified; Claude/OpenCode/Grok/Hermes onboarding matrix not rerun. Partial rows 5, 9 and 12 in `docs/plans/communication-onboarding.md`: moved-owner consent, missing-adapter repair and native stubborn-child timeout. Physical-mobile/non-Linux limits above apply.
 - Native packages/providers: real downloads, vendor OAuth, real credential changes and device acceptance remain external; mobile package configuration is desktop-only. Decision tables in `docs/plans/cli-native-packages.md` and `cli-native-providers.md`.
 - Native settings: physical iPhone/PWA/IME and a real process restart remain external acceptance; scratch browser tests cover recovery, retained drafts and stopped-agent saves.
 - Inbox terminal replies: pi-inbox 0.1.x items (`pi (unmanaged)`) have no address until each pi session updates; daemon death between park and JSONL row is an accepted gap.
 - Hermes: live Working→Ready and needs-you confirmed 2026-09-06; `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`. OpenCode live Working/Needs you unproven.
 - Handoff (ADR-0088/0094): upstream formats undocumented (bump = refused write); Codex/Grok list a handed-off session only after a restart or by id; Hermes' importer flattens tool calls.
 - CLI pane-death (ADR-0085): an owned OpenCode QA stop left two processes after its pane closed; cleaned by exact PID. Signal-chain repair remains separate. ADR-0084 pins nothing for terminals stopped before it.
-- `Runtime.Stop` start-lease race: a stop during an in-flight managed start returns true without stopping. Windows `Close` kills only the direct child.
+- Windows `Close` kills only the direct child.
 - `internal/server` tests swap package-level probes, so `t.Parallel` would race; `scripts/go-test.sh` shards them by process instead.
 - `.git` is ~530 MB: UI bundles were committed 339 times and tutorial MP4s re-rendered; a history rewrite is the owner's call.
 - Capture integration (ADR-0054/browser preview): no real emitter-to-RPC run, no slow-consumer/cancellation matrix; hub drops on overflow.
 - Webhooks are at-least-once within event retention; receivers dedupe by id.
 - Task Scheduler retries are not crash recovery; battery/sleep/sign-in acceptance is owner-controlled.
-- `TestTerminalBrowse` cleanup can leave tmux shells in deleted temp folders.
 - 2026-09-06 incident: a `tmux ls | grep '^picode-'` sweep killed 29 sessions, six in production. Never kill by prefix — only exact names from a fixture's own API.
+- Orphan tmux shells (2026-09-09): the two `t.Context()` cleanups and `qa-scratch stop` are fixed; a scratch whose daemon dies before `stop` still strands its shells, and `picode-sh-shell-6d4d44` is an unclaimed leftover kept on purpose.
 - Feed: ephemeral events can be missed across reconnects (ADR-0048); paste fallback acceptance across platforms open.
+- Terminal menus (2026-09-09): web/mobile terminal rows still offer only Remove — the desktop one-menu merge (termRowMenu.js) is not ported; sidebar Remove keeps `DELETE /api/terminals/<id>` while the Agent CLIs list uses `/launch/remove` (same outcome, two paths).
 - CLI lifecycle: npm data can lag native Claude releases by hours; grok uninstall guided-only; Windows paths out of scope.
 - Pi has one active credential slot; per-agent OAuth is an owner decision.
 - Rename watch: a branch adding files under `www/` would resurrect the dir — they belong in `docs-site/`.
@@ -50,6 +52,6 @@
 - Inspector: Files filter covers loaded rows only; This-agent chips show only with the agent's tab selected; `gh pr view` answers cached a minute.
 - llama: ARM64 hardware, GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
 - Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip on-device confirmation pending (Preferences → Layout exposes the dials).
-- Matrix (ADR-0108/0109): 4×8 minimum confirmed 2026-09-09. Maximize is a fixed-position override of the grid item (a transformed ancestor would break it); the Working chip seeds with one `GET /api/tui-working` per matrix open; the Apps grid capture gains a tile (refreshes at deploy).
+- Matrix (ADR-0108/0109): no docs-shots capture — it needs a `desktop-matrix` profile plus a fixture seeding a matrix with an agent TUI and two shells. The dwell bounds attaches by scroll *speed*: a slow pass over a short matrix loads all of it, the 5 s hysteresis settles back. The Working chip costs one `GET /api/tui-working` per open; the Apps capture gains a tile at deploy.
 - Notices (2026-09-07): needs-you covers the whole fleet, but the finish card only fires for the agent whose socket is open; neither exercised against a real pi dialog.
-- Native surfaces (ADR-0109): `host` has no `openTerminal` — the demo and the Matrix POST `/api/terminals/{id}/open` themselves (feed rows carry no `session`); a tab closing while a Matrix panel shows its pane remounts the body with a fresh xterm (`paneOwnership.js`). The desktop's unsupported tile still explains itself only through `title` (pre-existing pattern).
+- Native surfaces (ADR-0109): `host` has no `openTerminal` — the Matrix POSTs `/api/terminals/{id}/open` itself (feed rows carry no `session`); a tab closing under a panel remounts the body with a fresh xterm. The unsupported tile still explains itself only through `title` (pre-existing).

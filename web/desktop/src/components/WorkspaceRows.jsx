@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconChat, IconEllipsis, IconFolder, IconGit, IconPencil, IconPlay, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
+import { IconChat, IconEllipsis, IconFolder, IconGit, IconMode, IconPencil, IconPlay, IconReload, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { repoLine, termLine } from "@picode/shared/domain/repoLine.js";
@@ -11,6 +11,7 @@ import { checklistLine, checklistProgress, checklistRows, countDone } from "@pic
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 import { agentRowStatus, agentStatusLabel } from "@picode/shared/domain/agentStatus.js";
+import { termRowMenu } from "../lib/termRowMenu.js";
 
 export function RowMenu({ label, children }) {
   return (
@@ -35,9 +36,25 @@ export function RowMenu({ label, children }) {
   );
 }
 
-export function RowMenuItem({ children, onSelect, danger = false }) {
-  return <DropdownMenu.Item className={"ws-row-menu-item" + (danger ? " danger" : "")} onSelect={onSelect}>{children}</DropdownMenu.Item>;
+export function RowMenuItem({ children, onSelect, danger = false, title }) {
+  return <DropdownMenu.Item className={"ws-row-menu-item" + (danger ? " danger" : "")} onSelect={onSelect} title={title}>{children}</DropdownMenu.Item>;
 }
+
+export function RowMenuSep() {
+  return <DropdownMenu.Separator className="ws-row-menu-sep" />;
+}
+
+// One icon per merged terminal-menu row (termRowMenu.js); the labels and
+// order live there, so the sidebar and the Agent CLIs list cannot drift.
+const TERM_ROW_MENU_ICONS = {
+  rename: <IconPencil size={13} />,
+  launch: <IconSettings size={14} />,
+  settings: <IconMode size={14} />,
+  start: <IconPlay size={12} />,
+  restart: <IconReload size={13} />,
+  stop: <IconStop size={12} />,
+  remove: <IconX size={13} />,
+};
 
 function openRow(e, onSelect) {
   if (e.key === "Enter" || e.key === " ") {
@@ -167,7 +184,7 @@ export function TermRow({
   selectedId, onSelectTerm,
   onFileTree, onGitGraph,
   actions = true,
-  onRenameTerm, onRemoveTerm,
+  onRenameTerm, onRemoveTerm, onLaunchAction,
 }) {
   const line = termLine(t);
   const cli = terminalCli(t);
@@ -191,9 +208,22 @@ export function TermRow({
         </div>
         {actions ? (
           <RowMenu label={t.name || "Terminal"}>
-            <RowMenuItem onSelect={() => onRenameTerm && onRenameTerm(t)}><IconPencil size={13} /> Rename</RowMenuItem>
-            <RowMenuItem onSelect={() => { location.hash = "#/termset/" + encodeURIComponent(t.id); }}><IconSettings size={14} /> Terminal settings</RowMenuItem>
-            <RowMenuItem danger onSelect={() => onRemoveTerm && onRemoveTerm(t)}><IconX size={13} /> Remove terminal</RowMenuItem>
+            {termRowMenu(t).map((r) => r.sep ? <RowMenuSep key={"sep"} /> : (
+              <RowMenuItem
+                key={r.id}
+                title={r.title}
+                danger={r.danger}
+                onSelect={() => {
+                  if (r.id === "rename") return onRenameTerm && onRenameTerm(t);
+                  if (r.id === "launch") { location.hash = "#/clis/terminal/" + encodeURIComponent(t.id); return; }
+                  if (r.id === "settings") { location.hash = "#/termset/" + encodeURIComponent(t.id); return; }
+                  if (r.id === "remove") return onRemoveTerm && onRemoveTerm(t);
+                  return onLaunchAction && onLaunchAction(t, r.id); // start | restart | stop
+                }}
+              >
+                {TERM_ROW_MENU_ICONS[r.id]} {r.label}
+              </RowMenuItem>
+            ))}
           </RowMenu>
         ) : null}
       </div>
@@ -228,8 +258,8 @@ export function ChecklistLine({ line }) {
 // feed, so opening costs no fetch and updates render in place. Absent and
 // unknown checklists render nothing (ADR-0092) — there is nothing to open.
 //
-// Layout matches ContextLine below it: same 31px text column, no parens
-// around the counter, counter reads as a fixed column at the row's end
+// Layout matches ContextLine below it: the card's 23px metadata column,
+// no parens around the counter, counter reads as a fixed column at the row's end
 // (Linear/GitHub sub-issue idiom) instead of a prefix. A finished plan
 // (position === total and every item completed) dims to the same weight as
 // a completed step, so it stops reading as an open task.
@@ -255,10 +285,12 @@ export function ChecklistDisclosure({ id, check }) {
       >
         {/* No chevron (owner request 2026-09-09): the line reads as plan
             text, not a disclosure widget — the whole row stays the click
-            target, so expanding needs no arrow. The empty 12px slot keeps
-            the text on the card's 39px text column, aligned with the
-            folder/branch labels below and the expanded steps' text. */}
-        <span className="ws-check-slot" aria-hidden="true" />
+            target, so expanding needs no arrow. The line carries no mark
+            of its own, so its text starts on the card's 23px metadata
+            column — the same left edge as the title, subtitle and the
+            folder/branch icons below (owner report 2026-09-09: the ghost
+            slot read as an indent, not an alignment). The expanded steps'
+            glyphs keep that column for the marks, 39px for their text. */}
         <span className="ws-check-text">{progress.text}</span>
         <span className="ws-check-pos">{progress.pos}</span>
       </button>

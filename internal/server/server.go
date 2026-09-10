@@ -184,6 +184,7 @@ func registerAll(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/share", handleShare(deps))
 	registerMCPRoutes(mux, deps)
 	registerPeerCommunication(mux, deps)
+	registerPeerOnboarding(mux, deps)
 	registerPackageRoutes(mux, deps)
 	registerDockerRoutes(mux, deps)
 	registerDeviceRoutes(mux, &deps)

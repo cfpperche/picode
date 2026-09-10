@@ -9,6 +9,7 @@
 // daemon learns which conversation an Ask would land in.
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, watch as fsWatch } from "node:fs";
+import * as tls from "node:tls";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { request as httpRequest } from "node:http";
@@ -83,6 +84,7 @@ export default function (pi) {
 	let latestCtx = null;
 	let draining = false;
 
+	let peerRegistration, peerConnection = "";
 	const sessionFile = () => {
 		try {
 			return latestCtx?.sessionManager?.getSessionFile?.() || "";
@@ -91,9 +93,37 @@ export default function (pi) {
 		}
 	};
 
-	const hello = () => {
-		void post(`/api/${owner.kind}/${owner.id}/tui-hello`, { session: sessionFile() });
-	};
+	let helloQueue = Promise.resolve();
+ const hello = () => {
+  const body = {session:sessionFile(),connection:peerConnection,pid:process.pid,runId:process.env.PICODE_TUI_RUN_ID || ""};
+  helloQueue = helloQueue.then(() => post(`/api/${owner.kind}/${owner.id}/tui-hello`,body));
+  return helloQueue;
+ };
+
+ async function clearConnection() {
+  peerConnection = ""; const previous = peerRegistration; peerRegistration = undefined;
+  hello(); await previous?.dispose();
+ }
+ async function configureConnection(config,ctx) {
+  const actual = owner.kind === "agents" ? ctx?.sessionManager?.getSessionFile?.() : ctx?.sessionManager?.getSessionId?.();
+  if (!actual || config.connection.sessionKey !== actual || config.connection.ownerId !== owner.id) throw new Error("Conversation changed");
+  latestCtx = ctx;
+  if (peerConnection === config.connection.id && peerRegistration) return;
+  await clearConnection();
+  const current = owner.kind === "agents" ? ctx?.sessionManager?.getSessionFile?.() : ctx?.sessionManager?.getSessionId?.();
+  if (current !== actual || latestCtx !== ctx) throw new Error("Conversation changed");
+  if (config.caBundle) {
+   if (!tls.setDefaultCACertificates || !tls.getCACertificates) throw new Error("Reopen Pi to apply certificate trust");
+   const extra = config.caBundle.match(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g) || [];
+   tls.setDefaultCACertificates([...new Set([...tls.getCACertificates("default"), ...extra])]);
+  }
+  const request = { version: 1, name: "picode_communication", definition: { url: config.url, headers: { Authorization: "Bearer " + config.token } } };
+  pi.events.emit("pi-mcp-adapter:runtime-register:v1", request);
+  if (!request.result?.ok) throw new Error("Enable the Pi connection adapter in Packages");
+  peerRegistration = request.result.registration; peerConnection = config.connection.id; await hello();
+ }
+ // Initial launcher setup and later replacements share one registration owner.
+ pi.events?.on("picode:communication-configure", request => { request.promise = configureConnection(request.config,request.ctx); });
 
 	async function drain() {
 		if (draining) return;
@@ -117,7 +147,7 @@ export default function (pi) {
 					await post(`/api/${owner.kind}/${owner.id}/tui-ack`, { nonce: doc.nonce, ok, reason });
 				};
 				const age = Date.now() - (doc.createdAt ? Date.parse(doc.createdAt) : 0);
-				if (!doc.nonce || !doc.payload || (Number.isFinite(age) && age > 24 * 60 * 60 * 1000)) {
+				if (!doc.nonce || (!doc.payload && !doc.setupConnection) || (Number.isFinite(age) && age > 24 * 60 * 60 * 1000)) {
 					await ack(false, "the reply file was stale");
 					continue;
 				}
@@ -128,11 +158,21 @@ export default function (pi) {
 					await ack(false, "the terminal is showing a different session");
 					continue;
 				}
-                if (doc.attentionOnly && (!latestCtx?.isIdle?.() || latestCtx?.hasPendingMessages?.() ||
+                if ((doc.attentionOnly || doc.setupConnection) && (!latestCtx?.isIdle?.() || latestCtx?.hasPendingMessages?.() ||
                     (latestCtx?.hasUI && latestCtx?.ui?.getEditorText?.() !== ""))) {
                     await ack(false, "the conversation is busy or has a draft");
                     continue;
                 }
+                if (doc.setupConnection) {
+                    try {
+                        if (!/^peer_[A-Za-z0-9]+$/.test(doc.setupConnection)) throw new Error("Invalid connection");
+                        const config = JSON.parse(readFileSync(join(dataDir, "communication", doc.setupConnection, "connection.json"), "utf8"));
+                        await configureConnection(config, latestCtx);
+                        await ack(true, "");
+                    } catch { await ack(false, "Reopen this Pi conversation to load its connection adapter."); }
+                    continue;
+                }
+
 				try {
 					await pi.sendUserMessage(doc.payload, { deliverAs: "followUp", triggerTurn: true });
 					await ack(true, "");
@@ -163,7 +203,10 @@ export default function (pi) {
 		hello();
 		void drain();
 	});
+	pi.on("session_before_switch", async () => { await clearConnection(); });
+ pi.on("session_before_fork", async () => { await clearConnection(); });
 	pi.on("session_shutdown", async () => {
+ await clearConnection();
 		hello();
 	});
 }

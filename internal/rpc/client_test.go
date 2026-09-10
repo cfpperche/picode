@@ -69,8 +69,11 @@ func fakeMain() {
 			_ = enc.Encode(map[string]any{
 				"id": id, "type": "response", "command": "get_state", "success": true,
 				"data": map[string]any{
-					"model":       map[string]any{"id": "fake-model", "displayName": "Fake Model"},
-					"isStreaming": false,
+					"model":               map[string]any{"id": "fake-model", "displayName": "Fake Model"},
+					"isStreaming":         false,
+					"isCompacting":        false,
+					"pendingMessageCount": 0,
+					"sessionFile":         os.Getenv("PICODE_FAKE_SESSION"),
 				},
 			})
 		case "prompt", "steer", "follow_up":

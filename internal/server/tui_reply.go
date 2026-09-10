@@ -139,19 +139,22 @@ type TuiReplies struct {
 	// last hello (ADR-0089 amendment). Agents keep their session on the
 	// agent record; a terminal has no such record, so the hello is the one
 	// place the daemon learns which conversation an Ask would land in.
-	session map[string]string
-	active  map[string]bool
-	acks    map[string]chan replyAck
+	session           map[string]string
+	connection        map[string]string
+	connectionProcess map[string]string
+	active            map[string]bool
+	acks              map[string]chan replyAck
 }
 
 // NewTuiReplies creates the shared receiver registry for routes and background delivery.
 func NewTuiReplies() *TuiReplies {
 	return &TuiReplies{
-		Controls: newAgentControls(),
-		hello:    map[string]time.Time{},
-		session:  map[string]string{},
-		active:   map[string]bool{},
-		acks:     map[string]chan replyAck{},
+		Controls:   newAgentControls(),
+		hello:      map[string]time.Time{},
+		session:    map[string]string{},
+		connection: map[string]string{},
+		active:     map[string]bool{},
+		acks:       map[string]chan replyAck{},
 	}
 }
 
@@ -168,13 +171,25 @@ func (t *TuiReplies) Hello(agentID string) {
 // HelloSession records a hello together with the session file the receiver
 // reported. An empty session still counts as a hello — the receiver is alive
 // — but leaves nothing to ask into until the next one names a file.
-func (t *TuiReplies) HelloSession(key, sessionPath string) {
+func (t *TuiReplies) HelloSession(key, sessionPath string) { t.HelloConnection(key, sessionPath, "") }
+func (t *TuiReplies) HelloConnection(key, sessionPath, connection string) {
+	t.helloConnectionProcess(key, sessionPath, connection, "")
+}
+func (t *TuiReplies) helloConnectionProcess(key, sessionPath, connection, process string) {
 	if t == nil || strings.TrimSpace(key) == "" {
 		return
 	}
 	t.mu.Lock()
 	t.hello[key] = time.Now()
 	t.session[key] = strings.TrimSpace(sessionPath)
+	if t.connection == nil {
+		t.connection = map[string]string{}
+	}
+	t.connection[key] = connection
+	if t.connectionProcess == nil {
+		t.connectionProcess = map[string]string{}
+	}
+	t.connectionProcess[key] = process
 	t.mu.Unlock()
 }
 
@@ -506,11 +521,12 @@ func ReconcilePendingReplies(st *store.Store, dataDir string) {
 // replyFile is the one-shot handoff between the daemon and the receiver
 // extension inside the TUI.
 type replyFile struct {
-	AttentionOnly bool      `json:"attentionOnly,omitempty"`
-	Nonce         string    `json:"nonce"`
-	SessionPath   string    `json:"sessionPath"`
-	Payload       string    `json:"payload"`
-	CreatedAt     time.Time `json:"createdAt"`
+	SetupConnection string    `json:"setupConnection,omitempty"`
+	AttentionOnly   bool      `json:"attentionOnly,omitempty"`
+	Nonce           string    `json:"nonce"`
+	SessionPath     string    `json:"sessionPath"`
+	Payload         string    `json:"payload"`
+	CreatedAt       time.Time `json:"createdAt"`
 }
 
 func replyDir(dataDir, agentID string) string {
@@ -556,7 +572,9 @@ func (deps Deps) resolveReplySession(agent store.Agent, it store.InboxItem, cwd 
 func handleTuiHello(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
-			Session string `json:"session"`
+			Session    string `json:"session"`
+			Connection string `json:"connection"`
+			PID        int    `json:"pid"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		agentID := r.PathValue("id")
@@ -564,7 +582,13 @@ func handleTuiHello(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusNotFound, "no such agent")
 			return
 		}
-		deps.Replies.HelloSession(agentID, req.Session)
+		if req.PID > 0 {
+			if ma := deps.Runtime.Get(agentID); ma != nil && ma.PID() != req.PID {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+		}
+		deps.Replies.helloConnectionProcess(agentID, req.Session, req.Connection, fmt.Sprint(req.PID))
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -583,4 +607,19 @@ func handleTuiAck(deps Deps) http.HandlerFunc {
 		deps.Replies.resolveAck(req.Nonce, replyAck{OK: req.OK, Reason: req.Reason})
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+func (t *TuiReplies) receiverConnection(key, session string, process ...string) string {
+	if t == nil {
+		return ""
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.session[key] != session || time.Since(t.hello[key]) > receiverHelloTTL {
+		return ""
+	}
+	if len(process) > 0 && t.connectionProcess[key] != process[0] {
+		return ""
+	}
+	return t.connection[key]
 }

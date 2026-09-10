@@ -25,6 +25,38 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 		want []string
 	}
 	cases := []tc{
+		{"SetPeerParticipants", func(s *Store) {
+			p, _, _, _ := peerFixture(t, s)
+			s.OnEvent = recorder(s)
+			_ = s.SetPeerParticipants(p.WorkspaceID, []PeerSelection{{Kind: p.Kind, OwnerID: p.OwnerID, Enabled: true}})
+		}, []string{"peer.participant"}},
+		{"EnsureParticipantPeer", func(s *Store) {
+			p, _, _, _ := peerFixture(t, s)
+			_ = s.RevokePeer(p.ID)
+			_ = s.SetPeerParticipants(p.WorkspaceID, []PeerSelection{{Kind: p.Kind, OwnerID: p.OwnerID, Enabled: true}})
+			v, _ := s.PeerParticipant(p.Kind, p.OwnerID)
+			s.OnEvent = recorder(s)
+			_, _, _ = s.EnsureParticipantPeer(v, p.SessionKey)
+		}, []string{"peer.connection"}},
+		{"SetPeerPreparation", func(s *Store) {
+			p, _, _, _ := peerFixture(t, s)
+			_ = s.SetPeerParticipants(p.WorkspaceID, []PeerSelection{{Kind: p.Kind, OwnerID: p.OwnerID, Enabled: true}})
+			v, _ := s.PeerParticipant(p.Kind, p.OwnerID)
+			s.OnEvent = recorder(s)
+			_, _ = s.SetPeerPreparation(v, p.SessionKey, "connected", "", p.ID)
+		}, []string{"peer.participant"}},
+		{"CreatePeerCheck", func(s *Store) {
+			p, _, q, _ := peerFixture(t, s)
+			s.OnEvent = recorder(s)
+			_, _ = s.CreatePeerCheck(p.WorkspaceID, p.ID, q.ID)
+		}, []string{"peer.check"}},
+		{"SetPeerCheckPhase", func(s *Store) {
+			p, _, q, _ := peerFixture(t, s)
+			c, _ := s.CreatePeerCheck(p.WorkspaceID, p.ID, q.ID)
+			s.OnEvent = recorder(s)
+			_, _ = s.SetPeerCheckPhase(c.ID, "pending", "attempted")
+		}, []string{"peer.check"}},
+
 		{"EnablePeer", func(s *Store) {
 			p, _, _, _ := peerFixture(t, s)
 			s.OnEvent = recorder(s)
