@@ -6,7 +6,7 @@ import { agentRowStatus, agentStatusLabel } from "@picode/shared/domain/agentSta
 import * as Dialog from "../ResponsiveDialog.jsx";
 import { ProviderFace } from "../ProviderFaces.jsx";
 import TerminalCliBadge from "../TerminalCliBadge.jsx";
-import { IconFile, IconPin } from "../Icons.jsx";
+import { IconFile, IconGit, IconPin } from "../Icons.jsx";
 
 // PanelPicker — Add panel: a cmdk list grouped by what a panel can be
 // (docs/plans/matrix-canvas.md §4.2), with the faces and status words the
@@ -17,10 +17,11 @@ import { IconFile, IconPin } from "../Icons.jsx";
 // It lists what already exists and never browses: pins come from
 // `GET /api/pins` (title and tags, the summary the sidebar shows), and files
 // from the file tabs open in the desktop right now — a path this browser
-// already has. Building a file manager in here is refused; the ways into a
-// file panel are the ways a path already reaches you.
+// already has, offered twice: as the file, and as the changes to it.
+// Building a file manager in here is refused; the ways into a file panel are
+// the ways a path already reaches you.
 export default function PanelPicker({ open, fleet, pins, files, onMatrix, workingIds, onPick, onNewPin, onClose }) {
-  const { agents, terminals, notes, docs, total, pinTotal, fileTotal } = useMemo(() => {
+  const { agents, terminals, notes, docs, diffs, total, pinTotal, fileTotal } = useMemo(() => {
     const on = onMatrix || new Set();
     const agents = [];
     for (const ws of fleet.workspaces || []) for (const a of agentsOf(ws)) agents.push({ agent: a, ws });
@@ -36,18 +37,19 @@ export default function PanelPicker({ open, fleet, pins, files, onMatrix, workin
       terminals: terminals.filter((t) => !on.has("terminal:" + t.id)),
       notes: pinList.filter((p) => !on.has("note:" + p.id)),
       docs: fileList.filter((f) => !on.has("file:" + f.ref)),
+      diffs: fileList.filter((f) => !on.has("diff:" + f.ref)),
     };
   }, [fleet.workspaces, fleet.freeAgents, fleet.terminals, pins, files, onMatrix]);
-  const none = agents.length + terminals.length + notes.length + docs.length === 0;
+  const none = agents.length + terminals.length + notes.length + docs.length + diffs.length === 0;
   const copy = total === 0 ? "No agents, terminals or pins yet." : "Everything is already on this matrix.";
-  const openFirst = "No file is open — open one in a tab and it is offered here.";
+  const openFirst = "No file is open — open one in a tab and it is offered here, as the file and as its changes.";
   return (
     <Dialog.Root open={!!open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <Dialog.Portal>
         <Dialog.Overlay className="dlg-overlay" />
         <Dialog.Content className="dlg dlg-picker" onCloseAutoFocus={(e) => e.preventDefault()}>
           <Dialog.Title className="dlg-title">Add panel</Dialog.Title>
-          <Dialog.Description className="sr-only">Pick an agent, a terminal, a pin or an open file to show on this matrix.</Dialog.Description>
+          <Dialog.Description className="sr-only">Pick an agent, a terminal, a pin, an open file or its changes to show on this matrix.</Dialog.Description>
           {none ? (
             <p className="mx-picker-empty dlg-body" role="status">
               <span>{copy}</span>
@@ -106,6 +108,17 @@ export default function PanelPicker({ open, fleet, pins, files, onMatrix, workin
                     {docs.map((f) => (
                       <Command.Item key={"file:" + f.ref} value={f.name + " " + f.hint + " file " + f.ref} className="palette-item mx-picker-item" onSelect={() => onPick({ kind: "file", ref: f.ref })}>
                         <span className="combo-opt-icon"><IconFile size={13} /></span>
+                        <span className="mx-picker-name">{f.name}</span>
+                        <span className="combo-hint">{f.hint}</span>
+                      </Command.Item>
+                    ))}
+                  </Command.Group>
+                ) : null}
+                {diffs.length ? (
+                  <Command.Group heading="Changes to an open file" className="palette-group">
+                    {diffs.map((f) => (
+                      <Command.Item key={"diff:" + f.ref} value={f.name + " " + f.hint + " diff changes " + f.ref} className="palette-item mx-picker-item" onSelect={() => onPick({ kind: "diff", ref: f.ref })}>
+                        <span className="combo-opt-icon"><IconGit size={13} /></span>
                         <span className="mx-picker-name">{f.name}</span>
                         <span className="combo-hint">{f.hint}</span>
                       </Command.Item>

@@ -3,13 +3,15 @@ import { relTime } from "@picode/shared/domain/relTime.js";
 import TerminalPanel from "./TerminalPanel.jsx";
 import NotePanel from "./NotePanel.jsx";
 import FilePanel from "./FilePanel.jsx";
+import DiffPanel from "./DiffPanel.jsx";
 
 // PanelBody — the slot under a panel's header (docs/plans/matrix-app.md
 // §4.4, one row each; the kinds beyond a live pane are
 // docs/plans/matrix-canvas.md §4.2). Loaded, the body is what the panel's
 // **kind** binds: a terminal or an agent is the live pane (TerminalPanel), a
 // note is its pin's markdown (NotePanel), a file is the editor in its
-// embedded layout (FilePanel). Unloaded: a muted placeholder with
+// embedded layout (FilePanel), a diff is that path's working-tree patch
+// (DiffPanel). Unloaded: a muted placeholder with
 // the feed's last state ("Working · 2 min") — the header stays live either
 // way. A binding the fleet cannot serve is one line and one action, whether
 // loaded or not.
@@ -35,6 +37,7 @@ export default function PanelBody({ model, loaded, hidden, focused, onOpen, onRe
     case "agent-managed": return <Line text="Managed agent — open to read." action="Open" onAction={onOpen} />;
     case "note-gone": return <Line text="That pin is gone." action="Remove" onAction={onRemove} />;
     case "file-gone": return <Line text="Where this file was read from is gone." action="Remove" onAction={onRemove} />;
+    case "diff-gone": return <Line text="Where this file was read from is gone." action="Remove" onAction={onRemove} />;
     default: break;
   }
   if (model.pending) return <div className="mx-placeholder"><span>Adding…</span></div>;
@@ -46,9 +49,13 @@ export default function PanelBody({ model, loaded, hidden, focused, onOpen, onRe
   );
   if (!loaded) return placeholder;
   if (model.kind === "note") return <NotePanel pinId={model.ref} title={model.name} />;
-  if (model.kind === "file") {
+  if (model.kind === "file" || model.kind === "diff") {
     const at = parseRef(model.kind, model.ref);
-    return at ? <FilePanel owner={at.owner} path={at.path} refKey={model.ref} hidden={hidden} onDirty={onDirty} /> : placeholder;
+    if (!at) return placeholder;
+    if (model.kind === "diff") {
+      return <DiffPanel owner={at.owner} path={at.path} watch={model.cwd} onOpenFile={() => onOpenFile(at.path)} />;
+    }
+    return <FilePanel owner={at.owner} path={at.path} refKey={model.ref} hidden={hidden} onDirty={onDirty} />;
   }
   return (
     <TerminalPanel

@@ -85,6 +85,16 @@ function settle(state, ev) {
   return patchPanels(state, d.id, (ps) => (ps.some((p) => p.pending) ? ps.filter((p) => !(p.pending && p.kind === d.panel.kind && p.ref === d.panel.ref)) : ps));
 }
 
+// ownerFolder(kind, row, fleet): the folder an owner works in — what a
+// `git.updated` names when the fleet's watcher inspects it.
+function ownerFolder(kind, row, fleet) {
+  if (!row) return "";
+  if (kind === "term") return row.cwd || "";
+  if (kind === "workspace") return row.path || "";
+  const loc = locate(fleet.workspaces, fleet.freeAgents, row.id);
+  return row.workPath || (loc && loc.workspace && loc.workspace.path) || "";
+}
+
 const MODEL_KEYS = ["id", "kind", "ref", "x", "y", "w", "h", "pending", "state", "target", "name", "hint", "cwd", "status", "label", "stamp", "owned", "dirty"];
 function sameModel(a, b) {
   return !!a && MODEL_KEYS.every((k) => a[k] === b[k]);
@@ -115,18 +125,19 @@ function buildModel(panel, fleet, workingIds, openTabs, dirtyIds, prev) {
       label = "Note";
       stamp = target.updatedAt || "";
     }
-  } else if (panel.kind === "file") {
+  } else if (panel.kind === "file" || panel.kind === "diff") {
     // The file's own name is the panel's; the folder is the subdued line,
     // the way a file tab and the tree name one. The owner (terminal, agent
-    // or folder) is what the read goes through and what can be gone.
+    // or folder) is what the read goes through and what can be gone, and
+    // `cwd` is that owner's folder — what a `git.updated` is matched against.
     const at = parseRef(panel.kind, panel.ref);
     target = at ? refOwner(at, fleet) : null;
     if (at) {
       name = basename(at.path) || at.path;
       hint = at.path.slice(0, Math.max(0, at.path.length - name.length - 1));
-      cwd = at.path;
+      cwd = ownerFolder(at.owner.kind, target, fleet);
       status = "ready";
-      label = "File";
+      label = panel.kind === "diff" ? "Diff" : "File";
     }
   } else if (panel.kind === "terminal") {
     target = (fleet.terminals || []).find((t) => t && t.id === panel.ref) || null;
@@ -410,9 +421,11 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     return () => { stop = true; };
   }, [agentRefs, hidden]);
 
-  // Files come from where a path already exists — the file tabs open in the
-  // desktop right now — so the picker lists and never browses (the entry
-  // points are docs/architecture/matrix.md, Surface).
+  // Files and diffs come from where a path already exists — the file tabs
+  // open in the desktop right now — so the picker lists and never browses
+  // (the entry points are docs/architecture/matrix.md, Surface). One list
+  // feeds both groups: the same path as a file and as a diff is two panels,
+  // which is exactly what the unique index allows.
   const fileOptions = useMemo(() => {
     const out = [];
     for (const tab of openTabs) {
@@ -426,7 +439,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       const where = (row && row.name) || OWNER_WORD[t.kind] || "Agent";
       const name = basename(t.path) || t.path;
       const dir = t.path.slice(0, Math.max(0, t.path.length - name.length - 1));
-      out.push({ ref, name, hint: dir ? dir + " · " + where : where });
+      out.push({ ref, name, hint: dir ? dir + " · " + where : where, owner, path: t.path });
     }
     return out;
   }, [openTabs, fleet.workspaces, fleet.freeAgents, fleet.terminals]);
@@ -784,9 +797,10 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       // A note is written in Pin Studio, which is a route and not a tab.
       if (model.kind === "note") { location.hash = pinHash(model.ref); return; }
       // A file opens the tab it would have had: #/file/<owner>/<id>/<path>.
-      if (model.kind === "file") {
+      // A diff opens that same tab on its Diff view — the pair ADR-0074 uses.
+      if (model.kind === "file" || model.kind === "diff") {
         const at = parseRef(model.kind, model.ref);
-        if (at && h.openFileTab) h.openFileTab(at.owner.kind, at.owner.id, at.path);
+        if (at && h.openFileTab) h.openFileTab(at.owner.kind, at.owner.id, at.path, model.kind === "diff" ? "diff" : "file");
         return;
       }
       if (model.kind === "terminal") { if (h.openTab) h.openTab("t:" + model.ref); return; }
@@ -806,9 +820,18 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       setMaximizedId(model.id);
       engagePanel(model.id);
     },
+    // onOpenFile(model, path): a path the body found — a terminal's OSC 8
+    // link, or the diff body's own **Open file**. The owner is the panel's
+    // binding, which for a file or a diff is inside the ref.
     onOpenFile: (model, path) => {
       const h = hostRef.current || {};
-      if (h.openFileTab) h.openFileTab(model.kind === "agent" ? "agent" : "term", model.ref, path);
+      if (!h.openFileTab) return;
+      if (model.kind === "file" || model.kind === "diff") {
+        const at = parseRef(model.kind, model.ref);
+        if (at) h.openFileTab(at.owner.kind, at.owner.id, path);
+        return;
+      }
+      h.openFileTab(model.kind === "agent" ? "agent" : "term", model.ref, path);
     },
     // onDirty(model, dirty): an editor gained or lost unsaved text. It pins
     // the panel — the same `pinned` set a drag and the focus use, except

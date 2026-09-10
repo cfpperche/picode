@@ -18,7 +18,7 @@ CASCADE, kind, ref, x, y, w, h, created_at, UNIQUE(matrix_id, kind,
 ref))`. One row per panel, never one blob: a drag rewrites the rows that
 moved and the unique index refuses a duplicate binding. A panel id is a
 random slot (`panel-` + 12 hex), never derived from `ref`, so the same
-terminal on two matrices is two panels. `kind ∈ {agent, terminal, note, file}`
+terminal on two matrices is two panels. `kind ∈ {agent, terminal, note, file, diff}`
 (the **Kinds** table below says what each `ref` is), with **no foreign key
 on purpose** — the store is ignorant of the binding, deleting an agent, a
 terminal, a pin or a file leaves the panel, and the UI renders the target as gone.
@@ -46,8 +46,9 @@ leave its panel behind.
 | `agent` | agent id | the live TUI, or the row its mode asks for | the agent is not in the fleet |
 | `note` | pin id | the pin's markdown, read-only, with **Open in Pin Studio** | the pin is not in `GET /api/pins` |
 | `file` | `<owner>:<id>:<path>` | `FilePane` in its embedded layout | the **owner** is not in the fleet. A file missing on disk is *not* a binding state — the body reports the read failure and the panel keeps its actions |
+| `diff` | `<owner>:<id>:<path>` | `WorkingDiff` — that path's working-tree patch, with its own **Open file** | the same rule: the owner. A path with no changes is the body's *No changes in this file.* |
 
-The owner of a `file` ref is one letter — `t` terminal, `a` agent, `w`
+The owner of a `file` or `diff` ref is one letter — `t` terminal, `a` agent, `w`
 workspace — the desktop's own convention for the routes and tab ids that
 already name a file (ADR-0030, `web/desktop/src/lib/routes.js`). A path may
 hold colons of its own, so only the first two separate; the shape is refused
@@ -151,10 +152,11 @@ Decision table (every row has a store or handler test —
 | create | name empty / > 80 runes / only spaces | 400 naming the limit; never truncated |
 | create | ok | 201 summary; `matrix.created` |
 | add panel | same (kind, ref) already on this matrix | 409 "already on this matrix" — per kind, so one pin can be a `note` on two matrices and one id may be two kinds |
-| add panel | `note` whose pin does not exist, `file` whose owner or file does not exist | 201 — the store never asks; `bindingState` and the body are what say so |
+| add panel | `note` whose pin does not exist, `file`/`diff` whose owner or file does not exist | 201 — the store never asks; `bindingState` and the body are what say so |
 | add panel | 500 panels exist | 400 "limit: 500 panels per matrix" |
-| add panel | w < 4, h < 8, x < 0, y < 0, x + w > 12, kind not agent/terminal/note/file ("kind must be agent, terminal, note or file"), ref empty | 400 naming the rule |
-| add panel | a `file` ref that is not `<owner>:<id>:<path>`, or whose owner letter is not t/a/w | 400 naming the shape; a path with colons of its own is fine |
+| add panel | w < 4, h < 8, x < 0, y < 0, x + w > 12, kind not agent/terminal/note/file/diff ("kind must be agent, terminal, note, file or diff"), ref empty | 400 naming the rule |
+| add panel | a `file` or `diff` ref that is not `<owner>:<id>:<path>`, or whose owner letter is not t/a/w | 400 naming the shape; a path with colons of its own is fine |
+| add panel | the same path as a `file` and as a `diff` | 201 twice — the unique index is per (kind, ref), and reading a file and reading its changes are two things to have open at once |
 | add panel | ok | 201 `{id, updatedAt, panel}`; `matrix.panel.added`; `updatedAt` bumped |
 | layout patch | `ifUpdatedAt` stale | 409, nothing written |
 | layout patch | a panel id not in this matrix, or a position out of bounds | 400, nothing written (all or nothing) |
@@ -194,12 +196,12 @@ matrix and switching updates the hash. The phone lists the tile as
 | `PanelStill.jsx`, `stills.js` | the two bodies a canvas panel has instead of a live pane — the text still and the name-plate — and the memory-only map of captured screens |
 | `MatrixGrid.jsx` | react-grid-layout 2.2.4, v2 API: `useContainerWidth` on the canvas, `gridConfig {cols 12, rowHeight 24, margin 8}`, drag by `.mx-head` with `.mx-actions` as the cancel zone, `se`/`s`/`e` handles, `fastVerticalCompactor` from `react-grid-layout/extras`, children keyed by panel id, `minW 4 / minH 8` |
 | `Panel.jsx` | the wrapper every panel keeps (and `PanelHead`, which the maximize layer reuses): face, name, hint, the sidebar's chip (`agentRowStatus` / `terminalStatus`), Open · Maximize · Remove from matrix; it observes its own visibility; two memo layers so a grid re-render never touches a body |
-| `PanelBody.jsx`, `TerminalPanel.jsx`, `NotePanel.jsx`, `FilePanel.jsx` | `PanelBody` routes by **kind**: a terminal or an agent is `TermSurface` (the tab's engine; a terminal first `POST /api/terminals/{id}/open`s for its live record), a note is `NotePanel` — one `GET /api/pins/{id}` per mount, `react-markdown` + `remarkGfm` over the app's `.md` styles, refetched on that pin's `pin.updated` (it subscribes to the feed itself, as the Inspector does for `git.updated`) — a file is `FilePanel`, which is `FilePane` with `variant="embedded"` plus the two things the matrix adds (`docKey`, `onDirty`). Unloaded → one muted line with the feed's last state; the rows below as one line + one action |
+| `PanelBody.jsx`, `TerminalPanel.jsx`, `NotePanel.jsx`, `FilePanel.jsx`, `DiffPanel.jsx` | `PanelBody` routes by **kind**: a terminal or an agent is `TermSurface` (the tab's engine; a terminal first `POST /api/terminals/{id}/open`s for its live record), a note is `NotePanel` — one `GET /api/pins/{id}` per mount, `react-markdown` + `remarkGfm` over the app's `.md` styles, refetched on that pin's `pin.updated` (it subscribes to the feed itself, as the Inspector does for `git.updated`) — a file is `FilePanel`, which is `FilePane` with `variant="embedded"` plus the two things the matrix adds (`docKey`, `onDirty`) — a diff is `DiffPanel`, `WorkingDiff` under a nonce the feed bumps. Unloaded → one muted line with the feed's last state; the rows below as one line + one action |
 | `PanelFace.jsx` | the mark that says what a panel is bound to, in the header and on the name-plate: a provider face, a CLI badge, or the pin mark |
-| `PanelPicker.jsx`, `NameDialog.jsx` | cmdk list **grouped by kind** — Agents, Terminals, Pins, Open files — of what is not yet on this matrix, with the sidebar's faces and words; a group with nothing in it says so under the list with its one action (*No pins yet.* — New pin); the name form (`matrixNameSchema`, Zod, the store's messages, `noValidate`) |
+| `PanelPicker.jsx`, `NameDialog.jsx` | cmdk list **grouped by kind** — Agents, Terminals, Pins, Open files, Changes to an open file — of what is not yet on this matrix, with the sidebar's faces and words; a group with nothing in it says so under the list with its one action (*No pins yet.* — New pin); the name form (`matrixNameSchema`, Zod, the store's messages, `noValidate`) |
 | `chunkLoader.js`, `paneOwnership.js` | the `IntersectionObserver` glue over the pure `loadPolicy`; what unloading does to an attach |
 | `web/desktop/src/lib/fileDocs.js` | the open documents of `file` panels, keyed by ref and held outside React — `paneOwnership.js` for an editor, so maximizing a panel or switching layout mode keeps unsaved text |
-| `web/shared/domain/matrix.js` | `nextSlot`, `layoutDiff`, `parseRef` / `buildRef` / `validateRef`, `refOwner`, `bindingState`, `hasPane`, `loadPolicy` (with the zoom and the per-row `pane`), `zoomBody`, `pointerAtZoom`, `unitsToPx` / `pxToUnits`, `tidyCanvas`, `normalizeViewport`, `suspendedToDispose`, `panelOrder`, `neighborPanel` (+ `PANEL_DEFAULT` 4×14, `PANEL_DEFAULT_CANVAS` 32×42, `CANVAS_ZOOM`, `PANEL_DIRECTIONS`) — one test per row below in `matrix.test.js` |
+| `web/shared/domain/matrix.js` | `nextSlot`, `layoutDiff`, `parseRef` / `buildRef` / `validateRef`, `refOwner`, `gitTouches`, `bindingState`, `hasPane`, `loadPolicy` (with the zoom and the per-row `pane`), `zoomBody`, `pointerAtZoom`, `unitsToPx` / `pxToUnits`, `tidyCanvas`, `normalizeViewport`, `suspendedToDispose`, `panelOrder`, `neighborPanel` (+ `PANEL_DEFAULT` 4×14, `PANEL_DEFAULT_CANVAS` 32×42, `CANVAS_ZOOM`, `PANEL_DIRECTIONS`) — one test per row below in `matrix.test.js` |
 
 **The fleet decides what a panel is bound to**, and a note's pin follows the
 same rule from the surface's own list: `pins` is `null` until
@@ -221,7 +223,8 @@ and on a reveal older than 10 s; then the feed only: `matrix.*` through
 `applyMatrixEvent`, agents and terminals through the host's fleet,
 `agent.tui` for the Working chip after one `GET /api/tui-working` for the
 agents on the matrix, `GET /api/pins` when a note or the picker needs it and
-again on `pin.*`. No timer.
+again on `pin.*`, and one `gitdiff` read per `diff` panel, again on a
+`git.updated` for its owner's folder. No timer.
 
 **Binding × fleet** (`bindingState`, plan §4.4):
 
@@ -238,6 +241,8 @@ again on `pin.*`. No timer.
 | `note-gone` | "That pin is gone." | Remove |
 | `file-ready` | `FilePane`, embedded: the editor, its Preview/Raw toggle and Save. The chip says **Unsaved** while it is dirty | Open in its own tab · Maximize · Remove |
 | `file-gone` | "Where this file was read from is gone." | Remove |
+| `diff-ready` | `WorkingDiff` for that path, refetched on `git.updated` for the owner's folder (`gitTouches`) — its own header has **Open file** | View this diff in a tab · Maximize · Remove |
+| `diff-gone` | "Where this file was read from is gone." | Remove |
 
 **Chunk loading** (`loadPolicy`, plan §4.5). Observer root: the surface's
 scroll container in grid mode (`rootMargin: 100% 0px` — it only scrolls
@@ -268,10 +273,11 @@ without losing it, the same way `paneOwnership.js` keeps one xterm across
 hosts. Removing a dirty panel asks first (Undo restores the panel, never the
 text) and is the one thing that forgets the document.
 
-**Where a file panel comes from.** The picker must not become a file
-manager, so it offers **only what is already open as a file tab** — a path
-this browser already has, read from `host.openTabs` and turned into a ref by
-`buildRef`. Everything else stays a debt on purpose: an *Add to matrix* row
+**Where a file or a diff panel comes from.** The picker must not become a
+file manager, so it offers **only what is already open as a file tab** — a
+path this browser already has, read from `host.openTabs` and turned into a
+ref by `buildRef` — once as *Open files* and once as *Changes to an open
+file*, because the same path as a `file` and as a `diff` is two panels. Everything else stays a debt on purpose: an *Add to matrix* row
 on an Inspector change or an entry in a file tab's own menu would need the
 desktop to know which matrix is open and where a panel would land, and that
 state lives inside the Matrix app's surface — apps read the desktop through
@@ -411,7 +417,7 @@ risk it was protecting against. A name-plate is the other way round: below
 0.4 the plate *is* the panel, there is no header left to reach, so it takes
 the layer whatever it is bound to.
 
-**A body that is not a pane** — a note, a file — has no `term.buffer` to
+**A body that is not a pane** — a note, a file, a diff — has no `term.buffer` to
 capture, so the still row never applies to it. It follows the other three:
 
 | Condition | A body with no pane |

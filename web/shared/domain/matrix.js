@@ -40,7 +40,7 @@ const CANVAS_PER_ROW = 3;
 // What a panel can be bound to (ADR-0108; the bodies beyond a live pane are
 // C3 of docs/plans/matrix-canvas.md §4.2). `kind` is an open text column, so
 // a kind is a validator edit on both sides and never a migration.
-export const MATRIX_KINDS = Object.freeze(["agent", "terminal", "note", "file"]);
+export const MATRIX_KINDS = Object.freeze(["agent", "terminal", "note", "file", "diff"]);
 export const MATRIX_COMPACT = Object.freeze(["vertical", "none"]);
 // The layout mode of a matrix: what its panels' x/y/w/h mean. The first is
 // the default a summary falls back to.
@@ -57,7 +57,7 @@ export const MATRIX_EVENTS = Object.freeze([
 
 // The server's refusals, word for word (internal/store/matrix.go), so the UI
 // can refuse before asking and read a 400 back as the same sentence.
-const KIND_MSG = "kind must be agent, terminal, note or file";
+const KIND_MSG = "kind must be agent, terminal, note, file or diff";
 const REF_MSG = "ref must be <owner>:<id>:<path> with owner t, a or w";
 
 const str = (v) => (typeof v === "string" ? v : "");
@@ -86,7 +86,7 @@ export function normalizeMatrix(m) {
 //
 //   agent, terminal  the agent's or terminal's id
 //   note             a pin id
-//   file             "<owner letter>:<owner id>:<path>"
+//   file, diff       "<owner letter>:<owner id>:<path>"
 //
 // The owner letters are the desktop's own (web/desktop/src/lib/routes.js,
 // ADR-0030): t terminal, a agent, w workspace. A path may hold colons of its
@@ -94,7 +94,7 @@ export function normalizeMatrix(m) {
 
 export const REF_OWNERS = Object.freeze({ t: "term", a: "agent", w: "workspace" });
 const REF_LETTERS = Object.freeze({ term: "t", agent: "a", workspace: "w" });
-const OWNED_KINDS = Object.freeze(["file"]);
+const OWNED_KINDS = Object.freeze(["file", "diff"]);
 
 // buildRef(kind, parts) -> the ref string that kind takes, or "" when the
 // parts cannot make one. parts is { pinId } or { owner: { kind, id }, path }.
@@ -110,7 +110,7 @@ export function buildRef(kind, parts) {
 // parseRef(kind, ref) -> the binding's parts, or null when the ref is not the
 // shape that kind takes:
 //   note        { kind, pinId }
-//   file        { kind, letter, owner: { kind, id }, path }
+//   file, diff  { kind, letter, owner: { kind, id }, path }
 export function parseRef(kind, ref) {
   const r = str(ref).trim();
   if (!r) return null;
@@ -450,6 +450,18 @@ export function layoutDiff(prev, next, mode = "grid") {
   return out;
 }
 
+// gitTouches(root, evPath) -> does a `git.updated` for `evPath` concern a
+// file read through a folder at `root`? The fleet's git watcher names the
+// folder it inspected, and an owner's folder is that one, one inside it, or
+// one it is inside — so both directions count. It is a superset on purpose:
+// an extra refetch of one diff is cheaper than a diff that goes stale.
+export function gitTouches(root, evPath) {
+  const a = str(root).replace(/\/+$/, "");
+  const b = str(evPath).replace(/\/+$/, "");
+  if (!a || !b) return false;
+  return a === b || a.startsWith(b + "/") || b.startsWith(a + "/");
+}
+
 // refOwner(parsed, fleet) -> the fleet row a file's ref names, or null. The
 // three owner kinds are the three the file APIs take (ADR-0030).
 export function refOwner(parsed, fleet) {
@@ -466,7 +478,7 @@ export function refOwner(parsed, fleet) {
 //   terminal-running | terminal-stopped | terminal-gone
 //   agent-interactive | agent-managed | agent-stopped | agent-gone
 //   note-ready | note-gone
-//   file-ready | file-gone
+//   file-ready | file-gone | diff-ready | diff-gone
 // fleet is the host's { workspaces, freeAgents, terminals } plus, for the
 // kinds that bind something else, the list that decides them: `pins` for a
 // note; a file's owner is the fleet's own. A shell whose tmux session died is still "running" for the panel:
@@ -482,12 +494,12 @@ export function bindingState(panel, fleet) {
     if (!Array.isArray(f.pins)) return "note-ready";
     return f.pins.some((x) => x && x.id === panel.ref) ? "note-ready" : "note-gone";
   }
-  if (panel.kind === "file") {
+  if (panel.kind === "file" || panel.kind === "diff") {
     // The **owner** is what can be gone — the terminal, agent or folder the
-    // file is read through. A file that is missing on disk is not a binding
-    // state: the body reports that, the way FilePane reports any read
-    // failure, and the panel keeps its actions.
-    return refOwner(parseRef(panel.kind, panel.ref), f) ? "file-ready" : "file-gone";
+    // file is read through. A file that is missing on disk, or a path with
+    // no changes, is not a binding state: the body reports that, the way
+    // FilePane reports any read failure, and the panel keeps its actions.
+    return refOwner(parseRef(panel.kind, panel.ref), f) ? panel.kind + "-ready" : panel.kind + "-gone";
   }
   if (panel.kind === "terminal") {
     const t = (f.terminals || []).find((x) => x && x.id === panel.ref);

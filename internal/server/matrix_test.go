@@ -244,12 +244,13 @@ func TestMatrixPanelStatuses(t *testing.T) {
 		{"x < 0", "terminal", "t", -1, 0, 4, 8, "x must be 0 or more"},
 		{"y < 0", "terminal", "t", 0, -1, 4, 8, "y must be 0 or more"},
 		{"x + w > 12", "terminal", "t", 9, 0, 4, 8, "x + w must be at most 12 columns"},
-		{"kind", "pin", "t", 0, 0, 4, 8, "kind must be agent, terminal, note or file"},
+		{"kind", "pin", "t", 0, 0, 4, 8, "kind must be agent, terminal, note, file or diff"},
 		{"ref empty", "terminal", "  ", 0, 0, 4, 8, "ref is required"},
 		{"note ref empty", "note", " ", 0, 0, 4, 8, "ref is required"},
 		{"file ref without a path", "file", "t:term-1", 0, 0, 4, 8, "ref must be <owner>:<id>:<path> with owner t, a or w"},
 		{"file ref with an empty path", "file", "t:term-1:", 0, 0, 4, 8, "ref must be <owner>:<id>:<path> with owner t, a or w"},
 		{"file ref with an unknown owner letter", "file", "x:term-1:main.go", 0, 0, 4, 8, "ref must be <owner>:<id>:<path> with owner t, a or w"},
+		{"diff ref without a path", "diff", "a:agent-1", 0, 0, 4, 8, "ref must be <owner>:<id>:<path> with owner t, a or w"},
 	}
 	for _, c := range cases {
 		if code, out := addPanelReq(t, ts, id, c.kind, c.ref, c.x, c.y, c.w, c.h); code != http.StatusBadRequest || !strings.Contains(errorOf(out), c.want) {
@@ -299,24 +300,33 @@ func TestMatrixPanelKindNote(t *testing.T) {
 	}
 }
 
-// The same rows for a file panel: the shape is the rule, the owner and the
-// file are not the store's business, and the same binding twice is a 409.
-func TestMatrixPanelKindFile(t *testing.T) {
+// The same rows for a file and a diff panel: the shape is the rule, the
+// owner and the file are not the store's business, the same binding twice is
+// a 409, and the same path as a file and as a diff is two panels.
+func TestMatrixPanelKindsFileAndDiff(t *testing.T) {
 	ts, _ := matrixServer(t)
 	m := newMatrix(t, ts, "Ops")
 	id := m["id"].(string)
-	refs := []string{"t:term-1:src/main.go", "w:ws-1:docs/architecture/matrix.md", "a:agent-gone:never/written.txt"}
-	for i, ref := range refs {
-		code, out := addPanelReq(t, ts, id, "file", ref, 0, i*8, 4, 8)
+	rows := []struct{ kind, ref string }{
+		{"file", "t:term-1:src/main.go"},
+		{"file", "w:ws-1:docs/architecture/matrix.md"},
+		{"file", "a:agent-gone:never/written.txt"},
+		{"diff", "t:term-1:src/main.go"},
+	}
+	for i, r := range rows {
+		code, out := addPanelReq(t, ts, id, r.kind, r.ref, 0, i*8, 4, 8)
 		p, _ := out["panel"].(map[string]any)
-		if code != http.StatusCreated || p == nil || p["kind"] != "file" || p["ref"] != ref {
-			t.Fatalf("file %q = %d %v", ref, code, out)
+		if code != http.StatusCreated || p == nil || p["kind"] != r.kind || p["ref"] != r.ref {
+			t.Fatalf("%s %q = %d %v", r.kind, r.ref, code, out)
 		}
 	}
 	if code, out := addPanelReq(t, ts, id, "file", "t:term-1:src/main.go", 0, 90, 4, 8); code != http.StatusConflict || !strings.Contains(errorOf(out), "already on this matrix") {
 		t.Fatalf("duplicate file = %d %v", code, out)
 	}
-	if d := matrixDetail(t, ts, id); d["panelCount"] != float64(len(refs)) {
+	if code, out := addPanelReq(t, ts, id, "diff", "t:term-1:src/main.go", 0, 90, 4, 8); code != http.StatusConflict {
+		t.Fatalf("duplicate diff = %d %v", code, out)
+	}
+	if d := matrixDetail(t, ts, id); d["panelCount"] != float64(len(rows)) {
 		t.Fatalf("panels = %v", d["panelCount"])
 	}
 }

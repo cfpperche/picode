@@ -6,7 +6,7 @@ import {
   SUSPENDED_MAX, SUSPENDED_TTL_MS, TIDY_COLS, TIDY_GAP, UNIT_PX, UNLOAD_AFTER_MS, VIEWPORT_PREFIX, applyMatrixEvent, bindingState,
   canvasToGrid, gridToCanvas, layoutDiff, loadPolicy, neighborPanel, nextSlot, normalizeMatrix, normalizeMatrixDetail,
   normalizeMatrixList, normalizePanel, normalizeViewport, panelDefault, panelOrder, pointerAtZoom, pxToUnits, suspendedToDispose,
-  buildRef, hasPane, parseRef, REF_OWNERS, tidyCanvas, validateRef, unitsToPx, validateCompact, validateMode, validateName, validatePanel, validatePlacement, viewportKey, zoomBody,
+  buildRef, gitTouches, hasPane, parseRef, REF_OWNERS, tidyCanvas, validateRef, unitsToPx, validateCompact, validateMode, validateName, validatePanel, validatePlacement, viewportKey, zoomBody,
 } from "./matrix.js";
 
 const summary = (id, name, extra = {}) => ({
@@ -83,17 +83,19 @@ test("validate* refuse in the server's words", () => {
   ];
   for (const [rect, want] of cases) assert.equal(validatePlacement(rect), want, JSON.stringify(rect));
   assert.equal(validatePlacement(null), "x must be a whole number");
-  assert.equal(validatePanel({ kind: "pin", ref: "x", x: 0, y: 0, w: 4, h: 8 }), "kind must be agent, terminal, note or file");
+  assert.equal(validatePanel({ kind: "pin", ref: "x", x: 0, y: 0, w: 4, h: 8 }), "kind must be agent, terminal, note, file or diff");
   assert.equal(validatePanel({ kind: "agent", ref: "  ", x: 0, y: 0, w: 4, h: 8 }), "ref is required");
   assert.equal(validatePanel({ kind: "agent", ref: "a1", x: 0, y: 0, w: 3, h: 8 }), "w must be at least 4 columns");
   assert.equal(validatePanel({ kind: "terminal", ref: "t1", x: 8, y: 0, w: 4, h: 8 }), "");
-  assert.equal(validatePanel(undefined), "kind must be agent, terminal, note or file");
-  assert.deepEqual([...MATRIX_KINDS], ["agent", "terminal", "note", "file"]);
+  assert.equal(validatePanel(undefined), "kind must be agent, terminal, note, file or diff");
+  assert.deepEqual([...MATRIX_KINDS], ["agent", "terminal", "note", "file", "diff"]);
   assert.equal(validatePanel({ kind: "note", ref: "pin-1", x: 0, y: 0, w: 4, h: 8 }), "", "a note binds a pin id");
   assert.equal(validatePanel({ kind: "note", ref: " ", x: 0, y: 0, w: 4, h: 8 }), "ref is required");
   assert.equal(validatePanel({ kind: "file", ref: "t:term-1:src/main.go", x: 0, y: 0, w: 4, h: 8 }), "");
   assert.equal(validatePanel({ kind: "file", ref: "t:term-1", x: 0, y: 0, w: 4, h: 8 }), "ref must be <owner>:<id>:<path> with owner t, a or w");
   assert.equal(validatePanel({ kind: "file", ref: " ", x: 0, y: 0, w: 4, h: 8 }), "ref is required");
+  assert.equal(validatePanel({ kind: "diff", ref: "w:ws-1:docs/a.md", x: 0, y: 0, w: 4, h: 8 }), "");
+  assert.equal(validatePanel({ kind: "diff", ref: "docs/a.md", x: 0, y: 0, w: 4, h: 8 }), "ref must be <owner>:<id>:<path> with owner t, a or w");
 });
 
 // C3 (docs/plans/matrix-canvas.md §4.2): one place takes a ref apart and one
@@ -123,6 +125,8 @@ test("parseRef and buildRef: a pin id, or <owner>:<id>:<path> with the desktop's
   assert.deepEqual(parseRef("file", ref), { kind: "file", letter: "a", owner: { kind: "agent", id: "agent-1" }, path: "docs/a:b.md" });
   assert.equal(validateRef("file", ref), "");
   assert.equal(validateRef("file", "nope"), "ref must be <owner>:<id>:<path> with owner t, a or w");
+  assert.deepEqual(parseRef("diff", "t:term-1:src/main.go").owner, { kind: "term", id: "term-1" }, "a diff takes the same shape");
+  assert.equal(buildRef("diff", { owner: { kind: "term", id: "term-1" }, path: "a.md" }), "t:term-1:a.md");
   assert.equal(validateRef("note", " "), "ref is required");
 });
 
@@ -292,7 +296,7 @@ test("validate* judge a rectangle by the mode it belongs to", () => {
   assert.equal(validatePlacement({ x: -1, y: 0, w: 4, h: 8 }), "x must be 0 or more");
   assert.equal(validatePanel({ kind: "terminal", ref: "t1", x: -40, y: -40, w: 32, h: 28 }, "canvas"), "");
   assert.equal(validatePanel({ kind: "terminal", ref: "t1", x: 0, y: 0, w: 4, h: 8 }, "canvas"), "w must be at least 32 canvas units");
-  assert.equal(validatePanel({ kind: "pin", ref: "t1", x: 0, y: 0, w: 32, h: 42 }, "canvas"), "kind must be agent, terminal, note or file");
+  assert.equal(validatePanel({ kind: "pin", ref: "t1", x: 0, y: 0, w: 32, h: 42 }, "canvas"), "kind must be agent, terminal, note, file or diff");
   // layoutDiff follows the mode, or every canvas move would be dropped.
   const prev = [rect("a", 0, 0, 32, 42)];
   assert.deepEqual(layoutDiff(prev, [rect("a", -8, -8, 40, 40)], "canvas"), [{ id: "a", x: -8, y: -8, w: 40, h: 40 }]);
@@ -433,7 +437,7 @@ test("bindingState: note rows follow the pins list, and nothing is gone before i
 });
 
 test("bindingState: a file's owner is what can be gone, never the file on disk", () => {
-  const ref = (r) => ({ id: "p", kind: "file", ref: r, x: 0, y: 0, w: 4, h: 8 });
+  const ref = (r, kind = "file") => ({ id: "p", kind, ref: r, x: 0, y: 0, w: 4, h: 8 });
   assert.equal(bindingState(ref("t:t-sh:src/main.go"), fleet), "file-ready");
   assert.equal(bindingState(ref("a:a-int:README.md"), fleet), "file-ready");
   assert.equal(bindingState(ref("a:a-off:README.md"), fleet), "file-ready", "a stopped agent still owns its folder");
@@ -444,12 +448,31 @@ test("bindingState: a file's owner is what can be gone, never the file on disk",
   assert.equal(bindingState(ref("t:t-sh:never/written.txt"), fleet), "file-ready", "a missing file is the body's news, not a binding state");
   assert.equal(bindingState(ref("nonsense"), fleet), "file-gone");
   assert.equal(bindingState(ref("t:t-sh:a.md"), null), "file-gone");
+  // A diff answers the same rows: nothing about "does this path have
+  // changes" is a binding state — the body says *No changes in this file.*
+  assert.equal(bindingState(ref("t:t-sh:src/main.go", "diff"), fleet), "diff-ready");
+  assert.equal(bindingState(ref("t:t-gone:src/main.go", "diff"), fleet), "diff-gone");
+  assert.equal(bindingState(ref("w:w1:docs/a.md", "diff"), fleet), "diff-ready");
+});
+
+// A diff refetches on the fleet watcher's `git.updated` for its owner's
+// folder, the way the Inspector does — never on a timer.
+test("gitTouches: a git.updated reaches a diff whose owner works in that tree", () => {
+  assert.equal(gitTouches("/repo", "/repo"), true);
+  assert.equal(gitTouches("/repo/web", "/repo"), true, "the owner works inside the folder the watcher named");
+  assert.equal(gitTouches("/repo", "/repo/web"), true, "and the other way round");
+  assert.equal(gitTouches("/repo/", "/repo"), true, "a trailing slash is not a different folder");
+  assert.equal(gitTouches("/repo-two", "/repo"), false, "a prefix is not a parent");
+  assert.equal(gitTouches("/other", "/repo"), false);
+  assert.equal(gitTouches("", "/repo"), false);
+  assert.equal(gitTouches("/repo", ""), false);
+  assert.equal(gitTouches(null, undefined), false);
 });
 
 test("hasPane: only a body that is a terminal takes the pointer and still rules", () => {
   assert.deepEqual([...PANE_STATES], ["terminal-running", "terminal-stopped", "agent-interactive"]);
   for (const state of PANE_STATES) assert.equal(hasPane({ state }), true, state);
-  for (const state of ["terminal-gone", "agent-gone", "agent-stopped", "agent-managed", "note-ready", "note-gone", "file-ready", "file-gone"]) {
+  for (const state of ["terminal-gone", "agent-gone", "agent-stopped", "agent-managed", "note-ready", "note-gone", "file-ready", "file-gone", "diff-ready", "diff-gone"]) {
     assert.equal(hasPane({ state }), false, state);
   }
   assert.equal(hasPane({ state: "terminal-running", pending: true }), false, "a pending wrapper has no pane yet");
