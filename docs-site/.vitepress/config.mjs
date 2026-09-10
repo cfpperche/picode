@@ -56,6 +56,7 @@ export default defineConfig({
           { text: "MCP", link: "/guide/mcp" },
           { text: "Integrations", link: "/guide/integrations" },
           { text: "Agent CLIs", link: "/guide/agent-clis" },
+          { text: "Matrix", link: "/guide/matrix" },
           { text: "Session messages", link: "/guide/communication" },
           { text: "CLI activity reporting", link: "/guide/terminal-status" },
           { text: "llama.cpp", link: "/guide/llama" },
