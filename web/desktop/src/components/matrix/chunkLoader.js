@@ -113,6 +113,7 @@ export class ChunkLoader {
       this.dropping.delete(id);
       if (this.els.has(id)) return; // it came back in another host
       this.loaded.delete(id);
+      this.kept.delete(id);
       if (Object.hasOwn(this.bodies, id)) {
         const next = { ...this.bodies };
         delete next[id];

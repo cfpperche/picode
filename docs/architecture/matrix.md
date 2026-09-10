@@ -510,6 +510,21 @@ gate in §Canvas). One thing it did not fix: the scratch daemon leaves
 25 s after their socket was suspended. It never exceeded one client per
 session and production shows the same pattern, so it is not the canvas's.
 
+**Accepted in a browser (2026-09-10, C3)** on a scratch instance at
+1600 × 1100 with five panels — a note, a file, a diff, a shell and a second
+note — in both themes:
+
+| Row | Measured |
+|---|---|
+| the picker | five groups (Agents · Terminals · Pins · Open files · Changes to an open file) from `GET /api/pins` and `host.openTabs`; a binding already on the matrix is not offered, and with no file tab open the Files line reads *No file is open — open one in a tab…*. `__picodeOverlayAudit()` `ok` with it open |
+| the bodies | the note renders the pin's markdown (headings, task list, table, quote, fenced code); the file is the editor with Preview/Raw/Save; the diff shows `+2 −0` with **Open file**; the shell is a live xterm |
+| the feed | a `PATCH /api/pins/{id}` from another client changed the note's body in place, and `matrix.panel.added` from a second client drew a fifth panel — no timer either side |
+| the zoom rows | 100 %: all four live, none inert. 78 %: only the terminal is `is-inert` with the snap layer. 64 % and 52 %: the terminal is a still, the note, file and diff still render. 42 %: same. 35 %: every panel a name-plate. Back at 100 %: all four live again |
+| the gone rows | deleting the pin left *That pin is gone.* — Remove (name kept until the page reloads, then the ref); deleting the terminal left the file and the diff at *Where this file was read from is gone.* — Remove, chip **Gone**, with only Remove offered |
+| unsaved work | typing in the file panel turned the chip to **Unsaved**; with the matrix tab hidden for 9 s every other body unloaded (`data-loaded="0"`) and that one did not; maximizing it and switching canvas → grid both kept the text and the chip |
+| the store's answers | 409 *This note is already on this matrix* and *This diff is already on this matrix*; 400 *ref must be `<owner>:<id>:<path>` with owner t, a or w* and *kind must be agent, terminal, note, file or diff*; the same path as a `file` and as a `diff` is two panels |
+| Open in Pin Studio | the note header's Open lands on `#/pins/<id>` with that pin loaded |
+
 **Re-measured on a scratch (2026-09-09, phase 3 session 2)** against
 [`docs/benchmarks/2026-09-09-matrix-live-grid.md`](../benchmarks/2026-09-09-matrix-live-grid.md):
 nine live TUI bodies at 60.0 fps in-page, zero long tasks and 4.2 % of one

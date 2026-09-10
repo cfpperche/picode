@@ -10,12 +10,12 @@
 - `feat/browser-surface` — ADR-0114 browser surface; ff-ready.
 - `feat/herdr-validation`, `feat/picode-video-pilot` — carry pre-ADR-0105 `CHANGELOG.md` edits and the 12 KB `docs/handoff.md`; next `main` merge conflicts in both: keep this file's shape, changelog lines to `docs/changelog.d/`.
 - `feat/term-key-capture` — fullscreen locks the keyboard (Chromium): `Ctrl+T`/`Ctrl+W` now reach the guest CLIs; ff-ready.
-- `feat/matrix-canvas-surface` (canvas **C2 done**, ff-ready): browser acceptance + visual card in `docs/handoff/2026-09-10-matrix-canvas-surface.md`. Next: **C3** (note/file/diff kinds), then **C4** (edges — ADR first).
+- `feat/matrix-canvas-surface` (**C2**) and `feat/matrix-node-kinds` (**C3**: `note`, `file`, `diff` panels) — done, ff-ready; cards in `docs/handoff/2026-09-10-matrix-*.md`. **C4** (edges) next, ADR first.
 
 ## Next up
 
 1. First release since 0.1.0: `make changelog` on `main`, then `docs/release-process.md` (`[Unreleased]` is 860 lines).
-2. Matrix phase 4 (`docs/plans/matrix-app.md` §5): desktop `useAgentSocket`, read-only conversation body for managed agents, Needs-you chip; then the v1.1 list. Matrix v2: **C3 next** — note, file and diff node kinds (`docs/plans/matrix-canvas.md`).
+2. Matrix phase 4 (`docs/plans/matrix-app.md` §5): desktop `useAgentSocket`, read-only conversation body for managed agents, Needs-you chip; then the v1.1 list. Matrix v2: **C4 next** — edges, ADR first (`docs/plans/matrix-canvas.md`).
 3. GitHub CI: the next push exercises the ADR-0105 workflow (Ubuntu-only Go matrix, tmux cache); macOS/Windows run on tags or `workflow_dispatch`.
 4. llama delivery 3 live validation; owned-service ARM64 acceptance.
 5. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
@@ -54,8 +54,8 @@
 - Inspector: the Files filter covers loaded rows only; This-agent chips need the agent's tab selected; `gh pr view` answers cache a minute.
 - llama: ARM64 hardware and GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
 - Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip needs on-device confirmation (Preferences → Layout).
-- Matrix (ADR-0108/0109): no docs-shots capture — needs a `desktop-matrix` profile and a fixture. Attaches are bounded by scroll *speed*, not distance (300 ms dwell). App-wide, from its captures: the toast covers a surface's Close; dialogs have no scrim and little dark elevation; a grow-resize leaves an idle cursor.
-- Matrix v2 (C2 accepted 2026-09-10): band flips at gesture end, Tidy never resizes — deliberate; the switch transform lives twice (Go writes, JS previews). Open: `+`/`-`/`0` need a focused panel; a still stamps its age only when the feed moved since.
+- Matrix (ADR-0108/0109): no docs-shots capture — needs a `desktop-matrix` profile and a fixture. App-wide, from its captures: the toast covers a surface's Close; dialogs have no scrim and little dark elevation; a grow-resize leaves an idle cursor.
+- Matrix v2 (C2/C3 accepted 2026-09-10): band flips at gesture end and Tidy never resizes, both deliberate. Open: `+`/`-`/`0` need a focused panel; a still stamps its age only when the feed moved since; only the picker adds a `file`/`diff` panel (an *Add to matrix* row elsewhere needs matrix state the desktop has not got, ADR-0109).
 - Fullscreen mode (2026-09-10): real browser fullscreen owns Escape, so one press leaves the mode; the double-Escape is in-app-only. The right strip is pointer-transparent, so its reveal misses an embedded frame (PDF preview). Chromium only.
 - Notices (2026-09-07): needs-you covers the fleet, but the finish card only fires for the agent whose socket is open; neither exercised against a real pi dialog.
 - Native surfaces (ADR-0109): `host` has no `openTerminal` — the Matrix POSTs `/api/terminals/{id}/open` itself (feed rows carry no `session`); a tab closing under a panel remounts the body with a fresh xterm. An unsupported tile explains itself only via `title`.

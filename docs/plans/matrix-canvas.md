@@ -2,7 +2,7 @@
 
 - **Date:** 2026-09-10
 - **Status:** accepted — every question in §8 was taken by the owner on
-  2026-09-10, question 7 included. **C0, C1 and C2 are done**; C3 is next.
+  2026-09-10, question 7 included. **C0, C1, C2 and C3 are done**; C4 is next.
   **C0's numbers are folded in below**
   ([`docs/benchmarks/2026-09-10-node-canvas.md`](../benchmarks/2026-09-10-node-canvas.md)):
   GO on `@xyflow/react`, with one rule this plan did not have — a live
@@ -177,9 +177,9 @@ having; each is a separate, small phase so the canvas itself ships first:
 | Kind | `ref` | Body | Phase |
 |---|---|---|---|
 | `terminal`, `agent` | terminal / agent id | today's live pane | C2 |
-| `note` | pin id | the pin's markdown, read-only, with **Open in Pin Studio** | C3 |
-| `file` | `<owner>:<path>` | the existing `FilePane` in its embedded layout | C3 |
-| `diff` | `<owner>:<path>` | `WorkingDiff` | C3 |
+| `note` | pin id | the pin's markdown, read-only, with **Open in Pin Studio** | **C3, done** |
+| `file` | `<owner>:<id>:<path>` | the existing `FilePane` in its embedded layout | **C3, done** |
+| `diff` | `<owner>:<id>:<path>` | `WorkingDiff` | **C3, done** |
 | `web` | url | sandboxed iframe — inherits the ADR-0036 marketplace stance; **owner decision before it is built** | later |
 
 The store's `kind` is already an open text column with validation in one
@@ -284,7 +284,7 @@ Enter's engage triggering the snap to 1.
 | C0 | `feat/matrix-canvas-spike` | **done 2026-09-10** — [`docs/benchmarks/2026-09-10-node-canvas.md`](../benchmarks/2026-09-10-node-canvas.md). **GO** on `@xyflow/react`: 500 nodes at 60 fps, `nodrag`/`nowheel`/header-drag hold, chunk loading bounds the attaches under the transform, `NodeResizer` resizes a live pane and ends once, the still costs 0.02 ms, +63 KB gzip eager / 49 KB lazy. One rule changed: **live terminals are only correct at zoom 1.0** (§4.3). No blocker forces two engines. Only the note and this plan merged | owner reads the note |
 | C1 | `feat/matrix-canvas-model` | **done 2026-09-10** — ADR-0113 (amends ADR-0108) and migration 043: the `mode` column, per-mode units and plane bounds, `SetMatrixMode` (one transaction, the switch transform, the `matrix.mode` event), `mode` on `PATCH /api/matrices/{id}` answering summary + moved panels, and `matrix.js` per-mode validation with `gridToCanvas`/`canvasToGrid`. No UI; OpenAPI unchanged (no new route) | `make close` |
 | C2 | `feat/matrix-canvas-surface` (two sessions) | **done 2026-09-10** — canvas mode end to end: the lazy React Flow host, the same `Panel` wrapper as a node type, zoom-aware `loadPolicy` with `zoomBody` / `pointerAtZoom`, stills captured before the flip, name-plates, a themed minimap and zoom cluster, the `Grid \| Canvas` switch with its lossy-direction confirm, Tidy, marquee, per-viewer camera, the canvas keys, and the `docs-site` guide. Accepted in a browser row by row (`docs/architecture/matrix.md`, *Accepted in a browser*): the pointer rule proved against real clicks and tmux SGR reports, agent panels, maximize, a 24-panel marquee at 62.7 fps in one save, 409s from a second browser, fullscreen, chunk loading under the transform. Two divergences kept: the band flips at gesture end, and Tidy never resizes | `make close`; visual card |
-| C3 | `feat/matrix-node-kinds` | `note`, then `file` and `diff` bodies; picker groups by kind | `make close` |
+| C3 | `feat/matrix-node-kinds` | **done 2026-09-10** — all three kinds, one commit each. The store's `kind` grew by a validator line and its `ref` gained a shape per kind (`<owner>:<id>:<path>` for file and diff, parsed and built only in `matrix.js`); `bindingState` gained the gone rows (a pin deleted, an owner gone — a missing file is the body's news); `zoomBody`/`loadPolicy` gained a per-row `pane`, so a body with no cell never goes still and is a name-plate below 0.4; an editor with unsaved text is `keep`-pinned against the band **and** its document lives in `lib/fileDocs.js`, so maximize and the mode switch keep it. The picker groups by kind and offers files only from open file tabs. Accepted in a browser (`docs/architecture/matrix.md`, *Accepted in a browser (2026-09-10, C3)*) | `make close`; visual card |
 | C4 | `feat/matrix-edges` | **ADR first — it crosses the security model**: an edge grants two sessions the right to read each other, built on ADR-0104's transport; drawing, removing (which revokes), and what an edge shows when one end dies | ADR accepted before code |
 | C5 | later | group nodes bound to a worktree, the one-library end state chosen per §3 (port grid mode or delete it, then remove RGL), `web` nodes if the owner wants them | its own plan |
 

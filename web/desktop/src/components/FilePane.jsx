@@ -81,7 +81,12 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
   const dirtyRef = useRef(onDirty);
   dirtyRef.current = onDirty;
   useEffect(() => { dirtyRef.current?.(view.dirty); }, [view.dirty]);
-  useEffect(() => () => { dirtyRef.current?.(false); }, []);
+  // Unmounting clears the flag only when the document dies with this
+  // component. With a `docKey` the text outlives it — a matrix panel being
+  // maximized unmounts one body and mounts another on the same document —
+  // and clearing here would drop the "Unsaved" chip, and the pin that
+  // protects it, on the way past.
+  useEffect(() => () => { if (!docKey) dirtyRef.current?.(false); }, [docKey]);
   useEffect(() => { setMode(previewKind(path) ? "preview" : "raw"); }, [path]);
 
   useEffect(() => {
@@ -185,7 +190,10 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
           <div className="file-pane-commands" data-align-row>
             {onViewDiff ? <button type="button" className="btn btn-sm btn-ghost" onClick={onViewDiff}>View diff</button> : null}
             {canSave ? <button type="button" className="btn btn-primary btn-sm" onClick={() => doc.save()} disabled={!view.dirty || view.saving}>{view.saving ? "Saving…" : "Save"}</button> : null}
-            {tab ? null : <button type="button" className="btn btn-ghost btn-sm" onClick={close} aria-label="Close file panel">Close</button>}
+            {/* Close only where there is something to close to: the tree's
+                detail pane passes onClose, a matrix panel does not — and a
+                button that does nothing is worse than no button. */}
+            {tab || !onClose ? null : <button type="button" className="btn btn-ghost btn-sm" onClick={close} aria-label="Close file panel">Close</button>}
             {tab || embedded ? null : (
               <button type="button" className="file-pane-expand" title={expanded ? "Collapse" : "Expand"} aria-label={expanded ? "Collapse file pane" : "Expand file pane"} onClick={() => setExpanded((v) => !v)}>
                 {expanded ? <IconCollapse /> : <IconExpand />}

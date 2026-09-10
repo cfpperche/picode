@@ -133,11 +133,15 @@ function buildModel(panel, fleet, workingIds, openTabs, dirtyIds, prev) {
     const at = parseRef(panel.kind, panel.ref);
     target = at ? refOwner(at, fleet) : null;
     if (at) {
+      // The path is in the ref, so a panel whose owner is gone still names
+      // its file; only the chip falls back to the gone word every kind uses.
       name = basename(at.path) || at.path;
       hint = at.path.slice(0, Math.max(0, at.path.length - name.length - 1));
-      cwd = ownerFolder(at.owner.kind, target, fleet);
-      status = "ready";
-      label = panel.kind === "diff" ? "Diff" : "File";
+      if (target) {
+        cwd = ownerFolder(at.owner.kind, target, fleet);
+        status = "ready";
+        label = panel.kind === "diff" ? "Diff" : "File";
+      }
     }
   } else if (panel.kind === "terminal") {
     target = (fleet.terminals || []).find((t) => t && t.id === panel.ref) || null;
@@ -671,7 +675,17 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     try {
       await api("/api/matrices/" + enc(id) + "/panels/" + enc(model.id), { method: "DELETE" });
       setStore((s) => applyMatrixEvent(s, removed));
-      if (model.kind === "file") forgetDocument(model.ref);
+      // The panel is gone, so its document, its pin and its chip go with it.
+      if (model.kind === "file") {
+        forgetDocument(model.ref);
+        loader.keep(model.id, false);
+        setDirtyIds((cur) => {
+          if (!cur.has(model.id)) return cur;
+          const next = new Set(cur);
+          next.delete(model.id);
+          return next;
+        });
+      }
       notify({
         level: "info",
         title: "Removed " + model.name + " from the matrix.",

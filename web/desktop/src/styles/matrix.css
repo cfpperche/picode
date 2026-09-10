@@ -57,6 +57,12 @@
 .mx-name { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .mx-hint { min-width: 0; flex: 0 100 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: 11px; }
 .mx-head .ws-status { margin-left: auto; min-width: 0; flex: 0 8 auto; overflow: hidden; }
+/* A kind's word (Note · File · Diff, or Unsaved) is short, and it is what
+   tells a file panel from the diff panel of the same file, so it never
+   gives way; a terminal's longer status still shrinks before the name. */
+.mx-panel[data-state^="note-"] .mx-head .ws-status,
+.mx-panel[data-state^="file-"] .mx-head .ws-status,
+.mx-panel[data-state^="diff-"] .mx-head .ws-status { flex: none; }
 .mx-head .ws-status > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mx-actions { display: inline-flex; align-items: center; gap: 2px; flex: none; cursor: default; }
 .mx-action {
@@ -87,7 +93,9 @@
 /* The panel header already names the file (basename) and its folder, so the
    pane's own path line would be the same words twice in a narrow panel. */
 .mx-panel-body > .file-pane-embedded .file-pane-name { display: none; }
-.mx-panel-body > .file-pane-embedded .file-pane-actions { margin-left: auto; }
+/* With the path gone the bar is the unsaved dot and the controls; letting
+   them push apart only wraps them onto a second row in a narrow panel. */
+.mx-panel-body > .file-pane-embedded .file-pane-actions { margin-left: 0; }
 
 /* Unloaded, pending, stopped, gone: one muted line, at most one action. */
 .mx-placeholder {
@@ -144,7 +152,12 @@
 .dlg-picker { width: min(480px, calc(100vw - 32px)); }
 .dlg-picker .combo-input { margin-top: 8px; height: var(--ctl-h); box-sizing: border-box; }
 .mx-picker-list { max-height: min(48vh, 360px); margin-top: 6px; }
-.mx-picker-item { display: flex; align-items: center; gap: 8px; }
+/* A picker row reads icon → name → hint, left to right. `.palette-item`'s
+   own space-between would push a lone name (a pin with no tags) to the far
+   right; the hint's margin-left:auto already holds the right edge. */
+/* Two classes, because `.palette-item`'s space-between is one class too and
+   whichever stylesheet lands last would otherwise decide the row. */
+.mx-picker .mx-picker-item { display: flex; align-items: center; justify-content: flex-start; gap: 8px; }
 .mx-picker-item .ws-face { margin-left: 0; }
 .mx-picker-item .term-cli-face { width: 16px; height: 16px; }
 .mx-picker-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
