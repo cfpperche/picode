@@ -435,3 +435,198 @@ func TestMatrixUnknownIDs(t *testing.T) {
 		t.Fatalf("events = %v", got)
 	}
 }
+
+// ---- canvas mode (ADR-0113) ----------------------------------------------
+
+func patchMatrix(t *testing.T, ts *httptest.Server, id string, body map[string]any) (int, map[string]any) {
+	t.Helper()
+	return matrixReq(t, ts, http.MethodPatch, "/api/matrices/"+id, body)
+}
+
+// rectsOf reads the matrix's panels as {id: [x, y, w, h]}.
+func rectsOf(t *testing.T, ts *httptest.Server, id string) map[string][4]float64 {
+	t.Helper()
+	out := map[string][4]float64{}
+	for _, p := range matrixDetail(t, ts, id)["panels"].([]any) {
+		pm := p.(map[string]any)
+		out[pm["id"].(string)] = [4]float64{pm["x"].(float64), pm["y"].(float64), pm["w"].(float64), pm["h"].(float64)}
+	}
+	return out
+}
+
+// Rows "patch mode | grid → canvas", "| canvas → grid", "| same mode",
+// "| unknown mode" and "| stale ifUpdatedAt" over HTTP, plus `mode` on both
+// reads. The answer to a switch is the summary *plus* the panels it moved,
+// which is the shape the layout patch answers with.
+func TestMatrixModeStatuses(t *testing.T) {
+	ts, st := matrixServer(t)
+	m := newMatrix(t, ts, "Ops")
+	id := m["id"].(string)
+	if m["mode"] != "grid" {
+		t.Fatalf("a new matrix = %v", m)
+	}
+	aid, _ := mustPanel(t, ts, id, "terminal", "a", 0, 0, 4, 14)
+	bid, at := mustPanel(t, ts, id, "terminal", "b", 4, 0, 8, 8)
+
+	var list struct{ Matrices []map[string]any }
+	getJSON(t, ts, "/api/matrices", &list)
+	if len(list.Matrices) != 1 || list.Matrices[0]["mode"] != "grid" {
+		t.Fatalf("list = %v", list.Matrices)
+	}
+	if d := matrixDetail(t, ts, id); d["mode"] != "grid" {
+		t.Fatalf("detail = %v", d)
+	}
+
+	// Unknown mode: 400 naming the two, nothing written.
+	if code, out := patchMatrix(t, ts, id, map[string]any{"mode": "isometric"}); code != http.StatusBadRequest || !strings.Contains(errorOf(out), "mode must be grid or canvas") {
+		t.Fatalf("unknown mode = %d %v", code, out)
+	}
+	// Stale precondition: 409, nothing written.
+	if code, out := patchMatrix(t, ts, id, map[string]any{"mode": "canvas", "ifUpdatedAt": m["updatedAt"]}); code != http.StatusConflict || !strings.Contains(errorOf(out), "changed elsewhere") {
+		t.Fatalf("stale switch = %d %v", code, out)
+	}
+	if d := matrixDetail(t, ts, id); d["mode"] != "grid" || d["updatedAt"] != at {
+		t.Fatalf("a refused switch wrote something: %v", d)
+	}
+
+	// grid → canvas: 200, the summary plus every panel moved, multiplied by
+	// 8 and 3 (b's 8 rows would be 24 units, so it clamps to the 28-unit
+	// minimum).
+	code, out := patchMatrix(t, ts, id, map[string]any{"mode": "canvas", "ifUpdatedAt": at})
+	if code != http.StatusOK || out["mode"] != "canvas" || out["panelCount"] != float64(2) || out["updatedAt"] == at {
+		t.Fatalf("switch to canvas = %d %v", code, out)
+	}
+	moved := map[string][4]float64{}
+	for _, p := range out["panels"].([]any) {
+		pm := p.(map[string]any)
+		moved[pm["id"].(string)] = [4]float64{pm["x"].(float64), pm["y"].(float64), pm["w"].(float64), pm["h"].(float64)}
+	}
+	want := map[string][4]float64{aid: {0, 0, 32, 42}, bid: {32, 0, 64, 28}}
+	if !reflect.DeepEqual(moved, want) {
+		t.Fatalf("the answer carried %v, want %v", moved, want)
+	}
+	if got := rectsOf(t, ts, id); !reflect.DeepEqual(got, want) {
+		t.Fatalf("canvas rectangles = %v, want %v", got, want)
+	}
+	canvasAt := out["updatedAt"].(string)
+
+	// The same mode again is a no-op: 200, updatedAt untouched, no event.
+	code, out = patchMatrix(t, ts, id, map[string]any{"mode": "canvas"})
+	if panels, _ := out["panels"].([]any); code != http.StatusOK || out["updatedAt"] != canvasAt || len(panels) != 0 {
+		t.Fatalf("same mode = %d %v", code, out)
+	}
+
+	// canvas → grid: divided, rounded, clamped and packed — b comes back 9
+	// rows tall, not the 8 it left with, and the two do not overlap.
+	code, out = patchMatrix(t, ts, id, map[string]any{"mode": "grid", "ifUpdatedAt": canvasAt})
+	if code != http.StatusOK || out["mode"] != "grid" || out["updatedAt"] == canvasAt {
+		t.Fatalf("switch to grid = %d %v", code, out)
+	}
+	back := map[string][4]float64{aid: {0, 0, 4, 14}, bid: {4, 0, 8, 9}}
+	if got := rectsOf(t, ts, id); !reflect.DeepEqual(got, back) {
+		t.Fatalf("grid rectangles = %v, want %v", got, back)
+	}
+	if len(out["panels"].([]any)) != 2 {
+		t.Fatalf("the switch back did not carry both panels: %v", out["panels"])
+	}
+
+	// A rename travelling with a mode: both land, each announcing itself.
+	code, out = patchMatrix(t, ts, id, map[string]any{"mode": "canvas", "name": "Ops board"})
+	if code != http.StatusOK || out["mode"] != "canvas" || out["name"] != "Ops board" || len(out["panels"].([]any)) != 2 {
+		t.Fatalf("mode + rename = %d %v", code, out)
+	}
+	if d := matrixDetail(t, ts, id); d["name"] != "Ops board" || d["mode"] != "canvas" || d["updatedAt"] != out["updatedAt"] {
+		t.Fatalf("after mode + rename = %v", d)
+	}
+
+	want2 := []string{"matrix.created", "matrix.panel.added", "matrix.panel.added", "matrix.mode", "matrix.mode", "matrix.mode", "matrix.updated"}
+	if got := eventTypes(matrixEvents(t, st)); !reflect.DeepEqual(got, want2) {
+		t.Fatalf("events = %v, want %v", got, want2)
+	}
+	var ev store.MatrixModeChanged
+	evs := matrixEvents(t, st)
+	if err := json.Unmarshal(evs[3].Data, &ev); err != nil {
+		t.Fatal(err)
+	}
+	if ev.Mode != "canvas" || len(ev.Panels) != 2 || ev.ID != id {
+		t.Fatalf("matrix.mode = %+v", ev)
+	}
+}
+
+// Rows "add panel | canvas matrix, w < 32 or h < 28 → 400 naming the limit",
+// "| negative x/y → accepted", "| |x| > 100000 → 400 naming the bound",
+// "| grid matrix, a canvas-sized rectangle → 400" and "layout patch | mixed
+// → 400, nothing written": the rectangle is judged by the matrix's mode.
+func TestMatrixCanvasPanelStatuses(t *testing.T) {
+	ts, st := matrixServer(t)
+	grid := newMatrix(t, ts, "Grid")
+	gridID := grid["id"].(string)
+	canvas := newMatrix(t, ts, "Canvas")
+	id := canvas["id"].(string)
+	if code, out := patchMatrix(t, ts, id, map[string]any{"mode": "canvas"}); code != http.StatusOK {
+		t.Fatalf("switch = %d %v", code, out)
+	}
+	cases := []struct {
+		name       string
+		x, y, w, h int
+		want       string
+	}{
+		{"w < 32", 0, 0, 31, 42, "w must be at least 32 canvas units"},
+		{"h < 28", 0, 0, 32, 27, "h must be at least 28 canvas units"},
+		{"w over the bound", 0, 0, 4097, 42, "w must be at most 4096 canvas units"},
+		{"x off the plane", 100001, 0, 32, 42, "x must be between -100000 and 100000 canvas units"},
+		{"y off the plane", 0, -100001, 32, 42, "y must be between -100000 and 100000 canvas units"},
+	}
+	for _, c := range cases {
+		if code, out := addPanelReq(t, ts, id, "terminal", "t-"+c.name, c.x, c.y, c.w, c.h); code != http.StatusBadRequest || !strings.Contains(errorOf(out), c.want) {
+			t.Errorf("%s = %d %v", c.name, code, out)
+		}
+	}
+	// Negative coordinates are the plane's: accepted, and read back as sent.
+	code, added := addPanelReq(t, ts, id, "terminal", "neg", -4000, -2500, 32, 28)
+	if code != http.StatusCreated {
+		t.Fatalf("negative placement = %d %v", code, added)
+	}
+	panel := added["panel"].(map[string]any)
+	if panel["x"] != float64(-4000) || panel["y"] != float64(-2500) {
+		t.Fatalf("negative placement = %v", panel)
+	}
+	negID := panel["id"].(string)
+	okID, _ := mustPanel(t, ts, id, "agent", "ok", 200, 0, 40, 30)
+
+	// The matrix's mode decides, not the payload's shape.
+	if code, out := addPanelReq(t, ts, gridID, "terminal", "wide", 0, 0, 32, 42); code != http.StatusBadRequest || !strings.Contains(errorOf(out), "x + w must be at most 12 columns") {
+		t.Fatalf("canvas rectangle in a grid matrix = %d %v", code, out)
+	}
+	if code, out := addPanelReq(t, ts, id, "terminal", "small", 0, 0, 4, 8); code != http.StatusBadRequest || !strings.Contains(errorOf(out), "w must be at least 32 canvas units") {
+		t.Fatalf("grid rectangle in a canvas matrix = %d %v", code, out)
+	}
+	if code, out := addPanelReq(t, ts, gridID, "terminal", "neg", -1, 0, 4, 8); code != http.StatusBadRequest || !strings.Contains(errorOf(out), "x must be 0 or more") {
+		t.Fatalf("negative x in a grid matrix = %d %v", code, out)
+	}
+
+	// A mixed layout patch: one legal rectangle, one not — 400, nothing
+	// written, the same all-or-nothing the grid has.
+	before := rectsOf(t, ts, id)
+	body := map[string]any{"panels": []map[string]any{
+		{"id": negID, "x": -8, "y": -8, "w": 40, "h": 40},
+		{"id": okID, "x": 0, "y": 0, "w": 32, "h": 27},
+	}}
+	if code, out := matrixReq(t, ts, http.MethodPatch, "/api/matrices/"+id+"/layout", body); code != http.StatusBadRequest || !strings.Contains(errorOf(out), "panel "+okID+": h must be at least 28 canvas units") {
+		t.Fatalf("mixed batch = %d %v", code, out)
+	}
+	if got := rectsOf(t, ts, id); !reflect.DeepEqual(got, before) {
+		t.Fatalf("a refused batch wrote something:\n got %v\nwant %v", got, before)
+	}
+	body = map[string]any{"panels": []map[string]any{{"id": negID, "x": -8, "y": -8, "w": 40, "h": 40}}}
+	if code, out := matrixReq(t, ts, http.MethodPatch, "/api/matrices/"+id+"/layout", body); code != http.StatusOK {
+		t.Fatalf("canvas layout patch = %d %v", code, out)
+	}
+	if got := rectsOf(t, ts, id)[negID]; got != [4]float64{-8, -8, 40, 40} {
+		t.Fatalf("canvas panel did not move: %v", got)
+	}
+	want := []string{"matrix.created", "matrix.created", "matrix.mode", "matrix.panel.added", "matrix.panel.added", "matrix.layout"}
+	if got := eventTypes(matrixEvents(t, st)); !reflect.DeepEqual(got, want) {
+		t.Fatalf("events = %v, want %v", got, want)
+	}
+}

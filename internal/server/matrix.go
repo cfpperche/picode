@@ -7,11 +7,13 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 )
 
-// Matrix routes (ADR-0108). A matrix is a named 12-column grid of agent
-// and terminal panels; the store holds one row per panel, validates the
-// limits and announces six events. Every mutation answers with the payload
-// its event carries, so the surface has one reducer path for a response
-// and a feed frame. The auth gate in front of every /api/* route applies.
+// Matrix routes (ADR-0108, ADR-0113). A matrix is a named board of agent
+// and terminal panels in one of two layout modes — a 12-column grid or an
+// 8 px-unit canvas; the store holds one row per panel, validates every
+// rectangle against the matrix's own mode and announces seven events.
+// Every mutation answers with the payload its event carries, so the surface
+// has one reducer path for a response and a feed frame. The auth gate in
+// front of every /api/* route applies.
 func registerMatrixRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/matrices", handleListMatrices(deps))
 	mux.HandleFunc("POST /api/matrices", handleCreateMatrix(deps))
@@ -48,7 +50,7 @@ func precondition(r *http.Request, body string) string {
 	return body
 }
 
-// GET /api/matrices — the summaries (id, name, compact, panelCount,
+// GET /api/matrices — the summaries (id, name, compact, mode, panelCount,
 // updatedAt), by name.
 func handleListMatrices(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -91,30 +93,64 @@ func handleGetMatrix(deps Deps) http.HandlerFunc {
 	}
 }
 
-// PATCH /api/matrices/{id} {name?, compact?, ifUpdatedAt} — 200 with the
-// summary; 409 when the row moved on since ifUpdatedAt (or If-Match).
+// PATCH /api/matrices/{id} {name?, compact?, mode?, ifUpdatedAt} — 200 with
+// the summary; 409 when the row moved on since ifUpdatedAt (or If-Match).
+// A patch that changes the mode answers the summary **plus** every panel the
+// switch moved, in the shape PATCH …/layout answers with (ADR-0113), so the
+// client has one reducer path; switching to the mode the matrix already has
+// answers the untouched summary and announces nothing.
 func handleUpdateMatrix(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Name        *string `json:"name"`
 			Compact     *string `json:"compact"`
+			Mode        *string `json:"mode"`
 			IfUpdatedAt string  `json:"ifUpdatedAt"`
 		}
 		if !decodeBody(w, r, &req) {
 			return
 		}
-		m, err := deps.Store.UpdateMatrix(r.PathValue("id"), store.MatrixPatch{Name: req.Name, Compact: req.Compact}, precondition(r, req.IfUpdatedAt))
+		id, pre := r.PathValue("id"), precondition(r, req.IfUpdatedAt)
+		if req.Name == nil && req.Compact == nil && req.Mode == nil {
+			writeErr(w, http.StatusBadRequest, "nothing to update: send name, compact or mode")
+			return
+		}
+		if req.Mode == nil {
+			m, err := deps.Store.UpdateMatrix(id, store.MatrixPatch{Name: req.Name, Compact: req.Compact}, pre)
+			if err != nil {
+				writeMatrixErr(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, m)
+			return
+		}
+		// The mode moves every panel, so it is its own store method, its own
+		// transaction and its own event. A rename in the same body follows
+		// it, under the updatedAt the switch just wrote.
+		out, err := deps.Store.SetMatrixMode(id, *req.Mode, pre)
 		if err != nil {
 			writeMatrixErr(w, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, m)
+		if req.Name != nil || req.Compact != nil {
+			if pre != "" {
+				pre = out.UpdatedAt
+			}
+			m, err := deps.Store.UpdateMatrix(id, store.MatrixPatch{Name: req.Name, Compact: req.Compact}, pre)
+			if err != nil {
+				writeMatrixErr(w, err)
+				return
+			}
+			out.Matrix = m
+		}
+		writeJSON(w, http.StatusOK, out)
 	}
 }
 
 // PATCH /api/matrices/{id}/layout {ifUpdatedAt, panels: [{id, x, y, w, h}]}
-// — the changed subset, one transaction, all or nothing; 200 with
-// {id, updatedAt, panels} (the matrix.layout payload); 409 when stale.
+// — the changed subset, one transaction, all or nothing, every rectangle
+// judged by the matrix's current mode; 200 with {id, updatedAt, panels}
+// (the matrix.layout payload); 409 when stale.
 func handleMatrixLayout(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
@@ -134,8 +170,9 @@ func handleMatrixLayout(deps Deps) http.HandlerFunc {
 }
 
 // POST /api/matrices/{id}/panels {kind, ref, x, y, w, h} — the client
-// places, the server validates; 201 with {id, updatedAt, panel} (the
-// matrix.panel.added payload); 409 when the binding is already there.
+// places, the server validates against the matrix's current mode; 201 with
+// {id, updatedAt, panel} (the matrix.panel.added payload); 409 when the
+// binding is already there.
 func handleAddMatrixPanel(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
