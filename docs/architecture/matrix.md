@@ -1,16 +1,19 @@
-# Matrix (ADR-0108)
+# Matrix (ADR-0108, ADR-0113)
 
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
-A matrix is a named 12-column grid of agent and terminal panels — the
-Matrix app (plan: `docs/plans/matrix-app.md`; phase 0 study:
+A matrix is a named board of agent and terminal panels — the Matrix app
+(plan: `docs/plans/matrix-app.md`; phase 0 study:
 `docs/benchmarks/2026-09-09-matrix-live-grid.md`). Persistence, the API
 family and the feed events are phase 2 (ADR-0108); the desktop surface —
 react-grid-layout, chunk loading, the picker — is phase 3 and is the
-**Surface** section at the end.
+**Surface** section at the end. A matrix has a **layout mode** (ADR-0113,
+amending ADR-0108): the 12-column grid it shipped with, or a canvas plane
+— the **Modes** section below. The canvas surface itself is C2 of
+`docs/plans/matrix-canvas.md` and is not built yet.
 
-**Data model (migration 041).** `matrices(id, name, compact, created_at,
-updated_at)` and `matrix_panels(id, matrix_id → matrices ON DELETE
+**Data model (migrations 041 and 043).** `matrices(id, name, compact, mode,
+created_at, updated_at)` and `matrix_panels(id, matrix_id → matrices ON DELETE
 CASCADE, kind, ref, x, y, w, h, created_at, UNIQUE(matrix_id, kind,
 ref))`. One row per panel, never one blob: a drag rewrites the rows that
 moved and the unique index refuses a duplicate binding. A panel id is a
@@ -19,7 +22,9 @@ terminal on two matrices is two panels. `kind ∈ {agent, terminal}`; `ref`
 is the agent or terminal id, with **no foreign key on purpose** — the
 store is ignorant of the binding, deleting an agent or terminal leaves the
 panel, and the UI renders the target as gone. `compact ∈ {vertical,
-none}` (default `vertical`; `none` is the v2 free canvas). `cols` is 12
+none}` (default `vertical`) and keeps meaning only in grid mode; `mode ∈
+{grid, canvas}` (migration 043, default `grid`, so every row written before
+it reads the meaning its rectangles already had). `cols` is 12 in grid mode
 and not stored. `updated_at` (RFC 3339 UTC, nanoseconds) bumps on every
 mutation and is the optimistic-concurrency key. The store
 (`internal/store/matrix.go`) is the only writer; every mutation is one
@@ -32,12 +37,13 @@ carries, so the client has one reducer path for a response and a frame.
 
 | Route | Answers |
 |---|---|
-| `GET /api/matrices` | `{matrices: [summary]}` — `id, name, compact, createdAt, updatedAt, panelCount`, by name (ASCII case-folded), then creation |
+| `GET /api/matrices` | `{matrices: [summary]}` — `id, name, compact, mode, createdAt, updatedAt, panelCount`, by name (ASCII case-folded), then creation |
 | `POST /api/matrices {name}` | 201 summary; 400 with the limit named |
 | `GET /api/matrices/{id}` | 200 summary + `panels: [{id, kind, ref, x, y, w, h, createdAt}]` (one read on open; 500 panels ≈ 50 KB) |
-| `PATCH /api/matrices/{id} {name?, compact?, ifUpdatedAt}` | 200 summary; 400 on an empty patch or a broken rule; 409 when the row moved on |
-| `PATCH /api/matrices/{id}/layout {ifUpdatedAt, panels: [{id, x, y, w, h}]}` | the changed subset, one transaction, all or nothing; 200 `{id, updatedAt, panels}`; 409 when stale |
-| `POST /api/matrices/{id}/panels {kind, ref, x, y, w, h}` | the client places (`nextSlot`, phase 3), the server validates; 201 `{id, updatedAt, panel}`; 409 on a duplicate binding |
+| `PATCH /api/matrices/{id} {name?, compact?, mode?, ifUpdatedAt}` | 200 summary; 400 on an empty patch or a broken rule; 409 when the row moved on |
+| …the same route when `mode` changes it | 200 summary **plus** `panels: [{id, x, y, w, h}]` — every panel the switch moved, the shape the layout patch answers with, so the client has one reducer path. Same mode: the untouched summary, `panels: []`, no event, `updatedAt` unchanged. Unknown mode: 400 "mode must be grid or canvas" |
+| `PATCH /api/matrices/{id}/layout {ifUpdatedAt, panels: [{id, x, y, w, h}]}` | the changed subset, one transaction, all or nothing, every rectangle judged by the matrix's current mode; 200 `{id, updatedAt, panels}`; 409 when stale |
+| `POST /api/matrices/{id}/panels {kind, ref, x, y, w, h}` | the client places (`nextSlot`, phase 3), the server validates against the matrix's current mode; 201 `{id, updatedAt, panel}`; 409 on a duplicate binding |
 | `DELETE /api/matrices/{id}/panels/{panelId}` | 204; the feed carries the new `updatedAt` |
 | `DELETE /api/matrices/{id}` | 204; the panels cascade |
 
@@ -47,11 +53,41 @@ none — a picker must not fail because someone dragged.
 
 **Limits refuse and never truncate** (400, the limit named; runes, not
 bytes): 64 matrices, 500 panels per matrix, 80 characters of name (empty
-or only spaces is "name is required"), `x ≥ 0`, `y ≥ 0`, `w ≥ 4`
-columns, `h ≥ 8` rows, `x + w ≤ 12`. The messages are the contract:
-`web/shared/domain/matrix.js` repeats them (`validateName`,
-`validateCompact`, `validatePlacement`, `validatePanel`) so the UI can
-refuse before asking.
+or only spaces is "name is required"). A rectangle is judged by **the
+matrix's mode**, read inside the same transaction that writes it — so a
+canvas rectangle cannot be written into a grid matrix or the reverse:
+
+| Mode | Unit | Rules |
+|---|---|---|
+| `grid` | grid cell (12 columns, `rowHeight` 24 px) | `x ≥ 0`, `y ≥ 0`, `w ≥ 4` columns, `h ≥ 8` rows, `x + w ≤ 12` |
+| `canvas` | 8 px canvas unit | `w ≥ 32` units (256 px), `h ≥ 28` units (224 px), `x` and `y` may be negative, no column cap |
+
+The canvas plane is bounded so a panel cannot be dragged out of reach of
+every viewport: `|x| ≤ 100000` and `|y| ≤ 100000` units (±800 000 px),
+`w ≤ 4096` and `h ≤ 4096` units (32 768 px). The messages are the
+contract: `web/shared/domain/matrix.js` repeats them per mode
+(`validateName`, `validateCompact`, `validateMode`, `validatePlacement`,
+`validatePanel`) so the UI can refuse before asking.
+
+**Modes** (ADR-0113). `mode` decides what `x, y, w, h` mean — grid cells or
+8 px canvas units — and `compact` keeps meaning only in grid mode.
+Switching is `SetMatrixMode`: one transaction that changes the column,
+rewrites every panel by the transform below, bumps `updated_at` and
+appends one `matrix.mode` event carrying the summary plus exactly the
+panels it moved. Switching to the mode a matrix already has writes and
+announces nothing. A grid cell is **8 canvas units wide** (`colWidth / 8`)
+and **3 tall** (`rowHeight` 24 px / 8), so `grid → canvas` is `x·8`, `w·8`,
+`y·3`, `h·3` clamped to the canvas minimums, and `canvas → grid` divides by
+the same factors, rounds half away from zero, clamps into the 12-column
+rules and **packs** — reading order, first free slot (`nextSlot`'s
+arithmetic), because rounding alone leaves panels overlapping. The trip is
+not identity: an 8-row panel is 24 units tall, grows to the 28-unit
+minimum (and may overlap the panel below, which a canvas allows), and comes
+back 9 rows tall. Nothing is ever lost, and two panels never overlap in
+grid mode. `web/shared/domain/matrix.js` repeats the transform as
+`gridToCanvas` / `canvasToGrid` so the UI can preview a switch before
+asking for it. **The viewport is per viewer and is not stored** — a camera
+follows the inspector width into `localStorage`, not the store.
 
 **Events** (durable, appended in the mutation's transaction; `touches(ev,
 ["matrix"])` keys on the prefix, so `matrix.panel.*` reaches the surface
@@ -60,21 +96,27 @@ with the rest):
 | Event | Data |
 |---|---|
 | `matrix.created`, `matrix.updated` | the summary |
+| `matrix.mode` | the summary (with the new mode) + `panels: [the subset the switch moved]` |
 | `matrix.layout` | `{id, updatedAt, panels: [the subset that moved]}` |
 | `matrix.panel.added` | `{id, updatedAt, panel}` |
 | `matrix.panel.removed` | `{id, updatedAt, panelId}` |
 | `matrix.deleted` | `{id}` — the panels go with it, without an event each |
 
 **Client contract** (`web/shared/domain/matrix.js`, pure): `MATRIX_LIMITS`,
-`MATRIX_KINDS`, `MATRIX_COMPACT`, `MATRIX_EVENTS`; `normalizeMatrix`,
+`MATRIX_KINDS`, `MATRIX_COMPACT`, `MATRIX_MODES`, `MATRIX_EVENTS`,
+`UNIT_PX` (8); `normalizeMatrix`,
 `normalizeMatrixList`, `normalizePanel`, `normalizeMatrixDetail` drop junk
 the way `contracts/appPrimitives.js` does (a panel without a whole
 rectangle or a known binding is dropped); `applyMatrixEvent(state, ev)`
-reduces the six events over `{ list: [summaries], byId: { id: { matrix,
+reduces the seven events over `{ list: [summaries], byId: { id: { matrix,
 panels } } }` — an event for a matrix that is not loaded only touches the
 summary list, a `created`/`updated` for a matrix the list never saw
 inserts it (the summary is complete), the list stays sorted by name, and
-junk or an unknown type returns the same object.
+junk or an unknown type returns the same object. Every rectangle is judged
+in the mode it belongs to (`normalizeMatrix` falls back to `grid` for an
+unknown one), and `validatePlacement`, `validatePanel`, `nextSlot` and
+`layoutDiff` take the mode with `grid` as the default, so every v1 caller
+is unchanged.
 
 Decision table (every row has a store or handler test —
 `internal/store/matrix_test.go`, `internal/server/matrix_test.go`):
@@ -93,6 +135,16 @@ Decision table (every row has a store or handler test —
 | layout patch | ok subset | 200 `{id, updatedAt, panels}`; one `matrix.layout` event carrying exactly the subset |
 | update | rename ok / compact ∈ {vertical, none} | 200 summary; `matrix.updated` |
 | update | compact other / name over limit / stale `ifUpdatedAt` | 400 / 400 / 409 |
+| read | a database written before 043 | every matrix reads `grid`, no rewrite |
+| patch mode | `grid → canvas` | 200 summary + every panel moved; one `matrix.mode`; rectangles multiplied by 8 and 3 |
+| patch mode | `canvas → grid` | divided, rounded, clamped and packed; no two panels overlap; nothing lost |
+| patch mode | same mode | no-op: no event, `updatedAt` unchanged |
+| patch mode | unknown mode / stale `ifUpdatedAt` | 400 naming the two / 409, nothing written |
+| add panel | canvas matrix: `w < 32`, `h < 28`, `|x| > 100000` | 400 naming the limit in canvas units |
+| add panel | canvas matrix, negative `x`/`y` | accepted — the plane's, not a mistake |
+| add panel | a rectangle sized for the other mode | 400 — judged by the matrix's mode, not the payload's shape |
+| layout patch | canvas matrix, mixed: one rectangle legal, one not | 400, nothing written (all or nothing) |
+| round trip | `grid → canvas → grid` | inside the grid rules and disjoint, never identical (the 8-row minimum returns 9 rows tall) |
 | remove panel | unknown panel | 404 |
 | remove panel | ok | 204; `matrix.panel.removed` |
 | delete matrix | ok | 204; panels gone (cascade proven by a query); `matrix.deleted` |
