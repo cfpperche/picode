@@ -87,6 +87,9 @@ function at(ev) {
 //   tick    { at }                          resolves both dwells
 //   escape                                  reveal first, then the mode
 //   browser { active }                      document.fullscreenElement changed
+//   resume                                  a real gesture after a reload:
+//                                           the restored mode completes the
+//                                           browser fullscreen + keyboard lock
 //   seen                                    the first-run toast was shown
 export function focusReduce(state, ev) {
   if (!state || !ev) return state;
@@ -138,6 +141,12 @@ export function focusReduce(state, ev) {
     }
     case "seen":
       return state.seen ? state : { ...state, seen: true };
+    // A reload restores the mode without the browser part (no gesture, so
+    // no request); the wiring watches for the first real input and reports
+    // it as "resume". The state does not change here — the wiring reads the
+    // intent and asks the browser for fullscreen in that same handler.
+    case "resume":
+      return state;
     default:
       return state;
   }
@@ -148,9 +157,13 @@ export function focusReduce(state, ev) {
 // requestFullscreen has to run inside the click or keydown handler, never
 // in an effect that observes the new state. A transition the browser
 // itself caused asks for nothing — it has already moved.
+// "resume" asks for the browser part exactly when the restored mode is
+// still missing it (mode on, browser never went fullscreen): the gesture
+// carrying the resume event is the activation the request needs.
 export function browserIntent(prev, next, ev) {
   if (!prev || !next) return "none";
   if (ev && ev.type === "browser") return "none";
+  if (ev && ev.type === "resume") return next.on && !next.fs ? "request" : "none";
   if (!prev.on && next.on) return "request";
   if (prev.on && !next.on && prev.fs) return "exit";
   return "none";
