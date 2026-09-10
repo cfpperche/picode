@@ -38,7 +38,7 @@ const TAB_KEY = "picode-side-tab";
 export default function Sidebar({
   workspaces, selectedId,
   onNew, onSelect, onRun, onStop, onRemove,
-  userMenu, termView, onChat, onTerm,
+  userMenu, termView, onChat, onTerm, onBrowser,
   freeAgents, onNewFree, onNewAgent, onRemoveAgent, onRenameAgent,
   workingId,
   workingIds,
@@ -132,7 +132,7 @@ export default function Sidebar({
         onRenameAgent={onRenameAgent}
         onRun={onRun} onStop={onStop}
         onRemoveAgent={onRemoveAgent} onRemove={onRemove}
-        onChat={onChat} onTerm={onTerm} termView={termView}
+        onChat={onChat} onTerm={onTerm} onBrowser={onBrowser} termView={termView}
       />
     );
   }
