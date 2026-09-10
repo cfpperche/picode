@@ -1181,6 +1181,7 @@ img.ws-face.term-cli-face {
 .ws-row-menu-item:hover, .ws-row-menu-item[data-highlighted] { background: var(--bg-hover); }
 .ws-row-menu-item.danger { color: var(--danger); }
 .ws-row-menu-item svg { flex: none; color: currentColor; }
+.ws-row-menu-sep { height: 1px; background: var(--border); margin: 6px 4px; }
 .ws-context {
   display: flex; align-items: center; gap: 5px; min-width: 0;
   /* Left inset = identity-mark (16px) + row-hit gap (7px), so this line
@@ -2898,13 +2899,12 @@ img.ws-face.term-cli-face {
    needs no arrow, and the italic sets the line in the plan's voice rather
    than chrome. The disclosure sits on the card's 23px metadata column —
    the same left edge as the folder and branch icons below and the title
-   text above — and an empty 12px slot with the same 4px gap keeps the text
-   on the icons' text column: 23 + 12 + 4 = 39px, aligned with the
-   folder/branch labels and the expanded steps' text. The button's 3px side
-   padding + negative margins extend the hit area without moving the
-   content (23 − 3 + 3 = 23). */
+   text above — and the text starts right there: the line carries no mark
+   of its own, so a ghost slot only read as an indent (owner report
+   2026-09-09: the plan text sat ~16px right of every other line on the
+   card). The button's 3px side padding + negative margins extend the hit
+   area without moving the content (23 − 3 + 3 = 23). */
 .ws-check-disclosure { margin: 3px 31px 0 23px; min-width: 0; }
-.ws-check-slot { flex: none; width: 12px; height: 12px; }
 button.ws-check-line { display: flex; align-items: center; gap: 4px; min-width: 0; width: calc(100% + 6px); margin: 0 -3px; font-size: 11.5px; font-style: italic; color: var(--text-secondary); padding: 2px 3px; background: none; border: 0; border-radius: 4px; text-align: left; cursor: pointer; }
 button.ws-check-line:hover, button.ws-check-line:focus-visible { color: var(--text-primary); }
 button.ws-check-line:hover .ws-check-text, button.ws-check-line:focus-visible .ws-check-text { color: var(--text-primary); }

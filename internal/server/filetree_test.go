@@ -93,7 +93,7 @@ func TestTerminalBrowse(t *testing.T) {
 	_ = json.NewDecoder(created.Body).Decode(&page)
 	id, _ := page["id"].(string)
 	sess, _ := page["session"].(string)
-	t.Cleanup(func() { _ = tmux.New().KillSession(t.Context(), sess) })
+	killTmuxOnCleanup(t, sess)
 
 	got := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals/"+id+"/browse"))
 	var out map[string]any
