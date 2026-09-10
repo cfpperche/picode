@@ -66,9 +66,11 @@
   padding: 16px; color: var(--text-secondary); font-size: 12.5px; text-align: center; line-height: 1.4;
 }
 /* The one action of a placeholder row sits on the body's own background
-   (--bg-base), where a plain .btn fill reads as no button at all in light
-   theme: the stronger border is what makes it a control. */
-.mx-placeholder .btn { min-height: var(--ctl-h); border-color: var(--border-strong); }
+   (--bg-base), where a plain .btn is the same near-body fill in both
+   themes and reads as text with a hairline. It takes the hover fill at
+   rest — a real step from the body — and keeps .btn:hover's border change
+   as its hover answer. */
+.mx-placeholder .btn { min-height: var(--ctl-h); background: var(--bg-hover); }
 
 /* react-grid-layout and react-resizable in our tokens. */
 .mx-surface .react-grid-placeholder {
