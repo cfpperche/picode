@@ -1,7 +1,11 @@
 # Matrix v2 — the infinite canvas (plan)
 
 - **Date:** 2026-09-10
-- **Status:** proposed — waiting for the owner's call on §8
+- **Status:** proposed — waiting for the owner's call on §8. **C0 is done
+  and its numbers are folded in below**
+  ([`docs/benchmarks/2026-09-10-node-canvas.md`](../benchmarks/2026-09-10-node-canvas.md)):
+  GO on `@xyflow/react`, with one rule this plan did not have — a live
+  terminal is only correct at zoom exactly 1.0.
 - **Ask (owner):** "o matrix ser uma view para trabalho inspirada nesse
   projeto" ([nodeterm](https://nodeterm.dev)), "continua como view a mais,
   a ideia é essa mesmo virar um canvas infinito". Library question answered
@@ -9,7 +13,8 @@
 - **Builds on:** `docs/plans/matrix-app.md` (v1, phases 0–3, shipped
   2026-09-09/10), `docs/architecture/matrix.md` (ADR-0108 persistence,
   ADR-0109 native app surfaces), `docs/benchmarks/2026-09-09-matrix-live-grid.md`
-  (the phase-0 measurements this plan reuses).
+  (the phase-0 measurements this plan reuses),
+  `docs/benchmarks/2026-09-10-node-canvas.md` (the C0 spike that gates it).
 - **Scope guard:** Matrix stays **one more view**, not the shell. The tab
   strip, the sidebar and the routes are untouched; a matrix simply gains a
   second layout mode. Fullscreen (`picode-focus`) composes with it — canvas
@@ -57,7 +62,7 @@ focus, selection, IME and key handling.
 
 | Candidate | Renders | Verdict |
 |---|---|---|
-| **`@xyflow/react` 12.11.6** | DOM | **chosen.** MIT, published 2026-09-01, 6.2 M downloads/week, deps `zustand` + `classcat` + `@xyflow/system`, 1.2 MB unpacked |
+| **`@xyflow/react` 12.11.6** | DOM | **chosen, and measured in C0.** MIT, published 2026-09-01, 6.2 M downloads/week, deps `zustand` + `classcat` + `@xyflow/system`, 1.2 MB unpacked. 500 nodes pan, zoom and drag at 60 fps; `nodrag`/`nowheel` hold; `NodeResizer` resizes a live pane |
 | GoJS 4.0.3 | HTML5 canvas | impossible: a live terminal cannot live inside a canvas scene graph. Also a paid licence |
 | JointJS 3.7.7 | SVG | interactive DOM only through `foreignObject` (focus/IME/selection are fragile); OSS package last published 2024-03; the maintained edition is commercial |
 | Rete.js 2.0.6 | DOM | a dataflow/visual-scripting framework with sockets; our nodes are not dataflow. 34 k downloads/week |
@@ -75,7 +80,20 @@ the node), **`nowheel`** (wheel does not zoom the canvas), **`nopan`**
 
 **Their documented caveat is exactly our case**: "mouse events aren't
 consistent when a node contains a `<canvas />` — scale computed positions
-by 1/zoom". §4.3 turns that into a rule instead of a bug.
+by 1/zoom". C0 measured it and it is worse than a caveat: **xterm divides
+the pointer's offset inside the transformed rect by the untransformed cell
+size**, so the cell it reports is `cell × zoom` and the error grows with
+the distance from the pane's corner (10 columns and 3 rows at zoom 0.8 on
+a 54 × 16 pane). xterm exposes no scale to correct, so §4.3 makes zoom 1.0
+the condition for a pointer, not a preference.
+
+**Bundle, measured (C0).** Eager, the library costs the desktop main chunk
+**+60 761 B gzip** of JS and **+2 552 B gzip** of CSS — 2.6× the
++24 309 B gzip react-grid-layout cost, and over the 60 KB threshold the
+phase-0 study used. **Lazy-imported** it moves the main chunk by 205 B
+gzip and lands in a chunk of **46 181 B gzip** JS + **2 687 B gzip** CSS
+that only a viewer who opens a canvas fetches. The canvas host is lazy —
+decided, not optional.
 
 **Do we swap the grid library?** Yes, eventually — in two steps, never in
 one, and the second step waits for the owner to have used the canvas.
@@ -96,10 +114,23 @@ one, and the second step waits for the owner to have used the canvas.
 The recurring cost of two engines is not the 24 KB gzip: it is that every
 later panel feature — a new node kind, a header action, a keyboard rule —
 has to work in two hosts with two drag/resize/selection models. That tax is
-why one library is the target. The single thing RGL does that React Flow
-does not is **automatic vertical compaction** (remove a panel and the ones
-below rise); it becomes a pure function of ours (~40 lines, `nextSlot` is
-most of it) behind a **Tidy** action, optionally run on every removal.
+why one library is the target.
+
+**What porting grid mode would cost, after C0.** `snapToGrid` with an 8 px
+`snapGrid` places exactly (a drag lands on multiples of 8; with it off the
+same drag lands at 78). Three grid behaviours have no React Flow
+equivalent, not one:
+
+| RGL does | React Flow |
+|---|---|
+| automatic vertical compaction | ours — a pure pack function (~40 lines, `nextSlot` is most of it) behind a **Tidy** action |
+| **collision resolution** — items never overlap, the ones in the way are pushed | none: C0 left a dragged node overlapping its neighbour. Ours to write |
+| **reflow to container width** — 12 columns of variable pixel width | none: canvas coordinates are absolute. The one a user notices on a laptop |
+| per-item min sizes and edge handles | `NodeResizer` (`minWidth`/`minHeight`, 8 handles), proven against a live terminal |
+| keyboard placement | neither; the Matrix's arrows are ours (`neighborPanel`) |
+
+C0 found **no blocker that forces "two libraries"** — the end state stays
+the owner's call after using the canvas.
 
 ## 4. Design
 
@@ -157,20 +188,46 @@ migration.
 ### 4.3 Zoom, live terminals and chunk loading
 
 The rule that makes a big canvas cheap, extending `loadPolicy` with one
-input:
+input. **Rewritten from C0's measurements** — the pointer, not the
+renderer, is what the zoom decides:
 
 | Condition | Panel body |
 |---|---|
-| in the viewport band **and** `zoom ≥ 0.8` | live pane (mounted, attached) |
-| in the band, `zoom < 0.8` | **still**: the terminal's visible buffer captured as text (`term.buffer.active`, cheap and exact), monospace, non-interactive; header stays live from the feed |
+| in the band and `zoom = 1.0` | live pane, mounted, attached, **and the only state that takes a pointer** |
+| in the band and `0.8 ≤ zoom < 1.0` (or `zoom > 1.0`) | live pane, readable and taking keys, but `pointer-events: none` on the body: a click on it runs "snap to 1" first and hands the pointer over afterwards |
+| in the band, `zoom < 0.75` | **still**: the terminal's visible buffer as text (`term.buffer.active`), monospace, non-interactive; header stays live from the feed |
+| `zoom < 0.4` | **name-plate**: face, name and status colour sized to the panel — at 0.2 a text still is grey texture, headers included |
 | outside the band (any zoom) | today's placeholder, socket suspended after the 5 s hysteresis |
-| focused and engaged | the canvas animates to `zoom = 1` before the pane takes keys — "snap to 1 on engage", which also removes every 1/zoom mouse-mapping question while typing |
+| focused and engaged | the canvas animates to `zoom = 1` before the pane takes keys — "snap to 1 on engage" |
 
-`minZoom` 0.2, `maxZoom` 1.5. `IntersectionObserver` keeps working under
-the canvas transform (it accounts for transforms), so the existing
-observer stays; `loadPolicy` gains `zoom` and the still/live split, and
-stays pure and unit-tested per row. The still is memory-only, never
-persisted, refreshed when a live pane unmounts.
+**Why 1.0 and not 0.8.** C0 measured xterm's pointer→cell mapping under the
+canvas transform: it divides the pointer's offset inside the *transformed*
+rect by the *untransformed* cell size, so the cell it reports is
+`cell × zoom`. At 0.8 a click aimed at column 50 row 15 is reported as
+column 40 row 12, and a drag-select of ten characters returns seven; at 1.5
+the same drag returns thirteen. PiCode ships tmux `mouse on`, so those
+coordinates reach tmux copy mode and every mouse-aware TUI. Rendering is
+*not* affected — the DOM renderer stays crisp at 0.8 — which is why the
+rule has to be explicit: nothing on screen tells the user the clicks lie.
+The band is hysteretic (live above 0.8, still below 0.75) so a viewer
+parked on the boundary does not thrash nine sockets.
+
+`minZoom` 0.2, `maxZoom` 1.5. `IntersectionObserver` does account for the
+transform (C0 verified it: pan the plane away and the attaches fall to 0,
+pan back and the same nine xterm instances reattach), so the existing
+observer stays — with two corrections. Its `rootMargin` gains its
+horizontal half (`100%`, not the grid's `100% 0px`: 49 panels in the band
+at zoom 1 and 1600 × 1200, against 28). And the band is a **screen-space**
+rule, so zooming out multiplies the plane it covers — at 0.2 all 500
+panels were in the band. The still rule, not the band, is what bounds the
+attaches when zoomed out; `loadPolicy` gains `zoom` and the still/live
+split, and stays pure and unit-tested per row.
+
+The still is memory-only, never persisted, and costs **0.02 ms** for a full
+83 × 26 screen — so it is captured **before** the mode flips, not at
+unmount: React renders the still body before it runs the live body's
+cleanup, so a capture in the cleanup is always one crossing late (C0's
+first crossing painted an empty still).
 
 ### 4.4 Chrome on the canvas
 
@@ -181,7 +238,24 @@ the existing header (switcher, Add panel, New matrix, Rename/Delete) with a
 **Grid | Canvas** segmented control added. Panels keep the header they
 have — face, name, status chip, Open · Maximize · Remove — with the body
 marked `nodrag nowheel` and the header as the drag handle, exactly as
-today.
+today. C0 proved all three gates: a wheel over the body left the zoom at
+1.000 while the same wheel over the pane took it to 0.758; a body drag
+selected text and left the node's position unchanged; the header dragged
+the node and fired one `onNodeDragStart`/`onNodeDragStop` pair.
+
+`onlyRenderVisibleElements` is **off**. It is the cheaper renderer (16
+nodes mounted instead of 500 at rest, and the only thing that made a
+20-panel drag 60 fps instead of 31) but it unmounts a node with no dwell
+and no hysteresis, and a node's unmount is a live terminal's unmount: C0
+churned 54 body swaps — 54 socket suspends and kicks — through three fast
+pan round trips that cost **zero** with it off. Our own band already culls
+the thing that matters.
+
+The minimap costs nothing measurable at 500 panels (60 fps panning with
+and without) but React Flow's default `<MiniMap />` and `<Controls />` are
+a near-white panel over the app's dark surface, sitting on top of the
+panels: C2 gives them `bgColor`/`nodeColor`/`maskColor` from the tokens
+and a placement that does not cover a panel.
 
 ### 4.5 Keyboard
 
@@ -206,7 +280,7 @@ Enter's engage triggering the snap to 1.
 
 | # | Branch | Delivers | Gate |
 |---|---|---|---|
-| C0 | `feat/matrix-canvas-spike` | React Flow in the desktop bundle with React 19: 500 nodes, nine live xterm bodies, zoom 0.2→1.5, the still/live swap, minimap, `onlyRenderVisibleElements` on and off, `IntersectionObserver` under transform, xterm click/selection at 0.8 and 1.0, bundle delta, fps while panning and dragging. Study `docs/benchmarks/2026-09-10-node-canvas.md` (this §2 plus the measurements). **Decides one engine or two.** Nothing merges but the note and this plan | owner reads the note |
+| C0 | `feat/matrix-canvas-spike` | **done 2026-09-10** — [`docs/benchmarks/2026-09-10-node-canvas.md`](../benchmarks/2026-09-10-node-canvas.md). **GO** on `@xyflow/react`: 500 nodes at 60 fps, `nodrag`/`nowheel`/header-drag hold, chunk loading bounds the attaches under the transform, `NodeResizer` resizes a live pane and ends once, the still costs 0.02 ms, +63 KB gzip eager / 49 KB lazy. One rule changed: **live terminals are only correct at zoom 1.0** (§4.3). No blocker forces two engines. Only the note and this plan merged | owner reads the note |
 | C1 | `feat/matrix-canvas-model` | ADR amending ADR-0108 (mode column, per-mode units, the switch transform), migration, store + handlers + events, `matrix.js` per-mode validation and the pack function, OpenAPI | `make close` |
 | C2 | `feat/matrix-canvas-surface` (two sessions) | canvas mode end to end: React Flow host, node wrapper reuse, zoom-aware `loadPolicy`, stills, minimap, mode switch, Tidy, marquee, keyboard, save/409, `docs-site` guide update, QA + visual review | `make close`; visual card |
 | C3 | `feat/matrix-node-kinds` | `note`, then `file` and `diff` bodies; picker groups by kind | `make close` |
@@ -228,22 +302,24 @@ first; the surface reads the mode from the API.
 
 ## 7. Risks
 
-| Risk | Mitigation |
-|---|---|
-| xterm under a CSS transform (blur, mouse mapping) | live only at `zoom ≥ 0.8`, snap to 1 on engage; C0 proves click and selection at both zooms before anything ships |
-| bundle growth on top of RGL | measured in C0; the canvas host is lazy-imported; retiring RGL in C5 gives most of it back |
-| 500 nodes with a minimap | C0 measures with `onlyRenderVisibleElements` both ways; our own chunk loading already bounds the expensive part (attaches), not the wrappers |
-| two engines during C2 | time-boxed to one release; the mode switch is server-side, so a rollback is one column |
-| a still that lies (stale text) | the still is captured at unmount and stamped with its age in the header; anything older than the feed's last event says so |
-| coordinate migration | the switch transform is one server transaction that answers with every moved panel, and it is reversible by switching back |
+| Risk | C0 measurement | Mitigation |
+|---|---|---|
+| xterm under a CSS transform | **confirmed, and worse than expected**: the mapped cell is `cell × zoom`, so at 0.8 a click on (50, 15) reports (40, 12) and a ten-character drag returns seven; blur is *not* a problem — the DOM renderer stays crisp at 0.8 | a pointer only at `zoom = 1.0`; 0.8–1.0 is live but pointer-inert, and a click there snaps to 1 first (§4.3) |
+| bundle growth on top of RGL | +60 761 B gzip JS + 2 552 B CSS eager; 46 181 + 2 687 B gzip in a split chunk lazy | the canvas host is lazy-imported — decided, not optional; retiring RGL in C5 gives most of it back |
+| 500 nodes with a minimap | the minimap is free (60 fps panning with and without, 500 rects either way); the only expensive gesture is dragging 20 selected panels: 31 fps with `onlyRenderVisibleElements` off, 60 with it on | keep the culling **off** (it churns 54 socket suspends per three pan round trips); if the multi-drag hurts, bound the mounted bodies instead |
+| two engines during C2 | — | time-boxed to one release; the mode switch is server-side, so a rollback is one column |
+| a still that lies (stale text) | a capture is 0.02 ms, but one taken at unmount paints one crossing late (the first crossing showed an empty still) | capture before the flip and refresh while live; stamp the age in the header |
+| a still nobody can read | at 0.5 it is sharp but marginal; at 0.2 it is grey texture and the headers do not resolve either | the name-plate body below ~0.4 (§4.3) |
+| coordinate migration | — | the switch transform is one server transaction that answers with every moved panel, and it is reversible by switching back |
 
 ## 8. For the owner
 
 | # | Question | Recommendation |
 |---|---|---|
-| 1 | Library | `@xyflow/react` (MIT), per §3 |
+| 1 | Library | `@xyflow/react` (MIT), per §3 — **C0 says GO**, lazy-imported |
 | 2 | Canvas as a **mode** of a matrix, not a second app | yes — one store, one API, one surface |
 | 3 | Viewport per viewer, panel positions shared | yes |
 | 4 | Ship the canvas with terminals and agents only, then add note/file/diff | yes — C2 before C3 |
 | 5 | Edges wait for their own ADR | yes |
 | 6 | Kanban board is refused as a Matrix mode | agree, or say so and it becomes its own plan |
+| 7 | **A live terminal takes the mouse only at zoom 1.0** (C0: xterm's pointer mapping ignores the canvas transform, and PiCode's tmux `mouse on` default carries the error into copy mode and every TUI) | yes — live and readable from 0.8, pointer only at 1.0, a click below 1.0 snaps to 1 first |
