@@ -5,10 +5,12 @@
 
 ## In flight
 
-`git worktree list` is the truth for branches on disk (`make close-summary` prints it); this section holds only what merging one of them must know.
+`git worktree list` is the truth for in-flight branches; entries say what a merge must know.
 
-- `feat/herdr-validation`, `feat/picode-video-pilot` — carry `CHANGELOG.md` edits and the pre-ADR-0105 12 KB `docs/handoff.md`; their next merge of `main` conflicts in both: keep this file's shape, under 8 KB, changelog lines to `docs/changelog.d/`.
-- `feat/matrix-canvas-surface` (canvas **C2 done**, `close` green, owes nothing, ff-ready): browser acceptance + visual card in `docs/handoff/2026-09-10-matrix-canvas-surface.md`. Next: **C3** (note/file/diff kinds), then **C4** (edges — ADR first).
+- `feat/browser-surface` — ADR-0114 browser surface; ff-ready.
+- `feat/herdr-validation`, `feat/picode-video-pilot` — carry pre-ADR-0105 `CHANGELOG.md` edits and the 12 KB `docs/handoff.md`; next `main` merge conflicts in both: keep this file's shape, changelog lines to `docs/changelog.d/`.
+- `feat/term-key-capture` — fullscreen locks the keyboard (Chromium): `Ctrl+T`/`Ctrl+W` now reach the guest CLIs; ff-ready.
+- `feat/matrix-canvas-surface` (canvas **C2 done**, ff-ready): browser acceptance + visual card in `docs/handoff/2026-09-10-matrix-canvas-surface.md`. Next: **C3** (note/file/diff kinds), then **C4** (edges — ADR first).
 
 ## Next up
 
@@ -20,7 +22,7 @@
 6. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan.
 7. CLI prompt door iPhone acceptance; first-class CLI agents refused until protocol convergence (ADR-0091).
 8. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
-9. Compaction re-dogfood; historical Inbox rows; remote-mode and browser preview (owner infra).
+9. Compaction re-dogfood; historical Inbox rows; remote-mode (owner infra); browser surface phase 2 (input, consent).
 10. Windows clean-machine install (ADR-0098): phase 1 = `install-picode` + `install-runtime` stages in `picode-desktop.exe`; phase 2 = `install.ps1` one-liner + winget, no paid signing. Plan: `docs/plans/windows-clean-install.md`.
 11. Inspector debts (ADR-0096): `git ls-files` search, per-anchor watch, `+N −M` footer.
 
@@ -53,7 +55,7 @@
 - llama: ARM64 hardware and GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
 - Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip needs on-device confirmation (Preferences → Layout).
 - Matrix (ADR-0108/0109): no docs-shots capture — needs a `desktop-matrix` profile and a fixture. Attaches are bounded by scroll *speed*, not distance (300 ms dwell). App-wide, from its captures: the toast covers a surface's Close; dialogs have no scrim and little dark elevation; a grow-resize leaves an idle cursor.
-- Matrix v2 (C2 accepted 2026-09-10): the band flips at gesture end and Tidy never resizes — both deliberate; the switch transform lives twice (Go writes, JS previews). Open: `+`/`-`/`0` need a focused panel; a still stamps its age only when the feed moved since; React Flow's badge is kept.
+- Matrix v2 (C2 accepted 2026-09-10): band flips at gesture end, Tidy never resizes — deliberate; the switch transform lives twice (Go writes, JS previews). Open: `+`/`-`/`0` need a focused panel; a still stamps its age only when the feed moved since.
 - Fullscreen mode (2026-09-10): real browser fullscreen owns Escape, so one press leaves the mode; the double-Escape is in-app-only. The right strip is pointer-transparent, so its reveal misses an embedded frame (PDF preview). Chromium only.
 - Notices (2026-09-07): needs-you covers the fleet, but the finish card only fires for the agent whose socket is open; neither exercised against a real pi dialog.
 - Native surfaces (ADR-0109): `host` has no `openTerminal` — the Matrix POSTs `/api/terminals/{id}/open` itself (feed rows carry no `session`); a tab closing under a panel remounts the body with a fresh xterm. An unsupported tile explains itself only via `title`.
