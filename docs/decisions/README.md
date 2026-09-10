@@ -112,8 +112,9 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0105](0105-process-cost-second-review.md) | The rite runs in a fresh context, the living docs stop conflicting, deploy is the owner's call: one branch one session, changelog fragments, handoff without shipped work (100 lines and 8 KB), no deploy timer, captures at deploy, sharded server tests, `make adr` with a boundary line, architecture split per subsystem | accepted, amends 0086 |
 | [0106](0106-conversation-launch-setup.md) | Private communication setup on conversation resume | accepted; amended by 0107 |
 | [0107](0107-unified-native-messages.md) | One mailbox with CLI and native TUI integrations | accepted |
-| [0108](0108-matrix-persistence.md) | Matrix persistence: one row per panel, six feed events, a subset layout patch under ifUpdatedAt | accepted |
+| [0108](0108-matrix-persistence.md) | Matrix persistence: one row per panel, six feed events, a subset layout patch under ifUpdatedAt | accepted; amended by 0113 |
 | [0109](0109-native-app-surfaces.md) | Native app surfaces — a first-party app's body may be a component compiled into the shell; the manifest names its surface | accepted, amends 0036 |
 | [0110](0110-workspace-communication-onboarding.md) | Workspace communication preferences and guided connection setup | proposed |
 | [0111](0111-codex-native-message-client.md) | Codex native message client | accepted |
 | [0112](0112-native-observation-recovery.md) | Private native event observations recover exact CLI conversations and activity after daemon restart; pending connection and native approval stay separate | accepted, amends 0056/0062/0107 |
+| [0113](0113-matrix-canvas-mode.md) | Matrix canvas mode: a layout mode per matrix, mode-dependent rectangle units, one transactional switch | accepted, amends 0108 |

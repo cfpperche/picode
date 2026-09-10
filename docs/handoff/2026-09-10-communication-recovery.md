@@ -7,4 +7,5 @@ Verified: scratch desktop 1440×1000 light/dark and mobile 390×844 empty, block
 visual-review: PASS
 Evidence: root `var/qa/communication-recovery-20260910/`; screenshots in `var/screenshots/communication-recovery/`; decision table and detailed acceptance in `docs/plans/communication-recovery.md`.
 Not done / debts: long wrapped OpenCode sidebars/footers, physical mobile, non-Linux recovery and intermittent post-paste refusal; old Pi receivers need reload and the Hermes adapter update needs one native stop/resume. OpenCode used xAI after a Z.AI balance failure.
-Merge: incorporate current main, then final `make close` and fast-forward/main CI; no deployment.
+Cleanup: six task-owned scratch terminals and daemon 8473 stopped after all six settled Idle; evidence retained.
+Merge: fast-forward ready; main CI follows. Deployment remains the owner's call.

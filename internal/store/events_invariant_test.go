@@ -359,6 +359,12 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_ = s.RemoveMatrixPanel(m.ID, p.Panel.ID)
 		}, []string{"matrix.panel.removed"}},
+		{"SetMatrixMode", func(s *Store) {
+			m, _ := s.CreateMatrix("Ops")
+			_, _ = s.AddMatrixPanel(m.ID, "terminal", "t1", 0, 0, 4, 8)
+			s.OnEvent = recorder(s)
+			_, _ = s.SetMatrixMode(m.ID, MatrixModeCanvas, "")
+		}, []string{"matrix.mode"}},
 		{"DeleteMatrix", func(s *Store) {
 			m, _ := s.CreateMatrix("Ops")
 			_, _ = s.AddMatrixPanel(m.ID, "terminal", "t1", 0, 0, 4, 8)
