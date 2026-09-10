@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"math"
+	"sort"
 	"strings"
 	"unicode/utf8"
 )
@@ -16,9 +18,32 @@ const (
 	MaxMatrices     = 64
 	MaxMatrixPanels = 500
 	MaxMatrixName   = 80 // runes
-	MatrixCols      = 12 // fixed in v1, not stored
+	MatrixCols      = 12 // grid mode: fixed, not stored
 	MinMatrixPanelW = 4  // columns
 	MinMatrixPanelH = 8  // rows
+
+	// Canvas mode (ADR-0113): the unit is 8 px, x and y may be negative,
+	// and the plane is bounded only so a panel cannot be dragged out of
+	// reach of every viewport.
+	MinCanvasPanelW = 32     // units (256 px)
+	MinCanvasPanelH = 28     // units (224 px)
+	MaxCanvasPanel  = 4096   // units, w and h
+	MaxCanvasCoord  = 100000 // units, |x| and |y|
+)
+
+// Layout modes (ADR-0113, amending ADR-0108). The mode is a property of the
+// matrix and decides what a panel's x/y/w/h mean; `compact` keeps meaning
+// only in grid mode.
+const (
+	MatrixModeGrid   = "grid"
+	MatrixModeCanvas = "canvas"
+)
+
+// The switch transform's factors: a grid cell is 8 canvas units wide
+// (colWidth / 8) and 3 tall (rowHeight 24 px / 8).
+const (
+	canvasPerCol = 8
+	canvasPerRow = 3
 )
 
 // Compaction modes. The v1 grid compacts vertically (rows without end);
@@ -33,6 +58,7 @@ type Matrix struct {
 	ID         string `json:"id"`
 	Name       string `json:"name"`
 	Compact    string `json:"compact"`
+	Mode       string `json:"mode"`
 	CreatedAt  string `json:"createdAt"`
 	UpdatedAt  string `json:"updatedAt"`
 	PanelCount int    `json:"panelCount"`
@@ -81,6 +107,15 @@ type MatrixLayout struct {
 	ID        string           `json:"id"`
 	UpdatedAt string           `json:"updatedAt"`
 	Panels    []PanelPlacement `json:"panels"`
+}
+
+// MatrixModeChanged is the matrix.mode event and the PATCH answer when the
+// mode changes: the summary (carrying the new mode) plus exactly the panels
+// the switch transform moved, in the shape PATCH …/layout answers with, so
+// the client keeps one reducer path.
+type MatrixModeChanged struct {
+	Matrix
+	Panels []PanelPlacement `json:"panels"`
 }
 
 // MatrixPanelAdded is the matrix.panel.added event and the POST …/panels
@@ -149,10 +184,37 @@ func validatePanelBinding(kind, ref string) error {
 	return nil
 }
 
-// validatePlacement is the grid rule: 12 columns, panels of at least 4×8
-// cells, rows without end. The web contract (web/shared/domain/matrix.js)
+func validateMode(m string) error {
+	if m != MatrixModeGrid && m != MatrixModeCanvas {
+		return invalid("mode must be %s or %s", MatrixModeGrid, MatrixModeCanvas)
+	}
+	return nil
+}
+
+// validatePlacement is the rectangle rule of the matrix's own mode
+// (ADR-0113): grid is 12 columns and panels of at least 4×8 cells, rows
+// without end; canvas is a plane of 8 px units where x and y may be
+// negative, a panel is at least 32×28 units, and both are bounded so a
+// panel cannot be lost. The web contract (web/shared/domain/matrix.js)
 // repeats these words so the UI can refuse before asking.
-func validatePlacement(x, y, w, h int) error {
+func validatePlacement(mode string, x, y, w, h int) error {
+	if mode == MatrixModeCanvas {
+		switch {
+		case x < -MaxCanvasCoord || x > MaxCanvasCoord:
+			return invalid("x must be between -%d and %d canvas units", MaxCanvasCoord, MaxCanvasCoord)
+		case y < -MaxCanvasCoord || y > MaxCanvasCoord:
+			return invalid("y must be between -%d and %d canvas units", MaxCanvasCoord, MaxCanvasCoord)
+		case w < MinCanvasPanelW:
+			return invalid("w must be at least %d canvas units", MinCanvasPanelW)
+		case h < MinCanvasPanelH:
+			return invalid("h must be at least %d canvas units", MinCanvasPanelH)
+		case w > MaxCanvasPanel:
+			return invalid("w must be at most %d canvas units", MaxCanvasPanel)
+		case h > MaxCanvasPanel:
+			return invalid("h must be at most %d canvas units", MaxCanvasPanel)
+		}
+		return nil
+	}
 	switch {
 	case x < 0:
 		return invalid("x must be 0 or more")
@@ -166,6 +228,173 @@ func validatePlacement(x, y, w, h int) error {
 		return invalid("x + w must be at most %d columns", MatrixCols)
 	}
 	return nil
+}
+
+// ---- the switch transform (ADR-0113) -------------------------------------
+//
+// One documented conversion in each direction, repeated as pure functions in
+// web/shared/domain/matrix.js (gridToCanvas / canvasToGrid) so the UI can
+// preview a switch before asking for it.
+
+func clampInt(v, lo, hi int) int {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
+}
+
+// roundDiv rounds half away from zero, the way math.Round does and the way
+// the web contract's round() does, so both sides land on the same cell.
+func roundDiv(v, f int) int { return int(math.Round(float64(v) / float64(f))) }
+
+// gridToCanvas scales one grid rectangle into canvas units and clamps it to
+// the canvas rules. A panel at the 8-row minimum becomes 24 units tall,
+// under the canvas minimum of 28, so it grows — and can then overlap the
+// panel below by up to 4 units. Canvas mode is free placement and allows
+// that; switching back packs it out.
+func gridToCanvas(r PanelPlacement) PanelPlacement {
+	return PanelPlacement{
+		ID: r.ID,
+		X:  clampInt(r.X*canvasPerCol, -MaxCanvasCoord, MaxCanvasCoord),
+		Y:  clampInt(r.Y*canvasPerRow, -MaxCanvasCoord, MaxCanvasCoord),
+		W:  clampInt(r.W*canvasPerCol, MinCanvasPanelW, MaxCanvasPanel),
+		H:  clampInt(r.H*canvasPerRow, MinCanvasPanelH, MaxCanvasPanel),
+	}
+}
+
+// canvasToGridRect divides by the same factors, rounds and clamps into the
+// 12-column rules. It says nothing about overlap — canvasToGrid packs.
+func canvasToGridRect(r PanelPlacement) PanelPlacement {
+	out := PanelPlacement{
+		ID: r.ID,
+		X:  roundDiv(r.X, canvasPerCol),
+		Y:  roundDiv(r.Y, canvasPerRow),
+		W:  clampInt(roundDiv(r.W, canvasPerCol), MinMatrixPanelW, MatrixCols),
+		H:  roundDiv(r.H, canvasPerRow),
+	}
+	if out.H < MinMatrixPanelH {
+		out.H = MinMatrixPanelH
+	}
+	out.X = clampInt(out.X, 0, MatrixCols-out.W)
+	if out.Y < 0 {
+		out.Y = 0
+	}
+	return out
+}
+
+// nextGridSlot is the first free w×h slot scanning rows top-down and columns
+// left-to-right, else the row under everything — the same arithmetic as
+// nextSlot in web/shared/domain/matrix.js. Only a placed panel's edges can
+// start a first-free slot (a free rectangle slides up and left until it
+// touches one), so the scan visits edges, not cells.
+func nextGridSlot(placed []PanelPlacement, w, h int) (int, int) {
+	ys, xs := map[int]bool{0: true}, map[int]bool{0: true}
+	bottom := 0
+	for _, r := range placed {
+		if r.Y+r.H > bottom {
+			bottom = r.Y + r.H
+		}
+		ys[r.Y+r.H] = true
+		xs[r.X+r.W] = true
+	}
+	rows, cols := sortedKeys(ys), []int{}
+	for _, x := range sortedKeys(xs) {
+		if x+w <= MatrixCols {
+			cols = append(cols, x)
+		}
+	}
+	for _, y := range rows {
+		for _, x := range cols {
+			cand := PanelPlacement{X: x, Y: y, W: w, H: h}
+			free := true
+			for _, r := range placed {
+				if rectsOverlap(cand, r) {
+					free = false
+					break
+				}
+			}
+			if free {
+				return x, y
+			}
+		}
+	}
+	return 0, bottom
+}
+
+func sortedKeys(set map[int]bool) []int {
+	out := make([]int, 0, len(set))
+	for v := range set {
+		out = append(out, v)
+	}
+	sort.Ints(out)
+	return out
+}
+
+func rectsOverlap(a, b PanelPlacement) bool {
+	return a.X < b.X+b.W && b.X < a.X+a.W && a.Y < b.Y+b.H && b.Y < a.Y+a.H
+}
+
+// canvasToGrid converts every rectangle and packs it into the grid: reading
+// order (top-down, then left-to-right, ties by id), each panel at the first
+// free slot. Rounding alone would leave panels overlapping, and overlap
+// after a switch is a bug, not a tolerance — the pack is what makes the
+// switch total. The result keeps the input's order, so the caller can
+// compare rectangle by rectangle.
+func canvasToGrid(rects []PanelPlacement) []PanelPlacement {
+	order := make([]PanelPlacement, 0, len(rects))
+	for _, r := range rects {
+		order = append(order, canvasToGridRect(r))
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		a, b := order[i], order[j]
+		if a.Y != b.Y {
+			return a.Y < b.Y
+		}
+		if a.X != b.X {
+			return a.X < b.X
+		}
+		return a.ID < b.ID
+	})
+	placed := make([]PanelPlacement, 0, len(order))
+	at := make(map[string]PanelPlacement, len(order))
+	for _, r := range order {
+		r.X, r.Y = nextGridSlot(placed, r.W, r.H)
+		placed = append(placed, r)
+		at[r.ID] = r
+	}
+	out := make([]PanelPlacement, 0, len(rects))
+	for _, r := range rects {
+		out = append(out, at[r.ID])
+	}
+	return out
+}
+
+// switchPanels converts every panel into the target mode's units and returns
+// exactly the ones whose rectangle changed — what the event carries and what
+// the transaction writes.
+func switchPanels(mode string, panels []MatrixPanel) []PanelPlacement {
+	rects := make([]PanelPlacement, 0, len(panels))
+	for _, p := range panels {
+		rects = append(rects, PanelPlacement{ID: p.ID, X: p.X, Y: p.Y, W: p.W, H: p.H})
+	}
+	next := make([]PanelPlacement, 0, len(rects))
+	if mode == MatrixModeCanvas {
+		for _, r := range rects {
+			next = append(next, gridToCanvas(r))
+		}
+	} else {
+		next = canvasToGrid(rects)
+	}
+	moved := []PanelPlacement{}
+	for i, r := range next {
+		if r != rects[i] {
+			moved = append(moved, r)
+		}
+	}
+	return moved
 }
 
 // newPanelID is a slot id with 48 random bits: a matrix holds up to 500
@@ -192,22 +421,25 @@ func (s *Store) matrixTx(fn func(tx *sql.Tx) error) error {
 	return s.commit(tx)
 }
 
-// matrixGuard reads the row's updated_at inside the transaction, before
-// anything is written: a missing matrix is ErrNotFound; when the caller
-// sent the updatedAt it last saw and the row moved on, ErrConflict.
-func matrixGuard(tx *sql.Tx, id, ifUpdatedAt string) error {
-	var cur string
-	err := tx.QueryRow(`SELECT updated_at FROM matrices WHERE id = ?`, id).Scan(&cur)
+// matrixGuard reads the row's updated_at and mode inside the transaction,
+// before anything is written: a missing matrix is ErrNotFound; when the
+// caller sent the updatedAt it last saw and the row moved on, ErrConflict.
+// It answers the mode because every rectangle is validated against the
+// matrix's own mode, and the store has one SQLite connection — a second read
+// through s.db inside the transaction would deadlock.
+func matrixGuard(tx *sql.Tx, id, ifUpdatedAt string) (string, error) {
+	var cur, mode string
+	err := tx.QueryRow(`SELECT updated_at, mode FROM matrices WHERE id = ?`, id).Scan(&cur, &mode)
 	if err == sql.ErrNoRows {
-		return errMatrixNotFound
+		return "", errMatrixNotFound
 	}
 	if err != nil {
-		return fmt.Errorf("store: matrix: %w", err)
+		return "", fmt.Errorf("store: matrix: %w", err)
 	}
 	if ifUpdatedAt != "" && cur != ifUpdatedAt {
-		return errMatrixConflict
+		return "", errMatrixConflict
 	}
-	return nil
+	return mode, nil
 }
 
 func touchMatrix(tx *sql.Tx, id, now string) error {
@@ -217,11 +449,11 @@ func touchMatrix(tx *sql.Tx, id, now string) error {
 	return nil
 }
 
-const matrixCols = `id, name, compact, created_at, updated_at,
+const matrixCols = `id, name, compact, mode, created_at, updated_at,
 		(SELECT COUNT(1) FROM matrix_panels p WHERE p.matrix_id = matrices.id)`
 
 func scanMatrix(row interface{ Scan(...any) error }, m *Matrix) error {
-	return row.Scan(&m.ID, &m.Name, &m.Compact, &m.CreatedAt, &m.UpdatedAt, &m.PanelCount)
+	return row.Scan(&m.ID, &m.Name, &m.Compact, &m.Mode, &m.CreatedAt, &m.UpdatedAt, &m.PanelCount)
 }
 
 // rowQuerier is the intersection of *sql.DB and *sql.Tx the reads use.
@@ -297,8 +529,8 @@ func (s *Store) GetMatrix(id string) (MatrixDetail, error) {
 	return d, err
 }
 
-// CreateMatrix adds an empty matrix (vertical compaction) and announces
-// matrix.created with the summary. The 65th is refused.
+// CreateMatrix adds an empty matrix (grid mode, vertical compaction) and
+// announces matrix.created with the summary. The 65th is refused.
 func (s *Store) CreateMatrix(name string) (Matrix, error) {
 	name, err := normalizeMatrixName(name)
 	if err != nil {
@@ -314,9 +546,9 @@ func (s *Store) CreateMatrix(name string) (Matrix, error) {
 			return invalid("limit: %d matrices", MaxMatrices)
 		}
 		now := nowUTC()
-		m = Matrix{ID: newID(name, "matrix"), Name: name, Compact: MatrixCompactVertical, CreatedAt: now, UpdatedAt: now}
-		if _, err := tx.Exec(`INSERT INTO matrices (id, name, compact, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
-			m.ID, m.Name, m.Compact, m.CreatedAt, m.UpdatedAt); err != nil {
+		m = Matrix{ID: newID(name, "matrix"), Name: name, Compact: MatrixCompactVertical, Mode: MatrixModeGrid, CreatedAt: now, UpdatedAt: now}
+		if _, err := tx.Exec(`INSERT INTO matrices (id, name, compact, mode, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+			m.ID, m.Name, m.Compact, m.Mode, m.CreatedAt, m.UpdatedAt); err != nil {
 			return fmt.Errorf("store: create matrix: %w", err)
 		}
 		return s.AppendEventTx(tx, "matrix.created", nil, nil, m)
@@ -327,6 +559,8 @@ func (s *Store) CreateMatrix(name string) (Matrix, error) {
 // UpdateMatrix renames and/or changes the compaction. ifUpdatedAt, when
 // not empty, is the updatedAt the caller last saw: a row that moved on
 // answers ErrConflict and nothing is written. Announces matrix.updated.
+// The layout mode is SetMatrixMode's: it moves every panel, so it is its
+// own transaction and its own event.
 func (s *Store) UpdateMatrix(id string, p MatrixPatch, ifUpdatedAt string) (Matrix, error) {
 	if p.Name == nil && p.Compact == nil {
 		return Matrix{}, invalid("nothing to update: send name or compact")
@@ -347,7 +581,7 @@ func (s *Store) UpdateMatrix(id string, p MatrixPatch, ifUpdatedAt string) (Matr
 	}
 	var m Matrix
 	err := s.matrixTx(func(tx *sql.Tx) error {
-		if err := matrixGuard(tx, id, ifUpdatedAt); err != nil {
+		if _, err := matrixGuard(tx, id, ifUpdatedAt); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(`UPDATE matrices SET name = COALESCE(?, name), compact = COALESCE(?, compact), updated_at = ? WHERE id = ?`,
@@ -365,8 +599,8 @@ func (s *Store) UpdateMatrix(id string, p MatrixPatch, ifUpdatedAt string) (Matr
 
 // PatchMatrixLayout moves the listed panels — the changed subset, not the
 // whole matrix — in one transaction: every id must be on this matrix and
-// every rectangle inside the grid, or nothing is written. One matrix.layout
-// event carries exactly the subset.
+// every rectangle legal in the matrix's current mode, or nothing is
+// written. One matrix.layout event carries exactly the subset.
 func (s *Store) PatchMatrixLayout(id string, panels []PanelPlacement, ifUpdatedAt string) (MatrixLayout, error) {
 	if len(panels) == 0 {
 		return MatrixLayout{}, invalid("panels is required")
@@ -380,14 +614,20 @@ func (s *Store) PatchMatrixLayout(id string, panels []PanelPlacement, ifUpdatedA
 			return MatrixLayout{}, invalid("panel %s is listed twice", p.ID)
 		}
 		seen[p.ID] = true
-		if err := validatePlacement(p.X, p.Y, p.W, p.H); err != nil {
-			return MatrixLayout{}, fmt.Errorf("panel %s: %w", p.ID, err)
-		}
 	}
 	var out MatrixLayout
 	err := s.matrixTx(func(tx *sql.Tx) error {
-		if err := matrixGuard(tx, id, ifUpdatedAt); err != nil {
+		mode, err := matrixGuard(tx, id, ifUpdatedAt)
+		if err != nil {
 			return err
+		}
+		// Every rectangle is checked against this matrix's mode before any
+		// row is written: a canvas rectangle cannot land in a grid matrix,
+		// and one bad row refuses the whole batch.
+		for _, p := range panels {
+			if err := validatePlacement(mode, p.X, p.Y, p.W, p.H); err != nil {
+				return fmt.Errorf("panel %s: %w", p.ID, err)
+			}
 		}
 		for _, p := range panels {
 			res, err := tx.Exec(`UPDATE matrix_panels SET x = ?, y = ?, w = ?, h = ? WHERE id = ? AND matrix_id = ?`,
@@ -409,21 +649,72 @@ func (s *Store) PatchMatrixLayout(id string, panels []PanelPlacement, ifUpdatedA
 	return out, err
 }
 
+// SetMatrixMode switches a matrix between grid and canvas layout
+// (ADR-0113) in one transaction: the column, every panel's rectangle by the
+// documented transform, updated_at, and one matrix.mode event carrying the
+// new summary plus exactly the panels that moved. Switching to the mode the
+// matrix already has is a no-op — nothing is written, nothing is announced
+// and updated_at does not move — so a client that re-sends the mode it is
+// already showing cannot make two browsers refetch.
+func (s *Store) SetMatrixMode(id, mode, ifUpdatedAt string) (MatrixModeChanged, error) {
+	if err := validateMode(mode); err != nil {
+		return MatrixModeChanged{}, err
+	}
+	var out MatrixModeChanged
+	err := s.matrixTx(func(tx *sql.Tx) error {
+		cur, err := matrixGuard(tx, id, ifUpdatedAt)
+		if err != nil {
+			return err
+		}
+		if cur == mode {
+			m, err := matrixSummary(tx, id)
+			if err != nil {
+				return err
+			}
+			out = MatrixModeChanged{Matrix: m, Panels: []PanelPlacement{}}
+			return nil
+		}
+		panels, err := matrixPanels(tx, id)
+		if err != nil {
+			return err
+		}
+		moved := switchPanels(mode, panels)
+		for _, p := range moved {
+			if _, err := tx.Exec(`UPDATE matrix_panels SET x = ?, y = ?, w = ?, h = ? WHERE id = ? AND matrix_id = ?`,
+				p.X, p.Y, p.W, p.H, p.ID, id); err != nil {
+				return fmt.Errorf("store: switch panel: %w", err)
+			}
+		}
+		now := nowUTC()
+		if _, err := tx.Exec(`UPDATE matrices SET mode = ?, updated_at = ? WHERE id = ?`, mode, now, id); err != nil {
+			return fmt.Errorf("store: switch matrix mode: %w", err)
+		}
+		m, err := matrixSummary(tx, id)
+		if err != nil {
+			return err
+		}
+		out = MatrixModeChanged{Matrix: m, Panels: moved}
+		return s.AppendEventTx(tx, "matrix.mode", nil, nil, out)
+	})
+	return out, err
+}
+
 // AddMatrixPanel binds an agent or a terminal to a new slot. The client
-// places (x, y, w, h); the store validates the grid rule, the cap and the
-// binding — one (kind, ref) per matrix, refused by the unique index and
+// places (x, y, w, h); the store validates the rule of this matrix's mode,
+// the cap and the binding — one (kind, ref) per matrix, refused by the unique index and
 // read back as ErrConflict. Announces matrix.panel.added.
 func (s *Store) AddMatrixPanel(id, kind, ref string, x, y, w, h int) (MatrixPanelAdded, error) {
 	ref = strings.TrimSpace(ref)
 	if err := validatePanelBinding(kind, ref); err != nil {
 		return MatrixPanelAdded{}, err
 	}
-	if err := validatePlacement(x, y, w, h); err != nil {
-		return MatrixPanelAdded{}, err
-	}
 	var out MatrixPanelAdded
 	err := s.matrixTx(func(tx *sql.Tx) error {
-		if err := matrixGuard(tx, id, ""); err != nil {
+		mode, err := matrixGuard(tx, id, "")
+		if err != nil {
+			return err
+		}
+		if err := validatePlacement(mode, x, y, w, h); err != nil {
 			return err
 		}
 		var n int
@@ -457,7 +748,7 @@ func (s *Store) AddMatrixPanel(id, kind, ref string, x, y, w, h int) (MatrixPane
 // RemoveMatrixPanel frees the slot and announces matrix.panel.removed.
 func (s *Store) RemoveMatrixPanel(id, panelID string) error {
 	return s.matrixTx(func(tx *sql.Tx) error {
-		if err := matrixGuard(tx, id, ""); err != nil {
+		if _, err := matrixGuard(tx, id, ""); err != nil {
 			return err
 		}
 		res, err := tx.Exec(`DELETE FROM matrix_panels WHERE id = ? AND matrix_id = ?`, panelID, id)

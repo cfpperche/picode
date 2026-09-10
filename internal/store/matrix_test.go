@@ -80,7 +80,7 @@ func TestMatrixCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m.Name != "Ops" || m.Compact != MatrixCompactVertical || m.PanelCount != 0 || m.CreatedAt != m.UpdatedAt || !strings.HasPrefix(m.ID, "ops-") {
+	if m.Name != "Ops" || m.Compact != MatrixCompactVertical || m.Mode != MatrixModeGrid || m.PanelCount != 0 || m.CreatedAt != m.UpdatedAt || !strings.HasPrefix(m.ID, "ops-") {
 		t.Fatalf("created = %+v", m)
 	}
 	if at, err := time.Parse(time.RFC3339Nano, m.UpdatedAt); err != nil || at.Location() != time.UTC || !strings.HasSuffix(m.UpdatedAt, "Z") {
@@ -499,5 +499,313 @@ func TestMatrixPanelSurvivesItsTargetDeletion(t *testing.T) {
 		if strings.HasPrefix(ev.Type, "matrix.") {
 			t.Fatalf("matrix event on target deletion: %s", ev.Type)
 		}
+	}
+}
+
+// ---- canvas mode (ADR-0113) ----------------------------------------------
+
+// panelRects reads the matrix's panels as rectangles keyed by id.
+func panelRects(t *testing.T, s *Store, id string) map[string]PanelPlacement {
+	t.Helper()
+	d, err := s.GetMatrix(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := map[string]PanelPlacement{}
+	for _, p := range d.Panels {
+		out[p.ID] = PanelPlacement{ID: p.ID, X: p.X, Y: p.Y, W: p.W, H: p.H}
+	}
+	return out
+}
+
+// assertGridIsLegalAndDisjoint proves the two properties a switch back to
+// the grid must have: every rectangle inside the 12-column rules, and no two
+// panels sharing a cell. Overlap after a switch is a bug, not a tolerance.
+func assertGridIsLegalAndDisjoint(t *testing.T, rects map[string]PanelPlacement) {
+	t.Helper()
+	list := make([]PanelPlacement, 0, len(rects))
+	for _, r := range rects {
+		if err := validatePlacement(MatrixModeGrid, r.X, r.Y, r.W, r.H); err != nil {
+			t.Fatalf("panel %s is outside the grid rules after the switch: %+v (%v)", r.ID, r, err)
+		}
+		list = append(list, r)
+	}
+	for i := range list {
+		for j := i + 1; j < len(list); j++ {
+			if rectsOverlap(list[i], list[j]) {
+				t.Fatalf("panels overlap after the switch: %+v and %+v", list[i], list[j])
+			}
+		}
+	}
+}
+
+// Row "read | a database written before 043": the column's default is the
+// meaning the rectangles already had, so an upgrade reads grid and rewrites
+// nothing. Re-applies the real embedded migration against a pre-043 shape.
+func TestMatrixModeReadsGridOnADatabaseWrittenBefore043(t *testing.T) {
+	s := openTest(t)
+	m, _ := s.CreateMatrix("Ops")
+	p := addPanel(t, s, m.ID, "terminal", "t1", 4, 8, 8, 20)
+	before, _ := s.GetMatrix(m.ID)
+
+	// Undo 043 as if it had never run, then let Store.migrate re-apply it.
+	if _, err := s.db.Exec(`ALTER TABLE matrices DROP COLUMN mode`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(`DELETE FROM schema_migrations WHERE version = 43`); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.migrate(); err != nil {
+		t.Fatalf("re-migrate: %v", err)
+	}
+
+	after, err := s.GetMatrix(m.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Mode != MatrixModeGrid {
+		t.Fatalf("an older matrix reads mode %q, want %q", after.Mode, MatrixModeGrid)
+	}
+	if !reflect.DeepEqual(after, before) {
+		t.Fatalf("the migration rewrote something:\n got %+v\nwant %+v", after, before)
+	}
+	if after.Panels[0].ID != p.ID || after.Panels[0].X != 4 || after.Panels[0].Y != 8 || after.Panels[0].W != 8 || after.Panels[0].H != 20 {
+		t.Fatalf("panel moved: %+v", after.Panels[0])
+	}
+	if list, _ := s.ListMatrices(); len(list) != 1 || list[0].Mode != MatrixModeGrid {
+		t.Fatalf("list = %+v", list)
+	}
+}
+
+// Row "patch mode | grid → canvas": 200 summary + every panel moved, one
+// event, rectangles multiplied by 8 and 3 (and clamped to the canvas
+// minimums, which is why an 8-row panel lands 28 units tall, not 24).
+func TestMatrixModeSwitchGridToCanvas(t *testing.T) {
+	s := openTest(t)
+	m, _ := s.CreateMatrix("Ops")
+	a := addPanel(t, s, m.ID, "terminal", "a", 0, 0, 4, 14) // the default panel
+	b := addPanel(t, s, m.ID, "terminal", "b", 4, 0, 8, 8)  // the minimum height
+	c := addPanel(t, s, m.ID, "agent", "c", 0, 14, 12, 40)  // full width
+	before, _ := s.GetMatrix(m.ID)
+	evs := recordMatrixEvents(s)
+
+	out, err := s.SetMatrixMode(m.ID, MatrixModeCanvas, before.UpdatedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Mode != MatrixModeCanvas || out.Name != "Ops" || out.PanelCount != 3 || out.UpdatedAt == before.UpdatedAt {
+		t.Fatalf("switch = %+v", out.Matrix)
+	}
+	want := map[string]PanelPlacement{
+		a.ID: {ID: a.ID, X: 0, Y: 0, W: 32, H: 42},
+		b.ID: {ID: b.ID, X: 32, Y: 0, W: 64, H: 28}, // 8×3 = 24, clamped to the 28-unit minimum
+		c.ID: {ID: c.ID, X: 0, Y: 42, W: 96, H: 120},
+	}
+	got := panelRects(t, s, m.ID)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("canvas rectangles:\n got %+v\nwant %+v", got, want)
+	}
+	moved := map[string]PanelPlacement{}
+	for _, p := range out.Panels {
+		moved[p.ID] = p
+	}
+	if !reflect.DeepEqual(moved, want) {
+		t.Fatalf("the answer did not carry every panel it moved: %+v", out.Panels)
+	}
+	if n := countType(evs, "matrix.mode"); n != 1 {
+		t.Fatalf("matrix.mode events = %d, want 1", n)
+	}
+	var ev MatrixModeChanged
+	decodeEvent(t, lastEvent(t, evs, "matrix.mode"), &ev)
+	if !reflect.DeepEqual(ev, out) {
+		t.Fatalf("matrix.mode = %+v, want %+v", ev, out)
+	}
+	after, _ := s.GetMatrix(m.ID)
+	if after.UpdatedAt != out.UpdatedAt || after.Mode != MatrixModeCanvas {
+		t.Fatalf("matrix after the switch = %+v", after.Matrix)
+	}
+
+	// Row "patch mode | same mode": no event, updatedAt unchanged.
+	same, err := s.SetMatrixMode(m.ID, MatrixModeCanvas, "")
+	if err != nil || same.UpdatedAt != out.UpdatedAt || same.Mode != MatrixModeCanvas || len(same.Panels) != 0 {
+		t.Fatalf("same mode = %+v %v", same, err)
+	}
+	if n := countType(evs, "matrix.mode"); n != 1 {
+		t.Fatalf("switching to the mode it already has announced something: %d events", n)
+	}
+
+	// Row "patch mode | stale ifUpdatedAt": 409, nothing written.
+	if _, err := s.SetMatrixMode(m.ID, MatrixModeGrid, before.UpdatedAt); !errors.Is(err, ErrConflict) || !strings.Contains(err.Error(), "changed elsewhere") {
+		t.Fatalf("stale switch = %v", err)
+	}
+	if now, _ := s.GetMatrix(m.ID); now.UpdatedAt != out.UpdatedAt || now.Mode != MatrixModeCanvas || !reflect.DeepEqual(panelRects(t, s, m.ID), want) {
+		t.Fatalf("a refused switch wrote something: %+v", now.Matrix)
+	}
+
+	// Row "patch mode | unknown mode": 400 naming the two.
+	if _, err := s.SetMatrixMode(m.ID, "isometric", ""); !errors.Is(err, ErrInvalid) || !strings.Contains(err.Error(), "mode must be grid or canvas") {
+		t.Fatalf("unknown mode = %v", err)
+	}
+	if _, err := s.SetMatrixMode("matrix-nope", MatrixModeGrid, ""); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unknown matrix = %v", err)
+	}
+	if n := countType(evs, "matrix.mode"); n != 1 {
+		t.Fatalf("refused switches announced: %d matrix.mode events", n)
+	}
+}
+
+// Row "patch mode | canvas → grid": rectangles divided, rounded, clamped and
+// packed; no two panels overlap; nothing is lost. The fixture is built so
+// rounding alone would collide — three panels land on the same cell.
+func TestMatrixModeSwitchCanvasToGridPacks(t *testing.T) {
+	s := openTest(t)
+	m, _ := s.CreateMatrix("Ops")
+	if _, err := s.SetMatrixMode(m.ID, MatrixModeCanvas, ""); err != nil {
+		t.Fatal(err)
+	}
+	// Three canvas rectangles that collide once they are rounded into cells
+	// — a covers (0,0)–(4,14), and b and c round onto it — plus one far off
+	// to the left of the origin (canvas allows negatives).
+	a := addPanel(t, s, m.ID, "terminal", "a", 0, 0, 32, 42)  // → (0, 0, 4, 14)
+	b := addPanel(t, s, m.ID, "terminal", "b", 12, 2, 32, 42) // → (2, 1, 4, 14)
+	c := addPanel(t, s, m.ID, "terminal", "c", 28, 5, 33, 43) // → (4, 2, 4, 14)
+	d := addPanel(t, s, m.ID, "agent", "d", -600, 90, 40, 30) // → (0, 30, 5, 10)
+	evs := recordMatrixEvents(s)
+
+	out, err := s.SetMatrixMode(m.ID, MatrixModeGrid, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Mode != MatrixModeGrid || len(out.Panels) != 4 {
+		t.Fatalf("switch = %+v, panels %+v", out.Matrix, out.Panels)
+	}
+	rects := panelRects(t, s, m.ID)
+	if len(rects) != 4 {
+		t.Fatalf("a panel was lost: %+v", rects)
+	}
+	assertGridIsLegalAndDisjoint(t, rects)
+	// The transform is deterministic, not a shuffle: reading order over the
+	// rounded rectangles, each at the first free slot. a keeps its corner,
+	// b and c slide along the first row, and d — whose negative x clamps to
+	// the left edge — goes under them because the row is full.
+	want := map[string]PanelPlacement{
+		a.ID: {ID: a.ID, X: 0, Y: 0, W: 4, H: 14},
+		b.ID: {ID: b.ID, X: 4, Y: 0, W: 4, H: 14},
+		c.ID: {ID: c.ID, X: 8, Y: 0, W: 4, H: 14},
+		d.ID: {ID: d.ID, X: 0, Y: 14, W: 5, H: 10},
+	}
+	if !reflect.DeepEqual(rects, want) {
+		t.Fatalf("packed rectangles:\n got %+v\nwant %+v", rects, want)
+	}
+	if n := countType(evs, "matrix.mode"); n != 1 {
+		t.Fatalf("matrix.mode events = %d, want 1", n)
+	}
+	var ev MatrixModeChanged
+	decodeEvent(t, lastEvent(t, evs, "matrix.mode"), &ev)
+	if !reflect.DeepEqual(ev, out) {
+		t.Fatalf("matrix.mode = %+v, want %+v", ev, out)
+	}
+}
+
+// Row "round trip | grid → canvas → grid": every panel is inside the grid
+// rules and no two overlap. It need not be the layout it started with (the
+// 8-row minimum grows to 28 units on the way out and comes back 10 rows
+// tall, so the pack moves what no longer fits) — the ADR says so.
+func TestMatrixModeRoundTrip(t *testing.T) {
+	s := openTest(t)
+	m, _ := s.CreateMatrix("Ops")
+	for i := 0; i < 12; i++ {
+		addPanel(t, s, m.ID, "terminal", fmt.Sprintf("t%d", i), (i%3)*4, (i/3)*14, 4, 8+i%5)
+	}
+	before := panelRects(t, s, m.ID)
+	if _, err := s.SetMatrixMode(m.ID, MatrixModeCanvas, ""); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range panelRects(t, s, m.ID) {
+		if err := validatePlacement(MatrixModeCanvas, r.X, r.Y, r.W, r.H); err != nil {
+			t.Fatalf("panel %s is not a legal canvas rectangle: %+v (%v)", r.ID, r, err)
+		}
+	}
+	if _, err := s.SetMatrixMode(m.ID, MatrixModeGrid, ""); err != nil {
+		t.Fatal(err)
+	}
+	after := panelRects(t, s, m.ID)
+	if len(after) != len(before) {
+		t.Fatalf("the round trip lost a panel: %d of %d", len(after), len(before))
+	}
+	assertGridIsLegalAndDisjoint(t, after)
+}
+
+// Rows "add panel | canvas matrix, w < 32 or h < 28 → 400 naming the limit",
+// "negative x/y → accepted", "|x| > 100000 → 400 naming the bound", "grid
+// matrix, a canvas-sized rectangle → 400", and the layout patch's mixed row.
+func TestMatrixCanvasPanelRules(t *testing.T) {
+	s := openTest(t)
+	grid, _ := s.CreateMatrix("Grid")
+	canvas, _ := s.CreateMatrix("Canvas")
+	if _, err := s.SetMatrixMode(canvas.ID, MatrixModeCanvas, ""); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name       string
+		x, y, w, h int
+		want       string
+	}{
+		{"w < 32", 0, 0, 31, 42, "w must be at least 32 canvas units"},
+		{"h < 28", 0, 0, 32, 27, "h must be at least 28 canvas units"},
+		{"w over the bound", 0, 0, 4097, 42, "w must be at most 4096 canvas units"},
+		{"h over the bound", 0, 0, 32, 4097, "h must be at most 4096 canvas units"},
+		{"x off the plane", 100001, 0, 32, 42, "x must be between -100000 and 100000 canvas units"},
+		{"x off the plane, negative", -100001, 0, 32, 42, "x must be between -100000 and 100000 canvas units"},
+		{"y off the plane", 0, -100001, 32, 42, "y must be between -100000 and 100000 canvas units"},
+	}
+	for _, c := range cases {
+		_, err := s.AddMatrixPanel(canvas.ID, "terminal", "t-"+c.name, c.x, c.y, c.w, c.h)
+		if !errors.Is(err, ErrInvalid) || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: err = %v", c.name, err)
+		}
+	}
+	// Negative coordinates are the plane's, not a mistake.
+	neg := addPanel(t, s, canvas.ID, "terminal", "neg", -4000, -2500, 32, 28)
+	if neg.X != -4000 || neg.Y != -2500 {
+		t.Fatalf("negative placement = %+v", neg)
+	}
+	edge := addPanel(t, s, canvas.ID, "agent", "edge", MaxCanvasCoord, -MaxCanvasCoord, MaxCanvasPanel, MaxCanvasPanel)
+	if edge.X != MaxCanvasCoord || edge.W != MaxCanvasPanel {
+		t.Fatalf("edge placement = %+v", edge)
+	}
+
+	// The rectangle is judged by the matrix's mode, not by its own shape: a
+	// grid matrix refuses a canvas-sized rectangle, and a canvas matrix
+	// refuses a grid-sized one.
+	if _, err := s.AddMatrixPanel(grid.ID, "terminal", "t1", 0, 0, 32, 42); !errors.Is(err, ErrInvalid) || !strings.Contains(err.Error(), "x + w must be at most 12 columns") {
+		t.Fatalf("canvas rectangle in a grid matrix = %v", err)
+	}
+	if _, err := s.AddMatrixPanel(canvas.ID, "terminal", "t2", 0, 0, 4, 8); !errors.Is(err, ErrInvalid) || !strings.Contains(err.Error(), "w must be at least 32 canvas units") {
+		t.Fatalf("grid rectangle in a canvas matrix = %v", err)
+	}
+	if _, err := s.AddMatrixPanel(grid.ID, "terminal", "t3", -1, 0, 4, 8); !errors.Is(err, ErrInvalid) || !strings.Contains(err.Error(), "x must be 0 or more") {
+		t.Fatalf("negative x in a grid matrix = %v", err)
+	}
+
+	// Row "layout patch | mixed: one rectangle legal, one not": 400, nothing
+	// written — the same all-or-nothing the grid has.
+	before := panelRects(t, s, canvas.ID)
+	_, err := s.PatchMatrixLayout(canvas.ID, []PanelPlacement{
+		{ID: neg.ID, X: -8, Y: -8, W: 40, H: 40},
+		{ID: edge.ID, X: 0, Y: 0, W: 32, H: 27},
+	}, "")
+	if !errors.Is(err, ErrInvalid) || !strings.Contains(err.Error(), "panel "+edge.ID+": h must be at least 28 canvas units") {
+		t.Fatalf("mixed batch = %v", err)
+	}
+	if got := panelRects(t, s, canvas.ID); !reflect.DeepEqual(got, before) {
+		t.Fatalf("a refused batch wrote something:\n got %+v\nwant %+v", got, before)
+	}
+	lay, err := s.PatchMatrixLayout(canvas.ID, []PanelPlacement{{ID: neg.ID, X: -8, Y: -8, W: 40, H: 40}}, "")
+	if err != nil || len(lay.Panels) != 1 {
+		t.Fatalf("canvas layout patch = %+v %v", lay, err)
+	}
+	if got := panelRects(t, s, canvas.ID)[neg.ID]; got.X != -8 || got.Y != -8 || got.W != 40 || got.H != 40 {
+		t.Fatalf("canvas panel did not move: %+v", got)
 	}
 }
