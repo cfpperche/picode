@@ -1,20 +1,14 @@
 import NeedsYouCard from "../components/NeedsYouCard.jsx";
 import StatStrip from "../components/StatStrip.jsx";
-import StateChip, { agentState } from "../components/StateChip.jsx";
-import { ProviderFace } from "../components/ProviderFaces.jsx";
-import { IconChevronRight, IconTerminal } from "../components/Icons.jsx";
-import { termLine } from "@picode/shared/domain/repoLine.js";
-import { displayAgentName } from "@picode/shared/domain/tree.js";
-import { shortModel } from "@picode/shared/domain/chip.js";
+import { IconChevronRight } from "../components/Icons.jsx";
 import { relTime, absTime } from "@picode/shared/domain/relTime.js";
 import PullScreen from "../components/PullScreen.jsx";
 import "../styles/mobile-lists.css";
 
 // The home is a queue of decisions (PagerDuty's "top open incidents"),
-// then who is running, then today's numbers, then what finished. Nothing
-// here duplicates the Agents tab: an idle agent is one tap away, not a row.
-export default function Now({ loaded, error, entries, running, liveTerms, workingIds, stats, results, onAnswer, onRespond, onOpenAgent, onOpenTerm, onOpenInbox, onCreate, fleetTotal, onRefresh }) {
-  const runningCount = running.length + (liveTerms || []).length;
+// then today's numbers, then what finished. Who is running lives in the
+// Work tab; nothing here duplicates it.
+export default function Now({ loaded, error, entries, stats, results, onAnswer, onRespond, onOpenAgent, onOpenInbox, onCreate, fleetTotal, onRefresh }) {
   if (loaded && !error && fleetTotal === 0) {
     return (
       <div className="m-screen m-v2-lists m-now-v2">
@@ -36,42 +30,6 @@ export default function Now({ loaded, error, entries, running, liveTerms, workin
         ) : entries.map((e) => (
           <NeedsYouCard key={e.key} entry={e} onAnswer={onAnswer} onRespond={onRespond} onOpen={(en) => (en.kind === "ask" ? onOpenAgent(en.agentId) : onOpenInbox(en.itemId))} />
         ))}
-      </section>
-
-      <section className="m-section">
-        <h2 className="m-section-label">Running{runningCount ? <span className="m-count">{runningCount}</span> : null}</h2>
-        {!loaded ? <Skel /> : runningCount === 0 ? (
-          <p className="m-empty-line">Nothing running. <button type="button" className="btn-link" onClick={() => onOpenAgent("")}>Work</button></p>
-        ) : (
-          <ul className="m-list m-group-list">
-            {(liveTerms || []).map((t) => (
-              <li key={"t:" + t.id} className="m-row">
-                <button type="button" className="m-row-main" onClick={() => onOpenTerm(t.id)}>
-                  <span className="m-row-face"><IconTerminal size={18} /></span>
-                  <span className="m-row-text">
-                    <span className="m-row-title">{t.name || "Terminal"}</span>
-                    <span className="m-row-sub">{termLine(t).text}</span>
-                  </span>
-                  <span className="m-state is-working">Live</span>
-                  <IconChevronRight size={16} className="m-row-chev" />
-                </button>
-              </li>
-            ))}
-            {running.map(({ agent, workspace }) => (
-              <li key={agent.id} className="m-row">
-                <button type="button" className="m-row-main" onClick={() => onOpenAgent(agent.id)}>
-                  <span className="m-row-face"><ProviderFace agent={agent} /></span>
-                  <span className="m-row-text">
-                    <span className="m-row-title">{displayAgentName(agent, workspace)}</span>
-                    <span className="m-row-sub">{[shortModel(agent.model || ""), workspace ? workspace.name : "free agent"].filter(Boolean).join(" · ")}</span>
-                  </span>
-                  <StateChip state={agentState(agent, workingIds)} />
-                  <IconChevronRight size={16} className="m-row-chev" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
       </section>
 
       <section className="m-section">
