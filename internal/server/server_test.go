@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -60,6 +61,27 @@ func newTestServer(t *testing.T, agentCmd string) *httptest.Server {
 }
 
 // do sends the request and fails the test on transport errors.
+// killTmuxOnCleanup kills a tmux session when the test ends.
+//
+// It uses context.Background() on purpose. t.Context() is canceled *before*
+// Cleanup functions run, so `KillSession(t.Context(), …)` never reaches tmux:
+// the command is not even spawned, the error is usually discarded, and the
+// session outlives the test. That leak is not theoretical — on 2026-09-09 the
+// dev machine held 260 tmux sessions and 202 of them were one test's shells,
+// one per run since the day the cleanup was written. New tests that create a
+// session call this instead of registering their own Cleanup.
+func killTmuxOnCleanup(t *testing.T, session string) {
+	t.Helper()
+	if session == "" {
+		return
+	}
+	t.Cleanup(func() {
+		if err := tmux.New().KillSession(context.Background(), session); err != nil {
+			t.Errorf("cleanup: kill tmux session %q: %v", session, err)
+		}
+	})
+}
+
 func do(t *testing.T, client *http.Client, req *http.Request) *http.Response {
 	t.Helper()
 	res, err := client.Do(req)

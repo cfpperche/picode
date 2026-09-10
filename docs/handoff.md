@@ -39,7 +39,6 @@
 - Capture integration (ADR-0054/browser preview): no real emitter-to-RPC run, no slow-consumer/cancellation matrix; hub drops on overflow.
 - Webhooks are at-least-once within event retention; receivers dedupe by id.
 - Task Scheduler retries are not crash recovery; battery/sleep/sign-in acceptance is owner-controlled.
-- `TestTerminalBrowse` cleanup can leave tmux shells in deleted temp folders.
 - 2026-09-06 incident: a `tmux ls | grep '^picode-'` sweep killed 29 sessions, six in production. Never kill by prefix — only exact names from a fixture's own API.
 - Feed: ephemeral events can be missed across reconnects (ADR-0048); paste fallback acceptance across platforms open.
 - Terminal menus (2026-09-09): web/mobile terminal rows still offer only Remove — the desktop one-menu merge (termRowMenu.js) is not ported; sidebar Remove keeps `DELETE /api/terminals/<id>` while the Agent CLIs list uses `/launch/remove` (same outcome, two paths).

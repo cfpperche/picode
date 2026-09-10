@@ -5,7 +5,7 @@
 #
 #   qa-scratch.sh start <name> [port]   build (UI embedded) + run detached
 #   qa-scratch.sh seed  <name>          one workspace, agent and terminal via the API
-#   qa-scratch.sh stop  <name>
+#   qa-scratch.sh stop  <name>          remove its terminals, then stop the daemon
 #   qa-scratch.sh url   <name>
 #
 # Layout: var/qa/<name>/{home,data,picode,server.log}. HOME is isolated so
@@ -61,7 +61,23 @@ case "$cmd" in
     echo "qa-scratch: seeded workspace $wsid (agent Atlas, terminal shell) at $base"
     ;;
   stop)
-    [ -f "$portfile" ] && fuser -k "$(cat "$portfile")/tcp" 2>/dev/null || true
+    port=$(cat "$portfile" 2>/dev/null || true)
+    # tmux sessions outlive the daemon by design (ADR-0018 KillMode=process),
+    # so the instance has to forget its terminals while it can still name
+    # them: exact ids from its own API. Never `tmux ls | grep picode-` — that
+    # sweep killed six production sessions on 2026-09-06.
+    if [ -n "$port" ] && curl -sf -m 3 "http://localhost:$port/api/health" >/dev/null 2>&1; then
+      ids=$(curl -sf -m 5 "http://localhost:$port/api/terminals" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{for(const t of (JSON.parse(s).terminals||[]))if(t.id)console.log(t.id)}catch{}})')
+      gone=0
+      for id in $ids; do
+        curl -sf -m 5 -X DELETE "http://localhost:$port/api/terminals/$id" -o /dev/null && gone=$((gone + 1))
+      done
+      [ "$gone" -gt 0 ] && echo "qa-scratch: removed $gone terminal(s) and their tmux sessions"
+    elif [ -n "$port" ]; then
+      echo "qa-scratch: the daemon on :$port is not answering; its terminals stay as orphan tmux sessions." >&2
+      echo "  Start it again and stop it through this script to have them removed." >&2
+    fi
+    [ -n "$port" ] && fuser -k "$port/tcp" 2>/dev/null || true
     echo "qa-scratch: $name stopped"
     ;;
   url) url ;;
