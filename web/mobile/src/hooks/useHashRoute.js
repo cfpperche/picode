@@ -29,6 +29,6 @@ export function push(hash) {
   location.hash = hash;
 }
 
-export function goBack(route) {
-  location.replace(parentHash(route));
+export function goBack(route, ownerWs) {
+  location.replace(parentHash(route, ownerWs));
 }

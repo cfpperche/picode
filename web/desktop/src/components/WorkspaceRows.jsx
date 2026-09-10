@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconChat, IconEllipsis, IconFolder, IconGit, IconMode, IconPencil, IconPlay, IconReload, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
+import { IconChat, IconEllipsis, IconFolder, IconGit, IconMode, IconMonitor, IconPencil, IconPlay, IconReload, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { repoLine, termLine } from "@picode/shared/domain/repoLine.js";
@@ -122,7 +122,7 @@ export function AgentRow({
   workingId, workingIds, waitingId, checklists,
   onFileTree, onGitGraph,
   actions = true, meta = false,
-  onRenameAgent, onRun, onStop, onRemoveAgent, onRemove, onChat, onTerm, termView,
+  onRenameAgent, onRun, onStop, onRemoveAgent, onRemove, onChat, onTerm, onBrowser, termView,
 }) {
   const mode = ag.mode || "stopped";
   const label = displayAgentName(ag, ws);
@@ -162,6 +162,7 @@ export function AgentRow({
               : <RowMenuItem onSelect={() => onStop && onStop(ag.id)}><IconStop size={13} /> Stop agent</RowMenuItem>}
             <RowMenuItem onSelect={() => onChat && onChat(ag.id)}><IconChat size={14} /> Open chat</RowMenuItem>
             <RowMenuItem onSelect={() => onTerm && onTerm(ag.id)}><IconTerminal size={14} /> Open terminal</RowMenuItem>
+            <RowMenuItem onSelect={() => onBrowser && onBrowser(ag.id)}><IconMonitor size={14} /> Open browser</RowMenuItem>
             <RowMenuItem onSelect={() => onRenameAgent && onRenameAgent(ag, label)}><IconPencil size={13} /> Rename</RowMenuItem>
             <RowMenuItem danger onSelect={() => onRemoveAgent ? onRemoveAgent(ag) : onRemove(ws)}><IconX size={13} /> Remove agent</RowMenuItem>
           </RowMenu>

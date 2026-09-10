@@ -8476,6 +8476,25 @@
         ]
       }
     },
+    "/ws/browser": {
+      "get": {
+        "description": "Upgrades to a WebSocket session; not request/response HTTP.",
+        "operationId": "getWsBrowser",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "summary": "WebSocket upgrade",
+        "tags": [
+          "browser"
+        ]
+      }
+    },
     "/ws/term": {
       "get": {
         "description": "Upgrades to a WebSocket session; not request/response HTTP.",
@@ -8522,6 +8541,9 @@
     },
     {
       "name": "backup"
+    },
+    {
+      "name": "browser"
     },
     {
       "name": "catalog"

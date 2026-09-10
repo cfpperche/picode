@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { touches } from "./feedReducers.js";
 import {
-  LOAD_DWELL_MS, MATRIX_EVENTS, MATRIX_LIMITS, MATRIX_MODES, PANEL_DEFAULT, PANEL_DEFAULT_CANVAS, PANEL_DIRECTIONS, SUSPENDED_MAX,
-  SUSPENDED_TTL_MS, UNIT_PX, UNLOAD_AFTER_MS, applyMatrixEvent, bindingState, canvasToGrid, gridToCanvas, layoutDiff, loadPolicy,
-  neighborPanel, nextSlot, normalizeMatrix, normalizeMatrixDetail, normalizeMatrixList, normalizePanel, panelDefault, panelOrder,
-  suspendedToDispose, validateCompact, validateMode, validateName, validatePanel, validatePlacement,
+  CANVAS_ZOOM, LOAD_DWELL_MS, MATRIX_EVENTS, MATRIX_LIMITS, MATRIX_MODES, PANEL_DEFAULT, PANEL_DEFAULT_CANVAS, PANEL_DIRECTIONS,
+  SUSPENDED_MAX, SUSPENDED_TTL_MS, TIDY_COLS, TIDY_GAP, UNIT_PX, UNLOAD_AFTER_MS, VIEWPORT_PREFIX, applyMatrixEvent, bindingState,
+  canvasToGrid, gridToCanvas, layoutDiff, loadPolicy, neighborPanel, nextSlot, normalizeMatrix, normalizeMatrixDetail,
+  normalizeMatrixList, normalizePanel, normalizeViewport, panelDefault, panelOrder, pointerAtZoom, pxToUnits, suspendedToDispose,
+  tidyCanvas, unitsToPx, validateCompact, validateMode, validateName, validatePanel, validatePlacement, viewportKey, zoomBody,
 } from "./matrix.js";
 
 const summary = (id, name, extra = {}) => ({
@@ -384,7 +385,7 @@ test("bindingState: agent rows of §4.4", () => {
 // §4.5, one test per row. `near` is the observer's word plus the surface
 // being visible; the caller runs the policy on every change and at wakeAt.
 const NONE = new Set();
-const run = (entries, now, pinned, timers) => loadPolicy(entries, now, pinned, timers);
+const run = (entries, now, pinned, timers, view) => loadPolicy(entries, now, pinned, timers, view);
 
 test("loadPolicy: a wrapper loads after it stays near for 300 ms, not before", () => {
   assert.equal(LOAD_DWELL_MS, 300);
@@ -451,8 +452,133 @@ test("loadPolicy: mixed panels — wakeAt is the earliest deadline, junk is skip
   assert.deepEqual(Object.keys(r.timers).sort(), ["a", "b"]);
   r = run([{ id: "a", near: true, loaded: true }, { id: "b", near: false, loaded: true }], 1300, NONE, r.timers);
   assert.equal(r.wakeAt, 6000, "a loaded, b still counting down");
-  assert.deepEqual(run([], 5, NONE, {}), { load: [], unload: [], timers: {}, wakeAt: 0 });
-  assert.deepEqual(run(null, 5, null, null), { load: [], unload: [], timers: {}, wakeAt: 0 });
+  assert.deepEqual(run([], 5, NONE, {}), { load: [], unload: [], timers: {}, wakeAt: 0, band: "live", bodies: {} });
+  assert.deepEqual(run(null, 5, null, null), { load: [], unload: [], timers: {}, wakeAt: 0, band: "live", bodies: {} });
+});
+
+test("loadPolicy: grid mode passes no view — every loaded body is live, as before canvas mode", () => {
+  const r = run([{ id: "a", near: true, loaded: true }, { id: "b", near: false, loaded: false }], 1000, NONE, {});
+  assert.deepEqual(r.bodies, { a: "live", b: "off" });
+  assert.equal(r.band, "live");
+});
+
+// The zoom table (plan docs/plans/matrix-canvas.md §4.3), one test per row.
+// `view` is { zoom, band }: the canvas's zoom and the band the last call
+// answered with, which is the hysteresis's only memory.
+const IN = [{ id: "p1", near: true, loaded: true }];
+const OUT = [{ id: "p1", near: false, loaded: false }];
+const at = (zoom, band = "live", entries = IN) => run(entries, 1000, NONE, {}, { zoom, band });
+
+test("zoom table: in the band at zoom 1.0 — a live pane, and the only body that takes a pointer", () => {
+  assert.deepEqual({ ...CANVAS_ZOOM }, { min: 0.2, max: 1.5, live: 0.8, still: 0.75, plate: 0.4, exact: 1 });
+  const r = at(1);
+  assert.deepEqual(r.bodies, { p1: "live" });
+  assert.equal(r.band, "live");
+  assert.equal(pointerAtZoom(1), true);
+  assert.equal(pointerAtZoom(1.0001), true, "a d3 transform never lands on exactly 1.0");
+  assert.equal(pointerAtZoom(0.99), false);
+});
+
+test("zoom table: in the band from 0.8 to 1.0 and above — live and readable, but no pointer", () => {
+  for (const z of [0.8, 0.9, 0.99, 1.2, 1.5]) {
+    assert.deepEqual(at(z).bodies, { p1: "live" }, "live at " + z);
+    assert.equal(pointerAtZoom(z), false, "no pointer at " + z);
+  }
+  // Zooming *in* breaks xterm's mapping exactly as zooming out does (C0: a
+  // ten-character drag at 1.5 returned thirteen), so 1.5 is pointer-inert too.
+  assert.equal(zoomBody(1.5, "live").body, "live");
+});
+
+test("zoom table: in the band below 0.75 — a text still, no attach", () => {
+  assert.deepEqual(at(0.74).bodies, { p1: "still" });
+  assert.deepEqual(at(0.5).bodies, { p1: "still" });
+  assert.equal(at(0.74).band, "still");
+  assert.equal(pointerAtZoom(0.5), false);
+});
+
+test("zoom table: below 0.4 — a name-plate, because a still is grey texture down there", () => {
+  assert.deepEqual(at(0.39).bodies, { p1: "plate" });
+  assert.deepEqual(at(CANVAS_ZOOM.min).bodies, { p1: "plate" });
+  assert.equal(at(0.2).band, "still");
+  assert.equal(zoomBody(0.3, "live").body, "plate", "the plate wins whatever band the viewer came from");
+});
+
+test("zoom table: outside the band at any zoom — the placeholder, and the socket suspends", () => {
+  for (const z of [1, 0.8, 0.5, 0.2]) assert.deepEqual(at(z, "live", OUT).bodies, { p1: "off" }, "off at " + z);
+  // The 5 s hysteresis is the unload's, unchanged by the zoom.
+  let r = run([{ id: "p1", near: false, loaded: true }], 1000, NONE, {}, { zoom: 1, band: "live" });
+  assert.deepEqual(r.unload, []);
+  assert.deepEqual(r.bodies, { p1: "live" }, "still live while the 5 s runs");
+  r = run([{ id: "p1", near: false, loaded: true }], 6000, NONE, r.timers, { zoom: 1, band: "live" });
+  assert.deepEqual(r.unload, ["p1"]);
+  assert.deepEqual(r.bodies, { p1: "off" }, "the body goes in the same pass that unloads it");
+});
+
+test("zoom table: the hysteresis — live above 0.8, still below 0.75, in between whatever it was", () => {
+  assert.equal(zoomBody(0.78, "live").band, "live", "coming down from live: still live at 0.78");
+  assert.equal(zoomBody(0.78, "still").band, "still", "coming up from still: still still at 0.78");
+  assert.equal(zoomBody(0.75, "live").band, "live");
+  assert.equal(zoomBody(0.749, "live").band, "still", "below 0.75 it flips");
+  assert.equal(zoomBody(0.8, "still").band, "live", "at 0.8 it flips back");
+  assert.equal(zoomBody(0.79, "still").band, "still", "0.79 does not: C0 measured nine sockets thrashing there");
+  assert.equal(zoomBody(1, undefined).band, "live", "no memory: live");
+  assert.equal(zoomBody(undefined, undefined).body, "live", "no zoom: grid mode's answer");
+  assert.equal(zoomBody(NaN, "still").band, "live", "junk zoom reads as 1.0");
+});
+
+test("zoom table: focused and engaged — the pointer rule is what the snap to 1 exists for", () => {
+  // The surface animates to 1 before the pane takes keys; the pure part is
+  // the question it asks: may this zoom take a pointer?
+  assert.equal(pointerAtZoom(0.8), false, "a click here snaps to 1 first");
+  assert.equal(pointerAtZoom(CANVAS_ZOOM.exact), true, "and only then does the pointer reach the pane");
+});
+
+test("unitsToPx and pxToUnits: one conversion, both ways, whole units either side", () => {
+  assert.equal(UNIT_PX, 8);
+  assert.deepEqual(unitsToPx({ x: 3, y: -2, w: 32, h: 42 }), { x: 24, y: -16, width: 256, height: 336 });
+  assert.deepEqual(unitsToPx(null), { x: 0, y: 0, width: 0, height: 0 });
+  assert.deepEqual(pxToUnits({ x: 24, y: -16, width: 256, height: 336 }), { x: 3, y: -2, w: 32, h: 42 });
+  assert.deepEqual(pxToUnits({ x: 3, y: -3, width: 260, height: 337 }), { x: 0, y: 0, w: 33, h: 42 }, "a resize does not snap: rounded here");
+  assert.deepEqual(pxToUnits({ x: -20, y: -20, width: 256, height: 224 }), { x: -3, y: -3, w: 32, h: 28 }, "half away from zero, like the store");
+  assert.deepEqual(pxToUnits(undefined), { x: 0, y: 0, w: 0, h: 0 });
+  const rect = { x: -7, y: 11, w: 40, h: 30 };
+  assert.deepEqual(pxToUnits(unitsToPx(rect)), rect, "a round trip through pixels is identity");
+});
+
+test("tidyCanvas: reading order, sizes kept, three default panels across", () => {
+  assert.equal(TIDY_COLS, 98, "three 32-unit panels and the two gutters between them");
+  assert.equal(TIDY_GAP, 1);
+  const p = (id, x, y, w = 32, h = 42) => ({ id, kind: "terminal", ref: "t-" + id, x, y, w, h });
+  const out = tidyCanvas([p("c", 400, 0), p("a", 0, 0), p("b", 200, 0), p("d", 0, 300)]);
+  assert.deepEqual(out, [
+    { id: "a", x: 0, y: 0, w: 32, h: 42 },
+    { id: "b", x: 33, y: 0, w: 32, h: 42 },
+    { id: "c", x: 66, y: 0, w: 32, h: 42 },
+    { id: "d", x: 0, y: 43, w: 32, h: 42 },
+  ], "three across at the default size, then a new row a gap below the tallest");
+  const kept = tidyCanvas([p("a", 0, 0, 60, 50), p("b", 100, 0, 32, 28)]);
+  assert.deepEqual(kept, [{ id: "a", x: 0, y: 0, w: 60, h: 50 }, { id: "b", x: 61, y: 0, w: 32, h: 28 }], "Tidy arranges, it never resizes");
+  const wide = tidyCanvas([p("a", 0, 0, 32, 42), p("wide", 100, 0, 120, 42)]);
+  assert.deepEqual(wide[1], { id: "wide", x: 0, y: 43, w: 120, h: 42 }, "a panel wider than the row gets its own row");
+  assert.deepEqual(tidyCanvas([]), []);
+  assert.deepEqual(tidyCanvas(null), []);
+  assert.deepEqual(tidyCanvas([{ id: "junk", x: 0 }, null]), [], "a panel without a whole rectangle cannot be placed");
+  // Ties break by id, so two viewers tidying the same matrix agree.
+  assert.deepEqual(tidyCanvas([p("z", 0, 0), p("a", 0, 0)]).map((r) => r.id), ["a", "z"]);
+  // What Tidy answers is a layout patch: nothing to save when nothing moved.
+  assert.deepEqual(layoutDiff(out, tidyCanvas(out), "canvas"), []);
+});
+
+test("viewportKey and normalizeViewport: a camera per viewer, never the store", () => {
+  assert.equal(VIEWPORT_PREFIX, "picode-matrix-view:");
+  assert.equal(viewportKey("m1"), "picode-matrix-view:m1");
+  assert.equal(viewportKey(null), "picode-matrix-view:");
+  assert.deepEqual(normalizeViewport({ x: -120, y: 40, zoom: 0.5 }), { x: -120, y: 40, zoom: 0.5 });
+  assert.deepEqual(normalizeViewport({ x: 0, y: 0, zoom: 9 }), { x: 0, y: 0, zoom: 1.5 }, "clamped into minZoom/maxZoom");
+  assert.deepEqual(normalizeViewport({ x: 0, y: 0, zoom: 0.01 }), { x: 0, y: 0, zoom: 0.2 });
+  assert.equal(normalizeViewport({ x: 0, y: 0 }), null, "junk: fitView instead");
+  assert.equal(normalizeViewport({ x: "1", y: 2, zoom: 1 }), null);
+  assert.equal(normalizeViewport(null), null);
 });
 
 test("suspendedToDispose: past 24 instances the oldest go, past 10 min any goes", () => {
@@ -529,4 +655,34 @@ test("neighborPanel: unknown id, unknown direction and junk answer nothing", () 
   assert.equal(neighborPanel(null, "A", "right"), "");
   assert.equal(neighborPanel([cell("A", 0, 0, 4, 8), { id: "B", x: 4, y: 0 }, null], "A", "right"), "", "a panel without a whole rectangle is not a neighbour");
   assert.equal(neighborPanel([cell("A", 0, 0, 4, 8)], "A", "down"), "", "alone");
+});
+
+// The keyboard needs no canvas of its own: neighborPanel is already a 2D
+// spatial search, so the arrows work on a free plane exactly as they do on
+// the grid — including the negative half of it.
+//
+//   L(-99,0 32×42)  P(0,0 32×42)  Q(33,0 32×42)
+//                   R(0,43 65×42)
+const plane = (id, x, y, w = 32, h = 42) => ({ id, kind: "terminal", ref: "t-" + id, x, y, w, h });
+const PLANE = [plane("L", -99, 0), plane("P", 0, 0), plane("Q", 33, 0), plane("R", 0, 43, 65, 42)];
+
+test("neighborPanel and panelOrder read canvas units unchanged (the arrows are already 2D)", () => {
+  assert.equal(neighborPanel(PLANE, "P", "right"), "Q");
+  assert.equal(neighborPanel(PLANE, "P", "left"), "L", "a negative coordinate is the plane's, not a mistake");
+  assert.equal(neighborPanel(PLANE, "L", "left"), "");
+  assert.equal(neighborPanel(PLANE, "P", "down"), "R");
+  assert.equal(neighborPanel(PLANE, "Q", "down"), "R", "R shares columns with both");
+  assert.equal(neighborPanel(PLANE, "R", "up"), "P", "P lines up with R's left edge");
+  assert.equal(neighborPanel(PLANE, "L", "down"), "R", "no column shared: the nearest panel in that half");
+  assert.deepEqual(panelOrder(PLANE), ["L", "P", "Q", "R"]);
+  // And through the switch transform: a cell is 8 units wide and 3 tall.
+  const moved = gridToCanvas(GRID);
+  assert.equal(moved.find((p) => p.id === "B").x, 32);
+  assert.equal(neighborPanel(moved, "A", "right"), "B");
+  assert.deepEqual(panelOrder(moved), ["A", "B", "C", "D", "E", "F", "G"]);
+  // The transform is lossy where the plan says it is: an 8-row panel grows
+  // to the 28-unit minimum and overlaps the panel below, so `down` from C
+  // skips the panel it now overlaps. Canvas mode allows that; the switch
+  // back packs it out (ADR-0113).
+  assert.equal(neighborPanel(moved, "C", "down"), "F");
 });
