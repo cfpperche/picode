@@ -37,6 +37,9 @@ func peerInputMatches(cli string, s tmux.InputSnapshot, expected string) bool {
 	if cli == "opencode" {
 		return peerOpenCodeInput(s, expected)
 	}
+	if cli == "grok" && strings.HasPrefix(strings.TrimSpace(terminalSGR.ReplaceAllString(s.Lines[s.CursorY], "")), "│") {
+		return peerGrokBoxInput(s, expected)
+	}
 	raw := s.Lines[s.CursorY]
 	line := strings.TrimRight(strings.ReplaceAll(terminalSGR.ReplaceAllString(raw, ""), "\u00a0", " "), " \t")
 	if !peerSingleInputRow(cli, s) {
@@ -66,6 +69,52 @@ func peerInputMatches(cli string, s tmux.InputSnapshot, expected string) bool {
 		return true
 	}
 	return false
+}
+
+// Grok's bordered composer places its cursor inside the frame. Match the whole
+// one-line editor, model border and shortcut footer; never trim away draft text
+// or accept a continuation row merely because the cursor is at its start.
+func peerGrokBoxInput(s tmux.InputSnapshot, expected string) bool {
+	y := s.CursorY
+	if y < 1 || y+3 >= len(s.Lines) || s.CursorX != 6+utf8.RuneCountInString(expected) || strings.ContainsAny(expected, "\r\n\t\x1b") {
+		return false
+	}
+	clean := func(n int) string { return strings.TrimRight(terminalSGR.ReplaceAllString(s.Lines[n], ""), " ") }
+	if clean(y-1) != "  ╭"+strings.Repeat("─", s.Width-6)+"╮" {
+		return false
+	}
+	padding := s.Width - 9 - utf8.RuneCountInString(expected)
+	if padding < 1 || clean(y) != "  │ ❯ "+expected+strings.Repeat(" ", padding)+"│" {
+		return false
+	}
+	bottom := clean(y + 1)
+	if utf8.RuneCountInString(bottom) != s.Width-2 || !strings.HasPrefix(bottom, "  ╰─") || !strings.HasSuffix(bottom, " ─╯") {
+		return false
+	}
+	model := strings.TrimLeft(strings.TrimSuffix(strings.TrimPrefix(bottom, "  ╰"), " ─╯"), "─")
+	if !strings.HasPrefix(model, " Grok ") || !strings.Contains(model, " · ") || strings.ContainsAny(model, "│╭╮╰╯") {
+		return false
+	}
+	footer := "  Shift+Tab:mode  │  Ctrl+x:shortcuts"
+	if expected != "" {
+		footer = "  Enter:send  │  Shift+Tab:mode  │  Ctrl+x:shortcuts"
+	}
+	if clean(y+2) != "" || clean(y+3) != footer {
+		return false
+	}
+	for n := y + 4; n < len(s.Lines); n++ {
+		if clean(n) != "" {
+			return false
+		}
+	}
+	return true
+}
+
+func peerPointerFits(cli string, s tmux.InputSnapshot, pointer string) bool {
+	if cli != "grok" || s.CursorY < 0 || s.CursorY >= len(s.Lines) || !strings.HasPrefix(strings.TrimSpace(terminalSGR.ReplaceAllString(s.Lines[s.CursorY], "")), "│") {
+		return true
+	}
+	return s.Width-9-utf8.RuneCountInString(pointer) >= 1
 }
 
 // Recognize the whole composer, not just its cursor row. Unknown layouts and
@@ -285,7 +334,7 @@ func attemptPeerText(ctx context.Context, deps Deps, p store.PeerConnection, poi
 	defer unlockPrompt(p.OwnerID)
 	name := tmux.ShellSessionName(p.OwnerID)
 	before, err := deps.Tmux.InputSnapshot(ctx, name)
-	if err != nil || !peerInputMatches(p.CLI, before, "") {
+	if err != nil || !peerInputMatches(p.CLI, before, "") || !peerPointerFits(p.CLI, before, pointer) {
 		return
 	}
 	// Require the wrapper to remain in the exact pane's process ancestry.
@@ -307,7 +356,7 @@ func attemptPeerText(ctx context.Context, deps Deps, p store.PeerConnection, poi
 			return false
 		}
 		snap, e := deps.Tmux.InputSnapshot(ctx, name)
-		return e == nil && snap.PaneID == before.PaneID && snap.PanePID == before.PanePID && peerInputMatches(p.CLI, snap, expected)
+		return e == nil && snap.PaneID == before.PaneID && snap.PanePID == before.PanePID && peerInputMatches(p.CLI, snap, expected) && peerPointerFits(p.CLI, snap, pointer)
 	}
 	if !check("") {
 		return

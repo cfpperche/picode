@@ -53,6 +53,90 @@ func TestPeerInputDecisionTable(t *testing.T) {
 	}
 }
 
+func TestPeerGrokBorderedComposer(t *testing.T) {
+	raw, err := os.ReadFile("testdata/grok-bordered-composer.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var native tmux.InputSnapshot
+	if err = json.Unmarshal(raw, &native); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name, expected string
+		change         func(*tmux.InputSnapshot)
+		want           bool
+	}{
+		{name: "captured native empty input", want: true},
+		{name: "draft", change: func(s *tmux.InputSnapshot) { s.Lines[1] = strings.Replace(s.Lines[1], "❯ ", "❯ keep this", 1) }},
+		{name: "cursor moved", change: func(s *tmux.InputSnapshot) { s.CursorX++ }},
+		{name: "copy mode", change: func(s *tmux.InputSnapshot) { s.InMode = true }},
+		{name: "resized before capture", change: func(s *tmux.InputSnapshot) { s.Width-- }},
+		{name: "multiline draft below", change: func(s *tmux.InputSnapshot) {
+			s.Lines = append(s.Lines[:2], append([]string{"  │ keep this second line │"}, s.Lines[2:]...)...)
+		}},
+		{name: "continuation cursor", change: func(s *tmux.InputSnapshot) { s.Lines[0] = "  │ keep first line │" }},
+		{name: "permission instead of model", change: func(s *tmux.InputSnapshot) { s.Lines[2] = strings.Replace(s.Lines[2], "Grok", "Allow", 1) }},
+		{name: "unknown footer", change: func(s *tmux.InputSnapshot) { s.Lines[4] = "  Press Enter to allow" }},
+		{name: "extra composer below", change: func(s *tmux.InputSnapshot) { s.Lines = append(s.Lines, "❯ new draft") }},
+		{name: "exact pointer after paste", expected: peerCLIPointer, want: true, change: func(s *tmux.InputSnapshot) {
+			s.Lines[1] = "  │ ❯ " + peerCLIPointer + strings.Repeat(" ", s.Width-9-len(peerCLIPointer)) + "│"
+			s.Lines[4] = "  Enter:send  │  Shift+Tab:mode  │  Ctrl+x:shortcuts"
+			s.CursorX = 6 + len(peerCLIPointer)
+		}},
+		{name: "typed after paste", expected: peerCLIPointer, change: func(s *tmux.InputSnapshot) {
+			s.Lines[1] = "  │ ❯ " + peerCLIPointer + "x" + strings.Repeat(" ", s.Width-10-len(peerCLIPointer)) + "│"
+			s.Lines[4] = "  Enter:send  │  Shift+Tab:mode  │  Ctrl+x:shortcuts"
+			s.CursorX = 6 + len(peerCLIPointer)
+		}},
+		{name: "pointer wraps", expected: strings.Repeat("x", 200)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := native
+			s.Lines = append([]string(nil), native.Lines...)
+			if tc.change != nil {
+				tc.change(&s)
+			}
+			if got := peerInputMatches("grok", s, tc.expected); got != tc.want {
+				t.Fatalf("got %v want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestPeerGrokCapturedPointer(t *testing.T) {
+	raw, err := os.ReadFile("testdata/grok-bordered-pointer.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var s tmux.InputSnapshot
+	if err = json.Unmarshal(raw, &s); err != nil {
+		t.Fatal(err)
+	}
+	if !peerInputMatches("grok", s, peerCLIPointer) {
+		t.Fatal("captured native post-paste frame rejected")
+	}
+	if peerInputMatches("grok", s, "") {
+		t.Fatal("pasted text accepted as empty")
+	}
+	s.Lines[4] = "  Shift+Tab:mode  │  Ctrl+x:shortcuts"
+	if peerInputMatches("grok", s, peerCLIPointer) {
+		t.Fatal("incomplete post-paste redraw accepted")
+	}
+}
+
+func TestPeerGrokPointerFitsBeforeClaim(t *testing.T) {
+	for _, pointer := range []string{peerCLIPointer, "PiCode: run picode messages read for the connection test."} {
+		minimum := 10 + utf8.RuneCountInString(pointer)
+		for _, width := range []int{70, minimum - 1, minimum, minimum + 1, 162} {
+			s := tmux.InputSnapshot{Width: width, CursorY: 0, Lines: []string{"  │ ❯       │"}}
+			if got := peerPointerFits("grok", s, pointer); got != (width >= minimum) {
+				t.Fatalf("width=%d pointer=%q got=%v", width, pointer, got)
+			}
+		}
+	}
+}
+
 func TestPeerInputRejectsMultilineComposer(t *testing.T) {
 	for _, cli := range []string{"grok", "hermes", "claude-code"} {
 		footer := "────────────────────"

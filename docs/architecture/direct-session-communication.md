@@ -85,6 +85,13 @@ atomically lock a native editor: observed races stop submission, leave text in
 place and report uncertainty. PiCode never clears a draft to make room. A pointer
 contains no sender-controlled body and is not evidence that a model read the mail.
 
+Grok input recognition supports both its plain composer and the bordered composer
+observed in Grok Build 1.0.25. The latter requires matching frame width, a single
+empty input row, cursor position, model border and shortcut footer. Before claiming
+an attention attempt, its full pointer must fit on one line; a narrow pane keeps
+the message pending. The same fit and identity checks run again before Enter.
+Regression coverage: [Grok input validation](../plans/grok-communication-input.md).
+
 Decision table and native acceptance: [execution plan](../plans/unified-native-messages.md).
 
 Grok attention waits for its final native idle notification (about a minute),
