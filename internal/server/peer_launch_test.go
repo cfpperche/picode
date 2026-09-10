@@ -50,11 +50,10 @@ func TestPeerLaunchResumeBoundary(t *testing.T) {
 	}
 	deps := Deps{Store: st, DataDir: data}
 	for _, tc := range []struct {
-		name   string
-		args   []string
-		inject bool
+		name string
+		args []string
 	}{
-		{"exact resume", resume, true}, {"fresh", nil, false}, {"other conversation", []string{"resume", "another"}, false}, {"fork", []string{"fork", "fixture-session"}, false}, {"continue", []string{"resume", "--last"}, false},
+		{"exact resume", resume}, {"fresh", nil}, {"other conversation", []string{"resume", "another"}}, {"fork", []string{"fork", "fixture-session"}}, {"continue", []string{"resume", "--last"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			launch, err := st.TerminalLaunch(term.ID)
@@ -71,8 +70,8 @@ func TestPeerLaunchResumeBoundary(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if strings.Contains(string(body), token) != tc.inject {
-				t.Fatal("incorrect credential injection")
+			if strings.Contains(string(body), token) {
+				t.Fatal("Codex must discover credentials per native tool call")
 			}
 			if strings.Contains(string(body), "export PICODE_PEER_TOKEN") {
 				t.Fatal("credential inherited by return shell")

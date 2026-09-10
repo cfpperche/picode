@@ -36,7 +36,7 @@ func cliIntegrationPlan(cli, dir, hook string) clilaunch.IntegrationPlan {
 		for _, v := range overrides {
 			full = append(full, "-c", v)
 		}
-		p.Branches = append(p.Branches, clilaunch.Injection{When: "When the installed CLI advertises hook trust support", Args: full}, clilaunch.Injection{When: "Otherwise: completion notification only", Args: []string{"-c", overrides[len(overrides)-1]}})
+		p.Branches = append(p.Branches, clilaunch.Injection{When: "When the installed CLI advertises hook trust support", Args: full}, clilaunch.Injection{When: "Otherwise: completion notification only", Args: []string{"-c", codexNotifyOverride(hook)}})
 	case "grok", "hermes":
 		p.Summary = "Native session hooks and plugin (installed on launch)"
 		p.Environment["PICODE_NATIVE_HOOK"] = hook
@@ -104,7 +104,7 @@ func launchPlan(deps Deps, cli clilaunch.CLI, base clilaunch.Config, overrides c
 				}
 			}
 		}
-		if cli.ID == "grok" || cli.ID == "hermes" {
+		if communication.NativeMessages(cli.ID) {
 			if options, err := communication.NativeOptions(deps.DataDir, cli.ID); err == nil {
 				for k, v := range options.Env {
 					p.Injection.Environment[k] = v

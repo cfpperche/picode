@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/cfpperche/picode/internal/communication"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -165,7 +166,12 @@ func peerSingleInputRow(cli string, s tmux.InputSnapshot) bool {
 				tail = append(tail, line)
 			}
 		}
-		return len(tail) == 0 || (cli == "claude-code" && ((len(tail) == 1 && strings.Contains(tail[0], "? for shortcuts")) || (len(tail) == 2 && strings.Contains(tail[0], " | ") && strings.Contains(tail[1], "shift+tab"))))
+		// Claude moves its remote-control shortcut to a third footer row in
+		// narrow panes. Accept that exact shortcut, not arbitrary draft text.
+		if cli == "claude-code" && len(tail) == 3 && tail[2] == "/rc" {
+			tail = tail[:2]
+		}
+		return len(tail) == 0 || (cli == "claude-code" && ((len(tail) == 1 && (strings.Contains(tail[0], "? for shortcuts") || strings.HasPrefix(tail[0], "⏸ manual mode on") || strings.Contains(tail[0], "(shift+tab to cycle)"))) || (len(tail) == 2 && strings.Contains(tail[0], " | ") && strings.Contains(tail[1], "shift+tab"))))
 	default:
 		return false
 	}
@@ -255,7 +261,7 @@ func attemptPeerAttention(ctx context.Context, deps Deps, m store.PeerMessage) {
 		return
 	}
 	pointer := peerPointer
-	if p.CLI == "grok" || p.CLI == "hermes" {
+	if communication.NativeMessages(p.CLI) {
 		pointer = peerCLIPointer
 	}
 	attemptPeerText(ctx, deps, p, pointer, func() bool {

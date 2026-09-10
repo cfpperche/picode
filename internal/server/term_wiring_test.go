@@ -938,3 +938,67 @@ func TestCodexSubcommandsKeepHookOverrides(t *testing.T) {
 		}
 	}
 }
+
+func TestCodexHookContextAndLegacySelection(t *testing.T) {
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("python3 unavailable")
+	}
+	root := t.TempDir()
+	hook, err := ensureHookScript(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeExecutable(filepath.Join(root, "curl"), "#!/bin/sh\nexit 0\n")
+	for _, tc := range []struct {
+		event   string
+		context bool
+	}{
+		{`{"hook_event_name":"SessionStart","session_id":"root"}`, true},
+		{`{"hook_event_name":"Stop","session_id":"root"}`, false},
+		{`{"hook_event_name":"SessionStart","session_id":"child","parent_session_id":"root"}`, false},
+	} {
+		cmd := exec.Command(hook, "auto", "codex", tc.event)
+		cmd.Env = append(os.Environ(), "PATH="+root+string(os.PathListSeparator)+os.Getenv("PATH"), "PICODE_TERM_ID=fixture", "PICODE_TERM_URL=http://localhost:1", "PICODE_CODEX_HOOKS=1")
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !tc.context {
+			if len(out) != 0 {
+				t.Fatalf("unexpected hook context: %s", out)
+			}
+			continue
+		}
+		var got struct {
+			Output struct {
+				Event   string `json:"hookEventName"`
+				Context string `json:"additionalContext"`
+			} `json:"hookSpecificOutput"`
+		}
+		if json.Unmarshal(out, &got) != nil || got.Output.Event != "SessionStart" || !strings.Contains(got.Output.Context, "picode messages --help") {
+			t.Fatalf("missing native discovery: %s", out)
+		}
+	}
+	for _, modern := range []bool{false, true} {
+		probe := "#!/bin/sh\nif [ \"$1\" = --help ]; then\n"
+		if modern {
+			probe += "printf '%s\\n' --dangerously-bypass-hook-trust\n"
+		}
+		probe += "exit 0\nfi\nprintf '%s' \"${PICODE_CODEX_HOOKS:-legacy}\"\n"
+		writeExecutable(filepath.Join(root, "codex"), probe)
+		writeExecutable(hook, "#!/bin/sh\nexit 0\n")
+		if err := writeCodexIntercept(root, hook); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command(wrapperPath(root, "codex"))
+		cmd.Env = append(os.Environ(), "PATH="+interceptBinDir(root)+string(os.PathListSeparator)+root+string(os.PathListSeparator)+"/usr/bin:/bin", "PICODE_TERM_ID=fixture", "PICODE_CODEX_HOOKS=1")
+		out, err := cmd.Output()
+		want := "legacy"
+		if modern {
+			want = "1"
+		}
+		if err != nil || string(out) != want {
+			t.Fatalf("modern=%v: %q %v", modern, out, err)
+		}
+	}
+}

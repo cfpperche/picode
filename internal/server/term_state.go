@@ -263,6 +263,7 @@ func handleSetTerminalState(deps Deps) http.HandlerFunc {
 			SessionID   string `json:"sessionId"`
 			SessionPath string `json:"sessionPath"`
 			SessionSeq  int64  `json:"sessionSeq"`
+			Source      string `json:"source"`
 			PID         int    `json:"pid"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -288,7 +289,7 @@ func handleSetTerminalState(deps Deps) http.HandlerFunc {
 		}
 		var st TermState
 		if req.SessionID != "" {
-			if err := recordNativeTerminalSession(deps, id, req.CLI, req.RunID, req.SessionID, req.SessionPath, req.SessionSeq, req.State); err != nil {
+			if err := recordNativeTerminalObservation(deps, id, req.CLI, req.RunID, req.SessionID, req.SessionPath, req.SessionSeq, req.State, req.Source); err != nil {
 				writeErr(w, http.StatusConflict, "Native conversation report is stale or invalid.")
 				return
 			}

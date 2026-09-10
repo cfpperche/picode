@@ -53,6 +53,37 @@ func TestPeerInputDecisionTable(t *testing.T) {
 	}
 }
 
+func TestPeerClaudeNarrowFooter(t *testing.T) {
+	for _, tc := range []struct {
+		name, input, expected, shortcut string
+		mode, want                      bool
+	}{
+		{name: "empty with remote control", shortcut: "/rc", want: true},
+		{name: "pasted pointer", input: peerPointer, expected: peerPointer, shortcut: "/rc", want: true},
+		{name: "draft", input: "keep this draft", shortcut: "/rc"},
+		{name: "typed after paste", input: peerPointer + "x", expected: peerPointer, shortcut: "/rc"},
+		{name: "unknown footer", shortcut: "Enter to approve"},
+		{name: "copy mode", shortcut: "/rc", mode: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := tmux.InputSnapshot{Width: 80, CursorY: 1, CursorX: 2 + utf8.RuneCountInString(tc.input), InMode: tc.mode, Lines: []string{
+				strings.Repeat("─", 80), "❯\u00a0" + tc.input, strings.Repeat("─", 80),
+				"  Sonnet 5 · low | picode | main | Context n/a | cache n/a", "  ⏵⏵ auto mode on (shift+tab to cycle) · ← 2 agents", "                                                                           " + tc.shortcut,
+			}}
+			if got := peerInputMatches("claude-code", s, tc.expected); got != tc.want {
+				t.Fatalf("accepted=%v, want %v", got, tc.want)
+			}
+			// Moving the cursor into a multiline draft cannot impersonate the frame.
+			s.Lines = append([]string{"❯ keep first draft row"}, s.Lines...)
+			s.CursorY++
+			s.Lines[s.CursorY-1] = "  draft continuation"
+			if peerInputMatches("claude-code", s, tc.expected) {
+				t.Fatal("multiline draft accepted")
+			}
+		})
+	}
+}
+
 func TestPeerGrokBorderedComposer(t *testing.T) {
 	raw, err := os.ReadFile("testdata/grok-bordered-composer.json")
 	if err != nil {
@@ -248,6 +279,29 @@ func TestNativePiResumeComposer(t *testing.T) {
 		s.Lines = lines
 		if peerInputMatches("pi", s, "") {
 			t.Fatal("unsafe Pi composer", lines)
+		}
+	}
+}
+
+func TestPeerClaudeSingleFooter(t *testing.T) {
+	for _, tc := range []struct {
+		footer string
+		want   bool
+	}{
+		{"  ⏸ manual mode on · ? for shortcuts · ← for agents /rc active", true},
+		{"  ⏸ manual mode on · gh auth login for PR status · ← for agents /rc active", true},
+		{"  ⏵⏵ accept edits on (shift+tab to cycle) · /rc", true},
+		{"  Enter to approve this tool", false},
+		{"  Unknown native layout", false},
+	} {
+		s := tmux.InputSnapshot{Width: 80, CursorX: 2, CursorY: 1, Lines: []string{strings.Repeat("─", 80), "❯\u00a0", strings.Repeat("─", 80), tc.footer}}
+		if got := peerInputMatches("claude-code", s, ""); got != tc.want {
+			t.Fatalf("%q accepted=%v", tc.footer, got)
+		}
+		s.Lines[1] += "draft"
+		s.CursorX += 5
+		if peerInputMatches("claude-code", s, "") {
+			t.Fatal("draft accepted")
 		}
 	}
 }

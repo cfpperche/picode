@@ -298,10 +298,11 @@ func codexHookOverrides(hook string) []string {
 			tomlString(key), tomlString(codexHookHash(spec, command))))
 	}
 	out = append(out, "hooks.state={"+strings.Join(state, ",")+"}")
-	// Legacy notify remains an idle fallback for Codex builds predating hooks.
-	out = append(out, fmt.Sprintf("notify=[%s,%s,%s]",
-		tomlString(hook), tomlString("auto"), tomlString("codex")))
 	return out
+}
+
+func codexNotifyOverride(hook string) string {
+	return fmt.Sprintf("notify=[%s,%s,%s]", tomlString(hook), tomlString("auto"), tomlString("codex"))
 }
 
 // Codex resume/fork owns its own -c parser. Root overrides before the
@@ -322,9 +323,11 @@ func writeCodexIntercept(dataDir, hook string) error {
 		wrapperFindReal +
 		wrapperLifecycle(hook) +
 		"if \"$real\" --help 2>&1 | grep -q -- '--dangerously-bypass-hook-trust'; then\n" +
+		"export PICODE_CODEX_HOOKS=1\n" +
 		codexInvoke(branches[0].Args) +
 		wrapperLifecycleEnd +
 		"fi\n" +
+		"unset PICODE_CODEX_HOOKS\n" +
 		codexInvoke(branches[1].Args) +
 		wrapperLifecycleEnd
 	return writeExecutable(wrapperPath(dataDir, "codex"), body)
@@ -527,7 +530,11 @@ function report(state, sessionId) {
 // Only a root receiving a native user message becomes the selected conversation.
 // Other roots and child status events on the local server cannot steal it.
 export default async function picodeActivity({ client }) {
-  let selected = ""
+  // This is only a candidate until root() validates a native event below.
+  // Calling the session API during plugin initialization deadlocks OpenCode:
+  // that API waits for the instance, which is waiting for this plugin.
+  let selected = process.env.PICODE_OPENCODE_SESSION_ID || ""
+  let activity = 0
   let queue = Promise.resolve()
   const roots = new Map()
   async function root(id) {
@@ -543,25 +550,45 @@ export default async function picodeActivity({ client }) {
       return value
     } catch { return false }
   }
-  const resumed = process.env.PICODE_OPENCODE_SESSION_ID
-  if (await root(resumed)) selected = resumed
   function ordered(fn) {
     queue = queue.then(fn).catch(() => {})
     return queue
   }
+  // Resume need not emit an idle event. Query native status after returning
+  // the plugin, never on its initialization promise or the event queue.
+  // A newer native event wins over this one-time snapshot.
+  if (selected) setTimeout(() => {
+    if (activity !== 0) return
+    const id = selected, generation = activity
+    void (async () => {
+      if (!(await root(id))) return
+      const result = await client.session.status()
+      if (!result?.data || typeof result.data !== "object" || Array.isArray(result.data)) return
+      const state = mapEvent("session.status", Object.hasOwn(result.data, id) ? result.data[id]?.type : "idle")
+      await ordered(async () => {
+        if (state && selected === id && activity === generation) report(state, id)
+      })
+    })().catch(() => {})
+  }, 0)
   return {
-    "chat.message": async ({ sessionID }) => ordered(async () => {
+    "chat.message": async ({ sessionID }) => {
+      activity++
+      return ordered(async () => {
       if (await root(sessionID)) {
         selected = sessionID
         report("working", selected)
       }
-    }),
-    event: async ({ event }) => ordered(async () => {
+      })
+    },
+    event: async ({ event }) => {
       const id = event?.properties?.sessionID
+      if (id === selected && mapEvent(event?.type, event?.properties?.status?.type)) activity++
+      return ordered(async () => {
       if (!selected || id !== selected || !(await root(id))) return
       const state = mapEvent(event?.type, event?.properties?.status?.type)
       if (state) report(state, id)
-    }),
+      })
+    },
   }
 }
 

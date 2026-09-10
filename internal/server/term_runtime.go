@@ -29,6 +29,7 @@ type TermRuntime struct {
 	SessionID   string    `json:"sessionId,omitempty"`
 	SessionPath string    `json:"-"`
 	SessionSeq  int64     `json:"-"`
+	CodexHooks  bool      `json:"-"`
 	CLI         string    `json:"cli"`
 	Source      string    `json:"source"`
 	RunID       string    `json:"runId"`

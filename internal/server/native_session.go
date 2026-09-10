@@ -13,6 +13,14 @@ import (
 // Serialize native session publication with runtime replacement. The recorded
 // binding invalidates the previous conversation before a new live identity is shown.
 func recordNativeTerminalSession(deps Deps, term, cli, run, id, path string, seq int64, state ...string) error {
+	value := ""
+	if len(state) > 0 {
+		value = state[0]
+	}
+	return recordNativeTerminalObservation(deps, term, cli, run, id, path, seq, value, "")
+}
+
+func recordNativeTerminalObservation(deps Deps, term, cli, run, id, path string, seq int64, state, source string) error {
 	if deps.TermRuntimes == nil || run == "" || id == "" || len(id) > 256 || len(path) > 4096 || strings.ContainsAny(id, "\r\n\x00") || seq <= 0 || seq > time.Now().Add(5*time.Second).UnixNano() {
 		return errors.New("invalid native identity")
 	}
@@ -22,6 +30,12 @@ func recordNativeTerminalSession(deps Deps, term, cli, run, id, path string, seq
 	live, ok := r.m[term]
 	if !ok || live.RunID != run || live.CLI != cli || !processAlive(live) || seq <= live.SessionSeq {
 		return errors.New("stale native identity")
+	}
+	// Old launchers inject both paths. Once native hooks have spoken in this
+	// incarnation, legacy notifications (including auxiliary threads) cannot
+	// replace their identity or activity. A new incarnation starts fresh.
+	if cli == "codex" && source == "codex-notify" && live.CodexHooks {
+		return nil
 	}
 	// Session IDs are protocol values, not paths. Pi alone resumes by its file.
 	if cli == "pi" && path == "" {
@@ -55,10 +69,13 @@ func recordNativeTerminalSession(deps Deps, term, cli, run, id, path string, seq
 		}
 	}
 	live.SessionID, live.SessionPath, live.SessionSeq = id, path, seq
+	if cli == "codex" && source == "codex-hook" {
+		live.CodexHooks = true
+	}
 	r.m[term] = live
-	if len(state) > 0 && deps.TermStates != nil {
+	if state != "" && deps.TermStates != nil {
 		deps.TermStates.mu.Lock()
-		deps.TermStates.m[term] = TermState{State: state[0], CLI: cli, RunID: run, SessionID: id, SessionSeq: seq, At: time.Now()}
+		deps.TermStates.m[term] = TermState{State: state, CLI: cli, RunID: run, SessionID: id, SessionSeq: seq, At: time.Now()}
 		deps.TermStates.mu.Unlock()
 	}
 	return nil

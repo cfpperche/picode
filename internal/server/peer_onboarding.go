@@ -424,7 +424,7 @@ func applyPeerParticipant(ctx context.Context, deps Deps, p store.PeerParticipan
 	if rt.SessionID != c.SessionKey {
 		return "waiting-conversation", "Waiting for this conversation to identify itself."
 	}
-	if c.CLI == "grok" || c.CLI == "hermes" || (c.CLI != "pi" && peerProcessConfigured(rt, c.ID)) {
+	if communication.NativeMessages(c.CLI) || (c.CLI != "pi" && peerProcessConfigured(rt, c.ID)) {
 		return "connected", ""
 	}
 	if c.CLI == "pi" {
@@ -479,7 +479,7 @@ func applyPeerParticipant(ctx context.Context, deps Deps, p store.PeerParticipan
 		return "cancelled", "Participation changed."
 	}
 	req, _ := http.NewRequestWithContext(ctx, "POST", "http://localhost/", nil)
-	if e = prepared.start(deps, req, name, t.Cwd); e != nil {
+	if e = prepared.startSized(deps, req, name, t.Cwd, snap.Width, len(snap.Lines)); e != nil {
 		return "error", e.Error()
 	}
 	publishTerminalState(deps, req, t, true)
@@ -543,7 +543,7 @@ func reconcilePeerChecksAt(ctx context.Context, deps Deps, now time.Time) {
 			continue
 		}
 		prompt := "PiCode: read messages and run the requested connection test."
-		if from.CLI == "grok" || from.CLI == "hermes" {
+		if communication.NativeMessages(from.CLI) {
 			prompt = "PiCode: run picode messages read for the connection test."
 		}
 		call, cancel := context.WithTimeout(ctx, 3*time.Second)

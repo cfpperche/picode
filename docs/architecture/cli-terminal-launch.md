@@ -140,3 +140,10 @@ binding. Grok/Hermes tool calls resolve private setup by their current native
 session ID, rather than an inherited bearer. Their launcher installs a small
 native hook/plugin with an ownership receipt; it preserves native homes and
 executable entrypoints. See [direct communication](direct-session-communication.md).
+
+Communication enrollment preserves the captured tmux pane dimensions during
+an exact native resume, so a detached replacement keeps the same composer layout
+before a browser attaches. Codex joins Grok/Hermes in per-tool message discovery
+(ADR-0111): launch preview and execution include the same credential-free client
+shim and discovery variables. Enabling an identified Codex conversation prepares
+private setup without replacing its process.

@@ -135,7 +135,7 @@ func TestNativeReportPreservesCodexNotifyIdentity(t *testing.T) {
 		t.Skip("python3 unavailable")
 	}
 	cmd := exec.Command("python3", "-c", hookMapPy)
-	cmd.Env = append(os.Environ(), "PICODE_HOOK_REPORT=1", "PICODE_HOOK_CLI=codex", "PICODE_TUI_RUN_ID=fixture-run", "PICODE_TUI_PID=123")
+	cmd.Env = append(os.Environ(), "PICODE_CODEX_HOOKS=0", "PICODE_HOOK_REPORT=1", "PICODE_HOOK_CLI=codex", "PICODE_TUI_RUN_ID=fixture-run", "PICODE_TUI_PID=123")
 	cmd.Stdin = strings.NewReader(`{"type":"agent-turn-complete","thread-id":"native-codex-id"}`)
 	raw, err := cmd.Output()
 	if err != nil {
@@ -254,6 +254,122 @@ if(reports.length!==5)throw Error("child resume accepted")
 `
 	cmd := exec.Command("node", "--input-type=module", "-e", source)
 	cmd.Env = append(os.Environ(), "PICODE_OPENCODE_HOOK=fixture", "PICODE_TERM_ID=fixture")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+}
+
+func TestOpenCodeResumeDoesNotWaitForItsOwnInitialization(t *testing.T) {
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("node unavailable")
+	}
+	source := strings.Replace(opencodeActivityJS, `import { spawn } from "node:child_process"`, `const reports=[]; function spawn(_hook,args,options){reports.push({state:args[0],id:options.env.PICODE_NATIVE_SESSION_ID});return {unref(){}}}`, 1)
+	source = strings.Replace(source, "export default async function", "async function", 1)
+	source += `
+let calls=0, release
+const client={session:{get:()=>{calls++;return new Promise(resolve=>{release=resolve})}}}
+const timeout=setTimeout(()=>{console.error("plugin blocked its own startup");process.exit(1)},1000)
+const hooks=await picodeActivity({client})
+clearTimeout(timeout)
+if(calls!==0)throw Error("session API called before plugin initialization completed")
+const event=hooks.event({event:{type:"session.idle",properties:{sessionID:"resumed"}}})
+await Promise.resolve();await Promise.resolve()
+if(calls!==1 || reports.length!==0)throw Error("unverified resume reported ready")
+release({data:{id:"resumed"}})
+await event
+if(JSON.stringify(reports)!==JSON.stringify([{state:"idle",id:"resumed"}]))throw Error(JSON.stringify(reports))
+`
+	cmd := exec.Command("node", "--input-type=module", "-e", source)
+	cmd.Env = append(os.Environ(), "PICODE_OPENCODE_HOOK=fixture", "PICODE_TERM_ID=fixture", "PICODE_OPENCODE_SESSION_ID=resumed")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+}
+
+func TestCodexHooksOutrankLegacyNotifyInSameRun(t *testing.T) {
+	data := t.TempDir()
+	s, err := store.Open(filepath.Join(data, "db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	w, _ := s.AddWorkspace("fixture", data)
+	term, _ := s.CreateTerminalIn(w.ID, "codex", data)
+	s.SetTerminalLaunch(term.ID, "codex", clilaunch.Overrides{})
+	deps := Deps{Store: s, TermRuntimes: NewTermRuntimes(), TermStates: NewTermStates()}
+	deps.TermRuntimes.Start(term.ID, TermRuntime{CLI: "codex", RunID: "old-wrapper", PID: os.Getpid()})
+	seq := time.Now().UnixNano()
+	for i, tc := range []struct{ source, id, state, want string }{
+		{"codex-notify", "legacy", "idle", "legacy"},
+		{"codex-hook", "real-root", "working", "real-root"},
+		{"codex-notify", "auxiliary", "idle", "real-root"},
+		{"codex-hook", "real-root", "idle", "real-root"},
+		{"codex-notify", "auxiliary", "idle", "real-root"},
+		{"codex-hook", "new-root", "working", "new-root"},
+	} {
+		if err := recordNativeTerminalObservation(deps, term.ID, "codex", "old-wrapper", tc.id, "", seq+int64(i), tc.state, tc.source); err != nil {
+			t.Fatal(err)
+		}
+		rt, _ := deps.TermRuntimes.Get(term.ID)
+		if rt.SessionID != tc.want {
+			t.Fatalf("row %d: %+v", i, rt)
+		}
+		st, _ := deps.TermStates.Get(term.ID)
+		if i == 2 && st.State != "working" {
+			t.Fatal("legacy notification authorized input")
+		}
+	}
+	deps.TermRuntimes.Start(term.ID, TermRuntime{CLI: "codex", RunID: "legacy-new-run", PID: os.Getpid()})
+	if err := recordNativeTerminalObservation(deps, term.ID, "codex", "legacy-new-run", "legacy", "", seq+10, "idle", "codex-notify"); err != nil {
+		t.Fatal(err)
+	}
+	rt, _ := deps.TermRuntimes.Get(term.ID)
+	if rt.CodexHooks || rt.SessionID != "legacy" {
+		t.Fatal("new run inherited modern hook flag")
+	}
+}
+
+func TestOpenCodeResumeStatusObservation(t *testing.T) {
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("node unavailable")
+	}
+	source := strings.Replace(opencodeActivityJS, `import { spawn } from "node:child_process"`, `const reports=[]; function spawn(_hook,args,options){reports.push({state:args[0],id:options.env.PICODE_NATIVE_SESSION_ID});return {unref(){}}}`, 1)
+	source = strings.Replace(source, "export default async function", "async function", 1)
+	source += `
+const wait=()=>new Promise(resolve=>setTimeout(resolve,20))
+for(const [name,metadata,status,want] of [
+ ["idle",{id:"resumed"},{},"idle"],
+ ["busy",{id:"resumed"},{resumed:{type:"busy"}},"working"],
+ ["retry",{id:"resumed"},{resumed:{type:"retry"}},"working"],
+ ["child",{id:"resumed",parentID:"parent"},{},null],
+ ["missing",null,{},null],
+ ["failed status",{id:"resumed"},null,null],
+ ["unknown status",{id:"resumed"},{resumed:{type:"unknown"}},null],
+ ["malformed status",{id:"resumed"},{resumed:{}},null],
+ ["null status",{id:"resumed"},{resumed:null},null],
+ ["empty status",{id:"resumed"},{resumed:{type:""}},null],
+]) {
+ reports.length=0
+ await picodeActivity({client:{session:{get:async()=>({data:metadata}),status:async()=>({data:status})}}})
+ await wait()
+ if(JSON.stringify(reports)!==JSON.stringify(want?[{state:want,id:"resumed"}]:[]))throw Error(name+JSON.stringify(reports))
+}
+reports.length=0
+let release
+const hooks=await picodeActivity({client:{session:{get:async()=>({data:{id:"resumed"}}),status:()=>new Promise(resolve=>{release=resolve})}}})
+await wait()
+await hooks.event({event:{type:"session.status",properties:{sessionID:"resumed",status:{type:"busy"}}}})
+release({data:{}})
+await wait()
+if(JSON.stringify(reports)!==JSON.stringify([{state:"working",id:"resumed"}]))throw Error("stale snapshot overrode native activity")
+reports.length=0
+const early=await picodeActivity({client:{session:{get:async()=>({data:{id:"resumed"}}),status:async()=>({data:{}})}}})
+await early.event({event:{type:"permission.asked",properties:{sessionID:"resumed"}}})
+await wait()
+if(JSON.stringify(reports)!==JSON.stringify([{state:"needs-you",id:"resumed"}]))throw Error("startup snapshot erased an early permission request")
+`
+	cmd := exec.Command("node", "--input-type=module", "-e", source)
+	cmd.Env = append(os.Environ(), "PICODE_OPENCODE_HOOK=fixture", "PICODE_TERM_ID=fixture", "PICODE_OPENCODE_SESSION_ID=resumed")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("%v: %s", err, out)
 	}
