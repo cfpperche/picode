@@ -32,6 +32,16 @@ make dev          # run from the repo without installing
 
 Green padlock: `make cert` (mkcert). See the [README](https://github.com/cfpperche/picode#quick-start) for TLS and bind details.
 
+**Fullscreen.** Right-click any tab and choose **Fullscreen**
+(`Ctrl+Shift+Enter`, `Cmd+Shift+Enter`, or the command palette): the sidebar,
+the tab strip and the Inspector step aside and that tab fills the screen, and
+the browser goes fullscreen with it. Nothing closes — touch the left edge of
+the screen with the pointer and the sidebar slides back over the page, the top
+edge brings the tabs back with a **Leave fullscreen** button at their right
+end, and the right edge brings the Inspector back if it was open. `Esc` leaves
+(the browser takes that key back while it is fullscreen, so one press is
+enough). The choice is remembered in this browser.
+
 To send the tab you are looking at to an agent, load the Chrome extension.
 Guide: [Chrome extension](/guide/browser-extension).
 
