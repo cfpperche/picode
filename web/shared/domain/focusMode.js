@@ -17,8 +17,10 @@
 //
 // Everything here is data in / data out so node:test can drive the whole
 // decision table without a browser. The React side (desktop/src/lib/
-// useFocusMode.js) owns the DOM: pointer events, the Fullscreen API and
-// localStorage.
+// useFocusMode.js) owns the DOM: pointer events, the Fullscreen API, the
+// keyboard lock that hands the browser's reserved chords (Ctrl+T, Ctrl+W,
+// …) to the page while the mode is on — see browserChord.js — localStorage
+// and the refit.
 
 export const FOCUS_KEY = "picode-focus";
 export const FOCUS_SEEN_KEY = "picode-focus-seen";
@@ -211,9 +213,11 @@ export function focusRowLabel(on) {
   return on ? "Leave fullscreen" : "Fullscreen";
 }
 
-// The one first-run line: what happened, and how to get out.
+// The one first-run line: what happened, and how to get out. Esc reaches
+// the page (keyboard lock), so it still leaves the mode — unless a terminal
+// pane owns it, where the guest gets it and holding Esc is the way out.
 export const FOCUS_FIRST_RUN =
-  "Fullscreen. Left edge shows the sidebar, top edge the tabs. Esc leaves.";
+  "Fullscreen. Left edge shows the sidebar, top edge the tabs. Esc leaves — hold Esc inside a terminal.";
 
 function safeStorage() {
   try { return typeof localStorage !== "undefined" ? localStorage : null; } catch { return null; }

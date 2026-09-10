@@ -29,6 +29,7 @@
     "./domain/assistantMsg.js": "./domain/assistantMsg.js",
     "./domain/atMention.js": "./domain/atMention.js",
     "./domain/bashLine.js": "./domain/bashLine.js",
+    "./domain/browserChord.js": "./domain/browserChord.js",
     "./domain/checklist.js": "./domain/checklist.js",
     "./domain/chip.js": "./domain/chip.js",
     "./domain/cliLaunch.js": "./domain/cliLaunch.js",

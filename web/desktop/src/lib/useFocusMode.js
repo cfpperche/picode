@@ -1,7 +1,17 @@
 // The browser half of fullscreen (focus) mode. Every decision lives in
 // @picode/shared/domain/focusMode.js; this file only wires it to the DOM:
-// the pointer, the Fullscreen API, Escape, localStorage and the xterm
-// refit that a chrome change owes every live pane.
+// the pointer, the Fullscreen API, the keyboard lock, Escape, localStorage
+// and the xterm refit that a chrome change owes every live pane.
+//
+// The keyboard lock (Chromium, fullscreen only) is what makes the mode a
+// real terminal: in a normal window the browser eats the reserved chords
+// (Ctrl+T, Ctrl+W, Ctrl+N) before the page sees any keydown — a guest CLI
+// like Codex's Ctrl+T can never get them (browserChord.js). Locked, every
+// key reaches the page, xterm encodes the chord and the guest gets it; in
+// the composer the keys simply stop firing browser chrome. Escape is part
+// of the lock: a pane keeps vim's Esc, Esc outside a pane still leaves the
+// mode through this file's own handler, and the browser swaps its one-press
+// exit for "press and hold Esc" — the hatch that always works.
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DWELL_IN_MS,
@@ -54,6 +64,31 @@ function railOnScreen(fallback) {
   return el ? !el.hidden : fallback;
 }
 
+// Lock before the request, in the same gesture task: the spec asks for
+// this order so the browser shows one combined "hold Esc" message instead
+// of two. Without the Fullscreen API the lock would be inert anyway (it
+// only processes keys during JS fullscreen), so the early return stands.
+function lockKeyboard() {
+  try {
+    const kb = typeof navigator !== "undefined" ? navigator.keyboard : null;
+    if (!kb || typeof kb.lock !== "function") return;
+    Promise.resolve(kb.lock()).catch((err) =>
+      console.debug("focus mode: keyboard lock refused — browser keys stay active", err));
+  } catch (err) {
+    console.debug("focus mode: keyboard lock unavailable", err);
+  }
+}
+
+// Fire-and-forget is enough on exit: the browser drops the lock by itself
+// whenever fullscreen ends (its own hold-Esc included) — this only covers
+// the path where we leave first.
+function unlockKeyboard() {
+  try {
+    const kb = typeof navigator !== "undefined" ? navigator.keyboard : null;
+    if (kb && typeof kb.unlock === "function") kb.unlock();
+  } catch { /* nothing to unlock */ }
+}
+
 function requestFullscreen(report) {
   if (typeof document === "undefined") return;
   const el = document.documentElement;
@@ -63,6 +98,7 @@ function requestFullscreen(report) {
     console.debug("focus mode: no Fullscreen API; the app chrome is hidden anyway");
     return;
   }
+  lockKeyboard();
   try {
     const p = req.call(el, { navigationUI: "hide" });
     if (p && typeof p.then === "function") {
@@ -76,6 +112,7 @@ function requestFullscreen(report) {
 
 function exitFullscreen() {
   if (typeof document === "undefined" || !document.fullscreenElement) return;
+  unlockKeyboard();
   try {
     const p = document.exitFullscreen ? document.exitFullscreen() : null;
     if (p && typeof p.catch === "function") p.catch((err) => console.debug("focus mode: exit refused", err));

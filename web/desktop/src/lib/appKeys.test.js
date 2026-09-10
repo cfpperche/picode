@@ -1,6 +1,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CATALOG, matchAction, matchGlobalAction, primaryChord, formatChord } from "./appKeys.js";
+import { firstReservedChord } from "@picode/shared/domain/browserChord.js";
+
+test("no default chord sits in the browser's reserved set", () => {
+  // The browser consumes the reserved set (Ctrl+T, Ctrl+W, …) before the
+  // page sees any keydown, so a default there could never fire — inside a
+  // pane or out (browserChord.js, docs-site/guide/keyboard.md).
+  for (const action of CATALOG) {
+    const bad = firstReservedChord(action.defaults || []);
+    assert.equal(bad, null, action.id + " defaults onto reserved chord " + bad);
+  }
+});
+
 
 function ev(overrides) {
   return { key: "k", ctrlKey: false, shiftKey: false, altKey: false, metaKey: false, ...overrides };
