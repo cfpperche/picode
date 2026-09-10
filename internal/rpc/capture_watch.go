@@ -35,11 +35,14 @@ type captureWatch struct {
 	stopped    bool
 }
 
-// captureState guards the watch table and the cached session file path.
+// captureState guards the watch table and the cached session identity
+// (file path + id, one get_state response) shared with the browser-stream
+// discovery (ADR-0114).
 type captureState struct {
 	mu          sync.Mutex
 	watches     map[string]*captureWatch
 	sessionFile string
+	sessionID   string
 }
 
 func newCaptureState() *captureState {
@@ -114,10 +117,18 @@ func (ma *ManagedAgent) resolveCaptureSessionFile() string {
 		return ""
 	}
 	var data struct {
+		SessionID   string `json:"sessionId"`
 		SessionFile string `json:"sessionFile"`
 	}
 	if json.Unmarshal(resp.Data, &data) != nil || data.SessionFile == "" {
 		return ""
+	}
+	// Cache the identity for the browser-stream discovery (ADR-0114), which
+	// must not make RPC calls mid-turn (pi queues commands behind a turn).
+	if data.SessionID != "" {
+		ma.capture.mu.Lock()
+		ma.capture.sessionID = data.SessionID
+		ma.capture.mu.Unlock()
 	}
 	return data.SessionFile
 }
