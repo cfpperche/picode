@@ -8,7 +8,7 @@
 `git worktree list` is the truth for branches on disk (`make close-summary` prints it); this section holds only what merging one of them must know.
 
 - `feat/herdr-validation`, `feat/picode-video-pilot` — carry `CHANGELOG.md` edits and the pre-ADR-0105 12 KB `docs/handoff.md`. Their next merge of `main` conflicts in both once more: keep this file's shape, stay under 8 KB, send any changelog line to `docs/changelog.d/`.
-- `feat/focus-mode` — desktop fullscreen mode; before merging, accept or revert the unasked `requestFullscreen()` (`docs/handoff/2026-09-10-focus-mode.md`).
+- `feat/term-key-capture` — fullscreen locks the keyboard (Chromium): `Ctrl+T`/`Ctrl+W` now reach the guest CLIs; ff-ready.
 - `feat/matrix-surface` (plan phase 3, both sessions): surface, chunk loading, picker, save/409, keyboard, maximize, guide page and the §7 browser QA are committed and measured (`docs/handoff/2026-09-09-matrix-surface.md`).
 
 ## Next up
