@@ -21,7 +21,9 @@ conversation until you apply the persistent selection.
 **Waiting to connect** means a turn, approval or draft needs to finish. PiCode
 preserves native input and resumes only the exact idle conversation when a CLI
 needs to reload its connection. Pi can load it directly through its connection
-adapter. An older managed Pi process may offer **Reconnect**; this waits for an
+adapter. Codex, Grok and Hermes discover prepared setup on each native tool call
+without restarting. Claude and OpenCode retain the panel dimensions when resuming.
+An older managed Pi process may offer **Reconnect**; this waits for an
 idle process and resumes its existing history. Setup does not start a model turn.
 
 **Connected · not tested** describes setup readiness. **Verified** requires the
@@ -41,7 +43,7 @@ its CLI requires selection in the new context.
 |---|---|---|
 | Pi (managed or terminal) | Requires installed `pi-mcp-adapter` 2.32.1 or later | In-memory server registration for this conversation |
 | Claude Code | Available | Private process-specific MCP file |
-| Codex | Available | Process-specific overrides and bearer environment variable |
+| Codex | Available through its native shell tool | Native hooks and `picode messages`; connects without restarting an identified conversation |
 | OpenCode | Available | Process-specific inline MCP configuration |
 | Grok | Available through its native shell tool | Native hooks and `picode messages`; current conversation selected on each call |
 | Hermes Agent | Available through its native shell tool | Native plugin and `picode messages`; current conversation selected on each call |
@@ -61,11 +63,16 @@ address and does not configure remote processes. For PiCode self-signed or mkcer
 certificates, setup gives the client a private CA bundle while preserving its
 existing configured CA certificates. If the server certificate or CA changes,
 replace the connection before resuming. Native CLI tool approvals still apply.
+Codex shell calls need access to the local PiCode server: if its sandbox blocks
+network access, approve that specific native tool request. Do not disable the
+sandbox or certificate verification.
 
 ## Native shell commands
 
-Grok and Hermes can run these commands through their own terminal tool while
+Grok, Hermes and Codex can run these commands through their own terminal tool while
 remaining in the same TUI. Other clients can use the equivalent MCP tools below.
+Codex introduces these commands through its native session-start hook. Older
+versions without that hook require asking it to run `picode messages --help`.
 
 ```sh
 picode messages contacts
@@ -76,10 +83,10 @@ picode messages ack msg_RECEIVED
 
 Use `--reply-to msg_RECEIVED` when sending a reply. `--body-file path` reads a
 message from a file; `--body-file -` reads standard input. Each invocation inside
-Grok/Hermes uses that tool's current native session ID. Missing or conflicting
+Grok/Hermes/Codex uses that tool's current native session ID. Missing or conflicting
 identity refuses the command. `picode messages --help` lists the flags. A private
 `--connection path/to/connection.json` supports explicit local clients; it cannot
-override a different native Grok/Hermes conversation.
+override a different native Grok/Hermes/Codex conversation.
 
 ## Four tools
 

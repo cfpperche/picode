@@ -115,3 +115,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0108](0108-matrix-persistence.md) | Matrix persistence: one row per panel, six feed events, a subset layout patch under ifUpdatedAt | accepted |
 | [0109](0109-native-app-surfaces.md) | Native app surfaces — a first-party app's body may be a component compiled into the shell; the manifest names its surface | accepted, amends 0036 |
 | [0110](0110-workspace-communication-onboarding.md) | Workspace communication preferences and guided connection setup | proposed |
+| [0111](0111-codex-native-message-client.md) | Codex native message client | accepted |

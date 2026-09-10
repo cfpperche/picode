@@ -888,7 +888,7 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 	}
 	// Native tool invocations resolve their own current session. This routing
 	// root and executable contain no bearer, even before enrollment or resume.
-	if c.Integration && (cli.ID == "grok" || cli.ID == "hermes") {
+	if c.Integration && communication.NativeMessages(cli.ID) {
 		peerOptions, err = communication.NativeOptions(deps.DataDir, cli.ID)
 		if err != nil {
 			return nil, err
@@ -911,7 +911,7 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 	// OpenCode (and other TUIs) paint nothing until ready; a one-line
 	// banner keeps the pane from looking stuck. The TUI alt-screen
 	// replaces it as soon as the CLI draws.
-	fmt.Fprintf(&body, "printf %%s\\n %s\n", shellQuote("Starting "+cli.Name+"..."))
+	fmt.Fprintf(&body, "printf '%%s\\n' %s\n", shellQuote("Starting "+cli.Name+"..."))
 	keys := []string{}
 	for k := range c.Env {
 		keys = append(keys, k)
@@ -969,6 +969,10 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 }
 
 func (p *preparedCLILaunch) start(deps Deps, r *http.Request, name, cwd string) error {
+	return p.startSized(deps, r, name, cwd, 0, 0)
+}
+
+func (p *preparedCLILaunch) startSized(deps Deps, r *http.Request, name, cwd string, width, height int) error {
 	if blocked, e := peerStopPending(deps, p.id); e != nil || blocked {
 		return errors.New("The previous process has not finished closing. Try again after it exits.")
 	}
@@ -976,7 +980,7 @@ func (p *preparedCLILaunch) start(deps Deps, r *http.Request, name, cwd string) 
 	if b := interceptBinEnv(deps.DataDir); b != "" {
 		env = append(env, b)
 	}
-	if err := deps.Tmux.NewSessionEnv(r.Context(), name, cwd, env, "/bin/sh", p.script); err != nil {
+	if err := deps.Tmux.NewSessionEnvSize(r.Context(), name, cwd, width, height, env, "/bin/sh", p.script); err != nil {
 		return err
 	}
 	p.snapshot.StartedAt = time.Now().UTC().Format(time.RFC3339Nano)

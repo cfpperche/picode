@@ -129,3 +129,10 @@ PTY input closes the gap left by a CLI that omits its interruption callback:
 | Ctrl+C or bare Escape | `idle` / no signal | matching project shell | no event; forward input |
 | Ctrl+C or bare Escape | any | agent or another shell | no event; forward input |
 | Arrow, Alt, or function-key escape sequence | any | any | no event; forward input |
+
+Codex modern hook reports outrank legacy notify within the same wrapper run,
+including older wrappers that injected both paths. New launchers use one path;
+legacy mode clears inherited modern-hook flags. SessionStart adds native message
+command context (ADR-0111). OpenCode's resume metadata/status lookup runs after
+plugin initialization, without blocking the instance bootstrap; native activity
+invalidates a pending startup snapshot.

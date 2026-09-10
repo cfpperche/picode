@@ -33,6 +33,20 @@ func TestVersionParses(t *testing.T) {
 	}
 }
 
+func TestNewSessionPreservesGeometryWithoutBrowser(t *testing.T) {
+	m := requireTmux(t)
+	ctx := context.Background()
+	name := SessionName("size-" + time.Now().Format("150405-000000000"))
+	if err := m.NewSessionEnvSize(ctx, name, t.TempDir(), 151, 43, nil, "sleep", "30"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = m.KillSession(ctx, name) })
+	s, err := m.InputSnapshot(ctx, name)
+	if err != nil || s.Width != 151 || len(s.Lines) != 43 {
+		t.Fatalf("detached geometry = %dx%d: %v", s.Width, len(s.Lines), err)
+	}
+}
+
 func TestNewHasListKillSession(t *testing.T) {
 	m := requireTmux(t)
 	ctx := context.Background()

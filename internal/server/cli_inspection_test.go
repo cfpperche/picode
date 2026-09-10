@@ -48,6 +48,12 @@ func TestCLIPreviewDecisionTable(t *testing.T) {
 			if enabled && len(injection["files"].([]any)) < 2 {
 				t.Fatal("missing generated paths")
 			}
+			if enabled && id == "codex" {
+				env := injection["environment"].(map[string]any)
+				if env["PICODE_MESSAGES_CLI"] != "codex" || env["PICODE_MESSAGES_DIR"] == "" || env["PICODE_MESSAGES_BIN"] == "" {
+					t.Fatal("Codex preview omitted native message discovery", env)
+				}
+			}
 			if !enabled && injection["branches"] != nil {
 				t.Fatal("injected with reporting off")
 			}

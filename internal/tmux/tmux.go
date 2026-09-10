@@ -191,6 +191,12 @@ func (m *Manager) NewSession(ctx context.Context, name, cwd string, command stri
 
 // NewSessionEnv is NewSession plus extra KEY=VALUE entries (tmux -e).
 func (m *Manager) NewSessionEnv(ctx context.Context, name, cwd string, extraEnv []string, command string, args ...string) error {
+	return m.NewSessionEnvSize(ctx, name, cwd, 0, 0, extraEnv, command, args...)
+}
+
+// NewSessionEnvSize preserves the previous pane geometry when replacing an
+// idle CLI. A detached replacement otherwise starts at tmux's 80x24 default.
+func (m *Manager) NewSessionEnvSize(ctx context.Context, name, cwd string, width, height int, extraEnv []string, command string, args ...string) error {
 	if exists, err := m.HasSession(ctx, name); err != nil {
 		return err
 	} else if exists {
@@ -198,6 +204,9 @@ func (m *Manager) NewSessionEnv(ctx context.Context, name, cwd string, extraEnv 
 	}
 	full := []string{"new-session", "-d", "-s", name, "-c", cwd,
 		"-e", "TERM=xterm-256color", "-e", "COLORTERM=truecolor"}
+	if width > 0 && height > 0 {
+		full = append(full, "-x", strconv.Itoa(width), "-y", strconv.Itoa(height))
+	}
 	for _, e := range extraEnv {
 		if e == "" || !strings.Contains(e, "=") || strings.ContainsAny(e, "\n\x00") {
 			continue

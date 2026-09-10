@@ -83,8 +83,8 @@ func TestLaunchOptions(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if cli == "codex" && opts.Env["PICODE_PEER_TOKEN"] != c.Token {
-				t.Fatal("missing scoped env")
+			if cli == "codex" && (opts.Env["PICODE_PEER_TOKEN"] != "" || opts.Env["PICODE_MESSAGES_CLI"] != "codex") {
+				t.Fatal("Codex must discover per native tool call without an inherited bearer")
 			}
 		})
 	}

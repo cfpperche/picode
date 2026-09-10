@@ -36,7 +36,7 @@ old credential. This is local capability authorization, not hostile-process
 attestation. The bearer is required even with browser authentication disabled,
 passes the Host/Origin gate and cannot authorize owner APIs.
 
-Automatic Pi, Claude Code, Codex and OpenCode setup uses their existing MCP
+Automatic Pi, Claude Code and OpenCode setup uses their existing MCP
 integration. Managed Pi checks its session before adapter registration; terminal
 setup attaches only to an exact resume recipe. Private launcher directories are
 0700 and credential files 0600. SQLite keeps only the hash. Local HTTPS validates
@@ -44,12 +44,12 @@ the certificate with an additive private CA bundle; no global trust change occur
 OpenCode preserves other inline JSON keys and MCP servers; JSONC inline merging
 is refused.
 
-Grok and Hermes use their native shell tool to invoke `picode messages`. The tool's
-current `GROK_SESSION_ID` or `HERMES_SESSION_ID` selects exactly one private
+Grok, Hermes and Codex use their native shell tool to invoke `picode messages`. The tool's
+current `GROK_SESSION_ID`, `HERMES_SESSION_ID` or `CODEX_THREAD_ID` selects one private
 connection on every call. No conversation bearer is inherited from Grok's shared
 leader or Hermes' cached MCP process. Missing, conflicting or ambiguous identity
 fails before network access. An explicit private connection file supports other
-local clients; inside a native Grok/Hermes conversation it must match that ID.
+local clients; inside a native Grok/Hermes/Codex conversation it must match that ID.
 
 Grok's native hooks and Hermes' native plugin report identity and activity.
 The launcher installs credential-free, receipted integration files, preserving
@@ -117,7 +117,7 @@ Desktop/mobile independently own workspace views at
 `#/clis/messages/workspace:<id>`; the former owner route resolves its workspace.
 The former per-conversation manager is available under Advanced.
 
-Grok/Hermes resolve prepared setup in their native shell calls. Pi initial setup
+Grok/Hermes/Codex resolve prepared setup in their native shell calls. Pi initial setup
 and hot replacement share one receiver-owned MCP registration; setup uses the
 receiver's exact-session, idle, pending-message and editor guards. Additive TLS
 trust uses Node's per-process default CA API (validated on Node 24). Receiver
@@ -127,6 +127,7 @@ native idle session before joining the old writer and resuming the stored file.
 
 Other native MCP CLIs use the recorded resume recipe. Preparation rechecks the
 live session, run, pane, native state and full empty composer before stopping.
+The replacement preserves the captured pane width and height before browser attachment.
 A private shutdown receipt retains exact PID/start tokens across daemon restart;
 all captured writers must exit before any replacement launch. The receipt is
 outside the conversation credential directory so revocation cannot erase it.
@@ -147,3 +148,19 @@ still waits for an actual native event; startup before the first user turn is
 not assumed or verified on every CLI version. A compaction start remains Working
 rather than authorizing input. Hook semantics follow the
 [vendor reference](https://developers.openai.com/codex/hooks).
+
+Codex uses the native message client without an enrollment restart (ADR-0111).
+Its SessionStart hook supplies command discovery as native developer context.
+Per-tool thread aliases must agree, and a PiCode terminal identity must match
+its connection owner. Legacy terminals can resolve the same private directory
+from their PiCode data root. After a modern hook is observed, legacy completion
+notifications cannot overwrite that run's session or activity.
+
+OpenCode returns its plugin before querying any instance-dependent API. An exact
+resume candidate is verified against native root metadata, then a one-time native
+status query publishes readiness after initialization. A newer native event wins
+over the snapshot; missing metadata, failed status and child sessions report no
+readiness. No startup API request is awaited by plugin initialization or by the
+event queue. Claude recognizes the native single-line mode footer and the compact
+three-line footer ending in `/rc`; unknown footers and drafts remain blocked.
+Regression table: [resume repair](../plans/communication-resume-repair.md).

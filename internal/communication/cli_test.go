@@ -66,7 +66,7 @@ func TestCLIAndMCPShareMailbox(t *testing.T) {
 
 func TestNativeCLIIdentity(t *testing.T) {
 	_, p, _, _, _ := fixture(t)
-	for _, cli := range []string{"grok", "hermes"} {
+	for _, cli := range []string{"grok", "hermes", "codex"} {
 		t.Run(cli, func(t *testing.T) {
 			dir := t.TempDir()
 			p.CLI = cli
@@ -75,15 +75,22 @@ func TestNativeCLIIdentity(t *testing.T) {
 			os.MkdirAll(filepath.Dir(path), 0700)
 			raw, _ := json.Marshal(LaunchConfig{Connection: p, Token: "private", URL: "http://localhost/mcp"})
 			os.WriteFile(path, raw, 0600)
-			key := map[string]string{"grok": "GROK_SESSION_ID", "hermes": "HERMES_SESSION_ID"}[cli]
+			key := map[string]string{"grok": "GROK_SESSION_ID", "hermes": "HERMES_SESSION_ID", "codex": "CODEX_THREAD_ID"}[cli]
 			options, err := NativeOptions(filepath.Dir(dir), cli)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(options.Env) != 2 || options.Env["PICODE_MESSAGES_BIN"] == "" {
+			count := 2
+			if cli == "codex" {
+				count = 3
+			}
+			if len(options.Env) != count || options.Env["PICODE_MESSAGES_BIN"] == "" {
 				t.Fatal("native bootstrap must contain discovery only", options.Env)
 			}
 			env := map[string]string{"PICODE_MESSAGES_DIR": dir, key: "native-A"}
+			if cli == "codex" {
+				env["PICODE_MESSAGES_CLI"] = "codex"
+			}
 			get := func(k string) string { return env[k] }
 			if c, err := ResolveCLIConnection("", get); err != nil || c.Connection.SessionKey != "native-A" {
 				t.Fatal(c, err)
@@ -102,15 +109,72 @@ func TestNativeCLIIdentity(t *testing.T) {
 			if c, err := ResolveCLIConnection("", get); err != nil || c.Connection.SessionKey != "native-A" {
 				t.Fatal("native resume did not rediscover setup", err)
 			}
-			env[map[string]string{"grok": "HERMES_SESSION_ID", "hermes": "GROK_SESSION_ID"}[cli]] = "other"
+			otherKey := map[string]string{"grok": "HERMES_SESSION_ID", "hermes": "GROK_SESSION_ID", "codex": "GROK_SESSION_ID"}[cli]
+			env[otherKey] = "other"
 			if _, err := ResolveCLIConnection("", get); err == nil {
 				t.Fatal("contradictory identity")
 			}
-			delete(env, map[string]string{"grok": "HERMES_SESSION_ID", "hermes": "GROK_SESSION_ID"}[cli])
+			delete(env, otherKey)
 			os.MkdirAll(filepath.Join(dir, "peer_duplicate"), 0700)
 			os.WriteFile(filepath.Join(dir, "peer_duplicate", "connection.json"), raw, 0600)
 			if _, err := ResolveCLIConnection("", get); err == nil {
 				t.Fatal("ambiguous match")
+			}
+		})
+	}
+}
+
+func TestCodexNativeConnectionCompatibility(t *testing.T) {
+	_, p, _, _, _ := fixture(t)
+	p.CLI, p.SessionKey, p.OwnerID = "codex", "current-thread", "current-terminal"
+	for _, tc := range []struct {
+		name string
+		env  map[string]string
+		want bool
+	}{
+		{"modern", map[string]string{"PICODE_MESSAGES_CLI": "codex"}, true},
+		{"legacy data", map[string]string{}, true},
+		{"legacy home", map[string]string{"PICODE_DATA": ""}, true},
+		{"matching alias", map[string]string{"CODEX_SESSION_ID": "current-thread"}, true},
+		{"conflicting alias", map[string]string{"CODEX_SESSION_ID": "parent-thread"}, false},
+		{"another terminal", map[string]string{"PICODE_TERM_ID": "another-terminal"}, false},
+		{"parent ambient identity", map[string]string{"PICODE_TERM_ID": ""}, false},
+		{"missing thread", map[string]string{"CODEX_THREAD_ID": "", "PICODE_MESSAGES_CLI": "codex"}, false},
+		{"new conversation", map[string]string{"CODEX_THREAD_ID": "new-thread"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			data := filepath.Join(home, ".picode")
+			path := filepath.Join(data, "communication", "peer_one", "connection.json")
+			os.MkdirAll(filepath.Dir(path), 0700)
+			raw, _ := json.Marshal(LaunchConfig{Connection: p, Token: "private", URL: "http://localhost/mcp"})
+			os.WriteFile(path, raw, 0600)
+			env := map[string]string{"HOME": home, "PICODE_DATA": data, "PICODE_TERM_ID": "current-terminal", "CODEX_THREAD_ID": "current-thread"}
+			for k, v := range tc.env {
+				env[k] = v
+			}
+			_, err := ResolveCLIConnection("", func(k string) string { return env[k] })
+			if (err == nil) != tc.want {
+				t.Fatalf("accepted=%v, want %v: %v", err == nil, tc.want, err)
+			}
+		})
+	}
+}
+
+func TestOtherNativeCLIIgnoresAmbientCodexParent(t *testing.T) {
+	_, p, _, _, _ := fixture(t)
+	for _, cli := range []string{"grok", "hermes"} {
+		t.Run(cli, func(t *testing.T) {
+			dir := t.TempDir()
+			p.CLI = cli
+			p.SessionKey = "native-child"
+			path := filepath.Join(dir, "peer_one", "connection.json")
+			os.MkdirAll(filepath.Dir(path), 0700)
+			raw, _ := json.Marshal(LaunchConfig{Connection: p, Token: "private", URL: "http://localhost/mcp"})
+			os.WriteFile(path, raw, 0600)
+			env := map[string]string{"PICODE_MESSAGES_DIR": dir, "CODEX_THREAD_ID": "parent", "CODEX_SESSION_ID": "parent", "PICODE_TERM_ID": "child", strings.ToUpper(cli) + "_SESSION_ID": "native-child"}
+			if _, err := ResolveCLIConnection("", func(k string) string { return env[k] }); err != nil {
+				t.Fatal(err)
 			}
 		})
 	}
