@@ -79,6 +79,16 @@
 .mx-md > .file-skel { padding: 0; }
 .mx-md :first-child { margin-top: 0; }
 
+/* A file's body: the editor in its embedded layout. The panel is the frame,
+   so the pane fills it and its own header (path, Preview/Raw, Save) becomes
+   the panel's second row — one control height, the app's own bar. */
+.mx-panel-body > .file-pane-embedded { flex: 1; min-height: 0; border-left: 0; }
+.mx-panel-body > .file-pane-embedded .file-pane-bar { padding: 4px 6px; gap: 6px; }
+/* The panel header already names the file (basename) and its folder, so the
+   pane's own path line would be the same words twice in a narrow panel. */
+.mx-panel-body > .file-pane-embedded .file-pane-name { display: none; }
+.mx-panel-body > .file-pane-embedded .file-pane-actions { margin-left: auto; }
+
 /* Unloaded, pending, stopped, gone: one muted line, at most one action. */
 .mx-placeholder {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;

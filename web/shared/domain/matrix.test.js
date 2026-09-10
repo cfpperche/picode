@@ -6,7 +6,7 @@ import {
   SUSPENDED_MAX, SUSPENDED_TTL_MS, TIDY_COLS, TIDY_GAP, UNIT_PX, UNLOAD_AFTER_MS, VIEWPORT_PREFIX, applyMatrixEvent, bindingState,
   canvasToGrid, gridToCanvas, layoutDiff, loadPolicy, neighborPanel, nextSlot, normalizeMatrix, normalizeMatrixDetail,
   normalizeMatrixList, normalizePanel, normalizeViewport, panelDefault, panelOrder, pointerAtZoom, pxToUnits, suspendedToDispose,
-  hasPane, tidyCanvas, unitsToPx, validateCompact, validateMode, validateName, validatePanel, validatePlacement, viewportKey, zoomBody,
+  buildRef, hasPane, parseRef, REF_OWNERS, tidyCanvas, validateRef, unitsToPx, validateCompact, validateMode, validateName, validatePanel, validatePlacement, viewportKey, zoomBody,
 } from "./matrix.js";
 
 const summary = (id, name, extra = {}) => ({
@@ -47,6 +47,8 @@ test("normalizePanel needs a slot id, a known binding and a whole rectangle", ()
   assert.equal(normalizePanel({ ...panel("p1"), w: "4" }), null);
   assert.equal(normalizePanel({ ...panel("p1"), kind: "pin" }), null);
   assert.equal(normalizePanel({ ...panel("p1"), kind: "note", ref: "pin-1" }).kind, "note");
+  assert.equal(normalizePanel({ ...panel("p1"), kind: "file", ref: "t:term-1:src/main.go" }).ref, "t:term-1:src/main.go");
+  assert.equal(normalizePanel({ ...panel("p1"), kind: "file", ref: "src/main.go" }), null, "a ref the server would refuse is not a panel");
   assert.equal(normalizePanel({ ...panel("p1"), ref: "" }), null);
   assert.equal(normalizePanel({ ...panel("p1"), id: 7 }), null);
   assert.equal(normalizePanel(null), null);
@@ -81,14 +83,47 @@ test("validate* refuse in the server's words", () => {
   ];
   for (const [rect, want] of cases) assert.equal(validatePlacement(rect), want, JSON.stringify(rect));
   assert.equal(validatePlacement(null), "x must be a whole number");
-  assert.equal(validatePanel({ kind: "pin", ref: "x", x: 0, y: 0, w: 4, h: 8 }), "kind must be agent, terminal or note");
+  assert.equal(validatePanel({ kind: "pin", ref: "x", x: 0, y: 0, w: 4, h: 8 }), "kind must be agent, terminal, note or file");
   assert.equal(validatePanel({ kind: "agent", ref: "  ", x: 0, y: 0, w: 4, h: 8 }), "ref is required");
   assert.equal(validatePanel({ kind: "agent", ref: "a1", x: 0, y: 0, w: 3, h: 8 }), "w must be at least 4 columns");
   assert.equal(validatePanel({ kind: "terminal", ref: "t1", x: 8, y: 0, w: 4, h: 8 }), "");
-  assert.equal(validatePanel(undefined), "kind must be agent, terminal or note");
-  assert.deepEqual([...MATRIX_KINDS], ["agent", "terminal", "note"]);
+  assert.equal(validatePanel(undefined), "kind must be agent, terminal, note or file");
+  assert.deepEqual([...MATRIX_KINDS], ["agent", "terminal", "note", "file"]);
   assert.equal(validatePanel({ kind: "note", ref: "pin-1", x: 0, y: 0, w: 4, h: 8 }), "", "a note binds a pin id");
   assert.equal(validatePanel({ kind: "note", ref: " ", x: 0, y: 0, w: 4, h: 8 }), "ref is required");
+  assert.equal(validatePanel({ kind: "file", ref: "t:term-1:src/main.go", x: 0, y: 0, w: 4, h: 8 }), "");
+  assert.equal(validatePanel({ kind: "file", ref: "t:term-1", x: 0, y: 0, w: 4, h: 8 }), "ref must be <owner>:<id>:<path> with owner t, a or w");
+  assert.equal(validatePanel({ kind: "file", ref: " ", x: 0, y: 0, w: 4, h: 8 }), "ref is required");
+});
+
+// C3 (docs/plans/matrix-canvas.md §4.2): one place takes a ref apart and one
+// place puts it together, so no caller ever splits on ":".
+test("parseRef and buildRef: a pin id, or <owner>:<id>:<path> with the desktop's own letters", () => {
+  assert.deepEqual(REF_OWNERS, { t: "term", a: "agent", w: "workspace" });
+  assert.deepEqual(parseRef("note", " pin-1 "), { kind: "note", pinId: "pin-1" });
+  assert.equal(parseRef("note", "  "), null);
+  assert.deepEqual(parseRef("file", "t:term-1:src/main.go"), {
+    kind: "file", letter: "t", owner: { kind: "term", id: "term-1" }, path: "src/main.go",
+  });
+  assert.deepEqual(parseRef("file", "a:agent-1:README.md").owner, { kind: "agent", id: "agent-1" });
+  assert.deepEqual(parseRef("file", "w:ws-1:docs/a.md").owner, { kind: "workspace", id: "ws-1" });
+  // A path keeps its own colons: only the first two separate.
+  assert.equal(parseRef("file", "t:term-1:weird:name.txt").path, "weird:name.txt");
+  for (const bad of ["t:term-1", "t:term-1:", "t::main.go", "x:term-1:main.go", "src/main.go", ":a:b", ""]) {
+    assert.equal(parseRef("file", bad), null, bad);
+  }
+  assert.equal(buildRef("note", { pinId: "pin-1" }), "pin-1");
+  assert.equal(buildRef("file", { owner: { kind: "term", id: "term-1" }, path: "src/main.go" }), "t:term-1:src/main.go");
+  assert.equal(buildRef("file", { owner: { kind: "workspace", id: "ws-1" }, path: "a.md" }), "w:ws-1:a.md");
+  assert.equal(buildRef("file", { owner: { kind: "term", id: "term-1" }, path: "" }), "");
+  assert.equal(buildRef("file", { owner: { kind: "nope", id: "x" }, path: "a.md" }), "");
+  assert.equal(buildRef("file", { owner: { kind: "term", id: "has:colon" }, path: "a.md" }), "", "an id with a colon cannot round-trip");
+  // Round trip, both ways.
+  const ref = buildRef("file", { owner: { kind: "agent", id: "agent-1" }, path: "docs/a:b.md" });
+  assert.deepEqual(parseRef("file", ref), { kind: "file", letter: "a", owner: { kind: "agent", id: "agent-1" }, path: "docs/a:b.md" });
+  assert.equal(validateRef("file", ref), "");
+  assert.equal(validateRef("file", "nope"), "ref must be <owner>:<id>:<path> with owner t, a or w");
+  assert.equal(validateRef("note", " "), "ref is required");
 });
 
 test("created and updated keep the list sorted by name and follow a loaded matrix", () => {
@@ -257,7 +292,7 @@ test("validate* judge a rectangle by the mode it belongs to", () => {
   assert.equal(validatePlacement({ x: -1, y: 0, w: 4, h: 8 }), "x must be 0 or more");
   assert.equal(validatePanel({ kind: "terminal", ref: "t1", x: -40, y: -40, w: 32, h: 28 }, "canvas"), "");
   assert.equal(validatePanel({ kind: "terminal", ref: "t1", x: 0, y: 0, w: 4, h: 8 }, "canvas"), "w must be at least 32 canvas units");
-  assert.equal(validatePanel({ kind: "pin", ref: "t1", x: 0, y: 0, w: 32, h: 42 }, "canvas"), "kind must be agent, terminal or note");
+  assert.equal(validatePanel({ kind: "pin", ref: "t1", x: 0, y: 0, w: 32, h: 42 }, "canvas"), "kind must be agent, terminal, note or file");
   // layoutDiff follows the mode, or every canvas move would be dropped.
   const prev = [rect("a", 0, 0, 32, 42)];
   assert.deepEqual(layoutDiff(prev, [rect("a", -8, -8, 40, 40)], "canvas"), [{ id: "a", x: -8, y: -8, w: 40, h: 40 }]);
@@ -397,10 +432,24 @@ test("bindingState: note rows follow the pins list, and nothing is gone before i
   assert.equal(bindingState(bound("note", "pin-2"), { ...fleet, pins: null }), "note-ready");
 });
 
+test("bindingState: a file's owner is what can be gone, never the file on disk", () => {
+  const ref = (r) => ({ id: "p", kind: "file", ref: r, x: 0, y: 0, w: 4, h: 8 });
+  assert.equal(bindingState(ref("t:t-sh:src/main.go"), fleet), "file-ready");
+  assert.equal(bindingState(ref("a:a-int:README.md"), fleet), "file-ready");
+  assert.equal(bindingState(ref("a:a-off:README.md"), fleet), "file-ready", "a stopped agent still owns its folder");
+  assert.equal(bindingState(ref("w:w1:docs/a.md"), fleet), "file-ready");
+  assert.equal(bindingState(ref("t:t-gone:src/main.go"), fleet), "file-gone");
+  assert.equal(bindingState(ref("a:a-gone:README.md"), fleet), "file-gone");
+  assert.equal(bindingState(ref("w:w-gone:a.md"), fleet), "file-gone");
+  assert.equal(bindingState(ref("t:t-sh:never/written.txt"), fleet), "file-ready", "a missing file is the body's news, not a binding state");
+  assert.equal(bindingState(ref("nonsense"), fleet), "file-gone");
+  assert.equal(bindingState(ref("t:t-sh:a.md"), null), "file-gone");
+});
+
 test("hasPane: only a body that is a terminal takes the pointer and still rules", () => {
   assert.deepEqual([...PANE_STATES], ["terminal-running", "terminal-stopped", "agent-interactive"]);
   for (const state of PANE_STATES) assert.equal(hasPane({ state }), true, state);
-  for (const state of ["terminal-gone", "agent-gone", "agent-stopped", "agent-managed", "note-ready", "note-gone"]) {
+  for (const state of ["terminal-gone", "agent-gone", "agent-stopped", "agent-managed", "note-ready", "note-gone", "file-ready", "file-gone"]) {
     assert.equal(hasPane({ state }), false, state);
   }
   assert.equal(hasPane({ state: "terminal-running", pending: true }), false, "a pending wrapper has no pane yet");

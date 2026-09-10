@@ -40,7 +40,7 @@ const CANVAS_PER_ROW = 3;
 // What a panel can be bound to (ADR-0108; the bodies beyond a live pane are
 // C3 of docs/plans/matrix-canvas.md §4.2). `kind` is an open text column, so
 // a kind is a validator edit on both sides and never a migration.
-export const MATRIX_KINDS = Object.freeze(["agent", "terminal", "note"]);
+export const MATRIX_KINDS = Object.freeze(["agent", "terminal", "note", "file"]);
 export const MATRIX_COMPACT = Object.freeze(["vertical", "none"]);
 // The layout mode of a matrix: what its panels' x/y/w/h mean. The first is
 // the default a summary falls back to.
@@ -57,7 +57,8 @@ export const MATRIX_EVENTS = Object.freeze([
 
 // The server's refusals, word for word (internal/store/matrix.go), so the UI
 // can refuse before asking and read a 400 back as the same sentence.
-const KIND_MSG = "kind must be agent, terminal or note";
+const KIND_MSG = "kind must be agent, terminal, note or file";
+const REF_MSG = "ref must be <owner>:<id>:<path> with owner t, a or w";
 
 const str = (v) => (typeof v === "string" ? v : "");
 const nonEmpty = (v) => typeof v === "string" && v !== "";
@@ -78,6 +79,59 @@ export function normalizeMatrix(m) {
   };
 }
 
+// ---- refs (docs/plans/matrix-canvas.md §4.2) ------------------------------
+//
+// What a `ref` is depends on the kind, and this is the only place that takes
+// one apart or puts one together — never an inline split.
+//
+//   agent, terminal  the agent's or terminal's id
+//   note             a pin id
+//   file             "<owner letter>:<owner id>:<path>"
+//
+// The owner letters are the desktop's own (web/desktop/src/lib/routes.js,
+// ADR-0030): t terminal, a agent, w workspace. A path may hold colons of its
+// own, so only the first two separate.
+
+export const REF_OWNERS = Object.freeze({ t: "term", a: "agent", w: "workspace" });
+const REF_LETTERS = Object.freeze({ term: "t", agent: "a", workspace: "w" });
+const OWNED_KINDS = Object.freeze(["file"]);
+
+// buildRef(kind, parts) -> the ref string that kind takes, or "" when the
+// parts cannot make one. parts is { pinId } or { owner: { kind, id }, path }.
+export function buildRef(kind, parts) {
+  const p = parts || {};
+  if (!OWNED_KINDS.includes(kind)) return str(p.pinId || p.id).trim();
+  const letter = REF_LETTERS[p.owner && p.owner.kind];
+  const id = str(p.owner && p.owner.id).trim();
+  const path = str(p.path).trim();
+  return letter && id && path && !id.includes(":") ? letter + ":" + id + ":" + path : "";
+}
+
+// parseRef(kind, ref) -> the binding's parts, or null when the ref is not the
+// shape that kind takes:
+//   note        { kind, pinId }
+//   file        { kind, letter, owner: { kind, id }, path }
+export function parseRef(kind, ref) {
+  const r = str(ref).trim();
+  if (!r) return null;
+  if (!OWNED_KINDS.includes(kind)) return { kind, pinId: r };
+  const first = r.indexOf(":");
+  const second = first < 0 ? -1 : r.indexOf(":", first + 1);
+  if (first <= 0 || second < 0) return null;
+  const letter = r.slice(0, first);
+  const id = r.slice(first + 1, second);
+  const path = r.slice(second + 1);
+  if (!REF_OWNERS[letter] || !id || !path) return null;
+  return { kind, letter, owner: { kind: REF_OWNERS[letter], id }, path };
+}
+
+// validateRef(kind, ref) -> "" | the server's refusal, in the server's words
+// (internal/store/matrix.go).
+export function validateRef(kind, ref) {
+  if (!str(ref).trim()) return "ref is required";
+  return parseRef(kind, ref) ? "" : REF_MSG;
+}
+
 // normalizeMatrixList(GET /api/matrices) -> summaries.
 export function normalizeMatrixList(payload) {
   const list = Array.isArray(payload?.matrices) ? payload.matrices : [];
@@ -85,11 +139,12 @@ export function normalizeMatrixList(payload) {
 }
 
 // normalizePanel(json) -> panel | null. A panel needs a slot id, a known
-// binding and a whole rectangle; anything else cannot be placed.
+// binding and a whole rectangle; anything else cannot be placed — including
+// a ref that is not the shape its kind takes, which the server refuses too.
 export function normalizePanel(p) {
   if (!p || typeof p !== "object" || !nonEmpty(p.id) || !MATRIX_KINDS.includes(p.kind)) return null;
   const ref = str(p.ref).trim();
-  if (!ref) return null;
+  if (!ref || validateRef(p.kind, ref)) return null;
   const { x, y, w, h } = p;
   if (![x, y, w, h].every(Number.isInteger)) return null;
   return { id: p.id, kind: p.kind, ref, x, y, w, h, createdAt: str(p.createdAt) };
@@ -157,7 +212,8 @@ export function validatePlacement(rect, mode = "grid") {
 export function validatePanel(panel, mode = "grid") {
   const p = panel || {};
   if (!MATRIX_KINDS.includes(p.kind)) return KIND_MSG;
-  if (!str(p.ref).trim()) return "ref is required";
+  const bad = validateRef(p.kind, p.ref);
+  if (bad) return bad;
   return validatePlacement(p, mode);
 }
 
@@ -394,13 +450,26 @@ export function layoutDiff(prev, next, mode = "grid") {
   return out;
 }
 
+// refOwner(parsed, fleet) -> the fleet row a file's ref names, or null. The
+// three owner kinds are the three the file APIs take (ADR-0030).
+export function refOwner(parsed, fleet) {
+  const f = fleet || {};
+  if (!parsed || !parsed.owner || !parsed.owner.id) return null;
+  const { kind, id } = parsed.owner;
+  if (kind === "term") return (f.terminals || []).find((t) => t && t.id === id) || null;
+  if (kind === "workspace") return (f.workspaces || []).find((w) => w && w.id === id) || null;
+  const loc = locate(f.workspaces, f.freeAgents, id);
+  return loc && loc.agent && loc.agent.id === id ? loc.agent : null;
+}
+
 // bindingState(panel, fleet) -> one row of plan §4.4:
 //   terminal-running | terminal-stopped | terminal-gone
 //   agent-interactive | agent-managed | agent-stopped | agent-gone
 //   note-ready | note-gone
+//   file-ready | file-gone
 // fleet is the host's { workspaces, freeAgents, terminals } plus, for the
 // kinds that bind something else, the list that decides them: `pins` for a
-// note. A shell whose tmux session died is still "running" for the panel:
+// note; a file's owner is the fleet's own. A shell whose tmux session died is still "running" for the panel:
 // opening it revives the shell; only a configured CLI terminal has a stopped
 // state of its own.
 //
@@ -412,6 +481,13 @@ export function bindingState(panel, fleet) {
   if (panel.kind === "note") {
     if (!Array.isArray(f.pins)) return "note-ready";
     return f.pins.some((x) => x && x.id === panel.ref) ? "note-ready" : "note-gone";
+  }
+  if (panel.kind === "file") {
+    // The **owner** is what can be gone — the terminal, agent or folder the
+    // file is read through. A file that is missing on disk is not a binding
+    // state: the body reports that, the way FilePane reports any read
+    // failure, and the panel keeps its actions.
+    return refOwner(parseRef(panel.kind, panel.ref), f) ? "file-ready" : "file-gone";
   }
   if (panel.kind === "terminal") {
     const t = (f.terminals || []).find((x) => x && x.id === panel.ref);

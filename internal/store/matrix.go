@@ -183,20 +183,44 @@ const (
 	MatrixKindAgent    = "agent"
 	MatrixKindTerminal = "terminal"
 	MatrixKindNote     = "note" // ref: a pin id
+	MatrixKindFile     = "file" // ref: <owner>:<id>:<path>
 )
 
 // The refusals are the contract, repeated word for word in
 // web/shared/domain/matrix.js so the UI can refuse before asking.
-const matrixKindMsg = "kind must be agent, terminal or note"
+const (
+	matrixKindMsg = "kind must be agent, terminal, note or file"
+	matrixRefMsg  = "ref must be <owner>:<id>:<path> with owner t, a or w"
+)
 
 func validatePanelBinding(kind, ref string) error {
 	switch kind {
-	case MatrixKindAgent, MatrixKindTerminal, MatrixKindNote:
+	case MatrixKindAgent, MatrixKindTerminal, MatrixKindNote, MatrixKindFile:
 	default:
 		return invalid(matrixKindMsg)
 	}
 	if ref == "" {
 		return invalid("ref is required")
+	}
+	if kind == MatrixKindFile {
+		return validateOwnerRef(ref)
+	}
+	return nil
+}
+
+// validateOwnerRef checks the shape a file panel binds by:
+// "<owner>:<id>:<path>", the desktop's own owner letters (t terminal,
+// a agent, w workspace — web/desktop/src/lib/routes.js). A path may hold
+// colons of its own; only the first two separate. Whether that owner or
+// that file exists is not the store's business.
+func validateOwnerRef(ref string) error {
+	letter, rest, ok := strings.Cut(ref, ":")
+	if !ok {
+		return invalid(matrixRefMsg)
+	}
+	id, path, ok := strings.Cut(rest, ":")
+	if !ok || (letter != "t" && letter != "a" && letter != "w") || id == "" || path == "" {
+		return invalid(matrixRefMsg)
 	}
 	return nil
 }

@@ -3,7 +3,8 @@
 A **matrix** is one page that shows many agents and terminals side by side,
 live. Each tile is a **panel**: the real screen of that agent or terminal —
 the same one its own tab shows — not a picture of it. A panel can also hold
-a **pinned note**, so the plan you are working from sits beside the work.
+a **pinned note** or a **file**, so the plan you are working from and the
+code you are changing sit beside the work.
 
 Open it from the **Apps** tab → **Matrix**. Matrices are saved on the
 server, so every browser signed in to your PiCode sees the same ones.
@@ -12,8 +13,8 @@ server, so every browser signed in to your PiCode sees the same ones.
 
 1. **New matrix**, give it a name.
 2. **Add panel**, then pick from the list — it is grouped into **Agents**,
-   **Terminals** and **Pins**. Anything already on this matrix is not
-   offered again.
+   **Terminals**, **Pins** and **Open files**. Anything already on this
+   matrix is not offered again.
 3. Repeat. Panels land in the first free slot.
 
 The switcher at the top left of the surface moves between your matrices;
@@ -104,6 +105,7 @@ the panel's body is asleep.
 |---|---|
 | a running terminal | the live terminal, ready to type in |
 | a pin | the note, formatted and read-only |
+| a file | the editor, with **Save** — the same one its tab has |
 | a stopped CLI terminal | *This CLI terminal is stopped.* — Resume last session |
 | an agent working in its terminal | its live screen |
 | a managed agent | *Managed agent — open to read.* — Open |
@@ -116,10 +118,17 @@ there is only ever one of it. On a note the same button opens **Pin
 Studio**, which is where a note is written; the panel picks the change up
 as soon as you save it.
 
-Notes are not terminals, so the rules that exist for terminals do not apply
-to them: a note takes your clicks and your scrolling at any zoom, and stays
-readable down to 40 %, where — like everything else — it becomes a
-name-plate.
+Notes and files are not terminals, so the rules that exist for terminals do
+not apply to them: they take your clicks and your scrolling at any zoom, and
+stay readable down to 40 %, where — like everything else — they become
+name-plates.
+
+**A file panel only shows a file you already have open in a tab.** The
+picker lists those and nothing else: it is not a file browser, and it never
+goes looking through your folders. Open the file the way you always do, then
+add it here. **Unsaved changes are safe**: the panel says *Unsaved*, it is
+never put to sleep while it holds them, and maximizing it or switching the
+matrix to the other layout keeps your text. Removing the panel asks first.
 
 ## Keyboard
 

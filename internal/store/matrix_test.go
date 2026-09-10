@@ -206,9 +206,14 @@ func TestMatrixPanelRulesRefuse(t *testing.T) {
 		{"x < 0", "terminal", "t", -1, 0, 4, 8, "x must be 0 or more"},
 		{"y < 0", "terminal", "t", 0, -1, 4, 8, "y must be 0 or more"},
 		{"x + w > 12", "terminal", "t", 9, 0, 4, 8, "x + w must be at most 12 columns"},
-		{"kind", "pin", "t", 0, 0, 4, 8, "kind must be agent, terminal or note"},
+		{"kind", "pin", "t", 0, 0, 4, 8, "kind must be agent, terminal, note or file"},
 		{"ref empty", "terminal", "  ", 0, 0, 4, 8, "ref is required"},
 		{"note ref empty", "note", " ", 0, 0, 4, 8, "ref is required"},
+		{"file ref without a path", "file", "t:term-1", 0, 0, 4, 8, "ref must be <owner>:<id>:<path> with owner t, a or w"},
+		{"file ref with an empty path", "file", "t:term-1:", 0, 0, 4, 8, "ref must be <owner>:<id>:<path> with owner t, a or w"},
+		{"file ref with an empty id", "file", "t::main.go", 0, 0, 4, 8, "ref must be <owner>:<id>:<path> with owner t, a or w"},
+		{"file ref with an unknown owner letter", "file", "x:term-1:main.go", 0, 0, 4, 8, "ref must be <owner>:<id>:<path> with owner t, a or w"},
+		{"file ref that is only a path", "file", "src/main.go", 0, 0, 4, 8, "ref must be <owner>:<id>:<path> with owner t, a or w"},
 	}
 	for _, c := range cases {
 		_, err := s.AddMatrixPanel(m.ID, c.kind, c.ref, c.x, c.y, c.w, c.h)
@@ -222,6 +227,37 @@ func TestMatrixPanelRulesRefuse(t *testing.T) {
 	// The edges are fine: the last columns, a full-width tall panel.
 	addPanel(t, s, m.ID, "terminal", "edge", 8, 0, 4, 8)
 	addPanel(t, s, m.ID, "agent", "wide", 0, 8, 12, 40)
+}
+
+// C3 (docs/plans/matrix-canvas.md §4.2): a file panel binds
+// "<owner>:<id>:<path>" — the three owner letters the file APIs take
+// (ADR-0030) — and the store checks the shape and nothing else: whether that
+// owner or that file exists is the UI's question.
+func TestMatrixPanelKindFile(t *testing.T) {
+	s := openTest(t)
+	m, _ := s.CreateMatrix("Ops")
+	refs := []string{
+		"t:term-1:src/main.go",
+		"a:agent-1:README.md",
+		"w:ws-1:docs/architecture/matrix.md",
+		"t:term-1:weird/name:with:colons.txt",
+		"t:term-gone:never/written.txt",
+	}
+	for i, ref := range refs {
+		added, err := s.AddMatrixPanel(m.ID, "file", ref, 0, i*8, 4, 8)
+		if err != nil {
+			t.Fatalf("file %q: %v", ref, err)
+		}
+		if added.Panel.Ref != ref {
+			t.Fatalf("file %q stored as %q", ref, added.Panel.Ref)
+		}
+	}
+	if _, err := s.AddMatrixPanel(m.ID, "file", "t:term-1:src/main.go", 0, 90, 4, 8); !errors.Is(err, ErrConflict) {
+		t.Fatalf("the same file twice: %v", err)
+	}
+	if d, _ := s.GetMatrix(m.ID); len(d.Panels) != len(refs) {
+		t.Fatalf("panels = %d", len(d.Panels))
+	}
 }
 
 // C3 (docs/plans/matrix-canvas.md §4.2): a note is a binding like any

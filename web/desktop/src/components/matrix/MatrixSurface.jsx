@@ -5,11 +5,12 @@ import { applyTui, touches } from "@picode/shared/domain/feedReducers.js";
 import { displayAgentName, locate } from "@picode/shared/domain/tree.js";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 import { agentRowStatus, agentStatusLabel } from "@picode/shared/domain/agentStatus.js";
-import { MATRIX_MODES, applyMatrixEvent, bindingState, canvasToGrid, gridToCanvas, layoutDiff, neighborPanel, nextSlot, normalizeMatrixDetail, normalizeMatrixList, panelDefault, panelOrder, tidyCanvas } from "@picode/shared/domain/matrix.js";
+import { MATRIX_MODES, applyMatrixEvent, bindingState, buildRef, canvasToGrid, gridToCanvas, layoutDiff, neighborPanel, nextSlot, normalizeMatrixDetail, normalizeMatrixList, panelDefault, panelOrder, parseRef, refOwner, tidyCanvas } from "@picode/shared/domain/matrix.js";
+import { basename } from "@picode/shared/domain/diff.js";
 import { paneLeaveKey } from "@picode/shared/domain/termKeys.js";
 import AppIcon from "../AppIcon.jsx";
 import { IconEllipsis, IconGrid, IconPencil, IconPlus, IconTrash } from "../Icons.jsx";
-import { go, pinHash } from "../../lib/routes.js";
+import { go, isFileTab, parseFileTab, pinHash } from "../../lib/routes.js";
 import { notify, toast, toastError } from "../../lib/toast.js";
 import { askConfirm } from "../../lib/confirm.js";
 import MatrixGrid, { compactPanels } from "./MatrixGrid.jsx";
@@ -19,6 +20,7 @@ import PanelPicker from "./PanelPicker.jsx";
 import NameDialog from "./NameDialog.jsx";
 import { ChunkLoader, GRID_MARGIN } from "./chunkLoader.js";
 import { forgetPane, ownedByTab } from "./paneOwnership.js";
+import { forgetDocument, heldDocumentDirty } from "../../lib/fileDocs.js";
 import "../../styles/matrix.css";
 
 // Canvas mode is lazy-imported: React Flow costs the desktop's main chunk
@@ -66,6 +68,7 @@ const writeLast = (id) => { try { if (id) localStorage.setItem(LAST_KEY, id); el
 const rectOf = (p) => ({ x: p.x, y: p.y, w: p.w, h: p.h });
 const rowOf = (p) => ({ id: p.id, ...rectOf(p) });
 const NO_BODIES = {};
+const OWNER_WORD = { term: "Terminal", workspace: "Folder", agent: "Agent" };
 
 function patchPanels(state, id, fn) {
   const det = state.byId[id];
@@ -82,7 +85,7 @@ function settle(state, ev) {
   return patchPanels(state, d.id, (ps) => (ps.some((p) => p.pending) ? ps.filter((p) => !(p.pending && p.kind === d.panel.kind && p.ref === d.panel.ref)) : ps));
 }
 
-const MODEL_KEYS = ["id", "kind", "ref", "x", "y", "w", "h", "pending", "state", "target", "name", "hint", "cwd", "status", "label", "stamp", "owned"];
+const MODEL_KEYS = ["id", "kind", "ref", "x", "y", "w", "h", "pending", "state", "target", "name", "hint", "cwd", "status", "label", "stamp", "owned", "dirty"];
 function sameModel(a, b) {
   return !!a && MODEL_KEYS.every((k) => a[k] === b[k]);
 }
@@ -91,7 +94,7 @@ function sameModel(a, b) {
 // panel row, the fleet, the tmux working list and the open tabs; the
 // previous object is returned unchanged when nothing differs, so the
 // memoized wrappers stay put.
-function buildModel(panel, fleet, workingIds, openTabs, prev) {
+function buildModel(panel, fleet, workingIds, openTabs, dirtyIds, prev) {
   const state = bindingState(panel, fleet);
   let target = null;
   let name = panel.ref;
@@ -111,6 +114,19 @@ function buildModel(panel, fleet, workingIds, openTabs, prev) {
       status = "ready";
       label = "Note";
       stamp = target.updatedAt || "";
+    }
+  } else if (panel.kind === "file") {
+    // The file's own name is the panel's; the folder is the subdued line,
+    // the way a file tab and the tree name one. The owner (terminal, agent
+    // or folder) is what the read goes through and what can be gone.
+    const at = parseRef(panel.kind, panel.ref);
+    target = at ? refOwner(at, fleet) : null;
+    if (at) {
+      name = basename(at.path) || at.path;
+      hint = at.path.slice(0, Math.max(0, at.path.length - name.length - 1));
+      cwd = at.path;
+      status = "ready";
+      label = "File";
     }
   } else if (panel.kind === "terminal") {
     target = (fleet.terminals || []).find((t) => t && t.id === panel.ref) || null;
@@ -143,9 +159,16 @@ function buildModel(panel, fleet, workingIds, openTabs, prev) {
     name = prev.name;
     hint = prev.hint;
   }
+  // An editor with unsaved text says so in the chip, and that is also what
+  // pins it against the viewport (chunkLoader `keep`).
+  const dirty = panel.kind === "file" && !!dirtyIds && dirtyIds.has(panel.id);
+  if (dirty) {
+    status = "needs-you";
+    label = "Unsaved";
+  }
   const next = {
     id: panel.id, kind: panel.kind, ref: panel.ref, x: panel.x, y: panel.y, w: panel.w, h: panel.h, pending: !!panel.pending,
-    state, target, name, hint, cwd, status, label, stamp, owned: ownedByTab(panel.kind, panel.ref, openTabs),
+    state, target, name, hint, cwd, status, label, stamp, dirty, owned: ownedByTab(panel.kind, panel.ref, openTabs),
   };
   return sameModel(prev, next) ? prev : next;
 }
@@ -192,6 +215,12 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   const [pickerOpen, setPickerOpen] = useState(false);
   const [nameDialog, setNameDialog] = useState(""); // "" | "new" | "rename"
   const [workingIds, setWorkingIds] = useState([]);
+  // The file panels whose editor holds unsaved text. It is chip state and
+  // pin state at once: a dirty body is `keep`-pinned, so the band never
+  // unmounts work in progress, not even when the matrix is hidden.
+  const [dirtyIds, setDirtyIds] = useState(() => new Set());
+  const dirtyRef = useRef(dirtyIds);
+  dirtyRef.current = dirtyIds;
   // The pins a note panel binds (docs/plans/matrix-canvas.md §4.2). `null`
   // means "not read yet", the same distinction the fleet's `loaded` makes:
   // before the read, a note is not gone. Summaries only — the body reads its
@@ -381,6 +410,27 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     return () => { stop = true; };
   }, [agentRefs, hidden]);
 
+  // Files come from where a path already exists — the file tabs open in the
+  // desktop right now — so the picker lists and never browses (the entry
+  // points are docs/architecture/matrix.md, Surface).
+  const fileOptions = useMemo(() => {
+    const out = [];
+    for (const tab of openTabs) {
+      if (!isFileTab(tab)) continue;
+      const t = parseFileTab(tab);
+      if (!t) continue;
+      const owner = { kind: t.kind, id: t.id };
+      const ref = buildRef("file", { owner, path: t.path });
+      if (!ref) continue;
+      const row = refOwner({ owner }, fleet);
+      const where = (row && row.name) || OWNER_WORD[t.kind] || "Agent";
+      const name = basename(t.path) || t.path;
+      const dir = t.path.slice(0, Math.max(0, t.path.length - name.length - 1));
+      out.push({ ref, name, hint: dir ? dir + " · " + where : where });
+    }
+    return out;
+  }, [openTabs, fleet.workspaces, fleet.freeAgents, fleet.terminals]);
+
   // ---- panel models -------------------------------------------------------
   const modelsRef = useRef(new Map());
   // What every binding is judged against: the desktop's fleet plus the lists
@@ -390,13 +440,13 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     const prev = modelsRef.current;
     const next = new Map();
     const out = panels.map((p) => {
-      const m = buildModel(p, bindings, workingIds, openTabs, prev.get(p.id));
+      const m = buildModel(p, bindings, workingIds, openTabs, dirtyIds, prev.get(p.id));
       next.set(p.id, m);
       return m;
     });
     modelsRef.current = next;
     return out;
-  }, [panels, bindings, workingIds, openTabs]);
+  }, [panels, bindings, workingIds, openTabs, dirtyIds]);
   useEffect(() => {
     if (focusedId && !models.some((m) => m.id === focusedId)) setFocusedId("");
     if (maximizedId && !models.some((m) => m.id === maximizedId)) setMaximizedId("");
@@ -590,6 +640,17 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   async function removePanel(model) {
     const id = currentRef.current;
     if (model.pending) return;
+    // Undo puts the panel back; it cannot put unsaved text back, so this is
+    // the one remove that asks.
+    if (model.kind === "file" && heldDocumentDirty(model.ref)) {
+      const ok = await askConfirm({
+        title: "Remove " + model.name + "?",
+        message: "It has unsaved changes. Removing the panel loses them.",
+        confirmLabel: "Remove panel",
+        danger: true,
+      });
+      if (!ok) return;
+    }
     const order = panelOrder(panelsRef.current);
     const at = order.indexOf(model.id);
     const next = order[at + 1] || order[at - 1] || "";
@@ -597,6 +658,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     try {
       await api("/api/matrices/" + enc(id) + "/panels/" + enc(model.id), { method: "DELETE" });
       setStore((s) => applyMatrixEvent(s, removed));
+      if (model.kind === "file") forgetDocument(model.ref);
       notify({
         level: "info",
         title: "Removed " + model.name + " from the matrix.",
@@ -721,6 +783,12 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       const h = hostRef.current || {};
       // A note is written in Pin Studio, which is a route and not a tab.
       if (model.kind === "note") { location.hash = pinHash(model.ref); return; }
+      // A file opens the tab it would have had: #/file/<owner>/<id>/<path>.
+      if (model.kind === "file") {
+        const at = parseRef(model.kind, model.ref);
+        if (at && h.openFileTab) h.openFileTab(at.owner.kind, at.owner.id, at.path);
+        return;
+      }
       if (model.kind === "terminal") { if (h.openTab) h.openTab("t:" + model.ref); return; }
       if (model.state === "agent-interactive") { if (h.openInteractive) h.openInteractive(model.ref); return; }
       if (h.revealAgent) h.revealAgent(model.ref);
@@ -741,6 +809,20 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     onOpenFile: (model, path) => {
       const h = hostRef.current || {};
       if (h.openFileTab) h.openFileTab(model.kind === "agent" ? "agent" : "term", model.ref, path);
+    },
+    // onDirty(model, dirty): an editor gained or lost unsaved text. It pins
+    // the panel — the same `pinned` set a drag and the focus use, except
+    // that this one survives a hidden matrix, because a hidden tab losing a
+    // draft is exactly the silent unmount this rule exists to stop.
+    onDirty: (model, dirty) => {
+      loader.keep(model.id, !!dirty);
+      setDirtyIds((cur) => {
+        if (cur.has(model.id) === !!dirty) return cur;
+        const next = new Set(cur);
+        if (dirty) next.add(model.id);
+        else next.delete(model.id);
+        return next;
+      });
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), []);
@@ -886,6 +968,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
                 onRemove={() => handlers.onRemove(maxModel)}
                 onRun={() => handlers.onRun(maxModel)}
                 onOpenFile={(path) => handlers.onOpenFile(maxModel, path)}
+                onDirty={(dirty) => handlers.onDirty(maxModel, dirty)}
               />
             </div>
           </div>
@@ -947,6 +1030,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
         open={pickerOpen}
         fleet={fleet}
         pins={pins}
+        files={fileOptions}
         onMatrix={onMatrix}
         workingIds={workingIds}
         onPick={addPanel}

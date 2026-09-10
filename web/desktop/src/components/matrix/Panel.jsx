@@ -43,8 +43,8 @@ import { PanelPlate, PanelStill } from "./PanelStill.jsx";
 // What the Open action says per kind: the header's one external-link button
 // takes the panel where it can be worked on, and it has to name that place —
 // a note's is Pin Studio, not "its tab".
-const OPEN_LABEL = { note: "Open in Pin Studio" };
-const GONE = ["terminal-gone", "agent-gone", "note-gone"];
+const OPEN_LABEL = { note: "Open in Pin Studio", file: "Open in its own tab" };
+const GONE = ["terminal-gone", "agent-gone", "note-gone", "file-gone"];
 
 export function PanelHead({ model, loaded, maximized, handlers, fixed, note }) {
   const gone = GONE.includes(model.state);
@@ -109,6 +109,7 @@ const PanelInner = memo(function PanelInner({ model, loaded, hidden, engaged, ma
             onRemove={() => handlers.onRemove(model)}
             onRun={() => handlers.onRun(model)}
             onOpenFile={(path) => handlers.onOpenFile(model, path)}
+            onDirty={(dirty) => handlers.onDirty(model, dirty)}
           />
         )}
       </div>

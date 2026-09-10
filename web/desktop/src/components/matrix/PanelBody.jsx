@@ -1,13 +1,15 @@
-import { hasPane } from "@picode/shared/domain/matrix.js";
+import { hasPane, parseRef } from "@picode/shared/domain/matrix.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
 import TerminalPanel from "./TerminalPanel.jsx";
 import NotePanel from "./NotePanel.jsx";
+import FilePanel from "./FilePanel.jsx";
 
 // PanelBody — the slot under a panel's header (docs/plans/matrix-app.md
 // §4.4, one row each; the kinds beyond a live pane are
 // docs/plans/matrix-canvas.md §4.2). Loaded, the body is what the panel's
 // **kind** binds: a terminal or an agent is the live pane (TerminalPanel), a
-// note is its pin's markdown (NotePanel). Unloaded: a muted placeholder with
+// note is its pin's markdown (NotePanel), a file is the editor in its
+// embedded layout (FilePanel). Unloaded: a muted placeholder with
 // the feed's last state ("Working · 2 min") — the header stays live either
 // way. A binding the fleet cannot serve is one line and one action, whether
 // loaded or not.
@@ -25,13 +27,14 @@ function Line({ text, action, onAction }) {
 // already ask for it.
 export { hasPane };
 
-export default function PanelBody({ model, loaded, hidden, focused, onOpen, onRemove, onRun, onOpenFile }) {
+export default function PanelBody({ model, loaded, hidden, focused, onOpen, onRemove, onRun, onOpenFile, onDirty }) {
   switch (model.state) {
     case "terminal-gone": return <Line text="That terminal is gone." action="Remove" onAction={onRemove} />;
     case "agent-gone": return <Line text="That agent is gone." action="Remove" onAction={onRemove} />;
     case "agent-stopped": return <Line text="Agent is stopped." action="Run" onAction={onRun} />;
     case "agent-managed": return <Line text="Managed agent — open to read." action="Open" onAction={onOpen} />;
     case "note-gone": return <Line text="That pin is gone." action="Remove" onAction={onRemove} />;
+    case "file-gone": return <Line text="Where this file was read from is gone." action="Remove" onAction={onRemove} />;
     default: break;
   }
   if (model.pending) return <div className="mx-placeholder"><span>Adding…</span></div>;
@@ -43,6 +46,10 @@ export default function PanelBody({ model, loaded, hidden, focused, onOpen, onRe
   );
   if (!loaded) return placeholder;
   if (model.kind === "note") return <NotePanel pinId={model.ref} title={model.name} />;
+  if (model.kind === "file") {
+    const at = parseRef(model.kind, model.ref);
+    return at ? <FilePanel owner={at.owner} path={at.path} refKey={model.ref} hidden={hidden} onDirty={onDirty} /> : placeholder;
+  }
   return (
     <TerminalPanel
       kind={model.kind}
