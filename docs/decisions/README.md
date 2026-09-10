@@ -119,3 +119,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0113](0113-matrix-canvas-mode.md) | Matrix canvas mode: a layout mode per matrix, mode-dependent rectangle units, one transactional switch | accepted, amends 0108 |
 | [0114](0114-browser-surface-stream.md) | browser-surface-stream | proposed |
 | [0115](0115-browser-input-consent.md) | browser-input-consent | proposed |
+| [0116](0116-matrix-edges.md) | A Matrix edge grants ADR-0104's mailbox contact and never a transcript; owner-drawn only, cross-workspace per pair, revoked with the line | proposed |
