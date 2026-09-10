@@ -1,9 +1,9 @@
-// Matrix (ADR-0108): the client side of the store's contract. Pure — no
-// React, no fetch. normalize* turn the API's JSON into the shapes the
+// Matrix (ADR-0108, ADR-0113): the client side of the store's contract.
+// Pure — no React, no fetch. normalize* turn the API's JSON into the shapes the
 // surface holds (junk dropped, the way contracts/appPrimitives.js does);
 // validate* refuse what the server would refuse, in the server's words, so
 // the UI never asks a question it knows the answer to; applyMatrixEvent
-// reduces the six feed events over { list: [summaries], byId: { id:
+// reduces the seven feed events over { list: [summaries], byId: { id:
 // { matrix, panels } } }. touches(ev, ["matrix"]) in feedReducers.js keys
 // on the prefix before the first dot, so matrix.panel.* reaches the
 // surface with the rest. The surface's arithmetic lives here too (plan
@@ -17,16 +17,35 @@ export const MATRIX_LIMITS = Object.freeze({
   matrices: 64, // per machine
   panels: 500, // per matrix
   name: 80, // characters (code points), never bytes
-  cols: 12, // fixed in v1
+  cols: 12, // grid mode
   minW: 4, // columns
   minH: 8, // rows
+  // Canvas mode (ADR-0113): the unit is 8 px, x and y may be negative, and
+  // the plane is bounded only so a panel cannot be lost.
+  canvasMinW: 32, // units (256 px)
+  canvasMinH: 28, // units (224 px)
+  canvasMax: 4096, // units, w and h
+  canvasCoord: 100000, // units, |x| and |y|
 });
+
+// One canvas unit in CSS pixels — the grid's own 8 px margin, so snapGrid
+// falls out of the coordinate system (plan §4.1).
+export const UNIT_PX = 8;
+
+// The switch transform's factors: a grid cell is 8 canvas units wide
+// (colWidth / 8) and 3 tall (rowHeight 24 px / 8).
+const CANVAS_PER_COL = 8;
+const CANVAS_PER_ROW = 3;
 
 export const MATRIX_KINDS = Object.freeze(["agent", "terminal"]);
 export const MATRIX_COMPACT = Object.freeze(["vertical", "none"]);
+// The layout mode of a matrix: what its panels' x/y/w/h mean. The first is
+// the default a summary falls back to.
+export const MATRIX_MODES = Object.freeze(["grid", "canvas"]);
 export const MATRIX_EVENTS = Object.freeze([
   "matrix.created",
   "matrix.updated",
+  "matrix.mode",
   "matrix.layout",
   "matrix.panel.added",
   "matrix.panel.removed",
@@ -45,6 +64,7 @@ export function normalizeMatrix(m) {
     id: m.id,
     name: m.name,
     compact: MATRIX_COMPACT.includes(m.compact) ? m.compact : "vertical",
+    mode: MATRIX_MODES.includes(m.mode) ? m.mode : "grid",
     createdAt: str(m.createdAt),
     updatedAt: str(m.updatedAt),
     panelCount: Number.isInteger(m.panelCount) && m.panelCount >= 0 ? m.panelCount : 0,
@@ -90,30 +110,48 @@ export function validateCompact(mode) {
   return MATRIX_COMPACT.includes(mode) ? "" : `compact must be ${MATRIX_COMPACT.join(" or ")}`;
 }
 
-// validatePlacement({x, y, w, h}) -> "" | the server's refusal. The grid
-// rule: 12 columns, panels of at least 4×8 cells, rows without end. The
-// "whole number" line is the client's own — the server answers a
-// fractional cell with "invalid JSON body".
-export function validatePlacement(rect) {
+// validateMode(mode) -> "" | the server's refusal.
+export function validateMode(mode) {
+  return MATRIX_MODES.includes(mode) ? "" : `mode must be ${MATRIX_MODES.join(" or ")}`;
+}
+
+// validatePlacement({x, y, w, h}, mode) -> "" | the server's refusal, in the
+// rules of that mode (ADR-0113): grid is 12 columns and panels of at least
+// 4×8 cells, rows without end; canvas is a plane of 8 px units where x and y
+// may be negative, a panel is at least 32×28 units, and both are bounded so
+// a panel cannot be lost. The mode defaults to grid, so every v1 caller
+// keeps working unchanged. The "whole number" line is the client's own —
+// the server answers a fractional cell with "invalid JSON body".
+export function validatePlacement(rect, mode = "grid") {
   const { x, y, w, h } = rect || {};
   for (const [k, v] of [["x", x], ["y", y], ["w", w], ["h", h]]) {
     if (!Number.isInteger(v)) return `${k} must be a whole number`;
   }
+  const { cols, minW, minH, canvasMinW, canvasMinH, canvasMax, canvasCoord } = MATRIX_LIMITS;
+  if (mode === "canvas") {
+    if (x < -canvasCoord || x > canvasCoord) return `x must be between -${canvasCoord} and ${canvasCoord} canvas units`;
+    if (y < -canvasCoord || y > canvasCoord) return `y must be between -${canvasCoord} and ${canvasCoord} canvas units`;
+    if (w < canvasMinW) return `w must be at least ${canvasMinW} canvas units`;
+    if (h < canvasMinH) return `h must be at least ${canvasMinH} canvas units`;
+    if (w > canvasMax) return `w must be at most ${canvasMax} canvas units`;
+    if (h > canvasMax) return `h must be at most ${canvasMax} canvas units`;
+    return "";
+  }
   if (x < 0) return "x must be 0 or more";
   if (y < 0) return "y must be 0 or more";
-  if (w < MATRIX_LIMITS.minW) return `w must be at least ${MATRIX_LIMITS.minW} columns`;
-  if (h < MATRIX_LIMITS.minH) return `h must be at least ${MATRIX_LIMITS.minH} rows`;
-  if (x + w > MATRIX_LIMITS.cols) return `x + w must be at most ${MATRIX_LIMITS.cols} columns`;
+  if (w < minW) return `w must be at least ${minW} columns`;
+  if (h < minH) return `h must be at least ${minH} rows`;
+  if (x + w > cols) return `x + w must be at most ${cols} columns`;
   return "";
 }
 
-// validatePanel({kind, ref, x, y, w, h}) -> "" | the server's refusal, in
-// the server's order: binding first, then the rectangle.
-export function validatePanel(panel) {
+// validatePanel({kind, ref, x, y, w, h}, mode) -> "" | the server's refusal,
+// in the server's order: binding first, then the rectangle of that mode.
+export function validatePanel(panel, mode = "grid") {
   const p = panel || {};
   if (!MATRIX_KINDS.includes(p.kind)) return `kind must be ${MATRIX_KINDS.join(" or ")}`;
   if (!str(p.ref).trim()) return "ref is required";
-  return validatePlacement(p);
+  return validatePlacement(p, mode);
 }
 
 // ---- the reducer ---------------------------------------------------------
@@ -144,9 +182,22 @@ function finish(state, list, byId) {
 
 const EMPTY = Object.freeze({ list: [], byId: {} });
 
+// movePanels applies a subset of rectangles (a layout or a mode frame) to
+// the panels a matrix holds, dropping rows that are not legal in `mode`.
+function movePanels(panels, subset, mode) {
+  const to = new Map();
+  for (const p of Array.isArray(subset) ? subset : []) {
+    if (p && nonEmpty(p.id) && !validatePlacement(p, mode)) to.set(p.id, { x: p.x, y: p.y, w: p.w, h: p.h });
+  }
+  return panels.map((p) => (to.has(p.id) ? { ...p, ...to.get(p.id) } : p));
+}
+
 // applyMatrixEvent(state, ev) -> next | same. state is { list, byId };
 // an event for a matrix that is not loaded (no byId entry) only touches
-// the summary list. Unknown types and junk return the same object.
+// the summary list. Unknown types and junk return the same object. A
+// rectangle is judged by the mode it belongs to: matrix.mode carries the
+// new mode with the panels it moved, matrix.layout the mode the loaded
+// matrix already has.
 export function applyMatrixEvent(state, ev) {
   const s = state || EMPTY;
   const list = Array.isArray(s.list) ? s.list : [];
@@ -168,12 +219,19 @@ export function applyMatrixEvent(state, ev) {
     case "matrix.layout": {
       const nextList = patchSummary(list, id, stamp);
       if (!loaded) return finish(s, nextList, byId);
-      const to = new Map();
-      for (const p of Array.isArray(d.panels) ? d.panels : []) {
-        if (p && nonEmpty(p.id) && !validatePlacement(p)) to.set(p.id, { x: p.x, y: p.y, w: p.w, h: p.h });
-      }
-      const panels = loaded.panels.map((p) => (to.has(p.id) ? { ...p, ...to.get(p.id) } : p));
+      const panels = movePanels(loaded.panels, d.panels, loaded.matrix.mode);
       return finish(s, nextList, { ...byId, [id]: { matrix: stamp(loaded.matrix), panels } });
+    }
+    // The switch answers with the summary (carrying the new mode) plus
+    // exactly the panels it moved, so one frame is one reducer step: the
+    // summary is complete, the rectangles are already in the new mode's
+    // units.
+    case "matrix.mode": {
+      const m = normalizeMatrix(d);
+      if (!m) return s;
+      if (!loaded) return finish(s, upsertSummary(list, m), byId);
+      const panels = movePanels(loaded.panels, d.panels, m.mode);
+      return finish(s, upsertSummary(list, m), { ...byId, [id]: { matrix: { ...m, panelCount: panels.length }, panels } });
     }
     case "matrix.panel.added": {
       const panel = normalizePanel(d.panel);
@@ -208,8 +266,15 @@ export function applyMatrixEvent(state, ev) {
 // ---- the surface's arithmetic (plan §4.3–§4.6) ----------------------------
 
 // A new panel is 4×14 cells: ≈ 58×20 characters at 1584 px (phase 0 study);
-// minW/minH are the store's 4×8.
+// minW/minH are the store's 4×8. On a canvas it is the same panel through
+// the switch transform — 32×42 units, which is the same 256×336 px.
 export const PANEL_DEFAULT = Object.freeze({ w: 4, h: 14 });
+export const PANEL_DEFAULT_CANVAS = Object.freeze({ w: 32, h: 42 });
+
+// panelDefault(mode) -> the default rectangle of that mode.
+export function panelDefault(mode = "grid") {
+  return mode === "canvas" ? PANEL_DEFAULT_CANVAS : PANEL_DEFAULT;
+}
 // Chunk loading (§4.5): a body mounts after its wrapper has been near the
 // viewport for 300 ms and unmounts 5 s after it left; a suspended xterm is
 // disposed past 24 instances or 10 minutes.
@@ -221,11 +286,14 @@ export const SUSPENDED_TTL_MS = 10 * 60 * 1000;
 const wholeRect = (p) => !!p && [p.x, p.y, p.w, p.h].every(Number.isInteger);
 const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
-// nextSlot(panels, w, h, cols) -> {x, y}: the first free w×h slot scanning
+// nextSlot(panels, w, h, mode) -> {x, y}: the first free w×h slot scanning
 // rows top-down and left-to-right, else the row under everything. Only a
 // panel's edges can start a first-free slot (a free rectangle slides up and
-// left until it touches one), so the scan visits edges, not cells.
-export function nextSlot(panels, w = PANEL_DEFAULT.w, h = PANEL_DEFAULT.h, cols = MATRIX_LIMITS.cols) {
+// left until it touches one), so the scan visits edges, not cells. Grid mode
+// wraps at 12 columns; a canvas has no column cap, so a new panel lands
+// beside the others instead of under them.
+export function nextSlot(panels, w = PANEL_DEFAULT.w, h = PANEL_DEFAULT.h, mode = "grid") {
+  const cols = mode === "canvas" ? Infinity : MATRIX_LIMITS.cols;
   const rects = (panels || []).filter(wholeRect);
   const width = Math.min(Math.max(1, w | 0), cols);
   const height = Math.max(1, h | 0);
@@ -248,16 +316,72 @@ export function nextSlot(panels, w = PANEL_DEFAULT.w, h = PANEL_DEFAULT.h, cols 
   return { x: 0, y: bottom };
 }
 
-// layoutDiff(prev, next) -> [{id, x, y, w, h}]: the panels whose rectangle
-// changed between two layouts, which is exactly what PATCH …/layout takes.
-// A panel only in `next` is an add (its own POST), only in `prev` a remove;
-// an invalid rectangle is left out so one bad row cannot sink the batch.
-export function layoutDiff(prev, next) {
+// ---- the switch transform (ADR-0113) -------------------------------------
+//
+// The same conversion the store applies, so the UI can preview a switch
+// before asking for it: gridToCanvas scales, canvasToGrid divides, rounds,
+// clamps and packs. Both take the panels and answer the same panels with
+// new rectangles, in the order they came in.
+
+const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+// Round half away from zero, the way Go's math.Round does, so a negative
+// coordinate lands on the same cell on both sides.
+const round = (v) => (v < 0 ? -Math.round(-v) : Math.round(v));
+
+// gridToCanvas(panels): a cell is 8 units wide and 3 tall. A panel at the
+// 8-row minimum becomes 24 units tall, under the canvas minimum of 28, so it
+// grows — and can then overlap the panel below by up to 4 units. Canvas mode
+// is free placement and allows that; switching back packs it out.
+export function gridToCanvas(panels) {
+  const { canvasMinW, canvasMinH, canvasMax, canvasCoord } = MATRIX_LIMITS;
+  return (panels || []).filter(wholeRect).map((p) => ({
+    ...p,
+    x: clamp(p.x * CANVAS_PER_COL, -canvasCoord, canvasCoord),
+    y: clamp(p.y * CANVAS_PER_ROW, -canvasCoord, canvasCoord),
+    w: clamp(p.w * CANVAS_PER_COL, canvasMinW, canvasMax),
+    h: clamp(p.h * CANVAS_PER_ROW, canvasMinH, canvasMax),
+  }));
+}
+
+// canvasToGrid(panels): divide by the same factors, round, clamp into the
+// 12-column rules, then place each panel in reading order (ties by id) at
+// the first free slot. Rounding alone leaves panels overlapping, and overlap
+// after a switch is a bug, not a tolerance — the pack is what makes the
+// switch total.
+export function canvasToGrid(panels) {
+  const { cols, minW, minH } = MATRIX_LIMITS;
+  const rounded = (panels || []).filter((p) => wholeRect(p) && nonEmpty(p.id)).map((p) => {
+    const w = clamp(round(p.w / CANVAS_PER_COL), minW, cols);
+    return {
+      ...p,
+      w,
+      h: Math.max(round(p.h / CANVAS_PER_ROW), minH),
+      x: clamp(round(p.x / CANVAS_PER_COL), 0, cols - w),
+      y: Math.max(round(p.y / CANVAS_PER_ROW), 0),
+    };
+  });
+  const placed = [];
+  const at = new Map();
+  for (const p of [...rounded].sort((a, b) => a.y - b.y || a.x - b.x || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
+    const slot = nextSlot(placed, p.w, p.h);
+    const moved = { ...p, x: slot.x, y: slot.y };
+    placed.push(moved);
+    at.set(p.id, moved);
+  }
+  return rounded.map((p) => at.get(p.id));
+}
+
+// layoutDiff(prev, next, mode) -> [{id, x, y, w, h}]: the panels whose
+// rectangle changed between two layouts, which is exactly what PATCH
+// …/layout takes. A panel only in `next` is an add (its own POST), only in
+// `prev` a remove; a rectangle the matrix's mode refuses is left out so one
+// bad row cannot sink the batch.
+export function layoutDiff(prev, next, mode = "grid") {
   const before = new Map((prev || []).filter((p) => p && nonEmpty(p.id)).map((p) => [p.id, p]));
   const out = [];
   for (const p of next || []) {
     const b = p && before.get(p.id);
-    if (!b || !wholeRect(p) || validatePlacement(p)) continue;
+    if (!b || !wholeRect(p) || validatePlacement(p, mode)) continue;
     if (b.x !== p.x || b.y !== p.y || b.w !== p.w || b.h !== p.h) out.push({ id: p.id, x: p.x, y: p.y, w: p.w, h: p.h });
   }
   return out;

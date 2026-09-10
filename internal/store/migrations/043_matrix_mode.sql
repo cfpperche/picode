@@ -1,0 +1,22 @@
+-- ADR-0113 (amends ADR-0108): a matrix has a layout mode, and the mode
+-- decides what a panel's rectangle means. One column on matrices, not a
+-- second table of canvas rectangles: a panel has exactly one position, and
+-- two tables would be two sources of truth for it — every switch, every
+-- drag and every event would have to keep both in step forever. The mode
+-- is a property of the matrix, so it is one value per matrix, not per row.
+--
+--   grid    x, y, w, h are grid cells (12 columns, rowHeight 24 px):
+--           x >= 0, y >= 0, w >= 4, h >= 8, x + w <= 12 — the v1 rules
+--   canvas  x, y, w, h are 8 px canvas units on a plane: w >= 32, h >= 28,
+--           x and y may be negative, no column cap, |x| and |y| <= 100000
+--           and w, h <= 4096 so a panel cannot be lost off the edge
+--
+-- Existing rows read 'grid' by the default, which is exactly what their
+-- rectangles already mean: no backfill, no rewrite. Switching the mode
+-- rewrites every panel in the same transaction (SetMatrixMode in
+-- internal/store/matrix.go): a cell is 8 canvas units wide and 3 tall
+-- (rowHeight 24 px / 8), and canvas -> grid divides by the same factors,
+-- rounds, clamps into the 12-column rules and packs. `compact` stays and
+-- keeps meaning only in grid mode — a canvas is free placement, so
+-- nothing compacts it.
+ALTER TABLE matrices ADD COLUMN mode TEXT NOT NULL DEFAULT 'grid';
