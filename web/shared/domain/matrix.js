@@ -412,44 +412,99 @@ export function bindingState(panel, fleet) {
   return "";
 }
 
-// loadPolicy(entries, now, pinned, timers) -> { load, unload, timers, wakeAt }
+// ---- zoom (plan docs/plans/matrix-canvas.md §4.3) -------------------------
+//
+// The rule that makes a big canvas cheap, and the one correctness rule the
+// C0 spike found (docs/benchmarks/2026-09-10-node-canvas.md): **xterm maps a
+// pointer as `cell × zoom` under a CSS transform**, because it divides the
+// offset inside the transformed rect by the untransformed cell size. At 0.8
+// a click aimed at column 50 row 15 arrives as column 40 row 12, and PiCode
+// ships tmux `mouse on`, so that wrong coordinate reaches copy mode and
+// every mouse-aware TUI. Nothing on screen shows it — the DOM renderer stays
+// crisp — so the surface has to enforce it: a live pane takes a pointer only
+// at zoom exactly 1.0, and a click below it snaps to 1 first.
+
+export const CANVAS_ZOOM = Object.freeze({
+  min: 0.2, // React Flow's minZoom: orientation, not reading
+  max: 1.5, // maxZoom: zooming in breaks the pointer mapping exactly as out does
+  live: 0.8, // at or above, a body is the live pane…
+  still: 0.75, // …and below this it is a text still. The gap is the hysteresis
+  plate: 0.4, // below this a still is grey texture (C0): a name-plate instead
+  exact: 1, // the only zoom whose pointer lands on the cell it points at
+});
+
+// Zoom arrives from a wheel and a d3 transform, so "exactly 1.0" is a
+// tolerance, not an equality.
+export const ZOOM_EPS = 0.005;
+
+// zoomBody(zoom, band) -> { band, body }: what a *loaded* body renders and
+// the hysteretic band to feed back next time. Live at or above 0.8, still
+// below 0.75, and in between whatever it already was — so a viewer parked on
+// the boundary does not thrash nine sockets (C0: crossing 0.79/0.80
+// suspended and kicked nine attaches). Below 0.4 it is a name-plate whatever
+// the band says.
+export function zoomBody(zoom, band) {
+  const z = Number.isFinite(zoom) ? zoom : CANVAS_ZOOM.exact;
+  let next = band === "still" ? "still" : "live";
+  if (z >= CANVAS_ZOOM.live) next = "live";
+  else if (z < CANVAS_ZOOM.still) next = "still";
+  const body = z < CANVAS_ZOOM.plate ? "plate" : next === "still" ? "still" : "live";
+  return { band: next, body };
+}
+
+// pointerAtZoom(zoom) -> may the pointer reach the pane? Only at 1.0.
+export function pointerAtZoom(zoom) {
+  return Math.abs((Number.isFinite(zoom) ? zoom : CANVAS_ZOOM.exact) - CANVAS_ZOOM.exact) < ZOOM_EPS;
+}
+
+// loadPolicy(entries, now, pinned, timers, view)
+//   -> { load, unload, timers, wakeAt, band, bodies }
 // The chunk-loading decision (§4.5), pure so every row has a test:
-//   entries  [{ id, near, loaded }] — near: inside the viewport ± one
-//            height (the observer's word) and the surface visible
+//   entries  [{ id, near, loaded }] — near: inside the viewport ± the
+//            observer's margin (its word) and the surface visible
 //   pinned   Set of ids that never unload (dragged, resized, focused,
 //            maximized)
 //   timers   the previous call's `timers` — the policy's only memory:
 //            { id: { loadAt } | { unloadAt } }
+//   view     { zoom, band } — the canvas's zoom and the band it was last in.
+//            Grid mode passes nothing and gets zoom 1: every loaded body is
+//            live, exactly as it was before canvas mode.
 // A wrapper loads once it has been near for LOAD_DWELL_MS; leaving cancels
 // a pending load at once. A loaded body unloads UNLOAD_AFTER_MS after it
 // left; coming back cancels the unload. wakeAt is the earliest deadline,
 // 0 when nothing is pending — the caller sleeps until then.
-export function loadPolicy(entries, now, pinned, timers) {
+// `bodies` is what each entry renders now: off (not loaded — the
+// placeholder, and the attach is suspended), live, still or plate. The band
+// is screen-space, so zooming out puts everything in it (C0: 500 of 500 at
+// 0.2); what bounds the attaches down there is the still rule, not the band.
+export function loadPolicy(entries, now, pinned, timers, view) {
   const pin = pinned || new Set();
   const prev = timers || {};
   const next = {};
   const load = [];
   const unload = [];
+  const bodies = {};
   let wakeAt = 0;
   const wake = (t) => { if (t && (!wakeAt || t < wakeAt)) wakeAt = t; };
+  const zoomed = zoomBody(view && view.zoom, view && view.band);
   for (const e of entries || []) {
     if (!e || !nonEmpty(e.id)) continue;
     const t = prev[e.id] || {};
+    let on = !!e.loaded;
     if (e.near) {
-      if (e.loaded) continue;
-      const loadAt = t.loadAt || now + LOAD_DWELL_MS;
-      if (loadAt <= now) { load.push(e.id); continue; }
-      next[e.id] = { loadAt };
-      wake(loadAt);
-      continue;
+      if (!e.loaded) {
+        const loadAt = t.loadAt || now + LOAD_DWELL_MS;
+        if (loadAt <= now) { load.push(e.id); on = true; }
+        else { next[e.id] = { loadAt }; wake(loadAt); }
+      }
+    } else if (e.loaded && !pin.has(e.id)) {
+      const unloadAt = t.unloadAt || now + UNLOAD_AFTER_MS;
+      if (unloadAt <= now) { unload.push(e.id); on = false; }
+      else { next[e.id] = { unloadAt }; wake(unloadAt); }
     }
-    if (!e.loaded || pin.has(e.id)) continue;
-    const unloadAt = t.unloadAt || now + UNLOAD_AFTER_MS;
-    if (unloadAt <= now) { unload.push(e.id); continue; }
-    next[e.id] = { unloadAt };
-    wake(unloadAt);
+    bodies[e.id] = on ? zoomed.body : "off";
   }
-  return { load, unload, timers: next, wakeAt };
+  return { load, unload, timers: next, wakeAt, band: zoomed.band, bodies };
 }
 
 // suspendedToDispose(suspended, now, max, ttl) -> ids to dispose (§4.5's
@@ -461,6 +516,77 @@ export function suspendedToDispose(suspended, now, max = SUSPENDED_MAX, ttl = SU
   const out = [];
   list.forEach((s, i) => { if (i < over || now - s.at >= ttl) out.push(s.id); });
   return out;
+}
+
+// ---- the canvas plane (plan docs/plans/matrix-canvas.md §4.1) ------------
+//
+// The store keeps units, the canvas speaks pixels, and the conversion lives
+// here — nowhere else multiplies by 8.
+
+// unitsToPx(rect) -> { x, y, width, height }: a stored rectangle as the
+// pixels a React Flow node wants.
+export function unitsToPx(rect) {
+  const r = rect || {};
+  const n = (v) => (Number.isFinite(v) ? v : 0) * UNIT_PX;
+  return { x: n(r.x), y: n(r.y), width: n(r.w), height: n(r.h) };
+}
+
+// pxToUnits(box) -> { x, y, w, h }: a node's pixels back to stored units.
+// A drag lands on multiples of 8 (snapGrid), a resize does not (C0: the
+// resizer ignores snapGrid for size), so the rounding is here and the store
+// keeps whole units either way.
+export function pxToUnits(box) {
+  const b = box || {};
+  const n = (v) => round((Number.isFinite(v) ? v : 0) / UNIT_PX) || 0; // never -0
+  return { x: n(b.x), y: n(b.y), w: n(b.width), h: n(b.height) };
+}
+
+// Tidy (plan §3, §4.4). Canvas mode has no automatic compaction —
+// react-grid-layout's job in grid mode — so the pack is an explicit action
+// instead of a silent one. Panels keep the size their owner gave them and
+// are laid out in reading order, left to right, wrapping past `cols` units,
+// each row as tall as its tallest panel; the gap is the grid's own 8 px
+// gutter. Deterministic, so two viewers who tidy the same matrix get the
+// same plane.
+export const TIDY_GAP = 1; // units (8 px, the grid's margin)
+export const TIDY_ACROSS = 3; // default-sized panels per row — what the 12-column grid shows
+export const TIDY_COLS = TIDY_ACROSS * PANEL_DEFAULT_CANVAS.w + (TIDY_ACROSS - 1) * TIDY_GAP; // 98 units
+
+export function tidyCanvas(panels, cols = TIDY_COLS, gap = TIDY_GAP) {
+  const rects = (panels || []).filter((p) => wholeRect(p) && nonEmpty(p.id));
+  const order = [...rects].sort((a, b) => a.y - b.y || a.x - b.x || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const out = [];
+  let x = 0;
+  let y = 0;
+  let rowH = 0;
+  for (const p of order) {
+    // A panel wider than the row still gets a row of its own rather than
+    // hanging off the end of the previous one.
+    if (x > 0 && x + p.w > cols) { x = 0; y += rowH + gap; rowH = 0; }
+    out.push({ id: p.id, x, y, w: p.w, h: p.h });
+    x += p.w + gap;
+    rowH = Math.max(rowH, p.h);
+  }
+  return out;
+}
+
+// The viewport is per viewer and never stored server-side (ADR-0113): a
+// camera is not an edit, and two browsers must not yank each other.
+export const VIEWPORT_PREFIX = "picode-matrix-view:";
+export function viewportKey(id) {
+  return VIEWPORT_PREFIX + str(id);
+}
+
+// normalizeViewport(v) -> { x, y, zoom } | null: what came out of
+// localStorage, or nothing — a viewer whose stored zoom is junk (or from a
+// build with other bounds) gets fitView instead of an unreachable plane.
+export function normalizeViewport(v) {
+  if (!v || typeof v !== "object") return null;
+  const { x, y, zoom } = v;
+  if (![x, y, zoom].every(Number.isFinite)) return null;
+  const { canvasCoord } = MATRIX_LIMITS;
+  const px = canvasCoord * UNIT_PX;
+  return { x: clamp(x, -px, px), y: clamp(y, -px, px), zoom: clamp(zoom, CANVAS_ZOOM.min, CANVAS_ZOOM.max) };
 }
 
 // ---- keyboard (plan §4.6 "Focus") ---------------------------------------
