@@ -164,6 +164,13 @@ event queue. Claude recognizes the native single-line mode footer and the compac
 three-line footer ending in `/rc`; unknown footers and drafts remain blocked.
 Regression table: [resume repair](../plans/communication-resume-repair.md).
 
+Grok's empty bordered composer may display an unaccepted native suggestion.
+The input guard recognizes only its captured dim-and-italic text, empty cursor,
+complete frame and exact `Tab/→:accept suggestion` footer together. Typed or
+partly accepted text, a changed cursor/frame/footer and copy mode still refuse
+automatic input. Native identity, Idle, approval and exact post-paste pointer
+checks remain independent requirements. Regression: `TestPeerGrokNativeSuggestion`.
+
 ### Restart recovery (ADR-0112)
 
 The common native hook writes a private, ordered observation before HTTP, so

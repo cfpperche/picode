@@ -19,6 +19,7 @@ const peerPointer = "PiCode: read pending messages and acknowledge handled ones.
 const peerCLIPointer = "PiCode: run picode messages read; handle messages, then ack their IDs."
 
 var terminalSGR = regexp.MustCompile(`\x1b\[[0-9;:]*m`)
+var grokEmptySuggestion = regexp.MustCompile(`^  │ ❯ \x1b\[2;3m([^\x1b\r\n\t]+)\x1b\[0m( +)│ *$`)
 
 // The screen is an additional conservative input gate. A lifecycle hook and
 // native session binding are mandatory independently of these cursor checks.
@@ -84,8 +85,19 @@ func peerGrokBoxInput(s tmux.InputSnapshot, expected string) bool {
 	if clean(y-1) != "  ╭"+strings.Repeat("─", s.Width-6)+"╮" {
 		return false
 	}
+	line := clean(y)
+	suggestion := false
+	// Native Grok renders an unaccepted suggestion dim and italic at the
+	// empty cursor. Require that exact style and footer together; typed or
+	// partly accepted text must still fail the empty-editor check.
+	if expected == "" {
+		if match := grokEmptySuggestion.FindStringSubmatch(s.Lines[y]); match != nil {
+			suggestion = true
+			line = "  │ ❯ " + strings.Repeat(" ", utf8.RuneCountInString(match[1])+len(match[2])) + "│"
+		}
+	}
 	padding := s.Width - 9 - utf8.RuneCountInString(expected)
-	if padding < 1 || clean(y) != "  │ ❯ "+expected+strings.Repeat(" ", padding)+"│" {
+	if padding < 1 || line != "  │ ❯ "+expected+strings.Repeat(" ", padding)+"│" {
 		return false
 	}
 	bottom := clean(y + 1)
@@ -97,7 +109,9 @@ func peerGrokBoxInput(s tmux.InputSnapshot, expected string) bool {
 		return false
 	}
 	footer := "  Shift+Tab:mode  │  Ctrl+x:shortcuts"
-	if expected != "" {
+	if suggestion {
+		footer = "  Tab/→:accept suggestion  │  Shift+Tab:mode  │  Ctrl+x:shortcuts"
+	} else if expected != "" {
 		footer = "  Enter:send  │  Shift+Tab:mode  │  Ctrl+x:shortcuts"
 	}
 	if clean(y+2) != "" || clean(y+3) != footer {

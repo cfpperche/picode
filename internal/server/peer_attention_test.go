@@ -135,6 +135,47 @@ func TestPeerGrokBorderedComposer(t *testing.T) {
 	}
 }
 
+func TestPeerGrokNativeSuggestion(t *testing.T) {
+	raw, err := os.ReadFile("testdata/grok-bordered-suggestion.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var native tmux.InputSnapshot
+	if err = json.Unmarshal(raw, &native); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name   string
+		change func(*tmux.InputSnapshot)
+		want   bool
+	}{
+		{name: "captured empty suggestion", want: true},
+		{name: "typed draft with cursor at start", change: func(s *tmux.InputSnapshot) { s.Lines[1] = terminalSGR.ReplaceAllString(s.Lines[1], "") }},
+		{name: "dim only", change: func(s *tmux.InputSnapshot) { s.Lines[1] = strings.Replace(s.Lines[1], "\x1b[2;3m", "\x1b[2m", 1) }},
+		{name: "italic only", change: func(s *tmux.InputSnapshot) { s.Lines[1] = strings.Replace(s.Lines[1], "\x1b[2;3m", "\x1b[3m", 1) }},
+		{name: "accepted prefix", change: func(s *tmux.InputSnapshot) { s.Lines[1] = strings.Replace(s.Lines[1], "❯ ", "❯ typed", 1) }},
+		{name: "cursor moved", change: func(s *tmux.InputSnapshot) { s.CursorX++ }},
+		{name: "wrong footer", change: func(s *tmux.InputSnapshot) { s.Lines[4] = "  Enter:send  │  Shift+Tab:mode  │  Ctrl+x:shortcuts" }},
+		{name: "copy mode", change: func(s *tmux.InputSnapshot) { s.InMode = true }},
+		{name: "resized", change: func(s *tmux.InputSnapshot) { s.Width-- }},
+		{name: "multiline draft", change: func(s *tmux.InputSnapshot) { s.Lines[0] = "  │ previous draft line │" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := native
+			s.Lines = append([]string(nil), native.Lines...)
+			if tc.change != nil {
+				tc.change(&s)
+			}
+			if got := peerInputMatches("grok", s, ""); got != tc.want {
+				t.Fatalf("empty editor: got %v want %v", got, tc.want)
+			}
+			if peerInputMatches("grok", s, peerCLIPointer) {
+				t.Fatal("unaccepted suggestion treated as submitted pointer")
+			}
+		})
+	}
+}
+
 func TestPeerGrokCapturedPointer(t *testing.T) {
 	raw, err := os.ReadFile("testdata/grok-bordered-pointer.json")
 	if err != nil {
