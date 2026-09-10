@@ -1,7 +1,8 @@
 # Matrix v2 — the infinite canvas (plan)
 
 - **Date:** 2026-09-10
-- **Status:** proposed — waiting for the owner's call on §8. **C0 is done
+- **Status:** accepted — every question in §8 was taken by the owner on
+  2026-09-10, question 7 included; C1 is in flight. **C0 is done
   and its numbers are folded in below**
   ([`docs/benchmarks/2026-09-10-node-canvas.md`](../benchmarks/2026-09-10-node-canvas.md)):
   GO on `@xyflow/react`, with one rule this plan did not have — a live
@@ -312,9 +313,9 @@ first; the surface reads the mode from the API.
 | a still nobody can read | at 0.5 it is sharp but marginal; at 0.2 it is grey texture and the headers do not resolve either | the name-plate body below ~0.4 (§4.3) |
 | coordinate migration | — | the switch transform is one server transaction that answers with every moved panel, and it is reversible by switching back |
 
-## 8. For the owner
+## 8. Decisions (taken by the owner in chat, 2026-09-10)
 
-| # | Question | Recommendation |
+| # | Question | Decision |
 |---|---|---|
 | 1 | Library | `@xyflow/react` (MIT), per §3 — **C0 says GO**, lazy-imported |
 | 2 | Canvas as a **mode** of a matrix, not a second app | yes — one store, one API, one surface |
@@ -323,3 +324,8 @@ first; the surface reads the mode from the API.
 | 5 | Edges wait for their own ADR | yes |
 | 6 | Kanban board is refused as a Matrix mode | agree, or say so and it becomes its own plan |
 | 7 | **A live terminal takes the mouse only at zoom 1.0** (C0: xterm's pointer mapping ignores the canvas transform, and PiCode's tmux `mouse on` default carries the error into copy mode and every TUI) | yes — live and readable from 0.8, pointer only at 1.0, a click below 1.0 snaps to 1 first |
+
+Every row was accepted as recommended, question 7 included: a live
+terminal takes the mouse only at zoom 1.0, and a click below it snaps to 1
+before the pointer reaches the pane. Changing any row is the owner's call
+again (AGENTS.md, non-negotiable 6).
