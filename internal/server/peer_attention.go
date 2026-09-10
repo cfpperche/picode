@@ -25,6 +25,15 @@ func peerInputMatches(cli string, s tmux.InputSnapshot, expected string) bool {
 	if s.InMode || s.Width < 70 || s.CursorY < 0 || s.CursorY >= len(s.Lines) {
 		return false
 	}
+	if cli == "pi" {
+		if expected != "" || s.CursorX != 0 || s.CursorY < 1 || s.CursorY+3 >= len(s.Lines) {
+			return false
+		}
+		clean := func(n int) string { return strings.TrimSpace(terminalSGR.ReplaceAllString(s.Lines[n], "")) }
+		rule := strings.Repeat("─", s.Width)
+		return clean(s.CursorY) == "" && clean(s.CursorY-1) == rule && clean(s.CursorY+1) == rule &&
+			strings.HasPrefix(clean(s.CursorY+2), "/") && strings.Contains(clean(s.CursorY+3), "%/")
+	}
 	if cli == "opencode" {
 		return peerOpenCodeInput(s, expected)
 	}
@@ -146,6 +155,9 @@ func peerOpenCodeInput(s tmux.InputSnapshot, expected string) bool {
 // Deliver through Pi's existing native receiver with the originally bound
 // session file. The receiver compares it inside Pi immediately before submit.
 func deliverPeerPointer(ctx context.Context, deps Deps, key, session string) error {
+	return deliverPeerText(ctx, deps, key, session, peerPointer)
+}
+func deliverPeerText(ctx context.Context, deps Deps, key, session, text string) error {
 	if deps.Replies == nil || deps.Replies.receiverSession(key) != session {
 		return errors.New("receiver changed session")
 	}
@@ -155,7 +167,7 @@ func deliverPeerPointer(ctx context.Context, deps Deps, key, session string) err
 	}
 	ack, done := deps.Replies.registerAck(nonce)
 	defer done()
-	file, err := writeReplyFile(deps.DataDir, key, replyFile{AttentionOnly: true, Nonce: nonce, SessionPath: session, Payload: peerPointer, CreatedAt: time.Now().UTC()})
+	file, err := writeReplyFile(deps.DataDir, key, replyFile{AttentionOnly: true, Nonce: nonce, SessionPath: session, Payload: text, CreatedAt: time.Now().UTC()})
 	if err != nil {
 		return err
 	}
@@ -193,7 +205,27 @@ func attemptPeerAttention(ctx context.Context, deps Deps, m store.PeerMessage) {
 	if err != nil {
 		return
 	}
+	pointer := peerPointer
+	if p.CLI == "grok" || p.CLI == "hermes" {
+		pointer = peerCLIPointer
+	}
+	attemptPeerText(ctx, deps, p, pointer, func() bool {
+		ok, e := deps.Store.SetPeerAttention(m.ID, p.ID, "pending", "attempted")
+		return e == nil && ok
+	}, func(e error) { attentionFinish(deps, m, e) })
+}
+
+// The sender of a connection test uses the same guarded native input path.
+func attemptPeerText(ctx context.Context, deps Deps, p store.PeerConnection, pointer string, claim func() bool, finish func(error)) {
 	if p.Kind == "agent" {
+		if deps.Replies == nil {
+			return
+		}
+		release, e := deps.Replies.Controls.TryBeginMutation(p.OwnerID)
+		if e != nil {
+			return
+		}
+		defer release()
 		if deps.Runtime == nil {
 			return
 		}
@@ -215,10 +247,10 @@ func attemptPeerAttention(ctx context.Context, deps Deps, m store.PeerMessage) {
 		if json.Unmarshal(native.Data, &v) != nil || v.SessionFile != p.SessionKey || deps.Replies == nil || deps.Replies.receiverSession(p.OwnerID) != p.SessionKey {
 			return
 		}
-		if ok, err := deps.Store.SetPeerAttention(m.ID, p.ID, "pending", "attempted"); err != nil || !ok {
+		if !claim() {
 			return
 		}
-		attentionFinish(deps, m, deliverPeerPointer(ctx, deps, p.OwnerID, p.SessionKey))
+		finish(deliverPeerText(ctx, deps, p.OwnerID, p.SessionKey, pointer))
 		return
 	}
 	if deps.Tmux == nil || deps.TermRuntimes == nil || deps.TermStates == nil {
@@ -240,21 +272,17 @@ func attemptPeerAttention(ctx context.Context, deps Deps, m store.PeerMessage) {
 		if err != nil || session != rt.SessionPath {
 			return
 		}
-		if ok, err := deps.Store.SetPeerAttention(m.ID, p.ID, "pending", "attempted"); err != nil || !ok {
+		if !claim() {
 			return
 		}
-		err = deliverPeerPointer(ctx, deps, termReplyKey(p.OwnerID), session)
-		attentionFinish(deps, m, err)
+		err = deliverPeerText(ctx, deps, termReplyKey(p.OwnerID), session, pointer)
+		finish(err)
 		return
 	}
 	if !tryLockPrompt(p.OwnerID) {
 		return
 	}
 	defer unlockPrompt(p.OwnerID)
-	pointer := peerPointer
-	if p.CLI == "grok" || p.CLI == "hermes" {
-		pointer = peerCLIPointer
-	}
 	name := tmux.ShellSessionName(p.OwnerID)
 	before, err := deps.Tmux.InputSnapshot(ctx, name)
 	if err != nil || !peerInputMatches(p.CLI, before, "") {
@@ -284,32 +312,32 @@ func attemptPeerAttention(ctx context.Context, deps Deps, m store.PeerMessage) {
 	if !check("") {
 		return
 	}
-	if ok, err := deps.Store.SetPeerAttention(m.ID, p.ID, "pending", "attempted"); err != nil || !ok {
+	if !claim() {
 		return
 	}
 	// Any loss of certainty after the durable claim is terminal for this
 	// attempt. Never remove an editor draft or blindly send Enter on retry.
 	if !check("") {
-		attentionFinish(deps, m, context.Canceled)
+		finish(context.Canceled)
 		return
 	}
 	if err := deps.Tmux.PasteOnly(ctx, before.PaneID, pointer); err != nil {
-		attentionFinish(deps, m, err)
+		finish(err)
 		return
 	}
 	timer := time.NewTimer(150 * time.Millisecond)
 	defer timer.Stop()
 	select {
 	case <-ctx.Done():
-		attentionFinish(deps, m, ctx.Err())
+		finish(ctx.Err())
 		return
 	case <-timer.C:
 	}
 	if !check(pointer) {
-		attentionFinish(deps, m, context.Canceled)
+		finish(context.Canceled)
 		return
 	}
-	attentionFinish(deps, m, deps.Tmux.SubmitPane(ctx, before.PaneID))
+	finish(deps.Tmux.SubmitPane(ctx, before.PaneID))
 }
 
 // One coalesced loop for the server, driven by the feed. The bounded tick also
@@ -320,7 +348,7 @@ func StartPeerAttention(ctx context.Context, deps Deps) {
 	}
 	wake := make(chan struct{}, 1)
 	deps.Feed.Listen(func(e store.Event) {
-		if e.Type == "peer.message" || e.Type == "terminal.state" || e.Type == "terminal.runtime" || e.Type == "agent.state" {
+		if strings.HasPrefix(e.Type, "peer.") || e.Type == "terminal.last_session" || e.Type == "terminal.state" || e.Type == "terminal.runtime" || e.Type == "agent.state" {
 			select {
 			case wake <- struct{}{}:
 			default:
@@ -336,6 +364,8 @@ func StartPeerAttention(ctx context.Context, deps Deps) {
 		case <-wake:
 		case <-tick.C:
 		}
+		reconcilePeerParticipants(ctx, deps)
+		reconcilePeerChecks(ctx, deps)
 		messages, err := deps.Store.PendingPeerAttention()
 		if err != nil {
 			continue

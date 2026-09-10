@@ -148,3 +148,22 @@ func TestNativeCodexAndOpenCodeComposers(t *testing.T) {
 		t.Fatal("multiline OpenCode draft accepted")
 	}
 }
+
+func TestNativePiResumeComposer(t *testing.T) {
+	rule := strings.Repeat("─", 80)
+	s := tmux.InputSnapshot{Width: 80, CursorX: 0, CursorY: 1, Lines: []string{rule, "", rule, "/workspace (main)", "0.0%/1.0M (auto) (zai) glm-5.3-flash • low"}}
+	if !peerInputMatches("pi", s, "") {
+		t.Fatal("native empty Pi editor refused")
+	}
+	for _, lines := range [][]string{
+		{rule, "draft", rule, "/workspace", "0.0%/1.0M"},
+		{rule, "", "draft", rule, "/workspace", "0.0%/1.0M"},
+		{rule, "", rule, "Choose a permission", "0.0%/1.0M"},
+		{rule, "", rule, "/workspace", "unknown footer"},
+	} {
+		s.Lines = lines
+		if peerInputMatches("pi", s, "") {
+			t.Fatal("unsafe Pi composer", lines)
+		}
+	}
+}

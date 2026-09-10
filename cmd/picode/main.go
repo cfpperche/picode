@@ -564,6 +564,7 @@ func serve() {
 		// Guest terminal state (ADR-0056 tier 1): live signal registry, also
 		// read by the sweep watcher below.
 		Replies:      server.NewTuiReplies(),
+		CLIs:         server.NewCLITerminals(),
 		TermStates:   server.NewTermStates(),
 		TermRuntimes: server.NewTermRuntimes(),
 		// Apps host (ADR-0036). PICODE_DEMO_APP=1 adds the hidden QA app;
@@ -594,7 +595,6 @@ func serve() {
 	// against the live pane process and reconciles sessions created before
 	// runId reporting existed. It never infers activity from pane pixels.
 	go server.StartTermRuntimeWatch(backupCtx, deps, 3*time.Second)
-	go server.StartPeerAttention(backupCtx, deps)
 
 	// Package updates watcher (ADR-0048 follow-up): one scan set per tick
 	// for the whole fleet, published as packages.updates only when a
@@ -644,6 +644,8 @@ func serve() {
 	}
 	state.port.Store(int64(port))
 	writeServerJSON(dataDir, cfg, port)
+	// Preparation needs the bound local address and its actual TLS mode.
+	go server.StartPeerAttention(backupCtx, deps)
 	logStartup(cfg, dataDir, port)
 	if !cfg.Insecure {
 		share.EnsureTrustHTTP() // hands out the mkcert CA; pointless behind a gateway

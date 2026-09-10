@@ -417,3 +417,106 @@ func TestDoubleStartRejected(t *testing.T) {
 		t.Fatal("double Start accepted")
 	}
 }
+
+func TestStopIdleFencesConversationAndCommands(t *testing.T) {
+	t.Setenv("PICODE_FAKE_SESSION", "exact-session")
+	st, err := store.Open(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	w, a, err := addWorkspaceWithAgent(st, "Idle", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt := startRuntime(t, st)
+	if err = rt.Start(a.ID, w.Path); err != nil {
+		t.Fatal(err)
+	}
+	ma := rt.Get(a.ID)
+	// Wait until the initial read-only capture query has settled.
+	for i := 0; i < 100; i++ {
+		if ma.commandMu.TryLock() {
+			ma.commandMu.Unlock()
+			break
+		}
+		time.Sleep(time.Millisecond * 5)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if err = rt.StopIdle(ctx, ma, "different"); err == nil {
+		t.Fatal("stopped another conversation")
+	}
+	ma.deliveryMu.Lock()
+	if err = rt.StopIdle(ctx, ma, "exact-session"); err == nil {
+		t.Fatal("interrupted queue claim")
+	}
+	ma.deliveryMu.Unlock()
+	ma.commandMu.RLock()
+	if err = rt.StopIdle(ctx, ma, "exact-session"); err == nil {
+		t.Fatal("interrupted command")
+	}
+	ma.commandMu.RUnlock()
+	ma.mu.Lock()
+	ma.streaming = true
+	ma.mu.Unlock()
+	if err = rt.StopIdle(ctx, ma, "exact-session"); err == nil {
+		t.Fatal("interrupted turn")
+	}
+	ma.mu.Lock()
+	ma.streaming = false
+	ma.waiting = &UIDialog{ID: "approval"}
+	ma.mu.Unlock()
+	if err = rt.StopIdle(ctx, ma, "exact-session"); err == nil {
+		t.Fatal("interrupted approval")
+	}
+	ma.mu.Lock()
+	ma.waiting = nil
+	ma.mu.Unlock()
+	if err = rt.StopIdle(ctx, ma, "exact-session"); err != nil {
+		t.Fatal(err)
+	}
+	if rt.Active(a.ID) {
+		t.Fatal("old writer still registered")
+	}
+	if _, err = ma.GetState(ctx); err == nil {
+		t.Fatal("command accepted by stopped writer")
+	}
+	if err = rt.Start(a.ID, w.Path); err != nil {
+		t.Fatal(err)
+	}
+	if err = rt.StopIdle(ctx, ma, "exact-session"); err == nil {
+		t.Fatal("stale process handle stopped replacement")
+	}
+}
+
+func TestCapturedStopDoesNotStopReplacement(t *testing.T) {
+	st, e := store.Open(filepath.Join(t.TempDir(), "state.db"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer st.Close()
+	w, a, e := addWorkspaceWithAgent(st, "Captured", t.TempDir())
+	if e != nil {
+		t.Fatal(e)
+	}
+	rt := startRuntime(t, st)
+	if e = rt.Start(a.ID, w.Path); e != nil {
+		t.Fatal(e)
+	}
+	old := rt.Get(a.ID)
+	rt.Stop(a.ID)
+	if e = rt.Start(a.ID, w.Path); e != nil {
+		t.Fatal(e)
+	}
+	next := rt.Get(a.ID)
+	rt.stopCaptured(old)
+	if rt.Get(a.ID) != next || !rt.Active(a.ID) {
+		t.Fatal("captured stop removed replacement")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if _, e = next.GetState(ctx); e != nil {
+		t.Fatal("captured stop killed replacement", e)
+	}
+}

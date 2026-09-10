@@ -63,8 +63,10 @@ func (h *Hub) Broadcast(msg []byte) {
 
 // ManagedAgent is one live `pi --mode rpc` process plus its delivery loop.
 type ManagedAgent struct {
-	AgentID string
-	Path    string
+	AgentID    string
+	deliveryMu sync.Mutex   // claims stay queued while an idle replacement owns the writer
+	commandMu  sync.RWMutex // fences idle replacement against new RPC commands
+	Path       string
 
 	client *Client
 	hub    *Hub
@@ -367,19 +369,28 @@ func (r *Runtime) Stop(agentID string) bool {
 		<-starting.done
 		return true
 	}
+	r.stopCaptured(ma)
+	return true
+}
+
+// stopCaptured never resolves another writer by owner ID after the idle check.
+func (r *Runtime) stopCaptured(ma *ManagedAgent) {
 	ma.mu.Lock()
 	ma.stopRequested = true // expected exit: pumpEvents files no fyi
 	ma.mu.Unlock()
-	mcp.ClearLive(r.DataDir, agentID)
+	r.mu.Lock()
+	if r.agents[ma.AgentID] == ma {
+		mcp.ClearLive(r.DataDir, ma.AgentID)
+	}
+	r.mu.Unlock()
 	ma.cancel()
 	ma.client.Close()
 	<-ma.done
 	r.mu.Lock()
-	if r.agents[agentID] == ma {
-		delete(r.agents, agentID)
+	if r.agents[ma.AgentID] == ma {
+		delete(r.agents, ma.AgentID)
 	}
 	r.mu.Unlock()
-	return true
 }
 
 // Get returns the managed agent, if running.
@@ -671,8 +682,17 @@ func (ma *ManagedAgent) deliverLoop() {
 		default:
 		}
 
+		ma.deliveryMu.Lock()
+		ma.mu.Lock()
+		stopping := ma.stopRequested
+		ma.mu.Unlock()
+		if stopping {
+			ma.deliveryMu.Unlock()
+			return
+		}
 		task, err := ma.store.ClaimNextTask(ma.AgentID)
 		if err != nil { // queue empty
+			ma.deliveryMu.Unlock()
 			select {
 			case <-time.After(500 * time.Millisecond):
 			case <-ma.done:
@@ -687,6 +707,7 @@ func (ma *ManagedAgent) deliverLoop() {
 			// silent attempts become an honest failure.
 			if errors.Is(err, errTurnNotStarted) && task.Attempts < 3 {
 				_ = ma.store.FinishTask(task.ID, store.TaskQueued, err.Error())
+				ma.deliveryMu.Unlock()
 				select {
 				case <-time.After(2 * time.Second):
 				case <-ma.done:
@@ -700,6 +721,7 @@ func (ma *ManagedAgent) deliverLoop() {
 			ma.hub.Broadcast(mustEnvelope(ma.AgentID, map[string]any{
 				"type": "task_failed", "taskId": task.ID, "error": err.Error(),
 			}))
+			ma.deliveryMu.Unlock()
 			continue
 		}
 		_ = ma.store.FinishTask(task.ID, store.TaskDelivered, "")
@@ -708,6 +730,7 @@ func (ma *ManagedAgent) deliverLoop() {
 		ma.hub.Broadcast(mustEnvelope(ma.AgentID, map[string]any{
 			"type": "task_delivered", "taskId": task.ID, "kind": task.Kind,
 		}))
+		ma.deliveryMu.Unlock()
 	}
 }
 
@@ -735,7 +758,7 @@ func (ma *ManagedAgent) deliver(task store.Task) error {
 	ctx, cancel := context.WithTimeout(context.Background(), deliverTimeout)
 	defer cancel()
 
-	_, err := ma.client.Send(ctx, Command{Type: kind, Body: body})
+	_, err := ma.send(ctx, Command{Type: kind, Body: body})
 	if err != nil && errors.Is(err, context.DeadlineExceeded) && ma.isWaitingUI() {
 		// An extension command (/roles …) answers its prompt only when the
 		// whole interactive flow ends. A pending dialog means the flow is
@@ -790,7 +813,7 @@ func EffectiveTurnKind(kind string, busy bool) string {
 
 // SetSessionName sets the display name of the live session.
 func (ma *ManagedAgent) SetSessionName(ctx context.Context, name string) error {
-	_, err := ma.client.Send(ctx, Command{Type: "set_session_name", Body: map[string]any{"name": name}})
+	_, err := ma.send(ctx, Command{Type: "set_session_name", Body: map[string]any{"name": name}})
 	return err
 }
 
@@ -807,64 +830,64 @@ func (ma *ManagedAgent) Abort(ctx context.Context) error {
 			"type": "extension_ui_response", "id": d.ID, "cancelled": true,
 		})
 	}
-	_, err := ma.client.Send(ctx, Command{Type: "abort"})
+	_, err := ma.send(ctx, Command{Type: "abort"})
 	return err
 }
 
 // Compact asks pi to summarize older turns (RPC compact).
 func (ma *ManagedAgent) Compact(ctx context.Context) (Response, error) {
-	return ma.client.Send(ctx, Command{Type: "compact"})
+	return ma.send(ctx, Command{Type: "compact"})
 }
 
 // SetAutoCompaction toggles live auto-compact (RPC).
 func (ma *ManagedAgent) SetAutoCompaction(ctx context.Context, enabled bool) error {
-	_, err := ma.client.Send(ctx, Command{Type: "set_auto_compaction", Body: map[string]any{"enabled": enabled}})
+	_, err := ma.send(ctx, Command{Type: "set_auto_compaction", Body: map[string]any{"enabled": enabled}})
 	return err
 }
 
 // SetSteeringMode sets live steering delivery (RPC).
 func (ma *ManagedAgent) SetSteeringMode(ctx context.Context, mode string) error {
-	_, err := ma.client.Send(ctx, Command{Type: "set_steering_mode", Body: map[string]any{"mode": mode}})
+	_, err := ma.send(ctx, Command{Type: "set_steering_mode", Body: map[string]any{"mode": mode}})
 	return err
 }
 
 // SetFollowUpMode sets live follow-up delivery (RPC).
 func (ma *ManagedAgent) SetFollowUpMode(ctx context.Context, mode string) error {
-	_, err := ma.client.Send(ctx, Command{Type: "set_follow_up_mode", Body: map[string]any{"mode": mode}})
+	_, err := ma.send(ctx, Command{Type: "set_follow_up_mode", Body: map[string]any{"mode": mode}})
 	return err
 }
 
 // Fork starts a new session from entryId (RPC fork).
 func (ma *ManagedAgent) Fork(ctx context.Context, entryID string) (Response, error) {
-	return ma.client.Send(ctx, Command{Type: "fork", Body: map[string]any{"entryId": entryID}})
+	return ma.send(ctx, Command{Type: "fork", Body: map[string]any{"entryId": entryID}})
 }
 
 // Clone duplicates the current branch (RPC clone).
 func (ma *ManagedAgent) Clone(ctx context.Context) (Response, error) {
-	return ma.client.Send(ctx, Command{Type: "clone"})
+	return ma.send(ctx, Command{Type: "clone"})
 }
 
 // GetState returns live sessionFile and related fields.
 func (ma *ManagedAgent) GetState(ctx context.Context) (Response, error) {
-	return ma.client.Send(ctx, Command{Type: "get_state"})
+	return ma.send(ctx, Command{Type: "get_state"})
 }
 
 // GetCommands lists slash commands the live pi process knows (extensions,
 // skills, templates). Used by the composer picker (ADR-0029).
 func (ma *ManagedAgent) GetCommands(ctx context.Context) (Response, error) {
-	return ma.client.Send(ctx, Command{Type: "get_commands"})
+	return ma.send(ctx, Command{Type: "get_commands"})
 }
 
 // SendBash runs a shell command in the agent cwd (RPC bash). Output
 // streams as bash_execution_update events; the response carries the
 // final result. The next prompt folds it into context (pi behavior).
 func (ma *ManagedAgent) SendBash(ctx context.Context, command string) (Response, error) {
-	return ma.client.Send(ctx, Command{Type: "bash", Body: map[string]any{"command": command}})
+	return ma.send(ctx, Command{Type: "bash", Body: map[string]any{"command": command}})
 }
 
 // AbortBash stops a running direct bash command (RPC abort_bash).
 func (ma *ManagedAgent) AbortBash(ctx context.Context) error {
-	_, err := ma.client.Send(ctx, Command{Type: "abort_bash"})
+	_, err := ma.send(ctx, Command{Type: "abort_bash"})
 	return err
 }
 
@@ -882,7 +905,7 @@ func (ma *ManagedAgent) SendPromptCtx(ctx context.Context, message string) error
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-	_, err := ma.client.Send(ctx, Command{Type: "prompt", Body: map[string]any{"message": message}})
+	_, err := ma.send(ctx, Command{Type: "prompt", Body: map[string]any{"message": message}})
 	return err
 }
 
@@ -906,7 +929,7 @@ func (ma *ManagedAgent) SendTurn(kind, message string, images []map[string]any) 
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), deliverTimeout)
 	defer cancel()
-	_, err := ma.client.Send(ctx, Command{Type: kind, Body: body})
+	_, err := ma.send(ctx, Command{Type: kind, Body: body})
 	if err != nil && errors.Is(err, context.DeadlineExceeded) && ma.isWaitingUI() {
 		// See deliver: an extension command answers only when its
 		// interactive flow ends; a pending dialog is not a failure.
@@ -996,6 +1019,8 @@ func (ma *ManagedAgent) armTimeout(id string, ms int) {
 
 // ReplyUI answers an extension_ui_request. confirmed is used for method=confirm.
 func (ma *ManagedAgent) ReplyUI(id, value string, confirmed *bool, cancelled bool) error {
+	ma.commandMu.RLock()
+	defer ma.commandMu.RUnlock()
 	ma.mu.Lock()
 	if ma.waiting == nil || ma.waiting.ID != id {
 		ma.mu.Unlock()
@@ -1051,3 +1076,57 @@ func mustEnvelope(agentID string, payload map[string]any) []byte {
 	}
 	return b
 }
+
+// send keeps idle replacement exclusive with every in-flight RPC command.
+func (ma *ManagedAgent) send(ctx context.Context, command Command) (Response, error) {
+	ma.commandMu.RLock()
+	defer ma.commandMu.RUnlock()
+	ma.mu.Lock()
+	stopping := ma.stopRequested
+	ma.mu.Unlock()
+	if stopping {
+		return Response{}, errors.New("agent is reconnecting; try again")
+	}
+	return ma.client.Send(ctx, command)
+}
+
+// StopIdle joins only this exact managed writer, without interrupting commands,
+// native turns, compaction, queued native messages, or a blocking dialog.
+func (r *Runtime) StopIdle(ctx context.Context, ma *ManagedAgent, session string) error {
+	if ma == nil || !ma.deliveryMu.TryLock() {
+		return errors.New("agent has queued work in progress")
+	}
+	defer ma.deliveryMu.Unlock()
+	if !ma.commandMu.TryLock() {
+		return errors.New("agent has an action in progress")
+	}
+	defer ma.commandMu.Unlock()
+	if r.Get(ma.AgentID) != ma || ma.isBusy() {
+		return errors.New("agent is busy or changed")
+	}
+	response, err := ma.client.Send(ctx, Command{Type: "get_state"})
+	if err != nil {
+		return err
+	}
+	var v struct {
+		SessionFile string `json:"sessionFile"`
+		Streaming   *bool  `json:"isStreaming"`
+		Compacting  *bool  `json:"isCompacting"`
+		Pending     *int   `json:"pendingMessageCount"`
+	}
+	if json.Unmarshal(response.Data, &v) != nil || v.SessionFile != session || session == "" || v.Streaming == nil || *v.Streaming || v.Compacting == nil || *v.Compacting || v.Pending == nil || *v.Pending != 0 || ma.isBusy() {
+		return errors.New("waiting for the exact conversation to become idle")
+	}
+	ma.mu.Lock()
+	if ma.stopRequested || ma.streaming || ma.waiting != nil {
+		ma.mu.Unlock()
+		return errors.New("agent changed")
+	}
+	ma.stopRequested = true
+	ma.mu.Unlock()
+	r.stopCaptured(ma)
+	return nil
+}
+
+// PID identifies the current native managed process for receiver readiness.
+func (ma *ManagedAgent) PID() int { return ma.client.PID() }

@@ -92,3 +92,51 @@ not its continuation-capable Stop hook. Child completion and delayed teardown
 cannot repin its conversation. OpenCode verifies root-session metadata and
 selects a conversation through a native user-message hook or exact connected
 resume; background session activity cannot replace it.
+
+
+## Workspace onboarding (ADR-0110)
+
+`peer_participants` stores explicit owner/workspace/CLI consent with a revision.
+Selection updates are atomic; stale revisions fail and disabling revokes every
+owner capability in the same transaction. The attention worker reconciles this
+intent against native session identity. New conversations receive fresh setup;
+unknown identities never mint a capability. Setup stays in the existing Go
+process and uses the same feed and native input tick.
+
+`GET /api/communication/workspaces` returns participants, preparation, current
+connections and diagnostic results. Workspace-scoped `/participants` (PUT),
+`/open` and `/test` (POST), and `/history` (GET) support the normal flow.
+Desktop/mobile independently own workspace views at
+`#/clis/messages/workspace:<id>`; the former owner route resolves its workspace.
+The former per-conversation manager is available under Advanced.
+
+Grok/Hermes resolve prepared setup in their native shell calls. Pi initial setup
+and hot replacement share one receiver-owned MCP registration; setup uses the
+receiver's exact-session, idle, pending-message and editor guards. Additive TLS
+trust uses Node's per-process default CA API (validated on Node 24). Receiver
+hello updates are ordered and readiness is bound to the current process/run.
+Managed reconnect is an explicit action: an RPC command/queue fence checks the
+native idle session before joining the old writer and resuming the stored file.
+
+Other native MCP CLIs use the recorded resume recipe. Preparation rechecks the
+live session, run, pane, native state and full empty composer before stopping.
+A private shutdown receipt retains exact PID/start tokens across daemon restart;
+all captured writers must exit before any replacement launch. The receipt is
+outside the conversation credential directory so revocation cannot erase it.
+Non-Linux replacement refuses until equivalent process ownership is available.
+
+`peer_checks` records owner-requested native diagnostics. The sender receives a
+short native attention prompt; its authenticated `read_messages` output may
+include `connection_check`. Only a correlated send/reply with both explicit
+acknowledgments passes. There is no backend impersonation. Submission is claimed
+before writing, uncertain attempts never retry, revoked sessions cancel, and
+missing proof expires after five minutes. Active checks remain visible beyond
+the 100-result history window. Native tool permissions and model capacity apply.
+
+Decision table and evidence: [onboarding plan](../plans/communication-onboarding.md).
+
+Codex's native `SessionStart` hook is accepted as an identity report. Readiness
+still waits for an actual native event; startup before the first user turn is
+not assumed or verified on every CLI version. A compaction start remains Working
+rather than authorizing input. Hook semantics follow the
+[vendor reference](https://developers.openai.com/codex/hooks).

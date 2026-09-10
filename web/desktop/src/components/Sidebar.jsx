@@ -236,6 +236,7 @@ export default function Sidebar({
                     <DropdownMenu.Item className="um-item" onSelect={() => { location.hash = "#/clis/new/pi?workspace=" + encodeURIComponent(ws.id); }}>Agent CLI terminal</DropdownMenu.Item>
                   </DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>
                   <RowMenu label={ws.name}>
+                    <RowMenuItem onSelect={() => { location.hash = "#/clis/messages/" + encodeURIComponent("workspace:" + ws.id); }}><IconSession size={13} /> Communication</RowMenuItem>
                     <RowMenuItem onSelect={() => onFileTree && onFileTree("workspace", ws.id, ws.name)}><IconFolder size={13} /> Files</RowMenuItem>
                     {wsRepo.git ? <RowMenuItem onSelect={() => onGitGraph && onGitGraph("workspace", ws.id, ws.name)}><IconGit size={13} /> Git graph</RowMenuItem> : null}
                     {/* Sessions read through an agent — an empty workspace

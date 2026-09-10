@@ -108,7 +108,7 @@ func TestInterceptCodexAndGrok(t *testing.T) {
 		t.Fatalf("codex enable = %d", res.StatusCode)
 	}
 	body, _ := os.ReadFile(wrapperPath(dataDir, "codex"))
-	for _, want := range []string{"hooks.UserPromptSubmit", "hooks.PermissionRequest", "hooks.Interrupt", "hooks.state=", "notify="} {
+	for _, want := range []string{"hooks.SessionStart", "hooks.UserPromptSubmit", "hooks.PermissionRequest", "hooks.Interrupt", "hooks.state=", "notify="} {
 		if !strings.Contains(string(body), want) {
 			t.Fatalf("codex wrapper missing %q:\n%s", want, body)
 		}
@@ -510,6 +510,7 @@ func TestHookMapPy(t *testing.T) {
 	}{
 		{`{"hook_event_name":"UserPromptSubmit"}`, "working\n"},
 		{`{"hook_event_name":"SessionStart"}`, "idle\n"},
+		{`{"hook_event_name":"SessionStart","source":"compact"}`, "working\n"},
 		{`{"hook_event_name":"Stop"}`, "idle\n"},
 		{`{"hook_event_name":"TaskCompleted"}`, ""},
 		{`{"type":"agent-turn-complete"}`, "idle\n"},

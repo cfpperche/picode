@@ -248,6 +248,7 @@ type codexHookSpec struct {
 
 var codexHookSpecs = []codexHookSpec{
 	{event: "UserPromptSubmit", key: "user_prompt_submit", timeoutSec: 5},
+	{event: "SessionStart", key: "session_start", timeoutSec: 5},
 	{event: "PermissionRequest", key: "permission_request", timeoutSec: 5},
 	{event: "Stop", key: "stop", timeoutSec: 5},
 	// Codex caps Interrupt and SessionEnd hooks at three seconds.

@@ -42,9 +42,15 @@ type readInput struct {
 	Limit               int   `json:"limit,omitempty" jsonschema:"Page size from 1 to 100; defaults to 50"`
 	IncludeAcknowledged bool  `json:"include_acknowledged,omitempty"`
 }
+type connectionCheck struct {
+	To          string `json:"to"`
+	RequestID   string `json:"request_id"`
+	Instruction string `json:"instruction"`
+}
 type readOutput struct {
-	Messages  []store.PeerMessage `json:"messages"`
-	NextAfter int64               `json:"next_after"`
+	ConnectionCheck *connectionCheck    `json:"connection_check,omitempty"`
+	Messages        []store.PeerMessage `json:"messages"`
+	NextAfter       int64               `json:"next_after"`
 }
 type ackInput struct {
 	IDs []string `json:"ids" jsonschema:"1 to 100 received message IDs to acknowledge"`
@@ -78,7 +84,13 @@ func Handler(s *store.Store) http.Handler {
 		if len(v) > 0 {
 			next = v[len(v)-1].Seq
 		}
-		return nil, readOutput{v, next}, e
+		var check *connectionCheck
+		if e == nil {
+			if c, err := s.PeerCheckRequest(token(r)); err == nil && c != nil {
+				check = &connectionCheck{To: c.RecipientID, RequestID: c.ID, Instruction: "The owner requested a connection test. Send a message to this contact using this request_id. Ask the recipient to reply OK with reply_to set to your message ID and acknowledge your message. Send once, then end your turn without waiting or polling. PiCode will notify you when a reply arrives; then read and acknowledge it. Only acknowledge received message IDs, never this request_id. Do not change files or run other tasks."}
+			}
+		}
+		return nil, readOutput{Messages: v, NextAfter: next, ConnectionCheck: check}, e
 	})
 	mcp.AddTool(server, &mcp.Tool{Name: "ack_messages", Description: "Explicitly acknowledge received IDs. Does not report task completion. A mixed-invalid batch changes nothing."}, func(ctx context.Context, r *mcp.CallToolRequest, in ackInput) (*mcp.CallToolResult, ackOutput, error) {
 		e := s.AckPeerMessages(token(r), in.IDs)

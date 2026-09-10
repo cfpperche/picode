@@ -82,7 +82,9 @@ if typ == "agent-turn-complete":
 working = {"SessionEnd", "session_end", "on_session_finalize", "UserPromptSubmit", "user_prompt_submit", "pre_llm_call", "post_approval_response"}
 idle = {"SessionStart", "session_start", "Stop", "SessionEnd", "Interrupt", "stop", "session_end", "interrupt", "StopCancelled", "on_session_start", "on_session_end", "on_session_reset", "post_llm_call"}
 needs_you = {"PermissionRequest", "permission_request", "pre_approval_request"}
-if ev in working:
+if ev in ("SessionStart", "session_start") and d.get("source") == "compact":
+    report("working")
+elif ev in working:
     report("working")
 elif ev in idle:
     report("idle")
