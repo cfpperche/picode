@@ -52,7 +52,7 @@ import "./mobile.css";
 
 const LAST_AGENT_KEY = "picode-mobile-last-agent";
 
-// The phone shell (ADR-0044/0095): focused mobile workflows. Now (decisions, running, today, results) · Inbox · Work
+// The phone shell (ADR-0044/0095): focused mobile workflows. Now (decisions, today, results) · Inbox · Work
 // (workspaces / free agents / terminals, the desktop rail's three views)
 // · More, plus the pushed agent and terminal screens. No header: the
 // tab bar is the chrome. One fleet poll feeds every screen; only the
@@ -230,7 +230,6 @@ export default function MobileApp() {
 
   const current = route.screen === "agent" ? findAgent(workspaces, freeAgents, route.id) : null;
   const currentTerm = route.screen === "term" ? terminals.find((t) => t.id === route.id) || null : null;
-  const liveTerms = terminals.filter((t) => t.running);
   const section = route.screen === "work" ? (route.section || workSection) : workSection;
   useEffect(() => {
     if (route.screen === "work" && route.section && route.section !== workSection) {
@@ -447,9 +446,9 @@ export default function MobileApp() {
     );
   } else {
     body = (
-      <Now loaded={loaded && attentionReady} error={fleetError || attentionError} entries={entries} running={running} liveTerms={liveTerms} workingIds={tuiWorking} stats={stats} results={results}
+      <Now loaded={loaded && attentionReady} error={fleetError || attentionError} entries={entries} stats={stats} results={results}
         fleetTotal={fleetTotal + terminals.length} onAnswer={answerAsk} onRespond={respondInbox}
-        onOpenAgent={openAgent} onOpenTerm={openTerm} onOpenInbox={(id) => push(mobileHash("inbox", id))} onRefresh={refreshAll}
+        onOpenAgent={openAgent} onOpenInbox={(id) => push(mobileHash("inbox", id))} onRefresh={refreshAll}
         onCreate={(kind) => setCreate({ kind, workspace: null })} />
     );
   }

@@ -37,12 +37,14 @@ type captureWatch struct {
 
 // captureState guards the watch table and the cached session identity
 // (file path + id, one get_state response) shared with the browser-stream
-// discovery (ADR-0114).
+// discovery (ADR-0114), plus the input-consent mirror cache (ADR-0115).
 type captureState struct {
-	mu          sync.Mutex
-	watches     map[string]*captureWatch
-	sessionFile string
-	sessionID   string
+	mu             sync.Mutex
+	watches        map[string]*captureWatch
+	sessionFile    string
+	sessionID      string
+	inputOn        bool
+	inputCheckedAt time.Time
 }
 
 func newCaptureState() *captureState {

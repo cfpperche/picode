@@ -170,6 +170,30 @@ test("on: the browser leaving fullscreen on its own ends the mode", () => {
   assert.equal(browserIntent(inFs, next, ev), "none", "the browser is already out; nothing to exit");
 });
 
+// --- row: resume after a reload -> completes the browser part ------------
+
+test("resume with the mode on and no browser fullscreen asks for it", () => {
+  const restored = initialFocusState({ on: true });
+  assert.equal(restored.on, true);
+  assert.equal(restored.fs, false);
+  assert.equal(browserIntent(restored, restored, { type: "resume" }), "request");
+});
+
+test("resume is silent once the browser part is already there", () => {
+  const inFs = focusReduce(onState(), { type: "browser", active: true });
+  assert.equal(browserIntent(inFs, inFs, { type: "resume" }), "none");
+});
+
+test("resume says nothing when the mode is off", () => {
+  const off = focusReduce(initialFocusState(), { type: "leave" });
+  assert.equal(browserIntent(off, off, { type: "resume" }), "none");
+});
+
+test("the reducer leaves every state untouched on resume — the gesture is the change", () => {
+  const restored = initialFocusState({ on: true });
+  assert.equal(focusReduce(restored, { type: "resume" }), restored);
+});
+
 // --- row: requestFullscreen rejected -> mode stays on ---------------------
 
 test("on: a browser that never granted fullscreen keeps the in-app mode", () => {

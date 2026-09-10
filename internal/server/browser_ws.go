@@ -22,6 +22,18 @@ import (
 // discovery with the sidecar's safety checks).
 type BrowserStreamResolver func(ctx context.Context, agentID string) (port int, ok bool)
 
+// BrowserInputConsentResolver reports whether the session currently allows
+// browser control (ADR-0115). A seam for tests; production reads the
+// sidecar's consent mirror via ManagedAgent.BrowserInputConsent.
+type BrowserInputConsentResolver func(ctx context.Context, agentID string) bool
+
+// engineInputTypes the proxy may forward while consent is on (ADR-0115).
+var browserInputTypes = map[string]bool{
+	"input_mouse":    true,
+	"input_keyboard": true,
+	"input_touch":    true,
+}
+
 // engine->client message types forwarded verbatim. The whitelist keeps a
 // future engine message type from reaching clients unreviewed.
 var browserForwardTypes = map[string]bool{
@@ -31,12 +43,6 @@ var browserForwardTypes = map[string]bool{
 	"console": true,
 	"tabs":    true,
 	"tab":     true,
-}
-
-// client->engine message types allowed in the read-only phase: pacing only.
-var browserClientTypes = map[string]bool{
-	"config": true,
-	"ack":    true,
 }
 
 func defaultBrowserStreamResolver(deps Deps) BrowserStreamResolver {
@@ -52,6 +58,19 @@ func defaultBrowserStreamResolver(deps Deps) BrowserStreamResolver {
 	}
 }
 
+func defaultBrowserInputConsent(deps Deps) BrowserInputConsentResolver {
+	return func(ctx context.Context, agentID string) bool {
+		if deps.Runtime == nil {
+			return false
+		}
+		ma := deps.Runtime.Get(agentID)
+		if ma == nil {
+			return false
+		}
+		return ma.BrowserInputConsent(ctx)
+	}
+}
+
 // browserWS upgrades, resolves the engine stream, and pumps both ways until
 // either side closes. Delivery mirrors the engine's own contract: frames
 // are latest-wins, control messages ride an ordered channel, and the
@@ -62,6 +81,10 @@ func browserWS(deps Deps) http.Handler {
 		resolve := deps.BrowserStream
 		if resolve == nil {
 			resolve = defaultBrowserStreamResolver(deps)
+		}
+		consent := deps.BrowserInputConsent
+		if consent == nil {
+			consent = defaultBrowserInputConsent(deps)
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
 		port, ok := resolve(ctx, agentID)
@@ -109,8 +132,10 @@ func browserWS(deps Deps) http.Handler {
 			ws.Close()
 		}()
 
-		// client -> engine: pacing control only. Anything else gets a
-		// read-only refusal the UI can show, without tearing down the pipe.
+		// client -> engine: pacing always; input only while the session's
+		// consent mirror says on (checked per message — the TTL cache in
+		// internal/rpc keeps bursts off the filesystem). Anything else gets a
+		// refusal the UI can show, without tearing down the pipe.
 		for {
 			msgType, data, err := ws.ReadMessage()
 			if err != nil {
@@ -119,16 +144,29 @@ func browserWS(deps Deps) http.Handler {
 			if msgType != websocket.TextMessage {
 				continue
 			}
-			if !browserClientAllowed(data) {
+			kind := browserClientKind(data)
+			switch {
+			case kind == "config" || kind == "ack":
+				writeWSRaw(engine, data)
+			case browserInputTypes[kind]:
+				ictx, icancel := context.WithTimeout(context.Background(), 2*time.Second)
+				ok := consent(ictx, agentID)
+				icancel()
+				if !ok {
+					writeWSJSON(ws, map[string]any{
+						"type":    "error",
+						"code":    "watch-only",
+						"message": "Interactive control is off for this session. Enable it with /browser-input on.",
+					})
+					continue
+				}
+				writeWSRaw(engine, data)
+			default:
 				writeWSJSON(ws, map[string]any{
 					"type":    "error",
-					"code":    "read-only",
-					"message": "This browser view is watch-only; interactive control arrives in a later phase.",
+					"code":    "unsupported",
+					"message": "The browser view does not accept this message.",
 				})
-				continue
-			}
-			if !writeWSRaw(engine, data) {
-				break
 			}
 		}
 		engine.Close()
@@ -147,13 +185,13 @@ func browserForwardable(data []byte) bool {
 	return browserForwardTypes[probe.Type]
 }
 
-// browserClientAllowed whitelists client message types (pacing only).
-func browserClientAllowed(data []byte) bool {
+// browserClientKind reports the client message's type ("" if unparsable).
+func browserClientKind(data []byte) string {
 	var probe struct {
 		Type string `json:"type"`
 	}
 	if json.Unmarshal(data, &probe) != nil {
-		return false
+		return ""
 	}
-	return browserClientTypes[probe.Type]
+	return probe.Type
 }

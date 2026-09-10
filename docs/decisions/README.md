@@ -118,3 +118,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0111](0111-codex-native-message-client.md) | Codex native message client | accepted |
 | [0113](0113-matrix-canvas-mode.md) | Matrix canvas mode: a layout mode per matrix, mode-dependent rectangle units, one transactional switch | accepted, amends 0108 |
 | [0114](0114-browser-surface-stream.md) | browser-surface-stream | proposed |
+| [0115](0115-browser-input-consent.md) | browser-input-consent | proposed |

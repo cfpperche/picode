@@ -7,8 +7,7 @@
 
 `git worktree list` is the truth for in-flight branches; entries say what a merge must know.
 
-- `feat/browser-surface` — ADR-0114 browser surface; ff-ready.
-- `feat/herdr-validation`, `feat/picode-video-pilot` — carry pre-ADR-0105 `CHANGELOG.md` edits and the 12 KB `docs/handoff.md`; next `main` merge conflicts in both: keep this file's shape, changelog lines to `docs/changelog.d/`.
+- `feat/herdr-validation`, `feat/picode-video-pilot` — carry pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; next `main` merge conflicts in both: keep this file's shape, changelog lines to `docs/changelog.d/`.
 - `feat/term-key-capture` — fullscreen locks the keyboard (Chromium): `Ctrl+T`/`Ctrl+W` now reach the guest CLIs; ff-ready.
 - `feat/matrix-canvas-surface` (**C2**) and `feat/matrix-node-kinds` (**C3**: `note`, `file`, `diff` panels) — done, ff-ready; cards in `docs/handoff/2026-09-10-matrix-*.md`. **C4** (edges) next, ADR first.
 
@@ -22,7 +21,7 @@
 6. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan.
 7. CLI prompt door iPhone acceptance; first-class CLI agents refused until protocol convergence (ADR-0091).
 8. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
-9. Compaction re-dogfood; historical Inbox rows; remote-mode (owner infra); browser surface phase 2 (input, consent).
+9. Compaction re-dogfood; historical Inbox rows; remote-mode (owner infra); browser debts: mobile stream, remote scroll (upstream wheel), multi-viewer pacing.
 10. Windows clean-machine install (ADR-0098): phase 1 = `install-picode` + `install-runtime` stages in `picode-desktop.exe`; phase 2 = `install.ps1` one-liner + winget, no paid signing. Plan: `docs/plans/windows-clean-install.md`.
 11. Inspector debts (ADR-0096): `git ls-files` search, per-anchor watch, `+N −M` footer.
 
