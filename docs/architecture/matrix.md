@@ -10,7 +10,7 @@ react-grid-layout, chunk loading, the picker — is phase 3 and is the
 **Surface** section at the end. A matrix has a **layout mode** (ADR-0113,
 amending ADR-0108): the 12-column grid it shipped with, or a canvas plane
 — the **Modes** section below. The canvas surface itself is C2 of
-`docs/plans/matrix-canvas.md` and is not built yet.
+`docs/plans/matrix-canvas.md` and is the **Canvas** part of that section.
 
 **Data model (migrations 041 and 043).** `matrices(id, name, compact, mode,
 created_at, updated_at)` and `matrix_panels(id, matrix_id → matrices ON DELETE
@@ -164,12 +164,14 @@ matrix and switching updates the hash. The phone lists the tile as
 | File | Holds |
 |---|---|
 | `MatrixSurface.jsx` | header (native `<select>` switcher, **Add panel**, **New matrix**, a menu with Rename / Delete), the scroll container chunk loading observes, the empty states, the store `{ list, byId }` reduced by `applyMatrixEvent`, the save flow, "last matrix opened" in `localStorage` `picode-matrix-last` |
+| `MatrixCanvas.jsx` | canvas mode's host: `@xyflow/react` 12.11.6, lazy-imported, one custom node type rendering the same `Panel`; the camera, the zoom rule and the minimap. **Canvas** below |
+| `PanelStill.jsx`, `stills.js` | the two bodies a canvas panel has instead of a live pane — the text still and the name-plate — and the memory-only map of captured screens |
 | `MatrixGrid.jsx` | react-grid-layout 2.2.4, v2 API: `useContainerWidth` on the canvas, `gridConfig {cols 12, rowHeight 24, margin 8}`, drag by `.mx-head` with `.mx-actions` as the cancel zone, `se`/`s`/`e` handles, `fastVerticalCompactor` from `react-grid-layout/extras`, children keyed by panel id, `minW 4 / minH 8` |
 | `Panel.jsx` | the wrapper every panel keeps (and `PanelHead`, which the maximize layer reuses): face, name, hint, the sidebar's chip (`agentRowStatus` / `terminalStatus`), Open · Maximize · Remove from matrix; it observes its own visibility; two memo layers so a grid re-render never touches a body |
 | `PanelBody.jsx`, `TerminalPanel.jsx` | loaded → `TermSurface` (the tab's engine; a terminal first `POST /api/terminals/{id}/open`s for its live record); unloaded → one muted line with the feed's last state; the §4.4 rows below as one line + one action |
 | `PanelPicker.jsx`, `NameDialog.jsx` | cmdk list of the agents and terminals not yet on this matrix, with the sidebar's faces and words; the name form (`matrixNameSchema`, Zod, the store's messages, `noValidate`) |
 | `chunkLoader.js`, `paneOwnership.js` | the `IntersectionObserver` glue over the pure `loadPolicy`; what unloading does to an attach |
-| `web/shared/domain/matrix.js` | `nextSlot`, `layoutDiff`, `bindingState`, `loadPolicy`, `suspendedToDispose`, `panelOrder`, `neighborPanel` (+ `PANEL_DEFAULT` 4×14, `PANEL_DIRECTIONS`) — one test per row below in `matrix.test.js` |
+| `web/shared/domain/matrix.js` | `nextSlot`, `layoutDiff`, `bindingState`, `loadPolicy` (with the zoom), `zoomBody`, `pointerAtZoom`, `unitsToPx` / `pxToUnits`, `tidyCanvas`, `normalizeViewport`, `suspendedToDispose`, `panelOrder`, `neighborPanel` (+ `PANEL_DEFAULT` 4×14, `PANEL_DEFAULT_CANVAS` 32×42, `CANVAS_ZOOM`, `PANEL_DIRECTIONS`) — one test per row below in `matrix.test.js` |
 
 **The fleet decides what a panel is bound to**, so the surface draws the
 skeleton until the desktop says it has one: `host.fleet.loaded` is the
@@ -198,7 +200,13 @@ agents on the matrix. No timer.
 | `agent-gone` | "That agent is gone." | Remove |
 
 **Chunk loading** (`loadPolicy`, plan §4.5). Observer root: the surface's
-scroll container, `rootMargin: 100% 0px`.
+scroll container in grid mode (`rootMargin: 100% 0px` — it only scrolls
+vertically) and the React Flow pane in canvas mode (`100%`, both axes: a
+plane pans sideways too, and C0 measured 49 panels in the band against 28).
+A wrapper that unmounts stays loaded for one tick, because switching layout
+mode unmounts every panel in one host and mounts it in the other inside the
+same commit — dropping the flag at once would make the switch a socket
+suspend and kick per panel.
 
 | Situation | Behaviour |
 |---|---|
@@ -216,7 +224,7 @@ scroll container, `rootMargin: 100% 0px`.
 | only on matrices | `suspendTermSocket` — socket closed, xterm and scrollback kept | `ShellTerm` kicks the suspended socket |
 | more than 24 suspended, or one for 10 min | `closeShellTerm`, only while still suspended (a kicked entry belongs to someone again) | a fresh xterm; tmux holds the screen |
 | its tab closes while the panel shows it | — | the body remounts with a fresh xterm (the tab disposed the old one) |
-| the body moves host (maximize, restore) | the release waits a tick, so the body that mounts in the other host claims the pane first and the socket never bounces | the same xterm is re-parented (`ShellTerm`) and refits |
+| the body moves host (maximize, restore) | **counted, not guessed**: `mounted` holds how many bodies show that pane, so only the last one out parks it, and even then on the next tick. The grid unmounts before it mounts (one commit); the canvas mounts the maximize layer's body a commit *before* its React Flow node drops the wrapper's, because a node's data is applied in an effect — with a tick alone that order suspended the socket of the pane the viewer was looking at (measured: `readyState` 3 and keystrokes lost, C2 session 2) | the same xterm is re-parented (`ShellTerm`) and refits |
 | `terminal.deleted` / `agent.deleted` on the feed | `forgetPane`: a pane the Matrix holds suspended is disposed at once; one still mounted is disposed when its body unmounts (the gone row replaces it); one a tab owns is the tab's | — |
 | focus | one focused panel per matrix (click or arrows); only the focused **and engaged** panel gets `autoFocus`, so only it calls `term.focus()`; every visible panel re-claims its pane and fits on reveal |
 | the same terminal twice on one matrix | the picker does not offer it; a second browser that has not heard yet gets the server's 409 and its message, and the optimistic wrapper goes |
@@ -285,6 +293,138 @@ A binding whose target is deleted while the page is up keeps the name and
 hint it last showed, so the gone row reads *grid20 · Shell · Gone* instead
 of the raw id; a page opened after the deletion has nothing to remember
 and falls back to the ref.
+
+### Canvas (phase C2)
+
+`MatrixCanvas.jsx` is the peer of `MatrixGrid.jsx`: `@xyflow/react` 12.11.6,
+**lazy-imported** (eager it is +63.3 KB gzip on the desktop's main chunk;
+split it costs 205 B and lands in a 49 KB gzip chunk only a viewer who opens
+a canvas fetches). It is a host and nothing more — the surface keeps the
+store, the save flow, the focus model, the keyboard, the picker and the
+maximize layer, and every panel is the **same `Panel` wrapper** rendered as
+one custom node type, so a panel has the same header, chip, actions and keys
+in both modes. Configuration is C0's
+([`docs/benchmarks/2026-09-10-node-canvas.md`](../benchmarks/2026-09-10-node-canvas.md)):
+`minZoom` 0.2, `maxZoom` 1.5, `snapToGrid` on an 8 px `snapGrid` (the canvas
+unit, so a drag lands on whole units), `onlyRenderVisibleElements` **off**
+(on, it unmounts a node with no dwell — 54 socket suspends and kicks over
+three fast pans), `NodeResizer` for resize (`onResizeEnd` fires once; it
+does not honour `snapGrid`, so `pxToUnits` rounds), the body marked `nodrag
+nowheel` with the header as the drag handle, marquee selection on a left
+drag, pan on the middle or right button or Space, and a `<MiniMap />` and a
+zoom cluster themed from our tokens (React Flow's defaults are a near-white
+panel over the app's dark surface). Node position is `x · 8, y · 8` px and
+size `w · 8, h · 8`; `unitsToPx` / `pxToUnits` are the only place that
+multiplies.
+
+**Zoom decides the body** (plan §4.3, `loadPolicy` with `{zoom, band}`,
+`zoomBody`, `pointerAtZoom` — one test per row in `matrix.test.js`). The
+reason is not performance, it is correctness: **xterm divides the pointer's
+offset inside the transformed rect by the untransformed cell size**, so the
+cell it reports is `cell × zoom` — at 0.8 a click aimed at column 50 row 15
+arrives as column 40 row 12 — and PiCode ships tmux `mouse on`, so that
+wrong coordinate reaches copy mode and every mouse-aware TUI. The DOM
+renderer stays crisp, so nothing on screen would say so; the surface has to.
+
+| Condition | Body |
+|---|---|
+| in the band, `zoom = 1.0` (± 0.005) | live pane, attached — **the only state that takes a pointer** |
+| in the band, `0.8 ≤ zoom < 1.0`, or `zoom > 1.0` | live pane, readable, taking keys; `pointer-events: none` on the body and a layer over it whose click **snaps the plane to 1** and hands the pointer over |
+| in the band, `zoom < 0.75` | **still**: `term.buffer.active` as text, monospace, inert; the header stays live from the feed |
+| `zoom < 0.4` | **name-plate**: face, name and status colour sized by `1 / zoom`, because a still down there is grey texture and the header does not resolve either |
+| outside the band, any zoom | today's placeholder; the socket suspends after the 5 s hysteresis |
+| focused and engaged | the plane animates to `zoom = 1` before the pane takes keys — Enter engages through the same snap |
+
+The rule is about a **cell**, so it only binds a body that has one.
+`hasPane` (PanelBody.jsx) is the gate on both halves — the `is-inert` /
+`is-still` pointer-events rule and the `.mx-snap` layer: the four rows that
+answer with one line and one action (a managed agent's *Open*, a gone
+terminal's *Remove*, a stopped agent's *Run*, the error row's *Try again*)
+keep their own button at every zoom. They have no cell to miss, and a
+visible button that zooms instead of doing what it says is worse than the
+risk it was protecting against. A name-plate is the other way round: below
+0.4 the plate *is* the panel, there is no header left to reach, so it takes
+the layer whatever it is bound to.
+
+The band is **hysteretic** — live at 0.8 and above, still below 0.75 — so a
+viewer parked on the boundary does not thrash the attaches, and it flips
+when the gesture ends (`onMoveEnd`) rather than once per wheel frame — one
+crossing per gesture instead of sixty, and the panes stay live *during* a
+zoom-out. The band itself is
+**screen-space**, so zooming out puts everything in it (C0: 500 of 500 at
+0.2); what bounds the attaches down there is the still rule, not the band.
+
+**Stills** (`stills.js`) are memory-only, never persisted, and cost 0.02 ms
+for a full screen. They are captured **before the flip, never at unmount** —
+React renders the still body before it runs the live body's cleanup, so a
+capture in the cleanup is one crossing late — and refreshed while the panes
+are live. A camera that *arrives* below the band (a stored viewport, or the
+switch out of grid mode, where the panes went live in the other host) fills
+the gaps from the xterm instances a suspend keeps. A panel with no capture
+yet shows the unloaded body's one muted line, and a still whose panel has
+moved on the feed since carries its age in the header.
+
+**The camera is per viewer**: `localStorage` `picode-matrix-view:<id>` holds
+`{x, y, zoom}`, restored on open, debounced on `onMoveEnd`, with a fit to
+the panels the first time a viewer opens that matrix. It never reaches the
+store — a pan is not an edit (ADR-0113).
+
+**Tidy** (`tidyCanvas`, the header menu) is canvas mode's answer to
+react-grid-layout's automatic compaction: explicit instead of silent. It
+lays the panels out in reading order, sizes kept, three default-sized panels
+across (98 units, the grid's 12 columns and their gutters), each row as tall
+as its tallest panel, and saves once through the layout PATCH. Grid mode
+keeps RGL's compactor untouched this phase (plan §3's two-step).
+
+**Tidy arranges; it never resizes.** It is standing in for RGL's compactor,
+which never resized either — it only ever moved items up into free space —
+so a Tidy that also normalised sizes would silently throw away a resize the
+owner of the panel made on purpose. Rows are as tall as their tallest panel
+for the same reason: the row gives way to the panel, not the other way
+round.
+
+**The switch** is the `Grid | Canvas` segmented control in the header. It
+PATCHes `mode` under `ifUpdatedAt` (after flushing the moves made under the
+old mode, whose answer carries the precondition the switch then uses) and
+applies the answer through `applyMatrixEvent` like every other mutation; a
+409 refetches and says *Matrix changed elsewhere — reloaded.* Because the
+transform is implemented twice against the same fixtures — Go writes it,
+`gridToCanvas` / `canvasToGrid` preview it — the preview **is** the answer,
+so the panels move at once and the 200 reconciles them. Canvas → grid asks
+first in one line (*Grid mode packs the N panels into 12 columns; where they
+sit on the plane is not kept*) because that direction is lossy; grid →
+canvas loses nothing and does not ask.
+
+**What canvas mode adds to the keyboard** (everything phase 3 shipped keeps
+working — `neighborPanel` was already a 2D spatial search, so the arrows
+need no change on a free plane): `+` / `-` zoom, `0` fits, Space-drag pans,
+Enter engages through the snap to 1, and moving focus to an off-screen panel
+**pans it into view**, which is what loads it. A panel already on screen is
+left where it is: an arrow key must not shove the plane about.
+
+**Accepted in a browser (2026-09-10, C2 session 2)** on a scratch instance
+with eight panels — an interactive agent's TUI, a managed agent and six
+shells — plus a 24-panel matrix, driven at 1600 × 1200:
+
+| Row | Measured |
+|---|---|
+| the pointer rule, end to end | at **1.0** a real click aimed at cell (25, 13) of a 29 × 16 pane came back from the terminal as `^[[<0;25;13M` — the cell aimed at, through tmux `mouse on`. At **0.83** xterm's own mapping for the same point answered **(21, 11)** — 4 columns and 2 rows out — the body read `pointer-events: none`, the click produced **no** report at all and moved the plane to 100 %, and the click after it reported (25, 13) again |
+| bodies per zoom | 1.0: 7 live, 7 attached. 0.83: 7 live, every panel `is-inert`. 0.69: stills, **0 attached, 7 suspended, 7 instances kept**. 0.30: name-plates, 0 attached |
+| chunk loading under the transform | at rest 7 attaches and **7 tmux clients**, one per session. A 3 883 px pan at 4 678 px/s (61.4 fps) and +10 s: 0 attached, 7 suspended, the 7 instances still there. Back at 4 781 px/s (62.8 fps): the same 7 instances reattached, 7 tmux clients. Zoom 0.2 → 0 attaches; back to 1.0 → the same 7 |
+| a marquee of many | 24 nodes selected at **61.9 fps**, dragging all 24 at **62.7 fps** (worst frame 16.8 ms), **one** layout PATCH of 24 rows, every rectangle moved by exactly (25, 19) units. C0's 31 fps was 20 nodes among 500 with nine live bodies; this is a lighter scene and not a refutation of it |
+| mode switch with live panes | grid → canvas → grid with six live panels: **zero** socket transitions, zero disposals, zero xterm replacements over both switches (polled at 40 ms) |
+| maximize on a canvas | the pane refits 29 × 16 → **120 × 58**, tmux follows, the wrapper says *Shown maximized*, and the socket stays open in **both** directions |
+| a real 409, from a second browser | a layout PATCH answered 409, refetched (200), toasted *Matrix changed elsewhere — reloaded.*, rolled the optimistic move back and took the other browser's; the mode PATCH did the same and the mode stayed `canvas`. No lingering wrapper either time |
+| the camera is per viewer | two browsers on one matrix at (−562, −623.4, 1.0) and (565, 288, 0.712); neither moved the other, and a reload restored each its own |
+| fullscreen | the canvas fills the window inside `picode-focus`, the left and top reveals float over it, and leaving the mode leaves the camera exactly where it was |
+
+Two things this pass found and fixed: **maximize on a canvas suspended the
+pane's socket** (the deferred node data — the ownership table above), and a
+body that is not a terminal was made pointer-inert with it (the `hasPane`
+gate in §Canvas). One thing it did not fix: the scratch daemon leaves
+`tmux: client` zombies, so three of seven sessions still listed a client
+25 s after their socket was suspended. It never exceeded one client per
+session and production shows the same pattern, so it is not the canvas's.
 
 **Re-measured on a scratch (2026-09-09, phase 3 session 2)** against
 [`docs/benchmarks/2026-09-09-matrix-live-grid.md`](../benchmarks/2026-09-09-matrix-live-grid.md):
