@@ -68,11 +68,12 @@ plain <kbd>Esc</kbd> reaches it, which is why leaving takes
 
 ## One panel, full width
 
-The **⤢** button in a panel's header gives that panel the whole surface.
-The rest of the matrix keeps its layout underneath and the panel's slot
-says *Shown maximized*. The terminal resizes to the bigger space, so more
-of it fits. Press <kbd>Shift</kbd>+<kbd>Esc</kbd> then <kbd>Esc</kbd>, or
-click **⤡**, to put it back.
+The **Maximize** button in a panel's header — the diagonal arrows, next to
+the × — gives that panel the whole surface. The rest of the matrix keeps
+its layout underneath and the panel's slot says *Shown maximized*. The
+terminal resizes to the bigger space, so more of it fits. The same button,
+now **Restore**, puts it back; from the keyboard that is
+<kbd>Shift</kbd>+<kbd>Esc</kbd> to leave the terminal, then <kbd>Esc</kbd>.
 
 ## Limits, and why
 
