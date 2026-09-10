@@ -8,7 +8,7 @@
 `git worktree list` is the truth for branches on disk (`make close-summary` prints it); this section holds only what merging one of them must know.
 
 - `feat/herdr-validation`, `feat/picode-video-pilot` — carry `CHANGELOG.md` edits and the pre-ADR-0105 12 KB `docs/handoff.md`; their next merge of `main` conflicts in both: keep this file's shape, under 8 KB, changelog lines to `docs/changelog.d/`.
-- `feat/matrix-canvas-surface` (canvas C2, session 1 of 2): canvas mode built, `ci-scoped` green: React Flow host, the zoom rule (a test per row), Grid|Canvas switch, Tidy, per-viewer camera; a scratch smoke walked every zoom row. **Session 2 owes**: browser acceptance (agent panels, maximize, marquee, 409, fullscreen), visual review, the `docs-site/` guide, `make close`.
+- `feat/matrix-canvas-surface` (canvas **C2 done**, `close` green, owes nothing, ff-ready): browser acceptance + visual card in `docs/handoff/2026-09-10-matrix-canvas-surface.md`. Next: **C3** (note/file/diff kinds), then **C4** (edges — ADR first).
 
 ## Next up
 
@@ -53,7 +53,7 @@
 - llama: ARM64 hardware and GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
 - Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip needs on-device confirmation (Preferences → Layout).
 - Matrix (ADR-0108/0109): no docs-shots capture — needs a `desktop-matrix` profile and a fixture. Attaches are bounded by scroll *speed*, not distance (300 ms dwell). App-wide, from its captures: the toast covers a surface's Close; dialogs have no scrim and little dark elevation; a grow-resize leaves an idle cursor.
-- Matrix v2 (C0/C2): agent panels, maximize and a marquee drag of many are untested on a canvas; the band flips at gesture end, not per wheel frame; Tidy never resizes. The switch transform lives twice: Go writes it, JS previews it.
+- Matrix v2 (C2 accepted 2026-09-10): the band flips at gesture end and Tidy never resizes — both deliberate; the switch transform lives twice (Go writes, JS previews). Open: `+`/`-`/`0` need a focused panel; a still stamps its age only when the feed moved since; React Flow's badge is kept.
 - Fullscreen mode (2026-09-10): real browser fullscreen owns Escape, so one press leaves the mode; the double-Escape is in-app-only. The right strip is pointer-transparent, so its reveal misses an embedded frame (PDF preview). Chromium only.
 - Notices (2026-09-07): needs-you covers the fleet, but the finish card only fires for the agent whose socket is open; neither exercised against a real pi dialog.
 - Native surfaces (ADR-0109): `host` has no `openTerminal` — the Matrix POSTs `/api/terminals/{id}/open` itself (feed rows carry no `session`); a tab closing under a panel remounts the body with a fresh xterm. An unsupported tile explains itself only via `title`.

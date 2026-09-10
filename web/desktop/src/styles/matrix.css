@@ -222,8 +222,26 @@
   border: 1px solid var(--border-strong); border-radius: var(--radius-ctl); overflow: hidden;
   box-shadow: 0 8px 24px color-mix(in srgb, #000 22%, transparent);
 }
+/* React Flow's two stroke widths are SVG user units — *plane* pixels — so
+   the minimap scales them down with everything else: on a plane 1 200 px
+   across they render at about half a pixel, and on a 13 000 px one at a
+   twentieth. Measured on the dark theme, the viewport frame came out at
+   1.3:1 against the ground and the seam between two touching panels at
+   1.42:1, so a block of neighbours read as one slab and "you are here" was
+   the faintest thing in the widget. `non-scaling-stroke` is the SVG idiom
+   for a screen-space stroke: both are now the same width at any plane size,
+   which also stops the mask having to carry the frame — it cannot, because
+   45 % black over a near-black panel is 1.08:1. */
+.mx-canvas-flow .react-flow__minimap-mask {
+  stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke;
+}
+.mx-canvas-flow .react-flow__minimap-node { vector-effect: non-scaling-stroke; }
 .mx-canvas-flow .react-flow__attribution a { color: var(--text-secondary); opacity: .55; }
 .mx-canvas-flow .react-flow__attribution a:hover { opacity: 1; }
+/* The maximize layer covers the plane but not the last strip under it, and
+   the library's badge was left sticking out half-eaten. A covered canvas
+   shows no chrome of its own. */
+.mx-body[inert] .react-flow__attribution { visibility: hidden; }
 
 /* Resize: NodeResizer's eight handles, hidden until the panel is asked for
    (the grid hides its own the same way). */
@@ -256,6 +274,10 @@
 .mx-zoom > button:last-child { border-right: 0; }
 .mx-zoom > button:hover { background: var(--bg-hover); color: var(--text-primary); }
 .mx-zoom > button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* A single hairline glyph at the cluster's text size reads fainter than the
+   words beside it — it is the same colour, but far fewer pixels carry it.
+   Give the two of them a size of their own. */
+.mx-zoom > .mx-zoom-btn { font-size: 16px; line-height: 1; }
 /* A fixed readout: at 100 % the label is a digit wider than at 70 %, and a
    cluster anchored on its right edge moved the − button out from under the
    pointer between one click and the next. */
@@ -276,7 +298,10 @@
 .mx-snap-label {
   padding: calc(3px * var(--mx-plate-scale)) calc(9px * var(--mx-plate-scale));
   border: 1px solid var(--border-strong); border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
+  /* Opaque, not tinted: this label is the only thing that says why the
+     click did not go through, and at 90 % the terminal underneath read
+     straight through its own explanation. */
+  background: var(--bg-panel);
   color: var(--text-primary); font-size: calc(11px * var(--mx-plate-scale)); white-space: nowrap;
   opacity: 0; transition: opacity var(--motion-fast) var(--ease-out);
 }
