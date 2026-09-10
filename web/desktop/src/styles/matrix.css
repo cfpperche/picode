@@ -153,7 +153,11 @@
      name-plates size themselves by 1 / zoom so they stay readable however
      far out the viewer is. */
   --mx-zoom: 1;
-  --mx-plate-scale: min(4, calc(1 / var(--mx-zoom)));
+  /* The plate scales by 1 / zoom so it stays about the same size on screen,
+     but only up to a point: past 3× the status word is wider than the panel
+     it names and ellipsizes, and a plate that cannot say the status is not
+     worth the room. Below ~0.33 the plate simply shrinks with the plane. */
+  --mx-plate-scale: min(3, calc(1 / var(--mx-zoom)));
 }
 /* React Flow re-declares every `--xy-*-default` on `.react-flow` itself, so
    the theme has to land on that element and not on an ancestor: a custom
@@ -163,15 +167,18 @@
   --xy-background-color-default: var(--bg-base);
   --xy-background-pattern-dots-color-default: var(--border-strong);
   --xy-minimap-background-color-default: var(--bg-panel);
-  /* The mask dims everything *outside* the viewport, so it has to read
-     against the panel in both themes: a scrim keyed to the border colour
-     darkens in light mode and lightens in dark, where a scrim keyed to the
-     background would vanish in one of the two. */
-  --xy-minimap-mask-background-color-default: color-mix(in srgb, var(--border-strong) 60%, transparent);
+  /* The mask covers everything *outside* the viewport, so it has to darken
+     whatever it is over — in both themes. A token would lighten in one of
+     them and invert the convention (the current view dimmed, the rest
+     bright), so this one scrim is plain black at low alpha. The nodes carry
+     a stroke of the minimap's own ground: without it a row of touching
+     panels renders as one undifferentiated slab. */
+  --xy-minimap-mask-background-color-default: color-mix(in srgb, #000 45%, transparent);
   --xy-minimap-mask-stroke-color-default: var(--accent);
   --xy-minimap-mask-stroke-width-default: 3;
   --xy-minimap-node-background-color-default: var(--text-secondary);
-  --xy-minimap-node-stroke-color-default: transparent;
+  --xy-minimap-node-stroke-color-default: var(--bg-panel);
+  --xy-minimap-node-stroke-width-default: 2;
   --xy-selection-background-color-default: var(--accent-soft);
   --xy-selection-border-default: 1px dashed var(--accent);
   --xy-resize-background-color-default: var(--accent);
@@ -184,6 +191,11 @@
    --bg-base, so a hairline was the only thing between a panel and empty
    canvas: a card reads as a card through its edge and a little elevation. */
 .mx-canvas-flow .react-flow__node { border-radius: var(--radius-ctl); }
+/* A body that is not painting a terminal took --bg-base, which is the plane
+   itself, so an unloaded or still panel was an outline rather than a card.
+   A live pane paints its own ground over this. */
+.mx-canvas-flow .mx-panel-body { background: var(--bg-panel); }
+.mx-canvas-flow .mx-still { background: transparent; }
 .mx-canvas-flow .mx-panel {
   position: relative; width: 100%; height: 100%;
   border-color: var(--border-strong);
@@ -244,7 +256,10 @@
 .mx-zoom > button:last-child { border-right: 0; }
 .mx-zoom > button:hover { background: var(--bg-hover); color: var(--text-primary); }
 .mx-zoom > button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.mx-zoom-pct { min-width: 58px; font-variant-numeric: tabular-nums; }
+/* A fixed readout: at 100 % the label is a digit wider than at 70 %, and a
+   cluster anchored on its right edge moved the − button out from under the
+   pointer between one click and the next. */
+.mx-zoom > .mx-zoom-pct { min-width: 62px; font-variant-numeric: tabular-nums; }
 
 /* The pointer layer (plan §4.3). Between 0.8 and 1.5 a pane renders and takes
    keys perfectly, but xterm maps a click as `cell × zoom` under the plane's
@@ -309,7 +324,11 @@
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   color: var(--text-primary); font-weight: 600; font-size: calc(13px * var(--mx-plate-scale));
 }
-.mx-plate .mx-plate-status { min-height: 0; padding: 0; font-size: calc(10px * var(--mx-plate-scale)); }
+.mx-plate .mx-plate-status {
+  min-height: 0; padding: 0; max-width: 100%; display: block;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: calc(9px * var(--mx-plate-scale));
+}
 
 /* Grid | Canvas, the repo's radio-group pattern (.termset-seg) in a header
    row, so it shares --ctl-h with the switcher and the buttons beside it.
