@@ -5,7 +5,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
 import { terms, parkTerm, closeTerm } from "../lib/terms.js";
 import { wireTermWheel } from "@picode/shared/domain/termWheel.js";
-import { wireTermKeys, termDataFilter } from "@picode/shared/domain/termKeys.js";
+import { paneLeaveKey, termDataFilter, wireTermKeys } from "@picode/shared/domain/termKeys.js";
 import { matchGlobalAction } from "../lib/appKeys.js";
 import { scheduleTermFit, wireTermFit } from "@picode/shared/domain/termFit.js";
 import { wireTermLinks } from "@picode/shared/domain/termLinks.js";
@@ -111,7 +111,9 @@ export default function ShellTerm({ agentId, session, active, autoFocus = true, 
       if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(bytes);
     };
     wireTermWheel(term, sendBytes);
-    wireTermKeys(term, sendBytes, matchGlobalAction);
+    // The app's global chords and Shift+Esc (the Matrix's "leave the
+    // pane" key) bubble out of the pane instead of reaching the shell.
+    wireTermKeys(term, sendBytes, (ev) => matchGlobalAction(ev) || paneLeaveKey(ev));
     wireTermClipboard(term, { onError: () => toast.error("The browser refused the copy — select and press Ctrl+C instead.") });
     wireTermFit(entry);
     entry.unwireLinks = wireTermLinks(term, () => cwdRef.current, onFile, liveCwd);

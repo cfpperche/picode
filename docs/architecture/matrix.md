@@ -113,11 +113,11 @@ matrix and switching updates the hash. The phone lists the tile as
 |---|---|
 | `MatrixSurface.jsx` | header (native `<select>` switcher, **Add panel**, **New matrix**, a menu with Rename / Delete), the scroll container chunk loading observes, the empty states, the store `{ list, byId }` reduced by `applyMatrixEvent`, the save flow, "last matrix opened" in `localStorage` `picode-matrix-last` |
 | `MatrixGrid.jsx` | react-grid-layout 2.2.4, v2 API: `useContainerWidth` on the canvas, `gridConfig {cols 12, rowHeight 24, margin 8}`, drag by `.mx-head` with `.mx-actions` as the cancel zone, `se`/`s`/`e` handles, `fastVerticalCompactor` from `react-grid-layout/extras`, children keyed by panel id, `minW 4 / minH 8` |
-| `Panel.jsx` | the wrapper every panel keeps: face, name, hint, the sidebar's chip (`agentRowStatus` / `terminalStatus`), Open · Maximize · Remove from matrix; it observes its own visibility; two memo layers so a grid re-render never touches a body |
+| `Panel.jsx` | the wrapper every panel keeps (and `PanelHead`, which the maximize layer reuses): face, name, hint, the sidebar's chip (`agentRowStatus` / `terminalStatus`), Open · Maximize · Remove from matrix; it observes its own visibility; two memo layers so a grid re-render never touches a body |
 | `PanelBody.jsx`, `TerminalPanel.jsx` | loaded → `TermSurface` (the tab's engine; a terminal first `POST /api/terminals/{id}/open`s for its live record); unloaded → one muted line with the feed's last state; the §4.4 rows below as one line + one action |
 | `PanelPicker.jsx`, `NameDialog.jsx` | cmdk list of the agents and terminals not yet on this matrix, with the sidebar's faces and words; the name form (`matrixNameSchema`, Zod, the store's messages, `noValidate`) |
 | `chunkLoader.js`, `paneOwnership.js` | the `IntersectionObserver` glue over the pure `loadPolicy`; what unloading does to an attach |
-| `web/shared/domain/matrix.js` | `nextSlot`, `layoutDiff`, `bindingState`, `loadPolicy`, `suspendedToDispose` (+ `PANEL_DEFAULT` 4×14) — one test per row below in `matrix.test.js` |
+| `web/shared/domain/matrix.js` | `nextSlot`, `layoutDiff`, `bindingState`, `loadPolicy`, `suspendedToDispose`, `panelOrder`, `neighborPanel` (+ `PANEL_DEFAULT` 4×14, `PANEL_DIRECTIONS`) — one test per row below in `matrix.test.js` |
 
 **Reads.** `GET /api/matrices` and `GET /api/matrices/{id}` once on open
 and on a reveal older than 10 s; then the feed only: `matrix.*` through
@@ -156,8 +156,10 @@ scroll container, `rootMargin: 100% 0px`.
 | only on matrices | `suspendTermSocket` — socket closed, xterm and scrollback kept | `ShellTerm` kicks the suspended socket |
 | more than 24 suspended, or one for 10 min | `closeShellTerm`, only while still suspended (a kicked entry belongs to someone again) | a fresh xterm; tmux holds the screen |
 | its tab closes while the panel shows it | — | the body remounts with a fresh xterm (the tab disposed the old one) |
-| focus | one focused panel per matrix (click); only it gets `autoFocus`, so only it calls `term.focus()`; every visible panel re-claims its pane and fits on reveal |
-| the same terminal twice on one matrix | the picker does not offer it; the server's 409 still shows its message |
+| the body moves host (maximize, restore) | the release waits a tick, so the body that mounts in the other host claims the pane first and the socket never bounces | the same xterm is re-parented (`ShellTerm`) and refits |
+| `terminal.deleted` / `agent.deleted` on the feed | `forgetPane`: a pane the Matrix holds suspended is disposed at once; one still mounted is disposed when its body unmounts (the gone row replaces it); one a tab owns is the tab's | — |
+| focus | one focused panel per matrix (click or arrows); only the focused **and engaged** panel gets `autoFocus`, so only it calls `term.focus()`; every visible panel re-claims its pane and fits on reveal |
+| the same terminal twice on one matrix | the picker does not offer it; a second browser that has not heard yet gets the server's 409 and its message, and the optimistic wrapper goes |
 
 **Saving** (plan §4.7). A drag or resize stop moves the local rows at
 once; `layoutDiff` against the last saved rows accumulates the subset;
@@ -184,9 +186,52 @@ terminals side by side, live." — New matrix; "Add your first panel." —
 Add panel; picker: "Everything is already on this matrix." / "No agents or
 terminals yet — create one from the sidebar." — Close.
 
-**Maximize** today: the wrapper takes the surface body through a
-fixed-position override (`.mx-panel.is-max`, the body rect in CSS
-variables), the layout untouched, the xterm refits in place; Restore or
-Esc outside the pane returns it. Keyboard between panels, the maximize
-polish, the browser QA rows of plan §7 and the guide page are the second
-phase-3 session.
+**Keyboard** (plan §4.6 "Focus"). The surface holds two bits: which panel
+is focused (`focusedId`) and whether the keyboard is inside its terminal
+(`engaged`). The wrapper is the roving tab stop of its matrix — `tabIndex`
+0 on the focused panel, or the first in reading order until one is
+focused, -1 on the rest — and hands every key to the surface, which owns
+the model. `panelOrder` and `neighborPanel` (`web/shared/domain/matrix.js`)
+are the arithmetic; `paneLeaveKey` (`termKeys.js`) is the chord xterm hands
+back.
+
+| On the panel chrome | Does |
+|---|---|
+| click, or arrow from a neighbour | focus this panel; the wrapper takes DOM focus and scrolls into view, which loads it |
+| `←` `→` | the nearest panel that shares rows; ends of the row stop |
+| `↑` `↓` | the nearest panel that shares columns, else the nearest in that half — a row holding one panel is never a dead end |
+| `Home` / `End` | first / last panel in reading order |
+| `Enter` | engage: the pane takes the keyboard (`autoFocus`); on a placeholder row with one action, run it |
+| `Delete` / `Backspace` | remove the panel, with an **Undo** notice that re-adds the same binding at its old rectangle; focus moves to the next panel in reading order, else the previous |
+| `Esc` while a panel is maximized | restore |
+
+| Inside the pane | Does |
+|---|---|
+| `Shift`+`Esc` | leave: the wrapper (or the maximize layer) takes focus back, `engaged` off |
+| every other key, `Esc` included | the guest's — xterm writes it to the shell; `Shift`+`Esc` is the only chord the app takes, and xterm encodes it as the same `\x1b`, so no TUI loses a key it had |
+
+**Maximize** is host-level state on the surface, not a transform on the
+grid item: the maximized panel's body renders in a layer over the grid
+(`.mx-max`, absolute inside `.mx-stage` — no transformed ancestor to
+break), the wrapper keeps its slot and says *Shown maximized* with a
+Restore button, `.mx-body` goes `inert`, and the layout is untouched. The
+pane follows the visible host, so it is the same xterm and it refits to
+the layer (measured: a shell went 58×29 → 120×47 and back). The header
+button toggles; `Esc` on any chrome restores — never from inside the pane
+(the TUI may need it) and never out of a dialog, menu or listbox, which
+own their own `Esc`.
+
+A binding whose target is deleted while the page is up keeps the name and
+hint it last showed, so the gone row reads *grid20 · Shell · Gone* instead
+of the raw id; a page opened after the deletion has nothing to remember
+and falls back to the ref.
+
+**Re-measured on a scratch (2026-09-09, phase 3 session 2)** against
+[`docs/benchmarks/2026-09-09-matrix-live-grid.md`](../benchmarks/2026-09-09-matrix-live-grid.md):
+nine live TUI bodies at 60.0 fps in-page, zero long tasks and 4.2 % of one
+core in the page's renderer (0.1 % idle); dragging with those nine live at
+60.3–60.9 fps; a pass at the study's speed (16 000 px/s, each panel 0.17 s
+in the band) mounted 8 bodies. The dwell is a *speed* rule, not a distance
+one: the same 4 s pass over a short 46-panel matrix leaves every panel
+0.70 s in the band, so all of them legitimately load, and the 5 s
+hysteresis returns to the steady 12–21 within 8 s.

@@ -86,20 +86,25 @@
 .mx-surface .react-grid-item > .react-resizable-handle-s::after { right: auto; left: 50%; bottom: 3px; width: 24px; height: 3px; transform: translateX(-50%); }
 .mx-surface .react-grid-item > .react-resizable-handle-e::after { bottom: auto; right: 3px; top: 50%; width: 3px; height: 24px; transform: translateY(-50%); }
 
-/* Maximize (plan §4.6): the wrapper takes the surface body, the layout is
-   untouched — the grid's transform and size are overridden, nothing moves
-   in the DOM, so the xterm stays mounted and only refits. The surface
-   writes --mx-top/left/w/h from its body rect. */
+/* Maximize (plan §4.6): host-level state, not a transform on the grid item.
+   The maximized panel's body renders in a layer over the grid (`.mx-max`,
+   absolute inside the stage — no transformed ancestor to break a fixed
+   position), the layout is untouched and the wrapper keeps its slot with a
+   stand-in line. The pane follows the visible host (ShellTerm), so it is
+   the same xterm and it refits into the layer. */
+.mx-stage { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
 .mx-surface.is-max .mx-body { overflow: hidden; }
-.mx-panel.is-max {
-  position: fixed !important; z-index: 30;
-  top: var(--mx-top, 0); left: var(--mx-left, 0);
-  width: var(--mx-w, 100%) !important; height: var(--mx-h, 100%) !important;
-  transform: none !important; transition: none !important;
-  animation: none; box-shadow: 0 16px 48px color-mix(in srgb, #000 35%, transparent);
+.mx-max {
+  position: absolute; inset: 8px; z-index: 30;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--bg-panel); border: 1px solid var(--border-strong); border-radius: var(--radius-ctl);
+  box-shadow: 0 16px 48px color-mix(in srgb, #000 35%, transparent);
+  animation: mx-enter var(--motion-med) var(--ease-out);
 }
-.mx-panel.is-max .mx-head { cursor: default; }
-.mx-panel.is-max > .react-resizable-handle { display: none; }
+.mx-max:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.mx-head.is-fixed { cursor: default; }
+.mx-panel.is-max { border-color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .mx-max { animation: none; } }
 
 /* Picker and name dialog. */
 .dlg-picker { width: min(480px, calc(100vw - 32px)); }

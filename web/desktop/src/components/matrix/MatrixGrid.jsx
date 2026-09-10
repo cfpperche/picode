@@ -29,7 +29,7 @@ export function compactPanels(panels) {
   return fastVerticalCompactor.compact(layout, MATRIX_LIMITS.cols).map((l) => ({ id: l.i, x: l.x, y: l.y, w: l.w, h: l.h }));
 }
 
-export default function MatrixGrid({ models, loaded, hidden, focusedId, maximizedId, loader, handlers, onLayoutChange, onGestureStart, onGestureStop }) {
+export default function MatrixGrid({ models, loaded, hidden, focusedId, engaged, maximizedId, tabStopId, loader, handlers, onLayoutChange, onGestureStart, onGestureStop }) {
   const { width, containerRef } = useContainerWidth({ initialWidth: 0 });
   // A hidden tab measures 0: keep drawing at the last real width so the
   // wrappers keep their places (and their scroll offset) until the reveal.
@@ -62,7 +62,9 @@ export default function MatrixGrid({ models, loaded, hidden, focusedId, maximize
             loaded={loaded.has(m.id)}
             hidden={hidden}
             focused={focusedId === m.id}
+            engaged={engaged}
             maximized={maximizedId === m.id}
+            tabStop={tabStopId === m.id}
             loader={loader}
             handlers={handlers}
           />

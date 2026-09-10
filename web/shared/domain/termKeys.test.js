@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { copyPasteAction, newlineSeq, termShortcutRows, termDataFilter, wireTermKeys } from "./termKeys.js";
+import { copyPasteAction, newlineSeq, paneLeaveKey, termShortcutRows, termDataFilter, wireTermKeys } from "./termKeys.js";
 
 test("Shift+Enter is the default newline", () => {
   assert.equal(newlineSeq({ type: "keydown", key: "Enter", shiftKey: true }, "shift-enter"), "\x1b[27;2;13~");
@@ -29,6 +29,7 @@ test("Ctrl+C copies if selected; Ctrl+V pastes", () => {
 test("termShortcutRows follow newline prefs", () => {
   const on = termShortcutRows({ newlineKey: "shift-enter" });
   assert.ok(on.some((r) => r.key === "Ctrl+C"));
+  assert.ok(on.some((r) => r.key === "Shift+Esc"));
   assert.ok(on.some((r) => r.key === "Ctrl+V"));
   assert.ok(on.some((r) => r.key === "Shift+Enter"));
   const off = termShortcutRows({ newlineKey: "ctrl-enter" });
@@ -103,4 +104,24 @@ test("passthrough keydowns are neither written nor canceled by xterm", () => {
   assert.equal(prevented, false);
   assert.equal(sent.length, 0);
   assert.equal(h({ type: "keydown", key: "a" }), true);
+});
+
+test("paneLeaveKey: Shift+Escape on keydown, nothing else", () => {
+  assert.equal(paneLeaveKey({ type: "keydown", key: "Escape", shiftKey: true }), true);
+  assert.equal(paneLeaveKey({ type: "keydown", key: "Escape" }), false, "a bare Escape belongs to the TUI");
+  assert.equal(paneLeaveKey({ type: "keydown", key: "Escape", shiftKey: true, ctrlKey: true }), false);
+  assert.equal(paneLeaveKey({ type: "keyup", key: "Escape", shiftKey: true }), false);
+  assert.equal(paneLeaveKey({ type: "keydown", key: "Enter", shiftKey: true }), false);
+  assert.equal(paneLeaveKey(null), false);
+});
+
+test("wireTermKeys passes the leave chord through when the app names it", () => {
+  let h = null;
+  const sent = [];
+  wireTermKeys({ attachCustomKeyEventHandler(fn) { h = fn; } }, (b) => sent.push(b), paneLeaveKey);
+  let prevented = false;
+  assert.equal(h({ type: "keydown", key: "Escape", shiftKey: true, preventDefault() { prevented = true; } }), false);
+  assert.equal(prevented, false, "xterm neither writes nor cancels it: the wrapper's listener sees it");
+  assert.equal(h({ type: "keydown", key: "Escape", preventDefault() { prevented = true; } }), true, "the bare key still reaches the TUI");
+  assert.equal(sent.length, 0);
 });

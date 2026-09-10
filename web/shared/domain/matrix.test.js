@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { touches } from "./feedReducers.js";
 import {
-  LOAD_DWELL_MS, MATRIX_EVENTS, MATRIX_LIMITS, PANEL_DEFAULT, SUSPENDED_MAX, SUSPENDED_TTL_MS, UNLOAD_AFTER_MS,
-  applyMatrixEvent, bindingState, layoutDiff, loadPolicy, nextSlot, normalizeMatrix, normalizeMatrixDetail,
-  normalizeMatrixList, normalizePanel, suspendedToDispose, validateCompact, validateName, validatePanel, validatePlacement,
+  LOAD_DWELL_MS, MATRIX_EVENTS, MATRIX_LIMITS, PANEL_DEFAULT, PANEL_DIRECTIONS, SUSPENDED_MAX, SUSPENDED_TTL_MS, UNLOAD_AFTER_MS,
+  applyMatrixEvent, bindingState, layoutDiff, loadPolicy, neighborPanel, nextSlot, normalizeMatrix, normalizeMatrixDetail,
+  normalizeMatrixList, normalizePanel, panelOrder, suspendedToDispose, validateCompact, validateName, validatePanel, validatePlacement,
 } from "./matrix.js";
 
 const summary = (id, name, extra = {}) => ({
@@ -321,4 +321,68 @@ test("suspendedToDispose: past 24 instances the oldest go, past 10 min any goes"
   assert.deepEqual(suspendedToDispose([{ id: "old", at: 0 }, { id: "fresh", at: 500000 }], 600000), ["old"]);
   assert.deepEqual(suspendedToDispose([{ id: "b", at: 20 }, { id: "a", at: 10 }], 30, 1), ["a"], "sorted by age, not by order");
   assert.deepEqual(suspendedToDispose([{ id: "x" }, null, { at: 1 }], 5), []);
+});
+
+// The keyboard's grid (plan §4.6 "Focus"): three panels across the top,
+// a wide one under the first two, a stack under the third, one alone at
+// the bottom left.
+//
+//   A(0,0 4×8)  B(4,0 4×8)  C(8,0 4×8)
+//   D(0,8 8×8)              E(8,8 4×4)
+//                           F(8,12 4×4)
+//   G(0,16 4×8)
+const cell = (id, x, y, w, h) => ({ id, kind: "terminal", ref: "t-" + id, x, y, w, h });
+const GRID = [
+  cell("A", 0, 0, 4, 8), cell("B", 4, 0, 4, 8), cell("C", 8, 0, 4, 8),
+  cell("D", 0, 8, 8, 8), cell("E", 8, 8, 4, 4), cell("F", 8, 12, 4, 4),
+  cell("G", 0, 16, 4, 8),
+];
+
+test("panelOrder: reading order, junk left out", () => {
+  assert.deepEqual(panelOrder([...GRID].reverse()), ["A", "B", "C", "D", "E", "F", "G"]);
+  assert.deepEqual(panelOrder([cell("x", 4, 0, 4, 8), { id: "junk", x: 0 }, null, cell("y", 0, 0, 4, 8)]), ["y", "x"]);
+  assert.deepEqual(panelOrder(null), []);
+  assert.deepEqual([...PANEL_DIRECTIONS], ["left", "right", "up", "down"]);
+});
+
+test("neighborPanel: left and right stay on the row and stop at its ends", () => {
+  assert.equal(neighborPanel(GRID, "A", "right"), "B");
+  assert.equal(neighborPanel(GRID, "B", "right"), "C");
+  assert.equal(neighborPanel(GRID, "C", "right"), "", "nothing to the right of the last column");
+  assert.equal(neighborPanel(GRID, "B", "left"), "A");
+  assert.equal(neighborPanel(GRID, "A", "left"), "");
+  assert.equal(neighborPanel(GRID, "D", "right"), "E", "the wide panel shares rows with E and F; E lines up with its top");
+  assert.equal(neighborPanel(GRID, "F", "left"), "D");
+  assert.equal(neighborPanel(GRID, "G", "right"), "", "a row with one panel: right is a dead end, down and up are not");
+});
+
+test("neighborPanel: down and up follow the shared columns, ties go to the best-aligned edge", () => {
+  assert.equal(neighborPanel(GRID, "A", "down"), "D");
+  assert.equal(neighborPanel(GRID, "B", "down"), "D");
+  assert.equal(neighborPanel(GRID, "C", "down"), "E");
+  assert.equal(neighborPanel(GRID, "E", "down"), "F");
+  assert.equal(neighborPanel(GRID, "F", "up"), "E");
+  assert.equal(neighborPanel(GRID, "E", "up"), "C");
+  assert.equal(neighborPanel(GRID, "D", "up"), "A", "A and B both touch D; A lines up with its left edge");
+  assert.equal(neighborPanel(GRID, "A", "up"), "");
+  assert.equal(neighborPanel(GRID, "G", "down"), "");
+});
+
+test("neighborPanel: up and down fall back to the nearest panel in that half when no column is shared", () => {
+  assert.equal(neighborPanel(GRID, "F", "down"), "G", "F sits over nothing; G is the only panel below");
+  assert.equal(neighborPanel(GRID, "G", "up"), "D", "D touches G; A is further up");
+  const twoRows = [cell("a", 8, 0, 4, 8), cell("b", 0, 8, 4, 8), cell("c", 4, 8, 4, 8)];
+  assert.equal(neighborPanel(twoRows, "a", "down"), "c", "nearest column first");
+  assert.equal(neighborPanel(twoRows, "b", "up"), "a");
+  assert.equal(neighborPanel(twoRows, "b", "right"), "c");
+  assert.equal(neighborPanel(twoRows, "c", "right"), "", "left and right never leave the row");
+});
+
+test("neighborPanel: unknown id, unknown direction and junk answer nothing", () => {
+  assert.equal(neighborPanel(GRID, "nope", "right"), "");
+  assert.equal(neighborPanel(GRID, "A", "diagonal"), "");
+  assert.equal(neighborPanel(GRID, "", "right"), "");
+  assert.equal(neighborPanel(null, "A", "right"), "");
+  assert.equal(neighborPanel([cell("A", 0, 0, 4, 8), { id: "B", x: 4, y: 0 }, null], "A", "right"), "", "a panel without a whole rectangle is not a neighbour");
+  assert.equal(neighborPanel([cell("A", 0, 0, 4, 8)], "A", "down"), "", "alone");
 });

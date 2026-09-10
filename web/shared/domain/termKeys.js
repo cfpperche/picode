@@ -66,6 +66,7 @@ export function termShortcutRows(prefs) {
     { key: nl, label: "New line" },
   ];
   rows.push(
+    { key: "Shift+Esc", label: "Leave the terminal (Matrix panel)" },
     { key: "Shift+drag", label: "Select" },
     { key: "Ctrl+C", label: "Copy if selected; else interrupt" },
     { key: "Ctrl+V", label: "Paste" },
@@ -98,9 +99,18 @@ function trackKeydown(ev) {
   recent = { t: Date.now(), seq: newlineSeq(ev, readTermPrefs().newlineKey), sent: false };
 }
 
+// paneLeaveKey(ev): Shift+Escape hands the keyboard back to the app — the
+// Matrix focuses the panel's chrome (docs/architecture/matrix.md). A bare
+// Escape still reaches the TUI, which may need it; xterm encodes
+// Shift+Escape as the same \x1b, so no guest could tell the two apart and
+// none loses a key it had.
+export function paneLeaveKey(ev) {
+  return !!ev && ev.type === "keydown" && ev.key === "Escape" && !!ev.shiftKey && !ev.ctrlKey && !ev.altKey && !ev.metaKey;
+}
+
 // `passthrough(ev)` names keydowns the application owns (its global
-// chords): xterm neither writes nor cancels them, the event bubbles to the
-// app's listener as it would from any other element.
+// chords, the leave chord): xterm neither writes nor cancels them, the
+// event bubbles to the app's listener as it would from any other element.
 export function wireTermKeys(term, send, passthrough) {
   if (!term || typeof term.attachCustomKeyEventHandler !== "function") return;
   const ta = term.textarea || (term.element && term.element.querySelector("textarea"));

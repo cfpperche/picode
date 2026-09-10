@@ -5,16 +5,19 @@ import { applyTui, touches } from "@picode/shared/domain/feedReducers.js";
 import { displayAgentName, locate } from "@picode/shared/domain/tree.js";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 import { agentRowStatus, agentStatusLabel } from "@picode/shared/domain/agentStatus.js";
-import { PANEL_DEFAULT, applyMatrixEvent, bindingState, layoutDiff, nextSlot, normalizeMatrixDetail, normalizeMatrixList } from "@picode/shared/domain/matrix.js";
+import { PANEL_DEFAULT, applyMatrixEvent, bindingState, layoutDiff, neighborPanel, nextSlot, normalizeMatrixDetail, normalizeMatrixList, panelOrder } from "@picode/shared/domain/matrix.js";
+import { paneLeaveKey } from "@picode/shared/domain/termKeys.js";
 import AppIcon from "../AppIcon.jsx";
 import { IconEllipsis, IconPencil, IconPlus, IconTrash } from "../Icons.jsx";
-import { toast, toastError } from "../../lib/toast.js";
+import { notify, toast, toastError } from "../../lib/toast.js";
 import { askConfirm } from "../../lib/confirm.js";
 import MatrixGrid, { compactPanels } from "./MatrixGrid.jsx";
+import { PanelHead } from "./Panel.jsx";
+import PanelBody from "./PanelBody.jsx";
 import PanelPicker from "./PanelPicker.jsx";
 import NameDialog from "./NameDialog.jsx";
 import { ChunkLoader } from "./chunkLoader.js";
-import { ownedByTab } from "./paneOwnership.js";
+import { forgetPane, ownedByTab } from "./paneOwnership.js";
 import "../../styles/matrix.css";
 
 // MatrixSurface — the Matrix app's native surface (ADR-0109; plan
@@ -30,6 +33,17 @@ import "../../styles/matrix.css";
 // per browser (localStorage). The app reads the desktop only through
 // `host` (fleet, openTabs, openTab, openInteractive, revealAgent,
 // openFileTab, feed) — never App state.
+//
+// Keyboard (plan §4.6 "Focus"): one focused panel per matrix (focusedId)
+// and one bit saying whether the keyboard is inside its terminal
+// (engaged). Only the focused, engaged panel passes autoFocus down, so
+// exactly one xterm ever calls term.focus(). Arrows move focus between
+// wrappers (neighborPanel) and scroll the target into view, which loads
+// it; Enter engages; Shift+Esc (paneLeaveKey) comes back to the chrome;
+// Delete removes with an Undo toast; Home/End jump. Maximize is
+// host-level state: the maximized panel's body mounts in a layer over the
+// grid (the pane follows the visible host; the wrapper shows a stand-in
+// line), the layout is untouched, Esc on any chrome restores.
 
 const LAST_KEY = "picode-matrix-last";
 const REVEAL_STALE_MS = 10000;
@@ -100,6 +114,14 @@ function buildModel(panel, fleet, workingIds, openTabs, prev) {
       stamp = target.lastStatusAt || target.lastStartedAt || "";
     }
   }
+  // A deleted target has no row left to read: keep the words the panel
+  // showed a moment ago, so the gone row reads "grid10 · Shell — That
+  // terminal is gone." and not its id. A page opened after the deletion
+  // has nothing to remember and falls back to the ref.
+  if (!target && prev && prev.name && prev.name !== panel.ref) {
+    name = prev.name;
+    hint = prev.hint;
+  }
   const next = {
     id: panel.id, kind: panel.kind, ref: panel.ref, x: panel.x, y: panel.y, w: panel.w, h: panel.h, pending: !!panel.pending,
     state, target, name, hint, cwd, status, label, stamp, owned: ownedByTab(panel.kind, panel.ref, openTabs),
@@ -127,7 +149,13 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   const [detailError, setDetailError] = useState("");
   const [loadedIds, setLoadedIds] = useState(() => new Set());
   const [focusedId, setFocusedId] = useState("");
+  const [engaged, setEngaged] = useState(false);
   const [maximizedId, setMaximizedId] = useState("");
+  const focusedRef = useRef("");
+  focusedRef.current = focusedId;
+  const maximizedRef = useRef("");
+  maximizedRef.current = maximizedId;
+  const panelsRef = useRef(NO_PANELS);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [nameDialog, setNameDialog] = useState(""); // "" | "new" | "rename"
   const [workingIds, setWorkingIds] = useState([]);
@@ -141,6 +169,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   const detailAt = useRef({});
   const bodyRef = useRef(null);
   const rootRef = useRef(null);
+  const maxRef = useRef(null);
 
   // ---- chunk loading -----------------------------------------------------
   const loader = useMemo(() => new ChunkLoader(setLoadedIds), []);
@@ -203,6 +232,14 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
         return;
       }
       if (ev.type === "agent.tui") { setWorkingIds((cur) => applyTui(cur, ev)); return; }
+      // A deleted target holds no pane: dispose what the Matrix kept
+      // suspended now, not when the LRU gets to it (paneOwnership.js).
+      if (ev.type === "terminal.deleted" || ev.type === "agent.deleted") {
+        const gone = ev.data && ev.data.id;
+        const kind = ev.type === "terminal.deleted" ? "terminal" : "agent";
+        if (gone) forgetPane(gone, ownedByTab(kind, gone, (hostRef.current && hostRef.current.openTabs) || NO_PANELS));
+        return;
+      }
       if (!touches(ev, ["matrix"])) return;
       // Another client's rows arrive after the gesture ends (plan §4.7).
       if (gestureRef.current) { queuedRef.current.push(ev); return; }
@@ -224,6 +261,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     currentRef.current = id;
     setCurrentId(id);
     setFocusedId("");
+    setEngaged(false);
     setMaximizedId("");
     setDetailError("");
     writeLast(id);
@@ -250,6 +288,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   const current = store.list.find((m) => m.id === currentId) || null;
   const detail = store.byId[currentId] || null;
   const panels = detail ? detail.panels : NO_PANELS;
+  panelsRef.current = panels;
 
   // The tmux-reported Working state of the agents on this matrix: one read
   // on open and reveal, then agent.tui from the feed (the sidebar's rule).
@@ -401,21 +440,125 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       toastError(e);
     }
   }
+  // Remove is reversible: the panel leaves at once and the toast's Undo
+  // adds the same binding back at its old rectangle (the compactor settles
+  // it if the hole closed meanwhile). Focus moves to the next panel in
+  // reading order, else the previous, so a keyboard user never lands on
+  // nothing.
   async function removePanel(model) {
     const id = currentRef.current;
     if (model.pending) return;
+    const order = panelOrder(panelsRef.current);
+    const at = order.indexOf(model.id);
+    const next = order[at + 1] || order[at - 1] || "";
+    const removed = { type: "matrix.panel.removed", data: { id, panelId: model.id } };
     try {
       await api("/api/matrices/" + enc(id) + "/panels/" + enc(model.id), { method: "DELETE" });
-      setStore((s) => applyMatrixEvent(s, { type: "matrix.panel.removed", data: { id, panelId: model.id } }));
+      setStore((s) => applyMatrixEvent(s, removed));
+      notify({
+        level: "info",
+        title: "Removed " + model.name + " from the matrix.",
+        actions: [{ label: "Undo", primary: true, run: () => restorePanel(id, model) }],
+        key: "mx-removed:" + model.id,
+      });
     } catch (e) {
-      if (e && e.status === 404) setStore((s) => applyMatrixEvent(s, { type: "matrix.panel.removed", data: { id, panelId: model.id } }));
+      if (e && e.status === 404) setStore((s) => applyMatrixEvent(s, removed));
       else toastError(e);
     }
+    if (focusedRef.current === model.id) focusPanel(next);
+  }
+  async function restorePanel(matrixId, model) {
+    const body = { kind: model.kind, ref: model.ref, x: model.x, y: model.y, w: model.w, h: model.h };
+    try {
+      const res = await api("/api/matrices/" + enc(matrixId) + "/panels", json("POST", body));
+      setStore((s) => applyMatrixEvent(s, { type: "matrix.panel.added", data: res }));
+      if (currentRef.current === matrixId && res && res.panel) focusPanel(res.panel.id);
+    } catch (e) {
+      toastError(e);
+    }
+  }
+
+  // ---- focus (plan §4.6) --------------------------------------------------
+  // focusPanel(id): the wrapper takes DOM focus and scrolls into view (which
+  // loads it); the keyboard stays on the chrome until Enter.
+  function focusPanel(id) {
+    setFocusedId(id || "");
+    setEngaged(false);
+    if (!id) return;
+    requestAnimationFrame(() => {
+      const el = bodyRef.current && bodyRef.current.querySelector('[data-mx-panel="' + id + '"]');
+      if (!el) return;
+      if (el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
+      el.focus({ preventScroll: true });
+    });
+  }
+  function engagePanel(id) {
+    setFocusedId(id);
+    setEngaged(true);
+  }
+  function restoreMaximized() {
+    const id = maximizedRef.current;
+    if (!id) return;
+    setMaximizedId("");
+    focusPanel(id);
   }
 
   // ---- panel actions (stable for the memoized wrappers) -------------------
   const handlers = useMemo(() => ({
-    onFocus: (model) => setFocusedId((cur) => (cur === model.id ? cur : model.id)),
+    // onFocus(model, body): a pointer on the wrapper — inside the body the
+    // xterm takes the click, so the keyboard is in the pane; on the chrome
+    // the wrapper itself takes the focus.
+    onFocus: (model, body) => {
+      setFocusedId((cur) => (cur === model.id ? cur : model.id));
+      setEngaged(!!body);
+    },
+    // onKey(e, model): the wrapper's keydown. From inside the pane only the
+    // leave chord is ours (xterm passes it through); every other key there
+    // is the shell's. On the chrome itself: the model above. Buttons in the
+    // header or the body keep their own keys.
+    onKey: (e, model) => {
+      const el = e.currentTarget;
+      const t = e.target;
+      if (t !== el && t.closest && t.closest(".xterm")) {
+        if (!paneLeaveKey(e)) return;
+        e.preventDefault();
+        setEngaged(false);
+        el.focus();
+        return;
+      }
+      if (t !== el) return;
+      const dir = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down" }[e.key];
+      if (dir) {
+        e.preventDefault();
+        const next = neighborPanel(panelsRef.current, model.id, dir);
+        if (next) focusPanel(next);
+        return;
+      }
+      if (e.key === "Home" || e.key === "End") {
+        e.preventDefault();
+        const order = panelOrder(panelsRef.current);
+        const next = e.key === "Home" ? order[0] : order[order.length - 1];
+        if (next && next !== model.id) focusPanel(next);
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        // A live pane takes the keyboard; a row with one action runs it.
+        const action = el.querySelector(".mx-panel-body .mx-placeholder .btn");
+        if (action && !el.querySelector(".mx-panel-body .xterm")) action.click();
+        else engagePanel(model.id);
+        return;
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        removePanel(model);
+        return;
+      }
+      if (e.key === "Escape" && maximizedRef.current) {
+        e.preventDefault();
+        restoreMaximized();
+      }
+    },
     onOpen: (model) => {
       const h = hostRef.current || {};
       if (model.kind === "terminal") { if (h.openTab) h.openTab("t:" + model.ref); return; }
@@ -428,7 +571,13 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       api("/api/agents/" + enc(model.ref) + "/open", { method: "POST" }).catch(toastError);
     },
     onRemove: (model) => { removePanel(model); },
-    onMaximize: (model) => setMaximizedId((cur) => (cur === model.id ? "" : model.id)),
+    // Maximize takes the keyboard into the pane (the layer mounts its body
+    // with autoFocus); Restore hands it back to the wrapper's chrome.
+    onMaximize: (model) => {
+      if (maximizedRef.current === model.id) { restoreMaximized(); return; }
+      setMaximizedId(model.id);
+      engagePanel(model.id);
+    },
     onOpenFile: (model, path) => {
       const h = hostRef.current || {};
       if (h.openFileTab) h.openFileTab(model.kind === "agent" ? "agent" : "term", model.ref, path);
@@ -437,37 +586,47 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   }), []);
 
   // ---- maximize (plan §4.6: the panel takes the surface, layout untouched)
+  // Esc on any chrome restores — the layer's head, the surface header, the
+  // wrapper — never from inside the pane (the TUI may need it; Shift+Esc
+  // leaves the pane first) and never out of a dialog or menu, which own
+  // their own Esc.
   useEffect(() => {
-    const root = rootRef.current;
-    if (!maximizedId || !root) return undefined;
-    const place = () => {
-      const body = bodyRef.current;
-      if (!body) return;
-      const r = body.getBoundingClientRect();
-      root.style.setProperty("--mx-top", r.top + "px");
-      root.style.setProperty("--mx-left", r.left + "px");
-      root.style.setProperty("--mx-w", r.width + "px");
-      root.style.setProperty("--mx-h", r.height + "px");
-    };
-    place();
+    if (!maximizedId || hidden) return undefined;
     const onKey = (e) => {
-      if (e.key !== "Escape") return;
-      const inTerm = e.target && e.target.closest && e.target.closest(".xterm");
-      if (inTerm) return;
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const t = e.target;
+      if (t && t.closest && t.closest(".xterm, [role=\"dialog\"], [role=\"menu\"], [role=\"listbox\"]")) return;
       e.preventDefault();
-      setMaximizedId("");
+      restoreMaximized();
     };
-    window.addEventListener("resize", place);
     document.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("resize", place);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [maximizedId]);
+    return () => document.removeEventListener("keydown", onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maximizedId, hidden]);
+  // The layer's own keys: Shift+Esc from inside the pane focuses the
+  // layer's chrome; Enter on it goes back in.
+  function onLayerKey(e) {
+    const el = e.currentTarget;
+    const t = e.target;
+    if (t !== el && t.closest && t.closest(".xterm")) {
+      if (!paneLeaveKey(e)) return;
+      e.preventDefault();
+      setEngaged(false);
+      el.focus();
+      return;
+    }
+    if (t === el && e.key === "Enter") {
+      e.preventDefault();
+      engagePanel(maximizedRef.current);
+    }
+  }
 
   // ---- render -------------------------------------------------------------
   const onMatrix = useMemo(() => new Set(panels.map((p) => p.kind + ":" + p.ref)), [panels]);
   const rootClass = "app-surface native-surface mx-surface" + (maximizedId ? " is-max" : "");
+  // The roving tab stop: the focused panel, else the first in reading order.
+  const tabStopId = useMemo(() => (focusedId && panels.some((p) => p.id === focusedId) ? focusedId : panelOrder(panels)[0] || ""), [panels, focusedId]);
+  const maxModel = maximizedId ? models.find((m) => m.id === maximizedId) || null : null;
   let body;
   if (listError && !store.list.length) {
     body = (
@@ -501,24 +660,48 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       <div className="app-blank">
         <AppIcon name="matrix" label={title} size={24} />
         <p className="app-blank-title">Add your first panel.</p>
+        <p className="app-blank-sub">A panel is one agent or terminal, live on this matrix.</p>
         <button type="button" className="btn btn-sm btn-primary" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
       </div>
     );
   } else {
     body = (
-      <div className="mx-body" ref={setBody}>
-        <MatrixGrid
-          models={models}
-          loaded={loadedIds}
-          hidden={!!hidden}
-          focusedId={focusedId}
-          maximizedId={maximizedId}
-          loader={loader}
-          handlers={handlers}
-          onLayoutChange={onLayoutChange}
-          onGestureStart={onGestureStart}
-          onGestureStop={onGestureStop}
-        />
+      <div className="mx-stage">
+        <div className="mx-body" ref={setBody} inert={!!maximizedId}>
+          <MatrixGrid
+            models={models}
+            loaded={loadedIds}
+            hidden={!!hidden}
+            focusedId={focusedId}
+            engaged={engaged}
+            maximizedId={maximizedId}
+            tabStopId={tabStopId}
+            loader={loader}
+            handlers={handlers}
+            onLayoutChange={onLayoutChange}
+            onGestureStart={onGestureStart}
+            onGestureStop={onGestureStop}
+          />
+        </div>
+        {maxModel ? (
+          // The maximized panel's body, in a layer over the grid: the same
+          // xterm (ShellTerm re-claims the pane), fitted to the layer.
+          <div className="mx-max" role="group" aria-label={maxModel.name + " — maximized"} tabIndex={-1} ref={maxRef} onKeyDown={onLayerKey}>
+            <PanelHead model={maxModel} loaded={loadedIds.has(maxModel.id)} maximized handlers={handlers} fixed />
+            <div className="mx-panel-body">
+              <PanelBody
+                model={maxModel}
+                loaded={loadedIds.has(maxModel.id)}
+                hidden={!!hidden}
+                focused={engaged && focusedId === maxModel.id}
+                onOpen={() => handlers.onOpen(maxModel)}
+                onRemove={() => handlers.onRemove(maxModel)}
+                onRun={() => handlers.onRun(maxModel)}
+                onOpenFile={(path) => handlers.onOpenFile(maxModel, path)}
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
     );
   }

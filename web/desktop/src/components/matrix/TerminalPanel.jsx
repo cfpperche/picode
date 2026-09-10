@@ -12,9 +12,16 @@ import { claimPane, releasePane } from "./paneOwnership.js";
 // its session. Unmounting is unloading (paneOwnership.js): a pane nobody's
 // tab holds has its socket suspended; loading again mounts TermSurface,
 // whose ShellTerm kicks the suspended socket itself.
+// The last answer of `POST /open` per terminal. Maximizing moves the body
+// to another host, which is a remount: without the cache the panel would
+// fall back to the placeholder for the round trip and flash. The POST runs
+// again anyway, so a record that went stale is corrected in the same frame
+// the server answers.
+const liveRecords = new Map();
+
 const TerminalPanel = memo(function TerminalPanel({ kind, target, cwd, hidden, focused, owned, onOpenFile, placeholder }) {
   const id = target.id;
-  const [live, setLive] = useState(null);
+  const [live, setLive] = useState(() => liveRecords.get(id) || null);
   const [error, setError] = useState("");
   // The tab closing while this panel shows the pane disposes the xterm
   // (App.closeTab → closeShellTerm): a fresh epoch mounts a fresh one.
@@ -29,8 +36,8 @@ const TerminalPanel = memo(function TerminalPanel({ kind, target, cwd, hidden, f
     let stop = false;
     setError("");
     api("/api/terminals/" + encodeURIComponent(id) + "/open", { method: "POST" })
-      .then((page) => { if (!stop) setLive(page); })
-      .catch((e) => { if (!stop) setError(humanizeError(e && e.message ? e.message : String(e))); });
+      .then((page) => { liveRecords.set(id, page); if (!stop) setLive(page); })
+      .catch((e) => { liveRecords.delete(id); if (!stop) { setLive(null); setError(humanizeError(e && e.message ? e.message : String(e))); } });
     return () => { stop = true; };
   }, [kind, id, epoch]);
   useEffect(() => {

@@ -8,8 +8,8 @@
 // on the prefix before the first dot, so matrix.panel.* reaches the
 // surface with the rest. The surface's arithmetic lives here too (plan
 // docs/plans/matrix-app.md §4.3–§4.6): nextSlot, layoutDiff, bindingState,
-// loadPolicy and the suspended-instance LRU — decisions the components
-// only carry out.
+// loadPolicy, the suspended-instance LRU and the keyboard's neighbour
+// arithmetic — decisions the components only carry out.
 
 import { locate } from "./tree.js";
 
@@ -337,4 +337,47 @@ export function suspendedToDispose(suspended, now, max = SUSPENDED_MAX, ttl = SU
   const out = [];
   list.forEach((s, i) => { if (i < over || now - s.at >= ttl) out.push(s.id); });
   return out;
+}
+
+// ---- keyboard (plan §4.6 "Focus") ---------------------------------------
+
+export const PANEL_DIRECTIONS = Object.freeze(["left", "right", "up", "down"]);
+
+const placed = (panels) => (panels || []).filter((p) => p && nonEmpty(p.id) && wholeRect(p));
+
+// panelOrder(panels) -> ids in reading order (top-down, then left-to-right):
+// Home, End and the roving tab stop of a matrix nobody has focused yet.
+export function panelOrder(panels) {
+  return placed(panels).sort((a, b) => a.y - b.y || a.x - b.x).map((p) => p.id);
+}
+
+// neighborPanel(panels, fromId, dir) -> id | "": where an arrow key lands.
+// The nearest panel in that direction that shares rows (left, right) or
+// columns (up, down) with the focused one; ties go to the one whose near
+// edge lines up best, then to reading order. Up and down fall back to the
+// nearest panel in that half of the grid, so a row holding one panel is
+// never a dead end; left and right stay on the row. Unknown id or
+// direction: "".
+export function neighborPanel(panels, fromId, dir) {
+  const rects = placed(panels);
+  const from = rects.find((p) => p.id === fromId);
+  if (!from || !PANEL_DIRECTIONS.includes(dir)) return "";
+  const rowsShared = (c) => c.y < from.y + from.h && from.y < c.y + c.h;
+  const colsShared = (c) => c.x < from.x + from.w && from.x < c.x + c.w;
+  const rule = {
+    right: { ahead: (c) => c.x >= from.x + from.w, gap: (c) => c.x - (from.x + from.w), along: (c) => Math.abs(c.y - from.y), shares: rowsShared, fallback: false },
+    left: { ahead: (c) => c.x + c.w <= from.x, gap: (c) => from.x - (c.x + c.w), along: (c) => Math.abs(c.y - from.y), shares: rowsShared, fallback: false },
+    down: { ahead: (c) => c.y >= from.y + from.h, gap: (c) => c.y - (from.y + from.h), along: (c) => Math.abs(c.x - from.x), shares: colsShared, fallback: true },
+    up: { ahead: (c) => c.y + c.h <= from.y, gap: (c) => from.y - (c.y + c.h), along: (c) => Math.abs(c.x - from.x), shares: colsShared, fallback: true },
+  }[dir];
+  const ahead = rects.filter((c) => c.id !== from.id && rule.ahead(c));
+  const shared = ahead.filter(rule.shares);
+  const pool = shared.length ? shared : rule.fallback ? ahead : [];
+  let best = null;
+  for (const c of pool) {
+    if (!best) { best = c; continue; }
+    const d = rule.gap(c) - rule.gap(best) || rule.along(c) - rule.along(best) || c.y - best.y || c.x - best.x;
+    if (d < 0) best = c;
+  }
+  return best ? best.id : "";
 }

@@ -15,11 +15,21 @@ import { closeShellTerm } from "../ShellTerm.jsx";
 //   > 24 suspended, or 10 min    → LRU disposal (closeShellTerm); a later
 //                                  load builds a fresh xterm — tmux still
 //                                  holds the screen
+//   the terminal or agent is     → forgetPane: a suspended pane is disposed
+//   deleted (feed)                  now, a mounted one when its body
+//                                  unmounts — never the LRU's wait
+//
+// A release waits one tick: a body that remounts at once in another host
+// (the maximize layer, the wrapper on restore) claims the pane first and
+// the socket never bounces — React runs the old body's unmount before the
+// new body's mount inside the same commit.
 //
 // The registry is module-level on purpose: one desktop, one `terms` map,
 // one list of what the Matrix parked.
 
 const suspendedAt = new Map(); // terminal or agent id → when it was parked
+const pendingRelease = new Map(); // id → the timer of a release still waiting its tick
+const gone = new Set(); // ids whose target was deleted while their pane was mounted
 let sweep = 0;
 const SWEEP_MS = 30000;
 
@@ -30,20 +40,62 @@ export function ownedByTab(kind, ref, openTabs) {
   return kind === "terminal" ? tabs.includes("t:" + ref) : tabs.includes(ref);
 }
 
-// claimPane(ref): a body mounted — whatever was parked is live again.
+// claimPane(ref): a body mounted — whatever was parked, or about to be, is
+// live again.
 export function claimPane(ref) {
+  const t = pendingRelease.get(ref);
+  if (t) {
+    clearTimeout(t);
+    pendingRelease.delete(ref);
+  }
   suspendedAt.delete(ref);
 }
 
-// releasePane(ref, owned): a body unmounted. An attach the tab holds is
-// left alone; one only the Matrix held is suspended and remembered.
+// releasePane(ref, owned): a body unmounted. The pane is parked on the next
+// tick unless a claim arrives first (a hand-off between hosts).
 export function releasePane(ref, owned) {
+  const t = pendingRelease.get(ref);
+  if (t) clearTimeout(t);
+  pendingRelease.set(ref, setTimeout(() => {
+    pendingRelease.delete(ref);
+    park(ref, owned);
+  }, 0));
+}
+
+// park(ref, owned): an attach the tab holds is left alone; one only the
+// Matrix held is suspended and remembered — or disposed, when its target
+// went away while the body was up.
+function park(ref, owned) {
   const entry = terms.get("sh:" + ref);
+  const dead = gone.delete(ref);
   if (!entry || owned) return;
+  if (dead) {
+    closeShellTerm(ref);
+    return;
+  }
   suspendTermSocket(entry);
   suspendedAt.set(ref, Date.now());
   sweepSuspended();
   if (!sweep && suspendedAt.size) sweep = setInterval(() => sweepSuspended(), SWEEP_MS);
+}
+
+// forgetPane(ref, owned): the feed said the terminal or agent is gone. A
+// pane the Matrix holds suspended is disposed at once; one still mounted
+// is disposed when its body unmounts (the gone row replaces it); one a tab
+// owns is the tab's to close.
+export function forgetPane(ref, owned) {
+  const entry = terms.get("sh:" + ref);
+  if (!entry || owned) {
+    gone.delete(ref);
+    return;
+  }
+  if (isTermSocketSuspended(entry)) {
+    closeShellTerm(ref);
+    suspendedAt.delete(ref);
+    gone.delete(ref);
+    return;
+  }
+  gone.add(ref);
 }
 
 // sweepSuspended(now): apply the LRU rule. An entry somebody kicked since
