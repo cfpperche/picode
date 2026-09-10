@@ -2,8 +2,8 @@
 
 - **Date:** 2026-09-10
 - **Status:** accepted — every question in §8 was taken by the owner on
-  2026-09-10, question 7 included; C1 is in flight. **C0 is done
-  and its numbers are folded in below**
+  2026-09-10, question 7 included. **C0 and C1 are done**; C2 is next.
+  **C0's numbers are folded in below**
   ([`docs/benchmarks/2026-09-10-node-canvas.md`](../benchmarks/2026-09-10-node-canvas.md)):
   GO on `@xyflow/react`, with one rule this plan did not have — a live
   terminal is only correct at zoom exactly 1.0.
@@ -282,7 +282,7 @@ Enter's engage triggering the snap to 1.
 | # | Branch | Delivers | Gate |
 |---|---|---|---|
 | C0 | `feat/matrix-canvas-spike` | **done 2026-09-10** — [`docs/benchmarks/2026-09-10-node-canvas.md`](../benchmarks/2026-09-10-node-canvas.md). **GO** on `@xyflow/react`: 500 nodes at 60 fps, `nodrag`/`nowheel`/header-drag hold, chunk loading bounds the attaches under the transform, `NodeResizer` resizes a live pane and ends once, the still costs 0.02 ms, +63 KB gzip eager / 49 KB lazy. One rule changed: **live terminals are only correct at zoom 1.0** (§4.3). No blocker forces two engines. Only the note and this plan merged | owner reads the note |
-| C1 | `feat/matrix-canvas-model` | ADR amending ADR-0108 (mode column, per-mode units, the switch transform), migration, store + handlers + events, `matrix.js` per-mode validation and the pack function, OpenAPI | `make close` |
+| C1 | `feat/matrix-canvas-model` | **done 2026-09-10** — ADR-0113 (amends ADR-0108) and migration 043: the `mode` column, per-mode units and plane bounds, `SetMatrixMode` (one transaction, the switch transform, the `matrix.mode` event), `mode` on `PATCH /api/matrices/{id}` answering summary + moved panels, and `matrix.js` per-mode validation with `gridToCanvas`/`canvasToGrid`. No UI; OpenAPI unchanged (no new route) | `make close` |
 | C2 | `feat/matrix-canvas-surface` (two sessions) | canvas mode end to end: React Flow host, node wrapper reuse, zoom-aware `loadPolicy`, stills, minimap, mode switch, Tidy, marquee, keyboard, save/409, `docs-site` guide update, QA + visual review | `make close`; visual card |
 | C3 | `feat/matrix-node-kinds` | `note`, then `file` and `diff` bodies; picker groups by kind | `make close` |
 | C4 | `feat/matrix-edges` | **ADR first — it crosses the security model**: an edge grants two sessions the right to read each other, built on ADR-0104's transport; drawing, removing (which revokes), and what an edge shows when one end dies | ADR accepted before code |
