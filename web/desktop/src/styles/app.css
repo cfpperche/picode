@@ -5328,3 +5328,30 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   padding: 6px 12px; font-size: 12px; color: var(--text-secondary);
   background: var(--bg-panel); border-bottom: 1px solid var(--border);
 }
+
+/* Design mode (ADR-0114 design phase): pick an element, describe a change.
+   The stage takes a crosshair; the marker rings the picked point; the strip
+   carries the intent input. */
+.browser-stage.designing { cursor: crosshair; }
+.browser-pick-dot {
+  position: absolute; z-index: 4; width: 14px; height: 14px; margin: -7px 0 0 -7px;
+  border-radius: 50%; border: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55), 0 0 8px var(--accent);
+  pointer-events: none;
+}
+.browser-pick {
+  display: flex; align-items: center; gap: 8px;
+  min-height: var(--ctl-h); padding: 4px 8px;
+  background: var(--accent-soft); border-bottom: 1px solid var(--border);
+}
+.browser-pick-coords {
+  flex: none; font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px; color: var(--text-secondary); white-space: nowrap;
+}
+.browser-pick-input {
+  flex: 1 1 auto; min-width: 0; height: 28px; padding: 0 8px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg-panel); color: inherit; font: inherit; font-size: 12.5px;
+}
+.browser-pick-input:focus { outline: none; border-color: var(--accent); }

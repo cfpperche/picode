@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import { drawRect, keyboardMessages, mapPoint, pointerMessage } from "@picode/shared/domain/browserInput.js";
+import { buildPickPrompt, pickIsValid } from "@picode/shared/domain/browserDesign.js";
 import { IconMonitor } from "./Icons.jsx";
 
-// Browser surface (ADR-0114/0115): a live view of the agent's browser. The
-// daemon proxies the engine's stream WebSocket; this view renders JPEG
-// frames on a canvas, shows the page URL, and — while session consent
-// (/browser-input) is on — sends mouse, keyboard and touch events.
+// Browser surface (ADR-0114/0115 + design phase): a live view of the
+// agent's browser. Frames render on a canvas; with consent the view can
+// drive the browser (Control); Design mode picks an element and hands the
+// point to the AGENT, which inspects it with its own tools (ADR-0003) —
+// the surface never parses the page.
 
 const EMPTY = "no-browser";
 const UNREACHABLE = "engine-unreachable";
@@ -20,6 +22,10 @@ export default function BrowserSurface({ agentId, onBack }) {
 	const [phase, setPhase] = useState("connecting"); // connecting | live | idle | unreachable | ended
 	const [pageUrl, setPageUrl] = useState("");
 	const [control, setControl] = useState("watch"); // watch | pending | on
+	const [design, setDesign] = useState(false);
+	const [pick, setPick] = useState(null); // { vx, vy, sx, sy } viewport + stage coords
+	const [pickText, setPickText] = useState("");
+	const [sending, setSending] = useState(false);
 	const [notice, setNotice] = useState("");
 
 	const drawFrame = useCallback(() => {
@@ -60,6 +66,8 @@ export default function BrowserSurface({ agentId, onBack }) {
 		let bitmapUrl = null;
 		setPhase("connecting");
 		setPageUrl("");
+		setDesign(false);
+		setPick(null);
 		frameRef.current = null;
 		metaRef.current = null;
 
@@ -157,17 +165,61 @@ export default function BrowserSurface({ agentId, onBack }) {
 		}
 	}, [agentId, control]);
 
-	// Pointer → input_mouse / input_touch, mapped through the letterbox.
+	// The letterboxed drawn rect of the current frame in canvas CSS pixels.
+	const currentRect = useCallback(() => {
+		const canvas = canvasRef.current;
+		const frame = frameRef.current;
+		if (!canvas || !frame) return null;
+		const dpr = window.devicePixelRatio || 1;
+		return drawRect(canvas.width / dpr, canvas.height / dpr, frame.width, frame.height);
+	}, []);
+
+	// Crop the page area out of the rendered canvas as base64 JPEG.
+	const cropFrame = useCallback(() => {
+		const canvas = canvasRef.current;
+		const frame = frameRef.current;
+		if (!canvas || !frame) return null;
+		const rect = currentRect();
+		if (!rect) return null;
+		const dpr = window.devicePixelRatio || 1;
+		const out = document.createElement("canvas");
+		out.width = Math.max(1, Math.round(rect.w * dpr));
+		out.height = Math.max(1, Math.round(rect.h * dpr));
+		const ctx = out.getContext("2d");
+		if (!ctx) return null;
+		ctx.drawImage(canvas, rect.x * dpr, rect.y * dpr, rect.w * dpr, rect.h * dpr, 0, 0, out.width, out.height);
+		return out.toDataURL("image/jpeg", 0.85).split(",")[1] || null;
+	}, [currentRect]);
+
+	// Pointer → design pick, else input_mouse / input_touch (Control).
 	const onPointer = useCallback((phaseName) => (e) => {
-		if (control !== "on") return;
+		const live = phase === "live";
+		if (!live) return;
 		const canvas = canvasRef.current;
 		const frame = frameRef.current;
 		const meta = metaRef.current;
 		if (!canvas || !frame || !meta) return;
+		const stage = stageRef.current;
 		const dpr = window.devicePixelRatio || 1;
 		const box = canvas.getBoundingClientRect();
 		const rect = drawRect(canvas.width / dpr, canvas.height / dpr, frame.width, frame.height);
 		const point = mapPoint(e.clientX, e.clientY, { left: box.left, top: box.top }, rect, meta.deviceWidth, meta.deviceHeight);
+
+		// Design mode intercepts the press: capture the pick, send nothing.
+		if (design) {
+			if (phaseName !== "down") return;
+			if (!pickIsValid(point, true)) return;
+			setPick({
+				vx: point.x,
+				vy: point.y,
+				sx: e.clientX - box.left,
+				sy: e.clientY - box.top,
+			});
+			setPickText("");
+			return;
+		}
+
+		if (control !== "on") return;
 		if (phaseName === "move") {
 			const msg = pointerMessage(e.pointerType, "move", point);
 			if (msg) sendInput(msg);
@@ -177,19 +229,46 @@ export default function BrowserSurface({ agentId, onBack }) {
 		if (phaseName === "down") e.currentTarget.setPointerCapture?.(e.pointerId);
 		const msg = pointerMessage(e.pointerType, phaseName === "down" ? "down" : "up", point, e.pointerId, phaseName === "down" ? 1 : 0);
 		if (msg) sendInput(msg);
-	}, [control, sendInput]);
+	}, [control, design, phase, sendInput]);
 
 	const onKeyDown = useCallback((e) => {
-		if (control !== "on") return;
+		if (design || control !== "on") return;
 		for (const msg of keyboardMessages("keydown", e)) sendInput(msg);
 		e.preventDefault();
-	}, [control, sendInput]);
+	}, [control, design, sendInput]);
 
 	const onKeyUp = useCallback((e) => {
-		if (control !== "on") return;
+		if (design || control !== "on") return;
 		for (const msg of keyboardMessages("keyup", e)) sendInput(msg);
 		e.preventDefault();
-	}, [control, sendInput]);
+	}, [control, design, sendInput]);
+
+	// Send the pick: cropped frame + mapped coordinates + the user's intent,
+	// through the same prompt path the composer uses.
+	const sendPick = useCallback(async () => {
+		if (sending || !pick) return;
+		setSending(true);
+		try {
+			const data = cropFrame();
+			if (!data) throw new Error("no frame");
+			await api(`/api/agents/${encodeURIComponent(agentId)}/prompt`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					kind: "prompt",
+					message: buildPickPrompt(pick.vx, pick.vy, pickText),
+					images: [{ mimeType: "image/jpeg", data }],
+				}),
+			});
+			setNotice("Pick sent to the agent — follow the turn in the chat.");
+			setPick(null);
+			setPickText("");
+		} catch (err) {
+			setNotice("Could not send the pick: " + (err && err.message ? err.message : "unknown error"));
+		} finally {
+			setSending(false);
+		}
+	}, [agentId, cropFrame, pick, pickText, sending]);
 
 	const retry = () => {
 		if (socketRef.current) { try { socketRef.current.close(); } catch { /* noop */ } }
@@ -197,7 +276,7 @@ export default function BrowserSurface({ agentId, onBack }) {
 	};
 
 	const live = phase === "live";
-	const controlling = control === "on";
+	const controlling = control === "on" && !design;
 
 	return (
 		<section className="browser-surface" aria-label="Agent browser">
@@ -205,16 +284,28 @@ export default function BrowserSurface({ agentId, onBack }) {
 				<span className={"browser-dot" + (live ? " live" : "")} title={live ? "Live" : "Not streaming"} />
 				<span className="browser-url" title={pageUrl || ""}>{live || phase === "ended" ? pageUrl || "about:blank" : ""}</span>
 				{live ? (
-					<button
-						type="button"
-						className={"browser-chip browser-chip-btn" + (controlling ? " on" : "")}
-						title={controlling
-							? "Control is on: click and type to drive the agent's browser. Click to hand back watch-only."
-							: "Watch-only. Click to enable control of the agent's browser."}
-						onClick={toggleControl}
-					>
-						{control === "pending" ? "…" : controlling ? "Control on" : "Watch-only"}
-					</button>
+					<>
+						<button
+							type="button"
+							className={"browser-chip browser-chip-btn" + (design ? " on" : "")}
+							title={design
+								? "Design is on: click an element to describe a change. Click to turn off."
+								: "Design: click an element on the page to ask the agent for a change."}
+							onClick={() => { setDesign((d) => !d); setPick(null); setNotice(""); }}
+						>
+							Design
+						</button>
+						<button
+							type="button"
+							className={"browser-chip browser-chip-btn" + (controlling ? " on" : "")}
+							title={controlling
+								? "Control is on: click and type to drive the agent's browser. Click to hand back watch-only."
+								: "Watch-only. Click to enable control of the agent's browser."}
+							onClick={toggleControl}
+						>
+							{control === "pending" ? "…" : controlling ? "Control on" : "Watch-only"}
+						</button>
+					</>
 				) : (
 					<span className="browser-chip">Watch-only</span>
 				)}
@@ -226,8 +317,27 @@ export default function BrowserSurface({ agentId, onBack }) {
 				) : null}
 			</div>
 			{notice ? <div className="browser-notice" role="status">{notice}</div> : null}
+			{pick ? (
+				<form
+					className="browser-pick"
+					onSubmit={(e) => { e.preventDefault(); void sendPick(); }}
+				>
+					<span className="browser-pick-coords">({pick.vx}, {pick.vy})</span>
+					<input
+						type="text"
+						className="browser-pick-input"
+						placeholder="What should change here?"
+						value={pickText}
+						autoFocus
+						onChange={(e) => setPickText(e.target.value)}
+						onKeyDown={(e) => { if (e.key === "Escape") setPick(null); }}
+					/>
+					<button type="submit" className="btn btn-primary btn-sm" disabled={sending}>{sending ? "Sending…" : "Send"}</button>
+					<button type="button" className="btn btn-sm" onClick={() => setPick(null)}>Cancel</button>
+				</form>
+			) : null}
 			<div
-				className={"browser-stage" + (controlling ? " controlling" : "")}
+				className={"browser-stage" + (controlling ? " controlling" : "") + (design ? " designing" : "")}
 				ref={stageRef}
 				data-phase={phase}
 				tabIndex={controlling ? 0 : -1}
@@ -239,6 +349,7 @@ export default function BrowserSurface({ agentId, onBack }) {
 				onContextMenu={controlling ? (e) => e.preventDefault() : undefined}
 			>
 				<canvas ref={canvasRef} className="browser-canvas" hidden={phase !== "live" && phase !== "ended"} />
+				{pick ? <span className="browser-pick-dot" style={{ left: pick.sx, top: pick.sy }} aria-hidden="true" /> : null}
 				{phase === "connecting" ? (
 					<div className="browser-empty" role="status">
 						<IconMonitor size={20} />
