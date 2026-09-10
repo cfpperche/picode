@@ -2788,7 +2788,10 @@ export default function App() {
                     if (location.hash !== next) { history.replaceState(null, "", next); setHash(next); }
                   }}
                   host={{
-                    fleet: { workspaces, freeAgents, terminals },
+                    // `loaded` says the boot fetch is done: before it, an
+                    // empty fleet means "not read yet", not "deleted" — a
+                    // native surface must not draw gone rows over it.
+                    fleet: { workspaces, freeAgents, terminals, loaded: bootstrapped },
                     openTabs: tabs,
                     openTab, openInteractive, revealAgent, openFileTab,
                     feed: subscribeFeed,

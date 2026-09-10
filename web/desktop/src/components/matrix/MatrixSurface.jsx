@@ -132,6 +132,9 @@ function buildModel(panel, fleet, workingIds, openTabs, prev) {
 export default function MatrixSurface({ manifest, hidden, onClose, host, initialPath, onPathChange }) {
   const title = (manifest && manifest.name) || "Matrix";
   const fleet = (host && host.fleet) || EMPTY_FLEET;
+  // A host that does not say is taken at its word (the fleet it gave is the
+  // fleet there is); the desktop says `loaded` and it is false until boot ends.
+  const fleetLoaded = fleet.loaded !== false;
   const openTabs = (host && host.openTabs) || NO_PANELS;
   const hostRef = useRef(host);
   hostRef.current = host;
@@ -654,6 +657,11 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       </p>
     );
   } else if (!detail) {
+    body = <div className="mx-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>;
+  } else if (!fleetLoaded) {
+    // The fleet decides what every panel is bound to. Read before it lands,
+    // an empty fleet reads as "all gone" — the skeleton says "not read yet"
+    // instead of flashing an error row on every panel.
     body = <div className="mx-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>;
   } else if (!panels.length) {
     body = (

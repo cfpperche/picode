@@ -65,7 +65,10 @@
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
   padding: 16px; color: var(--text-secondary); font-size: 12.5px; text-align: center; line-height: 1.4;
 }
-.mx-placeholder .btn { min-height: var(--ctl-h); }
+/* The one action of a placeholder row sits on the body's own background
+   (--bg-base), where a plain .btn fill reads as no button at all in light
+   theme: the stronger border is what makes it a control. */
+.mx-placeholder .btn { min-height: var(--ctl-h); border-color: var(--border-strong); }
 
 /* react-grid-layout and react-resizable in our tokens. */
 .mx-surface .react-grid-placeholder {

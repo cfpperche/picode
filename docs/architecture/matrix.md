@@ -119,6 +119,14 @@ matrix and switching updates the hash. The phone lists the tile as
 | `chunkLoader.js`, `paneOwnership.js` | the `IntersectionObserver` glue over the pure `loadPolicy`; what unloading does to an attach |
 | `web/shared/domain/matrix.js` | `nextSlot`, `layoutDiff`, `bindingState`, `loadPolicy`, `suspendedToDispose`, `panelOrder`, `neighborPanel` (+ `PANEL_DEFAULT` 4×14, `PANEL_DIRECTIONS`) — one test per row below in `matrix.test.js` |
 
+**The fleet decides what a panel is bound to**, so the surface draws the
+skeleton until the desktop says it has one: `host.fleet.loaded` is the
+App's `bootstrapped`, and until it turns true an empty fleet means "not
+read yet", not "deleted". Without it every terminal panel showed *That
+terminal is gone.* for the length of the boot fetch — 15 s on a fixture
+with 45 terminals (each row carries git state). A host that passes no
+`loaded` is taken at its word.
+
 **Reads.** `GET /api/matrices` and `GET /api/matrices/{id}` once on open
 and on a reveal older than 10 s; then the feed only: `matrix.*` through
 `applyMatrixEvent`, agents and terminals through the host's fleet,
