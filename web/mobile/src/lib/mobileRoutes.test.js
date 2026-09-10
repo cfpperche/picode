@@ -69,6 +69,17 @@ describe("mobileRoute", () => {
     assert.equal(tabOf(mobileRoute("#/")), "now");
     assert.equal(parentHash(mobileRoute("#/agent/a1")), "#/work");
     assert.equal(parentHash(mobileRoute("#/term/t1")), "#/work/terminals");
+    // Back lands where the resource lives: a workspace's agent or terminal
+    // into the Workspaces view focused on that group, a free one into its
+    // own flat list, an unknown owner into the legacy parent.
+    assert.equal(parentHash(mobileRoute("#/agent/a1"), "ws1"), "#/work/workspaces/ws1");
+    assert.equal(parentHash(mobileRoute("#/agent/a1"), "ws /?#"), "#/work/workspaces/ws%20%2F%3F%23");
+    assert.equal(parentHash(mobileRoute("#/agent/a1"), null), "#/work/agents");
+    assert.equal(parentHash(mobileRoute("#/term/t1"), "ws1"), "#/work/workspaces/ws1");
+    assert.equal(parentHash(mobileRoute("#/term/t1"), null), "#/work/terminals");
+    assert.deepEqual(mobileRoute("#/work/workspaces/ws%201"), { screen: "work", id: "ws 1", section: "workspaces" });
+    assert.deepEqual(mobileRoute("#/work/workspaces"), { screen: "work", id: "", section: "workspaces" });
+    assert.deepEqual(mobileRoute("#/work/nope/x"), { screen: "work", id: "", section: "" });
     assert.equal(parentHash(mobileRoute("#/changes/a/ag1")), "#/agent/ag1");
     assert.equal(parentHash(mobileRoute("#/changes/t/t1")), "#/term/t1");
     assert.equal(parentHash(mobileRoute("#/changes/w/w1")), "#/work");

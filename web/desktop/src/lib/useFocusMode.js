@@ -30,6 +30,7 @@ import {
 import { scheduleTermFit } from "@picode/shared/domain/termFit.js";
 import { terms } from "./terms.js";
 import { paneAt } from "./termActions.js";
+import { matchAction } from "./appKeys.js";
 import { toast } from "./toast.js";
 
 const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
@@ -138,16 +139,36 @@ export function useFocusMode({ railOpen = false, available = true } = {}) {
   ref.current = state;
   const railRef = useRef(railOpen);
   railRef.current = railOpen;
+  // True while an enter request we fired is still travelling: a mode that
+  // stops in that window must take the browser back out (see send).
+  const enterPending = useRef(false);
 
   const send = useCallback((ev) => {
     const prev = ref.current;
     const next = focusReduce(prev, ev);
-    if (next === prev) return prev;
+    const intent = browserIntent(prev, next, ev);
+    // The browser answered a fullscreen change: an in-flight enter request
+    // of ours is answered by this very event, so the pending flag is read
+    // (wasPending) and cleared before anything else decides with it.
+    const wasPending = enterPending.current;
+    if (ev.type === "browser") enterPending.current = false;
+    if (next === prev && intent === "none" && !wasPending) return prev;
     ref.current = next;
     setState(next);
-    const intent = browserIntent(prev, next, ev);
-    if (intent === "request") requestFullscreen(send);
-    else if (intent === "exit") exitFullscreen();
+    if (intent === "request") {
+      enterPending.current = true;
+      requestFullscreen(send);
+    } else if (intent === "exit") exitFullscreen();
+    // A mode that stops while our own enter request is still travelling —
+    // the same gesture was an Escape, the fullscreen chord, or a click
+    // that navigated away — must not land fullscreen with the mode off.
+    // exitFullscreen is a no-op until the request lands, so the belt
+    // fires again when the browser reports the change (wasPending above).
+    if (!next.on && enterPending.current) exitFullscreen();
+    if (ev.type === "browser" && wasPending && !next.on && ev.active) exitFullscreen();
+    // Going fullscreen resizes the viewport: the restored mode engages it
+    // without a mode transition, so the refit must follow fs, not on.
+    if (prev.fs !== next.fs) refitPanes();
     if (prev.on !== next.on) {
       writeFocusPrefs({ on: next.on });
       refitPanes();
@@ -166,6 +187,35 @@ export function useFocusMode({ railOpen = false, available = true } = {}) {
 
   const toggle = useCallback(() => send({ type: "toggle", railOpen: railOnScreen(railRef.current) }), [send]);
   const leave = useCallback(() => send({ type: "leave" }), [send]);
+
+  // A reload restores the mode without the browser part — there was no
+  // gesture to ask with. The first real input is that gesture: the resume
+  // hands the request in from its own handler, so the mode the viewer
+  // chose keeps its fullscreen and its keyboard lock without anything
+  // being done twice. Synthetic events are refused (isTrusted — no real
+  // input, no activation), and keys that themselves mean "leave" (Escape,
+  // the fullscreen chord) are left to speak first, so the resume never
+  // races the mode into a fullscreen nobody asked to keep. One attempt
+  // per page load: a browser that refuses fullscreen refuses again.
+  const resumeTried = useRef(false);
+  useEffect(() => {
+    if (!state.on || state.fs) return undefined;
+    function onGesture(e) {
+      if (!e.isTrusted || resumeTried.current) return;
+      if (e.type === "keydown") {
+        if (e.key === "Escape") return;
+        if (matchAction("app.fullscreen.toggle", e)) return;
+      }
+      resumeTried.current = true;
+      send({ type: "resume" });
+    }
+    window.addEventListener("keydown", onGesture, true);
+    window.addEventListener("click", onGesture, true);
+    return () => {
+      window.removeEventListener("keydown", onGesture, true);
+      window.removeEventListener("click", onGesture, true);
+    };
+  }, [state.on, state.fs, send]);
 
   // A shell that cannot host the mode any more — the window narrowed to
   // the single column, or the viewer opened a page route, where the tab
