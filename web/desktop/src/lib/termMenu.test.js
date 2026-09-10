@@ -102,3 +102,19 @@ test("one selected line is pre-filled; anything larger is staged as a file", () 
   assert.equal(planAsk("x".repeat(ASK_INLINE_MAX)).mode, "text");
   assert.equal(planAsk("x".repeat(ASK_INLINE_MAX + 1)).mode, "file");
 });
+
+test("every terminal pane offers fullscreen, with the chord and the verb it will do", () => {
+  for (const kind of ["term", "agent"]) {
+    const off = buildTermMenu({ kind, focusKey: "Ctrl+Shift+Enter" });
+    assert.equal(row(off, "fullscreen").label, "Fullscreen");
+    assert.equal(row(off, "fullscreen").key, "Ctrl+Shift+Enter");
+    assert.equal(row(off, "fullscreen").icon, "expand");
+    const on = buildTermMenu({ kind, focus: true, focusKey: "Ctrl+Shift+Enter" });
+    assert.equal(row(on, "fullscreen").label, "Leave fullscreen");
+    assert.equal(row(on, "fullscreen").icon, "collapse");
+  }
+});
+
+test("a shell too narrow to host the mode drops the row instead of greying it", () => {
+  assert.equal(ids(buildTermMenu({ kind: "term", focusable: false })).includes("fullscreen"), false);
+});

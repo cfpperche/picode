@@ -78,7 +78,7 @@ function StatusDot({ status }) {
   return null;
 }
 
-export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, apps, selectedId, onSelect, onClose, onReorder, sessionSlot, endSlot }) {
+export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, apps, selectedId, onSelect, onClose, onReorder, sessionSlot, endSlot, keepVisible }) {
   const ctx = { terms: terminals || [], appList: apps || [], workspaces, freeAgents };
   const entries = tabs.map((id) => ({ id, d: describeTab(id, ctx) })).filter((e) => e.d);
   const ids = entries.map((e) => e.id);
@@ -189,7 +189,7 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, app
 
   return (
     <>
-    <div id="main-tabs" className="main-tabs" hidden={tabs.length === 0}>
+    <div id="main-tabs" className="main-tabs" hidden={tabs.length === 0 && !keepVisible}>
       {/* Overflow chrome (phases 2–3 of the tab-strip study): arrows exist
           only while tabs overflow and stay visible then (NN/g: hover-only
           arrows go unnoticed); the one at a reached edge is disabled, the
@@ -242,7 +242,7 @@ export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, app
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
       ) : null}
-      {endSlot ? <div className="main-tabs-end">{endSlot}</div> : null}
+      {endSlot ? <div className="main-tabs-end" data-align-row>{endSlot}</div> : null}
     </div>
     {tabs.length > 0 && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? sessionSlot : null}
     </>

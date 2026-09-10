@@ -16,6 +16,15 @@ export const CATALOG = [
   // Browsers reserve Ctrl+Tab, Ctrl+PgUp/PgDn and Ctrl+W, so tabs cycle on
   // Alt+bracket (docs/benchmarks/2026-09-06-tab-strip-overflow.md, owner
   // decision 2026-09-06).
+  // Fullscreen (focus) mode. Ctrl+Shift+Enter is free on every side of
+  // this app: nothing else in CATALOG uses it, the terminal's own family
+  // needs exactly one modifier for a newline (termKeys.js binds
+  // Shift/Alt/Ctrl+Enter, never two at once) and reserves Ctrl+Shift only
+  // for C and V, and no browser binds it inside a page (Chrome's
+  // Ctrl+Shift+Enter belongs to the omnibox). Enter, unlike a punctuation
+  // key, means the same chord on every keyboard layout — Ctrl+Shift+. is
+  // ">" on US and ":" on ABNT2, so fromEvent would read two chords.
+  { id: "app.fullscreen.toggle", group: "Global", label: "Fullscreen", defaults: ["ctrl+shift+enter", "super+shift+enter"] },
   { id: "app.tab.prev", group: "Global", label: "Previous tab", defaults: ["alt+["] },
   { id: "app.tab.next", group: "Global", label: "Next tab", defaults: ["alt+]"] },
   { id: "app.tab.close", group: "Global", label: "Close tab", defaults: ["alt+w"] },

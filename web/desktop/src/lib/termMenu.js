@@ -11,6 +11,8 @@
 // Icons are names, not components: this module must stay importable by the
 // node test runner.
 
+import { focusRowLabel } from "@picode/shared/domain/focusMode.js";
+
 const SEP = { sep: true };
 
 // Shortcuts are the ones the terminal really binds (web/shared/domain/
@@ -38,6 +40,10 @@ export const TERM_MENU_KEYS = {
 //   link       { kind: "file" | "http", label } under the cursor, or null
 //   findKey    the chord Find really answers to, when the caller read the
 //              user's own bindings; the default stands in otherwise
+//   focus      fullscreen (focus) mode is already on — the row leaves it
+//   focusable  the shell can host the mode at all (false in the ≤767px
+//              column shell, which has no chrome to hide)
+//   focusKey   the chord for the mode, read from the user's own bindings
 export function buildTermMenu(ctx = {}) {
   const selection = (ctx.selection || "").trim();
   const cli = ctx.cli || "";
@@ -81,6 +87,12 @@ export function buildTermMenu(ctx = {}) {
   // pretending to clear something it does not control. An agent's pane is
   // always its TUI, so the flag cannot reach it.
   if (own && ctx.shell) view.push({ id: "clear", label: "Clear", icon: "clear" });
+  // Fullscreen belongs to the shell, not to this pane, but the owner asked
+  // for it on every tab's menu — and a terminal pane never shows the
+  // generic one, so this is the only place it can appear over a terminal.
+  if (ctx.focusable !== false) {
+    view.push({ id: "fullscreen", label: focusRowLabel(!!ctx.focus), icon: ctx.focus ? "collapse" : "expand", key: ctx.focusKey || "" });
+  }
   rows.push(SEP, ...view);
 
   if (own) {

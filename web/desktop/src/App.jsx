@@ -36,6 +36,9 @@ import Devices from "./components/Devices.jsx";
 import Automations from "./components/Automations.jsx";
 import Palette from "./components/Palette.jsx";
 import ContextMenu from "./components/ContextMenu.jsx";
+import FocusEdges, { FocusLeave } from "./components/FocusEdges.jsx";
+import { focusAvailable } from "@picode/shared/domain/focusMode.js";
+import { useFocusMode } from "./lib/useFocusMode.js";
 import { graphActions, undoFor } from "@picode/shared/domain/graphActions.js";
 import { ownerBase } from "@picode/shared/domain/gitOwner.js";
 import GitActionDialog from "./components/GitActionDialog.jsx";
@@ -162,6 +165,11 @@ export default function App() {
       return next;
     });
   }, []);
+  // Fullscreen (focus) mode: one shell-wide, per-viewer preference like
+  // the rail's, not a route. The rail's current state decides whether the
+  // right edge strip exists at all once the mode starts.
+  const focusOk = focusAvailable(narrow, route !== "workspace");
+  const focus = useFocusMode({ railOpen: inspectorLayout.shown, available: focusOk });
   const [ctxMenu, setCtxMenu] = useState(null);
   // The server's action catalog (ADR-0096): which git actions exist and what
   // risk tier each carries. Read once; with none, the graph offers no write
@@ -391,6 +399,12 @@ export default function App() {
         e.preventDefault();
         toggleInspector();
       }
+      // The keydown is the user gesture requestFullscreen needs, so the
+      // toggle runs here rather than in an effect watching the state.
+      if (focusOk && matchAction("app.fullscreen.toggle", e)) {
+        e.preventDefault();
+        focus.toggle();
+      }
       // Find is the pane's, not the app's: with the caret anywhere else the
       // chord is left alone, and the browser's own find still works there.
       if (matchAction("app.terminal.find", e)) {
@@ -408,7 +422,7 @@ export default function App() {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, []);
+  }, [focusOk, focus.toggle]);
 
   useEffect(() => {
     // A right-click inside a pane costs the user their selection before any
@@ -1849,6 +1863,7 @@ export default function App() {
   }
 
   const termMenuHandlers = {
+    fullscreen: () => focus.toggle(),
     ask: (ctx) => openTermAttach(ctx, ctx.selection),
     attach: (ctx) => openTermAttach(ctx, ""),
     find: (ctx) => setTermFind(ctx.id),
@@ -2586,7 +2601,7 @@ export default function App() {
   const showHome = (noTabs || dashboardPinned) && hasData;
 
   return (
-    <div id="app" className={navigationOpen ? "navigation-open" : ""}>
+    <div id="app" className={[navigationOpen ? "navigation-open" : "", focus.classes].filter(Boolean).join(" ")}>
       <header className="desktop-compact-bar">
         <button type="button" className="btn btn-ghost" aria-expanded={navigationOpen} aria-controls="desktop-navigation" onClick={() => setNavigationOpen(open => !open)}>
           {navigationOpen ? "Close navigation" : "Navigation"}
@@ -2670,7 +2685,13 @@ export default function App() {
             onSelect={(id) => openTab(id)}
             onClose={closeTab}
             onReorder={(from, to) => setTabs((t) => moveTab(t, from, to))}
-            endSlot={narrow ? null : <InspectorToggle shown={inspectorLayout.shown} reason={inspectorLayout.reason} onToggle={toggleInspector} />}
+            keepVisible={focus.on}
+            endSlot={narrow ? null : (
+              <>
+                <InspectorToggle shown={inspectorLayout.shown} reason={inspectorLayout.reason} onToggle={toggleInspector} />
+                {focus.on ? <FocusLeave onLeave={focus.leave} /> : null}
+              </>
+            )}
           />
 
           <div id="empty" className="empty" hidden={!(missing || (noTabs && !hasData))}>
@@ -3107,14 +3128,18 @@ export default function App() {
         onAskAgent={askAgentGit}
       />
 
+      <FocusEdges zones={focus.zones} />
+
       <Palette
         open={paletteOpen}
         workspaces={workspaces}
         apps={apps}
+        focusable={focusOk}
         onClose={() => setPaletteOpen(false)}
         onRun={(a) => {
           if (a.kind === "whats-new") { openWhatsNew(); return; }
           if (a.kind === "inspector") { toggleInspector(); return; }
+          if (a.kind === "fullscreen") { focus.toggle(); return; }
           if (a.kind === "packages") { location.hash = cliPackagesHash("pi", { workspaceId: paneWs?.id, agentId: agent?.id }); return; }
           if (a.kind === "cli-new") { location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : ""); return; }
           if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations") { go(a.kind, a.kind === "settings" ? agent?.id : undefined); return; }
@@ -3131,6 +3156,9 @@ export default function App() {
         onClose={() => setCtxMenu(null)}
         themeMode={themeMode}
         onTheme={setTheme}
+        focusOn={focus.on}
+        focusable={focusOk}
+        onFullscreen={focus.toggle}
         termHandlers={termMenuHandlers}
         onOpenAgent={revealAgent}
         onOpenTerminal={openTermTab}

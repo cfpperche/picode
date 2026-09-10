@@ -81,3 +81,28 @@ test("close tab defaults to Alt+W and counts as a Global chord", () => {
   assert.equal(matchGlobalAction(ev({ key: "w", altKey: true }), {}), true);
   assert.equal(matchAction("app.tab.close", ev({ key: "w", ctrlKey: true }), {}), false);
 });
+
+test("fullscreen defaults to Ctrl+Shift+Enter and collides with no other action", () => {
+  const chord = ev({ key: "Enter", ctrlKey: true, shiftKey: true });
+  assert.equal(matchAction("app.fullscreen.toggle", chord, {}), true);
+  assert.equal(matchGlobalAction(chord, {}), true, "a terminal hands the chord back to the app");
+  for (const a of CATALOG) {
+    if (a.id === "app.fullscreen.toggle") continue;
+    assert.equal(matchAction(a.id, chord, {}), false, `${a.id} also answers Ctrl+Shift+Enter`);
+  }
+  // One modifier is the terminal's newline (termKeys.js); two are ours.
+  assert.equal(matchAction("app.fullscreen.toggle", ev({ key: "Enter", ctrlKey: true }), {}), false);
+  assert.equal(matchAction("app.fullscreen.toggle", ev({ key: "Enter", shiftKey: true }), {}), false);
+  assert.equal(matchAction("app.fullscreen.toggle", ev({ key: "Enter", altKey: true }), {}), false);
+  assert.equal(formatChord(primaryChord("app.fullscreen.toggle", {})), "Ctrl+Shift+Enter");
+});
+
+test("every default chord in the catalog is claimed by exactly one action", () => {
+  const owner = new Map();
+  for (const a of CATALOG) {
+    for (const chord of a.defaults || []) {
+      assert.equal(owner.has(chord), false, `${chord} is claimed by both ${owner.get(chord)} and ${a.id}`);
+      owner.set(chord, a.id);
+    }
+  }
+});

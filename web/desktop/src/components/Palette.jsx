@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Command } from "cmdk";
 
-export default function Palette({ open, workspaces, apps, onClose, onRun }) {
-  const actions = useMemo(() => buildActions(workspaces, apps), [workspaces, apps]);
+export default function Palette({ open, workspaces, apps, onClose, onRun, focusable }) {
+  const actions = useMemo(() => buildActions(workspaces, apps, focusable), [workspaces, apps, focusable]);
   const groups = useMemo(() => {
     const m = new Map();
     for (const a of actions) {
@@ -46,11 +46,14 @@ export default function Palette({ open, workspaces, apps, onClose, onRun }) {
   );
 }
 
-function buildActions(workspaces, apps) {
+function buildActions(workspaces, apps, focusable) {
   const out = [
     { id: "whats-new", label: "What’s new in PiCode", group: "app", kind: "whats-new" },
     { id: "settings", label: "Pi settings", group: "Agent CLIs", kind: "settings" },
     { id: "inspector", label: "Toggle inspector", group: "app", kind: "inspector" },
+    // Only where the mode can live: a page route has no tab strip to
+    // reveal, so the row would run and undo itself (focusMode.js).
+    ...(focusable ? [{ id: "fullscreen", label: "Fullscreen", group: "app", kind: "fullscreen" }] : []),
     { id: "preferences", label: "Preferences", group: "app", kind: "preferences" },
     { id: "clis", label: "Agent CLIs", group: "app", kind: "clis" },
     { id: "cli-new", label: "New CLI terminal", group: "app", kind: "cli-new" },

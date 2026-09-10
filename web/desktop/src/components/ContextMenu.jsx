@@ -2,7 +2,7 @@ import { useRef } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import {
-  IconChat, IconChevronRight, IconClear, IconClip, IconCopy, IconExternal, IconFile, IconFolders,
+  IconChat, IconChevronRight, IconClear, IconClip, IconCollapse, IconCopy, IconExpand, IconExternal, IconFile, IconFolders,
   IconAgent, IconGit, IconMonitor, IconTerminal, IconMoon, IconPaste, IconPencil, IconReload, IconScrollEnd, IconSelectAll,
   IconSearch, IconSettings, IconSun, IconTextSize, IconTrash, IconX,
 } from "./Icons.jsx";
@@ -10,6 +10,7 @@ import { isEditableTarget, insertAtCaret } from "../lib/contextMenuClipboard.js"
 import { buildTermMenu } from "../lib/termMenu.js";
 import { runTermCommand, focusPane } from "../lib/termActions.js";
 import { formatChord, primaryChord } from "../lib/appKeys.js";
+import { focusRowLabel } from "@picode/shared/domain/focusMode.js";
 import { toast } from "../lib/toast.js";
 
 const THEME_ORDER = ["light", "system", "dark"];
@@ -19,7 +20,7 @@ const TERM_ICONS = {
   copy: IconCopy, paste: IconPaste, select: IconSelectAll, ask: IconChat, clip: IconClip,
   file: IconFile, external: IconExternal, end: IconScrollEnd, text: IconTextSize,
   clear: IconClear, search: IconSearch, pencil: IconPencil, settings: IconSettings, folders: IconFolders,
-  x: IconX, trash: IconTrash,
+  x: IconX, trash: IconTrash, expand: IconExpand, collapse: IconCollapse,
 };
 
 // The one PiCode context menu. Anchored to the cursor through a zero-size
@@ -29,7 +30,7 @@ const TERM_ICONS = {
 // pane-detection logic in App.jsx's own listener. DropdownMenu gives what a
 // menu of this size needs anyway — roving focus, typeahead, submenus — which
 // a Popover never had.
-export default function ContextMenu({ state, onClose, themeMode, onTheme, termHandlers, onOpenAgent, onOpenTerminal, onGraphAction }) {
+export default function ContextMenu({ state, onClose, themeMode, onTheme, termHandlers, onOpenAgent, onOpenTerminal, onGraphAction, focusOn, focusable, onFullscreen }) {
   // Every read of `state` goes through these: the component stays mounted
   // with state === null so Radix keeps owning its own teardown, and the
   // rows below are evaluated on every render, open or not.
@@ -43,6 +44,7 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
   // back into `state` at click time, when the menu may already be closing.
   const graphCtx = open ? state.graphCtx : null;
   const NextThemeIcon = THEME_ICON[themeMode] || IconMonitor;
+  const fullscreenChord = formatChord(primaryChord("app.fullscreen.toggle"));
   const ran = useRef(false);
 
   // Radix closes the menu itself after a row is chosen, and would hand
@@ -111,7 +113,7 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
             {graph ? (
               <GraphMenu menu={graph} onRun={runGraph} />
             ) : term ? (
-              buildTermMenu({ kind: term.kind, selection, cli: term.cli, running: term.running, shell: term.shell, link, findKey: formatChord(primaryChord("app.terminal.find")) })
+              buildTermMenu({ kind: term.kind, selection, cli: term.cli, running: term.running, shell: term.shell, link, findKey: formatChord(primaryChord("app.terminal.find")), focus: !!focusOn, focusable: focusable !== false, focusKey: fullscreenChord })
                 .map((row, i) => (row.sep
                   ? <div key={"s" + i} className="um-divider" />
                   : <TermRow key={row.id} row={row} onRun={runTerm} />))
@@ -132,6 +134,14 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
                   label="Toggle theme"
                   onSelect={() => onTheme(THEME_ORDER[(THEME_ORDER.indexOf(themeMode) + 1) % THEME_ORDER.length])}
                 />
+                {focusable !== false && onFullscreen ? (
+                  <Item
+                    icon={focusOn ? <IconCollapse /> : <IconExpand />}
+                    label={focusRowLabel(!!focusOn)}
+                    chord={fullscreenChord}
+                    onSelect={() => { ran.current = true; onFullscreen(); }}
+                  />
+                ) : null}
               </>
             )}
           </Tooltip.Provider>
@@ -231,7 +241,7 @@ function TermRow({ row, onRun }) {
   );
 }
 
-function Item({ icon, label, onSelect, disabled, reason }) {
+function Item({ icon, label, onSelect, disabled, reason, chord }) {
   // Icon rides inside `um-item-name`, exactly like TermRow: `.um-item` is
   // space-between, so an icon left as a direct child shoves the label to the
   // far edge instead of sitting beside it.
@@ -243,6 +253,7 @@ function Item({ icon, label, onSelect, disabled, reason }) {
       onSelect={disabled ? undefined : onSelect}
     >
       <span className="um-item-name">{icon}{label}</span>
+      {chord ? <kbd className="um-key">{chord}</kbd> : null}
     </DropdownMenu.Item>
   );
   if (!disabled || !reason) return btn;
