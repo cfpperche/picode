@@ -17,7 +17,13 @@
 
 // The reserved set on Chromium (Chrome/Edge/Opera — the browsers this
 // project is served to, docs-site/guide/keyboard.md): the browser consumes
-// these before the page and no script can observe or cancel them.
+// these before the page and no script can observe or cancel them. The
+// ctrl rows are the Windows/Linux truth; macOS reserves the Cmd
+// equivalents instead (its Ctrl+T is an ordinary chord a page CAN see),
+// so the same rows exist under super — which is what piKey fromEvent
+// reports for metaKey. Whether Keyboard Lock can capture the Cmd rows on
+// macOS follows Chrome's implementation; the guard's job (never default
+// onto a dead chord) holds either way.
 export const RESERVED_CHORDS = [
   { chord: "ctrl+t", browser: "new tab" },
   { chord: "ctrl+shift+t", browser: "reopen closed tab" },
@@ -38,6 +44,12 @@ export const RESERVED_CHORDS = [
   { chord: "ctrl+7", browser: "tab 7" },
   { chord: "ctrl+8", browser: "tab 8" },
   { chord: "ctrl+9", browser: "last tab" },
+  { chord: "super+t", browser: "new tab (macOS)" },
+  { chord: "super+shift+t", browser: "reopen closed tab (macOS)" },
+  { chord: "super+n", browser: "new window (macOS)" },
+  { chord: "super+shift+n", browser: "new incognito window (macOS)" },
+  { chord: "super+w", browser: "close tab (macOS)" },
+  { chord: "super+shift+w", browser: "close window (macOS)" },
 ];
 
 const RESERVED = new Set(RESERVED_CHORDS.map((r) => r.chord));

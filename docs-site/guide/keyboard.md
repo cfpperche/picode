@@ -10,7 +10,9 @@ give every key to your agent.
 ## What the browser takes in a normal window
 
 In a normal (non-fullscreen) window these combinations never reach PiCode —
-the browser acts on them before the page sees anything:
+the browser acts on them before the page sees anything. On Windows and
+Linux the browser keys use `Ctrl`; on macOS the same slots use `Cmd`
+(`Cmd+T`, `Cmd+W`, …) and PiCode's `Ctrl` chords reach the page as usual:
 
 | Keys | Browser action |
 |---|---|
@@ -49,7 +51,10 @@ Leaving the mode returns the keys to the browser.
 Handing over reserved keys needs the Keyboard Lock API while the page is
 fullscreen. Chrome, Edge and Opera support it. Firefox and Safari do not:
 fullscreen mode still hides the chrome, but the browser keeps its
-shortcuts until those browsers ship the API.
+shortcuts until those browsers ship the API. Surfaces that cannot take
+the lock (for example pages embedded outside a top-level tab) degrade the
+same way, and on macOS capture of the `Cmd` keys follows Chrome's own
+implementation.
 
 ## Rebinding PiCode's own shortcuts
 

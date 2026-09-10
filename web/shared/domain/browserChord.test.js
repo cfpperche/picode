@@ -13,13 +13,15 @@ test("the reserved set is exactly the browser-consumed chords on Chromium", () =
   const chords = RESERVED_CHORDS.map((r) => r.chord);
   assert.equal(new Set(chords).size, chords.length, "duplicate reserved chord");
   for (const row of RESERVED_CHORDS) {
-    assert.match(row.chord, /^ctrl\+/, "reserved chords carry ctrl");
+    assert.match(row.chord, /^(ctrl|super)\+/, "reserved chords carry ctrl or super");
     assert.ok(row.browser, "every row names what the browser does with it");
   }
-  for (const chord of ["ctrl+t", "ctrl+w", "ctrl+9", "ctrl+pageUp", "ctrl+shift+t"]) {
+  for (const chord of ["ctrl+t", "ctrl+w", "ctrl+9", "ctrl+pageUp", "ctrl+shift+t"]
+      .concat(["super+t", "super+w", "super+shift+n"])) {
     assert.ok(isReservedChord(chord), chord + " is reserved");
   }
   assert.equal(reservedBrowserAction("ctrl+t"), "new tab");
+  assert.equal(reservedBrowserAction("super+w"), "close tab (macOS)");
   assert.equal(reservedBrowserAction("ctrl+q"), null);
 });
 
