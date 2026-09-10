@@ -15,6 +15,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -32,6 +33,15 @@ const sessionNameSessionIDLength = 12
 
 var projectSlugRE = regexp.MustCompile(`[^a-z0-9]+`)
 var numericFileRE = regexp.MustCompile(`^\d+\s*$`)
+
+// ErrNoSession reports that the agent's pi process has no session file yet
+// (nothing to attach a consent mirror to).
+var ErrNoSession = errors.New("the agent has no session file yet")
+
+// inputConsentTTL bounds how long the proxy may drive on a consent mirror
+// read (ADR-0115): mouse-move bursts must not hammer the filesystem, and a
+// consent flip reaches driving clients within one TTL.
+const inputConsentTTL = 500 * time.Millisecond
 
 // implicitSessionName mirrors the sidecar's createImplicitSessionName
 // (which mirrors pi-agent-browser-native runtime.ts).
@@ -260,4 +270,74 @@ func getSessionIdentity(ctx context.Context, ma *ManagedAgent) (string, string) 
 		return "", ""
 	}
 	return data.SessionID, data.SessionFile
+}
+
+// BrowserInputConsent reports whether the session's input mirror (ADR-0115)
+// currently enables browser control. The mirror is written by the
+// pi-browser-capture extension beside the session file; an absent or
+// malformed mirror means off. Readings are cached for one TTL so input
+// bursts do not hammer the filesystem.
+func (ma *ManagedAgent) BrowserInputConsent(ctx context.Context) bool {
+	_, sessionFile := ma.cachedSessionIdentity(ctx)
+	if sessionFile == "" {
+		return false
+	}
+	if ma.capture == nil {
+		return readInputMirror(sessionFile)
+	}
+	cs := ma.capture
+	cs.mu.Lock()
+	if time.Since(cs.inputCheckedAt) < inputConsentTTL {
+		on := cs.inputOn
+		cs.mu.Unlock()
+		return on
+	}
+	cs.mu.Unlock()
+	on := readInputMirror(sessionFile)
+	cs.mu.Lock()
+	cs.inputOn = on
+	cs.inputCheckedAt = time.Now()
+	cs.mu.Unlock()
+	return on
+}
+
+// readInputMirror reads the sidecar's consent mirror: `{"on":bool}` in the
+// session's capture directory. Any absence or malformation is consent off.
+func readInputMirror(sessionFile string) bool {
+	raw, err := os.ReadFile(filepath.Join(sessionFile+".capture", "input.json"))
+	if err != nil {
+		return false
+	}
+	var mirror struct {
+		On bool `json:"on"`
+	}
+	return json.Unmarshal(raw, &mirror) == nil && mirror.On
+}
+
+// WriteInputConsent flips the session's input mirror (ADR-0115) and primes
+// the consent cache, so the surface's own next input is not refused by a
+// stale TTL read.
+func (ma *ManagedAgent) WriteInputConsent(ctx context.Context, on bool) error {
+	_, sessionFile := ma.cachedSessionIdentity(ctx)
+	if sessionFile == "" {
+		return ErrNoSession
+	}
+	dir := sessionFile + ".capture"
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	tmp := filepath.Join(dir, "input.json.tmp")
+	if err := os.WriteFile(tmp, []byte(`{"on":`+strconv.FormatBool(on)+`,"ts":`+strconv.FormatInt(time.Now().UnixMilli(), 10)+`}`), 0o600); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, filepath.Join(dir, "input.json")); err != nil {
+		return err
+	}
+	if ma.capture != nil {
+		ma.capture.mu.Lock()
+		ma.capture.inputOn = on
+		ma.capture.inputCheckedAt = time.Now()
+		ma.capture.mu.Unlock()
+	}
+	return nil
 }

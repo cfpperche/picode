@@ -2,7 +2,10 @@ package rpc
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestImplicitSessionName(t *testing.T) {
@@ -66,5 +69,44 @@ func TestBrowserStreamPortWithoutIdentity(t *testing.T) {
 	ma := &ManagedAgent{AgentID: "a1", Path: t.TempDir(), capture: newCaptureState()}
 	if port, ok := ma.BrowserStreamPort(context.Background()); ok || port != 0 {
 		t.Fatalf("BrowserStreamPort without identity = (%d, %v), want (0, false)", port, ok)
+	}
+}
+
+// The consent mirror (ADR-0115): absent, malformed and off all mean off.
+func TestBrowserInputConsent(t *testing.T) {
+	t.Setenv("PI_AGENT_BROWSER_SOCKET_DIR", t.TempDir())
+	cwd := t.TempDir()
+	sessionID := "01234567-89ab-cdef-0123-456789abcdef"
+	ma := &ManagedAgent{AgentID: "a1", Path: cwd, capture: newCaptureState()}
+	ma.capture.sessionID = sessionID
+	ma.capture.sessionFile = "/nonexistent/session.jsonl"
+	if ma.BrowserInputConsent(context.Background()) {
+		t.Fatal("consent without a mirror must be false")
+	}
+
+	ma.capture.sessionFile = filepath.Join(t.TempDir(), "session.jsonl")
+	if err := os.MkdirAll(ma.capture.sessionFile+".capture", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	write := func(body string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(ma.capture.sessionFile+".capture", "input.json"), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		ma.capture.mu.Lock()
+		ma.capture.inputCheckedAt = time.Time{} // bust the TTL cache
+		ma.capture.mu.Unlock()
+	}
+	write(`{"on":true,"ts":1}`)
+	if !ma.BrowserInputConsent(context.Background()) {
+		t.Fatal("consent mirror on must be true")
+	}
+	write(`{"on":false,"ts":2}`)
+	if ma.BrowserInputConsent(context.Background()) {
+		t.Fatal("consent mirror off must be false")
+	}
+	write(`not json`)
+	if ma.BrowserInputConsent(context.Background()) {
+		t.Fatal("malformed mirror must be false")
 	}
 }

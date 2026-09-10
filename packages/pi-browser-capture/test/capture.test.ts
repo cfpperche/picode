@@ -1,10 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdir, symlink, unlink, writeFile, rm } from "node:fs/promises";
-import { mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, symlink, unlink, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { boundedJpeg, caption, captionUrl, createImplicitSessionName, findCapturePort } from "../extensions/capture.ts";
+import { boundedJpeg, caption, captionUrl, createImplicitSessionName, findCapturePort, writeInputMirror } from "../extensions/capture.ts";
 
 test("implicit session name matches the upstream shape and is stable", () => {
 	const name = createImplicitSessionName("0123abcd-4567-89ef-a000-000000000001", "/home/me/My_Project");
@@ -71,3 +70,16 @@ async function chmod70(path: string) {
 }
 
 import { chmod } from "node:fs/promises";
+
+test("writeInputMirror writes atomic consent state beside the session file", async () => {
+	const sessionFile = join(await mkdtemp(join(tmpdir(), "pi-input-")), "session.jsonl");
+	await writeInputMirror(sessionFile, true);
+	const dir = `${sessionFile}.capture`;
+	const raw = JSON.parse(await readFile(join(dir, "input.json"), "utf8"));
+	assert.equal(raw.on, true);
+	assert.equal(typeof raw.ts, "number");
+	await writeInputMirror(sessionFile, false);
+	const off = JSON.parse(await readFile(join(dir, "input.json"), "utf8"));
+	assert.equal(off.on, false);
+	await rm(dir, { recursive: true, force: true });
+});

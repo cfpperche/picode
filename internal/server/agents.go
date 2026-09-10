@@ -32,6 +32,7 @@ func registerAgentRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/abort", handleAgentAbort(deps))
 	mux.HandleFunc("POST /api/agents/{id}/prompt", handleAgentPrompt(deps))
 	mux.HandleFunc("POST /api/agents/{id}/ui", handleAgentUI(deps))
+	mux.HandleFunc("POST /api/agents/{id}/browser-input", handleBrowserInput(deps)) // ADR-0115
 }
 
 // agentRunMode reports how an agent is currently running.

@@ -10,12 +10,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/cfpperche/picode/internal/store"
+	"github.com/cfpperche/picode/internal/tmux"
 	"github.com/gorilla/websocket"
 )
 
@@ -178,18 +181,28 @@ func TestBrowserWSEndToEnd(t *testing.T) {
 		t.Fatal("config never reached the engine")
 	}
 
-	// Input is refused in the read-only phase, and never reaches the engine.
+	// Input is refused while the session has no consent (ADR-0115), and
+	// never reaches the engine.
 	if err := ws.WriteMessage(websocket.TextMessage, []byte(`{"type":"input_mouse","eventType":"mousePressed","x":1,"y":2}`)); err != nil {
 		t.Fatal(err)
 	}
 	got := readMsg(t, ws)
-	if !strings.Contains(got, `"code":"read-only"`) {
-		t.Fatalf("expected read-only refusal, got %s", got)
+	if !strings.Contains(got, `"code":"watch-only"`) {
+		t.Fatalf("expected watch-only refusal, got %s", got)
 	}
 	select {
 	case reached := <-engine.received:
-		t.Fatalf("input reached the engine: %s", reached)
+		t.Fatalf("input reached the engine without consent: %s", reached)
 	case <-time.After(300 * time.Millisecond):
+	}
+
+	// Unknown types are refused as unsupported.
+	if err := ws.WriteMessage(websocket.TextMessage, []byte(`{"type":"reboot","x":1}`)); err != nil {
+		t.Fatal(err)
+	}
+	got = readMsg(t, ws)
+	if !strings.Contains(got, `"code":"unsupported"`) {
+		t.Fatalf("expected unsupported refusal, got %s", got)
 	}
 
 	// Unknown engine types are dropped, not fanned out. A fresh connection,
@@ -211,6 +224,43 @@ func TestBrowserWSEndToEnd(t *testing.T) {
 	}
 	if !strings.Contains(got2, `"status"`) {
 		t.Fatalf("status after the dropped message missing: %s", got2)
+	}
+}
+
+// With consent on, input messages reach the engine verbatim (ADR-0115).
+func TestBrowserWSInputWithConsent(t *testing.T) {
+	engine := newFakeEngine(t)
+	consents := true
+	deps := Deps{
+		BrowserStream: func(ctx context.Context, agentID string) (int, bool) {
+			return engine.port, engine.port > 0
+		},
+		BrowserInputConsent: func(ctx context.Context, agentID string) bool { return consents },
+	}
+	ts := httptest.NewServer(New("127.0.0.1:0", deps).Handler)
+	t.Cleanup(ts.Close)
+
+	ws := dialBrowser(t, ts, "a1")
+	if err := ws.WriteMessage(websocket.TextMessage, []byte(`{"type":"input_mouse","eventType":"mousePressed","x":10,"y":20,"button":"left","clickCount":1}`)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case got := <-engine.received:
+		if !strings.Contains(got, `"mousePressed"`) {
+			t.Fatalf("input not forwarded verbatim: %s", got)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("consented input never reached the engine")
+	}
+
+	// Consent off again: the very next input is refused.
+	consents = false
+	if err := ws.WriteMessage(websocket.TextMessage, []byte(`{"type":"input_keyboard","eventType":"char","text":"a"}`)); err != nil {
+		t.Fatal(err)
+	}
+	got := readMsg(t, ws)
+	if !strings.Contains(got, `"code":"watch-only"`) {
+		t.Fatalf("expected watch-only after consent off, got %s", got)
 	}
 }
 
@@ -241,5 +291,44 @@ func TestBrowserWSEngineDeathClosesClient(t *testing.T) {
 	ws.SetReadDeadline(time.Now().Add(3 * time.Second))
 	if _, _, err := ws.ReadMessage(); err == nil {
 		t.Fatal("client connection stayed open after the engine died")
+	}
+}
+
+// The consent toggle route flips the mirror the proxy reads (ADR-0115).
+func TestBrowserInputRoute(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	ts := httptest.NewServer(New("127.0.0.1:0", Deps{Store: st, Tmux: tmux.New()}).Handler)
+	t.Cleanup(ts.Close)
+
+	// Unknown agent → 404 before anything else.
+	res, err := http.Post(ts.URL+"/api/agents/nope/browser-input", "application/json", strings.NewReader(`{"on":true}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("unknown agent status = %d, want 404", res.StatusCode)
+	}
+
+	// Real but stopped agent → 409 (the mirror belongs to a live session).
+	ws, err := st.AddWorkspace("w", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ag, err := st.AddAgent(ws.ID, "atlas", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err = http.Post(ts.URL+"/api/agents/"+ag.ID+"/browser-input", "application/json", strings.NewReader(`{"on":true}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusConflict {
+		t.Fatalf("stopped agent status = %d, want 409", res.StatusCode)
 	}
 }
