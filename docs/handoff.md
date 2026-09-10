@@ -28,8 +28,8 @@
 ## Known debts / open questions
 
 - Process (ADR-0105): worktrees start with a cold Go test cache (keyed by directory); `.pi/compact.json` `atPercent 0.5` never fires for large-window models (peaks 379 K) — owner declined config changes 2026-09-09; capture tolerance is 128 px (`scripts/docs-shots.mjs` prints it per surface).
-- Communication (ADR-0104/0106/0107/0111): physical-mobile and non-Linux pane/process recovery, and custom Codex resume global args/`--`, unverified. PTY rechecks cannot remove the check-to-write race; uncertain attempts never auto-retry. Never share credentials across conversations. Orphan private setup files need cleanup after owner deletion.
-- Communication onboarding (ADR-0110/0111): unobserved conversations need a first native event; six-CLI rerun and long wrapped OpenCode footers pending. Partial rows 5, 9, 12 in `docs/plans/communication-onboarding.md`: moved-owner consent, missing-adapter repair, stubborn-child timeout.
+- Communication (ADR-0104/0106/0107/0111/0112): physical mobile, non-Linux recovery and custom Codex resume global args/`--` unverified. PTY race remains; uncertain attempts, including Grok paste refusals, never auto-retry. Never share conversation credentials. Clean orphan private setup files after owner deletion.
+- Communication onboarding (ADR-0110/0111/0112): needs a first native event; wrapped OpenCode sidebars/footers block input. Pi needs reload for its new heartbeat; Hermes needs stop/resume. Rows 5, 9, 12 in `docs/plans/communication-onboarding.md` remain open: moved-owner consent, missing-adapter repair, stubborn-child timeout.
 - Native packages/providers: real downloads, vendor OAuth, credential changes and device acceptance remain external; mobile package configuration is desktop-only (`docs/plans/cli-native-packages.md`, `cli-native-providers.md`).
 - Native settings: physical iPhone/PWA/IME and a real process restart remain external; scratch tests cover recovery, retained drafts and stopped-agent saves.
 - Inbox terminal replies: pi-inbox 0.1.x items (`pi (unmanaged)`) have no address until each pi session updates; daemon death between park and JSONL row is accepted.
