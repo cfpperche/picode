@@ -9,6 +9,7 @@ import { agentMatchesSearch, terminalMatchesSearch, searchWorkspaceGroups } from
 import { workEmpty } from "../lib/workEmpty.js";
 import PullScreen from "../components/PullScreen.jsx";
 import WsFavicon from "../components/WsFavicon.jsx";
+import WorkspaceMenu from "../components/WorkspaceMenu.jsx";
 import "../styles/mobile-lists.css";
 
 const LABELS = { workspaces: "Workspaces", agents: "Agents", terminals: "Terminals" };
@@ -57,18 +58,13 @@ export default function Work({ section, onSection, loaded, error, workspaces, fr
             <span className="m-work-group-face"><WsFavicon ws={ws} size={22} /></span>
             <div className="m-work-group-title"><h3>{ws.name}</h3><p title={ws.path}>{[shortPath(ws.path), ws.git?.branch].filter(Boolean).join(" · ")}</p></div>
             {ws.git?.dirty ? <button type="button" className="btn btn-ghost btn-sm m-changes-btn" aria-label={ws.git.dirty + " changes in " + ws.name} onClick={() => onOpenChanges("workspace", ws.id, ws.name)}><IconGit size={13} /> {ws.git.dirty}</button> : null}
+            <WorkspaceMenu ws={ws} onCreate={onCreate} onNewTerm={onNewTerm} onOpenFiles={onOpenFiles} onOpenGit={onOpenGit} />
           </div>
           {wsAgents.length || wsTerms.length ? <ul className="m-list m-group-list">
             {wsAgents.map(agent => <AgentRow key={agent.id} agent={agent} workspace={ws} workingIds={workingIds} checklist={checklists?.[agent.id]} busy={busyId === agent.id} onOpen={onOpenAgent} onStart={onStart} onStop={onStop} />)}
             {wsTerms.map(term => <TermRow key={term.id} term={term} busy={busyId === term.id} onOpen={onOpenTerm} onRemove={onRemoveTerm} />)}
           </ul> : <p className="m-empty-line m-work-empty">No agents or terminals yet.</p>}
-          <div className="m-work-group-actions" data-align-row>
-            <a className="btn btn-ghost btn-sm" href={"#/clis/messages/" + encodeURIComponent("workspace:" + ws.id)}>Communication</a>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onOpenFiles({ kind: "workspace", id: ws.id })}><IconFolder size={13} /> Files</button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onOpenGit({ kind: "workspace", id: ws.id })}><IconGit size={13} /> Git</button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onCreate("agent", ws)}><IconPlus size={13} /> Agent</button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onNewTerm(ws)}><IconPlus size={13} /> Terminal</button>
-          </div>
+
         </section>
       )) : <ul className="m-list m-group-list" aria-label={LABELS[sec]}>
         {sec === "agents" ? agents.map(agent => <AgentRow key={agent.id} agent={agent} workspace={null} workingIds={workingIds} checklist={checklists?.[agent.id]} busy={busyId === agent.id} onOpen={onOpenAgent} onStart={onStart} onStop={onStop} />)

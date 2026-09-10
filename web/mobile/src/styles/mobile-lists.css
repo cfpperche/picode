@@ -73,9 +73,14 @@
 .m-work-v2 .m-work-group-title { flex: 1; min-width: 0; }
 .m-work-v2 .m-work-group-title h3 { margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 650; line-height: 1.4; overflow-wrap: anywhere; }
 .m-work-v2 .m-work-group-title p { margin: 1px 0 0; font: 11px/1.4 var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.m-work-v2 .m-work-group-actions { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 4px 0; }
-.m-work-v2 .m-work-group-actions .btn { gap: 4px; padding: 0 8px; color: var(--text-secondary); }
-.m-work-v2 .m-work-group-actions .btn:hover { color: var(--text-primary); }
+/* Ellipsis menu trigger on the workspace head: 44px target, aligned with
+   the title block. The menu itself reuses .ws-row-menu (app.css). */
+.m-work-v2 .m-work-menu-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; flex: none; margin-right: -10px;
+  border: 0; border-radius: 8px; background: none; color: var(--text-secondary); cursor: pointer;
+}
+.m-work-v2 .m-work-menu-btn:hover, .m-work-v2 .m-work-menu-btn[aria-expanded="true"] { background: var(--bg-hover); color: var(--text-primary); }
 .m-work-v2 .m-work-empty { padding: 8px 0 4px; }
 .m-work-v2 .m-group-list .m-row { min-height: 56px; }
 
