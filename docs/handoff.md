@@ -40,6 +40,7 @@
 - Webhooks are at-least-once within event retention; receivers dedupe by id.
 - Task Scheduler retries are not crash recovery; battery/sleep/sign-in acceptance is owner-controlled.
 - 2026-09-06 incident: a `tmux ls | grep '^picode-'` sweep killed 29 sessions, six in production. Never kill by prefix — only exact names from a fixture's own API.
+- Orphan tmux shells (2026-09-09): the two `t.Context()` cleanups and `qa-scratch stop` are fixed; a scratch whose daemon dies before `stop` still strands its shells, and `picode-sh-shell-6d4d44` is an unclaimed leftover kept on purpose.
 - Feed: ephemeral events can be missed across reconnects (ADR-0048); paste fallback acceptance across platforms open.
 - Terminal menus (2026-09-09): web/mobile terminal rows still offer only Remove — the desktop one-menu merge (termRowMenu.js) is not ported; sidebar Remove keeps `DELETE /api/terminals/<id>` while the Agent CLIs list uses `/launch/remove` (same outcome, two paths).
 - CLI lifecycle: npm data can lag native Claude releases by hours; grok uninstall guided-only; Windows paths out of scope.
