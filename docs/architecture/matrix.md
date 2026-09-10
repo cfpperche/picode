@@ -224,7 +224,7 @@ suspend and kick per panel.
 | only on matrices | `suspendTermSocket` — socket closed, xterm and scrollback kept | `ShellTerm` kicks the suspended socket |
 | more than 24 suspended, or one for 10 min | `closeShellTerm`, only while still suspended (a kicked entry belongs to someone again) | a fresh xterm; tmux holds the screen |
 | its tab closes while the panel shows it | — | the body remounts with a fresh xterm (the tab disposed the old one) |
-| the body moves host (maximize, restore) | the release waits a tick, so the body that mounts in the other host claims the pane first and the socket never bounces | the same xterm is re-parented (`ShellTerm`) and refits |
+| the body moves host (maximize, restore) | **counted, not guessed**: `mounted` holds how many bodies show that pane, so only the last one out parks it, and even then on the next tick. The grid unmounts before it mounts (one commit); the canvas mounts the maximize layer's body a commit *before* its React Flow node drops the wrapper's, because a node's data is applied in an effect — with a tick alone that order suspended the socket of the pane the viewer was looking at (measured: `readyState` 3 and keystrokes lost, C2 session 2) | the same xterm is re-parented (`ShellTerm`) and refits |
 | `terminal.deleted` / `agent.deleted` on the feed | `forgetPane`: a pane the Matrix holds suspended is disposed at once; one still mounted is disposed when its body unmounts (the gone row replaces it); one a tab owns is the tab's | — |
 | focus | one focused panel per matrix (click or arrows); only the focused **and engaged** panel gets `autoFocus`, so only it calls `term.focus()`; every visible panel re-claims its pane and fits on reveal |
 | the same terminal twice on one matrix | the picker does not offer it; a second browser that has not heard yet gets the server's 409 and its message, and the optimistic wrapper goes |
@@ -335,9 +335,22 @@ renderer stays crisp, so nothing on screen would say so; the surface has to.
 | outside the band, any zoom | today's placeholder; the socket suspends after the 5 s hysteresis |
 | focused and engaged | the plane animates to `zoom = 1` before the pane takes keys — Enter engages through the same snap |
 
+The rule is about a **cell**, so it only binds a body that has one.
+`hasPane` (PanelBody.jsx) is the gate on both halves — the `is-inert` /
+`is-still` pointer-events rule and the `.mx-snap` layer: the four rows that
+answer with one line and one action (a managed agent's *Open*, a gone
+terminal's *Remove*, a stopped agent's *Run*, the error row's *Try again*)
+keep their own button at every zoom. They have no cell to miss, and a
+visible button that zooms instead of doing what it says is worse than the
+risk it was protecting against. A name-plate is the other way round: below
+0.4 the plate *is* the panel, there is no header left to reach, so it takes
+the layer whatever it is bound to.
+
 The band is **hysteretic** — live at 0.8 and above, still below 0.75 — so a
 viewer parked on the boundary does not thrash the attaches, and it flips
-when the gesture ends rather than once per wheel frame. The band itself is
+when the gesture ends (`onMoveEnd`) rather than once per wheel frame — one
+crossing per gesture instead of sixty, and the panes stay live *during* a
+zoom-out. The band itself is
 **screen-space**, so zooming out puts everything in it (C0: 500 of 500 at
 0.2); what bounds the attaches down there is the still rule, not the band.
 
@@ -363,6 +376,13 @@ across (98 units, the grid's 12 columns and their gutters), each row as tall
 as its tallest panel, and saves once through the layout PATCH. Grid mode
 keeps RGL's compactor untouched this phase (plan §3's two-step).
 
+**Tidy arranges; it never resizes.** It is standing in for RGL's compactor,
+which never resized either — it only ever moved items up into free space —
+so a Tidy that also normalised sizes would silently throw away a resize the
+owner of the panel made on purpose. Rows are as tall as their tallest panel
+for the same reason: the row gives way to the panel, not the other way
+round.
+
 **The switch** is the `Grid | Canvas` segmented control in the header. It
 PATCHes `mode` under `ifUpdatedAt` (after flushing the moves made under the
 old mode, whose answer carries the precondition the switch then uses) and
@@ -381,6 +401,30 @@ need no change on a free plane): `+` / `-` zoom, `0` fits, Space-drag pans,
 Enter engages through the snap to 1, and moving focus to an off-screen panel
 **pans it into view**, which is what loads it. A panel already on screen is
 left where it is: an arrow key must not shove the plane about.
+
+**Accepted in a browser (2026-09-10, C2 session 2)** on a scratch instance
+with eight panels — an interactive agent's TUI, a managed agent and six
+shells — plus a 24-panel matrix, driven at 1600 × 1200:
+
+| Row | Measured |
+|---|---|
+| the pointer rule, end to end | at **1.0** a real click aimed at cell (25, 13) of a 29 × 16 pane came back from the terminal as `^[[<0;25;13M` — the cell aimed at, through tmux `mouse on`. At **0.83** xterm's own mapping for the same point answered **(21, 11)** — 4 columns and 2 rows out — the body read `pointer-events: none`, the click produced **no** report at all and moved the plane to 100 %, and the click after it reported (25, 13) again |
+| bodies per zoom | 1.0: 7 live, 7 attached. 0.83: 7 live, every panel `is-inert`. 0.69: stills, **0 attached, 7 suspended, 7 instances kept**. 0.30: name-plates, 0 attached |
+| chunk loading under the transform | at rest 7 attaches and **7 tmux clients**, one per session. A 3 883 px pan at 4 678 px/s (61.4 fps) and +10 s: 0 attached, 7 suspended, the 7 instances still there. Back at 4 781 px/s (62.8 fps): the same 7 instances reattached, 7 tmux clients. Zoom 0.2 → 0 attaches; back to 1.0 → the same 7 |
+| a marquee of many | 24 nodes selected at **61.9 fps**, dragging all 24 at **62.7 fps** (worst frame 16.8 ms), **one** layout PATCH of 24 rows, every rectangle moved by exactly (25, 19) units. C0's 31 fps was 20 nodes among 500 with nine live bodies; this is a lighter scene and not a refutation of it |
+| mode switch with live panes | grid → canvas → grid with six live panels: **zero** socket transitions, zero disposals, zero xterm replacements over both switches (polled at 40 ms) |
+| maximize on a canvas | the pane refits 29 × 16 → **120 × 58**, tmux follows, the wrapper says *Shown maximized*, and the socket stays open in **both** directions |
+| a real 409, from a second browser | a layout PATCH answered 409, refetched (200), toasted *Matrix changed elsewhere — reloaded.*, rolled the optimistic move back and took the other browser's; the mode PATCH did the same and the mode stayed `canvas`. No lingering wrapper either time |
+| the camera is per viewer | two browsers on one matrix at (−562, −623.4, 1.0) and (565, 288, 0.712); neither moved the other, and a reload restored each its own |
+| fullscreen | the canvas fills the window inside `picode-focus`, the left and top reveals float over it, and leaving the mode leaves the camera exactly where it was |
+
+Two things this pass found and fixed: **maximize on a canvas suspended the
+pane's socket** (the deferred node data — the ownership table above), and a
+body that is not a terminal was made pointer-inert with it (the `hasPane`
+gate in §Canvas). One thing it did not fix: the scratch daemon leaves
+`tmux: client` zombies, so three of seven sessions still listed a client
+25 s after their socket was suspended. It never exceeded one client per
+session and production shows the same pattern, so it is not the canvas's.
 
 **Re-measured on a scratch (2026-09-09, phase 3 session 2)** against
 [`docs/benchmarks/2026-09-09-matrix-live-grid.md`](../benchmarks/2026-09-09-matrix-live-grid.md):

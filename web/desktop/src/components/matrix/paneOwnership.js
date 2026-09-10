@@ -19,16 +19,21 @@ import { closeShellTerm } from "../ShellTerm.jsx";
 //   deleted (feed)                  now, a mounted one when its body
 //                                  unmounts — never the LRU's wait
 //
-// A release waits one tick: a body that remounts at once in another host
-// (the maximize layer, the wrapper on restore) claims the pane first and
-// the socket never bounces — React runs the old body's unmount before the
-// new body's mount inside the same commit.
+// Which host shows a pane is counted, not guessed: `mounted` holds how many
+// bodies are up for that id, so a hand-off between hosts parks nothing
+// whichever way round the two commits fall. The grid unmounts the old body
+// before it mounts the new one (one commit, release then claim); the canvas
+// mounts the maximize layer's body a commit *before* its React Flow node
+// drops the wrapper's, so a release with no count would have suspended the
+// socket of the pane the viewer is looking at. The one-tick wait stays for
+// the first order — a release that a claim cancels in the same task.
 //
 // The registry is module-level on purpose: one desktop, one `terms` map,
 // one list of what the Matrix parked.
 
 const suspendedAt = new Map(); // terminal or agent id → when it was parked
 const pendingRelease = new Map(); // id → the timer of a release still waiting its tick
+const mounted = new Map(); // id → how many bodies are showing that pane right now
 const gone = new Set(); // ids whose target was deleted while their pane was mounted
 let sweep = 0;
 const SWEEP_MS = 30000;
@@ -43,6 +48,7 @@ export function ownedByTab(kind, ref, openTabs) {
 // claimPane(ref): a body mounted — whatever was parked, or about to be, is
 // live again.
 export function claimPane(ref) {
+  mounted.set(ref, (mounted.get(ref) || 0) + 1);
   const t = pendingRelease.get(ref);
   if (t) {
     clearTimeout(t);
@@ -51,13 +57,21 @@ export function claimPane(ref) {
   suspendedAt.delete(ref);
 }
 
-// releasePane(ref, owned): a body unmounted. The pane is parked on the next
-// tick unless a claim arrives first (a hand-off between hosts).
+// releasePane(ref, owned): a body unmounted. Another host still showing the
+// pane keeps it: only the last body out parks it, and even then on the next
+// tick, so a claim arriving in the same task cancels it.
 export function releasePane(ref, owned) {
+  const left = (mounted.get(ref) || 1) - 1;
+  if (left > 0) {
+    mounted.set(ref, left);
+    return;
+  }
+  mounted.delete(ref);
   const t = pendingRelease.get(ref);
   if (t) clearTimeout(t);
   pendingRelease.set(ref, setTimeout(() => {
     pendingRelease.delete(ref);
+    if (mounted.has(ref)) return; // a body came back before the tick
     park(ref, owned);
   }, 0));
 }

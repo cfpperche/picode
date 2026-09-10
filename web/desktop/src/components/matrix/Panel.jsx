@@ -130,8 +130,13 @@ const Panel = memo(forwardRef(function Panel({ model, loaded, hidden, focused, e
   // is-inert: a live pane away from zoom 1.0 renders and takes keys, but
   // its pointer lies (C0: the mapped cell is `cell × zoom`), so the body
   // takes no pointer at all and the canvas puts a snap-to-1 layer over it.
+  // Only a body that *is* a terminal, though: the four rows that answer
+  // with one line and one action have no cell to miss, and taking the
+  // pointer off them would leave a visible Open or Remove that zooms
+  // instead of doing what it says.
+  const gated = hasPane(model) && !maximized;
   const cls = ["mx-panel", className, focused ? "is-focused" : "", maximized ? "is-max" : "", model.pending ? "is-pending" : "",
-    bodyKind === "plate" ? "is-plate" : "", bodyKind === "still" ? "is-still" : "", !pointer ? "is-inert" : ""].filter(Boolean).join(" ");
+    bodyKind === "plate" ? "is-plate" : "", gated && bodyKind === "still" ? "is-still" : "", gated && !pointer ? "is-inert" : ""].filter(Boolean).join(" ");
   return (
     <div
       ref={setRoot}

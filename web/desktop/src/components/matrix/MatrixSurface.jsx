@@ -868,7 +868,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
           {current ? (
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
-                <button type="button" className="btn btn-sm btn-ghost mx-menu-btn" aria-label={"Actions for " + current.name} title="Rename or delete this matrix"><IconEllipsis size={15} /></button>
+                <button type="button" className="btn btn-sm btn-ghost mx-menu-btn" aria-label={"Actions for " + current.name} title={mode === "canvas" ? "Tidy, rename or delete this matrix" : "Rename or delete this matrix"}><IconEllipsis size={15} /></button>
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
                 <DropdownMenu.Content className="ws-row-menu" side="bottom" align="end" sideOffset={4} collisionPadding={8}>

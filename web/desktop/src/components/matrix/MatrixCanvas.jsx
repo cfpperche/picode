@@ -3,6 +3,7 @@ import { Background, BackgroundVariant, MiniMap, NodeResizer, ReactFlow, ReactFl
 import { CANVAS_ZOOM, MATRIX_LIMITS, UNIT_PX, normalizeViewport, pointerAtZoom, pxToUnits, unitsToPx, viewportKey } from "@picode/shared/domain/matrix.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
 import Panel from "./Panel.jsx";
+import { hasPane } from "./PanelBody.jsx";
 import { CANVAS_MARGIN } from "./chunkLoader.js";
 import { captureStill, captureStills, readStill } from "./stills.js";
 import "@xyflow/react/dist/style.css";
@@ -46,6 +47,13 @@ import "@xyflow/react/dist/style.css";
 // edit (ADR-0113), so it never reaches the store.
 
 const NODE_TYPE = "panel";
+// Which panels get the snap-to-1 layer: the ones whose body is a terminal
+// the pointer could miss, plus every name-plate — down there the plate *is*
+// the panel, there is no header to reach, and a click has nothing else to
+// mean than "bring me closer". A row that answers with one line and one
+// action (a managed agent, a gone terminal, a stopped agent) keeps its own
+// button at every zoom: it has no cell to land on.
+const snapTarget = (data) => data.bodyKind === "plate" || (data.bodyKind !== "off" && !data.maximized && hasPane(data.model));
 const SNAP = [UNIT_PX, UNIT_PX];
 const MOTION_MS = 180;
 const VIEW_SAVE_MS = 400;
@@ -99,7 +107,7 @@ const PanelNode = memo(function PanelNode({ id, data }) {
         onResizeStart={data.onResizeStart}
         onResizeEnd={data.onResizeEnd}
       />
-      {!data.pointer && data.bodyKind !== "off" ? (
+      {!data.pointer && snapTarget(data) ? (
         // The pointer layer. xterm maps a click as `cell × zoom` under the
         // plane's transform (C0), and PiCode ships tmux `mouse on`, so a
         // click at 0.8 reaches copy mode and every TUI at the wrong cell.
