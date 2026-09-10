@@ -15,6 +15,15 @@ function Line({ text, action, onAction }) {
   );
 }
 
+// hasPane(model): does this binding have a terminal to capture a still of?
+// The four rows of §4.4 that answer with one line and one action have no
+// screen, so on a canvas they keep their own words at every zoom instead of
+// being replaced by an empty still.
+const NO_PANE = ["terminal-gone", "agent-gone", "agent-stopped", "agent-managed"];
+export function hasPane(model) {
+  return !!model && !model.pending && !NO_PANE.includes(model.state);
+}
+
 export default function PanelBody({ model, loaded, hidden, focused, onOpen, onRemove, onRun, onOpenFile }) {
   switch (model.state) {
     case "terminal-gone": return <Line text="That terminal is gone." action="Remove" onAction={onRemove} />;

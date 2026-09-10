@@ -3,7 +3,8 @@ import { ProviderFace } from "../ProviderFaces.jsx";
 import TerminalCliBadge from "../TerminalCliBadge.jsx";
 import PiSpinner from "../PiSpinner.jsx";
 import { IconCollapse, IconExpand, IconExternal, IconX } from "../Icons.jsx";
-import PanelBody from "./PanelBody.jsx";
+import PanelBody, { hasPane } from "./PanelBody.jsx";
+import { PanelPlate, PanelStill } from "./PanelStill.jsx";
 
 // Panel — one grid item, always rendered (react-grid-layout needs every
 // child to resolve collisions), header live, body only when chunk loading
@@ -27,11 +28,20 @@ import PanelBody from "./PanelBody.jsx";
 // clone carries a fresh style object), so the outer memo cannot hold —
 // the inner one, keyed on the domain props only, does. An xterm body never
 // remounts because the surface re-rendered.
+//
+// Canvas mode (docs/plans/matrix-canvas.md §4.3/§4.4) reuses this exact
+// wrapper as a React Flow node, so a panel behaves the same in both hosts.
+// It adds three things and changes nothing else: `bodyKind` (live · still ·
+// plate — what the zoom says the body is), `note` (the still's age in the
+// header) and the library's gates — `.mx-head` drags the node, `.mx-actions`
+// and `.mx-panel-body` carry `nodrag`, the body also carries `nowheel` so
+// the wheel scrolls the terminal instead of zooming the plane. The classes
+// are inert in grid mode, which drags by the same header.
 
 // PanelHead — face, name, hint, the sidebar's chip, Open · Maximize ·
 // Remove. The wrapper's header is the drag handle; the maximize layer
 // renders the same head fixed.
-export function PanelHead({ model, loaded, maximized, handlers, fixed }) {
+export function PanelHead({ model, loaded, maximized, handlers, fixed, note }) {
   const gone = model.state === "terminal-gone" || model.state === "agent-gone";
   const canOpen = !gone && !model.pending;
   const canMax = canOpen && model.state !== "agent-stopped" && model.state !== "agent-managed";
@@ -44,11 +54,12 @@ export function PanelHead({ model, loaded, maximized, handlers, fixed }) {
       </span>
       <span className="mx-name">{model.name}</span>
       {model.hint ? <span className="mx-hint">{model.hint}</span> : null}
+      {note ? <span className="mx-note">{note}</span> : null}
       <span className={"ws-status is-" + model.status}>
         {loaded && model.status === "working" ? <PiSpinner title="Working" /> : null}
         <span>{model.label}</span>
       </span>
-      <span className="mx-actions">
+      <span className="mx-actions nodrag">
         {canOpen ? (
           <button type="button" className="mx-action" title="Open in its tab" aria-label="Open in its tab" onClick={() => handlers.onOpen(model)}>
             <IconExternal size={13} />
@@ -69,11 +80,14 @@ export function PanelHead({ model, loaded, maximized, handlers, fixed }) {
   );
 }
 
-const PanelInner = memo(function PanelInner({ model, loaded, hidden, engaged, maximized, handlers }) {
+const PanelInner = memo(function PanelInner({ model, loaded, hidden, engaged, maximized, handlers, bodyKind, still, note }) {
+  // Below 0.4 the plate replaces the whole panel: at that zoom the header
+  // does not resolve either (C0), so drawing it is noise, not chrome.
+  if (bodyKind === "plate") return <PanelPlate model={model} />;
   return (
     <>
-      <PanelHead model={model} loaded={loaded} maximized={maximized} handlers={handlers} />
-      <div className="mx-panel-body">
+      <PanelHead model={model} loaded={loaded} maximized={maximized} handlers={handlers} note={note} />
+      <div className="mx-panel-body nodrag nowheel">
         {maximized ? (
           // The body lives in the surface's maximize layer meanwhile; the
           // wrapper keeps the slot and says so (plan §4.6).
@@ -81,6 +95,8 @@ const PanelInner = memo(function PanelInner({ model, loaded, hidden, engaged, ma
             <span>Shown maximized.</span>
             <button type="button" className="btn btn-sm" onClick={() => handlers.onMaximize(model)}>Restore</button>
           </div>
+        ) : bodyKind === "still" && hasPane(model) ? (
+          <PanelStill model={model} still={still} />
         ) : (
           <PanelBody
             model={model}
@@ -98,7 +114,7 @@ const PanelInner = memo(function PanelInner({ model, loaded, hidden, engaged, ma
   );
 });
 
-const Panel = memo(forwardRef(function Panel({ model, loaded, hidden, focused, engaged, maximized, tabStop, loader, handlers, className, style, children, ...rest }, ref) {
+const Panel = memo(forwardRef(function Panel({ model, loaded, hidden, focused, engaged, maximized, tabStop, loader, handlers, bodyKind = "live", still, note, pointer = true, className, style, children, ...rest }, ref) {
   const rootRef = useRef(null);
   const setRoot = useCallback((el) => {
     rootRef.current = el;
@@ -111,7 +127,11 @@ const Panel = memo(forwardRef(function Panel({ model, loaded, hidden, focused, e
     loader.observe(id, rootRef.current);
     return () => loader.unobserve(id);
   }, [loader, id]);
-  const cls = ["mx-panel", className, focused ? "is-focused" : "", maximized ? "is-max" : "", model.pending ? "is-pending" : ""].filter(Boolean).join(" ");
+  // is-inert: a live pane away from zoom 1.0 renders and takes keys, but
+  // its pointer lies (C0: the mapped cell is `cell × zoom`), so the body
+  // takes no pointer at all and the canvas puts a snap-to-1 layer over it.
+  const cls = ["mx-panel", className, focused ? "is-focused" : "", maximized ? "is-max" : "", model.pending ? "is-pending" : "",
+    bodyKind === "plate" ? "is-plate" : "", bodyKind === "still" ? "is-still" : "", !pointer ? "is-inert" : ""].filter(Boolean).join(" ");
   return (
     <div
       ref={setRoot}
@@ -128,7 +148,7 @@ const Panel = memo(forwardRef(function Panel({ model, loaded, hidden, focused, e
       onKeyDown={(e) => handlers.onKey(e, model)}
       {...rest}
     >
-      <PanelInner model={model} loaded={loaded} hidden={hidden} engaged={!!(focused && engaged)} maximized={maximized} handlers={handlers} />
+      <PanelInner model={model} loaded={loaded} hidden={hidden} engaged={!!(focused && engaged)} maximized={maximized} handlers={handlers} bodyKind={bodyKind} still={still} note={note} />
       {children}
     </div>
   );

@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { applyTui, touches } from "@picode/shared/domain/feedReducers.js";
 import { displayAgentName, locate } from "@picode/shared/domain/tree.js";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 import { agentRowStatus, agentStatusLabel } from "@picode/shared/domain/agentStatus.js";
-import { PANEL_DEFAULT, applyMatrixEvent, bindingState, layoutDiff, neighborPanel, nextSlot, normalizeMatrixDetail, normalizeMatrixList, panelOrder } from "@picode/shared/domain/matrix.js";
+import { MATRIX_MODES, applyMatrixEvent, bindingState, canvasToGrid, gridToCanvas, layoutDiff, neighborPanel, nextSlot, normalizeMatrixDetail, normalizeMatrixList, panelDefault, panelOrder, tidyCanvas } from "@picode/shared/domain/matrix.js";
 import { paneLeaveKey } from "@picode/shared/domain/termKeys.js";
 import AppIcon from "../AppIcon.jsx";
-import { IconEllipsis, IconPencil, IconPlus, IconTrash } from "../Icons.jsx";
+import { IconEllipsis, IconGrid, IconPencil, IconPlus, IconTrash } from "../Icons.jsx";
 import { notify, toast, toastError } from "../../lib/toast.js";
 import { askConfirm } from "../../lib/confirm.js";
 import MatrixGrid, { compactPanels } from "./MatrixGrid.jsx";
@@ -16,9 +16,14 @@ import { PanelHead } from "./Panel.jsx";
 import PanelBody from "./PanelBody.jsx";
 import PanelPicker from "./PanelPicker.jsx";
 import NameDialog from "./NameDialog.jsx";
-import { ChunkLoader } from "./chunkLoader.js";
+import { ChunkLoader, GRID_MARGIN } from "./chunkLoader.js";
 import { forgetPane, ownedByTab } from "./paneOwnership.js";
 import "../../styles/matrix.css";
+
+// Canvas mode is lazy-imported: React Flow costs the desktop's main chunk
+// +63.3 KB gzip eager against 205 B split (C0), and only a viewer who opens
+// a canvas fetches it.
+const MatrixCanvas = lazy(() => import("./MatrixCanvas.jsx"));
 
 // MatrixSurface — the Matrix app's native surface (ADR-0109; plan
 // docs/plans/matrix-app.md; API docs/architecture/matrix.md). One tab,
@@ -46,6 +51,7 @@ import "../../styles/matrix.css";
 // line), the layout is untouched, Esc on any chrome restores.
 
 const LAST_KEY = "picode-matrix-last";
+const MODE_LABEL = { grid: "Grid", canvas: "Canvas" };
 const REVEAL_STALE_MS = 10000;
 const SAVE_DEBOUNCE_MS = 500;
 const EMPTY = { list: [], byId: {} };
@@ -57,6 +63,8 @@ const msgOf = (e) => (e && e.message ? e.message : String(e));
 const readLast = () => { try { return localStorage.getItem(LAST_KEY) || ""; } catch { return ""; } };
 const writeLast = (id) => { try { if (id) localStorage.setItem(LAST_KEY, id); else localStorage.removeItem(LAST_KEY); } catch { /* storage off */ } };
 const rectOf = (p) => ({ x: p.x, y: p.y, w: p.w, h: p.h });
+const rowOf = (p) => ({ id: p.id, ...rectOf(p) });
+const NO_BODIES = {};
 
 function patchPanels(state, id, fn) {
   const det = state.byId[id];
@@ -151,6 +159,15 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   currentRef.current = currentId;
   const [detailError, setDetailError] = useState("");
   const [loadedIds, setLoadedIds] = useState(() => new Set());
+  // Canvas mode: what the zoom says each loaded body renders (live · still ·
+  // plate · off — matrix-canvas.md §4.3). Grid mode gets "live" for every
+  // loaded panel and never reads this.
+  const [bodyKinds, setBodyKinds] = useState(NO_BODIES);
+  // The canvas host's handle: snap to 1, pan a panel into view, zoom, fit.
+  // Null in grid mode, and while the lazy chunk is still on the wire.
+  const canvasRef = useRef(null);
+  const modeRef = useRef("grid");
+  const [modeBusy, setModeBusy] = useState(false);
   const [focusedId, setFocusedId] = useState("");
   const [engaged, setEngaged] = useState(false);
   const [maximizedId, setMaximizedId] = useState("");
@@ -175,9 +192,18 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   const maxRef = useRef(null);
 
   // ---- chunk loading -----------------------------------------------------
-  const loader = useMemo(() => new ChunkLoader(setLoadedIds), []);
+  const onChunk = useCallback((ids, bodies) => {
+    setLoadedIds(ids);
+    setBodyKinds(bodies);
+  }, []);
+  const loader = useMemo(() => new ChunkLoader(onChunk), [onChunk]);
   useEffect(() => () => loader.dispose(), [loader]);
-  const setBody = useCallback((el) => { bodyRef.current = el; loader.attach(el); }, [loader]);
+  // The observer's root is the grid's scroll container. Canvas mode roots it
+  // on the plane instead, with a margin on both axes (MatrixCanvas), so the
+  // surface only remembers the element here.
+  const setBody = useCallback((el) => { bodyRef.current = el; }, []);
+  const setGridBody = useCallback((el) => { bodyRef.current = el; loader.attach(el, GRID_MARGIN); }, [loader]);
+  const onCanvasReady = useCallback((handle) => { canvasRef.current = handle; }, []);
   useEffect(() => { loader.setHidden(!!hidden); }, [hidden, loader]);
   useEffect(() => {
     if (!focusedId) return undefined;
@@ -292,6 +318,10 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   const detail = store.byId[currentId] || null;
   const panels = detail ? detail.panels : NO_PANELS;
   panelsRef.current = panels;
+  // The layout mode decides what x/y/w/h mean, which host draws them and
+  // which rules every save is judged by (ADR-0113).
+  const mode = current ? current.mode : "grid";
+  modeRef.current = mode;
 
   // The tmux-reported Working state of the agents on this matrix: one read
   // on open and reveal, then agent.tui from the feed (the sidebar's rule).
@@ -322,19 +352,24 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   }, [models, focusedId, maximizedId]);
 
   // ---- saving the layout (plan §4.7) --------------------------------------
+  // Answers the `updatedAt` it left behind ("" when there was nothing to
+  // send, false when it refused and reloaded), so a mutation that has to
+  // follow it does not send a precondition the save has just invalidated.
   const flushLayout = useCallback(async () => {
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = 0; }
     const { matrixId, rows } = pendingRef.current;
     pendingRef.current = { matrixId: "", rows: new Map() };
     const det = storeRef.current.byId[matrixId];
-    if (!det || !rows.size) return;
+    if (!det || !rows.size) return "";
     try {
       const res = await api("/api/matrices/" + enc(matrixId) + "/layout", json("PATCH", { ifUpdatedAt: det.matrix.updatedAt, panels: [...rows.values()] }));
       setStore((s) => applyMatrixEvent(s, { type: "matrix.layout", data: res }));
+      return (res && res.updatedAt) || "";
     } catch (e) {
       if (e && e.status === 409) toast.info("Matrix changed elsewhere — reloaded.");
       else toastError(e);
       await loadDetail(matrixId);
+      return false;
     }
   }, [loadDetail]);
   flushRef.current = flushLayout;
@@ -347,7 +382,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     const id = currentRef.current;
     const det = storeRef.current.byId[id];
     if (!det) return;
-    const diff = layoutDiff(det.panels.filter((p) => !p.pending), next);
+    const diff = layoutDiff(det.panels.filter((p) => !p.pending), next, modeRef.current);
     const to = new Map(next.map((p) => [p.id, p]));
     const moved = det.panels.some((p) => to.has(p.id) && (to.get(p.id).x !== p.x || to.get(p.id).y !== p.y || to.get(p.id).w !== p.w || to.get(p.id).h !== p.h));
     if (moved) setStore((s) => patchPanels(s, id, (ps) => ps.map((p) => (to.has(p.id) ? { ...p, ...rectOf(to.get(p.id)) } : p))));
@@ -364,10 +399,12 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   }, [applyLayout]);
   // The store stays compacted: what the grid draws is what gets saved,
   // including the compaction after a remove and a matrix stored with gaps.
+  // Canvas mode has no automatic compaction — free placement is the point —
+  // so the pack is the explicit **Tidy** action instead (plan §3, §4.4).
   useEffect(() => {
-    if (hidden || gestureRef.current || !panels.length) return;
+    if (hidden || gestureRef.current || modeBusy || !panels.length || mode !== "grid") return;
     applyLayout(compactPanels(panels));
-  }, [panels, hidden, applyLayout]);
+  }, [panels, hidden, mode, modeBusy, applyLayout]);
   const onGestureStart = useCallback((id) => {
     gestureRef.current = true;
     loader.pin(id, true);
@@ -398,6 +435,56 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       throw e;
     }
   }
+  // setMode(next): the Grid | Canvas switch (ADR-0113). The transform lives
+  // twice on purpose — Go writes it, `matrix.js` previews it, with the same
+  // fixtures — so the preview *is* what the answer will say: the panels move
+  // at once and the 200 reconciles them through the one reducer path every
+  // other mutation uses. Going back to the grid loses where a panel sat on
+  // the plane, so that direction asks first; grid → canvas loses nothing and
+  // does not.
+  async function setMode(next) {
+    const id = currentRef.current;
+    const m = storeRef.current.list.find((x) => x.id === id);
+    const det = storeRef.current.byId[id];
+    if (!m || !det || !MATRIX_MODES.includes(next) || m.mode === next || modeBusy) return;
+    if (next === "grid" && det.panels.length) {
+      const ok = await askConfirm({
+        title: "Switch to grid?",
+        message: "Grid mode packs the " + det.panels.length + " panels into 12 columns; where they sit on the plane is not kept.",
+        confirmLabel: "Switch to grid",
+      });
+      if (!ok) return;
+    }
+    setModeBusy(true);
+    // The moves made under the old mode go first, and they carry the
+    // precondition this switch has to use.
+    const flushed = await flushRef.current();
+    if (flushed === false) { setModeBusy(false); return; }
+    const moved = (next === "canvas" ? gridToCanvas(det.panels) : canvasToGrid(det.panels)).map(rowOf);
+    setStore((s) => applyMatrixEvent(s, { type: "matrix.mode", data: { ...m, mode: next, panels: moved } }));
+    setMaximizedId("");
+    try {
+      const res = await api("/api/matrices/" + enc(id), json("PATCH", { mode: next, ifUpdatedAt: flushed || m.updatedAt }));
+      setStore((s) => applyMatrixEvent(s, { type: "matrix.mode", data: res }));
+    } catch (e) {
+      if (e && e.status === 409) toast.info("Matrix changed elsewhere — reloaded.");
+      else toastError(e);
+      await loadDetail(id);
+    } finally {
+      setModeBusy(false);
+    }
+  }
+  // Tidy: canvas mode's answer to react-grid-layout's automatic compaction —
+  // explicit instead of silent. Reading order, sizes kept, saved once.
+  function tidy() {
+    const id = currentRef.current;
+    const det = storeRef.current.byId[id];
+    if (!det) return;
+    const rows = det.panels.filter((p) => !p.pending);
+    if (!rows.length) return;
+    applyLayout(tidyCanvas(rows));
+    flushRef.current();
+  }
   async function deleteMatrix() {
     const id = currentRef.current;
     const m = storeRef.current.list.find((x) => x.id === id);
@@ -422,9 +509,10 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     const id = currentRef.current;
     const det = storeRef.current.byId[id];
     if (!det) return;
-    const { x, y } = nextSlot(det.panels, PANEL_DEFAULT.w, PANEL_DEFAULT.h);
+    const size = panelDefault(modeRef.current);
+    const { x, y } = nextSlot(det.panels, size.w, size.h, modeRef.current);
     const tmp = "tmp-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    const body = { kind, ref, x, y, w: PANEL_DEFAULT.w, h: PANEL_DEFAULT.h };
+    const body = { kind, ref, x, y, w: size.w, h: size.h };
     // The wrapper shows at once and settles on the server's answer.
     setStore((s) => patchPanels(s, id, (ps) => [...ps, { id: tmp, ...body, createdAt: "", pending: true }]));
     try {
@@ -488,14 +576,22 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     setFocusedId(id || "");
     setEngaged(false);
     if (!id) return;
+    // A canvas has nothing to scroll: an off-screen panel is panned into
+    // view instead, which is what loads it.
+    const canvas = modeRef.current === "canvas" ? canvasRef.current : null;
+    if (canvas) canvas.reveal(id);
     requestAnimationFrame(() => {
       const el = bodyRef.current && bodyRef.current.querySelector('[data-mx-panel="' + id + '"]');
       if (!el) return;
-      if (el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
+      if (!canvas && el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
       el.focus({ preventScroll: true });
     });
   }
+  // engagePanel: the pane takes the keyboard. On a canvas it takes the
+  // pointer too, and a pointer is only honest at zoom 1.0 (C0), so the plane
+  // snaps there first — "snap to 1 on engage" (plan §4.3).
   function engagePanel(id) {
+    if (modeRef.current === "canvas" && canvasRef.current) canvasRef.current.snapToOne(id);
     setFocusedId(id);
     setEngaged(true);
   }
@@ -560,7 +656,15 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       if (e.key === "Escape" && maximizedRef.current) {
         e.preventDefault();
         restoreMaximized();
+        return;
       }
+      // The canvas's own keys, on the chrome only (inside a pane every key
+      // but the leave chord is the shell's).
+      const canvas = modeRef.current === "canvas" ? canvasRef.current : null;
+      if (!canvas || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === "+" || e.key === "=") { e.preventDefault(); canvas.zoomIn(); return; }
+      if (e.key === "-" || e.key === "_") { e.preventDefault(); canvas.zoomOut(); return; }
+      if (e.key === "0") { e.preventDefault(); canvas.fit(); }
     },
     onOpen: (model) => {
       const h = hostRef.current || {};
@@ -675,21 +779,44 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   } else {
     body = (
       <div className="mx-stage">
-        <div className="mx-body" ref={setBody} inert={!!maximizedId}>
-          <MatrixGrid
-            models={models}
-            loaded={loadedIds}
-            hidden={!!hidden}
-            focusedId={focusedId}
-            engaged={engaged}
-            maximizedId={maximizedId}
-            tabStopId={tabStopId}
-            loader={loader}
-            handlers={handlers}
-            onLayoutChange={onLayoutChange}
-            onGestureStart={onGestureStart}
-            onGestureStop={onGestureStop}
-          />
+        <div className={"mx-body" + (mode === "canvas" ? " is-canvas" : "")} ref={mode === "canvas" ? setBody : setGridBody} inert={!!maximizedId}>
+          {mode === "canvas" ? (
+            <Suspense fallback={<div className="mx-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>}>
+              <MatrixCanvas
+                key={currentId}
+                matrixId={currentId}
+                models={models}
+                loaded={loadedIds}
+                bodies={bodyKinds}
+                hidden={!!hidden}
+                focusedId={focusedId}
+                engaged={engaged}
+                maximizedId={maximizedId}
+                tabStopId={tabStopId}
+                loader={loader}
+                handlers={handlers}
+                onLayout={applyLayout}
+                onGestureStart={onGestureStart}
+                onGestureStop={onGestureStop}
+                onReady={onCanvasReady}
+              />
+            </Suspense>
+          ) : (
+            <MatrixGrid
+              models={models}
+              loaded={loadedIds}
+              hidden={!!hidden}
+              focusedId={focusedId}
+              engaged={engaged}
+              maximizedId={maximizedId}
+              tabStopId={tabStopId}
+              loader={loader}
+              handlers={handlers}
+              onLayoutChange={onLayoutChange}
+              onGestureStart={onGestureStart}
+              onGestureStop={onGestureStop}
+            />
+          )}
         </div>
         {maxModel ? (
           // The maximized panel's body, in a layer over the grid: the same
@@ -725,6 +852,16 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
             </select>
           ) : null}
           {current ? (
+            <div className="termset-seg mx-seg" role="radiogroup" aria-label="Layout mode">
+              {MATRIX_MODES.map((m) => (
+                <label className="termset-seg-opt" key={m} htmlFor={"mx-mode-" + m}>
+                  <input id={"mx-mode-" + m} type="radio" name="mx-mode" checked={mode === m} onChange={() => setMode(m)} />
+                  <span className="termset-seg-face">{MODE_LABEL[m]}</span>
+                </label>
+              ))}
+            </div>
+          ) : null}
+          {current ? (
             <button type="button" className="btn btn-sm" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
           ) : null}
           <button type="button" className="btn btn-sm btn-ghost" onClick={() => setNameDialog("new")} title="Create another matrix">New matrix</button>
@@ -735,6 +872,9 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
                 <DropdownMenu.Content className="ws-row-menu" side="bottom" align="end" sideOffset={4} collisionPadding={8}>
+                  {mode === "canvas" && panels.length ? (
+                    <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => { tidy(); }}><IconGrid size={13} /> Tidy panels</DropdownMenu.Item>
+                  ) : null}
                   <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setNameDialog("rename")}><IconPencil size={13} /> Rename</DropdownMenu.Item>
                   <DropdownMenu.Item className="ws-row-menu-item danger" onSelect={() => { deleteMatrix(); }}><IconTrash size={13} /> Delete matrix</DropdownMenu.Item>
                 </DropdownMenu.Content>

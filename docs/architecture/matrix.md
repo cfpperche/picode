@@ -10,7 +10,7 @@ react-grid-layout, chunk loading, the picker — is phase 3 and is the
 **Surface** section at the end. A matrix has a **layout mode** (ADR-0113,
 amending ADR-0108): the 12-column grid it shipped with, or a canvas plane
 — the **Modes** section below. The canvas surface itself is C2 of
-`docs/plans/matrix-canvas.md` and is not built yet.
+`docs/plans/matrix-canvas.md` and is the **Canvas** part of that section.
 
 **Data model (migrations 041 and 043).** `matrices(id, name, compact, mode,
 created_at, updated_at)` and `matrix_panels(id, matrix_id → matrices ON DELETE
@@ -164,12 +164,14 @@ matrix and switching updates the hash. The phone lists the tile as
 | File | Holds |
 |---|---|
 | `MatrixSurface.jsx` | header (native `<select>` switcher, **Add panel**, **New matrix**, a menu with Rename / Delete), the scroll container chunk loading observes, the empty states, the store `{ list, byId }` reduced by `applyMatrixEvent`, the save flow, "last matrix opened" in `localStorage` `picode-matrix-last` |
+| `MatrixCanvas.jsx` | canvas mode's host: `@xyflow/react` 12.11.6, lazy-imported, one custom node type rendering the same `Panel`; the camera, the zoom rule and the minimap. **Canvas** below |
+| `PanelStill.jsx`, `stills.js` | the two bodies a canvas panel has instead of a live pane — the text still and the name-plate — and the memory-only map of captured screens |
 | `MatrixGrid.jsx` | react-grid-layout 2.2.4, v2 API: `useContainerWidth` on the canvas, `gridConfig {cols 12, rowHeight 24, margin 8}`, drag by `.mx-head` with `.mx-actions` as the cancel zone, `se`/`s`/`e` handles, `fastVerticalCompactor` from `react-grid-layout/extras`, children keyed by panel id, `minW 4 / minH 8` |
 | `Panel.jsx` | the wrapper every panel keeps (and `PanelHead`, which the maximize layer reuses): face, name, hint, the sidebar's chip (`agentRowStatus` / `terminalStatus`), Open · Maximize · Remove from matrix; it observes its own visibility; two memo layers so a grid re-render never touches a body |
 | `PanelBody.jsx`, `TerminalPanel.jsx` | loaded → `TermSurface` (the tab's engine; a terminal first `POST /api/terminals/{id}/open`s for its live record); unloaded → one muted line with the feed's last state; the §4.4 rows below as one line + one action |
 | `PanelPicker.jsx`, `NameDialog.jsx` | cmdk list of the agents and terminals not yet on this matrix, with the sidebar's faces and words; the name form (`matrixNameSchema`, Zod, the store's messages, `noValidate`) |
 | `chunkLoader.js`, `paneOwnership.js` | the `IntersectionObserver` glue over the pure `loadPolicy`; what unloading does to an attach |
-| `web/shared/domain/matrix.js` | `nextSlot`, `layoutDiff`, `bindingState`, `loadPolicy`, `suspendedToDispose`, `panelOrder`, `neighborPanel` (+ `PANEL_DEFAULT` 4×14, `PANEL_DIRECTIONS`) — one test per row below in `matrix.test.js` |
+| `web/shared/domain/matrix.js` | `nextSlot`, `layoutDiff`, `bindingState`, `loadPolicy` (with the zoom), `zoomBody`, `pointerAtZoom`, `unitsToPx` / `pxToUnits`, `tidyCanvas`, `normalizeViewport`, `suspendedToDispose`, `panelOrder`, `neighborPanel` (+ `PANEL_DEFAULT` 4×14, `PANEL_DEFAULT_CANVAS` 32×42, `CANVAS_ZOOM`, `PANEL_DIRECTIONS`) — one test per row below in `matrix.test.js` |
 
 **The fleet decides what a panel is bound to**, so the surface draws the
 skeleton until the desktop says it has one: `host.fleet.loaded` is the
@@ -198,7 +200,13 @@ agents on the matrix. No timer.
 | `agent-gone` | "That agent is gone." | Remove |
 
 **Chunk loading** (`loadPolicy`, plan §4.5). Observer root: the surface's
-scroll container, `rootMargin: 100% 0px`.
+scroll container in grid mode (`rootMargin: 100% 0px` — it only scrolls
+vertically) and the React Flow pane in canvas mode (`100%`, both axes: a
+plane pans sideways too, and C0 measured 49 panels in the band against 28).
+A wrapper that unmounts stays loaded for one tick, because switching layout
+mode unmounts every panel in one host and mounts it in the other inside the
+same commit — dropping the flag at once would make the switch a socket
+suspend and kick per panel.
 
 | Situation | Behaviour |
 |---|---|
@@ -285,6 +293,94 @@ A binding whose target is deleted while the page is up keeps the name and
 hint it last showed, so the gone row reads *grid20 · Shell · Gone* instead
 of the raw id; a page opened after the deletion has nothing to remember
 and falls back to the ref.
+
+### Canvas (phase C2)
+
+`MatrixCanvas.jsx` is the peer of `MatrixGrid.jsx`: `@xyflow/react` 12.11.6,
+**lazy-imported** (eager it is +63.3 KB gzip on the desktop's main chunk;
+split it costs 205 B and lands in a 49 KB gzip chunk only a viewer who opens
+a canvas fetches). It is a host and nothing more — the surface keeps the
+store, the save flow, the focus model, the keyboard, the picker and the
+maximize layer, and every panel is the **same `Panel` wrapper** rendered as
+one custom node type, so a panel has the same header, chip, actions and keys
+in both modes. Configuration is C0's
+([`docs/benchmarks/2026-09-10-node-canvas.md`](../benchmarks/2026-09-10-node-canvas.md)):
+`minZoom` 0.2, `maxZoom` 1.5, `snapToGrid` on an 8 px `snapGrid` (the canvas
+unit, so a drag lands on whole units), `onlyRenderVisibleElements` **off**
+(on, it unmounts a node with no dwell — 54 socket suspends and kicks over
+three fast pans), `NodeResizer` for resize (`onResizeEnd` fires once; it
+does not honour `snapGrid`, so `pxToUnits` rounds), the body marked `nodrag
+nowheel` with the header as the drag handle, marquee selection on a left
+drag, pan on the middle or right button or Space, and a `<MiniMap />` and a
+zoom cluster themed from our tokens (React Flow's defaults are a near-white
+panel over the app's dark surface). Node position is `x · 8, y · 8` px and
+size `w · 8, h · 8`; `unitsToPx` / `pxToUnits` are the only place that
+multiplies.
+
+**Zoom decides the body** (plan §4.3, `loadPolicy` with `{zoom, band}`,
+`zoomBody`, `pointerAtZoom` — one test per row in `matrix.test.js`). The
+reason is not performance, it is correctness: **xterm divides the pointer's
+offset inside the transformed rect by the untransformed cell size**, so the
+cell it reports is `cell × zoom` — at 0.8 a click aimed at column 50 row 15
+arrives as column 40 row 12 — and PiCode ships tmux `mouse on`, so that
+wrong coordinate reaches copy mode and every mouse-aware TUI. The DOM
+renderer stays crisp, so nothing on screen would say so; the surface has to.
+
+| Condition | Body |
+|---|---|
+| in the band, `zoom = 1.0` (± 0.005) | live pane, attached — **the only state that takes a pointer** |
+| in the band, `0.8 ≤ zoom < 1.0`, or `zoom > 1.0` | live pane, readable, taking keys; `pointer-events: none` on the body and a layer over it whose click **snaps the plane to 1** and hands the pointer over |
+| in the band, `zoom < 0.75` | **still**: `term.buffer.active` as text, monospace, inert; the header stays live from the feed |
+| `zoom < 0.4` | **name-plate**: face, name and status colour sized by `1 / zoom`, because a still down there is grey texture and the header does not resolve either |
+| outside the band, any zoom | today's placeholder; the socket suspends after the 5 s hysteresis |
+| focused and engaged | the plane animates to `zoom = 1` before the pane takes keys — Enter engages through the same snap |
+
+The band is **hysteretic** — live at 0.8 and above, still below 0.75 — so a
+viewer parked on the boundary does not thrash the attaches, and it flips
+when the gesture ends rather than once per wheel frame. The band itself is
+**screen-space**, so zooming out puts everything in it (C0: 500 of 500 at
+0.2); what bounds the attaches down there is the still rule, not the band.
+
+**Stills** (`stills.js`) are memory-only, never persisted, and cost 0.02 ms
+for a full screen. They are captured **before the flip, never at unmount** —
+React renders the still body before it runs the live body's cleanup, so a
+capture in the cleanup is one crossing late — and refreshed while the panes
+are live. A camera that *arrives* below the band (a stored viewport, or the
+switch out of grid mode, where the panes went live in the other host) fills
+the gaps from the xterm instances a suspend keeps. A panel with no capture
+yet shows the unloaded body's one muted line, and a still whose panel has
+moved on the feed since carries its age in the header.
+
+**The camera is per viewer**: `localStorage` `picode-matrix-view:<id>` holds
+`{x, y, zoom}`, restored on open, debounced on `onMoveEnd`, with a fit to
+the panels the first time a viewer opens that matrix. It never reaches the
+store — a pan is not an edit (ADR-0113).
+
+**Tidy** (`tidyCanvas`, the header menu) is canvas mode's answer to
+react-grid-layout's automatic compaction: explicit instead of silent. It
+lays the panels out in reading order, sizes kept, three default-sized panels
+across (98 units, the grid's 12 columns and their gutters), each row as tall
+as its tallest panel, and saves once through the layout PATCH. Grid mode
+keeps RGL's compactor untouched this phase (plan §3's two-step).
+
+**The switch** is the `Grid | Canvas` segmented control in the header. It
+PATCHes `mode` under `ifUpdatedAt` (after flushing the moves made under the
+old mode, whose answer carries the precondition the switch then uses) and
+applies the answer through `applyMatrixEvent` like every other mutation; a
+409 refetches and says *Matrix changed elsewhere — reloaded.* Because the
+transform is implemented twice against the same fixtures — Go writes it,
+`gridToCanvas` / `canvasToGrid` preview it — the preview **is** the answer,
+so the panels move at once and the 200 reconciles them. Canvas → grid asks
+first in one line (*Grid mode packs the N panels into 12 columns; where they
+sit on the plane is not kept*) because that direction is lossy; grid →
+canvas loses nothing and does not ask.
+
+**What canvas mode adds to the keyboard** (everything phase 3 shipped keeps
+working — `neighborPanel` was already a 2D spatial search, so the arrows
+need no change on a free plane): `+` / `-` zoom, `0` fits, Space-drag pans,
+Enter engages through the snap to 1, and moving focus to an off-screen panel
+**pans it into view**, which is what loads it. A panel already on screen is
+left where it is: an arrow key must not shove the plane about.
 
 **Re-measured on a scratch (2026-09-09, phase 3 session 2)** against
 [`docs/benchmarks/2026-09-09-matrix-live-grid.md`](../benchmarks/2026-09-09-matrix-live-grid.md):
