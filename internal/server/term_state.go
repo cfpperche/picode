@@ -257,14 +257,15 @@ func handleSetTerminalState(deps Deps) http.HandlerFunc {
 			return
 		}
 		var req struct {
-			State       string `json:"state"`
-			CLI         string `json:"cli"`
-			RunID       string `json:"runId"`
-			SessionID   string `json:"sessionId"`
-			SessionPath string `json:"sessionPath"`
-			SessionSeq  int64  `json:"sessionSeq"`
-			Source      string `json:"source"`
-			PID         int    `json:"pid"`
+			ObservationVersion int    `json:"observationVersion"`
+			State              string `json:"state"`
+			CLI                string `json:"cli"`
+			RunID              string `json:"runId"`
+			SessionID          string `json:"sessionId"`
+			SessionPath        string `json:"sessionPath"`
+			SessionSeq         int64  `json:"sessionSeq"`
+			Source             string `json:"source"`
+			PID                int    `json:"pid"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
@@ -286,6 +287,16 @@ func handleSetTerminalState(deps Deps) http.HandlerFunc {
 				}
 				runID = runtime.RunID
 			}
+		}
+		if req.ObservationVersion == 1 {
+			reconcileNativeObservation(r.Context(), deps, id)
+			rt, present := deps.TermRuntimes.Get(id)
+			if present && rt.RunID == req.RunID && rt.SessionSeq >= req.SessionSeq {
+				writeJSON(w, http.StatusOK, map[string]any{"termId": id})
+				return
+			}
+			writeErr(w, http.StatusConflict, "Native observation is unavailable or no longer current.")
+			return
 		}
 		var st TermState
 		if req.SessionID != "" {

@@ -243,6 +243,13 @@ func peerLiveTerminal(deps Deps, p store.PeerConnection) (TermRuntime, bool) {
 	if !ok || rt.SessionID != p.SessionKey || rt.CLI != p.CLI || rt.RunID == "" || !processAlive(rt) {
 		return rt, false
 	}
+	observation, observationErr := readNativeObservation(deps.DataDir, p.OwnerID)
+	if rt.Observation || observationErr == nil || (deps.DataDir != "" && !os.IsNotExist(observationErr)) {
+		if observationErr != nil || !observationMatchesRuntime(observation, rt) || observation.State != TermIdle {
+			return rt, false
+		}
+	}
+
 	state, ok := deps.TermStates.Get(p.OwnerID)
 	return rt, ok && state.SessionID == rt.SessionID && state.SessionSeq == rt.SessionSeq && state.RunID == rt.RunID && state.CLI == rt.CLI && state.State == TermIdle
 }

@@ -20,7 +20,7 @@ func recordNativeTerminalSession(deps Deps, term, cli, run, id, path string, seq
 	return recordNativeTerminalObservation(deps, term, cli, run, id, path, seq, value, "")
 }
 
-func recordNativeTerminalObservation(deps Deps, term, cli, run, id, path string, seq int64, state, source string) error {
+func recordNativeTerminalObservation(deps Deps, term, cli, run, id, path string, seq int64, state, source string, observed ...bool) error {
 	if deps.TermRuntimes == nil || run == "" || id == "" || len(id) > 256 || len(path) > 4096 || strings.ContainsAny(id, "\r\n\x00") || seq <= 0 || seq > time.Now().Add(5*time.Second).UnixNano() {
 		return errors.New("invalid native identity")
 	}
@@ -69,6 +69,9 @@ func recordNativeTerminalObservation(deps Deps, term, cli, run, id, path string,
 		}
 	}
 	live.SessionID, live.SessionPath, live.SessionSeq = id, path, seq
+	if len(observed) > 0 && observed[0] {
+		live.Observation = true
+	}
 	if cli == "codex" && source == "codex-hook" {
 		live.CodexHooks = true
 	}

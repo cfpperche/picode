@@ -26,6 +26,7 @@ const runtimeRunIDCap = 160
 
 // TermRuntime identifies the live CLI process in a project terminal.
 type TermRuntime struct {
+	Observation bool      `json:"-"`
 	SessionID   string    `json:"sessionId,omitempty"`
 	SessionPath string    `json:"-"`
 	SessionSeq  int64     `json:"-"`
@@ -455,6 +456,11 @@ func reconcileTermRuntimes(ctx context.Context, deps Deps) {
 		return
 	}
 	seen := map[string]bool{}
+	owners := map[string]bool{}
+	for _, terminal := range terminals {
+		owners[terminal.ID] = true
+	}
+	sweepNativeObservations(deps, owners)
 	var procSnap *procSnapshot
 	for _, terminal := range terminals {
 		id := terminal.ID
@@ -466,6 +472,7 @@ func reconcileTermRuntimes(ctx context.Context, deps Deps) {
 			}
 			continue
 		}
+		reconcileNativeObservation(ctx, deps, id)
 		runtime, ok := deps.TermRuntimes.Get(id)
 		if ok {
 			// A legacy lease uses the pane shell PID, not the short-lived

@@ -75,3 +75,62 @@ esac
 		})
 	}
 }
+
+func TestNativeHermesTurnContextSurvivesBackgroundReview(t *testing.T) {
+	dir := t.TempDir()
+	if err := writeNativeAssets(dir); err != nil {
+		t.Fatal(err)
+	}
+	script := `import importlib.util,os,json,sys,subprocess,threading
+from unittest.mock import patch
+spec=importlib.util.spec_from_file_location("plugin",sys.argv[1]);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+os.environ.update(PICODE_TERM_ID="fixture",PICODE_NATIVE_HOOK="hook",PICODE_MESSAGES_BIN="/qa/picode",HERMES_SESSION_ID="helper")
+class Context:
+ def __init__(self):self.hooks={}
+ def register_hook(self,name,callback):self.hooks[name]=callback
+c=Context();m.register(c);observations=[]
+def record(args,**kw):observations.append((json.loads(args[-1]),int(kw['env']['PICODE_NATIVE_SESSION_SEQ'])))
+root=dict(session_id="native",turn_id="root-turn",platform="cli",parent_session_id="")
+command="/qa/picode messages send --to peer_1 --request-id test --body 'quoted # ; body'"
+def tool(**kw):return c.hooks['pre_tool_call'](tool_name='terminal',args={'command':command,'timeout':17},**kw)
+with patch.object(m.subprocess,'run',side_effect=record):
+ c.hooks['pre_llm_call'](**root)
+ assert observations[-1][0]=={'state':'working','session_id':'native'}
+ got=tool(**root);assert got['args']=={'command':'HERMES_SESSION_ID=native '+command,'timeout':17}
+ assert os.environ['HERMES_SESSION_ID']=='helper'
+ for kw in [dict(root,parent_session_id='native'),dict(root,platform='gateway'),dict(root,turn_id=''),dict(root,session_id='')]:
+  before=len(observations);c.hooks['pre_llm_call'](**kw);assert len(observations)==before
+ assert tool(**root)==got
+ helper=dict(root,turn_id='helper-turn')
+ assert tool(**helper) is None
+ before=len(observations);c.hooks['on_session_end'](**helper);assert len(observations)==before
+ c.hooks['pre_approval_request'](**root);assert observations[-1][0]['state']=='needs-you'
+ c.hooks['post_approval_response'](**root);assert observations[-1][0]['state']=='working'
+ for text in ['echo unrelated','HERMES_SESSION_ID=foreign '+command,command+'; /qa/picode messages read',command+'\n/qa/picode messages read','picode messages read # first\npicode messages ack msg_1','\n'+command,command+'\n']:
+  assert c.hooks['pre_tool_call'](tool_name='terminal',args={'command':text},**root) is None
+ c.hooks['on_session_end'](**root);assert observations[-1][0]['state']=='idle'
+ newer=dict(root,session_id='next',turn_id='next-turn')
+ c.hooks['pre_llm_call'](**newer);assert tool(**root) is None
+ before=len(observations);c.hooks['on_session_end'](**root);assert len(observations)==before
+ c.hooks['on_session_reset'](session_id='reset',platform='cli',reason='new_session')
+ assert tool(**newer) is None and observations[-1][0]=={'state':'idle','session_id':'reset'}
+ assert [seq for _,seq in observations]==sorted(set(seq for _,seq in observations))
+ c.hooks['pre_llm_call'](**root)
+entered=threading.Event();release=threading.Event()
+def delayed(args,**kw):
+ if json.loads(args[-1])['state']=='idle':
+  entered.set();assert release.wait(3)
+ record(args,**kw)
+with patch.object(m.subprocess,'run',side_effect=delayed):
+ old=threading.Thread(target=lambda:c.hooks['on_session_end'](**root));old.start()
+ assert entered.wait(3)
+ c.hooks['pre_llm_call'](**newer)
+ release.set();old.join(3);assert not old.is_alive()
+ assert observations[-1][0]['state']=='idle'
+ assert max(observations,key=lambda o:o[1])[0]=={'state':'working','session_id':'next'}
+`
+	cmd := exec.Command("python3", "-c", script, filepath.Join(nativeAssetsDir(dir), "hermes.py"))
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("Hermes context: %v %s", err, out)
+	}
+}
