@@ -38,7 +38,7 @@ function typedValues(fields, values) {
   return out;
 }
 
-export default function PackageConfigGeneric({ hidden, embedded = false, pkg, workspaceId = "", backHash = "#/clis/packages/pi", describeHash, listHash }) {
+export default function PackageConfigGeneric({ hidden, embedded = false, pkg, workspaceId = "", backHash = "#/clis/pi/packages", describeHash, listHash }) {
   const [view, setView] = useState(null);
   const [loadErr, setLoadErr] = useState("");
   const [values, setValues] = useState(EMPTY);

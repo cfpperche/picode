@@ -40,7 +40,7 @@ export default function More({ fleetReady = true, section, apps, catalog, system
           <ul className="m-list m-menu m-group-list">
           {group.rows.map(([id, title, sub]) => (
             <li key={id} className="m-row">
-              <a className="m-row-main" href={id === "pi-providers" ? cliProvidersHash() : id === "pi-packages" ? cliPackagesHash("pi", { agentId: last?.agent?.id || legacyAgentId }) : id === "pi-settings" ? cliSettingsHash("pi", { agentId: last?.agent?.id || legacyAgentId }) : "#/more/" + id}>
+              <a className="m-row-main" href={id === "pi-providers" ? cliProvidersHash() : id === "pi-packages" ? cliPackagesHash("pi", { agentId: last?.agent?.id || legacyAgentId }) : id === "pi-settings" ? cliSettingsHash("pi", { agentId: last?.agent?.id || legacyAgentId }) : id === "connectors" ? "#/clis/pi/connectors" : id === "integrations" ? "#/integrations/webhooks" : "#/more/" + id}>
                 <span className="m-row-text">
                   <span className="m-row-title">{title}</span>
                   <span className="m-row-sub">{sub}</span>

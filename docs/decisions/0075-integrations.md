@@ -35,6 +35,13 @@ Custom remote/local MCP servers remain installable without recompiling PiCode;
 provider-specific execution lives in those external servers/packages. Existing
 MCP access remains compatible. Agent capabilities remain Pi-only today.
 
+## Amendment (2026-09-11) — navigation only
+
+Connectors (MCP) live on the selected CLI at `#/clis/<cli>/connectors`.
+`#/integrations`, `#/integrations/connectors` and `#/mcps` rewrite there.
+Webhooks stay a PiCode surface at `#/integrations/webhooks`. The webhook
+engine, signing and persistence are unchanged.
+
 Webhooks are a stdlib background service over the durable event log:
 
 - One signed JSON event per POST, ordered per subscription, at least once

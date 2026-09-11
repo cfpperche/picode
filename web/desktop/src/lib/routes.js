@@ -9,13 +9,13 @@ export const ROUTES = {
   workspace: "/",
   preferences: "/preferences",
   clis: "/clis",
-  settings: "/clis/settings/pi",
+  settings: "/clis/pi/settings",
   system: "/system",
   providers: "/clis/pi/providers",
   llama: "/llama/models",
-  mcps: "/mcps",
-  integrations: "/integrations",
-  packages: "/clis/packages/pi",
+  mcps: "/clis/pi/connectors",
+  integrations: "/integrations/webhooks",
+  packages: "/clis/pi/packages",
   devices: "/devices",
   pins: "/pins",
   termset: "/termset",
@@ -31,8 +31,8 @@ export function parseRoute(hash) {
   if (h === "/system") return "system";
   if (h === "/llama" || h.startsWith("/llama/") || ["/providers/llama", "/more/providers/llama"].includes(h.split("?")[0])) return "llama";
   if (cliProvidersLocation(h)) return "clis";
-  if (h === "/mcps") return "mcps";
-  if (h === "/integrations" || h.startsWith("/integrations/")) return "integrations";
+  if (h === "/integrations/webhooks" || h.startsWith("/integrations/webhooks")) return "integrations";
+  if (h === "/mcps" || h === "/integrations" || h.startsWith("/integrations/")) return "clis";
   if (h === "/devices") return "devices";
   if (h === "/pins" || h.startsWith("/pins/")) return "pins";
   if (h === "/termset" || h.startsWith("/termset/")) return "termset";

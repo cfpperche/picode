@@ -1,4 +1,34 @@
 // Headless contracts only; desktop and mobile own their presentation.
+export const CLI_CONNECTORS = [{ id: "pi", name: "Pi" }];
+export const supportsCliConnectors = (id) => CLI_CONNECTORS.some((cli) => cli.id === id);
+
+export function cliConnectorsHash(cli = "pi", { workspaceId = "", agentId = "", scope = "user" } = {}) {
+  const query = new URLSearchParams();
+  if (workspaceId) query.set("workspaceId", workspaceId);
+  if (agentId) query.set("agentId", agentId);
+  if (scope && scope !== "user") query.set("scope", scope);
+  return "#/clis/" + encodeURIComponent(cli || "pi") + "/connectors" + (query.size ? "?" + query : "");
+}
+
+export function cliConnectorsLocation(hash = "") {
+  const [path, query = ""] = hash.replace(/^#/, "").split("?");
+  if (path === "/integrations/webhooks" || path === "/more/integrations/webhooks") return null;
+  const nested = /^\/clis\/([^/]+)\/connectors$/.exec(path);
+  const legacy = path === "/mcps" || path === "/more/mcps" || path === "/integrations" || path === "/integrations/connectors"
+    || path === "/more/integrations" || path === "/more/integrations/connectors";
+  if (!legacy && !nested) return null;
+  const params = new URLSearchParams(query);
+  let id = "pi";
+  try { if (nested) id = decodeURIComponent(nested[1]); } catch { id = ""; }
+  const workspaceId = params.get("workspaceId") || "";
+  const agentId = params.get("agentId") || "";
+  const scope = params.get("scope") || "user";
+  const invalid = !["user", "project", "agent"].includes(scope);
+  const canonical = cliConnectorsHash(id, { workspaceId, agentId, scope });
+  return { view: "clis", pane: "connectors", id, workspaceId, agentId, scope, invalid, legacy,
+    redirect: !invalid && !nested ? canonical : "" };
+}
+
 export function integrationSection(hash = "") {
   return hash.replace(/^#/, "").split("/").includes("webhooks") ? "webhooks" : "connectors";
 }

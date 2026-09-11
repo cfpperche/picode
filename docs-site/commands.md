@@ -38,7 +38,7 @@ Duplicate this timeline into a new session. This one stays.
 
 ## /settings {#settings}
 
-Opens **Agent CLIs → Settings → Pi** (`#/clis/settings/pi?agentId=<id>`) for the selected agent. PiCode preferences remain at `#/preferences`.
+Opens **Agent CLIs → Pi → Settings** (`#/clis/pi/settings?agentId=<id>`) for the selected agent. PiCode preferences remain at `#/preferences`.
 
 See [Settings](/guide/settings).
 

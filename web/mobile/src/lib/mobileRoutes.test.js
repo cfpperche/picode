@@ -5,11 +5,11 @@ import { mobileRoute, mobileHash, toolHash, tabOf, parentHash } from "./mobileRo
 
 describe("mobileRoute", () => {
   it("opens independent integrations deep links from More", () => {
-    for (const hash of ["#/more/integrations", "#/integrations", "#/integrations/connectors", "#/integrations/webhooks"]) {
-      const route = mobileRoute(hash);
-      assert.equal(route.section, "integrations");
-      assert.equal(tabOf(route), "more");
-      assert.equal(parentHash(route), "#/more");
+    const webhooks = mobileRoute("#/integrations/webhooks");
+    assert.equal(webhooks.section, "integrations");
+    assert.equal(tabOf(webhooks), "more");
+    for (const hash of ["#/more/integrations", "#/integrations", "#/integrations/connectors"]) {
+      assert.equal(mobileRoute(hash).section, "clis", hash);
     }
   });
   it("opens Apps on the phone and keeps the Inbox route", () => {
@@ -137,7 +137,7 @@ it("pins on the phone: list under More, read-only screen, new and edit forms", (
 });
 
 it("native packages and legacy configuration links use Agent CLIs", () => {
-  for (const hash of ["#/packages", "#/more/packages", "#/packages/config/pi-roles", "#/clis/packages/pi?agentId=a", "#/clis/packages/pi/config/pi-roles?workspaceId=w"]) {
+  for (const hash of ["#/packages", "#/more/packages", "#/packages/config/pi-roles", "#/clis/packages/pi?agentId=a", "#/clis/packages/pi/config/pi-roles?workspaceId=w", "#/clis/pi/packages", "#/integrations", "#/mcps"]) {
     assert.deepEqual(mobileRoute(hash), { screen: "more", id: "", section: "clis" });
   }
 });

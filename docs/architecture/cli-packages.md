@@ -2,13 +2,12 @@
 
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
-Packages is an independent Agent CLIs view in each app. The shared
-`cliPackages` module parses canonical/legacy URLs, declares native package
-capabilities (Pi initially), and validates workspace/agent identities from the
-fleet APIs. Canonical URLs carry `workspaceId`, `agentId` and install `scope`;
-an unscoped URL means machine packages. Legacy `#/packages*` and mobile
-`#/more/packages*` replace themselves after resolving the available pane
-context. Missing or mismatched targets block editing instead of falling back.
+Packages is a pane of the selected CLI (`#/clis/<cli>/packages`) in each app.
+The shared `cliPackages` module parses canonical/legacy URLs, declares native
+package capabilities (Pi initially), and validates workspace/agent identities
+from the fleet APIs. Canonical URLs carry `workspaceId`, `agentId` and install
+`scope`; an unscoped URL means machine packages. Legacy `#/packages*`,
+`#/clis/packages*` and mobile `#/more/packages*` rewrite onto the pane. Missing or mismatched targets block editing instead of falling back.
 Context refresh failures retain the mounted package view and its draft, with
 writes blocked until retry succeeds. Each mutation revalidates its URL target,
 including after confirmation. A changed workspace path or agent work path

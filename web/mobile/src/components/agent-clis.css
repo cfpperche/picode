@@ -48,6 +48,7 @@
 }
 .cli-pane-tabs a:hover { color: var(--text-primary); }
 .cli-pane-tabs a[aria-selected="true"] { color: var(--text-primary); border-bottom-color: var(--accent); font-weight: 600; }
+.cli-pane-split { width: 1px; align-self: stretch; margin: 8px 6px; background: var(--border); flex: none; }
 .cli-pane-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding-bottom: 4px; }
 .cli-pane-actions .btn { height: var(--ctl-h); }
 .cli-detail > #sessions-view { padding: 12px 0 0; }
@@ -178,4 +179,3 @@
 .cli-packages-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 
 .cli-providers-pane { padding-top: 12px; min-width: 0; }
-.cli-providers-scope { color: var(--text-secondary); font-size: 12px; margin-bottom: 12px; }

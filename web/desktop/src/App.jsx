@@ -2708,7 +2708,11 @@ export default function App() {
           version,
           themeMode,
           onTheme: setTheme,
-          onNavigate: (kind) => { if (kind === "packages") location.hash = cliPackagesHash("pi", { workspaceId: paneWs?.id, agentId: agent?.id }); else go(kind); },
+          onNavigate: (kind) => {
+            if (kind === "packages") location.hash = cliPackagesHash("pi", { workspaceId: paneWs?.id, agentId: agent?.id });
+            else if (kind === "connectors") location.hash = "#/clis/pi/connectors";
+            else go(kind);
+          },
           onWhatsNew: openWhatsNew,
           whatsNewUnread,
           pkgUpdates,
@@ -3116,7 +3120,13 @@ export default function App() {
 
         </div>
 
-        <AgentClis catalog={catalog} onCatalogChange={setCatalog} legacyContextReady={bootstrapped} legacyPackageContext={{ workspaceId: paneWs?.id || "", agentId: agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "") }} packageUpdates={pkgUpdates} onPackageUpdates={(updates, workspaceId) => { if ((paneWs?.id || "") === workspaceId) setPkgUpdates(updates); }} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} onRenameTerm={renameTerminal} />
+        <AgentClis catalog={catalog} onCatalogChange={setCatalog} legacyContextReady={bootstrapped} legacyPackageContext={{ workspaceId: paneWs?.id || "", agentId: agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "") }} packageUpdates={pkgUpdates} onPackageUpdates={(updates, workspaceId) => { if ((paneWs?.id || "") === workspaceId) setPkgUpdates(updates); }} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} onRenameTerm={renameTerminal} onReloadAgent={async () => {
+            if (!agent || agent.mode === "stopped") return;
+            const was = agent.mode;
+            await stopAgent(agent.id);
+            if (was === "interactive") await openInteractive(agent.id);
+            else await startManaged(agent.id);
+          }} />
         <Settings
           hidden={route !== "preferences"}
           themeMode={themeMode}

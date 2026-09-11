@@ -7,22 +7,26 @@ export function cliSettingsHash(cli = "pi", { agentId = "", focus = "" } = {}) {
   const query = new URLSearchParams();
   if (agentId) query.set("agentId", agentId);
   if (focus === "scoped-models") query.set("focus", focus);
-  return "#/clis/settings/" + encodeURIComponent(cli) + (query.size ? "?" + query : "");
+  return "#/clis/" + encodeURIComponent(cli || "pi") + "/settings" + (query.size ? "?" + query : "");
 }
 
 export function cliSettingsLocation(hash = "", legacyAgentId = "") {
   const [path, query = ""] = hash.replace(/^#/, "").split("?");
+  const nested = /^\/clis\/([^/]+)\/settings$/.exec(path);
+  const strip = path === "/clis/settings" || path.startsWith("/clis/settings/");
   const legacy = path === "/settings" || path === "/more/settings";
-  if (!legacy && path !== "/clis/settings" && !path.startsWith("/clis/settings/")) return null;
+  if (!legacy && !strip && !nested) return null;
   const params = new URLSearchParams(query);
   let cli = "pi";
-  if (!legacy && path.startsWith("/clis/settings/")) {
-    try { cli = decodeURIComponent(path.slice("/clis/settings/".length)); } catch { cli = ""; }
-  }
+  try {
+    if (nested) cli = decodeURIComponent(nested[1]);
+    else if (strip && path.startsWith("/clis/settings/")) cli = decodeURIComponent(path.slice("/clis/settings/".length));
+  } catch { cli = ""; }
   const agentId = params.has("agentId") ? params.get("agentId") : legacy ? legacyAgentId : "";
   const focus = params.get("focus") === "scoped-models" ? "scoped-models" : "";
-  return { view: "settings", id: cli, agentId, focus, legacy,
-    redirect: legacy || path === "/clis/settings" ? cliSettingsHash(cli, { agentId, focus }) : "" };
+  const canonical = cliSettingsHash(cli, { agentId, focus });
+  return { view: "clis", pane: "settings", id: cli, agentId, focus, legacy: legacy || strip,
+    redirect: !nested || path === "/clis/settings" ? canonical : "" };
 }
 
 function unavailable(message) {

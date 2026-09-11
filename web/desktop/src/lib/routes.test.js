@@ -3,8 +3,8 @@ import { test } from "node:test";
 import { appPath } from "./routes.js";
 
 test("integrations deep links remain reload-safe", () => {
-  for (const hash of ["#/integrations", "#/integrations/connectors", "#/integrations/webhooks"]) assert.equal(parseRoute(hash), "integrations");
-  assert.equal(parseRoute("#/mcps"), "mcps");
+  assert.equal(parseRoute("#/integrations/webhooks"), "integrations");
+  for (const hash of ["#/integrations", "#/integrations/connectors", "#/mcps"]) assert.equal(parseRoute(hash), "clis");
 });
 import { parseRoute, packagesConfigRoute, packagesConfigHash, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot, appTabId, isAppTab, tabAppId, appHash, appRoute, renamedAppId, renamedAppHash, renamedTabId } from "./routes.js";
 
@@ -17,7 +17,7 @@ test("preferences and settings are distinct", () => {
   assert.equal(prefSection("#/preferences/backup"), "backup");
   assert.equal(parseRoute("#/settings"), "clis");
   assert.equal(ROUTES.preferences, "/preferences");
-  assert.equal(ROUTES.settings, "/clis/settings/pi");
+  assert.equal(ROUTES.settings, "/clis/pi/settings");
   assert.equal(parseRoute("#/providers/new"), "clis");
   assert.equal(providersNew("#/providers/new"), true);
   assert.equal(providersLlama("#/providers/llama"), true);
@@ -187,7 +187,7 @@ test("packages config lives under Agent CLIs and retains legacy parsing", () => 
   assert.equal(parseRoute("#/packages/config/pi-roles"), "clis");
   assert.equal(packagesConfigRoute("#/packages/config/pi-roles"), "pi-roles");
   assert.equal(packagesConfigRoute("#/packages"), null);
-  assert.equal(packagesConfigHash("pi-roles"), "#/clis/packages/pi/config/pi-roles");
+  assert.equal(packagesConfigHash("pi-roles"), "#/clis/pi/packages/config/pi-roles");
 });
 
 test("native provider navigation and compatibility aliases", () => {

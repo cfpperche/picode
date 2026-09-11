@@ -42,6 +42,12 @@ native-settings support. No database migration or dependency is required.
 - Force all CLIs into Pi's schema: would misrepresent their native controls.
 - Move Providers, Packages and MCP too: separate work beyond this navigation.
 
+## Amendment (2026-09-11)
+
+Settings is a pane of the selected CLI at `#/clis/<cli>/settings`. The Agent
+CLIs strip is CLIs | Messages; the catalog is the CLI identity (no CliCombo).
+Old `#/clis/settings/pi` and `#/settings` rewrite. Persistence unchanged.
+
 ## References and acceptance
 
 The [Cursor/t3code study](../benchmarks/2026-08-24-adopt-t3code-paseo-cursor.md)

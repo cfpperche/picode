@@ -1,33 +1,17 @@
 import { useEffect, useState } from "react";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { api } from "@picode/shared/client/api.js";
-import { CLI_SETTINGS, cliSettingsHash, cliSettingsLocation, supportsCliSettings, loadPiSettingsContext } from "@picode/shared/domain/cliSettings.js";
-import AgentClisFrame from "./AgentClisFrame.jsx";
-import CliTabs from "./CliTabs.jsx";
-import CliCombo from "./CliCombo.jsx";
+import { cliSettingsHash, supportsCliSettings, loadPiSettingsContext } from "@picode/shared/domain/cliSettings.js";
 import PiSettings from "./PiSettings.jsx";
 
 const EDITORS = { pi: { Editor: PiSettings, loadContext: loadPiSettingsContext } };
 
-export default function CliSettings({ hidden, hash, legacyAgentId, catalog, onAgentConfig }) {
-  const route = cliSettingsLocation(hash, legacyAgentId);
-  useEffect(() => {
-    if (!hidden && route.redirect) location.replace(route.redirect);
-  }, [hidden, route.redirect]);
+export default function CliSettings({ hidden, route, catalog, onAgentConfig }) {
   const supported = supportsCliSettings(route.id);
-  return <AgentClisFrame hidden={hidden}>
-    <CliTabs view="settings" packagesHref={"#/clis/packages/pi" + (route.agentId ? "?agentId=" + encodeURIComponent(route.agentId) : "")} />
-    <div className="cli-settings-body">
-    <div className="cli-settings-heading">
-      <h3>Settings</h3>
-      {supported ? <div className="cli-settings-picker">CLI
-        <CliCombo ariaLabel="Settings CLI" value={route.id} options={CLI_SETTINGS} align="end" onChange={id => { location.hash = cliSettingsHash(id); }} />
-      </div> : null}
-    </div>
-    {!supported ? <div className="cli-notice" role="status"><span>Settings are not available for this CLI.</span><a className="btn btn-ghost btn-sm" href="#/clis">Back to CLIs</a></div>
-      : !hidden && !route.redirect ? <SettingsEditor key={route.id + ":" + route.agentId} route={route} catalog={catalog} onAgentConfig={onAgentConfig} /> : null}
-    </div>
-  </AgentClisFrame>;
+  return <section id="cli-settings-view" hidden={hidden}>
+    {!supported ? <div className="cli-notice" role="status"><span>Settings are not available for this CLI.</span><a className="btn btn-ghost btn-sm" href={cliSettingsHash("pi")}>Open Pi settings</a></div>
+      : !hidden ? <SettingsEditor key={route.id + ":" + route.agentId} route={route} catalog={catalog} onAgentConfig={onAgentConfig} /> : null}
+  </section>;
 }
 
 function SettingsEditor({ route, catalog, onAgentConfig }) {

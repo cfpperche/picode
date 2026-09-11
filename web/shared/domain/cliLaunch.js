@@ -1,8 +1,9 @@
 import { cliProvidersLocation } from "./cliProviders.js";
 import { cliPackagesLocation } from "./cliPackages.js";
 import { cliSettingsLocation } from "./cliSettings.js";
+import { cliConnectorsLocation } from "./integrations.js";
 
-const CLI_PANES = new Set(["launch", "terminals", "sessions", "providers"]);
+const CLI_PANES = new Set(["launch", "terminals", "sessions", "providers", "settings", "packages", "connectors"]);
 
 export function cliPaneHash(cli = "", pane = "launch", workspace = "") {
   if (!cli) return "#/clis";
@@ -12,6 +13,9 @@ export function cliPaneHash(cli = "", pane = "launch", workspace = "") {
   if (pane === "sessions") return "#/clis/" + id + "/sessions";
   if (pane === "terminals") return "#/clis/" + id + "/terminals";
   if (pane === "providers") return "#/clis/" + id + "/providers";
+  if (pane === "settings") return "#/clis/" + id + "/settings";
+  if (pane === "packages") return "#/clis/" + id + "/packages";
+  if (pane === "connectors") return "#/clis/" + id + "/connectors";
   return "#/clis/" + id;
 }
 
@@ -27,6 +31,8 @@ export function cliLocation(hash = "") {
   if (packages) return packages;
   const settings = cliSettingsLocation(hash);
   if (settings) return settings;
+  const connectors = cliConnectorsLocation(hash);
+  if (connectors) return connectors;
   const [path, query] = hash.split("?");
   const parts = path.replace(/^#\//, "").split("/");
   const params = new URLSearchParams(query);
@@ -54,6 +60,27 @@ export function cliLocation(hash = "") {
     if (rest === "new") loc.add = true;
     else if (rest) loc.invalid = true;
     if (["agentId", "workspaceId", "scope"].some((key) => params.has(key))) loc.scoped = true;
+  }
+  if (pane === "settings") {
+    loc.agentId = params.get("agentId") || "";
+    loc.focus = params.get("focus") === "scoped-models" ? "scoped-models" : "";
+    if (parts[3]) loc.invalid = true;
+  }
+  if (pane === "packages") {
+    const rest = parts.slice(3).map(decode);
+    loc.pkg = rest[0] === "config" && rest[1] ? rest[1] : "";
+    loc.workspaceId = params.get("workspaceId") || "";
+    loc.agentId = params.get("agentId") || "";
+    loc.scope = params.get("scope") || "user";
+    if ((rest[0] && rest[0] !== "config") || rest[0] === "config" && !rest[1] || rest.length > 2) loc.invalid = true;
+    if (!["user", "project", "agent"].includes(loc.scope)) loc.invalid = true;
+  }
+  if (pane === "connectors") {
+    loc.workspaceId = params.get("workspaceId") || "";
+    loc.agentId = params.get("agentId") || "";
+    loc.scope = params.get("scope") || "user";
+    if (parts[3]) loc.invalid = true;
+    if (!["user", "project", "agent"].includes(loc.scope)) loc.invalid = true;
   }
   if (panePart === "launch" && parts[2]) loc.redirect = cliPaneHash(cli, "launch");
   return loc;

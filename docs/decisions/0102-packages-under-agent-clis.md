@@ -42,5 +42,11 @@ is no database migration or new dependency.
 - One generic package backend: would invent common package semantics.
 - Pane-only context: cannot identify the destination of a reloaded link.
 
+## Amendment (2026-09-11)
+
+Packages is a pane of the selected CLI at `#/clis/<cli>/packages`. Query
+`workspaceId`, `agentId` and `scope` stay. The catalog is the CLI identity.
+Old `#/clis/packages/pi*` rewrite. Persistence unchanged.
+
 The [work plan](../plans/cli-native-packages.md) records acceptance conditions.
 The Cursor/t3code benchmark adaptation is contextual, reload-safe navigation.

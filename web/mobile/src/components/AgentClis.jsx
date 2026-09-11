@@ -15,8 +15,8 @@ import CliSettings from "./CliSettings.jsx";
 import PeerMessages from "./PeerMessages.jsx";
 import CliProviders from "./CliProviders.jsx";
 import CliPackages from "./CliPackages.jsx";
-import { cliPackagesHash, supportsCliPackages } from "@picode/shared/domain/cliPackages.js";
-import { cliSettingsHash, supportsCliSettings } from "@picode/shared/domain/cliSettings.js";
+import { supportsCliConnectors, cliConnectorsHash } from "@picode/shared/domain/integrations.js";
+import Mcps from "./Mcps.jsx";
 import SessionsView from "./SessionsView.jsx";
 import CliPaneTabs from "./CliPaneTabs.jsx";
 import CliCombo from "./CliCombo.jsx";
@@ -32,7 +32,7 @@ function Notice({ children, action, onAction, danger = false }) {
   return <div className={"cli-notice" + (danger ? " is-error" : "")} role={danger ? "alert" : "status"}><span>{children}</span>{action ? <button type="button" className="btn btn-ghost btn-sm" onClick={onAction}>{action}</button> : null}</div>;
 }
 
-export default function AgentClis({ hidden = false, catalog, onCatalogChange, legacyAgentId = "", legacyPackageContext = {}, legacyContextReady = true, onAgentConfig }) {
+export default function AgentClis({ hidden = false, catalog, onCatalogChange, legacyAgentId = "", legacyPackageContext = {}, legacyContextReady = true, onAgentConfig, onPackageUpdates, onReloadAgent }) {
   const [hash, setHash] = useState(location.hash);
   const route = cliLocation(hash);
   const [data, setData] = useState(null);
@@ -57,12 +57,12 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
     return () => window.removeEventListener("hashchange", update);
   }, []);
   useEffect(() => {
-    if (hidden || ["settings", "packages", "messages"].includes(route.view)) return;
+    if (hidden || route.view === "messages") return;
     if (hash === "#/preferences/status") location.replace("#/clis");
     if (route.redirect && route.redirect !== hash) location.replace(route.redirect);
   }, [hidden, hash, route.view, route.redirect]);
   useEffect(() => {
-    if (hidden || ["settings", "packages", "messages"].includes(route.view)) return;
+    if (hidden || route.view === "messages") return;
     refresh();
     // ADR-0087: refresh stale update checks once per visit, server-side
     // cached — never a polling timer.
@@ -131,11 +131,9 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
   };
 
   if (route.view === "messages") return <PeerMessages hidden={hidden} ownerKey={route.id} />;
-  if (route.view === "packages") return <CliPackages hidden={hidden} hash={hash} legacyContext={legacyPackageContext} legacyContextReady={legacyContextReady} catalog={catalog} />;
-  if (route.view === "settings") return <CliSettings hidden={hidden} hash={hash} legacyAgentId={legacyAgentId} catalog={catalog} onAgentConfig={onAgentConfig} />;
 
   return <AgentClisFrame hidden={hidden}>
-    <CliTabs view={route.view} packagesHref={cliPackagesHash("pi", legacyPackageContext)} />
+    <CliTabs view={route.view} />
     {error ? <Notice danger action="Try again" onAction={refresh}>{error}</Notice> : null}
     {!data && !error ? <div className="cli-loading" aria-label="Loading Agent CLIs"><div /><div /><div /></div> : null}
     {data && !data.terminalAvailable ? <Notice action="Open System" onAction={() => { location.hash = "#/system"; }}>Terminal control is unavailable.</Notice> : null}
@@ -148,8 +146,6 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
           <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => { run("check:" + selected.id, async () => { const d = await api(`/api/clis/${selected.id}/check`, json("POST", {})); if (d.error) toastError(new Error(d.error)); }).catch(() => {}); }}>{busy === "check:" + selected.id ? "Checking…" : "Check setup"}</button>
           {!selected.installed && selected.lifecycle?.canInstall ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("install")}>{lifecycleBusy ? "Working…" : "Install"}</button> : null}
           {selected.installed && selected.lifecycle?.canUpdate && selected.diagnostic?.updateAvailable ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("update")}>{lifecycleBusy ? "Working…" : "Update"}</button> : null}
-          {supportsCliSettings(selected.id) ? <a className="btn btn-ghost btn-sm" href={cliSettingsHash(selected.id)}>Settings</a> : null}
-          {supportsCliPackages(selected.id) ? <a className="btn btn-ghost btn-sm" href={cliPackagesHash(selected.id, legacyPackageContext)}>Packages</a> : null}
           <button className="btn btn-primary btn-sm" disabled={!data.terminalAvailable} onClick={() => navigate("/new/" + selected.id)}>New terminal</button>
           {selected.installed && (selected.lifecycle?.canUpdate || selected.lifecycle?.canReinstall || selected.lifecycle?.uninstall) ? <DropdownMenu.Root><DropdownMenu.Trigger asChild><button className="btn btn-ghost btn-sm cli-more" aria-label={"Lifecycle actions for " + selected.name} disabled={!!lifecycleBusy}>•••</button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
             <DropdownMenu.Item className="um-item" onSelect={checkUpdates}>Check for updates</DropdownMenu.Item>
@@ -209,11 +205,35 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
           scoped={!!route.scoped}
           onCatalogChange={onCatalogChange}
         /> : null}
+        {pane === "settings" ? <CliSettings hidden={false} route={route} catalog={catalog} onAgentConfig={onAgentConfig} /> : null}
+        {pane === "packages" ? <CliPackages hidden={false} route={route} catalog={catalog} onPackageUpdates={onPackageUpdates} /> : null}
+        {pane === "connectors" ? <ConnectorsPane route={route} data={data} onReload={onReloadAgent} /> : null}
       </div>
     </div> : null}
     {data && (route.view === "new" || route.view === "terminal") ? <TerminalEditor key={hash} route={route} data={data} run={run} busy={!!busy} /> : null}
     {data && route.view === "profile" ? <CLIProfileEditor key={hash} route={route} data={data} run={run} busy={!!busy} /> : null}
   </AgentClisFrame>;
+}
+
+function ConnectorsPane({ route, data, onReload }) {
+  const supported = supportsCliConnectors(route.id);
+  if (route.invalid || !supported) {
+    return <section id="cli-connectors-view"><div className="cli-notice" role="status"><span>{route.invalid ? "This connector link is invalid." : "Connectors are not available for this CLI."}</span><a className="btn btn-ghost btn-sm" href={cliConnectorsHash("pi")}>Open Pi</a></div></section>;
+  }
+  const ws = (data.workspaces || []).find((w) => w.id === route.workspaceId);
+  const agent = (ws?.agents || []).find((a) => a.id === route.agentId);
+  return <Mcps
+    embedded
+    hidden={false}
+    workspaceId={route.workspaceId || ""}
+    workspaceName={ws?.name || ""}
+    workspacePath={ws?.path || ""}
+    agentId={route.agentId || ""}
+    agentName={agent?.name || ""}
+    agentWorkPath={agent?.workPath || ""}
+    agentRunning={!!(agent && agent.mode && agent.mode !== "stopped")}
+    onReload={onReload}
+  />;
 }
 
 function TerminalList({ terminals, workspaces, busy, onAction, onNew, cliName, hideTitle = false }) {

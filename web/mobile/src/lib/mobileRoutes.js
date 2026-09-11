@@ -1,6 +1,7 @@
 import { cliProvidersLocation } from "@picode/shared/domain/cliProviders.js";
 import { cliPackagesLocation } from "@picode/shared/domain/cliPackages.js";
 import { cliSettingsLocation } from "@picode/shared/domain/cliSettings.js";
+import { cliConnectorsLocation } from "@picode/shared/domain/integrations.js";
 import { agentRoute, workspaceHash, termRoute, termHash, appPath } from "./routes.js";
 
 // Mobile hash routes (ADR-0044/0095). Four tabs plus focused tools. The
@@ -53,6 +54,7 @@ export function mobileRoute(hash) {
   if (cliPackagesLocation(h)) return { screen: "more", id: "", section: "clis" };
   if (cliSettingsLocation(h)) return { screen: "more", id: "", section: "clis" };
   if (cliProvidersLocation(h)) return { screen: "more", id: "", section: "clis" };
+  if (cliConnectorsLocation(h)) return { screen: "more", id: "", section: "clis" };
   if (h.split("?")[0] === "/providers/llama" || h.split("?")[0] === "/more/providers/llama") return { screen: "more", id: "", section: "llama" };
   if (h === "/preferences/status") return { screen: "more", id: "", section: "clis" };
   const agentId = agentRoute("#" + h);

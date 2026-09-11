@@ -5,13 +5,13 @@ import { MENU_SECTIONS, MENU_GROUPS, MENU_ACTIONS, menuGroups, menuActions, menu
 test("every group id resolves to a section; every section is reachable", () => {
   const grouped = new Set(MENU_GROUPS.flatMap(([, ids]) => ids));
   for (const id of grouped) assert.ok(MENU_SECTIONS.find(row => row[0] === id), id);
-  const reachable = new Set([...grouped, ...MENU_ACTIONS.map(a => a.id), "packages", "providers", "clis"]);
+  const reachable = new Set([...grouped, ...MENU_ACTIONS.map(a => a.id), "packages", "providers", "clis", "connectors"]);
   for (const [id] of MENU_SECTIONS) assert.ok(reachable.has(id), id);
 });
 
 test("blank query returns all groups and actions (footer visible)", () => {
   assert.equal(menuGroups("").length, MENU_GROUPS.length);
-  assert.equal(menuGroups("").flatMap(g => g.rows).length, MENU_SECTIONS.length - 3);
+  assert.equal(menuGroups("").flatMap(g => g.rows).length, MENU_SECTIONS.length - 4);
   assert.equal(menuActions("").length, MENU_ACTIONS.length);
   assert.equal(menuHasResults(""), true);
 });
@@ -40,11 +40,17 @@ test("Providers is searchable inside Agent CLIs", () => {
   assert.ok(menuGroups("providers").some(group => group.title === "Agent CLIs" && group.rows.some(row => row[0] === "providers")));
 });
 
-test("Tools holds Integrations and llama.cpp; Agents and connections is gone", () => {
+test("Tools holds llama.cpp; Webhooks sit under PiCode", () => {
   assert.deepEqual(MENU_GROUPS.map(([title]) => title), ["Tools", "PiCode"]);
-  assert.deepEqual(MENU_GROUPS[0][1], ["automations", "llama", "integrations"]);
+  assert.deepEqual(MENU_GROUPS[0][1], ["automations", "llama"]);
   assert.deepEqual(menuGroups("").map(g => g.title), ["Tools", "PiCode"]);
-  assert.deepEqual(menuGroups("").find(g => g.title === "Tools").rows.map(r => r[0]), ["automations", "llama", "integrations"]);
+  assert.deepEqual(menuGroups("").find(g => g.title === "Tools").rows.map(r => r[0]), ["automations", "llama"]);
+  assert.ok(menuGroups("").find(g => g.title === "PiCode").rows.some(row => row[0] === "integrations"));
+});
+
+test("Connectors are searchable inside Agent CLIs", () => {
+  assert.ok(!menuGroups("").flatMap(g => g.rows).some(row => row[0] === "connectors"));
+  assert.ok(menuGroups("mcp").some(group => group.rows.some(row => row[0] === "connectors")));
 });
 
 test("Agent CLIs is searchable, not a default Tools row", () => {

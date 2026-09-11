@@ -7,19 +7,24 @@ export function cliPackagesHash(cli = "pi", { workspaceId = "", agentId = "", sc
   if (workspaceId) query.set("workspaceId", workspaceId);
   if (agentId) query.set("agentId", agentId);
   if (scope !== "user") query.set("scope", scope);
-  return "#/clis/packages/" + encodeURIComponent(cli) + (pkg ? "/config/" + encodeURIComponent(pkg) : "") + (query.size ? "?" + query : "");
+  return "#/clis/" + encodeURIComponent(cli || "pi") + "/packages" + (pkg ? "/config/" + encodeURIComponent(pkg) : "") + (query.size ? "?" + query : "");
 }
 
 export function cliPackagesLocation(hash = "", legacyContext = {}) {
   const [path, query = ""] = hash.replace(/^#/, "").split("?");
+  const nested = /^\/clis\/([^/]+)\/packages(?:\/config\/([^/]+))?$/.exec(path);
+  const strip = path === "/clis/packages" || path.startsWith("/clis/packages/");
   const legacy = /^\/(?:more\/)?packages(?:\/|$)/.test(path);
-  if (!legacy && path !== "/clis/packages" && !path.startsWith("/clis/packages/")) return null;
+  if (!legacy && !strip && !nested) return null;
   const params = new URLSearchParams(query);
-  const match = legacy ? /^\/(?:more\/)?packages(?:\/config\/([^/]+))?$/.exec(path)
-    : /^\/clis\/packages(?:\/([^/]+)(?:\/config\/([^/]+))?)?$/.exec(path);
+  const match = nested || (legacy ? /^\/(?:more\/)?packages(?:\/config\/([^/]+))?$/.exec(path)
+    : /^\/clis\/packages(?:\/([^/]+)(?:\/config\/([^/]+))?)?$/.exec(path));
   let id = "pi", pkg = "", invalid = !match;
   try {
-    if (match) {
+    if (nested) {
+      id = decodeURIComponent(nested[1] || "pi");
+      pkg = decodeURIComponent(nested[2] || "");
+    } else if (match) {
       id = legacy ? "pi" : decodeURIComponent(match[1] || "pi");
       pkg = decodeURIComponent(match[legacy ? 1 : 2] || "");
     }
@@ -32,8 +37,8 @@ export function cliPackagesLocation(hash = "", legacyContext = {}) {
   const agentId = params.get("agentId") || fallback.agentId || "";
   const scope = params.get("scope") || "user";
   invalid ||= !["user", "project", "agent"].includes(scope);
-  const route = { view: "packages", id, pkg, workspaceId, agentId, scope, legacy, invalid };
-  return { ...route, redirect: !invalid && (legacy || path === "/clis/packages") ? cliPackagesHash(id, route) : "" };
+  const route = { view: "clis", pane: "packages", id, pkg, workspaceId, agentId, scope, legacy: legacy || strip, invalid };
+  return { ...route, redirect: !invalid && !nested ? cliPackagesHash(id, route) : "" };
 }
 
 const missing = message => Object.assign(new Error(message), { status: 404 });

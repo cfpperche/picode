@@ -9,32 +9,34 @@ test("canonical links round-trip CLI, package, scope and explicit context", () =
   for (const [key, value] of Object.entries(context)) assert.equal(route[key], value);
   assert.equal(route.legacy, false);
   assert.equal(route.redirect, "");
-  assert.equal(cliLocation(cliPackagesHash("pi", context)).view, "packages");
+  assert.equal(cliLocation(cliPackagesHash("pi", context)).pane, "packages");
 });
 
 test("legacy links adopt a pane only when they have no explicit context", () => {
   for (const prefix of ["#/packages", "#/more/packages"]) {
     const route = cliPackagesLocation(prefix + "/config/pi-roles", { workspaceId: "w", agentId: "a" });
-    assert.equal(route.redirect, "#/clis/packages/pi/config/pi-roles?workspaceId=w&agentId=a");
+    assert.equal(route.redirect, "#/clis/pi/packages/config/pi-roles?workspaceId=w&agentId=a");
     assert.equal(cliPackagesLocation(prefix + "?workspaceId=x", { agentId: "a" }).agentId, "");
     assert.equal(cliPackagesLocation(prefix + "?agentId=", { agentId: "a" }).agentId, "");
   }
 });
 
 test("canonical machine links never inherit the current pane", () => {
-  const route = cliPackagesLocation("#/clis/packages/pi", { workspaceId: "w", agentId: "a" });
+  const route = cliPackagesLocation("#/clis/pi/packages", { workspaceId: "w", agentId: "a" });
   assert.equal(route.workspaceId, ""); assert.equal(route.agentId, "");
-  assert.equal(cliPackagesLocation("#/clis/packages").redirect, "#/clis/packages/pi");
+  assert.equal(cliPackagesLocation("#/clis/packages").redirect, "#/clis/pi/packages");
+  assert.equal(cliPackagesLocation("#/clis/packages/pi").redirect, "#/clis/pi/packages");
   assert.equal(cliPackagesLocation("#/providers"), null);
 });
 
 test("unsupported CLIs and malformed links never become Pi package targets", () => {
   assert.equal(supportsCliPackages("pi"), true);
   assert.equal(supportsCliPackages("codex"), false);
-  assert.equal(cliPackagesLocation("#/clis/packages/codex").id, "codex");
-  for (const hash of ["#/clis/packages/%zz", "#/clis/packages/pi/config/", "#/packages/nope", "#/clis/packages/pi?scope=everyone"]) {
+  assert.equal(cliPackagesLocation("#/clis/codex/packages").id, "codex");
+  for (const hash of ["#/packages/nope", "#/clis/pi/packages?scope=everyone"]) {
     assert.equal(cliPackagesLocation(hash).invalid, true, hash);
   }
+  assert.equal(cliLocation("#/clis/pi/packages/config/").invalid, true);
 });
 
 const rows = [{ id: "w", name: "Workspace", agents: [{ id: "a", workspaceId: "w" }] }, { id: "other", agents: [] }];

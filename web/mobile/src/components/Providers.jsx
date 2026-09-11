@@ -514,7 +514,7 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
           </div>
         )}
       </section>
-      {!signed.some((p) => p.id === "llama.cpp") ? <div className="prov-row prov-llama-link"><span className="prov-id">llama.cpp models and connection</span><a className="btn btn-ghost btn-sm" href="#/llama/server">Set up llama.cpp</a></div> : null}
+      {!signed.some((p) => p.id === "llama.cpp") ? <div className="prov-row prov-llama-link"><span className="prov-id">llama.cpp</span><a className="btn btn-ghost btn-sm" href="#/llama/server">Set up llama.cpp</a></div> : null}
       {recentRows.length ? (
         <section className="settings-section">
           <div className="set-row">
