@@ -871,6 +871,34 @@ chip's own hover) are each one of those four. A fifth was not visual: a
 `PATCH` of an agent's session path left every chip reading live, because
 only `peer.*` was being watched.
 
+**Accepted in a browser (2026-09-11, ADR-0118 session 2)** on a scratch
+instance at 1280 × 633 in both themes, with a canvas holding a live shell, two
+`pi` agents and a note:
+
+| Row | Observed |
+|---|---|
+| the tile | **Canvas**, `lucide-frame`, no letter fallback; opening it mounts `CanvasSurface` from its own chunk |
+| the empty states | *No canvas yet.* — New canvas, then *Add your first panel.* — Add panel, each one line and one action |
+| three panel kinds | a live xterm, a stopped agent's *Agent is stopped.* — Run, and a note's markdown, all on one plane with the minimap and the zoom cluster |
+| pan | a real middle-button drag moved the camera `translate(134, 102)` → `translate(-108, 50)` at scale 1 |
+| the zoom rule, step by step | 100 %: the pane live and pointer-taking. 83 %: `is-inert`. 69 %, 58 %, 48 %, 40 %: `is-still is-inert`. 33 %, 28 %, 23 %: every panel `is-plate`. Back at 100 %: all live again, no class left behind. The note and the agent never go still — they have no cell (C3's rule) |
+| `#/app/matrix` | cold load: the address bar read `#/app/canvas` before the first paint and settled on `#/app/canvas/<last>`; no *That app is gone.* |
+| `#/app/matrix/<id>` | cold load and in-session `location.hash =`: both landed on `#/app/canvas/<id>` with that canvas selected and its three panels drawn |
+| `x:matrix` in `localStorage` | `picode-tabs` set by hand to `{ids:["x:matrix"],selected:"x:matrix"}` with `picode-matrix-last` and `picode-matrix-view:<id>` = `{-321, -77, 0.72}`: the reload opened the **Canvas** tab on that canvas at exactly `translate(-321px, -77px) scale(0.72)`, and storage afterwards held only `x:canvas`, `picode-canvas-last` and `picode-canvas-view:<id>` — the old keys were gone |
+| the picker | grouped Agents · Terminals · Pins, a binding already on the canvas not offered, and *No file is open…* under the list. `__picodeOverlayAudit()` `ok` with it open |
+| links | a real drag from a header connector drew the line; an end with no conversation was **refused in a toast**, not offered a failing action; two enrollable ends got *Connect Atlas and Bravo?* with the one line ADR-0116 §5 asks for. `__picodeOverlayAudit()` `ok: true`, dialog buttons 36 px = `--ctl-h`, in both themes |
+| the header link chip | both ends of an edge wore **1**, amber, titled *1 link, broken: it grants nothing. Read them in Messages.*, and the chip showed **in the maximize layer too**, where there is no line to read |
+| maximize | the note and then a shell: the layer fills the surface, the xterm refits, the wrapper says *Shown maximized*, Restore puts it back |
+| the audit list | **Canvas links** in Messages, both rows with ends, kinds, the canvas name, the reason and Remove |
+| the old API | **zero** requests to `/api/matrices` (the network log and a grep of the built bundle); `GET /api/matrices` answers 404. No console error names anything renamed |
+
+Two things this pass found and fixed. `linkCounts` / `linkChipTitle` had been
+computing a chip nothing rendered — grid mode was its only consumer, and
+deleting grid mode left the surface passing it nowhere. It is wired to the
+plane and the maximize layer instead of deleted, for the reason the paragraph
+above gives. And `readView` now carries a camera across the key rename rather
+than fitting the plane afresh.
+
 **Re-measured on a scratch (2026-09-09, phase 3 session 2)** against
 [`docs/benchmarks/2026-09-09-matrix-live-grid.md`](../benchmarks/2026-09-09-matrix-live-grid.md):
 nine live TUI bodies at 60.0 fps in-page, zero long tasks and 4.2 % of one

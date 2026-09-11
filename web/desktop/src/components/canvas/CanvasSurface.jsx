@@ -590,8 +590,12 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
       label: g.ends[0].name + " and " + g.ends[1].name,
     };
   }).filter(Boolean), [edges, grants, peers]);
-  // What a grid-mode header wears instead: the count, and whether any of
-  // them grants nothing.
+  // What each panel's header wears: the count of links it carries, and
+  // whether any of them grants nothing. It is not a second opinion — the
+  // count comes from the same join the lines do — and it is the only place
+  // a link is readable when the line is not: off the camera, behind its own
+  // two panels, a few pixels long, or in the maximize layer where there is
+  // no plane. Pressing it opens the audit list in Messages.
   const links = useMemo(() => {
     if (!edges.length) return NO_LINKS;
     const counts = linkCounts(edges, panels, peerIx, names);
@@ -1153,6 +1157,7 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
                 tabStopId={tabStopId}
                 loader={loader}
                 handlers={handlers}
+                links={links}
                 edgeRows={edgeRows}
                 onConnect={onConnect}
                 onRemoveEdge={onRemoveEdge}
@@ -1167,7 +1172,7 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
           // The maximized panel's body, in a layer over the grid: the same
           // xterm (ShellTerm re-claims the pane), fitted to the layer.
           <div className="cv-max" role="group" aria-label={maxModel.name + " — maximized"} tabIndex={-1} ref={maxRef} onKeyDown={onLayerKey}>
-            <PanelHead model={maxModel} loaded={loadedIds.has(maxModel.id)} maximized handlers={handlers} fixed />
+            <PanelHead model={maxModel} loaded={loadedIds.has(maxModel.id)} maximized handlers={handlers} links={links[maxModel.id]} fixed />
             <div className="cv-panel-body">
               <PanelBody
                 model={maxModel}

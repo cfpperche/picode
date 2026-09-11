@@ -155,6 +155,7 @@ const PanelNode = memo(function PanelNode({ id, data }) {
       bodyKind={data.bodyKind}
       still={data.still}
       note={data.note}
+      links={data.links}
       pointer={data.pointer}
     >
       <NodeResizer
@@ -197,12 +198,12 @@ const EDGE_TYPES = { [EDGE_TYPE]: Link };
 
 // The node's data object is kept when nothing in it changed, so React Flow's
 // own memo holds and a neighbour's drag never re-renders a body.
-const DATA_KEYS = ["model", "loaded", "hidden", "focused", "engaged", "maximized", "tabStop", "bodyKind", "still", "note", "pointer", "connectable"];
+const DATA_KEYS = ["model", "loaded", "hidden", "focused", "engaged", "maximized", "tabStop", "bodyKind", "still", "note", "pointer", "connectable", "links"];
 function sameData(a, b) {
   return !!a && !!b && DATA_KEYS.every((k) => a[k] === b[k]);
 }
 
-function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, maximizedId, tabStopId, loader, handlers, edgeRows, onConnect, onRemoveEdge, onLayout, onGestureStart, onGestureStop, onReady }) {
+function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, maximizedId, tabStopId, loader, handlers, links, edgeRows, onConnect, onRemoveEdge, onLayout, onGestureStart, onGestureStop, onReady }) {
   const rf = useReactFlow();
   const rootRef = useRef(null);
   const [nodes, setNodes] = useState([]);
@@ -375,10 +376,16 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
         still,
         note,
         pointer,
+        // The header's link chip. The plane draws the lines, but a line can
+        // be off the camera, run entirely behind the two panels it joins, or
+        // be a few pixels long when zoomed out — and the maximize layer has
+        // no line at all. The chip is what a panel carrying links says for
+        // itself, wherever the camera is (ADR-0116).
+        links: links[m.id] || null,
       });
     }
     return out;
-  }, [models, loaded, bodies, hidden, focusedId, engaged, maximizedId, tabStopId, pointer, stillTick]);
+  }, [models, loaded, bodies, hidden, focusedId, engaged, maximizedId, tabStopId, pointer, stillTick, links]);
 
   useEffect(() => {
     setNodes((cur) => {
