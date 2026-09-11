@@ -5,9 +5,8 @@ agent-sourced ignore (`internal/apps/inbox.go`, `internal/server/inbox.go`);
 a fresh receiver hello that names no session is refused before parking with
 the truth (`internal/server/terminal_ask.go`); the reply file carries the
 accepted hello's `pid`, and a receiver with another pid (or no session of
-its own) leaves it alone (`internal/server/tui_reply.go`,
-`peer_onboarding.go`, `peer_attention.go`,
-`internal/server/intercept/pi-inbox-reply.ts`). ADR-0060 has the
+its own) leaves it alone (`tui_reply.go`, `peer_onboarding.go`,
+`peer_attention.go`, `intercept/pi-inbox-reply.ts`). ADR-0060 has the
 2026-09-11 amendment; routes.md updated.
 
 Verified: `make ci-scoped` PASS; Go tests cover the local ignore, the
