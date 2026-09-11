@@ -637,6 +637,52 @@ export function hasPane(model) {
   return !!model && !model.pending && PANE_STATES.includes(model.state);
 }
 
+// ---- what a body costs (phase 4, docs/plans/matrix-app.md §2.4/§4.5) ------
+//
+// There are three costs, not two. A **pane** is an xterm plus a tmux attach,
+// and it is the only body with a cell, so it is the only one the zoom's
+// pointer and still rules bind. A note, a file or a diff is one fetch and
+// some DOM: free to leave mounted, which is why today's rule for them is
+// "mount in band, unmount outside, no still". A **chat** — a managed agent's
+// live conversation — is neither: it has no cell, so it never goes still,
+// but it holds a WebSocket and a transcript window, so leaving it mounted
+// where it cannot be read is waste. It takes the middle path, and this
+// allow-list is what says which rows are on it.
+export const CHAT_STATES = Object.freeze(["agent-managed"]);
+
+// hasChat(model) -> does this panel's body hold an agent socket?
+export function hasChat(model) {
+  return !!model && !model.pending && CHAT_STATES.includes(model.state);
+}
+
+// How many chat sockets one matrix may hold at once. The band already
+// bounds the panes at what fits in three viewport heights (§4.5: ≈ 18 on a
+// 1440p screen with 4×14 panels, measured 12–21 at rest), and a chat panel
+// joins that budget — but a chat costs more than an attach on arrival: one
+// WebSocket *and* one `…/sessions/transcript?tail=200` read per connect.
+// Twelve is above what a band of default-sized panels holds on a 1440p
+// screen, so the cap only bites on a matrix denser than a screenful of
+// managed agents; measured on a 20-agent matrix in phase 4's QA.
+export const CHAT_LIVE_MAX = 12;
+
+// chatBudget(live, max) -> { keep, park }: which chat bodies hold a socket
+// when more are in the band than the cap allows. `live` is
+// [{ id, at }] — `at` is when that panel entered the band — and the **most
+// recently** arrived keep their sockets, because that is where the reader
+// just scrolled; the rest are parked (mounted, header live, body one muted
+// line, no socket). The order is stable while a panel stays in the band, so
+// nothing thrashes, and a panel that leaves frees its slot through the same
+// 5 s hysteresis every other body has. The LRU shape is
+// `suspendedToDispose`'s, applied to sockets instead of xterm instances.
+export function chatBudget(live, max = CHAT_LIVE_MAX) {
+  const list = (live || []).filter((e) => e && nonEmpty(e.id) && Number.isFinite(e.at));
+  // Newest first; ties by id so two panels that arrived in the same
+  // millisecond do not swap places from one tick to the next.
+  list.sort((a, b) => (b.at - a.at) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const cap = Math.max(0, max);
+  return { keep: list.slice(0, cap).map((e) => e.id), park: list.slice(cap).map((e) => e.id) };
+}
+
 // ---- zoom (plan docs/plans/matrix-canvas.md §4.3) -------------------------
 //
 // The rule that makes a big canvas cheap, and the one correctness rule the
@@ -692,10 +738,11 @@ export function pointerAtZoom(zoom) {
 // loadPolicy(entries, now, pinned, timers, view)
 //   -> { load, unload, timers, wakeAt, band, bodies }
 // The chunk-loading decision (§4.5), pure so every row has a test:
-//   entries  [{ id, near, loaded, pane }] — near: inside the viewport ± the
-//            observer's margin (its word) and the surface visible; pane:
+//   entries  [{ id, near, loaded, pane, chat }] — near: inside the viewport ±
+//            the observer's margin (its word) and the surface visible; pane:
 //            whether this body is a terminal (default true, so grid mode and
-//            every v1 caller are unchanged)
+//            every v1 caller are unchanged); chat: whether it holds an agent
+//            socket (hasChat), which is what the cap counts
 //   pinned   Set of ids that never unload (dragged, resized, focused,
 //            maximized)
 //   timers   the previous call's `timers` — the policy's only memory:
@@ -708,10 +755,20 @@ export function pointerAtZoom(zoom) {
 // left; coming back cancels the unload. wakeAt is the earliest deadline,
 // 0 when nothing is pending — the caller sleeps until then.
 // `bodies` is what each entry renders now: off (not loaded — the
-// placeholder, and the attach is suspended), live, still or plate — the
-// still only for an entry that has a pane. The band is screen-space, so
-// zooming out puts everything in it (C0: 500 of 500 at 0.2); what bounds the
-// attaches down there is the still rule, not the band.
+// placeholder, and the attach is suspended), live, still, plate or quiet —
+// the still only for an entry that has a pane, the quiet only for a chat
+// over the cap. The band is screen-space, so zooming out puts everything in
+// it (C0: 500 of 500 at 0.2); what bounds the attaches down there is the
+// still rule for a pane and the plate for a chat, not the band.
+//
+// A chat body's rule, in one place (§4.5, phase 4): **its socket is open
+// exactly while its body reads `live`** — in the band and at zoom ≥ 0.4,
+// under the cap. Outside the band it unloads with everything else after the
+// 5 s hysteresis; below 0.4 it is a name-plate, and a plate cannot show a
+// conversation, so holding a socket for one is waste; over the cap it is
+// quiet. Nothing about the panel's **header** is decided here — the chip is
+// fed by the fleet and the feed, which is what lets a zoomed-out matrix
+// still say which agent is blocked.
 export function loadPolicy(entries, now, pinned, timers, view) {
   const pin = pinned || new Set();
   const prev = timers || {};
@@ -726,6 +783,7 @@ export function loadPolicy(entries, now, pinned, timers, view) {
   // Two rows of the same table, decided once instead of per entry: what a
   // terminal renders at this zoom, and what a body with no cell renders.
   const flat = zoomBody(zoom, zoomed.band, false).body;
+  const chats = [];
   for (const e of entries || []) {
     if (!e || !nonEmpty(e.id)) continue;
     const t = prev[e.id] || {};
@@ -741,7 +799,19 @@ export function loadPolicy(entries, now, pinned, timers, view) {
       if (unloadAt <= now) { unload.push(e.id); on = false; }
       else { next[e.id] = { unloadAt }; wake(unloadAt); }
     }
-    bodies[e.id] = on ? (e.pane === false ? flat : zoomed.body) : "off";
+    const body = on ? (e.pane === false ? flat : zoomed.body) : "off";
+    bodies[e.id] = body;
+    if (e.chat && body === "live") {
+      // When this chat became live is the policy's memory, like the two
+      // deadlines: fixed while the panel stays in the band, dropped the
+      // moment it stops being live, so coming back makes it the newest.
+      const liveAt = t.liveAt || now;
+      next[e.id] = { ...(next[e.id] || {}), liveAt };
+      chats.push({ id: e.id, at: liveAt });
+    }
+  }
+  if (chats.length > CHAT_LIVE_MAX) {
+    for (const id of chatBudget(chats).park) bodies[id] = "quiet";
   }
   return { load, unload, timers: next, wakeAt, band: zoomed.band, bodies };
 }

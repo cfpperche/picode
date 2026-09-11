@@ -7,6 +7,7 @@ import {
   canvasToGrid, gridToCanvas, layoutDiff, loadPolicy, neighborPanel, nextSlot, normalizeMatrix, normalizeMatrixDetail,
   normalizeMatrixList, normalizePanel, normalizeViewport, panelDefault, panelOrder, pointerAtZoom, pxToUnits, suspendedToDispose,
   buildRef, gitTouches, hasPane, parseRef, REF_OWNERS, tidyCanvas, validateRef, unitsToPx, validateCompact, validateMode, validateName, validatePanel, validatePlacement, viewportKey, zoomBody,
+  CHAT_LIVE_MAX, CHAT_STATES, chatBudget, hasChat,
   EDGE_KINDS, edgeEndpoints, normalizeEdge, normalizeEdgeList, validateEdge,
 } from "./matrix.js";
 
@@ -659,6 +660,102 @@ test("zoom table: panes and non-panes on one plane are decided per row", () => {
   assert.deepEqual(at(0.5, "live", mixed).bodies, { t1: "still", n1: "live" });
   assert.deepEqual(at(1, "live", mixed).bodies, { t1: "live", n1: "live" });
   assert.deepEqual(at(0.3, "live", mixed).bodies, { t1: "plate", n1: "plate" });
+});
+
+// Phase 4 (docs/plans/matrix-app.md §2.4/§4.5): a chat body — a managed
+// agent's live conversation — is not a pane (no cell, so no still and no
+// pointer rule) and is not cheap either (a socket and a transcript window).
+// One test per row of its table.
+test("hasChat: a managed agent's body is the one that holds a socket", () => {
+  assert.deepEqual([...CHAT_STATES], ["agent-managed"]);
+  assert.equal(hasChat({ state: "agent-managed" }), true);
+  assert.equal(hasPane({ state: "agent-managed" }), false, "no cell: the still and pointer rules do not bind it");
+  for (const state of ["terminal-running", "terminal-stopped", "agent-interactive", "agent-stopped", "agent-gone", "note-ready", "file-ready", "diff-ready"]) {
+    assert.equal(hasChat({ state }), false, state);
+  }
+  assert.equal(hasChat({ state: "agent-managed", pending: true }), false, "a pending wrapper has no socket yet");
+  assert.equal(hasChat(null), false);
+});
+
+const chat = (id, near = true, loaded = true) => ({ id, near, loaded, pane: false, chat: true });
+
+test("chat body: in the band at zoom 0.4 and above it is live — socket open, conversation rendered", () => {
+  for (const z of [1.5, 1, 0.8, 0.74, 0.5, 0.4]) {
+    assert.deepEqual(at(z, "live", [chat("c1")]).bodies, { c1: "live" }, "live at " + z);
+  }
+  assert.deepEqual(at(0.5, "still", [chat("c1")]).bodies, { c1: "live" }, "the pane's still band does not reach it");
+  assert.deepEqual(run([chat("c1")], 1000, NONE, {}).bodies, { c1: "live" }, "grid mode passes no view and is live");
+});
+
+test("chat body: below zoom 0.4 it is a name-plate — and a plate holds no socket", () => {
+  assert.deepEqual(at(0.39, "live", [chat("c1")]).bodies, { c1: "plate" });
+  assert.deepEqual(at(CANVAS_ZOOM.min, "still", [chat("c1")]).bodies, { c1: "plate" });
+  assert.notEqual(at(0.39, "live", [chat("c1")]).bodies.c1, "live", "the socket follows the body, and this one is not live");
+});
+
+test("chat body: outside the band it unloads after the same 5 s the panes get", () => {
+  const r0 = run([chat("c1", false, true)], 1000, NONE, {});
+  assert.deepEqual(r0.unload, [], "the hysteresis has not run out");
+  assert.equal(r0.wakeAt, 1000 + UNLOAD_AFTER_MS);
+  assert.deepEqual(r0.bodies, { c1: "live" }, "still live, still connected, until it does");
+  const r1 = run([chat("c1", false, true)], 6000, NONE, r0.timers);
+  assert.deepEqual(r1.unload, ["c1"]);
+  assert.deepEqual(r1.bodies, { c1: "off" }, "unmounted: no socket, no transcript");
+  assert.deepEqual(r1.timers, {}, "and its liveAt is forgotten, so coming back makes it the newest");
+});
+
+test("chatBudget: the most recently arrived keep the sockets; the rest are parked", () => {
+  const live = [{ id: "a", at: 30 }, { id: "b", at: 10 }, { id: "c", at: 20 }];
+  assert.deepEqual(chatBudget(live, 2), { keep: ["a", "c"], park: ["b"] });
+  assert.deepEqual(chatBudget(live, 9), { keep: ["a", "c", "b"], park: [] });
+  assert.deepEqual(chatBudget(live, 0), { keep: [], park: ["a", "c", "b"] });
+  assert.deepEqual(chatBudget([{ id: "y", at: 5 }, { id: "x", at: 5 }], 1), { keep: ["x"], park: ["y"] }, "a tie breaks by id, not by tick order");
+  assert.deepEqual(chatBudget([{ id: "" }, null, { at: 1 }], 4), { keep: [], park: [] });
+  assert.deepEqual(chatBudget(null), { keep: [], park: [] });
+});
+
+test("chat body: past the cap the oldest arrivals go quiet, and a freed slot is taken back", () => {
+  assert.equal(CHAT_LIVE_MAX, 12);
+  const many = [];
+  for (let i = 0; i < CHAT_LIVE_MAX + 3; i++) many.push(chat("c" + i));
+  // All fifteen arrive together: the tie breaks by id, so c0..c11 (string
+  // order c0, c1, c10, c11, c12 …) is not the answer — the ids that sort
+  // first are. What matters is that exactly three are quiet and the rest live.
+  const r = run(many, 1000, NONE, {});
+  const quiet = Object.keys(r.bodies).filter((k) => r.bodies[k] === "quiet");
+  const liveIds = Object.keys(r.bodies).filter((k) => r.bodies[k] === "live");
+  assert.equal(liveIds.length, CHAT_LIVE_MAX, "twelve sockets, never thirteen");
+  assert.equal(quiet.length, 3);
+  // The parked ones keep their arrival time, so the order does not thrash.
+  const again = run(many, 1100, NONE, r.timers);
+  assert.deepEqual(Object.keys(again.bodies).filter((k) => again.bodies[k] === "quiet"), quiet, "same three, one tick later");
+  // A newcomer is newer than every one of them and takes a slot from the oldest.
+  const withNew = run([...many, chat("zz")], 2000, NONE, again.timers);
+  assert.equal(withNew.bodies.zz, "live", "the panel the reader just scrolled to gets the socket");
+  assert.equal(Object.keys(withNew.bodies).filter((k) => withNew.bodies[k] === "live").length, CHAT_LIVE_MAX);
+  const parked = Object.keys(withNew.bodies).filter((k) => withNew.bodies[k] === "quiet");
+  assert.equal(parked.length, 4, "sixteen in the band, twelve sockets");
+  // One panel leaves the band and unloads: its slot frees for a parked one.
+  const left = Object.keys(withNew.bodies).find((k) => withNew.bodies[k] === "live" && k !== "zz");
+  const after = [...many.map((e) => (e.id === left ? { id: left, near: false, loaded: false, pane: false, chat: true } : e)), chat("zz")];
+  const freed = run(after, 8000, NONE, withNew.timers);
+  assert.equal(freed.bodies[left], "off");
+  const stillParked = Object.keys(freed.bodies).filter((k) => freed.bodies[k] === "quiet");
+  assert.equal(stillParked.length, 3, "one socket freed, one parked panel took it");
+  assert.ok(stillParked.every((id) => parked.includes(id)), "and it came from the parked set, not from a reshuffle");
+});
+
+test("chat body: a matrix under the cap never pays for it, and panes are counted apart", () => {
+  const mixed = [chat("c1"), chat("c2"), { id: "t1", near: true, loaded: true }, { id: "n1", near: true, loaded: true, pane: false }];
+  const r = run(mixed, 1000, NONE, {});
+  assert.deepEqual(r.bodies, { c1: "live", c2: "live", t1: "live", n1: "live" }, "two chats, a pane and a note: nothing is capped");
+  assert.deepEqual(at(0.5, "live", mixed).bodies, { c1: "live", c2: "live", t1: "still", n1: "live" }, "the still is the pane's alone");
+  // A pane is never counted against the chat cap: twenty terminals are the
+  // band's business, not this rule's.
+  const panes = [];
+  for (let i = 0; i < 20; i++) panes.push({ id: "t" + i, near: true, loaded: true });
+  const p = run(panes, 1000, NONE, {});
+  assert.equal(Object.values(p.bodies).filter((b) => b === "quiet").length, 0);
 });
 
 test("zoom table: focused and engaged — the pointer rule is what the snap to 1 exists for", () => {
