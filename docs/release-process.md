@@ -42,6 +42,13 @@ GitHub artifacts, not a source deployment.
    [`web/shared/data/whats-new.json`](../web/shared/data/whats-new.json). Keep the
    catalog concise: benefit-led titles and summaries, with no more than nine
    highlights for the surface.
+5. Bump `Version` in [`internal/version/version.go`](../internal/version/version.go)
+   to the candidate. The release workflow stamps the tag into the binary it
+   builds, but **a source build keeps whatever the constant says** — so a stale
+   constant makes `make deploy` report the previous SemVer on `/api/version`
+   and makes `picode update` offer the release to a checkout that already
+   contains it. 0.2.0 shipped with the constant still at `0.1.0`; the deploy
+   that followed is what caught it.
 
 ## Release train
 
