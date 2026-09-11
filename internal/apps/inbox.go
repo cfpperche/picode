@@ -467,8 +467,14 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 		}
 		interactive := h.AgentDeliverable != nil && !h.AgentDeliverable(it.SourceID) &&
 			it.SourceKind == store.InboxFromAgent
+		// Ignore is not a reply: it means "the agent gets no reply" (the
+		// action's own confirm copy), so it closes the item where it stands —
+		// the same local close an agent-sourced ignore takes, and never a
+		// message into the terminal. Routed through the receiver it would
+		// demand a live, session-matching terminal for a decision that sends
+		// nothing, and could not close a question whose terminal moved on.
 		if it.SourceKind == store.InboxFromTerminal && h.DeliverTerminalReply != nil &&
-			it.State != store.InboxDone &&
+			it.State != store.InboxDone && verb != store.VerbIgnore &&
 			(it.Kind == store.InboxQuestion || it.Kind == store.InboxApproval) {
 			if _, err := h.DeliverTerminalReply(id, verb, text); err != nil {
 				if strings.Contains(err.Error(), "no longer exists") {

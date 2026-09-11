@@ -151,8 +151,20 @@ export default function (pi) {
 					await ack(false, "the reply file was stale");
 					continue;
 				}
+				// Every pi that inherited this terminal's id watches this
+				// directory — a nested `pi -p`, a print-mode run, the terminal's
+				// own TUI. The daemon addresses each file to the process whose
+				// hello it accepted; a file for someone else is left untouched
+				// so the addressee can take it (files written before pid
+				// addressing carry none and fall through to the session rule).
+				if (doc.pid && doc.pid !== process.pid) continue;
 				const session = sessionFile();
-				if (!doc.sessionPath || !session || session !== doc.sessionPath) {
+				if (!session) {
+					// No conversation yet: this process cannot answer for any
+					// session, and eating the file would deny the one that can.
+					continue;
+				}
+				if (!doc.sessionPath || session !== doc.sessionPath) {
 					// The operator switched this TUI to another session: the
 					// exact-session rule wins, and the item reopens.
 					await ack(false, "the terminal is showing a different session");
