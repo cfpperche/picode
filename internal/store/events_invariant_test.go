@@ -335,60 +335,54 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			_ = s.FinishRun(r.ID, RunDone, "", 0.1) // no-op: no second event
 		}, []string{"run.created", "run.updated", "run.finished"}},
 		{"CreatePin", func(s *Store) { _, _ = s.CreatePin("t", nil, "b") }, []string{"pin.created"}},
-		{"CreateMatrix", func(s *Store) { _, _ = s.CreateMatrix("Ops") }, []string{"matrix.created"}},
-		{"UpdateMatrix", func(s *Store) {
-			m, _ := s.CreateMatrix("Ops")
+		{"CreateCanvas", func(s *Store) { _, _ = s.CreateCanvas("Ops") }, []string{"canvas.created"}},
+		{"UpdateCanvas", func(s *Store) {
+			m, _ := s.CreateCanvas("Ops")
 			s.OnEvent = recorder(s)
 			name := "Ops board"
-			_, _ = s.UpdateMatrix(m.ID, MatrixPatch{Name: &name}, "")
-		}, []string{"matrix.updated"}},
-		{"PatchMatrixLayout", func(s *Store) {
-			m, _ := s.CreateMatrix("Ops")
-			p, _ := s.AddMatrixPanel(m.ID, "terminal", "t1", 0, 0, 4, 8)
+			_, _ = s.UpdateCanvas(m.ID, CanvasPatch{Name: &name}, "")
+		}, []string{"canvas.updated"}},
+		{"PatchCanvasLayout", func(s *Store) {
+			m, _ := s.CreateCanvas("Ops")
+			p, _ := s.AddCanvasPanel(m.ID, "terminal", "t1", 0, 0, 32, 28)
 			s.OnEvent = recorder(s)
-			_, _ = s.PatchMatrixLayout(m.ID, []PanelPlacement{{ID: p.Panel.ID, X: 4, Y: 0, W: 4, H: 8}}, "")
-		}, []string{"matrix.layout"}},
-		{"AddMatrixPanel", func(s *Store) {
-			m, _ := s.CreateMatrix("Ops")
+			_, _ = s.PatchCanvasLayout(m.ID, []PanelPlacement{{ID: p.Panel.ID, X: 40, Y: 0, W: 32, H: 28}}, "")
+		}, []string{"canvas.layout"}},
+		{"AddCanvasPanel", func(s *Store) {
+			m, _ := s.CreateCanvas("Ops")
 			s.OnEvent = recorder(s)
-			_, _ = s.AddMatrixPanel(m.ID, "terminal", "t1", 0, 0, 4, 8)
-		}, []string{"matrix.panel.added"}},
-		{"RemoveMatrixPanel", func(s *Store) {
-			m, _ := s.CreateMatrix("Ops")
-			p, _ := s.AddMatrixPanel(m.ID, "terminal", "t1", 0, 0, 4, 8)
+			_, _ = s.AddCanvasPanel(m.ID, "terminal", "t1", 0, 0, 32, 28)
+		}, []string{"canvas.panel.added"}},
+		{"RemoveCanvasPanel", func(s *Store) {
+			m, _ := s.CreateCanvas("Ops")
+			p, _ := s.AddCanvasPanel(m.ID, "terminal", "t1", 0, 0, 32, 28)
 			s.OnEvent = recorder(s)
-			_ = s.RemoveMatrixPanel(m.ID, p.Panel.ID)
-		}, []string{"matrix.panel.removed"}},
-		{"AddMatrixEdge", func(s *Store) {
-			m, _ := s.CreateMatrix("Ops")
-			a, _ := s.AddMatrixPanel(m.ID, "terminal", "t1", 0, 0, 4, 8)
-			b, _ := s.AddMatrixPanel(m.ID, "agent", "a1", 4, 0, 4, 8)
+			_ = s.RemoveCanvasPanel(m.ID, p.Panel.ID)
+		}, []string{"canvas.panel.removed"}},
+		{"AddCanvasEdge", func(s *Store) {
+			m, _ := s.CreateCanvas("Ops")
+			a, _ := s.AddCanvasPanel(m.ID, "terminal", "t1", 0, 0, 32, 28)
+			b, _ := s.AddCanvasPanel(m.ID, "agent", "a1", 40, 0, 32, 28)
 			s.OnEvent = recorder(s)
-			_, _ = s.AddMatrixEdge(m.ID, a.Panel.ID, b.Panel.ID)
+			_, _ = s.AddCanvasEdge(m.ID, a.Panel.ID, b.Panel.ID)
 			// The same pair backwards is the 409: no second row, no second event.
-			_, _ = s.AddMatrixEdge(m.ID, b.Panel.ID, a.Panel.ID)
-		}, []string{"matrix.edge.added"}},
-		{"RemoveMatrixEdge", func(s *Store) {
-			m, _ := s.CreateMatrix("Ops")
-			a, _ := s.AddMatrixPanel(m.ID, "terminal", "t1", 0, 0, 4, 8)
-			b, _ := s.AddMatrixPanel(m.ID, "agent", "a1", 4, 0, 4, 8)
-			e, _ := s.AddMatrixEdge(m.ID, a.Panel.ID, b.Panel.ID)
+			_, _ = s.AddCanvasEdge(m.ID, b.Panel.ID, a.Panel.ID)
+		}, []string{"canvas.edge.added"}},
+		{"RemoveCanvasEdge", func(s *Store) {
+			m, _ := s.CreateCanvas("Ops")
+			a, _ := s.AddCanvasPanel(m.ID, "terminal", "t1", 0, 0, 32, 28)
+			b, _ := s.AddCanvasPanel(m.ID, "agent", "a1", 40, 0, 32, 28)
+			e, _ := s.AddCanvasEdge(m.ID, a.Panel.ID, b.Panel.ID)
 			s.OnEvent = recorder(s)
-			_ = s.RemoveMatrixEdge(m.ID, e.Edge.ID)
-			_ = s.RemoveMatrixEdge(m.ID, e.Edge.ID) // gone: no second event
-		}, []string{"matrix.edge.removed"}},
-		{"SetMatrixMode", func(s *Store) {
-			m, _ := s.CreateMatrix("Ops")
-			_, _ = s.AddMatrixPanel(m.ID, "terminal", "t1", 0, 0, 4, 8)
+			_ = s.RemoveCanvasEdge(m.ID, e.Edge.ID)
+			_ = s.RemoveCanvasEdge(m.ID, e.Edge.ID) // gone: no second event
+		}, []string{"canvas.edge.removed"}},
+		{"DeleteCanvas", func(s *Store) {
+			m, _ := s.CreateCanvas("Ops")
+			_, _ = s.AddCanvasPanel(m.ID, "terminal", "t1", 0, 0, 32, 28)
 			s.OnEvent = recorder(s)
-			_, _ = s.SetMatrixMode(m.ID, MatrixModeCanvas, "")
-		}, []string{"matrix.mode"}},
-		{"DeleteMatrix", func(s *Store) {
-			m, _ := s.CreateMatrix("Ops")
-			_, _ = s.AddMatrixPanel(m.ID, "terminal", "t1", 0, 0, 4, 8)
-			s.OnEvent = recorder(s)
-			_ = s.DeleteMatrix(m.ID)
-		}, []string{"matrix.deleted"}},
+			_ = s.DeleteCanvas(m.ID)
+		}, []string{"canvas.deleted"}},
 		{"CreateSession + RevokeSession", func(s *Store) {
 			sess, _, _ := s.CreateSession(SessionBrowser, "", "x", "", 0)
 			_ = s.RevokeSession(sess.ID)

@@ -29,7 +29,7 @@ func nativeAction(name string, req ActionRequest) (ActionResult, error) {
 
 // nativeDemoApp is the hidden QA app for the native surface
 // (PICODE_DEMO_APP=1, beside demoApp). It gives the surface kind a real
-// consumer before the Matrix (docs/plans/matrix-app.md) lands: the
+// consumer before the Canvas (docs/plans/matrix-app.md) lands: the
 // desktop registers "demo-native" and renders a terminal through it, the
 // phone lists it as Desktop only. Never in BuiltIns(false).
 type nativeDemoApp struct{}

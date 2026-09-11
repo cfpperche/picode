@@ -14,7 +14,7 @@ import (
 	"github.com/cfpperche/picode/internal/rpc"
 )
 
-func TestMCPMatrix(t *testing.T) {
+func TestMCPCanvas(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)

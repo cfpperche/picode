@@ -33,7 +33,7 @@ func edgePeer(t *testing.T, s *Store, name string) (PeerConnection, string, stri
 	return p, token, a.ID
 }
 
-// linkedPair is one matrix with a panel for each of two enrolled sessions in
+// linkedPair is one canvas with a panel for each of two enrolled sessions in
 // *different* workspaces, joined by one edge — the union's whole point.
 type linkedPair struct {
 	s                 *Store
@@ -41,7 +41,7 @@ type linkedPair struct {
 	leftTok, rightTok string
 	leftAgent         string
 	rightAgent        string
-	matrix            string
+	canvas            string
 	leftPanel         string
 	rightPanel        string
 	edge              string
@@ -54,26 +54,26 @@ func linkPair(t *testing.T, s *Store) linkedPair {
 	if left.WorkspaceID == right.WorkspaceID {
 		t.Fatal("fixture: both peers landed in one workspace")
 	}
-	m, err := s.CreateMatrix("Pairing")
+	m, err := s.CreateCanvas("Pairing")
 	if err != nil {
 		t.Fatal(err)
 	}
-	lp, err := s.AddMatrixPanel(m.ID, MatrixKindAgent, leftAgent, 0, 0, 4, 8)
+	lp, err := s.AddCanvasPanel(m.ID, CanvasKindAgent, leftAgent, 0, 0, 32, 28)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rp, err := s.AddMatrixPanel(m.ID, MatrixKindAgent, rightAgent, 4, 0, 4, 8)
+	rp, err := s.AddCanvasPanel(m.ID, CanvasKindAgent, rightAgent, 40, 0, 32, 28)
 	if err != nil {
 		t.Fatal(err)
 	}
-	e, err := s.AddMatrixEdge(m.ID, lp.Panel.ID, rp.Panel.ID)
+	e, err := s.AddCanvasEdge(m.ID, lp.Panel.ID, rp.Panel.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return linkedPair{
 		s: s, left: left, right: right, leftTok: leftTok, rightTok: rightTok,
 		leftAgent: leftAgent, rightAgent: rightAgent,
-		matrix: m.ID, leftPanel: lp.Panel.ID, rightPanel: rp.Panel.ID, edge: e.Edge.ID,
+		canvas: m.ID, leftPanel: lp.Panel.ID, rightPanel: rp.Panel.ID, edge: e.Edge.ID,
 	}
 }
 
@@ -103,28 +103,28 @@ func wantContacts(t *testing.T, s *Store, token string, want ...string) {
 	}
 }
 
-// Row: add an edge between two agent/terminal panels of one matrix → the
+// Row: add an edge between two agent/terminal panels of one canvas → the
 // row, the event, and both directions dedupe to one row (the reverse is a
 // 409 naming the rule).
-func TestAddMatrixEdgeOrdersThePairAndRefusesTheReverse(t *testing.T) {
+func TestAddCanvasEdgeOrdersThePairAndRefusesTheReverse(t *testing.T) {
 	s := openTest(t)
-	m, err := s.CreateMatrix("Ops")
+	m, err := s.CreateCanvas("Ops")
 	if err != nil {
 		t.Fatal(err)
 	}
-	a, err := s.AddMatrixPanel(m.ID, MatrixKindTerminal, "t-1", 0, 0, 4, 8)
+	a, err := s.AddCanvasPanel(m.ID, CanvasKindTerminal, "t-1", 0, 0, 32, 28)
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := s.AddMatrixPanel(m.ID, MatrixKindAgent, "a-1", 4, 0, 4, 8)
+	b, err := s.AddCanvasPanel(m.ID, CanvasKindAgent, "a-1", 40, 0, 32, 28)
 	if err != nil {
 		t.Fatal(err)
 	}
-	evs := recordMatrixEvents(s)
+	evs := recordCanvasEvents(s)
 	// Drawn from b to a: the store stores the pair ordered.
-	added, err := s.AddMatrixEdge(m.ID, b.Panel.ID, a.Panel.ID)
+	added, err := s.AddCanvasEdge(m.ID, b.Panel.ID, a.Panel.ID)
 	if err != nil {
-		t.Fatalf("AddMatrixEdge: %v", err)
+		t.Fatalf("AddCanvasEdge: %v", err)
 	}
 	lo, hi := orderEdge(a.Panel.ID, b.Panel.ID)
 	if added.Edge.APanel != lo || added.Edge.BPanel != hi {
@@ -133,78 +133,78 @@ func TestAddMatrixEdgeOrdersThePairAndRefusesTheReverse(t *testing.T) {
 	if added.ID != m.ID || added.UpdatedAt == "" || added.UpdatedAt != added.Edge.CreatedAt {
 		t.Fatalf("answer = %+v", added)
 	}
-	var payload MatrixEdgeAdded
-	decodeEvent(t, lastEvent(t, evs, "matrix.edge.added"), &payload)
+	var payload CanvasEdgeAdded
+	decodeEvent(t, lastEvent(t, evs, "canvas.edge.added"), &payload)
 	if payload.Edge.ID != added.Edge.ID || payload.UpdatedAt != added.UpdatedAt {
 		t.Fatalf("event = %+v, want %+v", payload, added)
 	}
 
 	// Row: the same edge reversed → 409 "already linked", still one row.
-	if _, err = s.AddMatrixEdge(m.ID, a.Panel.ID, b.Panel.ID); !errors.Is(err, ErrConflict) || err.Error() != matrixEdgeDupMsg {
-		t.Fatalf("reverse = %v, want conflict %q", err, matrixEdgeDupMsg)
+	if _, err = s.AddCanvasEdge(m.ID, a.Panel.ID, b.Panel.ID); !errors.Is(err, ErrConflict) || err.Error() != canvasEdgeDupMsg {
+		t.Fatalf("reverse = %v, want conflict %q", err, canvasEdgeDupMsg)
 	}
-	list, err := s.ListMatrixEdges(m.ID)
+	list, err := s.ListCanvasEdges(m.ID)
 	if err != nil || len(list) != 1 || list[0].ID != added.Edge.ID {
 		t.Fatalf("edges = %v %v", list, err)
 	}
-	if n := countType(evs, "matrix.edge.added"); n != 1 {
+	if n := countType(evs, "canvas.edge.added"); n != 1 {
 		t.Fatalf("edge.added events = %d, want 1", n)
 	}
-	// One read still opens a matrix: the detail carries the edges.
-	d, err := s.GetMatrix(m.ID)
+	// One read still opens a canvas: the detail carries the edges.
+	d, err := s.GetCanvas(m.ID)
 	if err != nil || len(d.Edges) != 1 || d.Edges[0].ID != added.Edge.ID {
 		t.Fatalf("detail edges = %v %v", d.Edges, err)
 	}
 }
 
-// Rows: same panel twice, a panel of another matrix, a kind with no mailbox
+// Rows: same panel twice, a panel of another canvas, a kind with no mailbox
 // (the message names the kind), and the two ids that are required.
-func TestAddMatrixEdgeRefusals(t *testing.T) {
+func TestAddCanvasEdgeRefusals(t *testing.T) {
 	s := openTest(t)
-	m, err := s.CreateMatrix("Ops")
+	m, err := s.CreateCanvas("Ops")
 	if err != nil {
 		t.Fatal(err)
 	}
-	other, err := s.CreateMatrix("Other")
+	other, err := s.CreateCanvas("Other")
 	if err != nil {
 		t.Fatal(err)
 	}
-	mk := func(matrix, kind, ref string, x int) string {
+	mk := func(canvas, kind, ref string, x int) string {
 		t.Helper()
-		p, err := s.AddMatrixPanel(matrix, kind, ref, x, 0, 4, 8)
+		p, err := s.AddCanvasPanel(canvas, kind, ref, x, 0, 32, 28)
 		if err != nil {
 			t.Fatal(err)
 		}
 		return p.Panel.ID
 	}
-	term := mk(m.ID, MatrixKindTerminal, "t-1", 0)
-	agent := mk(m.ID, MatrixKindAgent, "a-1", 4)
-	note := mk(m.ID, MatrixKindNote, "pin-1", 8)
-	file := mk(m.ID, MatrixKindFile, "t:term-1:/a.go", 0)
-	elsewhere := mk(other.ID, MatrixKindAgent, "a-2", 0)
+	term := mk(m.ID, CanvasKindTerminal, "t-1", 0)
+	agent := mk(m.ID, CanvasKindAgent, "a-1", 4)
+	note := mk(m.ID, CanvasKindNote, "pin-1", 8)
+	file := mk(m.ID, CanvasKindFile, "t:term-1:/a.go", 0)
+	elsewhere := mk(other.ID, CanvasKindAgent, "a-2", 0)
 
 	for _, tc := range []struct {
 		name, a, b, want string
 	}{
-		{"both ids required", term, "", matrixEdgeBothMsg},
-		{"a panel to itself", term, term, matrixEdgeSameMsg},
-		{"a panel from another matrix", term, elsewhere, "panel " + elsewhere + " is not on this matrix"},
-		{"a panel that does not exist", term, "panel-gone", "panel panel-gone is not on this matrix"},
-		{"a note panel has no mailbox", agent, note, "panel " + note + " is a note panel and has no mailbox: " + matrixEdgeKindsMsg},
-		{"a file panel has no mailbox", agent, file, "panel " + file + " is a file panel and has no mailbox: " + matrixEdgeKindsMsg},
+		{"both ids required", term, "", canvasEdgeBothMsg},
+		{"a panel to itself", term, term, canvasEdgeSameMsg},
+		{"a panel from another canvas", term, elsewhere, "panel " + elsewhere + " is not on this canvas"},
+		{"a panel that does not exist", term, "panel-gone", "panel panel-gone is not on this canvas"},
+		{"a note panel has no mailbox", agent, note, "panel " + note + " is a note panel and has no mailbox: " + canvasEdgeKindsMsg},
+		{"a file panel has no mailbox", agent, file, "panel " + file + " is a file panel and has no mailbox: " + canvasEdgeKindsMsg},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := s.AddMatrixEdge(m.ID, tc.a, tc.b)
+			_, err := s.AddCanvasEdge(m.ID, tc.a, tc.b)
 			if !errors.Is(err, ErrInvalid) || err.Error() != tc.want {
 				t.Fatalf("err = %v, want invalid %q", err, tc.want)
 			}
 		})
 	}
-	// A matrix that does not exist is ErrNotFound, not a refusal about panels.
-	if _, err = s.AddMatrixEdge("nope", term, agent); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("unknown matrix = %v", err)
+	// A canvas that does not exist is ErrNotFound, not a refusal about panels.
+	if _, err = s.AddCanvasEdge("nope", term, agent); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unknown canvas = %v", err)
 	}
-	list, err := s.ListMatrixEdges(m.ID)
+	list, err := s.ListCanvasEdges(m.ID)
 	if err != nil || len(list) != 0 {
 		t.Fatalf("refusals wrote a row: %v %v", list, err)
 	}
@@ -213,25 +213,25 @@ func TestAddMatrixEdgeRefusals(t *testing.T) {
 // Row: the cap is reached → 400 naming the cap. 46 panels make 1035 pairs,
 // so the fill runs through the store — the cap counts rows the store wrote,
 // and the pair asked for afterwards is one it has never seen.
-func TestAddMatrixEdgeCap(t *testing.T) {
+func TestAddCanvasEdgeCap(t *testing.T) {
 	s := openTest(t)
-	m, err := s.CreateMatrix("Ops")
+	m, err := s.CreateCanvas("Ops")
 	if err != nil {
 		t.Fatal(err)
 	}
-	const n = 46 // n*(n-1)/2 = 1035 pairs > MaxMatrixEdges
+	const n = 46 // n*(n-1)/2 = 1035 pairs > MaxCanvasEdges
 	panels := make([]string, 0, n)
 	for i := range n {
-		p, err := s.AddMatrixPanel(m.ID, MatrixKindTerminal, fmt.Sprintf("t-%d", i), 0, 0, 4, 8)
+		p, err := s.AddCanvasPanel(m.ID, CanvasKindTerminal, fmt.Sprintf("t-%d", i), 0, 0, 32, 28)
 		if err != nil {
 			t.Fatalf("panel %d: %v", i, err)
 		}
 		panels = append(panels, p.Panel.ID)
 	}
 	drawn := 0
-	for i := 0; i < n && drawn < MaxMatrixEdges; i++ {
-		for j := i + 1; j < n && drawn < MaxMatrixEdges; j++ {
-			if _, err := s.AddMatrixEdge(m.ID, panels[i], panels[j]); err != nil {
+	for i := 0; i < n && drawn < MaxCanvasEdges; i++ {
+		for j := i + 1; j < n && drawn < MaxCanvasEdges; j++ {
+			if _, err := s.AddCanvasEdge(m.ID, panels[i], panels[j]); err != nil {
 				t.Fatalf("fill (%d,%d): %v", i, j, err)
 			}
 			drawn++
@@ -239,63 +239,63 @@ func TestAddMatrixEdgeCap(t *testing.T) {
 	}
 	// The last pair in that order is still free, so the refusal is the cap
 	// and not the duplicate.
-	_, err = s.AddMatrixEdge(m.ID, panels[n-2], panels[n-1])
-	want := fmt.Sprintf("limit: %d edges per matrix", MaxMatrixEdges)
+	_, err = s.AddCanvasEdge(m.ID, panels[n-2], panels[n-1])
+	want := fmt.Sprintf("limit: %d edges per canvas", MaxCanvasEdges)
 	if !errors.Is(err, ErrInvalid) || err.Error() != want {
 		t.Fatalf("at the cap = %v, want invalid %q", err, want)
 	}
-	list, err := s.ListMatrixEdges(m.ID)
-	if err != nil || len(list) != MaxMatrixEdges {
-		t.Fatalf("edges = %d %v, want %d", len(list), err, MaxMatrixEdges)
+	list, err := s.ListCanvasEdges(m.ID)
+	if err != nil || len(list) != MaxCanvasEdges {
+		t.Fatalf("edges = %d %v, want %d", len(list), err, MaxCanvasEdges)
 	}
 }
 
-// RemoveMatrixEdge: the row, the event, the bumped updatedAt, and a second
+// RemoveCanvasEdge: the row, the event, the bumped updatedAt, and a second
 // removal that is ErrNotFound rather than a silent success.
-func TestRemoveMatrixEdge(t *testing.T) {
+func TestRemoveCanvasEdge(t *testing.T) {
 	s := openTest(t)
 	p := linkPair(t, s)
-	evs := recordMatrixEvents(s)
-	if err := s.RemoveMatrixEdge(p.matrix, p.edge); err != nil {
-		t.Fatalf("RemoveMatrixEdge: %v", err)
+	evs := recordCanvasEvents(s)
+	if err := s.RemoveCanvasEdge(p.canvas, p.edge); err != nil {
+		t.Fatalf("RemoveCanvasEdge: %v", err)
 	}
-	var payload MatrixEdgeRemoved
-	decodeEvent(t, lastEvent(t, evs, "matrix.edge.removed"), &payload)
-	if payload.ID != p.matrix || payload.EdgeID != p.edge || payload.UpdatedAt == "" {
+	var payload CanvasEdgeRemoved
+	decodeEvent(t, lastEvent(t, evs, "canvas.edge.removed"), &payload)
+	if payload.ID != p.canvas || payload.EdgeID != p.edge || payload.UpdatedAt == "" {
 		t.Fatalf("event = %+v", payload)
 	}
-	if err := s.RemoveMatrixEdge(p.matrix, p.edge); !errors.Is(err, ErrNotFound) {
+	if err := s.RemoveCanvasEdge(p.canvas, p.edge); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("second remove = %v, want not found", err)
 	}
-	list, err := s.ListMatrixEdges(p.matrix)
+	list, err := s.ListCanvasEdges(p.canvas)
 	if err != nil || len(list) != 0 {
 		t.Fatalf("edges = %v %v", list, err)
 	}
 }
 
-// Rows: a removed panel and a deleted matrix take their edges with them —
+// Rows: a removed panel and a deleted canvas take their edges with them —
 // migration 044 cascades at both levels, so no reader has to remember.
-func TestMatrixEdgesCascade(t *testing.T) {
+func TestCanvasEdgesCascade(t *testing.T) {
 	t.Run("a removed panel takes its edges", func(t *testing.T) {
 		s := openTest(t)
 		p := linkPair(t, s)
-		if err := s.RemoveMatrixPanel(p.matrix, p.leftPanel); err != nil {
+		if err := s.RemoveCanvasPanel(p.canvas, p.leftPanel); err != nil {
 			t.Fatal(err)
 		}
-		list, err := s.ListMatrixEdges(p.matrix)
+		list, err := s.ListCanvasEdges(p.canvas)
 		if err != nil || len(list) != 0 {
 			t.Fatalf("edges after panel removal = %v %v", list, err)
 		}
 	})
-	t.Run("a deleted matrix takes its edges", func(t *testing.T) {
+	t.Run("a deleted canvas takes its edges", func(t *testing.T) {
 		s := openTest(t)
 		p := linkPair(t, s)
-		if err := s.DeleteMatrix(p.matrix); err != nil {
+		if err := s.DeleteCanvas(p.canvas); err != nil {
 			t.Fatal(err)
 		}
 		var n int
-		if err := s.db.QueryRow(`SELECT COUNT(1) FROM matrix_edges`).Scan(&n); err != nil || n != 0 {
-			t.Fatalf("edges after matrix deletion = %d %v", n, err)
+		if err := s.db.QueryRow(`SELECT COUNT(1) FROM canvas_edges`).Scan(&n); err != nil || n != 0 {
+			t.Fatalf("edges after canvas deletion = %d %v", n, err)
 		}
 	})
 }
@@ -311,7 +311,7 @@ func TestPeerContactsUnion(t *testing.T) {
 		wantContacts(t, s, bt, a.ID)
 		// And no edge was needed for it.
 		var n int
-		if err := s.db.QueryRow(`SELECT COUNT(1) FROM matrix_edges`).Scan(&n); err != nil || n != 0 {
+		if err := s.db.QueryRow(`SELECT COUNT(1) FROM canvas_edges`).Scan(&n); err != nil || n != 0 {
 			t.Fatalf("edges = %d %v", n, err)
 		}
 	})
@@ -334,7 +334,7 @@ func TestPeerContactsUnion(t *testing.T) {
 	t.Run("edge removed: neither side sees the other", func(t *testing.T) {
 		s := openTest(t)
 		p := linkPair(t, s)
-		if err := s.RemoveMatrixEdge(p.matrix, p.edge); err != nil {
+		if err := s.RemoveCanvasEdge(p.canvas, p.edge); err != nil {
 			t.Fatal(err)
 		}
 		wantContacts(t, s, p.leftTok)
@@ -363,39 +363,39 @@ func TestPeerContactsUnion(t *testing.T) {
 	t.Run("edge present, one panel removed: no contact", func(t *testing.T) {
 		s := openTest(t)
 		p := linkPair(t, s)
-		if err := s.RemoveMatrixPanel(p.matrix, p.rightPanel); err != nil {
+		if err := s.RemoveCanvasPanel(p.canvas, p.rightPanel); err != nil {
 			t.Fatal(err)
 		}
 		wantContacts(t, s, p.leftTok)
 		wantContacts(t, s, p.rightTok)
 	})
 
-	t.Run("matrix deleted: no contact, edges gone", func(t *testing.T) {
+	t.Run("canvas deleted: no contact, edges gone", func(t *testing.T) {
 		s := openTest(t)
 		p := linkPair(t, s)
-		if err := s.DeleteMatrix(p.matrix); err != nil {
+		if err := s.DeleteCanvas(p.canvas); err != nil {
 			t.Fatal(err)
 		}
 		wantContacts(t, s, p.leftTok)
 		wantContacts(t, s, p.rightTok)
 	})
 
-	t.Run("two edges in two matrices for the same pair: listed once", func(t *testing.T) {
+	t.Run("two edges in two canvases for the same pair: listed once", func(t *testing.T) {
 		s := openTest(t)
 		p := linkPair(t, s)
-		second, err := s.CreateMatrix("Second")
+		second, err := s.CreateCanvas("Second")
 		if err != nil {
 			t.Fatal(err)
 		}
-		l, err := s.AddMatrixPanel(second.ID, MatrixKindAgent, p.leftAgent, 0, 0, 4, 8)
+		l, err := s.AddCanvasPanel(second.ID, CanvasKindAgent, p.leftAgent, 0, 0, 32, 28)
 		if err != nil {
 			t.Fatal(err)
 		}
-		r, err := s.AddMatrixPanel(second.ID, MatrixKindAgent, p.rightAgent, 4, 0, 4, 8)
+		r, err := s.AddCanvasPanel(second.ID, CanvasKindAgent, p.rightAgent, 40, 0, 32, 28)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err = s.AddMatrixEdge(second.ID, l.Panel.ID, r.Panel.ID); err != nil {
+		if _, err = s.AddCanvasEdge(second.ID, l.Panel.ID, r.Panel.ID); err != nil {
 			t.Fatal(err)
 		}
 		wantContacts(t, s, p.leftTok, p.right.ID)
@@ -411,7 +411,7 @@ func TestPeerContactsUnion(t *testing.T) {
 		// The panel outlives its target (no foreign key to agents, ADR-0108),
 		// and the connection cascades away with the agent, so the edge
 		// resolves to nobody.
-		list, err := s.ListMatrixEdges(p.matrix)
+		list, err := s.ListCanvasEdges(p.canvas)
 		if err != nil || len(list) != 1 {
 			t.Fatalf("edges = %v %v", list, err)
 		}
@@ -422,19 +422,19 @@ func TestPeerContactsUnion(t *testing.T) {
 		s := openTest(t)
 		left, leftTok, leftAgent := edgePeer(t, s, "Left")
 		_, _, rightAgent := edgePeer(t, s, "Right")
-		m, err := s.CreateMatrix("Self")
+		m, err := s.CreateCanvas("Self")
 		if err != nil {
 			t.Fatal(err)
 		}
-		a, err := s.AddMatrixPanel(m.ID, MatrixKindAgent, leftAgent, 0, 0, 4, 8)
+		a, err := s.AddCanvasPanel(m.ID, CanvasKindAgent, leftAgent, 0, 0, 32, 28)
 		if err != nil {
 			t.Fatal(err)
 		}
-		b, err := s.AddMatrixPanel(m.ID, MatrixKindAgent, rightAgent, 4, 0, 4, 8)
+		b, err := s.AddCanvasPanel(m.ID, CanvasKindAgent, rightAgent, 40, 0, 32, 28)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err = s.AddMatrixEdge(m.ID, a.Panel.ID, b.Panel.ID); err != nil {
+		if _, err = s.AddCanvasEdge(m.ID, a.Panel.ID, b.Panel.ID); err != nil {
 			t.Fatal(err)
 		}
 		// The far end is somebody else; my own connection is never in my list.
@@ -458,7 +458,7 @@ func TestPeerSendFollowsTheEdge(t *testing.T) {
 	if _, err := s.SendPeerMessage(p.rightTok, p.left.ID, "r2", "hi back", ""); err != nil {
 		t.Fatalf("send back across a live edge: %v", err)
 	}
-	if err := s.RemoveMatrixEdge(p.matrix, p.edge); err != nil {
+	if err := s.RemoveCanvasEdge(p.canvas, p.edge); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.SendPeerMessage(p.leftTok, p.right.ID, "r3", "still there?", ""); !errors.Is(err, ErrPeerDenied) {
