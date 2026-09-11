@@ -182,20 +182,42 @@ func (t *TuiReplies) HelloConnection(key, sessionPath, connection string) {
 	t.helloConnectionProcess(key, sessionPath, connection, "")
 }
 func (t *TuiReplies) helloConnectionProcess(key, sessionPath, connection, process string) {
+	t.helloReceiver(key, sessionPath, connection, process, 0)
+}
+
+// helloReceiver records a hello. A sessionless hello (a nested `pi -p`, a
+// print-mode run: the terminal id and the reply directory are inherited
+// environment, so every pi in a terminal watches the same reply files)
+// refreshes liveness but must not take over the recorded conversation — the
+// reply file is addressed to the process that named a session (ADR-0060's
+// 2026-09-11 amendment). A session-bearing hello always wins.
+func (t *TuiReplies) helloReceiver(key, sessionPath, connection, process string, pid int) {
 	if t == nil || strings.TrimSpace(key) == "" {
 		return
 	}
+	sessionPath = strings.TrimSpace(sessionPath)
 	t.mu.Lock()
+	adopt := sessionPath != "" || t.session[key] == ""
 	t.hello[key] = time.Now()
-	t.session[key] = strings.TrimSpace(sessionPath)
-	if t.connection == nil {
-		t.connection = map[string]string{}
+	if adopt {
+		t.session[key] = sessionPath
+		if t.pid == nil {
+			t.pid = map[string]int{}
+		}
+		if pid > 0 {
+			t.pid[key] = pid
+		} else {
+			delete(t.pid, key)
+		}
+		if t.connection == nil {
+			t.connection = map[string]string{}
+		}
+		if t.connectionProcess == nil {
+			t.connectionProcess = map[string]string{}
+		}
+		t.connection[key] = connection
+		t.connectionProcess[key] = process
 	}
-	t.connection[key] = connection
-	if t.connectionProcess == nil {
-		t.connectionProcess = map[string]string{}
-	}
-	t.connectionProcess[key] = process
 	t.mu.Unlock()
 }
 
@@ -227,22 +249,8 @@ func (t *TuiReplies) receiverFresh(agentID string) bool {
 	return ok && time.Since(at) <= receiverHelloTTL
 }
 
-// notePID records which process sent the hello. Older receivers never send
-// one (0 is "unknown", and the reply file then names no pid).
-func (t *TuiReplies) notePID(key string, pid int) {
-	if t == nil || strings.TrimSpace(key) == "" || pid <= 0 {
-		return
-	}
-	t.mu.Lock()
-	if t.pid == nil {
-		t.pid = map[string]int{}
-	}
-	t.pid[key] = pid
-	t.mu.Unlock()
-}
-
-// receiverPID is the process the last hello came from, or 0 when it did not
-// name one.
+// receiverPID is the process the last session-bearing hello came from, or 0
+// when it did not name one.
 func (t *TuiReplies) receiverPID(key string) int {
 	if t == nil {
 		return 0
@@ -624,8 +632,7 @@ func handleTuiHello(deps Deps) http.HandlerFunc {
 				return
 			}
 		}
-		deps.Replies.helloConnectionProcess(agentID, req.Session, req.Connection, fmt.Sprint(req.PID))
-		deps.Replies.notePID(agentID, req.PID)
+		deps.Replies.helloReceiver(agentID, req.Session, req.Connection, fmt.Sprint(req.PID), req.PID)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

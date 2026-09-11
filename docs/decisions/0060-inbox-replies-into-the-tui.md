@@ -132,7 +132,11 @@ not be answered *or* ignored. Both ends of the terminal door were wrong.
    it for a process that can answer). Files written before this amendment
    carry no `pid` and keep the exact-session rule. Delivery truth is
    unchanged: the daemon's ack wait still cleans a file no one took and
-   reopens the item with the response preserved.
+   reopens the item with the response preserved. The registry follows the
+   same address: a sessionless hello refreshes liveness but never takes
+   over the recorded session or its pid — a session-bearing hello always
+   wins — so a nested process can neither blind the reply channel nor
+   become its addressee.
 
 Decision table — the receiver rows now read:
 

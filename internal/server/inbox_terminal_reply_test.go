@@ -286,6 +286,62 @@ func TestInboxTerminalReplyFileNamesTheReceivingProcess(t *testing.T) {
 	}
 }
 
+// A sessionless hello (a nested pi in the same terminal) must not take over
+// the recorded conversation or its pid: the reply file keeps reaching the
+// terminal's own receiver, and the nested process — addressed to someone
+// else, with no session of its own — leaves it alone.
+func TestInboxTerminalSessionlessHelloDoesNotTakeOverTheChannel(t *testing.T) {
+	ts, deps, st, term, _, sessionPath := piTerminalFixture(t)
+	if code, _ := postRaw(t, ts, "/api/terminals/"+term.ID+"/tui-hello", `{"session":`+jsonString(sessionPath)+`,"pid":4242}`); code != http.StatusNoContent {
+		t.Fatalf("hello: %d", code)
+	}
+	if code, _ := postRaw(t, ts, "/api/terminals/"+term.ID+"/tui-hello", `{"session":"","pid":9001}`); code != http.StatusNoContent {
+		t.Fatalf("sessionless hello: %d", code)
+	}
+	if got := deps.Replies.receiverSession(termReplyKey(term.ID)); got != sessionPath {
+		t.Fatalf("session after a sessionless hello = %q; want %q", got, sessionPath)
+	}
+	if got := deps.Replies.receiverPID(termReplyKey(term.ID)); got != 4242 {
+		t.Fatalf("pid after a sessionless hello = %d; want 4242", got)
+	}
+	it := terminalQuestion(t, st, term.ID, sessionPath)
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := deps.DeliverTerminalReply(it.ID, store.VerbRespond, "still yours")
+		done <- err
+	}()
+
+	dir := replyDir(deps.DataDir, termReplyKey(term.ID))
+	var doc replyFile
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) && doc.Nonce == "" {
+		if ents, err := os.ReadDir(dir); err == nil {
+			for _, e := range ents {
+				if filepath.Ext(e.Name()) != ".json" {
+					continue
+				}
+				if raw, err := os.ReadFile(filepath.Join(dir, e.Name())); err == nil {
+					_ = json.Unmarshal(raw, &doc)
+				}
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if doc.Nonce == "" {
+		t.Fatal("no reply file reached the terminal's receiver directory")
+	}
+	if doc.PID != 4242 || doc.SessionPath != sessionPath {
+		t.Fatalf("reply file = %+v; want pid 4242 and the terminal's session", doc)
+	}
+	if code, _ := postRaw(t, ts, "/api/terminals/"+term.ID+"/tui-ack", `{"nonce":`+jsonString(doc.Nonce)+`,"ok":true}`); code != http.StatusNoContent {
+		t.Fatalf("ack: %d", code)
+	}
+	if err := <-done; err != nil {
+		t.Fatalf("DeliverTerminalReply: %v", err)
+	}
+}
+
 // When the receiver takes the message but pi never processes it into a
 // JSONL row, the item reopens with the response preserved for prefill.
 func TestInboxTerminalReplyReopensWhenTheRowNeverAppears(t *testing.T) {

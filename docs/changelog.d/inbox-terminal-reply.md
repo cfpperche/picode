@@ -7,6 +7,7 @@
   that terminal that had not opened a conversation (a nested `pi -p`, a
   print-mode run) could take the reply file and answer "the terminal is
   showing a different session". The daemon now refuses before parking when
-  the receiver names no session, and each reply file is addressed to the
-  process whose hello was accepted, so another pi in the same terminal can
-  no longer consume it.
+  the receiver names no session, each reply file is addressed to the
+  process whose hello was accepted, and a sessionless hello can no longer
+  take that address over — so another pi in the same terminal can neither
+  consume nor blind the reply.
