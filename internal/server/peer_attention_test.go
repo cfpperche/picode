@@ -198,8 +198,7 @@ func TestPeerPointerKeepsExpectedNativeSession(t *testing.T) {
 	for _, key := range []string{"managed-fixture", "term-fixture"} {
 		t.Run(key, func(t *testing.T) {
 			deps := Deps{DataDir: t.TempDir(), Replies: NewTuiReplies()}
-			deps.Replies.HelloSession(key, "original.jsonl")
-			deps.Replies.notePID(key, 4242)
+			deps.Replies.helloReceiver(key, "original.jsonl", "", "", 4242)
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 			result := make(chan error, 1)
