@@ -78,7 +78,7 @@ state = one line + one action; statusbar = live state, not hints).
 
   | Route | View | Width before |
   |---|---|---|
-  | `#/clis/*` (CLIs, Terminals, Sessions, Settings, Providers, Packages) | `AgentClisFrame` | 1240px (reference) |
+  | `#/clis/*` (CLIs, Sessions, Settings, Providers, Packages) | `AgentClisFrame` | 1240px (reference) |
   | `#/system` | `System` | 680px |
   | `#/integrations` | `Integrations` | 680px |
   | `#/mcps` | `Mcps` | 680px |
