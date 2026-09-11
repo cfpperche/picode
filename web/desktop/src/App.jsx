@@ -50,10 +50,13 @@ import CreateForm from "./components/CreateForm.jsx";
 import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
-import CanvasSurface from "./components/canvas/CanvasSurface.jsx";
 import { nativeApps, nativeSurfaceFor } from "./lib/nativeApps.js";
 import { normalizeManifests } from "@picode/shared/contracts/appPrimitives.js";
 const PinStudio = lazy(() => import("./components/PinStudio.jsx"));
+// The Canvas surface is lazy for the reason ADR-0118 gives: a reader who
+// never opens the app should not carry it. It is a registry entry like any
+// other, and the tab mount wraps every native surface in a Suspense.
+const CanvasSurface = lazy(() => import("./components/canvas/CanvasSurface.jsx"));
 import { startPresence } from "@picode/shared/client/device.js";
 import { startReconnectWatch } from "@picode/shared/client/reconnect.js";
 import { startFeed, subscribeFeed, feedConnected } from "@picode/shared/client/feed.js";
@@ -111,7 +114,7 @@ import { useMedia } from "./lib/media.js";
 
 // Native app surfaces this shell compiled in (ADR-0109), by manifest id:
 // the hidden QA demo (the server lists it with PICODE_DEMO_APP=1) and the
-// Canvas.
+// Canvas, which arrives as a chunk of its own.
 const NATIVE_APPS = nativeApps({ "demo-native": NativeDemoSurface, canvas: CanvasSurface });
 
 export default function App() {
@@ -2813,27 +2816,33 @@ export default function App() {
             const Native = nativeSurfaceFor(manifest, NATIVE_APPS);
             if (Native) {
               return (
-                <Native
-                  key={id}
-                  manifest={manifest}
-                  hidden={selectedId !== id}
-                  onClose={() => closeTab(id)}
-                  initialPath={appRoute(hash) === appId ? appPath(hash) : undefined}
-                  onPathChange={(path) => {
-                    if (selectedId !== id) return;
-                    const next = appHash(appId, path);
-                    if (location.hash !== next) { history.replaceState(null, "", next); setHash(next); }
-                  }}
-                  host={{
-                    // `loaded` says the boot fetch is done: before it, an
-                    // empty fleet means "not read yet", not "deleted" — a
-                    // native surface must not draw gone rows over it.
-                    fleet: { workspaces, freeAgents, terminals, loaded: bootstrapped },
-                    openTabs: tabs,
-                    openTab, openInteractive, revealAgent, openFileTab,
-                    feed: subscribeFeed,
-                  }}
-                />
+                // A registered surface may be a lazy chunk (the Canvas is,
+                // ADR-0118), so the mount carries the boundary. `fallback`
+                // is null on purpose: a tab that is opening shows nothing
+                // for the length of one fetch, never a skeleton of invented
+                // rows, and the surface draws its own the moment it lands.
+                <Suspense key={id} fallback={null}>
+                  <Native
+                    manifest={manifest}
+                    hidden={selectedId !== id}
+                    onClose={() => closeTab(id)}
+                    initialPath={appRoute(hash) === appId ? appPath(hash) : undefined}
+                    onPathChange={(path) => {
+                      if (selectedId !== id) return;
+                      const next = appHash(appId, path);
+                      if (location.hash !== next) { history.replaceState(null, "", next); setHash(next); }
+                    }}
+                    host={{
+                      // `loaded` says the boot fetch is done: before it, an
+                      // empty fleet means "not read yet", not "deleted" — a
+                      // native surface must not draw gone rows over it.
+                      fleet: { workspaces, freeAgents, terminals, loaded: bootstrapped },
+                      openTabs: tabs,
+                      openTab, openInteractive, revealAgent, openFileTab,
+                      feed: subscribeFeed,
+                    }}
+                  />
+                </Suspense>
               );
             }
             return (
