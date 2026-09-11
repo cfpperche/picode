@@ -7,6 +7,7 @@
 `git worktree list` is the truth for in-flight branches; entries say what a merge must know.
 
 - `feat/communication-recovery` — native state recovery and empty Grok suggestions; unmerged (a683eed7).
+- `feat/app-boundary` — ADR-0109's app-boundary directive; the Canvas background control moved into the app. Floating edges land on the same branch next.
 - `feat/herdr-validation`, `feat/picode-video-pilot` — pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; next merge conflicts: keep this shape, changelog to `docs/changelog.d/`.
 
 ## Next up
@@ -40,7 +41,7 @@
 - Capture integration (ADR-0054): no real emitter-to-RPC run, no slow-consumer/cancellation matrix.
 - Webhooks are at-least-once within event retention; receivers dedupe by id.
 - tmux: never kill by prefix (a `grep '^picode-'` sweep killed 29 sessions, six in production, 2026-09-06) — exact names from a fixture's API only; a scratch whose daemon dies before `qa-scratch stop` strands its shells (one is kept on purpose).
-- WSL disk (2026-09-11): merged `picode-desktop disk` verified live end-to-end after the 0.2.0+ deploy (held ≈92 GB, 43 GB reclaimable); the tray warns in words only (no alert icon asset); docker's storage is the Docker app's, not measured here.
+- WSL disk: the tray warns in words only (no alert icon asset); docker's storage is the Docker app's, not measured here.
 - Feed: ephemeral events can be missed across reconnects (ADR-0048); cross-platform paste fallback open.
 - Terminal menus (2026-09-09): web/mobile terminal rows still offer only Remove — the desktop one-menu merge (termRowMenu.js) is not ported.
 - CLI lifecycle: npm data can lag native Claude releases by hours; grok uninstall is guided-only; Windows paths out of scope.

@@ -113,7 +113,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0106](0106-conversation-launch-setup.md) | Private communication setup on conversation resume | accepted; amended by 0107 |
 | [0107](0107-unified-native-messages.md) | One mailbox with CLI and native TUI integrations | accepted |
 | [0108](0108-matrix-persistence.md) | Matrix persistence: one row per panel, six feed events, a subset layout patch under ifUpdatedAt | accepted; amended by 0113 |
-| [0109](0109-native-app-surfaces.md) | Native app surfaces — a first-party app's body may be a component compiled into the shell; the manifest names its surface | accepted, amends 0036 |
+| [0109](0109-native-app-surfaces.md) | Native app surfaces — a first-party app's body may be a component compiled into the shell; the manifest names its surface | accepted, amends 0036; amended 2026-09-11 (an app does not leak into PiCode's interface — the doors are a closed list) |
 | [0110](0110-workspace-communication-onboarding.md) | Workspace communication preferences and guided connection setup | proposed |
 | [0111](0111-codex-native-message-client.md) | Codex native message client | accepted |
 | [0113](0113-matrix-canvas-mode.md) | Matrix canvas mode: a layout mode per matrix, mode-dependent rectangle units, one transactional switch | superseded by 0118 |
