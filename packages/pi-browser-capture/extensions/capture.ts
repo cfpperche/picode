@@ -33,7 +33,6 @@ import { setTimeout as delay } from "node:timers/promises";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 const CONSENT_ENTRY = "browser-capture-consent";
-const INPUT_ENTRY = "browser-input-consent";
 const FINAL_ENTRY = "browser-capture-final";
 const CAPTURE_MAX_BYTES = 200 * 1024;
 const READY_TIMEOUT_MS = 8000;
@@ -162,16 +161,6 @@ export function boundedJpeg(data: unknown): string | undefined {
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
-
-// Consent mirror writer (ADR-0115): atomic `input.json` in the capture
-// directory; the daemon proxy treats an absent file as consent off.
-export async function writeInputMirror(sessionFile: string, on: boolean): Promise<void> {
-	const dir = `${sessionFile}.capture`;
-	await mkdir(dir, { recursive: true, mode: 0o700 });
-	const tmp = join(dir, "input.json.tmp");
-	await writeFile(tmp, JSON.stringify({ on, ts: Date.now() }), { mode: 0o600 });
-	await rename(tmp, join(dir, "input.json"));
-}
 
 // --- Frame store: atomic latest-wins files beside the pi session file ---
 
@@ -313,7 +302,6 @@ function observeCaptures(options: { sessionBase: string; namespace?: string; sto
 
 export default function (pi: ExtensionAPI) {
 	let enabled = false;
-	let inputEnabled = false;
 	let active: (ActiveCapture & { toolCallId: string }) | undefined;
 	let controller = new AbortController();
 
@@ -323,26 +311,11 @@ export default function (pi: ExtensionAPI) {
 		enabled = value;
 	}
 
-	// Live consent mirror for the browser surface (ADR-0115): the daemon
-	// proxy reads this file (same trusted directory as the frame captures)
-	// to decide whether input events may be forwarded. Absent means off.
-	async function mirrorInput(ctx: ExtensionContext) {
-		const sessionFile = ctx.sessionManager.getSessionFile();
-		if (!sessionFile) return;
-		try {
-			await writeInputMirror(sessionFile, inputEnabled);
-		} catch { /* A read-only session dir disables control; never fail the command. */ }
-	}
-
 	function restore(ctx: ExtensionContext) {
 		let value = pi.getFlag("browser-captures") === true;
-		let input = pi.getFlag("browser-input") === true;
 		for (const entry of ctx.sessionManager.getBranch()) {
 			if (entry.type === "custom" && entry.customType === CONSENT_ENTRY && isRecord(entry.data) && typeof entry.data.enabled === "boolean") value = entry.data.enabled;
-			if (entry.type === "custom" && entry.customType === INPUT_ENTRY && isRecord(entry.data) && typeof entry.data.enabled === "boolean") input = entry.data.enabled;
 		}
-		inputEnabled = input;
-		void mirrorInput(ctx);
 		reset(value);
 	}
 
@@ -364,28 +337,9 @@ export default function (pi: ExtensionAPI) {
 		},
 	});
 
-	pi.registerFlag("browser-input", { type: "boolean", default: false, description: "Opt in to driving the agent's browser from the PiCode browser surface (click, type, touch)" });
-	pi.registerCommand("browser-input", {
-		description: "Browser control status, on, or off (the PiCode browser surface may send mouse, keyboard and touch to the agent's browser)",
-		handler: async (args, ctx) => {
-			const action = args.trim();
-			if (action === "on" || action === "off") {
-				inputEnabled = action === "on";
-				pi.appendEntry(INPUT_ENTRY, { enabled: inputEnabled });
-				await mirrorInput(ctx);
-			} else if (action && action !== "status") {
-				ctx.ui.notify("Use /browser-input on, off, or status.", "warning");
-				return;
-			}
-			ctx.ui.notify(inputEnabled
-				? "Browser control on. The browser surface may send mouse, keyboard and touch to this session's browser."
-				: "Browser control off. The browser surface is watch-only.", inputEnabled ? "warning" : "info");
-		},
-	});
-
 	pi.on("session_start", (_event, ctx) => restore(ctx));
 	pi.on("session_tree", (_event, ctx) => restore(ctx));
-	pi.on("session_shutdown", () => { enabled = false; inputEnabled = false; active?.stop(); active = undefined; controller.abort(); controller = new AbortController(); });
+	pi.on("session_shutdown", () => { enabled = false; active?.stop(); active = undefined; controller.abort(); controller = new AbortController(); });
 
 	pi.on("tool_execution_start", async (event, ctx) => {
 		if (!enabled || event.toolName !== "agent_browser" || active) return;

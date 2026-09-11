@@ -181,7 +181,6 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [Compaction policy (ADR-0061)](architecture/compaction-policy.md) | `docs/architecture/compaction-policy.md` |
 | [Diff panel for the pi TUI (ADR-0077)](architecture/tui-diff-panel.md) | `docs/architecture/tui-diff-panel.md` |
 | [Model roles (ADR-0028, ADR-0033)](architecture/model-roles.md) | `docs/architecture/model-roles.md` |
-| [Browser surface (ADR-0114, ADR-0115)](architecture/browser-surface.md) | `docs/architecture/browser-surface.md` |
 | [MCP (Model Context Protocol) support](architecture/mcp.md) | `docs/architecture/mcp.md` |
 | [Integrations (ADR-0075)](architecture/integrations.md) | `docs/architecture/integrations.md` |
 | [Pins](architecture/pins.md) | `docs/architecture/pins.md` |

@@ -78,10 +78,6 @@ type Deps struct {
 	CLIs         *CLITerminals   // terminal launch settings and operation locks (ADR-0069)
 	CLIJobs      *clijob.Service // durable CLI lifecycle jobs (ADR-0087); nil-safe = 503 on the routes
 	Auth         *auth.Service   // request gate (ADR-0049); nil = ungated (tests, dev)
-	// Browser surface (ADR-0114/0115): engine stream port resolver and
-	// input-consent resolver; nil = the defaults on deps.Runtime.
-	BrowserStream       BrowserStreamResolver
-	BrowserInputConsent BrowserInputConsentResolver
 }
 
 // New builds the picode *http.Server. Addr handling stays with the caller
@@ -241,7 +237,6 @@ func registerAll(mux Registrar, deps Deps) {
 
 	mux.Handle("/ws/term", term.Bridge(deps.Tmux, termOptionResolver(deps), terminalInterruptObserver(deps)))
 	mux.Handle("/ws/agent", agentWS(deps))
-	mux.Handle("/ws/browser", browserWS(deps)) // ADR-0114
 
 	mux.Handle("/", securityHeaders(cacheControl(uiHandler())))
 }
