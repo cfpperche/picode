@@ -58,6 +58,53 @@ func TestCacheEvictsToItsBudget(t *testing.T) {
 	}
 }
 
+// TestCacheKeysAMultiFileParseOnEveryFileItSpans is the contract grok's
+// session parse rides on: the parse spans summary.json, events.jsonl and
+// usage.json, and the cache key must move when any of them does — a turn
+// appends to events.jsonl while it runs and writes usage.json when it ends.
+func TestCacheKeysAMultiFileParseOnEveryFileItSpans(t *testing.T) {
+	files.reset()
+	dir := t.TempDir()
+	summary := filepath.Join(dir, "summary.json")
+	events := filepath.Join(dir, "events.jsonl")
+	if err := os.WriteFile(summary, []byte(`{"info":{"id":"g1"}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(events, []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	parse := func() *parsed { calls++; return &parsed{} }
+
+	cachedParseKeyed(statKey(summary, events), parse)
+	cachedParseKeyed(statKey(summary, events), parse)
+	if calls != 1 {
+		t.Fatalf("parsed %d times, want 1 — unchanged files must be free", calls)
+	}
+
+	f, err := os.OpenFile(events, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString("{\"ts\":\"x\"}\n"); err != nil {
+		f.Close()
+		t.Fatal(err)
+	}
+	f.Close()
+	cachedParseKeyed(statKey(summary, events), parse)
+	if calls != 2 {
+		t.Fatalf("parsed %d times, want 2 — an appended timeline is a new parse", calls)
+	}
+
+	// A file that appears later must not be answered by the parse cached
+	// while it was absent.
+	usage := filepath.Join(dir, "usage.json")
+	cachedParseKeyed(statKey(summary, events, usage), parse)
+	if calls != 3 {
+		t.Fatalf("parsed %d times, want 3 — a file that appears is a new parse", calls)
+	}
+}
+
 // --- codex ------------------------------------------------------------
 
 func withCodexRoot(t *testing.T) string {
