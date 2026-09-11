@@ -17,6 +17,11 @@ import (
 // cheap enough to run on a timer.
 const pollEvery = 5 * time.Second
 
+// diskEvery is how often the tray re-reads the disk. Those numbers move over
+// hours, and every read spawns wsl.exe, PowerShell and fsutil — five minutes
+// keeps the line current without turning the notification area into a poller.
+const diskEvery = 5 * time.Minute
+
 type tray struct {
 	app app
 
@@ -24,9 +29,12 @@ type tray struct {
 	url           string
 	bootID        string
 	up            bool
+	detail        string
+	diskTitle     string
 	quitRequested bool
 
 	status  *systray.MenuItem
+	disk    *systray.MenuItem
 	open    *systray.MenuItem
 	restart *systray.MenuItem
 	logs    *systray.MenuItem
@@ -46,6 +54,10 @@ func runTray(distroFlag, userFlag string) error {
 
 		t.status = systray.AddMenuItem("Starting…", "")
 		t.status.Disable()
+		// The one fact a person otherwise leaves PiCode to check in Explorer:
+		// what the distro's disk costs Windows, and how much room is left.
+		t.disk = systray.AddMenuItem("Disk: reading…", "The distro's disk file, and free space on the volume it lives on")
+		t.disk.Disable()
 		systray.AddSeparator()
 		t.open = systray.AddMenuItem("Open PiCode", "Open PiCode in the browser")
 		t.restart = systray.AddMenuItem("Restart PiCode", "Restart the service inside WSL")
@@ -70,6 +82,7 @@ func runTray(distroFlag, userFlag string) error {
 		}
 
 		go t.poll()
+		go t.pollDisk()
 		go t.handleClicks()
 	}, func() {
 		if t.keepalive != nil && t.keepalive.Process != nil {
@@ -87,6 +100,44 @@ func (t *tray) poll() {
 		t.tick()
 		time.Sleep(pollEvery)
 	}
+}
+
+func (t *tray) pollDisk() {
+	for {
+		t.diskTick()
+		time.Sleep(diskEvery)
+	}
+}
+
+// diskTick reads both halves of the disk and updates one menu line. A failed
+// half is reported as unread, never as a zero: the toolbar is the last place
+// that should tell someone their disk is empty.
+func (t *tray) diskTick() {
+	facts, factsErr := desktop.DistroDisk(t.app.runner, t.app.distro)
+
+	var ptr *desktop.DiskFacts
+	if factsErr == nil {
+		ptr = &facts
+	}
+	// Usage is best-effort: with the file size alone the line is still worth
+	// reading, it just cannot say how much is being held.
+	used, _ := distroUsed(t.app.runner, t.app.distro, t.app.user)
+
+	title, warn := diskLine(ptr, used, factsErr)
+
+	t.mu.Lock()
+	t.diskTitle = title
+	t.mu.Unlock()
+	t.disk.SetTitle(title)
+
+	tip := t.tooltip()
+	if warn {
+		// The tray has no balloon left to raise (fyne.io/systray v1.12), so the
+		// warning lives in the tooltip — the surface a person hovers when the
+		// line already made them look.
+		tip += " — run `picode-desktop disk` for the two-sided report"
+	}
+	systray.SetTooltip(tip)
 }
 
 func (t *tray) tick() {
@@ -131,19 +182,32 @@ func (t *tray) tick() {
 func (t *tray) setStatus(up bool, detail string) {
 	t.mu.Lock()
 	t.up = up
+	t.detail = detail
 	t.mu.Unlock()
 
 	if up {
-		systray.SetTooltip("PiCode — " + detail)
 		t.status.SetTitle("Running · " + detail)
 		t.open.Enable()
 		t.restart.Enable()
 	} else {
-		systray.SetTooltip("PiCode — " + detail)
 		t.status.SetTitle("Stopped · " + detail)
 		t.open.Disable()
 		t.restart.Enable()
 	}
+	systray.SetTooltip(t.tooltip())
+}
+
+// tooltip is the status line and the disk line together, because the tooltip
+// is read at a glance and a person looking for one of them is looking for
+// both.
+func (t *tray) tooltip() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	s := "PiCode — " + t.detail
+	if t.diskTitle != "" {
+		s += " · " + t.diskTitle
+	}
+	return s
 }
 
 func (t *tray) handleClicks() {

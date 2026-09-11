@@ -9,6 +9,7 @@
 //
 // Subcommands (run without args to start the server):
 //
+//	picode disk                what occupies this machine, and what is safe to reclaim
 //	picode screenshot --url <url> --out <file.png>
 //	picode extension-install   (Chrome native host, ADR-0043)
 package main
@@ -98,6 +99,8 @@ func dispatch(cmd string, args []string) bool {
 		runBrowserHost()
 	case cmd == "messages":
 		runMessages(args)
+	case cmd == "disk":
+		runDisk(args)
 	case cmd == "screenshot":
 		runScreenshot(args)
 	case cmd == "install":
@@ -142,6 +145,8 @@ Usage:
   picode [flags]              start the server
   picode version              print the build identity (--version, -v)
   picode messages             direct conversation messages (contacts, send, read, ack)
+  picode disk [--json]        what occupies this machine, and what is safe to reclaim
+    --json          emit the measurement as JSON (the Windows tray reads it)
   picode pair                 print a one-time link to pair another device
   picode token [rotate]       print the install token path, or rotate it
   picode install [--env K=V]  copy to ~/.local/bin and start on Linux login (systemd --user)
