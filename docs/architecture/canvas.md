@@ -307,13 +307,48 @@ which no `peer.*` row announces), debounced 400 ms — the feed, never a
 timer. A failed read keeps the last answer: flipping every live link to
 broken is the one direction a wrong answer is dangerous in.
 
+**The line is a curve** (`Link.jsx`, `getSimpleBezierPath`), and the drag
+preview is `ConnectionLineType.SimpleBezier`, so what you drag is what you
+get. A straight diagonal between two headers read as a stray rule ruled
+across the plane rather than as a tie between two cards. Of React Flow's
+three: `getBezierPath` derives its control points from each handle's
+declared side and both connectors are `Position.Top`, so with the target
+*below* the source it puts the source control 6.25·√Δy **above** the source
+and the line hooks over itself; `getSmoothStepPath` draws orthogonal
+dog-legs, honest but reading as directed wiring, which an undirected
+mailbox contact is not; `getSimpleBezierPath` ignores Top-vs-Bottom (only
+the horizontal sides change its `getControl`) and puts both controls on the
+midline, which is a symmetric S that cannot loop. The honest consequence,
+so nobody files it twice: an S between two **aligned** points is a straight
+line, so two panels tidied into the same row still join with a straight
+segment. Still no arrowhead — the mailbox is symmetric (§6) — and a
+symmetric curve promises no direction.
+
+There is no parallel-edge separation to keep: `validateEdge`, the plane's
+`isValidConnection` and the store's unique ordered pair all refuse a second
+link between the same pair, so two curves between one pair cannot exist. If
+that ever changes, an index-varied curvature is where it goes.
+
+**The band a pointer has to find** is React Flow's second, transparent path
+at the edge's `interactionWidth` (22). That width is in SVG user units —
+plane pixels — so it used to thin with the camera: 8.8 screen px at zoom
+0.4 and 4.4 at the 0.2 floor. `canvas.css` gives that path
+`non-scaling-stroke`, the same SVG idiom the minimap uses, so the band is
+**22 screen px at every zoom** while the painted line keeps scaling. It
+does not fix C4's other finding — two adjacent panels can still hide their
+whole link behind themselves — which is what the header's link chip is for.
+
 **Where the chip sits**, and why it is the way it is (the browser pass,
 below, is the evidence). React Flow draws edge labels *under* the nodes and
 the midpoint of a line between two headers lands on a panel more often than
 not, so the chip is lifted above the nodes and pushed off the line by half
-its own size plus ten screen pixels along the line's normal — forced to one
-side, because the arithmetic's side follows the stored pair order, which is
-the panel ids sorted and nothing a viewer can see. A link that **grants**
+its own size plus ten screen pixels along the **curve's** normal — its
+`labelX` / `labelY` come from the same function that drew the path, and the
+derivative of that cubic at its centre is (2·Δx, Δy), not the chord, so
+pushing along the chord's normal would slide the chip along the curve
+instead of off it. Forced to one side, because the arithmetic's side
+follows the stored pair order, which is the panel ids sorted and nothing a
+viewer can see. A link that **grants**
 shows its chip only while it is asked for (hover or selection, with a grace
 period so the pointer can cross the gap to it); a link that **grants
 nothing** shows it always. Hovering the chip — not only selecting the line —

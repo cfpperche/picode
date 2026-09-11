@@ -656,6 +656,16 @@
 .cv-canvas-flow .react-flow__edge .react-flow__edge-path.cv-edge.is-broken { stroke: var(--warn); stroke-width: 2.5; }
 .cv-canvas-flow .react-flow__edge .react-flow__edge-path.cv-edge.is-selected { stroke-width: 3.5; }
 .cv-canvas-flow .react-flow__edge:hover .react-flow__edge-path.cv-edge { stroke-width: 3; }
+/* The invisible band a pointer has to find is React Flow's second path,
+   stroked at the edge's `interactionWidth` (Link.jsx: 22). That width is in
+   SVG user units — *plane* pixels — so zoomed out it thinned with the line
+   it belongs to: 8.8 screen px at 0.4, 4.4 at the floor, on top of C4's
+   finding that two adjacent panels can hide their whole link behind
+   themselves. `non-scaling-stroke` is the SVG idiom for a screen-space
+   stroke (the minimap above uses it for the same reason): the band is 22
+   screen px at every zoom. The painted line keeps scaling — how thin it
+   gets is one of the things that tells you how far out the camera is. */
+.cv-canvas-flow .react-flow__edge .react-flow__edge-interaction { vector-effect: non-scaling-stroke; }
 
 /* The chip at the midpoint: the click target that removes, and where a
    broken link says why. It scales by 1 / zoom like the name-plates, so it

@@ -636,7 +636,7 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
         onConnect={onConnect}
         isValidConnection={isValidConnection}
         connectionMode={ConnectionMode.Loose}
-        connectionLineType={ConnectionLineType.Straight}
+        connectionLineType={ConnectionLineType.SimpleBezier}
         connectionRadius={CONNECT_RADIUS}
         edgesFocusable={false}
         onNodesChange={onNodesChange}
