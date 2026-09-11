@@ -90,6 +90,33 @@ export function identityLine(account, entry) {
   return [email, plan].filter(Boolean).join(" · ");
 }
 
+// accountsOf is the row source for one provider: the vault rows when there
+// are any, otherwise the single live slot the catalog reports. A key that pi
+// reads from the environment has no vault row, so its one row takes the
+// variable's own name as the label.
+export function accountsOf(provider) {
+  const list = (provider && provider.accounts) || [];
+  if (list.length) return list;
+  const envVar = sourceLabel(provider);
+  return [{
+    id: "live",
+    label: envVar || "Default",
+    type: provider && provider.authType,
+    active: true,
+    quotaKind: provider && provider.quotaKind,
+  }];
+}
+
+// rosterGroups pairs each signed-in provider with its rows: the roster
+// renders one row per account, and the provider is what the rows share.
+// The filter is the provider one, so a provider matched by the id, a label
+// or an email keeps all of its accounts visible.
+export function rosterGroups(providers, query) {
+  return (providers || []) //
+    .filter((p) => matchesQuery(p, query))
+    .map((provider) => ({ provider, accounts: accountsOf(provider) }));
+}
+
 // blastRadius is the sentence Sign out has to be able to say. Counts come
 // from the catalog; zero dependents means the plain warning is enough.
 export function blastRadius(provider) {

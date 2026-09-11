@@ -4,6 +4,7 @@ import {
   STATE_LIVE, STATE_STALE, STATE_NONE,
   usageKey, indexUsage, quotaState, quotaNote, formatAge, barWindows,
   sourceLabel, identityLine, blastRadius, matchesQuery, spendByProvider, formatSpend, moneyWindows,
+  accountsOf, rosterGroups,
 } from "./providerRows.js";
 
 const win = (id, used) => ({ id, label: id, usedPercent: used });
@@ -120,6 +121,43 @@ describe("spend", () => {
     assert.equal(formatSpend(m.get("anthropic")), "$4.13");
     assert.equal(formatSpend(m.get("xai")), "");
     assert.equal(formatSpend(m.get("nope")), "");
+  });
+});
+
+describe("rosterGroups", () => {
+  const v = {
+    id: "anthropic", signedIn: true,
+    accounts: [{ id: "a1", label: "Work", active: true }, { id: "a2", label: "Personal" }],
+  };
+  it("gives every account its own row and keeps the provider on the group", () => {
+    const got = rosterGroups([v], "");
+    assert.equal(got.length, 1);
+    assert.equal(got[0].provider.id, "anthropic");
+    assert.deepEqual(got[0].accounts.map((a) => a.id), ["a1", "a2"]);
+  });
+  it("filters by provider, so a match keeps the whole provider", () => {
+    assert.equal(rosterGroups([v], "personal")[0].accounts.length, 2);
+    assert.deepEqual(rosterGroups([v], "grok"), []);
+  });
+  it("survives an empty roster", () => {
+    assert.deepEqual(rosterGroups(undefined, ""), []);
+  });
+});
+
+describe("accountsOf", () => {
+  it("uses the vault rows when there are any", () => {
+    const a = accountsOf({ accounts: [{ id: "a1", label: "Work" }] });
+    assert.deepEqual(a.map((x) => x.id), ["a1"]);
+  });
+  it("falls back to one live row, named by the environment variable", () => {
+    const a = accountsOf({ id: "anthropic", signedIn: true, source: "environment", envVar: "ANTHROPIC_API_KEY", authType: "api_key" });
+    assert.equal(a.length, 1);
+    assert.equal(a[0].id, "live");
+    assert.equal(a[0].label, "ANTHROPIC_API_KEY");
+    assert.equal(a[0].active, true);
+  });
+  it("labels a plain signed-in provider Default", () => {
+    assert.equal(accountsOf({ id: "groq", authType: "api_key" })[0].label, "Default");
   });
 });
 

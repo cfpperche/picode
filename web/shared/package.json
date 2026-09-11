@@ -92,6 +92,7 @@
     "./domain/tree.js": "./domain/tree.js",
     "./domain/turns.js": "./domain/turns.js",
     "./tokens/theme.css": "./tokens/theme.css",
+    "./styles/providers.css": "./styles/providers.css",
     "./domain/llamaJobs.js": "./domain/llamaJobs.js",
     "./domain/sessionHandoff.js": "./domain/sessionHandoff.js",
     "./domain/cliSettings.js": "./domain/cliSettings.js",

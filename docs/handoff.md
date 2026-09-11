@@ -7,7 +7,7 @@
 
 `git worktree list` is the truth for in-flight branches; entries say what a merge must know.
 
-- `feat/changelog-normalize` — `make changelog` heals a drifted `[Unreleased]` (one heading per type); the runbook's step 5 gains the isolated-instance and seed-a-terminal rules ADR-0063 implies. `ci-scoped` green, unmerged.
+- `feat/providers-density` — roster is a six-column table (one row per account); CSS in shared `web/shared/styles/providers.css`; visual-review PASS on a scratch instance, unmerged. Study: `docs/benchmarks/2026-09-11-providers-density.md`.
 - `feat/herdr-validation`, `feat/picode-video-pilot` — carry pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; next `main` merge conflicts in both: keep this file's shape, changelog lines to `docs/changelog.d/`.
 ## Next up
 
@@ -52,7 +52,7 @@
 - llama: ARM64 hardware and GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
 - Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip needs on-device confirmation (Preferences → Layout).
 - Matrix (ADR-0108/0109): no docs-shots capture — needs a `desktop-matrix` profile and a fixture. App-wide, from its captures: the toast covers a surface's Close; dialogs have no scrim and little dark elevation; a grow-resize leaves an idle cursor.
-- Matrix v2 (C2–C4, 2026-09-10): `+`/`-`/`0` need a focused panel; a still stamps its age only when the feed moved; only the picker adds a `file`/`diff` panel (ADR-0109). Edges (ADR-0116): no keyboard path to *draw* a link — React Flow's `Handle` offers none, so the Messages audit list is the keyboard way to read and revoke; the grid chip counts links without naming the far end; the audit list costs one matrix read per matrix (capped at 50).
+- Matrix v2 (C2–C4, 2026-09-10): `+`/`-`/`0` need a focused panel; a still stamps its age only when the feed moved; only the picker adds a `file`/`diff` panel (ADR-0109). Edges (ADR-0116): no keyboard path to *draw* a link — `Handle` offers none, so the Messages audit list is the keyboard way to read and revoke; its chip counts links without naming the far end; the list costs one read per matrix (capped at 50).
 - Fullscreen mode (2026-09-10): real browser fullscreen owns Escape, so one press leaves the mode; the double-Escape is in-app-only. The right strip is pointer-transparent, so its reveal misses an embedded frame (PDF preview). Chromium only.
 - Notices (2026-09-07): the finish card only fires for the agent whose socket is open.
 - Matrix chat panels (phase 4): a live panel is a watcher for `Hub.Len()`, so it suppresses the unobserved-result item and the needs-you push as an open tab does; the App socket and a panel's hand off rather than coexist, so two sockets for one agent were proven with a raw second connection.
