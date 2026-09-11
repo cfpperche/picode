@@ -53,3 +53,20 @@
  .peer-test-controls { align-items: stretch; }
  .peer-test-controls > button { width: 100%; }
 }
+
+/* Matrix links (ADR-0116) — the non-spatial audit list. It reuses the
+   participants list's row shape on purpose: one visual language for "who may
+   reach whom", whether the pairing came from a workspace or from a line the
+   owner drew. */
+.peer-links { border-top: 1px solid var(--border); padding-block: 20px 24px; }
+.peer-links > .peer-history-heading p { color: var(--text-secondary); margin-top: 6px; max-width: 68ch; }
+.peer-link-ends { display: grid; gap: 3px; min-width: 0; }
+.peer-link-ends strong { overflow-wrap: anywhere; }
+.peer-link-ends small { color: var(--text-secondary); overflow-wrap: anywhere; }
+.peer-link.is-broken .peer-participant-state { color: var(--warn); }
+@media (max-width: 600px) {
+  .peer-links { padding: 16px; }
+  .peer-link-ends { grid-column: 1; }
+  .peer-link > .peer-participant-state { grid-column: 1; grid-row: 2; padding-left: 0; }
+  .peer-link > button { grid-column: 2; grid-row: 1 / 3; }
+}
