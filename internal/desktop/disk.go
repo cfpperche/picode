@@ -92,10 +92,14 @@ func DistroDisk(r Runner, distro string) (DiskFacts, error) {
 		facts.AllocatedBytes = facts.VHDXBytes
 	}
 
-	if out, err := r.Output(WSLExe, "--version"); err == nil {
+	// wsl.exe exits non-zero on `--help` (255, on every machine we have seen)
+	// while printing the whole text to stdout, so the exit status is not the
+	// answer here — output is. Same guard on `--version`, which has no reason
+	// to stay well-behaved across WSL updates.
+	if out, err := r.Output(WSLExe, "--version"); err == nil || len(out) > 0 {
 		facts.WSL = ParseWSLVersion(out)
 	}
-	if out, err := r.Output(WSLExe, "--help"); err == nil {
+	if out, err := r.Output(WSLExe, "--help"); err == nil || len(out) > 0 {
 		facts.CanSparse = strings.Contains(DecodeWindows(out), "--set-sparse")
 	}
 	return facts, nil

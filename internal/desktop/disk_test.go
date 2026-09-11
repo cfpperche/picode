@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -198,6 +199,34 @@ func TestDistroDiskUsesWSLsOwnBookkeeping(t *testing.T) {
 	}
 	if script := strings.Join(r.calls[1], " "); !strings.Contains(script, wantPath) {
 		t.Errorf("the volume read did not name the file: %s", script)
+	}
+}
+
+// TestDistroDiskReadsHelpDespiteTheExitStatus pins what the first live run of
+// the merged report exposed: `wsl --help` exits 255 on every machine we have
+// seen while printing the whole text to stdout. Dropping the output on a
+// non-zero exit made CanSparse false everywhere real — and the report's one
+// suggestion never appeared.
+func TestDistroDiskReadsHelpDespiteTheExitStatus(t *testing.T) {
+	r := &fakeRunner{
+		replies: [][]byte{
+			utf16le(lxssOutput),
+			[]byte(`{"len":233711861760,"total":510964789248,"free":29251764224}`),
+			utf16le("The specified file is NOT sparse\r\n"),
+			utf16le("WSL version: 2.7.0.0\r\n"),
+			utf16le("    --manage <Distro> <Options...>\n            --set-sparse, -s <true|false>\n"),
+		},
+		errs: []error{nil, nil, nil, nil, errors.New("exit status 255")},
+	}
+	facts, err := DistroDisk(r, "Ubuntu")
+	if err != nil {
+		t.Fatalf("DistroDisk: %v", err)
+	}
+	if !facts.CanSparse {
+		t.Error("the help text was on stdout; the exit status must not hide it")
+	}
+	if facts.WSL != "2.7.0.0" {
+		t.Errorf("version: got %q", facts.WSL)
 	}
 }
 
