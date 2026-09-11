@@ -3,6 +3,7 @@ package hostfs
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -240,6 +241,31 @@ func TestMeasureReadsTheMachineInTwoCalls(t *testing.T) {
 		t.Errorf("expected one df and two du calls, got %v", r.calls)
 	}
 }
+
+// TestSizesOfTellsAMissingMachineFromAMissingPath: `du` exits non-zero the
+// moment one path in a list is gone, which is the ordinary state of a machine
+// that never installed two thirds of the table. Only a `du` that cannot run is
+// an error — otherwise a fresh box would report a broken tool instead of an
+// empty one.
+func TestSizesOfTellsAMissingMachineFromAMissingPath(t *testing.T) {
+	missing := &errRunner{err: &exec.ExitError{}}
+	sizes, err := sizesOf(missing, []string{"/home/x/.npm"})
+	if err != nil {
+		t.Fatalf("a failed du that walked nothing is an empty report: %v", err)
+	}
+	if len(sizes) != 0 {
+		t.Errorf("got %v", sizes)
+	}
+
+	broken := &errRunner{err: exec.ErrNotFound}
+	if _, err := sizesOf(broken, []string{"/home/x/.npm"}); err == nil {
+		t.Error("du that cannot be run at all must fail loudly")
+	}
+}
+
+type errRunner struct{ err error }
+
+func (e *errRunner) Output(string, ...string) ([]byte, error) { return nil, e.err }
 
 func TestDataDirHonoursTheEnvironment(t *testing.T) {
 	t.Setenv("PICODE_DATA", "/srv/picode")

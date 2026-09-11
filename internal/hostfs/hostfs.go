@@ -11,6 +11,7 @@ package hostfs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -242,7 +243,7 @@ func mountOf(path string, mounts []string) string {
 }
 
 // within reports whether path is dir or lives inside it. The root is its own
-// case: handlng it as "dir + separator" would ask for a leading "//".
+// case: handling it as "dir + separator" would ask for a leading "//".
 func within(path, dir string) bool {
 	if path == dir {
 		return true
@@ -339,7 +340,9 @@ func DataDir(home string) string {
 
 // sizesOf runs one `du` and maps path to bytes. A path that does not exist is
 // missing from the map, which is how a consumer that is not installed stays
-// out of the report.
+// out of the report — and a machine where none of them exist is an empty
+// report, not a failure. `du` exiting non-zero while having walked what it
+// could is that same story; `du` not being runnable at all is not.
 func sizesOf(r Runner, paths []string) (map[string]int64, error) {
 	if len(paths) == 0 {
 		return map[string]int64{}, nil
@@ -347,11 +350,11 @@ func sizesOf(r Runner, paths []string) (map[string]int64, error) {
 	args := append([]string{"-sB1", "--"}, paths...)
 	out, err := r.Output("du", args...)
 	sizes := ParseDU(out)
-	if len(sizes) == 0 {
-		if err != nil {
+	if len(sizes) == 0 && err != nil {
+		var exit *exec.ExitError
+		if !errors.As(err, &exit) {
 			return nil, fmt.Errorf("du: %w", err)
 		}
-		return nil, fmt.Errorf("du: no sizes in the output")
 	}
 	return sizes, nil
 }
@@ -427,13 +430,4 @@ func Bytes(n int64) string {
 		return fmt.Sprintf("%.1f %s", v, units[i])
 	}
 	return fmt.Sprintf("%.0f %s", v, units[i])
-}
-
-// FirstLine keeps an error one line long, the way every other failure in
-// PiCode is reported.
-func FirstLine(s string) string {
-	if i := strings.IndexAny(s, "\r\n"); i >= 0 {
-		return s[:i]
-	}
-	return s
 }
