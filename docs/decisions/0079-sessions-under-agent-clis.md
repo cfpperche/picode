@@ -58,3 +58,19 @@ migration flagged here in advance.
 - [Cursor command palette / feature surfaces](../../docs/benchmark-cursor.md):
   one surface per capability family, deep links preserved by redirect.
 - ADR-0069 supplied the tabs-and-catalog shell this slots into.
+
+## Amendment — 2026-09-11: Sessions live in the selected CLI's pane
+
+Owner chose the alternative this ADR refused: Sessions leave the Agent CLIs
+strip and sit next to Launch and Terminals inside the selected CLI's page.
+The capability decision stands. Chrome and addresses change.
+
+Canonical hashes are `#/clis/<cli>/sessions` (every folder, grouped by cwd)
+and `#/clis/<cli>/sessions/<workspaceId>` (one folder). `#/clis/<cli>` is
+Launch; `#/clis/<cli>/terminals` is that CLI's terminal list. The catalog is
+the CLI picker, so machine-wide search is one click, not two. Old
+`#/clis/sessions*`, `?cli=` and `#/sessions*` rewrite onto the new path.
+Dashboard top-session rows name the CLI in the hash; the workspace card
+Sessions menu stays Pi.
+
+Settings, Providers, Packages and Messages remain strip tabs (ADR-0101/0102/0103).

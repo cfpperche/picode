@@ -149,8 +149,8 @@ HTTP API (Go 1.22 method patterns):
   change, and never deletes a session any agent is bound to *or has ever
   been* (the `agent_sessions` history, ADR-0040: an older but still
   chat-picker-resumable session is not swept just because it isn't the
-  current one). Together these power the `#/clis/sessions`
-  views and the "From a Pi session" picker: Open with… reuses the resume
+  current one). Together these power the `#/clis/<cli>/sessions`
+  panes and the "From a Pi session" picker: Open with… reuses the resume
   endpoint, Compact reuses the agent compact. The legacy routes
   (`/api/sessions/all`, `/api/pi-sessions*`, `/api/session-cleanup`,
   `/api/workspaces/{id}/sessions/manage`) were removed — one namespace

@@ -39,6 +39,19 @@
 .cli-launch-fields details { border-top: 1px solid var(--border); }
 .cli-launch-fields summary, .cli-profiles > summary, .cli-diagnostics > summary { cursor: pointer; padding: 12px 0; color: var(--text-secondary); font-size: 12px; }
 .cli-launch-fields details[open] label { padding-bottom: 8px; animation: cli-enter var(--motion-fast) var(--ease-out); }
+.cli-pane-bar { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 8px 0 0; border-bottom: 1px solid var(--border); }
+.cli-pane-tabs { display: flex; gap: 2px; min-width: 0; }
+.cli-pane-tabs a {
+  display: inline-flex; align-items: center; height: var(--ctl-h); padding: 0 10px; margin-bottom: -1px;
+  color: var(--text-secondary); text-decoration: none; border-bottom: 2px solid transparent;
+  font-size: 12px; white-space: nowrap;
+}
+.cli-pane-tabs a:hover { color: var(--text-primary); }
+.cli-pane-tabs a[aria-selected="true"] { color: var(--text-primary); border-bottom-color: var(--accent); font-weight: 600; }
+.cli-pane-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding-bottom: 4px; }
+.cli-pane-actions .btn { height: var(--ctl-h); }
+.cli-detail > #sessions-view { padding: 12px 0 0; }
+.cli-pane-bar + .cli-integration { border-top: 0; }
 .cli-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0 12px; }
 .cli-section-heading h3 { font-size: 13px; font-weight: 600; }
 .cli-section-heading h4, .cli-preview > h4, .cli-injection h4 { font-size: 12px; font-weight: 500; }
@@ -67,8 +80,7 @@
 .cli-fields input:focus, .cli-fields textarea:focus, .cli-fields select:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 .cli-fields label.cli-checkbox { flex-direction: row; align-items: center; align-self: end; min-height: var(--ctl-h); }
 .cli-checkbox input { width: 15px; height: 15px; accent-color: var(--accent); }
-.cli-terminals { margin-top: 24px; }
-.cli-tabs ~ .cli-terminals { margin: 24px; }
+.cli-terminals { margin-top: 12px; }
 .cli-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 .cli-list-heading input { max-width: 240px; height: var(--ctl-h); }
 .cli-terminal-row { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border); animation: cli-enter 160ms var(--ease-out); transition: background var(--motion-fast); }
@@ -108,7 +120,9 @@
   .cli-notice { flex-wrap: wrap; gap: 8px; }
   .cli-terminal-row { flex-wrap: wrap; gap: 10px; }
   .cli-terminal-row > .cli-actions { margin-left: auto; }
-  .cli-tabs ~ .cli-terminals { margin: 16px; }
+  .cli-pane-bar { flex-wrap: nowrap; align-items: center; }
+  .cli-pane-tabs { flex: 1; min-width: 0; overflow-x: auto; }
+  .cli-detail > #sessions-view { padding-top: 8px; }
   .cli-summary-grid, .cli-effective .cli-summary-grid { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .cli-summary-grid dd { margin-bottom: 12px; }
   .cli-profile-row { flex-wrap: wrap; }

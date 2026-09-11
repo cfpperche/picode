@@ -22,7 +22,7 @@ const routes = [
   ["inbox", "#/inbox", ".m-inbox"], ["more", "#/more", ".m-more-v2"],
   ["agent", "#/agent/" + agent.id, ".m-agent"],
   ["changes", "#/changes/w/" + workspace.id, ".m-changes"],
-  ["clis", "#/clis", "#agent-clis-view"], ["sessions", "#/clis/sessions", "#sessions-view"],
+  ["clis", "#/clis", "#agent-clis-view"], ["sessions", "#/clis/pi/sessions", "#sessions-view"],
   ["automations", "#/automations", "#automations-view"], ["automation-new", "#/automations/new", ".auto-form"],
   ...["providers", "settings", "preferences", "packages", "integrations", "devices", "system", "notifications", "apps", "llama"].map(id => [id, "#/more/" + id, ".m-more-page"]),
 ];

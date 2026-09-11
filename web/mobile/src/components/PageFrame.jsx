@@ -10,7 +10,7 @@ export default function PageFrame({ id, title, context, children, hidden, wide, 
     const revealTab = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        for (const nav of rootRef.current?.querySelectorAll(".pref-tabs, .cli-tabs, .llama-nav") || []) {
+        for (const nav of rootRef.current?.querySelectorAll(".pref-tabs, .cli-tabs, .cli-pane-tabs, .llama-nav") || []) {
           const selected = nav.querySelector('[aria-selected="true"], [aria-current="page"], .active');
           if (!selected) continue;
           const item = selected.getBoundingClientRect();

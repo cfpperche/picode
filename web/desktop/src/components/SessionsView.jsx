@@ -3,12 +3,12 @@ import * as Dialog from "./ResponsiveDialog.jsx";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
-import { handoffTargets, lineageBadges, sessionClis } from "@picode/shared/domain/sessionHandoff.js";
+import { handoffTargets, lineageBadges } from "@picode/shared/domain/sessionHandoff.js";
+import { cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { toast, toastError } from "../lib/toast.js";
 import { termHash } from "../lib/routes.js";
 import PageFrame from "./PageFrame.jsx";
-import CliCombo from "./CliCombo.jsx";
 import SessionHandoffDialog from "./SessionHandoffDialog.jsx";
 
 function fmtAge(iso) {
@@ -154,7 +154,7 @@ function CliRow({ s, cliName, busy, onOpenTerminal, targets, onHandoff, cliNames
 // resume arguments. Any session can continue in another CLI (ADR-0088):
 // the targets come from the capabilities /api/clis advertises, never from
 // a list kept here.
-export default function SessionsView({ wsId, workspace, agents, workspaces, onOpenAgent, onCompactAgent, embedded = false, cli = "pi", onCliChange, cliNames = {}, clis = [], wsReady = true }) {
+export default function SessionsView({ wsId, workspace, agents, workspaces, onOpenAgent, onCompactAgent, embedded = false, cli = "pi", cliNames = {}, clis = [], wsReady = true, onNewTerminal }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [openPick, setOpenPick] = useState(null); // { session, resumeWsId }
@@ -165,7 +165,6 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
   const all = !wsId;
   const isPi = cli === "pi";
   const cliName = cliNames[cli] || cli;
-  const pickerClis = useMemo(() => { const ids = sessionClis(clis); return ids.includes(cli) ? ids : [cli, ...ids]; }, [clis, cli]);
   const targets = useMemo(() => handoffTargets(clis, cli), [clis, cli]);
 
   const load = useCallback(async () => {
@@ -346,15 +345,11 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
   return (
     <PageFrame id="sessions-view" title={(workspace ? workspace.name + " · " : "") + "Sessions"} embedded={embedded}>
       <div className="sessions-toolbar">
-        <span className="sessions-total">{all ? "All folders · " : (workspace ? workspace.name + " · " : "")}{filtered.length}{query ? " of " + sessions.length : ""} {filtered.length === 1 ? "session" : "sessions"}{isPi ? " · " + fmtBytes(total) + " on disk" : ""}</span>
+        <span className="sessions-total">{all ? "All folders" : (workspace ? workspace.name : "")}{filtered.length ? " · " + filtered.length + (query ? " of " + sessions.length : "") + (filtered.length === 1 ? " session" : " sessions") : ""}{isPi && total ? " · " + fmtBytes(total) + " on disk" : ""}</span>
         <div className="sessions-actions" data-align-row data-align-wrap>
           {!all ? (
-            <a className="sessions-scope-link" href={"#/clis/sessions" + (cli !== "pi" ? "?cli=" + encodeURIComponent(cli) : "")} title={"Every " + cliName + " session on this machine, grouped by folder"}>All folders →</a>
+            <a className="sessions-scope-link" href={cliPaneHash(cli, "sessions")} title={"Every " + cliName + " session on this machine, grouped by folder"}>All folders →</a>
           ) : null}
-          <div className="sessions-cleanup" title="Which CLI's sessions are listed">
-            CLI
-            <CliCombo ariaLabel="Sessions CLI" value={cli} options={pickerClis.map((id) => ({ id, name: cliNames[id] }))} align="end" onChange={(id) => onCliChange && onCliChange(id)} />
-          </div>
           {sessions.length > 6 ? (
             <input className="sessions-search" aria-label="Search sessions" placeholder="Find a session…" value={query} onChange={(e) => setQuery(e.target.value)} />
           ) : null}
@@ -377,11 +372,11 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
       {error ? (
         <p className="file-pane-msg">{error} <button type="button" className="btn btn-sm" onClick={load}>Retry</button></p>
       ) : !data ? (
-        <p className="file-pane-msg">Loading sessions…</p>
+        <div className="cli-loading" aria-label="Loading sessions"><div /><div /></div>
       ) : filtered.length === 0 ? (
-        <div className="empty-card">
-          <h2>{query ? "No matching sessions" : "No " + cliName + " sessions yet"}</h2>
-          <p>{query ? "Try a different search." : "Sessions appear here as " + cliName + " runs" + (all ? " in each folder" : " in this folder") + "."}</p>
+        <div className="cli-notice" role="status">
+          <span>{query ? "No matching sessions" : "No " + cliName + " sessions yet"}</span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => query ? setQuery("") : (onNewTerminal ? onNewTerminal() : (location.hash = "#/clis/new/" + encodeURIComponent(cli)))}>{query ? "Clear search" : "New terminal"}</button>
         </div>
       ) : (
         groups.map((g) => (

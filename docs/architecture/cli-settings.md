@@ -2,7 +2,8 @@
 
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
-Agent CLIs has CLIs, Terminals, Sessions and Settings tabs. The shared
+Agent CLIs has CLIs, Settings, Providers, Packages and Messages tabs; a CLI's
+page hosts Launch, Terminals and Sessions panes. The shared
 `cliSettings` domain module parses canonical/legacy routes and declares native
 settings capabilities, currently Pi only. Each app owns `CliSettings`,
 `CliTabs` and the embedded Pi editor; no presentation crosses app boundaries.

@@ -7,6 +7,8 @@
 `git worktree list` is the truth for in-flight branches; entries say what a merge must know.
 
 - `feat/providers-density` — roster is a six-column table (one row per account); CSS in shared `web/shared/styles/providers.css`; visual-review PASS, unmerged. Study: `docs/benchmarks/2026-09-11-providers-density.md`.
+- `feat/canvas-resize` — curve links, plane texture token, screen-pixel resize targets; closed at 821635c1, unmerged.
+- `feat/communication-recovery` — native state recovery and empty Grok suggestions; unmerged (a683eed7).
 - `feat/herdr-validation`, `feat/picode-video-pilot` — pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; next merge conflicts: keep this shape, changelog to `docs/changelog.d/`.
 ## Next up
 
@@ -38,7 +40,6 @@
 - `.git` is ~530 MB (UI bundles, MP4s); a history rewrite is the owner's call.
 - Capture integration (ADR-0054): no real emitter-to-RPC run, no slow-consumer/cancellation matrix.
 - Webhooks are at-least-once within event retention; receivers dedupe by id.
-- Task Scheduler retries are not crash recovery; battery/sleep/sign-in acceptance is the owner's.
 - tmux: never kill by prefix (a `grep '^picode-'` sweep killed 29 sessions, six in production, 2026-09-06) — exact names from a fixture's API only; a scratch whose daemon dies before `qa-scratch stop` strands its shells (one is kept on purpose).
 - WSL disk (2026-09-11): the distro half of `picode-desktop disk` is verified against the real JSON contract by hand, but the merged report needs the new `picode` deployed; the tray warns in words only (no alert icon asset); docker's storage is the Docker app's, not measured here.
 - Feed: ephemeral events can be missed across reconnects (ADR-0048); cross-platform paste fallback open.
@@ -49,9 +50,9 @@
 - Inspector: the Files filter covers loaded rows only; This-agent chips need the agent's tab selected; `gh pr view` answers cache a minute. Debts (ADR-0096): `git ls-files` search, per-anchor watch.
 - llama: ARM64 hardware and GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
 - Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip needs on-device confirmation.
-- Canvas (ADR-0108/0118): no docs-shots capture — needs a `desktop-canvas` profile and a fixture, so the guide has no screenshots. App-wide: the toast covers a surface's Close, a grow-resize leaves an idle cursor, the Inspector header's branch chips truncate to `· fe… ·…`, and a panel's Run reads as a disabled chip.
+- Canvas (ADR-0108/0118) and Agent CLIs: no docs-shots capture — Canvas needs a `desktop-canvas` profile and a fixture; Agent CLIs is absent from SURFACE_PROFILES. App-wide: the toast covers a surface's Close, a grow-resize leaves an idle cursor, the Inspector header's branch chips truncate to `· fe… ·…`, and a panel's Run reads as a disabled chip.
 - Canvas v2 (C2–C4, 2026-09-10): `+`/`-`/`0` need a focused panel; a still stamps its age only when the feed moved; only the picker adds a `file`/`diff` panel (ADR-0109). Edges (ADR-0116): no keyboard path to *draw* a link, so the Messages audit list is the keyboard way to read and revoke, at one canvas read per canvas (capped at 50).
-- Fullscreen (2026-09-11): real browser fullscreen owns Escape — one press leaves; double-Escape is in-app only. The right strip is pointer-transparent, so its reveal misses an embedded frame (PDF). Chromium only. Icon-only exit/inspector controls show no label without hover (no touch equivalent).
+- Fullscreen (2026-09-11): the browser owns Escape (one press leaves); the right strip's pointer-transparent reveal misses an embedded frame (PDF); icon-only controls show no label without hover (no touch equivalent). Chromium only.
 - Notices (2026-09-07): the finish card only fires for the agent whose socket is open.
 - Native surfaces (ADR-0109): `host` has no `openTerminal` — the Canvas POSTs `/api/terminals/{id}/open` itself; a tab closing under a panel remounts the body with a fresh xterm.
 - Grok (2026-09-11): tokens/cost `partial` by design (`usage.json` is new); Agent CLIs rows show model/title but not the usage.json cost; dashboard values not screenshot-verified.
