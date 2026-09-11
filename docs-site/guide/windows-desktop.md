@@ -113,6 +113,9 @@ Inside Ubuntu
   biggest                  Go build cache 30 GB · npm cache 5.8 GB · Go module cache 2.1 GB
 ```
 
+Measuring starts the distro if it was stopped — the tray keeps it up anyway,
+but a laptop where you quit the tray will see WSL boot under the command.
+
 **Held for nothing** is the number Windows cannot show you anywhere: space the
 distro has already freed that the disk file still occupies. WSL gives it back
 on its own only while the file is **sparse**, and it can only compact or convert
@@ -125,7 +128,7 @@ Inside the distro, `picode disk` lists every item on its own:
 
 ```bash
 picode disk          # what occupies this machine, and what is safe to reclaim
-picode disk --json   # the same measurement, for the tray and the app
+picode disk --json   # the same measurement as JSON (picode-desktop disk reads it)
 ```
 
 Each item carries what giving it back costs:
