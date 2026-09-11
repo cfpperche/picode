@@ -68,6 +68,7 @@ const LINK_HANDLE = "link";
 // at 20 it took three tries to land on a neighbour, at 40 a drop in open
 // space still found the panel the pointer was over.
 const CONNECT_RADIUS = 40;
+const HOVER_GRACE_MS = 180;
 // Which panels get the snap-to-1 layer: the ones whose body is a terminal
 // the pointer could miss, plus every name-plate — down there the plate *is*
 // the panel, there is no header to reach, and a click has nothing else to
@@ -205,6 +206,11 @@ function Flow({ matrixId, models, loaded, bodies, hidden, focusedId, engaged, ma
   // at a time — a marquee that revokes six grants at once is not a thing
   // this surface offers.
   const [selectedEdge, setSelectedEdge] = useState("");
+  // Which edge the pointer is on. A live link shows its chip only while it is
+  // asked for, and the chip sits off the line, so the hover has to survive
+  // the pointer crossing the gap to reach it.
+  const [hoverEdge, setHoverEdge] = useState("");
+  const hoverTimer = useRef(0);
   const modelsRef = useRef(models);
   modelsRef.current = models;
   const bodiesRef = useRef(bodies);
@@ -400,6 +406,16 @@ function Flow({ matrixId, models, loaded, bodies, hidden, focusedId, engaged, ma
   // a matrix's edges with the connection list, so the plane and the Messages
   // audit list can never disagree about a live grant.
   const removeEdge = useCallback((id) => { onRemoveEdge(id); }, [onRemoveEdge]);
+  const hoverEdgeAt = useCallback((id, on) => {
+    if (hoverTimer.current) { clearTimeout(hoverTimer.current); hoverTimer.current = 0; }
+    if (on) { setHoverEdge(id); return; }
+    // A grace period, not a debounce: the pointer leaving the line on its way
+    // to the chip must not take the chip with it.
+    hoverTimer.current = setTimeout(() => { hoverTimer.current = 0; setHoverEdge((cur) => (cur === id ? "" : cur)); }, HOVER_GRACE_MS);
+  }, []);
+  useEffect(() => () => { if (hoverTimer.current) clearTimeout(hoverTimer.current); }, []);
+  const onEdgeMouseEnter = useCallback((_e, edge) => { hoverEdgeAt(edge.id, true); }, [hoverEdgeAt]);
+  const onEdgeMouseLeave = useCallback((_e, edge) => { hoverEdgeAt(edge.id, false); }, [hoverEdgeAt]);
   const rfEdges = useMemo(() => (edgeRows || []).map((r) => ({
     id: r.id,
     source: r.source,
@@ -408,8 +424,8 @@ function Flow({ matrixId, models, loaded, bodies, hidden, focusedId, engaged, ma
     targetHandle: LINK_HANDLE,
     type: EDGE_TYPE,
     selected: r.id === selectedEdge,
-    data: { grants: r.grants, reason: r.reason, label: r.label, onRemove: removeEdge },
-  })), [edgeRows, selectedEdge, removeEdge]);
+    data: { grants: r.grants, reason: r.reason, label: r.label, hovered: r.id === hoverEdge, onRemove: removeEdge, onHover: hoverEdgeAt },
+  })), [edgeRows, selectedEdge, hoverEdge, removeEdge, hoverEdgeAt]);
   // Selection is the library's (a click on the line, a click on the pane to
   // drop it); only that change is kept, because every other edge change here
   // would be a write the store has not agreed to.
@@ -509,6 +525,8 @@ function Flow({ matrixId, models, loaded, bodies, hidden, focusedId, engaged, ma
         edges={rfEdges}
         edgeTypes={EDGE_TYPES}
         onEdgesChange={onEdgesChange}
+        onEdgeMouseEnter={onEdgeMouseEnter}
+        onEdgeMouseLeave={onEdgeMouseLeave}
         onConnect={onConnect}
         isValidConnection={isValidConnection}
         connectionMode={ConnectionMode.Loose}

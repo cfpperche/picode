@@ -78,6 +78,10 @@ const OWNER_WORD = { term: "Terminal", workspace: "Folder", agent: "Agent" };
 // (ADR-0104). Read when a matrix holds an edge, refreshed on peer.* feed
 // rows and on a stale reveal — never on a timer.
 const NO_PEERS = { owners: [], connections: [] };
+// The feed rows that can change what a link grants: the connection itself,
+// and the owner whose recorded session `peerCurrent` compares against.
+const PEER_EVENTS = /^(peer\.|agent\.(updated|deleted)|terminal\.(updated|deleted))/;
+const PEERS_DEBOUNCE_MS = 400;
 
 function patchPanels(state, id, fn) {
   const det = state.byId[id];
@@ -332,6 +336,17 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       setDetailError(humanizeError(msgOf(e)));
     }
   }, []);
+  // A grant can stop granting without the connection row moving: ADR-0104
+  // invalidates a connection whose *owner* changed session, so a resume or a
+  // fork silently breaks every link that end carries. The connection list is
+  // therefore refetched for `peer.*` **and** for the two owner events, which
+  // is why it is debounced — `agent.updated` is a busy row.
+  const peersTimer = useRef(0);
+  const peersDirty = useCallback(() => {
+    if (!peersNeededRef.current || peersTimer.current) return;
+    peersTimer.current = setTimeout(() => { peersTimer.current = 0; loadPeersRef.current(); }, PEERS_DEBOUNCE_MS);
+  }, []);
+  useEffect(() => () => { if (peersTimer.current) clearTimeout(peersTimer.current); }, []);
   const loadPeers = useCallback(async () => {
     try {
       const d = await api("/api/communication");
@@ -342,6 +357,8 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       // broken, which is the one direction a wrong answer is dangerous in.
     }
   }, []);
+  const loadPeersRef = useRef(() => {});
+  loadPeersRef.current = loadPeers;
   const loadPins = useCallback(async () => {
     try {
       const d = await api("/api/pins");
@@ -366,10 +383,11 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
         return;
       }
       if (ev.type === "agent.tui") { setWorkingIds((cur) => applyTui(cur, ev)); return; }
-      // A connection enrolled, revoked or moved changes what a drawn line
-      // grants, and nothing about the matrix itself: refetch the connection
-      // list, not the matrix (ADR-0116 §7 — refetch on the feed, not a timer).
-      if (ev.type.startsWith("peer.")) { if (peersNeededRef.current) loadPeers(); return; }
+      // What a drawn line grants changes with the connection list, never with
+      // the matrix: refetch that, not the matrix (ADR-0116 §7 — on the feed,
+      // never on a timer).
+      if (PEER_EVENTS.test(ev.type)) peersDirty();
+      if (ev.type.startsWith("peer.")) return;
       // A deleted target holds no pane: dispose what the Matrix kept
       // suspended now, not when the LRU gets to it (paneOwnership.js).
       if (ev.type === "terminal.deleted" || ev.type === "agent.deleted") {
@@ -387,7 +405,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       if (gestureRef.current) { queuedRef.current.push(ev); return; }
       setStore((s) => settle(applyMatrixEvent(s, ev), ev));
     });
-  }, [feed, loadList, loadDetail, loadPins, loadPeers]);
+  }, [feed, loadList, loadDetail, loadPins, peersDirty]);
   useEffect(() => {
     if (hidden) return;
     const now = Date.now();

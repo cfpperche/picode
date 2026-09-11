@@ -460,11 +460,27 @@
 
 /* The chip at the midpoint: the click target that removes, and where a
    broken link says why. It scales by 1 / zoom like the name-plates, so it
-   stays legible however far out the plane is. */
+   stays legible however far out the plane is.
+
+   React Flow renders edge labels *under* the nodes, and the midpoint of a
+   line between two headers lands on a panel more often than not: the first
+   browser pass had every chip half-eaten by the card it crossed, which is
+   occlusion of the one control that revokes a grant. The label layer is
+   lifted above the nodes instead. Its container takes no pointer at all, so
+   the only thing that lands on a panel is the chip itself. */
+.mx-canvas-flow .react-flow__edgelabel-renderer { z-index: 1002; }
 .mx-edge-label { position: absolute; pointer-events: none; }
 .mx-edge-chip-wrap {
   display: flex; align-items: center; gap: 6px;
-  transform: scale(var(--mx-plate-scale)); transform-origin: center;
+  /* Off the line by one chip-height along its normal (the component writes
+     the direction), then scaled by 1 / zoom like the name-plates. The push
+     is half the group's own size plus 10 px, both scaled by the same factor
+     as the group, so the line clears whatever the group grew to and the gap
+     is the same number of *screen* pixels at every zoom. */
+  transform:
+    translate(calc(var(--mx-edge-nx, 0) * (50% + 10px) * var(--mx-plate-scale)), calc(var(--mx-edge-ny, -1) * (50% + 10px) * var(--mx-plate-scale)))
+    scale(var(--mx-plate-scale));
+  transform-origin: center;
 }
 .mx-edge-chip {
   pointer-events: all; flex: none;
@@ -482,7 +498,7 @@
 /* The reason, in visible text when the line is selected — a tooltip alone
    would be a state a viewer cannot reach without a mouse. */
 .mx-edge-reason {
-  pointer-events: none; max-width: 280px;
+  pointer-events: none; max-width: 240px;
   padding: 3px 8px; border-radius: 6px;
   border: 1px solid var(--border-strong); background: var(--bg-panel);
   color: var(--text-primary); font-size: 11px; line-height: 1.3;

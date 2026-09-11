@@ -28,6 +28,8 @@ import { appHash } from "../lib/routes.js";
 // enrolment. Refreshed by the feed — `matrix.*` for the lines, `peer.*` for
 // what they grant — never on a timer.
 const MATRIX_CAP = 50;
+const WATCHED = /^(matrix\.|peer\.|agent\.(updated|deleted)|terminal\.(updated|deleted)|feed\.(open|reset))/;
+const DEBOUNCE_MS = 400;
 
 export default function MatrixLinks({ hidden }) {
   const [data, setData] = useState(null); // { matrices: [{matrix, panels, edges}], peers }
@@ -35,6 +37,7 @@ export default function MatrixLinks({ hidden }) {
   const [busy, setBusy] = useState("");
   const live = useRef(false);
   const generation = useRef(0);
+  const timer = useRef(0);
 
   const refresh = useCallback(async () => {
     const gen = ++generation.current;
@@ -56,10 +59,15 @@ export default function MatrixLinks({ hidden }) {
     if (hidden) return undefined;
     live.current = true;
     refresh();
+    // `agent.updated` is a busy row and each refresh is a read per matrix, so
+    // the feed marks the list dirty and one timer does the work. The owner
+    // events are in the set because ADR-0104 invalidates a connection whose
+    // recorded session moved, which no `peer.*` row announces.
     const off = subscribeFeed((ev) => {
-      if (/^(matrix\.|peer\.|agent\.deleted|terminal\.deleted|feed\.(open|reset))/.test(ev.type)) refresh();
+      if (!WATCHED.test(ev.type) || timer.current) return;
+      timer.current = setTimeout(() => { timer.current = 0; refresh(); }, DEBOUNCE_MS);
     });
-    return () => { live.current = false; generation.current++; off(); };
+    return () => { live.current = false; generation.current++; if (timer.current) { clearTimeout(timer.current); timer.current = 0; } off(); };
   }, [hidden, refresh]);
 
   const rows = useMemo(() => {
