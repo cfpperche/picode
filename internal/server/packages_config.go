@@ -89,7 +89,7 @@ func handleGetPackageConfig(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pkg := r.URL.Query().Get("package")
 		if pkg != pkgConfigRoles {
-			descriptorGet(w, deps, pkg)
+			descriptorGet(w, deps, pkg, r.URL.Query().Get("workspace"))
 			return
 		}
 		wsID := r.URL.Query().Get("workspace")
@@ -201,7 +201,7 @@ func handleDeletePackageConfig(deps Deps) http.HandlerFunc {
 		q := r.URL.Query()
 		pkg := q.Get("package")
 		if pkg != pkgConfigRoles {
-			descriptorDelete(w, deps, pkg)
+			descriptorDelete(w, deps, pkg, q.Get("workspace"))
 			return
 		}
 		scope := q.Get("scope")
@@ -280,15 +280,37 @@ type descriptorConfigView struct {
 	Layer       pipkg.DescriptorLayer `json:"layer"`
 }
 
-// descriptorFileFor resolves the one file v1 descriptors declare. The plan
-// scopes the generic engine to agent-global files; workspace-scope files
-// carry the workspace folder and wait for a descriptor that needs it.
-func descriptorFileFor(w http.ResponseWriter, d *pipkg.ConfigDescriptor) (string, bool) {
-	if len(d.Files) != 1 || d.Files[0].Scope != "agent" {
-		writeErr(w, http.StatusBadRequest, "descriptor must declare exactly one agent-scope file")
+// descriptorFileFor resolves the one file a v1 descriptor declares: agent
+// files hang off ~/.pi/agent, workspace files off the workspace folder
+// (which the caller must have resolved through the store).
+func descriptorFileFor(w http.ResponseWriter, deps Deps, d *pipkg.ConfigDescriptor, workspaceID string) (string, bool) {
+	if len(d.Files) != 1 {
+		writeErr(w, http.StatusBadRequest, "descriptor must declare exactly one config file")
 		return "", false
 	}
-	abs, err := pipkg.DescriptorFileAbs(d, "agent")
+	scope := d.Files[0].Scope
+	if scope == "workspace" {
+		if deps.Store == nil {
+			writeErr(w, http.StatusBadRequest, errNoStore.Error())
+			return "", false
+		}
+		if workspaceID == "" {
+			writeErr(w, http.StatusBadRequest, "select a workspace — this config lives in the workspace folder")
+			return "", false
+		}
+		wk, err := deps.Store.GetWorkspace(workspaceID)
+		if err != nil {
+			writeErr(w, statusForStore(err), err.Error())
+			return "", false
+		}
+		abs, err := pipkg.DescriptorFileAbs(d, scope, wk.Path)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return "", false
+		}
+		return abs, true
+	}
+	abs, err := pipkg.DescriptorFileAbs(d, scope, "")
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return "", false
@@ -296,13 +318,13 @@ func descriptorFileFor(w http.ResponseWriter, d *pipkg.ConfigDescriptor) (string
 	return abs, true
 }
 
-func descriptorGet(w http.ResponseWriter, deps Deps, pkg string) {
+func descriptorGet(w http.ResponseWriter, deps Deps, pkg, workspaceID string) {
 	d := pipkg.DescriptorByID(pkg)
 	if d == nil {
 		writeErr(w, http.StatusBadRequest, "unknown package — no configuration is available for "+pkg)
 		return
 	}
-	abs, ok := descriptorFileFor(w, d)
+	abs, ok := descriptorFileFor(w, deps, d, workspaceID)
 	if !ok {
 		return
 	}
@@ -323,7 +345,7 @@ func descriptorPut(w http.ResponseWriter, deps Deps, req packageConfigWrite) {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	abs, ok := descriptorFileFor(w, d)
+	abs, ok := descriptorFileFor(w, deps, d, req.WorkspaceID)
 	if !ok {
 		return
 	}
@@ -350,13 +372,13 @@ func descriptorPut(w http.ResponseWriter, deps Deps, req packageConfigWrite) {
 	})
 }
 
-func descriptorDelete(w http.ResponseWriter, deps Deps, pkg string) {
+func descriptorDelete(w http.ResponseWriter, deps Deps, pkg, workspaceID string) {
 	d := pipkg.DescriptorByID(pkg)
 	if d == nil {
 		writeErr(w, http.StatusBadRequest, "unknown package — no configuration is available for "+pkg)
 		return
 	}
-	abs, ok := descriptorFileFor(w, d)
+	abs, ok := descriptorFileFor(w, deps, d, workspaceID)
 	if !ok {
 		return
 	}

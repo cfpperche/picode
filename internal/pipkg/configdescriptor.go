@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -23,6 +24,8 @@ type ConfigField struct {
 	Type     string   `json:"type"` // string | enum | boolean | number | secret
 	Required bool     `json:"required,omitempty"`
 	Options  []string `json:"options,omitempty"` // enum choices
+	Min      *float64 `json:"min,omitempty"`     // number bounds
+	Max      *float64 `json:"max,omitempty"`
 	Help     string   `json:"help,omitempty"`
 }
 
@@ -70,8 +73,29 @@ func catalogDescriptors() []ConfigDescriptor {
 				Help: "Model id at that provider, e.g. gemini-3.5-flash.",
 			},
 		},
-	}}
+	},
+		{
+			ID:    "compact",
+			Match: "pi-compact",
+			Title: "Compaction",
+			Application: "Applies from the next turn on — the extension re-reads this " +
+				"file per input. Empty fields stay unset: the chain decides.",
+			Files: []ConfigFile{{Scope: "workspace", Path: ".pi/compact.json", Format: "json"}},
+			Fields: []ConfigField{
+				{Key: "enabled", Label: "Enabled", Type: "boolean", Help: "Unchecked = off. Leave untouched to keep unset."},
+				{Key: "atTokens", Label: "At tokens", Type: "number", Min: f64(1), Help: "Absolute token trigger. Empty = knob off."},
+				{Key: "atPercent", Label: "At fraction", Type: "number", Min: f64(0), Max: f64(1), Help: "Fraction of the context window, 0–1 (e.g. 0.5)."},
+				{Key: "floorTokens", Label: "Floor tokens", Type: "number", Min: f64(1), Help: "Never compact below this many tokens."},
+				{Key: "cooldownTurns", Label: "Cooldown turns", Type: "number", Min: f64(0), Help: "Turns to wait after a compaction."},
+				{Key: "model", Label: "Summarizer model", Type: "string", Help: "provider/id, e.g. zai/glm-5.3. Empty = auto chain."},
+				{Key: "thinking", Label: "Thinking", Type: "enum", Options: []string{"off", "minimal", "low", "medium", "high", "xhigh", "max"}},
+				{Key: "instructions", Label: "Instructions", Type: "string", Help: "Extra instructions for the summarizer."},
+			},
+		}}
 }
+
+// f64 keeps the catalog table reading as numbers, not pointers.
+func f64(v float64) *float64 { return &v }
 
 // remembered holds manifest-declared descriptors found while listing
 // installed packages, so a later GET/PUT/DELETE that only knows the id can
@@ -152,17 +176,22 @@ func descriptorFromManifest(installedPath string) *ConfigDescriptor {
 }
 
 // DescriptorFileAbs resolves one of the descriptor's files to an absolute
-// path. Unknown scopes are refused: a descriptor may only use the scopes
-// the server knows how to place.
-func DescriptorFileAbs(d *ConfigDescriptor, scope string) (string, error) {
+// path. Agent files hang off UserDir; workspace files off the workspace
+// folder the caller resolves. Unknown scopes are refused: a descriptor may
+// only use scopes the server knows how to place.
+func DescriptorFileAbs(d *ConfigDescriptor, scope, workspacePath string) (string, error) {
 	for _, f := range d.Files {
-		if f.Scope == scope {
-			switch f.Scope {
-			case "agent":
-				return filepath.Join(UserDir(), filepath.FromSlash(f.Path)), nil
-			case "workspace":
+		if f.Scope != scope {
+			continue
+		}
+		switch f.Scope {
+		case "agent":
+			return filepath.Join(UserDir(), filepath.FromSlash(f.Path)), nil
+		case "workspace":
+			if workspacePath == "" {
 				return "", fmt.Errorf("workspace-scope config needs the workspace folder")
 			}
+			return filepath.Join(workspacePath, filepath.FromSlash(f.Path)), nil
 		}
 	}
 	return "", fmt.Errorf("descriptor %q declares no %q file", d.ID, scope)
@@ -200,8 +229,15 @@ func ValidateDescriptorValues(d *ConfigDescriptor, values map[string]any) error 
 				return fmt.Errorf("%s must be true or false", f.Label)
 			}
 		case "number":
-			if _, ok := v.(float64); !ok {
+			n, ok := v.(float64)
+			if !ok {
 				return fmt.Errorf("%s must be a number", f.Label)
+			}
+			if f.Min != nil && n < *f.Min {
+				return fmt.Errorf("%s must be at least %s", f.Label, trimNum(*f.Min))
+			}
+			if f.Max != nil && n > *f.Max {
+				return fmt.Errorf("%s must be at most %s", f.Label, trimNum(*f.Max))
 			}
 		}
 	}
@@ -215,6 +251,11 @@ func containsString(list []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// trimNum prints a bound the short way ("1", "0.5" — never "1.0").
+func trimNum(v float64) string {
+	return strconv.FormatFloat(v, 'f', -1, 64)
 }
 
 // DescriptorLayer is one config file as the GET view returns it.

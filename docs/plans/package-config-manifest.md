@@ -54,8 +54,13 @@ Resolution order:
    (Raycast `preferences` shape, adapted). The upstream-friendly path: a
    package carries its own description.
 2. **PiCode catalog** — `internal/pipkg/configcatalog.go` maps known
-   installed packages to descriptors, for third-party packages that do not
-   ship a manifest. `pi-web-search` is the first entry.
+   installed packages to descriptors. Entries: `pi-web-search` →
+   `web-search.json` (agent scope) and `pi-compact` → `.pi/compact.json`
+   (workspace scope). Sweep result (2026-09-11): pi-inbox/pi-checklist's
+   `server.json` is connection identity PiCode provisions itself — not
+   exposed; `pi-mcp-adapter`, `pi-diff`, `pi-browser-capture`,
+   `pi-byteplus-modelark`, `pi-agent-browser-native` have no user config
+   file — they show no Configure button, honestly.
 3. **Nothing** — no descriptor, no Configure button. ADR-0099 §5's honest
    absence is kept verbatim: never a generic JSON editor, never a claim that
    a package "has no settings".
@@ -116,9 +121,11 @@ Estimated 2–3 sessions (C1 ≈ 1, C2 ≈ 1, C3+C4 ≈ ½–1).
    vault integration; configs with real keys (e.g. brave-search) stay
    hand-edited until that is wanted.
 
-## Stopgap until C0 lands
+## Validation through the GUI (owner directive, 2026-09-11)
 
-`~/.pi/agent/web-search.json` by hand: `{"provider": "google-generative-ai",
-"model": "gemini-3.5-flash"}` — two fields, validated by the tool on next
-search. The GUI does not gate this; it only removes the need to know the
-file exists.
+Config files are **never created by hand** — creating and editing them
+through the Packages GUI *is* the acceptance test for this work, for
+web-search and for every descriptor added after it. Validated on a scratch
+instance: web-search (create → edit → clear → broken-file replace) and
+compact (workspace file pre-populated, tri-state enabled, min/max refusal,
+save preserving `fallback`/`atTokens`).

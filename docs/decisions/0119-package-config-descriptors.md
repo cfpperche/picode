@@ -32,8 +32,9 @@ the tool names it only inside an error message.
 A package is configurable in the GUI when a **config descriptor** resolves
 for it, in this order: a `picode.config` object in the installed package's
 `package.json` (upstream-friendly, Raycast-preferences shape), then
-PiCode's catalog (`internal/pipkg/configdescriptor.go`, first entry
-`pi-web-search` → `web-search.json`), then nothing — no descriptor, no
+PiCode's catalog (`internal/pipkg/configdescriptor.go`; entries:
+`pi-web-search` → `web-search.json` agent-scope, `pi-compact` →
+`.pi/compact.json` workspace-scope), then nothing — no descriptor, no
 Configure button, never a generic JSON editor (ADR-0099 §5 unchanged).
 The server generalizes `GET/PUT/DELETE /api/packages/config` to
 descriptor-driven configs: it reads and writes the declared file (v1:
