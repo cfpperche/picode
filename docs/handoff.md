@@ -8,13 +8,12 @@
 `git worktree list` is the truth for in-flight branches; entries say what a merge must know.
 
 - `feat/herdr-validation`, `feat/picode-video-pilot` — carry pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; next `main` merge conflicts in both: keep this file's shape, changelog lines to `docs/changelog.d/`.
-- `feat/term-key-capture` — fullscreen locks the keyboard (Chromium): `Ctrl+T`/`Ctrl+W` now reach the guest CLIs; ff-ready.
-- `feat/matrix-canvas-surface` (**C2**) and `feat/matrix-node-kinds` (**C3**: `note`, `file`, `diff` panels) — done, ff-ready; cards in `docs/handoff/2026-09-10-matrix-*.md`. **C4** (edges) next, ADR first.
+- `feat/matrix-edges` (**C4**, 1 of 2) — ADR-0116 accepted; migration 044, the `…/edges` routes, `edges` in the matrix read, contacts = workspace ∪ live edges (derived, never cached; send obeys it; MCP gained no verb; an unenrolled end grants nothing). **Nothing is drawn**: the canvas, the draw/remove gesture, the enrolment/cross-folder confirms, Messages' audit list, QA, visual review and the rite are session 2. `ci-scoped` green, unmerged.
 
 ## Next up
 
 1. First release since 0.1.0: `make changelog` on `main`, then `docs/release-process.md` (`[Unreleased]` is 860 lines).
-2. Matrix phase 4 (`docs/plans/matrix-app.md` §5): desktop `useAgentSocket`, read-only conversation body for managed agents, Needs-you chip; then the v1.1 list. Matrix v2: **C4 next** — edges, ADR first (`docs/plans/matrix-canvas.md`).
+2. Matrix phase 4 (`docs/plans/matrix-app.md` §5): desktop `useAgentSocket`, read-only conversation body for managed agents, Needs-you chip; then the v1.1 list. Matrix v2: C4's drawing half (`matrix-canvas.md`).
 3. GitHub CI: the next push exercises the ADR-0105 workflow (Ubuntu-only Go matrix, tmux cache); macOS/Windows run on tags or `workflow_dispatch`.
 4. llama delivery 3 live validation; owned-service ARM64 acceptance.
 5. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
@@ -54,7 +53,7 @@
 - llama: ARM64 hardware and GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
 - Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip needs on-device confirmation (Preferences → Layout).
 - Matrix (ADR-0108/0109): no docs-shots capture — needs a `desktop-matrix` profile and a fixture. App-wide, from its captures: the toast covers a surface's Close; dialogs have no scrim and little dark elevation; a grow-resize leaves an idle cursor.
-- Matrix v2 (C2/C3 accepted 2026-09-10): band flips at gesture end and Tidy never resizes, both deliberate. Open: `+`/`-`/`0` need a focused panel; a still stamps its age only when the feed moved since; only the picker adds a `file`/`diff` panel (an *Add to matrix* row elsewhere needs matrix state the desktop has not got, ADR-0109).
+- Matrix v2 (C2/C3, 2026-09-10): the band flips at gesture end and Tidy never resizes, both deliberate. Open: `+`/`-`/`0` need a focused panel; a still stamps its age only when the feed moved; only the picker adds a `file`/`diff` panel (an *Add to matrix* row needs matrix state the desktop lacks, ADR-0109).
 - Fullscreen mode (2026-09-10): real browser fullscreen owns Escape, so one press leaves the mode; the double-Escape is in-app-only. The right strip is pointer-transparent, so its reveal misses an embedded frame (PDF preview). Chromium only.
 - Notices (2026-09-07): needs-you covers the fleet, but the finish card only fires for the agent whose socket is open; neither exercised against a real pi dialog.
 - Native surfaces (ADR-0109): `host` has no `openTerminal` — the Matrix POSTs `/api/terminals/{id}/open` itself (feed rows carry no `session`); a tab closing under a panel remounts the body with a fresh xterm. An unsupported tile explains itself only via `title`.
