@@ -14,6 +14,14 @@
   --bg-hover: #202027;
   --border: #232329;
   --border-strong: #2c2c34;
+  /* The Canvas plane's texture (canvas.css keys all three patterns off it).
+     It is not a border: a hairline separates two surfaces and wants to be
+     nearly invisible, a texture is read across a whole empty plane and has
+     to survive being 1 px of a dot every 32. Colouring it from --border
+     gave 1.23:1 on this ground — the grid was there and nobody could see
+     it. Aimed at ~2:1: enough to read as texture at a glance, far enough
+     from --text-secondary (4.9:1 here) that it can never read as a mark. */
+  --canvas-pattern: #4a4a58;
   --text-primary: #ececf1;
   --text-secondary: #9b9ba7;
   --accent: #7c8cf8;
@@ -50,6 +58,9 @@
   --bg-hover: #e4e9f2;
   --border: #dde2ec;
   --border-strong: #b3bccd;
+  /* 1.88:1 on --bg-base. The light plane is the case that was worst:
+     --border there is 1.16:1, which is no texture at all. */
+  --canvas-pattern: #a9b3c6;
   --text-primary: #16181d;
   --text-secondary: #5b6472;
   /* One step darker than #2f6fed, which sat at 4.4:1 on the old white page

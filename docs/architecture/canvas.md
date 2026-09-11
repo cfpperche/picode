@@ -573,7 +573,7 @@ background**, as a radiogroup of the same cards the theme uses:
 | Option | What is drawn | Geometry |
 |---|---|---|
 | **Plain** | nothing — no `<Background>` is rendered at all | — |
-| **Dots** (default) | React Flow `BackgroundVariant.Dots` | `gap` 32 px (four 8 px cells), `size` 1 |
+| **Dots** (default) | React Flow `BackgroundVariant.Dots` | `gap` 32 px (four 8 px cells), `size` 2 |
 | **Grid** | `BackgroundVariant.Lines` | `gap` 32 px, `lineWidth` 1 |
 | **Cross** | `BackgroundVariant.Cross` | `gap` 32 px, `size` 6 |
 
@@ -589,14 +589,32 @@ preferences page re-read without a reload. `Plane.jsx` holds it in state and
 stamps `data-bg` on `.cv-canvas-flow`; the preference page is the only
 writer.
 
-**The colour is CSS, not React.** `canvas.css` keys
-`--xy-background-pattern-color` off that `data-bg`, so switching theme
-re-tints the ground on the next paint — no reload, no observer, no prop.
-Two weights, both from the border tokens, because the shapes cover very
-different amounts of the plane: a 1 px dot every four cells needs
-`--border-strong` to be seen at all, while a full grid at that weight reads
-as graph paper and fights the panels, so **Grid** and **Cross** take
-`--border`.
+**The colour is CSS, not React, and it has a token of its own.**
+`canvas.css` keys `--xy-background-pattern-color` off that `data-bg`, so
+switching theme re-tints the ground on the next paint — no reload, no
+observer, no prop. All three variants take **`--canvas-pattern`**
+(`web/shared/tokens/theme.css`), and the single token is the point of it.
+They used to take the two border tokens, which is the wrong family: a
+hairline's job is to be almost invisible between two surfaces, a texture's
+is to be read across a whole empty plane. Measured against the plane
+(`--bg-base`): `--border` was **1.16:1** on the light ground and **1.23:1**
+on the dark one, and the split handed the weakest of the two to **Grid** —
+the densest variant was the one nobody could see. `--canvas-pattern` is
+`#a9b3c6` on light (**1.88:1** on `#f0f2f7`) and `#4a4a58` on dark
+(**2.21:1** on `#0e0e11`): texture at a glance, and far enough from
+`--text-secondary` (4.9:1 on dark) that it can never read as a foreground
+mark. One geometry change came with it, and only one: the **dot** is 2 px
+rather than 1. Dots is the sparsest variant and the default, and at the new
+weight the grid and the cross read on both planes while a single-pixel dot
+every four cells still did not. The **gap** is the number that must never
+move — four 8 px cells, which is what panels snap to — so the mark grew
+instead.
+
+**The `⋯` menu has a Background item**, which navigates to `#/preferences`
+with Appearance showing and does nothing else. The plane is where a reader
+notices its texture and it was the one surface that did not offer the
+setting. It is deliberately *not* a second writer: `canvasPattern.js` is
+still written only by the preference page, so the two can never disagree.
 
 **Scope: the canvas plane, and nothing else.** The rest of the app gets the
 theme's ground (`web/shared/tokens/theme.css`), never a texture. This is not

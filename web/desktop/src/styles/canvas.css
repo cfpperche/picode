@@ -310,17 +310,19 @@
    colour is here, so switching theme re-tints the ground on the next paint
    with no reload and no observer.
 
-   Two weights, both from the border tokens, and the split is by how much of
-   the plane a shape covers, not by which shape it is. Dots and crosses are
-   sparse marks — a 1px dot or a 6px tick every four cells is nearly nothing
-   — so they take --border-strong to be seen at all; at the hairline weight
-   a cross on a light plane is below the threshold of noticing. Lines cover
-   every cell edge, and at --border-strong that reads as graph paper and
-   fights the panels, so the grid takes the hairline instead.
+   All three take one token, --canvas-pattern (web/shared/tokens/theme.css),
+   and that is the point of it. The patterns used to be coloured from the
+   two border tokens — a hairline's job is to be almost invisible between
+   two surfaces, which is the opposite of a texture's — and the split made
+   the grid, the densest variant, the *faintest*: --border on the light
+   plane is 1.16:1, so the reader who picked lines picked the one nobody
+   can see. The token is ~2:1 against the plane in both themes, which is
+   texture at a glance and never a foreground mark, and the three variants
+   differ by how much of the plane they cover, as they already did.
    "plain" sets nothing: it renders no <Background> at all. */
-.cv-canvas-flow[data-bg="dots"] .react-flow { --xy-background-pattern-color: var(--border-strong); }
-.cv-canvas-flow[data-bg="cross"] .react-flow { --xy-background-pattern-color: var(--border-strong); }
-.cv-canvas-flow[data-bg="lines"] .react-flow { --xy-background-pattern-color: var(--border); }
+.cv-canvas-flow[data-bg="dots"] .react-flow,
+.cv-canvas-flow[data-bg="cross"] .react-flow,
+.cv-canvas-flow[data-bg="lines"] .react-flow { --xy-background-pattern-color: var(--canvas-pattern); }
 
 /* The minimap's mask darkens everything *outside* the current view, and how
    much darkening reads as "dimmed" is not the same number in both themes:

@@ -663,7 +663,13 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
         attributionPosition="bottom-left"
       >
         {BG_VARIANT[bgPattern] ? (
-          <Background variant={BG_VARIANT[bgPattern]} gap={BG_GAP} size={bgPattern === "dots" ? 1 : 6} lineWidth={1} />
+          // Dots is 2, not 1: a single-pixel dot every four cells is the
+          // sparsest of the three, and at --canvas-pattern's ~2:1 it read
+          // as nothing on the light plane while the grid and the cross
+          // read fine. The **gap** is the thing that must not move — it is
+          // four 8 px cells and panels snap to it — so the mark grows
+          // instead. Cross keeps 6: its tick is already 6 px of line.
+          <Background variant={BG_VARIANT[bgPattern]} gap={BG_GAP} size={bgPattern === "dots" ? 2 : 6} lineWidth={1} />
         ) : null}
         <MiniMap pannable zoomable ariaLabel="Panels on the plane" />
       </ReactFlow>

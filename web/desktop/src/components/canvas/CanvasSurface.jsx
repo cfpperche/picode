@@ -11,7 +11,7 @@ import { basename } from "@picode/shared/domain/diff.js";
 import { shortPath } from "@picode/shared/domain/repoLine.js";
 import { paneLeaveKey } from "@picode/shared/domain/termKeys.js";
 import AppIcon from "../AppIcon.jsx";
-import { IconEllipsis, IconGrid, IconPencil, IconPlus, IconTrash, IconX } from "../Icons.jsx";
+import { IconEllipsis, IconGrid, IconImage, IconPencil, IconPlus, IconTrash, IconX } from "../Icons.jsx";
 import { go, isFileTab, parseFileTab, pinHash } from "../../lib/routes.js";
 import { notify, toast, toastError } from "../../lib/toast.js";
 import { askConfirm } from "../../lib/confirm.js";
@@ -1116,7 +1116,7 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
       ) : null}
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
-          <button type="button" className="cv-cluster-btn cv-menu-btn" aria-label={current ? "More actions for " + current.name : "More actions"} title="New canvas, tidy, rename, delete or close"><IconEllipsis size={15} /></button>
+          <button type="button" className="cv-cluster-btn cv-menu-btn" aria-label={current ? "More actions for " + current.name : "More actions"} title="New canvas, tidy, rename, delete, background or close"><IconEllipsis size={15} /></button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           {/* Chrome at the top of the pane opens down into the canvas, and
@@ -1132,6 +1132,15 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
             {current ? (
               <DropdownMenu.Item className="ws-row-menu-item danger" onSelect={() => { deleteCanvas(); }}><IconTrash size={13} /> Delete canvas</DropdownMenu.Item>
             ) : null}
+            <DropdownMenu.Separator className="ws-row-menu-sep" />
+            {/* The plane is where you notice its texture and it was the one
+                place that did not offer to change it — the setting lives
+                under the theme cards in Preferences and a reader looking at
+                the canvas never found it. This navigates there and nothing
+                more: Preferences owns the preference (canvasPattern.js is
+                its only writer), so there is no second place storing it and
+                no way for the two to disagree. */}
+            <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => go("preferences")}><IconImage size={13} /> Background…</DropdownMenu.Item>
             {onClose ? (
               <>
                 <DropdownMenu.Separator className="ws-row-menu-sep" />
