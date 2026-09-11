@@ -489,3 +489,92 @@ func TestDescriptorSaveAnnouncesOnTheFeed(t *testing.T) {
 		t.Fatalf("feed frame = %+v, want packages.config for web-search", fr)
 	}
 }
+
+// --- workspace-scope descriptors (pi-compact / .pi/compact.json) ---
+
+func TestCompactDescriptorResolvesThroughWorkspace(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	dir := t.TempDir()
+	wk := addWorkspaceWithAgent(t, ts, "CompactKind", dir)
+
+	res, err := http.Get(ts.URL + "/api/packages/config?package=compact&workspace=" + wk.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		t.Fatalf("status %d, want 200", res.StatusCode)
+	}
+	var view struct {
+		Kind  string `json:"kind"`
+		Scope string `json:"scope"`
+		Path  string `json:"path"`
+		Layer struct {
+			Exists bool `json:"exists"`
+		} `json:"layer"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&view); err != nil {
+		t.Fatal(err)
+	}
+	if view.Kind != "compact" || view.Scope != "workspace" || !strings.HasSuffix(view.Path, ".pi/compact.json") {
+		t.Fatalf("view = %+v", view)
+	}
+	if view.Layer.Exists {
+		t.Fatal("no compact.json was written yet")
+	}
+}
+
+func TestCompactWithoutWorkspaceIsRefused(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	res, err := http.Get(ts.URL + "/api/packages/config?package=compact")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 400 {
+		t.Fatalf("status %d, want 400", res.StatusCode)
+	}
+	var body struct {
+		Error string `json:"error"`
+	}
+	_ = json.NewDecoder(res.Body).Decode(&body)
+	if !strings.Contains(body.Error, "workspace folder") {
+		t.Fatalf("error = %q", body.Error)
+	}
+}
+
+func TestCompactSaveWritesIntoTheWorkspaceAndOmitsUnset(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	dir := t.TempDir()
+	wk := addWorkspaceWithAgent(t, ts, "CompactSave", dir)
+
+	// enabled omitted (checkbox untouched), atPercent out of range → 400.
+	res := putDescriptor(t, ts, map[string]any{"package": "compact", "workspaceId": wk.ID,
+		"config": map[string]any{"enabled": true, "atPercent": 5}})
+	if res.StatusCode != 400 {
+		t.Fatalf("status %d, want 400 for atPercent 5", res.StatusCode)
+	}
+	res.Body.Close()
+
+	res = putDescriptor(t, ts, map[string]any{"package": "compact", "workspaceId": wk.ID,
+		"config": map[string]any{"enabled": true, "atPercent": 0.5, "model": "zai/glm-5.3"}})
+	if res.StatusCode != 200 {
+		t.Fatalf("status %d, want 200", res.StatusCode)
+	}
+	res.Body.Close()
+
+	b, err := os.ReadFile(filepath.Join(dir, ".pi", "compact.json"))
+	if err != nil {
+		t.Fatalf("save did not create the workspace file: %v", err)
+	}
+	var saved map[string]any
+	if err := json.Unmarshal(b, &saved); err != nil {
+		t.Fatal(err)
+	}
+	if saved["enabled"] != true || saved["atPercent"] != 0.5 || saved["model"] != "zai/glm-5.3" {
+		t.Fatalf("saved = %v", saved)
+	}
+	if _, present := saved["atTokens"]; present {
+		t.Fatalf("unset fields must be omitted, got %v", saved)
+	}
+}

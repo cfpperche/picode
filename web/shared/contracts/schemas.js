@@ -289,8 +289,8 @@ export const peerParticipantsSchema = z.object({
 
 // Descriptor-driven package config (docs/plans/package-config-manifest.md):
 // the server's descriptor carries the rules; this builds the same grammar
-// client-side, so the form and the PUT agree before anything is sent.
-// Values travel as the file stores them — strings, booleans, numbers.
+// client-side, so the form and the PUT agree before anything is sent. The
+// payload omits unset fields — the file only gains keys the user set.
 export function descriptorValuesSchema(fields) {
   const shape = {};
   for (const f of fields || []) {
@@ -301,12 +301,16 @@ export function descriptorValuesSchema(fields) {
       s = z.enum(options.length ? options : ["—"]);
       s = required ? s.refine((v) => v !== "—", { message: `${f.label} is required.` }) : s.or(z.literal(""));
     } else if (f.type === "boolean") {
-      s = z.boolean();
+      s = required ? z.boolean({ required_error: `${f.label} is required.` }) : z.boolean().optional();
     } else if (f.type === "number") {
-      s = z.coerce.number({ invalid_type_error: `${f.label} must be a number.` });
+      s = z.coerce.number({ invalid_type_error: `${f.label} must be a number.`, required_error: `${f.label} is required.` });
+      if (f.min != null) s = s.min(f.min, `${f.label} must be at least ${f.min}.`);
+      if (f.max != null) s = s.max(f.max, `${f.label} must be at most ${f.max}.`);
+      if (!required) s = s.optional();
     } else {
-      s = z.string();
+      s = z.string({ required_error: `${f.label} is required.` });
       if (required) s = s.min(1, `${f.label} is required.`);
+      else s = s.optional();
     }
     shape[f.key] = s;
   }

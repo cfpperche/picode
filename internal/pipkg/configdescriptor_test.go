@@ -107,14 +107,14 @@ func TestDescriptorFileAbsResolvesAgentScope(t *testing.T) {
 	UserDir = func() string { return dir }
 	t.Cleanup(func() { UserDir = old })
 	d := DescriptorFor("pi-web-search", "")
-	abs, err := DescriptorFileAbs(d, "agent")
+	abs, err := DescriptorFileAbs(d, "agent", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if abs != filepath.Join(dir, "web-search.json") {
 		t.Fatalf("abs = %q", abs)
 	}
-	if _, err := DescriptorFileAbs(d, "workspace"); err == nil {
+	if _, err := DescriptorFileAbs(d, "workspace", "/ws"); err == nil {
 		t.Fatal("a descriptor without a workspace file must refuse that scope")
 	}
 }

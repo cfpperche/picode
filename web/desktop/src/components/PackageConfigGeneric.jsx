@@ -18,20 +18,27 @@ const EMPTY = {};
 
 function valuesOf(view) {
   const out = {};
-  for (const f of view?.fields || []) out[f.key] = view?.layer?.values?.[f.key] ?? (f.type === "boolean" ? false : "");
-  return out;
-}
-
-function typedValues(fields, values) {
-  const out = {};
-  for (const f of fields || []) {
-    const v = values[f.key];
-    out[f.key] = f.type === "number" ? (v === "" || v == null ? "" : Number(v)) : v;
+  for (const f of view?.fields || []) {
+    const v = view?.layer?.values?.[f.key];
+    out[f.key] = v == null ? (f.type === "boolean" ? null : "") : v;
   }
   return out;
 }
 
-export default function PackageConfigGeneric({ hidden, embedded = false, pkg, backHash = "#/clis/packages/pi" }) {
+// Unset (empty/null) fields are omitted from the payload: the file only
+// gains keys the user actually set, which is how these extensions read
+// "missing key = default".
+function typedValues(fields, values) {
+  const out = {};
+  for (const f of fields || []) {
+    const v = values[f.key];
+    if (v === "" || v == null) continue;
+    out[f.key] = f.type === "number" ? Number(v) : v;
+  }
+  return out;
+}
+
+export default function PackageConfigGeneric({ hidden, embedded = false, pkg, workspaceId = "", backHash = "#/clis/packages/pi" }) {
   const [view, setView] = useState(null);
   const [loadErr, setLoadErr] = useState("");
   const [values, setValues] = useState(EMPTY);
@@ -49,7 +56,9 @@ export default function PackageConfigGeneric({ hidden, embedded = false, pkg, ba
   const dirty = !!view && !view.layer.invalid && JSON.stringify(values) !== JSON.stringify(valuesOf(view));
 
   function configURL() {
-    return "/api/packages/config?package=" + encodeURIComponent(pkg);
+    const q = ["package=" + encodeURIComponent(pkg)];
+    if (workspaceId) q.push("workspace=" + encodeURIComponent(workspaceId));
+    return "/api/packages/config?" + q.join("&");
   }
 
   async function load() {
@@ -77,14 +86,14 @@ export default function PackageConfigGeneric({ hidden, embedded = false, pkg, ba
     setConflict("");
   }
 
-  useEffect(() => { if (!hidden) load(); }, [hidden, pkg]); // eslint-disable-line
+  useEffect(() => { if (!hidden) load(); }, [hidden, pkg, workspaceId]); // eslint-disable-line
   useEffect(() => {
     if (hidden) return;
     return subscribeFeed((ev) => {
       if (ev.type === "feed.open" || ev.type === "feed.reset") { load(); return; }
       if (ev.type === "packages.config") load();
     });
-  }, [hidden, pkg]); // eslint-disable-line
+  }, [hidden, pkg, workspaceId]); // eslint-disable-line
 
   function setField(key, value) {
     setValues((v) => ({ ...v, [key]: value }));
@@ -105,7 +114,7 @@ export default function PackageConfigGeneric({ hidden, embedded = false, pkg, ba
     try {
       const next = await api(configURL(), {
         method: "PUT",
-        body: JSON.stringify({ package: pkg, config: parsed.data, force }),
+        body: JSON.stringify({ package: pkg, workspaceId, config: parsed.data, force }),
       });
       setView(next);
       setValues(valuesOf(next));
@@ -195,7 +204,8 @@ export default function PackageConfigGeneric({ hidden, embedded = false, pkg, ba
                   </select>
                 ) : f.type === "boolean" ? (
                   <input id={"pkgcfg-" + f.key} type="checkbox" disabled={saving}
-                    checked={!!values[f.key]} onChange={(e) => setField(f.key, e.target.checked)} />
+                    ref={(el) => { if (el) el.indeterminate = values[f.key] == null; }}
+                    checked={values[f.key] === true} onChange={(e) => setField(f.key, e.target.checked)} />
                 ) : (
                   <input id={"pkgcfg-" + f.key} className="pkc-input" disabled={saving}
                     type={f.type === "secret" ? "password" : f.type === "number" ? "number" : "text"}
