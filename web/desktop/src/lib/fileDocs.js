@@ -1,6 +1,6 @@
-// fileDocs — the open documents of a matrix's `file` panels, kept outside
+// fileDocs — the open documents of a canvas's `file` panels, kept outside
 // React so a body that moves host keeps its text (docs/plans/matrix-canvas.md
-// §4.2). It is the matrix's `paneOwnership.js` for an editor: maximizing a
+// §4.2). It is the canvas's `paneOwnership.js` for an editor: maximizing a
 // panel, and switching layout mode, unmount the body in one host and mount
 // it in the other inside the same commit, and a `createFileDocument` made in a
 // component's `useMemo` dies with the component — which would throw away an
@@ -30,7 +30,7 @@ export function holdDocument(key, make) {
 // releaseDocument(key): a mount left. Whether it is *gone* is decided a tick
 // later, because a body moving host mounts before the old one unmounts —
 // the same rule the chunk loader and the pane registry follow. A document
-// with unsaved text is never dropped: the panel leaving the matrix
+// with unsaved text is never dropped: the panel leaving the canvas
 // (forgetDocument) is what frees it.
 export function releaseDocument(key) {
   const e = held.get(key);
@@ -46,7 +46,7 @@ export function releaseDocument(key) {
   }, 0);
 }
 
-// forgetDocument(key): the panel is gone from the matrix. Its draft goes
+// forgetDocument(key): the panel is gone from the canvas. Its draft goes
 // with it — the remove is reversible through the toast, the text is not,
 // which is why removing a dirty panel asks first.
 export function forgetDocument(key) {

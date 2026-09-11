@@ -248,8 +248,8 @@ func (s *Store) RevokePeer(id string) error {
 
 // PeerContacts is the union of two sources (ADR-0116 §3): the caller's own
 // workspace, exactly as ADR-0104 scoped it, and the connections a live
-// Matrix edge links to the caller. The two lists are deduped — the same pair
-// drawn on two matrices is one contact — and every row still has to pass
+// Canvas edge links to the caller. The two lists are deduped — the same pair
+// drawn on two canvases is one contact — and every row still has to pass
 // peerCurrent, so a revoked connection or a session that moved contributes
 // nothing from either source. Nothing is cached: the edge half is derived
 // here on every read, so removing the line removes the contact.
@@ -315,7 +315,7 @@ func (s *Store) PeerContacts(token string) ([]PeerConnection, error) {
 
 // peerMayReach is the contact rule both the list and the send obey, so they
 // can never disagree about who may be reached: the same workspace
-// (ADR-0104), or one live Matrix edge between panels bound to these two
+// (ADR-0104), or one live Canvas edge between panels bound to these two
 // sessions (ADR-0116). Derived per call; nothing about an edge is ever
 // written into peer_connections.
 func peerMayReach(tx *sql.Tx, me, other PeerConnection) (bool, error) {

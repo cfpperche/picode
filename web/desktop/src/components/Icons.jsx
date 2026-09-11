@@ -31,7 +31,7 @@ import {
   Minimize2,
   Folders,
   GitBranch,
-  Grid3x3,
+  Frame,
   FlaskConical,
   HardDrive,
   Home,
@@ -127,8 +127,10 @@ export const IconRemote = lucide(Cloud, 10);
 export const IconFolder = lucide(Folder, 13);
 export const IconFolders = lucide(Folders, 13);
 export const IconGrid = lucide(LayoutGrid, 13);
-// The Matrix app's tile (ADR-0109 icon map): a 3×3 grid, IconGrid's stroke.
-export const IconMatrix = lucide(Grid3x3, 13);
+// The Canvas app's tile (ADR-0109 icon map). A 3×3 grid drew the engine
+// ADR-0118 removed, so the glyph is a frame with its guides: a bounded plane
+// with things placed on it, which is what the app now is.
+export const IconCanvas = lucide(Frame, 13);
 export const IconFlask = lucide(FlaskConical, 13);
 export const IconInbox = lucide(Inbox, 13);
 export const IconClock = lucide(Clock, 13);

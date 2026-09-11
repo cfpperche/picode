@@ -57,7 +57,7 @@ export default defineConfig({
           { text: "Integrations", link: "/guide/integrations" },
           { text: "Agent CLIs", link: "/guide/agent-clis" },
           { text: "Keyboard and browser keys", link: "/guide/keyboard" },
-          { text: "Matrix", link: "/guide/matrix" },
+          { text: "Canvas", link: "/guide/canvas" },
           { text: "Session messages", link: "/guide/communication" },
           { text: "CLI activity reporting", link: "/guide/terminal-status" },
           { text: "llama.cpp", link: "/guide/llama" },

@@ -207,7 +207,7 @@ test("entries that never connected still close cleanly (no __sockCtl)", () => {
   assert.equal(entry.closedByUser, false, "kick on a bare entry is a no-op");
 });
 
-// The reversible stop (ADR-0109, matrix plan §4.5): a panel scrolled out
+// The reversible stop (ADR-0109, canvas plan §4.5): a panel scrolled out
 // of view closes its attach without losing the xterm.
 test("suspend closes the socket and never reconnects: no timer, no state write", () => {
   const deps = makeDeps();
