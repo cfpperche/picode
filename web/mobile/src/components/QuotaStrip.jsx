@@ -11,7 +11,7 @@ export default function QuotaStrip({ entry, onRefresh, busy }) {
     const note = quotaNote(entry);
     return (
       <span className="quota-strip quota-empty">
-        <span className="quota-note">{note}</span>
+        <span className="quota-note" title={note || undefined}>{note}</span>
         {onRefresh ? (
           <button type="button" className="quota-refresh" onClick={onRefresh} disabled={busy}>
             {busy ? "Checking" : "Check"}

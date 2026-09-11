@@ -7,8 +7,9 @@
 
 `git worktree list` is the truth for in-flight branches; entries say what a merge must know.
 
-- `feat/canvas-chrome` — Canvas chrome floats on the plane, its pattern is a preference (`picode-canvas-pattern`), and **light is rebalanced**: ground `#f0f2f7`, panels near-white, `--bg-elevated` split from `--bg-panel`. A merge repaints every surface — read `docs/handoff/2026-09-11-canvas-chrome.md` first. `make close` green, unmerged.
-- `feat/herdr-validation`, `feat/picode-video-pilot` — carry pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; next `main` merge conflicts in both: keep this file's shape, changelog lines to `docs/changelog.d/`.
+- `feat/providers-density` — roster is a six-column table (one row per account); CSS in shared `web/shared/styles/providers.css`; visual-review PASS, unmerged. Study: `docs/benchmarks/2026-09-11-providers-density.md`.
+- Canvas chrome + light rebalance landed on main 2026-09-11 (ground `#f0f2f7`, `--bg-elevated` split from `--bg-panel`); notes: `docs/handoff/2026-09-11-canvas-chrome.md`.
+- `feat/herdr-validation`, `feat/picode-video-pilot` — pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; next merge conflicts: keep this shape, changelog to `docs/changelog.d/`.
 ## Next up
 
 1. Runbook step 6 (0.2.0, tag `v0.2.0`): watch the owner's window; a regression becomes a patch tag, never a rewritten one.
