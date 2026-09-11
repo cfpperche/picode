@@ -133,7 +133,7 @@ func TestInterceptCodexAndGrok(t *testing.T) {
 	if err != nil {
 		t.Fatalf("grok hooks missing: %v", err)
 	}
-	for _, want := range []string{"UserPromptSubmit", "PermissionRequest", "Notification", "PostToolUse", "PostToolUseFailure"} {
+	for _, want := range []string{"UserPromptSubmit", "PermissionRequest", "Notification", "PostToolUse", "PostToolUseFailure", "timeout\":10"} {
 		if !strings.Contains(string(raw), want) {
 			t.Fatalf("grok hooks missing %s: %s", want, raw)
 		}
