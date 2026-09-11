@@ -68,6 +68,30 @@ WSL's idle timeout from reclaiming the VM. It learns the address from
 `wsl.exe` on a timer. `wsl.exe` answers in UTF-16LE **without a BOM**, so its
 output is decoded by inspecting the bytes.
 
+`picode-desktop disk` reports the one number a Windows user cannot get
+anywhere else, and `picode disk` (Linux, `internal/hostfs`) is its other half.
+The distro half measures with one `df` and **two** `du` calls — two because
+`du` skips a path it has already visited, so a parent and its child asked in
+the same command report the parent with the child missing — and names every
+cache it knows with the command that gives it back, labelled `safe` (costs
+time), `redownload` (comes back from the network) or `data` (the person's own,
+shown and never offered as a command). The report also names what it could not
+measure, root-owned paths such as docker's storage, instead of folding the
+remainder into a category. The Windows half reads the VHDX path from WSL's own
+registry (`HKCU\…\Lxss`, `VhdFileName` included), the volume's free space and
+the file's length from one PowerShell call answered as JSON (no locale decides
+what `.` means), and the sparse flag from `fsutil sparse queryrange`, whose
+parse keeps only the hex numbers because every word around them is translated
+on a non-English Windows. The difference between what the file holds and what
+the distro uses is space Windows keeps for data the distro has already freed:
+invisible in Explorer, and unavailable to WSL while the file is not sparse —
+which is the state a permanently running distro stays in, since both the
+compaction and the sparse conversion need the distro stopped. The tray shows
+that as one line refreshed every five minutes and warns in words below 20 GB
+free; `fyne.io/systray` v1.12 has no balloon API left, so the tooltip is the
+alert surface. Both commands only read: the reclaim actions are reviewed and
+confirmed somewhere a person sees the plan (`docs/plans/wsl-control.md`).
+
 Desktop startup policy (ADR-0071) is explicit: no execution-time, battery,
 idle or network gates; duplicate task starts are ignored; launch failures have
 three retries one minute apart. `internal/desktop/task.ps1` is embedded and called

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"strings"
 	"testing"
+	"unicode/utf16"
 )
 
 // realListVerbose is the exact output of `wsl.exe -l -v` on the machine this
@@ -77,11 +78,13 @@ func TestDecodeWindows(t *testing.T) {
 	}
 }
 
-// utf16 encodes an ASCII string the way wsl.exe would, for table cases.
+// utf16le encodes a string the way wsl.exe would, for table cases. The label
+// a machine prints may be translated, so it is not ASCII-only.
 func utf16le(s string) []byte {
-	out := make([]byte, 0, len(s)*2)
-	for _, r := range s {
-		out = append(out, byte(r), byte(r>>8))
+	units := utf16.Encode([]rune(s))
+	out := make([]byte, 0, len(units)*2)
+	for _, u := range units {
+		out = append(out, byte(u), byte(u>>8))
 	}
 	return out
 }

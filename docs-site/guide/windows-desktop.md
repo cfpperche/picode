@@ -80,3 +80,62 @@ of sign-in. See Microsoft's [restart semantics](https://learn.microsoft.com/en-u
 also releases the process that holds WSL open. Closing only the browser leaves the tray and
 agents running. See [getting started](/guide/getting-started) for installation
 inside Linux or WSL.
+
+## See what the disk is doing
+
+The tray keeps one line about the disk, refreshed every five minutes:
+
+```
+WSL 218 GB · ≈92 GB held by Windows · C: 27 GB free
+```
+
+Below 20 GB free the line ends in `— low`, and the tooltip adds the command
+below. Hovering the icon is the whole check — no Explorer, no `df` by hand.
+
+`picode-desktop disk` prints the two sides in full, and changes nothing:
+
+```powershell
+.\picode-desktop.exe disk
+```
+
+```
+Windows
+  C:                       27 GB free of 476 GB
+  its disk file            218 GB on disk · not sparse
+                           C:\Users\you\AppData\Local\wsl\{…}\ext4.vhdx
+  held for nothing         ≈92 GB the distro has already freed
+                           Windows keeps every block it ever wrote while the file is not sparse.
+                           WSL 2.7.0.0 can convert it: wsl --manage Ubuntu --set-sparse true
+
+Inside Ubuntu
+  /                        126 GB used of 1007 GB
+  safe to reclaim          41 GB · 30 GB of it costs only the time to rebuild
+  biggest                  Go build cache 30 GB · npm cache 5.8 GB · Go module cache 2.1 GB
+```
+
+**Held for nothing** is the number Windows cannot show you anywhere: space the
+distro has already freed that the disk file still occupies. WSL gives it back
+on its own only while the file is **sparse**, and it can only compact or convert
+the file while the distro is stopped — which is why a PiCode that keeps WSL up
+also keeps that space. `picode-desktop disk` names the fix; it does not run it,
+because stopping the distro costs the sessions in it. Reclaiming with a review
+step is designed in `docs/plans/wsl-control.md`.
+
+Inside the distro, `picode disk` lists every item on its own:
+
+```bash
+picode disk          # what occupies this machine, and what is safe to reclaim
+picode disk --json   # the same measurement, for the tray and the app
+```
+
+Each item carries what giving it back costs:
+
+| Label | What it means |
+|---|---|
+| `safe` | Only time. A build cache rebuilds itself on the next build. |
+| `redownload` | Comes back from the network on the next install or test run. |
+| `data` | Yours — sessions, PiCode's own history. Never a one-line command. |
+
+The report names what it could not read instead of hiding it: paths owned by
+another account (the Docker engine's own storage is the usual one) appear as
+"not accounted for", not inside a category they do not belong to.
