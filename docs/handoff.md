@@ -21,7 +21,7 @@
 6. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan.
 7. CLI prompt door iPhone acceptance; first-class CLI agents refused until protocol convergence (ADR-0091).
 8. Compose registration ADR; ADR-0064 cadence; docs-video recapture policy.
-9. Compaction re-dogfood; historical Inbox rows; remote-mode (owner infra); browser debts: mobile stream, remote scroll (upstream wheel), multi-viewer pacing.
+9. Compaction re-dogfood; historical Inbox rows; remote-mode (owner infra).
 10. Windows clean-machine install (ADR-0098): phase 1 = `install-picode` + `install-runtime` stages in `picode-desktop.exe`; phase 2 = `install.ps1` one-liner + winget, no paid signing. Plan: `docs/plans/windows-clean-install.md`.
 11. Inspector debts (ADR-0096): `git ls-files` search, per-anchor watch, `+N −M` footer.
 
