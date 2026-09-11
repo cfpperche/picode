@@ -288,7 +288,7 @@ in progress; the diff against the last saved layout is what gets sent.
 | terminal (Agent CLI) | stopped | `TermSurface`'s own stopped state: "This CLI terminal is stopped." + Resume last session / Start from Agent CLIs | same |
 | terminal | id missing from the fleet | "That terminal is gone." + Remove | Remove |
 | agent | interactive, running | live TUI xterm | Open · Maximize · Remove |
-| agent | managed, running | phase 4: live read-only conversation; until then "Managed agent — open to read." + Open | Open · Maximize · Remove |
+| agent | managed, running | **shipped in phase 4**: the live conversation, read-only (`AgentChatPanel`), with the question and **Open** when it needs a human | Open · Maximize · Remove |
 | agent | stopped | "Agent is stopped." + Run (`POST /api/agents/{id}/managed/start` or `…/open` per its mode) | Open · Remove |
 | agent | id missing | "That agent is gone." + Remove | Remove |
 | agent | mode flips while on the matrix (`agent.*` feed) | body swaps in place; the pane is parked, not disposed | — |
@@ -317,7 +317,7 @@ game engine loading the chunks around the player.
 | Terminal also open as a tab (`host.openTabs` has `t:<id>` or the agent's tab) | the tab owns the attach; unloading only parks the pane |
 | Terminal exists only on matrices | unload = `suspendTermSocket` (socket closed, xterm kept with its scrollback); load = `kickTermSocket` through `ShellTerm`'s existing "reattach the same instance" path |
 | More than 24 suspended instances, or one suspended for 10 min | LRU disposal (`closeTerm`); a later load builds a fresh xterm — tmux still holds the screen |
-| Managed-agent panel unloads | agent socket closed, items dropped; load reconnects and refetches the tail (`useAgentSocket` already does this on connect) |
+| Managed-agent panel unloads | agent socket closed, items dropped; load reconnects and refetches the tail (`useAgentSocket` already does this on connect). Phase 4 added two rows the panes do not have: below zoom 0.4 the body is a name-plate and the socket closes there too, and at most `CHAT_LIVE_MAX` (12) conversations are live at once — the most recently arrived keep the sockets, the rest go quiet |
 | Unloaded body | a muted placeholder with the feed's last state ("Working · 2 min"); the header stays live |
 | Status of 500 unloaded panels | from `terminal.state` / `agent.*` feed events; zero attaches |
 
@@ -393,7 +393,7 @@ anchor, the rule apps already have); a badge on the Matrix tile.
 | 1 | `feat/apps-native-surface` | ADR; `Manifest.Surface`; `supportedApp` gate + tests; desktop native mount + `host` object; phone tile; `ShellTerm` re-claim; `suspendTermSocket` | `make close`; browser QA of tab↔matrix hand-off and suspend/resume |
 | 2 | `feat/matrix-store` | migration 040, store + events + invariant rows, handlers with limits/409, OpenAPI regen, feed reducers | `make close` |
 | 3 | `feat/matrix-surface` (two sessions) | grid, wrappers + chunk loading from day one, terminal + TUI bodies, picker, switcher, empty states, save/409, keyboard, `matrix.css`, visual review, guide page, changelog fragment, architecture file | `make close`; visual card |
-| 4 | `feat/matrix-chat-panel` | desktop `useAgentSocket`, read-only conversation body, Needs-you chip | `make close` |
+| 4 | `feat/matrix-chat-panel` | **Done 2026-09-10.** Desktop `useAgentSocket` (one socket per mount, the desktop's own reducer, no composer verbs), `AgentChatPanel` — the tab's `Conversation` in a new `readOnly` mode — the Needs-you chip and the question on the body, and the chat body's cost rules: live in band at zoom ≥ 0.4, name-plate and socket closed below 0.4, unmounted outside the band, `CHAT_LIVE_MAX` 12 with an LRU past it (`docs/architecture/matrix.md`, **Chat body**) | `make close`; visual card |
 | 5 | v1.1 (owner's pick) | frozen-frame placeholders, maximize polish, drag from sidebar (`dropConfig`), quick reply line, inspector follows focus, tile badge, matrix templates | — |
 | 6 | v2 | 2D canvas mode (pan, zoom, `noCompactor`), thumbnail attaches (`ignore-size`), other tab kinds as panels | its own plan |
 

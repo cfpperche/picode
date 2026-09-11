@@ -8,12 +8,12 @@
 `git worktree list` is the truth for in-flight branches; entries say what a merge must know.
 
 - `feat/herdr-validation`, `feat/picode-video-pilot` — carry pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; next `main` merge conflicts in both: keep this file's shape, changelog lines to `docs/changelog.d/`.
-- `feat/matrix-edges` (**C4, complete**) — ADR-0116 end to end: migration 044 and the `…/edges` routes, contacts = workspace ∪ live edges (derived, never cached), the canvas connector, both consent dialogs, the broken state, the grid link chip and Messages' **Matrix links** audit list. Accepted in a browser with the mailbox driven over MCP. `make close` green, ff-ready, unmerged.
+- `feat/matrix-chat-panel` (**phase 4, complete**) — a managed agent's panel is its live read-only conversation: desktop `useAgentSocket`, the tab's `Conversation` in a new `readOnly` mode, Needs-you in the chip and on the body, and the chat body's cost rules (live in band at zoom ≥ 0.4, name-plate closes the socket, cap **12** with an LRU). `make close` green, ff-ready, unmerged.
 
 ## Next up
 
 1. First release since 0.1.0: `make changelog` on `main`, then `docs/release-process.md` (`[Unreleased]` is 860 lines).
-2. Matrix phase 4 (`docs/plans/matrix-app.md` §5): desktop `useAgentSocket`, read-only conversation body for managed agents, Needs-you chip; then the v1.1 list. Matrix v2 is done through C4; C5 (group nodes, one layout library) needs its own plan.
+2. Matrix v1.1 (`docs/plans/matrix-app.md` §5 phase 5): quick reply line in a chat panel, frozen-frame placeholders, drag from the sidebar, inspector follows focus, tile badge. v1 phases 0–4 are done; v2 is done through C4, and C5 (group nodes, one layout library) needs its own plan.
 3. GitHub CI: the next push exercises the ADR-0105 workflow (Ubuntu-only Go matrix, tmux cache); macOS/Windows run on tags or `workflow_dispatch`.
 4. llama delivery 3 live validation; owned-service ARM64 acceptance.
 5. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
@@ -53,7 +53,8 @@
 - llama: ARM64 hardware and GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
 - Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip needs on-device confirmation (Preferences → Layout).
 - Matrix (ADR-0108/0109): no docs-shots capture — needs a `desktop-matrix` profile and a fixture. App-wide, from its captures: the toast covers a surface's Close; dialogs have no scrim and little dark elevation; a grow-resize leaves an idle cursor.
-- Matrix v2 (C2–C4, 2026-09-10): the band flips at gesture end and Tidy never resizes, both deliberate. Open: `+`/`-`/`0` need a focused panel; a still stamps its age only when the feed moved; only the picker adds a `file`/`diff` panel (ADR-0109). Edges (ADR-0116): no keyboard path to *draw* a link — React Flow's `Handle` offers none, so the Messages audit list is the keyboard way to read and revoke; the grid chip counts links without naming the far end; the audit list costs one matrix read per matrix (capped at 50).
+- Matrix v2 (C2–C4, 2026-09-10): `+`/`-`/`0` need a focused panel; a still stamps its age only when the feed moved; only the picker adds a `file`/`diff` panel (ADR-0109). Edges (ADR-0116): no keyboard path to *draw* a link — React Flow's `Handle` offers none, so the Messages audit list is the keyboard way to read and revoke; the grid chip counts links without naming the far end; the audit list costs one matrix read per matrix (capped at 50).
 - Fullscreen mode (2026-09-10): real browser fullscreen owns Escape, so one press leaves the mode; the double-Escape is in-app-only. The right strip is pointer-transparent, so its reveal misses an embedded frame (PDF preview). Chromium only.
-- Notices (2026-09-07): needs-you covers the fleet, but the finish card only fires for the agent whose socket is open; neither exercised against a real pi dialog.
+- Notices (2026-09-07): the finish card only fires for the agent whose socket is open.
+- Matrix chat panels (phase 4): a live panel is a watcher for `Hub.Len()`, so it suppresses the unobserved-result item and the needs-you push as an open tab does; the App socket and a panel's hand off rather than coexist, so two sockets for one agent were proven with a raw second connection.
 - Native surfaces (ADR-0109): `host` has no `openTerminal` — the Matrix POSTs `/api/terminals/{id}/open` itself (feed rows carry no `session`); a tab closing under a panel remounts the body with a fresh xterm. An unsupported tile explains itself only via `title`.

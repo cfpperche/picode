@@ -401,12 +401,13 @@ matrix and switching updates the hash. The phone lists the tile as
 | `PanelStill.jsx`, `stills.js` | the two bodies a canvas panel has instead of a live pane — the text still and the name-plate — and the memory-only map of captured screens |
 | `MatrixGrid.jsx` | react-grid-layout 2.2.4, v2 API: `useContainerWidth` on the canvas, `gridConfig {cols 12, rowHeight 24, margin 8}`, drag by `.mx-head` with `.mx-actions` as the cancel zone, `se`/`s`/`e` handles, `fastVerticalCompactor` from `react-grid-layout/extras`, children keyed by panel id, `minW 4 / minH 8` |
 | `Panel.jsx` | the wrapper every panel keeps (and `PanelHead`, which the maximize layer reuses): face, name, hint, the sidebar's chip (`agentRowStatus` / `terminalStatus`), Open · Maximize · Remove from matrix; it observes its own visibility; two memo layers so a grid re-render never touches a body |
+| `AgentChatPanel.jsx`, `web/desktop/src/hooks/useAgentSocket.js` | a managed agent's body (phase 4): one `/ws/agent?agent=` per mount driving the desktop's own `lib/agentEvents.js` reducer and reconciling `…/sessions/transcript?agent=&tail=200`, rendered by the tab's `Conversation` in `readOnly` mode. The **Chat body** section below |
 | `PanelBody.jsx`, `TerminalPanel.jsx`, `NotePanel.jsx`, `FilePanel.jsx`, `DiffPanel.jsx` | `PanelBody` routes by **kind**: a terminal or an agent is `TermSurface` (the tab's engine; a terminal first `POST /api/terminals/{id}/open`s for its live record), a note is `NotePanel` — one `GET /api/pins/{id}` per mount, `react-markdown` + `remarkGfm` over the app's `.md` styles, refetched on that pin's `pin.updated` (it subscribes to the feed itself, as the Inspector does for `git.updated`) — a file is `FilePanel`, which is `FilePane` with `variant="embedded"` plus the two things the matrix adds (`docKey`, `onDirty`) — a diff is `DiffPanel`, `WorkingDiff` under a nonce the feed bumps. Unloaded → one muted line with the feed's last state; the rows below as one line + one action |
 | `PanelFace.jsx` | the mark that says what a panel is bound to, in the header and on the name-plate: a provider face, a CLI badge, or the pin mark |
 | `PanelPicker.jsx`, `NameDialog.jsx` | cmdk list **grouped by kind** — Agents, Terminals, Pins, Open files, Changes to an open file — of what is not yet on this matrix, with the sidebar's faces and words; a group with nothing in it says so under the list with its one action (*No pins yet.* — New pin); the name form (`matrixNameSchema`, Zod, the store's messages, `noValidate`) |
 | `chunkLoader.js`, `paneOwnership.js` | the `IntersectionObserver` glue over the pure `loadPolicy`; what unloading does to an attach |
 | `web/desktop/src/lib/fileDocs.js` | the open documents of `file` panels, keyed by ref and held outside React — `paneOwnership.js` for an editor, so maximizing a panel or switching layout mode keeps unsaved text |
-| `web/shared/domain/matrix.js` | `nextSlot`, `layoutDiff`, `parseRef` / `buildRef` / `validateRef`, `refOwner`, `gitTouches`, `bindingState`, `hasPane`, `loadPolicy` (with the zoom and the per-row `pane`), `zoomBody`, `pointerAtZoom`, `unitsToPx` / `pxToUnits`, `tidyCanvas`, `normalizeViewport`, `suspendedToDispose`, `panelOrder`, `neighborPanel` (+ `PANEL_DEFAULT` 4×14, `PANEL_DEFAULT_CANVAS` 32×42, `CANVAS_ZOOM`, `PANEL_DIRECTIONS`) — one test per row below in `matrix.test.js` |
+| `web/shared/domain/matrix.js` | `nextSlot`, `layoutDiff`, `parseRef` / `buildRef` / `validateRef`, `refOwner`, `gitTouches`, `bindingState`, `hasPane`, `loadPolicy` (with the zoom and the per-row `pane`), `zoomBody`, `pointerAtZoom`, `unitsToPx` / `pxToUnits`, `tidyCanvas`, `normalizeViewport`, `suspendedToDispose`, `hasChat` / `CHAT_STATES` / `CHAT_LIVE_MAX` / `chatBudget`, `panelOrder`, `neighborPanel` (+ `PANEL_DEFAULT` 4×14, `PANEL_DEFAULT_CANVAS` 32×42, `CANVAS_ZOOM`, `PANEL_DIRECTIONS`) — one test per row below in `matrix.test.js` |
 
 **The fleet decides what a panel is bound to**, and a note's pin follows the
 same rule from the surface's own list: `pins` is `null` until
@@ -439,7 +440,7 @@ again on `pin.*`, and one `gitdiff` read per `diff` panel, again on a
 | `terminal-stopped` (a CLI terminal, `launchCli` + `running: false`) | `TermSurface`'s own stopped state — Resume last session / Start from Agent CLIs | same |
 | `terminal-gone` | "That terminal is gone." | Remove |
 | `agent-interactive` | live TUI | Open · Maximize · Remove |
-| `agent-managed` | "Managed agent — open to read." (phase 4 brings the conversation) | Open · Remove |
+| `agent-managed` | the agent's **live conversation, read-only** — `AgentChatPanel`, the **Chat body** section below. Not live (unloaded, over the cap, or a name-plate): one line and **Open** | Open · Maximize · Remove |
 | `agent-stopped` | "Agent is stopped." — **Run** (`POST /api/agents/{id}/open`; the feed flips the mode and the body swaps in place) | Open · Remove |
 | `agent-gone` | "That agent is gone." | Remove |
 | `note-ready` | the pin's markdown, read-only | Open in Pin Studio · Maximize · Remove |
@@ -488,6 +489,98 @@ desktop to know which matrix is open and where a panel would land, and that
 state lives inside the Matrix app's surface — apps read the desktop through
 `host`, never the other way round (ADR-0109). Adding it means giving the
 desktop a matrix client of its own, which is a decision, not a line.
+
+### Chat body (phase 4)
+
+A managed agent's panel is its **live conversation, read-only** — the reason
+the Matrix shows agents at all rather than only terminals. It is the tab's
+own `Conversation` (same turns, tool cards, markdown and diff lines) given
+the panel's height: one scroller — `.conversation` is `position: absolute;
+inset: 0` in a tab, so a panel makes it a flex row instead and there is
+never a second scrollbar — with `--chat-gutter` and `--chat-col` narrowed,
+the tab's 280 px composer floor removed, and the body at the panel's own
+density rather than the tab's 16 px reading column. Sticky to the bottom
+the way the tab is, with two corrections a panel needs: `stuckToBottom`
+takes a pad (the tab's 320 px is its composer floating over the list; a
+panel that is 365 px tall uses `PANEL_PAD` 64, or every position would read
+as "the bottom" and yank a reader who scrolled up), and a `ResizeObserver`
+on the column re-pins while the reader is at the bottom, because content
+that grows after the commit — a code block measuring itself, KaTeX, the
+needs-you bar taking 45 px out of the scroller — fires no scroll event. Everything that *writes* is left out —
+no composer, no queue Edit/Remove, no ask form, no snippet Run — because the
+one way to answer is **Open**, which is the agent's tab. Nothing is
+disabled-with-a-tooltip: a control that cannot act is not drawn.
+`Conversation` gained exactly two props for this: `readOnly` and `id` (the
+tab keeps `conversation`; a matrix may hold several at once, so a panel
+passes null and no id repeats).
+
+**The socket is per mount** (`web/desktop/src/hooks/useAgentSocket.js`, the
+desktop port of the phone's hook): one `/ws/agent?agent=<id>`, the desktop's
+own pure reducer (`lib/agentEvents.js` — not a third copy), and the
+transcript window reconciled on every `snapshot` and `agent_settled`
+(`reconcileTranscript` / `liveSince` / `transcriptGate`). The workspace id
+comes from the panel's model, because the transcript route refuses an agent
+that is not in the workspace it names. Of the reducer's effects only
+`scroll` is executed: `replyUI` would make a reader answer, and `toast`
+would let N panels shout one agent's error — which is already an `alert`
+item in the conversation the panel renders, and the selected agent's tab is
+what toasts. The composer verbs (`send`, `abort`, `replyAsk`, `runBash`)
+are deliberately **not** ported; phase 5's quick reply line is where they
+land, verbatim from the mobile hook.
+
+**Two sockets for one agent are fine** — the server's `Hub.Subscribe` hands
+every connection its own buffered channel and `Broadcast` writes to all of
+them. Measured: a second socket opened beside a panel's received all 31
+events of a turn (snapshot, 21 `message_update`, settle) while the panel
+rendered the same turn. In one page the App-level socket and a panel's
+*hand off* rather than coexist for long — `App.jsx` closes its socket when
+the agent's surface stops being selected, and a hidden matrix unloads its
+panels after the 5 s hysteresis — so the overlap is the few seconds of a tab
+switch, which is enough to prove neither drops nor duplicates. One
+consequence is worth knowing: `Hub.Len()` is the server's *is anybody
+watching* gate (ADR-0037), so a live chat panel suppresses the unobserved
+`result` inbox item and the needs-you push exactly as an open tab does. That
+is the same rule, not a new one — the conversation really is on screen — and
+it holds only while the panel is live, because a hidden matrix holds no
+sockets of its own.
+
+**What a chat body costs, and the rule that follows** (`hasChat`,
+`loadPolicy`, one test per row in `matrix.test.js`). There are three costs,
+not two. A pane is an xterm plus a tmux attach and is the only body with a
+**cell**, so the zoom's pointer and still rules bind it alone. A note, a
+file or a diff is one fetch and some DOM. A chat is neither: no cell, so it
+never goes still — but a WebSocket and a transcript, so leaving it mounted
+where it cannot be read is waste. **Its socket is open exactly while its
+body reads `live`**; no component holds an `if` about it.
+
+| Condition | Chat body |
+|---|---|
+| in the band, `zoom ≥ 0.4` | **live**: socket open, conversation rendered |
+| `zoom < 0.4` | **name-plate**, socket closed — a plate cannot show a conversation |
+| outside the band, any zoom | **unmounted** and socket closed, after the same 5 s hysteresis the panes get; loading again reconnects and refetches the tail |
+| more than `CHAT_LIVE_MAX` live in the band | **quiet**: the panels that entered the band most recently keep the sockets, the rest say *Paused — 12 conversations are already live.* + Open |
+| needs-you while not live | the **header** still says it — the chip is the fleet's (`agentRowStatus`), never this socket's, which is what lets a zoomed-out matrix tell you which agent is blocked |
+
+**The cap is 12** (`CHAT_LIVE_MAX`), and it is an LRU on the moment a panel
+entered the band — `suspendedToDispose`'s shape, applied to sockets instead
+of xterm instances. The order is fixed while a panel stays in the band, so
+nothing thrashes; a panel that leaves frees its slot through the same 5 s
+hysteresis, so scrolling back up returns the sockets to where the reader is.
+Measured on a scratch at 1600 × 1100 with **twenty** managed agents (twenty
+live `pi` processes) on one 12-column matrix of 4×14 panels: at rest 9 in
+the band and **9 sockets**; scrolled to a quarter, 12 and 12; scrolled to the
+middle, **18 chat bodies in the band, 12 sockets and 6 quiet**; at the
+bottom 11; and 8 once the 5 s hysteresis settled. It never reached 13. The
+band alone therefore bounds a screenful (9–12); the cap is what bounds the
+*band*, which at 4×14 panels holds about 18.
+
+**Needs you** is the state this phase exists for. The chip is already the
+fleet's, so it is right for an unloaded panel, a quiet one and a name-plate.
+The body adds the question: the open ask renders read-only (what was asked
+and what the choices are, as static pills), and a bar on the body's floor —
+one line and one action — carries the question's title and **Open**. Both
+are built from the fleet's `dialog` (`lib/needsYou.js`'s `methodLabel` for a
+dialog with no title of its own), so the header never depends on the socket.
 
 **Ownership** (`paneOwnership.js`, plan §4.6):
 
@@ -630,6 +723,16 @@ capture, so the still row never applies to it. It follows the other three:
 | in the band, `zoom ≥ 0.4` | renders normally, pointer and all: DOM text scales, and the pointer bug is xterm's alone |
 | `zoom < 0.4` | the same **name-plate** as everything else — down there nothing textual is legible |
 | outside the band, any zoom | unmounted, like every other body: there is no socket to suspend, and mounting again is one fetch |
+
+A **chat** body (phase 4) is the one exception to the last row's "no socket
+to suspend": it has no cell, so the still never reaches it, but it does hold
+a connection, so the plate and the band close it. The **Chat body** section
+above is its table. Measured on the canvas at 1600 × 1100 with two managed
+agents and a shell: at 100 % and 81 % both chats live with 2 sockets; at
+47 % the shell is a still and the two chats are **still live** with their
+2 sockets; at 23 % and 20 % three name-plates and **0 sockets**, the panels
+still loaded; back at 50 % the 2 sockets and both conversations (10 and 3
+turns) returned.
 
 The band it reports back is still the pane band, because the band is what
 bounds the *attaches*; `zoomBody(zoom, band, pane)` answers both rows from

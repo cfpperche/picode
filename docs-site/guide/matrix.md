@@ -110,7 +110,7 @@ the panel's body is asleep.
 | the changes to a file | the diff, kept up to date as the file changes |
 | a stopped CLI terminal | *This CLI terminal is stopped.* — Resume last session |
 | an agent working in its terminal | its live screen |
-| a managed agent | *Managed agent — open to read.* — Open |
+| a managed agent | its conversation, live and read-only — the same turns, tools and answers its tab shows |
 | a stopped agent | *Agent is stopped.* — Run |
 | something that was deleted | *That terminal is gone.* — Remove |
 
@@ -119,6 +119,29 @@ The screen follows you there and comes back when you return to the matrix —
 there is only ever one of it. On a note the same button opens **Pin
 Studio**, which is where a note is written; the panel picks the change up
 as soon as you save it.
+
+### A managed agent's conversation
+
+A panel bound to a managed agent shows what it is saying, as it says it —
+the same turns, tool cards and answers you would read in its tab, scrolling
+itself as the agent writes. You read here; you **answer in the tab**. The
+panel has no message box, no queue buttons and no way to reply to a
+question, so nothing you click by accident can reach the agent.
+
+**When the agent is waiting on you**, the chip turns to **Needs you** and
+the panel shows the question with the choices it is offering, above a line
+across the bottom of the body that names it and gives you **Open**. Open
+takes you to the agent's tab, where you answer. The chip is the same one the
+sidebar shows, so a panel says *Needs you* even when its body is asleep or
+the matrix is zoomed too far out to read — which is the point: you can see
+which of twenty agents is blocked from across the whole board.
+
+A conversation costs a live connection, so the matrix only keeps the ones
+you can actually read: panels far from what you are looking at are put to
+sleep, panels below 40 % zoom become name-plates, and if more than twelve
+conversations are in view at once the ones you scrolled past longest ago say
+*Paused* until you come back to them. Nothing is lost — the conversation is
+read again from the start when the panel wakes up.
 
 Notes, files and diffs are not terminals, so the rules that exist for
 terminals do not apply to them: they take your clicks and your scrolling at any zoom, and
