@@ -198,8 +198,10 @@
    (--bg-base), where a plain .btn is the same near-body fill in both
    themes and reads as text with a hairline. It takes the hover fill at
    rest — a real step from the body — and keeps .btn:hover's border change
-   as its hover answer. */
-.cv-placeholder .btn { min-height: var(--ctl-h); background: var(--bg-hover); }
+   as its hover answer. The accented one (PanelBody's rule: the action that
+   starts work) already carries its own fill and must keep it. */
+.cv-placeholder .btn { min-height: var(--ctl-h); }
+.cv-placeholder .btn:not(.btn-primary) { background: var(--bg-hover); }
 
 /* Maximize (plan §4.6): host-level state, not a transform on the node.
    The maximized panel's body renders in a layer over the plane (`.cv-max`,

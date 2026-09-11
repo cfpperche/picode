@@ -16,11 +16,18 @@ import AgentChatPanel from "./AgentChatPanel.jsx";
 // the feed's last state ("Working · 2 min") — the header stays live either
 // way. A binding the fleet cannot serve is one line and one action, whether
 // loaded or not.
-function Line({ text, action, onAction }) {
+// One line and one action. Which weight that action carries is a rule, not
+// a taste: **the action that starts work is accented, the action that only
+// navigates or tidies is not**. So Run on a stopped agent is the same
+// accent button the agent tab offers for the same verb (ChatSurface's
+// "Run agent") — a stopped panel's Run used to be a plain chip beside it,
+// which read as the disabled one of the pair — while Open (go to the tab)
+// and Remove (drop a binding whose target is gone) stay quiet.
+function Line({ text, action, onAction, primary = false }) {
   return (
     <div className="cv-placeholder cv-state" role="status">
       <span>{text}</span>
-      <button type="button" className="btn btn-sm" onClick={onAction}>{action}</button>
+      <button type="button" className={"btn btn-sm" + (primary ? " btn-primary" : "")} onClick={onAction}>{action}</button>
     </div>
   );
 }
@@ -34,7 +41,7 @@ export default function PanelBody({ model, loaded, body = "live", hidden, focuse
   switch (model.state) {
     case "terminal-gone": return <Line text="That terminal is gone." action="Remove" onAction={onRemove} />;
     case "agent-gone": return <Line text="That agent is gone." action="Remove" onAction={onRemove} />;
-    case "agent-stopped": return <Line text="Agent is stopped." action="Run" onAction={onRun} />;
+    case "agent-stopped": return <Line text="Agent is stopped." action="Run" onAction={onRun} primary />;
     case "agent-managed":
       // The conversation, read-only, exactly while the loader says this body
       // is live — in the band, at zoom 0.4 or more, under the chat cap. The

@@ -52,7 +52,9 @@ const TerminalPanel = memo(function TerminalPanel({ kind, target, cwd, hidden, f
     return (
       <div className="cv-placeholder" role="status">
         <span>{error}</span>
-        <button type="button" className="btn btn-sm" onClick={() => setEpoch((e) => e + 1)}>Try again</button>
+        {/* PanelBody's rule: the action that starts work is accented. This
+            one re-runs the open that failed, so it is the panel's primary. */}
+        <button type="button" className="btn btn-sm btn-primary" onClick={() => setEpoch((e) => e + 1)}>Try again</button>
       </div>
     );
   }

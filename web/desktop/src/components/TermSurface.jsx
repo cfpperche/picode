@@ -52,7 +52,7 @@ export default function TermSurface({ term, error, hidden, autoFocus = true, onO
         <div className="file-pane-msg" role="status">
           <span>{term.lostAtRestart ? "PiCode restarted while this terminal was running. " : "This CLI terminal is stopped. "}</span>
           {term.lastSession ? (
-            <button type="button" className="btn btn-sm" disabled={resuming} onClick={resumeLast} title={term.lastSession.preview || undefined}>
+            <button type="button" className="btn btn-sm btn-primary" disabled={resuming} onClick={resumeLast} title={term.lastSession.preview || undefined}>
               {resuming ? "Resuming…" : "Resume last session"}
             </button>
           ) : null}
