@@ -12,5 +12,4 @@ menu overlayAudit ok, mobile 390×844 Providers (stacked cards). Screenshots
 `var/screenshots/cli-providers-pane/` (not committed).
 visual-review: PASS
 Not done / debts: Agent CLIs still not in docs-shots SURFACE_PROFILES (same gap as Canvas).
-Merge: not fast-forward ready — main moved (pkg-config-c3 landed as d50030ff); merge main
-and re-run close.
+Merge: fast-forward ready (main merged as 8353bc7b).
