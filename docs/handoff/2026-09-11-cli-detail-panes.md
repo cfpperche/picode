@@ -15,4 +15,4 @@ visual-review: PASS
 Not done / debts: Agent CLIs still not in docs-shots SURFACE_PROFILES (same gap
 as Canvas). Isolated scratch had no real session files (empty states only).
 Outer strip still clips "Messages" to "Message" on 390px — pre-existing.
-Merge: not fast-forward ready (main moved to da038181 after close; merge main, then `make close`).
+Merge: fast-forward ready (main merged as e7052538).
