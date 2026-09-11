@@ -2,7 +2,8 @@
 
 - **Date:** 2026-09-10
 - **Status:** accepted — every question in §8 was taken by the owner on
-  2026-09-10, question 7 included. **C0, C1, C2 and C3 are done**; C4 is next.
+  2026-09-10, question 7 included. **C0, C1, C2, C3 and C4 are done**; C5 is
+  the only phase left, and it is deferred to its own plan.
   **C0's numbers are folded in below**
   ([`docs/benchmarks/2026-09-10-node-canvas.md`](../benchmarks/2026-09-10-node-canvas.md)):
   GO on `@xyflow/react`, with one rule this plan did not have — a live
@@ -48,7 +49,7 @@ inference from their published material.
 | "Server Edition" for browser access | PiCode **is** the browser product; for them it is an add-on to Electron |
 | Editors, diffs, notes, web as nodes | CodeMirror file tabs, `WorkingDiff`, pins with sketches — as tabs, not as nodes |
 | Infinite canvas, pan and zoom, React Flow | **the gap this plan closes** |
-| Edges wiring agents for shared transcripts | transport exists (broker, ADR-0104 peer communication); no visual edges, and the sharing rule is a security decision (§6, C4) |
+| Edges wiring agents for shared transcripts | **matched as a mailbox link, refused as transcript sharing** (ADR-0116, C4): an edge grants ADR-0104's contact and nothing else. Someone comparing PiCode to nodeterm will find no transcript sharing; that is the decision, not an omission |
 | Kanban board of live sessions | **refused here** — a board is its own surface, and PiCode's queue is the Inbox (ADR-0037). If it is ever wanted, it is a separate app, not a mode of this one |
 
 **The adaptation:** take the spatial canvas and the node vocabulary;
@@ -285,7 +286,7 @@ Enter's engage triggering the snap to 1.
 | C1 | `feat/matrix-canvas-model` | **done 2026-09-10** — ADR-0113 (amends ADR-0108) and migration 043: the `mode` column, per-mode units and plane bounds, `SetMatrixMode` (one transaction, the switch transform, the `matrix.mode` event), `mode` on `PATCH /api/matrices/{id}` answering summary + moved panels, and `matrix.js` per-mode validation with `gridToCanvas`/`canvasToGrid`. No UI; OpenAPI unchanged (no new route) | `make close` |
 | C2 | `feat/matrix-canvas-surface` (two sessions) | **done 2026-09-10** — canvas mode end to end: the lazy React Flow host, the same `Panel` wrapper as a node type, zoom-aware `loadPolicy` with `zoomBody` / `pointerAtZoom`, stills captured before the flip, name-plates, a themed minimap and zoom cluster, the `Grid \| Canvas` switch with its lossy-direction confirm, Tidy, marquee, per-viewer camera, the canvas keys, and the `docs-site` guide. Accepted in a browser row by row (`docs/architecture/matrix.md`, *Accepted in a browser*): the pointer rule proved against real clicks and tmux SGR reports, agent panels, maximize, a 24-panel marquee at 62.7 fps in one save, 409s from a second browser, fullscreen, chunk loading under the transform. Two divergences kept: the band flips at gesture end, and Tidy never resizes | `make close`; visual card |
 | C3 | `feat/matrix-node-kinds` | **done 2026-09-10** — all three kinds, one commit each. The store's `kind` grew by a validator line and its `ref` gained a shape per kind (`<owner>:<id>:<path>` for file and diff, parsed and built only in `matrix.js`); `bindingState` gained the gone rows (a pin deleted, an owner gone — a missing file is the body's news); `zoomBody`/`loadPolicy` gained a per-row `pane`, so a body with no cell never goes still and is a name-plate below 0.4; an editor with unsaved text is `keep`-pinned against the band **and** its document lives in `lib/fileDocs.js`, so maximize and the mode switch keep it. The picker groups by kind and offers files only from open file tabs. Accepted in a browser (`docs/architecture/matrix.md`, *Accepted in a browser (2026-09-10, C3)*) | `make close`; visual card |
-| C4 | `feat/matrix-edges` | **ADR first — it crosses the security model**: an edge grants two sessions the right to read each other, built on ADR-0104's transport; drawing, removing (which revokes), and what an edge shows when one end dies | ADR accepted before code |
+| C4 | `feat/matrix-edges` (two sessions) | **done 2026-09-10** — ADR-0116 accepted before any code, and it refused the benchmark's headline: an edge grants ADR-0104's **mailbox contact and nothing else**, never a transcript. Session 1: migration 044, the `…/edges` routes, `edges` on the matrix read, contacts = workspace ∪ live edges (derived on every read, never cached; `SendPeerMessage` obeys the same union; the MCP surface gained no verb). Session 2: the header connector (`Handle` + `onConnect`, agent and terminal panels only), the two consent dialogs that are never merged (cross-folder naming both folders, then the existing enrolment), the broken state with its reason, a link chip with the count in grid mode, and **Matrix links** — every live edge, non-spatially, in the Messages view. Accepted in a browser row by row with the mailbox driven over MCP, not inferred (`docs/architecture/matrix.md`, *Accepted in a browser (2026-09-10, C4)*) | ADR accepted before code; `make close`; visual card |
 | C5 | later | group nodes bound to a worktree, the one-library end state chosen per §3 (port grid mode or delete it, then remove RGL), `web` nodes if the owner wants them | its own plan |
 
 C1 and C2's first session can overlap only if C1 lands the migration

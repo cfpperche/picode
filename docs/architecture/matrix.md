@@ -271,6 +271,99 @@ when an end is not on the board — the one case it must not draw.
 `matrix.panel.removed` drops the edges that touched the panel, mirroring the
 store's cascade (which announces no event per edge).
 
+**Drawing one** (`MatrixCanvas.jsx`, `MatrixLink.jsx`, `MatrixSurface.jsx`).
+React Flow's `Handle` plus `onConnect`: a connector knob in the panel
+header, in the action row that already carries `nodrag`, so a drag from it
+starts a connection and never moves the panel; the body keeps `nodrag
+nowheel` and `.mx-head` stays the drag handle. It is hidden until the panel
+is hovered, focused or selected — 200 panels must not wear 200 knobs — and
+**only `agent` and `terminal` panels have one**: a note has no mailbox, the
+store refuses that edge, and a UI that offers what the store refuses teaches
+a lie. `connectionMode` is **loose**, React Flow's word for "any handle may
+meet any handle", which is the honest model for an undirected edge: one
+connector per panel, and `source`/`target` in `onConnect` are only the
+order the pointer travelled — the store sorts the pair. Two refusals are
+live during the drag (a panel to itself, a pair already linked) so the drop
+reads invalid instead of arriving as a 409; every other refusal is
+`validateEdge`'s, in the server's words, before the request.
+
+**The two questions** (`matrixGrants.js`; ADR-0116 §5, *an edge never enrols
+silently*). The connection list is read **fresh** on every draw — enrolment
+is exactly the thing that may have changed a second ago — and nothing is
+written until the owner has answered:
+
+1. **Across two folders**, first and on its own, naming both: *"Atlas works
+   in ~/a and Delta in ~/b. Linking them lets these two sessions message
+   each other across folders — nothing else is shared, and neither can read
+   the other's history."* It is asked separately because pairing across
+   workspaces is the only thing an edge can do that the workspace rule could
+   not (§3).
+2. **An end that is not connected**, offering the existing owner enrolment
+   (`POST /api/communication`, `automatic` when the CLI supports launch —
+   the same call the Messages view makes): *"Cleo is not connected yet —
+   connecting it and drawing this link lets Atlas and Cleo message each
+   other. Neither can read the other's history."*
+
+Cancel at either leaves no edge **and no connection**. Two ends the store
+would refuse to enrol are said plainly instead of offered a failing action:
+a session that is gone, and one with no recorded conversation (`EnablePeer`
+needs a session, a workspace and a CLI). Both dialogs are `askConfirm` —
+the app's `ResponsiveDialog` primitive (ADR-0046) — one line and one action
+at `--ctl-h`. Removing asks the same way, and **only while the link still
+grants**: taking away a link that grants nothing takes nothing away.
+
+**Reading broken** (§7). `matrixGrants.js` joins a matrix's edges and panels
+with `GET /api/communication` — whose `connections[].active` *is* the
+store's `peerCurrent` — and answers `grants`, the reason, and whether the
+pair crosses folders. It is the only place that decides, so the plane and
+the audit list can never disagree. The four reasons are kept apart because
+each has a different next action: `gone` (the session left the fleet),
+`off` (never enrolled), `revoked` (the owner revoked it), `stale` (the
+recorded session moved). A link that grants nothing is drawn in the warn
+colour with an unlink mark, the word **Broken**, and the one line naming
+which end and why — never a dotted line, which is a thing a viewer learns
+to ignore. The connection list is read only when the matrix holds an edge,
+refreshed on `peer.*` **and** on `agent.updated` / `terminal.updated` /
+`*.deleted` (a grant can stop granting because the *owner* changed session,
+which no `peer.*` row announces), debounced 400 ms — the feed, never a
+timer. A failed read keeps the last answer: flipping every live link to
+broken is the one direction a wrong answer is dangerous in.
+
+**Where the chip sits**, and why it is the way it is (the browser pass,
+below, is the evidence). React Flow draws edge labels *under* the nodes and
+the midpoint of a line between two headers lands on a panel more often than
+not, so the chip is lifted above the nodes and pushed off the line by half
+its own size plus ten screen pixels along the line's normal — forced to one
+side, because the arithmetic's side follows the stored pair order, which is
+the panel ids sorted and nothing a viewer can see. A link that **grants**
+shows its chip only while it is asked for (hover or selection, with a grace
+period so the pointer can cross the gap to it); a link that **grants
+nothing** shows it always. Hovering the chip — not only selecting the line —
+is what reveals the reason, because two panels close together hide their
+whole link behind themselves and then the line has no hittable pixel.
+
+**Edges in grid mode.** An edge belongs to the matrix, not to a mode, but a
+grid has no plane to draw one on. The header wears a **link chip with the
+count** instead (`linkCounts` / `linkChipTitle`), amber when any of them
+grants nothing, and it leads to the audit list. The alternative — drawing
+edges over the grid — was refused: react-grid-layout reflows panels on
+every compaction, so a line would chase rows that move for reasons that
+have nothing to do with the link, and the count is the whole of what a
+non-spatial layout can honestly say.
+
+**The audit list** (`web/desktop/src/components/MatrixLinks.jsx`), the
+non-spatial place ADR-0116's Consequences ask for by name. A section in the
+Messages view (`#/clis/messages`) listing **every** live edge: both ends by
+name and kind, the matrix it lives on, whether it grants right now, and a
+Remove that calls the same `DELETE` the canvas does. It reuses the
+participants list's row shape — "who may reach whom" should read the same
+whether the pairing came from a workspace or from a line someone drew — and
+it is deliberately **not** scoped to the workspace picker above it, because
+an edge is per pair and half of what it is for is pairing two folders.
+Reads: the matrix list plus one detail per matrix (which already carries
+`edges` and `panels`) and the connection list, refreshed by the same feed
+rows, debounced.
+
 Decision table (every row has a store test in
 `internal/store/matrix_edges_test.go` and, where it is an HTTP answer, a
 handler test in `internal/server/matrix_test.go`):
@@ -636,6 +729,41 @@ note — in both themes:
 | unsaved work | typing in the file panel turned the chip to **Unsaved**; with the matrix tab hidden for 9 s every other body unloaded (`data-loaded="0"`) and that one did not; maximizing it and switching canvas → grid both kept the text and the chip |
 | the store's answers | 409 *This note is already on this matrix* and *This diff is already on this matrix*; 400 *ref must be `<owner>:<id>:<path>` with owner t, a or w* and *kind must be agent, terminal, note, file or diff*; the same path as a `file` and as a `diff` is two panels |
 | Open in Pin Studio | the note header's Open lands on `#/pins/<id>` with that pin loaded |
+
+**Accepted in a browser (2026-09-10, C4)** on a scratch instance at
+1440 × 900 in both themes, seeded with two workspaces (`Alpha` at the
+worktree, `Beta` at `/tmp/picode-qa-beta`), four `pi` agents with recorded
+sessions — Atlas, Bravo, Cleo in Alpha, Delta in Beta — and a five-panel
+canvas matrix whose fifth panel is a note. Every mailbox claim was **driven
+through the MCP endpoint** with a bearer the scratch minted, never inferred
+from the UI:
+
+| Row | Observed |
+|---|---|
+| baseline, before any edge | `list_contacts` — Atlas sees `Bravo` (same workspace, ADR-0104 unchanged); Delta sees **nothing** |
+| draw between two enrolled panels, one workspace | a real pointer drag from Atlas's connector to Bravo's: the line appeared, **one** `POST …/edges` → 201, no dialog, and a **second browser session** that never touched the plane drew the same `edge-90d707f3e244` from `matrix.edge.added` alone |
+| draw when an end is not enrolled | *Connect Cleo?* — "…lets Atlas and Cleo message each other. Neither can read the other's history." **Cancel**: still 1 edge, Cleo still has no connection, and the only request the whole gesture made was the one `GET /api/communication` it asks with. Confirm: `POST /api/communication` 201 **then** `POST …/edges` 201, and both lines read `is-live` |
+| draw across two workspaces | a second confirm, on its own: *"Atlas works in ~/picode/.worktrees/matrix-edges and Delta in /tmp/picode-qa-beta…"*. After it, **`list_contacts` for Delta returned `Atlas`** (workspace `alpha-ed1885`) where it had returned nothing, and `send_message` Delta → Atlas was **accepted** and landed in the Messages history |
+| remove the line | the chip on the line → *Remove this link? Delta and Atlas will no longer be able to message each other.* → Delta's contacts **empty again**, Atlas no longer lists Delta, and `send_message` answered *connection is disabled or its recorded conversation changed* |
+| revoke one connection in Messages | Advanced → Cleo → **Disable**: the audit row turned amber with *Cleo's connection was revoked; the link grants nothing.* (no reload — the `peer.*` row), the plane drew the edge `is-broken`, and Atlas's contacts dropped Cleo |
+| re-connect | drawing Bravo → Cleo offered the enrolment again; confirming it made **all three** edges live at once, including the one that had been broken — the grant is derived, so nothing had to be repaired |
+| the session moves | `PATCH /api/agents/{delta}` to a new `sessionPath`: the link read *Delta's session changed; the link grants nothing.*, the grid chips turned amber (`3 links, 1 broken`), and the old bearer stopped answering. Putting the path back made it live again — **both ways, with no reload** |
+| delete one panel | removing the Delta panel took its edge with it (3 → 2 edges, no per-edge event) and Delta's contacts went **empty** |
+| a note panel | no connector on it, and a hand-made `POST …/edges` with the note's id answered **400** *panel … is a note panel and has no mailbox: an edge links agent or terminal panels* |
+| the audit list | the same edges as the plane, each with both ends, both kinds, the matrix, and whether it grants; its **Remove** confirmed in one line and revoked for real (Delta's contacts `["Cleo"]` → `(none)`); the list survived a reload; it listed the cross-folder pair with **no** workspace chosen |
+| grid mode | the header chips read 2 · 2 · 3 · 1 against four edges, amber with the count of broken ones, and the note panel has none |
+| geometry | `__picodeOverlayAudit()` `ok: true` on both dialogs in both themes; dialog buttons 36 px = `--ctl-h`; no misaligned `[data-align-row]` |
+
+Four defects this pass found and fixed, all of them about a line you can
+cover: the chip rendered **under** the panels (React Flow draws edge labels
+below nodes), then covered the panel name once lifted, then made a
+three-link board wear three pills on three headers, and finally a link
+between two adjacent panels had **no hittable pixel at all** — its whole run
+was behind them. The current rules (elevate, push off the line's normal,
+show a live chip only on hover or selection, reveal the reason on the
+chip's own hover) are each one of those four. A fifth was not visual: a
+`PATCH` of an agent's session path left every chip reading live, because
+only `peer.*` was being watched.
 
 **Re-measured on a scratch (2026-09-09, phase 3 session 2)** against
 [`docs/benchmarks/2026-09-09-matrix-live-grid.md`](../benchmarks/2026-09-09-matrix-live-grid.md):

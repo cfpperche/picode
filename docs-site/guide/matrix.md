@@ -132,6 +132,64 @@ do, then add it here — as the file, as its changes, or both. **Unsaved changes
 never put to sleep while it holds them, and maximizing it or switching the
 matrix to the other layout keeps your text. Removing the panel asks first.
 
+## Link two panels
+
+A **link** between two panels is you saying: *these two sessions may send
+each other messages.* Drawing one is the whole gesture — hover a panel on
+the canvas, and a small round connector appears at the right of its header;
+drag it onto another panel.
+
+**What a link does, exactly.** The two sessions gain each other as a
+**contact** in PiCode's messaging (the same thing the **Messages** page sets
+up for a folder). One can send the other a message and read the replies,
+and that is all.
+
+**What a link never does.** It does not let one session read the other's
+history — not its transcript, not its scrollback, not its session file, not
+what you typed into it. Those often hold file contents, command output and
+credentials, and reading is copying: once a session had another's log, no
+amount of removing the line could take it back. If one agent needs to know
+what another found, it asks — and the other answers in its own words, with
+its own judgement about what to share.
+
+**PiCode will always ask first.** Drawing a line never connects anything
+quietly:
+
+- If one of the two is not connected yet, you are offered the connection in
+  one line, with what it grants. Cancel and nothing at all is written — no
+  link, no connection.
+- If the two work in **different project folders**, you are asked again,
+  separately, and the question names both folders. Two sessions in the same
+  folder can already message each other with no link at all; a link across
+  folders is the one thing that is genuinely new, so it gets its own yes.
+
+**Removing a link takes the permission with it.** Click the small chip on
+the line (or select the line and press <kbd>Delete</kbd>) and confirm. There
+is nothing left over: PiCode works out who may message whom from the lines
+that exist right now, so the moment a line is gone, so is the permission.
+Deleting either panel, or the whole matrix, does the same.
+
+**A link that is not working says so.** It turns amber, is marked **Broken**
+and tells you why when you point at it — *"Cleo's connection was revoked;
+the link grants nothing"*, *"Delta's session changed; the link grants
+nothing"*. A broken link grants nothing at all; it is not a faded version of
+a working one.
+
+Only **agents** and **Agent CLI terminals** can be linked. A note, a file or
+a diff has no mailbox, so those panels have no connector.
+
+In **grid** mode there is no plane to draw on, so each panel's header shows
+a small chip with how many links it has — amber if any of them is broken.
+
+### Read every link in one place
+
+**Agent CLIs → Messages** ends with **Matrix links**: every link you have
+drawn, anywhere, with both ends, which matrix it lives on, whether it is
+working right now, and a **Remove** that revokes it exactly as the canvas
+does. It is not filtered by the folder picker above it — links across two
+folders are precisely the ones you want to see — so this page is the
+complete answer to *"which of my sessions can reach which?"*
+
 ## Keyboard
 
 Click a panel's header once (or press <kbd>Tab</kbd> into the matrix) to
@@ -177,6 +235,7 @@ The same button, now **Restore**, puts it back; from the keyboard that is
 | 64 matrices, 500 panels each | a matrix is meant to feel unbounded; the cap keeps one page's load honest |
 | smallest panel: 4 columns × 8 rows in a grid, 256 × 224 pixels on a canvas | anything narrower is too cramped for a terminal to be readable |
 | zoom from 20 % to 150 % | further out than 20 % nothing resolves, even a name; further in the panel is bigger than the screen |
+| 1000 links per matrix | a link is a permission you drew by hand; a thousand of them is already more than anyone can audit |
 | only panels near what you are looking at stay connected | each live panel is a real connection to a real terminal; the rest show their last state in the header and wake up when you reach them |
 
 Scrolling or panning past a panel does not connect it — it has to stay in
