@@ -1,4 +1,4 @@
-import { CHAT_LIVE_MAX, hasChat, hasPane, parseRef } from "@picode/shared/domain/matrix.js";
+import { CHAT_LIVE_MAX, hasChat, hasPane, parseRef } from "@picode/shared/domain/canvas.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
 import TerminalPanel from "./TerminalPanel.jsx";
 import NotePanel from "./NotePanel.jsx";
@@ -25,7 +25,7 @@ function Line({ text, action, onAction }) {
   );
 }
 
-// hasPane and hasChat are the domain's (web/shared/domain/matrix.js): the
+// hasPane and hasChat are the domain's (web/shared/domain/canvas.js): the
 // rows whose body *is* a terminal, and the row whose body holds an agent
 // socket. Re-exported here because this is where the components already ask.
 export { hasChat, hasPane };

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { crossFolderConfirm, edgeGrant, edgeLinks, endOf, enrolOffer, linkChipTitle, linkCounts, peerIndex, peerKey, removeConfirm } from "./matrixGrants.js";
+import { crossFolderConfirm, edgeGrant, edgeLinks, endOf, enrolOffer, linkChipTitle, linkCounts, peerIndex, peerKey, removeConfirm } from "./canvasGrants.js";
 
 const panels = [
   { id: "p1", kind: "agent", ref: "a1" },
@@ -80,7 +80,7 @@ test("a broken end reads broken, with the reason that end actually has", () => {
   assert.match(edgeGrant(edge("e1", "p1", "p2"), panels, off).reason, /^Atlas is not connected/);
 });
 
-test("grid mode counts the links a panel carries, and says what the count means", () => {
+test("a panel header counts the links it carries, and says what the count means", () => {
   const ix = peerIndex({ owners: payload.owners, connections: [conn("agent", "a1"), conn("terminal", "t1"), conn("agent", "a2", { workspaceId: "w2", active: false })] });
   const edges = [edge("e1", "p1", "p2"), edge("e2", "p1", "p3"), edge("e3", "p1", "nowhere")];
   assert.deepEqual(edgeLinks(edges, "p3").map((e) => e.id), ["e2"]);

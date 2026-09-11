@@ -112,7 +112,7 @@ import { useMedia } from "./lib/media.js";
 // Native app surfaces this shell compiled in (ADR-0109), by manifest id.
 // The only entry today is the hidden QA demo (the server lists it with
 // PICODE_DEMO_APP=1); the Matrix registers here in phase 3.
-const NATIVE_APPS = nativeApps({ "demo-native": NativeDemoSurface, matrix: MatrixSurface });
+const NATIVE_APPS = nativeApps({ "demo-native": NativeDemoSurface, canvas: MatrixSurface });
 
 export default function App() {
   const narrow = useMedia("(max-width: 767px)");

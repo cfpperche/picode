@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
-import { normalizeMatrixDetail, normalizeMatrixList } from "@picode/shared/domain/matrix.js";
-import { edgeGrant, peerIndex, removeConfirm } from "@picode/shared/domain/matrixGrants.js";
+import { normalizeCanvasDetail, normalizeCanvasList } from "@picode/shared/domain/canvas.js";
+import { edgeGrant, peerIndex, removeConfirm } from "@picode/shared/domain/canvasGrants.js";
 import { askConfirm } from "../lib/confirm.js";
 import { appHash } from "../lib/routes.js";
 
@@ -42,11 +42,11 @@ export default function MatrixLinks({ hidden }) {
   const refresh = useCallback(async () => {
     const gen = ++generation.current;
     try {
-      const [listRaw, peers] = await Promise.all([api("/api/matrices"), api("/api/communication")]);
-      const list = normalizeMatrixList(listRaw).slice(0, MATRIX_CAP);
+      const [listRaw, peers] = await Promise.all([api("/api/canvases"), api("/api/communication")]);
+      const list = normalizeCanvasList(listRaw).slice(0, MATRIX_CAP);
       // A matrix that vanished between the list and its detail is simply not
       // in the answer; one that fails to read must not blank the rest.
-      const details = await Promise.all(list.map((m) => api("/api/matrices/" + encodeURIComponent(m.id)).then(normalizeMatrixDetail).catch(() => null)));
+      const details = await Promise.all(list.map((m) => api("/api/canvases/" + encodeURIComponent(m.id)).then(normalizeCanvasDetail).catch(() => null)));
       if (!live.current || gen !== generation.current) return;
       setData({ matrices: details.filter(Boolean), peers });
       setError("");
@@ -80,7 +80,7 @@ export default function MatrixLinks({ hidden }) {
         // which is the name the rest of this view already uses for it.
         const grant = edgeGrant(edge, det.panels, ix);
         if (!grant) continue;
-        out.push({ id: edge.id, matrixId: det.matrix.id, matrix: det.matrix.name, grant });
+        out.push({ id: edge.id, matrixId: det.canvas.id, matrix: det.canvas.name, grant });
       }
     }
     return out;
@@ -91,7 +91,7 @@ export default function MatrixLinks({ hidden }) {
     if (ask && !(await askConfirm(ask))) return;
     setBusy(row.id);
     try {
-      await api("/api/matrices/" + encodeURIComponent(row.matrixId) + "/edges/" + encodeURIComponent(row.id), { method: "DELETE" });
+      await api("/api/canvases/" + encodeURIComponent(row.matrixId) + "/edges/" + encodeURIComponent(row.id), { method: "DELETE" });
       setError("");
     } catch (e) {
       if (!(e && e.status === 404)) setError(e.message || "Couldn’t remove this link.");

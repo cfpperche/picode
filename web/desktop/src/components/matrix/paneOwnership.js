@@ -1,5 +1,5 @@
 import { isTermSocketSuspended, suspendTermSocket } from "@picode/shared/client/termSocket.js";
-import { suspendedToDispose } from "@picode/shared/domain/matrix.js";
+import { suspendedToDispose } from "@picode/shared/domain/canvas.js";
 import { terms } from "../../lib/terms.js";
 import { closeShellTerm } from "../ShellTerm.jsx";
 

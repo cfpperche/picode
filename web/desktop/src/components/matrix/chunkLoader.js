@@ -1,4 +1,4 @@
-import { loadPolicy } from "@picode/shared/domain/matrix.js";
+import { loadPolicy } from "@picode/shared/domain/canvas.js";
 
 // ChunkLoader — the glue between the browser's intersection test and the
 // pure loadPolicy (docs/plans/matrix-app.md §4.5). One per surface. Panel

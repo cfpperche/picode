@@ -5,8 +5,8 @@ import { applyTui, touches } from "@picode/shared/domain/feedReducers.js";
 import { displayAgentName, locate } from "@picode/shared/domain/tree.js";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 import { agentRowStatus, agentStatusLabel } from "@picode/shared/domain/agentStatus.js";
-import { EDGE_KINDS, MATRIX_MODES, applyMatrixEvent, bindingState, buildRef, canvasToGrid, gridToCanvas, layoutDiff, neighborPanel, nextSlot, normalizeMatrixDetail, normalizeMatrixList, panelDefault, panelOrder, parseRef, refOwner, tidyCanvas, validateEdge } from "@picode/shared/domain/matrix.js";
-import { crossFolderConfirm, edgeGrant, enrolOffer, linkChipTitle, linkCounts, peerIndex, removeConfirm } from "@picode/shared/domain/matrixGrants.js";
+import { EDGE_KINDS, PANEL_DEFAULT_CANVAS, applyCanvasEvent, bindingState, buildRef, layoutDiff, neighborPanel, nextSlot, normalizeCanvasDetail, normalizeCanvasList, panelOrder, parseRef, refOwner, tidyCanvas, validateEdge } from "@picode/shared/domain/canvas.js";
+import { crossFolderConfirm, edgeGrant, enrolOffer, linkChipTitle, linkCounts, peerIndex, removeConfirm } from "@picode/shared/domain/canvasGrants.js";
 import { basename } from "@picode/shared/domain/diff.js";
 import { shortPath } from "@picode/shared/domain/repoLine.js";
 import { paneLeaveKey } from "@picode/shared/domain/termKeys.js";
@@ -17,12 +17,11 @@ import { notify, toast, toastError } from "../../lib/toast.js";
 import { askConfirm } from "../../lib/confirm.js";
 import { methodLabel } from "../../lib/needsYou.js";
 import { FREE_WS } from "../../lib/termGroups.js";
-import MatrixGrid, { compactPanels } from "./MatrixGrid.jsx";
 import { PanelHead } from "./Panel.jsx";
 import PanelBody from "./PanelBody.jsx";
 import PanelPicker from "./PanelPicker.jsx";
 import NameDialog from "./NameDialog.jsx";
-import { ChunkLoader, GRID_MARGIN } from "./chunkLoader.js";
+import { ChunkLoader } from "./chunkLoader.js";
 import { forgetPane, ownedByTab } from "./paneOwnership.js";
 import { forgetDocument, heldDocumentDirty } from "../../lib/fileDocs.js";
 import "../../styles/matrix.css";
@@ -37,7 +36,7 @@ const MatrixCanvas = lazy(() => import("./MatrixCanvas.jsx"));
 // `x:matrix` / #/app/matrix/<matrixId>: a header with the matrix switcher,
 // New matrix, Add panel and a menu (Rename / Delete); under it the scroll
 // container chunk loading observes, holding one react-grid-layout of
-// panel wrappers. State is { list, byId } reduced by applyMatrixEvent from
+// panel wrappers. State is { list, byId } reduced by applyCanvasEvent from
 // the change feed; the surface reads /api/matrices once on open and on a
 // reveal older than 10 s, never on a timer. Layout edits are optimistic
 // and saved as the changed subset, debounced 500 ms under ifUpdatedAt; a
@@ -58,7 +57,6 @@ const MatrixCanvas = lazy(() => import("./MatrixCanvas.jsx"));
 // line), the layout is untouched, Esc on any chrome restores.
 
 const LAST_KEY = "picode-matrix-last";
-const MODE_LABEL = { grid: "Grid", canvas: "Canvas" };
 const REVEAL_STALE_MS = 10000;
 const SAVE_DEBOUNCE_MS = 500;
 const EMPTY = { list: [], byId: {} };
@@ -96,7 +94,7 @@ function patchPanels(state, id, fn) {
 // share a slot for a frame (the compactor would push the real one down).
 function settle(state, ev) {
   const d = ev && ev.data;
-  if (ev.type !== "matrix.panel.added" || !d || !d.panel) return state;
+  if (ev.type !== "canvas.panel.added" || !d || !d.panel) return state;
   return patchPanels(state, d.id, (ps) => (ps.some((p) => p.pending) ? ps.filter((p) => !(p.pending && p.kind === d.panel.kind && p.ref === d.panel.ref)) : ps));
 }
 
@@ -243,8 +241,6 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   // The canvas host's handle: snap to 1, pan a panel into view, zoom, fit.
   // Null in grid mode, and while the lazy chunk is still on the wire.
   const canvasRef = useRef(null);
-  const modeRef = useRef("grid");
-  const [modeBusy, setModeBusy] = useState(false);
   const [focusedId, setFocusedId] = useState("");
   const [engaged, setEngaged] = useState(false);
   const [maximizedId, setMaximizedId] = useState("");
@@ -302,7 +298,6 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   // on the plane instead, with a margin on both axes (MatrixCanvas), so the
   // surface only remembers the element here.
   const setBody = useCallback((el) => { bodyRef.current = el; }, []);
-  const setGridBody = useCallback((el) => { bodyRef.current = el; loader.attach(el, GRID_MARGIN); }, [loader]);
   const onCanvasReady = useCallback((handle) => { canvasRef.current = handle; }, []);
   useEffect(() => { loader.setHidden(!!hidden); }, [hidden, loader]);
   useEffect(() => {
@@ -319,7 +314,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   // ---- reads: once on open, once on a stale reveal, then the feed ---------
   const loadList = useCallback(async () => {
     try {
-      const list = normalizeMatrixList(await api("/api/matrices"));
+      const list = normalizeCanvasList(await api("/api/canvases"));
       listAt.current = Date.now();
       setStore((s) => ({ ...s, list }));
       setListError("");
@@ -332,18 +327,18 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   const loadDetail = useCallback(async (id) => {
     if (!id) return;
     try {
-      const det = normalizeMatrixDetail(await api("/api/matrices/" + enc(id)));
+      const det = normalizeCanvasDetail(await api("/api/canvases/" + enc(id)));
       if (!det) throw new Error("That matrix could not be read.");
       detailAt.current[id] = Date.now();
       if (pendingRef.current.matrixId === id) pendingRef.current = { matrixId: "", rows: new Map() };
       setStore((s) => {
-        const next = applyMatrixEvent(s, { type: "matrix.updated", data: det.matrix });
+        const next = applyCanvasEvent(s, { type: "canvas.updated", data: det.canvas });
         return { ...next, byId: { ...next.byId, [id]: det } };
       });
       setDetailError("");
     } catch (e) {
       if (e && e.status === 404) {
-        setStore((s) => applyMatrixEvent(s, { type: "matrix.deleted", data: { id } }));
+        setStore((s) => applyCanvasEvent(s, { type: "canvas.deleted", data: { id } }));
         return;
       }
       setDetailError(humanizeError(msgOf(e)));
@@ -413,10 +408,10 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       // above is patched by refetching it and the body refetches its own
       // markdown (NotePanel). No timer either side.
       if (touches(ev, ["pin"])) { if (pinsNeededRef.current) loadPins(); return; }
-      if (!touches(ev, ["matrix"])) return;
+      if (!touches(ev, ["canvas"])) return;
       // Another client's rows arrive after the gesture ends (plan §4.7).
       if (gestureRef.current) { queuedRef.current.push(ev); return; }
-      setStore((s) => settle(applyMatrixEvent(s, ev), ev));
+      setStore((s) => settle(applyCanvasEvent(s, ev), ev));
     });
   }, [feed, loadList, loadDetail, loadPins, peersDirty]);
   useEffect(() => {
@@ -475,10 +470,6 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   useEffect(() => {
     if (edges.length && !peersAt.current) loadPeers();
   }, [edges.length, loadPeers]);
-  // The layout mode decides what x/y/w/h mean, which host draws them and
-  // which rules every save is judged by (ADR-0113).
-  const mode = current ? current.mode : "grid";
-  modeRef.current = mode;
 
   // Pins: read once when the first note panel appears or the picker opens,
   // then only the feed (and a stale reveal). `pins` stays null until then,
@@ -607,8 +598,8 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     const det = storeRef.current.byId[matrixId];
     if (!det || !rows.size) return "";
     try {
-      const res = await api("/api/matrices/" + enc(matrixId) + "/layout", json("PATCH", { ifUpdatedAt: det.matrix.updatedAt, panels: [...rows.values()] }));
-      setStore((s) => applyMatrixEvent(s, { type: "matrix.layout", data: res }));
+      const res = await api("/api/canvases/" + enc(matrixId) + "/layout", json("PATCH", { ifUpdatedAt: det.canvas.updatedAt, panels: [...rows.values()] }));
+      setStore((s) => applyCanvasEvent(s, { type: "canvas.layout", data: res }));
       return (res && res.updatedAt) || "";
     } catch (e) {
       if (e && e.status === 409) toast.info("Matrix changed elsewhere — reloaded.");
@@ -627,7 +618,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     const id = currentRef.current;
     const det = storeRef.current.byId[id];
     if (!det) return;
-    const diff = layoutDiff(det.panels.filter((p) => !p.pending), next, modeRef.current);
+    const diff = layoutDiff(det.panels.filter((p) => !p.pending), next);
     const to = new Map(next.map((p) => [p.id, p]));
     const moved = det.panels.some((p) => to.has(p.id) && (to.get(p.id).x !== p.x || to.get(p.id).y !== p.y || to.get(p.id).w !== p.w || to.get(p.id).h !== p.h));
     if (moved) setStore((s) => patchPanels(s, id, (ps) => ps.map((p) => (to.has(p.id) ? { ...p, ...rectOf(to.get(p.id)) } : p))));
@@ -638,18 +629,6 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => { saveTimer.current = 0; flushRef.current(); }, SAVE_DEBOUNCE_MS);
   }, []);
-  const onLayoutChange = useCallback((layout, width) => {
-    if (hiddenRef.current || !(width > 0) || gestureRef.current) return;
-    applyLayout(layout.map((l) => ({ id: l.i, x: l.x, y: l.y, w: l.w, h: l.h })));
-  }, [applyLayout]);
-  // The store stays compacted: what the grid draws is what gets saved,
-  // including the compaction after a remove and a matrix stored with gaps.
-  // Canvas mode has no automatic compaction — free placement is the point —
-  // so the pack is the explicit **Tidy** action instead (plan §3, §4.4).
-  useEffect(() => {
-    if (hidden || gestureRef.current || modeBusy || !panels.length || mode !== "grid") return;
-    applyLayout(compactPanels(panels));
-  }, [panels, hidden, mode, modeBusy, applyLayout]);
   const onGestureStart = useCallback((id) => {
     gestureRef.current = true;
     loader.pin(id, true);
@@ -659,13 +638,13 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     loader.pin(id, false);
     const q = queuedRef.current;
     queuedRef.current = [];
-    if (q.length) setStore((s) => q.reduce((acc, ev) => settle(applyMatrixEvent(acc, ev), ev), s));
+    if (q.length) setStore((s) => q.reduce((acc, ev) => settle(applyCanvasEvent(acc, ev), ev), s));
   }, [loader]);
 
   // ---- mutations ----------------------------------------------------------
   async function createMatrix(name) {
-    const res = await api("/api/matrices", json("POST", { name }));
-    setStore((s) => applyMatrixEvent(s, { type: "matrix.created", data: res }));
+    const res = await api("/api/canvases", json("POST", { name }));
+    setStore((s) => applyCanvasEvent(s, { type: "canvas.created", data: res }));
     select(res.id);
   }
   async function renameMatrix(name) {
@@ -673,50 +652,11 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     const m = storeRef.current.list.find((x) => x.id === id);
     if (!m) return;
     try {
-      const res = await api("/api/matrices/" + enc(id), json("PATCH", { name, ifUpdatedAt: m.updatedAt }));
-      setStore((s) => applyMatrixEvent(s, { type: "matrix.updated", data: res }));
+      const res = await api("/api/canvases/" + enc(id), json("PATCH", { name, ifUpdatedAt: m.updatedAt }));
+      setStore((s) => applyCanvasEvent(s, { type: "canvas.updated", data: res }));
     } catch (e) {
       if (e && e.status === 409) { await loadDetail(id); throw new Error("Matrix changed elsewhere — reloaded. Try again."); }
       throw e;
-    }
-  }
-  // setMode(next): the Grid | Canvas switch (ADR-0113). The transform lives
-  // twice on purpose — Go writes it, `matrix.js` previews it, with the same
-  // fixtures — so the preview *is* what the answer will say: the panels move
-  // at once and the 200 reconciles them through the one reducer path every
-  // other mutation uses. Going back to the grid loses where a panel sat on
-  // the plane, so that direction asks first; grid → canvas loses nothing and
-  // does not.
-  async function setMode(next) {
-    const id = currentRef.current;
-    const m = storeRef.current.list.find((x) => x.id === id);
-    const det = storeRef.current.byId[id];
-    if (!m || !det || !MATRIX_MODES.includes(next) || m.mode === next || modeBusy) return;
-    if (next === "grid" && det.panels.length) {
-      const ok = await askConfirm({
-        title: "Switch to grid?",
-        message: "Grid mode packs the " + det.panels.length + " panels into 12 columns; where they sit on the plane is not kept.",
-        confirmLabel: "Switch to grid",
-      });
-      if (!ok) return;
-    }
-    setModeBusy(true);
-    // The moves made under the old mode go first, and they carry the
-    // precondition this switch has to use.
-    const flushed = await flushRef.current();
-    if (flushed === false) { setModeBusy(false); return; }
-    const moved = (next === "canvas" ? gridToCanvas(det.panels) : canvasToGrid(det.panels)).map(rowOf);
-    setStore((s) => applyMatrixEvent(s, { type: "matrix.mode", data: { ...m, mode: next, panels: moved } }));
-    setMaximizedId("");
-    try {
-      const res = await api("/api/matrices/" + enc(id), json("PATCH", { mode: next, ifUpdatedAt: flushed || m.updatedAt }));
-      setStore((s) => applyMatrixEvent(s, { type: "matrix.mode", data: res }));
-    } catch (e) {
-      if (e && e.status === 409) toast.info("Matrix changed elsewhere — reloaded.");
-      else toastError(e);
-      await loadDetail(id);
-    } finally {
-      setModeBusy(false);
     }
   }
   // Tidy: canvas mode's answer to react-grid-layout's automatic compaction —
@@ -742,10 +682,10 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     });
     if (!ok) return;
     try {
-      await api("/api/matrices/" + enc(id), { method: "DELETE" });
-      setStore((s) => applyMatrixEvent(s, { type: "matrix.deleted", data: { id } }));
+      await api("/api/canvases/" + enc(id), { method: "DELETE" });
+      setStore((s) => applyCanvasEvent(s, { type: "canvas.deleted", data: { id } }));
     } catch (e) {
-      if (e && e.status === 404) setStore((s) => applyMatrixEvent(s, { type: "matrix.deleted", data: { id } }));
+      if (e && e.status === 404) setStore((s) => applyCanvasEvent(s, { type: "canvas.deleted", data: { id } }));
       else toastError(e);
     }
   }
@@ -754,15 +694,15 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     const id = currentRef.current;
     const det = storeRef.current.byId[id];
     if (!det) return;
-    const size = panelDefault(modeRef.current);
-    const { x, y } = nextSlot(det.panels, size.w, size.h, modeRef.current);
+    const size = PANEL_DEFAULT_CANVAS;
+    const { x, y } = nextSlot(det.panels, size.w, size.h);
     const tmp = "tmp-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const body = { kind, ref, x, y, w: size.w, h: size.h };
     // The wrapper shows at once and settles on the server's answer.
     setStore((s) => patchPanels(s, id, (ps) => [...ps, { id: tmp, ...body, createdAt: "", pending: true }]));
     try {
-      const res = await api("/api/matrices/" + enc(id) + "/panels", json("POST", body));
-      setStore((s) => applyMatrixEvent(patchPanels(s, id, (ps) => ps.filter((p) => p.id !== tmp)), { type: "matrix.panel.added", data: res }));
+      const res = await api("/api/canvases/" + enc(id) + "/panels", json("POST", body));
+      setStore((s) => applyCanvasEvent(patchPanels(s, id, (ps) => ps.filter((p) => p.id !== tmp)), { type: "canvas.panel.added", data: res }));
       const added = res && res.panel && res.panel.id;
       if (added) {
         setFocusedId(added);
@@ -798,10 +738,10 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     const order = panelOrder(panelsRef.current);
     const at = order.indexOf(model.id);
     const next = order[at + 1] || order[at - 1] || "";
-    const removed = { type: "matrix.panel.removed", data: { id, panelId: model.id } };
+    const removed = { type: "canvas.panel.removed", data: { id, panelId: model.id } };
     try {
-      await api("/api/matrices/" + enc(id) + "/panels/" + enc(model.id), { method: "DELETE" });
-      setStore((s) => applyMatrixEvent(s, removed));
+      await api("/api/canvases/" + enc(id) + "/panels/" + enc(model.id), { method: "DELETE" });
+      setStore((s) => applyCanvasEvent(s, removed));
       // The panel is gone, so its document, its pin and its chip go with it.
       if (model.kind === "file") {
         forgetDocument(model.ref);
@@ -820,7 +760,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
         key: "mx-removed:" + model.id,
       });
     } catch (e) {
-      if (e && e.status === 404) setStore((s) => applyMatrixEvent(s, removed));
+      if (e && e.status === 404) setStore((s) => applyCanvasEvent(s, removed));
       else toastError(e);
     }
     if (focusedRef.current === model.id) focusPanel(next);
@@ -889,8 +829,8 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       loadPeers();
     }
     try {
-      const res = await api("/api/matrices/" + enc(id) + "/edges", json("POST", { aPanel: a, bPanel: b }));
-      setStore((st) => applyMatrixEvent(st, { type: "matrix.edge.added", data: res }));
+      const res = await api("/api/canvases/" + enc(id) + "/edges", json("POST", { aPanel: a, bPanel: b }));
+      setStore((st) => applyCanvasEvent(st, { type: "canvas.edge.added", data: res }));
     } catch (e) {
       toastError(e);
       loadDetail(id);
@@ -908,12 +848,12 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     const grant = edgeGrant(row, det.panels, peerIndex(peers || NO_PEERS), namesRef.current);
     const ask = peers ? removeConfirm(grant) : null;
     if (ask && !(await askConfirm(ask))) return;
-    const removed = { type: "matrix.edge.removed", data: { id, edgeId } };
+    const removed = { type: "canvas.edge.removed", data: { id, edgeId } };
     try {
-      await api("/api/matrices/" + enc(id) + "/edges/" + enc(edgeId), { method: "DELETE" });
-      setStore((st) => applyMatrixEvent(st, removed));
+      await api("/api/canvases/" + enc(id) + "/edges/" + enc(edgeId), { method: "DELETE" });
+      setStore((st) => applyCanvasEvent(st, removed));
     } catch (e) {
-      if (e && e.status === 404) setStore((st) => applyMatrixEvent(st, removed));
+      if (e && e.status === 404) setStore((st) => applyCanvasEvent(st, removed));
       else toastError(e);
     }
   }
@@ -927,8 +867,8 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   async function restorePanel(matrixId, model) {
     const body = { kind: model.kind, ref: model.ref, x: model.x, y: model.y, w: model.w, h: model.h };
     try {
-      const res = await api("/api/matrices/" + enc(matrixId) + "/panels", json("POST", body));
-      setStore((s) => applyMatrixEvent(s, { type: "matrix.panel.added", data: res }));
+      const res = await api("/api/canvases/" + enc(matrixId) + "/panels", json("POST", body));
+      setStore((s) => applyCanvasEvent(s, { type: "canvas.panel.added", data: res }));
       if (currentRef.current === matrixId && res && res.panel) focusPanel(res.panel.id);
     } catch (e) {
       toastError(e);
@@ -944,7 +884,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     if (!id) return;
     // A canvas has nothing to scroll: an off-screen panel is panned into
     // view instead, which is what loads it.
-    const canvas = modeRef.current === "canvas" ? canvasRef.current : null;
+    const canvas = canvasRef.current;
     if (canvas) canvas.reveal(id);
     requestAnimationFrame(() => {
       const el = bodyRef.current && bodyRef.current.querySelector('[data-mx-panel="' + id + '"]');
@@ -957,7 +897,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   // pointer too, and a pointer is only honest at zoom 1.0 (C0), so the plane
   // snaps there first — "snap to 1 on engage" (plan §4.3).
   function engagePanel(id) {
-    if (modeRef.current === "canvas" && canvasRef.current) canvasRef.current.snapToOne(id);
+    if (canvasRef.current) canvasRef.current.snapToOne(id);
     setFocusedId(id);
     setEngaged(true);
   }
@@ -1026,7 +966,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       }
       // The canvas's own keys, on the chrome only (inside a pane every key
       // but the leave chord is the shell's).
-      const canvas = modeRef.current === "canvas" ? canvasRef.current : null;
+      const canvas = canvasRef.current;
       if (!canvas || e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === "+" || e.key === "=") { e.preventDefault(); canvas.zoomIn(); return; }
       if (e.key === "-" || e.key === "_") { e.preventDefault(); canvas.zoomOut(); return; }
@@ -1181,9 +1121,8 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   } else {
     body = (
       <div className="mx-stage">
-        <div className={"mx-body" + (mode === "canvas" ? " is-canvas" : "")} ref={mode === "canvas" ? setBody : setGridBody} inert={!!maximizedId}>
-          {mode === "canvas" ? (
-            <Suspense fallback={<div className="mx-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>}>
+        <div className="mx-body is-canvas" ref={setBody} inert={!!maximizedId}>
+          <Suspense fallback={<div className="mx-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>}>
               <MatrixCanvas
                 key={currentId}
                 matrixId={currentId}
@@ -1205,25 +1144,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
                 onGestureStop={onGestureStop}
                 onReady={onCanvasReady}
               />
-            </Suspense>
-          ) : (
-            <MatrixGrid
-              models={models}
-              loaded={loadedIds}
-              bodies={bodyKinds}
-              hidden={!!hidden}
-              focusedId={focusedId}
-              engaged={engaged}
-              maximizedId={maximizedId}
-              tabStopId={tabStopId}
-              loader={loader}
-              handlers={handlers}
-              links={links}
-              onLayoutChange={onLayoutChange}
-              onGestureStart={onGestureStart}
-              onGestureStop={onGestureStop}
-            />
-          )}
+          </Suspense>
         </div>
         {maxModel ? (
           // The maximized panel's body, in a layer over the grid: the same
@@ -1261,27 +1182,17 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
             </select>
           ) : null}
           {current ? (
-            <div className="termset-seg mx-seg" role="radiogroup" aria-label="Layout mode">
-              {MATRIX_MODES.map((m) => (
-                <label className="termset-seg-opt" key={m} htmlFor={"mx-mode-" + m}>
-                  <input id={"mx-mode-" + m} type="radio" name="mx-mode" checked={mode === m} onChange={() => setMode(m)} />
-                  <span className="termset-seg-face">{MODE_LABEL[m]}</span>
-                </label>
-              ))}
-            </div>
-          ) : null}
-          {current ? (
             <button type="button" className="btn btn-sm" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
           ) : null}
           <button type="button" className="btn btn-sm btn-ghost" onClick={() => setNameDialog("new")} title="Create another matrix">New matrix</button>
           {current ? (
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
-                <button type="button" className="btn btn-sm btn-ghost mx-menu-btn" aria-label={"Actions for " + current.name} title={mode === "canvas" ? "Tidy, rename or delete this matrix" : "Rename or delete this matrix"}><IconEllipsis size={15} /></button>
+                <button type="button" className="btn btn-sm btn-ghost mx-menu-btn" aria-label={"Actions for " + current.name} title="Tidy, rename or delete this matrix"><IconEllipsis size={15} /></button>
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
                 <DropdownMenu.Content className="ws-row-menu" side="bottom" align="end" sideOffset={4} collisionPadding={8}>
-                  {mode === "canvas" && panels.length ? (
+                  {panels.length ? (
                     <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => { tidy(); }}><IconGrid size={13} /> Tidy panels</DropdownMenu.Item>
                   ) : null}
                   <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setNameDialog("rename")}><IconPencil size={13} /> Rename</DropdownMenu.Item>

@@ -2,47 +2,47 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { touches } from "./feedReducers.js";
 import {
-  CANVAS_ZOOM, LOAD_DWELL_MS, MATRIX_EVENTS, MATRIX_KINDS, MATRIX_LIMITS, MATRIX_MODES, PANE_STATES, PANEL_DEFAULT, PANEL_DEFAULT_CANVAS, PANEL_DIRECTIONS,
-  SUSPENDED_MAX, SUSPENDED_TTL_MS, TIDY_COLS, TIDY_GAP, UNIT_PX, UNLOAD_AFTER_MS, VIEWPORT_PREFIX, applyMatrixEvent, bindingState,
-  canvasToGrid, gridToCanvas, layoutDiff, loadPolicy, neighborPanel, nextSlot, normalizeMatrix, normalizeMatrixDetail,
-  normalizeMatrixList, normalizePanel, normalizeViewport, panelDefault, panelOrder, pointerAtZoom, pxToUnits, suspendedToDispose,
-  buildRef, gitTouches, hasPane, parseRef, REF_OWNERS, tidyCanvas, validateRef, unitsToPx, validateCompact, validateMode, validateName, validatePanel, validatePlacement, viewportKey, zoomBody,
+  CANVAS_ZOOM, LOAD_DWELL_MS, CANVAS_EVENTS, CANVAS_KINDS, CANVAS_LIMITS, PANE_STATES, PANEL_DEFAULT_CANVAS, PANEL_DIRECTIONS,
+  SUSPENDED_MAX, SUSPENDED_TTL_MS, TIDY_COLS, TIDY_GAP, UNIT_PX, UNLOAD_AFTER_MS, VIEWPORT_PREFIX, applyCanvasEvent, bindingState,
+  gridToCanvas, layoutDiff, loadPolicy, neighborPanel, nextSlot, normalizeCanvas, normalizeCanvasDetail,
+  normalizeCanvasList, normalizePanel, normalizeViewport, panelOrder, pointerAtZoom, pxToUnits, suspendedToDispose,
+  buildRef, gitTouches, hasPane, parseRef, REF_OWNERS, tidyCanvas, validateRef, unitsToPx, validateCompact, validateName, validatePanel, validatePlacement, viewportKey, zoomBody,
   CHAT_LIVE_MAX, CHAT_STATES, chatBudget, hasChat,
   EDGE_KINDS, edgeEndpoints, normalizeEdge, normalizeEdgeList, validateEdge,
-} from "./matrix.js";
+} from "./canvas.js";
 
 const summary = (id, name, extra = {}) => ({
-  id, name, compact: "vertical", mode: "grid", createdAt: "2026-09-09T10:00:00Z", updatedAt: "2026-09-09T10:00:00Z", panelCount: 0, ...extra,
+  id, name, compact: "vertical", createdAt: "2026-09-09T10:00:00Z", updatedAt: "2026-09-09T10:00:00Z", panelCount: 0, ...extra,
 });
-const panel = (id, extra = {}) => ({ id, kind: "terminal", ref: "term-" + id, x: 0, y: 0, w: 4, h: 8, createdAt: "2026-09-09T10:00:00Z", ...extra });
+const panel = (id, extra = {}) => ({ id, kind: "terminal", ref: "term-" + id, x: 0, y: 0, w: 32, h: 42, createdAt: "2026-09-09T10:00:00Z", ...extra });
 
-test("limits, modes and event types are the server's (ADR-0108, ADR-0113, ADR-0116)", () => {
-  assert.deepEqual({ ...MATRIX_LIMITS }, {
-    matrices: 64, panels: 500, name: 80, cols: 12, minW: 4, minH: 8,
+test("limits and event types are the server's (ADR-0108, ADR-0116, ADR-0118)", () => {
+  assert.deepEqual({ ...CANVAS_LIMITS }, {
+    canvases: 64, panels: 500, name: 80,
     canvasMinW: 32, canvasMinH: 28, canvasMax: 4096, canvasCoord: 100000, edges: 1000,
   });
-  assert.deepEqual([...MATRIX_MODES], ["grid", "canvas"]);
   assert.equal(UNIT_PX, 8);
-  assert.deepEqual([...MATRIX_EVENTS], ["matrix.created", "matrix.updated", "matrix.mode", "matrix.layout", "matrix.panel.added", "matrix.panel.removed", "matrix.edge.added", "matrix.edge.removed", "matrix.deleted"]);
-  for (const type of MATRIX_EVENTS) assert.equal(touches({ type }, ["matrix"]), true, type);
+  assert.deepEqual([...CANVAS_EVENTS], ["canvas.created", "canvas.updated", "canvas.layout", "canvas.panel.added", "canvas.panel.removed", "canvas.edge.added", "canvas.edge.removed", "canvas.deleted"]);
+  assert.equal(CANVAS_EVENTS.length, 8, "the mode event went with the engine it announced (ADR-0118)");
+  for (const type of CANVAS_EVENTS) assert.equal(touches({ type }, ["canvas"]), true, type);
   // Only a session has a mailbox: a note, a file or a diff cannot hold a
   // contact, so it cannot be an endpoint (ADR-0116).
   assert.deepEqual([...EDGE_KINDS], ["agent", "terminal"]);
 });
 
-test("normalizeMatrix keeps the summary fields and drops junk", () => {
-  const m = normalizeMatrix({ id: "m1", name: "Ops", compact: "none", mode: "canvas", createdAt: "a", updatedAt: "b", panelCount: 3, panels: [{}], extra: 1 });
-  assert.deepEqual(m, { id: "m1", name: "Ops", compact: "none", mode: "canvas", createdAt: "a", updatedAt: "b", panelCount: 3 });
-  assert.equal(normalizeMatrix({ id: "m1", name: "Ops", compact: "diagonal" }).compact, "vertical");
-  assert.equal(normalizeMatrix({ id: "m1", name: "Ops" }).mode, "grid", "a summary from before the mode column reads grid");
-  assert.equal(normalizeMatrix({ id: "m1", name: "Ops", mode: "isometric" }).mode, "grid");
-  assert.equal(normalizeMatrix({ id: "m1", name: "Ops", panelCount: -2 }).panelCount, 0);
-  assert.equal(normalizeMatrix({ id: "m1", name: "Ops", panelCount: "7" }).panelCount, 0);
-  assert.equal(normalizeMatrix({ name: "Ops" }), null);
-  assert.equal(normalizeMatrix({ id: "m1" }), null);
-  assert.equal(normalizeMatrix(null), null);
-  assert.deepEqual(normalizeMatrixList({ matrices: [summary("b", "b"), null, { id: "x" }] }), [summary("b", "b")]);
-  assert.deepEqual(normalizeMatrixList(null), []);
+test("normalizeCanvas keeps the summary fields and drops junk", () => {
+  const m = normalizeCanvas({ id: "m1", name: "Ops", compact: "none", createdAt: "a", updatedAt: "b", panelCount: 3, panels: [{}], extra: 1 });
+  assert.deepEqual(m, { id: "m1", name: "Ops", compact: "none", createdAt: "a", updatedAt: "b", panelCount: 3 });
+  assert.equal(normalizeCanvas({ id: "m1", name: "Ops", compact: "diagonal" }).compact, "vertical");
+  assert.equal(normalizeCanvas({ id: "m1", name: "Ops", mode: "canvas" }).mode, undefined, "the dropped mode column is not a summary field (ADR-0118)");
+  assert.equal(normalizeCanvas({ id: "m1", name: "Ops", panelCount: -2 }).panelCount, 0);
+  assert.equal(normalizeCanvas({ id: "m1", name: "Ops", panelCount: "7" }).panelCount, 0);
+  assert.equal(normalizeCanvas({ name: "Ops" }), null);
+  assert.equal(normalizeCanvas({ id: "m1" }), null);
+  assert.equal(normalizeCanvas(null), null);
+  assert.deepEqual(normalizeCanvasList({ canvases: [summary("b", "b"), null, { id: "x" }] }), [summary("b", "b")]);
+  assert.deepEqual(normalizeCanvasList({ matrices: [summary("b", "b")] }), [], "the list payload key is `canvases`, and the old one is not read (ADR-0118)");
+  assert.deepEqual(normalizeCanvasList(null), []);
 });
 
 test("normalizePanel needs a slot id, a known binding and a whole rectangle", () => {
@@ -57,11 +57,11 @@ test("normalizePanel needs a slot id, a known binding and a whole rectangle", ()
   assert.equal(normalizePanel({ ...panel("p1"), ref: "" }), null);
   assert.equal(normalizePanel({ ...panel("p1"), id: 7 }), null);
   assert.equal(normalizePanel(null), null);
-  const d = normalizeMatrixDetail({ ...summary("m1", "Ops", { panelCount: 9 }), panels: [panel("p1"), { bad: 1 }, panel("p2")] });
-  assert.deepEqual(d.matrix, summary("m1", "Ops", { panelCount: 2 }));
+  const d = normalizeCanvasDetail({ ...summary("m1", "Ops", { panelCount: 9 }), panels: [panel("p1"), { bad: 1 }, panel("p2")] });
+  assert.deepEqual(d.canvas, summary("m1", "Ops", { panelCount: 2 }));
   assert.deepEqual(d.panels.map((p) => p.id), ["p1", "p2"]);
-  assert.deepEqual(normalizeMatrixDetail(summary("m1", "Ops")).panels, []);
-  assert.equal(normalizeMatrixDetail({ panels: [] }), null);
+  assert.deepEqual(normalizeCanvasDetail(summary("m1", "Ops")).panels, []);
+  assert.equal(normalizeCanvasDetail({ panels: [] }), null);
 });
 
 test("validate* refuse in the server's words", () => {
@@ -76,31 +76,26 @@ test("validate* refuse in the server's words", () => {
   assert.equal(validateCompact("none"), "");
   assert.equal(validateCompact("diagonal"), "compact must be vertical or none");
   const cases = [
-    [{ x: -1, y: 0, w: 4, h: 8 }, "x must be 0 or more"],
-    [{ x: 0, y: -1, w: 4, h: 8 }, "y must be 0 or more"],
-    [{ x: 0, y: 0, w: 3, h: 8 }, "w must be at least 4 columns"],
-    [{ x: 0, y: 0, w: 4, h: 7 }, "h must be at least 8 rows"],
-    [{ x: 9, y: 0, w: 4, h: 8 }, "x + w must be at most 12 columns"],
-    [{ x: 0.5, y: 0, w: 4, h: 8 }, "x must be a whole number"],
-    [{ x: 0, y: 0, w: 4 }, "h must be a whole number"],
-    [{ x: 8, y: 0, w: 4, h: 8 }, ""],
-    [{ x: 0, y: 40, w: 12, h: 100 }, ""],
+    [{ x: 0.5, y: 0, w: 32, h: 42 }, "x must be a whole number"],
+    [{ x: 0, y: 0, w: 32 }, "h must be a whole number"],
+    [{ x: 64, y: 0, w: 32, h: 42 }, ""],
+    [{ x: 0, y: 400, w: 96, h: 300 }, ""],
   ];
   for (const [rect, want] of cases) assert.equal(validatePlacement(rect), want, JSON.stringify(rect));
   assert.equal(validatePlacement(null), "x must be a whole number");
-  assert.equal(validatePanel({ kind: "pin", ref: "x", x: 0, y: 0, w: 4, h: 8 }), "kind must be agent, terminal, note, file or diff");
-  assert.equal(validatePanel({ kind: "agent", ref: "  ", x: 0, y: 0, w: 4, h: 8 }), "ref is required");
-  assert.equal(validatePanel({ kind: "agent", ref: "a1", x: 0, y: 0, w: 3, h: 8 }), "w must be at least 4 columns");
-  assert.equal(validatePanel({ kind: "terminal", ref: "t1", x: 8, y: 0, w: 4, h: 8 }), "");
+  assert.equal(validatePanel({ kind: "pin", ref: "x", x: 0, y: 0, w: 32, h: 42 }), "kind must be agent, terminal, note, file or diff");
+  assert.equal(validatePanel({ kind: "agent", ref: "  ", x: 0, y: 0, w: 32, h: 42 }), "ref is required");
+  assert.equal(validatePanel({ kind: "agent", ref: "a1", x: 0, y: 0, w: 31, h: 42 }), "w must be at least 32 canvas units");
+  assert.equal(validatePanel({ kind: "terminal", ref: "t1", x: 64, y: 0, w: 32, h: 42 }), "");
   assert.equal(validatePanel(undefined), "kind must be agent, terminal, note, file or diff");
-  assert.deepEqual([...MATRIX_KINDS], ["agent", "terminal", "note", "file", "diff"]);
-  assert.equal(validatePanel({ kind: "note", ref: "pin-1", x: 0, y: 0, w: 4, h: 8 }), "", "a note binds a pin id");
-  assert.equal(validatePanel({ kind: "note", ref: " ", x: 0, y: 0, w: 4, h: 8 }), "ref is required");
-  assert.equal(validatePanel({ kind: "file", ref: "t:term-1:src/main.go", x: 0, y: 0, w: 4, h: 8 }), "");
-  assert.equal(validatePanel({ kind: "file", ref: "t:term-1", x: 0, y: 0, w: 4, h: 8 }), "ref must be <owner>:<id>:<path> with owner t, a or w");
-  assert.equal(validatePanel({ kind: "file", ref: " ", x: 0, y: 0, w: 4, h: 8 }), "ref is required");
-  assert.equal(validatePanel({ kind: "diff", ref: "w:ws-1:docs/a.md", x: 0, y: 0, w: 4, h: 8 }), "");
-  assert.equal(validatePanel({ kind: "diff", ref: "docs/a.md", x: 0, y: 0, w: 4, h: 8 }), "ref must be <owner>:<id>:<path> with owner t, a or w");
+  assert.deepEqual([...CANVAS_KINDS], ["agent", "terminal", "note", "file", "diff"]);
+  assert.equal(validatePanel({ kind: "note", ref: "pin-1", x: 0, y: 0, w: 32, h: 42 }), "", "a note binds a pin id");
+  assert.equal(validatePanel({ kind: "note", ref: " ", x: 0, y: 0, w: 32, h: 42 }), "ref is required");
+  assert.equal(validatePanel({ kind: "file", ref: "t:term-1:src/main.go", x: 0, y: 0, w: 32, h: 42 }), "");
+  assert.equal(validatePanel({ kind: "file", ref: "t:term-1", x: 0, y: 0, w: 32, h: 42 }), "ref must be <owner>:<id>:<path> with owner t, a or w");
+  assert.equal(validatePanel({ kind: "file", ref: " ", x: 0, y: 0, w: 32, h: 42 }), "ref is required");
+  assert.equal(validatePanel({ kind: "diff", ref: "w:ws-1:docs/a.md", x: 0, y: 0, w: 32, h: 42 }), "");
+  assert.equal(validatePanel({ kind: "diff", ref: "docs/a.md", x: 0, y: 0, w: 32, h: 42 }), "ref must be <owner>:<id>:<path> with owner t, a or w");
 });
 
 // C3 (docs/plans/matrix-canvas.md §4.2): one place takes a ref apart and one
@@ -135,151 +130,139 @@ test("parseRef and buildRef: a pin id, or <owner>:<id>:<path> with the desktop's
   assert.equal(validateRef("note", " "), "ref is required");
 });
 
-test("created and updated keep the list sorted by name and follow a loaded matrix", () => {
+test("created and updated keep the list sorted by name and follow a loaded canvas", () => {
   let s = { list: [summary("m2", "beta")], byId: {} };
-  s = applyMatrixEvent(s, { type: "matrix.created", data: summary("m1", "Alpha") });
+  s = applyCanvasEvent(s, { type: "canvas.created", data: summary("m1", "Alpha") });
   assert.deepEqual(s.list.map((m) => m.id), ["m1", "m2"]);
-  s = applyMatrixEvent(s, { type: "matrix.updated", data: summary("m1", "zeta", { updatedAt: "t2" }) });
+  s = applyCanvasEvent(s, { type: "canvas.updated", data: summary("m1", "zeta", { updatedAt: "t2" }) });
   assert.deepEqual(s.list.map((m) => m.name), ["beta", "zeta"]);
   assert.equal(s.list[1].updatedAt, "t2");
-  // An updated summary for a matrix the list never saw is complete: inserted.
-  s = applyMatrixEvent(s, { type: "matrix.updated", data: summary("m3", "gamma") });
+  // An updated summary for a canvas the list never saw is complete: inserted.
+  s = applyCanvasEvent(s, { type: "canvas.updated", data: summary("m3", "gamma") });
   assert.deepEqual(s.list.map((m) => m.name), ["beta", "gamma", "zeta"]);
   // A replayed created event does not duplicate.
-  s = applyMatrixEvent(s, { type: "matrix.created", data: summary("m3", "gamma") });
+  s = applyCanvasEvent(s, { type: "canvas.created", data: summary("m3", "gamma") });
   assert.equal(s.list.length, 3);
   // Same name: creation order decides.
-  s = applyMatrixEvent(s, { type: "matrix.created", data: summary("m0", "Beta", { createdAt: "2026-09-09T09:00:00Z" }) });
+  s = applyCanvasEvent(s, { type: "canvas.created", data: summary("m0", "Beta", { createdAt: "2026-09-09T09:00:00Z" }) });
   assert.deepEqual(s.list.map((m) => m.id), ["m0", "m2", "m3", "m1"]);
-  // A loaded matrix follows; its panelCount stays what the panels say.
-  const loaded = { list: [summary("m1", "Ops", { panelCount: 1 })], byId: { m1: { matrix: summary("m1", "Ops", { panelCount: 1 }), panels: [panel("p1")] } } };
-  const next = applyMatrixEvent(loaded, { type: "matrix.updated", data: summary("m1", "Ops board", { compact: "none", panelCount: 7, updatedAt: "t2" }) });
-  assert.equal(next.byId.m1.matrix.name, "Ops board");
-  assert.equal(next.byId.m1.matrix.compact, "none");
-  assert.equal(next.byId.m1.matrix.panelCount, 1);
-  assert.equal(next.byId.m1.matrix.updatedAt, "t2");
+  // A loaded canvas follows; its panelCount stays what the panels say.
+  const loaded = { list: [summary("m1", "Ops", { panelCount: 1 })], byId: { m1: { canvas: summary("m1", "Ops", { panelCount: 1 }), panels: [panel("p1")] } } };
+  const next = applyCanvasEvent(loaded, { type: "canvas.updated", data: summary("m1", "Ops board", { compact: "none", panelCount: 7, updatedAt: "t2" }) });
+  assert.equal(next.byId.m1.canvas.name, "Ops board");
+  assert.equal(next.byId.m1.canvas.compact, "none");
+  assert.equal(next.byId.m1.canvas.panelCount, 1);
+  assert.equal(next.byId.m1.canvas.updatedAt, "t2");
   assert.deepEqual(next.byId.m1.panels, [panel("p1")]);
   assert.equal(next.list[0].name, "Ops board");
-  // Junk, unknown types and other matrices leave the same object.
-  assert.equal(applyMatrixEvent(loaded, { type: "matrix.created", data: { name: "no id" } }), loaded);
-  assert.equal(applyMatrixEvent(loaded, { type: "pin.created", data: { id: "m1" } }), loaded);
-  assert.equal(applyMatrixEvent(loaded, { type: "matrix.layout", data: { id: "other", updatedAt: "t9", panels: [] } }), loaded);
-  assert.equal(applyMatrixEvent(loaded, { type: "matrix.panel.removed", data: { id: "m1", updatedAt: "t9" } }), loaded);
-  assert.deepEqual(applyMatrixEvent(undefined, { type: "matrix.created", data: summary("m1", "Ops") }).list.map((m) => m.id), ["m1"]);
+  // Junk, unknown types and other canvases leave the same object.
+  assert.equal(applyCanvasEvent(loaded, { type: "canvas.created", data: { name: "no id" } }), loaded);
+  assert.equal(applyCanvasEvent(loaded, { type: "pin.created", data: { id: "m1" } }), loaded);
+  assert.equal(applyCanvasEvent(loaded, { type: "canvas.layout", data: { id: "other", updatedAt: "t9", panels: [] } }), loaded);
+  assert.equal(applyCanvasEvent(loaded, { type: "canvas.panel.removed", data: { id: "m1", updatedAt: "t9" } }), loaded);
+  assert.deepEqual(applyCanvasEvent(undefined, { type: "canvas.created", data: summary("m1", "Ops") }).list.map((m) => m.id), ["m1"]);
 });
 
 test("layout moves exactly the subset it carries", () => {
   const s = {
     list: [summary("m1", "Ops", { panelCount: 2 })],
-    byId: { m1: { matrix: summary("m1", "Ops", { panelCount: 2 }), panels: [panel("p1"), panel("p2", { x: 4 })] } },
+    byId: { m1: { canvas: summary("m1", "Ops", { panelCount: 2 }), panels: [panel("p1"), panel("p2", { x: 32 })] } },
   };
   const ev = {
-    type: "matrix.layout",
-    data: { id: "m1", updatedAt: "t2", panels: [{ id: "p1", x: 0, y: 8, w: 8, h: 16 }, { id: "p9", x: 0, y: 0, w: 4, h: 8 }, { id: "p2", x: 20, y: 0, w: 4, h: 8 }] },
+    type: "canvas.layout",
+    data: { id: "m1", updatedAt: "t2", panels: [{ id: "p1", x: -16, y: 43, w: 64, h: 60 }, { id: "p9", x: 0, y: 0, w: 32, h: 42 }, { id: "p2", x: 200, y: 0, w: 4, h: 8 }] },
   };
-  const next = applyMatrixEvent(s, ev);
+  const next = applyCanvasEvent(s, ev);
   // p9 is not here (its panel.added frame comes on its own); p2's frame is
-  // outside the grid and cannot be honest — both are left alone.
-  assert.deepEqual(next.byId.m1.panels, [panel("p1", { y: 8, w: 8, h: 16 }), panel("p2", { x: 4 })]);
-  assert.equal(next.byId.m1.matrix.updatedAt, "t2");
+  // under the plane's minimum and cannot be honest — both are left alone.
+  assert.deepEqual(next.byId.m1.panels, [panel("p1", { x: -16, y: 43, w: 64, h: 60 }), panel("p2", { x: 32 })]);
+  assert.equal(next.byId.m1.canvas.updatedAt, "t2");
   assert.equal(next.list[0].updatedAt, "t2");
   assert.equal(next.list[0].panelCount, 2);
   assert.deepEqual(s.byId.m1.panels[0], panel("p1"), "the previous state is not mutated");
   // Not loaded: only the summary's updatedAt moves.
-  const unloaded = applyMatrixEvent({ list: s.list, byId: {} }, ev);
+  const unloaded = applyCanvasEvent({ list: s.list, byId: {} }, ev);
   assert.equal(unloaded.list[0].updatedAt, "t2");
   assert.deepEqual(unloaded.byId, {});
 });
 
 test("panels added and removed, the counts follow on both shapes", () => {
-  let s = { list: [summary("m1", "Ops"), summary("m2", "Two", { panelCount: 3 })], byId: { m1: { matrix: summary("m1", "Ops"), panels: [] } } };
-  s = applyMatrixEvent(s, { type: "matrix.panel.added", data: { id: "m1", updatedAt: "t2", panel: { ...panel("p1"), junk: 1 } } });
+  let s = { list: [summary("m1", "Ops"), summary("m2", "Two", { panelCount: 3 })], byId: { m1: { canvas: summary("m1", "Ops"), panels: [] } } };
+  s = applyCanvasEvent(s, { type: "canvas.panel.added", data: { id: "m1", updatedAt: "t2", panel: { ...panel("p1"), junk: 1 } } });
   assert.deepEqual(s.byId.m1.panels, [panel("p1")]);
-  assert.equal(s.byId.m1.matrix.panelCount, 1);
-  assert.equal(s.byId.m1.matrix.updatedAt, "t2");
+  assert.equal(s.byId.m1.canvas.panelCount, 1);
+  assert.equal(s.byId.m1.canvas.updatedAt, "t2");
   assert.equal(s.list[0].panelCount, 1);
   assert.equal(s.list[0].updatedAt, "t2");
   // The same panel again (a replay) is a replacement, not a second slot.
-  s = applyMatrixEvent(s, { type: "matrix.panel.added", data: { id: "m1", updatedAt: "t2", panel: panel("p1", { x: 4 }) } });
-  assert.deepEqual(s.byId.m1.panels, [panel("p1", { x: 4 })]);
+  s = applyCanvasEvent(s, { type: "canvas.panel.added", data: { id: "m1", updatedAt: "t2", panel: panel("p1", { x: 32 }) } });
+  assert.deepEqual(s.byId.m1.panels, [panel("p1", { x: 32 })]);
   assert.equal(s.list[0].panelCount, 1);
   // Not loaded: the summary count moves by one; nothing is loaded by an event.
-  s = applyMatrixEvent(s, { type: "matrix.panel.added", data: { id: "m2", updatedAt: "t3", panel: panel("p5") } });
+  s = applyCanvasEvent(s, { type: "canvas.panel.added", data: { id: "m2", updatedAt: "t3", panel: panel("p5") } });
   assert.equal(s.list[1].panelCount, 4);
   assert.equal(s.list[1].updatedAt, "t3");
   assert.equal(s.byId.m2, undefined);
-  s = applyMatrixEvent(s, { type: "matrix.panel.removed", data: { id: "m2", updatedAt: "t4", panelId: "p5" } });
+  s = applyCanvasEvent(s, { type: "canvas.panel.removed", data: { id: "m2", updatedAt: "t4", panelId: "p5" } });
   assert.equal(s.list[1].panelCount, 3);
   assert.equal(s.list[1].updatedAt, "t4");
-  s = applyMatrixEvent(s, { type: "matrix.panel.removed", data: { id: "m1", updatedAt: "t5", panelId: "p1" } });
+  s = applyCanvasEvent(s, { type: "canvas.panel.removed", data: { id: "m1", updatedAt: "t5", panelId: "p1" } });
   assert.deepEqual(s.byId.m1.panels, []);
-  assert.equal(s.byId.m1.matrix.panelCount, 0);
+  assert.equal(s.byId.m1.canvas.panelCount, 0);
   assert.equal(s.list[0].panelCount, 0);
   assert.equal(s.list[0].updatedAt, "t5");
   // A panel that cannot be placed is ignored; a count never goes below zero.
-  assert.equal(applyMatrixEvent(s, { type: "matrix.panel.added", data: { id: "m1", updatedAt: "t6", panel: { id: "p2" } } }), s);
-  const zero = applyMatrixEvent({ list: [summary("m3", "z")], byId: {} }, { type: "matrix.panel.removed", data: { id: "m3", updatedAt: "t", panelId: "x" } });
+  assert.equal(applyCanvasEvent(s, { type: "canvas.panel.added", data: { id: "m1", updatedAt: "t6", panel: { id: "p2" } } }), s);
+  const zero = applyCanvasEvent({ list: [summary("m3", "z")], byId: {} }, { type: "canvas.panel.removed", data: { id: "m3", updatedAt: "t", panelId: "x" } });
   assert.equal(zero.list[0].panelCount, 0);
 });
 
-test("deleted drops the summary and the loaded matrix", () => {
+test("deleted drops the summary and the loaded canvas", () => {
   const s = {
     list: [summary("m1", "Ops"), summary("m2", "Two")],
-    byId: { m1: { matrix: summary("m1", "Ops"), panels: [panel("p1")] }, m2: { matrix: summary("m2", "Two"), panels: [] } },
+    byId: { m1: { canvas: summary("m1", "Ops"), panels: [panel("p1")] }, m2: { canvas: summary("m2", "Two"), panels: [] } },
   };
-  const next = applyMatrixEvent(s, { type: "matrix.deleted", data: { id: "m1" } });
+  const next = applyCanvasEvent(s, { type: "canvas.deleted", data: { id: "m1" } });
   assert.deepEqual(next.list.map((m) => m.id), ["m2"]);
   assert.deepEqual(Object.keys(next.byId), ["m2"]);
-  assert.equal(applyMatrixEvent(next, { type: "matrix.deleted", data: { id: "m1" } }), next);
+  assert.equal(applyCanvasEvent(next, { type: "canvas.deleted", data: { id: "m1" } }), next);
   assert.equal(s.list.length, 2, "the previous state is not mutated");
 });
 
 // ---- the surface's arithmetic (plan §4.3–§4.6) ----------------------------
 
-const rect = (id, x, y, w = 4, h = 14) => ({ id, x, y, w, h });
+const rect = (id, x, y, w = 32, h = 42) => ({ id, x, y, w, h });
 
-test("nextSlot: the first free slot scanning rows, then the bottom", () => {
-  assert.deepEqual(PANEL_DEFAULT, { w: 4, h: 14 });
-  assert.deepEqual(nextSlot([]), { x: 0, y: 0 });
-  assert.deepEqual(nextSlot([rect("a", 0, 0)]), { x: 4, y: 0 }, "beside the first panel");
-  assert.deepEqual(nextSlot([rect("a", 0, 0), rect("b", 8, 0)]), { x: 4, y: 0 }, "a gap in the first row is taken first");
-  assert.deepEqual(nextSlot([rect("a", 0, 0), rect("b", 4, 0), rect("c", 8, 0)]), { x: 0, y: 14 }, "a full row: the next row");
-  assert.deepEqual(nextSlot([rect("a", 0, 0), rect("b", 4, 0, 8, 8)]), { x: 4, y: 8 }, "under a short panel, beside a tall one");
-  assert.deepEqual(nextSlot([rect("a", 0, 0)], 12, 14), { x: 0, y: 14 }, "a full-width panel goes under everything");
-  assert.deepEqual(nextSlot([rect("a", 0, 0, 12, 8)], 4, 8), { x: 0, y: 8 });
-  assert.deepEqual(nextSlot([rect("a", 0, 0), rect("b", 4, 0, 4, 8), rect("c", 8, 0)], 4, 8), { x: 4, y: 8 }, "a pocket the exact size counts");
-  assert.deepEqual(nextSlot([rect("a", 0, 0), rect("b", 4, 0, 4, 8), rect("c", 8, 0), rect("d", 4, 12)], 4, 8), { x: 0, y: 14 }, "a pocket with a panel under it is too short");
-  assert.deepEqual(nextSlot([rect("a", 0, 0), { id: "junk", x: 1.5 }]), { x: 4, y: 0 }, "a panel without a whole rectangle is ignored");
-  // A canvas has no column cap: a new panel lands beside the others, never
-  // wrapped into a 12-column row.
-  assert.deepEqual(nextSlot([], 32, 42, "canvas"), { x: 0, y: 0 });
-  assert.deepEqual(nextSlot([rect("a", 0, 0, 32, 42)], 32, 42, "canvas"), { x: 32, y: 0 }, "beside, not under");
-  assert.deepEqual(nextSlot([rect("a", 0, 0, 96, 42), rect("b", 96, 0, 96, 42)], 96, 42, "canvas"), { x: 192, y: 0 });
-  assert.deepEqual(nextSlot([rect("a", 0, 0, 96, 42)], 96, 42), { x: 0, y: 42 }, "the same panels in grid mode wrap");
+test("nextSlot: the first free slot scanning rows, and no column to wrap at", () => {
   assert.deepEqual(PANEL_DEFAULT_CANVAS, { w: 32, h: 42 });
-  assert.deepEqual(panelDefault("canvas"), PANEL_DEFAULT_CANVAS);
-  assert.deepEqual(panelDefault(), PANEL_DEFAULT);
+  assert.deepEqual(nextSlot([]), { x: 0, y: 0 });
+  assert.deepEqual(nextSlot([rect("a", 0, 0)]), { x: 32, y: 0 }, "beside the first panel");
+  assert.deepEqual(nextSlot([rect("a", 0, 0), rect("b", 64, 0)]), { x: 32, y: 0 }, "the gap between two panels is taken first");
+  assert.deepEqual(nextSlot([rect("a", 0, 0), rect("b", 32, 0), rect("c", 64, 0)]), { x: 96, y: 0 }, "a full row is not full: the plane has no column cap");
+  assert.deepEqual(nextSlot([rect("a", 0, 0, 320, 42)], 96, 42), { x: 320, y: 0 }, "a wide panel is no wall either — nothing wraps under it");
+  assert.deepEqual(nextSlot([rect("a", 0, 0), rect("b", 32, 0, 64, 28)], 32, 28), { x: 96, y: 0 }, "the first free x of the first row wins");
+  assert.deepEqual(nextSlot([rect("a", 0, 0), { id: "junk", x: 1.5 }]), { x: 32, y: 0 }, "a panel without a whole rectangle is ignored");
+  // The negative half of the plane is not a special case: the scan starts at
+  // the topmost edge any panel has, which may be above the origin.
+  assert.deepEqual(nextSlot([rect("a", 0, -80, 32, 42)]), { x: 0, y: -38 });
+  assert.deepEqual(nextSlot([rect("a", 0, 0)], 0, 0), { x: 32, y: 0 }, "a nonsense size still lands somewhere free");
 });
 
 test("layoutDiff: the changed rectangles of panels present in both layouts", () => {
-  const prev = [rect("a", 0, 0), rect("b", 4, 0), rect("c", 8, 0)];
+  const prev = [rect("a", 0, 0), rect("b", 33, 0), rect("c", 66, 0)];
   assert.deepEqual(layoutDiff(prev, prev), []);
-  assert.deepEqual(layoutDiff(prev, [rect("a", 0, 14), rect("b", 4, 0), rect("c", 8, 0)]), [{ id: "a", x: 0, y: 14, w: 4, h: 14 }]);
-  assert.deepEqual(layoutDiff(prev, [rect("a", 0, 0), rect("b", 4, 0, 8, 14), rect("c", 8, 14)]), [{ id: "b", x: 4, y: 0, w: 8, h: 14 }, { id: "c", x: 8, y: 14, w: 4, h: 14 }]);
-  assert.deepEqual(layoutDiff(prev, [...prev, rect("new", 0, 14)]), [], "an added panel is its own POST");
+  assert.deepEqual(layoutDiff(prev, [rect("a", 0, 43), rect("b", 33, 0), rect("c", 66, 0)]), [{ id: "a", x: 0, y: 43, w: 32, h: 42 }]);
+  assert.deepEqual(layoutDiff(prev, [rect("a", 0, 0), rect("b", 33, 0, 64, 42), rect("c", 66, 43)]), [{ id: "b", x: 33, y: 0, w: 64, h: 42 }, { id: "c", x: 66, y: 43, w: 32, h: 42 }]);
+  assert.deepEqual(layoutDiff(prev, [...prev, rect("new", 0, 43)]), [], "an added panel is its own POST");
   assert.deepEqual(layoutDiff(prev, [rect("a", 0, 0)]), [], "a removed panel is its own DELETE");
-  assert.deepEqual(layoutDiff(prev, [{ ...rect("a", 0, 14), kind: "terminal", ref: "t1", extra: 1 }]), [{ id: "a", x: 0, y: 14, w: 4, h: 14 }], "only the rectangle travels");
-  assert.deepEqual(layoutDiff(prev, [rect("a", 0, 14, 3, 14), rect("b", 4, 14)]), [{ id: "b", x: 4, y: 14, w: 4, h: 14 }], "an invalid rectangle is left out, the rest still goes");
+  assert.deepEqual(layoutDiff(prev, [{ ...rect("a", 0, 43), kind: "terminal", ref: "t1", extra: 1 }]), [{ id: "a", x: 0, y: 43, w: 32, h: 42 }], "only the rectangle travels");
+  assert.deepEqual(layoutDiff(prev, [rect("a", 0, 43, 31, 42), rect("b", 33, 43)]), [{ id: "b", x: 33, y: 43, w: 32, h: 42 }], "an invalid rectangle is left out, the rest still goes");
   assert.deepEqual(layoutDiff(null, null), []);
 });
 
-// ---- canvas mode (ADR-0113) ----------------------------------------------
+// ---- the plane's rules, the only ones there are (ADR-0113, ADR-0118) -----
 
-test("validate* judge a rectangle by the mode it belongs to", () => {
-  assert.equal(validateMode("grid"), "");
-  assert.equal(validateMode("canvas"), "");
-  assert.equal(validateMode("isometric"), "mode must be grid or canvas");
-  assert.equal(validateMode(undefined), "mode must be grid or canvas");
+test("validate* judge every rectangle by the plane's one set of rules", () => {
   const cases = [
     [{ x: 0, y: 0, w: 31, h: 42 }, "w must be at least 32 canvas units"],
     [{ x: 0, y: 0, w: 32, h: 27 }, "h must be at least 28 canvas units"],
@@ -292,25 +275,27 @@ test("validate* judge a rectangle by the mode it belongs to", () => {
     [{ x: -4000, y: -2500, w: 32, h: 28 }, ""], // negative is the plane's, not a mistake
     [{ x: 100000, y: -100000, w: 4096, h: 4096 }, ""],
   ];
-  for (const [r, want] of cases) assert.equal(validatePlacement(r, "canvas"), want, JSON.stringify(r));
-  // The same rectangles under the other mode, and the grid rules unchanged
-  // when no mode is passed at all.
-  assert.equal(validatePlacement({ x: 0, y: 0, w: 32, h: 42 }, "grid"), "x + w must be at most 12 columns");
-  assert.equal(validatePlacement({ x: 0, y: 0, w: 32, h: 42 }), "x + w must be at most 12 columns");
-  assert.equal(validatePlacement({ x: 0, y: 0, w: 4, h: 8 }, "canvas"), "w must be at least 32 canvas units");
-  assert.equal(validatePlacement({ x: -1, y: 0, w: 4, h: 8 }), "x must be 0 or more");
-  assert.equal(validatePanel({ kind: "terminal", ref: "t1", x: -40, y: -40, w: 32, h: 28 }, "canvas"), "");
-  assert.equal(validatePanel({ kind: "terminal", ref: "t1", x: 0, y: 0, w: 4, h: 8 }, "canvas"), "w must be at least 32 canvas units");
-  assert.equal(validatePanel({ kind: "pin", ref: "t1", x: 0, y: 0, w: 32, h: 42 }, "canvas"), "kind must be agent, terminal, note, file or diff");
-  // layoutDiff follows the mode, or every canvas move would be dropped.
+  for (const [r, want] of cases) assert.equal(validatePlacement(r), want, JSON.stringify(r));
+  // There is no second engine to fall through to, and no mode argument to
+  // ask for one: a rectangle that was a legal 4×8 cell before ADR-0118 is
+  // refused, and a caller that passes a mode anyway is ignored.
+  assert.equal(validatePlacement({ x: 0, y: 0, w: 4, h: 8 }), "w must be at least 32 canvas units");
+  assert.equal(validatePlacement({ x: 0, y: 0, w: 4, h: 8 }, "grid"), "w must be at least 32 canvas units");
+  assert.equal(validatePlacement({ x: -1, y: 0, w: 32, h: 42 }), "", "a negative coordinate is the plane's, not a mistake");
+  assert.equal(validatePanel({ kind: "terminal", ref: "t1", x: -40, y: -40, w: 32, h: 28 }), "");
+  assert.equal(validatePanel({ kind: "terminal", ref: "t1", x: 0, y: 0, w: 4, h: 8 }), "w must be at least 32 canvas units");
+  assert.equal(validatePanel({ kind: "pin", ref: "t1", x: 0, y: 0, w: 32, h: 42 }), "kind must be agent, terminal, note, file or diff");
+  // layoutDiff applies the same rules, or every move on the plane would be
+  // dropped.
   const prev = [rect("a", 0, 0, 32, 42)];
-  assert.deepEqual(layoutDiff(prev, [rect("a", -8, -8, 40, 40)], "canvas"), [{ id: "a", x: -8, y: -8, w: 40, h: 40 }]);
-  assert.deepEqual(layoutDiff(prev, [rect("a", -8, -8, 40, 40)]), [], "the grid rules refuse it");
+  assert.deepEqual(layoutDiff(prev, [rect("a", -8, -8, 40, 40)]), [{ id: "a", x: -8, y: -8, w: 40, h: 40 }]);
+  assert.deepEqual(layoutDiff(prev, [rect("a", -8, -8, 4, 8)]), [], "a rectangle the plane refuses is left out");
 });
 
-// The transform the store applies (internal/store/matrix.go), repeated here
-// so the UI can preview a switch — the fixtures are the store tests'.
-test("gridToCanvas: a cell is 8 units wide and 3 tall, then the minimums", () => {
+// The arithmetic migration 045 applied once (ADR-0113, ADR-0118), kept as
+// the record of that conversion — the fixtures are the store tests'. No
+// caller runs it any more, and there is no way back.
+test("gridToCanvas: a cell was 8 units wide and 3 tall, then the minimums", () => {
   assert.deepEqual(gridToCanvas([rect("a", 0, 0, 4, 14), rect("b", 4, 0, 8, 8), rect("c", 0, 14, 12, 40)]), [
     { id: "a", x: 0, y: 0, w: 32, h: 42 },
     { id: "b", x: 32, y: 0, w: 64, h: 28 }, // 8×3 = 24, clamped to the 28-unit minimum
@@ -318,87 +303,14 @@ test("gridToCanvas: a cell is 8 units wide and 3 tall, then the minimums", () =>
   ]);
   assert.deepEqual(gridToCanvas([{ id: "junk", x: 1.5, y: 0, w: 4, h: 8 }]), []);
   assert.deepEqual(gridToCanvas(null), []);
-  // The default panel is the same panel in both modes.
-  assert.deepEqual(gridToCanvas([{ id: "p", x: 0, y: 0, ...PANEL_DEFAULT }])[0], { id: "p", x: 0, y: 0, ...PANEL_DEFAULT_CANVAS });
-});
-
-test("canvasToGrid: divide, round, clamp, then pack in reading order", () => {
-  // a covers (0,0)–(4,14); b and c round onto it; d's negative x clamps to
-  // the left edge and its row is full, so it goes under.
-  const packed = canvasToGrid([
-    rect("a", 0, 0, 32, 42),
-    rect("b", 12, 2, 32, 42),
-    rect("c", 28, 5, 33, 43),
-    rect("d", -600, 90, 40, 30),
-  ]);
-  assert.deepEqual(packed, [
-    { id: "a", x: 0, y: 0, w: 4, h: 14 },
-    { id: "b", x: 4, y: 0, w: 4, h: 14 },
-    { id: "c", x: 8, y: 0, w: 4, h: 14 },
-    { id: "d", x: 0, y: 14, w: 5, h: 10 },
-  ]);
-  for (const p of packed) assert.equal(validatePlacement(p), "", JSON.stringify(p));
-  // Nothing is lost and nothing overlaps.
-  const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-  for (let i = 0; i < packed.length; i++) {
-    for (let j = i + 1; j < packed.length; j++) assert.equal(overlaps(packed[i], packed[j]), false, `${packed[i].id} × ${packed[j].id}`);
+  // A 4×14 panel — the old default — is today's default panel, which is why
+  // a converted board still looks like the board it was.
+  assert.deepEqual(gridToCanvas([{ id: "p", x: 0, y: 0, w: 4, h: 14 }])[0], { id: "p", x: 0, y: 0, ...PANEL_DEFAULT_CANVAS });
+  // The clamps are the plane's own limits, so everything it answers is
+  // placeable.
+  for (const p of gridToCanvas([rect("a", 0, 0, 4, 14), rect("b", 4, 0, 8, 8), rect("c", 0, 14, 12, 40)])) {
+    assert.equal(validatePlacement(p), "", JSON.stringify(p));
   }
-  // A round trip is legal and disjoint, never identical: the 8-row minimum
-  // leaves as 28 units (24 clamped up) and comes back 9 rows tall.
-  const start = [rect("a", 0, 0, 4, 8), rect("b", 4, 0, 4, 8), rect("c", 0, 8, 12, 8)];
-  const back = canvasToGrid(gridToCanvas(start));
-  assert.equal(back.length, 3);
-  for (const p of back) assert.equal(validatePlacement(p), "", JSON.stringify(p));
-  for (let i = 0; i < back.length; i++) {
-    for (let j = i + 1; j < back.length; j++) assert.equal(overlaps(back[i], back[j]), false, `${back[i].id} × ${back[j].id}`);
-  }
-  assert.deepEqual(back, [
-    { id: "a", x: 0, y: 0, w: 4, h: 9 },
-    { id: "b", x: 4, y: 0, w: 4, h: 9 },
-    { id: "c", x: 0, y: 9, w: 12, h: 9 },
-  ]);
-  assert.deepEqual(canvasToGrid([{ x: 0, y: 0, w: 32, h: 42 }]), [], "a rectangle with no panel id cannot be placed");
-});
-
-test("matrix.mode carries the new summary and the panels it moved", () => {
-  const gridPanels = [panel("p1"), panel("p2", { x: 4 })];
-  const s = {
-    list: [summary("m1", "Ops", { panelCount: 2 }), summary("m2", "Two")],
-    byId: { m1: { matrix: summary("m1", "Ops", { panelCount: 2 }), panels: gridPanels } },
-  };
-  const ev = {
-    type: "matrix.mode",
-    data: {
-      ...summary("m1", "Ops", { mode: "canvas", panelCount: 2, updatedAt: "t2" }),
-      panels: [{ id: "p1", x: 0, y: 0, w: 32, h: 28 }, { id: "p2", x: 32, y: 0, w: 32, h: 28 }],
-    },
-  };
-  const next = applyMatrixEvent(s, ev);
-  assert.equal(next.byId.m1.matrix.mode, "canvas");
-  assert.equal(next.byId.m1.matrix.updatedAt, "t2");
-  assert.equal(next.byId.m1.matrix.panelCount, 2);
-  assert.deepEqual(next.byId.m1.panels, [panel("p1", { w: 32, h: 28 }), panel("p2", { x: 32, w: 32, h: 28 })]);
-  assert.equal(next.list[0].mode, "canvas");
-  assert.deepEqual(s.byId.m1.panels, gridPanels, "the previous state is not mutated");
-  // The rectangles are judged in the mode the frame carries: a grid-sized
-  // row inside a canvas frame is not honest and is left alone.
-  const half = applyMatrixEvent(s, {
-    type: "matrix.mode",
-    data: { ...summary("m1", "Ops", { mode: "canvas", updatedAt: "t3" }), panels: [{ id: "p1", x: 0, y: 0, w: 4, h: 8 }] },
-  });
-  assert.deepEqual(half.byId.m1.panels, gridPanels);
-  assert.equal(half.byId.m1.matrix.mode, "canvas");
-  // A layout frame that follows is judged by the mode the matrix now has.
-  const moved = applyMatrixEvent(next, { type: "matrix.layout", data: { id: "m1", updatedAt: "t4", panels: [{ id: "p1", x: -80, y: -8, w: 40, h: 30 }] } });
-  assert.deepEqual(moved.byId.m1.panels[0], panel("p1", { x: -80, y: -8, w: 40, h: 30 }));
-  // Not loaded: the summary is complete, so the list follows and nothing loads.
-  const unloaded = applyMatrixEvent({ list: s.list, byId: {} }, ev);
-  assert.equal(unloaded.list[0].mode, "canvas");
-  assert.deepEqual(unloaded.byId, {});
-  // A summary a list has never seen is inserted, the way created/updated do.
-  const fresh = applyMatrixEvent({ list: [], byId: {} }, ev);
-  assert.deepEqual(fresh.list.map((m) => m.id), ["m1"]);
-  assert.equal(applyMatrixEvent(s, { type: "matrix.mode", data: { panels: [] } }), s);
 });
 
 // §4.4, one assertion per row.
@@ -407,7 +319,7 @@ const fleet = {
   freeAgents: [{ id: "a-free", mode: "managed" }, { id: "a-nomode" }],
   terminals: [{ id: "t-sh", running: true }, { id: "t-dead", running: false }, { id: "t-cli", running: true, launchCli: "claude" }, { id: "t-cli-off", running: false, launchCli: "claude" }],
 };
-const bound = (kind, ref) => ({ id: "p", kind, ref, x: 0, y: 0, w: 4, h: 14 });
+const bound = (kind, ref) => ({ id: "p", kind, ref, x: 0, y: 0, w: 32, h: 42 });
 
 test("bindingState: terminal rows of §4.4", () => {
   assert.equal(bindingState(bound("terminal", "t-sh"), fleet), "terminal-running");
@@ -442,7 +354,7 @@ test("bindingState: note rows follow the pins list, and nothing is gone before i
 });
 
 test("bindingState: a file's owner is what can be gone, never the file on disk", () => {
-  const ref = (r, kind = "file") => ({ id: "p", kind, ref: r, x: 0, y: 0, w: 4, h: 8 });
+  const ref = (r, kind = "file") => ({ id: "p", kind, ref: r, x: 0, y: 0, w: 32, h: 42 });
   assert.equal(bindingState(ref("t:t-sh:src/main.go"), fleet), "file-ready");
   assert.equal(bindingState(ref("a:a-int:README.md"), fleet), "file-ready");
   assert.equal(bindingState(ref("a:a-off:README.md"), fleet), "file-ready", "a stopped agent still owns its folder");
@@ -540,7 +452,7 @@ test("loadPolicy: a pinned panel never unloads; unpinning starts the 5 s from th
   assert.equal(r.wakeAt, 65000, "unpinned: the clock starts now");
 });
 
-test("loadPolicy: a hidden matrix (every panel reported far) unloads everything after 5 s", () => {
+test("loadPolicy: a hidden canvas (every panel reported far) unloads everything after 5 s", () => {
   const far = ["p1", "p2", "p3"].map((id) => ({ id, near: false, loaded: true }));
   let r = run(far, 1000, NONE, {});
   assert.deepEqual(r.unload, []);
@@ -558,7 +470,7 @@ test("loadPolicy: mixed panels — wakeAt is the earliest deadline, junk is skip
   assert.deepEqual(run(null, 5, null, null), { load: [], unload: [], timers: {}, wakeAt: 0, band: "live", bodies: {} });
 });
 
-test("loadPolicy: grid mode passes no view — every loaded body is live, as before canvas mode", () => {
+test("loadPolicy: a caller that passes no view — every loaded body is live", () => {
   const r = run([{ id: "a", near: true, loaded: true }, { id: "b", near: false, loaded: false }], 1000, NONE, {});
   assert.deepEqual(r.bodies, { a: "live", b: "off" });
   assert.equal(r.band, "live");
@@ -624,7 +536,7 @@ test("zoom table: the hysteresis — live above 0.8, still below 0.75, in betwee
   assert.equal(zoomBody(0.8, "still").band, "live", "at 0.8 it flips back");
   assert.equal(zoomBody(0.79, "still").band, "still", "0.79 does not: C0 measured nine sockets thrashing there");
   assert.equal(zoomBody(1, undefined).band, "live", "no memory: live");
-  assert.equal(zoomBody(undefined, undefined).body, "live", "no zoom: grid mode's answer");
+  assert.equal(zoomBody(undefined, undefined).body, "live", "no zoom: the unzoomed answer");
   assert.equal(zoomBody(NaN, "still").band, "live", "junk zoom reads as 1.0");
 });
 
@@ -684,7 +596,7 @@ test("chat body: in the band at zoom 0.4 and above it is live — socket open, c
     assert.deepEqual(at(z, "live", [chat("c1")]).bodies, { c1: "live" }, "live at " + z);
   }
   assert.deepEqual(at(0.5, "still", [chat("c1")]).bodies, { c1: "live" }, "the pane's still band does not reach it");
-  assert.deepEqual(run([chat("c1")], 1000, NONE, {}).bodies, { c1: "live" }, "grid mode passes no view and is live");
+  assert.deepEqual(run([chat("c1")], 1000, NONE, {}).bodies, { c1: "live" }, "no view passed: live");
 });
 
 test("chat body: below zoom 0.4 it is a name-plate — and a plate holds no socket", () => {
@@ -745,7 +657,7 @@ test("chat body: past the cap the oldest arrivals go quiet, and a freed slot is 
   assert.ok(stillParked.every((id) => parked.includes(id)), "and it came from the parked set, not from a reshuffle");
 });
 
-test("chat body: a matrix under the cap never pays for it, and panes are counted apart", () => {
+test("chat body: a canvas under the cap never pays for it, and panes are counted apart", () => {
   const mixed = [chat("c1"), chat("c2"), { id: "t1", near: true, loaded: true }, { id: "n1", near: true, loaded: true, pane: false }];
   const r = run(mixed, 1000, NONE, {});
   assert.deepEqual(r.bodies, { c1: "live", c2: "live", t1: "live", n1: "live" }, "two chats, a pane and a note: nothing is capped");
@@ -795,16 +707,16 @@ test("tidyCanvas: reading order, sizes kept, three default panels across", () =>
   assert.deepEqual(tidyCanvas([]), []);
   assert.deepEqual(tidyCanvas(null), []);
   assert.deepEqual(tidyCanvas([{ id: "junk", x: 0 }, null]), [], "a panel without a whole rectangle cannot be placed");
-  // Ties break by id, so two viewers tidying the same matrix agree.
+  // Ties break by id, so two viewers tidying the same canvas agree.
   assert.deepEqual(tidyCanvas([p("z", 0, 0), p("a", 0, 0)]).map((r) => r.id), ["a", "z"]);
   // What Tidy answers is a layout patch: nothing to save when nothing moved.
-  assert.deepEqual(layoutDiff(out, tidyCanvas(out), "canvas"), []);
+  assert.deepEqual(layoutDiff(out, tidyCanvas(out)), []);
 });
 
 test("viewportKey and normalizeViewport: a camera per viewer, never the store", () => {
-  assert.equal(VIEWPORT_PREFIX, "picode-matrix-view:");
-  assert.equal(viewportKey("m1"), "picode-matrix-view:m1");
-  assert.equal(viewportKey(null), "picode-matrix-view:");
+  assert.equal(VIEWPORT_PREFIX, "picode-canvas-view:", "a camera stored under the old key is not read: fitView once (ADR-0118)");
+  assert.equal(viewportKey("m1"), "picode-canvas-view:m1");
+  assert.equal(viewportKey(null), "picode-canvas-view:");
   assert.deepEqual(normalizeViewport({ x: -120, y: 40, zoom: 0.5 }), { x: -120, y: 40, zoom: 0.5 });
   assert.deepEqual(normalizeViewport({ x: 0, y: 0, zoom: 9 }), { x: 0, y: 0, zoom: 1.5 }, "clamped into minZoom/maxZoom");
   assert.deepEqual(normalizeViewport({ x: 0, y: 0, zoom: 0.01 }), { x: 0, y: 0, zoom: 0.2 });
@@ -825,54 +737,56 @@ test("suspendedToDispose: past 24 instances the oldest go, past 10 min any goes"
   assert.deepEqual(suspendedToDispose([{ id: "x" }, null, { at: 1 }], 5), []);
 });
 
-// The keyboard's grid (plan §4.6 "Focus"): three panels across the top,
-// a wide one under the first two, a stack under the third, one alone at
-// the bottom left.
+// The keyboard's board (plan §4.6 "Focus"): three panels across the top, a
+// wide one under the first two, a stack under the third, one alone at the
+// bottom left. The arrows are pure 2D arithmetic and never validate a
+// rectangle, so this fixture uses small numbers to keep the picture legible;
+// the test below runs the same board in canvas units.
 //
 //   A(0,0 4×8)  B(4,0 4×8)  C(8,0 4×8)
 //   D(0,8 8×8)              E(8,8 4×4)
 //                           F(8,12 4×4)
 //   G(0,16 4×8)
 const cell = (id, x, y, w, h) => ({ id, kind: "terminal", ref: "t-" + id, x, y, w, h });
-const GRID = [
+const BOARD = [
   cell("A", 0, 0, 4, 8), cell("B", 4, 0, 4, 8), cell("C", 8, 0, 4, 8),
   cell("D", 0, 8, 8, 8), cell("E", 8, 8, 4, 4), cell("F", 8, 12, 4, 4),
   cell("G", 0, 16, 4, 8),
 ];
 
 test("panelOrder: reading order, junk left out", () => {
-  assert.deepEqual(panelOrder([...GRID].reverse()), ["A", "B", "C", "D", "E", "F", "G"]);
+  assert.deepEqual(panelOrder([...BOARD].reverse()), ["A", "B", "C", "D", "E", "F", "G"]);
   assert.deepEqual(panelOrder([cell("x", 4, 0, 4, 8), { id: "junk", x: 0 }, null, cell("y", 0, 0, 4, 8)]), ["y", "x"]);
   assert.deepEqual(panelOrder(null), []);
   assert.deepEqual([...PANEL_DIRECTIONS], ["left", "right", "up", "down"]);
 });
 
 test("neighborPanel: left and right stay on the row and stop at its ends", () => {
-  assert.equal(neighborPanel(GRID, "A", "right"), "B");
-  assert.equal(neighborPanel(GRID, "B", "right"), "C");
-  assert.equal(neighborPanel(GRID, "C", "right"), "", "nothing to the right of the last column");
-  assert.equal(neighborPanel(GRID, "B", "left"), "A");
-  assert.equal(neighborPanel(GRID, "A", "left"), "");
-  assert.equal(neighborPanel(GRID, "D", "right"), "E", "the wide panel shares rows with E and F; E lines up with its top");
-  assert.equal(neighborPanel(GRID, "F", "left"), "D");
-  assert.equal(neighborPanel(GRID, "G", "right"), "", "a row with one panel: right is a dead end, down and up are not");
+  assert.equal(neighborPanel(BOARD, "A", "right"), "B");
+  assert.equal(neighborPanel(BOARD, "B", "right"), "C");
+  assert.equal(neighborPanel(BOARD, "C", "right"), "", "nothing to the right of the last column");
+  assert.equal(neighborPanel(BOARD, "B", "left"), "A");
+  assert.equal(neighborPanel(BOARD, "A", "left"), "");
+  assert.equal(neighborPanel(BOARD, "D", "right"), "E", "the wide panel shares rows with E and F; E lines up with its top");
+  assert.equal(neighborPanel(BOARD, "F", "left"), "D");
+  assert.equal(neighborPanel(BOARD, "G", "right"), "", "a row with one panel: right is a dead end, down and up are not");
 });
 
 test("neighborPanel: down and up follow the shared columns, ties go to the best-aligned edge", () => {
-  assert.equal(neighborPanel(GRID, "A", "down"), "D");
-  assert.equal(neighborPanel(GRID, "B", "down"), "D");
-  assert.equal(neighborPanel(GRID, "C", "down"), "E");
-  assert.equal(neighborPanel(GRID, "E", "down"), "F");
-  assert.equal(neighborPanel(GRID, "F", "up"), "E");
-  assert.equal(neighborPanel(GRID, "E", "up"), "C");
-  assert.equal(neighborPanel(GRID, "D", "up"), "A", "A and B both touch D; A lines up with its left edge");
-  assert.equal(neighborPanel(GRID, "A", "up"), "");
-  assert.equal(neighborPanel(GRID, "G", "down"), "");
+  assert.equal(neighborPanel(BOARD, "A", "down"), "D");
+  assert.equal(neighborPanel(BOARD, "B", "down"), "D");
+  assert.equal(neighborPanel(BOARD, "C", "down"), "E");
+  assert.equal(neighborPanel(BOARD, "E", "down"), "F");
+  assert.equal(neighborPanel(BOARD, "F", "up"), "E");
+  assert.equal(neighborPanel(BOARD, "E", "up"), "C");
+  assert.equal(neighborPanel(BOARD, "D", "up"), "A", "A and B both touch D; A lines up with its left edge");
+  assert.equal(neighborPanel(BOARD, "A", "up"), "");
+  assert.equal(neighborPanel(BOARD, "G", "down"), "");
 });
 
 test("neighborPanel: up and down fall back to the nearest panel in that half when no column is shared", () => {
-  assert.equal(neighborPanel(GRID, "F", "down"), "G", "F sits over nothing; G is the only panel below");
-  assert.equal(neighborPanel(GRID, "G", "up"), "D", "D touches G; A is further up");
+  assert.equal(neighborPanel(BOARD, "F", "down"), "G", "F sits over nothing; G is the only panel below");
+  assert.equal(neighborPanel(BOARD, "G", "up"), "D", "D touches G; A is further up");
   const twoRows = [cell("a", 8, 0, 4, 8), cell("b", 0, 8, 4, 8), cell("c", 4, 8, 4, 8)];
   assert.equal(neighborPanel(twoRows, "a", "down"), "c", "nearest column first");
   assert.equal(neighborPanel(twoRows, "b", "up"), "a");
@@ -881,17 +795,17 @@ test("neighborPanel: up and down fall back to the nearest panel in that half whe
 });
 
 test("neighborPanel: unknown id, unknown direction and junk answer nothing", () => {
-  assert.equal(neighborPanel(GRID, "nope", "right"), "");
-  assert.equal(neighborPanel(GRID, "A", "diagonal"), "");
-  assert.equal(neighborPanel(GRID, "", "right"), "");
+  assert.equal(neighborPanel(BOARD, "nope", "right"), "");
+  assert.equal(neighborPanel(BOARD, "A", "diagonal"), "");
+  assert.equal(neighborPanel(BOARD, "", "right"), "");
   assert.equal(neighborPanel(null, "A", "right"), "");
   assert.equal(neighborPanel([cell("A", 0, 0, 4, 8), { id: "B", x: 4, y: 0 }, null], "A", "right"), "", "a panel without a whole rectangle is not a neighbour");
   assert.equal(neighborPanel([cell("A", 0, 0, 4, 8)], "A", "down"), "", "alone");
 });
 
-// The keyboard needs no canvas of its own: neighborPanel is already a 2D
-// spatial search, so the arrows work on a free plane exactly as they do on
-// the grid — including the negative half of it.
+// neighborPanel is already a 2D spatial search, so the arrows work on the
+// free plane exactly as they do on the small board above — including the
+// negative half of it.
 //
 //   L(-99,0 32×42)  P(0,0 32×42)  Q(33,0 32×42)
 //                   R(0,43 65×42)
@@ -907,15 +821,15 @@ test("neighborPanel and panelOrder read canvas units unchanged (the arrows are a
   assert.equal(neighborPanel(PLANE, "R", "up"), "P", "P lines up with R's left edge");
   assert.equal(neighborPanel(PLANE, "L", "down"), "R", "no column shared: the nearest panel in that half");
   assert.deepEqual(panelOrder(PLANE), ["L", "P", "Q", "R"]);
-  // And through the switch transform: a cell is 8 units wide and 3 tall.
-  const moved = gridToCanvas(GRID);
+  // And on the same board in canvas units, the way migration 045 left it.
+  const moved = gridToCanvas(BOARD);
   assert.equal(moved.find((p) => p.id === "B").x, 32);
   assert.equal(neighborPanel(moved, "A", "right"), "B");
   assert.deepEqual(panelOrder(moved), ["A", "B", "C", "D", "E", "F", "G"]);
-  // The transform is lossy where the plan says it is: an 8-row panel grows
+  // The conversion was lossy where the plan says it is: an 8-row panel grew
   // to the 28-unit minimum and overlaps the panel below, so `down` from C
-  // skips the panel it now overlaps. Canvas mode allows that; the switch
-  // back packs it out (ADR-0113).
+  // skips the panel it now overlaps. The plane allows that, and there is no
+  // pack to undo it (ADR-0113, ADR-0118).
   assert.equal(neighborPanel(moved, "C", "down"), "F");
 });
 
@@ -942,12 +856,12 @@ test("normalizeEdge takes an id and two different panels, and drops junk", () =>
   assert.deepEqual(normalizeEdgeList(null), []);
 });
 
-test("normalizeMatrixDetail carries the edges, and a payload from before ADR-0116 reads none", () => {
-  const d = normalizeMatrixDetail({
+test("normalizeCanvasDetail carries the edges, and a payload from before ADR-0116 reads none", () => {
+  const d = normalizeCanvasDetail({
     ...summary("m1", "Ops"), panels: [panel("p1"), agentPanel("p2")], edges: [edge("e1", "p1", "p2"), { bad: 1 }],
   });
   assert.deepEqual(d.edges, [edge("e1", "p1", "p2")]);
-  assert.deepEqual(normalizeMatrixDetail({ ...summary("m1", "Ops"), panels: [] }).edges, []);
+  assert.deepEqual(normalizeCanvasDetail({ ...summary("m1", "Ops"), panels: [] }).edges, []);
 });
 
 test("validateEdge repeats the server's refusals, in the server's order", () => {
@@ -958,8 +872,8 @@ test("validateEdge repeats the server's refusals, in the server's order", () => 
   assert.equal(validateEdge({ aPanel: " ", bPanel: "p2" }), "aPanel and bPanel are required");
   assert.equal(validateEdge({ aPanel: "p1", bPanel: "p1" }), "an edge needs two different panels");
   assert.equal(validateEdge({ aPanel: "p1", bPanel: "p9" }), "", "without the panels there is nothing more to judge");
-  // With the panels: both must be on this matrix and have a mailbox.
-  assert.equal(validateEdge({ aPanel: "p1", bPanel: "p9" }, panels), "panel p9 is not on this matrix");
+  // With the panels: both must be on this canvas and have a mailbox.
+  assert.equal(validateEdge({ aPanel: "p1", bPanel: "p9" }, panels), "panel p9 is not on this canvas");
   assert.equal(validateEdge({ aPanel: "p1", bPanel: "p3" }, panels), "panel p3 is a note panel and has no mailbox: an edge links agent or terminal panels");
   assert.equal(validateEdge({ aPanel: "p1", bPanel: "p2" }, panels), "", "agent + terminal is the pair an edge links");
   // With the edges: the cap, then the pair that is already linked — in
@@ -967,8 +881,8 @@ test("validateEdge repeats the server's refusals, in the server's order", () => 
   assert.equal(validateEdge({ aPanel: "p1", bPanel: "p2" }, panels, edges), "These panels are already linked");
   assert.equal(validateEdge({ aPanel: "p2", bPanel: "p1" }, panels, edges), "These panels are already linked");
   assert.equal(validateEdge({ aPanel: "p1", bPanel: "p2" }, panels, []), "");
-  const full = Array.from({ length: MATRIX_LIMITS.edges }, (_, i) => edge("e" + i, "a" + i, "b" + i));
-  assert.equal(validateEdge({ aPanel: "p1", bPanel: "p2" }, panels, full), `limit: ${MATRIX_LIMITS.edges} edges per matrix`);
+  const full = Array.from({ length: CANVAS_LIMITS.edges }, (_, i) => edge("e" + i, "a" + i, "b" + i));
+  assert.equal(validateEdge({ aPanel: "p1", bPanel: "p2" }, panels, full), `limit: ${CANVAS_LIMITS.edges} edges per canvas`);
 });
 
 test("edgeEndpoints is the canvas's pair, or null when an end is not on the board", () => {
@@ -983,27 +897,27 @@ test("edgeEndpoints is the canvas's pair, or null when an end is not on the boar
   assert.equal(edgeEndpoints(edge("e1", "p1", "p1"), panels), null);
 });
 
-test("applyMatrixEvent reduces matrix.edge.added and matrix.edge.removed", () => {
-  const entry = { matrix: summary("m1", "Ops", { panelCount: 2 }), panels: [panel("p1"), agentPanel("p2")], edges: [] };
+test("applyCanvasEvent reduces canvas.edge.added and canvas.edge.removed", () => {
+  const entry = { canvas: summary("m1", "Ops", { panelCount: 2 }), panels: [panel("p1"), agentPanel("p2")], edges: [] };
   let s = { list: [summary("m1", "Ops", { panelCount: 2 })], byId: { m1: entry } };
-  s = applyMatrixEvent(s, { type: "matrix.edge.added", data: { id: "m1", updatedAt: "t2", edge: edge("e1", "p1", "p2") } });
+  s = applyCanvasEvent(s, { type: "canvas.edge.added", data: { id: "m1", updatedAt: "t2", edge: edge("e1", "p1", "p2") } });
   assert.deepEqual(s.byId.m1.edges, [edge("e1", "p1", "p2")]);
-  assert.equal(s.byId.m1.matrix.updatedAt, "t2");
+  assert.equal(s.byId.m1.canvas.updatedAt, "t2");
   assert.deepEqual(entry.edges, [], "the previous state is not mutated");
   // The same id again replaces the row instead of doubling it.
-  s = applyMatrixEvent(s, { type: "matrix.edge.added", data: { id: "m1", updatedAt: "t3", edge: edge("e1", "p1", "p2") } });
+  s = applyCanvasEvent(s, { type: "canvas.edge.added", data: { id: "m1", updatedAt: "t3", edge: edge("e1", "p1", "p2") } });
   assert.equal(s.byId.m1.edges.length, 1);
   // Junk is ignored.
-  assert.equal(applyMatrixEvent(s, { type: "matrix.edge.added", data: { id: "m1", edge: { id: "e2" } } }), s);
-  assert.equal(applyMatrixEvent(s, { type: "matrix.edge.removed", data: { id: "m1" } }), s);
+  assert.equal(applyCanvasEvent(s, { type: "canvas.edge.added", data: { id: "m1", edge: { id: "e2" } } }), s);
+  assert.equal(applyCanvasEvent(s, { type: "canvas.edge.removed", data: { id: "m1" } }), s);
 
-  s = applyMatrixEvent(s, { type: "matrix.edge.removed", data: { id: "m1", updatedAt: "t4", edgeId: "e1" } });
+  s = applyCanvasEvent(s, { type: "canvas.edge.removed", data: { id: "m1", updatedAt: "t4", edgeId: "e1" } });
   assert.deepEqual(s.byId.m1.edges, []);
-  assert.equal(s.byId.m1.matrix.updatedAt, "t4");
-  // A matrix that is not loaded only stamps its summary; the panel count is
+  assert.equal(s.byId.m1.canvas.updatedAt, "t4");
+  // A canvas that is not loaded only stamps its summary; the panel count is
   // an edge's business never.
-  const unloaded = applyMatrixEvent({ list: [summary("m2", "Two", { panelCount: 3 })], byId: {} },
-    { type: "matrix.edge.added", data: { id: "m2", updatedAt: "t9", edge: edge("e3", "p1", "p2") } });
+  const unloaded = applyCanvasEvent({ list: [summary("m2", "Two", { panelCount: 3 })], byId: {} },
+    { type: "canvas.edge.added", data: { id: "m2", updatedAt: "t9", edge: edge("e3", "p1", "p2") } });
   assert.equal(unloaded.list[0].updatedAt, "t9");
   assert.equal(unloaded.list[0].panelCount, 3);
   assert.deepEqual(unloaded.byId, {});
@@ -1013,23 +927,22 @@ test("an edge does not outlive its panel, and every other event keeps the edges"
   const held = [edge("e1", "p1", "p2"), edge("e2", "p2", "p3")];
   const base = () => ({
     list: [summary("m1", "Ops", { panelCount: 3 })],
-    byId: { m1: { matrix: summary("m1", "Ops", { panelCount: 3 }), panels: [panel("p1"), agentPanel("p2"), agentPanel("p3")], edges: held } },
+    byId: { m1: { canvas: summary("m1", "Ops", { panelCount: 3 }), panels: [panel("p1"), agentPanel("p2"), agentPanel("p3")], edges: held } },
   });
   // The store cascades an edge away with its panel and announces no event
   // per edge, so the reducer drops exactly the edges that touched it.
-  const removed = applyMatrixEvent(base(), { type: "matrix.panel.removed", data: { id: "m1", updatedAt: "t2", panelId: "p2" } });
+  const removed = applyCanvasEvent(base(), { type: "canvas.panel.removed", data: { id: "m1", updatedAt: "t2", panelId: "p2" } });
   assert.deepEqual(removed.byId.m1.edges, []);
-  const one = applyMatrixEvent(base(), { type: "matrix.panel.removed", data: { id: "m1", updatedAt: "t2", panelId: "p1" } });
+  const one = applyCanvasEvent(base(), { type: "canvas.panel.removed", data: { id: "m1", updatedAt: "t2", panelId: "p1" } });
   assert.deepEqual(one.byId.m1.edges, [edge("e2", "p2", "p3")]);
   // Every other event leaves them alone.
   for (const ev of [
-    { type: "matrix.updated", data: { ...summary("m1", "Ops board"), updatedAt: "t2" } },
-    { type: "matrix.layout", data: { id: "m1", updatedAt: "t2", panels: [{ id: "p1", x: 4, y: 0, w: 4, h: 8 }] } },
-    { type: "matrix.mode", data: { ...summary("m1", "Ops", { mode: "canvas" }), updatedAt: "t2", panels: [] } },
-    { type: "matrix.panel.added", data: { id: "m1", updatedAt: "t2", panel: agentPanel("p4") } },
+    { type: "canvas.updated", data: { ...summary("m1", "Ops board"), updatedAt: "t2" } },
+    { type: "canvas.layout", data: { id: "m1", updatedAt: "t2", panels: [{ id: "p1", x: 33, y: 0, w: 32, h: 42 }] } },
+    { type: "canvas.panel.added", data: { id: "m1", updatedAt: "t2", panel: agentPanel("p4") } },
   ]) {
-    assert.deepEqual(applyMatrixEvent(base(), ev).byId.m1.edges, held, ev.type);
+    assert.deepEqual(applyCanvasEvent(base(), ev).byId.m1.edges, held, ev.type);
   }
-  // And a deleted matrix takes its entry, edges included.
-  assert.deepEqual(Object.keys(applyMatrixEvent(base(), { type: "matrix.deleted", data: { id: "m1" } }).byId), []);
+  // And a deleted canvas takes its entry, edges included.
+  assert.deepEqual(Object.keys(applyCanvasEvent(base(), { type: "canvas.deleted", data: { id: "m1" } }).byId), []);
 });

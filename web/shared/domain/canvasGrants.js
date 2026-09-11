@@ -1,4 +1,4 @@
-// matrixGrants.js — what a Matrix edge grants *right now* (ADR-0116 §7).
+// canvasGrants.js — what a Canvas edge grants *right now* (ADR-0116 §7).
 //
 // An edge is the owner's recorded intent that two sessions may exchange
 // messages; it grants exactly ADR-0104's mailbox contact and nothing else —
@@ -10,7 +10,7 @@
 //
 // ADR-0116 §7 refuses to draw that difference as a decorative dotted line:
 // **a broken end must read broken**, with a one-line reason. This module is
-// the one place that decides which, joining a matrix's `edges` + `panels`
+// the one place that decides which, joining a canvas's `edges` + `panels`
 // with `GET /api/communication` (`owners` + `connections`, whose `active`
 // flag *is* the store's `peerCurrent`). Pure: both the canvas and the
 // Messages audit list read the same answer, because a grant shown in two
@@ -23,7 +23,7 @@ const str = (v) => (typeof v === "string" ? v : "");
 
 // The key a panel and a peer row agree on: a panel's (kind, ref) is exactly
 // the connection's (kind, ownerId) — `agent` matches an agent id, `terminal`
-// a terminal id (docs/architecture/matrix.md, *The contact union*).
+// a terminal id (docs/architecture/canvas.md, *The contact union*).
 export const peerKey = (kind, ref) => str(kind) + ":" + str(ref);
 
 // Why an end grants nothing, worst first. `on` is the only state that does.
@@ -147,16 +147,17 @@ function nameOf(panel, end, names) {
   return str(given) || end.label || panel.ref;
 }
 
-// edgeLinks(edges, panelId) -> the edges that touch one panel. Grid mode has
-// no plane to draw on, so a panel says how many links it carries instead
-// (docs/architecture/matrix.md, *Edges in grid mode*).
+// edgeLinks(edges, panelId) -> the edges that touch one panel. The count is
+// what a panel's header shows beside the line the plane draws, so a reader
+// sees how many links a panel carries without tracing them
+// (docs/architecture/canvas.md, *Edges*).
 export function edgeLinks(edges, panelId) {
   if (!Array.isArray(edges) || !nonEmpty(panelId)) return [];
   return edges.filter((e) => e && (e.aPanel === panelId || e.bPanel === panelId));
 }
 
 // linkCounts(edges, panels, index, names) -> { [panelId]: { count, broken } }.
-// One walk for the whole board, so a 200-panel grid costs one pass and not
+// One walk for the whole board, so a 200-panel canvas costs one pass and not
 // one per header.
 export function linkCounts(edges, panels, index, names) {
   const out = {};

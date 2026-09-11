@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Background, BackgroundVariant, ConnectionLineType, ConnectionMode, Handle, MiniMap, NodeResizer, Position, ReactFlow, ReactFlowProvider, applyNodeChanges, useReactFlow } from "@xyflow/react";
-import { CANVAS_ZOOM, EDGE_KINDS, MATRIX_LIMITS, UNIT_PX, normalizeViewport, pointerAtZoom, pxToUnits, unitsToPx, viewportKey } from "@picode/shared/domain/matrix.js";
+import { CANVAS_LIMITS, CANVAS_ZOOM, EDGE_KINDS, UNIT_PX, normalizeViewport, pointerAtZoom, pxToUnits, unitsToPx, viewportKey } from "@picode/shared/domain/canvas.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
 import Panel from "./Panel.jsx";
 import MatrixLink from "./MatrixLink.jsx";
@@ -80,10 +80,10 @@ const SNAP = [UNIT_PX, UNIT_PX];
 const MOTION_MS = 180;
 const VIEW_SAVE_MS = 400;
 const FIT = { padding: 0.12, maxZoom: CANVAS_ZOOM.exact };
-const MIN_W_PX = MATRIX_LIMITS.canvasMinW * UNIT_PX;
-const MIN_H_PX = MATRIX_LIMITS.canvasMinH * UNIT_PX;
-const MAX_PX = MATRIX_LIMITS.canvasMax * UNIT_PX;
-const PLANE_PX = MATRIX_LIMITS.canvasCoord * UNIT_PX;
+const MIN_W_PX = CANVAS_LIMITS.canvasMinW * UNIT_PX;
+const MIN_H_PX = CANVAS_LIMITS.canvasMinH * UNIT_PX;
+const MAX_PX = CANVAS_LIMITS.canvasMax * UNIT_PX;
+const PLANE_PX = CANVAS_LIMITS.canvasCoord * UNIT_PX;
 const NODE_EXTENT = [[-PLANE_PX, -PLANE_PX], [PLANE_PX, PLANE_PX]];
 
 function readView(id) {

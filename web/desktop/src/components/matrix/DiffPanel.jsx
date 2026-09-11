@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from "react";
-import { gitTouches } from "@picode/shared/domain/matrix.js";
+import { gitTouches } from "@picode/shared/domain/canvas.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import WorkingDiff from "../WorkingDiff.jsx";
 

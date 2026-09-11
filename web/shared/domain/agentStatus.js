@@ -1,5 +1,5 @@
 // Agent status vocabulary (ADR-0062): the sidebar rows, the tab strip and
-// the Matrix panel chips all say the same five words for an agent, derived
+// the Canvas panel chips all say the same five words for an agent, derived
 // the same way. `live` carries what the fleet row does not: the id the
 // desktop is streaming for, the ids tmux reports as working (agent.tui),
 // the id whose dialog is on screen.

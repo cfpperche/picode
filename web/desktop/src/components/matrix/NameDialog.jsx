@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { matrixNameSchema, parseForm } from "@picode/shared/contracts/schemas.js";
+import { canvasNameSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import * as Dialog from "../ResponsiveDialog.jsx";
 
 // NameDialog — New matrix and Rename share one form: a name, validated by
@@ -13,7 +13,7 @@ export default function NameDialog({ open, title, action, initial, onSubmit, onC
   useEffect(() => { if (open) { setName(initial || ""); setError(""); setBusy(false); } }, [open, initial]);
   async function submit(e) {
     e.preventDefault();
-    const parsed = parseForm(matrixNameSchema, { name });
+    const parsed = parseForm(canvasNameSchema, { name });
     if (!parsed.ok) { setError(parsed.error); return; }
     setBusy(true);
     try {
