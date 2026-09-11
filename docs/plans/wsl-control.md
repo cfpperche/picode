@@ -34,6 +34,11 @@ tray is therefore part of the cause, and the right place to fix it.
 
 ## What landed (P0 + P1)
 
+One deviation from the approved write-up, recorded here on purpose: P0 shipped
+as a dedicated `disk` command on **both** binaries instead of a `doctor --disk`
+flag — the tray and the later app consume the measurement as JSON, and a
+report is not a provisioning check for `doctor` to own.
+
 **`picode disk [--json]` — the Linux half, inside the distro**
 (`internal/hostfs`, `cmd/picode/disk.go`). One `df` and two `du` calls: the
 filesystem numbers, the reclaim table (what each cache costs and the exact

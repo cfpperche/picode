@@ -17,12 +17,13 @@ Root cause: Grok logged `permission_requested exit_plan_mode` at 15:19:20 —
 exactly the state timestamp — and no report after the approval; every
 approval prompt in the three hook-driven CLIs had no "resolved" event.
 visual-review: n/a (no UI change).
-Not done / debts: no live Codex `PostToolUse` fire — the account hit its usage
-limit, so config acceptance and the trust hash were verified through the
-app-server schema and `hooks/list` instead. A running Grok session keeps its
-old hook file until relaunch; the installed `~/.grok/hooks/picode-native.json`
-updates at the next wrapper launch. Claude/Codex now pay one reporter hook per
-tool call (PostToolUse only; `PreToolUse` is mapped but deliberately not
-registered — it fires before the permission gate, so it cannot report the
-answer).
+Not done / debts: none for the sensor — Codex `PostToolUse` was live-fired
+2026-09-11 on `gpt-5.3-codex-spark` (`codex exec`): the hook fired through
+PiCode's real trust path (`hooks.state` hash, no bypass) and through the map
+produced a valid `working` report (`source: codex-hook`). A running Grok
+session keeps its old hook file until relaunch; the installed
+`~/.grok/hooks/picode-native.json` updates at the next wrapper launch.
+Claude/Codex now pay one reporter hook per tool call (PostToolUse only;
+`PreToolUse` is mapped but deliberately not registered — it fires before the
+permission gate, so it cannot report the answer).
 Merge: fast-forward ready.

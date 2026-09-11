@@ -146,7 +146,7 @@ Usage:
   picode version              print the build identity (--version, -v)
   picode messages             direct conversation messages (contacts, send, read, ack)
   picode disk [--json]        what occupies this machine, and what is safe to reclaim
-    --json          emit the measurement as JSON (the Windows tray reads it)
+    --json          emit the measurement as JSON (picode-desktop disk reads it)
   picode pair                 print a one-time link to pair another device
   picode token [rotate]       print the install token path, or rotate it
   picode install [--env K=V]  copy to ~/.local/bin and start on Linux login (systemd --user)
