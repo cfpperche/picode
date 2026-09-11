@@ -19,3 +19,10 @@ than reporting an empty installation. This view does not load terminal inventory
 or CLI lifecycle jobs. Existing Pi package APIs, commands and persistence stay
 unchanged; the desktop roles editor remains native-file-backed. Mobile config
 links offer the desktop layout with the same URL until a mobile editor exists.
+
+Configuration (ADR-0099, ADR-0119): a package is configurable in this view
+when a config descriptor resolves for it — `picode.config` in the extension's
+`package.json`, or PiCode's catalog (`internal/pipkg/configdescriptor.go`;`pi-web-search` first). The generic engine writes the declared file (v1:
+agent-global scope) with the descriptor's typed fields, preserving unknown
+keys; pi-roles keeps its bespoke two-layer editor. No descriptor, no
+Configure button.

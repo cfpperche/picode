@@ -320,10 +320,26 @@ func RolesOverlayRel(agentID string) string {
 // package has no GUI editor yet. Matching follows the role-state gate
 // (roles_state.go): a substring on the source, so path installs of this
 // repository (`…/packages/pi-roles`) and future npm installs both match.
+// Descriptor packages (docs/plans/package-config-manifest.md) resolve the
+// same way — catalog by name/source, then a picode.config manifest beside
+// the installed package — and answer with the descriptor's id.
 func ConfigKindOf(sources ...string) string {
 	for _, s := range sources {
 		if strings.Contains(strings.ToLower(s), "pi-roles") {
 			return "roles"
+		}
+	}
+	for _, s := range sources {
+		if s == "" {
+			continue
+		}
+		if d := DescriptorFor(s, ""); d != nil {
+			return d.ID
+		}
+		if filepath.IsAbs(s) {
+			if d := DescriptorFor("", s); d != nil {
+				return d.ID
+			}
 		}
 	}
 	return ""
