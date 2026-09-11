@@ -1,27 +1,33 @@
-# 2026-09-11 — Canvas replaces Matrix, session 1 (`feat/canvas-only`)
+# 2026-09-11 — Canvas replaces Matrix (`feat/canvas-only`)
 
-**Shipped.** ADR-0118's model half. Migration **045** rewrites every panel of a
-`grid` board in canvas units once (`x·8`, `y·3`, `w·8`, `h·3`, clamped to
-`w ≥ 32`, `h ≥ 28`), renames `matrices`/`matrix_panels`/`matrix_edges` with
-their `canvas_id` column and both endpoint indexes, and drops `mode` — in the
-one transaction the runner gives a migration. The store keeps one rectangle
-rule, so `SetMatrixMode`, the grid validation, the `x + w ≤ 12` cap and the
-switch transform go with the `matrix.mode` event. The rest is the rename, all
-the way down: `/api/canvases…`, `canvas.*`, `internal/store/canvas.go`,
-`internal/apps/canvas.go` (id, name and icon `canvas`),
-`web/shared/domain/canvas.js` + `canvasGrants.js`, `docs/architecture/canvas.md`.
+**Session 1 — the model.** Migration **045** rewrites every panel of a `grid`
+board in canvas units once (`x·8`, `y·3`, `w·8`, `h·3`, clamped to `w ≥ 32`,
+`h ≥ 28`), renames `matrices`/`matrix_panels`/`matrix_edges` with their
+`canvas_id` column and both endpoint indexes, and drops `mode` — in one
+transaction. `SetMatrixMode`, the grid validation, the `x + w ≤ 12` cap and
+the switch transform go with the `matrix.mode` event. The rest is the rename
+all the way down: `/api/canvases…`, `canvas.*`, `internal/store/canvas.go`,
+`internal/apps/canvas.go`, `web/shared/domain/canvas.js` + `canvasGrants.js`.
+Proved, not trusted: `TestMigration045ConvertsGridPanelsOnce` runs the shipped
+SQL on a real pre-045 database (an 8-row panel lands 28 units tall, a canvas
+board does not move, a second `migrate()` converts nothing again), and
+`TestCanvasRenameKeepsKeysAndIndexes` checks both cascades, the unique binding
+index and `canvas_edge_a`/`_b` survived `ALTER TABLE … RENAME TO`.
 
-**Proved, not trusted.** `TestMigration045ConvertsGridPanelsOnce` rebuilds the
-pre-045 shape on a real database and runs the shipped SQL: grid rectangles
-convert (an 8-row panel lands 28 units tall, not 24), canvas ones do not move,
-a second `migrate()` converts nothing again. `TestCanvasRenameKeepsKeysAndIndexes`
-checks the foreign keys point at the renamed tables, both cascades still fire,
-the unique binding index still refuses a duplicate and `canvas_edge_a`/`_b`
-exist — `ALTER TABLE … RENAME TO` did carry them.
+**Session 2 — the surface.** `components/matrix/` → `canvas/`;
+`CanvasSurface.jsx`, `Plane.jsx` (not `CanvasCanvas.jsx` — it is named for
+what it is), `Link.jsx`, `CanvasLinks.jsx`, `styles/canvas.css` with a `.cv-`
+prefix. The word left the app and `docs-site/guide/canvas.md`, and the tile
+has its own glyph. `#/app/matrix[/<id>]` is **replaced** with the canvas
+route and `x:matrix` is rewritten to `x:canvas` on read, both from one map in
+`lib/routes.js`; `picode-matrix-last` and `picode-matrix-view:<id>` are
+**migrated** on first read, so nobody loses a canvas or a camera to a rename.
+`react-grid-layout` and `react-resizable` left the manifest and the lockfile,
+and the surface is lazy: desktop main chunk **883 678 → 868 302 B** gzip JS
+and **54 676 → 51 996 B** gzip CSS.
 
-**Left for session 2.** The desktop surface: file names, its *matrix* copy, the
-`#/app/matrix[/<id>]` redirect, the `canvas` icon in `AppIcon`,
-`docs-site/guide/matrix.md`, the react-grid-layout / react-resizable
-dependencies. This branch touched the desktop only where the build demanded it,
-and deleted `MatrixGrid.jsx` with the mode switch: the domain no longer offers
-the transform and the API no longer takes a mode. **Verified:** `ci-scoped` PASS.
+**Verified:** `ci-scoped` PASS; browser acceptance on a scratch in both
+themes (`docs/architecture/canvas.md`, *Accepted in a browser (2026-09-11)*).
+
+**Debt:** no docs-shots profile for Canvas; the guide's screenshots are still
+absent (`docs/handoff.md`).

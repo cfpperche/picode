@@ -249,11 +249,11 @@ when an end is not on the board — the one case it must not draw.
 `canvas.panel.removed` drops the edges that touched the panel, mirroring the
 store's cascade (which announces no event per edge).
 
-**Drawing one** (`MatrixCanvas.jsx`, `MatrixLink.jsx`, `MatrixSurface.jsx`).
+**Drawing one** (`Plane.jsx`, `Link.jsx`, `CanvasSurface.jsx`).
 React Flow's `Handle` plus `onConnect`: a connector knob in the panel
 header, in the action row that already carries `nodrag`, so a drag from it
 starts a connection and never moves the panel; the body keeps `nodrag
-nowheel` and `.mx-head` stays the drag handle. It is hidden until the panel
+nowheel` and `.cv-head` stays the drag handle. It is hidden until the panel
 is hovered, focused or selected — 200 panels must not wear 200 knobs — and
 **only `agent` and `terminal` panels have one**: a note has no mailbox, the
 store refuses that edge, and a UI that offers what the store refuses teaches
@@ -320,7 +320,20 @@ nothing** shows it always. Hovering the chip — not only selecting the line —
 is what reveals the reason, because two panels close together hide their
 whole link behind themselves and then the line has no hittable pixel.
 
-**The audit list** (`web/desktop/src/components/MatrixLinks.jsx`), the
+**The header's link chip** (`linkCounts` / `linkChipTitle` in
+`canvasGrants.js`, drawn by `PanelHead`). The plane draws the lines, but a
+line is not always readable *as* a line: it can be off the camera, run
+entirely behind the two panels it joins (the C4 pass found a pair with no
+hittable pixel at all), or be a few pixels long when zoomed out. So a panel
+that carries links says so on its own header — a count, with an unlink mark
+and the warn colour when any of them grants nothing — wherever the camera
+is, and pressing it opens the audit list below, which is where a link is
+read and revoked. `linkCounts(edges, panels, peers, names)` answers
+`{count, broken}` per panel from the same join everything else reads, so the
+chip can never disagree with the line; `linkChipTitle` writes the words,
+because a bare number teaches nothing. A panel with no link has no chip.
+
+**The audit list** (`web/desktop/src/components/CanvasLinks.jsx`), the
 non-spatial place ADR-0116's Consequences ask for by name. A section in the
 Messages view (`#/clis/messages`) listing **every** live edge: both ends by
 name and kind, the canvas it lives on, whether it grants right now, and a
@@ -358,29 +371,47 @@ handler test in `internal/server/canvas_test.go`):
 The app (`internal/apps/canvas.go`: id `canvas`, icon `canvas`, `surface:
 "native"`, no badge — ADR-0109) is registered by the desktop as `canvas`
 in `web/desktop/src/lib/nativeApps.js` and mounts
-`web/desktop/src/components/matrix/MatrixSurface.jsx` with `host` plus
+`web/desktop/src/components/canvas/CanvasSurface.jsx` with `host` plus
 `initialPath` / `onPathChange`, so `#/app/canvas/<canvasId>` opens that
 canvas and switching updates the hash. The phone lists the tile as
 *Desktop only*.
 
-The desktop surface is not renamed yet. It is still `MatrixSurface.jsx`
-under `web/desktop/src/components/matrix/`, its `localStorage` key is still
-`picode-matrix-last`, its copy still says *matrix*, and `MatrixGrid.jsx`
-with react-grid-layout and react-resizable is still in the tree with no
-mode left to host. Renaming the surface and deleting the grid host is a
-follow-up session.
+**The surface is a chunk of its own** (ADR-0118's Consequences). `App.jsx`
+lazy-imports it and the tab mount wraps every native surface in one
+`Suspense` with a `null` fallback, so a reader who never opens Canvas
+carries none of it: the desktop's main chunk dropped 15 376 B of JS and
+2 680 B of CSS gzip when it moved. React Flow is lazy again *inside* it
+(**Canvas** below), so opening the app and opening a plane are two fetches.
+
+**The old links still work** (ADR-0118 §4). `#/app/matrix` and
+`#/app/matrix/<id>` are replaced — never pushed — with the canvas route,
+path and all, and an `x:matrix` restored from `localStorage` is rewritten to
+`x:canvas` on the way out of `readOpenTabs`. Both read one map,
+`RENAMED_APPS` in `web/desktop/src/lib/routes.js` (`renamedAppId` /
+`renamedAppHash` / `renamedTabId`), because a bookmark and a saved tab strip
+disagreeing is exactly what a second mechanism would eventually do. The
+redirect is its own effect declared before the one that resolves a hash into
+a tab, and that one returns early on a renamed hash, so the old id never
+reaches the *That app is gone.* branch. The two per-viewer keys are
+**migrated on first read**, not left to lapse: `picode-matrix-last` →
+`picode-canvas-last` (`readLast`) and `picode-matrix-view:<id>` →
+`picode-canvas-view:<id>` (`readView`), old key deleted. A rename nobody
+asked for must not cost a reader the canvas they had open or the camera they
+parked it at. The **API** keeps no compatibility layer: its only clients ship
+in this binary.
 
 | File | Holds |
 |---|---|
-| `MatrixSurface.jsx` | header (native `<select>` switcher, **Add panel**, **New matrix**, a menu with Rename / Delete), the stage the host fills, the empty states, the store `{ list, byId }` reduced by `applyCanvasEvent`, the save flow, "last canvas opened" in `localStorage` `picode-matrix-last` |
-| `MatrixCanvas.jsx` | the plane's host: `@xyflow/react` 12.11.6, lazy-imported, one custom node type rendering the same `Panel`; the camera, the zoom rule and the minimap. **Canvas** below |
+| `CanvasSurface.jsx` | header (native `<select>` switcher, **Add panel**, **New canvas**, a menu with Tidy / Rename / Delete), the stage the host fills, the empty states, the store `{ list, byId }` reduced by `applyCanvasEvent`, the save flow, "last canvas opened" in `localStorage` `picode-canvas-last` |
+| `Plane.jsx` | the plane's host: `@xyflow/react` 12.11.6, lazy-imported, one custom node type rendering the same `Panel`; the camera, the zoom rule and the minimap. Not `CanvasCanvas.jsx`: it is named for what it is. **Canvas** below |
 | `PanelStill.jsx`, `stills.js` | the two bodies a canvas panel has instead of a live pane — the text still and the name-plate — and the memory-only map of captured screens |
-| `Panel.jsx` | the wrapper every panel keeps (and `PanelHead`, which the maximize layer reuses): face, name, hint, the sidebar's chip (`agentRowStatus` / `terminalStatus`), Open · Maximize · Remove from matrix; it observes its own visibility; two memo layers so a re-render never touches a body |
+| `Panel.jsx` | the wrapper every panel keeps (and `PanelHead`, which the maximize layer reuses): face, name, hint, the sidebar's chip (`agentRowStatus` / `terminalStatus`), the link chip, Open · Maximize · Remove from canvas; it observes its own visibility; two memo layers so a re-render never touches a body |
 | `AgentChatPanel.jsx`, `web/desktop/src/hooks/useAgentSocket.js` | a managed agent's body (phase 4): one `/ws/agent?agent=` per mount driving the desktop's own `lib/agentEvents.js` reducer and reconciling `…/sessions/transcript?agent=&tail=200`, rendered by the tab's `Conversation` in `readOnly` mode. The **Chat body** section below |
 | `PanelBody.jsx`, `TerminalPanel.jsx`, `NotePanel.jsx`, `FilePanel.jsx`, `DiffPanel.jsx` | `PanelBody` routes by **kind**: a terminal or an agent is `TermSurface` (the tab's engine; a terminal first `POST /api/terminals/{id}/open`s for its live record), a note is `NotePanel` — one `GET /api/pins/{id}` per mount, `react-markdown` + `remarkGfm` over the app's `.md` styles, refetched on that pin's `pin.updated` (it subscribes to the feed itself, as the Inspector does for `git.updated`) — a file is `FilePanel`, which is `FilePane` with `variant="embedded"` plus the two things the canvas adds (`docKey`, `onDirty`) — a diff is `DiffPanel`, `WorkingDiff` under a nonce the feed bumps. Unloaded → one muted line with the feed's last state; the rows below as one line + one action |
 | `PanelFace.jsx` | the mark that says what a panel is bound to, in the header and on the name-plate: a provider face, a CLI badge, or the pin mark |
-| `PanelPicker.jsx`, `NameDialog.jsx` | cmdk list **grouped by kind** — Agents, Terminals, Pins, Open files, Changes to an open file — of what is not yet on this canvas, with the sidebar's faces and words; a group with nothing in it says so under the list with its one action (*No pins yet.* — New pin); the name form (`matrixNameSchema`, Zod, the store's messages, `noValidate`) |
+| `PanelPicker.jsx`, `NameDialog.jsx` | cmdk list **grouped by kind** — Agents, Terminals, Pins, Open files, Changes to an open file — of what is not yet on this canvas, with the sidebar's faces and words; a group with nothing in it says so under the list with its one action (*No pins yet.* — New pin); the name form (`canvasNameSchema`, Zod, the store's messages, `noValidate`) |
 | `chunkLoader.js`, `paneOwnership.js` | the `IntersectionObserver` glue over the pure `loadPolicy`; what unloading does to an attach |
+| `Link.jsx`, `web/desktop/src/components/CanvasLinks.jsx` | how one edge draws on the plane, and the audit list in Messages — the **Edges** section above |
 | `web/desktop/src/lib/fileDocs.js` | the open documents of `file` panels, keyed by ref and held outside React — `paneOwnership.js` for an editor, so maximizing a panel keeps unsaved text |
 | `web/shared/domain/canvas.js` | `nextSlot`, `layoutDiff`, `parseRef` / `buildRef` / `validateRef`, `refOwner`, `gitTouches`, `bindingState`, `hasPane`, `loadPolicy` (with the zoom and the per-row `pane`), `zoomBody`, `pointerAtZoom`, `unitsToPx` / `pxToUnits`, `tidyCanvas`, `normalizeViewport`, `suspendedToDispose`, `hasChat` / `CHAT_STATES` / `CHAT_LIVE_MAX` / `chatBudget`, `panelOrder`, `neighborPanel` (+ `PANEL_DEFAULT_CANVAS` 32×42, `CANVAS_ZOOM`, `PANEL_DIRECTIONS`) — one test per row below in `canvas.test.js` |
 
@@ -437,6 +468,17 @@ only grew vertically.
 | loaded, then leaves | body unmounts after 5 s; coming back sooner cancels |
 | dragged, resized, focused or maximized | pinned: never unloads |
 | canvas tab hidden | every panel reads as far and unpinned: all unload after 5 s, the focused one too |
+
+**A wrapper that unmounts stays loaded for one tick.** `unobserve` does not
+drop the loaded flag; it arms a zero-delay timer and drops it only if the id
+has not registered a new element by then. A body moves host inside a single
+commit — maximize unmounts the wrapper's body and mounts the layer's,
+restore does the reverse — and dropping the flag synchronously would turn
+every such move into an unload: a socket suspend and a kick per panel, for a
+pane the viewer is looking at. It is the loader's half of the rule
+`paneOwnership.js` keeps for the pane itself (`mounted` counted, never
+guessed), and the two together are why maximizing a live terminal is the
+same xterm, refitted, with the socket open in both directions.
 
 **Unsaved work is never unmounted silently.** A `file` body reports its
 dirty bit up (`FilePane`'s `onDirty`) and the surface `keep`s that panel in
@@ -570,7 +612,7 @@ dialog with no title of its own), so the header never depends on the socket.
 once; `layoutDiff` against the last saved rows accumulates the subset;
 `PATCH …/layout {ifUpdatedAt, panels}` goes 500 ms later, and at once on
 hide and on unmount. The 200 is applied like a
-`canvas.layout` frame; a 409 refetches the canvas and toasts "Matrix
+`canvas.layout` frame; a 409 refetches the canvas and toasts "Canvas
 changed elsewhere — reloaded." A move is ignored while hidden,
 at width 0 and during a gesture; feed frames that arrive during a gesture
 are applied after it. A `canvas.panel.added` frame that beats its own POST answer
@@ -580,10 +622,23 @@ and removes the wrapper; Remove and Delete apply locally on the 204;
 Delete confirms through the app's alert dialog and the tab moves to the
 last-opened or first canvas, else the empty state.
 
-**Copy** (plan §4.8): "No matrix yet. A matrix shows many agents and
-terminals side by side, live." — New matrix; "Add your first panel." —
-Add panel; picker: "Everything is already on this matrix." / "No agents or
-terminals yet — create one from the sidebar." — Close.
+**Nothing is compacted, on a reveal or ever.** Until ADR-0118 the surface
+re-ran the grid's own compactor over the whole store on every panels change
+and saved the result — including the arrangement a *second* browser's drag
+or remove had just produced, which was written back compacted on the next
+reveal of this tab. The plane has no compactor, so that pass is gone and
+what is saved is exactly what was dragged. Two things remain in its place:
+**Tidy**, which packs in reading order only when asked (below), and the
+**reveal refetch** — a tab revealed more than 10 s after its last read asks
+`/api/canvases` and `/api/canvases/{id}` again, which repairs a store that
+missed a feed frame while it was hidden without ever rewriting a rectangle.
+The `compact` column survives in the schema and decides nothing.
+
+**Copy** (plan §4.8): "No canvas yet. A canvas shows many agents,
+terminals and notes side by side, live." — New canvas; "Add your first
+panel." / "A panel is one agent, terminal or note on this canvas." — Add
+panel; picker: "Everything is already on this canvas." / "No agents,
+terminals or pins yet." — Close.
 
 **Keyboard** (plan §4.6 "Focus"). The surface holds two bits: which panel
 is focused (`focusedId`) and whether the keyboard is inside its terminal
@@ -611,9 +666,9 @@ back.
 
 **Maximize** is host-level state on the surface, not a transform on the
 node: the maximized panel's body renders in a layer over the plane
-(`.mx-max`, absolute inside `.mx-stage` — no transformed ancestor to
+(`.cv-max`, absolute inside `.cv-stage` — no transformed ancestor to
 break), the wrapper keeps its slot and says *Shown maximized* with a
-Restore button, `.mx-body` goes `inert`, and the layout is untouched. The
+Restore button, `.cv-body` goes `inert`, and the layout is untouched. The
 pane follows the visible host, so it is the same xterm and it refits to
 the layer (measured: a shell went 58×29 → 120×47 and back). The header
 button toggles; `Esc` on any chrome restores — never from inside the pane
@@ -627,7 +682,7 @@ and falls back to the ref.
 
 ### Canvas (phase C2)
 
-`MatrixCanvas.jsx` is the plane's host: `@xyflow/react` 12.11.6,
+`Plane.jsx` is the plane's host: `@xyflow/react` 12.11.6,
 **lazy-imported** (eager it is +63.3 KB gzip on the desktop's main chunk;
 split it costs 205 B and lands in a 49 KB gzip chunk only a viewer who opens
 a canvas fetches). It is a host and nothing more — the surface keeps the
@@ -669,7 +724,7 @@ renderer stays crisp, so nothing on screen would say so; the surface has to.
 The rule is about a **cell**, so it only binds a body that has one.
 `hasPane` (`web/shared/domain/canvas.js`, the allow-list `PANE_STATES`) is
 the gate on all three halves — the `is-inert` / `is-still` pointer-events
-rule, the `.mx-snap` layer, and **the still row of `loadPolicy` itself**:
+rule, the `.cv-snap` layer, and **the still row of `loadPolicy` itself**:
 the wrapper tells the loader `setPane(id, hasPane(model))` and the pure
 module decides the row, so no component holds an `if` about it. The rows
 that answer with one line and one action (a managed agent's *Open*, a gone
@@ -785,7 +840,7 @@ note — in both themes:
 1440 × 900 in both themes, seeded with two workspaces (`Alpha` at the
 worktree, `Beta` at `/tmp/picode-qa-beta`), four `pi` agents with recorded
 sessions — Atlas, Bravo, Cleo in Alpha, Delta in Beta — and a five-panel
-canvas canvas whose fifth panel is a note. Every mailbox claim was **driven
+canvas whose fifth panel is a note. Every mailbox claim was **driven
 through the MCP endpoint** with a bearer the scratch minted, never inferred
 from the UI:
 

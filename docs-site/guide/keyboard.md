@@ -75,4 +75,4 @@ Keyboard**, and the agent's own key map in **Settings → Keys**.
 
 In a terminal pane: `Ctrl+C` copies a selection or interrupts, `Ctrl+V`
 pastes, `Ctrl+Shift+C` / `Ctrl+Shift+V` always copy / paste, and
-`Shift+Esc` hands the keyboard back to the app from a Matrix panel.
+`Shift+Esc` hands the keyboard back to the app from a Canvas panel.
