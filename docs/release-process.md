@@ -32,6 +32,12 @@ GitHub artifacts, not a source deployment.
    change has an honest entry in [`CHANGELOG.md`](../CHANGELOG.md). The
    version cut itself — renaming `[Unreleased]` to `[x.y.z] - date` — is the
    one `CHANGELOG.md` edit the pre-commit hook accepts without fragments.
+   The fold also **normalises the block**: one `### Section` heading per type,
+   in Keep a Changelog order. It has to, because the cut publishes that block
+   verbatim as the release body — 0.2.0 was one fold away from announcing six
+   separate "Fixed" headings inherited from the direct edits that predate
+   fragments. If you ever see a repeated heading in a release section, a fold
+   heals it; do not hand-sort it.
 4. Add or revise the matching entry in
    [`web/shared/data/whats-new.json`](../web/shared/data/whats-new.json). Keep the
    catalog concise: benefit-led titles and summaries, with no more than nine
@@ -98,6 +104,26 @@ one representative artifact and verify:
 - `GET /api/version` reports the selected SemVer and `release: true`; and
 - the What's New surface opens once for the stamped build, remains manually
   reachable, and does not interrupt an active Inbox or creation flow.
+
+Run the artifact against an **isolated** `HOME` and `PICODE_DATA` on a free
+port — the binary's default is the server, on the production data directory.
+
+**What's New will not open on the instance you just installed until it has
+product state.** ADR-0063 decided that: a stamped build auto-opens only once
+at least one workspace, agent or terminal exists, so a first run is never
+interrupted by a list of changes the reader never lacked. Seed one terminal
+through the instance's own API before this check, and delete it by its exact
+id afterwards:
+
+```bash
+curl -sf -X POST "http://localhost:$PORT/api/terminals" \
+  -H 'content-type: application/json' -d '{"name":"release-check"}'
+# … verify the surface, then, by the id that call returned:
+curl -sf -X DELETE "http://localhost:$PORT/api/terminals/$ID"
+```
+
+An empty instance showing no What's New is the decision working, not a
+regression to chase.
 
 Record the tag, commit, CI run, artifact verification and observation owner in
 the release issue or handoff. The installed source service can be dogfooded

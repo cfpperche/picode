@@ -7,14 +7,13 @@
 
 `git worktree list` is the truth for in-flight branches; entries say what a merge must know.
 
+- `feat/changelog-normalize` — `make changelog` heals a drifted `[Unreleased]` (one heading per type); the runbook's step 5 gains the isolated-instance and seed-a-terminal rules ADR-0063 implies. `ci-scoped` green, unmerged.
 - `feat/herdr-validation`, `feat/picode-video-pilot` — carry pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; next `main` merge conflicts in both: keep this file's shape, changelog lines to `docs/changelog.d/`.
-- `feat/matrix-chat-panel` (**phase 4, complete**) — a managed agent's panel is its live read-only conversation: desktop `useAgentSocket`, the tab's `Conversation` in a new `readOnly` mode, Needs-you in the chip and on the body, and the chat body's cost rules (live in band at zoom ≥ 0.4, name-plate closes the socket, cap **12** with an LRU). `make close` green, ff-ready, unmerged.
-
 ## Next up
 
-1. First release since 0.1.0: `make changelog` on `main`, then `docs/release-process.md` (`[Unreleased]` is 860 lines).
+1. **0.2.0 shipped 2026-09-11** (tag `v0.2.0`, 176 entries, 6 artifacts, checksum and `release: true` verified). Runbook step 6 is open: watch it for the owner's window; a regression becomes a patch tag, never a rewritten one.
 2. Matrix v1.1 (`docs/plans/matrix-app.md` §5 phase 5): quick reply line in a chat panel, frozen-frame placeholders, drag from the sidebar, inspector follows focus, tile badge. v1 phases 0–4 are done; v2 is done through C4, and C5 (group nodes, one layout library) needs its own plan.
-3. GitHub CI: the next push exercises the ADR-0105 workflow (Ubuntu-only Go matrix, tmux cache); macOS/Windows run on tags or `workflow_dispatch`.
+3. GitHub CI: the 0.2.0 push exercised the ADR-0105 workflow and the Release job (both green); the three-OS matrix now runs on tags.
 4. llama delivery 3 live validation; owned-service ARM64 acceptance.
 5. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
 6. Sessions phase 2: codex scan cache; Hermes titles only, no `profiles/` scan.
