@@ -110,7 +110,13 @@ func nativeGrokHooksJSON() string {
 	const command = `if [ -n "$PICODE_NATIVE_HOOK" ]; then "$PICODE_NATIVE_HOOK" auto grok; fi`
 	hooks := map[string]any{}
 	for _, event := range nativeGrokHookEvents {
-		hooks[event] = []any{map[string]any{"hooks": []any{map[string]any{"type": "command", "command": command}}}}
+		handler := map[string]any{"type": "command", "command": command}
+		if event == "PostToolUse" || event == "PostToolUseFailure" {
+			// Grok defaults these gate-class events to a 600 s timeout; the
+			// reporter is a sub-second local curl, so fail-open stays fast.
+			handler["timeout"] = 10
+		}
+		hooks[event] = []any{map[string]any{"hooks": []any{handler}}}
 	}
 	raw, _ := json.Marshal(map[string]any{"hooks": hooks})
 	return string(raw)
