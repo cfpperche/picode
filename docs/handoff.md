@@ -8,7 +8,7 @@
 `git worktree list` is the truth for in-flight branches; entries say what a merge must know.
 
 - `feat/providers-density` — roster is a six-column table (one row per account); CSS in shared `web/shared/styles/providers.css`; visual-review PASS, unmerged. Study: `docs/benchmarks/2026-09-11-providers-density.md`.
-- Canvas chrome + light rebalance landed on main 2026-09-11 (ground `#f0f2f7`, `--bg-elevated` split from `--bg-panel`); notes: `docs/handoff/2026-09-11-canvas-chrome.md`.
+- `feat/canvas-resize` — screen-constant Canvas resize targets (`--cv-px`), `--canvas-pattern` token + `⋯ → Background…`, curved links (`getSimpleBezierPath`), and three recorded defects closed. Unmerged: `docs/handoff/2026-09-11-canvas-resize.md`.
 - `feat/herdr-validation`, `feat/picode-video-pilot` — pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; next merge conflicts: keep this shape, changelog to `docs/changelog.d/`.
 ## Next up
 
@@ -28,13 +28,13 @@
 
 - Process (ADR-0105): worktrees start with a cold Go test cache; `.pi/compact.json` `atPercent 0.5` never fires for large-window models (peaks 379 K); capture tolerance is 128 px (`scripts/docs-shots.mjs` prints it per surface).
 - Communication (ADR-0104/0106/0107/0111): physical-mobile and non-Linux pane/process recovery, and custom Codex resume global args/`--`, unverified. PTY rechecks cannot remove the check-to-write race; uncertain attempts never auto-retry. Orphan private setup files need cleanup after owner deletion.
-- Codex resume (2026-09-11): a live sub-agent hook payload was never captured — the filter's field names are inferred from the 0.154 binary roster; a pin that is already a sub-agent persists until the terminal's next native session (one-off repair: `codex resume 01a08246-98e1-7bb0-bb5d-e2c472367623`).
-- Communication onboarding (ADR-0110/0111): unobserved conversations need a first native event; six-CLI rerun and long wrapped OpenCode footers pending. Partial rows 5, 9, 12 in `docs/plans/communication-onboarding.md`: moved-owner consent, missing-adapter repair, stubborn-child timeout.
+- Codex resume (2026-09-11): a live sub-agent hook payload was never captured — the filter's field names are inferred from the 0.154 binary roster; a pin that is already a sub-agent persists until the terminal's next native session.
+- Communication onboarding (ADR-0110/0111): unobserved conversations need a first native event; six-CLI rerun and long wrapped OpenCode footers pending. Partial rows 5, 9, 12 in `docs/plans/communication-onboarding.md`.
 - Native packages/providers/settings: real downloads, vendor OAuth, credential changes, device acceptance, physical iPhone/PWA/IME and a real process restart remain external; mobile package configuration is desktop-only (`docs/plans/cli-native-packages.md`, `cli-native-providers.md`).
 - Inbox terminal replies: pi-inbox 0.1.x items (`pi (unmanaged)`) have no address until each pi session updates; daemon death between park and JSONL row is accepted.
 - Hermes: `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`. OpenCode live Needs-you unverified.
 - Handoff (ADR-0088/0094): upstream formats undocumented (bump = refused write); Codex/Grok list a handed-off session only after a restart or by id; Hermes flattens tool calls.
-- CLI pane-death (ADR-0085): an owned OpenCode QA stop left two processes after its pane closed; cleaned by exact PID. Signal-chain repair is separate; ADR-0084 pins nothing for terminals stopped before it.
+- CLI pane-death (ADR-0085): an owned OpenCode QA stop left two processes after its pane closed. Signal-chain repair is separate; ADR-0084 pins nothing for terminals stopped before it.
 - Windows `Close` kills only its direct child. `internal/server` tests swap package-level probes, so `t.Parallel` would race; `scripts/go-test.sh` shards by process.
 - `.git` is ~530 MB (UI bundles committed 339 times, MP4s re-rendered); a history rewrite is the owner's call.
 - Capture integration (ADR-0054): no real emitter-to-RPC run, no slow-consumer/cancellation matrix; the hub drops on overflow.
@@ -42,16 +42,16 @@
 - Task Scheduler retries are not crash recovery; battery/sleep/sign-in acceptance is the owner's.
 - tmux: never kill by prefix (a `grep '^picode-'` sweep killed 29 sessions, six in production, 2026-09-06) — exact names from a fixture's API only; a scratch whose daemon dies before `qa-scratch stop` strands its shells (`picode-sh-shell-6d4d44` is kept on purpose).
 - Feed: ephemeral events can be missed across reconnects (ADR-0048); cross-platform paste fallback open.
-- Terminal menus (2026-09-09): web/mobile terminal rows still offer only Remove — the desktop one-menu merge (termRowMenu.js) is not ported; sidebar Remove keeps `DELETE /api/terminals/<id>`, Agent CLIs `/launch/remove` (same outcome, two paths).
+- Terminal menus (2026-09-09): web/mobile rows still offer only Remove — the desktop one-menu merge (termRowMenu.js) is not ported; two removal paths (`DELETE /api/terminals/<id>` and `/launch/remove`), same outcome.
 - CLI lifecycle: npm data can lag native Claude releases by hours; grok uninstall is guided-only; Windows paths out of scope.
 - Pi has one active credential slot; per-agent OAuth is the owner's.
 - Tutorial video freshness audits are stale after source relocation. Branch protection and CODEOWNERS need the owner; desktop asks for `/desktop/favicon.svg` and gets 404.
-- Inspector: the Files filter covers loaded rows only; This-agent chips need the agent's tab selected; `gh pr view` answers cache a minute. Debts (ADR-0096): `git ls-files` search, per-anchor watch.
-- llama: ARM64 hardware and GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
-- Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip needs on-device confirmation.
-- Canvas (ADR-0108/0118): no docs-shots capture — needs a `desktop-canvas` profile and a fixture, so the guide has no screenshots. App-wide: the toast covers a surface's Close, a grow-resize leaves an idle cursor, the Inspector header's branch chips truncate to `· fe… ·…`, and a panel's Run reads as a disabled chip.
+- Inspector: the Files filter covers loaded rows only; This-agent chips need the agent's tab selected; `gh pr view` answers cache a minute. Open (ADR-0096): `git ls-files` search, per-anchor watch.
+- llama: ARM64 hardware and GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation.
+- Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip needs on-device proof.
+- Canvas (ADR-0108/0118): no docs-shots capture — needs a `desktop-canvas` profile and a fixture, so the guide has no screenshots. App-wide: the toast covers a surface's Close, and a grow-resize leaves an idle cursor. On `feat/canvas-resize`: `.cv-panel.resizing` / `.react-draggable-dragging` in `canvas.css` are dead react-grid-layout selectors, and the 12 px grab bands take the outer 12 screen px of a live pane's edges (12 of the 28 px header at the top).
 - Canvas v2 (C2–C4, 2026-09-10): `+`/`-`/`0` need a focused panel; a still stamps its age only when the feed moved; only the picker adds a `file`/`diff` panel (ADR-0109). Edges (ADR-0116): no keyboard path to *draw* a link, so the Messages audit list is the keyboard way to read and revoke, at one canvas read per canvas (capped at 50).
 - Fullscreen (2026-09-10): real browser fullscreen owns Escape, so one press leaves the mode; double-Escape is in-app only. The right strip is pointer-transparent, so its reveal misses an embedded frame (PDF preview). Chromium only.
-- Notices (2026-09-07): the finish card only fires for the agent whose socket is open.
+- Notices (2026-09-07): the finish card fires only for the agent whose socket is open.
 - Native surfaces (ADR-0109): `host` has no `openTerminal` — the Canvas POSTs `/api/terminals/{id}/open` itself; a tab closing under a panel remounts the body with a fresh xterm.
-- Grok (2026-09-11): tokens/cost `partial` by design (`usage.json` is new); Agent CLIs rows show model/title but not the usage.json cost; dashboard values not screenshot-verified.
+- Grok (2026-09-11): tokens/cost `partial` by design (`usage.json` is new); Agent CLIs rows show model/title but not its cost; dashboard values not screenshot-verified.
