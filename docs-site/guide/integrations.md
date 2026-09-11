@@ -1,12 +1,12 @@
 # Integrations
 
-Open **Integrations** from the desktop user menu or command palette, or from
-**More** on your phone. Connectors give agents tools; webhooks send PiCode
-events to another service. Neither changes your LLM provider account.
+Connectors live on the selected CLI in **Agent CLIs**. Webhooks stay under
+PiCode (**Webhooks** in the user menu). Neither changes your LLM provider
+account.
 
 ## Connect a service
 
-1. Open **Integrations → Connectors**.
+1. Open **Agent CLIs**, pick **Pi**, then **Connectors**.
 2. If prompted, open **Packages** and install `npm:pi-mcp-adapter`.
 3. Pick a service from the catalog tabs. The fixed **Catalog** tab lists
    cataloged services plus **Custom**, which opens the server form (URL or

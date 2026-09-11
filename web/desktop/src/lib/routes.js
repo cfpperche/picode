@@ -1,6 +1,7 @@
 import { cliProvidersLocation, cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { cliPackagesLocation, cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { cliSettingsLocation, cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
+import { cliConnectorsHash } from "@picode/shared/domain/integrations.js";
 import { cliLocation, cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
 // Hash routes. Preferences is PiCode-the-product. Native settings live under Agent CLIs (ADR-0101).
 // Sessions live under Agent CLIs (ADR-0079); /clis/* views are parsed by
@@ -9,13 +10,13 @@ export const ROUTES = {
   workspace: "/",
   preferences: "/preferences",
   clis: "/clis",
-  settings: "/clis/settings/pi",
+  settings: "/clis/pi/settings",
   system: "/system",
   providers: "/clis/pi/providers",
   llama: "/llama/models",
-  mcps: "/mcps",
-  integrations: "/integrations",
-  packages: "/clis/packages/pi",
+  mcps: "/clis/pi/connectors",
+  integrations: "/integrations/webhooks",
+  packages: "/clis/pi/packages",
   devices: "/devices",
   pins: "/pins",
   termset: "/termset",
@@ -31,8 +32,8 @@ export function parseRoute(hash) {
   if (h === "/system") return "system";
   if (h === "/llama" || h.startsWith("/llama/") || ["/providers/llama", "/more/providers/llama"].includes(h.split("?")[0])) return "llama";
   if (cliProvidersLocation(h)) return "clis";
-  if (h === "/mcps") return "mcps";
-  if (h === "/integrations" || h.startsWith("/integrations/")) return "integrations";
+  if (h === "/integrations/webhooks" || h.startsWith("/integrations/webhooks")) return "integrations";
+  if (h === "/mcps" || h === "/integrations" || h.startsWith("/integrations/")) return "clis";
   if (h === "/devices") return "devices";
   if (h === "/pins" || h.startsWith("/pins/")) return "pins";
   if (h === "/termset" || h.startsWith("/termset/")) return "termset";
@@ -192,8 +193,11 @@ export function providersLlama(hash) {
   return h === "/providers/llama";
 }
 
-export function go(name, agentId) {
-  if (name === "settings") { location.hash = cliSettingsHash("pi", { agentId }); return; }
+export function go(name, agentId, extra = {}) {
+  const ctx = { agentId: extra.agentId || agentId || "", workspaceId: extra.workspaceId || "" };
+  if (name === "settings") { location.hash = cliSettingsHash("pi", ctx); return; }
+  if (name === "packages") { location.hash = cliPackagesHash("pi", ctx); return; }
+  if (name === "mcps" || name === "connectors") { location.hash = cliConnectorsHash("pi", ctx); return; }
   if (typeof name === "string" && name.startsWith("preferences")) {
     const sec = name === "preferences" ? "" : name.slice("preferences-".length);
     location.hash = sec ? "#/preferences/" + sec : "#/preferences";

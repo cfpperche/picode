@@ -4,7 +4,7 @@ Extras for Pi (search, tools, themes). They run with **full access** — only in
 
 Canonical: [pi packages](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md).
 
-Open **Agent CLIs → Packages**, select **Pi**, then pick a target and Install. **Installed** lists what each target has (Update when a newer version exists, Remove); **Marketplace** is the pi.dev gallery.
+Open **Agent CLIs**, pick **Pi**, then the **Packages** pane. Pick a target and Install. **Installed** lists what each target has (Update when a newer version exists, Remove); **Marketplace** is the pi.dev gallery.
 
 | Target | Who gets it | How |
 |---|---|---|
@@ -25,7 +25,7 @@ If a package on this machine or in this folder is behind, that row shows **Updat
 
 Search: install `npm:pi-web-search` (This machine). Chat expands `web_search` into source cards. Needs a model that supports native search (Gemini / OpenAI / Anthropic).
 
-MCP servers: install `npm:pi-mcp-adapter`, then `#/mcps`. Guide: [MCP](/guide/mcp).
+MCP servers: install `npm:pi-mcp-adapter`, then Agent CLIs → Connectors. Guide: [MCP](/guide/mcp).
 
 Checklist: install `packages/pi-checklist` — an extension, not core — so an agent plans before it changes anything and the sidebar shows its current step. Guide: [Checklist](/guide/checklist).
 
@@ -48,7 +48,7 @@ one the agent touched last. Guide: [Diff panel for pi](/guide/diff-panel).
 
 ## Package links
 
-The machine view lives at `#/clis/packages/pi`. Links opened from an agent
+The machine view lives at `#/clis/pi/packages`. Links opened from an agent
 retain that agent and its workspace through reloads. Old `#/packages` links
 redirect to the new view. Missing targets show a recovery action.
 

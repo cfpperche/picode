@@ -253,7 +253,9 @@ store's cascade (which announces no event per edge).
 React Flow's `Handle` plus `onConnect`: a connector knob in the panel
 header, in the action row that already carries `nodrag`, so a drag from it
 starts a connection and never moves the panel; the body keeps `nodrag
-nowheel` and `.cv-head` stays the drag handle. It is hidden until the panel
+nowheel` and `.cv-head` stays the drag handle. The knob is where the gesture
+*starts*; where the finished line *touches* is computed per link (*Where a
+link touches*, below). It is hidden until the panel
 is hovered, focused or selected — 200 panels must not wear 200 knobs — and
 **only `agent` and `terminal` panels have one**: a note has no mailbox, the
 store refuses that edge, and a UI that offers what the store refuses teaches
@@ -307,27 +309,106 @@ which no `peer.*` row announces), debounced 400 ms — the feed, never a
 timer. A failed read keeps the last answer: flipping every live link to
 broken is the one direction a wrong answer is dangerous in.
 
-**The line is a curve** (`Link.jsx`, `getSimpleBezierPath`), and the drag
-preview is `ConnectionLineType.SimpleBezier`, so what you drag is what you
-get. A straight diagonal between two headers read as a stray rule ruled
-across the plane rather than as a tie between two cards. Of React Flow's
-three: `getBezierPath` derives its control points from each handle's
-declared side and both connectors are `Position.Top`, so with the target
-*below* the source it puts the source control 6.25·√Δy **above** the source
-and the line hooks over itself; `getSmoothStepPath` draws orthogonal
-dog-legs, honest but reading as directed wiring, which an undirected
-mailbox contact is not; `getSimpleBezierPath` ignores Top-vs-Bottom (only
-the horizontal sides change its `getControl`) and puts both controls on the
-midline, which is a symmetric S that cannot loop. The honest consequence,
-so nobody files it twice: an S between two **aligned** points is a straight
-line, so two panels tidied into the same row still join with a straight
-segment. Still no arrowhead — the mailbox is symmetric (§6) — and a
-symmetric curve promises no direction.
+**Where a link touches** (`web/shared/domain/canvasAnchors.js`, `Link.jsx`,
+`Plane.jsx`). The line is a **floating edge**: each end is computed on the
+border of its panel that faces the other panel, never read off a fixed
+handle. Until 2026-09-11 the plane declared one `Handle` per panel at
+`Position.Top` and drew with `getSimpleBezierPath`, whose control points only
+distinguish the horizontal sides — "top" was never honoured, so the line
+touched wherever the curve happened to land (a capture of the shipped build
+has it leaving one panel near its bottom-right corner and entering the
+other's top edge, left of centre), and every link a panel carried stacked on
+that one point whatever direction its target lay in.
+
+Two rules, pure functions of two rectangles and a count, so they are proved
+in `canvasAnchors.test.js` and not in a browser:
+
+1. **Direction** (`facingSide`, `borderPoint`). The anchor is where the ray
+   from this panel's centre to the other's leaves this panel's border. The
+   comparison is `|Δx|·h` against `|Δy|·w`, which measures the ray against
+   the rectangle's own half-extents: the diagonal that switches sides is the
+   panel's corner, not a fixed 45°, so a wide panel hands a target 45° away
+   to its top or bottom and a tall one to its left or right. A panel to the
+   right is joined right-edge to left-edge, one below bottom to top, and a
+   link can never cross the panel it belongs to. The point is clamped
+   `ANCHOR_MARGIN` (14 px) off both corners — a link touching the corner
+   reads as touching neither side, and the 8 px rounded border has no line
+   there.
+2. **Spread** (`spreadAlong`). Rule 1 runs per link, so two targets in
+   nearly the same direction want nearly the same point. Anchors sharing one
+   border are pushed apart to `ANCHOR_GAP` (18 px) **and no further**: sort
+   by the wanted position (that ordering is the order of the targets along
+   the border, which is what keeps two links from crossing on their way
+   out), subtract `i·gap` so the min-gap constraint becomes "non-decreasing",
+   take the nearest non-decreasing sequence by pool-adjacent-violators, add
+   `i·gap` back, then slide the block inside the border if it overhangs. Two
+   anchors already far enough apart do not move at all — which is the
+   property that matters, because it is what lets each link keep pointing at
+   its own target. A side that cannot hold them at 18 px shares itself
+   evenly; the gap shrinks rather than the anchors leaving the panel.
+
+**The gesture is unchanged.** The connector in the header is still a real
+`Handle` — a connection cannot start without one, and the knob is what the
+owner drags. It is no longer where the line attaches: the drawn edge floats
+independently of it, and `position` on that handle is only the side React
+Flow measures the knob against. The **preview follows the same rule**, via
+`connectionLineComponent` (`ConnectionPreview` in `Link.jsx`): the pointer
+stands in for the far rectangle as a zero-sized one, so the fixed end picks
+the border facing the pointer, and once the pointer is over a panel the drop
+can land on, the far end jumps to *that* panel's facing border — the line
+you drag is the line you get. The one thing the preview cannot show is the
+spread, because the link being drawn is not in the set yet; a drop onto a
+side that already carries links moves the line by up to one gap on release.
+
+**The curve is ours** (`linkPath`), not React Flow's, for one reason: the
+chip needs the curve's own centre and its normal *at that centre*, and only
+whoever placed the control points can answer that. Each control point sits
+along its border's outward normal, half the facing distance out and never
+less than `CURVE_MIN` (24 px), so the line leaves and enters at a right
+angle — which is what makes it read as attached to the two cards rather than
+ruled across them — and the shape is symmetric, so swapping the ends (which
+the store's sorted pair does arbitrarily) draws the same curve. `labelX` /
+`labelY` are B(0.5); the chip's normal is ¾·[(P2+P3) − (P0+P1)] turned
+perpendicular, because a normal taken from the chord would slide the chip
+along the curve instead of off it. Still no arrowhead — the mailbox is
+symmetric (§6).
+
+The straight line between two **aligned** panels did not go away, and it
+should not: the shortest tie between two facing borders at the same height
+is a straight segment. What went away is the defect behind it — that segment
+is now a short perpendicular connector in the gap between the two panels,
+not a diagonal rule drawn from one header to the other across whatever sat
+in between.
+
+**What it costs.** `anchorLinks` runs in `Plane.jsx` over `nodes`, so it
+recomputes on every frame in which a linked panel moves — a drag, a resize,
+not a pan (the camera is a CSS transform and the node positions do not
+change; a 2 s pan at 0.4 and at 1.0 produced exactly one distinct edge-path
+state, and 60.5 fps). Only panels that carry a link are collected, so a
+plane of 200 panels and 4 links pays for 4. Measured on a scratch instance,
+26 panels and 20 links, 2 s gestures driven over CDP at 60 Hz:
+
+| gesture | zoom | fps |
+|---|---|---|
+| idle (ceiling) | — | 60.0 |
+| drag a panel with 0 links | 1.0 | 60.1 |
+| drag a panel with 1 link | 1.0 | 60.1 |
+| drag a panel with 4 links | 1.0 | 60.1 (59 distinct edge states / 121 frames) |
+| drag a panel with 1 link | 0.6 | 60.1 |
+| drag a panel with 4 links | 0.5 | 59.8 |
+| pan, all 20 links mounted | 1.0 / 0.4 | 60.5 |
+
+The pass itself, benchmarked directly: **0.017 ms** for this board,
+**0.147 ms** at 200 links, **0.743 ms** at the 1000-link cap — 4 % of a
+16.7 ms frame at a board no canvas has yet. If that ever bites, the fix is
+not a cheaper rule but a narrower one: recompute only the links whose two
+panels changed, which the memo already has the information to do.
 
 There is no parallel-edge separation to keep: `validateEdge`, the plane's
 `isValidConnection` and the store's unique ordered pair all refuse a second
-link between the same pair, so two curves between one pair cannot exist. If
-that ever changes, an index-varied curvature is where it goes.
+link between the same pair. The spread is between links to *different*
+panels; if a second edge per pair is ever allowed, an index-varied curvature
+is where it goes.
 
 **The band a pointer has to find** is React Flow's second, transparent path
 at the edge's `interactionWidth` (22). That width is in SVG user units —

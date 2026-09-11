@@ -13,7 +13,8 @@ export const MORE_SECTIONS = [
   ["llama", "llama.cpp", "Models and server connection"],
   ["providers", "Providers", "Accounts, keys, usage"],
   ["preferences", "Preferences", "Theme, notifications, backup"],
-  ["integrations", "Integrations", "Connectors and event delivery"],
+  ["connectors", "Connectors", "MCP servers and tools"],
+  ["integrations", "Webhooks", "Signed event delivery"],
   ["packages", "Packages", "Skills, extensions, updates"],
   ["devices", "Devices", "Who is connected"],
   ["system", "System", "Version, host, paths"],
@@ -22,8 +23,8 @@ export const MORE_SECTIONS = [
 export const MORE_TITLES = { ...Object.fromEntries(MORE_SECTIONS.map(([id, t]) => [id, t])), mcps: "MCP servers" };
 
 export const MORE_GROUPS = [
-  ["Tools", ["pins", "clis", "automations", "apps", "llama", "integrations"]],
-  ["PiCode", ["preferences", "notifications", "devices", "system"]],
+  ["Tools", ["pins", "clis", "automations", "apps", "llama"]],
+  ["PiCode", ["preferences", "notifications", "devices", "system", "integrations"]],
 ];
 
 export const MORE_ACTIONS = [
@@ -42,6 +43,7 @@ export function moreGroups(query) {
   if (query.trim() && matchesListSearch(query, "Pi settings", "model thinking prompt")) groups.unshift({ title: "Agent CLIs", rows: [["pi-settings", "Pi settings", "Model, thinking, tools and keys"]] });
   if (query.trim() && matchesListSearch(query, "Packages", "skills extensions updates")) groups.unshift({ title: "Agent CLIs", rows: [["pi-packages", "Packages", "Pi skills, extensions and updates"]] });
   if (query.trim() && matchesListSearch(query, "Providers", "accounts keys usage login")) groups.unshift({ title: "Agent CLIs", rows: [["pi-providers", "Providers", "Pi accounts, keys and usage"]] });
+  if (query.trim() && matchesListSearch(query, "Connectors", "MCP servers tools")) groups.unshift({ title: "Agent CLIs", rows: [["connectors", "Connectors", "MCP servers and tools"]] });
   return groups;
 }
 

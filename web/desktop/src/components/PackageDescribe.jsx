@@ -53,7 +53,7 @@ function draftToDescriptor(draft) {
   };
 }
 
-export default function PackageDescribe({ hidden, embedded = false, pkg, backHash = "#/clis/packages/pi", configHashFor }) {
+export default function PackageDescribe({ hidden, embedded = false, pkg, backHash = "#/clis/pi/packages", configHashFor }) {
   const [draft, setDraft] = useState(null);
   const [exists, setExists] = useState(false);
   const [loadErr, setLoadErr] = useState("");

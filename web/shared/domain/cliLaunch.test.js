@@ -28,6 +28,30 @@ test("a CLI page names its pane in the path (ADR-0079 amendment 2026-09-11)", ()
   assert.deepEqual(cliLocation("#/clis/pi/providers/new"), { view: "clis", id: "pi", pane: "providers", add: true });
   assert.deepEqual(cliLocation("#/clis/codex/providers"), { view: "clis", id: "codex", pane: "providers" });
   assert.equal(cliPaneHash("pi", "providers"), "#/clis/pi/providers");
+  assert.deepEqual(cliLocation("#/clis/pi/settings"), { view: "clis", pane: "settings", id: "pi", agentId: "", focus: "", legacy: false, redirect: "" });
+  assert.deepEqual(cliLocation("#/clis/pi/packages"), { view: "clis", pane: "packages", id: "pi", pkg: "", workspaceId: "", agentId: "", scope: "user", legacy: false, invalid: false, redirect: "" });
+  assert.equal(cliLocation("#/clis/pi/connectors").pane, "connectors");
+  assert.equal(cliPaneHash("pi", "settings"), "#/clis/pi/settings");
+  assert.equal(cliPaneHash("pi", "packages"), "#/clis/pi/packages");
+  assert.equal(cliPaneHash("pi", "connectors"), "#/clis/pi/connectors");
+  assert.equal(cliLocation("#/clis/connectors").pane, "connectors");
+  assert.equal(cliLocation("#/clis/connectors").id, "pi");
+  assert.equal(cliLocation("#/clis/connectors").redirect, "#/clis/pi/connectors");
+  assert.equal(cliLocation("#/clis/pi/settings/extra").invalid, true);
+  assert.equal(cliLocation("#/clis/pi/connectors/extra").invalid, true);
+});
+
+test("legacy package and settings hashes adopt pane context through cliLocation", () => {
+  const packages = cliLocation("#/packages", { packageContext: { workspaceId: "w", agentId: "a" }, agentId: "a" });
+  assert.equal(packages.adoptPane, true);
+  assert.equal(packages.redirect, "#/clis/pi/packages?workspaceId=w&agentId=a");
+  const settings = cliLocation("#/settings", { agentId: "a" });
+  assert.equal(settings.adoptPane, true);
+  assert.equal(settings.redirect, "#/clis/pi/settings?agentId=a");
+  assert.equal(cliLocation("#/packages").redirect, "#/clis/pi/packages");
+  const connectors = cliLocation("#/mcps", { packageContext: { workspaceId: "w", agentId: "a" } });
+  assert.equal(connectors.pane, "connectors");
+  assert.equal(connectors.redirect, "#/clis/pi/connectors?workspaceId=w&agentId=a");
 });
 
 test("legacy Sessions tab addresses rewrite onto the selected CLI's pane (ADR-0079)", () => {

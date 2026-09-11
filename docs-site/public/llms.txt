@@ -34,7 +34,7 @@
 ## Reference
 
 - [Commands](https://cfpperche.github.io/picode/commands): Type / in the composer. PiCode opens its UI — it does not type into the terminal.
-- [Settings](https://cfpperche.github.io/picode/guide/settings): Open Agent CLIs → Settings → Pi. Composer /settings preserves the selected agent in the URL. A direct link without an agent opens Global and Keys.
+- [Settings](https://cfpperche.github.io/picode/guide/settings): Open Agent CLIs, pick Pi, then the Settings pane. Composer /settings preserves the selected agent in the URL. A direct link without an agent opens Global and Keys.
 - [HTTP API](https://cfpperche.github.io/picode/api): Everything the PiCode UI does, it does over an HTTP JSON API served by the same daemon you can talk to yourself. The reference below is not hand-written documentation: it is generated from the server's route registration
 - [License](https://cfpperche.github.io/picode/license): PiCode is source-available, not OSI open source.
 

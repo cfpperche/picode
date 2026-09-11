@@ -1,4 +1,3 @@
-import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, humanizeError, wsURL } from "@picode/shared/client/api.js";
 import { bashLine } from "@picode/shared/domain/bashLine.js";
@@ -30,7 +29,6 @@ import Settings from "./components/Settings.jsx";
 import AgentClis from "./components/AgentClis.jsx";
 import { cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 import System from "./components/System.jsx";
-import Mcps from "./components/Mcps.jsx";
 import Integrations from "./components/Integrations.jsx";
 import Devices from "./components/Devices.jsx";
 import Automations from "./components/Automations.jsx";
@@ -2708,7 +2706,7 @@ export default function App() {
           version,
           themeMode,
           onTheme: setTheme,
-          onNavigate: (kind) => { if (kind === "packages") location.hash = cliPackagesHash("pi", { workspaceId: paneWs?.id, agentId: agent?.id }); else go(kind); },
+          onNavigate: (kind) => go(kind, agent?.id, { workspaceId: paneWs?.id }),
           onWhatsNew: openWhatsNew,
           whatsNewUnread,
           pkgUpdates,
@@ -3041,7 +3039,7 @@ export default function App() {
             composer={{
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
               roleState, onRoleCommand: (cmd) => sendTask(cmd),
-              slashExtra, atAgents, onAgentPage: (name) => name === "packages" ? (location.hash = cliPackagesHash("pi", { workspaceId: paneWs?.id, agentId: agent?.id })) : go(name, name === "settings" ? agent?.id : undefined), pkgUpdates,
+              slashExtra, atAgents, onAgentPage: (name) => go(name, agent?.id, { workspaceId: paneWs?.id }), pkgUpdates,
               status, streaming, waiting, onToggleDock: showTerm, onStop: () => selectedId && stopAgent(selectedId),
               tuiWorking: tuiBusy,
               onAbort: abortTurn,
@@ -3116,7 +3114,15 @@ export default function App() {
 
         </div>
 
-        <AgentClis catalog={catalog} onCatalogChange={setCatalog} legacyContextReady={bootstrapped} legacyPackageContext={{ workspaceId: paneWs?.id || "", agentId: agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "") }} packageUpdates={pkgUpdates} onPackageUpdates={(updates, workspaceId) => { if ((paneWs?.id || "") === workspaceId) setPkgUpdates(updates); }} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} onRenameTerm={renameTerminal} />
+        <AgentClis catalog={catalog} onCatalogChange={setCatalog} legacyContextReady={bootstrapped} legacyPackageContext={{ workspaceId: paneWs?.id || "", agentId: agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "") }} packageUpdates={pkgUpdates} onPackageUpdates={(updates, workspaceId) => { if ((paneWs?.id || "") === workspaceId) setPkgUpdates(updates); }} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} onRenameTerm={renameTerminal} onReloadAgent={async (id) => {
+            const loc = locate(workspaces, freeAgents, id);
+            const target = loc && loc.agent;
+            if (!target || target.mode === "stopped") return;
+            const was = target.mode;
+            await stopAgent(target.id);
+            if (was === "interactive") await openInteractive(target.id);
+            else await startManaged(target.id);
+          }} />
         <Settings
           hidden={route !== "preferences"}
           themeMode={themeMode}
@@ -3124,34 +3130,7 @@ export default function App() {
         />
         <System hidden={route !== "system"} version={version} system={system} />
         {route === "llama" ? <LlamaPanel onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} /> : null}
-        <Mcps
-          hidden={route !== "mcps"}
-          workspaceId={paneWs ? paneWs.id : ""}
-          workspaceName={paneWs ? paneWs.name : ""}
-          workspacePath={paneWs ? paneWs.path : ""}
-          agentId={agent ? agent.id : ""}
-          agentName={displayAgentName(agent, selected)}
-          agentWorkPath={agent && agent.workPath ? agent.workPath : ""}
-          agentRunning={!!(agent && agent.mode && agent.mode !== "stopped")}
-          onReload={async () => {
-            if (!agent || agent.mode === "stopped") return;
-            const was = agent.mode;
-            await stopAgent(agent.id);
-            if (was === "interactive") await openInteractive(agent.id);
-            else await startManaged(agent.id);
-          }}
-        />
-        <Integrations hidden={route !== "integrations"}
-          workspaceId={paneWs ? paneWs.id : ""} workspaceName={paneWs ? paneWs.name : ""} workspacePath={paneWs ? paneWs.path : ""}
-          agentId={agent ? agent.id : ""} agentName={displayAgentName(agent, selected)} agentWorkPath={agent?.workPath || ""}
-          agentRunning={!!(agent && agent.mode && agent.mode !== "stopped")}
-          onReload={async () => {
-            if (!agent || agent.mode === "stopped") return;
-            const was = agent.mode;
-            await stopAgent(agent.id);
-            if (was === "interactive") await openInteractive(agent.id);
-            else await startManaged(agent.id);
-          }} />
+        <Integrations hidden={route !== "integrations"} />
         <Devices hidden={route !== "devices"} />
         <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
@@ -3194,9 +3173,8 @@ export default function App() {
           if (a.kind === "whats-new") { openWhatsNew(); return; }
           if (a.kind === "inspector") { toggleInspector(); return; }
           if (a.kind === "fullscreen") { focus.toggle(); return; }
-          if (a.kind === "packages") { location.hash = cliPackagesHash("pi", { workspaceId: paneWs?.id, agentId: agent?.id }); return; }
           if (a.kind === "cli-new") { location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : ""); return; }
-          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations") { go(a.kind, a.kind === "settings" ? agent?.id : undefined); return; }
+          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations") { go(a.kind, agent?.id, { workspaceId: paneWs?.id }); return; }
           if (a.kind === "app") { openTab(appTabId(a.appId)); if (parseRoute() !== "workspace") location.hash = appHash(a.appId); return; }
           if (a.kind === "open") revealAgent(a.wsId);
           if (a.kind === "files") openTreeTab("workspace", a.wsId, a.wsName);

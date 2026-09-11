@@ -9,6 +9,7 @@ const SECTION_ICONS = {
   clis: IconCli,
   automations: IconClock,
   providers: IconProvider,
+  connectors: IconMcp,
   settings: IconSettings,
   integrations: IconMcp,
   llama: IconModel,

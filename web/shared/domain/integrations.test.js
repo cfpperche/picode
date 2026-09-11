@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { integrationSection, destinationLabel, readConnectorDefinition, connectorTabs } from "./integrations.js";
+import { integrationSection, destinationLabel, readConnectorDefinition, connectorTabs, cliConnectorsHash, cliConnectorsLocation, supportsCliConnectors } from "./integrations.js";
 import { webhookSchema } from "../contracts/schemas.js";
 
 test("integration routes and safe destination labels", () => {
@@ -9,6 +9,28 @@ test("integration routes and safe destination labels", () => {
   assert.equal(integrationSection("#/integrations/webhooks"), "webhooks");
   assert.equal(integrationSection("#/more/integrations/webhooks"), "webhooks");
   assert.equal(destinationLabel("https://example.com/hook?token=secret"), "example.com/hook");
+});
+
+test("connectors nest on the selected CLI; webhooks stay platform", () => {
+  assert.equal(supportsCliConnectors("pi"), true);
+  assert.equal(supportsCliConnectors("codex"), false);
+  assert.equal(cliConnectorsHash("pi"), "#/clis/pi/connectors");
+  assert.equal(cliConnectorsLocation("#/integrations").redirect, "#/clis/pi/connectors");
+  assert.equal(cliConnectorsLocation("#/integrations/connectors").redirect, "#/clis/pi/connectors");
+  assert.equal(cliConnectorsLocation("#/mcps").redirect, "#/clis/pi/connectors");
+  assert.equal(cliConnectorsLocation("#/clis/pi/connectors").redirect, "");
+  assert.equal(cliConnectorsLocation("#/integrations/webhooks"), null);
+  assert.equal(cliConnectorsLocation("#/clis/connectors").redirect, "#/clis/pi/connectors");
+  assert.equal(cliConnectorsLocation("#/clis/connectors").id, "pi");
+  assert.equal(cliConnectorsLocation("#/clis/connectors").adoptPane, undefined);
+  assert.equal(cliConnectorsLocation("#/clis/pi/connectors/extra").invalid, true);
+  const scoped = cliConnectorsLocation("#/clis/pi/connectors?workspaceId=w&agentId=a");
+  assert.equal(scoped.agentId, "a");
+  assert.equal(scoped.workspaceId, "w");
+  assert.equal(scoped.redirect, "");
+  const adopted = cliConnectorsLocation("#/mcps", { workspaceId: "w", agentId: "a" });
+  assert.equal(adopted.adoptPane, true);
+  assert.equal(adopted.redirect, "#/clis/pi/connectors?workspaceId=w&agentId=a");
 });
 
 test("connector tabs keep the catalog fixed and list only hosts with servers", () => {

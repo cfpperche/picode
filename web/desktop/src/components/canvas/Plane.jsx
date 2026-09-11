@@ -1,10 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Background, BackgroundVariant, ConnectionLineType, ConnectionMode, Handle, MiniMap, NodeResizer, Position, ReactFlow, ReactFlowProvider, applyNodeChanges, useReactFlow } from "@xyflow/react";
+import { Background, BackgroundVariant, ConnectionMode, Handle, MiniMap, NodeResizer, Position, ReactFlow, ReactFlowProvider, applyNodeChanges, useReactFlow } from "@xyflow/react";
 import { CANVAS_LIMITS, CANVAS_ZOOM, EDGE_KINDS, UNIT_PX, legacyViewportKey, normalizeViewport, pointerAtZoom, pxToUnits, unitsToPx, viewportKey } from "@picode/shared/domain/canvas.js";
+import { anchorLinks } from "@picode/shared/domain/canvasAnchors.js";
 import { CANVAS_PATTERN_EVENT, readCanvasPattern } from "@picode/shared/domain/canvasPattern.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
 import Panel from "./Panel.jsx";
-import Link from "./Link.jsx";
+import Link, { ConnectionPreview } from "./Link.jsx";
 import { IconLink } from "../Icons.jsx";
 import { hasPane } from "./PanelBody.jsx";
 import { CANVAS_MARGIN } from "./chunkLoader.js";
@@ -160,6 +161,13 @@ function writeView(id, v) {
 // wear 200 knobs — and only on the two kinds that have a mailbox: a note has
 // none, the store refuses such an edge, and offering what the store refuses
 // is how a UI teaches a lie.
+//
+// It is a real `Handle` and stays one: a connection cannot start without
+// one, and the knob in the header is the gesture the owner already knows.
+// What it is **not** any more is where the line attaches. Since the lines
+// float (`canvasAnchors.js`), the drawn edge computes its own two points on
+// the borders facing each other and never reads this handle's position; the
+// `position` below is only the side React Flow measures the knob against.
 const LinkHandle = memo(function LinkHandle({ name }) {
   return (
     <Handle
@@ -499,6 +507,29 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
   useEffect(() => () => { if (hoverTimer.current) clearTimeout(hoverTimer.current); }, []);
   const onEdgeMouseEnter = useCallback((_e, edge) => { hoverEdgeAt(edge.id, true); }, [hoverEdgeAt]);
   const onEdgeMouseLeave = useCallback((_e, edge) => { hoverEdgeAt(edge.id, false); }, [hoverEdgeAt]);
+  // Where each line touches — the floating anchors (canvasAnchors.js, and
+  // the rule is documented there). It is computed **here**, from `nodes`,
+  // and not inside the edge, for two reasons. The spread needs every link a
+  // panel carries and an edge can only see its own. And `nodes` is already
+  // the live geometry: a drag writes it through `applyNodeChanges` frame by
+  // frame, so the anchors follow a panel under the pointer without the edge
+  // subscribing to the store itself.
+  //
+  // The cost is one pass over the edges per frame in which a linked panel
+  // moved, and a new object for each of those edges. Only panels that carry
+  // a link are collected, so a plane of 200 panels and 4 links pays for 4.
+  const anchors = useMemo(() => {
+    const rows = edgeRows || [];
+    if (!rows.length) return null;
+    const wanted = new Set();
+    for (const r of rows) { wanted.add(r.source); wanted.add(r.target); }
+    const rects = new Map();
+    for (const n of nodes) {
+      if (!wanted.has(n.id)) continue;
+      rects.set(n.id, { x: n.position.x, y: n.position.y, width: n.width, height: n.height });
+    }
+    return anchorLinks(rects, rows);
+  }, [nodes, edgeRows]);
   const rfEdges = useMemo(() => (edgeRows || []).map((r) => ({
     id: r.id,
     source: r.source,
@@ -507,8 +538,8 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
     targetHandle: LINK_HANDLE,
     type: EDGE_TYPE,
     selected: r.id === selectedEdge,
-    data: { grants: r.grants, reason: r.reason, label: r.label, hovered: r.id === hoverEdge, onRemove: removeEdge, onHover: hoverEdgeAt },
-  })), [edgeRows, selectedEdge, hoverEdge, removeEdge, hoverEdgeAt]);
+    data: { grants: r.grants, reason: r.reason, label: r.label, anchor: (anchors && anchors.get(r.id)) || null, hovered: r.id === hoverEdge, onRemove: removeEdge, onHover: hoverEdgeAt },
+  })), [edgeRows, anchors, selectedEdge, hoverEdge, removeEdge, hoverEdgeAt]);
   // Selection is the library's (a click on the line, a click on the pane to
   // drop it); only that change is kept, because every other edge change here
   // would be a write the store has not agreed to.
@@ -636,7 +667,7 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
         onConnect={onConnect}
         isValidConnection={isValidConnection}
         connectionMode={ConnectionMode.Loose}
-        connectionLineType={ConnectionLineType.SimpleBezier}
+        connectionLineComponent={ConnectionPreview}
         connectionRadius={CONNECT_RADIUS}
         edgesFocusable={false}
         onNodesChange={onNodesChange}

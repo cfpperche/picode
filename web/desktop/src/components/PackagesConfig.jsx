@@ -56,7 +56,7 @@ function draftToConfig(draft) {
   return { builtin, custom };
 }
 
-export default function PackagesConfig({ hidden, embedded = false, pkg, workspaceId, workspaceName, agentId, agentName, catalog, backHash = "#/clis/packages/pi", initialScope = "workspace", onScopeChange = () => {}, beforeMutation = async () => {} }) {
+export default function PackagesConfig({ hidden, embedded = false, pkg, workspaceId, workspaceName, agentId, agentName, catalog, backHash = "#/clis/pi/packages", initialScope = "workspace", onScopeChange = () => {}, beforeMutation = async () => {} }) {
   const [view, setView] = useState(null);
   const [loadErr, setLoadErr] = useState("");
   const scope = initialScope;
