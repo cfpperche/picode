@@ -481,6 +481,11 @@ function Flow({ matrixId, models, loaded, bodies, hidden, focusedId, engaged, ma
     if (zoom < CANVAS_ZOOM.live) fillStills();
   }, [applyZoom, loader, fillStills]);
   useEffect(() => { enterZoom(stored ? stored.zoom : CANVAS_ZOOM.exact); }, [enterZoom, stored]);
+  // The zoom belongs to this host, and the loader outlives it: leaving the
+  // canvas hands the loader back the only zoom grid mode has. Without this a
+  // matrix switched to grid after a zoomed-out canvas kept drawing
+  // name-plates — and since phase 4 kept its chat sockets closed with them.
+  useEffect(() => () => loader.setZoom(CANVAS_ZOOM.exact), [loader]);
   // Fit the plane the first time this viewer opens this matrix. The `fitView`
   // prop cannot do it: the first render has no nodes yet.
   useEffect(() => {
