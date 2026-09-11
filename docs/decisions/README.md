@@ -116,8 +116,9 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0109](0109-native-app-surfaces.md) | Native app surfaces — a first-party app's body may be a component compiled into the shell; the manifest names its surface | accepted, amends 0036 |
 | [0110](0110-workspace-communication-onboarding.md) | Workspace communication preferences and guided connection setup | proposed |
 | [0111](0111-codex-native-message-client.md) | Codex native message client | accepted |
-| [0113](0113-matrix-canvas-mode.md) | Matrix canvas mode: a layout mode per matrix, mode-dependent rectangle units, one transactional switch | accepted, amends 0108 |
+| [0113](0113-matrix-canvas-mode.md) | Matrix canvas mode: a layout mode per matrix, mode-dependent rectangle units, one transactional switch | superseded by 0118 |
 | [0114](0114-browser-surface-stream.md) | browser-surface-stream | superseded by [0117](0117-remove-browser-surface.md) |
 | [0115](0115-browser-input-consent.md) | browser-input-consent | superseded by [0117](0117-remove-browser-surface.md) |
 | [0116](0116-matrix-edges.md) | A Matrix edge grants ADR-0104's mailbox contact and never a transcript; owner-drawn only, cross-workspace per pair, revoked with the line | accepted |
 | [0117](0117-remove-browser-surface.md) | remove-browser-surface | accepted |
+| [0118](0118-canvas-replaces-matrix.md) | Canvas replaces Matrix — grid mode and react-grid-layout removed, coordinates converted once, and the rename carried into tables, routes, events, the app id and the hash | accepted, supersedes 0113, renames 0108/0116 |
