@@ -76,18 +76,40 @@ func ServerURL(r Runner, distro, user string) (string, error) {
 // distro configured with appendWindowsPath=false it is not, so the mount is
 // probed — that is how `doctor` runs during development.
 func ResolveWSLExe() string {
-	if _, err := exec.LookPath("wsl.exe"); err == nil {
-		return "wsl.exe"
+	return ResolveWindowsTool("wsl.exe", "wsl.exe")
+}
+
+// WSLExe itself lives in drive.go, next to the Runner it is called through.
+
+// The Windows console programs the desktop reads the machine with. Like WSLExe
+// they are names on Windows and mounts from inside a distro, so the same code
+// runs in the tray and in a shell during development.
+var (
+	RegExe        = "reg"
+	FsutilExe     = "fsutil"
+	PowerShellExe = "powershell"
+)
+
+// ResolveWindowsTools points those three at programs this process can run.
+func ResolveWindowsTools() {
+	RegExe = ResolveWindowsTool("reg", "reg.exe")
+	FsutilExe = ResolveWindowsTool("fsutil", "fsutil.exe")
+	PowerShellExe = ResolveWindowsTool("powershell", "WindowsPowerShell/v1.0/powershell.exe")
+}
+
+// ResolveWindowsTool finds one of them: on PATH on Windows, under System32
+// from inside a distro that left appendWindowsPath alone.
+func ResolveWindowsTool(name, underSystem32 string) string {
+	if _, err := exec.LookPath(name); err == nil {
+		return name
 	}
-	for _, p := range []string{
-		"/mnt/c/Windows/System32/wsl.exe",
-		"/mnt/c/Windows/system32/wsl.exe",
-	} {
+	for _, root := range []string{"/mnt/c/Windows/System32", "/mnt/c/Windows/system32"} {
+		p := root + "/" + underSystem32
 		if _, err := os.Stat(p); err == nil {
 			return p
 		}
 	}
-	return "wsl.exe"
+	return name
 }
 
 // DefaultUser asks the distro which account it logs in as, so the owner never
