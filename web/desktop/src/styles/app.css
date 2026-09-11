@@ -5048,6 +5048,9 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   display: flex; align-items: center; gap: 8px; padding: 0 8px;
   border-bottom: 1px solid var(--border); background: var(--bg-panel);
   flex: none; min-width: 0;
+  /* The chip below drops its least useful part when the rail is narrow,
+     and "narrow" is this row's width, not the window's. */
+  container-type: inline-size; container-name: insp-row;
 }
 .insp-tabs { display: flex; gap: 2px; flex: none; }
 .insp-tabs .ft-tab { margin-bottom: -1px; }
@@ -5055,9 +5058,22 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   margin-left: auto; display: inline-flex; align-items: center; gap: 4px;
   min-width: 0; font-size: 11px; color: var(--text-secondary);
 }
-.insp-branch-name, .insp-branch-wt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.insp-branch-wt { color: var(--accent); }
-.insp-branch-wt::before { content: "·"; margin-right: 4px; color: var(--text-secondary); }
+/* One ellipsis in this row, and it is the branch's. The chip shared its
+   width between a branch span and a worktree span, both ellipsised: given a
+   rail's worth of room each collapsed to its own dots and the chip read as
+   "· fe… ·…". The branch is what the row is for, so it takes the room and
+   everything beside it (the icon, the arrows, the note) is flex: none. The
+   worktree is in the title (branchChip, web/shared/domain/gitCommands.js). */
+.insp-branch > :not(.insp-branch-name) { flex: none; }
+.insp-branch-name { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* …and at the rail's own width the word does not fit either. Three tabs and
+   an "unpublished" left a default-width (320px) rail 11px for an 18-character
+   branch — the name was the thing that yielded, which is backwards. Under
+   400px the note goes and the name takes its place; the arrows (↑2 ↓1) are
+   two glyphs and stay, and the title still spells all of it out. */
+@container insp-row (max-width: 400px) {
+  .insp-branch-note { display: none; }
+}
 .insp-branch-none { font-style: italic; }
 /* One control height (AGENTS.md): the scope chips and the filter input share
    --ctl-h, the same rule the file pane's toolbar applies to its chip group. */
