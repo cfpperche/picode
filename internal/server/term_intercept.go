@@ -250,6 +250,10 @@ var codexHookSpecs = []codexHookSpec{
 	{event: "UserPromptSubmit", key: "user_prompt_submit", timeoutSec: 5},
 	{event: "SessionStart", key: "session_start", timeoutSec: 5},
 	{event: "PermissionRequest", key: "permission_request", timeoutSec: 5},
+	// PostToolUse is the permission-resume signal: Codex reports a waiting
+	// permission UI as needs-you and has no "permission resolved" event, so
+	// the approved tool's completion is what returns the terminal to working.
+	{event: "PostToolUse", key: "post_tool_use", timeoutSec: 5},
 	{event: "Stop", key: "stop", timeoutSec: 5},
 	// Codex caps Interrupt and SessionEnd hooks at three seconds.
 	{event: "Interrupt", key: "interrupt", timeoutSec: 3},

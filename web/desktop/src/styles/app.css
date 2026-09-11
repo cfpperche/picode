@@ -401,7 +401,6 @@ body {
 }
 .dlg-changelog { max-width: 560px; }
 .dlg-whats-new {
-  width: min(560px, calc(100vw - 32px));
   max-height: min(80dvh, 720px);
   padding: 0;
   display: flex;
@@ -409,6 +408,15 @@ body {
   overflow: hidden;
   box-shadow: 0 16px 48px color-mix(in srgb, #000 32%, transparent);
 }
+/* `.dlg`'s own width, padding and anchor are declared below this block at
+   the same specificity, so its `width: min(400px, …)`, `padding: 18px 18px
+   14px` and `top: 42%` won every one of these: the 560px above never
+   rendered, the head and footer hairlines were inset off the dialog's edge,
+   and the 42% anchor — written for a 400px card — left a 789px board with
+   26px above it and 190 below. A dialog that fills the screen centres;
+   the sheet keeps its own padding and bottom edge (`.dlg.dlg-sheet` is
+   later still). */
+.dlg.dlg-whats-new { top: 50%; padding: 0; }
 .wn-head {
   display: flex; align-items: center; gap: 10px; flex: none;
   padding: 17px 18px 14px; border-bottom: 1px solid var(--border);
@@ -439,6 +447,24 @@ body {
 .wn-actions { flex: none; justify-content: space-between; align-items: center; margin: 0; padding: 12px 18px 14px; border-top: 1px solid var(--border); }
 .wn-full-link { color: var(--text-secondary); font-size: 12px; text-decoration: none; }
 .wn-full-link:hover { color: var(--text-primary); text-decoration: underline; }
+/* A release is a board, not a column. Above 900px the dialog takes the width
+   a desktop actually has and the highlights flow in two columns: the nine
+   highlights of v0.2.0 fit one screen instead of three. Both classes on
+   purpose — `.dlg` (below) sets width min(400px, …) at the same specificity
+   and, being later in this file, it won: the 560px that used to live here
+   never rendered, and the dialog shipped at 400px. */
+@media (min-width: 900px) {
+  .dlg.dlg-whats-new { width: min(880px, calc(100vw - 96px)); max-height: min(88dvh, 820px); }
+  .wn-highlights { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+  /* The icon, title and summary of one highlight are one unit; across a
+     gutter only a hairline groups them (the grid's own row/column rules are
+     far too faint for that). Read-only: no hover, nothing to click. */
+  .wn-item { border: 1px solid var(--border); border-radius: var(--radius-ctl); padding: 10px 12px; }
+}
+/* Between the sheet (719px) and the board, room for the intended 560px. */
+@media (min-width: 720px) and (max-width: 899px) {
+  .dlg.dlg-whats-new { width: min(560px, calc(100vw - 48px)); }
+}
 .wn-overlay[data-state="open"] { animation: wn-fade-in 160ms var(--ease-out); }
 .wn-overlay[data-state="closed"] { animation: wn-fade-out 120ms var(--ease-out); }
 .dlg-whats-new[data-state="open"] { animation: wn-dialog-in 160ms var(--ease-out); }
@@ -4916,19 +4942,19 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   .focus-edge-right { top: 0; right: 0; bottom: 0; width: var(--focus-edge, 6px); pointer-events: none; }
 
   /* The way out that needs no keyboard, at the right end of the tab strip
-     — the same 28px as the inspector toggle beside it, but with a surface
-     of its own: bare icon+label among icon buttons reads as a status
-     label, not as the control it is. */
+     — the same 28px as the inspector toggle beside it. The glyph is the
+     whole control: the label and the chord are the hint. The surface and
+     the border are what keep it from dissolving into the row of icon
+     buttons, so they stay. */
   .focus-leave {
-    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
-    height: 28px; padding: 0 8px; margin-left: 6px;
+    width: 28px; height: 28px; padding: 0; margin-left: 6px;
+    display: grid; place-items: center;
     border: 1px solid var(--border-strong); border-radius: var(--radius-ctl);
     background: var(--bg-base); color: var(--text-primary);
-    font: inherit; font-size: 12px; cursor: pointer; flex: none;
+    cursor: pointer; flex: none;
   }
   .focus-leave:hover { background: var(--bg-hover); border-color: var(--accent); }
   .focus-leave:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .focus-leave .um-key { margin-left: 2px; }
 }
 @media (prefers-reduced-motion: reduce) {
   #app.focus-on #sidebar,

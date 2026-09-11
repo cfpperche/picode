@@ -1,10 +1,19 @@
 import * as Dialog from "./ResponsiveDialog.jsx";
-import { IconAgent, IconExternal, IconFolders, IconInbox, IconPhone, IconSparkles, IconTerminal } from "./Icons.jsx";
+import { IconAgent, IconCanvas, IconExternal, IconFolders, IconInbox, IconPhone, IconSparkles, IconTerminal } from "./Icons.jsx";
 import { parseVersion, selectReleaseNotes } from "../lib/whatsNew.js";
 
+// Every `icon` value publishable in web/shared/data/whats-new.json, drawn with
+// the glyph that names the same surface elsewhere in the app (matrix is the
+// Canvas tile, ADR-0109). A name with no entry is not an error at runtime — it
+// falls back to the sparkle — which is how "matrix" shipped on the headline
+// highlight of v0.2.0 wearing a generic glyph. The fallback stays for a note
+// published before its icon exists; releaseNoteIcons.test.js is the guard that
+// refuses the next missing name.
 const ICONS = {
   agent: IconAgent,
+  matrix: IconCanvas,
   inbox: IconInbox,
+
   phone: IconPhone,
   terminal: IconTerminal,
   workspace: IconFolders,
@@ -70,7 +79,9 @@ export default function WhatsNew({ open, onClose, currentSemver, seenVersion = "
           </div>
 
           <div className="dlg-actions wn-actions">
-            <a className="wn-full-link" href={changelog} target="_blank" rel="noopener noreferrer">Full changelog <IconExternal size={12} /></a>
+            {/* The empty state carries the changelog as its one action; a
+                second copy in the footer is the same link twice. */}
+            {releases.length ? <a className="wn-full-link" href={changelog} target="_blank" rel="noopener noreferrer">Full changelog <IconExternal size={12} /></a> : null}
             <button type="button" className="btn btn-primary btn-sm" onClick={onClose}>Got it</button>
           </div>
         </Dialog.Content>

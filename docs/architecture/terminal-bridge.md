@@ -85,12 +85,34 @@ inert outside a PiCode terminal. Maintenance commands bypass installation.
 | `pre_approval_request` | publish `needs-you` |
 | Delegated child ID or non-CLI platform | no report |
 
-Grok publishes idle at `SessionStart` and at the final `idle_prompt` notification.
-Its `Stop` hook can request continuation; queued turn-end reports can arrive after
-another prompt with a later dispatch timestamp. They are therefore ignored,
-along with child events and `SessionEnd`; wrapper exit removes presence. This
-conservative policy can delay attention by about a minute. Claude's
-`TaskCompleted` and `SubagentStop` also cannot mark the parent idle.
+Grok publishes `working` at `UserPromptSubmit` and at every `PostToolUse`
+(`PostToolUseFailure` when a tool failed to dispatch), and `idle` at
+`SessionStart` and at the final `idle_prompt` notification. Its `Stop` hook can
+request continuation; queued turn-end reports can arrive after another prompt
+with a later dispatch timestamp. They are therefore ignored, along with child
+events and `SessionEnd`; wrapper exit removes presence. This conservative
+policy can delay idle by about a minute.
+
+A permission prompt is `needs-you` everywhere, and none of the hook-driven
+CLIs emits a "permission resolved" event. The approved tool's completion is
+the resume signal that returns the terminal to `working`, so every CLI that
+can wait on a permission registers its tool lifecycle:
+
+| CLI | `needs-you` | resume to `working` |
+|---|---|---|
+| Grok | `PermissionRequest`, `Notification` `permission_prompt` | `PostToolUse`, `PostToolUseFailure` |
+| Claude Code | `Notification` `permission_prompt` / `agent_needs_input` | `PostToolUse`, `PostToolUseFailure` |
+| Codex | `PermissionRequest` | `PostToolUse` |
+| OpenCode | `permission.asked`, `question.asked` | `permission.replied`, `question.replied` |
+| Hermes | `pre_approval_request` | `post_approval_response` |
+| Pi TUI | `ui_prompt_start` | `ui_prompt_end` |
+
+The map also accepts `PreToolUse` but no CLI registers it: it fires before the
+permission gate, so it reports work that may still be waiting for the human. A
+long approved tool therefore stays `needs-you` until it finishes — no hook sees
+the answer itself. Grok's other notifications (`task_complete`, …) carry no
+attention meaning and do not change state. Claude's `TaskCompleted` and
+`SubagentStop` also cannot mark the parent idle.
 
 Native reports carry session identity, sequence and wrapper PID. The server
 publishes identity and activity together and refuses stale incarnations. A
