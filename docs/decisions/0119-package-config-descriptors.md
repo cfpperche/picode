@@ -1,7 +1,7 @@
 # ADR-0119: Package configuration by descriptor, for every extension
 
-- **Status**: proposed (direction approved by the owner, 2026-09-11; C0/C1/C2
-  shipped on this branch)
+- **Status**: accepted by the owner, 2026-09-11 (C0–C5 shipped; the
+  describe-your-own lifecycle included)
 - **Date**: 2026-09-11
 - **Boundary**: persistence + process — the server now writes config files
   for any descriptor-declared package (not only pi-roles), at paths the
