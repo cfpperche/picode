@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -33,6 +34,7 @@ import (
 	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/llamajob"
 	"github.com/cfpperche/picode/internal/llamaservice"
+	"github.com/cfpperche/picode/internal/pipkg"
 	"github.com/cfpperche/picode/internal/presence"
 	"github.com/cfpperche/picode/internal/push"
 	"github.com/cfpperche/picode/internal/rpc"
@@ -87,6 +89,9 @@ func New(addr string, deps Deps) *http.Server {
 	if deps.CLIs == nil {
 		deps.CLIs = newCLITerminals()
 	}
+	// User-described package configs (ADR-0119): descriptors persist as one
+	// JSON file each and must resolve before the first listing.
+	pipkg.LoadUserDescriptors(filepath.Join(deps.DataDir, "package-configs"))
 	if deps.Store != nil {
 		_ = deps.Store.ImportCLIConfigs(loadInterceptEnabled(deps.DataDir))
 		_ = deps.Store.SeedCatalogIntegrationDefaults()

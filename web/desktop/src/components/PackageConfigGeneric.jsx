@@ -38,7 +38,7 @@ function typedValues(fields, values) {
   return out;
 }
 
-export default function PackageConfigGeneric({ hidden, embedded = false, pkg, workspaceId = "", backHash = "#/clis/packages/pi" }) {
+export default function PackageConfigGeneric({ hidden, embedded = false, pkg, workspaceId = "", backHash = "#/clis/packages/pi", describeHash, listHash }) {
   const [view, setView] = useState(null);
   const [loadErr, setLoadErr] = useState("");
   const [values, setValues] = useState(EMPTY);
@@ -129,6 +129,21 @@ export default function PackageConfigGeneric({ hidden, embedded = false, pkg, wo
     }
   }
 
+  async function deleteDescription() {
+    if (!(await askConfirm({
+      title: "Delete description",
+      message: `Delete your description of ${pkg}? The package loses its Configure button until you describe it again. The config file itself is not touched.`,
+      confirmLabel: "Delete description",
+    }))) return;
+    try {
+      await api("/api/packages/describe?package=" + encodeURIComponent(pkg), { method: "DELETE" });
+      if (listHash) location.hash = listHash;
+    } catch (err) {
+      setNote(humanizeError(err.message || String(err)));
+      setNoteError(true);
+    }
+  }
+
   async function clearFile() {
     if (!view) return;
     if (!(await askConfirm({
@@ -169,6 +184,13 @@ export default function PackageConfigGeneric({ hidden, embedded = false, pkg, wo
       {view ? (
         <>
           <p className="pkg-fine">{view.application} Writes <code>{view.path}</code> ({view.scope} scope) — the file stays the package's own source of truth.</p>
+          {view.source === "user" ? (
+            <div className="pkg-notice-actions" data-align-row data-align-wrap>
+              <span className="pkg-fine">Described by you.</span>
+              {describeHash ? <a className="btn btn-ghost btn-sm" href={describeHash}>Edit description…</a> : null}
+              <button type="button" className="btn btn-ghost btn-sm" disabled={saving} onClick={deleteDescription}>Delete description…</button>
+            </div>
+          ) : null}
 
           {view.layer.invalid ? (
             <div className="pkg-notice err" role="alert">

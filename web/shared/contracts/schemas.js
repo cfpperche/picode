@@ -316,3 +316,45 @@ export function descriptorValuesSchema(fields) {
   }
   return z.object(shape);
 }
+
+// The describe form (ADR-0119 C5): the owner describes a package's config
+// file and fields once; options travel comma-separated and bounds as
+// strings, converted to the descriptor's shape on save.
+export const packageDescribeSchema = z.object({
+  id: z.string().min(1, "Id is required."),
+  title: z.string().min(1, "Title is required."),
+  application: z.string().optional(),
+  match: z.string().optional(),
+  files: z.array(z.object({
+    scope: z.enum(["agent", "workspace"]),
+    path: z.string().min(1, "Path is required.")
+      .refine((p) => !p.startsWith("/") && !p.includes(".."), "Relative path, no .."),
+    format: z.literal("json"),
+  })).length(1, "Exactly one file."),
+  fields: z.array(z.object({
+    key: z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_.-]*$/, "Letters, digits, _ - or ."),
+    label: z.string().min(1, "Label is required."),
+    type: z.enum(["string", "enum", "boolean", "number", "secret"]),
+    required: z.boolean().default(false),
+    options: z.string().optional(),
+    min: z.union([z.coerce.number(), z.literal("")]).optional(),
+    max: z.union([z.coerce.number(), z.literal("")]).optional(),
+    help: z.string().optional(),
+  })).min(1, "Describe at least one field."),
+}).superRefine((v, ctx) => {
+  const keys = v.fields.map((f) => f.key);
+  for (const k of keys) {
+    if (keys.filter((x) => x === k).length > 1) {
+      ctx.addIssue({ code: "custom", message: `Field "${k}" is duplicated.`, path: ["fields"] });
+      break;
+    }
+  }
+  for (const [i, f] of v.fields.entries()) {
+    if (f.type === "enum" && !(f.options || "").trim()) {
+      ctx.addIssue({ code: "custom", message: `Field "${f.key}" needs options.`, path: ["fields", i, "options"] });
+    }
+    if (f.type === "number" && f.min !== "" && f.max !== "" && f.min != null && f.max != null && Number(f.min) > Number(f.max)) {
+      ctx.addIssue({ code: "custom", message: `Field "${f.key}": min is above max.`, path: ["fields", i, "min"] });
+    }
+  }
+});

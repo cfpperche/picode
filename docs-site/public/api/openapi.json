@@ -4896,6 +4896,71 @@
         ]
       }
     },
+    "/api/packages/describe": {
+      "delete": {
+        "operationId": "deleteApiPackagesDescribe",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "packages"
+        ]
+      },
+      "get": {
+        "operationId": "getApiPackagesDescribe",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "packages"
+        ]
+      },
+      "put": {
+        "operationId": "putApiPackagesDescribe",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "packages"
+        ]
+      }
+    },
     "/api/packages/gallery": {
       "get": {
         "operationId": "getApiPackagesGallery",

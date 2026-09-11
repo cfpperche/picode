@@ -21,6 +21,9 @@ func registerPackageConfigRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/packages/config", handleGetPackageConfig(deps))
 	mux.HandleFunc("PUT /api/packages/config", handlePutPackageConfig(deps))
 	mux.HandleFunc("DELETE /api/packages/config", handleDeletePackageConfig(deps))
+	mux.HandleFunc("GET /api/packages/describe", handleGetPackageDescribe(deps))
+	mux.HandleFunc("PUT /api/packages/describe", handlePutPackageDescribe(deps))
+	mux.HandleFunc("DELETE /api/packages/describe", handleDeletePackageDescribe(deps))
 }
 
 const pkgConfigRoles = "pi-roles"
@@ -272,6 +275,7 @@ func announceConfigChange(deps Deps, pkg, scope string) {
 type descriptorConfigView struct {
 	Package     string                `json:"package"`
 	Kind        string                `json:"kind"`
+	Source      string                `json:"source"` // user | catalog | manifest — who described it
 	Title       string                `json:"title"`
 	Application string                `json:"application"`
 	Scope       string                `json:"scope"`
@@ -329,7 +333,8 @@ func descriptorGet(w http.ResponseWriter, deps Deps, pkg, workspaceID string) {
 		return
 	}
 	writeJSON(w, http.StatusOK, descriptorConfigView{
-		Package: pkg, Kind: d.ID, Title: d.Title, Application: d.Application,
+		Package: pkg, Kind: d.ID, Source: pipkg.DescriptorOrigin(d.ID),
+		Title: d.Title, Application: d.Application,
 		Scope: d.Files[0].Scope, Path: displayAgentPath(abs),
 		Fields: d.Fields, Layer: pipkg.ReadDescriptorLayer(abs),
 	})
@@ -366,7 +371,8 @@ func descriptorPut(w http.ResponseWriter, deps Deps, req packageConfigWrite) {
 	}
 	announceConfigChange(deps, req.Package, d.Files[0].Scope)
 	writeJSON(w, http.StatusOK, descriptorConfigView{
-		Package: req.Package, Kind: d.ID, Title: d.Title, Application: d.Application,
+		Package: req.Package, Kind: d.ID, Source: pipkg.DescriptorOrigin(d.ID),
+		Title: d.Title, Application: d.Application,
 		Scope: d.Files[0].Scope, Path: displayAgentPath(abs),
 		Fields: d.Fields, Layer: pipkg.ReadDescriptorLayer(abs),
 	})
@@ -388,7 +394,8 @@ func descriptorDelete(w http.ResponseWriter, deps Deps, pkg, workspaceID string)
 	}
 	announceConfigChange(deps, pkg, d.Files[0].Scope)
 	writeJSON(w, http.StatusOK, descriptorConfigView{
-		Package: pkg, Kind: d.ID, Title: d.Title, Application: d.Application,
+		Package: pkg, Kind: d.ID, Source: pipkg.DescriptorOrigin(d.ID),
+		Title: d.Title, Application: d.Application,
 		Scope: d.Files[0].Scope, Path: displayAgentPath(abs),
 		Fields: d.Fields, Layer: pipkg.ReadDescriptorLayer(abs),
 	})

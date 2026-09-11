@@ -13,8 +13,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // ConfigField is one typed input of a descriptor-driven config.
@@ -128,10 +130,14 @@ func DescriptorFor(nameOrSource, installedPath string) *ConfigDescriptor {
 }
 
 // DescriptorByID fetches a descriptor previously resolvable on this
-// machine: catalog entries and manifest-declared ones seen while listing.
+// machine: user-described first, then catalog entries, then
+// manifest-declared ones seen while listing.
 func DescriptorByID(id string) *ConfigDescriptor {
 	if id == "" {
 		return nil
+	}
+	if d := UserDescriptorByID(id); d != nil {
+		return d
 	}
 	for i := range catalogDescriptors() {
 		if catalogDescriptors()[i].ID == id {
@@ -321,4 +327,213 @@ func WriteDescriptorFile(abs string, values, raw map[string]any) error {
 		return err
 	}
 	return os.Rename(tmpName, abs)
+}
+
+// --- user-described configs (C5) ---
+//
+// A user descriptor is written by the owner through the Packages view
+// ("Describe config…") for a package whose configuration the catalog and
+// the package itself do not describe. It resolves BEFORE the catalog: the
+// explicit act of describing wins. Deleting it falls back honestly.
+
+var (
+	userMu       sync.RWMutex
+	userRegistry = map[string]*ConfigDescriptor{} // id -> descriptor
+)
+
+var fieldKeyRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_.-]*$`)
+
+// SanitizeDescriptorID makes an id safe as a file name (scoped npm names
+// contain "/").
+func SanitizeDescriptorID(id string) string {
+	s := strings.ReplaceAll(strings.TrimSpace(id), "/", "__")
+	return strings.ReplaceAll(s, "\\", "__")
+}
+
+// ValidateUserDescriptor checks a user-authored descriptor before it is
+// persisted. Field keys must be unique and well-formed; enum fields need
+// options; number bounds cannot invert.
+func ValidateUserDescriptor(d *ConfigDescriptor) error {
+	if strings.TrimSpace(d.ID) == "" {
+		return fmt.Errorf("id is required")
+	}
+	if strings.TrimSpace(d.Title) == "" {
+		return fmt.Errorf("title is required")
+	}
+	if len(d.Files) != 1 {
+		return fmt.Errorf("exactly one file must be declared")
+	}
+	f := d.Files[0]
+	if f.Scope != "agent" && f.Scope != "workspace" {
+		return fmt.Errorf("file scope must be agent or workspace")
+	}
+	if f.Path == "" || strings.HasPrefix(f.Path, "/") || strings.Contains(f.Path, "..") {
+		return fmt.Errorf("file path must be relative and cannot climb (no ..)")
+	}
+	if f.Format != "json" {
+		return fmt.Errorf("only json files are supported")
+	}
+	if len(d.Fields) == 0 {
+		return fmt.Errorf("describe at least one field")
+	}
+	seen := map[string]bool{}
+	for i := range d.Fields {
+		fl := &d.Fields[i]
+		if fl.Key == "" || !fieldKeyRe.MatchString(fl.Key) {
+			return fmt.Errorf("field %d: key must be letters, digits, _ - or .", i+1)
+		}
+		if seen[fl.Key] {
+			return fmt.Errorf("field %q is duplicated", fl.Key)
+		}
+		seen[fl.Key] = true
+		if strings.TrimSpace(fl.Label) == "" {
+			return fmt.Errorf("field %q needs a label", fl.Key)
+		}
+		switch fl.Type {
+		case "string", "secret", "boolean", "number", "enum":
+		default:
+			return fmt.Errorf("field %q has unknown type %q", fl.Key, fl.Type)
+		}
+		if fl.Type == "enum" && len(fl.Options) == 0 {
+			return fmt.Errorf("field %q needs options", fl.Key)
+		}
+		if fl.Type == "number" && fl.Min != nil && fl.Max != nil && *fl.Min > *fl.Max {
+			return fmt.Errorf("field %q: min is above max", fl.Key)
+		}
+	}
+	return nil
+}
+
+// RegisterUserDescriptor makes a user descriptor resolvable immediately.
+func RegisterUserDescriptor(d *ConfigDescriptor) {
+	userMu.Lock()
+	defer userMu.Unlock()
+	cp := *d
+	userRegistry[d.ID] = &cp
+}
+
+// UnregisterUserDescriptor forgets a user descriptor (the file is already
+// gone by the time this runs).
+func UnregisterUserDescriptor(id string) {
+	userMu.Lock()
+	defer userMu.Unlock()
+	delete(userRegistry, id)
+}
+
+// UserDescriptorByID returns the user descriptor with this exact id.
+func UserDescriptorByID(id string) *ConfigDescriptor {
+	userMu.RLock()
+	defer userMu.RUnlock()
+	if d, ok := userRegistry[id]; ok {
+		cp := *d
+		return &cp
+	}
+	return nil
+}
+
+// UserDescriptorFor matches a user descriptor against a package name or
+// source string.
+func UserDescriptorFor(nameOrSource string) *ConfigDescriptor {
+	userMu.RLock()
+	defer userMu.RUnlock()
+	for _, d := range userRegistry {
+		if d.matches(nameOrSource) {
+			cp := *d
+			return &cp
+		}
+	}
+	return nil
+}
+
+// LoadUserDescriptors registers every descriptor stored under dir. A file
+// that no longer validates is skipped, not fatal: one bad description must
+// not take the others down.
+func LoadUserDescriptors(dir string) {
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range ents {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			continue
+		}
+		var d ConfigDescriptor
+		if json.Unmarshal(raw, &d) != nil || d.ID == "" {
+			continue
+		}
+		RegisterUserDescriptor(&d)
+	}
+}
+
+// SaveUserDescriptor validates and persists a user descriptor atomically,
+// then registers it.
+func SaveUserDescriptor(dir string, d *ConfigDescriptor) error {
+	if err := ValidateUserDescriptor(d); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(d, "", "  ")
+	if err != nil {
+		return err
+	}
+	b = append(b, '\n')
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	abs := filepath.Join(dir, SanitizeDescriptorID(d.ID)+".json")
+	tmp, err := os.CreateTemp(dir, ".desc-*.json")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+	if _, err := tmp.Write(b); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpName, abs); err != nil {
+		return err
+	}
+	RegisterUserDescriptor(d)
+	return nil
+}
+
+// DeleteUserDescriptor removes a stored user descriptor and unregisters it.
+// Removing something that is not there succeeds.
+func DeleteUserDescriptor(dir, id string) error {
+	userMu.Lock()
+	delete(userRegistry, id)
+	userMu.Unlock()
+	err := os.Remove(filepath.Join(dir, SanitizeDescriptorID(id)+".json"))
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+// DescriptorOrigin names where the descriptor with this id came from:
+// "user", "catalog" or "manifest". Empty when nothing resolves — the same
+// answer DescriptorByID would give.
+func DescriptorOrigin(id string) string {
+	if id == "" {
+		return ""
+	}
+	if UserDescriptorByID(id) != nil {
+		return "user"
+	}
+	for i := range catalogDescriptors() {
+		if catalogDescriptors()[i].ID == id {
+			return "catalog"
+		}
+	}
+	if _, ok := remembered[id]; ok {
+		return "manifest"
+	}
+	return ""
 }

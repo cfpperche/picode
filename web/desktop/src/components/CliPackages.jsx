@@ -10,9 +10,11 @@ import Packages from "./Packages.jsx";
 import { askConfirm } from "../lib/confirm.js";
 import PackagesConfig from "./PackagesConfig.jsx";
 import PackageConfigGeneric from "./PackageConfigGeneric.jsx";
+import PackageDescribe from "./PackageDescribe.jsx";
 
 export default function CliPackages({ hidden, hash, legacyContext = {}, legacyContextReady = true, catalog, onPackageUpdates }) {
   const route = cliPackagesLocation(hash, legacyContext);
+  const describe = new URLSearchParams((hash || "").split("?")[1] || "").get("describe") === "1";
   const [hasUpdates, setHasUpdates] = useState(false);
   useEffect(() => { setHasUpdates(false); }, [route.id, route.workspaceId, route.agentId]);
   useEffect(() => {
@@ -30,12 +32,12 @@ export default function CliPackages({ hidden, hash, legacyContext = {}, legacyCo
       </div>
       {route.invalid || !supported ?
         <div className="cli-notice" role="status"><span>{route.invalid ? "This package link is invalid." : "Packages are not available for this CLI."}</span><a className="btn btn-ghost btn-sm" href={route.invalid || !supported ? "#/clis" : cliPackagesHash(route.id, { ...route, pkg: "" })}>{route.invalid || !supported ? "Back to CLIs" : "All packages"}</a></div>
-        : route.legacy && !legacyContextReady ? <div className="cli-loading" aria-label="Loading package context"><div /><div /><div /></div> : !hidden && !route.redirect ? <PackagesTarget key={route.id + ":" + route.workspaceId + ":" + route.agentId} route={route} catalog={catalog} onUpdates={(updates, workspaceId) => { setHasUpdates(updates.length > 0); onPackageUpdates?.(updates, workspaceId); }} /> : null}
+        : route.legacy && !legacyContextReady ? <div className="cli-loading" aria-label="Loading package context"><div /><div /><div /></div> : !hidden && !route.redirect ? <PackagesTarget key={route.id + ":" + route.workspaceId + ":" + route.agentId} route={route} catalog={catalog} describe={describe} onUpdates={(updates, workspaceId) => { setHasUpdates(updates.length > 0); onPackageUpdates?.(updates, workspaceId); }} /> : null}
     </div>
   </AgentClisFrame>;
 }
 
-function PackagesTarget({ route, catalog, onUpdates }) {
+function PackagesTarget({ route, catalog, onUpdates, describe = false }) {
   const [context, setContext] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -94,10 +96,11 @@ function PackagesTarget({ route, catalog, onUpdates }) {
     {notice}
     {agent || workspace ? <p className="cli-settings-context">{agent ? <a href={"#/agent/" + encodeURIComponent(agent.id)}>Back to agent</a> : null}<a href={cliPackagesHash(route.id)}>Machine packages</a></p> : null}
     <fieldset className="cli-packages-fields" disabled={!!error}>
-      {route.pkg ? (route.pkg === "pi-roles" ?
+      {route.pkg && describe ? <PackageDescribe {...props} pkg={route.pkg} backHash={listHash} configHashFor={p => cliPackagesHash(route.id, { ...route, pkg: p })} /> :
+        route.pkg ? (route.pkg === "pi-roles" ?
         <PackagesConfig {...props} pkg={route.pkg} catalog={catalog} backHash={listHash} initialScope={route.scope === "agent" ? "agent" : "workspace"} onScopeChange={scope => { location.hash = cliPackagesHash(route.id, { ...route, scope: scope === "agent" ? "agent" : "project" }); }} />
-        : <PackageConfigGeneric {...props} pkg={route.pkg} backHash={listHash} />)
-        : <Packages {...props} scope={route.scope} onScopeChange={scope => { location.hash = cliPackagesHash(route.id, { ...route, scope }); }} configHash={pkg => cliPackagesHash(route.id, { ...route, pkg })} />}
+        : <PackageConfigGeneric {...props} pkg={route.pkg} backHash={listHash} describeHash={p => cliPackagesHash(route.id, { ...route, pkg: p }) + "&describe=1"} listHash={listHash} />)
+        : <Packages {...props} scope={route.scope} onScopeChange={scope => { location.hash = cliPackagesHash(route.id, { ...route, scope }); }} configHash={pkg => cliPackagesHash(route.id, { ...route, pkg })} describeHash={pkg => { const base = cliPackagesHash(route.id, { ...route, pkg }); return base + (base.includes("?") ? "&" : "?") + "describe=1"; }} />}
     </fieldset>
   </>;
 }

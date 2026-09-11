@@ -92,6 +92,7 @@ possible in code.
 | C2 — generic form | `PackageConfigForm.jsx` driven by the descriptor (Zod contracts in `web/shared/contracts/schemas.js`, `noValidate`, one control height); Configure button renders whenever a descriptor resolves; per-field errors, empty/blocked states one-line-plus-action | Desktop only (mobile keeps the ADR-0102 "config links offer the desktop layout" rule); visual-review PASS with empty, error and saved states |
 | C3 — catalog coverage | Descriptors for every installed package we know has a config (discovery step: sweep `~/.pi/agent/npm/node_modules` + `packages/` for config-file reads); upstream `picode.config` proposal drafted for pi-web-search | Every installed package with a config file shows Configure or is listed as "no descriptor yet" in the plan's debt |
 | C4 — docs | ADR accepted; `docs/architecture/cli-packages.md` + `model-roles.md` updated; changelog fragment; docs-site entry for the Packages view | `make close` green; docs say which packages are configurable and where files live |
+| C5 — user-described configs | `GET/PUT/DELETE /api/packages/describe`; descriptors persist under `DataDir/package-configs/` and resolve first (user → package manifest → catalog); the generic form grows a tri-state checkbox (untouched = unset = key omitted); numeric `min`/`max`; card gains "Describe config…" and the config page gains edit/delete description | Describe → configure → edit → delete validated end-to-end on a scratch (pi-mcp-adapter); decision-table tests green |
 
 Estimated 2–3 sessions (C1 ≈ 1, C2 ≈ 1, C3+C4 ≈ ½–1).
 
@@ -126,6 +127,8 @@ Estimated 2–3 sessions (C1 ≈ 1, C2 ≈ 1, C3+C4 ≈ ½–1).
 Config files are **never created by hand** — creating and editing them
 through the Packages GUI *is* the acceptance test for this work, for
 web-search and for every descriptor added after it. Validated on a scratch
-instance: web-search (create → edit → clear → broken-file replace) and
-compact (workspace file pre-populated, tri-state enabled, min/max refusal,
-save preserving `fallback`/`atTokens`).
+instance: web-search (create → edit → clear → broken-file replace), compact
+(workspace file pre-populated, tri-state enabled, min/max refusal, save
+preserving `fallback`/`atTokens`) and the describe lifecycle itself
+(describe → configure → edit description → delete description) on
+pi-mcp-adapter.

@@ -12,7 +12,7 @@ const PKG_DESC = {
   "pi-roles": "Model roles — route vision, plan or named presets to their own model.",
 };
 
-export default function Packages({ hidden, embedded = false, workspaceId, workspaceName, workspacePath, agentId, agentName, updates, onUpdates, beforeMutation = async () => {}, scope = "user", onScopeChange = () => {}, configHash }) {
+export default function Packages({ hidden, embedded = false, workspaceId, workspaceName, workspacePath, agentId, agentName, updates, onUpdates, beforeMutation = async () => {}, scope = "user", onScopeChange = () => {}, configHash, describeHash }) {
   const [data, setData] = useState(null);
   const [source, setSource] = useState("");
   const setScope = onScopeChange;
@@ -292,6 +292,8 @@ export default function Packages({ hidden, embedded = false, workspaceId, worksp
                         <div className="pkg-card-foot">
                           {p.configKind ? (
                             <a className="btn btn-sm" href={configHash(p.configKind === "roles" ? "pi-roles" : p.configKind)}>Configure</a>
+                          ) : describeHash ? (
+                            <a className="btn btn-ghost btn-sm" href={describeHash(p.name)}>Describe config…</a>
                           ) : null}
                           {u ? (
                             <button type="button" className="btn btn-primary btn-sm" onClick={() => updatePkg(p)} disabled={!!job} title={u.current && u.latest ? u.current + " → " + u.latest : undefined}>Update</button>
