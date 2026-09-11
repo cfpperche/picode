@@ -13,6 +13,86 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ### Added
 
+- **Matrix: a managed agent's panel is now its live conversation.** Where a managed agent's panel said *Managed agent — open to read.*, it shows what the agent is saying as it says it — the same turns, tool cards, diffs and markdown its tab shows, scrolling itself, in a read-only layout with no composer and no queue controls. When the agent is waiting on a person the chip says **Needs you**, the body shows the question and the choices it offers, and a line across the bottom of the panel carries it with **Open**, which takes you to the tab where you answer. The chip comes from the fleet, not from the panel's connection, so a panel that is asleep, paused or zoomed down to a name-plate still tells you which agent is blocked.
+
+- **Link two Matrix panels, and the two sessions can message each other
+  (ADR-0116).** On a matrix canvas, hover a panel and drag the connector in
+  its header onto another panel. The line grants exactly one thing: those
+  two sessions gain each other as a contact in PiCode's existing messaging
+  (ADR-0104). One can send the other a message and read the replies — that
+  is all it does.
+- **A link never grants a transcript.** It does not let one session read the
+  other's history, scrollback, session file or anything typed into it. The
+  supported way to get context out of another session is to ask it and let
+  it answer in its own words. The guide says so in plain words.
+- **Two sessions in different project folders can now be paired**, per pair,
+  by hand. The workspace rule is unchanged and there is no owner-wide
+  switch: the blast radius of a link is two named sessions you drew a line
+  between.
+- **Nothing is connected quietly.** Drawing a line to a session that is not
+  connected offers the existing connection in one line, with what it grants;
+  drawing across two project folders asks again, separately, naming both
+  folders. Cancel at either point writes nothing at all — no link, no
+  connection.
+- **Removing the line removes the permission**, with nothing left over:
+  PiCode derives who may message whom from the links that exist right now,
+  so deleting the line, either panel, or the matrix revokes it immediately.
+- **A link that grants nothing reads broken**, in amber and marked
+  *Broken*, with the reason when you point at it — the connection was
+  revoked, the session moved, the target is gone, or it was never connected.
+  It is never a faded version of a working link.
+- **Matrix links, in the Messages view.** Every link you have drawn,
+  anywhere: both ends, the matrix it lives on, whether it works right now,
+  and a Remove that revokes it exactly as the canvas does. It is not
+  filtered by the folder picker, because links across folders are the ones
+  worth seeing. Grid mode, which has no plane to draw on, shows a per-panel
+  link count in the header and sends you here.
+
+- **Matrix: a panel can be a pinned note.** Add one from **Add panel** →
+  **Pins**: the panel shows that pin's markdown, read-only, follows it as
+  you edit it elsewhere, and its header opens Pin Studio. A note whose pin
+  was deleted says so and offers Remove, the way a deleted terminal does.
+- **Matrix: a panel can be a file.** **Add panel** → **Open files** offers
+  the files you already have open in a tab; the panel is the same editor,
+  with Save. It says *Unsaved* while you have changes, keeps them when you
+  maximize it or switch layout, and never goes to sleep holding them.
+- **Matrix: a panel can be the changes to a file.** The same list offers
+  each open file as **Changes to an open file**: the panel shows that
+  path's diff and keeps it current as the file changes, with **Open file**
+  to jump to the editor. One file can be on a matrix twice, as the file and
+  as its diff.
+
+- **The Matrix canvas — your panels on a plane you pan and zoom.** A matrix header now has a **Grid | Canvas** switch. On a canvas a panel goes anywhere: drag it by its header, resize it from any edge or corner, drag a box around several and move them together, pan with the middle button or by holding Space, zoom with the wheel or the `+` / `−` buttons, and `0` fits everything on screen. A minimap in the corner shows the whole plane. The arrow keys still move between panels — an off-screen one is brought into view — Enter still starts typing in that panel's terminal, and Delete still removes it with an Undo. Switching to the canvas converts the whole matrix in one step and switching back packs it into the 12 columns again (it asks first, since the plane positions are not kept). Where you left the camera is remembered per browser, so two people looking at the same matrix never yank each other's view.
+- **Zoomed out, a panel shows its last screen instead of a live one.** Below about 75 % a panel stops being a connected terminal and shows the text of the screen it last had — sharp, free, and stamped with its age in the header if the panel has done something since; below about 40 % it becomes a name-plate with the face, name and status, sized so it stays readable however far out you are. Zoom back in and the same terminals reconnect where they left off. That is what lets a canvas hold hundreds of panels without hundreds of connections.
+- **A terminal takes the mouse at 100 % only, and says so.** A terminal panel is readable and typeable from 80 % up, but a *click* is only accurate at 100 %: below it the terminal would put your click on the wrong cell, and with mouse reporting on that wrong cell reaches the program running inside. So away from 100 % the panel body does not take clicks — clicking it zooms the canvas back to 100 % first, and then your click lands where you aimed it. The zoom percentage sits next to the minimap and takes you back to 100 % in one press.
+- **Tidy.** The matrix menu gains **Tidy panels** on a canvas: it lays them out again in reading order, keeping each panel's size, and saves once.
+
+- **Mobile: Back from an agent or terminal lands where the work lives.** A workspace's agent or terminal returns to Workspaces focused on that workspace's group; a free one returns to its own Agents or Terminals list — never a flat section it was never in.
+
+- **A matrix can be a canvas, from the API.** Every matrix now has a layout mode: the 12-column grid it has always had, or a `canvas` where panels sit on a plane with no columns and no bottom — coordinates in 8 px units that may run negative. `PATCH /api/matrices/{id}` takes `mode` and answers with the matrix plus every panel it moved: switching converts the whole matrix in one step (a grid cell becomes 8 units across and 3 down; coming back divides, rounds and tidies the panels so none overlap and none is lost), and switching to the mode it already has changes nothing. Matrices made before this keep the grid. **There is no canvas to look at yet** — the panels, the mode switch and the pan-and-zoom surface are the next step; this release is the model underneath, exercised by tests.
+
+- **Fullscreen hands the browser's keys to your agent.** In a normal window the browser keeps its reserved shortcuts (`Ctrl+T` new tab, `Ctrl+W` close tab, `Ctrl+N` new window) before PiCode can see them — so a CLI chord like Codex's `Ctrl+T` opened a browser tab instead. Fullscreen mode (`Ctrl+Shift+Enter`) now also locks the keyboard (Chrome/Edge/Opera): every key reaches the page, terminals get their chords back, `Escape` still leaves the mode outside a terminal, and holding `Escape` for about two seconds is always an exit. Firefox and Safari keep the previous behavior until they support the API.
+
+- **Fullscreen: any tab can take the whole window.** Right-click anywhere in the desktop app — a terminal, an app, a file, the conversation — and choose **Fullscreen** (`Ctrl+Shift+Enter`, `Cmd+Shift+Enter`, or the command palette). The sidebar, the tab strip and the Inspector rail step out of the way and the tab you are on fills the screen. Nothing is closed: touch the **left** edge with the pointer and the sidebar slides back over the page, the **top** edge brings the tabs back — with a **Leave fullscreen** button at their right end — and the **right** edge brings the Inspector back if it was open when you started. Each edge waits a moment before opening, so crossing it on the way somewhere else does not flash it, and it stays while the pointer is on it. Esc leaves. The mode is remembered per browser, so a reload comes back into it, and it is offered on every tab except the git graph's own commit menu.
+- **The browser goes fullscreen too.** Turning it on also asks the browser for real fullscreen, so the app is the whole screen and not just the whole page; leaving gives the window back, and if you exit fullscreen yourself (F11, Esc) the mode ends with it. A browser that refuses fullscreen still hides the app's own chrome. A reload cannot ask for fullscreen — there is no click to ask with — so it returns to the in-app mode, with the top edge still there to leave from.
+
+- **Matrix — a live grid of your agents and terminals.** The Apps tab has a Matrix tile: create a matrix, add panels from a picker of your agents and terminals, drag them by the header and resize them by the corner or an edge. Each panel shows the real terminal or agent screen — the same one its tab shows — with the sidebar's Working / Needs you / Ready word in its header. Only the panels near what you are looking at stay connected, so a matrix can hold hundreds; layouts save as you go and every browser sees the same matrices (`#/app/matrix/<id>`). The guide is [Matrix](https://cfpperche.github.io/picode/guide/matrix).
+- **Keyboard across a matrix.** Click a panel or tab into one, then move with the arrow keys (the target scrolls into view and wakes up), Home and End for the first and last, Enter to start typing in that panel's terminal, Shift+Esc to come back out to the panel, Delete to remove it with an Undo. A plain Esc still belongs to the program in the terminal.
+- **Maximize a panel.** The ⤢ button gives one panel the whole surface — the terminal resizes to the space, the matrix keeps its layout underneath, and the panel's slot says *Shown maximized*. Esc or the button puts it back.
+
+- Workspace Communication on desktop and mobile: select managed Pi agents and native terminals, apply their connections, and follow preparation and activity in one view.
+- Run a connection test through the participants' native tools. A test passes only after a message, correlated reply and both acknowledgments; pending and unconfirmed results remain visible.
+
+- Agent CLIs → Messages: native Grok and Hermes communication through `picode messages contacts|send|read|ack`, sharing the existing MCP mailbox, authorization and history.
+- Stored messages can notify an already open conversation through Pi's native receiver or a guarded TUI pointer. History distinguishes pending, notified, unconfirmed and acknowledged messages.
+
+- **Matrix API and feed events (ADR-0108).** Matrices — named 12-column grids of agent and terminal panels — are stored, shared across browsers and announced on the change feed: `GET`/`POST /api/matrices`, `GET`/`PATCH`/`DELETE /api/matrices/{id}`, `PATCH …/layout` (the changed subset, 409 when stale), `POST …/panels`, `DELETE …/panels/{panelId}`, and six `matrix.*` events. Limits refuse with the limit named (64 matrices, 500 panels each, 80-character names, panels of at least 4×8 cells). No surface yet — the Matrix app itself is phase 3.
+
+- **`picode version` (`--version`, `-v`).** Prints the build identity and exits. The install verifier already ran `picode --version`; until now the flag silently started a server instead.
+
+- Messages can save private setup for recorded Pi, Claude Code, Codex and OpenCode conversations and attach it when they resume. Desktop and mobile show the next action, including installing the Pi adapter when needed.
+- Automatic local HTTPS setup supplies verified public CA material to the launched client while preserving existing configured CA bundles.
+
 - Direct session messages (ADR-0104): an embedded HTTP MCP endpoint with same-workspace opt-in, scoped credentials, durable receipts, retry deduplication and explicit acknowledgements. Agent CLIs → Messages on desktop/mobile manages connections and history. Client setup is manual per conversation; no automatic agent turn or terminal migration.
 
 
@@ -30,6 +110,31 @@ to the `[Unreleased]` section. The repository's official language is English
   into rows with their last fire intact. (ADR-0045 amendment 2026-09-09.)
 
 ### Changed
+
+- **Matrix: what a conversation panel costs, and what bounds it.** A conversation holds a WebSocket and a transcript, so it is live only where it can be read: in the band and at 40 % zoom or more. Below 40 % a panel is a name-plate and its connection closes; outside the band it unmounts after the same five seconds every other body gets, and reconnects with its conversation when it comes back. At most twelve conversations are live at once — the twelve you scrolled to most recently — and the rest say *Paused* until a slot frees. Measured with twenty managed agents on one matrix: nine connections at rest, twelve at the cap with six paused mid-scroll, never thirteen.
+
+- Participant selection carries forward to future conversations in the selected workspace. Each conversation keeps a separate credential; clearing a selection revokes its connections atomically.
+- Normal setup offers Apply and connect, Open and connect and repair actions, with per-conversation configuration under Advanced.
+
+- Agent CLI terminal menus are one menu everywhere: the sidebar terminal rows and the Agent CLIs terminal list render the same rows — Rename…, Launch settings, Terminal settings, Start/Restart/Stop terminal (per running state) and Remove terminal. The sidebar gains Start/Restart/Stop and Launch settings; the Agent CLIs list gains Rename… and Terminal settings.
+
+- Grok/Hermes integration uses native hooks/plugins with ownership receipts and preserves their native executable, home and unrelated configuration.
+
+- **Apps host: a first-party app may declare a native surface (ADR-0109).** A manifest can say `surface: "native"`: the app's body is then a component compiled into the desktop shell instead of a primitives view, opened from the same tile, tab and `#/app/<id>` route. The phone lists such an app as *Desktop only* and answers its link with one line and Back; a desktop build that lacks the surface dims the tile as needing a newer PiCode. No shipped app uses it yet — the only native app is the hidden QA demo behind `PICODE_DEMO_APP=1`, which shows a live terminal; a terminal shown there and in its own tab follows whichever is visible.
+
+- Workspace cards: the plan (checklist) line no longer shows a chevron — the whole line stays clickable to expand the plan, and the line is now italic, matching the plan's voice.
+
+- Document verified native conversation resumes and acknowledged message roundtrips for Claude Code/Codex and OpenCode/Claude Code, including OpenCode `zai/glm-5.3-flash` with variant `max`; runtime behavior is unchanged.
+
+- **Development process (ADR-0105).** Deploy happens only when the owner runs
+  `make deploy`; the deploy timer and `make deploy-batch` are gone. The
+  changelog is assembled from `docs/changelog.d/` fragments, the handoff
+  keeps no shipped-work prose, `docs/architecture.md` is an index over
+  `docs/architecture/`, and `make adr` seeds a decision record with a
+  boundary line. Gates: `internal/server` tests run sharded across four
+  processes, `make ci` runs its gates in parallel, `make web` is a no-op when
+  nothing under `web/` changed, and `make close` reuses a green
+  `ci-scoped` for an unchanged tree.
 
 - **Sidebar: selection without the blue bar.** A selected agent or
   terminal card no longer paints the accent bar that read as a blue
@@ -60,7 +165,57 @@ to the `[Unreleased]` section. The repository's official language is English
   defaults stop at 1240px instead of 1080px. Workspace surfaces (agents,
   terminals, files, git, apps) are unchanged.
 
+### Removed
+
+- Mobile: the "Running" section is gone from the Now home; agents and terminals running stay visible with their state chips in the Work tab.
+
 ### Fixed
+
+- **Reloading no longer halves fullscreen mode.** A reload always brought the mode's layout back but not the browser part — no gesture, so no fullscreen and no keyboard lock — and you had to toggle it off and on to get the keys back. Now the first click or keypress after the reload completes it on its own: the browser goes fullscreen again, the terminal keeps every key, nothing else changes. If the first gesture is Escape or the fullscreen chord, it does what it means (leaves the mode); synthetic input never triggers it.
+
+- Mobile: the Work tab no longer scrolls horizontally — the per-workspace action strip (Communication, Files, Git, +Agent, +Terminal) grew wider than a phone screen and pushed the whole page sideways; the actions now live in an "…" menu on each workspace row.
+
+- Prevent OpenCode from hanging when communication reconnects its native conversation; validate resumed readiness without overriding newer activity or permission requests.
+- Connect identified Codex conversations without restarting, and preserve their native identity when older launchers emit auxiliary completion notifications.
+- Preserve terminal dimensions during communication setup and recognize Claude Code's compact footer without requiring the browser panel to resize.
+
+- Communication now recognizes Grok 1.0.25's bordered input when delivering message and connection-test prompts. Drafts, unfamiliar layouts and prompts that would wrap remain protected.
+
+- A panel whose terminal or agent is deleted lets go of its screen at once instead of holding it until the cache trims, and keeps the name it was showing, so the row reads *shell · Gone — That terminal is gone.*
+
+- Pi connection setup shares its receiver registration, preserves native input and rejects stale process or conversation identity.
+- Communication preparation resumes the exact idle terminal conversation only after verifying the previous writer has exited; an unverified shutdown blocks replacement.
+- Managed Pi reconnect checks pending delivery, native commands and approvals before stopping. A stale stop cannot remove its replacement.
+
+- Sidebar: the plan (checklist) line's text starts on the card's left edge — same column as the title, subtitle and folder/branch icons — instead of floating ~16px right on a ghost indent.
+
+- Native conversation identity no longer falls back to the most recent session for enrolled terminals; daemon restart recovery verifies the current pane/process.
+- Prevent duplicate conversation addresses across `/new` and resume, stale activity reports, multiline draft submission, and attention starvation behind another recipient's backlog.
+- An explicit successful Messages refresh clears stale action errors while preserving history.
+- Codex lifecycle hooks remain active on resume/fork by placing their scoped overrides in the native subcommand.
+
+- Desktop: the default right-click menu (Copy, Paste, Reload PiCode, Toggle theme) again renders rows like the terminal context menu — icon and label together on the left, instead of the label pushed to the menu's right edge.
+
+- Creating two terminals at once on a machine with no tmux server running
+  no longer fails one of them with "server exited unexpectedly": the daemon
+  retries the tmux startup race for `has-session` and `new-session`.
+
+- **The HTTP docs pair shells the way the server actually pairs.** `docs/api` now shows `picode pair` (the old example called an endpoint that never existed) and no longer claims `PICODE_INSECURE=1` skips pairing — that is the **Who must pair: Off** setting (`PICODE_AUTH_MODE=off`).
+- **The architecture index renders as one table again** on GitHub and the docs site (a stray blank line had broken it at ADR-0090).
+- **Stale file path in the routes doc** (`web/src/lib/fileDocument.js` → `web/desktop/…`, mirrored in `web/mobile`).
+
+- **Development process (ADR-0105 follow-up).** The pre-commit hook lets the
+  release cut through (a `CHANGELOG.md` edit that adds a `## [x.y.z]`
+  heading) and parses staged changelog fragments so a malformed one fails at
+  commit time, not at release. `make deploy` commits only the refreshed
+  captures, never whatever else was staged. `make adr` allocates the number
+  across every worktree even when run from inside one. The split
+  architecture files link to `docs/plans`, `docs/design` and
+  `docs/benchmarks` again. Capture tolerance is an absolute 128 px budget
+  with the count printed per surface.
+
+- Pi terminal resumes use the recorded conversation file, including older session pins without resume arguments.
+- Communication setup preserves unrelated OpenCode inline JSON settings and MCP servers; malformed inline configuration blocks launch with an actionable error.
 
 - **Sidebar cards: folder/git icons no longer crush on long paths.** A
   deep workspace path flex-shrank the row's folder or branch SVG to a

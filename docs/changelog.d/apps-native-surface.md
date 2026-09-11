@@ -1,3 +1,0 @@
-### Changed
-
-- **Apps host: a first-party app may declare a native surface (ADR-0109).** A manifest can say `surface: "native"`: the app's body is then a component compiled into the desktop shell instead of a primitives view, opened from the same tile, tab and `#/app/<id>` route. The phone lists such an app as *Desktop only* and answers its link with one line and Back; a desktop build that lacks the surface dims the tile as needing a newer PiCode. No shipped app uses it yet — the only native app is the hidden QA demo behind `PICODE_DEMO_APP=1`, which shows a live terminal; a terminal shown there and in its own tab follows whichever is visible.

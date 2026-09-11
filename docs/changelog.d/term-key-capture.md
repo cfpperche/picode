@@ -1,3 +1,0 @@
-### Added
-
-- **Fullscreen hands the browser's keys to your agent.** In a normal window the browser keeps its reserved shortcuts (`Ctrl+T` new tab, `Ctrl+W` close tab, `Ctrl+N` new window) before PiCode can see them — so a CLI chord like Codex's `Ctrl+T` opened a browser tab instead. Fullscreen mode (`Ctrl+Shift+Enter`) now also locks the keyboard (Chrome/Edge/Opera): every key reaches the page, terminals get their chords back, `Escape` still leaves the mode outside a terminal, and holding `Escape` for about two seconds is always an exit. Firefox and Safari keep the previous behavior until they support the API.

@@ -1,7 +1,0 @@
-### Added
-
-- **Matrix: a managed agent's panel is now its live conversation.** Where a managed agent's panel said *Managed agent — open to read.*, it shows what the agent is saying as it says it — the same turns, tool cards, diffs and markdown its tab shows, scrolling itself, in a read-only layout with no composer and no queue controls. When the agent is waiting on a person the chip says **Needs you**, the body shows the question and the choices it offers, and a line across the bottom of the panel carries it with **Open**, which takes you to the tab where you answer. The chip comes from the fleet, not from the panel's connection, so a panel that is asleep, paused or zoomed down to a name-plate still tells you which agent is blocked.
-
-### Changed
-
-- **Matrix: what a conversation panel costs, and what bounds it.** A conversation holds a WebSocket and a transcript, so it is live only where it can be read: in the band and at 40 % zoom or more. Below 40 % a panel is a name-plate and its connection closes; outside the band it unmounts after the same five seconds every other body gets, and reconnects with its conversation when it comes back. At most twelve conversations are live at once — the twelve you scrolled to most recently — and the rest say *Paused* until a slot frees. Measured with twenty managed agents on one matrix: nine connections at rest, twelve at the cap with six paused mid-scroll, never thirteen.
