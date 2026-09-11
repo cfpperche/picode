@@ -3090,8 +3090,13 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   transform: translate(-50%, -50%);
   width: min(400px, calc(100vw - 32px));
   padding: 18px 18px 14px;
-  background: var(--bg-base); border: 1px solid var(--border-strong);
+  /* A dialog floats over whatever it interrupted, so it takes the
+     elevated ground and a shadow rather than the page's own. It used
+     to take --bg-base, which in light is now the recessed ground: a
+     modal painted in the colour of the page behind it. */
+  background: var(--bg-elevated); border: 1px solid var(--border-strong);
   border-radius: var(--radius-panel);
+  box-shadow: 0 18px 48px color-mix(in srgb, #000 32%, transparent);
 }
 .dlg-title { font-size: 15px; font-weight: 650; margin-bottom: 8px; }
 .dlg-body { font-size: 13px; color: var(--text-secondary); line-height: 1.45; }
@@ -3623,6 +3628,31 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .theme-card[aria-checked="true"] svg { color: var(--accent); }
 .theme-card-name { font-weight: 600; font-size: 12.5px; }
 .theme-card-desc { font-size: 11.5px; color: var(--text-secondary); }
+/* A settings group heading inside one section — the Appearance page carries
+   two radiogroups and an sr-only <h3> cannot tell them apart on screen. */
+.settings-sub { margin: 20px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); }
+.settings-section > .settings-sub:first-of-type { margin-top: 0; }
+.settings-sub + .settings-desc { margin-bottom: 10px; }
+
+/* The Canvas background cards. Four instead of three, and each one carries a
+   sample of its own pattern rather than an icon: the choice is what the
+   plane looks like, so a word for it would be the one thing a preference
+   card must not be. The sample is the plane's ground and the plane's tokens
+   (canvas.css), with a hairline so it reads as a sample and not as a hole in
+   the card — the card wears --bg-base too. */
+.theme-cards.bg-cards { grid-template-columns: repeat(4, 1fr); }
+.bg-swatch {
+  display: block; width: 100%; height: 38px; margin-bottom: 2px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg-base); overflow: hidden;
+}
+.bg-swatch svg { display: block; width: 100%; height: 100%; }
+.bg-swatch-dot { fill: var(--border-strong); }
+.bg-swatch-line { stroke: var(--border); stroke-width: 1; fill: none; }
+.theme-card[aria-checked="true"] .bg-swatch { border-color: var(--accent); }
+@media (max-width: 900px) {
+  .theme-cards.bg-cards { grid-template-columns: repeat(2, 1fr); }
+}
 .sys-rows { display: flex; flex-direction: column; }
 .sys-row {
   display: flex; justify-content: space-between; gap: 16px;
