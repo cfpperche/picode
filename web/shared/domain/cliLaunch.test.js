@@ -8,6 +8,10 @@ test("CLI manager parses launch routes", () => {
   assert.deepEqual(cliLocation("#/clis/terminal/a%20b"), { view: "terminal", id: "a b" });
 });
 
+test("the general Terminals address lands on the CLI catalog (2026-09-11)", () => {
+  assert.deepEqual(cliLocation("#/clis/terminals"), { view: "clis", id: "" });
+});
+
 test("sessions view takes an optional workspace scope (ADR-0079)", () => {
   assert.deepEqual(cliLocation("#/clis/sessions"), { view: "sessions", id: "" });
   assert.deepEqual(cliLocation("#/clis/sessions/ws-9"), { view: "sessions", id: "ws-9" });

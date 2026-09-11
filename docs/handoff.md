@@ -7,7 +7,7 @@
 
 `git worktree list` is the truth for in-flight branches; entries say what a merge must know.
 
-- `feat/changelog-normalize` — `make changelog` heals a drifted `[Unreleased]` (one heading per type); the runbook's step 5 gains the isolated-instance and seed-a-terminal rules ADR-0063 implies. `ci-scoped` green, unmerged.
+- `feat/clis-terminals-section` — the Agent CLIs view drops its general Terminals tab: a CLI's page keeps the one list, `#/clis/terminals` resolves to the catalog. `ci-scoped` green, unmerged.
 - `feat/herdr-validation`, `feat/picode-video-pilot` — carry pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; next `main` merge conflicts in both: keep this file's shape, changelog lines to `docs/changelog.d/`.
 ## Next up
 

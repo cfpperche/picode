@@ -58,6 +58,9 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
   useEffect(() => {
     if (hidden || ["settings", "packages", "providers", "messages"].includes(route.view)) return;
     if (hash === "#/preferences/status") location.replace("#/clis");
+    // The general Terminals tab is gone (2026-09-11): a CLI's own Terminals
+    // section is the one list, so an old link lands on the catalog.
+    if (hash === "#/clis/terminals") location.replace("#/clis");
     // ADR-0079: the old top-level sessions route moved under Agent CLIs.
     if (/^#\/sessions(\/|$)/.test(hash)) location.replace("#/clis/sessions" + hash.slice("#/sessions".length));
   }, [hidden, hash, route.view]);
@@ -189,17 +192,16 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
         <a className="cli-docs" href={selected.docs} target="_blank" rel="noreferrer">{selected.name} documentation ↗</a>
       </div>
     </div> : null}
-    {data && route.view === "terminals" ? <TerminalList terminals={cliTerminals(data.terminals)} workspaces={data.workspaces} busy={busy} onAction={action} onNew={() => navigate("")} all onRenameTerm={onRenameTerm} /> : null}
     {data && (route.view === "new" || route.view === "terminal") ? <TerminalEditor key={hash} route={route} data={data} run={run} busy={!!busy} /> : null}
     {data && route.view === "profile" ? <CLIProfileEditor key={hash} route={route} data={data} run={run} busy={!!busy} /> : null}
   </AgentClisFrame>;
 }
 
-function TerminalList({ terminals, workspaces, busy, onAction, onNew, all, cliName, onRenameTerm }) {
+function TerminalList({ terminals, workspaces, busy, onAction, onNew, cliName, onRenameTerm }) {
   const [query, setQuery] = useState("");
   const filtered = terminals.filter((t) => `${t.name} ${t.cwd} ${t.cli || ""} ${t.launchCli || ""}`.toLowerCase().includes(query.toLowerCase()));
-  return <section className="cli-terminals"><div className="cli-list-heading"><h3>{all ? "CLI terminals" : "Terminals"}</h3>{terminals.length > 4 ? <input aria-label="Search terminals" placeholder="Find a terminal…" value={query} onChange={(e) => setQuery(e.target.value)} /> : null}</div>
-    {!terminals.length ? <Notice action={all ? "Choose a CLI" : "Open " + cliName} onAction={onNew}>No {cliName || "CLI"} terminals yet.</Notice> : !filtered.length ? <Notice action="Clear search" onAction={() => setQuery("")}>No matching terminals.</Notice> : null}
+  return <section className="cli-terminals"><div className="cli-list-heading"><h3>Terminals</h3>{terminals.length > 4 ? <input aria-label="Search terminals" placeholder="Find a terminal…" value={query} onChange={(e) => setQuery(e.target.value)} /> : null}</div>
+    {!terminals.length ? <Notice action={"Open " + cliName} onAction={onNew}>No {cliName} terminals yet.</Notice> : !filtered.length ? <Notice action="Clear search" onAction={() => setQuery("")}>No matching terminals.</Notice> : null}
     <div className="cli-terminal-list">{filtered.map((t) => {
       const workspace = workspaces.find((w) => w.id === t.workspaceId);
       return <article className={"cli-terminal-row" + (busy.startsWith(t.id + ":") ? " is-busy" : "")} key={t.id}>
@@ -255,19 +257,19 @@ function TerminalEditor({ route, data, run, busy }) {
     }).catch((e) => { if (!stopped) setLoadError(e.message); }).finally(() => { if (!stopped) setLoading(false); });
     return () => { stopped = true; };
   }, [retry]); // this editor is keyed by its route
-  if (route.view === "terminal" && !existing) return <Notice action="Back to terminals" onAction={() => navigate("/terminals")}>That terminal is gone.</Notice>;
+  if (route.view === "terminal" && !existing) return <Notice action="Choose a CLI" onAction={() => navigate("")}>That terminal is gone.</Notice>;
   if (route.profile && !initialProfile) return <Notice action="Choose a profile" onAction={() => navigate("/" + cli.id)}>That launch profile is no longer available.</Notice>;
   if (loadError) return <Notice danger action="Try again" onAction={() => setRetry((v) => v + 1)}>{loadError}</Notice>;
   const settingsPreview = parseForm(cliLaunchSchema, draft);
   const overrides = custom && settingsPreview.ok ? (profileId ? profileOverrides(cli.config, launchConfig(settingsPreview.value)) : editLaunchOverrides(cli.config, originalOverrides, launchConfig(settingsPreview.value))) : {};
-  const back = async () => { if (!dirty || await confirmDiscard()) { allowNavigation(); navigate(existing ? "/terminals" : "/" + cli.id); } };
+  const back = async () => { if (!dirty || await confirmDiscard()) { allowNavigation(); navigate("/" + cli.id); } };
   return <section className="cli-editor"><div className="cli-heading"><h3>{existing ? existing.name + " · Launch settings" : "New " + cli.name + " terminal"}</h3><button className="btn btn-ghost btn-sm" onClick={back}>Back</button></div>
     {loading ? <div className="cli-loading" aria-label="Loading launch settings"><div /><div /></div> : <form noValidate onChange={() => setDirty(true)} onSubmit={async (e) => {
       e.preventDefault(); const parsed = parseForm(cliTerminalSchema, form); if (!parsed.ok) { setError(parsed.error); return; }
       const settings = parseForm(cliLaunchSchema, draft); if (custom && !settings.ok) { setError(settings.error); return; }
       try { await run("terminal-save", async () => {
-        if (existing) { await api(`/api/terminals/${encodeURIComponent(existing.id)}/launch`, json("PUT", { cli: cli.id, overrides })); allowNavigation(); toast.ok("Settings saved for the next launch."); navigate("/terminals"); }
-        else { const t = await api(`/api/clis/${cli.id}/terminals`, json("POST", { ...parsed.value, overrides })); allowNavigation(); if (t.launchError) { toastError(new Error(t.launchError)); navigate("/terminals"); } else location.hash = termHash(t.id); }
+        if (existing) { await api(`/api/terminals/${encodeURIComponent(existing.id)}/launch`, json("PUT", { cli: cli.id, overrides })); allowNavigation(); toast.ok("Settings saved for the next launch."); navigate("/" + cli.id); }
+        else { const t = await api(`/api/clis/${cli.id}/terminals`, json("POST", { ...parsed.value, overrides })); allowNavigation(); if (t.launchError) { toastError(new Error(t.launchError)); navigate("/" + cli.id); } else location.hash = termHash(t.id); }
       }); } catch (e) { setError(e.message); }
     }}>
       <div className="cli-fields">
