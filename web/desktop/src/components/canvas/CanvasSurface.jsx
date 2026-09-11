@@ -11,7 +11,7 @@ import { basename } from "@picode/shared/domain/diff.js";
 import { shortPath } from "@picode/shared/domain/repoLine.js";
 import { paneLeaveKey } from "@picode/shared/domain/termKeys.js";
 import AppIcon from "../AppIcon.jsx";
-import { IconEllipsis, IconGrid, IconPencil, IconPlus, IconTrash } from "../Icons.jsx";
+import { IconEllipsis, IconGrid, IconPencil, IconPlus, IconTrash, IconX } from "../Icons.jsx";
 import { go, isFileTab, parseFileTab, pinHash } from "../../lib/routes.js";
 import { notify, toast, toastError } from "../../lib/toast.js";
 import { askConfirm } from "../../lib/confirm.js";
@@ -34,8 +34,10 @@ const Plane = lazy(() => import("./Plane.jsx"));
 
 // CanvasSurface — the Canvas app's native surface (ADR-0109; plan
 // docs/plans/matrix-app.md; API docs/architecture/canvas.md). One tab,
-// `x:canvas` / #/app/canvas/<canvasId>: a header with the canvas switcher,
-// New canvas, Add panel and a menu (Rename / Delete); under it the scroll
+// `x:canvas` / #/app/canvas/<canvasId>: no bar over the plane at all — the
+// stage is the plane, edge to edge, and the chrome floats on it as two
+// clusters (the switcher, Add panel and a menu top-left; the minimap and
+// the zoom cluster bottom-right, in Plane). The same element is the scroll
 // container chunk loading observes, holding the plane's panel wrappers
 // (Plane). State is { list, byId } reduced by applyCanvasEvent from
 // the change feed; the surface reads /api/canvases once on open and on a
@@ -1097,6 +1099,50 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
   // The roving tab stop: the focused panel, else the first in reading order.
   const tabStopId = useMemo(() => (focusedId && panels.some((p) => p.id === focusedId) ? focusedId : panelOrder(panels)[0] || ""), [panels, focusedId]);
   const maxModel = maximizedId ? models.find((m) => m.id === maximizedId) || null : null;
+  // The chrome is two floating clusters over the plane, never a bar above it
+  // (nodeterm, docs/benchmarks/2026-09-10-node-canvas.md "Chrome"): this one
+  // top-left, the minimap and the zoom cluster bottom-right (Plane.jsx). The
+  // two things a reader reaches for constantly are here — which canvas, and
+  // one more panel — and everything else is one press away in the menu. The
+  // tab strip already names the app and its × already closes the tab, so the
+  // header's icon, title and Close were chrome repeating chrome.
+  const chrome = store.list.length ? (
+    <div className="cv-cluster cv-chrome" role="group" aria-label="Canvas controls" data-align-row>
+      <select className="cv-select" aria-label="Canvas" value={currentId} onChange={(e) => select(e.target.value)}>
+        {store.list.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+      </select>
+      {current ? (
+        <button type="button" className="cv-cluster-btn" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
+      ) : null}
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger asChild>
+          <button type="button" className="cv-cluster-btn cv-menu-btn" aria-label={current ? "More actions for " + current.name : "More actions"} title="New canvas, tidy, rename, delete or close"><IconEllipsis size={15} /></button>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          {/* Chrome at the top of the pane opens down into the canvas, and
+              this cluster is anchored left, so the menu is too. */}
+          <DropdownMenu.Content className="ws-row-menu" side="bottom" align="start" sideOffset={6} collisionPadding={8}>
+            <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setNameDialog("new")}><IconPlus size={13} /> New canvas</DropdownMenu.Item>
+            {current && panels.length ? (
+              <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => { tidy(); }}><IconGrid size={13} /> Tidy panels</DropdownMenu.Item>
+            ) : null}
+            {current ? (
+              <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setNameDialog("rename")}><IconPencil size={13} /> Rename</DropdownMenu.Item>
+            ) : null}
+            {current ? (
+              <DropdownMenu.Item className="ws-row-menu-item danger" onSelect={() => { deleteCanvas(); }}><IconTrash size={13} /> Delete canvas</DropdownMenu.Item>
+            ) : null}
+            {onClose ? (
+              <>
+                <DropdownMenu.Separator className="ws-row-menu-sep" />
+                <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => onClose()}><IconX size={13} /> Close tab</DropdownMenu.Item>
+              </>
+            ) : null}
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+    </div>
+  ) : null;
   let body;
   if (listError && !store.list.length) {
     body = (
@@ -1141,8 +1187,7 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
     );
   } else {
     body = (
-      <div className="cv-stage">
-        <div className="cv-body is-canvas" ref={setBody} inert={!!maximizedId}>
+      <div className="cv-body is-canvas" ref={setBody} inert={!!maximizedId}>
           <Suspense fallback={<div className="cv-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>}>
               <Plane
                 key={currentId}
@@ -1167,9 +1212,19 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
                 onReady={onCanvasReady}
               />
           </Suspense>
-        </div>
+      </div>
+    );
+  }
+  return (
+    <section className={rootClass} aria-label={title} hidden={!!hidden} ref={rootRef}>
+      <div className={"cv-stage" + (chrome ? " has-chrome" : "")}>
+        {/* The chrome floats over the plane and comes first in the DOM, so a
+            Tab from the tab strip reaches the switcher, Add panel and the
+            menu before it reaches the roving panel. */}
+        {chrome}
+        {body}
         {maxModel ? (
-          // The maximized panel's body, in a layer over the grid: the same
+          // The maximized panel's body, in a layer over the plane: the same
           // xterm (ShellTerm re-claims the pane), fitted to the layer.
           <div className="cv-max" role="group" aria-label={maxModel.name + " — maximized"} tabIndex={-1} ref={maxRef} onKeyDown={onLayerKey}>
             <PanelHead model={maxModel} loaded={loadedIds.has(maxModel.id)} maximized handlers={handlers} links={links[maxModel.id]} fixed />
@@ -1190,48 +1245,6 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
           </div>
         ) : null}
       </div>
-    );
-  }
-  return (
-    <section className={rootClass} aria-label={title} hidden={!!hidden} ref={rootRef}>
-      <header className="ft-head">
-        <span className="app-head-icon"><AppIcon name={manifest ? manifest.icon : "canvas"} label={title} size={14} /></span>
-        <h2 className="ft-title" title={title}>{title}</h2>
-        <div className="app-head-left cv-head-left" data-align-row>
-          {store.list.length ? (
-            <select className="cv-select" aria-label="Canvas" value={currentId} onChange={(e) => select(e.target.value)}>
-              {store.list.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
-          ) : null}
-          {current ? (
-            <button type="button" className="btn btn-sm" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
-          ) : null}
-          <button type="button" className="btn btn-sm btn-ghost" onClick={() => setNameDialog("new")} title="Create another canvas">New canvas</button>
-          {current ? (
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger asChild>
-                <button type="button" className="btn btn-sm btn-ghost cv-menu-btn" aria-label={"Actions for " + current.name} title="Tidy, rename or delete this canvas"><IconEllipsis size={15} /></button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.Content className="ws-row-menu" side="bottom" align="end" sideOffset={4} collisionPadding={8}>
-                  {panels.length ? (
-                    <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => { tidy(); }}><IconGrid size={13} /> Tidy panels</DropdownMenu.Item>
-                  ) : null}
-                  <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setNameDialog("rename")}><IconPencil size={13} /> Rename</DropdownMenu.Item>
-                  <DropdownMenu.Item className="ws-row-menu-item danger" onSelect={() => { deleteCanvas(); }}><IconTrash size={13} /> Delete canvas</DropdownMenu.Item>
-                </DropdownMenu.Content>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Root>
-          ) : null}
-        </div>
-        <span className="ft-spacer" />
-        <div className="app-head-right" data-align-row>
-          {onClose ? (
-            <button type="button" className="btn btn-sm btn-ghost" onClick={onClose}>Close</button>
-          ) : null}
-        </div>
-      </header>
-      {body}
       <PanelPicker
         open={pickerOpen}
         fleet={fleet}

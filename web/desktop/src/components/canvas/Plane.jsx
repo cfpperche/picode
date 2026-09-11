@@ -80,7 +80,34 @@ const snapTarget = (data) => data.bodyKind === "plate" || (data.bodyKind !== "of
 const SNAP = [UNIT_PX, UNIT_PX];
 const MOTION_MS = 180;
 const VIEW_SAVE_MS = 400;
-const FIT = { padding: 0.12, maxZoom: CANVAS_ZOOM.exact };
+// Fit leaves the clusters their corners. The chrome floats on the plane
+// now, so a symmetric 12 % padding is not enough: fitView centres the
+// content inside the padded rect, and the spare height went to both ends
+// equally — which put the first panel's header under the top-left cluster.
+// These two bands are the cluster geometry in screen pixels: 12 px inset +
+// 36 px control + a gap at the top, and the zoom cluster above the 150 px
+// minimap at the bottom. A viewer can of course still drag a panel under a
+// cluster; what this fixes is the one camera the surface chooses itself,
+// and the one `Fit` goes back to.
+const FIT_TOP = 60;
+const FIT_BOTTOM = 204;
+const FIT_SIDE = 24;
+// On a pane too short to spare 264 px the bands shrink together rather than
+// eating the whole viewport: chrome room is never worth more than a third
+// of the height a reader came for.
+function fitOpts(el) {
+  const h = (el && el.clientHeight) || 0;
+  const k = h && FIT_TOP + FIT_BOTTOM > h / 3 ? (h / 3) / (FIT_TOP + FIT_BOTTOM) : 1;
+  return {
+    padding: {
+      top: Math.round(FIT_TOP * k) + "px",
+      right: FIT_SIDE + "px",
+      bottom: Math.round(FIT_BOTTOM * k) + "px",
+      left: FIT_SIDE + "px",
+    },
+    maxZoom: CANVAS_ZOOM.exact,
+  };
+}
 const MIN_W_PX = CANVAS_LIMITS.canvasMinW * UNIT_PX;
 const MIN_H_PX = CANVAS_LIMITS.canvasMinH * UNIT_PX;
 const MAX_PX = CANVAS_LIMITS.canvasMax * UNIT_PX;
@@ -284,7 +311,7 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
     if (!inside) centerOn(id, vp.zoom);
   }, [centerOn, rf]);
 
-  const fit = useCallback(() => { rf.fitView({ ...FIT, duration: MOTION_MS }); }, [rf]);
+  const fit = useCallback(() => { rf.fitView({ ...fitOpts(rootRef.current), duration: MOTION_MS }); }, [rf]);
   const zoomIn = useCallback(() => { rf.zoomIn({ duration: MOTION_MS }); }, [rf]);
   const zoomOut = useCallback(() => { rf.zoomOut({ duration: MOTION_MS }); }, [rf]);
 
@@ -512,7 +539,7 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
   useEffect(() => {
     if (fitted.current || stored || !nodes.length) return;
     fitted.current = true;
-    rf.fitView(FIT);
+    rf.fitView(fitOpts(rootRef.current));
     enterZoom(rf.getZoom());
   }, [nodes.length, stored, rf, enterZoom]);
 
@@ -545,6 +572,24 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
 
   return (
     <div className="cv-canvas-flow" ref={setRoot}>
+      {/* The zoom cluster floats bottom-right beside the minimap, but it is
+          declared before the plane so Tab runs through the chrome and only
+          then reaches the roving panel — the same order the surface's
+          top-left cluster keeps. Both clusters are positioned, so the DOM
+          order costs the layout nothing. */}
+      <div className="cv-cluster cv-zoom" role="group" aria-label="Zoom" data-align-row>
+        <button type="button" className="cv-zoom-btn" aria-label="Zoom out" title="Zoom out (−)" onClick={zoomOut}>−</button>
+        <button
+          type="button"
+          className="cv-zoom-pct"
+          title="Back to 100 % — the only zoom where a click lands on the cell it points at"
+          onClick={() => snapToOne(focusedId)}
+        >
+          {zoomPct} %
+        </button>
+        <button type="button" className="cv-zoom-btn" aria-label="Zoom in" title="Zoom in (+)" onClick={zoomIn}>+</button>
+        <button type="button" className="cv-zoom-fit" title="Fit every panel (0)" onClick={fit}>Fit</button>
+      </div>
       <ReactFlow
         nodes={nodes}
         nodeTypes={NODE_TYPES}
@@ -585,19 +630,6 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
         <Background variant={BackgroundVariant.Dots} gap={UNIT_PX * 4} size={1} />
         <MiniMap pannable zoomable ariaLabel="Panels on the plane" />
       </ReactFlow>
-      <div className="cv-zoom" role="group" aria-label="Zoom" data-align-row>
-        <button type="button" className="cv-zoom-btn" aria-label="Zoom out" title="Zoom out (−)" onClick={zoomOut}>−</button>
-        <button
-          type="button"
-          className="cv-zoom-pct"
-          title="Back to 100 % — the only zoom where a click lands on the cell it points at"
-          onClick={() => snapToOne(focusedId)}
-        >
-          {zoomPct} %
-        </button>
-        <button type="button" className="cv-zoom-btn" aria-label="Zoom in" title="Zoom in (+)" onClick={zoomIn}>+</button>
-        <button type="button" className="cv-zoom-fit" title="Fit every panel (0)" onClick={fit}>Fit</button>
-      </div>
     </div>
   );
 }

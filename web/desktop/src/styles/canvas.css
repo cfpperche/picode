@@ -1,19 +1,67 @@
 /* Canvas (docs/plans/matrix-app.md; ADR-0108/0109/0118): a live plane of
-   agent and terminal panels. Tokens only; the same header every surface has
-   (.ft-head), the sidebar's status chip (.ws-status), one control height. */
+   agent and terminal panels. Tokens only; the sidebar's status chip
+   (.ws-status), one control height.
+
+   The surface has **no header** (2026-09-11): a bar over a plane is a strip
+   of the work area spent on a title the tab strip already shows and a Close
+   the tab's × already is. The chrome floats on the plane instead, as two
+   clusters of the same make — .cv-chrome top-left, .cv-zoom bottom-right
+   beside the minimap — so the plane runs edge to edge behind them
+   (nodeterm; docs/benchmarks/2026-09-10-node-canvas.md "Chrome"). */
 
 .cv-surface { --cv-head-h: 28px; }
-.cv-head-left { flex-wrap: nowrap; }
-.cv-select {
-  height: var(--ctl-h); min-width: 140px; max-width: 260px; padding: 0 28px 0 10px;
-  border: 1px solid var(--border); border-radius: var(--radius-ctl);
-  background: var(--bg-elevated); color: var(--text-primary);
-  font: inherit; font-size: 12.5px; box-sizing: border-box; cursor: pointer;
+
+/* A floating cluster. It has to read over a dark plane, a light plane and a
+   terminal panel that happens to be parked under it, so it is **opaque**:
+   an elevated ground, a hairline, and the shadow the minimap already wears
+   — no translucency and no blur, which are the two things that would let a
+   terminal's own text through. One row, one control height, segmented by
+   hairlines the way the zoom cluster already was.
+
+   The **outer** edge is --border-strong and the inner seams are --border,
+   for the reason the panel wrapper on this plane already carries: over a
+   near-black canvas a black drop shadow is worth almost nothing (measured
+   in fullscreen mode's own notes at 2/255), so the edge is what says the
+   cluster floats. The shadow is what the light theme reads. */
+.cv-cluster {
+  position: absolute; z-index: 6;
+  display: inline-flex; align-items: center; height: var(--ctl-h); box-sizing: border-box;
+  max-width: calc(100% - 24px);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-ctl); overflow: hidden;
+  background: var(--bg-elevated);
+  box-shadow: 0 8px 24px color-mix(in srgb, #000 22%, transparent);
+}
+.cv-cluster > * {
+  height: var(--ctl-h); box-sizing: border-box; flex: none;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 0 9px; border: 0; border-radius: 0; background: transparent;
+  color: var(--text-secondary); font: inherit; font-size: 12px; line-height: 1;
+  white-space: nowrap; cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
+}
+.cv-cluster > * + * { border-left: 1px solid var(--border); }
+.cv-cluster > *:hover { background: var(--bg-hover); color: var(--text-primary); }
+/* Inset, because the cluster clips its own children: an outline drawn
+   outside a flush segment would be eaten by `overflow: hidden`. */
+.cv-cluster > *:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Top-left: which canvas, one more panel, and everything else. */
+.cv-chrome { top: 12px; left: 12px; }
+/* The one child that gives way. The cluster clips what does not fit, so on
+   a surface too narrow for a long canvas name the name ellipsizes and the
+   two buttons keep their whole hit area — never the other way round. */
+.cv-cluster > .cv-select {
+  flex: 0 1 auto; min-width: 84px; max-width: 240px; padding: 0 26px 0 10px;
+  justify-content: flex-start;
+  color: var(--text-primary); font-size: 12.5px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.cv-select:hover { border-color: var(--border-strong); background: var(--bg-hover); }
-.cv-select:focus-visible { outline: none; border-color: var(--accent); }
 .cv-menu-btn { padding: 0 8px; }
+/* A maximized panel takes the whole stage, and the clusters belong to the
+   plane, not to the surface: they go with it. Not hidden by the layer
+   covering them — removed, so Tab cannot reach a switcher nobody can see.
+   `Esc` restores, and the layer's own header carries Restore. */
+.cv-surface.is-max .cv-cluster { display: none; }
 
 /* The container chunk loading observes; the plane fills it. */
 .cv-body { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; position: relative; padding: 8px; }
@@ -160,6 +208,12 @@
    stand-in line. The pane follows the visible host (ShellTerm), so it is
    the same xterm and it refits into the layer. */
 .cv-stage { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
+/* The stage is the whole surface now, so everything the surface can show
+   lives in it: the plane, and — while there is no plane yet — the skeleton,
+   the error line and the empty state. Those three are real layout under a
+   cluster that is not, so when the cluster is there they start below it
+   instead of behind it. The centred empty state needs no offset. */
+.cv-stage.has-chrome > .ft-msg, .cv-stage.has-chrome > .cv-skel { padding-top: calc(var(--ctl-h) + 20px); }
 .cv-surface.is-max .cv-body { overflow: hidden; }
 .cv-max {
   position: absolute; inset: 8px; z-index: 30;
@@ -317,26 +371,12 @@
 .cv-canvas-flow .react-flow__node.selected .react-flow__resize-control.handle { opacity: .9; }
 .cv-canvas-flow .react-flow__resize-control.line { border-color: transparent; }
 
-/* Zoom controls, beside the minimap. The readout is the honest part: a live
-   terminal only takes a pointer at 100 %, and nothing else on screen would
-   say so — clicking it goes back there. */
-.cv-zoom {
-  position: absolute; z-index: 6; right: 12px; bottom: 170px;
-  display: inline-flex; align-items: center; height: var(--ctl-h);
-  border: 1px solid var(--border); border-radius: var(--radius-ctl); overflow: hidden;
-  background: var(--bg-panel);
-}
-.cv-zoom > button {
-  height: var(--ctl-h); min-width: 34px; padding: 0 9px; box-sizing: border-box;
-  display: inline-flex; align-items: center; justify-content: center;
-  border: 0; border-right: 1px solid var(--border); background: transparent;
-  color: var(--text-secondary); font: inherit; font-size: 12px; line-height: 1;
-  white-space: nowrap; cursor: pointer;
-  transition: background var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
-}
-.cv-zoom > button:last-child { border-right: 0; }
-.cv-zoom > button:hover { background: var(--bg-hover); color: var(--text-primary); }
-.cv-zoom > button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Zoom controls, beside the minimap — the second cluster, on the same
+   ground as the first (.cv-cluster above). The readout is the honest part:
+   a live terminal only takes a pointer at 100 %, and nothing else on screen
+   would say so — clicking it goes back there. */
+.cv-zoom { right: 12px; bottom: 170px; }
+.cv-cluster > .cv-zoom-btn, .cv-cluster > .cv-zoom-pct, .cv-cluster > .cv-zoom-fit { min-width: 34px; }
 /* A single hairline glyph at the cluster's text size reads fainter than the
    words beside it — it is the same colour, but far fewer pixels carry it.
    Give the two of them a size of their own. */
@@ -427,7 +467,7 @@
 .cv-seg .termset-seg-face { height: calc(var(--ctl-h) - 2px); padding: 0 12px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .cv-canvas-flow .react-flow__node, .cv-snap-label, .cv-zoom > button { transition: none; }
+  .cv-canvas-flow .react-flow__node, .cv-snap-label, .cv-cluster > * { transition: none; }
 }
 
 /* ---- Edges (ADR-0116) ---------------------------------------------------
