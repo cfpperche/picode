@@ -53,6 +53,7 @@
     "./domain/integrations.js": "./domain/integrations.js",
     "./domain/listSearch.js": "./domain/listSearch.js",
     "./domain/matrix.js": "./domain/matrix.js",
+    "./domain/matrixGrants.js": "./domain/matrixGrants.js",
     "./domain/mdSafe.js": "./domain/mdSafe.js",
     "./domain/notice.js": "./domain/notice.js",
     "./domain/overlayAudit.js": "./domain/overlayAudit.js",
