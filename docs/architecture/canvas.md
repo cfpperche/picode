@@ -561,6 +561,55 @@ Add panel → `⋯` → zoom out → 100 % → zoom in → Fit and only then rea
 canvas's roving panel. Every control keeps the focus ring; it is drawn
 `outline-offset: -2px` because a cluster clips its own segments.
 
+### Background (2026-09-11)
+
+**The plane's texture is the reader's choice.** The plane is the one surface
+in the app that is mostly empty ground, so what that ground looks like is a
+reading preference rather than a design constant: a grid helps someone
+lining panels up, dots stay out of the way, plain is for a reader who finds
+any texture noise. Four options, in **Preferences → Appearance → Canvas
+background**, as a radiogroup of the same cards the theme uses:
+
+| Option | What is drawn | Geometry |
+|---|---|---|
+| **Plain** | nothing — no `<Background>` is rendered at all | — |
+| **Dots** (default) | React Flow `BackgroundVariant.Dots` | `gap` 32 px (four 8 px cells), `size` 1 |
+| **Grid** | `BackgroundVariant.Lines` | `gap` 32 px, `lineWidth` 1 |
+| **Cross** | `BackgroundVariant.Cross` | `gap` 32 px, `size` 6 |
+
+The gap is four cells for all three, so changing texture never moves a panel
+or changes what snapping means. Dots is the default because it is what the
+plane shipped with: a reader who never opens the preference sees no change.
+
+**The value** lives in `web/shared/domain/canvasPattern.js`, shaped exactly
+like `theme.js`: `localStorage` key **`picode-canvas-pattern`**, a value
+outside the four (junk, empty, a blocked store) reading as the default, and
+a `picode-canvas-pattern` window event on write so every open plane and the
+preferences page re-read without a reload. `Plane.jsx` holds it in state and
+stamps `data-bg` on `.cv-canvas-flow`; the preference page is the only
+writer.
+
+**The colour is CSS, not React.** `canvas.css` keys
+`--xy-background-pattern-color` off that `data-bg`, so switching theme
+re-tints the ground on the next paint — no reload, no observer, no prop.
+Two weights, both from the border tokens, because the shapes cover very
+different amounts of the plane: a 1 px dot every four cells needs
+`--border-strong` to be seen at all, while a full grid at that weight reads
+as graph paper and fights the panels, so **Grid** and **Cross** take
+`--border`.
+
+**Scope: the canvas plane, and nothing else.** The rest of the app gets the
+theme's ground (`web/shared/tokens/theme.css`), never a texture. This is not
+an unfinished app-wide feature — a texture under a file tree, a transcript
+or a git graph is noise behind content, and those surfaces are content.
+
+**The preference cards show the pattern, not a word.** `PatternSwatch.jsx`
+draws React Flow's own geometry with the plane's own tokens, so a card
+cannot drift from what the plane draws. The one deliberate difference is
+density: the swatch tiles every 16 px against the plane's 32, because a card
+is a tenth of the plane's width and at the plane's spacing a **Cross**
+sample would hold two marks and read as **Plain**.
+
 ### Chat body (phase 4)
 
 A managed agent's panel is its **live conversation, read-only** — the reason
