@@ -8,4 +8,6 @@
   token/percent triggers, floor, cooldown, summarizer model, thinking and
   instructions). The files stay the packages' own source of truth: unknown
   keys survive saves, unset fields stay unset, and a broken file is reported
-  and never silently replaced.
+  and never silently replaced. No description for a package you installed?
+  "Describe config…" lets you describe its configuration yourself — create,
+  edit and delete the description at any time; PiCode stores it locally.

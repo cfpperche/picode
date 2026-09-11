@@ -329,6 +329,16 @@ func ConfigKindOf(sources ...string) string {
 			return "roles"
 		}
 	}
+	// User-described configs win first: describing a package is an explicit
+	// act of control, and it must outrank our catalog's defaults.
+	for _, s := range sources {
+		if s == "" {
+			continue
+		}
+		if d := UserDescriptorFor(s); d != nil {
+			return d.ID
+		}
+	}
 	for _, s := range sources {
 		if s == "" {
 			continue

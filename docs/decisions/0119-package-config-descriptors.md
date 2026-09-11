@@ -47,6 +47,15 @@ generic form from the descriptor (`PackageConfigGeneric.jsx`) and validates
 with the same grammar in Zod (`descriptorValuesSchema`). pi-roles keeps its
 bespoke two-layer editor untouched; the descriptor system is additive.
 
+**User-described configs.** For a package that neither self-describes nor
+matches the catalog, the owner describes it once through
+`GET/PUT/DELETE /api/packages/describe`: the descriptor persists as one
+JSON file under `DataDir/package-configs/` and resolves before the catalog
+and before a package manifest — describing a package is an explicit act of
+control, and the config page names its source (`user`, `catalog`,
+`manifest`) so nothing is silent. Deleting the description is confirmed and
+idempotent; the described config file itself is never touched by it.
+
 ## Consequences
 
 - Easier: any extension with a simple JSON config becomes GUI-configurable
