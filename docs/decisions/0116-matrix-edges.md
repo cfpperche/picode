@@ -1,6 +1,7 @@
 # ADR-0116: A Matrix edge grants a mailbox contact, never a transcript
 
-- **Status**: proposed — the owner approves or rejects before any code (plan `docs/plans/matrix-canvas.md` §6.1)
+- **Status**: accepted (the owner approved it on 2026-09-10, before any code,
+  as plan `docs/plans/matrix-canvas.md` §6.1 requires)
 - **Date**: 2026-09-10
 - **Boundary**: security model — who may reach whom between sessions, what an
   edge grants, who may draw one, and what is refused permanently. Extends
