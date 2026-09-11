@@ -31,6 +31,7 @@ type tray struct {
 	up            bool
 	detail        string
 	diskTitle     string
+	diskWarn      bool
 	quitRequested bool
 
 	status  *systray.MenuItem
@@ -116,28 +117,26 @@ func (t *tray) diskTick() {
 	facts, factsErr := desktop.DistroDisk(t.app.runner, t.app.distro)
 
 	var ptr *desktop.DiskFacts
+	var used int64
 	if factsErr == nil {
 		ptr = &facts
+		// Usage is best-effort: with the file size alone the line is still worth
+		// reading, it just cannot say how much is being held. When the Windows
+		// half failed there is nothing to spend a wsl.exe spawn on.
+		used, _ = distroUsed(t.app.runner, t.app.distro, t.app.user)
 	}
-	// Usage is best-effort: with the file size alone the line is still worth
-	// reading, it just cannot say how much is being held.
-	used, _ := distroUsed(t.app.runner, t.app.distro, t.app.user)
 
 	title, warn := diskLine(ptr, used, factsErr)
 
+	// The warning is stored, not painted onto the tooltip here: the health
+	// probe rewrites the tooltip every five seconds, and whichever of the two
+	// timers writes last has to write the same thing.
 	t.mu.Lock()
 	t.diskTitle = title
+	t.diskWarn = warn
 	t.mu.Unlock()
 	t.disk.SetTitle(title)
-
-	tip := t.tooltip()
-	if warn {
-		// The tray has no balloon left to raise (fyne.io/systray v1.12), so the
-		// warning lives in the tooltip — the surface a person hovers when the
-		// line already made them look.
-		tip += " — run `picode-desktop disk` for the two-sided report"
-	}
-	systray.SetTooltip(tip)
+	t.refreshTooltip()
 }
 
 func (t *tray) tick() {
@@ -194,6 +193,15 @@ func (t *tray) setStatus(up bool, detail string) {
 		t.open.Disable()
 		t.restart.Enable()
 	}
+	t.refreshTooltip()
+}
+
+// refreshTooltip is the one writer of the tooltip. Two timers feed it — the
+// health probe every five seconds, the disk every five minutes — so the
+// composition lives here rather than at the call sites, or the faster timer
+// would keep erasing what the slower one wrote (the tray has no balloon left
+// to raise: fyne.io/systray v1.12 removed that API).
+func (t *tray) refreshTooltip() {
 	systray.SetTooltip(t.tooltip())
 }
 
@@ -206,6 +214,9 @@ func (t *tray) tooltip() string {
 	s := "PiCode — " + t.detail
 	if t.diskTitle != "" {
 		s += " · " + t.diskTitle
+	}
+	if t.diskWarn {
+		s += " — run picode-desktop disk for the two-sided report"
 	}
 	return s
 }
