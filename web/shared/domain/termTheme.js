@@ -111,6 +111,14 @@ export function termFontFamily(id) {
   return f.css;
 }
 
+// xterm paints the overview ruler's outline with `overviewRulerBorder` at
+// full alpha, and that outline is the ruler's whole column while the ruler
+// is one pixel wide (xtermOptions below) — a stray white line at the right
+// edge of every terminal whose xterm is not on the alternate screen, right
+// beside the scrollbar the stylesheets hide. Transparent leaves the ruler
+// canvas and the find addon's marks untouched (term-scrollbar.test.mjs).
+const RULER_BORDER = "#00000000";
+
 export function xtermTheme(mode) {
   if (mode === "light") {
     return {
@@ -118,6 +126,7 @@ export function xtermTheme(mode) {
       foreground: "#16181d",
       cursor: "#2f6fed",
       selectionBackground: "#c9d7f5",
+      overviewRulerBorder: RULER_BORDER,
     };
   }
   return {
@@ -125,6 +134,7 @@ export function xtermTheme(mode) {
     foreground: "#ececf1",
     cursor: "#7c8cf8",
     selectionBackground: "#33467c",
+    overviewRulerBorder: RULER_BORDER,
   };
 }
 
@@ -146,6 +156,10 @@ export function xtermOptions() {
     allowProposedApi: true,
     // FitAddon reserves 14px for an overview ruler we never render (no
     // decorations use it) — shrink it so the right edge isn't a dead gutter.
+    // This value is ALSO xterm's own scrollbar width (`verticalScrollbarSize:
+    // overviewRuler?.width || 14` in its Scrollable) — a 1px bar that the
+    // stylesheets hide, because a tmux client has no scrollback to draw:
+    // the reader's bar is tmux's, or the TUI's own (term-scrollbar.test.mjs).
     overviewRuler: { width: 1 },
   };
 }
