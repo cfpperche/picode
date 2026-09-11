@@ -40,9 +40,9 @@ sequences do not. No identity or activity means "no signal" — never a guess.
 
 | CLI | How PiCode injects (session only) | Coverage |
 |---|---|---|
-| Claude Code | `claude --settings <picode json>` | maps prompt, notification and completion hooks |
-| Codex | invocation-only lifecycle hooks, trusted by their exact command hashes | maps native hooks when available; notify fallback reports completion only |
-| Grok | `GROK_HOME` overlay in PiCode's data dir; your `auth.json` is symlinked | maps session, prompt, permission and completion hooks |
+| Claude Code | `claude --settings <picode json>` | maps prompt, tool activity, notification and completion hooks |
+| Codex | invocation-only lifecycle hooks, trusted by their exact command hashes | maps native prompt, tool and completion hooks when available; notify fallback reports completion only |
+| Grok | native hooks installed in `~/.grok/hooks` behind a receipt; your settings are preserved | maps session, prompt, permission, tool activity and completion hooks |
 | Hermes Agent | session Python path injection; follows the official launcher; no `HERMES_HOME` overlay | maps session start/end, LLM call, and approval hooks. `setup` / `model` / `auth` skip the patch |
 | OpenCode | session plugin in PiCode terminals only; does not write `~/.config/opencode` or move session data | maps session busy/idle, permission prompts and questions. `session` / `auth` / `run` skip the plugin |
 | Pi | `pi -e <picode extension>` | maps native TUI lifecycle events, including settled |

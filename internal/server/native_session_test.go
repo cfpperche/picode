@@ -1,9 +1,12 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -210,6 +213,14 @@ func TestNativeHookIgnoresChildAndDelayedCompletion(t *testing.T) {
 		{"grok", `{"hook_event_name":"SessionEnd","session_id":"old","timestamp":"2099-01-01T00:00:00Z"}`, ""},
 		{"grok", `{"hook_event_name":"Notification","notification_type":"idle_prompt"}`, "idle"},
 		{"grok", `{"hookEventName":"notification","notificationType":"idle_prompt"}`, "idle"},
+		// Grok's other notifications are not attention states.
+		{"grok", `{"hook_event_name":"Notification","notification_type":"task_complete"}`, ""},
+		// Tool completion resumes the turn after an approved permission UI.
+		{"claude-code", `{"hook_event_name":"PostToolUse"}`, "working"},
+		{"claude-code", `{"hook_event_name":"PostToolUseFailure"}`, "working"},
+		{"codex", `{"hook_event_name":"PostToolUse","thread_id":"root"}`, "working"},
+		{"grok", `{"hook_event_name":"PostToolUse","promptId":"B"}`, "working"},
+		{"grok", `{"hook_event_name":"PostToolUseFailure","promptId":"B"}`, "working"},
 	} {
 		cmd := exec.Command("python3", "-c", hookMapPy)
 		cmd.Env = append(os.Environ(), "PICODE_HOOK_CLI="+tc.cli, "PICODE_HOOK_REPORT=0")
@@ -221,6 +232,46 @@ func TestNativeHookIgnoresChildAndDelayedCompletion(t *testing.T) {
 		if strings.TrimSpace(string(raw)) != tc.want {
 			t.Fatalf("%s: %s => %q", tc.cli, tc.payload, raw)
 		}
+	}
+}
+
+// A permission gate reports needs-you and the CLI has no "permission
+// resolved" event; the approved tool's completion is what must return the
+// terminal to working, in the same run and with a later sequence.
+func TestToolActivityResumesAfterPermissionPrompt(t *testing.T) {
+	data := t.TempDir()
+	s, err := store.Open(filepath.Join(data, "state.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	w, _ := s.AddWorkspace("fixture", data)
+	term, _ := s.CreateTerminalIn(w.ID, "Grok", data)
+	s.SetTerminalLaunch(term.ID, "grok", clilaunch.Overrides{})
+	deps := Deps{Store: s, TermRuntimes: NewTermRuntimes(), TermStates: NewTermStates()}
+	deps.TermRuntimes.Start(term.ID, TermRuntime{CLI: "grok", RunID: "run-1", PID: os.Getpid()})
+	post := func(state string, seq int64) {
+		t.Helper()
+		raw, _ := json.Marshal(map[string]any{
+			"state": state, "cli": "grok", "runId": "run-1",
+			"sessionId": "native-A", "sessionSeq": seq,
+		})
+		req := httptest.NewRequest(http.MethodPost, "/api/terminals/"+term.ID+"/state", bytes.NewReader(raw))
+		req.SetPathValue("id", term.ID)
+		rec := httptest.NewRecorder()
+		handleSetTerminalState(deps)(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s = %d: %s", state, rec.Code, rec.Body.String())
+		}
+	}
+	seq := time.Now().UnixNano()
+	post(TermNeedsYou, seq)
+	if st, _ := deps.TermStates.Get(term.ID); st.State != TermNeedsYou {
+		t.Fatalf("state = %q, want needs-you", st.State)
+	}
+	post(TermWorking, seq+1)
+	if st, _ := deps.TermStates.Get(term.ID); st.State != TermWorking {
+		t.Fatalf("state = %q, want working after the approved tool completed", st.State)
 	}
 }
 
