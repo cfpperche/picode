@@ -7,13 +7,11 @@
 
 `git worktree list` is the truth for in-flight branches; entries say what a merge must know.
 
-- `feat/changelog-normalize` — `make changelog` heals a drifted `[Unreleased]` (one heading per type); the runbook's step 5 gains the isolated-instance and seed-a-terminal rules ADR-0063 implies. `ci-scoped` green, unmerged.
-- `feat/clis-terminals-section` — the Agent CLIs view drops its general Terminals tab: a CLI's page keeps the one list, `#/clis/terminals` resolves to the catalog. `ci-scoped` green, unmerged.
 - `feat/herdr-validation`, `feat/picode-video-pilot` — carry pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; next `main` merge conflicts in both: keep this file's shape, changelog lines to `docs/changelog.d/`.
-- `feat/codex-subagent-resume` — codex terminals never pin a multi-agent v2 sub-agent thread for resume (hook filter drops child markers; clisession skips sub-agent rollouts); `ci-scoped` green, closes the 2026-09-11 resume failure on `comm`.
 ## Next up
 
-1. **0.2.0 shipped 2026-09-11** (tag `v0.2.0`). Runbook step 6 is open: watch it for the owner's window; a regression becomes a patch tag, never a rewritten one.
+1. Runbook step 6 (0.2.0, tag `v0.2.0`): watch the owner's window; a regression becomes a patch tag, never a rewritten one.
+2. Dashboard throughput (tokens/s): pick the definition (generation vs turn; reasoning in/out) and the per-CLI coverage, then the UI gates. Codex's `duration_ms`/`time_to_first_token_ms` are still unread by its meter; Grok's timings shipped 2026-09-11.
 2. Canvas v1.1 (`docs/plans/matrix-app.md` §5 phase 5): quick reply line in a chat panel, frozen-frame placeholders, drag from the sidebar, inspector follows focus, tile badge. v1 phases 0–4 are done; v2 is done through C4, and C5 (group nodes, one layout library) needs its own plan.
 3. llama delivery 3 live validation; owned-service ARM64 acceptance.
 4. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
@@ -54,3 +52,4 @@
 - Notices (2026-09-07): the finish card only fires for the agent whose socket is open.
 - Canvas chat panels (phase 4): a live panel is a `Hub.Len()` watcher, so it suppresses the unobserved-result item and the needs-you push like an open tab; App socket and panel hand off, never coexist.
 - Native surfaces (ADR-0109): `host` has no `openTerminal` — the Canvas POSTs `/api/terminals/{id}/open` itself; a tab closing under a panel remounts the body with a fresh xterm.
+- Grok (2026-09-11): tokens/cost are `partial` by design (`usage.json` is new in 1.0.x); `clisession.GrokSource` still lists prompt history only, so Agent CLIs rows show no model/cost that `summary.json`/`usage.json` hold; the new dashboard values were not screenshot-verified.
