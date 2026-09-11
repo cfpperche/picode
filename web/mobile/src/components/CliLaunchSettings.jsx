@@ -104,13 +104,15 @@ export function LaunchPreview({ cli, config, overrides = {}, terminalId = "", ap
   </section>;
 }
 
-export function CLIDefaults({ cli, busy, onSave, editRequested }) {
-  const [editing, setEditing] = useState(false);
+export function CLIDefaults({ cli, busy, onSave, editRequested, hideTitle = false, editing, onEditingChange }) {
+  const [localEditing, setLocalEditing] = useState(false);
+  const isEditing = editing ?? localEditing;
+  const setEditing = onEditingChange ?? setLocalEditing;
   const [draft, setDraft] = useState(() => launchDraft(cli.config));
   const [error, setError] = useState("");
-  const dirty = editing && JSON.stringify({ ...draft, integration: cli.config.integration }) !== JSON.stringify(launchDraft(cli.config));
+  const dirty = isEditing && JSON.stringify({ ...draft, integration: cli.config.integration }) !== JSON.stringify(launchDraft(cli.config));
   useLaunchGuard(dirty);
-  useEffect(() => { if (!editing) setDraft(launchDraft(cli.config)); }, [cli.config, editing]);
+  useEffect(() => { if (!isEditing) setDraft(launchDraft(cli.config)); }, [cli.config, isEditing]);
   useEffect(() => { if (editRequested) setEditing(true); }, [editRequested]);
   const parsed = parseForm(cliLaunchSchema, { ...draft, integration: cli.config.integration });
   const reset = async () => {
@@ -118,8 +120,8 @@ export function CLIDefaults({ cli, busy, onSave, editRequested }) {
     setDraft(launchDraft(defaultLaunchConfig(cli.config.integration))); setEditing(true);
   };
   return <section className="cli-defaults">
-    <div className="cli-section-heading"><h3>Launch settings</h3>{!editing ? <button className="btn btn-ghost btn-sm" onClick={() => setEditing(true)}>Customize</button> : <span className="cli-muted">Editing defaults</span>}</div>
-    {!editing ? <LaunchSummary plan={cli.plan} /> : <form noValidate onSubmit={async (e) => {
+    {hideTitle ? null : <div className="cli-section-heading"><h3>Launch settings</h3>{!isEditing ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(true)}>Customize</button> : <span className="cli-muted">Editing defaults</span>}</div>}
+    {!isEditing ? <LaunchSummary plan={cli.plan} /> : <form noValidate onSubmit={async (e) => {
       e.preventDefault(); if (!parsed.ok) { setError(parsed.error); return; }
       try { await onSave(launchConfig(parsed.value)); setError(""); setEditing(false); } catch (e) { setError(e.message); }
     }}>

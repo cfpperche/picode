@@ -83,7 +83,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0076](0076-bounded-tool-captures.md) | Bounded historical tool captures and transcript reconciliation | accepted |
 | [0077](0077-tui-diff-panel.md) | Side diff panel for the pi TUI — an MIT extension drawn as a non-capturing overlay, never bytes into the PTY | accepted |
 | [0078](0078-inspector-rail.md) | An Inspector rail follows the selected tab's owner and opens content in the center; PR through the host's gh; Git actions in the user's shell, run behind an interlock, or asked of a running agent through its prompt channel | accepted, amends the write refusals of 0022/0032/0038/0073 for the rail's Git actions |
-| [0079](0079-sessions-under-agent-clis.md) | Sessions are a CLI capability: `#/clis/sessions(/<wsId>)` replaces the top-level route; old links redirect | accepted, extends 0069 |
+| [0079](0079-sessions-under-agent-clis.md) | Sessions are a CLI capability: `#/clis/<cli>/sessions(/<wsId>)` on that CLI's pane; old `#/clis/sessions*` and `#/sessions*` redirect | accepted, extends 0069; amended 2026-09-11 (pane, not strip tab) |
 | [0080](0080-llama-manager.md) | Dedicated llama.cpp manager and reliable connection results | accepted |
 | [0081](0081-terminal-checklists.md) | The internal checklist follows the agent into its terminal: publish target falls back to PICODE_TERM_ID, terminal cards and panes carry the same line | accepted, extends 0055 and 0069 |
 | [0082](0082-browser-capture-sidecar.md) | Browser capture as a standalone sidecar extension: bounded frames over RPC, no patched agent | accepted, supersedes the emitter placement of 0076 |

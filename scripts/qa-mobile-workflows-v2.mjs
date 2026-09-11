@@ -98,7 +98,7 @@ try {
     const closeDialog = async () => { await page.keyboard.press("Escape"); await page.locator(".dlg-overlay").waitFor({ state: "detached" }); };
 
     state.sessionsEmpty = true;
-    await goto("#/clis/sessions");
+    await goto("#/clis/pi/sessions");
     await page.getByText("No Pi sessions yet", { exact: true }).waitFor();
     await shot("sessions-empty");
     state.sessionsEmpty = false;
@@ -118,7 +118,7 @@ try {
     await page.getByText("QA sessions unavailable", { exact: false }).waitFor({ state: "detached" });
     state.delayPi = true;
     await button("Refresh").click();
-    await page.locator(".sessions-cleanup select").first().selectOption("claude-code");
+    await page.locator('.cli-catalog a[href="#/clis/claude-code/sessions"]').click();
     await page.getByText("Claude review session", { exact: true }).waitFor();
     await page.waitForTimeout(2700);
     assert.equal(await page.getByText("qa-pi-0", { exact: true }).count(), 0, "old Pi response cannot replace selected CLI");
@@ -128,7 +128,7 @@ try {
     await button("Open in terminal").click();
     await page.getByText("QA simulated save failure. No data was changed.", { exact: true }).waitFor();
     await shot("sessions-launch-error");
-    await nav("#/clis/sessions?cli=pi");
+    await nav("#/clis/pi/sessions");
     await page.waitForFunction(() => document.querySelectorAll(".sess-row").length === 7);
     await page.locator(".sess-row").first().getByRole("button", { name: "Open with…", exact: true }).click();
     await page.getByRole("dialog").waitFor();

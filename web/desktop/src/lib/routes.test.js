@@ -93,11 +93,15 @@ test("sessions live under Agent CLIs (ADR-0079)", () => {
   // Legacy top-level hashes render the Agent CLIs shell, which redirects.
   assert.equal(parseRoute("#/sessions"), "clis");
   assert.equal(parseRoute("#/sessions/ws-9"), "clis");
+  assert.equal(sessionsRoute("#/clis/pi/sessions/ws-9"), "ws-9");
   assert.equal(sessionsRoute("#/clis/sessions/ws-9"), "ws-9");
+  assert.equal(sessionsRoute("#/clis/pi/sessions"), null);
   assert.equal(sessionsRoute("#/clis/sessions"), null);
   assert.equal(sessionsRoute("#/agent/opus"), null);
-  assert.equal(sessionsHash("ws-9"), "#/clis/sessions/ws-9");
-  assert.equal(sessionsHash(""), "#/clis/sessions");
+  assert.equal(sessionsHash("ws-9"), "#/clis/pi/sessions/ws-9");
+  assert.equal(sessionsHash(""), "#/clis/pi/sessions");
+  assert.equal(sessionsHash("ws-9", "codex"), "#/clis/codex/sessions/ws-9");
+  assert.equal(sessionsHash("", "grok"), "#/clis/grok/sessions");
 });
 
 test("tree hash names the owner, tab id names the root folder", () => {
