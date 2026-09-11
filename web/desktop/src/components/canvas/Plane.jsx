@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Background, BackgroundVariant, ConnectionLineType, ConnectionMode, Handle, MiniMap, NodeResizer, Position, ReactFlow, ReactFlowProvider, applyNodeChanges, useReactFlow } from "@xyflow/react";
 import { CANVAS_LIMITS, CANVAS_ZOOM, EDGE_KINDS, UNIT_PX, legacyViewportKey, normalizeViewport, pointerAtZoom, pxToUnits, unitsToPx, viewportKey } from "@picode/shared/domain/canvas.js";
+import { CANVAS_PATTERN_EVENT, readCanvasPattern } from "@picode/shared/domain/canvasPattern.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
 import Panel from "./Panel.jsx";
 import Link from "./Link.jsx";
@@ -78,6 +79,17 @@ const HOVER_GRACE_MS = 180;
 // button at every zoom: it has no cell to land on.
 const snapTarget = (data) => data.bodyKind === "plate" || (data.bodyKind !== "off" && !data.maximized && hasPane(data.model));
 const SNAP = [UNIT_PX, UNIT_PX];
+// The reader's ground (web/shared/domain/canvasPattern.js). "plain" is the
+// absence of a <Background>, so it is a null here rather than a fourth
+// variant React Flow does not have. The gap is four cells either way, so
+// switching texture never moves a panel or changes what snapping means.
+const BG_VARIANT = {
+  dots: BackgroundVariant.Dots,
+  lines: BackgroundVariant.Lines,
+  cross: BackgroundVariant.Cross,
+  plain: null,
+};
+const BG_GAP = UNIT_PX * 4;
 const MOTION_MS = 180;
 const VIEW_SAVE_MS = 400;
 // Fit leaves the clusters their corners. The chrome floats on the plane
@@ -240,6 +252,17 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
   const zoomRef = useRef(1);
   const [pointer, setPointer] = useState(true);
   const [zoomPct, setZoomPct] = useState(100);
+  // The plane's texture is a preference, not plane state: Preferences
+  // writes it and announces, every open plane re-reads. No reload, and no
+  // prop to thread through the surface for something the surface does not
+  // own. The *colour* is CSS (canvas.css) keyed off data-bg, so a theme
+  // switch re-tints without passing through React at all.
+  const [bgPattern, setBgPattern] = useState(readCanvasPattern);
+  useEffect(() => {
+    function onPattern() { setBgPattern(readCanvasPattern()); }
+    window.addEventListener(CANVAS_PATTERN_EVENT, onPattern);
+    return () => window.removeEventListener(CANVAS_PATTERN_EVENT, onPattern);
+  }, []);
   // A still is memory-only (stills.js), so this counter is how a fresh
   // capture reaches the nodes that show one.
   const [stillTick, setStillTick] = useState(0);
@@ -571,7 +594,7 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
   }, [onReady, snapToOne, reveal, fit, zoomIn, zoomOut]);
 
   return (
-    <div className="cv-canvas-flow" ref={setRoot}>
+    <div className="cv-canvas-flow" ref={setRoot} data-bg={bgPattern}>
       {/* The zoom cluster floats bottom-right beside the minimap, but it is
           declared before the plane so Tab runs through the chrome and only
           then reaches the roving panel — the same order the surface's
@@ -627,7 +650,9 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
         nodeDragThreshold={3}
         attributionPosition="bottom-left"
       >
-        <Background variant={BackgroundVariant.Dots} gap={UNIT_PX * 4} size={1} />
+        {BG_VARIANT[bgPattern] ? (
+          <Background variant={BG_VARIANT[bgPattern]} gap={BG_GAP} size={bgPattern === "dots" ? 1 : 6} lineWidth={1} />
+        ) : null}
         <MiniMap pannable zoomable ariaLabel="Panels on the plane" />
       </ReactFlow>
     </div>
