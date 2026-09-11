@@ -1,11 +1,12 @@
-# Direct session communication (ADR-0104, ADR-0106, ADR-0107)
+# Direct session communication (ADR-0104, ADR-0106, ADR-0107, ADR-0116)
 
 > Part of [PiCode's architecture](../architecture.md). Edit this subsystem file; the index only links.
 
 `internal/communication` serves four tools through the official Go MCP SDK at
 `/mcp/communication` in the existing Go server. `picode messages contacts|send|read|ack`
 is a client of those same tools. Both paths share SQLite, authorization, workspace
-isolation, request deduplication and acknowledgement. There is no separate daemon,
+scoping (an owner-drawn Matrix edge is its one exception, ADR-0116), request
+deduplication and acknowledgement. There is no separate daemon,
 agent engine or orchestration queue. Terminals keep their native TUIs in tmux;
 managed Pi keeps its RPC runtime.
 
@@ -63,6 +64,21 @@ can recover its wrapper only when PID ancestry matches the current pane and no
 other wrapper owns the lease. Grok/Hermes and enrolled connections never change
 identity through cwd/latest-session discovery. A TUI that has not emitted a
 native lifecycle event remains unobserved.
+
+**Contacts are the union of the workspace and live Matrix edges
+(ADR-0116).** `PeerContacts` still answers every unrevoked connection in the
+caller's own workspace, and now also the connections a **live edge** on a
+Matrix links to it — resolved through the far panel's `(kind, ref)`, deduped,
+and each still filtered by the same current-session rule. `SendPeerMessage`
+obeys the same union, so a listed contact can always be written to. What it
+does not change: an edge grants **only** this contact — never a transcript,
+a session file or a scrollback; the grant is derived on every read and
+nothing about an edge is stored in `peer_connections`; only the owner draws
+one, through `/api/matrices/{id}/edges`, and **no MCP tool creates, lists or
+implies an edge**; removing the edge, either panel, or the matrix removes the
+contact; a revoked connection or a session that moved still contributes
+nothing. The table, the union's decision table and the refusals are in
+[Matrix → Edges](matrix.md#edges-adr-0116).
 
 `peer_messages` is the durable inbox and history. Exact request retries return
 the same receipt; conflicting content fails. Read is non-consuming. Ack validates

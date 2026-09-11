@@ -359,6 +359,24 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_ = s.RemoveMatrixPanel(m.ID, p.Panel.ID)
 		}, []string{"matrix.panel.removed"}},
+		{"AddMatrixEdge", func(s *Store) {
+			m, _ := s.CreateMatrix("Ops")
+			a, _ := s.AddMatrixPanel(m.ID, "terminal", "t1", 0, 0, 4, 8)
+			b, _ := s.AddMatrixPanel(m.ID, "agent", "a1", 4, 0, 4, 8)
+			s.OnEvent = recorder(s)
+			_, _ = s.AddMatrixEdge(m.ID, a.Panel.ID, b.Panel.ID)
+			// The same pair backwards is the 409: no second row, no second event.
+			_, _ = s.AddMatrixEdge(m.ID, b.Panel.ID, a.Panel.ID)
+		}, []string{"matrix.edge.added"}},
+		{"RemoveMatrixEdge", func(s *Store) {
+			m, _ := s.CreateMatrix("Ops")
+			a, _ := s.AddMatrixPanel(m.ID, "terminal", "t1", 0, 0, 4, 8)
+			b, _ := s.AddMatrixPanel(m.ID, "agent", "a1", 4, 0, 4, 8)
+			e, _ := s.AddMatrixEdge(m.ID, a.Panel.ID, b.Panel.ID)
+			s.OnEvent = recorder(s)
+			_ = s.RemoveMatrixEdge(m.ID, e.Edge.ID)
+			_ = s.RemoveMatrixEdge(m.ID, e.Edge.ID) // gone: no second event
+		}, []string{"matrix.edge.removed"}},
 		{"SetMatrixMode", func(s *Store) {
 			m, _ := s.CreateMatrix("Ops")
 			_, _ = s.AddMatrixPanel(m.ID, "terminal", "t1", 0, 0, 4, 8)

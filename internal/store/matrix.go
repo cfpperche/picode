@@ -18,6 +18,10 @@ const (
 	MaxMatrices     = 64
 	MaxMatrixPanels = 500
 	MaxMatrixName   = 80 // runes
+	// Edges (ADR-0116, migration 044): a link is much cheaper than a panel
+	// and a dense board draws more of them than it holds panels, so the cap
+	// is twice the panel cap. internal/store/matrix_edges.go is the model.
+	MaxMatrixEdges  = 1000
 	MatrixCols      = 12 // grid mode: fixed, not stored
 	MinMatrixPanelW = 4  // columns
 	MinMatrixPanelH = 8  // rows
@@ -79,10 +83,12 @@ type MatrixPanel struct {
 }
 
 // MatrixDetail is what GET /api/matrices/{id} answers: the summary plus
-// every panel — one read on open (500 panels ≈ 50 KB).
+// every panel and every edge — one read still opens a matrix (500 panels
+// ≈ 50 KB; an edge is four short strings).
 type MatrixDetail struct {
 	Matrix
 	Panels []MatrixPanel `json:"panels"`
+	Edges  []MatrixEdge  `json:"edges"`
 }
 
 // MatrixPatch is UpdateMatrix's optional fields; nil leaves a column alone.
@@ -552,7 +558,8 @@ func (s *Store) ListMatrices() ([]Matrix, error) {
 	return out, rows.Err()
 }
 
-// GetMatrix is the summary plus every panel, ordered by row then column.
+// GetMatrix is the summary plus every panel, ordered by row then column,
+// plus every edge (ADR-0116) so one read still opens a matrix.
 func (s *Store) GetMatrix(id string) (MatrixDetail, error) {
 	var d MatrixDetail
 	err := s.matrixTx(func(tx *sql.Tx) error {
@@ -564,8 +571,12 @@ func (s *Store) GetMatrix(id string) (MatrixDetail, error) {
 		if err != nil {
 			return err
 		}
+		edges, err := matrixEdges(tx, id)
+		if err != nil {
+			return err
+		}
 		m.PanelCount = len(panels)
-		d = MatrixDetail{Matrix: m, Panels: panels}
+		d = MatrixDetail{Matrix: m, Panels: panels, Edges: edges}
 		return nil
 	})
 	return d, err

@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"unicode/utf8"
 )
@@ -244,6 +245,14 @@ func (s *Store) RevokePeer(id string) error {
 	}
 	return s.commit(tx)
 }
+
+// PeerContacts is the union of two sources (ADR-0116 §3): the caller's own
+// workspace, exactly as ADR-0104 scoped it, and the connections a live
+// Matrix edge links to the caller. The two lists are deduped — the same pair
+// drawn on two matrices is one contact — and every row still has to pass
+// peerCurrent, so a revoked connection or a session that moved contributes
+// nothing from either source. Nothing is cached: the edge half is derived
+// here on every read, so removing the line removes the contact.
 func (s *Store) PeerContacts(token string) ([]PeerConnection, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -272,6 +281,22 @@ func (s *Store) PeerContacts(token string) ([]PeerConnection, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The rows above are closed before this second query: the store has one
+	// SQLite connection.
+	linked, err := peerEdgeContacts(tx, me)
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]bool, len(found)+len(linked))
+	for _, p := range found {
+		seen[p.ID] = true
+	}
+	for _, p := range linked {
+		if !seen[p.ID] {
+			seen[p.ID] = true
+			found = append(found, p)
+		}
+	}
 	out := []PeerConnection{}
 	for _, p := range found {
 		if peerCurrent(tx, p) {
@@ -279,7 +304,25 @@ func (s *Store) PeerContacts(token string) ([]PeerConnection, error) {
 			out = append(out, p)
 		}
 	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Label != out[j].Label {
+			return out[i].Label < out[j].Label
+		}
+		return out[i].ID < out[j].ID
+	})
 	return out, nil
+}
+
+// peerMayReach is the contact rule both the list and the send obey, so they
+// can never disagree about who may be reached: the same workspace
+// (ADR-0104), or one live Matrix edge between panels bound to these two
+// sessions (ADR-0116). Derived per call; nothing about an edge is ever
+// written into peer_connections.
+func peerMayReach(tx *sql.Tx, me, other PeerConnection) (bool, error) {
+	if other.WorkspaceID == me.WorkspaceID {
+		return true, nil
+	}
+	return peerEdgeLinks(tx, me, other.ID)
 }
 
 const peerMessageCols = `seq,id,sender_id,recipient_id,request_id,body,COALESCE(reply_to,''),created_at,acked_at,attention_status`
@@ -312,7 +355,16 @@ func (s *Store) SendPeerMessage(token, to, requestID, body, replyTo string) (Pee
 		return PeerMessage{}, err
 	}
 	recipient, err := scanPeer(tx.QueryRow(`SELECT `+peerCols+` FROM peer_connections WHERE id=?`, to))
-	if err != nil || to == me.ID || recipient.WorkspaceID != me.WorkspaceID || !peerCurrent(tx, recipient) {
+	if err != nil || to == me.ID || !peerCurrent(tx, recipient) {
+		return PeerMessage{}, ErrPeerDenied
+	}
+	// The same union the contact list answers with (ADR-0116): a contact the
+	// caller cannot write to would be a grant that is only drawn.
+	mayReach, err := peerMayReach(tx, me, recipient)
+	if err != nil {
+		return PeerMessage{}, err
+	}
+	if !mayReach {
 		return PeerMessage{}, ErrPeerDenied
 	}
 	if replyTo != "" {

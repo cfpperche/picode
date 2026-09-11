@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -189,5 +190,53 @@ func TestHTTPMCPGate(t *testing.T) {
 				})
 			}
 		})
+	}
+}
+
+// ADR-0116's last row: **the MCP surface gains no verb.** An edge is the
+// owner's grant, drawn in the browser through the authenticated owner API;
+// a capability whose beneficiary can grant it to itself is not a
+// capability. This test is what stops a later session from adding a
+// convenient link_sessions tool: the list is exactly ADR-0104's four verbs,
+// and no tool — nor the CLI that fronts them — so much as names an edge, a
+// matrix or a transcript.
+func TestMCPSurfaceGainsNoEdgeVerb(t *testing.T) {
+	s, _, pt, _, _ := fixture(t)
+	a, e := auth.New(auth.Config{Store: s, DataDir: t.TempDir(), Insecure: true})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = s.SetSetting(auth.ModeSettingKey, auth.ModeAll); e != nil {
+		t.Fatal(e)
+	}
+	server := httptest.NewServer(a.Wrap(Handler(s)))
+	defer server.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	tools, err := client(t, ctx, server.URL+Path, pt).ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]bool{"list_contacts": true, "send_message": true, "read_messages": true, "ack_messages": true}
+	if len(tools.Tools) != len(want) {
+		t.Fatalf("tools = %d, want %d", len(tools.Tools), len(want))
+	}
+	// Whole words, so "acknowledge" is not an edge.
+	forbidden := regexp.MustCompile(`(?i)\b(edges?|matrix|matrices|links?|linked|transcripts?|scrollback)\b`)
+	for _, tool := range tools.Tools {
+		if !want[tool.Name] {
+			t.Fatalf("unknown tool %q: an edge is the owner's grant, not an agent's", tool.Name)
+		}
+		if hit := forbidden.FindString(tool.Name + " " + tool.Description); hit != "" {
+			t.Fatalf("tool %s mentions %q: %s", tool.Name, hit, tool.Description)
+		}
+	}
+	// The shell client fronts the same four verbs and nothing else; its help
+	// is what an agent reads to find out what it may do.
+	if hit := forbidden.FindString(MessagesHelp); hit != "" {
+		t.Fatalf("picode messages help mentions %q", hit)
+	}
+	if !strings.Contains(MessagesHelp, "contacts|send|read|ack") {
+		t.Fatalf("picode messages help changed shape: %s", MessagesHelp)
 	}
 }
