@@ -99,22 +99,27 @@ for every row that can fail.
 
 ### P3 — the actions that need Windows
 
-| Action | Needs | Cost |
-|---|---|---|
-| `wsl --manage <distro> --set-sparse true` | distro stopped | sessions die; reversible |
-| `Optimize-VHD -Mode Full` (or `diskpart compact vdisk`) | distro stopped, admin | sessions die; needs Hyper-V (absent on Windows Home — `diskpart` is the fallback) |
-| `wsl --manage <distro> --move E:\WSL\<distro>` | distro stopped | sessions die; the permanent fix when another volume has room |
-
-The decision table this flow owes, before anyone claims it works:
+**Core shipped 2026-09-11** (`feat/wsl-actions`): the tray item **Give back ≈N
+GB…** and `picode-desktop disk-compact`. Flow: readiness interlock (`GET
+/api/deploy/readiness`, the deploy one) → confirmation naming the cost →
+`wsl --terminate` → sparse conversion (`wsl --manage --set-sparse true`, no
+elevation) → distro restarted → keepalive re-armed → before/after measured on
+the file. `--dry-run`, `--yes`, `--force`, `--method optimize-vhd` (elevated
+terminal; no Hyper-V on Windows Home). Decision table as implemented:
 
 | Conditions | Action |
 |---|---|
-| Any agent mid-turn, or a terminal busy | Refuse, name who is busy (the `picode deploy` interlock) |
-| Tray not running (the actor) | Refuse; the action is only offered where it can run |
-| Already sparse and no gap | Nothing to do; say so instead of running anything |
-| Distro running, everything idle | Ask once, listing the exact sessions that stop; on confirm: `wsl --shutdown`, act, restart the distro |
-| UAC refused | Report "not applied", keep the facts, never retry on its own |
-| Act succeeded, verified delta below what was promised | Report the real number — the estimate is never the evidence |
+| Any agent mid-turn, or a terminal busy | Refuse, name them (tray dialog; CLI text; `--force` overrides on the CLI only) |
+| Server not answering (no interlock possible) | Refuse — a missing answer is not consent |
+| Held below the tray threshold, or already sparse and tight | Item greyed with the reason / "nothing is held" |
+| WSL build without `--set-sparse` | Tray item points to the admin-terminal CLI; CLI demands elevation for Optimize-VHD |
+| Distro running, everything idle, confirmed | Terminate → convert → restart → keepalive re-armed → measured delta shown |
+| Conversion fails | Error reported; **the distro restarts anyway** (pinned by test) |
+| Verified delta below what was promised | The measured after-number is the answer; the estimate is never quoted as the result |
+
+Still open in P3: offering Optimize-VHD from the tray itself (needs an
+elevation design that does not relaunch the tray as admin, since `elevate()`
+re-uses the tray's own arguments), and cache prunes as reviewed actions (P2).
 
 ### P4 — history and the automatic path
 

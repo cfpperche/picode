@@ -122,11 +122,12 @@ body {
 .brand-name:hover { color: var(--accent); }
 .brand-name:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .brand-tabs { display: flex; margin-left: auto; align-self: stretch; }
+.brand-tablist { display: flex; align-self: stretch; }
 .brand-tab {
   display: grid; place-items: center;
-  /* Five tabs since ADR-0036. 32px each when the sidebar is comfortable;
-     below 240px the tabs tighten to 26px (five ≈ the old four at 32px)
-     so "PiCode" keeps its room at the 180px minimum. */
+  /* Five rail tabs plus the Agent CLIs action. 32px each when the sidebar
+     is comfortable; below 260px they tighten to 26px so "PiCode" keeps
+     its room at the 180px minimum. */
   width: 32px; height: 100%; padding: 0;
   border: 0; background: none; cursor: pointer;
   color: var(--text-secondary);
@@ -137,6 +138,7 @@ body {
   color: var(--text-primary);
   border-bottom-color: var(--accent);
 }
+.brand-clis[aria-current="page"] { color: var(--text-primary); }
 
 .side-section { flex: 1; overflow-y: auto; padding: 10px 8px; }
 .tree-row {

@@ -3,7 +3,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { parseRoute, appRoute } from "../lib/routes.js";
 import UserMenu from "./UserMenu.jsx";
 import ShareDrawer, { OPEN_EVENT } from "./ShareDrawer.jsx";
-import { IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconGit, IconX, IconChevronRight, IconPin, IconSession, IconSettings, IconGrid } from "./Icons.jsx";
+import { IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconGit, IconX, IconChevronRight, IconPin, IconSession, IconSettings, IconGrid, IconCli } from "./Icons.jsx";
 import Pins from "./Pins.jsx";
 import AppsGrid from "./AppsGrid.jsx";
 import { aggregateBadge } from "@picode/shared/contracts/appPrimitives.js";
@@ -48,6 +48,7 @@ export default function Sidebar({
   onGitGraph,
   onFileTree,
   onOpenDashboard,
+  onOpenClis,
   apps, nativeApps, onOpenApp,
 }) {
   const [width, setWidth] = useState(() => {
@@ -161,15 +162,21 @@ export default function Sidebar({
         <span className="brand-title">
           <button type="button" className="brand-name" title="Dashboard" onClick={() => onOpenDashboard && onOpenDashboard()}>PiCode</button>
         </span>
-        <nav className={"brand-tabs" + (width < 240 ? " brand-tabs-tight" : "")} role="tablist" aria-label="Sidebar">
-          <button type="button" role="tab" className="brand-tab" aria-selected={tab === "workspaces"} title="Workspaces" aria-label="Workspaces" onClick={() => selectTab("workspaces")}><IconFolders size={16} /></button>
-          <button type="button" role="tab" className="brand-tab" aria-selected={tab === "agents"} title="Agents" aria-label="Agents" onClick={() => selectTab("agents")}><IconAgent size={16} /></button>
-          <button type="button" role="tab" className="brand-tab" aria-selected={tab === "terms"} title="Terminals" aria-label="Terminals" onClick={() => selectTab("terms")}><IconTerminal size={16} /></button>
-          <button type="button" role="tab" className="brand-tab" aria-selected={tab === "apps"} title="Apps" aria-label="Apps" onClick={() => selectTab("apps")}>
-            <IconGrid size={16} />
-            {appBadge.count > 0 ? <span className="brand-tab-badge">{appBadge.count > 99 ? "99+" : appBadge.count}</span> : appBadge.dot ? <span className="brand-tab-dot" /> : null}
+        <nav className={"brand-tabs" + (width < 260 ? " brand-tabs-tight" : "")} aria-label="Sidebar">
+          <div className="brand-tablist" role="tablist" aria-label="Sidebar views">
+            <button type="button" role="tab" className="brand-tab" aria-selected={tab === "workspaces"} title="Workspaces" aria-label="Workspaces" onClick={() => selectTab("workspaces")}><IconFolders size={16} /></button>
+            <button type="button" role="tab" className="brand-tab" aria-selected={tab === "agents"} title="Agents" aria-label="Agents" onClick={() => selectTab("agents")}><IconAgent size={16} /></button>
+            <button type="button" role="tab" className="brand-tab" aria-selected={tab === "terms"} title="Terminals" aria-label="Terminals" onClick={() => selectTab("terms")}><IconTerminal size={16} /></button>
+            <button type="button" role="tab" className="brand-tab" aria-selected={tab === "apps"} title="Apps" aria-label="Apps" onClick={() => selectTab("apps")}>
+              <IconGrid size={16} />
+              {appBadge.count > 0 ? <span className="brand-tab-badge">{appBadge.count > 99 ? "99+" : appBadge.count}</span> : appBadge.dot ? <span className="brand-tab-dot" /> : null}
+            </button>
+            <button type="button" role="tab" className="brand-tab" aria-selected={tab === "pins"} title="Pins" aria-label="Pins" onClick={() => selectTab("pins")}><IconPin size={16} /></button>
+          </div>
+          <button type="button" className="brand-tab brand-clis" title="Agent CLIs" aria-label="Agent CLIs" aria-current={parseRoute() === "clis" ? "page" : undefined} onClick={() => onOpenClis && onOpenClis()}>
+            <IconCli size={16} />
+            {userMenu?.pkgUpdates?.length ? <span className="brand-tab-dot" aria-label="Package updates available" /> : null}
           </button>
-          <button type="button" role="tab" className="brand-tab" aria-selected={tab === "pins"} title="Pins" aria-label="Pins" onClick={() => selectTab("pins")}><IconPin size={16} /></button>
         </nav>
       </header>
 

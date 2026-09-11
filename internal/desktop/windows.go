@@ -97,6 +97,48 @@ func ResolveWindowsTools() {
 	PowerShellExe = ResolveWindowsTool("powershell", "WindowsPowerShell/v1.0/powershell.exe")
 }
 
+// DeployReady asks the running server whether anyone is mid-turn — the same
+// interlock `picode deploy` consults before restarting the daemon, because
+// stopping the distro ends the same work. Loopback needs no session
+// (internal/auth exempts it), which is exactly why the tray is allowed to ask.
+func DeployReady(base string) (ready bool, busy []string, err error) {
+	res, err := healthClient.Get(strings.TrimSuffix(base, "/") + "/api/deploy/readiness")
+	if err != nil {
+		return false, nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return false, nil, fmt.Errorf("status %s", res.Status)
+	}
+	var body struct {
+		Ready bool `json:"ready"`
+		Busy  []struct {
+			Kind string `json:"kind"`
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"busy"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		return false, nil, err
+	}
+	for _, b := range body.Busy {
+		name := b.Name
+		if name == "" {
+			name = b.ID
+		}
+		busy = append(busy, b.Kind+" "+name)
+	}
+	return body.Ready, busy, nil
+}
+
+// DescribeBusy names the callers the interlock found, for a refusal message.
+func DescribeBusy(busy []string) string {
+	if len(busy) == 0 {
+		return "someone"
+	}
+	return strings.Join(busy, "; ")
+}
+
 // ResolveWindowsTool finds one of them: on PATH on Windows, under System32
 // from inside a distro that left appendWindowsPath alone.
 func ResolveWindowsTool(name, underSystem32 string) string {

@@ -4,12 +4,14 @@ package main
 
 import (
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
 	"fyne.io/systray"
 
 	"github.com/cfpperche/picode/internal/desktop"
+	"github.com/cfpperche/picode/internal/hostfs"
 )
 
 // pollEvery is how often the tray asks PiCode whether it is up. The probe is a
@@ -32,10 +34,12 @@ type tray struct {
 	detail        string
 	diskTitle     string
 	diskWarn      bool
+	compacting    bool
 	quitRequested bool
 
 	status  *systray.MenuItem
 	disk    *systray.MenuItem
+	compact *systray.MenuItem
 	open    *systray.MenuItem
 	restart *systray.MenuItem
 	logs    *systray.MenuItem
@@ -59,6 +63,10 @@ func runTray(distroFlag, userFlag string) error {
 		// what the distro's disk costs Windows, and how much room is left.
 		t.disk = systray.AddMenuItem("Disk: reading…", "The distro's disk file, and free space on the volume it lives on")
 		t.disk.Disable()
+		// The action the number exists for. It stops the distro, so it asks in a
+		// dialog, and it stays disabled until there is something to give back.
+		t.compact = systray.AddMenuItem("No held space to give back", "Return the space the distro has freed to C:")
+		t.compact.Disable()
 		systray.AddSeparator()
 		t.open = systray.AddMenuItem("Open PiCode", "Open PiCode in the browser")
 		t.restart = systray.AddMenuItem("Restart PiCode", "Restart the service inside WSL")
@@ -128,15 +136,155 @@ func (t *tray) diskTick() {
 
 	title, warn := diskLine(ptr, used, factsErr)
 
-	// The warning is stored, not painted onto the tooltip here: the health
-	// probe rewrites the tooltip every five seconds, and whichever of the two
-	// timers writes last has to write the same thing.
 	t.mu.Lock()
 	t.diskTitle = title
 	t.diskWarn = warn
 	t.mu.Unlock()
 	t.disk.SetTitle(title)
+	t.refreshCompactItem(ptr, used)
 	t.refreshTooltip()
+}
+
+// refreshCompactItem turns the held number into the one action this tray
+// offers. It is disabled on purpose when there is nothing to give back, when
+// someone is mid-compact, or when this WSL build cannot convert the file — a
+// grey line that says why beats an error after the click.
+func (t *tray) refreshCompactItem(ptr *desktop.DiskFacts, used int64) {
+	t.mu.Lock()
+	compacting := t.compacting
+	t.mu.Unlock()
+
+	switch {
+	case compacting:
+		t.compact.SetTitle("Compacting…")
+		t.compact.Disable()
+	case ptr == nil:
+		t.compact.SetTitle("Disk not read — nothing to offer")
+		t.compact.Disable()
+	case !ptr.CanSparse:
+		t.compact.SetTitle("Compact from an admin terminal — WSL " + ptr.WSL + " cannot convert")
+		t.compact.Disable()
+	case desktop.Held(*ptr, used) < heldWorthTelling:
+		t.compact.SetTitle("No held space to give back")
+		t.compact.Disable()
+	default:
+		t.compact.SetTitle("Give back ≈" + hostfs.Bytes(desktop.Held(*ptr, used)) + "…")
+		t.compact.Enable()
+	}
+}
+
+// beginCompact is the re-entry guard: one compact at a time, however many
+// times the menu item is clicked while one runs.
+func (t *tray) beginCompact() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.compacting {
+		return false
+	}
+	t.compacting = true
+	return true
+}
+
+func (t *tray) endCompact() {
+	t.mu.Lock()
+	t.compacting = false
+	t.mu.Unlock()
+}
+
+// serverURL is the address the readiness question goes to, from the cache the
+// health probe filled or straight from the distro.
+func (t *tray) serverURL() string {
+	t.mu.Lock()
+	url := t.url
+	t.mu.Unlock()
+	if url != "" {
+		return url
+	}
+	got, err := desktop.ServerURL(t.app.runner, t.app.distro, t.app.user)
+	if err != nil {
+		return ""
+	}
+	return got
+}
+
+// compactFlow is what the menu item runs. Every refusal before the compact is
+// a dialog that says why; the compact itself is the one thing this tray does
+// that ends sessions, so the dialog asking about it names that in plain words.
+func (t *tray) compactFlow() {
+	if !t.beginCompact() {
+		return
+	}
+	defer t.endCompact()
+
+	url := t.serverURL()
+	if url == "" {
+		alert("PiCode is not answering, so the tray cannot check whether agents are working.\n\nOpen PiCode, wait for it to come up, and try again.", "PiCode")
+		return
+	}
+	ready, busy, err := desktop.DeployReady(url)
+	if err != nil {
+		alert("Could not ask PiCode whether agents are working:\n"+err.Error(), "PiCode")
+		return
+	}
+	if !ready {
+		alert("Someone is still working:\n\n  "+strings.Join(busy, "\n  ")+"\n\nAsk them to finish, then give the space back.", "PiCode")
+		return
+	}
+
+	facts, err := desktop.DistroDisk(t.app.runner, t.app.distro)
+	if err != nil {
+		alert("Could not read the disk:\n"+err.Error(), "PiCode")
+		return
+	}
+	used, _ := distroUsed(t.app.runner, t.app.distro, t.app.user)
+	held := desktop.Held(facts, used)
+	if held < heldWorthTelling {
+		alert("Nothing is held: "+t.app.distro+" has given back what it freed.", "PiCode")
+		return
+	}
+	if !facts.CanSparse {
+		alert("This WSL ("+facts.WSL+") cannot convert the file to sparse.\n\nRun picode-desktop disk-compact --yes from an administrator terminal instead.", "PiCode")
+		return
+	}
+
+	if !confirm("Stopping "+t.app.distro+" returns ≈"+hostfs.Bytes(held)+" to C:.\n\nEverything inside it ends now — agents, terminals and tmux sessions do not come back.\n\nContinue?", "Give back disk space") {
+		return
+	}
+
+	method, _ := desktop.PlanCompact(facts)
+	res, err := desktop.Compact(t.app.runner, t.app.distro, t.app.user, method, facts.VHDXPath, facts.AllocatedBytes, func(s string) {
+		t.mu.Lock()
+		t.diskTitle = "Disk: " + s
+		t.mu.Unlock()
+		t.disk.SetTitle("Disk: " + s)
+	})
+
+	// wsl --terminate took the keepalive's child down with the distro. The
+	// distro is starting again; without this it would idle out from under it
+	// sixty seconds later.
+	t.restartKeepalive()
+	t.diskTick()
+
+	if err != nil {
+		alert("The compact failed and "+t.app.distro+" was started again:\n"+err.Error(), "PiCode")
+		return
+	}
+	alert("Before: "+hostfs.Bytes(res.BeforeBytes)+" on disk\nAfter: "+hostfs.Bytes(res.AfterBytes)+"\nBack on C: ≈"+hostfs.Bytes(res.Returned())+"\n\n"+t.app.distro+" is starting again; its sessions do not come back.", "PiCode")
+}
+
+// restartKeepalive re-arms the child that holds the distro open. The old one
+// is already dead by then — wsl --terminate ends it — and nothing else
+// restarts it.
+func (t *tray) restartKeepalive() {
+	if t.keepalive != nil && t.keepalive.Process != nil {
+		_ = t.keepalive.Process.Kill()
+	}
+	if cmd, err := startSupervised(desktop.WSLExe, desktop.KeepaliveArgs(t.app.distro)...); cmd != nil {
+		t.mu.Lock()
+		t.keepalive = cmd
+		t.mu.Unlock()
+		_ = err // the keepalive runs either way; only supervision may have failed
+	}
 }
 
 func (t *tray) tick() {
@@ -231,6 +379,9 @@ func (t *tray) handleClicks() {
 			if url != "" {
 				_ = newCmd("rundll32", "url.dll,FileProtocolHandler", url).Start()
 			}
+
+		case <-t.compact.ClickedCh:
+			go t.compactFlow()
 
 		case <-t.restart.ClickedCh:
 			go func() {

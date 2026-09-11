@@ -73,24 +73,12 @@ func DistroDisk(r Runner, distro string) (DiskFacts, error) {
 	}
 	facts.VHDXPath = winJoin(folder.BasePath, folder.VHDX)
 
-	if vol, err := volumeOf(r, facts.VHDXPath); err != nil {
-		return facts, err
-	} else {
-		facts.VHDXBytes, facts.VolumeBytes, facts.FreeBytes = vol.Length, vol.Total, vol.Free
-	}
-
-	allocated, sparse, err := sparseRange(r, facts.VHDXPath)
+	vol, allocated, sparse, err := footprintOf(r, facts.VHDXPath)
 	if err != nil {
 		return facts, err
 	}
-	facts.Sparse = sparse
-	if sparse {
-		facts.AllocatedBytes = allocated
-	} else {
-		// Not sparse means every byte of the file is on the volume — the
-		// answer needs no second measurement.
-		facts.AllocatedBytes = facts.VHDXBytes
-	}
+	facts.VHDXBytes, facts.VolumeBytes, facts.FreeBytes = vol.Length, vol.Total, vol.Free
+	facts.AllocatedBytes, facts.Sparse = allocated, sparse
 
 	// wsl.exe exits non-zero on `--help` (255, on every machine we have seen)
 	// while printing the whole text to stdout, so the exit status is not the

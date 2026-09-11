@@ -243,7 +243,9 @@ file just stays large".
 fetches older turns on demand. **From a Pi session** copies a JSONL
 and creates a stopped agent (ADR-0021). The original TUI is not touched.
 
-Entry: user menu (Tools: Agent CLIs, Automations, llama.cpp, Integrations; PiCode: Preferences, Devices, System) and `Ctrl+K`.
+Entry: the last icon in the desktop sidebar header opens Agent CLIs (`#/clis`)
+without changing the rail tab; user menu (Tools: Automations, llama.cpp,
+Integrations; PiCode: Preferences, Devices, System) and `Ctrl+K`.
 QR in the sidebar brand opens a phone-share drawer (`GET /api/share`):
 HTTPS + bind + reachable IP + cert SAN + mkcert CA. Missing checks
 list the action; a QR is only drawn when every check passes.

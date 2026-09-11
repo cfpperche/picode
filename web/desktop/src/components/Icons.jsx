@@ -6,6 +6,7 @@ import {
   Bold,
   Book,
   Bot,
+  Boxes,
   CircleCheck,
   Code,
   CaseSensitive,
@@ -106,6 +107,7 @@ export const IconChevronLeft = lucide(ChevronLeft, 13);
 export const IconDocs = lucide(Book, 12);
 export const IconExternal = lucide(ExternalLink, 13);
 export const IconTerminal = lucide(Terminal, 14);
+export const IconCli = lucide(Boxes, 16);
 export const IconPlay = lucide(Play, 12);
 export const IconKeyboard = lucide(Keyboard, 18);
 export const IconStop = lucide(Square, 12);

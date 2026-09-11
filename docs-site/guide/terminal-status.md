@@ -13,8 +13,9 @@ binary with the flags, extension, or overlay that CLI accepts. Hermes may
 still record PiCode's hook command in its own `shell-hooks-allowlist.json`
 when it auto-accepts session hooks.
 
-Turn on **Activity reporting** in **Agent CLIs**, opened from the desktop
-user menu or mobile **More**. The old Preferences address redirects there.
+Turn on **Activity reporting** in **Agent CLIs**, opened from the last icon
+in the desktop sidebar header or from mobile **More**. The old Preferences
+address redirects there.
 Configured terminals use the switch on their next launch. Existing plain
 shells may need a new terminal to pick up the wrapper PATH; changing a switch
 does not interrupt them. See [Agent CLIs](agent-clis) for launch settings.
