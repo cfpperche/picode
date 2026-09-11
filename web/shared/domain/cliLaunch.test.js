@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cliLocation, cliTerminals, launchDraft, launchConfig, resolveLaunch, launchOverrides, terminalLaunchCLI, defaultLaunchConfig, profileOverrides, editLaunchOverrides, cliWorkspaceList, launchChanged } from "./cliLaunch.js";
+import { cliLocation, cliPaneHash, cliTerminals, launchDraft, launchConfig, resolveLaunch, launchOverrides, terminalLaunchCLI, defaultLaunchConfig, profileOverrides, editLaunchOverrides, cliWorkspaceList, launchChanged } from "./cliLaunch.js";
 import { cliLaunchSchema, parseForm } from "../contracts/schemas.js";
 
 test("CLI manager parses launch routes", () => {
@@ -9,14 +9,30 @@ test("CLI manager parses launch routes", () => {
 });
 
 test("the general Terminals address lands on the CLI catalog (2026-09-11)", () => {
-  assert.deepEqual(cliLocation("#/clis/terminals"), { view: "clis", id: "" });
+  assert.deepEqual(cliLocation("#/clis/terminals"), { view: "clis", id: "", pane: "launch", redirect: "#/clis" });
 });
 
-test("sessions view takes an optional workspace scope (ADR-0079)", () => {
-  assert.deepEqual(cliLocation("#/clis/sessions"), { view: "sessions", id: "" });
-  assert.deepEqual(cliLocation("#/clis/sessions/ws-9"), { view: "sessions", id: "ws-9" });
-  assert.deepEqual(cliLocation("#/clis/sessions?cli=codex"), { view: "sessions", id: "" , cli: "codex" });
-  assert.deepEqual(cliLocation("#/clis/sessions/ws-9?cli=claude-code"), { view: "sessions", id: "ws-9", cli: "claude-code" });
+test("a CLI page names its pane in the path (ADR-0079 amendment 2026-09-11)", () => {
+  assert.deepEqual(cliLocation("#/clis"), { view: "clis", id: "", pane: "launch" });
+  assert.deepEqual(cliLocation("#/clis/pi"), { view: "clis", id: "pi", pane: "launch" });
+  assert.deepEqual(cliLocation("#/clis/codex/terminals"), { view: "clis", id: "codex", pane: "terminals" });
+  assert.deepEqual(cliLocation("#/clis/pi/sessions"), { view: "clis", id: "pi", pane: "sessions" });
+  assert.deepEqual(cliLocation("#/clis/claude-code/sessions/ws-9"), { view: "clis", id: "claude-code", pane: "sessions", workspace: "ws-9" });
+  assert.deepEqual(cliLocation("#/clis/pi/launch"), { view: "clis", id: "pi", pane: "launch", redirect: "#/clis/pi" });
+  assert.equal(cliPaneHash("pi"), "#/clis/pi");
+  assert.equal(cliPaneHash("pi", "launch"), "#/clis/pi");
+  assert.equal(cliPaneHash("codex", "terminals"), "#/clis/codex/terminals");
+  assert.equal(cliPaneHash("pi", "sessions"), "#/clis/pi/sessions");
+  assert.equal(cliPaneHash("claude-code", "sessions", "ws-9"), "#/clis/claude-code/sessions/ws-9");
+});
+
+test("legacy Sessions tab addresses rewrite onto the selected CLI's pane (ADR-0079)", () => {
+  assert.deepEqual(cliLocation("#/clis/sessions"), { view: "clis", id: "pi", pane: "sessions", redirect: "#/clis/pi/sessions" });
+  assert.deepEqual(cliLocation("#/clis/sessions/ws-9"), { view: "clis", id: "pi", pane: "sessions", workspace: "ws-9", redirect: "#/clis/pi/sessions/ws-9" });
+  assert.deepEqual(cliLocation("#/clis/sessions?cli=codex"), { view: "clis", id: "codex", pane: "sessions", redirect: "#/clis/codex/sessions" });
+  assert.deepEqual(cliLocation("#/clis/sessions/ws-9?cli=claude-code"), { view: "clis", id: "claude-code", pane: "sessions", workspace: "ws-9", redirect: "#/clis/claude-code/sessions/ws-9" });
+  assert.deepEqual(cliLocation("#/sessions"), { view: "clis", id: "pi", pane: "sessions", redirect: "#/clis/pi/sessions" });
+  assert.deepEqual(cliLocation("#/sessions/ws-9"), { view: "clis", id: "pi", pane: "sessions", workspace: "ws-9", redirect: "#/clis/pi/sessions/ws-9" });
 });
 
 test("launch overrides inherit untouched fields and preserve explicit clearing", () => {

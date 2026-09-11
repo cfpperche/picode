@@ -81,7 +81,8 @@ chord. You can change every key here under **Settings → Shortcuts**.
 
 ## Launch settings
 
-**Launch settings** shows the resolved executable, additional arguments,
+On a CLI's page, **Launch**, **Terminals** and **Sessions** are panes of
+that CLI. **Launch** shows the resolved executable, additional arguments,
 PATH additions, environment names and PiCode's injected integration. Automatic
 detection stays automatic: displaying a resolved path does not save it as an
 override. Select **Customize** to edit, then **Save changes** or **Discard**.
@@ -121,11 +122,11 @@ Native model, permission and session settings are not part of this preview.
 
 ## Find a session
 
-The **Sessions** tab lists the sessions each CLI left on disk, grouped by
-folder. Pick the CLI in the toolbar and search by name, preview or folder.
-**Open in terminal** starts that CLI again in the session's folder; the
-exact arguments come from the CLI itself (for example `claude --resume`,
-`hermes --resume`, `opencode --session`).
+Open a CLI and choose **Sessions**. The list is that CLI's on-disk sessions,
+grouped by folder. Search by name, preview or folder. **Open in terminal**
+starts that CLI again in the session's folder; the exact arguments come from
+the CLI itself (for example `claude --resume`, `hermes --resume`,
+`opencode --session`).
 
 Pi sessions add management actions: **Open with…** moves one of the
 folder's agents to that session, **Compact** summarizes its older turns,
@@ -269,7 +270,7 @@ in the same conversation. The pin records what was running, so the button
 shows the recovered work even after the process is gone. Nothing resumes
 automatically: a plain Start still opens a fresh conversation. Terminals
 stopped before this feature shipped have no pin; their conversations stay
-reachable in the Sessions tab via "Open in terminal".
+reachable in that CLI's Sessions pane via "Open in terminal".
 
 When the terminal died in a daemon restart (not a CLI exit), the surface
 says so: "PiCode restarted while this terminal was running." (ADR-0085:

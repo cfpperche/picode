@@ -900,7 +900,7 @@ export default function App() {
   }, [termWanted]);
   // ADR-0118: #/app/matrix[/<id>] is the Canvas app's old address. Replaced,
   // never pushed — the way ADR-0101/0102/0103 moved their surfaces and the
-  // way #/sessions* still lands on #/clis/sessions* — so a bookmark costs the
+  // way #/sessions* still lands on #/clis/<cli>/sessions* — so a bookmark costs the
   // reader no extra Back step and the address bar shows the link that works
   // now. It is its own effect, declared before the one that resolves a hash
   // into a tab, so the old id never reaches the "that app is gone" branch.
