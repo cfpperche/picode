@@ -1,5 +1,6 @@
 import { memo } from "react";
-import { BaseEdge, EdgeLabelRenderer, Position, getSimpleBezierPath } from "@xyflow/react";
+import { BaseEdge, EdgeLabelRenderer } from "@xyflow/react";
+import { borderPoint, linkPath, pointAnchor } from "@picode/shared/domain/canvasAnchors.js";
 import { IconLink, IconUnlink } from "../Icons.jsx";
 
 // Link — how an edge draws on the plane (ADR-0116). One edge type, and
@@ -8,39 +9,35 @@ import { IconLink, IconUnlink } from "../Icons.jsx";
 //
 // A curve, and with no arrowhead, because an edge is undirected (ADR-0116
 // §6): the mailbox is symmetric, so a marker would promise a direction the
-// store cannot keep — but a *symmetric* curve promises nothing, and the
-// straight diagonal this used to draw read as a stray rule across the
-// plane rather than as a tie between two cards. The line runs between the
-// two connectors in the panels' headers, which is where the gesture starts
-// and ends.
+// store cannot keep.
 //
-// **Which curve**, decided by drawing all three of React Flow's on a real
-// plane with the four arrangements that actually occur (side by side, one
-// above the other, diagonal, overlapping columns):
+// **Where it touches** is not this component's decision and not a handle's
+// either. The plane hands each edge an `anchor` — two points and the two
+// borders they sit on — computed by `canvasAnchors.js` from the two
+// rectangles and from every other link the same panels carry: the border
+// facing the other panel, then a spread along that border so several links
+// out of one panel do not stack. This is React Flow's *floating edge*, and
+// it replaces the version that read `sourceX`/`sourceY` off a single
+// `Position.Top` handle and drew with `getSimpleBezierPath`, which
+// distinguishes only the horizontal sides: "top" was never honoured, the
+// line touched wherever the curve happened to land (a capture of the shipped
+// build has it leaving one panel near its bottom-right corner), and a panel's
+// second link left from the same point as its first.
 //
-//   * `getBezierPath` derives its control points from each handle's
-//     declared side, and both of ours are `Position.Top`. With the target
-//     *below* the source that makes the source control 6.25·√Δy **above**
-//     the source (`calculateControlOffset` takes the sqrt branch for a
-//     negative distance) while the target control sits at the midpoint: the
-//     line leaves the top card going up, hooks over itself and comes back
-//     down. A loop, exactly as feared.
-//   * `getSmoothStepPath` draws orthogonal dog-legs with rounded corners.
-//     It is honest and never loops, but it reads as *wiring* — a flowchart
-//     of directed steps — which is the one thing an undirected mailbox
-//     contact is not.
-//   * `getSimpleBezierPath` ignores Top-vs-Bottom entirely (its `getControl`
-//     only distinguishes the horizontal sides) and puts both control points
-//     on the midline: `[x1, midY]` and `[x2, midY]`. That is a symmetric S
-//     — the same shape whichever end you call source — and it cannot loop,
-//     because neither control ever leaves the band between the two ends.
+// The curve itself is `linkPath`'s, for one reason: the chip needs the
+// curve's own centre and its normal *at that centre*, and only whoever placed
+// the control points can answer that. It puts each control point along its
+// border's outward normal, so the line leaves and enters at a right angle —
+// which is what makes the tie read as attached to the two cards rather than
+// ruled across them — and it is symmetric, so swapping the ends (which the
+// store's sorted pair does arbitrarily) draws the same shape.
 //
-// So: simple bezier, and `connectionLineType` on the plane is
-// `SimpleBezier`, so the line you drag is the line you get. One honest
-// consequence to know before "fixing" it: an S-curve between two points
-// that are **aligned** is a straight line, and that is geometry, not a bug
-// — two panels tidied into the same row still join with a straight
-// segment. The diagonal, which is the case that was reported, bows.
+// One honest consequence, so nobody files it twice: two panels tidied into
+// the same row are joined by a straight horizontal segment, because the
+// shortest tie between two facing borders at the same height is a straight
+// line. What changed is that it is now a short segment in the gap between
+// them instead of a diagonal rule from one header to the other, drawn across
+// whatever sat in between.
 //
 // §7 is the reason this is a component at all: "a broken end does not
 // grant", and it must **read broken** rather than be a dotted line a viewer
@@ -61,9 +58,9 @@ import { IconLink, IconUnlink } from "../Icons.jsx";
 // parallel-edge separation to keep: `validateEdge`
 // (web/shared/domain/canvas.js) and the store's unique ordered pair both
 // refuse a duplicate, and the plane's `isValidConnection` refuses the drop
-// while the pointer is still down. The normal offset below is the *chip's*,
-// pushing one label off its own line — not a fan of arcs. If a second edge
-// per pair is ever allowed, this is where an index-varied curvature goes.
+// while the pointer is still down. The spread is between links to *different*
+// panels; the normal offset below is the *chip's*, pushing one label off its
+// own line.
 //
 // The chip is a real button and the click target that removes; selecting the
 // line and pressing Delete does the same thing (Plane owns that key,
@@ -71,52 +68,40 @@ import { IconLink, IconUnlink } from "../Icons.jsx";
 // removes the panel).
 //
 // **When the chip is drawn** is a decision the first browser pass forced. A
-// straight line between two headers has its midpoint on a panel more often
-// than not, so a chip on every edge covered the name of whatever card it
+// line whose midpoint lands on a panel covered the name of whatever card it
 // crossed. A link that grants keeps its chip for the pointer that asks —
 // hover or selection — and a link that grants nothing keeps it always,
 // because that is the state the owner must not be able to miss. The grace
 // period is what stops the chip vanishing as the pointer travels the gap
 // from the line to it.
-function Link({ id, sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, selected, data }) {
-  // labelX / labelY are the **curve's** centre, from the same function that
-  // drew it — never a midpoint computed here, which would put the chip off
-  // the line the moment the line stopped being straight.
-  const [path, labelX, labelY] = getSimpleBezierPath({
-    sourceX,
-    sourceY,
-    sourcePosition: sourcePosition || Position.Top,
-    targetX,
-    targetY,
-    targetPosition: targetPosition || Position.Top,
-  });
+function Link({ id, sourceX, sourceY, targetX, targetY, selected, data }) {
+  // The anchor is the plane's (`canvasAnchors.anchorLinks`), because the
+  // spread needs every link both panels carry and an edge can only see its
+  // own. The fallback is the handle geometry React Flow hands every edge, so
+  // a frame rendered before the plane's first anchor pass still draws a line
+  // between the two connectors rather than nothing.
+  const anchor = (data && data.anchor) || {
+    sourceX, sourceY, sourceSide: sourceX <= targetX ? "right" : "left",
+    targetX, targetY, targetSide: sourceX <= targetX ? "left" : "right",
+  };
+  // labelX / labelY are the **curve's** centre and nx / ny its normal there,
+  // from the same function that drew it — never a midpoint computed here,
+  // which would put the chip off the line the moment the line bows.
+  const { path, labelX, labelY, nx, ny } = linkPath(anchor);
   const grants = !!(data && data.grants);
   const reason = (data && data.reason) || "";
   const label = (data && data.label) || "link";
   const state = grants ? " is-live" : " is-broken";
   const shown = !grants || selected || !!(data && data.hovered);
-  // The chip does not sit *on* the line's midpoint. Two connectors in two
-  // headers put that midpoint on a panel's name more often than not, so the
-  // whole group is pushed one chip-height along the line's normal: for the
-  // common side-by-side pair that is straight up, into the empty plane above
-  // the headers. The offset is written as a direction and scaled in CSS by
-  // 1 / zoom, so it is the same number of screen pixels at every zoom.
-  // The normal is the **curve's**, not the chord's. For this cubic —
-  // P0 (x1,y1), P1 (x1,m), P2 (x2,m), P3 (x2,y2) with m the midline — the
-  // derivative at t = 0.5 works out to (2·Δx, Δy), so pushing along the
-  // chord's normal would slide the chip along the curve instead of off it.
-  const dx = targetX - sourceX;
-  const dy = targetY - sourceY;
-  const tx = 2 * dx;
-  const ty = dy;
-  const len = Math.hypot(tx, ty) || 1;
-  // Both normals are perpendicular; the stored pair order decides which one
-  // the arithmetic lands on, and that order is the panel ids sorted — not
-  // anything the viewer can see. Pick the same side every time: up, and for
-  // a vertical line, right.
-  let nx = ty / len;
-  let ny = -tx / len;
-  if (ny > 0 || (ny === 0 && nx < 0)) { nx = -nx; ny = -ny; }
+  // The chip does not sit *on* the line's centre. That point lands on a
+  // panel often enough — and, now that a link runs border to border, in the
+  // gap between two close panels where there is no room — so the whole group
+  // is pushed one chip-height along the line's normal: for the common
+  // side-by-side pair that is straight up, into the empty plane. The offset
+  // is written as a direction and scaled in CSS by 1 / zoom, so it is the
+  // same number of screen pixels at every zoom. Which of the two normals
+  // `linkPath` returns is settled there (always up, and right for a vertical
+  // line), because the stored pair order is nothing a viewer can see.
   return (
     <>
       <BaseEdge
@@ -160,3 +145,44 @@ function Link({ id, sourceX, sourceY, sourcePosition, targetX, targetY, targetPo
 }
 
 export default memo(Link);
+
+// ConnectionPreview — the line under the pointer during a drag, and the
+// reason it is a component at all: a preview that anchors differently from
+// the edge it becomes is a preview that lies. React Flow's built-in
+// connection line reads the handle's own position and one of its three path
+// functions; this one runs exactly the two functions the finished edge runs.
+//
+// The moving end has no rectangle, so the pointer stands in as a zero-sized
+// one (`pointAnchor`) and the fixed end still picks the border facing it. Let
+// go over a panel the drop can land on and the far end jumps to *that*
+// panel's facing border — which is where the edge will be a moment later.
+//
+// The one thing it cannot show is the spread: the link being drawn is not in
+// the set yet, so it takes the point facing its target and joins the fan when
+// the store answers. Dropping onto a side that already carries links is
+// therefore the one gesture where the line moves slightly on release.
+export function ConnectionPreview({ fromNode, toNode, toX, toY, connectionStatus }) {
+  const from = rectOf(fromNode);
+  if (!from) return null;
+  const landing = connectionStatus !== "invalid" && toNode && toNode.id !== fromNode.id ? rectOf(toNode) : null;
+  const to = landing || pointAnchor(toX, toY);
+  const a = borderPoint(from, to);
+  const b = landing ? borderPoint(landing, from) : { x: toX, y: toY, side: opposite(a.side) };
+  const { path } = linkPath({
+    sourceX: a.x, sourceY: a.y, sourceSide: a.side,
+    targetX: b.x, targetY: b.y, targetSide: b.side,
+  });
+  return <path d={path} fill="none" className="react-flow__connection-path" />;
+}
+
+const OPPOSITE = { top: "bottom", bottom: "top", left: "right", right: "left" };
+const opposite = (side) => OPPOSITE[side] || "left";
+
+// React Flow's internal node: the absolute position it keeps for the plane,
+// and the size it measured from the DOM.
+function rectOf(node) {
+  const pos = node && node.internals && node.internals.positionAbsolute;
+  const size = (node && node.measured) || {};
+  if (!pos || !size.width || !size.height) return null;
+  return { x: pos.x, y: pos.y, width: size.width, height: size.height };
+}
