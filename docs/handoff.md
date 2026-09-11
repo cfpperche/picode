@@ -7,7 +7,7 @@
 `git worktree list` is the truth for in-flight branches; entries say what a merge must know.
 
 - `feat/communication-recovery` — native state recovery and empty Grok suggestions; unmerged (a683eed7).
-- `feat/floating-edges` — Canvas links anchor on the border facing the other panel, spread when one carries several, and the drag preview matches.
+- `feat/floating-edges` — Canvas links anchor on the border facing the other panel, spread when one carries several; the preview matches.
 - `feat/herdr-validation`, `feat/picode-video-pilot` — pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; on merge keep this shape, changelog to `docs/changelog.d/`.
 
 ## Next up
@@ -52,7 +52,7 @@
 - llama: ARM64 hardware and GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
 - Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip needs on-device confirmation.
 - Canvas (ADR-0108/0118) and Agent CLIs: no docs-shots capture — Canvas needs a `desktop-canvas` profile and fixture; Agent CLIs is not in SURFACE_PROFILES. App-wide: the toast covers a surface's Close, a grow-resize leaves an idle cursor, Inspector branch chips truncate to `· fe… ·…`, a panel's Run reads as a disabled chip.
-- Canvas v2 (C2–C4, 2026-09-10): `+`/`-`/`0` need a focused panel; a still ages only when the feed moved; only the picker adds a `file`/`diff` panel. Edges (ADR-0116): no keyboard path to *draw* a link — the Messages audit list reads and revokes (one read per canvas, capped at 50). Anchors (2026-09-11): the preview cannot show the spread (a crowded drop shifts the line one gap); below zoom ≈0.43 the 12 px grab band hides the header, so the panel cannot be dragged (pre-existing).
+- Canvas v2 (C2–C4, 2026-09-10): `+`/`-`/`0` need a focused panel; a still ages only when the feed moved; only the picker adds a `file`/`diff` panel. Edges (ADR-0116): no keyboard path to *draw* a link — the Messages audit list reads and revokes (one read per canvas, capped at 50). Anchors (2026-09-11): the preview cannot show the spread (a crowded drop shifts the line one gap); below zoom ≈0.43 the 12 px grab band hides the header, so the panel cannot be dragged.
 - Fullscreen (2026-09-11): the browser owns Escape (one press leaves); the right strip's pointer-transparent reveal misses an embedded frame (PDF); icon-only controls show no label without hover (no touch equivalent). Chromium only.
 - Terminal scrollbars (2026-09-11): the web terminal draws none (a tmux client has no scrollback, `term-scrollbar.test.mjs`); the reader's bar is tmux's copy-mode or the TUI's own. A draggable browser bar means the tmux client off the alternate screen — a decision.
 - Notices (2026-09-07): the finish card only fires for the agent whose socket is open.
