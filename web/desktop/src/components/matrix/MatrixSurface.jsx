@@ -35,9 +35,9 @@ const MatrixCanvas = lazy(() => import("./MatrixCanvas.jsx"));
 // docs/plans/matrix-app.md; API docs/architecture/matrix.md). One tab,
 // `x:matrix` / #/app/matrix/<matrixId>: a header with the matrix switcher,
 // New matrix, Add panel and a menu (Rename / Delete); under it the scroll
-// container chunk loading observes, holding one react-grid-layout of
-// panel wrappers. State is { list, byId } reduced by applyCanvasEvent from
-// the change feed; the surface reads /api/matrices once on open and on a
+// container chunk loading observes, holding the plane's panel wrappers
+// (MatrixCanvas). State is { list, byId } reduced by applyCanvasEvent from
+// the change feed; the surface reads /api/canvases once on open and on a
 // reveal older than 10 s, never on a timer. Layout edits are optimistic
 // and saved as the changed subset, debounced 500 ms under ifUpdatedAt; a
 // 409 refetches and says so. "Last matrix opened" is the one thing kept
@@ -89,9 +89,9 @@ function patchPanels(state, id, fn) {
   return { ...state, byId: { ...state.byId, [id]: { ...det, panels: fn(det.panels) } } };
 }
 
-// settle: the feed's matrix.panel.added often beats the POST's own answer;
+// settle: the feed's canvas.panel.added often beats the POST's own answer;
 // the optimistic wrapper of that binding leaves at once, so the two never
-// share a slot for a frame (the compactor would push the real one down).
+// share a rectangle for a frame.
 function settle(state, ev) {
   const d = ev && ev.data;
   if (ev.type !== "canvas.panel.added" || !d || !d.panel) return state;
