@@ -323,31 +323,123 @@ func TestHermesBillingWordsMapOrStayOut(t *testing.T) {
 
 // --- grok -------------------------------------------------------------
 
-func TestGrokIsActivityOnlyAndSaysSo(t *testing.T) {
+// withGrokRoot points GROK_HOME at a fresh tree.
+func withGrokRoot(t *testing.T) string {
+	t.Helper()
 	files.reset()
 	home := t.TempDir()
 	t.Setenv("GROK_HOME", home)
-	dir := filepath.Join(home, "sessions", "%2Frepo")
+	return home
+}
+
+// grokStamp is an RFC3339 timestamp n seconds after the fixture's day-old
+// instant, so every event inside one fixture shares a clock.
+func grokStamp(n int) string {
+	return fixtureNow.AddDate(0, 0, -1).Add(time.Duration(n) * time.Second).Format(time.RFC3339Nano)
+}
+
+func grokWrite(t *testing.T, dir, name, body string) {
+	t.Helper()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	body := `{"timestamp":"` + day(1) + `","session_id":"g1","prompt":"SECRETPROMPT"}` + "\n"
-	if err := os.WriteFile(filepath.Join(dir, "prompt_history.jsonl"), []byte(body), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// grokEventLine is one events.jsonl record.
+func grokEventLine(n int, typ, extra string) string {
+	if extra != "" {
+		extra = "," + extra
+	}
+	return `{"ts":"` + grokStamp(n) + `","type":"` + typ + `"` + extra + "}\n"
+}
+
+// grokTurnEvents is the one turn every fixture shares: two model loops (4s
+// and 3s), one tool of 500ms that failed, and a 9s turn window.
+func grokTurnEvents() string {
+	return grokEventLine(1, "turn_started", `"turn_number":0`) +
+		grokEventLine(2, "loop_started", `"loop_index":0`) +
+		grokEventLine(4, "first_token", "") +
+		grokEventLine(6, "tool_started", `"tool_name":"run_terminal_command"`) +
+		grokEventLine(6, "tool_completed", `"tool_name":"run_terminal_command","duration_ms":500,"outcome":"error"`) +
+		grokEventLine(7, "loop_started", `"loop_index":1`) +
+		grokEventLine(8, "first_token", "") +
+		grokEventLine(10, "turn_ended", `"outcome":"completed"`)
+}
+
+// grokTurnEvents2 is a second turn ten seconds later, with no tool.
+func grokTurnEvents2() string {
+	return grokEventLine(21, "turn_started", `"turn_number":1`) +
+		grokEventLine(22, "loop_started", `"loop_index":0`) +
+		grokEventLine(23, "first_token", "") +
+		grokEventLine(30, "turn_ended", `"outcome":"completed"`)
+}
+
+// grokUsage is what usage.json holds once Grok has priced a turn: 1e9 ticks
+// is $0.10 at its own 10^10 ticks per USD.
+func grokUsage(endStamp string) string {
+	return `{"sessionId":"g1","updatedAt":"` + endStamp + `",` +
+		`"session":{"primaryModelId":"grok-4.6"},` +
+		`"turns":[{"turnNumber":1,"endedAt":"` + endStamp + `",` +
+		`"inputTokens":1000,"outputTokens":250,"cachedReadTokens":500,` +
+		`"cacheCreationTokens":0,"reasoningTokens":50,"totalTokens":1800,` +
+		`"modelCalls":2,"costUsdTicks":1000000000,"primaryModelId":"grok-4.6"}]}`
+}
+
+const grokSummaryJSON = `{"info":{"id":"g1","cwd":"/repo"},"session_summary":"Ship it","current_model_id":"grok-4.6"}`
+
+func TestGrokReadsPromptsTurnsToolsAndUsage(t *testing.T) {
+	home := withGrokRoot(t)
+	folder := filepath.Join(home, "sessions", "%2Frepo")
+	grokWrite(t, folder, "prompt_history.jsonl",
+		`{"timestamp":"`+grokStamp(0)+`","session_id":"g1","prompt":"SECRETPROMPT"}`+"\n")
+	sess := filepath.Join(folder, "g1")
+	grokWrite(t, sess, "summary.json", grokSummaryJSON)
+	grokWrite(t, sess, "events.jsonl", grokTurnEvents())
+	grokWrite(t, sess, "usage.json", grokUsage(grokStamp(10)))
 
 	w, err := GrokMeter{}.Meter(req(ScopeMachine, 7))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if w.Stats.Current.Messages != 1 {
-		t.Fatalf("messages = %d, want 1", w.Stats.Current.Messages)
+	if w.Stats.Current.Messages != 2 {
+		t.Fatalf("messages = %d, want 2 (one prompt, one turn)", w.Stats.Current.Messages)
 	}
-	if w.Coverage.Signals[SigCost] != StateNotReported || w.Coverage.Signals[SigTokens] != StateNotReported {
-		t.Fatalf("grok must report cost and tokens as unmeasured, not zero: %+v", w.Coverage.Signals)
+	if w.Stats.Turns.Assistant != 1 || w.Stats.Turns.User != 1 {
+		t.Fatalf("turns = %+v, want one assistant and one user", w.Stats.Turns)
 	}
-	if w.Coverage.Signals[SigMessages] != StateReported {
-		t.Fatal("prompt counts are real and must say so")
+	if got := w.Stats.Tokens; got.Input != 1000 || got.Output != 250 || got.CacheRead != 500 || got.Reasoning != 50 {
+		t.Fatalf("tokens = %+v", got)
+	}
+	if !approx(w.Stats.Current.Cost, 0.10) {
+		t.Fatalf("cost = %v, want 0.10 from costUsdTicks", w.Stats.Current.Cost)
+	}
+	// Model time is loop_started→tool_started (4s) plus loop_started→turn_ended
+	// (3s); the tool is its own duration, and the turn window is 9s.
+	if w.Timing == nil || w.Timing.APIMs != 7000 || w.Timing.ToolMs != 500 || w.Timing.SessionMs != 9000 {
+		t.Fatalf("timing = %+v", w.Timing)
+	}
+	if len(w.Stats.Tools) != 1 || w.Stats.Tools[0].Name != "run_terminal_command" || w.Stats.Tools[0].Calls != 1 {
+		t.Fatalf("tools = %+v", w.Stats.Tools)
+	}
+	if w.Stats.Turns.Errors != 1 {
+		t.Fatalf("errors = %d, want the failed tool completion", w.Stats.Turns.Errors)
+	}
+	if len(w.Stats.ByModel) != 1 || w.Stats.ByModel[0].Provider != "xai" || w.Stats.ByModel[0].Model != "grok-4.6" {
+		t.Fatalf("byModel = %+v", w.Stats.ByModel)
+	}
+	if len(w.Stats.TopSessions) != 1 || w.Stats.TopSessions[0].Name != "Ship it" {
+		t.Fatalf("topSessions = %+v, want the session title summary.json carries", w.Stats.TopSessions)
+	}
+	for _, sig := range []Signal{SigCost, SigTokens, SigModel, SigMessages, SigTurns, SigTools, SigErrors, SigTiming} {
+		if w.Coverage.Signals[sig] != StateReported {
+			t.Fatalf("%s coverage = %v, want reported: %+v", sig, w.Coverage.Signals[sig], w.Coverage.Signals)
+		}
+	}
+	if w.Coverage.Signals[SigImpact] != StateNotReported || w.Coverage.Signals[SigLimits] != StateNotReported {
+		t.Fatalf("grok counts no lines and no quota window: %+v", w.Coverage.Signals)
 	}
 	blob, _ := json.Marshal(w.Stats)
 	if strings.Contains(string(blob), "SECRETPROMPT") {
@@ -357,6 +449,95 @@ func TestGrokIsActivityOnlyAndSaysSo(t *testing.T) {
 	// window can claim it.
 	if len(w.Stats.ByWorkspace) != 1 || w.Stats.ByWorkspace[0].Cwd != "/repo" {
 		t.Fatalf("byWorkspace = %+v", w.Stats.ByWorkspace)
+	}
+}
+
+func TestGrokPromptsAloneSayWhatIsMissing(t *testing.T) {
+	home := withGrokRoot(t)
+	folder := filepath.Join(home, "sessions", "%2Frepo")
+	grokWrite(t, folder, "prompt_history.jsonl",
+		`{"timestamp":"`+grokStamp(0)+`","session_id":"g1","prompt":"SECRETPROMPT"}`+"\n")
+
+	w, err := GrokMeter{}.Meter(req(ScopeMachine, 7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Stats.Current.Messages != 1 {
+		t.Fatalf("messages = %d, want 1", w.Stats.Current.Messages)
+	}
+	if w.Coverage.Signals[SigMessages] != StateReported {
+		t.Fatal("prompt counts are real and must say so")
+	}
+	if w.Coverage.Signals[SigTokens] != StateNotReported || w.Coverage.Signals[SigCost] != StateNotReported {
+		t.Fatalf("a folder with no session directory has nothing to price: %+v", w.Coverage.Signals)
+	}
+}
+
+func TestGrokWithoutUsageSaysTokensAreMissing(t *testing.T) {
+	home := withGrokRoot(t)
+	sess := filepath.Join(home, "sessions", "%2Frepo", "g1")
+	grokWrite(t, sess, "summary.json", grokSummaryJSON)
+	grokWrite(t, sess, "events.jsonl", grokTurnEvents())
+
+	w, err := GrokMeter{}.Meter(req(ScopeMachine, 7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The timeline is real: turns, tools and durations exist without usage.json.
+	if w.Stats.Turns.Assistant != 1 || len(w.Stats.Tools) != 1 {
+		t.Fatalf("turns/tools = %+v / %+v", w.Stats.Turns, w.Stats.Tools)
+	}
+	if w.Timing == nil || w.Timing.APIMs != 7000 || w.Timing.ToolMs != 500 {
+		t.Fatalf("timing = %+v — durations must survive a session with no tokens", w.Timing)
+	}
+	if w.Coverage.Signals[SigTurns] != StateReported || w.Coverage.Signals[SigTools] != StateReported || w.Coverage.Signals[SigTiming] != StateReported {
+		t.Fatalf("timeline coverage = %+v", w.Coverage.Signals)
+	}
+	if w.Coverage.Signals[SigTokens] != StateNotReported || w.Coverage.Signals[SigCost] != StateNotReported {
+		t.Fatalf("tokens/cost must read as unmeasured, not zero: %+v", w.Coverage.Signals)
+	}
+}
+
+func TestGrokPartialUsageNamesBothCounts(t *testing.T) {
+	home := withGrokRoot(t)
+	sess := filepath.Join(home, "sessions", "%2Frepo", "g1")
+	grokWrite(t, sess, "summary.json", grokSummaryJSON)
+	grokWrite(t, sess, "events.jsonl", grokTurnEvents()+grokTurnEvents2())
+	grokWrite(t, sess, "usage.json", grokUsage(grokStamp(10)))
+
+	w, err := GrokMeter{}.Meter(req(ScopeMachine, 7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Stats.Turns.Assistant != 2 {
+		t.Fatalf("turns = %d, want both turns even though only one is priced", w.Stats.Turns.Assistant)
+	}
+	if w.Coverage.Signals[SigTokens] != StatePartial || w.Coverage.Signals[SigCost] != StatePartial {
+		t.Fatalf("tokens/cost coverage = %+v, want partial", w.Coverage.Signals)
+	}
+	if !strings.Contains(w.Coverage.Note, "1 of 2") {
+		t.Fatalf("note must name both counts: %q", w.Coverage.Note)
+	}
+}
+
+func TestGrokUsageAloneStillCountsTheTurn(t *testing.T) {
+	home := withGrokRoot(t)
+	sess := filepath.Join(home, "sessions", "%2Frepo", "g1")
+	grokWrite(t, sess, "summary.json", grokSummaryJSON)
+	grokWrite(t, sess, "usage.json", grokUsage(grokStamp(10)))
+
+	w, err := GrokMeter{}.Meter(req(ScopeMachine, 7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Stats.Turns.Assistant != 1 || w.Stats.Tokens.Output != 250 {
+		t.Fatalf("turns/tokens = %d / %+v", w.Stats.Turns.Assistant, w.Stats.Tokens)
+	}
+	if w.Timing != nil {
+		t.Fatalf("timing = %+v, want none: no events file was written", w.Timing)
+	}
+	if w.Coverage.Signals[SigTiming] != StateNotReported {
+		t.Fatalf("timing coverage = %v", w.Coverage.Signals[SigTiming])
 	}
 }
 
