@@ -168,3 +168,105 @@ is a DOM node; there is no unit harness for `ShellTerm`); the last two are
 - **Bumping `apiVersion` to 2** for the field — would refuse every app on
   a stale bundle instead of only the native one; the optional-field
   precedent of the 2026-09-01 amendments is exactly this case.
+
+## Amendment 2026-09-11 — an app does not leak into PiCode's interface; the doors are a closed list
+
+The owner's words, the day the Canvas's background control was found in
+Preferences: *"canvas é um app standalone e não deve contaminar nenhuma GUI
+no PiCode além do próprio app … isso deve ser uma diretriz de projeto: apps
+não vazarem para interface do PiCode a menos que seja uma porta explícita
+das diretrizes."*
+
+The rule is **not** "an app may never appear outside itself" — the apps host
+exists precisely so an app can be reached from the shell. The rule is that
+**the ways an app reaches the host are declared by the host and are a closed
+list**. An app names nothing about a host surface; the host names an app by
+its **id** and by the fields of its manifest, and nothing else.
+
+### The doors, as the code draws them today
+
+| Door | Where it is | What the app supplies |
+|---|---|---|
+| **The tile on the Apps grid, and its badge** | `web/desktop/src/components/AppsGrid.jsx`, from `GET /api/apps`; the count/dot aggregates onto the sidebar tab icon | `Manifest.Name`, `Manifest.Icon`, `Badge()` — never markup |
+| **One main tab** | `x:<id>` on the tab strip, peer of agents/terminals/editors; the host owns the strip, the ×, restore and the Inspector anchor | nothing: the host opens and closes it |
+| **The app's own body, inside that tab** | `AppSurface` rendering `/api/apps/{id}/view`, or — `surface: "native"` — the component this shell registered (`web/desktop/src/lib/nativeApps.js`) | everything it draws, as long as it draws it **there** |
+| **The manifest's `icon` key** | `web/desktop/src/components/AppIcon.jsx` — a fixed host map (`flask`, `inbox`, `grid`, `box`, `canvas`); an unknown key falls back to a letter tile | one string from that map. The host owns the glyph |
+| **The `host` object** | `App.jsx`'s native mount: `{fleet, openTabs, openTab, openInteractive, revealAgent, openFileTab, feed}`, plus the `initialPath` / `onPathChange` pair | nothing — it is the whole API a native app gets, and it grows only by review, as `apps.Host` does |
+| **The hash route the host owns** | `#/app/<id>[/<path>]` (`appHash` / `appRoute` / `appPath`, `web/desktop/src/lib/routes.js`); the phone answers the same route with its own honest line | a `path` string, which the host stamps into its own hash |
+
+Anything else is a **leak**: a group in Preferences, a section inside another
+surface, a row in a host list, a sidebar entry, a palette entry, a class in
+the host's stylesheet, a key in the host's preferences that only the app
+reads. A leak is not fixed by a commit — it needs a new door, which means an
+amendment here saying what the door is and why the host owns it.
+
+Direction is the test that settles most cases: **the host may name an app;
+an app may never name a host surface.** `App.jsx` deciding not to auto-open
+What's New while the Inbox's badge is blocking (`inboxNeedsYou`) is the host
+reading a door it declared. The phone's home queue folding `/api/inbox` rows
+into `needsYou` is the same direction and has its own decision (ADR-0044) —
+which is exactly the form the rule asks for.
+
+The 2026-08-31 amendment to ADR-0036 imagined primitives as "connective
+tissue in host chrome … inbox items, sidebar rows, palette entries,
+notifications". Nothing has ever shipped: no app contributes to host chrome
+today. That paragraph is a direction, not a door. When contributed chrome is
+built, it arrives as a declared door with its own decision.
+
+### The two cases this amendment was written against
+
+**Preferences → Appearance → Canvas background was a leak, and is gone.**
+`Settings.jsx` imported `canvasPattern.js`, held the value in state and drew
+a four-card radiogroup for a setting that means nothing outside one app; the
+`⋯` menu's `Background…` item existed only to navigate to it. The control
+now lives in the Canvas's own `⋯` menu as a **Background** submenu
+(`DropdownMenu.Sub` with four `RadioItem`s, the current one ticked, the rows
+staying open while you pick so the plane behind them is the preview), and
+`PatternSwatch.jsx` moved into `components/canvas/` with it. **The value did
+not move**: `web/shared/domain/canvasPattern.js` keeps its key
+(`picode-canvas-pattern`), because the preference is per viewer and the app
+owns it — only the *control* was in the wrong place. Preferences is back to
+PiCode's own chrome, and its Appearance section is the theme and nothing
+else.
+
+**The Messages audit list is a door, and stays — reworded as the host's.**
+ADR-0116 required a non-spatial place to audit link grants, because a
+security control drawn with a mouse must be auditable somewhere that is not
+the canvas. The honest reading is that **the grant is the host's**: it lives
+in `peer_connections`, it changes who the mailbox lets talk, and a canvas is
+only where a human happened to draw one. A host surface listing the host's
+own grants is host business. So it is declared a door, with the conditions
+that make it one:
+
+- it is **Messages' section**, worded as contacts granted by a link drawn on
+  a canvas — not "the Canvas, over here" (`CanvasLinks.jsx` →
+  `web/desktop/src/components/GrantedContacts.jsx`, heading **Granted
+  contacts**);
+- it **imports nothing from `components/canvas/`**. Its dependencies are the
+  shared domain modules (`canvas.js`, `canvasGrants.js`) and the host's own
+  `appHash`, the same ones any host surface may use;
+- it revokes through the same `DELETE …/edges/{id}` the canvas calls, so the
+  two can never disagree.
+
+Had those failed, it would have been a leak.
+
+### The mechanical half
+
+`web/tools/app-boundary.test.mjs` (`make test-js`) asserts the direction for
+the first native app: nothing under `web/desktop/src/` outside
+`components/canvas/` imports that tree or `canvasPattern.js`, except the
+host's own native-surface mount in `App.jsx`; and `Settings.jsx` contains no
+mention of a canvas at all. A second native app adds a row. The test cannot
+see a *route* or an *id*, which is the point — those are the doors.
+
+### Consequences
+
+- A control that belongs to an app is found where the app is. The Canvas's
+  ground is now changed on the plane, which is also where it is noticed.
+- Preferences stops growing one group per app. That was the real cost: four
+  cards for one app's texture set the precedent that every app may add a
+  group, and eleven apps later Appearance is a junk drawer.
+- A leak now has a name and a test, so it fails in CI rather than in review.
+- **If wrong**: the list is descriptive, not prophetic — a genuine need for
+  contributed host chrome is an amendment adding a door, not a reason to
+  stop declaring them.
