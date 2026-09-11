@@ -2685,6 +2685,7 @@ export default function App() {
         onGitGraph={openGitTab}
         onFileTree={openTreeTab}
         onOpenDashboard={() => { setDashboardPinned(true); setNavigationOpen(false); }}
+        onOpenClis={() => { go("clis"); setNavigationOpen(false); }}
         apps={apps}
         nativeApps={NATIVE_APPS}
         onOpenApp={(id) => { openTab(appTabId(id)); if (parseRoute() !== "workspace") location.hash = appHash(id); }}

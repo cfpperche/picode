@@ -171,13 +171,12 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
           cli={selected.id}
           pane={pane}
           workspace={route.workspace || ""}
-          actions={pane === "launch" ? (launchEditing ? <span className="cli-muted">Editing defaults</span> : <button type="button" className="btn btn-ghost btn-sm" onClick={() => setLaunchEditing(true)}>Customize</button>) : null}
         />
         {pane === "launch" ? <>
           <div className="cli-integration"><label htmlFor="cli-integration">Activity reporting <span>{selected.config.integration ? "On for new launches" : "Off for new launches"}</span></label>
             <Switch.Root id="cli-integration" className="rx-switch" checked={selected.config.integration} disabled={!!busy} onCheckedChange={(value) => { const old = selected.config.integration; setData((cur) => ({ ...cur, clis: cur.clis.map((c) => c.id === selected.id ? { ...c, config: { ...c.config, integration: value } } : c) })); run("integration", async () => { try { const v = await api(`/api/clis/${selected.id}`, json("PUT", { ...selected.config, integration: value })); if (v.problem) toastError(new Error(v.problem)); } catch (e) { setData((cur) => ({ ...cur, clis: cur.clis.map((c) => c.id === selected.id ? { ...c, config: { ...c.config, integration: old } } : c) })); throw e; } }).catch(() => {}); }}><Switch.Thumb className="rx-switch-thumb" /></Switch.Root>
           </div>
-          <CLIDefaults cli={selected} hideTitle editing={launchEditing} onEditingChange={setLaunchEditing} editRequested={editRequested.id === selected.id ? editRequested.at : 0} busy={!!busy} onSave={async (c) => { await run("settings", async () => { const v = await api(`/api/clis/${selected.id}`, json("PUT", c)); if (v.problem) toastError(new Error(v.problem)); else toast.ok("Launch settings saved."); }); }} />
+          <CLIDefaults cli={selected} editing={launchEditing} onEditingChange={setLaunchEditing} editRequested={editRequested.id === selected.id ? editRequested.at : 0} busy={!!busy} onSave={async (c) => { await run("settings", async () => { const v = await api(`/api/clis/${selected.id}`, json("PUT", c)); if (v.problem) toastError(new Error(v.problem)); else toast.ok("Launch settings saved."); }); }} />
           <CLIDiagnostics cli={selected} terminals={data.terminals} busy={!!busy} run={run} />
           <CLIProfiles cli={selected} profiles={data.profiles} run={run} busy={!!busy} />
           <a className="cli-docs" href={selected.docs} target="_blank" rel="noreferrer">{selected.name} documentation ↗</a>
