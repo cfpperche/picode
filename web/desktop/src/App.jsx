@@ -22,7 +22,6 @@ import DashboardView from "./components/DashboardView.jsx";
 import SessionBar from "./components/SessionBar.jsx";
 import ChatSurface from "./components/ChatSurface.jsx";
 import TermSurface from "./components/TermSurface.jsx";
-import BrowserSurface from "./components/BrowserSurface.jsx";
 import FileSurface from "./components/FileSurface.jsx";
 import Inspector, { InspectorToggle, useInspectorLayout } from "./components/Inspector.jsx";
 import GitGraphSurface from "./components/GitGraphSurface.jsx";
@@ -192,7 +191,6 @@ export default function App() {
   const [formBusy, setFormBusy] = useState(false);
   const [piSessions, setPiSessions] = useState(null);
   const [termWanted, setTermWanted] = useState(() => new Set(readTermWanted()));
-  const [browserWanted, setBrowserWanted] = useState(() => new Set()); // ADR-0114, ephemeral on purpose
   const [termEpochs, setTermEpochs] = useState({});
   const [tuiWorking, setTuiWorking] = useState([]);
   const [checklists, setChecklists] = useState({});
@@ -316,7 +314,6 @@ export default function App() {
   const tuiBusy = !!(agent && agent.mode === "interactive" && tuiWorking.includes(agent.id));
   const interactive = !!(agent && agent.mode === "interactive");
   const termView = !!(selectedId && termWanted.has(selectedId));
-  const browserView = !!(selectedId && browserWanted.has(selectedId));
   const atAgents = useMemo(
     () => mentionAgents(workspaces, freeAgents, selectedId),
     [workspaces, freeAgents, selectedId],
@@ -2513,20 +2510,11 @@ export default function App() {
   function showTerm() {
     if (!selectedId) return;
     setTermWanted((s) => new Set(s).add(selectedId));
-    setBrowserWanted((s) => { const n = new Set(s); n.delete(selectedId); return n; });
     if (!interactive) openInteractive(selectedId);
   }
 
   function showChat() {
     if (!selectedId) return;
-    setTermWanted((s) => { const n = new Set(s); n.delete(selectedId); return n; });
-    setBrowserWanted((s) => { const n = new Set(s); n.delete(selectedId); return n; });
-  }
-
-  // Browser surface (ADR-0114): the third agent-tab view, watch-only.
-  function showBrowser() {
-    if (!selectedId) return;
-    setBrowserWanted((s) => new Set(s).add(selectedId));
     setTermWanted((s) => { const n = new Set(s); n.delete(selectedId); return n; });
   }
 
@@ -2665,19 +2653,12 @@ export default function App() {
             n.delete(id);
             return n;
           });
-          setBrowserWanted((s) => { const n = new Set(s); n.delete(id); return n; });
         }}
         onTerm={(id) => {
           revealAgent(id);
           setTermWanted((s) => new Set(s).add(id));
-          setBrowserWanted((s) => { const n = new Set(s); n.delete(id); return n; });
           const loc = locate(workspaces, freeAgents, id);
           if (loc && loc.agent && loc.agent.mode !== "interactive") openInteractive(id);
-        }}
-        onBrowser={(id) => {
-          revealAgent(id);
-          setBrowserWanted((s) => new Set(s).add(id));
-          setTermWanted((s) => { const n = new Set(s); n.delete(id); return n; });
         }}
         userMenu={{
           host,
@@ -2864,7 +2845,7 @@ export default function App() {
             );
           })}
           <ChatSurface
-            hidden={noTabs || missing || termView || browserView || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId)}
+            hidden={noTabs || missing || termView || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId)}
             stopped={stopped}
             items={items}
             earlierRemaining={earlierRemaining}
@@ -3080,9 +3061,6 @@ export default function App() {
             )
           ) : null}
 
-          {browserView && !onPane && agent ? (
-            <BrowserSurface agentId={agent.id} onBack={showChat} />
-          ) : null}
         </div>
 
         <AgentClis catalog={catalog} onCatalogChange={setCatalog} legacyContextReady={bootstrapped} legacyPackageContext={{ workspaceId: paneWs?.id || "", agentId: agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "") }} packageUpdates={pkgUpdates} onPackageUpdates={(updates, workspaceId) => { if ((paneWs?.id || "") === workspaceId) setPkgUpdates(updates); }} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} onRenameTerm={renameTerminal} />

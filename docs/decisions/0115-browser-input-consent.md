@@ -1,6 +1,6 @@
 # ADR-0115: Browser surface input — control behind session consent
 
-- **Status**: accepted (owner approved phase 2 — "pode fazer" — 2026-09-10)
+- **Status**: superseded by ADR-0117 (feature removed 2026-09-10)
 - **Date**: 2026-09-10
 - **Boundary**: security model (an authenticated client can now drive the
   agent's browser — mouse, keyboard, touch — not only watch) and protocol

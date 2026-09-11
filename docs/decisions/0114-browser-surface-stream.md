@@ -1,7 +1,6 @@
 # ADR-0114: Browser surface — the daemon proxies the engine's stream WebSocket
 
-- **Status**: accepted (owner approved the surface direction and the
-  stream-proxy plan — "aprovado, vamos seguir nessa linha de surface" — 2026-09-10)
+- **Status**: superseded by ADR-0117 (feature removed 2026-09-10)
 - **Date**: 2026-09-10
 - **Boundary**: protocol (a new authenticated WebSocket proxy joins the
   daemon's public surface) and security model (frames and — in a later phase —
