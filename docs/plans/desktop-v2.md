@@ -52,6 +52,16 @@ truth; the shell is a client and a supervisor, never a second backend.
 | Pairing in the embedded profile | QR/token once; session persists under `%LOCALAPPDATA%` |
 | Duplicated keepalive during transition | Go tray and shell coexist; one-wins in Phase 2 |
 
+## Spike run — 2026-09-11 (evidence + owner checklist)
+
+| Spike | Status |
+|---|---|
+| Feed SSE (server side) | **Verified live**: `GET /api/events` streams (`event: hello`, bootId + latest). Owner: watch the feed update live in the window. |
+| Native notification | **Implemented** as the tray item **Test notification**. Windows shows toasts for unpackaged apps only when a Start Menu shortcut with the app identity exists — a silent drop is the spike telling Phase 2's installer to create that shortcut. |
+| mkcert/HTTPS | Owner: the window must show the UI over `https://localhost:8445` with no certificate warning (the CA is machine-trusted by provision). |
+| Pairing | Owner: the UI must be fully usable with no pair screen — loopback auto-pairs (ADR-0049, mode remote). |
+| xterm.js/WebGL | Owner: open an agent terminal, type, and check the render is smooth (canvas/WebGL enabled). |
+
 ## Conscious debt
 
 - Optimize-VHD from the tray/app (needs an elevation design).

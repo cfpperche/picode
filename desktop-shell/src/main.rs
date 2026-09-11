@@ -14,11 +14,13 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager, WebviewUrl, WebviewWindowBuilder,
 };
+use tauri_plugin_notification::NotificationExt;
 
 fn main() {
     let url = discover_server_url();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // A second launch means someone wanted PiCode on screen: focus the
             // window the first instance already owns instead of starting over.
@@ -38,8 +40,12 @@ fn main() {
                 .build()?;
 
             let open = MenuItem::with_id(app, "open", "Open PiCode", true, None::<&str>)?;
+            // Phase 1 spike (docs/plans/desktop-v2.md): prove native
+            // notifications from the shell — the agent-finished notice of
+            // Phase 2 hangs off this same door.
+            let notify = MenuItem::with_id(app, "notify", "Test notification", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit (the service keeps running)", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open, &quit])?;
+            let menu = Menu::with_items(app, &[&open, &notify, &quit])?;
 
             TrayIconBuilder::with_id("picode")
                 .icon(app.default_window_icon().expect("bundled icon").clone())
@@ -48,6 +54,21 @@ fn main() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, ev| match ev.id.as_ref() {
                     "open" => show_main(app),
+                    "notify" => {
+                        // Windows shows toasts for unpackaged apps only when a
+                        // Start Menu shortcut with the app identity exists; a
+                        // silent drop here is the spike saying the installer
+                        // (Phase 2) must create that shortcut.
+                        if let Err(e) = app
+                            .notification()
+                            .builder()
+                            .title("PiCode")
+                            .body("Native notifications work.")
+                            .show()
+                        {
+                            eprintln!("notification: {e}");
+                        }
+                    }
                     "quit" => app.exit(0),
                     _ => {}
                 })
