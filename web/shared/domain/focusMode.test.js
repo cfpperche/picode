@@ -274,6 +274,67 @@ test("on, rail open before the mode started: all three strips exist", () => {
   assert.deepEqual(activeZones(onState()), ["left", "top", "right"]);
 });
 
+// --- row: the Inspector toggle -> the rail, without waiting for the edge --
+
+test("on, rail closed before the mode started: the toggle shows the rail now", () => {
+  const s = focusReduce(initialFocusState(), { type: "enter", railOpen: false });
+  const next = focusReduce(s, { type: "reveal", zone: "right", pinned: true });
+  assert.equal(next.railWasOpen, true, "showing it is the assertion that it exists");
+  assert.equal(next.reveal, "right");
+  assert.equal(next.pinned, true);
+  assert.deepEqual(activeZones(next), ["left", "top", "right"], "the edge works from then on");
+  assert.deepEqual(chromeState(next), { sidebar: "hidden", tabs: "hidden", rail: "revealed" });
+});
+
+test("on: a panel a control opened does not close behind the pointer", () => {
+  const opened = focusReduce(onState(), { type: "reveal", zone: "right", pinned: true });
+  // The pointer is elsewhere from the first move and never enters the rail:
+  // the toggle lives in the tab strip, so it never had to.
+  const away = focusReduce(opened, { type: "point", zone: null, inside: null, at: 10 });
+  assert.equal(away.closing, null);
+  assert.equal(focusReduce(away, { type: "tick", at: 10 + DWELL_OUT_MS }).reveal, "right");
+});
+
+test("on, pinned: a dwell on another strip replaces it, transient again", () => {
+  const opened = focusReduce(onState(), { type: "reveal", zone: "right", pinned: true });
+  const armed = focusReduce(opened, { type: "point", zone: "top", inside: null, at: 0 });
+  assert.equal(armed.armed.zone, "top", "the pinned rail does not block the tabs");
+  const tabs = focusReduce(armed, { type: "tick", at: DWELL_IN_MS });
+  assert.equal(tabs.reveal, "top");
+  assert.equal(tabs.pinned, false);
+});
+
+test("on: the control takes the panel down, and Escape is the other way out", () => {
+  const opened = focusReduce(onState(), { type: "reveal", zone: "right", pinned: true });
+  const down = focusReduce(opened, { type: "reveal", zone: null });
+  assert.equal(down.reveal, null);
+  assert.equal(down.pinned, false);
+  assert.equal(down.on, true, "taking the panel down is not leaving the mode");
+  const escaped = focusReduce(opened, { type: "escape" });
+  assert.equal(escaped.reveal, null);
+  assert.equal(escaped.pinned, false);
+  assert.equal(escaped.on, true, "the first Escape closes the reveal");
+});
+
+test("on: the shell can put the rail on screen in the middle of the mode", () => {
+  const closed = focusReduce(initialFocusState(), { type: "enter", railOpen: false });
+  assert.deepEqual(activeZones(closed), ["left", "top"]);
+  const opened = focusReduce(closed, { type: "rail", open: true });
+  assert.deepEqual(activeZones(opened), ["left", "top", "right"]);
+  assert.equal(focusReduce(opened, { type: "rail", open: false }).railWasOpen, false);
+});
+
+test("on: a rail that leaves the screen takes its own reveal, not the others", () => {
+  const sidebar = run(onState(), [{ type: "point", zone: "left", inside: null, at: 0 }, { type: "tick", at: DWELL_IN_MS }]);
+  assert.equal(sidebar.reveal, "left");
+  assert.equal(focusReduce(sidebar, { type: "rail", open: false }).reveal, "left");
+  const rail = focusReduce(onState(), { type: "reveal", zone: "right", pinned: true });
+  const gone = focusReduce(rail, { type: "rail", open: false });
+  assert.equal(gone.reveal, null);
+  assert.equal(gone.railWasOpen, false);
+  assert.deepEqual(activeZones(gone), ["left", "top"]);
+});
+
 // --- the hot-zone hit test ------------------------------------------------
 
 test("hotZone: the edges, the corner and the middle", () => {
@@ -317,6 +378,8 @@ test("events are ignored while the mode is off", () => {
   for (const ev of [
     { type: "point", zone: "left", inside: null, at: 0 },
     { type: "tick", at: 9999 },
+    { type: "reveal", zone: "right", pinned: true },
+    { type: "rail", open: true },
     { type: "escape" },
     { type: "browser", active: true },
     { type: "leave" },

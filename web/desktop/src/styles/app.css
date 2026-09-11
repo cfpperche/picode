@@ -4942,19 +4942,19 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   .focus-edge-right { top: 0; right: 0; bottom: 0; width: var(--focus-edge, 6px); pointer-events: none; }
 
   /* The way out that needs no keyboard, at the right end of the tab strip
-     — the same 28px as the inspector toggle beside it, but with a surface
-     of its own: bare icon+label among icon buttons reads as a status
-     label, not as the control it is. */
+     — the same 28px as the inspector toggle beside it. The glyph is the
+     whole control: the label and the chord are the hint. The surface and
+     the border are what keep it from dissolving into the row of icon
+     buttons, so they stay. */
   .focus-leave {
-    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
-    height: 28px; padding: 0 8px; margin-left: 6px;
+    width: 28px; height: 28px; padding: 0; margin-left: 6px;
+    display: grid; place-items: center;
     border: 1px solid var(--border-strong); border-radius: var(--radius-ctl);
     background: var(--bg-base); color: var(--text-primary);
-    font: inherit; font-size: 12px; cursor: pointer; flex: none;
+    cursor: pointer; flex: none;
   }
   .focus-leave:hover { background: var(--bg-hover); border-color: var(--accent); }
   .focus-leave:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .focus-leave .um-key { margin-left: 2px; }
 }
 @media (prefers-reduced-motion: reduce) {
   #app.focus-on #sidebar,

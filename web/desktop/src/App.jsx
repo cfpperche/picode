@@ -97,7 +97,7 @@ import { isAutomateCommand, automatePrompt, parseAutomateReply } from "./lib/aut
 import { writeAutomationDraft } from "./lib/automationDraft.js";
 import { isValidCron } from "@picode/shared/domain/cron.js";
 import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners } from "./lib/openTabs.js";
-import { anchorFor, askedNote, ownerExists, readInspectorPrefs, runFallbackNote, writeInspectorPrefs } from "./lib/inspector.js";
+import { anchorFor, askedNote, ownerExists, readInspectorPrefs, runFallbackNote, writeInspectorPrefs, INSPECTOR_MIN, maxInspectorWidth } from "./lib/inspector.js";
 import { sessionsHash } from "./lib/routes.js";
 import Hotkeys from "./components/Hotkeys.jsx";
 import Changelog from "./components/Changelog.jsx";
@@ -154,13 +154,6 @@ export default function App() {
   const inspectorLayout = useInspectorLayout({ open: inspectorPrefs.open, width: inspectorPrefs.width, narrow });
   const inspectorWantOpenRef = useRef(inspectorLayout.wantOpen);
   inspectorWantOpenRef.current = inspectorLayout.wantOpen;
-  const toggleInspector = useCallback(() => {
-    setInspectorPrefs((p) => {
-      const next = { ...p, open: !inspectorWantOpenRef.current };
-      writeInspectorPrefs(next);
-      return next;
-    });
-  }, []);
   const rememberInspector = useCallback((patch) => {
     setInspectorPrefs((p) => {
       const next = { ...p, ...patch };
@@ -173,6 +166,37 @@ export default function App() {
   // right edge strip exists at all once the mode starts.
   const focusOk = focusAvailable(narrow, route !== "workspace");
   const focus = useFocusMode({ railOpen: inspectorLayout.shown, available: focusOk });
+  // The mode reads the rail through refs so this callback keeps one identity
+  // for the keydown listener below, which unsubscribes on focusOk alone.
+  const focusRef = useRef(focus);
+  focusRef.current = focus;
+  // Whether the rail fits at all, whatever the preference says:
+  // inspectorLayout only reports "squeezed" once wantOpen is true, and the
+  // toggle has to be honest before the click, not after it.
+  const railFits = maxInspectorWidth(inspectorLayout.appWidth, inspectorLayout.sidebarWidth) >= INSPECTOR_MIN;
+  const railFitsRef = useRef(railFits);
+  railFitsRef.current = railFits;
+  // The toggle: dock and undock everywhere, like any other control that
+  // changes the layout. In fullscreen it also shows or hides the panel now,
+  // because the mode keeps the rail off screen — flipping the preference
+  // alone displayed nothing at all. Showing it docks the rail when it was
+  // closed (the panel has to exist) and reveals it; hiding only takes the
+  // overlay down, so the mode never undocks what the viewer set outside it.
+  const toggleInspector = useCallback(() => {
+    const mode = focusRef.current;
+    if (mode.on) {
+      if (mode.reveal === "right") { mode.show(null); return; }
+      if (!railFitsRef.current) return;
+      if (!inspectorWantOpenRef.current) setInspectorPrefs((p) => { const next = { ...p, open: true }; writeInspectorPrefs(next); return next; });
+      mode.show("right");
+      return;
+    }
+    setInspectorPrefs((p) => {
+      const next = { ...p, open: !inspectorWantOpenRef.current };
+      writeInspectorPrefs(next);
+      return next;
+    });
+  }, []);
   const [ctxMenu, setCtxMenu] = useState(null);
   // The server's action catalog (ADR-0096): which git actions exist and what
   // risk tier each carries. Read once; with none, the graph offers no write
@@ -2707,7 +2731,11 @@ export default function App() {
             keepVisible={focus.on}
             endSlot={narrow ? null : (
               <>
-                <InspectorToggle shown={inspectorLayout.shown} reason={inspectorLayout.reason} onToggle={toggleInspector} />
+                <InspectorToggle
+                  shown={focus.on ? focus.reveal === "right" : inspectorLayout.shown}
+                  reason={railFits ? inspectorLayout.reason : (narrow ? "narrow" : "squeezed")}
+                  onToggle={toggleInspector}
+                />
                 {focus.on ? <FocusLeave onLeave={focus.leave} /> : null}
               </>
             )}
