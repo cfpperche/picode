@@ -290,8 +290,8 @@ export default function Packages({ hidden, embedded = false, workspaceId, worksp
                           {p.installedPath ? <span className="pkg-path" title={p.installedPath}>{p.installedPath}</span> : null}
                         </div>
                         <div className="pkg-card-foot">
-                          {p.configKind === "roles" ? (
-                            <a className="btn btn-sm" href={configHash("pi-roles")}>Configure</a>
+                          {p.configKind ? (
+                            <a className="btn btn-sm" href={configHash(p.configKind === "roles" ? "pi-roles" : p.configKind)}>Configure</a>
                           ) : null}
                           {u ? (
                             <button type="button" className="btn btn-primary btn-sm" onClick={() => updatePkg(p)} disabled={!!job} title={u.current && u.latest ? u.current + " → " + u.latest : undefined}>Update</button>

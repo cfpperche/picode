@@ -286,3 +286,29 @@ export const peerParticipantsSchema = z.object({
     enabled: z.boolean(), revision: z.number().int().nonnegative(),
   })).min(1, "Select a participant first.").max(100, "Update up to 100 participants at a time."),
 });
+
+// Descriptor-driven package config (docs/plans/package-config-manifest.md):
+// the server's descriptor carries the rules; this builds the same grammar
+// client-side, so the form and the PUT agree before anything is sent.
+// Values travel as the file stores them — strings, booleans, numbers.
+export function descriptorValuesSchema(fields) {
+  const shape = {};
+  for (const f of fields || []) {
+    const required = !!f.required;
+    let s;
+    if (f.type === "enum") {
+      const options = (f.options || []).filter((o) => o !== "");
+      s = z.enum(options.length ? options : ["—"]);
+      s = required ? s.refine((v) => v !== "—", { message: `${f.label} is required.` }) : s.or(z.literal(""));
+    } else if (f.type === "boolean") {
+      s = z.boolean();
+    } else if (f.type === "number") {
+      s = z.coerce.number({ invalid_type_error: `${f.label} must be a number.` });
+    } else {
+      s = z.string();
+      if (required) s = s.min(1, `${f.label} is required.`);
+    }
+    shape[f.key] = s;
+  }
+  return z.object(shape);
+}
