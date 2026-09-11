@@ -317,41 +317,6 @@
         ]
       }
     },
-    "/api/agents/{id}/browser-input": {
-      "post": {
-        "operationId": "postApiAgentsBrowser-input",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "401": {
-            "description": "Not paired"
-          }
-        },
-        "tags": [
-          "agents"
-        ]
-      }
-    },
     "/api/agents/{id}/checklist": {
       "get": {
         "operationId": "getApiAgentsChecklist",
@@ -8511,25 +8476,6 @@
         ]
       }
     },
-    "/ws/browser": {
-      "get": {
-        "description": "Upgrades to a WebSocket session; not request/response HTTP.",
-        "operationId": "getWsBrowser",
-        "parameters": null,
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "401": {
-            "description": "Not paired"
-          }
-        },
-        "summary": "WebSocket upgrade",
-        "tags": [
-          "browser"
-        ]
-      }
-    },
     "/ws/term": {
       "get": {
         "description": "Upgrades to a WebSocket session; not request/response HTTP.",
@@ -8576,9 +8522,6 @@
     },
     {
       "name": "backup"
-    },
-    {
-      "name": "browser"
     },
     {
       "name": "catalog"
