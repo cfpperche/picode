@@ -12,6 +12,7 @@
 
 ## Next up
 
+0. Desktop v2 (ADR-0120, skeleton): the five Phase-1 spikes before Phase 2 — `docs/plans/desktop-v2.md`.
 1. Runbook step 6 (0.2.0, tag `v0.2.0`): watch the owner's window; a regression becomes a patch tag, never a rewritten one.
 2. Dashboard throughput (tokens/s): definition (generation vs turn; reasoning in/out), per-CLI coverage, UI gates. Codex's `duration_ms`/`time_to_first_token_ms` still unread; Grok's timings shipped.
 3. Package config descriptors (ADR-0119 accepted; C0–C5 shipped, GUI-validated; docs-site Packages page done) is feature-complete. Backlog (owner, 2026-09-11): upstream `picode.config` proposal. If ever requested: workspace-scope per-agent overlays. Plan: `docs/plans/package-config-manifest.md`.
@@ -29,11 +30,11 @@
 
 - Process (ADR-0105): worktrees start with a cold Go test cache; `.pi/compact.json` `atPercent 0.5` never fires for large-window models (peaks 379 K); capture tolerance is 128 px.
 - Communication (ADR-0104/0106/0107/0111): physical-mobile and non-Linux pane/process recovery, and custom Codex resume global args/`--`, unverified. PTY rechecks cannot remove the check-to-write race; uncertain attempts never auto-retry. Orphan private setup files need cleanup after owner deletion.
-- Codex resume (2026-09-11): a live sub-agent hook payload was never captured — filter field names come from the 0.154 binary roster; a pin that is already a sub-agent persists until that terminal's next native session.
+- Codex resume: a live sub-agent hook payload was never captured (field names from the 0.154 roster); a sub-agent pin persists until that terminal next native session.
 - Communication onboarding (ADR-0110/0111): unobserved conversations need a first native event; six-CLI rerun and long wrapped OpenCode footers pending. Partial rows 5, 9, 12 in `docs/plans/communication-onboarding.md`: moved-owner consent, missing-adapter repair, stubborn-child timeout.
 - Native packages/providers/settings: real downloads, vendor OAuth, credential changes, device acceptance, physical iPhone/PWA/IME and a real process restart remain external; mobile package configuration is desktop-only (`docs/plans/cli-native-packages.md`).
 - Inbox terminal replies: pi-inbox 0.1.x items (`pi (unmanaged)`) have no address until each pi session updates; daemon death between park and JSONL row is accepted.
-- Hermes: `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`. OpenCode live Needs-you unverified.
+- Hermes: `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`.
 - Handoff (ADR-0088/0094): upstream formats undocumented (bump = refused write); Codex/Grok list a handed-off session only after a restart or by id; Hermes flattens tool calls.
 - CLI pane-death (ADR-0085): an owned OpenCode QA stop left two processes after its pane closed. Signal-chain repair is separate; ADR-0084 pins nothing for terminals stopped before it.
 - Windows `Close` kills only its direct child. `internal/server` tests swap package-level probes, so `t.Parallel` would race; `scripts/go-test.sh` shards by process.
