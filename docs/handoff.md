@@ -6,15 +6,14 @@
 
 `git worktree list` is the truth for in-flight branches; entries say what a merge must know.
 
-- `feat/providers-density` — roster is a six-column table (one row per account); CSS in shared `web/shared/styles/providers.css`; visual-review PASS, unmerged. Study: `docs/benchmarks/2026-09-11-providers-density.md`.
-- `feat/canvas-resize` — screen-constant resize targets (`--cv-px`), `--canvas-pattern` + `⋯ → Background…`, curved links; merging now.
 - `feat/communication-recovery` — native state recovery and empty Grok suggestions; unmerged (a683eed7).
 - `feat/herdr-validation`, `feat/picode-video-pilot` — pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; next merge conflicts: keep this shape, changelog to `docs/changelog.d/`.
+
 ## Next up
 
 1. Runbook step 6 (0.2.0, tag `v0.2.0`): watch the owner's window; a regression becomes a patch tag, never a rewritten one.
 2. Dashboard throughput (tokens/s): definition (generation vs turn; reasoning in/out), per-CLI coverage, UI gates. Codex's `duration_ms`/`time_to_first_token_ms` still unread; Grok's timings shipped.
-3. Package config descriptors remainder (ADR-0119, C0–C2 shipped): C3 catalog sweep of installed packages + upstream `picode.config` proposal; owner acceptance of the ADR. Plan: `docs/plans/package-config-manifest.md`.
+3. Package config descriptors remainder (ADR-0119; web-search + compact shipped, GUI-validated): upstream `picode.config` proposal, docs-site entry for the Packages view, workspace-scope per-agent overlays if ever requested. Plan: `docs/plans/package-config-manifest.md`.
 2. Canvas v1.1 (`docs/plans/matrix-app.md` §5 phase 5): quick reply line in a chat panel, frozen-frame placeholders, drag from the sidebar, inspector follows focus, tile badge. v1 phases 0–4 done; v2 done through C4; C5 (group nodes, one layout library) needs its own plan.
 3. llama delivery 3 live validation; owned-service ARM64 acceptance.
 4. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
