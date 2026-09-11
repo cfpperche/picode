@@ -58,6 +58,7 @@ func handleTerminalTuiHello(deps Deps) http.HandlerFunc {
 			Session    string `json:"session"`
 			Connection string `json:"connection"`
 			RunID      string `json:"runId"`
+			PID        int    `json:"pid"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		id := r.PathValue("id")
@@ -72,6 +73,7 @@ func handleTerminalTuiHello(deps Deps) http.HandlerFunc {
 			}
 		}
 		deps.Replies.helloConnectionProcess(termReplyKey(id), req.Session, req.Connection, req.RunID)
+		deps.Replies.notePID(termReplyKey(id), req.PID)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -186,6 +188,17 @@ func (deps Deps) DeliverTerminalReply(itemID, verb, text string) (termID string,
 	if !deps.Replies.receiverFresh(key) {
 		return termID, fmt.Errorf("no receiver is listening in %s. Restart pi there, then send the reply again", name)
 	}
+	// A fresh receiver that names no conversation cannot answer for any item:
+	// it is a pi in this terminal that never opened a session (a nested
+	// print-mode pi, or one still starting — the terminal id and the reply
+	// directory come from the environment, not from a session). Parking the
+	// item and letting that process refuse it is how a reply became "the
+	// terminal is showing a different session" with no session in sight
+	// (2026-09-11). Refuse before parking, and name the truth.
+	shown := deps.Replies.receiverSession(key)
+	if shown == "" {
+		return termID, fmt.Errorf("%s has not opened a conversation yet. Send it a message there first, then send the reply again", name)
+	}
 	sessionPath := strings.TrimSpace(it.SessionPath)
 	if sessionPath == "" {
 		return termID, errors.New("this question predates session tracking — answer it in the terminal")
@@ -196,7 +209,7 @@ func (deps Deps) DeliverTerminalReply(itemID, verb, text string) (termID string,
 	if st, err := os.Stat(sessionPath); err != nil || st.IsDir() || st.Size() == 0 {
 		return termID, errors.New("the question's session no longer exists — answer it in the terminal")
 	}
-	if shown := deps.Replies.receiverSession(key); shown != "" && shown != sessionPath {
+	if shown != sessionPath {
 		return termID, errors.New("the terminal is showing a different session now — answer it there, or ask again from the new session")
 	}
 	deps.Replies.mu.Lock()

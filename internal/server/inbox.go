@@ -91,8 +91,10 @@ func handleRespondInbox(deps Deps) http.HandlerFunc {
 		id := r.PathValue("id")
 		// A question filed by pi in an Agent CLI terminal (sourceKind
 		// "terminal", ADR-0089's amendment) is answered through that
-		// terminal's receiver — the task queue is an agent's.
-		if it, err := deps.Store.GetInboxItem(id); err == nil && it.SourceKind == store.InboxFromTerminal {
+		// terminal's receiver — the task queue is an agent's. Ignore is the
+		// exception: it sends nothing, so it closes the item locally like an
+		// agent's ignore does, however the terminal looks right now.
+		if it, err := deps.Store.GetInboxItem(id); err == nil && it.SourceKind == store.InboxFromTerminal && req.Verb != store.VerbIgnore {
 			if _, err := deps.DeliverTerminalReply(id, req.Verb, req.Text); err != nil {
 				if errors.Is(err, store.ErrNotFound) {
 					writeErr(w, http.StatusConflict, "terminal no longer exists — reply not delivered; the item stays open")

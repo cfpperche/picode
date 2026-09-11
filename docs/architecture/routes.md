@@ -152,10 +152,17 @@ A question filed by `ask_human` from pi running as an Agent CLI terminal
 arrives with `sourceKind: "terminal"` (pi-inbox stamps `PICODE_TERM_ID`,
 ADR-0037's 2026-09-09 amendment), and its Inbox reply takes the same
 receiver door in reverse: `DeliverTerminalReply` preflights the terminal
-(is pi, live, receiver fresh, the item's exact session still shown) and
-parks done on send, reopening with the response preserved on every
-failure — no task row, the queue belongs to agents. A source with no
-identity at all (`system`) has no channel: `RespondAndForward` refuses
+(is pi, live, receiver fresh, the hello names a session and it is the
+item's exact session) and parks done on send, reopening with the response
+preserved on every failure — no task row, the queue belongs to agents.
+Every pi that inherited the terminal id watches that terminal's reply
+directory (a nested `pi -p`, a print-mode run, the TUI itself), so each
+reply file names the pid whose hello the daemon accepted and only that
+process consumes it; a process with no session of its own leaves the file
+for the one that can answer (ADR-0060's 2026-09-11 amendment). **Ignore is
+not a reply**: it sends nothing, so it closes the item locally however the
+terminal looks right now — exactly as it does for an agent. A source with
+no identity at all (`system`) has no channel: `RespondAndForward` refuses
 with `ErrNoReplyChannel`, the item stays open, and the UI says to answer
 it in the terminal — replying never closes an item while nothing was
 sent.

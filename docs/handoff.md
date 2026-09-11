@@ -7,8 +7,8 @@
 
 `git worktree list` is the truth for in-flight branches; entries say what a merge must know.
 
-- `feat/canvas-only` — ADR-0118: migration 045 converts grid panels and renames the three tables; `/api/canvases…`, `canvas.*`, `components/canvas/` (`.cv-` classes) and the word gone from the app; `#/app/matrix[/<id>]` and `x:matrix` redirect, the two per-viewer keys migrate; react-grid-layout/react-resizable out, surface lazy (−18 KB gzip first load). `ci-scoped` green, unmerged.
 - `feat/changelog-normalize` — `make changelog` heals a drifted `[Unreleased]` (one heading per type); the runbook's step 5 gains the isolated-instance and seed-a-terminal rules ADR-0063 implies. `ci-scoped` green, unmerged.
+- `feat/inbox-terminal-reply` — terminal items ignore locally; a session-less receiver is refused before parking; reply files are addressed by pid (ADR-0060 amendment). `ci-scoped` green, unmerged.
 - `feat/clis-terminals-section` — the Agent CLIs view drops its general Terminals tab: a CLI's page keeps the one list, `#/clis/terminals` resolves to the catalog. `ci-scoped` green, unmerged.
 - `feat/herdr-validation`, `feat/picode-video-pilot` — carry pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; next `main` merge conflicts in both: keep this file's shape, changelog lines to `docs/changelog.d/`.
 ## Next up
@@ -44,12 +44,12 @@
 - CLI lifecycle: npm data can lag native Claude releases by hours; grok uninstall is guided-only; Windows paths out of scope.
 - Pi has one active credential slot; per-agent OAuth is the owner's.
 - Tutorial video freshness audits are stale after source relocation. Branch protection and CODEOWNERS need the owner; desktop asks for `/desktop/favicon.svg` and gets 404.
-- Inspector: the Files filter covers loaded rows only; This-agent chips need the agent's tab selected; `gh pr view` answers cache a minute. Debts (ADR-0096): `git ls-files` search, per-anchor watch, `+N −M` footer.
+- Inspector: the Files filter covers loaded rows only; This-agent chips need the agent's tab selected; `gh pr view` answers cache a minute. Debts (ADR-0096): `git ls-files` search, per-anchor watch.
 - llama: ARM64 hardware and GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
-- Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip needs on-device confirmation (Preferences → Layout).
+- Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip needs on-device confirmation.
 - Canvas (ADR-0108/0118): no docs-shots capture — needs a `desktop-canvas` profile and a fixture, so the guide has no screenshots. App-wide, from its captures: the toast covers a surface's Close, dialogs have no scrim and little dark elevation, a grow-resize leaves an idle cursor.
-- Canvas v2 (C2–C4, 2026-09-10): `+`/`-`/`0` need a focused panel; a still stamps its age only when the feed moved; only the picker adds a `file`/`diff` panel (ADR-0109). Edges (ADR-0116): no keyboard path to *draw* a link (React Flow's `Handle` offers none), so the Messages audit list is the keyboard way to read and revoke, at one canvas read per canvas (capped at 50).
-- Fullscreen mode (2026-09-10): real browser fullscreen owns Escape, so one press leaves the mode; the double-Escape is in-app-only. The right strip is pointer-transparent, so its reveal misses an embedded frame (PDF preview). Chromium only.
+- Canvas v2 (C2–C4, 2026-09-10): `+`/`-`/`0` need a focused panel; a still stamps its age only when the feed moved; only the picker adds a `file`/`diff` panel (ADR-0109). Edges (ADR-0116): no keyboard path to *draw* a link, so the Messages audit list is the keyboard way to read and revoke, at one canvas read per canvas (capped at 50).
+- Fullscreen (2026-09-10): real browser fullscreen owns Escape, so one press leaves the mode; double-Escape is in-app only. The right strip is pointer-transparent, so its reveal misses an embedded frame (PDF preview). Chromium only.
 - Notices (2026-09-07): the finish card only fires for the agent whose socket is open.
-- Canvas chat panels (phase 4): a live panel is a watcher for `Hub.Len()`, so it suppresses the unobserved-result item and the needs-you push as an open tab does; the App socket and a panel's hand off rather than coexist.
-- Native surfaces (ADR-0109): `host` has no `openTerminal` — the Canvas POSTs `/api/terminals/{id}/open` itself; a tab closing under a panel remounts the body with a fresh xterm. An unsupported tile explains itself only via `title`.
+- Canvas chat panels (phase 4): a live panel is a `Hub.Len()` watcher, so it suppresses the unobserved-result item and the needs-you push like an open tab; App socket and panel hand off, never coexist.
+- Native surfaces (ADR-0109): `host` has no `openTerminal` — the Canvas POSTs `/api/terminals/{id}/open` itself; a tab closing under a panel remounts the body with a fresh xterm.
