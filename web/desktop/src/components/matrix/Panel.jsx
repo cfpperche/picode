@@ -70,6 +70,7 @@ export function PanelHead({ model, loaded, maximized, handlers, fixed, note, con
           type="button"
           className={"mx-links nodrag" + (links.broken ? " is-broken" : "")}
           title={links.title}
+          aria-label={links.title}
           onClick={() => handlers.onLinks(model)}
         >
           {links.broken ? <IconUnlink size={11} /> : <IconLink size={11} />}

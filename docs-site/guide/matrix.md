@@ -147,10 +147,10 @@ and that is all.
 **What a link never does.** It does not let one session read the other's
 history — not its transcript, not its scrollback, not its session file, not
 what you typed into it. Those often hold file contents, command output and
-credentials, and reading is copying: once a session had another's log, no
-amount of removing the line could take it back. If one agent needs to know
-what another found, it asks — and the other answers in its own words, with
-its own judgement about what to share.
+credentials, and reading is copying: once a session has copied another
+one's log, no amount of removing the line could take it back. If one agent
+needs to know what another found, it asks — and the other answers in its own
+words, with its own judgment about what to share.
 
 **PiCode will always ask first.** Drawing a line never connects anything
 quietly:
