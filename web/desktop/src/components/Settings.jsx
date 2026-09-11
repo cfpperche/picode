@@ -12,7 +12,7 @@ import { agentFinishNotice } from "@picode/shared/domain/notice.js";
 import { readToastPrefs, persistToastPrefs, TOAST_POSITIONS } from "../lib/toastPrefs.js";
 import { persistReminderPrefs, readReminderPrefs } from "@picode/shared/domain/pinReminder.js";
 import { readContextMenuPrefs, persistContextMenuPrefs, CTX_MODIFIERS } from "../lib/contextMenuPrefs.js";
-import { persistCanvasPattern, readCanvasPattern } from "@picode/shared/domain/canvasPattern.js";
+import { CANVAS_PATTERN_EVENT, persistCanvasPattern, readCanvasPattern } from "@picode/shared/domain/canvasPattern.js";
 import AppKeys from "./AppKeys.jsx";
 import FolderField from "./FolderField.jsx";
 import AccessSection from "./AccessSection.jsx";
@@ -155,6 +155,15 @@ export default function Settings({ hidden, themeMode, onTheme }) {
     function onHash() { setSec(prefSection()); }
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  // This page is mounted for the whole session behind `hidden`, so its copy
+  // of the preference would age out the moment another tab (or a later
+  // build of this one) wrote a different value. The planes already listen;
+  // the page that offers the choice has to agree with them.
+  useEffect(() => {
+    function onPattern() { setBgPattern(readCanvasPattern()); }
+    window.addEventListener(CANVAS_PATTERN_EVENT, onPattern);
+    return () => window.removeEventListener(CANVAS_PATTERN_EVENT, onPattern);
   }, []);
   return (
     <PageFrame id="preferences-view" title="Preferences" hidden={hidden}>

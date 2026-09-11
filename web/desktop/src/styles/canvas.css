@@ -308,15 +308,30 @@
    colour is here, so switching theme re-tints the ground on the next paint
    with no reload and no observer.
 
-   Two weights, both from the border tokens, because the two shapes cover
-   very different amounts of the plane: a 1px dot every four cells is nearly
-   nothing, so it takes --border-strong to be seen at all, while a full grid
-   of lines at that weight would read as graph paper and fight the panels.
-   Lines and cross therefore take the hairline the rest of the app uses.
+   Two weights, both from the border tokens, and the split is by how much of
+   the plane a shape covers, not by which shape it is. Dots and crosses are
+   sparse marks — a 1px dot or a 6px tick every four cells is nearly nothing
+   — so they take --border-strong to be seen at all; at the hairline weight
+   a cross on a light plane is below the threshold of noticing. Lines cover
+   every cell edge, and at --border-strong that reads as graph paper and
+   fights the panels, so the grid takes the hairline instead.
    "plain" sets nothing: it renders no <Background> at all. */
 .cv-canvas-flow[data-bg="dots"] .react-flow { --xy-background-pattern-color: var(--border-strong); }
-.cv-canvas-flow[data-bg="lines"] .react-flow,
-.cv-canvas-flow[data-bg="cross"] .react-flow { --xy-background-pattern-color: var(--border); }
+.cv-canvas-flow[data-bg="cross"] .react-flow { --xy-background-pattern-color: var(--border-strong); }
+.cv-canvas-flow[data-bg="lines"] .react-flow { --xy-background-pattern-color: var(--border); }
+
+/* The minimap's mask darkens everything *outside* the current view, and how
+   much darkening reads as "dimmed" is not the same number in both themes:
+   45 % black is right over a near-black plane and, over a light one, paints
+   a mid-grey slab heavier than anything else on the surface — the minimap
+   stops being a map and becomes the loudest object on the plane. Light
+   keeps the convention (outside is dimmer) at a weight the theme can carry,
+   and softens the node rectangles with it. */
+:root[data-theme="light"] .cv-canvas-flow .react-flow {
+  --xy-minimap-mask-background-color-default: color-mix(in srgb, #000 16%, transparent);
+  --xy-minimap-node-background-color-default: var(--border-strong);
+  --xy-minimap-node-stroke-color-default: var(--bg-panel);
+}
 
 /* A node is the panel wrapper and nothing else — the same header, chip and
    actions the maximize layer reuses. On a plane the panel body and it share
