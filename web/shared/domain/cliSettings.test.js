@@ -18,6 +18,7 @@ test("native settings routes preserve identity, legacy context and explicit glob
   assert.equal(cliSettingsLocation("#/clis/settings/pi", "A").redirect, "#/clis/pi/settings");
   assert.equal(cliSettingsLocation("#/clis/pi/settings", "A").agentId, "");
   assert.equal(cliSettingsLocation("#/clis/pi/settings", "A").redirect, "");
+  assert.equal(cliSettingsLocation("#/clis/pi/settings/extra").invalid, true);
   assert.equal(cliSettingsLocation("#/preferences"), null);
 });
 

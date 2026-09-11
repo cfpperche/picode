@@ -9,7 +9,7 @@ const EDITORS = { pi: { Editor: PiSettings, loadContext: loadPiSettingsContext }
 export default function CliSettings({ hidden, route, catalog, onAgentConfig }) {
   const supported = supportsCliSettings(route.id);
   return <section id="cli-settings-view" hidden={hidden}>
-    {!supported ? <div className="cli-notice" role="status"><span>Settings are not available for this CLI.</span><a className="btn btn-ghost btn-sm" href={cliSettingsHash("pi")}>Open Pi settings</a></div>
+    {route.invalid || !supported ? <div className="cli-notice" role="status"><span>{route.invalid ? "This settings link is invalid." : "Settings are not available for this CLI."}</span><a className="btn btn-ghost btn-sm" href={cliSettingsHash("pi")}>Open Pi settings</a></div>
       : !hidden ? <SettingsEditor key={route.id + ":" + route.agentId} route={route} catalog={catalog} onAgentConfig={onAgentConfig} /> : null}
   </section>;
 }

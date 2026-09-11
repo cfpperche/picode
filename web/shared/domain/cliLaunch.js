@@ -24,14 +24,14 @@ function sessionsLocation(cli, workspace) {
   return { view: "clis", id, pane: "sessions", ...(workspace ? { workspace } : {}), redirect: cliPaneHash(id, "sessions", workspace) };
 }
 
-export function cliLocation(hash = "") {
+export function cliLocation(hash = "", legacy = {}) {
   const providers = cliProvidersLocation(hash);
   if (providers) return providers;
-  const packages = cliPackagesLocation(hash);
+  const packages = cliPackagesLocation(hash, legacy.packageContext || {});
   if (packages) return packages;
-  const settings = cliSettingsLocation(hash);
+  const settings = cliSettingsLocation(hash, legacy.agentId || "");
   if (settings) return settings;
-  const connectors = cliConnectorsLocation(hash);
+  const connectors = cliConnectorsLocation(hash, legacy.packageContext || {});
   if (connectors) return connectors;
   const [path, query] = hash.split("?");
   const parts = path.replace(/^#\//, "").split("/");

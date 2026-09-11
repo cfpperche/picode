@@ -21,8 +21,8 @@ Clicking an agent in the sidebar leaves this page and opens that agent.
 | | pi TUI | PiCode |
 |---|---|---|
 | Adapter | `pi install npm:pi-mcp-adapter` | Packages |
-| Servers | edit JSON | `#/mcps` |
+| Servers | edit JSON | Agent CLIs → Connectors |
 | Import Cursor/Claude/Codex | adapter CLI | **Use from…** (mirror, pick servers) |
 
-No adapter → `#/mcps` is one line and **Open packages**. It does not write files.
+No adapter → Connectors is one line and **Open packages**. It does not write files.
 The page works with a terminal selected; it does not need an agent open.

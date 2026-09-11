@@ -198,6 +198,17 @@ test("native provider navigation and compatibility aliases", () => {
 test("provider command navigation opens canonical list or add", () => {
   const previous = globalThis.location;
   globalThis.location = { hash: "" };
-  try { go("providers"); assert.equal(location.hash, "#/clis/pi/providers"); go("providers-new"); assert.equal(location.hash, "#/clis/pi/providers/new"); }
+  try {
+    go("providers"); assert.equal(location.hash, "#/clis/pi/providers");
+    go("providers-new"); assert.equal(location.hash, "#/clis/pi/providers/new");
+    go("mcps", "A", { workspaceId: "W" });
+    assert.equal(location.hash, "#/clis/pi/connectors?workspaceId=W&agentId=A");
+    go("connectors", "A", { workspaceId: "W" });
+    assert.equal(location.hash, "#/clis/pi/connectors?workspaceId=W&agentId=A");
+    go("packages", "A", { workspaceId: "W" });
+    assert.equal(location.hash, "#/clis/pi/packages?workspaceId=W&agentId=A");
+    go("settings", "A", { workspaceId: "W" });
+    assert.equal(location.hash, "#/clis/pi/settings?agentId=A");
+  }
   finally { globalThis.location = previous; }
 });

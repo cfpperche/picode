@@ -20,6 +20,17 @@ test("connectors nest on the selected CLI; webhooks stay platform", () => {
   assert.equal(cliConnectorsLocation("#/mcps").redirect, "#/clis/pi/connectors");
   assert.equal(cliConnectorsLocation("#/clis/pi/connectors").redirect, "");
   assert.equal(cliConnectorsLocation("#/integrations/webhooks"), null);
+  assert.equal(cliConnectorsLocation("#/clis/connectors").redirect, "#/clis/pi/connectors");
+  assert.equal(cliConnectorsLocation("#/clis/connectors").id, "pi");
+  assert.equal(cliConnectorsLocation("#/clis/connectors").adoptPane, undefined);
+  assert.equal(cliConnectorsLocation("#/clis/pi/connectors/extra").invalid, true);
+  const scoped = cliConnectorsLocation("#/clis/pi/connectors?workspaceId=w&agentId=a");
+  assert.equal(scoped.agentId, "a");
+  assert.equal(scoped.workspaceId, "w");
+  assert.equal(scoped.redirect, "");
+  const adopted = cliConnectorsLocation("#/mcps", { workspaceId: "w", agentId: "a" });
+  assert.equal(adopted.adoptPane, true);
+  assert.equal(adopted.redirect, "#/clis/pi/connectors?workspaceId=w&agentId=a");
 });
 
 test("connector tabs keep the catalog fixed and list only hosts with servers", () => {

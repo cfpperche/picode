@@ -7,6 +7,8 @@ import { askConfirm } from "../lib/confirm.js";
 import { toast, toastError } from "../lib/toast.js";
 import { cliLaunchSchema, cliTerminalSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { cliLocation, cliPaneHash, launchDraft, launchConfig, editLaunchOverrides, resolveLaunch, cliTerminals, terminalLaunchCLI, profileOverrides, cliWorkspaceList } from "@picode/shared/domain/cliLaunch.js";
+import { loadPiPackagesContext } from "@picode/shared/domain/cliPackages.js";
+import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { terminalCli, terminalStatusLabel, terminalStatus } from "@picode/shared/domain/terminalCli.js";
 import { termHash } from "../lib/routes.js";
 import AgentClisFrame from "./AgentClisFrame.jsx";
@@ -18,7 +20,7 @@ import CliPackages from "./CliPackages.jsx";
 import { supportsCliConnectors, cliConnectorsHash } from "@picode/shared/domain/integrations.js";
 import Mcps from "./Mcps.jsx";
 import SessionsView from "./SessionsView.jsx";
-import CliPaneTabs from "./CliPaneTabs.jsx";
+import CliPaneTabs, { cliSetupHref } from "./CliPaneTabs.jsx";
 import CliCombo from "./CliCombo.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { IconChevronRight } from "./Icons.jsx";
@@ -35,7 +37,7 @@ function Notice({ children, action, onAction, danger = false }) {
 
 export default function AgentClis({ hidden = false, catalog, onCatalogChange, legacyAgentId = "", legacyPackageContext = {}, legacyContextReady = true, packageUpdates = [], onPackageUpdates, onAgentConfig, onOpenAgent = () => {}, onCompactAgent = () => {}, onRenameTerm, onReloadAgent }) {
   const [hash, setHash] = useState(location.hash);
-  const route = cliLocation(hash);
+  const route = cliLocation(hash, { packageContext: legacyPackageContext, agentId: legacyAgentId });
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
@@ -60,8 +62,9 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
   useEffect(() => {
     if (hidden || route.view === "messages") return;
     if (hash === "#/preferences/status") location.replace("#/clis");
+    if (route.adoptPane && !legacyContextReady) return;
     if (route.redirect && route.redirect !== hash) location.replace(route.redirect);
-  }, [hidden, hash, route.view, route.redirect]);
+  }, [hidden, hash, route.view, route.redirect, route.adoptPane, legacyContextReady]);
   useEffect(() => {
     if (hidden || route.view === "messages") return;
     refresh();
@@ -142,7 +145,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
     {!data && !error ? <div className="cli-loading" aria-label="Loading Agent CLIs"><div /><div /><div /></div> : null}
     {data && !data.terminalAvailable ? <Notice action="Open System" onAction={() => { location.hash = "#/system"; }}>Terminal control is unavailable.</Notice> : null}
     {data && route.view === "clis" && selected ? <div className="cli-layout">
-      <nav className="cli-catalog" aria-label="Compatible CLIs">{data.clis.map((c) => <a key={c.id} href={cliPaneHash(c.id, pane, pane === "sessions" ? (route.workspace || "") : "")} aria-current={c.id === selected.id ? "page" : undefined}>
+      <nav className="cli-catalog" aria-label="Compatible CLIs">{data.clis.map((c) => <a key={c.id} href={c.id === selected.id ? cliSetupHref(c.id, pane, route, route.workspace || "") : cliPaneHash(c.id, pane, pane === "sessions" ? (route.workspace || "") : "")} aria-current={c.id === selected.id ? "page" : undefined}>
         <TerminalCliBadge term={{ cli: c.id }} /><span><strong>{c.name}</strong><small>{c.installed ? (c.diagnostic?.updateAvailable ? "Update available" : "Installed") : "Not found"}</small></span>{c.diagnostic?.updateAvailable ? <span className="cli-update-pill">Update</span> : null}<IconChevronRight size={14} />
       </a>)}</nav>
       <div className="cli-detail" key={selected.id}>
@@ -171,6 +174,10 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
           cli={selected.id}
           pane={pane}
           workspace={route.workspace || ""}
+          workspaceId={route.workspaceId || ""}
+          agentId={route.agentId || ""}
+          scope={route.scope || "user"}
+          focus={route.focus || ""}
           hasPackageUpdates={packageUpdates.length > 0}
         />
         {pane === "launch" ? <>
@@ -206,7 +213,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
         /> : null}
         {pane === "settings" ? <CliSettings hidden={false} route={route} catalog={catalog} onAgentConfig={onAgentConfig} /> : null}
         {pane === "packages" ? <CliPackages hidden={false} route={route} catalog={catalog} onPackageUpdates={onPackageUpdates} describe={new URLSearchParams((hash || "").split("?")[1] || "").get("describe") === "1"} /> : null}
-        {pane === "connectors" ? <ConnectorsPane route={route} data={data} onReload={onReloadAgent} /> : null}
+        {pane === "connectors" ? <ConnectorsPane route={route} onReload={onReloadAgent} /> : null}
       </div>
     </div> : null}
     {data && (route.view === "new" || route.view === "terminal") ? <TerminalEditor key={hash} route={route} data={data} run={run} busy={!!busy} /> : null}
@@ -214,24 +221,35 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
   </AgentClisFrame>;
 }
 
-function ConnectorsPane({ route, data, onReload }) {
+function ConnectorsPane({ route, onReload }) {
   const supported = supportsCliConnectors(route.id);
+  const [ctx, setCtx] = useState(null);
+  const [error, setError] = useState(null);
+  useEffect(() => {
+    if (route.invalid || !supported) return undefined;
+    let live = true;
+    loadPiPackagesContext(route, api).then((next) => { if (live) { setCtx(next); setError(null); } }).catch((err) => { if (live) setError(err); });
+    return () => { live = false; };
+  }, [route.workspaceId, route.agentId, route.scope, route.invalid, supported]);
   if (route.invalid || !supported) {
     return <section id="cli-connectors-view"><div className="cli-notice" role="status"><span>{route.invalid ? "This connector link is invalid." : "Connectors are not available for this CLI."}</span><a className="btn btn-ghost btn-sm" href={cliConnectorsHash("pi")}>Open Pi</a></div></section>;
   }
-  const ws = (data.workspaces || []).find((w) => w.id === route.workspaceId);
-  const agent = (ws?.agents || []).find((a) => a.id === route.agentId);
+  if (error) {
+    return <section id="cli-connectors-view"><div className="cli-notice is-error" role="alert"><span>{error.message}</span><a className="btn btn-ghost btn-sm" href={cliConnectorsHash("pi")}>Open Pi</a></div></section>;
+  }
+  if (!ctx) return <section id="cli-connectors-view"><div className="cli-loading" aria-label="Loading connectors"><div /><div /><div /></div></section>;
+  const workspace = ctx.workspace, agent = ctx.agent;
   return <Mcps
     embedded
     hidden={false}
-    workspaceId={route.workspaceId || ""}
-    workspaceName={ws?.name || ""}
-    workspacePath={ws?.path || ""}
-    agentId={route.agentId || ""}
-    agentName={agent?.name || ""}
+    workspaceId={workspace?.id || ""}
+    workspaceName={workspace?.name || ""}
+    workspacePath={workspace?.path || ""}
+    agentId={agent?.id || ""}
+    agentName={agent ? displayAgentName(agent, workspace) : ""}
     agentWorkPath={agent?.workPath || ""}
     agentRunning={!!(agent && agent.mode && agent.mode !== "stopped")}
-    onReload={onReload}
+    onReload={agent?.id && onReload ? () => onReload(agent.id) : undefined}
   />;
 }
 

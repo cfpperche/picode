@@ -15,10 +15,12 @@ test("canonical links round-trip CLI, package, scope and explicit context", () =
 test("legacy links adopt a pane only when they have no explicit context", () => {
   for (const prefix of ["#/packages", "#/more/packages"]) {
     const route = cliPackagesLocation(prefix + "/config/pi-roles", { workspaceId: "w", agentId: "a" });
+    assert.equal(route.adoptPane, true);
     assert.equal(route.redirect, "#/clis/pi/packages/config/pi-roles?workspaceId=w&agentId=a");
     assert.equal(cliPackagesLocation(prefix + "?workspaceId=x", { agentId: "a" }).agentId, "");
     assert.equal(cliPackagesLocation(prefix + "?agentId=", { agentId: "a" }).agentId, "");
   }
+  assert.equal(cliPackagesLocation("#/clis/pi/packages", { workspaceId: "w", agentId: "a" }).adoptPane, undefined);
 });
 
 test("canonical machine links never inherit the current pane", () => {

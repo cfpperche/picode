@@ -32,12 +32,13 @@ export function cliPackagesLocation(hash = "", legacyContext = {}) {
   // An explicit context, including an intentionally empty one, never inherits
   // a different selected pane. Canonical links never consult the current pane.
   const explicit = params.has("workspaceId") || params.has("agentId");
-  const fallback = legacy && !explicit ? legacyContext : {};
+  const adoptPane = !!(legacy && !explicit);
+  const fallback = adoptPane ? legacyContext : {};
   const workspaceId = params.get("workspaceId") || fallback.workspaceId || "";
   const agentId = params.get("agentId") || fallback.agentId || "";
   const scope = params.get("scope") || "user";
   invalid ||= !["user", "project", "agent"].includes(scope);
-  const route = { view: "clis", pane: "packages", id, pkg, workspaceId, agentId, scope, legacy: legacy || strip, invalid };
+  const route = { view: "clis", pane: "packages", id, pkg, workspaceId, agentId, scope, legacy: legacy || strip, invalid, ...(adoptPane ? { adoptPane: true } : {}) };
   return { ...route, redirect: !invalid && !nested ? cliPackagesHash(id, route) : "" };
 }
 
