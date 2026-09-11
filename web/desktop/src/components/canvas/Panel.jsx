@@ -5,17 +5,16 @@ import PanelBody, { hasChat, hasPane } from "./PanelBody.jsx";
 import PanelFace from "./PanelFace.jsx";
 import { PanelPlate, PanelStill } from "./PanelStill.jsx";
 
-// Panel — one grid item, always rendered (react-grid-layout needs every
-// child to resolve collisions), header live, body only when chunk loading
-// says so (docs/plans/matrix-app.md §4.3–§4.5). The header is the drag
-// handle (`.mx-head`); its buttons are the cancel zone (`.mx-actions`).
-// The wrapper receives react-grid-layout's ref, className, style and the
-// drag listeners and spreads them on its root; `children` are
-// react-resizable's handles and must render inside the root too. The
-// wrapper observes its own visibility through the surface's loader.
+// Panel — one panel's wrapper, always rendered: header live, body only when
+// chunk loading says so (docs/plans/matrix-app.md §4.3–§4.5). The header is
+// the drag handle (`.cv-head`); its buttons are the cancel zone
+// (`.cv-actions`). The wrapper takes the host's ref, className, style and
+// listeners and spreads them on its root, and renders `children` (the
+// resizer's handles) inside it. It observes its own visibility through the
+// surface's loader.
 //
-// Keyboard (plan §4.6 "Focus", docs/architecture/matrix.md): the wrapper
-// is the roving tab stop of its matrix — tabIndex 0 on the focused panel
+// Keyboard (plan §4.6 "Focus", docs/architecture/canvas.md): the wrapper
+// is the roving tab stop of its canvas — tabIndex 0 on the focused panel
 // (or the first one, until something is focused), -1 on the rest — and
 // hands every key it gets to the surface (handlers.onKey), which owns the
 // model: arrows move between panels, Enter enters the terminal, Shift+Esc
@@ -23,19 +22,19 @@ import { PanelPlate, PanelStill } from "./PanelStill.jsx";
 // focusable div takes the click's focus); clicking the body focuses the
 // xterm, which the surface records as "engaged".
 //
-// Two layers on purpose: the grid re-renders every wrapper on a drag (its
-// clone carries a fresh style object), so the outer memo cannot hold —
-// the inner one, keyed on the domain props only, does. An xterm body never
+// Two layers on purpose: the host re-renders every wrapper on a drag (each
+// one carries a fresh style object), so the outer memo cannot hold — the
+// inner one, keyed on the domain props only, does. An xterm body never
 // remounts because the surface re-rendered.
 //
-// Canvas mode (docs/plans/matrix-canvas.md §4.3/§4.4) reuses this exact
-// wrapper as a React Flow node, so a panel behaves the same in both hosts.
-// It adds three things and changes nothing else: `bodyKind` (live · still ·
-// plate — what the zoom says the body is), `note` (the still's age in the
-// header) and the library's gates — `.mx-head` drags the node, `.mx-actions`
-// and `.mx-panel-body` carry `nodrag`, the body also carries `nowheel` so
-// the wheel scrolls the terminal instead of zooming the plane. The classes
-// are inert in grid mode, which drags by the same header.
+// The plane (docs/plans/matrix-canvas.md §4.3/§4.4) renders this exact
+// wrapper as a React Flow node, and the maximize layer reuses its head, so a
+// panel reads the same wherever it is drawn. The plane adds three things and
+// changes nothing else: `bodyKind` (live · still · plate — what the zoom says
+// the body is), `note` (the still's age in the header) and the library's
+// gates — `.cv-head` drags the node, `.cv-actions` and `.cv-panel-body` carry
+// `nodrag`, the body also carries `nowheel` so the wheel scrolls the terminal
+// instead of zooming the plane.
 
 // PanelHead — face, name, hint, the sidebar's chip, Open · Maximize ·
 // Remove. The wrapper's header is the drag handle; the maximize layer
@@ -55,23 +54,25 @@ export function PanelHead({ model, loaded, maximized, handlers, fixed, note, con
   const canMax = canOpen && model.state !== "agent-stopped";
   const openLabel = OPEN_LABEL[model.kind] || "Open in its tab";
   return (
-    <div className={"mx-head" + (fixed ? " is-fixed" : "")} title={model.name + (model.hint ? " — " + model.hint : "")}>
-      <span className="mx-face" aria-hidden="true"><PanelFace model={model} /></span>
-      <span className="mx-name">{model.name}</span>
-      {model.hint ? <span className="mx-hint">{model.hint}</span> : null}
-      {note ? <span className="mx-note">{note}</span> : null}
+    <div className={"cv-head" + (fixed ? " is-fixed" : "")} title={model.name + (model.hint ? " — " + model.hint : "")}>
+      <span className="cv-face" aria-hidden="true"><PanelFace model={model} /></span>
+      <span className="cv-name">{model.name}</span>
+      {model.hint ? <span className="cv-hint">{model.hint}</span> : null}
+      {note ? <span className="cv-note">{note}</span> : null}
       <span className={"ws-status is-" + model.status}>
         {loaded && model.status === "working" ? <PiSpinner title="Working" /> : null}
         <span>{model.label}</span>
       </span>
       {links && links.count ? (
-        // Grid mode has no plane, so a panel says how many links it carries
-        // and sends the viewer to the one place they can be read and revoked
-        // (ADR-0116's non-spatial audit list). The count alone means nothing,
-        // so the chip's title says what it is and the word comes with it.
+        // The plane draws the lines, but a line can be off-screen, hidden
+        // behind its own two panels, or too small to hit — so the panel says
+        // how many links it carries wherever the camera is, and sends the
+        // viewer to the one place they can be read and revoked (ADR-0116's
+        // non-spatial audit list). The count alone means nothing, so the
+        // chip's title says what it is and the word comes with it.
         <button
           type="button"
-          className={"mx-links nodrag" + (links.broken ? " is-broken" : "")}
+          className={"cv-links nodrag" + (links.broken ? " is-broken" : "")}
           title={links.title}
           aria-label={links.title}
           onClick={() => handlers.onLinks(model)}
@@ -80,20 +81,20 @@ export function PanelHead({ model, loaded, maximized, handlers, fixed, note, con
           <span>{links.count}</span>
         </button>
       ) : null}
-      <span className="mx-actions nodrag">
+      <span className="cv-actions nodrag">
         {connector}
         {canOpen ? (
-          <button type="button" className="mx-action" title={openLabel} aria-label={openLabel} onClick={() => handlers.onOpen(model)}>
+          <button type="button" className="cv-action" title={openLabel} aria-label={openLabel} onClick={() => handlers.onOpen(model)}>
             <IconExternal size={13} />
           </button>
         ) : null}
         {canMax ? (
-          <button type="button" className="mx-action" title={maximized ? "Restore (Esc)" : "Maximize"} aria-label={maximized ? "Restore" : "Maximize"} aria-pressed={!!maximized} onClick={() => handlers.onMaximize(model)}>
+          <button type="button" className="cv-action" title={maximized ? "Restore (Esc)" : "Maximize"} aria-label={maximized ? "Restore" : "Maximize"} aria-pressed={!!maximized} onClick={() => handlers.onMaximize(model)}>
             {maximized ? <IconCollapse size={13} /> : <IconExpand size={13} />}
           </button>
         ) : null}
         {!model.pending ? (
-          <button type="button" className="mx-action" title="Remove from matrix" aria-label="Remove from matrix" onClick={() => handlers.onRemove(model)}>
+          <button type="button" className="cv-action" title="Remove from canvas" aria-label="Remove from canvas" onClick={() => handlers.onRemove(model)}>
             <IconX size={13} />
           </button>
         ) : null}
@@ -109,11 +110,11 @@ const PanelInner = memo(function PanelInner({ model, loaded, hidden, engaged, ma
   return (
     <>
       <PanelHead model={model} loaded={loaded} maximized={maximized} handlers={handlers} note={note} connector={connector} links={links} />
-      <div className="mx-panel-body nodrag nowheel">
+      <div className="cv-panel-body nodrag nowheel">
         {maximized ? (
           // The body lives in the surface's maximize layer meanwhile; the
           // wrapper keeps the slot and says so (plan §4.6).
-          <div className="mx-placeholder mx-state" role="status">
+          <div className="cv-placeholder cv-state" role="status">
             <span>Shown maximized.</span>
             <button type="button" className="btn btn-sm" onClick={() => handlers.onMaximize(model)}>Restore</button>
           </div>
@@ -172,7 +173,7 @@ const Panel = memo(forwardRef(function Panel({ model, loaded, hidden, focused, e
   // pointer off them would leave a visible Open or Remove that zooms
   // instead of doing what it says.
   const gated = pane && !maximized;
-  const cls = ["mx-panel", className, focused ? "is-focused" : "", maximized ? "is-max" : "", model.pending ? "is-pending" : "",
+  const cls = ["cv-panel", className, focused ? "is-focused" : "", maximized ? "is-max" : "", model.pending ? "is-pending" : "",
     bodyKind === "plate" ? "is-plate" : "", gated && bodyKind === "still" ? "is-still" : "", gated && !pointer ? "is-inert" : ""].filter(Boolean).join(" ");
   return (
     <div
@@ -182,7 +183,7 @@ const Panel = memo(forwardRef(function Panel({ model, loaded, hidden, focused, e
       role="group"
       aria-label={model.name}
       tabIndex={tabStop ? 0 : -1}
-      data-mx-panel={model.id}
+      data-cv-panel={model.id}
       data-state={model.state}
       data-loaded={loaded ? "1" : "0"}
       onPointerDownCapture={(e) => handlers.onFocus(model, !!(e.target.closest && e.target.closest(".xterm")))}

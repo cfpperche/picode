@@ -25,7 +25,7 @@ export function closeShellTerm(agentId) {
 }
 
 // active: this host is visible — claim the pane and fit it. autoFocus
-// (default true): being active also takes the keyboard. A Matrix panel
+// (default true): being active also takes the keyboard. A Canvas panel
 // passes false unless it is the one focused panel (plan §4.6): every
 // visible panel re-claims its pane on reveal, exactly one calls
 // term.focus().
@@ -111,7 +111,7 @@ export default function ShellTerm({ agentId, session, active, autoFocus = true, 
       if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(bytes);
     };
     wireTermWheel(term, sendBytes);
-    // The app's global chords and Shift+Esc (the Matrix's "leave the
+    // The app's global chords and Shift+Esc (the Canvas's "leave the
     // pane" key) bubble out of the pane instead of reaching the shell.
     wireTermKeys(term, sendBytes, (ev) => matchGlobalAction(ev) || paneLeaveKey(ev));
     wireTermClipboard(term, { onError: () => toast.error("The browser refused the copy — select and press Ctrl+C instead.") });

@@ -47,7 +47,7 @@ export default function NotePanel({ pinId, title }) {
   const studio = pinHash(pinId);
   if (error) {
     return (
-      <div className="mx-placeholder mx-state" role="status">
+      <div className="cv-placeholder cv-state" role="status">
         <span>{error}</span>
         <button type="button" className="btn btn-sm" onClick={reload}>Try again</button>
       </div>
@@ -55,7 +55,7 @@ export default function NotePanel({ pinId, title }) {
   }
   if (!pin) {
     return (
-      <div className="mx-md" aria-busy="true">
+      <div className="cv-md" aria-busy="true">
         <div className="file-skel" aria-hidden="true">
           <span className="skel-line w-80" /><span className="skel-line w-90" /><span className="skel-line w-50" />
         </div>
@@ -64,14 +64,14 @@ export default function NotePanel({ pinId, title }) {
   }
   if (!String(pin.body || "").trim()) {
     return (
-      <div className="mx-placeholder mx-state" role="status">
+      <div className="cv-placeholder cv-state" role="status">
         <span>This note is empty.</span>
         <a className="btn btn-sm" href={studio}>Write it</a>
       </div>
     );
   }
   return (
-    <div className="mx-md md" aria-label={(pin.title || title || "Note") + " — note"}>
+    <div className="cv-md md" aria-label={(pin.title || title || "Note") + " — note"}>
       <Markdown remarkPlugins={[remarkGfm]}>{pin.body}</Markdown>
     </div>
   );

@@ -18,13 +18,13 @@ export function PanelStill({ model, still }) {
   // and name the way out — clicking the body is exactly that.
   if (!still || !still.text) {
     return (
-      <div className="mx-placeholder">
+      <div className="cv-placeholder">
         <span>{model.label} — zoom in to read it.</span>
       </div>
     );
   }
   return (
-    <pre className="mx-still" aria-label={model.name + " — last screen"}>{still.text}</pre>
+    <pre className="cv-still" aria-label={model.name + " — last screen"}>{still.text}</pre>
   );
 }
 
@@ -32,14 +32,14 @@ export function PanelStill({ model, still }) {
 // still never resolves into characters however far you magnify it: the
 // face, the name and the status colour, sized to the panel. It is for
 // finding a panel on the plane, not for reading it, so everything scales
-// by 1 / zoom (--mx-zoom, set once on the canvas root) and stays about the
+// by 1 / zoom (--cv-zoom, set once on the canvas root) and stays about the
 // same size on screen however far out the viewer is.
 export function PanelPlate({ model }) {
   return (
-    <div className="mx-plate" role="group" aria-label={model.name + " — " + model.label}>
-      <span className="mx-plate-face" aria-hidden="true"><PanelFace model={model} /></span>
-      <span className="mx-plate-name">{model.name}</span>
-      <span className={"mx-plate-status ws-status is-" + model.status}>{model.label}</span>
+    <div className="cv-plate" role="group" aria-label={model.name + " — " + model.label}>
+      <span className="cv-plate-face" aria-hidden="true"><PanelFace model={model} /></span>
+      <span className="cv-plate-name">{model.name}</span>
+      <span className={"cv-plate-status ws-status is-" + model.status}>{model.label}</span>
     </div>
   );
 }

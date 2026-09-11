@@ -8,7 +8,7 @@ import { closeShellTerm } from "../ShellTerm.jsx";
 //
 //   the terminal's tab is open   → the tab owns the attach; unloading only
 //                                  parks the pane (ShellTerm's unmount)
-//   it lives only on matrices    → suspendTermSocket: the socket closes,
+//   it lives only on canvases    → suspendTermSocket: the socket closes,
 //                                  the xterm and its scrollback stay; the
 //                                  next load mounts TermSurface and its
 //                                  ShellTerm kicks the socket itself
@@ -29,7 +29,7 @@ import { closeShellTerm } from "../ShellTerm.jsx";
 // the first order — a release that a claim cancels in the same task.
 //
 // The registry is module-level on purpose: one desktop, one `terms` map,
-// one list of what the Matrix parked.
+// one list of what the Canvas parked.
 
 const suspendedAt = new Map(); // terminal or agent id → when it was parked
 const pendingRelease = new Map(); // id → the timer of a release still waiting its tick
@@ -77,7 +77,7 @@ export function releasePane(ref, owned) {
 }
 
 // park(ref, owned): an attach the tab holds is left alone; one only the
-// Matrix held is suspended and remembered — or disposed, when its target
+// Canvas held is suspended and remembered — or disposed, when its target
 // went away while the body was up.
 function park(ref, owned) {
   const entry = terms.get("sh:" + ref);
@@ -94,7 +94,7 @@ function park(ref, owned) {
 }
 
 // forgetPane(ref, owned): the feed said the terminal or agent is gone. A
-// pane the Matrix holds suspended is disposed at once; one still mounted
+// pane the Canvas holds suspended is disposed at once; one still mounted
 // is disposed when its body unmounts (the gone row replaces it); one a tab
 // owns is the tab's to close.
 export function forgetPane(ref, owned) {
@@ -113,7 +113,7 @@ export function forgetPane(ref, owned) {
 }
 
 // sweepSuspended(now): apply the LRU rule. An entry somebody kicked since
-// (its tab reopened, another matrix showed it) is no longer suspended and
+// (its tab reopened, another canvas showed it) is no longer suspended and
 // is left alone; one already closed by its tab is just forgotten.
 export function sweepSuspended(now = Date.now()) {
   const list = [...suspendedAt].map(([id, at]) => ({ id, at }));
@@ -129,5 +129,5 @@ export function sweepSuspended(now = Date.now()) {
 }
 
 // QA hook (same pattern as window.__picodeTerms): how many panes the
-// Matrix is holding suspended right now.
-if (typeof window !== "undefined") window.__picodeMatrixSuspended = () => [...suspendedAt.keys()];
+// Canvas is holding suspended right now.
+if (typeof window !== "undefined") window.__picodeCanvasSuspended = () => [...suspendedAt.keys()];

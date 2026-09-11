@@ -74,7 +74,7 @@ const AgentChatPanel = memo(function AgentChatPanel({ agentId, workspaceId, ask,
   let body;
   if (!ready && items.length === 0) {
     body = (
-      <div className="mx-skel" aria-busy="true">
+      <div className="cv-skel" aria-busy="true">
         <span className="skel-line" />
         <span className="skel-line" />
         <span className="skel-line" />
@@ -82,7 +82,7 @@ const AgentChatPanel = memo(function AgentChatPanel({ agentId, workspaceId, ask,
     );
   } else if (items.length === 0) {
     body = (
-      <div className="mx-placeholder mx-state" role="status">
+      <div className="cv-placeholder cv-state" role="status">
         <span>{state.status === "disconnected" ? "Disconnected — reconnecting." : "Nothing said in this session yet."}</span>
         <button type="button" className="btn btn-sm" onClick={onOpen}>Open</button>
       </div>
@@ -90,7 +90,7 @@ const AgentChatPanel = memo(function AgentChatPanel({ agentId, workspaceId, ask,
   } else {
     body = (
       <Conversation
-        // The tab owns the id `conversation`; a matrix may hold many of
+        // The tab owns the id `conversation`; a canvas may hold many of
         // these at once, and two elements may not share one id.
         id={null}
         readOnly
@@ -105,14 +105,14 @@ const AgentChatPanel = memo(function AgentChatPanel({ agentId, workspaceId, ask,
   }
 
   return (
-    <div className="mx-chat">
+    <div className="cv-chat">
       {body}
       {ask ? (
         // The reason this phase exists: an agent blocked on a human says so
         // where the reader is looking, without scrolling — and the one
         // action is the tab, which is where the question can be answered.
-        <div className="mx-chat-ask" data-align-row>
-          <span className="mx-chat-ask-t" title={ask}><span>{ask}</span></span>
+        <div className="cv-chat-ask" data-align-row>
+          <span className="cv-chat-ask-t" title={ask}><span>{ask}</span></span>
           <button type="button" className="btn btn-sm btn-primary" onClick={onOpen}>Open</button>
         </div>
       ) : null}

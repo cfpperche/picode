@@ -18,7 +18,7 @@ import AgentChatPanel from "./AgentChatPanel.jsx";
 // loaded or not.
 function Line({ text, action, onAction }) {
   return (
-    <div className="mx-placeholder mx-state" role="status">
+    <div className="cv-placeholder cv-state" role="status">
       <span>{text}</span>
       <button type="button" className="btn btn-sm" onClick={onAction}>{action}</button>
     </div>
@@ -62,10 +62,10 @@ export default function PanelBody({ model, loaded, body = "live", hidden, focuse
     case "diff-gone": return <Line text="Where this file was read from is gone." action="Remove" onAction={onRemove} />;
     default: break;
   }
-  if (model.pending) return <div className="mx-placeholder"><span>Adding…</span></div>;
+  if (model.pending) return <div className="cv-placeholder"><span>Adding…</span></div>;
   const age = model.status === "working" && model.stamp ? relTime(model.stamp) : "";
   const placeholder = (
-    <div className="mx-placeholder" aria-hidden="true">
+    <div className="cv-placeholder" aria-hidden="true">
       <span>{model.label}{age ? " · " + age : ""}</span>
     </div>
   );

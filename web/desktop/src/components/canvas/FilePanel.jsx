@@ -7,7 +7,7 @@ import FilePane from "../FilePane.jsx";
 // frame now. Reading, editing, saving, the preview toggle and the read
 // failures are all FilePane's, unchanged.
 //
-// Two things are the matrix's:
+// Two things are the canvas's:
 //   * `docKey` — the open document lives in lib/fileDocs.js keyed by this
 //     panel's ref, so maximizing the panel or switching layout mode moves
 //     the body between hosts without throwing away unsaved text.

@@ -6,7 +6,7 @@ import { edgeGrant, peerIndex, removeConfirm } from "@picode/shared/domain/canva
 import { askConfirm } from "../lib/confirm.js";
 import { appHash } from "../lib/routes.js";
 
-// MatrixLinks — every live Matrix edge, listed where it can be audited
+// CanvasLinks — every live Canvas edge, listed where it can be audited
 // without a plane (ADR-0116's Consequences: "a non-spatial list of every
 // live edge in the Messages view, because the canvas is not the only place
 // a grant may be audited").
@@ -15,24 +15,24 @@ import { appHash } from "../lib/routes.js";
 // question from the other side: Participants says who may talk *inside* one
 // folder, this says which pairs the owner has linked by hand — including the
 // pairs that cross folders, which no workspace row can show. Every row names
-// both ends and their kinds, the matrix the line lives on, and whether it
+// both ends and their kinds, the canvas the line lives on, and whether it
 // grants **right now**; Remove revokes exactly as the canvas does, because
-// both call the same DELETE and both read the same `matrixGrants.js`.
+// both call the same DELETE and both read the same `canvasGrants.js`.
 //
 // It is not scoped to the workspace picker above it. An edge is per pair, and
 // half of its value is pairing two folders: filtering it by one folder would
 // hide the rows that matter most.
 //
-// Reads: the matrix list plus one detail per matrix (the detail carries
+// Reads: the canvas list plus one detail per canvas (the detail carries
 // `edges` and `panels` in one request), and `GET /api/communication` for the
-// enrolment. Refreshed by the feed — `matrix.*` for the lines, `peer.*` for
+// enrolment. Refreshed by the feed — `canvas.*` for the lines, `peer.*` for
 // what they grant — never on a timer.
-const MATRIX_CAP = 50;
-const WATCHED = /^(matrix\.|peer\.|agent\.(updated|deleted)|terminal\.(updated|deleted)|feed\.(open|reset))/;
+const CANVAS_CAP = 50;
+const WATCHED = /^(canvas\.|peer\.|agent\.(updated|deleted)|terminal\.(updated|deleted)|feed\.(open|reset))/;
 const DEBOUNCE_MS = 400;
 
-export default function MatrixLinks({ hidden }) {
-  const [data, setData] = useState(null); // { matrices: [{matrix, panels, edges}], peers }
+export default function CanvasLinks({ hidden }) {
+  const [data, setData] = useState(null); // { canvases: [{canvas, panels, edges}], peers }
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const live = useRef(false);
@@ -43,15 +43,15 @@ export default function MatrixLinks({ hidden }) {
     const gen = ++generation.current;
     try {
       const [listRaw, peers] = await Promise.all([api("/api/canvases"), api("/api/communication")]);
-      const list = normalizeCanvasList(listRaw).slice(0, MATRIX_CAP);
-      // A matrix that vanished between the list and its detail is simply not
+      const list = normalizeCanvasList(listRaw).slice(0, CANVAS_CAP);
+      // A canvas that vanished between the list and its detail is simply not
       // in the answer; one that fails to read must not blank the rest.
       const details = await Promise.all(list.map((m) => api("/api/canvases/" + encodeURIComponent(m.id)).then(normalizeCanvasDetail).catch(() => null)));
       if (!live.current || gen !== generation.current) return;
-      setData({ matrices: details.filter(Boolean), peers });
+      setData({ canvases: details.filter(Boolean), peers });
       setError("");
     } catch (e) {
-      if (live.current && gen === generation.current) setError(e.message || "Couldn’t read matrix links.");
+      if (live.current && gen === generation.current) setError(e.message || "Couldn’t read canvas links.");
     }
   }, []);
 
@@ -59,7 +59,7 @@ export default function MatrixLinks({ hidden }) {
     if (hidden) return undefined;
     live.current = true;
     refresh();
-    // `agent.updated` is a busy row and each refresh is a read per matrix, so
+    // `agent.updated` is a busy row and each refresh is a read per canvas, so
     // the feed marks the list dirty and one timer does the work. The owner
     // events are in the set because ADR-0104 invalidates a connection whose
     // recorded session moved, which no `peer.*` row announces.
@@ -74,13 +74,13 @@ export default function MatrixLinks({ hidden }) {
     if (!data) return [];
     const ix = peerIndex(data.peers);
     const out = [];
-    for (const det of data.matrices) {
+    for (const det of data.canvases) {
       for (const edge of det.edges) {
         // No names of its own: an end falls back to the peer's own label,
         // which is the name the rest of this view already uses for it.
         const grant = edgeGrant(edge, det.panels, ix);
         if (!grant) continue;
-        out.push({ id: edge.id, matrixId: det.canvas.id, matrix: det.canvas.name, grant });
+        out.push({ id: edge.id, canvasId: det.canvas.id, canvas: det.canvas.name, grant });
       }
     }
     return out;
@@ -91,7 +91,7 @@ export default function MatrixLinks({ hidden }) {
     if (ask && !(await askConfirm(ask))) return;
     setBusy(row.id);
     try {
-      await api("/api/canvases/" + encodeURIComponent(row.matrixId) + "/edges/" + encodeURIComponent(row.id), { method: "DELETE" });
+      await api("/api/canvases/" + encodeURIComponent(row.canvasId) + "/edges/" + encodeURIComponent(row.id), { method: "DELETE" });
       setError("");
     } catch (e) {
       if (!(e && e.status === 404)) setError(e.message || "Couldn’t remove this link.");
@@ -102,10 +102,10 @@ export default function MatrixLinks({ hidden }) {
   }
 
   return (
-    <section className="peer-body peer-links" aria-label="Matrix links">
+    <section className="peer-body peer-links" aria-label="Canvas links">
       <div className="peer-history-heading">
         <div>
-          <h4>Matrix links</h4>
+          <h4>Canvas links</h4>
           <p>Every link drawn between two panels. A link lets those two sessions message each other — it never lets one read the other’s history.</p>
         </div>
         <button className="btn btn-ghost" type="button" disabled={!!busy} onClick={refresh}>Refresh</button>
@@ -114,11 +114,11 @@ export default function MatrixLinks({ hidden }) {
         <div className="cli-notice is-error" role="alert"><span>{error}</span><button className="btn btn-ghost" type="button" onClick={refresh}>Try again</button></div>
       ) : null}
       {!data ? (
-        <div className="cli-loading" aria-label="Loading matrix links"><div /><div /><div /></div>
+        <div className="cli-loading" aria-label="Loading canvas links"><div /><div /><div /></div>
       ) : !rows.length ? (
         <div className="cli-notice">
-          <span>No links yet. Draw one between two panels on a matrix canvas to let those sessions message each other.</span>
-          <a className="btn btn-primary" href={appHash("matrix")}>Open Matrix</a>
+          <span>No links yet. Draw one between two panels on a canvas to let those sessions message each other.</span>
+          <a className="btn btn-primary" href={appHash("canvas")}>Open Canvas</a>
         </div>
       ) : (
         <ul className="peer-participant-list">
@@ -128,7 +128,7 @@ export default function MatrixLinks({ hidden }) {
               <li key={row.id} className={"peer-participant peer-link" + (row.grant.grants ? "" : " is-broken")}>
                 <div className="peer-link-ends">
                   <strong>{a.name} ↔ {b.name}</strong>
-                  <small>{kindOf(a)} and {kindOf(b)} · on {row.matrix}</small>
+                  <small>{kindOf(a)} and {kindOf(b)} · on {row.canvas}</small>
                 </div>
                 <span className="peer-participant-state" role="status">
                   {row.grant.grants ? "They can message each other" : row.grant.reason}

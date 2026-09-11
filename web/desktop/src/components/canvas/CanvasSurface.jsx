@@ -24,28 +24,29 @@ import NameDialog from "./NameDialog.jsx";
 import { ChunkLoader } from "./chunkLoader.js";
 import { forgetPane, ownedByTab } from "./paneOwnership.js";
 import { forgetDocument, heldDocumentDirty } from "../../lib/fileDocs.js";
-import "../../styles/matrix.css";
+import "../../styles/canvas.css";
 
-// Canvas mode is lazy-imported: React Flow costs the desktop's main chunk
+// The plane is lazy-imported: React Flow costs the desktop's main chunk
 // +63.3 KB gzip eager against 205 B split (C0), and only a viewer who opens
-// a canvas fetches it.
-const MatrixCanvas = lazy(() => import("./MatrixCanvas.jsx"));
+// a canvas fetches it. The surface itself is lazy the same way (App.jsx),
+// so a reader who never opens the app carries none of this (ADR-0118).
+const Plane = lazy(() => import("./Plane.jsx"));
 
-// MatrixSurface — the Matrix app's native surface (ADR-0109; plan
-// docs/plans/matrix-app.md; API docs/architecture/matrix.md). One tab,
-// `x:matrix` / #/app/matrix/<matrixId>: a header with the matrix switcher,
-// New matrix, Add panel and a menu (Rename / Delete); under it the scroll
+// CanvasSurface — the Canvas app's native surface (ADR-0109; plan
+// docs/plans/matrix-app.md; API docs/architecture/canvas.md). One tab,
+// `x:canvas` / #/app/canvas/<canvasId>: a header with the canvas switcher,
+// New canvas, Add panel and a menu (Rename / Delete); under it the scroll
 // container chunk loading observes, holding the plane's panel wrappers
-// (MatrixCanvas). State is { list, byId } reduced by applyCanvasEvent from
+// (Plane). State is { list, byId } reduced by applyCanvasEvent from
 // the change feed; the surface reads /api/canvases once on open and on a
 // reveal older than 10 s, never on a timer. Layout edits are optimistic
 // and saved as the changed subset, debounced 500 ms under ifUpdatedAt; a
-// 409 refetches and says so. "Last matrix opened" is the one thing kept
+// 409 refetches and says so. "Last canvas opened" is the one thing kept
 // per browser (localStorage). The app reads the desktop only through
 // `host` (fleet, openTabs, openTab, openInteractive, revealAgent,
 // openFileTab, feed) — never App state.
 //
-// Keyboard (plan §4.6 "Focus"): one focused panel per matrix (focusedId)
+// Keyboard (plan §4.6 "Focus"): one focused panel per canvas (focusedId)
 // and one bit saying whether the keyboard is inside its terminal
 // (engaged). Only the focused, engaged panel passes autoFocus down, so
 // exactly one xterm ever calls term.focus(). Arrows move focus between
@@ -53,10 +54,15 @@ const MatrixCanvas = lazy(() => import("./MatrixCanvas.jsx"));
 // it; Enter engages; Shift+Esc (paneLeaveKey) comes back to the chrome;
 // Delete removes with an Undo toast; Home/End jump. Maximize is
 // host-level state: the maximized panel's body mounts in a layer over the
-// grid (the pane follows the visible host; the wrapper shows a stand-in
+// plane (the pane follows the visible host; the wrapper shows a stand-in
 // line), the layout is untouched, Esc on any chrome restores.
 
-const LAST_KEY = "picode-matrix-last";
+const LAST_KEY = "picode-canvas-last";
+// ADR-0118 renamed the per-viewer keys with the app. They are migrated on
+// the first read rather than left to lapse: losing them costs a reader the
+// canvas they had open, and the plane its camera — a rename must not do
+// that. One read, one write, then the old key is gone for good.
+const LAST_KEY_WAS = "picode-matrix-last";
 const REVEAL_STALE_MS = 10000;
 const SAVE_DEBOUNCE_MS = 500;
 const EMPTY = { list: [], byId: {} };
@@ -65,7 +71,17 @@ const NO_PANELS = [];
 const enc = encodeURIComponent;
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 const msgOf = (e) => (e && e.message ? e.message : String(e));
-const readLast = () => { try { return localStorage.getItem(LAST_KEY) || ""; } catch { return ""; } };
+const readLast = () => {
+  try {
+    const now = localStorage.getItem(LAST_KEY);
+    if (now) return now;
+    const was = localStorage.getItem(LAST_KEY_WAS);
+    if (!was) return "";
+    localStorage.setItem(LAST_KEY, was);
+    localStorage.removeItem(LAST_KEY_WAS);
+    return was;
+  } catch { return ""; }
+};
 const writeLast = (id) => { try { if (id) localStorage.setItem(LAST_KEY, id); else localStorage.removeItem(LAST_KEY); } catch { /* storage off */ } };
 const rectOf = (p) => ({ x: p.x, y: p.y, w: p.w, h: p.h });
 const rowOf = (p) => ({ id: p.id, ...rectOf(p) });
@@ -75,7 +91,7 @@ const NO_EDGES = [];
 const OWNER_WORD = { term: "Terminal", workspace: "Folder", agent: "Agent" };
 // `GET /api/communication` is what says whether an edge grants anything
 // right now: its `connections[].active` is the store's own `peerCurrent`
-// (ADR-0104). Read when a matrix holds an edge, refreshed on peer.* feed
+// (ADR-0104). Read when a canvas holds an edge, refreshed on peer.* feed
 // rows and on a stale reveal — never on a timer.
 const NO_PEERS = { owners: [], connections: [] };
 // The feed rows that can change what a link grants: the connection itself,
@@ -212,8 +228,8 @@ function buildModel(panel, fleet, workingIds, openTabs, dirtyIds, prev) {
   return sameModel(prev, next) ? prev : next;
 }
 
-export default function MatrixSurface({ manifest, hidden, onClose, host, initialPath, onPathChange }) {
-  const title = (manifest && manifest.name) || "Matrix";
+export default function CanvasSurface({ manifest, hidden, onClose, host, initialPath, onPathChange }) {
+  const title = (manifest && manifest.name) || "Canvas";
   const fleet = (host && host.fleet) || EMPTY_FLEET;
   // A host that does not say is taken at its word (the fleet it gave is the
   // fleet there is); the desktop says `loaded` and it is false until boot ends.
@@ -234,12 +250,11 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   currentRef.current = currentId;
   const [detailError, setDetailError] = useState("");
   const [loadedIds, setLoadedIds] = useState(() => new Set());
-  // Canvas mode: what the zoom says each loaded body renders (live · still ·
-  // plate · off — matrix-canvas.md §4.3). Grid mode gets "live" for every
-  // loaded panel and never reads this.
+  // What the zoom says each loaded body renders (live · still · plate · off
+  // — matrix-canvas.md §4.3).
   const [bodyKinds, setBodyKinds] = useState(NO_BODIES);
-  // The canvas host's handle: snap to 1, pan a panel into view, zoom, fit.
-  // Null in grid mode, and while the lazy chunk is still on the wire.
+  // The plane's handle: snap to 1, pan a panel into view, zoom, fit. Null
+  // while the lazy chunk is still on the wire.
   const canvasRef = useRef(null);
   const [focusedId, setFocusedId] = useState("");
   const [engaged, setEngaged] = useState(false);
@@ -254,7 +269,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   const [workingIds, setWorkingIds] = useState([]);
   // The file panels whose editor holds unsaved text. It is chip state and
   // pin state at once: a dirty body is `keep`-pinned, so the band never
-  // unmounts work in progress, not even when the matrix is hidden.
+  // unmounts work in progress, not even when the canvas is hidden.
   const [dirtyIds, setDirtyIds] = useState(() => new Set());
   const dirtyRef = useRef(dirtyIds);
   dirtyRef.current = dirtyIds;
@@ -271,15 +286,15 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   const peersAt = useRef(0);
   const peersNeededRef = useRef(false);
   const pinsAt = useRef(0);
-  // The pins list is read when something needs it — a note on this matrix,
-  // or the picker offering one — and never otherwise: a matrix of terminals
+  // The pins list is read when something needs it — a note on this canvas,
+  // or the picker offering one — and never otherwise: a canvas of terminals
   // costs no pin request at all.
   const pinsNeededRef = useRef(false);
   const hiddenRef = useRef(hidden);
   hiddenRef.current = hidden;
   const gestureRef = useRef(false);
   const queuedRef = useRef([]);
-  const pendingRef = useRef({ matrixId: "", rows: new Map() });
+  const pendingRef = useRef({ canvasId: "", rows: new Map() });
   const saveTimer = useRef(0);
   const listAt = useRef(0);
   const detailAt = useRef({});
@@ -295,7 +310,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   const loader = useMemo(() => new ChunkLoader(onChunk), [onChunk]);
   useEffect(() => () => loader.dispose(), [loader]);
   // The observer's root is the grid's scroll container. Canvas mode roots it
-  // on the plane instead, with a margin on both axes (MatrixCanvas), so the
+  // on the plane instead, with a margin on both axes (Plane), so the
   // surface only remembers the element here.
   const setBody = useCallback((el) => { bodyRef.current = el; }, []);
   const onCanvasReady = useCallback((handle) => { canvasRef.current = handle; }, []);
@@ -328,9 +343,9 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     if (!id) return;
     try {
       const det = normalizeCanvasDetail(await api("/api/canvases/" + enc(id)));
-      if (!det) throw new Error("That matrix could not be read.");
+      if (!det) throw new Error("That canvas could not be read.");
       detailAt.current[id] = Date.now();
-      if (pendingRef.current.matrixId === id) pendingRef.current = { matrixId: "", rows: new Map() };
+      if (pendingRef.current.canvasId === id) pendingRef.current = { canvasId: "", rows: new Map() };
       setStore((s) => {
         const next = applyCanvasEvent(s, { type: "canvas.updated", data: det.canvas });
         return { ...next, byId: { ...next.byId, [id]: det } };
@@ -392,11 +407,11 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       }
       if (ev.type === "agent.tui") { setWorkingIds((cur) => applyTui(cur, ev)); return; }
       // What a drawn line grants changes with the connection list, never with
-      // the matrix: refetch that, not the matrix (ADR-0116 §7 — on the feed,
+      // the canvas: refetch that, not the canvas (ADR-0116 §7 — on the feed,
       // never on a timer).
       if (PEER_EVENTS.test(ev.type)) peersDirty();
       if (ev.type.startsWith("peer.")) return;
-      // A deleted target holds no pane: dispose what the Matrix kept
+      // A deleted target holds no pane: dispose what the Canvas kept
       // suspended now, not when the LRU gets to it (paneOwnership.js).
       if (ev.type === "terminal.deleted" || ev.type === "agent.deleted") {
         const gone = ev.data && ev.data.id;
@@ -424,7 +439,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     if (peersNeededRef.current && peersAt.current && now - peersAt.current > REVEAL_STALE_MS) loadPeers();
   }, [hidden, loadList, loadDetail, loadPins, loadPeers]);
 
-  // ---- which matrix -------------------------------------------------------
+  // ---- which canvas -------------------------------------------------------
   const flushRef = useRef(() => {});
   const select = useCallback((id) => {
     flushRef.current();
@@ -440,7 +455,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   useEffect(() => {
     if (initialPath && initialPath !== currentRef.current) select(initialPath);
   }, [initialPath, select]);
-  // Revealed, the tab's hash is #/app/matrix again: say which matrix.
+  // Revealed, the tab's hash is #/app/canvas again: say which canvas.
   useEffect(() => {
     if (!hidden && currentRef.current && pathRef.current) pathRef.current(currentRef.current);
   }, [hidden]);
@@ -462,8 +477,8 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   const edges = detail && Array.isArray(detail.edges) ? detail.edges : NO_EDGES;
   const edgesRef = useRef(NO_EDGES);
   edgesRef.current = edges;
-  // The connection list is read only when this matrix actually holds a link.
-  // A matrix with no edge asks nothing of ADR-0104, and drawing one reads it
+  // The connection list is read only when this canvas actually holds a link.
+  // A canvas with no edge asks nothing of ADR-0104, and drawing one reads it
   // fresh anyway (drawEdge below), because enrolment is exactly the thing
   // that may have changed a second ago.
   peersNeededRef.current = edges.length > 0;
@@ -480,7 +495,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     if (pinsNeeded && !pinsAt.current) loadPins();
   }, [pinsNeeded, loadPins]);
 
-  // The tmux-reported Working state of the agents on this matrix: one read
+  // The tmux-reported Working state of the agents on this canvas: one read
   // on open and reveal, then agent.tui from the feed (the sidebar's rule).
   const agentRefs = useMemo(() => panels.filter((p) => p.kind === "agent").map((p) => p.ref).sort().join(","), [panels]);
   useEffect(() => {
@@ -492,7 +507,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
 
   // Files and diffs come from where a path already exists — the file tabs
   // open in the desktop right now — so the picker lists and never browses
-  // (the entry points are docs/architecture/matrix.md, Surface). One list
+  // (the entry points are docs/architecture/canvas.md, Surface). One list
   // feeds both groups: the same path as a file and as a diff is two panels,
   // which is exactly what the unique index allows.
   const fileOptions = useMemo(() => {
@@ -593,18 +608,18 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   // follow it does not send a precondition the save has just invalidated.
   const flushLayout = useCallback(async () => {
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = 0; }
-    const { matrixId, rows } = pendingRef.current;
-    pendingRef.current = { matrixId: "", rows: new Map() };
-    const det = storeRef.current.byId[matrixId];
+    const { canvasId, rows } = pendingRef.current;
+    pendingRef.current = { canvasId: "", rows: new Map() };
+    const det = storeRef.current.byId[canvasId];
     if (!det || !rows.size) return "";
     try {
-      const res = await api("/api/canvases/" + enc(matrixId) + "/layout", json("PATCH", { ifUpdatedAt: det.canvas.updatedAt, panels: [...rows.values()] }));
+      const res = await api("/api/canvases/" + enc(canvasId) + "/layout", json("PATCH", { ifUpdatedAt: det.canvas.updatedAt, panels: [...rows.values()] }));
       setStore((s) => applyCanvasEvent(s, { type: "canvas.layout", data: res }));
       return (res && res.updatedAt) || "";
     } catch (e) {
-      if (e && e.status === 409) toast.info("Matrix changed elsewhere — reloaded.");
+      if (e && e.status === 409) toast.info("Canvas changed elsewhere — reloaded.");
       else toastError(e);
-      await loadDetail(matrixId);
+      await loadDetail(canvasId);
       return false;
     }
   }, [loadDetail]);
@@ -623,8 +638,8 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     const moved = det.panels.some((p) => to.has(p.id) && (to.get(p.id).x !== p.x || to.get(p.id).y !== p.y || to.get(p.id).w !== p.w || to.get(p.id).h !== p.h));
     if (moved) setStore((s) => patchPanels(s, id, (ps) => ps.map((p) => (to.has(p.id) ? { ...p, ...rectOf(to.get(p.id)) } : p))));
     if (!diff.length) return;
-    if (pendingRef.current.matrixId && pendingRef.current.matrixId !== id) flushRef.current();
-    if (pendingRef.current.matrixId !== id) pendingRef.current = { matrixId: id, rows: new Map() };
+    if (pendingRef.current.canvasId && pendingRef.current.canvasId !== id) flushRef.current();
+    if (pendingRef.current.canvasId !== id) pendingRef.current = { canvasId: id, rows: new Map() };
     for (const p of diff) pendingRef.current.rows.set(p.id, p);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => { saveTimer.current = 0; flushRef.current(); }, SAVE_DEBOUNCE_MS);
@@ -642,12 +657,12 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   }, [loader]);
 
   // ---- mutations ----------------------------------------------------------
-  async function createMatrix(name) {
+  async function createCanvas(name) {
     const res = await api("/api/canvases", json("POST", { name }));
     setStore((s) => applyCanvasEvent(s, { type: "canvas.created", data: res }));
     select(res.id);
   }
-  async function renameMatrix(name) {
+  async function renameCanvas(name) {
     const id = currentRef.current;
     const m = storeRef.current.list.find((x) => x.id === id);
     if (!m) return;
@@ -655,12 +670,14 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       const res = await api("/api/canvases/" + enc(id), json("PATCH", { name, ifUpdatedAt: m.updatedAt }));
       setStore((s) => applyCanvasEvent(s, { type: "canvas.updated", data: res }));
     } catch (e) {
-      if (e && e.status === 409) { await loadDetail(id); throw new Error("Matrix changed elsewhere — reloaded. Try again."); }
+      if (e && e.status === 409) { await loadDetail(id); throw new Error("Canvas changed elsewhere — reloaded. Try again."); }
       throw e;
     }
   }
-  // Tidy: canvas mode's answer to react-grid-layout's automatic compaction —
-  // explicit instead of silent. Reading order, sizes kept, saved once.
+  // Tidy: the plane's answer to the automatic compaction the removed grid
+  // did (ADR-0118) — explicit instead of silent. Nothing on a canvas moves
+  // on its own, so tidying is asked for. Reading order, sizes kept, saved
+  // once through the layout PATCH.
   function tidy() {
     const id = currentRef.current;
     const det = storeRef.current.byId[id];
@@ -670,14 +687,14 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     applyLayout(tidyCanvas(rows));
     flushRef.current();
   }
-  async function deleteMatrix() {
+  async function deleteCanvas() {
     const id = currentRef.current;
     const m = storeRef.current.list.find((x) => x.id === id);
     if (!m) return;
     const ok = await askConfirm({
       title: "Delete " + m.name + "?",
-      message: "The matrix and its panels go away. The agents and terminals on it are not touched.",
-      confirmLabel: "Delete matrix",
+      message: "The canvas and its panels go away. The agents and terminals on it are not touched.",
+      confirmLabel: "Delete canvas",
       danger: true,
     });
     if (!ok) return;
@@ -707,7 +724,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       if (added) {
         setFocusedId(added);
         requestAnimationFrame(() => {
-          const el = bodyRef.current && bodyRef.current.querySelector('[data-mx-panel="' + added + '"]');
+          const el = bodyRef.current && bodyRef.current.querySelector('[data-cv-panel="' + added + '"]');
           if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
         });
       }
@@ -755,9 +772,9 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       }
       notify({
         level: "info",
-        title: "Removed " + model.name + " from the matrix.",
+        title: "Removed " + model.name + " from the canvas.",
         actions: [{ label: "Undo", primary: true, run: () => restorePanel(id, model) }],
-        key: "mx-removed:" + model.id,
+        key: "cv-removed:" + model.id,
       });
     } catch (e) {
       if (e && e.status === 404) setStore((s) => applyCanvasEvent(s, removed));
@@ -787,7 +804,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     // The server's refusals, in the server's words, before the request: a
     // pair already linked, a kind with no mailbox, the cap.
     const refusal = validateEdge({ aPanel: a, bPanel: b }, det.panels, det.edges || NO_EDGES);
-    if (refusal) { notify({ level: "warn", title: humanizeError(refusal), key: "mx-edge-refused" }); return; }
+    if (refusal) { notify({ level: "warn", title: humanizeError(refusal), key: "cv-edge-refused" }); return; }
     let payload;
     try {
       payload = await api("/api/communication");
@@ -800,7 +817,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     if (grant.cross && !(await askConfirm(crossFolderConfirm(grant.ends, foldersRef.current)))) return;
     const offer = enrolOffer(grant.ends);
     if (offer && offer.blocked) {
-      notify({ level: "warn", title: offer.title, body: offer.message, key: "mx-edge-blocked:" + a + "|" + b });
+      notify({ level: "warn", title: offer.title, body: offer.message, key: "cv-edge-blocked:" + a + "|" + b });
       return;
     }
     if (offer) {
@@ -820,7 +837,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
             title: "Couldn’t connect " + end.name + ".",
             body: msgOf(e),
             actions: [{ label: "Open Messages", primary: true, run: () => { location.hash = "#/clis/messages"; } }],
-            key: "mx-edge-enrol:" + end.key,
+            key: "cv-edge-enrol:" + end.key,
           });
           loadPeers();
           return;
@@ -864,12 +881,12 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   const onConnect = useCallback((c) => { edgeActions.current.drawEdge(c); }, []);
   const onRemoveEdge = useCallback((edgeId) => { edgeActions.current.removeEdge(edgeId); }, []);
 
-  async function restorePanel(matrixId, model) {
+  async function restorePanel(canvasId, model) {
     const body = { kind: model.kind, ref: model.ref, x: model.x, y: model.y, w: model.w, h: model.h };
     try {
-      const res = await api("/api/canvases/" + enc(matrixId) + "/panels", json("POST", body));
+      const res = await api("/api/canvases/" + enc(canvasId) + "/panels", json("POST", body));
       setStore((s) => applyCanvasEvent(s, { type: "canvas.panel.added", data: res }));
-      if (currentRef.current === matrixId && res && res.panel) focusPanel(res.panel.id);
+      if (currentRef.current === canvasId && res && res.panel) focusPanel(res.panel.id);
     } catch (e) {
       toastError(e);
     }
@@ -887,7 +904,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     const canvas = canvasRef.current;
     if (canvas) canvas.reveal(id);
     requestAnimationFrame(() => {
-      const el = bodyRef.current && bodyRef.current.querySelector('[data-mx-panel="' + id + '"]');
+      const el = bodyRef.current && bodyRef.current.querySelector('[data-cv-panel="' + id + '"]');
       if (!el) return;
       if (!canvas && el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
       el.focus({ preventScroll: true });
@@ -949,8 +966,8 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       if (e.key === "Enter") {
         e.preventDefault();
         // A live pane takes the keyboard; a row with one action runs it.
-        const action = el.querySelector(".mx-panel-body .mx-placeholder .btn");
-        if (action && !el.querySelector(".mx-panel-body .xterm")) action.click();
+        const action = el.querySelector(".cv-panel-body .cv-placeholder .btn");
+        if (action && !el.querySelector(".cv-panel-body .xterm")) action.click();
         else engagePanel(model.id);
         return;
       }
@@ -989,7 +1006,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     },
     onRun: (model) => {
       // Run starts the TUI in place: the feed flips the mode and the body
-      // swaps to the live pane without leaving the matrix.
+      // swaps to the live pane without leaving the canvas.
       api("/api/agents/" + enc(model.ref) + "/open", { method: "POST" }).catch(toastError);
     },
     onRemove: (model) => { removePanel(model); },
@@ -1019,7 +1036,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     },
     // onDirty(model, dirty): an editor gained or lost unsaved text. It pins
     // the panel — the same `pinned` set a drag and the focus use, except
-    // that this one survives a hidden matrix, because a hidden tab losing a
+    // that this one survives a hidden canvas, because a hidden tab losing a
     // draft is exactly the silent unmount this rule exists to stop.
     onDirty: (model, dirty) => {
       loader.keep(model.id, !!dirty);
@@ -1071,8 +1088,8 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   }
 
   // ---- render -------------------------------------------------------------
-  const onMatrix = useMemo(() => new Set(panels.map((p) => p.kind + ":" + p.ref)), [panels]);
-  const rootClass = "app-surface native-surface mx-surface" + (maximizedId ? " is-max" : "");
+  const onCanvas = useMemo(() => new Set(panels.map((p) => p.kind + ":" + p.ref)), [panels]);
+  const rootClass = "app-surface native-surface cv-surface" + (maximizedId ? " is-max" : "");
   // The roving tab stop: the focused panel, else the first in reading order.
   const tabStopId = useMemo(() => (focusedId && panels.some((p) => p.id === focusedId) ? focusedId : panelOrder(panels)[0] || ""), [panels, focusedId]);
   const maxModel = maximizedId ? models.find((m) => m.id === maximizedId) || null : null;
@@ -1085,14 +1102,14 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       </p>
     );
   } else if (!listLoaded) {
-    body = <div className="mx-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>;
+    body = <div className="cv-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>;
   } else if (!store.list.length) {
     body = (
       <div className="app-blank">
-        <AppIcon name="matrix" label={title} size={24} />
-        <p className="app-blank-title">No matrix yet.</p>
-        <p className="app-blank-sub">A matrix shows many agents, terminals and notes side by side, live.</p>
-        <button type="button" className="btn btn-sm btn-primary" onClick={() => setNameDialog("new")}><IconPlus size={13} /> New matrix</button>
+        <AppIcon name="canvas" label={title} size={24} />
+        <p className="app-blank-title">No canvas yet.</p>
+        <p className="app-blank-sub">A canvas shows many agents, terminals and notes side by side, live.</p>
+        <button type="button" className="btn btn-sm btn-primary" onClick={() => setNameDialog("new")}><IconPlus size={13} /> New canvas</button>
       </div>
     );
   } else if (detailError && !detail) {
@@ -1103,29 +1120,29 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       </p>
     );
   } else if (!detail) {
-    body = <div className="mx-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>;
+    body = <div className="cv-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>;
   } else if (!fleetLoaded) {
     // The fleet decides what every panel is bound to. Read before it lands,
     // an empty fleet reads as "all gone" — the skeleton says "not read yet"
     // instead of flashing an error row on every panel.
-    body = <div className="mx-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>;
+    body = <div className="cv-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>;
   } else if (!panels.length) {
     body = (
       <div className="app-blank">
-        <AppIcon name="matrix" label={title} size={24} />
+        <AppIcon name="canvas" label={title} size={24} />
         <p className="app-blank-title">Add your first panel.</p>
-        <p className="app-blank-sub">A panel is one agent, terminal or note on this matrix.</p>
+        <p className="app-blank-sub">A panel is one agent, terminal or note on this canvas.</p>
         <button type="button" className="btn btn-sm btn-primary" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
       </div>
     );
   } else {
     body = (
-      <div className="mx-stage">
-        <div className="mx-body is-canvas" ref={setBody} inert={!!maximizedId}>
-          <Suspense fallback={<div className="mx-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>}>
-              <MatrixCanvas
+      <div className="cv-stage">
+        <div className="cv-body is-canvas" ref={setBody} inert={!!maximizedId}>
+          <Suspense fallback={<div className="cv-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>}>
+              <Plane
                 key={currentId}
-                matrixId={currentId}
+                canvasId={currentId}
                 models={models}
                 loaded={loadedIds}
                 bodies={bodyKinds}
@@ -1149,9 +1166,9 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
         {maxModel ? (
           // The maximized panel's body, in a layer over the grid: the same
           // xterm (ShellTerm re-claims the pane), fitted to the layer.
-          <div className="mx-max" role="group" aria-label={maxModel.name + " — maximized"} tabIndex={-1} ref={maxRef} onKeyDown={onLayerKey}>
+          <div className="cv-max" role="group" aria-label={maxModel.name + " — maximized"} tabIndex={-1} ref={maxRef} onKeyDown={onLayerKey}>
             <PanelHead model={maxModel} loaded={loadedIds.has(maxModel.id)} maximized handlers={handlers} fixed />
-            <div className="mx-panel-body">
+            <div className="cv-panel-body">
               <PanelBody
                 model={maxModel}
                 loaded={loadedIds.has(maxModel.id)}
@@ -1173,22 +1190,22 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   return (
     <section className={rootClass} aria-label={title} hidden={!!hidden} ref={rootRef}>
       <header className="ft-head">
-        <span className="app-head-icon"><AppIcon name={manifest ? manifest.icon : "matrix"} label={title} size={14} /></span>
+        <span className="app-head-icon"><AppIcon name={manifest ? manifest.icon : "canvas"} label={title} size={14} /></span>
         <h2 className="ft-title" title={title}>{title}</h2>
-        <div className="app-head-left mx-head-left" data-align-row>
+        <div className="app-head-left cv-head-left" data-align-row>
           {store.list.length ? (
-            <select className="mx-select" aria-label="Matrix" value={currentId} onChange={(e) => select(e.target.value)}>
+            <select className="cv-select" aria-label="Canvas" value={currentId} onChange={(e) => select(e.target.value)}>
               {store.list.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
           ) : null}
           {current ? (
             <button type="button" className="btn btn-sm" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
           ) : null}
-          <button type="button" className="btn btn-sm btn-ghost" onClick={() => setNameDialog("new")} title="Create another matrix">New matrix</button>
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => setNameDialog("new")} title="Create another canvas">New canvas</button>
           {current ? (
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
-                <button type="button" className="btn btn-sm btn-ghost mx-menu-btn" aria-label={"Actions for " + current.name} title="Tidy, rename or delete this matrix"><IconEllipsis size={15} /></button>
+                <button type="button" className="btn btn-sm btn-ghost cv-menu-btn" aria-label={"Actions for " + current.name} title="Tidy, rename or delete this canvas"><IconEllipsis size={15} /></button>
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
                 <DropdownMenu.Content className="ws-row-menu" side="bottom" align="end" sideOffset={4} collisionPadding={8}>
@@ -1196,7 +1213,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
                     <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => { tidy(); }}><IconGrid size={13} /> Tidy panels</DropdownMenu.Item>
                   ) : null}
                   <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setNameDialog("rename")}><IconPencil size={13} /> Rename</DropdownMenu.Item>
-                  <DropdownMenu.Item className="ws-row-menu-item danger" onSelect={() => { deleteMatrix(); }}><IconTrash size={13} /> Delete matrix</DropdownMenu.Item>
+                  <DropdownMenu.Item className="ws-row-menu-item danger" onSelect={() => { deleteCanvas(); }}><IconTrash size={13} /> Delete canvas</DropdownMenu.Item>
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
             </DropdownMenu.Root>
@@ -1215,7 +1232,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
         fleet={fleet}
         pins={pins}
         files={fileOptions}
-        onMatrix={onMatrix}
+        onCanvas={onCanvas}
         workingIds={workingIds}
         onPick={addPanel}
         onNewPin={() => { setPickerOpen(false); go("pins-new"); }}
@@ -1223,18 +1240,18 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       />
       <NameDialog
         open={nameDialog === "new"}
-        title="New matrix"
+        title="New canvas"
         action="Create"
         initial=""
-        onSubmit={createMatrix}
+        onSubmit={createCanvas}
         onClose={() => setNameDialog("")}
       />
       <NameDialog
         open={nameDialog === "rename"}
-        title="Rename matrix"
+        title="Rename canvas"
         action="Rename"
         initial={current ? current.name : ""}
-        onSubmit={renameMatrix}
+        onSubmit={renameCanvas}
         onClose={() => setNameDialog("")}
       />
     </section>

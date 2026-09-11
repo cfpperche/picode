@@ -53,12 +53,12 @@ export function readStill(ref) {
   return stills.get(ref) || null;
 }
 
-// forgetStill(ref): the panel left the matrix, or its target was deleted.
+// forgetStill(ref): the panel left the canvas, or its target was deleted.
 export function forgetStill(ref) {
   stills.delete(ref);
 }
 
 // QA hook, the pattern of window.__picodeTerms: what the canvas is holding.
 if (typeof window !== "undefined") {
-  window.__picodeMatrixStills = () => [...stills].map(([id, s]) => ({ id, at: s.at, len: s.text.length }));
+  window.__picodeCanvasStills = () => [...stills].map(([id, s]) => ({ id, at: s.at, len: s.text.length }));
 }

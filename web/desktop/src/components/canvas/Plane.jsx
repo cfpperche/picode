@@ -1,27 +1,28 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Background, BackgroundVariant, ConnectionLineType, ConnectionMode, Handle, MiniMap, NodeResizer, Position, ReactFlow, ReactFlowProvider, applyNodeChanges, useReactFlow } from "@xyflow/react";
-import { CANVAS_LIMITS, CANVAS_ZOOM, EDGE_KINDS, UNIT_PX, normalizeViewport, pointerAtZoom, pxToUnits, unitsToPx, viewportKey } from "@picode/shared/domain/canvas.js";
+import { CANVAS_LIMITS, CANVAS_ZOOM, EDGE_KINDS, UNIT_PX, legacyViewportKey, normalizeViewport, pointerAtZoom, pxToUnits, unitsToPx, viewportKey } from "@picode/shared/domain/canvas.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
 import Panel from "./Panel.jsx";
-import MatrixLink from "./MatrixLink.jsx";
+import Link from "./Link.jsx";
 import { IconLink } from "../Icons.jsx";
 import { hasPane } from "./PanelBody.jsx";
 import { CANVAS_MARGIN } from "./chunkLoader.js";
 import { captureStill, captureStills, readStill } from "./stills.js";
 import "@xyflow/react/dist/style.css";
 
-// MatrixCanvas — canvas mode's host (plan docs/plans/matrix-canvas.md §4;
-// ADR-0113 is the model, C0 the measurements:
-// docs/benchmarks/2026-09-10-node-canvas.md). A peer of MatrixGrid: the
-// surface owns the store, the saving, the focus and the keyboard and hands
-// this component the same panel models. Every panel is the same `Panel`
-// wrapper rendered as a React Flow node type, so a panel behaves identically
-// in both modes — one header, one status chip, one set of actions, one
-// keyboard.
+// Plane — the surface a canvas's panels sit on (plan
+// docs/plans/matrix-canvas.md §4; ADR-0113 is the model, C0 the
+// measurements: docs/benchmarks/2026-09-10-node-canvas.md). Since ADR-0118 it
+// is the only host there is, and it is a host and nothing more: the surface
+// owns the store, the saving, the focus and the keyboard and hands this
+// component the panel models. Every panel is the same `Panel` wrapper
+// rendered as a React Flow node type — one header, one status chip, one set
+// of actions, one keyboard, on the plane and in the maximize layer alike.
 //
-// The host is lazy-imported by the surface: eager, React Flow costs the
-// desktop's main chunk +63.3 KB gzip (2.6× react-grid-layout); split, it
-// costs 205 B and lands in a chunk only a viewer who opens a canvas fetches.
+// The host is lazy-imported by the surface, and the surface is lazy-imported
+// by App.jsx (ADR-0118): eager, React Flow alone cost the desktop's main
+// chunk +63.3 KB gzip; split, it costs 205 B and lands in a chunk only a
+// viewer who opens a canvas fetches.
 //
 // What C0 measured, and why each line is the way it is:
 //
@@ -38,13 +39,13 @@ import "@xyflow/react/dist/style.css";
 //     zooming the plane, and a drag-select inside a pane selects text
 //     instead of moving the panel.
 //   * The minimap costs nothing at 500 nodes but ships as a near-white panel
-//     on a dark app, so it is themed from our tokens (matrix.css) and placed
+//     on a dark app, so it is themed from our tokens (canvas.css) and placed
 //     where it does not cover a panel.
 //   * A live pane takes a pointer **only at zoom 1.0** — the one rule C0
 //     changed. Everywhere else the body is pointer-inert and a click on it
 //     snaps the plane to 1 before the pointer reaches xterm.
 //
-// The viewport is per viewer: localStorage `picode-matrix-view:<id>`,
+// The viewport is per viewer: localStorage `picode-canvas-view:<id>`,
 // restored on open, fit to the panels the first time. A camera is not an
 // edit (ADR-0113), so it never reaches the store.
 //
@@ -86,9 +87,22 @@ const MAX_PX = CANVAS_LIMITS.canvasMax * UNIT_PX;
 const PLANE_PX = CANVAS_LIMITS.canvasCoord * UNIT_PX;
 const NODE_EXTENT = [[-PLANE_PX, -PLANE_PX], [PLANE_PX, PLANE_PX]];
 
+// readView also carries a camera stored under ADR-0118's old key across,
+// once: the key moves, the old one is removed, and a reader who had this
+// plane parked somewhere finds it there instead of fitted.
 function readView(id) {
   try {
-    return normalizeViewport(JSON.parse(localStorage.getItem(viewportKey(id)) || "null"));
+    const key = viewportKey(id);
+    let raw = localStorage.getItem(key);
+    if (raw === null) {
+      const was = legacyViewportKey(id);
+      raw = localStorage.getItem(was);
+      if (raw !== null) {
+        localStorage.setItem(key, raw);
+        localStorage.removeItem(was);
+      }
+    }
+    return normalizeViewport(JSON.parse(raw || "null"));
   } catch {
     return null;
   }
@@ -103,7 +117,7 @@ function writeView(id, v) {
 // the browser). It lives in the header's action row, which already carries
 // `nodrag`, so a drag from it starts a connection and never moves the panel;
 // React Flow adds its own `nodrag`/`nopan` on top. Hidden until the panel is
-// hovered, focused or selected (matrix.css) — a plane of 200 panels must not
+// hovered, focused or selected (canvas.css) — a plane of 200 panels must not
 // wear 200 knobs — and only on the two kinds that have a mailbox: a note has
 // none, the store refuses such an edge, and offering what the store refuses
 // is how a UI teaches a lie.
@@ -113,7 +127,7 @@ const LinkHandle = memo(function LinkHandle({ name }) {
       type="source"
       position={Position.Top}
       id={LINK_HANDLE}
-      className="mx-connect"
+      className="cv-connect"
       title={"Link " + name + " to another panel — they will be able to message each other"}
     >
       <IconLink size={11} />
@@ -166,12 +180,12 @@ const PanelNode = memo(function PanelNode({ id, data }) {
         // 3 px threshold it is still a click, and a click still snaps.
         <button
           type="button"
-          className={"mx-snap" + (data.bodyKind === "plate" ? "" : " nodrag")}
+          className={"cv-snap" + (data.bodyKind === "plate" ? "" : " nodrag")}
           tabIndex={-1}
           aria-hidden="true"
           onClick={data.onSnap}
         >
-          <span className="mx-snap-label">Zoom to 100 %</span>
+          <span className="cv-snap-label">Zoom to 100 %</span>
         </button>
       ) : null}
     </Panel>
@@ -179,7 +193,7 @@ const PanelNode = memo(function PanelNode({ id, data }) {
 });
 
 const NODE_TYPES = { [NODE_TYPE]: PanelNode };
-const EDGE_TYPES = { [EDGE_TYPE]: MatrixLink };
+const EDGE_TYPES = { [EDGE_TYPE]: Link };
 
 // The node's data object is kept when nothing in it changed, so React Flow's
 // own memo holds and a neighbour's drag never re-renders a body.
@@ -188,7 +202,7 @@ function sameData(a, b) {
   return !!a && !!b && DATA_KEYS.every((k) => a[k] === b[k]);
 }
 
-function Flow({ matrixId, models, loaded, bodies, hidden, focusedId, engaged, maximizedId, tabStopId, loader, handlers, edgeRows, onConnect, onRemoveEdge, onLayout, onGestureStart, onGestureStop, onReady }) {
+function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, maximizedId, tabStopId, loader, handlers, edgeRows, onConnect, onRemoveEdge, onLayout, onGestureStart, onGestureStop, onReady }) {
   const rf = useReactFlow();
   const rootRef = useRef(null);
   const [nodes, setNodes] = useState([]);
@@ -217,14 +231,14 @@ function Flow({ matrixId, models, loaded, bodies, hidden, focusedId, engaged, ma
   bodiesRef.current = bodies;
   const saveTimer = useRef(0);
   const fitted = useRef(false);
-  const stored = useMemo(() => readView(matrixId), [matrixId]);
+  const stored = useMemo(() => readView(canvasId), [canvasId]);
 
   // ---- the camera --------------------------------------------------------
   const applyZoom = useCallback((zoom) => {
     zoomRef.current = zoom;
     // One CSS variable carries the zoom to the name-plates, which size
     // themselves by 1 / zoom so they stay readable however far out you are.
-    if (rootRef.current) rootRef.current.style.setProperty("--mx-zoom", String(zoom));
+    if (rootRef.current) rootRef.current.style.setProperty("--cv-zoom", String(zoom));
     const next = pointerAtZoom(zoom);
     setPointer((cur) => (cur === next ? cur : next));
     const pct = Math.round(zoom * 100);
@@ -333,7 +347,7 @@ function Flow({ matrixId, models, loaded, bodies, hidden, focusedId, engaged, ma
   // ---- the observer root is the plane, and its margin has both axes -------
   const setRoot = useCallback((el) => {
     rootRef.current = el;
-    if (el) el.style.setProperty("--mx-zoom", String(zoomRef.current));
+    if (el) el.style.setProperty("--cv-zoom", String(zoomRef.current));
     loader.attach(el, CANVAS_MARGIN);
   }, [loader]);
 
@@ -389,7 +403,7 @@ function Flow({ matrixId, models, loaded, bodies, hidden, focusedId, engaged, ma
           ...(prev || {}),
           id,
           type: NODE_TYPE,
-          dragHandle: data.bodyKind === "plate" ? undefined : ".mx-head",
+          dragHandle: data.bodyKind === "plate" ? undefined : ".cv-head",
           position,
           width,
           height,
@@ -402,8 +416,8 @@ function Flow({ matrixId, models, loaded, bodies, hidden, focusedId, engaged, ma
 
   // ---- edges (ADR-0116) ---------------------------------------------------
   // The surface hands rows that already know whether they grant: this host
-  // draws, it does not judge. `matrixGrants.js` is the one place that joins
-  // a matrix's edges with the connection list, so the plane and the Messages
+  // draws, it does not judge. `canvasGrants.js` is the one place that joins
+  // a canvas's edges with the connection list, so the plane and the Messages
   // audit list can never disagree about a live grant.
   const removeEdge = useCallback((id) => { onRemoveEdge(id); }, [onRemoveEdge]);
   const hoverEdgeAt = useCallback((id, on) => {
@@ -453,7 +467,7 @@ function Flow({ matrixId, models, loaded, bodies, hidden, focusedId, engaged, ma
       if (e.key !== "Delete" && e.key !== "Backspace") return;
       if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
       const t = e.target;
-      if (t && t.closest && t.closest("input, textarea, select, [contenteditable=\"true\"], .xterm, [data-mx-panel], [role=\"dialog\"]")) return;
+      if (t && t.closest && t.closest("input, textarea, select, [contenteditable=\"true\"], .xterm, [data-cv-panel], [role=\"dialog\"]")) return;
       e.preventDefault();
       onRemoveEdge(selectedEdge);
     };
@@ -481,12 +495,12 @@ function Flow({ matrixId, models, loaded, bodies, hidden, focusedId, engaged, ma
     if (zoom < CANVAS_ZOOM.live) fillStills();
   }, [applyZoom, loader, fillStills]);
   useEffect(() => { enterZoom(stored ? stored.zoom : CANVAS_ZOOM.exact); }, [enterZoom, stored]);
-  // The zoom belongs to this host, and the loader outlives it: leaving the
-  // canvas hands the loader back the only zoom grid mode has. Without this a
-  // matrix switched to grid after a zoomed-out canvas kept drawing
-  // name-plates — and since phase 4 kept its chat sockets closed with them.
+  // The zoom belongs to this host, and the loader outlives it: unmounting
+  // the plane hands the loader back zoom 1, where every loaded body is live.
+  // Without it a surface that loses its plane while zoomed out keeps drawing
+  // name-plates — and since phase 4 keeps its chat sockets closed with them.
   useEffect(() => () => loader.setZoom(CANVAS_ZOOM.exact), [loader]);
-  // Fit the plane the first time this viewer opens this matrix. The `fitView`
+  // Fit the plane the first time this viewer opens this canvas. The `fitView`
   // prop cannot do it: the first render has no nodes yet.
   useEffect(() => {
     if (fitted.current || stored || !nodes.length) return;
@@ -511,8 +525,8 @@ function Flow({ matrixId, models, loaded, bodies, hidden, focusedId, engaged, ma
       fillStills();
     }
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => { saveTimer.current = 0; writeView(matrixId, viewport); }, VIEW_SAVE_MS);
-  }, [applyZoom, loader, matrixId, fillStills]);
+    saveTimer.current = setTimeout(() => { saveTimer.current = 0; writeView(canvasId, viewport); }, VIEW_SAVE_MS);
+  }, [applyZoom, loader, canvasId, fillStills]);
   useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
 
   // ---- what the surface's keyboard drives ---------------------------------
@@ -523,7 +537,7 @@ function Flow({ matrixId, models, loaded, bodies, hidden, focusedId, engaged, ma
   }, [onReady, snapToOne, reveal, fit, zoomIn, zoomOut]);
 
   return (
-    <div className="mx-canvas-flow" ref={setRoot}>
+    <div className="cv-canvas-flow" ref={setRoot}>
       <ReactFlow
         nodes={nodes}
         nodeTypes={NODE_TYPES}
@@ -564,24 +578,24 @@ function Flow({ matrixId, models, loaded, bodies, hidden, focusedId, engaged, ma
         <Background variant={BackgroundVariant.Dots} gap={UNIT_PX * 4} size={1} />
         <MiniMap pannable zoomable ariaLabel="Panels on the plane" />
       </ReactFlow>
-      <div className="mx-zoom" role="group" aria-label="Zoom" data-align-row>
-        <button type="button" className="mx-zoom-btn" aria-label="Zoom out" title="Zoom out (−)" onClick={zoomOut}>−</button>
+      <div className="cv-zoom" role="group" aria-label="Zoom" data-align-row>
+        <button type="button" className="cv-zoom-btn" aria-label="Zoom out" title="Zoom out (−)" onClick={zoomOut}>−</button>
         <button
           type="button"
-          className="mx-zoom-pct"
+          className="cv-zoom-pct"
           title="Back to 100 % — the only zoom where a click lands on the cell it points at"
           onClick={() => snapToOne(focusedId)}
         >
           {zoomPct} %
         </button>
-        <button type="button" className="mx-zoom-btn" aria-label="Zoom in" title="Zoom in (+)" onClick={zoomIn}>+</button>
-        <button type="button" className="mx-zoom-fit" title="Fit every panel (0)" onClick={fit}>Fit</button>
+        <button type="button" className="cv-zoom-btn" aria-label="Zoom in" title="Zoom in (+)" onClick={zoomIn}>+</button>
+        <button type="button" className="cv-zoom-fit" title="Fit every panel (0)" onClick={fit}>Fit</button>
       </div>
     </div>
   );
 }
 
-export default function MatrixCanvas(props) {
+export default function Plane(props) {
   return (
     <ReactFlowProvider>
       <Flow {...props} />

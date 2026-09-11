@@ -8,7 +8,7 @@ import { reconcileTranscript, liveSince, transcriptGate } from "@picode/shared/d
 // conversation (docs/plans/matrix-app.md §2.4, phase 4). It is the desktop
 // port of `web/mobile/src/hooks/useAgentSocket.js`: the same shape, the same
 // pure reducer, the same transcript reconciliation — with the composer verbs
-// left out, because a Matrix panel reads and the agent's tab answers.
+// left out, because a Canvas panel reads and the agent's tab answers.
 //
 // **What it does not do, and why.** No `send`, `abort`, `replyAsk`,
 // `runBash` or `abortBash`: phase 4 ships a reader, and the one action a
@@ -30,7 +30,7 @@ import { reconcileTranscript, liveSince, transcriptGate } from "@picode/shared/d
 // file. One consequence is worth knowing: `Hub.Len()` is the server's
 // "is anybody watching" gate (ADR-0037's unobserved-run rule), so a live
 // chat panel counts as a watcher exactly as an open tab does — see
-// docs/architecture/matrix.md.
+// docs/architecture/canvas.md.
 //
 // The socket's lifetime IS this hook's mount: chunk loading and the zoom
 // decide whether the body renders (`loadPolicy`'s `bodies`), and the body

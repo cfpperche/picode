@@ -2,7 +2,7 @@ import { memo } from "react";
 import { BaseEdge, EdgeLabelRenderer, getStraightPath } from "@xyflow/react";
 import { IconLink, IconUnlink } from "../Icons.jsx";
 
-// MatrixLink — how an edge draws on the plane (ADR-0116). One edge type, and
+// Link — how an edge draws on the plane (ADR-0116). One edge type, and
 // it says two things and only two: these two panels are linked, and whether
 // that link **currently grants** the mailbox contact.
 //
@@ -17,7 +17,7 @@ import { IconLink, IconUnlink } from "../Icons.jsx";
 // colour, with an unlink mark, the word "Broken", and — pointed at or
 // selected — the one line that says which end and why, as text rather than
 // as a `title` nobody can reach without a mouse hover they did not know to
-// try. Nothing here decides that: `data.grants` is matrixGrants.js's answer,
+// try. Nothing here decides that: `data.grants` is canvasGrants.js's answer,
 // the same one the Messages audit list reads.
 //
 // Hovering the **chip** is what shows the reason, not only hovering the
@@ -27,7 +27,7 @@ import { IconLink, IconUnlink } from "../Icons.jsx";
 // and its reason are reachable whatever the layout does.
 //
 // The chip is a real button and the click target that removes; selecting the
-// line and pressing Delete does the same thing (MatrixCanvas owns that key,
+// line and pressing Delete does the same thing (Plane owns that key,
 // because React Flow's own delete key is off — Delete on a focused panel
 // removes the panel).
 //
@@ -39,7 +39,7 @@ import { IconLink, IconUnlink } from "../Icons.jsx";
 // because that is the state the owner must not be able to miss. The grace
 // period is what stops the chip vanishing as the pointer travels the gap
 // from the line to it.
-function MatrixLink({ id, sourceX, sourceY, targetX, targetY, selected, data }) {
+function Link({ id, sourceX, sourceY, targetX, targetY, selected, data }) {
   const [path, labelX, labelY] = getStraightPath({ sourceX, sourceY, targetX, targetY });
   const grants = !!(data && data.grants);
   const reason = (data && data.reason) || "";
@@ -67,29 +67,29 @@ function MatrixLink({ id, sourceX, sourceY, targetX, targetY, selected, data }) 
       <BaseEdge
         id={id}
         path={path}
-        className={"mx-edge" + state + (selected ? " is-selected" : "")}
+        className={"cv-edge" + state + (selected ? " is-selected" : "")}
         interactionWidth={22}
       />
       {shown ? (
         <EdgeLabelRenderer>
           <div
-            className={"mx-edge-label" + state + (selected ? " is-selected" : "")}
-            style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, "--mx-edge-nx": nx, "--mx-edge-ny": ny }}
+            className={"cv-edge-label" + state + (selected ? " is-selected" : "")}
+            style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, "--cv-edge-nx": nx, "--cv-edge-ny": ny }}
             onPointerEnter={() => data.onHover(id, true)}
             onPointerLeave={() => data.onHover(id, false)}
           >
-            <div className="mx-edge-chip-wrap">
+            <div className="cv-edge-chip-wrap">
               <button
                 type="button"
-                className="mx-edge-chip nodrag nopan"
+                className="cv-edge-chip nodrag nopan"
                 title={reason || `${label} — remove this link`}
                 aria-label={(reason ? reason + " " : "") + "Remove the link between " + label}
                 onClick={(e) => { e.stopPropagation(); data.onRemove(id); }}
               >
                 {grants ? <IconLink size={12} /> : <IconUnlink size={12} />}
-                {grants ? null : <span className="mx-edge-word">Broken</span>}
+                {grants ? null : <span className="cv-edge-word">Broken</span>}
               </button>
-              {reason && (selected || (data && data.hovered)) ? <span className="mx-edge-reason" role="status">{reason}</span> : null}
+              {reason && (selected || (data && data.hovered)) ? <span className="cv-edge-reason" role="status">{reason}</span> : null}
             </div>
           </div>
         </EdgeLabelRenderer>
@@ -98,4 +98,4 @@ function MatrixLink({ id, sourceX, sourceY, targetX, targetY, selected, data }) 
   );
 }
 
-export default memo(MatrixLink);
+export default memo(Link);
