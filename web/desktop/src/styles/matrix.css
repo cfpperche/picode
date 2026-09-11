@@ -97,6 +97,52 @@
    them push apart only wraps them onto a second row in a narrow panel. */
 .mx-panel-body > .file-pane-embedded .file-pane-actions { margin-left: 0; }
 
+/* A managed agent's body: the tab's own Conversation, read-only, given the
+   panel's height (docs/plans/matrix-app.md §2.4). Two rules and nothing
+   else — the component and its styles are the tab's. First, **one
+   scroller**: `.conversation` is `position: absolute; inset: 0` in a tab,
+   which would sit over the needs-you bar, so here it is a flex row of the
+   body and scrolls in place. Second, the chat's own two tokens are
+   narrowed rather than copied: a panel is a fraction of a tab wide, and the
+   tab's 280 px floor is the composer's, which a reader does not have. */
+.mx-chat { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
+.mx-chat > .conversation {
+  --chat-gutter: 10px;
+  --chat-col: 100%;
+  position: relative; inset: auto;
+  flex: 1 1 auto; min-height: 0;
+}
+.mx-chat .conv-col { padding: 10px 0 14px; }
+.mx-chat .turn { scroll-margin-bottom: 16px; }
+/* The tab reads a 16 px column at half the screen's width; a panel is a
+   quarter of it. The agent's output stays the hero — it just reads at the
+   density the rest of a panel does. */
+.mx-chat .block-content { font-size: 13.5px; line-height: 1.6; }
+.mx-chat .block.user .block-content, .mx-chat .block.thinking .block-content { font-size: 13px; }
+/* A read-only question shows what was asked and what the choices are; the
+   bar below is the only control, because the answer belongs to the tab. */
+.mx-chat .ask-read .ask-pill-static { cursor: default; }
+
+/* An agent blocked on a human, said where the reader is already looking:
+   one line and one action, on the body's own floor so it never scrolls
+   away. The words are the sidebar's (ADR-0062) and lib/needsYou.js's. */
+.mx-chat-ask {
+  flex: none; display: flex; align-items: center; gap: 8px;
+  padding: 4px 8px; border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--warn) 12%, var(--bg-panel));
+  font-family: var(--sans);
+}
+.mx-chat-ask-t {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; min-height: var(--ctl-h);
+}
+/* The ellipsis belongs to the block that holds the text: a flex box has no
+   line box of its own to trim. */
+.mx-chat-ask-t > span {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12.5px; color: var(--text-primary);
+}
+.mx-chat-ask .btn { flex: none; min-height: var(--ctl-h); }
+
 /* Unloaded, pending, stopped, gone: one muted line, at most one action. */
 .mx-placeholder {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;

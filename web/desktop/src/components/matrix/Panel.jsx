@@ -1,7 +1,7 @@
 import { forwardRef, memo, useCallback, useEffect, useRef } from "react";
 import PiSpinner from "../PiSpinner.jsx";
 import { IconCollapse, IconExpand, IconExternal, IconLink, IconUnlink, IconX } from "../Icons.jsx";
-import PanelBody, { hasPane } from "./PanelBody.jsx";
+import PanelBody, { hasChat, hasPane } from "./PanelBody.jsx";
 import PanelFace from "./PanelFace.jsx";
 import { PanelPlate, PanelStill } from "./PanelStill.jsx";
 
@@ -49,7 +49,10 @@ const GONE = ["terminal-gone", "agent-gone", "note-gone", "file-gone", "diff-gon
 export function PanelHead({ model, loaded, maximized, handlers, fixed, note, connector, links }) {
   const gone = GONE.includes(model.state);
   const canOpen = !gone && !model.pending;
-  const canMax = canOpen && model.state !== "agent-stopped" && model.state !== "agent-managed";
+  // A stopped agent's row is one line and one action — there is nothing to
+  // make bigger. A managed agent has a conversation since phase 4, so it
+  // maximizes like every other body (plan §4.4).
+  const canMax = canOpen && model.state !== "agent-stopped";
   const openLabel = OPEN_LABEL[model.kind] || "Open in its tab";
   return (
     <div className={"mx-head" + (fixed ? " is-fixed" : "")} title={model.name + (model.hint ? " — " + model.hint : "")}>
@@ -120,6 +123,7 @@ const PanelInner = memo(function PanelInner({ model, loaded, hidden, engaged, ma
           <PanelBody
             model={model}
             loaded={loaded}
+            body={bodyKind}
             hidden={hidden}
             focused={engaged}
             onOpen={() => handlers.onOpen(model)}
@@ -154,6 +158,12 @@ const Panel = memo(forwardRef(function Panel({ model, loaded, hidden, focused, e
   useEffect(() => {
     if (loader) loader.setPane(id, pane);
   }, [loader, id, pane]);
+  // And whether it holds an agent socket (phase 4): no cell, so no still and
+  // no pointer rule, but one WebSocket and one transcript — the cap's unit.
+  const chat = hasChat(model);
+  useEffect(() => {
+    if (loader) loader.setChat(id, chat);
+  }, [loader, id, chat]);
   // is-inert: a live pane away from zoom 1.0 renders and takes keys, but
   // its pointer lies (C0: the mapped cell is `cell × zoom`), so the body
   // takes no pointer at all and the canvas puts a snap-to-1 layer over it.

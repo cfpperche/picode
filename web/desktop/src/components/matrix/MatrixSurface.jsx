@@ -15,6 +15,8 @@ import { IconEllipsis, IconGrid, IconPencil, IconPlus, IconTrash } from "../Icon
 import { go, isFileTab, parseFileTab, pinHash } from "../../lib/routes.js";
 import { notify, toast, toastError } from "../../lib/toast.js";
 import { askConfirm } from "../../lib/confirm.js";
+import { methodLabel } from "../../lib/needsYou.js";
+import { FREE_WS } from "../../lib/termGroups.js";
 import MatrixGrid, { compactPanels } from "./MatrixGrid.jsx";
 import { PanelHead } from "./Panel.jsx";
 import PanelBody from "./PanelBody.jsx";
@@ -108,7 +110,7 @@ function ownerFolder(kind, row, fleet) {
   return row.workPath || (loc && loc.workspace && loc.workspace.path) || "";
 }
 
-const MODEL_KEYS = ["id", "kind", "ref", "x", "y", "w", "h", "pending", "state", "target", "name", "hint", "cwd", "status", "label", "stamp", "owned", "dirty"];
+const MODEL_KEYS = ["id", "kind", "ref", "x", "y", "w", "h", "pending", "state", "target", "name", "hint", "cwd", "status", "label", "stamp", "owned", "dirty", "wsId", "ask"];
 function sameModel(a, b) {
   return !!a && MODEL_KEYS.every((k) => a[k] === b[k]);
 }
@@ -126,6 +128,8 @@ function buildModel(panel, fleet, workingIds, openTabs, dirtyIds, prev) {
   let status = "stopped";
   let label = "Gone";
   let stamp = "";
+  let wsId = "";
+  let ask = "";
   if (panel.kind === "note") {
     // A pin's summary is its own header: the title names it, the tags are
     // the subdued line, and the chip says what the panel is rather than
@@ -177,6 +181,15 @@ function buildModel(panel, fleet, workingIds, openTabs, dirtyIds, prev) {
       status = agentRowStatus(target, { workingIds });
       label = agentStatusLabel(status);
       stamp = target.lastStatusAt || target.lastStartedAt || "";
+      // The transcript window is workspace-scoped (the route refuses an
+      // agent that is not in the workspace it names), and a free agent's
+      // workspace is the reserved one.
+      wsId = (loc.workspace && loc.workspace.id) || FREE_WS;
+      // What the agent is blocked on, read from the **fleet** row and never
+      // from a panel's socket (ADR-0062's vocabulary, lib/needsYou.js's
+      // words). That is what lets a panel that is unloaded, quiet or a
+      // name-plate still say Needs you, and what the chat body's bar shows.
+      if (status === "needs-you" && target.dialog) ask = target.dialog.title || methodLabel(target.dialog.method);
     }
   }
   // A deleted target has no row left to read: keep the words the panel
@@ -196,7 +209,7 @@ function buildModel(panel, fleet, workingIds, openTabs, dirtyIds, prev) {
   }
   const next = {
     id: panel.id, kind: panel.kind, ref: panel.ref, x: panel.x, y: panel.y, w: panel.w, h: panel.h, pending: !!panel.pending,
-    state, target, name, hint, cwd, status, label, stamp, dirty, owned: ownedByTab(panel.kind, panel.ref, openTabs),
+    state, target, name, hint, cwd, status, label, stamp, dirty, wsId, ask, owned: ownedByTab(panel.kind, panel.ref, openTabs),
   };
   return sameModel(prev, next) ? prev : next;
 }
@@ -1197,6 +1210,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
             <MatrixGrid
               models={models}
               loaded={loadedIds}
+              bodies={bodyKinds}
               hidden={!!hidden}
               focusedId={focusedId}
               engaged={engaged}
@@ -1220,6 +1234,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
               <PanelBody
                 model={maxModel}
                 loaded={loadedIds.has(maxModel.id)}
+                body={bodyKinds[maxModel.id] === "off" ? "off" : "live"}
                 hidden={!!hidden}
                 focused={engaged && focusedId === maxModel.id}
                 onOpen={() => handlers.onOpen(maxModel)}

@@ -1,9 +1,10 @@
-import { hasPane, parseRef } from "@picode/shared/domain/matrix.js";
+import { CHAT_LIVE_MAX, hasChat, hasPane, parseRef } from "@picode/shared/domain/matrix.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
 import TerminalPanel from "./TerminalPanel.jsx";
 import NotePanel from "./NotePanel.jsx";
 import FilePanel from "./FilePanel.jsx";
 import DiffPanel from "./DiffPanel.jsx";
+import AgentChatPanel from "./AgentChatPanel.jsx";
 
 // PanelBody — the slot under a panel's header (docs/plans/matrix-app.md
 // §4.4, one row each; the kinds beyond a live pane are
@@ -24,17 +25,38 @@ function Line({ text, action, onAction }) {
   );
 }
 
-// hasPane is the domain's (web/shared/domain/matrix.js): the rows whose body
-// *is* a terminal. Re-exported here because this is where the components
-// already ask for it.
-export { hasPane };
+// hasPane and hasChat are the domain's (web/shared/domain/matrix.js): the
+// rows whose body *is* a terminal, and the row whose body holds an agent
+// socket. Re-exported here because this is where the components already ask.
+export { hasChat, hasPane };
 
-export default function PanelBody({ model, loaded, hidden, focused, onOpen, onRemove, onRun, onOpenFile, onDirty }) {
+export default function PanelBody({ model, loaded, body = "live", hidden, focused, onOpen, onRemove, onRun, onOpenFile, onDirty }) {
   switch (model.state) {
     case "terminal-gone": return <Line text="That terminal is gone." action="Remove" onAction={onRemove} />;
     case "agent-gone": return <Line text="That agent is gone." action="Remove" onAction={onRemove} />;
     case "agent-stopped": return <Line text="Agent is stopped." action="Run" onAction={onRun} />;
-    case "agent-managed": return <Line text="Managed agent — open to read." action="Open" onAction={onOpen} />;
+    case "agent-managed":
+      // The conversation, read-only, exactly while the loader says this body
+      // is live — in the band, at zoom 0.4 or more, under the chat cap. The
+      // socket's lifetime is this component's mount, so the three other
+      // answers are each one line and one action, and none of them costs a
+      // connection. The header says Needs you at all four, because the chip
+      // is the fleet's and not this socket's.
+      if (loaded && body === "live") {
+        return (
+          <AgentChatPanel
+            agentId={model.ref}
+            workspaceId={model.wsId}
+            ask={model.ask}
+            onOpen={onOpen}
+            onOpenTab={(path) => onOpenFile(path)}
+          />
+        );
+      }
+      if (body === "quiet") {
+        return <Line text={"Paused — " + CHAT_LIVE_MAX + " conversations are already live."} action="Open" onAction={onOpen} />;
+      }
+      return <Line text="Managed agent — open to read." action="Open" onAction={onOpen} />;
     case "note-gone": return <Line text="That pin is gone." action="Remove" onAction={onRemove} />;
     case "file-gone": return <Line text="Where this file was read from is gone." action="Remove" onAction={onRemove} />;
     case "diff-gone": return <Line text="Where this file was read from is gone." action="Remove" onAction={onRemove} />;

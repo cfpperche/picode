@@ -15,6 +15,11 @@ import Panel from "./Panel.jsx";
 // (pin the panel, hold feed events); onLayoutChange carries the measured
 // width so the surface can ignore a change it cannot trust (hidden, 0).
 //
+// A grid never zooms, so `bodies` here is only ever off, live or **quiet** —
+// the chat cap's answer for a managed-agent panel past CHAT_LIVE_MAX
+// (docs/plans/matrix-app.md §4.5). The zoom's still and plate are the
+// canvas's rows.
+//
 // Edges belong to the matrix, not to a mode (ADR-0116), but a grid has no
 // plane to draw one on: `links` is the per-panel count its header wears
 // instead, and the Messages audit list is where a grid-mode owner reads and
@@ -34,7 +39,7 @@ export function compactPanels(panels) {
   return fastVerticalCompactor.compact(layout, MATRIX_LIMITS.cols).map((l) => ({ id: l.i, x: l.x, y: l.y, w: l.w, h: l.h }));
 }
 
-export default function MatrixGrid({ models, loaded, hidden, focusedId, engaged, maximizedId, tabStopId, loader, handlers, links, onLayoutChange, onGestureStart, onGestureStop }) {
+export default function MatrixGrid({ models, loaded, bodies, hidden, focusedId, engaged, maximizedId, tabStopId, loader, handlers, links, onLayoutChange, onGestureStart, onGestureStop }) {
   const { width, containerRef } = useContainerWidth({ initialWidth: 0 });
   // A hidden tab measures 0: keep drawing at the last real width so the
   // wrappers keep their places (and their scroll offset) until the reveal.
@@ -72,6 +77,7 @@ export default function MatrixGrid({ models, loaded, hidden, focusedId, engaged,
             tabStop={tabStopId === m.id}
             loader={loader}
             handlers={handlers}
+            bodyKind={bodies[m.id] || "live"}
             links={links[m.id]}
           />
         ))}

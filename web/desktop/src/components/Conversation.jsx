@@ -22,7 +22,16 @@ import { fieldLabel, summaryParts, BACK } from "@picode/shared/domain/askForm.js
 
 const WINDOW_STEP = 60;
 
-function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, compactSince, onAbortBash, onReplyAsk, onPrefill, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenTab, after, earlierRemaining, onFetchEarlier }) {
+// `readOnly` is the Matrix panel's mode (docs/plans/matrix-app.md §2.4): the
+// same turns, tools and markdown, with every control that would *write*
+// through the agent left out — the ask form answers, the queued follow-up's
+// Edit and Remove, and the code block's Run. Nothing is disabled-with-a-
+// tooltip: a control that cannot act is not drawn, and the panel's own bar
+// names the one way out (Open, which is the agent's tab). The chips that
+// prefill a composer disappear on their own, because a reader passes no
+// `onPrefill`. `id` is the tab's `conversation`; a matrix may hold several
+// of these at once, so a panel passes null and no element's id repeats.
+function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, compactSince, onAbortBash, onReplyAsk, onPrefill, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenTab, after, earlierRemaining, onFetchEarlier, readOnly = false, id = "conversation" }) {
   const [preview, setPreview] = useState("");
   const [limit, setLimit] = useState(WINDOW_STEP);
   const growLock = useRef(false);
@@ -64,7 +73,7 @@ function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, h
     if (onScroll) onScroll(ev);
   }
   return (
-    <div id="conversation" className="conversation" ref={convRef} onScroll={onScrollWrap} style={{ visibility: hidden ? "hidden" : "visible" }}>
+    <div id={id || undefined} className="conversation" ref={convRef} onScroll={onScrollWrap} style={{ visibility: hidden ? "hidden" : "visible" }}>
       <div className="conv-col">
         {canGrow ? (
           <button type="button" className="conv-load-earlier" onClick={growEarlier}>
@@ -74,7 +83,7 @@ function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, h
         {turns.reduce((acc, t, i) => {
           if (i < hiddenCount && i !== busy) return acc;
           if (t.kind === "loose") {
-            acc.nodes.push(<Loose key={"l" + i} it={t.item} items={items} onToggleFiles={onToggleFiles} onAbortBash={onAbortBash} onReplyAsk={onReplyAsk} onPrefill={onPrefill} agentId={agentId} onOpenTab={onOpenTab} />);
+            acc.nodes.push(<Loose key={"l" + i} it={t.item} items={items} onToggleFiles={onToggleFiles} onAbortBash={onAbortBash} onReplyAsk={onReplyAsk} onPrefill={onPrefill} agentId={agentId} onOpenTab={onOpenTab} readOnly={readOnly} />);
 
           } else {
             const n = acc.n++;
@@ -87,7 +96,7 @@ function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, h
               acc.nodes.push(<div key={"d" + n} className="day-mark">{fmtDayMark(ts)}</div>);
               acc.day = day;
             }
-            acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} queued={queued} onToggleTool={onToggleTool} agentId={agentId} onPreview={setPreview} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} onOpenTab={onOpenTab} />);
+            acc.nodes.push(<Turn key={"t" + n} turn={t} i={n} live={live} queued={queued} onToggleTool={onToggleTool} agentId={agentId} onPreview={setPreview} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} onOpenTab={onOpenTab} readOnly={readOnly} />);
           }
           return acc;
         }, { n: 0, day: "", nodes: [] }).nodes}
@@ -118,11 +127,12 @@ function CompactLive({ since }) {
   );
 }
 
-function Loose({ it, items, onToggleFiles, onAbortBash, onReplyAsk, onPrefill, agentId, onOpenTab }) {
+function Loose({ it, items, onToggleFiles, onAbortBash, onReplyAsk, onPrefill, agentId, onOpenTab, readOnly }) {
   if (it.kind === "sys") {
     return <div className={"sys-line" + (it.err ? " err" : "")}>{it.text}</div>;
   }
   if (it.kind === "ask") {
+    if (readOnly) return <AskRead it={it} />;
     return <AskCard it={it} onReply={onReplyAsk} onPrefill={onPrefill} />;
   }
   if (it.kind === "note") {
@@ -258,6 +268,39 @@ function NoteLine({ it, onPrefill }) {
         <button type="button" className="ask-chip ask-chip-action" onClick={() => onPrefill(action)}>{action}</button>
       ) : null}
       {after ? <span className="ask-oc-text">{after}</span> : null}
+    </div>
+  );
+}
+
+// AskRead — the open question as a *reader* sees it (a Matrix panel, plan
+// §2.4): what was asked, and what the choices are, with no way to answer
+// from here. The answer belongs to the agent's tab, and the panel's own bar
+// is the one control that says so — drawing a dead Yes/No here would be the
+// disabled-pill-with-a-tooltip this repo refuses. A question that has
+// already been answered, cancelled or timed out has nothing to protect: it
+// renders the same outcome line the tab shows.
+function AskRead({ it }) {
+  if (it.status !== "open") return <AskCard it={it} />;
+  const steps = it.steps && it.steps.length ? it.steps : [it];
+  const current = steps.find((s) => s.status === "open") || it;
+  const cmd = cmdParts(it.cmd);
+  // The question as it was asked, not the stepper's short field label: a
+  // reader has no stepper to fill in, only a sentence to understand.
+  const title = current.title || it.title || "";
+  const options = (current.options || []).filter((o) => o !== BACK);
+  return (
+    <div className="ask-card open ask-read" role="status">
+      <div className="ask-head">
+        <span className="ask-head-cmd">{cmd ? cmd.name : "agent"}</span>
+        {cmd && cmd.args ? <span className="ask-head-args">{cmd.args}</span> : null}
+      </div>
+      {title ? <p className="ask-q">{title}</p> : null}
+      {current.message ? <p className="ask-msg">{current.message}</p> : null}
+      {options.length ? (
+        <div className="ask-actions">
+          {options.map((o) => <span key={o} className="ask-pill ask-pill-static">{o}</span>)}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -455,7 +498,7 @@ function FilesChanged({ it, items, onToggleFiles, agentId, onOpenTab }) {
   );
 }
 
-function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenTab }) {
+function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenTab, readOnly }) {
   const [userOpen, setUserOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [cards, setCards] = useState([]);
@@ -481,7 +524,7 @@ function Turn({ turn, i, live, queued, onToggleTool, agentId, onPreview, onQueue
   const open = (p) => { if (agentId) openCard(setCards, p); };
   return (
     <div className="turn" id={"turn-" + i}>
-      {turn.user ? <Block it={turn.user} railId={"turn-" + i + "-user"} onPreview={onPreview} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} /> : null}
+      {turn.user ? <Block it={turn.user} railId={"turn-" + i + "-user"} onPreview={onPreview} onQueueRemove={onQueueRemove} onQueueEdit={onQueueEdit} onQueueSave={onQueueSave} onQueueCancelEdit={onQueueCancelEdit} readOnly={readOnly} /> : null}
       {showWork ? (
         <div className={"work" + (shown ? " open" : "") + (live ? " live" : "")}>
           <button type="button" className="work-head" onClick={() => !live && setUserOpen((v) => !v)}>
@@ -526,10 +569,12 @@ function Alert({ it }) {
   return <div className={"chat-alert " + (it.level || "error")}>{it.text}</div>;
 }
 
-function Block({ it, railId, agentId, onPreview, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit }) {
+function Block({ it, railId, agentId, onPreview, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, readOnly }) {
   const user = it.cls === "user";
   const md = !user && it.cls !== "thinking";
-  const pendingFu = user && it.pending && it.chip === "follow_up" && !it.dropped;
+  // A reader sees that a follow-up is queued; editing or dropping it is a
+  // write, and belongs to the agent's tab.
+  const pendingFu = !readOnly && user && it.pending && it.chip === "follow_up" && !it.dropped;
   const [edit, setEdit] = useState(it.text || "");
   useEffect(() => { if (it.editing) setEdit(it.text || ""); }, [it.editing, it.text]);
   async function onRun(lang, code) {
@@ -566,7 +611,7 @@ function Block({ it, railId, agentId, onPreview, onQueueRemove, onQueueEdit, onQ
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => onQueueCancelEdit && onQueueCancelEdit(it.qid)}>Cancel</button>
             </div>
           </>
-        ) : md ? <Markdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]} components={mdComponents({ CopyBtn, onRun: agentId ? onRun : null })}>{it.text || ""}</Markdown> : it.text}
+        ) : md ? <Markdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]} components={mdComponents({ CopyBtn, onRun: agentId && !readOnly ? onRun : null })}>{it.text || ""}</Markdown> : it.text}
         {pendingFu && !it.editing ? (
           <div className="ask-actions" data-align-row>
             <button type="button" className="btn btn-sm" onClick={() => onQueueEdit && onQueueEdit(it.qid)}>Edit</button>

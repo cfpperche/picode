@@ -33,7 +33,7 @@ export class ChunkLoader {
     this.els = new Map(); // id → wrapper element
     this.near = new Map(); // id → the observer's last word
     this.loaded = new Set();
-    this.bodies = {}; // id → off | live | still | plate
+    this.bodies = {}; // id → off | live | still | plate | quiet
     this.pinned = new Set();
     // Bodies that must not be unmounted even by a hidden matrix, because
     // unmounting them would throw work away: an editor with unsaved changes
@@ -41,6 +41,9 @@ export class ChunkLoader {
     // and a hidden matrix drops it; `kept` survives that.
     this.kept = new Set();
     this.panes = new Map(); // id → does this body hold an xterm?
+    // id → does this body hold an agent socket (a managed agent's live
+    // conversation)? It is what the chat cap counts; a pane is not on it.
+    this.chats = new Map();
     this.timers = {};
     this.hidden = false;
     this.wake = 0;
@@ -105,6 +108,7 @@ export class ChunkLoader {
     this.els.delete(id);
     this.near.delete(id);
     this.panes.delete(id);
+    this.chats.delete(id);
     delete this.timers[id];
     if (!this.loaded.has(id) && !Object.hasOwn(this.bodies, id)) return;
     const drop = this.dropping.get(id);
@@ -159,6 +163,19 @@ export class ChunkLoader {
     this.tick();
   }
 
+  // setChat(id, on): whether this panel's body holds an agent socket
+  // (`hasChat`). A chat has no cell, so the still rule never reaches it —
+  // but it is not free either, so it is the one body the cap counts
+  // (loadPolicy, CHAT_LIVE_MAX). Unknown reads as "no", which is what every
+  // panel was before phase 4.
+  setChat(id, on) {
+    if (!id) return;
+    const had = this.chats.get(id);
+    if (had === !!on) return;
+    this.chats.set(id, !!on);
+    this.tick();
+  }
+
   tick() {
     if (this.wake) {
       clearTimeout(this.wake);
@@ -167,7 +184,13 @@ export class ChunkLoader {
     const now = Date.now();
     const entries = [];
     for (const id of this.els.keys()) {
-      entries.push({ id, near: !this.hidden && !!this.near.get(id), loaded: this.loaded.has(id), pane: this.panes.get(id) !== false });
+      entries.push({
+        id,
+        near: !this.hidden && !!this.near.get(id),
+        loaded: this.loaded.has(id),
+        pane: this.panes.get(id) !== false,
+        chat: !!this.chats.get(id),
+      });
     }
     // A hidden matrix holds no attaches of its own (plan §4.5): far and
     // unpinned, whatever was focused or maximized when it was last shown.
@@ -214,6 +237,7 @@ export class ChunkLoader {
     this.pinned.clear();
     this.kept.clear();
     this.panes.clear();
+    this.chats.clear();
     this.timers = {};
     this.bodies = {};
     this.beforeChange = null;
