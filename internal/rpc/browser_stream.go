@@ -49,7 +49,7 @@ func implicitSessionName(sessionID, cwd string) string {
 	normalized := strings.ToLower(strings.ReplaceAll(sessionID, "-", ""))
 	if runtime.GOOS == "android" {
 		digest := sha256.Sum256([]byte("session:" + normalized + ":cwd:" + cwd))
-		return managedSessionNamePrefix + hex.EncodeToString(digest[:])[:sessionNameSessionIDLength*2]
+		return managedSessionNamePrefix + hex.EncodeToString(digest[:])[:sessionNameSessionIDLength]
 	}
 	slug := projectSlugRE.ReplaceAllString(strings.ToLower(filepath.Base(cwd)), "-")
 	slug = strings.Trim(slug, "-")
@@ -64,9 +64,13 @@ func implicitSessionName(sessionID, cwd string) string {
 	return managedSessionNamePrefix + slug + "-" + stable + "-" + cwdHash
 }
 
-func hashPrefix(value string, bytes int) string {
+// hashPrefix returns the first hexChars hex characters of the digest —
+// the sidecar slices the hex STRING (12 and 16 chars), not bytes. Getting
+// this wrong silently misses every real rendezvous (verified against a
+// live CPO session, 2026-09-10).
+func hashPrefix(value string, hexChars int) string {
 	digest := sha256.Sum256([]byte(value))
-	return hex.EncodeToString(digest[:])[:bytes*2]
+	return hex.EncodeToString(digest[:])[:hexChars]
 }
 
 // browserSocketRoot mirrors the sidecar's socketRoot: env override first,

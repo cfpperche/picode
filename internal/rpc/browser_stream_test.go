@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 )
@@ -19,19 +20,34 @@ func TestImplicitSessionName(t *testing.T) {
 			name:      "slug, stable session id and cwd hash",
 			sessionID: "01234567-89ab-cdef-0123-456789abcdef",
 			cwd:       "/home/me/My App",
-			want:      "piab-my-app-1fc4c2044601f36c2f73f62f-57ea8871bbbb81b1",
+			want:      "piab-my-app-1fc4c2044601-57ea8871",
 		},
 		{
 			name:      "empty basename falls back to project",
 			sessionID: "",
 			cwd:       "/",
-			want:      "piab-project-0bc8506e4d853e42389963d5-3372d8acf829e958",
+			want:      "piab-project-0bc8506e4d85-3372d8ac",
+		},
+		{
+			// Regression (2026-09-10): the hashes are hex-CHAR slices (12/16),
+			// not byte slices (24/32). This name was read from a live CPO
+			// session's rendezvous in /tmp/piab-1000 — the old derivation
+			// produced 24/16-char hashes and never matched a real browser.
+			name:      "live CPO session rendezvous name",
+			sessionID: "a4cf0cf6-8c23-474c-b766-52f55ec109a4",
+			cwd:       "/home/goat/cognixse",
+			want:      "piab-cognixse-58855a67fd71-e4c00dbb",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := implicitSessionName(tt.sessionID, tt.cwd); got != tt.want {
+			got := implicitSessionName(tt.sessionID, tt.cwd)
+			if got != tt.want {
 				t.Errorf("implicitSessionName(%q, %q) = %q, want %q", tt.sessionID, tt.cwd, got, tt.want)
+			}
+			// The upstream shape: piab-<slug>-<12 hex>-<8 hex>.
+			if !regexp.MustCompile(`^piab-[a-z0-9-]+-[0-9a-f]{12}-[0-9a-f]{8}$`).MatchString(got) {
+				t.Errorf("derived name %q does not match the upstream shape", got)
 			}
 		})
 	}
