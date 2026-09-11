@@ -1,0 +1,20 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "PiCode",
+  "mainBinaryName": "picode-shell",
+  "version": "0.1.0",
+  "identifier": "app.picode.shell",
+  "build": {
+    "frontendDist": "./ui"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": ["icons/icon.ico"]
+  }
+}

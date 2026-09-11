@@ -13,4 +13,5 @@ agent id in that env on RPC and TUI start). Overlay slots win; the rest is
 inherited. Composer `/` lists those commands only while the agent is running
 (ADR-0029). Since ADR-0099, `#/packages/config/pi-roles` views and edits both
 layers (workspace file + agent overlay, effective merge, scoped reset) — the
-files stay the only source of truth.
+files stay the only source of truth. ADR-0119 leaves this editor in place;
+the descriptor system is additive and does not describe pi-roles.

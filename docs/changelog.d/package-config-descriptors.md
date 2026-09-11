@@ -11,3 +11,5 @@
   and never silently replaced. No description for a package you installed?
   "Describe config…" lets you describe its configuration yourself — create,
   edit and delete the description at any time; PiCode stores it locally.
+  Public docs (docs-site/guide/packages.md) now explain configuring and
+  describing packages.
