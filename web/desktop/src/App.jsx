@@ -47,7 +47,7 @@ import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
-import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
 import CanvasSurface from "./components/canvas/CanvasSurface.jsx";
@@ -719,7 +719,10 @@ export default function App() {
         const fromGit = parseRoute() === "workspace" ? gitRoute() : null;
         const fromTree = parseRoute() === "workspace" ? treeRoute() : null;
         const fromHash = parseRoute() === "workspace" ? agentRoute() : null;
-        const fromApp = parseRoute() === "workspace" ? appRoute() : null;
+        // The boot fetch outlives the redirect effect, so location.hash is
+        // already canonical here; reading through it costs nothing and makes
+        // that independent of which resolves first.
+        const fromApp = parseRoute() === "workspace" ? appRoute(renamedAppHash() || location.hash) : null;
         if (fromApp) {
           if (appList.some((a) => a.id === fromApp) || !appsOk) openTab(appTabId(fromApp));
           else { setGoneId(appTabId(fromApp)); setSelectedId(null); }
@@ -892,9 +895,22 @@ export default function App() {
   useEffect(() => {
     writeTermWanted([...termWanted]);
   }, [termWanted]);
+  // ADR-0118: #/app/matrix[/<id>] is the Canvas app's old address. Replaced,
+  // never pushed — the way ADR-0101/0102/0103 moved their surfaces and the
+  // way #/sessions* still lands on #/clis/sessions* — so a bookmark costs the
+  // reader no extra Back step and the address bar shows the link that works
+  // now. It is its own effect, declared before the one that resolves a hash
+  // into a tab, so the old id never reaches the "that app is gone" branch.
+  useEffect(() => {
+    const next = renamedAppHash(hash);
+    if (next) location.replace(next);
+  }, [hash]);
   useEffect(() => {
     if (!tabsReady) return;
     if (parseRoute(hash) !== "workspace") return;
+    // The effect above is replacing this hash; resolving it would flash the
+    // gone tab for the one commit before `hashchange` arrives.
+    if (renamedAppHash(hash)) return;
     const tid = termRoute(hash);
     if (tid) {
       if (terminals.some((t) => t.id === tid)) {

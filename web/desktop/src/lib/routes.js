@@ -302,6 +302,35 @@ export function appHash(id, path = "") {
   return id ? "#/app/" + encodeURIComponent(id) + (path ? "/" + path.split("/").map(encodeURIComponent).join("/") : "") : "#/";
 }
 
+// ADR-0118: the Matrix app became Canvas — id, hash and tab id. One map,
+// read by the hash redirect (App.jsx) and by the tab restore
+// (lib/openTabs.js), so an old bookmark and an old tab strip land in the
+// same place and no second mechanism can drift from this one.
+const RENAMED_APPS = { matrix: "canvas" };
+
+// renamedAppId(id) -> the id an app answers to now, or "" when nothing moved.
+export function renamedAppId(id) {
+  return Object.hasOwn(RENAMED_APPS, id) ? RENAMED_APPS[id] : "";
+}
+
+// renamedAppHash(hash) -> the hash to replace this one with, or "": the same
+// deep link under the app's current id, path and all (#/app/matrix/<id> →
+// #/app/canvas/<id>). Only #/app/* is answered; every other hash is not ours.
+export function renamedAppHash(hash) {
+  const h = hash || (typeof location !== "undefined" ? location.hash : "") || "";
+  const was = appRoute(h);
+  const now = was ? renamedAppId(was) : "";
+  return now ? appHash(now, appPath(h)) : "";
+}
+
+// renamedTabId(id) -> the app tab id this one is now, or "": an `x:matrix`
+// restored from localStorage opens the canvas app instead of a dead tab.
+export function renamedTabId(id) {
+  if (!isAppTab(id)) return "";
+  const now = renamedAppId(tabAppId(id));
+  return now ? appTabId(now) : "";
+}
+
 export function appRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
   const m = /^\/app\/([^/]+)(?:\/.*)?$/.exec(h);
