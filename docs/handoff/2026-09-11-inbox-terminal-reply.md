@@ -15,8 +15,8 @@ empty-session refusal and the address in the file. The receiver's
 consumption rows run in the committed node harness (`peer_receiver_test.go`):
 the original decision table plus the pid/session skip rules (foreign pid
 left; no session left; matching pid + session submits and acks ok; matching
-pid + other session acks "showing a different session"). On this branch the
-peer setup/attention files carry the pid too.
+pid + other session acks "showing a different session"). This branch also
+addresses the peer setup/attention files.
 visual-review: n/a (no UI change).
 
 Not done / debts: running receivers are per-launch copies — terminals opened
