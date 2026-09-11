@@ -1776,6 +1776,20 @@ img.ws-face.term-cli-face {
    row (up to one row tall) showed as a black strip. The surface behind
    already carries the theme colour in both modes. */
 .xterm .xterm-viewport { background-color: transparent !important; }
+/* The web terminal draws no scrollbar of its own, in any surface. It is a
+   tmux client and tmux attaches on the alternate screen, so xterm's buffer
+   has no scrollback: the viewport has nothing to scroll and xterm's own
+   scrollbar — one pixel wide, because `overviewRuler.width` is also
+   `verticalScrollbarSize` (termTheme.js) — was the stray bar a reader saw
+   beside the TUI's. The bar that belongs to the reader is the one from
+   whoever holds the scrollback: tmux's copy-mode indicator, or the TUI's
+   own scrollbar (pi paints one). Hiding the viewport bar also removes
+   Chromium's 8px gutter, which the fit never reserved (measured: canvas
+   1000px against clientWidth 997px) and the terminal surface painted over
+   anyway. The find addon's overview ruler is a different canvas and stays. */
+.xterm .xterm-viewport { scrollbar-width: none; }
+.xterm .xterm-viewport::-webkit-scrollbar { display: none; }
+.xterm .xterm-scrollable-element > .scrollbar { display: none; }
 .workspace-view.term-on #empty, .workspace-view.term-on .chat-surface { display: none !important; }
 .workspace-view.file-on #empty, .workspace-view.file-on .chat-surface, .workspace-view.file-on .term-surface { display: none !important; }
 /* Dashboard pinned via the logo (App.jsx dashboardPinned) while a real tab

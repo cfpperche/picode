@@ -115,9 +115,9 @@ Estimated 2–3 sessions (C1 ≈ 1, C2 ≈ 1, C3+C4 ≈ ½–1).
    model}`. Suggestion: `google-generative-ai` + a Gemini flash (native
    search, cheap). The C0 spike makes this editable, so the initial value is
    not a commitment.
-2. **Catalog vs upstream-first** — recommend catalog-first (works today for
-   packages we do not publish), with the `picode.config` manifest offered
-   upstream as packages adopt it.
+2. **Catalog vs upstream-first** — resolved: catalog-first (works today for
+   packages we do not publish). Offering `picode.config` upstream is
+   **backlog** (owner, 2026-09-11), not scheduled work.
 3. **Secrets** — v1 supports a masked `secret` field type but no credential
    vault integration; configs with real keys (e.g. brave-search) stay
    hand-edited until that is wanted.
