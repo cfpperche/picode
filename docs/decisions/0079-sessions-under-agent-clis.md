@@ -73,4 +73,5 @@ the CLI picker, so machine-wide search is one click, not two. Old
 Dashboard top-session rows name the CLI in the hash; the workspace card
 Sessions menu stays Pi.
 
-Settings, Providers, Packages and Messages remain strip tabs (ADR-0101/0102/0103).
+Settings, Packages and Messages remain strip tabs (ADR-0101/0102). Providers
+joined the CLI pane on 2026-09-11 (ADR-0103 amendment).

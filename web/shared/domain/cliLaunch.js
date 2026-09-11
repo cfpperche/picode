@@ -2,7 +2,7 @@ import { cliProvidersLocation } from "./cliProviders.js";
 import { cliPackagesLocation } from "./cliPackages.js";
 import { cliSettingsLocation } from "./cliSettings.js";
 
-const CLI_PANES = new Set(["launch", "terminals", "sessions"]);
+const CLI_PANES = new Set(["launch", "terminals", "sessions", "providers"]);
 
 export function cliPaneHash(cli = "", pane = "launch", workspace = "") {
   if (!cli) return "#/clis";
@@ -11,6 +11,7 @@ export function cliPaneHash(cli = "", pane = "launch", workspace = "") {
   if (pane === "sessions" && workspace) return "#/clis/" + id + "/sessions/" + encodeURIComponent(workspace);
   if (pane === "sessions") return "#/clis/" + id + "/sessions";
   if (pane === "terminals") return "#/clis/" + id + "/terminals";
+  if (pane === "providers") return "#/clis/" + id + "/providers";
   return "#/clis/" + id;
 }
 
@@ -48,6 +49,12 @@ export function cliLocation(hash = "") {
   const pane = CLI_PANES.has(panePart) ? panePart : "launch";
   const workspace = pane === "sessions" ? decode(parts[3]) : "";
   const loc = { view: "clis", id: cli, pane, ...(workspace ? { workspace } : {}) };
+  if (pane === "providers") {
+    const rest = decode(parts[3]);
+    if (rest === "new") loc.add = true;
+    else if (rest) loc.invalid = true;
+    if (["agentId", "workspaceId", "scope"].some((key) => params.has(key))) loc.scoped = true;
+  }
   if (panePart === "launch" && parts[2]) loc.redirect = cliPaneHash(cli, "launch");
   return loc;
 }

@@ -198,6 +198,6 @@ test("native provider navigation and compatibility aliases", () => {
 test("provider command navigation opens canonical list or add", () => {
   const previous = globalThis.location;
   globalThis.location = { hash: "" };
-  try { go("providers"); assert.equal(location.hash, "#/clis/providers/pi"); go("providers-new"); assert.equal(location.hash, "#/clis/providers/pi/new"); }
+  try { go("providers"); assert.equal(location.hash, "#/clis/pi/providers"); go("providers-new"); assert.equal(location.hash, "#/clis/pi/providers/new"); }
   finally { globalThis.location = previous; }
 });

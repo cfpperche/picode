@@ -33,7 +33,7 @@ const ab = (...args) => execFileSync("agent-browser", ["--session", session, ...
 const ev = code => JSON.parse(ab("eval", code));
 const wait = code => ab("wait", "--fn", code);
 const nav = hash => ev(`location.hash=${JSON.stringify(hash)}`);
-const list = "#/clis/providers/pi";
+const list = "#/clis/pi/providers";
 const ready = () => wait('!!document.querySelector("#providers-view .prov-bar")');
 const pause = ms => new Promise(done => setTimeout(done, ms));
 const results = [];
@@ -73,7 +73,12 @@ function intercept() {
         if(path.endsWith('/verify'))return reply({ok:true,status:'ready'});
         return reply({ok:true});
       }
-      if(path.startsWith('/api/clis')||path==='/api/cli-jobs')return reply({error:'Launch inventory unavailable in fixture'},503);
+      if(path==='/api/clis')return reply({clis:[{id:'pi',name:'Pi',installed:true,config:{integration:true}},{id:'codex',name:'Codex',installed:true,config:{integration:true}}]});
+      if(path==='/api/terminals')return reply({terminals:[]});
+      if(path==='/api/workspaces')return reply([]);
+      if(path==='/api/clis/profiles')return reply({profiles:[]});
+      if(path==='/api/cli-jobs')return reply({jobs:[]});
+      if(path.startsWith('/api/clis'))return reply({error:'Launch inventory unavailable in fixture'},503);
       return window.qaFetch(url,options);
     }`);
 }
@@ -90,13 +95,12 @@ try {
       nav(hash); wait(`location.hash===${JSON.stringify(list)}`); ready();
     }
     await capture(app + "-roster");
-    button("Providers CLI: Pi"); await capture(app + "-cli-picker"); ab("press", "Escape");
     for (const hash of ["#/providers/new", "#/more/providers/new", list + "/new"]) {
       nav(hash); wait(`location.hash===${JSON.stringify(list + "/new")} && !!document.querySelector('[role=dialog]')`);
       ab("press", "Escape"); wait(`location.hash===${JSON.stringify(list)} && !document.querySelector('[role=dialog]')`);
     }
     nav(list + "/new"); wait('!!document.querySelector("[role=dialog]")'); nav(list); wait('!document.querySelector("[role=dialog]")');
-    results.push(app + ": legacy/list/new redirects, add close and CLI picker");
+    results.push(app + ": legacy/list/new redirects and add close");
     for (const [name, hash] of [["unsupported", "#/clis/providers/codex"], ["malformed", "#/clis/providers/%ZZ"], ["invalid", list + "/extra"], ["scoped", list + "?agentId=" + agent.id]]) {
       ev("qa.calls=[]"); nav(hash);
       wait('!!document.querySelector("#cli-providers-view .cli-notice")');
@@ -158,7 +162,7 @@ try {
     }
     if (app === "mobile") {
       nav("#/more"); wait(`!!document.querySelector('[aria-label="Search tools and settings"]')`);
-      ab("fill", '[aria-label="Search tools and settings"]', "providers"); ab("click", 'a[href="#/clis/providers/pi"]'); ready();
+      ab("fill", '[aria-label="Search tools and settings"]', "providers"); ab("click", 'a[href="#/clis/pi/providers"]'); ready();
     }
     for (const width of (app === "desktop" ? [1920, 740, 560] : [390, 320])) {
       ab("set", "viewport", String(width), app === "mobile" ? "844" : "1000");

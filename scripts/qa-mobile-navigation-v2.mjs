@@ -112,7 +112,7 @@ try {
     await page.locator("#create-provider").selectOption("anthropic");
     await capture(page, "create-with-no-models");
     await page.getByRole("link", { name: "Open Providers", exact: true }).click();
-    await page.waitForURL(url => url.hash === "#/more/providers");
+    await page.waitForURL(url => url.hash === "#/clis/pi/providers");
     await page.locator(".dlg-create").waitFor({ state: "detached" });
     await page.getByRole("button", { name: "Add provider", exact: true }).waitFor();
     assert.equal(await page.evaluate(() => document.body.style.pointerEvents), "", "Providers is interactive");

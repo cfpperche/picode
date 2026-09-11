@@ -20,7 +20,7 @@
 
 ## Guides
 
-- [Providers](https://cfpperche.github.io/picode/guide/providers): Open Agent CLIs → Providers and select Pi (#/clis/providers/pi).
+- [Providers](https://cfpperche.github.io/picode/guide/providers): Open Agent CLIs, pick Pi, and choose Providers (#/clis/pi/providers).
 - [Packages](https://cfpperche.github.io/picode/guide/packages): Extras for Pi (search, tools, themes). They run with full access — only install what you review.
 - [Docker and sysadmin tools](https://cfpperche.github.io/picode/guide/docker): Open Apps → Docker on desktop or More → Apps → Docker on a phone.
 - [Checklist](https://cfpperche.github.io/picode/guide/checklist): Make an agent write its plan before it changes anything, and follow that

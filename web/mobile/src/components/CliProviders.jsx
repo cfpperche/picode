@@ -1,31 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
-import { CLI_PROVIDERS, cliProvidersHash, cliProvidersLocation, supportsCliProviders } from "@picode/shared/domain/cliProviders.js";
-import AgentClisFrame from "./AgentClisFrame.jsx";
-import CliTabs from "./CliTabs.jsx";
-import CliCombo from "./CliCombo.jsx";
+import { cliProvidersHash, supportsCliProviders } from "@picode/shared/domain/cliProviders.js";
 import Providers from "./Providers.jsx";
 
-export default function CliProviders({ hidden, hash, onCatalogChange }) {
-  const route = cliProvidersLocation(hash);
-  useEffect(() => {
-    if (!hidden && route.redirect) location.replace(route.redirect);
-  }, [hidden, route.redirect]);
-  const supported = supportsCliProviders(route.id);
-  const blocked = route.invalid || route.scoped || !supported;
-  return <AgentClisFrame id="cli-providers-view" hidden={hidden}>
-    <CliTabs view="providers" />
-    <div className="cli-settings-body">
-      <div className="cli-settings-heading">
-        <h3>Providers</h3>
-        {supported && !route.invalid ? <div className="cli-settings-picker">CLI
-          <CliCombo ariaLabel="Providers CLI" value={route.id} options={CLI_PROVIDERS} align="end" onChange={id => { location.hash = cliProvidersHash(id); }} />
-        </div> : null}
-      </div>
-      {blocked ? <div className="cli-notice" role="status"><span>{route.invalid ? "This provider link is invalid." : !supported ? "Providers are not available for this CLI." : "Provider accounts are managed for this machine."}</span><a className="btn btn-ghost btn-sm" href={route.scoped && supported ? cliProvidersHash() : "#/clis"}>{route.scoped && supported ? "Machine providers" : "Back to CLIs"}</a></div>
-        : !hidden && !route.redirect ? <PiProviders wantAdd={route.add} onCatalogChange={onCatalogChange} /> : null}
-    </div>
-  </AgentClisFrame>;
+export default function CliProviders({ hidden, cli = "pi", add = false, invalid = false, scoped = false, onCatalogChange }) {
+  const supported = supportsCliProviders(cli);
+  const blocked = invalid || scoped || !supported;
+  return <section id="cli-providers-view" className="cli-providers-pane" hidden={hidden}>
+    {blocked ? <div className="cli-notice" role="status"><span>{invalid ? "This provider link is invalid." : !supported ? "Providers are not available for this CLI." : "Provider accounts are managed for this machine."}</span><a className="btn btn-ghost btn-sm" href={cliProvidersHash("pi")}>{!supported ? "Open Pi providers" : "Machine providers"}</a></div>
+      : !hidden ? <PiProviders wantAdd={add} onCatalogChange={onCatalogChange} /> : null}
+  </section>;
 }
 
 function PiProviders({ wantAdd, onCatalogChange }) {

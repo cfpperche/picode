@@ -4,6 +4,7 @@ const PANES = [
   { id: "launch", label: "Launch" },
   { id: "terminals", label: "Terminals" },
   { id: "sessions", label: "Sessions" },
+  { id: "providers", label: "Providers" },
 ];
 
 export default function CliPaneTabs({ cli, pane = "launch", workspace = "", actions = null }) {

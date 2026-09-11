@@ -40,3 +40,16 @@ credential migration, database change or new dependency is required.
 
 The Cursor/t3code benchmark adaptation is contextual, reload-safe navigation.
 The [work plan](../plans/cli-native-providers.md) records acceptance conditions.
+
+## Amendment — 2026-09-11: Providers live in the selected CLI's pane
+
+The strip tab is gone. Providers sit next to Launch, Terminals and Sessions
+on the selected CLI's page. The capability registry is still Pi-only;
+unsupported identities never silently become Pi.
+
+Canonical hashes are `#/clis/<cli>/providers` and `#/clis/<cli>/providers/new`
+(Add provider dialog). The catalog is the CLI picker. Old
+`#/clis/providers*`, `#/providers*` and `#/more/providers*` rewrite onto the
+pane. `#/providers/llama` is unchanged. OAuth still returns to the canonical
+list in the same app, now `#/clis/pi/providers`. Settings, Packages and
+Messages remain strip tabs.

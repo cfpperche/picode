@@ -24,6 +24,10 @@ test("a CLI page names its pane in the path (ADR-0079 amendment 2026-09-11)", ()
   assert.equal(cliPaneHash("codex", "terminals"), "#/clis/codex/terminals");
   assert.equal(cliPaneHash("pi", "sessions"), "#/clis/pi/sessions");
   assert.equal(cliPaneHash("claude-code", "sessions", "ws-9"), "#/clis/claude-code/sessions/ws-9");
+  assert.deepEqual(cliLocation("#/clis/pi/providers"), { view: "clis", id: "pi", pane: "providers" });
+  assert.deepEqual(cliLocation("#/clis/pi/providers/new"), { view: "clis", id: "pi", pane: "providers", add: true });
+  assert.deepEqual(cliLocation("#/clis/codex/providers"), { view: "clis", id: "codex", pane: "providers" });
+  assert.equal(cliPaneHash("pi", "providers"), "#/clis/pi/providers");
 });
 
 test("legacy Sessions tab addresses rewrite onto the selected CLI's pane (ADR-0079)", () => {

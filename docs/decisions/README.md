@@ -107,7 +107,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0100](0100-pin-reminders.md) | Pin reminders — a `pin_reminders` row (once / interval with schedule-or-completion anchor / cron in a named zone) fired by the one-minute engine into an Inbox item that is the acknowledgement state; sticky notice + push as projections; missed slot fires once | accepted 2026-09-08, builds on 0037, 0045, 0048 |
 | [0101](0101-settings-under-agent-clis.md) | Native Settings under Agent CLIs, contextual URLs and legacy redirects | accepted; supersedes 0012 navigation |
 | [0102](0102-packages-under-agent-clis.md) | Native Packages under Agent CLIs, explicit scopes and compatibility redirects | accepted; supersedes 0010/0099 navigation |
-| [0103](0103-providers-under-agent-clis.md) | Native Providers under Agent CLIs, machine scope and app-preserving OAuth return | accepted; supersedes 0058 navigation |
+| [0103](0103-providers-under-agent-clis.md) | Native Providers under Agent CLIs: `#/clis/<cli>/providers`; old `#/clis/providers*` and `#/providers*` redirect | accepted; supersedes 0058 navigation; amended 2026-09-11 (pane, not strip tab) |
 | [0104](0104-peer-communication.md) | Embedded MCP for direct session messages | accepted |
 | [0105](0105-process-cost-second-review.md) | The rite runs in a fresh context, the living docs stop conflicting, deploy is the owner's call: one branch one session, changelog fragments, handoff without shipped work (100 lines and 8 KB), no deploy timer, captures at deploy, sharded server tests, `make adr` with a boundary line, architecture split per subsystem | accepted, amends 0086 |
 | [0106](0106-conversation-launch-setup.md) | Private communication setup on conversation resume | accepted; amended by 0107 |

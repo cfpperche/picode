@@ -11,7 +11,7 @@ export const ROUTES = {
   clis: "/clis",
   settings: "/clis/settings/pi",
   system: "/system",
-  providers: "/clis/providers/pi",
+  providers: "/clis/pi/providers",
   llama: "/llama/models",
   mcps: "/mcps",
   integrations: "/integrations",

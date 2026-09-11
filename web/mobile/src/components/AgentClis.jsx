@@ -57,12 +57,12 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
     return () => window.removeEventListener("hashchange", update);
   }, []);
   useEffect(() => {
-    if (hidden || ["settings", "packages", "providers", "messages"].includes(route.view)) return;
+    if (hidden || ["settings", "packages", "messages"].includes(route.view)) return;
     if (hash === "#/preferences/status") location.replace("#/clis");
     if (route.redirect && route.redirect !== hash) location.replace(route.redirect);
   }, [hidden, hash, route.view, route.redirect]);
   useEffect(() => {
-    if (hidden || ["settings", "packages", "providers", "messages"].includes(route.view)) return;
+    if (hidden || ["settings", "packages", "messages"].includes(route.view)) return;
     refresh();
     // ADR-0087: refresh stale update checks once per visit, server-side
     // cached — never a polling timer.
@@ -131,7 +131,6 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
   };
 
   if (route.view === "messages") return <PeerMessages hidden={hidden} ownerKey={route.id} />;
-  if (route.view === "providers") return <CliProviders hidden={hidden} hash={hash} onCatalogChange={onCatalogChange} />;
   if (route.view === "packages") return <CliPackages hidden={hidden} hash={hash} legacyContext={legacyPackageContext} legacyContextReady={legacyContextReady} catalog={catalog} />;
   if (route.view === "settings") return <CliSettings hidden={hidden} hash={hash} legacyAgentId={legacyAgentId} catalog={catalog} onAgentConfig={onAgentConfig} />;
 
@@ -203,6 +202,13 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
               toast.ok(result?.already ? "Nothing left to compact." : "Session compacted.");
             }).catch(() => {});
           }}
+        /> : null}
+        {pane === "providers" ? <CliProviders
+          cli={route.id}
+          add={!!route.add}
+          invalid={!!route.invalid || !route.id}
+          scoped={!!route.scoped}
+          onCatalogChange={onCatalogChange}
         /> : null}
       </div>
     </div> : null}

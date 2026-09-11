@@ -12,7 +12,7 @@ Per-agent provider/model/thinking is stored on `agents` and passed as
 `GET /api/providers/{id}/usage` (ADR-0031) reads the active slot.
 `GET /api/providers/{id}/accounts/{aid}/usage` reads that vault row
 without swapping `auth.json` (refresh writes the row; `auth.json` only
-if it is active). Catalog `quotaKind` on each account tells `#/clis/providers/pi`
+if it is active). Catalog `quotaKind` on each account tells `#/clis/pi/providers`
 when to show Usage (`oauth` or `api_key`). Banked resets (Codex, Grok)
 ride `resets[]`; `POST …/usage/reset` redeems one after the UI confirms.
 Grok resets also try `~/.grok/auth.json` then `GROK_COOKIE`.

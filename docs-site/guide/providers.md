@@ -1,6 +1,6 @@
 # Providers
 
-Open **Agent CLIs → Providers** and select **Pi** (`#/clis/providers/pi`).
+Open **Agent CLIs**, pick **Pi**, and choose **Providers** (`#/clis/pi/providers`).
 Accounts apply to this machine. Older Providers links redirect here; other
 CLIs will appear when their provider integration is available.
 

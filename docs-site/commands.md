@@ -92,7 +92,7 @@ Canonical: [pi Providers](https://github.com/earendil-works/pi/blob/main/package
 
 ## /logout {#logout}
 
-Opens **Agent CLIs → Providers** (`#/clis/providers/pi`). Sign out removes that provider. See [Providers](/guide/providers).
+Opens **Agent CLIs → Pi → Providers** (`#/clis/pi/providers`). Sign out removes that provider. See [Providers](/guide/providers).
 
 Canonical: [pi Providers](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/providers.md).
 
