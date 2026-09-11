@@ -89,8 +89,20 @@ which is the state a permanently running distro stays in, since both the
 compaction and the sparse conversion need the distro stopped. The tray shows
 that as one line refreshed every five minutes and warns in words below 20 GB
 free; `fyne.io/systray` v1.12 has no balloon API left, so the tooltip is the
-alert surface. Both commands only read: the reclaim actions are reviewed and
-confirmed somewhere a person sees the plan (`docs/plans/wsl-control.md`).
+alert surface. Both disk commands only read.
+
+The one action is `picode-desktop disk-compact`, and the tray carries it as
+**Give back ≈N GB…**. It refuses to run blind: first the server's readiness
+interlock (the same `GET /api/deploy/readiness` `picode deploy` asks), then an
+explicit confirmation that names the cost — stopping the distro ends every
+agent, terminal and tmux session in it. The flow stops the distro, converts
+the file to sparse when the WSL build allows (`wsl --manage --set-sparse`; no
+elevation) or compacts with Optimize-VHD from an elevated terminal otherwise,
+restarts the distro, **re-arms the keepalive child the terminate killed**
+(nothing else restarts it, and without it WSL idles out sixty seconds later),
+and reports the before and after measured on the file. A failed conversion
+still restarts the distro — that ordering is pinned by a test. `--dry-run`
+prints the plan and stops nothing; `--force` overrides the interlock.
 
 Desktop startup policy (ADR-0071) is explicit: no execution-time, battery,
 idle or network gates; duplicate task starts are ignored; launch failures have
