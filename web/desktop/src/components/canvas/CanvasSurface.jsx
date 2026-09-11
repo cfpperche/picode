@@ -10,8 +10,9 @@ import { crossFolderConfirm, edgeGrant, enrolOffer, linkChipTitle, linkCounts, p
 import { basename } from "@picode/shared/domain/diff.js";
 import { shortPath } from "@picode/shared/domain/repoLine.js";
 import { paneLeaveKey } from "@picode/shared/domain/termKeys.js";
+import { CANVAS_PATTERN_EVENT, persistCanvasPattern, readCanvasPattern } from "@picode/shared/domain/canvasPattern.js";
 import AppIcon from "../AppIcon.jsx";
-import { IconEllipsis, IconGrid, IconImage, IconPencil, IconPlus, IconTrash, IconX } from "../Icons.jsx";
+import { IconCheck, IconChevronRight, IconEllipsis, IconGrid, IconImage, IconPencil, IconPlus, IconTrash, IconX } from "../Icons.jsx";
 import { go, isFileTab, parseFileTab, pinHash } from "../../lib/routes.js";
 import { notify, toast, toastError } from "../../lib/toast.js";
 import { askConfirm } from "../../lib/confirm.js";
@@ -20,6 +21,7 @@ import { FREE_WS } from "../../lib/termGroups.js";
 import { PanelHead } from "./Panel.jsx";
 import PanelBody from "./PanelBody.jsx";
 import PanelPicker from "./PanelPicker.jsx";
+import PatternSwatch from "./PatternSwatch.jsx";
 import NameDialog from "./NameDialog.jsx";
 import { ChunkLoader } from "./chunkLoader.js";
 import { forgetPane, ownedByTab } from "./paneOwnership.js";
@@ -31,6 +33,16 @@ import "../../styles/canvas.css";
 // a canvas fetches it. The surface itself is lazy the same way (App.jsx),
 // so a reader who never opens the app carries none of this (ADR-0118).
 const Plane = lazy(() => import("./Plane.jsx"));
+
+// The plane's four grounds, in the order they read (canvasPattern.js holds
+// the value). The words say what the reader will see, not what React Flow
+// calls it — "lines" is a Grid to anyone looking at one.
+const BACKGROUNDS = [
+  ["plain", "Plain"],
+  ["dots", "Dots"],
+  ["lines", "Grid"],
+  ["cross", "Cross"],
+];
 
 // CanvasSurface — the Canvas app's native surface (ADR-0109; plan
 // docs/plans/matrix-app.md; API docs/architecture/canvas.md). One tab,
@@ -267,6 +279,12 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
   maximizedRef.current = maximizedId;
   const panelsRef = useRef(NO_PANELS);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // The plane's ground, per viewer (ADR-0109's 2026-09-11 amendment): the
+  // app owns both the value and the control now, so this menu is the only
+  // writer and Preferences carries nothing about a canvas. The listener is
+  // what the planes already do — anything that writes the key is agreed
+  // with without a reload.
+  const [background, setBackground] = useState(readCanvasPattern);
   const [nameDialog, setNameDialog] = useState(""); // "" | "new" | "rename"
   const [workingIds, setWorkingIds] = useState([]);
   // The file panels whose editor holds unsaved text. It is chip state and
@@ -317,6 +335,11 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
   const setBody = useCallback((el) => { bodyRef.current = el; }, []);
   const onCanvasReady = useCallback((handle) => { canvasRef.current = handle; }, []);
   useEffect(() => { loader.setHidden(!!hidden); }, [hidden, loader]);
+  useEffect(() => {
+    function onPattern() { setBackground(readCanvasPattern()); }
+    window.addEventListener(CANVAS_PATTERN_EVENT, onPattern);
+    return () => window.removeEventListener(CANVAS_PATTERN_EVENT, onPattern);
+  }, []);
   useEffect(() => {
     if (!focusedId) return undefined;
     loader.pin(focusedId, true);
@@ -1133,14 +1156,38 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
               <DropdownMenu.Item className="ws-row-menu-item danger" onSelect={() => { deleteCanvas(); }}><IconTrash size={13} /> Delete canvas</DropdownMenu.Item>
             ) : null}
             <DropdownMenu.Separator className="ws-row-menu-sep" />
-            {/* The plane is where you notice its texture and it was the one
-                place that did not offer to change it — the setting lives
-                under the theme cards in Preferences and a reader looking at
-                the canvas never found it. This navigates there and nothing
-                more: Preferences owns the preference (canvasPattern.js is
-                its only writer), so there is no second place storing it and
-                no way for the two to disagree. */}
-            <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => go("preferences")}><IconImage size={13} /> Background…</DropdownMenu.Item>
+            {/* The plane's ground, changed on the plane. It used to be a
+                group in Preferences → Appearance with this item only
+                navigating there, which leaked a Canvas control into
+                PiCode's own chrome (ADR-0109, amendment 2026-09-11): an
+                app reaches the host through the doors the host declares,
+                and a settings group is not one of them. Four values need a
+                menu, not a dialog, and the rows stay open while you pick so
+                the plane behind them is the preview. */}
+            <DropdownMenu.Sub>
+              <DropdownMenu.SubTrigger className="ws-row-menu-item cv-menu-sub">
+                <IconImage size={13} /> Background
+                <IconChevronRight size={13} className="cv-menu-chev" />
+              </DropdownMenu.SubTrigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.SubContent className="ws-row-menu cv-bg-menu" sideOffset={4} alignOffset={-4} collisionPadding={8}>
+                  <DropdownMenu.RadioGroup value={background} onValueChange={(v) => setBackground(persistCanvasPattern(v))}>
+                    {BACKGROUNDS.map(([option, label]) => (
+                      <DropdownMenu.RadioItem
+                        key={option}
+                        className="ws-row-menu-item cv-bg-item"
+                        value={option}
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        <PatternSwatch kind={option} />
+                        <span className="cv-bg-label">{label}</span>
+                        <DropdownMenu.ItemIndicator className="cv-bg-check"><IconCheck size={13} /></DropdownMenu.ItemIndicator>
+                      </DropdownMenu.RadioItem>
+                    ))}
+                  </DropdownMenu.RadioGroup>
+                </DropdownMenu.SubContent>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Sub>
             {onClose ? (
               <>
                 <DropdownMenu.Separator className="ws-row-menu-sep" />

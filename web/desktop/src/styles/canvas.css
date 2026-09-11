@@ -57,6 +57,30 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .cv-menu-btn { padding: 0 8px; }
+
+/* The ⋯ menu's Background submenu. The rows reuse .ws-row-menu-item, so a
+   submenu row is the same row as every other item in this menu; these rules
+   add only what a radio row needs — the chevron pushed to the trailing edge
+   on the trigger, and on each option a real sample of the pattern, its name,
+   and the tick that says which one is current.
+
+   The sample is why this is not a list of words: the choice is what the
+   plane looks like. It wears the plane's own ground (--bg-base) and the
+   plane's own texture token, so a row cannot drift from what it draws. */
+.cv-menu-sub[data-state="open"] { background: var(--bg-hover); }
+.cv-menu-chev { margin-left: auto; color: var(--text-secondary); }
+.ws-row-menu.cv-bg-menu { min-width: 168px; }
+.cv-bg-label { flex: 1; min-width: 0; }
+.cv-bg-check { display: inline-flex; color: var(--accent); }
+.cv-bg-swatch {
+  flex: none; width: 22px; height: 22px;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: var(--bg-base); overflow: hidden;
+}
+.cv-bg-swatch svg { display: block; width: 100%; height: 100%; }
+.cv-bg-swatch-dot { fill: var(--canvas-pattern); }
+.cv-bg-swatch-line { stroke: var(--canvas-pattern); stroke-width: 1; fill: none; }
+.cv-bg-item[data-state="checked"] .cv-bg-swatch { border-color: var(--accent); }
 /* A maximized panel takes the whole stage, and the clusters belong to the
    plane, not to the surface: they go with it. Not hidden by the layer
    covering them — removed, so Tab cannot reach a switcher nobody can see.

@@ -6,14 +6,16 @@ import { askConfirm } from "../lib/confirm.js";
 import AgentClisFrame from "./AgentClisFrame.jsx";
 import CliTabs from "./CliTabs.jsx";
 import PeerConnectionDetails from "./PeerConnectionDetails.jsx";
-import CanvasLinks from "./CanvasLinks.jsx";
+import GrantedContacts from "./GrantedContacts.jsx";
 import "./peer-messages.css";
 
 export default function PeerMessages({ hidden, ownerKey = "" }) {
-  // Canvas links are not workspace-scoped (ADR-0116: an edge is per pair, and
-  // half of what it is for is pairing two folders), so the audit list is a
-  // sibling of the workspace section and never remounts with the picker.
-  return <AgentClisFrame id="peer-messages-view" hidden={hidden}><CliTabs view="messages" /><WorkspaceMessages key={ownerKey} hidden={hidden} route={ownerKey} /><CanvasLinks hidden={hidden} /></AgentClisFrame>;
+  // Granted contacts are not workspace-scoped (ADR-0116: a grant is per pair,
+  // and half of what it is for is pairing two folders), so the audit list is a
+  // sibling of the workspace section and never remounts with the picker. It is
+  // Messages' own section — the grant lives in `peer_connections`, the canvas
+  // is only where it was drawn (ADR-0109, amendment 2026-09-11).
+  return <AgentClisFrame id="peer-messages-view" hidden={hidden}><CliTabs view="messages" /><WorkspaceMessages key={ownerKey} hidden={hidden} route={ownerKey} /><GrantedContacts hidden={hidden} /></AgentClisFrame>;
 }
 function WorkspaceMessages({ hidden, route }) {
   const [workspace, setWorkspace] = useState(route.startsWith("workspace:") ? route.slice(10) : "");

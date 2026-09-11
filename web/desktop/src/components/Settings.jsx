@@ -6,13 +6,11 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { IconSun, IconMonitor, IconMoon, IconMore } from "./Icons.jsx";
 import PageFrame from "./PageFrame.jsx";
 import ThemeCard from "./ThemeCard.jsx";
-import PatternSwatch from "./PatternSwatch.jsx";
 import { notify, toast, toastError } from "../lib/toast.js";
 import { agentFinishNotice } from "@picode/shared/domain/notice.js";
 import { readToastPrefs, persistToastPrefs, TOAST_POSITIONS } from "../lib/toastPrefs.js";
 import { persistReminderPrefs, readReminderPrefs } from "@picode/shared/domain/pinReminder.js";
 import { readContextMenuPrefs, persistContextMenuPrefs, CTX_MODIFIERS } from "../lib/contextMenuPrefs.js";
-import { CANVAS_PATTERN_EVENT, persistCanvasPattern, readCanvasPattern } from "@picode/shared/domain/canvasPattern.js";
 import AppKeys from "./AppKeys.jsx";
 import FolderField from "./FolderField.jsx";
 import AccessSection from "./AccessSection.jsx";
@@ -20,17 +18,6 @@ import PiSpinner from "./PiSpinner.jsx";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { prefSection } from "../lib/routes.js";
 import { z } from "zod";
-
-// The Canvas plane's four grounds, in the order they read. The words say
-// what the reader will see, not what React Flow calls it: the card already
-// shows the pattern, so the line under it is the one fact the picture does
-// not carry — how much of the plane it covers.
-const BG_PATTERNS = [
-  ["plain", "Plain", "No texture at all"],
-  ["dots", "Dots", "A dot every four cells"],
-  ["lines", "Grid", "Lines on every cell edge"],
-  ["cross", "Cross", "A tick where cells meet"],
-];
 
 const publicUrlSchema = z.string().trim().regex(/^https?:\/\/[^\s/]+\/?$/, "An origin like https://box.tailxxxx.ts.net:8445").or(z.literal(""));
 
@@ -61,7 +48,6 @@ export default function Settings({ hidden, themeMode, onTheme }) {
   const [toastPrefs, setToastPrefs] = useState(readToastPrefs);
   const [remPrefs, setRemPrefs] = useState(() => readReminderPrefs());
   const [ctxPrefs, setCtxPrefs] = useState(readContextMenuPrefs);
-  const [bgPattern, setBgPattern] = useState(readCanvasPattern);
 
   useEffect(() => {
     if (hidden) return;
@@ -156,15 +142,6 @@ export default function Settings({ hidden, themeMode, onTheme }) {
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
-  // This page is mounted for the whole session behind `hidden`, so its copy
-  // of the preference would age out the moment another tab (or a later
-  // build of this one) wrote a different value. The planes already listen;
-  // the page that offers the choice has to agree with them.
-  useEffect(() => {
-    function onPattern() { setBgPattern(readCanvasPattern()); }
-    window.addEventListener(CANVAS_PATTERN_EVENT, onPattern);
-    return () => window.removeEventListener(CANVAS_PATTERN_EVENT, onPattern);
-  }, []);
   return (
     <PageFrame id="preferences-view" title="Preferences" hidden={hidden}>
       <nav className="pref-tabs" role="tablist" aria-label="Preferences">
@@ -186,22 +163,6 @@ export default function Settings({ hidden, themeMode, onTheme }) {
           <ThemeCard option="light" label="Light" desc="Bright surfaces" active={themeMode === "light"} onPick={onTheme} icon={<IconSun size={15} />} />
           <ThemeCard option="system" label="System" desc="Match your OS" active={themeMode === "system"} onPick={onTheme} icon={<IconMonitor size={15} />} />
           <ThemeCard option="dark" label="Dark" desc="Low light" active={themeMode === "dark"} onPick={onTheme} icon={<IconMoon size={15} />} />
-        </div>
-
-        <h4 className="settings-sub">Canvas background</h4>
-        <p className="settings-desc">The ground a canvas draws its panels on. It follows the theme&rsquo;s colours; only the texture is yours.</p>
-        <div className="theme-cards bg-cards" role="radiogroup" aria-label="Canvas background">
-          {BG_PATTERNS.map(([option, label, desc]) => (
-            <ThemeCard
-              key={option}
-              option={option}
-              label={label}
-              desc={desc}
-              active={bgPattern === option}
-              onPick={(v) => setBgPattern(persistCanvasPattern(v))}
-              icon={<PatternSwatch kind={option} />}
-            />
-          ))}
         </div>
       </section>
 

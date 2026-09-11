@@ -368,9 +368,13 @@ read and revoked. `linkCounts(edges, panels, peers, names)` answers
 chip can never disagree with the line; `linkChipTitle` writes the words,
 because a bare number teaches nothing. A panel with no link has no chip.
 
-**The audit list** (`web/desktop/src/components/CanvasLinks.jsx`), the
-non-spatial place ADR-0116's Consequences ask for by name. A section in the
-Messages view (`#/clis/messages`) listing **every** live edge: both ends by
+**The audit list** (`web/desktop/src/components/GrantedContacts.jsx`,
+heading **Granted contacts**), the non-spatial place ADR-0116's Consequences
+ask for by name. It is **Messages' own section**, not the Canvas reaching
+outside its app: the grant lives in `peer_connections` and decides who the
+mailbox lets talk, and a canvas is only where a human drew it — the door
+ADR-0109's 2026-09-11 amendment declares, on the condition that it imports
+nothing from `components/canvas/`. It lists **every** live edge: both ends by
 name and kind, the canvas it lives on, whether it grants right now, and a
 Remove that calls the same `DELETE` the canvas does. It reuses the
 participants list's row shape — "who may reach whom" should read the same
@@ -446,7 +450,7 @@ in this binary.
 | `PanelFace.jsx` | the mark that says what a panel is bound to, in the header and on the name-plate: a provider face, a CLI badge, or the pin mark |
 | `PanelPicker.jsx`, `NameDialog.jsx` | cmdk list **grouped by kind** — Agents, Terminals, Pins, Open files, Changes to an open file — of what is not yet on this canvas, with the sidebar's faces and words; a group with nothing in it says so under the list with its one action (*No pins yet.* — New pin); the name form (`canvasNameSchema`, Zod, the store's messages, `noValidate`) |
 | `chunkLoader.js`, `paneOwnership.js` | the `IntersectionObserver` glue over the pure `loadPolicy`; what unloading does to an attach |
-| `Link.jsx`, `web/desktop/src/components/CanvasLinks.jsx` | how one edge draws on the plane, and the audit list in Messages — the **Edges** section above |
+| `Link.jsx`, `web/desktop/src/components/GrantedContacts.jsx` | how one edge draws on the plane, and Messages' **Granted contacts** audit list — the **Edges** section above |
 | `web/desktop/src/lib/fileDocs.js` | the open documents of `file` panels, keyed by ref and held outside React — `paneOwnership.js` for an editor, so maximizing a panel keeps unsaved text |
 | `web/shared/domain/canvas.js` | `nextSlot`, `layoutDiff`, `parseRef` / `buildRef` / `validateRef`, `refOwner`, `gitTouches`, `bindingState`, `hasPane`, `loadPolicy` (with the zoom and the per-row `pane`), `zoomBody`, `pointerAtZoom`, `unitsToPx` / `pxToUnits`, `tidyCanvas`, `normalizeViewport`, `suspendedToDispose`, `hasChat` / `CHAT_STATES` / `CHAT_LIVE_MAX` / `chatBudget`, `panelOrder`, `neighborPanel` (+ `PANEL_DEFAULT_CANVAS` 32×42, `CANVAS_ZOOM`, `PANEL_DIRECTIONS`) — one test per row below in `canvas.test.js` |
 
@@ -602,8 +606,8 @@ canvas's roving panel. Every control keeps the focus ring; it is drawn
 in the app that is mostly empty ground, so what that ground looks like is a
 reading preference rather than a design constant: a grid helps someone
 lining panels up, dots stay out of the way, plain is for a reader who finds
-any texture noise. Four options, in **Preferences → Appearance → Canvas
-background**, as a radiogroup of the same cards the theme uses:
+any texture noise. Four options, in the canvas's own **`⋯` → Background**
+submenu, as a radio group of four rows:
 
 | Option | What is drawn | Geometry |
 |---|---|---|
@@ -645,23 +649,37 @@ every four cells still did not. The **gap** is the number that must never
 move — four 8 px cells, which is what panels snap to — so the mark grew
 instead.
 
-**The `⋯` menu has a Background item**, which navigates to `#/preferences`
-with Appearance showing and does nothing else. The plane is where a reader
-notices its texture and it was the one surface that did not offer the
-setting. It is deliberately *not* a second writer: `canvasPattern.js` is
-still written only by the preference page, so the two can never disagree.
+**The control is the `⋯` menu's Background submenu, and it is the only
+writer.** It was a four-card group in Preferences → Appearance until
+2026-09-11, with this menu carrying a `Background…` item that only navigated
+there — an app's control inside PiCode's own chrome, which is the leak
+ADR-0109's 2026-09-11 amendment closes. It is now a Radix
+`DropdownMenu.Sub` off the same `⋯` menu the canvas's other settings live
+in: four `RadioItem` rows, each with a real sample of its pattern and a tick
+on the current one, and `onSelect` prevented so the rows stay open while you
+pick — the plane behind the menu is the preview. `CanvasSurface.jsx` holds
+the value in state, writes it through `persistCanvasPattern` and listens for
+the same `picode-canvas-pattern` event the planes do. Four values are a
+menu, never a second dialog.
+
+**What did not move is the value.** `web/shared/domain/canvasPattern.js`
+keeps its key and its shape: the preference is per viewer and the app owns
+it, so only the *control* changed places. Preferences carries nothing about
+a canvas — its Appearance section is the theme and nothing else.
 
 **Scope: the canvas plane, and nothing else.** The rest of the app gets the
 theme's ground (`web/shared/tokens/theme.css`), never a texture. This is not
 an unfinished app-wide feature — a texture under a file tree, a transcript
 or a git graph is noise behind content, and those surfaces are content.
 
-**The preference cards show the pattern, not a word.** `PatternSwatch.jsx`
-draws React Flow's own geometry with the plane's own tokens, so a card
-cannot drift from what the plane draws. The one deliberate difference is
-density: the swatch tiles every 16 px against the plane's 32, because a card
-is a tenth of the plane's width and at the plane's spacing a **Cross**
-sample would hold two marks and read as **Plain**.
+**The rows show the pattern, not a word.**
+`web/desktop/src/components/canvas/PatternSwatch.jsx` draws React Flow's own
+geometry with the plane's own tokens (`--canvas-pattern` over `--bg-base`),
+so a row cannot drift from what the plane draws. The one deliberate
+difference is density: the swatch tiles every 8 px against the plane's 32,
+because the sample is a 22 px square and at the plane's spacing a **Cross**
+row would hold no mark at all and read as **Plain**. It lives inside
+`components/canvas/` because it is the app's, not the host's.
 
 ### Chat body (phase 4)
 
@@ -1084,7 +1102,7 @@ instance at 1280 × 633 in both themes, with a canvas holding a live shell, two
 | links | a real drag from a header connector drew the line; an end with no conversation was **refused in a toast**, not offered a failing action; two enrollable ends got *Connect Atlas and Bravo?* with the one line ADR-0116 §5 asks for. `__picodeOverlayAudit()` `ok: true`, dialog buttons 36 px = `--ctl-h`, in both themes |
 | the header link chip | both ends of an edge wore **1**, amber, titled *1 link, broken: it grants nothing. Read them in Messages.*, and the chip showed **in the maximize layer too**, where there is no line to read |
 | maximize | the note and then a shell: the layer fills the surface, the xterm refits, the wrapper says *Shown maximized*, Restore puts it back |
-| the audit list | **Canvas links** in Messages, both rows with ends, kinds, the canvas name, the reason and Remove |
+| the audit list | **Granted contacts** in Messages (**Canvas links** until 2026-09-11), both rows with ends, kinds, the canvas name, the reason and Remove |
 | the old API | **zero** requests to `/api/matrices` (the network log and a grep of the built bundle); `GET /api/matrices` answers 404. No console error names anything renamed |
 
 Two things this pass found and fixed. `linkCounts` / `linkChipTitle` had been

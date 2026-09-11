@@ -6,14 +6,24 @@ import { edgeGrant, peerIndex, removeConfirm } from "@picode/shared/domain/canva
 import { askConfirm } from "../lib/confirm.js";
 import { appHash } from "../lib/routes.js";
 
-// CanvasLinks — every live Canvas edge, listed where it can be audited
-// without a plane (ADR-0116's Consequences: "a non-spatial list of every
-// live edge in the Messages view, because the canvas is not the only place
-// a grant may be audited").
+// GrantedContacts — the contacts a link drawn on a canvas granted, listed
+// where they can be audited without a plane (ADR-0116's Consequences: "a
+// non-spatial list of every live edge in the Messages view, because the
+// canvas is not the only place a grant may be audited").
+//
+// **This is Messages' own section, not the Canvas reaching out of its app.**
+// ADR-0109's 2026-09-11 amendment closes the host's doors to an app, and
+// this is the one case it declares as host business rather than a leak: the
+// grant is the host's — it lives in `peer_connections` and decides who the
+// mailbox lets talk — and a canvas is only where a human happened to draw
+// one. So the copy is Messages' copy, the rows are contacts, and nothing
+// here imports from `components/canvas/`: the shared domain modules
+// (`canvas.js`, `canvasGrants.js`) are the whole dependency, the same ones
+// the app reads.
 //
 // It sits under the workspace's participants because it answers the same
 // question from the other side: Participants says who may talk *inside* one
-// folder, this says which pairs the owner has linked by hand — including the
+// folder, this says which pairs the owner granted by hand — including the
 // pairs that cross folders, which no workspace row can show. Every row names
 // both ends and their kinds, the canvas the line lives on, and whether it
 // grants **right now**; Remove revokes exactly as the canvas does, because
@@ -31,7 +41,7 @@ const CANVAS_CAP = 50;
 const WATCHED = /^(canvas\.|peer\.|agent\.(updated|deleted)|terminal\.(updated|deleted)|feed\.(open|reset))/;
 const DEBOUNCE_MS = 400;
 
-export default function CanvasLinks({ hidden }) {
+export default function GrantedContacts({ hidden }) {
   const [data, setData] = useState(null); // { canvases: [{canvas, panels, edges}], peers }
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
@@ -51,7 +61,7 @@ export default function CanvasLinks({ hidden }) {
       setData({ canvases: details.filter(Boolean), peers });
       setError("");
     } catch (e) {
-      if (live.current && gen === generation.current) setError(e.message || "Couldn’t read canvas links.");
+      if (live.current && gen === generation.current) setError(e.message || "Couldn’t read granted contacts.");
     }
   }, []);
 
@@ -94,7 +104,7 @@ export default function CanvasLinks({ hidden }) {
       await api("/api/canvases/" + encodeURIComponent(row.canvasId) + "/edges/" + encodeURIComponent(row.id), { method: "DELETE" });
       setError("");
     } catch (e) {
-      if (!(e && e.status === 404)) setError(e.message || "Couldn’t remove this link.");
+      if (!(e && e.status === 404)) setError(e.message || "Couldn’t remove this contact.");
     } finally {
       setBusy("");
       refresh();
@@ -102,11 +112,11 @@ export default function CanvasLinks({ hidden }) {
   }
 
   return (
-    <section className="peer-body peer-links" aria-label="Canvas links">
+    <section className="peer-body peer-links" aria-label="Granted contacts">
       <div className="peer-history-heading">
         <div>
-          <h4>Canvas links</h4>
-          <p>Every link drawn between two panels. A link lets those two sessions message each other — it never lets one read the other’s history.</p>
+          <h4>Granted contacts</h4>
+          <p>Pairs you granted by drawing a link between two panels on a canvas. Each pair can message each other here — never read each other’s history.</p>
         </div>
         <button className="btn btn-ghost" type="button" disabled={!!busy} onClick={refresh}>Refresh</button>
       </div>
@@ -114,10 +124,10 @@ export default function CanvasLinks({ hidden }) {
         <div className="cli-notice is-error" role="alert"><span>{error}</span><button className="btn btn-ghost" type="button" onClick={refresh}>Try again</button></div>
       ) : null}
       {!data ? (
-        <div className="cli-loading" aria-label="Loading canvas links"><div /><div /><div /></div>
+        <div className="cli-loading" aria-label="Loading granted contacts"><div /><div /><div /></div>
       ) : !rows.length ? (
         <div className="cli-notice">
-          <span>No links yet. Draw one between two panels on a canvas to let those sessions message each other.</span>
+          <span>No contacts granted this way yet. Draw a link between two panels on a canvas to let those two sessions message each other.</span>
           <a className="btn btn-primary" href={appHash("canvas")}>Open Canvas</a>
         </div>
       ) : (

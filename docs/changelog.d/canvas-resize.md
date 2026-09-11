@@ -18,9 +18,6 @@
   1.16:1 against the plane, which is to say invisible. All three now use a
   colour chosen for a texture, and the dot is two pixels rather than one.
   The spacing is unchanged, so nothing on a canvas moves.
-- **The Canvas `⋯` menu has a Background item** that takes you to
-  Preferences → Appearance, where the texture is chosen. The setting has
-  not moved; the plane just says where it lives.
 - **A stopped agent's panel offers Run as the accented button** the agent
   tab uses for the same thing, instead of a grey chip that read as
   disabled. The same rule now runs through every panel placeholder: the
