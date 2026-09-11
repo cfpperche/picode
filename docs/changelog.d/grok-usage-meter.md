@@ -6,5 +6,6 @@
   directory. Turns, tools and durations come from `events.jsonl`; the model
   from `summary.json`; tokens and cost from `usage.json`, which Grok only
   began writing in 1.0.x. Because older sessions have no `usage.json`,
-  tokens and cost report as *partial* with both counts ("6 of 785 turns
-  carry tokens") instead of a total that quietly omits them.
+  tokens and cost report as *partial* with both counts — the coverage row
+  says exactly how many turns are priced — instead of a total that quietly
+  omits them.

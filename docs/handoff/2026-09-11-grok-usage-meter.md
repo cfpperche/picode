@@ -19,7 +19,8 @@ counts, and apiMs + toolMs ≈ sessionMs.
 visual-review: n/a (no JSX/CSS touched, values only); not screenshot-verified.
 
 Not done / debts: Codex's `task_complete.duration_ms` +
-`time_to_first_token_ms` still unread by its meter; `clisession.GrokSource`
-still lists prompts only, so Agent CLIs rows show no Grok model/cost.
+`time_to_first_token_ms` still unread by its meter; the Agent CLIs session
+row shows Grok's model and title but not the per-turn cost `usage.json`
+holds.
 
 Merge: fast-forward ready (main can ff to this branch).

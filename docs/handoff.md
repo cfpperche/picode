@@ -52,4 +52,4 @@
 - Fullscreen (2026-09-10): real browser fullscreen owns Escape, so one press leaves the mode; double-Escape is in-app only. The right strip is pointer-transparent, so its reveal misses an embedded frame (PDF preview). Chromium only.
 - Notices (2026-09-07): the finish card only fires for the agent whose socket is open.
 - Native surfaces (ADR-0109): `host` has no `openTerminal` — the Canvas POSTs `/api/terminals/{id}/open` itself; a tab closing under a panel remounts the body with a fresh xterm.
-- Grok (2026-09-11): tokens/cost are `partial` by design (`usage.json` is new in 1.0.x); `clisession.GrokSource` still lists prompt history only, so Agent CLIs rows show no model/cost that `summary.json`/`usage.json` hold; the new dashboard values were not screenshot-verified.
+- Grok (2026-09-11): tokens/cost are `partial` by design (`usage.json` is new in 1.0.x); the Agent CLIs session row shows Grok's model and title (from `summary.json`) but not the per-turn cost `usage.json` holds; the new dashboard values were not screenshot-verified.
