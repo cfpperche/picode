@@ -17,10 +17,14 @@ import (
 const wiringMarker = "picode-hook"
 
 // claudeHookEvents are mapped by picode-hook auto (stdin / extra argv JSON).
+// PostToolUse carries the permission-resume signal: Claude reports a waiting
+// permission UI as needs-you and has no "permission resolved" event, so the
+// approved tool's completion is what returns the terminal to working.
 var claudeHookEvents = []string{
 	"UserPromptSubmit", "SessionStart",
 	"Stop", "SessionEnd",
 	"Notification",
+	"PostToolUse", "PostToolUseFailure",
 }
 
 type wiringRow struct {
@@ -95,18 +99,36 @@ if typ == "agent-turn-complete":
     report("idle")
     sys.exit(0)
 working = {"SessionEnd", "session_end", "on_session_finalize", "UserPromptSubmit", "user_prompt_submit", "pre_llm_call", "post_approval_response"}
+# Tool lifecycle is the resume signal: a CLI asks for approval with a
+# needs-you report and has no "permission resolved" event, so the first tool
+# that runs after the user answers (PostToolUse, or PostToolUseFailure when
+# the tool failed to dispatch and the model continues with the feedback) is
+# what returns the terminal to working. PreToolUse fires before the
+# permission gate, so it cannot report the answer itself.
+tool_activity = {"PreToolUse", "pre_tool_use", "PostToolUse", "post_tool_use", "PostToolUseFailure", "post_tool_use_failure"}
 idle = {"SessionStart", "session_start", "Stop", "SessionEnd", "Interrupt", "stop", "session_end", "interrupt", "StopCancelled", "on_session_start", "on_session_end", "on_session_reset", "post_llm_call"}
 needs_you = {"PermissionRequest", "permission_request", "pre_approval_request"}
 if ev in ("SessionStart", "session_start") and d.get("source") == "compact":
     report("working")
 elif ev in working:
     report("working")
+elif ev in tool_activity:
+    report("working")
 elif ev in idle:
     report("idle")
 elif ev in needs_you:
     report("needs-you")
 elif ev in ("Notification", "notification"):
-    report("idle" if nt == "idle_prompt" or (cli != "grok" and nt == "agent_completed") else "needs-you")
+    if nt == "idle_prompt":
+        report("idle")
+    elif cli == "grok":
+        # Grok reports attention with permission_prompt only when a UI is
+        # actually waiting; its other notifications (task_complete, ...)
+        # carry no attention meaning and must not overwrite the last signal.
+        if nt == "permission_prompt":
+            report("needs-you")
+    else:
+        report("idle" if nt == "agent_completed" else "needs-you")
 `
 
 const hookScriptTmpl = `#!/bin/sh

@@ -5,7 +5,10 @@
 // Nothing unmounts; the chrome is only made invisible, exactly like a tab
 // that is not on screen. Three thin edge strips bring one piece of chrome
 // back as an overlay above the surface, so switching tabs or picking an
-// agent never leaves the mode.
+// agent never leaves the mode; a control that names a panel — the Inspector
+// toggle at the end of the tab strip — shows it the same way, without
+// waiting for the pointer to find a strip (a hover is a peek, a click is a
+// command).
 //
 // Study: VS Code / Cursor "Zen Mode" and Zed's zen mode. What we adapt:
 // their single command that hides every panel and asks the OS window for
@@ -43,6 +46,12 @@ export function initialFocusState(prefs = {}) {
     seen: !!(prefs && prefs.seen),
     // The zone currently revealed as an overlay, or null.
     reveal: null,
+    // True when that reveal came from a control naming the panel instead of
+    // from a pointer dwelling on a strip. A command is not undone by the
+    // pointer moving away — the pointer never had to enter the panel — so a
+    // pinned reveal leaves on the control, Escape or the mode, never on the
+    // dwell-out.
+    pinned: false,
     // A pointer dwelling on a strip that has not reached DWELL_IN_MS yet.
     armed: null,
     // A revealed panel the pointer has left, counting down DWELL_OUT_MS.
@@ -66,13 +75,20 @@ function started(state, ev) {
     reveal: null,
     armed: null,
     closing: null,
+    pinned: false,
     fs: false,
     railWasOpen: !!(ev && ev.railOpen),
   };
 }
 
 function stopped(state) {
-  return { ...state, on: false, reveal: null, armed: null, closing: null, fs: false, railWasOpen: false };
+  return { ...state, on: false, reveal: null, armed: null, closing: null, pinned: false, fs: false, railWasOpen: false };
+}
+
+// Taking a revealed panel back down: every path that closes one shares this
+// shape, so none of them can leave the dwell or the pin behind.
+function closed(state) {
+  return { ...state, reveal: null, armed: null, closing: null, pinned: false };
 }
 
 function at(ev) {
@@ -85,6 +101,10 @@ function at(ev) {
 //   unavailable                             the shell can no longer host it
 //   point   { zone, inside, at }            pointer over a strip / a panel
 //   tick    { at }                          resolves both dwells
+//   reveal  { zone, pinned }                a control names a panel: show it
+//                                           now (a null zone takes it down)
+//   rail    { open }                        the shell put the rail on screen
+//                                           or took it off, mode still on
 //   escape                                  reveal first, then the mode
 //   browser { active }                      document.fullscreenElement changed
 //   resume                                  a real gesture after a reload:
@@ -108,6 +128,15 @@ export function focusReduce(state, ev) {
         // still over the strip that opened it.
         const keep = ev.inside === state.reveal || ev.zone === state.reveal;
         if (keep) return state.closing ? { ...state, closing: null } : state;
+        // A pinned panel does not close behind the viewer's back: the
+        // pointer never had to enter it (the Inspector toggle lives in the
+        // tab strip), so the dwell-out would shut it on the first move. It
+        // still does not hold the other strips hostage — a pointer can only
+        // dwell on one, and a dwell replaces the pinned panel (see tick).
+        if (state.pinned) {
+          if (!ev.zone || (state.armed && state.armed.zone === ev.zone)) return state;
+          return { ...state, armed: { zone: ev.zone, at: at(ev) } };
+        }
         return state.closing ? state : { ...state, closing: { at: at(ev) } };
       }
       if (!ev.zone) return state.armed ? { ...state, armed: null } : state;
@@ -119,16 +148,48 @@ export function focusReduce(state, ev) {
       const now = at(ev);
       let next = state;
       if (next.armed && now - next.armed.at >= DWELL_IN_MS) {
-        next = { ...next, reveal: next.armed.zone, armed: null, closing: null };
+        // A reveal the pointer asked for is the transient kind: the pointer
+        // leaving it still ends it (pinned stays false here).
+        next = { ...next, reveal: next.armed.zone, armed: null, closing: null, pinned: false };
       }
       if (next.closing && now - next.closing.at >= DWELL_OUT_MS) {
-        next = { ...next, reveal: null, closing: null };
+        next = closed(next);
       }
       return next;
     }
+    // A control that names a panel — the Inspector toggle at the end of the
+    // tab strip, whose rail the mode had otherwise made reachable only from
+    // its own edge. The panel appears now instead of after 120ms of pointer
+    // dwell, and stays until the same control takes it down, Escape clears
+    // it or the mode ends.
+    case "reveal": {
+      if (!state.on) return state;
+      if (!ev.zone) return state.reveal ? closed(state) : state;
+      const next = { ...state, reveal: ev.zone, armed: null, closing: null, pinned: !!ev.pinned };
+      // Naming the rail is also the assertion that it exists: the click can
+      // land in the same tick that turns the rail on, before the shell has
+      // reported it, and the right strip must exist from then on.
+      if (ev.zone === "right" && !next.railWasOpen) next.railWasOpen = true;
+      return next;
+    }
+    // The rail came on screen or left it while the mode is on — the toggle,
+    // a tab picked from the revealed strip, a window that fits it again.
+    // `railWasOpen` is the answer taken when the mode started, and the whole
+    // right strip hangs off it, so the shell reports every change.
+    case "rail": {
+      if (!state.on) return state;
+      const open = !!ev.open;
+      if (open === state.railWasOpen) return state;
+      const next = { ...state, railWasOpen: open };
+      if (open) return next;
+      // A rail that left the screen takes its own reveal (and its pending
+      // dwell) with it, and leaves the other panels' alone.
+      const onRail = state.reveal === "right" || (state.armed && state.armed.zone === "right");
+      return onRail ? closed(next) : next;
+    }
     case "escape": {
       if (!state.on) return state;
-      if (state.reveal) return { ...state, reveal: null, armed: null, closing: null };
+      if (state.reveal) return closed(state);
       return stopped(state);
     }
     case "browser": {

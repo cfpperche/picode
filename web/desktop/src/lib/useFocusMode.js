@@ -55,10 +55,11 @@ function overlayOpen() {
   return !!document.querySelector("[data-radix-popper-content-wrapper], [role='dialog'], [role='alertdialog']");
 }
 
-// "The rail was open when the mode started" is what the viewer actually
-// saw: inspectorLayout can report shown while the Home dashboard is
-// suppressing the rail, and a right strip that reveals nothing is a dead
-// hover. The shell itself is the honest answer.
+// "The rail is on screen" is what the viewer actually saw: inspectorLayout
+// can report shown while the Home dashboard is suppressing the rail, and a
+// right strip that reveals nothing is a dead hover. The shell itself is the
+// honest answer — read at the click that needs it, and watched (below) for
+// the changes a running mode has to hear about.
 function railOnScreen(fallback) {
   if (typeof document === "undefined") return fallback;
   const el = document.getElementById("inspector");
@@ -133,12 +134,11 @@ function refitPanes() {
 export function useFocusMode({ railOpen = false, available = true } = {}) {
   // A reload restores the mode but not the browser fullscreen (there was
   // no gesture) and not what the rail looked like when it started — the
-  // rail's state right now is the closest true answer.
+  // rail's state right now is the closest true answer. The caller's value
+  // seeds it; the observer below keeps it honest from the first commit on.
   const [state, setState] = useState(() => initialFocusState({ ...readFocusPrefs(), railOpen }));
   const ref = useRef(state);
   ref.current = state;
-  const railRef = useRef(railOpen);
-  railRef.current = railOpen;
   // True while an enter request we fired is still travelling: a mode that
   // stops in that window must take the browser back out (see send).
   const enterPending = useRef(false);
@@ -185,8 +185,13 @@ export function useFocusMode({ railOpen = false, available = true } = {}) {
     return next;
   }, []);
 
-  const toggle = useCallback(() => send({ type: "toggle", railOpen: railOnScreen(railRef.current) }), [send]);
+  const toggle = useCallback(() => send({ type: "toggle", railOpen: railOnScreen(false) }), [send]);
   const leave = useCallback(() => send({ type: "leave" }), [send]);
+  // A control that names a panel — the Inspector toggle at the end of the
+  // tab strip. The pointer may be nowhere near the rail's own edge, so the
+  // click reveals it outright and pins it: what a click opened, a click (or
+  // Escape, or leaving the mode) closes.
+  const show = useCallback((zone) => send({ type: "reveal", zone, pinned: true }), [send]);
 
   // A reload restores the mode without the browser part — there was no
   // gesture to ask with. The first real input is that gesture: the resume
@@ -221,6 +226,25 @@ export function useFocusMode({ railOpen = false, available = true } = {}) {
   // the single column, or the viewer opened a page route, where the tab
   // strip and its Leave control do not exist — gives it back.
   useEffect(() => { if (!available) send({ type: "unavailable" }); }, [available, send]);
+
+  // The rail's own `hidden` is what the mode follows: the Inspector toggle
+  // can turn the rail on while the mode runs, a tab picked from the revealed
+  // strip replaces the Home dashboard that was suppressing it, and a window
+  // that stopped fitting it can fit again. React has no value for "the
+  // element is on screen" — the caller's `railOpen` only seeds the state —
+  // so the wiring watches the attribute the element really wears. While the
+  // mode is off the event is a no-op, and the click that starts it reads the
+  // same source.
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    const el = document.getElementById("inspector");
+    if (!el) return undefined;
+    const report = () => send({ type: "rail", open: !el.hidden });
+    report();
+    const observer = new MutationObserver(report);
+    observer.observe(el, { attributes: true, attributeFilter: ["hidden"] });
+    return () => observer.disconnect();
+  }, [send]);
 
   // The pointer. The strips are real elements so the events still fire
   // over an embedded frame (the PDF preview), but the zone itself is
@@ -297,5 +321,6 @@ export function useFocusMode({ railOpen = false, available = true } = {}) {
     classes: shellClasses(state),
     toggle,
     leave,
+    show,
   };
 }

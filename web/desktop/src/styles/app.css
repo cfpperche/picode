@@ -384,31 +384,6 @@ body {
 .agent-row:last-child { border-bottom: none; }
 .agent-row-name { font-weight: 550; margin-bottom: 8px; }
 .agent-row .btn { margin-top: 8px; }
-.prov-list { list-style: none; padding: 0; }
-.prov-pick { margin-top: 12px; }
-.prov-pick-list { max-height: 240px; overflow-y: auto; }
-.prov-pick .cockpit-opt { display: flex; align-items: center; gap: 8px; }
-.prov-row .ws-face { flex: none; }
-.prov-group { padding: 8px 0; border-bottom: 1px solid var(--border); }
-.prov-group:last-child { border-bottom: none; }
-.prov-group > .prov-row { border-bottom: none; padding: 4px 0; }
-.prov-accounts { list-style: none; padding: 0 0 0 26px; }
-.prov-accounts .prov-row { border-bottom: none; padding: 4px 0; }
-.prov-acc-label {
-  flex: 1; min-width: 0; text-align: left; cursor: text;
-  background: none; border: 1px solid transparent; color: inherit; font: inherit;
-  padding: 2px 6px; border-radius: 4px;
-}
-.prov-acc-label:hover { background: var(--bg-hover); }
-.prov-acc-input {
-  flex: 1; min-width: 0; height: 24px;
-  background: var(--bg-base); color: var(--text-primary);
-  border: 1px solid var(--accent); border-radius: 4px;
-  padding: 0 6px; font: inherit;
-}
-#providers-view .ws-face {
-  width: 32px; height: 32px; margin-left: 0; font-size: 13px; padding: 3px;
-}
 .hotkey-group {
   font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--text-secondary); margin: 14px 0 0; font-weight: 650;
@@ -426,7 +401,6 @@ body {
 }
 .dlg-changelog { max-width: 560px; }
 .dlg-whats-new {
-  width: min(560px, calc(100vw - 32px));
   max-height: min(80dvh, 720px);
   padding: 0;
   display: flex;
@@ -434,6 +408,15 @@ body {
   overflow: hidden;
   box-shadow: 0 16px 48px color-mix(in srgb, #000 32%, transparent);
 }
+/* `.dlg`'s own width, padding and anchor are declared below this block at
+   the same specificity, so its `width: min(400px, …)`, `padding: 18px 18px
+   14px` and `top: 42%` won every one of these: the 560px above never
+   rendered, the head and footer hairlines were inset off the dialog's edge,
+   and the 42% anchor — written for a 400px card — left a 789px board with
+   26px above it and 190 below. A dialog that fills the screen centres;
+   the sheet keeps its own padding and bottom edge (`.dlg.dlg-sheet` is
+   later still). */
+.dlg.dlg-whats-new { top: 50%; padding: 0; }
 .wn-head {
   display: flex; align-items: center; gap: 10px; flex: none;
   padding: 17px 18px 14px; border-bottom: 1px solid var(--border);
@@ -464,6 +447,24 @@ body {
 .wn-actions { flex: none; justify-content: space-between; align-items: center; margin: 0; padding: 12px 18px 14px; border-top: 1px solid var(--border); }
 .wn-full-link { color: var(--text-secondary); font-size: 12px; text-decoration: none; }
 .wn-full-link:hover { color: var(--text-primary); text-decoration: underline; }
+/* A release is a board, not a column. Above 900px the dialog takes the width
+   a desktop actually has and the highlights flow in two columns: the nine
+   highlights of v0.2.0 fit one screen instead of three. Both classes on
+   purpose — `.dlg` (below) sets width min(400px, …) at the same specificity
+   and, being later in this file, it won: the 560px that used to live here
+   never rendered, and the dialog shipped at 400px. */
+@media (min-width: 900px) {
+  .dlg.dlg-whats-new { width: min(880px, calc(100vw - 96px)); max-height: min(88dvh, 820px); }
+  .wn-highlights { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+  /* The icon, title and summary of one highlight are one unit; across a
+     gutter only a hairline groups them (the grid's own row/column rules are
+     far too faint for that). Read-only: no hover, nothing to click. */
+  .wn-item { border: 1px solid var(--border); border-radius: var(--radius-ctl); padding: 10px 12px; }
+}
+/* Between the sheet (719px) and the board, room for the intended 560px. */
+@media (min-width: 720px) and (max-width: 899px) {
+  .dlg.dlg-whats-new { width: min(560px, calc(100vw - 48px)); }
+}
 .wn-overlay[data-state="open"] { animation: wn-fade-in 160ms var(--ease-out); }
 .wn-overlay[data-state="closed"] { animation: wn-fade-out 120ms var(--ease-out); }
 .dlg-whats-new[data-state="open"] { animation: wn-dialog-in 160ms var(--ease-out); }
@@ -587,105 +588,6 @@ body {
   margin: 16px 0 8px; font-family: var(--mono); font-size: 28px; font-weight: 650;
   letter-spacing: .12em; text-align: center;
 }
-.prov-methods { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
-.prov-methods .btn { width: 100%; }
-.prov-row.muted { opacity: 0.55; }
-.prov-row.muted:hover { opacity: 1; }
-.prov-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12.5px;
-}
-.prov-row:last-child { border-bottom: none; }
-.prov-id { font-family: var(--mono); flex: 1; }
-.prov-auth { color: var(--text-secondary); font-size: 11.5px; }
-.prov-auth.in { color: var(--ok); }
-/* Providers v2 roster: identity, quota and actions on one row. */
-.prov-bar { margin-bottom: 12px; gap: 8px; }
-.prov-search {
-  flex: 1; min-width: 0; max-width: 320px;
-  height: var(--ctl-h); box-sizing: border-box; padding: 0 10px;
-  background: var(--bg-base); color: var(--text-primary);
-  border: 1px solid var(--border); border-radius: var(--radius-ctl);
-  font: inherit; font-size: 12.5px; outline: none;
-}
-.prov-search:focus { border-color: var(--accent); }
-.prov-head { gap: 8px; }
-.prov-spend {
-  font-family: var(--mono); font-size: 11.5px; color: var(--text-secondary);
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-/* An account is two bands: who it is and what it can do on top, what is
-   left of it underneath. One band could not hold an email, two gauges and
-   three controls without truncating the email to nothing. */
-.prov-acc { padding: 6px 0; font-size: 12.5px; }
-.prov-acc + .prov-acc { border-top: 1px solid var(--border); }
-.prov-acc.muted { opacity: 0.62; }
-.prov-acc.muted:hover { opacity: 1; }
-.prov-acc-top { display: flex; align-items: center; gap: 8px; min-height: var(--ctl-h); }
-/* The alias hugs its text so the state pill reads as part of the name,
-   not as a column that drifts with the widest row. */
-.prov-acc-top .prov-acc-label, .prov-acc-top .prov-acc-input { flex: 0 1 auto; max-width: 240px; }
-.prov-acc-gap { flex: 1; }
-.prov-acc-bottom {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 10px; min-width: 0;
-}
-.prov-acc-bottom:empty { display: none; }
-.prov-ident {
-  font-size: 11.5px; color: var(--text-secondary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
-}
-.prov-acc-fixed { font-family: var(--mono); font-size: 12px; }
-.prov-verdict { font-size: 11px; }
-.prov-verdict.ok { color: var(--ok); }
-.prov-verdict.bad { color: var(--danger); }
-.prov-more { font-size: 15px; line-height: 1; padding: 0 8px; }
-.prov-menu {
-  min-width: 168px; padding: 4px; z-index: 50;
-  background: var(--bg-elevated); border: 1px solid var(--border-strong);
-  border-radius: 8px;
-}
-.prov-menu-item {
-  display: flex; align-items: center; width: 100%; height: 32px;
-  padding: 0 8px; box-sizing: border-box;
-  border: 0; border-radius: 6px; background: none;
-  color: var(--text-primary); font: inherit; font-size: 13px; cursor: pointer;
-}
-.prov-menu-item:hover, .prov-menu-item[data-highlighted] { background: var(--bg-hover); outline: none; }
-.prov-menu-item.danger { color: var(--danger); }
-.prov-menu-item[data-disabled] { color: var(--text-secondary); cursor: default; }
-
-/* The quota reading. A bar is only ever drawn from a number a vendor
-   returned; everything else is a word (ADR-0031, ADR-0058). */
-.quota-strip { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.quota-win { display: flex; align-items: center; gap: 5px; }
-.quota-win-id {
-  font-size: 10.5px; color: var(--text-secondary); text-transform: uppercase;
-  letter-spacing: .04em; min-width: 20px;
-}
-.quota-track {
-  width: 46px; height: 5px; border-radius: 99px;
-  background: var(--border); overflow: hidden; flex: none;
-}
-.quota-fill { display: block; height: 100%; border-radius: 99px; background: var(--ok); transition: width 160ms ease; }
-.quota-win.warn .quota-fill { background: var(--warn); }
-.quota-win.bad .quota-fill { background: var(--danger); }
-.quota-pct {
-  font-size: 11px; color: var(--text-secondary);
-  font-variant-numeric: tabular-nums; min-width: 30px;
-}
-.quota-money {
-  font-family: var(--mono); font-size: 11px; color: var(--text-secondary);
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-.quota-note { font-size: 11.5px; color: var(--text-secondary); }
-.quota-refresh {
-  border: 0; background: none; padding: 0 2px; cursor: pointer;
-  font: inherit; font-size: 11px; color: var(--text-secondary);
-  text-decoration: underline; text-underline-offset: 2px;
-}
-.quota-live { font-size: 11px; color: var(--ok); }
-.quota-refresh:disabled { cursor: default; opacity: .7; }
 
 .dlg-usage { width: min(420px, calc(100vw - 32px)); }
 .usage-windows { margin: 12px 0 0; display: flex; flex-direction: column; gap: 10px; }
@@ -5040,19 +4942,19 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   .focus-edge-right { top: 0; right: 0; bottom: 0; width: var(--focus-edge, 6px); pointer-events: none; }
 
   /* The way out that needs no keyboard, at the right end of the tab strip
-     — the same 28px as the inspector toggle beside it, but with a surface
-     of its own: bare icon+label among icon buttons reads as a status
-     label, not as the control it is. */
+     — the same 28px as the inspector toggle beside it. The glyph is the
+     whole control: the label and the chord are the hint. The surface and
+     the border are what keep it from dissolving into the row of icon
+     buttons, so they stay. */
   .focus-leave {
-    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
-    height: 28px; padding: 0 8px; margin-left: 6px;
+    width: 28px; height: 28px; padding: 0; margin-left: 6px;
+    display: grid; place-items: center;
     border: 1px solid var(--border-strong); border-radius: var(--radius-ctl);
     background: var(--bg-base); color: var(--text-primary);
-    font: inherit; font-size: 12px; cursor: pointer; flex: none;
+    cursor: pointer; flex: none;
   }
   .focus-leave:hover { background: var(--bg-hover); border-color: var(--accent); }
   .focus-leave:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .focus-leave .um-key { margin-left: 2px; }
 }
 @media (prefers-reduced-motion: reduce) {
   #app.focus-on #sidebar,

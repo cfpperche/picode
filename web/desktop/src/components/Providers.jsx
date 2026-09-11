@@ -16,7 +16,7 @@ import { showUsageButton, usagePath } from "@picode/shared/domain/providerUsage.
 import UsageDialog from "./UsageDialog.jsx";
 import QuotaStrip from "./QuotaStrip.jsx";
 import {
-  blastRadius, formatSpend, identityLine, indexUsage, matchesQuery,
+  blastRadius, formatSpend, identityLine, indexUsage, rosterGroups,
   sourceLabel, spendByProvider, usageKey,
 } from "@picode/shared/domain/providerRows.js";
 
@@ -131,8 +131,12 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
     .map((id) => list.find((p) => p.id === id) || { id, signedIn: false, login: "api_key" })
     .filter((p) => !p.signedIn);
 
-  const rosterRows = useMemo(
-    () => signed.filter((p) => matchesQuery(p, query)),
+  // One row per account, grouped under the provider that owns it: the row
+  // is what a person compares (what is left, what it cost, what it can do),
+  // and the provider is what its rows share. The search is the provider
+  // one, so a provider matched by any of its accounts keeps them all.
+  const groups = useMemo(
+    () => rosterGroups(signed, query),
     [signed.map((p) => p.id).join(","), query, catalog],
   );
 
@@ -367,140 +371,176 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
 
   return (
     <PageFrame id="providers-view" title="Providers" hidden={hidden} embedded={embedded}>
-      <div className="set-row prov-bar" data-align-row={signed.length > 3 ? true : undefined}>
-        {signed.length > 3 ? (
-          <input
-            className="prov-search"
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search providers and accounts"
-            aria-label="Search providers and accounts"
-          />
-        ) : <span />}
-        <button type="button" className="btn btn-primary btn-sm" onClick={openAdd}>Add provider</button>
-      </div>
+      {/* With nothing connected the empty state owns the action: one Add
+          provider button, not two. */}
+      {signed.length ? (
+        <div className="set-row prov-bar" data-align-row={signed.length > 3 ? true : undefined}>
+          {signed.length > 3 ? (
+            <input
+              className="prov-search"
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search providers and accounts"
+              aria-label="Search providers and accounts"
+            />
+          ) : null}
+          <button type="button" className="btn btn-primary btn-sm" onClick={openAdd}>Add provider</button>
+        </div>
+      ) : null}
       <section className="settings-section">
         {signed.length === 0 ? (
-          <p className="side-empty">No providers connected.</p>
+          <p className="prov-empty">
+            <span>No providers connected.</span>
+            <button type="button" className="btn btn-primary btn-sm" onClick={openAdd}>Add provider</button>
+          </p>
         ) : (
-          <ul className="prov-list">
-            {rosterRows.length === 0 ? (
-              <li className="side-empty">No provider matches “{query}”. <button type="button" className="btn btn-ghost btn-sm" onClick={() => setQuery("")}>Clear search</button></li>
+          <div className="prov-table">
+            {/* The column labels are the roster's legend: two readings are only
+                comparable if the eye can name the columns they sit under. With
+                no rows there is nothing to name, so the legend goes too. */}
+            {groups.length ? (
+              <div className="prov-th" aria-hidden="true">
+                <span>Provider</span>
+                <span>Account</span>
+                <span>Identity</span>
+                <span>Usage</span>
+                <span className="prov-num">7d spend</span>
+                <span />
+              </div>
             ) : null}
-            {rosterRows.map((p) => {
-              const envVar = sourceLabel(p);
-              const accs = p.accounts && p.accounts.length
-                ? p.accounts
-                : [{ id: "live", label: envVar || "Default", type: p.authType, active: true, quotaKind: p.quotaKind }];
-              const money = formatSpend(spend.get(p.id));
-              // Pause only makes sense while another live account can take
-              // over; on the last one it is Sign out, and the server says so.
-              const liveAccounts = accs.filter((x) => !x.paused).length;
-              return (
-                <li key={p.id} className="prov-group">
-                  <div className="prov-row prov-head">
-                    <ProviderFace id={p.id} />
-                    <span className="prov-id">{p.id}</span>
-                    {p.id === "llama.cpp" ? <a className="btn btn-ghost btn-sm" href="#/llama/models">Manage</a> : null}
-                    {money ? <span className="prov-spend" title="What your sessions spent on this provider in the last 7 days">{money} · 7d</span> : null}
-                    {envVar ? null : (
-                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => replaceProvider(p)}>Add account</button>
-                    )}
-                  </div>
-                  <ul className="prov-accounts">
-                    {accs.map((a) => {
-                      const k = usageKey(p.id, a.id);
-                      const entry = usageRows.get(k);
-                      const identity = identityLine(a, entry);
-                      const meterable = showUsageButton(p, a);
-                      const verdict = verdicts[p.id];
-                      return (
-                        <li key={a.id} className={"prov-acc" + (a.active && !a.paused ? "" : " muted")}>
-                          <div className="prov-acc-top">
-                            {envVar ? (
-                              <span className="prov-acc-fixed" title={"pi reads this key from " + envVar}>{envVar}</span>
-                            ) : (
-                              <AccountName provider={p.id} acc={a} onSaved={onRefresh} />
-                            )}
-                            <span className={"prov-auth" + (a.active && !a.paused && p.id !== "llama.cpp" ? " in" : "")}>
-                              {envVar ? "environment" : a.type === "oauth" ? "account" : "api key"}
-                              {a.paused ? " · paused" : a.active ? (p.id === "llama.cpp" ? " · configured" : " · active") : ""}
-                            </span>
-                            {verdict ? (
-                              <span className={"prov-verdict " + (verdict.ok ? "ok" : "bad")} title={verdict.reason || verdict.status}>
-                                {verdict.ok ? "pi can use this" : verdict.reason || verdict.status}
-                              </span>
-                            ) : null}
-                            <span className="prov-acc-gap" />
-                            {meterable ? (
-                              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setUsageFor({ provider: p, account: a })}>Usage</button>
-                            ) : null}
-                            {!a.active && !a.paused && !envVar ? (
-                              <button type="button" className="btn btn-ghost btn-sm" onClick={() => useAccount(p.id, a.id)}>Use</button>
-                            ) : null}
-                            <DropdownMenu.Root>
-                              <DropdownMenu.Trigger asChild>
-                                <button type="button" className="btn btn-ghost btn-sm prov-more" aria-label={"More actions for " + (a.label || p.id)}>⋯</button>
-                              </DropdownMenu.Trigger>
-                              <DropdownMenu.Portal>
-                                <DropdownMenu.Content className="prov-menu" align="end" sideOffset={6} collisionPadding={8}>
-                                  <DropdownMenu.Item className="prov-menu-item" onSelect={() => verifyProvider(p)}>
-                                    {verifying === p.id ? "Checking…" : "Verify with pi"}
-                                  </DropdownMenu.Item>
-                                  {!envVar && a.id !== "live" && (a.paused || liveAccounts > 1) ? (
-                                    <DropdownMenu.Item className="prov-menu-item" onSelect={() => pauseAccount(p, a, !a.paused)}>
-                                      {a.paused ? "Resume" : "Pause"}
-                                    </DropdownMenu.Item>
-                                  ) : null}
-                                  {envVar ? (
-                                    <DropdownMenu.Item className="prov-menu-item" disabled>Set by {envVar}</DropdownMenu.Item>
-                                  ) : (
-                                    <DropdownMenu.Item className="prov-menu-item danger" onSelect={() => removeAccount(p.id, a, p)}>
-                                      Sign out
-                                    </DropdownMenu.Item>
-                                  )}
-                                </DropdownMenu.Content>
-                              </DropdownMenu.Portal>
-                            </DropdownMenu.Root>
-                          </div>
-                          {identity || meterable ? (
-                            <div className="prov-acc-bottom">
-                              {identity ? <span className="prov-ident">{identity}</span> : <span />}
-                              {meterable ? (
-                                <QuotaStrip
-                                  entry={entry}
-                                  busy={checking === k}
-                                  onRefresh={() => refreshRow(p.id, a.id)}
-                                />
+            {groups.length === 0 ? (
+              <p className="prov-empty">
+                <span>No provider matches “{query}”.</span>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setQuery("")}>Clear search</button>
+              </p>
+            ) : null}
+            <ul className="prov-rows">
+              {groups.map(({ provider: p, accounts }) => {
+                const envVar = sourceLabel(p);
+                const money = formatSpend(spend.get(p.id));
+                // Pause only makes sense while another live account can take
+                // over; on the last one it is Sign out, and the server says so.
+                const liveAccounts = accounts.filter((x) => !x.paused).length;
+                return accounts.map((a, i) => {
+                  const k = usageKey(p.id, a.id);
+                  const entry = usageRows.get(k);
+                  const identity = identityLine(a, entry);
+                  const meterable = showUsageButton(p, a);
+                  const verdict = verdicts[p.id];
+                  const first = i === 0;
+                  return (
+                    <li key={p.id + " " + a.id} className={"prov-tr" + (a.active && !a.paused ? "" : " muted") + (first ? "" : " cont")}>
+                      <span className="prov-cell prov-provider">
+                        {first ? <ProviderFace id={p.id} /> : null}
+                        <span className="prov-id">{p.id}</span>
+                      </span>
+                      <span className="prov-cell prov-account">
+                        {envVar ? (
+                          <span className="prov-acc-fixed" title={"pi reads this key from " + envVar}>{envVar}</span>
+                        ) : (
+                          <AccountName provider={p.id} acc={a} onSaved={onRefresh} />
+                        )}
+                        <span className={"prov-auth" + (a.active && !a.paused && p.id !== "llama.cpp" ? " in" : "")}>
+                          {envVar ? "environment" : a.type === "oauth" ? "account" : "api key"}
+                          {a.paused ? " · paused" : a.active ? (p.id === "llama.cpp" ? " · configured" : " · active") : ""}
+                        </span>
+                        {verdict ? (
+                          <span className={"prov-verdict " + (verdict.ok ? "ok" : "bad")} title={verdict.reason || verdict.status}>
+                            {verdict.ok ? "pi can use this" : verdict.reason || verdict.status}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="prov-cell prov-ident" data-empty={identity ? undefined : true} title={identity || undefined}>
+                        {identity || <span className="prov-none">—</span>}
+                      </span>
+                      <span className="prov-cell prov-left" data-empty={meterable ? undefined : true}>
+                        {meterable ? (
+                          <QuotaStrip
+                            entry={entry}
+                            busy={checking === k}
+                            onRefresh={() => refreshRow(p.id, a.id)}
+                          />
+                        ) : (
+                          <span className="prov-none" title="No usage reading for this login.">—</span>
+                        )}
+                      </span>
+                      <span className="prov-cell prov-spend" title={first && money ? "What your sessions spent on this provider in the last 7 days" : undefined}>
+                        {first ? money : ""}
+                      </span>
+                      <span className="prov-cell prov-actions">
+                        {first && p.id === "llama.cpp" ? <a className="btn btn-ghost btn-sm" href="#/llama/models">Manage</a> : null}
+                        {meterable ? (
+                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setUsageFor({ provider: p, account: a })}>Usage</button>
+                        ) : null}
+                        {!a.active && !a.paused && !envVar ? (
+                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => useAccount(p.id, a.id)}>Use</button>
+                        ) : null}
+                        <DropdownMenu.Root>
+                          <DropdownMenu.Trigger asChild>
+                            <button type="button" className="btn btn-ghost btn-sm prov-more" aria-label={"More actions for " + (a.label || p.id)}>⋯</button>
+                          </DropdownMenu.Trigger>
+                          <DropdownMenu.Portal>
+                            <DropdownMenu.Content className="prov-menu" align="end" sideOffset={6} collisionPadding={8}>
+                              <DropdownMenu.Item className="prov-menu-item" onSelect={() => verifyProvider(p)}>
+                                {verifying === p.id ? "Checking…" : "Verify with pi"}
+                              </DropdownMenu.Item>
+                              {!envVar && first ? (
+                                <DropdownMenu.Item className="prov-menu-item" onSelect={() => replaceProvider(p)}>
+                                  Add account
+                                </DropdownMenu.Item>
                               ) : null}
-                            </div>
-                          ) : null}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </li>
-              );
-            })}
-          </ul>
+                              {!envVar && a.id !== "live" && (a.paused || liveAccounts > 1) ? (
+                                <DropdownMenu.Item className="prov-menu-item" onSelect={() => pauseAccount(p, a, !a.paused)}>
+                                  {a.paused ? "Resume" : "Pause"}
+                                </DropdownMenu.Item>
+                              ) : null}
+                              {envVar ? (
+                                <DropdownMenu.Item className="prov-menu-item" disabled>Set by {envVar}</DropdownMenu.Item>
+                              ) : (
+                                <DropdownMenu.Item className="prov-menu-item danger" onSelect={() => removeAccount(p.id, a, p)}>
+                                  Sign out
+                                </DropdownMenu.Item>
+                              )}
+                            </DropdownMenu.Content>
+                          </DropdownMenu.Portal>
+                        </DropdownMenu.Root>
+                      </span>
+                    </li>
+                  );
+                });
+              })}
+            </ul>
+          </div>
         )}
       </section>
-      {!signed.some((p) => p.id === "llama.cpp") ? <div className="prov-row"><span className="prov-id">llama.cpp models and connection</span><a className="btn btn-ghost btn-sm" href="#/llama/server">Set up llama.cpp</a></div> : null}
+      {!signed.some((p) => p.id === "llama.cpp") ? <div className="prov-row prov-llama-link"><span className="prov-id">llama.cpp models and connection</span><a className="btn btn-ghost btn-sm" href="#/llama/server">Set up llama.cpp</a></div> : null}
       {recentRows.length ? (
         <section className="settings-section">
           <div className="set-row">
             <h3>Recently used</h3>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRecents(clearRecents())}>Clear</button>
           </div>
-          <ul className="prov-list">
+          <ul className="prov-chips">
             {recentRows.map((p) => (
-              <li key={p.id} className="prov-row muted">
-                <ProviderFace id={p.id} />
-                <span className="prov-id">{p.id}</span>
-                <span className="prov-auth">signed out</span>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => { chooseProvider(p); setAdd(true); }}>Sign in</button>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRecents(removeRecent(p.id))}>Remove</button>
+              <li key={p.id} className="prov-chip">
+                <button
+                  type="button"
+                  className="prov-chip-main"
+                  title={"Sign in to " + p.id}
+                  onClick={() => { chooseProvider(p); setAdd(true); }}
+                >
+                  <ProviderFace id={p.id} />
+                  <span className="prov-chip-id">{p.id}</span>
+                  <span className="prov-chip-act">Sign in</span>
+                </button>
+                <button
+                  type="button"
+                  className="prov-chip-x"
+                  aria-label={"Remove " + p.id + " from recently used"}
+                  title="Remove from recently used"
+                  onClick={() => setRecents(removeRecent(p.id))}
+                >×</button>
               </li>
             ))}
           </ul>
