@@ -22,14 +22,14 @@ import { fieldLabel, summaryParts, BACK } from "@picode/shared/domain/askForm.js
 
 const WINDOW_STEP = 60;
 
-// `readOnly` is the Matrix panel's mode (docs/plans/matrix-app.md §2.4): the
+// `readOnly` is the Canvas panel's mode (docs/plans/matrix-app.md §2.4): the
 // same turns, tools and markdown, with every control that would *write*
 // through the agent left out — the ask form answers, the queued follow-up's
 // Edit and Remove, and the code block's Run. Nothing is disabled-with-a-
 // tooltip: a control that cannot act is not drawn, and the panel's own bar
 // names the one way out (Open, which is the agent's tab). The chips that
 // prefill a composer disappear on their own, because a reader passes no
-// `onPrefill`. `id` is the tab's `conversation`; a matrix may hold several
+// `onPrefill`. `id` is the tab's `conversation`; a canvas may hold several
 // of these at once, so a panel passes null and no element's id repeats.
 function Conversation({ items, onToggleTool, onToggleFiles, convRef, onScroll, hidden, streaming, agentId, compactSince, onAbortBash, onReplyAsk, onPrefill, onQueueRemove, onQueueEdit, onQueueSave, onQueueCancelEdit, onOpenTab, after, earlierRemaining, onFetchEarlier, readOnly = false, id = "conversation" }) {
   const [preview, setPreview] = useState("");
@@ -272,7 +272,7 @@ function NoteLine({ it, onPrefill }) {
   );
 }
 
-// AskRead — the open question as a *reader* sees it (a Matrix panel, plan
+// AskRead — the open question as a *reader* sees it (a Canvas panel, plan
 // §2.4): what was asked, and what the choices are, with no way to answer
 // from here. The answer belongs to the agent's tab, and the panel's own bar
 // is the one control that says so — drawing a dead Yes/No here would be the

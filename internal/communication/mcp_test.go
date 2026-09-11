@@ -199,7 +199,8 @@ func TestHTTPMCPGate(t *testing.T) {
 // capability. This test is what stops a later session from adding a
 // convenient link_sessions tool: the list is exactly ADR-0104's four verbs,
 // and no tool — nor the CLI that fronts them — so much as names an edge, a
-// matrix or a transcript.
+// canvas or a transcript. The word "canvas" joined the list with ADR-0118's
+// rename, so the mechanism cannot leak through the new noun either.
 func TestMCPSurfaceGainsNoEdgeVerb(t *testing.T) {
 	s, _, pt, _, _ := fixture(t)
 	a, e := auth.New(auth.Config{Store: s, DataDir: t.TempDir(), Insecure: true})
@@ -222,7 +223,7 @@ func TestMCPSurfaceGainsNoEdgeVerb(t *testing.T) {
 		t.Fatalf("tools = %d, want %d", len(tools.Tools), len(want))
 	}
 	// Whole words, so "acknowledge" is not an edge.
-	forbidden := regexp.MustCompile(`(?i)\b(edges?|matrix|matrices|links?|linked|transcripts?|scrollback)\b`)
+	forbidden := regexp.MustCompile(`(?i)\b(edges?|canvas|canvases|matrix|matrices|links?|linked|transcripts?|scrollback)\b`)
 	for _, tool := range tools.Tools {
 		if !want[tool.Name] {
 			t.Fatalf("unknown tool %q: an edge is the owner's grant, not an agent's", tool.Name)

@@ -71,7 +71,7 @@ test("normalizeManifests keeps valid rows, drops junk", () => {
 test("normalizeManifests keeps the surface kind verbatim (ADR-0109)", () => {
   const out = normalizeManifests({ apps: [
     { id: "inbox", name: "Inbox", apiVersion: 1 },
-    { id: "matrix", name: "Matrix", apiVersion: 1, surface: "native" },
+    { id: "canvas", name: "Canvas", apiVersion: 1, surface: "native" },
     { id: "odd", name: "Odd", apiVersion: 1, surface: "hologram" },
     { id: "num", name: "Num", apiVersion: 1, surface: 7 },
   ] });
@@ -96,9 +96,9 @@ test("supportedApp gates on apiVersion", () => {
 // The decision table of ADR-0109, one assertion per row: the registry a
 // shell passes is a Set of the app ids it compiled in.
 test("supportedApp gates on the surface a shell can draw (ADR-0109)", () => {
-  const desktop = new Set(["matrix"]);
+  const desktop = new Set(["canvas"]);
   const primitives = { id: "inbox", name: "Inbox", apiVersion: SUPPORTED_API, surface: "" };
-  const native = { id: "matrix", name: "Matrix", apiVersion: SUPPORTED_API, surface: "native" };
+  const native = { id: "canvas", name: "Canvas", apiVersion: SUPPORTED_API, surface: "native" };
   // surface "" (primitives): enabled on any shell, registry or not.
   assert.equal(supportedApp(primitives, desktop), true);
   assert.equal(supportedApp(primitives), true);

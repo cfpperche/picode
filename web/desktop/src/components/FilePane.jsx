@@ -19,10 +19,10 @@ const FILE_MAX = 800;
 const FILE_KEY = "picode-file-w";
 
 // `docKey` hands the open document to a registry outside React
-// (lib/fileDocs.js) so a body that moves host — a matrix panel being
-// maximized, or its matrix switching layout mode — keeps its unsaved text.
+// (lib/fileDocs.js) so a body that moves host — a canvas panel being
+// maximized, then restored — keeps its unsaved text.
 // Without it the document is this component's, as it has always been.
-// `onDirty` reports that text upward: the matrix pins a dirty editor so the
+// `onDirty` reports that text upward: the canvas pins a dirty editor so the
 // viewport never unmounts it silently.
 export default function FilePane({ agentId, termId, wsId, path, onClose, variant, root = "", nonce = 0, hidden = false, controllerRef, docKey = "", onDirty, onSaved, onViewDiff, onRefreshRoot }) {
   const ownerKind = termId ? "term" : wsId ? "workspace" : "agent";
@@ -82,7 +82,7 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
   dirtyRef.current = onDirty;
   useEffect(() => { dirtyRef.current?.(view.dirty); }, [view.dirty]);
   // Unmounting clears the flag only when the document dies with this
-  // component. With a `docKey` the text outlives it — a matrix panel being
+  // component. With a `docKey` the text outlives it — a canvas panel being
   // maximized unmounts one body and mounts another on the same document —
   // and clearing here would drop the "Unsaved" chip, and the pin that
   // protects it, on the way past.
@@ -191,7 +191,7 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
             {onViewDiff ? <button type="button" className="btn btn-sm btn-ghost" onClick={onViewDiff}>View diff</button> : null}
             {canSave ? <button type="button" className="btn btn-primary btn-sm" onClick={() => doc.save()} disabled={!view.dirty || view.saving}>{view.saving ? "Saving…" : "Save"}</button> : null}
             {/* Close only where there is something to close to: the tree's
-                detail pane passes onClose, a matrix panel does not — and a
+                detail pane passes onClose, a canvas panel does not — and a
                 button that does nothing is worse than no button. */}
             {tab || !onClose ? null : <button type="button" className="btn btn-ghost btn-sm" onClick={close} aria-label="Close file panel">Close</button>}
             {tab || embedded ? null : (

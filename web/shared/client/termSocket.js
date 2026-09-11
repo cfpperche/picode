@@ -12,7 +12,7 @@
 // Control state lives on entry.__sockCtl; ctl.suspended is the reversible
 // stop (suspendTermSocket/kickTermSocket): the socket is closed and no
 // retry runs, but the xterm, its scrollback and the control block stay so
-// the same instance resumes later — a hidden matrix panel, not a closed
+// the same instance resumes later — a hidden canvas panel, not a closed
 // terminal (ADR-0109, docs/plans/matrix-app.md §4.5).
 // Handlers:
 //   onOpen()    a connection opened (first or reattach): fit + resize
