@@ -1,6 +1,6 @@
 import { forwardRef, memo, useCallback, useEffect, useRef } from "react";
 import PiSpinner from "../PiSpinner.jsx";
-import { IconCollapse, IconExpand, IconExternal, IconX } from "../Icons.jsx";
+import { IconCollapse, IconExpand, IconExternal, IconLink, IconUnlink, IconX } from "../Icons.jsx";
 import PanelBody, { hasPane } from "./PanelBody.jsx";
 import PanelFace from "./PanelFace.jsx";
 import { PanelPlate, PanelStill } from "./PanelStill.jsx";
@@ -46,7 +46,7 @@ import { PanelPlate, PanelStill } from "./PanelStill.jsx";
 const OPEN_LABEL = { note: "Open in Pin Studio", file: "Open in its own tab", diff: "View this diff in a tab" };
 const GONE = ["terminal-gone", "agent-gone", "note-gone", "file-gone", "diff-gone"];
 
-export function PanelHead({ model, loaded, maximized, handlers, fixed, note }) {
+export function PanelHead({ model, loaded, maximized, handlers, fixed, note, connector, links }) {
   const gone = GONE.includes(model.state);
   const canOpen = !gone && !model.pending;
   const canMax = canOpen && model.state !== "agent-stopped" && model.state !== "agent-managed";
@@ -61,7 +61,23 @@ export function PanelHead({ model, loaded, maximized, handlers, fixed, note }) {
         {loaded && model.status === "working" ? <PiSpinner title="Working" /> : null}
         <span>{model.label}</span>
       </span>
+      {links && links.count ? (
+        // Grid mode has no plane, so a panel says how many links it carries
+        // and sends the viewer to the one place they can be read and revoked
+        // (ADR-0116's non-spatial audit list). The count alone means nothing,
+        // so the chip's title says what it is and the word comes with it.
+        <button
+          type="button"
+          className={"mx-links nodrag" + (links.broken ? " is-broken" : "")}
+          title={links.title}
+          onClick={() => handlers.onLinks(model)}
+        >
+          {links.broken ? <IconUnlink size={11} /> : <IconLink size={11} />}
+          <span>{links.count}</span>
+        </button>
+      ) : null}
       <span className="mx-actions nodrag">
+        {connector}
         {canOpen ? (
           <button type="button" className="mx-action" title={openLabel} aria-label={openLabel} onClick={() => handlers.onOpen(model)}>
             <IconExternal size={13} />
@@ -82,13 +98,13 @@ export function PanelHead({ model, loaded, maximized, handlers, fixed, note }) {
   );
 }
 
-const PanelInner = memo(function PanelInner({ model, loaded, hidden, engaged, maximized, handlers, bodyKind, still, note }) {
+const PanelInner = memo(function PanelInner({ model, loaded, hidden, engaged, maximized, handlers, bodyKind, still, note, connector, links }) {
   // Below 0.4 the plate replaces the whole panel: at that zoom the header
   // does not resolve either (C0), so drawing it is noise, not chrome.
   if (bodyKind === "plate") return <PanelPlate model={model} />;
   return (
     <>
-      <PanelHead model={model} loaded={loaded} maximized={maximized} handlers={handlers} note={note} />
+      <PanelHead model={model} loaded={loaded} maximized={maximized} handlers={handlers} note={note} connector={connector} links={links} />
       <div className="mx-panel-body nodrag nowheel">
         {maximized ? (
           // The body lives in the surface's maximize layer meanwhile; the
@@ -117,7 +133,7 @@ const PanelInner = memo(function PanelInner({ model, loaded, hidden, engaged, ma
   );
 });
 
-const Panel = memo(forwardRef(function Panel({ model, loaded, hidden, focused, engaged, maximized, tabStop, loader, handlers, bodyKind = "live", still, note, pointer = true, className, style, children, ...rest }, ref) {
+const Panel = memo(forwardRef(function Panel({ model, loaded, hidden, focused, engaged, maximized, tabStop, loader, handlers, bodyKind = "live", still, note, connector, links, pointer = true, className, style, children, ...rest }, ref) {
   const rootRef = useRef(null);
   const setRoot = useCallback((el) => {
     rootRef.current = el;
@@ -163,7 +179,7 @@ const Panel = memo(forwardRef(function Panel({ model, loaded, hidden, focused, e
       onKeyDown={(e) => handlers.onKey(e, model)}
       {...rest}
     >
-      <PanelInner model={model} loaded={loaded} hidden={hidden} engaged={!!(focused && engaged)} maximized={maximized} handlers={handlers} bodyKind={bodyKind} still={still} note={note} />
+      <PanelInner model={model} loaded={loaded} hidden={hidden} engaged={!!(focused && engaged)} maximized={maximized} handlers={handlers} bodyKind={bodyKind} still={still} note={note} connector={connector} links={links} />
       {children}
     </div>
   );

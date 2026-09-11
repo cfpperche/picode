@@ -25,6 +25,7 @@ import {
   ExternalLink,
   File,
   Folder,
+  Link2,
   Lock,
   Maximize2,
   Minimize2,
@@ -78,6 +79,7 @@ import {
   TriangleAlert,
   Type,
   Trash2,
+  Unlink,
   User,
   Volume2,
   VolumeX,
@@ -117,6 +119,8 @@ export const IconPaste = lucide(ClipboardPaste, 13);
 export const IconReload = lucide(RotateCw, 13);
 export const IconDownload = lucide(Download, 13);
 export const IconGit = lucide(GitBranch, 12);
+export const IconLink = lucide(Link2, 13);
+export const IconUnlink = lucide(Unlink, 13);
 export const IconPanelRight = lucide(PanelRight, 16);
 export const IconPanelRightClose = lucide(PanelRightClose, 16);
 export const IconRemote = lucide(Cloud, 10);

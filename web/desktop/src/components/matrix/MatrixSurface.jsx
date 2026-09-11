@@ -5,8 +5,10 @@ import { applyTui, touches } from "@picode/shared/domain/feedReducers.js";
 import { displayAgentName, locate } from "@picode/shared/domain/tree.js";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 import { agentRowStatus, agentStatusLabel } from "@picode/shared/domain/agentStatus.js";
-import { MATRIX_MODES, applyMatrixEvent, bindingState, buildRef, canvasToGrid, gridToCanvas, layoutDiff, neighborPanel, nextSlot, normalizeMatrixDetail, normalizeMatrixList, panelDefault, panelOrder, parseRef, refOwner, tidyCanvas } from "@picode/shared/domain/matrix.js";
+import { EDGE_KINDS, MATRIX_MODES, applyMatrixEvent, bindingState, buildRef, canvasToGrid, gridToCanvas, layoutDiff, neighborPanel, nextSlot, normalizeMatrixDetail, normalizeMatrixList, panelDefault, panelOrder, parseRef, refOwner, tidyCanvas, validateEdge } from "@picode/shared/domain/matrix.js";
+import { crossFolderConfirm, edgeGrant, enrolOffer, linkChipTitle, linkCounts, peerIndex, removeConfirm } from "@picode/shared/domain/matrixGrants.js";
 import { basename } from "@picode/shared/domain/diff.js";
+import { shortPath } from "@picode/shared/domain/repoLine.js";
 import { paneLeaveKey } from "@picode/shared/domain/termKeys.js";
 import AppIcon from "../AppIcon.jsx";
 import { IconEllipsis, IconGrid, IconPencil, IconPlus, IconTrash } from "../Icons.jsx";
@@ -68,7 +70,14 @@ const writeLast = (id) => { try { if (id) localStorage.setItem(LAST_KEY, id); el
 const rectOf = (p) => ({ x: p.x, y: p.y, w: p.w, h: p.h });
 const rowOf = (p) => ({ id: p.id, ...rectOf(p) });
 const NO_BODIES = {};
+const NO_LINKS = {};
+const NO_EDGES = [];
 const OWNER_WORD = { term: "Terminal", workspace: "Folder", agent: "Agent" };
+// `GET /api/communication` is what says whether an edge grants anything
+// right now: its `connections[].active` is the store's own `peerCurrent`
+// (ADR-0104). Read when a matrix holds an edge, refreshed on peer.* feed
+// rows and on a stale reveal — never on a timer.
+const NO_PEERS = { owners: [], connections: [] };
 
 function patchPanels(state, id, fn) {
   const det = state.byId[id];
@@ -241,6 +250,13 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   // before the read, a note is not gone. Summaries only — the body reads its
   // own pin, because a 100 KB note has no business in this list.
   const [pins, setPins] = useState(null);
+  // The connection list (ADR-0104), joined with the edges to say which link
+  // currently grants (ADR-0116 §7). `null` until the first read, the same
+  // "not read yet" the pins and the fleet make, so a link never reads broken
+  // before anything has been read.
+  const [peers, setPeers] = useState(null);
+  const peersAt = useRef(0);
+  const peersNeededRef = useRef(false);
   const pinsAt = useRef(0);
   // The pins list is read when something needs it — a note on this matrix,
   // or the picker offering one — and never otherwise: a matrix of terminals
@@ -316,6 +332,16 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       setDetailError(humanizeError(msgOf(e)));
     }
   }, []);
+  const loadPeers = useCallback(async () => {
+    try {
+      const d = await api("/api/communication");
+      peersAt.current = Date.now();
+      setPeers({ owners: Array.isArray(d && d.owners) ? d.owners : [], connections: Array.isArray(d && d.connections) ? d.connections : [] });
+    } catch {
+      // Keep the last answer: a failed read must not flip every live link to
+      // broken, which is the one direction a wrong answer is dangerous in.
+    }
+  }, []);
   const loadPins = useCallback(async () => {
     try {
       const d = await api("/api/pins");
@@ -336,9 +362,14 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
         loadList();
         if (currentRef.current) loadDetail(currentRef.current);
         if (pinsNeededRef.current) loadPins();
+        if (peersNeededRef.current) loadPeers();
         return;
       }
       if (ev.type === "agent.tui") { setWorkingIds((cur) => applyTui(cur, ev)); return; }
+      // A connection enrolled, revoked or moved changes what a drawn line
+      // grants, and nothing about the matrix itself: refetch the connection
+      // list, not the matrix (ADR-0116 §7 — refetch on the feed, not a timer).
+      if (ev.type.startsWith("peer.")) { if (peersNeededRef.current) loadPeers(); return; }
       // A deleted target holds no pane: dispose what the Matrix kept
       // suspended now, not when the LRU gets to it (paneOwnership.js).
       if (ev.type === "terminal.deleted" || ev.type === "agent.deleted") {
@@ -356,7 +387,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       if (gestureRef.current) { queuedRef.current.push(ev); return; }
       setStore((s) => settle(applyMatrixEvent(s, ev), ev));
     });
-  }, [feed, loadList, loadDetail, loadPins]);
+  }, [feed, loadList, loadDetail, loadPins, loadPeers]);
   useEffect(() => {
     if (hidden) return;
     const now = Date.now();
@@ -364,7 +395,8 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     const id = currentRef.current;
     if (id && detailAt.current[id] && now - detailAt.current[id] > REVEAL_STALE_MS) loadDetail(id);
     if (pinsNeededRef.current && pinsAt.current && now - pinsAt.current > REVEAL_STALE_MS) loadPins();
-  }, [hidden, loadList, loadDetail, loadPins]);
+    if (peersNeededRef.current && peersAt.current && now - peersAt.current > REVEAL_STALE_MS) loadPeers();
+  }, [hidden, loadList, loadDetail, loadPins, loadPeers]);
 
   // ---- which matrix -------------------------------------------------------
   const flushRef = useRef(() => {});
@@ -401,6 +433,17 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
   const detail = store.byId[currentId] || null;
   const panels = detail ? detail.panels : NO_PANELS;
   panelsRef.current = panels;
+  const edges = detail && Array.isArray(detail.edges) ? detail.edges : NO_EDGES;
+  const edgesRef = useRef(NO_EDGES);
+  edgesRef.current = edges;
+  // The connection list is read only when this matrix actually holds a link.
+  // A matrix with no edge asks nothing of ADR-0104, and drawing one reads it
+  // fresh anyway (drawEdge below), because enrolment is exactly the thing
+  // that may have changed a second ago.
+  peersNeededRef.current = edges.length > 0;
+  useEffect(() => {
+    if (edges.length && !peersAt.current) loadPeers();
+  }, [edges.length, loadPeers]);
   // The layout mode decides what x/y/w/h mean, which host draws them and
   // which rules every save is judged by (ADR-0113).
   const mode = current ? current.mode : "grid";
@@ -468,6 +511,59 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     if (focusedId && !models.some((m) => m.id === focusedId)) setFocusedId("");
     if (maximizedId && !models.some((m) => m.id === maximizedId)) setMaximizedId("");
   }, [models, focusedId, maximizedId]);
+
+  // ---- edges (ADR-0116) ---------------------------------------------------
+  // What every panel is called, and which folder it works in: the reason a
+  // broken link shows, the sentence the enrolment offers and the one that
+  // names both folders are all built from these, so a dialog never says an
+  // id at an owner.
+  const names = useMemo(() => Object.fromEntries(models.map((m) => [m.id, m.name])), [models]);
+  const folders = useMemo(
+    () => Object.fromEntries(models.map((m) => [m.id, shortPath(m.cwd) !== "—" ? shortPath(m.cwd) : m.hint || ""])),
+    [models],
+  );
+  const namesRef = useRef(names);
+  namesRef.current = names;
+  const foldersRef = useRef(folders);
+  foldersRef.current = folders;
+  // peers is null until the first read; an edge on an unread list says
+  // nothing rather than "broken", which would be a lie in the one direction
+  // that matters.
+  const peerIx = useMemo(() => peerIndex(peers || NO_PEERS), [peers]);
+  const grants = useMemo(() => {
+    const out = new Map();
+    for (const e of edges) {
+      const g = edgeGrant(e, panels, peerIx, names);
+      if (g) out.set(e.id, g);
+    }
+    return out;
+  }, [edges, panels, peerIx, names]);
+  // What the canvas draws: one row per edge whose two ends are on the board.
+  // An edge whose endpoint the client has not got is the one case the plane
+  // must not draw (edgeEndpoints' null), and it is simply absent here.
+  const edgeRows = useMemo(() => edges.map((e) => {
+    const g = grants.get(e.id);
+    if (!g) return null;
+    return {
+      id: e.id,
+      source: e.aPanel,
+      target: e.bPanel,
+      grants: peers ? g.grants : true,
+      reason: peers ? g.reason : "",
+      label: g.ends[0].name + " and " + g.ends[1].name,
+    };
+  }).filter(Boolean), [edges, grants, peers]);
+  // What a grid-mode header wears instead: the count, and whether any of
+  // them grants nothing.
+  const links = useMemo(() => {
+    if (!edges.length) return NO_LINKS;
+    const counts = linkCounts(edges, panels, peerIx, names);
+    const out = {};
+    for (const [id, at] of Object.entries(counts)) {
+      out[id] = { count: at.count, broken: peers ? at.broken : 0, title: linkChipTitle(peers ? at : { count: at.count, broken: 0 }) };
+    }
+    return out;
+  }, [edges, panels, peerIx, names, peers]);
 
   // ---- saving the layout (plan §4.7) --------------------------------------
   // Answers the `updatedAt` it left behind ("" when there was nothing to
@@ -698,6 +794,105 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
     }
     if (focusedRef.current === model.id) focusPanel(next);
   }
+  // ---- drawing and removing an edge (ADR-0116 §2, §4, §5) ----------------
+  // Only the owner draws one, in the browser, through the authenticated
+  // owner API; the gesture is the canvas's connector, and everything that
+  // decides is here. Two rules the ADR sets and this function keeps:
+  //
+  //   * **An edge never enrols silently.** The connection list is read
+  //     *fresh* — enrolment is exactly the thing that may have changed a
+  //     second ago — and every question is asked before anything is written.
+  //     Cancel at either question leaves no edge and no connection.
+  //   * **The two questions never merge.** Pairing across folders is the one
+  //     power a workspace could not give, so it is confirmed on its own and
+  //     names both folders; the enrolment offer is the existing owner action
+  //     ADR-0104 already has, and says what it grants.
+  async function drawEdge(connection) {
+    const a = connection && connection.source;
+    const b = connection && connection.target;
+    const id = currentRef.current;
+    const det = storeRef.current.byId[id];
+    if (!a || !b || !det) return;
+    // The server's refusals, in the server's words, before the request: a
+    // pair already linked, a kind with no mailbox, the cap.
+    const refusal = validateEdge({ aPanel: a, bPanel: b }, det.panels, det.edges || NO_EDGES);
+    if (refusal) { notify({ level: "warn", title: humanizeError(refusal), key: "mx-edge-refused" }); return; }
+    let payload;
+    try {
+      payload = await api("/api/communication");
+    } catch (e) { toastError(e); return; }
+    setPeers({ owners: payload.owners || [], connections: payload.connections || [] });
+    const ix = peerIndex(payload);
+    const grant = edgeGrant({ id: "draft", aPanel: a, bPanel: b }, det.panels, ix, namesRef.current);
+    if (!grant) return;
+    // Across two folders, first and on its own (§5). Cancel writes nothing.
+    if (grant.cross && !(await askConfirm(crossFolderConfirm(grant.ends, foldersRef.current)))) return;
+    const offer = enrolOffer(grant.ends);
+    if (offer && offer.blocked) {
+      notify({ level: "warn", title: offer.title, body: offer.message, key: "mx-edge-blocked:" + a + "|" + b });
+      return;
+    }
+    if (offer) {
+      if (!(await askConfirm(offer))) return;
+      const launch = Array.isArray(payload.launchCLIs) ? payload.launchCLIs : [];
+      for (const end of grant.ends) {
+        if (end.state === "on") continue;
+        const owner = (payload.owners || []).find((o) => o && o.kind === end.kind && o.ownerId === end.ref);
+        if (!owner) continue;
+        try {
+          await api("/api/communication", json("POST", { kind: owner.kind, ownerId: owner.ownerId, sessionKey: owner.sessionKey, automatic: launch.includes(owner.cli) }));
+        } catch (e) {
+          // The enrolment is the Messages view's action; when it needs the
+          // connection guide, that is where the guide lives.
+          notify({
+            level: "error",
+            title: "Couldn’t connect " + end.name + ".",
+            body: msgOf(e),
+            actions: [{ label: "Open Messages", primary: true, run: () => { location.hash = "#/clis/messages"; } }],
+            key: "mx-edge-enrol:" + end.key,
+          });
+          loadPeers();
+          return;
+        }
+      }
+      loadPeers();
+    }
+    try {
+      const res = await api("/api/matrices/" + enc(id) + "/edges", json("POST", { aPanel: a, bPanel: b }));
+      setStore((st) => applyMatrixEvent(st, { type: "matrix.edge.added", data: res }));
+    } catch (e) {
+      toastError(e);
+      loadDetail(id);
+    }
+  }
+  // Removing the line revokes the grant (§4): there is no second write,
+  // because there was never a first — the contact is derived from the live
+  // edge on every read. It asks only when the link currently grants; taking
+  // away a link that grants nothing takes nothing away.
+  async function removeEdge(edgeId) {
+    const id = currentRef.current;
+    const det = storeRef.current.byId[id];
+    const row = det && (det.edges || NO_EDGES).find((e) => e.id === edgeId);
+    if (!row) return;
+    const grant = edgeGrant(row, det.panels, peerIndex(peers || NO_PEERS), namesRef.current);
+    const ask = peers ? removeConfirm(grant) : null;
+    if (ask && !(await askConfirm(ask))) return;
+    const removed = { type: "matrix.edge.removed", data: { id, edgeId } };
+    try {
+      await api("/api/matrices/" + enc(id) + "/edges/" + enc(edgeId), { method: "DELETE" });
+      setStore((st) => applyMatrixEvent(st, removed));
+    } catch (e) {
+      if (e && e.status === 404) setStore((st) => applyMatrixEvent(st, removed));
+      else toastError(e);
+    }
+  }
+  // Stable for the life of the surface, so the canvas's edge objects (and
+  // React Flow's diff of them) do not churn on every render.
+  const edgeActions = useRef({});
+  edgeActions.current = { drawEdge, removeEdge };
+  const onConnect = useCallback((c) => { edgeActions.current.drawEdge(c); }, []);
+  const onRemoveEdge = useCallback((edgeId) => { edgeActions.current.removeEdge(edgeId); }, []);
+
   async function restorePanel(matrixId, model) {
     const body = { kind: model.kind, ref: model.ref, x: model.x, y: model.y, w: model.w, h: model.h };
     try {
@@ -827,6 +1022,10 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
       api("/api/agents/" + enc(model.ref) + "/open", { method: "POST" }).catch(toastError);
     },
     onRemove: (model) => { removePanel(model); },
+    // The grid's link chip: the count is spatial nowhere, so it goes to the
+    // one place every live edge is listed and can be revoked (ADR-0116's
+    // "the canvas is not the only place a grant may be audited").
+    onLinks: () => { location.hash = "#/clis/messages"; },
     // Maximize takes the keyboard into the pane (the layer mounts its body
     // with autoFocus); Restore hands it back to the wrapper's chrome.
     onMaximize: (model) => {
@@ -967,6 +1166,9 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
                 tabStopId={tabStopId}
                 loader={loader}
                 handlers={handlers}
+                edgeRows={edgeRows}
+                onConnect={onConnect}
+                onRemoveEdge={onRemoveEdge}
                 onLayout={applyLayout}
                 onGestureStart={onGestureStart}
                 onGestureStop={onGestureStop}
@@ -984,6 +1186,7 @@ export default function MatrixSurface({ manifest, hidden, onClose, host, initial
               tabStopId={tabStopId}
               loader={loader}
               handlers={handlers}
+              links={links}
               onLayoutChange={onLayoutChange}
               onGestureStart={onGestureStart}
               onGestureStop={onGestureStop}

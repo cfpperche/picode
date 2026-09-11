@@ -14,6 +14,11 @@ import Panel from "./Panel.jsx";
 // `extras`, children keyed by panel id. Gesture edges reach the surface
 // (pin the panel, hold feed events); onLayoutChange carries the measured
 // width so the surface can ignore a change it cannot trust (hidden, 0).
+//
+// Edges belong to the matrix, not to a mode (ADR-0116), but a grid has no
+// plane to draw one on: `links` is the per-panel count its header wears
+// instead, and the Messages audit list is where a grid-mode owner reads and
+// revokes them.
 const GRID = { cols: MATRIX_LIMITS.cols, rowHeight: 24, margin: [8, 8], containerPadding: [0, 0] };
 const DRAG = { enabled: true, handle: ".mx-head", cancel: ".mx-actions", threshold: 3 };
 const RESIZE = { enabled: true, handles: ["se", "s", "e"] };
@@ -29,7 +34,7 @@ export function compactPanels(panels) {
   return fastVerticalCompactor.compact(layout, MATRIX_LIMITS.cols).map((l) => ({ id: l.i, x: l.x, y: l.y, w: l.w, h: l.h }));
 }
 
-export default function MatrixGrid({ models, loaded, hidden, focusedId, engaged, maximizedId, tabStopId, loader, handlers, onLayoutChange, onGestureStart, onGestureStop }) {
+export default function MatrixGrid({ models, loaded, hidden, focusedId, engaged, maximizedId, tabStopId, loader, handlers, links, onLayoutChange, onGestureStart, onGestureStop }) {
   const { width, containerRef } = useContainerWidth({ initialWidth: 0 });
   // A hidden tab measures 0: keep drawing at the last real width so the
   // wrappers keep their places (and their scroll offset) until the reveal.
@@ -67,6 +72,7 @@ export default function MatrixGrid({ models, loaded, hidden, focusedId, engaged,
             tabStop={tabStopId === m.id}
             loader={loader}
             handlers={handlers}
+            links={links[m.id]}
           />
         ))}
       </GridLayout>
