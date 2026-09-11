@@ -2,6 +2,7 @@ package climetrics
 
 import (
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -17,7 +18,8 @@ import (
 type parsed struct {
 	key         string // the session identity every entry in this file carries
 	ents        []guestEntry
-	units       int64 // sum of ents' token units, the denominator for proration
+	units       int64 // sum of ents' weights, the denominator for proration
+	byPresence  bool  // weigh each entry as 1 rather than its tokens (Grok)
 	impact      Impact
 	timing      Timing
 	limits      []LimitWindow
@@ -156,7 +158,7 @@ func replay(p *parsed, acc *guestAcc, req Request) (contributed bool) {
 	for i := range p.ents {
 		e := &p.ents[i]
 		if inCurrentWindow(req, e.at) && req.InScope(e.cwd) {
-			inWindow += e.toks.Input + e.toks.Output + e.toks.CacheRead + e.toks.CacheWrite
+			inWindow += p.weight(e)
 		}
 		before := acc.current.Messages
 		acc.add(*e)
@@ -185,6 +187,60 @@ func replay(p *parsed, acc *guestAcc, req Request) (contributed bool) {
 type compaction struct {
 	at  time.Time
 	cwd string
+}
+
+// weight is what proration counts for one entry. Token units are the
+// default: cost, lines and durations scale with how much a file said. Grok's
+// events timeline is the exception — it records turns, tools and durations
+// for sessions whose usage.json (the only place tokens live) may not exist
+// yet, so its entries weigh one each and a window's share is its share of
+// turns. Weighing them by tokens would drop the durations of every session
+// Grok has not written a usage record for, which on this machine is all but
+// three of them.
+func (p *parsed) weight(e *guestEntry) int64 {
+	if p.byPresence {
+		return 1
+	}
+	return e.toks.Input + e.toks.Output + e.toks.CacheRead + e.toks.CacheWrite
+}
+
+// statKey is a cache key that changes whenever any of paths does, absence
+// included: a store that appears later must not be answered by the empty
+// parse cached while it was missing.
+func statKey(paths ...string) string {
+	var b strings.Builder
+	for _, p := range paths {
+		b.WriteString(p)
+		info, err := os.Stat(p)
+		if err != nil {
+			b.WriteString("=absent;")
+			continue
+		}
+		b.WriteByte('=')
+		b.WriteString(itoa64(info.Size()))
+		b.WriteByte(':')
+		b.WriteString(itoa64(info.ModTime().UnixNano()))
+		b.WriteByte(';')
+	}
+	return b.String()
+}
+
+// cachedParseKeyed is cachedParse for a parse that spans more than one file.
+// The caller builds key with statKey, so the whole multi-file state is the
+// cache identity and nothing here stats anything.
+func cachedParseKeyed(key string, parse func() *parsed) *parsed {
+	if key == "" {
+		return &parsed{}
+	}
+	if p, ok := files.get(key, 0, 0); ok {
+		return p
+	}
+	p := parse()
+	if p == nil {
+		p = &parsed{}
+	}
+	files.put(key, 0, 0, p)
+	return p
 }
 
 func inCurrentWindow(req Request, t time.Time) bool {

@@ -72,8 +72,7 @@ func handleTerminalTuiHello(deps Deps) http.HandlerFunc {
 				return
 			}
 		}
-		deps.Replies.helloConnectionProcess(termReplyKey(id), req.Session, req.Connection, req.RunID)
-		deps.Replies.notePID(termReplyKey(id), req.PID)
+		deps.Replies.helloReceiver(termReplyKey(id), req.Session, req.Connection, req.RunID, req.PID)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

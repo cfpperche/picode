@@ -191,6 +191,16 @@ func TestNativeHookIgnoresChildAndDelayedCompletion(t *testing.T) {
 		{"claude-code", `{"hook_event_name":"UserPromptSubmit"}`, "working"},
 		{"claude-code", `{"hook_event_name":"TaskCompleted"}`, ""},
 		{"claude-code", `{"hook_event_name":"SubagentStop"}`, ""},
+		// Codex multi-agent v2 child threads: their identity must never
+		// replace the pinned conversation — codex resume refuses sub-agents.
+		{"codex", `{"hook_event_name":"SessionStart","thread_id":"root"}`, "idle"},
+		{"codex", `{"hook_event_name":"user_prompt_submit","thread_id":"root"}`, "working"},
+		{"codex", `{"hook_event_name":"session_start","thread_id":"main","thread_source":"cli"}`, "idle"},
+		{"codex", `{"hook_event_name":"subagent_start","thread_id":"child"}`, ""},
+		{"codex", `{"hook_event_name":"subagent_stop","thread_id":"child"}`, ""},
+		{"codex", `{"hook_event_name":"user_prompt_submit","thread_id":"child","parent_thread_id":"root"}`, ""},
+		{"codex", `{"hook_event_name":"session_start","thread_id":"child","thread_source":"subagent"}`, ""},
+		{"codex", `{"hook_event_name":"stop","threadId":"child","parentThreadId":"root"}`, ""},
 		{"grok", `{"hook_event_name":"UserPromptSubmit","promptId":"B"}`, "working"},
 		{"grok", `{"hook_event_name":"Stop","promptId":"A","timestamp":"2099-01-01T00:00:00Z"}`, ""},
 		{"grok", `{"hook_event_name":"Stop","promptId":"B","stopHookActive":true}`, ""},

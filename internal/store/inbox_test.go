@@ -647,3 +647,35 @@ func TestCountAllInboxItems(t *testing.T) {
 		t.Fatalf("count = %d, %v, want 2", n, err)
 	}
 }
+
+// Accept is a decision the agent must hear, exactly like a reply: a
+// terminal approval with no delivery channel refuses visibly and stays
+// open instead of closing as "accepted" while nothing was sent
+// (ADR-0037's visible-failure rule; the 2026-09-11 ignore fix's twin).
+func TestRespondAndForwardRefusesAcceptWithoutATerminalChannel(t *testing.T) {
+	s := openTest(t)
+	it, err := s.CreateInboxItem(InboxItemParams{
+		Kind: InboxApproval, SourceKind: InboxFromTerminal, SourceID: "term-9",
+		Reason: "agent needs your input", Title: "push to main?", Body: "may I push?",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := s.RespondAndForward(it.ID, VerbAccept, "", nil); !errors.Is(err, ErrNoReplyChannel) {
+		t.Fatalf("channelless accept = %v; want ErrNoReplyChannel", err)
+	}
+	got, _ := s.GetInboxItem(it.ID)
+	if got.State == InboxDone {
+		t.Fatalf("channelless accept closed the item")
+	}
+	if !strings.Contains(got.Body, "terminal's receiver") {
+		t.Fatalf("annotation missing: %q", got.Body)
+	}
+	// The same item still ignores locally — sending nothing needs no channel.
+	if _, err := s.RespondAndForward(it.ID, VerbIgnore, "", nil); err != nil {
+		t.Fatalf("ignore after refusal: %v", err)
+	}
+	if got, _ := s.GetInboxItem(it.ID); got.State != InboxDone {
+		t.Fatalf("ignore did not close the item")
+	}
+}
