@@ -749,6 +749,7 @@ from the UI:
 | re-connect | drawing Bravo → Cleo offered the enrolment again; confirming it made **all three** edges live at once, including the one that had been broken — the grant is derived, so nothing had to be repaired |
 | the session moves | `PATCH /api/agents/{delta}` to a new `sessionPath`: the link read *Delta's session changed; the link grants nothing.*, the grid chips turned amber (`3 links, 1 broken`), and the old bearer stopped answering. Putting the path back made it live again — **both ways, with no reload** |
 | delete one panel | removing the Delta panel took its edge with it (3 → 2 edges, no per-edge event) and Delta's contacts went **empty** |
+| the two meanings of Delete | selecting the line and pressing <kbd>Delete</kbd> asked the same one-line confirm and removed the edge (3 → 2); with a **panel** focused, <kbd>Delete</kbd> still removed the panel (5 → 4) with its Undo toast and left the edges alone |
 | a note panel | no connector on it, and a hand-made `POST …/edges` with the note's id answered **400** *panel … is a note panel and has no mailbox: an edge links agent or terminal panels* |
 | the audit list | the same edges as the plane, each with both ends, both kinds, the matrix, and whether it grants; its **Remove** confirmed in one line and revoked for real (Delta's contacts `["Cleo"]` → `(none)`); the list survived a reload; it listed the cross-folder pair with **no** workspace chosen |
 | grid mode | the header chips read 2 · 2 · 3 · 1 against four edges, amber with the count of broken ones, and the note panel has none |
