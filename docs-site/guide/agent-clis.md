@@ -289,10 +289,11 @@ PiCode keeps forensics under the data dir's `var/` folder:
 If sessions ever vanish around a restart, these three files answer when,
 what and who without any forensics archaeology.
 
-The **Terminals** tab includes configured CLI terminals and ordinary terminals
-where a supported CLI is observed. Launch identity, live CLI presence and
-activity are separate: **Installed** is not **Working**, and an enabled hook
-is not a received event. See [activity reporting](terminal-status).
+Each CLI's page carries a **Terminals** section listing the terminals that
+CLI launches — including ordinary terminals where that CLI is observed.
+Launch identity, live CLI presence and activity are separate: **Installed**
+is not **Working**, and an enabled hook is not a received event. See
+[activity reporting](terminal-status).
 
 ## Scope
 

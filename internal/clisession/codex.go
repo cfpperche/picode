@@ -14,6 +14,10 @@ import (
 // carries id and cwd; turn_context lines carry the model; response_item
 // message lines carry the turns (role user/developer/assistant).
 //
+// Multi-agent v2 sub-agent rollouts (session_meta thread_source="subagent")
+// are not listed: codex resume refuses them ("resume the parent first"), so
+// they are worker threads, never conversations a user can return to.
+//
 // Verified resume form (codex --help): the `resume` subcommand takes the
 // session id — args are positional, so they replace any configured
 // defaults when the terminal launch is composed.
@@ -82,13 +86,14 @@ func summarizeCodex(path string) (Summary, bool) {
 			Type      string `json:"type"`
 			Timestamp string `json:"timestamp"`
 			Payload   struct {
-				Type      string `json:"type"`
-				ID        string `json:"id"`
-				Cwd       string `json:"cwd"`
-				Timestamp string `json:"timestamp"`
-				Model     string `json:"model"`
-				Role      string `json:"role"`
-				Content   []struct {
+				Type         string `json:"type"`
+				ID           string `json:"id"`
+				Cwd          string `json:"cwd"`
+				Timestamp    string `json:"timestamp"`
+				Model        string `json:"model"`
+				Role         string `json:"role"`
+				ThreadSource string `json:"thread_source"`
+				Content      []struct {
 					Type string `json:"type"`
 					Text string `json:"text"`
 				} `json:"content"`
@@ -99,6 +104,9 @@ func summarizeCodex(path string) (Summary, bool) {
 		}
 		switch raw.Type {
 		case "session_meta":
+			if raw.Payload.ThreadSource == "subagent" {
+				return Summary{}, false
+			}
 			if s.ID == "" {
 				s.ID = raw.Payload.ID
 			}
