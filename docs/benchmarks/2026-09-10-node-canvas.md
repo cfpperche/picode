@@ -263,3 +263,39 @@ instead of `<App />`). Reverted before this branch closed.
   terminal's tmux session exists only after its first attach; the scratch
   serves the UI embedded, so a UI change needs `make web` + a rebuilt
   binary before the page can see it.
+
+## Chrome, a second look (2026-09-11)
+
+Item 7 above left the chrome half-answered: it said the minimap and the
+default `<Controls />` need "tokens and a placement decision", and C2 gave
+them both. It did not ask the larger question, which the owner did on
+2026-09-11 — *"menus estilo overlays e não aquela barra fixa no topo"* —
+with nodeterm's own canvas as the reference: **no bar over the plane at
+all**. Same source and same licence as §2 of the plan (BUSL-1.1, public
+material only: no code, no assets, no copied strings), so everything below
+is inference from their published screenshots and README.
+
+| What their canvas shows | What PiCode took |
+|---|---|
+| the plane edge to edge, no header over it | **taken**. The `.ft-head` bar is gone from `CanvasSurface.jsx` — the stage is the plane. The icon and the title were the tab strip's words repeated, and **Close** was the tab's own × repeated |
+| a small floating control top-left | **taken**, as `.cv-chrome`: the canvas switcher, **Add panel**, and a `⋯` menu carrying New canvas, Tidy, Rename, Delete and Close tab |
+| a floating toolbar bottom-centre (undo/redo/save/fit/zoom) | **taken in part, moved**: our zoom cluster and **Fit** already floated bottom-right beside the minimap, and moving them to the centre would have bought a second corner for nothing. Undo/redo and Save have no counterpart to take: a canvas saves the changed subset 500 ms after a drag (ADR-0108), and a removal's undo is the toast that already offers it |
+| a minimap bottom-right | already shipped in C2; unchanged |
+| a status pill bottom-left | **refused**. Theirs names the session; ours would name the canvas the switcher already names, on a corner React Flow's attribution already holds. A pill that repeats a control two corners away is chrome about chrome |
+| translucent, blurred cluster grounds | **refused**. A cluster here can sit over a live terminal, and a scrim over a terminal lets its own text through the chrome. Both clusters are opaque `--bg-elevated` with a `--border` hairline and the minimap's shadow, which is also the only version that reads in the light theme |
+
+**The adaptation, in one line:** take the plane edge to edge and the
+corner clusters; refuse the pill, the blur and the centre toolbar; keep
+every item the bar carried reachable — by pointer *and* by `Tab` — from a
+cluster or the menu on it, because a canvas app with no chrome to focus is
+a canvas app with no keyboard.
+
+**One thing the pattern costs, and what we did about it.** Floating chrome
+overlaps content by definition, and `fitView` centres inside its padded
+rectangle, so a symmetric padding parked the first panel's header under the
+top-left cluster on the very first open — an occlusion, measured on the
+first capture of this pass. The fit's padding is now the cluster geometry
+(60 px top, 204 px bottom, 24 px sides, shrunk together on a pane too short
+to spare a third of its height), and both the first-open fit and **Fit**
+use it. A reader can still drag a panel under a cluster; that is theirs to
+do, and the minimap says where everything is.

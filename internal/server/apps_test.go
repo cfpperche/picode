@@ -110,13 +110,13 @@ func TestNativeAppOnTheWire(t *testing.T) {
 	if _, has := rows["inbox"]["surface"]; has {
 		t.Fatalf("inbox row carries a surface key: %v", rows["inbox"])
 	}
-	// The Matrix is the shipped native app: listed in every build with its
+	// The Canvas is the shipped native app: listed in every build with its
 	// surface on the wire, the host icon key and no badge.
-	if got := rows["matrix"]["surface"]; got != apps.SurfaceNative {
-		t.Fatalf("matrix surface = %v, want %q", got, apps.SurfaceNative)
+	if got := rows["canvas"]["surface"]; got != apps.SurfaceNative {
+		t.Fatalf("canvas surface = %v, want %q", got, apps.SurfaceNative)
 	}
-	if got := rows["matrix"]["icon"]; got != "matrix" {
-		t.Fatalf("matrix icon = %v, want matrix", got)
+	if got := rows["canvas"]["icon"]; got != "canvas" {
+		t.Fatalf("canvas icon = %v, want canvas", got)
 	}
 
 	var v apps.View

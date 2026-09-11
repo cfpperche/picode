@@ -103,3 +103,46 @@ tmux fallback is the level-3 screen hack, allowed only as a fallback.
 - **Security:** reply files live under PiCode's data dir with `0600`, are
   consumed once, and name the exact session; the receiver posts only to the
   loopback daemon with the install token, like pi-inbox.
+
+## Amendment — 2026-09-11: the file is addressed to a process, and ignore sends nothing
+
+Found live: an Inbox question filed by pi in an Agent CLI terminal could
+not be answered *or* ignored. Both ends of the terminal door were wrong.
+
+1. **Ignore is not a reply.** The terminal branch routed every verb —
+   including `ignore` — through `DeliverTerminalReply`, so a decision that
+   sends nothing demanded a live, session-matching terminal, and the
+   confirm's own promise ("Ignore this? The agent gets no reply.") was
+   false. Terminal items now ignore locally: `RespondInboxItem` closes the
+   item, exactly as an agent-sourced ignore always has
+   (`RespondAndForward`'s `needsForward` never covered `ignore` either).
+2. **A receiver with no session is not a channel.** The terminal id and the
+   reply directory come from the environment, so every pi that inherited
+   them watches the same directory — a nested `pi -p`, a print-mode run, the
+   TUI itself. A hello from a process with no session (`--no-session`) used
+   to pass the preflight (an empty hello meant "unknown", not "refuse"),
+   take the file, and answer `ok:false, "the terminal is showing a different
+   session"` — while the session it was showing did not exist. The daemon
+   now refuses before parking when a fresh hello names no session, and the
+   receiver refuses the same way with the truth; no park-then-reopen churn,
+   no note on the item.
+3. **The file names the process.** `replyFile` carries the `pid` of the
+   hello the daemon accepted; a receiver whose pid differs leaves the file
+   untouched for the addressee (and one whose own session is unknown leaves
+   it for a process that can answer). Files written before this amendment
+   carry no `pid` and keep the exact-session rule. Delivery truth is
+   unchanged: the daemon's ack wait still cleans a file no one took and
+   reopens the item with the response preserved. The registry follows the
+   same address: a sessionless hello refreshes liveness but never takes
+   over the recorded session or its pid — a session-bearing hello always
+   wins — so a nested process can neither blind the reply channel nor
+   become its addressee.
+
+Decision table — the receiver rows now read:
+
+| Conditions | Action | User-visible result |
+|---|---|---|
+| Fresh hello names no session | Refuse before parking | Item stays open; the toast says the terminal has not opened a conversation |
+| File addressed to another pid | Leave it, no ack | The addressee consumes it; the ack wait cleans up if nobody does |
+| Addressed receiver's session matches | Submit, ack ok | As before |
+| Addressed receiver shows another session | Ack false, delete file, reopen | Prefilled reply; the toast names the session rule |

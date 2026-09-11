@@ -8,7 +8,7 @@ export const llamaServiceSchema = z.object({
 });
 import { looksLikeRepoUrl } from "../domain/cloneUrl.js";
 import { rowsError } from "../domain/automationSchedule.js";
-import { MATRIX_LIMITS } from "../domain/matrix.js";
+import { CANVAS_LIMITS } from "../domain/canvas.js";
 
 const required = (label) => z.string().trim().min(1, label + " is required.");
 
@@ -272,11 +272,12 @@ export const rolesConfigSchema = z.object({
   }
 });
 
-// Matrix names (ADR-0108): the store's own words, counted in characters the
-// way it counts runes, so the dialog and a 400 read the same.
-export const matrixNameSchema = z.object({
+// Canvas names (ADR-0108, renamed by ADR-0118): the store's own words,
+// counted in characters the way it counts runes, so the dialog and a 400
+// read the same.
+export const canvasNameSchema = z.object({
   name: z.string().trim().min(1, "name is required")
-    .refine((s) => Array.from(s).length <= MATRIX_LIMITS.name, `name is too long (max ${MATRIX_LIMITS.name} characters)`),
+    .refine((s) => Array.from(s).length <= CANVAS_LIMITS.name, `name is too long (max ${CANVAS_LIMITS.name} characters)`),
 });
 
 export const peerParticipantsSchema = z.object({

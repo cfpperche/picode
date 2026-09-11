@@ -167,6 +167,13 @@ func TestInboxTerminalReplyRefusals(t *testing.T) {
 		t.Fatal(err)
 	}
 	deps.TermRuntimes.Start(term.ID, TermRuntime{CLI: "pi", Source: "test", RunID: "r3", StartedAt: time.Now()})
+	// A fresh receiver that names no conversation at all — a nested pi in
+	// this terminal, or a TUI before its session starts — is not a channel:
+	// the reply would be parked and then refused by a process with no
+	// session, which is how it read "showing a different session" with no
+	// session in sight (2026-09-11).
+	deps.Replies.HelloSession(termReplyKey(term.ID), "")
+	refused("has not opened a conversation yet")
 	// A hello naming another session: the exact-session rule wins.
 	deps.Replies.HelloSession(termReplyKey(term.ID), filepath.Join(session.Dir(repo), "other.jsonl"))
 	refused("different session")
@@ -192,6 +199,146 @@ func TestInboxTerminalReplyRefusals(t *testing.T) {
 	}
 	if got, _ := st.GetInboxItem(gone.ID); got.State == store.InboxDone || !strings.Contains(got.Body, "terminal no longer exists") {
 		t.Fatalf("gone-terminal item = %+v", got)
+	}
+}
+
+// Ignore is not a reply: it must close the item wherever the terminal is,
+// even with no receiver at all — the decision sends nothing, and routing it
+// through the receiver left a question undismissable.
+func TestInboxTerminalIgnoreClosesWithoutTheReceiver(t *testing.T) {
+	ts, deps, st, term, _, sessionPath := piTerminalFixture(t)
+	// No hello, and the terminal is not even running pi: nothing can be
+	// delivered anywhere, and ignore still completes.
+	deps.TermRuntimes.Drop(term.ID)
+	if err := st.SetTerminalLaunch(term.ID, "claude-code", clilaunch.Overrides{}); err != nil {
+		t.Fatal(err)
+	}
+	it := terminalQuestion(t, st, term.ID, sessionPath)
+	code, body := postRaw(t, ts, "/api/inbox/"+it.ID+"/respond", `{"verb":"ignore"}`)
+	if code != http.StatusOK {
+		t.Fatalf("ignore on a terminal question: %d %v", code, body)
+	}
+	after, _ := st.GetInboxItem(it.ID)
+	if after.State != store.InboxDone {
+		t.Fatalf("item state = %s; want done", after.State)
+	}
+	if after.Response == nil || *after.Response != store.VerbIgnore {
+		t.Fatalf("item response = %v; want %q", after.Response, store.VerbIgnore)
+	}
+	if strings.Contains(after.Body, "could not be delivered") {
+		t.Fatalf("ignore annotated the item as a failed delivery: %q", after.Body)
+	}
+	if ents, _ := os.ReadDir(replyDir(deps.DataDir, termReplyKey(term.ID))); len(ents) != 0 {
+		t.Fatalf("ignore wrote reply files: %v", ents)
+	}
+	if tasks, _ := st.ListTasks(term.ID, 5); len(tasks) != 0 {
+		t.Fatalf("ignore enqueued a task: %+v", tasks)
+	}
+}
+
+// The reply file names the process whose hello the daemon accepted: every pi
+// that inherited the terminal id watches the same directory, and only the
+// addressee may consume the file.
+func TestInboxTerminalReplyFileNamesTheReceivingProcess(t *testing.T) {
+	ts, deps, st, term, _, sessionPath := piTerminalFixture(t)
+	if code, _ := postRaw(t, ts, "/api/terminals/"+term.ID+"/tui-hello", `{"session":`+jsonString(sessionPath)+`,"pid":4242}`); code != http.StatusNoContent {
+		t.Fatalf("hello: %d", code)
+	}
+	if got := deps.Replies.receiverPID(termReplyKey(term.ID)); got != 4242 {
+		t.Fatalf("recorded receiver pid = %d; want 4242", got)
+	}
+	it := terminalQuestion(t, st, term.ID, sessionPath)
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := deps.DeliverTerminalReply(it.ID, store.VerbRespond, "yes")
+		done <- err
+	}()
+
+	dir := replyDir(deps.DataDir, termReplyKey(term.ID))
+	var doc replyFile
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) && doc.Nonce == "" {
+		if ents, err := os.ReadDir(dir); err == nil {
+			for _, e := range ents {
+				if filepath.Ext(e.Name()) != ".json" {
+					continue
+				}
+				raw, err := os.ReadFile(filepath.Join(dir, e.Name()))
+				if err != nil || json.Unmarshal(raw, &doc) != nil {
+					continue
+				}
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if doc.Nonce == "" {
+		t.Fatal("no reply file reached the terminal's receiver directory")
+	}
+	if doc.PID != 4242 {
+		t.Errorf("reply file pid = %d; want the hello's 4242", doc.PID)
+	}
+	if code, _ := postRaw(t, ts, "/api/terminals/"+term.ID+"/tui-ack", `{"nonce":`+jsonString(doc.Nonce)+`,"ok":true}`); code != http.StatusNoContent {
+		t.Fatalf("ack: %d", code)
+	}
+	if err := <-done; err != nil {
+		t.Fatalf("DeliverTerminalReply: %v", err)
+	}
+}
+
+// A sessionless hello (a nested pi in the same terminal) must not take over
+// the recorded conversation or its pid: the reply file keeps reaching the
+// terminal's own receiver, and the nested process — addressed to someone
+// else, with no session of its own — leaves it alone.
+func TestInboxTerminalSessionlessHelloDoesNotTakeOverTheChannel(t *testing.T) {
+	ts, deps, st, term, _, sessionPath := piTerminalFixture(t)
+	if code, _ := postRaw(t, ts, "/api/terminals/"+term.ID+"/tui-hello", `{"session":`+jsonString(sessionPath)+`,"pid":4242}`); code != http.StatusNoContent {
+		t.Fatalf("hello: %d", code)
+	}
+	if code, _ := postRaw(t, ts, "/api/terminals/"+term.ID+"/tui-hello", `{"session":"","pid":9001}`); code != http.StatusNoContent {
+		t.Fatalf("sessionless hello: %d", code)
+	}
+	if got := deps.Replies.receiverSession(termReplyKey(term.ID)); got != sessionPath {
+		t.Fatalf("session after a sessionless hello = %q; want %q", got, sessionPath)
+	}
+	if got := deps.Replies.receiverPID(termReplyKey(term.ID)); got != 4242 {
+		t.Fatalf("pid after a sessionless hello = %d; want 4242", got)
+	}
+	it := terminalQuestion(t, st, term.ID, sessionPath)
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := deps.DeliverTerminalReply(it.ID, store.VerbRespond, "still yours")
+		done <- err
+	}()
+
+	dir := replyDir(deps.DataDir, termReplyKey(term.ID))
+	var doc replyFile
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) && doc.Nonce == "" {
+		if ents, err := os.ReadDir(dir); err == nil {
+			for _, e := range ents {
+				if filepath.Ext(e.Name()) != ".json" {
+					continue
+				}
+				if raw, err := os.ReadFile(filepath.Join(dir, e.Name())); err == nil {
+					_ = json.Unmarshal(raw, &doc)
+				}
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if doc.Nonce == "" {
+		t.Fatal("no reply file reached the terminal's receiver directory")
+	}
+	if doc.PID != 4242 || doc.SessionPath != sessionPath {
+		t.Fatalf("reply file = %+v; want pid 4242 and the terminal's session", doc)
+	}
+	if code, _ := postRaw(t, ts, "/api/terminals/"+term.ID+"/tui-ack", `{"nonce":`+jsonString(doc.Nonce)+`,"ok":true}`); code != http.StatusNoContent {
+		t.Fatalf("ack: %d", code)
+	}
+	if err := <-done; err != nil {
+		t.Fatalf("DeliverTerminalReply: %v", err)
 	}
 }
 

@@ -9,7 +9,7 @@ import { api } from "@picode/shared/client/api.js";
 
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
-// autoFocus (default true): the visible pane takes the keyboard. The Matrix
+// autoFocus (default true): the visible pane takes the keyboard. The Canvas
 // passes false for every panel but the focused one (ShellTerm).
 export default function TermSurface({ term, error, hidden, autoFocus = true, onOpenFile, cwdKind, attach, onAttachClose, find, onFindClose }) {
   const [resuming, setResuming] = useState(false);
@@ -57,7 +57,7 @@ export default function TermSurface({ term, error, hidden, autoFocus = true, onO
             </button>
           ) : null}
           {" "}
-          <a href="#/clis/terminals">Start from Agent CLIs</a>
+          <a href="#/clis">Start from Agent CLIs</a>
           {resumeError ? <span> {resumeError}</span> : null}
         </div>
       ) : (

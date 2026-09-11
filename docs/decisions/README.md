@@ -64,7 +64,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0057](0057-tool-live-preview.md) | Tool live preview — a tool-agnostic `details.preview` contract rendered inline in the tool pill; no tool names in core, no second package system (pi's already exists, ADR-0010) | accepted |
 | [0058](0058-providers-view-v2.md) | Providers view v2 — plan windows on the roster from a cache in three honest states, active-slot-only refresh, vendor identity in the vault, credential source, `pi auth check` as Verify, Pause beside Sign out, blast radius on the confirm | accepted, extends 0031, 0013 |
 | [0059](0059-transient-rpc-burst-for-tui-replies.md) | Inbox replies to idle TUI agents borrow one exact-session RPC turn behind the unchanged terminal tab | superseded by 0060; had superseded ADR-0037's 2026-09-02 consented-switch amendment and narrowed 0006 |
-| [0060](0060-inbox-replies-into-the-tui.md) | Inbox replies land directly in the running TUI via an injected receiver extension (`pi.sendUserMessage`), with a tmux bracketed-paste fallback and JSONL-row proof | proposed, supersedes 0059; its receiver/paste door is reused by 0078 stage 3 for Inspector asks |
+| [0060](0060-inbox-replies-into-the-tui.md) | Inbox replies land directly in the running TUI via an injected receiver extension (`pi.sendUserMessage`), with a tmux bracketed-paste fallback and JSONL-row proof | proposed, supersedes 0059; its receiver/paste door is reused by 0078 stage 3 for Inspector asks; amended 2026-09-11 (terminal items ignore locally; a session-less receiver is refused before parking; reply files are addressed by pid and a sessionless hello cannot take the address over) |
 | [0061](0061-compaction-policy-package.md) | Compaction policy as an opt-in MIT pi package (`packages/pi-compact`); `/compact-edit|model|on|off` wizard family; dormant until a config file exists (no defaults) | accepted |
 | [0062](0062-terminal-cli-presence.md) | Authoritative ephemeral CLI presence in project terminals via wrapper leases, run IDs, process validation, and exact tmux/PID fallback; presence stays separate from lifecycle activity | accepted, amends 0056 |
 | [0063](0063-whats-new-release-highlights.md) | Curated in-product release highlights, stamped-build auto-open, per-browser acknowledgement | accepted |
@@ -116,8 +116,9 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0109](0109-native-app-surfaces.md) | Native app surfaces — a first-party app's body may be a component compiled into the shell; the manifest names its surface | accepted, amends 0036 |
 | [0110](0110-workspace-communication-onboarding.md) | Workspace communication preferences and guided connection setup | proposed |
 | [0111](0111-codex-native-message-client.md) | Codex native message client | accepted |
-| [0113](0113-matrix-canvas-mode.md) | Matrix canvas mode: a layout mode per matrix, mode-dependent rectangle units, one transactional switch | accepted, amends 0108 |
+| [0113](0113-matrix-canvas-mode.md) | Matrix canvas mode: a layout mode per matrix, mode-dependent rectangle units, one transactional switch | superseded by 0118 |
 | [0114](0114-browser-surface-stream.md) | browser-surface-stream | superseded by [0117](0117-remove-browser-surface.md) |
 | [0115](0115-browser-input-consent.md) | browser-input-consent | superseded by [0117](0117-remove-browser-surface.md) |
 | [0116](0116-matrix-edges.md) | A Matrix edge grants ADR-0104's mailbox contact and never a transcript; owner-drawn only, cross-workspace per pair, revoked with the line | accepted |
 | [0117](0117-remove-browser-surface.md) | remove-browser-surface | accepted |
+| [0118](0118-canvas-replaces-matrix.md) | Canvas replaces Matrix — grid mode and react-grid-layout removed, coordinates converted once, and the rename carried into tables, routes, events, the app id and the hash | accepted, supersedes 0113, renames 0108/0116 |

@@ -145,6 +145,38 @@ func TestCodexList(t *testing.T) {
 	}
 }
 
+// TestCodexListSkipsSubagentRollouts pins the incident of 2026-09-11: a
+// multi-agent v2 sub-agent rollout must never be listed or win Latest:
+// `codex resume <subagent-id>` exits 1 ("resume the parent first").
+func TestCodexListSkipsSubagentRollouts(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	seedCodex(t, home, "2026/09/08",
+		"rollout-2026-09-08T15-27-39-01a08246-98e1-7bb0-bb5d-e2c472367623.jsonl",
+		strings.Join([]string{
+			`{"timestamp":"2026-09-10T21:56:13.000Z","type":"session_meta","payload":{"session_id":"01a08246-98e1-7bb0-bb5d-e2c472367623","id":"01a08246-98e1-7bb0-bb5d-e2c472367623","timestamp":"2026-09-08T18:27:39.000Z","cwd":"/home/goat/picode","originator":"codex-tui","cli_version":"0.153.4","thread_source":"cli"}}`,
+			`{"timestamp":"2026-09-10T21:56:14.000Z","type":"turn_context","payload":{"turn_id":"t1","cwd":"/home/goat/picode","model":"gpt-6"}}`,
+		}, "\n"))
+	seedCodex(t, home, "2026/09/10",
+		"rollout-2026-09-10T14-47-00-01a08c6e-173d-7d50-8b81-89bb83964eea.jsonl",
+		strings.Join([]string{
+			`{"timestamp":"2026-09-10T17:47:00.625Z","ordinal":0,"type":"session_meta","payload":{"session_id":"01a08246-98e1-7bb0-bb5d-e2c472367623","id":"01a08c6e-173d-7d50-8b81-89bb83964eea","parent_thread_id":"01a08246-98e1-7bb0-bb5d-e2c472367623","timestamp":"2026-09-10T17:47:00.326Z","cwd":"/home/goat/picode","originator":"codex-tui","cli_version":"0.153.4","source":{"subagent":{"thread_spawn":{"parent_thread_id":"01a08246-98e1-7bb0-bb5d-e2c472367623","depth":1,"agent_path":"/root/recovery_quality_review","agent_nickname":"Gibbs"}}},"thread_source":"subagent","agent_nickname":"Gibbs"}}`,
+			`{"timestamp":"2026-09-10T17:47:03.000Z","type":"turn_context","payload":{"turn_id":"t1","cwd":"/home/goat/picode","model":"gpt-6"}}`,
+		}, "\n"))
+
+	got, err := CodexSource{}.List("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].ID != "01a08246-98e1-7bb0-bb5d-e2c472367623" {
+		t.Fatalf("sub-agent rollout listed: %+v", got)
+	}
+	latest, err := Latest("codex", "/home/goat/picode", time.Time{})
+	if err != nil || latest == nil || latest.ID != "01a08246-98e1-7bb0-bb5d-e2c472367623" {
+		t.Fatalf("Latest picked a sub-agent (or nothing): %v %+v", err, latest)
+	}
+}
+
 func TestGrokList(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

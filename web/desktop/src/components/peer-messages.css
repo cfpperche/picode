@@ -54,7 +54,7 @@
  .peer-test-controls > button { width: 100%; }
 }
 
-/* Matrix links (ADR-0116) — the non-spatial audit list. It reuses the
+/* Canvas links (ADR-0116) — the non-spatial audit list. It reuses the
    participants list's row shape on purpose: one visual language for "who may
    reach whom", whether the pairing came from a workspace or from a line the
    owner drew. */

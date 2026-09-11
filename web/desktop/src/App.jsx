@@ -47,13 +47,16 @@ import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
-import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
-import MatrixSurface from "./components/matrix/MatrixSurface.jsx";
 import { nativeApps, nativeSurfaceFor } from "./lib/nativeApps.js";
 import { normalizeManifests } from "@picode/shared/contracts/appPrimitives.js";
 const PinStudio = lazy(() => import("./components/PinStudio.jsx"));
+// The Canvas surface is lazy for the reason ADR-0118 gives: a reader who
+// never opens the app should not carry it. It is a registry entry like any
+// other, and the tab mount wraps every native surface in a Suspense.
+const CanvasSurface = lazy(() => import("./components/canvas/CanvasSurface.jsx"));
 import { startPresence } from "@picode/shared/client/device.js";
 import { startReconnectWatch } from "@picode/shared/client/reconnect.js";
 import { startFeed, subscribeFeed, feedConnected } from "@picode/shared/client/feed.js";
@@ -109,10 +112,10 @@ import { parentDir } from "@picode/shared/domain/cloneUrl.js";
 import Toasts from "./components/Toasts.jsx";
 import { useMedia } from "./lib/media.js";
 
-// Native app surfaces this shell compiled in (ADR-0109), by manifest id.
-// The only entry today is the hidden QA demo (the server lists it with
-// PICODE_DEMO_APP=1); the Matrix registers here in phase 3.
-const NATIVE_APPS = nativeApps({ "demo-native": NativeDemoSurface, matrix: MatrixSurface });
+// Native app surfaces this shell compiled in (ADR-0109), by manifest id:
+// the hidden QA demo (the server lists it with PICODE_DEMO_APP=1) and the
+// Canvas, which arrives as a chunk of its own.
+const NATIVE_APPS = nativeApps({ "demo-native": NativeDemoSurface, canvas: CanvasSurface });
 
 export default function App() {
   const narrow = useMedia("(max-width: 767px)");
@@ -719,7 +722,10 @@ export default function App() {
         const fromGit = parseRoute() === "workspace" ? gitRoute() : null;
         const fromTree = parseRoute() === "workspace" ? treeRoute() : null;
         const fromHash = parseRoute() === "workspace" ? agentRoute() : null;
-        const fromApp = parseRoute() === "workspace" ? appRoute() : null;
+        // The boot fetch outlives the redirect effect, so location.hash is
+        // already canonical here; reading through it costs nothing and makes
+        // that independent of which resolves first.
+        const fromApp = parseRoute() === "workspace" ? appRoute(renamedAppHash() || location.hash) : null;
         if (fromApp) {
           if (appList.some((a) => a.id === fromApp) || !appsOk) openTab(appTabId(fromApp));
           else { setGoneId(appTabId(fromApp)); setSelectedId(null); }
@@ -892,9 +898,22 @@ export default function App() {
   useEffect(() => {
     writeTermWanted([...termWanted]);
   }, [termWanted]);
+  // ADR-0118: #/app/matrix[/<id>] is the Canvas app's old address. Replaced,
+  // never pushed — the way ADR-0101/0102/0103 moved their surfaces and the
+  // way #/sessions* still lands on #/clis/sessions* — so a bookmark costs the
+  // reader no extra Back step and the address bar shows the link that works
+  // now. It is its own effect, declared before the one that resolves a hash
+  // into a tab, so the old id never reaches the "that app is gone" branch.
+  useEffect(() => {
+    const next = renamedAppHash(hash);
+    if (next) location.replace(next);
+  }, [hash]);
   useEffect(() => {
     if (!tabsReady) return;
     if (parseRoute(hash) !== "workspace") return;
+    // The effect above is replacing this hash; resolving it would flash the
+    // gone tab for the one commit before `hashchange` arrives.
+    if (renamedAppHash(hash)) return;
     const tid = termRoute(hash);
     if (tid) {
       if (terminals.some((t) => t.id === tid)) {
@@ -2797,27 +2816,33 @@ export default function App() {
             const Native = nativeSurfaceFor(manifest, NATIVE_APPS);
             if (Native) {
               return (
-                <Native
-                  key={id}
-                  manifest={manifest}
-                  hidden={selectedId !== id}
-                  onClose={() => closeTab(id)}
-                  initialPath={appRoute(hash) === appId ? appPath(hash) : undefined}
-                  onPathChange={(path) => {
-                    if (selectedId !== id) return;
-                    const next = appHash(appId, path);
-                    if (location.hash !== next) { history.replaceState(null, "", next); setHash(next); }
-                  }}
-                  host={{
-                    // `loaded` says the boot fetch is done: before it, an
-                    // empty fleet means "not read yet", not "deleted" — a
-                    // native surface must not draw gone rows over it.
-                    fleet: { workspaces, freeAgents, terminals, loaded: bootstrapped },
-                    openTabs: tabs,
-                    openTab, openInteractive, revealAgent, openFileTab,
-                    feed: subscribeFeed,
-                  }}
-                />
+                // A registered surface may be a lazy chunk (the Canvas is,
+                // ADR-0118), so the mount carries the boundary. `fallback`
+                // is null on purpose: a tab that is opening shows nothing
+                // for the length of one fetch, never a skeleton of invented
+                // rows, and the surface draws its own the moment it lands.
+                <Suspense key={id} fallback={null}>
+                  <Native
+                    manifest={manifest}
+                    hidden={selectedId !== id}
+                    onClose={() => closeTab(id)}
+                    initialPath={appRoute(hash) === appId ? appPath(hash) : undefined}
+                    onPathChange={(path) => {
+                      if (selectedId !== id) return;
+                      const next = appHash(appId, path);
+                      if (location.hash !== next) { history.replaceState(null, "", next); setHash(next); }
+                    }}
+                    host={{
+                      // `loaded` says the boot fetch is done: before it, an
+                      // empty fleet means "not read yet", not "deleted" — a
+                      // native surface must not draw gone rows over it.
+                      fleet: { workspaces, freeAgents, terminals, loaded: bootstrapped },
+                      openTabs: tabs,
+                      openTab, openInteractive, revealAgent, openFileTab,
+                      feed: subscribeFeed,
+                    }}
+                  />
+                </Suspense>
               );
             }
             return (

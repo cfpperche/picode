@@ -71,20 +71,20 @@ metric, what it cannot measure instead of printing a zero.
 
 ---
 
-## 2. What each CLI actually reports (verified on disk, 2026-09-07)
+## 2. What each CLI actually reports (verified on disk, 2026-09-07; Grok re-verified 2026-09-11)
 
 Every ✅ below was read out of a real file on this machine, not inferred from docs.
 
 | Signal | pi | claude-code | codex | opencode | hermes | grok |
 |---|---|---|---|---|---|---|
-| Cost | ✅ `usage.cost.total` | ◐ `cost-state.totalCostUSD` + `modelUsage[].costUSD` — see below | ✖ never priced | ✅ `message.cost` | ✅ `estimated_cost_usd` / `actual_cost_usd` | ✖ |
-| Tokens (in/out/cache/reasoning) | ✅ | ✅ `message.usage` | ✅ `token_count.info.total_token_usage` | ✅ `message.tokens` | ✅ dedicated columns | ✖ |
-| Model / provider | ✅ | ✅ `message.model` | ✅ `turn_context` + `session_meta.model_provider` | ✅ `providerID`/`modelID` | ✅ `model` | ~ `summary.json` |
+| Cost | ✅ `usage.cost.total` | ◐ `cost-state.totalCostUSD` + `modelUsage[].costUSD` — see below | ✖ never priced | ✅ `message.cost` | ✅ `estimated_cost_usd` / `actual_cost_usd` | ◐ `usage.json` `costUsdTicks` (10¹⁰/USD), per turn, since 1.0.x |
+| Tokens (in/out/cache/reasoning) | ✅ | ✅ `message.usage` | ✅ `token_count.info.total_token_usage` | ✅ `message.tokens` | ✅ dedicated columns | ◐ `usage.json` per turn |
+| Model / provider | ✅ | ✅ `message.model` | ✅ `turn_context` + `session_meta.model_provider` | ✅ `providerID`/`modelID` | ✅ `model` | ✅ `summary.json` |
 | Messages | ✅ | ✅ | ✅ | ✅ | ✅ `message_count` | ✅ prompt rows |
-| Turns / errors / aborted | ✅ `stopReason` | ✅ `stop_reason` + `tool_result.is_error` | ~ `turn_aborted` | ✅ `finish` / `error` | ✅ `end_reason` | ✖ |
-| Tool calls | ✅ `toolCall` | ✅ `tool_use` | ✅ `function_call` | ✅ `part` rows | ✅ `tool_call_count` | ✖ |
+| Turns / errors / aborted | ✅ `stopReason` | ✅ `stop_reason` + `tool_result.is_error` | ~ `turn_aborted` | ✅ `finish` / `error` | ✅ `end_reason` | ✅ `events.jsonl` `turn_ended.outcome` + `tool_completed.outcome` |
+| Tool calls | ✅ `toolCall` | ✅ `tool_use` | ✅ `function_call` | ✅ `part` rows | ✅ `tool_call_count` | ✅ `events.jsonl` `tool_started` |
 | **Lines ± / files** | ✖ | ✅ `totalLinesAdded` / `totalLinesRemoved` | ✖ | ✅ `summary_additions` / `_deletions` / `_files` | ✖ | ✖ |
-| **Timing** | ✖ | ✅ `totalAPIDuration` / `totalToolDuration` / `totalDuration` | ~ line timestamps | ~ `time_*` | ✅ `started_at` / `ended_at` | ✖ |
+| **Timing** | ✖ | ✅ `totalAPIDuration` / `totalToolDuration` / `totalDuration` | ~ line timestamps | ~ `time_*` | ✅ `started_at` / `ended_at` | ✅ `events.jsonl` `loop_started`→`tool_started`/`turn_ended` windows + `tool_completed.duration_ms` |
 | **Rate limits** | via `internal/usage` | ✖ | ✅ `rate_limits{used_percent, window_minutes, resets_at, plan_type}` | ✖ | ✖ | via `usage/grok_cli.go` |
 | Billing mode | api | sub *or* api | sub *or* api | api | ✅ `billing_mode` column | — |
 
@@ -101,9 +101,16 @@ Three consequences drive the design:
   messages name them plainly, and matching the raw strings silently dropped
   $540 of a $1,001 session; and a model can be billed with no surviving
   message of its own, so its cost is spread flat rather than lost.
-- **Grok is activity-only.** It stores prompt history and nothing else
-  (`internal/clisession/grok.go:64-66`). It must render as *"activity only"*,
-  never as a CLI that spent $0.
+- **Grok's turns, tools and durations are real; its tokens and cost are new and partial (◐).**
+  Grok writes a turn/tool timeline in every session's `events.jsonl` —
+  measured 2026-09-11: 188 of 231 sessions non-empty, 176 with completed
+  turns, 139 with tool calls — and prices and counts tokens per turn in
+  `usage.json`, which it only began writing in 1.0.x (3 of 231 sessions
+  here). The adapter reads all four files per session (prompt history,
+  summary, events, usage) and reports tokens and cost as `partial` with
+  both counts — 6 of 785 turns in a 60-day window. Durations prorate by
+  turn rather than by token, or every session without a usage record would
+  lose its time along with its tokens.
 - **Hermes already solved decision #1's honesty problem in its own schema** —
   `estimated_cost_usd`, `actual_cost_usd`, `cost_status`, `cost_source`,
   `pricing_version`, `billing_mode`, `billing_provider`. Copy that vocabulary
@@ -125,7 +132,7 @@ system carries it — not a `float64` that happens to be 0:
 | State | Renders as | Means |
 |---|---|---|
 | `reported` | the value | the CLI wrote it and we read it |
-| `not-reported` | `—` + reason on the coverage panel | the CLI does not emit this signal (Codex cost, Grok everything) |
+| `not-reported` | `—` + reason on the coverage panel | the CLI does not emit this signal (Codex cost; Grok's tokens/cost for the turns before its first `usage.json`) |
 | `off` | `—` + "integration off" | `internal/server/term_intercept.go` wiring disabled for that CLI |
 
 A `COVERAGE` panel renders the whole matrix from §2 as data, so the dashboard
@@ -387,4 +394,4 @@ projections; a charting library; per-CLI categorical palette.
 |---|---|---|
 | 1 | Should the durable turn/duration signal come from the intercept hooks instead of file parsing? The wrappers already fire `UserPromptSubmit`→working and `Stop`→idle with a `runId`, but `TermState`/`TermRuntime` are **in-memory only** and lost on restart. | Not in this generation. Persisting hook transitions would give turn count and duration for all five guests without reading their files — a cleaner source than transcripts, but it is a new durable table and belongs in its own ADR. |
 | 2 | Does `range=all` stay honest once it means "every CLI, all time"? Claude Code all-time on this machine alone is $2,895. | Ship it; the number is real. Revisit only if the cold scan bound in Phase 2 cannot be held. |
-| 3 | Grok renders as activity-only. Is that worth a row at all? | Keep the row. A CLI that is installed and silent is information; hiding it recreates the invisibility this whole generation is fixing. |
+| 3 | Grok used to render as activity-only; since the 2026-09-11 re-measure it reports turns, tools and durations for every session with an `events.jsonl`, and tokens/cost where `usage.json` exists. Is the split worth the extra parsing? | Keep it. The timeline is what nearly every session has, and the `partial` tokens/cost row states its own gap instead of hiding it. |

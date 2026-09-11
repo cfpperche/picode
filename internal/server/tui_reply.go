@@ -142,8 +142,13 @@ type TuiReplies struct {
 	session           map[string]string
 	connection        map[string]string
 	connectionProcess map[string]string
-	active            map[string]bool
-	acks              map[string]chan replyAck
+	// pid is the process that sent the last hello. A terminal's directory
+	// is watched by every pi that inherited its id — a nested `pi -p` or a
+	// print-mode run loads the same receiver — so a reply file names this
+	// pid and only that process consumes it (2026-09-11).
+	pid    map[string]int
+	active map[string]bool
+	acks   map[string]chan replyAck
 }
 
 // NewTuiReplies creates the shared receiver registry for routes and background delivery.
@@ -153,6 +158,7 @@ func NewTuiReplies() *TuiReplies {
 		hello:      map[string]time.Time{},
 		session:    map[string]string{},
 		connection: map[string]string{},
+		pid:        map[string]int{},
 		active:     map[string]bool{},
 		acks:       map[string]chan replyAck{},
 	}
@@ -176,20 +182,42 @@ func (t *TuiReplies) HelloConnection(key, sessionPath, connection string) {
 	t.helloConnectionProcess(key, sessionPath, connection, "")
 }
 func (t *TuiReplies) helloConnectionProcess(key, sessionPath, connection, process string) {
+	t.helloReceiver(key, sessionPath, connection, process, 0)
+}
+
+// helloReceiver records a hello. A sessionless hello (a nested `pi -p`, a
+// print-mode run: the terminal id and the reply directory are inherited
+// environment, so every pi in a terminal watches the same reply files)
+// refreshes liveness but must not take over the recorded conversation — the
+// reply file is addressed to the process that named a session (ADR-0060's
+// 2026-09-11 amendment). A session-bearing hello always wins.
+func (t *TuiReplies) helloReceiver(key, sessionPath, connection, process string, pid int) {
 	if t == nil || strings.TrimSpace(key) == "" {
 		return
 	}
+	sessionPath = strings.TrimSpace(sessionPath)
 	t.mu.Lock()
+	adopt := sessionPath != "" || t.session[key] == ""
 	t.hello[key] = time.Now()
-	t.session[key] = strings.TrimSpace(sessionPath)
-	if t.connection == nil {
-		t.connection = map[string]string{}
+	if adopt {
+		t.session[key] = sessionPath
+		if t.pid == nil {
+			t.pid = map[string]int{}
+		}
+		if pid > 0 {
+			t.pid[key] = pid
+		} else {
+			delete(t.pid, key)
+		}
+		if t.connection == nil {
+			t.connection = map[string]string{}
+		}
+		if t.connectionProcess == nil {
+			t.connectionProcess = map[string]string{}
+		}
+		t.connection[key] = connection
+		t.connectionProcess[key] = process
 	}
-	t.connection[key] = connection
-	if t.connectionProcess == nil {
-		t.connectionProcess = map[string]string{}
-	}
-	t.connectionProcess[key] = process
 	t.mu.Unlock()
 }
 
@@ -219,6 +247,17 @@ func (t *TuiReplies) receiverFresh(agentID string) bool {
 	defer t.mu.Unlock()
 	at, ok := t.hello[agentID]
 	return ok && time.Since(at) <= receiverHelloTTL
+}
+
+// receiverPID is the process the last session-bearing hello came from, or 0
+// when it did not name one.
+func (t *TuiReplies) receiverPID(key string) int {
+	if t == nil {
+		return 0
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.pid[key]
 }
 
 // registerAck wires a nonce to its ack channel until the returned func runs.
@@ -397,6 +436,7 @@ func (deps Deps) deliverViaReceiver(agentID, sessionPath string, task store.Task
 	}
 	file, err := writeReplyFile(deps.DataDir, agentID, replyFile{
 		Nonce: nonce, SessionPath: sessionPath, Payload: task.Payload, CreatedAt: time.Now().UTC(),
+		PID: deps.Replies.receiverPID(agentID),
 	})
 	if err != nil {
 		return err
@@ -527,6 +567,10 @@ type replyFile struct {
 	SessionPath     string    `json:"sessionPath"`
 	Payload         string    `json:"payload"`
 	CreatedAt       time.Time `json:"createdAt"`
+	// PID addresses the one process that may consume this file: the receiver
+	// that said hello, not merely any pi that inherited the terminal id.
+	// Absent when the hello did not name one (an older receiver).
+	PID int `json:"pid,omitempty"`
 }
 
 func replyDir(dataDir, agentID string) string {
@@ -588,7 +632,7 @@ func handleTuiHello(deps Deps) http.HandlerFunc {
 				return
 			}
 		}
-		deps.Replies.helloConnectionProcess(agentID, req.Session, req.Connection, fmt.Sprint(req.PID))
+		deps.Replies.helloReceiver(agentID, req.Session, req.Connection, fmt.Sprint(req.PID), req.PID)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

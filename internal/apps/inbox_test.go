@@ -677,6 +677,20 @@ func TestInboxTerminalSourcedReplyRoutesToTheTerminal(t *testing.T) {
 		t.Fatalf("terminal reply enqueued an agent task: %+v", tasks)
 	}
 
+	// Ignore sends nothing, so it never needs the terminal: it closes the
+	// item where it stands, and a dead or moved terminal cannot block it.
+	q4 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromTerminal, SourceID: "term-9", Reason: "r", Title: "q4", Body: "?"})
+	before := len(calls)
+	if _, err := app.Action(ctx, h, ActionRequest{Action: "ignore", Path: "item/" + q4.ID, Args: map[string]string{"item": q4.ID}}); err != nil {
+		t.Fatalf("terminal ignore: %v", err)
+	}
+	if len(calls) != before {
+		t.Fatalf("ignore went through the terminal receiver: %v", calls)
+	}
+	if got, _ := h.Store.GetInboxItem(q4.ID); got.State != store.InboxDone || got.Response == nil || *got.Response != store.VerbIgnore {
+		t.Fatalf("ignored terminal item = %+v", got)
+	}
+
 	// Without a terminal channel the item cannot be answered silently.
 	h.DeliverTerminalReply = nil
 	q2 := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromTerminal, SourceID: "term-8", Reason: "r", Title: "q2", Body: "?"})

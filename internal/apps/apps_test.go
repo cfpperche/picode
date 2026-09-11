@@ -18,7 +18,7 @@ func TestRegistry(t *testing.T) {
 
 	r := NewRegistry(BuiltIns(true)...)
 	if len(r.All()) != 5 {
-		t.Fatalf("demo registry has %d apps, want 5 (inbox + docker + matrix + demo + demo-native)", len(r.All()))
+		t.Fatalf("demo registry has %d apps, want 5 (inbox + docker + canvas + demo + demo-native)", len(r.All()))
 	}
 	a, ok := r.Find("demo")
 	if !ok {
@@ -32,22 +32,22 @@ func TestRegistry(t *testing.T) {
 		t.Fatalf("Find(nope) = ok, want miss")
 	}
 	prod := BuiltIns(false)
-	if len(prod) != 3 || prod[0].Manifest().ID != "inbox" || prod[1].Manifest().ID != "docker" || prod[2].Manifest().ID != "matrix" {
-		t.Fatalf("BuiltIns(false) = %v, want inbox, docker and matrix (both demos must stay hidden)", prod)
+	if len(prod) != 3 || prod[0].Manifest().ID != "inbox" || prod[1].Manifest().ID != "docker" || prod[2].Manifest().ID != "canvas" {
+		t.Fatalf("BuiltIns(false) = %v, want inbox, docker and canvas (both demos must stay hidden)", prod)
 	}
 }
 
-// The Matrix (plan docs/plans/matrix-app.md, ADR-0108/0109) ships in every
+// The Canvas (plan docs/plans/matrix-app.md, ADR-0108/0109) ships in every
 // build as a native surface: no badge, one honest primitives line, no
-// action — the desktop registers the id and renders the grid itself.
-func TestMatrixApp(t *testing.T) {
-	a, ok := NewRegistry(BuiltIns(false)...).Find("matrix")
+// action — the desktop registers the id and renders the plane itself.
+func TestCanvasApp(t *testing.T) {
+	a, ok := NewRegistry(BuiltIns(false)...).Find("canvas")
 	if !ok {
-		t.Fatalf("matrix missing from BuiltIns(false)")
+		t.Fatalf("canvas missing from BuiltIns(false)")
 	}
 	m := a.Manifest()
-	if m.ID != "matrix" || m.Name != "Matrix" || m.Icon != "matrix" || m.APIVersion != APIVersion || m.Surface != SurfaceNative {
-		t.Fatalf("matrix manifest = %+v", m)
+	if m.ID != "canvas" || m.Name != "Canvas" || m.Icon != "canvas" || m.APIVersion != APIVersion || m.Surface != SurfaceNative {
+		t.Fatalf("canvas manifest = %+v", m)
 	}
 	ctx := context.Background()
 	if b, err := a.Badge(ctx, Host{}); err != nil || b != (Badge{}) {
@@ -60,7 +60,7 @@ func TestMatrixApp(t *testing.T) {
 	if err := v.Validate(); err != nil {
 		t.Fatalf("View invalid: %v", err)
 	}
-	if len(v.Blocks) != 1 || !strings.Contains(v.Blocks[0].Markdown, "Matrix opens on the desktop") {
+	if len(v.Blocks) != 1 || !strings.Contains(v.Blocks[0].Markdown, "Canvas opens on the desktop") {
 		t.Fatalf("View = %+v", v)
 	}
 	if _, err := a.Action(ctx, Host{}, ActionRequest{Action: "open"}); err == nil {

@@ -134,6 +134,17 @@ equivalent, not one:
 C0 found **no blocker that forces "two libraries"** — the end state stays
 the owner's call after using the canvas.
 
+> **Answered, 2026-09-11: "one library, one mode".** The owner took it
+> ("quero remover já o grid e renomear a funcionalidade de matrix para
+> canvas") on the evidence of using the canvas: the only board in the
+> instance was in canvas mode, and none of the three grid behaviours above
+> had been asked for since it shipped. [ADR-0118](../decisions/0118-canvas-replaces-matrix.md)
+> is the decision. Grid mode, the mode column and the two dependencies are
+> gone; migration 045 converted every grid rectangle once; the app is
+> called **Canvas**, all the way down to the tables, the routes and the
+> events. Vertical compaction is deferred, not refused — it could become a
+> canvas behaviour later without a second engine.
+
 ## 4. Design
 
 ### 4.1 Coordinates and the data model
@@ -287,7 +298,7 @@ Enter's engage triggering the snap to 1.
 | C2 | `feat/matrix-canvas-surface` (two sessions) | **done 2026-09-10** — canvas mode end to end: the lazy React Flow host, the same `Panel` wrapper as a node type, zoom-aware `loadPolicy` with `zoomBody` / `pointerAtZoom`, stills captured before the flip, name-plates, a themed minimap and zoom cluster, the `Grid \| Canvas` switch with its lossy-direction confirm, Tidy, marquee, per-viewer camera, the canvas keys, and the `docs-site` guide. Accepted in a browser row by row (`docs/architecture/matrix.md`, *Accepted in a browser*): the pointer rule proved against real clicks and tmux SGR reports, agent panels, maximize, a 24-panel marquee at 62.7 fps in one save, 409s from a second browser, fullscreen, chunk loading under the transform. Two divergences kept: the band flips at gesture end, and Tidy never resizes | `make close`; visual card |
 | C3 | `feat/matrix-node-kinds` | **done 2026-09-10** — all three kinds, one commit each. The store's `kind` grew by a validator line and its `ref` gained a shape per kind (`<owner>:<id>:<path>` for file and diff, parsed and built only in `matrix.js`); `bindingState` gained the gone rows (a pin deleted, an owner gone — a missing file is the body's news); `zoomBody`/`loadPolicy` gained a per-row `pane`, so a body with no cell never goes still and is a name-plate below 0.4; an editor with unsaved text is `keep`-pinned against the band **and** its document lives in `lib/fileDocs.js`, so maximize and the mode switch keep it. The picker groups by kind and offers files only from open file tabs. Accepted in a browser (`docs/architecture/matrix.md`, *Accepted in a browser (2026-09-10, C3)*) | `make close`; visual card |
 | C4 | `feat/matrix-edges` (two sessions) | **done 2026-09-10** — ADR-0116 accepted before any code, and it refused the benchmark's headline: an edge grants ADR-0104's **mailbox contact and nothing else**, never a transcript. Session 1: migration 044, the `…/edges` routes, `edges` on the matrix read, contacts = workspace ∪ live edges (derived on every read, never cached; `SendPeerMessage` obeys the same union; the MCP surface gained no verb). Session 2: the header connector (`Handle` + `onConnect`, agent and terminal panels only), the two consent dialogs that are never merged (cross-folder naming both folders, then the existing enrolment), the broken state with its reason, a link chip with the count in grid mode, and **Matrix links** — every live edge, non-spatially, in the Messages view. Accepted in a browser row by row with the mailbox driven over MCP, not inferred (`docs/architecture/matrix.md`, *Accepted in a browser (2026-09-10, C4)*) | ADR accepted before code; `make close`; visual card |
-| C5 | later | group nodes bound to a worktree, the one-library end state chosen per §3 (port grid mode or delete it, then remove RGL), `web` nodes if the owner wants them | its own plan |
+| C5 | later | group nodes bound to a worktree, `web` nodes if the owner wants them. **The one-library end state is no longer C5's**: the owner took it on 2026-09-11 and `feat/canvas-only` shipped it (ADR-0118) — grid mode deleted, RGL and `react-resizable` removed, the whole family renamed to Canvas | its own plan |
 
 C1 and C2's first session can overlap only if C1 lands the migration
 first; the surface reads the mode from the API.
@@ -300,7 +311,9 @@ first; the surface reads the mode from the API.
    starts with an ADR and the owner's approval, never with a line.
 2. **`web` nodes** are an iframe on a surface that today hosts only
    first-party code (ADR-0036 keeps iframes for the marketplace era).
-3. **Which end state** of §3 to take, decided after the canvas has been used, not now.
+3. ~~**Which end state** of §3 to take, decided after the canvas has been
+   used, not now.~~ **Taken by the owner on 2026-09-11: one library, one
+   mode** — see §3 and [ADR-0118](../decisions/0118-canvas-replaces-matrix.md).
 
 ## 7. Risks
 

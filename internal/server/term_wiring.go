@@ -56,8 +56,14 @@ ev = str(d.get("hook_event_name") or d.get("hookEventName") or d.get("event") or
 nt = str(d.get("notification_type") or d.get("notificationType") or "")
 typ = str(d.get("type") or "")
 cli = os.environ.get("PICODE_HOOK_CLI", "")
-# Child completion never describes the selected parent conversation.
-if ev in ("TaskCompleted", "SubagentStop", "subagent_stop") or any(d.get(k) for k in ("subagentType", "subagent_type", "parentSessionId", "parent_session_id")):
+# Child threads never describe the selected parent conversation. Claude
+# names its children subagent*; Codex multi-agent v2 fires subagent_start
+# and stamps child threads with parent_thread_id / thread_source=subagent
+# (its own resume refuses such threads, so they must never be pinned).
+child_keys = ("subagentType", "subagent_type", "parentSessionId", "parent_session_id", "parentThreadId", "parent_thread_id")
+if ev in ("TaskCompleted", "SubagentStop", "subagent_stop", "subagent_start") \
+        or any(d.get(k) for k in child_keys) \
+        or any(str(d.get(k) or "") == "subagent" for k in ("thread_source", "threadSource")):
     sys.exit(0)
 # Grok Stop is a continuation gate, and queued turn-end timestamps describe
 # dispatch rather than turn order. Only its final session idle notification
