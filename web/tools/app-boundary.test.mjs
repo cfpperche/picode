@@ -17,10 +17,12 @@ import { importSpecifiers, sourceFiles } from "./boundaries.mjs";
 // module tree is what this asserts; a second native app adds a row.
 const ROOT = fileURLToPath(new URL("../desktop/src/", import.meta.url));
 
-// What belongs to the app: its component tree, and the per-viewer preference
-// it owns (the plane's ground — Preferences carries nothing about a canvas).
+// What belongs to the app: its component tree, the per-viewer preference it
+// owns (the plane's ground — Preferences carries nothing about a canvas), and
+// the plane's own geometry (where a link touches a panel), which lives in
+// shared/domain because it is pure and testable there and nowhere else.
 const APP_TREE = "components/canvas/";
-const APP_OWNED = new Set(["@picode/shared/domain/canvasPattern.js"]);
+const APP_OWNED = new Set(["@picode/shared/domain/canvasPattern.js", "@picode/shared/domain/canvasAnchors.js"]);
 
 // The one door that is an import: the host's native-surface mount, which
 // lazy-imports the registered component (ADR-0109). Everything else in the
