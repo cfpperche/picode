@@ -199,6 +199,7 @@ func TestPeerPointerKeepsExpectedNativeSession(t *testing.T) {
 		t.Run(key, func(t *testing.T) {
 			deps := Deps{DataDir: t.TempDir(), Replies: NewTuiReplies()}
 			deps.Replies.HelloSession(key, "original.jsonl")
+			deps.Replies.notePID(key, 4242)
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 			result := make(chan error, 1)
@@ -217,6 +218,9 @@ func TestPeerPointerKeepsExpectedNativeSession(t *testing.T) {
 			}
 			if doc.Nonce == "" {
 				t.Fatal("no receiver document")
+			}
+			if doc.PID != 4242 {
+				t.Fatalf("receiver document pid = %d; want the hello's 4242", doc.PID)
 			}
 			deps.Replies.HelloSession(key, "new.jsonl")
 			if doc.SessionPath != "original.jsonl" {

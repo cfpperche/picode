@@ -4,22 +4,23 @@ Shipped: `ignore` on a terminal-sourced item closes it locally, like an
 agent-sourced ignore (`internal/apps/inbox.go`, `internal/server/inbox.go`);
 a fresh receiver hello that names no session is refused before parking with
 the truth (`internal/server/terminal_ask.go`); the reply file carries the
-`pid` whose hello the daemon accepted and a receiver whose pid differs (or
-whose own session is unknown) leaves it alone (`internal/server/tui_reply.go`,
+accepted hello's `pid`, and a receiver with another pid (or no session of
+its own) leaves it alone (`internal/server/tui_reply.go`,
+`peer_onboarding.go`, `peer_attention.go`,
 `internal/server/intercept/pi-inbox-reply.ts`). ADR-0060 has the
 2026-09-11 amendment; routes.md updated.
 
-Verified: `make ci-scoped` PASS (fmt, vet, hooks, go[5]); new Go tests cover
-the local ignore, the empty-session refusal and the address in the file. The
-receiver's four consumption rows were exercised ad hoc with a stubbed
-extension host (foreign pid leaves the file; own pid + matching session sends
-and acks ok; no session leaves it; own pid + another session acks "showing a
-different session").
+Verified: `make ci-scoped` PASS; Go tests cover the local ignore, the
+empty-session refusal and the address in the file. The receiver's
+consumption rows run in the committed node harness (`peer_receiver_test.go`):
+the original decision table plus the pid/session skip rules (foreign pid
+left; no session left; matching pid + session submits and acks ok; matching
+pid + other session acks "showing a different session"). On this branch the
+peer setup/attention files carry the pid too.
 visual-review: n/a (no UI change).
 
 Not done / debts: running receivers are per-launch copies — terminals opened
-before this builds keep the old rule until relaunched. The receiver has no
-committed harness; those rows stay manual-QA debt. The daemon still keeps one
-hello per terminal (last writer wins): the fix makes a wrong writer harmless,
-not impossible.
+before this builds keep the old rule until relaunched. The daemon keeps one
+hello per terminal (last writer wins): a wrong writer stays possible until
+hellos are tracked per process — the fix makes it harmless, not impossible.
 Merge: fast-forward ready (owner merges, then `make ci` on main).
