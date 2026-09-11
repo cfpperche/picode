@@ -57,8 +57,9 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
   useEffect(() => {
     if (!hidden && hash === "#/preferences/status") location.replace("#/clis");
     // The general Terminals tab is gone (2026-09-11): a CLI's own Terminals
-    // section is the one list, so an old link lands on the catalog.
-    if (!hidden && hash === "#/clis/terminals") location.replace("#/clis");
+    // section is the one list, so an old link lands on the catalog. The
+    // query-less comparison keeps #/clis/terminal/<id> (singular) alone.
+    if (!hidden && hash.split("?")[0] === "#/clis/terminals") location.replace("#/clis");
     if (!hidden && /^#\/sessions(\/|$)/.test(hash)) location.replace("#/clis/sessions" + hash.slice("#/sessions".length));
   }, [hidden, hash, route.view]);
   useEffect(() => {

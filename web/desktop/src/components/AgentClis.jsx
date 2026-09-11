@@ -59,8 +59,9 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
     if (hidden || ["settings", "packages", "providers", "messages"].includes(route.view)) return;
     if (hash === "#/preferences/status") location.replace("#/clis");
     // The general Terminals tab is gone (2026-09-11): a CLI's own Terminals
-    // section is the one list, so an old link lands on the catalog.
-    if (hash === "#/clis/terminals") location.replace("#/clis");
+    // section is the one list, so an old link lands on the catalog. The
+    // query-less comparison keeps #/clis/terminal/<id> (singular) alone.
+    if (hash.split("?")[0] === "#/clis/terminals") location.replace("#/clis");
     // ADR-0079: the old top-level sessions route moved under Agent CLIs.
     if (/^#\/sessions(\/|$)/.test(hash)) location.replace("#/clis/sessions" + hash.slice("#/sessions".length));
   }, [hidden, hash, route.view]);
