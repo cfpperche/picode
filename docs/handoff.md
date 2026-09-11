@@ -13,7 +13,7 @@
 
 1. Runbook step 6 (0.2.0, tag `v0.2.0`): watch the owner's window; a regression becomes a patch tag, never a rewritten one.
 2. Dashboard throughput (tokens/s): definition (generation vs turn; reasoning in/out), per-CLI coverage, UI gates. Codex's `duration_ms`/`time_to_first_token_ms` still unread; Grok's timings shipped.
-3. Package config descriptors (`docs/plans/package-config-manifest.md`): Configure for any extension with a config file — pi-web-search first; extends ADR-0099, ADR at C1.
+3. Package config descriptors remainder (ADR-0119, C0–C2 shipped): C3 catalog sweep of installed packages + upstream `picode.config` proposal; owner acceptance of the ADR. Plan: `docs/plans/package-config-manifest.md`.
 2. Canvas v1.1 (`docs/plans/matrix-app.md` §5 phase 5): quick reply line in a chat panel, frozen-frame placeholders, drag from the sidebar, inspector follows focus, tile badge. v1 phases 0–4 done; v2 done through C4; C5 (group nodes, one layout library) needs its own plan.
 3. llama delivery 3 live validation; owned-service ARM64 acceptance.
 4. Tab strip: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.

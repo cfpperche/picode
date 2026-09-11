@@ -122,3 +122,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0116](0116-matrix-edges.md) | A Matrix edge grants ADR-0104's mailbox contact and never a transcript; owner-drawn only, cross-workspace per pair, revoked with the line | accepted |
 | [0117](0117-remove-browser-surface.md) | remove-browser-surface | accepted |
 | [0118](0118-canvas-replaces-matrix.md) | Canvas replaces Matrix — grid mode and react-grid-layout removed, coordinates converted once, and the rename carried into tables, routes, events, the app id and the hash | accepted, supersedes 0113, renames 0108/0116 |
+| [0119](0119-package-config-descriptors.md) | package-config-descriptors | proposed |
