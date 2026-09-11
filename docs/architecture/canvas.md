@@ -402,7 +402,7 @@ in this binary.
 
 | File | Holds |
 |---|---|
-| `CanvasSurface.jsx` | header (native `<select>` switcher, **Add panel**, **New canvas**, a menu with Tidy / Rename / Delete), the stage the host fills, the empty states, the store `{ list, byId }` reduced by `applyCanvasEvent`, the save flow, "last canvas opened" in `localStorage` `picode-canvas-last` |
+| `CanvasSurface.jsx` | the stage the host fills edge to edge, the top-left chrome cluster floating on it (**Chrome** below), the empty states, the store `{ list, byId }` reduced by `applyCanvasEvent`, the save flow, "last canvas opened" in `localStorage` `picode-canvas-last` |
 | `Plane.jsx` | the plane's host: `@xyflow/react` 12.11.6, lazy-imported, one custom node type rendering the same `Panel`; the camera, the zoom rule and the minimap. Not `CanvasCanvas.jsx`: it is named for what it is. **Canvas** below |
 | `PanelStill.jsx`, `stills.js` | the two bodies a canvas panel has instead of a live pane — the text still and the name-plate — and the memory-only map of captured screens |
 | `Panel.jsx` | the wrapper every panel keeps (and `PanelHead`, which the maximize layer reuses): face, name, hint, the sidebar's chip (`agentRowStatus` / `terminalStatus`), the link chip, Open · Maximize · Remove from canvas; it observes its own visibility; two memo layers so a re-render never touches a body |
@@ -502,6 +502,64 @@ desktop to know which canvas is open and where a panel would land, and that
 state lives inside the Canvas app's surface — apps read the desktop through
 `host`, never the other way round (ADR-0109). Adding it means giving the
 desktop a canvas client of its own, which is a decision, not a line.
+
+### Chrome (2026-09-11)
+
+**The surface has no header.** Until now it wore the app bar every other
+surface wears — icon, title, the switcher, Add panel, New canvas, a `⋯`
+menu and Close — and on a plane that bar was a strip of the work area spent
+on things said twice: the tab strip already names the app, and the tab's own
+× already closes it. The plane now fills the stage edge to edge and the
+chrome floats **on** it, adapted from nodeterm's canvas
+([`docs/benchmarks/2026-09-10-node-canvas.md`](../benchmarks/2026-09-10-node-canvas.md),
+"Chrome"; the owner's ask was "menus estilo overlays e não aquela barra fixa
+no topo"). Two clusters, and nothing else:
+
+| Cluster | Holds | Why there |
+|---|---|---|
+| top-left (`.cv-chrome`, `CanvasSurface.jsx`) | the native `<select>` switcher, **Add panel**, and a `⋯` menu: **New canvas**, **Tidy panels** (only with panels), **Rename**, **Delete canvas**, then **Close tab** | the two things a reader reaches for constantly are *which canvas* and *one more panel*; everything else is one press away |
+| bottom-right (`.cv-zoom` + `<MiniMap>`, `Plane.jsx`) | zoom out / the 100 % readout / zoom in / **Fit**, above the minimap | unchanged by this pass — where the camera already lived |
+
+Both are the same `.cv-cluster`: one row at `--ctl-h`, segmented by
+hairlines, on `--bg-elevated` with a `--border` hairline and the minimap's
+shadow. **Opaque, never translucent and never blurred** — a cluster has to
+read over a dark plane, a light plane and a live terminal parked underneath,
+and a scrim over a terminal is the one case where a reader sees the text
+through their own chrome.
+
+**What moved, and what it cost.** The icon, the `<h2>` title and **Close**
+left: the first two are the tab's, and the third is the tab's ×. **New
+canvas** left the bar for the menu, because a reader creates one canvas and
+then works on it for days. **Close tab** is in the menu and not on the
+plane: a floating Close would be chrome competing with chrome, and the menu
+keeps a keyboard path to it for a reader who never reaches the strip.
+**Add panel** stayed out of the menu because it is the verb the surface
+exists for. The empty states keep their own one line and one action — *No
+canvas yet.* → New canvas (the cluster is not drawn: there is nothing to
+switch), and *Add your first panel.* → Add panel with the cluster beside it,
+which is where an empty canvas still finds **New canvas**.
+
+**A maximized panel takes the clusters with it.** They belong to the plane,
+not to the surface, and the plane is what the layer covers; leaving them
+would be a switcher floating over a body that is not on the canvas any more.
+They are *removed*, not merely covered, so `Tab` cannot reach a control
+nobody can see — the same reason a covered plane hides React Flow's badge.
+`Esc` restores, and the layer's own header carries Restore.
+
+**Fit reserves the corners.** `fitView` centres the content inside its
+padded rectangle, so a symmetric padding put the first panel's header under
+the top-left cluster on the very first open. The fit's padding is the
+cluster geometry instead — 60 px at the top, 204 px at the bottom, 24 px at
+the sides, shrunk together if a short pane cannot spare a third of its
+height — and both the first-open fit and the **Fit** button use it. A reader
+can still drag a panel under a cluster; what this fixes is the one camera
+the surface chooses for them.
+
+**Keyboard.** Both clusters are declared **before** the plane in the DOM
+even though both are positioned, so `Tab` off the tab strip runs switcher →
+Add panel → `⋯` → zoom out → 100 % → zoom in → Fit and only then reaches the
+canvas's roving panel. Every control keeps the focus ring; it is drawn
+`outline-offset: -2px` because a cluster clips its own segments.
 
 ### Chat body (phase 4)
 
@@ -668,7 +726,8 @@ back.
 node: the maximized panel's body renders in a layer over the plane
 (`.cv-max`, absolute inside `.cv-stage` — no transformed ancestor to
 break), the wrapper keeps its slot and says *Shown maximized* with a
-Restore button, `.cv-body` goes `inert`, and the layout is untouched. The
+Restore button, `.cv-body` goes `inert`, the plane's two floating clusters
+go with the plane (**Chrome** below), and the layout is untouched. The
 pane follows the visible host, so it is the same xterm and it refits to
 the layer (measured: a shell went 58×29 → 120×47 and back). The header
 button toggles; `Esc` on any chrome restores — never from inside the pane

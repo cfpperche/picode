@@ -7,8 +7,7 @@
 
 `git worktree list` is the truth for in-flight branches; entries say what a merge must know.
 
-- `feat/changelog-normalize` — `make changelog` heals a drifted `[Unreleased]` (one heading per type); the runbook's step 5 gains the isolated-instance and seed-a-terminal rules ADR-0063 implies. `ci-scoped` green, unmerged.
-- `feat/inbox-terminal-reply` — terminal items ignore locally; a session-less receiver is refused before parking; reply files are addressed by pid (ADR-0060 amendment). `ci-scoped` green, unmerged.
+- `feat/canvas-chrome` — the Canvas surface loses `.ft-head`: the plane fills the stage and the chrome floats on it as `.cv-cluster` (switcher + Add panel + a `⋯` menu carrying New canvas / Tidy / Rename / Delete / Close tab top-left; zoom + minimap bottom-right). `Fit` reserves the corners; a maximized panel hides both clusters. **Session two takes this same branch** for the background-pattern preference and the light-palette rework: the clusters are the one place to change a ground (`.cv-cluster` in `web/desktop/src/styles/canvas.css`), and `--bg-elevated` is still an alias of `--bg-panel` — splitting them is that session's call. `ci-scoped` green, unmerged, not deployed.
 - `feat/herdr-validation`, `feat/picode-video-pilot` — carry pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; next `main` merge conflicts in both: keep this file's shape, changelog lines to `docs/changelog.d/`.
 ## Next up
 
@@ -47,7 +46,7 @@
 - llama: ARM64 hardware and GPU / non-b10809 cancellation unverified; an unknown download with an absent model keeps its reservation; history pruning deferred.
 - Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip needs on-device confirmation.
 - Canvas (ADR-0108/0118): no docs-shots capture — needs a `desktop-canvas` profile and a fixture, so the guide has no screenshots. App-wide, from its captures: the toast covers a surface's Close, dialogs have no scrim and little dark elevation, a grow-resize leaves an idle cursor.
-- Canvas v2 (C2–C4, 2026-09-10): `+`/`-`/`0` need a focused panel; a still stamps its age only when the feed moved; only the picker adds a `file`/`diff` panel (ADR-0109). Edges (ADR-0116): no keyboard path to *draw* a link, so the Messages audit list is the keyboard way to read and revoke, at one canvas read per canvas (capped at 50).
+- Canvas v2 (C2–C4, 2026-09-10): `+`/`-`/`0` need a focused panel; a still stamps its age only when the feed moved; only the picker adds a `file`/`diff` panel (ADR-0109). Chrome (2026-09-11): floating clusters overlap content by design — `Fit` clears them, a dragged panel can still hide under one. Edges (ADR-0116): no keyboard path to *draw* a link, so the Messages audit list is the keyboard way to read and revoke, at one canvas read per canvas (capped at 50).
 - Fullscreen (2026-09-10): real browser fullscreen owns Escape, so one press leaves the mode; double-Escape is in-app only. The right strip is pointer-transparent, so its reveal misses an embedded frame (PDF preview). Chromium only.
 - Notices (2026-09-07): the finish card only fires for the agent whose socket is open.
 - Canvas chat panels (phase 4): a live panel is a `Hub.Len()` watcher, so it suppresses the unobserved-result item and the needs-you push like an open tab; App socket and panel hand off, never coexist.
