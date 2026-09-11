@@ -95,7 +95,7 @@ it("opens complete automation and session workflows without dropping nested link
     assert.equal(mobileRoute(hash).section, "automations");
     assert.equal(tabOf(mobileRoute(hash)), "more");
   }
-  for (const hash of ["#/clis/sessions", "#/clis/sessions/w1?cli=claude", "#/sessions/w1"]) {
+  for (const hash of ["#/clis/sessions", "#/clis/sessions/w1?cli=claude", "#/sessions/w1", "#/clis/codex/sessions", "#/clis/pi/sessions/w1"]) {
     assert.equal(mobileRoute(hash).section, "clis");
   }
 });

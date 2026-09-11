@@ -23,8 +23,9 @@ test("unsupported and malformed CLI identities never become Pi", () => {
     const route = cliSettingsLocation("#/clis/settings/" + id);
     assert.equal(supportsCliSettings(route.id), false, id);
   }
-  assert.equal(cliLocation("#/clis/sessions?cli=pi").view, "sessions");
+  assert.equal(cliLocation("#/clis/sessions?cli=pi").pane, "sessions");
   assert.equal(cliLocation("#/clis/pi").view, "clis");
+  assert.equal(cliLocation("#/clis/pi/sessions").pane, "sessions");
 });
 
 test("explicit agent context comes from Pi's validated report, including free agents", async () => {

@@ -1,6 +1,7 @@
 import { cliProvidersLocation, cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { cliPackagesLocation, cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { cliSettingsLocation, cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
+import { cliLocation, cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
 // Hash routes. Preferences is PiCode-the-product. Native settings live under Agent CLIs (ADR-0101).
 // Sessions live under Agent CLIs (ADR-0079); /clis/* views are parsed by
 // cliLocation in @picode/shared/domain/cliLaunch.js.
@@ -37,7 +38,7 @@ export function parseRoute(hash) {
   if (h === "/termset" || h.startsWith("/termset/")) return "termset";
   if (h === "/automations" || h.startsWith("/automations/")) return "automations";
   // Legacy #/sessions* deep links render the Agent CLIs shell; AgentClis
-  // redirects the hash to #/clis/sessions* (ADR-0079).
+  // redirects the hash to #/clis/<cli>/sessions* (ADR-0079).
   if (h.startsWith("/sessions") || h.startsWith("/sessions/")) return "clis";
   if (h.startsWith("/term/")) return "workspace";
   if (h.startsWith("/file/")) return "workspace";
@@ -77,17 +78,15 @@ export function termHash(id) {
   return id ? "#/term/" + encodeURIComponent(id) : "#/";
 }
 
-// Sessions live under Agent CLIs (ADR-0079): machine-wide is
-// #/clis/sessions, one folder's view is #/clis/sessions/<workspaceId>.
-export function sessionsHash(wsId) {
-  return wsId ? "#/clis/sessions/" + encodeURIComponent(wsId) : "#/clis/sessions";
+// Sessions live on the selected CLI's pane (ADR-0079 amendment 2026-09-11):
+// machine-wide is #/clis/<cli>/sessions, one folder is #/clis/<cli>/sessions/<workspaceId>.
+export function sessionsHash(wsId, cli = "pi") {
+  return cliPaneHash(cli || "pi", "sessions", wsId || "");
 }
 
 export function sessionsRoute(hash) {
-  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
-  const m = /^\/clis\/sessions\/([^/]+)$/.exec(h);
-  if (!m) return null;
-  try { return decodeURIComponent(m[1]); } catch { return m[1]; }
+  const loc = cliLocation(hash || (typeof location !== "undefined" ? location.hash : ""));
+  return loc.pane === "sessions" && loc.workspace ? loc.workspace : null;
 }
 
 export function termTabId(id) {

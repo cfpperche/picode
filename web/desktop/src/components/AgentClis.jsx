@@ -6,7 +6,7 @@ import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { askConfirm } from "../lib/confirm.js";
 import { toast, toastError } from "../lib/toast.js";
 import { cliLaunchSchema, cliTerminalSchema, parseForm } from "@picode/shared/contracts/schemas.js";
-import { cliLocation, launchDraft, launchConfig, editLaunchOverrides, resolveLaunch, cliTerminals, terminalLaunchCLI, profileOverrides, cliWorkspaceList } from "@picode/shared/domain/cliLaunch.js";
+import { cliLocation, cliPaneHash, launchDraft, launchConfig, editLaunchOverrides, resolveLaunch, cliTerminals, terminalLaunchCLI, profileOverrides, cliWorkspaceList } from "@picode/shared/domain/cliLaunch.js";
 import { terminalCli, terminalStatusLabel, terminalStatus } from "@picode/shared/domain/terminalCli.js";
 import { termHash } from "../lib/routes.js";
 import AgentClisFrame from "./AgentClisFrame.jsx";
@@ -18,6 +18,7 @@ import CliPackages from "./CliPackages.jsx";
 import { cliPackagesHash, supportsCliPackages } from "@picode/shared/domain/cliPackages.js";
 import { cliSettingsHash, supportsCliSettings } from "@picode/shared/domain/cliSettings.js";
 import SessionsView from "./SessionsView.jsx";
+import CliPaneTabs from "./CliPaneTabs.jsx";
 import CliCombo from "./CliCombo.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { IconChevronRight } from "./Icons.jsx";
@@ -39,6 +40,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [editRequested, setEditRequested] = useState({});
+  const [launchEditing, setLaunchEditing] = useState(false);
   const active = useRef(!hidden);
   const request = useRef(0);
   active.current = !hidden;
@@ -58,13 +60,8 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
   useEffect(() => {
     if (hidden || ["settings", "packages", "providers", "messages"].includes(route.view)) return;
     if (hash === "#/preferences/status") location.replace("#/clis");
-    // The general Terminals tab is gone (2026-09-11): a CLI's own Terminals
-    // section is the one list, so an old link lands on the catalog. The
-    // query-less comparison keeps #/clis/terminal/<id> (singular) alone.
-    if (hash.split("?")[0] === "#/clis/terminals") location.replace("#/clis");
-    // ADR-0079: the old top-level sessions route moved under Agent CLIs.
-    if (/^#\/sessions(\/|$)/.test(hash)) location.replace("#/clis/sessions" + hash.slice("#/sessions".length));
-  }, [hidden, hash, route.view]);
+    if (route.redirect && route.redirect !== hash) location.replace(route.redirect);
+  }, [hidden, hash, route.view, route.redirect]);
   useEffect(() => {
     if (hidden || ["settings", "packages", "providers", "messages"].includes(route.view)) return;
     refresh();
@@ -92,6 +89,9 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
     try { await fn(); await refresh(); } catch (e) { toastError(e); throw e; } finally { setBusy(""); }
   };
   const selected = data?.clis.find((c) => c.id === route.id) || data?.clis[0];
+  const pane = route.pane || "launch";
+  useEffect(() => { setLaunchEditing(false); }, [selected?.id]);
+  useEffect(() => { if (pane !== "launch") setLaunchEditing(false); }, [pane]);
   const action = async (t, op) => {
     const destructive = op === "remove" || (t.running && op !== "start");
     if (destructive && !(await askConfirm({ title: `${op === "remove" ? "Remove" : op === "stop" ? "Stop" : "Restart"} ${t.name}?`, message: t.running ? "This ends the processes running in this terminal." : "Remove this saved terminal and its launch settings?", confirmLabel: op === "remove" ? "Remove terminal" : op === "stop" ? "Stop terminal" : "Restart terminal", danger: true }))) return;
@@ -104,8 +104,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
     } catch { /* toast from run */ }
   };
 
-  const sessionsWs = route.view === "sessions" && route.id && data ? data.workspaces.find((w) => w.id === route.id) : undefined;
-  const sessionsCli = route.cli || "pi";
+  const sessionsWs = pane === "sessions" && route.workspace && data ? data.workspaces.find((w) => w.id === route.workspace) : undefined;
 
   const selectedJob = data?.jobs?.find((j) => j.cli === selected?.id);
   const lifecycleBusy = !!busy || (selectedJob && (selectedJob.state === "queued" || selectedJob.state === "running"));
@@ -142,25 +141,11 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
 
   return <AgentClisFrame hidden={hidden}>
     <CliTabs view={route.view} packagesHref={cliPackagesHash("pi", legacyPackageContext)} hasPackageUpdates={packageUpdates.length > 0} />
-    {error && route.view !== "sessions" ? <Notice danger action="Try again" onAction={refresh}>{error}</Notice> : null}
-    {!data && !error && route.view !== "sessions" ? <div className="cli-loading" aria-label="Loading Agent CLIs"><div /><div /><div /></div> : null}
-    {route.view === "sessions" ? <SessionsView
-      embedded
-      wsId={route.id || ""}
-      workspace={sessionsWs}
-      agents={(sessionsWs && sessionsWs.agents) || []}
-      workspaces={data ? data.workspaces : []}
-      onOpenAgent={onOpenAgent}
-      onCompactAgent={onCompactAgent}
-      cli={sessionsCli}
-      wsReady={!!data}
-      onCliChange={(id) => navigate("/sessions" + (route.id ? "/" + encodeURIComponent(route.id) : "") + "?cli=" + encodeURIComponent(id))}
-      cliNames={Object.fromEntries((data ? data.clis : []).map((c) => [c.id, c.name]))}
-      clis={data ? data.clis : []}
-    /> : null}
+    {error ? <Notice danger action="Try again" onAction={refresh}>{error}</Notice> : null}
+    {!data && !error ? <div className="cli-loading" aria-label="Loading Agent CLIs"><div /><div /><div /></div> : null}
     {data && !data.terminalAvailable ? <Notice action="Open System" onAction={() => { location.hash = "#/system"; }}>Terminal control is unavailable.</Notice> : null}
     {data && route.view === "clis" && selected ? <div className="cli-layout">
-      <nav className="cli-catalog" aria-label="Compatible CLIs">{data.clis.map((c) => <a key={c.id} href={"#/clis/" + c.id} aria-current={c.id === selected.id ? "page" : undefined}>
+      <nav className="cli-catalog" aria-label="Compatible CLIs">{data.clis.map((c) => <a key={c.id} href={cliPaneHash(c.id, pane, pane === "sessions" ? (route.workspace || "") : "")} aria-current={c.id === selected.id ? "page" : undefined}>
         <TerminalCliBadge term={{ cli: c.id }} /><span><strong>{c.name}</strong><small>{c.installed ? (c.diagnostic?.updateAvailable ? "Update available" : "Installed") : "Not found"}</small></span>{c.diagnostic?.updateAvailable ? <span className="cli-update-pill">Update</span> : null}<IconChevronRight size={14} />
       </a>)}</nav>
       <div className="cli-detail" key={selected.id}>
@@ -180,17 +165,43 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
         <CLILifecycleCard cli={selected} job={selectedJob} onCheck={checkUpdates} />
         {selected.problem ? <Notice action={selected.installed && selected.config.integration && !selected.integrationApplied ? "Repair integration" : "Customize"} onAction={() => {
           if (selected.installed && selected.config.integration && !selected.integrationApplied) run("repair", () => api(`/api/clis/${selected.id}/repair`, json("POST", {}))).catch(() => {});
-          else setEditRequested({ id: selected.id, at: Date.now() });
+          else {
+            setEditRequested({ id: selected.id, at: Date.now() });
+            setLaunchEditing(true);
+            if (pane !== "launch") location.hash = cliPaneHash(selected.id, "launch");
+          }
         }}>{selected.problem}</Notice> : null}
         {selected.diagnostic?.error ? <Notice danger action="Check again" onAction={() => { run("check:" + selected.id, () => api(`/api/clis/${selected.id}/check`, json("POST", {}))).catch(() => {}); }}>{selected.diagnostic.error}</Notice> : null}
-        <div className="cli-integration"><label htmlFor="cli-integration">Activity reporting <span>{selected.config.integration ? "On for new launches" : "Off for new launches"}</span></label>
-          <Switch.Root id="cli-integration" className="rx-switch" checked={selected.config.integration} disabled={!!busy} onCheckedChange={(value) => { const old = selected.config.integration; setData((cur) => ({ ...cur, clis: cur.clis.map((c) => c.id === selected.id ? { ...c, config: { ...c.config, integration: value } } : c) })); run("integration", async () => { try { const v = await api(`/api/clis/${selected.id}`, json("PUT", { ...selected.config, integration: value })); if (v.problem) toastError(new Error(v.problem)); } catch (e) { setData((cur) => ({ ...cur, clis: cur.clis.map((c) => c.id === selected.id ? { ...c, config: { ...c.config, integration: old } } : c) })); throw e; } }).catch(() => {}); }}><Switch.Thumb className="rx-switch-thumb" /></Switch.Root>
-        </div>
-        <CLIDefaults cli={selected} editRequested={editRequested.id === selected.id ? editRequested.at : 0} busy={!!busy} onSave={async (c) => { await run("settings", async () => { const v = await api(`/api/clis/${selected.id}`, json("PUT", c)); if (v.problem) toastError(new Error(v.problem)); else toast.ok("Launch settings saved."); }); }} />
-        <CLIDiagnostics cli={selected} terminals={data.terminals} busy={!!busy} run={run} />
-        <CLIProfiles cli={selected} profiles={data.profiles} run={run} busy={!!busy} />
-        <TerminalList cliName={selected.name} terminals={cliTerminals(data.terminals, selected.id)} workspaces={data.workspaces} busy={busy} onAction={action} onNew={() => navigate("/new/" + selected.id)} onRenameTerm={onRenameTerm} />
-        <a className="cli-docs" href={selected.docs} target="_blank" rel="noreferrer">{selected.name} documentation ↗</a>
+        <CliPaneTabs
+          cli={selected.id}
+          pane={pane}
+          workspace={route.workspace || ""}
+          actions={pane === "launch" ? (launchEditing ? <span className="cli-muted">Editing defaults</span> : <button type="button" className="btn btn-ghost btn-sm" onClick={() => setLaunchEditing(true)}>Customize</button>) : null}
+        />
+        {pane === "launch" ? <>
+          <div className="cli-integration"><label htmlFor="cli-integration">Activity reporting <span>{selected.config.integration ? "On for new launches" : "Off for new launches"}</span></label>
+            <Switch.Root id="cli-integration" className="rx-switch" checked={selected.config.integration} disabled={!!busy} onCheckedChange={(value) => { const old = selected.config.integration; setData((cur) => ({ ...cur, clis: cur.clis.map((c) => c.id === selected.id ? { ...c, config: { ...c.config, integration: value } } : c) })); run("integration", async () => { try { const v = await api(`/api/clis/${selected.id}`, json("PUT", { ...selected.config, integration: value })); if (v.problem) toastError(new Error(v.problem)); } catch (e) { setData((cur) => ({ ...cur, clis: cur.clis.map((c) => c.id === selected.id ? { ...c, config: { ...c.config, integration: old } } : c) })); throw e; } }).catch(() => {}); }}><Switch.Thumb className="rx-switch-thumb" /></Switch.Root>
+          </div>
+          <CLIDefaults cli={selected} hideTitle editing={launchEditing} onEditingChange={setLaunchEditing} editRequested={editRequested.id === selected.id ? editRequested.at : 0} busy={!!busy} onSave={async (c) => { await run("settings", async () => { const v = await api(`/api/clis/${selected.id}`, json("PUT", c)); if (v.problem) toastError(new Error(v.problem)); else toast.ok("Launch settings saved."); }); }} />
+          <CLIDiagnostics cli={selected} terminals={data.terminals} busy={!!busy} run={run} />
+          <CLIProfiles cli={selected} profiles={data.profiles} run={run} busy={!!busy} />
+          <a className="cli-docs" href={selected.docs} target="_blank" rel="noreferrer">{selected.name} documentation ↗</a>
+        </> : null}
+        {pane === "terminals" ? <TerminalList hideTitle cliName={selected.name} terminals={cliTerminals(data.terminals, selected.id)} workspaces={data.workspaces} busy={busy} onAction={action} onNew={() => navigate("/new/" + selected.id)} onRenameTerm={onRenameTerm} /> : null}
+        {pane === "sessions" ? <SessionsView
+          embedded
+          wsId={route.workspace || ""}
+          workspace={sessionsWs}
+          agents={(sessionsWs && sessionsWs.agents) || []}
+          workspaces={data.workspaces}
+          onOpenAgent={onOpenAgent}
+          onCompactAgent={onCompactAgent}
+          cli={selected.id}
+          wsReady={!!data}
+          cliNames={Object.fromEntries(data.clis.map((c) => [c.id, c.name]))}
+          clis={data.clis}
+          onNewTerminal={() => navigate("/new/" + selected.id)}
+        /> : null}
       </div>
     </div> : null}
     {data && (route.view === "new" || route.view === "terminal") ? <TerminalEditor key={hash} route={route} data={data} run={run} busy={!!busy} /> : null}
@@ -198,10 +209,11 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
   </AgentClisFrame>;
 }
 
-function TerminalList({ terminals, workspaces, busy, onAction, onNew, cliName, onRenameTerm }) {
+function TerminalList({ terminals, workspaces, busy, onAction, onNew, cliName, onRenameTerm, hideTitle = false }) {
   const [query, setQuery] = useState("");
   const filtered = terminals.filter((t) => `${t.name} ${t.cwd} ${t.cli || ""} ${t.launchCli || ""}`.toLowerCase().includes(query.toLowerCase()));
-  return <section className="cli-terminals"><div className="cli-list-heading"><h3>Terminals</h3>{terminals.length > 4 ? <input aria-label="Search terminals" placeholder="Find a terminal…" value={query} onChange={(e) => setQuery(e.target.value)} /> : null}</div>
+  const search = terminals.length > 4 ? <input aria-label="Search terminals" placeholder="Find a terminal…" value={query} onChange={(e) => setQuery(e.target.value)} /> : null;
+  return <section className="cli-terminals">{!hideTitle || search ? <div className="cli-list-heading">{hideTitle ? null : <h3>Terminals</h3>}{search}</div> : null}
     {!terminals.length ? <Notice action={"Open " + cliName} onAction={onNew}>No {cliName} terminals yet.</Notice> : !filtered.length ? <Notice action="Clear search" onAction={() => setQuery("")}>No matching terminals.</Notice> : null}
     <div className="cli-terminal-list">{filtered.map((t) => {
       const workspace = workspaces.find((w) => w.id === t.workspaceId);
@@ -259,18 +271,18 @@ function TerminalEditor({ route, data, run, busy }) {
     return () => { stopped = true; };
   }, [retry]); // this editor is keyed by its route
   if (route.view === "terminal" && !existing) return <Notice action="Choose a CLI" onAction={() => navigate("")}>That terminal is gone.</Notice>;
-  if (route.profile && !initialProfile) return <Notice action="Choose a profile" onAction={() => navigate("/" + cli.id)}>That launch profile is no longer available.</Notice>;
+  if (route.profile && !initialProfile) return <Notice action="Choose a profile" onAction={() => { location.hash = cliPaneHash(cli.id, "launch"); }}>That launch profile is no longer available.</Notice>;
   if (loadError) return <Notice danger action="Try again" onAction={() => setRetry((v) => v + 1)}>{loadError}</Notice>;
   const settingsPreview = parseForm(cliLaunchSchema, draft);
   const overrides = custom && settingsPreview.ok ? (profileId ? profileOverrides(cli.config, launchConfig(settingsPreview.value)) : editLaunchOverrides(cli.config, originalOverrides, launchConfig(settingsPreview.value))) : {};
-  const back = async () => { if (!dirty || await confirmDiscard()) { allowNavigation(); navigate("/" + cli.id); } };
+  const back = async () => { if (!dirty || await confirmDiscard()) { allowNavigation(); location.hash = cliPaneHash(cli.id, existing ? "terminals" : "launch"); } };
   return <section className="cli-editor"><div className="cli-heading"><h3>{existing ? existing.name + " · Launch settings" : "New " + cli.name + " terminal"}</h3><button className="btn btn-ghost btn-sm" onClick={back}>Back</button></div>
     {loading ? <div className="cli-loading" aria-label="Loading launch settings"><div /><div /></div> : <form noValidate onChange={() => setDirty(true)} onSubmit={async (e) => {
       e.preventDefault(); const parsed = parseForm(cliTerminalSchema, form); if (!parsed.ok) { setError(parsed.error); return; }
       const settings = parseForm(cliLaunchSchema, draft); if (custom && !settings.ok) { setError(settings.error); return; }
       try { await run("terminal-save", async () => {
-        if (existing) { await api(`/api/terminals/${encodeURIComponent(existing.id)}/launch`, json("PUT", { cli: cli.id, overrides })); allowNavigation(); toast.ok("Settings saved for the next launch."); navigate("/" + cli.id); }
-        else { const t = await api(`/api/clis/${cli.id}/terminals`, json("POST", { ...parsed.value, overrides })); allowNavigation(); if (t.launchError) { toastError(new Error(t.launchError)); navigate("/" + cli.id); } else location.hash = termHash(t.id); }
+        if (existing) { await api(`/api/terminals/${encodeURIComponent(existing.id)}/launch`, json("PUT", { cli: cli.id, overrides })); allowNavigation(); toast.ok("Settings saved for the next launch."); location.hash = cliPaneHash(cli.id, "terminals"); }
+        else { const t = await api(`/api/clis/${cli.id}/terminals`, json("POST", { ...parsed.value, overrides })); allowNavigation(); if (t.launchError) { toastError(new Error(t.launchError)); location.hash = cliPaneHash(cli.id, "terminals"); } else location.hash = termHash(t.id); }
       }); } catch (e) { setError(e.message); }
     }}>
       <div className="cli-fields">
