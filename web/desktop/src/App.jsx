@@ -2658,7 +2658,6 @@ export default function App() {
         onLaunchAction={launchTerminalAction}
         onSessions={(id) => { location.hash = sessionsHash(id); }}
         onRenameTerm={renameTerminal}
-        onLaunchAction={launchTerminalAction}
         onGitGraph={openGitTab}
         onFileTree={openTreeTab}
         onOpenDashboard={() => { setDashboardPinned(true); setNavigationOpen(false); }}
