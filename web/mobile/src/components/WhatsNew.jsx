@@ -1,10 +1,15 @@
 import * as Dialog from "./MobileSheet.jsx";
-import { IconAgent, IconExternal, IconFolders, IconInbox, IconPhone, IconSparkles, IconTerminal } from "./Icons.jsx";
+import { IconAgent, IconExternal, IconFolders, IconGrid, IconInbox, IconPhone, IconSparkles, IconTerminal } from "./Icons.jsx";
 import { parseVersion, selectReleaseNotes } from "../lib/whatsNew.js";
 
+// Same contract as the desktop map (see web/tools/release-note-icons.test.mjs)
+// — every `icon` name publishable in web/shared/data/whats-new.json. The phone
+// has no Canvas surface, so the matrix note wears the panel grid instead of
+// the desktop tile's frame.
 const ICONS = {
   agent: IconAgent,
   inbox: IconInbox,
+  matrix: IconGrid,
   phone: IconPhone,
   terminal: IconTerminal,
   workspace: IconFolders,
