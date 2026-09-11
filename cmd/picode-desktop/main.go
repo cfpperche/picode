@@ -43,6 +43,10 @@ func main() {
 	user := fs.String("user", "", "Linux account to provision (default: the distro's own)")
 	tray := fs.Bool("tray", false, "run in the notification area (the logon task passes this)")
 	asJSON := fs.Bool("json", false, "with `disk`: emit the measurement as JSON")
+	yes := fs.Bool("yes", false, "with disk-compact: stop the distro and compact without asking again")
+	dryRun := fs.Bool("dry-run", false, "with disk-compact: print the plan, stop nothing")
+	force := fs.Bool("force", false, "with disk-compact: proceed even when someone is mid-turn")
+	method := fs.String("method", "", "with disk-compact: sparse (default) | optimize-vhd")
 	fs.Usage = usage
 	_ = fs.Parse(commandArgs())
 
@@ -54,6 +58,8 @@ func main() {
 		exit(runDoctor(*distro, *user))
 	case cmd == "disk":
 		exit(runDisk(*distro, *user, *asJSON))
+	case cmd == "disk-compact":
+		exit(runDiskCompact(*distro, *user, *method, *yes, *dryRun, *force))
 	case cmd == "startup-check":
 		exit(runStartupCheck())
 	case cmd == "startup-repair":
@@ -112,6 +118,7 @@ Usage:
   picode-desktop                 run in the notification area
   picode-desktop doctor          report what setup would change, touch nothing
   picode-desktop disk            report both halves of the disk: Windows' file and the distro's use
+  picode-desktop disk-compact    give the held space back: stop the distro, convert the file, start it again
   picode-desktop startup-check   inspect Windows startup without starting WSL
   picode-desktop startup-repair  repair the existing task, without restarting anything
   picode-desktop install         set the machine up and start with Windows
@@ -126,6 +133,10 @@ Flags:
   --user string     Linux account to provision (default: the distro's own)
   --tray            run in the notification area (the logon task passes this)
   --json            with the disk command: emit the measurement as JSON
+  --yes             with disk-compact: stop the distro and compact without asking again
+  --dry-run         with disk-compact: print the plan, stop nothing
+  --force           with disk-compact: proceed even when someone is mid-turn
+  --method string   with disk-compact: sparse (default) | optimize-vhd
 
 The distro half of the work is done by ` + "`picode provision`" + ` inside WSL.`)
 }

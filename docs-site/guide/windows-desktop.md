@@ -120,9 +120,34 @@ but a laptop where you quit the tray will see WSL boot under the command.
 distro has already freed that the disk file still occupies. WSL gives it back
 on its own only while the file is **sparse**, and it can only compact or convert
 the file while the distro is stopped — which is why a PiCode that keeps WSL up
-also keeps that space. `picode-desktop disk` names the fix; it does not run it,
-because stopping the distro costs the sessions in it. Reclaiming with a review
-step is designed in `docs/plans/wsl-control.md`.
+also keeps that space.
+
+### Give the space back
+
+When there is something to give back, the tray offers it: **Give back ≈92 GB…**
+under the disk line. Choosing it
+
+1. asks PiCode whether anyone is working — the same check `picode deploy` uses;
+   if someone is mid-turn it names them and stops;
+2. asks once, in a dialog that names the cost: stopping Ubuntu ends every
+   agent, terminal and tmux session inside it, and they do not come back;
+3. stops Ubuntu, converts the disk file to **sparse**, starts Ubuntu again;
+4. reports before and after, measured on the file — not promised.
+
+Afterwards the file is sparse and WSL returns freed blocks on its own. This is
+the one-time fix, not a chore to repeat.
+
+From a terminal the same flow is `disk-compact`:
+
+```powershell
+.\picode-desktop.exe disk-compact --dry-run   # the plan; nothing stops
+.\picode-desktop.exe disk-compact --yes       # stop Ubuntu, compact, restart
+```
+
+`--force` overrides the working check; `--method optimize-vhd` compacts with
+Hyper-V's Optimize-VHD instead and needs an administrator terminal (Windows
+Home has no Hyper-V module — upgrade WSL for the sparse path). When the compact
+finishes, Ubuntu starts again by itself; the sessions do not.
 
 Inside the distro, `picode disk` lists every item on its own:
 
