@@ -811,6 +811,40 @@ panel over the app's dark surface). Node position is `x · 8, y · 8` px and
 size `w · 8, h · 8`; `unitsToPx` / `pxToUnits` are the only place that
 multiplies.
 
+**The resize targets, and the counter-scaling rule** (`canvas.css`,
+"Resize targets"). `NodeResizer` drives the resize and fires `onResizeEnd`
+once per gesture, which is what the save path debounces on — that part is
+the library's and stays. What the library *draws* could not be used: its
+handles and line controls live **inside the transformed plane**, so their
+size on screen is their size divided by the zoom, and its line control is
+one plane pixel wide with a transparent border. Measured on a real plane
+before the change (`getBoundingClientRect`, intersected with the panel
+because `.cv-panel` is `overflow: hidden` and clips the outward half of
+every control): an **edge band** was **1.0 / 0.8 / 0.4** screen px thick at
+zoom 1.0 / 0.8 / 0.4, invisible and effectively unhittable; a **corner**
+was a 5 × 5 px box of which **3.5 / 3.3 / 2.9** px was inside the panel.
+
+So every length in that block is written as a multiple of `--cv-px`, which
+is **one screen pixel expressed in plane units**: `calc(1px /
+var(--cv-zoom))`, where `--cv-zoom` is the live zoom `Plane.jsx` publishes
+on the flow root on mount and on every viewport change. A corner target is
+20 screen px and an edge band 12 screen px at 0.4, at 1.0 and at 1.5 alike.
+`NodeResizer`'s own `autoScale` is off, because it answers the same
+question worse — an inline `scale: max(1 / zoom, 1)` on the four corner
+handles only, doing nothing to the four edges and nothing at all above zoom
+1 — and two counter-scalings would divide by the zoom twice. This is the
+rule someone deletes as an unnecessary `calc`: remove it and the targets
+shrink out of reach with no sign on screen that anything changed.
+
+**The hit area and the paint are deliberately not the same rectangle.**
+The control element is the hit area: transparent, generous, and entirely
+*inside* the panel, because `.cv-panel` is `overflow: hidden` and clips
+anything that sticks out. Its `::after` is the paint, and keeps the grid's
+visual language — a 24 × 3 bar at the middle of each edge, an L at each
+corner, both `--text-secondary`, appearing on hover, focus and selection.
+The seeable rectangle has to be the smaller of the two; collapsing them
+into one is the defect this replaced.
+
 **Zoom decides the body** (plan §4.3, `loadPolicy` with `{zoom, band}`,
 `zoomBody`, `pointerAtZoom` — one test per row in `canvas.test.js`). The
 reason is not performance, it is correctness: **xterm divides the pointer's

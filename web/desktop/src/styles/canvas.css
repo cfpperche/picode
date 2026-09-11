@@ -392,15 +392,118 @@
    shows no chrome of its own. */
 .cv-body[inert] .react-flow__attribution { visibility: hidden; }
 
-/* Resize: NodeResizer's eight handles, hidden until the panel is asked for. */
-.cv-canvas-flow .react-flow__resize-control.handle {
-  border-color: var(--bg-panel); opacity: 0;
+/* ---- Resize targets ------------------------------------------------------
+
+   The grid this plane replaced sized its handles in *screen* pixels on a
+   surface that had no zoom: a 20 px corner and, after 64446119, a 24x3 bar
+   at the middle of the south and east edges in --text-secondary. You could
+   find it and you could hit it. React Flow's controls live **inside the
+   transformed plane**, so the library's 5 px handle is 2 screen px at zoom
+   0.4 and its `line` control is one plane pixel wide — a fifth of a screen
+   pixel down there, and `border-color: transparent` meant there was nothing
+   to aim at either. .cv-panel is `overflow: hidden`, so the outward half of
+   every control was clipped away on top of that.
+
+   **The counter-scaling rule.** Plane.jsx publishes the live zoom as
+   --cv-zoom on .cv-canvas-flow (on mount and on every viewport change), so
+   --cv-px below is one SCREEN pixel expressed in plane units and every
+   length here is written as a multiple of it. That is why a target is the
+   same size to the hand at 0.4, 1.0 and 1.5. It is not an "unnecessary
+   calc": delete the division and the targets silently shrink out of reach,
+   with nothing on screen to say so. (NodeResizer's own `autoScale` is off
+   for the same reason — it only ever scaled the four corner handles, and
+   only below zoom 1. One rule, here.)
+
+   **The hit area and the paint are NOT the same rectangle**, on purpose:
+
+     * the control element (.handle, .line) is the HIT AREA — transparent,
+       generous, and entirely *inside* the panel because .cv-panel clips:
+       a 20 screen px square at each corner, a 12 screen px band along each
+       edge. This is what the pointer has to find.
+     * its ::after is the PAINT — the grid's language kept: a short 24x3 bar
+       at the middle of each edge, an L at each corner, both in
+       --text-secondary, small enough to stay out of the panel's way.
+
+   Someone will want to simplify these into one rectangle. That is the
+   defect this replaced. A target you can see is not the same size as a
+   target you can hit, and the seeable one has to be the smaller of the two.
+
+   Both appear on hover, focus and selection, as they did before; hovering
+   the band itself counts, because the controls are children of .cv-panel. */
+.cv-canvas-flow {
+  --cv-px: calc(1px / var(--cv-zoom, 1));
+  --cv-grab: calc(12 * var(--cv-px));   /* edge band: 12 screen px */
+  --cv-corner: calc(20 * var(--cv-px)); /* corner target: 20 screen px */
+  --cv-bar: calc(24 * var(--cv-px));    /* painted bar, long side */
+  --cv-mark: calc(3 * var(--cv-px));    /* painted bar, short side */
+}
+/* `.handle` / `.line` are spelled out because the library's own rules carry
+   them (`.react-flow__resize-control.handle { border: 1px solid #fff;
+   background-color: var(--xy-resize-background-color-default) }`, which this
+   file sets to --accent), its stylesheet loads from the lazy plane chunk
+   *after* this one, and a two-class selector would tie on specificity and
+   lose on order — the accent square would still be painted under the mark. */
+.cv-canvas-flow .react-flow__resize-control.handle,
+.cv-canvas-flow .react-flow__resize-control.line {
+  opacity: 0; background: transparent; border: 0;
+  /* Above .cv-snap (z-index 4), which covers the whole body of an inert or
+     still panel and would otherwise swallow the inner half of every band. */
+  z-index: 6;
   transition: opacity var(--motion-fast) var(--ease-out);
 }
 .cv-canvas-flow .cv-panel:hover .react-flow__resize-control.handle,
+.cv-canvas-flow .cv-panel:hover .react-flow__resize-control.line,
 .cv-canvas-flow .cv-panel.is-focused .react-flow__resize-control.handle,
-.cv-canvas-flow .react-flow__node.selected .react-flow__resize-control.handle { opacity: .9; }
-.cv-canvas-flow .react-flow__resize-control.line { border-color: transparent; }
+.cv-canvas-flow .cv-panel.is-focused .react-flow__resize-control.line,
+.cv-canvas-flow .react-flow__node.selected .react-flow__resize-control.handle,
+.cv-canvas-flow .react-flow__node.selected .react-flow__resize-control.line { opacity: .9; }
+.cv-canvas-flow .react-flow__resize-control::after {
+  content: ""; position: absolute; border-radius: calc(1 * var(--cv-px));
+}
+
+/* The four edges. The library centres each band on its edge; pulled fully
+   inside instead, because .cv-panel clips whatever sticks out. */
+.cv-canvas-flow .react-flow__resize-control.line.top,
+.cv-canvas-flow .react-flow__resize-control.line.bottom { height: var(--cv-grab); width: 100%; left: 0; }
+.cv-canvas-flow .react-flow__resize-control.line.left,
+.cv-canvas-flow .react-flow__resize-control.line.right { width: var(--cv-grab); height: 100%; top: 0; }
+.cv-canvas-flow .react-flow__resize-control.line.top { top: 0; transform: none; }
+.cv-canvas-flow .react-flow__resize-control.line.bottom { top: 100%; transform: translate(0, -100%); }
+.cv-canvas-flow .react-flow__resize-control.line.left { left: 0; transform: none; }
+.cv-canvas-flow .react-flow__resize-control.line.right { left: 100%; transform: translate(-100%, 0); }
+.cv-canvas-flow .react-flow__resize-control.line::after { background: var(--text-secondary); }
+.cv-canvas-flow .react-flow__resize-control.line.top::after,
+.cv-canvas-flow .react-flow__resize-control.line.bottom::after {
+  left: 50%; transform: translateX(-50%); width: var(--cv-bar); height: var(--cv-mark);
+}
+.cv-canvas-flow .react-flow__resize-control.line.left::after,
+.cv-canvas-flow .react-flow__resize-control.line.right::after {
+  top: 50%; transform: translateY(-50%); width: var(--cv-mark); height: var(--cv-bar);
+}
+.cv-canvas-flow .react-flow__resize-control.line.top::after { top: calc(3 * var(--cv-px)); }
+.cv-canvas-flow .react-flow__resize-control.line.bottom::after { bottom: calc(3 * var(--cv-px)); }
+.cv-canvas-flow .react-flow__resize-control.line.left::after { left: calc(3 * var(--cv-px)); }
+.cv-canvas-flow .react-flow__resize-control.line.right::after { right: calc(3 * var(--cv-px)); }
+
+/* The four corners. The library's `translate: -50% -50%` centres them on
+   the corner and half of that is clipped; each is pulled inside instead. */
+.cv-canvas-flow .react-flow__resize-control.handle {
+  width: var(--cv-corner); height: var(--cv-corner); border-radius: 0;
+}
+.cv-canvas-flow .react-flow__resize-control.handle.top.left { translate: 0 0; }
+.cv-canvas-flow .react-flow__resize-control.handle.top.right { translate: -100% 0; }
+.cv-canvas-flow .react-flow__resize-control.handle.bottom.left { translate: 0 -100%; }
+.cv-canvas-flow .react-flow__resize-control.handle.bottom.right { translate: -100% -100%; }
+/* The L: two borders of a small square, the pair that points at the corner
+   it belongs to — the grid drew the same glyph at its one corner handle. */
+.cv-canvas-flow .react-flow__resize-control.handle::after {
+  width: calc(8 * var(--cv-px)); height: calc(8 * var(--cv-px));
+  border: calc(2 * var(--cv-px)) solid var(--text-secondary);
+}
+.cv-canvas-flow .react-flow__resize-control.handle.top::after { top: calc(3 * var(--cv-px)); border-bottom: 0; }
+.cv-canvas-flow .react-flow__resize-control.handle.bottom::after { bottom: calc(3 * var(--cv-px)); border-top: 0; }
+.cv-canvas-flow .react-flow__resize-control.handle.left::after { left: calc(3 * var(--cv-px)); border-right: 0; }
+.cv-canvas-flow .react-flow__resize-control.handle.right::after { right: calc(3 * var(--cv-px)); border-left: 0; }
 
 /* Zoom controls, beside the minimap — the second cluster, on the same
    ground as the first (.cv-cluster above). The readout is the honest part:

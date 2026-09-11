@@ -197,8 +197,20 @@ const PanelNode = memo(function PanelNode({ id, data }) {
       links={data.links}
       pointer={data.pointer}
     >
+      {/* The resize targets. The component stays — it is what drives the
+          resize and what fires `onResizeEnd` once per gesture, which is the
+          save path's debounce. What it ships is the target: handles sized
+          in *plane* units, so they shrink with the camera, and line
+          controls one plane pixel wide.
+          `autoScale` off on purpose: the library's own answer is an inline
+          `scale: max(1 / zoom, 1)` on the four handles only, which leaves
+          the four edges untouched and does nothing at all above zoom 1.
+          canvas.css counter-scales every control off --cv-zoom instead, so
+          there is one rule and one place to read it; leaving both on would
+          divide by the zoom twice. */}
       <NodeResizer
         nodeId={id}
+        autoScale={false}
         minWidth={MIN_W_PX}
         minHeight={MIN_H_PX}
         maxWidth={MAX_PX}
