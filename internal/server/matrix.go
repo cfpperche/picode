@@ -10,7 +10,8 @@ import (
 // Matrix routes (ADR-0108, ADR-0113). A matrix is a named board of agent
 // and terminal panels in one of two layout modes — a 12-column grid or an
 // 8 px-unit canvas; the store holds one row per panel, validates every
-// rectangle against the matrix's own mode and announces seven events.
+// rectangle against the matrix's own mode and announces nine events
+// (ADR-0116 adds matrix.edge.added and matrix.edge.removed).
 // Every mutation answers with the payload its event carries, so the surface
 // has one reducer path for a response and a feed frame. The auth gate in
 // front of every /api/* route applies.
@@ -23,6 +24,9 @@ func registerMatrixRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("PATCH /api/matrices/{id}/layout", handleMatrixLayout(deps))
 	mux.HandleFunc("POST /api/matrices/{id}/panels", handleAddMatrixPanel(deps))
 	mux.HandleFunc("DELETE /api/matrices/{id}/panels/{panelId}", handleRemoveMatrixPanel(deps))
+	mux.HandleFunc("GET /api/matrices/{id}/edges", handleListMatrixEdges(deps))
+	mux.HandleFunc("POST /api/matrices/{id}/edges", handleAddMatrixEdge(deps))
+	mux.HandleFunc("DELETE /api/matrices/{id}/edges/{edgeId}", handleRemoveMatrixEdge(deps))
 }
 
 // writeMatrixErr answers a matrix store error with the status storeStatus maps
@@ -81,7 +85,8 @@ func handleCreateMatrix(deps Deps) http.HandlerFunc {
 	}
 }
 
-// GET /api/matrices/{id} — the summary plus every panel.
+// GET /api/matrices/{id} — the summary plus every panel and every edge,
+// so one read still opens a matrix.
 func handleGetMatrix(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		d, err := deps.Store.GetMatrix(r.PathValue("id"))
@@ -209,7 +214,67 @@ func handleRemoveMatrixPanel(deps Deps) http.HandlerFunc {
 	}
 }
 
-// DELETE /api/matrices/{id} — 204; the panels cascade in the store.
+// Edges (ADR-0116). An edge is the owner's recorded intent that two
+// sessions may exchange messages: it grants exactly ADR-0104's mailbox
+// contact and never a transcript. These three routes are the **only** way
+// one is created, listed or removed — they sit behind the same owner auth
+// gate as every /api/* route, and the MCP surface
+// (internal/communication) gains no verb, so an agent can neither draw an
+// edge nor discover that one could exist.
+
+// GET /api/matrices/{id}/edges — every edge of one matrix, oldest first.
+// GET /api/matrices/{id} carries the same list, so opening a matrix is
+// still one read; this route is for the audit list, which wants the edges
+// without the panels.
+func handleListMatrixEdges(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		edges, err := deps.Store.ListMatrixEdges(r.PathValue("id"))
+		if err != nil {
+			writeMatrixErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"edges": edges})
+	}
+}
+
+// POST /api/matrices/{id}/edges {aPanel, bPanel} — 201 with {id, updatedAt,
+// edge} (the matrix.edge.added payload). The store orders the pair, so the
+// two ids may arrive in either order; 400 names the rule it refused (a
+// panel of another matrix, the same panel twice, a kind with no mailbox,
+// the cap) and 409 says the pair is already linked.
+func handleAddMatrixEdge(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			APanel string `json:"aPanel"`
+			BPanel string `json:"bPanel"`
+		}
+		if !decodeBody(w, r, &req) {
+			return
+		}
+		added, err := deps.Store.AddMatrixEdge(r.PathValue("id"), req.APanel, req.BPanel)
+		if err != nil {
+			writeMatrixErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, added)
+	}
+}
+
+// DELETE /api/matrices/{id}/edges/{edgeId} — 204, and the grant goes with
+// the row: the next contact read derives nothing from it. The feed carries
+// matrix.edge.removed with the new updatedAt.
+func handleRemoveMatrixEdge(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := deps.Store.RemoveMatrixEdge(r.PathValue("id"), r.PathValue("edgeId")); err != nil {
+			writeMatrixErr(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// DELETE /api/matrices/{id} — 204; the panels and their edges cascade in
+// the store.
 func handleDeleteMatrix(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := deps.Store.DeleteMatrix(r.PathValue("id")); err != nil {

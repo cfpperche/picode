@@ -7,6 +7,7 @@ import {
   canvasToGrid, gridToCanvas, layoutDiff, loadPolicy, neighborPanel, nextSlot, normalizeMatrix, normalizeMatrixDetail,
   normalizeMatrixList, normalizePanel, normalizeViewport, panelDefault, panelOrder, pointerAtZoom, pxToUnits, suspendedToDispose,
   buildRef, gitTouches, hasPane, parseRef, REF_OWNERS, tidyCanvas, validateRef, unitsToPx, validateCompact, validateMode, validateName, validatePanel, validatePlacement, viewportKey, zoomBody,
+  EDGE_KINDS, edgeEndpoints, normalizeEdge, normalizeEdgeList, validateEdge,
 } from "./matrix.js";
 
 const summary = (id, name, extra = {}) => ({
@@ -14,15 +15,18 @@ const summary = (id, name, extra = {}) => ({
 });
 const panel = (id, extra = {}) => ({ id, kind: "terminal", ref: "term-" + id, x: 0, y: 0, w: 4, h: 8, createdAt: "2026-09-09T10:00:00Z", ...extra });
 
-test("limits, modes and event types are the server's (ADR-0108, ADR-0113)", () => {
+test("limits, modes and event types are the server's (ADR-0108, ADR-0113, ADR-0116)", () => {
   assert.deepEqual({ ...MATRIX_LIMITS }, {
     matrices: 64, panels: 500, name: 80, cols: 12, minW: 4, minH: 8,
-    canvasMinW: 32, canvasMinH: 28, canvasMax: 4096, canvasCoord: 100000,
+    canvasMinW: 32, canvasMinH: 28, canvasMax: 4096, canvasCoord: 100000, edges: 1000,
   });
   assert.deepEqual([...MATRIX_MODES], ["grid", "canvas"]);
   assert.equal(UNIT_PX, 8);
-  assert.deepEqual([...MATRIX_EVENTS], ["matrix.created", "matrix.updated", "matrix.mode", "matrix.layout", "matrix.panel.added", "matrix.panel.removed", "matrix.deleted"]);
+  assert.deepEqual([...MATRIX_EVENTS], ["matrix.created", "matrix.updated", "matrix.mode", "matrix.layout", "matrix.panel.added", "matrix.panel.removed", "matrix.edge.added", "matrix.edge.removed", "matrix.deleted"]);
   for (const type of MATRIX_EVENTS) assert.equal(touches({ type }, ["matrix"]), true, type);
+  // Only a session has a mailbox: a note, a file or a diff cannot hold a
+  // contact, so it cannot be an endpoint (ADR-0116).
+  assert.deepEqual([...EDGE_KINDS], ["agent", "terminal"]);
 });
 
 test("normalizeMatrix keeps the summary fields and drops junk", () => {
@@ -816,4 +820,119 @@ test("neighborPanel and panelOrder read canvas units unchanged (the arrows are a
   // skips the panel it now overlaps. Canvas mode allows that; the switch
   // back packs it out (ADR-0113).
   assert.equal(neighborPanel(moved, "C", "down"), "F");
+});
+
+// ---- edges (ADR-0116) ----------------------------------------------------
+//
+// An edge is the owner's recorded intent that two sessions may exchange
+// messages. It grants exactly ADR-0104's mailbox contact — no transcript,
+// ever — and the client's only jobs are to normalize it, to refuse what the
+// server would refuse in the server's words, and to hand the canvas two
+// endpoints.
+
+const edge = (id, a, b, extra = {}) => ({ id, aPanel: a, bPanel: b, createdAt: "2026-09-10T10:00:00Z", ...extra });
+const agentPanel = (id) => panel(id, { kind: "agent", ref: "agent-" + id });
+const notePanel = (id) => panel(id, { kind: "note", ref: "pin-" + id });
+
+test("normalizeEdge takes an id and two different panels, and drops junk", () => {
+  assert.deepEqual(normalizeEdge({ ...edge("e1", "p1", "p2"), junk: 1 }), edge("e1", "p1", "p2"));
+  assert.equal(normalizeEdge(edge("e1", "p1", "p1")), null, "an edge to the same panel is not an edge");
+  assert.equal(normalizeEdge({ id: "e1", aPanel: "p1" }), null);
+  assert.equal(normalizeEdge({ aPanel: "p1", bPanel: "p2" }), null);
+  assert.equal(normalizeEdge(null), null);
+  assert.equal(normalizeEdge({ ...edge("e1", "p1", "p2"), createdAt: 7 }).createdAt, "");
+  assert.deepEqual(normalizeEdgeList({ edges: [edge("e1", "p1", "p2"), null, { id: "x" }] }), [edge("e1", "p1", "p2")]);
+  assert.deepEqual(normalizeEdgeList(null), []);
+});
+
+test("normalizeMatrixDetail carries the edges, and a payload from before ADR-0116 reads none", () => {
+  const d = normalizeMatrixDetail({
+    ...summary("m1", "Ops"), panels: [panel("p1"), agentPanel("p2")], edges: [edge("e1", "p1", "p2"), { bad: 1 }],
+  });
+  assert.deepEqual(d.edges, [edge("e1", "p1", "p2")]);
+  assert.deepEqual(normalizeMatrixDetail({ ...summary("m1", "Ops"), panels: [] }).edges, []);
+});
+
+test("validateEdge repeats the server's refusals, in the server's order", () => {
+  const panels = [panel("p1"), agentPanel("p2"), notePanel("p3")];
+  const edges = [edge("e1", "p1", "p2")];
+  // The two id rules hold with nothing else in hand.
+  assert.equal(validateEdge({ aPanel: "p1" }), "aPanel and bPanel are required");
+  assert.equal(validateEdge({ aPanel: " ", bPanel: "p2" }), "aPanel and bPanel are required");
+  assert.equal(validateEdge({ aPanel: "p1", bPanel: "p1" }), "an edge needs two different panels");
+  assert.equal(validateEdge({ aPanel: "p1", bPanel: "p9" }), "", "without the panels there is nothing more to judge");
+  // With the panels: both must be on this matrix and have a mailbox.
+  assert.equal(validateEdge({ aPanel: "p1", bPanel: "p9" }, panels), "panel p9 is not on this matrix");
+  assert.equal(validateEdge({ aPanel: "p1", bPanel: "p3" }, panels), "panel p3 is a note panel and has no mailbox: an edge links agent or terminal panels");
+  assert.equal(validateEdge({ aPanel: "p1", bPanel: "p2" }, panels), "", "agent + terminal is the pair an edge links");
+  // With the edges: the cap, then the pair that is already linked — in
+  // either direction, because the server stores the pair ordered.
+  assert.equal(validateEdge({ aPanel: "p1", bPanel: "p2" }, panels, edges), "These panels are already linked");
+  assert.equal(validateEdge({ aPanel: "p2", bPanel: "p1" }, panels, edges), "These panels are already linked");
+  assert.equal(validateEdge({ aPanel: "p1", bPanel: "p2" }, panels, []), "");
+  const full = Array.from({ length: MATRIX_LIMITS.edges }, (_, i) => edge("e" + i, "a" + i, "b" + i));
+  assert.equal(validateEdge({ aPanel: "p1", bPanel: "p2" }, panels, full), `limit: ${MATRIX_LIMITS.edges} edges per matrix`);
+});
+
+test("edgeEndpoints is the canvas's pair, or null when an end is not on the board", () => {
+  const panels = [panel("p1"), agentPanel("p2")];
+  const ends = edgeEndpoints(edge("e1", "p1", "p2"), panels);
+  assert.equal(ends.a.id, "p1");
+  assert.equal(ends.b.id, "p2");
+  assert.equal(edgeEndpoints(edge("e1", "p1", "gone"), panels), null);
+  assert.equal(edgeEndpoints(edge("e1", "gone", "p2"), panels), null);
+  assert.equal(edgeEndpoints(edge("e1", "p1", "p2"), []), null);
+  assert.equal(edgeEndpoints(null, panels), null);
+  assert.equal(edgeEndpoints(edge("e1", "p1", "p1"), panels), null);
+});
+
+test("applyMatrixEvent reduces matrix.edge.added and matrix.edge.removed", () => {
+  const entry = { matrix: summary("m1", "Ops", { panelCount: 2 }), panels: [panel("p1"), agentPanel("p2")], edges: [] };
+  let s = { list: [summary("m1", "Ops", { panelCount: 2 })], byId: { m1: entry } };
+  s = applyMatrixEvent(s, { type: "matrix.edge.added", data: { id: "m1", updatedAt: "t2", edge: edge("e1", "p1", "p2") } });
+  assert.deepEqual(s.byId.m1.edges, [edge("e1", "p1", "p2")]);
+  assert.equal(s.byId.m1.matrix.updatedAt, "t2");
+  assert.deepEqual(entry.edges, [], "the previous state is not mutated");
+  // The same id again replaces the row instead of doubling it.
+  s = applyMatrixEvent(s, { type: "matrix.edge.added", data: { id: "m1", updatedAt: "t3", edge: edge("e1", "p1", "p2") } });
+  assert.equal(s.byId.m1.edges.length, 1);
+  // Junk is ignored.
+  assert.equal(applyMatrixEvent(s, { type: "matrix.edge.added", data: { id: "m1", edge: { id: "e2" } } }), s);
+  assert.equal(applyMatrixEvent(s, { type: "matrix.edge.removed", data: { id: "m1" } }), s);
+
+  s = applyMatrixEvent(s, { type: "matrix.edge.removed", data: { id: "m1", updatedAt: "t4", edgeId: "e1" } });
+  assert.deepEqual(s.byId.m1.edges, []);
+  assert.equal(s.byId.m1.matrix.updatedAt, "t4");
+  // A matrix that is not loaded only stamps its summary; the panel count is
+  // an edge's business never.
+  const unloaded = applyMatrixEvent({ list: [summary("m2", "Two", { panelCount: 3 })], byId: {} },
+    { type: "matrix.edge.added", data: { id: "m2", updatedAt: "t9", edge: edge("e3", "p1", "p2") } });
+  assert.equal(unloaded.list[0].updatedAt, "t9");
+  assert.equal(unloaded.list[0].panelCount, 3);
+  assert.deepEqual(unloaded.byId, {});
+});
+
+test("an edge does not outlive its panel, and every other event keeps the edges", () => {
+  const held = [edge("e1", "p1", "p2"), edge("e2", "p2", "p3")];
+  const base = () => ({
+    list: [summary("m1", "Ops", { panelCount: 3 })],
+    byId: { m1: { matrix: summary("m1", "Ops", { panelCount: 3 }), panels: [panel("p1"), agentPanel("p2"), agentPanel("p3")], edges: held } },
+  });
+  // The store cascades an edge away with its panel and announces no event
+  // per edge, so the reducer drops exactly the edges that touched it.
+  const removed = applyMatrixEvent(base(), { type: "matrix.panel.removed", data: { id: "m1", updatedAt: "t2", panelId: "p2" } });
+  assert.deepEqual(removed.byId.m1.edges, []);
+  const one = applyMatrixEvent(base(), { type: "matrix.panel.removed", data: { id: "m1", updatedAt: "t2", panelId: "p1" } });
+  assert.deepEqual(one.byId.m1.edges, [edge("e2", "p2", "p3")]);
+  // Every other event leaves them alone.
+  for (const ev of [
+    { type: "matrix.updated", data: { ...summary("m1", "Ops board"), updatedAt: "t2" } },
+    { type: "matrix.layout", data: { id: "m1", updatedAt: "t2", panels: [{ id: "p1", x: 4, y: 0, w: 4, h: 8 }] } },
+    { type: "matrix.mode", data: { ...summary("m1", "Ops", { mode: "canvas" }), updatedAt: "t2", panels: [] } },
+    { type: "matrix.panel.added", data: { id: "m1", updatedAt: "t2", panel: agentPanel("p4") } },
+  ]) {
+    assert.deepEqual(applyMatrixEvent(base(), ev).byId.m1.edges, held, ev.type);
+  }
+  // And a deleted matrix takes its entry, edges included.
+  assert.deepEqual(Object.keys(applyMatrixEvent(base(), { type: "matrix.deleted", data: { id: "m1" } }).byId), []);
 });

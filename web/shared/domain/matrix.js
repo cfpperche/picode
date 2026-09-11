@@ -1,10 +1,10 @@
-// Matrix (ADR-0108, ADR-0113): the client side of the store's contract.
+// Matrix (ADR-0108, ADR-0113, ADR-0116): the client side of the store's contract.
 // Pure — no React, no fetch. normalize* turn the API's JSON into the shapes the
 // surface holds (junk dropped, the way contracts/appPrimitives.js does);
 // validate* refuse what the server would refuse, in the server's words, so
 // the UI never asks a question it knows the answer to; applyMatrixEvent
-// reduces the seven feed events over { list: [summaries], byId: { id:
-// { matrix, panels } } }. touches(ev, ["matrix"]) in feedReducers.js keys
+// reduces the nine feed events over { list: [summaries], byId: { id:
+// { matrix, panels, edges } } }. touches(ev, ["matrix"]) in feedReducers.js keys
 // on the prefix before the first dot, so matrix.panel.* reaches the
 // surface with the rest. The surface's arithmetic lives here too (plan
 // docs/plans/matrix-app.md §4.3–§4.6): nextSlot, layoutDiff, bindingState,
@@ -26,6 +26,10 @@ export const MATRIX_LIMITS = Object.freeze({
   canvasMinH: 28, // units (224 px)
   canvasMax: 4096, // units, w and h
   canvasCoord: 100000, // units, |x| and |y|
+  // Edges (ADR-0116): a link is cheaper than a panel and a dense board
+  // draws more of them than it holds panels, so the cap is twice the
+  // panel cap.
+  edges: 1000, // per matrix
 });
 
 // One canvas unit in CSS pixels — the grid's own 8 px margin, so snapGrid
@@ -52,6 +56,8 @@ export const MATRIX_EVENTS = Object.freeze([
   "matrix.layout",
   "matrix.panel.added",
   "matrix.panel.removed",
+  "matrix.edge.added",
+  "matrix.edge.removed",
   "matrix.deleted",
 ]);
 
@@ -59,6 +65,14 @@ export const MATRIX_EVENTS = Object.freeze([
 // can refuse before asking and read a 400 back as the same sentence.
 const KIND_MSG = "kind must be agent, terminal, note, file or diff";
 const REF_MSG = "ref must be <owner>:<id>:<path> with owner t, a or w";
+// Edges (internal/store/matrix_edges.go), same rule.
+const EDGE_BOTH_MSG = "aPanel and bPanel are required";
+const EDGE_SAME_MSG = "an edge needs two different panels";
+const EDGE_DUP_MSG = "These panels are already linked";
+const EDGE_KINDS_MSG = "an edge links agent or terminal panels";
+// The kinds that have a mailbox at all — a note, a file or a diff is not a
+// session, so it cannot hold ADR-0104's contact.
+export const EDGE_KINDS = Object.freeze(["agent", "terminal"]);
 
 const str = (v) => (typeof v === "string" ? v : "");
 const nonEmpty = (v) => typeof v === "string" && v !== "";
@@ -150,13 +164,31 @@ export function normalizePanel(p) {
   return { id: p.id, kind: p.kind, ref, x, y, w, h, createdAt: str(p.createdAt) };
 }
 
-// normalizeMatrixDetail(GET /api/matrices/{id}) -> { matrix, panels } | null.
-// The count follows the panels that survived normalization.
+// normalizeEdge(json) -> edge | null. An edge (ADR-0116) is an undirected
+// link between two panels of one matrix; the server stores the pair ordered
+// (aPanel < bPanel) so the same edge drawn either way is one row. Whether
+// the two panels are still on the board is edgeEndpoints' answer, not this
+// one — a normalizer drops junk, never data.
+export function normalizeEdge(e) {
+  if (!e || typeof e !== "object" || !nonEmpty(e.id) || !nonEmpty(e.aPanel) || !nonEmpty(e.bPanel)) return null;
+  if (e.aPanel === e.bPanel) return null;
+  return { id: e.id, aPanel: e.aPanel, bPanel: e.bPanel, createdAt: str(e.createdAt) };
+}
+
+// normalizeEdgeList(GET /api/matrices/{id}/edges) -> edges.
+export function normalizeEdgeList(payload) {
+  const list = Array.isArray(payload?.edges) ? payload.edges : [];
+  return list.map(normalizeEdge).filter(Boolean);
+}
+
+// normalizeMatrixDetail(GET /api/matrices/{id}) -> { matrix, panels, edges }
+// | null. The count follows the panels that survived normalization; a
+// payload from before ADR-0116 carries no edges and reads as none.
 export function normalizeMatrixDetail(d) {
   const m = normalizeMatrix(d);
   if (!m) return null;
   const panels = (Array.isArray(d.panels) ? d.panels : []).map(normalizePanel).filter(Boolean);
-  return { matrix: { ...m, panelCount: panels.length }, panels };
+  return { matrix: { ...m, panelCount: panels.length }, panels, edges: normalizeEdgeList(d) };
 }
 
 // validateName(name) -> "" | the server's refusal.
@@ -207,6 +239,54 @@ export function validatePlacement(rect, mode = "grid") {
   return "";
 }
 
+// panelById(panels, id) -> the panel or undefined.
+const panelById = (panels, id) => (Array.isArray(panels) ? panels.find((p) => p && p.id === id) : undefined);
+
+// validateEdge({aPanel, bPanel}, panels, edges) -> "" | the server's
+// refusal, in the server's words and the server's order
+// (internal/store/matrix_edges.go): both ids, two different panels, both on
+// this matrix, both a kind that has a mailbox, then the cap and the pair
+// that is already linked. `panels` and `edges` are what the client already
+// holds for that matrix; leave them out and only the two id rules are
+// checked, because the rest cannot be judged without them.
+//
+// What an edge grants is ADR-0104's mailbox contact and nothing else — no
+// transcript, ever. The UI must never say otherwise.
+export function validateEdge(edge, panels, edges) {
+  const a = str(edge && edge.aPanel).trim();
+  const b = str(edge && edge.bPanel).trim();
+  if (!a || !b) return EDGE_BOTH_MSG;
+  if (a === b) return EDGE_SAME_MSG;
+  if (!Array.isArray(panels)) return "";
+  for (const id of [a, b]) {
+    const panel = panelById(panels, id);
+    if (!panel) return `panel ${id} is not on this matrix`;
+    if (!EDGE_KINDS.includes(panel.kind)) return `panel ${id} is a ${panel.kind} panel and has no mailbox: ${EDGE_KINDS_MSG}`;
+  }
+  if (!Array.isArray(edges)) return "";
+  if (edges.length >= MATRIX_LIMITS.edges) return `limit: ${MATRIX_LIMITS.edges} edges per matrix`;
+  return edges.some((e) => linksSamePair(e, a, b)) ? EDGE_DUP_MSG : "";
+}
+
+// linksSamePair(edge, a, b) -> is this the same undirected link? The server
+// stores the pair ordered, so a client that sends it backwards gets the
+// 409; this is how the UI refuses first.
+function linksSamePair(e, a, b) {
+  return !!e && ((e.aPanel === a && e.bPanel === b) || (e.aPanel === b && e.bPanel === a));
+}
+
+// edgeEndpoints(edge, panels) -> { a, b } | null: the two panels an edge
+// joins, in the edge's stored order, or null when either end is not on the
+// board. The canvas draws from these two rectangles, and null is exactly
+// the case it must not draw — an endpoint the client has not got.
+export function edgeEndpoints(edge, panels) {
+  const e = normalizeEdge(edge);
+  if (!e) return null;
+  const a = panelById(panels, e.aPanel);
+  const b = panelById(panels, e.bPanel);
+  return a && b ? { a, b } : null;
+}
+
 // validatePanel({kind, ref, x, y, w, h}, mode) -> "" | the server's refusal,
 // in the server's order: binding first, then the rectangle of that mode.
 export function validatePanel(panel, mode = "grid") {
@@ -255,12 +335,19 @@ function movePanels(panels, subset, mode) {
   return panels.map((p) => (to.has(p.id) ? { ...p, ...to.get(p.id) } : p));
 }
 
+// edgesOf(entry) -> the edges a loaded matrix holds. A byId entry is
+// { matrix, panels, edges }; `edges` arrived with ADR-0116, so an entry
+// built before it reads as none.
+const edgesOf = (loaded) => (loaded && Array.isArray(loaded.edges) ? loaded.edges : []);
+
 // applyMatrixEvent(state, ev) -> next | same. state is { list, byId };
 // an event for a matrix that is not loaded (no byId entry) only touches
 // the summary list. Unknown types and junk return the same object. A
 // rectangle is judged by the mode it belongs to: matrix.mode carries the
 // new mode with the panels it moved, matrix.layout the mode the loaded
-// matrix already has.
+// matrix already has. The two edge events carry ids only (ADR-0048), and
+// matrix.panel.removed drops the edges that touched the panel — the store
+// cascades them in the same transaction and announces no event each.
 export function applyMatrixEvent(state, ev) {
   const s = state || EMPTY;
   const list = Array.isArray(s.list) ? s.list : [];
@@ -276,14 +363,14 @@ export function applyMatrixEvent(state, ev) {
     case "matrix.updated": {
       const m = normalizeMatrix(d);
       if (!m) return s;
-      const nextById = loaded ? { ...byId, [id]: { matrix: { ...m, panelCount: loaded.panels.length }, panels: loaded.panels } } : byId;
+      const nextById = loaded ? { ...byId, [id]: { matrix: { ...m, panelCount: loaded.panels.length }, panels: loaded.panels, edges: edgesOf(loaded) } } : byId;
       return finish(s, upsertSummary(list, m), nextById);
     }
     case "matrix.layout": {
       const nextList = patchSummary(list, id, stamp);
       if (!loaded) return finish(s, nextList, byId);
       const panels = movePanels(loaded.panels, d.panels, loaded.matrix.mode);
-      return finish(s, nextList, { ...byId, [id]: { matrix: stamp(loaded.matrix), panels } });
+      return finish(s, nextList, { ...byId, [id]: { matrix: stamp(loaded.matrix), panels, edges: edgesOf(loaded) } });
     }
     // The switch answers with the summary (carrying the new mode) plus
     // exactly the panels it moved, so one frame is one reducer step: the
@@ -294,7 +381,7 @@ export function applyMatrixEvent(state, ev) {
       if (!m) return s;
       if (!loaded) return finish(s, upsertSummary(list, m), byId);
       const panels = movePanels(loaded.panels, d.panels, m.mode);
-      return finish(s, upsertSummary(list, m), { ...byId, [id]: { matrix: { ...m, panelCount: panels.length }, panels } });
+      return finish(s, upsertSummary(list, m), { ...byId, [id]: { matrix: { ...m, panelCount: panels.length }, panels, edges: edgesOf(loaded) } });
     }
     case "matrix.panel.added": {
       const panel = normalizePanel(d.panel);
@@ -304,15 +391,35 @@ export function applyMatrixEvent(state, ev) {
         ? loaded.panels.map((p) => (p.id === panel.id ? panel : p))
         : [...loaded.panels, panel];
       const count = (m) => ({ ...stamp(m), panelCount: panels.length });
-      return finish(s, patchSummary(list, id, count), { ...byId, [id]: { matrix: count(loaded.matrix), panels } });
+      return finish(s, patchSummary(list, id, count), { ...byId, [id]: { matrix: count(loaded.matrix), panels, edges: edgesOf(loaded) } });
     }
     case "matrix.panel.removed": {
       const panelId = str(d.panelId);
       if (!panelId) return s;
       if (!loaded) return finish(s, patchSummary(list, id, (m) => ({ ...stamp(m), panelCount: Math.max(0, m.panelCount - 1) })), byId);
       const panels = loaded.panels.filter((p) => p.id !== panelId);
+      // The store's cascade, mirrored: an edge to a panel that is gone
+      // grants nothing and must not be drawn.
+      const edges = edgesOf(loaded).filter((e) => e.aPanel !== panelId && e.bPanel !== panelId);
       const count = (m) => ({ ...stamp(m), panelCount: panels.length });
-      return finish(s, patchSummary(list, id, count), { ...byId, [id]: { matrix: count(loaded.matrix), panels } });
+      return finish(s, patchSummary(list, id, count), { ...byId, [id]: { matrix: count(loaded.matrix), panels, edges } });
+    }
+    case "matrix.edge.added": {
+      const edge = normalizeEdge(d.edge);
+      if (!edge) return s;
+      const nextList = patchSummary(list, id, stamp);
+      if (!loaded) return finish(s, nextList, byId);
+      const held = edgesOf(loaded);
+      const edges = held.some((e) => e.id === edge.id) ? held.map((e) => (e.id === edge.id ? edge : e)) : [...held, edge];
+      return finish(s, nextList, { ...byId, [id]: { matrix: stamp(loaded.matrix), panels: loaded.panels, edges } });
+    }
+    case "matrix.edge.removed": {
+      const edgeId = str(d.edgeId);
+      if (!edgeId) return s;
+      const nextList = patchSummary(list, id, stamp);
+      if (!loaded) return finish(s, nextList, byId);
+      const edges = edgesOf(loaded).filter((e) => e.id !== edgeId);
+      return finish(s, nextList, { ...byId, [id]: { matrix: stamp(loaded.matrix), panels: loaded.panels, edges } });
     }
     case "matrix.deleted": {
       const nextList = list.some((m) => m.id === id) ? list.filter((m) => m.id !== id) : list;

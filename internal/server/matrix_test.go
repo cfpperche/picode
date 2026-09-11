@@ -697,3 +697,179 @@ func TestMatrixCanvasPanelStatuses(t *testing.T) {
 		t.Fatalf("events = %v, want %v", got, want)
 	}
 }
+
+// ---- edges (ADR-0116) ----------------------------------------------------
+//
+// An edge grants exactly ADR-0104's mailbox contact: the owner API is the
+// only way one is drawn, and these rows are its decision table at the HTTP
+// boundary. What the grant *means* is proved in the store
+// (internal/store/matrix_edges_test.go); here it is statuses, shapes,
+// messages and events.
+
+func addEdgeReq(t *testing.T, ts *httptest.Server, id, a, b string) (int, map[string]any) {
+	t.Helper()
+	return matrixReq(t, ts, http.MethodPost, "/api/matrices/"+id+"/edges", map[string]any{"aPanel": a, "bPanel": b})
+}
+
+func edgeList(t *testing.T, ts *httptest.Server, id string) []any {
+	t.Helper()
+	code, out := matrixReq(t, ts, http.MethodGet, "/api/matrices/"+id+"/edges", nil)
+	if code != http.StatusOK {
+		t.Fatalf("GET edges = %d %v", code, out)
+	}
+	list, _ := out["edges"].([]any)
+	if list == nil {
+		t.Fatalf("GET edges has no list: %v", out)
+	}
+	return list
+}
+
+// Rows: an edge between two agent/terminal panels (201, event, both
+// directions dedupe to one row), the reverse (409 "already linked"), the
+// list, the matrix read that carries it, and the removal (204, event) that
+// takes the grant with it.
+func TestMatrixEdgeRoutes(t *testing.T) {
+	ts, st := matrixServer(t)
+	m := newMatrix(t, ts, "Ops")
+	id := m["id"].(string)
+	term, _ := mustPanel(t, ts, id, "terminal", "term-1", 0, 0, 4, 8)
+	agent, upd := mustPanel(t, ts, id, "agent", "agent-1", 4, 0, 4, 8)
+
+	// Drawn from the agent to the terminal; the store orders the pair.
+	code, added := addEdgeReq(t, ts, id, agent, term)
+	if code != http.StatusCreated || added["id"] != id || added["updatedAt"] == upd {
+		t.Fatalf("add edge = %d %v", code, added)
+	}
+	edge := added["edge"].(map[string]any)
+	eid := edge["id"].(string)
+	lo, hi := term, agent
+	if lo > hi {
+		lo, hi = hi, lo
+	}
+	if edge["aPanel"] != lo || edge["bPanel"] != hi || edge["createdAt"] == "" {
+		t.Fatalf("edge = %v, want ordered (%s, %s)", edge, lo, hi)
+	}
+
+	// The same pair drawn backwards is the 409, and the message is the one
+	// the client repeats.
+	if code, out := addEdgeReq(t, ts, id, term, agent); code != http.StatusConflict || !strings.Contains(errorOf(out), "already linked") {
+		t.Fatalf("reverse edge = %d %v", code, out)
+	}
+	if list := edgeList(t, ts, id); len(list) != 1 {
+		t.Fatalf("edges = %v, want one row", list)
+	}
+	// One read still opens a matrix.
+	d := matrixDetail(t, ts, id)
+	edges, _ := d["edges"].([]any)
+	if len(edges) != 1 || edges[0].(map[string]any)["id"] != eid {
+		t.Fatalf("detail edges = %v", d["edges"])
+	}
+
+	if code, out := matrixReq(t, ts, http.MethodDelete, "/api/matrices/"+id+"/edges/"+eid, nil); code != http.StatusNoContent {
+		t.Fatalf("remove edge = %d %v", code, out)
+	}
+	if list := edgeList(t, ts, id); len(list) != 0 {
+		t.Fatalf("edges after removal = %v", list)
+	}
+	if code, out := matrixReq(t, ts, http.MethodDelete, "/api/matrices/"+id+"/edges/"+eid, nil); code != http.StatusNotFound || !strings.Contains(errorOf(out), "edge not found") {
+		t.Fatalf("remove twice = %d %v", code, out)
+	}
+	want := []string{"matrix.created", "matrix.panel.added", "matrix.panel.added", "matrix.edge.added", "matrix.edge.removed"}
+	if got := eventTypes(matrixEvents(t, st)); !reflect.DeepEqual(got, want) {
+		t.Fatalf("events = %v, want %v", got, want)
+	}
+}
+
+// Rows: the same panel twice, a panel of another matrix, a note panel (the
+// message names the kind), a matrix that does not exist, and a body that is
+// not JSON. Each is the status the client acts on and the sentence it shows.
+func TestMatrixEdgeRefusalRoutes(t *testing.T) {
+	ts, _ := matrixServer(t)
+	m := newMatrix(t, ts, "Ops")
+	id := m["id"].(string)
+	other := newMatrix(t, ts, "Other")["id"].(string)
+	term, _ := mustPanel(t, ts, id, "terminal", "term-1", 0, 0, 4, 8)
+	agent, _ := mustPanel(t, ts, id, "agent", "agent-1", 4, 0, 4, 8)
+	note, _ := mustPanel(t, ts, id, "note", "pin-1", 8, 0, 4, 8)
+	elsewhere, _ := mustPanel(t, ts, other, "agent", "agent-2", 0, 0, 4, 8)
+
+	for _, c := range []struct {
+		name, a, b string
+		status     int
+		want       string
+	}{
+		{"the same panel twice", term, term, http.StatusBadRequest, "an edge needs two different panels"},
+		{"a missing id", term, "", http.StatusBadRequest, "aPanel and bPanel are required"},
+		{"a panel from another matrix", term, elsewhere, http.StatusBadRequest, "is not on this matrix"},
+		{"a note panel", agent, note, http.StatusBadRequest, "is a note panel and has no mailbox"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			code, out := addEdgeReq(t, ts, id, c.a, c.b)
+			if code != c.status || !strings.Contains(errorOf(out), c.want) {
+				t.Fatalf("= %d %v, want %d containing %q", code, out, c.status, c.want)
+			}
+		})
+	}
+	t.Run("a matrix that does not exist", func(t *testing.T) {
+		if code, out := addEdgeReq(t, ts, "matrix-nope", term, agent); code != http.StatusNotFound {
+			t.Fatalf("= %d %v", code, out)
+		}
+		if code, out := matrixReq(t, ts, http.MethodGet, "/api/matrices/matrix-nope/edges", nil); code != http.StatusNotFound {
+			t.Fatalf("GET = %d %v", code, out)
+		}
+		if code, out := matrixReq(t, ts, http.MethodDelete, "/api/matrices/matrix-nope/edges/edge-x", nil); code != http.StatusNotFound {
+			t.Fatalf("DELETE = %d %v", code, out)
+		}
+	})
+	if list := edgeList(t, ts, id); len(list) != 0 {
+		t.Fatalf("a refusal wrote a row: %v", list)
+	}
+}
+
+// Row: removing a panel takes its edges with it (the store cascades; the
+// feed carries matrix.panel.removed and no event per edge, so the client
+// drops them the same way).
+func TestMatrixEdgeFollowsItsPanel(t *testing.T) {
+	ts, _ := matrixServer(t)
+	id := newMatrix(t, ts, "Ops")["id"].(string)
+	term, _ := mustPanel(t, ts, id, "terminal", "term-1", 0, 0, 4, 8)
+	agent, _ := mustPanel(t, ts, id, "agent", "agent-1", 4, 0, 4, 8)
+	if code, out := addEdgeReq(t, ts, id, term, agent); code != http.StatusCreated {
+		t.Fatalf("add edge = %d %v", code, out)
+	}
+	if code, out := matrixReq(t, ts, http.MethodDelete, "/api/matrices/"+id+"/panels/"+term, nil); code != http.StatusNoContent {
+		t.Fatalf("remove panel = %d %v", code, out)
+	}
+	if list := edgeList(t, ts, id); len(list) != 0 {
+		t.Fatalf("edges outlived their panel: %v", list)
+	}
+}
+
+// Row: the cap is reached → 400 naming it. The fill is a fixture (the store
+// is the same writer the route uses); the last edge is the route's answer.
+func TestMatrixEdgeCapRoute(t *testing.T) {
+	ts, st := matrixServer(t)
+	id := newMatrix(t, ts, "Ops")["id"].(string)
+	const n = 46 // n*(n-1)/2 = 1035 pairs > the cap
+	panels := make([]string, 0, n)
+	for i := range n {
+		p, err := st.AddMatrixPanel(id, "terminal", fmt.Sprintf("term-%d", i), 0, 0, 4, 8)
+		if err != nil {
+			t.Fatalf("panel %d: %v", i, err)
+		}
+		panels = append(panels, p.Panel.ID)
+	}
+	drawn := 0
+	for i := 0; i < n && drawn < store.MaxMatrixEdges; i++ {
+		for j := i + 1; j < n && drawn < store.MaxMatrixEdges; j++ {
+			if _, err := st.AddMatrixEdge(id, panels[i], panels[j]); err != nil {
+				t.Fatalf("fill (%d,%d): %v", i, j, err)
+			}
+			drawn++
+		}
+	}
+	code, out := addEdgeReq(t, ts, id, panels[n-2], panels[n-1])
+	if code != http.StatusBadRequest || !strings.Contains(errorOf(out), fmt.Sprintf("limit: %d edges per matrix", store.MaxMatrixEdges)) {
+		t.Fatalf("at the cap = %d %v", code, out)
+	}
+}

@@ -1,4 +1,4 @@
-# Matrix (ADR-0108, ADR-0113)
+# Matrix (ADR-0108, ADR-0113, ADR-0116)
 
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
@@ -12,7 +12,7 @@ amending ADR-0108): the 12-column grid it shipped with, or a canvas plane
 — the **Modes** section below. The canvas surface itself is C2 of
 `docs/plans/matrix-canvas.md` and is the **Canvas** part of that section.
 
-**Data model (migrations 041 and 043).** `matrices(id, name, compact, mode,
+**Data model (migrations 041, 043 and 044).** `matrices(id, name, compact, mode,
 created_at, updated_at)` and `matrix_panels(id, matrix_id → matrices ON DELETE
 CASCADE, kind, ref, x, y, w, h, created_at, UNIQUE(matrix_id, kind,
 ref))`. One row per panel, never one blob: a drag rewrites the rows that
@@ -30,7 +30,9 @@ and not stored. `updated_at` (RFC 3339 UTC, nanoseconds) bumps on every
 mutation and is the optimistic-concurrency key. The store
 (`internal/store/matrix.go`) is the only writer; every mutation is one
 transaction with its event appended inside it (ADR-0048), one row per
-mutator in `TestEveryMutationAppendsAnEvent`.
+mutator in `TestEveryMutationAppendsAnEvent`. A third table, `matrix_edges`
+(migration 044), links two panels of one matrix — the **Edges** section
+below, and ADR-0116 for what it grants.
 
 **Kinds** (ADR-0108; the bodies past a live pane are C3 of
 `docs/plans/matrix-canvas.md` §4.2). `kind` is an open text column, so a
@@ -64,13 +66,16 @@ carries, so the client has one reducer path for a response and a frame.
 |---|---|
 | `GET /api/matrices` | `{matrices: [summary]}` — `id, name, compact, mode, createdAt, updatedAt, panelCount`, by name (ASCII case-folded), then creation |
 | `POST /api/matrices {name}` | 201 summary; 400 with the limit named |
-| `GET /api/matrices/{id}` | 200 summary + `panels: [{id, kind, ref, x, y, w, h, createdAt}]` (one read on open; 500 panels ≈ 50 KB) |
+| `GET /api/matrices/{id}` | 200 summary + `panels: [{id, kind, ref, x, y, w, h, createdAt}]` + `edges: [{id, aPanel, bPanel, createdAt}]` (one read on open; 500 panels ≈ 50 KB, an edge is four short strings) |
 | `PATCH /api/matrices/{id} {name?, compact?, mode?, ifUpdatedAt}` | 200 summary; 400 on an empty patch or a broken rule; 409 when the row moved on |
 | …the same route when `mode` changes it | 200 summary **plus** `panels: [{id, x, y, w, h}]` — every panel the switch moved, the shape the layout patch answers with, so the client has one reducer path. Same mode: the untouched summary, `panels: []`, no event, `updatedAt` unchanged. Unknown mode: 400 "mode must be grid or canvas". A `name`/`compact` in the same body is applied first (its own `matrix.updated`), so a broken one refuses the patch before the switch |
 | `PATCH /api/matrices/{id}/layout {ifUpdatedAt, panels: [{id, x, y, w, h}]}` | the changed subset, one transaction, all or nothing, every rectangle judged by the matrix's current mode; 200 `{id, updatedAt, panels}`; 409 when stale |
 | `POST /api/matrices/{id}/panels {kind, ref, x, y, w, h}` | the client places (`nextSlot`, phase 3), the server validates against the matrix's current mode; 201 `{id, updatedAt, panel}`; 409 on a duplicate binding |
-| `DELETE /api/matrices/{id}/panels/{panelId}` | 204; the feed carries the new `updatedAt` |
-| `DELETE /api/matrices/{id}` | 204; the panels cascade |
+| `DELETE /api/matrices/{id}/panels/{panelId}` | 204; the feed carries the new `updatedAt`, and the panel's edges go with it |
+| `GET /api/matrices/{id}/edges` | `{edges: [{id, aPanel, bPanel, createdAt}]}`, oldest first — the audit list, which wants the edges without the panels |
+| `POST /api/matrices/{id}/edges {aPanel, bPanel}` | 201 `{id, updatedAt, edge}`; the store orders the pair, so either direction is the same row; 400 names the rule (another matrix's panel, the same panel twice, a kind with no mailbox, the cap); 409 "These panels are already linked" |
+| `DELETE /api/matrices/{id}/edges/{edgeId}` | 204, and the grant goes with the row; 404 when it is already gone |
+| `DELETE /api/matrices/{id}` | 204; the panels and their edges cascade |
 
 `ifUpdatedAt` may also travel as an `If-Match` header (the pins
 convention); empty means no precondition. Adding or removing a panel takes
@@ -124,17 +129,22 @@ with the rest):
 | `matrix.mode` | the summary (with the new mode) + `panels: [the subset the switch moved]` |
 | `matrix.layout` | `{id, updatedAt, panels: [the subset that moved]}` |
 | `matrix.panel.added` | `{id, updatedAt, panel}` |
-| `matrix.panel.removed` | `{id, updatedAt, panelId}` |
-| `matrix.deleted` | `{id}` — the panels go with it, without an event each |
+| `matrix.panel.removed` | `{id, updatedAt, panelId}` — the panel's edges go with it, without an event each |
+| `matrix.edge.added` | `{id, updatedAt, edge}` |
+| `matrix.edge.removed` | `{id, updatedAt, edgeId}` |
+| `matrix.deleted` | `{id}` — the panels and edges go with it, without an event each |
 
 **Client contract** (`web/shared/domain/matrix.js`, pure): `MATRIX_LIMITS`,
 `MATRIX_KINDS`, `PANE_STATES` / `hasPane`, `MATRIX_COMPACT`, `MATRIX_MODES`, `MATRIX_EVENTS`,
-`UNIT_PX` (8); `normalizeMatrix`,
-`normalizeMatrixList`, `normalizePanel`, `normalizeMatrixDetail` drop junk
+`UNIT_PX` (8), `EDGE_KINDS`; `normalizeMatrix`,
+`normalizeMatrixList`, `normalizePanel`, `normalizeEdge`,
+`normalizeEdgeList`, `normalizeMatrixDetail` drop junk
 the way `contracts/appPrimitives.js` does (a panel without a whole
-rectangle or a known binding is dropped); `applyMatrixEvent(state, ev)`
-reduces the seven events over `{ list: [summaries], byId: { id: { matrix,
-panels } } }` — an event for a matrix that is not loaded only touches the
+rectangle or a known binding is dropped); `validateEdge(edge, panels,
+edges)` and `edgeEndpoints(edge, panels)` are the **Edges** section below;
+`applyMatrixEvent(state, ev)`
+reduces the nine events over `{ list: [summaries], byId: { id: { matrix,
+panels, edges } } }` — an event for a matrix that is not loaded only touches the
 summary list, a `created`/`updated` for a matrix the list never saw
 inserts it (the summary is complete), the list stays sorted by name, and
 junk or an unknown type returns the same object. Every rectangle is judged
@@ -178,6 +188,108 @@ Decision table (every row has a store or handler test —
 | delete matrix | ok | 204; panels gone (cascade proven by a query); `matrix.deleted` |
 | any | unknown matrix id | 404 |
 | agent or terminal deleted elsewhere | — | matrices and panels untouched (the panel row survives) |
+
+## Edges (ADR-0116)
+
+An edge is the owner's recorded intent that two sessions may exchange
+messages. **It grants exactly ADR-0104's mailbox contact, and nothing
+else**: an edge never lets one session read another's session file,
+scrollback, buffer or history — **no transcript, ever**. The supported way
+to get context out of another session is to ask it, and let it answer under
+its own judgment.
+
+**Table** (migration 044):
+
+```
+matrix_edges(id, matrix_id → matrices ON DELETE CASCADE,
+             a_panel → matrix_panels ON DELETE CASCADE,
+             b_panel → matrix_panels ON DELETE CASCADE,
+             created_at, UNIQUE(matrix_id, a_panel, b_panel))
+```
+
+The pair is stored **ordered** (`a_panel < b_panel`, sorted before the
+write), so the same edge drawn in either direction collides on the unique
+index: an undirected edge is one row, and there is no direction column —
+an arrow would promise a one-way restriction the mailbox cannot keep.
+Endpoints are **panels**, not sessions: a panel already carries its own
+`(kind, ref)`, and re-pointing a panel is a new binding that must be drawn
+again. Both foreign keys cascade, so an edge cannot outlive the matrix or
+either panel — the grant follows the line you can see. The unique index
+leads with `matrix_id` (the per-matrix read and the cascade from
+`matrices`); each endpoint has its own index, because the cascade from
+`matrix_panels` and the contact union both look a panel up as an *endpoint*.
+Cap: **1000 edges per matrix**, refused with the limit named.
+
+**Who may draw one.** Only the owner, in the browser, through the
+authenticated owner API. **The MCP surface gains no verb** — no tool in
+`internal/communication` creates, lists or implies an edge, so an agent can
+neither draw one nor discover that one could exist
+(`TestMCPSurfaceGainsNoEdgeVerb`). A capability whose beneficiary can grant
+it to itself is not a capability.
+
+**The contact union.** `PeerContacts` is the union of two sources, deduped,
+each row still filtered by `peerCurrent` (ADR-0104 invalidates a connection
+whose recorded session moved, and this does not soften it):
+
+1. the caller's own **workspace**, exactly as ADR-0104 scoped it, and
+2. the connections a **live edge** links to the caller — resolved through
+   the far panel's `(kind, ref)`: `agent` matches `peer_connections.agent_id`,
+   `terminal` matches `terminal_id`.
+
+The grant is **derived on every contact read** and is never cached: nothing
+about an edge is written into `peer_connections`, no column, no flag. The
+same union decides `SendPeerMessage`, so a contact the caller cannot write
+to is impossible — a grant that is only drawn would be a lie in the UI.
+
+| Situation | Contact? |
+|---|---|
+| same workspace, no edge | yes, both ways — unchanged |
+| different workspaces, no edge | no |
+| different workspaces, live edge, both enrolled and current | yes, each side sees the other **exactly once** |
+| the edge is removed | no |
+| one connection revoked | no |
+| one session changed (`peerCurrent` false) | no |
+| one panel removed | no (the edge cascaded away with it) |
+| the matrix is deleted | no; the edges are gone |
+| two edges in two matrices for the same pair | yes, listed once |
+| the panel's target was deleted from the fleet | no — the panel survives (ADR-0108), the connection cascades with its agent or terminal |
+| an edge between two panels bound to my own session | no — the caller is never in its own list |
+
+Dropping edges is dropping one table and one union clause: the mailbox
+returns to workspace scope with no migration of anything else, because
+nothing was ever copied while an edge existed.
+
+**Client contract** (`web/shared/domain/matrix.js`): `normalizeEdge` /
+`normalizeEdgeList` (an id and two different panel ids, junk dropped);
+`validateEdge(edge, panels, edges)` repeats the server's refusals in the
+server's order and words — the two ids, two different panels, both on this
+matrix, both a kind with a mailbox (`EDGE_KINDS`), then the cap and "These
+panels are already linked" in either direction; `edgeEndpoints(edge,
+panels)` answers the two panel rows the canvas draws between, or `null`
+when an end is not on the board — the one case it must not draw.
+`applyMatrixEvent` reduces `matrix.edge.added` / `matrix.edge.removed`, and
+`matrix.panel.removed` drops the edges that touched the panel, mirroring the
+store's cascade (which announces no event per edge).
+
+Decision table (every row has a store test in
+`internal/store/matrix_edges_test.go` and, where it is an HTTP answer, a
+handler test in `internal/server/matrix_test.go`):
+
+| Operation | Condition | Result |
+|---|---|---|
+| add edge | two `agent`/`terminal` panels of this matrix | 201 `{id, updatedAt, edge}`; `matrix.edge.added`; the pair stored ordered |
+| add edge | the same pair drawn backwards | 409 "These panels are already linked"; still one row, one event |
+| add edge | `aPanel == bPanel` | 400 "an edge needs two different panels" |
+| add edge | either id empty | 400 "aPanel and bPanel are required" |
+| add edge | a panel of another matrix, or one that does not exist | 400 "panel ⟨id⟩ is not on this matrix" |
+| add edge | a `note`, `file` or `diff` panel | 400 "panel ⟨id⟩ is a ⟨kind⟩ panel and has no mailbox: an edge links agent or terminal panels" |
+| add edge | 1000 edges exist | 400 "limit: 1000 edges per matrix" |
+| add edge | unknown matrix | 404 |
+| remove edge | ok | 204; `matrix.edge.removed`; the grant goes with the row |
+| remove edge | already gone | 404 "edge not found" |
+| remove panel | the panel had edges | they cascade; the feed carries only `matrix.panel.removed` |
+| delete matrix | — | the edges go with it, without an event each |
+| MCP | any tool | no verb creates, lists or implies an edge |
 
 ## Surface (phase 3)
 
