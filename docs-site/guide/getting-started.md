@@ -34,16 +34,16 @@ Green padlock: `make cert` (mkcert). See the [README](https://github.com/cfpperc
 
 **Fullscreen.** Right-click any tab and choose **Fullscreen**
 (`Ctrl+Shift+Enter`, `Cmd+Shift+Enter`, or the command palette): the sidebar,
-the tab strip and the Inspector step aside and that tab fills the screen, and
-the browser goes fullscreen with it. Nothing closes — touch the left edge of
-the screen with the pointer and the sidebar slides back over the page, and the
-top edge brings the tabs back. That strip ends with two buttons: **Show
-inspector**, which lays the Inspector over the page right away (opening the
-rail when it was closed), and the exit button, whose hint carries its name and
-chord. The right edge also brings the Inspector back while it is open. `Esc`
-closes an open panel first and then leaves (the browser takes that key back
-while it is fullscreen, so one press is enough). The choice is remembered in
-this browser.
+the tab strip and the Inspector step aside and that tab fills the page. Your
+browser window stays as it is — your other tabs, your address bar, your
+screen. If you want the window too, press `F11`: it is your own gesture and
+the two stack. Nothing closes — touch the left edge of the page with the
+pointer and the sidebar slides back over it, and the top edge brings the tabs
+back. That strip ends with two buttons: **Show inspector**, which lays the
+Inspector over the page right away (opening the rail when it was closed), and
+the exit button, whose hint carries its name and chord. The right edge also
+brings the Inspector back while it is open. `Esc` closes an open panel first
+and leaves on the next press. The choice is remembered in this browser.
 
 To send the tab you are looking at to an agent, load the Chrome extension.
 Guide: [Chrome extension](/guide/browser-extension).

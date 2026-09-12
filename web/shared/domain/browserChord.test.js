@@ -27,7 +27,8 @@ test("the reserved set is exactly the browser-consumed chords on Chromium", () =
 
 test("plain, shift-only and alt chords are not reserved — the page can own them", () => {
   // The app's own chords and the terminal's family live here: if any of
-  // these turned reserved, focus-mode passthrough would silently die.
+  // these turned reserved, the chord would stop reaching the page at all
+  // and nothing in the app could hand it back.
   for (const chord of ["t", "shift+enter", "alt+[", "ctrl+k", "ctrl+shift+enter", "super+k"]) {
     assert.equal(isReservedChord(chord), false, chord + " is not reserved");
   }

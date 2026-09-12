@@ -10,20 +10,31 @@
 // waiting for the pointer to find a strip (a hover is a peek, a click is a
 // command).
 //
+// The browser window is not ours to take. The mode hides PiCode's chrome
+// and stops there: the window belongs to the reader, who keeps the tab
+// strip, the address bar and every other tab exactly where they were. A
+// reader who wants the window too presses F11 — their own gesture, which
+// stacks on top of this mode with nothing to keep in sync. (Until
+// 2026-09-11 entering also called requestFullscreen() and the two states
+// followed each other in both directions. The browser owns Escape in real
+// fullscreen: it ate the first press to leave fullscreen and the sync then
+// ended the mode, so the designed two-step — Escape closes the revealed
+// strip, Escape again leaves — only survived in a browser that refused
+// fullscreen. The rare case was costing the everyday one.)
+//
 // Study: VS Code / Cursor "Zen Mode" and Zed's zen mode. What we adapt:
-// their single command that hides every panel and asks the OS window for
-// real fullscreen, and their double-Escape exit. What we changed: Zen Mode
-// centres the editor and leaves the chrome unreachable until you leave the
-// mode; the owner asked for the sidebar to come back when the pointer
-// touches the left edge, so the chrome is reachable *inside* the mode and
-// the surface is never re-centred (a terminal must keep every column).
+// their single command that hides every panel, and their double-Escape
+// exit. What we changed: Zen Mode centres the editor and leaves the chrome
+// unreachable until you leave the mode; the owner asked for the sidebar to
+// come back when the pointer touches the left edge, so the chrome is
+// reachable *inside* the mode and the surface is never re-centred (a
+// terminal must keep every column) — and Zen Mode's second half, asking
+// the OS window for real fullscreen, is the reader's own F11 here.
 //
 // Everything here is data in / data out so node:test can drive the whole
 // decision table without a browser. The React side (desktop/src/lib/
-// useFocusMode.js) owns the DOM: pointer events, the Fullscreen API, the
-// keyboard lock that hands the browser's reserved chords (Ctrl+T, Ctrl+W,
-// …) to the page while the mode is on — see browserChord.js — localStorage
-// and the refit.
+// useFocusMode.js) owns the DOM: pointer events, Escape, localStorage and
+// the refit.
 
 export const FOCUS_KEY = "picode-focus";
 export const FOCUS_SEEN_KEY = "picode-focus-seen";
@@ -56,14 +67,11 @@ export function initialFocusState(prefs = {}) {
     armed: null,
     // A revealed panel the pointer has left, counting down DWELL_OUT_MS.
     closing: null,
-    // The browser is in fullscreen *because this mode asked for it*. A
-    // viewer who reloaded, or a browser that refused, leaves this false —
-    // and then leaving browser fullscreen must not end the mode.
-    fs: false,
     // Whether the rail was open when the mode started. The right strip
     // exists only then: a viewer who closed the rail did not ask for it.
     // A restored mode has no "before" to remember, so the caller passes
-    // what the rail looks like now.
+    // what the rail looks like now. (A reload restores the whole mode:
+    // there is no browser half left to complete with a gesture.)
     railWasOpen: !!(prefs && prefs.on && prefs.railOpen),
   };
 }
@@ -76,13 +84,12 @@ function started(state, ev) {
     armed: null,
     closing: null,
     pinned: false,
-    fs: false,
     railWasOpen: !!(ev && ev.railOpen),
   };
 }
 
 function stopped(state) {
-  return { ...state, on: false, reveal: null, armed: null, closing: null, pinned: false, fs: false, railWasOpen: false };
+  return { ...state, on: false, reveal: null, armed: null, closing: null, pinned: false, railWasOpen: false };
 }
 
 // Taking a revealed panel back down: every path that closes one shares this
@@ -106,11 +113,10 @@ function at(ev) {
 //   rail    { open }                        the shell put the rail on screen
 //                                           or took it off, mode still on
 //   escape                                  reveal first, then the mode
-//   browser { active }                      document.fullscreenElement changed
-//   resume                                  a real gesture after a reload:
-//                                           the restored mode completes the
-//                                           browser fullscreen + keyboard lock
 //   seen                                    the first-run toast was shown
+//
+// Nothing here asks the browser for anything: the window is the reader's,
+// and F11 is a gesture this table neither sends nor hears.
 export function focusReduce(state, ev) {
   if (!state || !ev) return state;
   switch (ev.type) {
@@ -192,42 +198,11 @@ export function focusReduce(state, ev) {
       if (state.reveal) return closed(state);
       return stopped(state);
     }
-    case "browser": {
-      if (!state.on) return state;
-      if (ev.active) return state.fs ? state : { ...state, fs: true };
-      // The browser left fullscreen. Only a fullscreen this mode asked for
-      // ties the two together: a reloaded session (no gesture, so no
-      // request) and a browser that refused both stay in the in-app mode.
-      return state.fs ? stopped(state) : state;
-    }
     case "seen":
       return state.seen ? state : { ...state, seen: true };
-    // A reload restores the mode without the browser part (no gesture, so
-    // no request); the wiring watches for the first real input and reports
-    // it as "resume". The state does not change here — the wiring reads the
-    // intent and asks the browser for fullscreen in that same handler.
-    case "resume":
-      return state;
     default:
       return state;
   }
-}
-
-// What the caller must do to the browser between two states. Kept apart
-// from the reducer because it is the one part that needs a user gesture:
-// requestFullscreen has to run inside the click or keydown handler, never
-// in an effect that observes the new state. A transition the browser
-// itself caused asks for nothing — it has already moved.
-// "resume" asks for the browser part exactly when the restored mode is
-// still missing it (mode on, browser never went fullscreen): the gesture
-// carrying the resume event is the activation the request needs.
-export function browserIntent(prev, next, ev) {
-  if (!prev || !next) return "none";
-  if (ev && ev.type === "browser") return "none";
-  if (ev && ev.type === "resume") return next.on && !next.fs ? "request" : "none";
-  if (!prev.on && next.on) return "request";
-  if (prev.on && !next.on && prev.fs) return "exit";
-  return "none";
 }
 
 // Which chrome each state hides. "shown" = in the layout as usual,
@@ -287,11 +262,11 @@ export function focusRowLabel(on) {
   return on ? "Leave fullscreen" : "Fullscreen";
 }
 
-// The one first-run line: what happened, and how to get out. Esc reaches
-// the page (keyboard lock), so it still leaves the mode — unless a terminal
-// pane owns it, where the guest gets it and holding Esc is the way out.
+// The one first-run line: what happened, and how to get out. Esc leaves
+// the mode — unless a terminal pane owns it, where the guest gets the key
+// and the way out is the Leave control the top edge carries.
 export const FOCUS_FIRST_RUN =
-  "Fullscreen. Left edge shows the sidebar, top edge the tabs. Esc leaves — hold Esc inside a terminal.";
+  "Fullscreen. Left edge shows the sidebar, top edge the tabs and the way out. Esc leaves — a terminal pane keeps Esc.";
 
 function safeStorage() {
   try { return typeof localStorage !== "undefined" ? localStorage : null; } catch { return null; }

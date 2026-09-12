@@ -33,7 +33,7 @@ export default function FocusEdges({ zones }) {
 
 // The way out that does not need a keyboard: it rides at the right end of
 // the tab strip, so the top reveal always carries it — even with no tabs
-// open, and after a reload, when the browser is not in fullscreen at all.
+// open, and after a reload.
 // The glyph is the whole control: the label and the chord are the hint
 // (title for the pointer, aria-label for the name), so the strip carries an
 // exit without carrying a sentence. 16px like the icon buttons beside it: at
