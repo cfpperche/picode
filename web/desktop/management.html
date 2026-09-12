@@ -4,11 +4,6 @@
     <meta charset="utf-8" />
     <title>PiCode — Management</title>
     <style>
-      /* Design tokens copied from web/shared/tokens/theme.css (ADR-0072,
-         the canonical source). The shell's local pages do not build with the
-         web app, so the values travel copied — keep them in sync by hand
-         until a build step ships them together. Light theme, the one the
-         product ships in. */
       :root {
         --bg-base: #f0f2f7;
         --bg-panel: #fbfcfe;
@@ -156,7 +151,8 @@
 
     <footer>Actions run <code>picode-desktop disk / disk-compact / clean</code> — read-only unless you confirm. Stopping the distro ends every session inside it.</footer>
 
-    <script>
+    <script type="module">
+      import "@picode/shared/tokens/theme.css";
       const { invoke } = window.__TAURI__.core;
       const { listen } = window.__TAURI__.event;
       // Tauri 2 hands typed commands back as objects and string commands as

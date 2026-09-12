@@ -449,6 +449,58 @@ export function nextSlot(panels, w = PANEL_DEFAULT_CANVAS.w, h = PANEL_DEFAULT_C
   return { x: 0, y: bottom };
 }
 
+// ---- placing a panel by hand (2026-09-12) --------------------------------
+//
+// Until now the surface chose where a new panel went: `nextSlot` packs from
+// the canvas origin outward. On an infinite plane the origin means nothing
+// to the reader — with the camera parked anywhere else, a new panel is born
+// off screen, which is exactly what the owner hit. So the reader draws the
+// rectangle instead, and this turns that gesture into stored units.
+//
+// `from` and `to` are plane pixels (React Flow's coordinates, not the
+// screen's). A gesture that travelled less than `slop` pixels on both axes
+// is a **click**: nobody drew a rectangle, so the default size is centred on
+// the point. Anything longer is the rectangle drawn, snapped to whole units,
+// grown to the panel minimum if it was drawn smaller, and clamped to the
+// plane. The minimum grows from the top-left corner, because that is the
+// corner the reader anchored first.
+export function placementRect(from, to, opts = {}) {
+  const size = opts.size || PANEL_DEFAULT_CANVAS;
+  const slop = Number.isFinite(opts.slop) ? opts.slop : 6;
+  const { canvasMinW, canvasMinH, canvasMax, canvasCoord } = CANVAS_LIMITS;
+  const ax = Number.isFinite(from && from.x) ? from.x : 0;
+  const ay = Number.isFinite(from && from.y) ? from.y : 0;
+  const bx = Number.isFinite(to && to.x) ? to.x : ax;
+  const by = Number.isFinite(to && to.y) ? to.y : ay;
+
+  let x;
+  let y;
+  let w;
+  let h;
+  if (Math.abs(bx - ax) < slop && Math.abs(by - ay) < slop) {
+    w = Math.max(canvasMinW, size.w | 0);
+    h = Math.max(canvasMinH, size.h | 0);
+    x = round(ax / UNIT_PX) - Math.round(w / 2);
+    y = round(ay / UNIT_PX) - Math.round(h / 2);
+  } else {
+    const x1 = round(Math.min(ax, bx) / UNIT_PX);
+    const y1 = round(Math.min(ay, by) / UNIT_PX);
+    const x2 = round(Math.max(ax, bx) / UNIT_PX);
+    const y2 = round(Math.max(ay, by) / UNIT_PX);
+    x = x1;
+    y = y1;
+    w = Math.max(canvasMinW, x2 - x1);
+    h = Math.max(canvasMinH, y2 - y1);
+  }
+  w = clamp(w, canvasMinW, canvasMax);
+  h = clamp(h, canvasMinH, canvasMax);
+  // The whole rectangle stays on the plane: a panel dropped at the very edge
+  // is pulled back by its own width rather than clipped or refused.
+  x = clamp(x, -canvasCoord, canvasCoord - w);
+  y = clamp(y, -canvasCoord, canvasCoord - h);
+  return { x, y, w, h };
+}
+
 // ---- what migration 045 did, once (ADR-0113, ADR-0118) -------------------
 //
 // gridToCanvas is the transform the migration applied when it rewrote every

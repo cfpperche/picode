@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseRoute } from "../desktop/src/lib/routes.js";
+import { parseRoute } from "../browser/src/lib/routes.js";
 import { mobileRoute } from "../mobile/src/lib/mobileRoutes.js";
 
 test("CLI routes and old preferences reach both application managers", () => {

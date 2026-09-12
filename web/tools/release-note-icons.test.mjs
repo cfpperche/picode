@@ -24,7 +24,9 @@ it("whats-new.json publishes at least one icon name", () => {
   assert.ok(published.length > 0);
 });
 
-for (const app of ["desktop", "mobile"]) it(`${app} releases notes draw every published icon name`, () => {
-  const known = mappedIcons(app);
+// The desktop surface's sources live in web/browser (the shell composes
+// them); mobile keeps its own package.
+for (const [app, dir] of [["desktop", "browser"], ["mobile", "mobile"]]) it(`${app} releases notes draw every published icon name`, () => {
+  const known = mappedIcons(dir);
   assert.deepEqual(published.filter((name) => !known.has(name)), []);
 });

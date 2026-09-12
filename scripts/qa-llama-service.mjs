@@ -22,7 +22,7 @@ try{
  const context=await browser.newContext({viewport:{width:1440,height:1000}});
  await context.addInitScript(()=>localStorage.setItem("picode-theme","dark"));
  const page=await context.newPage();page.on("pageerror",e=>report.errors.push(e.message));
- await page.goto(base+"/desktop/#/llama/service");await page.getByRole("heading",{name:"Local service",exact:true}).waitFor();
+ await page.goto(base+"/browser/#/llama/service");await page.getByRole("heading",{name:"Local service",exact:true}).waitFor();
  await page.getByRole("button",{name:"Atlas",exact:true}).waitFor();
  let s=await snapshot();
  if(!s.created){

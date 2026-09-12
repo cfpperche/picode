@@ -36,6 +36,7 @@ const SIDE_KEY = "picode-sidebar-w";
 const TAB_KEY = "picode-side-tab";
 
 export default function Sidebar({
+  inShell = false,
   workspaces, selectedId,
   onNew, onSelect, onRun, onStop, onRemove,
   userMenu, termView, onChat, onTerm,
@@ -162,7 +163,7 @@ export default function Sidebar({
         <span className="brand-title">
           {/* In the desktop shell the app bar carries the wordmark and the
               dashboard action (ADR-0122); the browser keeps the button. */}
-          {window.__PICODE_SHELL__ !== true && <button type="button" className="brand-name" title="Dashboard" onClick={() => onOpenDashboard && onOpenDashboard()}>PiCode</button>}
+          {!inShell && <button type="button" className="brand-name" title="Dashboard" onClick={() => onOpenDashboard && onOpenDashboard()}>PiCode</button>}
         </span>
         <nav className={"brand-tabs" + (width < 260 ? " brand-tabs-tight" : "")} aria-label="Sidebar">
           <div className="brand-tablist" role="tablist" aria-label="Sidebar views">

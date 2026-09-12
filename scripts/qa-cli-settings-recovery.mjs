@@ -25,12 +25,13 @@ const ev = code => JSON.parse(browser("eval", code));
 const wait = condition => browser("wait", "--fn", condition);
 const globalHash = "#/clis/settings/pi";
 const contextHash = globalHash + "?agentId=" + encodeURIComponent(id);
-// The pane is ready when its sub-tabs and the visible layer body are painted.
-const ready = () => wait('!!document.querySelector("#pi-settings-view .pkg-tabs .pkg-tab") && !!document.querySelector("#pi-settings-view .settings-section")');
+// The pane is ready when its layer body is painted (the keyboard map is a
+// sibling pane, not a sub-tab — 2026-09-12).
+const ready = () => wait('!!document.querySelector("#pi-settings-view .settings-section")');
 const selectLayer = (name, id) => { browser("find", "role", "radio", "click", "--name", name, "--exact"); wait(`document.querySelector("#pi-settings-view .settings-section")?.dataset.layer === ${JSON.stringify(id)}`); };
-const tabClick = label => ev(`[...document.querySelectorAll("#pi-settings-view .pkg-tabs .pkg-tab")].find(b=>b.textContent===${JSON.stringify(label)}).click(); true`);
-const openKeys = () => { tabClick("Keys"); wait('!!document.querySelector("#keys-filter")'); };
-const openSettingsTab = () => { tabClick("Settings"); wait('!!document.querySelector("#pi-settings-view .settings-layer")'); };
+const paneClick = label => ev(`[...document.querySelectorAll(".cli-pane-tabs a")].find(a=>a.textContent.trim()===${JSON.stringify(label)}).click(); true`);
+const openKeys = () => { paneClick("Keyboard"); wait('!!document.querySelector("#keys-filter")'); };
+const openSettingsTab = () => { paneClick("Settings"); wait('!!document.querySelector("#pi-settings-view .settings-layer")'); };
 const results = [];
 let visit = 0;
 const open = (app, hash, theme = "light", width = 1365) => {
@@ -48,6 +49,11 @@ async function capture(name, audit = false) {
   }
   browser("screenshot", resolve(out, name + ".png"));
 }
+// The fixture's key map is disposable: a binding left by an earlier run would
+// make the Add/✕ buttons of the first row a different control (2026-09-12).
+const keysPath = (await api("/api/pi-keys")).path;
+if (keysPath) writeFileSync(keysPath, "{}\n");
+
 try {
   for (const app of ["desktop", "mobile"]) {
     browser("set", "viewport", ...(app === "desktop" ? ["1365", "1000"] : ["390", "844"]));
@@ -55,9 +61,11 @@ try {
     selectLayer("This machine", "global");
     const pattern = "keep-" + app + "-*";
     browser("fill", '[aria-label="Model pattern"]', pattern);
+    // The keyboard map is its own pane (`#/clis/pi/keyboard`) reading its own
+    // file over its own endpoint: a failing settings read cannot lock it — that
+    // is the agent-scoped Settings pane's job, below (2026-09-12).
     openKeys();
-    ev('document.querySelector(".key-row").scrollIntoView({block:"center"})');
-    browser("click", ".key-row .btn");
+    wait('document.querySelectorAll(".key-row").length > 50 && !document.querySelector(\'input[placeholder="Filter keys"]\').disabled');
     ev(`window.qaWrites=[];window.qaFetch=window.fetch;window.qaReadMode="fail";window.fetch=(url,opts)=>{
       if(opts?.method==="PUT")window.qaWrites.push(String(url));
       if(String(url).includes("/api/pi-settings")&&(!opts?.method||opts.method==="GET")){
@@ -67,13 +75,9 @@ try {
       return window.qaFetch(url,opts);
     }`);
     await api("/api/agents/" + id, "PATCH", { thinking: app === "desktop" ? "low" : "high" });
-    browser("wait", "#agent-clis-view [role=alert]");
-    // The key capture is its own tab: cancel it there (leaving the tab also
-    // cancels it — the listener dies with the mounted section).
-    browser("press", "Control+Alt+y");
-    assert.deepEqual(ev("window.qaWrites"), [], "A blocked key capture must not write through its window listener");
-    browser("find", "role", "button", "click", "--name", "Cancel");
+    // Back on Settings with the agent in the route: the read fails on mount.
     openSettingsTab();
+    browser("wait", "#agent-clis-view [role=alert]");
     const draft = () => ev('document.querySelector("[data-layer=global] .set-pat-add input").value');
     assert.equal(draft(), pattern, "the layer keeps its own unfinished pattern");
     assert.equal(ev('document.querySelector(".pi-settings-fields").disabled'), true, "writes are blocked");

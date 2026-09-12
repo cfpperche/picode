@@ -52,6 +52,31 @@
    outside a flush segment would be eaten by `overflow: hidden`. */
 .cv-cluster > *:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
+/* Top-left: which canvas, and the menu. Identity where a reader starts
+   reading (owner, 2026-09-12); the bottom edge is for the hands. */
+.cv-chrome { position: absolute; z-index: 6; top: 12px; left: 12px; max-width: calc(100% - 24px); }
+
+/* An armed element tool. `aria-pressed` is the state, so the rule reads off
+   the same attribute a screen reader does rather than a second class. */
+.cv-cluster > .cv-tool { min-width: 34px; }
+.cv-cluster > .cv-tool[aria-pressed="true"] {
+  background: var(--accent); color: #fff;
+}
+.cv-cluster > .cv-tool[aria-pressed="true"]:hover { background: var(--accent); color: #fff; filter: brightness(1.08); }
+
+/* The marking layer: it takes the plane's pointer while a tool is armed, and
+   nothing else. Under the chrome (z 6) so the toolbar that armed it is still
+   clickable — pressing the same tool again disarms — and over the nodes, so a
+   rectangle can be drawn across a panel without dragging it. */
+.cv-mark-layer { position: absolute; inset: 0; z-index: 5; cursor: crosshair; }
+/* Fixed, because the rectangle is kept in client coordinates while it is
+   drawn: those are the viewport's, not this container's. */
+.cv-mark {
+  position: fixed; z-index: 7; pointer-events: none;
+  border: 1px dashed var(--accent); border-radius: var(--radius-ctl);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
 /* The dock: centred on the bottom edge. It held two groups with a gap until
    the owner joined them (2026-09-12) — one instrument rather than two, with
    the row in the order of use: which canvas, one more panel, how you are

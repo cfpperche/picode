@@ -1,8 +1,8 @@
 // ADR-0072: explicit application paths win at every viewport size.
 // The root launcher chooses by preference/viewport once per navigation.
 export function resolveShell({ pathname = "/", search = "", saved = "", narrow = false } = {}) {
-  const explicit = pathname.match(/^\/(desktop|mobile)(?:\/|$)/);
-  if (explicit) return explicit[1];
+  const explicit = pathname.match(/^\/(browser|desktop|mobile)(?:\/|$)/);
+  if (explicit) return explicit[1] === "browser" ? "desktop" : explicit[1];
   const query = new URLSearchParams(search);
   if (query.get("desktop") === "1") return "desktop";
   if (query.get("mobile") === "1") return "mobile";
@@ -34,7 +34,9 @@ export function shellURL(href, shell) {
   const url = new URL(href);
   url.searchParams.delete("desktop");
   url.searchParams.delete("mobile");
-  url.pathname = shell === "desktop" || shell === "mobile" ? "/" + shell + "/" : "/";
+  // The desktop surface is served at /browser/ — /desktop/ is the shell's
+  // own bundle (ADR-0122) and the launcher never sends a browser there.
+  url.pathname = shell === "desktop" ? "/browser/" : shell === "mobile" ? "/mobile/" : "/";
   return url.pathname + url.search + url.hash;
 }
 

@@ -96,3 +96,14 @@ restretched on resize. The bar is local, so the frame is immune to what
 the daemon serves and ADR-0121's frame mode, handshake and reserved-slot
 convention were reverted from web/. Menus in the bar are deferred.
 Requires Tauri's `unstable` multiwebview feature.
+
+## Surface split (2026-09-12)
+
+`/browser/` is the responsive web app; `/desktop/` is the shell's own
+bundle — the browser app's App composed with the shell chrome (a
+`shellChrome` prop, no window globals in the browser code). The
+Management page moved into the desktop bundle (tokens imported from
+`@picode/shared`, hand copy deleted). The shell loads `/desktop/`
+directly, skipping the launcher picker. Boundary exception: the desktop
+package may import exactly the browser package's named exports
+(boundaries.mjs COMPOSES).

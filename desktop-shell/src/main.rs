@@ -27,7 +27,12 @@ use tauri::{
 use tauri_plugin_notification::NotificationExt;
 
 fn main() {
-    let url = discover_server_url();
+    // The shell loads its own bundle, not the launcher's pick: /desktop/ is
+    // composed for the shell only (ADR-0122), /browser/ is what a browser gets.
+    let url = discover_server_url().map(|mut u| {
+        u.set_path("/desktop/");
+        u
+    });
 
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
@@ -126,6 +131,16 @@ fn main() {
 // open_management_window opens the Management page on demand — the second
 // window of the shell: the WSL disk view, the cache prunes and the
 // .wslconfig form, local pages, Rust commands behind them.
+// management_url points the Management webview at the served bundle.
+fn management_url(app: &tauri::AppHandle) -> tauri::Url {
+    let mut url = discover_server_url().unwrap_or_else(|| {
+        tauri::Url::parse("https://localhost:8445/").expect("static fallback origin")
+    });
+    url.set_path("/desktop/management.html");
+    let _ = app;
+    url
+}
+
 fn open_management_window(app: &tauri::AppHandle) {
     if let Some(win) = app.get_window("management") {
         show(&win);
@@ -135,7 +150,8 @@ fn open_management_window(app: &tauri::AppHandle) {
         app,
         "management",
         "PiCode — Management",
-        WebviewUrl::App("management.html".into()),
+        // The Management page is part of the desktop bundle now.
+        WebviewUrl::External(management_url(app)),
         980.0,
         860.0,
     );
@@ -195,8 +211,7 @@ fn spawn_window(
         format!("{label}-titlebar"),
         WebviewUrl::App("titlebar.html".into()),
     );
-    let page = tauri::webview::WebviewBuilder::new(format!("{label}-content"), content)
-        .initialization_script("window.__PICODE_SHELL__ = true;");
+    let page = tauri::webview::WebviewBuilder::new(format!("{label}-content"), content);
     relayout(&win)?;
     win.add_child(
         bar,

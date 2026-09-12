@@ -99,7 +99,7 @@ test("screenshot freshness decision table", async (t) => {
 
   await t.test("a dashboard component invalidates only the desktop fleet", () => {
     withSurfaceTree((tree, manifest) => {
-      appendFileSync(join(tree, "web/desktop/src/components/DashboardView.jsx"), "\n// docs fingerprint test\n");
+      appendFileSync(join(tree, "web/browser/src/components/DashboardView.jsx"), "\n// docs fingerprint test\n");
       assert.deepEqual(changedSurfaces(tree, manifest), ["app-fleet"]);
     });
   });
@@ -146,10 +146,10 @@ test("surface input sets contain no test files", () => {
   }
 });
 
-for (const app of ["desktop", "mobile"]) {
+for (const [app, dir] of [["desktop", "browser"], ["mobile", "mobile"]]) {
   test(`${app} styles do not invalidate the other application`, () => {
     withSurfaceTree((tree, manifest) => {
-      appendFileSync(join(tree, `web/${app}/src/styles/app.css`), "\n/* isolated application change */\n");
+      appendFileSync(join(tree, `web/${dir}/src/styles/app.css`), "\n/* isolated application change */\n");
       assert.deepEqual(changedSurfaces(tree, manifest).sort(),
         Object.entries(DOC_SCREENSHOT_SURFACES).filter(([, profile]) => profile.startsWith(app + "-")).map(([name]) => name).sort());
     });

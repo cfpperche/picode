@@ -98,6 +98,24 @@ The API already returns `layer.has.{key}` per key; the UI throws it away.
 P0 alone takes the machine layer from 6014 px to ~600 px and puts the 89 key
 rows behind one tab.
 
+## Owner's change after review (2026-09-12): the map is a pane, not a sub-tab
+
+The sub-tab row shipped first and read as *sub-tabs inside sub-tabs* under the
+pane bar (owner, same day). The keyboard map is now the **Keyboard** pane,
+`#/clis/pi/keyboard`, sitting between Settings and Packages; the Settings pane
+has no sub-tab row.
+
+The name was picked against three alternatives: *Keys*, the shipped label, is
+ambiguous one pane away from Providers, where "keys" means credentials;
+*Keybindings* is Pi's file vocabulary but jargon for the terminal-averse
+audience the product is for; *Shortcuts* already means PiCode's own chords
+under Preferences. *Keyboard* survives all three.
+
+Consequences: no `tab` param (nothing to strip, which is exactly what silently
+reverted the old sub-tab click — the pane rewrite dropped it), a legacy
+`?tab=keys` redirect, and the capture flow covered by a click on the real pane
+tab rather than a typed URL.
+
 ## What shipped, and where it differs from this plan
 
 - **P2 was dropped after P0.** A machine layer is 6 rows and the agent layer 3;

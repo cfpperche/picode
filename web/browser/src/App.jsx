@@ -118,7 +118,7 @@ const NATIVE_APPS = nativeApps({ "demo-native": NativeDemoSurface, canvas: Canva
 // new map and never re-runs the anchor effect.
 const EMPTY_SUBJECTS = Object.freeze({});
 
-export default function App() {
+export default function App({ shellChrome = false } = {}) {
   const narrow = useMedia("(max-width: 767px)");
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [workspaces, setWorkspaces] = useState([]);
@@ -428,12 +428,13 @@ export default function App() {
     const onHash = () => {
       setRoute(parseRoute());
       // The shell's app bar opens the dashboard through this event
-      // (ADR-0122) — same pattern as picode-open-file.
-      const onOpenDashboardEvent = () => {
+      // (ADR-0122) — same pattern as picode-open-file. Only the desktop
+      // bundle registers it; the browser is never told about windows.
+      const onOpenDashboardEvent = shellChrome ? () => {
         setDashboardPinned(true);
         setNavigationOpen(false);
-      };
-      window.addEventListener("picode-open-dashboard", onOpenDashboardEvent);
+      } : null;
+      if (onOpenDashboardEvent) window.addEventListener("picode-open-dashboard", onOpenDashboardEvent);
       setHash(location.hash);
     };
     window.addEventListener("hashchange", onHash);
@@ -2683,6 +2684,7 @@ export default function App() {
         }
       }}>
       <Sidebar
+        inShell={shellChrome}
         workspaces={workspaces}
         selectedId={selectedId}
         onNew={() => { setFormKind("workspace"); setShowForm(true); }}

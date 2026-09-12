@@ -4,7 +4,8 @@ Two different screens. Do not mix them.
 
 | Hash | What | Writes |
 |---|---|---|
-| `#/clis/pi/settings` | **pi** JSON for the selected agent | `~/.pi/agent/settings.json` (this machine), `<cwd>/.pi/settings.json` (workspace, if trusted), and **Keys** (`~/.pi/agent/keybindings.json`) |
+| `#/clis/pi/settings` | **pi** JSON for the selected agent | `~/.pi/agent/settings.json` (this machine), `<cwd>/.pi/settings.json` (workspace, if trusted) |
+| `#/clis/pi/keyboard` | the keyboard map | `~/.pi/agent/keybindings.json` (one map per machine) |
 | `#/preferences` | **PiCode** chrome | theme, server port |
 
 Open **Agent CLIs**, pick **Pi**, then the **Settings** pane. Composer `/settings` preserves the selected agent in the URL.
@@ -16,13 +17,16 @@ A row says where its value comes from: **Set here** when this layer sets it
 A row this layer sets has **Use inherited**, which hands the value back to the
 layer below instead of freezing a copy of it.
 
-**Keys** is a second tab: the whole keyboard map of this machine, with a filter
-and Add-then-press-a-key. It has no layer — Pi keeps one map per machine.
+**Keyboard** is the pane next to Settings: the whole keyboard map of this
+machine, with a filter and Add-then-press-a-key. It has no layer — Pi keeps one
+map per machine — and the link remembers which agent and layer you came from,
+so going back lands where you left.
 
 Contextual links use `?agentId=<id>`; the pane adds the layer it is editing
-(`?layer=global|project|agent`) and its tab (`?tab=keys`) to the URL, so a
-reload or a bookmark lands on the same view. Old `#/settings` and mobile
-`#/more/settings` links redirect here. Workspace values override machine
+(`?layer=global|project|agent`) to the URL, so a reload or a bookmark lands on
+the same view. Old `#/settings` and mobile `#/more/settings` links redirect
+here, and a `?tab=keys` link from the day the map was a sub-tab lands on the
+Keyboard pane. Workspace values override machine
 values; agent values override both.
 
 

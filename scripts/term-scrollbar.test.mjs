@@ -15,7 +15,7 @@ import { test } from "node:test";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-const desktop = read("web/desktop/src/styles/app.css");
+const desktop = read("web/browser/src/styles/app.css");
 const mobile = read("web/mobile/src/mobile.css");
 const theme = read("web/shared/domain/termTheme.js");
 
