@@ -53,6 +53,7 @@ test("covered roots follow the scope the run actually exercised", () => {
   assert.ok(go.includes("go.mod") && go.includes("go.sum"));
   assert.ok(go.includes("internal/store/"));
   assert.ok(go.includes("."), "the module root package depends on everything");
+  assert.ok(!go.includes("internal/"), "the go gate covers the tested closure, not the whole tree");
 
   const docs = coveredRoots({ paths: ["docs-site/guide/settings.md"] });
   assert.ok(docs.includes("docs-site/") && docs.includes(".vale.ini") && docs.includes("cmd/"));
@@ -60,6 +61,9 @@ test("covered roots follow the scope the run actually exercised", () => {
 
   const metadata = coveredRoots({ paths: ["docs/handoff/2026-09-12-x.md"] });
   assert.deepEqual(metadata, ["docs/handoff/2026-09-12-x.md"], "a note covers itself, nothing else");
+
+  const webBranch = coveredRoots({ paths: ["web/desktop/src/App.jsx"] });
+  assert.ok(webBranch.includes("cmd/"), "`make build` compiles the binary whatever changed");
 
   const full = coveredRoots({ paths: ["Makefile"] });
   assert.deepEqual(full, ["."], "gate-shaping paths cover the whole tree");

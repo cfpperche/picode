@@ -23,12 +23,19 @@ code that was never tested.
 ## Decision
 
 `make ci-scoped` records what its run actually covered — the base commit, the
-tree, the changed paths and each path's blob hash — in
-`<git-dir>/picode-ci-scoped.json`, and `make close` reuses that run when
-recomputation shows the result still holds: the tree is identical, or the merge
-brought no change to any recorded path (compared by blob hash, not by name) and
-nothing in the recorded set was amended. Any other case re-runs the scoped
-gates. The decision lives in `scripts/ci-scope-reuse.mjs`, whose pure function
+tree, and the files whose content the gates read: the changed paths, the tested
+Go packages plus their dependency closure, `web/` for the Vite build, and the
+docs tree for the docs gate (which regenerates the OpenAPI spec, so it compiles
+`cmd/` and `internal/`). `make close` reuses that run when recomputation shows
+the result still holds: the tree is identical, or the merge brought no change
+to any covered path (compared by blob hash, not by name) and nothing in the
+covered set was amended. Any other case re-runs the scoped gates.
+
+Accepted limit: `fmt` and `vet` read the whole Go tree, and `go.mod`-level
+dependencies can move. A merge's own content reached `main` through a branch
+that ran `make ci` there, so the shortcut assumes a green `main` — and a branch
+whose diff shapes the gates (Makefile, hooks, `ci-scope.mjs`) covers the whole
+tree and re-runs by construction. The decision lives in `scripts/ci-scope-reuse.mjs`, whose pure function
 is tested row by row in `scripts/ci-scope-reuse.test.mjs`; the shell scripts
 only gather git state and call it.
 

@@ -68,7 +68,9 @@ if [ -n "$SCOPE_GO" ]; then
   fi
   echo "ci-scoped: go test $(printf '%s\n' $pkgs | wc -l | tr -d ' ') package(s)"
   ./scripts/go-test.sh $pkgs
-  stamped_pkgs="$pkgs"
+  # What the run read, for `make close`'s reuse decision (ADR-0124): the tested
+  # packages plus their transitive dependencies, and nothing else.
+  stamped_pkgs=$(go list -deps -f '{{.ImportPath}} {{.Dir}}' $pkgs 2>/dev/null | awk -v mod="$(head -1 go.mod | awk '{print $2}')" '$1 ~ "^"mod { print $1 }' | sort -u | tr '\n' ' ')
   ran+=("go[$(printf '%s\n' $pkgs | wc -l | tr -d ' ')]")
 fi
 

@@ -49,21 +49,23 @@ export function coveredRoots({ paths = [], packages = [], full = false } = {}) {
   // whole matrix: everything it read is the whole tree.
   if (full || scope.full) return ["."];
   const roots = new Set(paths);
-  // Every gate that compiles the binary or runs `cmd/picode-openapi` reads the
-  // Go tree, whatever the scope is called.
-  const goInputs = () => {
+  // The Go gate reads exactly the packages it tested and their dependency
+  // closure (the caller passes both); `make build` and `docs-check` compile the
+  // whole binary or regenerate the spec, so they read the tree.
+  const wholeGoTree = () => {
     roots.add("go.mod");
     roots.add("go.sum");
     roots.add("cmd/");
     roots.add("internal/");
   };
   if (scope.go || packages.length) {
-    goInputs();
+    roots.add("go.mod");
+    roots.add("go.sum");
     for (const p of packages) roots.add(p === "." ? "." : p + "/");
   }
   if (scope.web) {
     roots.add("web/");
-    goInputs(); // `make build` compiles the embedded binary
+    wholeGoTree(); // `make build` compiles the embedded binary
   }
   if (scope.packages) {
     roots.add("web/");
@@ -77,7 +79,7 @@ export function coveredRoots({ paths = [], packages = [], full = false } = {}) {
     roots.add("styles/");
     roots.add("scripts/");
     roots.add(".vale.ini");
-    goInputs();
+    wholeGoTree(); // docs-check regenerates the spec via `cmd/picode-openapi`
   }
   return [...roots].filter(Boolean).sort();
 }
