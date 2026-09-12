@@ -31,6 +31,7 @@ func TestWorkspaceParticipationAPI(t *testing.T) {
 	}
 	cliRequest(t, ts, "PUT", endpoint+"/participants", body, 409)
 	cliRequest(t, ts, "POST", endpoint+"/open", map[string]any{"kind": "agent", "ownerId": aid, "revision": 0}, 409)
+	cliRequest(t, ts, "POST", endpoint+"/activate", map[string]any{"kind": "agent", "ownerId": aid, "revision": 0}, 409)
 	cliRequest(t, ts, "POST", endpoint+"/test", map[string]any{"from": "missing", "to": "missing"}, 409)
 	cliRequest(t, ts, "GET", endpoint+"/history?before=-1", nil, 400)
 	history := cliRequest(t, ts, "GET", endpoint+"/history", nil, 200)

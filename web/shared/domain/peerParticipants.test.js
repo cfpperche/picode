@@ -11,10 +11,10 @@ test("activity, connection and historical proof stay independent", () => {
   [{...owner,sessionKey:""},pref,peer,"open","unobserved","No conversation","Not connected","action",false],
   [owner,pref,peer,null,undefined,"Stopped","Not connected","action",false],
   [owner,pref,peer,"needs-you","confirmed","Needs your input","Connected","connected",true],
-  [owner,{...pref,phase:"waiting",problem:"Waiting for the current turn or approval."},peer,"working","confirmed","Working","Waiting to connect","waiting",false],
+  [owner,{...pref,phase:"waiting",problem:"Waiting for the current turn or approval."},peer,"working","confirmed","Working","Waiting for turn","waiting",false],
   [owner,pref,peer,"idle","confirmed","Idle","Connected","connected",true],
-  [owner,pref,peer,"open","unobserved","Syncing","Reconnecting","waiting",false],
-  [owner,{...pref,phase:"waiting-conversation",problem:"Waiting for this conversation to identify itself."},peer,"open","unobserved","Syncing","Reconnecting","waiting",false],
+  [owner,pref,peer,"open","unobserved","First message needed","Waiting for identity","waiting",false],
+  [owner,{...pref,phase:"waiting-conversation",problem:"Waiting for this conversation to identify itself."},peer,"open","unobserved","First message needed","Waiting for identity","waiting",false],
   [owner,{...pref,phase:"error",problem:"Install the adapter."},peer,"idle","confirmed","Idle","Connection failed","error",false],
   [owner,pref,{...peer,id:"new"},"idle","confirmed","Idle","Connecting","preparing",false],
  ]) {
@@ -55,4 +55,11 @@ test("persistent recording failure has a repair action, never reconnecting",()=>
  assert.equal(recovered.ready,true);
  const off=participantState(owner,{...pref,enabled:false},peer,"open",[],"unobserved","restart-required");
  assert.equal(off.kind,"off");
+});
+test("activation is offered only for an unidentified open terminal",()=>{
+ const waiting={...pref,phase:"waiting-conversation"};
+ assert.equal(participantState(owner,waiting,peer,"open",[],"unobserved").activation,true);
+ assert.equal(participantState(owner,waiting,peer,"working",[],"unobserved").activation,false);
+ assert.equal(participantState({...owner,kind:"agent"},waiting,peer,"open",[],"unobserved").activation,false);
+ assert.equal(participantState(owner,pref,peer,"open",[],"confirmed").activation,false);
 });

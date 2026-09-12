@@ -132,6 +132,13 @@ Desktop/mobile independently own workspace views at
 `#/clis/messages/workspace:<id>`; the former owner route resolves its workspace.
 The former per-conversation manager is available under Advanced.
 
+An unidentified open terminal may receive one explicit activation request from
+the workspace view. The request is never automatic: the terminal must be idle,
+its composer must be empty, its process and session must still match, and the
+user confirms that one model turn will be consumed. The request uses the same
+guarded native input path as connection attention, returns a single attempt,
+and never retries after an uncertain delivery.
+
 Grok/Hermes/Codex resolve prepared setup in their native shell calls. Pi initial setup
 and hot replacement share one receiver-owned MCP registration; setup uses the
 receiver's exact-session, idle, pending-message and editor guards. Additive TLS

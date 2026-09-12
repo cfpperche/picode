@@ -278,6 +278,71 @@ func registerPeerOnboarding(mux Registrar, deps Deps) {
 		}
 		writeJSON(w, 202, map[string]any{"ok": true})
 	})
+	mux.HandleFunc("POST /api/communication/workspaces/{id}/activate", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			Kind     string `json:"kind"`
+			OwnerID  string `json:"ownerId"`
+			Revision int64  `json:"revision"`
+		}
+		if !readCLIJSON(w, r, &in) {
+			return
+		}
+		if in.Kind != "terminal" {
+			writeErr(w, 409, "Activation is available for open Agent CLI terminals.")
+			return
+		}
+		participant, e := deps.Store.PeerParticipant(in.Kind, in.OwnerID)
+		if e != nil || !participant.Enabled || participant.Revision != in.Revision || participant.WorkspaceID != r.PathValue("id") {
+			writeErr(w, 409, "Participation changed. Refresh and try again.")
+			return
+		}
+		owner, e := currentPeerOwner(deps, in.Kind, in.OwnerID)
+		if e != nil || owner.SessionKey == "" || !peerConsentCurrent(deps, participant, owner.SessionKey) {
+			writeErr(w, 409, "Open this conversation first so PiCode can identify it.")
+			return
+		}
+		connections, e := deps.Store.ListPeerConnections()
+		if e != nil {
+			writeStoreErr(w, e)
+			return
+		}
+		var connection store.PeerConnection
+		for _, candidate := range connections {
+			if candidate.Active && candidate.Kind == in.Kind && candidate.OwnerID == in.OwnerID && candidate.SessionKey == owner.SessionKey {
+				connection = candidate
+				break
+			}
+		}
+		if connection.ID == "" {
+			writeErr(w, 409, "Apply communication before activating this conversation.")
+			return
+		}
+		if participant.Phase != "waiting-conversation" || participant.Phase == "connected" {
+			writeErr(w, 409, "This conversation is already connecting or connected.")
+			return
+		}
+		if _, ok := peerLiveTerminal(deps, connection); !ok {
+			writeErr(w, 409, "Wait until the terminal is open, idle and its editor is empty.")
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
+		attempted := false
+		var attemptErr error
+		attemptPeerText(ctx, deps, connection, peerActivationPointer, func() bool {
+			attempted = true
+			return true
+		}, func(err error) { attemptErr = err })
+		if !attempted {
+			writeErr(w, 409, "The terminal changed before activation. Leave the editor empty and try again.")
+			return
+		}
+		if attemptErr != nil {
+			writeErr(w, 409, "Activation could not be delivered. Check the terminal and try again.")
+			return
+		}
+		writeJSON(w, 202, map[string]any{"ok": true, "message": "Activation sent once. Waiting for the native conversation event."})
+	})
 
 }
 
