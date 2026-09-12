@@ -220,3 +220,7 @@ invocation. Messages exposes that failure with Terminal controls instead of
 promising reconnection. Unsupported hosts ignore recovery files and retain
 normal live hooks. Attention logs contain only owner/CLI/connection identifiers
 and bounded refusal stages/reasons, never native errors, messages or pane text.
+
+Native launchers replace any inherited CLI discovery marker with their own CLI.
+An explicit marker requires that CLI's own session identity; only unmarked legacy
+Codex contexts may use the compatibility fallback, and conflicting IDs are refused.

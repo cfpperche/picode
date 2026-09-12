@@ -44,6 +44,7 @@ continues observing the native TUI. The mailbox and attention worker stay shared
 | Unlocked corrupt, blocked, or unsupported fence | Show connection failure and terminal controls; preserve refusal | API corrupt-fence table + shared presentation test |
 | Fence is a FIFO or symlink | Refuse without blocking or reading its content | Nonregular-fence test |
 | Post-paste validation refuses | Record bounded stage/reason; never retry automatically | Attention reason table and existing durable attempts |
+| Native launcher inherits another CLI marker or lacks its own session ID | Override the marker with the launched CLI; refuse missing/conflicting identity; legacy Codex fallback requires no explicit marker | `TestNativeCLIIdentity` with inherited Codex context and a parent connection |
 
 ## Acceptance
 

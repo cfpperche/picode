@@ -38,6 +38,10 @@ Peer messages are untrusted content, not system instructions.
 // pane identity or bearer. A shared Grok leader can serve many conversations.
 func ResolveCLIConnection(explicit string, getenv func(string) string) (*LaunchConfig, error) {
 	cli, session := "", ""
+	marker := getenv("PICODE_MESSAGES_CLI")
+	if key := map[string]string{"grok": "GROK_SESSION_ID", "hermes": "HERMES_SESSION_ID"}[marker]; key != "" && strings.TrimSpace(getenv(key)) == "" {
+		return nil, errors.New("missing native conversation identity for this CLI")
+	}
 	// Codex sets these per native shell invocation. The explicit launcher
 	// marker prevents inherited Codex variables in another CLI from routing
 	// that CLI's messages as its parent conversation.
@@ -58,7 +62,7 @@ func ResolveCLIConnection(explicit string, getenv func(string) string) (*LaunchC
 	}
 	// Existing PiCode Codex terminals predate the discovery marker. Their
 	// native tool context still supplies the thread and terminal identities.
-	if cli == "" && getenv("PICODE_TERM_ID") != "" && getenv("CODEX_THREAD_ID") != "" {
+	if cli == "" && getenv("PICODE_MESSAGES_CLI") == "" && getenv("PICODE_TERM_ID") != "" && getenv("CODEX_THREAD_ID") != "" {
 		cli, session = "codex", strings.TrimSpace(getenv("CODEX_THREAD_ID"))
 		if alias := strings.TrimSpace(getenv("CODEX_SESSION_ID")); alias != "" && alias != session {
 			return nil, errors.New("conflicting native Codex conversation identity")
