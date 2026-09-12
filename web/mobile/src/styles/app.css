@@ -326,12 +326,13 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   font-size: 11.5px; color: var(--text-secondary); overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; max-width: 280px;
 }
+@media (max-width: 520px) {
+  .mcp-row-main { flex-wrap: wrap; }
+  .mcp-target { flex: 1 1 100%; max-width: 100%; }
+}
 .mcp-row-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-.mcp-row-actions .btn, .mcp-row-actions .pkg-scope-btn { height: var(--ctl-h); min-height: var(--ctl-h); }
-.mcp-add { margin-top: 14px; }
-.mcp-add:first-child { margin-top: 0; }
-.mcp-add h3, .pkg-installed h3 { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; }
-.mcp-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.mcp-row-actions .btn { height: var(--ctl-h); min-height: var(--ctl-h); }
+.pkg-installed h3 { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; }
 .dlg-use-from { width: min(440px, calc(100vw - 32px)); }
 .mcp-tree { list-style: none; margin: 12px 0 0; padding: 0; max-height: 280px; overflow: auto; }
 .mcp-tree > li + li { margin-top: 4px; }

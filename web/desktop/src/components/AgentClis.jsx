@@ -248,8 +248,9 @@ function ConnectorsPane({ route, onReload }) {
   if (!ctx) return <section id="cli-connectors-view"><div className="cli-loading" aria-label="Loading connectors"><div /><div /><div /></div></section>;
   const workspace = ctx.workspace, agent = ctx.agent;
   return <Mcps
-    embedded
     hidden={false}
+    scope={route.scope}
+    onScopeChange={(scope) => { location.hash = cliConnectorsHash(route.id || "pi", { workspaceId: route.workspaceId, agentId: route.agentId, scope }); }}
     workspaceId={workspace?.id || ""}
     workspaceName={workspace?.name || ""}
     workspacePath={workspace?.path || ""}

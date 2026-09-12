@@ -1,25 +1,30 @@
 import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { useEffect, useRef, useState } from "react";
 import * as Dialog from "./ResponsiveDialog.jsx";
+import * as Switch from "@radix-ui/react-switch";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { feedConnected, subscribeFeed } from "@picode/shared/client/feed.js";
 import { askConfirm } from "../lib/confirm.js";
 import { mcpAddSchema, pairsToMap, parseForm } from "@picode/shared/contracts/schemas.js";
 import { toast } from "../lib/toast.js";
-import { paneContext } from "@picode/shared/domain/tree.js";
 import PageFrame from "./PageFrame.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { readConnectorDefinition, destinationLabel, connectorTabs } from "@picode/shared/domain/integrations.js";
+import "../styles/integrations.css";
 
-export default function Mcps({ hidden, embedded, workspaceId, workspaceName, workspacePath, agentId, agentName, agentWorkPath, agentRunning, onReload }) {
+export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath, agentId, agentName, agentWorkPath, agentRunning, onReload, scope: scopeProp = "user", onScopeChange = () => {} }) {
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState("");
-  const [scope, setScope] = useState("user");
+  const scope = scopeProp;
+  const setScope = onScopeChange;
   const [job, setJob] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [formError, setFormError] = useState("");
   const [catalogTab, setCatalogTab] = useState("catalog");
   const [customOpen, setCustomOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [svcQuery, setSvcQuery] = useState("");
   const [hostPick, setHostPick] = useState(null);
   const [justSigned, setJustSigned] = useState({});
   const signCtl = useRef({ id: "", stop: false });
@@ -79,7 +84,9 @@ export default function Mcps({ hidden, embedded, workspaceId, workspaceName, wor
   const tabs = connectorTabs(data && data.found);
   const canProject = !!workspaceId;
   const canAgent = !!agentWorkPath;
-  const showScopes = canProject || canAgent;
+  // A catalog entry is "Added" when the selected layer already has it; another
+  // layer's copy is not this one (docs/plans/connectors-ux.md).
+  const configuredNames = new Set(servers.filter((s) => s.scope === scope).map((s) => s.name));
 
   async function runJob(action, label, fn) {
     if (job) return null;
@@ -329,8 +336,11 @@ export default function Mcps({ hidden, embedded, workspaceId, workspaceName, wor
   }
 
   return (
-    <PageFrame id={embedded ? "connectors-view" : "mcps-view"} title={embedded ? "Connectors" : "MCPs"} embedded={embedded} context={paneContext(agentName, workspaceName)} hidden={hidden}>
-      {embedded && <p className="integrations-intro">Connect services your agents can use.</p>}
+    <PageFrame id="connectors-view" title="Connectors" embedded hidden={hidden}>
+      <div className="connectors-head">
+        <p className="integrations-intro">Connect services your agents can use.</p>
+        {installed && !loading ? <button type="button" className="btn btn-primary" disabled={!!job} onClick={() => { setSvcQuery(""); setAddOpen(true); }}>Add connector</button> : null}
+      </div>
       {loading ? (
         <div className="mcp-skel" aria-hidden="true">
           <div className="skel-line w-70" />
@@ -338,7 +348,7 @@ export default function Mcps({ hidden, embedded, workspaceId, workspaceName, wor
         </div>
       ) : loadError && !data ? (
         <div className="mcp-empty">
-          <p>Couldn't load {embedded ? "connectors" : "MCPs"}.</p>
+          <p>Couldn't load connectors.</p>
           <button type="button" className="btn btn-primary" onClick={() => { setLoadError(""); load(); }}>Retry</button>
         </div>
       ) : !installed ? (
@@ -348,43 +358,55 @@ export default function Mcps({ hidden, embedded, workspaceId, workspaceName, wor
         </div>
       ) : (
         <>
-          {embedded && !!data?.connectorPackages?.length && <section className="pkg-installed">
+          {!!data?.connectorPackages?.length && <section className="pkg-installed">
             <h3>Connector packages</h3>
             <ul className="mcp-list">{data.connectorPackages.map(p => <li key={p.scope + p.source} className="mcp-row integration-package"><div className="mcp-row-main"><strong>{p.name}</strong><span className="pkg-fine">Installed · {p.scope === "user" ? "This machine" : "This workspace"}</span></div><a className="btn btn-ghost" href={cliPackagesHash("pi", { workspaceId, agentId })}>Manage package</a></li>)}</ul>
             <p className="pkg-fine">Package tools load through the MCP adapter when an agent starts.</p>
           </section>}
           <section className="pkg-installed">
-            <h3>{embedded ? "Configured services" : "Servers"}</h3>
+            <h3>Configured services{servers.length ? <span className="mcp-count">{servers.length}</span> : null}</h3>
+            {!agentRunning && servers.length ? <p className="pkg-fine">Live status comes from a running agent.</p> : null}
             {servers.length ? (
               <ul className="mcp-list">
                 {servers.map((s) => {
-                  const word = rowLive(s);
+                  const word = agentRunning ? rowLive(s) : "";
+                  const state = word === "live" || word === "failed" ? word : "";
+                  const menu = canSignOut(s) || s.owned;
                   return (
                   <li key={s.layer + ":" + s.name} className={"mcp-row" + (s.disabled ? " off" : "")}>
                     <div className="mcp-row-main">
-                      <span className="pkg-scope-tag">{scopeLabel(s, workspaceName, agentName)}</span>
-                      <strong className="mcp-name">{s.name}</strong>
-                      {word && word !== "signin" ? (
-                        <span className={"mcp-live " + word} title={liveTitle(word)}>{liveLabel(word)}</span>
+                      {state ? (
+                        <span className={"mcp-live " + state} title={liveTitle(state)}>{liveLabel(state)}</span>
                       ) : null}
-                      <code className="mcp-target">{targetOf(s)}</code>
+                      <strong className="mcp-name">{s.name}</strong>
+                      <span className="pkg-scope-tag" title={s.path || undefined}>{scopeLabel(s, workspaceName, agentName)}</span>
+                      <code className="mcp-target" title={targetOf(s)}>{targetOf(s)}</code>
                     </div>
                     <div className="mcp-row-actions" data-align-row>
-                      {canSignOut(s) ? (
-                        <button type="button" className="btn btn-ghost" disabled={!!job} onClick={() => signOut(s)}>Sign out</button>
-                      ) : canSignIn(s) ? (
+                      {canSignIn(s) ? (
                         <button type="button" className="btn btn-ghost" disabled={!!job} onClick={() => signIn(s)}>Sign in</button>
                       ) : null}
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={!s.disabled}
-                        className="pkg-scope-btn"
-                        disabled={!!job}
-                        onClick={() => toggle(s)}
-                      >{s.disabled ? "Off" : "On"}</button>
-                      {s.owned ? (
-                        <button type="button" className="btn btn-ghost btn-sm" disabled={!!job} onClick={() => remove(s)}>Remove</button>
+                      <span className="mcp-switch">
+                        <Switch.Root
+                          className="rx-switch"
+                          checked={!s.disabled}
+                          disabled={!!job}
+                          onCheckedChange={() => toggle(s)}
+                          aria-label={(s.disabled ? "Enable " : "Disable ") + s.name}
+                        ><Switch.Thumb className="rx-switch-thumb" /></Switch.Root>
+                      </span>
+                      {menu ? (
+                        <DropdownMenu.Root>
+                          <DropdownMenu.Trigger asChild>
+                            <button type="button" className="btn btn-ghost btn-sm mcp-more" aria-label={"More actions for " + s.name} disabled={!!job}>•••</button>
+                          </DropdownMenu.Trigger>
+                          <DropdownMenu.Portal>
+                            <DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
+                              {canSignOut(s) ? <DropdownMenu.Item className="um-item" onSelect={() => signOut(s)}>Sign out</DropdownMenu.Item> : null}
+                              {s.owned ? <><DropdownMenu.Separator className="um-divider" /><DropdownMenu.Item className="um-item cli-danger-item" onSelect={() => remove(s)}>Remove</DropdownMenu.Item></> : null}
+                            </DropdownMenu.Content>
+                          </DropdownMenu.Portal>
+                        </DropdownMenu.Root>
                       ) : null}
                     </div>
                   </li>
@@ -392,90 +414,34 @@ export default function Mcps({ hidden, embedded, workspaceId, workspaceName, wor
                 })}
               </ul>
             ) : (
-              <p className="pkg-fine">No {embedded ? "connectors" : "servers"} yet. Choose a service below to add one.</p>
+              <p className="pkg-fine">No connectors yet.</p>
             )}
-          </section>
-
-          <section className="mcp-add">
-            <h3>{embedded ? "Add connector" : "Add"}</h3>
-            {embedded && <label className="integration-import">Import a connector definition<input type="file" accept=".json,application/json" disabled={!!job} onChange={e => { const file = e.target.files?.[0]; e.target.value = ""; importDefinition(file); }} /></label>}
-            {showScopes ? (
-              <div className="pkg-scope" data-align-row role="radiogroup" aria-label="Where to save">
-                <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>This machine</button>
-                {canProject ? (
-                  <button
-                    type="button"
-                    role="radio"
-                    className="pkg-scope-btn"
-                    aria-checked={scope === "project"}
-                    title={"Saves in " + (workspaceName || "this folder")}
-                    onClick={() => setScope("project")}
-                  >{workspaceName || "This workspace"}</button>
-                ) : null}
-                {canAgent ? (
-                  <button
-                    type="button"
-                    role="radio"
-                    className="pkg-scope-btn"
-                    aria-checked={scope === "agent"}
-                    title={"Saves with " + (agentName || "this agent")}
-                    onClick={() => setScope("agent")}
-                  >This agent</button>
-                ) : null}
-              </div>
-            ) : null}
-            <div className="catalog-tabs" role="tablist" aria-label="Connector catalogs">
-              {tabs.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={catalogTab === t.id}
-                  className="pkg-scope-btn"
-                  disabled={!!job}
-                  onClick={() => setCatalogTab(t.id)}
-                >{t.label}</button>
-              ))}
-            </div>
-            {tabs.map((t) => {
-              if (t.id !== catalogTab) return null;
-              return (
-                <div key={t.id} className={embedded ? "integration-catalog" : "mcp-presets"} data-align-row={embedded ? undefined : true} role="tabpanel" aria-label={t.fixed ? "Cataloged services" : t.label + " servers"}>
-                  {t.fixed ? (
-                    <>
-                      <button
-                        type="button"
-                        className={(embedded ? "integration-preset" : "pkg-scope-btn") + " integration-custom"}
-                        disabled={!!job}
-                        onClick={() => { setForm(emptyForm()); setFormError(""); setCustomOpen(true); }}
-                      ><strong>Custom</strong><span>Configure a server by URL or local command.</span></button>
-                      {presets.map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          className={embedded ? "integration-preset" : "pkg-scope-btn"}
-                          disabled={!!job}
-                          title={p.summary}
-                          onClick={() => addServer({ name: p.id, ...p.entry })}
-                        >{embedded ? <><strong>{p.name}</strong><span>{p.summary}</span></> : p.name}</button>
-                      ))}
-                    </>
-                  ) : t.servers.map((s) => (
-                    <button
-                      key={s.name}
-                      type="button"
-                      className={(embedded ? "integration-preset" : "pkg-scope-btn") + (s.on && embedded ? " integration-added" : "")}
-                      disabled={!!job || s.on}
-                      title={s.on ? "Already added from " + t.label : "Import from " + t.label}
-                      onClick={() => setHostPick({ kind: t.id, label: t.label, server: s.name })}
-                    >{embedded ? <><strong>{s.name}</strong><span>{s.on ? "Added from " + t.label : "Found in " + t.label}</span></> : (s.on ? s.name + " ✓" : s.name)}</button>
-                  ))}
-                </div>
-              );
-            })}
           </section>
         </>
       )}
+
+      <AddConnectorDialog
+        open={addOpen && !!installed}
+        onOpenChange={(v) => { setAddOpen(v); if (!v) setSvcQuery(""); }}
+        query={svcQuery}
+        onQuery={setSvcQuery}
+        presets={presets}
+        tabs={tabs}
+        catalogTab={catalogTab}
+        onCatalogTab={setCatalogTab}
+        scope={scope}
+        onScope={setScope}
+        canProject={canProject}
+        canAgent={canAgent}
+        workspaceName={workspaceName}
+        agentName={agentName}
+        configured={configuredNames}
+        job={job}
+        onAdd={(entry) => addServer(entry)}
+        onCustom={() => { setAddOpen(false); setForm(emptyForm()); setFormError(""); setCustomOpen(true); }}
+        onHostPick={(pick) => { setAddOpen(false); setHostPick(pick); }}
+        onImport={(file) => { setAddOpen(false); importDefinition(file); }}
+      />
 
       {customOpen ? (
         <Dialog.Root open onOpenChange={(v) => { if (!v) setCustomOpen(false); }}>
@@ -579,6 +545,113 @@ export default function Mcps({ hidden, embedded, workspaceId, workspaceName, wor
         />
       ) : null}
     </PageFrame>
+  );
+}
+
+// One Add flow: a searchable service list plus the two escape hatches
+// (custom server, definition file). The target ("Save to") is stated beside
+// the list instead of floating above the pane as a second unlabelled pill
+// row (docs/plans/connectors-ux.md).
+function AddConnectorDialog({ open, onOpenChange, query, onQuery, presets, tabs, catalogTab, onCatalogTab, scope, onScope, canProject, canAgent, workspaceName, agentName, configured, job, onAdd, onCustom, onHostPick, onImport }) {
+  if (!open) return null;
+  const tab = tabs.find((t) => t.id === catalogTab) || tabs[0];
+  const needle = query.trim().toLowerCase();
+  const fixed = !!tab.fixed;
+  const rows = fixed
+    ? presets.map((p) => ({ key: p.id, name: p.name, summary: p.summary, added: configured.has(p.id), entry: { name: p.id, ...p.entry } }))
+    : (tab.servers || []).map((s) => ({ key: s.name, name: s.name, summary: s.on ? "Added from " + tab.label : "Found in " + tab.label, added: !!s.on, pick: { kind: tab.id, label: tab.label, server: s.name } }));
+  const shown = rows.filter((r) => !needle || (r.name + " " + r.summary).toLowerCase().includes(needle));
+  return (
+    <Dialog.Root open onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="dlg-overlay" />
+        <Dialog.Content className="dlg integration-dialog add-connector-dialog" onCloseAutoFocus={(e) => e.preventDefault()}>
+          <Dialog.Title className="dlg-title">Add connector</Dialog.Title>
+          <Dialog.Description className="dlg-body">A connector runs with the tools its author ships. Only connect what you trust.</Dialog.Description>
+          <div className="connector-pick" data-align-row data-align-wrap>
+            <input
+              className="dlg-input"
+              value={query}
+              onChange={(e) => onQuery(e.target.value)}
+              placeholder="Search services…"
+              aria-label="Search services"
+              disabled={!!job}
+              autoComplete="off"
+            />
+            {canProject || canAgent ? (
+              <div className="connector-scope">
+                <span className="mcp-group-label">Save to</span>
+                <div className="pkg-scope" role="radiogroup" aria-label="Save to">
+                  <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => onScope("user")}>This machine</button>
+                  {canProject ? (
+                    <button
+                      type="button"
+                      role="radio"
+                      className="pkg-scope-btn"
+                      aria-checked={scope === "project"}
+                      title={"Saves in " + (workspaceName || "this folder")}
+                      onClick={() => onScope("project")}
+                    >{workspaceName || "This workspace"}</button>
+                  ) : null}
+                  {canAgent ? (
+                    <button
+                      type="button"
+                      role="radio"
+                      className="pkg-scope-btn"
+                      aria-checked={scope === "agent"}
+                      title={"Saves with " + (agentName || "this agent")}
+                      onClick={() => onScope("agent")}
+                    >This agent</button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </div>
+          {tabs.length > 1 ? (
+            <div className="connector-source">
+              <span className="mcp-group-label">Source</span>
+              <div className="catalog-tabs" role="tablist" aria-label="Connector sources">
+                {tabs.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={catalogTab === t.id}
+                    className="pkg-scope-btn"
+                    disabled={!!job}
+                    onClick={() => onCatalogTab(t.id)}
+                  >{t.label}</button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {shown.length ? (
+            <ul className="connector-list" role="tabpanel" aria-label={fixed ? "Cataloged services" : tab.label + " servers"}>
+              {shown.map((r) => (
+                <li key={r.key} className="connector-option">
+                  <div className="connector-option-main">
+                    <strong>{r.name}</strong>
+                    <span>{r.summary}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    disabled={!!job || r.added}
+                    onClick={() => (r.pick ? onHostPick(r.pick) : onAdd(r.entry))}
+                  >{r.added ? "Added" : "Add"}</button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="pkg-fine">No service matches “{query.trim()}”.</p>
+          )}
+          <div className="connector-secondary" data-align-row>
+            <button type="button" className="btn btn-ghost" disabled={!!job} onClick={onCustom}>Custom server…</button>
+            <label className="btn btn-ghost connector-file">Import a file…<input type="file" accept=".json,application/json" disabled={!!job} onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) onImport(file); }} /></label>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 

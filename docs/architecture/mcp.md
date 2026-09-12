@@ -14,3 +14,28 @@ community **`pi-mcp-adapter`** extension (`pi install npm:pi-mcp-adapter`):
 - PiCode's value-add (M3–M4): a visual MCP Server Manager per workspace and
   per agent (enable/disable, precedence layers) writing the same config
   files the adapter reads. We orchestrate the ecosystem; we don't fork it.
+
+## Connectors pane (2026-09-12, `docs/plans/connectors-ux.md`)
+
+`#/clis/pi/connectors` is one surface in three bands: the header (the intro
+line and the single primary action, **Add connector**), the configured roster,
+and the connector-packages section when a package declares `pi.mcp`. `#/mcps`,
+`#/integrations*` and both apps' `ConnectorsPane` render this view embedded —
+there is no separate "MCPs" page.
+
+The Add flow is one `ResponsiveDialog` (desktop) / `MobileSheet` (mobile): a
+searchable service list over the catalog and the host imports
+(`connectorTabs(found)`), a labelled **Save to** control, and two secondary
+entries — the custom-server form (`mcpAddSchema`) and the definition-file
+import, which keeps its review-and-confirm step. **Save to** is the pane's
+scope: it writes `scope=user|project|agent` onto the route so a reload keeps
+the target, and the add request carries the same value. Adding from a host app
+keeps its confirmation.
+
+A configured row carries the status (only while an agent runs — `Live`,
+`Failed`, or the `Sign in` next action; with the agent stopped the pane says so
+once instead of showing `Idle` per row), the scope tag whose title is the file
+it lives in, the target, a Radix switch for enable/disable, and an overflow
+menu (**Sign out**, **Remove**). Removal confirms by naming that file. Status
+words come from the adapter's live report (`mcp.updated`) and the signed-in
+store; the pane never claims a tool list it did not fetch.

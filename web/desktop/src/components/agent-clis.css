@@ -52,6 +52,8 @@
 .cli-pane-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding-bottom: 4px; }
 .cli-pane-actions .btn { height: var(--ctl-h); }
 .cli-detail > #sessions-view { padding: 12px 0 0; }
+/* Connectors: the pane bar owns the gap (no workspace line to glue to it). */
+.cli-detail > #connectors-view, .cli-detail > #cli-connectors-view { padding: 12px 0 0; }
 /* Packages: the pane bar owns the gap now that the pane no longer opens with
    a workspace line (owner 2026-09-11). Applies to every packages sub-page. */
 .cli-detail > #cli-packages-view { padding: 12px 0 0; }
@@ -127,6 +129,7 @@
   .cli-pane-bar { flex-wrap: nowrap; align-items: center; }
   .cli-pane-tabs { flex: 1; min-width: 0; overflow-x: auto; }
   .cli-detail > #sessions-view { padding-top: 8px; }
+  .cli-detail > #connectors-view, .cli-detail > #cli-connectors-view { padding-top: 8px; }
   .cli-detail > #cli-packages-view { padding-top: 8px; }
   .cli-summary-grid, .cli-effective .cli-summary-grid { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .cli-summary-grid dd { margin-bottom: 12px; }

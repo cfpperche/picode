@@ -1,10 +1,30 @@
 # Connectors pane — UX refinement plan
 
-Status: proposed (not implemented). Benchmark study with the receipts and the
-measurements: [../benchmarks/2026-09-12-connectors-ux.md](../benchmarks/2026-09-12-connectors-ux.md).
+Status: **implemented** (2026-09-12, branch `feat/connectors-add`). The three
+questions at the end were delegated to the implementer and answered as
+recommended: one Add dialog, one line when the agent is stopped, both apps in
+one branch. Benchmark study with the receipts and the measurements:
+[../benchmarks/2026-09-12-connectors-ux.md](../benchmarks/2026-09-12-connectors-ux.md).
 Extends the connector decision table in [integrations.md](integrations.md) —
 it does not replace it. No ADR: this crosses no protocol, persistence,
 security-model or process boundary (AGENTS.md, ADR rule).
+
+## What shipped, and where it differs from this plan
+
+- The dialog lives in `Mcps.jsx` (both apps) as a module-level
+  `AddConnectorDialog`, not a new file per app: the two apps' components are
+  line-for-line mirrors, and one file keeps them in step.
+- **Save to** is wired to the route (`scope` prop + `onScopeChange` in
+  `ConnectorsPane`), so the target survives a reload — the plan said "stated at
+  the moment of writing"; the route makes it true across reloads too.
+- The pane imports `styles/integrations.css` itself. That file was only
+  imported by `Integrations.jsx`, so on mobile (lazy routes) the Connectors
+  pane rendered without its own stylesheet; the import fixes the Android/iOS
+  path and any future lazy route.
+- Below 520 px the row lets the target take a second line (`mcp-target
+  flex: 1 1 100%`) — a target truncated to "ht…" is not a target.
+- `scripts/qa-cli-connectors.mjs` is the harness (14 scenario groups, both
+  apps, geometry audits).
 
 ## Goal
 
