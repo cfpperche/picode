@@ -1261,13 +1261,12 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
         <span className="cv-menu-label">Show controls</span>
       </M.CheckboxItem>
       <M.Separator className="ws-row-menu-sep" />
-      {/* Files and changes have no tool of their own: they are opened from a
-          tab, not drawn on the plane. The unfiltered picker is their way in,
-          and it is the one path that still lets the surface choose the spot
-          (nextSlot). */}
-      {current ? (
-        <M.Item className="ws-row-menu-item" onSelect={() => { setPlaced(null); setTool(""); setPickerOpen(true); }}><IconPlus size={13} /> Add panel…</M.Item>
-      ) : null}
+      {/* No Add panel here, and none on the empty plane either (owner,
+          2026-09-12): the toolbar is the **only** way a panel is added, so
+          there is one answer to "how do I put something here" rather than
+          three that place it in different spots. The cost is recorded in
+          docs/architecture/canvas.md: file and diff panels have no tool yet,
+          so no new one can be created until they get one. */}
       <M.Item className="ws-row-menu-item" onSelect={() => setNameDialog("new")}><IconCanvas size={13} /> New canvas</M.Item>
       {current && panels.length ? (
         <M.Item className="ws-row-menu-item" onSelect={() => { tidy(); }}><IconGrid size={13} /> Tidy panels</M.Item>
@@ -1498,8 +1497,12 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
             // and it is below `.cv-cluster`'s layer, so the two never fight.
             <div className="cv-blank">
               <div className="cv-blank-card">
-                <p className="cv-blank-line">A panel is one agent, terminal, note or file, live on this canvas.</p>
-                <button type="button" className="btn btn-sm btn-primary" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
+                <p className="cv-blank-line">A panel is one agent, terminal or pin, live on this canvas.</p>
+                {/* The card points at the toolbar instead of carrying its own
+                    button: a second Add panel here would place a panel the
+                    reader did not choose a place for, which is the thing the
+                    toolbar exists to stop. */}
+                <p className="cv-blank-line">Pick one below, then draw where it goes.</p>
               </div>
             </div>
           )}

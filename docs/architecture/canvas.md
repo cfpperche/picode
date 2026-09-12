@@ -693,9 +693,18 @@ canvas trips the opening `fitView`, and the camera jumps the instant the
 reader finishes choosing where to put it — the same complaint, one step
 later.
 
-**Files and changes keep no tool.** They are opened from a tab, not drawn, so
-their way in is **Add panel…** in the `⋯` menu — the one path that still lets
-`nextSlot` choose.
+**The toolbar is the only way in** (owner, 2026-09-12). **Add panel…** left
+the `⋯` menu and the empty plane's card lost its button, so there is one
+answer to "how do I put something here" instead of three that placed a panel
+in three different spots.
+
+That has a cost, recorded rather than hidden: **file and diff panels can no
+longer be created.** They never had a tool — a file reaches the canvas from a
+tab that is already open, not from a rectangle drawn on the plane — and the
+unfiltered picker was their only door. Existing ones keep working, and
+`nextSlot` now has no caller for new panels at all. Restoring them means
+giving them a tool of their own, and the tool has to answer what a rectangle
+means for a file first.
 
 ### The plane's context menu (2026-09-12)
 
