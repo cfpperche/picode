@@ -126,3 +126,5 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0119](0119-package-config-descriptors.md) | package-config-descriptors | accepted |
 | [0120](0120-tauri-desktop-shell.md) | Desktop v2 shell — Tauri 2 + WebView2 | proposed |
 | [0121](0121-window-frame-contract.md) | window-frame-contract | proposed |
+| [0123](0123-derived-handoff-board.md) | derived-handoff-board | proposed |
+| [0124](0124-close-gate-cache.md) | close-gate-cache | proposed |

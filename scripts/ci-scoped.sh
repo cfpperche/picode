@@ -22,14 +22,16 @@ paths=$(
 )
 eval "$(printf '%s\n' "$paths" | node scripts/ci-scope.mjs --local)"
 
-# A green run is remembered per tree (ADR-0105): `make close` reuses it when
-# the tree has not changed since, instead of paying the gates twice.
+# A green run is remembered by what it covered (ADR-0105, ADR-0124): `make
+# close` reuses it when neither the tree nor the content the gates read
+# changed — a catch-up merge that brought unrelated work does not re-test.
 stamp() {
-  [ -z "$(git status --porcelain)" ] || return 0
-  git rev-parse 'HEAD^{tree}' > "$(git rev-parse --git-dir)/picode-ci-scoped.ok" 2>/dev/null || true
+  node scripts/ci-scope-reuse.mjs --write --base "$base" \
+    ${stamped_pkgs:+--packages "$stamped_pkgs"} ${SCOPE_FULL:+--full} || true
 }
 
 ran=()
+stamped_pkgs=""
 if [ -n "$SCOPE_FULL" ]; then
   echo "ci-scoped: gate-shaping or unknown paths changed — running the full matrix"
   make --no-print-directory ci
@@ -62,6 +64,7 @@ if [ -n "$SCOPE_GO" ]; then
   fi
   echo "ci-scoped: go test $(printf '%s\n' $pkgs | wc -l | tr -d ' ') package(s)"
   ./scripts/go-test.sh $pkgs
+  stamped_pkgs="$pkgs"
   ran+=("go[$(printf '%s\n' $pkgs | wc -l | tr -d ' ')]")
 fi
 

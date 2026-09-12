@@ -47,3 +47,9 @@ var/
 # (.pi/roles.json, .pi/compact.json) stays tracked.
 .pi/roles/
 .pi/compact/
+
+# The handoff board is a generated view (ADR-0123): `make handoff` renders it
+# from git state, docs/handoff/open/<topic>.md and the session notes. It is
+# read on demand, never committed, never merged — which is what removed the
+# repository's hottest file from every branch's diff.
+docs/handoff.md

@@ -22,10 +22,14 @@ if [ -n "$(git status --porcelain)" ]; then
   exit 1
 fi
 
-stamp="$(git rev-parse --git-dir)/picode-ci-scoped.ok"
-if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$(git rev-parse 'HEAD^{tree}')" ]; then
-  echo "close: ci-scoped is already green for this exact tree — not paying the gates twice"
+# Reuse the green run this worktree already paid for, when nothing the gates
+# read has changed since (ADR-0105 for the identical tree, ADR-0124 for the
+# catch-up merge that brought unrelated work). The verdict and its reason come
+# from one place; this script prints them and runs the gates otherwise.
+if verdict=$(node scripts/ci-scope-reuse.mjs --check); then
+  echo "close: $verdict"
 else
+  echo "close: $verdict"
   ./scripts/ci-scoped.sh || exit 1
 fi
 

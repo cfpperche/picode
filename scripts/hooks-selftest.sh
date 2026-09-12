@@ -62,17 +62,16 @@ if git checkout -q -- . 2>/dev/null; then ok "checkout -- <path> allowed"; else 
 #     means another session wrote into this worktree — the commit must die.
 if (cd "$repo/wt" && printf '# Handoff — living project state\n\nbody\n' > CHANGELOG.md && git add CHANGELOG.md && git commit -q -m clobber 2>/dev/null); then bad "clobbered CHANGELOG refused" "a handoff copy was committed as the changelog"; else ok "clobbered CHANGELOG refused"; fi
 (cd "$repo/wt" && git reset -q && git checkout -q -- CHANGELOG.md 2>/dev/null; rm -f CHANGELOG.md)
-if (cd "$repo/wt" && mkdir -p docs && printf '# Handoff — living project state\n\nbody\n' > docs/handoff.md && git add docs/handoff.md && git commit -q -m "honest handoff" 2>/dev/null); then ok "honest handoff commit in a worktree allowed"; else bad "honest handoff commit in a worktree allowed" "the guard must not block the documented flow"; fi
-if (cd "$repo/wt" && printf '# Changelog\n\nAll notable changes.\n' > docs/handoff.md && git add docs/handoff.md && git commit -q -m clobber2 2>/dev/null); then bad "clobbered handoff refused" "a changelog copy was committed as the handoff"; else ok "clobbered handoff refused"; fi
+if (cd "$repo/wt" && mkdir -p docs && printf '# Handoff — living project state\n\nbody\n' > docs/handoff.md && git add docs/handoff.md && git commit -q -m "handoff committed" 2>/dev/null); then bad "committed board refused" "a worktree committed the generated board"; else ok "committed board refused"; fi
+# The refusal leaves the path staged; unstage it, or every later row inherits it.
+(cd "$repo/wt" && git reset -q 2>/dev/null; rm -f docs/handoff.md)
 
-# 2c. The handoff line cap (ADR-0086): 100 lines pass, 101 are refused.
-if (cd "$repo/wt" && { printf '# Handoff — living project state\n'; for _ in $(seq 99); do echo line; done; } > docs/handoff.md && git add docs/handoff.md && git commit -q -m "handoff at cap" 2>/dev/null); then ok "handoff at 100 lines allowed"; else bad "handoff at 100 lines allowed" "the cap refuses a file at the limit"; fi
-if (cd "$repo/wt" && { printf '# Handoff — living project state\n'; for _ in $(seq 100); do echo line; done; } > docs/handoff.md && git add docs/handoff.md && git commit -q -m "handoff over cap" 2>/dev/null); then bad "handoff over 100 lines refused" "a 101-line handoff was committed"; else ok "handoff over 100 lines refused"; fi
-(cd "$repo/wt" && git checkout -q -- docs/handoff.md 2>/dev/null; git reset -q 2>/dev/null)
-
-# 2d. Byte cap (ADR-0105): the line cap was gamed with 500-byte lines.
-if (cd "$repo/wt" && { printf '# Handoff — living project state\n'; for _ in $(seq 60); do head -c 150 /dev/zero | tr '\0' x; echo; done; } > docs/handoff.md && git add docs/handoff.md && git commit -q -m "handoff over byte cap" 2>/dev/null); then bad "handoff over 8 KB refused" "a 9 KB handoff was committed"; else ok "handoff over 8 KB refused"; fi
-if (cd "$repo/wt" && { printf '# Handoff — living project state\n'; for _ in $(seq 60); do head -c 100 /dev/zero | tr '\0' x; echo; done; } > docs/handoff.md && git add docs/handoff.md && git commit -q -m "handoff under byte cap" 2>/dev/null); then ok "handoff under 8 KB allowed"; else bad "handoff under 8 KB allowed" "the byte cap refuses a 6 KB file"; fi
+# 2c. The board is generated, not written (ADR-0123): even a forced `git add
+#     -f` of docs/handoff.md dies, so a stale copy can never reach main, and a
+#     topic file is the way to add an item.
+if (cd "$repo/wt" && mkdir -p docs/handoff/open && printf '# Terminal\n\n## Debts\n\n- a debt\n' > docs/handoff/open/terminal.md && git add docs/handoff/open/terminal.md && git commit -q -m "topic file" 2>/dev/null); then ok "an open-topic file is allowed"; else bad "an open-topic file is allowed" "the documented place for a debt is blocked"; fi
+if (cd "$repo/wt" && git add -f docs/handoff.md && git commit -q -m "forced board" 2>/dev/null); then bad "forced board commit refused" "git add -f put the generated board in a commit"; else ok "forced board commit refused"; fi
+(cd "$repo/wt" && git reset -q 2>/dev/null; rm -f docs/handoff.md)
 
 # 2e. Whitespace errors stop at the commit (ADR-0105), not in an unread CI run.
 if (cd "$repo/wt" && printf 'trailing blank \n' > ws.txt && git add ws.txt && git commit -q -m ws 2>/dev/null); then bad "trailing whitespace refused" "a whitespace error was committed"; else ok "trailing whitespace refused"; fi
@@ -96,7 +95,7 @@ git reset -q; git checkout -q -- CHANGELOG.md 2>/dev/null
 if (printf '# Changelog\n\n## [Unreleased]\n\n## [0.2.0] - 2026-09-10\n\n### Added\n\n- a thing\n' > CHANGELOG.md && git add CHANGELOG.md && git commit -q -m "release 0.2.0" 2>/dev/null); then ok "release cut on main allowed"; else bad "release cut on main allowed" "the hook blocks the version heading the release process writes"; fi
 
 # 2g. Handoff state never lands on main directly (ADR-0105).
-if (mkdir -p docs && printf '# Handoff — living project state\n\nrecorded the merge\n' > docs/handoff.md && git add docs/handoff.md && git commit -q -m "handoff on main" 2>/dev/null); then bad "handoff edit on main refused" "main took a direct handoff edit"; else ok "handoff edit on main refused"; fi
+if (mkdir -p docs && printf '# Handoff — living project state\n\nrecorded the merge\n' > docs/handoff.md && git add -f docs/handoff.md && git commit -q -m "handoff on main" 2>/dev/null); then bad "board on main refused" "main took a generated board"; else ok "board on main refused"; fi
 git reset -q; rm -rf docs
 if (mkdir -p docs/handoff && printf 'note\n' > docs/handoff/2026-01-01-x.md && git add docs/handoff && git commit -q -m "note on main" 2>/dev/null); then bad "session note on main refused" "main took a session note directly"; else ok "session note on main refused"; fi
 git reset -q; rm -rf docs
