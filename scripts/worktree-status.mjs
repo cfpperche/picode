@@ -61,9 +61,10 @@ export function formatAge(ms) {
 // A worktree that is behind nobody but produces no commits is the shape of an
 // abandoned session: it holds a branch, a handoff note and a stale view of
 // main. Report it; never delete it for the owner (AGENTS.md §5).
-export function stallReason({ ahead, behind, dirty, lastCommitAt }, now = Date.now(), idleHours = 24) {
+export function stallReason({ ahead, behind, dirty, lastCommitAt, merged }, now = Date.now(), idleHours = 24) {
   if (!lastCommitAt) return "no commits yet";
   const idle = now - lastCommitAt; // ms, everywhere
+  if (merged) return null; // finished: `make worktree-gc` removes it
   if (ahead === 0 && dirty === 0) return "nothing committed — empty branch";
   if (idle > idleHours * 3600_000) {
     const where = ahead > 0 ? `${ahead} commit(s) ahead` : "nothing ahead";
@@ -75,7 +76,14 @@ export function stallReason({ ahead, behind, dirty, lastCommitAt }, now = Date.n
 export function flightLines(worktrees, now = Date.now(), idleHours = 24) {
   const live = worktrees.filter((w) => !w.isRoot);
   if (!live.length) return ["No worktree is open: `main` is the only tree."];
-  return live.map((w) => {
+  const open = live.filter((w) => !w.merged);
+  if (!open.length) {
+    return [
+      `Nothing in flight: ${live.length} worktree(s) hold merged branches`,
+      "(`make worktree-gc` removes them).",
+    ];
+  }
+  return open.map((w) => {
     const bits = [`${w.ahead} ahead`, `${w.behind} behind`];
     bits.push(w.dirty ? `${w.dirty} dirty file(s)` : "clean");
     bits.push(`last commit ${formatAge(now - w.lastCommitAt)}`);
@@ -87,6 +95,22 @@ export function flightLines(worktrees, now = Date.now(), idleHours = 24) {
     const stall = stallReason(w, now, idleHours);
     return `- \`${w.branch}\` — ${bits.join(", ")}${stall ? ` — **stalled: ${stall}**` : ""}`;
   });
+}
+
+// A branch whose tip main already contains is finished, whatever its worktree
+// still says (ADR-0123): reporting it as "stalled" sent the owner hunting for
+// work that is already merged. Only the branch name decides; a dirty tree is
+// still reported.
+let mergedCache;
+function mergedBranches() {
+  if (mergedCache) return mergedCache;
+  mergedCache = new Set(
+    gitRaw(["branch", "--merged", "main", "--format=%(refname:short)"])
+      .split("\n")
+      .map((b) => b.trim())
+      .filter(Boolean),
+  );
+  return mergedCache;
 }
 
 export function readWorktrees() {
@@ -102,6 +126,10 @@ export function readWorktrees() {
     const branchRef = (lines.find((l) => l.startsWith("branch ")) ?? "").slice(7);
     const branch = branchRef.replace(/^refs\/heads\//, "") || "(detached)";
     const isRoot = path === mainWorktree;
+    // A dirty tree is never "merged": its branch tip may be in main, but
+    // someone is still working in it (worktree-gc refuses those too).
+    const dirtyNow = gitRaw(["status", "--porcelain"], path).split("\n").filter((l) => l.trim()).length;
+    const merged = !isRoot && dirtyNow === 0 && mergedBranches().has(branch);
 
     let ahead = 0;
     let behind = 0;
@@ -110,7 +138,7 @@ export function readWorktrees() {
       behind = Number(counts[0]) || 0;
       ahead = Number(counts[1]) || 0;
     }
-    const dirty = gitRaw(["status", "--porcelain"], path).split("\n").filter((l) => l.trim()).length;
+    const dirty = dirtyNow;
     const lastCommitAt = (Number(gitRaw(["log", "-1", "--format=%ct"], path).trim()) || 0) * 1000;
     const subject = gitRaw(["log", "-1", "--format=%s"], path).trim();
 
@@ -141,6 +169,7 @@ export function readWorktrees() {
       greenAt,
       greenNow,
       isRoot,
+      merged,
     });
   }
   // The root first, then the worktrees that moved most recently.
@@ -161,13 +190,16 @@ function human(worktrees, now, idleHours) {
         gates,
       ],
       stall: w.isRoot ? null : stallReason(w, now, idleHours),
+      merged: w.merged,
     };
   });
   const head = ["worktree", "branch", "ahead/behind", "dirty", "last commit", "gates"];
   const widths = head.map((h, i) => Math.max(h.length, ...rows.map((r) => r.cell[i].length)));
   const line = (cells) => cells.map((c, i) => c.padEnd(widths[i])).join("  ").trimEnd();
   const out = [line(head), line(head.map((h) => "-".repeat(h.length)))];
-  for (const r of rows) out.push(line(r.cell) + (r.stall ? `   ⚠ ${r.stall}` : ""));
+  for (const r of rows) {
+    out.push(line(r.cell) + (r.merged ? "   merged — make worktree-gc can remove it" : r.stall ? `   ⚠ ${r.stall}` : ""));
+  }
   return out.join("\n");
 }
 
@@ -186,12 +218,16 @@ function main() {
     return 0;
   }
   console.log(human(worktrees, now, idleHours));
-  const stalled = worktrees.filter((w) => !w.isRoot && stallReason(w, now, idleHours));
+  const stalled = worktrees.filter((w) => !w.isRoot && !w.merged && stallReason(w, now, idleHours));
+  const merged = worktrees.filter((w) => !w.isRoot && w.merged);
   if (stalled.length) {
     console.log(
       `\n${stalled.length} worktree(s) stalled — an idle branch holds a handoff note and a stale view of main.\n` +
         `Finish it, or record the gap in docs/handoff/open/process.md and remove the tree (make worktree-gc).`,
     );
+  }
+  if (merged.length) {
+    console.log(`\n${merged.length} worktree(s) hold a merged branch — make worktree-gc removes them.`);
   }
   return 0;
 }
