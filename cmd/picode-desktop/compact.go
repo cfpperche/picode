@@ -118,9 +118,13 @@ func runDiskCompact(distroFlag, userFlag, method string, yes, dryRun, force, asJ
 	}
 
 	res, err := desktop.Compact(a.runner, a.distro, a.user, chosen, facts.VHDXPath, facts.AllocatedBytes, func(s string) {
-		if !asJSON {
-			fmt.Println("  " + s)
+		if asJSON {
+			// One progress object per line, so a subprocess consumer can
+			// stream steps and still find the final outcome as the last line.
+			fmt.Println(progressLine(s))
+			return
 		}
+		fmt.Println("  " + s)
 	})
 	if err != nil {
 		return abort(err.Error())
@@ -174,4 +178,10 @@ type compactOutcome struct {
 // to trust.
 func emitCompact(out compactOutcome) error {
 	return json.NewEncoder(os.Stdout).Encode(out)
+}
+
+// progressLine renders one step as a JSON object on its own line. %q keeps a
+// step name with quotes or newlines from becoming a different object.
+func progressLine(step string) string {
+	return fmt.Sprintf("{\"progress\":%q}", step)
 }

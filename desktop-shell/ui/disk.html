@@ -103,6 +103,11 @@
 
     <script>
       const { invoke } = window.__TAURI__.core;
+      const { listen } = window.__TAURI__.event;
+      let running = false;
+      // Live steps from the compact subprocess: one event per stage, shown
+      // in the state line while the buttons stay locked.
+      listen('disk-progress', e => { if (running) setState(e.payload, true); }).catch(() => {});
       const el = id => document.getElementById(id);
       const gb = n => {
         if (n < 1024) return n + ' B';
@@ -157,13 +162,16 @@
       }
 
       async function giveBack() {
+        if (running) return;
         if (!confirm('Stopping the distro returns the held space to C:.\n\nEverything inside it ends now — agents, terminals and tmux sessions do not come back.\n\nContinue?')) return;
+        running = true;
         setState('Compacting — Ubuntu is stopping, converting, starting again. This takes minutes…', true);
         try {
           renderOutcome(JSON.parse(await invoke('disk_compact')));
         } catch (e) {
           el('outcome').innerHTML = `<p class="err">${e}</p>`;
         }
+        running = false;
         await refresh();
       }
 
