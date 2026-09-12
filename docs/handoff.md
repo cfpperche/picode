@@ -7,7 +7,7 @@
 `git worktree list` is the truth for in-flight branches; entries say what a merge must know.
 
 - `feat/communication-recovery` — native state recovery and empty Grok suggestions; unmerged (a683eed7).
-- `feat/desktop-v2-spikes` — ADR-0120 skeleton (c0d7a695).
+- `feat/canvas-polish` — canvas switcher/empty state/no React Flow badge + ADR-0063 amendment (What's New on a fresh install); unmerged.
 - `feat/herdr-validation`, `feat/picode-video-pilot` — pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; on merge keep this shape, changelog to `docs/changelog.d/`.
 - `feat/providers-density` — Providers density polish; unmerged (d44c8d2b).
 
