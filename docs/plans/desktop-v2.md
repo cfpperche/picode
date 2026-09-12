@@ -19,9 +19,20 @@ truth; the shell is a client and a supervisor, never a second backend.
   (`cargo-xwin`, `x86_64-pc-windows-msvc`). Spike-gate before calling it done:
   pairing in the embedded profile, mkcert, xterm.js/WebGL, SSE, native
   notification.
-- **Phase 2 — Storage app + migrated actions:** the WSL management page (disk
-  from both sides, give back, reviewed cache prunes) inside the window; the
-  Windows-facts route reported by the app; keepalive/watchdog migrate from Go.
+- **Phase 2 — management inside the shell (owner-corrected 2026-09-11, in
+  build):** WSL control lives **only in the shell**; the daemon is untouched —
+  no routes, no app, no protocol, and a native-Linux user has no such
+  feature. The shell drives the tested Go CLIs as subprocesses (the
+  `provision` pattern: the binary inside the distro as a tool, ADR-0020):
+  **Overview** renders `picode-desktop.exe disk --json` (both halves, held,
+  consumers) in a local page (`ui/disk.html`); **Give back** runs
+  `disk-compact --yes --json` (readiness interlock + stop/convert/start, the
+  Go path verified live) with plan/running/measured in the window;
+  **`--json` added to disk-compact** (Go, additive). **Rejected in review**
+  (owner): porting the keepalive to Rust and retiring the Go tray — the two
+  coexist, amending ADR-0120's "supervisor" wording (client + subprocess
+  orchestrator). Sessions: A — Overview (this branch); B — Give back in the
+  window; C — `picode clean` prunes + `.wslconfig` editing.
 - **Phase 3 — Work Browser + CDP:** Chrome/Edge launched by the app (own
   `user-data-dir`, `--remote-debugging-pipe` — no open port); agents reach
   pages through CDP exposed to the daemon over the authenticated channel; the

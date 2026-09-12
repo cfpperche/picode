@@ -59,7 +59,7 @@ func main() {
 	case cmd == "disk":
 		exit(runDisk(*distro, *user, *asJSON))
 	case cmd == "disk-compact":
-		exit(runDiskCompact(*distro, *user, *method, *yes, *dryRun, *force))
+		exit(runDiskCompact(*distro, *user, *method, *yes, *dryRun, *force, *asJSON))
 	case cmd == "startup-check":
 		exit(runStartupCheck())
 	case cmd == "startup-repair":
