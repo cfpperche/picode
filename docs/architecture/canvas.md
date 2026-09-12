@@ -709,12 +709,31 @@ drawn (`Plane.jsx`), because a map of nothing is a box of nothing in the
 corner of a plane that is already saying, in its middle, that it is empty.
 The zoom cluster stays — it is a control row, not an empty frame.
 
+#### The library's mark (2026-09-11)
+
+React Flow's attribution badge is **not drawn**: `proOptions={{
+hideAttribution: true }}` on the `<ReactFlow>` element (`Plane.jsx`). The
+owner asked for it hidden. `@xyflow/react` is **MIT**, which permits removing
+the mark; **the licence is unchanged** — the dependency is still MIT, its
+licence text still ships in `node_modules`, and this document still names the
+library and its version wherever it explains the plane. Nothing was removed
+from the repository: `NOTICE` carries our own required notice and has never
+listed dependencies, so there is no house list for React Flow to be added to.
+
+This reverses the reading in
+[`docs/handoff/2026-09-10-matrix-canvas-surface.md`](../handoff/2026-09-10-matrix-canvas-surface.md)
+— "removing it is a licence question, not a styling one". For an MIT
+dependency it is not a licence question at all. The badge's own CSS
+(`--xy-attribution-*` and the two `.react-flow__attribution` rules, including
+the one that hid it under the maximize layer) went with it.
+
 **A maximized panel takes the clusters with it.** They belong to the plane,
 not to the surface, and the plane is what the layer covers; leaving them
 would be a switcher floating over a body that is not on the canvas any more.
 They are *removed*, not merely covered, so `Tab` cannot reach a control
-nobody can see — the same reason a covered plane hides React Flow's badge.
-`Esc` restores, and the layer's own header carries Restore.
+nobody can see. `Esc` restores, and the layer's own header carries Restore.
+(The `.cv-body[inert]` rule that used to hide React Flow's badge under this
+layer went with the badge itself — see *The library's mark* above.)
 
 **Fit reserves the corners.** `fitView` centres the content inside its
 padded rectangle, so a symmetric padding put the first panel's header under

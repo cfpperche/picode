@@ -691,7 +691,13 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
         disableKeyboardA11y
         deleteKeyCode={null}
         nodeDragThreshold={3}
-        attributionPosition="bottom-left"
+        // The library's mark is not drawn (owner, 2026-09-11;
+        // docs/architecture/canvas.md "The library's mark"). @xyflow/react is
+        // MIT, which permits it: the licence is unchanged, still vendored in
+        // node_modules and still named in the architecture doc. It was kept
+        // until now on the reading that removing it was a licence question
+        // rather than a styling one — it is not, for an MIT dependency.
+        proOptions={{ hideAttribution: true }}
       >
         {BG_VARIANT[bgPattern] ? (
           // Dots is 2, not 1: a single-pixel dot every four cells is the

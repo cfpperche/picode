@@ -367,7 +367,6 @@
   --xy-selection-background-color-default: var(--accent-soft);
   --xy-selection-border-default: 1px dashed var(--accent);
   --xy-resize-background-color-default: var(--accent);
-  --xy-attribution-background-color-default: transparent;
   --xy-node-boxshadow-selected-default: none;
 }
 
@@ -453,12 +452,9 @@
   stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke;
 }
 .cv-canvas-flow .react-flow__minimap-node { vector-effect: non-scaling-stroke; }
-.cv-canvas-flow .react-flow__attribution a { color: var(--text-secondary); opacity: .55; }
-.cv-canvas-flow .react-flow__attribution a:hover { opacity: 1; }
-/* The maximize layer covers the plane but not the last strip under it, and
-   the library's badge was left sticking out half-eaten. A covered canvas
-   shows no chrome of its own. */
-.cv-body[inert] .react-flow__attribution { visibility: hidden; }
+/* No rule for `.react-flow__attribution`: the badge is not rendered at all
+   (`proOptions.hideAttribution`, Plane.jsx; docs/architecture/canvas.md
+   "The library's mark"). @xyflow/react is MIT and stays MIT. */
 
 /* ---- Resize targets ------------------------------------------------------
 
