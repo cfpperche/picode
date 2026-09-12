@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { parseRoute, appRoute } from "../lib/routes.js";
 import UserMenu from "./UserMenu.jsx";
+import RailTabs from "./RailTabs.jsx";
 import ShareDrawer, { OPEN_EVENT } from "./ShareDrawer.jsx";
 import { IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconGit, IconX, IconChevronRight, IconPin, IconSession, IconSettings, IconGrid, IconCli } from "./Icons.jsx";
 import Pins from "./Pins.jsx";
