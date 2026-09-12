@@ -28,6 +28,7 @@
     "./domain/askForm.js": "./domain/askForm.js",
     "./domain/assistantMsg.js": "./domain/assistantMsg.js",
     "./domain/atMention.js": "./domain/atMention.js",
+    "./domain/attachText.js": "./domain/attachText.js",
     "./domain/bashLine.js": "./domain/bashLine.js",
     "./domain/browserChord.js": "./domain/browserChord.js",
     "./domain/canvas.js": "./domain/canvas.js",
