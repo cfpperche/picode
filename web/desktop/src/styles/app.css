@@ -1759,17 +1759,39 @@ img.ws-face.term-cli-face {
 .term-attach-head .term-attach-empty, .term-attach-head .term-attach-chips { flex: 1; min-width: 0; }
 .term-attach-empty { margin: 0 0 8px; font-size: 13px; color: var(--text-secondary); }
 .term-attach-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
-.term-attach-row { display: flex; align-items: center; gap: 6px; }
+/* The message field grows with the text (shared/domain/attachText.js): one
+   line is one control height, four lines is the cap, then it scrolls. The
+   row is bottom-aligned and deliberately not [data-align-row] — overlayAudit's
+   equal-height rule is for fixed controls, not for a field that grows. */
+.term-attach-row { display: flex; align-items: flex-end; gap: 6px; }
 .term-attach-row .icon-btn,
 .term-attach-row .composer-attach {
   width: var(--ctl-h); height: var(--ctl-h);
 }
 .term-attach-input {
-  flex: 1 1 auto; min-width: 0; height: var(--ctl-h);
+  flex: 1 1 auto; min-width: 0; min-height: var(--ctl-h);
   border: 1px solid var(--border); border-radius: 8px;
   background: var(--bg-base); color: var(--text-primary);
-  padding: 0 10px; font: inherit;
+  padding: 7px 10px; font: inherit; line-height: 20px;
+  resize: none; overflow-y: hidden;
 }
+/* The attach composer's sketch pad (SketchEditor.jsx). Excalidraw fills the
+   board; the head carries Cancel / Insert. pointer-events stays auto: a
+   modal that locks the page sets `none` on body, and the pad is a body
+   child. */
+.sketch-editor {
+  position: fixed; inset: 0; z-index: 70; pointer-events: auto;
+  display: flex; flex-direction: column; background: var(--bg-base);
+}
+.sketch-editor-head {
+  display: flex; align-items: center; gap: 12px; flex: none;
+  height: var(--chrome-h); padding: 0 12px; border-bottom: 1px solid var(--border);
+}
+.sketch-editor-head h2 { margin: 0; font-size: 14px; font-weight: 650; }
+.sketch-editor-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.sketch-editor-actions .btn { height: 28px; min-height: 28px; padding: 0 10px; font-size: 12px; }
+.sketch-editor-board { flex: 1; min-height: 0; position: relative; }
+.sketch-editor-board .excalidraw { height: 100% !important; }
 .term-surface[hidden] { display: none !important; }
 :root[data-term-theme="light"] .term-surface { background: #ffffff; }
 /* ADR-0059: one same-tab state while the TUI lends its session to a

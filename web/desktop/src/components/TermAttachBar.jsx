@@ -1,9 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import WorkspaceAttach from "./WorkspaceAttach.jsx";
-import { IconClip, IconFile, IconImage, IconSend, IconX } from "./Icons.jsx";
+import { IconClip, IconFile, IconImage, IconSend, IconSketch, IconX } from "./Icons.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { planAttachFiles, readAttachFile, MAX_ATTACH } from "@picode/shared/domain/termPrompt.js";
+import { fitAttachField, isAttachSendKey } from "@picode/shared/domain/attachText.js";
+import { sceneHasInk } from "@picode/shared/domain/composerImage.js";
 import { toast, toastError } from "../lib/toast.js";
+
+// Excalidraw loads with the sketch, never with the terminal pane.
+const SketchEditor = lazy(() => import("./SketchEditor.jsx"));
 
 const json = (body) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
@@ -21,8 +26,12 @@ export default function TermAttachBar({ term, seed, onClose }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [pick, setPick] = useState(false);
+  const [sketch, setSketch] = useState(null);
 
   useEffect(() => { if (inputRef.current) inputRef.current.focus(); }, []);
+
+  // One line at rest, four lines maximum (shared/domain/attachText.js).
+  useEffect(() => { fitAttachField(inputRef.current); }, [text]);
 
   useEffect(() => {
     if (!seed || !seed.token || seeded.current === seed.token) return;
@@ -59,6 +68,28 @@ export default function TermAttachBar({ term, seed, onClose }) {
       path: hit.path,
       image: /\.(png|jpe?g|gif|webp)$/i.test(hit.name || ""),
     }]));
+  }
+
+  function openSketch(edit) {
+    if (!edit && items.length >= MAX_ATTACH) { toast.error("Up to 4 files."); return; }
+    setSketch(edit || {});
+  }
+
+  // The sketch leaves as a PNG attachment; the scene stays in this session
+  // only, so the chip can be reopened and edited before Send.
+  async function insertSketch({ scene, preview }) {
+    if (!sceneHasInk(scene && scene.elements)) { toast.error("Draw something first."); return; }
+    try {
+      const row = await readAttachFile(new File([preview], "sketch.png", { type: "image/png" }));
+      setItems((cur) => {
+        if (sketch && sketch.id) return cur.map((x) => (x.id === sketch.id ? { ...row, id: x.id, scene } : x));
+        if (cur.length >= MAX_ATTACH) return cur;
+        return cur.concat([{ ...row, id: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()), scene }]);
+      });
+      setSketch(null);
+    } catch (err) {
+      if (err && err.message === "too-large") toast.error("Each file must be under 4 MB.");
+    }
   }
 
   async function send() {
@@ -99,35 +130,58 @@ export default function TermAttachBar({ term, seed, onClose }) {
           <div className="term-attach-chips">
             {items.map((it) => (
               <span key={it.id} className="pin-att composer-pic">
-                <span className="pin-att-face" title={it.name}>
-                  {it.image && it.url ? <img src={it.url} alt="" /> : <span className="pin-att-ext">{extOf(it.name)}</span>}
-                </span>
+                {it.scene ? (
+                  <button type="button" className="pin-att-face" title="Edit sketch" onClick={() => openSketch({ id: it.id, scene: it.scene })}>
+                    <img src={it.url} alt="" />
+                  </button>
+                ) : (
+                  <span className="pin-att-face" title={it.name}>
+                    {it.image && it.url ? <img src={it.url} alt="" /> : <span className="pin-att-ext">{extOf(it.name)}</span>}
+                  </span>
+                )}
                 <button type="button" className="pin-att-x" title="Remove" onClick={() => setItems((cur) => cur.filter((x) => x.id !== it.id))}><IconX size={12} /></button>
               </span>
             ))}
           </div>
         ) : (
-          <p className="term-attach-empty">Add a photo or a file.</p>
+          <p className="term-attach-empty">Add a photo, a file or a sketch.</p>
         )}
         <button type="button" className="ws-icon-btn" title="Close (Esc)" aria-label="Close the message bar" onClick={onClose}><IconX size={13} /></button>
       </div>
-      <form className="term-attach-row" data-align-row noValidate onSubmit={(e) => { e.preventDefault(); send(); }}>
+      {/* Not a [data-align-row]: the field grows by design (overlayAudit's
+          equal-height rule is for fixed controls). The row is bottom-aligned. */}
+      <form className="term-attach-row" noValidate onSubmit={(e) => { e.preventDefault(); send(); }}>
         <input ref={imgPick} type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/*" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
         <input ref={filePick} type="file" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
         <button type="button" className="icon-btn composer-attach" title="Attach image" aria-label="Attach image" onClick={() => imgPick.current && imgPick.current.click()}><IconImage /></button>
         <button type="button" className="icon-btn composer-attach" title="Attach file" aria-label="Attach file" onClick={() => filePick.current && filePick.current.click()}><IconFile /></button>
         <button type="button" className="icon-btn composer-attach" title="Attach from folder" aria-label="Attach from folder" onClick={() => setPick(true)}><IconClip /></button>
-        <input
+        <button type="button" className="icon-btn composer-attach" title="Sketch" aria-label="Sketch" onClick={() => openSketch()}><IconSketch /></button>
+        <textarea
           ref={inputRef}
           className="term-attach-input"
+          rows={1}
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (isAttachSendKey(e)) { e.preventDefault(); send(); } }}
           placeholder="Message the terminal"
           aria-label="Message the terminal"
           autoComplete="off"
         />
-        <button type="submit" className="icon-btn icon-btn-send" title="Send" disabled={busy || (!text.trim() && !items.length)}><IconSend size={16} /></button>
+        <button type="submit" className="icon-btn icon-btn-send" title="Send (Enter)" disabled={busy || (!text.trim() && !items.length)}><IconSend size={16} /></button>
       </form>
+      {sketch ? (
+        <Suspense fallback={null}>
+          <SketchEditor
+            open
+            title={sketch.id ? "Edit sketch" : "Sketch"}
+            initial={sketch.scene || null}
+            confirmLabel="Insert"
+            onSave={insertSketch}
+            onClose={() => setSketch(null)}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 }
