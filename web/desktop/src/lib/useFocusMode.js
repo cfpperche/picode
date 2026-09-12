@@ -1,17 +1,15 @@
-// The browser half of fullscreen (focus) mode. Every decision lives in
+// The DOM half of fullscreen (focus) mode. Every decision lives in
 // @picode/shared/domain/focusMode.js; this file only wires it to the DOM:
-// the pointer, the Fullscreen API, the keyboard lock, Escape, localStorage
-// and the xterm refit that a chrome change owes every live pane.
+// the pointer, Escape, localStorage and the xterm refit that a chrome
+// change owes every live pane.
 //
-// The keyboard lock (Chromium, fullscreen only) is what makes the mode a
-// real terminal: in a normal window the browser eats the reserved chords
-// (Ctrl+T, Ctrl+W, Ctrl+N) before the page sees any keydown — a guest CLI
-// like Codex's Ctrl+T can never get them (browserChord.js). Locked, every
-// key reaches the page, xterm encodes the chord and the guest gets it; in
-// the composer the keys simply stop firing browser chrome. Escape is part
-// of the lock: a pane keeps vim's Esc, Esc outside a pane still leaves the
-// mode through this file's own handler, and the browser swaps its one-press
-// exit for "press and hold Esc" — the hatch that always works.
+// The browser window is not wired here at all. The mode hides PiCode's own
+// chrome and leaves the window alone, so there is no Fullscreen API call to
+// make, nothing to undo when the browser moves on its own, and no
+// fullscreenchange listener: Escape reaches this file's handler on the
+// first press, which is what makes the two steps (close the reveal, then
+// leave) real. F11 is the reader's gesture — we neither send it nor watch
+// for it, and a mode entered before or after it behaves the same.
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DWELL_IN_MS,
@@ -19,7 +17,6 @@ import {
   EDGE_PX,
   FOCUS_FIRST_RUN,
   activeZones,
-  browserIntent,
   focusReduce,
   hotZone,
   initialFocusState,
@@ -30,7 +27,6 @@ import {
 import { scheduleTermFit } from "@picode/shared/domain/termFit.js";
 import { terms } from "./terms.js";
 import { paneAt } from "./termActions.js";
-import { matchAction } from "./appKeys.js";
 import { toast } from "./toast.js";
 
 const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
@@ -66,63 +62,6 @@ function railOnScreen(fallback) {
   return el ? !el.hidden : fallback;
 }
 
-// Lock before the request, in the same gesture task: the spec asks for
-// this order so the browser shows one combined "hold Esc" message instead
-// of two. Without the Fullscreen API the lock would be inert anyway (it
-// only processes keys during JS fullscreen), so the early return stands.
-function lockKeyboard() {
-  try {
-    const kb = typeof navigator !== "undefined" ? navigator.keyboard : null;
-    if (!kb || typeof kb.lock !== "function") return;
-    Promise.resolve(kb.lock()).catch((err) =>
-      console.debug("focus mode: keyboard lock refused — browser keys stay active", err));
-  } catch (err) {
-    console.debug("focus mode: keyboard lock unavailable", err);
-  }
-}
-
-// Fire-and-forget is enough on exit: the browser drops the lock by itself
-// whenever fullscreen ends (its own hold-Esc included) — this only covers
-// the path where we leave first.
-function unlockKeyboard() {
-  try {
-    const kb = typeof navigator !== "undefined" ? navigator.keyboard : null;
-    if (kb && typeof kb.unlock === "function") kb.unlock();
-  } catch { /* nothing to unlock */ }
-}
-
-function requestFullscreen(report) {
-  if (typeof document === "undefined") return;
-  const el = document.documentElement;
-  const req = el.requestFullscreen || el.webkitRequestFullscreen;
-  if (!req) {
-    // A browser without the API still gets the in-app mode.
-    console.debug("focus mode: no Fullscreen API; the app chrome is hidden anyway");
-    return;
-  }
-  lockKeyboard();
-  try {
-    const p = req.call(el, { navigationUI: "hide" });
-    if (p && typeof p.then === "function") {
-      p.then(() => report({ type: "browser", active: !!document.fullscreenElement }))
-        .catch((err) => console.debug("focus mode: the browser refused fullscreen", err));
-    }
-  } catch (err) {
-    console.debug("focus mode: the browser refused fullscreen", err);
-  }
-}
-
-function exitFullscreen() {
-  if (typeof document === "undefined" || !document.fullscreenElement) return;
-  unlockKeyboard();
-  try {
-    const p = document.exitFullscreen ? document.exitFullscreen() : null;
-    if (p && typeof p.catch === "function") p.catch((err) => console.debug("focus mode: exit refused", err));
-  } catch (err) {
-    console.debug("focus mode: exit refused", err);
-  }
-}
-
 // Hiding or showing the chrome resizes every pane; a reveal does not (it
 // floats above the surface), so only the mode itself refits.
 function refitPanes() {
@@ -132,43 +71,20 @@ function refitPanes() {
 }
 
 export function useFocusMode({ railOpen = false, available = true } = {}) {
-  // A reload restores the mode but not the browser fullscreen (there was
-  // no gesture) and not what the rail looked like when it started — the
-  // rail's state right now is the closest true answer. The caller's value
-  // seeds it; the observer below keeps it honest from the first commit on.
+  // A reload restores the mode, but not what the rail looked like when it
+  // started — the rail's state right now is the closest true answer. The
+  // caller's value seeds it; the observer below keeps it honest from the
+  // first commit on.
   const [state, setState] = useState(() => initialFocusState({ ...readFocusPrefs(), railOpen }));
   const ref = useRef(state);
   ref.current = state;
-  // True while an enter request we fired is still travelling: a mode that
-  // stops in that window must take the browser back out (see send).
-  const enterPending = useRef(false);
 
   const send = useCallback((ev) => {
     const prev = ref.current;
     const next = focusReduce(prev, ev);
-    const intent = browserIntent(prev, next, ev);
-    // The browser answered a fullscreen change: an in-flight enter request
-    // of ours is answered by this very event, so the pending flag is read
-    // (wasPending) and cleared before anything else decides with it.
-    const wasPending = enterPending.current;
-    if (ev.type === "browser") enterPending.current = false;
-    if (next === prev && intent === "none" && !wasPending) return prev;
+    if (next === prev) return prev;
     ref.current = next;
     setState(next);
-    if (intent === "request") {
-      enterPending.current = true;
-      requestFullscreen(send);
-    } else if (intent === "exit") exitFullscreen();
-    // A mode that stops while our own enter request is still travelling —
-    // the same gesture was an Escape, the fullscreen chord, or a click
-    // that navigated away — must not land fullscreen with the mode off.
-    // exitFullscreen is a no-op until the request lands, so the belt
-    // fires again when the browser reports the change (wasPending above).
-    if (!next.on && enterPending.current) exitFullscreen();
-    if (ev.type === "browser" && wasPending && !next.on && ev.active) exitFullscreen();
-    // Going fullscreen resizes the viewport: the restored mode engages it
-    // without a mode transition, so the refit must follow fs, not on.
-    if (prev.fs !== next.fs) refitPanes();
     if (prev.on !== next.on) {
       writeFocusPrefs({ on: next.on });
       refitPanes();
@@ -192,35 +108,6 @@ export function useFocusMode({ railOpen = false, available = true } = {}) {
   // click reveals it outright and pins it: what a click opened, a click (or
   // Escape, or leaving the mode) closes.
   const show = useCallback((zone) => send({ type: "reveal", zone, pinned: true }), [send]);
-
-  // A reload restores the mode without the browser part — there was no
-  // gesture to ask with. The first real input is that gesture: the resume
-  // hands the request in from its own handler, so the mode the viewer
-  // chose keeps its fullscreen and its keyboard lock without anything
-  // being done twice. Synthetic events are refused (isTrusted — no real
-  // input, no activation), and keys that themselves mean "leave" (Escape,
-  // the fullscreen chord) are left to speak first, so the resume never
-  // races the mode into a fullscreen nobody asked to keep. One attempt
-  // per page load: a browser that refuses fullscreen refuses again.
-  const resumeTried = useRef(false);
-  useEffect(() => {
-    if (!state.on || state.fs) return undefined;
-    function onGesture(e) {
-      if (!e.isTrusted || resumeTried.current) return;
-      if (e.type === "keydown") {
-        if (e.key === "Escape") return;
-        if (matchAction("app.fullscreen.toggle", e)) return;
-      }
-      resumeTried.current = true;
-      send({ type: "resume" });
-    }
-    window.addEventListener("keydown", onGesture, true);
-    window.addEventListener("click", onGesture, true);
-    return () => {
-      window.removeEventListener("keydown", onGesture, true);
-      window.removeEventListener("click", onGesture, true);
-    };
-  }, [state.on, state.fs, send]);
 
   // A shell that cannot host the mode any more — the window narrowed to
   // the single column, or the viewer opened a page route, where the tab
@@ -289,9 +176,11 @@ export function useFocusMode({ railOpen = false, available = true } = {}) {
     return () => clearTimeout(id);
   }, [state.on, state.armed, state.closing, send]);
 
-  // Escape: the reveal first, then the mode. A terminal pane keeps its
-  // own Escape — vim and every agent TUI need it — so the mode is left
-  // from there with the chord, the menu row or the Leave control.
+  // Escape: the reveal first, then the mode — two presses, both ours,
+  // because no browser fullscreen is in front of them to eat the first. A
+  // terminal pane keeps its own Escape — vim and every agent TUI need it —
+  // so the mode is left from there with the chord, the menu row or the
+  // Leave control in the top strip.
   useEffect(() => {
     if (!state.on) return undefined;
     function onKey(e) {
@@ -305,13 +194,6 @@ export function useFocusMode({ railOpen = false, available = true } = {}) {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [state.on, send]);
-
-  // F11 or the browser's own Escape ends the mode it started.
-  useEffect(() => {
-    function onChange() { send({ type: "browser", active: !!document.fullscreenElement }); }
-    document.addEventListener("fullscreenchange", onChange);
-    return () => document.removeEventListener("fullscreenchange", onChange);
-  }, [send]);
 
   return {
     on: state.on,

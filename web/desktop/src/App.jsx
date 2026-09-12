@@ -424,8 +424,6 @@ export default function App() {
         e.preventDefault();
         toggleInspector();
       }
-      // The keydown is the user gesture requestFullscreen needs, so the
-      // toggle runs here rather than in an effect watching the state.
       if (focusOk && matchAction("app.fullscreen.toggle", e)) {
         e.preventDefault();
         focus.toggle();

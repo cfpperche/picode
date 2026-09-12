@@ -6,9 +6,13 @@
 // Alt+Left, F3, …) does fire keydown and is the page's to cancel — inside
 // a terminal pane xterm.js already cancels and encodes every chord it maps
 // (termKeys.js), so the reserved set is the only real gap for a guest CLI
-// like Codex's Ctrl+T. The Keyboard Lock API (fullscreen only, Chromium)
-// hands the reserved set to the page; focus mode locks it there
-// (desktop/src/lib/useFocusMode.js, focusMode.js).
+// like Codex's Ctrl+T. Nothing in the app closes that gap: the Keyboard
+// Lock API could, but only while the page itself asked the browser for
+// fullscreen, and PiCode's fullscreen mode stopped doing that on
+// 2026-09-11 — it hides the app's chrome and leaves the window to the
+// reader (focusMode.js). The set below is therefore a standing fact about
+// the platform, and the guard is what keeps PiCode's own defaults off a
+// chord the page can never receive.
 //
 // Chords use the app's format (piKey.js fromEvent): modifiers in order
 // ctrl, shift, alt, super, then the lowercased key — "ctrl+pageUp" keeps
@@ -21,9 +25,8 @@
 // ctrl rows are the Windows/Linux truth; macOS reserves the Cmd
 // equivalents instead (its Ctrl+T is an ordinary chord a page CAN see),
 // so the same rows exist under super — which is what piKey fromEvent
-// reports for metaKey. Whether Keyboard Lock can capture the Cmd rows on
-// macOS follows Chrome's implementation; the guard's job (never default
-// onto a dead chord) holds either way.
+// reports for metaKey. The guard's job — never default onto a dead chord —
+// is the same on every platform.
 export const RESERVED_CHORDS = [
   { chord: "ctrl+t", browser: "new tab" },
   { chord: "ctrl+shift+t", browser: "reopen closed tab" },
