@@ -3125,6 +3125,41 @@
         ]
       }
     },
+    "/api/communication/workspaces/{id}/activate": {
+      "post": {
+        "operationId": "postApiCommunicationWorkspacesActivate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "communication"
+        ]
+      }
+    },
     "/api/communication/workspaces/{id}/history": {
       "get": {
         "operationId": "getApiCommunicationWorkspacesHistory",
