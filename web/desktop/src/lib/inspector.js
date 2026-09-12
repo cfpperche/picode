@@ -18,10 +18,15 @@ export const CENTER_GUTTERS = 48;
 export const OPEN_BY_DEFAULT_FROM = 1440;
 
 // anchorFor decides which owner the rail follows. Tabs with a folder (agent,
-// terminal, file, git graph, file tree) anchor to their owner; tabs without
-// one (apps) keep the previous anchor so the rail does not go blank beside
-// them. An owner that no longer exists clears the anchor. The same anchor is
-// returned by identity when nothing changed, so effects do not re-run.
+// terminal, file, git graph, file tree) anchor to their owner. An app tab has
+// no folder of its own, so it keeps the previous anchor — unless the app has
+// published a **subject**: the agent or terminal it currently has in focus
+// (ADR-0109, amendment 2026-09-12). `appSubjects` is the host's map of tab id
+// to owner, read here exactly like `gitOwners` and `treeOwners` are: the app
+// states a fact about its own content, and the host alone decides that the
+// rail follows it. An owner that no longer exists clears the anchor. The same
+// anchor is returned by identity when nothing changed, so effects do not
+// re-run.
 export function anchorFor(selectedId, ctx, last = null) {
   const candidate = ownerOf(selectedId, ctx || {});
   const next = candidate === undefined ? last : candidate;
@@ -47,7 +52,10 @@ function ownerOf(id, ctx) {
     const o = (ctx.treeOwners || {})[id];
     return o ? { kind: o.kind, id: o.id } : undefined;
   }
-  if (isAppTab(id)) return undefined;
+  if (isAppTab(id)) {
+    const o = (ctx.appSubjects || {})[id];
+    return o && o.id ? { kind: o.kind, id: o.id } : undefined;
+  }
   const loc = locate(ctx.workspaces, ctx.freeAgents, id);
   return loc && loc.agent ? { kind: "agent", id: loc.agent.id } : undefined;
 }

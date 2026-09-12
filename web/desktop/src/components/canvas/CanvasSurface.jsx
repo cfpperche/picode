@@ -613,6 +613,39 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
     if (maximizedId && !models.some((m) => m.id === maximizedId)) setMaximizedId("");
   }, [models, focusedId, maximizedId]);
 
+  // Publish the focused panel as this tab's **subject** (ADR-0109, amendment
+  // 2026-09-12). The canvas states one fact about its own content — which
+  // agent or terminal the reader is on — and the host is what decides that
+  // the Inspector follows it. The canvas never names the rail, and there is
+  // no import from it here: the direction the app boundary asks for.
+  //
+  // Only a panel with a folder qualifies. A note, a file or a diff panel
+  // publishes nothing rather than null, so moving focus onto one leaves the
+  // rail where it was instead of blanking it — the same courtesy the host
+  // already extends to an app tab with no subject at all.
+  //
+  // The door is read through a ref, never a dependency: the host builds its
+  // `host` object inline per tab, so `host.subject` is a new function on every
+  // App render. As a dependency it would tear the effect down and set it up
+  // again on renders that changed nothing here — and the cleanup below would
+  // publish null each time. What the effect actually depends on is the two
+  // strings.
+  const subjectRef = useRef(null);
+  subjectRef.current = (host && host.subject) || null;
+  const focusedModel = focusedId ? models.find((m) => m.id === focusedId) : null;
+  const focusedKind = focusedModel ? focusedModel.kind : "";
+  const focusedRefId = focusedModel ? focusedModel.ref : "";
+  useEffect(() => {
+    if (!subjectRef.current || hidden) return;
+    if (focusedKind === "terminal") subjectRef.current({ kind: "term", id: focusedRefId });
+    else if (focusedKind === "agent") subjectRef.current({ kind: "agent", id: focusedRefId });
+  }, [hidden, focusedKind, focusedRefId]);
+  // Closing the tab takes its subject with it, so the rail falls back to the
+  // anchor it had before. Hiding does not: the host only reads the subject of
+  // the tab it has selected, and keeping it means coming back to this canvas
+  // shows the same folder it was showing when the reader left.
+  useEffect(() => () => { if (subjectRef.current) subjectRef.current(null); }, []);
+
   // ---- edges (ADR-0116) ---------------------------------------------------
   // What every panel is called, and which folder it works in: the reason a
   // broken link shows, the sentence the enrolment offers and the one that

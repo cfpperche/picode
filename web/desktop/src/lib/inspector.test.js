@@ -40,6 +40,22 @@ test("anchorFor keeps the last anchor on tabs without a folder and returns it by
   assert.equal(anchorFor("x:inbox", ctx, null), null);
 });
 
+test("an app tab that publishes a subject anchors the rail on it", () => {
+  const subjects = { "x:canvas": { kind: "term", id: "t1" } };
+  const withSubject = { ...ctx, appSubjects: subjects };
+  const last = { kind: "agent", id: "ag1" };
+  // The published subject wins over the anchor the rail was carrying.
+  assert.deepEqual(anchorFor("x:canvas", withSubject, last), { kind: "term", id: "t1" });
+  // Only for the tab that published it: another app keeps the last anchor.
+  assert.equal(anchorFor("x:inbox", withSubject, last), last);
+  // A subject the fleet no longer has clears the rail rather than showing a
+  // folder nobody owns — the same rule every other owner obeys.
+  assert.equal(anchorFor("x:canvas", { ...ctx, appSubjects: { "x:canvas": { kind: "term", id: "gone" } } }, last), null);
+  // Cleared (the app has nothing in focus): back to keeping the last anchor.
+  assert.equal(anchorFor("x:canvas", { ...ctx, appSubjects: { "x:canvas": null } }, last), last);
+  assert.equal(anchorFor("x:canvas", ctx, last), last, "no map at all is the old behaviour");
+});
+
 test("anchorFor clears an owner that no longer exists", () => {
   assert.equal(anchorFor("t:gone", ctx, { kind: "agent", id: "ag1" }), null);
   assert.equal(anchorFor("x:inbox", ctx, { kind: "term", id: "gone" }), null);

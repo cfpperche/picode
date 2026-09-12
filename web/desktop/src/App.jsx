@@ -114,6 +114,9 @@ import { useMedia } from "./lib/media.js";
 // the hidden QA demo (the server lists it with PICODE_DEMO_APP=1) and the
 // Canvas, which arrives as a chunk of its own.
 const NATIVE_APPS = nativeApps({ "demo-native": NativeDemoSurface, canvas: CanvasSurface });
+// One frozen object, so a shell with no app subject published never makes a
+// new map and never re-runs the anchor effect.
+const EMPTY_SUBJECTS = Object.freeze({});
 
 export default function App() {
   const narrow = useMedia("(max-width: 767px)");
@@ -290,6 +293,22 @@ export default function App() {
   // it, so remember which owner opened each one (ADR-0022).
   const [gitOwners, setGitOwners] = useState(() => readGitOwners());
   const [treeOwners, setTreeOwners] = useState(() => readTreeOwners());
+  // What a native app tab currently has in focus, by tab id (ADR-0109,
+  // amendment 2026-09-12). The app publishes a fact about its own content —
+  // "the panel in focus here is this terminal" — and the host decides what
+  // that means; today it means the Inspector follows it, the way it follows
+  // a graph tab through `gitOwners`. Not persisted: it is where a viewer is
+  // looking right now, not a tab's identity.
+  const [appSubjects, setAppSubjects] = useState(EMPTY_SUBJECTS);
+  const publishSubject = useCallback((tabId, owner) => {
+    setAppSubjects((cur) => {
+      const had = cur[tabId] || null;
+      const next = owner && owner.id ? { kind: owner.kind, id: owner.id } : null;
+      if (had === next || (had && next && had.kind === next.kind && had.id === next.id)) return cur;
+      if (!next && !(tabId in cur)) return cur;
+      return { ...cur, [tabId]: next };
+    });
+  }, []);
   const treeCloseGuards = useRef(new Map());
   const registerTreeCloseGuard = useCallback((id, guard) => {
     treeCloseGuards.current.set(id, guard);
@@ -306,8 +325,8 @@ export default function App() {
   selectedRef.current = selectedId;
 
   useEffect(() => {
-    setInspectorAnchor((last) => anchorFor(selectedId, { workspaces, freeAgents, terminals, gitOwners, treeOwners }, last));
-  }, [selectedId, workspaces, freeAgents, terminals, gitOwners, treeOwners]);
+    setInspectorAnchor((last) => anchorFor(selectedId, { workspaces, freeAgents, terminals, gitOwners, treeOwners, appSubjects }, last));
+  }, [selectedId, workspaces, freeAgents, terminals, gitOwners, treeOwners, appSubjects]);
   const fileTabInfo = isFileTab(selectedId) ? parseFileTab(selectedId) : null;
   const fileTabOnAnchor = !!(fileTabInfo && inspectorAnchor && fileTabInfo.kind === inspectorAnchor.kind && fileTabInfo.id === inspectorAnchor.id);
   const inspectorActivePath = fileTabOnAnchor ? fileTabInfo.path : "";
@@ -2867,6 +2886,10 @@ export default function App() {
                       openTabs: tabs,
                       openTab, openInteractive, revealAgent, openFileTab,
                       feed: subscribeFeed,
+                      // The app says what it has in focus; the host decides
+                      // what follows from that (ADR-0109, amendment
+                      // 2026-09-12). An app never names the Inspector.
+                      subject: (owner) => publishSubject(id, owner),
                     }}
                   />
                 </Suspense>

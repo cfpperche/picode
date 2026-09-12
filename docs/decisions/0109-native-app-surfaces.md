@@ -270,3 +270,55 @@ see a *route* or an *id*, which is the point — those are the doors.
 - **If wrong**: the list is descriptive, not prophetic — a genuine need for
   contributed host chrome is an amendment adding a door, not a reason to
   stop declaring them.
+
+## Amendment 2026-09-12 — an app may publish its **subject**; the host decides what follows
+
+Owner, seeing a canvas with a terminal panel in focus beside an Inspector
+that still read *Open an agent or terminal to inspect its files*: "selecionar
+um terminal ou agente no canvas não altera o inspector".
+
+The rail was right to be empty. An app tab has no folder of its own, so
+`anchorFor` returned `undefined` for it and the rail kept whatever anchor it
+had — which on a fresh window is none. A canvas, though, is *full* of agents
+and terminals, and the reader is looking straight at one of them.
+
+Fixing it by having the Canvas set the anchor would have been the leak this
+ADR's previous amendment forbids, and the door table says so in as many
+words: for the app's one main tab, "the host owns the strip, the ×, restore
+and **the Inspector anchor**". That stays true. What is added is one door in
+the other direction:
+
+| Door | Where it is | What the app supplies |
+|---|---|---|
+| **The tab's subject** | `host.subject(owner \| null)` on `App.jsx`'s native mount, stamped into `appSubjects[tabId]` and read by `anchorFor` beside `gitOwners` and `treeOwners` (`web/desktop/src/lib/inspector.js`) | `{ kind: "agent" \| "term", id }` — an id it already holds, or `null`. Never a surface, never a route, never markup |
+
+The direction the boundary asks for is intact: the app states a **fact about
+its own content** — *the panel in focus here is this terminal* — and the host
+alone decides what that means. Today it means the Inspector follows it. A
+different host, or a later one, may use the same fact for something else or
+for nothing, and the app cannot tell the difference. The Canvas imports
+nothing from the rail and names nothing in it; `web/tools/app-boundary.test.mjs`
+still passes unchanged, because there is nothing new to import.
+
+Three rules keep it narrow:
+
+- **Only an owner the fleet has.** A subject goes through `ownerExists` like
+  every other anchor, so an app cannot point the rail at a folder nobody owns.
+- **Silence, not null, for a panel with no folder.** Focusing a note, a file
+  or a diff panel publishes nothing, so the rail stays where it was instead
+  of blanking — the courtesy the host already extends to an app tab with no
+  subject at all.
+- **It dies with the tab, not with a glance.** Closing the canvas clears its
+  subject; merely switching tabs does not, because the host only reads the
+  subject of the tab it has selected, and coming back should show the folder
+  the reader left.
+
+### Consequences
+
+- The Inspector is useful beside a canvas for the first time: the rail
+  follows the panel you are on, and its Changes tab is that panel's diff.
+- One more thing a native app can say about itself. The next candidates are
+  obvious (a title for the window, a status for the tab) and each is its own
+  amendment, not an open channel.
+- **If wrong**: the map is host state, not app state. Deleting the two lines
+  in `anchorFor` restores the old behaviour with nothing else to unwind.

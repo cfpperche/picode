@@ -623,6 +623,21 @@ state lives inside the Canvas app's surface — apps read the desktop through
 `host`, never the other way round (ADR-0109). Adding it means giving the
 desktop a canvas client of its own, which is a decision, not a line.
 
+**The Inspector follows the focused panel** (2026-09-12, ADR-0109's second
+amendment). The rail used to sit empty beside a canvas full of agents and
+terminals, because an app tab has no folder of its own. The canvas now
+publishes its focused panel as the tab's **subject** through
+`host.subject({ kind, id })`; `App.jsx` stamps it into `appSubjects[tabId]`
+and `anchorFor` reads it beside `gitOwners` and `treeOwners`. The direction
+is the one the boundary asks for — the app states a fact about its own
+content and the host decides the rail follows it, so nothing here imports or
+names the Inspector. A note, file or diff panel publishes nothing, so the
+rail stays where it was rather than blanking; closing the tab clears the
+subject, switching away does not. The door is read through a ref, never a
+dependency: `host` is rebuilt inline on every `App.jsx` render, so
+`host.subject` is a new function each time and as a dependency it would
+publish `null` on renders that changed nothing.
+
 ### Chrome (2026-09-11)
 
 **The surface has no header.** Until now it wore the app bar every other
