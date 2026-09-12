@@ -129,11 +129,14 @@
    is an ordinary segment wearing the group's seams, hover and focus ring,
    and its menu is the same `.ws-row-menu` the `⋯` beside it opens.
 
-   The floor and ceiling are why the centred dock stays put: a trigger sizes
-   to the name it shows, not to the longest in the list the way the `<select>`
-   did, so a second canvas with a long name no longer widens the row. */
+   There is **no width floor** any more (owner, 2026-09-12): the trigger hugs
+   its icon, its name and its chevron. The floor existed to keep a *centred*
+   dock from shifting when the name changed, and this group is anchored to the
+   top-left corner now — it grows to the right, where there is nothing to
+   move. The ceiling stays, so a long name ellipsizes instead of pushing the
+   `⋯` off the pane. */
 .cv-cluster > .cv-switch {
-  flex: 0 1 auto; min-width: 104px; max-width: 240px; padding: 0 8px 0 10px;
+  flex: 0 1 auto; max-width: 240px; padding: 0 8px 0 10px;
   gap: 7px; justify-content: flex-start;
   color: var(--text-primary); font-size: 12.5px;
   overflow: hidden;
@@ -348,8 +351,9 @@
    the error line and the *No canvas yet* state. Those three are real layout
    under a cluster that is not, so when the cluster is there they start below
    it instead of behind it; the last of them draws no cluster at all (there is
-   nothing to switch), so it needs no offset. The **empty canvas** is not here
-   — it is `.cv-blank`, a layer on the plane itself. */
+   nothing to switch), so it needs no offset. An **empty canvas** draws
+   nothing at all (owner, 2026-09-12): the plane with its texture, the
+   toolbar, and that is the whole page. */
 .cv-stage.has-chrome > .ft-msg, .cv-stage.has-chrome > .cv-skel { padding-bottom: calc(var(--ctl-h) + 20px); }
 .cv-surface.is-max .cv-body { overflow: hidden; }
 .cv-max {
@@ -403,28 +407,6 @@
 
 .cv-body.is-canvas { padding: 0; overflow: hidden; }
 
-/* An empty canvas: one line and one action, in the middle of the plane
-   (2026-09-11). The plane stays the plane behind it — the reader's chosen
-   ground, the minimap and the zoom cluster are all still there — so the layer
-   is pointer-transparent apart from the card, and it sits under z-index 6,
-   which is the floating clusters'. The card is the cluster's own make
-   (opaque, elevated, one hairline, the same shadow) for the same reason the
-   cluster is: it has to read in both themes over dots, a grid, a cross or
-   plain ground, and a translucent panel over a texture does not. */
-.cv-blank {
-  position: absolute; inset: 0; z-index: 5;
-  display: flex; align-items: center; justify-content: center;
-  padding: 16px; pointer-events: none;
-}
-.cv-blank-card {
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
-  max-width: min(420px, 100%); box-sizing: border-box;
-  padding: 16px 18px; text-align: center; pointer-events: auto;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-strong); border-radius: var(--radius-ctl);
-  box-shadow: 0 8px 24px color-mix(in srgb, #000 22%, transparent);
-}
-.cv-blank-line { margin: 0; font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
 
 .cv-canvas-flow {
   position: absolute; inset: 0;

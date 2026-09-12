@@ -659,6 +659,10 @@ Four places, three of them on the bottom edge (owner, 2026-09-12):
 | bottom-centre (`.cv-toolbar`) | one button per **element**: agent, terminal, pin | the hands' end of the surface: what you add |
 | bottom-right (`<MiniMap>`, `Plane.jsx`) | the map of the plane | the corner the rest leaves free |
 
+**An empty canvas draws nothing** (owner, 2026-09-12). It carried a card
+in the middle saying what a panel is; the toolbar says it better by being
+there.
+
 ### Placing a panel (2026-09-12)
 
 **`Add panel` is gone from the toolbar**, and with it the last place where a

@@ -1482,30 +1482,6 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
                 onPlace={(rect) => { setPlaced(rect); setPickerOpen(true); }}
               />
           </Suspense>
-          {panels.length ? null : (
-            // An empty canvas offers its next step **on the plane**, in the
-            // middle, not only from the corner cluster (owner, 2026-09-11).
-            // Until now the empty canvas replaced the plane with a page-level
-            // blankslate, which cost the reader the ground they had chosen and
-            // remounted React Flow the moment the first panel landed; the plane
-            // is now always the plane, and this is one line and one action
-            // floating over it. It wears the cluster's own make — opaque, an
-            // elevated ground, a hairline and the same shadow — because it has
-            // to read in both themes over dots, a grid, a cross or nothing at
-            // all, and a scrim would not. It is pointer-transparent apart from
-            // the card itself, so the plane underneath still pans and zooms,
-            // and it is below `.cv-cluster`'s layer, so the two never fight.
-            <div className="cv-blank">
-              <div className="cv-blank-card">
-                <p className="cv-blank-line">A panel is one agent, terminal or pin, live on this canvas.</p>
-                {/* The card points at the toolbar instead of carrying its own
-                    button: a second Add panel here would place a panel the
-                    reader did not choose a place for, which is the thing the
-                    toolbar exists to stop. */}
-                <p className="cv-blank-line">Pick one below, then draw where it goes.</p>
-              </div>
-            </div>
-          )}
       </div>
         {/* The plane's own menu, anchored to the cursor through a zero-size
             trigger rather than `@radix-ui/react-context-menu` — the same
