@@ -35,8 +35,6 @@ func readLines(t *testing.T, r io.Reader) []string {
 	return lines
 }
 
-
-
 // fakeRunner records the How commands a clean run issued and reports fixed
 // before/after sizes, so the flow is tested without du or rm touching the
 // machine.
