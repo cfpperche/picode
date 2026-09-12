@@ -701,20 +701,34 @@ their way in is **Add panel…** in the `⋯` menu — the one path that still l
 
 A right-click on the plane opens the same menu the `⋯` button does, with
 **Show controls** on top. The body is written once and takes the Radix
-namespace as its argument (`canvasMenu(M)`), because
-`@radix-ui/react-context-menu` and `@radix-ui/react-dropdown-menu` are the
-same primitive under two names — so the two menus cannot drift, which matters
-most for the row that brings the `⋯` button back.
+namespace as its argument (`canvasMenu(M)`), so the two cannot drift — which
+matters most for that first row: with the chrome hidden the `⋯` is gone, and
+the right-click is the only way to bring it back.
 
-Two things it has to get out of the way of:
+**The app owns the right-click on its own surface.** PiCode has one generic
+context menu on `document` (`App.jsx`, `components/ContextMenu.jsx`): Copy,
+Paste, Reload PiCode, Toggle theme, Fullscreen. Over a canvas that menu is
+the host's chrome inside an app's body, and it shipped that way for one
+deploy — with the chrome hidden and the host menu answering every
+right-click, there was **no way back at all**. The plane now calls
+`preventDefault` and `stopPropagation` on the events that are its own, which
+is what keeps the host's listener from ever seeing them; the host is on
+`document`, below React's root, so stopping there is enough and `App.jsx`
+needs no knowledge of the canvas.
 
-- **Right-drag pans the plane** (`panOnDrag={[1, 2]}`), and a pan ends in a
-  `contextmenu` event too, so every pan would finish by opening a menu. The
-  press is remembered on `pointerdown` and a menu whose pointer travelled
-  more than `PAN_SLOP` (4 px) is dropped. A click opens it; a drag does not.
-- **A right-click inside a panel is that panel's business** — a terminal has
-  its own menu. The event is stopped in the capture phase before Radix's
-  trigger, which wraps the whole plane, ever sees it.
+Three events, three answers:
+
+| Right-click on | Who answers | How |
+|---|---|---|
+| the plane | the canvas | `preventDefault` + `stopPropagation`, menu at the cursor |
+| a panel | the **host** | untouched, so the terminal menu (copy, paste, the CLI's rows) still works |
+| the end of a right-drag pan | nobody | stopped, but no menu — a pan is not a click |
+
+The menu is a controlled `DropdownMenu` anchored to a zero-size trigger at
+the pointer, not `@radix-ui/react-context-menu`. That primitive's Trigger
+must wrap a real subtree and preventDefaults every `contextmenu` it sees,
+including the ones over a panel that belong to the host, with no way to
+decide per event — the same reason the host's own menu is built this way.
 
 **Tab order leads with the dock**, which sits visually last. The chrome is
 still first in the DOM, so a Tab from the tab strip reaches the switcher,

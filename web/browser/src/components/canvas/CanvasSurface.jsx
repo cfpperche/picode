@@ -1,6 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import * as ContextMenu from "@radix-ui/react-context-menu";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { applyTui, touches } from "@picode/shared/domain/feedReducers.js";
 import { displayAgentName, locate } from "@picode/shared/domain/tree.js";
@@ -1218,28 +1217,37 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
   // panel's business (a terminal has its own menu), so the event is stopped
   // before Radix's trigger, which sits on the whole plane, ever sees it.
   const pressRef = useRef(null);
+  const [ctxAt, setCtxAt] = useState(null);
   const onPlanePointerDown = useCallback((e) => {
     pressRef.current = e.button === 2 ? { x: e.clientX, y: e.clientY } : null;
   }, []);
   const onPlaneContextMenu = useCallback((e) => {
-    if (e.target instanceof Element && e.target.closest(".cv-panel")) {
-      e.stopPropagation();
-      return;
-    }
+    // A panel answers for itself. A terminal's right-click is the host's
+    // terminal menu — copy, paste, the CLI's own rows — so the event is left
+    // alone and travels on to `App.jsx`'s document listener untouched.
+    if (e.target instanceof Element && e.target.closest(".cv-panel")) return;
+    // Everything else on this surface is the canvas's, and the host's generic
+    // menu must not appear over it: the app is standalone (ADR-0109) and a
+    // plane with PiCode's Copy/Paste/Reload on it is the host's chrome
+    // leaking into an app's body. `stopPropagation` is what keeps it away —
+    // the host listens on `document`, below React's root.
+    e.preventDefault();
+    e.stopPropagation();
     const from = pressRef.current;
     pressRef.current = null;
-    if (from && Math.hypot(e.clientX - from.x, e.clientY - from.y) > PAN_SLOP) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+    // A right-*drag* pans the plane (`panOnDrag={[1, 2]}`) and ends in a
+    // `contextmenu` event too. That one opens nothing at all — not this menu
+    // and not the host's.
+    if (from && Math.hypot(e.clientX - from.x, e.clientY - from.y) > PAN_SLOP) return;
+    setCtxAt({ x: e.clientX, y: e.clientY });
   }, []);
 
-  // One menu body, two menus. Radix's ContextMenu and DropdownMenu are the
-  // same primitive with different names, so the items are written once and
-  // the namespace is the argument: `M.Item`, `M.Sub`, `M.RadioGroup`. The
-  // `⋯` button and a right-click on the plane therefore cannot drift apart,
-  // which matters most for the first row — with the chrome hidden the `⋯` is
-  // gone, and the context menu is the only way to bring it back.
+  // One menu body, three menus: the `⋯` button, the right-click on the plane,
+  // and whatever comes next. The items are written once and the namespace is
+  // the argument (`M.Item`, `M.Sub`, `M.RadioGroup`), so they cannot drift
+  // apart — which matters most for the first row. With the chrome hidden the
+  // `⋯` is gone and the right-click is the only way to bring it back, so the
+  // two menus being the same body is what keeps hiding it from being a trap.
   const canvasMenu = useCallback((M) => (
     <>
       <M.CheckboxItem
@@ -1440,8 +1448,7 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
     body = <div className="cv-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>;
   } else {
     body = (
-      <ContextMenu.Root>
-        <ContextMenu.Trigger asChild>
+      <>
       <div
         className="cv-body is-canvas"
         ref={setBody}
@@ -1497,13 +1504,28 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
             </div>
           )}
       </div>
-        </ContextMenu.Trigger>
-        <ContextMenu.Portal>
-          <ContextMenu.Content className="ws-row-menu" collisionPadding={8}>
-            {canvasMenu(ContextMenu)}
-          </ContextMenu.Content>
-        </ContextMenu.Portal>
-      </ContextMenu.Root>
+        {/* The plane's own menu, anchored to the cursor through a zero-size
+            trigger rather than `@radix-ui/react-context-menu` — the same
+            choice the host's own menu documents (components/ContextMenu.jsx).
+            That primitive's Trigger preventDefaults every `contextmenu` it
+            sees, including the ones over a terminal panel that belong to the
+            host, and it gives no way to decide per event. A controlled
+            DropdownMenu does, and it is the menu vocabulary this toolbar
+            already speaks. */}
+        <DropdownMenu.Root open={!!ctxAt} onOpenChange={(o) => { if (!o) setCtxAt(null); }}>
+          <DropdownMenu.Trigger
+            aria-hidden="true"
+            tabIndex={-1}
+            className="cv-ctx-anchor"
+            style={ctxAt ? { left: ctxAt.x + "px", top: ctxAt.y + "px" } : undefined}
+          />
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content className="ws-row-menu" side="bottom" align="start" sideOffset={2} collisionPadding={8}>
+              {canvasMenu(DropdownMenu)}
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
+      </>
     );
   }
   return (
