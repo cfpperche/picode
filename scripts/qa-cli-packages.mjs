@@ -69,7 +69,7 @@ try {
     browser("find", "role", "radio", "click", "--name", "This agent", "--exact");
     wait('location.hash.includes("scope=agent")'); ready();
     browser("fill", input, source);
-    browser("click", ".pkg-by-source button");
+    browser("click", ".pkg-by-source button[type=submit]");
     wait('!document.querySelector(".pkg-job")'); ready();
     assert.ok((await api('/api/packages?workspace=' + ws + '&agent=' + id)).packages.some(p => p.scope === 'agent' && p.source === source));
     browser("reload"); ready();
@@ -84,7 +84,7 @@ try {
     }`);
     for (const [label, scope] of [["This machine", "user"], [workspace.name, "project"]]) {
       browser("find", "role", "radio", "click", "--name", label, "--exact"); ready();
-      browser("fill", input, "npm:fixture-only"); browser("click", ".pkg-by-source button");
+      browser("fill", input, "npm:fixture-only"); browser("click", ".pkg-by-source button[type=submit]");
       wait('!!document.querySelector(".pkg-job-err")');
       const req = ev('window.qaWrites.at(-1)');
       assert.equal(JSON.parse(req.body).scope, scope); assert.equal(JSON.parse(req.body).workspaceId, ws); assert.equal(JSON.parse(req.body).agentId, id);

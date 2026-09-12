@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { askConfirm } from "../lib/confirm.js";
-import { paneContext } from "@picode/shared/domain/tree.js";
 import PageFrame from "./PageFrame.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { pkgName } from "@picode/shared/domain/pkgName.js";
@@ -175,11 +174,11 @@ export default function Packages({ hidden, embedded = false, workspaceId, worksp
   const gallery = (data && data.gallery) || "https://pi.dev/packages";
 
   return (
-    <PageFrame embedded={embedded} id="packages-view" title="Packages" context={paneContext(agentName, workspaceName)} hidden={hidden}>
+    <PageFrame embedded={embedded} id="packages-view" title="Packages" hidden={hidden}>
       {loadError ? <div className="cli-notice is-error" role="alert"><span>{loadError}</span><button type="button" className="btn btn-ghost btn-sm" disabled={loading} onClick={load}>{loading ? "Retrying…" : "Try again"}</button></div> : null}
       {!data && loading ? <div className="cli-loading" aria-label="Loading packages"><div /><div /><div /></div> : null}
       <fieldset className="cli-packages-fields" hidden={!data} disabled={!!loadError || !data || !!job}>
-      <form className="pkg-by-source" noValidate onSubmit={(e) => { e.preventDefault(); installSource(source); }}>
+      <form className="pkg-by-source" data-align-row data-align-wrap noValidate onSubmit={(e) => { e.preventDefault(); installSource(source); }}>
         <input
           className="dlg-input"
           value={source}
@@ -188,31 +187,34 @@ export default function Packages({ hidden, embedded = false, workspaceId, worksp
           disabled={!!job}
           aria-label="Package source"
         />
-        <button type="submit" className="btn btn-primary btn-sm" disabled={!!job || !source.trim() || (scope === "project" && !workspaceId) || (scope === "agent" && !agentId)}>Install</button>
+        <div className="pkg-install-go">
+          <span className="pkg-scope-label" aria-hidden="true">Install to</span>
+          <div className="pkg-scope" role="radiogroup" aria-label="Install to">
+            <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>This machine</button>
+            {workspaceId ? (
+              <button
+                type="button"
+                role="radio"
+                className="pkg-scope-btn"
+                aria-checked={scope === "project"}
+                title={"Installs in " + (workspaceName || "this folder")}
+                onClick={() => setScope("project")}
+              >{workspaceName || "This workspace"}</button>
+            ) : null}
+            {agentId ? (
+              <button
+                type="button"
+                role="radio"
+                className="pkg-scope-btn"
+                aria-checked={scope === "agent"}
+                title={"Only " + (agentName || "this agent") + ", every session"}
+                onClick={() => setScope("agent")}
+              >This agent</button>
+            ) : null}
+          </div>
+          <button type="submit" className="btn btn-primary btn-sm" disabled={!!job || !source.trim() || (scope === "project" && !workspaceId) || (scope === "agent" && !agentId)}>Install</button>
+        </div>
       </form>
-      <div className="pkg-scope" data-align-row data-align-wrap role="radiogroup" aria-label="Install scope">
-        <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>This machine</button>
-        {workspaceId ? (
-          <button
-            type="button"
-            role="radio"
-            className="pkg-scope-btn"
-            aria-checked={scope === "project"}
-            title={"Installs in " + (workspaceName || "this folder")}
-            onClick={() => setScope("project")}
-          >{workspaceName || "This workspace"}</button>
-        ) : null}
-        {agentId ? (
-          <button
-            type="button"
-            role="radio"
-            className="pkg-scope-btn"
-            aria-checked={scope === "agent"}
-            title={"Only " + (agentName || "this agent") + ", every session"}
-            onClick={() => setScope("agent")}
-          >This agent</button>
-        ) : null}
-      </div>
       {agentId ? (
         <label className="pkg-fine" style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input
