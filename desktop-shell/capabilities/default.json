@@ -1,8 +1,11 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "identifier": "window-frame",
-  "description": "The windows are undecorated: the UI's own chrome drags and closes them. These are the core window permissions that needs.",
-  "windows": ["main", "management"],
+  "description": "The windows are undecorated: the UI's own chrome drags and closes them. The daemon's origin is listed under remote because the main window loads the served UI \u2014 without it every window.* call from that page is refused by the ACL, which is exactly why the first injected buttons were dead.",
+  "windows": [
+    "main",
+    "management"
+  ],
   "permissions": [
     "core:default",
     "core:window:allow-minimize",
@@ -13,5 +16,11 @@
     "core:window:allow-close",
     "core:window:allow-start-dragging",
     "core:window:allow-is-maximized"
-  ]
+  ],
+  "remote": {
+    "urls": [
+      "https://localhost:8445",
+      "https://127.0.0.1:8445"
+    ]
+  }
 }
