@@ -61,4 +61,4 @@ shell, the This-agent scope, and a file opened in Diff and Editor views.
 ## Observed results
 
 Filled in by the acceptance run; see `docs/screenshots/inspector-*` and
-`docs/handoff.md`.
+`docs/handoff/open/inspector.md`.

@@ -108,5 +108,5 @@ uiux-review: PASS (9/9 checks, 0 jargon hits)
 uiux-review: FIX (loading state has spinner-only feedback on /agents)
 ```
 
-Failures get fixed or explicitly listed as debts in `docs/handoff.md`
-with the reason.
+Failures get fixed or explicitly listed as debts in
+`docs/handoff/open/<topic>.md` with the reason.

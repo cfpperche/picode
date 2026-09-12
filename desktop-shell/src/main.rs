@@ -39,6 +39,7 @@ fn main() {
             clean::clean_apply,
             wslconfig::wslconfig_read,
             wslconfig::wslconfig_write,
+            open_dashboard,
         ])
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // A second launch means someone wanted PiCode on screen: focus the
@@ -154,6 +155,19 @@ fn show(win: &tauri::window::Window) {
     let _ = win.set_focus();
 }
 
+// open_dashboard drives the served UI's dashboard from the app bar: the
+// wordmark in the bar replaces the sidebar's own wordmark button in shell
+// mode, and the UI listens for this event the same way it listens for
+// picode-open-file.
+#[tauri::command]
+fn open_dashboard(app: tauri::AppHandle) -> Result<(), String> {
+    let wv = app
+        .get_webview("main-content")
+        .ok_or_else(|| "the main window is not open".to_string())?;
+    wv.eval("window.dispatchEvent(new CustomEvent('picode-open-dashboard'));")
+        .map_err(|e| e.to_string())
+}
+
 /// The app bar's height, in logical pixels — the strip every window carries
 /// above its content webview.
 const BAR_H: f64 = 40.0;
@@ -181,7 +195,8 @@ fn spawn_window(
         format!("{label}-titlebar"),
         WebviewUrl::App("titlebar.html".into()),
     );
-    let page = tauri::webview::WebviewBuilder::new(format!("{label}-content"), content);
+    let page = tauri::webview::WebviewBuilder::new(format!("{label}-content"), content)
+        .initialization_script("window.__PICODE_SHELL__ = true;");
     relayout(&win)?;
     win.add_child(
         bar,

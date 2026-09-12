@@ -81,4 +81,4 @@ OSC 7 later only if tmux is wrong (rare).
 - [x] `cd` then Ctrl+click a relative path opens the file in the new folder
 - [x] 3D uses model-viewer (or a written FAIL + three.js if it cannot)
 
-Closed. Next up is elsewhere (`docs/handoff.md`).
+Closed. Next up is elsewhere (`docs/handoff/open/`, rendered into `docs/handoff.md`).
