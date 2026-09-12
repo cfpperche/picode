@@ -44,11 +44,11 @@ const base = process.argv.includes("--base")
 // waitText must be VIEW-SPECIFIC and is checked inside `scope` (both mobile
 // screens render the seeded question's title, so the container decides).
 const surfaces = [
-  { name: "app-fleet", profile: DOC_SCREENSHOT_SURFACES["app-fleet"], path: "/desktop/", w: 1440, h: 900, settle: 4000, waitText: "Atlas" },
+  { name: "app-fleet", profile: DOC_SCREENSHOT_SURFACES["app-fleet"], path: "/browser/", w: 1440, h: 900, settle: 4000, waitText: "Atlas" },
   // The Inspector rail beside Atlas's conversation: the fixture seeds a dirty
   // repository under the picode workspace, so Changes lists real counts. The
   // agent id is minted per run, so the hash is set from the fleet after load.
-  { name: "app-inspector", profile: DOC_SCREENSHOT_SURFACES["app-inspector"], path: "/desktop/", w: 1440, h: 900, settle: 4000, waitText: "Uncommitted", scope: "#inspector",
+  { name: "app-inspector", profile: DOC_SCREENSHOT_SURFACES["app-inspector"], path: "/browser/", w: 1440, h: 900, settle: 4000, waitText: "Uncommitted", scope: "#inspector",
     hashEval: "fetch('/api/workspaces').then(r => r.json()).then(j => { const a = (Array.isArray(j) ? j : j.workspaces).flatMap(w => w.agents || []).find(x => x.name === 'Atlas'); if (a) location.hash = '#/agent/' + a.id; return a ? 'HASH_OK' : 'HASH_NO'; })" },
   // app-automations is off the list for now: a cold deep link to
   // #/automations mounts the workspace dashboard (app deep-link bug,
