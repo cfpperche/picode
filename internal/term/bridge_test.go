@@ -157,7 +157,7 @@ func TestBridgeObservesInterrupt(t *testing.T) {
 func TestBridgeEchoThroughTmux(t *testing.T) {
 	tm := tmux.New()
 	if !tm.Available() {
-		t.Skip("tmux not installed — integration test skipped (accepted, see docs/handoff.md)")
+		t.Skip("tmux not installed — integration test skipped (accepted, see docs/handoff/open/terminal.md)")
 	}
 	name := tmux.SessionName("bridge-echo")
 	startTestSession(t, tm, name)
@@ -185,7 +185,7 @@ func TestBridgeEchoThroughTmux(t *testing.T) {
 func TestBridgeResizeControl(t *testing.T) {
 	tm := tmux.New()
 	if !tm.Available() {
-		t.Skip("tmux not installed — integration test skipped (accepted, see docs/handoff.md)")
+		t.Skip("tmux not installed — integration test skipped (accepted, see docs/handoff/open/terminal.md)")
 	}
 	name := tmux.SessionName("bridge-resize")
 	startTestSession(t, tm, name)

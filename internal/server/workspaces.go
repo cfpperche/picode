@@ -362,7 +362,7 @@ func handleClose(deps Deps) http.HandlerFunc {
 
 // handleEnqueueTask queues a prompt/steer/follow_up for an agent.
 // Delivery engine lands with the M2 RPC bridge; until then tasks stay
-// `queued` (documented in docs/handoff.md).
+// `queued` (documented in docs/handoff/open/communication.md).
 func handleEnqueueTask(deps Deps) http.HandlerFunc {
 	var req struct {
 		Kind    string `json:"kind"`

@@ -12,12 +12,12 @@ import (
 
 // These are integration tests: they require a tmux binary. They run on
 // dev machines and on CI (ubuntu installs tmux — see ci.yml); elsewhere
-// they skip, which is recorded as accepted debt in docs/handoff.md.
+// they skip, which is recorded as accepted debt in docs/handoff/open/terminal.md.
 func requireTmux(t *testing.T) *Manager {
 	t.Helper()
 	m := New()
 	if !m.Available() {
-		t.Skip("tmux not installed — integration test skipped (accepted, see docs/handoff.md)")
+		t.Skip("tmux not installed — integration test skipped (accepted, see docs/handoff/open/terminal.md)")
 	}
 	return m
 }

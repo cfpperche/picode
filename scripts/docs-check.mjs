@@ -50,9 +50,11 @@ if (!existsSync(manifestPath)) {
   if (!Object.keys(m.surfaces ?? {}).length) fails.push("manifest lists no surfaces");
 }
 
-// ── generated docs artifacts: openapi.json + llms.txt ──────────────────
+// ── generated docs artifact: openapi.json ─────────────────────────────
 // Same parity rule as the screenshots: the committed artifact must be
 // byte-identical to what the generator produces from the CURRENT tree.
+// llms.txt is not here: it is produced by `make docs`/`make deploy` and is
+// not committed at all (ADR-0125), so there is no copy to be stale.
 const openapiPath = join(root, "docs-site", "public", "api", "openapi.json");
 if (!existsSync(openapiPath)) {
   fails.push("docs-site/public/api/openapi.json missing — run `make openapi`");
@@ -69,14 +71,6 @@ if (!existsSync(openapiPath)) {
   } catch (e) {
     fails.push(`openapi regeneration failed: ${String(e.message).slice(0, 200)}`);
   }
-}
-
-try {
-  execFileSync("node", [join(root, "scripts", "docs-llms.mjs"), "--check"], {
-    encoding: "utf8",
-  });
-} catch (e) {
-  fails.push(String(e.stderr || e.message).trim().slice(0, 300));
 }
 
 // ── tutorial videos: fast integrity floor, never capture or render ─────

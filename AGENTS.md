@@ -21,8 +21,8 @@ future work, not capabilities to infer from a terminal integration.
 
 ## What to read for which change (ADR-0086)
 
-Reading is a cost. Start from `docs/handoff.md` (≤ 100 lines) and this file;
-add only what the change needs:
+Reading is a cost. Start from `docs/handoff.md` (`make handoff` renders it;
+in flight, next up, debts) and this file; add only what the change needs:
 
 | Change | Read before the first edit |
 |---|---|
@@ -51,16 +51,18 @@ to "get context"; `git log` and `make close-summary` are cheaper and current.
      refuses direct edits (ADR-0105).
    - **Every session that changes state leaves one note in
      `docs/handoff/<date>-<branch>.md`** (≤ 25 lines, written from
-     `make close-summary`) and keeps `docs/handoff.md` true: in flight,
-     next up, debts — **at most 100 lines and 8 KB**; the pre-commit hook
-     refuses more, and refuses handoff edits committed directly on `main`.
+     `make close-summary`). Its optional `## Next up` / `## Debts` sections
+     are what the board renders; a durable item goes to
+     `docs/handoff/open/<topic>.md` instead. **`docs/handoff.md` is generated
+     by `make handoff` and is not in git** (ADR-0123) — never edit it, and the
+     pre-commit hook refuses a committed copy, on `main` and in a worktree.
      Shipped work is `git log`, the ADR index and the changelog — never
      handoff prose. Deployment history is `var/deploy-log.jsonl` in the
      data dir (`~/.picode` by default).
 2. **Never break the build.** A worktree iterates with `make ci-scoped` and
    ends with `make close` (below); the merge on `main` runs `make ci` once.
    If you can't finish, leave the tree compiling and green and record the
-   gap in `docs/handoff.md`.
+   gap in `docs/handoff/open/<topic>.md`.
 3. **Simplicity and modularity are product features.** Prefer the Go standard
    library. Every new dependency is a decision that deserves a line of
    justification in the PR description. UI follows the bars in
@@ -68,7 +70,7 @@ to "get context"; `git log` and `make close-summary` are cheaper and current.
    `docs/benchmarks/` (Cursor, t3code, paseo) and cite an adaptation.
 4. **Honesty over polish.** Report what is actually done vs. described. A
    smaller true changelog beats an impressive false one. Unknowns go into
-   `docs/handoff.md` as open questions, not into prose as facts.
+   `docs/handoff/open/<topic>.md` as open questions, not into prose as facts.
    **Seeing a visual defect and shipping it as done is a violation.**
    Fix it or say FAIL. `eval` / DOM JSON is not a visual verdict.
 5. **Isolated git worktree.** Two agents must not share a working tree.
@@ -82,7 +84,7 @@ to "get context"; `git log` and `make close-summary` are cheaper and current.
    aborts any `git switch`/`git checkout` that would move the root checkout
    off `main` (switching back to `main` is always allowed), and
    `.githooks/pre-commit` refuses feature commits made there, clobbered
-   living docs, a handoff over 100 lines or 8 KB, whitespace errors, direct
+   living docs, a committed handoff board, whitespace errors, direct
    `CHANGELOG.md` edits, and handoff or fragment commits on `main`
    (ADR-0105). `make hooks` (implied by
    `make dev` and `make ci`) points git at them; `make hooks-check` proves
@@ -120,8 +122,8 @@ to "get context"; `git log` and `make close-summary` are cheaper and current.
 
 ```bash
 make ci-scoped     # while iterating: the gates this diff can break
-make close         # at the end: scoped gates, regenerated artifacts
-                   # (OpenAPI, llms.txt; captures refresh at deploy),
+make close         # at the end: scoped gates (or the green run they can
+                   # reuse), regenerated OpenAPI, the rendered board,
                    # fast-forward check, and the closing summary
 ```
 
@@ -130,13 +132,13 @@ Write `docs/changelog.d/<branch-slug>.md` and
 fresh session (non-negotiable 8). Then, from the root:
 `git merge --ff-only <branch> && make ci`. If `main` moved, merge `main`
 into the branch and run `make close` again (it reuses a green `ci-scoped`
-when the tree did not change). Use the skills:
+when the merge left the content those gates read untouched, ADR-0124). Use the skills:
 `/skill:quality-gate` (review checklist), `/skill:handoff-update` (the
 note). When a change has **interacting conditions that change the outcome**
 (delete, restore, auth, cascade, run mode, permissions), write a
 **decision table** before claiming done: each row is conditions → action.
 Tests must cover every row, or the untested row is named as debt in
-`docs/handoff.md`. Skip the table for polish, copy, and single-path fixes.
+`docs/handoff/open/<topic>.md`. Skip the table for polish, copy, and single-path fixes.
 **Motion and optimistic UI** are the default for state that takes time
 (jobs, overlays, lists). A static flash then "all done" is FAIL.
 
@@ -162,15 +164,32 @@ For any UI work:
 | `make deploy` | Owner only: rebuild, refresh stale captures, restart the service; refuses while agents work |
 | `make changelog` | Fold `docs/changelog.d/` fragments into `CHANGELOG.md` (on `main`, before a release) |
 | `make adr NAME=x` | Seed the next ADR with its number and index row |
+| `make handoff` | Render `docs/handoff.md` (generated view; `make close` ends with it) |
+| `make worktree-status` | What is actually in flight: branch, ahead/behind, dirty files, last commit, last green run |
 | `make worktree-gc` | Remove merged, clean, idle worktrees |
 | `make cert-timer` | Install the weekly certificate check (systemd --user) |
 | `make desktop-restart` | Swap the Windows tray + native-host exes and relaunch via the logon task — the only supported restart; never background a Windows exe from WSL |
+
+## Two rules for the agent itself
+
+- **Never `pkill -f <pattern>`** (or `killall`) from a session: the pattern
+  matches the command line running it, so the shell that issued it dies first
+  (a session killed its own `make` chain this way, and an earlier
+  `grep '^picode-'` sweep killed 29 live terminals). Use the script's own verb
+  (`./scripts/qa-scratch.sh stop <name>`, `fuser -k <port>/tcp`), or an exact
+  PID you started and can still see.
+- **Know which tree you are in.** `make dev`, `make ci-scoped` and `make close`
+  print `<worktree> on <branch>` before doing anything; the same line answers
+  "did I edit the root checkout by mistake?" (`make worktree-status` lists every
+  tree with its dirty count). The root checkout is shared — a stray edit there
+  is the failure mode that blocks every other session (AGENTS.md §5).
 
 ## Repo map
 
 ```
 AGENTS.md          this contract
-docs/              living documentation (handoff.md = in flight/next/debts; handoff/ = session notes;
+docs/              living documentation (handoff.md = generated view, `make handoff`;
+                   handoff/ = session notes; handoff/open/ = durable next/debts per topic;
                    architecture/ = one file per subsystem; changelog.d/ = changelog fragments)
 docs-site/         public docs (VitePress Markdown → GitHub Pages)
 docs/decisions/    ADRs — one decision per file, immutable once accepted

@@ -1,7 +1,7 @@
 # PiCode — make targets
 # Quality gates are the contract (AGENTS.md); `make ci` mirrors GitHub Actions.
 
-.PHONY: help hooks hooks-check dev ui web docs docs-videos docs-videos-check docs-videos-fresh build restart deploy _deploy cert-timer changelog adr install test test-js fmt fmt-check vet ci-docs ci ci-gates ci-scoped close close-summary worktree worktree-gc clean
+.PHONY: help hooks hooks-check dev ui web docs docs-videos docs-videos-check docs-videos-fresh build restart deploy _deploy cert-timer changelog adr install test test-js fmt fmt-check vet ci-docs ci ci-gates ci-scoped close close-summary handoff worktree worktree-status worktree-gc clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -20,6 +20,7 @@ hooks-check: hooks ## Prove the guards work (policy matrix on a throwaway repo)
 	./scripts/hooks-selftest.sh
 
 dev: hooks ## Run the Go server (HTTPS, port 8445+; serves last `make web` build)
+	@printf 'dev: %s on %s\n' "$$(pwd)" "$$(git branch --show-current 2>/dev/null || echo '(no git)')"
 	go run ./cmd/picode
 
 ui: ## Vite HMR on :5173 (proxies /api and /ws to https://localhost:8445)
@@ -199,8 +200,9 @@ fmt-check: ## Fail if any file is unformatted
 vet: ## Static analysis
 	go vet ./...
 
-# Keep parity ahead of generation: `docs` rewrites OpenAPI/llms.txt, so checking
-# afterward would accidentally bless stale committed artifacts.
+# Keep parity ahead of generation: `docs` rewrites the committed OpenAPI spec,
+# so checking afterward would accidentally bless a stale artifact. (llms.txt is
+# not committed — ADR-0125.)
 ci-docs: ## Verify committed docs parity, then build the public site
 	$(MAKE) docs-check
 	$(MAKE) docs
@@ -230,8 +232,14 @@ changelog: ## Fold docs/changelog.d/ fragments into CHANGELOG.md [Unreleased] an
 adr: ## Seed the next decision record with its index row: make adr NAME=<short-title> [TITLE="Words"]
 	./scripts/adr-new.sh "$(NAME)" $(if $(TITLE),"$(TITLE)")
 
+handoff: ## Render docs/handoff.md (generated view: git state + open topics + session notes, ADR-0123)
+	node scripts/handoff-board.mjs
+
 worktree: ## New isolated tree ready to build: make worktree NAME=<name> [BRANCH=feat/<name>]
 	./scripts/worktree.sh "$(NAME)" $(BRANCH)
+
+worktree-status: ## What is actually in flight: branch, ahead/behind, dirty files, last commit and green run
+	node scripts/worktree-status.mjs
 
 worktree-gc: ## Remove worktrees whose branch is merged, tree clean and idle for an hour (FORCE=1 skips the idle check)
 	./scripts/worktree-gc.sh
