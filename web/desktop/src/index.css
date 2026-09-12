@@ -1,0 +1,16 @@
+/* The desktop composition's stylesheet: the same chain the browser app
+   uses, with the tailwind scan pointed at the app's own sources. Lives in
+   this package so the @tailwindcss/vite plugin compiles it inside this
+   build's root. */
+@import "@fontsource/jetbrains-mono/latin-400.css";
+@import "@fontsource/jetbrains-mono/latin-500.css";
+@import "@fontsource/jetbrains-mono/latin-600.css";
+@import "@fontsource/fira-code/latin-400.css";
+@import "@fontsource/fira-code/latin-500.css";
+@import "@fontsource/fira-code/latin-600.css";
+@import "tailwindcss" source(none);
+@source "../../browser/src";
+@source "../../shared";
+@import "@picode/shared/tokens/theme.css";
+@import "@picode/browser/src/styles/app.css";
+@import "@picode/shared/styles/providers.css";
