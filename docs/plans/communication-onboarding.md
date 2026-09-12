@@ -47,8 +47,9 @@ docs gates across 52 paths; Vale reported no errors. Evidence:
 Independent visual review passed for desktop/mobile, light/dark, empty, blocked,
 error, activity and test-modal states. Final Advanced and primary-hover captures
 were reviewed after the copy fix; overlay audits passed. Visual card:
-yes / yes / yes / no / yes. Current `main` advanced during this branch;
-merging it, `make close`, fast-forward integration and full main CI remain pending.
+yes / yes / yes / no / yes. The communication activation implementation is now
+integrated in `main` at `00b6791b`; full main CI and the owner-authorized deploy
+passed. Provider-specific activation acceptance remains open below.
 
 Rows below follow the decision table's order. The named tests were read; partial
 coverage is identified where they exercise a shared helper or only part of a row.

@@ -2,6 +2,7 @@
 
 ## Next
 
+- Run the owner acceptance matrix for explicit activation on `teste-1` through `teste-6`, recording provider/model behavior and one-turn cost.
 - Remote-mode (a PiCode server off the host) is the owner's infrastructure — decide whether it is in scope at all.
 
 ## Debts
