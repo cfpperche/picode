@@ -18,6 +18,7 @@ import (
 
 const peerPointer = "PiCode: read pending messages and acknowledge handled ones."
 const peerCLIPointer = "PiCode: run picode messages read; handle messages, then ack their IDs."
+const peerActivationPointer = "PiCode activation: run picode messages read once to finish connecting, then reply activation ready. Do not change files."
 
 var terminalSGR = regexp.MustCompile(`\x1b\[[0-9;:]*m`)
 var grokEmptySuggestion = regexp.MustCompile(`^  │ ❯ \x1b\[2;3m([^\x1b\r\n\t]+)\x1b\[0m( +)│ *$`)
