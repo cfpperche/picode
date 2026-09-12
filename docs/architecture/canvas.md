@@ -1234,7 +1234,11 @@ plane rather than one per panel. What a still still cannot show is **colour
 in the text**: `translateToString` drops every cell attribute, so the
 capture is plain text and a coloured prompt reads monochrome down there.
 Recovering it would mean capturing per-cell attributes, which is the cost
-the band exists to avoid.
+the band exists to avoid — **and it is not going to be done** (owner,
+2026-09-12: "muito overengineering"). A still is a reminder of what a pane
+said, not a reproduction of it; the ground and the typeface carry "this is a
+terminal" on their own, and the reader is one zoom step away from the real
+thing. Treat this paragraph as closed rather than as a debt.
 
 The rule is about a **cell**, so it only binds a body that has one.
 `hasPane` (`web/shared/domain/canvas.js`, the allow-list `PANE_STATES`) is
