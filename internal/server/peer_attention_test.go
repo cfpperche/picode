@@ -288,7 +288,7 @@ func TestNativeCodexAndOpenCodeComposers(t *testing.T) {
 	if peerInputMatches("codex", codex, "") {
 		t.Fatal("typed placeholder accepted")
 	}
-	oc := tmux.InputSnapshot{CursorX: 5, CursorY: 3, Width: 120, Lines: []string{"history", "", "  ┃", "  ┃", "  ┃", "  ┃  Build · GLM-5.3-Flash Z.AI · max", "  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀", "   /fixture · ctrl+p commands", ""}}
+	oc := tmux.InputSnapshot{CursorX: 5, CursorY: 3, Width: 120, Lines: []string{"history", "", "  ┃", "  ┃", "  ┃", "  ┃  Build · GLM-5.3-Flash Z.AI · max", "  ╹" + strings.Repeat("▀", 113), "   /fixture · ctrl+p commands", ""}}
 	if !peerInputMatches("opencode", oc, "") {
 		t.Fatal("native OpenCode composer refused")
 	}
@@ -395,5 +395,58 @@ func TestPeerAttentionFailureReasons(t *testing.T) {
 	}
 	if got := peerAttentionReason(peerAttentionFailure("after paste: pane changed")); got != "after paste: pane changed" {
 		t.Fatal(got)
+	}
+}
+
+func TestPeerOpenCodeSidebarAndWrappedFooter(t *testing.T) {
+	raw, err := os.ReadFile("testdata/opencode-sidebar-wrapped.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var original tmux.InputSnapshot
+	if err = json.Unmarshal(raw, &original); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		edit func(*tmux.InputSnapshot)
+		want bool
+	}{
+		{"native empty", func(s *tmux.InputSnapshot) {}, true},
+		{"draft at cursor", func(s *tmux.InputSnapshot) { s.Lines[s.CursorY] = "  ┃  draft" }, false},
+		{"draft above", func(s *tmux.InputSnapshot) { s.Lines[s.CursorY-1] = "  ┃  draft" }, false},
+		{"draft below", func(s *tmux.InputSnapshot) { s.Lines[s.CursorY+1] = "  ┃  draft" }, false},
+		{"broken border", func(s *tmux.InputSnapshot) { s.Lines[s.CursorY+3] = "  ╹" + strings.Repeat("▀", 100) + "X" }, false},
+		{"bad gutter", func(s *tmux.InputSnapshot) {
+			s.Lines[s.CursorY+1] = "  ┃" + strings.Repeat(" ", peerOpenCodeWidth(*s)-3) + "X"
+		}, false},
+		{"dialog footer", func(s *tmux.InputSnapshot) { s.Lines[s.CursorY+4] = "  enter confirm esc cancel" }, false},
+		{"unknown footer", func(s *tmux.InputSnapshot) { s.Lines[s.CursorY+5] = "   permission required" }, false},
+		{"copy mode", func(s *tmux.InputSnapshot) { s.InMode = true }, false},
+		{"malformed escape", func(s *tmux.InputSnapshot) { s.Lines[s.CursorY] = "  ┃\x1b[broken" }, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := original
+			s.Lines = append([]string(nil), original.Lines...)
+			tc.edit(&s)
+			if got := peerInputMatches("opencode", s, ""); got != tc.want {
+				t.Fatalf("got %v want %v", got, tc.want)
+			}
+		})
+	}
+	width := peerOpenCodeWidth(original)
+	for _, n := range []int{width - 6, width - 5, width} {
+		if got := peerPointerFits("opencode", original, strings.Repeat("x", n)); got != (n < width-5) {
+			t.Fatalf("fit %d=%v", n, got)
+		}
+	}
+	original.Lines[original.CursorY] = "  ┃  " + peerPointer
+	original.CursorX = 5 + utf8.RuneCountInString(peerPointer)
+	if !peerInputMatches("opencode", original, peerPointer) {
+		t.Fatal("exact pasted pointer refused")
+	}
+	original.Lines[original.CursorY] += "draft"
+	if peerInputMatches("opencode", original, peerPointer) {
+		t.Fatal("post-paste edit accepted")
 	}
 }

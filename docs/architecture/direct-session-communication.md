@@ -224,3 +224,9 @@ and bounded refusal stages/reasons, never native errors, messages or pane text.
 Native launchers replace any inherited CLI discovery marker with their own CLI.
 An explicit marker requires that CLI's own session identity; only unmarked legacy
 Codex contexts may use the compatibility fallback, and conflicting IDs are refused.
+
+OpenCode input guards measure the editor from its uninterrupted lower border,
+with a blank gutter separating sidebar content. They verify the editor rows
+inside that boundary, the command footer and one constrained wrapped path row.
+The same measured width gates pointer fit before claiming or pasting. Drafts,
+unknown footers, damaged borders and changed post-paste text remain refused.

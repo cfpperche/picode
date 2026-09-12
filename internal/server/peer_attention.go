@@ -127,6 +127,9 @@ func peerGrokBoxInput(s tmux.InputSnapshot, expected string) bool {
 }
 
 func peerPointerFits(cli string, s tmux.InputSnapshot, pointer string) bool {
+	if cli == "opencode" {
+		return 5+utf8.RuneCountInString(pointer) < peerOpenCodeWidth(s)
+	}
 	if cli != "grok" || s.CursorY < 0 || s.CursorY >= len(s.Lines) || !strings.HasPrefix(strings.TrimSpace(terminalSGR.ReplaceAllString(s.Lines[s.CursorY], "")), "│") {
 		return true
 	}
@@ -194,12 +197,58 @@ func peerSingleInputRow(cli string, s tmux.InputSnapshot) bool {
 
 // OpenCode's standard session composer has three input rows, its model row,
 // a lower border, and a command footer. Require that entire native frame.
+func peerOpenCodeWidth(s tmux.InputSnapshot) int {
+	if s.CursorY < 2 || s.CursorY+4 >= len(s.Lines) {
+		return 0
+	}
+	border := []rune(terminalSGR.ReplaceAllString(s.Lines[s.CursorY+3], ""))
+	if len(border) < 20 || string(border[:3]) != "  ╹" {
+		return 0
+	}
+	width := 3
+	for width < len(border) && border[width] == '▀' {
+		width++
+	}
+	if width < 20 || width > s.Width {
+		return 0
+	}
+	for col := width; col < width+2 && col < len(border); col++ {
+		if border[col] != ' ' {
+			return 0
+		}
+	}
+	return width
+}
+
+var openCodePathContinuation = regexp.MustCompile(`^   [A-Za-z0-9._~/\-]+$`)
+
 func peerOpenCodeInput(s tmux.InputSnapshot, expected string) bool {
 	y := s.CursorY
 	if y < 2 || y+4 >= len(s.Lines) || s.CursorX != 5+utf8.RuneCountInString(expected) {
 		return false
 	}
-	clean := func(n int) string { return strings.TrimRight(terminalSGR.ReplaceAllString(s.Lines[n], ""), " ") }
+	plain := func(n int) string { return terminalSGR.ReplaceAllString(s.Lines[n], "") }
+	// The lower border defines the editor's column boundary. The native
+	// sidebar can share these rows without becoming part of the composer.
+	width := peerOpenCodeWidth(s)
+	if width == 0 || s.CursorX >= width {
+		return false
+	}
+	for n := y - 2; n < len(s.Lines); n++ {
+		line := []rune(plain(n))
+		for col := width; col < width+2 && col < len(line); col++ {
+			if line[col] != ' ' {
+				return false
+			}
+		}
+	}
+	clean := func(n int) string {
+		line := []rune(plain(n))
+		if len(line) > width {
+			line = line[:width]
+		}
+		return strings.TrimRight(string(line), " ")
+	}
 	if clean(y-2) != "" || clean(y-1) != "  ┃" || clean(y+1) != "  ┃" {
 		return false
 	}
@@ -210,15 +259,22 @@ func peerOpenCodeInput(s tmux.InputSnapshot, expected string) bool {
 	if clean(y) != want || !strings.HasPrefix(clean(y+2), "  ┃  ") || !strings.Contains(clean(y+2), " · ") {
 		return false
 	}
-	border := clean(y + 3)
-	if !strings.HasPrefix(border, "  ╹") || len(border) < 20 || strings.Trim(strings.TrimPrefix(border, "  ╹"), "▀") != "" || !strings.Contains(clean(y+4), "ctrl+p commands") {
+	footer := clean(y + 4)
+	if !strings.HasSuffix(footer, "ctrl+p commands") {
 		return false
 	}
 	for n := y + 5; n < len(s.Lines); n++ {
-		if clean(n) != "" {
+		line := clean(n)
+		if line == "" {
+			continue
+		}
+		// OpenCode may wrap the cwd once below the command footer. Accept
+		// only that captured path continuation, never arbitrary footer text.
+		if n != y+5 || !strings.HasPrefix(footer, "   /") || !openCodePathContinuation.MatchString(line) {
 			return false
 		}
 	}
+
 	return true
 }
 
