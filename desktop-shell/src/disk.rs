@@ -5,7 +5,9 @@
 // the distro.
 
 use serde::{Deserialize, Serialize};
-use std::process::Command;
+use std::io::{BufRead, BufReader};
+use std::process::{Command, Stdio};
+use tauri::Emitter;
 
 /// Spawns a Go CLI with no console window. Lookup order: next to the shell
 /// (self-contained install), then the canonical PiCode folder that
@@ -107,10 +109,52 @@ pub fn disk_report() -> Result<String, String> {
 /// The compact flow, gates included: readiness interlock, stop, convert,
 /// restart, measured outcome. Refusals (someone working) come back in the
 /// outcome's `refused` field — the window renders them, nothing was stopped.
+/// The compact flow as a stream. The Go tool prints one progress object per
+/// line and the final outcome as the last line; this command forwards each
+/// step to the window as a `disk-progress` event and returns the outcome.
+/// Refusals (someone working) come back in `refused` — nothing was stopped.
 #[tauri::command(async)]
-pub fn disk_compact() -> Result<CompactOutcome, String> {
-    let text = run_cli(&["disk-compact", "--yes", "--json"])?;
-    parse_outcome(&text)
+pub fn disk_compact(app: tauri::AppHandle) -> Result<CompactOutcome, String> {
+    let exe = tool_exe().ok_or_else(|| {
+        "picode-desktop.exe was not found next to the shell or in %LOCALAPPDATA%\\PiCode — reinstall PiCode Desktop".to_string()
+    })?;
+    let mut cmd = Command::new(&exe);
+    cmd.args(["disk-compact", "--yes", "--json"]);
+    hide_console(&mut cmd);
+    cmd.stdout(Stdio::piped());
+    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
+
+    // A stream with no stdout is a tool that cannot answer; a stream that
+    // ends without an outcome is a run we must not pretend succeeded.
+    let stdout = child.stdout.take().ok_or("the tool opened no stdout")?;
+    let reader = BufReader::new(stdout);
+    let mut outcome: Option<CompactOutcome> = None;
+    for line in reader.lines() {
+        let line = line.map_err(|e| e.to_string())?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        if let Some(start) = line.find('{') {
+            if let Ok(v) = serde_json::from_str::<CompactOutcome>(line[start..].trim_end()) {
+                outcome = Some(v);
+                break; // the outcome is the last line by contract
+            }
+        }
+        if let Ok(v) = serde_json::from_str::<std::collections::HashMap<String, String>>(&line) {
+            if let Some(step) = v.get("progress") {
+                let _ = app.emit("disk-progress", step.clone());
+            }
+        }
+    }
+
+    let status = child.wait().map_err(|e| e.to_string())?;
+    match outcome {
+        Some(o) => Ok(o),
+        None => Err(format!(
+            "the compact ended without an outcome (exit {}) — the distro was restarted by the flow itself",
+            status
+        )),
+    }
 }
 
 /// The plan without stopping anything — what the window shows before asking.
