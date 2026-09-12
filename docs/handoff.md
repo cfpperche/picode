@@ -14,7 +14,7 @@
 
 ## Next up
 
-0. Desktop v2 (ADR-0120): Phase 1 closed — spikes passed; Phase 2 is the Storage page in the shell + keepalive migration — `docs/plans/desktop-v2.md`.
+0. Desktop v2 (ADR-0120): Phase 2 session A shipped - the WSL Disk window drives the Go CLIs as subprocesses; daemon untouched, keepalive stays in the Go tray. Next: Give back polish + prunes - docs/plans/desktop-v2.md.
 1. Runbook step 6 (0.2.0, tag `v0.2.0`): watch the owner's window; a regression becomes a patch tag, never a rewritten one.
 2. Dashboard throughput (tokens/s): definition (generation vs turn; reasoning in/out), per-CLI coverage, UI gates. Codex's `duration_ms`/`time_to_first_token_ms` still unread; Grok's timings shipped.
 3. Package config descriptors (ADR-0119; C0–C5 shipped). Backlog (owner): upstream `picode.config` proposal. Plan: `docs/plans/package-config-manifest.md`.
@@ -45,7 +45,7 @@
 - Webhooks are at-least-once within event retention; receivers dedupe by id.
 - tmux: never kill by prefix (a `grep '^picode-'` sweep killed 29 sessions, six in production, 2026-09-06) — exact names from a fixture's API only; a scratch whose daemon dies before `qa-scratch stop` strands its shells (one is kept on purpose).
 - WSL disk: the tray warns in words only (no alert icon asset); docker's storage is the Docker app's, not measured here.
-- Feed: ephemeral events can be missed across reconnects (ADR-0048); cross-platform paste fallback open.
+- Feed: ephemeral events can be missed across reconnects (ADR-0048).
 - Terminal menus (2026-09-09): web/mobile terminal rows still offer only Remove — the desktop one-menu merge (termRowMenu.js) is not ported.
 - CLI lifecycle: npm data can lag native Claude releases by hours; grok uninstall is guided-only; Windows paths out of scope.
 - Pi has one active credential slot; per-agent OAuth is the owner's.
