@@ -190,9 +190,10 @@ release body. A stamped binary exposes
 the bundled `web/shared/data/whats-new.json` highlights through their owned
 `WhatsNew` surface. A browser acknowledges a semver in
 `localStorage` (`picode-whats-new-seen`), so the release opens once per
-browser, after the first fleet state is available and never over an active
-Inbox, create, share, reconnect, or other modal flow. Source builds stay
-manual-only. The surface is bounded to the newest three releases and nine
+browser, once the shell has booted and never over an active Inbox, create,
+share, reconnect, or other modal flow. A **fresh install** is included: the
+product-state gate ADR-0063 shipped with was removed by its 2026-09-11
+amendment. Source builds stay manual-only. The surface is bounded to the newest three releases and nine
 highlights and links to the complete release body for detail (ADR-0063).
 
 ## Application routes

@@ -208,16 +208,17 @@ export default function MobileApp() {
   const badges = { now: entries.length, inbox: inboxApp && inboxApp.badge ? inboxApp.badge.count || 0 : 0 };
   const whatsNewCurrent = semver || version;
   const whatsNewUnread = hasUnseenRelease({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES });
-  const hasProductState = fleetTotal + terminals.length > 0;
-
+  // A fresh install sees What's New too (ADR-0063, amendment 2026-09-11). The
+  // product-state gate that used to stand here is gone; `blocked` below is
+  // every other defer condition and all of them stay.
   useEffect(() => {
-    if (!loaded || !releaseBuild || !whatsNewCurrent || whatsNewOpen || !hasProductState) return;
+    if (!loaded || !releaseBuild || !whatsNewCurrent || whatsNewOpen) return;
     const blocked = reconnect || !!create || shareOpen || entries.length > 0;
-    if (shouldAutoOpen({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES, hasProductState, blocked })) {
+    if (shouldAutoOpen({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES, blocked })) {
       setWhatsNewMode("auto");
       setWhatsNewOpen(true);
     }
-  }, [loaded, releaseBuild, whatsNewCurrent, whatsNewOpen, hasProductState, reconnect, create, shareOpen, entries.length, whatsNewSeen]);
+  }, [loaded, releaseBuild, whatsNewCurrent, whatsNewOpen, reconnect, create, shareOpen, entries.length, whatsNewSeen]);
 
   function openWhatsNew() { setWhatsNewMode("manual"); setWhatsNewOpen(true); }
   function closeWhatsNew() {

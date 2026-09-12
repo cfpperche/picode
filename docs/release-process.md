@@ -115,22 +115,17 @@ one representative artifact and verify:
 Run the artifact against an **isolated** `HOME` and `PICODE_DATA` on a free
 port — the binary's default is the server, on the production data directory.
 
-**What's New will not open on the instance you just installed until it has
-product state.** ADR-0063 decided that: a stamped build auto-opens only once
-at least one workspace, agent or terminal exists, so a first run is never
-interrupted by a list of changes the reader never lacked. Seed one terminal
-through the instance's own API before this check, and delete it by its exact
-id afterwards:
+**What's New opens on the empty instance you just installed.** That is the
+check: a fresh data directory, no workspace, no agent, no terminal, first
+load — the surface opens once, and a reload after closing it stays closed
+(the browser wrote `picode-whats-new-seen`). Seeding a terminal first was the
+old recipe, for the product-state gate ADR-0063 shipped with; its 2026-09-11
+amendment removed that gate, so seed nothing. An empty instance showing **no**
+What's New is now a regression to chase, not the decision working.
 
-```bash
-curl -sf -X POST "http://localhost:$PORT/api/terminals" \
-  -H 'content-type: application/json' -d '{"name":"release-check"}'
-# … verify the surface, then, by the id that call returned:
-curl -sf -X DELETE "http://localhost:$PORT/api/terminals/$ID"
-```
-
-An empty instance showing no What's New is the decision working, not a
-regression to chase.
+Deferral is still real and still worth one look: with a dialog open, a
+recovering connection, a waiting agent, an Inbox badge or an active
+create/share flow, the surface waits rather than interrupting.
 
 Record the tag, commit, CI run, artifact verification and observation owner in
 the release issue or handoff. The installed source service can be dogfooded

@@ -782,17 +782,20 @@ export default function App() {
 
   const whatsNewCurrent = semver || version;
   const whatsNewUnread = hasUnseenRelease({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES });
-  const hasProductState = workspaces.length + freeAgents.length + terminals.length > 0;
   const inboxNeedsYou = apps.some((app) => app.id === "inbox" && app.badge && (Number(app.badge.count) > 0 || app.badge.dot));
 
+  // A fresh install sees What's New too (ADR-0063, amendment 2026-09-11). The
+  // product-state gate that used to stand here — a workspace, an agent or a
+  // terminal had to exist first — is gone; `blocked` below is every other
+  // defer condition and all of them stay.
   useEffect(() => {
-    if (!bootstrapped || !releaseBuild || !whatsNewCurrent || whatsNewOpen || !hasProductState) return;
+    if (!bootstrapped || !releaseBuild || !whatsNewCurrent || whatsNewOpen) return;
     const blocked = reconnect || showForm || paletteOpen || !!ctxMenu || treeOpen || sessionOpen || hotkeysOpen || shareOpen || waiting || inboxNeedsYou;
-    if (shouldAutoOpen({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES, hasProductState, blocked })) {
+    if (shouldAutoOpen({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES, blocked })) {
       setWhatsNewMode("auto");
       setWhatsNewOpen(true);
     }
-  }, [bootstrapped, releaseBuild, whatsNewCurrent, whatsNewOpen, hasProductState, reconnect, showForm, paletteOpen, ctxMenu, treeOpen, sessionOpen, hotkeysOpen, shareOpen, waiting, inboxNeedsYou, whatsNewSeen]);
+  }, [bootstrapped, releaseBuild, whatsNewCurrent, whatsNewOpen, reconnect, showForm, paletteOpen, ctxMenu, treeOpen, sessionOpen, hotkeysOpen, shareOpen, waiting, inboxNeedsYou, whatsNewSeen]);
 
   function openWhatsNew() { setWhatsNewMode("manual"); setWhatsNewOpen(true); }
   function closeWhatsNew() {
