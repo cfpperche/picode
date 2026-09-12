@@ -317,7 +317,7 @@ func uiHandler() http.Handler {
 
 func cacheControl(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/assets/") || strings.HasPrefix(r.URL.Path, "/desktop/assets/") || strings.HasPrefix(r.URL.Path, "/mobile/assets/") {
+		if strings.HasPrefix(r.URL.Path, "/assets/") || strings.HasPrefix(r.URL.Path, "/browser/assets/") || strings.HasPrefix(r.URL.Path, "/desktop/assets/") || strings.HasPrefix(r.URL.Path, "/mobile/assets/") {
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		} else {
 			w.Header().Set("Cache-Control", "no-cache")

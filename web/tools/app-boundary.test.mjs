@@ -15,7 +15,7 @@ import { importSpecifiers, sourceFiles } from "./boundaries.mjs";
 // So the mechanical half of the rule is this direction check. The Canvas is
 // the first native app and the case the amendment was written for, so its
 // module tree is what this asserts; a second native app adds a row.
-const ROOT = fileURLToPath(new URL("../desktop/src/", import.meta.url));
+const ROOT = fileURLToPath(new URL("../browser/src/", import.meta.url));
 
 // What belongs to the app: its component tree, the per-viewer preference it
 // owns (the plane's ground — Preferences carries nothing about a canvas), and

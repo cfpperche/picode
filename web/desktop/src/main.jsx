@@ -1,29 +1,8 @@
 import { createRoot } from "react-dom/client";
-import { overlayAudit } from "@picode/shared/domain/overlayAudit.js";
-import { consoleEgg } from "./lib/consoleEgg.js";
-import { installHashGuard } from "./lib/hashGuard.js";
-import App from "./App.jsx";
-import PairingScreen from "./components/PairingScreen.jsx";
-import "./index.css";
+import App from "@picode/browser/src/App.jsx";
+import "@picode/shared/tokens/theme.css";
 
-window.__picodeOverlayAudit = overlayAudit;
-consoleEgg();
-installHashGuard();
-
-// No StrictMode: xterm + agent websockets must not double-mount.
-createRoot(document.getElementById("root")).render(<App />);
-// The pairing screen (ADR-0049) lives in its own root: whatever the shell
-// does when every API call answers 401, the way in must still render.
-const pairRoot = document.createElement("div");
-pairRoot.id = "pair";
-document.body.appendChild(pairRoot);
-createRoot(pairRoot).render(<PairingScreen />);
-
-// The service worker needs a secure context: HTTPS, or localhost (dev).
-if (import.meta.env.PROD && (location.protocol === "https:" || location.hostname === "localhost") && "serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js").then((reg) => reg.update()).catch(() => {});
-  // A push notification tap (ADR-0047) asks the open window to navigate.
-  navigator.serviceWorker.addEventListener("message", (e) => {
-    if (e.data && e.data.type === "navigate" && typeof e.data.hash === "string") location.hash = e.data.hash;
-  });
-}
+// The shell's composition: the browser app with the shell chrome on. The
+// app bar, the window controls and the drag regions belong to the shell
+// itself (ADR-0122); this entry only tells the app it lives in one.
+createRoot(document.getElementById("root")).render(<App shellChrome />);

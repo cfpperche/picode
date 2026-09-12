@@ -9,7 +9,8 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
-      "/desktop/": "http://localhost:5174",
+      "/browser/": "http://localhost:5174",
+      "/desktop/": "http://localhost:5176",
       "/mobile/": "http://localhost:5175",
       "/api": { target: "https://localhost:8445", secure: false },
       "/ws": { target: "wss://localhost:8445", ws: true, secure: false },

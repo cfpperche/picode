@@ -8,9 +8,15 @@ import { assertResolvedBoundaries, checkBoundaries } from "./boundaries.mjs";
 function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), "picode-boundaries-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
-  for (const app of ["desktop", "mobile", "shared"]) {
+  const manifests = {
+    shared: { dependencies: {}, exports: { "./api.js": "./api.js" } },
+    browser: { dependencies: { react: "19", "@picode/shared": "0.0.0" }, exports: { "./src/App.jsx": "./src/App.jsx" } },
+    desktop: { dependencies: { react: "19", "@picode/shared": "0.0.0", "@picode/browser": "0.0.0" } },
+    mobile: { dependencies: { react: "19", "@picode/shared": "0.0.0" } },
+  };
+  for (const app of ["browser", "desktop", "mobile", "shared"]) {
     mkdirSync(join(root, app, "src"), { recursive: true });
-    writeFileSync(join(root, app, "package.json"), JSON.stringify({ dependencies: app === "shared" ? {} : { react: "19", "@picode/shared": "0.0.0" }, exports: app === "shared" ? { "./api.js": "./api.js" } : undefined }));
+    writeFileSync(join(root, app, "package.json"), JSON.stringify(manifests[app]));
   }
   writeFileSync(join(root, "desktop/src/view.jsx"), "export default 'desktop';");
   writeFileSync(join(root, "shared/api.js"), "export const fetchAgents = () => []; ");

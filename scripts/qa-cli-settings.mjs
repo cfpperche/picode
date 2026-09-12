@@ -235,7 +235,7 @@ try {
   assert.equal(evaluate('document.querySelectorAll("#ag-set-thinking").length'), 0);
   results.push("deleted open agent: feed removes editable fields");
   browser("set", "viewport", "560", "900");
-  browser("open", new URL("/desktop/?theme=light" + globalHash, base).href); ready();
+  browser("open", new URL("/browser/?theme=light" + globalHash, base).href); ready();
   await capture("desktop-narrow");
   console.log(JSON.stringify({ ok: true, results }, null, 2));
   writeFileSync(resolve(out, "results.json"), JSON.stringify({ ok: true, results }, null, 2));

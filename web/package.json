@@ -4,13 +4,15 @@
   "type": "module",
   "scripts": {
     "dev": "node tools/dev.mjs",
-    "dev:desktop": "npm run dev -w @picode/desktop",
     "dev:mobile": "npm run dev -w @picode/mobile",
     "build": "node tools/build.mjs",
     "build:desktop": "npm run build -w @picode/desktop",
     "build:mobile": "npm run build -w @picode/mobile",
     "test": "node --test tools/*.test.mjs && npm run test --workspaces",
-    "check:boundaries": "node tools/boundaries.mjs"
+    "check:boundaries": "node tools/boundaries.mjs",
+    "dev:browser": "npm run dev -w @picode/browser",
+    "build:browser": "npm run build -w @picode/browser",
+    "dev:desktop": "npm run dev -w @picode/desktop"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.12",
@@ -19,6 +21,7 @@
     "vite": "^6.3.5"
   },
   "workspaces": [
+    "browser",
     "desktop",
     "mobile",
     "shared"

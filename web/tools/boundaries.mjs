@@ -40,7 +40,12 @@ function resolveFile(path) {
   return path;
 }
 
-export async function checkBoundaries(webRoot, applications = ["desktop", "mobile", "shared"]) {
+// The desktop bundle composes the browser app's exported App (ADR-0122:
+// one app, two entries). The compose may import exactly the exports the
+// browser package names — nothing else crosses.
+const COMPOSES = { desktop: "browser" };
+
+export async function checkBoundaries(webRoot, applications = ["browser", "desktop", "mobile", "shared"]) {
   const root = realpathSync(webRoot);
   const shared = JSON.parse(readFileSync(resolve(root, "shared/package.json"), "utf8"));
   const errors = [];
@@ -63,6 +68,13 @@ export async function checkBoundaries(webRoot, applications = ["desktop", "mobil
           if (app !== "shared" && !Object.hasOwn(manifest.dependencies || {}, "@picode/shared")) errors.push(`${name}: undeclared dependency @picode/shared`);
           const subpath = "./" + spec.slice("@picode/shared/".length);
           if (!Object.hasOwn(shared.exports || {}, subpath)) errors.push(`${name}: private shared import ${spec}`);
+        } else if (spec.startsWith("@picode/browser/")) {
+          const composed = COMPOSES[app];
+          if (!composed) errors.push(`${name}: ${spec} — only the desktop bundle composes the browser app`);
+          const browserManifest = JSON.parse(readFileSync(resolve(root, "browser/package.json"), "utf8"));
+          const subpath = "./" + spec.slice("@picode/browser/".length);
+          if (!Object.hasOwn(browserManifest.exports || {}, subpath)) errors.push(`${name}: private browser import ${spec}`);
+          if (!Object.hasOwn(manifest.dependencies || {}, "@picode/browser")) errors.push(`${name}: undeclared dependency @picode/browser`);
         } else {
           const dependency = spec.startsWith("@") ? spec.split("/").slice(0, 2).join("/") : spec.split("/")[0];
           if (!Object.hasOwn({ ...manifest.dependencies, ...manifest.devDependencies }, dependency)) errors.push(`${name}: undeclared dependency ${dependency}`);
@@ -80,14 +92,18 @@ export function assertResolvedBoundaries(root, app, graph) {
   for (const id of ids) {
     if (!id.startsWith(root) || id.includes("/node_modules/")) continue;
     const path = relative(root, id).replaceAll("\\", "/");
-    if (!path.startsWith(app + "/") && !path.startsWith("shared/")) throw new Error(`${app} imports code outside its boundary: ${path}`);
-    if (!path.startsWith("shared/")) continue;
+    const composes = app === "desktop" && path.startsWith("browser/");
+    if (!path.startsWith(app + "/") && !path.startsWith("shared/") && !composes) throw new Error(`${app} imports code outside its boundary: ${path}`);
+    // Shared roots ban presentation dependencies; a composed browser root
+    // is the app itself — react and friends are its point.
+    const bansPresentation = path.startsWith("shared/");
+    if (!path.startsWith("shared/") && !composes) continue;
     const pending = [id], seen = new Set();
     while (pending.length) {
       const dependency = pending.pop();
       if (seen.has(dependency)) continue;
       seen.add(dependency);
-      if (/\/node_modules\/(?:react|react-dom|vaul|sonner)(?:\/|$)/.test(dependency)) throw new Error(`Presentation dependency in shared graph: ${dependency}`);
+      if (bansPresentation && /\/node_modules\/(?:react|react-dom|vaul|sonner)(?:\/|$)/.test(dependency)) throw new Error(`Presentation dependency in shared graph: ${dependency}`);
       const info = graph.getModuleInfo(dependency);
       if (info) pending.push(...info.importedIds, ...info.dynamicallyImportedIds);
     }

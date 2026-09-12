@@ -120,7 +120,7 @@ test("hosted workflow preserves the optimized platform decision table", () => {
 // Local worktree scopes (ADR-0086): run what the diff can break.
 const localCases = [
   { name: "empty diff runs everything", paths: [], want: { full: true } },
-  { name: "CSS only is a web scope", paths: ["web/desktop/src/styles/app.css"], want: { full: false, go: false, web: true } },
+  { name: "CSS only is a web scope", paths: ["web/browser/src/styles/app.css"], want: { full: false, go: false, web: true } },
   { name: "a handler is a go scope with its path", paths: ["internal/server/server.go"], want: { full: false, go: true, web: false, goPaths: ["internal/server/server.go"] } },
   { name: "a pi package is test-js only", paths: ["packages/pi-checklist/index.ts"], want: { full: false, packages: true, go: false } },
   { name: "public docs are the docs scope", paths: ["docs-site/guide/api.md"], want: { full: false, docs: true, packages: false } },

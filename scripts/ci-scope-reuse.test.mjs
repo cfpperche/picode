@@ -45,9 +45,9 @@ test("a covered path whose content changed re-runs, even at the same path", () =
 });
 
 test("covered roots follow the scope the run actually exercised", () => {
-  const web = coveredRoots({ paths: ["web/desktop/src/App.jsx"] });
+  const web = coveredRoots({ paths: ["web/browser/src/App.jsx"] });
   assert.ok(web.includes("web/"));
-  assert.ok(web.includes("web/desktop/src/App.jsx"));
+  assert.ok(web.includes("web/browser/src/App.jsx"));
 
   const go = coveredRoots({ paths: ["internal/server/routes.go"], packages: ["internal/store", "."] });
   assert.ok(go.includes("go.mod") && go.includes("go.sum"));
@@ -62,7 +62,7 @@ test("covered roots follow the scope the run actually exercised", () => {
   const metadata = coveredRoots({ paths: ["docs/handoff/2026-09-12-x.md"] });
   assert.deepEqual(metadata, ["docs/handoff/2026-09-12-x.md"], "a note covers itself, nothing else");
 
-  const webBranch = coveredRoots({ paths: ["web/desktop/src/App.jsx"] });
+  const webBranch = coveredRoots({ paths: ["web/browser/src/App.jsx"] });
   assert.ok(webBranch.includes("cmd/"), "`make build` compiles the binary whatever changed");
 
   const full = coveredRoots({ paths: ["Makefile"] });

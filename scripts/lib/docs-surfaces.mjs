@@ -38,9 +38,9 @@ const COMMON_FILES = [
 
 const SHELLS = {
   desktop: {
-    shallow: ["web/desktop/index.html", "web/desktop/package.json", "web/desktop/vite.config.js", "web/desktop/src/App.jsx"],
-    logic: ["web/desktop/src/App.jsx", "web/desktop/src/main.jsx"],
-    entries: ["web/desktop/src/components/Sidebar.jsx", "web/desktop/src/components/Inspector.jsx"],
+    shallow: ["web/browser/index.html", "web/browser/package.json", "web/browser/vite.config.js", "web/browser/src/App.jsx"],
+    logic: ["web/browser/src/App.jsx", "web/browser/src/main.jsx"],
+    entries: ["web/browser/src/components/Sidebar.jsx", "web/browser/src/components/Inspector.jsx"],
   },
   mobile: {
     shallow: ["web/mobile/index.html", "web/mobile/package.json", "web/mobile/vite.config.js", "web/mobile/src/App.jsx", "web/mobile/src/mobile.css"],
@@ -54,22 +54,22 @@ const SHELLS = {
 export const SURFACE_PROFILES = Object.freeze({
   "desktop-dashboard": {
     shell: "desktop",
-    entries: ["web/desktop/src/components/DashboardView.jsx"],
+    entries: ["web/browser/src/components/DashboardView.jsx"],
     files: ["internal/server/session_ops.go", "internal/server/session_stats.go"],
   },
   "desktop-agents": {
     shell: "desktop",
-    entries: ["web/desktop/src/components/DashboardView.jsx"],
+    entries: ["web/browser/src/components/DashboardView.jsx"],
     files: ["internal/server/session_ops.go", "internal/server/session_stats.go"],
   },
   "desktop-create-agent": {
     shell: "desktop",
-    entries: ["web/desktop/src/components/DashboardView.jsx", "web/desktop/src/components/CreateForm.jsx"],
+    entries: ["web/browser/src/components/DashboardView.jsx", "web/browser/src/components/CreateForm.jsx"],
     files: ["internal/server/session_ops.go", "internal/server/session_stats.go"],
   },
   "desktop-agent": {
     shell: "desktop",
-    entries: ["web/desktop/src/components/AgentTabs.jsx", "web/desktop/src/components/ChatSurface.jsx"],
+    entries: ["web/browser/src/components/AgentTabs.jsx", "web/browser/src/components/ChatSurface.jsx"],
     files: [
       "internal/server/agents.go",
       "internal/server/roles_state.go",
@@ -80,12 +80,12 @@ export const SURFACE_PROFILES = Object.freeze({
   "desktop-inspector": {
     shell: "desktop",
     entries: [
-      "web/desktop/src/components/Inspector.jsx",
-      "web/desktop/src/components/InspectorChanges.jsx",
-      "web/desktop/src/components/InspectorFiles.jsx",
-      "web/desktop/src/components/InspectorPR.jsx",
-      "web/desktop/src/components/AgentTabs.jsx",
-      "web/desktop/src/components/ChatSurface.jsx",
+      "web/browser/src/components/Inspector.jsx",
+      "web/browser/src/components/InspectorChanges.jsx",
+      "web/browser/src/components/InspectorFiles.jsx",
+      "web/browser/src/components/InspectorPR.jsx",
+      "web/browser/src/components/AgentTabs.jsx",
+      "web/browser/src/components/ChatSurface.jsx",
     ],
     files: [
       "internal/server/agents.go",
@@ -97,12 +97,12 @@ export const SURFACE_PROFILES = Object.freeze({
   },
   "desktop-automations": {
     shell: "desktop",
-    entries: ["web/desktop/src/components/Automations.jsx"],
+    entries: ["web/browser/src/components/Automations.jsx"],
     files: ["internal/server/automations.go", "internal/store/automations.go"],
   },
   "desktop-inbox": {
     shell: "desktop",
-    entries: ["web/desktop/src/components/AgentTabs.jsx", "web/desktop/src/components/AppSurface.jsx"],
+    entries: ["web/browser/src/components/AgentTabs.jsx", "web/browser/src/components/AppSurface.jsx"],
     files: [
       "internal/apps/apps.go",
       "internal/apps/inbox.go",

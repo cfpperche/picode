@@ -67,7 +67,7 @@ async function shot(name) {
   assert.deepEqual(clipped, [], 'Every rail control must fit inside the rail and the viewport');
 }
 async function open(hash) {
-  await page.goto(base + '/desktop/?desktop=1', { waitUntil: 'domcontentloaded' });
+  await page.goto(base + '/browser/?desktop=1', { waitUntil: 'domcontentloaded' });
   await page.evaluate((h) => { localStorage.setItem('picode-theme', 'dark'); localStorage.setItem('picode-inspector-open', '1'); location.hash = h; }, hash);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await rail().waitFor();
@@ -77,7 +77,7 @@ try {
   await open(`#/agent/${atlas.id}`);
   await check('g1 agent anchor lists the working tree with counts and totals', async () => {
     await rail().getByRole('tab', { name: /^Changes/ }).waitFor();
-    await row('web/desktop/src/App.jsx').waitFor();
+    await row('web/browser/src/App.jsx').waitFor();
     const text = await rail().innerText();
     assert.match(text, /Uncommitted/);
     assert.match(text, /\+11/);
@@ -87,18 +87,18 @@ try {
     await shot('inspector-changes-dark');
   });
   await check('g2 a change opens the file tab in Diff view; Open file swaps to the editor', async () => {
-    await row('web/desktop/src/App.jsx').click();
-    await page.locator('.file-surface[aria-label="Changes to web/desktop/src/App.jsx"]').waitFor();
+    await row('web/browser/src/App.jsx').click();
+    await page.locator('.file-surface[aria-label="Changes to web/browser/src/App.jsx"]').waitFor();
     assert.equal(await tabs().count(), 2);
-    await row('web/desktop/src/App.jsx').click();
+    await row('web/browser/src/App.jsx').click();
     assert.equal(await tabs().count(), 2, 'a second click is idempotent');
-    assert.equal(await rail().locator('.ft-row-on').getAttribute('data-path'), 'web/desktop/src/App.jsx');
+    assert.equal(await rail().locator('.ft-row-on').getAttribute('data-path'), 'web/browser/src/App.jsx');
     await shot('inspector-diff-tab-dark');
     await page.locator('.file-surface').getByRole('button', { name: 'Open file', exact: true }).click();
     await page.locator('.file-surface .file-pane-name').waitFor();
     await page.locator('.file-surface').getByRole('button', { name: 'View diff', exact: true }).waitFor();
     await page.locator('.file-surface').getByRole('button', { name: 'View diff', exact: true }).click();
-    await page.locator('.file-surface[aria-label="Changes to web/desktop/src/App.jsx"]').waitFor();
+    await page.locator('.file-surface[aria-label="Changes to web/browser/src/App.jsx"]').waitFor();
   });
   await check('g3 the file tab keeps the agent anchor; Files opens the editor', async () => {
     assert.match(await rail().locator('.insp-head').innerText(), /Atlas/);
