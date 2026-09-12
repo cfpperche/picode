@@ -47,6 +47,8 @@ func main() {
 	dryRun := fs.Bool("dry-run", false, "with disk-compact: print the plan, stop nothing")
 	force := fs.Bool("force", false, "with disk-compact: proceed even when someone is mid-turn")
 	method := fs.String("method", "", "with disk-compact: sparse (default) | optimize-vhd")
+	apply := fs.String("apply", "", "with clean: comma-separated cache ids to prune")
+	listOnly := fs.Bool("list", false, "with clean: measure and print the prunable caches")
 	fs.Usage = usage
 	_ = fs.Parse(commandArgs())
 
@@ -60,6 +62,8 @@ func main() {
 		exit(runDisk(*distro, *user, *asJSON))
 	case cmd == "disk-compact":
 		exit(runDiskCompact(*distro, *user, *method, *yes, *dryRun, *force, *asJSON))
+	case cmd == "clean":
+		exit(runClean(*distro, *user, *apply, *listOnly, *yes))
 	case cmd == "startup-check":
 		exit(runStartupCheck())
 	case cmd == "startup-repair":

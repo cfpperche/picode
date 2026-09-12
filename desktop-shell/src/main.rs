@@ -8,7 +8,9 @@
 // keepalive, the disk actions and the browser policy arrive in later phases —
 // the Go tray keeps owning them until then.
 
+mod clean;
 mod disk;
+mod wslconfig;
 
 use std::process::Command;
 use tauri::{
@@ -26,7 +28,11 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             disk::disk_report,
             disk::disk_compact,
-            disk::disk_compact_dry_run
+            disk::disk_compact_dry_run,
+            clean::clean_list,
+            clean::clean_apply,
+            wslconfig::wslconfig_read,
+            wslconfig::wslconfig_write,
         ])
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // A second launch means someone wanted PiCode on screen: focus the
@@ -47,8 +53,8 @@ fn main() {
                 .build()?;
 
             let open = MenuItem::with_id(app, "open", "Open PiCode", true, None::<&str>)?;
-            let wsl_disk =
-                MenuItem::with_id(app, "wsl-disk", "WSL disk\u{2026}", true, None::<&str>)?;
+            let management =
+                MenuItem::with_id(app, "management", "Management\u{2026}", true, None::<&str>)?;
             // Phase 1 spike (docs/plans/desktop-v2.md): prove native
             // notifications from the shell — the agent-finished notice of
             // Phase 2 hangs off this same door.
@@ -60,7 +66,7 @@ fn main() {
                 true,
                 None::<&str>,
             )?;
-            let menu = Menu::with_items(app, &[&open, &wsl_disk, &notify, &quit])?;
+            let menu = Menu::with_items(app, &[&open, &management, &notify, &quit])?;
 
             TrayIconBuilder::with_id("picode")
                 .icon(app.default_window_icon().expect("bundled icon").clone())
@@ -69,7 +75,7 @@ fn main() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, ev| match ev.id.as_ref() {
                     "open" => show_main(app),
-                    "wsl-disk" => open_disk_window(app),
+                    "management" => open_management_window(app),
                     "notify" => {
                         // Windows shows toasts for unpackaged apps only when a
                         // Start Menu shortcut with the app identity exists; a
@@ -108,17 +114,22 @@ fn main() {
         .expect("error while running picode-shell");
 }
 
-// open_disk_window opens the WSL Disk management page on demand — the
-// second window of the shell, local pages, Rust commands behind them.
-fn open_disk_window(app: &tauri::AppHandle) {
-    if let Some(win) = app.get_webview_window("disk") {
+// open_management_window opens the Management page on demand — the second
+// window of the shell: the WSL disk view, the cache prunes and the
+// .wslconfig form, local pages, Rust commands behind them.
+fn open_management_window(app: &tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window("management") {
         show(&win);
         return;
     }
-    let _ = tauri::WebviewWindowBuilder::new(app, "disk", WebviewUrl::App("disk.html".into()))
-        .title("PiCode — WSL disk")
-        .inner_size(940.0, 740.0)
-        .build();
+    let _ = tauri::WebviewWindowBuilder::new(
+        app,
+        "management",
+        WebviewUrl::App("management.html".into()),
+    )
+    .title("PiCode — Management")
+    .inner_size(980.0, 820.0)
+    .build();
 }
 
 // show_main brings the window to the front from the tray — the tap and the
