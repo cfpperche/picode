@@ -66,4 +66,7 @@ truth; the shell is a client and a supervisor, never a second backend.
 
 - Optimize-VHD from the tray/app (needs an elevation design).
 - Taskbar identity for the managed Work Browser (it is Chrome's icon).
+- Icon resolution: the shell's `icons/icon.ico` now carries 16–256 px
+  (tools/mkicon.go, the shell variant of the tray generator) — the v1 tray
+  ladder topped at 64 px and the taskbar upscaled it blurry.
 - Disk history/thresholds (P4 of `wsl-control`).
