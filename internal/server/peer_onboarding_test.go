@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -200,5 +201,55 @@ func TestPeerStopReceiptFailsClosed(t *testing.T) {
 	}
 	if _, e := os.Stat(filepath.Dir(path)); e != nil {
 		t.Fatal(e)
+	}
+}
+
+func TestPeerClaudeResumable(t *testing.T) {
+	for _, tc := range []struct {
+		name, body string
+		want       bool
+	}{
+		{"empty", "", false},
+		{"startup metadata", `{"type":"queue-operation","sessionId":"s"}`, false},
+		{"wrong session", `{"type":"user","sessionId":"other","message":{"role":"user","content":"hello"}}`, false},
+		{"sidechain", `{"type":"user","sessionId":"s","isSidechain":true,"message":{"role":"user","content":"hello"}}`, false},
+		{"metadata user", `{"type":"user","sessionId":"s","isMeta":true,"message":{"role":"user","content":"hello"}}`, false},
+		{"missing message", `{"type":"user","sessionId":"s"}`, false},
+		{"null message", `{"type":"user","sessionId":"s","message":null}`, false},
+		{"partial record", `{"type":"user","sessionId":"s","message":`, false},
+		{"empty object", `{"type":"user","sessionId":"s","message":{}}`, false},
+		{"empty content", `{"type":"user","sessionId":"s","message":{"role":"user","content":[]}}`, false},
+		{"wrong role", `{"type":"user","sessionId":"s","message":{"role":"assistant","content":"hello"}}`, false},
+		{"scalar message", `{"type":"user","sessionId":"s","message":false}`, false},
+		{"oversized line", strings.Repeat("x", 1<<20) + "\n" + `{"type":"user","sessionId":"s","message":{"role":"user","content":"hello"}}`, false},
+		{"scan limit", strings.Repeat("{}\n", (4<<20)/3+1) + `{"type":"user","sessionId":"s","message":{"role":"user","content":"hello"}}`, false},
+		{"metadata then user", "{\"type\":\"queue-operation\"}\n" + `{"type":"user","sessionId":"s","message":{"role":"user","content":"hello"}}`, true},
+		{"saved user", `{"type":"user","sessionId":"s","message":{"role":"user","content":"hello"}}`, true},
+		{"saved assistant", `{"type":"assistant","sessionId":"s","message":{"role":"assistant","content":[{"type":"text","text":"hello"}]}}`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := filepath.Join(t.TempDir(), "session.jsonl")
+			if err := os.WriteFile(p, []byte(tc.body+"\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if got := peerClaudeResumable(p, "s"); got != tc.want {
+				t.Fatalf("got %v want %v", got, tc.want)
+			}
+		})
+	}
+	dir := t.TempDir()
+	unreadable := filepath.Join(dir, "unreadable.jsonl")
+	if err := os.WriteFile(unreadable, []byte(`{"type":"user","sessionId":"s","message":{"role":"user","content":"hello"}}`), 0000); err != nil {
+		t.Fatal(err)
+	}
+	if file, err := os.Open(unreadable); err != nil {
+		if peerClaudeResumable(unreadable, "s") {
+			t.Fatal("unreadable accepted")
+		}
+	} else {
+		file.Close()
+	} // Root can read mode 0000.
+	if peerClaudeResumable(dir, "s") || peerClaudeResumable(filepath.Join(dir, "missing"), "s") || peerClaudeResumable("", "s") {
+		t.Fatal("missing/nonregular transcript accepted")
 	}
 }

@@ -502,3 +502,27 @@ func TestPeerGrokWelcomeComposer(t *testing.T) {
 		t.Fatal("post-paste stale welcome footer accepted")
 	}
 }
+
+// Real native frames capture supported empty editors and user drafts for all
+// six CLIs. These are parser checks, not a substitute for native exchange QA.
+func TestNativeCLIAttentionMatrix(t *testing.T) {
+	raw, err := os.ReadFile("testdata/cli-attention-matrix.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rows []struct {
+		Name, CLI string
+		Snapshot  tmux.InputSnapshot
+		Want      bool
+	}
+	if err = json.Unmarshal(raw, &rows); err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range rows {
+		t.Run(row.Name, func(t *testing.T) {
+			if got := peerInputMatches(row.CLI, row.Snapshot, ""); got != row.Want {
+				t.Fatalf("got %v want %v", got, row.Want)
+			}
+		})
+	}
+}
