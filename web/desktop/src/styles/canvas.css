@@ -252,9 +252,11 @@
 .cv-stage { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
 /* The stage is the whole surface now, so everything the surface can show
    lives in it: the plane, and — while there is no plane yet — the skeleton,
-   the error line and the empty state. Those three are real layout under a
-   cluster that is not, so when the cluster is there they start below it
-   instead of behind it. The centred empty state needs no offset. */
+   the error line and the *No canvas yet* state. Those three are real layout
+   under a cluster that is not, so when the cluster is there they start below
+   it instead of behind it; the last of them draws no cluster at all (there is
+   nothing to switch), so it needs no offset. The **empty canvas** is not here
+   — it is `.cv-blank`, a layer on the plane itself. */
 .cv-stage.has-chrome > .ft-msg, .cv-stage.has-chrome > .cv-skel { padding-top: calc(var(--ctl-h) + 20px); }
 .cv-surface.is-max .cv-body { overflow: hidden; }
 .cv-max {
@@ -307,6 +309,29 @@
    --------------------------------------------------------------------------- */
 
 .cv-body.is-canvas { padding: 0; overflow: hidden; }
+
+/* An empty canvas: one line and one action, in the middle of the plane
+   (2026-09-11). The plane stays the plane behind it — the reader's chosen
+   ground, the minimap and the zoom cluster are all still there — so the layer
+   is pointer-transparent apart from the card, and it sits under z-index 6,
+   which is the floating clusters'. The card is the cluster's own make
+   (opaque, elevated, one hairline, the same shadow) for the same reason the
+   cluster is: it has to read in both themes over dots, a grid, a cross or
+   plain ground, and a translucent panel over a texture does not. */
+.cv-blank {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px; pointer-events: none;
+}
+.cv-blank-card {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  max-width: min(420px, 100%); box-sizing: border-box;
+  padding: 16px 18px; text-align: center; pointer-events: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-ctl);
+  box-shadow: 0 8px 24px color-mix(in srgb, #000 22%, transparent);
+}
+.cv-blank-line { margin: 0; font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
 
 .cv-canvas-flow {
   position: absolute; inset: 0;

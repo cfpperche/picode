@@ -702,7 +702,11 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
           // instead. Cross keeps 6: its tick is already 6 px of line.
           <Background variant={BG_VARIANT[bgPattern]} gap={BG_GAP} size={bgPattern === "dots" ? 2 : 6} lineWidth={1} />
         ) : null}
-        <MiniMap pannable zoomable ariaLabel="Panels on the plane" />
+        {/* No panels, no map: an empty minimap is a box of nothing in the
+            corner of a plane that is already saying, in its middle, that it
+            is empty (`.cv-blank`, CanvasSurface.jsx). It comes back with the
+            first panel, which is the first thing it could map. */}
+        {nodes.length ? <MiniMap pannable zoomable ariaLabel="Panels on the plane" /> : null}
       </ReactFlow>
     </div>
   );

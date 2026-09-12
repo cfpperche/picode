@@ -656,8 +656,7 @@ keeps a keyboard path to it for a reader who never reaches the strip.
 **Add panel** stayed out of the menu because it is the verb the surface
 exists for. The empty states keep their own one line and one action — *No
 canvas yet.* → New canvas (the cluster is not drawn: there is nothing to
-switch), and *Add your first panel.* → Add panel with the cluster beside it,
-which is where an empty canvas still finds **New canvas**.
+switch), and, for a canvas with no panels, the centred card below.
 
 #### The switcher: a label with one canvas, a select with two (2026-09-11)
 
@@ -683,6 +682,32 @@ chevron was in the pointer — so it is read as the group's content, and the
 `⋯` button beside it carries the name in its own accessible name ("More
 actions for *<name>*"). A keyboard reader still hears which canvas they are
 on, on the way to the only actions there are.
+
+#### An empty canvas (2026-09-11)
+
+A canvas with no panels **keeps its plane** and floats one line and one
+action in the middle of it (`.cv-blank`, `CanvasSurface.jsx`):
+
+> A panel is one agent, terminal, note or file, live on this canvas.
+> **[+ Add panel]**
+
+Until now the empty canvas *replaced* the plane with the page-level
+blankslate every list uses. Two things were wrong with that: the reader lost
+the ground they had chosen (the plane, its texture, the minimap and the zoom
+cluster all disappeared until the first panel existed), and the first panel
+remounted React Flow — a plane that fades in under the panel that was just
+added, instead of a panel landing on a plane. The layer is
+**pointer-transparent** apart from the card itself, so the plane behind it
+still pans and zooms; it sits at `z-index: 5`, below the floating clusters'
+6, so the two never fight; and it is gone the frame the first panel lands,
+including the optimistic pending one. The card wears the cluster's own make —
+opaque, `--bg-elevated`, one `--border-strong` hairline, the same shadow —
+for the cluster's own reason: it has to read in both themes over dots, a
+grid, a cross, or plain ground, and a translucent panel over a texture does
+not. **The minimap goes with the panels**: with none on the plane it is not
+drawn (`Plane.jsx`), because a map of nothing is a box of nothing in the
+corner of a plane that is already saying, in its middle, that it is empty.
+The zoom cluster stays — it is a control row, not an empty frame.
 
 **A maximized panel takes the clusters with it.** They belong to the plane,
 not to the surface, and the plane is what the layer covers; leaving them
@@ -1197,7 +1222,7 @@ instance at 1280 × 633 in both themes, with a canvas holding a live shell, two
 | Row | Observed |
 |---|---|
 | the tile | **Canvas**, `lucide-frame`, no letter fallback; opening it mounts `CanvasSurface` from its own chunk |
-| the empty states | *No canvas yet.* — New canvas, then *Add your first panel.* — Add panel, each one line and one action |
+| the empty states | *No canvas yet.* — New canvas, then *Add your first panel.* — Add panel, each one line and one action (the second was re-shaped on 2026-09-11 into the centred card on the plane — *The switcher* / *An empty canvas* above) |
 | three panel kinds | a live xterm, a stopped agent's *Agent is stopped.* — Run, and a note's markdown, all on one plane with the minimap and the zoom cluster |
 | pan | a real middle-button drag moved the camera `translate(134, 102)` → `translate(-108, 50)` at scale 1 |
 | the zoom rule, step by step | 100 %: the pane live and pointer-taking. 83 %: `is-inert`. 69 %, 58 %, 48 %, 40 %: `is-still is-inert`. 33 %, 28 %, 23 %: every panel `is-plate`. Back at 100 %: all live again, no class left behind. The note and the agent never go still — they have no cell (C3's rule) |

@@ -1251,15 +1251,6 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
     // an empty fleet reads as "all gone" — the skeleton says "not read yet"
     // instead of flashing an error row on every panel.
     body = <div className="cv-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>;
-  } else if (!panels.length) {
-    body = (
-      <div className="app-blank">
-        <AppIcon name="canvas" label={title} size={24} />
-        <p className="app-blank-title">Add your first panel.</p>
-        <p className="app-blank-sub">A panel is one agent, terminal or note on this canvas.</p>
-        <button type="button" className="btn btn-sm btn-primary" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
-      </div>
-    );
   } else {
     body = (
       <div className="cv-body is-canvas" ref={setBody} inert={!!maximizedId}>
@@ -1287,6 +1278,26 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
                 onReady={onCanvasReady}
               />
           </Suspense>
+          {panels.length ? null : (
+            // An empty canvas offers its next step **on the plane**, in the
+            // middle, not only from the corner cluster (owner, 2026-09-11).
+            // Until now the empty canvas replaced the plane with a page-level
+            // blankslate, which cost the reader the ground they had chosen and
+            // remounted React Flow the moment the first panel landed; the plane
+            // is now always the plane, and this is one line and one action
+            // floating over it. It wears the cluster's own make — opaque, an
+            // elevated ground, a hairline and the same shadow — because it has
+            // to read in both themes over dots, a grid, a cross or nothing at
+            // all, and a scrim would not. It is pointer-transparent apart from
+            // the card itself, so the plane underneath still pans and zooms,
+            // and it is below `.cv-cluster`'s layer, so the two never fight.
+            <div className="cv-blank">
+              <div className="cv-blank-card">
+                <p className="cv-blank-line">A panel is one agent, terminal, note or file, live on this canvas.</p>
+                <button type="button" className="btn btn-sm btn-primary" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
+              </div>
+            </div>
+          )}
       </div>
     );
   }

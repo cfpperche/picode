@@ -24,6 +24,9 @@ to pick, so it is just the name. The **⋯** menu renames or deletes the one
 you are looking at, and is where **New canvas** lives. Deleting a canvas
 never touches the agents and terminals on it.
 
+An empty canvas says so in the middle of the plane, with **Add panel**
+there; the line goes as soon as the first panel lands.
+
 ## Move around it
 
 Panels sit wherever you put them, on a plane you pan and zoom.
