@@ -654,6 +654,13 @@
    dock out from under the pointer between one click and the next. */
 .cv-cluster > .cv-tb-step { min-width: 32px; font-size: 16px; line-height: 1; }
 .cv-cluster > .cv-tb-icon { min-width: 34px; }
+/* The readout on the camera column. A fixed width, because 150 % (maxZoom) is
+   a digit wider than 70 % and a column that changes width moves every button
+   in it out from under the pointer between one click and the next. */
+.cv-camera > .cv-tb-pct {
+  font-size: 11px; padding: 0 2px;
+  font-variant-numeric: tabular-nums; color: var(--text-primary);
+}
 
 /* The pointer layer (plan §4.3). Between 0.8 and 1.5 a pane renders and takes
    keys perfectly, but xterm maps a click as `cell × zoom` under the plane's

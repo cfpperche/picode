@@ -655,9 +655,19 @@ Four places, three of them on the bottom edge (owner, 2026-09-12):
 | Where | What | Why there |
 |---|---|---|
 | top-left (`.cv-chrome`) | the canvas switcher and the `⋯` menu | identity belongs where a reader starts reading |
-| bottom-left (`.cv-camera`) | a column: **+**, **−**, **Fit** | React Flow's own Controls stand here, and a camera is not a canvas action |
+| bottom-left (`.cv-camera`) | a column: **+**, **−**, the readout, **Fit** | React Flow's own Controls stand here, and a camera is not a canvas action |
 | bottom-centre (`.cv-toolbar`) | one button per **element**: agent, terminal, pin | the hands' end of the surface: what you add |
 | bottom-right (`<MiniMap>`, `Plane.jsx`) | the map of the plane | the corner the rest leaves free |
+
+**The zoom readout sits on the camera column.** It was a segment of the dock,
+was cut when the camera moved out, and came back here the same day — it is
+the only thing on screen that names the zoom, and the zoom is not cosmetic on
+this plane: 100 % is the one zoom whose pointer lands on the cell it points
+at (§4.3). Clicking it goes back there, and so does clicking any inert or
+still body (`.cv-snap`). The plane pushes the percentage through `onZoom`;
+the surface keeps it in a ref with a listener set and `ZoomReadout` is the
+only subscriber, so a wheel gesture re-renders one `<span>` and never the
+plane.
 
 **An empty canvas draws nothing** (owner, 2026-09-12). It carried a card
 in the middle saying what a panel is; the toolbar says it better by being
@@ -706,7 +716,8 @@ That has a cost, recorded rather than hidden: **file and diff panels can no
 longer be created.** They never had a tool — a file reaches the canvas from a
 tab that is already open, not from a rectangle drawn on the plane — and the
 unfiltered picker was their only door. Existing ones keep working, and
-`nextSlot` now has no caller for new panels at all. Restoring them means
+`nextSlot` has no caller for new panels at all — the fallback branch in
+`addPanel` went with the button rather than sitting unreachable. Restoring them means
 giving them a tool of their own, and the tool has to answer what a rectangle
 means for a file first.
 
