@@ -210,8 +210,8 @@ ci-docs: ## Verify committed docs parity, then build the public site
 # The gates are independent, so they run four at a time (ADR-0105): the Vite
 # build, the docs site and the JS suites overlap the Go tests instead of
 # queueing behind them. --output-sync keeps each gate's log in one piece.
-ci: ## Everything CI runs — the gate for the merge on main
-	$(MAKE) --no-print-directory -j4 --output-sync=target ci-gates
+ci: ## Everything CI runs — the gate for the merge on main (full output in var/ci-last.log)
+	./scripts/ci.sh
 
 ci-gates: hooks-check fmt-check vet test test-js build ci-docs vale
 
