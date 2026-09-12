@@ -132,6 +132,7 @@ const PanelInner = memo(function PanelInner({ model, loaded, hidden, engaged, ma
             onRun={() => handlers.onRun(model)}
             onOpenFile={(path) => handlers.onOpenFile(model, path)}
             onDirty={(dirty) => handlers.onDirty(model, dirty)}
+            onSaveText={(text) => handlers.onSaveText(model, text)}
           />
         )}
       </div>

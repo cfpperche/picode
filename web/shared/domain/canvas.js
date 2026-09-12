@@ -21,6 +21,9 @@ export const CANVAS_LIMITS = Object.freeze({
   canvases: 64, // per machine
   panels: 500, // per canvas
   name: 80, // characters (code points), never bytes
+  // A text panel is a label on a plane, not a document — the server's own
+  // MaxCanvasText, so the box can stop a reader before the refusal does.
+  text: 2000,
   // The plane (ADR-0113, ADR-0118): the unit is 8 px, x and y may be
   // negative, and the plane is bounded only so a panel cannot be lost.
   canvasMinW: 32, // units (256 px)
@@ -46,13 +49,17 @@ const CANVAS_PER_ROW = 3;
 // What a panel can be bound to (ADR-0108; the bodies beyond a live pane are
 // C3 of docs/plans/matrix-canvas.md §4.2). `kind` is an open text column, so
 // a kind is a validator edit on both sides and never a migration.
-export const CANVAS_KINDS = Object.freeze(["agent", "terminal", "note", "file", "diff"]);
+// "text" is the first kind that references nothing: the words are the panel
+// (migration 046). Everything else names something that lives elsewhere in
+// PiCode and would still exist if the canvas were deleted.
+export const CANVAS_KINDS = Object.freeze(["agent", "terminal", "note", "file", "diff", "text"]);
 export const CANVAS_COMPACT = Object.freeze(["vertical", "none"]);
 export const CANVAS_EVENTS = Object.freeze([
   "canvas.created",
   "canvas.updated",
   "canvas.layout",
   "canvas.panel.added",
+  "canvas.panel.content",
   "canvas.panel.removed",
   "canvas.edge.added",
   "canvas.edge.removed",
@@ -61,8 +68,9 @@ export const CANVAS_EVENTS = Object.freeze([
 
 // The server's refusals, word for word (internal/store/canvas.go), so the UI
 // can refuse before asking and read a 400 back as the same sentence.
-const KIND_MSG = "kind must be agent, terminal, note, file or diff";
+const KIND_MSG = "kind must be agent, terminal, note, file, diff or text";
 const REF_MSG = "ref must be <owner>:<id>:<path> with owner t, a or w";
+const TEXT_REF_MSG = "a text panel takes no ref";
 // Edges (internal/store/canvas_edges.go), same rule.
 const EDGE_BOTH_MSG = "aPanel and bPanel are required";
 const EDGE_SAME_MSG = "an edge needs two different panels";
@@ -158,7 +166,9 @@ export function normalizePanel(p) {
   if (!ref || validateRef(p.kind, ref)) return null;
   const { x, y, w, h } = p;
   if (![x, y, w, h].every(Number.isInteger)) return null;
-  return { id: p.id, kind: p.kind, ref, x, y, w, h, createdAt: str(p.createdAt) };
+  // Only a text panel carries words; the field is absent on every other
+  // kind and an empty string is the honest default for a panel just born.
+  return { id: p.id, kind: p.kind, ref, x, y, w, h, createdAt: str(p.createdAt), content: str(p.content) };
 }
 
 // normalizeEdge(json) -> edge | null. An edge (ADR-0116) is an undirected
@@ -275,6 +285,13 @@ export function edgeEndpoints(edge, panels) {
 export function validatePanel(panel) {
   const p = panel || {};
   if (!CANVAS_KINDS.includes(p.kind)) return KIND_MSG;
+  // A text panel binds to nothing and the store mints its ref, so a caller
+  // that sends one is describing something that does not exist — the
+  // server's own refusal, word for word.
+  if (p.kind === "text") {
+    if (str(p.ref).trim()) return TEXT_REF_MSG;
+    return validatePlacement(p);
+  }
   const bad = validateRef(p.kind, p.ref);
   if (bad) return bad;
   return validatePlacement(p);
@@ -363,6 +380,15 @@ export function applyCanvasEvent(state, ev) {
         : [...loaded.panels, panel];
       const count = (m) => ({ ...stamp(m), panelCount: panels.length });
       return finish(s, patchSummary(list, id, count), { ...byId, [id]: { canvas: count(loaded.canvas), panels, edges: edgesOf(loaded) } });
+    }
+    case "canvas.panel.content": {
+      // The words as the store now holds them, not a patch: a second browser
+      // draws the string that was saved rather than replaying keystrokes.
+      const panelId = str(d.panelId);
+      if (!panelId || !loaded) return loaded ? s : finish(s, patchSummary(list, id, stamp), byId);
+      const content = str(d.content);
+      const panels = loaded.panels.map((p) => (p.id === panelId ? { ...p, content } : p));
+      return finish(s, patchSummary(list, id, stamp), { ...byId, [id]: { canvas: stamp(loaded.canvas), panels, edges: edgesOf(loaded) } });
     }
     case "canvas.panel.removed": {
       const panelId = str(d.panelId);
@@ -575,7 +601,7 @@ export function refOwner(parsed, fleet) {
 // bindingState(panel, fleet) -> one row of plan §4.4:
 //   terminal-running | terminal-stopped | terminal-gone
 //   agent-interactive | agent-managed | agent-stopped | agent-gone
-//   note-ready | note-gone
+//   note-ready | note-gone | text-ready
 //   file-ready | file-gone | diff-ready | diff-gone
 // fleet is the host's { workspaces, freeAgents, terminals } plus, for the
 // kinds that bind something else, the list that decides them: `pins` for a
@@ -588,6 +614,9 @@ export function refOwner(parsed, fleet) {
 export function bindingState(panel, fleet) {
   const f = fleet || {};
   if (!panel) return "";
+  // A text panel binds to nothing, so nothing about it can go missing. It is
+  // the one kind whose state does not depend on the fleet at all.
+  if (panel.kind === "text") return "text-ready";
   if (panel.kind === "note") {
     if (!Array.isArray(f.pins)) return "note-ready";
     return f.pins.some((x) => x && x.id === panel.ref) ? "note-ready" : "note-gone";
