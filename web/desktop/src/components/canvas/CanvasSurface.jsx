@@ -12,7 +12,7 @@ import { shortPath } from "@picode/shared/domain/repoLine.js";
 import { paneLeaveKey } from "@picode/shared/domain/termKeys.js";
 import { CANVAS_PATTERN_EVENT, persistCanvasPattern, readCanvasPattern } from "@picode/shared/domain/canvasPattern.js";
 import AppIcon from "../AppIcon.jsx";
-import { IconCheck, IconChevronRight, IconEllipsis, IconExpand, IconGrid, IconImage, IconPencil, IconPlus, IconTrash, IconX } from "../Icons.jsx";
+import { IconCanvas, IconCheck, IconChevronRight, IconEllipsis, IconFit, IconGrid, IconImage, IconPencil, IconPlus, IconTrash, IconX } from "../Icons.jsx";
 import { go, isFileTab, parseFileTab, pinHash } from "../../lib/routes.js";
 import { notify, toast, toastError } from "../../lib/toast.js";
 import { askConfirm } from "../../lib/confirm.js";
@@ -1204,114 +1204,114 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
   // tab strip already names the app and its × already closes the tab, so the
   // header's icon, title and Close were chrome repeating chrome.
   //
-  // The switcher offers a choice only when there is one (2026-09-11). With a
-  // single canvas the `<select>` opened on one option, already chosen: a
-  // control that promises a choice and has none, which is what the owner
-  // asked about. One canvas is therefore its **name**, drawn as a label — no
-  // chevron, nothing to open, and no tab stop that leads nowhere. The second
-  // canvas turns it back into the select; **New canvas** is in the `⋯` menu
-  // either way. Both shapes wear `.cv-switch`, which is what keeps the
-  // cluster's height and its width floor the same across the switch, so the
-  // row does not move the moment a second canvas appears.
-  const soleCanvas = store.list.length === 1 ? current || store.list[0] : null;
+  // The switcher is always the `<select>` (owner, 2026-09-12), including on a
+  // single canvas. It was a plain label there between 2026-09-11 and today,
+  // on the reading that a menu with one option already chosen promises a
+  // choice it does not have. What that reading missed is that the menu is
+  // how you *learn* there could be more: on a toolbar of otherwise identical
+  // segments, a label is indistinguishable from a disabled control, and the
+  // one-canvas case is exactly the reader who has not discovered canvases
+  // yet. One shape, always, is also one less thing that changes shape under
+  // the pointer in a centred dock — though the box still sizes to the
+  // longest name in the list, so the dock re-centres when a canvas is added
+  // or renamed (canvas.css, "The switcher"); never mid-gesture.
+  //
+  // The app's own icon leads it, so the segment says *which canvas* and
+  // *what kind of thing* at once — the identity the surface lost when the
+  // header went (2026-09-11). The icon is decoration: the `<select>` keeps
+  // the accessible name, and a reader who cannot see the glyph loses
+  // nothing.
   const chrome = store.list.length ? (
     <div className="cv-toolbar">
-    <div className="cv-cluster" role="group" aria-label="Canvas controls" data-align-row>
-      {soleCanvas ? (
-        // Not focusable: there is nothing here to do. The name is read as the
-        // group's own content, and the `⋯` button beside it carries it in its
-        // accessible name ("More actions for <name>"), so a keyboard reader
-        // still hears which canvas they are on; `title` is for the ellipsis.
-        <span className="cv-switch cv-switch-one" title={soleCanvas.name}>{soleCanvas.name}</span>
-      ) : (
-        <select className="cv-switch cv-select" aria-label="Canvas" value={currentId} onChange={(e) => select(e.target.value)}>
-          {store.list.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </select>
-      )}
-      {current ? (
-        // The toolbar's one filled segment. A dock of outlined segments has
-        // no focal point, and the action a reader comes here for is this one
-        // (nodeterm's own bar leads with a filled +).
-        <button type="button" className="cv-cluster-btn cv-tb-primary" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
-      ) : null}
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
-          <button type="button" className="cv-cluster-btn cv-menu-btn" aria-label={current ? "More actions for " + current.name : "More actions"} title="New canvas, tidy, rename, delete, background or close"><IconEllipsis size={15} /></button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          {/* The toolbar sits on the bottom edge, so the menu opens **up**
-              into the canvas; anchored to the trigger's start, and Radix
-              flips it if a short pane leaves no room above. */}
-          <DropdownMenu.Content className="ws-row-menu" side="top" align="start" sideOffset={6} collisionPadding={8}>
-            <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setNameDialog("new")}><IconPlus size={13} /> New canvas</DropdownMenu.Item>
-            {current && panels.length ? (
-              <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => { tidy(); }}><IconGrid size={13} /> Tidy panels</DropdownMenu.Item>
-            ) : null}
-            {current ? (
-              <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setNameDialog("rename")}><IconPencil size={13} /> Rename</DropdownMenu.Item>
-            ) : null}
-            {current ? (
-              <DropdownMenu.Item className="ws-row-menu-item danger" onSelect={() => { deleteCanvas(); }}><IconTrash size={13} /> Delete canvas</DropdownMenu.Item>
-            ) : null}
-            <DropdownMenu.Separator className="ws-row-menu-sep" />
-            {/* The plane's ground, changed on the plane. It used to be a
-                group in Preferences → Appearance with this item only
-                navigating there, which leaked a Canvas control into
-                PiCode's own chrome (ADR-0109, amendment 2026-09-11): an
-                app reaches the host through the doors the host declares,
-                and a settings group is not one of them. Four values need a
-                menu, not a dialog, and the rows stay open while you pick so
-                the plane behind them is the preview. */}
-            <DropdownMenu.Sub>
-              <DropdownMenu.SubTrigger className="ws-row-menu-item cv-menu-sub">
-                <IconImage size={13} /> Background
-                <IconChevronRight size={13} className="cv-menu-chev" />
-              </DropdownMenu.SubTrigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.SubContent className="ws-row-menu cv-bg-menu" sideOffset={4} alignOffset={-4} collisionPadding={8}>
-                  <DropdownMenu.RadioGroup value={background} onValueChange={(v) => setBackground(persistCanvasPattern(v))}>
-                    {BACKGROUNDS.map(([option, label]) => (
-                      <DropdownMenu.RadioItem
-                        key={option}
-                        className="ws-row-menu-item cv-bg-item"
-                        value={option}
-                        onSelect={(e) => e.preventDefault()}
-                      >
-                        <PatternSwatch kind={option} />
-                        <span className="cv-bg-label">{label}</span>
-                        <DropdownMenu.ItemIndicator className="cv-bg-check"><IconCheck size={13} /></DropdownMenu.ItemIndicator>
-                      </DropdownMenu.RadioItem>
-                    ))}
-                  </DropdownMenu.RadioGroup>
-                </DropdownMenu.SubContent>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Sub>
-            {onClose ? (
-              <>
-                <DropdownMenu.Separator className="ws-row-menu-sep" />
-                <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => onClose()}><IconX size={13} /> Close tab</DropdownMenu.Item>
-              </>
-            ) : null}
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
-    </div>
-    {/* The camera, its own group. Two groups with a gap rather than one long
-        row of segments: what the canvas *is* and what you do to it on the
-        left, where the viewer is looking, and how you are looking at it on
-        the right (shadcn's ButtonGroup + ButtonGroupSeparator, nodeterm's
-        bar). Only rendered with a canvas open — there is no camera without
-        a plane. */}
-    {current ? (
-      <div className="cv-cluster" role="group" aria-label="Zoom" data-align-row>
-        <button type="button" className="cv-cluster-btn cv-tb-step" aria-label="Zoom out" title="Zoom out (−)" onClick={() => canvasRef.current && canvasRef.current.zoomOut()}>−</button>
-        <ZoomReadout subscribe={subscribeZoom} onSnap={() => canvasRef.current && canvasRef.current.snapToOne(focusedRef.current)} />
-        <button type="button" className="cv-cluster-btn cv-tb-step" aria-label="Zoom in" title="Zoom in (+)" onClick={() => canvasRef.current && canvasRef.current.zoomIn()}>+</button>
-        <button type="button" className="cv-cluster-btn cv-tb-icon" aria-label="Fit every panel" title="Fit every panel (0)" onClick={() => canvasRef.current && canvasRef.current.fit()}>
-          <IconExpand size={13} />
-        </button>
+      {/* One group, not two (owner, 2026-09-12). The dock held the canvas and
+          the camera as separate groups with a gap; joined, it reads as a
+          single instrument, and the order is the order of use: which canvas,
+          one more panel, how you are looking at it, and everything else last.
+          The `⋯` menu ends the row because a menu is the overflow of a
+          toolbar, not a peer of the buttons in it. */}
+      <div className="cv-cluster" role="group" aria-label="Canvas controls" data-align-row>
+        <span className="cv-switch">
+          <IconCanvas size={13} className="cv-switch-icon" />
+          <select className="cv-select" aria-label="Canvas" value={currentId} onChange={(e) => select(e.target.value)}>
+            {store.list.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
+        </span>
+        {current ? (
+          <button type="button" className="cv-cluster-btn" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
+        ) : null}
+        {current ? (
+          <>
+            <button type="button" className="cv-cluster-btn cv-tb-step" aria-label="Zoom out" title="Zoom out (−)" onClick={() => canvasRef.current && canvasRef.current.zoomOut()}>−</button>
+            <ZoomReadout subscribe={subscribeZoom} onSnap={() => canvasRef.current && canvasRef.current.snapToOne(focusedRef.current)} />
+            <button type="button" className="cv-cluster-btn cv-tb-step" aria-label="Zoom in" title="Zoom in (+)" onClick={() => canvasRef.current && canvasRef.current.zoomIn()}>+</button>
+            <button type="button" className="cv-cluster-btn cv-tb-icon" aria-label="Fit every panel" title="Fit every panel (0)" onClick={() => canvasRef.current && canvasRef.current.fit()}>
+              <IconFit size={14} />
+            </button>
+          </>
+        ) : null}
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <button type="button" className="cv-cluster-btn cv-menu-btn" aria-label={current ? "More actions for " + current.name : "More actions"} title="New canvas, tidy, rename, delete, background or close"><IconEllipsis size={15} /></button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            {/* The toolbar sits on the bottom edge, so the menu opens **up**
+                into the canvas; the trigger ends the row, so the menu is
+                anchored to its end. Radix flips it if a short pane leaves no
+                room above. */}
+            <DropdownMenu.Content className="ws-row-menu" side="top" align="end" sideOffset={6} collisionPadding={8}>
+              <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setNameDialog("new")}><IconPlus size={13} /> New canvas</DropdownMenu.Item>
+              {current && panels.length ? (
+                <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => { tidy(); }}><IconGrid size={13} /> Tidy panels</DropdownMenu.Item>
+              ) : null}
+              {current ? (
+                <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setNameDialog("rename")}><IconPencil size={13} /> Rename</DropdownMenu.Item>
+              ) : null}
+              {current ? (
+                <DropdownMenu.Item className="ws-row-menu-item danger" onSelect={() => { deleteCanvas(); }}><IconTrash size={13} /> Delete canvas</DropdownMenu.Item>
+              ) : null}
+              <DropdownMenu.Separator className="ws-row-menu-sep" />
+              {/* The plane's ground, changed on the plane. It used to be a
+                  group in Preferences → Appearance with this item only
+                  navigating there, which leaked a Canvas control into
+                  PiCode's own chrome (ADR-0109, amendment 2026-09-11): an
+                  app reaches the host through the doors the host declares,
+                  and a settings group is not one of them. Four values need a
+                  menu, not a dialog, and the rows stay open while you pick so
+                  the plane behind them is the preview. */}
+              <DropdownMenu.Sub>
+                <DropdownMenu.SubTrigger className="ws-row-menu-item cv-menu-sub">
+                  <IconImage size={13} /> Background
+                  <IconChevronRight size={13} className="cv-menu-chev" />
+                </DropdownMenu.SubTrigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.SubContent className="ws-row-menu cv-bg-menu" sideOffset={4} alignOffset={-4} collisionPadding={8}>
+                    <DropdownMenu.RadioGroup value={background} onValueChange={(v) => setBackground(persistCanvasPattern(v))}>
+                      {BACKGROUNDS.map(([option, label]) => (
+                        <DropdownMenu.RadioItem
+                          key={option}
+                          className="ws-row-menu-item cv-bg-item"
+                          value={option}
+                          onSelect={(e) => e.preventDefault()}
+                        >
+                          <PatternSwatch kind={option} />
+                          <span className="cv-bg-label">{label}</span>
+                          <DropdownMenu.ItemIndicator className="cv-bg-check"><IconCheck size={13} /></DropdownMenu.ItemIndicator>
+                        </DropdownMenu.RadioItem>
+                      ))}
+                    </DropdownMenu.RadioGroup>
+                  </DropdownMenu.SubContent>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Sub>
+              {onClose ? (
+                <>
+                  <DropdownMenu.Separator className="ws-row-menu-sep" />
+                  <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => onClose()}><IconX size={13} /> Close tab</DropdownMenu.Item>
+                </>
+              ) : null}
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
       </div>
-    ) : null}
     </div>
   ) : null;
   let body;
