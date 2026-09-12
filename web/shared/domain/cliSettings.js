@@ -3,10 +3,19 @@
 export const CLI_SETTINGS = [{ id: "pi", name: "Pi" }];
 export const supportsCliSettings = id => CLI_SETTINGS.some(cli => cli.id === id);
 
-export function cliSettingsHash(cli = "pi", { agentId = "", focus = "" } = {}) {
+// The pane edits one layer at a time and keeps the keyboard map on its own
+// sub-tab (docs/plans/cli-settings-ux.md). Both travel on the route so a
+// reload, a bookmark or a Palette command lands on the same view. The sub-tab
+// is `tab`, not `view` — `view` already means the page in a route.
+export const SETTINGS_LAYERS = ["global", "project", "agent"];
+export const SETTINGS_TABS = ["settings", "keys"];
+
+export function cliSettingsHash(cli = "pi", { agentId = "", focus = "", layer = "", tab = "" } = {}) {
   const query = new URLSearchParams();
   if (agentId) query.set("agentId", agentId);
   if (focus === "scoped-models") query.set("focus", focus);
+  if (SETTINGS_LAYERS.includes(layer)) query.set("layer", layer);
+  if (SETTINGS_TABS.includes(tab) && tab !== "settings") query.set("tab", tab);
   return "#/clis/" + encodeURIComponent(cli || "pi") + "/settings" + (query.size ? "?" + query : "");
 }
 
@@ -28,8 +37,12 @@ export function cliSettingsLocation(hash = "", legacyAgentId = "") {
   const adoptPane = !!(legacy && !params.has("agentId"));
   const agentId = params.has("agentId") ? params.get("agentId") : adoptPane ? legacyAgentId : "";
   const focus = params.get("focus") === "scoped-models" ? "scoped-models" : "";
-  const canonical = cliSettingsHash(cli, { agentId, focus });
-  return { view: "clis", pane: "settings", id: cli, agentId, focus, legacy: legacy || strip,
+  // An unknown layer or view is dropped, not adopted: the pane falls back to
+  // the default layer and never writes to a layer the URL only guessed at.
+  const layer = SETTINGS_LAYERS.includes(params.get("layer")) ? params.get("layer") : "";
+  const tab = SETTINGS_TABS.includes(params.get("tab")) ? params.get("tab") : "";
+  const canonical = cliSettingsHash(cli, { agentId, focus, layer, tab });
+  return { view: "clis", pane: "settings", id: cli, agentId, focus, layer, tab, legacy: legacy || strip,
     ...(adoptPane ? { adoptPane: true } : {}),
     redirect: !nested || path === "/clis/settings" ? canonical : "" };
 }

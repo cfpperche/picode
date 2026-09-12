@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cfpperche/picode/internal/pisettings"
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
@@ -164,5 +165,39 @@ func TestPiSettingsRejectsProjectWrite(t *testing.T) {
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status %d", res.StatusCode)
+	}
+}
+
+// A reset makes the parent current, so the live agent must adopt the effective
+// knobs — not the override that just left the file. A plain set passes through.
+func TestLivePatchAfterResetUsesEffectiveKnobs(t *testing.T) {
+	all := "all"
+	global := pisettings.Layer{CompactionEnabled: false, SteeringMode: all, FollowUpMode: all, Has: map[string]bool{"steeringMode": true}}
+	project := pisettings.Layer{Has: map[string]bool{}}
+	rep := piSettingsReport{Global: global, Project: &project}
+
+	off := false
+	got := livePatch(pisettings.Patch{CompactionEnabled: &off}, rep)
+	if got.CompactionEnabled != &off || got.SteeringMode != nil {
+		t.Fatalf("a plain set must pass through: %+v", got)
+	}
+
+	got = livePatch(pisettings.Patch{Reset: []string{"compactionEnabled"}}, rep)
+	if got.CompactionEnabled == nil || *got.CompactionEnabled != false {
+		t.Fatalf("reset must adopt the parent value: %+v", got)
+	}
+
+	// A project override that survives the reset still wins.
+	project.Has["steeringMode"] = true
+	project.SteeringMode = "one-at-a-time"
+	got = livePatch(pisettings.Patch{Reset: []string{"steeringMode"}}, rep)
+	if got.SteeringMode == nil || *got.SteeringMode != "one-at-a-time" {
+		t.Fatalf("project override lost: %+v", got)
+	}
+
+	// Without a project layer the global values are effective.
+	got = livePatch(pisettings.Patch{Reset: []string{"followUpMode"}}, piSettingsReport{Global: global})
+	if got.FollowUpMode == nil || *got.FollowUpMode != "all" {
+		t.Fatalf("global value lost: %+v", got)
 	}
 }

@@ -3515,6 +3515,25 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .set-row input[type="number"] { width: 7rem; }
 .set-row select.set-wide { min-width: 12rem; width: auto; }
 .set-row-stack { flex-direction: column; align-items: stretch; gap: 6px; }
+
+/* Pi Settings edits one layer at a time (docs/plans/cli-settings-ux.md): the
+   switcher names the layer, the file line names what it writes, and a row says
+   whether this layer sets it (the accent bar / "Set here") or inherits it. */
+.settings-layer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 8px; }
+.settings-layer-label { font-size: 12px; color: var(--text-secondary); }
+.settings-layer .pkg-scope { margin: 0; }
+.settings-layer .pkg-scope-btn { height: var(--ctl-h); min-height: var(--ctl-h); }
+.settings-file {
+  margin: 0 0 16px; font-family: var(--mono); font-size: 11.5px; color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.set-label { display: flex; flex-direction: column; gap: 2px; }
+.set-src { font-size: 11px; color: var(--text-secondary); }
+.set-ctl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.set-row-stack .set-ctl { justify-content: flex-start; }
+.set-row-stack .set-ctl > .btn { margin-left: auto; }
+#pi-settings-view .set-row { padding-left: 8px; border-left: 2px solid transparent; }
+#pi-settings-view .set-row.is-set { border-left-color: var(--accent); }
 .set-tools { display: flex; flex-wrap: wrap; gap: 8px 12px; }
 .set-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; }
 .set-pats { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }

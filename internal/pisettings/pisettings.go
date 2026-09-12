@@ -36,6 +36,23 @@ type Patch struct {
 	DefaultThinkingLevel *string   `json:"defaultThinkingLevel"`
 	EnabledModels        *[]string `json:"enabledModels"`
 	DefaultTools         *[]string `json:"defaultTools"`
+	// Reset removes these keys from this layer's file, so the parent layer (or
+	// Pi's own default) applies again. Unknown names are refused rather than
+	// ignored: a silent no-op would report "inherited" while the override
+	// stayed in the file.
+	Reset []string `json:"reset,omitempty"`
+}
+
+// resetKeys maps a GUI field to its path inside the settings file.
+var resetKeys = map[string][]string{
+	"compactionEnabled":    {"compaction", "enabled"},
+	"steeringMode":         {"steeringMode"},
+	"followUpMode":         {"followUpMode"},
+	"defaultProvider":      {"defaultProvider"},
+	"defaultModel":         {"defaultModel"},
+	"defaultThinkingLevel": {"defaultThinkingLevel"},
+	"enabledModels":        {"enabledModels"},
+	"defaultTools":         {"defaultTools"},
 }
 
 // UserFile is ~/.pi/agent/settings.json.
@@ -147,6 +164,9 @@ func markStrs(out *Layer, doc map[string]any, key string, dest *[]string) {
 }
 
 func merge(doc map[string]any, p Patch) error {
+	if err := deleteKeys(doc, p.Reset); err != nil {
+		return err
+	}
 	if p.CompactionEnabled != nil {
 		c, _ := doc["compaction"].(map[string]any)
 		if c == nil {
@@ -179,6 +199,31 @@ func merge(doc map[string]any, p Patch) error {
 	}
 	if p.DefaultTools != nil {
 		doc["defaultTools"] = *p.DefaultTools
+	}
+	return nil
+}
+
+// deleteKeys removes this layer's overrides. Only the named keys go; every
+// other key in the file (including ones the GUI does not know) stays exactly
+// as it was. An empty "compaction" object goes with its last key.
+func deleteKeys(doc map[string]any, keys []string) error {
+	for _, key := range keys {
+		path, ok := resetKeys[key]
+		if !ok {
+			return fmt.Errorf("pi settings: cannot reset %q", key)
+		}
+		if len(path) == 1 {
+			delete(doc, path[0])
+			continue
+		}
+		parent, ok := doc[path[0]].(map[string]any)
+		if !ok {
+			continue
+		}
+		delete(parent, path[1])
+		if len(parent) == 0 {
+			delete(doc, path[0])
+		}
 	}
 	return nil
 }
