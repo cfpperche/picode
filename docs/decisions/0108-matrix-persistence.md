@@ -128,3 +128,54 @@ Decision table (every row has a store or handler test):
 - **A whole-layout PUT instead of a subset PATCH.** A simpler client and
   30 KB per drag at 300 panels. Refused; the subset patch accepts every
   row when a client wants that.
+
+## Amendment 2026-09-12 — a text panel keeps its words on the panel row
+
+Owner, listing what a canvas should hold: "agents, terminais, pins, texto,
+desenhos". The first four already exist. **Text** is different in kind from
+all of them.
+
+Every panel so far is a **reference**. An agent, a terminal, a pin, a file,
+the changes to a file — each names something that lives elsewhere in PiCode
+and would still be there if the canvas were deleted. The panel row says
+where it sits and nothing more, which is why `ref` is `NOT NULL` and why
+`UNIQUE(canvas_id, kind, ref)` means "this thing is on this canvas once".
+
+A text panel names nothing. The words **are** the panel: written on the
+plane, read there, and gone when it goes.
+
+### What that changes
+
+- **`content` is a column on `canvas_panels`** (migration 046), empty by
+  default so every existing row reads back unchanged. Not a table of its
+  own: a text block has no life outside its panel, nothing else in PiCode
+  can hold a reference to one, and a second table would have added a key, a
+  cascade and a join to say exactly that. It would also have suggested that
+  a text block can be shared — which is what a **pin** already is, and what
+  a pin panel already shows.
+- **A text panel binds to its own id.** `ref` stays `NOT NULL` and the
+  store mints it, so two empty text panels on one canvas do not collide the
+  way two empty refs would. A caller that sends a ref is refused ("a text
+  panel takes no ref"): it is describing something that does not exist.
+- **`canvas.panel.content`** carries the whole string, not a patch. The
+  store keeps what a reader typed and every other browser draws that, rather
+  than replaying keystrokes; last writer wins, which is what a shared label
+  on a plane should do.
+- **2 000 characters** (`MaxCanvasText`), refused rather than truncated, the
+  rule every other limit here follows. A label beside a terminal, not a
+  document — a pin is what holds prose.
+- **Saved on blur and after an 800 ms pause**, never per keystroke: each
+  save is a transaction and an event to every open browser. The draft lives
+  in the component until then, which is also what lets a panel be dragged,
+  zoomed or unloaded mid-sentence without losing it.
+
+### Consequences
+
+- The canvas gains a kind that needs no fleet, no binding state that can go
+  gone, and no read of its own: `text-ready` is unconditional and the words
+  arrive with the panel row.
+- A tool that places one skips the picker entirely — there is nothing to
+  choose (`PICKS_A_TARGET`, `CanvasSurface.jsx`).
+- **If wrong**: the column is additive with a default. Dropping the kind
+  means one migration and deleting the rows; nothing else in PiCode points
+  at them.

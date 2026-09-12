@@ -656,7 +656,7 @@ Four places, three of them on the bottom edge (owner, 2026-09-12):
 |---|---|---|
 | top-left (`.cv-chrome`) | the canvas switcher and the `⋯` menu | identity belongs where a reader starts reading |
 | bottom-left (`.cv-camera`) | a column: **+**, **−**, the readout, **Fit** | React Flow's own Controls stand here, and a camera is not a canvas action |
-| bottom-centre (`.cv-toolbar`) | one button per **element**: agent, terminal, pin | the hands' end of the surface: what you add |
+| bottom-centre (`.cv-toolbar`) | one button per **element**: agent, terminal, pin, text | the hands' end of the surface: what you add |
 | bottom-right (`<MiniMap>`, `Plane.jsx`) | the map of the plane | the corner the rest leaves free |
 
 **The zoom readout sits on the camera column.** It was a segment of the dock,
@@ -692,6 +692,14 @@ is what the owner hit. Three steps replace it:
 3. **Pick** — the dialog opens narrowed to that kind (`only`), because the
    reader already said what goes there. Choosing creates the panel in the
    rectangle and disarms the tool.
+
+**A kind with nothing to choose skips step 3.** Agent, terminal and pin name
+something that already exists, so the rectangle is followed by a dialog. A
+**text** panel *is* its own content (ADR-0108's 2026-09-12 amendment): there
+is nothing to pick, so it is born where it was drawn, empty and ready to type
+in. `PICKS_A_TARGET` in `CanvasSurface.jsx` is the list, and the rectangle is
+handed to `addPanel` as an argument rather than read back from state — the
+two happen in one tick, and state read there is the *previous* rectangle.
 
 `placementRect` (`web/shared/domain/canvas.js`) is the pure part: a gesture
 shorter than the slop is a **click**, which centres the default size on the

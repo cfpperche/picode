@@ -2,6 +2,7 @@ import { CHAT_LIVE_MAX, hasChat, hasPane, parseRef } from "@picode/shared/domain
 import { relTime } from "@picode/shared/domain/relTime.js";
 import TerminalPanel from "./TerminalPanel.jsx";
 import NotePanel from "./NotePanel.jsx";
+import TextPanel from "./TextPanel.jsx";
 import FilePanel from "./FilePanel.jsx";
 import DiffPanel from "./DiffPanel.jsx";
 import AgentChatPanel from "./AgentChatPanel.jsx";
@@ -37,7 +38,7 @@ function Line({ text, action, onAction, primary = false }) {
 // socket. Re-exported here because this is where the components already ask.
 export { hasChat, hasPane };
 
-export default function PanelBody({ model, loaded, body = "live", hidden, focused, onOpen, onRemove, onRun, onOpenFile, onDirty }) {
+export default function PanelBody({ model, loaded, body = "live", hidden, focused, onOpen, onRemove, onRun, onOpenFile, onDirty, onSaveText }) {
   switch (model.state) {
     case "terminal-gone": return <Line text="That terminal is gone." action="Remove" onAction={onRemove} />;
     case "agent-gone": return <Line text="That agent is gone." action="Remove" onAction={onRemove} />;
@@ -77,6 +78,9 @@ export default function PanelBody({ model, loaded, body = "live", hidden, focuse
     </div>
   );
   if (!loaded) return placeholder;
+  // Text is the one body with nothing to fetch: its words came down with the
+  // panel row, so it never shows the placeholder and never waits.
+  if (model.kind === "text") return <TextPanel panelId={model.id} content={model.content} onSave={onSaveText} />;
   if (model.kind === "note") return <NotePanel pinId={model.ref} title={model.name} />;
   if (model.kind === "file" || model.kind === "diff") {
     const at = parseRef(model.kind, model.ref);

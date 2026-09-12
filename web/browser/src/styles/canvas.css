@@ -686,6 +686,20 @@
 }
 .cv-snap:hover .cv-snap-label { opacity: 1; }
 
+/* A text panel's box. It fills the body and carries no chrome of its own:
+   the panel wrapper is already a card with a header, and a second border
+   inside it would read as an input in a form rather than words on a plane.
+   `nodrag`/`nowheel` are on the element (Plane.jsx's rule), so selecting
+   text does not drag the panel and scrolling it does not zoom the canvas. */
+.cv-text {
+  flex: 1; min-height: 0; width: 100%; box-sizing: border-box;
+  margin: 0; padding: 8px 10px; border: 0; outline: none; resize: none;
+  background: transparent; color: var(--text-primary);
+  font: inherit; font-size: 12.5px; line-height: 1.55;
+}
+.cv-text::placeholder { color: var(--text-secondary); }
+.cv-panel.is-focused .cv-text::placeholder { color: var(--text-secondary); }
+
 /* The still: the pane's last screen as text, captured before the flip. It is
    a picture of a moment and never pretends otherwise — the header carries its
    age when the feed has seen the panel move since. */

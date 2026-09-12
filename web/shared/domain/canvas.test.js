@@ -15,16 +15,16 @@ import {
 const summary = (id, name, extra = {}) => ({
   id, name, compact: "vertical", createdAt: "2026-09-09T10:00:00Z", updatedAt: "2026-09-09T10:00:00Z", panelCount: 0, ...extra,
 });
-const panel = (id, extra = {}) => ({ id, kind: "terminal", ref: "term-" + id, x: 0, y: 0, w: 32, h: 42, createdAt: "2026-09-09T10:00:00Z", ...extra });
+const panel = (id, extra = {}) => ({ id, kind: "terminal", ref: "term-" + id, x: 0, y: 0, w: 32, h: 42, createdAt: "2026-09-09T10:00:00Z", content: "", ...extra });
 
 test("limits and event types are the server's (ADR-0108, ADR-0116, ADR-0118)", () => {
   assert.deepEqual({ ...CANVAS_LIMITS }, {
-    canvases: 64, panels: 500, name: 80,
+    canvases: 64, panels: 500, name: 80, text: 2000,
     canvasMinW: 32, canvasMinH: 28, canvasMax: 4096, canvasCoord: 100000, edges: 1000,
   });
   assert.equal(UNIT_PX, 8);
-  assert.deepEqual([...CANVAS_EVENTS], ["canvas.created", "canvas.updated", "canvas.layout", "canvas.panel.added", "canvas.panel.removed", "canvas.edge.added", "canvas.edge.removed", "canvas.deleted"]);
-  assert.equal(CANVAS_EVENTS.length, 8, "the mode event went with the engine it announced (ADR-0118)");
+  assert.deepEqual([...CANVAS_EVENTS], ["canvas.created", "canvas.updated", "canvas.layout", "canvas.panel.added", "canvas.panel.content", "canvas.panel.removed", "canvas.edge.added", "canvas.edge.removed", "canvas.deleted"]);
+  assert.equal(CANVAS_EVENTS.length, 9, "the mode event went with the engine it announced (ADR-0118); a text panel's words announce their own (2026-09-12)");
   for (const type of CANVAS_EVENTS) assert.equal(touches({ type }, ["canvas"]), true, type);
   // Only a session has a mailbox: a note, a file or a diff cannot hold a
   // contact, so it cannot be an endpoint (ADR-0116).
@@ -84,12 +84,17 @@ test("validate* refuse in the server's words", () => {
   ];
   for (const [rect, want] of cases) assert.equal(validatePlacement(rect), want, JSON.stringify(rect));
   assert.equal(validatePlacement(null), "x must be a whole number");
-  assert.equal(validatePanel({ kind: "pin", ref: "x", x: 0, y: 0, w: 32, h: 42 }), "kind must be agent, terminal, note, file or diff");
+  assert.equal(validatePanel({ kind: "pin", ref: "x", x: 0, y: 0, w: 32, h: 42 }), "kind must be agent, terminal, note, file, diff or text");
   assert.equal(validatePanel({ kind: "agent", ref: "  ", x: 0, y: 0, w: 32, h: 42 }), "ref is required");
   assert.equal(validatePanel({ kind: "agent", ref: "a1", x: 0, y: 0, w: 31, h: 42 }), "w must be at least 32 canvas units");
   assert.equal(validatePanel({ kind: "terminal", ref: "t1", x: 64, y: 0, w: 32, h: 42 }), "");
-  assert.equal(validatePanel(undefined), "kind must be agent, terminal, note, file or diff");
-  assert.deepEqual([...CANVAS_KINDS], ["agent", "terminal", "note", "file", "diff"]);
+  assert.equal(validatePanel(undefined), "kind must be agent, terminal, note, file, diff or text");
+  assert.deepEqual([...CANVAS_KINDS], ["agent", "terminal", "note", "file", "diff", "text"]);
+  // Text is the one kind that binds nothing: the store mints its ref, so a
+  // caller that sends one is refused in the server's words.
+  assert.equal(validatePanel({ kind: "text", x: 0, y: 0, w: 32, h: 42 }), "", "a text panel needs no ref");
+  assert.equal(validatePanel({ kind: "text", ref: "pin-1", x: 0, y: 0, w: 32, h: 42 }), "a text panel takes no ref");
+  assert.equal(validatePanel({ kind: "text", x: 0, y: 0, w: 31, h: 42 }), "w must be at least 32 canvas units", "and it is still a rectangle");
   assert.equal(validatePanel({ kind: "note", ref: "pin-1", x: 0, y: 0, w: 32, h: 42 }), "", "a note binds a pin id");
   assert.equal(validatePanel({ kind: "note", ref: " ", x: 0, y: 0, w: 32, h: 42 }), "ref is required");
   assert.equal(validatePanel({ kind: "file", ref: "t:term-1:src/main.go", x: 0, y: 0, w: 32, h: 42 }), "");
@@ -285,7 +290,7 @@ test("validate* judge every rectangle by the plane's one set of rules", () => {
   assert.equal(validatePlacement({ x: -1, y: 0, w: 32, h: 42 }), "", "a negative coordinate is the plane's, not a mistake");
   assert.equal(validatePanel({ kind: "terminal", ref: "t1", x: -40, y: -40, w: 32, h: 28 }), "");
   assert.equal(validatePanel({ kind: "terminal", ref: "t1", x: 0, y: 0, w: 4, h: 8 }), "w must be at least 32 canvas units");
-  assert.equal(validatePanel({ kind: "pin", ref: "t1", x: 0, y: 0, w: 32, h: 42 }), "kind must be agent, terminal, note, file or diff");
+  assert.equal(validatePanel({ kind: "pin", ref: "t1", x: 0, y: 0, w: 32, h: 42 }), "kind must be agent, terminal, note, file, diff or text");
   // layoutDiff applies the same rules, or every move on the plane would be
   // dropped.
   const prev = [rect("a", 0, 0, 32, 42)];

@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"unicode/utf8"
@@ -16,6 +17,11 @@ const (
 	MaxCanvases     = 64
 	MaxCanvasPanels = 500
 	MaxCanvasName   = 80 // runes
+	// A text panel is a label on a plane, not a document: long enough for a
+	// paragraph of explanation beside a terminal, short enough that nobody
+	// mistakes the canvas for a place to keep prose. A pin is what holds
+	// prose, and a pin panel shows one.
+	MaxCanvasText = 2000 // runes
 	// Edges (ADR-0116, migration 044): a link is much cheaper than a panel
 	// and a dense board draws more of them than it holds panels, so the cap
 	// is twice the panel cap. internal/store/canvas_edges.go is the model.
@@ -52,9 +58,12 @@ type Canvas struct {
 // rectangle of 8 px units. Its id is random and never derived from ref, so
 // the same terminal on two canvases is two panels.
 type CanvasPanel struct {
-	ID        string `json:"id"`
-	Kind      string `json:"kind"`
-	Ref       string `json:"ref"`
+	ID   string `json:"id"`
+	Kind string `json:"kind"`
+	Ref  string `json:"ref"`
+	// Only a text panel carries words of its own; every other kind reads
+	// back "" and the field is omitted.
+	Content   string `json:"content,omitempty"`
 	X         int    `json:"x"`
 	Y         int    `json:"y"`
 	W         int    `json:"w"`
@@ -101,6 +110,17 @@ type CanvasPanelAdded struct {
 	ID        string      `json:"id"`
 	UpdatedAt string      `json:"updatedAt"`
 	Panel     CanvasPanel `json:"panel"`
+}
+
+// CanvasPanelContent is the canvas.panel.content event and the PATCH
+// …/panels/{panelId}/content answer: the words as they now stand, so a
+// second browser draws exactly what this one saved rather than replaying
+// keystrokes.
+type CanvasPanelContent struct {
+	ID        string `json:"id"`
+	UpdatedAt string `json:"updatedAt"`
+	PanelID   string `json:"panelId"`
+	Content   string `json:"content"`
 }
 
 // CanvasPanelRemoved is the canvas.panel.removed event.
@@ -162,18 +182,30 @@ const (
 	CanvasKindNote     = "note" // ref: a pin id
 	CanvasKindFile     = "file" // ref: <owner>:<id>:<path>
 	CanvasKindDiff     = "diff" // ref: <owner>:<id>:<path>
+	// The first kind that references nothing: the words are the panel, and
+	// they live in the row's own content column (migration 046). Its ref is
+	// its own panel id, so UNIQUE(canvas_id, kind, ref) still holds and two
+	// empty text panels never collide.
+	CanvasKindText = "text"
 )
 
 // The refusals are the contract, repeated word for word in
 // web/shared/domain/canvas.js so the UI can refuse before asking.
 const (
-	canvasKindMsg = "kind must be agent, terminal, note, file or diff"
+	canvasKindMsg = "kind must be agent, terminal, note, file, diff or text"
 	canvasRefMsg  = "ref must be <owner>:<id>:<path> with owner t, a or w"
 )
 
 func validatePanelBinding(kind, ref string) error {
 	switch kind {
 	case CanvasKindAgent, CanvasKindTerminal, CanvasKindNote, CanvasKindFile, CanvasKindDiff:
+	case CanvasKindText:
+		// A text panel binds to nothing, so a caller sending a ref is
+		// describing something that does not exist. The store mints one.
+		if ref != "" {
+			return invalid("a text panel takes no ref")
+		}
+		return nil
 	default:
 		return invalid(canvasKindMsg)
 	}
@@ -303,7 +335,7 @@ func canvasSummary(q rowQuerier, id string) (Canvas, error) {
 }
 
 func canvasPanels(q rowQuerier, id string) ([]CanvasPanel, error) {
-	rows, err := q.Query(`SELECT id, kind, ref, x, y, w, h, created_at FROM canvas_panels WHERE canvas_id = ? ORDER BY y, x, created_at`, id)
+	rows, err := q.Query(`SELECT id, kind, ref, x, y, w, h, created_at, content FROM canvas_panels WHERE canvas_id = ? ORDER BY y, x, created_at`, id)
 	if err != nil {
 		return nil, fmt.Errorf("store: canvas panels: %w", err)
 	}
@@ -311,7 +343,7 @@ func canvasPanels(q rowQuerier, id string) ([]CanvasPanel, error) {
 	out := []CanvasPanel{}
 	for rows.Next() {
 		var p CanvasPanel
-		if err := rows.Scan(&p.ID, &p.Kind, &p.Ref, &p.X, &p.Y, &p.W, &p.H, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Kind, &p.Ref, &p.X, &p.Y, &p.W, &p.H, &p.CreatedAt, &p.Content); err != nil {
 			return nil, fmt.Errorf("store: scan panel: %w", err)
 		}
 		out = append(out, p)
@@ -504,6 +536,9 @@ func (s *Store) AddCanvasPanel(id, kind, ref string, x, y, w, h int) (CanvasPane
 		}
 		now := nowUTC()
 		p := CanvasPanel{ID: newPanelID(), Kind: kind, Ref: ref, X: x, Y: y, W: w, H: h, CreatedAt: now}
+		if kind == CanvasKindText {
+			p.Ref = p.ID
+		}
 		if _, err := tx.Exec(`INSERT INTO canvas_panels (id, canvas_id, kind, ref, x, y, w, h, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			p.ID, id, p.Kind, p.Ref, p.X, p.Y, p.W, p.H, p.CreatedAt); err != nil {
 			// The unique index refused the binding; every other failure
@@ -542,6 +577,42 @@ func (s *Store) RemoveCanvasPanel(id, panelID string) error {
 		}
 		return s.AppendEventTx(tx, "canvas.panel.removed", nil, nil, CanvasPanelRemoved{ID: id, UpdatedAt: now, PanelID: panelID})
 	})
+}
+
+// SetCanvasPanelContent writes a text panel's words. Only a text panel has
+// any: asking another kind to hold words would make the column mean two
+// things, and the refusal says which kinds can. Announces
+// canvas.panel.content.
+func (s *Store) SetCanvasPanelContent(id, panelID, content string) (CanvasPanelContent, error) {
+	if utf8.RuneCountInString(content) > MaxCanvasText {
+		return CanvasPanelContent{}, invalid("limit: %d characters of text", MaxCanvasText)
+	}
+	var out CanvasPanelContent
+	err := s.canvasTx(func(tx *sql.Tx) error {
+		if err := canvasGuard(tx, id, ""); err != nil {
+			return err
+		}
+		var kind string
+		if err := tx.QueryRow(`SELECT kind FROM canvas_panels WHERE id = ? AND canvas_id = ?`, panelID, id).Scan(&kind); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return errPanelNotFound
+			}
+			return fmt.Errorf("store: panel kind: %w", err)
+		}
+		if kind != CanvasKindText {
+			return invalid("only a text panel holds words")
+		}
+		if _, err := tx.Exec(`UPDATE canvas_panels SET content = ? WHERE id = ? AND canvas_id = ?`, content, panelID, id); err != nil {
+			return fmt.Errorf("store: set panel content: %w", err)
+		}
+		now := nowUTC()
+		if err := touchCanvas(tx, id, now); err != nil {
+			return err
+		}
+		out = CanvasPanelContent{ID: id, UpdatedAt: now, PanelID: panelID, Content: content}
+		return s.AppendEventTx(tx, "canvas.panel.content", nil, nil, out)
+	})
+	return out, err
 }
 
 // DeleteCanvas removes the canvas; its panels go with it (ON DELETE

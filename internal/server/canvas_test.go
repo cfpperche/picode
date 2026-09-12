@@ -241,7 +241,7 @@ func TestCanvasPanelStatuses(t *testing.T) {
 	}{
 		{"w < 32", "terminal", "t", 0, 0, 31, 28, "w must be at least 32 canvas units"},
 		{"h < 28", "terminal", "t", 0, 0, 32, 27, "h must be at least 28 canvas units"},
-		{"kind", "pin", "t", 0, 0, 32, 28, "kind must be agent, terminal, note, file or diff"},
+		{"kind", "pin", "t", 0, 0, 32, 28, "kind must be agent, terminal, note, file, diff or text"},
 		{"ref empty", "terminal", "  ", 0, 0, 32, 28, "ref is required"},
 		{"note ref empty", "note", " ", 0, 0, 32, 28, "ref is required"},
 		{"file ref without a path", "file", "t:term-1", 0, 0, 32, 28, "ref must be <owner>:<id>:<path> with owner t, a or w"},
