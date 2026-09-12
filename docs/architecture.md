@@ -26,9 +26,11 @@ this Linux session (WSL included). Its `KillMode=process` leaves tmux-owned
 terminals alive across daemon restarts; transient RPC children are separately
 parent-bound and pane holders restore the TUI. `picode deploy` / `make deploy`
 copies a repo build and restarts that unit — but first asks the daemon
-`GET /api/deploy/readiness` and refuses while any agent or terminal is
-mid-turn (ADR-0086; `--force` overrides). `main` ships when the owner runs
-`make deploy` (ADR-0105), never from a branch session.
+`GET /api/deploy/readiness` and refuses while any agent or terminal other
+than the calling pane is mid-turn (ADR-0086; the caller is always working
+by the act of asking, so it never blocks itself; `--force` overrides).
+`main` ships when the owner runs `make deploy` (ADR-0105), never from a
+branch session.
 The supervised daemon does not
 re-exec when the binary on disk changes — that same-PID `Exec` used to
 swallow systemd's SIGTERM and sit in `stop-sigterm` until `TimeoutStopSec=30`.
