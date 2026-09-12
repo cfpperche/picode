@@ -17,6 +17,7 @@ import { eventsToItems } from "@picode/shared/domain/replay.js";
 import { readCompacting, writeCompacting } from "./lib/compact.js";
 import Sidebar from "./components/Sidebar.jsx";
 import WindowControls from "./components/WindowControls.jsx";
+import RailTabs from "./components/RailTabs.jsx";
 import AgentTabs from "./components/AgentTabs.jsx";
 import DashboardView from "./components/DashboardView.jsx";
 import SessionBar from "./components/SessionBar.jsx";
@@ -2691,11 +2692,14 @@ export default function App({ shellChrome = false } = {}) {
     <div id="app" className={[shellChrome ? "app-shell" : "", navigationOpen ? "navigation-open" : "", focus.classes].filter(Boolean).join(" ")}>
       {shellChrome && (
         <header className="shell-row" data-tauri-drag-region>
-          <span className="shell-brand" data-tauri-drag-region title="Dashboard"
-                onClick={() => { setDashboardPinned(true); setNavigationOpen(false); }}>
-            <span className="shell-mark" data-tauri-drag-region>P</span>
-            <span className="shell-name" data-tauri-drag-region>PiCode</span>
-          </span>
+          <div className="shell-brand-cluster" data-tauri-drag-region>
+            <button type="button" className="shell-brand" title="Dashboard"
+                    onClick={() => { setDashboardPinned(true); setNavigationOpen(false); }}>
+              <span className="shell-mark" data-tauri-drag-region>P</span>
+              <span className="shell-name" data-tauri-drag-region>PiCode</span>
+            </button>
+            <RailTabs tab={tab} selectTab={selectTab} apps={apps} pkgUpdates={pkgUpdates} onOpenClis={() => { go("clis"); setNavigationOpen(false); }} />
+          </div>
           {tabsStrip}
           <WindowControls />
         </header>

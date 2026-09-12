@@ -5302,10 +5302,21 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   background: var(--bg-panel); border-bottom: 1px solid var(--border);
   user-select: none;
 }
+.shell-brand-cluster {
+  display: flex; align-items: center; min-width: 0;
+  width: var(--shell-nav-w, 244px); flex: none;
+  container-type: inline-size;
+}
 .shell-brand {
   display: flex; align-items: center; gap: 8px;
-  width: var(--shell-nav-w, 244px); flex: none;
-  padding: 0 8px 0 14px; cursor: pointer;
+  padding: 0 4px 0 14px; cursor: pointer; border: 0; background: none;
+  color: inherit; font: inherit;
+}
+.shell-brand:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Same tightening the narrow sidebar applies, driven by the cluster's own
+   width so the row follows the sidebar without JavaScript. */
+@container (max-width: 259px) {
+  .shell-brand-cluster .brand-tab { width: 26px; }
 }
 .shell-mark {
   width: 17px; height: 17px; border-radius: 4px; flex: none;
