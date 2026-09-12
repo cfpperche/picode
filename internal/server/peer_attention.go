@@ -115,7 +115,10 @@ func peerGrokBoxInput(s tmux.InputSnapshot, expected string) bool {
 	} else if expected != "" {
 		footer = "  Enter:send  │  Shift+Tab:mode  │  Ctrl+x:shortcuts"
 	}
-	if clean(y+2) != "" || clean(y+3) != footer {
+	// The first-turn welcome screen uses a right-aligned release channel.
+	// Typing the pointer dismisses it and must produce the normal Enter footer.
+	welcome := expected == "" && !suggestion && clean(y+3) == strings.Repeat(" ", s.Width-10)+"[stable]"
+	if clean(y+2) != "" || (clean(y+3) != footer && !welcome) {
 		return false
 	}
 	for n := y + 4; n < len(s.Lines); n++ {
