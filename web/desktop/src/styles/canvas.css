@@ -16,7 +16,7 @@
 /* A button group — the toolbar's unit, and the make every floating control
    on this plane shares. Joined segments, hairline seams, one control height:
    shadcn's ButtonGroup in our own tokens, down to a non-interactive
-   ButtonGroupText (.cv-switch-one, .cv-tb-pct) sitting in the row as a
+   ButtonGroupText sitting in the row as a
    segment rather than beside it.
 
    It has to read over a dark plane, a light plane and a
@@ -72,49 +72,48 @@
   max-width: calc(100% - 24px); pointer-events: none;
 }
 .cv-toolbar > * { pointer-events: auto; }
+
+/* The camera, bottom-left, as a column — React Flow's own `<Controls>` stand
+   there and this is the shape the owner asked for (2026-09-12). The same
+   `.cv-cluster` turned: a row of one control height becomes a column of one
+   control width, so the seam moves from each child's left edge to its top. */
+.cv-camera {
+  position: absolute; z-index: 6; bottom: 12px; left: 12px;
+  flex-direction: column; align-items: stretch;
+  width: var(--ctl-h); height: auto;
+}
+.cv-camera > * + * { border-left: 0; border-top: 1px solid var(--border); }
+.cv-camera > * { width: 100%; padding: 0 2px; }
 /* The switcher: the one child that gives way. The cluster clips what does
    not fit, so on a surface too narrow for a long canvas name the name
    ellipsizes and the two buttons keep their whole hit area — never the other
    way round.
 
-   The box is 104 px at its floor and 240 px at its ceiling, and in between a
-   native `<select>` sizes to its **longest option**, not its selected one —
-   measured: one canvas named `aaa` is 104 px, and adding a second with a
-   long name takes the same box to 240. So the dock does re-centre when the
-   canvas *list* changes. That is a deliberate act — creating, renaming or
-   deleting a canvas — and never happens between two clicks on the same
-   button, which is the invariant a centred dock actually needs. The floor and
-   the ceiling are what keep it from being worse than that.
+   It is a Radix menu trigger, not a native `<select>` (owner, 2026-09-12).
+   The native control's popup belongs to the operating system: it ignores
+   every token in this file, draws its chevron where the platform likes, and
+   on this plane it arrived as a blue OS list over the canvas. As a button it
+   is an ordinary segment wearing the group's seams, hover and focus ring,
+   and its menu is the same `.ws-row-menu` the `⋯` beside it opens.
 
-   One shape, always (owner, 2026-09-12): the native `<select>`, even on a
-   single canvas. It wore a plain label there for a day, which on a row of
-   otherwise identical segments was indistinguishable from a disabled
-   control — and the one-canvas reader is exactly the one who has not learnt
-   that canvases are plural.
-
-   The segment is the box; the icon and the select are its contents. The
-   select carries no ground, no border and no height of its own, so the seams
-   and the focus ring stay the cluster's. */
+   The floor and ceiling are why the centred dock stays put: a trigger sizes
+   to the name it shows, not to the longest in the list the way the `<select>`
+   did, so a second canvas with a long name no longer widens the row. */
 .cv-cluster > .cv-switch {
-  flex: 0 1 auto; min-width: 104px; max-width: 240px; padding: 0 10px;
+  flex: 0 1 auto; min-width: 104px; max-width: 240px; padding: 0 8px 0 10px;
   gap: 7px; justify-content: flex-start;
   color: var(--text-primary); font-size: 12.5px;
-  overflow: hidden; cursor: default;
+  overflow: hidden;
 }
-.cv-switch-icon { flex: none; color: var(--text-secondary); }
-.cv-cluster > .cv-switch:hover .cv-switch-icon { color: var(--text-primary); }
-.cv-cluster > .cv-switch > .cv-select {
-  flex: 1 1 auto; min-width: 0; height: 100%;
-  padding: 0 20px 0 0; border: 0; background: transparent;
-  color: inherit; font: inherit; cursor: pointer;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-/* The ring belongs to the segment, not to the bare select inside it: an
-   outline on the select would be drawn inside the padding and read as a
-   second box. */
-.cv-cluster > .cv-switch:focus-within { outline: 2px solid var(--accent); outline-offset: -2px; }
-.cv-cluster > .cv-switch > .cv-select:focus-visible { outline: none; }
-.cv-menu-btn { padding: 0 8px; }
+.cv-switch-icon, .cv-switch-chev { flex: none; color: var(--text-secondary); }
+.cv-switch-chev { margin-left: auto; }
+.cv-cluster > .cv-switch:hover .cv-switch-icon,
+.cv-cluster > .cv-switch:hover .cv-switch-chev { color: var(--text-primary); }
+.cv-switch-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The switcher's own menu: a tick column like the Background rows, so the
+   canvas you are on is marked rather than merely highlighted. */
+.cv-switch-item { min-width: 168px; }
+.cv-switch-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 /* The ⋯ menu's Background submenu. The rows reuse .ws-row-menu-item, so a
    submenu row is the same row as every other item in this menu; these rules
@@ -127,6 +126,10 @@
    plane's own texture token, so a row cannot drift from what it draws. */
 .cv-menu-sub[data-state="open"] { background: var(--bg-hover); }
 .cv-menu-chev { margin-left: auto; color: var(--text-secondary); }
+/* A checkbox row's indicator column: the same 13 px an icon row spends on
+   its glyph, so every label in the menu starts on one line. */
+.cv-menu-tick { flex: none; width: 13px; display: inline-flex; justify-content: center; color: var(--accent); }
+.cv-menu-label { flex: 1; min-width: 0; }
 .ws-row-menu.cv-bg-menu { min-width: 168px; }
 .cv-bg-label { flex: 1; min-width: 0; }
 .cv-bg-check { display: inline-flex; color: var(--accent); }
@@ -143,7 +146,7 @@
    plane, not to the surface: they go with it. Not hidden by the layer
    covering them — removed, so Tab cannot reach a switcher nobody can see.
    `Esc` restores, and the layer's own header carries Restore. */
-.cv-surface.is-max .cv-toolbar { display: none; }
+.cv-surface.is-max .cv-toolbar, .cv-surface.is-max .cv-camera { display: none; }
 
 /* The container chunk loading observes; the plane fills it. */
 .cv-body { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; position: relative; padding: 8px; }
@@ -635,10 +638,6 @@
    than at 70 %, and a group that changes width moves every button in the
    dock out from under the pointer between one click and the next. */
 .cv-cluster > .cv-tb-step { min-width: 32px; font-size: 16px; line-height: 1; }
-.cv-cluster > .cv-tb-pct {
-  min-width: 52px; padding: 0 6px;
-  font-variant-numeric: tabular-nums; color: var(--text-primary);
-}
 .cv-cluster > .cv-tb-icon { min-width: 34px; }
 
 /* The pointer layer (plan §4.3). Between 0.8 and 1.5 a pane renders and takes

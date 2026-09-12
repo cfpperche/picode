@@ -650,55 +650,74 @@ chrome floats **on** it, adapted from nodeterm's canvas
 "Chrome"; the owner's ask was "menus estilo overlays e não aquela barra fixa
 no topo"). Two clusters, and nothing else:
 
-One **dock** centred on the bottom edge (`.cv-toolbar`, `CanvasSurface.jsx`)
-holding a **single** button group, and the minimap alone in the opposite
-corner (owner, 2026-09-12, from nodeterm's bar). It began as two groups with
-a gap — the canvas and the camera — and the owner joined them the same day:
-one instrument rather than two.
+Three places on the bottom edge and nothing anywhere else (owner,
+2026-09-12, following React Flow's own `<Controls>`):
 
-| Segment | What it is |
-|---|---|
-| the switcher | the app's icon and a `<select>` of every canvas — always the select, even with one |
-| **Add panel** | the picker, in the group's own make; it was accent-filled for a day and the owner took the fill out |
-| − / the readout / + / **Fit** | the camera. The readout clicks back to 100 %; **Fit** is lucide `Maximize` — React Flow's own four corner brackets, not diagonal arrows, because it frames everything rather than enlarging one thing |
-| `⋯` | **New canvas**, **Tidy panels** (only with panels), **Rename**, **Delete canvas**, **Background**, **Close tab** — last in the row, because a menu is a toolbar's overflow and not a peer of the buttons in it, and it opens `side="top" align="end"` |
+| Where | What | Why there |
+|---|---|---|
+| bottom-left (`.cv-camera`) | a column: **+**, **−**, **Fit** | React Flow's own Controls stand here, and a camera is not a canvas action |
+| centre (`.cv-toolbar`) | the switcher, **Add panel**, `⋯` | what the canvas *is* and what you do to it, where the eye lands |
+| bottom-right (`<MiniMap>`, `Plane.jsx`) | the map of the plane | the corner the dock leaves free |
 
-**Both ends of the bottom edge can collide.** The dock is centred and the
-minimap is pinned right (202 + 12), so they meet at about 830 px of stage. A
-named container query on `.cv-stage` drops the **minimap** below 860 px: at
-that width the plane is small enough to see whole, while the dock is the only
-way to reach the canvas's own actions. Named, so it cannot be captured by
-`.cv-panel`'s own inline-size container.
+**There is no zoom readout.** It was a segment of the dock until the camera
+moved out (2026-09-12) and the owner dropped it with the move. What went with
+it is the only thing on screen that named the zoom — and 100 % is the one
+zoom whose pointer lands on the cell it points at (§4.3). The recovery is
+unchanged and still reachable: clicking any inert or still panel body snaps
+the plane back to 1 (`.cv-snap`), and so does the keyboard. What a reader no
+longer gets is the *warning* — nothing says "you are at 83 %, a click will
+miss". If that bites, the readout belongs on the camera column, not back in
+the dock.
 
-**Tab order leads with the dock**, which now sits visually last. The chrome
-is still first in the DOM, so a Tab from the tab strip reaches the switcher,
-**Add panel** and the camera before the roving panel — controls, then
-content.
+**One switch hides all three** (`canvasChrome.js`, per viewer, like the
+background pattern). The chrome is the way *around* a canvas, not the canvas,
+so when the plane itself is the thing being read — a wall of live terminals,
+a demo, a capture — the three boxes are in the way. The switch is the first
+row of the plane's context menu, and **the menu is never hidden**: a
+right-click on the plane works with the chrome gone, which is the only reason
+hiding everything is safe to offer. A stored value other than the literal
+`hidden` shows the controls, so a stale or foreign key can never leave a
+reader with no way back.
 
-**The zoom readout does not re-render the surface.** The plane pushes a
-percentage on every viewport change — a wheel gesture is dozens — through
-`onZoom`, and the surface holds it in a ref with a set of listeners.
-`ZoomReadout` is the only subscriber, so the number changing re-renders one
-`<span>`. Holding it as surface state would have re-rendered the plane on
-every notch of the wheel; leaving it in the plane, which is where it used to
-live, is what made a single dock impossible.
+### The plane's context menu (2026-09-12)
 
-`.cv-cluster` is the **button group** primitive: joined segments at
-`--ctl-h`, hairline seams, `--bg-elevated` with a `--border-strong` edge and
-the minimap's shadow — shadcn's `ButtonGroup` in our tokens, down to a
-non-interactive `ButtonGroupText` (`.cv-tb-pct`) sitting in the row as a
-segment rather than beside it. The switcher is a segment that *contains* a
-control: the icon and a bare `<select>` with no ground, border or height of
-its own, so the seams and the focus ring stay the group's
-(`:focus-within` on the segment, `outline: none` on the select).
+A right-click on the plane opens the same menu the `⋯` button does, with
+**Show controls** on top. The body is written once and takes the Radix
+namespace as its argument (`canvasMenu(M)`), because
+`@radix-ui/react-context-menu` and `@radix-ui/react-dropdown-menu` are the
+same primitive under two names — so the two menus cannot drift, which matters
+most for the row that brings the `⋯` button back.
 
-The switcher is 104 px at its floor and 240 px at its ceiling, and in between
-a native `<select>` sizes to its **longest option**, not its selected one —
-measured: one canvas named `aaa` is 104 px, and adding a second with a long
-name takes the same box to 240. So the dock does re-centre when the canvas
-*list* changes. That is a deliberate act — creating, renaming or deleting a
-canvas — and never happens between two clicks on the same button, which is
-the invariant a centred dock actually needs.
+Two things it has to get out of the way of:
+
+- **Right-drag pans the plane** (`panOnDrag={[1, 2]}`), and a pan ends in a
+  `contextmenu` event too, so every pan would finish by opening a menu. The
+  press is remembered on `pointerdown` and a menu whose pointer travelled
+  more than `PAN_SLOP` (4 px) is dropped. A click opens it; a drag does not.
+- **A right-click inside a panel is that panel's business** — a terminal has
+  its own menu. The event is stopped in the capture phase before Radix's
+  trigger, which wraps the whole plane, ever sees it.
+
+**Tab order leads with the dock**, which sits visually last. The chrome is
+still first in the DOM, so a Tab from the tab strip reaches the switcher,
+**Add panel** and the menu before the roving panel — controls, then content.
+
+`.cv-cluster` is the **button group** primitive both the dock and the camera
+column use: joined segments at `--ctl-h`, hairline seams, `--bg-elevated`
+with a `--border-strong` edge and the minimap's shadow — shadcn's
+`ButtonGroup` in our tokens. `.cv-camera` is the same box turned, so the seam
+moves from each child's left edge to its top.
+
+**The switcher is a Radix menu, not a `<select>`** (owner, 2026-09-12). The
+native control's popup belongs to the operating system: it ignores every
+token in `canvas.css`, draws its chevron where the platform likes, and on
+this plane it arrived as a blue OS list over the canvas. As a
+`DropdownMenu.RadioGroup` it is the same vocabulary the Background submenu
+beside it already uses, and the trigger is an ordinary segment wearing the
+group's seams and focus ring. It also fixed a width problem by construction:
+a `<select>` sizes to its **longest option**, so a second canvas with a long
+name used to widen the box from 104 px to 240 and re-centre the whole dock. A
+trigger sizes to the name it shows.
 
 **What moved, and what it cost.** The icon, the `<h2>` title and **Close**
 left: the first two are the tab's, and the third is the tab's ×. **New

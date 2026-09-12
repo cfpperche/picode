@@ -1,5 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import * as ContextMenu from "@radix-ui/react-context-menu";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { applyTui, touches } from "@picode/shared/domain/feedReducers.js";
 import { displayAgentName, locate } from "@picode/shared/domain/tree.js";
@@ -11,8 +12,9 @@ import { basename } from "@picode/shared/domain/diff.js";
 import { shortPath } from "@picode/shared/domain/repoLine.js";
 import { paneLeaveKey } from "@picode/shared/domain/termKeys.js";
 import { CANVAS_PATTERN_EVENT, persistCanvasPattern, readCanvasPattern } from "@picode/shared/domain/canvasPattern.js";
+import { CANVAS_CHROME_EVENT, persistCanvasChrome, readCanvasChrome } from "@picode/shared/domain/canvasChrome.js";
 import AppIcon from "../AppIcon.jsx";
-import { IconCanvas, IconCheck, IconChevronRight, IconEllipsis, IconFit, IconGrid, IconImage, IconPencil, IconPlus, IconTrash, IconX } from "../Icons.jsx";
+import { IconCanvas, IconCheck, IconChevronDown, IconChevronRight, IconEllipsis, IconFit, IconGrid, IconImage, IconPencil, IconPlus, IconTrash, IconX } from "../Icons.jsx";
 import { go, isFileTab, parseFileTab, pinHash } from "../../lib/routes.js";
 import { notify, toast, toastError } from "../../lib/toast.js";
 import { askConfirm } from "../../lib/confirm.js";
@@ -82,6 +84,8 @@ const SAVE_DEBOUNCE_MS = 500;
 const EMPTY = { list: [], byId: {} };
 const EMPTY_FLEET = { workspaces: [], freeAgents: [], terminals: [] };
 const NO_PANELS = [];
+// How far a right-press may travel and still count as a click, not a pan.
+const PAN_SLOP = 4;
 const enc = encodeURIComponent;
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 const msgOf = (e) => (e && e.message ? e.message : String(e));
@@ -242,27 +246,6 @@ function buildModel(panel, fleet, workingIds, openTabs, dirtyIds, prev) {
   return sameModel(prev, next) ? prev : next;
 }
 
-// ZoomReadout — the one thing in the toolbar that changes while the camera
-// moves, and the only component a zoom re-renders. It subscribes to the
-// surface's zoom listeners rather than taking the percentage as a prop, so a
-// wheel gesture never reaches the plane's own render. Clicking it is the way
-// back to 100 %, which is the only zoom whose pointer lands on the cell it
-// points at (ADR-0113 §4.3) — nothing else on screen would say so.
-function ZoomReadout({ subscribe, onSnap }) {
-  const [pct, setPct] = useState(100);
-  useEffect(() => subscribe(setPct), [subscribe]);
-  return (
-    <button
-      type="button"
-      className="cv-tb-pct"
-      title="Back to 100 % — the only zoom where a click lands on the cell it points at"
-      onClick={onSnap}
-    >
-      {pct}%
-    </button>
-  );
-}
-
 export default function CanvasSurface({ manifest, hidden, onClose, host, initialPath, onPathChange }) {
   const title = (manifest && manifest.name) || "Canvas";
   const fleet = (host && host.fleet) || EMPTY_FLEET;
@@ -306,6 +289,9 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
   // what the planes already do — anything that writes the key is agreed
   // with without a reload.
   const [background, setBackground] = useState(readCanvasPattern);
+  // Whether this plane shows its own controls (canvasChrome.js). Read once,
+  // then kept in step with every other open plane through the event.
+  const [chromeShown, setChromeShown] = useState(readCanvasChrome);
   const [nameDialog, setNameDialog] = useState(""); // "" | "new" | "rename"
   const [workingIds, setWorkingIds] = useState([]);
   // The file panels whose editor holds unsaved text. It is chip state and
@@ -355,29 +341,16 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
   // surface only remembers the element here.
   const setBody = useCallback((el) => { bodyRef.current = el; }, []);
   const onCanvasReady = useCallback((handle) => { canvasRef.current = handle; }, []);
-  // The zoom readout, without the zoom re-rendering the surface. The plane
-  // pushes a percentage on every viewport change — a wheel gesture is dozens
-  // of them — and the only thing on screen that cares is one <span> in the
-  // toolbar. So the surface keeps the last value and a set of listeners, and
-  // `ZoomReadout` is the single component that subscribes: the percentage
-  // changing re-renders it and nothing else. Lifting it into surface state
-  // would have re-rendered the whole plane on every notch of the wheel.
-  const zoomPctRef = useRef(100);
-  const zoomSubs = useRef(new Set());
-  const onZoom = useCallback((pct) => {
-    if (zoomPctRef.current === pct) return;
-    zoomPctRef.current = pct;
-    for (const fn of zoomSubs.current) fn(pct);
-  }, []);
-  const subscribeZoom = useCallback((fn) => {
-    zoomSubs.current.add(fn);
-    return () => { zoomSubs.current.delete(fn); };
-  }, []);
   useEffect(() => { loader.setHidden(!!hidden); }, [hidden, loader]);
   useEffect(() => {
     function onPattern() { setBackground(readCanvasPattern()); }
     window.addEventListener(CANVAS_PATTERN_EVENT, onPattern);
     return () => window.removeEventListener(CANVAS_PATTERN_EVENT, onPattern);
+  }, []);
+  useEffect(() => {
+    function onChrome() { setChromeShown(readCanvasChrome()); }
+    window.addEventListener(CANVAS_CHROME_EVENT, onChrome);
+    return () => window.removeEventListener(CANVAS_CHROME_EVENT, onChrome);
   }, []);
   useEffect(() => {
     if (!focusedId) return undefined;
@@ -1204,50 +1177,158 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
   // tab strip already names the app and its × already closes the tab, so the
   // header's icon, title and Close were chrome repeating chrome.
   //
-  // The switcher is always the `<select>` (owner, 2026-09-12), including on a
-  // single canvas. It was a plain label there between 2026-09-11 and today,
-  // on the reading that a menu with one option already chosen promises a
-  // choice it does not have. What that reading missed is that the menu is
-  // how you *learn* there could be more: on a toolbar of otherwise identical
-  // segments, a label is indistinguishable from a disabled control, and the
-  // one-canvas case is exactly the reader who has not discovered canvases
-  // yet. One shape, always, is also one less thing that changes shape under
-  // the pointer in a centred dock — though the box still sizes to the
-  // longest name in the list, so the dock re-centres when a canvas is added
-  // or renamed (canvas.css, "The switcher"); never mid-gesture.
+  // Right-click on the plane opens the canvas menu; right-*drag* pans it
+  // (`panOnDrag={[1, 2]}`, Plane.jsx). Both end in a `contextmenu` event, so
+  // the two would fight: every pan would finish by opening a menu over the
+  // place it landed. The pointer's travel is what separates them — a menu is
+  // a click, a pan is a drag — so the press is remembered and a menu that
+  // moved more than a few pixels is dropped.
   //
-  // The app's own icon leads it, so the segment says *which canvas* and
-  // *what kind of thing* at once — the identity the surface lost when the
-  // header went (2026-09-11). The icon is decoration: the `<select>` keeps
-  // the accessible name, and a reader who cannot see the glyph loses
-  // nothing.
-  const chrome = store.list.length ? (
+  // The second job here is the panels: a right-click inside one is that
+  // panel's business (a terminal has its own menu), so the event is stopped
+  // before Radix's trigger, which sits on the whole plane, ever sees it.
+  const pressRef = useRef(null);
+  const onPlanePointerDown = useCallback((e) => {
+    pressRef.current = e.button === 2 ? { x: e.clientX, y: e.clientY } : null;
+  }, []);
+  const onPlaneContextMenu = useCallback((e) => {
+    if (e.target instanceof Element && e.target.closest(".cv-panel")) {
+      e.stopPropagation();
+      return;
+    }
+    const from = pressRef.current;
+    pressRef.current = null;
+    if (from && Math.hypot(e.clientX - from.x, e.clientY - from.y) > PAN_SLOP) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, []);
+
+  // One menu body, two menus. Radix's ContextMenu and DropdownMenu are the
+  // same primitive with different names, so the items are written once and
+  // the namespace is the argument: `M.Item`, `M.Sub`, `M.RadioGroup`. The
+  // `⋯` button and a right-click on the plane therefore cannot drift apart,
+  // which matters most for the first row — with the chrome hidden the `⋯` is
+  // gone, and the context menu is the only way to bring it back.
+  const canvasMenu = useCallback((M) => (
+    <>
+      <M.CheckboxItem
+        className="ws-row-menu-item"
+        checked={chromeShown}
+        onCheckedChange={(v) => setChromeShown(persistCanvasChrome(v))}
+      >
+        {/* A fixed slot, empty when off: without it the label sits where the
+            other rows draw their *icons* and the menu reads as two columns. */}
+        <span className="cv-menu-tick"><M.ItemIndicator><IconCheck size={13} /></M.ItemIndicator></span>
+        <span className="cv-menu-label">Show controls</span>
+      </M.CheckboxItem>
+      <M.Separator className="ws-row-menu-sep" />
+      <M.Item className="ws-row-menu-item" onSelect={() => setNameDialog("new")}><IconPlus size={13} /> New canvas</M.Item>
+      {current && panels.length ? (
+        <M.Item className="ws-row-menu-item" onSelect={() => { tidy(); }}><IconGrid size={13} /> Tidy panels</M.Item>
+      ) : null}
+      {current ? (
+        <M.Item className="ws-row-menu-item" onSelect={() => setNameDialog("rename")}><IconPencil size={13} /> Rename</M.Item>
+      ) : null}
+      {current ? (
+        <M.Item className="ws-row-menu-item danger" onSelect={() => { deleteCanvas(); }}><IconTrash size={13} /> Delete canvas</M.Item>
+      ) : null}
+      <M.Separator className="ws-row-menu-sep" />
+      {/* The plane's ground, changed on the plane. It used to be a group in
+          Preferences → Appearance with this item only navigating there, which
+          leaked a Canvas control into PiCode's own chrome (ADR-0109,
+          amendment 2026-09-11): an app reaches the host through the doors the
+          host declares, and a settings group is not one of them. Four values
+          need a menu, not a dialog, and the rows stay open while you pick so
+          the plane behind them is the preview. */}
+      <M.Sub>
+        <M.SubTrigger className="ws-row-menu-item cv-menu-sub">
+          <IconImage size={13} /> Background
+          <IconChevronRight size={13} className="cv-menu-chev" />
+        </M.SubTrigger>
+        <M.Portal>
+          <M.SubContent className="ws-row-menu cv-bg-menu" sideOffset={4} alignOffset={-4} collisionPadding={8}>
+            <M.RadioGroup value={background} onValueChange={(v) => setBackground(persistCanvasPattern(v))}>
+              {BACKGROUNDS.map(([option, label]) => (
+                <M.RadioItem
+                  key={option}
+                  className="ws-row-menu-item cv-bg-item"
+                  value={option}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  <PatternSwatch kind={option} />
+                  <span className="cv-bg-label">{label}</span>
+                  <M.ItemIndicator className="cv-bg-check"><IconCheck size={13} /></M.ItemIndicator>
+                </M.RadioItem>
+              ))}
+            </M.RadioGroup>
+          </M.SubContent>
+        </M.Portal>
+      </M.Sub>
+      {onClose ? (
+        <>
+          <M.Separator className="ws-row-menu-sep" />
+          <M.Item className="ws-row-menu-item" onSelect={() => onClose()}><IconX size={13} /> Close tab</M.Item>
+        </>
+      ) : null}
+    </>
+  ), [chromeShown, current, panels.length, tidy, deleteCanvas, background, onClose]);
+
+  // The chrome stands in three places on the bottom edge (owner, 2026-09-12,
+  // following React Flow's own Controls): the **camera** as a column at the
+  // bottom-left, the **canvas** and its actions centred, and the minimap on
+  // the right (Plane.jsx). The zoom readout is gone with the move — see the
+  // note in canvas.css about what that costs.
+  //
+  // All three answer one switch (`chromeShown`), thrown from the plane's
+  // context menu. The menu itself is never hidden: it is the only way back.
+  const camera = chromeShown && current ? (
+    <div className="cv-cluster cv-camera" role="group" aria-label="Zoom">
+      <button type="button" className="cv-cluster-btn cv-tb-step" aria-label="Zoom in" title="Zoom in (+)" onClick={() => canvasRef.current && canvasRef.current.zoomIn()}>+</button>
+      <button type="button" className="cv-cluster-btn cv-tb-step" aria-label="Zoom out" title="Zoom out (−)" onClick={() => canvasRef.current && canvasRef.current.zoomOut()}>−</button>
+      <button type="button" className="cv-cluster-btn cv-tb-icon" aria-label="Fit every panel" title="Fit every panel (0)" onClick={() => canvasRef.current && canvasRef.current.fit()}>
+        <IconFit size={14} />
+      </button>
+    </div>
+  ) : null;
+  // The switcher is a Radix menu, not a native `<select>` (owner,
+  // 2026-09-12). The native control could not be made to match: its popup is
+  // the operating system's, so it ignores the app's tokens, its own chevron
+  // is drawn where the platform likes, and on this dark-on-light plane it
+  // arrived as a blue OS list over the canvas. A `DropdownMenu.RadioGroup` is
+  // the same shape the Background submenu beside it already uses — one menu
+  // vocabulary for the whole toolbar — and the trigger is an ordinary segment
+  // of the group, so it wears the seams and the focus ring the others do.
+  const chrome = chromeShown && store.list.length ? (
     <div className="cv-toolbar">
-      {/* One group, not two (owner, 2026-09-12). The dock held the canvas and
-          the camera as separate groups with a gap; joined, it reads as a
-          single instrument, and the order is the order of use: which canvas,
-          one more panel, how you are looking at it, and everything else last.
-          The `⋯` menu ends the row because a menu is the overflow of a
-          toolbar, not a peer of the buttons in it. */}
+      {/* One group (owner, 2026-09-12): which canvas, one more panel, and
+          everything else last, because a menu is the overflow of a toolbar
+          and not a peer of the buttons in it. */}
       <div className="cv-cluster" role="group" aria-label="Canvas controls" data-align-row>
-        <span className="cv-switch">
-          <IconCanvas size={13} className="cv-switch-icon" />
-          <select className="cv-select" aria-label="Canvas" value={currentId} onChange={(e) => select(e.target.value)}>
-            {store.list.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
-        </span>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <button type="button" className="cv-cluster-btn cv-switch" aria-label={"Canvas: " + (current ? current.name : "none")}>
+              <IconCanvas size={13} className="cv-switch-icon" />
+              <span className="cv-switch-name">{current ? current.name : "No canvas"}</span>
+              <IconChevronDown size={13} className="cv-switch-chev" />
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content className="ws-row-menu" side="top" align="start" sideOffset={6} collisionPadding={8}>
+              <DropdownMenu.RadioGroup value={currentId} onValueChange={(v) => select(v)}>
+                {store.list.map((m) => (
+                  <DropdownMenu.RadioItem key={m.id} className="ws-row-menu-item cv-switch-item" value={m.id}>
+                    <IconCanvas size={13} />
+                    <span className="cv-switch-item-name">{m.name}</span>
+                    <DropdownMenu.ItemIndicator className="cv-bg-check"><IconCheck size={13} /></DropdownMenu.ItemIndicator>
+                  </DropdownMenu.RadioItem>
+                ))}
+              </DropdownMenu.RadioGroup>
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
         {current ? (
           <button type="button" className="cv-cluster-btn" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
-        ) : null}
-        {current ? (
-          <>
-            <button type="button" className="cv-cluster-btn cv-tb-step" aria-label="Zoom out" title="Zoom out (−)" onClick={() => canvasRef.current && canvasRef.current.zoomOut()}>−</button>
-            <ZoomReadout subscribe={subscribeZoom} onSnap={() => canvasRef.current && canvasRef.current.snapToOne(focusedRef.current)} />
-            <button type="button" className="cv-cluster-btn cv-tb-step" aria-label="Zoom in" title="Zoom in (+)" onClick={() => canvasRef.current && canvasRef.current.zoomIn()}>+</button>
-            <button type="button" className="cv-cluster-btn cv-tb-icon" aria-label="Fit every panel" title="Fit every panel (0)" onClick={() => canvasRef.current && canvasRef.current.fit()}>
-              <IconFit size={14} />
-            </button>
-          </>
         ) : null}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
@@ -1259,55 +1340,7 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
                 anchored to its end. Radix flips it if a short pane leaves no
                 room above. */}
             <DropdownMenu.Content className="ws-row-menu" side="top" align="end" sideOffset={6} collisionPadding={8}>
-              <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setNameDialog("new")}><IconPlus size={13} /> New canvas</DropdownMenu.Item>
-              {current && panels.length ? (
-                <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => { tidy(); }}><IconGrid size={13} /> Tidy panels</DropdownMenu.Item>
-              ) : null}
-              {current ? (
-                <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setNameDialog("rename")}><IconPencil size={13} /> Rename</DropdownMenu.Item>
-              ) : null}
-              {current ? (
-                <DropdownMenu.Item className="ws-row-menu-item danger" onSelect={() => { deleteCanvas(); }}><IconTrash size={13} /> Delete canvas</DropdownMenu.Item>
-              ) : null}
-              <DropdownMenu.Separator className="ws-row-menu-sep" />
-              {/* The plane's ground, changed on the plane. It used to be a
-                  group in Preferences → Appearance with this item only
-                  navigating there, which leaked a Canvas control into
-                  PiCode's own chrome (ADR-0109, amendment 2026-09-11): an
-                  app reaches the host through the doors the host declares,
-                  and a settings group is not one of them. Four values need a
-                  menu, not a dialog, and the rows stay open while you pick so
-                  the plane behind them is the preview. */}
-              <DropdownMenu.Sub>
-                <DropdownMenu.SubTrigger className="ws-row-menu-item cv-menu-sub">
-                  <IconImage size={13} /> Background
-                  <IconChevronRight size={13} className="cv-menu-chev" />
-                </DropdownMenu.SubTrigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.SubContent className="ws-row-menu cv-bg-menu" sideOffset={4} alignOffset={-4} collisionPadding={8}>
-                    <DropdownMenu.RadioGroup value={background} onValueChange={(v) => setBackground(persistCanvasPattern(v))}>
-                      {BACKGROUNDS.map(([option, label]) => (
-                        <DropdownMenu.RadioItem
-                          key={option}
-                          className="ws-row-menu-item cv-bg-item"
-                          value={option}
-                          onSelect={(e) => e.preventDefault()}
-                        >
-                          <PatternSwatch kind={option} />
-                          <span className="cv-bg-label">{label}</span>
-                          <DropdownMenu.ItemIndicator className="cv-bg-check"><IconCheck size={13} /></DropdownMenu.ItemIndicator>
-                        </DropdownMenu.RadioItem>
-                      ))}
-                    </DropdownMenu.RadioGroup>
-                  </DropdownMenu.SubContent>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Sub>
-              {onClose ? (
-                <>
-                  <DropdownMenu.Separator className="ws-row-menu-sep" />
-                  <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => onClose()}><IconX size={13} /> Close tab</DropdownMenu.Item>
-                </>
-              ) : null}
+              {canvasMenu(DropdownMenu)}
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
@@ -1349,7 +1382,15 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
     body = <div className="cv-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>;
   } else {
     body = (
-      <div className="cv-body is-canvas" ref={setBody} inert={!!maximizedId}>
+      <ContextMenu.Root>
+        <ContextMenu.Trigger asChild>
+      <div
+        className="cv-body is-canvas"
+        ref={setBody}
+        inert={!!maximizedId}
+        onPointerDownCapture={onPlanePointerDown}
+        onContextMenuCapture={onPlaneContextMenu}
+      >
           <Suspense fallback={<div className="cv-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>}>
               <Plane
                 key={currentId}
@@ -1372,7 +1413,7 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
                 onGestureStart={onGestureStart}
                 onGestureStop={onGestureStop}
                 onReady={onCanvasReady}
-                onZoom={onZoom}
+                showMinimap={chromeShown}
               />
           </Suspense>
           {panels.length ? null : (
@@ -1396,6 +1437,13 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
             </div>
           )}
       </div>
+        </ContextMenu.Trigger>
+        <ContextMenu.Portal>
+          <ContextMenu.Content className="ws-row-menu" collisionPadding={8}>
+            {canvasMenu(ContextMenu)}
+          </ContextMenu.Content>
+        </ContextMenu.Portal>
+      </ContextMenu.Root>
     );
   }
   return (
@@ -1405,6 +1453,7 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
             Tab from the tab strip reaches the switcher, Add panel and the
             menu before it reaches the roving panel. */}
         {chrome}
+        {camera}
         {body}
         {maxModel ? (
           // The maximized panel's body, in a layer over the plane: the same
