@@ -8,7 +8,7 @@ Merge: fast-forward ready.
 
 ## Next up
 
-- Run the owner acceptance matrix for `teste-1` through `teste-6`.
+- Run the owner acceptance matrix against the currently available test terminals.
 
 ## Debts
 

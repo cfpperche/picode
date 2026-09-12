@@ -2,7 +2,7 @@
 
 ## Next
 
-- Run explicit activation acceptance on `teste-1`–`teste-6`, recording provider/model behavior and one-turn cost.
+- Run explicit activation acceptance on the currently available test terminals, recording provider/model behavior and one-turn cost.
 - Remote-mode (a PiCode server off the host) is the owner's infrastructure — decide whether it is in scope at all.
 
 ## Debts
