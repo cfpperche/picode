@@ -140,10 +140,9 @@ state = one line + one action; statusbar = live state, not hints).
 - Hiding the terminal to "protect" users (see philosophy: door, not cage).
 - Modals for flows longer than 2 fields — wizards use full pages.
 
-### Desktop frame mode (ADR-0121)
+### Desktop app bar (ADR-0122)
 
-In the desktop shell the UI draws its own window controls in a reserved
-top-right slot (`data-picode-frame` on the root element). Any view whose
-bar touches the window's top edge must pad itself clear of the slot —
-see `.main-tabs` / `.dash-head` under `:root[data-picode-frame]` in
-`web/desktop/src/styles/app.css`. A browser never sets the flag.
+The shell's windows carry a shell-owned 40px app bar (brand, drag region,
+Windows caption buttons) above their content webview. Views never draw
+window controls and never need to reserve space for them — the bar is the
+shell's, and a browser sees none of it. In-page headers stay app chrome.

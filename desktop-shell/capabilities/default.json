@@ -22,5 +22,11 @@
       "https://localhost:8445",
       "https://127.0.0.1:8445"
     ]
-  }
+  },
+  "webviews": [
+    "main-titlebar",
+    "main-content",
+    "management-titlebar",
+    "management-content"
+  ]
 }

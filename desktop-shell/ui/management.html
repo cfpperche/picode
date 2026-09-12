@@ -35,13 +35,7 @@
         background: var(--bg-base); color: var(--text-primary);
         font-size: 14px;
       }
-      header {
-        display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem;
-        /* Undecorated window: this header is also the title bar. */
-        margin: -1.25rem -1.25rem 1rem; padding: .5rem 1.25rem .5rem 1.25rem;
-        border-bottom: 1px solid var(--border); background: var(--bg-panel);
-        user-select: none;
-      }
+      header { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; }
       h1 { font-size: 1rem; font-weight: 600; margin: 0; flex: 1; }
       button {
         font: inherit; height: var(--ctl-h); padding: 0 .9rem; border-radius: var(--radius-ctl);
@@ -49,14 +43,6 @@
       }
       button:hover:not(:disabled) { background: var(--bg-hover); }
       button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-      .shell-controls { display: flex; margin-left: auto; }
-      .shell-btn {
-        width: 40px; height: 28px; display: grid; place-items: center;
-        border: 0; border-radius: var(--radius-ctl); background: none;
-        color: var(--text-secondary); cursor: pointer; padding: 0;
-      }
-      .shell-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
-      .shell-btn-close:hover { color: #fff; background: var(--danger); }
       button.danger { background: var(--bg-elevated); border-color: var(--danger); color: var(--danger); }
       button.danger:hover:not(:disabled) { background: var(--danger); color: #fff; }
       button:disabled { opacity: .45; cursor: default; }
@@ -115,21 +101,10 @@
     </style>
   </head>
   <body>
-    <header data-tauri-drag-region>
+    <header>
       <h1>Management</h1>
       <button id="refresh">Refresh</button>
       <button id="giveback" class="danger" disabled>Give back held space…</button>
-      <div class="shell-controls">
-        <button type="button" class="shell-btn" id="win-min" title="Minimize" aria-label="Minimize">
-          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6h8" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
-        </button>
-        <button type="button" class="shell-btn" id="win-max" title="Maximize" aria-label="Maximize">
-          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
-        </button>
-        <button type="button" class="shell-btn shell-btn-close" id="win-close" title="Close" aria-label="Close">
-          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 2.5l7 7m0-7l-7 7" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
-        </button>
-      </div>
     </header>
 
     <nav>

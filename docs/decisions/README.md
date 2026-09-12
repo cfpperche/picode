@@ -125,7 +125,8 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0118](0118-canvas-replaces-matrix.md) | Canvas replaces Matrix — grid mode and react-grid-layout removed, coordinates converted once, and the rename carried into tables, routes, events, the app id and the hash | accepted, supersedes 0113, renames 0108/0116 |
 | [0119](0119-package-config-descriptors.md) | package-config-descriptors | accepted |
 | [0120](0120-tauri-desktop-shell.md) | Desktop v2 shell — Tauri 2 + WebView2 | proposed |
-| [0121](0121-window-frame-contract.md) | window-frame-contract | proposed |
+| [0121](0121-window-frame-contract.md) | window-frame-contract | superseded by 0122 |
+| [0122](0122-shell-app-bar.md) | shell-app-bar | accepted |
 | [0123](0123-derived-handoff-board.md) | The handoff board is derived, not written — in flight from git, next up and debts from `docs/handoff/open/<topic>.md` and the session notes, generated and git-ignored | accepted, supersedes the board clauses of 0086/0105 |
 | [0124](0124-close-gate-cache.md) | `make close` reuses a green run when the merge could not have changed what it covered (per-path blob hashes, not names) | accepted, amends 0105 |
 | [0125](0125-llms-generated.md) | llms.txt is generated where it is served (make docs, make deploy) and no longer committed; openapi.json stays versioned because the site renders it | accepted |

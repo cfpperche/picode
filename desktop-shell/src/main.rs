@@ -17,97 +17,12 @@ mod wslconfig;
 // depend on which UI build the daemon happens to serve. Local pages
 // (tauri.localhost) own their chrome and are skipped. Kept as one plain
 // script: no build step lives between the shell and its window frame.
-const SHELL_FRAME_SCRIPT: &str = r#"
-(() => {
-  // Frame mode flag: the served UI draws its own window controls when this
-  // is set, and claims the frame via data-picode-frame on the root element.
-  window.__PICODE_SHELL__ = true;
-  if (window.__PICODE_SHELL_FRAME__) return;
-  window.__PICODE_SHELL_FRAME__ = true;
-  const local = location.protocol === 'tauri:' || location.hostname === 'tauri.localhost';
-  if (local) return; // local pages own their chrome
-  const claimed = () => document.documentElement && document.documentElement.dataset
-    && document.documentElement.dataset.picodeFrame === '1';
-  const win = () => {
-    try { return window.__TAURI__.window.getCurrentWindow(); } catch { return null; }
-  };
-  const interactive = (t) => t.closest && t.closest('button, a, input, select, textarea, [role="tab"], [role="menu"], [data-no-drag]');
-  const injectCluster = (w) => {
-    if (document.getElementById('picode-shell-controls')) return;
-    const css = document.createElement('style');
-    css.textContent = [
-      '#picode-shell-controls { position: fixed; top: 4px; right: 6px; z-index: 9999; display: flex; height: 28px; padding: 0 2px; border-radius: 8px; background: rgba(251,252,254,.92); box-shadow: 0 1px 4px rgba(22,24,29,.18); }',
-      '#picode-shell-controls button { width: 40px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: #5b6472; cursor: pointer; padding: 0; }',
-      '#picode-shell-controls button:hover { color: #16181d; background: rgba(0,0,0,.07); }',
-      '#picode-shell-controls button.psc-close:hover { color: #fff; background: #cf3b54; }',
-      '@media (prefers-color-scheme: dark) { #picode-shell-controls { background: rgba(22,22,28,.92); box-shadow: 0 1px 4px rgba(0,0,0,.4); } #picode-shell-controls button { color: #9b9ba7; } #picode-shell-controls button:hover { color: #ececf1; background: rgba(255,255,255,.09); } }'
-    ].join('');
-    document.head.appendChild(css);
-    const bar = document.createElement('div');
-    bar.id = 'picode-shell-controls';
-    const mk = (cls, label, path) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = cls;
-      b.title = label;
-      b.setAttribute('aria-label', label);
-      b.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">' + path + '</svg>';
-      return b;
-    };
-    const min = mk('', 'Minimize', '<path d="M2 6h8" stroke="currentColor" stroke-width="1.2" fill="none"/>');
-    const max = mk('', 'Maximize', '<rect x="2" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.2" fill="none"/>');
-    const close = mk('psc-close', 'Close', '<path d="M2.5 2.5l7 7m0-7l-7 7" stroke="currentColor" stroke-width="1.2" fill="none"/>');
-    const act = (b, fn) => b.addEventListener('click', async () => {
-      try { await fn(); } catch (e) {
-        console.error('picode shell frame:', e);
-        b.title = 'Failed: ' + e;
-      }
-    });
-    act(min, () => w.minimize());
-    act(max, () => w.toggleMaximize());
-    act(close, () => w.close());
-    bar.append(min, max, close);
-    document.body.appendChild(bar);
-  };
-  const boot = () => {
-    const w = win();
-    if (!w || !document.body) return;
-    const wire = () => {
-      for (const h of document.querySelectorAll('#sidebar header.brand, header.brand, .desktop-compact-bar')) {
-        if (h.__picodeDrag) continue;
-        h.__picodeDrag = true;
-        h.addEventListener('mousedown', (e) => {
-          if (e.button !== 0 || interactive(e.target)) return;
-          w.startDragging();
-        });
-        h.addEventListener('dblclick', (e) => {
-          if (interactive(e.target)) return;
-          w.toggleMaximize();
-        });
-      }
-      // Handshake (ADR-0123): once the served UI claims the frame it draws
-      // the controls; the injected fallback retires and stays retired.
-      const bar = document.getElementById('picode-shell-controls');
-      if (claimed()) {
-        if (bar) bar.remove();
-      } else {
-        injectCluster(w);
-      }
-    };
-    wire();
-    if (window.__picodeFrameObserver) window.__picodeFrameObserver.disconnect();
-    window.__picodeFrameObserver = new MutationObserver(wire);
-    window.__picodeFrameObserver.observe(document.body, { childList: true, subtree: true });
-  };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-  else boot();
-})();
-"#;
 use std::process::Command;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, WebviewUrl, WebviewWindowBuilder,
+    window::WindowBuilder,
+    LogicalPosition, LogicalSize, Manager, WebviewUrl, WindowEvent,
 };
 use tauri_plugin_notification::NotificationExt;
 
@@ -128,7 +43,7 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // A second launch means someone wanted PiCode on screen: focus the
             // window the first instance already owns instead of starting over.
-            if let Some(win) = app.get_webview_window("main") {
+            if let Some(win) = app.get_window("main") {
                 show(&win);
             }
         }))
@@ -138,16 +53,12 @@ fn main() {
                 None => WebviewUrl::App("offline.html".into()),
             };
 
-            // Undecorated: the web UI's own chrome is the title bar — the
-            // native one read as a second, empty bar above it. The
-            // initialization script flags shell mode so the UI renders its
-            // window controls and drag regions; a browser never sets it.
-            WebviewWindowBuilder::new(app, "main", target)
-                .title("PiCode")
-                .inner_size(1360.0, 880.0)
-                .decorations(false)
-                .initialization_script(SHELL_FRAME_SCRIPT)
-                .build()?;
+            // Undecorated, with our own app bar (ADR-0122): a 40px local
+            // webview spans the window's top edge — brand, drag, caption
+            // buttons, all local so the ACL trusts them and no served
+            // bundle is ever a dependency. The daemon's UI loads in the
+            // webview below it and never sees a browser difference.
+            spawn_window(app.handle(), "main", "PiCode", target, 1360.0, 880.0)?;
 
             let open = MenuItem::with_id(app, "open", "Open PiCode", true, None::<&str>)?;
             let management =
@@ -215,34 +126,108 @@ fn main() {
 // window of the shell: the WSL disk view, the cache prunes and the
 // .wslconfig form, local pages, Rust commands behind them.
 fn open_management_window(app: &tauri::AppHandle) {
-    if let Some(win) = app.get_webview_window("management") {
+    if let Some(win) = app.get_window("management") {
         show(&win);
         return;
     }
-    let _ = tauri::WebviewWindowBuilder::new(
+    let _ = spawn_window(
         app,
         "management",
+        "PiCode — Management",
         WebviewUrl::App("management.html".into()),
-    )
-    .title("PiCode — Management")
-    .inner_size(980.0, 820.0)
-    .decorations(false)
-    .initialization_script(SHELL_FRAME_SCRIPT)
-    .build();
+        980.0,
+        860.0,
+    );
 }
 
 // show_main brings the window to the front from the tray — the tap and the
 // Open item are the same gesture.
 fn show_main(app: &tauri::AppHandle) {
-    if let Some(win) = app.get_webview_window("main") {
+    if let Some(win) = app.get_window("main") {
         show(&win);
     }
 }
 
-fn show(win: &tauri::WebviewWindow) {
+fn show(win: &tauri::window::Window) {
     let _ = win.unminimize();
     let _ = win.show();
     let _ = win.set_focus();
+}
+
+/// The app bar's height, in logical pixels — the strip every window carries
+/// above its content webview.
+const BAR_H: f64 = 40.0;
+
+// spawn_window builds an undecorated window with two webviews: our local
+// app bar on top and the page itself below it, then keeps both webviews
+// stretched to the window as it resizes. The bar is local on purpose —
+// the ACL trusts local pages by default, so the frame can never go dead
+// because of what the daemon serves.
+fn spawn_window(
+    app: &tauri::AppHandle,
+    label: &str,
+    title: &str,
+    content: WebviewUrl,
+    w: f64,
+    h: f64,
+) -> tauri::Result<tauri::window::Window> {
+    let win = WindowBuilder::new(app, label)
+        .title(title)
+        .inner_size(w, h)
+        .min_inner_size(720.0, 480.0)
+        .decorations(false)
+        .build()?;
+    let bar = tauri::webview::WebviewBuilder::new(
+        format!("{label}-titlebar"),
+        WebviewUrl::App("titlebar.html".into()),
+    );
+    let page = tauri::webview::WebviewBuilder::new(format!("{label}-content"), content);
+    relayout(&win)?;
+    win.add_child(
+        bar,
+        LogicalPosition::new(0.0, 0.0),
+        LogicalSize::new(0.0, BAR_H),
+    )?;
+    win.add_child(
+        page,
+        LogicalPosition::new(0.0, BAR_H),
+        LogicalSize::new(0.0, 0.0),
+    )?;
+    relayout(&win)?;
+
+    let handle = app.clone();
+    let label = label.to_string();
+    win.on_window_event(move |e| {
+        if matches!(e, WindowEvent::Resized(_)) {
+            if let Some(w) = handle.get_window(&label) {
+                let _ = relayout(&w);
+            }
+        }
+    });
+    Ok(win)
+}
+
+// relayout stretches the bar across the top and the page under it, in
+// logical pixels — tao hands us the window size in physical ones.
+fn relayout(win: &tauri::window::Window) -> tauri::Result<()> {
+    let label = win.label();
+    let scale = win.scale_factor()?;
+    let size = win.inner_size()?;
+    let w = size.width as f64 / scale;
+    let h = size.height as f64 / scale;
+    if let Some(b) = win.get_webview(&format!("{label}-titlebar")) {
+        b.set_bounds(tauri::Rect {
+            position: LogicalPosition::new(0.0, 0.0).into(),
+            size: LogicalSize::new(w, BAR_H).into(),
+        })?;
+    }
+    if let Some(c) = win.get_webview(&format!("{label}-content")) {
+        c.set_bounds(tauri::Rect {
+            position: LogicalPosition::new(0.0, BAR_H).into(),
+            size: LogicalSize::new(w, h - BAR_H).into(),
+        })?;
+    }
+    Ok(())
 }
 
 // discover_server_url finds the daemon the same way the Go tray does: the
