@@ -139,3 +139,11 @@ state = one line + one action; statusbar = live state, not hints).
   for depth, spinner-only loading states, **blank wells while fetching**.
 - Hiding the terminal to "protect" users (see philosophy: door, not cage).
 - Modals for flows longer than 2 fields — wizards use full pages.
+
+### Desktop frame mode (ADR-0121)
+
+In the desktop shell the UI draws its own window controls in a reserved
+top-right slot (`data-picode-frame` on the root element). Any view whose
+bar touches the window's top edge must pad itself clear of the slot —
+see `.main-tabs` / `.dash-head` under `:root[data-picode-frame]` in
+`web/desktop/src/styles/app.css`. A browser never sets the flag.

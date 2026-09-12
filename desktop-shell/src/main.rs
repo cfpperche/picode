@@ -19,44 +19,28 @@ mod wslconfig;
 // script: no build step lives between the shell and its window frame.
 const SHELL_FRAME_SCRIPT: &str = r#"
 (() => {
+  // Frame mode flag: the served UI draws its own window controls when this
+  // is set, and claims the frame via data-picode-frame on the root element.
+  window.__PICODE_SHELL__ = true;
   if (window.__PICODE_SHELL_FRAME__) return;
   window.__PICODE_SHELL_FRAME__ = true;
   const local = location.protocol === 'tauri:' || location.hostname === 'tauri.localhost';
-  if (local) return;
+  if (local) return; // local pages own their chrome
+  const claimed = () => document.documentElement && document.documentElement.dataset
+    && document.documentElement.dataset.picodeFrame === '1';
   const win = () => {
     try { return window.__TAURI__.window.getCurrentWindow(); } catch { return null; }
   };
   const interactive = (t) => t.closest && t.closest('button, a, input, select, textarea, [role="tab"], [role="menu"], [data-no-drag]');
-  const boot = () => {
-    const w = win();
-    if (!w || !document.body) return;
-    const wire = () => {
-      for (const h of document.querySelectorAll('#sidebar header.brand, header.brand, .desktop-compact-bar')) {
-        if (h.__picodeDrag) continue;
-        h.__picodeDrag = true;
-        h.addEventListener('mousedown', (e) => {
-          if (e.button !== 0 || interactive(e.target)) return;
-          w.startDragging();
-        });
-        h.addEventListener('dblclick', (e) => {
-          if (interactive(e.target)) return;
-          w.toggleMaximize();
-        });
-      }
-    };
-    wire();
-    if (window.__picodeFrameObserver) window.__picodeFrameObserver.disconnect();
-    window.__picodeFrameObserver = new MutationObserver(wire);
-    window.__picodeFrameObserver.observe(document.body, { childList: true, subtree: true });
+  const injectCluster = (w) => {
     if (document.getElementById('picode-shell-controls')) return;
     const css = document.createElement('style');
     css.textContent = [
       '#picode-shell-controls { position: fixed; top: 4px; right: 6px; z-index: 9999; display: flex; height: 28px; padding: 0 2px; border-radius: 8px; background: rgba(251,252,254,.92); box-shadow: 0 1px 4px rgba(22,24,29,.18); }',
-      '@media (prefers-color-scheme: dark) { #picode-shell-controls { background: rgba(22,22,28,.92); box-shadow: 0 1px 4px rgba(0,0,0,.4); } }',
       '#picode-shell-controls button { width: 40px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: #5b6472; cursor: pointer; padding: 0; }',
       '#picode-shell-controls button:hover { color: #16181d; background: rgba(0,0,0,.07); }',
       '#picode-shell-controls button.psc-close:hover { color: #fff; background: #cf3b54; }',
-      '@media (prefers-color-scheme: dark) { #picode-shell-controls button { color: #9b9ba7; } #picode-shell-controls button:hover { color: #ececf1; background: rgba(255,255,255,.09); } }'
+      '@media (prefers-color-scheme: dark) { #picode-shell-controls { background: rgba(22,22,28,.92); box-shadow: 0 1px 4px rgba(0,0,0,.4); } #picode-shell-controls button { color: #9b9ba7; } #picode-shell-controls button:hover { color: #ececf1; background: rgba(255,255,255,.09); } }'
     ].join('');
     document.head.appendChild(css);
     const bar = document.createElement('div');
@@ -73,8 +57,6 @@ const SHELL_FRAME_SCRIPT: &str = r#"
     const min = mk('', 'Minimize', '<path d="M2 6h8" stroke="currentColor" stroke-width="1.2" fill="none"/>');
     const max = mk('', 'Maximize', '<rect x="2" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.2" fill="none"/>');
     const close = mk('psc-close', 'Close', '<path d="M2.5 2.5l7 7m0-7l-7 7" stroke="currentColor" stroke-width="1.2" fill="none"/>');
-    // Errors surface on the button's tooltip and the console — a dead
-    // button that says nothing is how the first round got missed.
     const act = (b, fn) => b.addEventListener('click', async () => {
       try { await fn(); } catch (e) {
         console.error('picode shell frame:', e);
@@ -87,11 +69,40 @@ const SHELL_FRAME_SCRIPT: &str = r#"
     bar.append(min, max, close);
     document.body.appendChild(bar);
   };
+  const boot = () => {
+    const w = win();
+    if (!w || !document.body) return;
+    const wire = () => {
+      for (const h of document.querySelectorAll('#sidebar header.brand, header.brand, .desktop-compact-bar')) {
+        if (h.__picodeDrag) continue;
+        h.__picodeDrag = true;
+        h.addEventListener('mousedown', (e) => {
+          if (e.button !== 0 || interactive(e.target)) return;
+          w.startDragging();
+        });
+        h.addEventListener('dblclick', (e) => {
+          if (interactive(e.target)) return;
+          w.toggleMaximize();
+        });
+      }
+      // Handshake (ADR-0123): once the served UI claims the frame it draws
+      // the controls; the injected fallback retires and stays retired.
+      const bar = document.getElementById('picode-shell-controls');
+      if (claimed()) {
+        if (bar) bar.remove();
+      } else {
+        injectCluster(w);
+      }
+    };
+    wire();
+    if (window.__picodeFrameObserver) window.__picodeFrameObserver.disconnect();
+    window.__picodeFrameObserver = new MutationObserver(wire);
+    window.__picodeFrameObserver.observe(document.body, { childList: true, subtree: true });
+  };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
 "#;
-
 use std::process::Command;
 use tauri::{
     menu::{Menu, MenuItem},

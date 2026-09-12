@@ -84,3 +84,12 @@ toast click-through, which only changes the Phase 2 installer scope).
   (tools/mkicon.go, the shell variant of the tray generator) — the v1 tray
   ladder topped at 64 px and the taskbar upscaled it blurry.
 - Disk history/thresholds (P4 of `wsl-control`).
+
+## Frame mode (2026-09-12, ADR-0121)
+
+The windows are undecorated and the frame is claimed at runtime: the
+shell injects a fallback (drag wiring + a controls cluster) into every
+served page, and the UI — when it detects the shell — claims the frame
+(`data-picode-frame`) and draws its own controls in a reserved top-right
+slot; the fallback retires itself. Ships in two independent deploys:
+the shell first, the UI at the owner's next `make deploy`.

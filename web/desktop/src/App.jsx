@@ -16,6 +16,8 @@ import { reconcileTranscript, liveSince, startTool, transcriptGate } from "@pico
 import { eventsToItems } from "@picode/shared/domain/replay.js";
 import { readCompacting, writeCompacting } from "./lib/compact.js";
 import Sidebar from "./components/Sidebar.jsx";
+import WindowControls from "./components/WindowControls.jsx";
+import { claimFrame, releaseFrame } from "./lib/shellFrame.js";
 import AgentTabs from "./components/AgentTabs.jsx";
 import DashboardView from "./components/DashboardView.jsx";
 import SessionBar from "./components/SessionBar.jsx";
@@ -2661,8 +2663,14 @@ export default function App() {
   const hasData = (workspaces.length + freeAgents.length + terminals.length) > 0;
   const showHome = (noTabs || dashboardPinned) && hasData;
 
+  useEffect(() => {
+    claimFrame();
+    return releaseFrame;
+  }, []);
+
   return (
     <div id="app" className={[navigationOpen ? "navigation-open" : "", focus.classes].filter(Boolean).join(" ")}>
+      <WindowControls />
       <header className="desktop-compact-bar">
         <button type="button" className="btn btn-ghost" aria-expanded={navigationOpen} aria-controls="desktop-navigation" onClick={() => setNavigationOpen(open => !open)}>
           {navigationOpen ? "Close navigation" : "Navigation"}
