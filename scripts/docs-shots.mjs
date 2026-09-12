@@ -53,6 +53,10 @@ const surfaces = [
   // app-automations is off the list for now: a cold deep link to
   // #/automations mounts the workspace dashboard (app deep-link bug,
   // handoff 2026-09-03) — the surface returns once that is fixed.
+  // The canvas id is minted per run, so the hash is set from the list after
+  // the app loads — the same trick the inspector uses for its agent.
+  { name: "app-canvas", profile: DOC_SCREENSHOT_SURFACES["app-canvas"], path: "/browser/", w: 1440, h: 900, settle: 5000, waitText: "Release day",
+    hashEval: "fetch('/api/canvases').then(r => r.json()).then(j => { const c = (j.canvases || [])[0]; if (c) location.hash = '#/app/canvas/' + c.id; return c ? 'HASH_OK' : 'HASH_NO'; })" },
   { name: "app-mobile-inbox", profile: DOC_SCREENSHOT_SURFACES["app-mobile-inbox"], path: "/mobile/#/app/inbox", w: 390, h: 844, settle: 4000, waitText: "Bump the Go toolchain", scope: ".m-inbox" },
   { name: "app-mobile", profile: DOC_SCREENSHOT_SURFACES["app-mobile"], path: "/mobile/", w: 390, h: 844, settle: 4000, waitText: "Bump the Go toolchain", scope: ".m-screen" },
 ];

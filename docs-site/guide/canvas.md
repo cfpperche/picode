@@ -3,29 +3,55 @@
 A **canvas** is one plane that shows many agents and terminals side by side,
 live. Each tile is a **panel**: the real screen of that agent or terminal —
 the same one its own tab shows — not a picture of it. A panel can also hold
-a **pinned note**, a **file**, or the **changes** to a file — so the plan you
-are working from and the code you are changing sit beside the work.
+a **pinned note**, **text you write on the plane**, a **file**, or the
+**changes** to a file — so the plan you are working from and the code you
+are changing sit beside the work.
 
 Open it from the **Apps** tab → **Canvas**. Canvases are saved on the
 server, so every browser signed in to your PiCode sees the same ones.
 
+![A canvas on release day: two agent CLIs above, a shell and a note beside them, with the canvas switcher top left and the element toolbar at the bottom](../img/app-canvas.png)
+
 ## Make one
 
-1. **New canvas**, give it a name.
-2. **Add panel**, then pick from the list — it is grouped into **Agents**,
-   **Terminals**, **Pins**, **Open files** and **Changes to an open file**.
-   Anything already on this canvas is not offered again — though one file
-   can be on it twice, once as the file and once as its changes.
-3. Repeat. Panels land in the first free slot.
+1. **New canvas** in the **⋯** menu, give it a name.
+2. At the bottom of the plane there is one button per thing a canvas holds:
+   **agent**, **terminal**, **pin**, **text**. Press one.
+3. **Draw the rectangle** where you want it, at the size you want. A single
+   click puts one there at its usual size.
+4. For an agent, a terminal or a pin, pick which one from the list that
+   opens — anything already on this canvas is not offered again. A **text**
+   panel has nothing to pick: it appears where you drew it, ready to type in.
 
-Top left, the surface names the canvas you are on. With a second canvas
-that name becomes a switcher you pick from; with only one there is nothing
-to pick, so it is just the name. The **⋯** menu renames or deletes the one
-you are looking at, and is where **New canvas** lives. Deleting a canvas
-never touches the agents and terminals on it.
+<kbd>Esc</kbd>, or pressing the same button again, cancels before you draw.
 
-An empty canvas says so in the middle of the plane, with **Add panel**
-there; the line goes as soon as the first panel lands.
+You choose where every panel goes. Nothing is placed for you, which matters
+on a plane that has no edges: a panel put somewhere by the app would as
+likely land off the side of what you are looking at.
+
+Top left, the surface names the canvas you are on and opens a menu of the
+others. The **⋯** beside it renames or deletes the one you are looking at,
+and is where **New canvas** lives. Deleting a canvas never touches the
+agents and terminals on it.
+
+An empty canvas draws nothing at all — the plane and the toolbar are the
+whole page.
+
+### Text panels
+
+**Text** writes on the canvas itself: a label beside a terminal, a note to
+whoever opens it next, the sentence that says why three agents are sitting
+together. It saves as you pause and when you click away, and everyone
+looking at that canvas sees it. Two thousand characters — a **pin** is what
+holds longer writing, and a pin panel shows one with its title and tags.
+
+### The controls, and hiding them
+
+The bottom edge carries the toolbar in the middle, the zoom column on the
+left and the minimap on the right. **Right-click the plane** for the canvas
+menu; its first row, **Show controls**, takes all three away so the plane is
+only the plane. The right-click still works with them hidden — that is how
+you bring them back.
 
 ## Move around it
 
@@ -37,11 +63,11 @@ Panels sit wherever you put them, on a plane you pan and zoom.
 | To | Do |
 |---|---|
 | move around | drag with the middle or right mouse button, or hold <kbd>Space</kbd> and drag |
-| zoom | the mouse wheel, or the **−** and **+** buttons beside the minimap |
+| zoom | the mouse wheel, or the **−** and **+** buttons in the corner |
 | see everything at once | **Fit**, or press <kbd>0</kbd> |
 | move several panels together | drag a box around them, then drag any one of them |
 | find your way | the minimap in the corner shows the whole plane and where you are on it |
-| lay them out again | **Tidy panels** in the **⋯** menu |
+| lay them out again | **Tidy panels** in the **⋯** menu, or in the right-click menu |
 
 **Tidy panels** puts them back in reading order — three across, left to
 right — and keeps every panel the size you made it. Nothing on a canvas
@@ -79,7 +105,7 @@ and PiCode passes clicks through to the program running inside, so a
 mis-aimed click reaches your editor or your CLI, not just the browser.
 Nothing on screen would look wrong, so the panel simply stops taking
 clicks: clicking it takes you back to 100 % first, and the click after that
-lands where you meant. The percentage beside the minimap does the same in
+lands where you meant. The percentage under the zoom buttons does the same in
 one press.
 
 Below 75 % a panel disconnects and shows its last screen instead. That is

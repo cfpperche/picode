@@ -77,6 +77,25 @@ export const SURFACE_PROFILES = Object.freeze({
       "internal/server/slash_res.go",
     ],
   },
+  "desktop-canvas": {
+    shell: "desktop",
+    entries: [
+      "web/browser/src/components/canvas/CanvasSurface.jsx",
+      "web/browser/src/components/canvas/Plane.jsx",
+      "web/browser/src/components/canvas/Panel.jsx",
+      "web/browser/src/components/canvas/PanelBody.jsx",
+      "web/browser/src/components/canvas/PanelFace.jsx",
+      "web/browser/src/components/canvas/TextPanel.jsx",
+      "web/browser/src/components/canvas/Link.jsx",
+    ],
+    files: [
+      "internal/server/canvas.go",
+      "internal/store/canvas.go",
+      "internal/store/canvas_edges.go",
+      "web/shared/domain/canvas.js",
+      "web/browser/src/styles/canvas.css",
+    ],
+  },
   "desktop-inspector": {
     shell: "desktop",
     entries: [
@@ -154,6 +173,7 @@ export const SURFACE_PROFILES = Object.freeze({
 export const DOC_SCREENSHOT_SURFACES = Object.freeze({
   "app-fleet": "desktop-dashboard",
   "app-inspector": "desktop-inspector",
+  "app-canvas": "desktop-canvas",
   "app-mobile-inbox": "mobile-inbox",
   "app-mobile": "mobile-now",
 });

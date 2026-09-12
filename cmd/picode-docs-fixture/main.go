@@ -222,6 +222,54 @@ func seed(st *store.Store, runtimes *server.TermRuntimes) error {
 		return err
 	}
 
+	if err := seedCanvas(st, wsMain.ID, atlasID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// seedCanvas lays out one canvas the public capture photographs: two agent
+// CLIs side by side, the shell under them, and a text panel saying what the
+// three are for. The rectangles are written here rather than packed, because
+// the product no longer packs — a reader draws where a panel goes, and a
+// capture that showed a neat automatic grid would be advertising a behaviour
+// that is gone.
+func seedCanvas(st *store.Store, wsID, atlasID string) error {
+	c, err := st.CreateCanvas("Release day")
+	if err != nil {
+		return err
+	}
+	terms, err := st.ListTerminals()
+	if err != nil {
+		return err
+	}
+	byName := map[string]string{}
+	for _, t := range terms {
+		byName[t.Name] = t.ID
+	}
+	for _, p := range []struct {
+		kind, ref  string
+		x, y, w, h int
+	}{
+		{store.CanvasKindTerminal, byName["claude"], 0, 0, 56, 40},
+		{store.CanvasKindAgent, atlasID, 60, 0, 56, 40},
+		{store.CanvasKindTerminal, byName["shell"], 0, 44, 56, 32},
+		{store.CanvasKindText, "", 60, 44, 56, 32},
+	} {
+		if p.ref == "" && p.kind != store.CanvasKindText {
+			continue
+		}
+		added, err := st.AddCanvasPanel(c.ID, p.kind, p.ref, p.x, p.y, p.w, p.h)
+		if err != nil {
+			return err
+		}
+		if p.kind == store.CanvasKindText {
+			if _, err := st.SetCanvasPanelContent(c.ID, added.Panel.ID, "Release day\n\nClaude is cutting the changelog, Atlas is\nchecking the docs, and the shell below runs\nthe gates."); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
