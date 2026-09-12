@@ -9,6 +9,7 @@
 - `feat/desktop-v2-mgmt` — ADR-0120 Phase 2; plan `docs/plans/desktop-v2.md`; unmerged (3b508afd).
 - `feat/herdr-validation`, `feat/picode-video-pilot` — pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; on merge keep this shape, changelog to `docs/changelog.d/`.
 - `feat/providers-density` — Providers density polish; unmerged (d44c8d2b).
+- `feat/fix-xterm-enum` — esbuild miscompiled xterm 6's requestMode enum (terminal froze on the first DECRQM); desktop/mobile pin `@xterm/xterm` to UMD. Unmerged.
 
 
 ## Next up

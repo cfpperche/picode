@@ -45,6 +45,19 @@ export function applicationConfig(application, port) {
     base: `/${application}/`,
     publicDir: fileURLToPath(new URL("../public/", import.meta.url)),
     plugins: [react(), tailwindcss(), applicationBoundary(application), rootBrandLinks(application)],
+    // esbuild's minifier miscompiles the requestMode enum in xterm 6's ESM
+    // build: it inlines the enum variable as `void 0` but keeps the write
+    // `(n = {})` without its declaration, so the first DECRQM query a TUI
+    // sends (OpenCode boots straight into one) throws
+    // "ReferenceError: n is not defined" inside the parser and stalls xterm's
+    // write pipeline for good — the terminal freezes until a reload. The UMD
+    // build ships the same code with the enum already compiled away, so pin
+    // the exact specifier to it (`$` anchor keeps subpaths like css intact).
+    // Revisit when xterm removes the enum or esbuild stops dropping the
+    // declaration: grep the built bundle for `(void 0||(` next to requestMode.
+    resolve: {
+      alias: [{ find: /^@xterm\/xterm$/, replacement: "@xterm/xterm/lib/xterm.js" }],
+    },
     build: {
       outDir: `../../internal/web/public/${application}`,
       emptyOutDir: true,
