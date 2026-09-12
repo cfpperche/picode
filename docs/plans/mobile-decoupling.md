@@ -75,7 +75,8 @@ package suites, production build, docs parity and Vale). Embedded UI/server
 tests passed. Both scoped builds preserved every sibling output hash. Both
 Vite entries mounted through the development launcher without browser errors.
 The concurrent Rename icon and Windows task changes were incorporated from
-`main`; the final combined gates are recorded in `docs/handoff.md`.
+`main`; the final combined gates are recorded in the session note under
+`docs/handoff/`.
 
 | Initial JavaScript entry | Raw kB | gzip estimate kB |
 |---|---:|---:|

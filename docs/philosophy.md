@@ -49,7 +49,8 @@ We extend Pi's ecosystem; we never fork it.
 
 PiCode is developed **by** Pi agents as much as **for** Pi users. The repo is
 a Pi-native workspace: `AGENTS.md` is the operating contract, skills encode
-quality gates, `docs/handoff.md` carries state across sessions, and ADRs keep
+quality gates, `docs/handoff/open/` carries state across sessions (the board
+`docs/handoff.md` is a generated view of it, ADR-0123), and ADRs keep
 decisions honest. If our own agents can't thrive here, the product is a lie.
 
 ## 6. Respect the terminal-averse user

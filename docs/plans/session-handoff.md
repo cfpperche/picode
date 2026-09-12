@@ -39,7 +39,7 @@ Claude Code, Codex and pi writers with round-trip verification and the
 `tools: text` option; the installed target version comes from the setup
 check, run on demand. Smoke on real binaries: `codex resume <id>`,
 `claude --resume <uuid>`, a pi agent chat — record per-version results in
-`docs/handoff.md`.
+`docs/handoff/open/sessions.md`.
 
 ## Phase 3 — Grok native (done)
 
@@ -66,4 +66,4 @@ block. Hermes still cannot start from a prompt, so it has no brief mode.
 
 ## Next
 
-Lineage polish, and the codex scan cache item in `docs/handoff.md`.
+Lineage polish, and the codex scan cache item in `docs/handoff/open/sessions.md`.

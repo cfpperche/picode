@@ -67,7 +67,8 @@ visual-card:
 ```
 
 Any **no** on 1–3 or **yes** on 4 → `visual-review: FAIL`. Fix in-session
-or record the debt in `docs/handoff.md` and do **not** claim quality-gate PASS.
+or record the debt in `docs/handoff/open/<topic>.md` and do **not** claim
+quality-gate PASS.
 
 7. **Verdict**
 
