@@ -21,8 +21,7 @@ use std::process::Command;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    window::WindowBuilder,
-    LogicalPosition, LogicalSize, Manager, WebviewUrl, WindowEvent,
+    Manager, WebviewUrl, WebviewWindowBuilder,
 };
 use tauri_plugin_notification::NotificationExt;
 
@@ -44,12 +43,11 @@ fn main() {
             clean::clean_apply,
             wslconfig::wslconfig_read,
             wslconfig::wslconfig_write,
-            open_dashboard,
         ])
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // A second launch means someone wanted PiCode on screen: focus the
             // window the first instance already owns instead of starting over.
-            if let Some(win) = app.get_window("main") {
+            if let Some(win) = app.get_webview_window("main") {
                 show(&win);
             }
         }))
@@ -59,13 +57,16 @@ fn main() {
                 None => WebviewUrl::App("offline.html".into()),
             };
 
-            // Undecorated, with our own app bar (ADR-0122): a 40px local
-            // webview spans the window's top edge — brand, drag, caption
-            // buttons, all local so the ACL trusts them and no served
-            // bundle is ever a dependency. The daemon's UI loads in the
-            // webview below it and never sees a browser difference.
-            spawn_window(app.handle(), "main", "PiCode", target, 1360.0, 880.0)?;
-
+            // Undecorated, single webview: the /desktop/ bundle renders the
+            // merged top row itself — brand, rail tabs, agent tabs and the
+            // Windows caption buttons (ADR-0122). The shell only strips the
+            // native frame.
+            WebviewWindowBuilder::new(app, "main", target)
+                .title("PiCode")
+                .inner_size(1360.0, 880.0)
+                .min_inner_size(720.0, 480.0)
+                .decorations(false)
+                .build()?;
             let open = MenuItem::with_id(app, "open", "Open PiCode", true, None::<&str>)?;
             let management =
                 MenuItem::with_id(app, "management", "Management\u{2026}", true, None::<&str>)?;
@@ -142,125 +143,34 @@ fn management_url(app: &tauri::AppHandle) -> tauri::Url {
 }
 
 fn open_management_window(app: &tauri::AppHandle) {
-    if let Some(win) = app.get_window("management") {
+    if let Some(win) = app.get_webview_window("management") {
         show(&win);
         return;
     }
-    let _ = spawn_window(
-        app,
-        "management",
-        "PiCode — Management",
-        // The Management page is part of the desktop bundle now.
-        WebviewUrl::External(management_url(app)),
-        980.0,
-        860.0,
-    );
+    let mut url = discover_server_url()
+        .unwrap_or_else(|| tauri::Url::parse("https://localhost:8445/").expect("static origin"));
+    url.set_path("/desktop/management.html");
+    let _ = tauri::WebviewWindowBuilder::new(app, "management", WebviewUrl::External(url))
+        .title("PiCode — Management")
+        .inner_size(980.0, 860.0)
+        .min_inner_size(720.0, 480.0)
+        .decorations(false)
+        .build();
 }
 
-// show_main brings the window to the front from the tray — the tap and the
-// Open item are the same gesture.
 fn show_main(app: &tauri::AppHandle) {
-    if let Some(win) = app.get_window("main") {
+    if let Some(win) = app.get_webview_window("main") {
         show(&win);
     }
 }
 
-fn show(win: &tauri::window::Window) {
+fn show(win: &tauri::WebviewWindow) {
     let _ = win.unminimize();
     let _ = win.show();
     let _ = win.set_focus();
 }
 
-// open_dashboard drives the served UI's dashboard from the app bar: the
-// wordmark in the bar replaces the sidebar's own wordmark button in shell
-// mode, and the UI listens for this event the same way it listens for
-// picode-open-file.
-#[tauri::command]
-fn open_dashboard(app: tauri::AppHandle) -> Result<(), String> {
-    let wv = app
-        .get_webview("main-content")
-        .ok_or_else(|| "the main window is not open".to_string())?;
-    wv.eval("window.dispatchEvent(new CustomEvent('picode-open-dashboard'));")
-        .map_err(|e| e.to_string())
-}
-
-/// The app bar's height, in logical pixels — the strip every window carries
-/// above its content webview.
-const BAR_H: f64 = 40.0;
-
-// spawn_window builds an undecorated window with two webviews: our local
-// app bar on top and the page itself below it, then keeps both webviews
-// stretched to the window as it resizes. The bar is local on purpose —
-// the ACL trusts local pages by default, so the frame can never go dead
-// because of what the daemon serves.
-fn spawn_window(
-    app: &tauri::AppHandle,
-    label: &str,
-    title: &str,
-    content: WebviewUrl,
-    w: f64,
-    h: f64,
-) -> tauri::Result<tauri::window::Window> {
-    let win = WindowBuilder::new(app, label)
-        .title(title)
-        .inner_size(w, h)
-        .min_inner_size(720.0, 480.0)
-        .decorations(false)
-        .build()?;
-    let bar = tauri::webview::WebviewBuilder::new(
-        format!("{label}-titlebar"),
-        WebviewUrl::App("titlebar.html".into()),
-    );
-    let page = tauri::webview::WebviewBuilder::new(format!("{label}-content"), content);
-    relayout(&win)?;
-    win.add_child(
-        bar,
-        LogicalPosition::new(0.0, 0.0),
-        LogicalSize::new(0.0, BAR_H),
-    )?;
-    win.add_child(
-        page,
-        LogicalPosition::new(0.0, BAR_H),
-        LogicalSize::new(0.0, 0.0),
-    )?;
-    relayout(&win)?;
-
-    let handle = app.clone();
-    let label = label.to_string();
-    win.on_window_event(move |e| {
-        if matches!(e, WindowEvent::Resized(_)) {
-            if let Some(w) = handle.get_window(&label) {
-                let _ = relayout(&w);
-            }
-        }
-    });
-    Ok(win)
-}
-
-// relayout stretches the bar across the top and the page under it, in
-// logical pixels — tao hands us the window size in physical ones.
-fn relayout(win: &tauri::window::Window) -> tauri::Result<()> {
-    let label = win.label();
-    let scale = win.scale_factor()?;
-    let size = win.inner_size()?;
-    let w = size.width as f64 / scale;
-    let h = size.height as f64 / scale;
-    if let Some(b) = win.get_webview(&format!("{label}-titlebar")) {
-        b.set_bounds(tauri::Rect {
-            position: LogicalPosition::new(0.0, 0.0).into(),
-            size: LogicalSize::new(w, BAR_H).into(),
-        })?;
-    }
-    if let Some(c) = win.get_webview(&format!("{label}-content")) {
-        c.set_bounds(tauri::Rect {
-            position: LogicalPosition::new(0.0, BAR_H).into(),
-            size: LogicalSize::new(w, h - BAR_H).into(),
-        })?;
-    }
-    Ok(())
-}
-
-// discover_server_url finds the daemon the same way the Go tray does: the
+/// discover_server_url finds the daemon the same way the Go tray does: the
 // address lives in <data>/server.json inside the distro, and wsl.exe is the
 // door to it. The first distro that answers wins — on every machine this
 // product targets there is exactly one.

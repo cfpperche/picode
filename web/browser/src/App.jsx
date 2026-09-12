@@ -16,6 +16,7 @@ import { reconcileTranscript, liveSince, startTool, transcriptGate } from "@pico
 import { eventsToItems } from "@picode/shared/domain/replay.js";
 import { readCompacting, writeCompacting } from "./lib/compact.js";
 import Sidebar from "./components/Sidebar.jsx";
+import WindowControls from "./components/WindowControls.jsx";
 import AgentTabs from "./components/AgentTabs.jsx";
 import DashboardView from "./components/DashboardView.jsx";
 import SessionBar from "./components/SessionBar.jsx";
@@ -427,14 +428,6 @@ export default function App({ shellChrome = false } = {}) {
   useEffect(() => {
     const onHash = () => {
       setRoute(parseRoute());
-      // The shell's app bar opens the dashboard through this event
-      // (ADR-0122) — same pattern as picode-open-file. Only the desktop
-      // bundle registers it; the browser is never told about windows.
-      const onOpenDashboardEvent = shellChrome ? () => {
-        setDashboardPinned(true);
-        setNavigationOpen(false);
-      } : null;
-      if (onOpenDashboardEvent) window.addEventListener("picode-open-dashboard", onOpenDashboardEvent);
       setHash(location.hash);
     };
     window.addEventListener("hashchange", onHash);
@@ -2669,8 +2662,44 @@ export default function App({ shellChrome = false } = {}) {
   const hasData = (workspaces.length + freeAgents.length + terminals.length) > 0;
   const showHome = (noTabs || dashboardPinned) && hasData;
 
+  const tabsStrip = (
+<AgentTabs
+    tabs={tabs}
+    workspaces={workspaces}
+    freeAgents={freeAgents}
+    terminals={terminals}
+    apps={apps}
+    selectedId={selectedId}
+    onSelect={(id) => openTab(id)}
+    onClose={closeTab}
+    onReorder={(from, to) => setTabs((t) => moveTab(t, from, to))}
+    keepVisible={focus.on}
+    endSlot={narrow ? null : (
+      <>
+        <InspectorToggle
+          shown={focus.on ? focus.reveal === "right" : inspectorLayout.shown}
+          reason={railFits ? inspectorLayout.reason : (narrow ? "narrow" : "squeezed")}
+          onToggle={toggleInspector}
+        />
+        {focus.on ? <FocusLeave onLeave={focus.leave} /> : null}
+      </>
+    )}
+  />
+  );
+
   return (
-    <div id="app" className={[navigationOpen ? "navigation-open" : "", focus.classes].filter(Boolean).join(" ")}>
+    <div id="app" className={[shellChrome ? "app-shell" : "", navigationOpen ? "navigation-open" : "", focus.classes].filter(Boolean).join(" ")}>
+      {shellChrome && (
+        <header className="shell-row" data-tauri-drag-region>
+          <span className="shell-brand" data-tauri-drag-region title="Dashboard"
+                onClick={() => { setDashboardPinned(true); setNavigationOpen(false); }}>
+            <span className="shell-mark" data-tauri-drag-region>P</span>
+            <span className="shell-name" data-tauri-drag-region>PiCode</span>
+          </span>
+          {tabsStrip}
+          <WindowControls />
+        </header>
+      )}
       <header className="desktop-compact-bar">
         <button type="button" className="btn btn-ghost" aria-expanded={navigationOpen} aria-controls="desktop-navigation" onClick={() => setNavigationOpen(open => !open)}>
           {navigationOpen ? "Close navigation" : "Navigation"}
@@ -2745,28 +2774,7 @@ export default function App({ shellChrome = false } = {}) {
 
       <main id="main">
         <div id="workspace-view" className={"workspace-view" + (isTermTab(selectedId) ? " term-on" : "") + (isFileTab(selectedId) ? " file-on" : "") + (isGitTab(selectedId) ? " git-on" : "") + (isTreeTab(selectedId) ? " tree-on" : "") + (isAppTab(selectedId) ? " app-on" : "") + (showHome ? " dashboard-on" : "")} hidden={onPane}>
-          <AgentTabs
-            tabs={tabs}
-            workspaces={workspaces}
-            freeAgents={freeAgents}
-            terminals={terminals}
-            apps={apps}
-            selectedId={selectedId}
-            onSelect={(id) => openTab(id)}
-            onClose={closeTab}
-            onReorder={(from, to) => setTabs((t) => moveTab(t, from, to))}
-            keepVisible={focus.on}
-            endSlot={narrow ? null : (
-              <>
-                <InspectorToggle
-                  shown={focus.on ? focus.reveal === "right" : inspectorLayout.shown}
-                  reason={railFits ? inspectorLayout.reason : (narrow ? "narrow" : "squeezed")}
-                  onToggle={toggleInspector}
-                />
-                {focus.on ? <FocusLeave onLeave={focus.leave} /> : null}
-              </>
-            )}
-          />
+          {!shellChrome && tabsStrip}
 
           <div id="empty" className="empty" hidden={!(missing || (noTabs && !hasData))}>
             <div className="empty-card">

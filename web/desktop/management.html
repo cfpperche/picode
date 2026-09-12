@@ -30,7 +30,21 @@
         background: var(--bg-base); color: var(--text-primary);
         font-size: 14px;
       }
-      header { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+      header {
+        display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem;
+        /* Undecorated window: this header is also the drag strip. */
+        margin: -1.25rem -1.25rem 1rem; padding: .5rem 1.25rem;
+        border-bottom: 1px solid var(--border); background: var(--bg-panel);
+        user-select: none;
+      }
+      .shell-caps { display: flex; margin-left: auto; }
+      .cap {
+        width: 40px; height: 28px; display: grid; place-items: center;
+        border: 0; border-radius: var(--radius-ctl); background: none;
+        color: var(--text-secondary); cursor: pointer; padding: 0;
+      }
+      .cap:hover { color: var(--text-primary); background: var(--bg-hover); }
+      .cap-close:hover { color: #fff; background: var(--danger); }
       h1 { font-size: 1rem; font-weight: 600; margin: 0; flex: 1; }
       button {
         font: inherit; height: var(--ctl-h); padding: 0 .9rem; border-radius: var(--radius-ctl);
@@ -96,10 +110,21 @@
     </style>
   </head>
   <body>
-    <header>
+    <header data-tauri-drag-region>
       <h1>Management</h1>
       <button id="refresh">Refresh</button>
       <button id="giveback" class="danger" disabled>Give back held space…</button>
+      <div class="shell-caps">
+        <button type="button" class="cap" id="win-min" title="Minimize" aria-label="Minimize">
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5h10" stroke="currentColor" stroke-width="1"/></svg>
+        </button>
+        <button type="button" class="cap" id="win-max" title="Maximize" aria-label="Maximize">
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9" stroke="currentColor" stroke-width="1" fill="none"/></svg>
+        </button>
+        <button type="button" class="cap cap-close" id="win-close" title="Close" aria-label="Close">
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1"/></svg>
+        </button>
+      </div>
     </header>
 
     <nav>
@@ -410,6 +435,18 @@
       }
 
       el('config-save').addEventListener('click', saveConfig);
+
+      // Window controls — the window is undecorated; local page, trusted.
+      {
+        const w = window.__TAURI__?.window?.getCurrentWindow?.();
+        if (w) {
+          el('win-min').addEventListener('click', () => w.minimize());
+          el('win-max').addEventListener('click', () => w.toggleMaximize());
+          el('win-close').addEventListener('click', () => w.close());
+        } else {
+          for (const id of ['win-min', 'win-max', 'win-close']) el(id).remove();
+        }
+      }
 
       el('refresh').addEventListener('click', refresh);
       el('giveback').addEventListener('click', giveBack);

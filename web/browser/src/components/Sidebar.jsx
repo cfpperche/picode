@@ -159,11 +159,11 @@ export default function Sidebar({
 
   return (
     <aside id="sidebar" className={resizing ? "resizing" : ""} style={{ width }}>
-      <header className="brand">
+      {/* In the desktop shell the brand row lives in the window's merged
+          top row (ADR-0122); the sidebar starts at its own content. */}
+      {!inShell && <header className="brand">
         <span className="brand-title">
-          {/* In the desktop shell the app bar carries the wordmark and the
-              dashboard action (ADR-0122); the browser keeps the button. */}
-          {!inShell && <button type="button" className="brand-name" title="Dashboard" onClick={() => onOpenDashboard && onOpenDashboard()}>PiCode</button>}
+          <button type="button" className="brand-name" title="Dashboard" onClick={() => onOpenDashboard && onOpenDashboard()}>PiCode</button>
         </span>
         <nav className={"brand-tabs" + (width < 260 ? " brand-tabs-tight" : "")} aria-label="Sidebar">
           <div className="brand-tablist" role="tablist" aria-label="Sidebar views">
@@ -182,6 +182,7 @@ export default function Sidebar({
           </button>
         </nav>
       </header>
+      }
 
       {tab === "pins" ? (
         <Pins />
