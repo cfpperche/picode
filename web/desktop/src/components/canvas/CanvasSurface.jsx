@@ -14,7 +14,7 @@ import { paneLeaveKey } from "@picode/shared/domain/termKeys.js";
 import { CANVAS_PATTERN_EVENT, persistCanvasPattern, readCanvasPattern } from "@picode/shared/domain/canvasPattern.js";
 import { CANVAS_CHROME_EVENT, persistCanvasChrome, readCanvasChrome } from "@picode/shared/domain/canvasChrome.js";
 import AppIcon from "../AppIcon.jsx";
-import { IconCanvas, IconCheck, IconChevronDown, IconChevronRight, IconEllipsis, IconFit, IconGrid, IconImage, IconPencil, IconPlus, IconTrash, IconX } from "../Icons.jsx";
+import { IconAgent, IconCanvas, IconCheck, IconChevronDown, IconChevronRight, IconEllipsis, IconFit, IconGrid, IconImage, IconPencil, IconPin, IconPlus, IconTerminal, IconTrash, IconX } from "../Icons.jsx";
 import { go, isFileTab, parseFileTab, pinHash } from "../../lib/routes.js";
 import { notify, toast, toastError } from "../../lib/toast.js";
 import { askConfirm } from "../../lib/confirm.js";
@@ -86,6 +86,16 @@ const EMPTY_FLEET = { workspaces: [], freeAgents: [], terminals: [] };
 const NO_PANELS = [];
 // How far a right-press may travel and still count as a click, not a pan.
 const PAN_SLOP = 4;
+// The elements this canvas accepts, in the order they sit on the toolbar.
+// The kind is the store's own word for the panel (canvas.js CANVAS_KINDS),
+// so arming a tool and filtering the picker are the same string. Text and
+// drawings join the row when they are panels; files and changes stay in the
+// `⋯` menu's Add panel, because they are opened from a tab, not drawn.
+const CANVAS_TOOLS = [
+  ["agent", "Agent", IconAgent],
+  ["terminal", "Terminal", IconTerminal],
+  ["note", "Pin", IconPin],
+];
 const enc = encodeURIComponent;
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 const msgOf = (e) => (e && e.message ? e.message : String(e));
@@ -292,6 +302,12 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
   // Whether this plane shows its own controls (canvasChrome.js). Read once,
   // then kept in step with every other open plane through the event.
   const [chromeShown, setChromeShown] = useState(readCanvasChrome);
+  // Which element the reader has armed, and the rectangle they drew for it.
+  // A tool is armed until it places one panel or the reader presses Esc:
+  // arming is cheap to repeat and a tool left armed silently steals the next
+  // click on the plane, which is the worse of the two mistakes.
+  const [tool, setTool] = useState("");
+  const [placed, setPlaced] = useState(null);
   const [nameDialog, setNameDialog] = useState(""); // "" | "new" | "rename"
   const [workingIds, setWorkingIds] = useState([]);
   // The file panels whose editor holds unsaved text. It is chip state and
@@ -347,6 +363,12 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
     window.addEventListener(CANVAS_PATTERN_EVENT, onPattern);
     return () => window.removeEventListener(CANVAS_PATTERN_EVENT, onPattern);
   }, []);
+  useEffect(() => {
+    if (!tool) return undefined;
+    function onKey(e) { if (e.key === "Escape") { e.stopPropagation(); setTool(""); } }
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [tool]);
   useEffect(() => {
     function onChrome() { setChromeShown(readCanvasChrome()); }
     window.addEventListener(CANVAS_CHROME_EVENT, onChrome);
@@ -780,13 +802,21 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
       else toastError(e);
     }
   }
+  // A panel lands where the reader drew it. `placed` is the rectangle from
+  // the marking gesture; without one — the `⋯` menu's own Add panel, which
+  // never armed a tool — the surface falls back to `nextSlot`, which packs
+  // from the canvas origin and is why an unplaced panel can be born off
+  // screen. That fallback is the last caller of nextSlot for new panels.
   async function addPanel({ kind, ref }) {
     setPickerOpen(false);
+    const rect = placed;
+    setPlaced(null);
+    setTool("");
     const id = currentRef.current;
     const det = storeRef.current.byId[id];
     if (!det) return;
-    const size = PANEL_DEFAULT_CANVAS;
-    const { x, y } = nextSlot(det.panels, size.w, size.h);
+    const size = rect ? { w: rect.w, h: rect.h } : PANEL_DEFAULT_CANVAS;
+    const { x, y } = rect ? { x: rect.x, y: rect.y } : nextSlot(det.panels, size.w, size.h);
     const tmp = "tmp-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const body = { kind, ref, x, y, w: size.w, h: size.h };
     // The wrapper shows at once and settles on the server's answer.
@@ -1223,7 +1253,14 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
         <span className="cv-menu-label">Show controls</span>
       </M.CheckboxItem>
       <M.Separator className="ws-row-menu-sep" />
-      <M.Item className="ws-row-menu-item" onSelect={() => setNameDialog("new")}><IconPlus size={13} /> New canvas</M.Item>
+      {/* Files and changes have no tool of their own: they are opened from a
+          tab, not drawn on the plane. The unfiltered picker is their way in,
+          and it is the one path that still lets the surface choose the spot
+          (nextSlot). */}
+      {current ? (
+        <M.Item className="ws-row-menu-item" onSelect={() => { setPlaced(null); setTool(""); setPickerOpen(true); }}><IconPlus size={13} /> Add panel…</M.Item>
+      ) : null}
+      <M.Item className="ws-row-menu-item" onSelect={() => setNameDialog("new")}><IconCanvas size={13} /> New canvas</M.Item>
       {current && panels.length ? (
         <M.Item className="ws-row-menu-item" onSelect={() => { tidy(); }}><IconGrid size={13} /> Tidy panels</M.Item>
       ) : null}
@@ -1300,11 +1337,11 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
   // vocabulary for the whole toolbar — and the trigger is an ordinary segment
   // of the group, so it wears the seams and the focus ring the others do.
   const chrome = chromeShown && store.list.length ? (
-    <div className="cv-toolbar">
-      {/* One group (owner, 2026-09-12): which canvas, one more panel, and
-          everything else last, because a menu is the overflow of a toolbar
-          and not a peer of the buttons in it. */}
-      <div className="cv-cluster" role="group" aria-label="Canvas controls" data-align-row>
+    <div className="cv-chrome">
+      {/* Top-left: which canvas, and everything else (owner, 2026-09-12).
+          Identity belongs where a reader starts reading; the bottom edge is
+          for the hands — what you add, and how you are looking at it. */}
+      <div className="cv-cluster" role="group" aria-label="Canvas" data-align-row>
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
             <button type="button" className="cv-cluster-btn cv-switch" aria-label={"Canvas: " + (current ? current.name : "none")}>
@@ -1314,7 +1351,7 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
             </button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
-            <DropdownMenu.Content className="ws-row-menu" side="top" align="start" sideOffset={6} collisionPadding={8}>
+            <DropdownMenu.Content className="ws-row-menu" side="bottom" align="start" sideOffset={6} collisionPadding={8}>
               <DropdownMenu.RadioGroup value={currentId} onValueChange={(v) => select(v)}>
                 {store.list.map((m) => (
                   <DropdownMenu.RadioItem key={m.id} className="ws-row-menu-item cv-switch-item" value={m.id}>
@@ -1327,23 +1364,44 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
-        {current ? (
-          <button type="button" className="cv-cluster-btn" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
-        ) : null}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
             <button type="button" className="cv-cluster-btn cv-menu-btn" aria-label={current ? "More actions for " + current.name : "More actions"} title="New canvas, tidy, rename, delete, background or close"><IconEllipsis size={15} /></button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
-            {/* The toolbar sits on the bottom edge, so the menu opens **up**
-                into the canvas; the trigger ends the row, so the menu is
-                anchored to its end. Radix flips it if a short pane leaves no
-                room above. */}
-            <DropdownMenu.Content className="ws-row-menu" side="top" align="end" sideOffset={6} collisionPadding={8}>
+            {/* Anchored at the top now, so the menu opens **down** into the
+                canvas rather than up off the pane. */}
+            <DropdownMenu.Content className="ws-row-menu" side="bottom" align="start" sideOffset={6} collisionPadding={8}>
               {canvasMenu(DropdownMenu)}
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
+      </div>
+    </div>
+  ) : null;
+  // The elements a canvas accepts, at the bottom centre (owner, 2026-09-12).
+  // `Add panel` is gone: a generic verb made the *surface* choose the place,
+  // and on an infinite plane its choice — pack from the origin — is off
+  // screen as soon as the camera is anywhere else. One button per element
+  // instead, and pressing one arms it: the reader then draws where it goes
+  // and picks which one from the dialog. Agents, terminals and pins today;
+  // text and drawings are the same three steps when they exist.
+  const tools = chromeShown && current ? (
+    <div className="cv-toolbar">
+      <div className="cv-cluster" role="group" aria-label="Add to canvas" data-align-row>
+        {CANVAS_TOOLS.map(([kind, label, Icon]) => (
+          <button
+            key={kind}
+            type="button"
+            className="cv-cluster-btn cv-tool"
+            aria-label={label}
+            aria-pressed={tool === kind}
+            title={tool === kind ? label + " — draw where it goes, or press Esc" : label}
+            onClick={() => setTool((cur) => (cur === kind ? "" : kind))}
+          >
+            <Icon size={14} />
+          </button>
+        ))}
       </div>
     </div>
   ) : null;
@@ -1414,6 +1472,8 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
                 onGestureStop={onGestureStop}
                 onReady={onCanvasReady}
                 showMinimap={chromeShown}
+                placing={tool}
+                onPlace={(rect) => { setPlaced(rect); setPickerOpen(true); }}
               />
           </Suspense>
           {panels.length ? null : (
@@ -1453,6 +1513,7 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
             Tab from the tab strip reaches the switcher, Add panel and the
             menu before it reaches the roving panel. */}
         {chrome}
+        {tools}
         {camera}
         {body}
         {maxModel ? (
@@ -1484,9 +1545,10 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
         files={fileOptions}
         onCanvas={onCanvas}
         workingIds={workingIds}
+        only={placed ? tool : ""}
         onPick={addPanel}
         onNewPin={() => { setPickerOpen(false); go("pins-new"); }}
-        onClose={() => setPickerOpen(false)}
+        onClose={() => { setPickerOpen(false); setPlaced(null); setTool(""); }}
       />
       <NameDialog
         open={nameDialog === "new"}

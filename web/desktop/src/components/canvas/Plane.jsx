@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Background, BackgroundVariant, ConnectionMode, Handle, MiniMap, NodeResizeControl, Position, ReactFlow, ReactFlowProvider, applyNodeChanges, useReactFlow } from "@xyflow/react";
-import { CANVAS_LIMITS, CANVAS_ZOOM, EDGE_KINDS, UNIT_PX, legacyViewportKey, normalizeViewport, pointerAtZoom, pxToUnits, unitsToPx, viewportKey } from "@picode/shared/domain/canvas.js";
+import { CANVAS_LIMITS, CANVAS_ZOOM, EDGE_KINDS, UNIT_PX, legacyViewportKey, normalizeViewport, placementRect, pointerAtZoom, pxToUnits, unitsToPx, viewportKey } from "@picode/shared/domain/canvas.js";
 import { anchorLinks } from "@picode/shared/domain/canvasAnchors.js";
 import { CANVAS_PATTERN_EVENT, readCanvasPattern } from "@picode/shared/domain/canvasPattern.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
@@ -204,6 +204,25 @@ const LinkHandle = memo(function LinkHandle({ name }) {
   );
 });
 
+// MarkBox — the rectangle while it is being drawn, in screen pixels over the
+// plane. Its own component so a pointer move repaints one absolutely
+// positioned div and never the plane behind it.
+function MarkBox({ mark }) {
+  const left = Math.min(mark.x1, mark.x2);
+  const top = Math.min(mark.y1, mark.y2);
+  return (
+    <div
+      className="cv-mark"
+      style={{
+        left: left + "px",
+        top: top + "px",
+        width: Math.abs(mark.x2 - mark.x1) + "px",
+        height: Math.abs(mark.y2 - mark.y1) + "px",
+      }}
+    />
+  );
+}
+
 // PanelNode — the node type. Memoized: a pan or a zoom never reaches it
 // (React Flow transforms the plane instead of re-rendering its nodes), and a
 // data object is rebuilt only when that panel's own state changed, so a
@@ -295,7 +314,7 @@ function sameData(a, b) {
   return !!a && !!b && DATA_KEYS.every((k) => a[k] === b[k]);
 }
 
-function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, maximizedId, tabStopId, loader, handlers, links, edgeRows, onConnect, onRemoveEdge, onLayout, onGestureStart, onGestureStop, onReady, showMinimap = true }) {
+function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, maximizedId, tabStopId, loader, handlers, links, edgeRows, onConnect, onRemoveEdge, onLayout, onGestureStart, onGestureStop, onReady, showMinimap = true, placing = "", onPlace }) {
   const rf = useReactFlow();
   const rootRef = useRef(null);
   const [nodes, setNodes] = useState([]);
@@ -685,6 +704,50 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
     return () => onReady(null);
   }, [onReady, snapToOne, reveal, fit, zoomIn, zoomOut]);
 
+  // ---- placing a panel by hand -------------------------------------------
+  // With a tool armed the reader draws where the panel goes, so a layer takes
+  // the plane's pointer for the length of that one gesture. It has to be a
+  // layer: React Flow owns the pointer underneath for panning, marquee
+  // selection and every node, and there is no way to borrow it politely.
+  //
+  // The rectangle is kept in *screen* pixels while it is being drawn — that
+  // is what the reader sees — and converted once, on release, through
+  // `screenToFlowPosition`, which is the only function that knows the current
+  // camera. Converting on every move would be the same answer computed sixty
+  // times a second.
+  const [mark, setMark] = useState(null);
+  const markRef = useRef(null);
+  markRef.current = mark;
+  useEffect(() => { if (!placing) setMark(null); }, [placing]);
+  const onMarkDown = useCallback((e) => {
+    if (e.button !== 0) return;
+    // Capture keeps the gesture alive when the pointer leaves the layer — off
+    // the pane, over the chrome — but it is allowed to fail (a pointer id the
+    // browser no longer tracks, a synthetic event), and a throw here would
+    // abort the whole gesture before it started.
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* draw without it */ }
+    setMark({ x1: e.clientX, y1: e.clientY, x2: e.clientX, y2: e.clientY });
+  }, []);
+  const onMarkMove = useCallback((e) => {
+    setMark((m) => (m ? { ...m, x2: e.clientX, y2: e.clientY } : m));
+  }, []);
+  const onMarkUp = useCallback(() => {
+    const m = markRef.current;
+    setMark(null);
+    if (!m || !onPlace) return;
+    // Drawing on the plane settles its camera. Without this the first panel
+    // placed on a fresh canvas triggers the opening `fitView` below, and the
+    // camera jumps the moment the reader finishes choosing where to put it —
+    // which is the same complaint that started all this, one step later.
+    fitted.current = true;
+    const from = rf.screenToFlowPosition({ x: m.x1, y: m.y1 });
+    const to = rf.screenToFlowPosition({ x: m.x2, y: m.y2 });
+    // The slop is in plane pixels, so it has to be the screen slop divided by
+    // the zoom: six screen pixels is six plane pixels at 1.0 and thirty at
+    // 0.2, and a click must stay a click at every camera.
+    onPlace(placementRect(from, to, { slop: 6 / (zoomRef.current || 1) }));
+  }, [rf, onPlace]);
+
   return (
     <div className="cv-canvas-flow" ref={setRoot} data-bg={bgPattern}>
       <ReactFlow
@@ -745,6 +808,17 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
             first panel, which is the first thing it could map. */}
         {showMinimap && nodes.length ? <MiniMap pannable zoomable ariaLabel="Panels on the plane" /> : null}
       </ReactFlow>
+      {placing ? (
+        <div
+          className="cv-mark-layer"
+          onPointerDown={onMarkDown}
+          onPointerMove={onMarkMove}
+          onPointerUp={onMarkUp}
+          onPointerCancel={() => setMark(null)}
+        >
+          {mark ? <MarkBox mark={mark} /> : null}
+        </div>
+      ) : null}
     </div>
   );
 }
