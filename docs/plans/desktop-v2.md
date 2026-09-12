@@ -56,11 +56,14 @@ truth; the shell is a client and a supervisor, never a second backend.
 
 | Spike | Status |
 |---|---|
-| Feed SSE (server side) | **Verified live**: `GET /api/events` streams (`event: hello`, bootId + latest). Owner: watch the feed update live in the window. |
-| Native notification | **Implemented** as the tray item **Test notification**. Windows shows toasts for unpackaged apps only when a Start Menu shortcut with the app identity exists — a silent drop is the spike telling Phase 2's installer to create that shortcut. |
-| mkcert/HTTPS | Owner: the window must show the UI over `https://localhost:8445` with no certificate warning (the CA is machine-trusted by provision). |
-| Pairing | Owner: the UI must be fully usable with no pair screen — loopback auto-pairs (ADR-0049, mode remote). |
-| xterm.js/WebGL | Owner: open an agent terminal, type, and check the render is smooth (canvas/WebGL enabled). |
+| Feed SSE (server side) | **PASS** — verified live: `GET /api/events` streams (`event: hello`, bootId + latest); the UI updates without reload. |
+| Native notification | **Implemented** (tray item **Test notification**); toast click-through pending owner. Windows shows toasts for unpackaged apps only with a Start Menu shortcut carrying the app identity — a silent drop is the Phase 2 installer requirement. |
+| mkcert/HTTPS | **PASS** — owner: no certificate warning, UI over `https://localhost:8445` (2026-09-11). |
+| Pairing | **PASS** — owner: UI fully usable, no pair screen (loopback auto-pairs, ADR-0049). |
+| xterm.js/WebGL | **PASS** — owner: terminal renders and types, including the live session (2026-09-11). |
+
+**Phase 1 closed 2026-09-11** — five of five spikes settled (one pending the
+toast click-through, which only changes the Phase 2 installer scope).
 
 ## Conscious debt
 
