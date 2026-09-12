@@ -638,11 +638,16 @@ no topo"). Two clusters, and nothing else:
 | Cluster | Holds | Why there |
 |---|---|---|
 | top-left (`.cv-chrome`, `CanvasSurface.jsx`) | the switcher (a label or a `<select>` — below), **Add panel**, and a `⋯` menu: **New canvas**, **Tidy panels** (only with panels), **Rename**, **Delete canvas**, then **Close tab** | the two things a reader reaches for constantly are *which canvas* and *one more panel*; everything else is one press away |
-| bottom-right (`.cv-zoom` + `<MiniMap>`, `Plane.jsx`) | zoom out / the 100 % readout / zoom in / **Fit**, above the minimap | unchanged by this pass — where the camera already lived |
+| bottom-left (`.cv-zoom`, `Plane.jsx`) | a **column**: zoom in / zoom out / the 100 % readout / **Fit** | React Flow's own `<Controls>` stands here (owner, 2026-09-12); a plane has least to say at its bottom-left |
+| bottom-right (`<MiniMap>`, `Plane.jsx`) | the map of the plane | opposite the camera controls rather than stacked over them, so neither corner carries both |
 
-Both are the same `.cv-cluster`: one row at `--ctl-h`, segmented by
-hairlines, on `--bg-elevated` with a `--border` hairline and the minimap's
-shadow. **Opaque, never translucent and never blurred** — a cluster has to
+Both are the same `.cv-cluster`, one turned: a row at `--ctl-h` top-left and
+a `--ctl-h`-wide column bottom-left, segmented by hairlines, on
+`--bg-elevated` with a `--border` hairline and the minimap's shadow. A
+column carries no `data-align-row` — that attribute asserts the children
+share a top edge (`web/shared/domain/overlayAudit.js`), which stacked ones
+do not. **Fit** is the icon `Maximize2` there and not the word: the word was
+the one child that set the column's width. **Opaque, never translucent and never blurred** — a cluster has to
 read over a dark plane, a light plane and a live terminal parked underneath,
 and a scrim over a terminal is the one case where a reader sees the text
 through their own chrome.
@@ -1023,8 +1028,8 @@ on the plane and in the maximize layer. Configuration is C0's
 `minZoom` 0.2, `maxZoom` 1.5, `snapToGrid` on an 8 px `snapGrid` (the canvas
 unit, so a drag lands on whole units), `onlyRenderVisibleElements` **off**
 (on, it unmounts a node with no dwell — 54 socket suspends and kicks over
-three fast pans), `NodeResizer` for resize (`onResizeEnd` fires once; it
-does not honour `snapGrid`, so `pxToUnits` rounds), the body marked `nodrag
+three fast pans), three `NodeResizeControl`s for resize (`onResizeEnd`
+fires once; they do not honour `snapGrid`, so `pxToUnits` rounds), the body marked `nodrag
 nowheel` with the header as the drag handle, marquee selection on a left
 drag, pan on the middle or right button or Space, and a `<MiniMap />` and a
 zoom cluster themed from our tokens (React Flow's defaults are a near-white
@@ -1033,9 +1038,19 @@ size `w · 8, h · 8`; `unitsToPx` / `pxToUnits` are the only place that
 multiplies.
 
 **The resize targets, and the counter-scaling rule** (`canvas.css`,
-"Resize targets"). `NodeResizer` drives the resize and fires `onResizeEnd`
-once per gesture, which is what the save path debounces on — that part is
-the library's and stays. What the library *draws* could not be used: its
+"Resize targets"). The library's controls drive the resize and fire
+`onResizeEnd` once per gesture, which is what the save path debounces on —
+that part is the library's and stays.
+
+**Three targets, not eight** (owner, 2026-09-12). `NodeResizer` ships four
+edges and four corners; a panel offers the **bottom** band, the **right**
+band and the **bottom-right** corner, and the other five are not rendered
+at all — `RESIZE_CONTROLS` in `Plane.jsx` names them one by one through
+`NodeResizeControl`. Hiding them would not have been the same thing: a
+control at zero opacity is still a target the pointer finds. The five that
+went are the ones that move a panel's top-left corner while resizing it,
+which on a plane read left to right and top to bottom means the thing you
+were aiming at slides away under the drag. What the library *draws* could not be used: its
 handles and line controls live **inside the transformed plane**, so their
 size on screen is their size divided by the zoom, and its line control is
 one plane pixel wide with a transparent border. Measured on a real plane
@@ -1051,9 +1066,9 @@ var(--cv-zoom))`, where `--cv-zoom` is the live zoom `Plane.jsx` publishes
 on the flow root on mount and on every viewport change. A corner target is
 20 screen px and an edge band 12 screen px at 0.4, at 1.0 and at 1.5 alike.
 `NodeResizer`'s own `autoScale` is off, because it answers the same
-question worse — an inline `scale: max(1 / zoom, 1)` on the four corner
-handles only, doing nothing to the four edges and nothing at all above zoom
-1 — and two counter-scalings would divide by the zoom twice. This is the
+question worse — an inline `scale: max(1 / zoom, 1)` on corner handles
+only, doing nothing to an edge band and nothing at all above zoom 1 — and
+two counter-scalings would divide by the zoom twice. This is the
 rule someone deletes as an unnecessary `calc`: remove it and the targets
 shrink out of reach with no sign on screen that anything changed.
 
@@ -1079,10 +1094,24 @@ renderer stays crisp, so nothing on screen would say so; the surface has to.
 |---|---|
 | in the band, `zoom = 1.0` (± 0.005) | live pane, attached — **the only state that takes a pointer** |
 | in the band, `0.8 ≤ zoom < 1.0`, or `zoom > 1.0` | live pane, readable, taking keys; `pointer-events: none` on the body and a layer over it whose click **snaps the plane to 1** and hands the pointer over |
-| in the band, `zoom < 0.75` | **still**: `term.buffer.active` as text, monospace, inert; the header stays live from the feed |
+| in the band, `zoom < 0.75` | **still**: `term.buffer.active` as text, monospace, inert, **on the terminal's own ground**; the header stays live from the feed |
 | `zoom < 0.4` | **name-plate**: face, name and status colour sized by `1 / zoom`, because a still down there is grey texture and the header does not resolve either |
 | outside the band, any zoom | today's placeholder; the socket suspends after the 5 s hysteresis |
 | focused and engaged | the plane animates to `zoom = 1` before the pane takes keys — Enter engages through the same snap |
+
+**A still wears the terminal's colours** (owner, 2026-09-12: "enquanto
+tiver escrita de terminal precisa exibir o terminal"). It used to take the
+panel's own `--bg-panel` and `--text-secondary`, so crossing 0.75 turned a
+black pane white while the words on it stayed the same — the band read as
+the panel having become something else, which is the one thing it must not
+say. `Plane.jsx` sets `--cv-term-bg` / `--cv-term-fg` on the plane root from
+`xtermTheme(readTermTheme())` — the very pair xterm itself is configured
+with — and refreshes them on `picode-term-theme`, one listener for the whole
+plane rather than one per panel. What a still still cannot show is **colour
+in the text**: `translateToString` drops every cell attribute, so the
+capture is plain text and a coloured prompt reads monochrome down there.
+Recovering it would mean capturing per-cell attributes, which is the cost
+the band exists to avoid.
 
 The rule is about a **cell**, so it only binds a body that has one.
 `hasPane` (`web/shared/domain/canvas.js`, the allow-list `PANE_STATES`) is
