@@ -158,7 +158,10 @@ export default function Sidebar({
 
   return (
     <aside id="sidebar" className={resizing ? "resizing" : ""} style={{ width }}>
-      <header className="brand">
+      {/* Undecorated shell: the brand row is the window's drag handle. The
+          attribute only drags when the row itself is hit — every button
+          inside keeps working. In a browser the attribute is absent. */}
+      <header className="brand" data-tauri-drag-region={window.__PICODE_SHELL__ === true || undefined}>
         <span className="brand-title">
           <button type="button" className="brand-name" title="Dashboard" onClick={() => onOpenDashboard && onOpenDashboard()}>PiCode</button>
         </span>

@@ -47,9 +47,15 @@ fn main() {
                 None => WebviewUrl::App("offline.html".into()),
             };
 
+            // Undecorated: the web UI's own chrome is the title bar — the
+            // native one read as a second, empty bar above it. The
+            // initialization script flags shell mode so the UI renders its
+            // window controls and drag regions; a browser never sets it.
             WebviewWindowBuilder::new(app, "main", target)
                 .title("PiCode")
                 .inner_size(1360.0, 880.0)
+                .decorations(false)
+                .initialization_script("window.__PICODE_SHELL__ = true;")
                 .build()?;
 
             let open = MenuItem::with_id(app, "open", "Open PiCode", true, None::<&str>)?;
@@ -129,6 +135,8 @@ fn open_management_window(app: &tauri::AppHandle) {
     )
     .title("PiCode — Management")
     .inner_size(980.0, 820.0)
+    .decorations(false)
+    .initialization_script("window.__PICODE_SHELL__ = true;")
     .build();
 }
 

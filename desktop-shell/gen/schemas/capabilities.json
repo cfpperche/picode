@@ -1,1 +1,1 @@
-{}
+{"window-frame":{"identifier":"window-frame","description":"The windows are undecorated: the UI's own chrome drags and closes them. These are the core window permissions that needs.","local":true,"windows":["main","management"],"permissions":["core:default","core:window:allow-minimize","core:window:allow-maximize","core:window:allow-unmaximize","core:window:allow-toggle-maximize","core:window:allow-internal-toggle-maximize","core:window:allow-close","core:window:allow-start-dragging","core:window:allow-is-maximized"]}}
