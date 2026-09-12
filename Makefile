@@ -200,8 +200,9 @@ fmt-check: ## Fail if any file is unformatted
 vet: ## Static analysis
 	go vet ./...
 
-# Keep parity ahead of generation: `docs` rewrites OpenAPI/llms.txt, so checking
-# afterward would accidentally bless stale committed artifacts.
+# Keep parity ahead of generation: `docs` rewrites the committed OpenAPI spec,
+# so checking afterward would accidentally bless a stale artifact. (llms.txt is
+# not committed — ADR-0125.)
 ci-docs: ## Verify committed docs parity, then build the public site
 	$(MAKE) docs-check
 	$(MAKE) docs

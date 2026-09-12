@@ -343,7 +343,7 @@ func TestWorkspaceAPI(t *testing.T) {
 
 func TestOpenCloseLifecycle(t *testing.T) {
 	if _, err := exec.LookPath("tmux"); err != nil {
-		t.Skip("tmux not installed — integration test skipped (accepted, see docs/handoff.md)")
+		t.Skip("tmux not installed — integration test skipped (accepted, see docs/handoff/open/terminal.md)")
 	}
 	ts := newTestServer(t, fakeBlockingAgentCmd(t))
 	client := ts.Client()

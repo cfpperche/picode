@@ -53,3 +53,8 @@ var/
 # read on demand, never committed, never merged — which is what removed the
 # repository's hottest file from every branch's diff.
 docs/handoff.md
+
+# llms.txt is produced where it is served (ADR-0125): `make docs` for Pages,
+# `make deploy` for the running site. Nothing in the repository reads it, so no
+# branch carries it and no merge can disagree about it.
+docs-site/public/llms.txt

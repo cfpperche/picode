@@ -11,3 +11,4 @@
 - Tutorial video freshness audits are stale after source relocation.
 - Three worktrees sat idle 22 h–4 d with no commit in the 2026-09-12 measurement; `make worktree-status` reports them, and their fate is the owner's.
 - On merging `feat/herdr-validation` / `feat/picode-video-pilot` (opened before ADR-0105): their prose moves to `docs/changelog.d/` fragments and the session note, not into the board.
+- Hook edits cannot be exercised from the worktree that makes them: `core.hooksPath` is absolute (`<root>/.githooks`), so every worktree runs the *root* checkout's hooks — `make hooks-check` on a throwaway repo is the local proof, and a commit the branch's own hook allows (deleting `docs/handoff.md`) needs `git -c core.hooksPath=$PWD/.githooks commit`.

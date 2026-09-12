@@ -15,6 +15,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Say which tree and branch this is (AGENTS.md §5): a session that edits the
+# wrong checkout wastes its own work and confuses everyone else's status.
+printf 'ci-scoped: %s on %s\n' "$(pwd)" "$(git branch --show-current 2>/dev/null || echo '(no git)')"
+
 base_ref=${CI_SCOPE_BASE:-main}
 base=$(git merge-base "$base_ref" HEAD 2>/dev/null || true)
 paths=$(

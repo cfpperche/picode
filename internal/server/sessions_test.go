@@ -158,7 +158,7 @@ func TestListSessionsEmptyForFreshAgent(t *testing.T) {
 // forever (nothing else ever sets it for an agent that's never been
 // explicitly resumed), so the manage view's inUseBy delete-guard would
 // treat it as an orphan. Caught live against a real pi spawn during
-// dogfood verification (docs/handoff.md), not from reading the code.
+// dogfood verification (docs/handoff/open/sessions.md), not from reading the code.
 func TestListSessionsResolvesFreshSessionPath(t *testing.T) {
 	root := t.TempDir()
 	home := filepath.Join(root, "home")

@@ -55,7 +55,8 @@ test("covered roots follow the scope the run actually exercised", () => {
   assert.ok(go.includes("."), "the module root package depends on everything");
 
   const docs = coveredRoots({ paths: ["docs-site/guide/settings.md"] });
-  assert.ok(docs.includes("docs-site/") && docs.includes(".vale.ini"));
+  assert.ok(docs.includes("docs-site/") && docs.includes(".vale.ini") && docs.includes("cmd/"));
+  assert.ok(!docs.includes("docs/"), "the internal docs feed no gate — a main merge that only moved a note must reuse");
 
   const metadata = coveredRoots({ paths: ["docs/handoff/2026-09-12-x.md"] });
   assert.deepEqual(metadata, ["docs/handoff/2026-09-12-x.md"], "a note covers itself, nothing else");

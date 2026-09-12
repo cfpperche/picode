@@ -152,8 +152,8 @@ agent process. Details and trade-offs live in
 
 - [Public documentation](https://cfpperche.github.io/picode/) — tutorials,
   guides, command reference and HTTP API
-- [Current project state](docs/handoff.md) — what is shipped, in flight and
-  still owed
+- Current project state — `make handoff` renders it from git, the open topics
+  under `docs/handoff/open/` and the session notes
 - [Architecture](docs/architecture.md) — components, protocols and security
 - [Decision records](docs/decisions/) — the reasoning behind architectural
   choices

@@ -49,23 +49,35 @@ export function coveredRoots({ paths = [], packages = [], full = false } = {}) {
   // whole matrix: everything it read is the whole tree.
   if (full || scope.full) return ["."];
   const roots = new Set(paths);
-  if (scope.go || packages.length) {
+  // Every gate that compiles the binary or runs `cmd/picode-openapi` reads the
+  // Go tree, whatever the scope is called.
+  const goInputs = () => {
     roots.add("go.mod");
     roots.add("go.sum");
+    roots.add("cmd/");
+    roots.add("internal/");
+  };
+  if (scope.go || packages.length) {
+    goInputs();
     for (const p of packages) roots.add(p === "." ? "." : p + "/");
   }
-  if (scope.web) roots.add("web/");
+  if (scope.web) {
+    roots.add("web/");
+    goInputs(); // `make build` compiles the embedded binary
+  }
   if (scope.packages) {
     roots.add("web/");
     roots.add("packages/");
     roots.add(".pi/");
   }
   if (scope.docs) {
+    // docs-check re-generates OpenAPI (`go run ./cmd/picode-openapi`) and runs
+    // scripts/ as child processes; `docs/` itself feeds no gate (ADR-0124).
     roots.add("docs-site/");
-    roots.add("docs/");
     roots.add("styles/");
     roots.add("scripts/");
     roots.add(".vale.ini");
+    goInputs();
   }
   return [...roots].filter(Boolean).sort();
 }
