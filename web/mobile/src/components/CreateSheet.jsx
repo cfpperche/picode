@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import CreateForm from "./CreateForm.jsx";
 import { submitCreate, formValues } from "../lib/createSubmit.js";
-import { api } from "@picode/shared/client/api.js";
 
 // The desktop's create dialog is already a Vaul bottom sheet below 720px;
 // this wrapper owns the kind, the model config and the submit, and hands
@@ -11,7 +10,6 @@ export default function CreateSheet({ open, kind: initialKind, workspace, catalo
   const [cfg, setCfg] = useState({ provider: "", model: "", thinking: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [sessions, setSessions] = useState(null);
 
   useEffect(() => {
     if (!open) return;
@@ -19,12 +17,6 @@ export default function CreateSheet({ open, kind: initialKind, workspace, catalo
     setError("");
     setBusy(false);
   }, [open, initialKind]);
-
-  useEffect(() => {
-    if (!open || kind !== "session") return;
-    setSessions(null);
-    api("/api/clis/pi/sessions").then((d) => setSessions((d && d.sessions) || [])).catch(() => setSessions([]));
-  }, [open, kind]);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -35,21 +27,6 @@ export default function CreateSheet({ open, kind: initialKind, workspace, catalo
       e.target.reset();
       setCfg({ provider: "", model: "", thinking: "" });
       onCreated(res);
-    } catch (err) {
-      setError(err.message || String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function onAdopt(path) {
-    setError("");
-    setBusy(true);
-    try {
-      const ag = await api("/api/clis/pi/sessions/adopt", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }),
-      });
-      onCreated({ kind: "free", created: ag });
     } catch (err) {
       setError(err.message || String(err));
     } finally {
@@ -68,9 +45,6 @@ export default function CreateSheet({ open, kind: initialKind, workspace, catalo
       error={error}
       onSubmit={onSubmit}
       onClose={onClose}
-      sessions={sessions}
-      onAdopt={onAdopt}
-      onKind={setKind}
       busy={busy}
     />
   );

@@ -1,7 +1,7 @@
 # Adopt a Pi session as a PiCode agent
 
 - **Date:** 2026-08-29
-- **Status:** in flight (`feat/adopt-pi-session`)
+- **Status:** superseded — removed by ADR-0126; agents are born only from new sessions
 - **Ratified:** 1C · 2C · 3C
 
 A Pi TUI session (JSONL under `~/.pi/agent/sessions/`) becomes a PiCode

@@ -240,8 +240,6 @@ last compaction boundary (what pi itself replays): pre-compaction history
 lives only inside the collapsible summary card, and the response reports
 `compacted` so the UI can tell "needs /compact" from "already compacted,
 file just stays large".
-fetches older turns on demand. **From a Pi session** copies a JSONL
-and creates a stopped agent (ADR-0021). The original TUI is not touched.
 
 Entry: the last icon in the desktop sidebar header opens Agent CLIs (`#/clis`)
 without changing the rail tab; user menu (Tools: Automations, llama.cpp,

@@ -142,16 +142,17 @@ HTTP API (Go 1.22 method patterns):
   unfiltered by ownership (unlike the per-agent picker, ADR-0039 — this
   view's job is to show everything). `POST /api/clis/pi/sessions/delete`
   `{path}` removes one orphan (in-use → 409, outside the pi root → 400);
-  `POST /api/clis/pi/sessions/adopt` `{path}` copies a JSONL and creates a
-  stopped agent (the old `/api/pi-sessions*` flow); `GET/PUT
+  `GET/PUT
   /api/clis/pi/sessions/cleanup` is the orphan auto-clean preference in
   days (0 = off, default) — the sweep runs at boot, daily, and after each
   change, and never deletes a session any agent is bound to *or has ever
   been* (the `agent_sessions` history, ADR-0040: an older but still
   chat-picker-resumable session is not swept just because it isn't the
   current one). Together these power the `#/clis/<cli>/sessions`
-  panes and the "From a Pi session" picker: Open with… reuses the resume
-  endpoint, Compact reuses the agent compact. The legacy routes
+  panes: Open with… reuses the resume
+  endpoint, Compact reuses the agent compact. Session adoption
+  (ADR-0021, "From a Pi session") was removed by ADR-0126 — agents are
+  born only from new sessions. The legacy routes
   (`/api/sessions/all`, `/api/pi-sessions*`, `/api/session-cleanup`,
   `/api/workspaces/{id}/sessions/manage`) were removed — one namespace
   per CLI.

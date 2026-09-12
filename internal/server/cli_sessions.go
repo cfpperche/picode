@@ -16,13 +16,13 @@ import (
 
 // registerCLISessionRoutes adds the per-CLI sessions surface (ADR-0079):
 // a read-only index for every catalog CLI, plus pi's management surface
-// (delete, adopt, auto-clean) scoped under /api/clis/pi. The legacy
+// (delete, auto-clean) scoped under /api/clis/pi. The legacy
 // /api/sessions/all, /api/pi-sessions* and /api/session-cleanup routes
-// were folded into these.
+// were folded into these. Session adoption (ADR-0021) was removed by
+// ADR-0126: agents are born only from new sessions.
 func registerCLISessionRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/clis/{cli}/sessions", handleCLISessions(deps))
 	mux.HandleFunc("POST /api/clis/{cli}/sessions/delete", handleCLIDeleteSession(deps))
-	mux.HandleFunc("POST /api/clis/{cli}/sessions/adopt", handleCLIAdoptSession(deps))
 	mux.HandleFunc("GET /api/clis/{cli}/sessions/cleanup", handleCLICleanupSetting(deps))
 	mux.HandleFunc("PUT /api/clis/{cli}/sessions/cleanup", handleCLICleanupSetting(deps))
 	registerCLIHandoffRoutes(mux, deps)
@@ -180,88 +180,6 @@ func handleCLIDeleteSession(deps Deps) http.HandlerFunc {
 		}
 		_ = deps.Store.AppendEvent("session_deleted", nil, nil, event)
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
-	}
-}
-
-// handleCLIAdoptSession turns one pi JSONL into a stopped agent:
-// POST /api/clis/{cli}/sessions/adopt {path}. Pi-only — other CLIs'
-// sessions have no PiCode agent representation.
-func handleCLIAdoptSession(deps Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		cli, ok := clilaunch.Find(r.PathValue("cli"))
-		if !ok {
-			writeErr(w, http.StatusNotFound, "Unknown CLI.")
-			return
-		}
-		if cli.ID != "pi" {
-			writeErr(w, http.StatusBadRequest, "only pi sessions can be adopted")
-			return
-		}
-		var req struct {
-			Path string `json:"path"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Path) == "" {
-			writeErr(w, http.StatusBadRequest, "path required")
-			return
-		}
-		src := strings.TrimSpace(req.Path)
-		if !session.UnderRoot(session.Root(), src) {
-			writeErr(w, http.StatusBadRequest, "session is not on this machine")
-			return
-		}
-		sum, err := session.Summarize(src)
-		if err != nil {
-			if os.IsNotExist(err) {
-				writeErr(w, http.StatusNotFound, "That session is gone.")
-				return
-			}
-			writeErr(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		cwd := strings.TrimSpace(sum.Cwd)
-		if cwd == "" {
-			writeErr(w, http.StatusBadRequest, "This session has no folder.")
-			return
-		}
-		copyPath, err := session.CopyFile(src)
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		name := strings.TrimSpace(sum.Name)
-		if name == "" {
-			name = strings.TrimSpace(sum.Preview)
-		}
-		if name == "" {
-			name = "Pi session"
-		}
-		if len([]rune(name)) > 60 {
-			r := []rune(name)
-			name = string(r[:60])
-		}
-		wsID, work := adoptHome(deps, cwd)
-		agent, err := deps.Store.AddAgent(wsID, name, work)
-		if err != nil {
-			_ = os.Remove(copyPath)
-			writeErr(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		patch := store.AgentPatch{SessionPath: &copyPath}
-		if sum.Provider != "" {
-			patch.Provider = &sum.Provider
-		}
-		if sum.Model != "" {
-			patch.Model = &sum.Model
-		}
-		if sum.Thinking != "" {
-			patch.Thinking = &sum.Thinking
-		}
-		agent, err = deps.Store.UpdateAgent(agent.ID, patch)
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		writeJSON(w, http.StatusCreated, agentView{Agent: agent, Mode: string(modeStopped)})
 	}
 }
 

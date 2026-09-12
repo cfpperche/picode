@@ -1,6 +1,6 @@
 # ADR-0021: Adopt a Pi session by copying it
 
-- **Status**: accepted
+- **Status**: superseded by ADR-0126 (feature removed 2026-09-12)
 - **Date**: 2026-08-29
 
 ## Context

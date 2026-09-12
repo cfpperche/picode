@@ -113,19 +113,16 @@ func TestCLISessionsEndpointDecisionTable(t *testing.T) {
 	}
 }
 
-// Pi-only guards: the delete/adopt/cleanup actions refuse every other CLI —
-// other CLIs' session files are never written, deleted or adopted by PiCode.
+// Pi-only guards: the delete/cleanup actions refuse every other CLI —
+// other CLIs' session files are never written or deleted by PiCode.
 func TestCLISessionsPiOnlyGuards(t *testing.T) {
 	ts, _, _ := cleanupServer(t)
 	for _, row := range []struct{ method, path string }{
 		{http.MethodPost, "/api/clis/claude-code/sessions/delete"},
-		{http.MethodPost, "/api/clis/claude-code/sessions/adopt"},
 		{http.MethodPut, "/api/clis/claude-code/sessions/cleanup"},
 		{http.MethodGet, "/api/clis/claude-code/sessions/cleanup"},
 		{http.MethodPost, "/api/clis/hermes/sessions/delete"},
-		{http.MethodPost, "/api/clis/hermes/sessions/adopt"},
 		{http.MethodPost, "/api/clis/opencode/sessions/delete"},
-		{http.MethodPost, "/api/clis/opencode/sessions/adopt"},
 	} {
 		res := postJSONMethod(t, ts, row.method, row.path, map[string]any{"path": "x", "days": 1})
 		if res.StatusCode != http.StatusBadRequest {

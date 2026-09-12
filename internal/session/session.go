@@ -4,11 +4,9 @@ package session
 import (
 	"bufio"
 	"encoding/json"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -201,31 +199,6 @@ func UnderRoot(root, path string) bool {
 		return false
 	}
 	return strings.HasSuffix(abs, ".jsonl")
-}
-
-// CopyFile writes a new JSONL next to src. The original file is not touched.
-func CopyFile(src string) (string, error) {
-	src, err := filepath.Abs(src)
-	if err != nil {
-		return "", err
-	}
-	in, err := os.Open(src)
-	if err != nil {
-		return "", err
-	}
-	defer in.Close()
-	name := time.Now().UTC().Format("2006-01-02T15-04-05") + "_adopt_" + strconv.FormatInt(time.Now().UnixNano()%1e9, 36) + ".jsonl"
-	dst := filepath.Join(filepath.Dir(src), name)
-	out, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
-	if err != nil {
-		return "", err
-	}
-	defer out.Close()
-	if _, err := io.Copy(out, in); err != nil {
-		_ = os.Remove(dst)
-		return "", err
-	}
-	return dst, nil
 }
 
 // Summarize reads a JSONL session file.

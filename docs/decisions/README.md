@@ -25,7 +25,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0018](0018-systemd-user-install.md) | `picode install` — systemd user unit, not Windows | superseded by 0020 |
 | [0019](0019-terminal-file-tabs.md) | Ctrl+click a path in the terminal → editor tab | accepted, explorer refusal amended by 0030 |
 | [0020](0020-desktop-provisions-wsl.md) | PiCode Desktop — Windows provisions the distro | accepted |
-| [0021](0021-adopt-pi-session.md) | Adopt a Pi session by copying the JSONL | accepted |
+| [0021](0021-adopt-pi-session.md) | Adopt a Pi session by copying the JSONL | superseded by [0126](0126-remove-session-adopt.md) |
 | [0022](0022-git-graph-per-repository.md) | Git graph per repository — read-only, opened from any cwd | accepted, clone exception carved by 0034, amended by 0038; write refusal amended by 0078 for the Inspector's Git actions (user's shell, behind an interlock) |
 | [0023](0023-built-ui-is-not-committed.md) | Built UI is not committed; embedding moves behind a build tag | accepted |
 | [0024](0024-terminal-settings.md) | Terminal settings — global defaults, per-terminal overrides, user presets | accepted, amended in part by 0025 |
@@ -130,3 +130,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0123](0123-derived-handoff-board.md) | The handoff board is derived, not written — in flight from git, next up and debts from `docs/handoff/open/<topic>.md` and the session notes, generated and git-ignored | accepted, supersedes the board clauses of 0086/0105 |
 | [0124](0124-close-gate-cache.md) | `make close` reuses a green run when the merge could not have changed what it covered (per-path blob hashes, not names) | accepted, amends 0105 |
 | [0125](0125-llms-generated.md) | llms.txt is generated where it is served (make docs, make deploy) and no longer committed; openapi.json stays versioned because the site renders it | accepted |
+| [0126](0126-remove-session-adopt.md) | Remove session adoption — agents are born only from new sessions | accepted |

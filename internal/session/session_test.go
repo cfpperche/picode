@@ -54,7 +54,7 @@ func TestAgentDir(t *testing.T) {
 	}
 }
 
-func TestListRootAndCopy(t *testing.T) {
+func TestListRoot(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "--tmp--")
 	if err := os.Mkdir(dir, 0o755); err != nil {
@@ -69,21 +69,6 @@ func TestListRootAndCopy(t *testing.T) {
 	list, err := ListRoot(root)
 	if err != nil || len(list) != 1 || list[0].Cwd != "/tmp" {
 		t.Fatalf("list=%+v %v", list, err)
-	}
-	dst, err := CopyFile(src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if dst == src {
-		t.Fatal("copy overwrote source")
-	}
-	got, err := os.ReadFile(dst)
-	if err != nil || string(got) != body {
-		t.Fatalf("copy bytes: %s %v", got, err)
-	}
-	orig, _ := os.ReadFile(src)
-	if string(orig) != body {
-		t.Fatal("source changed")
 	}
 	if UnderRoot(root, "/etc/passwd") {
 		t.Fatal("etc")
