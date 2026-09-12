@@ -6,7 +6,6 @@
 
 `git worktree list` is the truth for in-flight branches; entries say what a merge must know.
 
-- `feat/communication-recovery` — recovery hardening; scoped CI and visual PASS; native rerun and main integration pending.
 - `feat/desktop-v2-mgmt` — ADR-0120 Phase 2; plan `docs/plans/desktop-v2.md`; unmerged (3b508afd).
 - `feat/herdr-validation`, `feat/picode-video-pilot` — pre-ADR-0105 `CHANGELOG.md` + 12 KB handoff; on merge keep this shape, changelog to `docs/changelog.d/`.
 - `feat/providers-density` — Providers density polish; unmerged (d44c8d2b).
@@ -33,7 +32,7 @@
 - Process (ADR-0105): worktrees start with a cold Go test cache; `.pi/compact.json` `atPercent 0.5` never fires for large-window models (peaks 379 K); capture tolerance is 128 px.
 - Communication: physical-mobile/non-Linux recovery and custom Codex resume args/`--` unverified. PTY check-to-write race remains; uncertain attempts never auto-retry. Deleted owners can leave private setup files.
 - Codex resume: sub-agent hook payload never captured (names from the 0.154 roster); a sub-agent pin persists until that terminal next session.
-- Communication onboarding (ADR-0110/0111): first native event required; six-CLI rerun and wrapped OpenCode footers pending. Partial rows 5/9/12 in `docs/plans/communication-onboarding.md`: moved-owner consent, adapter repair, child timeout.
+- Communication onboarding: first native event required. Pi OAuth/adapter and OpenCode Z.AI balance/wrapped footer block full transport acceptance (2026-09-12). Partial rows 5/9/12 in `docs/plans/communication-onboarding.md`: consent, adapter repair, child timeout.
 - Native packages/providers/settings: real downloads, vendor OAuth, credential changes, device acceptance, physical iPhone/PWA/IME and a real process restart remain external; mobile package configuration is desktop-only (`docs/plans/cli-native-packages.md`).
 - Inbox terminal replies: pi-inbox 0.1.x items (`pi (unmanaged)`) have no address until each pi session updates; daemon death between park and JSONL row is accepted.
 - Hermes: `cli-v1-*` screenshots not regenerated; may write `shell-hooks-allowlist.json`.

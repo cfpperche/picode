@@ -149,3 +149,45 @@ cleared only that task-owned pointer before starting a fresh check. This records
 intermittent guarded delivery; the failing guard was not captured, and the
 uncertain check is not a successful exchange. The later eight passed diagnostics
 do not change its result or the four expired results.
+
+
+## Current-build validation — 2026-09-12
+
+The branch was merged with current main before reviewing recorder failure handling
+and CLI identity isolation. Full `make ci-scoped` and `make close` passed; the six
+follow-up decision rows have regressions. Native launch tests overlay inherited
+Codex context and a parent connection for Codex, Grok and Hermes; missing own
+identity and conflicting IDs remain refused.
+
+Scratch `localhost:8472` used six real native TUIs in its own HOME/project. After
+an abrupt daemon stop, all six native identities and Idle states recovered by
+**0.405 seconds after healthy**, following 0.709 seconds of startup (1.114 seconds
+total). Every native PID, process-start token, run and session stayed identical.
+The unsent Codex draft remained intact. This is six-CLI state recovery, not six-CLI
+communication acceptance: four participants connected; Pi required adapter
+reconnection and its OAuth refresh returned `invalid_grant`, while OpenCode's
+Z.AI GLM-5.3-Flash lacked balance and its long footer/draft guard blocked input.
+
+After the inherited CLI marker fix, two native exchanges completed:
+
+| Exchange | Passed check |
+|---|---|
+| Claude Code → Hermes | `check_422BO4WAJ5WQOXGBI7QHDXL4MA` |
+| Grok → Codex | `check_U6QMXK573CISZIGGZRTEKJX6PM` |
+
+Read-only receipt inspection independently confirmed matching `reply_to` IDs and
+ACK timestamps on both messages of each pair. The earlier Codex → Hermes check
+expired before the marker fix and remains a failure. September 10's eight passed
+checks are historical; these two checks are the current-build transport evidence.
+Root evidence: `var/qa/communication-recovery-20260912/`, including
+`restart-1789221371.json` and `message-receipts.json`.
+
+Desktop light/dark and mobile screenshots passed fresh visual review, including
+recording failure, terminal controls, selection retention and confirmation
+states; both overlay audits passed. Screenshots remain under
+`var/screenshots/communication-recovery-20260912/` in the root checkout. The six
+exact fixture terminals and scratch daemon were stopped; orphan cleanup was
+restricted to processes with the verified scratch HOME. Main integration/full CI
+follows branch close. No deployment was performed. Physical-mobile and non-Linux
+runtime acceptance, Pi/OpenCode transport reruns, and the documented PTY
+check-to-write race remain limitations.
