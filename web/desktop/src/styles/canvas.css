@@ -52,11 +52,13 @@
    outside a flush segment would be eaten by `overflow: hidden`. */
 .cv-cluster > *:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
-/* The dock: centred on the bottom edge, the groups laid out in a row with a
-   real gap between them. The gap **is** the separator (shadcn's rule: an
-   outlined group carries its own border, so a rule between two of them would
-   be a third line saying nothing) — and it is what tells a reader that the
-   camera is not one more canvas action.
+/* The dock: centred on the bottom edge. It held two groups with a gap until
+   the owner joined them (2026-09-12) — one instrument rather than two, with
+   the row in the order of use: which canvas, one more panel, how you are
+   looking at it, and the `⋯` menu last, because a menu is a toolbar's
+   overflow and not a peer of the buttons in it. The dock stays a flex row
+   with a gap: it is what a second group would need, and it costs nothing
+   with one.
 
    `left: 50%` + `translateX(-50%)` rather than `inset-inline: 0` with
    `justify-content: center`, because a full-width band would sit over the
@@ -75,26 +77,43 @@
    ellipsizes and the two buttons keep their whole hit area — never the other
    way round.
 
-   Two shapes, one box (2026-09-11). With two or more canvases it is the
-   native `<select>`; with exactly one it is a **label**, because a menu whose
-   only option is the one already chosen offers nothing. `.cv-switch` is what
-   they share, and the 104 px floor is why the cluster does not resize when a
-   second canvas appears: a short name sits on the floor in both shapes, so
-   the row is pixel-identical either way. */
+   The box is 104 px at its floor and 240 px at its ceiling, and in between a
+   native `<select>` sizes to its **longest option**, not its selected one —
+   measured: one canvas named `aaa` is 104 px, and adding a second with a
+   long name takes the same box to 240. So the dock does re-centre when the
+   canvas *list* changes. That is a deliberate act — creating, renaming or
+   deleting a canvas — and never happens between two clicks on the same
+   button, which is the invariant a centred dock actually needs. The floor and
+   the ceiling are what keep it from being worse than that.
+
+   One shape, always (owner, 2026-09-12): the native `<select>`, even on a
+   single canvas. It wore a plain label there for a day, which on a row of
+   otherwise identical segments was indistinguishable from a disabled
+   control — and the one-canvas reader is exactly the one who has not learnt
+   that canvases are plural.
+
+   The segment is the box; the icon and the select are its contents. The
+   select carries no ground, no border and no height of its own, so the seams
+   and the focus ring stay the cluster's. */
 .cv-cluster > .cv-switch {
   flex: 0 1 auto; min-width: 104px; max-width: 240px; padding: 0 10px;
-  justify-content: flex-start;
+  gap: 7px; justify-content: flex-start;
   color: var(--text-primary); font-size: 12.5px;
+  overflow: hidden; cursor: default;
+}
+.cv-switch-icon { flex: none; color: var(--text-secondary); }
+.cv-cluster > .cv-switch:hover .cv-switch-icon { color: var(--text-primary); }
+.cv-cluster > .cv-switch > .cv-select {
+  flex: 1 1 auto; min-width: 0; height: 100%;
+  padding: 0 20px 0 0; border: 0; background: transparent;
+  color: inherit; font: inherit; cursor: pointer;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-/* Only the select reserves room for a chevron; the label has none to draw. */
-.cv-cluster > .cv-select { padding-right: 26px; }
-/* A label is not a control: `text-overflow` needs a block box rather than the
-   cluster's inline-flex, the line centres on the control height, and it drops
-   both the pointer and the hover the segments share — a highlight under the
-   cursor is a promise of a click. */
-.cv-cluster > .cv-switch-one { display: block; line-height: var(--ctl-h); cursor: default; }
-.cv-cluster > .cv-switch-one:hover { background: transparent; color: var(--text-primary); }
+/* The ring belongs to the segment, not to the bare select inside it: an
+   outline on the select would be drawn inside the padding and read as a
+   second box. */
+.cv-cluster > .cv-switch:focus-within { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cv-cluster > .cv-switch > .cv-select:focus-visible { outline: none; }
 .cv-menu-btn { padding: 0 8px; }
 
 /* The ⋯ menu's Background submenu. The rows reuse .ws-row-menu-item, so a
@@ -621,18 +640,6 @@
   font-variant-numeric: tabular-nums; color: var(--text-primary);
 }
 .cv-cluster > .cv-tb-icon { min-width: 34px; }
-
-/* The one filled segment. It carries its own hover rather than the group's,
-   and it keeps the accent's foreground on focus so the ring reads against
-   the fill and not through it. */
-.cv-cluster > .cv-tb-primary {
-  background: var(--accent); color: #fff;
-}
-.cv-cluster > .cv-tb-primary:hover { background: var(--accent-strong, var(--accent)); color: #fff; filter: brightness(1.08); }
-.cv-cluster > .cv-tb-primary:focus-visible { outline-color: var(--bg-elevated); }
-/* The seam beside a filled segment would draw a hairline over the accent;
-   the fill is its own edge. */
-.cv-cluster > .cv-tb-primary + * { border-left-color: transparent; }
 
 /* The pointer layer (plan §4.3). Between 0.8 and 1.5 a pane renders and takes
    keys perfectly, but xterm maps a click as `cell × zoom` under the plane's

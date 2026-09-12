@@ -104,6 +104,12 @@
       }
       .field input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
       .hint { color: var(--text-secondary); font-size: 12px; }
+      .cfg-section { margin: 1.1rem 0 .2rem; font: 600 13px var(--mono); color: var(--text-secondary); letter-spacing: .04em; }
+      .field select {
+        font: inherit; height: var(--ctl-h); padding: 0 .4rem; border-radius: var(--radius-ctl);
+        border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); width: 11rem;
+      }
+      .field b { color: var(--text-primary); }
       footer { margin-top: 1.25rem; color: var(--text-secondary); font-size: 12px; }
       code { background: var(--bg-hover); padding: .1rem .3rem; border-radius: 4px; }
     </style>
@@ -168,11 +174,8 @@
     </section>
 
     <section class="tab" id="tab-config">
-      <p class="hint">The WSL settings file (<span id="config-path"></span>). A save backs it up to <code>.wslconfig.bak</code> first; unknown keys stay untouched. Changes apply at the next full WSL restart.</p>
-      <div class="field"><label for="cfg-memory">Memory</label><input type="text" id="cfg-memory" placeholder="e.g. 8GB" novalidate><span class="hint">RAM WSL may use</span></div>
-      <div class="field"><label for="cfg-processors">Processors</label><input type="text" id="cfg-processors" placeholder="e.g. 4" novalidate><span class="hint">CPU cores</span></div>
-      <div class="field"><label for="cfg-swap">Swap</label><input type="text" id="cfg-swap" placeholder="e.g. 2GB, auto, or empty" novalidate><span class="hint">empty = WSL default</span></div>
-      <div class="field"><label for="cfg-sparse">Sparse disk file</label><input type="checkbox" id="cfg-sparse"><span class="hint">freed space returns automatically (new disks)</span></div>
+      <p class="hint">The WSL settings file (<span id="config-path"></span>). A save backs it up to <code>.wslconfig.bak</code> first; keys this window does not know stay untouched. Every choice left on "default" is removed from the file so WSL's own default applies. Changes apply at the next full WSL restart.</p>
+      <div id="config-form"></div>
       <p><button id="config-save" class="primary">Save</button> <span id="config-outcome"></span></p>
     </section>
 
@@ -181,6 +184,9 @@
     <script>
       const { invoke } = window.__TAURI__.core;
       const { listen } = window.__TAURI__.event;
+      // Tauri 2 hands typed commands back as objects and string commands as
+      // strings; accept both instead of guessing at the command list.
+      const asData = (v) => (typeof v === 'string' ? JSON.parse(v) : v);
       let running = false;
       // Live steps from the compact subprocess: one event per stage, shown
       // in the state line while the buttons stay locked.
@@ -214,7 +220,7 @@
         setState('Measuring — one df, two du, a few Windows reads…', true);
         el('outcome').innerHTML = '';
         try {
-          const rep = JSON.parse(await invoke('disk_report'));
+          const rep = asData(await invoke('disk_report'));
           const w = rep.windows || {}, d = rep.distro || {};
           el('w-free').textContent = w.freeBytes != null ? gb(w.freeBytes) : '—';
           el('w-alloc').textContent = w.allocatedBytes != null ? gb(w.allocatedBytes) : '—';
@@ -244,7 +250,7 @@
         running = true;
         setState('Compacting — Ubuntu is stopping, converting, starting again. This takes minutes…', true);
         try {
-          renderOutcome(JSON.parse(await invoke('disk_compact')));
+          renderOutcome(asData(await invoke('disk_compact')));
         } catch (e) {
           el('outcome').innerHTML = `<p class="err">${e}</p>`;
         }
@@ -294,7 +300,7 @@
         el('clean-state').textContent = 'Measuring caches — two sweeps of the home dir…';
         el('clean-run').disabled = true;
         try {
-          const list = JSON.parse(await invoke('clean_list'));
+          const list = asData(await invoke('clean_list'));
           renderCleanList(list.consumers || []);
           el('clean-state').textContent = list.consumers && list.consumers.length
             ? '' : 'Nothing prunable is installed here.';
@@ -312,7 +318,7 @@
         updateCleanButtons();
         el('clean-state').textContent = 'Cleaning…';
         try {
-          const out = JSON.parse(await invoke('clean_apply', { ids: [...cleanSelection] }));
+          const out = asData(await invoke('clean_apply', { ids: [...cleanSelection] }));
           el('clean-outcome').innerHTML =
             `<p class="ok">Freed ≈${gb(out.totalFreed)}.</p>` +
             out.results.map(r => `<div class="hint">${esc(r.id)}: ${gb(r.freed)}${r.error ? ' — failed: ' + esc(r.error) : ''}</div>`).join('');
@@ -330,52 +336,109 @@
       el('clean-run').addEventListener('click', runClean);
 
       // ---- config tab -----------------------------------------------------
+      // The settings the window owns, straight from Microsoft's documented
+      // .wslconfig table (learn.microsoft.com windows/wsl/wsl-config).
+      // `hint` is what the setting does in one line; `def` is WSL's default.
+      const WSL_SETTINGS = [
+        { section: 'wsl2', key: 'memory', type: 'size', hint: 'RAM the WSL 2 VM may use', def: '50% of Windows memory' },
+        { section: 'wsl2', key: 'processors', type: 'number', hint: 'logical CPUs for the VM', def: 'all' },
+        { section: 'wsl2', key: 'swap', type: 'size', hint: 'disk-backed RAM when memory runs out; 0 disables', def: '25% of memory' },
+        { section: 'wsl2', key: 'swapFile', type: 'text', hint: 'where the swap disk lives', def: '%Temp%\\swap.vhdx' },
+        { section: 'wsl2', key: 'pageReporting', type: 'bool', hint: 'give unused memory back to Windows', def: 'true' },
+        { section: 'wsl2', key: 'localhostForwarding', type: 'bool', hint: 'reach distro ports via localhost on Windows', def: 'true' },
+        { section: 'wsl2', key: 'defaultVhdSize', type: 'size', hint: 'max size of a new distro disk file', def: '1TB' },
+        { section: 'wsl2', key: 'nestedVirtualization', type: 'bool', hint: 'run VMs inside the VM', def: 'true' },
+        { section: 'wsl2', key: 'guiApplications', type: 'bool', hint: 'Linux GUI apps (WSLg)', def: 'true' },
+        { section: 'wsl2', key: 'debugConsole', type: 'bool', hint: 'console window with dmesg output', def: 'false' },
+        { section: 'wsl2', key: 'maxCrashDumpCount', type: 'number', hint: 'crash dumps kept', def: '10' },
+        { section: 'wsl2', key: 'vmIdleTimeout', type: 'number', hint: 'ms of idleness before the VM shuts down', def: '60000' },
+        { section: 'wsl2', key: 'safeMode', type: 'bool', hint: 'recover a broken WSL; most features off (Win11)', def: 'false' },
+        { section: 'wsl2', key: 'networkingMode', type: 'enum', values: ['nat', 'mirrored', 'virtioproxy', 'none'], hint: 'how the VM reaches the network', def: 'nat' },
+        { section: 'wsl2', key: 'firewall', type: 'bool', hint: 'Windows Firewall filters WSL traffic', def: 'true' },
+        { section: 'wsl2', key: 'dnsTunneling', type: 'bool', hint: 'DNS requests tunneled to Windows', def: 'true' },
+        { section: 'wsl2', key: 'dnsProxy', type: 'bool', hint: 'DNS server points at the NAT (NAT mode)', def: 'true' },
+        { section: 'wsl2', key: 'autoProxy', type: 'bool', hint: 'use the Windows HTTP proxy', def: 'true' },
+        { section: 'wsl2', key: 'kernel', type: 'text', hint: 'custom Linux kernel path', def: 'the inbox kernel' },
+        { section: 'wsl2', key: 'kernelModules', type: 'text', hint: 'custom kernel modules VHD path', def: 'inbox modules' },
+        { section: 'wsl2', key: 'kernelCommandLine', type: 'text', hint: 'extra kernel boot arguments', def: 'none' },
+        { section: 'experimental', key: 'autoMemoryReclaim', type: 'enum', values: ['disabled', 'gradual', 'dropCache'], hint: 'return cached memory to Windows', def: 'dropCache' },
+        { section: 'experimental', key: 'sparseVhd', type: 'bool', hint: 'new disk files return freed space automatically', def: 'false' },
+        { section: 'experimental', key: 'hostAddressLoopback', type: 'bool', hint: 'reach the host by its IP (mirrored mode)', def: 'false' },
+        { section: 'experimental', key: 'bestEffortDnsParsing', type: 'bool', hint: 'tolerate odd DNS questions (tunneling on)', def: 'false' },
+        { section: 'experimental', key: 'dnsTunnelingIpAddress', type: 'text', hint: 'nameserver used while tunneling', def: '10.255.255.254' },
+        { section: 'experimental', key: 'initialAutoProxyTimeout', type: 'number', hint: 'ms to wait for proxy info at boot', def: '1000' },
+        { section: 'experimental', key: 'ignoredPorts', type: 'text', hint: 'ports Linux may bind even if Windows uses them (mirrored mode), comma-separated', def: 'none' },
+      ].filter(x => !x.skip);
+
+      function renderConfig(values, rawPath) {
+        el('config-path').textContent = rawPath;
+        const host = el('config-form');
+        host.innerHTML = '';
+        let lastSection = '';
+        for (const st of WSL_SETTINGS) {
+          if (st.section !== lastSection) {
+            lastSection = st.section;
+            const h = document.createElement('h3');
+            h.className = 'cfg-section';
+            h.textContent = '[' + st.section + ']';
+            host.appendChild(h);
+          }
+          const found = values.find(v => v.key === st.key);
+          const cur = found && found.value != null ? found.value : '';
+          const row = document.createElement('div');
+          row.className = 'field';
+          const id = 'cfg-' + st.key;
+          let input;
+          if (st.type === 'bool') {
+            input = `<select id="${id}">
+              <option value="">default</option>
+              <option value="true" ${cur === 'true' ? 'selected' : ''}>on</option>
+              <option value="false" ${cur === 'false' ? 'selected' : ''}>off</option>
+            </select>`;
+          } else if (st.type === 'enum') {
+            input = `<select id="${id}">
+              <option value="">default</option>
+              ${st.values.map(v => `<option value="${v}" ${cur === v ? 'selected' : ''}>${v}</option>`).join('')}
+            </select>`;
+          } else {
+            const ph = st.type === 'size' ? 'e.g. 8GB' : st.type === 'number' ? 'e.g. 4' : '';
+            input = `<input type="text" id="${id}" value="${esc(cur)}" placeholder="${ph}" autocomplete="off">`;
+          }
+          row.innerHTML = `<label for="${id}">${esc(st.key)}</label>${input}` +
+            `<span class="hint">${esc(st.hint)} — default: ${esc(st.def)}${cur !== '' ? ' · <b>set: ' + esc(cur) + '</b>' : ''}</span>`;
+          host.appendChild(row);
+        }
+      }
+
       async function loadConfig() {
         try {
-          const c = JSON.parse(await invoke('wslconfig_read'));
-          el('config-path').textContent = c.path;
-          el('cfg-memory').value = c.memory || '';
-          el('cfg-processors').value = c.processors || '';
-          el('cfg-swap').value = c.swap || '';
-          el('cfg-sparse').checked = (c.sparseVhd || 'false') === 'true';
+          const c = asData(await invoke('wslconfig_read'));
+          renderConfig(c.values || [], c.path);
         } catch (e) {
           el('config-outcome').innerHTML = `<span class="err">${esc(String(e))}</span>`;
         }
       }
 
       async function saveConfig() {
-        const memory = el('cfg-memory').value.trim();
-        const processors = el('cfg-processors').value.trim();
-        const swap = el('cfg-swap').value.trim();
-        // No native validation — the same explicit messages everywhere.
-        const sizeOk = v => v === '' || /^(auto|\d+(\.\d+)?(kb|mb|gb|tb))$/i.test(v);
-        if (!sizeOk(memory)) { el('config-outcome').innerHTML = '<span class="err">memory: use a size like 8GB, or leave empty</span>'; return; }
-        if (!sizeOk(swap))   { el('config-outcome').innerHTML = '<span class="err">swap: use 2GB, auto, or leave empty</span>'; return; }
-        if (processors !== '' && (!/^\d+$/.test(processors) || parseInt(processors) === 0)) {
-          el('config-outcome').innerHTML = '<span class="err">processors: a whole number above 0, or leave empty</span>'; return;
+        const edits = [];
+        for (const st of WSL_SETTINGS) {
+          const input = el('cfg-' + st.key);
+          if (!input) continue;
+          edits.push({ section: st.section, key: st.key, value: input.value.trim() });
         }
-        if (!confirm('Save .wslconfig? The current file is backed up to .wslconfig.bak first.')) return;
+        if (!edits.length) return;
+        if (!confirm('Save .wslconfig? The current file is backed up to .wslconfig.bak first, and settings you removed here go back to the WSL defaults.')) return;
+        el('config-outcome').innerHTML = '';
         try {
-          const r = JSON.parse(await invoke('wslconfig_write', { memory, processors, swap, sparseVhd: el('cfg-sparse').checked }));
+          const r = asData(await invoke('wslconfig_write', { edits }));
           el('config-outcome').innerHTML = `<span class="ok">Saved — backup at ${esc(r.backup)}.</span>`;
+          await loadConfig();
         } catch (e) {
           el('config-outcome').innerHTML = `<span class="err">${esc(String(e))}</span>`;
         }
       }
 
       el('config-save').addEventListener('click', saveConfig);
-
-      // Window controls — the window is undecorated, the header is the bar.
-      {
-        const w = window.__TAURI__?.window?.getCurrentWindow?.();
-        if (w) {
-          el('win-min').addEventListener('click', () => w.minimize());
-          el('win-max').addEventListener('click', () => w.toggleMaximize());
-          el('win-close').addEventListener('click', () => w.close());
-        } else {
-          for (const id of ['win-min', 'win-max', 'win-close']) el(id).remove();
-        }
-      }
 
       el('refresh').addEventListener('click', refresh);
       el('giveback').addEventListener('click', giveBack);

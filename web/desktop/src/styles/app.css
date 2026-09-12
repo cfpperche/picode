@@ -5241,22 +5241,3 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .pin-remind-current.none { color: var(--text-secondary); }
 .pin-remind-current { color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .notice-face.is-pin { display: inline-flex; align-items: center; justify-content: center; color: var(--accent); }
-
-/* Shell window controls (ADR-0120): the desktop shell runs undecorated, so
-   the app owns the window buttons. Fixed to the window's top-right corner,
-   above every surface; the cluster's empty space drags the window. A
-   browser never sets __PICODE_SHELL__, so nothing renders there. */
-.shell-controls {
-  position: fixed; top: 0; right: 0; z-index: 9999;
-  display: flex; align-items: center; gap: 0;
-  height: 32px; padding: 0 2px;
-}
-.shell-btn {
-  width: 40px; height: 28px; margin: 0; padding: 0;
-  display: grid; place-items: center;
-  border: 0; border-radius: var(--radius-ctl); background: none;
-  color: var(--text-secondary); cursor: pointer;
-}
-.shell-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
-.shell-btn-close:hover { color: #fff; background: var(--danger); }
-.shell-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }

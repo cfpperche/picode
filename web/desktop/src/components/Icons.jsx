@@ -28,6 +28,7 @@ import {
   Folder,
   Link2,
   Lock,
+  Maximize,
   Maximize2,
   Minimize2,
   Folders,
@@ -156,6 +157,10 @@ export const IconWave = lucide(AudioLines, 16);
 export const IconSpeaker = lucide(Volume2, 16);
 export const IconSpeakerOff = lucide(VolumeX, 16);
 export const IconExpand = lucide(Maximize2, 14);
+// Fit-to-view: four corner brackets, the glyph React Flow's own Controls draw
+// for it (owner, 2026-09-12). Maximize2's diagonal arrows read as "make this
+// bigger"; the brackets read as "frame everything", which is what Fit does.
+export const IconFit = lucide(Maximize, 14);
 export const IconCollapse = lucide(Minimize2, 14);
 export const IconMaximize = lucide(Square, 12);
 export const IconRestore = lucide(Copy, 12);
