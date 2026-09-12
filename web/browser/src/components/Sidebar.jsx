@@ -33,10 +33,10 @@ export function WsFavicon({ ws }) {
 const SIDE_MIN = 180;
 const SIDE_MAX = 480;
 const SIDE_KEY = "picode-sidebar-w";
-const TAB_KEY = "picode-side-tab";
 
 export default function Sidebar({
   inShell = false,
+  tab, selectTab,
   workspaces, selectedId,
   onNew, onSelect, onRun, onStop, onRemove,
   userMenu, termView, onChat, onTerm,
@@ -63,17 +63,6 @@ export default function Sidebar({
     window.addEventListener(OPEN_EVENT, on);
     return () => window.removeEventListener(OPEN_EVENT, on);
   }, []);
-  const [tab, setTab] = useState(() => {
-    try {
-      const v = localStorage.getItem(TAB_KEY);
-      if (v === "pins" || v === "terms" || v === "agents" || v === "apps") return v;
-      return "workspaces";
-    } catch { return "workspaces"; }
-  });
-  function selectTab(next) {
-    setTab(next);
-    try { localStorage.setItem(TAB_KEY, next); } catch { /* ignore */ }
-  }
   useEffect(() => {
     const sync = () => {
       if (parseRoute() === "pins") selectTab("pins");

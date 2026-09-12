@@ -121,6 +121,20 @@ const NATIVE_APPS = nativeApps({ "demo-native": NativeDemoSurface, canvas: Canva
 const EMPTY_SUBJECTS = Object.freeze({});
 
 export default function App({ shellChrome = false } = {}) {
+  // The sidebar rail's active view — lifted here because the shell's merged
+  // top row renders the rail tabs too (the browser renders them inside the
+  // sidebar). Same storage key and fallbacks the sidebar always used.
+  const [sideTab, setSideTab] = useState(() => {
+    try {
+      const v = localStorage.getItem("picode-side-tab");
+      if (v === "pins" || v === "terms" || v === "agents" || v === "apps") return v;
+      return "workspaces";
+    } catch { return "workspaces"; }
+  });
+  const selectSideTab = (next) => {
+    setSideTab(next);
+    try { localStorage.setItem("picode-side-tab", next); } catch { /* ignore */ }
+  };
   const narrow = useMedia("(max-width: 767px)");
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [workspaces, setWorkspaces] = useState([]);
@@ -2697,7 +2711,7 @@ export default function App({ shellChrome = false } = {}) {
               <span className="shell-mark" data-tauri-drag-region>P</span>
               <span className="shell-name" data-tauri-drag-region>PiCode</span>
             </button>
-            <RailTabs tab={tab} selectTab={selectTab} apps={apps} pkgUpdates={pkgUpdates} onOpenClis={() => { go("clis"); setNavigationOpen(false); }} />
+            <RailTabs tab={sideTab} selectTab={selectSideTab} apps={apps} pkgUpdates={pkgUpdates} onOpenClis={() => { go("clis"); setNavigationOpen(false); }} />
           </div>
           {tabsStrip}
           <WindowControls />
@@ -2717,6 +2731,8 @@ export default function App({ shellChrome = false } = {}) {
       }}>
       <Sidebar
         inShell={shellChrome}
+        tab={sideTab}
+        selectTab={selectSideTab}
         workspaces={workspaces}
         selectedId={selectedId}
         onNew={() => { setFormKind("workspace"); setShowForm(true); }}
