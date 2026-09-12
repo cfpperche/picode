@@ -236,3 +236,16 @@ shortcut hints. Attention accepts that exact footer only with an empty bordered
 editor and no suggestion. Pasting dismisses welcome; the normal Enter shortcut
 and exact pointer remain mandatory before submission. Acceptance includes fresh
 native sessions without a preparatory model turn.
+
+Terminal Pi checks its empty native editor before claiming attention. An existing
+user draft therefore leaves the notification pending instead of consuming the
+attempt and reporting uncertainty; the receiver still checks again immediately
+before submission. Concurrent edits after the precheck retain the existing
+uncertainty/no-automatic-retry behavior.
+
+Claude's SessionStart identity is not proof that its conversation can be resumed.
+Before an enrollment restart, PiCode requires a root user/assistant message for
+that exact identity in the observed native transcript, and rechecks before stop.
+An unsaved first conversation stays running with setup pending. This bounded
+check reads at most 4 MiB (1 MiB per record); unavailable or unrecognized evidence
+never authorizes a restart. Native validation: [CLI matrix](../plans/cli-attention-matrix.md).

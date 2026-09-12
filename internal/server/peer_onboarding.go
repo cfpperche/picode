@@ -1,9 +1,12 @@
 package server
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -481,6 +484,9 @@ func applyPeerParticipant(ctx context.Context, deps Deps, p store.PeerParticipan
 	if e != nil || launch == nil || launch.LastSession == nil || launch.LastSession.SessionID != c.SessionKey {
 		return "error", "The saved conversation changed."
 	}
+	if c.CLI == "claude-code" && !peerClaudeResumable(rt.SessionPath, c.SessionKey) {
+		return "waiting", "Send the first message in this conversation to finish connecting."
+	}
 	resume := *launch
 	args := terminalResumeArgs(launch.LastSession)
 	resume.Overrides.Args = &args
@@ -493,6 +499,10 @@ func applyPeerParticipant(ctx context.Context, deps Deps, p store.PeerParticipan
 	snap, e := deps.Tmux.InputSnapshot(ctx, name)
 	if !ok || current.RunID != rt.RunID || current.PID != rt.PID || e != nil || snap.PaneID != before.PaneID || snap.PanePID != before.PanePID || !peerInputMatches(c.CLI, snap, "") || !peerConsentCurrent(deps, p, c.SessionKey) {
 		return "waiting", "The conversation changed; waiting to reconnect safely."
+	}
+
+	if c.CLI == "claude-code" && !peerClaudeResumable(current.SessionPath, c.SessionKey) {
+		return "waiting", "Send the first message in this conversation to finish connecting."
 	}
 
 	if e = stopPeerPane(ctx, deps, name, c.OwnerID, before.PanePID, rt); e != nil {
@@ -569,7 +579,7 @@ func reconcilePeerChecksAt(ctx context.Context, deps Deps, now time.Time) {
 		}
 		prompt := "PiCode: read messages and run the requested connection test."
 		if communication.NativeMessages(from.CLI) {
-			prompt = "PiCode: run picode messages read for the connection test."
+			prompt = "PiCode: run picode messages read; execute its connection_check."
 		}
 		call, cancel := context.WithTimeout(ctx, 3*time.Second)
 		attemptPeerText(call, deps, from, prompt, func() bool {
@@ -623,4 +633,50 @@ func currentPeerOwner(deps Deps, kind, id string) (store.PeerOwner, error) {
 		}
 	}
 	return store.PeerOwner{}, store.ErrNotFound
+}
+
+// SessionStart announces Claude's identity before it has saved a resumable
+// conversation. Enrollment must not stop that process just to add MCP setup.
+// Inspect only its exact observed transcript, never discover another session.
+func peerClaudeResumable(path, session string) bool {
+	if path == "" || session == "" {
+		return false
+	}
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	if info, err = f.Stat(); err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	scanner := bufio.NewScanner(io.LimitReader(f, 4<<20))
+	scanner.Buffer(make([]byte, 4096), 1<<20)
+	for scanner.Scan() {
+		var row struct {
+			Type      string `json:"type"`
+			Session   string `json:"sessionId"`
+			Sidechain bool   `json:"isSidechain"`
+			Meta      bool   `json:"isMeta"`
+			Message   struct {
+				Role    string          `json:"role"`
+				Content json.RawMessage `json:"content"`
+			} `json:"message"`
+		}
+		if json.Unmarshal(scanner.Bytes(), &row) == nil && row.Session == session && !row.Sidechain && !row.Meta && (row.Type == "user" || row.Type == "assistant") && row.Message.Role == row.Type {
+			var text string
+			var blocks []json.RawMessage
+			if json.Unmarshal(row.Message.Content, &text) == nil && text != "" {
+				return true
+			}
+			if json.Unmarshal(row.Message.Content, &blocks) == nil && len(blocks) > 0 {
+				return true
+			}
+		}
+	}
+	return false
 }

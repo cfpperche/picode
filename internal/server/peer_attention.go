@@ -416,6 +416,16 @@ func attemptPeerText(ctx context.Context, deps Deps, p store.PeerConnection, poi
 		if err != nil || session != rt.SessionPath {
 			return
 		}
+		// The receiver refuses drafts too, but claiming before that refusal
+		// would turn safely deferred attention into a non-retryable attempt.
+		snap, err := deps.Tmux.InputSnapshot(ctx, tmux.ShellSessionName(p.OwnerID))
+		if err != nil || !peerInputMatches("pi", snap, "") {
+			return
+		}
+		current, ready := peerLiveTerminal(deps, p)
+		if !ready || current.RunID != rt.RunID || current.PID != rt.PID {
+			return
+		}
 		if !claim() {
 			return
 		}
