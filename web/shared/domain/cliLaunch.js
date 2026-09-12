@@ -5,6 +5,18 @@ import { cliConnectorsLocation } from "./integrations.js";
 
 const CLI_PANES = new Set(["launch", "terminals", "sessions", "providers", "settings", "packages", "connectors"]);
 
+// Setup panes (Settings / Packages / Connectors) read identity from the
+// hash. When the hash has none, the selected sidebar pane is the fallback
+// so Agent CLIs → Packages still offers This workspace / This agent.
+export function cliPaneSetupContext(route = {}, legacy = {}) {
+  return {
+    workspaceId: route.workspaceId || legacy.workspaceId || "",
+    agentId: route.agentId || legacy.agentId || "",
+    scope: route.scope || "user",
+    focus: route.focus || "",
+  };
+}
+
 export function cliPaneHash(cli = "", pane = "launch", workspace = "") {
   if (!cli) return "#/clis";
   const id = encodeURIComponent(cli);

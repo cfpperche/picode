@@ -75,7 +75,6 @@ function PackagesTarget({ route, catalog, onUpdates, describe = false }) {
   const props = { embedded: true, hidden: false, workspaceId: workspace?.id || "", workspaceName: workspace?.name || "", workspacePath: workspace?.path || "", agentId: agent?.id || "", agentName: agent ? displayAgentName(agent, workspace) : "", beforeMutation, onUpdates: updates => { if (live.current) onUpdates(updates, workspace?.id || ""); } };
   return <>
     {notice}
-    {agent || workspace ? <p className="cli-settings-context">{agent ? <a href={"#/agent/" + encodeURIComponent(agent.id)}>Back to agent</a> : null}<a href={cliPackagesHash(route.id)}>Machine packages</a></p> : null}
     <fieldset className="cli-packages-fields" disabled={!!error}>
       {route.pkg && describe ? <PackageDescribe {...props} pkg={route.pkg} backHash={listHash} configHashFor={p => cliPackagesHash(route.id, { ...route, pkg: p })} /> :
         route.pkg ? (route.pkg === "pi-roles" ?

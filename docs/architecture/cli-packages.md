@@ -6,7 +6,10 @@ Packages is a pane of the selected CLI (`#/clis/<cli>/packages`) in each app.
 The shared `cliPackages` module parses canonical/legacy URLs, declares native
 package capabilities (Pi initially), and validates workspace/agent identities
 from the fleet APIs. Canonical URLs carry `workspaceId`, `agentId` and install
-`scope`; an unscoped URL means machine packages. Legacy `#/packages*`,
+`scope`; an unscoped URL means machine packages. Opening the pane from Agent
+CLIs while a sidebar agent is selected writes that identity onto the hash so
+the workspace/agent radios appear; an unscoped URL with nobody selected stays
+machine-only. Legacy `#/packages*`,
 `#/clis/packages*` and mobile `#/more/packages*` rewrite onto the pane. Missing or mismatched targets block editing instead of falling back.
 Context refresh failures retain the mounted package view and its draft, with
 writes blocked until retry succeeds. Each mutation revalidates its URL target,

@@ -74,7 +74,6 @@ function PackagesTarget({ route, catalog, onUpdates }) {
   const props = { embedded: true, hidden: false, workspaceId: workspace?.id || "", workspaceName: workspace?.name || "", workspacePath: workspace?.path || "", agentId: agent?.id || "", agentName: agent ? displayAgentName(agent, workspace) : "", beforeMutation, onUpdates: updates => { if (live.current) onUpdates(updates, workspace?.id || ""); } };
   return <>
     {notice}
-    {agent || workspace ? <p className="cli-settings-context">{agent ? <a href={"#/agent/" + encodeURIComponent(agent.id)}>Back to agent</a> : null}<a href={cliPackagesHash(route.id)}>Machine packages</a></p> : null}
     <fieldset className="cli-packages-fields" disabled={!!error}>
       {route.pkg ? <div className="cli-notice" role="status"><span>Package configuration is available in the desktop layout.</span><button type="button" className="btn btn-ghost btn-sm" onClick={() => setShell("desktop")}>Open desktop layout</button></div> : <Packages {...props} scope={route.scope} onScopeChange={scope => { location.hash = cliPackagesHash(route.id, { ...route, scope }); }} configHash={pkg => cliPackagesHash(route.id, { ...route, pkg })} />}
     </fieldset>

@@ -4,7 +4,11 @@ Extras for Pi (search, tools, themes). They run with **full access** — only in
 
 Canonical: [pi packages](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md).
 
-Open **Agent CLIs**, pick **Pi**, then the **Packages** pane. Pick a target and Install. **Installed** lists what each target has (Update when a newer version exists, Remove); **Marketplace** is the pi.dev gallery.
+Select the agent in the sidebar, then open **Agent CLIs** (header icon) and
+the **Packages** pane — or **Packages** from that agent's ⋯ menu. Pick a
+target and Install. **Installed** lists what each target has (Update when a
+newer version exists, Remove); **Marketplace** is the pi.dev gallery. Without
+an agent selected, only **This machine** is offered.
 
 | Target | Who gets it | How |
 |---|---|---|

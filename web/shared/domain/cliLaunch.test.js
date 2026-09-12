@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cliLocation, cliPaneHash, cliTerminals, launchDraft, launchConfig, resolveLaunch, launchOverrides, terminalLaunchCLI, defaultLaunchConfig, profileOverrides, editLaunchOverrides, cliWorkspaceList, launchChanged } from "./cliLaunch.js";
+import { cliLocation, cliPaneHash, cliPaneSetupContext, cliTerminals, launchDraft, launchConfig, resolveLaunch, launchOverrides, terminalLaunchCLI, defaultLaunchConfig, profileOverrides, editLaunchOverrides, cliWorkspaceList, launchChanged } from "./cliLaunch.js";
 import { cliLaunchSchema, parseForm } from "../contracts/schemas.js";
 
 test("CLI manager parses launch routes", () => {
@@ -39,6 +39,13 @@ test("a CLI page names its pane in the path (ADR-0079 amendment 2026-09-11)", ()
   assert.equal(cliLocation("#/clis/connectors").redirect, "#/clis/pi/connectors");
   assert.equal(cliLocation("#/clis/pi/settings/extra").invalid, true);
   assert.equal(cliLocation("#/clis/pi/connectors/extra").invalid, true);
+});
+
+test("setup panes fall back to the selected sidebar pane when the hash has no identity", () => {
+  const legacy = { workspaceId: "w", agentId: "a" };
+  assert.deepEqual(cliPaneSetupContext({ pane: "packages" }, legacy), { workspaceId: "w", agentId: "a", scope: "user", focus: "" });
+  assert.deepEqual(cliPaneSetupContext({ workspaceId: "x", agentId: "y", scope: "project", focus: "scoped-models" }, legacy), { workspaceId: "x", agentId: "y", scope: "project", focus: "scoped-models" });
+  assert.deepEqual(cliPaneSetupContext({}, {}), { workspaceId: "", agentId: "", scope: "user", focus: "" });
 });
 
 test("legacy package and settings hashes adopt pane context through cliLocation", () => {

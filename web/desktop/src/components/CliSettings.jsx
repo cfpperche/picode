@@ -56,7 +56,6 @@ function SettingsEditor({ route, catalog, onAgentConfig }) {
   };
   return <>
     {notice}
-    {context ? <p className="cli-settings-context"><a href={"#/agent/" + encodeURIComponent(context.agent.id)}>Back to agent</a><a href={cliSettingsHash(route.id)}>Global settings</a></p> : null}
     <Editor embedded disabled={!!error} hidden={false} agent={context?.agent} workspace={context?.workspace} catalog={catalog} focus={route.focus} onAgentConfig={saveAgent} />
   </>;
 }
