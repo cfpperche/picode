@@ -7,12 +7,22 @@ function theme() {
   return (typeof document !== "undefined" && document.documentElement.dataset.theme === "light") ? "light" : "dark";
 }
 
+// The shell root owns the visual viewport and the safe areas (ADR-0044):
+// a body portal is fixed to the layout viewport, which on iOS (viewport-fit
+// = cover, black-translucent) sits under the status bar and leaves the
+// home-indicator strip unpainted — the pad's header overlapped the clock
+// and the drawing area broke past the usable screen. #m-app is `position:
+// fixed` with overflow hidden, so an absolute child fills exactly the area
+// the shell already reserves.
+function portalRoot() {
+  return document.getElementById("m-app") || document.body;
+}
+
 // The attach composer's sketch pad (ADR-0089 prompt door). It borrows the
 // Excalidraw dependency, not the pin studio (owner decision, 2026-09-12):
 // no background picture, no pin tables, no scene kept anywhere but the
 // caller's memory — the artifact that leaves is the PNG. `initial` is the
-// scene of the chip being edited, if any. The sheet is a vaul dialog
-// (z-index 71), so this pad sits at z-index 90 in mobile CSS.
+// scene of the chip being edited, if any.
 export default function SketchEditor({ open, title, initial, confirmLabel, onSave, onClose }) {
   const apiRef = useRef(null);
   const [busy, setBusy] = useState(false);
@@ -20,10 +30,17 @@ export default function SketchEditor({ open, title, initial, confirmLabel, onSav
   if (!open) return null;
 
   // Excalidraw reads initialData on mount; the parent mounts this only for
-  // the open editor, so every open is a fresh scene.
+  // the open editor, so every open is a fresh scene. A phone opens the pad
+  // to draw, so the pen is the default tool (no toolbar tap first).
+  //
+  // The canvas is white in both themes: Excalidraw's dark theme inverts the
+  // bitmap (invert(.93) hue-rotate(180deg)), so a dark viewBackgroundColor
+  // came back as a light canvas under a dark UI — and the exported PNG
+  // carried that inverted paper. White keeps the export a plain sheet and
+  // lets the theme filter darken the screen.
   const seed = initial && initial.elements
-    ? initial
-    : { appState: { viewBackgroundColor: theme() === "dark" ? "#121212" : "#ffffff" } };
+    ? { ...initial, appState: { ...(initial.appState || {}), viewBackgroundColor: "#ffffff", activeTool: { type: "freedraw" } } }
+    : { appState: { viewBackgroundColor: "#ffffff", activeTool: { type: "freedraw" } } };
 
   async function save() {
     const api = apiRef.current;
@@ -50,7 +67,7 @@ export default function SketchEditor({ open, title, initial, confirmLabel, onSav
   }
 
   return createPortal(
-    <div className="sketch-editor">
+    <div className="sketch-editor" role="dialog" aria-modal="true" aria-label={title || "Sketch"}>
       <header className="sketch-editor-head">
         <h2>{title || "Sketch"}</h2>
         <div className="sketch-editor-actions">
@@ -67,6 +84,6 @@ export default function SketchEditor({ open, title, initial, confirmLabel, onSav
         />
       </div>
     </div>,
-    document.body,
+    portalRoot(),
   );
 }
