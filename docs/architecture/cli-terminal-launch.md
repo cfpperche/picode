@@ -147,3 +147,19 @@ before a browser attaches. Codex joins Grok/Hermes in per-tool message discovery
 (ADR-0111): launch preview and execution include the same credential-free client
 shim and discovery variables. Enabling an identified Codex conversation prepares
 private setup without replacing its process.
+
+The prompt door (ADR-0089) is the one place a user types into a CLI terminal.
+The attach composer opens on demand — the terminal's own context menu on the
+desktop (`Attach files…`), the header paperclip on the phone — and stages up
+to four attachments (4 MB each) under `<cwd>/.picode/drop/` before
+`POST /api/terminals/{id}/prompt` pastes one bracketed message. Its message
+field is a textarea one control height tall that grows to four lines and then
+scrolls (`web/shared/domain/attachText.js`): on the desktop Enter sends and
+Shift+Enter keeps the newline; on a phone Enter is the newline key (a soft
+keyboard has no Shift) and Send or Ctrl/⌘+Enter submits. A **Sketch** button
+opens `SketchEditor.jsx` (one copy per shell) — an Excalidraw pad that borrows
+the dependency, not the pin studio: no background picture, no pin tables, no
+stored scene. The drawing leaves as `sketch.png` through the same drop route,
+and its chip reopens for editing (the scene lives in the composer's memory)
+until Send. The mobile sheet unmounts while the pad is open, because vaul
+treats a pointerdown outside the dialog as a dismiss.
