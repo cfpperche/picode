@@ -60,15 +60,22 @@ export function hasUnseenRelease({ release = false, current = "", seen = "", ent
   return !!release && selectReleaseNotes(entries, current, seen).length > 0;
 }
 
+// A stamped build auto-opens once per browser, unless something else needs
+// the reader first. ADR-0063 shipped a second gate — at least one workspace,
+// agent or terminal had to exist — and its 2026-09-11 amendment removed it:
+// a fresh install is exactly the reader who has never seen any of this, and
+// the 0.2.0 verification read the silence as a broken surface. What still
+// protects a first run is `blocked`, which is every other defer condition the
+// shell computes: another modal, a recovering connection, a waiting agent, an
+// Inbox badge, an active create or share flow.
 export function shouldAutoOpen({
   release = false,
   current = "",
   seen = "",
   entries = [],
-  hasProductState = true,
   blocked = false,
 } = {}) {
-  if (!release || !hasProductState || blocked) return false;
+  if (!release || blocked) return false;
   return hasUnseenRelease({ release, current, seen, entries });
 }
 

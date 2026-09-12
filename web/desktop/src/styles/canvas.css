@@ -47,15 +47,31 @@
 
 /* Top-left: which canvas, one more panel, and everything else. */
 .cv-chrome { top: 12px; left: 12px; }
-/* The one child that gives way. The cluster clips what does not fit, so on
-   a surface too narrow for a long canvas name the name ellipsizes and the
-   two buttons keep their whole hit area — never the other way round. */
-.cv-cluster > .cv-select {
-  flex: 0 1 auto; min-width: 84px; max-width: 240px; padding: 0 26px 0 10px;
+/* The switcher: the one child that gives way. The cluster clips what does
+   not fit, so on a surface too narrow for a long canvas name the name
+   ellipsizes and the two buttons keep their whole hit area — never the other
+   way round.
+
+   Two shapes, one box (2026-09-11). With two or more canvases it is the
+   native `<select>`; with exactly one it is a **label**, because a menu whose
+   only option is the one already chosen offers nothing. `.cv-switch` is what
+   they share, and the 104 px floor is why the cluster does not resize when a
+   second canvas appears: a short name sits on the floor in both shapes, so
+   the row is pixel-identical either way. */
+.cv-cluster > .cv-switch {
+  flex: 0 1 auto; min-width: 104px; max-width: 240px; padding: 0 10px;
   justify-content: flex-start;
   color: var(--text-primary); font-size: 12.5px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* Only the select reserves room for a chevron; the label has none to draw. */
+.cv-cluster > .cv-select { padding-right: 26px; }
+/* A label is not a control: `text-overflow` needs a block box rather than the
+   cluster's inline-flex, the line centres on the control height, and it drops
+   both the pointer and the hover the segments share — a highlight under the
+   cursor is a promise of a click. */
+.cv-cluster > .cv-switch-one { display: block; line-height: var(--ctl-h); cursor: default; }
+.cv-cluster > .cv-switch-one:hover { background: transparent; color: var(--text-primary); }
 .cv-menu-btn { padding: 0 8px; }
 
 /* The ⋯ menu's Background submenu. The rows reuse .ws-row-menu-item, so a
@@ -236,9 +252,11 @@
 .cv-stage { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
 /* The stage is the whole surface now, so everything the surface can show
    lives in it: the plane, and — while there is no plane yet — the skeleton,
-   the error line and the empty state. Those three are real layout under a
-   cluster that is not, so when the cluster is there they start below it
-   instead of behind it. The centred empty state needs no offset. */
+   the error line and the *No canvas yet* state. Those three are real layout
+   under a cluster that is not, so when the cluster is there they start below
+   it instead of behind it; the last of them draws no cluster at all (there is
+   nothing to switch), so it needs no offset. The **empty canvas** is not here
+   — it is `.cv-blank`, a layer on the plane itself. */
 .cv-stage.has-chrome > .ft-msg, .cv-stage.has-chrome > .cv-skel { padding-top: calc(var(--ctl-h) + 20px); }
 .cv-surface.is-max .cv-body { overflow: hidden; }
 .cv-max {
@@ -291,6 +309,30 @@
    --------------------------------------------------------------------------- */
 
 .cv-body.is-canvas { padding: 0; overflow: hidden; }
+
+/* An empty canvas: one line and one action, in the middle of the plane
+   (2026-09-11). The plane stays the plane behind it — the reader's chosen
+   ground, the minimap and the zoom cluster are all still there — so the layer
+   is pointer-transparent apart from the card, and it sits under z-index 6,
+   which is the floating clusters'. The card is the cluster's own make
+   (opaque, elevated, one hairline, the same shadow) for the same reason the
+   cluster is: it has to read in both themes over dots, a grid, a cross or
+   plain ground, and a translucent panel over a texture does not. */
+.cv-blank {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px; pointer-events: none;
+}
+.cv-blank-card {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  max-width: min(420px, 100%); box-sizing: border-box;
+  padding: 16px 18px; text-align: center; pointer-events: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-ctl);
+  box-shadow: 0 8px 24px color-mix(in srgb, #000 22%, transparent);
+}
+.cv-blank-line { margin: 0; font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
+
 .cv-canvas-flow {
   position: absolute; inset: 0;
   /* The live zoom, written by the host on every viewport frame: the
@@ -325,7 +367,6 @@
   --xy-selection-background-color-default: var(--accent-soft);
   --xy-selection-border-default: 1px dashed var(--accent);
   --xy-resize-background-color-default: var(--accent);
-  --xy-attribution-background-color-default: transparent;
   --xy-node-boxshadow-selected-default: none;
 }
 
@@ -411,12 +452,9 @@
   stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke;
 }
 .cv-canvas-flow .react-flow__minimap-node { vector-effect: non-scaling-stroke; }
-.cv-canvas-flow .react-flow__attribution a { color: var(--text-secondary); opacity: .55; }
-.cv-canvas-flow .react-flow__attribution a:hover { opacity: 1; }
-/* The maximize layer covers the plane but not the last strip under it, and
-   the library's badge was left sticking out half-eaten. A covered canvas
-   shows no chrome of its own. */
-.cv-body[inert] .react-flow__attribution { visibility: hidden; }
+/* No rule for `.react-flow__attribution`: the badge is not rendered at all
+   (`proOptions.hideAttribution`, Plane.jsx; docs/architecture/canvas.md
+   "The library's mark"). @xyflow/react is MIT and stays MIT. */
 
 /* ---- Resize targets ------------------------------------------------------
 

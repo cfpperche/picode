@@ -18,9 +18,14 @@ server, so every browser signed in to your PiCode sees the same ones.
    can be on it twice, once as the file and once as its changes.
 3. Repeat. Panels land in the first free slot.
 
-The switcher at the top left of the surface moves between your canvases;
-the **⋯** menu renames or deletes the one you are looking at. Deleting a
-canvas never touches the agents and terminals on it.
+Top left, the surface names the canvas you are on. With a second canvas
+that name becomes a switcher you pick from; with only one there is nothing
+to pick, so it is just the name. The **⋯** menu renames or deletes the one
+you are looking at, and is where **New canvas** lives. Deleting a canvas
+never touches the agents and terminals on it.
+
+An empty canvas says so in the middle of the plane, with **Add panel**
+there; the line goes as soon as the first panel lands.
 
 ## Move around it
 

@@ -1129,11 +1129,30 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
   // one more panel — and everything else is one press away in the menu. The
   // tab strip already names the app and its × already closes the tab, so the
   // header's icon, title and Close were chrome repeating chrome.
+  //
+  // The switcher offers a choice only when there is one (2026-09-11). With a
+  // single canvas the `<select>` opened on one option, already chosen: a
+  // control that promises a choice and has none, which is what the owner
+  // asked about. One canvas is therefore its **name**, drawn as a label — no
+  // chevron, nothing to open, and no tab stop that leads nowhere. The second
+  // canvas turns it back into the select; **New canvas** is in the `⋯` menu
+  // either way. Both shapes wear `.cv-switch`, which is what keeps the
+  // cluster's height and its width floor the same across the switch, so the
+  // row does not move the moment a second canvas appears.
+  const soleCanvas = store.list.length === 1 ? current || store.list[0] : null;
   const chrome = store.list.length ? (
     <div className="cv-cluster cv-chrome" role="group" aria-label="Canvas controls" data-align-row>
-      <select className="cv-select" aria-label="Canvas" value={currentId} onChange={(e) => select(e.target.value)}>
-        {store.list.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-      </select>
+      {soleCanvas ? (
+        // Not focusable: there is nothing here to do. The name is read as the
+        // group's own content, and the `⋯` button beside it carries it in its
+        // accessible name ("More actions for <name>"), so a keyboard reader
+        // still hears which canvas they are on; `title` is for the ellipsis.
+        <span className="cv-switch cv-switch-one" title={soleCanvas.name}>{soleCanvas.name}</span>
+      ) : (
+        <select className="cv-switch cv-select" aria-label="Canvas" value={currentId} onChange={(e) => select(e.target.value)}>
+          {store.list.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+        </select>
+      )}
       {current ? (
         <button type="button" className="cv-cluster-btn" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
       ) : null}
@@ -1232,15 +1251,6 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
     // an empty fleet reads as "all gone" — the skeleton says "not read yet"
     // instead of flashing an error row on every panel.
     body = <div className="cv-skel" aria-busy="true"><span className="skel-line" /><span className="skel-line" /><span className="skel-line" /></div>;
-  } else if (!panels.length) {
-    body = (
-      <div className="app-blank">
-        <AppIcon name="canvas" label={title} size={24} />
-        <p className="app-blank-title">Add your first panel.</p>
-        <p className="app-blank-sub">A panel is one agent, terminal or note on this canvas.</p>
-        <button type="button" className="btn btn-sm btn-primary" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
-      </div>
-    );
   } else {
     body = (
       <div className="cv-body is-canvas" ref={setBody} inert={!!maximizedId}>
@@ -1268,6 +1278,26 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
                 onReady={onCanvasReady}
               />
           </Suspense>
+          {panels.length ? null : (
+            // An empty canvas offers its next step **on the plane**, in the
+            // middle, not only from the corner cluster (owner, 2026-09-11).
+            // Until now the empty canvas replaced the plane with a page-level
+            // blankslate, which cost the reader the ground they had chosen and
+            // remounted React Flow the moment the first panel landed; the plane
+            // is now always the plane, and this is one line and one action
+            // floating over it. It wears the cluster's own make — opaque, an
+            // elevated ground, a hairline and the same shadow — because it has
+            // to read in both themes over dots, a grid, a cross or nothing at
+            // all, and a scrim would not. It is pointer-transparent apart from
+            // the card itself, so the plane underneath still pans and zooms,
+            // and it is below `.cv-cluster`'s layer, so the two never fight.
+            <div className="cv-blank">
+              <div className="cv-blank-card">
+                <p className="cv-blank-line">A panel is one agent, terminal, note or file, live on this canvas.</p>
+                <button type="button" className="btn btn-sm btn-primary" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
+              </div>
+            </div>
+          )}
       </div>
     );
   }

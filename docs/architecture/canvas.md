@@ -637,7 +637,7 @@ no topo"). Two clusters, and nothing else:
 
 | Cluster | Holds | Why there |
 |---|---|---|
-| top-left (`.cv-chrome`, `CanvasSurface.jsx`) | the native `<select>` switcher, **Add panel**, and a `⋯` menu: **New canvas**, **Tidy panels** (only with panels), **Rename**, **Delete canvas**, then **Close tab** | the two things a reader reaches for constantly are *which canvas* and *one more panel*; everything else is one press away |
+| top-left (`.cv-chrome`, `CanvasSurface.jsx`) | the switcher (a label or a `<select>` — below), **Add panel**, and a `⋯` menu: **New canvas**, **Tidy panels** (only with panels), **Rename**, **Delete canvas**, then **Close tab** | the two things a reader reaches for constantly are *which canvas* and *one more panel*; everything else is one press away |
 | bottom-right (`.cv-zoom` + `<MiniMap>`, `Plane.jsx`) | zoom out / the 100 % readout / zoom in / **Fit**, above the minimap | unchanged by this pass — where the camera already lived |
 
 Both are the same `.cv-cluster`: one row at `--ctl-h`, segmented by
@@ -656,15 +656,84 @@ keeps a keyboard path to it for a reader who never reaches the strip.
 **Add panel** stayed out of the menu because it is the verb the surface
 exists for. The empty states keep their own one line and one action — *No
 canvas yet.* → New canvas (the cluster is not drawn: there is nothing to
-switch), and *Add your first panel.* → Add panel with the cluster beside it,
-which is where an empty canvas still finds **New canvas**.
+switch), and, for a canvas with no panels, the centred card below.
+
+#### The switcher: a label with one canvas, a select with two (2026-09-11)
+
+The owner opened the top-left `<select>`, found a single option already
+chosen, and asked what it was for. A control that offers no choice is a
+promise of one, so it is no longer a control:
+
+| Canvases | What is drawn | Behaviour |
+|---|---|---|
+| 1 | `<span class="cv-switch cv-switch-one">` — the canvas name | a label: no chevron, no tab stop, no hover highlight, `title` for a name too long for the box |
+| 2 or more | `<select class="cv-switch cv-select">` — every canvas | unchanged: pick one and the surface switches |
+
+**Creating another stays in the `⋯` menu** either way, which is what turns
+the label back into a select. **The geometry does not move across the
+switch**: both shapes are `.cv-switch` — the same `--ctl-h`, the same 10 px
+leading padding and the same 104 px floor — and only the select adds the
+16 px a chevron needs. A short name sits on the floor in both, so the cluster
+is pixel-identical before and after the second canvas exists.
+
+**The name stays reachable without being focusable.** A label is not a tab
+stop — a stop that leads nowhere is the same lie in the keyboard as the
+chevron was in the pointer — so it is read as the group's content, and the
+`⋯` button beside it carries the name in its own accessible name ("More
+actions for *<name>*"). A keyboard reader still hears which canvas they are
+on, on the way to the only actions there are.
+
+#### An empty canvas (2026-09-11)
+
+A canvas with no panels **keeps its plane** and floats one line and one
+action in the middle of it (`.cv-blank`, `CanvasSurface.jsx`):
+
+> A panel is one agent, terminal, note or file, live on this canvas.
+> **[+ Add panel]**
+
+Until now the empty canvas *replaced* the plane with the page-level
+blankslate every list uses. Two things were wrong with that: the reader lost
+the ground they had chosen (the plane, its texture, the minimap and the zoom
+cluster all disappeared until the first panel existed), and the first panel
+remounted React Flow — a plane that fades in under the panel that was just
+added, instead of a panel landing on a plane. The layer is
+**pointer-transparent** apart from the card itself, so the plane behind it
+still pans and zooms; it sits at `z-index: 5`, below the floating clusters'
+6, so the two never fight; and it is gone the frame the first panel lands,
+including the optimistic pending one. The card wears the cluster's own make —
+opaque, `--bg-elevated`, one `--border-strong` hairline, the same shadow —
+for the cluster's own reason: it has to read in both themes over dots, a
+grid, a cross, or plain ground, and a translucent panel over a texture does
+not. **The minimap goes with the panels**: with none on the plane it is not
+drawn (`Plane.jsx`), because a map of nothing is a box of nothing in the
+corner of a plane that is already saying, in its middle, that it is empty.
+The zoom cluster stays — it is a control row, not an empty frame.
+
+#### The library's mark (2026-09-11)
+
+React Flow's attribution badge is **not drawn**: `proOptions={{
+hideAttribution: true }}` on the `<ReactFlow>` element (`Plane.jsx`). The
+owner asked for it hidden. `@xyflow/react` is **MIT**, which permits removing
+the mark; **the licence is unchanged** — the dependency is still MIT, its
+licence text still ships in `node_modules`, and this document still names the
+library and its version wherever it explains the plane. Nothing was removed
+from the repository: `NOTICE` carries our own required notice and has never
+listed dependencies, so there is no house list for React Flow to be added to.
+
+This reverses the reading in
+[`docs/handoff/2026-09-10-matrix-canvas-surface.md`](../handoff/2026-09-10-matrix-canvas-surface.md)
+— "removing it is a licence question, not a styling one". For an MIT
+dependency it is not a licence question at all. The badge's own CSS
+(`--xy-attribution-*` and the two `.react-flow__attribution` rules, including
+the one that hid it under the maximize layer) went with it.
 
 **A maximized panel takes the clusters with it.** They belong to the plane,
 not to the surface, and the plane is what the layer covers; leaving them
 would be a switcher floating over a body that is not on the canvas any more.
 They are *removed*, not merely covered, so `Tab` cannot reach a control
-nobody can see — the same reason a covered plane hides React Flow's badge.
-`Esc` restores, and the layer's own header carries Restore.
+nobody can see. `Esc` restores, and the layer's own header carries Restore.
+(The `.cv-body[inert]` rule that used to hide React Flow's badge under this
+layer went with the badge itself — see *The library's mark* above.)
 
 **Fit reserves the corners.** `fitView` centres the content inside its
 padded rectangle, so a symmetric padding put the first panel's header under
@@ -1172,7 +1241,7 @@ instance at 1280 × 633 in both themes, with a canvas holding a live shell, two
 | Row | Observed |
 |---|---|
 | the tile | **Canvas**, `lucide-frame`, no letter fallback; opening it mounts `CanvasSurface` from its own chunk |
-| the empty states | *No canvas yet.* — New canvas, then *Add your first panel.* — Add panel, each one line and one action |
+| the empty states | *No canvas yet.* — New canvas, then *Add your first panel.* — Add panel, each one line and one action (the second was re-shaped on 2026-09-11 into the centred card on the plane — *The switcher* / *An empty canvas* above) |
 | three panel kinds | a live xterm, a stopped agent's *Agent is stopped.* — Run, and a note's markdown, all on one plane with the minimap and the zoom cluster |
 | pan | a real middle-button drag moved the camera `translate(134, 102)` → `translate(-108, 50)` at scale 1 |
 | the zoom rule, step by step | 100 %: the pane live and pointer-taking. 83 %: `is-inert`. 69 %, 58 %, 48 %, 40 %: `is-still is-inert`. 33 %, 28 %, 23 %: every panel `is-plate`. Back at 100 %: all live again, no class left behind. The note and the agent never go still — they have no cell (C3's rule) |

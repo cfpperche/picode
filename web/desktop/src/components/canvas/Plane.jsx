@@ -691,7 +691,13 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
         disableKeyboardA11y
         deleteKeyCode={null}
         nodeDragThreshold={3}
-        attributionPosition="bottom-left"
+        // The library's mark is not drawn (owner, 2026-09-11;
+        // docs/architecture/canvas.md "The library's mark"). @xyflow/react is
+        // MIT, which permits it: the licence is unchanged, still vendored in
+        // node_modules and still named in the architecture doc. It was kept
+        // until now on the reading that removing it was a licence question
+        // rather than a styling one — it is not, for an MIT dependency.
+        proOptions={{ hideAttribution: true }}
       >
         {BG_VARIANT[bgPattern] ? (
           // Dots is 2, not 1: a single-pixel dot every four cells is the
@@ -702,7 +708,11 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
           // instead. Cross keeps 6: its tick is already 6 px of line.
           <Background variant={BG_VARIANT[bgPattern]} gap={BG_GAP} size={bgPattern === "dots" ? 2 : 6} lineWidth={1} />
         ) : null}
-        <MiniMap pannable zoomable ariaLabel="Panels on the plane" />
+        {/* No panels, no map: an empty minimap is a box of nothing in the
+            corner of a plane that is already saying, in its middle, that it
+            is empty (`.cv-blank`, CanvasSurface.jsx). It comes back with the
+            first panel, which is the first thing it could map. */}
+        {nodes.length ? <MiniMap pannable zoomable ariaLabel="Panels on the plane" /> : null}
       </ReactFlow>
     </div>
   );

@@ -1,6 +1,6 @@
 # ADR-0063: What’s New release highlights
 
-- Status: accepted
+- Status: accepted, product-state gate amended 2026-09-11 (a fresh install auto-opens too)
 - Date: 2026-09-04
 
 ## Context
@@ -51,10 +51,57 @@ the running semver; a manual open can always review the available history.
 | yes | yes | no | no | Stay closed |
 | yes | yes | no | yes | Open the release highlights once |
 
+*The product-state row above is superseded — see the amendment below.*
+
+## Amendment 2026-09-11: a fresh install sees it too
+
+**The rule.** Product state is no longer a condition. A stamped build
+auto-opens once per browser as soon as the shell has booted and there are
+notes newer than the acknowledged semver, whether or not a workspace, an
+agent or a terminal exists. The row `yes / no product state / any / any →
+Wait for a workspace, agent, or terminal` is struck; every other row stands
+unchanged.
+
+| Release build | Another task needs attention | Notes newer than seen | Action |
+|---|---|---|---|
+| no | any | any | Do not auto-open; manual entry remains available |
+| yes | yes | any | Defer until the task settles |
+| yes | no | no | Stay closed |
+| yes | no | yes | Open the release highlights once |
+
+**The decision.** The owner's, 2026-09-11, after the 0.2.0 verification: the
+surface did not open on the freshly installed artifact and read as broken.
+The runbook had already been taught to work around it — step 5 told the
+verifier to seed a terminal through the instance's own API, verify, then
+delete it by exact id — which is the shape of a rule that costs more than it
+returns. Step 5 loses that instruction with this amendment.
+
+**The trade it accepts.** A first-time reader is shown what changed in a
+product they have not used yet: for them the list is noise, because they
+lacked none of it. That is paid for by the many who arrive on an upgrade
+path — `picode update`, a new package, a re-installed desktop build — where
+a fresh browser profile or a fresh data directory is indistinguishable from a
+first run, and where the notes are exactly what the reader came for. The
+original row could not tell those two apart; it only ever knew whether the
+instance was empty.
+
+**What the old row protected, and what still protects it.** It protected a
+first run from being interrupted before the reader had done anything — the
+one moment when a modal in front of an empty product is at its most
+graceless. What still protects that moment is every other defer condition,
+and none of them was touched: another modal open, a recovering connection, a
+waiting agent, an Inbox badge asking for attention, an active create or share
+flow. The acknowledgement is also unchanged — closing the surface writes
+`picode-whats-new-seen`, so a first run is interrupted at most once, and a
+manual open remains the way back to the history.
+
 ## Consequences
 
 - Operators see a focused explanation after a real release without a network
   fetch or a server-wide “seen” flag.
+- Since the 2026-09-11 amendment a brand-new install sees it as well; the cost
+  is one dismissible modal in front of a reader with nothing to lose, and the
+  gain is that an upgrade on a fresh profile is no longer silently skipped.
 - Every browser may acknowledge independently, which suits local and paired
   mobile clients but can show the same notes on a newly paired device.
 - Notes are intentionally authored twice: a concise catalog entry for the UI
