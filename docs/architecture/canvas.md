@@ -637,7 +637,7 @@ no topo"). Two clusters, and nothing else:
 
 | Cluster | Holds | Why there |
 |---|---|---|
-| top-left (`.cv-chrome`, `CanvasSurface.jsx`) | the native `<select>` switcher, **Add panel**, and a `⋯` menu: **New canvas**, **Tidy panels** (only with panels), **Rename**, **Delete canvas**, then **Close tab** | the two things a reader reaches for constantly are *which canvas* and *one more panel*; everything else is one press away |
+| top-left (`.cv-chrome`, `CanvasSurface.jsx`) | the switcher (a label or a `<select>` — below), **Add panel**, and a `⋯` menu: **New canvas**, **Tidy panels** (only with panels), **Rename**, **Delete canvas**, then **Close tab** | the two things a reader reaches for constantly are *which canvas* and *one more panel*; everything else is one press away |
 | bottom-right (`.cv-zoom` + `<MiniMap>`, `Plane.jsx`) | zoom out / the 100 % readout / zoom in / **Fit**, above the minimap | unchanged by this pass — where the camera already lived |
 
 Both are the same `.cv-cluster`: one row at `--ctl-h`, segmented by
@@ -658,6 +658,31 @@ exists for. The empty states keep their own one line and one action — *No
 canvas yet.* → New canvas (the cluster is not drawn: there is nothing to
 switch), and *Add your first panel.* → Add panel with the cluster beside it,
 which is where an empty canvas still finds **New canvas**.
+
+#### The switcher: a label with one canvas, a select with two (2026-09-11)
+
+The owner opened the top-left `<select>`, found a single option already
+chosen, and asked what it was for. A control that offers no choice is a
+promise of one, so it is no longer a control:
+
+| Canvases | What is drawn | Behaviour |
+|---|---|---|
+| 1 | `<span class="cv-switch cv-switch-one">` — the canvas name | a label: no chevron, no tab stop, no hover highlight, `title` for a name too long for the box |
+| 2 or more | `<select class="cv-switch cv-select">` — every canvas | unchanged: pick one and the surface switches |
+
+**Creating another stays in the `⋯` menu** either way, which is what turns
+the label back into a select. **The geometry does not move across the
+switch**: both shapes are `.cv-switch` — the same `--ctl-h`, the same 10 px
+leading padding and the same 104 px floor — and only the select adds the
+16 px a chevron needs. A short name sits on the floor in both, so the cluster
+is pixel-identical before and after the second canvas exists.
+
+**The name stays reachable without being focusable.** A label is not a tab
+stop — a stop that leads nowhere is the same lie in the keyboard as the
+chevron was in the pointer — so it is read as the group's content, and the
+`⋯` button beside it carries the name in its own accessible name ("More
+actions for *<name>*"). A keyboard reader still hears which canvas they are
+on, on the way to the only actions there are.
 
 **A maximized panel takes the clusters with it.** They belong to the plane,
 not to the surface, and the plane is what the layer covers; leaving them

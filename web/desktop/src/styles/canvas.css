@@ -47,15 +47,31 @@
 
 /* Top-left: which canvas, one more panel, and everything else. */
 .cv-chrome { top: 12px; left: 12px; }
-/* The one child that gives way. The cluster clips what does not fit, so on
-   a surface too narrow for a long canvas name the name ellipsizes and the
-   two buttons keep their whole hit area — never the other way round. */
-.cv-cluster > .cv-select {
-  flex: 0 1 auto; min-width: 84px; max-width: 240px; padding: 0 26px 0 10px;
+/* The switcher: the one child that gives way. The cluster clips what does
+   not fit, so on a surface too narrow for a long canvas name the name
+   ellipsizes and the two buttons keep their whole hit area — never the other
+   way round.
+
+   Two shapes, one box (2026-09-11). With two or more canvases it is the
+   native `<select>`; with exactly one it is a **label**, because a menu whose
+   only option is the one already chosen offers nothing. `.cv-switch` is what
+   they share, and the 104 px floor is why the cluster does not resize when a
+   second canvas appears: a short name sits on the floor in both shapes, so
+   the row is pixel-identical either way. */
+.cv-cluster > .cv-switch {
+  flex: 0 1 auto; min-width: 104px; max-width: 240px; padding: 0 10px;
   justify-content: flex-start;
   color: var(--text-primary); font-size: 12.5px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* Only the select reserves room for a chevron; the label has none to draw. */
+.cv-cluster > .cv-select { padding-right: 26px; }
+/* A label is not a control: `text-overflow` needs a block box rather than the
+   cluster's inline-flex, the line centres on the control height, and it drops
+   both the pointer and the hover the segments share — a highlight under the
+   cursor is a promise of a click. */
+.cv-cluster > .cv-switch-one { display: block; line-height: var(--ctl-h); cursor: default; }
+.cv-cluster > .cv-switch-one:hover { background: transparent; color: var(--text-primary); }
 .cv-menu-btn { padding: 0 8px; }
 
 /* The ⋯ menu's Background submenu. The rows reuse .ws-row-menu-item, so a
@@ -291,6 +307,7 @@
    --------------------------------------------------------------------------- */
 
 .cv-body.is-canvas { padding: 0; overflow: hidden; }
+
 .cv-canvas-flow {
   position: absolute; inset: 0;
   /* The live zoom, written by the host on every viewport frame: the
