@@ -1278,17 +1278,40 @@ img.ws-face.term-cli-face {
 .term-attach-empty { margin: 0 0 8px; font-size: 13px; color: var(--text-secondary); }
 .term-attach-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 .term-attach-form { display: flex; flex-direction: column; gap: 8px; }
-.term-attach-row { display: flex; align-items: center; gap: 6px; }
+/* The message field grows with the text (shared/domain/attachText.js): one
+   line is one control height, four lines is the cap, then it scrolls. The
+   row is bottom-aligned and deliberately not [data-align-row] — overlayAudit's
+   equal-height rule is for fixed controls, not for a field that grows. */
+.term-attach-row { display: flex; align-items: flex-end; gap: 6px; }
 .term-attach-row .icon-btn,
 .term-attach-row .composer-attach {
   width: var(--ctl-h); height: var(--ctl-h);
 }
 .term-attach-input {
-  flex: 1 1 auto; min-width: 0; height: var(--ctl-h);
+  flex: 1 1 auto; min-width: 0; min-height: var(--ctl-h);
   border: 1px solid var(--border); border-radius: 8px;
   background: var(--bg-base); color: var(--text-primary);
-  padding: 0 10px; font: inherit;
+  padding: 5px 10px; font: inherit; font-size: 16px; line-height: 24px;
+  resize: none; overflow-y: hidden;
 }
+/* The attach composer's sketch pad (SketchEditor.jsx). The sheet unmounts
+   while this is open (TermAttachSheet keeps only one of the two mounted),
+   so z-index 90 and pointer-events auto are defensive: a body-level modal
+   locks the page with `pointer-events: none`, which would make the pad
+   inert, and toasts keep the top layer. */
+.sketch-editor {
+  position: fixed; inset: 0; z-index: 90; pointer-events: auto;
+  display: flex; flex-direction: column; background: var(--bg-base);
+}
+.sketch-editor-head {
+  display: flex; align-items: center; gap: 12px; flex: none;
+  height: var(--chrome-h); padding: 0 12px; border-bottom: 1px solid var(--border);
+}
+.sketch-editor-head h2 { margin: 0; font-size: 14px; font-weight: 650; }
+.sketch-editor-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.sketch-editor-actions .btn { height: 28px; min-height: 28px; padding: 0 10px; font-size: 12px; }
+.sketch-editor-board { flex: 1; min-height: 0; position: relative; }
+.sketch-editor-board .excalidraw { height: 100% !important; }
 .pin-att-ext {
   font-family: var(--mono); font-size: 12px; font-weight: 650;
   color: var(--text-primary);
