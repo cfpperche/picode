@@ -24,6 +24,7 @@ func registerCanvasRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("PATCH /api/canvases/{id}/layout", handleCanvasLayout(deps))
 	mux.HandleFunc("POST /api/canvases/{id}/panels", handleAddCanvasPanel(deps))
 	mux.HandleFunc("DELETE /api/canvases/{id}/panels/{panelId}", handleRemoveCanvasPanel(deps))
+	mux.HandleFunc("PATCH /api/canvases/{id}/panels/{panelId}/content", handleCanvasPanelContent(deps))
 	mux.HandleFunc("GET /api/canvases/{id}/edges", handleListCanvasEdges(deps))
 	mux.HandleFunc("POST /api/canvases/{id}/edges", handleAddCanvasEdge(deps))
 	mux.HandleFunc("DELETE /api/canvases/{id}/edges/{edgeId}", handleRemoveCanvasEdge(deps))
@@ -178,6 +179,27 @@ func handleRemoveCanvasPanel(deps Deps) http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// PATCH /api/canvases/{id}/panels/{panelId}/content — a text panel's words.
+// The body is the whole text, not a patch: the store keeps what a reader
+// typed, and a second browser draws the same string rather than replaying
+// keystrokes. Only a text panel has words; every other kind is a 400.
+func handleCanvasPanelContent(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Content string `json:"content"`
+		}
+		if !decodeBody(w, r, &req) {
+			return
+		}
+		out, err := deps.Store.SetCanvasPanelContent(r.PathValue("id"), r.PathValue("panelId"), req.Content)
+		if err != nil {
+			writeCanvasErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, out)
 	}
 }
 

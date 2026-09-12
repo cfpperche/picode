@@ -1,6 +1,5 @@
 import { createRoot } from "react-dom/client";
 import { overlayAudit } from "@picode/shared/domain/overlayAudit.js";
-import "./index.css";
 import App from "./App.jsx";
 import PairingScreen from "./components/PairingScreen.jsx";
 import { consoleEgg } from "./lib/consoleEgg.js";

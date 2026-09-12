@@ -2427,6 +2427,49 @@
         ]
       }
     },
+    "/api/canvases/{id}/panels/{panelId}/content": {
+      "patch": {
+        "operationId": "patchApiCanvasesPanelsContent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "panelId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "canvases"
+        ]
+      }
+    },
     "/api/catalog": {
       "get": {
         "operationId": "getApiCatalog",

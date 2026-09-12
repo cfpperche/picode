@@ -5,7 +5,7 @@ import { applyTui, touches } from "@picode/shared/domain/feedReducers.js";
 import { displayAgentName, locate } from "@picode/shared/domain/tree.js";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 import { agentRowStatus, agentStatusLabel } from "@picode/shared/domain/agentStatus.js";
-import { EDGE_KINDS, PANEL_DEFAULT_CANVAS, applyCanvasEvent, bindingState, buildRef, layoutDiff, neighborPanel, nextSlot, normalizeCanvasDetail, normalizeCanvasList, panelOrder, parseRef, refOwner, tidyCanvas, validateEdge } from "@picode/shared/domain/canvas.js";
+import { EDGE_KINDS, PANEL_DEFAULT_CANVAS, applyCanvasEvent, bindingState, buildRef, layoutDiff, neighborPanel, normalizeCanvasDetail, normalizeCanvasList, panelOrder, parseRef, refOwner, tidyCanvas, validateEdge } from "@picode/shared/domain/canvas.js";
 import { crossFolderConfirm, edgeGrant, enrolOffer, linkChipTitle, linkCounts, peerIndex, removeConfirm } from "@picode/shared/domain/canvasGrants.js";
 import { basename } from "@picode/shared/domain/diff.js";
 import { shortPath } from "@picode/shared/domain/repoLine.js";
@@ -13,7 +13,7 @@ import { paneLeaveKey } from "@picode/shared/domain/termKeys.js";
 import { CANVAS_PATTERN_EVENT, persistCanvasPattern, readCanvasPattern } from "@picode/shared/domain/canvasPattern.js";
 import { CANVAS_CHROME_EVENT, persistCanvasChrome, readCanvasChrome } from "@picode/shared/domain/canvasChrome.js";
 import AppIcon from "../AppIcon.jsx";
-import { IconAgent, IconCanvas, IconCheck, IconChevronDown, IconChevronRight, IconEllipsis, IconFit, IconGrid, IconImage, IconPencil, IconPin, IconPlus, IconTerminal, IconTrash, IconX } from "../Icons.jsx";
+import { IconAgent, IconCanvas, IconCheck, IconChevronDown, IconChevronRight, IconEllipsis, IconFit, IconGrid, IconImage, IconPencil, IconPin, IconPlus, IconTerminal, IconTextSize, IconTrash, IconX } from "../Icons.jsx";
 import { go, isFileTab, parseFileTab, pinHash } from "../../lib/routes.js";
 import { notify, toast, toastError } from "../../lib/toast.js";
 import { askConfirm } from "../../lib/confirm.js";
@@ -94,7 +94,13 @@ const CANVAS_TOOLS = [
   ["agent", "Agent", IconAgent],
   ["terminal", "Terminal", IconTerminal],
   ["note", "Pin", IconPin],
+  ["text", "Text", IconTextSize],
 ];
+// Which kinds have something to choose. Agent, terminal and pin name a thing
+// that already exists, so the rectangle is followed by a dialog; a text panel
+// *is* its own content, so there is nothing to pick and it is born where it
+// was drawn, empty and ready to type in.
+const PICKS_A_TARGET = new Set(["agent", "terminal", "note", "file", "diff"]);
 const enc = encodeURIComponent;
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 const msgOf = (e) => (e && e.message ? e.message : String(e));
@@ -151,7 +157,11 @@ function ownerFolder(kind, row, fleet) {
   return row.workPath || (loc && loc.workspace && loc.workspace.path) || "";
 }
 
-const MODEL_KEYS = ["id", "kind", "ref", "x", "y", "w", "h", "pending", "state", "target", "name", "hint", "cwd", "status", "label", "stamp", "owned", "dirty", "wsId", "ask"];
+// `content` is here because a text panel's words are part of what it *is*:
+// leave it out and the model is judged unchanged when the words change, the
+// memoized wrapper keeps the old object, and the box renders the old string.
+// Which is exactly what happened the first time (2026-09-12).
+const MODEL_KEYS = ["id", "kind", "ref", "x", "y", "w", "h", "pending", "state", "target", "name", "hint", "cwd", "status", "label", "stamp", "owned", "dirty", "wsId", "ask", "content"];
 function sameModel(a, b) {
   return !!a && MODEL_KEYS.every((k) => a[k] === b[k]);
 }
@@ -171,7 +181,17 @@ function buildModel(panel, fleet, workingIds, openTabs, dirtyIds, prev) {
   let stamp = "";
   let wsId = "";
   let ask = "";
-  if (panel.kind === "note") {
+  if (panel.kind === "text") {
+    // A text panel names itself: its first line is what the header shows,
+    // and an empty one says so rather than showing an id. There is no target
+    // to be gone, so it is never a broken binding.
+    const first = (panel.content || "").trim().split("\n", 1)[0].trim();
+    target = panel;
+    name = first || "Empty text";
+    hint = "";
+    status = "ready";
+    label = "Text";
+  } else if (panel.kind === "note") {
     // A pin's summary is its own header: the title names it, the tags are
     // the subdued line, and the chip says what the panel is rather than
     // inventing a status a note does not have.
@@ -251,8 +271,28 @@ function buildModel(panel, fleet, workingIds, openTabs, dirtyIds, prev) {
   const next = {
     id: panel.id, kind: panel.kind, ref: panel.ref, x: panel.x, y: panel.y, w: panel.w, h: panel.h, pending: !!panel.pending,
     state, target, name, hint, cwd, status, label, stamp, dirty, wsId, ask, owned: ownedByTab(panel.kind, panel.ref, openTabs),
+    content: panel.content || "",
   };
   return sameModel(prev, next) ? prev : next;
+}
+
+// ZoomReadout — the one thing in the chrome that changes while the camera
+// moves, and the only component a zoom re-renders. It subscribes to the
+// surface's listeners rather than taking the percentage as a prop, so a wheel
+// gesture never reaches the plane's own render.
+function ZoomReadout({ subscribe, onSnap }) {
+  const [pct, setPct] = useState(100);
+  useEffect(() => subscribe(setPct), [subscribe]);
+  return (
+    <button
+      type="button"
+      className="cv-cluster-btn cv-tb-pct"
+      title="Back to 100 % — the only zoom where a click lands on the cell it points at"
+      onClick={onSnap}
+    >
+      {pct}%
+    </button>
+  );
 }
 
 export default function CanvasSurface({ manifest, hidden, onClose, host, initialPath, onPathChange }) {
@@ -356,6 +396,23 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
   // surface only remembers the element here.
   const setBody = useCallback((el) => { bodyRef.current = el; }, []);
   const onCanvasReady = useCallback((handle) => { canvasRef.current = handle; }, []);
+  // The zoom readout, without the zoom re-rendering the surface. The plane
+  // pushes a percentage on every viewport change — a wheel gesture is dozens
+  // — and the only thing that cares is one <span>. So the surface keeps the
+  // last value and a set of listeners, and `ZoomReadout` is the single
+  // subscriber. Surface state would have re-rendered the plane on every notch.
+  const zoomPctRef = useRef(100);
+  const zoomSubs = useRef(new Set());
+  const onZoom = useCallback((pct) => {
+    if (zoomPctRef.current === pct) return;
+    zoomPctRef.current = pct;
+    for (const fn of zoomSubs.current) fn(pct);
+  }, []);
+  const subscribeZoom = useCallback((fn) => {
+    zoomSubs.current.add(fn);
+    fn(zoomPctRef.current);
+    return () => { zoomSubs.current.delete(fn); };
+  }, []);
   useEffect(() => { loader.setHidden(!!hidden); }, [hidden, loader]);
   useEffect(() => {
     function onPattern() { setBackground(readCanvasPattern()); }
@@ -801,23 +858,24 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
       else toastError(e);
     }
   }
-  // A panel lands where the reader drew it. `placed` is the rectangle from
-  // the marking gesture; without one — the `⋯` menu's own Add panel, which
-  // never armed a tool — the surface falls back to `nextSlot`, which packs
-  // from the canvas origin and is why an unplaced panel can be born off
-  // screen. That fallback is the last caller of nextSlot for new panels.
-  async function addPanel({ kind, ref }) {
+  // A panel lands where the reader drew it, and nowhere else. The dialog is
+  // opened by the marking gesture alone, so `placed` is always a rectangle
+  // here; the old `nextSlot` fallback went with the last Add panel button
+  // (2026-09-12) rather than sitting unreachable. If a caller ever opens the
+  // picker without one again, it has to answer where the panel goes first.
+  async function addPanel({ kind, ref }, drawn) {
     setPickerOpen(false);
-    const rect = placed;
+    // The rectangle comes as an argument when the caller has it in hand — a
+    // kind with no dialog places one in the same tick `setPlaced` is called,
+    // and reading the state back there would read the *previous* rectangle.
+    const rect = drawn || placed;
     setPlaced(null);
     setTool("");
     const id = currentRef.current;
-    const det = storeRef.current.byId[id];
-    if (!det) return;
-    const size = rect ? { w: rect.w, h: rect.h } : PANEL_DEFAULT_CANVAS;
-    const { x, y } = rect ? { x: rect.x, y: rect.y } : nextSlot(det.panels, size.w, size.h);
+    if (!rect || !storeRef.current.byId[id]) return;
+    const { x, y, w, h } = rect;
     const tmp = "tmp-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    const body = { kind, ref, x, y, w: size.w, h: size.h };
+    const body = { kind, ref, x, y, w, h };
     // The wrapper shows at once and settles on the server's answer.
     setStore((s) => patchPanels(s, id, (ps) => [...ps, { id: tmp, ...body, createdAt: "", pending: true }]));
     try {
@@ -1151,6 +1209,17 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
         return next;
       });
     },
+    // onSaveText(model, text): a text panel's words, as they now stand. The
+    // optimistic write is what keeps the box from flickering back to the old
+    // string while the PATCH is in flight; the event that follows carries the
+    // same value, so the reconcile is a no-op for this browser and the truth
+    // for every other one.
+    onSaveText: (model, text) => {
+      const id = currentRef.current;
+      setStore((s) => patchPanels(s, id, (ps) => ps.map((p) => (p.id === model.id ? { ...p, content: text } : p))));
+      api("/api/canvases/" + enc(id) + "/panels/" + enc(model.id) + "/content", json("PATCH", { content: text }))
+        .catch(toastError);
+    },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), []);
 
@@ -1330,6 +1399,12 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
     <div className="cv-cluster cv-camera" role="group" aria-label="Zoom">
       <button type="button" className="cv-cluster-btn cv-tb-step" aria-label="Zoom in" title="Zoom in (+)" onClick={() => canvasRef.current && canvasRef.current.zoomIn()}>+</button>
       <button type="button" className="cv-cluster-btn cv-tb-step" aria-label="Zoom out" title="Zoom out (−)" onClick={() => canvasRef.current && canvasRef.current.zoomOut()}>−</button>
+      {/* The readout is back, on the column rather than in the toolbar it was
+          cut from (owner, 2026-09-12). It is the only thing on screen that
+          says where the camera is, and the camera is not cosmetic here: 100 %
+          is the one zoom whose pointer lands on the cell it points at
+          (§4.3). Clicking it goes back there. */}
+      <ZoomReadout subscribe={subscribeZoom} onSnap={() => canvasRef.current && canvasRef.current.snapToOne(focusedRef.current)} />
       <button type="button" className="cv-cluster-btn cv-tb-icon" aria-label="Fit every panel" title="Fit every panel (0)" onClick={() => canvasRef.current && canvasRef.current.fit()}>
         <IconFit size={14} />
       </button>
@@ -1479,7 +1554,14 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
                 onReady={onCanvasReady}
                 showMinimap={chromeShown}
                 placing={tool}
-                onPlace={(rect) => { setPlaced(rect); setPickerOpen(true); }}
+                onZoom={onZoom}
+                onPlace={(rect) => {
+                  // A kind with nothing to choose skips the dialog entirely:
+                  // the rectangle already said everything the panel needs.
+                  if (!PICKS_A_TARGET.has(tool)) { addPanel({ kind: tool, ref: "" }, rect); return; }
+                  setPlaced(rect);
+                  setPickerOpen(true);
+                }}
               />
           </Suspense>
       </div>
@@ -1534,6 +1616,7 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
                 onRun={() => handlers.onRun(maxModel)}
                 onOpenFile={(path) => handlers.onOpenFile(maxModel, path)}
                 onDirty={(dirty) => handlers.onDirty(maxModel, dirty)}
+                onSaveText={(text) => handlers.onSaveText(maxModel, text)}
               />
             </div>
           </div>

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Keep the repository root on main (AGENTS.md §5): feature work belongs in a
-# worktree, so parallel agents never fight over one working tree.
+# worktree, so parallel agents never fight over one working tree. And main
+# never rewinds: a fast-forward from a stale ref — or a reset to an older
+# commit — silently erased merged work once already (2026-09-12).
 #
 # Git has no pre-checkout hook — but a branch switch is a symref update of
 # HEAD, and a reference transaction can be aborted. This is enforced by git
@@ -8,9 +10,47 @@
 # runtime, any editor, a shell, a script), not just one of them.
 #
 # Install: git config core.hooksPath .githooks  (`make hooks` does it)
-# Escape hatch: PICODE_ALLOW_SWITCH=1 git switch <branch>
+# Escape hatches:
+#   PICODE_ALLOW_SWITCH=1 git switch <branch>   move the root checkout
+#   PICODE_ALLOW_MAIN_REWIND=1 <command>        roll main back, deliberately
 
 [ "$1" = "prepared" ] || exit 0
+
+# Both guards read the same transaction payload, so hold it once. Every
+# check below runs before any early exit on purpose: they must hold in
+# every worktree and for every driving command, not just switches.
+input=$(cat)
+
+# ── Guard 1: main never rewinds ────────────────────────────────────────
+# A fast-forward from a stale ref, or a reset onto an older commit, erases
+# merged work. Forward is the only direction; a rollback is a deliberate
+# one-off with its own escape hatch.
+rewind=""
+while read -r old new ref; do
+  [ "$ref" = "refs/heads/main" ] || continue
+  zero=0000000000000000000000000000000000000000
+  case "$old" in "$zero"|"") continue ;; esac   # branch creation
+  case "$new" in "$zero"|"") continue ;; esac   # branch deletion
+  [ "$old" = "$new" ] && continue
+  [ -n "$PICODE_ALLOW_MAIN_REWIND" ] && continue
+  # Not just ancestor-rewinds: the incident this guard came from was a
+  # fast-forward from a stale ref to a DIVERGENT tip — it looked like a
+  # legitimate fast-forward to the process that ran it and still erased
+  # main's tip. The only legal move is old being an ancestor of new.
+  if ! git merge-base --is-ancestor "$old" "$new" 2>/dev/null; then
+    printf '\n  Refusing to rewind main: %s -> %s.\n' \
+      "$(git rev-parse --short "$old")" "$(git rev-parse --short "$new")" >&2
+    printf '  Merged work landed on main and this move would erase it.\n' >&2
+    printf '  Deliberate one-off: PICODE_ALLOW_MAIN_REWIND=1 <the same command>\n\n' >&2
+    rewind=1
+    break
+  fi
+done <<EOF
+$input
+EOF
+[ -n "$rewind" ] && exit 1
+
+# ── Guard 2: the root checkout stays on main ───────────────────────────
 [ -n "$PICODE_ALLOW_SWITCH" ] && exit 0
 
 # Primary worktree only. In a linked worktree the git dir is
@@ -21,10 +61,10 @@ cd=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 
 [ "$gd" = "$cd" ] || exit 0
 
 # `git worktree add -b <branch>` writes the NEW worktree's HEAD through this
-# same transaction, from this same directory, with the same git dir and the
-# same `ref:refs/heads/...` payload. The invoking command is the only thing
-# that separates "move this checkout" from "create a worktree", so read it
-# off the parent process (the git process running the operation).
+# same transaction, from this same directory, with the same `ref:refs/heads/...`
+# payload. The invoking command is the only thing that separates "move this
+# checkout" from "create a worktree", so read it off the parent process (the
+# git process running the operation).
 parent=$(tr '\0' ' ' < "/proc/$PPID/cmdline" 2>/dev/null || ps -o args= -p "$PPID" 2>/dev/null)
 case "$parent" in
   *"git switch"*|*"git checkout"*) ;;
@@ -44,5 +84,7 @@ while read -r _old new ref; do
       exit 1
       ;;
   esac
-done
+done <<EOF
+$input
+EOF
 exit 0

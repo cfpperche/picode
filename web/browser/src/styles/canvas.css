@@ -654,6 +654,13 @@
    dock out from under the pointer between one click and the next. */
 .cv-cluster > .cv-tb-step { min-width: 32px; font-size: 16px; line-height: 1; }
 .cv-cluster > .cv-tb-icon { min-width: 34px; }
+/* The readout on the camera column. A fixed width, because 150 % (maxZoom) is
+   a digit wider than 70 % and a column that changes width moves every button
+   in it out from under the pointer between one click and the next. */
+.cv-camera > .cv-tb-pct {
+  font-size: 11px; padding: 0 2px;
+  font-variant-numeric: tabular-nums; color: var(--text-primary);
+}
 
 /* The pointer layer (plan §4.3). Between 0.8 and 1.5 a pane renders and takes
    keys perfectly, but xterm maps a click as `cell × zoom` under the plane's
@@ -678,6 +685,20 @@
   opacity: 0; transition: opacity var(--motion-fast) var(--ease-out);
 }
 .cv-snap:hover .cv-snap-label { opacity: 1; }
+
+/* A text panel's box. It fills the body and carries no chrome of its own:
+   the panel wrapper is already a card with a header, and a second border
+   inside it would read as an input in a form rather than words on a plane.
+   `nodrag`/`nowheel` are on the element (Plane.jsx's rule), so selecting
+   text does not drag the panel and scrolling it does not zoom the canvas. */
+.cv-text {
+  flex: 1; min-height: 0; width: 100%; box-sizing: border-box;
+  margin: 0; padding: 8px 10px; border: 0; outline: none; resize: none;
+  background: transparent; color: var(--text-primary);
+  font: inherit; font-size: 12.5px; line-height: 1.55;
+}
+.cv-text::placeholder { color: var(--text-secondary); }
+.cv-panel.is-focused .cv-text::placeholder { color: var(--text-secondary); }
 
 /* The still: the pane's last screen as text, captured before the flip. It is
    a picture of a moment and never pretends otherwise — the header carries its

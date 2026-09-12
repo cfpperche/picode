@@ -1,0 +1,20 @@
+-- 046: a text panel's words live on the panel row.
+--
+-- Every panel kind so far is a *reference*: an agent, a terminal, a pin, a
+-- file, the changes to a file. The thing itself lives elsewhere in PiCode
+-- and the canvas only says where it sits. A text panel is the first kind
+-- with nothing behind it — the words are the panel, they are written on the
+-- plane and they exist nowhere else.
+--
+-- So the content is a column here rather than a table of its own. A text
+-- block has no life outside its panel: removing the panel removes the text,
+-- and nothing else in PiCode can hold a reference to it. A second table
+-- would have added a foreign key, a cascade and a join to say the same
+-- thing, and would have invited the idea that a text block can be shared —
+-- which is what a pin already is, and what a pin panel already shows.
+--
+-- Empty by default, so every panel that exists today reads back unchanged.
+-- `ref` stays NOT NULL and UNIQUE(canvas_id, kind, ref): a text panel binds
+-- to its own id, which is unique by construction, so two empty text panels
+-- on one canvas do not collide the way two empty refs would.
+ALTER TABLE canvas_panels ADD COLUMN content TEXT NOT NULL DEFAULT '';

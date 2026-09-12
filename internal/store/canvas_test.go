@@ -202,7 +202,8 @@ func TestCanvasPanelRulesRefuse(t *testing.T) {
 		x, y, w, h      int
 		want            string
 	}{
-		{"kind", "pin", "t", 0, 0, 32, 28, "kind must be agent, terminal, note, file or diff"},
+		{"kind", "pin", "t", 0, 0, 32, 28, "kind must be agent, terminal, note, file, diff or text"},
+		{"text with a ref", "text", "pin-1", 0, 0, 32, 28, "a text panel takes no ref"},
 		{"ref empty", "terminal", "  ", 0, 0, 32, 28, "ref is required"},
 		{"note ref empty", "note", " ", 0, 0, 32, 28, "ref is required"},
 		{"file ref without a path", "file", "t:term-1", 0, 0, 32, 28, "ref must be <owner>:<id>:<path> with owner t, a or w"},
@@ -646,5 +647,78 @@ func TestCanvasPanelPlaneRules(t *testing.T) {
 	}
 	if got := panelRects(t, s, canvas.ID)[neg.ID]; got.X != -8 || got.Y != -8 || got.W != 40 || got.H != 40 {
 		t.Fatalf("canvas panel did not move: %+v", got)
+	}
+}
+
+// A text panel is the one kind that holds its own words: it binds to
+// nothing, mints its own ref so two empty ones never collide, and only it
+// may be written to.
+func TestCanvasTextPanel(t *testing.T) {
+	s := openTest(t)
+	m, _ := s.CreateCanvas("Ops")
+
+	a, err := s.AddCanvasPanel(m.ID, CanvasKindText, "", 0, 0, 32, 28)
+	if err != nil {
+		t.Fatalf("add text: %v", err)
+	}
+	if a.Panel.Ref != a.Panel.ID {
+		t.Fatalf("a text panel binds to itself: ref %q, id %q", a.Panel.Ref, a.Panel.ID)
+	}
+	if a.Panel.Content != "" {
+		t.Fatalf("a new text panel starts empty, got %q", a.Panel.Content)
+	}
+	// The unique index is (canvas, kind, ref); two empty text panels would
+	// collide on any shared ref, and this is what proves they do not.
+	b, err := s.AddCanvasPanel(m.ID, CanvasKindText, "", 40, 0, 32, 28)
+	if err != nil {
+		t.Fatalf("a second text panel: %v", err)
+	}
+
+	got, err := s.SetCanvasPanelContent(m.ID, a.Panel.ID, "beside the deploy terminal")
+	if err != nil {
+		t.Fatalf("set content: %v", err)
+	}
+	if got.Content != "beside the deploy terminal" || got.PanelID != a.Panel.ID {
+		t.Fatalf("content event = %+v", got)
+	}
+	d, err := s.GetCanvas(m.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range d.Panels {
+		switch p.ID {
+		case a.Panel.ID:
+			if p.Content != "beside the deploy terminal" {
+				t.Fatalf("written text reads back %q", p.Content)
+			}
+		case b.Panel.ID:
+			if p.Content != "" {
+				t.Fatalf("the other panel gained words: %q", p.Content)
+			}
+		}
+	}
+	if d.UpdatedAt == m.UpdatedAt {
+		t.Fatal("writing text did not touch the canvas")
+	}
+
+	// Only a text panel holds words, and the limit refuses rather than
+	// truncating — a byte-sliced string is how invalid UTF-8 gets stored.
+	term, err := s.AddCanvasPanel(m.ID, CanvasKindTerminal, "term-1", 80, 0, 32, 28)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SetCanvasPanelContent(m.ID, term.Panel.ID, "x"); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("a terminal panel accepted words: %v", err)
+	}
+	if _, err := s.SetCanvasPanelContent(m.ID, a.Panel.ID, strings.Repeat("é", MaxCanvasText+1)); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("over the limit: %v", err)
+	}
+	if _, err := s.SetCanvasPanelContent(m.ID, "panel-gone", "x"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("a missing panel: %v", err)
+	}
+	// Runes, not bytes: the limit counts characters, so a string of
+	// two-byte letters exactly at the limit is accepted.
+	if _, err := s.SetCanvasPanelContent(m.ID, a.Panel.ID, strings.Repeat("é", MaxCanvasText)); err != nil {
+		t.Fatalf("exactly at the limit: %v", err)
 	}
 }

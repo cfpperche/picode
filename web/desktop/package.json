@@ -11,6 +11,12 @@
     "@picode/browser": "0.0.0",
     "@picode/shared": "0.0.0",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/fira-code": "^5.3.0",
+    "tailwindcss": "^4.1.12"
+  },
+  "devDependencies": {
+    "tailwindcss": "^4.1.12"
   }
 }

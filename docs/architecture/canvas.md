@@ -655,9 +655,19 @@ Four places, three of them on the bottom edge (owner, 2026-09-12):
 | Where | What | Why there |
 |---|---|---|
 | top-left (`.cv-chrome`) | the canvas switcher and the `⋯` menu | identity belongs where a reader starts reading |
-| bottom-left (`.cv-camera`) | a column: **+**, **−**, **Fit** | React Flow's own Controls stand here, and a camera is not a canvas action |
-| bottom-centre (`.cv-toolbar`) | one button per **element**: agent, terminal, pin | the hands' end of the surface: what you add |
+| bottom-left (`.cv-camera`) | a column: **+**, **−**, the readout, **Fit** | React Flow's own Controls stand here, and a camera is not a canvas action |
+| bottom-centre (`.cv-toolbar`) | one button per **element**: agent, terminal, pin, text | the hands' end of the surface: what you add |
 | bottom-right (`<MiniMap>`, `Plane.jsx`) | the map of the plane | the corner the rest leaves free |
+
+**The zoom readout sits on the camera column.** It was a segment of the dock,
+was cut when the camera moved out, and came back here the same day — it is
+the only thing on screen that names the zoom, and the zoom is not cosmetic on
+this plane: 100 % is the one zoom whose pointer lands on the cell it points
+at (§4.3). Clicking it goes back there, and so does clicking any inert or
+still body (`.cv-snap`). The plane pushes the percentage through `onZoom`;
+the surface keeps it in a ref with a listener set and `ZoomReadout` is the
+only subscriber, so a wheel gesture re-renders one `<span>` and never the
+plane.
 
 **An empty canvas draws nothing** (owner, 2026-09-12). It carried a card
 in the middle saying what a panel is; the toolbar says it better by being
@@ -683,6 +693,14 @@ is what the owner hit. Three steps replace it:
    reader already said what goes there. Choosing creates the panel in the
    rectangle and disarms the tool.
 
+**A kind with nothing to choose skips step 3.** Agent, terminal and pin name
+something that already exists, so the rectangle is followed by a dialog. A
+**text** panel *is* its own content (ADR-0108's 2026-09-12 amendment): there
+is nothing to pick, so it is born where it was drawn, empty and ready to type
+in. `PICKS_A_TARGET` in `CanvasSurface.jsx` is the list, and the rectangle is
+handed to `addPanel` as an argument rather than read back from state — the
+two happen in one tick, and state read there is the *previous* rectangle.
+
 `placementRect` (`web/shared/domain/canvas.js`) is the pure part: a gesture
 shorter than the slop is a **click**, which centres the default size on the
 point; anything longer is the rectangle drawn, snapped to whole units, grown
@@ -706,7 +724,8 @@ That has a cost, recorded rather than hidden: **file and diff panels can no
 longer be created.** They never had a tool — a file reaches the canvas from a
 tab that is already open, not from a rectangle drawn on the plane — and the
 unfiltered picker was their only door. Existing ones keep working, and
-`nextSlot` now has no caller for new panels at all. Restoring them means
+`nextSlot` has no caller for new panels at all — the fallback branch in
+`addPanel` went with the button rather than sitting unreachable. Restoring them means
 giving them a tool of their own, and the tool has to answer what a rectangle
 means for a file first.
 
@@ -1223,7 +1242,11 @@ plane rather than one per panel. What a still still cannot show is **colour
 in the text**: `translateToString` drops every cell attribute, so the
 capture is plain text and a coloured prompt reads monochrome down there.
 Recovering it would mean capturing per-cell attributes, which is the cost
-the band exists to avoid.
+the band exists to avoid — **and it is not going to be done** (owner,
+2026-09-12: "muito overengineering"). A still is a reminder of what a pane
+said, not a reproduction of it; the ground and the typeface carry "this is a
+terminal" on their own, and the reader is one zoom step away from the real
+thing. Treat this paragraph as closed rather than as a debt.
 
 The rule is about a **cell**, so it only binds a body that has one.
 `hasPane` (`web/shared/domain/canvas.js`, the allow-list `PANE_STATES`) is
