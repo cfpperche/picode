@@ -26,7 +26,7 @@ without restarting. Claude and OpenCode retain the panel dimensions when resumin
 An older managed Pi process may offer **Reconnect**; this waits for an
 idle process and resumes its existing history. Setup does not start a model turn.
 
-**Connected · not tested** describes setup readiness. **Verified** requires the
+**Connected** describes setup readiness. **Test passed** requires the
 native message, reply and both acknowledgments. A test uses the configured
 models and may wait for their normal tool permissions. If it expires, open the
 conversations to check approvals or model capacity, then run another test.
@@ -165,3 +165,31 @@ messages through its native receiver. Codex 0.153.4 received its pointer and
 read through MCP while retaining native tool approvals. Later Claude 2.1.267
 and OpenCode 1.18.30 message exchanges were blocked by native account limits; they
 are not counted as complete automatic delivery tests.
+
+## Connection and activity
+
+Each participant shows its activity (Idle, Working, or Needs your input) and its
+connection separately. Syncing / Reconnecting means PiCode is recovering the
+conversation identity; it does not mean the CLI is asking for approval. Open the
+terminal if the conversation has not been identified. A fresh conversation needs
+its first native event. Connection failed shows a setup problem and its action.
+
+On Linux/WSL, observed conversations recover after the PiCode server restarts
+while their terminals stay open. Terminals running an older integration begin
+recording on their next native event. Pi receiver presence renews automatically;
+PiCode does not restart a terminal just because its receiver has not reconnected.
+
+After updating the Hermes integration, stop and resume its conversation once to
+load the adapter. Its message calls then use the current native conversation even
+if an internal background review changes Hermes' environment. Keep one
+`picode messages` command per tool call; native permission prompts still apply.
+
+Enabled participants stay in From and To while reconnecting, with their availability
+shown. Run test becomes available when both selected conversations are connected.
+Test passed records a completed exchange; it is separate from current activity.
+
+If Messages shows **State unavailable / Connection failed**, state recording
+could not recover. Restore storage access, then use **Terminal controls** to
+restart the affected CLI. Opening the existing conversation or refreshing the
+page cannot reset this persistent failure. Native approval and draft protections
+remain in effect.

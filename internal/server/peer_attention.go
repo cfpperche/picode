@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -19,6 +20,7 @@ const peerPointer = "PiCode: read pending messages and acknowledge handled ones.
 const peerCLIPointer = "PiCode: run picode messages read; handle messages, then ack their IDs."
 
 var terminalSGR = regexp.MustCompile(`\x1b\[[0-9;:]*m`)
+var grokEmptySuggestion = regexp.MustCompile(`^  │ ❯ \x1b\[2;3m([^\x1b\r\n\t]+)\x1b\[0m( +)│ *$`)
 
 // The screen is an additional conservative input gate. A lifecycle hook and
 // native session binding are mandatory independently of these cursor checks.
@@ -84,8 +86,19 @@ func peerGrokBoxInput(s tmux.InputSnapshot, expected string) bool {
 	if clean(y-1) != "  ╭"+strings.Repeat("─", s.Width-6)+"╮" {
 		return false
 	}
+	line := clean(y)
+	suggestion := false
+	// Native Grok renders an unaccepted suggestion dim and italic at the
+	// empty cursor. Require that exact style and footer together; typed or
+	// partly accepted text must still fail the empty-editor check.
+	if expected == "" {
+		if match := grokEmptySuggestion.FindStringSubmatch(s.Lines[y]); match != nil {
+			suggestion = true
+			line = "  │ ❯ " + strings.Repeat(" ", utf8.RuneCountInString(match[1])+len(match[2])) + "│"
+		}
+	}
 	padding := s.Width - 9 - utf8.RuneCountInString(expected)
-	if padding < 1 || clean(y) != "  │ ❯ "+expected+strings.Repeat(" ", padding)+"│" {
+	if padding < 1 || line != "  │ ❯ "+expected+strings.Repeat(" ", padding)+"│" {
 		return false
 	}
 	bottom := clean(y + 1)
@@ -97,7 +110,9 @@ func peerGrokBoxInput(s tmux.InputSnapshot, expected string) bool {
 		return false
 	}
 	footer := "  Shift+Tab:mode  │  Ctrl+x:shortcuts"
-	if expected != "" {
+	if suggestion {
+		footer = "  Tab/→:accept suggestion  │  Shift+Tab:mode  │  Ctrl+x:shortcuts"
+	} else if expected != "" {
 		footer = "  Enter:send  │  Shift+Tab:mode  │  Ctrl+x:shortcuts"
 	}
 	if clean(y+2) != "" || clean(y+3) != footer {
@@ -243,6 +258,13 @@ func peerLiveTerminal(deps Deps, p store.PeerConnection) (TermRuntime, bool) {
 	if !ok || rt.SessionID != p.SessionKey || rt.CLI != p.CLI || rt.RunID == "" || !processAlive(rt) {
 		return rt, false
 	}
+	observation, observationErr := readNativeObservation(deps.DataDir, p.OwnerID)
+	if rt.Observation || observationErr == nil || (deps.DataDir != "" && !os.IsNotExist(observationErr)) {
+		if observationErr != nil || !observationMatchesRuntime(observation, rt) || observation.State != TermIdle {
+			return rt, false
+		}
+	}
+
 	state, ok := deps.TermStates.Get(p.OwnerID)
 	return rt, ok && state.SessionID == rt.SessionID && state.SessionSeq == rt.SessionSeq && state.RunID == rt.RunID && state.CLI == rt.CLI && state.State == TermIdle
 }
@@ -272,6 +294,14 @@ func attemptPeerAttention(ctx context.Context, deps Deps, m store.PeerMessage) {
 
 // The sender of a connection test uses the same guarded native input path.
 func attemptPeerText(ctx context.Context, deps Deps, p store.PeerConnection, pointer string, claim func() bool, finish func(error)) {
+	complete := finish
+	finish = func(err error) {
+		if err != nil {
+			// Metadata only: never log the pointer, message, token or screen.
+			log.Printf("communication attention: owner=%s cli=%s connection=%s reason=%s", p.OwnerID, p.CLI, p.ID, peerAttentionReason(err))
+		}
+		complete(err)
+	}
 	if p.Kind == "agent" {
 		if deps.Replies == nil {
 			return
@@ -352,19 +382,19 @@ func attemptPeerText(ctx context.Context, deps Deps, p store.PeerConnection, poi
 	if pid != before.PanePID {
 		return
 	}
-	check := func(expected string) bool {
+	check := func(expected string) error {
 		current, e := deps.Store.PeerConnection(p.ID)
 		if e != nil || current.SessionKey != p.SessionKey {
-			return false
+			return errors.New("connection changed")
 		}
 		live, ok := peerLiveTerminal(deps, p)
 		if !ok || live.RunID != rt.RunID || live.PID != rt.PID || live.ProcStart != rt.ProcStart {
-			return false
+			return errors.New("native observation or runtime changed")
 		}
 		snap, e := deps.Tmux.InputSnapshot(ctx, name)
-		return e == nil && snap.PaneID == before.PaneID && snap.PanePID == before.PanePID && peerInputMatches(p.CLI, snap, expected) && peerPointerFits(p.CLI, snap, pointer)
+		return peerInputRecheck(p.CLI, before, snap, expected, pointer, e)
 	}
-	if !check("") {
+	if check("") != nil {
 		return
 	}
 	if !claim() {
@@ -372,12 +402,12 @@ func attemptPeerText(ctx context.Context, deps Deps, p store.PeerConnection, poi
 	}
 	// Any loss of certainty after the durable claim is terminal for this
 	// attempt. Never remove an editor draft or blindly send Enter on retry.
-	if !check("") {
-		finish(context.Canceled)
+	if err := check(""); err != nil {
+		finish(peerAttentionFailure("before paste: " + err.Error()))
 		return
 	}
 	if err := deps.Tmux.PasteOnly(ctx, before.PaneID, pointer); err != nil {
-		finish(err)
+		finish(peerAttentionFailure("paste failed"))
 		return
 	}
 	timer := time.NewTimer(150 * time.Millisecond)
@@ -388,11 +418,31 @@ func attemptPeerText(ctx context.Context, deps Deps, p store.PeerConnection, poi
 		return
 	case <-timer.C:
 	}
-	if !check(pointer) {
-		finish(context.Canceled)
+	if err := check(pointer); err != nil {
+		finish(peerAttentionFailure("after paste: " + err.Error()))
 		return
 	}
-	finish(deps.Tmux.SubmitPane(ctx, before.PaneID))
+	if err := deps.Tmux.SubmitPane(ctx, before.PaneID); err != nil {
+		finish(peerAttentionFailure("submit failed"))
+		return
+	}
+	finish(nil)
+}
+
+func peerInputRecheck(cli string, before, current tmux.InputSnapshot, expected, pointer string, err error) error {
+	if err != nil {
+		return errors.New("pane snapshot unavailable")
+	}
+	if current.PaneID != before.PaneID || current.PanePID != before.PanePID {
+		return errors.New("pane changed")
+	}
+	if !peerPointerFits(cli, current, pointer) {
+		return errors.New("pointer does not fit")
+	}
+	if !peerInputMatches(cli, current, expected) {
+		return errors.New("composer changed or is not ready")
+	}
+	return nil
 }
 
 // One coalesced loop for the server, driven by the feed. The bounded tick also
@@ -436,4 +486,23 @@ func StartPeerAttention(ctx context.Context, deps Deps) {
 			cancel()
 		}
 	}
+}
+
+// Only bounded internal reasons reach logs; receiver error text may contain
+// untrusted native output and is deliberately omitted.
+type peerAttentionFailure string
+
+func (e peerAttentionFailure) Error() string { return string(e) }
+func peerAttentionReason(err error) string {
+	var failure peerAttentionFailure
+	if errors.As(err, &failure) {
+		return string(failure)
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "delivery timed out"
+	}
+	if errors.Is(err, context.Canceled) {
+		return "delivery cancelled"
+	}
+	return "native receiver or control rejected delivery"
 }

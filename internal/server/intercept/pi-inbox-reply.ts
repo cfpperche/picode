@@ -95,7 +95,7 @@ export default function (pi) {
 
 	let helloQueue = Promise.resolve();
  const hello = () => {
-  const body = {session:sessionFile(),connection:peerConnection,pid:process.pid,runId:process.env.PICODE_TUI_RUN_ID || ""};
+  const body = {session:sessionFile(),connection:peerConnection,pid:process.pid,runtimePid:Number(process.env.PICODE_TUI_PID || 0),runId:process.env.PICODE_TUI_RUN_ID || ""};
   helloQueue = helloQueue.then(() => post(`/api/${owner.kind}/${owner.id}/tui-hello`,body));
   return helloQueue;
  };
@@ -204,7 +204,8 @@ export default function (pi) {
 		mkdirSync(replyDir, { recursive: true });
 	} catch {}
 
-	setInterval(hello, 5 * 60 * 1000).unref?.();
+	// Terminal presence must recover promptly after a daemon restart.
+	setInterval(hello, owner.kind === "terminals" ? 5000 : 5 * 60 * 1000).unref?.();
 	setInterval(drain, 1000).unref?.();
 	try {
 		fsWatch(replyDir, () => void drain());

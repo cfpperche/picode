@@ -51,9 +51,16 @@
  .peer-participant-state { grid-column: 1; grid-row: 2; padding-left: 30px; }
  .peer-participant > button { grid-column: 2; grid-row: 1 / 3; }
  .peer-test-controls { align-items: stretch; }
+ .peer-test-controls label { flex-basis: 100%; }
  .peer-test-controls > button { width: 100%; }
 }
 
+.peer-participant-state { display: grid; gap: 3px; text-align: right; }
+.peer-participant-state small { font-size: inherit; }
+.peer-participant.is-waiting .peer-participant-state { animation: peer-reconnecting 1.8s ease-in-out infinite; }
+@keyframes peer-reconnecting { 50% { opacity: .65; } }
+@media (max-width: 600px) { .peer-participant-state { text-align: left; } }
+@media (prefers-reduced-motion: reduce) { .peer-participant.is-waiting .peer-participant-state { animation: none; } }
 /* Canvas links (ADR-0116) — the non-spatial audit list. It reuses the
    participants list's row shape on purpose: one visual language for "who may
    reach whom", whether the pairing came from a workspace or from a line the

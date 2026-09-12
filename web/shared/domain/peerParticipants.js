@@ -1,17 +1,31 @@
 export const participantKey = p => `${p.kind}:${p.ownerId}`;
-export function participantState(owner, preference, connection, live, checks = []) {
-  if (!preference?.enabled || preference.workspaceId !== owner.workspaceId || preference.cli !== owner.cli) return { label: connection?.active ? "Current conversation only" : "Off", kind: "off" };
-  if (!owner.sessionKey) return { label: "Needs a conversation", kind: "action" };
-  if (preference.problem && preference.phase === "error") return { label: "Needs attention", kind: "error" };
-  if (!live) return { label: "Stopped", kind: "action" };
-  if (live === "needs-you") return { label: "Needs your input", kind: "action" };
-  if (preference.problem || preference.phase === "error") return { label: "Needs attention", kind: "error" };
-  if (preference.phase === "connected" && connection?.active && preference.appliedConnection === connection.id) {
-    const verified = checks.some(c => c.phase === "passed" && [c.senderId, c.recipientId].includes(connection.id));
-    return { label: verified ? "Verified" : "Connected · not tested", kind: "connected" };
-  }
-  if (live === "working" || preference.phase === "waiting") return { label: "Waiting to connect", kind: "waiting" };
-  return { label: "Preparing…", kind: "preparing" };
+// Activity, connection preparation and historical test proof are independent.
+export function participantState(owner, preference, connection, live, checks = [], identity, recovery) {
+  const enabled = preference?.enabled && preference.workspaceId === owner.workspaceId && preference.cli === owner.cli;
+  if (!enabled) return { label: connection?.active ? "Current conversation only" : "Off", connection: "", kind: "off", ready: false };
+  const phase = preference.phase;
+  const observed = identity !== "unobserved" && !!owner.sessionKey;
+  const ready = observed && !!live && phase === "connected" && connection?.active && preference.appliedConnection === connection.id;
+  const verified = ready && checks.some(c => c.phase === "passed" && [c.senderId, c.recipientId].includes(connection.id));
+  const activity = ({idle:"Idle",working:"Working","needs-you":"Needs your input"})[live] || "Syncing";
+  const result = { label: activity, connection: ready ? "Connected" : "Connecting", kind: ready ? "connected" : "preparing", ready: !!ready, verified: !!verified, reason: "", action: "" };
+  if (!live) return {...result,label:"Stopped",connection:"Not connected",kind:"action",reason:"stopped",action:"open"};
+  if (recovery === "restart-required") return {...result,label:"State unavailable",connection:"Connection failed",kind:"error",ready:false,verified:false,reason:"restart-required",action:"terminal-controls"};
+  if (!owner.sessionKey) return {...result,label:"No conversation",connection:"Not connected",kind:"action",reason:"no-conversation",action:"open"};
+  if (!observed || phase === "waiting-conversation") return {...result,label:live === "needs-you" ? activity : "Syncing",connection:"Reconnecting",kind:"waiting",ready:false,verified:false,reason:"unobserved",action:"open"};
+  if (phase === "adapter-missing") return {...result,connection:"Connection failed",kind:"error",reason:"adapter-missing",action:"packages"};
+  if (phase === "waiting-receiver") return {...result,connection:"Reconnecting",kind:"waiting",reason:"waiting-receiver",action:"open"};
+  if (phase === "error") return {...result,connection:"Connection failed",kind:"error",reason:"setup-failed",action:owner.kind === "agent" ? "reconnect" : "retry"};
+  if (phase === "waiting") return {...result,connection:"Waiting to connect",kind:"waiting",reason:"waiting",action:"open"};
+  return result;
+}
+export function participantOptions(owners, selectedFrom, selectedTo) {
+  // Selection is by owner, so a reconnect or new conversation cannot silently
+  // substitute a different participant while the owner is looking at this form.
+  const sender = owners.find(o => participantKey(o) === selectedFrom) || owners[0];
+  const receivers = owners.filter(o => participantKey(o) !== (sender && participantKey(sender)));
+  const recipient = receivers.find(o => participantKey(o) === selectedTo) || receivers[0];
+  return {sender,receivers,recipient};
 }
 export function selectedWorkspace(data, route) {
   if (!data) return "";

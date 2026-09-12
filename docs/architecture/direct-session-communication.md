@@ -62,8 +62,7 @@ used. Native reports bind to a live wrapper incarnation and ordered session
 sequence; identity and activity publish together. After server restart, a report
 can recover its wrapper only when PID ancestry matches the current pane and no
 other wrapper owns the lease. Grok/Hermes and enrolled connections never change
-identity through cwd/latest-session discovery. A TUI that has not emitted a
-native lifecycle event remains unobserved.
+identity through cwd/latest-session discovery. A TUI that has never emitted a native lifecycle event remains unobserved.
 
 **Contacts are the union of the workspace and live Matrix edges
 (ADR-0116).** `PeerContacts` still answers every unrevoked connection in the
@@ -180,3 +179,48 @@ readiness. No startup API request is awaited by plugin initialization or by the
 event queue. Claude recognizes the native single-line mode footer and the compact
 three-line footer ending in `/rc`; unknown footers and drafts remain blocked.
 Regression table: [resume repair](../plans/communication-resume-repair.md).
+
+Grok's empty bordered composer may display an unaccepted native suggestion.
+The input guard recognizes only its captured dim-and-italic text, empty cursor,
+complete frame and exact `Tab/→:accept suggestion` footer together. Typed or
+partly accepted text, a changed cursor/frame/footer and copy mode still refuse
+automatic input. Native identity, Idle, approval and exact post-paste pointer
+checks remain independent requirements. Regression: `TestPeerGrokNativeSuggestion`.
+
+### Restart recovery (ADR-0112)
+
+The common native hook writes a private, ordered observation before HTTP, so
+reports survive daemon downtime. The existing presence watcher validates its OS
+boot ID, process start token, wrapper run, CLI and exact pane before rebuilding
+live identity/activity. The original Working age is retained. Missing or invalid
+records stay unknown; last-session pins never prove an active conversation.
+The private lock retains the ordering/source fence before checkpoint publication.
+Both must agree; a failed newer write cannot expose an older Idle. A failure to
+retain the fence blocks that incarnation until a fresh wrapper start.
+Attention checks that the disk observation still agrees before the existing
+native input guards. Pi receiver presence renews within five seconds, independently
+of activity. This recovery currently requires Linux/WSL process metadata.
+
+Messages shows activity and connection separately. Pending identification uses
+Syncing / Reconnecting, native approvals use Needs your input, and only preparation
+errors use Connection failed. Historical Test passed is separate from readiness.
+Enabled unavailable owners remain visible in the test selectors; selecting them
+never redirects a test to another participant.
+
+Hermes uses native root session/turn IDs for activity and its message-command
+context. Its standard pre-tool hook scopes the session environment to one plain
+`picode messages` command; background review helpers, other turns and compound
+shell commands cannot inherit that repair. Native permissions still apply. This
+avoids a vendor background helper's process-global identity replacing the open
+conversation. Loading this adapter change requires resuming the native CLI once.
+
+Recovery reads the existing recorder lock without waiting. A writer in progress
+is temporary; an unlocked invalid fence requires storage repair and a new CLI
+invocation. Messages exposes that failure with Terminal controls instead of
+promising reconnection. Unsupported hosts ignore recovery files and retain
+normal live hooks. Attention logs contain only owner/CLI/connection identifiers
+and bounded refusal stages/reasons, never native errors, messages or pane text.
+
+Native launchers replace any inherited CLI discovery marker with their own CLI.
+An explicit marker requires that CLI's own session identity; only unmarked legacy
+Codex contexts may use the compatibility fallback, and conflicting IDs are refused.

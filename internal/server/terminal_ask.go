@@ -1,11 +1,13 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,6 +61,7 @@ func handleTerminalTuiHello(deps Deps) http.HandlerFunc {
 			Connection string `json:"connection"`
 			RunID      string `json:"runId"`
 			PID        int    `json:"pid"`
+			RuntimePID int    `json:"runtimePid"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		id := r.PathValue("id")
@@ -67,6 +70,7 @@ func handleTerminalTuiHello(deps Deps) http.HandlerFunc {
 			return
 		}
 		if req.RunID != "" {
+			recoverPiReceiverRuntime(r.Context(), deps, id, req.RunID, req.PID, req.RuntimePID)
 			if rt, ok := deps.TermRuntimes.Get(id); ok && rt.RunID != req.RunID {
 				w.WriteHeader(http.StatusNoContent)
 				return
@@ -318,4 +322,42 @@ func handleTerminalAsk(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadGateway, name+" did not take the message: "+err.Error())
 		}
 	}
+}
+
+// A receiver heartbeat renews presence, never invents activity. Legacy receivers
+// name the native child PID; its own environment carries the wrapper identity.
+func recoverPiReceiverRuntime(ctx context.Context, deps Deps, id, run string, pid, wrapperPID int) {
+	if pid <= 0 || deps.TermRuntimes == nil {
+		return
+	}
+	if wrapperPID == 0 {
+		raw, err := os.ReadFile(fmt.Sprintf("/proc/%d/environ", pid))
+		if err != nil {
+			return
+		}
+		env := map[string]string{}
+		for _, line := range strings.Split(string(raw), "\x00") {
+			k, v, ok := strings.Cut(line, "=")
+			if ok {
+				env[k] = v
+			}
+		}
+		if env["PICODE_TUI_RUN_ID"] != run || env["PICODE_TERM_ID"] != id {
+			return
+		}
+		wrapperPID, _ = strconv.Atoi(env["PICODE_TUI_PID"])
+	}
+	if wrapperPID <= 0 {
+		return
+	}
+	procs := readProcSnapshot()
+	child := pid
+	for n := 0; n < 256 && child > 0 && child != wrapperPID; n++ {
+		child = procs.ppid[child]
+	}
+	if child != wrapperPID {
+		return
+	}
+	recoverNativeRuntime(ctx, deps, id, "pi", run, wrapperPID)
+	reconcileNativeObservation(ctx, deps, id)
 }

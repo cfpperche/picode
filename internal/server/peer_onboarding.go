@@ -17,6 +17,8 @@ import (
 	"github.com/cfpperche/picode/internal/tmux"
 )
 
+var errPeerAdapterMissing = errors.New("Install the Pi connection adapter in Packages.")
+
 func registerPeerOnboarding(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/communication/workspaces/{id}/history", func(w http.ResponseWriter, r *http.Request) {
 		before := int64(0)
@@ -67,12 +69,15 @@ func registerPeerOnboarding(mux Registrar, deps Deps) {
 			return
 		}
 		live := map[string]string{}
+		identity := map[string]string{}
+		recovery := map[string]string{}
 		for _, o := range owners {
 			key := o.Kind + ":" + o.OwnerID
 			if o.Kind == "agent" && deps.Runtime != nil {
 				if a := deps.Runtime.Get(o.OwnerID); a != nil {
 					v := a.Snapshot()
-					live[key] = "open"
+					live[key] = "idle"
+					identity[key] = "confirmed"
 					if v.Streaming {
 						live[key] = "working"
 					}
@@ -82,12 +87,25 @@ func registerPeerOnboarding(mux Registrar, deps Deps) {
 				}
 			} else if rt, ok := deps.TermRuntimes.Get(o.OwnerID); ok && processAlive(rt) {
 				live[key] = "open"
+				identity[key] = "unobserved"
+				observation, observationErr := readNativeObservation(deps.DataDir, o.OwnerID)
+				if errors.Is(observationErr, errNativeObservationBlocked) {
+					recovery[key] = "restart-required"
+				}
+				if rt.SessionID != "" && rt.SessionID == o.SessionKey {
+					identity[key] = "confirmed"
+					if rt.Observation || observationErr == nil || (deps.DataDir != "" && !os.IsNotExist(observationErr)) {
+						if observationErr != nil || !observationMatchesRuntime(observation, rt) {
+							identity[key] = "unobserved"
+						}
+					}
+				}
 				if v, ok := deps.TermStates.Get(o.OwnerID); ok && v.RunID == rt.RunID {
 					live[key] = v.State
 				}
 			}
 		}
-		writeJSON(w, 200, map[string]any{"owners": owners, "participants": participants, "workspaces": workspaces, "connections": peers, "checks": checks, "live": live})
+		writeJSON(w, 200, map[string]any{"owners": owners, "participants": participants, "workspaces": workspaces, "connections": peers, "checks": checks, "live": live, "identity": identity, "recovery": recovery})
 	})
 	mux.HandleFunc("PUT /api/communication/workspaces/{id}/participants", func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
@@ -282,7 +300,7 @@ func prepareParticipantConnection(deps Deps, p store.PeerParticipant, o store.Pe
 	if o.CLI == "pi" {
 		adapter = filepath.Join(pipkg.UserDir(), "npm", "node_modules", "pi-mcp-adapter", "index.ts")
 		if _, e := os.Stat(adapter); e != nil {
-			return store.PeerConnection{}, errors.New("Install the Pi connection adapter in Packages.")
+			return store.PeerConnection{}, errPeerAdapterMissing
 		}
 	}
 	extras := []string{os.Getenv("NODE_EXTRA_CA_CERTS"), os.Getenv("CODEX_CA_CERTIFICATE"), os.Getenv("SSL_CERT_FILE")}
@@ -371,6 +389,9 @@ func reconcilePeerParticipants(ctx context.Context, deps Deps) {
 				c, e := prepareParticipantConnection(deps, p, o)
 				if e != nil {
 					phase, problem = "error", e.Error()
+					if errors.Is(e, errPeerAdapterMissing) {
+						phase = "adapter-missing"
+					}
 				} else {
 					connection = c.ID
 					call, cancel := context.WithTimeout(ctx, 12*time.Second)
@@ -431,12 +452,16 @@ func applyPeerParticipant(ctx context.Context, deps Deps, p store.PeerParticipan
 		if deps.Replies != nil && deps.Replies.receiverConnection(termReplyKey(c.OwnerID), rt.SessionPath, rt.RunID) == c.ID {
 			return "connected", ""
 		}
+		if deps.Replies == nil || !deps.Replies.receiverFresh(termReplyKey(c.OwnerID)) || deps.Replies.receiverSession(termReplyKey(c.OwnerID)) != rt.SessionPath {
+			return "waiting-receiver", "Waiting for this conversation to reconnect."
+		}
 		if _, ok := peerLiveTerminal(deps, c); !ok {
 			return "waiting", "Waiting for the current turn or approval."
 		}
-		if e := configurePeerPi(ctx, deps, termReplyKey(c.OwnerID), rt.SessionPath, c.ID); e == nil {
-			return "connected", ""
+		if e := configurePeerPi(ctx, deps, termReplyKey(c.OwnerID), rt.SessionPath, c.ID); e != nil {
+			return "error", e.Error()
 		}
+		return "connected", ""
 
 	}
 	if !tryLockPrompt(c.OwnerID) {

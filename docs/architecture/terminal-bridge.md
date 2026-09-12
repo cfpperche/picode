@@ -38,7 +38,8 @@ so `termKeys.js` encodes modified Enter itself (VS Code's terminal gets
 the same result from its xterm fork). `/api/system` warns if the running
 server is on another format.
 
-Terminal CLI state (ADR-0056) and presence (ADR-0062) are ephemeral:
+Terminal CLI state (ADR-0056) and presence (ADR-0062) are live projections
+recovered from validated native observations (ADR-0112):
 scoped wrappers inject Claude and Codex hooks, native Grok hooks and Hermes
 plugins (ADR-0107), OpenCode (`OPENCODE_CONFIG`
 session plugin, no data-dir overlay and no write to `~/.config/opencode`),
@@ -158,3 +159,29 @@ legacy mode clears inherited modern-hook flags. SessionStart adds native message
 command context (ADR-0111). OpenCode's resume metadata/status lookup runs after
 plugin initialization, without blocking the instance bootstrap; native activity
 invalidates a pending startup snapshot.
+
+### Restart recovery (ADR-0112)
+
+The common native hook writes a private, ordered observation before HTTP, so
+reports survive daemon downtime. The existing presence watcher validates its OS
+boot ID, process start token, wrapper run, CLI and exact pane before rebuilding
+live identity/activity. The original Working age is retained. Missing or invalid
+records stay unknown; last-session pins never prove an active conversation.
+The private lock retains the ordering/source fence before checkpoint publication.
+Both must agree; a failed newer write cannot expose an older Idle. A failure to
+retain the fence blocks that incarnation until a fresh wrapper start.
+Attention checks that the disk observation still agrees before the existing
+native input guards. Pi receiver presence renews within five seconds, independently
+of activity. This recovery currently requires Linux/WSL process metadata.
+
+Messages shows activity and connection separately. Pending identification uses
+Syncing / Reconnecting, native approvals use Needs your input, and only preparation
+errors use Connection failed. Historical Test passed is separate from readiness.
+Enabled unavailable owners remain visible in the test selectors; selecting them
+never redirects a test to another participant.
+
+Hermes activity follows an explicit root CLI/TUI session/turn, including approval
+and completion correlation. Unscoped starts and background helper turns do not
+prove Idle. Its explicit CLI reset boundary changes identity; another root event
+selects the next tool context. Sequences are assigned before subprocess I/O so
+a slow completion cannot overwrite a newer turn.

@@ -80,17 +80,27 @@ func TestNativeCLIIdentity(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			count := 2
-			if cli == "codex" {
-				count = 3
-			}
+			count := 3
 			if len(options.Env) != count || options.Env["PICODE_MESSAGES_BIN"] == "" {
 				t.Fatal("native bootstrap must contain discovery only", options.Env)
 			}
-			env := map[string]string{"PICODE_MESSAGES_DIR": dir, key: "native-A"}
-			if cli == "codex" {
-				env["PICODE_MESSAGES_CLI"] = "codex"
+			// A daemon started by Codex inherits its marker and thread context.
+			env := map[string]string{"PICODE_MESSAGES_CLI": "codex", "CODEX_THREAD_ID": "parent", "CODEX_SESSION_ID": "parent", "PICODE_TERM_ID": p.OwnerID}
+			for k, v := range options.Env {
+				env[k] = v
 			}
+			env["PICODE_MESSAGES_DIR"], env[key] = dir, "native-A"
+			if cli == "codex" {
+				env["CODEX_SESSION_ID"] = "native-A"
+			}
+			if options.Env["PICODE_MESSAGES_CLI"] != cli {
+				t.Fatal("inherited CLI marker was not replaced")
+			}
+			parent := p
+			parent.CLI, parent.SessionKey = "codex", "parent"
+			parentRaw, _ := json.Marshal(LaunchConfig{Connection: parent, Token: "parent-private", URL: "http://localhost/mcp"})
+			os.MkdirAll(filepath.Join(dir, "peer_parent"), 0700)
+			os.WriteFile(filepath.Join(dir, "peer_parent", "connection.json"), parentRaw, 0600)
 			get := func(k string) string { return env[k] }
 			if c, err := ResolveCLIConnection("", get); err != nil || c.Connection.SessionKey != "native-A" {
 				t.Fatal(c, err)
@@ -115,6 +125,25 @@ func TestNativeCLIIdentity(t *testing.T) {
 				t.Fatal("contradictory identity")
 			}
 			delete(env, otherKey)
+			if cli != "codex" {
+				// An inherited non-Codex session must not fill a missing own SID,
+				// including when the caller supplies an explicit connection file.
+				env[key], env[otherKey] = "", "foreign-parent"
+				foreign := p
+				foreign.CLI = map[string]string{"grok": "hermes", "hermes": "grok"}[cli]
+				foreign.SessionKey = "foreign-parent"
+				foreignRaw, _ := json.Marshal(LaunchConfig{Connection: foreign, Token: "private", URL: "http://localhost/mcp"})
+				foreignPath := filepath.Join(dir, "peer_foreign", "connection.json")
+				os.MkdirAll(filepath.Dir(foreignPath), 0700)
+				os.WriteFile(foreignPath, foreignRaw, 0600)
+				for _, explicit := range []string{"", foreignPath, path} {
+					if _, err := ResolveCLIConnection(explicit, get); err == nil {
+						t.Fatal("missing own SID borrowed a foreign or explicit connection")
+					}
+				}
+				delete(env, otherKey)
+				env[key] = "native-A"
+			}
 			os.MkdirAll(filepath.Join(dir, "peer_duplicate"), 0700)
 			os.WriteFile(filepath.Join(dir, "peer_duplicate", "connection.json"), raw, 0600)
 			if _, err := ResolveCLIConnection("", get); err == nil {
