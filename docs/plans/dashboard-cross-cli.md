@@ -351,8 +351,9 @@ Each ends green and shippable on its own.
   this generation reverses (lines-of-code, latency, and the cost-is-pi-only
   policy in `clisession.go:21-24`), each with what changed — per AGENTS.md
   non-negotiable #6.
-- `CHANGELOG.md` `[Unreleased]` entry; `docs/handoff.md` stays ≤100 lines;
-  session note in `docs/handoff/`.
+- `CHANGELOG.md` `[Unreleased]` entry (a fragment on the branch); the session
+  note in `docs/handoff/`; anything durable in `docs/handoff/open/<topic>.md`
+  (`docs/handoff.md` is generated — ADR-0123).
 
 **Explicitly not adopted** (carry into the ADR's Refuse table): OpenTelemetry
 export (PiCode has zero OTEL today, and a collector is infrastructure a

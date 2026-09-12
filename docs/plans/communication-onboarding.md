@@ -89,7 +89,7 @@ Native evidence is task-owned under `var/qa/communication-onboarding/`:
   before a first turn is unverified. The manual QA restart opened a fresh
   conversation rather than resuming; it is not evidence of correct startup/resume.
 
-Partial rows 5, 9 and 12 remain tracked in `docs/handoff.md`.
+Partial rows 5, 9 and 12 remain tracked in `docs/handoff/open/communication.md`.
 The new onboarding matrix was not rerun for Claude, OpenCode, Grok or Hermes;
 earlier native transport tests do not establish this flow. Claude/OpenCode model
 capacity remains an owner/provider limitation. Physical mobile and non-Linux
