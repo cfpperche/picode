@@ -101,6 +101,8 @@ func dispatch(cmd string, args []string) bool {
 		runMessages(args)
 	case cmd == "disk":
 		runDisk(args)
+	case cmd == "clean":
+		runClean(args)
 	case cmd == "screenshot":
 		runScreenshot(args)
 	case cmd == "install":
@@ -147,6 +149,11 @@ Usage:
   picode messages             direct conversation messages (contacts, send, read, ack)
   picode disk [--json]        what occupies this machine, and what is safe to reclaim
     --json          emit the measurement as JSON (picode-desktop disk reads it)
+  picode clean                prune the caches that picode disk measures - never data
+    --list          measure and print the prunable caches
+    --apply IDS     prune those caches (comma-separated ids from --list)
+    --yes           required for --apply; there is no prompt
+    --json          progress and outcome as JSON lines (picode-desktop clean reads it)
   picode pair                 print a one-time link to pair another device
   picode token [rotate]       print the install token path, or rotate it
   picode install [--env K=V]  copy to ~/.local/bin and start on Linux login (systemd --user)

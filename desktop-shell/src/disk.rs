@@ -12,7 +12,7 @@ use tauri::Emitter;
 /// Spawns a Go CLI with no console window. Lookup order: next to the shell
 /// (self-contained install), then the canonical PiCode folder that
 /// `make desktop-restart` keeps fresh.
-fn run_cli(args: &[&str]) -> Result<String, String> {
+pub(crate) fn run_cli(args: &[&str]) -> Result<String, String> {
     let exe = tool_exe().ok_or_else(|| {
         "picode-desktop.exe was not found next to the shell or in %LOCALAPPDATA%\\PiCode — reinstall PiCode Desktop".to_string()
     })?;
@@ -32,18 +32,18 @@ fn run_cli(args: &[&str]) -> Result<String, String> {
 
 // A subprocess tool must not flash a console window over the app.
 #[cfg(windows)]
-fn hide_console(cmd: &mut Command) {
+pub(crate) fn hide_console(cmd: &mut Command) {
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
     cmd.creation_flags(CREATE_NO_WINDOW);
 }
 
 #[cfg(not(windows))]
-fn hide_console(_cmd: &mut Command) {}
+pub(crate) fn hide_console(_cmd: &mut Command) {}
 
 // tool_exe finds the Go CLI: next to the shell first (a self-contained
 // folder), then the canonical PiCode install folder.
-fn tool_exe() -> Option<std::path::PathBuf> {
+pub(crate) fn tool_exe() -> Option<std::path::PathBuf> {
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
             let candidate = dir.join("picode-desktop.exe");
@@ -142,7 +142,7 @@ pub fn disk_compact(app: tauri::AppHandle) -> Result<CompactOutcome, String> {
         }
         if let Ok(v) = serde_json::from_str::<std::collections::HashMap<String, String>>(&line) {
             if let Some(step) = v.get("progress") {
-                let _ = app.emit("disk-progress", step.clone());
+                let _ = app.emit("mgmt-progress", step.clone());
             }
         }
     }

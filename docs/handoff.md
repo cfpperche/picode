@@ -13,7 +13,7 @@
 
 ## Next up
 
-0. Desktop v2 (ADR-0120): Phase 2 session B shipped - Give back streams live steps in the WSL Disk window. Next: session C - picode clean prunes + .wslconfig - docs/plans/desktop-v2.md.
+0. Desktop v2 (ADR-0120): Phase 2 complete - the tray opens Management (Disk + Clean + Config): live Give back, cache prunes via picode clean, .wslconfig with backup. Next: Phase 3 CDP browser - docs/plans/desktop-v2.md.
 1. Runbook step 6 (0.2.0, tag `v0.2.0`): watch the owner's window; a regression becomes a patch tag, never a rewritten one.
 2. Dashboard throughput (tokens/s): definition (generation vs turn; reasoning in/out), per-CLI coverage, UI gates. Codex's `duration_ms`/`time_to_first_token_ms` still unread; Grok's timings shipped.
 3. Package config descriptors (ADR-0119; C0–C5 shipped). Backlog (owner): upstream `picode.config` proposal. Plan: `docs/plans/package-config-manifest.md`.

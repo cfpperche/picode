@@ -167,3 +167,31 @@ Each item carries what giving it back costs:
 The report names what it could not read instead of hiding it: paths owned by
 another account (the Docker engine's own storage is the usual one) appear as
 "not accounted for", not inside a category they do not belong to.
+
+## The Management window
+
+The tray menu's **Management** item opens a window with three tabs over the
+WSL distro.
+
+**Disk** — what the distro holds: free space, the size of the disk file,
+and how much of it is *held for nothing* (freed inside the distro but not
+given back to Windows). **Give back held space** stops the distro, converts
+the disk file to sparse (or runs `optimize-vhd`), and starts it again; every
+step streams into the window. Stopping the distro ends everything inside it
+— agents, terminals, tmux — and the window says so before it acts. A
+readiness interlock refuses the run while someone is mid-turn, unless you
+force it.
+
+**Clean** — the caches `picode disk` measures, with sizes: build caches,
+package caches, downloaded engines and models. Select and prune; nothing
+stops. Caches marked *redownload* come back from the network the next time
+something needs them. Pi sessions and the PiCode database never appear
+here — their cleanup is not a delete. This runs `picode clean`; the
+subcommand refuses any id that is not a cache, even when asked for by exact
+name.
+
+**Config** — the WSL settings file (`.wslconfig`): memory, processors,
+swap, and the sparse-disk flag. Saving backs the file up to
+`.wslconfig.bak` first and leaves unknown settings untouched. Changes
+apply at the next full WSL restart — the window never restarts WSL for you;
+that action lives in Give back, where the cost is stated.
