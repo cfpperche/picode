@@ -7,7 +7,7 @@ import { relTime } from "@picode/shared/domain/relTime.js";
 import { readTermTheme, xtermTheme } from "@picode/shared/domain/termTheme.js";
 import Panel from "./Panel.jsx";
 import Link, { ConnectionPreview } from "./Link.jsx";
-import { IconExpand, IconLink } from "../Icons.jsx";
+import { IconLink } from "../Icons.jsx";
 import { hasPane } from "./PanelBody.jsx";
 import { CANVAS_MARGIN } from "./chunkLoader.js";
 import { captureStill, captureStills, readStill } from "./stills.js";
@@ -62,6 +62,7 @@ import "@xyflow/react/dist/style.css";
 // other refusal is the surface's, because it is the surface that asks the
 // owner first.
 
+const noop = () => {};
 const NODE_TYPE = "panel";
 const EDGE_TYPE = "link";
 // One handle per panel, so a client that sends the two ids in either order
@@ -94,20 +95,20 @@ const BG_VARIANT = {
 const BG_GAP = UNIT_PX * 4;
 const MOTION_MS = 180;
 const VIEW_SAVE_MS = 400;
-// Fit leaves the clusters their corners. The chrome floats on the plane
-// now, so a symmetric 12 % padding is not enough: fitView centres the
-// content inside the padded rect, and the spare height went to both ends
-// equally — which put the first panel's header under the top-left cluster.
-// These two bands are the cluster geometry in screen pixels: 12 px inset +
-// 36 px control + a gap at the top, and at the bottom the taller of the two
-// corners now that they stand side by side — the 150 px minimap on the right
-// against the zoom column's four controls on the left (12 + 4 × 36 = 156).
-// A viewer can of course still drag a panel under a cluster; what this fixes
-// is the one camera the surface chooses itself, and the one `Fit` goes back to.
-const FIT_TOP = 60;
+// Fit leaves the chrome its room. The chrome floats on the plane, so a
+// symmetric 12 % padding is not enough: fitView centres the content inside
+// the padded rect, and the spare height went to both ends equally — which
+// put the first panel's header under whatever was floating there. Since the
+// toolbar moved to the bottom (2026-09-12) the top carries nothing, so the
+// top band is the plain inset; the bottom is the taller of the two things
+// standing there — the 150 px minimap on the right against the 36 px toolbar
+// in the middle, both 12 px in. A viewer can of course still drag a panel
+// under the chrome; what this fixes is the one camera the surface chooses
+// itself, and the one `Fit` goes back to.
+const FIT_TOP = 24;
 const FIT_BOTTOM = 162;
 const FIT_SIDE = 24;
-// On a pane too short to spare 222 px the bands shrink together rather than
+// On a pane too short to spare 186 px the bands shrink together rather than
 // eating the whole viewport: chrome room is never worth more than a third
 // of the height a reader came for.
 function fitOpts(el) {
@@ -295,16 +296,17 @@ function sameData(a, b) {
   return !!a && !!b && DATA_KEYS.every((k) => a[k] === b[k]);
 }
 
-function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, maximizedId, tabStopId, loader, handlers, links, edgeRows, onConnect, onRemoveEdge, onLayout, onGestureStart, onGestureStop, onReady }) {
+function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, maximizedId, tabStopId, loader, handlers, links, edgeRows, onConnect, onRemoveEdge, onLayout, onGestureStart, onGestureStop, onReady, onZoom = noop }) {
   const rf = useReactFlow();
   const rootRef = useRef(null);
   const [nodes, setNodes] = useState([]);
   // The zoom lives in a ref — a pan or a zoom must not re-render a body —
-  // and only what it *decides* is state: whether a pointer may reach a pane,
-  // and the readout that tells the viewer why.
+  // and only what it *decides* is state: whether a pointer may reach a pane.
+  // The readout moved to the surface's toolbar and is pushed there through
+  // `onZoom` rather than held here, so the percentage changing re-renders
+  // one <span> instead of the plane (see CanvasSurface, `subscribeZoom`).
   const zoomRef = useRef(1);
   const [pointer, setPointer] = useState(true);
-  const [zoomPct, setZoomPct] = useState(100);
   // The plane's texture is a preference, not plane state: Preferences
   // writes it and announces, every open plane re-reads. No reload, and no
   // prop to thread through the surface for something the surface does not
@@ -345,9 +347,8 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
     if (rootRef.current) rootRef.current.style.setProperty("--cv-zoom", String(zoom));
     const next = pointerAtZoom(zoom);
     setPointer((cur) => (cur === next ? cur : next));
-    const pct = Math.round(zoom * 100);
-    setZoomPct((cur) => (cur === pct ? cur : pct));
-  }, []);
+    onZoom(Math.round(zoom * 100));
+  }, [onZoom]);
 
   const centerOn = useCallback((id, zoom) => {
     const node = rf.getNode(id);
@@ -689,35 +690,6 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
 
   return (
     <div className="cv-canvas-flow" ref={setRoot} data-bg={bgPattern}>
-      {/* The zoom cluster stands bottom-left as a column, the minimap keeps
-          bottom-right (owner, 2026-09-12): the two ends of the same edge
-          instead of a stack in one corner, which is where the plane has the
-          least to say. It is declared before the plane so Tab runs through
-          the chrome and only then reaches the roving panel — the same order
-          the surface's top-left cluster keeps. Both clusters are positioned,
-          so the DOM order costs the layout nothing.
-
-          No `data-align-row` on a column: that attribute is an assertion
-          that the children share a top edge (web/shared/domain/overlayAudit.js),
-          and stacked ones do not. */}
-      <div className="cv-cluster cv-zoom" role="group" aria-label="Zoom">
-        <button type="button" className="cv-zoom-btn" aria-label="Zoom in" title="Zoom in (+)" onClick={zoomIn}>+</button>
-        <button type="button" className="cv-zoom-btn" aria-label="Zoom out" title="Zoom out (−)" onClick={zoomOut}>−</button>
-        <button
-          type="button"
-          className="cv-zoom-pct"
-          title="Back to 100 % — the only zoom where a click lands on the cell it points at"
-          onClick={() => snapToOne(focusedId)}
-        >
-          {zoomPct}%
-        </button>
-        {/* The one glyph in the column, for the one action that is not a
-            number: React Flow's own Controls draw fit as this icon, and the
-            word "Fit" was the single child that set the column's width. */}
-        <button type="button" className="cv-zoom-fit" aria-label="Fit every panel" title="Fit every panel (0)" onClick={fit}>
-          <IconExpand size={13} />
-        </button>
-      </div>
       <ReactFlow
         nodes={nodes}
         nodeTypes={NODE_TYPES}
