@@ -1,7 +1,9 @@
 //go:build ignore
 //
-// The shell variant adds 128 and 256: the window and the taskbar render at
-// DPIs where a 64px source gets upscaled and blurs (ADR-0120 feedback).
+// The shell variant adds 128 and 256 and orders the ladder LARGEST FIRST:
+// the taskbar and Tauri's runtime icon decode take the first image of the
+// file, and a 16px first entry was rendering blurry and inverted at taskbar
+// sizes (ADR-0120 feedback, 2026-09-11).
 
 // mkicon writes cmd/picode-desktop/icon.ico from the same mark the browser
 // shows: web/public/favicon.svg, the blocky Pi in white on #09090b.
@@ -171,7 +173,7 @@ func bmpPayload(img *image.NRGBA) []byte {
 }
 
 func main() {
-	sizes := []int{16, 20, 24, 32, 48, 64, 128, 256}
+	sizes := []int{256, 128, 64, 48, 32, 24, 20, 16}
 	payloads := make([][]byte, len(sizes))
 	for i, s := range sizes {
 		payloads[i] = bmpPayload(render(s))

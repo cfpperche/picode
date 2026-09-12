@@ -4,38 +4,72 @@
     <meta charset="utf-8" />
     <title>PiCode — WSL disk</title>
     <style>
-      :root { color-scheme: light dark; --line: #27272a; --dim: #a1a1aa; }
+      /* Design tokens copied from web/shared/tokens/theme.css (ADR-0072,
+         the canonical source). The shell's local pages do not build with the
+         web app, so the values travel copied — keep them in sync by hand
+         until a build step ships them together. Light theme, the one the
+         product ships in. */
+      :root {
+        --bg-base: #f0f2f7;
+        --bg-panel: #fbfcfe;
+        --bg-elevated: #ffffff;
+        --bg-hover: #e4e9f2;
+        --border: #dde2ec;
+        --border-strong: #b3bccd;
+        --text-primary: #16181d;
+        --text-secondary: #5b6472;
+        --accent: #2a62d6;
+        --accent-soft: rgba(42, 98, 214, 0.12);
+        --ok: #2e7d32;
+        --warn: #a16207;
+        --danger: #cf3b54;
+        --sans: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
+        --radius-panel: 12px;
+        --radius-ctl: 8px;
+        --ctl-h: 36px;
+      }
       * { box-sizing: border-box; }
       body {
-        font-family: system-ui, sans-serif;
+        font-family: var(--sans);
         margin: 0; padding: 1.25rem;
-        background: #09090b; color: #fafafa;
+        background: var(--bg-base); color: var(--text-primary);
         font-size: 14px;
       }
       header { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; }
-      h1 { font-size: 1rem; margin: 0; flex: 1; }
+      h1 { font-size: 1rem; font-weight: 600; margin: 0; flex: 1; }
       button {
-        font: inherit; padding: .4rem .9rem; border-radius: 8px;
-        border: 1px solid var(--line); background: #18181b; color: #fafafa; cursor: pointer;
+        font: inherit; height: var(--ctl-h); padding: 0 .9rem; border-radius: var(--radius-ctl);
+        border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); cursor: pointer;
       }
-      button.danger { background: #7f1d1d; border-color: #b91c1c; }
+      button:hover:not(:disabled) { background: var(--bg-hover); }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      button.danger { background: var(--bg-elevated); border-color: var(--danger); color: var(--danger); }
+      button.danger:hover:not(:disabled) { background: var(--danger); color: #fff; }
       button:disabled { opacity: .45; cursor: default; }
       .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-      .card { border: 1px solid var(--line); border-radius: 10px; padding: 1rem; }
-      .card h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 0 0 .75rem; }
-      .row { display: flex; justify-content: space-between; gap: 1rem; padding: .3rem 0; }
-      .row .k { color: var(--dim); }
+      .card {
+        border: 1px solid var(--border); border-radius: var(--radius-panel);
+        padding: 1rem; background: var(--bg-panel);
+      }
+      .card h2 {
+        font-size: .75rem; text-transform: uppercase; letter-spacing: .06em;
+        color: var(--text-secondary); margin: 0 0 .75rem; font-weight: 600;
+      }
+      .row { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: .3rem 0; }
+      .row .k { color: var(--text-secondary); }
       .big { font-size: 1.6rem; font-weight: 600; }
       table { width: 100%; border-collapse: collapse; margin-top: .5rem; }
-      td, th { text-align: left; padding: .3rem .5rem; border-top: 1px solid var(--line); font-size: 13px; }
-      th { color: var(--dim); font-weight: 500; border-top: 0; }
-      td.n { text-align: right; white-space: nowrap; }
-      .warn { color: #fbbf24; }
-      .err { color: #f87171; white-space: pre-wrap; }
-      .ok { color: #4ade80; }
-      #state { margin: 1rem 0; color: var(--dim); }
-      .held { color: #fbbf24; }
-      footer { margin-top: 1.25rem; color: var(--dim); font-size: 12px; }
+      td, th { text-align: left; padding: .3rem .5rem; border-top: 1px solid var(--border); font-size: 13px; }
+      th { color: var(--text-secondary); font-weight: 500; border-top: 0; }
+      td.n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+      .kind { color: var(--text-secondary); }
+      .warn { color: var(--warn); }
+      .err { color: var(--danger); white-space: pre-wrap; }
+      .ok { color: var(--ok); }
+      .held { color: var(--warn); }
+      #state { margin: 1rem 0; color: var(--text-secondary); }
+      footer { margin-top: 1.25rem; color: var(--text-secondary); font-size: 12px; }
+      code { background: var(--bg-hover); padding: .1rem .3rem; border-radius: 4px; }
     </style>
   </head>
   <body>
@@ -112,7 +146,7 @@
           tb.innerHTML = '';
           for (const c of (d.consumers || []).slice(0, 8)) {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${c.title}</td><td class="n">${gb(c.bytes)}</td><td>${c.kind}</td>`;
+            tr.innerHTML = `<td>${c.title}</td><td class="n">${gb(c.bytes)}</td><td class="kind">${c.kind}</td>`;
             tb.appendChild(tr);
           }
           el('giveback').disabled = !rep.held;
