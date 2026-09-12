@@ -635,19 +635,50 @@ chrome floats **on** it, adapted from nodeterm's canvas
 "Chrome"; the owner's ask was "menus estilo overlays e não aquela barra fixa
 no topo"). Two clusters, and nothing else:
 
-| Cluster | Holds | Why there |
-|---|---|---|
-| top-left (`.cv-chrome`, `CanvasSurface.jsx`) | the switcher (a label or a `<select>` — below), **Add panel**, and a `⋯` menu: **New canvas**, **Tidy panels** (only with panels), **Rename**, **Delete canvas**, then **Close tab** | the two things a reader reaches for constantly are *which canvas* and *one more panel*; everything else is one press away |
-| bottom-left (`.cv-zoom`, `Plane.jsx`) | a **column**: zoom in / zoom out / the 100 % readout / **Fit** | React Flow's own `<Controls>` stands here (owner, 2026-09-12); a plane has least to say at its bottom-left |
-| bottom-right (`<MiniMap>`, `Plane.jsx`) | the map of the plane | opposite the camera controls rather than stacked over them, so neither corner carries both |
+One **dock** centred on the bottom edge (`.cv-toolbar`, `CanvasSurface.jsx`)
+holding two button groups, and the minimap alone in the opposite corner
+(owner, 2026-09-12, from nodeterm's bar):
 
-Both are the same `.cv-cluster`, one turned: a row at `--ctl-h` top-left and
-a `--ctl-h`-wide column bottom-left, segmented by hairlines, on
-`--bg-elevated` with a `--border` hairline and the minimap's shadow. A
-column carries no `data-align-row` — that attribute asserts the children
-share a top edge (`web/shared/domain/overlayAudit.js`), which stacked ones
-do not. **Fit** is the icon `Maximize2` there and not the word: the word was
-the one child that set the column's width. **Opaque, never translucent and never blurred** — a cluster has to
+| Group | Holds | Why there |
+|---|---|---|
+| canvas (`.cv-cluster`) | the switcher (a label or a `<select>` — below), **Add panel** as the one filled segment, and a `⋯` menu: **New canvas**, **Tidy panels** (only with panels), **Rename**, **Delete canvas**, **Background**, then **Close tab** | the two things a reader reaches for constantly are *which canvas* and *one more panel*; everything else is one press away |
+| camera (`.cv-cluster`) | zoom out / the 100 % readout / zoom in / **Fit** | the same row, one gap away: what you are looking *with*, not what you are looking *at* |
+| bottom-right (`<MiniMap>`, `Plane.jsx`) | the map of the plane | the corner the dock leaves free |
+
+**The gap is the separator.** shadcn's rule, kept: an outlined group already
+carries its own border, so a rule drawn between two of them is a third line
+saying nothing. The dock itself is `pointer-events: none` with the groups
+opting back in — the gap between them is plane, and a drag started there
+pans rather than hitting a transparent box.
+
+**Both ends of the bottom edge can collide.** The dock is centred (~400 px)
+and the minimap is pinned right (202 + 12), so they meet at about 830 px of
+stage. A named container query on `.cv-stage` drops the **minimap** below
+860 px: at that width the plane is small enough to see whole, while the dock
+is the only way to reach the canvas's own actions. Named, so it cannot be
+captured by `.cv-panel`'s own inline-size container.
+
+**Tab order leads with the dock**, which now sits visually last. The chrome
+is still first in the DOM, so a Tab from the tab strip reaches the switcher,
+**Add panel** and the menu before the roving panel — controls, then content.
+The `⋯` menu opens `side="top"` for the same move.
+
+**The zoom readout does not re-render the surface.** The plane pushes a
+percentage on every viewport change — a wheel gesture is dozens — through
+`onZoom`, and the surface holds it in a ref with a set of listeners.
+`ZoomReadout` is the only subscriber, so the number changing re-renders one
+`<span>`. Holding it as surface state would have re-rendered the plane on
+every notch of the wheel; leaving it in the plane, which is where it used to
+live, is what made a single dock impossible.
+
+`.cv-cluster` is the **button group** primitive both use: joined segments at
+`--ctl-h`, hairline seams, `--bg-elevated` with a `--border-strong` edge and
+the minimap's shadow — shadcn's `ButtonGroup` in our tokens, down to a
+non-interactive `ButtonGroupText` (`.cv-switch-one`, `.cv-tb-pct`) sitting in
+the row as a segment rather than beside it. **Fit** is the icon `Maximize2`
+and not the word, and the switcher keeps its 104 px floor: a group that
+changes width moves every button in a *centred* dock out from under the
+pointer between one click and the next. **Opaque, never translucent and never blurred** — a cluster has to
 read over a dark plane, a light plane and a live terminal parked underneath,
 and a scrim over a terminal is the one case where a reader sees the text
 through their own chrome.

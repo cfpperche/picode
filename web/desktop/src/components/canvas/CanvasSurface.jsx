@@ -12,7 +12,7 @@ import { shortPath } from "@picode/shared/domain/repoLine.js";
 import { paneLeaveKey } from "@picode/shared/domain/termKeys.js";
 import { CANVAS_PATTERN_EVENT, persistCanvasPattern, readCanvasPattern } from "@picode/shared/domain/canvasPattern.js";
 import AppIcon from "../AppIcon.jsx";
-import { IconCheck, IconChevronRight, IconEllipsis, IconGrid, IconImage, IconPencil, IconPlus, IconTrash, IconX } from "../Icons.jsx";
+import { IconCheck, IconChevronRight, IconEllipsis, IconExpand, IconGrid, IconImage, IconPencil, IconPlus, IconTrash, IconX } from "../Icons.jsx";
 import { go, isFileTab, parseFileTab, pinHash } from "../../lib/routes.js";
 import { notify, toast, toastError } from "../../lib/toast.js";
 import { askConfirm } from "../../lib/confirm.js";
@@ -242,6 +242,27 @@ function buildModel(panel, fleet, workingIds, openTabs, dirtyIds, prev) {
   return sameModel(prev, next) ? prev : next;
 }
 
+// ZoomReadout — the one thing in the toolbar that changes while the camera
+// moves, and the only component a zoom re-renders. It subscribes to the
+// surface's zoom listeners rather than taking the percentage as a prop, so a
+// wheel gesture never reaches the plane's own render. Clicking it is the way
+// back to 100 %, which is the only zoom whose pointer lands on the cell it
+// points at (ADR-0113 §4.3) — nothing else on screen would say so.
+function ZoomReadout({ subscribe, onSnap }) {
+  const [pct, setPct] = useState(100);
+  useEffect(() => subscribe(setPct), [subscribe]);
+  return (
+    <button
+      type="button"
+      className="cv-tb-pct"
+      title="Back to 100 % — the only zoom where a click lands on the cell it points at"
+      onClick={onSnap}
+    >
+      {pct}%
+    </button>
+  );
+}
+
 export default function CanvasSurface({ manifest, hidden, onClose, host, initialPath, onPathChange }) {
   const title = (manifest && manifest.name) || "Canvas";
   const fleet = (host && host.fleet) || EMPTY_FLEET;
@@ -334,6 +355,24 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
   // surface only remembers the element here.
   const setBody = useCallback((el) => { bodyRef.current = el; }, []);
   const onCanvasReady = useCallback((handle) => { canvasRef.current = handle; }, []);
+  // The zoom readout, without the zoom re-rendering the surface. The plane
+  // pushes a percentage on every viewport change — a wheel gesture is dozens
+  // of them — and the only thing on screen that cares is one <span> in the
+  // toolbar. So the surface keeps the last value and a set of listeners, and
+  // `ZoomReadout` is the single component that subscribes: the percentage
+  // changing re-renders it and nothing else. Lifting it into surface state
+  // would have re-rendered the whole plane on every notch of the wheel.
+  const zoomPctRef = useRef(100);
+  const zoomSubs = useRef(new Set());
+  const onZoom = useCallback((pct) => {
+    if (zoomPctRef.current === pct) return;
+    zoomPctRef.current = pct;
+    for (const fn of zoomSubs.current) fn(pct);
+  }, []);
+  const subscribeZoom = useCallback((fn) => {
+    zoomSubs.current.add(fn);
+    return () => { zoomSubs.current.delete(fn); };
+  }, []);
   useEffect(() => { loader.setHidden(!!hidden); }, [hidden, loader]);
   useEffect(() => {
     function onPattern() { setBackground(readCanvasPattern()); }
@@ -1122,10 +1161,11 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
   // The roving tab stop: the focused panel, else the first in reading order.
   const tabStopId = useMemo(() => (focusedId && panels.some((p) => p.id === focusedId) ? focusedId : panelOrder(panels)[0] || ""), [panels, focusedId]);
   const maxModel = maximizedId ? models.find((m) => m.id === maximizedId) || null : null;
-  // The chrome is two floating clusters over the plane, never a bar above it
-  // (nodeterm, docs/benchmarks/2026-09-10-node-canvas.md "Chrome"): this one
-  // top-left, the zoom column bottom-left and the minimap opposite it
-  // (Plane.jsx). The
+  // The chrome is one floating toolbar on the bottom edge, never a bar above
+  // the plane (nodeterm, docs/benchmarks/2026-09-10-node-canvas.md "Chrome";
+  // owner, 2026-09-12): two button groups — what the canvas is and what you
+  // do to it, then the camera — centred, with the minimap opposite them in
+  // the corner (Plane.jsx). The
   // two things a reader reaches for constantly are here — which canvas, and
   // one more panel — and everything else is one press away in the menu. The
   // tab strip already names the app and its × already closes the tab, so the
@@ -1142,7 +1182,8 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
   // row does not move the moment a second canvas appears.
   const soleCanvas = store.list.length === 1 ? current || store.list[0] : null;
   const chrome = store.list.length ? (
-    <div className="cv-cluster cv-chrome" role="group" aria-label="Canvas controls" data-align-row>
+    <div className="cv-toolbar">
+    <div className="cv-cluster" role="group" aria-label="Canvas controls" data-align-row>
       {soleCanvas ? (
         // Not focusable: there is nothing here to do. The name is read as the
         // group's own content, and the `⋯` button beside it carries it in its
@@ -1155,16 +1196,20 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
         </select>
       )}
       {current ? (
-        <button type="button" className="cv-cluster-btn" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
+        // The toolbar's one filled segment. A dock of outlined segments has
+        // no focal point, and the action a reader comes here for is this one
+        // (nodeterm's own bar leads with a filled +).
+        <button type="button" className="cv-cluster-btn cv-tb-primary" onClick={() => setPickerOpen(true)}><IconPlus size={13} /> Add panel</button>
       ) : null}
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
           <button type="button" className="cv-cluster-btn cv-menu-btn" aria-label={current ? "More actions for " + current.name : "More actions"} title="New canvas, tidy, rename, delete, background or close"><IconEllipsis size={15} /></button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
-          {/* Chrome at the top of the pane opens down into the canvas, and
-              this cluster is anchored left, so the menu is too. */}
-          <DropdownMenu.Content className="ws-row-menu" side="bottom" align="start" sideOffset={6} collisionPadding={8}>
+          {/* The toolbar sits on the bottom edge, so the menu opens **up**
+              into the canvas; anchored to the trigger's start, and Radix
+              flips it if a short pane leaves no room above. */}
+          <DropdownMenu.Content className="ws-row-menu" side="top" align="start" sideOffset={6} collisionPadding={8}>
             <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setNameDialog("new")}><IconPlus size={13} /> New canvas</DropdownMenu.Item>
             {current && panels.length ? (
               <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => { tidy(); }}><IconGrid size={13} /> Tidy panels</DropdownMenu.Item>
@@ -1217,6 +1262,23 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
+    </div>
+    {/* The camera, its own group. Two groups with a gap rather than one long
+        row of segments: what the canvas *is* and what you do to it on the
+        left, where the viewer is looking, and how you are looking at it on
+        the right (shadcn's ButtonGroup + ButtonGroupSeparator, nodeterm's
+        bar). Only rendered with a canvas open — there is no camera without
+        a plane. */}
+    {current ? (
+      <div className="cv-cluster" role="group" aria-label="Zoom" data-align-row>
+        <button type="button" className="cv-cluster-btn cv-tb-step" aria-label="Zoom out" title="Zoom out (−)" onClick={() => canvasRef.current && canvasRef.current.zoomOut()}>−</button>
+        <ZoomReadout subscribe={subscribeZoom} onSnap={() => canvasRef.current && canvasRef.current.snapToOne(focusedRef.current)} />
+        <button type="button" className="cv-cluster-btn cv-tb-step" aria-label="Zoom in" title="Zoom in (+)" onClick={() => canvasRef.current && canvasRef.current.zoomIn()}>+</button>
+        <button type="button" className="cv-cluster-btn cv-tb-icon" aria-label="Fit every panel" title="Fit every panel (0)" onClick={() => canvasRef.current && canvasRef.current.fit()}>
+          <IconExpand size={13} />
+        </button>
+      </div>
+    ) : null}
     </div>
   ) : null;
   let body;
@@ -1277,6 +1339,7 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
                 onGestureStart={onGestureStart}
                 onGestureStop={onGestureStop}
                 onReady={onCanvasReady}
+                onZoom={onZoom}
               />
           </Suspense>
           {panels.length ? null : (
