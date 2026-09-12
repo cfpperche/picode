@@ -1,12 +1,27 @@
 /* Canonical PiCode design tokens (ADR-0072). No application layout. */
 
 :root {
+  /* Four grounds, darkest to lightest, and the order is the depth order.
+     --bg-base is the page and, on a panel, the recessed well an input or a
+     tab sits in; --bg-panel is a surface resting on it; --bg-elevated is
+     what floats *over* a panel — a menu, a dialog, a popover, a canvas
+     cluster. Elevated used to alias panel, which left a dropdown over a
+     sidebar with nothing but its shadow to say it was a different plane,
+     and over a near-black ground a black shadow is worth ~2/255. */
   --bg-base: #0e0e11;
   --bg-panel: #16161c;
-  --bg-elevated: var(--bg-panel);
+  --bg-elevated: #1c1c23;
   --bg-hover: #202027;
   --border: #232329;
   --border-strong: #2c2c34;
+  /* The Canvas plane's texture (canvas.css keys all three patterns off it).
+     It is not a border: a hairline separates two surfaces and wants to be
+     nearly invisible, a texture is read across a whole empty plane and has
+     to survive being 1 px of a dot every 32. Colouring it from --border
+     gave 1.23:1 on this ground — the grid was there and nobody could see
+     it. Aimed at ~2:1: enough to read as texture at a glance, far enough
+     from --text-secondary (4.9:1 here) that it can never read as a mark. */
+  --canvas-pattern: #4a4a58;
   --text-primary: #ececf1;
   --text-secondary: #9b9ba7;
   --accent: #7c8cf8;
@@ -29,15 +44,29 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 :root[data-theme="light"] {
-  --bg-base: #ffffff;
-  --bg-panel: oklch(96.7% 0.003 264.542);
-  --bg-elevated: var(--bg-panel);
-  --bg-hover: #e6e9ef;
-  --border: #dfe3ea;
-  --border-strong: #c9cedb;
+  /* Light was inverted: the page was pure #fff and panels were the grey
+     above it, so a card *sank* into its own page and the app read as one
+     flat sheet. The depth order is now the same as dark's — ground darkest,
+     each surface lighter — which is also what light UI conventionally does:
+     a soft, slightly cool ground with near-white surfaces lifted off it by
+     a hairline and a whisper of shadow. Measured against --text-primary /
+     --text-secondary in docs/handoff/2026-09-11-canvas-chrome.md; every
+     body pair is >= 5.3:1. */
+  --bg-base: #f0f2f7;
+  --bg-panel: #fbfcfe;
+  --bg-elevated: #ffffff;
+  --bg-hover: #e4e9f2;
+  --border: #dde2ec;
+  --border-strong: #b3bccd;
+  /* 1.88:1 on --bg-base. The light plane is the case that was worst:
+     --border there is 1.16:1, which is no texture at all. */
+  --canvas-pattern: #a9b3c6;
   --text-primary: #16181d;
   --text-secondary: #5b6472;
-  --accent: #2f6fed;
+  /* One step darker than #2f6fed, which sat at 4.4:1 on the old white page
+     and on the new panel alike — under the bar for the link-sized text and
+     the white-on-accent button that both use it. 5.4:1 on a panel. */
+  --accent: #2a62d6;
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
   --ok: #2e7d32;
   --warn: #a16207;

@@ -2,8 +2,8 @@
 
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
-Any session of an Agent CLI can continue in another one from the Sessions
-tab ("Continue in <CLI>…"). `internal/transcript` is the portable model —
+Any session of an Agent CLI can continue in another one from that CLI's
+Sessions pane ("Continue in <CLI>…"). `internal/transcript` is the portable model —
 ordered events (message, tool call, tool result, thinking, compaction,
 context), a header and a manifest of what a reader could not carry.
 `internal/clisession` adds optional capabilities next to `Source`:

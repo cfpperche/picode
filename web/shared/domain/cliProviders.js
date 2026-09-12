@@ -3,7 +3,7 @@ export const CLI_PROVIDERS = [{ id: "pi", name: "Pi" }];
 export const supportsCliProviders = id => CLI_PROVIDERS.some(cli => cli.id === id);
 
 export function cliProvidersHash(cli = "pi", { add = false } = {}) {
-  return "#/clis/providers/" + encodeURIComponent(cli) + (add ? "/new" : "");
+  return "#/clis/" + encodeURIComponent(cli || "pi") + "/providers" + (add ? "/new" : "");
 }
 
 export function cliProvidersLocation(hash = "") {
@@ -22,8 +22,10 @@ export function cliProvidersLocation(hash = "") {
   const invalid = legacy ? tail !== "" && tail !== "new" : parts.length > 1 && !add;
   const params = new URLSearchParams(query);
   const scoped = ["agentId", "workspaceId", "scope"].some(key => params.has(key));
-  return { view: "providers", id, add, invalid, scoped, legacy,
-    redirect: !invalid && !scoped && (legacy || path === "/clis/providers") ? cliProvidersHash(id, { add }) : "" };
+  // ADR-0103 amendment 2026-09-11: Providers live on the CLI's pane. The
+  // strip address and the old top-level aliases rewrite onto that pane.
+  return { view: "clis", id, pane: "providers", add, invalid, scoped, legacy,
+    redirect: !invalid && !scoped && id ? cliProvidersHash(id, { add }) : "" };
 }
 
 // Preserve the explicit app path (and its theme/layout query), clear the

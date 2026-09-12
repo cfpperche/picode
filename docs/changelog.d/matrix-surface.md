@@ -1,7 +1,0 @@
-### Added
-- **Matrix — a live grid of your agents and terminals.** The Apps tab has a Matrix tile: create a matrix, add panels from a picker of your agents and terminals, drag them by the header and resize them by the corner or an edge. Each panel shows the real terminal or agent screen — the same one its tab shows — with the sidebar's Working / Needs you / Ready word in its header. Only the panels near what you are looking at stay connected, so a matrix can hold hundreds; layouts save as you go and every browser sees the same matrices (`#/app/matrix/<id>`). The guide is [Matrix](https://cfpperche.github.io/picode/guide/matrix).
-- **Keyboard across a matrix.** Click a panel or tab into one, then move with the arrow keys (the target scrolls into view and wakes up), Home and End for the first and last, Enter to start typing in that panel's terminal, Shift+Esc to come back out to the panel, Delete to remove it with an Undo. A plain Esc still belongs to the program in the terminal.
-- **Maximize a panel.** The ⤢ button gives one panel the whole surface — the terminal resizes to the space, the matrix keeps its layout underneath, and the panel's slot says *Shown maximized*. Esc or the button puts it back.
-
-### Fixed
-- A panel whose terminal or agent is deleted lets go of its screen at once instead of holding it until the cache trims, and keeps the name it was showing, so the row reads *shell · Gone — That terminal is gone.*

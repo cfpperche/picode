@@ -1,6 +1,8 @@
 import { cliProvidersLocation, cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { cliPackagesLocation, cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { cliSettingsLocation, cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
+import { cliConnectorsHash } from "@picode/shared/domain/integrations.js";
+import { cliLocation, cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
 // Hash routes. Preferences is PiCode-the-product. Native settings live under Agent CLIs (ADR-0101).
 // Sessions live under Agent CLIs (ADR-0079); /clis/* views are parsed by
 // cliLocation in @picode/shared/domain/cliLaunch.js.
@@ -8,13 +10,13 @@ export const ROUTES = {
   workspace: "/",
   preferences: "/preferences",
   clis: "/clis",
-  settings: "/clis/settings/pi",
+  settings: "/clis/pi/settings",
   system: "/system",
-  providers: "/clis/providers/pi",
+  providers: "/clis/pi/providers",
   llama: "/llama/models",
-  mcps: "/mcps",
-  integrations: "/integrations",
-  packages: "/clis/packages/pi",
+  mcps: "/clis/pi/connectors",
+  integrations: "/integrations/webhooks",
+  packages: "/clis/pi/packages",
   devices: "/devices",
   pins: "/pins",
   termset: "/termset",
@@ -30,14 +32,14 @@ export function parseRoute(hash) {
   if (h === "/system") return "system";
   if (h === "/llama" || h.startsWith("/llama/") || ["/providers/llama", "/more/providers/llama"].includes(h.split("?")[0])) return "llama";
   if (cliProvidersLocation(h)) return "clis";
-  if (h === "/mcps") return "mcps";
-  if (h === "/integrations" || h.startsWith("/integrations/")) return "integrations";
+  if (h === "/integrations/webhooks" || h.startsWith("/integrations/webhooks")) return "integrations";
+  if (h === "/mcps" || h === "/integrations" || h.startsWith("/integrations/")) return "clis";
   if (h === "/devices") return "devices";
   if (h === "/pins" || h.startsWith("/pins/")) return "pins";
   if (h === "/termset" || h.startsWith("/termset/")) return "termset";
   if (h === "/automations" || h.startsWith("/automations/")) return "automations";
   // Legacy #/sessions* deep links render the Agent CLIs shell; AgentClis
-  // redirects the hash to #/clis/sessions* (ADR-0079).
+  // redirects the hash to #/clis/<cli>/sessions* (ADR-0079).
   if (h.startsWith("/sessions") || h.startsWith("/sessions/")) return "clis";
   if (h.startsWith("/term/")) return "workspace";
   if (h.startsWith("/file/")) return "workspace";
@@ -77,17 +79,15 @@ export function termHash(id) {
   return id ? "#/term/" + encodeURIComponent(id) : "#/";
 }
 
-// Sessions live under Agent CLIs (ADR-0079): machine-wide is
-// #/clis/sessions, one folder's view is #/clis/sessions/<workspaceId>.
-export function sessionsHash(wsId) {
-  return wsId ? "#/clis/sessions/" + encodeURIComponent(wsId) : "#/clis/sessions";
+// Sessions live on the selected CLI's pane (ADR-0079 amendment 2026-09-11):
+// machine-wide is #/clis/<cli>/sessions, one folder is #/clis/<cli>/sessions/<workspaceId>.
+export function sessionsHash(wsId, cli = "pi") {
+  return cliPaneHash(cli || "pi", "sessions", wsId || "");
 }
 
 export function sessionsRoute(hash) {
-  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
-  const m = /^\/clis\/sessions\/([^/]+)$/.exec(h);
-  if (!m) return null;
-  try { return decodeURIComponent(m[1]); } catch { return m[1]; }
+  const loc = cliLocation(hash || (typeof location !== "undefined" ? location.hash : ""));
+  return loc.pane === "sessions" && loc.workspace ? loc.workspace : null;
 }
 
 export function termTabId(id) {
@@ -157,6 +157,12 @@ export function termsetRoute(hash) {
   try { return decodeURIComponent(m[1]); } catch { return m[1]; }
 }
 
+// Pin Studio (#/pins/<id>) — the one place that builds the studio's hash, so
+// a caller never assembles it by hand.
+export function pinHash(id) {
+  return id ? "#/pins/" + encodeURIComponent(id) : "#/pins";
+}
+
 export function pinRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");
   if (h === "/pins" || h === "/pins/new") return { mode: "new", id: "" };
@@ -187,8 +193,11 @@ export function providersLlama(hash) {
   return h === "/providers/llama";
 }
 
-export function go(name, agentId) {
-  if (name === "settings") { location.hash = cliSettingsHash("pi", { agentId }); return; }
+export function go(name, agentId, extra = {}) {
+  const ctx = { agentId: extra.agentId || agentId || "", workspaceId: extra.workspaceId || "" };
+  if (name === "settings") { location.hash = cliSettingsHash("pi", ctx); return; }
+  if (name === "packages") { location.hash = cliPackagesHash("pi", ctx); return; }
+  if (name === "mcps" || name === "connectors") { location.hash = cliConnectorsHash("pi", ctx); return; }
   if (typeof name === "string" && name.startsWith("preferences")) {
     const sec = name === "preferences" ? "" : name.slice("preferences-".length);
     location.hash = sec ? "#/preferences/" + sec : "#/preferences";
@@ -294,6 +303,35 @@ export function tabAppId(id) {
 
 export function appHash(id, path = "") {
   return id ? "#/app/" + encodeURIComponent(id) + (path ? "/" + path.split("/").map(encodeURIComponent).join("/") : "") : "#/";
+}
+
+// ADR-0118: the Matrix app became Canvas — id, hash and tab id. One map,
+// read by the hash redirect (App.jsx) and by the tab restore
+// (lib/openTabs.js), so an old bookmark and an old tab strip land in the
+// same place and no second mechanism can drift from this one.
+const RENAMED_APPS = { matrix: "canvas" };
+
+// renamedAppId(id) -> the id an app answers to now, or "" when nothing moved.
+export function renamedAppId(id) {
+  return Object.hasOwn(RENAMED_APPS, id) ? RENAMED_APPS[id] : "";
+}
+
+// renamedAppHash(hash) -> the hash to replace this one with, or "": the same
+// deep link under the app's current id, path and all (#/app/matrix/<id> →
+// #/app/canvas/<id>). Only #/app/* is answered; every other hash is not ours.
+export function renamedAppHash(hash) {
+  const h = hash || (typeof location !== "undefined" ? location.hash : "") || "";
+  const was = appRoute(h);
+  const now = was ? renamedAppId(was) : "";
+  return now ? appHash(now, appPath(h)) : "";
+}
+
+// renamedTabId(id) -> the app tab id this one is now, or "": an `x:matrix`
+// restored from localStorage opens the canvas app instead of a dead tab.
+export function renamedTabId(id) {
+  if (!isAppTab(id)) return "";
+  const now = renamedAppId(tabAppId(id));
+  return now ? appTabId(now) : "";
 }
 
 export function appRoute(hash) {

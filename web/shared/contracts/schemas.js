@@ -8,7 +8,7 @@ export const llamaServiceSchema = z.object({
 });
 import { looksLikeRepoUrl } from "../domain/cloneUrl.js";
 import { rowsError } from "../domain/automationSchedule.js";
-import { MATRIX_LIMITS } from "../domain/matrix.js";
+import { CANVAS_LIMITS } from "../domain/canvas.js";
 
 const required = (label) => z.string().trim().min(1, label + " is required.");
 
@@ -272,11 +272,12 @@ export const rolesConfigSchema = z.object({
   }
 });
 
-// Matrix names (ADR-0108): the store's own words, counted in characters the
-// way it counts runes, so the dialog and a 400 read the same.
-export const matrixNameSchema = z.object({
+// Canvas names (ADR-0108, renamed by ADR-0118): the store's own words,
+// counted in characters the way it counts runes, so the dialog and a 400
+// read the same.
+export const canvasNameSchema = z.object({
   name: z.string().trim().min(1, "name is required")
-    .refine((s) => Array.from(s).length <= MATRIX_LIMITS.name, `name is too long (max ${MATRIX_LIMITS.name} characters)`),
+    .refine((s) => Array.from(s).length <= CANVAS_LIMITS.name, `name is too long (max ${CANVAS_LIMITS.name} characters)`),
 });
 
 export const peerParticipantsSchema = z.object({
@@ -284,4 +285,76 @@ export const peerParticipantsSchema = z.object({
     kind: z.enum(["agent", "terminal"]), ownerId: z.string().min(1),
     enabled: z.boolean(), revision: z.number().int().nonnegative(),
   })).min(1, "Select a participant first.").max(100, "Update up to 100 participants at a time."),
+});
+
+// Descriptor-driven package config (docs/plans/package-config-manifest.md):
+// the server's descriptor carries the rules; this builds the same grammar
+// client-side, so the form and the PUT agree before anything is sent. The
+// payload omits unset fields — the file only gains keys the user set.
+export function descriptorValuesSchema(fields) {
+  const shape = {};
+  for (const f of fields || []) {
+    const required = !!f.required;
+    let s;
+    if (f.type === "enum") {
+      const options = (f.options || []).filter((o) => o !== "");
+      s = z.enum(options.length ? options : ["—"]);
+      s = required ? s.refine((v) => v !== "—", { message: `${f.label} is required.` }) : s.or(z.literal(""));
+    } else if (f.type === "boolean") {
+      s = required ? z.boolean({ required_error: `${f.label} is required.` }) : z.boolean().optional();
+    } else if (f.type === "number") {
+      s = z.coerce.number({ invalid_type_error: `${f.label} must be a number.`, required_error: `${f.label} is required.` });
+      if (f.min != null) s = s.min(f.min, `${f.label} must be at least ${f.min}.`);
+      if (f.max != null) s = s.max(f.max, `${f.label} must be at most ${f.max}.`);
+      if (!required) s = s.optional();
+    } else {
+      s = z.string({ required_error: `${f.label} is required.` });
+      if (required) s = s.min(1, `${f.label} is required.`);
+      else s = s.optional();
+    }
+    shape[f.key] = s;
+  }
+  return z.object(shape);
+}
+
+// The describe form (ADR-0119 C5): the owner describes a package's config
+// file and fields once; options travel comma-separated and bounds as
+// strings, converted to the descriptor's shape on save.
+export const packageDescribeSchema = z.object({
+  id: z.string().min(1, "Id is required."),
+  title: z.string().min(1, "Title is required."),
+  application: z.string().optional(),
+  match: z.string().optional(),
+  files: z.array(z.object({
+    scope: z.enum(["agent", "workspace"]),
+    path: z.string().min(1, "Path is required.")
+      .refine((p) => !p.startsWith("/") && !p.includes(".."), "Relative path, no .."),
+    format: z.literal("json"),
+  })).length(1, "Exactly one file."),
+  fields: z.array(z.object({
+    key: z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_.-]*$/, "Letters, digits, _ - or ."),
+    label: z.string().min(1, "Label is required."),
+    type: z.enum(["string", "enum", "boolean", "number", "secret"]),
+    required: z.boolean().default(false),
+    options: z.string().optional(),
+    min: z.union([z.coerce.number(), z.literal("")]).optional(),
+    max: z.union([z.coerce.number(), z.literal("")]).optional(),
+    help: z.string().optional(),
+  })).min(1, "Describe at least one field."),
+}).superRefine((v, ctx) => {
+  const keys = v.fields.map((f) => f.key);
+  for (const k of keys) {
+    if (keys.filter((x) => x === k).length > 1) {
+      ctx.addIssue({ code: "custom", message: `Field "${k}" is duplicated.`, path: ["fields"] });
+      break;
+    }
+  }
+  for (const [i, f] of v.fields.entries()) {
+    if (f.type === "enum" && !(f.options || "").trim()) {
+      ctx.addIssue({ code: "custom", message: `Field "${f.key}" needs options.`, path: ["fields", i, "options"] });
+    }
+    if (f.type === "number" && f.min !== "" && f.max !== "" && f.min != null && f.max != null && Number(f.min) > Number(f.max)) {
+      ctx.addIssue({ code: "custom", message: `Field "${f.key}": min is above max.`, path: ["fields", i, "min"] });
+    }
+  }
 });

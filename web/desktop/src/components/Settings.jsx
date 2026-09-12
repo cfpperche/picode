@@ -158,6 +158,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
 
       <section className="settings-section" hidden={sec !== "appearance"}>
         <h3 className="sr-only">Appearance</h3>
+        <h4 className="settings-sub">Theme</h4>
         <div className="theme-cards" role="radiogroup" aria-label="App theme">
           <ThemeCard option="light" label="Light" desc="Bright surfaces" active={themeMode === "light"} onPick={onTheme} icon={<IconSun size={15} />} />
           <ThemeCard option="system" label="System" desc="Match your OS" active={themeMode === "system"} onPick={onTheme} icon={<IconMonitor size={15} />} />

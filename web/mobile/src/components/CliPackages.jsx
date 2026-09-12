@@ -1,37 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
-import { CLI_PACKAGES, cliPackagesHash, cliPackagesLocation, supportsCliPackages, loadPiPackagesContext, packageContextKey } from "@picode/shared/domain/cliPackages.js";
+import { cliPackagesHash, supportsCliPackages, loadPiPackagesContext, packageContextKey } from "@picode/shared/domain/cliPackages.js";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
-import AgentClisFrame from "./AgentClisFrame.jsx";
-import CliTabs from "./CliTabs.jsx";
-import CliCombo from "./CliCombo.jsx";
 import Packages from "./Packages.jsx";
 import { askConfirm } from "../lib/confirm.js";
 import { setShell } from "@picode/shared/client/shell.js";
 
-export default function CliPackages({ hidden, hash, legacyContext = {}, legacyContextReady = true, catalog, onPackageUpdates }) {
-  const route = cliPackagesLocation(hash, legacyContext);
-  const [hasUpdates, setHasUpdates] = useState(false);
-  useEffect(() => { setHasUpdates(false); }, [route.id, route.workspaceId, route.agentId]);
-  useEffect(() => {
-    if (!hidden && legacyContextReady && route.redirect) location.replace(route.redirect);
-  }, [hidden, route.redirect, legacyContextReady]);
+export default function CliPackages({ hidden, route, catalog, onPackageUpdates }) {
   const supported = supportsCliPackages(route.id);
-  return <AgentClisFrame id="cli-packages-view" hidden={hidden}>
-    <CliTabs hasPackageUpdates={hasUpdates} view="packages" packagesHref={cliPackagesHash(route.id, { ...route, pkg: "" })} />
-    <div className="cli-settings-body">
-      <div className="cli-settings-heading">
-        <h3>Packages{route.pkg ? " · " + route.pkg : ""}</h3>
-        {supported && !route.invalid ? <div className="cli-settings-picker">CLI
-          <CliCombo ariaLabel="Packages CLI" value={route.id} options={CLI_PACKAGES} align="end" onChange={id => { location.hash = cliPackagesHash(id); }} />
-        </div> : null}
-      </div>
-      {route.invalid || !supported || (route.pkg && route.pkg !== "pi-roles") ?
-        <div className="cli-notice" role="status"><span>{route.invalid ? "This package link is invalid." : !supported ? "Packages are not available for this CLI." : "Configuration is not available for this package."}</span><a className="btn btn-ghost btn-sm" href={route.invalid || !supported ? "#/clis" : cliPackagesHash(route.id, { ...route, pkg: "" })}>{route.invalid || !supported ? "Back to CLIs" : "All packages"}</a></div>
-        : route.legacy && !legacyContextReady ? <div className="cli-loading" aria-label="Loading package context"><div /><div /><div /></div> : !hidden && !route.redirect ? <PackagesTarget key={route.id + ":" + route.workspaceId + ":" + route.agentId} route={route} catalog={catalog} onUpdates={(updates, workspaceId) => { setHasUpdates(updates.length > 0); onPackageUpdates?.(updates, workspaceId); }} /> : null}
-    </div>
-  </AgentClisFrame>;
+  const blockedConfig = route.pkg && route.pkg !== "pi-roles";
+  return <section id="cli-packages-view" hidden={hidden}>
+    {route.invalid || !supported || blockedConfig ?
+      <div className="cli-notice" role="status"><span>{route.invalid ? "This package link is invalid." : !supported ? "Packages are not available for this CLI." : "Configuration is available in the desktop layout."}</span><a className="btn btn-ghost btn-sm" href={cliPackagesHash("pi")}>{blockedConfig ? "All packages" : "Open Pi packages"}</a></div>
+      : !hidden ? <PackagesTarget key={route.id + ":" + route.workspaceId + ":" + route.agentId} route={route} catalog={catalog} onUpdates={(updates, workspaceId) => onPackageUpdates?.(updates, workspaceId)} /> : null}
+  </section>;
 }
 
 function PackagesTarget({ route, catalog, onUpdates }) {
@@ -91,7 +74,6 @@ function PackagesTarget({ route, catalog, onUpdates }) {
   const props = { embedded: true, hidden: false, workspaceId: workspace?.id || "", workspaceName: workspace?.name || "", workspacePath: workspace?.path || "", agentId: agent?.id || "", agentName: agent ? displayAgentName(agent, workspace) : "", beforeMutation, onUpdates: updates => { if (live.current) onUpdates(updates, workspace?.id || ""); } };
   return <>
     {notice}
-    {agent || workspace ? <p className="cli-settings-context">{agent ? <a href={"#/agent/" + encodeURIComponent(agent.id)}>Back to agent</a> : null}<a href={cliPackagesHash(route.id)}>Machine packages</a></p> : null}
     <fieldset className="cli-packages-fields" disabled={!!error}>
       {route.pkg ? <div className="cli-notice" role="status"><span>Package configuration is available in the desktop layout.</span><button type="button" className="btn btn-ghost btn-sm" onClick={() => setShell("desktop")}>Open desktop layout</button></div> : <Packages {...props} scope={route.scope} onScopeChange={scope => { location.hash = cliPackagesHash(route.id, { ...route, scope }); }} configHash={pkg => cliPackagesHash(route.id, { ...route, pkg })} />}
     </fieldset>

@@ -63,9 +63,14 @@ export function branchChip(status) {
   const parts = [];
   if (ahead) parts.push(`${ahead} ahead`);
   if (behind) parts.push(`${behind} behind`);
-  const title = detached ? `Detached at ${status.branch}`
+  // The row shows one string, the branch — two ellipsised spans sharing a
+  // chip's worth of width read as punctuation ("· fe... ·..."), and of the
+  // two the branch is what a reader is after. The worktree is still an
+  // answer someone wants, so it lives here, in the tooltip, spelled out.
+  const where = status.worktree ? `, worktree ${status.worktree}` : "";
+  const title = (detached ? `Detached at ${status.branch}`
     : unpublished ? `Branch ${status.branch} has no upstream yet`
-      : `Branch ${status.branch}` + (parts.length ? `, ${parts.join(" and ")} ${status.upstream}` : ` is level with ${status.upstream}`);
+      : `Branch ${status.branch}` + (parts.length ? `, ${parts.join(" and ")} ${status.upstream}` : ` is level with ${status.upstream}`)) + where;
   return { name: status.branch, ahead, behind, detached, unpublished, upstream: status.upstream || "", worktree: status.worktree || "", title };
 }
 

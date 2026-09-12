@@ -60,6 +60,10 @@ func TestDeployRefusesBeforeCopyingWhenThereIsNoSession(t *testing.T) {
 // ADR-0086: a deploy while anyone is mid-turn is refused before the binary
 // is touched; --force goes through; a silent daemon never blocks.
 func TestDeployRefusesWhileAgentsWork(t *testing.T) {
+	// The suite may itself run inside a PiCode pane; the guard drops the
+	// caller's own id, so clear it to keep this table about other people.
+	t.Setenv("PICODE_TERM_ID", "")
+	t.Setenv("PICODE_AGENT_ID", "")
 	home := t.TempDir()
 	p := ForHome(home)
 	for _, d := range []string{filepath.Dir(p.Unit), filepath.Dir(p.Bin)} {

@@ -5,26 +5,32 @@ import { cliLocation } from "./cliLaunch.js";
 
 test("native settings routes preserve identity, legacy context and explicit global scope", () => {
   for (const old of ["#/settings", "#/more/settings"]) {
-    assert.equal(cliSettingsLocation(old, "agent / A").redirect, "#/clis/settings/pi?agentId=agent+%2F+A");
+    assert.equal(cliSettingsLocation(old, "agent / A").redirect, "#/clis/pi/settings?agentId=agent+%2F+A");
     assert.equal(cliSettingsLocation(old + "?agentId=B", "A").agentId, "B");
     assert.equal(cliSettingsLocation(old + "?agentId=", "A").agentId, "");
   }
   const hash = cliSettingsHash("pi", { agentId: "agent / A", focus: "scoped-models" });
+  assert.equal(hash, "#/clis/pi/settings?agentId=agent+%2F+A&focus=scoped-models");
   assert.equal(cliLocation(hash).agentId, "agent / A");
   assert.equal(cliLocation(hash).focus, "scoped-models");
-  assert.equal(cliSettingsLocation("#/clis/settings", "A").redirect, "#/clis/settings/pi");
-  assert.equal(cliSettingsLocation("#/clis/settings/pi", "A").agentId, "");
+  assert.equal(cliLocation(hash).pane, "settings");
+  assert.equal(cliSettingsLocation("#/clis/settings", "A").redirect, "#/clis/pi/settings");
+  assert.equal(cliSettingsLocation("#/clis/settings/pi", "A").redirect, "#/clis/pi/settings");
+  assert.equal(cliSettingsLocation("#/clis/pi/settings", "A").agentId, "");
+  assert.equal(cliSettingsLocation("#/clis/pi/settings", "A").redirect, "");
+  assert.equal(cliSettingsLocation("#/clis/pi/settings/extra").invalid, true);
   assert.equal(cliSettingsLocation("#/preferences"), null);
 });
 
 test("unsupported and malformed CLI identities never become Pi", () => {
   assert.equal(supportsCliSettings("pi"), true);
   for (const id of ["codex", "unknown", "%ZZ", "pi/extra", ""]) {
-    const route = cliSettingsLocation("#/clis/settings/" + id);
+    const route = cliSettingsLocation("#/clis/" + id + "/settings") || cliSettingsLocation("#/clis/settings/" + id);
     assert.equal(supportsCliSettings(route.id), false, id);
   }
-  assert.equal(cliLocation("#/clis/sessions?cli=pi").view, "sessions");
+  assert.equal(cliLocation("#/clis/sessions?cli=pi").pane, "sessions");
   assert.equal(cliLocation("#/clis/pi").view, "clis");
+  assert.equal(cliLocation("#/clis/pi/sessions").pane, "sessions");
 });
 
 test("explicit agent context comes from Pi's validated report, including free agents", async () => {

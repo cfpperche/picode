@@ -189,7 +189,7 @@ func TestConfigKindOf(t *testing.T) {
 		{[]string{"pi-roles"}, "roles"},
 		{[]string{"/home/u/picode/packages/pi-roles"}, "roles"},
 		{[]string{"npm:pi-roles@0.5.1"}, "roles"},
-		{[]string{"npm:pi-web-search"}, ""},
+		{[]string{"npm:pi-web-search"}, "web-search"},
 		{[]string{"", ""}, ""},
 	}
 	for _, c := range cases {

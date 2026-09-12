@@ -6,13 +6,13 @@ const LABEL = { pull: "Pull to refresh", armed: "Release to refresh", refreshing
 
 // A `.m-screen` scroll container with pull-to-refresh. The indicator is
 // one line at the top; it exists only while a finger is pulling.
-export default function PullScreen({ onRefresh, className, children, scrollKey }) {
+export default function PullScreen({ onRefresh, className, children, scrollKey, surfaceRef }) {
   const { ref, state } = usePullToRefresh(onRefresh);
   useLayoutEffect(() => {
     if (scrollKey && ref.current) ref.current.scrollTop = scrollOffsets.get(scrollKey) || 0;
   }, [scrollKey, ref]);
   return (
-    <div className={"m-screen" + (className ? " " + className : "")} ref={ref} onScroll={scrollKey ? event => scrollOffsets.set(scrollKey, event.currentTarget.scrollTop) : undefined}>
+    <div className={"m-screen" + (className ? " " + className : "")} ref={node => { ref.current = node; if (typeof surfaceRef === "function") surfaceRef(node); else if (surfaceRef) surfaceRef.current = node; }} onScroll={scrollKey ? event => scrollOffsets.set(scrollKey, event.currentTarget.scrollTop) : undefined}>
       {state ? <div className={"m-pull is-" + state} aria-live="polite">{LABEL[state]}</div> : null}
       {children}
     </div>

@@ -1,17 +1,15 @@
-// The browser half of fullscreen (focus) mode. Every decision lives in
+// The DOM half of fullscreen (focus) mode. Every decision lives in
 // @picode/shared/domain/focusMode.js; this file only wires it to the DOM:
-// the pointer, the Fullscreen API, the keyboard lock, Escape, localStorage
-// and the xterm refit that a chrome change owes every live pane.
+// the pointer, Escape, localStorage and the xterm refit that a chrome
+// change owes every live pane.
 //
-// The keyboard lock (Chromium, fullscreen only) is what makes the mode a
-// real terminal: in a normal window the browser eats the reserved chords
-// (Ctrl+T, Ctrl+W, Ctrl+N) before the page sees any keydown — a guest CLI
-// like Codex's Ctrl+T can never get them (browserChord.js). Locked, every
-// key reaches the page, xterm encodes the chord and the guest gets it; in
-// the composer the keys simply stop firing browser chrome. Escape is part
-// of the lock: a pane keeps vim's Esc, Esc outside a pane still leaves the
-// mode through this file's own handler, and the browser swaps its one-press
-// exit for "press and hold Esc" — the hatch that always works.
+// The browser window is not wired here at all. The mode hides PiCode's own
+// chrome and leaves the window alone, so there is no Fullscreen API call to
+// make, nothing to undo when the browser moves on its own, and no
+// fullscreenchange listener: Escape reaches this file's handler on the
+// first press, which is what makes the two steps (close the reveal, then
+// leave) real. F11 is the reader's gesture — we neither send it nor watch
+// for it, and a mode entered before or after it behaves the same.
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DWELL_IN_MS,
@@ -19,7 +17,6 @@ import {
   EDGE_PX,
   FOCUS_FIRST_RUN,
   activeZones,
-  browserIntent,
   focusReduce,
   hotZone,
   initialFocusState,
@@ -54,71 +51,15 @@ function overlayOpen() {
   return !!document.querySelector("[data-radix-popper-content-wrapper], [role='dialog'], [role='alertdialog']");
 }
 
-// "The rail was open when the mode started" is what the viewer actually
-// saw: inspectorLayout can report shown while the Home dashboard is
-// suppressing the rail, and a right strip that reveals nothing is a dead
-// hover. The shell itself is the honest answer.
+// "The rail is on screen" is what the viewer actually saw: inspectorLayout
+// can report shown while the Home dashboard is suppressing the rail, and a
+// right strip that reveals nothing is a dead hover. The shell itself is the
+// honest answer — read at the click that needs it, and watched (below) for
+// the changes a running mode has to hear about.
 function railOnScreen(fallback) {
   if (typeof document === "undefined") return fallback;
   const el = document.getElementById("inspector");
   return el ? !el.hidden : fallback;
-}
-
-// Lock before the request, in the same gesture task: the spec asks for
-// this order so the browser shows one combined "hold Esc" message instead
-// of two. Without the Fullscreen API the lock would be inert anyway (it
-// only processes keys during JS fullscreen), so the early return stands.
-function lockKeyboard() {
-  try {
-    const kb = typeof navigator !== "undefined" ? navigator.keyboard : null;
-    if (!kb || typeof kb.lock !== "function") return;
-    Promise.resolve(kb.lock()).catch((err) =>
-      console.debug("focus mode: keyboard lock refused — browser keys stay active", err));
-  } catch (err) {
-    console.debug("focus mode: keyboard lock unavailable", err);
-  }
-}
-
-// Fire-and-forget is enough on exit: the browser drops the lock by itself
-// whenever fullscreen ends (its own hold-Esc included) — this only covers
-// the path where we leave first.
-function unlockKeyboard() {
-  try {
-    const kb = typeof navigator !== "undefined" ? navigator.keyboard : null;
-    if (kb && typeof kb.unlock === "function") kb.unlock();
-  } catch { /* nothing to unlock */ }
-}
-
-function requestFullscreen(report) {
-  if (typeof document === "undefined") return;
-  const el = document.documentElement;
-  const req = el.requestFullscreen || el.webkitRequestFullscreen;
-  if (!req) {
-    // A browser without the API still gets the in-app mode.
-    console.debug("focus mode: no Fullscreen API; the app chrome is hidden anyway");
-    return;
-  }
-  lockKeyboard();
-  try {
-    const p = req.call(el, { navigationUI: "hide" });
-    if (p && typeof p.then === "function") {
-      p.then(() => report({ type: "browser", active: !!document.fullscreenElement }))
-        .catch((err) => console.debug("focus mode: the browser refused fullscreen", err));
-    }
-  } catch (err) {
-    console.debug("focus mode: the browser refused fullscreen", err);
-  }
-}
-
-function exitFullscreen() {
-  if (typeof document === "undefined" || !document.fullscreenElement) return;
-  unlockKeyboard();
-  try {
-    const p = document.exitFullscreen ? document.exitFullscreen() : null;
-    if (p && typeof p.catch === "function") p.catch((err) => console.debug("focus mode: exit refused", err));
-  } catch (err) {
-    console.debug("focus mode: exit refused", err);
-  }
 }
 
 // Hiding or showing the chrome resizes every pane; a reveal does not (it
@@ -130,14 +71,13 @@ function refitPanes() {
 }
 
 export function useFocusMode({ railOpen = false, available = true } = {}) {
-  // A reload restores the mode but not the browser fullscreen (there was
-  // no gesture) and not what the rail looked like when it started — the
-  // rail's state right now is the closest true answer.
+  // A reload restores the mode, but not what the rail looked like when it
+  // started — the rail's state right now is the closest true answer. The
+  // caller's value seeds it; the observer below keeps it honest from the
+  // first commit on.
   const [state, setState] = useState(() => initialFocusState({ ...readFocusPrefs(), railOpen }));
   const ref = useRef(state);
   ref.current = state;
-  const railRef = useRef(railOpen);
-  railRef.current = railOpen;
 
   const send = useCallback((ev) => {
     const prev = ref.current;
@@ -145,9 +85,6 @@ export function useFocusMode({ railOpen = false, available = true } = {}) {
     if (next === prev) return prev;
     ref.current = next;
     setState(next);
-    const intent = browserIntent(prev, next, ev);
-    if (intent === "request") requestFullscreen(send);
-    else if (intent === "exit") exitFullscreen();
     if (prev.on !== next.on) {
       writeFocusPrefs({ on: next.on });
       refitPanes();
@@ -164,13 +101,37 @@ export function useFocusMode({ railOpen = false, available = true } = {}) {
     return next;
   }, []);
 
-  const toggle = useCallback(() => send({ type: "toggle", railOpen: railOnScreen(railRef.current) }), [send]);
+  const toggle = useCallback(() => send({ type: "toggle", railOpen: railOnScreen(false) }), [send]);
   const leave = useCallback(() => send({ type: "leave" }), [send]);
+  // A control that names a panel — the Inspector toggle at the end of the
+  // tab strip. The pointer may be nowhere near the rail's own edge, so the
+  // click reveals it outright and pins it: what a click opened, a click (or
+  // Escape, or leaving the mode) closes.
+  const show = useCallback((zone) => send({ type: "reveal", zone, pinned: true }), [send]);
 
   // A shell that cannot host the mode any more — the window narrowed to
   // the single column, or the viewer opened a page route, where the tab
   // strip and its Leave control do not exist — gives it back.
   useEffect(() => { if (!available) send({ type: "unavailable" }); }, [available, send]);
+
+  // The rail's own `hidden` is what the mode follows: the Inspector toggle
+  // can turn the rail on while the mode runs, a tab picked from the revealed
+  // strip replaces the Home dashboard that was suppressing it, and a window
+  // that stopped fitting it can fit again. React has no value for "the
+  // element is on screen" — the caller's `railOpen` only seeds the state —
+  // so the wiring watches the attribute the element really wears. While the
+  // mode is off the event is a no-op, and the click that starts it reads the
+  // same source.
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    const el = document.getElementById("inspector");
+    if (!el) return undefined;
+    const report = () => send({ type: "rail", open: !el.hidden });
+    report();
+    const observer = new MutationObserver(report);
+    observer.observe(el, { attributes: true, attributeFilter: ["hidden"] });
+    return () => observer.disconnect();
+  }, [send]);
 
   // The pointer. The strips are real elements so the events still fire
   // over an embedded frame (the PDF preview), but the zone itself is
@@ -215,9 +176,11 @@ export function useFocusMode({ railOpen = false, available = true } = {}) {
     return () => clearTimeout(id);
   }, [state.on, state.armed, state.closing, send]);
 
-  // Escape: the reveal first, then the mode. A terminal pane keeps its
-  // own Escape — vim and every agent TUI need it — so the mode is left
-  // from there with the chord, the menu row or the Leave control.
+  // Escape: the reveal first, then the mode — two presses, both ours,
+  // because no browser fullscreen is in front of them to eat the first. A
+  // terminal pane keeps its own Escape — vim and every agent TUI need it —
+  // so the mode is left from there with the chord, the menu row or the
+  // Leave control in the top strip.
   useEffect(() => {
     if (!state.on) return undefined;
     function onKey(e) {
@@ -232,13 +195,6 @@ export function useFocusMode({ railOpen = false, available = true } = {}) {
     return () => document.removeEventListener("keydown", onKey);
   }, [state.on, send]);
 
-  // F11 or the browser's own Escape ends the mode it started.
-  useEffect(() => {
-    function onChange() { send({ type: "browser", active: !!document.fullscreenElement }); }
-    document.addEventListener("fullscreenchange", onChange);
-    return () => document.removeEventListener("fullscreenchange", onChange);
-  }, [send]);
-
   return {
     on: state.on,
     reveal: state.reveal,
@@ -247,5 +203,6 @@ export function useFocusMode({ railOpen = false, available = true } = {}) {
     classes: shellClasses(state),
     toggle,
     leave,
+    show,
   };
 }

@@ -107,11 +107,25 @@ moments a day.
 |---|---|---|
 | no `server.json`, nothing listening, or 404 (older daemon) | any | deploy (nothing to protect) |
 | 200, `busy` empty | any | deploy |
+| 200, `busy` is only the calling pane | any | deploy |
 | 200, `busy` non-empty | no | refuse before copying the binary; exit 2; name each owner and why |
 | 200, `busy` non-empty | yes | deploy |
 | answer unreadable | any | refuse with the parse error |
 
-Coverage: `TestDeployRefusesWhileAgentsWork`, `TestReadinessDecisionTable`
+**The caller never blocks itself** (amended 2026-09-11). The route answers
+about the whole fleet and cannot know who asked. A session deploying from
+its own pane is mid-turn by the very act of asking, so it found itself in
+its own busy list and the guard could never open for its own caller —
+observed on 2026-09-11, when two deploys from an agent pane refused naming
+that same pane, and a watcher polling for an empty list would have spent
+its full two hours waiting for a window that exists only between the
+caller's own turns. `guardDeploy` drops the owner whose id matches
+`PICODE_TERM_ID` or `PICODE_AGENT_ID` before deciding: whoever runs
+`picode deploy` consents to losing that pane, and `--force` goes back to
+meaning one thing only — ending *someone else's* turn.
+
+Coverage: `TestDeployRefusesWhileAgentsWork`, `TestReadinessDecisionTable`,
+`TestGuardIgnoresTheCallersOwnPane`, `TestGuardDeployWithOnlySelfBusy`
 (internal/install), `TestDeployReadinessListsEveryBusyOwner`
 (internal/server), the auth table rows for loopback vs remote, and the
 hook self-test rows for the 100-line cap.

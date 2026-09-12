@@ -7,7 +7,6 @@ import {
   FOCUS_KEY,
   FOCUS_SEEN_KEY,
   activeZones,
-  browserIntent,
   chromeState,
   focusAvailable,
   focusReduce,
@@ -46,12 +45,17 @@ test("off: the menu row turns the mode on and hides every piece of chrome", () =
   assert.equal(shellClasses(next), "focus-on");
 });
 
-test("off: entering asks the browser for fullscreen, and the first run is unseen", () => {
+test("off: entering leaves the browser window alone, and the first run is unseen", () => {
   const before = initialFocusState();
   const after = focusReduce(before, { type: "enter", railOpen: false });
-  assert.equal(browserIntent(before, after), "request");
+  assert.equal(after.on, true);
   assert.equal(after.seen, false);
   assert.equal(focusReduce(after, { type: "seen" }).seen, true);
+  // The state carries PiCode's chrome and nothing about the window: no
+  // half of this mode lives in the browser, so none of it can fall out of
+  // sync with the browser. A new key here is a new row owed a test.
+  assert.deepEqual(Object.keys(after).sort(),
+    ["armed", "closing", "on", "pinned", "railWasOpen", "reveal", "seen"]);
 });
 
 test("off: chrome is shown and no strip exists", () => {
@@ -145,40 +149,29 @@ test("on, a reveal open: Escape closes the reveal and keeps the mode", () => {
   const next = focusReduce(revealed, { type: "escape" });
   assert.equal(next.reveal, null);
   assert.equal(next.on, true);
-  assert.equal(browserIntent(revealed, next), "none", "the browser stays fullscreen");
 });
 
-// --- row: Escape with no reveal -> mode leaves, browser fullscreen exits --
+// --- row: Escape with no reveal -> the mode leaves ------------------------
 
-test("on, no reveal: Escape leaves the mode and exits browser fullscreen", () => {
-  const inFs = focusReduce(onState(), { type: "browser", active: true });
-  assert.equal(inFs.fs, true);
-  const next = focusReduce(inFs, { type: "escape" });
-  assert.equal(next.on, false);
-  assert.equal(browserIntent(inFs, next), "exit");
-  assert.deepEqual(chromeState(next), { sidebar: "shown", tabs: "shown", rail: "shown" });
-});
-
-// --- row: browser leaves fullscreen by itself -> mode leaves --------------
-
-test("on: the browser leaving fullscreen on its own ends the mode", () => {
-  const inFs = focusReduce(onState(), { type: "browser", active: true });
-  const ev = { type: "browser", active: false };
-  const next = focusReduce(inFs, ev);
+test("on, no reveal: Escape leaves the mode", () => {
+  const next = focusReduce(onState(), { type: "escape" });
   assert.equal(next.on, false);
   assert.deepEqual(chromeState(next), { sidebar: "shown", tabs: "shown", rail: "shown" });
-  assert.equal(browserIntent(inFs, next, ev), "none", "the browser is already out; nothing to exit");
 });
 
-// --- row: requestFullscreen rejected -> mode stays on ---------------------
+// --- row: Escape is two steps, and both of them are ours ------------------
 
-test("on: a browser that never granted fullscreen keeps the in-app mode", () => {
-  // No `browser {active:true}` ever arrives — the request was rejected.
-  const s = onState();
-  assert.equal(s.fs, false);
-  const next = focusReduce(s, { type: "browser", active: false });
-  assert.equal(next.on, true, "the mode does not fail because the browser refused");
-  assert.equal(next.reveal, null);
+test("on, a reveal open: two Escapes close the strip and then leave", () => {
+  // Both presses reach the app: nothing in front of it (there is no browser
+  // fullscreen any more) eats the first one, so the step that closes the
+  // strip is never skipped.
+  const revealed = run(onState(), [{ type: "point", zone: "left", inside: null, at: 0 }, { type: "tick", at: DWELL_IN_MS }]);
+  assert.equal(chromeState(revealed).sidebar, "revealed");
+  const first = focusReduce(revealed, { type: "escape" });
+  assert.equal(first.on, true, "the first Escape only closes the strip");
+  assert.equal(first.reveal, null);
+  const second = focusReduce(first, { type: "escape" });
+  assert.equal(second.on, false, "the second Escape leaves the mode");
 });
 
 // --- row: tab switched from the revealed strip -> mode stays --------------
@@ -205,21 +198,18 @@ test("leaving with a strip revealed leaves no stuck overlay", () => {
 
 // --- row: page reloaded -> restored, no browser fullscreen ----------------
 
-test("a reload restores the mode from localStorage without browser fullscreen", () => {
+test("a reload restores the whole mode from localStorage", () => {
   const prefs = readFocusPrefs(fakeStorage({ [FOCUS_KEY]: "1", [FOCUS_SEEN_KEY]: "1" }));
   assert.deepEqual(prefs, { on: true, seen: true });
   const restored = initialFocusState({ ...prefs, railOpen: true });
   assert.equal(restored.on, true);
-  assert.equal(restored.fs, false, "a reload has no user gesture, so no fullscreen was requested");
+  // Nothing is left over for a gesture to complete: the mode is only the
+  // chrome it hides, and a restored one is the same state as a fresh one.
+  assert.deepEqual(restored, { ...onState(), seen: true });
   // The top strip is still reachable: the mode is on and the zone exists.
   assert.ok(activeZones(restored).includes("top"));
   const next = run(restored, [{ type: "point", zone: "top", inside: null, at: 0 }, { type: "tick", at: DWELL_IN_MS }]);
   assert.equal(chromeState(next).tabs, "revealed");
-});
-
-test("a restored mode is not ended by a stray fullscreenchange", () => {
-  const restored = initialFocusState({ on: true, seen: true });
-  assert.equal(focusReduce(restored, { type: "browser", active: false }).on, true);
 });
 
 test("preferences round-trip through storage", () => {
@@ -248,6 +238,67 @@ test("on, rail closed before the mode started: the right strip does not exist", 
 
 test("on, rail open before the mode started: all three strips exist", () => {
   assert.deepEqual(activeZones(onState()), ["left", "top", "right"]);
+});
+
+// --- row: the Inspector toggle -> the rail, without waiting for the edge --
+
+test("on, rail closed before the mode started: the toggle shows the rail now", () => {
+  const s = focusReduce(initialFocusState(), { type: "enter", railOpen: false });
+  const next = focusReduce(s, { type: "reveal", zone: "right", pinned: true });
+  assert.equal(next.railWasOpen, true, "showing it is the assertion that it exists");
+  assert.equal(next.reveal, "right");
+  assert.equal(next.pinned, true);
+  assert.deepEqual(activeZones(next), ["left", "top", "right"], "the edge works from then on");
+  assert.deepEqual(chromeState(next), { sidebar: "hidden", tabs: "hidden", rail: "revealed" });
+});
+
+test("on: a panel a control opened does not close behind the pointer", () => {
+  const opened = focusReduce(onState(), { type: "reveal", zone: "right", pinned: true });
+  // The pointer is elsewhere from the first move and never enters the rail:
+  // the toggle lives in the tab strip, so it never had to.
+  const away = focusReduce(opened, { type: "point", zone: null, inside: null, at: 10 });
+  assert.equal(away.closing, null);
+  assert.equal(focusReduce(away, { type: "tick", at: 10 + DWELL_OUT_MS }).reveal, "right");
+});
+
+test("on, pinned: a dwell on another strip replaces it, transient again", () => {
+  const opened = focusReduce(onState(), { type: "reveal", zone: "right", pinned: true });
+  const armed = focusReduce(opened, { type: "point", zone: "top", inside: null, at: 0 });
+  assert.equal(armed.armed.zone, "top", "the pinned rail does not block the tabs");
+  const tabs = focusReduce(armed, { type: "tick", at: DWELL_IN_MS });
+  assert.equal(tabs.reveal, "top");
+  assert.equal(tabs.pinned, false);
+});
+
+test("on: the control takes the panel down, and Escape is the other way out", () => {
+  const opened = focusReduce(onState(), { type: "reveal", zone: "right", pinned: true });
+  const down = focusReduce(opened, { type: "reveal", zone: null });
+  assert.equal(down.reveal, null);
+  assert.equal(down.pinned, false);
+  assert.equal(down.on, true, "taking the panel down is not leaving the mode");
+  const escaped = focusReduce(opened, { type: "escape" });
+  assert.equal(escaped.reveal, null);
+  assert.equal(escaped.pinned, false);
+  assert.equal(escaped.on, true, "the first Escape closes the reveal");
+});
+
+test("on: the shell can put the rail on screen in the middle of the mode", () => {
+  const closed = focusReduce(initialFocusState(), { type: "enter", railOpen: false });
+  assert.deepEqual(activeZones(closed), ["left", "top"]);
+  const opened = focusReduce(closed, { type: "rail", open: true });
+  assert.deepEqual(activeZones(opened), ["left", "top", "right"]);
+  assert.equal(focusReduce(opened, { type: "rail", open: false }).railWasOpen, false);
+});
+
+test("on: a rail that leaves the screen takes its own reveal, not the others", () => {
+  const sidebar = run(onState(), [{ type: "point", zone: "left", inside: null, at: 0 }, { type: "tick", at: DWELL_IN_MS }]);
+  assert.equal(sidebar.reveal, "left");
+  assert.equal(focusReduce(sidebar, { type: "rail", open: false }).reveal, "left");
+  const rail = focusReduce(onState(), { type: "reveal", zone: "right", pinned: true });
+  const gone = focusReduce(rail, { type: "rail", open: false });
+  assert.equal(gone.reveal, null);
+  assert.equal(gone.railWasOpen, false);
+  assert.deepEqual(activeZones(gone), ["left", "top"]);
 });
 
 // --- the hot-zone hit test ------------------------------------------------
@@ -293,12 +344,20 @@ test("events are ignored while the mode is off", () => {
   for (const ev of [
     { type: "point", zone: "left", inside: null, at: 0 },
     { type: "tick", at: 9999 },
+    { type: "reveal", zone: "right", pinned: true },
+    { type: "rail", open: true },
     { type: "escape" },
-    { type: "browser", active: true },
     { type: "leave" },
   ]) assert.deepEqual(focusReduce(off, ev), off, ev.type);
   assert.equal(focusReduce(off, null), off);
   assert.equal(focusReduce(off, { type: "nonsense" }), off);
+  // The browser half is gone, not merely unused: what it used to send is
+  // now an event the table has never heard of, on or off.
+  for (const ev of [{ type: "browser", active: true }, { type: "browser", active: false }, { type: "resume" }]) {
+    assert.equal(focusReduce(off, ev), off, ev.type + " off");
+    const on = onState();
+    assert.equal(focusReduce(on, ev), on, ev.type + " on");
+  }
 });
 
 test("entering twice does not restart the mode", () => {

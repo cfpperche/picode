@@ -1,10 +1,10 @@
-// Cross-CLI session handoff (ADR-0088): pure helpers the Sessions tab and
+// Cross-CLI session handoff (ADR-0088): pure helpers the Sessions pane and
 // its dialog share. Everything here derives from what GET /api/clis
 // advertises per CLI (`sessions: {list, read, write, prompt}`) — no CLI id
 // is hardcoded, so a new Agent CLI appears the moment the server knows it.
 
 // sessionClis lists the catalog CLIs that have a session source, in
-// catalog order — the picker of the Sessions tab.
+// catalog order. The catalog on the CLIs page is the picker.
 export function sessionClis(clis) {
   return (clis || []).filter((c) => c && c.sessions && c.sessions.list).map((c) => c.id);
 }

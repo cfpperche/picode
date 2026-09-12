@@ -13,8 +13,9 @@ binary with the flags, extension, or overlay that CLI accepts. Hermes may
 still record PiCode's hook command in its own `shell-hooks-allowlist.json`
 when it auto-accepts session hooks.
 
-Turn on **Activity reporting** in **Agent CLIs**, opened from the desktop
-user menu or mobile **More**. The old Preferences address redirects there.
+Turn on **Activity reporting** in **Agent CLIs**, opened from the last icon
+in the desktop sidebar header or from mobile **More**. The old Preferences
+address redirects there.
 Configured terminals use the switch on their next launch. Existing plain
 shells may need a new terminal to pick up the wrapper PATH; changing a switch
 does not interrupt them. See [Agent CLIs](agent-clis) for launch settings.
@@ -40,9 +41,9 @@ sequences do not. No identity or activity means "no signal" — never a guess.
 
 | CLI | How PiCode injects (session only) | Coverage |
 |---|---|---|
-| Claude Code | `claude --settings <picode json>` | maps prompt, notification and completion hooks |
-| Codex | invocation-only lifecycle hooks, trusted by their exact command hashes | maps native hooks when available; notify fallback reports completion only |
-| Grok | `GROK_HOME` overlay in PiCode's data dir; your `auth.json` is symlinked | maps session, prompt, permission and completion hooks |
+| Claude Code | `claude --settings <picode json>` | maps prompt, tool activity, notification and completion hooks |
+| Codex | invocation-only lifecycle hooks, trusted by their exact command hashes | maps native prompt, tool and completion hooks when available; notify fallback reports completion only |
+| Grok | native hooks installed in `~/.grok/hooks` behind a receipt; your settings are preserved | maps session, prompt, permission, tool activity and completion hooks |
 | Hermes Agent | session Python path injection; follows the official launcher; no `HERMES_HOME` overlay | maps session start/end, LLM call, and approval hooks. `setup` / `model` / `auth` skip the patch |
 | OpenCode | session plugin in PiCode terminals only; does not write `~/.config/opencode` or move session data | maps session busy/idle, permission prompts and questions. `session` / `auth` / `run` skip the plugin |
 | Pi | `pi -e <picode extension>` | maps native TUI lifecycle events, including settled |

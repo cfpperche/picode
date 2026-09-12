@@ -2,15 +2,18 @@
 
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
-The core owns `#/integrations`, subscription lifecycle and generic outbound
-HTTP delivery. Vendor tools remain external MCP servers or optional Pi
-packages; there is no in-process vendor adapter, second package manager or
-credential database. `packages/pi-connector-deepwiki` exercises the existing
-adapter's `pi.mcp` manifest contract (verified with 2.32.1). The UI reports
-package installation separately from configured/live services. Native package
-settings own removal; already-running agents may need a restart. The original
-`#/mcps` route stays compatible. File-config changes emit a credential-free
-`mcp.config` invalidation through the feed, not a copy of native config.
+The core owns `#/integrations/webhooks` for subscription lifecycle and generic
+outbound HTTP delivery. Connectors (MCP) live at `#/clis/<cli>/connectors`
+(the install scope travels on the route — `?scope=user|project|agent` — and
+`#/mcps`, `#/integrations`, `#/integrations/connectors` rewrite there).
+Vendor tools remain external MCP servers or optional Pi packages; there is no
+in-process vendor adapter, second package manager or credential database.
+`packages/pi-connector-deepwiki` exercises the existing adapter's `pi.mcp`
+manifest contract (verified with 2.32.1). The UI reports package installation
+separately from configured/live services. Native package settings own removal;
+already-running agents may need a restart. File-config changes emit a
+credential-free `mcp.config` invalidation through the feed, not a copy of
+native config.
 
 `internal/webhooks.Engine` runs with the daemon context, four requests at most
 in parallel, one in flight per subscription. Migration 028 stores filters,

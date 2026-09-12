@@ -208,6 +208,12 @@ contradict an ADR — supersede it with a new one.
 - UI: React in `web/`; design tokens live in `web/shared/tokens/theme.css`
   (do not invent a second palette). After any UI change run `make web`
   and a JS/JSX syntax check (`npm run build` must succeed).
+- **Apps must not leak into PiCode's own interface**: an app reaches the
+  host only through the closed list of doors ADR-0109 declares (tile and
+  badge, its tab, its own body, the manifest icon key, the `host` object,
+  the `#/app/<id>` route), so anything else — a Preferences group, a
+  section inside another surface, a row in a host list — needs a new door
+  in that ADR, never a commit.
 - **Forms: Zod, never native browser validation.** Schemas live in
   `web/shared/contracts/schemas.js`. Forms set `noValidate`. Same messages in every
   browser.

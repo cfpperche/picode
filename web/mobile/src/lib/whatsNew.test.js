@@ -58,11 +58,14 @@ test("selection skips a release without highlights without hiding later notes", 
   assert.deepEqual(got.map((x) => x.version), ["1.1.0"]);
 });
 
-test("auto-open requires a stamped release, product state and unseen notes", () => {
+test("auto-open requires a stamped release and unseen notes, product state or not", () => {
   const common = { current: "0.2.0", entries: notes };
-  assert.equal(shouldAutoOpen({ ...common, release: true, hasProductState: true }), true);
-  assert.equal(shouldAutoOpen({ ...common, release: false, hasProductState: true }), false);
-  assert.equal(shouldAutoOpen({ ...common, release: true, hasProductState: false }), false);
+  assert.equal(shouldAutoOpen({ ...common, release: true }), true);
+  assert.equal(shouldAutoOpen({ ...common, release: false }), false);
+  // ADR-0063's 2026-09-11 amendment: a fresh install — no workspace, agent or
+  // terminal — opens it too. The gate that used to refuse here is gone, and an
+  // argument a caller still passes changes nothing.
+  assert.equal(shouldAutoOpen({ ...common, release: true, hasProductState: false }), true);
   assert.equal(shouldAutoOpen({ ...common, release: true, blocked: true }), false);
   assert.equal(shouldAutoOpen({ ...common, release: true, seen: "0.2.0" }), false);
   assert.equal(hasUnseenRelease({ ...common, release: true, seen: "0.1.0" }), true);

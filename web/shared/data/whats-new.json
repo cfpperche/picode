@@ -19,5 +19,56 @@
         "summary": "Pair a mobile browser to see running work, answer Inbox requests and open terminals."
       }
     ]
+  },
+  {
+    "version": "0.2.0",
+    "date": "2026-09-11",
+    "highlights": [
+      {
+        "icon": "matrix",
+        "title": "Matrix: your agents and terminals on one canvas",
+        "summary": "Open a matrix and watch several agents, terminals, notes, files and diffs live side by side. Pan and zoom a plane that holds as many as you need."
+      },
+      {
+        "icon": "terminal",
+        "title": "Zoom out and nothing stops working",
+        "summary": "Panels you are not reading show their last screen instead of a live one, so a big matrix costs only the terminals you are actually watching."
+      },
+      {
+        "icon": "agent",
+        "title": "A managed agent's panel is its conversation",
+        "summary": "Follow a turn as it streams, and see at a glance which agent is waiting on you — even zoomed out, where a panel is only a name-plate."
+      },
+      {
+        "icon": "inbox",
+        "title": "Sessions can message each other",
+        "summary": "Agents and CLI terminals send each other messages through PiCode, with a durable inbox, explicit acknowledgement and your own view of every conversation."
+      },
+      {
+        "icon": "workspace",
+        "title": "Link two panels to pair two sessions",
+        "summary": "Drag a connector between two panels and those sessions become contacts, even across project folders. The link never shares a transcript, and removing it removes the permission."
+      },
+      {
+        "icon": "phone",
+        "title": "Fullscreen for any tab",
+        "summary": "Give a terminal, a matrix or an editor the whole window. The sidebar and tabs come back when the pointer touches an edge."
+      },
+      {
+        "icon": "agent",
+        "title": "Pins became notes that come back",
+        "summary": "Search, keep on top, archive, and set a reminder that files itself into your Inbox when it is due — on the desktop and on the phone."
+      },
+      {
+        "icon": "terminal",
+        "title": "The git graph acts on what you point at",
+        "summary": "Right-click a commit, a branch or a worktree to prepare the exact command in a terminal, or ask an agent working in that folder to run it."
+      },
+      {
+        "icon": "workspace",
+        "title": "Local llama.cpp, managed",
+        "summary": "Install, run and watch a local llama.cpp service from PiCode, with download progress and a health view of its own."
+      }
+    ]
   }
 ]

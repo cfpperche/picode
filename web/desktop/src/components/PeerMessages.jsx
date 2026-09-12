@@ -6,10 +6,16 @@ import { askConfirm } from "../lib/confirm.js";
 import AgentClisFrame from "./AgentClisFrame.jsx";
 import CliTabs from "./CliTabs.jsx";
 import PeerConnectionDetails from "./PeerConnectionDetails.jsx";
+import GrantedContacts from "./GrantedContacts.jsx";
 import "./peer-messages.css";
 
 export default function PeerMessages({ hidden, ownerKey = "" }) {
-  return <AgentClisFrame id="peer-messages-view" hidden={hidden}><CliTabs view="messages" /><WorkspaceMessages key={ownerKey} hidden={hidden} route={ownerKey} /></AgentClisFrame>;
+  // Granted contacts are not workspace-scoped (ADR-0116: a grant is per pair,
+  // and half of what it is for is pairing two folders), so the audit list is a
+  // sibling of the workspace section and never remounts with the picker. It is
+  // Messages' own section — the grant lives in `peer_connections`, the canvas
+  // is only where it was drawn (ADR-0109, amendment 2026-09-11).
+  return <AgentClisFrame id="peer-messages-view" hidden={hidden}><CliTabs view="messages" /><WorkspaceMessages key={ownerKey} hidden={hidden} route={ownerKey} /><GrantedContacts hidden={hidden} /></AgentClisFrame>;
 }
 function WorkspaceMessages({ hidden, route }) {
   const [workspace, setWorkspace] = useState(route.startsWith("workspace:") ? route.slice(10) : "");
@@ -73,7 +79,7 @@ function WorkspaceMessages({ hidden, route }) {
             <label className="peer-participant-choice"><input type="checkbox" checked={picked} disabled={!!m.busy} onChange={e => setEdits(v => ({ ...v, [participantKey(o)]: e.target.checked }))} /><span><strong>{o.label}</strong><small>{o.kind === "agent" ? "Pi agent" : o.cli}</small></span></label>
             <span className="peer-participant-state" role="status">{editing ? (picked ? "Will connect" : "Will disconnect") : <><span>{state.label}</span>{state.connection && <small>{state.connection}{state.verified ? " · Test passed" : ""}</small>}</>}</span>
             {(on || c) && <button className="btn btn-ghost" type="button" disabled={!!m.busy} onClick={() => open(o)}>{m.busy === "open" ? "Opening…" : m.data.live?.[participantKey(o)] ? "Open" : "Open and connect"}</button>}
-            {on && (state.reason === "unobserved" || state.reason === "no-conversation" || (p?.problem && !["stopped","connected"].includes(p.phase))) ? <div className="peer-participant-problem"><span>{state.reason === "unobserved" ? "Confirm the conversation in the terminal. It reconnects when its identity is available." : state.reason === "no-conversation" ? "Start a conversation in the terminal to connect." : p.problem}</span>{state.action === "packages" ? <a href="#/clis/packages/pi">Open Packages</a> : state.action === "reconnect" ? <button type="button" className="btn btn-ghost" disabled={!!m.busy} onClick={() => reconnect(o)}>Reconnect</button> : state.action === "retry" ? <button type="button" className="btn btn-ghost" disabled={!!m.busy} onClick={() => apply([o])}>Retry setup</button> : null}</div> : null}
+            {on && (state.reason === "unobserved" || state.reason === "no-conversation" || (p?.problem && !["stopped","connected"].includes(p.phase))) ? <div className="peer-participant-problem"><span>{state.reason === "unobserved" ? "Confirm the conversation in the terminal. It reconnects when its identity is available." : state.reason === "no-conversation" ? "Start a conversation in the terminal to connect." : p.problem}</span>{state.action === "packages" ? <a href="#/clis/pi/packages">Open Packages</a> : state.action === "reconnect" ? <button type="button" className="btn btn-ghost" disabled={!!m.busy} onClick={() => reconnect(o)}>Reconnect</button> : state.action === "retry" ? <button type="button" className="btn btn-ghost" disabled={!!m.busy} onClick={() => apply([o])}>Retry setup</button> : null}</div> : null}
           </li>;
         })}</ul>}
       </form>

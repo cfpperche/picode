@@ -43,7 +43,7 @@ export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind }
             </button>
           ) : null}
           {" "}
-          <a href="#/clis/terminals">Start from Agent CLIs</a>
+          <a href="#/clis">Start from Agent CLIs</a>
           {resumeError ? <span> {resumeError}</span> : null}
         </div>
       ) : (

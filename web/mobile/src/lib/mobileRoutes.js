@@ -1,6 +1,7 @@
 import { cliProvidersLocation } from "@picode/shared/domain/cliProviders.js";
 import { cliPackagesLocation } from "@picode/shared/domain/cliPackages.js";
 import { cliSettingsLocation } from "@picode/shared/domain/cliSettings.js";
+import { cliConnectorsLocation } from "@picode/shared/domain/integrations.js";
 import { agentRoute, workspaceHash, termRoute, termHash, appPath } from "./routes.js";
 
 // Mobile hash routes (ADR-0044/0095). Four tabs plus focused tools. The
@@ -53,6 +54,7 @@ export function mobileRoute(hash) {
   if (cliPackagesLocation(h)) return { screen: "more", id: "", section: "clis" };
   if (cliSettingsLocation(h)) return { screen: "more", id: "", section: "clis" };
   if (cliProvidersLocation(h)) return { screen: "more", id: "", section: "clis" };
+  if (cliConnectorsLocation(h)) return { screen: "more", id: "", section: "clis" };
   if (h.split("?")[0] === "/providers/llama" || h.split("?")[0] === "/more/providers/llama") return { screen: "more", id: "", section: "llama" };
   if (h === "/preferences/status") return { screen: "more", id: "", section: "clis" };
   const agentId = agentRoute("#" + h);
@@ -78,7 +80,10 @@ export function mobileRoute(hash) {
   }
   if (head === "work") {
     const sec = parts[1] ? dec(parts[1]) : "";
-    return { screen: "work", id: "", section: WORK_SECTIONS.includes(sec) ? sec : "" };
+    // `#/work/workspaces/<id>` is the Back landing for a workspace's
+    // agent or terminal: the Workspaces view focused on that group.
+    const focus = sec === "workspaces" && parts[2] ? dec(parts[2]) : "";
+    return { screen: "work", id: focus, section: WORK_SECTIONS.includes(sec) ? sec : "" };
   }
   if (head === "agents") return { screen: "work", id: "", section: "agents" };
   if (head === "terminals") return { screen: "work", id: "", section: "terminals" };
@@ -129,11 +134,21 @@ export function tabOf(route) {
 
 // parentHash: where Back goes when there is no history entry to pop —
 // the tab a pushed screen belongs to, or the More menu for a section.
-export function parentHash(route) {
+// An agent or terminal backs into the Work view that owns it: with a
+// workspace (wsId) the Workspaces view focused on that group; a free one
+// (wsId === null) its own flat list; an unknown owner (wsId undefined —
+// the fleet has not answered yet) keeps the legacy parent.
+export function parentHash(route, wsId) {
   if (!route) return "#/";
   if (route.screen === "app") return "#/more/apps";
-  if (route.screen === "agent") return "#/work";
-  if (route.screen === "term") return "#/work/terminals";
+  if (route.screen === "agent") {
+    if (wsId) return "#/work/workspaces/" + encodeURIComponent(wsId);
+    return wsId === null ? "#/work/agents" : "#/work";
+  }
+  if (route.screen === "term") {
+    if (wsId) return "#/work/workspaces/" + encodeURIComponent(wsId);
+    return "#/work/terminals";
+  }
   if (["changes", "files", "git"].includes(route.screen)) {
     if (route.section === "agent") return workspaceHash(route.id);
     if (route.section === "term") return termHash(route.id);

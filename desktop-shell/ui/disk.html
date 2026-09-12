@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>PiCode — WSL disk</title>
+    <style>
+      /* Design tokens copied from web/shared/tokens/theme.css (ADR-0072,
+         the canonical source). The shell's local pages do not build with the
+         web app, so the values travel copied — keep them in sync by hand
+         until a build step ships them together. Light theme, the one the
+         product ships in. */
+      :root {
+        --bg-base: #f0f2f7;
+        --bg-panel: #fbfcfe;
+        --bg-elevated: #ffffff;
+        --bg-hover: #e4e9f2;
+        --border: #dde2ec;
+        --border-strong: #b3bccd;
+        --text-primary: #16181d;
+        --text-secondary: #5b6472;
+        --accent: #2a62d6;
+        --accent-soft: rgba(42, 98, 214, 0.12);
+        --ok: #2e7d32;
+        --warn: #a16207;
+        --danger: #cf3b54;
+        --sans: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
+        --radius-panel: 12px;
+        --radius-ctl: 8px;
+        --ctl-h: 36px;
+      }
+      * { box-sizing: border-box; }
+      body {
+        font-family: var(--sans);
+        margin: 0; padding: 1.25rem;
+        background: var(--bg-base); color: var(--text-primary);
+        font-size: 14px;
+      }
+      header { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+      h1 { font-size: 1rem; font-weight: 600; margin: 0; flex: 1; }
+      button {
+        font: inherit; height: var(--ctl-h); padding: 0 .9rem; border-radius: var(--radius-ctl);
+        border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); cursor: pointer;
+      }
+      button:hover:not(:disabled) { background: var(--bg-hover); }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      button.danger { background: var(--bg-elevated); border-color: var(--danger); color: var(--danger); }
+      button.danger:hover:not(:disabled) { background: var(--danger); color: #fff; }
+      button:disabled { opacity: .45; cursor: default; }
+      .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+      .card {
+        border: 1px solid var(--border); border-radius: var(--radius-panel);
+        padding: 1rem; background: var(--bg-panel);
+      }
+      .card h2 {
+        font-size: .75rem; text-transform: uppercase; letter-spacing: .06em;
+        color: var(--text-secondary); margin: 0 0 .75rem; font-weight: 600;
+      }
+      .row { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: .3rem 0; }
+      .row .k { color: var(--text-secondary); }
+      .big { font-size: 1.6rem; font-weight: 600; }
+      table { width: 100%; border-collapse: collapse; margin-top: .5rem; }
+      td, th { text-align: left; padding: .3rem .5rem; border-top: 1px solid var(--border); font-size: 13px; }
+      th { color: var(--text-secondary); font-weight: 500; border-top: 0; }
+      td.n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+      .kind { color: var(--text-secondary); }
+      .warn { color: var(--warn); }
+      .err { color: var(--danger); white-space: pre-wrap; }
+      .ok { color: var(--ok); }
+      .held { color: var(--warn); }
+      #state { margin: 1rem 0; color: var(--text-secondary); }
+      footer { margin-top: 1.25rem; color: var(--text-secondary); font-size: 12px; }
+      code { background: var(--bg-hover); padding: .1rem .3rem; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>WSL disk</h1>
+      <button id="refresh">Refresh</button>
+      <button id="giveback" class="danger" disabled>Give back held space…</button>
+    </header>
+
+    <div id="state">Measuring…</div>
+
+    <div class="cards">
+      <div class="card">
+        <h2>Windows</h2>
+        <div class="row"><span class="k">Free on the volume</span><span id="w-free" class="big">—</span></div>
+        <div class="row"><span class="k">Disk file on disk</span><span id="w-alloc">—</span></div>
+        <div class="row"><span class="k">Held for nothing</span><span id="w-held" class="big held">—</span></div>
+        <div class="row"><span class="k">Sparse</span><span id="w-sparse">—</span></div>
+      </div>
+      <div class="card">
+        <h2>Inside the distro</h2>
+        <div class="row"><span class="k">Used</span><span id="l-used" class="big">—</span></div>
+        <div class="row"><span class="k">Free</span><span id="l-free">—</span></div>
+        <div class="row"><span class="k">Safe to reclaim</span><span id="l-safe" class="ok">—</span></div>
+        <table id="consumers"><thead><tr><th>Consumer</th><th></th><th>Kind</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <div id="outcome"></div>
+    <footer>Actions run <code>picode-desktop disk / disk-compact</code> — read-only unless you confirm. Stopping the distro ends every session inside it.</footer>
+
+    <script>
+      const { invoke } = window.__TAURI__.core;
+      const { listen } = window.__TAURI__.event;
+      let running = false;
+      // Live steps from the compact subprocess: one event per stage, shown
+      // in the state line while the buttons stay locked.
+      listen('disk-progress', e => { if (running) setState(e.payload, true); }).catch(() => {});
+      const el = id => document.getElementById(id);
+      const gb = n => {
+        if (n < 1024) return n + ' B';
+        const u = ['KB','MB','GB','TB','PB'];
+        let v = n / 1024, i = 0;
+        while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+        return (v < 10 ? v.toFixed(1) : Math.round(v)) + ' ' + u[i];
+      };
+
+      function setState(text, busy) {
+        el('state').textContent = text;
+        el('refresh').disabled = busy;
+        el('giveback').disabled = busy;
+      }
+
+      function renderOutcome(o) {
+        el('outcome').innerHTML = '';
+        if (o.error)   { el('outcome').innerHTML = `<p class="err">Failed (the distro was restarted): ${o.error}</p>`; return; }
+        if (o.refused) { el('outcome').innerHTML = `<p class="warn">Not run — ${o.refused}</p>`; return; }
+        if (o.note && !o.after) { el('outcome').innerHTML = `<p>${o.note}</p>`; return; }
+        el('outcome').innerHTML =
+          `<p class="ok">Done — before ${gb(o.before)} · after ${gb(o.after)} · ≈${gb(o.returned)} back on C:.</p>` +
+          `<p>${o.distro} is starting again; its sessions do not come back.</p>`;
+      }
+
+      async function refresh() {
+        setState('Measuring — one df, two du, a few Windows reads…', true);
+        el('outcome').innerHTML = '';
+        try {
+          const rep = JSON.parse(await invoke('disk_report'));
+          const w = rep.windows || {}, d = rep.distro || {};
+          el('w-free').textContent = w.freeBytes != null ? gb(w.freeBytes) : '—';
+          el('w-alloc').textContent = w.allocatedBytes != null ? gb(w.allocatedBytes) : '—';
+          el('w-held').textContent = rep.held ? '≈' + gb(rep.held) : 'none';
+          el('w-sparse').textContent = w.sparse ? 'yes' : 'no — WSL cannot return freed blocks';
+          el('l-used').textContent = d.fs ? gb(d.fs.usedBytes) : '—';
+          el('l-free').textContent = d.fs ? gb(d.fs.availBytes) : '—';
+          const safe = (d.consumers || []).filter(c => c.kind !== 'data').reduce((a, c) => a + c.bytes, 0);
+          el('l-safe').textContent = d.consumers ? gb(safe) : '—';
+          const tb = el('consumers').querySelector('tbody');
+          tb.innerHTML = '';
+          for (const c of (d.consumers || []).slice(0, 8)) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${c.title}</td><td class="n">${gb(c.bytes)}</td><td class="kind">${c.kind}</td>`;
+            tb.appendChild(tr);
+          }
+          el('giveback').disabled = !rep.held;
+          setState(rep.held ? `≈${gb(rep.held)} can go back to C: — stopping the distro to get it.` : 'Nothing is held right now.', false);
+        } catch (e) {
+          setState('Could not measure: ' + e, false);
+        }
+      }
+
+      async function giveBack() {
+        if (running) return;
+        if (!confirm('Stopping the distro returns the held space to C:.\n\nEverything inside it ends now — agents, terminals and tmux sessions do not come back.\n\nContinue?')) return;
+        running = true;
+        setState('Compacting — Ubuntu is stopping, converting, starting again. This takes minutes…', true);
+        try {
+          renderOutcome(JSON.parse(await invoke('disk_compact')));
+        } catch (e) {
+          el('outcome').innerHTML = `<p class="err">${e}</p>`;
+        }
+        running = false;
+        await refresh();
+      }
+
+      el('refresh').addEventListener('click', refresh);
+      el('giveback').addEventListener('click', giveBack);
+      refresh();
+    </script>
+  </body>
+</html>

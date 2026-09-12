@@ -76,18 +76,82 @@ func ServerURL(r Runner, distro, user string) (string, error) {
 // distro configured with appendWindowsPath=false it is not, so the mount is
 // probed — that is how `doctor` runs during development.
 func ResolveWSLExe() string {
-	if _, err := exec.LookPath("wsl.exe"); err == nil {
-		return "wsl.exe"
+	return ResolveWindowsTool("wsl.exe", "wsl.exe")
+}
+
+// WSLExe itself lives in drive.go, next to the Runner it is called through.
+
+// The Windows console programs the desktop reads the machine with. Like WSLExe
+// they are names on Windows and mounts from inside a distro, so the same code
+// runs in the tray and in a shell during development.
+var (
+	RegExe        = "reg"
+	FsutilExe     = "fsutil"
+	PowerShellExe = "powershell"
+)
+
+// ResolveWindowsTools points those three at programs this process can run.
+func ResolveWindowsTools() {
+	RegExe = ResolveWindowsTool("reg", "reg.exe")
+	FsutilExe = ResolveWindowsTool("fsutil", "fsutil.exe")
+	PowerShellExe = ResolveWindowsTool("powershell", "WindowsPowerShell/v1.0/powershell.exe")
+}
+
+// DeployReady asks the running server whether anyone is mid-turn — the same
+// interlock `picode deploy` consults before restarting the daemon, because
+// stopping the distro ends the same work. Loopback needs no session
+// (internal/auth exempts it), which is exactly why the tray is allowed to ask.
+func DeployReady(base string) (ready bool, busy []string, err error) {
+	res, err := healthClient.Get(strings.TrimSuffix(base, "/") + "/api/deploy/readiness")
+	if err != nil {
+		return false, nil, err
 	}
-	for _, p := range []string{
-		"/mnt/c/Windows/System32/wsl.exe",
-		"/mnt/c/Windows/system32/wsl.exe",
-	} {
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return false, nil, fmt.Errorf("status %s", res.Status)
+	}
+	var body struct {
+		Ready bool `json:"ready"`
+		Busy  []struct {
+			Kind string `json:"kind"`
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"busy"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		return false, nil, err
+	}
+	for _, b := range body.Busy {
+		name := b.Name
+		if name == "" {
+			name = b.ID
+		}
+		busy = append(busy, b.Kind+" "+name)
+	}
+	return body.Ready, busy, nil
+}
+
+// DescribeBusy names the callers the interlock found, for a refusal message.
+func DescribeBusy(busy []string) string {
+	if len(busy) == 0 {
+		return "someone"
+	}
+	return strings.Join(busy, "; ")
+}
+
+// ResolveWindowsTool finds one of them: on PATH on Windows, under System32
+// from inside a distro that left appendWindowsPath alone.
+func ResolveWindowsTool(name, underSystem32 string) string {
+	if _, err := exec.LookPath(name); err == nil {
+		return name
+	}
+	for _, root := range []string{"/mnt/c/Windows/System32", "/mnt/c/Windows/system32"} {
+		p := root + "/" + underSystem32
 		if _, err := os.Stat(p); err == nil {
 			return p
 		}
 	}
-	return "wsl.exe"
+	return name
 }
 
 // DefaultUser asks the distro which account it logs in as, so the owner never

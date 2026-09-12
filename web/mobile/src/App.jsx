@@ -14,6 +14,7 @@ import { dismissNotice, notify, toast, toastError } from "./lib/toast.js";
 import { watchReminders } from "@picode/shared/client/reminders.js";
 import { closeTerm } from "./lib/terms.js";
 import { mobileHash, toolHash, tabOf, readWorkSection, writeWorkSection } from "./lib/mobileRoutes.js";
+import { agentOwnerWs, termOwnerWs } from "./lib/workBack.js";
 import { askConfirm } from "./lib/confirm.js";
 import Reconnect from "./components/Reconnect.jsx";
 import ShareDrawer, { OPEN_EVENT } from "./components/ShareDrawer.jsx";
@@ -51,7 +52,7 @@ import "./mobile.css";
 
 const LAST_AGENT_KEY = "picode-mobile-last-agent";
 
-// The phone shell (ADR-0044/0095): focused mobile workflows. Now (decisions, running, today, results) · Inbox · Work
+// The phone shell (ADR-0044/0095): focused mobile workflows. Now (decisions, today, results) · Inbox · Work
 // (workspaces / free agents / terminals, the desktop rail's three views)
 // · More, plus the pushed agent and terminal screens. No header: the
 // tab bar is the chrome. One fleet poll feeds every screen; only the
@@ -207,16 +208,17 @@ export default function MobileApp() {
   const badges = { now: entries.length, inbox: inboxApp && inboxApp.badge ? inboxApp.badge.count || 0 : 0 };
   const whatsNewCurrent = semver || version;
   const whatsNewUnread = hasUnseenRelease({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES });
-  const hasProductState = fleetTotal + terminals.length > 0;
-
+  // A fresh install sees What's New too (ADR-0063, amendment 2026-09-11). The
+  // product-state gate that used to stand here is gone; `blocked` below is
+  // every other defer condition and all of them stay.
   useEffect(() => {
-    if (!loaded || !releaseBuild || !whatsNewCurrent || whatsNewOpen || !hasProductState) return;
+    if (!loaded || !releaseBuild || !whatsNewCurrent || whatsNewOpen) return;
     const blocked = reconnect || !!create || shareOpen || entries.length > 0;
-    if (shouldAutoOpen({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES, hasProductState, blocked })) {
+    if (shouldAutoOpen({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES, blocked })) {
       setWhatsNewMode("auto");
       setWhatsNewOpen(true);
     }
-  }, [loaded, releaseBuild, whatsNewCurrent, whatsNewOpen, hasProductState, reconnect, create, shareOpen, entries.length, whatsNewSeen]);
+  }, [loaded, releaseBuild, whatsNewCurrent, whatsNewOpen, reconnect, create, shareOpen, entries.length, whatsNewSeen]);
 
   function openWhatsNew() { setWhatsNewMode("manual"); setWhatsNewOpen(true); }
   function closeWhatsNew() {
@@ -229,7 +231,6 @@ export default function MobileApp() {
 
   const current = route.screen === "agent" ? findAgent(workspaces, freeAgents, route.id) : null;
   const currentTerm = route.screen === "term" ? terminals.find((t) => t.id === route.id) || null : null;
-  const liveTerms = terminals.filter((t) => t.running);
   const section = route.screen === "work" ? (route.section || workSection) : workSection;
   useEffect(() => {
     if (route.screen === "work" && route.section && route.section !== workSection) {
@@ -310,7 +311,7 @@ export default function MobileApp() {
       await api("/api/terminals/" + encodeURIComponent(t.id), { method: "DELETE" });
       closeTerm("sh:" + t.id);
       await reload({ force: true });
-      if (route.screen === "term" && route.id === t.id) goBack(route);
+      if (route.screen === "term" && route.id === t.id) goBack(route, termOwnerWs(t));
     } catch (e) { toastError(e); } finally { setBusyId(""); }
   }
 
@@ -404,7 +405,7 @@ export default function MobileApp() {
       : route.section === "term" ? (owner.term ? owner.term.name : "") : (owner.workspace ? owner.workspace.name : "");
     body = <Changes kind={route.section} id={route.id} title={title} onBack={() => goBack(route)} />;
   } else if (route.screen === "term") {
-    body = <TerminalScreen term={currentTerm} onBack={() => goBack(route)} onRemove={removeTerminal} busy={!!currentTerm && busyId === currentTerm.id} onOpenFiles={openFiles} onOpenGit={openGit} />;
+    body = <TerminalScreen term={currentTerm} onBack={() => goBack(route, termOwnerWs(currentTerm))} onRemove={removeTerminal} busy={!!currentTerm && busyId === currentTerm.id} onOpenFiles={openFiles} onOpenGit={openGit} />;
   } else if (route.screen === "agent") {
     body = (
       <Agent
@@ -413,7 +414,7 @@ export default function MobileApp() {
         catalog={catalog}
         workingIds={tuiWorking}
         busy={!!current && busyId === current.agent.id}
-        onBack={() => goBack(route)}
+        onBack={() => goBack(route, agentOwnerWs(current))}
         onStart={startAgent}
         onStop={stopAgent}
         onOpenFiles={openFiles}
@@ -431,7 +432,7 @@ export default function MobileApp() {
     body = <Inbox manifest={inboxApp} onOpenItem={(id) => push(mobileHash("inbox", id))} />;
   } else if (route.screen === "work") {
     body = (
-      <Work section={section} onSection={setSection} loaded={loaded} error={fleetError} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals}
+      <Work section={section} focusWs={section === "workspaces" ? route.id : ""} onSection={setSection} loaded={loaded} error={fleetError} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals}
         workingIds={tuiWorking} busyId={busyId} checklists={checklists}
         onOpenAgent={(a) => openAgent(a.id)} onOpenTerm={(t) => openTerm(t.id)} onStart={startAgent} onStop={stopAgent} onRemoveTerm={removeTerminal}
         onCreate={(kind, ws) => setCreate({ kind, workspace: ws || (kind === "agent" ? (workspaces[0] || null) : null) })} onNewTerm={newTerminal}
@@ -446,9 +447,9 @@ export default function MobileApp() {
     );
   } else {
     body = (
-      <Now loaded={loaded && attentionReady} error={fleetError || attentionError} entries={entries} running={running} liveTerms={liveTerms} workingIds={tuiWorking} stats={stats} results={results}
+      <Now loaded={loaded && attentionReady} error={fleetError || attentionError} entries={entries} stats={stats} results={results}
         fleetTotal={fleetTotal + terminals.length} onAnswer={answerAsk} onRespond={respondInbox}
-        onOpenAgent={openAgent} onOpenTerm={openTerm} onOpenInbox={(id) => push(mobileHash("inbox", id))} onRefresh={refreshAll}
+        onOpenAgent={openAgent} onOpenInbox={(id) => push(mobileHash("inbox", id))} onRefresh={refreshAll}
         onCreate={(kind) => setCreate({ kind, workspace: null })} />
     );
   }

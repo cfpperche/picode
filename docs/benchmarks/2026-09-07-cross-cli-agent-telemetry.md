@@ -36,6 +36,11 @@ so this is a new dated study rather than a stretched citation.
 | Quota windows | — | — | `rate_limits{used_percent, window_minutes, resets_at, plan_type}` | — | — | — |
 | Billing mode | — | — | — | — | `billing_mode`, `cost_status`, `pricing_version` | — |
 
+> **Re-measured 2026-09-11.** Two rows below were true of the CLI versions
+> installed that week, not of the CLIs: Codex now writes request durations and
+> Grok writes tokens, cost and a turn/tool timeline. See the
+> [addendum](#addendum--re-measured-2026-09-11) at the end.
+
 Two findings changed the design, and neither is in any vendor's docs:
 
 **Claude Code's cost is a floor, not a total.** Only **46 of 340**
@@ -116,3 +121,28 @@ Sources: [Claude Code monitoring](https://code.claude.com/docs/en/monitoring-usa
 [claude-code-otel](https://github.com/ColeMurray/claude-code-otel),
 [CliDeck](https://yetanotherorchestrator.app/apps/clideck/),
 [awslabs/cli-agent-orchestrator](https://github.com/awslabs/cli-agent-orchestrator).
+
+## Addendum — re-measured 2026-09-11
+
+The table above is a receipt for 2026-09-07 and stays as measured. Two of its
+rows were a property of the CLI versions installed that week, not of the
+CLIs, and both moved. Re-read from this machine's own stores:
+
+| Row | 2026-09-07 | 2026-09-11 |
+|---|---|---|
+| Codex durations | "line timestamps only" | `event_msg/task_complete` carries **`duration_ms` and `time_to_first_token_ms`** — 381 and 367 of the 400 most recently written rollouts — and `token_usage_record` timestamps every request. The tree is still the largest here (2.24 GB, 915 files) |
+| Grok | "—" for tokens, cost and durations | **`summary.json`** (model, cwd, title) for every session (231 of 231); **`events.jsonl`** turn/tool timeline (turns, `tool_completed.duration_ms`, `first_token`) — 188 of 231 non-empty, 176 with completed turns; **`usage.json`** per-turn tokens and `costUsdTicks` (10¹⁰ ticks per USD, per its own user guide) — new in 1.0.x, 3 of 231 sessions |
+
+What changed in PiCode the same day: `internal/climetrics/grok.go` had
+declared Grok activity-only and answered "—" beside a store that now holds
+tokens, cost, turns, tools and durations. It reads all four files per session
+and reports tokens/cost as `partial` with both counts. Codex's durations are
+**not yet** read by its meter — the adapter still counts tokens and quota
+only — so the `p95 latency` refusal stays open; that gap is named in
+`docs/handoff.md` rather than hidden here.
+
+The lesson this addendum exists to keep: a benchmark row saying "no vendor
+writes X" ages the day the vendor ships X, and the surface that reads the
+files has to say so when it does. Older sessions are not retroactively
+rewritten — Grok began writing `usage.json` in 1.0.x, and the coverage row
+says `partial` with the count instead of pretending otherwise.

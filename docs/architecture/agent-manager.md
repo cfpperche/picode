@@ -12,7 +12,7 @@ Per-agent provider/model/thinking is stored on `agents` and passed as
 `GET /api/providers/{id}/usage` (ADR-0031) reads the active slot.
 `GET /api/providers/{id}/accounts/{aid}/usage` reads that vault row
 without swapping `auth.json` (refresh writes the row; `auth.json` only
-if it is active). Catalog `quotaKind` on each account tells `#/clis/providers/pi`
+if it is active). Catalog `quotaKind` on each account tells `#/clis/pi/providers`
 when to show Usage (`oauth` or `api_key`). Banked resets (Codex, Grok)
 ride `resets[]`; `POST …/usage/reset` redeems one after the UI confirms.
 Grok resets also try `~/.grok/auth.json` then `GROK_COOKIE`.
@@ -149,8 +149,8 @@ HTTP API (Go 1.22 method patterns):
   change, and never deletes a session any agent is bound to *or has ever
   been* (the `agent_sessions` history, ADR-0040: an older but still
   chat-picker-resumable session is not swept just because it isn't the
-  current one). Together these power the `#/clis/sessions`
-  views and the "From a Pi session" picker: Open with… reuses the resume
+  current one). Together these power the `#/clis/<cli>/sessions`
+  panes and the "From a Pi session" picker: Open with… reuses the resume
   endpoint, Compact reuses the agent compact. The legacy routes
   (`/api/sessions/all`, `/api/pi-sessions*`, `/api/session-cleanup`,
   `/api/workspaces/{id}/sessions/manage`) were removed — one namespace

@@ -5,11 +5,11 @@ import { mobileRoute, mobileHash, toolHash, tabOf, parentHash } from "./mobileRo
 
 describe("mobileRoute", () => {
   it("opens independent integrations deep links from More", () => {
-    for (const hash of ["#/more/integrations", "#/integrations", "#/integrations/connectors", "#/integrations/webhooks"]) {
-      const route = mobileRoute(hash);
-      assert.equal(route.section, "integrations");
-      assert.equal(tabOf(route), "more");
-      assert.equal(parentHash(route), "#/more");
+    const webhooks = mobileRoute("#/integrations/webhooks");
+    assert.equal(webhooks.section, "integrations");
+    assert.equal(tabOf(webhooks), "more");
+    for (const hash of ["#/more/integrations", "#/integrations", "#/integrations/connectors"]) {
+      assert.equal(mobileRoute(hash).section, "clis", hash);
     }
   });
   it("opens Apps on the phone and keeps the Inbox route", () => {
@@ -69,6 +69,17 @@ describe("mobileRoute", () => {
     assert.equal(tabOf(mobileRoute("#/")), "now");
     assert.equal(parentHash(mobileRoute("#/agent/a1")), "#/work");
     assert.equal(parentHash(mobileRoute("#/term/t1")), "#/work/terminals");
+    // Back lands where the resource lives: a workspace's agent or terminal
+    // into the Workspaces view focused on that group, a free one into its
+    // own flat list, an unknown owner into the legacy parent.
+    assert.equal(parentHash(mobileRoute("#/agent/a1"), "ws1"), "#/work/workspaces/ws1");
+    assert.equal(parentHash(mobileRoute("#/agent/a1"), "ws /?#"), "#/work/workspaces/ws%20%2F%3F%23");
+    assert.equal(parentHash(mobileRoute("#/agent/a1"), null), "#/work/agents");
+    assert.equal(parentHash(mobileRoute("#/term/t1"), "ws1"), "#/work/workspaces/ws1");
+    assert.equal(parentHash(mobileRoute("#/term/t1"), null), "#/work/terminals");
+    assert.deepEqual(mobileRoute("#/work/workspaces/ws%201"), { screen: "work", id: "ws 1", section: "workspaces" });
+    assert.deepEqual(mobileRoute("#/work/workspaces"), { screen: "work", id: "", section: "workspaces" });
+    assert.deepEqual(mobileRoute("#/work/nope/x"), { screen: "work", id: "", section: "" });
     assert.equal(parentHash(mobileRoute("#/changes/a/ag1")), "#/agent/ag1");
     assert.equal(parentHash(mobileRoute("#/changes/t/t1")), "#/term/t1");
     assert.equal(parentHash(mobileRoute("#/changes/w/w1")), "#/work");
@@ -84,7 +95,7 @@ it("opens complete automation and session workflows without dropping nested link
     assert.equal(mobileRoute(hash).section, "automations");
     assert.equal(tabOf(mobileRoute(hash)), "more");
   }
-  for (const hash of ["#/clis/sessions", "#/clis/sessions/w1?cli=claude", "#/sessions/w1"]) {
+  for (const hash of ["#/clis/sessions", "#/clis/sessions/w1?cli=claude", "#/sessions/w1", "#/clis/codex/sessions", "#/clis/pi/sessions/w1"]) {
     assert.equal(mobileRoute(hash).section, "clis");
   }
 });
@@ -126,7 +137,7 @@ it("pins on the phone: list under More, read-only screen, new and edit forms", (
 });
 
 it("native packages and legacy configuration links use Agent CLIs", () => {
-  for (const hash of ["#/packages", "#/more/packages", "#/packages/config/pi-roles", "#/clis/packages/pi?agentId=a", "#/clis/packages/pi/config/pi-roles?workspaceId=w"]) {
+  for (const hash of ["#/packages", "#/more/packages", "#/packages/config/pi-roles", "#/clis/packages/pi?agentId=a", "#/clis/packages/pi/config/pi-roles?workspaceId=w", "#/clis/pi/packages", "#/integrations", "#/mcps"]) {
     assert.deepEqual(mobileRoute(hash), { screen: "more", id: "", section: "clis" });
   }
 });
@@ -138,6 +149,6 @@ it("native provider navigation and compatibility aliases", () => {
 
 it("provider command navigation opens canonical list or add", () => {
   const previous = globalThis.location; globalThis.location = { hash: "" };
-  try { go("providers"); assert.equal(location.hash, "#/clis/providers/pi"); go("providers-new"); assert.equal(location.hash, "#/clis/providers/pi/new"); }
+  try { go("providers"); assert.equal(location.hash, "#/clis/pi/providers"); go("providers-new"); assert.equal(location.hash, "#/clis/pi/providers/new"); }
   finally { globalThis.location = previous; }
 });

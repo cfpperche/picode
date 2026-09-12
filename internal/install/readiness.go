@@ -62,6 +62,39 @@ var Readiness = func(dataDir string) ([]Busy, error) {
 	return out.Busy, nil
 }
 
+// Env vars the daemon injects into the panes it manages: a terminal carries
+// its own id, a managed agent its agent id. Named here rather than imported
+// so this package keeps depending on nothing of the server's.
+const (
+	termIDEnv  = "PICODE_TERM_ID"
+	agentIDEnv = "PICODE_AGENT_ID"
+)
+
+// dropSelf removes the pane the deploy is running in. The readiness route
+// answers about the whole fleet and cannot know who asked, so a session
+// deploying from its own pane always finds itself mid-turn — it is working
+// by the very act of asking — and a guard that counted it could never open
+// for its own caller. Whoever types `picode deploy` is consenting to lose
+// that pane; every other turn is what the guard exists to protect.
+func dropSelf(busy []Busy, getenv func(string) string) []Busy {
+	self := map[string]bool{}
+	for _, key := range []string{termIDEnv, agentIDEnv} {
+		if id := getenv(key); id != "" {
+			self[id] = true
+		}
+	}
+	if len(self) == 0 {
+		return busy
+	}
+	out := make([]Busy, 0, len(busy))
+	for _, o := range busy {
+		if !self[o.ID] {
+			out = append(out, o)
+		}
+	}
+	return out
+}
+
 // guardDeploy turns a busy fleet into the refusal the caller prints.
 func guardDeploy(dataDir string, force bool) error {
 	if force {
@@ -71,6 +104,7 @@ func guardDeploy(dataDir string, force bool) error {
 	if err != nil {
 		return err
 	}
+	busy = dropSelf(busy, os.Getenv)
 	if len(busy) == 0 {
 		return nil
 	}

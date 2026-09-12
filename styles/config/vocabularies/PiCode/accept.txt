@@ -84,3 +84,9 @@ untracked
 fullscreen
 scrollback
 Homebrew
+minimap
+distro
+tooltip
+docker
+sparse
+vhdx

@@ -66,6 +66,11 @@ func TestInterceptDoesNotWriteUserClaudeSettings(t *testing.T) {
 	if strings.Contains(string(rawSettings), "TaskCompleted") || strings.Contains(string(rawSettings), "SubagentStop") || !strings.Contains(string(rawSettings), "Stop") || !strings.Contains(string(rawSettings), " auto claude-code") {
 		t.Fatalf("settings should map parent Stop via auto:\n%s", rawSettings)
 	}
+	for _, want := range []string{"PostToolUse", "PostToolUseFailure"} {
+		if !strings.Contains(string(rawSettings), want) {
+			t.Fatalf("settings must resume an approved turn via tool hooks, missing %s:\n%s", want, rawSettings)
+		}
+	}
 	pathEnv := interceptSessionPath(dataDir)
 	if !strings.HasPrefix(pathEnv, "PATH="+interceptBinDir(dataDir)) {
 		t.Fatalf("session PATH = %q", pathEnv)
@@ -108,7 +113,7 @@ func TestInterceptCodexAndGrok(t *testing.T) {
 		t.Fatalf("codex enable = %d", res.StatusCode)
 	}
 	body, _ := os.ReadFile(wrapperPath(dataDir, "codex"))
-	for _, want := range []string{"hooks.SessionStart", "hooks.UserPromptSubmit", "hooks.PermissionRequest", "hooks.Interrupt", "hooks.state=", "notify="} {
+	for _, want := range []string{"hooks.SessionStart", "hooks.UserPromptSubmit", "hooks.PermissionRequest", "hooks.PostToolUse", "hooks.Interrupt", "hooks.state=", "notify="} {
 		if !strings.Contains(string(body), want) {
 			t.Fatalf("codex wrapper missing %q:\n%s", want, body)
 		}
@@ -128,8 +133,10 @@ func TestInterceptCodexAndGrok(t *testing.T) {
 	if err != nil {
 		t.Fatalf("grok hooks missing: %v", err)
 	}
-	if !strings.Contains(string(raw), "UserPromptSubmit") {
-		t.Fatalf("grok hooks: %s", raw)
+	for _, want := range []string{"UserPromptSubmit", "PermissionRequest", "Notification", "PostToolUse", "PostToolUseFailure", "timeout\":10"} {
+		if !strings.Contains(string(raw), want) {
+			t.Fatalf("grok hooks missing %s: %s", want, raw)
+		}
 	}
 }
 
@@ -495,10 +502,13 @@ func TestHookMapPy(t *testing.T) {
 	if _, err := ensureHookScript(dir); err != nil {
 		t.Fatal(err)
 	}
-	run := func(in string) string {
+	run := func(in, cli string) string {
 		t.Helper()
 		cmd := exec.Command("python3", filepath.Join(dir, "picode-hook-map.py"))
 		cmd.Stdin = strings.NewReader(in)
+		if cli != "" {
+			cmd.Env = append(os.Environ(), "PICODE_HOOK_CLI="+cli)
+		}
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("map %q: %v", in, err)
@@ -506,31 +516,45 @@ func TestHookMapPy(t *testing.T) {
 		return string(out)
 	}
 	cases := []struct {
-		in, want string
+		in, cli, want string
 	}{
-		{`{"hook_event_name":"UserPromptSubmit"}`, "working\n"},
-		{`{"hook_event_name":"SessionStart"}`, "idle\n"},
-		{`{"hook_event_name":"SessionStart","source":"compact"}`, "working\n"},
-		{`{"hook_event_name":"Stop"}`, "idle\n"},
-		{`{"hook_event_name":"TaskCompleted"}`, ""},
-		{`{"type":"agent-turn-complete"}`, "idle\n"},
-		{`{"hook_event_name":"Interrupt"}`, "idle\n"},
-		{`{"hook_event_name":"PermissionRequest"}`, "needs-you\n"},
-		{`{"hook_event_name":"Notification","notification_type":"permission_prompt"}`, "needs-you\n"},
-		{`{"hook_event_name":"pre_llm_call"}`, "working\n"},
-		{`{"hook_event_name":"post_approval_response"}`, "working\n"},
-		{`{"hook_event_name":"on_session_start"}`, "idle\n"},
-		{`{"hook_event_name":"on_session_end"}`, "idle\n"},
-		{`{"hook_event_name":"post_llm_call"}`, "idle\n"},
-		{`{"hook_event_name":"subagent_stop"}`, ""},
-		{`{"hook_event_name":"on_session_finalize"}`, "working\n"},
-		{`{"hook_event_name":"on_session_reset"}`, "idle\n"},
-		{`{"hook_event_name":"pre_approval_request"}`, "needs-you\n"},
-		{`{"hook_event_name":"pre_tool_call"}`, ""},
+		{`{"hook_event_name":"UserPromptSubmit"}`, "", "working\n"},
+		{`{"hook_event_name":"SessionStart"}`, "", "idle\n"},
+		{`{"hook_event_name":"SessionStart","source":"compact"}`, "", "working\n"},
+		{`{"hook_event_name":"Stop"}`, "", "idle\n"},
+		{`{"hook_event_name":"TaskCompleted"}`, "", ""},
+		{`{"type":"agent-turn-complete"}`, "", "idle\n"},
+		{`{"hook_event_name":"Interrupt"}`, "", "idle\n"},
+		{`{"hook_event_name":"PermissionRequest"}`, "", "needs-you\n"},
+		{`{"hook_event_name":"Notification","notification_type":"permission_prompt"}`, "", "needs-you\n"},
+		{`{"hook_event_name":"pre_llm_call"}`, "", "working\n"},
+		{`{"hook_event_name":"post_approval_response"}`, "", "working\n"},
+		{`{"hook_event_name":"on_session_start"}`, "", "idle\n"},
+		{`{"hook_event_name":"on_session_end"}`, "", "idle\n"},
+		{`{"hook_event_name":"post_llm_call"}`, "", "idle\n"},
+		{`{"hook_event_name":"subagent_stop"}`, "", ""},
+		{`{"hook_event_name":"on_session_finalize"}`, "", "working\n"},
+		{`{"hook_event_name":"on_session_reset"}`, "", "idle\n"},
+		{`{"hook_event_name":"pre_approval_request"}`, "", "needs-you\n"},
+		{`{"hook_event_name":"pre_tool_call"}`, "", ""},
+		// Tool lifecycle resumes a turn after an approved permission prompt:
+		// the CLI has no "permission resolved" event, so PostToolUse (or a
+		// failed dispatch, where the model keeps going) is the working signal.
+		{`{"hook_event_name":"PostToolUse"}`, "claude-code", "working\n"},
+		{`{"hook_event_name":"PostToolUseFailure"}`, "claude-code", "working\n"},
+		{`{"hook_event_name":"post_tool_use"}`, "claude-code", "working\n"},
+		{`{"hook_event_name":"PostToolUse"}`, "codex", "working\n"},
+		{`{"hook_event_name":"PermissionRequest"}`, "grok", "needs-you\n"},
+		{`{"hook_event_name":"PostToolUse"}`, "grok", "working\n"},
+		{`{"hook_event_name":"Notification","notification_type":"permission_prompt"}`, "grok", "needs-you\n"},
+		{`{"hook_event_name":"Notification","notification_type":"idle_prompt"}`, "grok", "idle\n"},
+		// Grok's other notifications carry no attention meaning; a
+		// task_complete must not turn the row into a false "Needs you".
+		{`{"hook_event_name":"Notification","notification_type":"task_complete"}`, "grok", ""},
 	}
 	for _, tc := range cases {
-		if got := run(tc.in); got != tc.want {
-			t.Fatalf("%s = %q, want %q", tc.in, got, tc.want)
+		if got := run(tc.in, tc.cli); got != tc.want {
+			t.Fatalf("[%s] %s = %q, want %q", tc.cli, tc.in, got, tc.want)
 		}
 	}
 }
@@ -552,6 +576,15 @@ func TestCodexHookHashMatchesCodexFingerprint(t *testing.T) {
 	want = "sha256:5328cb425a3aeb63b4eb7c137e1cb84d42f52f12165fe7a4b5f03d7e76731a35"
 	if got != want {
 		t.Fatalf("HTML-character hash = %q, want %q", got, want)
+	}
+
+	// Captured from Codex 0.153.0 app-server hooks/list with the exact
+	// timeout PiCode injects: the tool event carries the same trust formula.
+	spec = codexHookSpec{key: "post_tool_use", timeoutSec: 5}
+	got = codexHookHash(spec, "/tmp/codex-hook-probe/hook.sh")
+	want = "sha256:c77160dccd8204d3e78a3c200c47b4d963c1484225618c61867d807d0fbda249"
+	if got != want {
+		t.Fatalf("tool hook hash = %q, want Codex fingerprint %q", got, want)
 	}
 }
 

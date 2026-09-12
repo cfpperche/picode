@@ -453,7 +453,6 @@ export default function Inspector({
             <span className={"insp-branch" + (chip.unpublished || chip.detached ? " insp-branch-noted" : "")} title={chip.title}>
               <IconGit size={12} />
               <span className="insp-branch-name">{chip.name}</span>
-              {chip.worktree ? <span className="insp-branch-wt">{chip.worktree}</span> : null}
               {chip.ahead ? <span className="insp-branch-ab" aria-label={`${chip.ahead} ahead`}>↑{chip.ahead}</span> : null}
               {chip.behind ? <span className="insp-branch-ab" aria-label={`${chip.behind} behind`}>↓{chip.behind}</span> : null}
               {chip.unpublished ? <span className="insp-branch-note">unpublished</span> : chip.detached ? <span className="insp-branch-note">detached</span> : null}

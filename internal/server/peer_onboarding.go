@@ -592,7 +592,7 @@ func configurePeerPi(ctx context.Context, deps Deps, key, session, connection st
 	}
 	ack, done := deps.Replies.registerAck(nonce)
 	defer done()
-	file, e := writeReplyFile(deps.DataDir, key, replyFile{SetupConnection: connection, AttentionOnly: true, Nonce: nonce, SessionPath: session, CreatedAt: time.Now().UTC()})
+	file, e := writeReplyFile(deps.DataDir, key, replyFile{SetupConnection: connection, AttentionOnly: true, Nonce: nonce, SessionPath: session, CreatedAt: time.Now().UTC(), PID: deps.Replies.receiverPID(key)})
 	if e != nil {
 		return e
 	}

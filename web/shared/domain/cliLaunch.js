@@ -1,29 +1,101 @@
 import { cliProvidersLocation } from "./cliProviders.js";
 import { cliPackagesLocation } from "./cliPackages.js";
 import { cliSettingsLocation } from "./cliSettings.js";
+import { cliConnectorsLocation } from "./integrations.js";
 
-export function cliLocation(hash = "") {
+const CLI_PANES = new Set(["launch", "terminals", "sessions", "providers", "settings", "packages", "connectors"]);
+
+// Setup panes (Settings / Packages / Connectors) read identity from the
+// hash. When the hash has none, the selected sidebar pane is the fallback
+// so Agent CLIs → Packages still offers This workspace / This agent.
+export function cliPaneSetupContext(route = {}, legacy = {}) {
+  return {
+    workspaceId: route.workspaceId || legacy.workspaceId || "",
+    agentId: route.agentId || legacy.agentId || "",
+    scope: route.scope || "user",
+    focus: route.focus || "",
+  };
+}
+
+export function cliPaneHash(cli = "", pane = "launch", workspace = "") {
+  if (!cli) return "#/clis";
+  const id = encodeURIComponent(cli);
+  if (!pane || pane === "launch") return "#/clis/" + id;
+  if (pane === "sessions" && workspace) return "#/clis/" + id + "/sessions/" + encodeURIComponent(workspace);
+  if (pane === "sessions") return "#/clis/" + id + "/sessions";
+  if (pane === "terminals") return "#/clis/" + id + "/terminals";
+  if (pane === "providers") return "#/clis/" + id + "/providers";
+  if (pane === "settings") return "#/clis/" + id + "/settings";
+  if (pane === "packages") return "#/clis/" + id + "/packages";
+  if (pane === "connectors") return "#/clis/" + id + "/connectors";
+  return "#/clis/" + id;
+}
+
+function sessionsLocation(cli, workspace) {
+  const id = cli || "pi";
+  return { view: "clis", id, pane: "sessions", ...(workspace ? { workspace } : {}), redirect: cliPaneHash(id, "sessions", workspace) };
+}
+
+export function cliLocation(hash = "", legacy = {}) {
   const providers = cliProvidersLocation(hash);
   if (providers) return providers;
-  const packages = cliPackagesLocation(hash);
+  const packages = cliPackagesLocation(hash, legacy.packageContext || {});
   if (packages) return packages;
-  const settings = cliSettingsLocation(hash);
+  const settings = cliSettingsLocation(hash, legacy.agentId || "");
   if (settings) return settings;
+  const connectors = cliConnectorsLocation(hash, legacy.packageContext || {});
+  if (connectors) return connectors;
   const [path, query] = hash.split("?");
   const parts = path.replace(/^#\//, "").split("/");
   const params = new URLSearchParams(query);
-  if (parts[0] !== "clis") return { view: "clis", id: "" };
   const decode = (v) => { try { return decodeURIComponent(v || ""); } catch { return ""; } };
+  // ADR-0079: sessions are a capability of a CLI. The 2026-09-11 amendment
+  // nests them in that CLI's pane; old strip addresses rewrite.
+  if (parts[0] === "sessions") return sessionsLocation(params.get("cli") || "pi", decode(parts[1]));
+  if (parts[0] !== "clis") return { view: "clis", id: "", pane: "launch" };
   if (parts[1] === "profile") return { view: "profile", id: decode(parts[2]), cli: decode(parts[3]) };
   if (parts[1] === "new") return { view: "new", id: decode(parts[2]), ...(params.get("profile") ? { profile: params.get("profile") } : {}), ...(params.get("workspace") ? { workspace: params.get("workspace") } : {}) };
   if (parts[1] === "terminal") return { view: "terminal", id: decode(parts[2]) };
   if (parts[1] === "messages") return { view: "messages", id: decode(parts[2]) };
-  if (parts[1] === "terminals") return { view: "terminals", id: "" };
-  // ADR-0079: sessions are a capability of a CLI, not a top-level surface.
-  // id is the optional workspace scope (empty = every folder on the machine);
-  // cli selects the source (default pi) via ?cli=.
-  if (parts[1] === "sessions") return { view: "sessions", id: decode(parts[2]), ...(params.get("cli") ? { cli: params.get("cli") } : {}) };
-  return { view: "clis", id: decode(parts[1]) };
+  // The general Terminals tab left the Agent CLIs view on 2026-09-11: a CLI's
+  // own Terminals pane is the one list. The old address resolves to the
+  // catalog at once and the view rewrites the hash to #/clis.
+  if (parts[1] === "terminals") return { view: "clis", id: "", pane: "launch", redirect: "#/clis" };
+  if (parts[1] === "sessions") return sessionsLocation(params.get("cli") || "pi", decode(parts[2]));
+  const cli = decode(parts[1]);
+  const panePart = parts[2] || "launch";
+  const pane = CLI_PANES.has(panePart) ? panePart : "launch";
+  const workspace = pane === "sessions" ? decode(parts[3]) : "";
+  const loc = { view: "clis", id: cli, pane, ...(workspace ? { workspace } : {}) };
+  if (pane === "providers") {
+    const rest = decode(parts[3]);
+    if (rest === "new") loc.add = true;
+    else if (rest) loc.invalid = true;
+    if (["agentId", "workspaceId", "scope"].some((key) => params.has(key))) loc.scoped = true;
+  }
+  if (pane === "settings") {
+    loc.agentId = params.get("agentId") || "";
+    loc.focus = params.get("focus") === "scoped-models" ? "scoped-models" : "";
+    if (parts[3]) loc.invalid = true;
+  }
+  if (pane === "packages") {
+    const rest = parts.slice(3).map(decode);
+    loc.pkg = rest[0] === "config" && rest[1] ? rest[1] : "";
+    loc.workspaceId = params.get("workspaceId") || "";
+    loc.agentId = params.get("agentId") || "";
+    loc.scope = params.get("scope") || "user";
+    if ((rest[0] && rest[0] !== "config") || rest[0] === "config" && !rest[1] || rest.length > 2) loc.invalid = true;
+    if (!["user", "project", "agent"].includes(loc.scope)) loc.invalid = true;
+  }
+  if (pane === "connectors") {
+    loc.workspaceId = params.get("workspaceId") || "";
+    loc.agentId = params.get("agentId") || "";
+    loc.scope = params.get("scope") || "user";
+    if (parts[3]) loc.invalid = true;
+    if (!["user", "project", "agent"].includes(loc.scope)) loc.invalid = true;
+  }
+  if (panePart === "launch" && parts[2]) loc.redirect = cliPaneHash(cli, "launch");
+  return loc;
 }
 
 export function launchDraft(c = {}) {

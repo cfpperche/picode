@@ -2,10 +2,13 @@
 
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
-Agent CLIs has CLIs, Terminals, Sessions and Settings tabs. The shared
-`cliSettings` domain module parses canonical/legacy routes and declares native
-settings capabilities, currently Pi only. Each app owns `CliSettings`,
-`CliTabs` and the embedded Pi editor; no presentation crosses app boundaries.
+Agent CLIs has CLIs and Messages tabs; a CLI's page hosts Launch, Terminals,
+Sessions, Providers, Settings, Packages and Connectors panes (a run/setup
+split in the inner tablist). Canonical settings are `#/clis/<cli>/settings`.
+The shared `cliSettings` domain module parses canonical/legacy routes and
+declares native settings capabilities, currently Pi only. Each app owns
+`CliSettings` and the embedded Pi editor; no presentation crosses app
+boundaries.
 The native settings view does not load terminal inventory or installation jobs.
 Explicit agent IDs are validated against Pi's report before looking up their
 workspace. Free agents have no project layer; missing identities and unsupported

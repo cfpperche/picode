@@ -542,10 +542,11 @@ func (s *Store) RespondAndForward(id, verb, text string, deliverable AgentDelive
 	// A blocking question answered with a reply must never close without a
 	// delivery. Agent-sourced items forward above; terminal-sourced ones
 	// are delivered by the caller through the terminal's receiver (the
-	// store has no channel to a tmux pane). Anything else — today a raw
-	// pi filing as "system" — has no channel at all: refuse visibly and
-	// leave the item open (ADR-0037's visible-failure rule).
-	if !needsForward && verb == VerbRespond && it.Blocking &&
+	// store has no channel to a tmux pane) — and an accept is a decision
+	// the agent must hear, exactly like a reply. Anything else — today a
+	// raw pi filing as "system" — has no channel at all: refuse visibly
+	// and leave the item open (ADR-0037's visible-failure rule).
+	if !needsForward && (verb == VerbRespond || verb == VerbAccept) && it.Blocking &&
 		(it.Kind == InboxQuestion || it.Kind == InboxApproval) {
 		if it.SourceKind == InboxFromTerminal {
 			_ = s.AnnotateInboxItem(id, "Reply not delivered: terminal replies go through the terminal's receiver, not the task queue. Deliver it from the Inbox.")

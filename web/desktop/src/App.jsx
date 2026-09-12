@@ -1,4 +1,3 @@
-import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, humanizeError, wsURL } from "@picode/shared/client/api.js";
 import { bashLine } from "@picode/shared/domain/bashLine.js";
@@ -30,7 +29,6 @@ import Settings from "./components/Settings.jsx";
 import AgentClis from "./components/AgentClis.jsx";
 import { cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 import System from "./components/System.jsx";
-import Mcps from "./components/Mcps.jsx";
 import Integrations from "./components/Integrations.jsx";
 import Devices from "./components/Devices.jsx";
 import Automations from "./components/Automations.jsx";
@@ -47,13 +45,16 @@ import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
-import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
-import MatrixSurface from "./components/matrix/MatrixSurface.jsx";
 import { nativeApps, nativeSurfaceFor } from "./lib/nativeApps.js";
 import { normalizeManifests } from "@picode/shared/contracts/appPrimitives.js";
 const PinStudio = lazy(() => import("./components/PinStudio.jsx"));
+// The Canvas surface is lazy for the reason ADR-0118 gives: a reader who
+// never opens the app should not carry it. It is a registry entry like any
+// other, and the tab mount wraps every native surface in a Suspense.
+const CanvasSurface = lazy(() => import("./components/canvas/CanvasSurface.jsx"));
 import { startPresence } from "@picode/shared/client/device.js";
 import { startReconnectWatch } from "@picode/shared/client/reconnect.js";
 import { startFeed, subscribeFeed, feedConnected } from "@picode/shared/client/feed.js";
@@ -94,7 +95,7 @@ import { isAutomateCommand, automatePrompt, parseAutomateReply } from "./lib/aut
 import { writeAutomationDraft } from "./lib/automationDraft.js";
 import { isValidCron } from "@picode/shared/domain/cron.js";
 import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners } from "./lib/openTabs.js";
-import { anchorFor, askedNote, ownerExists, readInspectorPrefs, runFallbackNote, writeInspectorPrefs } from "./lib/inspector.js";
+import { anchorFor, askedNote, ownerExists, readInspectorPrefs, runFallbackNote, writeInspectorPrefs, INSPECTOR_MIN, maxInspectorWidth } from "./lib/inspector.js";
 import { sessionsHash } from "./lib/routes.js";
 import Hotkeys from "./components/Hotkeys.jsx";
 import Changelog from "./components/Changelog.jsx";
@@ -109,10 +110,10 @@ import { parentDir } from "@picode/shared/domain/cloneUrl.js";
 import Toasts from "./components/Toasts.jsx";
 import { useMedia } from "./lib/media.js";
 
-// Native app surfaces this shell compiled in (ADR-0109), by manifest id.
-// The only entry today is the hidden QA demo (the server lists it with
-// PICODE_DEMO_APP=1); the Matrix registers here in phase 3.
-const NATIVE_APPS = nativeApps({ "demo-native": NativeDemoSurface, matrix: MatrixSurface });
+// Native app surfaces this shell compiled in (ADR-0109), by manifest id:
+// the hidden QA demo (the server lists it with PICODE_DEMO_APP=1) and the
+// Canvas, which arrives as a chunk of its own.
+const NATIVE_APPS = nativeApps({ "demo-native": NativeDemoSurface, canvas: CanvasSurface });
 
 export default function App() {
   const narrow = useMedia("(max-width: 767px)");
@@ -151,13 +152,6 @@ export default function App() {
   const inspectorLayout = useInspectorLayout({ open: inspectorPrefs.open, width: inspectorPrefs.width, narrow });
   const inspectorWantOpenRef = useRef(inspectorLayout.wantOpen);
   inspectorWantOpenRef.current = inspectorLayout.wantOpen;
-  const toggleInspector = useCallback(() => {
-    setInspectorPrefs((p) => {
-      const next = { ...p, open: !inspectorWantOpenRef.current };
-      writeInspectorPrefs(next);
-      return next;
-    });
-  }, []);
   const rememberInspector = useCallback((patch) => {
     setInspectorPrefs((p) => {
       const next = { ...p, ...patch };
@@ -170,6 +164,37 @@ export default function App() {
   // right edge strip exists at all once the mode starts.
   const focusOk = focusAvailable(narrow, route !== "workspace");
   const focus = useFocusMode({ railOpen: inspectorLayout.shown, available: focusOk });
+  // The mode reads the rail through refs so this callback keeps one identity
+  // for the keydown listener below, which unsubscribes on focusOk alone.
+  const focusRef = useRef(focus);
+  focusRef.current = focus;
+  // Whether the rail fits at all, whatever the preference says:
+  // inspectorLayout only reports "squeezed" once wantOpen is true, and the
+  // toggle has to be honest before the click, not after it.
+  const railFits = maxInspectorWidth(inspectorLayout.appWidth, inspectorLayout.sidebarWidth) >= INSPECTOR_MIN;
+  const railFitsRef = useRef(railFits);
+  railFitsRef.current = railFits;
+  // The toggle: dock and undock everywhere, like any other control that
+  // changes the layout. In fullscreen it also shows or hides the panel now,
+  // because the mode keeps the rail off screen — flipping the preference
+  // alone displayed nothing at all. Showing it docks the rail when it was
+  // closed (the panel has to exist) and reveals it; hiding only takes the
+  // overlay down, so the mode never undocks what the viewer set outside it.
+  const toggleInspector = useCallback(() => {
+    const mode = focusRef.current;
+    if (mode.on) {
+      if (mode.reveal === "right") { mode.show(null); return; }
+      if (!railFitsRef.current) return;
+      if (!inspectorWantOpenRef.current) setInspectorPrefs((p) => { const next = { ...p, open: true }; writeInspectorPrefs(next); return next; });
+      mode.show("right");
+      return;
+    }
+    setInspectorPrefs((p) => {
+      const next = { ...p, open: !inspectorWantOpenRef.current };
+      writeInspectorPrefs(next);
+      return next;
+    });
+  }, []);
   const [ctxMenu, setCtxMenu] = useState(null);
   // The server's action catalog (ADR-0096): which git actions exist and what
   // risk tier each carries. Read once; with none, the graph offers no write
@@ -399,8 +424,6 @@ export default function App() {
         e.preventDefault();
         toggleInspector();
       }
-      // The keydown is the user gesture requestFullscreen needs, so the
-      // toggle runs here rather than in an effect watching the state.
       if (focusOk && matchAction("app.fullscreen.toggle", e)) {
         e.preventDefault();
         focus.toggle();
@@ -719,7 +742,10 @@ export default function App() {
         const fromGit = parseRoute() === "workspace" ? gitRoute() : null;
         const fromTree = parseRoute() === "workspace" ? treeRoute() : null;
         const fromHash = parseRoute() === "workspace" ? agentRoute() : null;
-        const fromApp = parseRoute() === "workspace" ? appRoute() : null;
+        // The boot fetch outlives the redirect effect, so location.hash is
+        // already canonical here; reading through it costs nothing and makes
+        // that independent of which resolves first.
+        const fromApp = parseRoute() === "workspace" ? appRoute(renamedAppHash() || location.hash) : null;
         if (fromApp) {
           if (appList.some((a) => a.id === fromApp) || !appsOk) openTab(appTabId(fromApp));
           else { setGoneId(appTabId(fromApp)); setSelectedId(null); }
@@ -754,17 +780,20 @@ export default function App() {
 
   const whatsNewCurrent = semver || version;
   const whatsNewUnread = hasUnseenRelease({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES });
-  const hasProductState = workspaces.length + freeAgents.length + terminals.length > 0;
   const inboxNeedsYou = apps.some((app) => app.id === "inbox" && app.badge && (Number(app.badge.count) > 0 || app.badge.dot));
 
+  // A fresh install sees What's New too (ADR-0063, amendment 2026-09-11). The
+  // product-state gate that used to stand here — a workspace, an agent or a
+  // terminal had to exist first — is gone; `blocked` below is every other
+  // defer condition and all of them stay.
   useEffect(() => {
-    if (!bootstrapped || !releaseBuild || !whatsNewCurrent || whatsNewOpen || !hasProductState) return;
+    if (!bootstrapped || !releaseBuild || !whatsNewCurrent || whatsNewOpen) return;
     const blocked = reconnect || showForm || paletteOpen || !!ctxMenu || treeOpen || sessionOpen || hotkeysOpen || shareOpen || waiting || inboxNeedsYou;
-    if (shouldAutoOpen({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES, hasProductState, blocked })) {
+    if (shouldAutoOpen({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES, blocked })) {
       setWhatsNewMode("auto");
       setWhatsNewOpen(true);
     }
-  }, [bootstrapped, releaseBuild, whatsNewCurrent, whatsNewOpen, hasProductState, reconnect, showForm, paletteOpen, ctxMenu, treeOpen, sessionOpen, hotkeysOpen, shareOpen, waiting, inboxNeedsYou, whatsNewSeen]);
+  }, [bootstrapped, releaseBuild, whatsNewCurrent, whatsNewOpen, reconnect, showForm, paletteOpen, ctxMenu, treeOpen, sessionOpen, hotkeysOpen, shareOpen, waiting, inboxNeedsYou, whatsNewSeen]);
 
   function openWhatsNew() { setWhatsNewMode("manual"); setWhatsNewOpen(true); }
   function closeWhatsNew() {
@@ -892,9 +921,22 @@ export default function App() {
   useEffect(() => {
     writeTermWanted([...termWanted]);
   }, [termWanted]);
+  // ADR-0118: #/app/matrix[/<id>] is the Canvas app's old address. Replaced,
+  // never pushed — the way ADR-0101/0102/0103 moved their surfaces and the
+  // way #/sessions* still lands on #/clis/<cli>/sessions* — so a bookmark costs the
+  // reader no extra Back step and the address bar shows the link that works
+  // now. It is its own effect, declared before the one that resolves a hash
+  // into a tab, so the old id never reaches the "that app is gone" branch.
+  useEffect(() => {
+    const next = renamedAppHash(hash);
+    if (next) location.replace(next);
+  }, [hash]);
   useEffect(() => {
     if (!tabsReady) return;
     if (parseRoute(hash) !== "workspace") return;
+    // The effect above is replacing this hash; resolving it would flash the
+    // gone tab for the one commit before `hashchange` arrives.
+    if (renamedAppHash(hash)) return;
     const tid = termRoute(hash);
     if (tid) {
       if (terminals.some((t) => t.id === tid)) {
@@ -2639,10 +2681,10 @@ export default function App() {
         onLaunchAction={launchTerminalAction}
         onSessions={(id) => { location.hash = sessionsHash(id); }}
         onRenameTerm={renameTerminal}
-        onLaunchAction={launchTerminalAction}
         onGitGraph={openGitTab}
         onFileTree={openTreeTab}
         onOpenDashboard={() => { setDashboardPinned(true); setNavigationOpen(false); }}
+        onOpenClis={() => { go("clis"); setNavigationOpen(false); }}
         apps={apps}
         nativeApps={NATIVE_APPS}
         onOpenApp={(id) => { openTab(appTabId(id)); if (parseRoute() !== "workspace") location.hash = appHash(id); }}
@@ -2665,7 +2707,7 @@ export default function App() {
           version,
           themeMode,
           onTheme: setTheme,
-          onNavigate: (kind) => { if (kind === "packages") location.hash = cliPackagesHash("pi", { workspaceId: paneWs?.id, agentId: agent?.id }); else go(kind); },
+          onNavigate: (kind) => go(kind, agent?.id, { workspaceId: paneWs?.id }),
           onWhatsNew: openWhatsNew,
           whatsNewUnread,
           pkgUpdates,
@@ -2688,7 +2730,11 @@ export default function App() {
             keepVisible={focus.on}
             endSlot={narrow ? null : (
               <>
-                <InspectorToggle shown={inspectorLayout.shown} reason={inspectorLayout.reason} onToggle={toggleInspector} />
+                <InspectorToggle
+                  shown={focus.on ? focus.reveal === "right" : inspectorLayout.shown}
+                  reason={railFits ? inspectorLayout.reason : (narrow ? "narrow" : "squeezed")}
+                  onToggle={toggleInspector}
+                />
                 {focus.on ? <FocusLeave onLeave={focus.leave} /> : null}
               </>
             )}
@@ -2797,27 +2843,33 @@ export default function App() {
             const Native = nativeSurfaceFor(manifest, NATIVE_APPS);
             if (Native) {
               return (
-                <Native
-                  key={id}
-                  manifest={manifest}
-                  hidden={selectedId !== id}
-                  onClose={() => closeTab(id)}
-                  initialPath={appRoute(hash) === appId ? appPath(hash) : undefined}
-                  onPathChange={(path) => {
-                    if (selectedId !== id) return;
-                    const next = appHash(appId, path);
-                    if (location.hash !== next) { history.replaceState(null, "", next); setHash(next); }
-                  }}
-                  host={{
-                    // `loaded` says the boot fetch is done: before it, an
-                    // empty fleet means "not read yet", not "deleted" — a
-                    // native surface must not draw gone rows over it.
-                    fleet: { workspaces, freeAgents, terminals, loaded: bootstrapped },
-                    openTabs: tabs,
-                    openTab, openInteractive, revealAgent, openFileTab,
-                    feed: subscribeFeed,
-                  }}
-                />
+                // A registered surface may be a lazy chunk (the Canvas is,
+                // ADR-0118), so the mount carries the boundary. `fallback`
+                // is null on purpose: a tab that is opening shows nothing
+                // for the length of one fetch, never a skeleton of invented
+                // rows, and the surface draws its own the moment it lands.
+                <Suspense key={id} fallback={null}>
+                  <Native
+                    manifest={manifest}
+                    hidden={selectedId !== id}
+                    onClose={() => closeTab(id)}
+                    initialPath={appRoute(hash) === appId ? appPath(hash) : undefined}
+                    onPathChange={(path) => {
+                      if (selectedId !== id) return;
+                      const next = appHash(appId, path);
+                      if (location.hash !== next) { history.replaceState(null, "", next); setHash(next); }
+                    }}
+                    host={{
+                      // `loaded` says the boot fetch is done: before it, an
+                      // empty fleet means "not read yet", not "deleted" — a
+                      // native surface must not draw gone rows over it.
+                      fleet: { workspaces, freeAgents, terminals, loaded: bootstrapped },
+                      openTabs: tabs,
+                      openTab, openInteractive, revealAgent, openFileTab,
+                      feed: subscribeFeed,
+                    }}
+                  />
+                </Suspense>
               );
             }
             return (
@@ -2988,7 +3040,7 @@ export default function App() {
             composer={{
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
               roleState, onRoleCommand: (cmd) => sendTask(cmd),
-              slashExtra, atAgents, onAgentPage: (name) => name === "packages" ? (location.hash = cliPackagesHash("pi", { workspaceId: paneWs?.id, agentId: agent?.id })) : go(name, name === "settings" ? agent?.id : undefined), pkgUpdates,
+              slashExtra, atAgents, onAgentPage: (name) => go(name, agent?.id, { workspaceId: paneWs?.id }), pkgUpdates,
               status, streaming, waiting, onToggleDock: showTerm, onStop: () => selectedId && stopAgent(selectedId),
               tuiWorking: tuiBusy,
               onAbort: abortTurn,
@@ -3060,9 +3112,18 @@ export default function App() {
               </section>
             )
           ) : null}
+
         </div>
 
-        <AgentClis catalog={catalog} onCatalogChange={setCatalog} legacyContextReady={bootstrapped} legacyPackageContext={{ workspaceId: paneWs?.id || "", agentId: agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "") }} packageUpdates={pkgUpdates} onPackageUpdates={(updates, workspaceId) => { if ((paneWs?.id || "") === workspaceId) setPkgUpdates(updates); }} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} onRenameTerm={renameTerminal} />
+        <AgentClis catalog={catalog} onCatalogChange={setCatalog} legacyContextReady={bootstrapped} legacyPackageContext={{ workspaceId: paneWs?.id || "", agentId: agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "") }} packageUpdates={pkgUpdates} onPackageUpdates={(updates, workspaceId) => { if ((paneWs?.id || "") === workspaceId) setPkgUpdates(updates); }} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} onRenameTerm={renameTerminal} onReloadAgent={async (id) => {
+            const loc = locate(workspaces, freeAgents, id);
+            const target = loc && loc.agent;
+            if (!target || target.mode === "stopped") return;
+            const was = target.mode;
+            await stopAgent(target.id);
+            if (was === "interactive") await openInteractive(target.id);
+            else await startManaged(target.id);
+          }} />
         <Settings
           hidden={route !== "preferences"}
           themeMode={themeMode}
@@ -3070,34 +3131,7 @@ export default function App() {
         />
         <System hidden={route !== "system"} version={version} system={system} />
         {route === "llama" ? <LlamaPanel onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} /> : null}
-        <Mcps
-          hidden={route !== "mcps"}
-          workspaceId={paneWs ? paneWs.id : ""}
-          workspaceName={paneWs ? paneWs.name : ""}
-          workspacePath={paneWs ? paneWs.path : ""}
-          agentId={agent ? agent.id : ""}
-          agentName={displayAgentName(agent, selected)}
-          agentWorkPath={agent && agent.workPath ? agent.workPath : ""}
-          agentRunning={!!(agent && agent.mode && agent.mode !== "stopped")}
-          onReload={async () => {
-            if (!agent || agent.mode === "stopped") return;
-            const was = agent.mode;
-            await stopAgent(agent.id);
-            if (was === "interactive") await openInteractive(agent.id);
-            else await startManaged(agent.id);
-          }}
-        />
-        <Integrations hidden={route !== "integrations"}
-          workspaceId={paneWs ? paneWs.id : ""} workspaceName={paneWs ? paneWs.name : ""} workspacePath={paneWs ? paneWs.path : ""}
-          agentId={agent ? agent.id : ""} agentName={displayAgentName(agent, selected)} agentWorkPath={agent?.workPath || ""}
-          agentRunning={!!(agent && agent.mode && agent.mode !== "stopped")}
-          onReload={async () => {
-            if (!agent || agent.mode === "stopped") return;
-            const was = agent.mode;
-            await stopAgent(agent.id);
-            if (was === "interactive") await openInteractive(agent.id);
-            else await startManaged(agent.id);
-          }} />
+        <Integrations hidden={route !== "integrations"} />
         <Devices hidden={route !== "devices"} />
         <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
@@ -3140,9 +3174,8 @@ export default function App() {
           if (a.kind === "whats-new") { openWhatsNew(); return; }
           if (a.kind === "inspector") { toggleInspector(); return; }
           if (a.kind === "fullscreen") { focus.toggle(); return; }
-          if (a.kind === "packages") { location.hash = cliPackagesHash("pi", { workspaceId: paneWs?.id, agentId: agent?.id }); return; }
           if (a.kind === "cli-new") { location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : ""); return; }
-          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations") { go(a.kind, a.kind === "settings" ? agent?.id : undefined); return; }
+          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations") { go(a.kind, agent?.id, { workspaceId: paneWs?.id }); return; }
           if (a.kind === "app") { openTab(appTabId(a.appId)); if (parseRoute() !== "workspace") location.hash = appHash(a.appId); return; }
           if (a.kind === "open") revealAgent(a.wsId);
           if (a.kind === "files") openTreeTab("workspace", a.wsId, a.wsName);

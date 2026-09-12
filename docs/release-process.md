@@ -32,10 +32,23 @@ GitHub artifacts, not a source deployment.
    change has an honest entry in [`CHANGELOG.md`](../CHANGELOG.md). The
    version cut itself — renaming `[Unreleased]` to `[x.y.z] - date` — is the
    one `CHANGELOG.md` edit the pre-commit hook accepts without fragments.
+   The fold also **normalises the block**: one `### Section` heading per type,
+   in Keep a Changelog order. It has to, because the cut publishes that block
+   verbatim as the release body — 0.2.0 was one fold away from announcing six
+   separate "Fixed" headings inherited from the direct edits that predate
+   fragments. If you ever see a repeated heading in a release section, a fold
+   heals it; do not hand-sort it.
 4. Add or revise the matching entry in
    [`web/shared/data/whats-new.json`](../web/shared/data/whats-new.json). Keep the
    catalog concise: benefit-led titles and summaries, with no more than nine
    highlights for the surface.
+5. Bump `Version` in [`internal/version/version.go`](../internal/version/version.go)
+   to the candidate. The release workflow stamps the tag into the binary it
+   builds, but **a source build keeps whatever the constant says** — so a stale
+   constant makes `make deploy` report the previous SemVer on `/api/version`
+   and makes `picode update` offer the release to a checkout that already
+   contains it. 0.2.0 shipped with the constant still at `0.1.0`; the deploy
+   that followed is what caught it.
 
 ## Release train
 
@@ -98,6 +111,21 @@ one representative artifact and verify:
 - `GET /api/version` reports the selected SemVer and `release: true`; and
 - the What's New surface opens once for the stamped build, remains manually
   reachable, and does not interrupt an active Inbox or creation flow.
+
+Run the artifact against an **isolated** `HOME` and `PICODE_DATA` on a free
+port — the binary's default is the server, on the production data directory.
+
+**What's New opens on the empty instance you just installed.** That is the
+check: a fresh data directory, no workspace, no agent, no terminal, first
+load — the surface opens once, and a reload after closing it stays closed
+(the browser wrote `picode-whats-new-seen`). Seeding a terminal first was the
+old recipe, for the product-state gate ADR-0063 shipped with; its 2026-09-11
+amendment removed that gate, so seed nothing. An empty instance showing **no**
+What's New is now a regression to chase, not the decision working.
+
+Deferral is still real and still worth one look: with a dialog open, a
+recovering connection, a waiting agent, an Inbox badge or an active
+create/share flow, the surface waits rather than interrupting.
 
 Record the tag, commit, CI run, artifact verification and observation owner in
 the release issue or handoff. The installed source service can be dogfooded

@@ -3,7 +3,7 @@ import { IconSettings, IconMcp, IconPackage, IconEllipsis } from "./Icons.jsx";
 
 const PAGES = [
   { id: "settings", label: "Settings", Icon: IconSettings },
-  { id: "mcps", label: "MCPs", Icon: IconMcp },
+  { id: "mcps", label: "Connectors", Icon: IconMcp },
   { id: "packages", label: "Packages", Icon: IconPackage },
 ];
 

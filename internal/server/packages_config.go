@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cfpperche/picode/internal/pipkg"
 	"github.com/cfpperche/picode/internal/store"
@@ -20,6 +21,9 @@ func registerPackageConfigRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/packages/config", handleGetPackageConfig(deps))
 	mux.HandleFunc("PUT /api/packages/config", handlePutPackageConfig(deps))
 	mux.HandleFunc("DELETE /api/packages/config", handleDeletePackageConfig(deps))
+	mux.HandleFunc("GET /api/packages/describe", handleGetPackageDescribe(deps))
+	mux.HandleFunc("PUT /api/packages/describe", handlePutPackageDescribe(deps))
+	mux.HandleFunc("DELETE /api/packages/describe", handleDeletePackageDescribe(deps))
 }
 
 const pkgConfigRoles = "pi-roles"
@@ -86,8 +90,9 @@ func buildRolesView(deps Deps, workspaceID, agentID string) (packageConfigView, 
 
 func handleGetPackageConfig(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("package") != pkgConfigRoles {
-			writeErr(w, http.StatusBadRequest, "unknown package — configuration is available for pi-roles")
+		pkg := r.URL.Query().Get("package")
+		if pkg != pkgConfigRoles {
+			descriptorGet(w, deps, pkg, r.URL.Query().Get("workspace"))
 			return
 		}
 		wsID := r.URL.Query().Get("workspace")
@@ -121,7 +126,7 @@ func handlePutPackageConfig(deps Deps) http.HandlerFunc {
 			return
 		}
 		if req.Package != pkgConfigRoles {
-			writeErr(w, http.StatusBadRequest, "unknown package — configuration is available for pi-roles")
+			descriptorPut(w, deps, req)
 			return
 		}
 		if req.Scope != "workspace" && req.Scope != "agent" {
@@ -197,8 +202,9 @@ func handlePutPackageConfig(deps Deps) http.HandlerFunc {
 func handleDeletePackageConfig(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
-		if q.Get("package") != pkgConfigRoles {
-			writeErr(w, http.StatusBadRequest, "unknown package — configuration is available for pi-roles")
+		pkg := q.Get("package")
+		if pkg != pkgConfigRoles {
+			descriptorDelete(w, deps, pkg, q.Get("workspace"))
 			return
 		}
 		scope := q.Get("scope")
@@ -256,4 +262,150 @@ func announceConfigChange(deps Deps, pkg, scope string) {
 		return
 	}
 	deps.Feed.Ephemeral("packages.config", map[string]any{"package": pkg, "scope": scope})
+}
+
+// --- descriptor-driven configs (docs/plans/package-config-manifest.md) ---
+//
+// Everything ADR-0099 guarantees the roles editor, the generic engine
+// inherits: the file stays the only source of truth, values merge onto the
+// raw document so unknown keys survive, writes are atomic, a file the
+// parser refuses is never silently overwritten (409 + explicit force), and
+// saves publish the same feed event.
+
+type descriptorConfigView struct {
+	Package     string                `json:"package"`
+	Kind        string                `json:"kind"`
+	Source      string                `json:"source"` // user | catalog | manifest — who described it
+	Title       string                `json:"title"`
+	Application string                `json:"application"`
+	Scope       string                `json:"scope"`
+	Path        string                `json:"path"`
+	Fields      []pipkg.ConfigField   `json:"fields"`
+	Layer       pipkg.DescriptorLayer `json:"layer"`
+}
+
+// descriptorFileFor resolves the one file a v1 descriptor declares: agent
+// files hang off ~/.pi/agent, workspace files off the workspace folder
+// (which the caller must have resolved through the store).
+func descriptorFileFor(w http.ResponseWriter, deps Deps, d *pipkg.ConfigDescriptor, workspaceID string) (string, bool) {
+	if len(d.Files) != 1 {
+		writeErr(w, http.StatusBadRequest, "descriptor must declare exactly one config file")
+		return "", false
+	}
+	scope := d.Files[0].Scope
+	if scope == "workspace" {
+		if deps.Store == nil {
+			writeErr(w, http.StatusBadRequest, errNoStore.Error())
+			return "", false
+		}
+		if workspaceID == "" {
+			writeErr(w, http.StatusBadRequest, "select a workspace — this config lives in the workspace folder")
+			return "", false
+		}
+		wk, err := deps.Store.GetWorkspace(workspaceID)
+		if err != nil {
+			writeErr(w, statusForStore(err), err.Error())
+			return "", false
+		}
+		abs, err := pipkg.DescriptorFileAbs(d, scope, wk.Path)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return "", false
+		}
+		return abs, true
+	}
+	abs, err := pipkg.DescriptorFileAbs(d, scope, "")
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return "", false
+	}
+	return abs, true
+}
+
+func descriptorGet(w http.ResponseWriter, deps Deps, pkg, workspaceID string) {
+	d := pipkg.DescriptorByID(pkg)
+	if d == nil {
+		writeErr(w, http.StatusBadRequest, "unknown package — no configuration is available for "+pkg)
+		return
+	}
+	abs, ok := descriptorFileFor(w, deps, d, workspaceID)
+	if !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, descriptorConfigView{
+		Package: pkg, Kind: d.ID, Source: pipkg.DescriptorOrigin(d.ID),
+		Title: d.Title, Application: d.Application,
+		Scope: d.Files[0].Scope, Path: displayAgentPath(abs),
+		Fields: d.Fields, Layer: pipkg.ReadDescriptorLayer(abs),
+	})
+}
+
+func descriptorPut(w http.ResponseWriter, deps Deps, req packageConfigWrite) {
+	d := pipkg.DescriptorByID(req.Package)
+	if d == nil {
+		writeErr(w, http.StatusBadRequest, "unknown package — no configuration is available for "+req.Package)
+		return
+	}
+	if err := pipkg.ValidateDescriptorValues(d, req.Config); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	abs, ok := descriptorFileFor(w, deps, d, req.WorkspaceID)
+	if !ok {
+		return
+	}
+	// A file the parser refuses is never silently overwritten: the GUI
+	// shows the parse error and the user decides (force = replace).
+	layer := pipkg.ReadDescriptorLayer(abs)
+	if layer.Invalid != "" && !req.Force {
+		writeErr(w, http.StatusConflict, layer.Invalid)
+		return
+	}
+	var raw map[string]any
+	if b, err := os.ReadFile(abs); err == nil && json.Unmarshal(b, &raw) != nil {
+		raw = nil // invalid JSON has nothing worth preserving
+	}
+	if err := pipkg.WriteDescriptorFile(abs, req.Config, raw); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	announceConfigChange(deps, req.Package, d.Files[0].Scope)
+	writeJSON(w, http.StatusOK, descriptorConfigView{
+		Package: req.Package, Kind: d.ID, Source: pipkg.DescriptorOrigin(d.ID),
+		Title: d.Title, Application: d.Application,
+		Scope: d.Files[0].Scope, Path: displayAgentPath(abs),
+		Fields: d.Fields, Layer: pipkg.ReadDescriptorLayer(abs),
+	})
+}
+
+func descriptorDelete(w http.ResponseWriter, deps Deps, pkg, workspaceID string) {
+	d := pipkg.DescriptorByID(pkg)
+	if d == nil {
+		writeErr(w, http.StatusBadRequest, "unknown package — no configuration is available for "+pkg)
+		return
+	}
+	abs, ok := descriptorFileFor(w, deps, d, workspaceID)
+	if !ok {
+		return
+	}
+	if err := os.Remove(abs); err != nil && !errors.Is(err, os.ErrNotExist) {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	announceConfigChange(deps, pkg, d.Files[0].Scope)
+	writeJSON(w, http.StatusOK, descriptorConfigView{
+		Package: pkg, Kind: d.ID, Source: pipkg.DescriptorOrigin(d.ID),
+		Title: d.Title, Application: d.Application,
+		Scope: d.Files[0].Scope, Path: displayAgentPath(abs),
+		Fields: d.Fields, Layer: pipkg.ReadDescriptorLayer(abs),
+	})
+}
+
+// displayAgentPath renders a file under ~/.pi/agent the way the extension
+// docs spell it, so the page names the file a terminal user would type.
+func displayAgentPath(abs string) string {
+	if base := pipkg.UserDir(); base != "" && strings.HasPrefix(abs, base) {
+		return "~/.pi/agent" + strings.TrimPrefix(abs, base)
+	}
+	return abs
 }

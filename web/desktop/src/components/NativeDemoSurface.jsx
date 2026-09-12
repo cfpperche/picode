@@ -5,7 +5,7 @@ import TermSurface from "./TermSurface.jsx";
 import { toastError } from "../lib/toast.js";
 
 // The hidden QA app for the native surface (ADR-0109; PICODE_DEMO_APP=1).
-// It is the smallest consumer of the surface kind before the Matrix
+// It is the smallest consumer of the surface kind before the Canvas
 // (docs/plans/matrix-app.md): the host's chrome shape — a header with the
 // app name and Close, like AppSurface — and the fleet's first terminal
 // rendered live through TermSurface, which is the pane hand-off case (one

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { askConfirm } from "../lib/confirm.js";
-import { paneContext } from "@picode/shared/domain/tree.js";
 import { fileHash } from "../lib/routes.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { rolesConfigSchema, ROLES_RESERVED } from "@picode/shared/contracts/schemas.js";
@@ -56,7 +55,7 @@ function draftToConfig(draft) {
   return { builtin, custom };
 }
 
-export default function PackagesConfig({ hidden, embedded = false, pkg, workspaceId, workspaceName, agentId, agentName, catalog, backHash = "#/clis/packages/pi", initialScope = "workspace", onScopeChange = () => {}, beforeMutation = async () => {} }) {
+export default function PackagesConfig({ hidden, embedded = false, pkg, workspaceId, agentId, agentName, catalog, backHash = "#/clis/pi/packages", initialScope = "workspace", onScopeChange = () => {}, beforeMutation = async () => {} }) {
   const [view, setView] = useState(null);
   const [loadErr, setLoadErr] = useState("");
   const scope = initialScope;
@@ -239,7 +238,7 @@ export default function PackagesConfig({ hidden, embedded = false, pkg, workspac
 
   if (!workspaceId) {
     return (
-      <PageFrame embedded={embedded} id="packages-config" title={pkg + " settings"} context={paneContext(agentName, workspaceName)} hidden={hidden}>
+      <PageFrame embedded={embedded} id="packages-config" title={pkg + " settings"} hidden={hidden}>
         <div className="pkg-empty">
           <p className="pkg-empty-title">Roles files live in a workspace folder.</p>
           <a className="btn btn-sm" href="#/">Open a workspace</a>
@@ -253,7 +252,7 @@ export default function PackagesConfig({ hidden, embedded = false, pkg, workspac
     : [];
 
   return (
-    <PageFrame embedded={embedded} id="packages-config" title={pkg + " settings"} context={paneContext(agentName, workspaceName)} hidden={hidden}>
+    <PageFrame embedded={embedded} id="packages-config" title={pkg + " settings"} hidden={hidden}>
       <div className="pkc-top">
         <a className="pkg-back" href={backHash}>← All packages</a>
         <span className="pkg-foot-spacer" />

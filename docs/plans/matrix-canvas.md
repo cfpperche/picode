@@ -2,7 +2,8 @@
 
 - **Date:** 2026-09-10
 - **Status:** accepted — every question in §8 was taken by the owner on
-  2026-09-10, question 7 included. **C0 and C1 are done**; C2 is next.
+  2026-09-10, question 7 included. **C0, C1, C2, C3 and C4 are done**; C5 is
+  the only phase left, and it is deferred to its own plan.
   **C0's numbers are folded in below**
   ([`docs/benchmarks/2026-09-10-node-canvas.md`](../benchmarks/2026-09-10-node-canvas.md)):
   GO on `@xyflow/react`, with one rule this plan did not have — a live
@@ -48,7 +49,7 @@ inference from their published material.
 | "Server Edition" for browser access | PiCode **is** the browser product; for them it is an add-on to Electron |
 | Editors, diffs, notes, web as nodes | CodeMirror file tabs, `WorkingDiff`, pins with sketches — as tabs, not as nodes |
 | Infinite canvas, pan and zoom, React Flow | **the gap this plan closes** |
-| Edges wiring agents for shared transcripts | transport exists (broker, ADR-0104 peer communication); no visual edges, and the sharing rule is a security decision (§6, C4) |
+| Edges wiring agents for shared transcripts | **matched as a mailbox link, refused as transcript sharing** (ADR-0116, C4): an edge grants ADR-0104's contact and nothing else. Someone comparing PiCode to nodeterm will find no transcript sharing; that is the decision, not an omission |
 | Kanban board of live sessions | **refused here** — a board is its own surface, and PiCode's queue is the Inbox (ADR-0037). If it is ever wanted, it is a separate app, not a mode of this one |
 
 **The adaptation:** take the spatial canvas and the node vocabulary;
@@ -133,6 +134,17 @@ equivalent, not one:
 C0 found **no blocker that forces "two libraries"** — the end state stays
 the owner's call after using the canvas.
 
+> **Answered, 2026-09-11: "one library, one mode".** The owner took it
+> ("quero remover já o grid e renomear a funcionalidade de matrix para
+> canvas") on the evidence of using the canvas: the only board in the
+> instance was in canvas mode, and none of the three grid behaviours above
+> had been asked for since it shipped. [ADR-0118](../decisions/0118-canvas-replaces-matrix.md)
+> is the decision. Grid mode, the mode column and the two dependencies are
+> gone; migration 045 converted every grid rectangle once; the app is
+> called **Canvas**, all the way down to the tables, the routes and the
+> events. Vertical compaction is deferred, not refused — it could become a
+> canvas behaviour later without a second engine.
+
 ## 4. Design
 
 ### 4.1 Coordinates and the data model
@@ -177,9 +189,9 @@ having; each is a separate, small phase so the canvas itself ships first:
 | Kind | `ref` | Body | Phase |
 |---|---|---|---|
 | `terminal`, `agent` | terminal / agent id | today's live pane | C2 |
-| `note` | pin id | the pin's markdown, read-only, with **Open in Pin Studio** | C3 |
-| `file` | `<owner>:<path>` | the existing `FilePane` in its embedded layout | C3 |
-| `diff` | `<owner>:<path>` | `WorkingDiff` | C3 |
+| `note` | pin id | the pin's markdown, read-only, with **Open in Pin Studio** | **C3, done** |
+| `file` | `<owner>:<id>:<path>` | the existing `FilePane` in its embedded layout | **C3, done** |
+| `diff` | `<owner>:<id>:<path>` | `WorkingDiff` | **C3, done** |
 | `web` | url | sandboxed iframe — inherits the ADR-0036 marketplace stance; **owner decision before it is built** | later |
 
 The store's `kind` is already an open text column with validation in one
@@ -283,10 +295,10 @@ Enter's engage triggering the snap to 1.
 |---|---|---|---|
 | C0 | `feat/matrix-canvas-spike` | **done 2026-09-10** — [`docs/benchmarks/2026-09-10-node-canvas.md`](../benchmarks/2026-09-10-node-canvas.md). **GO** on `@xyflow/react`: 500 nodes at 60 fps, `nodrag`/`nowheel`/header-drag hold, chunk loading bounds the attaches under the transform, `NodeResizer` resizes a live pane and ends once, the still costs 0.02 ms, +63 KB gzip eager / 49 KB lazy. One rule changed: **live terminals are only correct at zoom 1.0** (§4.3). No blocker forces two engines. Only the note and this plan merged | owner reads the note |
 | C1 | `feat/matrix-canvas-model` | **done 2026-09-10** — ADR-0113 (amends ADR-0108) and migration 043: the `mode` column, per-mode units and plane bounds, `SetMatrixMode` (one transaction, the switch transform, the `matrix.mode` event), `mode` on `PATCH /api/matrices/{id}` answering summary + moved panels, and `matrix.js` per-mode validation with `gridToCanvas`/`canvasToGrid`. No UI; OpenAPI unchanged (no new route) | `make close` |
-| C2 | `feat/matrix-canvas-surface` (two sessions) | canvas mode end to end: React Flow host, node wrapper reuse, zoom-aware `loadPolicy`, stills, minimap, mode switch, Tidy, marquee, keyboard, save/409, `docs-site` guide update, QA + visual review | `make close`; visual card |
-| C3 | `feat/matrix-node-kinds` | `note`, then `file` and `diff` bodies; picker groups by kind | `make close` |
-| C4 | `feat/matrix-edges` | **ADR first — it crosses the security model**: an edge grants two sessions the right to read each other, built on ADR-0104's transport; drawing, removing (which revokes), and what an edge shows when one end dies | ADR accepted before code |
-| C5 | later | group nodes bound to a worktree, the one-library end state chosen per §3 (port grid mode or delete it, then remove RGL), `web` nodes if the owner wants them | its own plan |
+| C2 | `feat/matrix-canvas-surface` (two sessions) | **done 2026-09-10** — canvas mode end to end: the lazy React Flow host, the same `Panel` wrapper as a node type, zoom-aware `loadPolicy` with `zoomBody` / `pointerAtZoom`, stills captured before the flip, name-plates, a themed minimap and zoom cluster, the `Grid \| Canvas` switch with its lossy-direction confirm, Tidy, marquee, per-viewer camera, the canvas keys, and the `docs-site` guide. Accepted in a browser row by row (`docs/architecture/matrix.md`, *Accepted in a browser*): the pointer rule proved against real clicks and tmux SGR reports, agent panels, maximize, a 24-panel marquee at 62.7 fps in one save, 409s from a second browser, fullscreen, chunk loading under the transform. Two divergences kept: the band flips at gesture end, and Tidy never resizes | `make close`; visual card |
+| C3 | `feat/matrix-node-kinds` | **done 2026-09-10** — all three kinds, one commit each. The store's `kind` grew by a validator line and its `ref` gained a shape per kind (`<owner>:<id>:<path>` for file and diff, parsed and built only in `matrix.js`); `bindingState` gained the gone rows (a pin deleted, an owner gone — a missing file is the body's news); `zoomBody`/`loadPolicy` gained a per-row `pane`, so a body with no cell never goes still and is a name-plate below 0.4; an editor with unsaved text is `keep`-pinned against the band **and** its document lives in `lib/fileDocs.js`, so maximize and the mode switch keep it. The picker groups by kind and offers files only from open file tabs. Accepted in a browser (`docs/architecture/matrix.md`, *Accepted in a browser (2026-09-10, C3)*) | `make close`; visual card |
+| C4 | `feat/matrix-edges` (two sessions) | **done 2026-09-10** — ADR-0116 accepted before any code, and it refused the benchmark's headline: an edge grants ADR-0104's **mailbox contact and nothing else**, never a transcript. Session 1: migration 044, the `…/edges` routes, `edges` on the matrix read, contacts = workspace ∪ live edges (derived on every read, never cached; `SendPeerMessage` obeys the same union; the MCP surface gained no verb). Session 2: the header connector (`Handle` + `onConnect`, agent and terminal panels only), the two consent dialogs that are never merged (cross-folder naming both folders, then the existing enrolment), the broken state with its reason, a link chip with the count in grid mode, and **Matrix links** — every live edge, non-spatially, in the Messages view. Accepted in a browser row by row with the mailbox driven over MCP, not inferred (`docs/architecture/matrix.md`, *Accepted in a browser (2026-09-10, C4)*) | ADR accepted before code; `make close`; visual card |
+| C5 | later | group nodes bound to a worktree, `web` nodes if the owner wants them. **The one-library end state is no longer C5's**: the owner took it on 2026-09-11 and `feat/canvas-only` shipped it (ADR-0118) — grid mode deleted, RGL and `react-resizable` removed, the whole family renamed to Canvas | its own plan |
 
 C1 and C2's first session can overlap only if C1 lands the migration
 first; the surface reads the mode from the API.
@@ -299,7 +311,9 @@ first; the surface reads the mode from the API.
    starts with an ADR and the owner's approval, never with a line.
 2. **`web` nodes** are an iframe on a surface that today hosts only
    first-party code (ADR-0036 keeps iframes for the marketplace era).
-3. **Which end state** of §3 to take, decided after the canvas has been used, not now.
+3. ~~**Which end state** of §3 to take, decided after the canvas has been
+   used, not now.~~ **Taken by the owner on 2026-09-11: one library, one
+   mode** — see §3 and [ADR-0118](../decisions/0118-canvas-replaces-matrix.md).
 
 ## 7. Risks
 

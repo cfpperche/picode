@@ -10,14 +10,17 @@ test("provider list/new URLs normalize legacy links without adding agent scope",
       assert.equal(route.redirect, cliProvidersHash("pi", { add }));
       assert.equal(route.add, add);
       assert.equal(route.scoped, false);
-      assert.equal(cliLocation(prefix).view, "providers");
+      assert.equal(cliLocation(prefix).pane, "providers");
     }
   }
-  assert.equal(cliProvidersLocation("#/clis/providers").redirect, "#/clis/providers/pi");
+  assert.equal(cliProvidersLocation("#/clis/providers").redirect, "#/clis/pi/providers");
+  assert.equal(cliProvidersLocation("#/clis/providers/pi").redirect, "#/clis/pi/providers");
+  assert.equal(cliProvidersLocation("#/clis/providers/pi/new").redirect, "#/clis/pi/providers/new");
   for (const add of [false, true]) {
     const route = cliLocation(cliProvidersHash("pi", { add }));
-    assert.equal(route.id, "pi"); assert.equal(route.add, add);
-    assert.equal(route.redirect, ""); assert.equal(route.invalid, false);
+    assert.equal(route.id, "pi"); assert.equal(route.pane, "providers");
+    assert.equal(!!route.add, add);
+    assert.equal(route.redirect, undefined); assert.equal(route.invalid, undefined);
   }
 });
 
@@ -27,7 +30,9 @@ test("provider support does not follow launch support or malformed paths", () =>
   for (const cli of ["codex", "claude", "unknown", "%ZZ", "", "pi%2Fextra"]) {
     const route = cliProvidersLocation("#/clis/providers/" + cli);
     assert.equal(supportsCliProviders(route.id), false, cli);
-    assert.equal(route.redirect, "");
+    if (cli === "codex" || cli === "claude" || cli === "unknown") {
+      assert.equal(route.redirect, cliProvidersHash(cli));
+    }
   }
   for (const path of ["#/clis/providers/pi/extra", "#/clis/providers/pi/new/extra", "#/providers/unknown", "#/more/providers/new/extra"]) {
     const route = cliProvidersLocation(path);
@@ -52,7 +57,7 @@ test("llama aliases and unrelated routes do not enter the provider editor", () =
 
 test("OAuth return preserves the app and query while closing the add flow", () => {
   for (const path of ["/", "/desktop/", "/mobile/"]) {
-    const url = cliProvidersReturnTo("https://picode.test:8445" + path + "?theme=light#/clis/providers/pi/new");
-    assert.equal(url, "https://picode.test:8445" + path + "?theme=light#/clis/providers/pi");
+    const url = cliProvidersReturnTo("https://picode.test:8445" + path + "?theme=light#/clis/pi/providers/new");
+    assert.equal(url, "https://picode.test:8445" + path + "?theme=light#/clis/pi/providers");
   }
 });

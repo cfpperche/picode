@@ -1,15 +1,15 @@
 # Agent CLIs
 
-Open **Agent CLIs** from the desktop user menu, `Ctrl+K`, or **More** on a
-phone. It manages terminals, lists each CLI's session history, and moves a
-conversation from one CLI to another, for your installed Pi, Claude Code,
-Codex, Grok, Hermes Agent and OpenCode commands. Managed agents,
-structured chat, packages and automations still use Pi; a CLI terminal is
-not a new type of managed agent.
+Open **Agent CLIs** from the last icon in the desktop sidebar header,
+`Ctrl+K`, or **More** on a phone. It manages terminals, lists each CLI's
+session history, and moves a conversation from one CLI to another, for
+your installed Pi, Claude Code, Codex, Grok, Hermes Agent and OpenCode
+commands. Managed agents, structured chat, packages and automations still
+use Pi; a CLI terminal is not a new type of managed agent.
 
 ## Native packages
 
-The **Packages** tab manages Pi packages. Its CLI selector lists the CLIs
+The **Packages** pane on a CLI manages Pi packages. The catalog lists the CLIs
 with an implemented package integration; terminal support alone does not add
 package management. Open Packages from an agent to retain its workspace and
 agent target. See [Packages](/guide/packages) for installation and configuration.
@@ -81,7 +81,8 @@ chord. You can change every key here under **Settings → Shortcuts**.
 
 ## Launch settings
 
-**Launch settings** shows the resolved executable, additional arguments,
+On a CLI's page, **Launch**, **Terminals** and **Sessions** are panes of
+that CLI. **Launch** shows the resolved executable, additional arguments,
 PATH additions, environment names and PiCode's injected integration. Automatic
 detection stays automatic: displaying a resolved path does not save it as an
 override. Select **Customize** to edit, then **Save changes** or **Discard**.
@@ -121,11 +122,11 @@ Native model, permission and session settings are not part of this preview.
 
 ## Find a session
 
-The **Sessions** tab lists the sessions each CLI left on disk, grouped by
-folder. Pick the CLI in the toolbar and search by name, preview or folder.
-**Open in terminal** starts that CLI again in the session's folder; the
-exact arguments come from the CLI itself (for example `claude --resume`,
-`hermes --resume`, `opencode --session`).
+Open a CLI and choose **Sessions**. The list is that CLI's on-disk sessions,
+grouped by folder. Search by name, preview or folder. **Open in terminal**
+starts that CLI again in the session's folder; the exact arguments come from
+the CLI itself (for example `claude --resume`, `hermes --resume`,
+`opencode --session`).
 
 Pi sessions add management actions: **Open with…** moves one of the
 folder's agents to that session, **Compact** summarizes its older turns,
@@ -269,7 +270,7 @@ in the same conversation. The pin records what was running, so the button
 shows the recovered work even after the process is gone. Nothing resumes
 automatically: a plain Start still opens a fresh conversation. Terminals
 stopped before this feature shipped have no pin; their conversations stay
-reachable in the Sessions tab via "Open in terminal".
+reachable in that CLI's Sessions pane via "Open in terminal".
 
 When the terminal died in a daemon restart (not a CLI exit), the surface
 says so: "PiCode restarted while this terminal was running." (ADR-0085:
@@ -289,10 +290,11 @@ PiCode keeps forensics under the data dir's `var/` folder:
 If sessions ever vanish around a restart, these three files answer when,
 what and who without any forensics archaeology.
 
-The **Terminals** tab includes configured CLI terminals and ordinary terminals
-where a supported CLI is observed. Launch identity, live CLI presence and
-activity are separate: **Installed** is not **Working**, and an enabled hook
-is not a received event. See [activity reporting](terminal-status).
+Each CLI's page carries a **Terminals** section listing the terminals that
+CLI launches — including ordinary terminals where that CLI is observed.
+Launch identity, live CLI presence and activity are separate: **Installed**
+is not **Working**, and an enabled hook is not a received event. See
+[activity reporting](terminal-status).
 
 ## Scope
 

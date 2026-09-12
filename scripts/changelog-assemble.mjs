@@ -39,6 +39,47 @@ export function parseFragment(text) {
   return out;
 }
 
+// Fold every repeated `### Section` in one release block into the first of
+// its name, in canonical order, keeping each entry where its heading put it.
+// A block drifts into duplicates the moment anything writes a heading that is
+// already there — years of direct edits did, before fragments (ADR-0105) —
+// and nothing healed it: `assemble` inserts into the *first* match and walks
+// past the rest. The cut then publishes that block as the GitHub release
+// body, so 0.2.0 was one fold away from announcing six "Fixed" headings.
+// Exported for the test; `assemble` runs it on every fold.
+export function normalizeBlock(block) {
+  const heading = /^###\s+(\w+)\s*$/;
+  const buckets = new Map();
+  const before = [];
+  let cur = null;
+  for (const line of block) {
+    const m = heading.exec(line);
+    if (m) {
+      const s = SECTIONS.find((x) => x.toLowerCase() === m[1].toLowerCase());
+      if (!s) throw new Error(`unknown section "${m[1]}" in [Unreleased] (use ${SECTIONS.join(", ")})`);
+      cur = s;
+      if (!buckets.has(s)) buckets.set(s, []);
+      continue;
+    }
+    (cur === null ? before : buckets.get(cur)).push(line);
+  }
+  const trim = (ls) => {
+    const out = ls.slice();
+    while (out.length && !out[0].trim()) out.shift();
+    while (out.length && !out[out.length - 1].trim()) out.pop();
+    return out;
+  };
+  const head = trim(before);
+  const out = head.length ? [...head, ""] : [];
+  for (const s of SECTIONS) {
+    const body = trim(buckets.get(s) || []);
+    if (!body.length) continue;
+    out.push(`### ${s}`, "", ...body, "");
+  }
+  while (out.length && !out[out.length - 1].trim()) out.pop();
+  return out;
+}
+
 // Insert each section's lines at the top of that section under [Unreleased],
 // creating the section (in canonical order) when it is missing.
 export function assemble(changelog, fragments) {
@@ -47,7 +88,9 @@ export function assemble(changelog, fragments) {
   if (start < 0) throw new Error("CHANGELOG.md has no [Unreleased] section");
   let end = lines.findIndex((l, i) => i > start && /^## \[/.test(l));
   if (end < 0) end = lines.length;
-  const block = lines.slice(start + 1, end);
+  // Heal first: an inherited duplicate would otherwise swallow this fold's
+  // entries into whichever copy happened to come first.
+  const block = normalizeBlock(lines.slice(start + 1, end));
 
   const merged = {};
   for (const f of fragments) {
@@ -75,8 +118,8 @@ export function assemble(changelog, fragments) {
     while (i < block.length && !block[i].trim()) i++;
     block.splice(i, 0, ...entries);
   }
-  while (block.length && !block[block.length - 1].trim()) block.pop();
-  return [...lines.slice(0, start + 1), ...block, "", ...lines.slice(end)].join("\n");
+  const healed = normalizeBlock(block);
+  return [...lines.slice(0, start + 1), "", ...healed, "", ...lines.slice(end)].join("\n");
 }
 
 // Commit time decides the order (a fresh clone gives every file the same

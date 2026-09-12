@@ -38,7 +38,7 @@ Duplicate this timeline into a new session. This one stays.
 
 ## /settings {#settings}
 
-Opens **Agent CLIs → Settings → Pi** (`#/clis/settings/pi?agentId=<id>`) for the selected agent. PiCode preferences remain at `#/preferences`.
+Opens **Agent CLIs → Pi → Settings** (`#/clis/pi/settings?agentId=<id>`) for the selected agent. PiCode preferences remain at `#/preferences`.
 
 See [Settings](/guide/settings).
 
@@ -92,7 +92,7 @@ Canonical: [pi Providers](https://github.com/earendil-works/pi/blob/main/package
 
 ## /logout {#logout}
 
-Opens **Agent CLIs → Providers** (`#/clis/providers/pi`). Sign out removes that provider. See [Providers](/guide/providers).
+Opens **Agent CLIs → Pi → Providers** (`#/clis/pi/providers`). Sign out removes that provider. See [Providers](/guide/providers).
 
 Canonical: [pi Providers](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/providers.md).
 

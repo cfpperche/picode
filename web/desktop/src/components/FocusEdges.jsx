@@ -33,7 +33,11 @@ export default function FocusEdges({ zones }) {
 
 // The way out that does not need a keyboard: it rides at the right end of
 // the tab strip, so the top reveal always carries it — even with no tabs
-// open, and after a reload, when the browser is not in fullscreen at all.
+// open, and after a reload.
+// The glyph is the whole control: the label and the chord are the hint
+// (title for the pointer, aria-label for the name), so the strip carries an
+// exit without carrying a sentence. 16px like the icon buttons beside it: at
+// 14px the glyph read a size smaller than its neighbours in the same row.
 export function FocusLeave({ onLeave }) {
   const chord = formatChord(primaryChord("app.fullscreen.toggle"));
   return (
@@ -41,11 +45,10 @@ export function FocusLeave({ onLeave }) {
       type="button"
       className="focus-leave"
       onClick={onLeave}
+      aria-label="Leave fullscreen"
       title={chord ? `Leave fullscreen (${chord})` : "Leave fullscreen"}
     >
-      <IconCollapse />
-      <span>Leave fullscreen</span>
-      {chord ? <kbd className="um-key">{chord}</kbd> : null}
+      <IconCollapse size={16} />
     </button>
   );
 }

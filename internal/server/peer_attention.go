@@ -236,7 +236,7 @@ func deliverPeerText(ctx context.Context, deps Deps, key, session, text string) 
 	}
 	ack, done := deps.Replies.registerAck(nonce)
 	defer done()
-	file, err := writeReplyFile(deps.DataDir, key, replyFile{AttentionOnly: true, Nonce: nonce, SessionPath: session, Payload: text, CreatedAt: time.Now().UTC()})
+	file, err := writeReplyFile(deps.DataDir, key, replyFile{AttentionOnly: true, Nonce: nonce, SessionPath: session, Payload: text, CreatedAt: time.Now().UTC(), PID: deps.Replies.receiverPID(key)})
 	if err != nil {
 		return err
 	}

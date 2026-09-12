@@ -1,14 +1,15 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useRef, useState } from "react";
-import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR, IconMode, IconSettings, IconDrive, IconProvider, IconMcp, IconPackage, IconClock, IconSparkles, IconTerminal, IconModel } from "./Icons.jsx";
+import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR, IconMode, IconSettings, IconDrive, IconProvider, IconMcp, IconPackage, IconClock, IconSparkles, IconCli, IconModel } from "./Icons.jsx";
 import { menuGroups, menuActions, menuHasResults } from "../lib/userMenuModel.js";
 import { readShellPref, setShell } from "@picode/shared/client/shell.js";
 import InstallButton from "./InstallButton.jsx";
 
 const SECTION_ICONS = {
-  clis: IconTerminal,
+  clis: IconCli,
   automations: IconClock,
   providers: IconProvider,
+  connectors: IconMcp,
   settings: IconSettings,
   integrations: IconMcp,
   llama: IconModel,
@@ -24,7 +25,7 @@ export default function UserMenu({ host, version, themeMode, onTheme, onNavigate
   const [query, setQuery] = useState("");
   const contentRef = useRef(null);
   const hasPkgUp = !!(pkgUpdates && pkgUpdates.length);
-  const hasNotice = hasPkgUp || !!whatsNewUnread;
+  const hasNotice = !!whatsNewUnread;
   const searching = !!query.trim();
   const groups = menuGroups(query);
   const actions = menuActions(query);

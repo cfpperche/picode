@@ -26,9 +26,11 @@ this Linux session (WSL included). Its `KillMode=process` leaves tmux-owned
 terminals alive across daemon restarts; transient RPC children are separately
 parent-bound and pane holders restore the TUI. `picode deploy` / `make deploy`
 copies a repo build and restarts that unit — but first asks the daemon
-`GET /api/deploy/readiness` and refuses while any agent or terminal is
-mid-turn (ADR-0086; `--force` overrides). `main` ships when the owner runs
-`make deploy` (ADR-0105), never from a branch session.
+`GET /api/deploy/readiness` and refuses while any agent or terminal other
+than the calling pane is mid-turn (ADR-0086; the caller is always working
+by the act of asking, so it never blocks itself; `--force` overrides).
+`main` ships when the owner runs `make deploy` (ADR-0105), never from a
+branch session.
 The supervised daemon does not
 re-exec when the binary on disk changes — that same-PID `Exec` used to
 swallow systemd's SIGTERM and sit in `stop-sigterm` until `TimeoutStopSec=30`.
@@ -67,6 +69,42 @@ WSL's idle timeout from reclaiming the VM. It learns the address from
 `server.json` once, then polls `/api/health` over HTTP rather than spawning
 `wsl.exe` on a timer. `wsl.exe` answers in UTF-16LE **without a BOM**, so its
 output is decoded by inspecting the bytes.
+
+`picode-desktop disk` reports the one number a Windows user cannot get
+anywhere else, and `picode disk` (Linux, `internal/hostfs`) is its other half.
+The distro half measures with one `df` and **two** `du` calls — two because
+`du` skips a path it has already visited, so a parent and its child asked in
+the same command report the parent with the child missing — and names every
+cache it knows with the command that gives it back, labelled `safe` (costs
+time), `redownload` (comes back from the network) or `data` (the person's own,
+shown and never offered as a command). The report also names what it could not
+measure, root-owned paths such as docker's storage, instead of folding the
+remainder into a category. The Windows half reads the VHDX path from WSL's own
+registry (`HKCU\…\Lxss`, `VhdFileName` included), the volume's free space and
+the file's length from one PowerShell call answered as JSON (no locale decides
+what `.` means), and the sparse flag from `fsutil sparse queryrange`, whose
+parse keeps only the hex numbers because every word around them is translated
+on a non-English Windows. The difference between what the file holds and what
+the distro uses is space Windows keeps for data the distro has already freed:
+invisible in Explorer, and unavailable to WSL while the file is not sparse —
+which is the state a permanently running distro stays in, since both the
+compaction and the sparse conversion need the distro stopped. The tray shows
+that as one line refreshed every five minutes and warns in words below 20 GB
+free; `fyne.io/systray` v1.12 has no balloon API left, so the tooltip is the
+alert surface. Both disk commands only read.
+
+The one action is `picode-desktop disk-compact`, and the tray carries it as
+**Give back ≈N GB…**. It refuses to run blind: first the server's readiness
+interlock (the same `GET /api/deploy/readiness` `picode deploy` asks), then an
+explicit confirmation that names the cost — stopping the distro ends every
+agent, terminal and tmux session in it. The flow stops the distro, converts
+the file to sparse when the WSL build allows (`wsl --manage --set-sparse`; no
+elevation) or compacts with Optimize-VHD from an elevated terminal otherwise,
+restarts the distro, **re-arms the keepalive child the terminate killed**
+(nothing else restarts it, and without it WSL idles out sixty seconds later),
+and reports the before and after measured on the file. A failed conversion
+still restarts the distro — that ordering is pinned by a test. `--dry-run`
+prints the plan and stops nothing; `--force` overrides the interlock.
 
 Desktop startup policy (ADR-0071) is explicit: no execution-time, battery,
 idle or network gates; duplicate task starts are ignored; launch failures have
@@ -154,9 +192,10 @@ release body. A stamped binary exposes
 the bundled `web/shared/data/whats-new.json` highlights through their owned
 `WhatsNew` surface. A browser acknowledges a semver in
 `localStorage` (`picode-whats-new-seen`), so the release opens once per
-browser, after the first fleet state is available and never over an active
-Inbox, create, share, reconnect, or other modal flow. Source builds stay
-manual-only. The surface is bounded to the newest three releases and nine
+browser, once the shell has booted and never over an active Inbox, create,
+share, reconnect, or other modal flow. A **fresh install** is included: the
+product-state gate ADR-0063 shipped with was removed by its 2026-09-11
+amendment. Source builds stay manual-only. The surface is bounded to the newest three releases and nine
 highlights and links to the complete release body for detail (ADR-0063).
 
 ## Application routes
@@ -184,7 +223,7 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [MCP (Model Context Protocol) support](architecture/mcp.md) | `docs/architecture/mcp.md` |
 | [Integrations (ADR-0075)](architecture/integrations.md) | `docs/architecture/integrations.md` |
 | [Pins](architecture/pins.md) | `docs/architecture/pins.md` |
-| [Matrix (ADR-0108)](architecture/matrix.md) | `docs/architecture/matrix.md` |
+| [Canvas (ADR-0108, ADR-0118)](architecture/canvas.md) | `docs/architecture/canvas.md` |
 | [Automations (ADR-0045)](architecture/automations.md) | `docs/architecture/automations.md` |
 | [Change feed (ADR-0048)](architecture/change-feed.md) | `docs/architecture/change-feed.md` |
 | [Notices — the in-app announcement layer](architecture/notices.md) | `docs/architecture/notices.md` |

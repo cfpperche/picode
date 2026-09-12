@@ -6,6 +6,7 @@ import {
   Bold,
   Book,
   Bot,
+  Boxes,
   CircleCheck,
   Code,
   CaseSensitive,
@@ -25,12 +26,13 @@ import {
   ExternalLink,
   File,
   Folder,
+  Link2,
   Lock,
   Maximize2,
   Minimize2,
   Folders,
   GitBranch,
-  Grid3x3,
+  Frame,
   FlaskConical,
   HardDrive,
   Home,
@@ -78,6 +80,7 @@ import {
   TriangleAlert,
   Type,
   Trash2,
+  Unlink,
   User,
   Volume2,
   VolumeX,
@@ -104,6 +107,7 @@ export const IconChevronLeft = lucide(ChevronLeft, 13);
 export const IconDocs = lucide(Book, 12);
 export const IconExternal = lucide(ExternalLink, 13);
 export const IconTerminal = lucide(Terminal, 14);
+export const IconCli = lucide(Boxes, 16);
 export const IconPlay = lucide(Play, 12);
 export const IconKeyboard = lucide(Keyboard, 18);
 export const IconStop = lucide(Square, 12);
@@ -117,14 +121,18 @@ export const IconPaste = lucide(ClipboardPaste, 13);
 export const IconReload = lucide(RotateCw, 13);
 export const IconDownload = lucide(Download, 13);
 export const IconGit = lucide(GitBranch, 12);
+export const IconLink = lucide(Link2, 13);
+export const IconUnlink = lucide(Unlink, 13);
 export const IconPanelRight = lucide(PanelRight, 16);
 export const IconPanelRightClose = lucide(PanelRightClose, 16);
 export const IconRemote = lucide(Cloud, 10);
 export const IconFolder = lucide(Folder, 13);
 export const IconFolders = lucide(Folders, 13);
 export const IconGrid = lucide(LayoutGrid, 13);
-// The Matrix app's tile (ADR-0109 icon map): a 3×3 grid, IconGrid's stroke.
-export const IconMatrix = lucide(Grid3x3, 13);
+// The Canvas app's tile (ADR-0109 icon map). A 3×3 grid drew the engine
+// ADR-0118 removed, so the glyph is a frame with its guides: a bounded plane
+// with things placed on it, which is what the app now is.
+export const IconCanvas = lucide(Frame, 13);
 export const IconFlask = lucide(FlaskConical, 13);
 export const IconInbox = lucide(Inbox, 13);
 export const IconClock = lucide(Clock, 13);

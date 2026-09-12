@@ -1,5 +1,6 @@
 import { cliProvidersLocation, cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { cliPackagesLocation, cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
+import { cliConnectorsLocation, cliConnectorsHash } from "@picode/shared/domain/integrations.js";
 import { lazy, useState } from "react";
 import { cliSettingsLocation, cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 import ScreenHeader from "../components/ScreenHeader.jsx";
@@ -9,7 +10,6 @@ const AgentClis = lazy(() => import("../components/AgentClis.jsx"));
 const Automations = lazy(() => import("../components/Automations.jsx"));
 const System = lazy(() => import("../components/System.jsx"));
 const LlamaPanel = lazy(() => import("../components/LlamaPanel.jsx"));
-const Mcps = lazy(() => import("../components/Mcps.jsx"));
 const Integrations = lazy(() => import("../components/Integrations.jsx"));
 import InstallButton from "../components/InstallButton.jsx";
 import PushPrefs from "../components/PushPrefs.jsx";
@@ -40,7 +40,7 @@ export default function More({ fleetReady = true, section, apps, catalog, system
           <ul className="m-list m-menu m-group-list">
           {group.rows.map(([id, title, sub]) => (
             <li key={id} className="m-row">
-              <a className="m-row-main" href={id === "pi-providers" ? cliProvidersHash() : id === "pi-packages" ? cliPackagesHash("pi", { agentId: last?.agent?.id || legacyAgentId }) : id === "pi-settings" ? cliSettingsHash("pi", { agentId: last?.agent?.id || legacyAgentId }) : "#/more/" + id}>
+              <a className="m-row-main" href={id === "pi-providers" ? cliProvidersHash() : id === "pi-packages" ? cliPackagesHash("pi", { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "pi-settings" ? cliSettingsHash("pi", { agentId: last?.agent?.id || legacyAgentId }) : id === "connectors" ? cliConnectorsHash("pi", { workspaceId: last?.workspace?.id, agentId: last?.agent?.id || legacyAgentId }) : id === "integrations" ? "#/integrations/webhooks" : "#/more/" + id}>
                 <span className="m-row-text">
                   <span className="m-row-title">{title}</span>
                   <span className="m-row-sub">{sub}</span>
@@ -68,10 +68,9 @@ export default function More({ fleetReady = true, section, apps, catalog, system
   }
   const agent = last && last.agent;
   const workspace = last && last.workspace;
-  const agentName = agent ? (agent.name && agent.name !== "default" ? agent.name : (workspace ? workspace.name : "")) : "";
   return (
     <div className="m-screen m-more-page">
-      <ScreenHeader title={MORE_TITLES[section] || "More"} onBack={section === "clis" && (cliSettingsLocation(location.hash) || cliPackagesLocation(location.hash) || cliProvidersLocation(location.hash)) ? () => { location.hash = "#/clis"; } : onBack}
+      <ScreenHeader title={MORE_TITLES[section] || "More"} onBack={section === "clis" && (cliSettingsLocation(location.hash) || cliPackagesLocation(location.hash) || cliProvidersLocation(location.hash) || cliConnectorsLocation(location.hash)) ? () => { location.hash = "#/clis"; } : onBack}
         right={section === "pins" ? <button type="button" className="m-head-btn" aria-label="New pin" onClick={() => { location.hash = "#/pins/new"; }}><IconPlus size={18} /></button> : null} />
       {section === "pins" ? <PinsList onOpen={(id) => { location.hash = "#/pins/" + encodeURIComponent(id); }} onNew={() => { location.hash = "#/pins/new"; }} /> : null}
       {section === "apps" ? <AppsGrid apps={apps} onOpen={(id) => { location.hash = "#/app/" + encodeURIComponent(id); }} /> : null}
@@ -81,13 +80,7 @@ export default function More({ fleetReady = true, section, apps, catalog, system
       {section === "preferences" ? <Settings hidden={false} themeMode={themeMode} onTheme={onTheme} /> : null}
       {section === "system" ? <System hidden={false} version={version} system={system} /> : null}
       {section === "llama" ? <LlamaPanel onRefresh={onRefreshCatalog} /> : null}
-      {section === "integrations" ? <Integrations hidden={false}
-        workspaceId={workspace?.id || ""} workspaceName={workspace?.name || ""} workspacePath={workspace?.path || ""}
-        agentId={agent?.id || ""} agentName={agentName} agentWorkPath={agent?.workPath || ""} agentRunning={!!(agent && agent.mode && agent.mode !== "stopped")} /> : null}
-      {section === "mcps" ? (
-        <Mcps hidden={false} workspaceId={workspace ? workspace.id : ""} workspaceName={workspace ? workspace.name : ""} workspacePath={workspace ? workspace.path : ""}
-          agentId={agent ? agent.id : ""} agentName={agentName} agentWorkPath={agent ? agent.workPath || "" : ""} agentRunning={!!(agent && agent.mode && agent.mode !== "stopped")} />
-      ) : null}
+      {section === "integrations" ? <Integrations hidden={false} /> : null}
       {section === "notifications" ? <section className="settings-wrap"><div className="settings-card"><PushPrefs /></div></section> : null}
     </div>
   );

@@ -2,17 +2,17 @@
 
 PiCode runs in a browser tab, and the browser keeps some key combinations
 for itself: `Ctrl+T` opens a new tab, `Ctrl+W` closes it, and no web page
-can change that in a normal window. Agent CLIs (Codex, Claude Code, Grok,
-OpenCode, Hermes, pi) use those same keys — Codex, for example, opens its
-MCP details with `Ctrl+T`. This page shows what works where, and how to
-give every key to your agent.
+can change that. Agent CLIs (Codex, Claude Code, Grok, OpenCode, Hermes,
+pi) use those same keys — Codex, for example, opens its MCP details with
+`Ctrl+T`. This page shows what works where, and what to do about the few
+keys the browser keeps.
 
-## What the browser takes in a normal window
+## What the browser keeps for itself
 
-In a normal (non-fullscreen) window these combinations never reach PiCode —
-the browser acts on them before the page sees anything. On Windows and
-Linux the browser keys use `Ctrl`; on macOS the same slots use `Cmd`
-(`Cmd+T`, `Cmd+W`, …) and PiCode's `Ctrl` chords reach the page as usual:
+These combinations never reach PiCode — the browser acts on them before
+the page sees anything. On Windows and Linux the browser keys use `Ctrl`;
+on macOS the same slots use `Cmd` (`Cmd+T`, `Cmd+W`, …) and PiCode's
+`Ctrl` chords reach the page as usual:
 
 | Keys | Browser action |
 |---|---|
@@ -27,34 +27,38 @@ Everything else — `Ctrl+C`, `Ctrl+F`, `Ctrl+P`, `Alt+←`, `F3`, … — reach
 the page, and inside a terminal pane it goes straight to the CLI running
 there. Copy, interrupt, line-editing keys and function keys already work.
 
-## Fullscreen mode gives every key to the page
+## When a CLI wants a key the browser keeps
 
-Enter **Fullscreen** (`Ctrl+Shift+Enter`, the right-click menu, or the
-command palette) and PiCode asks the browser to hand over its reserved
-keys. The terminal keeps all of them:
+There is no way for a web page to take `Ctrl+T` back. Where a CLI's own
+chord collides with one of these, give the CLI a different chord if it
+allows one, or run it in a terminal outside the browser. Everything
+outside the reserved list above already reaches the terminal untouched.
 
-- `Ctrl+T` opens the Codex MCP details instead of a new tab.
-- `Ctrl+W` reaches the CLI instead of closing the tab.
-- `Escape` keeps doing its job inside the terminal (vim, pager, TUI menus).
+## Fullscreen mode hides PiCode, not your window
 
-Two ways out remain, on purpose:
+**Fullscreen** (`Ctrl+Shift+Enter`, the right-click menu, or the command
+palette) hides PiCode's own chrome — the sidebar, the tab strip, the
+Inspector — and gives the whole page to the tab you are on. It does not
+touch the browser window: your other tabs and your address bar stay where
+they are.
+
+If you want the screen as well, press `F11`. That is your browser's own
+fullscreen, it works exactly as it always has, and the two stack: enter
+either one first, leave either one first, nothing else changes. It does
+not hand the reserved keys over either — that needs an API the browser
+offers only to a page that asked for fullscreen itself, which PiCode
+deliberately does not do.
+
+Inside the mode, `Escape` takes one step at a time:
 
 | Gesture | What it does |
 |---|---|
-| `Escape` (outside a terminal) | Leaves fullscreen mode |
-| Press and **hold** `Escape` (~2 s) | The browser's own exit — always works |
+| `Escape` with a panel revealed | Closes that panel, stays in the mode |
+| `Escape` with nothing revealed | Leaves the mode |
+| `Escape` inside a terminal | Goes to the CLI — vim, pagers and TUI menus keep it |
 
-Leaving the mode returns the keys to the browser.
-
-## Browser support
-
-Handing over reserved keys needs the Keyboard Lock API while the page is
-fullscreen. Chrome, Edge and Opera support it. Firefox and Safari do not:
-fullscreen mode still hides the chrome, but the browser keeps its
-shortcuts until those browsers ship the API. Surfaces that cannot take
-the lock (for example pages embedded outside a top-level tab) degrade the
-same way, and on macOS capture of the `Cmd` keys follows Chrome's own
-implementation.
+From a terminal, leave with `Ctrl+Shift+Enter`, the right-click menu, or
+the exit button at the right end of the revealed tab strip.
 
 ## Rebinding PiCode's own shortcuts
 
@@ -75,4 +79,4 @@ Keyboard**, and the agent's own key map in **Settings → Keys**.
 
 In a terminal pane: `Ctrl+C` copies a selection or interrupts, `Ctrl+V`
 pastes, `Ctrl+Shift+C` / `Ctrl+Shift+V` always copy / paste, and
-`Shift+Esc` hands the keyboard back to the app from a Matrix panel.
+`Shift+Esc` hands the keyboard back to the app from a Canvas panel.
