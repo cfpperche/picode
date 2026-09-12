@@ -160,7 +160,9 @@ export default function Sidebar({
     <aside id="sidebar" className={resizing ? "resizing" : ""} style={{ width }}>
       <header className="brand">
         <span className="brand-title">
-          <button type="button" className="brand-name" title="Dashboard" onClick={() => onOpenDashboard && onOpenDashboard()}>PiCode</button>
+          {/* In the desktop shell the app bar carries the wordmark and the
+              dashboard action (ADR-0122); the browser keeps the button. */}
+          {window.__PICODE_SHELL__ !== true && <button type="button" className="brand-name" title="Dashboard" onClick={() => onOpenDashboard && onOpenDashboard()}>PiCode</button>}
         </span>
         <nav className={"brand-tabs" + (width < 260 ? " brand-tabs-tight" : "")} aria-label="Sidebar">
           <div className="brand-tablist" role="tablist" aria-label="Sidebar views">

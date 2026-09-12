@@ -427,6 +427,13 @@ export default function App() {
   useEffect(() => {
     const onHash = () => {
       setRoute(parseRoute());
+      // The shell's app bar opens the dashboard through this event
+      // (ADR-0122) — same pattern as picode-open-file.
+      const onOpenDashboardEvent = () => {
+        setDashboardPinned(true);
+        setNavigationOpen(false);
+      };
+      window.addEventListener("picode-open-dashboard", onOpenDashboardEvent);
       setHash(location.hash);
     };
     window.addEventListener("hashchange", onHash);

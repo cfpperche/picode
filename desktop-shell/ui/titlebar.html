@@ -34,6 +34,9 @@
       .mark span { font: 700 11px/1 Inter, "Segoe UI", sans-serif; color: #fff; }
       @media (prefers-color-scheme: dark) { .mark span { color: #09090b; } }
       .name { font-size: 12.5px; font-weight: 650; letter-spacing: 0.2px; }
+      .brand-as-button { border: 0; background: none; cursor: pointer; }
+      .brand-as-button:hover .name { color: #2a62d6; }
+      @media (prefers-color-scheme: dark) { .brand-as-button:hover .name { color: #7c8cf8; } }
       .spacer { flex: 1; height: 100%; }
       .caps { display: flex; align-self: stretch; flex: none; }
       .cap {
@@ -50,7 +53,7 @@
   </head>
   <body>
     <div class="bar" data-tauri-drag-region id="bar">
-      <div class="brand" data-tauri-drag-region>
+      <div class="brand" data-tauri-drag-region id="brand">
         <span class="mark" data-tauri-drag-region><span>P</span></span>
         <span class="name" data-tauri-drag-region>PiCode</span>
       </div>
@@ -84,6 +87,22 @@
         });
       };
       if (w) {
+        // On the main window the wordmark opens the dashboard — the same
+        // action the sidebar's own wordmark has in the browser.
+        if (w.label === 'main') {
+          const brand = document.getElementById('brand');
+          brand.classList.add('brand-as-button');
+          brand.title = 'Dashboard';
+          brand.addEventListener('click', async (e) => {
+            if (e.target.closest('.cap')) return;
+            try {
+              await window.__TAURI__.core.invoke('open_dashboard');
+            } catch (err) {
+              console.error('picode app bar:', err);
+              brand.title = 'Failed: ' + err;
+            }
+          });
+        }
         on('min', () => w.minimize());
         on('max', () => w.toggleMaximize());
         on('close', () => w.close());
