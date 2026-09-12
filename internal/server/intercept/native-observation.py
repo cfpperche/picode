@@ -3,6 +3,7 @@ import fcntl
 import json
 import os
 import re
+import sys
 import tempfile
 
 
@@ -12,6 +13,10 @@ def process_start(pid):
 
 
 def save_observation(root, term, report):
+    # Unsupported hosts must not create an invalid fence that poisons their
+    # otherwise valid HTTP-only native reports.
+    if sys.platform != "linux" or not os.path.exists("/proc/sys/kernel/random/boot_id"):
+        return False
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,160}", term):
         return False
     directory = os.path.join(root, "native-observations")

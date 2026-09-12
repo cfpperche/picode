@@ -6,14 +6,29 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/cfpperche/picode/internal/store"
 )
+
+// Keep legacy live hooks independent of Linux-only recovery, including when
+// stale observation files were copied from another host.
+var nativeObservationSupported = func() bool {
+	if runtime.GOOS != "linux" {
+		return false
+	}
+	_, err := os.Stat("/proc/sys/kernel/random/boot_id")
+	return err == nil
+}
+
+var errNativeObservationBlocked = errors.New("native observation requires a new runtime")
+var errNativeObservationUpdating = errors.New("native observation is being written")
 
 type nativeObservation struct {
 	Version     int    `json:"version"`
@@ -34,19 +49,27 @@ type nativeObservation struct {
 
 func readNativeObservation(dataDir, id string) (nativeObservation, error) {
 	var o nativeObservation
+	if !nativeObservationSupported() {
+		return o, os.ErrNotExist
+	}
 	if dataDir == "" || id == "" || strings.ContainsAny(id, `/\\.`) {
 		return o, errors.New("no native observation")
 	}
 	base := filepath.Join(dataDir, "native-observations", id)
-	fence, err := readNativeObservationFile(base + ".lock")
+	lock, err := openNativeObservationFence(base + ".lock")
 	if err != nil {
-		if !os.IsNotExist(err) {
-			return o, err
-		}
-		if _, checkpointErr := os.Lstat(base + ".json"); !os.IsNotExist(checkpointErr) {
-			return o, errors.New("native observation fence is missing")
+		if os.IsNotExist(err) {
+			if _, checkpointErr := os.Lstat(base + ".json"); !os.IsNotExist(checkpointErr) {
+				return o, errors.New("native observation fence is missing")
+			}
 		}
 		return o, err
+	}
+	defer lock.Close()
+	raw, err := io.ReadAll(io.LimitReader(lock, 16*1024+1))
+	var fence nativeObservation
+	if err != nil || len(raw) > 16*1024 || json.Unmarshal(raw, &fence) != nil || fence.Version != 1 || fence.TermID != id || fence.RunID == "" || fence.ProcStart == "" || fence.BootID == "" || fence.PID <= 0 || fence.SessionSeq <= 0 {
+		return o, errNativeObservationBlocked
 	}
 	o, err = readNativeObservationFile(base + ".json")
 	if err != nil || o != fence {
@@ -98,13 +121,16 @@ func observationMatchesRuntime(o nativeObservation, rt TermRuntime) bool {
 // Called by the existing presence watcher, including while a wrapper is alive:
 // native events may have reached disk while the daemon was unavailable.
 func reconcileNativeObservation(ctx context.Context, deps Deps, id string) {
-	if deps.TermRuntimes == nil || deps.TermStates == nil || deps.Store == nil {
+	if !nativeObservationSupported() || deps.TermRuntimes == nil || deps.TermStates == nil || deps.Store == nil {
 		return
 	}
 	// Snapshot before disk I/O so an obsolete failed read cannot erase a newer
 	// observation installed by another reconciler while these files are read.
 	rt, had := deps.TermRuntimes.Get(id)
 	o, err := readNativeObservation(deps.DataDir, id)
+	if errors.Is(err, errNativeObservationUpdating) {
+		return
+	}
 	if err != nil {
 		if had && (rt.Observation || (deps.DataDir != "" && !os.IsNotExist(err))) {
 			forgetNativeObservation(deps, id, rt)

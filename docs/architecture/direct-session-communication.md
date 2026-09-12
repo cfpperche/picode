@@ -213,3 +213,10 @@ context. Its standard pre-tool hook scopes the session environment to one plain
 shell commands cannot inherit that repair. Native permissions still apply. This
 avoids a vendor background helper's process-global identity replacing the open
 conversation. Loading this adapter change requires resuming the native CLI once.
+
+Recovery reads the existing recorder lock without waiting. A writer in progress
+is temporary; an unlocked invalid fence requires storage repair and a new CLI
+invocation. Messages exposes that failure with Terminal controls instead of
+promising reconnection. Unsupported hosts ignore recovery files and retain
+normal live hooks. Attention logs contain only owner/CLI/connection identifiers
+and bounded refusal stages/reasons, never native errors, messages or pane text.

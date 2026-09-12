@@ -35,6 +35,16 @@ continues observing the native TUI. The mailbox and attention worker stay shared
 | Reconnecting participant | Retain selector choice; test disabled | Shared selection tests + browser QA |
 | Connected conversation with past passed test | Show activity, connection and proof separately | Shared state tests + browser QA |
 
+## Follow-up decision rows — 2026-09-12
+
+| Condition | Action | Regression |
+|---|---|---|
+| Host without Linux process metadata, including stale files | Keep live hooks; no recovery files or invalidation | Unsupported recorder and legacy-state tests |
+| Fence is locked by a writer | Nonblocking neutral wait; no automatic input | Busy-fence test |
+| Unlocked corrupt, blocked, or unsupported fence | Show connection failure and terminal controls; preserve refusal | API corrupt-fence table + shared presentation test |
+| Fence is a FIFO or symlink | Refuse without blocking or reading its content | Nonregular-fence test |
+| Post-paste validation refuses | Record bounded stage/reason; never retry automatically | Attention reason table and existing durable attempts |
+
 ## Acceptance
 
 Scratch only: Pi, Grok, OpenCode, Hermes, Codex and Claude Code use their real

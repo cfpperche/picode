@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -347,5 +348,52 @@ func TestPeerClaudeSingleFooter(t *testing.T) {
 		if peerInputMatches("claude-code", s, "") {
 			t.Fatal("draft accepted")
 		}
+	}
+}
+
+func TestPeerAttentionFailureReasons(t *testing.T) {
+	raw, err := os.ReadFile("testdata/grok-bordered-composer.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var base tmux.InputSnapshot
+	if err = json.Unmarshal(raw, &base); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name, want  string
+		change      func(*tmux.InputSnapshot)
+		snapshotErr error
+		pointer     string
+	}{
+		{name: "ready"},
+		{name: "snapshot unavailable", snapshotErr: errors.New("secret native output"), want: "pane snapshot unavailable"},
+		{name: "pane replaced", change: func(s *tmux.InputSnapshot) { s.PanePID++ }, want: "pane changed"},
+		{name: "draft", change: func(s *tmux.InputSnapshot) { s.Lines[1] = "secret draft" }, want: "composer changed or is not ready"},
+		{name: "too narrow", pointer: strings.Repeat("x", 500), want: "pointer does not fit"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			current := base
+			current.Lines = append([]string(nil), base.Lines...)
+			if tc.change != nil {
+				tc.change(&current)
+			}
+			got := peerInputRecheck("grok", base, current, "", tc.pointer, tc.snapshotErr)
+			if tc.want == "" {
+				if got != nil {
+					t.Fatal(got)
+				}
+				return
+			}
+			if got == nil || got.Error() != tc.want {
+				t.Fatalf("got %v want %s", got, tc.want)
+			}
+		})
+	}
+	if got := peerAttentionReason(errors.New("secret receiver body")); got != "native receiver or control rejected delivery" {
+		t.Fatal(got)
+	}
+	if got := peerAttentionReason(peerAttentionFailure("after paste: pane changed")); got != "after paste: pane changed" {
+		t.Fatal(got)
 	}
 }

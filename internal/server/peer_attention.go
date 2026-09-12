@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -293,6 +294,14 @@ func attemptPeerAttention(ctx context.Context, deps Deps, m store.PeerMessage) {
 
 // The sender of a connection test uses the same guarded native input path.
 func attemptPeerText(ctx context.Context, deps Deps, p store.PeerConnection, pointer string, claim func() bool, finish func(error)) {
+	complete := finish
+	finish = func(err error) {
+		if err != nil {
+			// Metadata only: never log the pointer, message, token or screen.
+			log.Printf("communication attention: owner=%s cli=%s connection=%s reason=%s", p.OwnerID, p.CLI, p.ID, peerAttentionReason(err))
+		}
+		complete(err)
+	}
 	if p.Kind == "agent" {
 		if deps.Replies == nil {
 			return
@@ -373,19 +382,19 @@ func attemptPeerText(ctx context.Context, deps Deps, p store.PeerConnection, poi
 	if pid != before.PanePID {
 		return
 	}
-	check := func(expected string) bool {
+	check := func(expected string) error {
 		current, e := deps.Store.PeerConnection(p.ID)
 		if e != nil || current.SessionKey != p.SessionKey {
-			return false
+			return errors.New("connection changed")
 		}
 		live, ok := peerLiveTerminal(deps, p)
 		if !ok || live.RunID != rt.RunID || live.PID != rt.PID || live.ProcStart != rt.ProcStart {
-			return false
+			return errors.New("native observation or runtime changed")
 		}
 		snap, e := deps.Tmux.InputSnapshot(ctx, name)
-		return e == nil && snap.PaneID == before.PaneID && snap.PanePID == before.PanePID && peerInputMatches(p.CLI, snap, expected) && peerPointerFits(p.CLI, snap, pointer)
+		return peerInputRecheck(p.CLI, before, snap, expected, pointer, e)
 	}
-	if !check("") {
+	if check("") != nil {
 		return
 	}
 	if !claim() {
@@ -393,12 +402,12 @@ func attemptPeerText(ctx context.Context, deps Deps, p store.PeerConnection, poi
 	}
 	// Any loss of certainty after the durable claim is terminal for this
 	// attempt. Never remove an editor draft or blindly send Enter on retry.
-	if !check("") {
-		finish(context.Canceled)
+	if err := check(""); err != nil {
+		finish(peerAttentionFailure("before paste: " + err.Error()))
 		return
 	}
 	if err := deps.Tmux.PasteOnly(ctx, before.PaneID, pointer); err != nil {
-		finish(err)
+		finish(peerAttentionFailure("paste failed"))
 		return
 	}
 	timer := time.NewTimer(150 * time.Millisecond)
@@ -409,11 +418,31 @@ func attemptPeerText(ctx context.Context, deps Deps, p store.PeerConnection, poi
 		return
 	case <-timer.C:
 	}
-	if !check(pointer) {
-		finish(context.Canceled)
+	if err := check(pointer); err != nil {
+		finish(peerAttentionFailure("after paste: " + err.Error()))
 		return
 	}
-	finish(deps.Tmux.SubmitPane(ctx, before.PaneID))
+	if err := deps.Tmux.SubmitPane(ctx, before.PaneID); err != nil {
+		finish(peerAttentionFailure("submit failed"))
+		return
+	}
+	finish(nil)
+}
+
+func peerInputRecheck(cli string, before, current tmux.InputSnapshot, expected, pointer string, err error) error {
+	if err != nil {
+		return errors.New("pane snapshot unavailable")
+	}
+	if current.PaneID != before.PaneID || current.PanePID != before.PanePID {
+		return errors.New("pane changed")
+	}
+	if !peerPointerFits(cli, current, pointer) {
+		return errors.New("pointer does not fit")
+	}
+	if !peerInputMatches(cli, current, expected) {
+		return errors.New("composer changed or is not ready")
+	}
+	return nil
 }
 
 // One coalesced loop for the server, driven by the feed. The bounded tick also
@@ -457,4 +486,23 @@ func StartPeerAttention(ctx context.Context, deps Deps) {
 			cancel()
 		}
 	}
+}
+
+// Only bounded internal reasons reach logs; receiver error text may contain
+// untrusted native output and is deliberately omitted.
+type peerAttentionFailure string
+
+func (e peerAttentionFailure) Error() string { return string(e) }
+func peerAttentionReason(err error) string {
+	var failure peerAttentionFailure
+	if errors.As(err, &failure) {
+		return string(failure)
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "delivery timed out"
+	}
+	if errors.Is(err, context.Canceled) {
+		return "delivery cancelled"
+	}
+	return "native receiver or control rejected delivery"
 }

@@ -1,6 +1,6 @@
 export const participantKey = p => `${p.kind}:${p.ownerId}`;
 // Activity, connection preparation and historical test proof are independent.
-export function participantState(owner, preference, connection, live, checks = [], identity) {
+export function participantState(owner, preference, connection, live, checks = [], identity, recovery) {
   const enabled = preference?.enabled && preference.workspaceId === owner.workspaceId && preference.cli === owner.cli;
   if (!enabled) return { label: connection?.active ? "Current conversation only" : "Off", connection: "", kind: "off", ready: false };
   const phase = preference.phase;
@@ -10,6 +10,7 @@ export function participantState(owner, preference, connection, live, checks = [
   const activity = ({idle:"Idle",working:"Working","needs-you":"Needs your input"})[live] || "Syncing";
   const result = { label: activity, connection: ready ? "Connected" : "Connecting", kind: ready ? "connected" : "preparing", ready: !!ready, verified: !!verified, reason: "", action: "" };
   if (!live) return {...result,label:"Stopped",connection:"Not connected",kind:"action",reason:"stopped",action:"open"};
+  if (recovery === "restart-required") return {...result,label:"State unavailable",connection:"Connection failed",kind:"error",ready:false,verified:false,reason:"restart-required",action:"terminal-controls"};
   if (!owner.sessionKey) return {...result,label:"No conversation",connection:"Not connected",kind:"action",reason:"no-conversation",action:"open"};
   if (!observed || phase === "waiting-conversation") return {...result,label:live === "needs-you" ? activity : "Syncing",connection:"Reconnecting",kind:"waiting",ready:false,verified:false,reason:"unobserved",action:"open"};
   if (phase === "adapter-missing") return {...result,connection:"Connection failed",kind:"error",reason:"adapter-missing",action:"packages"};

@@ -45,3 +45,14 @@ test("missing Pi adapter always offers Packages, without parsing error prose",()
   assert.equal(state.action,"packages");assert.equal(state.kind,"error");
  }
 });
+
+test("persistent recording failure has a repair action, never reconnecting",()=>{
+ for (const phase of ["connected","waiting-conversation"]) {
+  const got=participantState(owner,{...pref,phase},peer,"open",[{phase:"passed",senderId:peer.id}],"unobserved","restart-required");
+  assert.deepEqual([got.label,got.connection,got.ready,got.verified,got.action],["State unavailable","Connection failed",false,false,"terminal-controls"]);
+ }
+ const recovered=participantState(owner,pref,peer,"idle",[],"confirmed");
+ assert.equal(recovered.ready,true);
+ const off=participantState(owner,{...pref,enabled:false},peer,"open",[],"unobserved","restart-required");
+ assert.equal(off.kind,"off");
+});

@@ -187,3 +187,9 @@ if an internal background review changes Hermes' environment. Keep one
 Enabled participants stay in From and To while reconnecting, with their availability
 shown. Run test becomes available when both selected conversations are connected.
 Test passed records a completed exchange; it is separate from current activity.
+
+If Messages shows **State unavailable / Connection failed**, state recording
+could not recover. Restore storage access, then use **Terminal controls** to
+restart the affected CLI. Opening the existing conversation or refreshing the
+page cannot reset this persistent failure. Native approval and draft protections
+remain in effect.

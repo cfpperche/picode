@@ -158,7 +158,9 @@ if [ "$state" = "runtime-start" ] || [ "$state" = "runtime-end" ]; then
   [ "$state" = "runtime-end" ] && action=end
   run_id=$3
   pid=$4
-  python3 "%s/picode-hook-observation.py" "$PICODE_TERM_ID" "$action" "$cli" "$run_id" "${pid:-0}" 2>/dev/null || true
+  if [ -r /proc/sys/kernel/random/boot_id ]; then
+    python3 "%s/picode-hook-observation.py" "$PICODE_TERM_ID" "$action" "$cli" "$run_id" "${pid:-0}" 2>/dev/null || true
+  fi
   curl -fsSk -o /dev/null --max-time 3 \
     -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \

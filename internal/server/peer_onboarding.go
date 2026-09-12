@@ -70,6 +70,7 @@ func registerPeerOnboarding(mux Registrar, deps Deps) {
 		}
 		live := map[string]string{}
 		identity := map[string]string{}
+		recovery := map[string]string{}
 		for _, o := range owners {
 			key := o.Kind + ":" + o.OwnerID
 			if o.Kind == "agent" && deps.Runtime != nil {
@@ -87,11 +88,14 @@ func registerPeerOnboarding(mux Registrar, deps Deps) {
 			} else if rt, ok := deps.TermRuntimes.Get(o.OwnerID); ok && processAlive(rt) {
 				live[key] = "open"
 				identity[key] = "unobserved"
+				observation, observationErr := readNativeObservation(deps.DataDir, o.OwnerID)
+				if errors.Is(observationErr, errNativeObservationBlocked) {
+					recovery[key] = "restart-required"
+				}
 				if rt.SessionID != "" && rt.SessionID == o.SessionKey {
 					identity[key] = "confirmed"
-					observation, err := readNativeObservation(deps.DataDir, o.OwnerID)
-					if rt.Observation || err == nil || (deps.DataDir != "" && !os.IsNotExist(err)) {
-						if err != nil || !observationMatchesRuntime(observation, rt) {
+					if rt.Observation || observationErr == nil || (deps.DataDir != "" && !os.IsNotExist(observationErr)) {
+						if observationErr != nil || !observationMatchesRuntime(observation, rt) {
 							identity[key] = "unobserved"
 						}
 					}
@@ -101,7 +105,7 @@ func registerPeerOnboarding(mux Registrar, deps Deps) {
 				}
 			}
 		}
-		writeJSON(w, 200, map[string]any{"owners": owners, "participants": participants, "workspaces": workspaces, "connections": peers, "checks": checks, "live": live, "identity": identity})
+		writeJSON(w, 200, map[string]any{"owners": owners, "participants": participants, "workspaces": workspaces, "connections": peers, "checks": checks, "live": live, "identity": identity, "recovery": recovery})
 	})
 	mux.HandleFunc("PUT /api/communication/workspaces/{id}/participants", func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
