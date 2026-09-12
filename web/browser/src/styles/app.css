@@ -5288,3 +5288,40 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 
 :root[data-picode-frame] .main-tabs { padding-right: 134px; }
 :root[data-picode-frame] .dash-head { padding-right: 134px; }
+
+/* ── Shell merged top row (ADR-0122) ─────────────────────────────────────
+   In the desktop shell the window's whole top edge is one row: the brand,
+   the sidebar rail tabs, the agent tabs and the Windows caption buttons.
+   The row is window chrome rendered by the app in shell mode; a browser
+   never gets the app-shell class, so the two-line layout it knows is
+   untouched. */
+#app.app-shell { padding-top: var(--chrome-h); }
+.shell-row {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 60;
+  display: flex; align-items: stretch; height: var(--chrome-h);
+  background: var(--bg-panel); border-bottom: 1px solid var(--border);
+  user-select: none;
+}
+.shell-brand {
+  display: flex; align-items: center; gap: 8px;
+  width: var(--shell-nav-w, 244px); flex: none;
+  padding: 0 8px 0 14px; cursor: pointer;
+}
+.shell-mark {
+  width: 17px; height: 17px; border-radius: 4px; flex: none;
+  background: #09090b; color: #fff;
+  display: grid; place-items: center;
+  font: 700 11px/1 Inter, "Segoe UI", sans-serif;
+}
+.shell-name { font-size: 12.5px; font-weight: 650; letter-spacing: 0.2px; }
+.shell-brand:hover .shell-name { color: var(--accent); }
+.shell-row .main-tabs { flex: 1; min-width: 0; border-bottom: 0; }
+.shell-caps { display: flex; align-self: stretch; flex: none; }
+.cap-btn {
+  width: 46px; border: 0; background: none; padding: 0;
+  display: grid; place-items: center; cursor: pointer;
+  color: var(--text-secondary); border-radius: 0;
+}
+.cap-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.cap-btn.cap-close:hover { background: #c42b1c; color: #fff; }
+.cap-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
