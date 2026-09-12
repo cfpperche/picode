@@ -2841,41 +2841,6 @@
         ]
       }
     },
-    "/api/clis/{cli}/sessions/adopt": {
-      "post": {
-        "operationId": "postApiClisSessionsAdopt",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "cli",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "401": {
-            "description": "Not paired"
-          }
-        },
-        "tags": [
-          "clis"
-        ]
-      }
-    },
     "/api/clis/{cli}/sessions/cleanup": {
       "get": {
         "operationId": "getApiClisSessionsCleanup",
