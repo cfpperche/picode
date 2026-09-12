@@ -20,8 +20,12 @@ import { IconFile, IconGit, IconPin } from "../Icons.jsx";
 // already has, offered twice: as the file, and as the changes to it.
 // Building a file manager in here is refused; the ways into a file panel are
 // the ways a path already reaches you.
-export default function PanelPicker({ open, fleet, pins, files, onCanvas, workingIds, onPick, onNewPin, onClose }) {
-  const { agents, terminals, notes, docs, diffs, total, pinTotal, fileTotal } = useMemo(() => {
+// `only` narrows the dialog to one kind: the reader armed that tool and drew
+// a rectangle for it, so offering the other four would be offering to put
+// something else in the place they marked.
+export default function PanelPicker({ open, fleet, pins, files, onCanvas, workingIds, only = "", onPick, onNewPin, onClose }) {
+  const show = (kind) => !only || only === kind;
+  const { agents, terminals, notes, docs, diffs, total, kindTotal, pinTotal, fileTotal } = useMemo(() => {
     const on = onCanvas || new Set();
     const agents = [];
     for (const ws of fleet.workspaces || []) for (const a of agentsOf(ws)) agents.push({ agent: a, ws });
@@ -31,6 +35,13 @@ export default function PanelPicker({ open, fleet, pins, files, onCanvas, workin
     const fileList = (Array.isArray(files) ? files : []).filter((f) => f && f.ref);
     return {
       total: agents.length + terminals.length + pinList.length + fileList.length,
+      // Per kind as well as overall: a dialog narrowed to terminals must say
+      // "no terminals yet" when there are none, not "every terminal is
+      // already on this canvas" because some *agent* exists.
+      kindTotal: {
+        agent: agents.length, terminal: terminals.length, note: pinList.length,
+        file: fileList.length, diff: fileList.length,
+      },
       pinTotal: pinList.length,
       fileTotal: fileList.length,
       agents: agents.filter((x) => !on.has("agent:" + x.agent.id)),
@@ -40,27 +51,37 @@ export default function PanelPicker({ open, fleet, pins, files, onCanvas, workin
       diffs: fileList.filter((f) => !on.has("diff:" + f.ref)),
     };
   }, [fleet.workspaces, fleet.freeAgents, fleet.terminals, pins, files, onCanvas]);
-  const none = agents.length + terminals.length + notes.length + docs.length + diffs.length === 0;
-  const copy = total === 0 ? "No agents, terminals or pins yet." : "Everything is already on this canvas.";
+  // What is offered *after* the filter: a dialog narrowed to terminals with
+  // every terminal already on the canvas must say so, not show an empty list.
+  const offered = (show("agent") ? agents.length : 0) + (show("terminal") ? terminals.length : 0)
+    + (show("note") ? notes.length : 0) + (show("file") ? docs.length : 0) + (show("diff") ? diffs.length : 0);
+  const none = offered === 0;
+  const ONE = { agent: "agent", terminal: "terminal", note: "pin", file: "file", diff: "change" };
+  const noun = ONE[only] || "";
+  const title = noun ? "Add " + noun : "Add panel";
+  const mine = noun ? (kindTotal[only] || 0) : total;
+  const copy = noun
+    ? (mine === 0 ? "No " + noun + "s yet." : "Every " + noun + " is already on this canvas.")
+    : (total === 0 ? "No agents, terminals or pins yet." : "Everything is already on this canvas.");
   const openFirst = "No file is open — open one in a tab and it is offered here, as the file and as its changes.";
   return (
     <Dialog.Root open={!!open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <Dialog.Portal>
         <Dialog.Overlay className="dlg-overlay" />
         <Dialog.Content className="dlg dlg-picker" onCloseAutoFocus={(e) => e.preventDefault()}>
-          <Dialog.Title className="dlg-title">Add panel</Dialog.Title>
+          <Dialog.Title className="dlg-title">{title}</Dialog.Title>
           <Dialog.Description className="sr-only">Pick an agent, a terminal, a pin, an open file or its changes to show on this canvas.</Dialog.Description>
           {none ? (
             <p className="cv-picker-empty dlg-body" role="status">
               <span>{copy}</span>
-              {pinTotal === 0 ? <button type="button" className="btn btn-sm" onClick={onNewPin}>New pin</button> : null}
+              {pinTotal === 0 && (!noun || only === "note") ? <button type="button" className="btn btn-sm" onClick={onNewPin}>New pin</button> : null}
             </p>
           ) : (
-            <Command label="Add panel" loop className="cv-picker">
-              <Command.Input className="combo-input" placeholder="Search agents, terminals, pins and open files" autoFocus />
+            <Command label={title} loop className="cv-picker">
+              <Command.Input className="combo-input" placeholder={noun ? "Search " + noun + "s" : "Search agents, terminals, pins and open files"} autoFocus />
               <Command.List className="combo-list cv-picker-list">
                 <Command.Empty className="combo-empty">No matches</Command.Empty>
-                {agents.length ? (
+                {show("agent") && agents.length ? (
                   <Command.Group heading="Agents" className="palette-group">
                     {agents.map(({ agent, ws }) => {
                       const name = displayAgentName(agent, ws);
@@ -75,7 +96,7 @@ export default function PanelPicker({ open, fleet, pins, files, onCanvas, workin
                     })}
                   </Command.Group>
                 ) : null}
-                {terminals.length ? (
+                {show("terminal") && terminals.length ? (
                   <Command.Group heading="Terminals" className="palette-group">
                     {terminals.map((t) => {
                       const cli = terminalCli(t);
@@ -89,7 +110,7 @@ export default function PanelPicker({ open, fleet, pins, files, onCanvas, workin
                     })}
                   </Command.Group>
                 ) : null}
-                {notes.length ? (
+                {show("note") && notes.length ? (
                   <Command.Group heading="Pins" className="palette-group">
                     {notes.map((p) => {
                       const tags = (p.tags || []).join(" · ");
@@ -103,7 +124,7 @@ export default function PanelPicker({ open, fleet, pins, files, onCanvas, workin
                     })}
                   </Command.Group>
                 ) : null}
-                {docs.length ? (
+                {show("file") && docs.length ? (
                   <Command.Group heading="Open files" className="palette-group">
                     {docs.map((f) => (
                       <Command.Item key={"file:" + f.ref} value={f.name + " " + f.hint + " file " + f.ref} className="palette-item cv-picker-item" onSelect={() => onPick({ kind: "file", ref: f.ref })}>
@@ -114,7 +135,7 @@ export default function PanelPicker({ open, fleet, pins, files, onCanvas, workin
                     ))}
                   </Command.Group>
                 ) : null}
-                {diffs.length ? (
+                {show("diff") && diffs.length ? (
                   <Command.Group heading="Changes to an open file" className="palette-group">
                     {diffs.map((f) => (
                       <Command.Item key={"diff:" + f.ref} value={f.name + " " + f.hint + " diff changes " + f.ref} className="palette-item cv-picker-item" onSelect={() => onPick({ kind: "diff", ref: f.ref })}>

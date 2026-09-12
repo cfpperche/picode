@@ -22,14 +22,20 @@ assert.ok(workspace, "Refuse to mutate a non-synthetic fixture");
 const agent = workspace.agents.find(a => a.name === "Atlas");
 assert.equal(agent?.mode, "stopped");
 const id = agent.id;
+const terminals = await api("/api/terminals");
+const terminal = (terminals.terminals || terminals).find(t => t.running) || (terminals.terminals || terminals)[0];
+assert.ok(terminal?.id, "the fixture must have a terminal for the sidebar-context row");
 const session = "cli-settings-qa-" + process.pid;
 const browser = (...args) => execFileSync("agent-browser", ["--session", session, ...args], { encoding: "utf8", maxBuffer: 4 * 1024 * 1024 }).trim();
 const evaluate = code => JSON.parse(browser("eval", code));
 const navigate = hash => evaluate(`location.hash=${JSON.stringify(hash)}`);
 // The pane is ready when its sub-tabs are painted and the visible form is
 // editable (the keyboard map has no form of its own).
-const ready = () => browser("wait", "--fn", '!!document.querySelector("#pi-settings-view .pkg-tabs .pkg-tab") && !document.querySelector(".pi-settings-fields[disabled]:not([hidden])")');
-const tabClick = label => evaluate(`[...document.querySelectorAll("#pi-settings-view .pkg-tabs .pkg-tab")].find(b=>b.textContent===${JSON.stringify(label)}).click(); true`);
+const ready = () => browser("wait", "--fn", '!!document.querySelector("#pi-settings-view .settings-section") && !document.querySelector(".pi-settings-fields[disabled]:not([hidden])")');
+// The pane tabs are links, not buttons: click the real one so the router, the
+// href and the app's own rewrite effect are all exercised (a URL the harness
+// typed itself cannot catch a route the app rewrites away — 2026-09-12).
+const paneClick = label => evaluate(`[...document.querySelectorAll(".cli-pane-tabs a")].find(a=>a.textContent.trim()===${JSON.stringify(label)}).click(); true`);
 const layerOf = () => evaluate('document.querySelector("#pi-settings-view .settings-section")?.dataset.layer || ""');
 const globalHash = "#/clis/settings/pi";
 const contextHash = globalHash + "?agentId=" + encodeURIComponent(id);
@@ -68,16 +74,54 @@ try {
     assert.equal((await api("/api/pi-settings")).global.compactionEnabled, !before.global.compactionEnabled);
     results.push(app + ": global round-trip");
 
-    // The keyboard map is a sub-tab of its own: no layer switcher, own filter.
-    tabClick("Keys");
+    // The keyboard map is a pane next to Settings (no sub-tab row anywhere),
+    // machine-wide, with its own filter.
+    paneClick("Keyboard");
     browser("wait", "--fn", '!!document.querySelector("#keys-filter")');
-    assert.equal(evaluate('location.hash.includes("tab=keys")'), true);
-    assert.equal(evaluate('document.querySelectorAll("#pi-settings-view .settings-layer").length'), 0);
+    assert.equal(evaluate('location.hash.endsWith("/keyboard")'), true);
+    assert.equal(evaluate('document.querySelectorAll("#pi-settings-view .pkg-tabs, #pi-settings-view .settings-layer").length'), 0);
     assert.equal(evaluate('document.querySelectorAll("#pi-settings-view .key-row").length > 50'), true);
-    await capture(app + "-keys", true);
-    tabClick("Settings");
+    await capture(app + "-keyboard", true);
+    // The capture itself: Add, press a chord, and the map takes it. Removing
+    // it again leaves the fixture as it was (and the shot above pristine).
+    const firstAction = (await api("/api/pi-keys")).actions[0];
+    // Center the row first: the mobile shell's notice banner covers the top of
+    // the form and a ref click on a covered Add is refused (2026-09-12).
+    evaluate('(() => { const row = document.querySelectorAll("#pi-settings-view .key-row")[0]; row.scrollIntoView({ block: "center" }); [...row.querySelectorAll("button")].find(b => b.textContent === "Add").click(); return true; })()');
+    browser("press", "Control+Alt+k");
+    let bound = "";
+    for (let i = 0; i < 20 && !bound; i++) {
+      await new Promise(resolve => setTimeout(resolve, 150));
+      bound = ((await api("/api/pi-keys")).user?.[firstAction.id] || []).find(key => /ctrl\+alt\+k/i.test(key)) || "";
+    }
+    assert.ok(bound, "the captured chord must be saved to the key map");
+    await api("/api/pi-keys", "PUT", { action: firstAction.id, reset: true });
+    results.push(app + ": a captured chord is saved to the machine key map");
+    // The old sub-tab route still lands here (a bookmark from 2026-09-12).
+    navigate("#/clis/pi/settings?agentId=" + encodeURIComponent(id) + "&tab=keys");
+    browser("wait", "--fn", 'location.hash.endsWith("/keyboard") && !!document.querySelector("#keys-filter")');
+    results.push(app + ": the keyboard map is its own pane, and the old sub-tab link lands on it");
+    paneClick("Settings");
     browser("wait", "--fn", '!!document.querySelector("#pi-settings-view .settings-layer")');
-    results.push(app + ": the keyboard map is its own sub-tab");
+
+    // The pane tab keeps working while the sidebar holds a terminal: the
+    // settings route stays unscoped and the pane's "carry the selected agent"
+    // rewrite watches it — the shape that silently reverted to Settings when
+    // the map was a `?tab=keys` sub-tab (2026-09-12).
+    if (app === "desktop") {
+      navigate("#/term/" + encodeURIComponent(terminal.id));
+      await new Promise(resolve => setTimeout(resolve, 400));
+      navigate("#/clis/pi/settings");
+      ready();
+      paneClick("Keyboard");
+      browser("wait", "--fn", '!!document.querySelector("#keys-filter")');
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      assert.equal(evaluate('location.hash.endsWith("/keyboard")'), true, "the pane rewrite must not undo a pane click");
+      results.push(app + ": a Keyboard click survives the pane's own route rewrite");
+      // Back to the machine layer: the provenance step below reads its toggle.
+      navigate(globalHash);
+      ready();
+    }
 
     // Provenance: a value this layer sets is marked, and Use inherited hands it
     // back to the parent instead of freezing a copy.

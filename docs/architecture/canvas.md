@@ -650,34 +650,52 @@ chrome floats **on** it, adapted from nodeterm's canvas
 "Chrome"; the owner's ask was "menus estilo overlays e não aquela barra fixa
 no topo"). Two clusters, and nothing else:
 
-Three places on the bottom edge and nothing anywhere else (owner,
-2026-09-12, following React Flow's own `<Controls>`):
+Four places, three of them on the bottom edge (owner, 2026-09-12):
 
 | Where | What | Why there |
 |---|---|---|
+| top-left (`.cv-chrome`) | the canvas switcher and the `⋯` menu | identity belongs where a reader starts reading |
 | bottom-left (`.cv-camera`) | a column: **+**, **−**, **Fit** | React Flow's own Controls stand here, and a camera is not a canvas action |
-| centre (`.cv-toolbar`) | the switcher, **Add panel**, `⋯` | what the canvas *is* and what you do to it, where the eye lands |
-| bottom-right (`<MiniMap>`, `Plane.jsx`) | the map of the plane | the corner the dock leaves free |
+| bottom-centre (`.cv-toolbar`) | one button per **element**: agent, terminal, pin | the hands' end of the surface: what you add |
+| bottom-right (`<MiniMap>`, `Plane.jsx`) | the map of the plane | the corner the rest leaves free |
 
-**There is no zoom readout.** It was a segment of the dock until the camera
-moved out (2026-09-12) and the owner dropped it with the move. What went with
-it is the only thing on screen that named the zoom — and 100 % is the one
-zoom whose pointer lands on the cell it points at (§4.3). The recovery is
-unchanged and still reachable: clicking any inert or still panel body snaps
-the plane back to 1 (`.cv-snap`), and so does the keyboard. What a reader no
-longer gets is the *warning* — nothing says "you are at 83 %, a click will
-miss". If that bites, the readout belongs on the camera column, not back in
-the dock.
+### Placing a panel (2026-09-12)
 
-**One switch hides all three** (`canvasChrome.js`, per viewer, like the
-background pattern). The chrome is the way *around* a canvas, not the canvas,
-so when the plane itself is the thing being read — a wall of live terminals,
-a demo, a capture — the three boxes are in the way. The switch is the first
-row of the plane's context menu, and **the menu is never hidden**: a
-right-click on the plane works with the chrome gone, which is the only reason
-hiding everything is safe to offer. A stored value other than the literal
-`hidden` shows the controls, so a stale or foreign key can never leave a
-reader with no way back.
+**`Add panel` is gone from the toolbar**, and with it the last place where a
+generic verb made the *surface* choose the spot. `nextSlot` packs from the
+canvas origin outward; on an infinite plane the origin means nothing to
+someone whose camera is elsewhere, so a new panel was born off screen — which
+is what the owner hit. Three steps replace it:
+
+1. **Arm** — press the element's button. `aria-pressed` is the state, and the
+   same press again, or `Esc`, disarms.
+2. **Mark** — draw the rectangle on the plane. `.cv-mark-layer` takes the
+   pointer for exactly that one gesture, because React Flow owns it
+   underneath for panning, marquee selection and every node, and there is no
+   way to borrow it politely. The rectangle is kept in **screen** pixels
+   while it is drawn and converted once, on release, through
+   `screenToFlowPosition` — the only function that knows the camera.
+3. **Pick** — the dialog opens narrowed to that kind (`only`), because the
+   reader already said what goes there. Choosing creates the panel in the
+   rectangle and disarms the tool.
+
+`placementRect` (`web/shared/domain/canvas.js`) is the pure part: a gesture
+shorter than the slop is a **click**, which centres the default size on the
+point; anything longer is the rectangle drawn, snapped to whole units, grown
+to the panel minimum **from the corner the reader anchored first**, and
+clamped so the whole rectangle stays on the plane. The slop is divided by the
+zoom before it reaches the function — six screen pixels is six plane pixels
+at 1.0 and thirty at 0.2, and a click must stay a click at every camera.
+
+**Drawing settles the camera.** `onMarkUp` sets the plane's `fitted` flag
+before it reports the rectangle. Without it the first panel placed on a fresh
+canvas trips the opening `fitView`, and the camera jumps the instant the
+reader finishes choosing where to put it — the same complaint, one step
+later.
+
+**Files and changes keep no tool.** They are opened from a tab, not drawn, so
+their way in is **Add panel…** in the `⋯` menu — the one path that still lets
+`nextSlot` choose.
 
 ### The plane's context menu (2026-09-12)
 

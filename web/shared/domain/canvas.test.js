@@ -5,6 +5,7 @@ import {
   CANVAS_ZOOM, LOAD_DWELL_MS, CANVAS_EVENTS, CANVAS_KINDS, CANVAS_LIMITS, PANE_STATES, PANEL_DEFAULT_CANVAS, PANEL_DIRECTIONS,
   SUSPENDED_MAX, SUSPENDED_TTL_MS, TIDY_COLS, TIDY_GAP, UNIT_PX, UNLOAD_AFTER_MS, VIEWPORT_PREFIX, VIEWPORT_PREFIX_WAS, applyCanvasEvent, bindingState,
   gridToCanvas, layoutDiff, loadPolicy, neighborPanel, nextSlot, normalizeCanvas, normalizeCanvasDetail,
+  placementRect,
   normalizeCanvasList, normalizePanel, normalizeViewport, panelOrder, pointerAtZoom, pxToUnits, suspendedToDispose,
   buildRef, gitTouches, hasPane, legacyViewportKey, parseRef, REF_OWNERS, tidyCanvas, validateRef, unitsToPx, validateCompact, validateName, validatePanel, validatePlacement, viewportKey, zoomBody,
   CHAT_LIVE_MAX, CHAT_STATES, chatBudget, hasChat,
@@ -950,4 +951,52 @@ test("an edge does not outlive its panel, and every other event keeps the edges"
   }
   // And a deleted canvas takes its entry, edges included.
   assert.deepEqual(Object.keys(applyCanvasEvent(base(), { type: "canvas.deleted", data: { id: "m1" } }).byId), []);
+});
+
+test("placementRect: a click centres the default size on the point", () => {
+  const px = (u) => u * UNIT_PX;
+  const r = placementRect({ x: px(100), y: px(50) }, { x: px(100) + 2, y: px(50) - 3 });
+  assert.equal(r.w, PANEL_DEFAULT_CANVAS.w);
+  assert.equal(r.h, PANEL_DEFAULT_CANVAS.h);
+  // Centred: the point is the middle of the rectangle, not its corner.
+  assert.equal(r.x, 100 - Math.round(PANEL_DEFAULT_CANVAS.w / 2));
+  assert.equal(r.y, 50 - Math.round(PANEL_DEFAULT_CANVAS.h / 2));
+});
+
+test("placementRect: a drag is the rectangle drawn, in whole units, any direction", () => {
+  const px = (u) => u * UNIT_PX;
+  const want = { x: 10, y: 20, w: 60, h: 40 };
+  const a = { x: px(10), y: px(20) };
+  const b = { x: px(70), y: px(60) };
+  assert.deepEqual(placementRect(a, b), want, "top-left to bottom-right");
+  assert.deepEqual(placementRect(b, a), want, "bottom-right to top-left");
+  assert.deepEqual(placementRect({ x: px(70), y: px(20) }, { x: px(10), y: px(60) }), want, "top-right to bottom-left");
+});
+
+test("placementRect: a rectangle drawn smaller than a panel grows from where it started", () => {
+  const px = (u) => u * UNIT_PX;
+  const r = placementRect({ x: px(4), y: px(4) }, { x: px(14), y: px(9) });
+  assert.equal(r.w, CANVAS_LIMITS.canvasMinW);
+  assert.equal(r.h, CANVAS_LIMITS.canvasMinH);
+  assert.equal(r.x, 4, "the corner the reader anchored first stays put");
+  assert.equal(r.y, 4);
+});
+
+test("placementRect: the whole rectangle stays on the plane", () => {
+  const px = (u) => u * UNIT_PX;
+  const far = CANVAS_LIMITS.canvasCoord;
+  const r = placementRect({ x: px(far), y: px(far) }, { x: px(far + 50), y: px(far + 50) });
+  assert.equal(r.x + r.w, far, "pulled back by its own width, not clipped");
+  assert.equal(r.y + r.h, far);
+  const back = placementRect({ x: px(-far - 100), y: px(-far - 100) }, { x: px(-far - 50), y: px(-far - 50) });
+  assert.equal(back.x, -far);
+  assert.equal(back.y, -far);
+});
+
+test("placementRect: nothing, or half a point, still yields a legal rectangle", () => {
+  for (const [a, b] of [[null, null], [{ x: 0 }, undefined], [{ x: NaN, y: NaN }, { x: 1, y: 1 }]]) {
+    const r = placementRect(a, b);
+    assert.ok(r.w >= CANVAS_LIMITS.canvasMinW && r.h >= CANVAS_LIMITS.canvasMinH, "never below the minimum");
+    assert.ok(Number.isFinite(r.x) && Number.isFinite(r.y), "never NaN");
+  }
 });

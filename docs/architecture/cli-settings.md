@@ -44,10 +44,18 @@ reset, so a running agent never keeps the override that just left the file.
 The agent layer keeps PiCode's own fields (Model, Tools, Checklist) and the
 `PATCH /api/agents/{id}` path, and it sits outside the native defaults
 fieldset: an unreadable `settings.json` leaves it editable (ADR-0101 recovery).
-The keyboard map is the **Keys** sub-tab (`tab=keys`); it is machine-wide, so
-it carries no layer switcher and keeps its own filter. Both route params
-survive a reload; an unknown value is dropped and the pane falls back to the
-default layer — the deepest layer the route names (an agent link opens the
-agent's layer), or the machine layer for a `focus=scoped-models` shortcut.
-Uncommitted pattern text is kept per layer while the pane stays mounted.
-Clicking the pane tab itself is plain navigation: it lands on the defaults.
+The `layer` param survives a reload; an unknown value is dropped and the pane
+falls back to the default layer — the deepest layer the route names (an agent
+link opens the agent's layer), or the machine layer for a `focus=scoped-models`
+shortcut. Uncommitted pattern text is kept per layer while the pane stays
+mounted. Clicking the pane tab itself is plain navigation: it lands on the
+defaults.
+
+The keyboard map is the **Keyboard** pane next to Settings
+(`#/clis/pi/keyboard`, owner's call 2026-09-12: two tab rows inside one pane
+read as nesting). It is machine-wide — `keybindings.json`, its own endpoint
+`/api/pi-keys` — so it has no layer switcher and keeps its own filter, and a
+failing `settings.json` read cannot lock it. Its link carries the settings
+context (`agentId`, `layer`) so a round trip lands back on the same agent and
+layer; the route ignores the rest. A `?tab=keys` link from the sub-tab day
+redirects to it.

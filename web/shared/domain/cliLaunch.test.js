@@ -28,7 +28,7 @@ test("a CLI page names its pane in the path (ADR-0079 amendment 2026-09-11)", ()
   assert.deepEqual(cliLocation("#/clis/pi/providers/new"), { view: "clis", id: "pi", pane: "providers", add: true });
   assert.deepEqual(cliLocation("#/clis/codex/providers"), { view: "clis", id: "codex", pane: "providers" });
   assert.equal(cliPaneHash("pi", "providers"), "#/clis/pi/providers");
-  assert.deepEqual(cliLocation("#/clis/pi/settings"), { view: "clis", pane: "settings", id: "pi", agentId: "", focus: "", layer: "", tab: "", legacy: false, redirect: "" });
+  assert.deepEqual(cliLocation("#/clis/pi/settings"), { view: "clis", pane: "settings", id: "pi", agentId: "", focus: "", layer: "", keysTab: false, legacy: false, redirect: "" });
   assert.deepEqual(cliLocation("#/clis/pi/packages"), { view: "clis", pane: "packages", id: "pi", pkg: "", workspaceId: "", agentId: "", scope: "user", legacy: false, invalid: false, redirect: "" });
   assert.equal(cliLocation("#/clis/pi/connectors").pane, "connectors");
   assert.equal(cliPaneHash("pi", "settings"), "#/clis/pi/settings");
@@ -39,13 +39,14 @@ test("a CLI page names its pane in the path (ADR-0079 amendment 2026-09-11)", ()
   assert.equal(cliLocation("#/clis/connectors").redirect, "#/clis/pi/connectors");
   assert.equal(cliLocation("#/clis/pi/settings/extra").invalid, true);
   assert.equal(cliLocation("#/clis/pi/connectors/extra").invalid, true);
+  assert.equal(cliLocation("#/clis/pi/keyboard").pane, "keyboard");
 });
 
 test("setup panes fall back to the selected sidebar pane when the hash has no identity", () => {
   const legacy = { workspaceId: "w", agentId: "a" };
-  assert.deepEqual(cliPaneSetupContext({ pane: "packages" }, legacy), { workspaceId: "w", agentId: "a", scope: "user", focus: "" });
-  assert.deepEqual(cliPaneSetupContext({ workspaceId: "x", agentId: "y", scope: "project", focus: "scoped-models" }, legacy), { workspaceId: "x", agentId: "y", scope: "project", focus: "scoped-models" });
-  assert.deepEqual(cliPaneSetupContext({}, {}), { workspaceId: "", agentId: "", scope: "user", focus: "" });
+  assert.deepEqual(cliPaneSetupContext({ pane: "packages" }, legacy), { workspaceId: "w", agentId: "a", scope: "user", focus: "", layer: "" });
+  assert.deepEqual(cliPaneSetupContext({ workspaceId: "x", agentId: "y", scope: "project", focus: "scoped-models", layer: "agent" }, legacy), { workspaceId: "x", agentId: "y", scope: "project", focus: "scoped-models", layer: "agent" });
+  assert.deepEqual(cliPaneSetupContext({}, {}), { workspaceId: "", agentId: "", scope: "user", focus: "", layer: "" });
 });
 
 test("legacy package and settings hashes adopt pane context through cliLocation", () => {

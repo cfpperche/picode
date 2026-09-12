@@ -450,3 +450,55 @@ func TestPeerOpenCodeSidebarAndWrappedFooter(t *testing.T) {
 		t.Fatal("post-paste edit accepted")
 	}
 }
+
+func TestPeerGrokWelcomeComposer(t *testing.T) {
+	raw, err := os.ReadFile("testdata/grok-welcome-composer.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var original tmux.InputSnapshot
+	if err = json.Unmarshal(raw, &original); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		edit func(*tmux.InputSnapshot)
+		want bool
+	}{
+		{"untouched welcome", func(s *tmux.InputSnapshot) {}, true},
+		{"draft", func(s *tmux.InputSnapshot) {
+			s.Lines[s.CursorY] = strings.Replace(s.Lines[s.CursorY], "❯ ", "❯ draft", 1)
+		}, false},
+		{"moved cursor", func(s *tmux.InputSnapshot) { s.CursorX++ }, false},
+		{"copy mode", func(s *tmux.InputSnapshot) { s.InMode = true }, false},
+		{"changed width", func(s *tmux.InputSnapshot) { s.Width-- }, false},
+		{"unknown footer", func(s *tmux.InputSnapshot) { s.Lines[s.CursorY+3] = strings.Repeat(" ", s.Width-10) + "[other]" }, false},
+		{"shifted footer", func(s *tmux.InputSnapshot) { s.Lines[s.CursorY+3] = "[stable]" }, false},
+		{"broken frame", func(s *tmux.InputSnapshot) { s.Lines[s.CursorY-1] = "" }, false},
+		{"extra editor row", func(s *tmux.InputSnapshot) { s.Lines[s.CursorY+2] = "draft" }, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := original
+			s.Lines = append([]string(nil), original.Lines...)
+			tc.edit(&s)
+			if got := peerInputMatches("grok", s, ""); got != tc.want {
+				t.Fatalf("got %v want %v", got, tc.want)
+			}
+		})
+	}
+	raw, err = os.ReadFile("testdata/grok-welcome-pasted.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pasted tmux.InputSnapshot
+	if err = json.Unmarshal(raw, &pasted); err != nil {
+		t.Fatal(err)
+	}
+	if !peerInputMatches("grok", pasted, peerCLIPointer) {
+		t.Fatal("native welcome-to-editor transition refused")
+	}
+	pasted.Lines[pasted.CursorY+3] = strings.Repeat(" ", pasted.Width-10) + "[stable]"
+	if peerInputMatches("grok", pasted, peerCLIPointer) {
+		t.Fatal("post-paste stale welcome footer accepted")
+	}
+}

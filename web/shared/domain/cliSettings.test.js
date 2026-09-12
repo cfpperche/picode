@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { cliSettingsLocation, cliSettingsHash, supportsCliSettings, loadPiSettingsContext } from "./cliSettings.js";
-import { cliLocation } from "./cliLaunch.js";
+import { cliLocation, cliPaneHash } from "./cliLaunch.js";
 
 test("native settings routes preserve identity, legacy context and explicit global scope", () => {
   for (const old of ["#/settings", "#/more/settings"]) {
@@ -22,19 +22,37 @@ test("native settings routes preserve identity, legacy context and explicit glob
   assert.equal(cliSettingsLocation("#/preferences"), null);
 });
 
-test("the edited layer and the sub-tab survive a reload, and guesses are dropped", () => {
+test("the edited layer survives a reload, and guesses are dropped", () => {
   assert.equal(cliSettingsHash("pi", { agentId: "A", layer: "project" }), "#/clis/pi/settings?agentId=A&layer=project");
-  assert.equal(cliSettingsHash("pi", { layer: "agent", tab: "keys" }), "#/clis/pi/settings?layer=agent&tab=keys");
   assert.equal(cliSettingsHash("pi", { layer: "root" }), "#/clis/pi/settings");
-  assert.equal(cliSettingsHash("pi", { tab: "other" }), "#/clis/pi/settings");
-  const round = cliSettingsLocation("#/clis/pi/settings?agentId=A&layer=agent&tab=keys");
+  const round = cliSettingsLocation("#/clis/pi/settings?agentId=A&layer=agent");
   assert.equal(round.layer, "agent");
-  assert.equal(round.tab, "keys");
   assert.equal(round.view, "clis");
-  assert.equal(cliSettingsLocation("#/clis/pi/settings?layer=user&tab=x").layer, "");
-  assert.equal(cliSettingsLocation("#/clis/pi/settings?layer=user&tab=x").tab, "");
+  assert.equal(cliSettingsLocation("#/clis/pi/settings?layer=user").layer, "");
   // A legacy link keeps the layer it was opened with.
   assert.equal(cliSettingsLocation("#/settings?layer=project", "A").redirect, "#/clis/pi/settings?agentId=A&layer=project");
+});
+
+test("the keyboard map is a pane of its own, and its sub-tab links still land", () => {
+  // `#/clis/pi/keyboard` is an ordinary pane; the settings context rides along
+  // so a round trip lands back on the agent and the layer it left.
+  const pane = cliLocation("#/clis/pi/keyboard");
+  assert.equal(pane.pane, "keyboard");
+  assert.equal(pane.id, "pi");
+  assert.equal(cliPaneHash("pi", "keyboard"), "#/clis/pi/keyboard");
+  const scoped = cliLocation("#/clis/pi/keyboard?agentId=A&layer=project");
+  assert.equal(scoped.agentId, "A");
+  assert.equal(scoped.layer, "project");
+  assert.equal(cliLocation("#/clis/pi/keyboard?layer=user").layer, "", "a guessed layer is dropped");
+  assert.equal(cliLocation("#/clis/pi/keyboard/extra").invalid, true, "no path after the pane");
+  // The sub-tab that lived inside Settings until 2026-09-12 redirects there,
+  // keeping whatever else the link carried.
+  const old = cliLocation("#/clis/pi/settings?agentId=A&layer=agent&tab=keys");
+  assert.equal(old.redirect, "#/clis/pi/keyboard");
+  assert.equal(old.keysTab, false);
+  const legacy = cliLocation("#/settings?tab=keys", { agentId: "A" });
+  assert.equal(legacy.redirect, "#/clis/pi/keyboard");
+  assert.equal(cliLocation("#/clis/pi/settings?tab=other").redirect, "");
 });
 
 test("unsupported and malformed CLI identities never become Pi", () => {

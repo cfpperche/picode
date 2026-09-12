@@ -230,3 +230,9 @@ with a blank gutter separating sidebar content. They verify the editor rows
 inside that boundary, the command footer and one constrained wrapped path row.
 The same measured width gates pointer fit before claiming or pasting. Drafts,
 unknown footers, damaged borders and changed post-paste text remain refused.
+
+Grok's untouched welcome editor has a right-aligned `[stable]` footer instead of
+shortcut hints. Attention accepts that exact footer only with an empty bordered
+editor and no suggestion. Pasting dismisses welcome; the normal Enter shortcut
+and exact pointer remain mandatory before submission. Acceptance includes fresh
+native sessions without a preparatory model turn.

@@ -1,5 +1,5 @@
 import { cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
-import { cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
+import { cliSettingsHash, cliSettingsQuery } from "@picode/shared/domain/cliSettings.js";
 import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
 import { cliConnectorsHash } from "@picode/shared/domain/integrations.js";
 
@@ -11,12 +11,21 @@ const RUN = [
 const SETUP = [
   { id: "providers", label: "Providers" },
   { id: "settings", label: "Settings" },
+  // "Keyboard", not "Keys": the pane next door configures providers, where
+  // "keys" means credentials (owner picked the name, 2026-09-12).
+  { id: "keyboard", label: "Keyboard" },
   { id: "packages", label: "Packages" },
   { id: "connectors", label: "Connectors" },
 ];
 
 export function cliSetupHref(cli, pane, ctx = {}, workspace = "") {
-  if (pane === "settings") return cliSettingsHash(cli, { agentId: ctx.agentId || "", focus: ctx.focus || "" });
+  // The layer rides along: this href is written by the pane's "carry the
+  // selected agent" rewrite, and dropping the layer there made a layer pill
+  // click look like it did nothing (2026-09-12).
+  if (pane === "settings") return cliSettingsHash(cli, { agentId: ctx.agentId || "", focus: ctx.focus || "", layer: ctx.layer || "" });
+  // The keyboard map is machine-wide, but the link keeps the settings context:
+  // going there and back must not move the reader to another agent or layer.
+  if (pane === "keyboard") return cliPaneHash(cli, "keyboard") + cliSettingsQuery({ agentId: ctx.agentId || "", layer: ctx.layer || "" });
   if (pane === "packages") return cliPackagesHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: ctx.scope || "user" });
   if (pane === "connectors") return cliConnectorsHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: ctx.scope || "user" });
   return cliPaneHash(cli, pane, pane === "sessions" ? workspace : "");
@@ -34,8 +43,8 @@ function Tab({ cli, pane, workspace, ctx, item, extra }) {
   );
 }
 
-export default function CliPaneTabs({ cli, pane = "launch", workspace = "", workspaceId = "", agentId = "", scope = "user", focus = "", actions = null, hasPackageUpdates = false }) {
-  const ctx = { workspaceId, agentId, scope, focus };
+export default function CliPaneTabs({ cli, pane = "launch", workspace = "", workspaceId = "", agentId = "", scope = "user", focus = "", layer = "", actions = null, hasPackageUpdates = false }) {
+  const ctx = { workspaceId, agentId, scope, focus, layer };
   return (
     <div className="cli-pane-bar">
       <nav className="cli-pane-tabs" role="tablist" aria-label="CLI sections">

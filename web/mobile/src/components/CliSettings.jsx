@@ -6,15 +6,15 @@ import PiSettings from "./PiSettings.jsx";
 
 const EDITORS = { pi: { Editor: PiSettings, loadContext: loadPiSettingsContext } };
 
-export default function CliSettings({ hidden, route, catalog, onAgentConfig }) {
+export default function CliSettings({ hidden, route, catalog, onAgentConfig, pane = "settings" }) {
   const supported = supportsCliSettings(route.id);
   return <section id="cli-settings-view" hidden={hidden}>
     {route.invalid || !supported ? <div className="cli-notice" role="status"><span>{route.invalid ? "This settings link is invalid." : "Settings are not available for this CLI."}</span><a className="btn btn-ghost btn-sm" href={cliSettingsHash("pi")}>Open Pi settings</a></div>
-      : !hidden ? <SettingsEditor key={route.id + ":" + route.agentId} route={route} catalog={catalog} onAgentConfig={onAgentConfig} /> : null}
+      : !hidden ? <SettingsEditor key={route.id + ":" + route.agentId} route={route} catalog={catalog} onAgentConfig={onAgentConfig} pane={pane} /> : null}
   </section>;
 }
 
-function SettingsEditor({ route, catalog, onAgentConfig }) {
+function SettingsEditor({ route, catalog, onAgentConfig, pane = "settings" }) {
   const [context, setContext] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(!!route.agentId);
@@ -69,6 +69,6 @@ function SettingsEditor({ route, catalog, onAgentConfig }) {
   };
   return <>
     {notice}
-    <Editor embedded disabled={!!error} hidden={false} agent={context?.agent} workspace={context?.workspace} catalog={catalog} focus={route.focus} layer={route.layer} tab={route.tab} onLayerChange={(layer) => writeRoute({ layer })} onTabChange={(tab) => writeRoute({ tab })} onAgentConfig={saveAgent} />
+    <Editor embedded keys={pane === "keyboard"} disabled={!!error} hidden={false} agent={context?.agent} workspace={context?.workspace} catalog={catalog} focus={route.focus} layer={route.layer} onLayerChange={(layer) => writeRoute({ layer })} onAgentConfig={saveAgent} />
   </>;
 }
