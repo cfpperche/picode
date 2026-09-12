@@ -13,7 +13,7 @@ import PiKeys from "./PiKeys.jsx";
 
 const MODES = ["one-at-a-time", "all"];
 
-export default function PiSettings({ hidden, agent: originalAgent, workspace, catalog, onAgentConfig, agentOnly = false, embedded = false, focus = "", disabled = false }) {
+export default function PiSettings({ hidden, agent: originalAgent, workspace, catalog, onAgentConfig, agentOnly = false, embedded = false, focus = "", disabled = false, layer = "", tab = "settings", onLayerChange = () => {}, onTabChange = () => {} }) {
   const [rep, setRep] = useState(null);
   const [pending, setPending] = useState(null);
   const agentSavingRef = useRef(false);
@@ -37,6 +37,7 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
   const [retry, setRetry] = useState(0);
+  const [drafts, setDrafts] = useState({});
   const savingRef = useRef(false);
   useEffect(() => {
     if (hidden) return;
@@ -56,19 +57,21 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
     return () => cancelAnimationFrame(frame);
   }, [hidden, !!rep, focus]);
 
-  async function save(layer, patch, okMsg) {
+  async function save(layerID, patch, okMsg) {
     if (disabled || savingRef.current) return false;
     savingRef.current = true;
     setSaving(true);
     setSaveError("");
     const previous = rep;
-    const key = layer === "project" ? "project" : "global";
-    setRep(current => ({ ...current, [key]: { ...current[key], ...patch } }));
+    const key = layerID === "project" ? "project" : "global";
+    // A reset is not merged optimistically: the keys that left the file — and
+    // the has flags the rows read — can only come from the server's report.
+    if (!patch.reset) setRep(current => ({ ...current, [key]: { ...current[key], ...patch } }));
     try {
       const next = await api("/api/pi-settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentId: agent ? agent.id : "", layer, patch }),
+        body: JSON.stringify({ agentId: agent ? agent.id : "", layer: layerID, patch }),
       });
       setRep(next);
       toast.ok(okMsg);
@@ -91,80 +94,127 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
     thinking: agent.thinking || parent.defaultThinkingLevel || "",
   } : null;
   const canProject = !!(rep && rep.writable && rep.writable.project);
+  const agSet = !!(agent && (agent.provider || agent.model || agent.thinking));
+
+  // One layer at a time (docs/plans/cli-settings-ux.md). The route's layer
+  // wins; a link that only names an agent opens that agent's layer, and the
+  // Palette's scoped-models shortcut opens the machine layer, where that row
+  // lives. A layer that cannot exist for this context is never offered.
+  const layers = [
+    { id: "global", label: "This machine", file: (rep && rep.global && rep.global.path) || "" },
+    ...(workspace ? [{ id: "project", label: workspace.name || "This folder", file: (rep && rep.project && rep.project.path) || "" }] : []),
+    ...(agent ? [{ id: "agent", label: displayAgentName(agent, workspace), file: "" }] : []),
+  ];
+  const wanted = focus === "scoped-models" ? "global" : layer;
+  // The quick sheet (agentOnly) is one agent, one layer: no switcher, no
+  // keyboard map, exactly as it was (docs/plans/cli-settings-ux.md).
+  const active = agentOnly ? layers[layers.length - 1] : (layers.find((l) => l.id === wanted) || layers[layers.length - 1]);
+  const pane = tab === "keys" && !agentOnly ? "keys" : "settings";
+  const chrome = !agentOnly;
+  const own = active.id === "global" ? rep && rep.global : active.id === "project" ? rep && rep.project : null;
 
   return (
-    <PageFrame id="pi-settings-view" title="Pi settings" embedded={embedded} context={!agentOnly && agent ? displayAgentName(agent, workspace) : ""} hidden={hidden} wide>
+    <PageFrame id="pi-settings-view" title="Pi settings" embedded={embedded} wide hidden={hidden}>
       {loadError ? <div className="pi-settings-notice" role="alert"><span title={loadError}>Could not load Pi defaults.</span><button type="button" className="btn btn-ghost btn-sm" onClick={() => setRetry(value => value + 1)}>Try again</button></div> : null}
       {saveError ? <div className="pi-settings-notice" role="alert"><span>{saveError}</span><button type="button" className="btn btn-ghost btn-sm" onClick={() => setSaveError("")}>Dismiss</button></div> : null}
       {saving ? <p role="status">Saving…</p> : null}
-      <fieldset className="pi-settings-fields" disabled={disabled || saving || !!pending} aria-busy={saving || !!pending}>
-      <fieldset className="pi-settings-fields" disabled={!rep || !!loadError} hidden={!rep && !!loadError}>
-      {!agentOnly ? <section className="settings-section" data-layer="global">
-        <h3>Global</h3>
-        <p className="settings-desc">This machine</p>
-        <LayerKnobs
-          prefix="g"
-          values={g}
-          catalog={catalog}
-          onSave={(patch) => save("global", patch, "Saved for every pi on this machine.")}
-        />
-      </section> : null}
-      {!agentOnly && workspace ? (
-        <section className="settings-section" data-layer="workspace">
-          <h3>Workspace</h3>
-          <p className="settings-desc">{workspace.name}</p>
-          {!canProject ? (
-            <div className="cli-notice" role="status"><span>This folder is not trusted.</span><a className="btn btn-ghost btn-sm" href={"#/agent/" + encodeURIComponent(agent.id)}>Open agent to trust</a></div>
-          ) : (
-            <LayerKnobs
-              prefix="w"
-              values={p}
-              catalog={catalog}
-              onSave={(patch) => save("project", patch, "Saved for this folder.")}
-            />
-          )}
-        </section>
+      {chrome ? (
+        <div className="pkg-tabs" role="tablist" aria-label="Pi settings sections">
+          <button type="button" role="tab" className="pkg-tab" aria-selected={pane === "settings"} onClick={() => onTabChange("settings")}>Settings</button>
+          <button type="button" role="tab" className="pkg-tab" aria-selected={pane === "keys"} onClick={() => onTabChange("keys")}>Keys</button>
+        </div>
       ) : null}
-      </fieldset>
-      {agent ? (
-        <section className="settings-section" data-layer="agent">
-          <h3>Agent</h3>
-          <p className="settings-desc">{displayAgentName(agent, workspace)} · all sessions of this pi</p>
-          <p className="settings-desc" role="status">{pending ? "Saving…" : configStatus}</p>
-          {configError ? <div role="alert"><p>{configError}</p><button type="button" className="btn btn-sm" onClick={() => setConfigError("")}>Dismiss</button></div> : null}
-          <fieldset className="m-agent-config-fields" disabled={!!pending} aria-busy={!!pending}>
-            <div className="set-rows">
-              <div className="set-row set-row-stack">
-                <span>Model</span>
-                <ConfigFields
-                  catalog={catalog}
-                  provider={ag.provider}
-                  model={ag.model}
-                  thinking={ag.thinking}
-                  onChange={changeAgent}
-                  idPrefix="ag-set"
-                  row
-                />
-              </div>
-              <div className="set-row">
-                <span>Tools</span>
-                <ModeChip cfg={{ opMode: agent.opMode || "full" }} onChange={changeAgent} />
-              </div>
-              <div className="set-row">
-                <span>Checklist</span>
-                <ChecklistChip level={agent.checklist || "changes"} readonly={(agent.opMode || "full") === "readonly"} onChange={changeAgent} />
-              </div>
+      {pane === "keys" ? (
+        <PiKeys disabled={disabled || saving || !!pending} />
+      ) : (
+        <>
+          {chrome ? <div className="settings-layer">
+            <span className="settings-layer-label">Edit</span>
+            <div className="pkg-scope" role="radiogroup" aria-label="Which layer to edit">
+              {layers.map((l) => (
+                <button
+                  key={l.id}
+                  type="button"
+                  role="radio"
+                  className="pkg-scope-btn"
+                  aria-checked={active.id === l.id}
+                  disabled={saving || !!pending}
+                  onClick={() => onLayerChange(l.id)}
+                >{l.label}</button>
+              ))}
             </div>
+          </div> : null}
+          {chrome && active.file ? <p className="settings-file" title={active.file}>{active.file}</p> : null}
+          <fieldset className="pi-settings-fields" disabled={disabled || saving || !!pending} aria-busy={saving || !!pending}>
+          {/* The agent layer is PiCode's own fields, not the native file: a
+              malformed settings.json must not lock it (ADR-0101 recovery). */}
+          {active.id === "agent" ? (
+          <section className="settings-section" data-layer="agent">
+            <>
+                <p className="settings-desc">{displayAgentName(agent, workspace)} · all sessions of this pi</p>
+                <p className="settings-desc" role="status">{pending ? "Saving…" : configStatus}</p>
+                {configError ? <div role="alert"><p>{configError}</p><button type="button" className="btn btn-sm" onClick={() => setConfigError("")}>Dismiss</button></div> : null}
+                <div className="set-rows">
+                  <div className={"set-row set-row-stack" + (agSet ? " is-set" : "")}>
+                    <span className="set-label">Model<span className="set-src">{agSet ? "Set here" : "From " + inheritedLabel(workspace)}</span></span>
+                    <div className="set-ctl">
+                      <ConfigFields
+                        catalog={catalog}
+                        provider={ag.provider}
+                        model={ag.model}
+                        thinking={ag.thinking}
+                        onChange={changeAgent}
+                        idPrefix="ag-set"
+                        row
+                      />
+                    </div>
+                  </div>
+                  <div className="set-row">
+                    <span className="set-label">Tools</span>
+                    <div className="set-ctl"><ModeChip cfg={{ opMode: agent.opMode || "full" }} onChange={changeAgent} /></div>
+                  </div>
+                  <div className="set-row">
+                    <span className="set-label">Checklist</span>
+                    <div className="set-ctl"><ChecklistChip level={agent.checklist || "changes"} readonly={(agent.opMode || "full") === "readonly"} onChange={changeAgent} /></div>
+                  </div>
+                </div>
+              </>
+          </section>
+          ) : (
+          <fieldset className="pi-settings-fields" disabled={!rep || !!loadError} hidden={!rep && !!loadError}>
+          <section className="settings-section" data-layer={active.id}>
+            {!canProject && active.id === "project" ? (
+              <div className="cli-notice" role="status"><span>This folder is not trusted.</span><a className="btn btn-ghost btn-sm" href={"#/agent/" + encodeURIComponent(agent.id)}>Open agent to trust</a></div>
+            ) : (
+              <LayerKnobs
+                key={active.id}
+                prefix={active.id === "global" ? "g" : "w"}
+                draft={drafts[active.id] || ""}
+                onDraft={(value) => setDrafts((current) => ({ ...current, [active.id]: value }))}
+                values={active.id === "global" ? g : p}
+                own={own}
+                parentLabel={active.id === "project" ? "From This machine" : "Pi default"}
+                catalog={catalog}
+                saving={saving}
+                onSave={(patch) => save(active.id, patch, active.id === "global" ? "Saved for every pi on this machine." : "Saved for this folder.")}
+                onReset={(keys) => save(active.id, { reset: keys }, "Back to inherited.")}
+              />
+            )}
+          </section>
           </fieldset>
-        </section>
-      ) : null}
-      {!agentOnly ? <PiKeys disabled={disabled || saving || !!pending} /> : null}
-      </fieldset>
+          )}
+          </fieldset>
+        </>
+      )}
     </PageFrame>
   );
 }
 
-function LayerKnobs({ prefix, values, catalog, onSave }) {
+function inheritedLabel(workspace) {
+  return workspace ? "this folder" : "This machine";
+}
+
+function LayerKnobs({ prefix, values, own, parentLabel, catalog, saving, onSave, onReset, draft, onDraft }) {
   if (!values) {
     return (
       <div className="set-rows" aria-busy="true">
@@ -177,79 +227,104 @@ function LayerKnobs({ prefix, values, catalog, onSave }) {
       </div>
     );
   }
+  const isSet = (keys) => keys.some((k) => !!(own && own.has && own.has[k]));
+  // "Use inherited" clears exactly the keys this layer set, so a row that
+  // overrides one of its three fields hands back only that one.
+  const resetKeys = (keys) => keys.filter((k) => !!(own && own.has && own.has[k]));
+  const reset = (keys) => <button type="button" className="btn btn-ghost btn-sm" disabled={saving} onClick={() => onReset(resetKeys(keys))}>Use inherited</button>;
+  const source = (keys) => <span className="set-src">{isSet(keys) ? "Set here" : parentLabel}</span>;
+  const rowClass = (keys) => "set-row" + (isSet(keys) ? " is-set" : "");
   return (
     <div className="set-rows">
-      <div className="set-row">
-        <label htmlFor={prefix + "-compact"}>Auto-compact</label>
-        <Switch.Root
-          id={prefix + "-compact"}
-          className="rx-switch"
-          checked={!!values.compactionEnabled}
-          onCheckedChange={(v) => onSave({ compactionEnabled: v })}
-        >
-          <Switch.Thumb className="rx-switch-thumb" />
-        </Switch.Root>
+      <div className={rowClass(["compactionEnabled"])}>
+        <label className="set-label" htmlFor={prefix + "-compact"}>Auto-compact{source(["compactionEnabled"])}</label>
+        <div className="set-ctl">
+          <Switch.Root
+            id={prefix + "-compact"}
+            className="rx-switch"
+            checked={!!values.compactionEnabled}
+            onCheckedChange={(v) => onSave({ compactionEnabled: v })}
+          >
+            <Switch.Thumb className="rx-switch-thumb" />
+          </Switch.Root>
+          {isSet(["compactionEnabled"]) ? reset(["compactionEnabled"]) : null}
+        </div>
       </div>
-      <div className="set-row">
-        <label htmlFor={prefix + "-steer"}>Steering</label>
-        <select id={prefix + "-steer"} value={values.steeringMode || "one-at-a-time"} onChange={(e) => onSave({ steeringMode: e.target.value })}>
-          {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
-        </select>
+      <div className={rowClass(["steeringMode"])}>
+        <label className="set-label" htmlFor={prefix + "-steer"}>Steering{source(["steeringMode"])}</label>
+        <div className="set-ctl">
+          <select id={prefix + "-steer"} value={values.steeringMode || "one-at-a-time"} onChange={(e) => onSave({ steeringMode: e.target.value })}>
+            {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+          {isSet(["steeringMode"]) ? reset(["steeringMode"]) : null}
+        </div>
       </div>
-      <div className="set-row">
-        <label htmlFor={prefix + "-follow"}>Follow-up</label>
-        <select id={prefix + "-follow"} value={values.followUpMode || "one-at-a-time"} onChange={(e) => onSave({ followUpMode: e.target.value })}>
-          {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
-        </select>
+      <div className={rowClass(["followUpMode"])}>
+        <label className="set-label" htmlFor={prefix + "-follow"}>Follow-up{source(["followUpMode"])}</label>
+        <div className="set-ctl">
+          <select id={prefix + "-follow"} value={values.followUpMode || "one-at-a-time"} onChange={(e) => onSave({ followUpMode: e.target.value })}>
+            {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+          {isSet(["followUpMode"]) ? reset(["followUpMode"]) : null}
+        </div>
       </div>
-      <div className="set-row set-row-stack">
-        <span>Defaults</span>
-        <ConfigFields
-          catalog={catalog}
-          provider={values.defaultProvider || ""}
-          model={values.defaultModel || ""}
-          thinking={values.defaultThinkingLevel || ""}
-          onChange={(cfg) => onSave({
-            defaultProvider: cfg.provider,
-            defaultModel: cfg.model,
-            defaultThinkingLevel: cfg.thinking,
-          })}
-          idPrefix={prefix + "-def"}
-          row
-        />
+      <div className={rowClass(["defaultProvider", "defaultModel", "defaultThinkingLevel"]) + " set-row-stack"}>
+        <span className="set-label">Defaults{source(["defaultProvider", "defaultModel", "defaultThinkingLevel"])}</span>
+        <div className="set-ctl">
+          <ConfigFields
+            catalog={catalog}
+            provider={values.defaultProvider || ""}
+            model={values.defaultModel || ""}
+            thinking={values.defaultThinkingLevel || ""}
+            onChange={(cfg) => onSave({
+              defaultProvider: cfg.provider,
+              defaultModel: cfg.model,
+              defaultThinkingLevel: cfg.thinking,
+            })}
+            idPrefix={prefix + "-def"}
+            row
+          />
+          {isSet(["defaultProvider", "defaultModel", "defaultThinkingLevel"]) ? reset(["defaultProvider", "defaultModel", "defaultThinkingLevel"]) : null}
+        </div>
       </div>
-      <div className="set-row set-row-stack" id={prefix === "g" ? "scoped-models" : undefined}>
-        <span>Scoped models</span>
-        <PatternField list={values.enabledModels || []} onSave={(enabledModels) => onSave({ enabledModels })} />
+      <div className={rowClass(["enabledModels"]) + " set-row-stack"} id={prefix === "g" ? "scoped-models" : undefined}>
+        <span className="set-label">Scoped models{source(["enabledModels"])}</span>
+        <div className="set-ctl">
+          <PatternField list={values.enabledModels || []} draft={draft} onDraft={onDraft} onSave={(enabledModels) => onSave({ enabledModels })} />
+          {isSet(["enabledModels"]) ? reset(["enabledModels"]) : null}
+        </div>
       </div>
-      <div className="set-row set-row-stack">
-        <span>Tools</span>
-        <div className="set-tools">
-          {PI_TOOLS.map((t) => {
-            const on = (values.defaultTools || []).includes(t);
-            return (
-              <label key={t} className="set-check">
-                <input
-                  type="checkbox"
-                  checked={on}
-                  onChange={() => {
-                    const cur = new Set(values.defaultTools || []);
-                    if (on) cur.delete(t); else cur.add(t);
-                    onSave({ defaultTools: PI_TOOLS.filter((x) => cur.has(x)) });
-                  }}
-                />
-                {t}
-              </label>
-            );
-          })}
+      <div className={rowClass(["defaultTools"]) + " set-row-stack"}>
+        <span className="set-label">Tools{source(["defaultTools"])}</span>
+        <div className="set-ctl set-ctl-stack">
+          <div className="set-tools" data-align-row data-align-wrap>
+            {PI_TOOLS.map((t) => {
+              const on = (values.defaultTools || []).includes(t);
+              return (
+                <label key={t} className="set-check">
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    onChange={() => {
+                      const cur = new Set(values.defaultTools || []);
+                      if (on) cur.delete(t); else cur.add(t);
+                      onSave({ defaultTools: PI_TOOLS.filter((x) => cur.has(x)) });
+                    }}
+                  />
+                  {t}
+                </label>
+              );
+            })}
+          </div>
+          {isSet(["defaultTools"]) ? reset(["defaultTools"]) : null}
         </div>
       </div>
     </div>
   );
 }
 
-function PatternField({ list, onSave }) {
-  const [draft, setDraft] = useState("");
+function PatternField({ list, draft, onDraft, onSave }) {
+  const setDraft = onDraft;
   return (
     <div className="set-pats">
       <form

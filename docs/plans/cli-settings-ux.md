@@ -1,6 +1,10 @@
 # Pi Settings pane — refinement proposal
 
-Status: **proposed** (not implemented). Study and measurements:
+Status: **implemented** (2026-09-12, branch `feat/settings-layers`). The three
+questions at the end were delegated to the implementer and answered as
+recommended: the agent layer is the default when the route names an agent, the
+keyboard map is its own sub-tab, and `Use inherited` ships with the small
+`patch.reset` addition. Study and measurements:
 [../benchmarks/2026-09-12-cli-settings-ux.md](../benchmarks/2026-09-12-cli-settings-ux.md).
 Keeps every row of [cli-native-settings.md](cli-native-settings.md) and
 [cli-settings-recovery.md](cli-settings-recovery.md) true — this changes how
@@ -93,6 +97,29 @@ The API already returns `layer.has.{key}` per key; the UI throws it away.
 
 P0 alone takes the machine layer from 6014 px to ~600 px and puts the 89 key
 rows behind one tab.
+
+## What shipped, and where it differs from this plan
+
+- **P2 was dropped after P0.** A machine layer is 6 rows and the agent layer 3;
+  a filter over them is chrome nobody needs, and the Keys tab already has one
+  (89 rows). The measurements above are the reason.
+- The layer ids are the API's (`global | project | agent`), so the DOM's
+  `data-layer` matches the `PUT /api/pi-settings` body and the existing
+  harness hooks.
+- The **agent layer sits outside** the native-defaults fieldset (the recovery
+  row "malformed settings.json must not lock explicit agent settings" — the
+  first restructure had it inside and broke that row; the harness caught it).
+- **Per-layer drafts**: the uncommitted "Scoped models" pattern is kept per
+  layer while the pane is mounted, so switching layers does not discard what
+  the reader typed.
+- Clicking the **pane tab** (the tablist above: Launch…Connectors) resets the
+  sub-tab and the layer to the defaults: pane links are plain navigation.
+- The harnesses were ported, not duplicated: `qa-cli-settings.mjs` asserts the
+  switcher, the route, provenance and the reset round trip (31 results across
+  both apps), `qa-cli-settings-recovery.mjs` keeps its 13 rows. Two rows'
+  evidence changed honestly: the settings editor (not the shell's own outage
+  notice) is the acceptance for "independent from terminal inventory", and the
+  key capture is cancelled on its own tab.
 
 ## Decision table
 

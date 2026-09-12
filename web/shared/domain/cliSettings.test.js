@@ -22,6 +22,21 @@ test("native settings routes preserve identity, legacy context and explicit glob
   assert.equal(cliSettingsLocation("#/preferences"), null);
 });
 
+test("the edited layer and the sub-tab survive a reload, and guesses are dropped", () => {
+  assert.equal(cliSettingsHash("pi", { agentId: "A", layer: "project" }), "#/clis/pi/settings?agentId=A&layer=project");
+  assert.equal(cliSettingsHash("pi", { layer: "agent", tab: "keys" }), "#/clis/pi/settings?layer=agent&tab=keys");
+  assert.equal(cliSettingsHash("pi", { layer: "root" }), "#/clis/pi/settings");
+  assert.equal(cliSettingsHash("pi", { tab: "other" }), "#/clis/pi/settings");
+  const round = cliSettingsLocation("#/clis/pi/settings?agentId=A&layer=agent&tab=keys");
+  assert.equal(round.layer, "agent");
+  assert.equal(round.tab, "keys");
+  assert.equal(round.view, "clis");
+  assert.equal(cliSettingsLocation("#/clis/pi/settings?layer=user&tab=x").layer, "");
+  assert.equal(cliSettingsLocation("#/clis/pi/settings?layer=user&tab=x").tab, "");
+  // A legacy link keeps the layer it was opened with.
+  assert.equal(cliSettingsLocation("#/settings?layer=project", "A").redirect, "#/clis/pi/settings?agentId=A&layer=project");
+});
+
 test("unsupported and malformed CLI identities never become Pi", () => {
   assert.equal(supportsCliSettings("pi"), true);
   for (const id of ["codex", "unknown", "%ZZ", "pi/extra", ""]) {
