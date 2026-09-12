@@ -14,7 +14,7 @@
 
 ## Next up
 
-0. Desktop v2 (ADR-0120): Phase 2 session A shipped - the WSL Disk window drives the Go CLIs as subprocesses; daemon untouched, keepalive stays in the Go tray. Next: Give back polish + prunes - docs/plans/desktop-v2.md.
+0. Desktop v2 (ADR-0120): Phase 2 session A shipped (WSL Disk window over the Go CLIs; daemon untouched; keepalive stays in the Go tray). Next: Give back polish + prunes - docs/plans/desktop-v2.md.
 1. Runbook step 6 (0.2.0, tag `v0.2.0`): watch the owner's window; a regression becomes a patch tag, never a rewritten one.
 2. Dashboard throughput (tokens/s): definition (generation vs turn; reasoning in/out), per-CLI coverage, UI gates. Codex's `duration_ms`/`time_to_first_token_ms` still unread; Grok's timings shipped.
 3. Package config descriptors (ADR-0119; C0–C5 shipped). Backlog (owner): upstream `picode.config` proposal. Plan: `docs/plans/package-config-manifest.md`.
