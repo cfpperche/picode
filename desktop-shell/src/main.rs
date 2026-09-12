@@ -12,6 +12,77 @@ mod clean;
 mod disk;
 mod wslconfig;
 
+// The undecorated window's frame — drag handles and window controls — is
+// injected into every page the main webview shows, so the shell does not
+// depend on which UI build the daemon happens to serve. Local pages
+// (tauri.localhost) own their chrome and are skipped. Kept as one plain
+// script: no build step lives between the shell and its window frame.
+const SHELL_FRAME_SCRIPT: &str = r#"
+(() => {
+  if (window.__PICODE_SHELL_FRAME__) return;
+  window.__PICODE_SHELL_FRAME__ = true;
+  const local = location.protocol === 'tauri:' || location.hostname === 'tauri.localhost';
+  if (local) return;
+  const win = () => {
+    try { return window.__TAURI__.window.getCurrentWindow(); } catch { return null; }
+  };
+  const interactive = (t) => t.closest && t.closest('button, a, input, select, textarea, [role="tab"], [role="menu"], [data-no-drag]');
+  const boot = () => {
+    const w = win();
+    if (!w || !document.body) return;
+    const wire = () => {
+      for (const h of document.querySelectorAll('#sidebar header.brand, header.brand, .desktop-compact-bar')) {
+        if (h.__picodeDrag) continue;
+        h.__picodeDrag = true;
+        h.addEventListener('mousedown', (e) => {
+          if (e.button !== 0 || interactive(e.target)) return;
+          w.startDragging();
+        });
+        h.addEventListener('dblclick', (e) => {
+          if (interactive(e.target)) return;
+          w.toggleMaximize();
+        });
+      }
+    };
+    wire();
+    if (window.__picodeFrameObserver) window.__picodeFrameObserver.disconnect();
+    window.__picodeFrameObserver = new MutationObserver(wire);
+    window.__picodeFrameObserver.observe(document.body, { childList: true, subtree: true });
+    if (document.getElementById('picode-shell-controls')) return;
+    const css = document.createElement('style');
+    css.textContent = [
+      '#picode-shell-controls { position: fixed; top: 0; right: 0; z-index: 9999; display: flex; height: 32px; padding: 0 2px; }',
+      '#picode-shell-controls button { width: 40px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: #5b6472; cursor: pointer; padding: 0; }',
+      '#picode-shell-controls button:hover { color: #16181d; background: rgba(0,0,0,.07); }',
+      '#picode-shell-controls button.psc-close:hover { color: #fff; background: #cf3b54; }',
+      '@media (prefers-color-scheme: dark) { #picode-shell-controls button { color: #9b9ba7; } #picode-shell-controls button:hover { color: #ececf1; background: rgba(255,255,255,.09); } }'
+    ].join('');
+    document.head.appendChild(css);
+    const bar = document.createElement('div');
+    bar.id = 'picode-shell-controls';
+    const mk = (cls, label, path) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = cls;
+      b.title = label;
+      b.setAttribute('aria-label', label);
+      b.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">' + path + '</svg>';
+      return b;
+    };
+    const min = mk('', 'Minimize', '<path d="M2 6h8" stroke="currentColor" stroke-width="1.2" fill="none"/>');
+    const max = mk('', 'Maximize', '<rect x="2" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.2" fill="none"/>');
+    const close = mk('psc-close', 'Close', '<path d="M2.5 2.5l7 7m0-7l-7 7" stroke="currentColor" stroke-width="1.2" fill="none"/>');
+    min.addEventListener('click', () => w.minimize());
+    max.addEventListener('click', () => w.toggleMaximize());
+    close.addEventListener('click', () => w.close());
+    bar.append(min, max, close);
+    document.body.appendChild(bar);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+"#;
+
 use std::process::Command;
 use tauri::{
     menu::{Menu, MenuItem},
@@ -55,7 +126,7 @@ fn main() {
                 .title("PiCode")
                 .inner_size(1360.0, 880.0)
                 .decorations(false)
-                .initialization_script("window.__PICODE_SHELL__ = true;")
+                .initialization_script(SHELL_FRAME_SCRIPT)
                 .build()?;
 
             let open = MenuItem::with_id(app, "open", "Open PiCode", true, None::<&str>)?;
@@ -136,7 +207,7 @@ fn open_management_window(app: &tauri::AppHandle) {
     .title("PiCode — Management")
     .inner_size(980.0, 820.0)
     .decorations(false)
-    .initialization_script("window.__PICODE_SHELL__ = true;")
+    .initialization_script(SHELL_FRAME_SCRIPT)
     .build();
 }
 
