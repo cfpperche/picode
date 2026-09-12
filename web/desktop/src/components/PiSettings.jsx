@@ -13,7 +13,7 @@ import PiKeys from "./PiKeys.jsx";
 
 const MODES = ["one-at-a-time", "all"];
 
-export default function PiSettings({ hidden, agent: originalAgent, workspace, catalog, onAgentConfig, embedded = false, focus = "", disabled = false, layer = "", tab = "settings", onLayerChange = () => {}, onTabChange = () => {} }) {
+export default function PiSettings({ hidden, agent: originalAgent, workspace, catalog, onAgentConfig, embedded = false, focus = "", disabled = false, layer = "", keys = false, onLayerChange = () => {} }) {
   const [rep, setRep] = useState(null);
   const [pending, setPending] = useState(null);
   const agentSavingRef = useRef(false);
@@ -107,7 +107,6 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
   ];
   const wanted = focus === "scoped-models" ? "global" : layer;
   const active = layers.find((l) => l.id === wanted) || layers[layers.length - 1];
-  const pane = tab === "keys" ? "keys" : "settings";
   const own = active.id === "global" ? rep && rep.global : active.id === "project" ? rep && rep.project : null;
 
   return (
@@ -115,11 +114,7 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
       {loadError ? <div className="pi-settings-notice" role="alert"><span title={loadError}>Could not load Pi defaults.</span><button type="button" className="btn btn-ghost btn-sm" onClick={() => setRetry(value => value + 1)}>Try again</button></div> : null}
       {saveError ? <div className="pi-settings-notice" role="alert"><span>{saveError}</span><button type="button" className="btn btn-ghost btn-sm" onClick={() => setSaveError("")}>Dismiss</button></div> : null}
       {saving ? <p role="status">Saving…</p> : null}
-      <div className="pkg-tabs" role="tablist" aria-label="Pi settings sections">
-        <button type="button" role="tab" className="pkg-tab" aria-selected={pane === "settings"} onClick={() => onTabChange("settings")}>Settings</button>
-        <button type="button" role="tab" className="pkg-tab" aria-selected={pane === "keys"} onClick={() => onTabChange("keys")}>Keys</button>
-      </div>
-      {pane === "keys" ? (
+      {keys ? (
         <PiKeys disabled={disabled || saving || !!pending} />
       ) : (
         <>

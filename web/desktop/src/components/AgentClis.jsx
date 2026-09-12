@@ -186,6 +186,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
           agentId={setupCtx.agentId}
           scope={setupCtx.scope}
           focus={setupCtx.focus}
+          layer={setupCtx.layer}
           hasPackageUpdates={packageUpdates.length > 0}
         />
         {pane === "launch" ? <>
@@ -219,7 +220,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
           scoped={!!route.scoped}
           onCatalogChange={onCatalogChange}
         /> : null}
-        {pane === "settings" ? <CliSettings hidden={false} route={route} catalog={catalog} onAgentConfig={onAgentConfig} /> : null}
+        {pane === "settings" || pane === "keyboard" ? <CliSettings pane={pane} hidden={false} route={route} catalog={catalog} onAgentConfig={onAgentConfig} /> : null}
         {pane === "packages" ? <CliPackages hidden={false} route={route} catalog={catalog} onPackageUpdates={onPackageUpdates} describe={new URLSearchParams((hash || "").split("?")[1] || "").get("describe") === "1"} /> : null}
         {pane === "connectors" ? <ConnectorsPane route={route} onReload={onReloadAgent} /> : null}
       </div>

@@ -1,9 +1,9 @@
 import { cliProvidersLocation } from "./cliProviders.js";
 import { cliPackagesLocation } from "./cliPackages.js";
-import { cliSettingsLocation } from "./cliSettings.js";
+import { cliKeysLocation, cliSettingsLocation } from "./cliSettings.js";
 import { cliConnectorsLocation } from "./integrations.js";
 
-const CLI_PANES = new Set(["launch", "terminals", "sessions", "providers", "settings", "packages", "connectors"]);
+const CLI_PANES = new Set(["launch", "terminals", "sessions", "providers", "settings", "keyboard", "packages", "connectors"]);
 
 // Setup panes (Settings / Packages / Connectors) read identity from the
 // hash. When the hash has none, the selected sidebar pane is the fallback
@@ -14,6 +14,10 @@ export function cliPaneSetupContext(route = {}, legacy = {}) {
     agentId: route.agentId || legacy.agentId || "",
     scope: route.scope || "user",
     focus: route.focus || "",
+    // The settings layer rides along: the pane rewrites the hash to carry the
+    // selected agent, and a rewrite that dropped the layer looked like a pill
+    // click that did nothing (2026-09-12).
+    layer: route.layer || "",
   };
 }
 
@@ -26,6 +30,7 @@ export function cliPaneHash(cli = "", pane = "launch", workspace = "") {
   if (pane === "terminals") return "#/clis/" + id + "/terminals";
   if (pane === "providers") return "#/clis/" + id + "/providers";
   if (pane === "settings") return "#/clis/" + id + "/settings";
+  if (pane === "keyboard") return "#/clis/" + id + "/keyboard";
   if (pane === "packages") return "#/clis/" + id + "/packages";
   if (pane === "connectors") return "#/clis/" + id + "/connectors";
   return "#/clis/" + id;
@@ -41,8 +46,15 @@ export function cliLocation(hash = "", legacy = {}) {
   if (providers) return providers;
   const packages = cliPackagesLocation(hash, legacy.packageContext || {});
   if (packages) return packages;
+  const keys = cliKeysLocation(hash);
+  if (keys) return keys;
   const settings = cliSettingsLocation(hash, legacy.agentId || "");
-  if (settings) return settings;
+  if (settings) {
+    // The keyboard map left the settings sub-tab row (2026-09-12): a bookmark
+    // from that day, or a link still carrying `?tab=keys`, lands on the pane.
+    if (settings.keysTab) return { ...settings, keysTab: false, redirect: cliPaneHash(settings.id, "keyboard") };
+    return settings;
+  }
   const connectors = cliConnectorsLocation(hash, legacy.packageContext || {});
   if (connectors) return connectors;
   const [path, query] = hash.split("?");
@@ -78,6 +90,9 @@ export function cliLocation(hash = "", legacy = {}) {
     loc.focus = params.get("focus") === "scoped-models" ? "scoped-models" : "";
     if (parts[3]) loc.invalid = true;
   }
+  // `cliKeysLocation` handles the well-formed address; anything with a path
+  // after the pane is as invalid as it is for settings.
+  if (pane === "keyboard" && parts[3]) loc.invalid = true;
   if (pane === "packages") {
     const rest = parts.slice(3).map(decode);
     loc.pkg = rest[0] === "config" && rest[1] ? rest[1] : "";

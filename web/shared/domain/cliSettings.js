@@ -3,20 +3,26 @@
 export const CLI_SETTINGS = [{ id: "pi", name: "Pi" }];
 export const supportsCliSettings = id => CLI_SETTINGS.some(cli => cli.id === id);
 
-// The pane edits one layer at a time and keeps the keyboard map on its own
-// sub-tab (docs/plans/cli-settings-ux.md). Both travel on the route so a
-// reload, a bookmark or a Palette command lands on the same view. The sub-tab
-// is `tab`, not `view` — `view` already means the page in a route.
+// The pane edits one layer at a time (docs/plans/cli-settings-ux.md); the layer
+// travels on the route so a reload, a bookmark or a Palette command lands on
+// the same view. The keyboard map is a sibling pane — `#/clis/pi/keyboard` —
+// not a sub-tab: two tab rows inside one pane read as nesting (owner,
+// 2026-09-12), and the map is machine-wide, so it has no layer of its own.
 export const SETTINGS_LAYERS = ["global", "project", "agent"];
-export const SETTINGS_TABS = ["settings", "keys"];
 
-export function cliSettingsHash(cli = "pi", { agentId = "", focus = "", layer = "", tab = "" } = {}) {
+// The query of a settings view. The keyboard pane builds its own path and
+// carries the same context through this, so a round trip to the map comes back
+// to the agent and the layer it left (2026-09-12).
+export function cliSettingsQuery({ agentId = "", focus = "", layer = "" } = {}) {
   const query = new URLSearchParams();
   if (agentId) query.set("agentId", agentId);
   if (focus === "scoped-models") query.set("focus", focus);
   if (SETTINGS_LAYERS.includes(layer)) query.set("layer", layer);
-  if (SETTINGS_TABS.includes(tab) && tab !== "settings") query.set("tab", tab);
-  return "#/clis/" + encodeURIComponent(cli || "pi") + "/settings" + (query.size ? "?" + query : "");
+  return query.size ? "?" + query : "";
+}
+
+export function cliSettingsHash(cli = "pi", { agentId = "", focus = "", layer = "" } = {}) {
+  return "#/clis/" + encodeURIComponent(cli || "pi") + "/settings" + cliSettingsQuery({ agentId, focus, layer });
 }
 
 export function cliSettingsLocation(hash = "", legacyAgentId = "") {
@@ -40,11 +46,26 @@ export function cliSettingsLocation(hash = "", legacyAgentId = "") {
   // An unknown layer or view is dropped, not adopted: the pane falls back to
   // the default layer and never writes to a layer the URL only guessed at.
   const layer = SETTINGS_LAYERS.includes(params.get("layer")) ? params.get("layer") : "";
-  const tab = SETTINGS_TABS.includes(params.get("tab")) ? params.get("tab") : "";
-  const canonical = cliSettingsHash(cli, { agentId, focus, layer, tab });
-  return { view: "clis", pane: "settings", id: cli, agentId, focus, layer, tab, legacy: legacy || strip,
+  // `?tab=keys` was the sub-tab of the day before: the caller turns this flag
+  // into a redirect to the keyboard pane, so an old bookmark still lands there.
+  const keysTab = params.get("tab") === "keys";
+  const canonical = cliSettingsHash(cli, { agentId, focus, layer });
+  return { view: "clis", pane: "settings", id: cli, agentId, focus, layer, keysTab, legacy: legacy || strip,
     ...(adoptPane ? { adoptPane: true } : {}),
     redirect: !nested || path === "/clis/settings" ? canonical : "" };
+}
+
+// The layers a route may name; the keyboard pane keeps the settings context
+// (agent and layer) so returning to Settings lands where the reader left.
+export function cliKeysLocation(hash = "") {
+  const [path, query = ""] = hash.replace(/^#/, "").split("?");
+  const m = /^\/clis\/([^/]+)\/keyboard$/.exec(path);
+  if (!m) return null;
+  const params = new URLSearchParams(query);
+  let cli = "pi";
+  try { cli = decodeURIComponent(m[1]); } catch { cli = ""; }
+  const layer = SETTINGS_LAYERS.includes(params.get("layer")) ? params.get("layer") : "";
+  return { view: "clis", pane: "keyboard", id: cli, agentId: params.get("agentId") || "", layer, invalid: false };
 }
 
 function unavailable(message) {
