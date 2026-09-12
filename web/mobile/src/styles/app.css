@@ -157,6 +157,24 @@ body {
 #m-app .sketch-editor-actions .btn, #m-app .pin-sketch-actions .btn {
   height: auto; min-height: var(--m-tap); padding: 0 14px; font-size: 14px;
 }
+/* Excalidraw 0.18.1 lays its mobile UI out with the tool switcher at the top
+   and the library/lock/hand column crowded under it, over the pad's own
+   header. Upstream's mobile-toolbar layout (excalidraw.com on a phone, master)
+   keeps the tools at the bottom with the shape actions above them and drops
+   the misc column; npm has no release with it yet (0.18.1 is latest), so the
+   arrangement is pinned here until the dependency ships it. The tool island
+   is anchored inside Excalidraw's top container, which follows the pad on the
+   keyboard; the library trigger is useless on a pad that has no library, the
+   pen is sticky, and two-finger pan/zoom covers the hand tool. */
+#m-app .sketch-editor .App-toolbar--mobile, #m-app .pin-sketch .App-toolbar--mobile {
+  position: absolute; top: auto; left: 0; right: 0; bottom: 0; height: auto;
+}
+#m-app .sketch-editor .App-bottom-bar > .Island, #m-app .pin-sketch .App-bottom-bar > .Island {
+  margin-bottom: 48px; /* one tool island (40px) plus an 8px gap */
+}
+#m-app .sketch-editor .mobile-misc-tools-container, #m-app .pin-sketch .mobile-misc-tools-container {
+  display: none;
+}
 
 .form-new { padding: 4px 8px 10px; display: flex; flex-direction: column; gap: 6px; }
 .cfg-fields { display: flex; flex-direction: column; gap: 6px; }

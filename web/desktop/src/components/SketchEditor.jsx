@@ -63,11 +63,13 @@ export default function SketchEditor({ open, title, initial, confirmLabel, onSav
         </div>
       </header>
       <div className="sketch-editor-board">
+        {/* The pad inserts into the composer, so the canvas menu keeps only
+            what belongs to the drawing: background and clear. */}
         <Excalidraw
           excalidrawAPI={(api) => { apiRef.current = api; }}
           initialData={seed}
           theme={theme()}
-          UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false } }}
+          UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false, export: false, saveAsImage: false } }}
         />
       </div>
     </div>,
