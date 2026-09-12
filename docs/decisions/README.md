@@ -125,4 +125,5 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0118](0118-canvas-replaces-matrix.md) | Canvas replaces Matrix — grid mode and react-grid-layout removed, coordinates converted once, and the rename carried into tables, routes, events, the app id and the hash | accepted, supersedes 0113, renames 0108/0116 |
 | [0119](0119-package-config-descriptors.md) | package-config-descriptors | accepted |
 | [0120](0120-tauri-desktop-shell.md) | Desktop v2 shell — Tauri 2 + WebView2 | proposed |
-| [0121](0121-window-frame-contract.md) | window-frame-contract | proposed |
+| [0121](0121-window-frame-contract.md) | window-frame-contract | superseded by 0122 |
+| [0122](0122-shell-app-bar.md) | shell-app-bar | accepted |

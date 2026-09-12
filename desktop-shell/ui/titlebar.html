@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>PiCode</title>
+    <style>
+      /* The app bar (ADR-0122): our strip across the window's top edge —
+         brand on the left, Windows caption buttons on the right, the whole
+         thing is the drag region. Local page, so the window.* calls are
+         trusted and the frame cannot go dead because of what the daemon
+         serves. Heights follow Windows convention: 40px bar, 46px-wide
+         caption buttons, close turns red on hover. */
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { height: 100%; overflow: hidden; }
+      body {
+        display: flex; align-items: stretch;
+        background: #fbfcfe; color: #16181d;
+        font-family: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
+        user-select: none;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { background: #16161c; color: #ececf1; }
+      }
+      .bar { display: flex; align-items: center; flex: 1; min-width: 0; }
+      .brand {
+        display: flex; align-items: center; gap: 8px;
+        padding: 0 12px 0 12px; height: 100%;
+      }
+      .mark {
+        width: 17px; height: 17px; border-radius: 4px; background: #09090b;
+        display: grid; place-items: center; flex: none;
+      }
+      @media (prefers-color-scheme: dark) { .mark { background: #ececf1; } }
+      .mark span { font: 700 11px/1 Inter, "Segoe UI", sans-serif; color: #fff; }
+      @media (prefers-color-scheme: dark) { .mark span { color: #09090b; } }
+      .name { font-size: 12.5px; font-weight: 650; letter-spacing: 0.2px; }
+      .spacer { flex: 1; height: 100%; }
+      .caps { display: flex; align-self: stretch; flex: none; }
+      .cap {
+        width: 46px; border: 0; background: none; padding: 0;
+        display: grid; place-items: center; cursor: pointer;
+        color: #5b6472; border-radius: 0;
+      }
+      @media (prefers-color-scheme: dark) { .cap { color: #9b9ba7; } }
+      .cap:hover { background: rgba(22, 24, 29, 0.08); color: #16181d; }
+      @media (prefers-color-scheme: dark) { .cap:hover { background: rgba(236, 236, 241, 0.09); color: #ececf1; } }
+      .cap-close:hover { background: #c42b1c; color: #fff; }
+      .cap:focus-visible { outline: 2px solid #2a62d6; outline-offset: -2px; }
+    </style>
+  </head>
+  <body>
+    <div class="bar" data-tauri-drag-region id="bar">
+      <div class="brand" data-tauri-drag-region>
+        <span class="mark" data-tauri-drag-region><span>P</span></span>
+        <span class="name" data-tauri-drag-region>PiCode</span>
+      </div>
+      <div class="spacer" data-tauri-drag-region></div>
+      <div class="caps">
+        <button type="button" class="cap" id="min" title="Minimize" aria-label="Minimize">
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5h10" stroke="currentColor" stroke-width="1" /></svg>
+        </button>
+        <button type="button" class="cap" id="max" title="Maximize" aria-label="Maximize">
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9" stroke="currentColor" fill="none" /></svg>
+        </button>
+        <button type="button" class="cap cap-close" id="close" title="Close" aria-label="Close">
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1" /></svg>
+        </button>
+      </div>
+    </div>
+    <script>
+      // Local page: the ACL trusts it by default, so these calls work with
+      // any bundle the daemon serves. Failures land in the console and on
+      // the button — a dead caption button that says nothing is how the
+      // first round got missed.
+      const w = window.__TAURI__?.window?.getCurrentWindow?.();
+      const on = (id, fn) => {
+        const b = document.getElementById(id);
+        if (!b) return;
+        b.addEventListener('click', async () => {
+          try { await fn(); } catch (e) {
+            console.error('picode app bar:', e);
+            b.title = 'Failed: ' + e;
+          }
+        });
+      };
+      if (w) {
+        on('min', () => w.minimize());
+        on('max', () => w.toggleMaximize());
+        on('close', () => w.close());
+        const glyph = () => {
+          w.isMaximized().then(m => {
+            document.getElementById('max').innerHTML = m
+              ? '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><rect x="0" y="2.5" width="7" height="7" stroke="currentColor" fill="none"/><path d="M2.5 2.5V0h7v7H7" stroke="currentColor" fill="none"/></svg>'
+              : '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9" stroke="currentColor" fill="none"/></svg>';
+            document.getElementById('max').title = m ? 'Restore' : 'Maximize';
+          }).catch(() => {});
+        };
+        glyph();
+        w.onResized(glyph).catch(() => {});
+        document.getElementById('bar').addEventListener('dblclick', (e) => {
+          if (e.target.closest('.cap')) return;
+          w.toggleMaximize().catch(() => {});
+        });
+      } else {
+        for (const id of ['min', 'max', 'close']) document.getElementById(id).remove();
+      }
+    </script>
+  </body>
+</html>

@@ -1,6 +1,6 @@
 # ADR-0121: window-frame-contract
 
-- **Status**: accepted
+- **Status**: superseded by ADR-0122
 - **Date**: 2026-09-12
 - **Boundary**: protocol — the contract between the desktop shell and the UI the daemon serves over HTTP: who draws the window's frame (drag regions and minimize/maximize/close), and how the two sides agree without coordinating releases.
 
