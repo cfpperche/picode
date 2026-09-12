@@ -51,7 +51,8 @@ const SHELL_FRAME_SCRIPT: &str = r#"
     if (document.getElementById('picode-shell-controls')) return;
     const css = document.createElement('style');
     css.textContent = [
-      '#picode-shell-controls { position: fixed; top: 0; right: 0; z-index: 9999; display: flex; height: 32px; padding: 0 2px; }',
+      '#picode-shell-controls { position: fixed; top: 4px; right: 6px; z-index: 9999; display: flex; height: 28px; padding: 0 2px; border-radius: 8px; background: rgba(251,252,254,.92); box-shadow: 0 1px 4px rgba(22,24,29,.18); }',
+      '@media (prefers-color-scheme: dark) { #picode-shell-controls { background: rgba(22,22,28,.92); box-shadow: 0 1px 4px rgba(0,0,0,.4); } }',
       '#picode-shell-controls button { width: 40px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: #5b6472; cursor: pointer; padding: 0; }',
       '#picode-shell-controls button:hover { color: #16181d; background: rgba(0,0,0,.07); }',
       '#picode-shell-controls button.psc-close:hover { color: #fff; background: #cf3b54; }',
@@ -72,9 +73,17 @@ const SHELL_FRAME_SCRIPT: &str = r#"
     const min = mk('', 'Minimize', '<path d="M2 6h8" stroke="currentColor" stroke-width="1.2" fill="none"/>');
     const max = mk('', 'Maximize', '<rect x="2" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.2" fill="none"/>');
     const close = mk('psc-close', 'Close', '<path d="M2.5 2.5l7 7m0-7l-7 7" stroke="currentColor" stroke-width="1.2" fill="none"/>');
-    min.addEventListener('click', () => w.minimize());
-    max.addEventListener('click', () => w.toggleMaximize());
-    close.addEventListener('click', () => w.close());
+    // Errors surface on the button's tooltip and the console — a dead
+    // button that says nothing is how the first round got missed.
+    const act = (b, fn) => b.addEventListener('click', async () => {
+      try { await fn(); } catch (e) {
+        console.error('picode shell frame:', e);
+        b.title = 'Failed: ' + e;
+      }
+    });
+    act(min, () => w.minimize());
+    act(max, () => w.toggleMaximize());
+    act(close, () => w.close());
     bar.append(min, max, close);
     document.body.appendChild(bar);
   };
