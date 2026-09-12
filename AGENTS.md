@@ -82,7 +82,10 @@ to "get context"; `git log` and `make close-summary` are cheaper and current.
    another agent is FAIL.
    This is **enforced by git, not by trust**: `.githooks/reference-transaction`
    aborts any `git switch`/`git checkout` that would move the root checkout
-   off `main` (switching back to `main` is always allowed), and
+   off `main` (switching back to `main` is always allowed), refuses any
+   rewind of `main` behind its current tip — including a fast-forward from
+   a stale ref onto a divergent tip, which silently erased merged work once
+   (rolling back is a deliberate `PICODE_ALLOW_MAIN_REWIND=1` one-off) — and
    `.githooks/pre-commit` refuses feature commits made there, clobbered
    living docs, a committed handoff board, whitespace errors, direct
    `CHANGELOG.md` edits, and handoff or fragment commits on `main`

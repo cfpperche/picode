@@ -107,6 +107,26 @@ date > off.txt && git add off.txt
 if git commit -q -m "feature commit in root" 2>/dev/null; then bad "feature commit in root refused" "committed on $(git branch --show-current)"; else ok "feature commit in root refused"; fi
 git reset -q HEAD off.txt
 if git switch -q main 2>/dev/null; then ok "returning to main always allowed"; else bad "returning to main always allowed" "cannot get home"; fi
+# 3b. Main never rewinds (2026-09-12: a stale-ref fast-forward erased merged
+#     work). Forward is the only direction; a rollback needs its own flag.
+old_tip=$(git rev-parse main)
+older=$(git rev-parse main~1)
+# reset --hard fires the reference transaction; update-ref does not (a git
+# limitation, not ours — agents drive the repo with reset/merge/switch).
+if git reset -q --hard "$older" 2>/dev/null; then bad "rewind via reset --hard refused" "main moved to $older"; else ok "rewind via reset --hard refused"; fi
+[ "$(git rev-parse main)" = "$old_tip" ] && ok "main did not move on the refused rewind" || bad "main did not move on the refused rewind" "on $(git rev-parse main)"
+if PICODE_ALLOW_MAIN_REWIND=1 git reset -q --hard "$older" 2>/dev/null; then ok "PICODE_ALLOW_MAIN_REWIND override works"; else bad "PICODE_ALLOW_MAIN_REWIND override works" "the deliberate rollback was blocked"; fi
+if git merge -q --ff-only "$old_tip" 2>/dev/null; then ok "forward fast-forward still allowed"; else bad "forward fast-forward still allowed" "getting back to the tip broke"; fi
+[ "$(git rev-parse main)" = "$old_tip" ] && ok "back at the tip after the override round-trip" || bad "back at the tip" "on $(git rev-parse main)"
+
+# 3c. The incident replay: a fast-forward from a stale ref to a DIVERGENT
+#     tip looks legitimate to the process that runs it and still erases
+#     main's tip (2026-09-12).
+(cd "$repo/wt" && git switch -q -c stale "$older" && date > divergent.txt && git add divergent.txt && git commit -q -m divergent)
+if git merge -q --ff-only stale 2>/dev/null; then bad "divergent stale ff refused" "main moved to the divergent tip"; else ok "divergent stale ff refused"; fi
+[ "$(git rev-parse main)" = "$old_tip" ] && ok "main survived the divergent ff" || bad "main survived the divergent ff" "on $(git rev-parse main)"
+(cd "$repo/wt" && git switch -q --detach && git branch -q -D stale)
+
 
 echo
 if [ "$fails" -eq 0 ]; then
