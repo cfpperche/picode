@@ -47,6 +47,19 @@ function SettingsEditor({ route, catalog, onAgentConfig }) {
   const { Editor } = EDITORS[route.id];
   const notice = error ? <div className="cli-notice is-error" role="alert"><span>{error.message}</span><button type="button" className="btn btn-ghost btn-sm" disabled={loading} onClick={() => setRetry(value => value + 1)}>{loading ? "Retrying…" : "Try again"}</button><a className="btn btn-ghost btn-sm" href={cliSettingsHash(route.id)}>Global settings</a></div> : null;
   if (route.agentId && !context) return notice || <div className="cli-loading" aria-label="Loading agent settings"><div /><div /><div /></div>;
+  // The layer and the sub-tab live on the route (docs/plans/cli-settings-ux.md):
+  // a reload, a bookmark or another pane's link lands on the same view. Moving
+  // off a deep link drops its focus — the row has been shown.
+  const writeRoute = (next) => {
+    // Read the hash, not the route prop: it lags one render behind a pill
+    // click, and a tab click in that window must not drop the layer.
+    const q = new URLSearchParams(location.hash.split("?")[1] || "");
+    location.hash = cliSettingsHash(route.id, {
+      agentId: next.agentId ?? q.get("agentId") ?? route.agentId,
+      layer: next.layer ?? q.get("layer") ?? route.layer,
+      tab: next.tab ?? q.get("tab") ?? route.tab,
+    });
+  };
   const saveAgent = async patch => {
     const current = await EDITORS[route.id].loadContext(route.agentId, api);
     try {
@@ -56,6 +69,6 @@ function SettingsEditor({ route, catalog, onAgentConfig }) {
   };
   return <>
     {notice}
-    <Editor embedded disabled={!!error} hidden={false} agent={context?.agent} workspace={context?.workspace} catalog={catalog} focus={route.focus} onAgentConfig={saveAgent} />
+    <Editor embedded disabled={!!error} hidden={false} agent={context?.agent} workspace={context?.workspace} catalog={catalog} focus={route.focus} layer={route.layer} tab={route.tab} onLayerChange={(layer) => writeRoute({ layer })} onTabChange={(tab) => writeRoute({ tab })} onAgentConfig={saveAgent} />
   </>;
 }

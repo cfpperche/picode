@@ -25,7 +25,12 @@ const ev = code => JSON.parse(browser("eval", code));
 const wait = condition => browser("wait", "--fn", condition);
 const globalHash = "#/clis/settings/pi";
 const contextHash = globalHash + "?agentId=" + encodeURIComponent(id);
-const ready = () => wait('!!document.querySelector("#g-compact") && !document.querySelector(".pi-settings-fields").disabled');
+// The pane is ready when its sub-tabs and the visible layer body are painted.
+const ready = () => wait('!!document.querySelector("#pi-settings-view .pkg-tabs .pkg-tab") && !!document.querySelector("#pi-settings-view .settings-section")');
+const selectLayer = (name, id) => { browser("find", "role", "radio", "click", "--name", name, "--exact"); wait(`document.querySelector("#pi-settings-view .settings-section")?.dataset.layer === ${JSON.stringify(id)}`); };
+const tabClick = label => ev(`[...document.querySelectorAll("#pi-settings-view .pkg-tabs .pkg-tab")].find(b=>b.textContent===${JSON.stringify(label)}).click(); true`);
+const openKeys = () => { tabClick("Keys"); wait('!!document.querySelector("#keys-filter")'); };
+const openSettingsTab = () => { tabClick("Settings"); wait('!!document.querySelector("#pi-settings-view .settings-layer")'); };
 const results = [];
 let visit = 0;
 const open = (app, hash, theme = "light", width = 1365) => {
@@ -47,9 +52,10 @@ try {
   for (const app of ["desktop", "mobile"]) {
     browser("set", "viewport", ...(app === "desktop" ? ["1365", "1000"] : ["390", "844"]));
     open(app, contextHash); ready();
+    selectLayer("This machine", "global");
     const pattern = "keep-" + app + "-*";
-    browser("fill", '[data-layer=global] [aria-label="Model pattern"]', pattern);
-    browser("wait", "#keys-filter");
+    browser("fill", '[aria-label="Model pattern"]', pattern);
+    openKeys();
     ev('document.querySelector(".key-row").scrollIntoView({block:"center"})');
     browser("click", ".key-row .btn");
     ev(`window.qaWrites=[];window.qaFetch=window.fetch;window.qaReadMode="fail";window.fetch=(url,opts)=>{
@@ -61,27 +67,42 @@ try {
       return window.qaFetch(url,opts);
     }`);
     await api("/api/agents/" + id, "PATCH", { thinking: app === "desktop" ? "low" : "high" });
-    browser("wait", "#agent-clis-view > .settings-wrap [role=alert], #agent-clis-view [role=alert]");
-    const draft = () => ev('document.querySelector("[data-layer=global] .set-pat-add input").value');
-    assert.equal(draft(), pattern);
-    assert.equal(ev('document.querySelector("#ag-set-thinking").matches(":disabled")'), true);
+    browser("wait", "#agent-clis-view [role=alert]");
+    // The key capture is its own tab: cancel it there (leaving the tab also
+    // cancels it — the listener dies with the mounted section).
     browser("press", "Control+Alt+y");
     assert.deepEqual(ev("window.qaWrites"), [], "A blocked key capture must not write through its window listener");
+    browser("find", "role", "button", "click", "--name", "Cancel");
+    openSettingsTab();
+    const draft = () => ev('document.querySelector("[data-layer=global] .set-pat-add input").value');
+    assert.equal(draft(), pattern, "the layer keeps its own unfinished pattern");
+    assert.equal(ev('document.querySelector(".pi-settings-fields").disabled'), true, "writes are blocked");
+    // The agent layer is blocked by the same stale context.
+    selectLayer("Atlas", "agent");
+    assert.equal(ev('document.querySelector("#ag-set-thinking").matches(":disabled")'), true);
+    selectLayer("This machine", "global");
     ev('document.querySelector("#agent-clis-view [role=alert]").scrollIntoView({block:"center"})');
     await capture(app + "-refresh-error");
     browser("click", "#agent-clis-view [role=alert] button");
     wait('!document.querySelector("#agent-clis-view [role=alert] button").disabled');
     assert.equal(draft(), pattern);
+    selectLayer("Atlas", "agent");
     assert.equal(ev('document.querySelector("#ag-set-thinking").matches(":disabled")'), true);
+    selectLayer("This machine", "global");
     ev('window.qaReadMode="hold"');
     browser("click", "#agent-clis-view [role=alert] button");
     wait('typeof window.qaRelease==="function"');
+    selectLayer("Atlas", "agent");
     assert.equal(ev('document.querySelector("#ag-set-thinking").matches(":disabled")'), true);
+    selectLayer("This machine", "global");
     assert.equal(draft(), pattern);
     ev('window.qaReadMode="pass";window.qaRelease();true'); ready();
     assert.equal(draft(), pattern);
     ev('window.fetch=window.qaFetch');
+    // The keyboard map still works after the retry, on its own tab.
+    openKeys();
     ev('document.querySelector(".key-row").scrollIntoView({block:"center"})');
+    browser("click", ".key-row .btn");
     browser("find", "role", "button", "click", "--name", "Cancel");
     results.push(app + ": draft retained across failed refresh, repeated failure and pending retry; writes resume only after validation");
   }
@@ -169,6 +190,7 @@ try {
     await capture("mobile-malformed-defaults", true);
     results.push("mobile: malformed native file leaves explicit quick settings editable without inventing provider/model overrides");
     open("desktop", globalHash); browser("wait", "#pi-settings-view [role=alert]");
+    openKeys();
     browser("wait", 'input[placeholder="Filter keys"]');
     assert.equal(ev('[...document.querySelectorAll("input")].find(input=>input.placeholder==="Filter keys").matches(":disabled")'), false);
     results.push("global: keys remain available when native defaults fail");

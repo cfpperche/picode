@@ -62,20 +62,47 @@ func handlePutPiSettings(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if req.AgentID != "" && deps.Runtime != nil {
-			if ma := deps.Runtime.Get(req.AgentID); ma != nil {
-				ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
-				defer cancel()
-				liveApply(ctx, ma, req.Patch)
-			}
-		}
 		rep, err := piSettingsLoad(deps, req.AgentID)
 		if err != nil {
 			writeErr(w, statusForStore(err), err.Error())
 			return
 		}
+		if req.AgentID != "" && deps.Runtime != nil {
+			if ma := deps.Runtime.Get(req.AgentID); ma != nil {
+				ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+				defer cancel()
+				liveApply(ctx, ma, livePatch(req.Patch, rep))
+			}
+		}
 		writeJSON(w, http.StatusOK, rep)
 	}
+}
+
+// livePatch is what a running agent should adopt now. An explicit set applies
+// as given; a reset makes the parent layer (or Pi's own default) current, so
+// the effective knobs — not the override that just left the file — are what a
+// live agent must see. Compaction, steering and follow-up are the fields the
+// runtime owns (ADR-0101); the rest land on the next start.
+func livePatch(p pisettings.Patch, rep piSettingsReport) pisettings.Patch {
+	if len(p.Reset) == 0 {
+		return p
+	}
+	c := rep.Global.CompactionEnabled
+	s := rep.Global.SteeringMode
+	f := rep.Global.FollowUpMode
+	if rep.Project != nil {
+		if rep.Project.Has["compactionEnabled"] {
+			c = rep.Project.CompactionEnabled
+		}
+		if rep.Project.Has["steeringMode"] {
+			s = rep.Project.SteeringMode
+		}
+		if rep.Project.Has["followUpMode"] {
+			f = rep.Project.FollowUpMode
+		}
+	}
+	p.CompactionEnabled, p.SteeringMode, p.FollowUpMode = &c, &s, &f
+	return p
 }
 
 func piSettingsLoad(deps Deps, agentID string) (piSettingsReport, error) {
