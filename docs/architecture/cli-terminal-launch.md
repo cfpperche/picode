@@ -172,3 +172,12 @@ theme inverts the bitmap (`invert(.93) hue-rotate(180deg)`), so a dark
 `viewBackgroundColor` came back as a light canvas under dark chrome, and the
 exported PNG carried that inverted paper. The mobile composer's pin sketch
 (`PinSketch.jsx`) moved into the shell root the same way.
+
+On a phone the pad follows upstream's mobile-toolbar arrangement instead of the
+0.18.1 default: the tool island is pinned to the bottom with the shape actions
+above it, and the library/lock/hand column is not shown (the pen is sticky and
+Excalidraw's two-pointer gesture pans and zooms). `web/mobile/src/styles/app.css`
+carries the rules; they can be dropped once the package ships that layout
+(0.18.1 is the latest on npm). The pad's canvas menu keeps background and reset
+only — load, save, export and save-as-image belong to the host, whose Insert is
+the way out.
