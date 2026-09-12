@@ -163,3 +163,12 @@ stored scene. The drawing leaves as `sketch.png` through the same drop route,
 and its chip reopens for editing (the scene lives in the composer's memory)
 until Send. The mobile sheet unmounts while the pad is open, because vaul
 treats a pointerdown outside the dialog as a dismiss.
+
+On the phone the pad is mounted inside the shell root (`#m-app`), which owns
+the visual viewport and the safe areas (ADR-0044): a body portal is fixed to
+the layout viewport, so it sat under the status bar and left the home-indicator
+strip unpainted. Its canvas is white paper in both themes — Excalidraw's dark
+theme inverts the bitmap (`invert(.93) hue-rotate(180deg)`), so a dark
+`viewBackgroundColor` came back as a light canvas under dark chrome, and the
+exported PNG carried that inverted paper. The mobile composer's pin sketch
+(`PinSketch.jsx`) moved into the shell root the same way.

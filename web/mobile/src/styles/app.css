@@ -138,6 +138,26 @@ body {
 .pin-sketch-board .excalidraw { height: 100% !important; }
 .pin-sketch-wait { padding: 24px; color: var(--text-secondary); }
 
+/* The sketch pads live inside the shell root: #m-app owns the visual
+   viewport (ADR-0044) and the safe areas, while a body portal is fixed to
+   the layout viewport — under the status bar on iOS, with the home-indicator
+   strip unpainted. The head copies .m-head's metric: 52px of content over
+   the top inset, 44px tap targets. */
+#m-app .sketch-editor, #m-app .pin-sketch {
+  position: absolute; inset: 0;
+  padding-bottom: var(--sa-bottom);
+  overscroll-behavior: none;
+}
+#m-app .sketch-editor-head, #m-app .pin-sketch-head {
+  height: auto; min-height: calc(52px + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) var(--m-pad) 0;
+  background: var(--bg-panel);
+}
+#m-app .sketch-editor-head h2, #m-app .pin-sketch-head h2 { font-size: 16px; }
+#m-app .sketch-editor-actions .btn, #m-app .pin-sketch-actions .btn {
+  height: auto; min-height: var(--m-tap); padding: 0 14px; font-size: 14px;
+}
+
 .form-new { padding: 4px 8px 10px; display: flex; flex-direction: column; gap: 6px; }
 .cfg-fields { display: flex; flex-direction: column; gap: 6px; }
 .cfg-fields.cfg-row { flex-direction: row; flex-wrap: wrap; align-items: center; }

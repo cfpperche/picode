@@ -130,5 +130,5 @@ export default function PinSketch({ open, title, initial, backgroundURL, onSave,
       </div>
     </div>
   );
-  return createPortal(ui, document.body);
+  return createPortal(ui, document.getElementById("m-app") || document.body);
 }

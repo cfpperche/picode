@@ -19,10 +19,15 @@ export default function SketchEditor({ open, title, initial, confirmLabel, onSav
   if (!open) return null;
 
   // Excalidraw reads initialData on mount; the parent mounts this only for
-  // the open editor, so every open is a fresh scene.
+  // the open editor, so every open is a fresh scene. The canvas is white in
+  // both themes: Excalidraw's dark theme inverts the bitmap
+  // (invert(.93) hue-rotate(180deg)), so a dark viewBackgroundColor came
+  // back as a light canvas under a dark UI — and the exported PNG carried
+  // that inverted paper. White keeps the export a plain sheet and lets the
+  // theme filter darken the screen.
   const seed = initial && initial.elements
-    ? initial
-    : { appState: { viewBackgroundColor: theme() === "dark" ? "#121212" : "#ffffff" } };
+    ? { ...initial, appState: { ...(initial.appState || {}), viewBackgroundColor: "#ffffff" } }
+    : { appState: { viewBackgroundColor: "#ffffff" } };
 
   async function save() {
     const api = apiRef.current;
