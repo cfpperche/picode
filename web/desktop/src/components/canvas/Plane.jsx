@@ -62,7 +62,6 @@ import "@xyflow/react/dist/style.css";
 // other refusal is the surface's, because it is the surface that asks the
 // owner first.
 
-const noop = () => {};
 const NODE_TYPE = "panel";
 const EDGE_TYPE = "link";
 // One handle per panel, so a client that sends the two ids in either order
@@ -296,15 +295,14 @@ function sameData(a, b) {
   return !!a && !!b && DATA_KEYS.every((k) => a[k] === b[k]);
 }
 
-function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, maximizedId, tabStopId, loader, handlers, links, edgeRows, onConnect, onRemoveEdge, onLayout, onGestureStart, onGestureStop, onReady, onZoom = noop }) {
+function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, maximizedId, tabStopId, loader, handlers, links, edgeRows, onConnect, onRemoveEdge, onLayout, onGestureStart, onGestureStop, onReady, showMinimap = true }) {
   const rf = useReactFlow();
   const rootRef = useRef(null);
   const [nodes, setNodes] = useState([]);
   // The zoom lives in a ref — a pan or a zoom must not re-render a body —
   // and only what it *decides* is state: whether a pointer may reach a pane.
-  // The readout moved to the surface's toolbar and is pushed there through
-  // `onZoom` rather than held here, so the percentage changing re-renders
-  // one <span> instead of the plane (see CanvasSurface, `subscribeZoom`).
+  // There is no readout any more (owner, 2026-09-12), so nothing here has to
+  // re-render when the number changes.
   const zoomRef = useRef(1);
   const [pointer, setPointer] = useState(true);
   // The plane's texture is a preference, not plane state: Preferences
@@ -347,8 +345,7 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
     if (rootRef.current) rootRef.current.style.setProperty("--cv-zoom", String(zoom));
     const next = pointerAtZoom(zoom);
     setPointer((cur) => (cur === next ? cur : next));
-    onZoom(Math.round(zoom * 100));
-  }, [onZoom]);
+  }, []);
 
   const centerOn = useCallback((id, zoom) => {
     const node = rf.getNode(id);
@@ -746,7 +743,7 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
             corner of a plane that is already saying, in its middle, that it
             is empty (`.cv-blank`, CanvasSurface.jsx). It comes back with the
             first panel, which is the first thing it could map. */}
-        {nodes.length ? <MiniMap pannable zoomable ariaLabel="Panels on the plane" /> : null}
+        {showMinimap && nodes.length ? <MiniMap pannable zoomable ariaLabel="Panels on the plane" /> : null}
       </ReactFlow>
     </div>
   );

@@ -33,6 +33,7 @@
     "./domain/browserChord.js": "./domain/browserChord.js",
     "./domain/canvas.js": "./domain/canvas.js",
     "./domain/canvasAnchors.js": "./domain/canvasAnchors.js",
+    "./domain/canvasChrome.js": "./domain/canvasChrome.js",
     "./domain/canvasPattern.js": "./domain/canvasPattern.js",
     "./domain/canvasGrants.js": "./domain/canvasGrants.js",
     "./domain/checklist.js": "./domain/checklist.js",
