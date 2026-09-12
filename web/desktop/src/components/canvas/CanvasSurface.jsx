@@ -48,8 +48,8 @@ const BACKGROUNDS = [
 // docs/plans/matrix-app.md; API docs/architecture/canvas.md). One tab,
 // `x:canvas` / #/app/canvas/<canvasId>: no bar over the plane at all — the
 // stage is the plane, edge to edge, and the chrome floats on it as two
-// clusters (the switcher, Add panel and a menu top-left; the minimap and
-// the zoom cluster bottom-right, in Plane). The same element is the scroll
+// clusters (the switcher, Add panel and a menu top-left; the zoom column
+// bottom-left and the minimap bottom-right, in Plane). The same element is the scroll
 // container chunk loading observes, holding the plane's panel wrappers
 // (Plane). State is { list, byId } reduced by applyCanvasEvent from
 // the change feed; the surface reads /api/canvases once on open and on a
@@ -1124,7 +1124,8 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
   const maxModel = maximizedId ? models.find((m) => m.id === maximizedId) || null : null;
   // The chrome is two floating clusters over the plane, never a bar above it
   // (nodeterm, docs/benchmarks/2026-09-10-node-canvas.md "Chrome"): this one
-  // top-left, the minimap and the zoom cluster bottom-right (Plane.jsx). The
+  // top-left, the zoom column bottom-left and the minimap opposite it
+  // (Plane.jsx). The
   // two things a reader reaches for constantly are here — which canvas, and
   // one more panel — and everything else is one press away in the menu. The
   // tab strip already names the app and its × already closes the tab, so the

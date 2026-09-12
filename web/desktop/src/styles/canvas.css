@@ -5,8 +5,8 @@
    The surface has **no header** (2026-09-11): a bar over a plane is a strip
    of the work area spent on a title the tab strip already shows and a Close
    the tab's × already is. The chrome floats on the plane instead, as two
-   clusters of the same make — .cv-chrome top-left, .cv-zoom bottom-right
-   beside the minimap — so the plane runs edge to edge behind them
+   clusters of the same make — .cv-chrome top-left, .cv-zoom a column at the
+   bottom-left with the minimap opposite it — so the plane runs edge to edge behind them
    (nodeterm; docs/benchmarks/2026-09-10-node-canvas.md "Chrome"). */
 
 .cv-surface { --cv-head-h: 28px; }
@@ -411,7 +411,15 @@
    itself, so an unloaded or still panel was an outline rather than a card.
    A live pane paints its own ground over this. */
 .cv-canvas-flow .cv-panel-body { background: var(--bg-panel); }
-.cv-canvas-flow .cv-still { background: transparent; }
+/* The still keeps the terminal's ground. --cv-term-bg / --cv-term-fg are the
+   live pane's own two colours, set on the plane root from the reader's
+   terminal preference (Plane.jsx) and refreshed on `picode-term-theme`. The
+   fallbacks are the panel's own pair, for the one frame before the root is
+   measured and for any host that renders a still outside the plane. */
+.cv-canvas-flow .cv-still {
+  background: var(--cv-term-bg, var(--bg-panel));
+  color: var(--cv-term-fg, var(--text-secondary));
+}
 .cv-canvas-flow .cv-panel {
   position: relative; width: 100%; height: 100%;
   border-color: var(--border-strong);
@@ -525,64 +533,70 @@
   content: ""; position: absolute; border-radius: calc(1 * var(--cv-px));
 }
 
-/* The four edges. The library centres each band on its edge; pulled fully
-   inside instead, because .cv-panel clips whatever sticks out. */
-.cv-canvas-flow .react-flow__resize-control.line.top,
-.cv-canvas-flow .react-flow__resize-control.line.bottom { height: var(--cv-grab); width: 100%; left: 0; }
-.cv-canvas-flow .react-flow__resize-control.line.left,
-.cv-canvas-flow .react-flow__resize-control.line.right { width: var(--cv-grab); height: 100%; top: 0; }
-.cv-canvas-flow .react-flow__resize-control.line.top { top: 0; transform: none; }
-.cv-canvas-flow .react-flow__resize-control.line.bottom { top: 100%; transform: translate(0, -100%); }
-.cv-canvas-flow .react-flow__resize-control.line.left { left: 0; transform: none; }
-.cv-canvas-flow .react-flow__resize-control.line.right { left: 100%; transform: translate(-100%, 0); }
+/* The two edges. The library centres each band on its edge; pulled fully
+   inside instead, because .cv-panel clips whatever sticks out. Only the
+   south and east bands are rendered (Plane.jsx, RESIZE_CONTROLS), so the
+   rules for `top` and `left` are gone with them rather than left behind to
+   style elements that no longer exist. */
+.cv-canvas-flow .react-flow__resize-control.line.bottom {
+  height: var(--cv-grab); width: 100%; left: 0;
+  top: 100%; transform: translate(0, -100%);
+}
+.cv-canvas-flow .react-flow__resize-control.line.right {
+  width: var(--cv-grab); height: 100%; top: 0;
+  left: 100%; transform: translate(-100%, 0);
+}
 .cv-canvas-flow .react-flow__resize-control.line::after { background: var(--text-secondary); }
-.cv-canvas-flow .react-flow__resize-control.line.top::after,
 .cv-canvas-flow .react-flow__resize-control.line.bottom::after {
   left: 50%; transform: translateX(-50%); width: var(--cv-bar); height: var(--cv-mark);
+  bottom: calc(3 * var(--cv-px));
 }
-.cv-canvas-flow .react-flow__resize-control.line.left::after,
 .cv-canvas-flow .react-flow__resize-control.line.right::after {
   top: 50%; transform: translateY(-50%); width: var(--cv-mark); height: var(--cv-bar);
+  right: calc(3 * var(--cv-px));
 }
-.cv-canvas-flow .react-flow__resize-control.line.top::after { top: calc(3 * var(--cv-px)); }
-.cv-canvas-flow .react-flow__resize-control.line.bottom::after { bottom: calc(3 * var(--cv-px)); }
-.cv-canvas-flow .react-flow__resize-control.line.left::after { left: calc(3 * var(--cv-px)); }
-.cv-canvas-flow .react-flow__resize-control.line.right::after { right: calc(3 * var(--cv-px)); }
 
-/* The four corners. The library's `translate: -50% -50%` centres them on
-   the corner and half of that is clipped; each is pulled inside instead. */
+/* The one corner. The library's `translate: -50% -50%` centres it on the
+   corner and half of that is clipped; it is pulled inside instead. */
 .cv-canvas-flow .react-flow__resize-control.handle {
   width: var(--cv-corner); height: var(--cv-corner); border-radius: 0;
 }
-.cv-canvas-flow .react-flow__resize-control.handle.top.left { translate: 0 0; }
-.cv-canvas-flow .react-flow__resize-control.handle.top.right { translate: -100% 0; }
-.cv-canvas-flow .react-flow__resize-control.handle.bottom.left { translate: 0 -100%; }
 .cv-canvas-flow .react-flow__resize-control.handle.bottom.right { translate: -100% -100%; }
 /* The L: two borders of a small square, the pair that points at the corner
    it belongs to — the grid drew the same glyph at its one corner handle. */
 .cv-canvas-flow .react-flow__resize-control.handle::after {
   width: calc(8 * var(--cv-px)); height: calc(8 * var(--cv-px));
   border: calc(2 * var(--cv-px)) solid var(--text-secondary);
+  bottom: calc(3 * var(--cv-px)); right: calc(3 * var(--cv-px));
+  border-top: 0; border-left: 0;
 }
-.cv-canvas-flow .react-flow__resize-control.handle.top::after { top: calc(3 * var(--cv-px)); border-bottom: 0; }
-.cv-canvas-flow .react-flow__resize-control.handle.bottom::after { bottom: calc(3 * var(--cv-px)); border-top: 0; }
-.cv-canvas-flow .react-flow__resize-control.handle.left::after { left: calc(3 * var(--cv-px)); border-right: 0; }
-.cv-canvas-flow .react-flow__resize-control.handle.right::after { right: calc(3 * var(--cv-px)); border-left: 0; }
 
-/* Zoom controls, beside the minimap — the second cluster, on the same
-   ground as the first (.cv-cluster above). The readout is the honest part:
-   a live terminal only takes a pointer at 100 %, and nothing else on screen
-   would say so — clicking it goes back there. */
-.cv-zoom { right: 12px; bottom: 170px; }
-.cv-cluster > .cv-zoom-btn, .cv-cluster > .cv-zoom-pct, .cv-cluster > .cv-zoom-fit { min-width: 34px; }
+/* Zoom controls: a column at the bottom-left, the minimap at the
+   bottom-right (owner, 2026-09-12, following React Flow's own `<Controls>`).
+   The two ends of the same edge rather than a stack in one corner — a plane
+   is emptiest at its bottom-left, and the old arrangement spent the height
+   above the minimap, the one strip where a reader is already looking.
+
+   It is the same cluster as the top-left one, turned: `.cv-cluster` is a row
+   of one control height, so a column needs `height: auto` and the seam has
+   to move from the left edge of each child to its top. The readout is the
+   honest part: a live terminal only takes a pointer at 100 %, and nothing
+   else on screen would say so — clicking it goes back there. */
+.cv-zoom {
+  left: 12px; bottom: 12px;
+  flex-direction: column; align-items: stretch;
+  width: var(--ctl-h); height: auto;
+}
+.cv-zoom > * + * { border-left: 0; border-top: 1px solid var(--border); }
+.cv-zoom > * { width: 100%; padding: 0 2px; }
 /* A single hairline glyph at the cluster's text size reads fainter than the
    words beside it — it is the same colour, but far fewer pixels carry it.
    Give the two of them a size of their own. */
 .cv-zoom > .cv-zoom-btn { font-size: 16px; line-height: 1; }
-/* A fixed readout: at 100 % the label is a digit wider than at 70 %, and a
-   cluster anchored on its right edge moved the − button out from under the
-   pointer between one click and the next. */
-.cv-zoom > .cv-zoom-pct { min-width: 62px; font-variant-numeric: tabular-nums; }
+/* The readout sets no width any more — the column does, and 150 % (maxZoom)
+   is the widest it ever reads. Tabular figures keep the digits from shifting
+   under the pointer between one click and the next. */
+.cv-zoom > .cv-zoom-pct { font-size: 11px; font-variant-numeric: tabular-nums; }
 
 /* The pointer layer (plan §4.3). Between 0.8 and 1.5 a pane renders and takes
    keys perfectly, but xterm maps a click as `cell × zoom` under the plane's
@@ -613,7 +627,8 @@
    age when the feed has seen the panel move since. */
 .cv-still {
   flex: 1; min-height: 0; margin: 0; padding: 6px 8px; overflow: hidden;
-  font: 12px/1.25 var(--mono); color: var(--text-secondary); background: var(--bg-base);
+  font: 12px/1.25 var(--mono); color: var(--cv-term-fg, var(--text-secondary));
+  background: var(--cv-term-bg, var(--bg-base));
   white-space: pre; word-break: keep-all;
 }
 .cv-note {

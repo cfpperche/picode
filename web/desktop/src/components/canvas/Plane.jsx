@@ -1,12 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Background, BackgroundVariant, ConnectionMode, Handle, MiniMap, NodeResizer, Position, ReactFlow, ReactFlowProvider, applyNodeChanges, useReactFlow } from "@xyflow/react";
+import { Background, BackgroundVariant, ConnectionMode, Handle, MiniMap, NodeResizeControl, Position, ReactFlow, ReactFlowProvider, applyNodeChanges, useReactFlow } from "@xyflow/react";
 import { CANVAS_LIMITS, CANVAS_ZOOM, EDGE_KINDS, UNIT_PX, legacyViewportKey, normalizeViewport, pointerAtZoom, pxToUnits, unitsToPx, viewportKey } from "@picode/shared/domain/canvas.js";
 import { anchorLinks } from "@picode/shared/domain/canvasAnchors.js";
 import { CANVAS_PATTERN_EVENT, readCanvasPattern } from "@picode/shared/domain/canvasPattern.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
+import { readTermTheme, xtermTheme } from "@picode/shared/domain/termTheme.js";
 import Panel from "./Panel.jsx";
 import Link, { ConnectionPreview } from "./Link.jsx";
-import { IconLink } from "../Icons.jsx";
+import { IconExpand, IconLink } from "../Icons.jsx";
 import { hasPane } from "./PanelBody.jsx";
 import { CANVAS_MARGIN } from "./chunkLoader.js";
 import { captureStill, captureStills, readStill } from "./stills.js";
@@ -98,14 +99,15 @@ const VIEW_SAVE_MS = 400;
 // content inside the padded rect, and the spare height went to both ends
 // equally — which put the first panel's header under the top-left cluster.
 // These two bands are the cluster geometry in screen pixels: 12 px inset +
-// 36 px control + a gap at the top, and the zoom cluster above the 150 px
-// minimap at the bottom. A viewer can of course still drag a panel under a
-// cluster; what this fixes is the one camera the surface chooses itself,
-// and the one `Fit` goes back to.
+// 36 px control + a gap at the top, and at the bottom the taller of the two
+// corners now that they stand side by side — the 150 px minimap on the right
+// against the zoom column's four controls on the left (12 + 4 × 36 = 156).
+// A viewer can of course still drag a panel under a cluster; what this fixes
+// is the one camera the surface chooses itself, and the one `Fit` goes back to.
 const FIT_TOP = 60;
-const FIT_BOTTOM = 204;
+const FIT_BOTTOM = 162;
 const FIT_SIDE = 24;
-// On a pane too short to spare 264 px the bands shrink together rather than
+// On a pane too short to spare 222 px the bands shrink together rather than
 // eating the whole viewport: chrome room is never worth more than a third
 // of the height a reader came for.
 function fitOpts(el) {
@@ -121,6 +123,26 @@ function fitOpts(el) {
     maxZoom: CANVAS_ZOOM.exact,
   };
 }
+// Which resize targets a panel offers. The class names the library writes
+// are the position split on "-" plus the variant, so these three produce
+// `line bottom`, `line right` and `handle bottom right` — the selectors
+// canvas.css already had.
+const RESIZE_CONTROLS = [
+  { position: "bottom", variant: "line" },
+  { position: "right", variant: "line" },
+  { position: "bottom-right", variant: "handle" },
+];
+
+// The two colours a still borrows from the live pane. xterm is configured
+// from this same pair (termTheme.js), so a still and the pane it was taken
+// from cannot drift apart.
+function paintTermGround(el) {
+  if (!el) return;
+  const t = xtermTheme(readTermTheme());
+  el.style.setProperty("--cv-term-bg", t.background);
+  el.style.setProperty("--cv-term-fg", t.foreground);
+}
+
 const MIN_W_PX = CANVAS_LIMITS.canvasMinW * UNIT_PX;
 const MIN_H_PX = CANVAS_LIMITS.canvasMinH * UNIT_PX;
 const MAX_PX = CANVAS_LIMITS.canvasMax * UNIT_PX;
@@ -205,27 +227,38 @@ const PanelNode = memo(function PanelNode({ id, data }) {
       links={data.links}
       pointer={data.pointer}
     >
-      {/* The resize targets. The component stays — it is what drives the
-          resize and what fires `onResizeEnd` once per gesture, which is the
-          save path's debounce. What it ships is the target: handles sized
-          in *plane* units, so they shrink with the camera, and line
-          controls one plane pixel wide.
-          `autoScale` off on purpose: the library's own answer is an inline
-          `scale: max(1 / zoom, 1)` on the four handles only, which leaves
-          the four edges untouched and does nothing at all above zoom 1.
+      {/* The resize targets: the bottom edge, the right edge and the corner
+          between them (owner, 2026-09-12). `NodeResizer` ships all eight —
+          four edges and four corners — and the other five are the ones that
+          move a panel's top-left while resizing it, which on a plane where
+          panels are read left to right and top to bottom is a drag that
+          shifts the thing you were aiming at. Three controls, so the other
+          five do not exist rather than being hidden: a target painted at
+          zero opacity is still a target the pointer finds.
+
+          The controls carry the resize and fire `onResizeEnd` once per
+          gesture, which is the save path's debounce. The targets are sized
+          in *plane* units, so `autoScale` is off on purpose: the library's
+          own answer is an inline `scale: max(1 / zoom, 1)` on handles only,
+          which leaves the edges untouched and does nothing above zoom 1.
           canvas.css counter-scales every control off --cv-zoom instead, so
           there is one rule and one place to read it; leaving both on would
           divide by the zoom twice. */}
-      <NodeResizer
-        nodeId={id}
-        autoScale={false}
-        minWidth={MIN_W_PX}
-        minHeight={MIN_H_PX}
-        maxWidth={MAX_PX}
-        maxHeight={MAX_PX}
-        onResizeStart={data.onResizeStart}
-        onResizeEnd={data.onResizeEnd}
-      />
+      {RESIZE_CONTROLS.map((c) => (
+        <NodeResizeControl
+          key={c.position}
+          nodeId={id}
+          position={c.position}
+          variant={c.variant}
+          autoScale={false}
+          minWidth={MIN_W_PX}
+          minHeight={MIN_H_PX}
+          maxWidth={MAX_PX}
+          maxHeight={MAX_PX}
+          onResizeStart={data.onResizeStart}
+          onResizeEnd={data.onResizeEnd}
+        />
+      ))}
       {!data.pointer && snapTarget(data) ? (
         // The pointer layer. xterm maps a click as `cell × zoom` under the
         // plane's transform (C0), and PiCode ships tmux `mouse on`, so a
@@ -418,9 +451,27 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
   // ---- the observer root is the plane, and its margin has both axes -------
   const setRoot = useCallback((el) => {
     rootRef.current = el;
-    if (el) el.style.setProperty("--cv-zoom", String(zoomRef.current));
+    if (el) {
+      el.style.setProperty("--cv-zoom", String(zoomRef.current));
+      paintTermGround(el);
+    }
     loader.attach(el, CANVAS_MARGIN);
   }, [loader]);
+
+  // A still is a terminal's own last screen, so it wears the terminal's own
+  // ground (owner, 2026-09-12: "enquanto tiver escrita de terminal precisa
+  // exibir o terminal"). Zooming out used to hand a black pane's text to the
+  // panel's light ground, which read as the panel having become something
+  // else at 0.75 — the one thing the band must not say, since the text under
+  // it is the same text. One listener for the whole plane rather than one per
+  // panel: the colours are the reader's terminal preference, they change from
+  // Settings for every terminal at once, and `picode-term-theme` is the event
+  // the live panes already listen to.
+  useEffect(() => {
+    const apply = () => paintTermGround(rootRef.current);
+    window.addEventListener("picode-term-theme", apply);
+    return () => window.removeEventListener("picode-term-theme", apply);
+  }, []);
 
   // ---- nodes --------------------------------------------------------------
   const nodeData = useMemo(() => {
@@ -638,12 +689,19 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
 
   return (
     <div className="cv-canvas-flow" ref={setRoot} data-bg={bgPattern}>
-      {/* The zoom cluster floats bottom-right beside the minimap, but it is
-          declared before the plane so Tab runs through the chrome and only
-          then reaches the roving panel — the same order the surface's
-          top-left cluster keeps. Both clusters are positioned, so the DOM
-          order costs the layout nothing. */}
-      <div className="cv-cluster cv-zoom" role="group" aria-label="Zoom" data-align-row>
+      {/* The zoom cluster stands bottom-left as a column, the minimap keeps
+          bottom-right (owner, 2026-09-12): the two ends of the same edge
+          instead of a stack in one corner, which is where the plane has the
+          least to say. It is declared before the plane so Tab runs through
+          the chrome and only then reaches the roving panel — the same order
+          the surface's top-left cluster keeps. Both clusters are positioned,
+          so the DOM order costs the layout nothing.
+
+          No `data-align-row` on a column: that attribute is an assertion
+          that the children share a top edge (web/shared/domain/overlayAudit.js),
+          and stacked ones do not. */}
+      <div className="cv-cluster cv-zoom" role="group" aria-label="Zoom">
+        <button type="button" className="cv-zoom-btn" aria-label="Zoom in" title="Zoom in (+)" onClick={zoomIn}>+</button>
         <button type="button" className="cv-zoom-btn" aria-label="Zoom out" title="Zoom out (−)" onClick={zoomOut}>−</button>
         <button
           type="button"
@@ -651,10 +709,14 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
           title="Back to 100 % — the only zoom where a click lands on the cell it points at"
           onClick={() => snapToOne(focusedId)}
         >
-          {zoomPct} %
+          {zoomPct}%
         </button>
-        <button type="button" className="cv-zoom-btn" aria-label="Zoom in" title="Zoom in (+)" onClick={zoomIn}>+</button>
-        <button type="button" className="cv-zoom-fit" title="Fit every panel (0)" onClick={fit}>Fit</button>
+        {/* The one glyph in the column, for the one action that is not a
+            number: React Flow's own Controls draw fit as this icon, and the
+            word "Fit" was the single child that set the column's width. */}
+        <button type="button" className="cv-zoom-fit" aria-label="Fit every panel" title="Fit every panel (0)" onClick={fit}>
+          <IconExpand size={13} />
+        </button>
       </div>
       <ReactFlow
         nodes={nodes}
