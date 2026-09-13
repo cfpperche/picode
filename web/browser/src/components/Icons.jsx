@@ -198,3 +198,15 @@ export const IconOk = lucide(CircleCheck, 14);
 export const IconInfo = lucide(Info, 14);
 export const IconWarn = lucide(TriangleAlert, 14);
 export const IconError = lucide(OctagonX, 14);
+
+// The brand mark — the exact geometry of /favicon.svg (the official pi
+// glyph), so the shell header wears what the browser tab and the
+// installed app show. Glyph only: the plate is the chip's own background.
+export function IconBrandMark({ size = 10 }) {
+  return (
+    <svg width={size} height={size} viewBox="165.29 165.29 469.43 469.43" aria-hidden="true" focusable="false">
+      <path fill="#fff" fillRule="evenodd" d="M165.29 165.29H517.36V400H400V517.36H282.65V634.72H165.29ZM282.65 282.65V400H400V282.65Z" />
+      <path fill="#fff" d="M517.36 400H634.72V634.72H517.36Z" />
+    </svg>
+  );
+}

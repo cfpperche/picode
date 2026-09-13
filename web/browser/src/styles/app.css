@@ -5279,8 +5279,9 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   width: 17px; height: 17px; border-radius: 4px; flex: none;
   background: #09090b; color: #fff;
   display: grid; place-items: center;
-  font: 700 11px/1 Inter, "Segoe UI", sans-serif;
+  overflow: hidden;
 }
+.shell-mark svg { display: block; }
 .shell-name { font-size: 12.5px; font-weight: 650; letter-spacing: 0.2px; }
 .shell-brand:hover .shell-name { color: var(--accent); }
 .shell-row .main-tabs { flex: 1; min-width: 0; border-bottom: 0; }

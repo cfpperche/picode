@@ -21,7 +21,7 @@ const SECTION_ICONS = {
 
 const ACTION_ICONS = { "whats-new": IconSparkles, share: IconQR, docs: IconExternal };
 
-export default function UserMenu({ host, version, themeMode, onTheme, onNavigate, onShare, onWhatsNew, whatsNewUnread, pkgUpdates }) {
+export default function UserMenu({ host, version, inShell = false, themeMode, onTheme, onNavigate, onShare, onWhatsNew, whatsNewUnread, pkgUpdates }) {
   const [query, setQuery] = useState("");
   const contentRef = useRef(null);
   const hasPkgUp = !!(pkgUpdates && pkgUpdates.length);
@@ -166,7 +166,9 @@ export default function UserMenu({ host, version, themeMode, onTheme, onNavigate
               </div>
 
               <DropdownMenu.Separator className="um-divider" />
-              <div className="um-install"><InstallButton className="btn btn-primary btn-sm" /></div>
+              {/* The desktop shell IS the installed app — installing again
+                  from inside it makes no sense, so the entry is browser-only. */}
+              {!inShell ? <div className="um-install"><InstallButton className="btn btn-primary btn-sm" /></div> : null}
               <div className="um-version">PiCode <span id="um-ver">{version ? "v" + version : ""}</span></div>
             </>
           ) : null}

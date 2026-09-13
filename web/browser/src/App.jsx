@@ -18,6 +18,7 @@ import { readCompacting, writeCompacting } from "./lib/compact.js";
 import Sidebar from "./components/Sidebar.jsx";
 import WindowControls from "./components/WindowControls.jsx";
 import RailTabs from "./components/RailTabs.jsx";
+import { IconBrandMark } from "./components/Icons.jsx";
 import AgentTabs from "./components/AgentTabs.jsx";
 import DashboardView from "./components/DashboardView.jsx";
 import SessionBar from "./components/SessionBar.jsx";
@@ -2708,7 +2709,7 @@ export default function App({ shellChrome = false } = {}) {
           <div className="shell-brand-cluster" data-tauri-drag-region>
             <button type="button" className="shell-brand" title="Dashboard"
                     onClick={() => { setDashboardPinned(true); setNavigationOpen(false); }}>
-              <span className="shell-mark" data-tauri-drag-region>P</span>
+              <span className="shell-mark" data-tauri-drag-region><IconBrandMark /></span>
               <span className="shell-name" data-tauri-drag-region>PiCode</span>
             </button>
             <RailTabs tab={sideTab} selectTab={selectSideTab} apps={apps} pkgUpdates={pkgUpdates} onOpenClis={() => { go("clis"); setNavigationOpen(false); }} />
@@ -2781,6 +2782,7 @@ export default function App({ shellChrome = false } = {}) {
         userMenu={{
           host,
           version,
+          inShell: shellChrome,
           themeMode,
           onTheme: setTheme,
           onNavigate: (kind) => go(kind, agent?.id, { workspaceId: paneWs?.id }),
