@@ -94,6 +94,16 @@ with a later dispatch timestamp. They are therefore ignored, along with child
 events and `SessionEnd`; wrapper exit removes presence. This conservative
 policy can delay idle by about a minute.
 
+Grok runs a turn's tool calls as a parallel batch, so a question card can
+wait while sibling tools finish. Its `ask_user_question` card notifies
+`elicitation_dialog` and nothing else fires until the card is answered or
+dismissed, so the report is a *held* attention: `needs-you` with
+`attention: question`. Only the question tool's own completion (reported as
+`attention: answered`) or a settled lifecycle report releases the hold — a
+sibling's `PostToolUse` never does. The hold is stamped when the card
+appeared, which can be older than a sibling completion in the same batch, so
+it is exempt from the native ordering fence and cannot be silently dropped.
+
 A permission prompt is `needs-you` everywhere, and none of the hook-driven
 CLIs emits a "permission resolved" event. The approved tool's completion is
 the resume signal that returns the terminal to `working`, so every CLI that
@@ -101,7 +111,7 @@ can wait on a permission registers its tool lifecycle:
 
 | CLI | `needs-you` | resume to `working` |
 |---|---|---|
-| Grok | `PermissionRequest`, `Notification` `permission_prompt` | `PostToolUse`, `PostToolUseFailure` |
+| Grok | `Notification` `permission_prompt`; `Notification` `elicitation_dialog` (held) | `PostToolUse`, `PostToolUseFailure`; a held question ends only at `ask_user_question`'s own completion |
 | Claude Code | `Notification` `permission_prompt` / `agent_needs_input` | `PostToolUse`, `PostToolUseFailure` |
 | Codex | `PermissionRequest` | `PostToolUse` |
 | OpenCode | `permission.asked`, `question.asked` | `permission.replied`, `question.replied` |
