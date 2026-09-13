@@ -63,6 +63,16 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew }) 
 
   const urlRef = useRef(null);
 
+  const shot = () => invoke && invoke("btab_screenshot", { id })
+    .then((b64) => {
+      const a = document.createElement("a");
+      a.href = "data:image/png;base64," + b64;
+      a.download = `picode-tab-${id}-${Date.now()}.png`;
+      a.click();
+      setErr("");
+    })
+    .catch(fail);
+
   function go(u) {
     const target = (u ?? urlDraft).trim();
     if (!target) return;
@@ -102,6 +112,7 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew }) 
           spellCheck={false}
         />
         <button type="button" title="Go" onClick={() => go()}>Go</button>
+        <button type="button" title="Take a screenshot" aria-label="Take a screenshot" onClick={shot} disabled={!invoke}>⬇</button>
         <button type="button" title="New browser tab" onClick={onNew}>+</button>
         {err ? <span className="web-tab-err" title={err}>{err}</span> : null}
       </div>
