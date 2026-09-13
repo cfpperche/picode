@@ -21,7 +21,8 @@
 //  - a passed content gate can still yield an unpainted frame, so the PNG is
 //    size-checked and re-shot up to three times.
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
+import net from "node:net";
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync, readFileSync, statSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -37,9 +38,27 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = process.argv.includes("--out")
   ? process.argv[process.argv.indexOf("--out") + 1]
   : join(root, "docs-site", "img");
-const base = process.argv.includes("--base")
+// Without --base the run OWNS its fixture: a fresh daemon on a free port,
+// seeded on boot, killed at the end. Sharing one long-lived fixture across
+// sessions meant every session's restart killed the others' captures
+// (2026-09-12: app-mobile-inbox shot against a daemon that had just died).
+async function ownedFixture() {
+  const bin = "/tmp/picode-docs-shots-fixture";
+  spawnSync("go", ["build", "-o", bin, "./cmd/picode-docs-fixture"], { cwd: root, stdio: "inherit" });
+  const port = await new Promise((resolve) => {
+    const srv = net.createServer();
+    srv.listen(0, "127.0.0.1", () => {
+      const p = srv.address().port;
+      srv.close(() => resolve(p));
+    });
+  });
+  const child = spawn(bin, ["-addr", `127.0.0.1:${port}`], { cwd: root, stdio: "ignore" });
+  return { base: `http://127.0.0.1:${port}`, child };
+}
+
+const externalBase = process.argv.includes("--base")
   ? process.argv[process.argv.indexOf("--base") + 1]
-  : "http://127.0.0.1:18740";
+  : null;
 
 // waitText must be VIEW-SPECIFIC and is checked inside `scope` (both mobile
 // screens render the seeded question's title, so the container decides).
@@ -111,7 +130,7 @@ function gitSha() {
   }
 }
 
-async function main() {
+async function run({ base, release = null }) {
   mkdirSync(outDir, { recursive: true });
   const manifestPath = join(outDir, "manifest.json");
   const prev = (() => {
@@ -239,7 +258,6 @@ async function main() {
   const unchanged =
     prev &&
     prev.fingerprintVersion === FINGERPRINT_VERSION &&
-    prev.base === base &&
     JSON.stringify(prev.surfaces) === JSON.stringify(captured);
   const manifest = {
     fingerprintVersion: FINGERPRINT_VERSION,
@@ -262,7 +280,22 @@ async function main() {
   console.log(`docs-shots: ${surfaces.length} surfaces -> ${outDir}`);
 }
 
-main().catch((e) => {
-  console.error("docs-shots failed:", e.message);
-  process.exit(1);
-});
+async function main() {
+  let release = null;
+  let base = externalBase;
+  if (!externalBase) {
+    const owned = await ownedFixture();
+    release = () => owned.child.kill();
+    base = owned.base;
+  }
+  try {
+    await run({ base, release });
+  } catch (e) {
+    console.error("docs-shots failed:", e.message);
+    process.exit(1);
+  } finally {
+    release?.();
+  }
+}
+
+main();
