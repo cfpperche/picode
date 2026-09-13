@@ -776,25 +776,25 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                   </select>
                   <label className="prov-check">
                     <input type="checkbox" checked={cf.compatDeveloper} onChange={setCheck("compatDeveloper")} />
-                    <span>Send the OpenAI <code>developer</code> role — most gateways want this off</span>
+                    <span>OpenAI <code>developer</code> role — most gateways: leave off</span>
                   </label>
                   <label className="prov-check">
                     <input type="checkbox" checked={cf.compatReasoning} onChange={setCheck("compatReasoning")} />
-                    <span>Send <code>reasoning_effort</code> — reasoning models only</span>
+                    <span><code>reasoning_effort</code> — reasoning models only</span>
                   </label>
                   <div className="prov-adv-grid">
                     <input
                       value={cf.contextWindow}
                       onChange={setField("contextWindow")}
                       inputMode="numeric"
-                      placeholder="Context window (optional)"
+                      placeholder="Context window"
                       aria-label="Context window in tokens"
                     />
                     <input
                       value={cf.maxTokens}
                       onChange={setField("maxTokens")}
                       inputMode="numeric"
-                      placeholder="Max output (optional)"
+                      placeholder="Max output"
                       aria-label="Max output tokens"
                     />
                   </div>
