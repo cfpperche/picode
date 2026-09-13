@@ -283,10 +283,14 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
   function chooseProvider(p) {
     setPick(p);
     setErr("");
-    if (p.id === "llama.cpp") setStep("llama");
-    else if (p.login === "oauth") setStep("oauth");
-    else if (p.login === "both") setStep("method");
-    else setStep("key");
+    if (p.id === "llama.cpp") { setStep("llama"); return; }
+    // An unsigned custom definition has a row nowhere: picking it from the
+    // picker opens the Edit form so a wrong URL/model can be fixed, instead
+    // of a key-only sign-in into a broken endpoint.
+    if (p.custom && !p.signedIn) { editCustom(p); return; }
+    if (p.login === "oauth") { setStep("oauth"); return; }
+    if (p.login === "both") { setStep("method"); return; }
+    setStep("key");
   }
 
   async function save(e) {

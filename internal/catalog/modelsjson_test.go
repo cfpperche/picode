@@ -205,6 +205,32 @@ func TestRemoveCustomProvider(t *testing.T) {
 	}
 }
 
+func TestUpsertRefusesUnwrappedFile(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	path := filepath.Join(home, ".pi", "agent", "models.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	// pi rejects this file; a merge would report success while the gateway
+	// never loads. The write must be refused, not mixed into junk.
+	before := `{"cheaperinference":{"baseUrl":"https://x.com/v1","models":[{"id":"m"}]}}`
+	if err := os.WriteFile(path, []byte(before), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := UpsertCustomProvider("my-gw", CustomDefinition{
+		BaseURL: "https://new.example.com/v1", API: APIOpenAICompletions,
+		Models: []CustomModel{{ID: "m"}},
+	})
+	if err == nil {
+		t.Fatal("expected refusal for unwrapped file")
+	}
+	after, _ := os.ReadFile(path)
+	if string(after) != before {
+		t.Fatalf("file changed on refusal:\n%s", after)
+	}
+}
+
 func TestLoadCustomDefinitions(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

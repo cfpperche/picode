@@ -152,6 +152,14 @@ func UpsertCustomProvider(id string, def CustomDefinition) error {
 	if err != nil {
 		return err
 	}
+	// A file pi rejects (entries outside the providers wrapper) stays pi's
+	// rejection even after our merge — writing into it would report success
+	// while the gateway never loads. Refuse and name the fix instead.
+	for key := range obj {
+		if key != "providers" {
+			return fmt.Errorf("models.json has hand-written entries outside the providers wrapper; move them under \"providers\" first")
+		}
+	}
 	providers := readProviders(mustRaw(obj))
 	entry := map[string]json.RawMessage{}
 	if old, ok := providers[id]; ok {
