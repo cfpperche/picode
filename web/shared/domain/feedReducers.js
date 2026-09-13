@@ -367,6 +367,24 @@ export function applyRuns(runs, automationId, ev) {
   return list.map((r) => (r.id === d.id ? d : r));
 }
 
+// applySnips(list, ev) -> next summaries. List omits bodies; unknown update → refetch.
+export function applySnips(list, ev) {
+  const items = list || [];
+  if (!ev || !String(ev.type || "").startsWith("snip.")) return items;
+  const d = ev.data || {};
+  if (ev.type === "snip.deleted") return items.filter((s) => s.id !== d.id);
+  if (!d.id) return null;
+  if (ev.type === "snip.created") {
+    if (items.some((s) => s.id === d.id)) return items.map((s) => (s.id === d.id ? { ...s, ...d } : s));
+    return [d, ...items];
+  }
+  if (ev.type === "snip.updated") {
+    if (!items.some((s) => s.id === d.id)) return null;
+    return items.map((s) => (s.id === d.id ? { ...s, ...d } : s));
+  }
+  return items;
+}
+
 // touches(ev, entities) -> whether ev is about one of the entity prefixes.
 export function touches(ev, entities) {
   const e = entity(ev.type);

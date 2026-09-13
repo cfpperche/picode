@@ -18,6 +18,7 @@ import { IconChevronRight, IconMonitor, IconQR, IconSparkles, IconPlus } from ".
 import { setShell } from "@picode/shared/client/shell.js";
 import { MORE_TITLES, moreGroups, moreActions, moreHasResults } from "../lib/moreMenuModel.js";
 import PinsList from "./PinsList.jsx";
+import SnippetsList from "./SnippetsList.jsx";
 import "../styles/mobile-lists.css";
 
 // Mobile-owned settings, loaded only when their section opens.
@@ -71,8 +72,9 @@ export default function More({ fleetReady = true, section, apps, catalog, system
   return (
     <div className="m-screen m-more-page">
       <ScreenHeader title={MORE_TITLES[section] || "More"} onBack={section === "clis" && (cliSettingsLocation(location.hash) || cliPackagesLocation(location.hash) || cliProvidersLocation(location.hash) || cliConnectorsLocation(location.hash)) ? () => { location.hash = "#/clis"; } : onBack}
-        right={section === "pins" ? <button type="button" className="m-head-btn" aria-label="New pin" onClick={() => { location.hash = "#/pins/new"; }}><IconPlus size={18} /></button> : null} />
+        right={section === "pins" || section === "snippets" ? <button type="button" className="m-head-btn" aria-label={section === "pins" ? "New pin" : "New snippet"} onClick={() => { location.hash = section === "pins" ? "#/pins/new" : "#/snippets/new"; }}><IconPlus size={18} /></button> : null} />
       {section === "pins" ? <PinsList onOpen={(id) => { location.hash = "#/pins/" + encodeURIComponent(id); }} onNew={() => { location.hash = "#/pins/new"; }} /> : null}
+      {section === "snippets" ? <SnippetsList onOpen={(id) => { location.hash = "#/snippets/" + encodeURIComponent(id); }} onNew={() => { location.hash = "#/snippets/new"; }} /> : null}
       {section === "apps" ? <AppsGrid apps={apps} onOpen={(id) => { location.hash = "#/app/" + encodeURIComponent(id); }} /> : null}
       {section === "devices" ? <Devices hidden={false} /> : null}
       {section === "clis" ? <AgentClis catalog={catalog} onCatalogChange={onCatalogChange} legacyContextReady={fleetReady} legacyPackageContext={{ workspaceId: workspace?.id || "", agentId: agent?.id || legacyAgentId || "" }} legacyAgentId={last?.agent?.id || legacyAgentId} onAgentConfig={onAgentConfig} /> : null}

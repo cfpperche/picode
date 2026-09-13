@@ -13,7 +13,7 @@ import { agentRoute, workspaceHash, termRoute, termHash, appPath } from "./route
 //   route := { screen: now|inbox|work|agent|term|changes|app|more, id, section }
 //   changes: `#/changes/<a|t|w>/<id>` — the owner's uncommitted working tree,
 //   read-only (ADR-0044 phase 3); section carries the owner kind.
-export const MORE_SECTIONS = ["pins", "llama", "devices", "preferences", "settings", "system", "providers", "mcps", "packages", "notifications", "apps", "clis", "integrations", "automations"];
+export const MORE_SECTIONS = ["pins", "snippets", "llama", "devices", "preferences", "settings", "system", "providers", "mcps", "packages", "notifications", "apps", "clis", "integrations", "automations"];
 export const WORK_SECTIONS = ["workspaces", "agents", "terminals"];
 const WORK_KEY = "picode-mobile-work";
 
@@ -39,6 +39,7 @@ const DESKTOP_TO_MORE = {
   packages: "packages",
   termset: "preferences",
   pins: "pins",
+  snippets: "snippets",
 };
 
 function strip(hash) {
@@ -97,6 +98,11 @@ export function mobileRoute(hash) {
   if (head === "pins" && parts[1] === "new") return { screen: "pinEdit", id: "", section: "" };
   if (head === "pins" && parts[1] && parts[2] === "edit") return { screen: "pinEdit", id: dec(parts[1]), section: "" };
   if (head === "pins" && parts[1]) return { screen: "pin", id: dec(parts[1]), section: "" };
+  // Snippets mirror Pins: the list lives under More; a snippet opens
+  // read-only, `new` and `<id>/edit` are the form.
+  if (head === "snippets" && parts[1] === "new") return { screen: "snipEdit", id: "", section: "" };
+  if (head === "snippets" && parts[1] && parts[2] === "edit") return { screen: "snipEdit", id: dec(parts[1]), section: "" };
+  if (head === "snippets" && parts[1]) return { screen: "snip", id: dec(parts[1]), section: "" };
   if (head === "app" && parts[1]) return { screen: "app", id: dec(parts[1]), section: "", ...(appPath("#" + h) ? { path: appPath("#" + h) } : {}) };
   if (head === "file" || head === "tree" || head === "git") {
     return { screen: "work", id: "", section: "" };
@@ -118,6 +124,8 @@ export function mobileHash(screen, id, section) {
     case "app": return "#/app/" + encodeURIComponent(id);
     case "pin": return "#/pins/" + encodeURIComponent(id);
     case "pinEdit": return id ? "#/pins/" + encodeURIComponent(id) + "/edit" : "#/pins/new";
+    case "snip": return "#/snippets/" + encodeURIComponent(id);
+    case "snipEdit": return id ? "#/snippets/" + encodeURIComponent(id) + "/edit" : "#/snippets/new";
     default: return "#/";
   }
 }
@@ -128,7 +136,7 @@ export function tabOf(route) {
   if (!route) return "now";
   if (route.screen === "agent" || route.screen === "term" || route.screen === "work" || ["changes", "files", "git"].includes(route.screen)) return "work";
   if (route.screen === "inbox") return "inbox";
-  if (route.screen === "more" || route.screen === "app" || route.screen === "pin" || route.screen === "pinEdit") return "more";
+  if (route.screen === "more" || route.screen === "app" || route.screen === "pin" || route.screen === "pinEdit" || route.screen === "snip" || route.screen === "snipEdit") return "more";
   return "now";
 }
 
@@ -157,6 +165,8 @@ export function parentHash(route, wsId) {
   if (route.screen === "inbox" && route.id) return "#/inbox";
   if (route.screen === "pin") return "#/more/pins";
   if (route.screen === "pinEdit") return route.id ? "#/pins/" + encodeURIComponent(route.id) : "#/more/pins";
+  if (route.screen === "snip") return "#/more/snippets";
+  if (route.screen === "snipEdit") return route.id ? "#/snippets/" + encodeURIComponent(route.id) : "#/more/snippets";
   if (route.screen === "more" && route.section) return "#/more";
   return "#/";
 }

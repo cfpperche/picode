@@ -110,7 +110,13 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew, on
           />
           <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => go()}>↵</button>
         </div>
-        <DropdownMenu.Root onOpenChange={(o) => invoke("btab_layer", { id, menuOpen: o }).catch(() => {})}>
+        <DropdownMenu.Root onOpenChange={(o) => {
+          if (!invoke) return;
+          invoke("btab_layer", { id, menuOpen: o }).catch((e) => {
+            console.error("btab_layer:", e);
+            return invoke("btab_visibility", { id, visible: !o }).catch(() => {});
+          });
+        }}>
           <DropdownMenu.Trigger asChild>
             <button type="button" className="web-tab-menu" title="Browser options" aria-label="Browser options">⋮</button>
           </DropdownMenu.Trigger>

@@ -9,6 +9,7 @@ export const llamaServiceSchema = z.object({
 import { looksLikeRepoUrl } from "../domain/cloneUrl.js";
 import { rowsError } from "../domain/automationSchedule.js";
 import { CANVAS_LIMITS } from "../domain/canvas.js";
+import { parseSnip, utf8Bytes, SNIP_LIMITS } from "../domain/snipDraft.js";
 
 const required = (label) => z.string().trim().min(1, label + " is required.");
 
@@ -235,6 +236,21 @@ export function pairsToMap(pairs) {
 // Automations editor (ADR-0045). Numbers arrive as strings from inputs;
 // the server re-validates everything.
 const numField = z.string().trim();
+
+export const snipSchema = z.object({
+  title: required("Title").max(200, "Use up to 200 characters for the title."),
+  slug: z.string().trim().max(64, "Use up to 64 characters for the slug.")
+    .refine((s) => !s || /^[a-z0-9][a-z0-9_-]{0,63}$/.test(s), "Slug must be lowercase letters, digits, dash or underscore."),
+  description: z.string().max(500, "Use up to 500 characters for the description."),
+  body: z.string(),
+  tags: z.string(),
+}).superRefine((v, ctx) => {
+  if (utf8Bytes(v.body) > SNIP_LIMITS.bodyBytes) {
+    ctx.addIssue({ code: "custom", message: "Body is too long (max 100 KB)." });
+  }
+  const parsed = parseSnip(v.body);
+  if (!parsed.ok) ctx.addIssue({ code: "custom", message: parsed.error === "unclosed placeholder" ? "Close every {{placeholder}}." : "Fix the placeholders in the body." });
+});
 
 export const automationSchema = z.object({
   name: required("Name").max(60, "Name is longer than 60 characters."),
