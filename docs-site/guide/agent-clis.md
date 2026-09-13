@@ -167,7 +167,9 @@ their CLI holds open, so PiCode hands the conversation to their own
 `import` command instead of writing that database. Either way PiCode reads
 the session back before telling you it worked.
 
-**Brief.** For a CLI with no import path, PiCode writes a short summary —
+**Brief.** For a CLI with no import path, or when the conversation is
+too large to import as a native session (over 64 MB), PiCode writes a
+short summary of the recent turns —
 the last request, where the previous agent stopped, the recent turns, the
 files and commands it touched — and starts the CLI with it. Hermes Agent
 has no brief, because it cannot be started with a prompt.

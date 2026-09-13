@@ -46,7 +46,7 @@ func (ClaudeCodeSource) Read(ctx context.Context, ref Ref) (transcript.Timeline,
 	}
 	compactPending := false
 	names := map[string]string{} // tool_use id → name, for results
-	err := scanLines(path, func(line []byte) {
+	err := scanSession(path, ref, func(line []byte) {
 		var raw struct {
 			Type      string `json:"type"`
 			Subtype   string `json:"subtype"`
