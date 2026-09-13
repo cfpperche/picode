@@ -126,6 +126,7 @@ func handleSetTerminalChecklist(deps Deps) http.HandlerFunc {
 				writeErr(w, http.StatusBadRequest, err.Error())
 				return
 			}
+			invalidateTerminals(deps)
 			writeJSON(w, http.StatusOK, c)
 			return
 		}
@@ -142,6 +143,7 @@ func handleSetTerminalChecklist(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		invalidateTerminals(deps)
 		writeJSON(w, http.StatusOK, c)
 	}
 }
