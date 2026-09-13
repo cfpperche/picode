@@ -3,7 +3,7 @@
 ## Next
 
 - Windows clean-machine install (ADR-0098): phase 1 stages in `picode-desktop.exe`, phase 2 `install.ps1` + winget, no paid signing (`docs/plans/windows-clean-install.md`).
-- WSL control (P0/P1 shipped): P2 is the Storage app plus the Windows-facts route, which needs its own ADR; P3's actions — compact, `--set-sparse`, `--move` — cost the distro's sessions (`docs/plans/wsl-control.md`).
+- WSL control (P0/P1 shipped): P2 is the Storage app plus the Windows-facts route (own ADR); P3 — compact, `--set-sparse`, `--move` — costs the distro's sessions (`docs/plans/wsl-control.md`).
 
 ## Debts
 
