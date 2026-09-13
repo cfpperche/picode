@@ -7,8 +7,8 @@ import GitGraph from "./GitGraph.jsx";
 import { useKeptScroll } from "../lib/keepScroll.js";
 import GitGraphBranches from "./GitGraphBranches.jsx";
 import WorkspacePicker from "./WorkspacePicker.jsx";
-import { graphUrl, headUrl, ownerIdOf, ownerRoute } from "../lib/gitWorkspacePicker.js";
-import { pickerOptions, triggerLabel, workspaceForOwner } from "@picode/shared/domain/gitWorkspace.js";
+import { graphUrl, headUrl, ownerIdOf, ownerRoute } from "../lib/workspacePicker.js";
+import { pickerOptions, triggerLabel, workspaceForOwner } from "@picode/shared/domain/workspacePicker.js";
 import CommitDetail from "./CommitDetail.jsx";
 import UncommittedDetail from "./UncommittedDetail.jsx";
 import { UNCOMMITTED, isUncommittedHash } from "../lib/gitgraph.js";
@@ -128,7 +128,8 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
   const ownerWorkspaceId = ownerWorkspace ? ownerWorkspace.id : "";
   // Only folders that are repositories are offered; the same set the sidebar
   // gates "Git graph" on, so no row can answer 404.
-  const wsOptions = useMemo(() => pickerOptions(workspaces), [workspaces]);
+  // Git surfaces offer repositories only: a folder that is not one has no history.
+  const wsOptions = useMemo(() => pickerOptions(workspaces, { reposOnly: true }), [workspaces]);
 
   // The completion signal is ADR-0038's cheap token endpoint — three execs,
   // no log — polled only while an action is pending and this tab is visible.
@@ -405,6 +406,7 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
             value={ownerWorkspaceId}
             label={triggerLabel(ownerWorkspace, graph.name)}
             onPick={onPickWorkspace}
+            ariaLabel="Workspace whose history this graph reads"
           />
         ) : (
           <h2 className="gg-title">{graph.name}</h2>

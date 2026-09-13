@@ -6,6 +6,8 @@ import { ownerFileURL } from "../lib/fileIO.js";
 import { useKeptScroll } from "../lib/keepScroll.js";
 import { shortPath } from "@picode/shared/domain/repoLine.js";
 import { toastError } from "../lib/toast.js";
+import WorkspacePicker from "./WorkspacePicker.jsx";
+import { pickerOptions, triggerLabel, workspaceForOwner } from "@picode/shared/domain/workspacePicker.js";
 import FileTree from "./FileTree.jsx";
 import FilePane from "./FilePane.jsx";
 import WorkingDiff from "./WorkingDiff.jsx";
@@ -15,7 +17,7 @@ const REVEAL_STALE_MS = 10_000;
 
 // One mounted surface per canonical folder; Files and Changes share one
 // local selection and detail pane (ADR-0074). The owner still authorizes it.
-export default function FileTreeSurface({ owner, tabId, hidden, onKey, registerCloseGuard, onClose }) {
+export default function FileTreeSurface({ owner, tabId, hidden, onKey, registerCloseGuard, onClose, workspaces = [], freeAgents = [], terminals = [], onPickWorkspace }) {
   const [levels, setLevels] = useState(null);
   const [expanded, setExpanded] = useState(() => new Set());
   const [panel, setPanel] = useState("files");
@@ -235,6 +237,12 @@ export default function FileTreeSurface({ owner, tabId, hidden, onKey, registerC
 
   if (!owner) return null;
   const name = keyRef.current ? shortPath(keyRef.current) : "Files";
+  // Which workspace's folder this tree is reading (ADR-0030 amendment), and
+  // which ones it could be pointed at. A plain call, not useMemo: the early
+  // return above sits before it, and a filter+sort over a handful of
+  // workspaces costs nothing per render.
+  const ownerWorkspace = workspaceForOwner(owner, { workspaces, freeAgents, terminals });
+  const wsOptions = pickerOptions(workspaces, { hint: "path" });
   const changes = status.git ? status.changes || [] : [];
   const kinds = changeKinds(changes);
   const rows = flattenTree(levels || {}, expanded);
@@ -242,7 +250,21 @@ export default function FileTreeSurface({ owner, tabId, hidden, onKey, registerC
   return (
     <section className="ft-surface" aria-label={`Files in ${name}`} hidden={!!hidden} ref={attachRoot}>
       <header className="ft-head">
-        <h2 className="ft-title" title={name}>{name}</h2>
+        {/* The folder line was static text; it is the control now (ADR-0030
+            amendment): the workspace whose folder this tree reads, and a picker
+            of the others. Fewer than two choices keeps the plain line — a
+            dropdown that can only pick what is already picked is chrome. */}
+        {wsOptions.length > 1 ? (
+          <WorkspacePicker
+            options={wsOptions}
+            value={ownerWorkspace ? ownerWorkspace.id : ""}
+            label={triggerLabel(ownerWorkspace, name)}
+            onPick={onPickWorkspace}
+            ariaLabel="Workspace whose folder this tree reads"
+          />
+        ) : (
+          <h2 className="ft-title" title={name}>{name}</h2>
+        )}
         {status.git ? <span className="ft-count">{changes.length === 0 ? "clean" : changes.length === 1 ? "1 change" : `${changes.length} changes`}</span> : null}
         <span className="ft-spacer" />
         <div className="ft-head-actions" data-align-row>

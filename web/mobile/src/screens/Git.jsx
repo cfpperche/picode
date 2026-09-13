@@ -13,7 +13,7 @@ import GitDiff from "../components/GitDiff.jsx";
 import GitPullRequest from "../components/GitPullRequest.jsx";
 import GitWorkspaceSheet from "../components/GitWorkspaceSheet.jsx";
 import { IconChevronDown, IconGit } from "../components/Icons.jsx";
-import { pickerOptions, triggerLabel, workspaceForOwner } from "@picode/shared/domain/gitWorkspace.js";
+import { pickerOptions, triggerLabel, workspaceForOwner } from "@picode/shared/domain/workspacePicker.js";
 import { askableAgents } from "../lib/git/actions.js";
 import { branchSummary, gitURL, isMoved, rootProblem, shortHash, worktreeName } from "../lib/git/model.js";
 import "../styles/mobile-git.css";
@@ -126,7 +126,7 @@ function GitView({ owner, title, root: initialRoot = "", initialCommit = "", onB
   const agents = useMemo(() => askableAgents({ workspaces, freeAgents }, { root, repoRoot: status?.repoRoot, anchor: owner }), [workspaces, freeAgents, root, status?.repoRoot, ownerKey]);
   // Which workspace's folder this screen reads through, and which ones it could
   // be pointed at (the rule lives in shared domain — the desktop asks it too).
-  const wsOptions = useMemo(() => pickerOptions(workspaces), [workspaces]);
+  const wsOptions = useMemo(() => pickerOptions(workspaces, { reposOnly: true }), [workspaces]);
   const ownerWorkspace = workspaceForOwner(owner, { workspaces, freeAgents, terminals });
   const wsLabel = triggerLabel(ownerWorkspace, title);
   const current = trail.at(-1);
