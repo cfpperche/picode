@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-lab-reload"
+description = "Enables the lab_reload command without any pre-configured scope."
+commands.allow = ["lab_reload"]
+
+[[permission]]
+identifier = "deny-lab-reload"
+description = "Denies the lab_reload command without any pre-configured scope."
+commands.deny = ["lab_reload"]

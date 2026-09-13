@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-btab-back"
+description = "Enables the btab_back command without any pre-configured scope."
+commands.allow = ["btab_back"]
+
+[[permission]]
+identifier = "deny-btab-back"
+description = "Denies the btab_back command without any pre-configured scope."
+commands.deny = ["btab_back"]

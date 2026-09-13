@@ -18,7 +18,7 @@ import { readCompacting, writeCompacting } from "./lib/compact.js";
 import Sidebar from "./components/Sidebar.jsx";
 import WindowControls from "./components/WindowControls.jsx";
 import RailTabs from "./components/RailTabs.jsx";
-import { IconBrandMark } from "./components/Icons.jsx";
+import { IconBrandMark, IconGlobe } from "./components/Icons.jsx";
 import WebTabSurface from "./components/WebTab.jsx";
 import AgentTabs from "./components/AgentTabs.jsx";
 import DashboardView from "./components/DashboardView.jsx";
@@ -2771,6 +2771,9 @@ export default function App({ shellChrome = false } = {}) {
     keepVisible={focus.on}
     endSlot={narrow ? null : (
       <>
+        <button type="button" className="insp-toggle" aria-label="New browser tab" title="New browser tab" onClick={() => openWebTab("")}>
+          <IconGlobe />
+        </button>
         <InspectorToggle
           shown={focus.on ? focus.reveal === "right" : inspectorLayout.shown}
           reason={railFits ? inspectorLayout.reason : (narrow ? "narrow" : "squeezed")}
@@ -2867,7 +2870,7 @@ export default function App({ shellChrome = false } = {}) {
           inShell: shellChrome,
           themeMode,
           onTheme: setTheme,
-          onNavigate: (kind) => go(kind, agent?.id, { workspaceId: paneWs?.id }),
+          onNavigate: (kind) => go(kind === "browser" ? "preferences-browser" : kind, agent?.id, { workspaceId: paneWs?.id }),
           onWhatsNew: openWhatsNew,
           whatsNewUnread,
           pkgUpdates,

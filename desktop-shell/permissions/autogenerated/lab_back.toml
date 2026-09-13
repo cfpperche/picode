@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-lab-back"
+description = "Enables the lab_back command without any pre-configured scope."
+commands.allow = ["lab_back"]
+
+[[permission]]
+identifier = "deny-lab-back"
+description = "Denies the lab_back command without any pre-configured scope."
+commands.deny = ["lab_back"]

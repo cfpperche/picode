@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-lab-forward"
+description = "Enables the lab_forward command without any pre-configured scope."
+commands.allow = ["lab_forward"]
+
+[[permission]]
+identifier = "deny-lab-forward"
+description = "Denies the lab_forward command without any pre-configured scope."
+commands.deny = ["lab_forward"]
