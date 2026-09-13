@@ -178,6 +178,12 @@ Canonical: [pi llama.cpp](https://github.com/earendil-works/pi/blob/main/package
 
 Canonical: [Skills](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md) · [Prompt templates](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/prompt-templates.md).
 
+## /snip:slug {#snip}
+
+Your saved snippets appear in the composer picker as `/snip:slug`. Choosing one opens a small sheet: fill the placeholders, then **Insert snippet** splices the text into your draft or **Send snippet** sends it right away.
+
+PiCode-only. Snippets are PiCode's own library — they expand before sending, so they also work in Agent CLI terminals and shell panes (right-click menu) and on the phone. Guide: [Snippets](/guide/snippets).
+
 ## /automate {#automate}
 
 Draft an automation from a sentence: `/automate every weekday at 9, summarize what changed since yesterday`. The open agent looks at the repository, proposes a name, a prompt, a schedule and limits, and PiCode opens the Automations editor pre-filled for you to review and create. Bare `/automate` asks for the description first. PiCode-only; the agent's reply stays in its session like any other turn. Guide: [Automations](/guide/automations).
