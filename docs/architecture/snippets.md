@@ -40,8 +40,20 @@ Limits refuse at save (HTTP, later): 32 placeholders, 500-rune defaults,
 32 enum values × 80 chars (enums live on the stored schema, not in the
 body).
 
-## Not in this file yet
+## Store and HTTP (CRUD)
 
-CRUD, feed, `/expand` `/run`, composer `/snip:slug`, and the two apps
-land in later commits on `feat/snippets`. Until then the package is
-parse/expand/slug only.
+Table `snips` (migration 047). Unique `slug` covers archived rows; reuse
+requires DELETE. Mutations append `snip.created` / `snip.updated` /
+`snip.deleted` with a **summary** (no body). Starring and archiving do
+not bump `updated_at`.
+
+| Method | Path |
+|---|---|
+| GET | `/api/snips` live list; `?archived=1`; `?q=` search |
+| GET | `/api/snips/picker` live kind `prompt` (static path, not an id) |
+| POST | `/api/snips` |
+| GET/PATCH/DELETE | `/api/snips/{id}` |
+| POST | `/api/snips/{id}/starred`, `/archived` |
+
+`/expand` and `/run` are later commits. Kind `shell` may be stored; the
+editor hides it until the snippet-run door lands.

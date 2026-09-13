@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyFleet, applyInbox, applyAutomations, applyRuns, applyTui, applyUsage, touches } from "./feedReducers.js";
+import { applyFleet, applyInbox, applyAutomations, applyRuns, applySnips, applyTui, applyUsage, touches } from "./feedReducers.js";
 
 const ws = (id, agents = []) => ({ id, name: id, path: "/" + id, agents });
 const ag = (id, workspaceId, extra = {}) => ({ id, workspaceId, name: id, lastStatus: "never_started", running: false, mode: "stopped", streaming: false, waiting: false, ...extra });
@@ -214,4 +214,17 @@ test("fleet: git.updated patches the pills in place", () => {
   // Unknown path: untouched, not a refetch signal.
   const miss = applyFleet(state, { type: "git.updated", data: { path: "/elsewhere", branch: "x" } });
   assert.equal(miss, state);
+});
+
+test("snips: create, patch, delete; unknown update refetches", () => {
+  let list = [];
+  list = applySnips(list, { type: "snip.created", data: { id: "s1", title: "A", slug: "a" } });
+  assert.equal(list[0].id, "s1");
+  list = applySnips(list, { type: "snip.updated", data: { id: "s1", title: "B", slug: "a" } });
+  assert.equal(list[0].title, "B");
+  assert.equal(applySnips(list, { type: "snip.updated", data: { id: "ghost", title: "x" } }), null);
+  list = applySnips(list, { type: "snip.deleted", data: { id: "s1" } });
+  assert.equal(list.length, 0);
+  assert.equal(applySnips(list, { type: "pin.created", data: { id: "p" } }), list);
+  assert.equal(touches({ type: "snip.created" }, ["snip"]), true);
 });

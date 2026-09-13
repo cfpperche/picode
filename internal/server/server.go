@@ -224,6 +224,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerAgentBash(mux, deps)
 	registerLlama(mux, deps)
 	registerSnippet(mux, deps)
+	registerSnips(mux, deps)
 	registerPins(mux, deps)
 	registerPinFiles(mux, deps)
 	registerPinReminders(mux, deps)
