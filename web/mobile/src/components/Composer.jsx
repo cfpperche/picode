@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import * as Sheet from "./MobileSheet.jsx";
-import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSpeaker, IconSpeakerOff, IconX, IconCheck, IconDocs, IconMore } from "./Icons.jsx";
+import { IconSend, IconStop, IconExpand, IconCollapse, IconMic, IconWave, IconSpeaker, IconSpeakerOff, IconX, IconCheck, IconDocs, IconMore, IconPaste } from "./Icons.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import VoiceMeter from "./VoiceMeter.jsx";
 import ImageLightbox from "./ImageLightbox.jsx";
@@ -13,6 +13,7 @@ import { api } from "@picode/shared/client/api.js";
 import { sniffImage, readImage, planDeviceImages, MAX_IMAGES, sceneHasInk } from "@picode/shared/domain/composerImage.js";
 import { filterSlash } from "@picode/shared/domain/slash.js";
 import { atQuery, insertAtPath, mergeAtHits, skillsFromSlash } from "@picode/shared/domain/atMention.js";
+import { formFromSnip, titleFromText, writeDraft } from "@picode/shared/domain/snipDraft.js";
 import { commandDocUrl } from "../lib/commandDocs.js";
 import { newHist, histPush, histUp, histDown, histTyped, caretFirstLine, caretLastLine } from "@picode/shared/domain/composerHist.js";
 import {
@@ -70,6 +71,19 @@ export default function Composer({
   const [pick, setPick] = useState(false);
   const [sketch, setSketch] = useState(null);
   const [snipSheet, setSnipSheet] = useState(null);
+
+  // Capture (snippets v2, F3) on the phone: the whole draft becomes a
+  // snippet, handed to the editor through the draft it already restores.
+  // Selecting a range is not the phone's gesture here; the box holds what
+  // you wrote, and the editor trims to the part worth keeping.
+  function saveAsSnippet() {
+    const body = text.trim();
+    if (!body) return;
+    try {
+      writeDraft(window.sessionStorage, "", { ...formFromSnip(null), body, title: titleFromText(body) }, "", "capture");
+    } catch { /* no storage: the editor opens empty */ }
+    location.hash = "#/snippets/new";
+  }
   const text = value || "";
   const setText = next => onChange?.(next);
   const hits = filterSlash(text, slashExtra);
@@ -745,6 +759,9 @@ export default function Composer({
               <button type="button" className="btn" title={"Dictation (" + dictateKeyHint + ")"} onClick={() => { setOptionsOpen(false); startListen("dictate"); }}><IconMic />Dictation</button>
               <button type="button" className="btn" title={"Voice mode (" + voiceKeyHint + ")"} onClick={() => { setOptionsOpen(false); enterVoice(); }}><IconWave />Voice mode</button>
               <button type="button" className="btn" onClick={() => { setOptionsOpen(false); setExpanded(v => !v); }}>{expanded ? <IconCollapse /> : <IconExpand />}{expanded ? "Collapse composer" : "Expand composer"}</button>
+              {text.trim() ? (
+                <button type="button" className="btn" onClick={() => { setOptionsOpen(false); saveAsSnippet(); }}><IconPaste />Save as snippet</button>
+              ) : null}
             </div>
             <div className="m-composer-delivery" data-align-row>
               <label htmlFor="task-kind">Delivery</label>

@@ -34,7 +34,7 @@ const PinSketch = lazy(() => import("./PinSketch.jsx"));
 export default function Composer({
   kind, onKind, value, onChange, onSend, status, streaming, waiting, roleState, onRoleCommand,
   stopped, onToggleDock, onStop, onAbort, catalog, cfg, onConfig, onSlash, statusBar, onCompact, sessionBar, lastReply,
-  slashExtra, atAgents, agentId, onAgentPage, pkgUpdates, tuiWorking, onSnip,
+  slashExtra, atAgents, agentId, onAgentPage, pkgUpdates, tuiWorking, onSnip, onCaptureSnippet,
 }) {
   const appKeyOverrides = readAppKeyOverrides();
   const voiceKeyHint = formatChord(primaryChord("composer.voice.toggle", appKeyOverrides));
@@ -73,6 +73,7 @@ export default function Composer({
   const [sketch, setSketch] = useState(null);
   const [text, setText] = useState(value || "");
   const [snipSheet, setSnipSheet] = useState(null);
+  const [selText, setSelText] = useState("");
   const hits = filterSlash(text, slashExtra);
   const at = hits.length ? null : atQuery(text, caret);
   const atKey = at ? "@" + at.query : "";
@@ -169,6 +170,14 @@ export default function Composer({
 
   function markCaret(el) {
     if (el && typeof el.selectionStart === "number") setCaret(el.selectionStart);
+  }
+
+  // A selection in the box is the only moment "Save as snippet" exists:
+  // capture is about text you already wrote, and the button would be noise
+  // the rest of the time (the same action lives in the right-click menu).
+  function markSelection(el) {
+    if (!el || typeof el.selectionStart !== "number") return;
+    setSelText(el.value.slice(el.selectionStart, el.selectionEnd));
   }
 
   function setAtQuery(q) {
@@ -636,7 +645,7 @@ export default function Composer({
             placeholder="Message the agent — / commands, @ files, ! shell"
             value={text}
             onChange={(e) => { histTyped(hist.current); setText(e.target.value); markCaret(e.target); }}
-            onSelect={(e) => markCaret(e.target)}
+            onSelect={(e) => { markCaret(e.target); markSelection(e.target); }}
             onClick={(e) => markCaret(e.target)}
             onKeyUp={(e) => markCaret(e.target)}
             onKeyDown={(e) => {
@@ -736,6 +745,11 @@ export default function Composer({
               </div>
             ) : (
               <>
+                {selText.trim() && onCaptureSnippet ? (
+                  <button type="button" className="btn-composer-snip" onClick={() => onCaptureSnippet(selText)}>
+                    Save as snippet
+                  </button>
+                ) : null}
                 <input
                   id="composer-device-images"
                   ref={devicePick}

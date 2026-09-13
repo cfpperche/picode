@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import PageFrame from "./PageFrame.jsx";
-import { IconArchive, IconArchiveRestore, IconChevronLeft, IconPlus, IconSearch, IconStar, IconTrash, IconX } from "./Icons.jsx";
+import * as Dialog from "./ResponsiveDialog.jsx";
+import { IconArchive, IconArchiveRestore, IconChevronLeft, IconPaste, IconPlus, IconSearch, IconStar, IconTrash, IconX } from "./Icons.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { applySnips, touches } from "@picode/shared/domain/feedReducers.js";
 import { parseForm, snipSchema } from "@picode/shared/contracts/schemas.js";
 import {
-  SNIP_RESERVED, bodyLimit, clearDraft, draftToRestore, expandSnip, formFromSnip,
-  insertLiteralBraces, parseSnip, readDraft, sameDraft, setDefaultInBody, snipSlug, tagsFromInput, writeDraft,
+  SNIP_RESERVED, applyConversions, bodyLimit, clearDraft, detectConversions, draftToRestore, expandSnip, formFromSnip,
+  insertLiteralBraces, parseSnip, readDraft, sameDraft, setDefaultInBody, snipSlug, tagsFromInput, titleFromText, writeDraft,
 } from "@picode/shared/domain/snipDraft.js";
 import { snippetRoute, snippetsHash } from "../lib/routes.js";
 import { toast, toastError } from "../lib/toast.js";
@@ -25,6 +26,7 @@ export default function Snippets({ hidden }) {
   const [q, setQ] = useState("");
   const [view, setView] = useState("live");
   const [loadErr, setLoadErr] = useState("");
+  const [importing, setImporting] = useState(false);
   const latest = useRef({ q: "", view: "live" });
   latest.current = { q, view };
 
@@ -123,6 +125,7 @@ export default function Snippets({ hidden }) {
         onStar={star}
         onArchive={archive}
         onDelete={remove}
+        onImport={() => setImporting(true)}
       />
     );
   }
@@ -130,7 +133,73 @@ export default function Snippets({ hidden }) {
   return (
     <PageFrame id="snippets-view" title="Snippets" hidden={hidden}>
       {body}
+      <ImportDialog
+        open={importing}
+        onClose={() => setImporting(false)}
+        onOpen={(body, title) => {
+          // Hand the import to the editor through the draft it already
+          // restores, so the studio keeps exactly one create path.
+          if (typeof sessionStorage !== "undefined") writeDraft(sessionStorage, "new", { ...formFromSnip(null), body, title }, "", "import");
+          setImporting(false);
+          location.hash = snippetsHash("new");
+        }}
+      />
     </PageFrame>
+  );
+}
+
+// Import (snippets v2, F7): paste a prompt written for another tool and
+// accept the conversions we recognise. Detection is a suggestion, never a
+// rewrite: every kind starts on, each one can be switched off, and the
+// editor opens with the result so the body is readable before anything is
+// saved. Nothing here touches the API — it opens the editor.
+function ImportDialog({ open, onClose, onOpen }) {
+  const [text, setText] = useState("");
+  const [off, setOff] = useState({});
+  useEffect(() => { if (!open) { setText(""); setOff({}); } }, [open]);
+  const det = detectConversions(text);
+  const accepted = det.kinds.filter((k) => !off[k.kind]).map((k) => k.kind);
+  const out = applyConversions(text, accepted);
+  const ready = !!out.trim();
+  return (
+    <Dialog.Root open={!!open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="dlg-overlay" />
+        <Dialog.Content className="dlg snip-import" aria-describedby={undefined}>
+          <Dialog.Title className="dlg-title">Import a prompt</Dialog.Title>
+          <Dialog.Description className="sr-only">Paste a prompt, review the suggested placeholder conversions, then open it in the editor.</Dialog.Description>
+          <textarea
+            className="auto-textarea snip-import-body"
+            value={text}
+            autoFocus
+            rows={8}
+            aria-label="Prompt to import"
+            placeholder={"Paste a prompt you already use — [BRACKETS] and UPPER_CASE become {{placeholders}}."}
+            onChange={(e) => setText(e.target.value)}
+          />
+          {!text.trim() ? null : det.kinds.length ? (
+            <div className="snip-conv">
+              <div className="snip-conv-head">Placeholders found</div>
+              {det.kinds.map((k) => (
+                <label key={k.kind} className="snip-conv-row">
+                  <input type="checkbox" checked={!off[k.kind]} aria-label={"Convert " + k.label} onChange={(e) => setOff((cur) => ({ ...cur, [k.kind]: !e.target.checked }))} />
+                  <span>
+                    Convert {k.count} {k.label} → <code className="snip-cell-name">{k.names.slice(0, 3).map((n) => "{{" + n + "}}").join(", ")}</code>{k.names.length > 3 ? " +" + (k.names.length - 3) : ""}
+                  </span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <p className="auto-hint">No placeholders found — it will open as plain text.</p>
+          )}
+          <div className="dlg-actions" data-align-row>
+            {ready ? null : <span className="auto-hint">Paste a prompt to continue.</span>}
+            <button type="button" className="btn" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn btn-primary" disabled={!ready} onClick={() => onOpen(out, titleFromText(out))}>Open in editor</button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
@@ -144,7 +213,7 @@ function Skeleton() {
   );
 }
 
-function List({ items, loadErr, q, setQ, view, setView, archivedCount, onStar, onArchive, onDelete }) {
+function List({ items, loadErr, q, setQ, view, setView, archivedCount, onStar, onArchive, onDelete, onImport }) {
   if (items === null && !loadErr) return <Skeleton />;
   if (loadErr && items === null) {
     return <div className="mcp-empty"><p>{loadErr}</p></div>;
@@ -160,9 +229,12 @@ function List({ items, loadErr, q, setQ, view, setView, archivedCount, onStar, o
         </label>
         {view === "archived" && !searching
           ? <button type="button" className="btn btn-ghost" onClick={() => setView("live")}>Live</button>
-          : (items.length > 0 || searching)
-            ? <a className="btn btn-primary" href={snippetsHash("new")}><IconPlus /> New snippet</a>
-            : null}
+          : (
+            <>
+              <button type="button" className="btn" onClick={onImport}><IconPaste /> Import</button>
+              {(items.length > 0 || searching) ? <a className="btn btn-primary" href={snippetsHash("new")}><IconPlus /> New snippet</a> : null}
+            </>
+          )}
       </div>
       {items.length === 0 ? (
         <div className="mcp-empty">
@@ -195,10 +267,13 @@ function List({ items, loadErr, q, setQ, view, setView, archivedCount, onStar, o
   );
 }
 
-function Editor({ initial, onCancel, onSaved, onDelete }) {
+export function Editor({ initial, prefill, onCancel, onSaved, onDelete, keepDraft = true, cancelLabel = "All snippets" }) {
   const id = initial ? initial.id : "new";
   const [full, setFull] = useState(initial && initial.body != null ? initial : null);
-  const [f, setF] = useState(() => formFromSnip(initial && initial.body != null ? initial : null));
+  const [f, setF] = useState(() => {
+    const base = formFromSnip(initial && initial.body != null ? initial : null);
+    return prefill ? { ...base, ...prefill } : base;
+  });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [slugLocked, setSlugLocked] = useState(!!(initial && initial.slug));
@@ -225,6 +300,10 @@ function Editor({ initial, onCancel, onSaved, onDelete }) {
     }
     if (loaded.current) return;
     loaded.current = true;
+    // keepDraft=false is a capture: the sheet owns the text and must not
+    // read (or clobber) the draft of a snippet the reader is still writing
+    // in the studio.
+    if (!keepDraft) { hydrated.current = true; return; }
     const stored = typeof sessionStorage !== "undefined" ? readDraft(sessionStorage, "new") : null;
     const restore = draftToRestore(stored, null);
     if (restore) setF(restore);
@@ -233,9 +312,9 @@ function Editor({ initial, onCancel, onSaved, onDelete }) {
   }, [initial?.id]);
 
   useEffect(() => {
-    if (!hydrated.current || typeof sessionStorage === "undefined") return;
+    if (!keepDraft || !hydrated.current || typeof sessionStorage === "undefined") return;
     writeDraft(sessionStorage, id, { ...f, enums, slugLocked }, full ? full.updatedAt : "");
-  }, [f, id, full, slugLocked, enums]);
+  }, [f, id, full, slugLocked, enums, keepDraft]);
 
   function set(patch) {
     setF((cur) => {
@@ -282,7 +361,7 @@ function Editor({ initial, onCancel, onSaved, onDelete }) {
       const p = full
         ? await api("/api/snips/" + encodeURIComponent(full.id), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
         : await api("/api/snips", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      if (typeof sessionStorage !== "undefined") clearDraft(sessionStorage, id);
+      if (typeof sessionStorage !== "undefined" && keepDraft) clearDraft(sessionStorage, id);
       toast.ok("Saved.");
       onSaved(p.id);
     } catch (ex) {
@@ -317,7 +396,7 @@ function Editor({ initial, onCancel, onSaved, onDelete }) {
   return (
     <form className="auto-form" onSubmit={save} noValidate>
       <div className="auto-detail-head" data-align-row>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}><IconChevronLeft /> All snippets</button>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}><IconChevronLeft /> {cancelLabel}</button>
         <div className="auto-detail-actions" data-align-row>
           {onDelete ? <button type="button" className="btn btn-ghost btn-danger" onClick={onDelete}><IconTrash /> Delete</button> : null}
           <button type="submit" className="btn btn-primary" disabled={busy || !dirty || invalid}>{busy ? "Saving…" : "Save"}</button>

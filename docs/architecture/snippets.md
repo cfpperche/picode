@@ -63,8 +63,40 @@ snippet-run door; the editor's Kind control offers Prompt and Command.
 Host page `#/snippets` through `PageFrame` (1240px). Palette **Snippets**
 and the user menu Tools group open it. Empty state: one line + New
 snippet. Drafts sit in `sessionStorage` (`picode-snip-draft:<id>`). The
-editor parses placeholders in the browser (`web/shared/domain/snipDraft.js`)
-and shows a local preview (no git). Command kind has no control yet.
+editor parses placeholders in the browser (`web/shared/domain/snipDraft.js`).
+Command kind has no control yet.
+
+### Authoring (v2)
+
+The body stays the single source of truth; everything else is a
+projection that writes back into it (`setDefaultInBody`).
+
+| Surface | Behaviour |
+|---|---|
+| Live validation | parse on every keystroke; inline error naming the first problem; Save disabled **with visible reason**; table and Try-it dim to the last good parse |
+| Placeholder table | one row per placeholder — Default / Optional / Enum (comma list, ≤32 × 80); reserved names lose the controls and say "from the target" |
+| Try it | sample value per placeholder (enum → `<select>`), body expanded in the browser; required-but-empty names are listed as "will prompt when it runs" |
+| Enums | held in editor state, sent in `placeholders[]`; they ride the draft alongside the body |
+
+### Capture and import (v2)
+
+Text the reader already wrote becomes a snippet without a trip to the
+studio. Both doors open the **same editor**:
+
+| Door | Trigger | Payload |
+|---|---|---|
+| Composer toolbar | a selection exists in the composer (`onCaptureSnippet`) | selection verbatim |
+| Context menu | "Save selection as snippet" on any selection — a field's own selection is read from the field, since it is not in the document selection | selection verbatim |
+| Mobile composer | **Save as snippet** in Message options | the whole draft |
+| Studio **Import** | paste a prompt; `detectConversions` suggests `[BRACKETS]` / `UPPER_CASE` → `{{lower_snake}}` (never inside an existing `{{…}}`, never double-counting a token) and each suggestion can be switched off | converted body |
+
+Desktop capture opens `SnipCaptureSheet` — the editor in a
+`ResponsiveDialog` with `prefill` and `keepDraft: false`, so the studio's
+"new snippet" draft is neither read nor clobbered. Import (desktop and
+mobile) hands the body over through that draft and marks it:
+`writeDraft(store, id, draft, base, origin)` records `capture` / `import`,
+and the mobile editor shows its "Unsaved changes restored." banner only
+for a draft with **no** origin — a handoff is not a crash.
 
 ## Expand and run
 
