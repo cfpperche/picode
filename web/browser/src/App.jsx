@@ -19,6 +19,7 @@ import Sidebar from "./components/Sidebar.jsx";
 import WindowControls from "./components/WindowControls.jsx";
 import RailTabs from "./components/RailTabs.jsx";
 import { IconBrandMark } from "./components/Icons.jsx";
+import WebTabSurface from "./components/WebTab.jsx";
 import AgentTabs from "./components/AgentTabs.jsx";
 import DashboardView from "./components/DashboardView.jsx";
 import SessionBar from "./components/SessionBar.jsx";
@@ -1445,6 +1446,30 @@ export default function App({ shellChrome = false } = {}) {
     setSelectedId((s) => (s === fromId ? real : s));
   }
 
+  // Work browser tabs (Phase 3 slice 1): "w:<id>" editor tabs backed by a
+  // native WebView2 child. Desktop-shell only — the component shows a notice
+  // elsewhere. Meta (url/title) is mirrored up for the tab strip.
+  const [webTabs, setWebTabs] = useState({});
+  const webSeqRef = useRef(0);
+  function openWebTab(url) {
+    webSeqRef.current += 1;
+    const id = String(webSeqRef.current);
+    setTabs((t) => [...t, "w:" + id]);
+    setSelectedId("w:" + id);
+    setWebTabs((m) => ({ ...m, [id]: { url: url || "", title: "" } }));
+    if (url) window.__TAURI__?.core.invoke("btab_navigate", { id, url }).catch(() => {});
+    return "w:" + id;
+  }
+  const openWebTabRef = useRef(openWebTab);
+  openWebTabRef.current = openWebTab;
+  useEffect(() => {
+    if (!shellChrome || !window.__TAURI__) return undefined;
+    const un = window.__TAURI__.event.listen("btab://new", (e) => {
+      openWebTabRef.current(typeof e.payload === "string" ? e.payload : "");
+    });
+    return () => un.then((f) => f());
+  }, [shellChrome]);
+
   async function closeTab(id) {
     const guard = treeCloseGuards.current.get(id);
     if (guard && !await guard()) return;
@@ -1454,6 +1479,7 @@ export default function App({ shellChrome = false } = {}) {
       delete next[id];
       return next;
     });
+    if (isWebTab(id)) window.__TAURI__?.core.invoke("btab_close", { id: tabWebId(id) }).catch(() => {});
     if (isTermTab(id)) closeShellTerm(tabTermId(id));
     if (isGitTab(id)) {
       setGitOwners((m) => {
@@ -2841,6 +2867,16 @@ export default function App({ shellChrome = false } = {}) {
               />
             );
           })}
+          {tabs.filter(isWebTab).map((id) => (
+            <WebTabSurface
+              key={id}
+              tabId={id}
+              active={selectedId === id}
+              hidden={selectedId !== id}
+              onMeta={(m) => setWebTabs((cur) => ({ ...cur, [tabWebId(id)]: { ...cur[tabWebId(id)], ...m } }))}
+              onNew={() => openWebTab("")}
+            />
+          ))}
           <FileSurface
             owner={fileTabInfo}
             path={fileTabInfo ? fileTabInfo.path : ""}
