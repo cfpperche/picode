@@ -1,8 +1,6 @@
 # Communication, inbox and remote
 
-## Next
-
-- Owner: Activate now cold-start vs recorded session. Remote stays out of v1.
+The owner kept Activate now gated on a recorded session; remote mode stays out of v1 (`docs/plans/communication-activation-accept.md`).
 
 ## Debts
 
