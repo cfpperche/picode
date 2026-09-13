@@ -17,6 +17,7 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew, on
   const [err, setErr] = useState("");
   const fail = (e) => { setErr(String(e?.message || e)); console.error("btab:", e); };
   const hostRef = useRef(null);
+  const pushRef = useRef(null);
 
   // Bounds sync: the region's viewport-relative rect drives the native
   // webview. ResizeObserver + window resize cover sidebar, inspector and
@@ -27,11 +28,13 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew, on
     if (!el) return undefined;
     const push = () => {
       const r = el.getBoundingClientRect();
-      invoke("btab_bounds", { id, x: r.left, y: r.top, w: r.width, h: r.height }).catch(fail);
+      const off = menuOpenRef.current ? MENU_H : 0;
+      invoke("btab_bounds", { id, x: r.left, y: r.top + off, w: r.width, h: r.height - off }).catch(fail);
     };
     const ro = new ResizeObserver(push);
     ro.observe(el);
     push();
+    pushRef.current = push;
     window.addEventListener("resize", push);
     return () => {
       ro.disconnect();
@@ -64,9 +67,16 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew, on
   }, [id, hidden, started, onMeta]);
 
   const urlRef = useRef(null);
+  const menuOpenRef = useRef(false);
+
+  // While the options menu is open, the page webview slides down below the
+  // menu's rect — an HTML popover can't paint over a native WebView2
+  // sibling, so the page makes room instead. Bounds stay in sync with
+  // resize: push() applies the offset whenever it fires.
+  const MENU_H = 96;
 
   const shot = () => invoke && invoke("btab_screenshot", { id })
-    .then((path) => { toast(`Screenshot saved to ${path}`); setErr(""); })
+    .then((path) => { toast.ok(`Screenshot saved to ${path}`); setErr(""); })
     .catch(fail);
 
   function go(u) {
@@ -110,18 +120,12 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew, on
           />
           <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => go()}>↵</button>
         </div>
-        <DropdownMenu.Root onOpenChange={(o) => {
-          if (!invoke) return;
-          invoke("btab_layer", { id, menuOpen: o }).catch((e) => {
-            console.error("btab_layer:", e);
-            return invoke("btab_visibility", { id, visible: !o }).catch(() => {});
-          });
-        }}>
+        <DropdownMenu.Root onOpenChange={(o) => { menuOpenRef.current = o; pushRef.current?.(); }}>
           <DropdownMenu.Trigger asChild>
             <button type="button" className="web-tab-menu" title="Browser options" aria-label="Browser options">⋮</button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
-            <DropdownMenu.Content align="end" sideOffset={6} collisionPadding={8} className="um-popover" onCloseAutoFocus={(e) => e.preventDefault()}>
+            <DropdownMenu.Content align="end" sideOffset={6} collisionPadding={8} className="web-tab-menu-list" onCloseAutoFocus={(e) => e.preventDefault()}>
               <DropdownMenu.Item className="um-item" onSelect={shot}><span className="um-item-name"><IconMonitor />Take a screenshot</span></DropdownMenu.Item>
               <DropdownMenu.Item className="um-item" onSelect={() => onBrowserSettings?.()}><span className="um-item-name"><IconSettings />Browser settings</span></DropdownMenu.Item>
             </DropdownMenu.Content>

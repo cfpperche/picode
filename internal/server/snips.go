@@ -223,7 +223,9 @@ func handleSnipRun(deps Deps) http.HandlerFunc {
 		}
 		reason, status := "", 0
 		defer func() {
-			if deps.Feed != nil {
+			// A preview runs the gates and expands but delivers nothing —
+			// it is not a run and must not be logged as one.
+			if !req.Preview && deps.Feed != nil {
 				data := map[string]any{
 					"snipId": p.ID, "kind": p.Kind, "targetType": req.Target.Type, "targetId": req.Target.ID,
 					"ok": status == http.StatusOK,
@@ -235,6 +237,11 @@ func handleSnipRun(deps Deps) http.HandlerFunc {
 			}
 		}()
 		if p.Kind == "shell" {
+			if req.Preview && !req.Confirm {
+				status = http.StatusBadRequest
+				writeErr(w, status, "confirm is required to run a command")
+				return
+			}
 			if req.Target.Type != "terminal" {
 				reason, status = "kind", http.StatusConflict
 				writeJSON(w, status, map[string]any{"error": "A command runs in a terminal, not in an agent.", "reason": reason})
@@ -264,6 +271,11 @@ func handleSnipRun(deps Deps) http.HandlerFunc {
 		if req.Target.ID == "" {
 			status = http.StatusBadRequest
 			writeErr(w, status, "target id is required")
+			return
+		}
+		if req.Preview && p.Kind != "shell" {
+			status = http.StatusBadRequest
+			writeErr(w, status, "preview is only valid for command snippets")
 			return
 		}
 		if req.Target.Type == "terminal" {
@@ -299,6 +311,7 @@ func handleSnipRun(deps Deps) http.HandlerFunc {
 			"workspace": wk.Path,
 			"agent":     agent.Name,
 			"cli":       "",
+			"branch":    currentBranch(cwd),
 		}
 		text, missing, err := expandStoredSnip(p, req.Values, ctx)
 		if err != nil {
@@ -431,11 +444,13 @@ func runShellIntoTerminal(deps Deps, r *http.Request, p store.Snip, req snipRunR
 			wsPath = wk.Path
 		}
 	}
+	cwd := liveTermCwd(deps, r, t)
 	ctx := map[string]string{
-		"cwd":       liveTermCwd(deps, r, t),
+		"cwd":       cwd,
 		"workspace": wsPath,
 		"agent":     "",
 		"cli":       "",
+		"branch":    currentBranch(cwd),
 	}
 	text, missing, err := expandStoredSnip(p, req.Values, ctx)
 	if err != nil {
