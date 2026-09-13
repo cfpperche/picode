@@ -26,7 +26,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0019](0019-terminal-file-tabs.md) | Ctrl+click a path in the terminal → editor tab | accepted, explorer refusal amended by 0030 |
 | [0020](0020-desktop-provisions-wsl.md) | PiCode Desktop — Windows provisions the distro | accepted |
 | [0021](0021-adopt-pi-session.md) | Adopt a Pi session by copying the JSONL | superseded by [0126](0126-remove-session-adopt.md) |
-| [0022](0022-git-graph-per-repository.md) | Git graph per repository — read-only, opened from any cwd | accepted, clone exception carved by 0034, amended by 0038; write refusal amended by 0078 for the Inspector's Git actions (user's shell, behind an interlock) |
+| [0022](0022-git-graph-per-repository.md) | Git graph per repository — read-only, opened from any cwd | accepted, clone exception carved by 0034, amended by 0038; write refusal amended by 0078 for the Inspector's Git actions (user's shell, behind an interlock); owner-switching toolbar amended 2026-09-13 |
 | [0023](0023-built-ui-is-not-committed.md) | Built UI is not committed; embedding moves behind a build tag | accepted |
 | [0024](0024-terminal-settings.md) | Terminal settings — global defaults, per-terminal overrides, user presets | accepted, amended in part by 0025 |
 | [0025](0025-open-tmux-catalog.md) | The whole tmux catalog is a settings surface | accepted |
