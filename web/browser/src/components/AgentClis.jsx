@@ -46,12 +46,19 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
   const [launchEditing, setLaunchEditing] = useState(false);
   const active = useRef(!hidden);
   const request = useRef(0);
+  const applied = useRef(0);
   active.current = !hidden;
   const refresh = useCallback(async () => {
     const seq = ++request.current;
     try {
       const [catalog, terms, work, presets, jobs] = await Promise.all([api("/api/clis"), api("/api/terminals"), api("/api/workspaces"), api("/api/clis/profiles"), api("/api/cli-jobs").catch(() => ({ jobs: [] }))]);
-      if (seq !== request.current || !active.current) return;
+      if (!active.current) return;
+      // Keep the last result that landed, not the newest request's alone:
+      // the feed re-issues refresh while one is still in flight, and
+      // discarding every older-but-completed response pinned the page on
+      // skeletons forever once the list endpoint outran the events.
+      if (applied.current > seq) return;
+      applied.current = seq;
       setData({ ...catalog, terminals: terms.terminals || [], workspaces: cliWorkspaceList(work), profiles: presets.profiles || [], jobs: jobs.jobs || [] }); setError("");
     } catch (e) { if (seq === request.current && active.current) setError(e.message); }
   }, []);
