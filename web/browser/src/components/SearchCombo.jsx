@@ -1,10 +1,11 @@
 import { useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { Command } from "cmdk";
+import { IconCheck } from "./Icons.jsx";
 
 export default function SearchCombo({
   id, value, onChange, options, label, searchPlaceholder, disabled, footer, icon,
-  triggerClassName, side = "top", align = "start", ariaLabel,
+  triggerClassName, popoverClassName, markCurrent = false, side = "top", align = "start", ariaLabel,
 }) {
   const [open, setOpen] = useState(false);
   const searchable = searchPlaceholder !== false;
@@ -22,7 +23,7 @@ export default function SearchCombo({
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content
-          className="cockpit-pop cockpit-combo-pop search-combo-pop"
+          className={"cockpit-pop cockpit-combo-pop search-combo-pop" + (popoverClassName ? " " + popoverClassName : "")}
           side={side}
           align={align}
           sideOffset={6}
@@ -37,11 +38,19 @@ export default function SearchCombo({
                   key={o.id === "" ? "__default" : o.id}
                   value={(o.label || "") + " " + (o.hint || "") + " " + o.id}
                   disabled={!!o.disabled}
+                  title={o.title || undefined}
                   onSelect={() => { if (o.id !== value) onChange(o.id); setOpen(false); }}
                   className={"cockpit-opt" + (o.id === value ? " selected" : "")}
                 >
                   {o.icon ? <span className="combo-opt-icon">{o.icon}</span> : null}
-                  <span>{o.label}</span>
+                  {/* markCurrent is opt-in: a picker that has to show which
+                      value is in force marks every row, so the labels line up
+                      whether or not this row carries the mark (the same
+                      fixed-width slot the branches picker uses). */}
+                  {markCurrent ? (
+                    <span className="combo-opt-check" aria-hidden="true">{o.id === value ? <IconCheck size={13} /> : null}</span>
+                  ) : null}
+                  <span className="combo-opt-label">{o.label}</span>
                   {o.hint ? <span className="combo-hint">{o.hint}</span> : null}
                 </Command.Item>
               ))}

@@ -46,13 +46,14 @@ import { focusAvailable } from "@picode/shared/domain/focusMode.js";
 import { useFocusMode } from "./lib/useFocusMode.js";
 import { graphActions, undoFor } from "@picode/shared/domain/graphActions.js";
 import { ownerBase } from "@picode/shared/domain/gitOwner.js";
+import { openRepoKeys, pickAction } from "./lib/gitWorkspacePicker.js";
 import GitActionDialog from "./components/GitActionDialog.jsx";
 import { paneAt, paneSelection, paneLink, focusPane } from "./lib/termActions.js";
 import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
-import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
 import { nativeApps, nativeSurfaceFor } from "./lib/nativeApps.js";
@@ -1422,6 +1423,53 @@ export default function App({ shellChrome = false } = {}) {
       return swapped.filter((x, i) => swapped.indexOf(x) === i);
     });
     setSelectedId((s) => (s === fromId ? real : s));
+  }
+
+  // The graph toolbar's workspace picker (ADR-0022 amendment): the reader
+  // chooses the owner the history is read through, from inside the tab. The
+  // repository is still the tab's identity, so a pick resolves where it lands
+  // before anything moves — the key comes from the picked workspace's own
+  // /git/head, never from a path in a URL (ADR-0022) — and then one of three
+  // moves happens: the owner changes in place (sibling worktrees of this
+  // repository), this tab becomes the other repository's (`g:<key>`, the same
+  // rename the first load performs), or the tab that already holds that
+  // repository is selected and takes the picked owner, because an explicit
+  // pick wins over whoever happened to open it first. One tab per repository
+  // holds in all three. A pick that cannot resolve — the folder stopped being
+  // a repository, the daemon said no — leaves the tab exactly as it was and
+  // says so: retargeting silently would show another repository's history
+  // under the old tab's name.
+  async function switchGraphWorkspace(tabId, wsId) {
+    if (!isGitTab(tabId)) return;
+    const ws = workspaces.find((w) => w && w.id === wsId);
+    if (!ws) return;
+    const owner = { kind: "workspace", id: wsId, name: ws.name || "" };
+    let key = "";
+    try {
+      const head = await api(ownerBase(owner) + encodeURIComponent(wsId) + "/git/head");
+      key = (head && head.key) || "";
+    } catch (err) {
+      toastError(err);
+      return;
+    }
+    const action = pickAction(key, gitTabKey(tabId), openRepoKeys(tabs));
+    if (action === "none") return;
+    const target = gitTabId(key);
+    setGitOwners((m) => {
+      const next = { ...m };
+      if (action === "rename") delete next[tabId];
+      next[target] = owner;
+      writeGitOwners(next);
+      return next;
+    });
+    if (action === "rename") {
+      setTabs((t) => {
+        const swapped = t.map((x) => (x === tabId ? target : x));
+        return swapped.filter((x, i) => swapped.indexOf(x) === i);
+      });
+    }
+    setGoneId("");
+    setSelectedId(target);
   }
 
   function provisionalTreeId(kind, ownerId) {
@@ -2954,6 +3002,10 @@ export default function App({ shellChrome = false } = {}) {
               <GitGraphSurface
                 key={id}
                 owner={o}
+                workspaces={workspaces}
+                freeAgents={freeAgents}
+                terminals={terminals}
+                onPickWorkspace={(wsId) => switchGraphWorkspace(id, wsId)}
                 hidden={selectedId !== id}
                 onKey={(key) => onGitKey(id, key)}
                 onClose={() => closeTab(id)}
