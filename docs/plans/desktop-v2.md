@@ -99,6 +99,83 @@ Consequences: **WebView2 stays the engine** for the work browser; CEF and the
 ~200 MB Chromium are out. The Chrome-UA override stays in the lab (and becomes
 a per-domain fallback lever in the product) because Google's block is
 risk-based and machine-variable — one passing machine is evidence, not a law.
+### Work Browser parity spec (benchmark: ChatGPT desktop "Work" browser)
+
+Owner requirement 2026-09-13: **the PiCode user gets the same experience as
+the ChatGPT Work browser**. Source: owner screenshots 2026-09-12/13 + the
+vendor's docs. Every item is a requirement for Phase 3 unless marked (v2).
+Mapping to our stack noted inline; slices 1–4 at the end of this section.
+
+**Browser surface (the tab):**
+- [ ] Browser pages open as **editor tabs** with a Chrome-style strip:
+  per-tab favicon + title, close button, new-tab button (slice 1)
+- [ ] Address bar: placeholder "Search or enter a URL"; Enter navigates
+- [ ] Back / forward / reload cluster (slice 1)
+- [ ] Empty state: "Start browsing — Enter a URL to open a page" — one line
+  + the action, never a blank well (slice 1)
+- [ ] History dropdown from the address bar (typed URLs first) (slice 3)
+- [ ] New tab / close per tab; target=_blank and OAuth popups adopt as new
+  tabs, not external windows (slice 1; WebView2 NewWindowRequested)
+- [ ] Find in page (WebView2 Find API, our highlight UI) (slice 1)
+- [ ] Print (ShowPrintUI) and Zoom (± / 100% / reset, ZoomFactor) (slice 1)
+- [ ] **Take a screenshot** button (CapturePreview) — also what the agent's
+  screenshot tier uses (slice 2)
+- [ ] **Device toolbar**: responsive viewport — Dimensions dropdown,
+  width × height, zoom %; off by default (slice 3; controller bounds +
+  CDP Emulation)
+- [ ] Detach to window / panel⇄tab (v2 — editor tab is the v1 surface)
+
+**Options menu (the ⋮ cluster on the bar):** Find in page · Print · Zoom ·
+Show device toolbar · Take a screenshot · Import cookies and passwords… ·
+Passwords and autofill › · Downloads · History · Clear browsing data ·
+Browser settings (opens Preferences ▸ Browser) — every entry maps to an
+item above.
+
+**Settings ▸ Browser (Preferences page section):**
+- [ ] Master toggle: "Let the agent control the built-in browser" — per
+  agent in our model (slice 4)
+- [ ] **Web URL open destination** — where web links open by default (our
+  editor tab / external default browser) (slice 1)
+- [ ] **Local URL open destination** — same for localhost/dev servers
+  (defaults to the work browser) (slice 1)
+- [ ] **Show full URL** toggle — origin only vs path+query+fragment in the
+  address bar (slice 1)
+- [ ] **Browsing data — Clear browsing data** (Profile.
+  ClearBrowsingDataAsync masks: history, site data, cache, downloads)
+  (slice 1)
+- [ ] **Browsing history — Manage** (our own store, recorded from
+  navigation events; list + delete) (slice 3)
+- [ ] **Annotation screenshots** — when the agent comments on a page,
+  include the screenshot (Always include / ask / never) (v2; pairs with
+  visual comments on DOM elements — ChatGPT's annotation mode)
+- [ ] **Password manager — Manage** (WebView2 password autofill on; the
+  store lives in the work profile) (slice 1) · import from Chrome (v2)
+- [ ] **Contact info / general autofill — Manage** (IsGeneralAutofillEnabled)
+  (slice 1)
+- [ ] **Downloads**: Location (default system Downloads, Change), **Ask
+  where to save** toggle (save dialog), **Download history — Manage**
+  (DownloadStarting event drives all three) (slice 1)
+- [ ] **Site settings — camera/mic permissions** per site
+  (PermissionRequested) (slice 3)
+- [ ] **History access for the agent**: Always ask | always | never
+  (slice 4; ask-on-first-use is the v2 approval UX)
+- [ ] **Enable site tools** — discover/call WebMCP-style tools exposed by
+  sites (v2)
+- [ ] **Agent permissions table** — Site or pattern × Browsing × Downloads ×
+  Uploads, values Requires approval | Always allow | Never, plus a Default
+  row; "+ Add" exceptions. Ours: ADR-0128 `{domains, tier}` where Browsing ≙
+  tier (read/act), Downloads/Uploads are `full`-tier scopes; "Requires
+  approval" = the v2 ask-on-first-use prompt; v1 ships the manual editor
+  (slice 4)
+- [ ] **Developer mode — Enable full CDP access**, labeled "Elevated risk",
+  off by default: unlocks raw CDP beyond the curated command catalog. Ours:
+  ADR-0128's opt-in loopback port toggle (same semantics: elevated risk,
+  owner's call, everything else keeps working without it) (slice 2)
+
+**Non-goals kept from the benchmark:** Chrome extensions in the panel
+(delegated to the user's real browser — our `ext/`+browserhost until
+deprecated); full omnibox with synced profile.
+
 CDP sub-spike (2026-09-13, from WSL — where the daemon lives): enumerated
 WebView2's targets over loopback, connected to the logged-in GitHub tab,
 `Runtime.evaluate` read the session identity, `Page.captureScreenshot`
