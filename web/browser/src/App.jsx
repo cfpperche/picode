@@ -2030,6 +2030,7 @@ export default function App({ shellChrome = false } = {}) {
     fullscreen: () => focus.toggle(),
     ask: (ctx) => openTermAttach(ctx, ctx.selection),
     attach: (ctx) => openTermAttach(ctx, ""),
+    snippet: (ctx) => setSnipRun({ target: { type: "terminal", id: ctx.id } }),
     find: (ctx) => setTermFind(ctx.id),
     handoff: (ctx, targetId) => {
       const record = ctx && ctx.record;

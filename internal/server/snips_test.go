@@ -2,11 +2,18 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/cfpperche/picode/internal/clilaunch"
+	"github.com/cfpperche/picode/internal/rpc"
+	"github.com/cfpperche/picode/internal/store"
+	"github.com/cfpperche/picode/internal/tmux"
 )
 
 func snipJSON(t *testing.T, tsURL, method, path string, body any) (int, map[string]any) {
@@ -120,6 +127,98 @@ func TestSnipsPickerIsNotAnID(t *testing.T) {
 	}
 }
 
+func TestSnipRunIntoTerminal(t *testing.T) {
+	newHarness := func(t *testing.T) (*store.Store, *httptest.Server, store.Terminal, store.Snip) {
+		t.Helper()
+		t.Cleanup(resetPromptInFlight)
+		cwd := t.TempDir()
+		st := testStore(t)
+		ts := httptest.NewServer(New("127.0.0.1:0", Deps{
+			Store: st, Tmux: tmux.New(), Runtime: rpc.NewRuntime("cat", st, nil), AgentCmd: "cat",
+		}).Handler)
+		t.Cleanup(ts.Close)
+		term, err := st.CreateTerminal("cli", cwd)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := st.SetTerminalLaunch(term.ID, "pi", clilaunch.Overrides{}); err != nil {
+			t.Fatal(err)
+		}
+		p, err := st.CreateSnip(store.SnipParams{Title: "Look", Body: "Look at {{pr}} in {{cwd}}"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return st, ts, term, p
+	}
+	stubPane := func(t *testing.T, cmd string) {
+		t.Helper()
+		orig := paneCommandFn
+		paneCommandFn = func(context.Context, Deps, string) string { return cmd }
+		t.Cleanup(func() { paneCommandFn = orig })
+	}
+	run := func(t *testing.T, ts *httptest.Server, p store.Snip, target map[string]string, values map[string]string) (int, map[string]any) {
+		return snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+p.ID+"/run", map[string]any{
+			"target": target, "values": values,
+		})
+	}
+
+	t.Run("plain shell refused", func(t *testing.T) {
+		st, ts, _, p := newHarness(t)
+		shell, err := st.CreateTerminal("sh", t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		code, out := run(t, ts, p, map[string]string{"type": "terminal", "id": shell.ID}, map[string]string{"pr": "1"})
+		if code != http.StatusConflict || out["reason"] != "cli" {
+			t.Fatalf("plain shell = %d %v", code, out)
+		}
+	})
+
+	t.Run("cli exited leaves a shell: refused as kind (B6b)", func(t *testing.T) {
+		_, ts, term, p := newHarness(t)
+		fakeTmuxBin(t)
+		stubPane(t, "bash")
+		code, out := run(t, ts, p, map[string]string{"type": "terminal", "id": term.ID}, map[string]string{"pr": "1"})
+		if code != http.StatusConflict || out["reason"] != "kind" {
+			t.Fatalf("b6b = %d %v", code, out)
+		}
+	})
+
+	t.Run("missing field is 400 before any paste", func(t *testing.T) {
+		_, ts, term, p := newHarness(t)
+		fakeTmuxBin(t)
+		stubPane(t, "pi")
+		code, out := run(t, ts, p, map[string]string{"type": "terminal", "id": term.ID}, map[string]string{})
+		if code != http.StatusBadRequest {
+			t.Fatalf("missing = %d %v", code, out)
+		}
+	})
+
+	t.Run("pane dead is 409 closed", func(t *testing.T) {
+		_, ts, term, p := newHarness(t)
+		shimTmux(t)
+		stubPane(t, "pi")
+		code, _ := run(t, ts, p, map[string]string{"type": "terminal", "id": term.ID}, map[string]string{"pr": "1"})
+		if code != http.StatusConflict {
+			t.Fatalf("dead = %d", code)
+		}
+	})
+
+	t.Run("send pastes the expanded text", func(t *testing.T) {
+		paste := fakeTmuxBin(t)
+		_, ts, term, p := newHarness(t)
+		stubPane(t, "pi")
+		code, out := run(t, ts, p, map[string]string{"type": "terminal", "id": term.ID}, map[string]string{"pr": "9"})
+		if code != http.StatusOK || out["typed"] != true {
+			t.Fatalf("send = %d %v", code, out)
+		}
+		got, err := os.ReadFile(paste)
+		if err != nil || !strings.Contains(string(got), "Look at 9 in "+term.Cwd) {
+			t.Fatalf("paste %q %v", got, err)
+		}
+	})
+}
+
 func TestSnipExpandAndRun(t *testing.T) {
 	ts, _, _ := cleanupServer(t)
 	code, created := snipJSON(t, ts.URL, http.MethodPost, "/api/snips", map[string]any{
@@ -164,8 +263,15 @@ func TestSnipExpandAndRun(t *testing.T) {
 	code, out = snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+id+"/run", map[string]any{
 		"target": map[string]string{"type": "terminal", "id": "t1"}, "values": map[string]string{"pr": "1"},
 	})
-	if code != http.StatusConflict || out["reason"] != "unimplemented" {
-		t.Fatalf("terminal run = %d %v", code, out)
+	// A terminal target now reaches the door; an unknown id is an honest 404.
+	if code != http.StatusNotFound {
+		t.Fatalf("missing terminal run = %d %v", code, out)
+	}
+	code, out = snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+id+"/run", map[string]any{
+		"target": map[string]string{"type": "folder", "id": "x"}, "values": map[string]string{"pr": "1"},
+	})
+	if code != http.StatusBadRequest {
+		t.Fatalf("bad target type = %d %v", code, out)
 	}
 
 	proj := t.TempDir()

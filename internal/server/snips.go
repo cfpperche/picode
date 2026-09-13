@@ -9,6 +9,7 @@ import (
 
 	"github.com/cfpperche/picode/internal/snips"
 	"github.com/cfpperche/picode/internal/store"
+	"github.com/cfpperche/picode/internal/tmux"
 )
 
 func registerSnips(mux Registrar, deps Deps) {
@@ -233,9 +234,26 @@ func handleSnipRun(deps Deps) http.HandlerFunc {
 			writeJSON(w, status, map[string]any{"error": "Command snippets are not available yet.", "reason": reason})
 			return
 		}
-		if req.Target.Type != "agent" {
-			reason, status = "unimplemented", http.StatusConflict
-			writeJSON(w, status, map[string]any{"error": "Send to a terminal is not available yet.", "reason": reason})
+		switch req.Target.Type {
+		case "agent":
+		case "terminal":
+		default:
+			status = http.StatusBadRequest
+			writeErr(w, status, "target must be an agent or a terminal")
+			return
+		}
+		if req.Target.ID == "" {
+			status = http.StatusBadRequest
+			writeErr(w, status, "target id is required")
+			return
+		}
+		if req.Target.Type == "terminal" {
+			code, body := runSnipIntoTerminal(deps, r, p, req)
+			if rsn, _ := body["reason"].(string); rsn != "" {
+				reason = rsn
+			}
+			status = code
+			writeJSON(w, code, body)
 			return
 		}
 		agent, err := deps.Store.GetAgent(req.Target.ID)
@@ -293,6 +311,68 @@ func handleSnipRun(deps Deps) http.HandlerFunc {
 		status = http.StatusOK
 		writeJSON(w, status, map[string]any{"ok": true, "typed": true, "text": text})
 	}
+}
+
+// runSnipIntoTerminal delivers a prompt snippet through the ADR-0089 door.
+// The pane must hold a CLI whose foreground is not a shell — re-checked
+// here, at handler time (B6b): a launch row stays true after the TUI
+// exits, and a prompt body pasted into bash is exactly the defect the
+// owner refused (Q2b).
+func runSnipIntoTerminal(deps Deps, r *http.Request, p store.Snip, req snipRunReq) (int, map[string]any) {
+	t, err := deps.Store.GetTerminal(req.Target.ID)
+	if err != nil {
+		return storeStatus(err), map[string]any{"error": err.Error()}
+	}
+	if !termHoldsCLI(deps, t.ID) {
+		return http.StatusConflict, map[string]any{"error": "Attach is for Agent CLI terminals.", "reason": "cli"}
+	}
+	if deps.Tmux == nil || !deps.Tmux.Available() {
+		return http.StatusServiceUnavailable, map[string]any{"error": "Need tmux to send to a terminal."}
+	}
+	// B6b, scoped to where it can be true. A launched CLI's pane leader is
+	// the wrapper `sh` itself (launch.sh runs the TUI as a child), so a bare
+	// isShell read would refuse every live launch. The refusal is for a
+	// launch row whose lease is gone — the wrapper returns the pane to an
+	// interactive shell when the CLI exits, and that shell must not be fed
+	// a prompt body.
+	if deps.TermRuntimes != nil {
+		if _, live := deps.TermRuntimes.Get(t.ID); !live {
+			if cmd := paneCommandFn(r.Context(), deps, tmux.ShellSessionName(t.ID)); cmd != "" && isShell(cmd) {
+				return http.StatusConflict, map[string]any{
+					"error":  "This pane is at a shell prompt — a prompt snippet would run as a command.",
+					"reason": "kind",
+				}
+			}
+		}
+	}
+	wsPath := ""
+	if t.WorkspaceID != "" && t.WorkspaceID != store.FreeWorkspaceID {
+		if wk, err := deps.Store.GetWorkspace(t.WorkspaceID); err == nil {
+			wsPath = wk.Path
+		}
+	}
+	cliID := ""
+	if v, err := deps.Store.TerminalLaunch(t.ID); err == nil && v != nil {
+		cliID = v.CLI
+	}
+	ctx := map[string]string{
+		"cwd":       liveTermCwd(deps, r, t),
+		"workspace": wsPath,
+		"agent":     "",
+		"cli":       cliID,
+	}
+	text, missing, err := expandStoredSnip(p, req.Values, ctx)
+	if err != nil {
+		return http.StatusBadRequest, map[string]any{"error": err.Error()}
+	}
+	if len(missing) > 0 {
+		return http.StatusBadRequest, map[string]any{"error": "Fill in the missing fields.", "missing": missing}
+	}
+	status, body := pasteToTerminal(deps, r.Context(), t, text)
+	if status == http.StatusOK {
+		return http.StatusOK, map[string]any{"ok": true, "typed": true, "text": text}
+	}
+	return status, body
 }
 
 func expandStoredSnip(p store.Snip, values, ctx map[string]string) (string, []string, error) {

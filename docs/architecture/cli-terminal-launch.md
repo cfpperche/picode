@@ -164,6 +164,13 @@ and its chip reopens for editing (the scene lives in the composer's memory)
 until Send. The mobile sheet unmounts while the pad is open, because vaul
 treats a pointerdown outside the dialog as a dismiss.
 
+The same door carries **snippet runs** (ADR-0130): the terminal's context
+menu gains **Send to terminal…** beside Attach, which opens the snippet
+fill sheet and delivers through the shared `pasteToTerminal` path. The
+pane's foreground is re-checked at handler time — a launch row stays
+true after the TUI exits, and a prompt snippet meeting a bare shell is
+refused with 409 `kind` instead of pasted.
+
 On the phone the pad is mounted inside the shell root (`#m-app`), which owns
 the visual viewport and the safe areas (ADR-0044): a body portal is fixed to
 the layout viewport, so it sat under the status bar and left the home-indicator

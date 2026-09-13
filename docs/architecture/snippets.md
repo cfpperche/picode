@@ -71,8 +71,14 @@ and shows a local preview (no git). Command kind has no control yet.
 `POST /api/snips/{id}/expand` is pure substitution (no git). Missing
 required names are listed; the body is still returned. `POST /api/snips/{id}/run`
 with `target.type=agent` expands with live `cwd` / workspace / agent name
-and `SendTurn`s. Kind `shell` and `target.type=terminal` answer 409
-`unimplemented` until later commits. Composer `/snip:slug` opens a fill
+and `SendTurn`s. `target.type=terminal` delivers through the **ADR-0089
+door** (shared `pasteToTerminal`): `termHoldsCLI` must hold, and the
+pane's foreground is re-checked at handler time — a shell (the TUI
+exited) answers 409 `kind`, because a prompt body pasted into bash is
+the defect the owner refused. Kind `shell` answers 409 `unimplemented`
+until the snippet-run door lands. Composer `/snip:slug` opens a fill
 sheet (**Insert snippet** splices the draft; **Send snippet** calls
-`fireSend` with the spliced text so images stay). Palette **Send snippet**
-posts `/run`.
+`fireSend` with the spliced text so images stay). Palette **Send
+snippet** posts `/run`. The desktop terminal right-click menu gains
+**Send to terminal…** (same door as Attach). Every attempt announces
+ephemeral `snip.ran` (ok + reason, never values).
