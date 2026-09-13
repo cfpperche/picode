@@ -40,6 +40,7 @@
     "./domain/chip.js": "./domain/chip.js",
     "./domain/cliLaunch.js": "./domain/cliLaunch.js",
     "./domain/cloneUrl.js": "./domain/cloneUrl.js",
+    "./domain/customProviders.js": "./domain/customProviders.js",
     "./domain/composerHist.js": "./domain/composerHist.js",
     "./domain/composerImage.js": "./domain/composerImage.js",
     "./domain/cron.js": "./domain/cron.js",

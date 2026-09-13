@@ -253,3 +253,38 @@
   margin: 8px 0; font-size: 12.5px; color: var(--text-secondary);
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 }
+
+/* Custom endpoint (ADR-0129): roster badge and the Add/Edit form extras. */
+.prov-custom {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 10px; line-height: 1.5;
+  text-transform: uppercase; letter-spacing: 0.4px;
+}
+.prov-pick .ws-face { color: var(--accent); }
+.form-new textarea {
+  width: 100%; box-sizing: border-box;
+  background: var(--bg-base); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  padding: 8px; font: inherit; font-size: 12.5px; font-family: var(--mono);
+  line-height: 1.5; resize: vertical; min-height: 72px;
+}
+.form-new textarea:focus { outline: none; border-color: var(--accent); }
+.prov-adv { margin-top: 2px; }
+.prov-adv summary {
+  cursor: pointer; color: var(--text-secondary); font-size: 12px;
+  min-height: 28px; display: flex; align-items: center; width: fit-content;
+}
+.prov-adv[open] summary { margin-bottom: 6px; }
+.prov-adv select { width: 100%; }
+.prov-check {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12.5px; color: var(--text-primary); cursor: pointer;
+  min-height: 26px;
+}
+.prov-check input { accent-color: var(--accent); margin: 0; }
+.prov-check code { font-family: var(--mono); font-size: 11.5px; }
+.prov-adv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px; }

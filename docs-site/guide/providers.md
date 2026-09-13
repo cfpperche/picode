@@ -29,6 +29,32 @@ the last live account cannot be paused — that is **Sign out**.
 Sign out says what it breaks: the confirm names the agents and automations
 configured on that provider.
 
+## Custom endpoint
+
+**Add provider → Custom endpoint** adds a gateway pi does not know out of
+the box — OpenRouter-style aggregators, prepaid wallets, self-hosted routers. The form
+asks for a name, the base URL, the API key and the model ids exactly as the
+gateway spells them.
+
+| Field | Goes to |
+|---|---|
+| Name, Base URL, API type, models, Advanced | `~/.pi/agent/models.json` — pi's own provider definitions |
+| API key | `~/.pi/agent/auth.json` — the same file as every other sign-in |
+
+The key is never written into the definition. **Edit endpoint** reopens the
+form (a blank key keeps the saved one); **Sign out** removes the key and
+keeps the definition; **Remove endpoint** deletes both, naming what still
+uses the provider. Hand-edited `models.json` entries are preserved: PiCode
+merges by name and never touches providers it does not own. Overriding a
+built-in provider's URL is not offered here.
+
+Model ids must match the gateway exactly — copy them from its model list.
+The Advanced section selects the API type (Anthropic-compatible gateways
+want **Anthropic Messages** and a base URL without `/v1`) and the
+compatibility flags for gateways that reject OpenAI-only request fields.
+
+Canonical: [pi Custom Models](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models.md).
+
 ## Where a login comes from
 
 A provider you never signed into here can still be signed in: if its API-key
