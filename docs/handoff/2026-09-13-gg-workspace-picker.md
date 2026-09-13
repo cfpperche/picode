@@ -8,8 +8,4 @@ Merge: fast-forward ready
 
 ## Next up
 
-- Mobile Git: the same workspace switcher decision for `web/mobile/src/screens/Git.jsx` (ADR-0095), its own presentation.
-
-## Debts
-
-- Picker decision table rows 8–9 (head call fails; a pending action's banner when the owner changes) are verified by reading, not by a test.
+- Mobile Git: the same workspace-switcher decision for `web/mobile/src/screens/Git.jsx` (ADR-0095).
