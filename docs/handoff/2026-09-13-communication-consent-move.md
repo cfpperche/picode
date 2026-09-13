@@ -5,11 +5,3 @@ Verified: `TestPeerParticipationDoesNotTransferToAnotherWorkspace`; JS `peerPart
 visual-review: n/a
 Not done / debts: rows 9/12 still partial; activation acceptance and Codex resume `--` remain the next communication cuts.
 Merge: fast-forward ready after this close.
-
-## Next up
-
-- Run activation acceptance on available test terminals (provider/model, one-turn cost).
-
-## Debts
-
-- Rows 9/12 of `docs/plans/communication-onboarding.md` (adapter repair, child timeout) stay partial.
