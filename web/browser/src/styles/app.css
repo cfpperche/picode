@@ -3007,6 +3007,8 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .search-combo-pop [cmdk-root], .search-combo-pop .combo-list { min-height: 0; }
 .search-combo-pop .cockpit-opt { display: flex; align-items: center; gap: 8px; }
 .combo-opt-icon { flex: none; display: inline-flex; align-items: center; }
+/* Fixed-width slot so rows align whether or not the checkmark renders. */
+.combo-opt-check { width: 14px; flex: none; display: inline-flex; align-items: center; color: var(--accent); }
 .combo-opt-icon .ws-face { margin-left: 0; }
 [cmdk-root] { display: flex; flex-direction: column; }
 [cmdk-item][data-selected="true"] { background: var(--bg-hover); }
@@ -3731,6 +3733,20 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
    unlike search (dims/highlights only, ADR-0038). */
 .gg-branches-trigger { display: inline-flex; align-items: center; gap: 6px; max-width: 180px; }
 .gg-branches-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The toolbar's first item: which workspace the history is read through
+   (ADR-0022 amendment). It wears the same .btn.btn-sm height as the branch
+   picker beside it; the name elides rather than pushing the row. */
+.gg-ws-trigger { max-width: 220px; }
+.gg-ws-trigger .cockpit-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Rows: the workspace name is the label, the branch the hint. Only the branch
+   elides when the popover is narrow — the name is the identity and stays; the
+   folder is the row's title, because a deep path elided to `~/…/gg-wo…` tells
+   the reader nothing (a first draft shipped exactly that). */
+.gg-ws-pop .combo-opt-label { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gg-ws-pop .combo-hint {
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right;
+}
 /* .cockpit-pop hand-positions itself above its anchor (bottom: 100%) for the
    composer chips docked at the foot of the screen. This one hangs off a
    header at the top, and Radix's portal already places it — so hand the
