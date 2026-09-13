@@ -107,7 +107,10 @@ it is exempt from the native ordering fence and cannot be silently dropped.
 A permission prompt is `needs-you` everywhere, and none of the hook-driven
 CLIs emits a "permission resolved" event. The approved tool's completion is
 the resume signal that returns the terminal to `working`, so every CLI that
-can wait on a permission registers its tool lifecycle:
+can wait on a permission registers its tool lifecycle. A permission hold has
+no release identity, so in a parallel batch a sibling's `PostToolUse` resumes
+the row while the prompt still waits; only a question hold names its own
+release:
 
 | CLI | `needs-you` | resume to `working` |
 |---|---|---|
