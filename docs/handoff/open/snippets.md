@@ -22,14 +22,3 @@
 - **Multiline shell bodies** execute line-by-line (bracketed paste +
   one Enter, bash parses the whole buffer). Authoring guidance only;
   the editor does not warn.
-
-## Next
-
-- **Snippets v2, PRs 5–8** (`docs/plans/snippets-v2.md`): starters +
-  duplicate (F6), slug availability check + drafts in `localStorage`
-  (F4/F8), the mobile editor v2 (placeholder table, enums, live
-  validation — the phone still has the v1 form), then the docs-site
-  guide.
-- **Capture parity for `Command` kind.** The capture sheet and import
-  always create a `prompt`; a shell snippet still needs the Kind select
-  in the editor.
