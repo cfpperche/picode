@@ -127,3 +127,34 @@ later `cd` leaves the tab alone and offers the new repo as a separate one.
 | Four endpoints (log, refs, worktrees, occupants) | the browser needs all four before it can draw one pixel |
 | `@gitgraph/js` | it renders graphs you *author* by calling `commit`/`branch`/`merge` — for articles and docs. It does not lay out a DAG read from `git log`, which is the whole problem |
 | D3 or another chart library | Git Graph proves it is unnecessary: hand-built `<path>` strings, zero dependencies, 913 lines total |
+
+## Amendment (2026-09-13): the first toolbar item names and switches the owner
+
+The graph toolbar showed the repository's name; it now shows the **workspace**
+the history is read through, and opens as a picker of the reader's other
+workspaces — so a graph opened from one workspace can be read through another
+without leaving the tab. The two identities above are unchanged: the hash still
+names the owner, the tab is still the repository (`g:<key>`). A pick resolves
+*before* anything moves, from the picked workspace's own `…/git/head`, never
+from a path in a URL; a folder that is not a repository is not offered.
+
+| Pick | What happens |
+|---|---|
+| Sibling worktree of this repository | the owner changes in place; the tab, its loaded window, its branch filter and its search stay |
+| Another repository, no tab for it | this tab becomes that repository's (`g:<key>`) |
+| Another repository that already has a tab | that tab is selected and takes the picked owner — an explicit pick wins over whoever opened it first |
+| Nothing resolves (folder stopped being a repository, daemon refused) | nothing moves, and the reader is told |
+
+One tab per repository holds in every row. The owner is also the folder a write
+travels through (ADR-0096), so the open commit and a pending/undo banner are
+cleared by the change: they belong to the folder that asked.
+
+The Refuse row "Following the terminal's live cwd" is unchanged — that was
+about a tab retargeting *unasked*. This is the reader asking.
+
+The phone asks the same question (2026-09-13): a Git screen's folder row opens
+the same list of workspaces, and a pick navigates to that workspace's screen —
+no tab strip to rename there, so Back is the way out (ADR-0095's rule that
+mobile takes its Git tools through shared logic, never a desktop component, is
+what let the rule itself move to `web/shared/domain/workspacePicker.js`, which
+the file tree now asks too).

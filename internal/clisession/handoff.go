@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,6 +27,10 @@ type Ref struct {
 	ID   string
 	Path string
 	Cwd  string
+	// Tail, when the file is over MaxReadBytes, loads only the last
+	// MaxReadBytes (a brief of the recent turns). Native reads leave it
+	// false and get ErrTooLarge.
+	Tail bool
 }
 
 // Reader projects a native session into the portable timeline. It never
@@ -182,19 +187,82 @@ func underRoot(root, path string) bool {
 // scanLines feeds every non-empty line of a JSONL file to fn, refusing
 // files over MaxReadBytes before reading them.
 func scanLines(path string, fn func(line []byte)) error {
+	return scanSessionLines(path, false, fn)
+}
+
+// scanSession is scanLines, or the last MaxReadBytes when ref.Tail is set
+// and the file is over the cap.
+func scanSession(path string, ref Ref, fn func(line []byte)) error {
+	return scanSessionLines(path, ref.Tail, fn)
+}
+
+func scanSessionLines(path string, tail bool, fn func(line []byte)) error {
 	st, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
 	if st.Size() > MaxReadBytes {
-		return ErrTooLarge
+		if !tail {
+			return ErrTooLarge
+		}
+		return scanLineTail(path, MaxReadBytes, fn)
 	}
+	return scanLineFile(path, fn)
+}
+
+func scanLineFile(path string, fn func(line []byte)) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	sc := bufio.NewScanner(f)
+	return scanReader(f, fn)
+}
+
+func scanLineTail(path string, budget int64, fn func(line []byte)) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	start := st.Size() - budget
+	if start < 0 {
+		start = 0
+	}
+	buf := make([]byte, st.Size()-start)
+	n, err := f.ReadAt(buf, start)
+	if err != nil && err != io.EOF {
+		return err
+	}
+	buf = buf[:n]
+	// Sparse oversize fixtures (and any NUL padding) would otherwise glue
+	// the last real record onto a 64 MB "line" and drop it.
+	if bytes.IndexByte(buf, 0) >= 0 {
+		buf = bytes.ReplaceAll(buf, []byte{0}, []byte{'\n'})
+	}
+	const maxLine = 16 * 1024 * 1024
+	for len(buf) > 0 {
+		i := bytes.IndexByte(buf, '\n')
+		var line []byte
+		if i < 0 {
+			line, buf = buf, nil
+		} else {
+			line, buf = buf[:i], buf[i+1:]
+		}
+		if len(line) == 0 || len(line) > maxLine {
+			continue
+		}
+		fn(line)
+	}
+	return nil
+}
+
+func scanReader(r io.Reader, fn func(line []byte)) error {
+	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
 	for sc.Scan() {
 		line := sc.Bytes()

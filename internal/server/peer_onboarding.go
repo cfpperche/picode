@@ -427,6 +427,9 @@ func prepareParticipantConnection(deps Deps, p store.PeerParticipant, o store.Pe
 // A bounded pass shares the attention worker's feed wakeups and local-input tick.
 // No model turn is sent by setup and stopped participants are never auto-started.
 func reconcilePeerParticipants(ctx context.Context, deps Deps) {
+	if deps.Store == nil {
+		return
+	}
 	participants, e := deps.Store.ListPeerParticipants()
 	if e != nil {
 		return
@@ -468,6 +471,39 @@ func reconcilePeerParticipants(ctx context.Context, deps Deps) {
 				}
 			}
 			_, _ = deps.Store.SetPeerPreparation(p, o.SessionKey, phase, problem, connection)
+		}
+	}
+}
+
+// sweepPeerLaunchFiles removes private setup directories whose connection no
+// longer exists or is revoked: owner/workspace deletion cascades in SQLite, and
+// a crash between revoke and file removal must not leave a bearer on disk
+// (ADR-0106 names this maintenance). Live connections keep their setup.
+func sweepPeerLaunchFiles(deps Deps) {
+	if deps.Store == nil || deps.DataDir == "" {
+		return
+	}
+	peers, err := deps.Store.ListPeerConnections()
+	if err != nil {
+		return
+	}
+	live := map[string]bool{}
+	for _, p := range peers {
+		if p.RevokedAt == nil {
+			live[p.ID] = true
+		}
+	}
+	entries, err := os.ReadDir(filepath.Join(deps.DataDir, "communication"))
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		id := e.Name()
+		if !e.IsDir() || !strings.HasPrefix(id, "peer_") || filepath.Base(id) != id || strings.ContainsAny(id, `/\`) {
+			continue
+		}
+		if !live[id] {
+			_ = communication.RemoveLaunch(deps.DataDir, id)
 		}
 	}
 }

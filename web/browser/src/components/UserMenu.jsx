@@ -1,6 +1,6 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useRef, useState } from "react";
-import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR, IconMode, IconSettings, IconDrive, IconProvider, IconMcp, IconPackage, IconClock, IconSparkles, IconCli, IconModel, IconFile } from "./Icons.jsx";
+import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR, IconMode, IconSettings, IconDrive, IconProvider, IconMcp, IconPackage, IconClock, IconSparkles, IconCli, IconModel, IconFile, IconGlobe } from "./Icons.jsx";
 import { menuGroups, menuActions, menuHasResults } from "../lib/userMenuModel.js";
 import InstallButton from "./InstallButton.jsx";
 
@@ -11,6 +11,7 @@ const SECTION_ICONS = {
   providers: IconProvider,
   connectors: IconMcp,
   settings: IconSettings,
+  browser: IconGlobe,
   integrations: IconMcp,
   llama: IconModel,
   packages: IconPackage,
@@ -29,7 +30,7 @@ export default function UserMenu({ host, version, inShell = false, themeMode, on
   const searching = !!query.trim();
   const groups = menuGroups(query);
   const actions = menuActions(query);
-  const rows = (list) => list.map(([id, title, sub]) => {
+  const rows = (list) => list.filter(([id]) => id !== "browser" || inShell).map(([id, title, sub]) => {
     const Icon = SECTION_ICONS[id];
     return (
       <DropdownMenu.Item key={id} className="um-item" id={"um-" + id} onSelect={() => onNavigate(id)}>

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-btab-reload"
+description = "Enables the btab_reload command without any pre-configured scope."
+commands.allow = ["btab_reload"]
+
+[[permission]]
+identifier = "deny-btab-reload"
+description = "Denies the btab_reload command without any pre-configured scope."
+commands.deny = ["btab_reload"]

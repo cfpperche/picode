@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-btab-forward"
+description = "Enables the btab_forward command without any pre-configured scope."
+commands.allow = ["btab_forward"]
+
+[[permission]]
+identifier = "deny-btab-forward"
+description = "Denies the btab_forward command without any pre-configured scope."
+commands.deny = ["btab_forward"]

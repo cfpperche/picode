@@ -73,6 +73,11 @@ type Deps struct {
 	Replies      *TuiReplies      // Inbox replies into the running TUI (ADR-0060); lazy-init in New
 	TermStates   *TermStates      // coding-CLI terminal state (ADR-0056 tier 1); lazy-init in New
 	TermRuntimes *TermRuntimes    // authoritative CLI presence (ADR-0062); lazy-init in New
+	// Shared short-lived GET /api/terminals snapshot (singleflight + TTL,
+	// terminals_cache.go): the CLIs page refetches on every terminal.* feed
+	// event and one round costs a dozen subprocesses per terminal. Nil-safe
+	// = every request computes directly (tests, minimal embeddings).
+	TermCache *TerminalsCache
 	// Session forensics (ADR-0085): session names that were alive at the
 	// previous graceful shutdown and did not survive to this boot. Set once
 	// by the daemon before New; nil-safe everywhere.
@@ -106,6 +111,9 @@ func New(addr string, deps Deps) *http.Server {
 	}
 	if deps.TermRuntimes == nil {
 		deps.TermRuntimes = NewTermRuntimes()
+	}
+	if deps.TermCache == nil {
+		deps.TermCache = &TerminalsCache{}
 	}
 	// Refresh the local reporter so a deploy picks up curl flags without
 	// requiring the user to toggle intercept off/on.

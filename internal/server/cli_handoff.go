@@ -40,7 +40,9 @@ import (
 //	source is live (agent running / terminal open), force=false → 409 with `live`
 //	source is live, force=true                      → proceeds, manifest warning
 //	target not installed (non-pi)                   → 400
-//	source over the read cap                        → 413
+//	source over the read cap, no Prompter           → 413
+//	source over the read cap, Prompter available    → brief of the last MaxReadBytes; native dropped
+//	source over the read cap, execute mode=native   → 413 (brief still in modes)
 //	to == cli                                       → 400 "Choose a different CLI."
 //	window=recent without a compaction              → whole timeline
 //	target pi, native                               → stopped managed agent, no terminal
@@ -78,6 +80,7 @@ type handoffPlan struct {
 	version  string // installed target version, "" = writer probes
 	live     *liveHolder
 	now      time.Time
+	tooLarge bool // source exceeded MaxReadBytes; brief used the recent tail
 }
 
 const handoffModeNative, handoffModeBrief = "native", "brief"
@@ -114,6 +117,13 @@ func handleCLIHandoff(deps Deps, execute bool) http.HandlerFunc {
 		}
 		if !execute {
 			writeJSON(w, http.StatusOK, plan.preview(deps.DataDir))
+			return
+		}
+		if plan.tooLarge && req.Mode == handoffModeNative {
+			writeJSON(w, http.StatusRequestEntityTooLarge, map[string]any{
+				"error": clisession.ErrTooLarge.Error(),
+				"modes": plan.modes,
+			})
 			return
 		}
 		if plan.live != nil && !req.Force {
@@ -203,11 +213,25 @@ func planHandoff(ctx context.Context, deps Deps, src clilaunch.CLI, req handoffR
 		return nil, http.StatusBadRequest, errors.New("session id or path required")
 	}
 	full, err := reader.Read(ctx, p.ref)
+	if errors.Is(err, clisession.ErrTooLarge) {
+		if p.prompter == nil {
+			return p, http.StatusRequestEntityTooLarge, err
+		}
+		p.mode = handoffModeBrief
+		p.modes = []string{handoffModeBrief}
+		p.tooLarge = true
+		tail := p.ref
+		tail.Tail = true
+		full, err = reader.Read(ctx, tail)
+		if err == nil {
+			full.Manifest.Warn("That session is too large to import as a native session; only the recent turns are in the brief.")
+		}
+	}
 	switch {
 	case errors.Is(err, clisession.ErrNotUnderRoot):
 		return nil, http.StatusBadRequest, err
 	case errors.Is(err, clisession.ErrTooLarge):
-		return nil, http.StatusRequestEntityTooLarge, err
+		return p, http.StatusRequestEntityTooLarge, err
 	case errors.Is(err, clisession.ErrUnknownFormat):
 		return nil, http.StatusConflict, err
 	case err != nil:
@@ -217,6 +241,12 @@ func planHandoff(ctx context.Context, deps Deps, src clilaunch.CLI, req handoffR
 		return nil, http.StatusInternalServerError, err
 	}
 	full.Header.SourceName = src.Name
+	if full.Header.SourceID == "" {
+		full.Header.SourceID = p.ref.ID
+	}
+	if full.Header.SourcePath == "" {
+		full.Header.SourcePath = p.ref.Path
+	}
 	if full.Header.Cwd == "" {
 		full.Header.Cwd = p.ref.Cwd
 	}
@@ -307,6 +337,9 @@ func (p *handoffPlan) preview(dataDir string) map[string]any {
 		out["briefPreview"] = b
 		out["briefBytes"] = len(b)
 		out["prompt"] = p.promptLine(filepath.Join(dataDir, "handoffs", "<id>", "brief.md"))
+	}
+	if p.tooLarge {
+		out["tooLarge"] = true
 	}
 	return out
 }

@@ -283,6 +283,7 @@ func registerCLIRoutes(mux Registrar, deps Deps) {
 			writeStoreErr(w, err)
 			return
 		}
+		invalidateTerminals(deps)
 		writeJSON(w, 200, map[string]any{"saved": true})
 	})
 	for _, action := range []string{"start", "stop", "restart", "remove"} {
@@ -660,6 +661,7 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 				writeStoreErr(w, err)
 				return
 			}
+			invalidateTerminals(deps)
 			w.WriteHeader(204)
 			return
 		}
@@ -685,6 +687,9 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 }
 
 func publishTerminalState(deps Deps, r *http.Request, t store.Terminal, live bool) {
+	// Called after the launch action already mutated the pane (started,
+	// stopped, restarted): drop the list snapshot so the next GET recomputes.
+	invalidateTerminals(deps)
 	if deps.Feed != nil {
 		deps.Feed.Ephemeral("terminal.changed", liveTermView(deps, r, t, tmux.ShellSessionName(t.ID), live))
 	}

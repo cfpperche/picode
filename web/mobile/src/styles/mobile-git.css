@@ -119,3 +119,27 @@
 .m-gg-typed input { font-family: var(--mono); }
 .m-gg-preview pre { margin: 0; }
 .m-git-commit-row { -webkit-touch-callout: none; user-select: none; }
+
+/* Which workspace's folder this screen reads through (ADR-0022/0095). The row
+   already carried the branch; the folder is now the control above it, at the
+   same --ctl-h as the Refresh button beside it. */
+/* flex:1, not auto: the Refresh button beside it caps the column, and the
+   folder control inside is only as wide as that column (it elided "desktop"
+   to "deskt…" while the row had 230px of free space). */
+.m-git-repo-facts { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.m-git-ws, .m-git-ws-static {
+  display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+  max-width: 100%; height: var(--ctl-h); margin-left: -8px; padding: 0 8px;
+  border: 0; border-radius: var(--radius-ctl); background: transparent;
+  color: var(--text-primary); font: inherit; font-size: 13px; font-weight: 550;
+}
+.m-git-ws { cursor: pointer; }
+.m-git-ws:hover, .m-git-ws:active { background: var(--bg-hover); }
+.m-git-ws:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.m-git-ws-static { cursor: default; color: var(--text-secondary); font-weight: 500; }
+.m-git-ws-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-git-ws-row { gap: 10px; }
+.m-git-ws-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-git-ws-hint { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: 12px; }
+.m-git-ws-check { flex: none; width: 16px; display: inline-flex; justify-content: flex-end; color: var(--accent); }
+.m-git-ws-note { display: flex; align-items: center; gap: 6px; margin: 14px 0 0; color: var(--text-secondary); font-size: 12px; }
