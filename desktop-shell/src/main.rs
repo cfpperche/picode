@@ -78,6 +78,7 @@ fn main() {
                 .inner_size(1360.0, 880.0)
                 .min_inner_size(720.0, 480.0)
                 .decorations(false)
+                .data_directory(browserlab::webview_profile())
                 .build()?;
             let open = MenuItem::with_id(app, "open", "Open PiCode", true, None::<&str>)?;
             let lab = MenuItem::with_id(app, "browserlab", "Browser lab", true, None::<&str>)?;
@@ -169,6 +170,7 @@ fn open_management_window(app: &tauri::AppHandle) {
         .inner_size(980.0, 860.0)
         .min_inner_size(720.0, 480.0)
         .decorations(false)
+        .data_directory(browserlab::webview_profile())
         .build();
 }
 

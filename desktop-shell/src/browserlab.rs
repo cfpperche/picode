@@ -12,6 +12,7 @@
 //   4. OAuth popup (NewWindow) handling.
 //   5. CDP reachability of the same logged-in view (follow-up).
 
+use std::path::PathBuf;
 use std::sync::Mutex;
 
 use tauri::webview::WebviewBuilder;
@@ -27,6 +28,16 @@ const BAR_H: f64 = 54.0;
 
 #[derive(Default)]
 pub struct LabState(pub Mutex<bool>);
+
+// Every webview of the shell shares ONE explicit profile under the app's
+// own folder — %LOCALAPPDATA%\PiCode\WebView2 — instead of letting each
+// surface grow its own app.picode.shell/PicodeShell/picode-shell sprawl
+// (three folders, 2026-09-13). One folder to back up, one to wipe.
+pub fn webview_profile() -> PathBuf {
+    std::env::var("LOCALAPPDATA")
+        .map(|root| PathBuf::from(root).join("PiCode").join("WebView2"))
+        .unwrap_or_else(|_| std::env::temp_dir().join("PiCode-WebView2"))
+}
 
 pub fn init(app: &tauri::App) {
     let win = match tauri::window::WindowBuilder::new(app, "browserlab")
@@ -53,11 +64,14 @@ pub fn init(app: &tauri::App) {
     }
     // Test 1 starts on GitHub's login page.
     let (w, h) = (1180.0, 840.0);
-    let bar = WebviewBuilder::new("labbar", WebviewUrl::App("lab.html".into())).auto_resize();
+    let bar = WebviewBuilder::new("labbar", WebviewUrl::App("lab.html".into()))
+        .data_directory(webview_profile())
+        .auto_resize();
     let page = WebviewBuilder::new(
         "labpage",
         WebviewUrl::External("https://github.com/login".parse().expect("static url")),
     )
+    .data_directory(webview_profile())
     .auto_resize();
     let _ = win.add_child(bar, LogicalPosition::new(0.0, 0.0), LogicalSize::new(w, BAR_H));
     let _ = win.add_child(
@@ -92,7 +106,8 @@ fn rebuild_page(app: &AppHandle, url: &str, chrome_ua: bool) -> Result<(), Strin
             .parse()
             .map_err(|_| "invalid URL".to_string())?
     };
-    let mut page = WebviewBuilder::new("labpage", WebviewUrl::External(parsed));
+    let mut page = WebviewBuilder::new("labpage", WebviewUrl::External(parsed))
+        .data_directory(webview_profile());
     page = page.auto_resize();
     if chrome_ua {
         page = page.user_agent(CHROME_UA);
