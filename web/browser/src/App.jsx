@@ -38,6 +38,7 @@ import Devices from "./components/Devices.jsx";
 import Automations from "./components/Automations.jsx";
 import Snippets from "./components/Snippets.jsx";
 import Palette from "./components/Palette.jsx";
+import SnipRunSheet from "./components/SnipRunSheet.jsx";
 import ContextMenu from "./components/ContextMenu.jsx";
 import SessionHandoffDialog from "./components/SessionHandoffDialog.jsx";
 import { sessionFromTerminal, terminalHandoffSourceCli, handoffTargets } from "@picode/shared/domain/sessionHandoff.js";
@@ -275,6 +276,8 @@ export default function App({ shellChrome = false } = {}) {
   const [sessions, setSessions] = useState([]);
   const [sessionCurrent, setSessionCurrent] = useState("");
   const [slashExtra, setSlashExtra] = useState([]);
+  const [snipPicker, setSnipPicker] = useState([]);
+  const [snipRun, setSnipRun] = useState(null);
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [reconnect, setReconnect] = useState(false);
@@ -692,9 +695,18 @@ export default function App({ shellChrome = false } = {}) {
   useEffect(() => {
     if (!selectedId || isTermTab(selectedId)) { setSlashExtra([]); return; }
     api("/api/agents/" + selectedId + "/slash")
-      .then((d) => setSlashExtra(extraSlash(d.skills, d.templates, d.commands)))
-      .catch(() => setSlashExtra([]));
-  }, [selectedId, agent && agent.mode]);
+      .then((d) => setSlashExtra(extraSlash(d.skills, d.templates, d.commands, snipPicker)))
+      .catch(() => setSlashExtra(extraSlash([], [], [], snipPicker)));
+  }, [selectedId, agent && agent.mode, snipPicker]);
+  useEffect(() => {
+    function loadSnips() {
+      api("/api/snips/picker").then((d) => setSnipPicker(d.snips || [])).catch(() => setSnipPicker([]));
+    }
+    loadSnips();
+    return subscribeFeed((ev) => {
+      if (ev.type === "feed.open" || ev.type === "feed.reset" || (ev.type && ev.type.startsWith("snip."))) loadSnips();
+    });
+  }, []);
   useEffect(() => { scrollConv(); }, [items]);
   useEffect(() => {
     // Only when the items on screen belong to this agent — on a tab switch
@@ -3322,6 +3334,8 @@ export default function App({ shellChrome = false } = {}) {
         open={paletteOpen}
         workspaces={workspaces}
         apps={apps}
+        snips={snipPicker}
+        agentId={!isTermTab(selectedId) ? (selectedId || "") : ""}
         focusable={focusOk}
         onClose={() => setPaletteOpen(false)}
         onRun={(a) => {
@@ -3330,6 +3344,7 @@ export default function App({ shellChrome = false } = {}) {
           if (a.kind === "fullscreen") { focus.toggle(); return; }
           if (a.kind === "cli-new") { location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : ""); return; }
           if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets") { go(a.kind, agent?.id, { workspaceId: paneWs?.id }); return; }
+          if (a.kind === "snip-run") { setSnipRun({ snipId: a.snipId, target: a.target }); return; }
           if (a.kind === "app") { openTab(appTabId(a.appId)); if (parseRoute() !== "workspace") location.hash = appHash(a.appId); return; }
           if (a.kind === "open") revealAgent(a.wsId);
           if (a.kind === "files") openTreeTab("workspace", a.wsId, a.wsName);
@@ -3337,6 +3352,14 @@ export default function App({ shellChrome = false } = {}) {
           if (a.kind === "term") openInteractive(a.wsId);
           if (a.kind === "stop") stopAgent(a.wsId);
         }}
+      />
+      <SnipRunSheet
+        open={!!snipRun}
+        mode="run"
+        snipId={snipRun && snipRun.snipId}
+        target={snipRun && snipRun.target}
+        onRan={() => { setSnipRun(null); toast.ok("Sent."); }}
+        onClose={() => setSnipRun(null)}
       />
       <ContextMenu
         state={ctxMenu}

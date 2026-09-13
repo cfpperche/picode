@@ -31,7 +31,7 @@ export const SLASH = [
 
 const CORE_NAMES = new Set(SLASH.map((c) => c.label.slice(1)));
 
-export function extraSlash(skills, templates, commands) {
+export function extraSlash(skills, templates, commands, snips) {
   const out = [];
   for (const s of skills || []) {
     out.push({
@@ -61,6 +61,19 @@ export function extraSlash(skills, templates, commands) {
       label: "/" + name,
       hint: c.hint || "Command",
       run: "prompt",
+      docs: false,
+    });
+  }
+  for (const s of snips || []) {
+    const slug = String(s.slug || "").trim();
+    if (!slug) continue;
+    out.push({
+      id: "snip:" + slug,
+      label: "/snip:" + slug,
+      hint: s.hint || s.title || "Snippet",
+      run: "snip",
+      snipId: s.id,
+      slug,
       docs: false,
     });
   }

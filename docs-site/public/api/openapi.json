@@ -6455,6 +6455,76 @@
         ]
       }
     },
+    "/api/snips/{id}/expand": {
+      "post": {
+        "operationId": "postApiSnipsExpand",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "snips"
+        ]
+      }
+    },
+    "/api/snips/{id}/run": {
+      "post": {
+        "operationId": "postApiSnipsRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "snips"
+        ]
+      }
+    },
     "/api/snips/{id}/starred": {
       "post": {
         "operationId": "postApiSnipsStarred",

@@ -2,7 +2,10 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"github.com/cfpperche/picode/internal/snips"
 	"github.com/cfpperche/picode/internal/store"
@@ -17,6 +20,8 @@ func registerSnips(mux Registrar, deps Deps) {
 	mux.HandleFunc("DELETE /api/snips/{id}", handleDeleteSnip(deps))
 	mux.HandleFunc("POST /api/snips/{id}/starred", handleSnipStarred(deps))
 	mux.HandleFunc("POST /api/snips/{id}/archived", handleSnipArchived(deps))
+	mux.HandleFunc("POST /api/snips/{id}/expand", handleSnipExpand(deps))
+	mux.HandleFunc("POST /api/snips/{id}/run", handleSnipRun(deps))
 }
 
 type snipReq struct {
@@ -152,4 +157,173 @@ func handleSnipArchived(deps Deps) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, p)
 	}
+}
+
+type snipExpandReq struct {
+	Values  map[string]string `json:"values"`
+	Context map[string]string `json:"context"`
+}
+
+type snipRunReq struct {
+	Target  snipRunTarget     `json:"target"`
+	Values  map[string]string `json:"values"`
+	Confirm bool              `json:"confirm"`
+}
+
+type snipRunTarget struct {
+	Type string `json:"type"`
+	ID   string `json:"id"`
+}
+
+func handleSnipExpand(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		p, err := deps.Store.GetSnip(r.PathValue("id"))
+		if err != nil {
+			writePinErr(w, err)
+			return
+		}
+		var req snipExpandReq
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		text, missing, err := expandStoredSnip(p, req.Values, req.Context)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if missing == nil {
+			missing = []string{}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"text":         text,
+			"missing":      missing,
+			"placeholders": p.Placeholders,
+		})
+	}
+}
+
+func handleSnipRun(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		p, err := deps.Store.GetSnip(r.PathValue("id"))
+		if err != nil {
+			writePinErr(w, err)
+			return
+		}
+		var req snipRunReq
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		reason, status := "", 0
+		defer func() {
+			if deps.Feed != nil {
+				data := map[string]any{
+					"snipId": p.ID, "kind": p.Kind, "targetType": req.Target.Type, "targetId": req.Target.ID,
+					"ok": status == http.StatusOK,
+				}
+				if reason != "" {
+					data["reason"] = reason
+				}
+				deps.Feed.Ephemeral("snip.ran", data)
+			}
+		}()
+		if p.Kind == "shell" {
+			reason, status = "unimplemented", http.StatusConflict
+			writeJSON(w, status, map[string]any{"error": "Command snippets are not available yet.", "reason": reason})
+			return
+		}
+		if req.Target.Type != "agent" {
+			reason, status = "unimplemented", http.StatusConflict
+			writeJSON(w, status, map[string]any{"error": "Send to a terminal is not available yet.", "reason": reason})
+			return
+		}
+		agent, err := deps.Store.GetAgent(req.Target.ID)
+		if err != nil {
+			status = storeStatus(err)
+			reason = "stopped"
+			writePinErr(w, err)
+			return
+		}
+		wk, err := deps.Store.GetWorkspace(agent.WorkspaceID)
+		if err != nil {
+			status = storeStatus(err)
+			writePinErr(w, err)
+			return
+		}
+		cwd := store.AgentCwd(wk, agent)
+		if cwd == "" || !filepath.IsAbs(cwd) || strings.ContainsRune(cwd, 0) {
+			status = http.StatusBadRequest
+			writeErr(w, status, "working folder is not an absolute path")
+			return
+		}
+		ctx := map[string]string{
+			"cwd":       cwd,
+			"workspace": wk.Path,
+			"agent":     agent.Name,
+			"cli":       "",
+		}
+		text, missing, err := expandStoredSnip(p, req.Values, ctx)
+		if err != nil {
+			status = http.StatusBadRequest
+			writeErr(w, status, err.Error())
+			return
+		}
+		if len(missing) > 0 {
+			status = http.StatusBadRequest
+			writeJSON(w, status, map[string]any{"error": "Fill in the missing fields.", "missing": missing})
+			return
+		}
+		if deps.Runtime == nil {
+			reason, status = "stopped", http.StatusConflict
+			writeJSON(w, status, map[string]any{"error": "agent is not running", "reason": reason})
+			return
+		}
+		ma := deps.Runtime.Get(agent.ID)
+		if ma == nil {
+			reason, status = "stopped", http.StatusConflict
+			writeJSON(w, status, map[string]any{"error": "agent is not running", "reason": reason})
+			return
+		}
+		if err := ma.SendTurn(store.TaskPrompt, text, nil); err != nil {
+			status = http.StatusBadRequest
+			writeErr(w, status, err.Error())
+			return
+		}
+		status = http.StatusOK
+		writeJSON(w, status, map[string]any{"ok": true, "typed": true, "text": text})
+	}
+}
+
+func expandStoredSnip(p store.Snip, values, ctx map[string]string) (string, []string, error) {
+	if values == nil {
+		values = map[string]string{}
+	}
+	if err := checkSnipEnums(p.Placeholders, values); err != nil {
+		return "", nil, err
+	}
+	return snips.Expand(p.Body, values, ctx)
+}
+
+func checkSnipEnums(placeholders []snips.Placeholder, values map[string]string) error {
+	for _, ph := range placeholders {
+		if len(ph.Enum) == 0 {
+			continue
+		}
+		v, ok := values[ph.Name]
+		if !ok || v == "" {
+			continue
+		}
+		found := false
+		for _, e := range ph.Enum {
+			if v == e {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("value for %s is not one of the allowed choices", ph.Name)
+		}
+	}
+	return nil
 }

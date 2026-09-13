@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Command } from "cmdk";
 
-export default function Palette({ open, workspaces, apps, onClose, onRun, focusable }) {
-  const actions = useMemo(() => buildActions(workspaces, apps, focusable), [workspaces, apps, focusable]);
+export default function Palette({ open, workspaces, apps, snips, agentId, onClose, onRun, focusable }) {
+  const actions = useMemo(() => buildActions(workspaces, apps, focusable, snips, agentId), [workspaces, apps, focusable, snips, agentId]);
   const groups = useMemo(() => {
     const m = new Map();
     for (const a of actions) {
@@ -46,7 +46,7 @@ export default function Palette({ open, workspaces, apps, onClose, onRun, focusa
   );
 }
 
-function buildActions(workspaces, apps, focusable) {
+function buildActions(workspaces, apps, focusable, snips, agentId) {
   const out = [
     { id: "whats-new", label: "What’s new in PiCode", group: "app", kind: "whats-new" },
     { id: "settings", label: "Pi settings", group: "Agent CLIs", kind: "settings" },
@@ -66,6 +66,18 @@ function buildActions(workspaces, apps, focusable) {
     { id: "automations", label: "Automations", group: "app", kind: "automations" },
     { id: "snippets", label: "Snippets", group: "app", kind: "snippets" },
   ];
+  if (agentId) {
+    for (const s of (snips || []).slice(0, 10)) {
+      out.push({
+        id: "snip-run-" + s.id,
+        label: "Send snippet: " + (s.title || s.slug),
+        group: "snippets",
+        kind: "snip-run",
+        snipId: s.id,
+        target: { type: "agent", id: agentId },
+      });
+    }
+  }
   for (const a of apps || []) {
     out.push({ id: "app-" + a.id, label: "Open " + a.name, group: "apps", kind: "app", appId: a.id });
   }

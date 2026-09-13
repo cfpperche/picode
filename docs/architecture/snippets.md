@@ -65,3 +65,14 @@ and the user menu Tools group open it. Empty state: one line + New
 snippet. Drafts sit in `sessionStorage` (`picode-snip-draft:<id>`). The
 editor parses placeholders in the browser (`web/shared/domain/snipDraft.js`)
 and shows a local preview (no git). Command kind has no control yet.
+
+## Expand and run
+
+`POST /api/snips/{id}/expand` is pure substitution (no git). Missing
+required names are listed; the body is still returned. `POST /api/snips/{id}/run`
+with `target.type=agent` expands with live `cwd` / workspace / agent name
+and `SendTurn`s. Kind `shell` and `target.type=terminal` answer 409
+`unimplemented` until later commits. Composer `/snip:slug` opens a fill
+sheet (**Insert snippet** splices the draft; **Send snippet** calls
+`fireSend` with the spliced text so images stay). Palette **Send snippet**
+posts `/run`.

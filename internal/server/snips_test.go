@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 )
@@ -116,5 +117,73 @@ func TestSnipsPickerIsNotAnID(t *testing.T) {
 	code, _ := snipJSON(t, ts.URL, http.MethodGet, "/api/snips/picker", nil)
 	if code != http.StatusOK {
 		t.Fatalf("picker treated as id: %d", code)
+	}
+}
+
+func TestSnipExpandAndRun(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	code, created := snipJSON(t, ts.URL, http.MethodPost, "/api/snips", map[string]any{
+		"title": "Review PR", "body": "Look at {{pr}} in {{cwd}}",
+	})
+	if code != http.StatusOK {
+		t.Fatalf("create = %d %v", code, created)
+	}
+	id := created["id"].(string)
+
+	code, exp := snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+id+"/expand", map[string]any{
+		"values": map[string]string{"pr": "12"}, "context": map[string]string{"cwd": "/tmp/app"},
+	})
+	if code != http.StatusOK {
+		t.Fatalf("expand = %d %v", code, exp)
+	}
+	if exp["text"] != "Look at 12 in /tmp/app" {
+		t.Fatalf("text = %v", exp["text"])
+	}
+
+	code, miss := snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+id+"/expand", map[string]any{"values": map[string]string{}})
+	if code != http.StatusOK {
+		t.Fatalf("expand missing = %d", code)
+	}
+	if raw, _ := json.Marshal(miss["missing"]); !strings.Contains(string(raw), "pr") {
+		t.Fatalf("missing = %v", miss["missing"])
+	}
+
+	code, shell := snipJSON(t, ts.URL, http.MethodPost, "/api/snips", map[string]any{
+		"title": "Echo", "kind": "shell", "body": "echo hi",
+	})
+	if code != http.StatusOK {
+		t.Fatalf("shell create = %d %v", code, shell)
+	}
+	code, out := snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+shell["id"].(string)+"/run", map[string]any{
+		"target": map[string]string{"type": "agent", "id": "x"}, "values": map[string]string{}, "confirm": true,
+	})
+	if code != http.StatusConflict || out["reason"] != "unimplemented" {
+		t.Fatalf("shell run = %d %v", code, out)
+	}
+
+	code, out = snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+id+"/run", map[string]any{
+		"target": map[string]string{"type": "terminal", "id": "t1"}, "values": map[string]string{"pr": "1"},
+	})
+	if code != http.StatusConflict || out["reason"] != "unimplemented" {
+		t.Fatalf("terminal run = %d %v", code, out)
+	}
+
+	proj := t.TempDir()
+	if err := os.WriteFile(proj+"/a.txt", []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	wk := addWorkspaceWithAgent(t, ts, "App", proj)
+	code, out = snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+id+"/run", map[string]any{
+		"target": map[string]string{"type": "agent", "id": wk.Agent.ID}, "values": map[string]string{"pr": "9"},
+	})
+	if code != http.StatusConflict || out["reason"] != "stopped" {
+		t.Fatalf("stopped run = %d %v", code, out)
+	}
+
+	code, out = snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+id+"/run", map[string]any{
+		"target": map[string]string{"type": "agent", "id": wk.Agent.ID}, "values": map[string]string{},
+	})
+	if code != http.StatusBadRequest {
+		t.Fatalf("missing run = %d %v", code, out)
 	}
 }

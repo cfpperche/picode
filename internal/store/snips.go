@@ -57,11 +57,12 @@ func (p Snip) Summary() SnipSummary {
 
 // SnipPicker is a composer/palette row. No body.
 type SnipPicker struct {
-	ID    string `json:"id"`
-	Slug  string `json:"slug"`
-	Title string `json:"title"`
-	Hint  string `json:"hint"`
-	Kind  string `json:"kind"`
+	ID    string   `json:"id"`
+	Slug  string   `json:"slug"`
+	Title string   `json:"title"`
+	Hint  string   `json:"hint"`
+	Kind  string   `json:"kind"`
+	Names []string `json:"names,omitempty"`
 }
 
 // SnipParams is create/update input.
@@ -404,7 +405,7 @@ func (s *Store) SetSnipArchived(id string, archived bool) (Snip, error) {
 
 // ListSnipPicker is live prompt snippets for the composer extra list.
 func (s *Store) ListSnipPicker() ([]SnipPicker, error) {
-	rows, err := s.db.Query(`SELECT id, slug, title, description, kind FROM snips WHERE archived_at IS NULL AND kind = 'prompt' ORDER BY starred DESC, updated_at DESC`)
+	rows, err := s.db.Query(`SELECT id, slug, title, description, kind, placeholders FROM snips WHERE archived_at IS NULL AND kind = 'prompt' ORDER BY starred DESC, updated_at DESC LIMIT 200`)
 	if err != nil {
 		return nil, fmt.Errorf("store: snip picker: %w", err)
 	}
@@ -412,11 +413,18 @@ func (s *Store) ListSnipPicker() ([]SnipPicker, error) {
 	out := []SnipPicker{}
 	for rows.Next() {
 		var p SnipPicker
-		if err := rows.Scan(&p.ID, &p.Slug, &p.Title, &p.Hint, &p.Kind); err != nil {
+		var phJSON string
+		if err := rows.Scan(&p.ID, &p.Slug, &p.Title, &p.Hint, &p.Kind, &phJSON); err != nil {
 			return nil, err
 		}
 		if strings.TrimSpace(p.Hint) == "" {
 			p.Hint = p.Title
+		}
+		for _, ph := range decodePlaceholders(phJSON) {
+			if snips.Reserved[ph.Name] {
+				continue
+			}
+			p.Names = append(p.Names, ph.Name)
 		}
 		out = append(out, p)
 	}

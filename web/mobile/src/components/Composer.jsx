@@ -283,6 +283,10 @@ export default function Composer({
       fireSend(cmd.label);
       return;
     }
+    if (cmd.run === "snip") {
+      if (onSnip) onSnip({ snipId: cmd.snipId, slug: cmd.slug, draft: text });
+      return;
+    }
     setText("");
     if (cmd.run === "copy") {
       const t = lastReply || "";

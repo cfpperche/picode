@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseSnip, expandSnip, snipSlug, insertLiteralBraces, draftToRestore, formFromSnip, tagsFromInput } from "./snipDraft.js";
+import { parseSnip, expandSnip, snipSlug, insertLiteralBraces, draftToRestore, formFromSnip, tagsFromInput, replaceSnipToken } from "./snipDraft.js";
 
 test("parse golden", () => {
   assert.deepEqual(parseSnip("{{name}}").placeholders.map((p) => p.name), ["name"]);
@@ -48,4 +48,10 @@ test("draft restore", () => {
 test("formFromSnip and tags", () => {
   assert.equal(formFromSnip({ title: "T", tags: ["a", "b"] }).tags, "a, b");
   assert.deepEqual(tagsFromInput(" a, b , "), ["a", "b"]);
+});
+
+test("replaceSnipToken keeps surrounding draft (D4)", () => {
+  assert.equal(replaceSnipToken("see /snip:review please", "review", "look at PR 1"), "see look at PR 1 please");
+  assert.equal(replaceSnipToken("/snip:review-pr ", "review-pr", "done"), "done ");
+  assert.equal(replaceSnipToken("", "x", "hi"), "hi");
 });

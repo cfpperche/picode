@@ -262,3 +262,20 @@ export function formFromSnip(p) {
 export function tagsFromInput(raw) {
   return String(raw || "").split(",").map((t) => t.trim()).filter(Boolean);
 }
+
+export function userPlaceholderNames(placeholders) {
+  return (placeholders || []).map((p) => p.name || p).filter((n) => n && !RESERVED.has(n));
+}
+
+// D4: "see /snip:review please" + "look at PR 1" → "see look at PR 1 please"
+export function replaceSnipToken(draft, slug, expanded) {
+  const s = String(draft || "");
+  const exp = String(expanded || "");
+  const exact = "/snip:" + String(slug || "");
+  const i = s.indexOf(exact);
+  if (i >= 0) return s.slice(0, i) + exp + s.slice(i + exact.length);
+  const m = s.match(/\/snip:[A-Za-z0-9_-]*/);
+  if (m && m.index >= 0) return s.slice(0, m.index) + exp + s.slice(m.index + m[0].length);
+  if (!s.trim()) return exp;
+  return s.replace(/\s*$/, (end) => (end ? " " : "") + exp);
+}

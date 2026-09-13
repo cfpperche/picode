@@ -4740,6 +4740,9 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .snip-body-bar { display: flex; align-items: center; gap: 8px; }
 .snip-body-bar .btn { height: var(--ctl-h); }
 .snip-preview { max-height: 180px; overflow: auto; }
+.snip-run { display: flex; flex-direction: column; gap: 10px; }
+.snip-run .dlg-actions { margin-top: 4px; }
+.snip-run .auto-select { height: var(--ctl-h); width: 100%; }
 .auto-field { display: flex; flex-direction: column; gap: 6px; border: 0; padding: 0; margin: 0; min-width: 0; }
 .auto-field > span, .auto-field > legend { font-size: 12px; font-weight: 600; color: var(--text-secondary); padding: 0; }
 /* A legend sits outside the fieldset's flex flow, so the form gap does
