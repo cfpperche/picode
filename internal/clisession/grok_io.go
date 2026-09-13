@@ -172,7 +172,7 @@ func (GrokSource) Read(ctx context.Context, ref Ref) (transcript.Timeline, error
 	}
 	group := 0
 	names := map[string]string{}
-	err := scanLines(filepath.Join(dir, "chat_history.jsonl"), func(line []byte) {
+	err := scanSession(filepath.Join(dir, "chat_history.jsonl"), ref, func(line []byte) {
 		var raw struct {
 			Type      string          `json:"type"`
 			Content   json.RawMessage `json:"content"`

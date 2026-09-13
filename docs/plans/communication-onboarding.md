@@ -67,10 +67,10 @@ or `internal/rpc/`; the two state tests are in
 | 6. Disable or stale selection | `TestPeerParticipationDecisionTable`, `TestWorkspaceParticipationAPI` | Revocation and stale multi-row rejection are atomic; late workers cannot recreate a disabled connection |
 | 7. Grok/Hermes native lookup | `TestNativeCLIIdentity` | Per-call lookup covers current, missing, changed, resumed and ambiguous identity; this onboarding flow was not rerun in real Grok/Hermes |
 | 8. Idle Pi receiver, same session | `TestNativePiSetupSharesRegistrationAndPreservesDraft`, `TestReceiverConnectionRequiresCurrentProcess`, `TestNativePiAttentionReceiverDecisionTable` | Registration is shared and session/process fenced; setup sends no model prompt; native Pi setup and exchanges also passed below |
-| 9. Missing Pi adapter or receiver | `TestLaunchTamperAndFailure`, `TestReceiverConnectionRequiresCurrentProcess` | Partial: missing adapter and stale receiver proof are rejected; repair through the onboarding error state lacks an end-to-end test |
+| 9. Missing Pi adapter or receiver | `TestLaunchTamperAndFailure`, `TestReceiverConnectionRequiresCurrentProcess`, `TestPeerOnboardingAdapterRepair` | Missing adapter: the worker reports `adapter-missing`, mints nothing, and a Packages install recovers without re-selection. Stale receiver proof is rejected; receiver readiness itself is covered by rows 8/10 |
 | 10. Working, permission, draft or unknown editor | `TestPeerInputDecisionTable`, `TestPeerInputRejectsMultilineComposer`, `TestNativePiAttentionReceiverDecisionTable`, `TestStopIdleFencesConversationAndCommands` | Input/receiver gates and managed stop fences are covered; the full native onboarding matrix was not rerun |
 | 11. Idle terminal reload | `TestNativePiResumeComposer`, `TestCodexSubcommandsKeepHookOverrides`, `TestStopIdleFencesConversationAndCommands`, `TestCapturedStopDoesNotStopReplacement`; native Pi scratch preparation | Automatic Pi terminal resume retained the exact session; other native CLIs' new onboarding reload paths remain unverified |
-| 12. Old process survives stop | `TestPeerStopReceiptFailsClosed` | Partial: durable live-process, PID-reuse and corrupt-receipt checks pass; an actual stubborn native child reaching `stopPeerPane` timeout was not exercised |
+| 12. Old process survives stop | `TestPeerStopReceiptFailsClosed`, `TestPeerStopStubbornChildStaysPending` | Durable live-process, PID-reuse and corrupt-receipt checks fail closed; a real tmux pane whose writer traps TERM/HUP keeps the receipt pending and clears it after the writer dies |
 | 13. Participant stopped | `TestPeerCheckWorkerDecisionTable`; JS participation-state test; native stopped participant in `native-terminal-preparation.json` | Two worker passes leave a stopped sender pending and never start either participant; native stopped state is also observed |
 | 14. Pending test, busy sender | `TestPeerCheckWorkerDecisionTable`; input and receiver tests from row 10 | Direct worker test holds the sender's control lock and leaves the test pending; live streaming/approval/editor gates are exercised separately |
 | 15. Ambiguous test write or crash after claim | `TestPeerCheckWorkerDecisionTable`, `TestPeerAttentionClaimsDoNotConsumeOrRepeat` | Two worker passes preserve attempted, running and uncertain phases without sending as the native participant; crash state is seeded, not a killed live process |
@@ -90,9 +90,14 @@ Native evidence is task-owned under `var/qa/communication-onboarding/`:
   before a first turn is unverified. The manual QA restart opened a fresh
   conversation rather than resuming; it is not evidence of correct startup/resume.
 
-Partial rows 9 and 12 remain tracked in `docs/handoff/open/communication.md`.
-The new onboarding matrix was not rerun for Claude, OpenCode, Grok or Hermes;
-earlier native transport tests do not establish this flow. Claude/OpenCode model
-capacity remains an owner/provider limitation. Physical mobile and non-Linux
-process recovery remain unverified; automatic terminal replacement refuses on
-non-Linux. PTY input rechecks do not make editor access atomic.
+Every onboarding decision row now has direct coverage; what remains is vendor behavior, not a PiCode gap.
+
+Vendor facts: initial Codex/Hermes/OpenCode and resumed Codex/Hermes need a first
+prompt; fresh Claude waits for a saved first conversation
+(`docs/plans/cli-attention-matrix.md`). Six-CLI paired transport acceptance:
+`docs/plans/communication-native-finish.md`.
+
+Standing limits: the full onboarding matrix was not rerun on native
+Claude/OpenCode/Grok/Hermes (transport acceptance does not establish this flow);
+physical mobile and non-Linux recovery are unverified; PTY input rechecks do not
+make editor access atomic.

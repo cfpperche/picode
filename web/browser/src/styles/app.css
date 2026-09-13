@@ -1738,6 +1738,10 @@ img.ws-face.term-cli-face {
 }
 .web-tab-toolbar input:focus { outline: 1px solid var(--accent); outline-offset: -1px; }
 .web-tab-host { flex: 1 1 auto; min-height: 0; position: relative; }
+.web-tab-err {
+  max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 11px; color: var(--danger, #cf3b54); flex: none;
+}
 .web-tab-empty {
   flex: 1 1 auto; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 4px;

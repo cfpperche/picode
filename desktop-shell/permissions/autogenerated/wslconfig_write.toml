@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-wslconfig-write"
+description = "Enables the wslconfig_write command without any pre-configured scope."
+commands.allow = ["wslconfig_write"]
+
+[[permission]]
+identifier = "deny-wslconfig-write"
+description = "Denies the wslconfig_write command without any pre-configured scope."
+commands.deny = ["wslconfig_write"]

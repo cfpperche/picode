@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-lab-open"
+description = "Enables the lab_open command without any pre-configured scope."
+commands.allow = ["lab_open"]
+
+[[permission]]
+identifier = "deny-lab-open"
+description = "Denies the lab_open command without any pre-configured scope."
+commands.deny = ["lab_open"]

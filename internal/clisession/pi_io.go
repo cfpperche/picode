@@ -48,7 +48,7 @@ func (PISource) Read(ctx context.Context, ref Ref) (transcript.Timeline, error) 
 	t := transcript.Timeline{Header: transcript.Header{SourceCLI: "pi", SourcePath: path, SourceID: ref.ID, Cwd: ref.Cwd}}
 	var entries []entry
 	headerSeen := false
-	err := scanLines(path, func(line []byte) {
+	err := scanSession(path, ref, func(line []byte) {
 		var e entry
 		if json.Unmarshal(line, &e) != nil {
 			t.Manifest.Drop("pi.malformed")

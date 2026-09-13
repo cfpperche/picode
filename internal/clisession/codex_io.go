@@ -36,7 +36,7 @@ func (CodexSource) Read(ctx context.Context, ref Ref) (transcript.Timeline, erro
 	model := ""
 	group := 0
 	names := map[string]string{}
-	err := scanLines(path, func(line []byte) {
+	err := scanSession(path, ref, func(line []byte) {
 		var raw struct {
 			Timestamp string          `json:"timestamp"`
 			Type      string          `json:"type"`

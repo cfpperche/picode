@@ -381,6 +381,44 @@ func TestReadRefusesPathOutsideRoot(t *testing.T) {
 	}
 }
 
+func TestScanSessionTailReadsTheRecentEnd(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "big.jsonl")
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString("{\"id\":\"old\"}\n"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.Seek(MaxReadBytes, 0); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString("{\"id\":\"new\"}\n"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := scanSessionLines(path, false, func([]byte) {}); !errors.Is(err, ErrTooLarge) {
+		t.Fatalf("full oversize: %v", err)
+	}
+	var ids []string
+	if err := scanSessionLines(path, true, func(line []byte) {
+		var raw struct {
+			ID string `json:"id"`
+		}
+		if json.Unmarshal(line, &raw) == nil && raw.ID != "" {
+			ids = append(ids, raw.ID)
+		}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(ids) == 0 || ids[len(ids)-1] != "new" {
+		t.Fatalf("tail ids = %v", ids)
+	}
+}
+
 func TestReadRefusesOversize(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

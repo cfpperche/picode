@@ -40,7 +40,9 @@ deterministic markdown brief under `<dataDir>/handoffs/<id>/brief.md` and
 the target started with a one-line prompt. Lineage lives in
 `session_handoffs` (event `session.handoff`) and is shown on both session
 listings. The installed target version comes from the setup check (run on
-demand); an unknown format refuses native and keeps brief.
+demand); an unknown format refuses native and keeps brief. A source over
+the 64 MB read cap drops native and offers a brief of the last 64 MB of
+the file (the recent turns); executing native on that source is still 413.
 
 A long-term memory server in the same folder (hooks that inject a next-
 session brief) is a different layer: it does not replace Native session,
