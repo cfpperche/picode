@@ -2,7 +2,7 @@
 
 ## Next
 
-- Run activation acceptance on available test terminals, recording provider/model behavior and one-turn cost; decide whether remote mode is in scope.
+- Owner: keep Activate now gated on a recorded session, or widen it to cold-start CLIs with no sessionKey (Codex/Hermes/OpenCode welcome). Remote mode stays out of v1 until explicitly in scope.
 
 ## Debts
 
