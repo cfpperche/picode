@@ -1737,6 +1737,30 @@ img.ws-face.term-cli-face {
   background: var(--bg-base); color: inherit;
 }
 .web-tab-toolbar input:focus { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+/* Address pill (ChatGPT Work style): input with the open action inside. */
+.web-tab-urlbar {
+  position: relative; flex: 1; min-width: 120px; display: flex; align-items: center;
+}
+.web-tab-urlbar input {
+  width: 100%; height: var(--ctl-h, 36px); padding: 0 44px 0 14px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--bg-base); color: inherit;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.web-tab-urlbar input:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.web-tab-go {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  height: calc(var(--ctl-h, 36px) - 8px); min-width: 30px; padding: 0 8px;
+  border: none; border-radius: 999px;
+  background: var(--bg-panel); color: var(--text-secondary); cursor: pointer;
+  font-size: 15px; line-height: 1;
+}
+.web-tab-go:hover { background: var(--border); color: var(--text-primary); }
+.web-tab-menu-list { min-width: 200px; z-index: 60; }
 .web-tab-host { flex: 1 1 auto; min-height: 0; position: relative; }
 .web-tab-err {
   max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

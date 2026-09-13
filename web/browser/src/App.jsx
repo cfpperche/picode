@@ -2985,6 +2985,7 @@ export default function App({ shellChrome = false } = {}) {
               hidden={selectedId !== id}
               onMeta={(m) => setWebTabs((cur) => ({ ...cur, [tabWebId(id)]: { ...cur[tabWebId(id)], ...m } }))}
               onNew={() => openWebTab("")}
+              onBrowserSettings={() => go("browser")}
             />
           ))}
           <FileSurface
