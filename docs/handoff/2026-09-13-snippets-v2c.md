@@ -25,7 +25,6 @@ dialogs. Pixel PASS: capture sheet, import dialog (empty/filled),
 context menu, mobile sheet and editor.
 Merge: fast-forward ready.
 
-Not rendered on the board (it has ~47 bytes of headroom against its
-12 KB cap): v2 PRs 5-8 are starters + duplicate, the slug-availability
-check with durable `localStorage` drafts, the mobile editor v2 and the
-docs-site guide, all detailed in `docs/plans/snippets-v2.md`.
+Debt: the board sits ~47 bytes under its 12 KB cap, so v2 PRs 5-8
+(starters + duplicate, slug check + durable drafts, mobile editor v2,
+docs guide) live in `docs/plans/snippets-v2.md` instead of a bullet.
