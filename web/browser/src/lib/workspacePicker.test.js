@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { openRepoKeys, pickAction, pickWorkspace, ownerIdOf, ownerRoute, graphUrl, headUrl } from "./gitWorkspacePicker.js";
+import { openRepoKeys, openTreeKeys, pickAction, pickTarget, ownerIdOf, ownerRoute, graphUrl, headUrl } from "./workspacePicker.js";
 
 test("openRepoKeys drops provisional tabs and everything that is not a graph", () => {
   assert.deepEqual(
@@ -10,47 +10,55 @@ test("openRepoKeys drops provisional tabs and everything that is not a graph", (
   assert.deepEqual(openRepoKeys(null), []);
 });
 
-test("pickAction: same repository keeps the tab, a new one renames it, an open one adopts it", () => {
-  const key = "/home/goat/picode/.git";
-  // Sibling worktrees of one repository: the tab stays, the owner moves.
+test("openTreeKeys reads folder tabs, and drops the provisional ones", () => {
+  assert.deepEqual(
+    openTreeKeys(["d:/home/goat/picode", "d:@w:desktop-3da77a", "g:/home/goat/picode/.git", "t:desktop-51c42d", ""]),
+    ["/home/goat/picode"],
+  );
+  assert.deepEqual(openTreeKeys(null), []);
+});
+
+test("pickAction: same folder keeps the tab, a new one renames it, an open one adopts it", () => {
+  const key = "/home/goat/picode"; // a tree root; the graph passes a repository key
+  // The same folder read through another owner: the tab stays, the owner moves.
   assert.equal(pickAction(key, key, [key]), "same");
-  // Another repository with no tab: this tab becomes it (one tab per repo).
-  assert.equal(pickAction("/home/goat/orikami/.git", key, [key]), "rename");
-  // Another repository already on the strip: select it, hand it the pick.
-  assert.equal(pickAction("/home/goat/orikami/.git", key, [key, "/home/goat/orikami/.git"]), "adopt");
+  // Another folder with no tab: this tab becomes it (one tab per folder).
+  assert.equal(pickAction("/home/goat/orikami", key, [key]), "rename");
+  // Another folder already on the strip: select it, hand it the pick.
+  assert.equal(pickAction("/home/goat/orikami", key, [key, "/home/goat/orikami"]), "adopt");
   // Nothing resolved is nothing to do — never a retarget.
   assert.equal(pickAction("", key, [key]), "none");
 });
 
-test("pickWorkspace: a head that throws and a head that names no repository both move nothing", async () => {
+test("pickTarget: a head that throws and a head that names no repository both move nothing", async () => {
   const key = "/home/goat/picode/.git";
   const boom = new Error("no such workspace");
   assert.deepEqual(
-    await pickWorkspace({ tabKey: key, openKeys: [key], readHead: () => Promise.reject(boom) }),
+    await pickTarget({ tabKey: key, openKeys: [key], readTarget: () => Promise.reject(boom) }),
     { key: "", action: "none", error: boom },
   );
   // A workspace whose folder stopped being a repository answers 200 with no key.
   assert.deepEqual(
-    await pickWorkspace({ tabKey: key, openKeys: [key], readHead: async () => ({}) }),
+    await pickTarget({ tabKey: key, openKeys: [key], readTarget: async () => ({}) }),
     { key: "", action: "none", error: null },
   );
   assert.deepEqual(
-    await pickWorkspace({ tabKey: key, openKeys: [key], readHead: async () => null }),
+    await pickTarget({ tabKey: key, openKeys: [key], readTarget: async () => null }),
     { key: "", action: "none", error: null },
   );
 });
 
-test("pickWorkspace: the answer is what decides same, rename or adopt", async () => {
+test("pickTarget: the answer is what decides same, rename or adopt", async () => {
   const key = "/home/goat/picode/.git";
   const other = "/home/goat/orikami/.git";
   const answers = (k) => async () => ({ key: k, token: "t" });
-  const same = await pickWorkspace({ tabKey: key, openKeys: [key], readHead: answers(key) });
+  const same = await pickTarget({ tabKey: key, openKeys: [key], readTarget: answers(key) });
   assert.equal(same.action, "same");
   assert.equal(same.key, key);
-  const rename = await pickWorkspace({ tabKey: key, openKeys: [key], readHead: answers(other) });
+  const rename = await pickTarget({ tabKey: key, openKeys: [key], readTarget: answers(other) });
   assert.equal(rename.action, "rename");
   assert.equal(rename.key, other);
-  const adopt = await pickWorkspace({ tabKey: key, openKeys: [key, other], readHead: answers(other) });
+  const adopt = await pickTarget({ tabKey: key, openKeys: [key, other], readTarget: answers(other) });
   assert.equal(adopt.action, "adopt");
 });
 

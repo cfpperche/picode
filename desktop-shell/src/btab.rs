@@ -177,7 +177,18 @@ pub async fn btab_screenshot(app: AppHandle, id: String) -> Result<String, Strin
     let wv = app.get_webview(&label(&id)).ok_or("tab not open")?;
     let (tx, rx) = mpsc::channel::<Result<(), String>>();
     let tx_err = tx.clone();
-    let path = std::env::temp_dir().join(format!("picode-btab-{id}.png"));
+    // Data-URL downloads are blocked inside WebView2, so the shell writes
+    // the PNG straight to the user's Pictures folder and the UI shows the
+    // saved path.
+    let dir = std::env::var("USERPROFILE")
+        .map(|home| std::path::PathBuf::from(home).join("Pictures").join("PiCode"))
+        .unwrap_or_else(|_| std::env::temp_dir());
+    let _ = std::fs::create_dir_all(&dir);
+    let ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or_default();
+    let path = dir.join(format!("picode-{id}-{ms}.png"));
     let shot_path = path.clone();
 
     wv.with_webview(move |platform| unsafe {
@@ -216,9 +227,7 @@ pub async fn btab_screenshot(app: AppHandle, id: String) -> Result<String, Strin
         Ok(Err(e)) => return Err(e),
         Err(_) => return Err("capture timed out".into()),
     }
-    let bytes = std::fs::read(&path).map_err(|e| format!("read: {e}"))?;
-    use base64::Engine;
-    Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
+    Ok(path.to_string_lossy().to_string())
 }
 
 #[tauri::command]

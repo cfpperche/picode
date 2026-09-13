@@ -1737,6 +1737,37 @@ img.ws-face.term-cli-face {
   background: var(--bg-base); color: inherit;
 }
 .web-tab-toolbar input:focus { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+/* Address field (shadcn ButtonGroup): input and action share one pill —
+   the button is the right cap, no separate borders. */
+.web-tab-urlbar {
+  flex: 1; min-width: 140px; display: flex; align-items: stretch;
+  height: var(--ctl-h, 36px);
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--bg-base); overflow: hidden;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.web-tab-urlbar:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.web-tab-urlbar input {
+  flex: 1; min-width: 0; border: none; background: none; color: inherit;
+  padding: 0 6px 0 14px; height: 100%;
+}
+.web-tab-urlbar input:focus { outline: none; }
+.web-tab-go {
+  flex: none; width: 42px; margin: 3px; border: none; border-radius: 999px;
+  background: var(--accent); color: #fff; cursor: pointer;
+  font-size: 15px; line-height: 1; display: flex; align-items: center; justify-content: center;
+}
+.web-tab-go:hover { filter: brightness(1.08); }
+.web-tab-menu {
+  border: none; background: none; border-radius: 8px; color: var(--text-secondary);
+}
+.web-tab-menu:hover { background: var(--border); color: var(--text-primary); }
+.web-tab-menu[aria-expanded="true"] { background: var(--border); color: var(--text-primary); }
+.web-tab-menu span { display: inline-flex; align-items: center; gap: 8px; }
 .web-tab-host { flex: 1 1 auto; min-height: 0; position: relative; }
 .web-tab-err {
   max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -3733,18 +3764,24 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
    unlike search (dims/highlights only, ADR-0038). */
 .gg-branches-trigger { display: inline-flex; align-items: center; gap: 6px; max-width: 180px; }
 .gg-branches-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* The toolbar's first item: which workspace the history is read through
-   (ADR-0022 amendment). It wears the same .btn.btn-sm height as the branch
-   picker beside it; the name elides rather than pushing the row. */
-.gg-ws-trigger { max-width: 220px; }
-.gg-ws-trigger .cockpit-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Rows: the workspace name is the label, the branch the hint. Only the branch
-   elides when the popover is narrow — the name is the identity and stays; the
-   folder is the row's title, because a deep path elided to `~/…/gg-wo…` tells
-   the reader nothing (a first draft shipped exactly that). */
-.gg-ws-pop .combo-opt-label { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gg-ws-pop .combo-hint {
-  flex: 1 1 auto; min-width: 0;
+/* The first item of a folder tab's toolbar: the workspace the graph's history
+   or the tree's folder is read through (ADR-0022/0030 amendments). It wears the
+   same .btn.btn-sm height as the controls beside it; the name elides rather
+   than pushing the row. */
+.ws-picker-trigger { max-width: 240px; }
+.ws-picker-trigger .cockpit-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Rows: the workspace name is the label and the identity, so it keeps its
+   width; the hint (the branch for Git, the folder for the tree) is what elides.
+   `flex: 1 1 0` on the hint is the whole trick — with a basis of 0 it asks for
+   the leftover space instead of competing with the name, which is how a
+   worktree path once elided "desktop" to "de…". */
+.ws-picker-pop {
+  min-width: min(340px, var(--radix-popover-content-available-width));
+  max-width: min(380px, var(--radix-popover-content-available-width));
+}
+.ws-picker-pop .combo-opt-label { flex: 0 1 auto; max-width: 55%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-picker-pop .combo-hint {
+  flex: 1 1 0; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right;
 }
 /* .cockpit-pop hand-positions itself above its anchor (bottom: 100%) for the
