@@ -1756,12 +1756,18 @@ img.ws-face.term-cli-face {
   padding: 0 6px 0 14px; height: 100%;
 }
 .web-tab-urlbar input:focus { outline: none; }
+/* shadcn ButtonGroup: one shared surface, the action split off by a
+   single divider — same background as the input, no floating chip. */
 .web-tab-toolbar .web-tab-go {
-  flex: none; width: 42px; margin: 3px; border: none; border-radius: 999px;
-  background: var(--accent); color: #fff; cursor: pointer;
+  flex: none; width: 44px; margin: 0; padding: 0;
+  border: none !important; border-left: 1px solid var(--border) !important;
+  border-radius: 0 !important;
+  background: transparent; color: var(--text-secondary); cursor: pointer;
   font-size: 15px; line-height: 1; display: flex; align-items: center; justify-content: center;
 }
-.web-tab-toolbar .web-tab-go:hover { border: none; filter: brightness(1.08); }
+.web-tab-toolbar .web-tab-go:hover {
+  background: var(--border); color: var(--text-primary);
+}
 .web-tab-toolbar .web-tab-menu {
   border: none; background: none; border-radius: 8px; color: var(--text-secondary);
   font-size: 15px;
