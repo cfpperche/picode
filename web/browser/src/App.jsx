@@ -30,6 +30,7 @@ import Inspector, { InspectorToggle, useInspectorLayout } from "./components/Ins
 import GitGraphSurface from "./components/GitGraphSurface.jsx";
 import FileTreeSurface from "./components/FileTreeSurface.jsx";
 import Settings from "./components/Settings.jsx";
+import BrowserPage from "./components/BrowserPage.jsx";
 import AgentClis from "./components/AgentClis.jsx";
 import { cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 import System from "./components/System.jsx";
@@ -2918,7 +2919,7 @@ export default function App({ shellChrome = false } = {}) {
           inShell: shellChrome,
           themeMode,
           onTheme: setTheme,
-          onNavigate: (kind) => go(kind === "browser" ? "preferences-browser" : kind, agent?.id, { workspaceId: paneWs?.id }),
+          onNavigate: (kind) => go(kind, agent?.id, { workspaceId: paneWs?.id }),
           onWhatsNew: openWhatsNew,
           whatsNewUnread,
           pkgUpdates,
@@ -3341,6 +3342,7 @@ export default function App({ shellChrome = false } = {}) {
         {route === "llama" ? <LlamaPanel onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} /> : null}
         <Integrations hidden={route !== "integrations"} />
         <Devices hidden={route !== "devices"} />
+        <BrowserPage hidden={route !== "browser"} />
         <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
         {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}
