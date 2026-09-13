@@ -1,0 +1,173 @@
+// btab.rs — work browser tabs (Phase 3 slice 1, docs/plans/desktop-v2.md):
+// each browser page is a child WebView2 of the main window, living behind an
+// editor tab ("w:<id>"). The React side renders the toolbar and reports the
+// viewport rect of the page region (ResizeObserver); this module positions
+// the native webview there. ADR-0128: one shared profile, no debug port in
+// this path, popups adopt as new tabs.
+
+use std::collections::HashMap;
+use std::sync::Mutex;
+
+use tauri::webview::{NewWindowResponse, WebviewBuilder};
+use tauri::WebviewUrl;
+use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, State};
+
+#[derive(Default)]
+pub struct BtabState {
+    // Bounds the UI reported before the webview existed (first navigate).
+    pub pending: Mutex<HashMap<String, (f64, f64, f64, f64)>>,
+}
+
+fn label(id: &str) -> String {
+    format!("btab-{}", id)
+}
+
+fn normalize(url: &str) -> Result<tauri::Url, String> {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return Err("empty URL".into());
+    }
+    let full = if trimmed.contains("://") {
+        trimmed.to_string()
+    } else {
+        format!("https://{}", trimmed)
+    };
+    full.parse().map_err(|_| "invalid URL".to_string())
+}
+
+// ensure creates the webview on first navigate — a browser tab with no URL
+// yet is pure UI (the start card), no native surface wasted on it.
+fn ensure(app: &AppHandle, id: &str, url: &str) -> Result<(), String> {
+    let label = label(id);
+    if app.get_webview(label.as_str()).is_some() {
+        return Ok(());
+    }
+    let win = app.get_window("main").ok_or("main window is gone")?;
+    let parsed = normalize(url)?;
+    let (mut x, mut y, mut w, mut h) = (120.0, 120.0, 900.0, 640.0);
+    if let Some(b) = app.state::<BtabState>().pending.lock().unwrap().remove(id) {
+        (x, y, w, h) = b;
+    }
+    let emitter = app.clone();
+    let page = WebviewBuilder::new(label, WebviewUrl::External(parsed))
+        .data_directory(super::browserlab::webview_profile())
+        .on_new_window(move |url, _features| {
+            // Popups adopt as new editor tabs (the UI listens on this event).
+            let _ = emitter.emit("btab://new", url.to_string());
+            NewWindowResponse::Deny
+        });
+    win.add_child(page, LogicalPosition::new(x, y), LogicalSize::new(w, h))
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn btab_navigate(
+    app: AppHandle,
+    state: State<'_, BtabState>,
+    id: String,
+    url: String,
+    x: Option<f64>,
+    y: Option<f64>,
+    w: Option<f64>,
+    h: Option<f64>,
+) -> Result<(), String> {
+    if let (Some(x), Some(y), Some(w), Some(h)) = (x, y, w, h) {
+        state
+            .pending
+            .lock()
+            .unwrap()
+            .insert(id.clone(), (x, y, w, h));
+    }
+    ensure(&app, &id, &url)?;
+    let wv = app.get_webview(&label(&id)).ok_or("webview vanished")?;
+    wv.navigate(normalize(&url)?).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn btab_bounds(
+    app: AppHandle,
+    state: State<'_, BtabState>,
+    id: String,
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+) -> Result<(), String> {
+    match app.get_webview(&label(&id)) {
+        Some(wv) => wv
+            .set_bounds(tauri::Rect {
+                position: LogicalPosition::new(x, y).into(),
+                size: LogicalSize::new(w, h).into(),
+            })
+            .map_err(|e| e.to_string()),
+        None => {
+            // No webview yet — remember where it goes for the first navigate.
+            state.pending.lock().unwrap().insert(id, (x, y, w, h));
+            Ok(())
+        }
+    }
+}
+
+#[tauri::command]
+pub fn btab_visibility(app: AppHandle, id: String, visible: bool) -> Result<(), String> {
+    match app.get_webview(&label(&id)) {
+        Some(wv) => {
+            if visible {
+                wv.show().map_err(|e| e.to_string())
+            } else {
+                wv.hide().map_err(|e| e.to_string())
+            }
+        }
+        None => Ok(()),
+    }
+}
+
+#[tauri::command]
+pub fn btab_back(app: AppHandle, id: String) -> Result<(), String> {
+    app.get_webview(&label(&id))
+        .ok_or("no page")?
+        .eval("history.back()")
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn btab_forward(app: AppHandle, id: String) -> Result<(), String> {
+    app.get_webview(&label(&id))
+        .ok_or("no page")?
+        .eval("history.forward()")
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn btab_reload(app: AppHandle, id: String) -> Result<(), String> {
+    app.get_webview(&label(&id))
+        .ok_or("no page")?
+        .eval("location.reload()")
+        .map_err(|e| e.to_string())
+}
+
+// The active tab polls this; title is the host for now (v1).
+#[tauri::command]
+pub fn btab_meta(app: AppHandle, id: String) -> Result<serde_json::Value, String> {
+    match app.get_webview(&label(&id)) {
+        Some(wv) => {
+            let url = wv.url().map(|u| u.to_string()).unwrap_or_default();
+            let title = tauri::Url::parse(&url)
+                .ok()
+                .and_then(|u| u.host_str().map(|s| s.to_string()))
+                .unwrap_or_default();
+            Ok(serde_json::json!({ "url": url, "title": title }))
+        }
+        None => Ok(serde_json::json!({ "url": "", "title": "" })),
+    }
+}
+
+#[tauri::command]
+pub fn btab_close(app: AppHandle, id: String) -> Result<(), String> {
+    if let Some(wv) = app.get_webview(&label(&id)) {
+        wv.close().map_err(|e| e.to_string())?;
+    }
+    app.state::<BtabState>().pending.lock().unwrap().remove(&id);
+    Ok(())
+}
