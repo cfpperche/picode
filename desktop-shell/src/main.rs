@@ -8,6 +8,7 @@
 // keepalive, the disk actions and the browser policy arrive in later phases —
 // the Go tray keeps owning them until then.
 
+mod browserlab;
 mod clean;
 mod disk;
 mod wslconfig;
@@ -36,6 +37,12 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
+            browserlab::lab_open,
+            browserlab::lab_navigate,
+            browserlab::lab_back,
+            browserlab::lab_forward,
+            browserlab::lab_reload,
+            browserlab::lab_current_url,
             disk::disk_report,
             disk::disk_compact,
             disk::disk_compact_dry_run,
@@ -51,6 +58,7 @@ fn main() {
                 show(&win);
             }
         }))
+        .manage(browserlab::LabState::default())
         .setup(move |app| {
             let target = match url {
                 Some(u) => WebviewUrl::External(u),
@@ -68,6 +76,7 @@ fn main() {
                 .decorations(false)
                 .build()?;
             let open = MenuItem::with_id(app, "open", "Open PiCode", true, None::<&str>)?;
+            let lab = MenuItem::with_id(app, "browserlab", "Browser lab", true, None::<&str>)?;
             let management =
                 MenuItem::with_id(app, "management", "Management\u{2026}", true, None::<&str>)?;
             // Phase 1 spike (docs/plans/desktop-v2.md): prove native
@@ -81,7 +90,7 @@ fn main() {
                 true,
                 None::<&str>,
             )?;
-            let menu = Menu::with_items(app, &[&open, &management, &notify, &quit])?;
+            let menu = Menu::with_items(app, &[&open, &lab, &management, &notify, &quit])?;
 
             TrayIconBuilder::with_id("picode")
                 .icon(app.default_window_icon().expect("bundled icon").clone())
@@ -90,6 +99,7 @@ fn main() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, ev| match ev.id.as_ref() {
                     "open" => show_main(app),
+                    "browserlab" => browserlab::open(app),
                     "management" => open_management_window(app),
                     "notify" => {
                         // Windows shows toasts for unpackaged apps only when a

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Browser lab</title>
+<style>
+  /* The lab strip: one row, h-36 controls, dark like the shell. It is a
+     spike — function over polish. */
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    display: flex; align-items: center; gap: 6px;
+    padding: 0 10px; height: 100%;
+    background: #0e0e11; color: #e7e7ea;
+    font: 13px/1 "Segoe UI", system-ui, sans-serif;
+  }
+  button, select {
+    height: 30px; padding: 0 9px; border: 1px solid #2e2e33; border-radius: 6px;
+    background: #1a1a1f; color: inherit; cursor: pointer; flex: none;
+  }
+  button:hover { border-color: #4c4c55; }
+  #url {
+    flex: 1; height: 30px; min-width: 120px;
+    border: 1px solid #2e2e33; border-radius: 6px;
+    background: #17171b; color: inherit; padding: 0 10px;
+  }
+  label { display: flex; align-items: center; gap: 4px; flex: none; cursor: pointer; }
+  #status {
+    position: fixed; right: 10px; bottom: 4px; font-size: 10px; color: #6f6f78;
+    max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+  <button id="back" title="Back">←</button>
+  <button id="fwd" title="Forward">→</button>
+  <button id="rel" title="Reload">⟳</button>
+  <input id="url" placeholder="URL (e.g. github.com/login, mail.google.com)" spellcheck="false">
+  <button id="go">Go</button>
+  <label title="Plain-Chrome UA, no Edg/ token — test 3"><input type="checkbox" id="ua"> Chrome UA</label>
+  <select id="quick">
+    <option value="">quick…</option>
+    <option value="https://github.com/login">github login</option>
+    <option value="https://accounts.google.com">google sign-in</option>
+    <option value="https://mail.google.com">gmail</option>
+    <option value="https://youtube.com">youtube</option>
+    <option value="http://127.0.0.1:18740/">fixture</option>
+  </select>
+  <span id="status"></span>
+<script>
+  const inv = window.__TAURI__.core.invoke;
+  const $ = (id) => document.getElementById(id);
+  const url = $("url");
+
+  function go() {
+    const u = url.value.trim();
+    if (!u) return;
+    inv("lab_navigate", { url: u, chromeUa: $("ua").checked })
+      .then(refresh).catch((e) => { $("status").textContent = e; });
+  }
+  function refresh() {
+    inv("lab_current_url").then((u) => { if (u) url.value = u; }).catch(() => {});
+  }
+  $("go").onclick = go;
+  url.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+  $("back").onclick = () => inv("lab_back").catch(() => {});
+  $("fwd").onclick = () => inv("lab_forward").catch(() => {});
+  $("rel").onclick = () => inv("lab_reload").catch(() => {});
+  $("quick").onchange = (e) => {
+    if (!e.target.value) return;
+    url.value = e.target.value;
+    go();
+    e.target.value = "";
+  };
+  $("ua").onchange = () => {
+    // The UA only applies at webview creation — a toggle re-creates the page.
+    if (url.value.trim()) go();
+  };
+  setInterval(refresh, 900);
+  refresh();
+</script>
+</body>
+</html>

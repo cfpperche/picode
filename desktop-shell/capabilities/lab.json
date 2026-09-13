@@ -1,0 +1,8 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "browser-lab",
+  "description": "Browser lab spike: only the control strip (labbar, a local page) talks to Tauri. The page webview (labpage) renders arbitrary web content and deliberately gets NO capabilities — it is untrusted.",
+  "windows": ["browserlab"],
+  "webviews": ["labbar"],
+  "permissions": ["core:default"]
+}
