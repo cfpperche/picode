@@ -8,5 +8,5 @@
 
 ## Debts
 
-- Verify-with-pi answers from credential presence, so a bogus env-backed key still reads green — pre-existing roster debt, unchanged here.
+- Verify-with-pi answers from credential presence, so a bogus env-backed key reads green — pre-existing roster debt.
 - Hand-written `models.json` without the `providers` wrapper is invalid for pi and invisible to both tools; PiCode refuses to adopt it.

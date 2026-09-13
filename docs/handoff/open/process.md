@@ -13,4 +13,4 @@
 - On merging `feat/herdr-validation` / `feat/picode-video-pilot` (opened before ADR-0105): their prose moves to `docs/changelog.d/` fragments and the session note, not into the board.
 - Hook edits cannot be exercised from the making worktree: every worktree runs the root checkout's hooks — a commit those hooks would refuse needs `git -c core.hooksPath=$PWD/.githooks commit`.
 - `make ci` failed once (2026-09-12) after listing the Go packages ok, then passed on the identical tree — cause unknown; `var/ci-last.log` keeps the next run diagnosable (retries would hide it).
-- A branch that edited `docs/handoff.md` before ADR-0123 meets one `modify/delete` conflict when it merges the board in: `git rm -f docs/handoff.md` (the hook refuses it staged as a modification, on purpose).
+- A branch that edited `docs/handoff.md` before ADR-0123 meets one `modify/delete` conflict at merge: resolve by `git rm -f docs/handoff.md` — the hook refuses it staged as a modification, on purpose.
