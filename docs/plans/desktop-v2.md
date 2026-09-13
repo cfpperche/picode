@@ -33,14 +33,19 @@ truth; the shell is a client and a supervisor, never a second backend.
   coexist, amending ADR-0120's "supervisor" wording (client + subprocess
   orchestrator). Sessions: A — Overview (this branch); B — Give back in the
   window; C — `picode clean` prunes + `.wslconfig` editing.
-- **Phase 3 — Work Browser + CDP:** Chrome/Edge launched by the app (own
-  `user-data-dir`, `--remote-debugging-pipe` — no open port); agents reach
-  pages through CDP exposed to the daemon over the authenticated channel; the
-  **browser policy** (domains × actions per agent) is visible and revocable in
-  the UI. `ext/` + `browserhost` + ADR-0043 deprecated here.
-- **Phase 4 — conditional:** embedded CEF (our tabs/omnibox, pinned engine,
-  human and agent on the same tab) only if sharing the tab is a hard
-  requirement.
+- **Phase 3 — Embedded Work Browser (owner-corrected 2026-09-13):** not an
+  external Chrome — a **browser panel embedded in the shell** (child
+  WebView2s, the Tauri multiwebview the shell already carries behind the
+  `unstable` feature), tabs + address bar of our own, one shared persistent
+  profile under `%LOCALAPPDATA%\PiCode\WebView2`. Agents reach the SAME
+  pages the human sees through CDP exposed to the daemon over the
+  authenticated channel; the **browser policy** (domains × actions per
+  agent) applies host-side and is visible and revocable in the UI.
+  Benchmark: the ChatGPT desktop Work browser. `ext/` + `browserhost` +
+  ADR-0043 deprecated here. CEF (old Phase 4) is dropped — the spike
+  (below) removed its reason to exist.
+- **Phase 4 — dropped (2026-09-13).** Embedded CEF was conditional on
+  WebView2 failing the browser spike. It did not fail.
 
 ## Decisions taken
 
@@ -75,6 +80,28 @@ truth; the shell is a client and a supervisor, never a second backend.
 
 **Phase 1 closed 2026-09-11** — five of five spikes settled (one pending the
 toast click-through, which only changes the Phase 2 installer scope).
+
+## Phase 3 engine spike — 2026-09-12/13 (lab shipped on `feat/browser-lab`)
+
+The lab (tray → **Browser lab**): a two-webview window — local control strip
+(URL, back/forward/reload, Chrome-UA toggle) over a browsed page — built to
+answer the engine questions before the product decides panel-vs-tab.
+
+| Test | Result |
+|---|---|
+| Page paints; no event-loop deadlock | **PASS** after moving webview creation out of the tray handler into `setup` (in-handler creation froze every window — the v1.0 lesson) |
+| GitHub login in a fresh profile | **PASS** |
+| Persistence across shell restarts | **PASS** (disk profile; quit ≠ logout) |
+| **Google sign-in + OAuth (Continue with Google → GitHub) with WebView2's own UA** | **PASS** — the documented embedded-browser block did not trigger |
+| Profile sprawl | Fixed — one explicit profile, `%LOCALAPPDATA%\PiCode\WebView2`, shared by every webview |
+
+Consequences: **WebView2 stays the engine** for the work browser; CEF and the
+~200 MB Chromium are out. The Chrome-UA override stays in the lab (and becomes
+a per-domain fallback lever in the product) because Google's block is
+risk-based and machine-variable — one passing machine is evidence, not a law.
+Still open before Phase 3 code: CDP reachability of the logged-in view
+(Runtime.evaluate + screenshot through the host API or a pipe), then the
+panel-vs-editor-tab layout decision (owner).
 
 ## Conscious debt
 
