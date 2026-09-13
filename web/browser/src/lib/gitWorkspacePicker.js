@@ -5,62 +5,13 @@
 //
 // Pure: no React, no fetch. The surface renders these; the App turns a pick
 // into a tab move.
+//
+// The rule itself — which workspaces a picker may offer, and which one an owner
+// belongs to — lives in @picode/shared/domain/gitWorkspace.js, because the
+// phone asks the same question and an app may not import another app.
 
-import { locate } from "@picode/shared/domain/tree.js";
 import { ownerBase } from "@picode/shared/domain/gitOwner.js";
 import { isGitTab, gitTabKey } from "./routes.js";
-import { workspaceForTerminal } from "./termGroups.js";
-
-// pickerOptions is the list the popover shows: the workspaces whose folder is
-// a repository. The test is the same one the sidebar makes before offering
-// "Git graph" (ws.git is nil on a plain folder), so a row is never offered for
-// a folder the route would answer 404 on — an unavailable choice is hidden,
-// not disabled (uiux-review).
-export function pickerOptions(workspaces) {
-  return (workspaces || [])
-    .filter((ws) => ws && ws.id && ws.git)
-    .map((ws) => ({
-      id: ws.id,
-      label: ws.name || ws.path || ws.id,
-      hint: hintOf(ws),
-      title: ws.path || "",
-    }))
-    .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
-}
-
-// A row's right-hand hint: the branch that folder is on. The folder itself is
-// the row's title — a deep worktree path elided to `~/picode/.worktrees/gg-wo…`
-// is not a hint, it is noise (a first draft shipped exactly that). The branch
-// is short, and it is the fact that tells two folders of one project apart.
-function hintOf(ws) {
-  return (ws && ws.git && ws.git.branch) || "";
-}
-
-// currentWorkspaceId is which workspace the owner belongs to, so the trigger
-// can name it and the popover can mark it. Every kind answers: a workspace is
-// itself; an agent resolves through the workspace it lives in (a free agent
-// has none); a terminal through the workspace it was created in (a free
-// terminal has none). "" means the owner is not attached to a workspace — the
-// trigger then wears the repository name, which is what the item showed
-// before it became a control.
-export function currentWorkspaceId(owner, { workspaces, freeAgents, terminals } = {}) {
-  if (!owner || !owner.id) return "";
-  if (owner.kind === "workspace") {
-    return (workspaces || []).some((w) => w && w.id === owner.id) ? owner.id : "";
-  }
-  if (owner.kind === "term") {
-    const ws = workspaceForTerminal(terminals, workspaces, owner.id);
-    return ws ? ws.id : "";
-  }
-  const loc = locate(workspaces, freeAgents, owner.id);
-  return loc && loc.workspace ? loc.workspace.id : "";
-}
-
-// triggerLabel is what the control wears: the workspace's name, or the
-// repository name when there is no workspace to name.
-export function triggerLabel(workspace, repoName) {
-  return (workspace && (workspace.name || workspace.path)) || repoName || "";
-}
 
 // pickWorkspace resolves a pick into the move the App makes, reading the picked
 // workspace's own /git/head — a repository is never resolved from a path in a

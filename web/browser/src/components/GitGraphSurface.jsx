@@ -7,7 +7,8 @@ import GitGraph from "./GitGraph.jsx";
 import { useKeptScroll } from "../lib/keepScroll.js";
 import GitGraphBranches from "./GitGraphBranches.jsx";
 import WorkspacePicker from "./WorkspacePicker.jsx";
-import { currentWorkspaceId, graphUrl, headUrl, ownerIdOf, ownerRoute, pickerOptions, triggerLabel } from "../lib/gitWorkspacePicker.js";
+import { graphUrl, headUrl, ownerIdOf, ownerRoute } from "../lib/gitWorkspacePicker.js";
+import { pickerOptions, triggerLabel, workspaceForOwner } from "@picode/shared/domain/gitWorkspace.js";
 import CommitDetail from "./CommitDetail.jsx";
 import UncommittedDetail from "./UncommittedDetail.jsx";
 import { UNCOMMITTED, isUncommittedHash } from "../lib/gitgraph.js";
@@ -123,8 +124,8 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
   // amendment): the owner's own workspace, or — for a terminal or an agent —
   // the one it lives in. Nothing when the owner has none (a free agent or
   // terminal): the trigger then wears the repository name.
-  const ownerWorkspaceId = currentWorkspaceId(owner, { workspaces, freeAgents, terminals });
-  const ownerWorkspace = (workspaces || []).find((w) => w && w.id === ownerWorkspaceId) || null;
+  const ownerWorkspace = workspaceForOwner(owner, { workspaces, freeAgents, terminals });
+  const ownerWorkspaceId = ownerWorkspace ? ownerWorkspace.id : "";
   // Only folders that are repositories are offered; the same set the sidebar
   // gates "Git graph" on, so no row can answer 404.
   const wsOptions = useMemo(() => pickerOptions(workspaces), [workspaces]);
