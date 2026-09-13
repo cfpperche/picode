@@ -30,6 +30,8 @@ const Inbox = lazy(() => import("./screens/Inbox.jsx"));
 const InboxItem = lazy(() => import("./screens/Inbox.jsx").then(module => ({ default: module.InboxItem })));
 const PinScreen = lazy(() => import("./screens/Pin.jsx"));
 const PinEdit = lazy(() => import("./screens/PinEdit.jsx"));
+const SnipScreen = lazy(() => import("./screens/Snippet.jsx"));
+const SnipEdit = lazy(() => import("./screens/SnippetEdit.jsx"));
 import Work from "./screens/Work.jsx";
 const Agent = lazy(() => import("./screens/Agent.jsx"));
 const TerminalScreen = lazy(() => import("./screens/Terminal.jsx"));
@@ -398,7 +400,7 @@ export default function MobileApp() {
     const title = changeOwner?.agent?.name || changeOwner?.term?.name || changeOwner?.workspace?.name || "Project";
     body = route.screen === "files"
       ? <Files key={JSON.stringify([route.section, route.id, route.path, route.root, route.navigation])} owner={owner} title={title} root={route.root || ""} initialPath={route.path || ""} onBack={() => goBack(route)} onPathChange={(path, root) => { history.replaceState(history.state, "", toolHash("files", owner, { path, root })); }} onOpenGit={(target, root) => openGit(target || owner, root)} />
-      : <Git key={JSON.stringify([route.section, route.id, route.root, route.commit, route.navigation])} owner={owner} title={title} root={route.root || ""} initialCommit={route.commit || ""} onBack={() => goBack(route)} onOpenFile={({ owner: target, path, root }) => openFiles(target || owner, { path, root })} onOpenTerminal={prepareGit} onAskAgent={askGit} onOpen={(kind, id) => { location.hash = (kind === "term" ? "#/term/" : "#/agent/") + encodeURIComponent(id); }} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals} />;
+      : <Git key={JSON.stringify([route.section, route.id, route.root, route.commit, route.navigation])} owner={owner} title={title} root={route.root || ""} initialCommit={route.commit || ""} onBack={() => goBack(route)} onOpenFile={({ owner: target, path, root }) => openFiles(target || owner, { path, root })} onOpenTerminal={prepareGit} onAskAgent={askGit} onPickWorkspace={wsId => openGit({ kind: "workspace", id: wsId })} onOpen={(kind, id) => { location.hash = (kind === "term" ? "#/term/" : "#/agent/") + encodeURIComponent(id); }} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals} />;
   } else if (route.screen === "changes") {
     const owner = changeOwner;
     const title = route.section === "agent" ? (owner && owner.agent ? (owner.agent.name && owner.agent.name !== "default" ? owner.agent.name : (owner.workspace ? owner.workspace.name : owner.agent.name)) : "")
@@ -426,6 +428,10 @@ export default function MobileApp() {
     body = <PinScreen key={route.id} pinId={route.id} onBack={() => goBack(route)} onEdit={(id) => push("#/pins/" + encodeURIComponent(id) + "/edit")} />;
   } else if (route.screen === "pinEdit") {
     body = <PinEdit key={route.id || "new"} pinId={route.id} onBack={() => goBack(route)} onSaved={(id) => { location.replace(location.pathname + location.search + "#/pins/" + encodeURIComponent(id)); }} />;
+  } else if (route.screen === "snip") {
+    body = <SnipScreen key={route.id} snipId={route.id} onBack={() => goBack(route)} onEdit={(id) => push("#/snippets/" + encodeURIComponent(id) + "/edit")} />;
+  } else if (route.screen === "snipEdit") {
+    body = <SnipEdit key={route.id || "new"} snipId={route.id} onBack={() => goBack(route)} onSaved={(id) => { location.replace(location.pathname + location.search + "#/snippets/" + encodeURIComponent(id)); }} />;
   } else if (route.screen === "inbox" && route.id) {
     body = <InboxItem manifest={inboxApp} itemId={route.id} onBack={() => goBack(route)} onGoto={onAppGoto} />;
   } else if (route.screen === "inbox") {

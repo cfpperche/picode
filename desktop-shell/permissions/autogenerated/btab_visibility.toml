@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-btab-visibility"
+description = "Enables the btab_visibility command without any pre-configured scope."
+commands.allow = ["btab_visibility"]
+
+[[permission]]
+identifier = "deny-btab-visibility"
+description = "Denies the btab_visibility command without any pre-configured scope."
+commands.deny = ["btab_visibility"]

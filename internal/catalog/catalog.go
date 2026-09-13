@@ -35,6 +35,13 @@ type Provider struct {
 	Automations int       `json:"automations,omitempty"` // automations configured on this provider
 	Accounts    []Account `json:"accounts,omitempty"`
 	Models      []Model   `json:"models"`
+	// Custom definition (ADR-0129). Configuration only — key material never
+	// crosses this struct; Definitions carries the form-editable model rows.
+	Custom      bool            `json:"custom,omitempty"`
+	BaseURL     string          `json:"baseUrl,omitempty"`
+	API         string          `json:"api,omitempty"`
+	Compat      map[string]bool `json:"compat,omitempty"`
+	Definitions []CustomModel   `json:"definitions,omitempty"`
 }
 
 // Report is the payload for GET /api/catalog.
@@ -79,6 +86,22 @@ func Load(piCmd string) (Report, error) {
 			order = append(order, id)
 			byID[id] = &Provider{ID: id, Models: []Model{}}
 		}
+	}
+	// Custom definitions (ADR-0129): merge before the auth/env pass so an
+	// unsigned definition still shows up (available, not signed in) and a
+	// signed one carries its Edit shape alongside the parsed model rows.
+	for id, def := range LoadCustomDefinitions() {
+		p := byID[id]
+		if p == nil {
+			order = append(order, id)
+			p = &Provider{ID: id, Models: []Model{}}
+			byID[id] = p
+		}
+		p.Custom = true
+		p.BaseURL = def.BaseURL
+		p.API = def.API
+		p.Compat = def.Compat
+		p.Definitions = def.Models
 	}
 	for _, id := range order {
 		p := byID[id]

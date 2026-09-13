@@ -6,9 +6,10 @@ import { terms } from "../lib/terms.js";
 import { scheduleTermFit } from "@picode/shared/domain/termFit.js";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { termLine } from "@picode/shared/domain/repoLine.js";
-import { IconKeyboard, IconGit, IconFolder, IconClip, IconMore, IconTrash } from "../components/Icons.jsx";
+import { IconKeyboard, IconGit, IconFolder, IconClip, IconMore, IconTrash, IconFile } from "../components/Icons.jsx";
 import { useTermAccessory } from "../hooks/useTermAccessory.js";
 import TermAttachSheet from "../components/TermAttachSheet.jsx";
+import SnipRunSheet from "../components/SnipRunSheet.jsx";
 import * as Dialog from "../components/MobileSheet.jsx";
 import "../styles/mobile-tools.css";
 
@@ -22,6 +23,7 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenFil
   const [error, setError] = useState("");
   const [attach, setAttach] = useState(false);
   const [actions, setActions] = useState(false);
+  const [snipRun, setSnipRun] = useState(null); // { onlyKind }
   const [retry, setRetry] = useState(0);
   const hostRef = useRef(null);
   const id = term && term.id;
@@ -124,6 +126,15 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenFil
       </div>
       {canKeys && keys.visible ? <KeyBar armed={keys.armed} onArm={keys.armKey} onKey={keys.sendKey} onHide={keys.hide} /> : null}
       {live.launchCli && live.running ? <TermAttachSheet term={live} open={attach} onClose={() => setAttach(false)} /> : null}
+      <SnipRunSheet
+        open={!!snipRun}
+        mode="run"
+        target={{ type: "terminal", id }}
+        targetName={snipRun && snipRun.targetName}
+        onlyKind={snipRun && snipRun.onlyKind}
+        onRan={() => setSnipRun(null)}
+        onClose={() => setSnipRun(null)}
+      />
       <Dialog.Root open={actions} onOpenChange={setActions}>
         <Dialog.Portal>
           <Dialog.Overlay className="dlg-overlay" />
@@ -132,6 +143,11 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenFil
             <Dialog.Description className="m-term-actions-name">{live.name || "Terminal"}</Dialog.Description>
             <button type="button" className="m-tool-action" onClick={() => { setActions(false); onOpenFiles({ kind: "term", id: term.id }); }}><IconFolder size={18} /><span>Files</span></button>
             <button type="button" className="m-tool-action" onClick={() => { setActions(false); onOpenGit({ kind: "term", id: term.id }); }}><IconGit size={18} /><span>Git</span>{live.git?.dirty ? <span className="m-tool-action-count">{live.git.dirty}</span> : null}</button>
+            {live.launchCli && live.running ? (
+              <button type="button" className="m-tool-action" onClick={() => { setActions(false); setSnipRun({ onlyKind: "prompt", targetName: live.name }); }}><IconFile size={18} /><span>Send to terminal…</span></button>
+            ) : !live.launchCli ? (
+              <button type="button" className="m-tool-action" onClick={() => { setActions(false); setSnipRun({ onlyKind: "shell", targetName: live.name }); }}><IconFile size={18} /><span>Run command…</span></button>
+            ) : null}
             <button type="button" className="m-tool-action is-danger" disabled={busy} onClick={() => { setActions(false); onRemove(term); }}><IconTrash size={18} /><span>{busy ? "Removing…" : "Remove terminal"}</span></button>
             <Dialog.Close asChild><button type="button" className="btn btn-sm">Done</button></Dialog.Close>
           </Dialog.Content>

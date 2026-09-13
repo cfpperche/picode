@@ -6,6 +6,7 @@ import { matchesListSearch } from "./mobileListSearch.js";
 // because those routes live under Agent CLIs.
 export const MORE_SECTIONS = [
   ["pins", "Pins", "Notes, files and reminders"],
+  ["snippets", "Snippets", "Reusable prompts and commands"],
   ["automations", "Automations", "Scheduled and triggered work"],
   ["clis", "Agent CLIs", "Launches, sessions and CLI configuration"],
   ["apps", "Apps", "Docker and other tools"],
@@ -23,7 +24,7 @@ export const MORE_SECTIONS = [
 export const MORE_TITLES = { ...Object.fromEntries(MORE_SECTIONS.map(([id, t]) => [id, t])), mcps: "MCP servers" };
 
 export const MORE_GROUPS = [
-  ["Tools", ["pins", "clis", "automations", "apps", "llama"]],
+  ["Tools", ["pins", "snippets", "clis", "automations", "apps", "llama"]],
   ["PiCode", ["preferences", "notifications", "devices", "system", "integrations"]],
 ];
 

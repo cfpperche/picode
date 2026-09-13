@@ -1,12 +1,14 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/cfpperche/picode/internal/gitinfo"
 	"github.com/cfpperche/picode/internal/store"
@@ -75,23 +77,78 @@ func liveTermView(deps Deps, r *http.Request, t store.Terminal, session string, 
 
 func handleListTerminals(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		list, err := deps.Store.ListTerminals()
+		// The CLIs page refetches on every terminal.* feed event; one round
+		// costs up to a dozen subprocesses per terminal. Concurrent requests
+		// share one computation and a snapshot younger than the TTL answers
+		// without spawning anything (nil cache = compute directly — tests,
+		// minimal embeddings).
+		compute := func() ([]map[string]any, error) { return computeTerminals(r.Context(), deps) }
+		var (
+			out []map[string]any
+			err error
+		)
+		if deps.TermCache == nil {
+			out, err = compute()
+		} else {
+			out, err = deps.TermCache.View(DefaultTTL, compute)
+		}
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		out := make([]map[string]any, 0, len(list))
-		for _, t := range list {
+		writeJSON(w, http.StatusOK, map[string]any{"terminals": out})
+	}
+}
+
+// computeTerminals builds one full snapshot of every managed terminal. The
+// per-terminal facts are independent, so the fleet is walked with a small
+// worker pool instead of in sequence; the response order matches the store.
+func computeTerminals(ctx context.Context, deps Deps) ([]map[string]any, error) {
+	list, err := deps.Store.ListTerminals()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]map[string]any, len(list))
+	const workers = 6
+	sem := make(chan struct{}, workers)
+	var wg sync.WaitGroup
+	for i, t := range list {
+		wg.Add(1)
+		go func(i int, t store.Terminal) {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+			case <-ctx.Done():
+				return
+			}
+			defer func() { <-sem }()
 			name := tmux.ShellSessionName(t.ID)
 			live := false
 			if deps.Tmux != nil && deps.Tmux.Available() {
-				live, _ = deps.Tmux.HasSession(r.Context(), name)
+				live, _ = deps.Tmux.HasSession(ctx, name)
 			}
 			// The list speaks about where the terminal IS, not where it was
 			// born (ADR-0022).
-			out = append(out, liveTermView(deps, r, t, name, live))
+			out[i] = liveTermView(deps, requestWith(ctx), t, name, live)
+		}(i, t)
+	}
+	wg.Wait()
+	for _, v := range out {
+		if v == nil {
+			return nil, ctx.Err()
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"terminals": out})
+	}
+	return out, nil
+}
+
+// requestWith adapts a bare context to the *http.Request that liveTermView
+// and liveTermCwd expect, without changing the signature used by the ~25
+// single-terminal call sites.
+func requestWith(ctx context.Context) *http.Request { return (&http.Request{}).WithContext(ctx) }
+
+func invalidateTerminals(deps Deps) {
+	if deps.TermCache != nil {
+		deps.TermCache.Invalidate()
 	}
 }
 
@@ -129,6 +186,7 @@ func handleCreateTerminal(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		invalidateTerminals(deps)
 		writeJSON(w, http.StatusCreated, liveTermView(deps, r, t, name, true))
 	}
 }
@@ -199,6 +257,7 @@ func handleRenameTerminal(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		invalidateTerminals(deps)
 		name := tmux.ShellSessionName(t.ID)
 		live := false
 		if deps.Tmux != nil && deps.Tmux.Available() {
@@ -243,6 +302,7 @@ func handleDeleteTerminal(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		invalidateTerminals(deps)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

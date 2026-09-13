@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { appPath } from "./routes.js";
+import { appPath, isAgentTab } from "./routes.js";
 
 test("integrations deep links remain reload-safe", () => {
   assert.equal(parseRoute("#/integrations/webhooks"), "integrations");
   for (const hash of ["#/integrations", "#/integrations/connectors", "#/mcps"]) assert.equal(parseRoute(hash), "clis");
 });
 import { isWebTab, tabWebId, webTabId } from "./routes.js";
-import { parseRoute, packagesConfigRoute, packagesConfigHash, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot, appTabId, isAppTab, tabAppId, appHash, appRoute, renamedAppId, renamedAppHash, renamedTabId } from "./routes.js";
+import { parseRoute, packagesConfigRoute, packagesConfigHash, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot, appTabId, isAppTab, tabAppId, appHash, appRoute, renamedAppId, renamedAppHash, renamedTabId, snippetRoute, snippetsHash } from "./routes.js";
 
 test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/preferences"), "preferences");
@@ -25,6 +25,11 @@ test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/pins/new"), "pins");
   assert.deepEqual(pinRoute("#/pins/new"), { mode: "new", id: "" });
   assert.deepEqual(pinRoute("#/pins/hello-abc"), { mode: "edit", id: "hello-abc" });
+  assert.equal(parseRoute("#/snippets"), "snippets");
+  assert.equal(parseRoute("#/snippets/new"), "snippets");
+  assert.equal(snippetRoute("#/snippets"), "");
+  assert.equal(snippetRoute("#/snippets/new"), "new");
+  assert.equal(snippetsHash("new"), "#/snippets/new");
 });
 
 test("agent hash is still the workspace shell", () => {
@@ -221,4 +226,19 @@ test("web tabs encode with the w: prefix", () => {
   assert.equal(tabWebId(id), "abc123");
   assert.ok(!isWebTab("t:abc123"));
   assert.ok(!isWebTab(""));
+});
+
+test("isAgentTab is true only for a bare agent id — the fetches that ask this", () => {
+  // The regression: role-state and slash were guarded with isTermTab alone, so
+  // a file/tree/git/app tab asked the API for its role as an agent (2 x 404 per
+  // selection).
+  assert.equal(isAgentTab("workspace-agent-id"), true);
+  assert.equal(isAgentTab(""), false);
+  assert.equal(isAgentTab(null), false);
+  assert.equal(isAgentTab("t:desktop-51c42d"), false);
+  assert.equal(isAgentTab(fileTabId("w", "w1", "src/App.jsx")), false);
+  assert.equal(isAgentTab(treeTabId("/home/goat/picode")), false);
+  assert.equal(isAgentTab(gitTabId("/home/goat/picode/.git")), false);
+  assert.equal(isAgentTab(appTabId("canvas")), false);
+  assert.equal(isAgentTab(webTabId("3")), false);
 });

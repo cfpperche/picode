@@ -9,6 +9,7 @@ export const llamaServiceSchema = z.object({
 import { looksLikeRepoUrl } from "../domain/cloneUrl.js";
 import { rowsError } from "../domain/automationSchedule.js";
 import { CANVAS_LIMITS } from "../domain/canvas.js";
+import { parseSnip, utf8Bytes, SNIP_LIMITS } from "../domain/snipDraft.js";
 
 const required = (label) => z.string().trim().min(1, label + " is required.");
 
@@ -105,6 +106,53 @@ export const apiKeySchema = z.object({
   key: z.string().trim().min(1, "API key is required."),
 });
 
+// Custom provider endpoints (ADR-0129): the closed list of pi API types the
+// form offers, in display order.
+export const CUSTOM_PROVIDER_APIS = [
+  { value: "openai-completions", label: "OpenAI Chat Completions (most gateways)" },
+  { value: "openai-responses", label: "OpenAI Responses" },
+  { value: "anthropic-messages", label: "Anthropic Messages" },
+  { value: "google-generative-ai", label: "Google Generative AI" },
+];
+
+// customProviderSchema validates the Add/Edit form. takenIds names ids the
+// user may not claim (built-ins plus other custom definitions); requireKey
+// is false while editing, where a blank key keeps the stored credential.
+// customModelIds parses the one-id-per-line models textarea. It lives here
+// because the schema's superRefine uses it.
+export function customModelIds(modelsText) {
+  return String(modelsText || "").split("\n").map((s) => s.trim()).filter(Boolean);
+}
+
+export function customProviderSchema({ takenIds = [], requireKey = true } = {}) {
+  return z.object({
+    id: z.string().trim().toLowerCase().min(1, "Name is required.")
+      .regex(/^[a-z0-9][a-z0-9-]{0,63}$/, "Use lowercase letters, digits and dashes."),
+    baseUrl: z.string().trim().min(1, "Base URL is required.").max(2048, "Base URL is too long.")
+      .refine((u) => { try { const x = new URL(u); return (x.protocol === "http:" || x.protocol === "https:") && !!x.hostname; } catch { return false; } },
+        "URL must start with http:// or https://."),
+    api: z.enum(CUSTOM_PROVIDER_APIS.map((a) => a.value)),
+    modelsText: z.string(),
+    contextWindow: z.string(),
+    maxTokens: z.string(),
+    compatDeveloper: z.boolean(),
+    compatReasoning: z.boolean(),
+    key: z.string(),
+  }).superRefine((v, ctx) => {
+    const fail = (message) => ctx.addIssue({ code: "custom", message });
+    if (takenIds.includes(v.id)) fail(v.id + " already exists. Pick another name.");
+    const ids = customModelIds(v.modelsText);
+    if (!ids.length) fail("Add at least one model id.");
+    if (ids.some((id) => /\s/.test(id))) fail("Model ids cannot contain spaces.");
+    if (new Set(ids).size !== ids.length) fail("Each model id can be listed only once.");
+    for (const [field, label] of [["contextWindow", "Context window"], ["maxTokens", "Max output"]]) {
+      const raw = v[field].trim();
+      if (raw && (!/^\d+$/.test(raw) || Number(raw) <= 0)) fail(label + " must be a positive whole number.");
+    }
+    if (requireKey && !v.key.trim()) fail("API key is required.");
+  });
+}
+
 export const llamaLoginSchema = z.object({
   url: z.string().trim().min(1, "Router URL is required.").refine(
     (u) => { try { const x = new URL(u); return x.protocol === "http:" || x.protocol === "https:"; } catch { return false; } },
@@ -188,6 +236,21 @@ export function pairsToMap(pairs) {
 // Automations editor (ADR-0045). Numbers arrive as strings from inputs;
 // the server re-validates everything.
 const numField = z.string().trim();
+
+export const snipSchema = z.object({
+  title: required("Title").max(200, "Use up to 200 characters for the title."),
+  slug: z.string().trim().max(64, "Use up to 64 characters for the slug.")
+    .refine((s) => !s || /^[a-z0-9][a-z0-9_-]{0,63}$/.test(s), "Slug must be lowercase letters, digits, dash or underscore."),
+  description: z.string().max(500, "Use up to 500 characters for the description."),
+  body: z.string(),
+  tags: z.string(),
+}).superRefine((v, ctx) => {
+  if (utf8Bytes(v.body) > SNIP_LIMITS.bodyBytes) {
+    ctx.addIssue({ code: "custom", message: "Body is too long (max 100 KB)." });
+  }
+  const parsed = parseSnip(v.body);
+  if (!parsed.ok) ctx.addIssue({ code: "custom", message: parsed.error === "unclosed placeholder" ? "Close every {{placeholder}}." : "Fix the placeholders in the body." });
+});
 
 export const automationSchema = z.object({
   name: required("Name").max(60, "Name is longer than 60 characters."),

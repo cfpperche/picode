@@ -18,7 +18,7 @@ import { readCompacting, writeCompacting } from "./lib/compact.js";
 import Sidebar from "./components/Sidebar.jsx";
 import WindowControls from "./components/WindowControls.jsx";
 import RailTabs from "./components/RailTabs.jsx";
-import { IconBrandMark } from "./components/Icons.jsx";
+import { IconBrandMark, IconGlobe } from "./components/Icons.jsx";
 import WebTabSurface from "./components/WebTab.jsx";
 import AgentTabs from "./components/AgentTabs.jsx";
 import DashboardView from "./components/DashboardView.jsx";
@@ -30,13 +30,16 @@ import Inspector, { InspectorToggle, useInspectorLayout } from "./components/Ins
 import GitGraphSurface from "./components/GitGraphSurface.jsx";
 import FileTreeSurface from "./components/FileTreeSurface.jsx";
 import Settings from "./components/Settings.jsx";
+import BrowserPage from "./components/BrowserPage.jsx";
 import AgentClis from "./components/AgentClis.jsx";
 import { cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 import System from "./components/System.jsx";
 import Integrations from "./components/Integrations.jsx";
 import Devices from "./components/Devices.jsx";
 import Automations from "./components/Automations.jsx";
+import Snippets from "./components/Snippets.jsx";
 import Palette from "./components/Palette.jsx";
+import SnipRunSheet from "./components/SnipRunSheet.jsx";
 import ContextMenu from "./components/ContextMenu.jsx";
 import SessionHandoffDialog from "./components/SessionHandoffDialog.jsx";
 import { sessionFromTerminal, terminalHandoffSourceCli, handoffTargets } from "@picode/shared/domain/sessionHandoff.js";
@@ -45,13 +48,14 @@ import { focusAvailable } from "@picode/shared/domain/focusMode.js";
 import { useFocusMode } from "./lib/useFocusMode.js";
 import { graphActions, undoFor } from "@picode/shared/domain/graphActions.js";
 import { ownerBase } from "@picode/shared/domain/gitOwner.js";
+import { openRepoKeys, openTreeKeys, ownerIdOf, pickTarget } from "./lib/workspacePicker.js";
 import GitActionDialog from "./components/GitActionDialog.jsx";
 import { paneAt, paneSelection, paneLink, focusPane } from "./lib/termActions.js";
 import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
-import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
 import { nativeApps, nativeSurfaceFor } from "./lib/nativeApps.js";
@@ -274,6 +278,8 @@ export default function App({ shellChrome = false } = {}) {
   const [sessions, setSessions] = useState([]);
   const [sessionCurrent, setSessionCurrent] = useState("");
   const [slashExtra, setSlashExtra] = useState([]);
+  const [snipPicker, setSnipPicker] = useState([]);
+  const [snipRun, setSnipRun] = useState(null);
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [reconnect, setReconnect] = useState(false);
@@ -665,7 +671,7 @@ export default function App({ shellChrome = false } = {}) {
 
   const fetchRoleState = useCallback(async () => {
     const id = selectedRef.current;
-    if (!id || isTermTab(id)) { setRoleState(null); return; }
+    if (!isAgentTab(id)) { setRoleState(null); return; }
     try {
       const d = await api("/api/agents/" + id + "/role-state");
       if (selectedRef.current === id) setRoleState((d && d.state) || null);
@@ -673,7 +679,7 @@ export default function App({ shellChrome = false } = {}) {
   }, []);
   useEffect(() => {
     setRoleState(null);
-    if (selectedId && !isTermTab(selectedId)) fetchRoleState();
+    if (isAgentTab(selectedId)) fetchRoleState();
   }, [selectedId, fetchRoleState]);
 
   useEffect(() => {
@@ -689,11 +695,20 @@ export default function App({ shellChrome = false } = {}) {
     loadSessions();
   }, [selectedId, workspaces.length, freeAgents.length]);
   useEffect(() => {
-    if (!selectedId || isTermTab(selectedId)) { setSlashExtra([]); return; }
+    if (!isAgentTab(selectedId)) { setSlashExtra([]); return; }
     api("/api/agents/" + selectedId + "/slash")
-      .then((d) => setSlashExtra(extraSlash(d.skills, d.templates, d.commands)))
-      .catch(() => setSlashExtra([]));
-  }, [selectedId, agent && agent.mode]);
+      .then((d) => setSlashExtra(extraSlash(d.skills, d.templates, d.commands, snipPicker)))
+      .catch(() => setSlashExtra(extraSlash([], [], [], snipPicker)));
+  }, [selectedId, agent && agent.mode, snipPicker]);
+  useEffect(() => {
+    function loadSnips() {
+      api("/api/snips/picker").then((d) => setSnipPicker(d.snips || [])).catch(() => setSnipPicker([]));
+    }
+    loadSnips();
+    return subscribeFeed((ev) => {
+      if (ev.type === "feed.open" || ev.type === "feed.reset" || (ev.type && ev.type.startsWith("snip."))) loadSnips();
+    });
+  }, []);
   useEffect(() => { scrollConv(); }, [items]);
   useEffect(() => {
     // Only when the items on screen belong to this agent — on a tab switch
@@ -1423,6 +1438,103 @@ export default function App({ shellChrome = false } = {}) {
     setSelectedId((s) => (s === fromId ? real : s));
   }
 
+  // The graph toolbar's workspace picker (ADR-0022 amendment): the reader
+  // chooses the owner the history is read through, from inside the tab. The
+  // repository is still the tab's identity, so a pick resolves where it lands
+  // before anything moves — the key comes from the picked workspace's own
+  // /git/head, never from a path in a URL (ADR-0022) — and then one of three
+  // moves happens: the owner changes in place (sibling worktrees of this
+  // repository), this tab becomes the other repository's (`g:<key>`, the same
+  // rename the first load performs), or the tab that already holds that
+  // repository is selected and takes the picked owner, because an explicit
+  // pick wins over whoever happened to open it first. One tab per repository
+  // holds in all three. A pick that cannot resolve — the folder stopped being
+  // a repository, the daemon said no — leaves the tab exactly as it was and
+  // says so: retargeting silently would show another repository's history
+  // under the old tab's name.
+  async function switchGraphWorkspace(tabId, wsId) {
+    if (!isGitTab(tabId)) return;
+    const ws = workspaces.find((w) => w && w.id === wsId);
+    if (!ws) return;
+    const owner = { kind: "workspace", id: wsId, name: ws.name || "" };
+    // The resolution and its two failure rows (a request that throws, an answer
+    // that names no repository) live in the pure module, where they are tests.
+    const { key, action, error } = await pickTarget({
+      tabKey: gitTabKey(tabId),
+      openKeys: openRepoKeys(tabs),
+      readTarget: async () => {
+        const head = await api(ownerBase(owner) + encodeURIComponent(wsId) + "/git/head");
+        return { key: (head && head.key) || "" };
+      },
+    });
+    if (error) {
+      toastError(error);
+      return;
+    }
+    if (action === "none") return;
+    const target = gitTabId(key);
+    setGitOwners((m) => {
+      const next = { ...m };
+      if (action === "rename") delete next[tabId];
+      next[target] = owner;
+      writeGitOwners(next);
+      return next;
+    });
+    if (action === "rename") {
+      setTabs((t) => {
+        const swapped = t.map((x) => (x === tabId ? target : x));
+        return swapped.filter((x, i) => swapped.indexOf(x) === i);
+      });
+    }
+    setGoneId("");
+    setSelectedId(target);
+  }
+
+  // The file tree's folder line is a workspace picker (ADR-0030 amendment): the
+  // reader chooses the folder this tree reads, from inside the tab. The tab is
+  // still the canonical folder (`d:<root>`), so a pick resolves the target
+  // first — /browse answers the canonical root, never a path from a URL — and
+  // pickAction turns it into the same three moves the graph's pick makes: the
+  // same folder swaps the owner in place, another folder renames this tab to
+  // it (or hands the pick to the tab that already holds it, an explicit pick
+  // winning over whoever opened it first). One tab per folder holds in all
+  // three. A pick that cannot resolve leaves the tab exactly as it was.
+  async function switchTreeWorkspace(tabId, wsId) {
+    if (!isTreeTab(tabId)) return;
+    const ws = workspaces.find((w) => w && w.id === wsId);
+    if (!ws) return;
+    const owner = { kind: "workspace", id: wsId, name: ws.name || "" };
+    const { key, action, error } = await pickTarget({
+      tabKey: treeTabRoot(tabId),
+      openKeys: openTreeKeys(tabs),
+      readTarget: async () => {
+        const page = await api("/api/workspaces/" + encodeURIComponent(wsId) + "/browse");
+        return { key: (page && page.root) || "" };
+      },
+    });
+    if (error) {
+      toastError(error);
+      return;
+    }
+    if (action === "none") return;
+    const target = treeTabId(key);
+    setTreeOwners((m) => {
+      const next = { ...m };
+      if (action === "rename") delete next[tabId];
+      next[target] = owner;
+      writeTreeOwners(next);
+      return next;
+    });
+    if (action === "rename") {
+      setTabs((t) => {
+        const swapped = t.map((x) => (x === tabId ? target : x));
+        return swapped.filter((x, i) => swapped.indexOf(x) === i);
+      });
+    }
+    setGoneId("");
+    setSelectedId(target);
+  }
+
   function provisionalTreeId(kind, ownerId) {
     return treeTabId("@" + ownerLetter(kind) + ":" + ownerId);
   }
@@ -2017,6 +2129,8 @@ export default function App({ shellChrome = false } = {}) {
     fullscreen: () => focus.toggle(),
     ask: (ctx) => openTermAttach(ctx, ctx.selection),
     attach: (ctx) => openTermAttach(ctx, ""),
+    snippet: (ctx) => setSnipRun({ target: { type: "terminal", id: ctx.id }, targetName: ctx.record && ctx.record.name, onlyKind: "prompt" }),
+    "snippet-cmd": (ctx) => setSnipRun({ target: { type: "terminal", id: ctx.id }, targetName: ctx.record && ctx.record.name, onlyKind: "shell" }),
     find: (ctx) => setTermFind(ctx.id),
     handoff: (ctx, targetId) => {
       const record = ctx && ctx.record;
@@ -2771,6 +2885,9 @@ export default function App({ shellChrome = false } = {}) {
     keepVisible={focus.on}
     endSlot={narrow ? null : (
       <>
+        <button type="button" className="insp-toggle" aria-label="New browser tab" title="New browser tab" onClick={() => openWebTab("")}>
+          <IconGlobe />
+        </button>
         <InspectorToggle
           shown={focus.on ? focus.reveal === "right" : inspectorLayout.shown}
           reason={railFits ? inspectorLayout.reason : (narrow ? "narrow" : "squeezed")}
@@ -2931,6 +3048,7 @@ export default function App({ shellChrome = false } = {}) {
               hidden={selectedId !== id}
               onMeta={(m) => setWebTabs((cur) => ({ ...cur, [tabWebId(id)]: { ...cur[tabWebId(id)], ...m } }))}
               onNew={() => openWebTab("")}
+              onBrowserSettings={() => go("browser")}
             />
           ))}
           <FileSurface
@@ -2950,12 +3068,16 @@ export default function App({ shellChrome = false } = {}) {
               <GitGraphSurface
                 key={id}
                 owner={o}
+                workspaces={workspaces}
+                freeAgents={freeAgents}
+                terminals={terminals}
+                onPickWorkspace={(wsId) => switchGraphWorkspace(id, wsId)}
                 hidden={selectedId !== id}
                 onKey={(key) => onGitKey(id, key)}
                 onClose={() => closeTab(id)}
                 onMenu={openGraphMenu}
                 actionTick={gitActionTick}
-                done={gitActionDone && gitActionDone.ownerId === o.id ? gitActionDone : null}
+                done={gitActionDone && gitActionDone.ownerId === ownerIdOf(o) ? gitActionDone : null}
                 onUndo={(undo) => openGraphAction(
                   { id: "act:" + undo.action, kind: "action", action: undo.action, label: "Undo", tier: "B", needs: undo.name ? ["target", "name"] : ["target"], target: undo.target, name: undo.name },
                   { owner: o, root: (gitAction && gitAction.root) || "", agents: [], refs: [] },
@@ -2974,6 +3096,10 @@ export default function App({ shellChrome = false } = {}) {
                 key={id}
                 tabId={id}
                 owner={o}
+                workspaces={workspaces}
+                freeAgents={freeAgents}
+                terminals={terminals}
+                onPickWorkspace={(wsId) => switchTreeWorkspace(id, wsId)}
                 hidden={selectedId !== id}
                 onKey={(root) => onTreeKey(id, root)}
                 registerCloseGuard={registerTreeCloseGuard}
@@ -3268,7 +3394,7 @@ export default function App({ shellChrome = false } = {}) {
 
         </div>
 
-        <AgentClis catalog={catalog} onCatalogChange={setCatalog} legacyContextReady={bootstrapped} legacyPackageContext={{ workspaceId: paneWs?.id || "", agentId: agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "") }} packageUpdates={pkgUpdates} onPackageUpdates={(updates, workspaceId) => { if ((paneWs?.id || "") === workspaceId) setPkgUpdates(updates); }} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} onRenameTerm={renameTerminal} onContinueTerm={openTermHandoff} onReloadAgent={async (id) => {
+        <AgentClis catalog={catalog} onCatalogChange={setCatalog} legacyContextReady={bootstrapped} legacyPackageContext={{ workspaceId: paneWs?.id || "", agentId: agent?.id || (isAgentTab(selectedId) ? selectedId : "") }} packageUpdates={pkgUpdates} onPackageUpdates={(updates, workspaceId) => { if ((paneWs?.id || "") === workspaceId) setPkgUpdates(updates); }} legacyAgentId={agent?.id || (isAgentTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} onRenameTerm={renameTerminal} onContinueTerm={openTermHandoff} onReloadAgent={async (id) => {
             const loc = locate(workspaces, freeAgents, id);
             const target = loc && loc.agent;
             if (!target || target.mode === "stopped") return;
@@ -3286,7 +3412,9 @@ export default function App({ shellChrome = false } = {}) {
         {route === "llama" ? <LlamaPanel onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} /> : null}
         <Integrations hidden={route !== "integrations"} />
         <Devices hidden={route !== "devices"} />
+        <BrowserPage hidden={route !== "browser"} />
         <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} />
+        <Snippets hidden={route !== "snippets"} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
         {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}
       </main>
@@ -3320,6 +3448,8 @@ export default function App({ shellChrome = false } = {}) {
         open={paletteOpen}
         workspaces={workspaces}
         apps={apps}
+        snips={snipPicker}
+        agentId={!isTermTab(selectedId) ? (selectedId || "") : ""}
         focusable={focusOk}
         onClose={() => setPaletteOpen(false)}
         onRun={(a) => {
@@ -3327,7 +3457,8 @@ export default function App({ shellChrome = false } = {}) {
           if (a.kind === "inspector") { toggleInspector(); return; }
           if (a.kind === "fullscreen") { focus.toggle(); return; }
           if (a.kind === "cli-new") { location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : ""); return; }
-          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations") { go(a.kind, agent?.id, { workspaceId: paneWs?.id }); return; }
+          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets") { go(a.kind, agent?.id, { workspaceId: paneWs?.id }); return; }
+          if (a.kind === "snip-run") { setSnipRun({ snipId: a.snipId, target: a.target }); return; }
           if (a.kind === "app") { openTab(appTabId(a.appId)); if (parseRoute() !== "workspace") location.hash = appHash(a.appId); return; }
           if (a.kind === "open") revealAgent(a.wsId);
           if (a.kind === "files") openTreeTab("workspace", a.wsId, a.wsName);
@@ -3335,6 +3466,16 @@ export default function App({ shellChrome = false } = {}) {
           if (a.kind === "term") openInteractive(a.wsId);
           if (a.kind === "stop") stopAgent(a.wsId);
         }}
+      />
+      <SnipRunSheet
+        open={!!snipRun}
+        mode="run"
+        snipId={snipRun && snipRun.snipId}
+        target={snipRun && snipRun.target}
+        targetName={snipRun && snipRun.targetName}
+        onlyKind={snipRun && snipRun.onlyKind}
+        onRan={() => setSnipRun(null)}
+        onClose={() => setSnipRun(null)}
       />
       <ContextMenu
         state={ctxMenu}
@@ -3377,7 +3518,7 @@ export default function App({ shellChrome = false } = {}) {
           // The graph learns the outcome by watching, not by return value:
           // the command was typed or submitted, not finished (ADR-0096).
           const before = { head: opts.head || "", ref };
-          setGitActionDone({ ownerId: owner.id, verb: opts.verb, door: opts.run ? "run" : "prepare", token, undo: undoFor(item.action, before) });
+          setGitActionDone({ ownerId: ownerIdOf(owner), verb: opts.verb, door: opts.run ? "run" : "prepare", token, undo: undoFor(item.action, before) });
           setGitActionTick((n) => n + 1);
           if (opts.alsoAgent && item.action === "create-worktree") {
             startAgentInWorktree(owner, opts.name, opts.agentName);
@@ -3387,7 +3528,7 @@ export default function App({ shellChrome = false } = {}) {
           const { owner, root, item, ref } = gitAction;
           const token = await gitTokenBefore(owner);
           await askAgentGit(who, text, root, action, verb, { quiet: true });
-          setGitActionDone({ ownerId: owner.id, verb, door: "ask", token, undo: undoFor(item.action, { head: head || "", ref }) });
+          setGitActionDone({ ownerId: ownerIdOf(owner), verb, door: "ask", token, undo: undoFor(item.action, { head: head || "", ref }) });
           setGitActionTick((n) => n + 1);
         }}
       />

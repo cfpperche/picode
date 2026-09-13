@@ -11,6 +11,9 @@ import GitHistory from "../components/GitHistory.jsx";
 import GitCommit from "../components/GitCommit.jsx";
 import GitDiff from "../components/GitDiff.jsx";
 import GitPullRequest from "../components/GitPullRequest.jsx";
+import GitWorkspaceSheet from "../components/GitWorkspaceSheet.jsx";
+import { IconChevronDown, IconGit } from "../components/Icons.jsx";
+import { pickerOptions, triggerLabel, workspaceForOwner } from "@picode/shared/domain/workspacePicker.js";
 import { askableAgents } from "../lib/git/actions.js";
 import { branchSummary, gitURL, isMoved, rootProblem, shortHash, worktreeName } from "../lib/git/model.js";
 import "../styles/mobile-git.css";
@@ -22,7 +25,7 @@ export default function Git(props) {
   return <GitView key={key} {...props} />;
 }
 
-function GitView({ owner, title, root: initialRoot = "", initialCommit = "", onBack, onOpenFile, onOpenTerminal, onAskAgent, onOpen, workspaces = [], freeAgents = [], terminals = [], runMode = false }) {
+function GitView({ owner, title, root: initialRoot = "", initialCommit = "", onBack, onOpenFile, onOpenTerminal, onAskAgent, onOpen, onPickWorkspace, workspaces = [], freeAgents = [], terminals = [], runMode = false }) {
   const [root, setRoot] = useState(initialRoot);
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(true);
@@ -31,6 +34,7 @@ function GitView({ owner, title, root: initialRoot = "", initialCommit = "", onB
   const [section, setSection] = useState(initialCommit ? "history" : "changes");
   const [trail, setTrail] = useState(initialCommit ? [{ type: "commit", hash: initialCommit }] : []);
   const [actions, setActions] = useState(false);
+  const [wsOpen, setWsOpen] = useState(false);
   const [nonce, setNonce] = useState(0);
   const [visited, setVisited] = useState({ history: !!initialCommit, pr: false });
   // The graph's write vocabulary (ADR-0096): the last history payload, the
@@ -120,6 +124,11 @@ function GitView({ owner, title, root: initialRoot = "", initialCommit = "", onB
   }, []);
 
   const agents = useMemo(() => askableAgents({ workspaces, freeAgents }, { root, repoRoot: status?.repoRoot, anchor: owner }), [workspaces, freeAgents, root, status?.repoRoot, ownerKey]);
+  // Which workspace's folder this screen reads through, and which ones it could
+  // be pointed at (the rule lives in shared domain — the desktop asks it too).
+  const wsOptions = useMemo(() => pickerOptions(workspaces, { reposOnly: true }), [workspaces]);
+  const ownerWorkspace = workspaceForOwner(owner, { workspaces, freeAgents, terminals });
+  const wsLabel = triggerLabel(ownerWorkspace, title);
   const current = trail.at(-1);
   const viewKey = current ? `${current.type}:${current.hash || current.file?.path || current.wt?.path}:${trail.length}` : section;
   const saveScroll = () => { scroll.current[viewKey] = main.current?.scrollTop || 0; };
@@ -150,13 +159,31 @@ function GitView({ owner, title, root: initialRoot = "", initialCommit = "", onB
       {blocked ? <div className="m-git-state m-git-warning" role="alert"><p>{blocked}</p><button type="button" className="btn" disabled={busy} onClick={() => { setActions(false); load(true); }}>Follow folder</button></div> : null}
       <GitReadState error={error} loading={!status && busy} onRetry={() => load()} />
       {status?.git ? <>
-        {!current ? <div className="m-git-repository"><p>{branchSummary(status)}</p><button type="button" className="btn" disabled={busy || !!blocked} onClick={refresh}>{busy ? "Refreshing…" : "Refresh"}</button></div> : null}
+        {!current ? <div className="m-git-repository">
+          <div className="m-git-repo-facts">
+            {/* Fewer than two choices is not a control: a dropdown that can only
+                pick what is already picked is chrome, so the folder keeps its
+                plain line. */}
+            {wsOptions.length > 1 ? (
+              <button type="button" className="m-git-ws" aria-haspopup="dialog" aria-expanded={wsOpen} onClick={() => setWsOpen(true)}>
+                <IconGit size={12} />
+                <span className="m-git-ws-label">{wsLabel}</span>
+                <IconChevronDown />
+              </button>
+            ) : (
+              <span className="m-git-ws-static"><IconGit size={12} /> {wsLabel}</span>
+            )}
+            <p>{branchSummary(status)}</p>
+          </div>
+          <button type="button" className="btn" disabled={busy || !!blocked} onClick={refresh}>{busy ? "Refreshing…" : "Refresh"}</button>
+        </div> : null}
         {content}
         <div className="m-git-view" hidden={!!current || section !== "changes"}><GitChanges status={status} onHistory={() => goSection("history")} onSelect={file => push({ type: "working-file", file })} /></div>
         {visited.history ? <div className="m-git-view" hidden={!!current || section !== "history"}><GitHistory key={root} owner={owner} root={root} nonce={nonce} blocked={!!blocked} onMoved={markMoved} onCommit={hash => push({ type: "commit", hash })} onWorktree={wt => push({ type: "worktree", wt })} onActions={(payload) => setSheet(targetFor(payload))} onGraph={setGraph} /></div> : null}
         {visited.pr ? <div className="m-git-view" hidden={!!current || section !== "pr"}><GitPullRequest key={root} owner={owner} root={root} nonce={nonce} onMoved={markMoved} onOpenTerminal={onOpenTerminal} blocked={!!blocked} /></div> : null}
       </> : status ? <div className="m-git-state"><p>This folder is not a Git repository.</p><button className="btn" type="button" onClick={onBack}>Back</button></div> : null}
     </main>
+    <GitWorkspaceSheet open={wsOpen} workspaces={workspaces} currentId={ownerWorkspace ? ownerWorkspace.id : ""} onPick={wsId => { setWsOpen(false); onPickWorkspace?.(wsId); }} onClose={() => setWsOpen(false)} />
     <GitActionsSheet owner={owner} root={root} status={status} agents={agents} open={actions} blocked={!!blocked} onClose={() => setActions(false)} onOpenTerminal={onOpenTerminal} onAskAgent={onAskAgent} />
     <GitGraphActionSheet owner={owner} root={root} target={sheet} graph={graph} ctx={{ workspaces, freeAgents, terminals, catalog }} run={runMode} open={!!sheet} blocked={!!blocked} onClose={() => setSheet(null)} onOpenTerminal={onOpenTerminal} onAskAgent={onAskAgent} onOpen={onOpen} onDelivered={afterAction} />
   </div>;

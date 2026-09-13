@@ -13,6 +13,7 @@ import ImageLightbox from "./ImageLightbox.jsx";
 import WorkspaceAttach from "./WorkspaceAttach.jsx";
 import { IconClip, IconImage, IconSketch } from "./Icons.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
+import SnipRunSheet from "./SnipRunSheet.jsx";
 import { Command } from "cmdk";
 import { api } from "@picode/shared/client/api.js";
 import { sniffImage, readImage, planDeviceImages, MAX_IMAGES, sceneHasInk } from "@picode/shared/domain/composerImage.js";
@@ -33,7 +34,7 @@ const PinSketch = lazy(() => import("./PinSketch.jsx"));
 export default function Composer({
   kind, onKind, value, onChange, onSend, status, streaming, waiting, roleState, onRoleCommand,
   stopped, onToggleDock, onStop, onAbort, catalog, cfg, onConfig, onSlash, statusBar, onCompact, sessionBar, lastReply,
-  slashExtra, atAgents, agentId, onAgentPage, pkgUpdates, tuiWorking,
+  slashExtra, atAgents, agentId, onAgentPage, pkgUpdates, tuiWorking, onSnip,
 }) {
   const appKeyOverrides = readAppKeyOverrides();
   const voiceKeyHint = formatChord(primaryChord("composer.voice.toggle", appKeyOverrides));
@@ -71,6 +72,7 @@ export default function Composer({
   const [pick, setPick] = useState(false);
   const [sketch, setSketch] = useState(null);
   const [text, setText] = useState(value || "");
+  const [snipSheet, setSnipSheet] = useState(null);
   const hits = filterSlash(text, slashExtra);
   const at = hits.length ? null : atQuery(text, caret);
   const atKey = at ? "@" + at.query : "";
@@ -290,6 +292,11 @@ export default function Composer({
     }
     if (cmd.run === "prompt") {
       fireSend(cmd.label);
+      return;
+    }
+    if (cmd.run === "snip") {
+      if (onSnip) onSnip({ snipId: cmd.snipId, slug: cmd.slug, draft: text });
+      else setSnipSheet({ snipId: cmd.snipId, slug: cmd.slug, draft: text });
       return;
     }
     setText("");
@@ -802,6 +809,16 @@ export default function Composer({
         <ComposerStatus bar={statusBar} onCompact={onCompact} />
       </div>
       <ImageLightbox src={preview} onClose={() => setPreview("")} />
+      <SnipRunSheet
+        open={!!snipSheet}
+        mode="composer"
+        snipId={snipSheet && snipSheet.snipId}
+        slug={snipSheet && snipSheet.slug}
+        draft={snipSheet && snipSheet.draft}
+        onInsert={(t) => { setText(t); setSnipSheet(null); requestAnimationFrame(() => ta.current && ta.current.focus()); }}
+        onSend={(t) => { fireSend(t); setSnipSheet(null); }}
+        onClose={() => setSnipSheet(null)}
+      />
     </div>
   );
 }

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-btab-bounds"
+description = "Enables the btab_bounds command without any pre-configured scope."
+commands.allow = ["btab_bounds"]
+
+[[permission]]
+identifier = "deny-btab-bounds"
+description = "Denies the btab_bounds command without any pre-configured scope."
+commands.deny = ["btab_bounds"]

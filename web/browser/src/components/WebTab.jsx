@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { IconGlobe } from "./Icons.jsx";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { IconGlobe, IconMonitor, IconSettings } from "./Icons.jsx";
+import { toast } from "../lib/toast.js";
 
 // Work browser tab surface (Phase 3 slice 1): the React side renders the
 // toolbar and an empty region; the actual page is a native WebView2 child
@@ -8,13 +10,14 @@ import { IconGlobe } from "./Icons.jsx";
 // this surface.
 const invoke = typeof window !== "undefined" && window.__TAURI__ ? window.__TAURI__.core.invoke : null;
 
-export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew }) {
+export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew, onBrowserSettings }) {
   const id = tabId.slice(2);
   const [urlDraft, setUrlDraft] = useState("");
   const [started, setStarted] = useState(false);
   const [err, setErr] = useState("");
   const fail = (e) => { setErr(String(e?.message || e)); console.error("btab:", e); };
   const hostRef = useRef(null);
+  const pushRef = useRef(null);
 
   // Bounds sync: the region's viewport-relative rect drives the native
   // webview. ResizeObserver + window resize cover sidebar, inspector and
@@ -25,11 +28,13 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew }) 
     if (!el) return undefined;
     const push = () => {
       const r = el.getBoundingClientRect();
-      invoke("btab_bounds", { id, x: r.left, y: r.top, w: r.width, h: r.height }).catch(fail);
+      const off = menuOpenRef.current ? MENU_H : 0;
+      invoke("btab_bounds", { id, x: r.left, y: r.top + off, w: r.width, h: r.height - off }).catch(fail);
     };
     const ro = new ResizeObserver(push);
     ro.observe(el);
     push();
+    pushRef.current = push;
     window.addEventListener("resize", push);
     return () => {
       ro.disconnect();
@@ -62,6 +67,17 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew }) 
   }, [id, hidden, started, onMeta]);
 
   const urlRef = useRef(null);
+  const menuOpenRef = useRef(false);
+
+  // While the options menu is open, the page webview slides down below the
+  // menu's rect — an HTML popover can't paint over a native WebView2
+  // sibling, so the page makes room instead. Bounds stay in sync with
+  // resize: push() applies the offset whenever it fires.
+  const MENU_H = 96;
+
+  const shot = () => invoke && invoke("btab_screenshot", { id })
+    .then((path) => { toast.ok(`Screenshot saved to ${path}`); setErr(""); })
+    .catch(fail);
 
   function go(u) {
     const target = (u ?? urlDraft).trim();
@@ -93,16 +109,28 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew }) 
         <button type="button" title="Back" onClick={() => invoke("btab_back", { id }).catch(() => {})}>←</button>
         <button type="button" title="Forward" onClick={() => invoke("btab_forward", { id }).catch(() => {})}>→</button>
         <button type="button" title="Reload" onClick={() => invoke("btab_reload", { id }).catch(() => {})}>⟳</button>
-        <input
-          ref={urlRef}
-          value={urlDraft}
-          onChange={(e) => setUrlDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") go(); }}
-          placeholder="Search or enter a URL"
-          spellCheck={false}
-        />
-        <button type="button" title="Go" onClick={() => go()}>Go</button>
-        <button type="button" title="New browser tab" onClick={onNew}>+</button>
+        <div className="web-tab-urlbar">
+          <input
+            ref={urlRef}
+            value={urlDraft}
+            onChange={(e) => setUrlDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") go(); }}
+            placeholder="Search or enter a URL"
+            spellCheck={false}
+          />
+          <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => go()}>↵</button>
+        </div>
+        <DropdownMenu.Root onOpenChange={(o) => { menuOpenRef.current = o; pushRef.current?.(); }}>
+          <DropdownMenu.Trigger asChild>
+            <button type="button" className="web-tab-menu" title="Browser options" aria-label="Browser options">⋮</button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content align="end" sideOffset={6} collisionPadding={8} className="web-tab-menu-list" onCloseAutoFocus={(e) => e.preventDefault()}>
+              <DropdownMenu.Item className="um-item" onSelect={shot}><span className="um-item-name"><IconMonitor />Take a screenshot</span></DropdownMenu.Item>
+              <DropdownMenu.Item className="um-item" onSelect={() => onBrowserSettings?.()}><span className="um-item-name"><IconSettings />Browser settings</span></DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
         {err ? <span className="web-tab-err" title={err}>{err}</span> : null}
       </div>
       <div className="web-tab-host" ref={hostRef} hidden={!started} />

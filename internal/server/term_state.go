@@ -347,6 +347,7 @@ func handleSetTerminalState(deps Deps) http.HandlerFunc {
 		} else {
 			st = reportTermStateForRun(deps, id, req.State, strings.TrimSpace(req.CLI), runID, req.Attention, time.Now())
 		}
+		invalidateTerminals(deps)
 		writeJSON(w, http.StatusOK, map[string]any{"termId": id, "state": st.State, "cli": st.CLI, "runId": st.RunID, "attention": st.Attention, "at": st.At})
 	}
 }

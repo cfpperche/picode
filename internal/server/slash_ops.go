@@ -13,6 +13,8 @@ import (
 
 func registerSlashOps(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/trust", handleAgentTrust(deps))
+	mux.HandleFunc("PUT /api/providers/custom/{id}", handleCustomProviderPut)
+	mux.HandleFunc("DELETE /api/providers/custom/{id}", handleCustomProviderDelete)
 	mux.HandleFunc("PUT /api/providers/{id}", handleProviderLogin)
 	mux.HandleFunc("DELETE /api/providers/{id}", handleProviderLogout(deps))
 	mux.HandleFunc("POST /api/providers/{id}/accounts/{aid}/activate", handleAccountActivate)
@@ -101,6 +103,65 @@ func handleProviderLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"id": id, "signedIn": true})
+}
+
+// handleCustomProviderPut creates or updates one custom provider definition
+// (ADR-0129). The definition merges into pi's models.json; the key, when
+// present, goes to auth.json like any native sign-in — never into models.json.
+func handleCustomProviderPut(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var req struct {
+		BaseURL string                `json:"baseUrl"`
+		API     string                `json:"api"`
+		Compat  map[string]bool       `json:"compat"`
+		Models  []catalog.CustomModel `json:"models"`
+		Key     string                `json:"key"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	def := catalog.CustomDefinition{BaseURL: req.BaseURL, API: req.API, Models: req.Models}
+	if def.API == "" {
+		def.API = catalog.APIOpenAICompletions
+	}
+	if req.Compat != nil {
+		// Only the keys the form manages are writable; unknown hand-set keys
+		// survive. A missing object leaves an existing compat block untouched.
+		def.Compat = map[string]bool{}
+		for _, k := range []string{"supportsDeveloperRole", "supportsReasoningEffort"} {
+			if v, ok := req.Compat[k]; ok {
+				def.Compat[k] = v
+			}
+		}
+	}
+	if err := catalog.UpsertCustomProvider(id, def); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if key := strings.TrimSpace(req.Key); key != "" {
+		if err := catalog.PutAPIKey(id, key); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"id": id, "custom": true})
+}
+
+// handleCustomProviderDelete removes the definition, the active auth.json
+// credential and any vault rows. Built-in overrides are refused, not deleted.
+func handleCustomProviderDelete(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if err := catalog.RemoveCustomProvider(id); err != nil {
+		writeErr(w, http.StatusNotFound, err.Error())
+		return
+	}
+	if err := catalog.RemoveAuth(id); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	usage.ForgetProvider(id)
+	writeJSON(w, http.StatusOK, map[string]any{"id": id, "removed": true})
 }
 
 func handleAccountActivate(w http.ResponseWriter, r *http.Request) {

@@ -33,6 +33,7 @@ configuration and availability patterns cited in ADR-0069.
 
 ## Studies
 
+- [2026-09-13 — Reusable prompt/command templates (Snippets)](2026-09-13-snippets.md)
 - [2026-09-13 — ai-memory as a cross-CLI handoff (wiki brief vs native transcript)](2026-09-13-ai-memory.md)
 - [2026-09-10 — A canvas of live terminals on @xyflow/react 12.11.6 (Matrix v2, phase C0 spike)](2026-09-10-node-canvas.md)
 - [2026-09-09 — A live grid of terminals on react-grid-layout 2.2.4 (Matrix, phase 0 spike)](2026-09-09-matrix-live-grid.md)

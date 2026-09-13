@@ -177,6 +177,282 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the btab_back command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-back",
+          "markdownDescription": "Enables the btab_back command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_bounds command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-bounds",
+          "markdownDescription": "Enables the btab_bounds command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_close command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-close",
+          "markdownDescription": "Enables the btab_close command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_forward command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-forward",
+          "markdownDescription": "Enables the btab_forward command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_layer command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-layer",
+          "markdownDescription": "Enables the btab_layer command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_meta command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-meta",
+          "markdownDescription": "Enables the btab_meta command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_navigate command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-navigate",
+          "markdownDescription": "Enables the btab_navigate command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_reload command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-reload",
+          "markdownDescription": "Enables the btab_reload command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_screenshot command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-screenshot",
+          "markdownDescription": "Enables the btab_screenshot command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_visibility command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-visibility",
+          "markdownDescription": "Enables the btab_visibility command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the clean_apply command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-clean-apply",
+          "markdownDescription": "Enables the clean_apply command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the clean_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-clean-list",
+          "markdownDescription": "Enables the clean_list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the disk_compact command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-disk-compact",
+          "markdownDescription": "Enables the disk_compact command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the disk_compact_dry_run command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-disk-compact-dry-run",
+          "markdownDescription": "Enables the disk_compact_dry_run command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the disk_report command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-disk-report",
+          "markdownDescription": "Enables the disk_report command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the lab_back command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-lab-back",
+          "markdownDescription": "Enables the lab_back command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the lab_current_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-lab-current-url",
+          "markdownDescription": "Enables the lab_current_url command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the lab_forward command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-lab-forward",
+          "markdownDescription": "Enables the lab_forward command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the lab_navigate command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-lab-navigate",
+          "markdownDescription": "Enables the lab_navigate command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the lab_open command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-lab-open",
+          "markdownDescription": "Enables the lab_open command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the lab_reload command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-lab-reload",
+          "markdownDescription": "Enables the lab_reload command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the wslconfig_read command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-wslconfig-read",
+          "markdownDescription": "Enables the wslconfig_read command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the wslconfig_write command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-wslconfig-write",
+          "markdownDescription": "Enables the wslconfig_write command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_back command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-back",
+          "markdownDescription": "Denies the btab_back command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_bounds command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-bounds",
+          "markdownDescription": "Denies the btab_bounds command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_close command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-close",
+          "markdownDescription": "Denies the btab_close command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_forward command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-forward",
+          "markdownDescription": "Denies the btab_forward command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_layer command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-layer",
+          "markdownDescription": "Denies the btab_layer command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_meta command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-meta",
+          "markdownDescription": "Denies the btab_meta command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_navigate command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-navigate",
+          "markdownDescription": "Denies the btab_navigate command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_reload command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-reload",
+          "markdownDescription": "Denies the btab_reload command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_screenshot command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-screenshot",
+          "markdownDescription": "Denies the btab_screenshot command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_visibility command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-visibility",
+          "markdownDescription": "Denies the btab_visibility command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the clean_apply command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-clean-apply",
+          "markdownDescription": "Denies the clean_apply command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the clean_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-clean-list",
+          "markdownDescription": "Denies the clean_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the disk_compact command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-disk-compact",
+          "markdownDescription": "Denies the disk_compact command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the disk_compact_dry_run command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-disk-compact-dry-run",
+          "markdownDescription": "Denies the disk_compact_dry_run command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the disk_report command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-disk-report",
+          "markdownDescription": "Denies the disk_report command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the lab_back command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-lab-back",
+          "markdownDescription": "Denies the lab_back command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the lab_current_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-lab-current-url",
+          "markdownDescription": "Denies the lab_current_url command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the lab_forward command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-lab-forward",
+          "markdownDescription": "Denies the lab_forward command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the lab_navigate command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-lab-navigate",
+          "markdownDescription": "Denies the lab_navigate command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the lab_open command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-lab-open",
+          "markdownDescription": "Denies the lab_open command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the lab_reload command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-lab-reload",
+          "markdownDescription": "Denies the lab_reload command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the wslconfig_read command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-wslconfig-read",
+          "markdownDescription": "Denies the wslconfig_read command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the wslconfig_write command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-wslconfig-write",
+          "markdownDescription": "Denies the wslconfig_write command without any pre-configured scope."
+        },
+        {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",
           "type": "string",
           "const": "core:default",

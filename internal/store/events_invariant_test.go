@@ -335,6 +335,27 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			_ = s.FinishRun(r.ID, RunDone, "", 0.1) // no-op: no second event
 		}, []string{"run.created", "run.updated", "run.finished"}},
 		{"CreatePin", func(s *Store) { _, _ = s.CreatePin("t", nil, "b") }, []string{"pin.created"}},
+		{"CreateSnip", func(s *Store) { _, _ = s.CreateSnip(SnipParams{Title: "t", Body: "b"}) }, []string{"snip.created"}},
+		{"UpdateSnip", func(s *Store) {
+			p, _ := s.CreateSnip(SnipParams{Title: "t", Body: "b"})
+			s.OnEvent = recorder(s)
+			_, _ = s.UpdateSnip(p.ID, SnipParams{Title: "t", Body: "c"}, "")
+		}, []string{"snip.updated"}},
+		{"DeleteSnip", func(s *Store) {
+			p, _ := s.CreateSnip(SnipParams{Title: "t", Body: "b"})
+			s.OnEvent = recorder(s)
+			_ = s.DeleteSnip(p.ID)
+		}, []string{"snip.deleted"}},
+		{"SetSnipStarred", func(s *Store) {
+			p, _ := s.CreateSnip(SnipParams{Title: "t", Body: "b"})
+			s.OnEvent = recorder(s)
+			_, _ = s.SetSnipStarred(p.ID, true)
+		}, []string{"snip.updated"}},
+		{"SetSnipArchived", func(s *Store) {
+			p, _ := s.CreateSnip(SnipParams{Title: "t", Body: "b"})
+			s.OnEvent = recorder(s)
+			_, _ = s.SetSnipArchived(p.ID, true)
+		}, []string{"snip.updated"}},
 		{"CreateCanvas", func(s *Store) { _, _ = s.CreateCanvas("Ops") }, []string{"canvas.created"}},
 		{"UpdateCanvas", func(s *Store) {
 			m, _ := s.CreateCanvas("Ops")

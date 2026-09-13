@@ -68,6 +68,15 @@ test("extension commands do not replace PiCode /compact", () => {
   assert.ok(!hits.some((c) => c.id === "ext:compact"));
 });
 
+test("snippets appear as /snip:slug", () => {
+  const extra = extraSlash([], [], [], [{ id: "s1", slug: "review-pr", title: "Review PR", hint: "PR" }]);
+  const hit = filterSlash("/snip:rev", extra)[0];
+  assert.equal(hit.run, "snip");
+  assert.equal(hit.snipId, "s1");
+  assert.equal(hit.label, "/snip:review-pr");
+  assert.equal(extraSlash([], [], []).some((c) => c.run === "snip"), false);
+});
+
 test("/automate is a PiCode UI command", () => {
   const hits = filterSlash("/auto");
   assert.equal(hits[0].id, "automate");

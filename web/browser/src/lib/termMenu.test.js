@@ -30,6 +30,21 @@ test("the prompt door only exists while the CLI runs", () => {
   const stopped = ids(buildTermMenu({ kind: "term", selection: "boom", cli: "Codex", running: false }));
   assert.equal(stopped.includes("ask"), false);
   assert.equal(stopped.includes("attach"), false);
+  assert.equal(stopped.includes("snippet"), false);
+});
+
+test("send-to-terminal follows the prompt door (ADR-0089)", () => {
+  const rows = buildTermMenu({ kind: "term", cli: "Pi", running: true });
+  assert.equal(row(rows, "snippet").label, "Send to terminal…");
+  assert.equal(ids(buildTermMenu({ kind: "term" })).includes("snippet"), false);
+  assert.equal(ids(buildTermMenu({ kind: "term", shell: true })).includes("snippet"), false);
+});
+
+test("run-command lives on a bare shell pane (ADR-0130 Q2a)", () => {
+  const rows = buildTermMenu({ kind: "term", shell: true });
+  assert.equal(row(rows, "snippet-cmd").label, "Run command…");
+  assert.equal(ids(buildTermMenu({ kind: "term", cli: "Pi", running: true })).includes("snippet-cmd"), false);
+  assert.equal(ids(buildTermMenu({ kind: "agent", shell: true })).includes("snippet-cmd"), false);
 });
 
 test("find is offered on every pane, with the chord the app really answers", () => {

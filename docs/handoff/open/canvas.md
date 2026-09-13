@@ -7,7 +7,7 @@
 
 ## Debts
 
-- File and diff panels cannot be created since the toolbar became the only door (2026-09-12): a tool for them must first answer what a rectangle means for something picked from the open tabs.
+- File and diff panels cannot be created since the toolbar became the only door (2026-09-12): a tool must first answer what a rectangle means for something picked from the open tabs.
 - C2–C4 (2026-09-10): `+`/`-`/`0` need a focused panel; a still ages only when the feed moved.
 - Edges (ADR-0116): no keyboard path to *draw* a link — the Messages audit list reads and revokes.
 - Anchors (2026-09-11): the link preview cannot show the spread, so a crowded drop shifts the line one gap.

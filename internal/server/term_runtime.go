@@ -402,6 +402,7 @@ func handleSetTerminalRuntime(deps Deps) http.HandlerFunc {
 				CLI: cli, Source: "wrapper", RunID: runID,
 				PID: req.PID, ProcStart: processStartToken(req.PID), StartedAt: time.Now(),
 			})
+			invalidateTerminals(deps)
 			writeJSON(w, http.StatusOK, runtimeView(id, runtime))
 		case "end":
 			if runID == "" {
@@ -414,6 +415,7 @@ func handleSetTerminalRuntime(deps Deps) http.HandlerFunc {
 				// behind (ADR-0084).
 				pinTerminalLastSession(deps, id, runtime)
 			}
+			invalidateTerminals(deps)
 			writeJSON(w, http.StatusOK, runtimeView(id, runtime))
 		default:
 			writeErr(w, http.StatusBadRequest, "action must be start or end")

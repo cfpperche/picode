@@ -6,4 +6,4 @@
 
 ## Debts
 
-- Mobile v2 (ADR-0095): physical IME/PWA/push/resume and microphone acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip needs on-device confirmation.
+- Mobile v2 (ADR-0095): physical IME/PWA/push/resume and mic acceptance open; file writes keep the lexical/symlink and non-atomic mtime limits; iOS standalone strip needs on-device confirmation.

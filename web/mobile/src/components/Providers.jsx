@@ -11,6 +11,8 @@ import { cliProvidersReturnTo } from "@picode/shared/domain/cliProviders.js";
 
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { readRecents, pushRecent, removeRecent, clearRecents, rememberProviders } from "@picode/shared/domain/providerRecents.js";
+import { validateCustomProvider, customProviderPayload, customProviderForm, customTakenIds } from "@picode/shared/domain/customProviders.js";
+import { CUSTOM_PROVIDER_APIS } from "@picode/shared/contracts/schemas.js";
 import { askConfirm } from "../lib/confirm.js";
 import { showUsageButton, usagePath } from "@picode/shared/domain/providerUsage.js";
 import UsageDialog from "./UsageDialog.jsx";
@@ -74,6 +76,8 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
   const [userCode, setUserCode] = useState("");
   const [replacing, setReplacing] = useState(false);
   const [llamaUrl, setLlamaUrl] = useState("http://127.0.0.1:8080");
+  const [cf, setCf] = useState(() => customProviderForm(null));
+  const [customEdit, setCustomEdit] = useState(false);
   const [recents, setRecents] = useState(readRecents);
   const [usageFor, setUsageFor] = useState(null);
   const [query, setQuery] = useState("");
@@ -233,6 +237,8 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
     setUserCode("");
     setReplacing(false);
     setLlamaUrl("http://127.0.0.1:8080");
+    setCf(customProviderForm(null));
+    setCustomEdit(false);
     setAdd(true);
   }
 
@@ -259,6 +265,12 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
     oauthAttempt.current++;
     setWaiting(false);
     setBusy(false);
+    if (step === "custom") {
+      if (replacing) { closeAdd(); return; }
+      setPick(null);
+      setStep("pick");
+      return;
+    }
     if ((step === "key" || step === "oauth") && pick && pick.login === "both") {
       setStep("method");
       return;
@@ -271,10 +283,14 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
   function chooseProvider(p) {
     setPick(p);
     setErr("");
-    if (p.id === "llama.cpp") setStep("llama");
-    else if (p.login === "oauth") setStep("oauth");
-    else if (p.login === "both") setStep("method");
-    else setStep("key");
+    if (p.id === "llama.cpp") { setStep("llama"); return; }
+    // An unsigned custom definition has a row nowhere: picking it from the
+    // picker opens the Edit form so a wrong URL/model can be fixed, instead
+    // of a key-only sign-in into a broken endpoint.
+    if (p.custom && !p.signedIn) { editCustom(p); return; }
+    if (p.login === "oauth") { setStep("oauth"); return; }
+    if (p.login === "both") { setStep("method"); return; }
+    setStep("key");
   }
 
   async function save(e) {
@@ -324,7 +340,75 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
   }
 
   const canAccount = pick && ["anthropic", "openai-codex", "github-copilot", "kimi-coding", "xai"].includes(String(pick.id).toLowerCase());
-  const title = !pick ? "Add provider" : step === "method" || step === "oauth" || step === "llama" ? pick.id : "API key · " + pick.id;
+  const title = step === "custom"
+    ? (customEdit ? "Edit endpoint" : "Custom endpoint")
+    : !pick ? "Add provider" : step === "method" || step === "oauth" || step === "llama" ? pick.id : "API key · " + pick.id;
+
+  function setField(k) {
+    return (e) => setCf((f) => ({ ...f, [k]: e.target.value }));
+  }
+  function setCheck(k) {
+    return (e) => setCf((f) => ({ ...f, [k]: e.target.checked }));
+  }
+
+  // Custom endpoint (ADR-0129): the definition merges into pi's models.json
+  // and the key lands in auth.json like any native sign-in.
+  function startCustom() {
+    setCustomEdit(false);
+    setCf(customProviderForm(null));
+    setStep("custom");
+  }
+
+  function editCustom(p) {
+    setCustomEdit(true);
+    setPick(p);
+    setCf(customProviderForm(p));
+    setReplacing(true);
+    setStep("custom");
+    setAdd(true);
+  }
+
+  async function saveCustom(e) {
+    e.preventDefault();
+    const taken = customTakenIds(list, customEdit ? pick && pick.id : null);
+    const parsed = validateCustomProvider(cf, { takenIds: taken, requireKey: !customEdit });
+    if (!parsed.ok) { setErr(parsed.error); return; }
+    setBusy(true);
+    setErr("");
+    try {
+      await api("/api/providers/custom/" + encodeURIComponent(parsed.value.id), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(customProviderPayload(parsed.value)),
+      });
+      toast.ok(customEdit ? "Endpoint updated." : "Endpoint added to pi.");
+      setRecents(pushRecent(parsed.value.id));
+      closeAdd();
+      if (onRefresh) await onRefresh();
+    } catch (ex) {
+      toastError(ex);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeCustom(p) {
+    const radius = blastRadius(p);
+    const ok = await askConfirm({
+      title: "Remove " + p.id,
+      message: "Deletes the endpoint definition and its saved key from this machine." + (radius ? " " + radius : ""),
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api("/api/providers/custom/" + encodeURIComponent(p.id), { method: "DELETE" });
+      toast.ok("Endpoint removed.");
+      if (onRefresh) await onRefresh();
+    } catch (ex) {
+      toastError(ex);
+    }
+  }
 
   async function startAccount() {
     if (!pick) return;
@@ -433,6 +517,7 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                     <li key={p.id + " " + a.id} className={"prov-tr" + (a.active && !a.paused ? "" : " muted") + (first ? "" : " cont")}>
                       <span className="prov-cell prov-provider">
                         {first ? <ProviderFace id={p.id} /> : null}
+                        {first && p.custom ? <span className="prov-custom">custom</span> : null}
                         <span className="prov-id">{p.id}</span>
                       </span>
                       <span className="prov-cell prov-account">
@@ -485,6 +570,11 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                               <DropdownMenu.Item className="prov-menu-item" onSelect={() => verifyProvider(p)}>
                                 {verifying === p.id ? "Checking…" : "Verify with pi"}
                               </DropdownMenu.Item>
+                              {first && p.custom ? (
+                                <DropdownMenu.Item className="prov-menu-item" onSelect={() => editCustom(p)}>
+                                  Edit endpoint
+                                </DropdownMenu.Item>
+                              ) : null}
                               {!envVar && first ? (
                                 <DropdownMenu.Item className="prov-menu-item" onSelect={() => replaceProvider(p)}>
                                   Add account
@@ -502,6 +592,11 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                                   Sign out
                                 </DropdownMenu.Item>
                               )}
+                              {first && p.custom ? (
+                                <DropdownMenu.Item className="prov-menu-item danger" onSelect={() => removeCustom(p)}>
+                                  Remove endpoint
+                                </DropdownMenu.Item>
+                              ) : null}
                             </DropdownMenu.Content>
                           </DropdownMenu.Portal>
                         </DropdownMenu.Root>
@@ -563,7 +658,7 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
           <Dialog.Content className="dlg dlg-create" onCloseAutoFocus={(e) => e.preventDefault()}>
             <Dialog.Title className="dlg-title">{title}</Dialog.Title>
             <Dialog.Description className="dlg-body">
-              {step === "pick" ? "Pick a provider." : step === "method" ? "Choose how to sign in." : step === "llama" ? "Router URL. API key is optional." : step === "oauth" ? (userCode ? "Enter this code in the browser tab." : canAccount ? "Finish sign-in in the browser tab." : "Account login is not available here. Use an API key.") : "Paste the key. It is not shown again."}
+              {step === "pick" ? "Pick a provider." : step === "method" ? "Choose how to sign in." : step === "llama" ? "Router URL. API key is optional." : step === "custom" ? (customEdit ? "Update the endpoint definition. Leave the key blank to keep it." : "Point pi at a gateway it does not know natively.") : step === "oauth" ? (userCode ? "Enter this code in the browser tab." : canAccount ? "Finish sign-in in the browser tab." : "Account login is not available here. Use an API key.") : "Paste the key. It is not shown again."}
             </Dialog.Description>
 
             {step === "pick" ? (
@@ -571,11 +666,19 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                 <Command.Input className="combo-input" placeholder="Search providers" />
                 <Command.List className="prov-pick-list">
                   <Command.Empty className="combo-empty">No matches</Command.Empty>
+                  {/* forceMount: the custom door survives any search — typing
+                      a name the catalog does not know is exactly when it is
+                      needed. */}
+                  <Command.Item forceMount value="custom endpoint gateway openai compatible base url" className="cockpit-opt" onSelect={startCustom}>
+                    <span className="ws-face" aria-hidden="true">+</span>
+                    <span>Custom endpoint</span>
+                    <span className="combo-hint">any OpenAI-compatible gateway</span>
+                  </Command.Item>
                   {available.map((p) => (
                     <Command.Item key={p.id} value={p.id + " " + p.login} className="cockpit-opt" onSelect={() => chooseProvider(p)}>
                       <ProviderFace id={p.id} />
                       <span>{p.id}</span>
-                      <span className="combo-hint">{p.id === "llama.cpp" ? "local router" : p.login === "both" ? "account or api key" : p.login === "oauth" ? "account" : "api key"}</span>
+                      <span className="combo-hint">{p.id === "llama.cpp" ? "local router" : p.custom ? "custom endpoint" : p.login === "both" ? "account or api key" : p.login === "oauth" ? "account" : "api key"}</span>
                     </Command.Item>
                   ))}
                 </Command.List>
@@ -626,6 +729,80 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                 <div className="dlg-actions" data-align-row data-align-wrap>
                   <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>Back</button>
                   <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>Save</button>
+                </div>
+              </form>
+            ) : null}
+
+            {step === "custom" ? (
+              <form className="form-new" noValidate onSubmit={saveCustom}>
+                <input
+                  value={cf.id}
+                  onChange={setField("id")}
+                  placeholder="Name — lowercase, e.g. cheaperinference"
+                  autoComplete="off" spellCheck="false"
+                  disabled={customEdit}
+                  aria-label="Endpoint name"
+                />
+                <input
+                  type="url"
+                  value={cf.baseUrl}
+                  onChange={setField("baseUrl")}
+                  placeholder="Base URL — e.g. https://api.example.com/v1"
+                  autoComplete="off" spellCheck="false"
+                  aria-label="Base URL"
+                />
+                <input
+                  type="password"
+                  value={cf.key}
+                  onChange={setField("key")}
+                  placeholder={customEdit ? "API key — leave blank to keep the saved one" : "API key"}
+                  autoComplete="off"
+                  aria-label="API key"
+                />
+                <textarea
+                  value={cf.modelsText}
+                  onChange={setField("modelsText")}
+                  rows={3}
+                  placeholder={"Model ids, one per line — copy them exactly from the gateway's model list"}
+                  spellCheck="false"
+                  aria-label="Model ids"
+                />
+                <details className="prov-adv">
+                  <summary>Advanced</summary>
+                  <select value={cf.api} onChange={setField("api")} aria-label="API type">
+                    {CUSTOM_PROVIDER_APIS.map((a) => (
+                      <option key={a.value} value={a.value}>{a.label}</option>
+                    ))}
+                  </select>
+                  <label className="prov-check">
+                    <input type="checkbox" checked={cf.compatDeveloper} onChange={setCheck("compatDeveloper")} />
+                    <span>OpenAI <code>developer</code> role — most gateways: leave off</span>
+                  </label>
+                  <label className="prov-check">
+                    <input type="checkbox" checked={cf.compatReasoning} onChange={setCheck("compatReasoning")} />
+                    <span><code>reasoning_effort</code> — reasoning models only</span>
+                  </label>
+                  <div className="prov-adv-grid">
+                    <input
+                      value={cf.contextWindow}
+                      onChange={setField("contextWindow")}
+                      inputMode="numeric"
+                      placeholder="Context window"
+                      aria-label="Context window in tokens"
+                    />
+                    <input
+                      value={cf.maxTokens}
+                      onChange={setField("maxTokens")}
+                      inputMode="numeric"
+                      placeholder="Max output"
+                      aria-label="Max output tokens"
+                    />
+                  </div>
+                </details>
+                <p className="form-error" hidden={!err}>{err}</p>
+                <div className="dlg-actions" data-align-row data-align-wrap>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>Back</button>
+                  <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{customEdit ? "Save" : "Add endpoint"}</button>
                 </div>
               </form>
             ) : null}

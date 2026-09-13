@@ -30,58 +30,76 @@ func StartGitWatch(ctx context.Context, deps Deps, every time.Duration) {
 			return
 		case <-t.C:
 		}
-		workspaces, err := deps.Store.ListWorkspaces()
-		if err != nil {
-			continue
-		}
-		agents, err := deps.Store.ListAllAgents()
-		if err != nil {
-			continue
-		}
-
-		// Group by path: one Inspect per directory, one event per changed
-		// directory, carrying every workspace and agent that lives there.
-		groups := map[string]*gitGroup{}
-		for _, d := range gitDirs(workspaces, agents) {
-			g, ok := groups[d.path]
-			if !ok {
-				g = &gitGroup{}
-				groups[d.path] = g
-			}
-			if d.workspaceID != "" {
-				g.workspaceIDs = append(g.workspaceIDs, d.workspaceID)
-			}
-			if d.agentID != "" {
-				g.agentIDs = append(g.agentIDs, d.agentID)
-			}
-		}
-		paths := make([]string, 0, len(groups))
-		for path := range groups {
-			paths = append(paths, path)
-		}
-		sort.Strings(paths)
-
-		cur := map[string]string{}
-		infos := map[string]*gitinfo.Info{}
-		for _, path := range paths {
-			var key string
-			if info := gitinfo.Inspect(path); info != nil {
-				key = fmt.Sprintf("%s\x00%s\x00%d", info.Branch, info.Worktree, info.Dirty)
-				infos[path] = info
-			}
-			cur[path] = key
-		}
-		for _, path := range diffGit(prev, cur) {
-			data := map[string]any{"path": path, "workspaceIds": groups[path].workspaceIDs, "agentIds": groups[path].agentIDs}
-			if info, ok := infos[path]; ok {
-				data["branch"] = info.Branch
-				data["dirty"] = info.Dirty
-				data["worktree"] = info.Worktree
-			}
-			deps.Feed.Ephemeral("git.updated", data)
-		}
-		prev = cur
+		prev = gitWatchTick(deps, prev)
 	}
+}
+
+// gitWatchTick is one pass of the watcher: inspect every watched directory,
+// publish one ephemeral git.updated per changed path, and hand back the keys
+// the next pass compares against. The state is the caller's map rather than a
+// field so a test can drive two passes with a store that changed in between.
+func gitWatchTick(deps Deps, prev map[string]string) map[string]string {
+	workspaces, err := deps.Store.ListWorkspaces()
+	if err != nil {
+		return prev
+	}
+	agents, err := deps.Store.ListAllAgents()
+	if err != nil {
+		return prev
+	}
+
+	// Group by path: one Inspect per directory, one event per changed
+	// directory, carrying every workspace and agent that lives there.
+	groups := map[string]*gitGroup{}
+	for _, d := range gitDirs(workspaces, agents) {
+		g, ok := groups[d.path]
+		if !ok {
+			g = &gitGroup{}
+			groups[d.path] = g
+		}
+		if d.workspaceID != "" {
+			g.workspaceIDs = append(g.workspaceIDs, d.workspaceID)
+		}
+		if d.agentID != "" {
+			g.agentIDs = append(g.agentIDs, d.agentID)
+		}
+	}
+	paths := make([]string, 0, len(groups))
+	for path := range groups {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+
+	cur := map[string]string{}
+	infos := map[string]*gitinfo.Info{}
+	for _, path := range paths {
+		var key string
+		if info := gitinfo.Inspect(path); info != nil {
+			key = fmt.Sprintf("%s\x00%s\x00%d", info.Branch, info.Worktree, info.Dirty)
+			infos[path] = info
+		}
+		cur[path] = key
+	}
+	for _, path := range diffGit(prev, cur) {
+		// A path that left the watch set this tick is a workspace or an agent
+		// that was just removed: it has no group to speak for, and nothing is
+		// said about a folder nobody reads — the durable removed event is what
+		// reconciles the lists (ADR-0048). Reading the group out of the map
+		// without this check is what killed the daemon on every "Remove
+		// workspace" until 2026-09-13.
+		g, ok := groups[path]
+		if !ok {
+			continue
+		}
+		data := map[string]any{"path": path, "workspaceIds": g.workspaceIDs, "agentIds": g.agentIDs}
+		if info, ok := infos[path]; ok {
+			data["branch"] = info.Branch
+			data["dirty"] = info.Dirty
+			data["worktree"] = info.Worktree
+		}
+		deps.Feed.Ephemeral("git.updated", data)
+	}
+	return cur
 }
 
 type gitGroup struct {
