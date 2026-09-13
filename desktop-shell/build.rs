@@ -13,6 +13,7 @@ fn main() {
             "btab_forward",
             "btab_reload",
             "btab_meta",
+            "btab_screenshot",
             "btab_close",
             "lab_open",
             "lab_navigate",
