@@ -176,6 +176,18 @@ item above.
 (delegated to the user's real browser — our `ext/`+browserhost until
 deprecated); full omnibox with synced profile.
 
+**Surface reach (owner, 2026-09-13): the work browser tab is desktop-only
+by nature** — it is a native WebView2 controller hosted by the shell, and
+the whole ADR-0128 enforcement stack (navigation gate, CDP bridge, policy)
+lives in the shell process; a web page cannot host it, and iframes die on
+X-Frame-Options with no work profile. `/browser/` gets the adjacent
+conveniences instead: the **Web/Local URL open destination** setting (links
+from chat can hand off to the shell's work browser or the default browser)
+and a **read-only state card** (title/URL/screenshot of the active tab,
+which the daemon already holds via CDP) — v2, useful for Open-on-phone.
+Agent commands work from any surface (same daemon); only the canvas is
+desktop's.
+
 CDP sub-spike (2026-09-13, from WSL — where the daemon lives): enumerated
 WebView2's targets over loopback, connected to the logged-in GitHub tab,
 `Runtime.evaluate` read the session identity, `Page.captureScreenshot`
