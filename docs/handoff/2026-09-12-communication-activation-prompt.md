@@ -8,11 +8,7 @@ visual-review: PASS (activation row and confirmation dialog; card 5/5).
 
 Not done / debts: real six-CLI activation cost and provider behavior remain an owner-run acceptance; the existing non-Linux and native first-event limits remain documented in `docs/handoff/open/communication.md`.
 
-Merge: fast-forward ready as `b2b92600`.
-
-## Next up
-
-- Owner fast-forwards this branch to main, runs full main CI, then decides whether to deploy.
+Merge: fast-forward ready as `b2b92600` (merged into `main`).
 
 ## Debts
 
