@@ -5,9 +5,9 @@ and deployed; slice 2 increments 1–2 (the host-API CDP bridge and the tier
 gate) landed on `feat/browser-cdp`. Plan: `docs/plans/desktop-v2.md`
 (Phase 3 + the slice 2 section), policy: ADR-0128.
 
-The next work — increment 3 (the daemon endpoint and the `browser` Pi tool),
-the navigation gate and the per-agent policy UI — rides the `desktop-v2`
-bullet on the board, so this file carries no `## Next` of its own.
+## Next
+
+- Slice 2 increment 3: the daemon endpoint and the `browser` Pi tool (read first, `act` behind per-agent permission), then the navigation gate.
 
 ## Slice 3, still unbuilt
 
