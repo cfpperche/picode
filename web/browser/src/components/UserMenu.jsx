@@ -2,7 +2,6 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useRef, useState } from "react";
 import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR, IconMode, IconSettings, IconDrive, IconProvider, IconMcp, IconPackage, IconClock, IconSparkles, IconCli, IconModel } from "./Icons.jsx";
 import { menuGroups, menuActions, menuHasResults } from "../lib/userMenuModel.js";
-import { readShellPref, setShell } from "@picode/shared/client/shell.js";
 import InstallButton from "./InstallButton.jsx";
 
 const SECTION_ICONS = {
@@ -149,19 +148,6 @@ export default function UserMenu({ host, version, inShell = false, themeMode, on
                 </button>
                 <button type="button" role="radio" aria-checked={themeMode === "dark"} data-theme-option="dark" data-active={themeMode === "dark" ? "1" : ""} onClick={() => onTheme("dark")}>
                   <IconMoon /> Dark
-                </button>
-              </div>
-
-              <div className="um-label">Layout</div>
-              <div className="um-theme" role="radiogroup" aria-label="Layout">
-                <button type="button" role="radio" aria-checked={readShellPref() === "desktop"} data-active={readShellPref() === "desktop" ? "1" : ""} onClick={() => setShell("desktop")}>
-                  <IconMonitor /> Desktop
-                </button>
-                <button type="button" role="radio" aria-checked={readShellPref() === "system"} data-active={readShellPref() === "system" ? "1" : ""} onClick={() => setShell("system")}>
-                  <IconMonitor /> Auto
-                </button>
-                <button type="button" role="radio" aria-checked={readShellPref() === "mobile"} data-active={readShellPref() === "mobile" ? "1" : ""} onClick={() => setShell("mobile")}>
-                  <IconPhone /> Mobile
                 </button>
               </div>
 
