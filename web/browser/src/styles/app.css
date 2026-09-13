@@ -3163,7 +3163,14 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .dlg-input:focus { outline: none; border-color: var(--accent); }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .dlg-session { width: min(460px, calc(100vw - 32px)); }
-.dlg-create { width: min(420px, calc(100vw - 32px)); }
+.dlg-create { width: min(420px, calc(100vw - 32px));
+  /* The 42% anchor with a 50% pull-up clips a form taller than 84dvh at the
+     viewport top (the custom endpoint form grew past it). Cap the height and
+     scroll inside instead of clipping outside; 80dvh leaves a 2% margin at
+     both the top (0.42 - 0.40) and the bottom (0.42 + 0.40). */
+  max-height: 80dvh;
+  overflow-y: auto;
+}
 .dlg-hotkeys {
   top: 50%;
   max-height: min(80vh, 640px);

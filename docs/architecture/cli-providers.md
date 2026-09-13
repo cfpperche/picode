@@ -51,4 +51,8 @@ non-reasoning drops the managed keys and keeps the rest; a model the user
 never touched grows no map at all. An invented level is refused by the
 schema and again by `validateCustomDef`, so the GUI is not the only guard.
 The catalog hands the stored `thinkingLevelMap` back inside `definitions`, so
-Edit prefills the same chips it would write (`customThinkingLevels`).
+Edit prefills the same chips it would write (`customThinkingLevels`). The row
+made the create dialog taller than the viewport, and `.dlg-create` centres
+with `top: 42%` and no height cap: it now caps at `80dvh` and scrolls inside
+(2% margin top and bottom at that anchor) instead of clipping the title off
+the top of the window.

@@ -805,7 +805,7 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                           </label>
                         ))}
                       </div>
-                      <p className="prov-hint">How hard the model may think before answering. Unchecked levels are hidden in the picker. Applies to every model listed.</p>
+                      <p className="prov-hint">How hard the model may think. Unchecked levels are hidden in the picker; applies to every model listed.</p>
                     </>
                   ) : null}
                   <div className="prov-adv-grid">
