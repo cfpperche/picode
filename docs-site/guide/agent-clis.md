@@ -145,8 +145,14 @@ comes from what each CLI can actually do, so it changes with the source
 you picked and with what is installed.
 
 The original terminal stays where it is. Continue opens the other CLI in
-a new terminal (or as a Pi agent). If that CLI is still writing, you
-confirm before the newest turns are left behind.
+a new terminal — or, for Pi, as a stopped agent in this app. If that CLI
+is still writing, you confirm before the newest turns are left behind.
+
+Pi is both a CLI and the platform's managed agent, so its menu entry has
+a second level: **Pi agent · in the app** opens the conversation as a
+stopped Pi agent here (it needs no installed CLI), and **Pi CLI · in a
+terminal** opens a terminal on it. The dialog shows a **Where** section
+for Pi, so you can change your mind before continuing.
 
 This copies the conversation into the other CLI. A memory tool that
 already injects a “where you left off” note in that folder is separate:
@@ -261,7 +267,7 @@ beyond what the CLI's own uninstaller does.
 | Open | Attach to the existing terminal. No second CLI process. |
 | Start | Start a stopped terminal with current settings. |
 | Resume last session | Start the terminal and reopen the conversation it was running, using each CLI's verified resume arguments (Claude Code `--resume <id>`, Codex `resume <id>`, Grok `--resume <id>`, Hermes Agent `--resume <id>`, OpenCode `--session <id>`, pi `--session <file>`). Offered on the stopped terminal surface when a conversation is pinned. |
-| Continue in… | Open this terminal's conversation in another CLI. The original terminal stays; a new terminal (or a Pi agent) opens. Offered when a conversation is pinned. |
+| Continue in… | Open this terminal's conversation in another CLI. The original terminal stays; a new terminal opens, or a stopped Pi agent when you pick "Pi agent · in the app". Offered when a conversation is pinned. |
 | Stop terminal | End its processes but keep the saved terminal and settings. |
 | Restart terminal | Prepare the next launch, end its processes and launch again. This does not automatically resume a conversation. |
 | Remove terminal | End its processes and remove its PiCode record and launch files. Native CLI data stays yours. |

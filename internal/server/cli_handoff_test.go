@@ -2,6 +2,9 @@ package server
 
 import (
 	"context"
+	"encoding/json"
+	"io"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -132,12 +135,12 @@ func TestCLIsAdvertiseSessionCapabilities(t *testing.T) {
 	ts, _, _ := cleanupServer(t)
 	res := cliRequest(t, ts, "GET", "/api/clis", nil, 200)
 	want := map[string]map[string]any{
-		"pi":          {"list": true, "read": true, "write": true, "prompt": true},
-		"claude-code": {"list": true, "read": true, "write": true, "prompt": true},
-		"codex":       {"list": true, "read": true, "write": true, "prompt": true},
-		"grok":        {"list": true, "read": true, "write": true, "prompt": true},
-		"hermes":      {"list": true, "read": true, "write": true, "prompt": false},
-		"opencode":    {"list": true, "read": true, "write": true, "prompt": true},
+		"pi":          {"list": true, "read": true, "write": true, "prompt": true, "agent": true},
+		"claude-code": {"list": true, "read": true, "write": true, "prompt": true, "agent": false},
+		"codex":       {"list": true, "read": true, "write": true, "prompt": true, "agent": false},
+		"grok":        {"list": true, "read": true, "write": true, "prompt": true, "agent": false},
+		"hermes":      {"list": true, "read": true, "write": true, "prompt": false, "agent": false},
+		"opencode":    {"list": true, "read": true, "write": true, "prompt": true, "agent": false},
 	}
 	seen := 0
 	for _, row := range res["clis"].([]any) {
@@ -386,6 +389,104 @@ func TestHandoffBriefWritesFileAndPromptArgs(t *testing.T) {
 	if res["handoff"].(map[string]any)["targetId"] != nil {
 		t.Fatalf("codex brief must leave targetId empty: %v", res["handoff"])
 	}
+}
+
+// The landing choice (agent vs terminal) is a user decision for pi, the
+// only CLI that is also a managed agent. These tests cover the decision
+// table's landing rows; the pi-native default (agent) and pi-brief
+// default (terminal) stay covered by TestHandoffToPiAdoptsAgent and
+// TestHandoffBriefWritesFileAndPromptArgs's shape.
+func TestHandoffPiTerminalLandingNative(t *testing.T) {
+	ts, _, _, home := handoffServer(t)
+	old := session.TestRoot
+	session.TestRoot = filepath.Join(home, ".pi", "agent", "sessions")
+	defer func() { session.TestRoot = old }()
+	proj := filepath.Join(t.TempDir(), "proj")
+	if err := os.MkdirAll(proj, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := seedHandoffClaude(t, home, proj)
+	fakeCLI(t, ts, home, "pi")
+
+	res := cliRequest(t, ts, "POST", "/api/clis/claude-code/sessions/handoff", map[string]any{"id": "cc-1", "path": path, "cwd": proj, "to": "pi", "landing": "terminal"}, 201)
+	if res["agent"] != nil {
+		t.Fatal("a terminal landing must not adopt an agent")
+	}
+	if res["landing"] != "terminal" {
+		t.Fatalf("landing = %v", res["landing"])
+	}
+	sum := res["target"].(map[string]any)
+	if !strings.HasPrefix(sum["path"].(string), session.Dir(proj)) {
+		t.Fatalf("session path %v is not in pi's cwd bucket", sum["path"])
+	}
+	argv := strings.Split(strings.TrimSuffix(string(waitCLIFile(t, home+"/pi-run.args")), "\x00"), "\x00")
+	if len(argv) != 2 || argv[0] != "--session" || argv[1] != sum["path"] {
+		t.Fatalf("pi launched with %q (target %v)", argv, sum)
+	}
+	if res["handoff"].(map[string]any)["agentId"] != nil {
+		t.Fatalf("handoff row = %v", res["handoff"])
+	}
+}
+
+func TestHandoffPiAgentLandingBrief(t *testing.T) {
+	ts, _, dataDir, home := handoffServer(t)
+	proj := filepath.Join(t.TempDir(), "proj")
+	if err := os.MkdirAll(proj, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := seedHandoffClaude(t, home, proj)
+
+	// No pi CLI binary installed: the agent landing needs no terminal, so
+	// the handoff must still succeed.
+	res := cliRequest(t, ts, "POST", "/api/clis/claude-code/sessions/handoff", map[string]any{"id": "cc-1", "path": path, "cwd": proj, "to": "pi", "landing": "agent", "mode": "brief"}, 201)
+	if res["terminal"] != nil {
+		t.Fatal("an agent landing must not open a terminal")
+	}
+	if res["landing"] != "agent" {
+		t.Fatalf("landing = %v", res["landing"])
+	}
+	agent := res["agent"].(map[string]any)
+	if agent["mode"] != "stopped" || agent["name"] != "Race fix" {
+		t.Fatalf("agent = %v", agent)
+	}
+	brief := res["brief"].(map[string]any)["path"].(string)
+	if !strings.HasPrefix(brief, filepath.Join(dataDir, "handoffs")) {
+		t.Fatalf("brief path = %s", brief)
+	}
+	req, _ := http.NewRequest("GET", ts.URL+"/api/agents/"+agent["id"].(string)+"/tasks", nil)
+	res2 := do(t, ts.Client(), req)
+	b, _ := io.ReadAll(res2.Body)
+	if res2.StatusCode != 200 {
+		t.Fatalf("tasks: %d: %s", res2.StatusCode, b)
+	}
+	var tasks []map[string]any
+	if err := json.Unmarshal(b, &tasks); err != nil {
+		t.Fatal(err)
+	}
+	if len(tasks) != 1 {
+		t.Fatalf("tasks = %v", tasks)
+	}
+	task := tasks[0]
+	if task["kind"] != "prompt" || task["status"] != "queued" || !strings.Contains(task["payload"].(string), brief) {
+		t.Fatalf("task = %v", task)
+	}
+	if res["handoff"].(map[string]any)["agentId"] != agent["id"] {
+		t.Fatalf("handoff row = %v", res["handoff"])
+	}
+}
+
+func TestHandoffLandingValidation(t *testing.T) {
+	ts, _, _, home := handoffServer(t)
+	proj := filepath.Join(t.TempDir(), "proj")
+	if err := os.MkdirAll(proj, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := seedHandoffClaude(t, home, proj)
+	body := map[string]any{"id": "cc-1", "path": path, "cwd": proj, "to": "codex", "landing": "agent"}
+	cliRequest(t, ts, "POST", "/api/clis/claude-code/sessions/handoff/preview", body, 400)
+	body["landing"] = "middlet"
+	body["to"] = "pi"
+	cliRequest(t, ts, "POST", "/api/clis/claude-code/sessions/handoff/preview", body, 400)
 }
 
 func TestHandoffToPiAdoptsAgent(t *testing.T) {

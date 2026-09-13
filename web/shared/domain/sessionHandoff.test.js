@@ -1,10 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { sessionClis, handoffModes, handoffTargets, handoffSummaryLine, handoffSessionLabel, handoffRequest, sessionFromTerminal, terminalHandoffSourceCli, terminalHandoffMenu, lineageBadges } from "./sessionHandoff.js";
+import { sessionClis, handoffModes, handoffTargets, handoffLandings, landingLabel, handoffSummaryLine, handoffSessionLabel, handoffRequest, sessionFromTerminal, terminalHandoffSourceCli, terminalHandoffMenu, lineageBadges } from "./sessionHandoff.js";
 
 const all = { list: true, read: true, write: true, prompt: true };
 const clis = [
-  { id: "pi", name: "Pi", installed: true, sessions: all },
+  { id: "pi", name: "Pi", installed: true, sessions: { ...all, agent: true } },
   { id: "claude-code", name: "Claude Code", installed: true, sessions: all },
   { id: "codex", name: "Codex", installed: false, sessions: all },
   { id: "grok", name: "Grok", installed: true, sessions: { list: true, read: true, write: false, prompt: true } },
@@ -28,6 +28,23 @@ test("handoffModes is the decision table", () => {
   assert.deepEqual(handoffModes(undefined, all), []);
 });
 
+test("handoffLandings offers the agent surface only where the server advertises it", () => {
+  assert.deepEqual(handoffLandings(all), ["terminal"]);
+  assert.deepEqual(handoffLandings({ ...all, agent: true }), ["agent", "terminal"]);
+  assert.deepEqual(handoffLandings(undefined), []);
+});
+
+function targetOf(clis, id) {
+  return handoffTargets(clis, "claude-code").find((t) => t.id === id);
+}
+
+function handoffMenuSub(pinned, clis, id) {
+  const row = terminalHandoffMenu(pinned, clis);
+  return row.sub.find((s) => s.target.id === id);
+}
+
+const pinned = { lastSession: { cli: "claude-code", sessionId: "s1" } };
+
 test("handoffTargets excludes the source, unreadable sources and dead-end targets", () => {
   const targets = handoffTargets(clis, "claude-code");
   assert.deepEqual(targets.map((t) => t.id), ["pi", "codex", "grok", "future"]);
@@ -35,6 +52,12 @@ test("handoffTargets excludes the source, unreadable sources and dead-end target
   assert.equal(targets.find((t) => t.id === "codex").installed, false);
   assert.deepEqual(handoffTargets(clis, "future"), []); // cannot be read
   assert.deepEqual(handoffTargets(clis, "nope"), []);
+});
+
+test("handoffTargets carries the landings the server advertises", () => {
+  assert.deepEqual(targetOf(clis, "pi").landings, ["agent", "terminal"]);
+  assert.deepEqual(targetOf(clis, "codex").landings, ["terminal"]);
+  assert.deepEqual(targetOf(clis, "grok").landings, ["terminal"]);
 });
 
 test("summary line omits zero counts and names only what a reader understands", () => {
@@ -55,11 +78,13 @@ test("the dialog names a session by its title, or a short id", () => {
 });
 
 test("handoffRequest is the exact body the server accepts", () => {
-  const body = handoffRequest({ id: "cc-1", path: "/p", cwd: "/w", workspaceId: "ws" }, { to: "codex", mode: "native", window: "all", tools: "text" }, { force: true });
-  assert.deepEqual(Object.keys(body).sort(), ["cwd", "force", "id", "mode", "path", "to", "tools", "window", "workspaceId"]);
+  const body = handoffRequest({ id: "cc-1", path: "/p", cwd: "/w", workspaceId: "ws" }, { to: "codex", mode: "native", landing: "terminal", window: "all", tools: "text" }, { force: true });
+  assert.deepEqual(Object.keys(body).sort(), ["cwd", "force", "id", "landing", "mode", "path", "to", "tools", "window", "workspaceId"]);
   assert.equal(body.force, true);
+  assert.equal(body.landing, "terminal");
   assert.equal(handoffRequest({ id: "x" }, { to: "pi" }).window, "recent");
   assert.equal(handoffRequest({ id: "x" }, { to: "pi" }).mode, "");
+  assert.equal(handoffRequest({ id: "x" }, { to: "pi" }).landing, "");
 });
 
 test("sessionFromTerminal is the pin, with cwd/name falling back to the terminal", () => {
@@ -81,7 +106,6 @@ test("sessionFromTerminal is the pin, with cwd/name falling back to the terminal
 });
 
 test("terminalHandoffMenu drops the row when it cannot act", () => {
-  const pinned = { lastSession: { cli: "claude-code", sessionId: "s1" } };
   assert.equal(terminalHandoffMenu({}, clis), null);
   assert.equal(terminalHandoffMenu({ lastSession: { cli: "future", sessionId: "s1" } }, clis), null); // unread source
   assert.equal(terminalHandoffMenu(pinned, []), null);
@@ -92,7 +116,23 @@ test("terminalHandoffMenu drops the row when it cannot act", () => {
   assert.equal(codex.disabled, true);
   assert.equal(codex.label, "Codex (not installed)");
   assert.match(codex.title, /not installed\.$/);
-  assert.equal(row.sub.find((s) => s.target.id === "pi").disabled, false);
+  assert.equal(row.sub.find((s) => s.target.id === "pi").disabled, undefined);
+});
+
+test("terminalHandoffMenu nests the landing choice for a CLI that is also an agent", () => {
+  const pi = handoffMenuSub(pinned, clis, "pi");
+  assert.equal(pi.label, "Pi…");
+  assert.deepEqual(pi.sub.map((s) => s.id), ["handoff:pi:agent", "handoff:pi:terminal"]);
+  assert.deepEqual(pi.sub.map((s) => s.label), ["Pi agent · in the app", "Pi CLI · in a terminal"]);
+  assert.equal(pi.sub[0].target.landing, "agent");
+  assert.equal(pi.sub[0].disabled, false); // the agent needs no installed CLI
+  assert.equal(pi.sub[1].target.landing, "terminal");
+  // A single-landing target stays one flat row, landing baked in.
+  const codex = handoffMenuSub(pinned, clis, "codex");
+  assert.equal(codex.sub, undefined);
+  assert.equal(codex.target.landing, "terminal");
+  assert.equal(codex.label, "Codex (not installed)");
+  assert.equal(handoffMenuSub(pinned, clis, "grok").target.landing, "terminal");
 });
 
 test("lineage badges", () => {

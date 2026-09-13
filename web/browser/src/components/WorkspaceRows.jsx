@@ -217,7 +217,29 @@ export function TermRow({
                 </DropdownMenu.SubTrigger>
                 <DropdownMenu.Portal>
                   <DropdownMenu.SubContent className="ws-row-menu" sideOffset={4} alignOffset={-4} collisionPadding={8}>
-                    {r.sub.map((s) => (
+                    {r.sub.map((s) => s.sub ? (
+                      <DropdownMenu.Sub key={s.id}>
+                        <DropdownMenu.SubTrigger className="ws-row-menu-item" title={s.title}>
+                          {s.label}
+                          <IconChevronRight size={13} className="um-chev" />
+                        </DropdownMenu.SubTrigger>
+                        <DropdownMenu.Portal>
+                          <DropdownMenu.SubContent className="ws-row-menu" sideOffset={4} alignOffset={-4} collisionPadding={8}>
+                            {s.sub.map((s2) => (
+                              <DropdownMenu.Item
+                                key={s2.id}
+                                className="ws-row-menu-item"
+                                disabled={!!s2.disabled}
+                                title={s2.title}
+                                onSelect={() => { if (!s2.disabled && onContinueTerm) onContinueTerm(t, s2.target); }}
+                              >
+                                {s2.label}
+                              </DropdownMenu.Item>
+                            ))}
+                          </DropdownMenu.SubContent>
+                        </DropdownMenu.Portal>
+                      </DropdownMenu.Sub>
+                    ) : (
                       <DropdownMenu.Item
                         key={s.id}
                         className="ws-row-menu-item"
