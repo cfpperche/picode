@@ -287,6 +287,20 @@ export function treeTabRoot(id) {
   return isTreeTab(id) ? String(id).slice(2) : "";
 }
 
+// Work browser tabs (Phase 3, docs/plans/desktop-v2.md). Session-scoped:
+// they do not survive an app restart (the pages live in native webviews).
+export function webTabId(seq) {
+  return seq ? "w:" + seq : "";
+}
+
+export function isWebTab(id) {
+  return String(id || "").startsWith("w:");
+}
+
+export function tabWebId(id) {
+  return isWebTab(id) ? String(id).slice(2) : "";
+}
+
 // Apps host (ADR-0036). One identity only: the tab id and the hash both
 // name the app — no owner sidecar, an app tab is self-describing.
 export function appTabId(id) {

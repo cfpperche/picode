@@ -6,6 +6,7 @@ test("integrations deep links remain reload-safe", () => {
   assert.equal(parseRoute("#/integrations/webhooks"), "integrations");
   for (const hash of ["#/integrations", "#/integrations/connectors", "#/mcps"]) assert.equal(parseRoute(hash), "clis");
 });
+import { isWebTab, tabWebId, webTabId } from "./routes.js";
 import { parseRoute, packagesConfigRoute, packagesConfigHash, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot, appTabId, isAppTab, tabAppId, appHash, appRoute, renamedAppId, renamedAppHash, renamedTabId } from "./routes.js";
 
 test("preferences and settings are distinct", () => {
@@ -211,4 +212,13 @@ test("provider command navigation opens canonical list or add", () => {
     assert.equal(location.hash, "#/clis/pi/settings?agentId=A");
   }
   finally { globalThis.location = previous; }
+});
+
+test("web tabs encode with the w: prefix", () => {
+  const id = webTabId("abc123");
+  assert.equal(id, "w:abc123");
+  assert.ok(isWebTab(id));
+  assert.equal(tabWebId(id), "abc123");
+  assert.ok(!isWebTab("t:abc123"));
+  assert.ok(!isWebTab(""));
 });
