@@ -219,6 +219,12 @@
           "markdownDescription": "Enables the btab_reload command without any pre-configured scope."
         },
         {
+          "description": "Enables the btab_screenshot command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-screenshot",
+          "markdownDescription": "Enables the btab_screenshot command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_visibility command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-visibility",
@@ -343,6 +349,12 @@
           "type": "string",
           "const": "deny-btab-reload",
           "markdownDescription": "Denies the btab_reload command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_screenshot command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-screenshot",
+          "markdownDescription": "Denies the btab_screenshot command without any pre-configured scope."
         },
         {
           "description": "Denies the btab_visibility command without any pre-configured scope.",

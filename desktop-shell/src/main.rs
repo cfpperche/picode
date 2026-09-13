@@ -52,6 +52,7 @@ fn main() {
             btab::btab_forward,
             btab::btab_reload,
             btab::btab_meta,
+            btab::btab_screenshot,
             btab::btab_close,
             browserlab::lab_open,
             browserlab::lab_navigate,

@@ -23,7 +23,8 @@
     "allow-btab-forward",
     "allow-btab-reload",
     "allow-btab-meta",
-    "allow-btab-close"
+    "allow-btab-close",
+    "allow-btab-screenshot"
   ],
   "remote": {
     "urls": [
