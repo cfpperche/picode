@@ -21,4 +21,7 @@ test("desktop snippets hashes are a host page", () => {
   for (const hash of ["#/snippets", "#/snippets/new", "#/snippets/review-pr-abc"]) {
     assert.equal(parseRoute(hash), "snippets", hash);
   }
+  assert.equal(mobileRoute("#/snippets").section, "snippets");
+  assert.equal(mobileRoute("#/snippets/abc").screen, "snip");
+  assert.equal(mobileRoute("#/snippets/abc/edit").screen, "snipEdit");
 });

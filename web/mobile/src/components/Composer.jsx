@@ -7,6 +7,7 @@ import ImageLightbox from "./ImageLightbox.jsx";
 import WorkspaceAttach from "./WorkspaceAttach.jsx";
 import { IconClip, IconImage, IconSketch } from "./Icons.jsx";
 import ComposerStatus from "./ComposerStatus.jsx";
+import SnipRunSheet from "./SnipRunSheet.jsx";
 import { Command } from "cmdk";
 import { api } from "@picode/shared/client/api.js";
 import { sniffImage, readImage, planDeviceImages, MAX_IMAGES, sceneHasInk } from "@picode/shared/domain/composerImage.js";
@@ -68,6 +69,7 @@ export default function Composer({
   const [preview, setPreview] = useState("");
   const [pick, setPick] = useState(false);
   const [sketch, setSketch] = useState(null);
+  const [snipSheet, setSnipSheet] = useState(null);
   const text = value || "";
   const setText = next => onChange?.(next);
   const hits = filterSlash(text, slashExtra);
@@ -284,7 +286,7 @@ export default function Composer({
       return;
     }
     if (cmd.run === "snip") {
-      if (onSnip) onSnip({ snipId: cmd.snipId, slug: cmd.slug, draft: text });
+      setSnipSheet({ snipId: cmd.snipId, slug: cmd.slug, draft: text });
       return;
     }
     setText("");
@@ -756,6 +758,16 @@ export default function Composer({
         </Sheet.Portal>
       </Sheet.Root>
       <ImageLightbox src={preview} onClose={() => setPreview("")} />
+      <SnipRunSheet
+        open={!!snipSheet}
+        mode="composer"
+        snipId={snipSheet && snipSheet.snipId}
+        slug={snipSheet && snipSheet.slug}
+        draft={snipSheet && snipSheet.draft}
+        onInsert={(t) => { setText(t); setSnipSheet(null); }}
+        onSend={async (t) => { setSnipSheet(null); await fireSend(t); }}
+        onClose={() => setSnipSheet(null)}
+      />
     </div>
   );
 }

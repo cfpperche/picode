@@ -30,6 +30,8 @@ const Inbox = lazy(() => import("./screens/Inbox.jsx"));
 const InboxItem = lazy(() => import("./screens/Inbox.jsx").then(module => ({ default: module.InboxItem })));
 const PinScreen = lazy(() => import("./screens/Pin.jsx"));
 const PinEdit = lazy(() => import("./screens/PinEdit.jsx"));
+const SnipScreen = lazy(() => import("./screens/Snippet.jsx"));
+const SnipEdit = lazy(() => import("./screens/SnippetEdit.jsx"));
 import Work from "./screens/Work.jsx";
 const Agent = lazy(() => import("./screens/Agent.jsx"));
 const TerminalScreen = lazy(() => import("./screens/Terminal.jsx"));
@@ -426,6 +428,10 @@ export default function MobileApp() {
     body = <PinScreen key={route.id} pinId={route.id} onBack={() => goBack(route)} onEdit={(id) => push("#/pins/" + encodeURIComponent(id) + "/edit")} />;
   } else if (route.screen === "pinEdit") {
     body = <PinEdit key={route.id || "new"} pinId={route.id} onBack={() => goBack(route)} onSaved={(id) => { location.replace(location.pathname + location.search + "#/pins/" + encodeURIComponent(id)); }} />;
+  } else if (route.screen === "snip") {
+    body = <SnipScreen key={route.id} snipId={route.id} onBack={() => goBack(route)} onEdit={(id) => push("#/snippets/" + encodeURIComponent(id) + "/edit")} />;
+  } else if (route.screen === "snipEdit") {
+    body = <SnipEdit key={route.id || "new"} snipId={route.id} onBack={() => goBack(route)} onSaved={(id) => { location.replace(location.pathname + location.search + "#/snippets/" + encodeURIComponent(id)); }} />;
   } else if (route.screen === "inbox" && route.id) {
     body = <InboxItem manifest={inboxApp} itemId={route.id} onBack={() => goBack(route)} onGoto={onAppGoto} />;
   } else if (route.screen === "inbox") {

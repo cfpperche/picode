@@ -55,3 +55,15 @@
 
 .m-project-tools { display: flex; flex-direction: column; gap: 8px; }
 .m-project-tools-name { margin: 0 0 4px; color: var(--text-secondary); overflow-wrap: anywhere; }
+
+/* Snippets (ADR-0130): fill sheet and read-only body. */
+.m-snip-run { display: flex; flex-direction: column; gap: 10px; }
+.m-snip-field { display: flex; flex-direction: column; gap: 6px; }
+.m-snip-field > span { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.m-snip-field .dlg-input { margin: 0; height: var(--ctl-h); }
+.m-snip-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.m-snip-preview { margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-base); font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow: auto; }
+.m-snip-note { margin: 0; font-size: 12px; color: var(--text-secondary); }
+.m-snip-done { align-self: flex-end; }
+.m-snip-body { margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-base); font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; overflow-x: auto; }
+.m-snip-textarea { font-family: ui-monospace, monospace; }
