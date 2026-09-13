@@ -148,6 +148,10 @@ The original terminal stays where it is. Continue opens the other CLI in
 a new terminal (or as a Pi agent). If that CLI is still writing, you
 confirm before the newest turns are left behind.
 
+This copies the conversation into the other CLI. A memory tool that
+already injects a “where you left off” note in that folder is separate:
+both can run; they are not the same action.
+
 Nothing is written until you confirm. The dialog first shows what would
 travel — how many turns and tool calls — and what would stay behind.
 Reasoning never travels: it belongs to the model that produced it and its

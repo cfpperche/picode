@@ -41,3 +41,8 @@ the target started with a one-line prompt. Lineage lives in
 `session_handoffs` (event `session.handoff`) and is shown on both session
 listings. The installed target version comes from the setup check (run on
 demand); an unknown format refuses native and keeps brief.
+
+A long-term memory server in the same folder (hooks that inject a next-
+session brief) is a different layer: it does not replace Native session,
+and Continue does not wrap launches through it. Study:
+[2026-09-13-ai-memory](../benchmarks/2026-09-13-ai-memory.md).
