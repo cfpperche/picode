@@ -81,7 +81,7 @@ function AnchorFace({ info }) {
 // retarget. Data flow, guards and refresh idioms mirror FileTreeSurface.
 export default function Inspector({
   hidden, anchor, workspaces, freeAgents, terminals, touchedPaths,
-  tab, onTab, width, maxWidth, onWidth, onToggle, activePath,
+  tab, onTab, width, maxWidth, onWidth, activePath,
   onOpenFile, onOpenDiff, onOpenGraph, onOpenTree, onOpenTerminal, onChanges,
   runMode, onRunMode, onAskAgent,
 }) {
@@ -307,7 +307,6 @@ export default function Inspector({
   const name = info ? info.name : "Inspector";
   const shownPath = root || (info && info.path) || "";
   const shownWidth = liveWidth == null ? width : liveWidth;
-  const chord = formatChord(primaryChord("app.inspector.toggle"));
   const refresh = () => { setNonce((n) => n + 1); return loadRef.current(true); };
   const chip = branchChip(status);
   const actions = owner ? gitActions(status) : [];
@@ -431,9 +430,6 @@ export default function Inspector({
               </DropdownMenu.Portal>
             </DropdownMenu.Root>
           ) : null}
-          <button type="button" className="insp-btn" title={chord ? `Hide inspector (${chord})` : "Hide inspector"} aria-label="Hide inspector" onClick={onToggle}>
-            <IconPanelRightClose />
-          </button>
         </div>
       </header>
       {owner ? (

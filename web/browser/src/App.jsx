@@ -3210,7 +3210,6 @@ export default function App({ shellChrome = false } = {}) {
         width={inspectorLayout.width}
         maxWidth={inspectorLayout.maxWidth}
         onWidth={(width) => rememberInspector({ width })}
-        onToggle={toggleInspector}
         activePath={inspectorActivePath}
         onOpenFile={(o, path) => openFileTab(o.kind, o.id, path, "file")}
         onOpenDiff={(o, path) => openFileTab(o.kind, o.id, path, "diff")}
