@@ -4804,6 +4804,11 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .snip-search { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
 .snip-search .dlg-input { margin: 0; height: var(--ctl-h); flex: 1; min-width: 0; }
 .snip-search svg { flex: none; color: var(--text-secondary); }
+.snip-try { display: grid; gap: 8px; }
+.snip-try.is-stale { opacity: 0.55; }
+.snip-try-head { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-secondary); font-weight: 600; }
+.snip-try-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+.snip-try-field { display: grid; gap: 4px; }
 .snip-table-wrap { overflow-x: auto; }
 .snip-table-wrap.is-stale { opacity: 0.55; }
 .snip-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }

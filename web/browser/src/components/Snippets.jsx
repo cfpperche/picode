@@ -203,6 +203,7 @@ function Editor({ initial, onCancel, onSaved, onDelete }) {
   const [busy, setBusy] = useState(false);
   const [slugLocked, setSlugLocked] = useState(!!(initial && initial.slug));
   const [enums, setEnums] = useState({}); // name -> enum[]; rides the draft, sent on save
+  const [tryValues, setTryValues] = useState({}); // name -> sample value for Try it (session only)
   const bodyRef = useRef(null);
   const lastGood = useRef("");
   const loaded = useRef(false);
@@ -251,6 +252,8 @@ function Editor({ initial, onCancel, onSaved, onDelete }) {
   const invalid = !parsed.ok;
   if (parsed.ok) lastGood.current = f.body;
   const preview = parsed.ok ? expandSnip(f.body, {}, {}) : { text: "", missing: [] };
+  const tryOut = expandSnip(parsed.ok ? f.body : (lastGood.current || ""), tryValues, {});
+  useEffect(() => { setTryValues({}); }, [id]);
   const cap = bodyLimit(f.body);
   const validationErr = invalid ? (
     parsed.error === "unclosed placeholder" ? "Close every placeholder — check around “" + (parsed.excerpt || f.body.slice(-24)) + "”."
@@ -352,7 +355,7 @@ function Editor({ initial, onCancel, onSaved, onDelete }) {
       <label className="auto-field">
         <span>Body</span>
         <textarea ref={bodyRef} className={"auto-textarea snip-body" + (invalid ? " is-invalid" : "")} value={f.body} onChange={(e) => set({ body: e.target.value })} rows={10} />
-        <div className="snip-body-bar" data-align-row>
+        <div className="snip-body-bar">
           <button type="button" className="btn btn-ghost btn-sm" onClick={insertBraces}>Insert {"{{"}</button>
           {cap.near || cap.over ? <span className={"auto-hint" + (cap.over ? " bad" : "")}>{Math.round(cap.bytes / 1024)} / 100 KB</span> : null}
         </div>
@@ -415,11 +418,38 @@ function Editor({ initial, onCancel, onSaved, onDelete }) {
           </table>
         </div>
       ) : null}
-      {!invalid && parsed.ok && preview.text ? (
+      {!invalid && parsed.ok && !live.placeholders.length && preview.text ? (
         <label className="auto-field">
           <span>Preview</span>
           <pre className="auto-prompt snip-preview">{preview.text}</pre>
         </label>
+      ) : null}
+      {live && live.placeholders.length ? (
+        <div className={"snip-try" + (invalid ? " is-stale" : "")} aria-label="Try it">
+          <div className="snip-try-head">Try it</div>
+          <div className="snip-try-grid">
+            {live.placeholders.map((ph) => {
+              const reserved = SNIP_RESERVED.includes(ph.name);
+              const choices = enums[ph.name] || [];
+              const cur = tryValues[ph.name] != null ? tryValues[ph.name] : (ph.optional ? ph.default : "");
+              return (
+                <label key={ph.name} className="snip-try-field">
+                  <span className="snip-cell-name">{"{{"}{ph.name}{"}}"}</span>
+                  {reserved ? <span className="auto-hint">filled where it runs</span> : choices.length ? (
+                    <select className="dlg-input" value={cur} aria-label={"Sample value for " + ph.name} onChange={(e) => setTryValues((v) => ({ ...v, [ph.name]: e.target.value }))}>
+                      <option value="">{ph.optional && ph.default ? "Default (" + ph.default + ")" : "Default"}</option>
+                      {choices.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  ) : (
+                    <input className="dlg-input" value={cur} placeholder={ph.optional ? ph.default || "optional" : "required"} aria-label={"Sample value for " + ph.name} onChange={(e) => setTryValues((v) => ({ ...v, [ph.name]: e.target.value }))} />
+                  )}
+                </label>
+              );
+            })}
+          </div>
+          {tryOut.text ? <pre className="auto-prompt snip-preview">{tryOut.text}</pre> : null}
+          {tryOut.missing.length ? <p className="auto-hint">Will prompt when it runs: {tryOut.missing.join(", ")}</p> : null}
+        </div>
       ) : null}
     </form>
   );
