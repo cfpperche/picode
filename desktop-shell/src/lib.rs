@@ -11,6 +11,8 @@
 //! - `Text`  — any single-line string
 //! - `Enum`  — one of a fixed list of values
 
+pub mod cdppolicy;
+
 use std::collections::BTreeMap;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

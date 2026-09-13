@@ -24,7 +24,9 @@
     "allow-btab-reload",
     "allow-btab-meta",
     "allow-btab-close",
-    "allow-btab-screenshot"
+    "allow-btab-screenshot",
+    "allow-btab-cdp-call",
+    "allow-btab-cdp-events"
   ],
   "remote": {
     "urls": [

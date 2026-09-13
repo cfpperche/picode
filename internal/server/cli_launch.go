@@ -126,6 +126,7 @@ func describeCLI(deps Deps, cli clilaunch.CLI) (cliView, error) {
 		return cliView{}, err
 	}
 	v := cliView{CLI: cli, Config: c, IntegrationApplied: cliIntegrationPrepared(deps.DataDir, cli), Sessions: clisession.CapabilitiesOf(cli.ID)}
+	v.Sessions.Agent = cliAgentLanding(cli.ID)
 	v.Plan, _ = launchPlan(deps, cli, c, clilaunch.Overrides{}, filepath.Join(deps.DataDir, "cli-launch", "{terminal}", "run-{next}"))
 	v.Executable, err = resolveCLIExecutable(cli, c)
 	v.Installed = err == nil

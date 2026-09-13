@@ -20,16 +20,34 @@ export function handoffModes(sourceCap, targetCap) {
   return modes;
 }
 
+// handoffLandings lists where a handoff to this target can open: a CLI
+// terminal always; a CLI that is also the platform's managed agent (the
+// server's `sessions.agent`, pi today) also lands as a stopped agent in
+// the app — the second menu level. Agent first: it is the app-native
+// surface and needs no installed CLI.
+export function handoffLandings(targetCap) {
+  if (!targetCap) return [];
+  const landings = ["terminal"];
+  if (targetCap.agent) landings.unshift("agent");
+  return landings;
+}
+
 // handoffTargets lists where a session of sourceCli can continue:
-// every other CLI with at least one mode, with whether it is installed.
+// every other CLI with at least one mode, with whether it is installed
+// and where it can land.
 export function handoffTargets(clis, sourceCli) {
   const list = clis || [];
   const source = list.find((c) => c.id === sourceCli);
   if (!source) return [];
   return list
     .filter((c) => c.id !== sourceCli)
-    .map((c) => ({ id: c.id, name: c.name, installed: !!c.installed, modes: handoffModes(source.sessions, c.sessions) }))
+    .map((c) => ({ id: c.id, name: c.name, installed: !!c.installed, modes: handoffModes(source.sessions, c.sessions), landings: handoffLandings(c.sessions) }))
     .filter((t) => t.modes.length > 0);
+}
+
+// landingLabel names a landing in the menus and the dialog.
+export function landingLabel(target, landing) {
+  return landing === "agent" ? target.name + " agent · in the app" : target.name + " CLI · in a terminal";
 }
 
 const DROP_LABELS = {
@@ -84,6 +102,7 @@ export function handoffRequest(session, form, extra = {}) {
     cwd: session.cwd || "",
     to: form.to,
     mode: form.mode || "",
+    landing: form.landing || "",
     window: form.window || "recent",
     tools: form.tools || "native",
     force: !!extra.force,
@@ -126,13 +145,36 @@ export function terminalHandoffMenu(term, clis) {
     label: "Continue in…",
     title: "Open this conversation in another CLI.",
     icon: "ask",
-    sub: targets.map((t) => ({
-      id: "handoff:" + t.id,
-      label: t.installed ? t.name : t.name + " (not installed)",
-      title: t.installed ? "Continue this conversation in " + t.name + "." : t.name + " is not installed.",
-      disabled: !t.installed,
-      target: t,
-    })),
+    sub: targets.map((t) => {
+      const item = {
+        id: "handoff:" + t.id,
+        label: t.name,
+        target: t,
+      };
+      if (t.landings.length > 1) {
+        // Two surfaces: a second menu level picks where it opens. Each
+        // child carries its own target copy with the landing baked in, so
+        // the handlers stay one shape on every surface.
+        item.label = t.name + "…";
+        item.title = "Choose where this conversation continues in " + t.name + ".";
+        item.sub = t.landings.map((l) => ({
+          id: "handoff:" + t.id + ":" + l,
+          label: landingLabel(t, l) + (l === "terminal" && !t.installed ? " (not installed)" : ""),
+          title: l === "agent"
+            ? "Continue as a stopped " + t.name + " agent in this app."
+            : t.installed ? "Continue in a " + t.name + " terminal." : t.name + " is not installed.",
+          disabled: l === "terminal" && !t.installed,
+          target: { ...t, landing: l },
+        }));
+        return item;
+      }
+      const only = t.landings[0] || "terminal";
+      item.label = t.installed ? t.name : t.name + " (not installed)";
+      item.title = t.installed ? "Continue this conversation in " + t.name + "." : t.name + " is not installed.";
+      item.disabled = !t.installed;
+      item.target = { ...t, landing: only };
+      return item;
+    }),
   };
 }
 

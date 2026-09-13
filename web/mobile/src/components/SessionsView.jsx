@@ -5,7 +5,7 @@ import * as Dialog from "./MobileSheet.jsx";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
-import { handoffTargets, lineageBadges } from "@picode/shared/domain/sessionHandoff.js";
+import { handoffTargets, landingLabel, lineageBadges } from "@picode/shared/domain/sessionHandoff.js";
 import { cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
 import { askConfirm, fmtBytes } from "../lib/confirm.js";
 import { toast, toastError } from "../lib/toast.js";
@@ -49,7 +49,10 @@ function LineageBadges({ s, cliNames, onOpenAgent }) {
 }
 
 // "Continue in <CLI>…" — one item per target the server advertises for
-// this session's CLI (ADR-0088). Empty list: a disabled item says why.
+// this session's CLI (ADR-0088). A CLI that is also a managed agent (the
+// server's sessions.agent, pi today) gets a second menu level: the user
+// chooses agent in the app or CLI terminal. Empty list: a disabled item
+// says why.
 function HandoffMenu({ s, targets, busy, onHandoff }) {
   return (
     <DropdownMenu.Root>
@@ -58,8 +61,24 @@ function HandoffMenu({ s, targets, busy, onHandoff }) {
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
-          {targets.length ? targets.map((t) => (
-            <DropdownMenu.Item key={t.id} className="um-item" disabled={!t.installed} title={t.installed ? "" : t.name + " is not installed"} onSelect={() => onHandoff(s, t)}>
+          {targets.length ? targets.map((t) => t.landings.length > 1 ? (
+            <DropdownMenu.Sub key={t.id}>
+              <DropdownMenu.SubTrigger className="um-item">
+                <span className="um-item-name">Continue in {t.name}…</span>
+                <span className="um-chev">›</span>
+              </DropdownMenu.SubTrigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.SubContent className="um-popover" sideOffset={4} collisionPadding={8}>
+                  {t.landings.map((l) => (
+                    <DropdownMenu.Item key={l} className="um-item" disabled={l === "terminal" && !t.installed} title={l === "terminal" && !t.installed ? t.name + " is not installed" : ""} onSelect={() => onHandoff(s, { ...t, landing: l })}>
+                      {landingLabel(t, l)}
+                    </DropdownMenu.Item>
+                  ))}
+                </DropdownMenu.SubContent>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Sub>
+          ) : (
+            <DropdownMenu.Item key={t.id} className="um-item" disabled={!t.installed} title={t.installed ? "" : t.name + " is not installed"} onSelect={() => onHandoff(s, { ...t, landing: t.landings[0] })}>
               Continue in {t.name}{t.installed ? "…" : " (not installed)"}
             </DropdownMenu.Item>
           )) : (
@@ -335,7 +354,7 @@ export default function SessionsView({ wsId, workspace, agents, workspaces, onOp
       toast.ok(target.name + " is opening with this conversation.");
       location.hash = termHash(term.id);
     } else if (agent && agent.id) {
-      toast.ok("Continued as a Pi agent: " + agent.name + ".");
+      toast.ok(res.brief ? "Continued as a Pi agent: " + agent.name + ". Its first message reads the brief." : "Continued as a Pi agent: " + agent.name + ".");
       if (onOpenAgent) onOpenAgent(agent.id);
     } else {
       toast.ok("Handoff recorded.");

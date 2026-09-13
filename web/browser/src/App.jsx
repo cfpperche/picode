@@ -2114,7 +2114,8 @@ export default function App({ shellChrome = false } = {}) {
   function openTermHandoff(term, target) {
     const session = sessionFromTerminal(term);
     const sourceCli = terminalHandoffSourceCli(term);
-    if (!session || !sourceCli || !target || !target.installed) return;
+    // The agent landing needs no installed CLI — only a terminal does.
+    if (!session || !sourceCli || !target || (target.landing !== "agent" && !target.installed)) return;
     const source = clis.find((c) => c.id === sourceCli);
     setTermHandoff({
       session,
@@ -2128,13 +2129,14 @@ export default function App({ shellChrome = false } = {}) {
     setTermHandoff(null);
     const next = res && res.terminal;
     const adopted = res && res.agent;
+    const brief = res && res.brief;
     if (next && next.launchError) {
       toastError(new Error(next.launchError));
     } else if (next && next.id) {
       toast.ok(target.name + " is opening with this conversation.");
       location.hash = termHash(next.id);
     } else if (adopted && adopted.id) {
-      toast.ok("Continued as a Pi agent: " + adopted.name + ".");
+      toast.ok(brief ? "Continued as a Pi agent: " + adopted.name + ". Its first message reads the brief." : "Continued as a Pi agent: " + adopted.name + ".");
       revealAgent(adopted.id);
     } else {
       toast.ok("Handoff recorded.");
@@ -2149,10 +2151,12 @@ export default function App({ shellChrome = false } = {}) {
     "snippet-cmd": (ctx) => setSnipRun({ target: { type: "terminal", id: ctx.id }, targetName: ctx.record && ctx.record.name, onlyKind: "shell" }),
     find: (ctx) => setTermFind(ctx.id),
     handoff: (ctx, targetId) => {
+      // Pane menu ids are "handoff:<targetCli>" or "handoff:<targetCli>:<landing>".
       const record = ctx && ctx.record;
       if (!record || !targetId) return;
-      const target = handoffTargets(clis, terminalHandoffSourceCli(record)).find((t) => t.id === targetId);
-      if (target) openTermHandoff(record, target);
+      const [cliId, landing] = String(targetId).split(":");
+      const target = handoffTargets(clis, terminalHandoffSourceCli(record)).find((t) => t.id === cliId);
+      if (target) openTermHandoff(record, landing ? { ...target, landing } : target);
     },
     "open-link": (ctx) => {
       if (!ctx.link) return;
