@@ -4,30 +4,38 @@ import { api } from "@picode/shared/client/api.js";
 import { SNIP_RESERVED, replaceSnipToken } from "@picode/shared/domain/snipDraft.js";
 import { toast, toastError } from "../lib/toast.js";
 
-// The fill sheet behind every snippet invoke (ADR-0130). Two doors, two
-// labels (K13): an agent target is "Send snippet" (SendTurn); a terminal
-// target is "Send to terminal" (ADR-0089 paste — the UI says "Sent to the
-// terminal", never "the model saw it"). Composer mode adds Insert, which
-// splices the draft and sends nothing.
-export default function SnipRunSheet({ open, mode, snipId, slug, draft, target, onInsert, onSend, onRan, onClose }) {
+// The fill sheet behind every snippet invoke (ADR-0130). Doors label
+// themselves (K13): agent → "Send snippet" (SendTurn); terminal → "Send to
+// terminal" (ADR-0089 paste — the UI says "Sent to the terminal", never
+// "the model saw it"); a Command snippet → "Run command", which always
+// stops at one confirm that names the terminal and shows the expanded
+// command (K14: a UI invariant, not authz). Composer mode adds Insert,
+// which splices the draft and sends nothing.
+export default function SnipRunSheet({ open, mode, snipId, slug, draft, target, targetName, onlyKind, onInsert, onSend, onRan, onClose }) {
   const [snip, setSnip] = useState(null);
   const [choices, setChoices] = useState(null);
   const [pickedId, setPickedId] = useState("");
   const [values, setValues] = useState({});
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(null); // shell kind: the expanded text awaiting the explicit Run
 
   const effectiveId = snipId || pickedId;
   const isTerm = !!(target && target.type === "terminal");
-  const primary = mode === "run" ? (isTerm ? "Send to terminal" : "Send snippet") : "Send snippet";
+  const isShell = !!((snip && snip.kind === "shell") || onlyKind === "shell");
+  const primary = mode === "run" ? (isTerm ? (isShell ? "Run command" : "Send to terminal") : "Send snippet") : "Send snippet";
 
   useEffect(() => {
-    if (!open) { setSnip(null); setChoices(null); setPickedId(""); setValues({}); setErr(""); return; }
+    if (!open) { setSnip(null); setChoices(null); setPickedId(""); setValues({}); setErr(""); setConfirming(null); return; }
     if (snipId) return;
     let live = true;
-    api("/api/snips/picker").then((d) => { if (live) setChoices(d.snips || []); }).catch(() => { if (live) setChoices([]); });
+    api("/api/snips/picker" + (mode === "run" ? "?shell=1" : "")).then((d) => {
+      if (!live) return;
+      const all = d.snips || [];
+      setChoices(onlyKind ? all.filter((c) => c.kind === onlyKind) : all);
+    }).catch(() => { if (live) setChoices([]); });
     return () => { live = false; };
-  }, [open, snipId]);
+  }, [open, snipId, mode, onlyKind]);
 
   useEffect(() => {
     if (!open || !effectiveId) { setSnip(null); setValues({}); return; }
@@ -76,19 +84,42 @@ export default function SnipRunSheet({ open, mode, snipId, slug, draft, target, 
     finally { setBusy(false); }
   }
 
+  async function beginRun() {
+    setBusy(true); setErr("");
+    try {
+      if (isShell) {
+        // The confirm shows exactly what would run: live context, gates
+        // included, nothing delivered.
+        const d = await api("/api/snips/" + encodeURIComponent(effectiveId) + "/run", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target, values, confirm: true, preview: true }),
+        });
+        setConfirming(d.text || "");
+        return;
+      }
+      const text = await expand();
+      await deliver();
+    } catch (e) { setErr(e.message || "Could not send."); }
+    finally { setBusy(false); }
+  }
+
+  async function deliver() {
+    await api("/api/snips/" + encodeURIComponent(effectiveId) + "/run", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target, values, confirm: true }),
+    });
+    toast.ok(isTerm ? (isShell ? "Command sent to the terminal." : "Sent to the terminal.") : "Sent.");
+    if (onRan) onRan();
+  }
+
   async function run() {
     setBusy(true); setErr("");
     try {
-      await api("/api/snips/" + encodeURIComponent(effectiveId) + "/run", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target, values, confirm: true }),
-      });
-      toast.ok(isTerm ? "Sent to the terminal." : "Sent.");
-      if (onRan) onRan();
+      await deliver();
     } catch (e) {
       const msg = e.message || "Could not send.";
       setErr(msg);
-      if (/running as a command|shell prompt/i.test(msg)) toast.info("The CLI left a shell here — a prompt would run as a command.");
+      toastError(e);
     }
     finally { setBusy(false); }
   }
@@ -103,46 +134,62 @@ export default function SnipRunSheet({ open, mode, snipId, slug, draft, target, 
           <Dialog.Title>{snip ? snip.title : mode === "run" ? primary : "Insert snippet"}</Dialog.Title>
           <Dialog.Description className="sr-only">Fill snippet fields then send or insert.</Dialog.Description>
           {err ? <p className="form-error" role="alert">{err}</p> : null}
-          {!snipId && choices === null && !err ? (
-            <div className="mcp-skel" aria-hidden="true"><span className="skel-line w-70" /><span className="skel-line w-50" /></div>
-          ) : null}
-          {noChoices ? (
-            <p className="auto-hint">No snippets yet.</p>
-          ) : null}
-          {!snipId && choices && choices.length > 0 ? (
-            <label className="auto-field">
-              <span>Snippet</span>
-              <select className="auto-select" value={pickedId} onChange={(e) => { setPickedId(e.target.value); setErr(""); }}>
-                <option value="">Choose…</option>
-                {choices.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-              </select>
-            </label>
-          ) : null}
-          {snip && fields.length === 0 ? <p className="auto-hint">No fields to fill.</p> : null}
-          {fields.map((ph) => (
-            <label key={ph.name} className="auto-field">
-              <span>{ph.name}</span>
-              {ph.enum && ph.enum.length ? (
-                <select className="auto-select" value={values[ph.name] || ""} onChange={(e) => setValues((v) => ({ ...v, [ph.name]: e.target.value }))}>
-                  <option value="">{ph.optional ? "Default" : "Choose…"}</option>
-                  {ph.enum.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                </select>
-              ) : (
-                <input className="dlg-input" value={values[ph.name] || ""} onChange={(e) => setValues((v) => ({ ...v, [ph.name]: e.target.value }))} placeholder={ph.default || ""} />
-              )}
-            </label>
-          ))}
-          <div className="dlg-actions" data-align-row>
-            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-            {mode === "run" ? (
-              <button type="button" className="btn btn-primary" disabled={busy || !effectiveId} onClick={run}>{busy ? "Sending…" : primary}</button>
-            ) : (
-              <>
-                <button type="button" className="btn btn-ghost" disabled={busy || !effectiveId} onClick={insert}>Insert snippet</button>
-                <button type="button" className="btn btn-primary" disabled={busy || !effectiveId} onClick={sendComposer}>{busy ? "Sending…" : primary}</button>
-              </>
-            )}
-          </div>
+          {confirming !== null ? (
+            <>
+              <p className="auto-hint">
+                Run in <strong>{targetName || "this terminal"}</strong>:
+              </p>
+              <pre className="auto-prompt snip-preview">{confirming}</pre>
+              <p className="auto-hint">PiCode does not quote values — quote in the snippet if the shell should see one word.</p>
+              <div className="dlg-actions" data-align-row>
+                <button type="button" className="btn btn-ghost" onClick={() => setConfirming(null)}>Back</button>
+                <button type="button" className="btn btn-primary" disabled={busy} onClick={run}>{busy ? "Running…" : "Run command"}</button>
+              </div>
+            </>
+          ) : (
+            <>
+              {!snipId && choices === null && !err ? (
+                <div className="mcp-skel" aria-hidden="true"><span className="skel-line w-70" /><span className="skel-line w-50" /></div>
+              ) : null}
+              {noChoices ? (
+                <p className="auto-hint">No snippets yet.</p>
+              ) : null}
+              {!snipId && choices && choices.length > 0 ? (
+                <label className="auto-field">
+                  <span>Snippet</span>
+                  <select className="auto-select" value={pickedId} onChange={(e) => { setPickedId(e.target.value); setErr(""); }}>
+                    <option value="">Choose…</option>
+                    {choices.map((c) => <option key={c.id} value={c.id}>{c.title}{!onlyKind && c.kind === "shell" ? " · Command" : ""}</option>)}
+                  </select>
+                </label>
+              ) : null}
+              {snip && fields.length === 0 ? <p className="auto-hint">No fields to fill.</p> : null}
+              {fields.map((ph) => (
+                <label key={ph.name} className="auto-field">
+                  <span>{ph.name}</span>
+                  {ph.enum && ph.enum.length ? (
+                    <select className="auto-select" value={values[ph.name] || ""} onChange={(e) => setValues((v) => ({ ...v, [ph.name]: e.target.value }))}>
+                      <option value="">{ph.optional ? "Default" : "Choose…"}</option>
+                      {ph.enum.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                  ) : (
+                    <input className="dlg-input" value={values[ph.name] || ""} onChange={(e) => setValues((v) => ({ ...v, [ph.name]: e.target.value }))} placeholder={ph.default || ""} />
+                  )}
+                </label>
+              ))}
+              <div className="dlg-actions" data-align-row>
+                <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+                {mode === "run" ? (
+                  <button type="button" className="btn btn-primary" disabled={busy || !effectiveId} onClick={beginRun}>{busy ? "Sending…" : isShell ? "Run command…" : primary}</button>
+                ) : (
+                  <>
+                    <button type="button" className="btn btn-ghost" disabled={busy || !effectiveId} onClick={insert}>Insert snippet</button>
+                    <button type="button" className="btn btn-primary" disabled={busy || !effectiveId} onClick={sendComposer}>{busy ? "Sending…" : primary}</button>
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

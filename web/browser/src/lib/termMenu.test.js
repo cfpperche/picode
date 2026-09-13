@@ -40,6 +40,13 @@ test("send-to-terminal follows the prompt door (ADR-0089)", () => {
   assert.equal(ids(buildTermMenu({ kind: "term", shell: true })).includes("snippet"), false);
 });
 
+test("run-command lives on a bare shell pane (ADR-0130 Q2a)", () => {
+  const rows = buildTermMenu({ kind: "term", shell: true });
+  assert.equal(row(rows, "snippet-cmd").label, "Run command…");
+  assert.equal(ids(buildTermMenu({ kind: "term", cli: "Pi", running: true })).includes("snippet-cmd"), false);
+  assert.equal(ids(buildTermMenu({ kind: "agent", shell: true })).includes("snippet-cmd"), false);
+});
+
 test("find is offered on every pane, with the chord the app really answers", () => {
   for (const ctx of [{ kind: "term" }, { kind: "term", cli: "Pi", running: true }, { kind: "agent" }]) {
     assert.ok(ids(buildTermMenu(ctx)).includes("find"), JSON.stringify(ctx));

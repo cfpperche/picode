@@ -127,6 +127,112 @@ func TestSnipsPickerIsNotAnID(t *testing.T) {
 	}
 }
 
+func TestSnipRunShellIntoTerminal(t *testing.T) {
+	newHarness := func(t *testing.T) (*store.Store, *httptest.Server, *TermRuntimes, store.Terminal, store.Snip) {
+		t.Helper()
+		t.Cleanup(resetPromptInFlight)
+		cwd := t.TempDir()
+		st := testStore(t)
+		runtimes := NewTermRuntimes()
+		ts := httptest.NewServer(New("127.0.0.1:0", Deps{
+			Store: st, Tmux: tmux.New(), Runtime: rpc.NewRuntime("cat", st, nil), AgentCmd: "cat",
+			TermRuntimes: runtimes,
+		}).Handler)
+		t.Cleanup(ts.Close)
+		term, err := st.CreateTerminal("sh", cwd)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p, err := st.CreateSnip(store.SnipParams{Title: "Deploy", Kind: "shell", Body: "echo deploy {{env=dev}} in {{cwd}}"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return st, ts, runtimes, term, p
+	}
+	stubPane := func(t *testing.T, cmd string) {
+		t.Helper()
+		orig := paneCommandFn
+		paneCommandFn = func(context.Context, Deps, string) string { return cmd }
+		t.Cleanup(func() { paneCommandFn = orig })
+	}
+	run := func(t *testing.T, ts *httptest.Server, p store.Snip, target map[string]string, values map[string]string, confirm bool) (int, map[string]any) {
+		return snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+p.ID+"/run", map[string]any{
+			"target": target, "values": values, "confirm": confirm,
+		})
+	}
+
+	t.Run("confirm is required", func(t *testing.T) {
+		_, ts, _, term, p := newHarness(t)
+		fakeTmuxBin(t)
+		stubPane(t, "bash")
+		code, out := run(t, ts, p, map[string]string{"type": "terminal", "id": term.ID}, nil, false)
+		if code != http.StatusBadRequest || !strings.Contains(out["error"].(string), "confirm") {
+			t.Fatalf("no confirm = %d %v", code, out)
+		}
+	})
+
+	t.Run("agent target refused as kind", func(t *testing.T) {
+		_, ts, _, _, p := newHarness(t)
+		code, out := run(t, ts, p, map[string]string{"type": "agent", "id": "a"}, nil, true)
+		if code != http.StatusConflict || out["reason"] != "kind" {
+			t.Fatalf("agent = %d %v", code, out)
+		}
+	})
+
+	t.Run("live CLI lease refuses", func(t *testing.T) {
+		_, ts, runtimes, term, p := newHarness(t)
+		fakeTmuxBin(t)
+		stubPane(t, "sh")
+		runtimes.Start(term.ID, TermRuntime{CLI: "pi", RunID: "r-1", Source: "wrapper"})
+		code, out := run(t, ts, p, map[string]string{"type": "terminal", "id": term.ID}, nil, true)
+		if code != http.StatusConflict || out["reason"] != "cli" {
+			t.Fatalf("lease = %d %v", code, out)
+		}
+	})
+
+	t.Run("non-shell foreground refuses", func(t *testing.T) {
+		_, ts, _, term, p := newHarness(t)
+		fakeTmuxBin(t)
+		stubPane(t, "vim")
+		code, out := run(t, ts, p, map[string]string{"type": "terminal", "id": term.ID}, nil, true)
+		if code != http.StatusConflict || out["reason"] != "foreground" {
+			t.Fatalf("vim = %d %v", code, out)
+		}
+	})
+
+	t.Run("preview expands live context without delivering", func(t *testing.T) {
+		paste := fakeTmuxBin(t)
+		_, ts, _, term, p := newHarness(t)
+		stubPane(t, "bash")
+		code, out := snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+p.ID+"/run", map[string]any{
+			"target": map[string]string{"type": "terminal", "id": term.ID}, "values": map[string]string{"env": "stg"}, "confirm": true, "preview": true,
+		})
+		if code != http.StatusOK || out["preview"] != true {
+			t.Fatalf("preview = %d %v", code, out)
+		}
+		if !strings.Contains(out["text"].(string), "echo deploy stg in "+term.Cwd) {
+			t.Fatalf("preview text = %v", out["text"])
+		}
+		if raw, err := os.ReadFile(paste); err == nil && len(raw) > 0 {
+			t.Fatalf("preview delivered: %q", raw)
+		}
+	})
+
+	t.Run("runs on a bare shell", func(t *testing.T) {
+		paste := fakeTmuxBin(t)
+		_, ts, _, term, p := newHarness(t)
+		stubPane(t, "bash")
+		code, out := run(t, ts, p, map[string]string{"type": "terminal", "id": term.ID}, map[string]string{"env": "prod"}, true)
+		if code != http.StatusOK || out["typed"] != true {
+			t.Fatalf("run = %d %v", code, out)
+		}
+		got, err := os.ReadFile(paste)
+		if err != nil || !strings.Contains(string(got), "echo deploy prod in "+term.Cwd) {
+			t.Fatalf("paste %q %v", got, err)
+		}
+	})
+}
+
 func TestSnipRunIntoTerminal(t *testing.T) {
 	newHarness := func(t *testing.T) (*store.Store, *httptest.Server, store.Terminal, store.Snip) {
 		t.Helper()
@@ -256,7 +362,8 @@ func TestSnipExpandAndRun(t *testing.T) {
 	code, out := snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+shell["id"].(string)+"/run", map[string]any{
 		"target": map[string]string{"type": "agent", "id": "x"}, "values": map[string]string{}, "confirm": true,
 	})
-	if code != http.StatusConflict || out["reason"] != "unimplemented" {
+	// A command never runs inside an agent — 409 kind, not unimplemented.
+	if code != http.StatusConflict || out["reason"] != "kind" {
 		t.Fatalf("shell run = %d %v", code, out)
 	}
 

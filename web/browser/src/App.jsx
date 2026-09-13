@@ -2030,7 +2030,8 @@ export default function App({ shellChrome = false } = {}) {
     fullscreen: () => focus.toggle(),
     ask: (ctx) => openTermAttach(ctx, ctx.selection),
     attach: (ctx) => openTermAttach(ctx, ""),
-    snippet: (ctx) => setSnipRun({ target: { type: "terminal", id: ctx.id } }),
+    snippet: (ctx) => setSnipRun({ target: { type: "terminal", id: ctx.id }, targetName: ctx.record && ctx.record.name, onlyKind: "prompt" }),
+    "snippet-cmd": (ctx) => setSnipRun({ target: { type: "terminal", id: ctx.id }, targetName: ctx.record && ctx.record.name, onlyKind: "shell" }),
     find: (ctx) => setTermFind(ctx.id),
     handoff: (ctx, targetId) => {
       const record = ctx && ctx.record;
@@ -3359,7 +3360,9 @@ export default function App({ shellChrome = false } = {}) {
         mode="run"
         snipId={snipRun && snipRun.snipId}
         target={snipRun && snipRun.target}
-        onRan={() => { setSnipRun(null); toast.ok("Sent."); }}
+        targetName={snipRun && snipRun.targetName}
+        onlyKind={snipRun && snipRun.onlyKind}
+        onRan={() => setSnipRun(null)}
         onClose={() => setSnipRun(null)}
       />
       <ContextMenu

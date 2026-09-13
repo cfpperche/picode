@@ -403,9 +403,15 @@ func (s *Store) SetSnipArchived(id string, archived bool) (Snip, error) {
 	return p, nil
 }
 
-// ListSnipPicker is live prompt snippets for the composer extra list.
-func (s *Store) ListSnipPicker() ([]SnipPicker, error) {
-	rows, err := s.db.Query(`SELECT id, slug, title, description, kind, placeholders FROM snips WHERE archived_at IS NULL AND kind = 'prompt' ORDER BY starred DESC, updated_at DESC LIMIT 200`)
+// ListSnipPicker is live snippets for the composer and run sheets. Prompt
+// only by default (the composer never offers a Command, D2); includeShell
+// adds kind shell for the terminal menu's Run command…
+func (s *Store) ListSnipPicker(includeShell bool) ([]SnipPicker, error) {
+	where := `archived_at IS NULL AND kind = 'prompt'`
+	if includeShell {
+		where = `archived_at IS NULL`
+	}
+	rows, err := s.db.Query(`SELECT id, slug, title, description, kind, placeholders FROM snips WHERE ` + where + ` ORDER BY starred DESC, updated_at DESC LIMIT 200`)
 	if err != nil {
 		return nil, fmt.Errorf("store: snip picker: %w", err)
 	}

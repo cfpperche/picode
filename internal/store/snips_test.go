@@ -118,12 +118,12 @@ func TestSnipStarArchiveAndPicker(t *testing.T) {
 	if n != 1 {
 		t.Fatalf("count archived = %d", n)
 	}
-	pick, err := s.ListSnipPicker()
+	pick, err := s.ListSnipPicker(false)
 	if err != nil || len(pick) != 0 {
 		t.Fatalf("picker should omit archived prompt and all shell, got %+v %v", pick, err)
 	}
 	_, _ = s.SetSnipArchived(a.ID, false)
-	pick, _ = s.ListSnipPicker()
+	pick, _ = s.ListSnipPicker(false)
 	if len(pick) != 1 || pick[0].Slug != "alpha" || pick[0].Kind != "prompt" {
 		t.Fatalf("picker = %+v", pick)
 	}

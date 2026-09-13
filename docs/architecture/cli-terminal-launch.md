@@ -169,7 +169,10 @@ menu gains **Send to terminal…** beside Attach, which opens the snippet
 fill sheet and delivers through the shared `pasteToTerminal` path. The
 pane's foreground is re-checked at handler time — a launch row stays
 true after the TUI exits, and a prompt snippet meeting a bare shell is
-refused with 409 `kind` instead of pasted.
+refused with 409 `kind` instead of pasted. A **bare shell** pane offers
+**Run command…** instead: the snippet-run door (ClearLine + paste +
+Enter, one confirm that shows the exact command; a live CLI lease
+refuses).
 
 On the phone the pad is mounted inside the shell root (`#m-app`), which owns
 the visual viewport and the safe areas (ADR-0044): a body portal is fixed to

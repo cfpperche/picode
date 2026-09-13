@@ -55,8 +55,8 @@ not bump `updated_at`.
 | GET/PATCH/DELETE | `/api/snips/{id}` |
 | POST | `/api/snips/{id}/starred`, `/archived` |
 
-`/expand` and `/run` are later commits. Kind `shell` may be stored; the
-editor hides it until the snippet-run door lands.
+`/expand` and `/run`: kind `shell` may be stored and runs through the
+snippet-run door; the editor's Kind control offers Prompt and Command.
 
 ## Desktop studio
 
@@ -74,11 +74,19 @@ with `target.type=agent` expands with live `cwd` / workspace / agent name
 and `SendTurn`s. `target.type=terminal` delivers through the **ADR-0089
 door** (shared `pasteToTerminal`): `termHoldsCLI` must hold, and the
 pane's foreground is re-checked at handler time — a shell (the TUI
-exited) answers 409 `kind`, because a prompt body pasted into bash is
-the defect the owner refused. Kind `shell` answers 409 `unimplemented`
-until the snippet-run door lands. Composer `/snip:slug` opens a fill
-sheet (**Insert snippet** splices the draft; **Send snippet** calls
-`fireSend` with the spliced text so images stay). Palette **Send
-snippet** posts `/run`. The desktop terminal right-click menu gains
-**Send to terminal…** (same door as Attach). Every attempt announces
-ephemeral `snip.ran` (ok + reason, never values).
+exited, no live wrapper lease) answers 409 `kind`, because a prompt body
+pasted into bash is the defect the owner refused.
+
+Kind `shell` is the **snippet-run door**: terminal target only,
+`confirm: true` required (a UI invariant on official clients, not authz
+— K14), a live CLI lease refuses (`reason: "cli"`), the pane foreground
+must be a shell (`reason: "foreground"` otherwise), ClearLine then a
+bracketed paste whose Enter submits. `preview: true` expands with live
+gates and context but delivers nothing — the confirm step shows exactly
+what would run. Composer `/snip:slug` opens a fill sheet (**Insert
+snippet** splices the draft; **Send snippet** calls `fireSend` with the
+spliced text so images stay). Palette **Send snippet** posts `/run`. The
+desktop terminal right-click menu gains **Send to terminal…** (CLI
+panes) and **Run command…** (bare shells), each filtered to its kind.
+Every attempt announces ephemeral `snip.ran` (ok + reason, never
+values).

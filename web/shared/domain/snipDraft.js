@@ -205,6 +205,7 @@ export function readDraft(store, id) {
       description: String(d.description || ""),
       body: String(d.body || ""),
       tags: String(d.tags || ""),
+      kind: d.kind === "shell" ? "shell" : "prompt",
       slugLocked: !!d.slugLocked,
       base: d.base || "",
     };
@@ -219,6 +220,7 @@ export function writeDraft(store, id, draft, base) {
       description: draft.description || "",
       body: draft.body || "",
       tags: draft.tags || "",
+      kind: draft.kind === "shell" ? "shell" : "prompt",
       slugLocked: !!draft.slugLocked,
       base: base || "",
     }));
@@ -235,7 +237,8 @@ export function sameDraft(a, b) {
     && (a.slug || "") === (b.slug || "")
     && (a.description || "") === (b.description || "")
     && (a.body || "") === (b.body || "")
-    && (a.tags || "") === (b.tags || "");
+    && (a.tags || "") === (b.tags || "")
+    && (a.kind || "prompt") === (b.kind || "prompt");
 }
 
 export function draftToRestore(draft, server) {
@@ -248,13 +251,14 @@ export function draftToRestore(draft, server) {
 }
 
 export function formFromSnip(p) {
-  if (!p) return { title: "", slug: "", description: "", body: "", tags: "", slugLocked: false };
+  if (!p) return { title: "", slug: "", description: "", body: "", tags: "", kind: "prompt", slugLocked: false };
   return {
     title: p.title || "",
     slug: p.slug || "",
     description: p.description || "",
     body: p.body || "",
     tags: (p.tags || []).join(", "),
+    kind: p.kind === "shell" ? "shell" : "prompt",
     slugLocked: true,
   };
 }

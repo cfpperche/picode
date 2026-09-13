@@ -1,11 +1,13 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cfpperche/picode/internal/snips"
 	"github.com/cfpperche/picode/internal/store"
@@ -58,7 +60,7 @@ func handleListSnips(deps Deps) http.HandlerFunc {
 
 func handleSnipPicker(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		list, err := deps.Store.ListSnipPicker()
+		list, err := deps.Store.ListSnipPicker(queryFlag(r, "shell"))
 		if err != nil {
 			writePinErr(w, err)
 			return
@@ -169,6 +171,9 @@ type snipRunReq struct {
 	Target  snipRunTarget     `json:"target"`
 	Values  map[string]string `json:"values"`
 	Confirm bool              `json:"confirm"`
+	// Preview expands with live context and runs the gates, but delivers
+	// nothing — the confirm step of a command shows exactly what would run.
+	Preview bool `json:"preview"`
 }
 
 type snipRunTarget struct {
@@ -230,8 +235,22 @@ func handleSnipRun(deps Deps) http.HandlerFunc {
 			}
 		}()
 		if p.Kind == "shell" {
-			reason, status = "unimplemented", http.StatusConflict
-			writeJSON(w, status, map[string]any{"error": "Command snippets are not available yet.", "reason": reason})
+			if req.Target.Type != "terminal" {
+				reason, status = "kind", http.StatusConflict
+				writeJSON(w, status, map[string]any{"error": "A command runs in a terminal, not in an agent.", "reason": reason})
+				return
+			}
+			if !req.Confirm {
+				status = http.StatusBadRequest
+				writeErr(w, status, "confirm is required to run a command")
+				return
+			}
+			code, body := runShellIntoTerminal(deps, r, p, req)
+			if rsn, _ := body["reason"].(string); rsn != "" {
+				reason = rsn
+			}
+			status = code
+			writeJSON(w, code, body)
 			return
 		}
 		switch req.Target.Type {
@@ -373,6 +392,72 @@ func runSnipIntoTerminal(deps Deps, r *http.Request, p store.Snip, req snipRunRe
 		return http.StatusOK, map[string]any{"ok": true, "typed": true, "text": text}
 	}
 	return status, body
+}
+
+// runShellIntoTerminal delivers a command snippet through the snippet-run
+// door (ADR-0128 in ADR-0130): a live shell pane only, re-checked at
+// handler time, one in-flight run per terminal, ClearLine then a
+// bracketed paste whose Enter submits. Confirm was already required by
+// the caller — a UI invariant on official clients, not authorization
+// (K14): a paired API client may set it, same as Pins.
+func runShellIntoTerminal(deps Deps, r *http.Request, p store.Snip, req snipRunReq) (int, map[string]any) {
+	t, err := deps.Store.GetTerminal(req.Target.ID)
+	if err != nil {
+		return storeStatus(err), map[string]any{"error": err.Error()}
+	}
+	if deps.Tmux == nil || !deps.Tmux.Available() {
+		return http.StatusServiceUnavailable, map[string]any{"error": "Need tmux to run a command in a terminal."}
+	}
+	// A live CLI lease means the TUI owns the pane — the wrapper `sh` is
+	// the pane leader, so isShell alone would lie. Only a lease-less pane
+	// whose foreground is a shell may run a command (a launch whose TUI
+	// exited returned the pane to an interactive shell; Q2a allows it).
+	if _, live := deps.TermRuntimes.Get(t.ID); live {
+		return http.StatusConflict, map[string]any{"error": "This terminal is running its CLI.", "reason": "cli"}
+	}
+	ctx0, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+	session := tmux.ShellSessionName(t.ID)
+	cmd := paneCommandFn(ctx0, deps, session)
+	if cmd == "" {
+		return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
+	}
+	if !isShell(cmd) {
+		return http.StatusConflict, map[string]any{"error": "This terminal is running " + cmd + ".", "reason": "foreground"}
+	}
+	wsPath := ""
+	if t.WorkspaceID != "" && t.WorkspaceID != store.FreeWorkspaceID {
+		if wk, err := deps.Store.GetWorkspace(t.WorkspaceID); err == nil {
+			wsPath = wk.Path
+		}
+	}
+	ctx := map[string]string{
+		"cwd":       liveTermCwd(deps, r, t),
+		"workspace": wsPath,
+		"agent":     "",
+		"cli":       "",
+	}
+	text, missing, err := expandStoredSnip(p, req.Values, ctx)
+	if err != nil {
+		return http.StatusBadRequest, map[string]any{"error": err.Error()}
+	}
+	if len(missing) > 0 {
+		return http.StatusBadRequest, map[string]any{"error": "Fill in the missing fields.", "missing": missing}
+	}
+	if req.Preview {
+		return http.StatusOK, map[string]any{"preview": true, "text": text}
+	}
+	if !tryLockPrompt(t.ID) {
+		return http.StatusConflict, map[string]any{"error": "Already sending to this terminal.", "reason": "busy"}
+	}
+	defer unlockPrompt(t.ID)
+	// The pane holds a shell prompt (checked above); clear whatever was
+	// typed there so the command is not glued to it (ADR-0096), then paste.
+	_ = deps.Tmux.ClearLine(ctx0, session)
+	if err := deps.Tmux.PasteText(ctx0, session, text); err != nil {
+		return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
+	}
+	return http.StatusOK, map[string]any{"ok": true, "typed": true, "text": text}
 }
 
 func expandStoredSnip(p store.Snip, values, ctx map[string]string) (string, []string, error) {

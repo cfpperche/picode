@@ -254,7 +254,7 @@ function Editor({ initial, onCancel, onSaved, onDelete }) {
       description: checked.value.description,
       body: checked.value.body,
       tags: tagsFromInput(checked.value.tags),
-      kind: full && full.kind === "shell" ? "shell" : "prompt",
+      kind: f.kind === "shell" ? "shell" : "prompt",
     };
     if (full && full.updatedAt) payload.ifUpdatedAt = full.updatedAt;
     try {
@@ -305,6 +305,14 @@ function Editor({ initial, onCancel, onSaved, onDelete }) {
       <h3 className="auto-detail-title">{full ? "Edit snippet" : "New snippet"}</h3>
       {err ? <p className="form-error" role="alert">{err}</p> : null}
 
+      <label className="auto-field">
+        <span>Kind</span>
+        <select className="auto-select" value={f.kind || "prompt"} onChange={(e) => set({ kind: e.target.value })} aria-label="Kind">
+          <option value="prompt">Prompt</option>
+          <option value="shell">Command</option>
+        </select>
+        <span className="auto-hint">{f.kind === "shell" ? "Pasted into a terminal shell after you confirm." : "Sent to an agent or a CLI terminal."}</span>
+      </label>
       <label className="auto-field">
         <span>Title</span>
         <input className="dlg-input" value={f.title} onChange={(e) => set({ title: e.target.value })} maxLength={200} required />

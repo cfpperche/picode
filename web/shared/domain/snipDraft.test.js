@@ -47,6 +47,8 @@ test("draft restore", () => {
 
 test("formFromSnip and tags", () => {
   assert.equal(formFromSnip({ title: "T", tags: ["a", "b"] }).tags, "a, b");
+  assert.equal(formFromSnip({ kind: "shell" }).kind, "shell");
+  assert.equal(formFromSnip(null).kind, "prompt");
   assert.deepEqual(tagsFromInput(" a, b , "), ["a", "b"]);
 });
 
