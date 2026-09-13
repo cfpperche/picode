@@ -133,3 +133,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0126](0126-remove-session-adopt.md) | Remove session adoption — agents are born only from new sessions | accepted |
 | [0127](0127-dashboard-measures-the-machine.md) | The dashboard measures the whole machine; the `?scope=` mode and its chips retire (amends 0097) | accepted |
 | [0128](0128-work-browser-cdp-policy.md) | work-browser-cdp-policy | proposed |
+| [0130](0130-picode-snippets.md) | PiCode Snippets — GUI library, expand-before-send, snippet-run door | accepted |
