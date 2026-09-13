@@ -2,7 +2,7 @@
 
 ## Next
 
-- Owner: keep Activate now on a recorded session, or widen to cold-start (no sessionKey). Remote mode stays out of v1.
+- Owner: Activate now cold-start vs recorded session. Remote stays out of v1.
 
 ## Debts
 
