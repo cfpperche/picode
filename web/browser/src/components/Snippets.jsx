@@ -7,7 +7,7 @@ import { applySnips, touches } from "@picode/shared/domain/feedReducers.js";
 import { parseForm, snipSchema } from "@picode/shared/contracts/schemas.js";
 import {
   SNIP_RESERVED, bodyLimit, clearDraft, draftToRestore, expandSnip, formFromSnip,
-  insertLiteralBraces, parseSnip, readDraft, sameDraft, snipSlug, tagsFromInput, writeDraft,
+  insertLiteralBraces, parseSnip, readDraft, sameDraft, setDefaultInBody, snipSlug, tagsFromInput, writeDraft,
 } from "@picode/shared/domain/snipDraft.js";
 import { snippetRoute, snippetsHash } from "../lib/routes.js";
 import { toast, toastError } from "../lib/toast.js";
@@ -202,7 +202,9 @@ function Editor({ initial, onCancel, onSaved, onDelete }) {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [slugLocked, setSlugLocked] = useState(!!(initial && initial.slug));
+  const [enums, setEnums] = useState({}); // name -> enum[]; rides the draft, sent on save
   const bodyRef = useRef(null);
+  const lastGood = useRef("");
   const loaded = useRef(false);
   const hydrated = useRef(false);
 
@@ -214,6 +216,7 @@ function Editor({ initial, onCancel, onSaved, onDelete }) {
         const stored = typeof sessionStorage !== "undefined" ? readDraft(sessionStorage, p.id) : null;
         const restore = draftToRestore(stored, form);
         setF(restore ? { ...form, ...restore } : form);
+        if (stored && stored.enums) setEnums(stored.enums);
         setSlugLocked(true);
         hydrated.current = true;
       }).catch((e) => setErr(e.message || "Could not load snippet."));
@@ -224,13 +227,14 @@ function Editor({ initial, onCancel, onSaved, onDelete }) {
     const stored = typeof sessionStorage !== "undefined" ? readDraft(sessionStorage, "new") : null;
     const restore = draftToRestore(stored, null);
     if (restore) setF(restore);
+    if (stored && stored.enums) setEnums(stored.enums);
     hydrated.current = true;
   }, [initial?.id]);
 
   useEffect(() => {
     if (!hydrated.current || typeof sessionStorage === "undefined") return;
-    writeDraft(sessionStorage, id, { ...f, slugLocked }, full ? full.updatedAt : "");
-  }, [f, id, full, slugLocked]);
+    writeDraft(sessionStorage, id, { ...f, enums, slugLocked }, full ? full.updatedAt : "");
+  }, [f, id, full, slugLocked, enums]);
 
   function set(patch) {
     setF((cur) => {
@@ -241,13 +245,24 @@ function Editor({ initial, onCancel, onSaved, onDelete }) {
   }
 
   const parsed = parseSnip(f.body);
+  // While the body is invalid the table and preview fall back to the last
+  // good parse, dimmed — the user never loses sight of what they had.
+  const live = parsed.ok ? parsed : parseSnip(lastGood.current || "");
+  const invalid = !parsed.ok;
+  if (parsed.ok) lastGood.current = f.body;
   const preview = parsed.ok ? expandSnip(f.body, {}, {}) : { text: "", missing: [] };
   const cap = bodyLimit(f.body);
+  const validationErr = invalid ? (
+    parsed.error === "unclosed placeholder" ? "Close every placeholder — check around “" + (parsed.excerpt || f.body.slice(-24)) + "”."
+      : parsed.error === "invalid placeholder name" ? "Invalid placeholder name near “" + (parsed.excerpt || "") + "”."
+      : parsed.error
+  ) : "";
 
   async function save(e) {
     e.preventDefault();
     const checked = parseForm(snipSchema, f);
     if (!checked.ok) { setErr(checked.error); return; }
+    if (!parsed.ok) { setErr(validationErr); return; }
     setBusy(true);
     setErr("");
     const payload = {
@@ -257,6 +272,7 @@ function Editor({ initial, onCancel, onSaved, onDelete }) {
       body: checked.value.body,
       tags: tagsFromInput(checked.value.tags),
       kind: f.kind === "shell" ? "shell" : "prompt",
+      placeholders: (parsed.placeholders || []).map((ph) => ({ ...ph, enum: enums[ph.name] })),
     };
     if (full && full.updatedAt) payload.ifUpdatedAt = full.updatedAt;
     try {
@@ -301,7 +317,8 @@ function Editor({ initial, onCancel, onSaved, onDelete }) {
         <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}><IconChevronLeft /> All snippets</button>
         <div className="auto-detail-actions" data-align-row>
           {onDelete ? <button type="button" className="btn btn-ghost btn-danger" onClick={onDelete}><IconTrash /> Delete</button> : null}
-          <button type="submit" className="btn btn-primary" disabled={busy || !dirty}>{busy ? "Saving…" : "Save"}</button>
+          <button type="submit" className="btn btn-primary" disabled={busy || !dirty || invalid}>{busy ? "Saving…" : "Save"}</button>
+          {invalid && !busy ? <span className="auto-hint bad">Fix the placeholders first.</span> : null}
         </div>
       </div>
       <h3 className="auto-detail-title">{full ? "Edit snippet" : "New snippet"}</h3>
@@ -334,22 +351,71 @@ function Editor({ initial, onCancel, onSaved, onDelete }) {
       </label>
       <label className="auto-field">
         <span>Body</span>
-        <textarea ref={bodyRef} className="auto-textarea snip-body" value={f.body} onChange={(e) => set({ body: e.target.value })} rows={10} />
+        <textarea ref={bodyRef} className={"auto-textarea snip-body" + (invalid ? " is-invalid" : "")} value={f.body} onChange={(e) => set({ body: e.target.value })} rows={10} />
         <div className="snip-body-bar" data-align-row>
           <button type="button" className="btn btn-ghost btn-sm" onClick={insertBraces}>Insert {"{{"}</button>
           {cap.near || cap.over ? <span className={"auto-hint" + (cap.over ? " bad" : "")}>{Math.round(cap.bytes / 1024)} / 100 KB</span> : null}
         </div>
       </label>
-      {parsed.ok && parsed.placeholders.length ? (
-        <div className="snip-chips">
-          {parsed.placeholders.map((p) => (
-            <span key={p.name} className={"snip-chip" + (SNIP_RESERVED.includes(p.name) ? " reserved" : "")}>
-              {p.name}{p.optional ? "=" + (p.default || "…") : ""}{SNIP_RESERVED.includes(p.name) ? " · from the target" : ""}
-            </span>
-          ))}
+      {invalid ? <p className="form-error" role="alert">{validationErr}</p> : null}
+      {live && live.placeholders.length ? (
+        <div className={"snip-table-wrap" + (invalid ? " is-stale" : "")}>
+          <table className="snip-table">
+            <thead>
+              <tr><th>Placeholder</th><th>Default</th><th>Optional</th><th>Enum (comma)</th></tr>
+            </thead>
+            <tbody>
+              {live.placeholders.map((ph) => {
+                const reserved = SNIP_RESERVED.includes(ph.name);
+                return (
+                  <tr key={ph.name} className={reserved ? " reserved" : ""}>
+                    <td>
+                      <code className="snip-cell-name">{"{{"}{ph.name}{"}}"}</code>
+                      {reserved ? <span className="auto-hint"> from the target</span> : null}
+                    </td>
+                    <td>
+                      {reserved ? <span className="auto-hint">—</span> : (
+                        <input
+                          className="dlg-input snip-cell-input"
+                          value={ph.optional ? ph.default : ""}
+                          placeholder={ph.optional ? "" : "required"}
+                          disabled={reserved}
+                          aria-label={"Default for " + ph.name}
+                          onChange={(e) => set({ body: setDefaultInBody(f.body, ph.name, e.target.value, true) })}
+                        />
+                      )}
+                    </td>
+                    <td>
+                      {reserved ? <span className="auto-hint">—</span> : (
+                        <input
+                          type="checkbox"
+                          checked={ph.optional}
+                          aria-label={"Optional for " + ph.name}
+                          onChange={(e) => set({ body: e.target.checked
+                            ? setDefaultInBody(f.body, ph.name, ph.default, true)
+                            : setDefaultInBody(f.body, ph.name, "", false) })}
+                        />
+                      )}
+                    </td>
+                    <td>
+                      {reserved ? <span className="auto-hint">—</span> : (
+                        <input
+                          className="dlg-input snip-cell-input"
+                          value={(enums[ph.name] || []).join(", ")}
+                          placeholder="dev, prod"
+                          aria-label={"Enum values for " + ph.name}
+                          onChange={(e) => setEnums((cur) => ({ ...cur, [ph.name]: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) }))}
+                        />
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       ) : null}
-      {parsed.ok && preview.text ? (
+      {!invalid && parsed.ok && preview.text ? (
         <label className="auto-field">
           <span>Preview</span>
           <pre className="auto-prompt snip-preview">{preview.text}</pre>

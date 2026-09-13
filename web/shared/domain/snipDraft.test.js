@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseSnip, expandSnip, snipSlug, insertLiteralBraces, draftToRestore, formFromSnip, tagsFromInput, replaceSnipToken } from "./snipDraft.js";
+import { parseSnip, expandSnip, snipSlug, insertLiteralBraces, draftToRestore, formFromSnip, tagsFromInput, replaceSnipToken, setDefaultInBody, encodeDefault } from "./snipDraft.js";
 
 test("parse golden", () => {
   assert.deepEqual(parseSnip("{{name}}").placeholders.map((p) => p.name), ["name"]);
@@ -56,4 +56,24 @@ test("replaceSnipToken keeps surrounding draft (D4)", () => {
   assert.equal(replaceSnipToken("see /snip:review please", "review", "look at PR 1"), "see look at PR 1 please");
   assert.equal(replaceSnipToken("/snip:review-pr ", "review-pr", "done"), "done ");
   assert.equal(replaceSnipToken("", "x", "hi"), "hi");
+});
+
+test("setDefaultInBody writes the first occurrence and drops optionality", () => {
+  assert.equal(setDefaultInBody("{{a}} {{a}}", "a", "1", true), "{{a=1}} {{a}}");
+  assert.equal(setDefaultInBody("{{a=x}}", "a", "y", true), "{{a=y}}");
+  assert.equal(setDefaultInBody("{{a=x}}", "a", "", true), "{{a=}}");
+  assert.equal(setDefaultInBody("{{a=x}}", "a", "", false), "{{a}}");
+  assert.equal(setDefaultInBody("nope", "a", "1", true), "nope");
+  assert.equal(setDefaultInBody("{{{{a}}}} then {{b}}", "b", "2", true), "{{{{a}}}} then {{b=2}}");
+});
+
+test("encodeDefault escapes brace pairs", () => {
+  assert.equal(encodeDefault("{{ x }}"), "{{{{ x }}}}");
+  assert.equal(encodeDefault("one } two"), "one } two");
+});
+
+test("parse errors carry an excerpt", () => {
+  const r = parseSnip("ok {{1bad}} tail");
+  assert.equal(r.ok, false);
+  assert.ok(r.excerpt.includes("1bad"));
 });

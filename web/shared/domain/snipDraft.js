@@ -119,6 +119,12 @@ function readPlaceholder(body, i) {
   return { ph, i: i + 2 };
 }
 
+function excerpt(body, at) {
+  const s = String(body || "");
+  const a = Math.max(0, (at | 0) - 8);
+  return s.slice(a, a + 24).replace(/\n/g, " ");
+}
+
 export function parseSnip(body) {
   const s = String(body == null ? "" : body);
   const out = [];
@@ -128,7 +134,7 @@ export function parseSnip(body) {
     if (hasAt(s, i, "{{{{") || hasAt(s, i, "}}}}")) { i += 4; continue; }
     if (hasAt(s, i, "{{")) {
       const r = readPlaceholder(s, i);
-      if (r.err) return { ok: false, error: r.err, placeholders: [] };
+      if (r.err) return { ok: false, error: r.err, at: r.i || i, excerpt: excerpt(s, r.i || i), placeholders: [] };
       if (!seen.has(r.ph.name)) {
         if (out.length >= SNIP_LIMITS.placeholders) return { ok: false, error: "too many placeholders", placeholders: [] };
         seen.add(r.ph.name);
@@ -206,6 +212,7 @@ export function readDraft(store, id) {
       body: String(d.body || ""),
       tags: String(d.tags || ""),
       kind: d.kind === "shell" ? "shell" : "prompt",
+      enums: d.enums && typeof d.enums === "object" && !Array.isArray(d.enums) ? d.enums : {},
       slugLocked: !!d.slugLocked,
       base: d.base || "",
     };
@@ -221,6 +228,7 @@ export function writeDraft(store, id, draft, base) {
       body: draft.body || "",
       tags: draft.tags || "",
       kind: draft.kind === "shell" ? "shell" : "prompt",
+      enums: draft.enums && typeof draft.enums === "object" && !Array.isArray(draft.enums) ? draft.enums : {},
       slugLocked: !!draft.slugLocked,
       base: base || "",
     }));
@@ -243,7 +251,7 @@ export function sameDraft(a, b) {
 
 export function draftToRestore(draft, server) {
   if (!draft) return null;
-  if (!server) return sameDraft(draft, { title: "", slug: "", description: "", body: "", tags: "" }) ? null : draft;
+  if (!server) return sameDraft(draft, { title: "", slug: "", description: "", body: "", tags: "", enums: {} }) ? null : draft;
   // Edit: only restore a draft taken from this server version. An empty
   // base is the editor's first paint, not a user edit.
   if (!draft.base || draft.base !== server.updatedAt) return null;
@@ -265,6 +273,37 @@ export function formFromSnip(p) {
 
 export function tagsFromInput(raw) {
   return String(raw || "").split(",").map((t) => t.trim()).filter(Boolean);
+}
+
+// encodeDefault escapes brace pairs so a default value survives the
+// grammar: `{{` is written `{{{{` (literal {{), `}}` as `}}}}`. Single
+// braces are literal in defaults and stay untouched.
+export function encodeDefault(value) {
+  return String(value == null ? "" : value).replace(/\{\{/g, "{{{{").replace(/\}\}/g, "}}}}");
+}
+
+// setDefaultInBody rewrites the FIRST occurrence of {{name}} in body to
+// carry (or, with optional=false, drop) a default. The body is the
+// source of truth; the placeholder table is a projection that calls
+// this. Unknown name or invalid body → body unchanged.
+export function setDefaultInBody(body, name, value, optional) {
+  const s = String(body == null ? "" : body);
+  let i = 0;
+  while (i < s.length) {
+    if (hasAt(s, i, "{{{{") || hasAt(s, i, "}}}}")) { i += 4; continue; }
+    if (hasAt(s, i, "{{")) {
+      const r = readPlaceholder(s, i);
+      if (r.err) return s;
+      if (r.ph.name === name) {
+        const inner = optional ? "=" + encodeDefault(value) : "";
+        return s.slice(0, i) + "{{" + name + inner + "}}" + s.slice(r.i);
+      }
+      i = r.i;
+      continue;
+    }
+    i++;
+  }
+  return s;
 }
 
 export function userPlaceholderNames(placeholders) {
