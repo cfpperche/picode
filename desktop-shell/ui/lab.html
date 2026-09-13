@@ -60,6 +60,9 @@
       .then(refresh).catch((e) => { $("status").textContent = e; });
   }
   function refresh() {
+    // Never clobber what the user is typing — the poll only mirrors the
+    // page's location into an unfocused field.
+    if (document.activeElement === url) return;
     inv("lab_current_url").then((u) => { if (u) url.value = u; }).catch(() => {});
   }
   $("go").onclick = go;
