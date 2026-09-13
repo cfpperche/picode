@@ -63,7 +63,7 @@ or `internal/rpc/`; the two state tests are in
 | 2. No conversation | `TestPeerParticipationBeforeConversationAndOwnerDeletion`, `TestWorkspaceParticipationAPI`; JS participation-state test | Consent persists without minting a credential; native Open and connect still requires a conversation |
 | 3. Exact identity and consent | `TestPeerParticipationDecisionTable` | Repeated setup reuses the connection; stale session and worker results are refused |
 | 4. New conversation | `TestPeerParticipationDecisionTable`, `TestPiLaunchRegistrationFollowsNativeSession` | Old capability fails; new session receives a separate connection; registration follows native identity |
-| 5. Owner moved or CLI changed | `TestPeerParticipationDecisionTable`, `TestPeerParticipationDoesNotTransferToAnotherCLI`; JS participation-state test | Changed CLI rejects existing consent, authentication and stale readiness writes; existing participant consent after an actual workspace move lacks a direct test |
+| 5. Owner moved or CLI changed | `TestPeerParticipationDecisionTable`, `TestPeerParticipationDoesNotTransferToAnotherCLI`, `TestPeerParticipationDoesNotTransferToAnotherWorkspace`; JS participation-state test | Changed CLI and an actual owner `workspace_id` change reject existing consent, authentication and stale readiness writes; the new workspace needs a fresh selection and mints a new capability |
 | 6. Disable or stale selection | `TestPeerParticipationDecisionTable`, `TestWorkspaceParticipationAPI` | Revocation and stale multi-row rejection are atomic; late workers cannot recreate a disabled connection |
 | 7. Grok/Hermes native lookup | `TestNativeCLIIdentity` | Per-call lookup covers current, missing, changed, resumed and ambiguous identity; this onboarding flow was not rerun in real Grok/Hermes |
 | 8. Idle Pi receiver, same session | `TestNativePiSetupSharesRegistrationAndPreservesDraft`, `TestReceiverConnectionRequiresCurrentProcess`, `TestNativePiAttentionReceiverDecisionTable` | Registration is shared and session/process fenced; setup sends no model prompt; native Pi setup and exchanges also passed below |
@@ -90,7 +90,7 @@ Native evidence is task-owned under `var/qa/communication-onboarding/`:
   before a first turn is unverified. The manual QA restart opened a fresh
   conversation rather than resuming; it is not evidence of correct startup/resume.
 
-Partial rows 5, 9 and 12 remain tracked in `docs/handoff/open/communication.md`.
+Partial rows 9 and 12 remain tracked in `docs/handoff/open/communication.md`.
 The new onboarding matrix was not rerun for Claude, OpenCode, Grok or Hermes;
 earlier native transport tests do not establish this flow. Claude/OpenCode model
 capacity remains an owner/provider limitation. Physical mobile and non-Linux
