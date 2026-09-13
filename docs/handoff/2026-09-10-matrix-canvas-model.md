@@ -17,5 +17,5 @@ Every row of the plan's decision table has a test: `TestMatrixModeReadsGridOnADa
 ## Debts
 
 - The transform lives twice (Go for the write, JS for the preview). Only the shared fixtures catch drift — no cross-language check.
-- `grid → canvas` clamps an 8-row panel from 24 to 28 units, so it can overlap the panel below by 4 units. A canvas allows overlap and the switch back packs it out; the round trip is legal and disjoint, never identical (8 rows leave and 9 come back). Deliberate, in the ADR.
+- `grid → canvas` clamps an 8-row panel from 24 to 28 units, so it can overlap the panel below by 4. A canvas allows overlap and the switch back packs it out; the round trip is legal and disjoint, never identical. Deliberate, in the ADR.
 - Nothing exercises the mode from a browser yet, and no surface reads it: C2 (`docs/plans/matrix-canvas.md`) owns the React Flow host, the mode switch in the header and the QA.
