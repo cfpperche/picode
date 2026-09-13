@@ -27,6 +27,13 @@ use tauri::{
 use tauri_plugin_notification::NotificationExt;
 
 fn main() {
+    // LAB BUILD ONLY (docs/plans/desktop-v2.md Phase 3 spike): expose CDP on
+    // loopback so the daemon side (WSL) can drive the same logged-in view the
+    // human sees. Loopback bind, spike-gated — the product replaces this with
+    // an authenticated channel; never ship this line as-is.
+    if std::env::var("PICODE_LAB_NO_CDP").is_err() {
+        std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--remote-debugging-port=9222");
+    }
     // The shell loads its own bundle, not the launcher's pick: /desktop/ is
     // composed for the shell only (ADR-0122), /browser/ is what a browser gets.
     let url = discover_server_url().map(|mut u| {
