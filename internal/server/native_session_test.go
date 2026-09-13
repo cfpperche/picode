@@ -213,6 +213,10 @@ func TestNativeHookIgnoresChildAndDelayedCompletion(t *testing.T) {
 		{"grok", `{"hook_event_name":"SessionEnd","session_id":"old","timestamp":"2099-01-01T00:00:00Z"}`, ""},
 		{"grok", `{"hook_event_name":"Notification","notification_type":"idle_prompt"}`, "idle"},
 		{"grok", `{"hookEventName":"notification","notificationType":"idle_prompt"}`, "idle"},
+		// Grok's question card holds needs-you; the tool's own completion
+		// (or any later lifecycle event) releases it through the report.
+		{"grok", `{"hook_event_name":"Notification","notification_type":"elicitation_dialog"}`, "needs-you"},
+		{"grok", `{"hookEventName":"notification","notificationType":"elicitation_dialog"}`, "needs-you"},
 		// Grok's other notifications are not attention states.
 		{"grok", `{"hook_event_name":"Notification","notification_type":"task_complete"}`, ""},
 		// Tool completion resumes the turn after an approved permission UI.
@@ -272,6 +276,95 @@ func TestToolActivityResumesAfterPermissionPrompt(t *testing.T) {
 	post(TermWorking, seq+1)
 	if st, _ := deps.TermStates.Get(term.ID); st.State != TermWorking {
 		t.Fatalf("state = %q, want working after the approved tool completed", st.State)
+	}
+}
+
+// The report itself must carry the hold: Grok stamps a question card with the
+// moment it appeared, and the server decides what releases it.
+func TestQuestionAttentionReports(t *testing.T) {
+	for _, tc := range []struct{ payload, wantState, wantAttention string }{
+		{`{"hook_event_name":"Notification","notificationType":"elicitation_dialog","message":"User question requested"}`, "needs-you", "question"},
+		{`{"hook_event_name":"PostToolUse","toolName":"ask_user_question"}`, "working", "answered"},
+		{`{"hook_event_name":"PostToolUseFailure","toolName":"ask_user_question"}`, "working", "answered"},
+		{`{"hook_event_name":"PostToolUse","toolName":"read_file"}`, "working", ""},
+		{`{"hook_event_name":"Notification","notificationType":"permission_prompt"}`, "needs-you", ""},
+	} {
+		cmd := exec.Command("python3", "-c", hookMapPy)
+		cmd.Env = append(os.Environ(), "PICODE_HOOK_CLI=grok", "PICODE_HOOK_REPORT=1")
+		cmd.Stdin = strings.NewReader(tc.payload)
+		raw, err := cmd.Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got struct {
+			State     string `json:"state"`
+			Attention string `json:"attention"`
+		}
+		if err := json.Unmarshal(raw, &got); err != nil {
+			t.Fatalf("%s: %v (%s)", tc.payload, err, raw)
+		}
+		if got.State != tc.wantState || got.Attention != tc.wantAttention {
+			t.Fatalf("%s => %+v, want state %q attention %q", tc.payload, got, tc.wantState, tc.wantAttention)
+		}
+	}
+}
+
+// Grok runs a turn's tool calls as a parallel batch: sibling tools complete
+// while the ask_user_question card waits. None of them is the answer, so the
+// held question keeps needs-you until the ask tool itself completes.
+func TestGrokQuestionHoldSurvivesBatchCompletions(t *testing.T) {
+	data := t.TempDir()
+	s, err := store.Open(filepath.Join(data, "state.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	w, _ := s.AddWorkspace("fixture", data)
+	term, _ := s.CreateTerminalIn(w.ID, "Grok", data)
+	s.SetTerminalLaunch(term.ID, "grok", clilaunch.Overrides{})
+	deps := Deps{Store: s, TermRuntimes: NewTermRuntimes(), TermStates: NewTermStates()}
+	deps.TermRuntimes.Start(term.ID, TermRuntime{CLI: "grok", RunID: "run-1", PID: os.Getpid()})
+	post := func(state, attention string, seq int64) {
+		t.Helper()
+		raw, _ := json.Marshal(map[string]any{
+			"state": state, "cli": "grok", "runId": "run-1", "attention": attention,
+			"sessionId": "native-A", "sessionSeq": seq,
+		})
+		req := httptest.NewRequest(http.MethodPost, "/api/terminals/"+term.ID+"/state", bytes.NewReader(raw))
+		req.SetPathValue("id", term.ID)
+		rec := httptest.NewRecorder()
+		handleSetTerminalState(deps)(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s/%s = %d: %s", state, attention, rec.Code, rec.Body.String())
+		}
+	}
+	seq := time.Now().UnixNano()
+	post(TermWorking, "", seq)
+	post(TermNeedsYou, TermAttentionQuestion, seq+1)
+	if st, _ := deps.TermStates.Get(term.ID); st.State != TermNeedsYou || st.Attention != TermAttentionQuestion {
+		t.Fatalf("state = %+v, want the reported question held", st)
+	}
+	// A sibling tool finishing in the same batch is not the answer.
+	post(TermWorking, "", seq+2)
+	if st, _ := deps.TermStates.Get(term.ID); st.State != TermNeedsYou || st.Attention != TermAttentionQuestion {
+		t.Fatalf("state = %+v after a sibling completion, want the hold", st)
+	}
+	// The question's own completion releases it.
+	post(TermWorking, TermAttentionAnswered, seq+3)
+	if st, _ := deps.TermStates.Get(term.ID); st.State != TermWorking || st.Attention != "" {
+		t.Fatalf("state = %+v after the answer, want working", st)
+	}
+	// The hold can carry an event older than a sibling completion, because the
+	// hook raced the batch: it must still be accepted, without rewinding the
+	// identity fence.
+	post(TermNeedsYou, TermAttentionQuestion, seq+1)
+	if st, _ := deps.TermStates.Get(term.ID); st.State != TermNeedsYou || st.Attention != TermAttentionQuestion {
+		t.Fatalf("state = %+v, want the racing question held", st)
+	}
+	// A settled lifecycle report clears the hold.
+	post(TermIdle, "", seq+4)
+	if st, _ := deps.TermStates.Get(term.ID); st.State != TermIdle || st.Attention != "" {
+		t.Fatalf("state = %+v, want idle with the hold cleared", st)
 	}
 }
 
@@ -368,7 +461,7 @@ func TestCodexHooksOutrankLegacyNotifyInSameRun(t *testing.T) {
 		{"codex-notify", "auxiliary", "idle", "real-root"},
 		{"codex-hook", "new-root", "working", "new-root"},
 	} {
-		if err := recordNativeTerminalObservation(deps, term.ID, "codex", "old-wrapper", tc.id, "", seq+int64(i), tc.state, tc.source); err != nil {
+		if err := recordNativeTerminalObservation(deps, term.ID, "codex", "old-wrapper", tc.id, "", seq+int64(i), tc.state, tc.source, ""); err != nil {
 			t.Fatal(err)
 		}
 		rt, _ := deps.TermRuntimes.Get(term.ID)
@@ -381,7 +474,7 @@ func TestCodexHooksOutrankLegacyNotifyInSameRun(t *testing.T) {
 		}
 	}
 	deps.TermRuntimes.Start(term.ID, TermRuntime{CLI: "codex", RunID: "legacy-new-run", PID: os.Getpid()})
-	if err := recordNativeTerminalObservation(deps, term.ID, "codex", "legacy-new-run", "legacy", "", seq+10, "idle", "codex-notify"); err != nil {
+	if err := recordNativeTerminalObservation(deps, term.ID, "codex", "legacy-new-run", "legacy", "", seq+10, "idle", "codex-notify", ""); err != nil {
 		t.Fatal(err)
 	}
 	rt, _ := deps.TermRuntimes.Get(term.ID)

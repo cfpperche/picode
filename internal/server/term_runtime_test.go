@@ -71,7 +71,7 @@ func TestRuntimePresenceRejectsStaleActivityProjection(t *testing.T) {
 	runtimes := NewTermRuntimes()
 	deps := Deps{TermStates: states, TermRuntimes: runtimes}
 	runtimes.Start("t1", TermRuntime{CLI: "codex", Source: "wrapper", RunID: "new", PID: 10})
-	states.SetForRun("t1", TermWorking, "pi", "old", time.Now())
+	states.SetForRun("t1", TermWorking, "pi", "old", "", time.Now())
 	view := map[string]any{}
 	applyTermRuntime(deps, view, "t1")
 	applyTermState(deps, view, "t1")
@@ -87,7 +87,7 @@ func TestRuntimePresenceDoesNotInventFallbackActivity(t *testing.T) {
 	states := NewTermStates()
 	runtimes := NewTermRuntimes()
 	deps := Deps{TermStates: states, TermRuntimes: runtimes}
-	states.SetForRun("t1", TermWorking, "pi", "", time.Now())
+	states.SetForRun("t1", TermWorking, "pi", "", "", time.Now())
 
 	registerTermRuntime(deps, "t1", TermRuntime{CLI: "pi", Source: "tmux-fallback", RunID: "tmux-t1-9", PID: 9})
 	if got, ok := states.Get("t1"); !ok || got.State != TermWorking {

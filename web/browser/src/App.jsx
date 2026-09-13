@@ -51,7 +51,7 @@ import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
-import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
 import { nativeApps, nativeSurfaceFor } from "./lib/nativeApps.js";
@@ -1086,6 +1086,10 @@ export default function App({ shellChrome = false } = {}) {
     // the router to #/agent/g:… — wait for the map instead.
     if (isGitTab(selectedId) && !gitOwner) return;
     if (isTreeTab(selectedId) && !treeOwner) return;
+    // Web tabs own no hash: they are session-scoped native surfaces. The
+    // workspace fallback below would read "w:<id>" as an agent id, fail to
+    // locate it and mark the tab gone ("That agent is gone", 2026-09-13).
+    if (isWebTab(selectedId)) return;
     const want = isTermTab(selectedId)
       ? termHash(tabTermId(selectedId))
       : isAppTab(selectedId)
@@ -1465,6 +1469,7 @@ export default function App({ shellChrome = false } = {}) {
   const [webTabs, setWebTabs] = useState({});
   const webSeqRef = useRef(0);
   function openWebTab(url) {
+    if (parseRoute(location.hash) !== "workspace") location.hash = "#/";
     webSeqRef.current += 1;
     const id = String(webSeqRef.current);
     setTabs((t) => [...t, "w:" + id]);
@@ -2750,7 +2755,7 @@ export default function App({ shellChrome = false } = {}) {
   const missing = !!goneId;
   const noTabs = tabs.length === 0 && !missing;
   const hasData = (workspaces.length + freeAgents.length + terminals.length) > 0;
-  const showHome = (noTabs || dashboardPinned) && hasData;
+  const showHome = (noTabs || dashboardPinned) && hasData && !isWebTab(selectedId);
 
   const tabsStrip = (
 <AgentTabs
@@ -3045,7 +3050,7 @@ export default function App({ shellChrome = false } = {}) {
             );
           })}
           <ChatSurface
-            hidden={noTabs || missing || termView || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId)}
+            hidden={noTabs || missing || termView || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId)}
             stopped={stopped}
             items={items}
             earlierRemaining={earlierRemaining}

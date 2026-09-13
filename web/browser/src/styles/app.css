@@ -1713,6 +1713,38 @@ img.ws-face.term-cli-face {
 .file-pane.expanded {
   position: absolute; inset: 0; width: auto; z-index: 12; border-left: 0;
 }
+/* Work browser tab (Phase 3 slice 1): toolbar + the region the native
+   WebView2 child overlays. The host's rect drives the webview bounds. */
+.web-tab-surface {
+  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+  position: relative; background: var(--bg-base);
+}
+.web-tab-surface[hidden] { display: none !important; }
+.web-tab-toolbar {
+  display: flex; align-items: center; gap: 6px; flex: none;
+  padding: 5px 8px; border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+.web-tab-toolbar button {
+  height: 28px; min-width: 28px; padding: 0 8px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: none; color: inherit; cursor: pointer;
+}
+.web-tab-toolbar button:hover { border-color: var(--border-strong); }
+.web-tab-toolbar input {
+  flex: 1; min-width: 80px; height: 28px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg-base); color: inherit;
+}
+.web-tab-toolbar input:focus { outline: 1px solid var(--accent); outline-offset: -1px; }
+.web-tab-host { flex: 1 1 auto; min-height: 0; position: relative; }
+.web-tab-empty {
+  flex: 1 1 auto; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px;
+  color: var(--text-secondary);
+}
+.web-tab-empty h3 { margin: 8px 0 0; font-size: 14px; color: var(--text-primary); }
+.web-tab-empty p { margin: 0; font-size: 12.5px; }
 .term-surface {
   flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
   position: relative; background: #0e0e11;

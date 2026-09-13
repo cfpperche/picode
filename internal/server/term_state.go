@@ -42,6 +42,16 @@ const workingTTL = 30 * time.Minute
 // cliCap bounds the reported CLI label (free-form, display only).
 const cliCap = 32
 
+// Human-input attention a coding CLI reports alongside a lifecycle state.
+// A held question (Grok's ask_user_question card) keeps needs-you until the
+// question tool itself completes: a turn's tool calls run as a parallel
+// batch, so sibling completions arrive while the card still waits, and none
+// of them is the answer.
+const (
+	TermAttentionQuestion = "question"
+	TermAttentionAnswered = "answered"
+)
+
 // TermState is a terminal's last reported guest-CLI state.
 type TermState struct {
 	SessionID  string    `json:"sessionId,omitempty"`
@@ -49,6 +59,7 @@ type TermState struct {
 	State      string    `json:"state"`
 	CLI        string    `json:"cli,omitempty"`
 	RunID      string    `json:"runId,omitempty"`
+	Attention  string    `json:"attention,omitempty"`
 	At         time.Time `json:"at"`
 }
 
@@ -70,13 +81,27 @@ func validTermState(s string) bool {
 // Set records a report and tells whether anything changed (a repeat of
 // the same state with the same cli is not worth an event).
 func (ts *TermStates) Set(termID, state, cli string, now time.Time) (TermState, bool) {
-	return ts.SetForRun(termID, state, cli, "", now)
+	return ts.SetForRun(termID, state, cli, "", "", now)
+}
+
+// heldQuestion reports whether a report must leave a held question alone:
+// working reports during the hold are parallel batch siblings, not answers.
+func heldQuestion(prev TermState, state, attention string) bool {
+	return prev.Attention == TermAttentionQuestion && state == TermWorking && attention != TermAttentionAnswered
+}
+
+// attentionFor keeps only an attention a report can hold.
+func attentionFor(state, attention string) string {
+	if state == TermNeedsYou && attention == TermAttentionQuestion {
+		return attention
+	}
+	return ""
 }
 
 // SetForRun records a lifecycle report and associates it with a runtime
 // lease when the wrapper supplied one. An empty runID keeps the legacy hook
 // path working and inherits the previous run identity when possible.
-func (ts *TermStates) SetForRun(termID, state, cli, runID string, now time.Time) (TermState, bool) {
+func (ts *TermStates) SetForRun(termID, state, cli, runID, attention string, now time.Time) (TermState, bool) {
 	if len(cli) > cliCap {
 		cli = cli[:cliCap]
 	}
@@ -89,10 +114,13 @@ func (ts *TermStates) SetForRun(termID, state, cli, runID string, now time.Time)
 	if runID == "" && had {
 		runID = prev.RunID
 	}
-	if had && prev.State == state && prev.CLI == cli && prev.RunID == runID {
+	if had && heldQuestion(prev, state, attention) {
 		return prev, false
 	}
-	st := TermState{State: state, CLI: cli, RunID: runID, At: now}
+	if had && prev.State == state && prev.CLI == cli && prev.RunID == runID && prev.Attention == attentionFor(state, attention) {
+		return prev, false
+	}
+	st := TermState{State: state, CLI: cli, RunID: runID, Attention: attentionFor(state, attention), At: now}
 	ts.m[termID] = st
 	return st, true
 }
@@ -186,10 +214,10 @@ func loopbackURL(deps Deps) string {
 }
 
 func reportTermState(deps Deps, id, state, cli string, now time.Time) TermState {
-	return reportTermStateForRun(deps, id, state, cli, "", now)
+	return reportTermStateForRun(deps, id, state, cli, "", "", now)
 }
 
-func reportTermStateForRun(deps Deps, id, state, cli, runID string, now time.Time) TermState {
+func reportTermStateForRun(deps Deps, id, state, cli, runID, attention string, now time.Time) TermState {
 	if deps.TermRuntimes != nil {
 		if runtime, ok := deps.TermRuntimes.Get(id); ok {
 			if runID == "" {
@@ -200,13 +228,16 @@ func reportTermStateForRun(deps Deps, id, state, cli, runID string, now time.Tim
 			}
 		}
 	}
-	st, changed := deps.TermStates.SetForRun(id, state, cli, runID, now)
+	st, changed := deps.TermStates.SetForRun(id, state, cli, runID, attention, now)
 	if changed && deps.Feed != nil {
 		data := map[string]any{
 			"termId": id, "state": st.State, "cli": st.CLI, "at": st.At,
 		}
 		if st.RunID != "" {
 			data["runId"] = st.RunID
+		}
+		if st.Attention != "" {
+			data["attention"] = st.Attention
 		}
 		deps.Feed.Ephemeral("terminal.state", data)
 	}
@@ -261,6 +292,7 @@ func handleSetTerminalState(deps Deps) http.HandlerFunc {
 			State              string `json:"state"`
 			CLI                string `json:"cli"`
 			RunID              string `json:"runId"`
+			Attention          string `json:"attention"`
 			SessionID          string `json:"sessionId"`
 			SessionPath        string `json:"sessionPath"`
 			SessionSeq         int64  `json:"sessionSeq"`
@@ -300,18 +332,22 @@ func handleSetTerminalState(deps Deps) http.HandlerFunc {
 		}
 		var st TermState
 		if req.SessionID != "" {
-			if err := recordNativeTerminalObservation(deps, id, req.CLI, req.RunID, req.SessionID, req.SessionPath, req.SessionSeq, req.State, req.Source); err != nil {
+			if err := recordNativeTerminalObservation(deps, id, req.CLI, req.RunID, req.SessionID, req.SessionPath, req.SessionSeq, req.State, req.Source, req.Attention); err != nil {
 				writeErr(w, http.StatusConflict, "Native conversation report is stale or invalid.")
 				return
 			}
 			st, _ = deps.TermStates.Get(id)
 			if deps.Feed != nil {
-				deps.Feed.Ephemeral("terminal.state", map[string]any{"termId": id, "state": st.State, "cli": st.CLI, "runId": st.RunID, "at": st.At})
+				data := map[string]any{"termId": id, "state": st.State, "cli": st.CLI, "runId": st.RunID, "at": st.At}
+				if st.Attention != "" {
+					data["attention"] = st.Attention
+				}
+				deps.Feed.Ephemeral("terminal.state", data)
 			}
 		} else {
-			st = reportTermStateForRun(deps, id, req.State, strings.TrimSpace(req.CLI), runID, time.Now())
+			st = reportTermStateForRun(deps, id, req.State, strings.TrimSpace(req.CLI), runID, req.Attention, time.Now())
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"termId": id, "state": st.State, "cli": st.CLI, "runId": st.RunID, "at": st.At})
+		writeJSON(w, http.StatusOK, map[string]any{"termId": id, "state": st.State, "cli": st.CLI, "runId": st.RunID, "attention": st.Attention, "at": st.At})
 	}
 }
 

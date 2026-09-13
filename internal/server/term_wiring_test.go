@@ -133,10 +133,15 @@ func TestInterceptCodexAndGrok(t *testing.T) {
 	if err != nil {
 		t.Fatalf("grok hooks missing: %v", err)
 	}
-	for _, want := range []string{"UserPromptSubmit", "PermissionRequest", "Notification", "PostToolUse", "PostToolUseFailure", "timeout\":10"} {
+	for _, want := range []string{"SessionStart", "UserPromptSubmit", "Notification", "PostToolUse", "PostToolUseFailure", "timeout\":10"} {
 		if !strings.Contains(string(raw), want) {
 			t.Fatalf("grok hooks missing %s: %s", want, raw)
 		}
+	}
+	// Grok has no PermissionRequest event (1.0.30): a group it skips silently
+	// must not be shipped as if it reported a permission prompt.
+	if strings.Contains(string(raw), "PermissionRequest") {
+		t.Fatalf("grok hooks carry an event Grok does not dispatch: %s", raw)
 	}
 }
 

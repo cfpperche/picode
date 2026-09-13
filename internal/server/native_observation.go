@@ -166,7 +166,7 @@ func reconcileNativeObservation(ctx context.Context, deps Deps, id string) {
 	if o.CodexHooks {
 		source = "codex-hook"
 	}
-	if recordNativeTerminalObservation(deps, id, o.CLI, o.RunID, o.SessionID, o.SessionPath, o.SessionSeq, o.State, source, true) != nil {
+	if recordNativeTerminalObservation(deps, id, o.CLI, o.RunID, o.SessionID, o.SessionPath, o.SessionSeq, o.State, source, "", true) != nil {
 		return
 	}
 	// Preserve the actual event age; restarting must not extend workingTTL.
