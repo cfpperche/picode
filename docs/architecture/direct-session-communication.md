@@ -138,7 +138,9 @@ the workspace view. The request is never automatic: the terminal must be idle,
 its composer must be empty, its process and session must still match, and the
 user confirms that one model turn will be consumed. The request uses the same
 guarded native input path as connection attention, returns a single attempt,
-and never retries after an uncertain delivery.
+and never retries after an uncertain delivery. A recorded session key is
+required, so a fresh Codex/Hermes/OpenCode welcome does not offer the action.
+Measurement: [activation acceptance](../plans/communication-activation-accept.md).
 
 Grok/Hermes/Codex resolve prepared setup in their native shell calls. Pi initial setup
 and hot replacement share one receiver-owned MCP registration; setup uses the

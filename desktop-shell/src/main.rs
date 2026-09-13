@@ -8,6 +8,7 @@
 // keepalive, the disk actions and the browser policy arrive in later phases —
 // the Go tray keeps owning them until then.
 
+mod btab;
 mod browserlab;
 mod clean;
 mod disk;
@@ -22,11 +23,18 @@ use std::process::Command;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, WebviewUrl, WebviewWindowBuilder,
+    Emitter, Manager, WebviewUrl, WebviewWindowBuilder,
 };
 use tauri_plugin_notification::NotificationExt;
 
 fn main() {
+    // LAB BUILD ONLY (docs/plans/desktop-v2.md Phase 3 spike): expose CDP on
+    // loopback so the daemon side (WSL) can drive the same logged-in view the
+    // human sees. Loopback bind, spike-gated — the product replaces this with
+    // an authenticated channel; never ship this line as-is.
+    if std::env::var("PICODE_LAB_NO_CDP").is_err() {
+        std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--remote-debugging-port=9222");
+    }
     // The shell loads its own bundle, not the launcher's pick: /desktop/ is
     // composed for the shell only (ADR-0122), /browser/ is what a browser gets.
     let url = discover_server_url().map(|mut u| {
@@ -37,6 +45,14 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
+            btab::btab_navigate,
+            btab::btab_bounds,
+            btab::btab_visibility,
+            btab::btab_back,
+            btab::btab_forward,
+            btab::btab_reload,
+            btab::btab_meta,
+            btab::btab_close,
             browserlab::lab_open,
             browserlab::lab_navigate,
             browserlab::lab_back,
@@ -59,6 +75,7 @@ fn main() {
             }
         }))
         .manage(browserlab::LabState::default())
+        .manage(btab::BtabState::default())
         .setup(move |app| {
             // The lab window is built here, hidden — never inside a tray
             // handler: creating a second webview mid-event-loop deadlocked
@@ -82,6 +99,7 @@ fn main() {
                 .build()?;
             let open = MenuItem::with_id(app, "open", "Open PiCode", true, None::<&str>)?;
             let lab = MenuItem::with_id(app, "browserlab", "Browser lab", true, None::<&str>)?;
+            let newbtab = MenuItem::with_id(app, "newbtab", "New browser tab", true, None::<&str>)?;
             let management =
                 MenuItem::with_id(app, "management", "Management\u{2026}", true, None::<&str>)?;
             // Phase 1 spike (docs/plans/desktop-v2.md): prove native
@@ -95,7 +113,7 @@ fn main() {
                 true,
                 None::<&str>,
             )?;
-            let menu = Menu::with_items(app, &[&open, &lab, &management, &notify, &quit])?;
+            let menu = Menu::with_items(app, &[&open, &lab, &newbtab, &management, &notify, &quit])?;
 
             TrayIconBuilder::with_id("picode")
                 .icon(app.default_window_icon().expect("bundled icon").clone())
@@ -105,6 +123,9 @@ fn main() {
                 .on_menu_event(|app, ev| match ev.id.as_ref() {
                     "open" => show_main(app),
                     "browserlab" => browserlab::open(app),
+                    "newbtab" => {
+                        let _ = app.emit("btab://new", "");
+                    }
                     "management" => open_management_window(app),
                     "notify" => {
                         // Windows shows toasts for unpackaged apps only when a

@@ -2,7 +2,7 @@
 
 ## Next
 
-- Run activation acceptance on available test terminals, recording provider/model behavior and one-turn cost; decide whether remote mode is in scope.
+- Owner: Activate now cold-start vs recorded session. Remote stays out of v1.
 
 ## Debts
 

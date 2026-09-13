@@ -1,13 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { locate, displayAgentName } from "@picode/shared/domain/tree.js";
-import { isTermTab, tabTermId, isFileTab, parseFileTab, isGitTab, gitTabKey, isTreeTab, treeTabRoot, isAppTab, tabAppId } from "../lib/routes.js";
+import { isTermTab, tabTermId, isFileTab, parseFileTab, isGitTab, gitTabKey, isTreeTab, treeTabRoot, isAppTab, tabAppId, isWebTab, tabWebId } from "../lib/routes.js";
 import { repoNameFromKey } from "../lib/gitgraph.js";
 import { revealLeft } from "../lib/tabStrip.js";
 import { useTabStrip } from "../lib/useTabStrip.js";
 import { matchAction } from "../lib/appKeys.js";
 import { IconFile, IconGit, IconFolders, IconChevronLeft, IconChevronRight, IconList, IconCheck } from "./Icons.jsx";
 import AppIcon from "./AppIcon.jsx";
+import { IconGlobe } from "./Icons.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { terminalCli, terminalCliLabel, terminalStatus } from "@picode/shared/domain/terminalCli.js";
@@ -15,7 +16,12 @@ import { terminalCli, terminalCliLabel, terminalStatus } from "@picode/shared/do
 // One description per tab id, shared by the strip and the "All tabs"
 // list so both show the same face, name and status. Null means the tab
 // has nothing to render yet (a terminal the client has not received).
-function describeTab(id, { terms, appList, workspaces, freeAgents }) {
+function describeTab(id, { terms, appList, workspaces, freeAgents, webTabs }) {
+  if (isWebTab(id)) {
+    const w = webTabs?.[tabWebId(id)];
+    const label = (w?.title || w?.url || "").replace(/^https?:\/\//, "").split("/")[0] || "New tab";
+    return { icon: <IconGlobe />, label, title: w?.url || "", status: null, closeTitle: "Close tab" };
+  }
   if (isTermTab(id)) {
     const term = terms.find((t) => t.id === tabTermId(id));
     if (!term) return null;
@@ -78,8 +84,8 @@ function StatusDot({ status }) {
   return null;
 }
 
-export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, apps, selectedId, onSelect, onClose, onReorder, sessionSlot, endSlot, keepVisible }) {
-  const ctx = { terms: terminals || [], appList: apps || [], workspaces, freeAgents };
+export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, apps, webTabs, selectedId, onSelect, onClose, onReorder, sessionSlot, endSlot, keepVisible }) {
+  const ctx = { terms: terminals || [], appList: apps || [], workspaces, freeAgents, webTabs };
   const entries = tabs.map((id) => ({ id, d: describeTab(id, ctx) })).filter((e) => e.d);
   const ids = entries.map((e) => e.id);
   const stripRef = useRef(null);
