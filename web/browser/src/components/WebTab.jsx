@@ -12,6 +12,8 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew }) 
   const id = tabId.slice(2);
   const [urlDraft, setUrlDraft] = useState("");
   const [started, setStarted] = useState(false);
+  const [err, setErr] = useState("");
+  const fail = (e) => { setErr(String(e?.message || e)); console.error("btab:", e); };
   const hostRef = useRef(null);
 
   // Bounds sync: the region's viewport-relative rect drives the native
@@ -23,7 +25,7 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew }) 
     if (!el) return undefined;
     const push = () => {
       const r = el.getBoundingClientRect();
-      invoke("btab_bounds", { id, x: r.left, y: r.top, w: r.width, h: r.height }).catch(() => {});
+      invoke("btab_bounds", { id, x: r.left, y: r.top, w: r.width, h: r.height }).catch(fail);
     };
     const ro = new ResizeObserver(push);
     ro.observe(el);
@@ -37,7 +39,7 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew }) 
 
   useEffect(() => {
     if (!invoke) return undefined;
-    invoke("btab_visibility", { id, visible: !hidden }).catch(() => {});
+    invoke("btab_visibility", { id, visible: !hidden }).catch(fail);
     return undefined;
   }, [id, hidden]);
 
@@ -53,7 +55,7 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew }) 
           }
           onMeta?.(m);
         })
-        .catch(() => {});
+        .catch(fail);
     const t = setInterval(tick, 800);
     tick();
     return () => clearInterval(t);
@@ -73,8 +75,8 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew }) 
       w: r?.width,
       h: r?.height,
     })
-      .then(() => setStarted(true))
-      .catch(() => {});
+      .then(() => { setStarted(true); setErr(""); })
+      .catch(fail);
   }
 
   if (!invoke) {
@@ -101,6 +103,7 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew }) 
         />
         <button type="button" title="Go" onClick={() => go()}>Go</button>
         <button type="button" title="New browser tab" onClick={onNew}>+</button>
+        {err ? <span className="web-tab-err" title={err}>{err}</span> : null}
       </div>
       <div className="web-tab-host" ref={hostRef} hidden={!started} />
       {!started ? (
