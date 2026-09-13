@@ -5,17 +5,157 @@
 // the native webview there. ADR-0128: one shared profile, no debug port in
 // this path, popups adopt as new tabs.
 
-use std::collections::HashMap;
-use std::sync::Mutex;
+use std::cell::RefCell;
+use std::collections::{HashMap, VecDeque};
+use std::sync::{mpsc, Arc, Mutex};
+use std::time::Duration;
 
+use picode_shell::cdppolicy;
 use tauri::webview::{NewWindowResponse, WebviewBuilder};
 use tauri::WebviewUrl;
 use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, State};
+use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2DevToolsProtocolEventReceiver;
 
 #[derive(Default)]
 pub struct BtabState {
     // Bounds the UI reported before the webview existed (first navigate).
     pub pending: Mutex<HashMap<String, (f64, f64, f64, f64)>>,
+    // Per-tab CDP event rings. The event handlers run on the UI thread and
+    // append here; btab_cdp_events drains them by sequence number.
+    rings: Arc<Mutex<HashMap<String, Ring>>>,
+}
+
+#[derive(Default)]
+struct Ring {
+    events: VecDeque<serde_json::Value>,
+    seq: u64,
+    dropped: u64,
+    subscribed: bool,
+}
+
+/// How many events one tab keeps for a poller that fell behind.
+const RING_CAP: usize = 256;
+
+/// The events a tab records — read-tier only, every entry a notification
+/// about what the page did. Deny by default holds here too: a name this table
+/// does not carry is never subscribed.
+const EVENTS: &[(&str, &str)] = &[
+    ("Page.frameNavigated", "Page"),
+    ("Page.loadEventFired", "Page"),
+    ("Page.domContentEventFired", "Page"),
+    ("Page.javascriptDialogOpening", "Page"),
+    ("Runtime.consoleAPICalled", "Runtime"),
+    ("Runtime.exceptionThrown", "Runtime"),
+    ("Network.requestWillBeSent", "Network"),
+    ("Network.responseReceived", "Network"),
+    ("Network.loadingFailed", "Network"),
+    ("Log.entryAdded", "Log"),
+];
+
+thread_local! {
+    // The receivers own the event registrations — dropping one tears its
+    // subscription down. They are COM interfaces (not Send), so they live on
+    // the UI thread where with_webview runs instead of in Tauri state.
+    static RECEIVERS: RefCell<HashMap<String, Vec<ICoreWebView2DevToolsProtocolEventReceiver>>> =
+        RefCell::new(HashMap::new());
+}
+
+fn push_event(rings: &Arc<Mutex<HashMap<String, Ring>>>, tab: &str, event: &str, payload: String) {
+    let params = serde_json::from_str::<serde_json::Value>(&payload)
+        .unwrap_or(serde_json::Value::String(payload));
+    let mut map = rings.lock().unwrap();
+    let ring = map.entry(tab.to_string()).or_default();
+    ring.seq += 1;
+    let entry = serde_json::json!({ "seq": ring.seq, "event": event, "params": params });
+    ring.events.push_back(entry);
+    while ring.events.len() > RING_CAP {
+        ring.events.pop_front();
+        ring.dropped += 1;
+    }
+}
+
+// subscribe registers this tab's read-tier event receivers, once, and enables
+// the domains the table names — WebView2 delivers a CDP event only when its
+// domain is enabled. Runs on the UI thread (with_webview).
+fn subscribe(
+    app: &AppHandle,
+    id: &str,
+    rings: Arc<Mutex<HashMap<String, Ring>>>,
+) -> Result<(), String> {
+    use webview2_com::{
+        CallDevToolsProtocolMethodCompletedHandler, CoTaskMemPWSTR,
+        DevToolsProtocolEventReceivedEventHandler,
+    };
+    use windows::core::{HSTRING, PWSTR};
+
+    let wv = app.get_webview(&label(id)).ok_or("tab not open")?;
+    let (tx, rx) = mpsc::channel::<Result<(), String>>();
+    let tab = id.to_string();
+    let sent = tx.clone();
+    let installed = wv.with_webview(move |platform| unsafe {
+        let core = match platform.controller().CoreWebView2() {
+            Ok(core) => core,
+            Err(e) => {
+                let _ = sent.send(Err(format!("CoreWebView2: {e}")));
+                return;
+            }
+        };
+        let mut kept = Vec::new();
+        let mut errors = Vec::new();
+        for (event, _domain) in EVENTS {
+            let receiver = match core.GetDevToolsProtocolEventReceiver(&HSTRING::from(*event)) {
+                Ok(receiver) => receiver,
+                Err(e) => {
+                    errors.push(format!("{event}: {e}"));
+                    continue;
+                }
+            };
+            let sink = rings.clone();
+            let tab = tab.clone();
+            let name = (*event).to_string();
+            let handler = DevToolsProtocolEventReceivedEventHandler::create(Box::new(
+                move |_source, args| {
+                    if let Some(args) = args {
+                        let mut raw = PWSTR::null();
+                        if args.ParameterObjectAsJson(&mut raw).is_ok() {
+                            push_event(&sink, &tab, &name, CoTaskMemPWSTR::from(raw).to_string());
+                        }
+                    }
+                    Ok(())
+                },
+            ));
+            let mut token = 0i64;
+            match receiver.add_DevToolsProtocolEventReceived(&handler, &mut token) {
+                Ok(()) => kept.push(receiver),
+                Err(e) => errors.push(format!("{event}: {e}")),
+            }
+        }
+        for domain in ["Page", "Runtime", "Network", "Log"] {
+            let noop =
+                CallDevToolsProtocolMethodCompletedHandler::create(Box::new(|_hr, _json| Ok(())));
+            let _ = core.CallDevToolsProtocolMethod(
+                &HSTRING::from(format!("{domain}.enable")),
+                &HSTRING::from("{}"),
+                &noop,
+            );
+        }
+        RECEIVERS.with(|r| {
+            r.borrow_mut().insert(tab.clone(), kept);
+        });
+        let _ = if errors.is_empty() {
+            sent.send(Ok(()))
+        } else {
+            sent.send(Err(errors.join("; ")))
+        };
+    });
+    if let Err(e) = installed {
+        return Err(format!("with_webview: {e}"));
+    }
+    match rx.recv_timeout(Duration::from_secs(8)) {
+        Ok(result) => result,
+        Err(mpsc::RecvTimeoutError::Disconnected) => Err("the page went away".into()),
+        Err(_) => Err("subscribing to page events timed out".into()),
+    }
 }
 
 fn label(id: &str) -> String {
@@ -163,6 +303,107 @@ pub async fn btab_meta(app: AppHandle, id: String) -> Result<serde_json::Value, 
     }
 }
 
+// Slice 2 (ADR-0128): the host-API CDP bridge. No debug port exists, so
+// these two commands are the only path to a page's CDP. The daemon resolves
+// an agent's tier; the catalog in picode_shell::cdppolicy re-checks every
+// method before delivery, and refuses anything it does not name.
+//
+// The call shape is `invoke("btab_cdp_call", { id, method, paramsJson, tier })`
+// and `invoke("btab_cdp_events", { id, since })`.
+#[tauri::command]
+pub async fn btab_cdp_call(
+    app: AppHandle,
+    id: String,
+    method: String,
+    params_json: Option<String>,
+    tier: String,
+) -> Result<serde_json::Value, String> {
+    use webview2_com::CallDevToolsProtocolMethodCompletedHandler;
+    use windows::core::HSTRING;
+
+    let tier = cdppolicy::Tier::parse(&tier)?;
+    cdppolicy::allows(tier, &method)?;
+    let name = method.trim().to_string();
+    let params = params_json.unwrap_or_else(|| "{}".to_string());
+    if serde_json::from_str::<serde_json::Value>(&params).is_err() {
+        return Err(format!("{name}: params_json is not valid JSON"));
+    }
+    let wv = app.get_webview(&label(&id)).ok_or("tab not open")?;
+    let (tx, rx) = mpsc::channel::<Result<String, String>>();
+    let failed = tx.clone();
+    let method_c = HSTRING::from(name.as_str());
+    let params_c = HSTRING::from(params.as_str());
+    let sent = wv.with_webview(move |platform| unsafe {
+        let core = match platform.controller().CoreWebView2() {
+            Ok(core) => core,
+            Err(e) => {
+                let _ = failed.send(Err(format!("CoreWebView2: {e}")));
+                return;
+            }
+        };
+        let handler = CallDevToolsProtocolMethodCompletedHandler::create(Box::new(move |hr, json| {
+            let _ = tx.send(match hr {
+                Ok(()) => Ok(json),
+                Err(e) => Err(format!("{e}")),
+            });
+            Ok(())
+        }));
+        if let Err(e) = core.CallDevToolsProtocolMethod(&method_c, &params_c, &handler) {
+            let _ = failed.send(Err(format!("{e}")));
+        }
+    });
+    if let Err(e) = sent {
+        return Err(format!("with_webview: {e}"));
+    }
+    let json = match rx.recv_timeout(Duration::from_secs(20)) {
+        Ok(Ok(json)) => json,
+        Ok(Err(e)) => return Err(format!("{name}: {e}")),
+        Err(mpsc::RecvTimeoutError::Disconnected) => {
+            return Err(format!("{name}: the page went away"))
+        }
+        Err(_) => return Err(format!("{name}: CDP call timed out")),
+    };
+    if json.trim().is_empty() {
+        return Ok(serde_json::Value::Null);
+    }
+    serde_json::from_str(&json).map_err(|e| format!("{name}: CDP returned invalid JSON ({e})"))
+}
+
+// Poll one tab's recorded events. `since` is the last sequence number the
+// caller saw; the reply carries the new events plus the tab's last number, so
+// a caller can never mistake an overflowed ring for a quiet page.
+#[tauri::command]
+pub async fn btab_cdp_events(
+    app: AppHandle,
+    state: State<'_, BtabState>,
+    id: String,
+    since: Option<u64>,
+) -> Result<serde_json::Value, String> {
+    let subscribed = state
+        .rings
+        .lock()
+        .unwrap()
+        .get(&id)
+        .map(|ring| ring.subscribed)
+        .unwrap_or(false);
+    if !subscribed {
+        subscribe(&app, &id, state.rings.clone())?;
+        state.rings.lock().unwrap().entry(id.clone()).or_default().subscribed = true;
+    }
+    let rings = state.rings.lock().unwrap();
+    let Some(ring) = rings.get(&id) else {
+        return Ok(serde_json::json!({ "events": [], "last": 0, "dropped": 0 }));
+    };
+    let since = since.unwrap_or(0);
+    let events: Vec<serde_json::Value> = ring
+        .events
+        .iter()
+        .filter(|e| e["seq"].as_u64().unwrap_or(0) > since)
+        .cloned()
+        .collect();
+    Ok(serde_json::json!({ "events": events, "last": ring.seq, "dropped": ring.dropped }))
+}
+
 // Slice 2.1 (read tier seed): "Take a screenshot". Native CapturePreview
 // (not CDP) — the PNG comes back base64 for the UI to save.
 #[tauri::command]
@@ -231,10 +472,23 @@ pub async fn btab_screenshot(app: AppHandle, id: String) -> Result<String, Strin
 }
 
 #[tauri::command]
-pub async fn btab_close(app: AppHandle, id: String) -> Result<(), String> {
+pub async fn btab_close(
+    app: AppHandle,
+    state: State<'_, BtabState>,
+    id: String,
+) -> Result<(), String> {
     if let Some(wv) = app.get_webview(&label(&id)) {
+        // Drop this tab's event receivers on the UI thread before the webview
+        // goes: a receiver kept past its page would keep the page alive.
+        let tab = id.clone();
+        let _ = wv.with_webview(move |_| {
+            RECEIVERS.with(|r| {
+                r.borrow_mut().remove(&tab);
+            });
+        });
         wv.close().map_err(|e| e.to_string())?;
     }
-    app.state::<BtabState>().pending.lock().unwrap().remove(&id);
+    state.pending.lock().unwrap().remove(&id);
+    state.rings.lock().unwrap().remove(&id);
     Ok(())
 }

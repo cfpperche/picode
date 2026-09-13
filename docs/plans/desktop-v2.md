@@ -198,6 +198,23 @@ with its cost documented, per-agent policy `{domains, tier: read|act|full}`
 denies by default, and the layout is **tabs in the editor with a
 Chrome-inspired tab strip** (owner, 2026-09-13) — not a fixed side panel.
 
+### Slice 2, increments 1–2 — the host-API bridge (2026-09-13, `feat/browser-cdp`)
+
+`btab_cdp_call` (one tab, one method, one JSON result) goes through
+`CallDevToolsProtocolMethod` on that tab's controller; `btab_cdp_events`
+records a read-tier event ring per tab (Page/Runtime/Network/Log, the
+domains enabled on the first poll) with sequence numbers, so a poller can
+tell a quiet page from a ring that overflowed. The gate lives in
+`desktop-shell/src/cdppolicy.rs`: a named method catalog per tier, **deny by
+default at every tier** — a method the table does not name is refused, never
+assumed harmless. The loopback debug port is now an explicit
+`PICODE_CDP_PORT` opt-in instead of every launch's default.
+
+Still open in the slice: increment 3 (the daemon endpoint and the `browser`
+Pi tool), the per-agent `{domains, tier}` policy UI, and the navigation gate
+(`NavigationStarting` cancels an origin outside the agent's allowlist) —
+the catalog gate alone does not stop a page from being loaded.
+
 ## Conscious debt
 
 - Optimize-VHD from the tray/app (needs an elevation design).

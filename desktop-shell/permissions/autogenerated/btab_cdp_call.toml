@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-btab-cdp-call"
+description = "Enables the btab_cdp_call command without any pre-configured scope."
+commands.allow = ["btab_cdp_call"]
+
+[[permission]]
+identifier = "deny-btab-cdp-call"
+description = "Denies the btab_cdp_call command without any pre-configured scope."
+commands.deny = ["btab_cdp_call"]

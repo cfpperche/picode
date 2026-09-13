@@ -14,6 +14,8 @@ fn main() {
             "btab_reload",
             "btab_meta",
             "btab_screenshot",
+            "btab_cdp_call",
+            "btab_cdp_events",
             "btab_close",
             "lab_open",
             "lab_navigate",

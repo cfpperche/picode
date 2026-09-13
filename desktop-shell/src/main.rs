@@ -28,12 +28,19 @@ use tauri::{
 use tauri_plugin_notification::NotificationExt;
 
 fn main() {
-    // LAB BUILD ONLY (docs/plans/desktop-v2.md Phase 3 spike): expose CDP on
-    // loopback so the daemon side (WSL) can drive the same logged-in view the
-    // human sees. Loopback bind, spike-gated — the product replaces this with
-    // an authenticated channel; never ship this line as-is.
-    if std::env::var("PICODE_LAB_NO_CDP").is_err() {
-        std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--remote-debugging-port=9222");
+    // ADR-0128: no debug port exists in default operation. The shell bridges
+    // CDP through the host API (btab_cdp_call), so the loopback port is an
+    // explicit opt-in for external tooling instead of the way in. When it is
+    // on, any local process can attach and the agent policy binds only what
+    // flows through the daemon — the cost the toggle states.
+    if let Ok(port) = std::env::var("PICODE_CDP_PORT") {
+        match port.trim().parse::<u16>() {
+            Ok(port) if port > 0 => std::env::set_var(
+                "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+                format!("--remote-debugging-port={port}"),
+            ),
+            _ => eprintln!("PICODE_CDP_PORT is not a port number; the debug port stays off"),
+        }
     }
     // The shell loads its own bundle, not the launcher's pick: /desktop/ is
     // composed for the shell only (ADR-0122), /browser/ is what a browser gets.
@@ -53,6 +60,8 @@ fn main() {
             btab::btab_reload,
             btab::btab_meta,
             btab::btab_screenshot,
+            btab::btab_cdp_call,
+            btab::btab_cdp_events,
             btab::btab_close,
             browserlab::lab_open,
             browserlab::lab_navigate,
