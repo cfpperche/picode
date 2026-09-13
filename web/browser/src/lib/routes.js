@@ -317,6 +317,18 @@ export function tabAppId(id) {
   return isAppTab(id) ? String(id).slice(2) : "";
 }
 
+// A tab id is a tagged surface (`t:` terminal, `f:` file, `d:` folder,
+// `g:` repository, `x:` app, `w:` web) or a bare agent id — the one thing the
+// strip does not tag (ADR-0012, ADR-0022). Callers that ask "is the reader
+// looking at an agent?" must ask this, not "is it a terminal tab": the
+// role-state and slash fetches did the latter and paid two 404s for every
+// file, tree, git and app tab selected (a chat composer asking a repository
+// its role).
+export function isAgentTab(id) {
+  const s = String(id || "");
+  return !!s && !isTermTab(s) && !isFileTab(s) && !isGitTab(s) && !isTreeTab(s) && !isAppTab(s) && !isWebTab(s);
+}
+
 export function appHash(id, path = "") {
   return id ? "#/app/" + encodeURIComponent(id) + (path ? "/" + path.split("/").map(encodeURIComponent).join("/") : "") : "#/";
 }

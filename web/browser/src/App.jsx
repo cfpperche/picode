@@ -53,7 +53,7 @@ import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
-import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
 import { nativeApps, nativeSurfaceFor } from "./lib/nativeApps.js";
@@ -667,7 +667,7 @@ export default function App({ shellChrome = false } = {}) {
 
   const fetchRoleState = useCallback(async () => {
     const id = selectedRef.current;
-    if (!id || isTermTab(id)) { setRoleState(null); return; }
+    if (!isAgentTab(id)) { setRoleState(null); return; }
     try {
       const d = await api("/api/agents/" + id + "/role-state");
       if (selectedRef.current === id) setRoleState((d && d.state) || null);
@@ -675,7 +675,7 @@ export default function App({ shellChrome = false } = {}) {
   }, []);
   useEffect(() => {
     setRoleState(null);
-    if (selectedId && !isTermTab(selectedId)) fetchRoleState();
+    if (isAgentTab(selectedId)) fetchRoleState();
   }, [selectedId, fetchRoleState]);
 
   useEffect(() => {
@@ -691,7 +691,7 @@ export default function App({ shellChrome = false } = {}) {
     loadSessions();
   }, [selectedId, workspaces.length, freeAgents.length]);
   useEffect(() => {
-    if (!selectedId || isTermTab(selectedId)) { setSlashExtra([]); return; }
+    if (!isAgentTab(selectedId)) { setSlashExtra([]); return; }
     api("/api/agents/" + selectedId + "/slash")
       .then((d) => setSlashExtra(extraSlash(d.skills, d.templates, d.commands)))
       .catch(() => setSlashExtra([]));
