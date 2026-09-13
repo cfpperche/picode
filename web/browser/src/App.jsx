@@ -1073,6 +1073,10 @@ export default function App({ shellChrome = false } = {}) {
     // the router to #/agent/g:… — wait for the map instead.
     if (isGitTab(selectedId) && !gitOwner) return;
     if (isTreeTab(selectedId) && !treeOwner) return;
+    // Web tabs own no hash: they are session-scoped native surfaces. The
+    // workspace fallback below would read "w:<id>" as an agent id, fail to
+    // locate it and mark the tab gone ("That agent is gone", 2026-09-13).
+    if (isWebTab(selectedId)) return;
     const want = isTermTab(selectedId)
       ? termHash(tabTermId(selectedId))
       : isAppTab(selectedId)
@@ -1452,6 +1456,7 @@ export default function App({ shellChrome = false } = {}) {
   const [webTabs, setWebTabs] = useState({});
   const webSeqRef = useRef(0);
   function openWebTab(url) {
+    if (parseRoute(location.hash) !== "workspace") location.hash = "#/";
     webSeqRef.current += 1;
     const id = String(webSeqRef.current);
     setTabs((t) => [...t, "w:" + id]);
@@ -2701,7 +2706,7 @@ export default function App({ shellChrome = false } = {}) {
   const missing = !!goneId;
   const noTabs = tabs.length === 0 && !missing;
   const hasData = (workspaces.length + freeAgents.length + terminals.length) > 0;
-  const showHome = (noTabs || dashboardPinned) && hasData;
+  const showHome = (noTabs || dashboardPinned) && hasData && !isWebTab(selectedId);
 
   const tabsStrip = (
 <AgentTabs
@@ -2994,7 +2999,7 @@ export default function App({ shellChrome = false } = {}) {
             );
           })}
           <ChatSurface
-            hidden={noTabs || missing || termView || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId)}
+            hidden={noTabs || missing || termView || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId)}
             stopped={stopped}
             items={items}
             earlierRemaining={earlierRemaining}
