@@ -82,12 +82,15 @@ type WriteRequest struct {
 }
 
 // Capabilities is what GET /api/clis advertises per CLI so the web derives
-// the handoff targets from the server instead of a hardcoded list.
+// the handoff targets from the server instead of a hardcoded list. Agent
+// marks a CLI that is also the platform's managed agent, so a handoff can
+// land as a stopped agent in the app instead of a terminal.
 type Capabilities struct {
 	List   bool `json:"list"`
 	Read   bool `json:"read"`
 	Write  bool `json:"write"`
 	Prompt bool `json:"prompt"`
+	Agent  bool `json:"agent"`
 }
 
 // CapabilitiesOf reports the session capabilities of one catalog CLI.

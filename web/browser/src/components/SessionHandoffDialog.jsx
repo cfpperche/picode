@@ -16,7 +16,7 @@ const json = (body) => ({ method: "POST", headers: { "Content-Type": "applicatio
 // serves preview and execution on the server, so what the dialog shows is
 // what happens.
 export default function SessionHandoffDialog({ open, session, sourceCli, sourceName, target, onClose, onDone }) {
-  const [form, setForm] = useState({ to: target ? target.id : "", mode: "", window: "recent", tools: "native" });
+  const [form, setForm] = useState({ to: target ? target.id : "", mode: "", landing: target && target.landing ? target.landing : target && target.landings && target.landings.length > 1 ? "agent" : "", window: "recent", tools: "native" });
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,7 +26,7 @@ export default function SessionHandoffDialog({ open, session, sourceCli, sourceN
 
   useEffect(() => {
     if (!open || !target) return;
-    setForm({ to: target.id, mode: "", window: "recent", tools: "native" });
+    setForm({ to: target.id, mode: "", landing: target.landing || (target.landings && target.landings.length > 1 ? "agent" : ""), window: "recent", tools: "native" });
     setPreview(null); setError(""); setShowBrief(false);
   }, [open, target]);
 
@@ -64,7 +64,9 @@ export default function SessionHandoffDialog({ open, session, sourceCli, sourceN
   const mode = form.mode || (preview && preview.mode) || modes[0] || "";
 
   async function run(force) {
-    const parsed = parseForm(sessionHandoffSchema, { ...form, mode });
+    const body = { ...form, mode };
+    if (!body.landing) delete body.landing; // single-landing targets: the server's default decides
+    const parsed = parseForm(sessionHandoffSchema, body);
     if (!parsed.ok) { toast(parsed.error || "Check the handoff options."); return; }
     setBusy(true);
     try {
@@ -92,6 +94,8 @@ export default function SessionHandoffDialog({ open, session, sourceCli, sourceN
   const manifest = preview && preview.manifest;
   const warnings = (manifest && manifest.warnings) || [];
   const shown = warnings.slice(0, 3);
+  const landings = (target && target.landings) || [];
+  const opensAgent = form.landing === "agent";
 
   return (
     <Dialog.Root open={!!open} onOpenChange={(o) => { if (!o && !busy) onClose(); }}>
@@ -100,7 +104,7 @@ export default function SessionHandoffDialog({ open, session, sourceCli, sourceN
         <Dialog.Content className="dlg dlg-handoff" onCloseAutoFocus={(e) => e.preventDefault()}>
           <Dialog.Title className="dlg-title">Continue in {target.name}</Dialog.Title>
           <Dialog.Description className="dlg-body">
-            {sourceName} session {handoffSessionLabel(session)} continues in {target.name}, in the same folder.
+            {sourceName} session {handoffSessionLabel(session)} continues {opensAgent ? "as a " + target.name + " agent in this app" : "in " + target.name + ", in a new terminal"}, in the same folder.
           </Dialog.Description>
 
           {error ? <p className="handoff-error" role="alert">{error}</p> : null}
@@ -117,6 +121,22 @@ export default function SessionHandoffDialog({ open, session, sourceCli, sourceN
               ) : null}
               {preview.live ? <p className="handoff-live">{preview.live.name} is still using this session. You can continue anyway; the newest turns may be missing.</p> : null}
             </div>
+          ) : null}
+
+          {landings.length > 1 ? (
+            <fieldset className="handoff-options" disabled={busy}>
+              <legend>Where</legend>
+              <div className="handoff-choices">
+                <label className="handoff-choice" title="A stopped agent in this app; it needs no installed CLI.">
+                  <input type="radio" name="handoff-landing" value="agent" checked={form.landing === "agent"} onChange={() => setForm((f) => ({ ...f, landing: "agent" }))} />
+                  <span><strong>{target.name} agent · in the app</strong><small>The conversation opens as a stopped {target.name} agent here, not in a terminal.</small></span>
+                </label>
+                <label className="handoff-choice" title={target.installed ? "A terminal running the " + target.name + " CLI." : target.name + " is not installed."}>
+                  <input type="radio" name="handoff-landing" value="terminal" checked={form.landing === "terminal"} disabled={!target.installed} onChange={() => setForm((f) => ({ ...f, landing: "terminal" }))} />
+                  <span><strong>{target.name} CLI · in a terminal</strong><small>{target.installed ? "A new terminal starts " + target.name + " on this conversation." : target.name + " is not installed."}</small></span>
+                </label>
+              </div>
+            </fieldset>
           ) : null}
 
           <fieldset className="handoff-options" disabled={busy}>
@@ -166,7 +186,7 @@ export default function SessionHandoffDialog({ open, session, sourceCli, sourceN
           ) : null}
 
           <div className="dlg-actions" data-align-row>
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => run(false)} disabled={busy || loading || !preview || !mode || !target.installed} title={target.installed ? "" : target.name + " is not installed"}>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => run(false)} disabled={busy || loading || !preview || !mode || (form.landing !== "agent" && !target.installed)} title={!target.installed && form.landing !== "agent" ? target.name + " is not installed" : ""}>
               {busy ? "Continuing…" : "Continue"}
             </button>
             <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} disabled={busy}>Cancel</button>

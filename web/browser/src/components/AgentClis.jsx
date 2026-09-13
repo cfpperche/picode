@@ -294,7 +294,27 @@ function TerminalList({ terminals, workspaces, busy, onAction, onNew, cliName, o
                   </DropdownMenu.SubTrigger>
                   <DropdownMenu.Portal>
                     <DropdownMenu.SubContent className="um-popover" sideOffset={4} alignOffset={-4} collisionPadding={8}>
-                      {r.sub.map((s) => (
+                      {r.sub.map((s) => s.sub ? (
+                        <DropdownMenu.Sub key={s.id}>
+                          <DropdownMenu.SubTrigger className="um-item" title={s.title}>
+                            <span className="um-item-name">{s.label}</span>
+                            <IconChevronRight size={13} className="um-chev" />
+                          </DropdownMenu.SubTrigger>
+                          <DropdownMenu.Portal>
+                            <DropdownMenu.SubContent className="um-popover" sideOffset={4} alignOffset={-4} collisionPadding={8}>
+                              {s.sub.map((s2) => (
+                                <DropdownMenu.Item
+                                  key={s2.id}
+                                  className="um-item"
+                                  disabled={!!s2.disabled}
+                                  title={s2.title}
+                                  onSelect={() => { if (!s2.disabled && onContinueTerm) onContinueTerm(t, s2.target); }}
+                                >{s2.label}</DropdownMenu.Item>
+                              ))}
+                            </DropdownMenu.SubContent>
+                          </DropdownMenu.Portal>
+                        </DropdownMenu.Sub>
+                      ) : (
                         <DropdownMenu.Item
                           key={s.id}
                           className="um-item"

@@ -70,6 +70,7 @@ export const cliProfileSchema = z.object({ name: required("Profile name").max(80
 export const sessionHandoffSchema = z.object({
   to: required("Target CLI"),
   mode: z.enum(["native", "brief"], { message: "Choose how the session travels." }),
+  landing: z.enum(["agent", "terminal"], { message: "Choose where the session opens." }).optional(),
   window: z.enum(["recent", "all"]),
   tools: z.enum(["native", "text"]),
 });

@@ -45,19 +45,31 @@ import (
 //	source over the read cap, execute mode=native   → 413 (brief still in modes)
 //	to == cli                                       → 400 "Choose a different CLI."
 //	window=recent without a compaction              → whole timeline
-//	target pi, native                               → stopped managed agent, no terminal
 //	unknown {cli} / unknown `to`                    → 404
+//	landing=bogus                                   → 400
+//	landing=agent, target without an agent side     → 400 (only pi is a managed agent today)
+//	pi, landing=terminal, native                    → session in pi's cwd bucket, terminal `--session <path>`
+//	pi, landing=agent, brief                        → stopped managed agent, brief queued as its first prompt
+//	landing=""                                      → the shipped default: pi native lands as an agent,
+//	                                                  everything else opens a terminal (back-compat)
 type handoffRequest struct {
 	ID          string `json:"id"`
 	Path        string `json:"path"`
 	Cwd         string `json:"cwd"`
 	To          string `json:"to"`
-	Mode        string `json:"mode"`   // native | brief | "" (best available)
-	Window      string `json:"window"` // recent (default) | all
-	Tools       string `json:"tools"`  // native (default) | text
+	Mode        string `json:"mode"`    // native | brief | "" (best available)
+	Window      string `json:"window"`  // recent (default) | all
+	Tools       string `json:"tools"`   // native (default) | text
+	Landing     string `json:"landing"` // agent | terminal | "" (mode's default)
 	Force       bool   `json:"force"`
 	WorkspaceID string `json:"workspaceId"`
 }
+
+// cliAgentLanding names the CLI whose sessions can land as a managed agent
+// instead of a terminal. Managed agents are pi (ADR-0040), so this is the
+// server's one place that knows it; /api/clis advertises it as
+// sessions.agent and the web derives the second menu level from that.
+func cliAgentLanding(cli string) bool { return cli == "pi" }
 
 // liveHolder names who is still writing to the source session.
 type liveHolder struct {
@@ -208,6 +220,16 @@ func planHandoff(ctx context.Context, deps Deps, src clilaunch.CLI, req handoffR
 	default:
 		return nil, http.StatusBadRequest, errors.New("tools must be native or text")
 	}
+	switch req.Landing {
+	case "":
+	case "agent":
+		if !cliAgentLanding(dst.ID) {
+			return nil, http.StatusBadRequest, errors.New(dst.Name + " cannot open as a managed agent yet.")
+		}
+	case "terminal":
+	default:
+		return nil, http.StatusBadRequest, errors.New("landing must be agent or terminal")
+	}
 	p.ref = clisession.Ref{ID: strings.TrimSpace(req.ID), Path: strings.TrimSpace(req.Path), Cwd: strings.TrimSpace(req.Cwd)}
 	if p.ref.ID == "" && p.ref.Path == "" {
 		return nil, http.StatusBadRequest, errors.New("session id or path required")
@@ -266,14 +288,43 @@ func planHandoff(ctx context.Context, deps Deps, src clilaunch.CLI, req handoffR
 	if p.live != nil && req.Force {
 		p.windowed.Manifest.Warn("%s was still writing to the source when it was translated; the newest turns may be missing.", p.live.Name)
 	}
-	// The target must be launchable before anything is created, except a
-	// pi handoff, which becomes a stopped agent and needs no terminal.
-	if !(p.mode == handoffModeNative && dst.ID == "pi") {
+	// The target must be launchable before anything is created, except
+	// when the handoff lands as a managed agent — a stopped pi agent needs
+	// no terminal and no CLI binary.
+	if !p.landingAgent() {
 		if _, status, err := checkCLILaunch(deps, dst, clilaunch.Overrides{}); err != nil {
 			return nil, status, err
 		}
 	}
 	return p, 0, nil
+}
+
+// landingAgent reports whether this handoff lands as a stopped managed
+// agent instead of a CLI terminal. Empty keeps the shipped default: pi
+// native adopts an agent, everything else opens a terminal.
+func (p *handoffPlan) landingAgent() bool {
+	switch p.req.Landing {
+	case "agent":
+		return true
+	case "terminal":
+		return false
+	}
+	return p.mode == handoffModeNative && p.dst.ID == "pi"
+}
+
+// adoptAgent creates the stopped managed pi agent a handoff lands as: it
+// lives in the workspace that owns the session's folder, named after the
+// conversation's title or its first user line.
+func (p *handoffPlan) adoptAgent(deps Deps, cwd string) (store.Agent, error) {
+	wsID, work := adoptHome(deps, cwd)
+	name := strings.TrimSpace(p.full.Header.Title)
+	if name == "" {
+		name = clipRunes(firstUserText(p.windowed), 60)
+	}
+	if name == "" {
+		name = "From " + p.src.Name
+	}
+	return deps.Store.AddAgent(wsID, clipRunes(name, 60), work)
 }
 
 // nativeTimeline is what a Writer receives: the handoff note first, then
@@ -366,7 +417,8 @@ func (p *handoffPlan) commit(ctx context.Context, deps Deps, r *http.Request) (m
 	if workspaceID == "" {
 		workspaceID = workspaceOwning(deps, cwd)
 	}
-	out := map[string]any{"mode": p.mode, "targetCli": p.dst.ID}
+	agentLanding := p.landingAgent()
+	out := map[string]any{"mode": p.mode, "targetCli": p.dst.ID, "landing": map[bool]string{true: "agent", false: "terminal"}[agentLanding]}
 	var manifest transcript.Manifest
 	var args []string
 	name := p.dst.Name + " · from " + p.src.Name
@@ -379,16 +431,8 @@ func (p *handoffPlan) commit(ctx context.Context, deps Deps, r *http.Request) (m
 		tl := p.nativeTimeline()
 		manifest = tl.Prepare().Manifest
 		wreq := clisession.WriteRequest{Cwd: cwd, FormatVersion: p.version, Tools: p.req.Tools, Now: p.now, Run: cliRunner(deps, p.dst, cwd)}
-		if p.dst.ID == "pi" {
-			wsID, work := adoptHome(deps, cwd)
-			agentName := strings.TrimSpace(p.full.Header.Title)
-			if agentName == "" {
-				agentName = clipRunes(firstUserText(p.windowed), 60)
-			}
-			if agentName == "" {
-				agentName = "From " + p.src.Name
-			}
-			agent, err := deps.Store.AddAgent(wsID, clipRunes(agentName, 60), work)
+		if agentLanding {
+			agent, err := p.adoptAgent(deps, cwd)
 			if err != nil {
 				return nil, http.StatusBadRequest, err
 			}
@@ -407,6 +451,13 @@ func (p *handoffPlan) commit(ctx context.Context, deps Deps, r *http.Request) (m
 			out["agent"] = agentView{Agent: agent, Mode: string(modeStopped)}
 			break
 		}
+		if p.dst.ID == "pi" {
+			// Terminal landing: the session lives in pi's own cwd bucket so
+			// the CLI's picker and the Sessions view see it, and the terminal
+			// opens it through --session (pi keeps resume in its own hands,
+			// so ResumeArgs stays empty and the arg is built here).
+			wreq.Dir = session.Dir(cwd)
+		}
 		sum, err := p.writer.Write(ctx, tl, wreq)
 		if err != nil {
 			return nil, writeStatus(err), err
@@ -414,6 +465,9 @@ func (p *handoffPlan) commit(ctx context.Context, deps Deps, r *http.Request) (m
 		row.TargetID, row.TargetPath = sum.ID, sum.Path
 		out["target"] = sum
 		args = sum.ResumeArgs
+		if p.dst.ID == "pi" && len(args) == 0 {
+			args = []string{"--session", sum.Path}
+		}
 	case handoffModeBrief:
 		manifest = p.windowed.Manifest
 		dir := filepath.Join(deps.DataDir, "handoffs", hid)
@@ -421,13 +475,29 @@ func (p *handoffPlan) commit(ctx context.Context, deps Deps, r *http.Request) (m
 		if err := writeInterceptFile(path, []byte(p.brief()), 0o644); err != nil {
 			return nil, http.StatusInternalServerError, err
 		}
+		out["brief"] = map[string]any{"path": path, "bytes": len(p.brief())}
+		if agentLanding {
+			// The managed-agent twin of the brief terminal: a stopped pi
+			// agent whose first queued prompt reads the brief. It runs when
+			// the user opens the agent, exactly as a queued follow-up does.
+			agent, err := p.adoptAgent(deps, cwd)
+			if err != nil {
+				return nil, http.StatusBadRequest, err
+			}
+			if _, err := deps.Store.EnqueueTask(agent.ID, store.TaskPrompt, p.promptLine(path), "handoff"); err != nil {
+				_ = deps.Store.DeleteAgent(agent.ID)
+				return nil, http.StatusInternalServerError, err
+			}
+			row.AgentID = agent.ID
+			out["agent"] = agentView{Agent: agent, Mode: string(modeStopped)}
+			break
+		}
 		sessionID := transcript.NewID()
 		args = p.prompter.PromptArgs(p.promptLine(path), sessionID)
 		if len(args) > 1 { // the CLI took the pre-assigned id
 			row.TargetID = sessionID
 		}
 		row.TargetPath = path
-		out["brief"] = map[string]any{"path": path, "bytes": len(p.brief())}
 	}
 	if raw, err := json.Marshal(manifest); err == nil {
 		row.Manifest = raw

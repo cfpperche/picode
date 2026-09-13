@@ -44,6 +44,16 @@ demand); an unknown format refuses native and keeps brief. A source over
 the 64 MB read cap drops native and offers a brief of the last 64 MB of
 the file (the recent turns); executing native on that source is still 413.
 
+Where the handoff opens is a choice when the target is also a managed
+agent — `sessions.agent` in `GET /api/clis`, pi only today (ADR-0040).
+`landing: "agent"` adopts a stopped managed agent: for native it owns the
+written session, for brief it starts with the brief queued as its first
+prompt. `landing: "terminal"` opens a CLI terminal; for pi native the
+session is written into pi's own cwd bucket and the terminal resumes it
+through `--session`. Omitting `landing` keeps the shipped default (pi
+native → agent, everything else → terminal), and a CLI without an agent
+side refuses `landing: "agent"` with 400.
+
 A long-term memory server in the same folder (hooks that inject a next-
 session brief) is a different layer: it does not replace Native session,
 and Continue does not wrap launches through it. Study:

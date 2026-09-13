@@ -206,7 +206,29 @@ function TermRow({ row, onRun }) {
         </DropdownMenu.SubTrigger>
         <DropdownMenu.Portal>
           <DropdownMenu.SubContent className="um-popover" sideOffset={2} collisionPadding={8}>
-            {row.sub.map((s) => (
+            {row.sub.map((s) => s.sub ? (
+              <DropdownMenu.Sub key={s.id}>
+                <DropdownMenu.SubTrigger className="um-item">
+                  <span className="um-item-name">{s.label}</span>
+                  <IconChevronRight size={13} className="um-chev" />
+                </DropdownMenu.SubTrigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.SubContent className="um-popover" sideOffset={2} collisionPadding={8}>
+                    {s.sub.map((s2) => (
+                      <DropdownMenu.Item
+                        key={s2.id}
+                        className="um-item"
+                        disabled={!!s2.disabled}
+                        title={s2.title || undefined}
+                        onSelect={s2.disabled ? undefined : onRun(s2.id)}
+                      >
+                        <span className="um-item-name">{s2.label}</span>
+                      </DropdownMenu.Item>
+                    ))}
+                  </DropdownMenu.SubContent>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Sub>
+            ) : (
               <DropdownMenu.Item
                 key={s.id}
                 className="um-item"
