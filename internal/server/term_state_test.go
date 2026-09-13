@@ -235,6 +235,38 @@ func TestTermStateRoundTrip(t *testing.T) {
 	}
 }
 
+// Decision table for the held question: a question absorbs working reports
+// from the parallel batch and is released only by its own tool completing or
+// by a lifecycle report that clearly settles the turn.
+func TestQuestionHoldDecisionTable(t *testing.T) {
+	cases := []struct {
+		name      string
+		start     string
+		startAtt  string
+		state     string
+		attention string
+		want      string
+		wantAtt   string
+	}{
+		{"question holds through a sibling completion", TermNeedsYou, TermAttentionQuestion, TermWorking, "", TermNeedsYou, TermAttentionQuestion},
+		{"the question's own completion releases", TermNeedsYou, TermAttentionQuestion, TermWorking, TermAttentionAnswered, TermWorking, ""},
+		{"an idle report clears the hold", TermNeedsYou, TermAttentionQuestion, TermIdle, "", TermIdle, ""},
+		{"a question report sets the hold", TermWorking, "", TermNeedsYou, TermAttentionQuestion, TermNeedsYou, TermAttentionQuestion},
+		{"a plain working report is not a hold", TermWorking, "", TermWorking, "", TermWorking, ""},
+		{"an answered report never sets a hold", TermIdle, "", TermNeedsYou, TermAttentionAnswered, TermNeedsYou, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			states := NewTermStates()
+			states.SetForRun("t1", tc.start, "grok", "run-1", tc.startAtt, time.Now())
+			got, _ := states.SetForRun("t1", tc.state, "grok", "run-1", tc.attention, time.Now())
+			if got.State != tc.want || got.Attention != tc.wantAtt {
+				t.Fatalf("state = %+v, want %s attention %q", got, tc.want, tc.wantAtt)
+			}
+		})
+	}
+}
+
 // waitForEventType scans past unrelated events (every store mutation
 // publishes) until one of the wanted type arrives.
 func waitForEventType(t *testing.T, ch chan store.Event, want string) store.Event {

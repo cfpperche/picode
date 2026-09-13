@@ -67,7 +67,7 @@ or `internal/rpc/`; the two state tests are in
 | 6. Disable or stale selection | `TestPeerParticipationDecisionTable`, `TestWorkspaceParticipationAPI` | Revocation and stale multi-row rejection are atomic; late workers cannot recreate a disabled connection |
 | 7. Grok/Hermes native lookup | `TestNativeCLIIdentity` | Per-call lookup covers current, missing, changed, resumed and ambiguous identity; this onboarding flow was not rerun in real Grok/Hermes |
 | 8. Idle Pi receiver, same session | `TestNativePiSetupSharesRegistrationAndPreservesDraft`, `TestReceiverConnectionRequiresCurrentProcess`, `TestNativePiAttentionReceiverDecisionTable` | Registration is shared and session/process fenced; setup sends no model prompt; native Pi setup and exchanges also passed below |
-| 9. Missing Pi adapter or receiver | `TestLaunchTamperAndFailure`, `TestReceiverConnectionRequiresCurrentProcess` | Partial: missing adapter and stale receiver proof are rejected; repair through the onboarding error state lacks an end-to-end test |
+| 9. Missing Pi adapter or receiver | `TestLaunchTamperAndFailure`, `TestReceiverConnectionRequiresCurrentProcess`, `TestPeerOnboardingAdapterRepair` | Missing adapter: the worker reports `adapter-missing`, mints nothing, and a Packages install recovers without re-selection. Stale receiver proof is rejected; receiver readiness itself is covered by rows 8/10 |
 | 10. Working, permission, draft or unknown editor | `TestPeerInputDecisionTable`, `TestPeerInputRejectsMultilineComposer`, `TestNativePiAttentionReceiverDecisionTable`, `TestStopIdleFencesConversationAndCommands` | Input/receiver gates and managed stop fences are covered; the full native onboarding matrix was not rerun |
 | 11. Idle terminal reload | `TestNativePiResumeComposer`, `TestCodexSubcommandsKeepHookOverrides`, `TestStopIdleFencesConversationAndCommands`, `TestCapturedStopDoesNotStopReplacement`; native Pi scratch preparation | Automatic Pi terminal resume retained the exact session; other native CLIs' new onboarding reload paths remain unverified |
 | 12. Old process survives stop | `TestPeerStopReceiptFailsClosed` | Partial: durable live-process, PID-reuse and corrupt-receipt checks pass; an actual stubborn native child reaching `stopPeerPane` timeout was not exercised |
@@ -90,7 +90,7 @@ Native evidence is task-owned under `var/qa/communication-onboarding/`:
   before a first turn is unverified. The manual QA restart opened a fresh
   conversation rather than resuming; it is not evidence of correct startup/resume.
 
-Partial rows 9 and 12 remain tracked in `docs/handoff/open/communication.md`.
+Partial row 12 remains tracked in `docs/handoff/open/communication.md`.
 The new onboarding matrix was not rerun for Claude, OpenCode, Grok or Hermes;
 earlier native transport tests do not establish this flow. Claude/OpenCode model
 capacity remains an owner/provider limitation. Physical mobile and non-Linux

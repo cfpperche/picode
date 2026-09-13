@@ -133,8 +133,12 @@ def register(ctx):
 // first tool that completes after the user answers is what returns the
 // terminal to working. PostToolUseFailure covers a tool that failed to
 // dispatch, where the model continues with the failure feedback.
+//
+// Grok 1.0.30 has no `PermissionRequest` event (it has `PermissionDenied`);
+// an unrecognized event name is skipped silently, so a shared Claude/Cursor
+// hook file loads unchanged but must not be relied on here.
 var nativeGrokHookEvents = []string{
-	"SessionStart", "UserPromptSubmit", "PermissionRequest", "Notification",
+	"SessionStart", "UserPromptSubmit", "Notification",
 	"PostToolUse", "PostToolUseFailure",
 }
 

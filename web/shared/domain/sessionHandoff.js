@@ -91,6 +91,51 @@ export function handoffRequest(session, form, extra = {}) {
   };
 }
 
+// sessionFromTerminal maps an Agent CLI terminal's pin (ADR-0084) into the
+// session object the handoff endpoints accept. Null when this terminal has
+// no recorded conversation yet — Continue is then dropped, same as a
+// missing Resume button.
+export function sessionFromTerminal(term) {
+  const ls = term && term.lastSession;
+  const id = String((ls && ls.sessionId) || "").trim();
+  if (!id) return null;
+  return {
+    id,
+    path: String(ls.path || "").trim(),
+    cwd: String(ls.cwd || (term && term.cwd) || "").trim(),
+    name: String(ls.name || (term && term.name) || "").trim(),
+    workspaceId: (term && term.workspaceId) || "",
+  };
+}
+
+export function terminalHandoffSourceCli(term) {
+  return String((term && term.lastSession && term.lastSession.cli) || "").trim();
+}
+
+// terminalHandoffMenu is the Continue-in submenu for a terminal row or pane,
+// or null when the row cannot act (no pin, unread source, no targets).
+// Uninstalled targets stay listed with the reason in the label.
+export function terminalHandoffMenu(term, clis) {
+  if (!sessionFromTerminal(term)) return null;
+  const sourceCli = terminalHandoffSourceCli(term);
+  if (!sourceCli) return null;
+  const targets = handoffTargets(clis, sourceCli);
+  if (!targets.length) return null;
+  return {
+    id: "handoff",
+    label: "Continue in…",
+    title: "Open this conversation in another CLI.",
+    icon: "ask",
+    sub: targets.map((t) => ({
+      id: "handoff:" + t.id,
+      label: t.installed ? t.name : t.name + " (not installed)",
+      title: t.installed ? "Continue this conversation in " + t.name + "." : t.name + " is not installed.",
+      disabled: !t.installed,
+      target: t,
+    })),
+  };
+}
+
 // lineageBadges renders a row's handoff links as short labels.
 export function lineageBadges(handoff, cliNames = {}) {
   const out = [];

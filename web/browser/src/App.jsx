@@ -19,6 +19,7 @@ import Sidebar from "./components/Sidebar.jsx";
 import WindowControls from "./components/WindowControls.jsx";
 import RailTabs from "./components/RailTabs.jsx";
 import { IconBrandMark } from "./components/Icons.jsx";
+import WebTabSurface from "./components/WebTab.jsx";
 import AgentTabs from "./components/AgentTabs.jsx";
 import DashboardView from "./components/DashboardView.jsx";
 import SessionBar from "./components/SessionBar.jsx";
@@ -37,6 +38,8 @@ import Devices from "./components/Devices.jsx";
 import Automations from "./components/Automations.jsx";
 import Palette from "./components/Palette.jsx";
 import ContextMenu from "./components/ContextMenu.jsx";
+import SessionHandoffDialog from "./components/SessionHandoffDialog.jsx";
+import { sessionFromTerminal, terminalHandoffSourceCli, handoffTargets } from "@picode/shared/domain/sessionHandoff.js";
 import FocusEdges, { FocusLeave } from "./components/FocusEdges.jsx";
 import { focusAvailable } from "@picode/shared/domain/focusMode.js";
 import { useFocusMode } from "./lib/useFocusMode.js";
@@ -48,7 +51,7 @@ import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
-import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
 import { nativeApps, nativeSurfaceFor } from "./lib/nativeApps.js";
@@ -298,6 +301,8 @@ export default function App({ shellChrome = false } = {}) {
   const [pkgUpdates, setPkgUpdates] = useState([]);
 
   const [terminals, setTerminals] = useState([]);
+  const [clis, setClis] = useState([]);
+  const [termHandoff, setTermHandoff] = useState(null);
   const terminalsRef = useRef([]);
   terminalsRef.current = terminals;
   const [termAttach, setTermAttach] = useState(null); // {id, token, text, files}: the message bar this terminal opened
@@ -740,6 +745,10 @@ export default function App({ shellChrome = false } = {}) {
       } catch { /* offline */ }
       try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ }
       try {
+        const cliCatalog = await api("/api/clis");
+        setClis(cliCatalog.clis || []);
+      } catch { /* Continue in… stays hidden until this lands */ }
+      try {
         const list = await loadWorkspaces();
         let free = [];
         try { free = await api("/api/agents?free=1"); } catch { free = []; }
@@ -907,6 +916,11 @@ export default function App({ shellChrome = false } = {}) {
   fleetRef.current = { workspaces, freeAgents, terminals };
   useEffect(() => startFeed(), []);
   useEffect(() => subscribeFeed((ev) => {
+    if (ev.type === "feed.open" || ev.type === "feed.reset" || (ev.type && ev.type.startsWith("cli."))) {
+      api("/api/clis").then((d) => setClis(d.clis || [])).catch(() => {});
+    }
+  }), []);
+  useEffect(() => subscribeFeed((ev) => {
     if (ev.type === "feed.open" || ev.type === "feed.reset") {
       if (!ev.data || !ev.data.first) loadWorkspaces().catch(() => {});
       return;
@@ -1072,6 +1086,10 @@ export default function App({ shellChrome = false } = {}) {
     // the router to #/agent/g:… — wait for the map instead.
     if (isGitTab(selectedId) && !gitOwner) return;
     if (isTreeTab(selectedId) && !treeOwner) return;
+    // Web tabs own no hash: they are session-scoped native surfaces. The
+    // workspace fallback below would read "w:<id>" as an agent id, fail to
+    // locate it and mark the tab gone ("That agent is gone", 2026-09-13).
+    if (isWebTab(selectedId)) return;
     const want = isTermTab(selectedId)
       ? termHash(tabTermId(selectedId))
       : isAppTab(selectedId)
@@ -1445,6 +1463,31 @@ export default function App({ shellChrome = false } = {}) {
     setSelectedId((s) => (s === fromId ? real : s));
   }
 
+  // Work browser tabs (Phase 3 slice 1): "w:<id>" editor tabs backed by a
+  // native WebView2 child. Desktop-shell only — the component shows a notice
+  // elsewhere. Meta (url/title) is mirrored up for the tab strip.
+  const [webTabs, setWebTabs] = useState({});
+  const webSeqRef = useRef(0);
+  function openWebTab(url) {
+    if (parseRoute(location.hash) !== "workspace") location.hash = "#/";
+    webSeqRef.current += 1;
+    const id = String(webSeqRef.current);
+    setTabs((t) => [...t, "w:" + id]);
+    setSelectedId("w:" + id);
+    setWebTabs((m) => ({ ...m, [id]: { url: url || "", title: "" } }));
+    if (url) window.__TAURI__?.core.invoke("btab_navigate", { id, url }).catch(() => {});
+    return "w:" + id;
+  }
+  const openWebTabRef = useRef(openWebTab);
+  openWebTabRef.current = openWebTab;
+  useEffect(() => {
+    if (!shellChrome || !window.__TAURI__) return undefined;
+    const un = window.__TAURI__.event.listen("btab://new", (e) => {
+      openWebTabRef.current(typeof e.payload === "string" ? e.payload : "");
+    });
+    return () => un.then((f) => f());
+  }, [shellChrome]);
+
   async function closeTab(id) {
     const guard = treeCloseGuards.current.get(id);
     if (guard && !await guard()) return;
@@ -1454,6 +1497,7 @@ export default function App({ shellChrome = false } = {}) {
       delete next[id];
       return next;
     });
+    if (isWebTab(id)) window.__TAURI__?.core.invoke("btab_close", { id: tabWebId(id) }).catch(() => {});
     if (isTermTab(id)) closeShellTerm(tabTermId(id));
     if (isGitTab(id)) {
       setGitOwners((m) => {
@@ -1939,11 +1983,47 @@ export default function App({ shellChrome = false } = {}) {
     });
   }
 
+  function openTermHandoff(term, target) {
+    const session = sessionFromTerminal(term);
+    const sourceCli = terminalHandoffSourceCli(term);
+    if (!session || !sourceCli || !target || !target.installed) return;
+    const source = clis.find((c) => c.id === sourceCli);
+    setTermHandoff({
+      session,
+      sourceCli,
+      sourceName: (source && source.name) || sourceCli,
+      target,
+    });
+  }
+
+  function onTermHandoffDone(res, target) {
+    setTermHandoff(null);
+    const next = res && res.terminal;
+    const adopted = res && res.agent;
+    if (next && next.launchError) {
+      toastError(new Error(next.launchError));
+    } else if (next && next.id) {
+      toast.ok(target.name + " is opening with this conversation.");
+      location.hash = termHash(next.id);
+    } else if (adopted && adopted.id) {
+      toast.ok("Continued as a Pi agent: " + adopted.name + ".");
+      revealAgent(adopted.id);
+    } else {
+      toast.ok("Handoff recorded.");
+    }
+  }
+
   const termMenuHandlers = {
     fullscreen: () => focus.toggle(),
     ask: (ctx) => openTermAttach(ctx, ctx.selection),
     attach: (ctx) => openTermAttach(ctx, ""),
     find: (ctx) => setTermFind(ctx.id),
+    handoff: (ctx, targetId) => {
+      const record = ctx && ctx.record;
+      if (!record || !targetId) return;
+      const target = handoffTargets(clis, terminalHandoffSourceCli(record)).find((t) => t.id === targetId);
+      if (target) openTermHandoff(record, target);
+    },
     "open-link": (ctx) => {
       if (!ctx.link) return;
       if (ctx.link.kind === "http") window.open(ctx.link.href, "_blank", "noopener,noreferrer");
@@ -2675,7 +2755,7 @@ export default function App({ shellChrome = false } = {}) {
   const missing = !!goneId;
   const noTabs = tabs.length === 0 && !missing;
   const hasData = (workspaces.length + freeAgents.length + terminals.length) > 0;
-  const showHome = (noTabs || dashboardPinned) && hasData;
+  const showHome = (noTabs || dashboardPinned) && hasData && !isWebTab(selectedId);
 
   const tabsStrip = (
 <AgentTabs
@@ -2756,6 +2836,8 @@ export default function App({ shellChrome = false } = {}) {
         onSelectTerm={(id) => { openTermTab(id); if (parseRoute() !== "workspace") location.hash = termHash(id); }}
         onRemoveTerm={removeTerminal}
         onLaunchAction={launchTerminalAction}
+        onContinueTerm={openTermHandoff}
+        clis={clis}
         onSessions={(id) => { location.hash = sessionsHash(id); }}
         onRenameTerm={renameTerminal}
         onGitGraph={openGitTab}
@@ -2841,6 +2923,16 @@ export default function App({ shellChrome = false } = {}) {
               />
             );
           })}
+          {tabs.filter(isWebTab).map((id) => (
+            <WebTabSurface
+              key={id}
+              tabId={id}
+              active={selectedId === id}
+              hidden={selectedId !== id}
+              onMeta={(m) => setWebTabs((cur) => ({ ...cur, [tabWebId(id)]: { ...cur[tabWebId(id)], ...m } }))}
+              onNew={() => openWebTab("")}
+            />
+          ))}
           <FileSurface
             owner={fileTabInfo}
             path={fileTabInfo ? fileTabInfo.path : ""}
@@ -2958,7 +3050,7 @@ export default function App({ shellChrome = false } = {}) {
             );
           })}
           <ChatSurface
-            hidden={noTabs || missing || termView || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId)}
+            hidden={noTabs || missing || termView || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId)}
             stopped={stopped}
             items={items}
             earlierRemaining={earlierRemaining}
@@ -3176,7 +3268,7 @@ export default function App({ shellChrome = false } = {}) {
 
         </div>
 
-        <AgentClis catalog={catalog} onCatalogChange={setCatalog} legacyContextReady={bootstrapped} legacyPackageContext={{ workspaceId: paneWs?.id || "", agentId: agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "") }} packageUpdates={pkgUpdates} onPackageUpdates={(updates, workspaceId) => { if ((paneWs?.id || "") === workspaceId) setPkgUpdates(updates); }} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} onRenameTerm={renameTerminal} onReloadAgent={async (id) => {
+        <AgentClis catalog={catalog} onCatalogChange={setCatalog} legacyContextReady={bootstrapped} legacyPackageContext={{ workspaceId: paneWs?.id || "", agentId: agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "") }} packageUpdates={pkgUpdates} onPackageUpdates={(updates, workspaceId) => { if ((paneWs?.id || "") === workspaceId) setPkgUpdates(updates); }} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} onRenameTerm={renameTerminal} onContinueTerm={openTermHandoff} onReloadAgent={async (id) => {
             const loc = locate(workspaces, freeAgents, id);
             const target = loc && loc.agent;
             if (!target || target.mode === "stopped") return;
@@ -3253,9 +3345,19 @@ export default function App({ shellChrome = false } = {}) {
         focusable={focusOk}
         onFullscreen={focus.toggle}
         termHandlers={termMenuHandlers}
+        clis={clis}
         onOpenAgent={revealAgent}
         onOpenTerminal={openTermTab}
         onGraphAction={openGraphAction}
+      />
+      <SessionHandoffDialog
+        open={!!termHandoff}
+        session={termHandoff ? termHandoff.session : null}
+        sourceCli={termHandoff ? termHandoff.sourceCli : ""}
+        sourceName={termHandoff ? termHandoff.sourceName : ""}
+        target={termHandoff ? termHandoff.target : null}
+        onClose={() => setTermHandoff(null)}
+        onDone={onTermHandoffDone}
       />
 
       <GitActionDialog

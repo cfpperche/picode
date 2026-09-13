@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { sessionClis, handoffModes, handoffTargets, handoffSummaryLine, handoffSessionLabel, handoffRequest, lineageBadges } from "./sessionHandoff.js";
+import { sessionClis, handoffModes, handoffTargets, handoffSummaryLine, handoffSessionLabel, handoffRequest, sessionFromTerminal, terminalHandoffSourceCli, terminalHandoffMenu, lineageBadges } from "./sessionHandoff.js";
 
 const all = { list: true, read: true, write: true, prompt: true };
 const clis = [
@@ -60,6 +60,39 @@ test("handoffRequest is the exact body the server accepts", () => {
   assert.equal(body.force, true);
   assert.equal(handoffRequest({ id: "x" }, { to: "pi" }).window, "recent");
   assert.equal(handoffRequest({ id: "x" }, { to: "pi" }).mode, "");
+});
+
+test("sessionFromTerminal is the pin, with cwd/name falling back to the terminal", () => {
+  assert.equal(sessionFromTerminal(null), null);
+  assert.equal(sessionFromTerminal({}), null);
+  assert.equal(sessionFromTerminal({ lastSession: { cli: "pi" } }), null);
+  assert.deepEqual(
+    sessionFromTerminal({
+      cwd: "/term",
+      name: "communication",
+      workspaceId: "ws1",
+      lastSession: { cli: "pi", sessionId: "s1", path: "/p", cwd: "/sess", name: "Race" },
+    }),
+    { id: "s1", path: "/p", cwd: "/sess", name: "Race", workspaceId: "ws1" },
+  );
+  assert.equal(sessionFromTerminal({ cwd: "/term", lastSession: { sessionId: "s1" } }).cwd, "/term");
+  assert.equal(terminalHandoffSourceCli({ lastSession: { cli: "claude-code", sessionId: "s1" } }), "claude-code");
+  assert.equal(terminalHandoffSourceCli({ launchCli: "pi" }), "");
+});
+
+test("terminalHandoffMenu drops the row when it cannot act", () => {
+  const pinned = { lastSession: { cli: "claude-code", sessionId: "s1" } };
+  assert.equal(terminalHandoffMenu({}, clis), null);
+  assert.equal(terminalHandoffMenu({ lastSession: { cli: "future", sessionId: "s1" } }, clis), null); // unread source
+  assert.equal(terminalHandoffMenu(pinned, []), null);
+  const row = terminalHandoffMenu(pinned, clis);
+  assert.equal(row.id, "handoff");
+  assert.deepEqual(row.sub.map((s) => s.id), ["handoff:pi", "handoff:codex", "handoff:grok", "handoff:future"]);
+  const codex = row.sub.find((s) => s.target.id === "codex");
+  assert.equal(codex.disabled, true);
+  assert.equal(codex.label, "Codex (not installed)");
+  assert.match(codex.title, /not installed\.$/);
+  assert.equal(row.sub.find((s) => s.target.id === "pi").disabled, false);
 });
 
 test("lineage badges", () => {

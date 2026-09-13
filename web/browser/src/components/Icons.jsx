@@ -87,6 +87,7 @@ import {
   VolumeX,
   WholeWord,
   X,
+  Globe,
 } from "lucide-react";
 
 function lucide(Icon, fallback) {
@@ -198,6 +199,8 @@ export const IconOk = lucide(CircleCheck, 14);
 export const IconInfo = lucide(Info, 14);
 export const IconWarn = lucide(TriangleAlert, 14);
 export const IconError = lucide(OctagonX, 14);
+
+export const IconGlobe = lucide(Globe, 13);
 
 // The brand mark — the exact geometry of /favicon.svg (the official pi
 // glyph), so the shell header wears what the browser tab and the

@@ -35,7 +35,7 @@ function Notice({ children, action, onAction, danger = false }) {
   return <div className={"cli-notice" + (danger ? " is-error" : "")} role={danger ? "alert" : "status"}><span>{children}</span>{action ? <button type="button" className="btn btn-ghost btn-sm" onClick={onAction}>{action}</button> : null}</div>;
 }
 
-export default function AgentClis({ hidden = false, catalog, onCatalogChange, legacyAgentId = "", legacyPackageContext = {}, legacyContextReady = true, packageUpdates = [], onPackageUpdates, onAgentConfig, onOpenAgent = () => {}, onCompactAgent = () => {}, onRenameTerm, onReloadAgent }) {
+export default function AgentClis({ hidden = false, catalog, onCatalogChange, legacyAgentId = "", legacyPackageContext = {}, legacyContextReady = true, packageUpdates = [], onPackageUpdates, onAgentConfig, onOpenAgent = () => {}, onCompactAgent = () => {}, onRenameTerm, onReloadAgent, onContinueTerm }) {
   const [hash, setHash] = useState(location.hash);
   const route = cliLocation(hash, { packageContext: legacyPackageContext, agentId: legacyAgentId });
   const setupCtx = cliPaneSetupContext(route, { workspaceId: legacyPackageContext.workspaceId || "", agentId: legacyPackageContext.agentId || legacyAgentId || "" });
@@ -198,7 +198,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
           <CLIProfiles cli={selected} profiles={data.profiles} run={run} busy={!!busy} />
           <a className="cli-docs" href={selected.docs} target="_blank" rel="noreferrer">{selected.name} documentation ↗</a>
         </> : null}
-        {pane === "terminals" ? <TerminalList hideTitle cliName={selected.name} terminals={cliTerminals(data.terminals, selected.id)} workspaces={data.workspaces} busy={busy} onAction={action} onNew={() => navigate("/new/" + selected.id)} onRenameTerm={onRenameTerm} /> : null}
+        {pane === "terminals" ? <TerminalList hideTitle cliName={selected.name} terminals={cliTerminals(data.terminals, selected.id)} workspaces={data.workspaces} busy={busy} onAction={action} onNew={() => navigate("/new/" + selected.id)} onRenameTerm={onRenameTerm} onContinueTerm={onContinueTerm} clis={data.clis} /> : null}
         {pane === "sessions" ? <SessionsView
           embedded
           wsId={route.workspace || ""}
@@ -263,7 +263,7 @@ function ConnectorsPane({ route, onReload }) {
   />;
 }
 
-function TerminalList({ terminals, workspaces, busy, onAction, onNew, cliName, onRenameTerm, hideTitle = false }) {
+function TerminalList({ terminals, workspaces, busy, onAction, onNew, cliName, onRenameTerm, onContinueTerm, clis, hideTitle = false }) {
   const [query, setQuery] = useState("");
   const filtered = terminals.filter((t) => `${t.name} ${t.cwd} ${t.cli || ""} ${t.launchCli || ""}`.toLowerCase().includes(query.toLowerCase()));
   const search = terminals.length > 4 ? <input aria-label="Search terminals" placeholder="Find a terminal…" value={query} onChange={(e) => setQuery(e.target.value)} /> : null;
@@ -277,9 +277,29 @@ function TerminalList({ terminals, workspaces, busy, onAction, onNew, cliName, o
         <div className="cli-actions" data-align-row data-align-wrap><button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => t.running ? (location.hash = termHash(t.id)) : onAction(t, "start")}>{t.running ? "Open" : "Start"}</button>
           <DropdownMenu.Root><DropdownMenu.Trigger asChild><button className="btn btn-ghost btn-sm cli-more" aria-label={"Actions for " + t.name} disabled={!!busy}>•••</button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
             {/* Same menu as the sidebar's terminal rows (termRowMenu.js) — one contract, two surfaces. */}
-            {termRowMenu(t).map((r) => r.sep
-              ? <DropdownMenu.Separator key={"sep"} className="um-divider" />
-              : <DropdownMenu.Item
+            {termRowMenu(t, { clis }).map((r, i) => r.sep
+              ? <DropdownMenu.Separator key={"sep" + i} className="um-divider" />
+              : r.sub ? (
+                <DropdownMenu.Sub key={r.id}>
+                  <DropdownMenu.SubTrigger className="um-item" title={r.title}>
+                    <span className="um-item-name">{r.label}</span>
+                    <IconChevronRight size={13} className="um-chev" />
+                  </DropdownMenu.SubTrigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.SubContent className="um-popover" sideOffset={4} alignOffset={-4} collisionPadding={8}>
+                      {r.sub.map((s) => (
+                        <DropdownMenu.Item
+                          key={s.id}
+                          className="um-item"
+                          disabled={!!s.disabled}
+                          title={s.title}
+                          onSelect={() => { if (!s.disabled && onContinueTerm) onContinueTerm(t, s.target); }}
+                        >{s.label}</DropdownMenu.Item>
+                      ))}
+                    </DropdownMenu.SubContent>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Sub>
+              ) : <DropdownMenu.Item
                   key={r.id}
                   className={"um-item" + (r.danger ? " cli-danger-item" : "")}
                   title={r.title}

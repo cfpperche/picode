@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconChat, IconEllipsis, IconFolder, IconGit, IconMode, IconPencil, IconPlay, IconReload, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
+import { IconChat, IconChevronRight, IconEllipsis, IconFolder, IconGit, IconMode, IconPencil, IconPlay, IconReload, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { repoLine, termLine } from "@picode/shared/domain/repoLine.js";
@@ -50,6 +50,7 @@ const TERM_ROW_MENU_ICONS = {
   rename: <IconPencil size={13} />,
   launch: <IconSettings size={14} />,
   settings: <IconMode size={14} />,
+  handoff: <IconChat size={13} />,
   start: <IconPlay size={12} />,
   restart: <IconReload size={13} />,
   stop: <IconStop size={12} />,
@@ -184,7 +185,7 @@ export function TermRow({
   selectedId, onSelectTerm,
   onFileTree, onGitGraph,
   actions = true,
-  onRenameTerm, onRemoveTerm, onLaunchAction,
+  onRenameTerm, onRemoveTerm, onLaunchAction, onContinueTerm, clis,
 }) {
   const line = termLine(t);
   const cli = terminalCli(t);
@@ -208,7 +209,29 @@ export function TermRow({
         </div>
         {actions ? (
           <RowMenu label={t.name || "Terminal"}>
-            {termRowMenu(t).map((r) => r.sep ? <RowMenuSep key={"sep"} /> : (
+            {termRowMenu(t, { clis }).map((r, i) => r.sep ? <RowMenuSep key={"sep" + i} /> : r.sub ? (
+              <DropdownMenu.Sub key={r.id}>
+                <DropdownMenu.SubTrigger className="ws-row-menu-item" title={r.title}>
+                  {TERM_ROW_MENU_ICONS[r.id]} {r.label}
+                  <IconChevronRight size={13} className="um-chev" />
+                </DropdownMenu.SubTrigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.SubContent className="ws-row-menu" sideOffset={4} alignOffset={-4} collisionPadding={8}>
+                    {r.sub.map((s) => (
+                      <DropdownMenu.Item
+                        key={s.id}
+                        className="ws-row-menu-item"
+                        disabled={!!s.disabled}
+                        title={s.title}
+                        onSelect={() => { if (!s.disabled && onContinueTerm) onContinueTerm(t, s.target); }}
+                      >
+                        {s.label}
+                      </DropdownMenu.Item>
+                    ))}
+                  </DropdownMenu.SubContent>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Sub>
+            ) : (
               <RowMenuItem
                 key={r.id}
                 title={r.title}

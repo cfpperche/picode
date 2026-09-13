@@ -107,6 +107,11 @@ export function runTermCommand(cmd, ctx, handlers = {}) {
       if (sendPane(entry, "\f")) focus();
       return;
     default: {
+      if (typeof cmd === "string" && cmd.startsWith("handoff:")) {
+        const fn = handlers.handoff;
+        if (fn) fn(ctx, cmd.slice("handoff:".length));
+        return;
+      }
       const fn = handlers[cmd];
       if (fn) fn(ctx);
     }

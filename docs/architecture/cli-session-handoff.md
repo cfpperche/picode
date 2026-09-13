@@ -3,7 +3,14 @@
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
 Any session of an Agent CLI can continue in another one from that CLI's
-Sessions pane ("Continue in <CLI>…"). `internal/transcript` is the portable model —
+Sessions pane ("Continue in <CLI>…") **and** from the terminal that is
+running it: the sidebar `⋯` menu, the Agent CLIs Terminals `⋯` menu, and
+the pane's right-click menu. The source is the terminal's pinned
+conversation (`lastSession`, ADR-0084), not a session picker. It is still
+a handoff, never a live switch — the source terminal keeps running and a
+new terminal (or a stopped Pi agent) opens on the target.
+
+`internal/transcript` is the portable model —
 ordered events (message, tool call, tool result, thinking, compaction,
 context), a header and a manifest of what a reader could not carry.
 `internal/clisession` adds optional capabilities next to `Source`:
@@ -34,3 +41,8 @@ the target started with a one-line prompt. Lineage lives in
 `session_handoffs` (event `session.handoff`) and is shown on both session
 listings. The installed target version comes from the setup check (run on
 demand); an unknown format refuses native and keeps brief.
+
+A long-term memory server in the same folder (hooks that inject a next-
+session brief) is a different layer: it does not replace Native session,
+and Continue does not wrap launches through it. Study:
+[2026-09-13-ai-memory](../benchmarks/2026-09-13-ai-memory.md).

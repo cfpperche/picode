@@ -45,7 +45,7 @@ export default function Sidebar({
   workingIds,
   waitingId,
   checklists,
-  terminals, onNewTerm, onSelectTerm, onRemoveTerm, onRenameTerm, onLaunchAction, onSessions,
+  terminals, onNewTerm, onSelectTerm, onRemoveTerm, onRenameTerm, onLaunchAction, onContinueTerm, clis, onSessions,
   onGitGraph,
   onFileTree,
   onOpenDashboard,
@@ -136,7 +136,7 @@ export default function Sidebar({
         selectedId={selectedId} onSelectTerm={onSelectTerm}
         onFileTree={onFileTree} onGitGraph={onGitGraph}
         onRenameTerm={onRenameTerm} onRemoveTerm={onRemoveTerm}
-        onLaunchAction={onLaunchAction}
+        onLaunchAction={onLaunchAction} onContinueTerm={onContinueTerm} clis={clis}
       />
     );
   }

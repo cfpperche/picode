@@ -121,6 +121,20 @@ test("fleet: terminal.runtime keeps run identities and rejects stale ends", () =
   assert.equal(applyFleet(s, { type: "terminal.runtime", data: { termId: "t1", action: "ended", runId: "old" } }), s);
 });
 
+test("fleet: terminal.last_session pins the conversation the menus read", () => {
+  const s = { workspaces: [], freeAgents: [], terminals: [{ id: "t1", name: "communication" }] };
+  const next = applyFleet(s, {
+    type: "terminal.last_session",
+    data: { termId: "t1", cli: "pi", sessionId: "s1", path: "/p", cwd: "/w", name: "Race" },
+  });
+  assert.deepEqual(next.terminals[0].lastSession, {
+    cli: "pi", sessionId: "s1", path: "/p", cwd: "/w", name: "Race",
+    updatedAt: "", preview: "", resumeArgs: [],
+  });
+  assert.equal(applyFleet(s, { type: "terminal.last_session", data: { termId: "gone", sessionId: "s1" } }), s);
+  assert.equal(applyFleet(s, { type: "terminal.last_session", data: { termId: "t1" } }), s);
+});
+
 test("inbox reducer", () => {
   let l = [{ id: "a", state: "unread" }];
   l = applyInbox(l, { type: "inbox.created", data: { id: "b", state: "unread" } });

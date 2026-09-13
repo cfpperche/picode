@@ -21,6 +21,7 @@ are dated notes with receipts. Closed-source claims are marked inference.
 | [OpenWiki / docs platforms](2026-09-03-docs-harness.md) | Docs harness study: Diátaxis, Scalar, Vale, Mintlify, Remotion license, HyperFrames, D2 | Public docs completeness/beauty: theme, screenshots pipeline, API reference, prose gate, tutorial videos | Live pages + local receipts, 2026-09-03 |
 | [Provider/account managers](2026-09-03-providers-view-v2.md) | Providers-view study: agent IDEs (Kilo, Roo, Zed, Cursor), account switchers (cc-switch, claude-swap), quota monitors (ccusage, CodexBar), credential dashboards (OpenRouter, Vercel, Stripe, Zapier) | Roster row spec, quota inline, credential origin, Verify, blast radius, fallback order | Open repos + live docs, 2026-09-03 |
 | [SSH terminal access](2026-09-07-ssh-terminal.md) | Who reaches dev/agent terminals over SSH: Coder `coder ssh`, Codespaces `gh cs ssh`, Ona/Gitpod (SSH-first), VS Code Remote-SSH, Tailscale SSH; Terminal-Bench/Daytona as the no-SSH contrast | The second door to the PTYs ADR-0002 already owns — who ships it, who refuses it, what users get | Live docs, 2026-09-07 |
+| [akitaonrails/ai-memory](https://github.com/akitaonrails/ai-memory) | Long-term memory server + optional `ai-memory run` launcher for many coding CLIs | Wiki brief vs native transcript Continue (ADR-0088). Complementary, not a substitute | Open repo v2.2.1 — study [2026-09-13](2026-09-13-ai-memory.md) |
 
 **Adaptation rule** (same as Cursor): borrow a pattern when it improves agent
 or CLI-terminal control. ADR-0069 records the owner's multi-CLI direction:
@@ -32,6 +33,7 @@ configuration and availability patterns cited in ADR-0069.
 
 ## Studies
 
+- [2026-09-13 — ai-memory as a cross-CLI handoff (wiki brief vs native transcript)](2026-09-13-ai-memory.md)
 - [2026-09-10 — A canvas of live terminals on @xyflow/react 12.11.6 (Matrix v2, phase C0 spike)](2026-09-10-node-canvas.md)
 - [2026-09-09 — A live grid of terminals on react-grid-layout 2.2.4 (Matrix, phase 0 spike)](2026-09-09-matrix-live-grid.md)
 - [2026-09-07 — What each agent CLI records about itself (Claude Code OTel, Codex OTel, ccusage, codex-trace, CliDeck, cli-agent-orchestrator)](2026-09-07-cross-cli-agent-telemetry.md) · re-measured 2026-09-11 (Codex request durations, Grok tokens/cost/turns)
