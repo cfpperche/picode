@@ -76,7 +76,7 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew, on
   const MENU_H = 96;
 
   const shot = () => invoke && invoke("btab_screenshot", { id })
-    .then((path) => { toast(`Screenshot saved to ${path}`); setErr(""); })
+    .then((path) => { toast.ok(`Screenshot saved to ${path}`); setErr(""); })
     .catch(fail);
 
   function go(u) {
