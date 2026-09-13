@@ -4,6 +4,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/store"
 )
 
@@ -74,5 +75,62 @@ func TestDiffGit(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestGitWatchTickSurvivesARemovedWorkspace is the regression test for the
+// 2026-09-13 crash: the pass that notices a workspace is gone has no group for
+// its path, and reading one anyway killed the whole daemon on every "Remove
+// workspace" in the UI. The removal is the durable event's business (ADR-0048),
+// so the pass says nothing about a folder nobody reads.
+func TestGitWatchTickSurvivesARemovedWorkspace(t *testing.T) {
+	st := testStore(t)
+	dir := gitRepo(t)
+	f := &feed.Feed{Store: st}
+	var got []store.Event
+	f.Listen(func(ev store.Event) { got = append(got, ev) })
+	deps := Deps{Store: st, Feed: f}
+
+	ws, err := st.AddWorkspace("watched", dir)
+	if err != nil {
+		t.Fatalf("add workspace: %v", err)
+	}
+
+	// First pass: the new folder's git state is news.
+	prev := gitWatchTick(deps, nil)
+	if len(got) != 1 {
+		t.Fatalf("first pass published %d event(s), want 1: %+v", len(got), got)
+	}
+	if got[0].Type != "git.updated" {
+		t.Fatalf("first pass published %q, want git.updated", got[0].Type)
+	}
+
+	// Second pass on an unchanged store: nothing moved, nothing said.
+	got = nil
+	prev = gitWatchTick(deps, prev)
+	if len(got) != 0 {
+		t.Fatalf("an unchanged pass published %+v, want nothing", got)
+	}
+
+	// The workspace is removed. This pass used to panic here.
+	removed, err := st.RemoveWorkspace(ws.ID)
+	if err != nil || !removed {
+		t.Fatalf("remove workspace: removed=%v err=%v", removed, err)
+	}
+	got = nil
+	prev = gitWatchTick(deps, prev)
+	if len(got) != 0 {
+		t.Fatalf("a removed workspace published %+v, want nothing (the removed event carries it)", got)
+	}
+	if len(prev) != 0 {
+		t.Fatalf("watched paths after removal = %v, want none", prev)
+	}
+
+	// And the next pass is a clean slate: the path is not remembered as a
+	// change to announce.
+	got = nil
+	gitWatchTick(deps, prev)
+	if len(got) != 0 {
+		t.Fatalf("the pass after removal published %+v, want nothing", got)
 	}
 }
