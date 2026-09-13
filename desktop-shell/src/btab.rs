@@ -230,6 +230,57 @@ pub async fn btab_screenshot(app: AppHandle, id: String) -> Result<String, Strin
     Ok(path.to_string_lossy().to_string())
 }
 
+// Slice 2 UX: an HTML popover can never paint over the WebView2 surface
+// (sibling HWNDs), so the menu flips the native Z order instead — the UI
+// webview rises above the page while the options menu is open. This is
+// how the ChatGPT Work shell gets its menu over the page too.
+fn hwnd_of(wv: &tauri::Webview) -> Result<isize, String> {
+    use std::sync::mpsc;
+    let (tx, rx) = mpsc::channel::<Result<isize, String>>();
+    wv.with_webview(move |platform| unsafe {
+        let mut hwnd = windows::Win32::Foundation::HWND::default();
+        let v = platform
+            .controller()
+            .ParentWindow(&mut hwnd)
+            .map(|_| hwnd.0 as isize) // HWND( *mut c_void )
+            .map_err(|e| e.to_string());
+        let _ = tx.send(v);
+    });
+    rx.recv_timeout(std::time::Duration::from_secs(3))
+        .map_err(|_| "hwnd timeout".to_string())?
+}
+
+fn place(page_hwnd: isize, above: isize) -> Result<(), String> {
+    use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE};
+    unsafe {
+        SetWindowPos(
+            windows::Win32::Foundation::HWND(page_hwnd as *mut _),
+            Some(windows::Win32::Foundation::HWND(above as *mut _)),
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+        )
+        .map_err(|e| e.to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn btab_layer(app: AppHandle, id: String, menu_open: bool) -> Result<(), String> {
+    let page = app.get_webview(&label(&id)).ok_or("tab not open")?;
+    let ui = app.get_webview("main").ok_or("main webview missing")?;
+    let page_hwnd = hwnd_of(&page)?;
+    let ui_hwnd = hwnd_of(&ui)?;
+    // menu closed → page above the UI (normal browsing);
+    // menu open   → UI above the page (the menu shows over it)
+    if menu_open {
+        place(ui_hwnd, page_hwnd)
+    } else {
+        place(page_hwnd, ui_hwnd)
+    }
+}
+
 #[tauri::command]
 pub async fn btab_close(app: AppHandle, id: String) -> Result<(), String> {
     if let Some(wv) = app.get_webview(&label(&id)) {

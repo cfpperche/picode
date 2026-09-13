@@ -24,7 +24,8 @@
     "allow-btab-reload",
     "allow-btab-meta",
     "allow-btab-close",
-    "allow-btab-screenshot"
+    "allow-btab-screenshot",
+    "allow-btab-layer"
   ],
   "remote": {
     "urls": [

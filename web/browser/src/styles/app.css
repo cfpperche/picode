@@ -1756,18 +1756,20 @@ img.ws-face.term-cli-face {
   padding: 0 6px 0 14px; height: 100%;
 }
 .web-tab-urlbar input:focus { outline: none; }
-.web-tab-go {
+.web-tab-toolbar .web-tab-go {
   flex: none; width: 42px; margin: 3px; border: none; border-radius: 999px;
   background: var(--accent); color: #fff; cursor: pointer;
   font-size: 15px; line-height: 1; display: flex; align-items: center; justify-content: center;
 }
-.web-tab-go:hover { filter: brightness(1.08); }
-.web-tab-menu {
+.web-tab-toolbar .web-tab-go:hover { border: none; filter: brightness(1.08); }
+.web-tab-toolbar .web-tab-menu {
   border: none; background: none; border-radius: 8px; color: var(--text-secondary);
+  font-size: 15px;
 }
-.web-tab-menu:hover { background: var(--border); color: var(--text-primary); }
-.web-tab-menu[aria-expanded="true"] { background: var(--border); color: var(--text-primary); }
-.web-tab-menu span { display: inline-flex; align-items: center; gap: 8px; }
+.web-tab-toolbar .web-tab-menu:hover,
+.web-tab-toolbar .web-tab-menu[aria-expanded="true"] {
+  border: none; background: var(--border); color: var(--text-primary);
+}
 .web-tab-host { flex: 1 1 auto; min-height: 0; position: relative; }
 .web-tab-err {
   max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
