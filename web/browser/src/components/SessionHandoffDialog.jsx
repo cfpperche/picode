@@ -121,27 +121,31 @@ export default function SessionHandoffDialog({ open, session, sourceCli, sourceN
 
           <fieldset className="handoff-options" disabled={busy}>
             <legend>How</legend>
-            <label className="handoff-choice" title="Written in the other CLI's own session format and resumed there.">
-              <input type="radio" name="handoff-mode" value="native" checked={mode === "native"} disabled={!canNative} onChange={() => setForm((f) => ({ ...f, mode: "native" }))} />
-              <span><strong>Native session</strong><small>{canNative ? "Turns and tool calls become a real " + target.name + " session." : tooLarge ? "This conversation is too large to import." : target.name + " cannot import sessions yet."}</small></span>
-            </label>
-            <label className="handoff-choice" title="A short summary the other CLI reads first.">
-              <input type="radio" name="handoff-mode" value="brief" checked={mode === "brief"} disabled={!canBrief} onChange={() => setForm((f) => ({ ...f, mode: "brief" }))} />
-              <span><strong>Brief</strong><small>{canBrief ? target.name + " starts from a short summary of this conversation." : target.name + " cannot start from a prompt."}</small></span>
-            </label>
+            <div className="handoff-choices">
+              <label className="handoff-choice" title="Written in the other CLI's own session format and resumed there.">
+                <input type="radio" name="handoff-mode" value="native" checked={mode === "native"} disabled={!canNative} onChange={() => setForm((f) => ({ ...f, mode: "native" }))} />
+                <span><strong>Native session</strong><small>{canNative ? "Turns and tool calls become a real " + target.name + " session." : tooLarge ? "This conversation is too large to import." : target.name + " cannot import sessions yet."}</small></span>
+              </label>
+              <label className="handoff-choice" title="A short summary the other CLI reads first.">
+                <input type="radio" name="handoff-mode" value="brief" checked={mode === "brief"} disabled={!canBrief} onChange={() => setForm((f) => ({ ...f, mode: "brief" }))} />
+                <span><strong>Brief</strong><small>{canBrief ? target.name + " starts from a short summary of this conversation." : target.name + " cannot start from a prompt."}</small></span>
+              </label>
+            </div>
           </fieldset>
 
           {preview && preview.hasCompaction ? (
             <fieldset className="handoff-options" disabled={busy}>
               <legend>How much</legend>
-              <label className="handoff-choice">
-                <input type="radio" name="handoff-window" value="recent" checked={form.window === "recent"} onChange={() => setForm((f) => ({ ...f, window: "recent" }))} />
-                <span><strong>Since the last summary</strong><small>What the previous agent still had in view, plus its summary of the rest.</small></span>
-              </label>
-              <label className="handoff-choice">
-                <input type="radio" name="handoff-window" value="all" checked={form.window === "all"} onChange={() => setForm((f) => ({ ...f, window: "all" }))} />
-                <span><strong>Whole conversation</strong><small>Every turn, including those before the summary.</small></span>
-              </label>
+              <div className="handoff-choices">
+                <label className="handoff-choice">
+                  <input type="radio" name="handoff-window" value="recent" checked={form.window === "recent"} onChange={() => setForm((f) => ({ ...f, window: "recent" }))} />
+                  <span><strong>Since the last summary</strong><small>What the previous agent still had in view, plus its summary of the rest.</small></span>
+                </label>
+                <label className="handoff-choice">
+                  <input type="radio" name="handoff-window" value="all" checked={form.window === "all"} onChange={() => setForm((f) => ({ ...f, window: "all" }))} />
+                  <span><strong>Whole conversation</strong><small>Every turn, including those before the summary.</small></span>
+                </label>
+              </div>
             </fieldset>
           ) : null}
 
