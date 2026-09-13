@@ -11,6 +11,6 @@
 - Tutorial video freshness audits are stale after source relocation.
 - Three worktrees sat idle up to 4 d with no commit; `make worktree-status` reports them, their fate is the owner's.
 - Merging `feat/herdr-validation` / `feat/picode-video-pilot` (pre-ADR-0105): their prose moves to `docs/changelog.d/` fragments and the session note, not into the board.
-- Hook edits cannot be exercised from the worktree that makes them: `core.hooksPath` is absolute, so every worktree runs the *root* checkout's hooks; `make hooks-check` on a throwaway repo is the local proof, and a commit the branch's own hook allows needs `git -c core.hooksPath=$PWD/.githooks commit`.
+- Hook edits cannot be exercised from the worktree that makes them: every worktree runs the *root* checkout's hooks; `make hooks-check` on a throwaway repo is the local proof, and a commit the branch's own hook allows needs `git -c core.hooksPath=$PWD/.githooks commit`.
 - A full-matrix `make ci` failed once on 2026-09-12 and passed on the identical tree next run — cause unknown; the run is kept in `var/ci-last.log` (retries would only hide it).
 - A branch that edited `docs/handoff.md` before ADR-0123 conflicts once (`modify/delete`) at merge: resolve by `git rm -f docs/handoff.md` — the hook refuses it staged as a modification, on purpose.
