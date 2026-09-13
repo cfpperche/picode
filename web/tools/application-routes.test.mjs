@@ -16,3 +16,9 @@ test("native settings and legacy URLs reach the CLI manager on both applications
     assert.equal(mobileRoute(hash).section, "clis", hash);
   }
 });
+
+test("desktop snippets hashes are a host page", () => {
+  for (const hash of ["#/snippets", "#/snippets/new", "#/snippets/review-pr-abc"]) {
+    assert.equal(parseRoute(hash), "snippets", hash);
+  }
+});

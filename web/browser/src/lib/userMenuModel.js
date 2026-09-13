@@ -9,6 +9,7 @@ import { matchesListSearch } from "@picode/shared/domain/listSearch.js";
 export const MENU_SECTIONS = [
   ["clis", "Agent CLIs", "Launches, sessions and CLI configuration"],
   ["automations", "Automations", "Scheduled and triggered work"],
+  ["snippets", "Snippets", "Reusable prompts"],
   ["providers", "Providers", "Accounts, keys, usage"],
   ["llama", "llama.cpp", "Models and server connection"],
   ["connectors", "Connectors", "MCP servers and tools"],
@@ -20,7 +21,7 @@ export const MENU_SECTIONS = [
 ];
 
 export const MENU_GROUPS = [
-  ["Tools", ["automations", "llama"]],
+  ["Tools", ["automations", "snippets", "llama"]],
   ["PiCode", ["preferences", "devices", "system", "integrations"]],
 ];
 

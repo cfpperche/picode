@@ -21,6 +21,7 @@ export const ROUTES = {
   pins: "/pins",
   termset: "/termset",
   automations: "/automations",
+  snippets: "/snippets",
 };
 
 export function parseRoute(hash) {
@@ -38,6 +39,7 @@ export function parseRoute(hash) {
   if (h === "/pins" || h.startsWith("/pins/")) return "pins";
   if (h === "/termset" || h.startsWith("/termset/")) return "termset";
   if (h === "/automations" || h.startsWith("/automations/")) return "automations";
+  if (h === "/snippets" || h.startsWith("/snippets/")) return "snippets";
   // Legacy #/sessions* deep links render the Agent CLIs shell; AgentClis
   // redirects the hash to #/clis/<cli>/sessions* (ADR-0079).
   if (h.startsWith("/sessions") || h.startsWith("/sessions/")) return "clis";
@@ -215,6 +217,10 @@ export function go(name, agentId, extra = {}) {
     location.hash = "#/pins/new";
     return;
   }
+  if (name === "snippets-new") {
+    location.hash = "#/snippets/new";
+    return;
+  }
   if (typeof name === "string" && name.startsWith("pin:")) {
     location.hash = "#/pins/" + encodeURIComponent(name.slice(4));
     return;
@@ -374,4 +380,18 @@ export function automationRoute(hash) {
 
 export function automationsHash(sub) {
   return sub ? "#/automations/" + encodeURIComponent(sub) : "#/automations";
+}
+
+// Snippets (ADR-0130): "#/snippets" list, "#/snippets/new" editor,
+// "#/snippets/<id>" one snippet. null = not ours.
+export function snippetRoute(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
+  const m = /^\/snippets(?:\/([^/]+))?$/.exec(h);
+  if (!m) return null;
+  if (!m[1]) return "";
+  try { return decodeURIComponent(m[1]); } catch { return m[1]; }
+}
+
+export function snippetsHash(sub) {
+  return sub ? "#/snippets/" + encodeURIComponent(sub) : "#/snippets";
 }

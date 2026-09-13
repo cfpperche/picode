@@ -57,3 +57,11 @@ not bump `updated_at`.
 
 `/expand` and `/run` are later commits. Kind `shell` may be stored; the
 editor hides it until the snippet-run door lands.
+
+## Desktop studio
+
+Host page `#/snippets` through `PageFrame` (1240px). Palette **Snippets**
+and the user menu Tools group open it. Empty state: one line + New
+snippet. Drafts sit in `sessionStorage` (`picode-snip-draft:<id>`). The
+editor parses placeholders in the browser (`web/shared/domain/snipDraft.js`)
+and shows a local preview (no git). Command kind has no control yet.

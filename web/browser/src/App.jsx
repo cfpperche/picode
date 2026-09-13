@@ -36,6 +36,7 @@ import System from "./components/System.jsx";
 import Integrations from "./components/Integrations.jsx";
 import Devices from "./components/Devices.jsx";
 import Automations from "./components/Automations.jsx";
+import Snippets from "./components/Snippets.jsx";
 import Palette from "./components/Palette.jsx";
 import ContextMenu from "./components/ContextMenu.jsx";
 import SessionHandoffDialog from "./components/SessionHandoffDialog.jsx";
@@ -3287,6 +3288,7 @@ export default function App({ shellChrome = false } = {}) {
         <Integrations hidden={route !== "integrations"} />
         <Devices hidden={route !== "devices"} />
         <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} />
+        <Snippets hidden={route !== "snippets"} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
         {route === "pins" ? <Suspense fallback={null}><PinStudio /></Suspense> : null}
       </main>
@@ -3327,7 +3329,7 @@ export default function App({ shellChrome = false } = {}) {
           if (a.kind === "inspector") { toggleInspector(); return; }
           if (a.kind === "fullscreen") { focus.toggle(); return; }
           if (a.kind === "cli-new") { location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : ""); return; }
-          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations") { go(a.kind, agent?.id, { workspaceId: paneWs?.id }); return; }
+          if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets") { go(a.kind, agent?.id, { workspaceId: paneWs?.id }); return; }
           if (a.kind === "app") { openTab(appTabId(a.appId)); if (parseRoute() !== "workspace") location.hash = appHash(a.appId); return; }
           if (a.kind === "open") revealAgent(a.wsId);
           if (a.kind === "files") openTreeTab("workspace", a.wsId, a.wsName);
