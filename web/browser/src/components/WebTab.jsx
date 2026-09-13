@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconGlobe } from "./Icons.jsx";
+import { IconGlobe, IconMonitor, IconSettings } from "./Icons.jsx";
 import { toast } from "../lib/toast.js";
 
 // Work browser tab surface (Phase 3 slice 1): the React side renders the
@@ -110,14 +110,14 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew, on
           />
           <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => go()}>↵</button>
         </div>
-        <DropdownMenu.Root>
+        <DropdownMenu.Root onOpenChange={(o) => invoke("btab_visibility", { id, visible: !o }).catch(() => {})}>
           <DropdownMenu.Trigger asChild>
             <button type="button" className="web-tab-menu" title="Browser options" aria-label="Browser options">⋮</button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
-            <DropdownMenu.Content align="end" sideOffset={6} className="um-menu web-tab-menu-list">
-              <DropdownMenu.Item className="um-item" onSelect={shot}>Take a screenshot</DropdownMenu.Item>
-              <DropdownMenu.Item className="um-item" onSelect={() => onBrowserSettings?.()}>Browser settings</DropdownMenu.Item>
+            <DropdownMenu.Content align="end" sideOffset={6} collisionPadding={8} className="um-popover" onCloseAutoFocus={(e) => e.preventDefault()}>
+              <DropdownMenu.Item className="um-item" onSelect={shot}><IconMonitor /> <span>Take a screenshot</span></DropdownMenu.Item>
+              <DropdownMenu.Item className="um-item" onSelect={() => onBrowserSettings?.()}><IconSettings /> <span>Browser settings</span></DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
