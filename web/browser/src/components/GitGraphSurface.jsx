@@ -7,6 +7,8 @@ import { walkParams, resolveSelection } from "../lib/gitgraphBranches.js";
 import GitGraph from "./GitGraph.jsx";
 import { useKeptScroll } from "../lib/keepScroll.js";
 import GitGraphBranches from "./GitGraphBranches.jsx";
+import WorkspacePicker from "./WorkspacePicker.jsx";
+import { currentWorkspaceId, pickerOptions, triggerLabel } from "../lib/gitWorkspacePicker.js";
 import CommitDetail from "./CommitDetail.jsx";
 import UncommittedDetail from "./UncommittedDetail.jsx";
 import { UNCOMMITTED, isUncommittedHash } from "../lib/gitgraph.js";
@@ -56,7 +58,7 @@ function clampDetail(n) {
 // The graph of one repository (ADR-0022). The owner in `owner` is what the
 // server reads through; the repository it answers with is what the tab is.
 
-export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu, actionTick = 0, done = null, onUndo }) {
+export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu, actionTick = 0, done = null, onUndo, workspaces = [], freeAgents = [], terminals = [], onPickWorkspace }) {
   const [graph, setGraph] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -118,6 +120,16 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
     [anchors],
   );
 
+  // The workspace whose folder this graph is read through (ADR-0022
+  // amendment): the owner's own workspace, or — for a terminal or an agent —
+  // the one it lives in. Nothing when the owner has none (a free agent or
+  // terminal): the trigger then wears the repository name.
+  const ownerWorkspaceId = currentWorkspaceId(owner, { workspaces, freeAgents, terminals });
+  const ownerWorkspace = (workspaces || []).find((w) => w && w.id === ownerWorkspaceId) || null;
+  // Only folders that are repositories are offered; the same set the sidebar
+  // gates "Git graph" on, so no row can answer 404.
+  const wsOptions = useMemo(() => pickerOptions(workspaces), [workspaces]);
+
   // The completion signal is ADR-0038's cheap token endpoint — three execs,
   // no log — polled only while an action is pending and this tab is visible.
   // No standing timer: ADR-0030 and 0073 refused one, and this one stops.
@@ -132,6 +144,11 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
     // watch nor announce it.
     const record = doneRef.current;
     if (!actionTick || !record || !ownerIdRef.current) return undefined;
+    // An action belongs to the owner it was sent through: if the picker moves
+    // this tab to another one, the watch ends with it. The banner is cleared
+    // by the owner-change effect below, and the App already drops the undo row
+    // (it only hands `done` to the owner it was recorded for).
+    const sentFor = record.ownerId || "";
     // The baseline is the token read just before delivery — never the last
     // load's, which a still-pending earlier action may already have moved.
     const started = record.token || tokenRef.current;
@@ -143,6 +160,7 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
       // A hidden tab neither polls nor spends its budget: the reader who
       // comes back after a minute gets a watch that still has its 30 s.
       if (document.hidden) return;
+      if (sentFor && sentFor !== ownerIdRef.current) { clearInterval(timer); return; }
       tries += 1;
       try {
         const head = await api(`${baseRef.current}${encodeURIComponent(ownerIdRef.current)}/git/head`);
@@ -182,6 +200,21 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
   baseRef.current = base;
   const ownerIdRef = useRef(ownerId);
   ownerIdRef.current = ownerId;
+
+  // A different owner is a different folder reading the same history (ADR-0022)
+  // and a different place a write is delivered (ADR-0096), so what the open
+  // detail and a pending action refer to no longer holds: the open commit
+  // closes (an uncommitted row is indexed positionally inside the worktree
+  // list) and yesterday's "Sent — …" banner goes with the owner that sent it.
+  // The loaded window, the branch filter and the search stay: those belong to
+  // the repository and to the reader, and the picker changes neither.
+  const shownOwner = useRef(ownerId);
+  useEffect(() => {
+    if (shownOwner.current === ownerId) return;
+    shownOwner.current = ownerId;
+    setSelected("");
+    setPending(null);
+  }, [ownerId]);
 
   // onKey lives in a ref so `load` stays stable across parent re-renders. The
   // App re-renders on every sidebar poll and hands down a fresh onKey closure;
@@ -342,6 +375,7 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
   }
 
   const count = (graph.commits || []).length;
+  const gitLabel = ownerWorkspace ? `Git graph for ${ownerWorkspace.name} in ${graph.name}` : `Git graph for ${graph.name}`;
   // A parent link can land outside the loaded window even after growing it
   // once; the anchor row does not exist, so there is nowhere to open inline.
   // Pseudo rows (`*<n>`) are always present by construction.
@@ -350,9 +384,18 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
     !(graph.commits || []).some((c) => c.hash === selected);
 
   return (
-    <section className="gg-surface" aria-label={`Git graph for ${graph.name}`} hidden={!!hidden} ref={rootRef}>
+    <section className="gg-surface" aria-label={gitLabel} hidden={!!hidden} ref={rootRef}>
       <header className="gg-head">
-        <h2 className="gg-title">{graph.name}</h2>
+        {wsOptions.length > 1 ? (
+          <WorkspacePicker
+            options={wsOptions}
+            value={ownerWorkspaceId}
+            label={triggerLabel(ownerWorkspace, graph.name)}
+            onPick={onPickWorkspace}
+          />
+        ) : (
+          <h2 className="gg-title">{graph.name}</h2>
+        )}
         <GitGraphBranches
           refs={graph.refs}
           worktrees={graph.worktrees}
