@@ -30,7 +30,7 @@ const TERM_ICONS = {
 // pane-detection logic in App.jsx's own listener. DropdownMenu gives what a
 // menu of this size needs anyway — roving focus, typeahead, submenus — which
 // a Popover never had.
-export default function ContextMenu({ state, onClose, themeMode, onTheme, termHandlers, onOpenAgent, onOpenTerminal, onGraphAction, focusOn, focusable, onFullscreen }) {
+export default function ContextMenu({ state, onClose, themeMode, onTheme, termHandlers, onOpenAgent, onOpenTerminal, onGraphAction, focusOn, focusable, onFullscreen, clis }) {
   // Every read of `state` goes through these: the component stays mounted
   // with state === null so Radix keeps owning its own teardown, and the
   // rows below are evaluated on every render, open or not.
@@ -113,7 +113,7 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
             {graph ? (
               <GraphMenu menu={graph} onRun={runGraph} />
             ) : term ? (
-              buildTermMenu({ kind: term.kind, selection, cli: term.cli, running: term.running, shell: term.shell, link, findKey: formatChord(primaryChord("app.terminal.find")), focus: !!focusOn, focusable: focusable !== false, focusKey: fullscreenChord })
+              buildTermMenu({ kind: term.kind, selection, cli: term.cli, running: term.running, shell: term.shell, link, findKey: formatChord(primaryChord("app.terminal.find")), focus: !!focusOn, focusable: focusable !== false, focusKey: fullscreenChord, record: term.record, clis })
                 .map((row, i) => (row.sep
                   ? <div key={"s" + i} className="um-divider" />
                   : <TermRow key={row.id} row={row} onRun={runTerm} />))
@@ -207,7 +207,13 @@ function TermRow({ row, onRun }) {
         <DropdownMenu.Portal>
           <DropdownMenu.SubContent className="um-popover" sideOffset={2} collisionPadding={8}>
             {row.sub.map((s) => (
-              <DropdownMenu.Item key={s.id} className="um-item" onSelect={onRun(s.id)}>
+              <DropdownMenu.Item
+                key={s.id}
+                className="um-item"
+                disabled={!!s.disabled}
+                title={s.title || undefined}
+                onSelect={s.disabled ? undefined : onRun(s.id)}
+              >
                 <span className="um-item-name">{s.label}</span>
                 {s.key ? <kbd className="um-key">{s.key}</kbd> : null}
               </DropdownMenu.Item>

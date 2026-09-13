@@ -143,6 +143,26 @@ export function applyFleet(state, ev) {
       return null;
     case "terminal.deleted":
       return { ...state, terminals: terminals.filter((t) => t.id !== d.id) };
+    case "terminal.last_session": {
+      // The pin (ADR-0084) is what Continue in… and Resume last session
+      // read. The event used to carry only ids, so a live terminal never
+      // grew a pin in the sidebar until a full refetch.
+      const id = d.termId || d.id;
+      if (!id || !d.sessionId) return state;
+      const term = terminals.find((t) => t.id === id);
+      if (!term) return state;
+      const lastSession = {
+        cli: d.cli || "",
+        sessionId: d.sessionId,
+        path: d.path || "",
+        cwd: d.cwd || "",
+        name: d.name || "",
+        updatedAt: d.updatedAt || "",
+        preview: d.preview || "",
+        resumeArgs: d.resumeArgs || [],
+      };
+      return { ...state, terminals: terminals.map((t) => (t.id === id ? { ...t, lastSession } : t)) };
+    }
     case "terminal.runtime": {
       // Ephemeral (id 0): a wrapper or the tmux reconciler confirmed which
       // coding CLI owns the pane. A stale end event must not erase a newer

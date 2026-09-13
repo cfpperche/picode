@@ -209,7 +209,11 @@ func (s *Store) SetTerminalLastSession(id string, v TerminalLastSession) error {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound
 	}
-	if err = s.AppendEventTx(tx, "terminal.last_session", nil, nil, map[string]any{"id": id, "termId": id, "sessionId": v.SessionID, "cli": v.CLI}); err != nil {
+	if err = s.AppendEventTx(tx, "terminal.last_session", nil, nil, map[string]any{
+		"id": id, "termId": id, "sessionId": v.SessionID, "cli": v.CLI,
+		"path": v.Path, "cwd": v.Cwd, "name": v.Name, "updatedAt": v.UpdatedAt,
+		"preview": v.Preview, "resumeArgs": v.ResumeArgs,
+	}); err != nil {
 		return err
 	}
 	return s.commit(tx)

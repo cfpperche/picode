@@ -55,3 +55,36 @@ test("every row answers with a label and a one-line title", () => {
     }
   }
 });
+
+const all = { list: true, read: true, write: true, prompt: true };
+const clis = [
+  { id: "pi", name: "Pi", installed: true, sessions: all },
+  { id: "codex", name: "Codex", installed: true, sessions: all },
+  { id: "claude-code", name: "Claude Code", installed: false, sessions: all },
+];
+const pinned = { running: true, lastSession: { cli: "pi", sessionId: "s1", path: "/p", cwd: "/w" } };
+
+test("Continue in… is dropped when the row cannot act", () => {
+  assert.equal(row(termRowMenu({ running: true }, { clis }), "handoff"), undefined);
+  assert.equal(row(termRowMenu({ running: true, lastSession: { cli: "pi" } }, { clis }), "handoff"), undefined);
+  assert.equal(row(termRowMenu(pinned, { clis: [] }), "handoff"), undefined);
+  assert.equal(row(termRowMenu({ running: false }, { clis }), "handoff"), undefined);
+});
+
+test("a pinned conversation offers Continue in… before lifecycle, running or stopped", () => {
+  const running = termRowMenu(pinned, { clis });
+  assert.deepEqual(running.map((r) => (r.sep ? "sep" : r.id)),
+    ["rename", "launch", "settings", "sep", "handoff", "sep", "restart", "stop", "sep", "remove"]);
+  const stopped = termRowMenu({ ...pinned, running: false }, { clis });
+  assert.deepEqual(stopped.map((r) => (r.sep ? "sep" : r.id)),
+    ["rename", "launch", "settings", "sep", "handoff", "sep", "start", "sep", "remove"]);
+  const sub = row(running, "handoff").sub;
+  assert.deepEqual(sub.map((s) => s.target.id), ["codex", "claude-code"]);
+  assert.equal(sub.find((s) => s.target.id === "claude-code").label, "Claude Code (not installed)");
+  assert.equal(sub.find((s) => s.target.id === "claude-code").disabled, true);
+  assert.equal(sub.find((s) => s.target.id === "codex").disabled, false);
+  for (const r of [...running, ...sub]) {
+    if (r.sep) continue;
+    assert.match(r.title, /\.$/, JSON.stringify(r));
+  }
+});

@@ -37,6 +37,8 @@ import Devices from "./components/Devices.jsx";
 import Automations from "./components/Automations.jsx";
 import Palette from "./components/Palette.jsx";
 import ContextMenu from "./components/ContextMenu.jsx";
+import SessionHandoffDialog from "./components/SessionHandoffDialog.jsx";
+import { sessionFromTerminal, terminalHandoffSourceCli, handoffTargets } from "@picode/shared/domain/sessionHandoff.js";
 import FocusEdges, { FocusLeave } from "./components/FocusEdges.jsx";
 import { focusAvailable } from "@picode/shared/domain/focusMode.js";
 import { useFocusMode } from "./lib/useFocusMode.js";
@@ -298,6 +300,8 @@ export default function App({ shellChrome = false } = {}) {
   const [pkgUpdates, setPkgUpdates] = useState([]);
 
   const [terminals, setTerminals] = useState([]);
+  const [clis, setClis] = useState([]);
+  const [termHandoff, setTermHandoff] = useState(null);
   const terminalsRef = useRef([]);
   terminalsRef.current = terminals;
   const [termAttach, setTermAttach] = useState(null); // {id, token, text, files}: the message bar this terminal opened
@@ -740,6 +744,10 @@ export default function App({ shellChrome = false } = {}) {
       } catch { /* offline */ }
       try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ }
       try {
+        const cliCatalog = await api("/api/clis");
+        setClis(cliCatalog.clis || []);
+      } catch { /* Continue in… stays hidden until this lands */ }
+      try {
         const list = await loadWorkspaces();
         let free = [];
         try { free = await api("/api/agents?free=1"); } catch { free = []; }
@@ -906,6 +914,11 @@ export default function App({ shellChrome = false } = {}) {
   const fleetRef = useRef({ workspaces: [], freeAgents: [], terminals: [] });
   fleetRef.current = { workspaces, freeAgents, terminals };
   useEffect(() => startFeed(), []);
+  useEffect(() => subscribeFeed((ev) => {
+    if (ev.type === "feed.open" || ev.type === "feed.reset" || (ev.type && ev.type.startsWith("cli."))) {
+      api("/api/clis").then((d) => setClis(d.clis || [])).catch(() => {});
+    }
+  }), []);
   useEffect(() => subscribeFeed((ev) => {
     if (ev.type === "feed.open" || ev.type === "feed.reset") {
       if (!ev.data || !ev.data.first) loadWorkspaces().catch(() => {});
@@ -1939,11 +1952,47 @@ export default function App({ shellChrome = false } = {}) {
     });
   }
 
+  function openTermHandoff(term, target) {
+    const session = sessionFromTerminal(term);
+    const sourceCli = terminalHandoffSourceCli(term);
+    if (!session || !sourceCli || !target || !target.installed) return;
+    const source = clis.find((c) => c.id === sourceCli);
+    setTermHandoff({
+      session,
+      sourceCli,
+      sourceName: (source && source.name) || sourceCli,
+      target,
+    });
+  }
+
+  function onTermHandoffDone(res, target) {
+    setTermHandoff(null);
+    const next = res && res.terminal;
+    const adopted = res && res.agent;
+    if (next && next.launchError) {
+      toastError(new Error(next.launchError));
+    } else if (next && next.id) {
+      toast.ok(target.name + " is opening with this conversation.");
+      location.hash = termHash(next.id);
+    } else if (adopted && adopted.id) {
+      toast.ok("Continued as a Pi agent: " + adopted.name + ".");
+      revealAgent(adopted.id);
+    } else {
+      toast.ok("Handoff recorded.");
+    }
+  }
+
   const termMenuHandlers = {
     fullscreen: () => focus.toggle(),
     ask: (ctx) => openTermAttach(ctx, ctx.selection),
     attach: (ctx) => openTermAttach(ctx, ""),
     find: (ctx) => setTermFind(ctx.id),
+    handoff: (ctx, targetId) => {
+      const record = ctx && ctx.record;
+      if (!record || !targetId) return;
+      const target = handoffTargets(clis, terminalHandoffSourceCli(record)).find((t) => t.id === targetId);
+      if (target) openTermHandoff(record, target);
+    },
     "open-link": (ctx) => {
       if (!ctx.link) return;
       if (ctx.link.kind === "http") window.open(ctx.link.href, "_blank", "noopener,noreferrer");
@@ -2756,6 +2805,8 @@ export default function App({ shellChrome = false } = {}) {
         onSelectTerm={(id) => { openTermTab(id); if (parseRoute() !== "workspace") location.hash = termHash(id); }}
         onRemoveTerm={removeTerminal}
         onLaunchAction={launchTerminalAction}
+        onContinueTerm={openTermHandoff}
+        clis={clis}
         onSessions={(id) => { location.hash = sessionsHash(id); }}
         onRenameTerm={renameTerminal}
         onGitGraph={openGitTab}
@@ -3176,7 +3227,7 @@ export default function App({ shellChrome = false } = {}) {
 
         </div>
 
-        <AgentClis catalog={catalog} onCatalogChange={setCatalog} legacyContextReady={bootstrapped} legacyPackageContext={{ workspaceId: paneWs?.id || "", agentId: agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "") }} packageUpdates={pkgUpdates} onPackageUpdates={(updates, workspaceId) => { if ((paneWs?.id || "") === workspaceId) setPkgUpdates(updates); }} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} onRenameTerm={renameTerminal} onReloadAgent={async (id) => {
+        <AgentClis catalog={catalog} onCatalogChange={setCatalog} legacyContextReady={bootstrapped} legacyPackageContext={{ workspaceId: paneWs?.id || "", agentId: agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "") }} packageUpdates={pkgUpdates} onPackageUpdates={(updates, workspaceId) => { if ((paneWs?.id || "") === workspaceId) setPkgUpdates(updates); }} legacyAgentId={agent?.id || (selectedId && !isTermTab(selectedId) && !isFileTab(selectedId) && !isGitTab(selectedId) && !isTreeTab(selectedId) && !isAppTab(selectedId) ? selectedId : "")} onAgentConfig={(target, cfg) => patchAgent(cfg, target, false)} hidden={route !== "clis"} onOpenAgent={(id) => revealAgent(id)} onCompactAgent={compactAgentById} onRenameTerm={renameTerminal} onContinueTerm={openTermHandoff} onReloadAgent={async (id) => {
             const loc = locate(workspaces, freeAgents, id);
             const target = loc && loc.agent;
             if (!target || target.mode === "stopped") return;
@@ -3253,9 +3304,19 @@ export default function App({ shellChrome = false } = {}) {
         focusable={focusOk}
         onFullscreen={focus.toggle}
         termHandlers={termMenuHandlers}
+        clis={clis}
         onOpenAgent={revealAgent}
         onOpenTerminal={openTermTab}
         onGraphAction={openGraphAction}
+      />
+      <SessionHandoffDialog
+        open={!!termHandoff}
+        session={termHandoff ? termHandoff.session : null}
+        sourceCli={termHandoff ? termHandoff.sourceCli : ""}
+        sourceName={termHandoff ? termHandoff.sourceName : ""}
+        target={termHandoff ? termHandoff.target : null}
+        onClose={() => setTermHandoff(null)}
+        onDone={onTermHandoffDone}
       />
 
       <GitActionDialog

@@ -65,12 +65,29 @@ test("an agent's TUI pane is not a terminal to rename, close or remove", () => {
   assert.deepEqual(rows.slice(0, 3), ["copy", "paste", "select-all"]);
 });
 
-test("remove is the only destructive row, and text size is the only submenu", () => {
+test("remove is the only destructive row, and text size is the only submenu without a pin", () => {
   const rows = buildTermMenu({ kind: "term" });
   assert.deepEqual(rows.filter((r) => r.danger).map((r) => r.id), ["remove"]);
   const subs = rows.filter((r) => r.sub);
   assert.deepEqual(subs.map((r) => r.id), ["text-size"]);
   assert.deepEqual(subs[0].sub.map((r) => r.id), ["text-bigger", "text-smaller", "text-reset"]);
+});
+
+test("a pinned CLI pane offers Continue in…; an agent pane never does", () => {
+  const cap = { list: true, read: true, write: true, prompt: true };
+  const clis = [
+    { id: "pi", name: "Pi", installed: true, sessions: cap },
+    { id: "codex", name: "Codex", installed: true, sessions: cap },
+  ];
+  const record = { lastSession: { cli: "pi", sessionId: "s1", path: "/p", cwd: "/w" }, cwd: "/w", name: "communication" };
+  const pane = buildTermMenu({ kind: "term", record, clis });
+  const handoff = row(pane, "handoff");
+  assert.equal(handoff.label, "Continue in…");
+  assert.deepEqual(handoff.sub.map((s) => s.target.id), ["codex"]);
+  assert.ok(ids(pane).indexOf("handoff") > ids(pane).indexOf("settings"));
+  assert.ok(ids(pane).indexOf("handoff") < ids(pane).indexOf("close-tab"));
+  const agent = ids(buildTermMenu({ kind: "agent", record, clis }));
+  assert.equal(agent.includes("handoff"), false);
 });
 
 test("no separator ever leads, trails or doubles", () => {

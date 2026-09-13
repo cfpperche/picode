@@ -12,6 +12,7 @@
 // node test runner.
 
 import { focusRowLabel } from "@picode/shared/domain/focusMode.js";
+import { terminalHandoffMenu } from "@picode/shared/domain/sessionHandoff.js";
 
 const SEP = { sep: true };
 
@@ -44,6 +45,8 @@ export const TERM_MENU_KEYS = {
 //   focusable  the shell can host the mode at all (false in the ≤767px
 //              column shell, which has no chrome to hide)
 //   focusKey   the chord for the mode, read from the user's own bindings
+//   record     the terminal JSON (lastSession, cwd) for Continue in…
+//   clis       GET /api/clis rows; Continue in… derives targets from these
 export function buildTermMenu(ctx = {}) {
   const selection = (ctx.selection || "").trim();
   const cli = ctx.cli || "";
@@ -96,11 +99,18 @@ export function buildTermMenu(ctx = {}) {
   rows.push(SEP, ...view);
 
   if (own) {
-    rows.push(
-      SEP,
+    const ownRows = [
       { id: "rename", label: "Rename terminal…", icon: "pencil" },
       { id: "settings", label: "Terminal settings", icon: "settings" },
       { id: "files", label: "Open folder in Files", icon: "folders" },
+    ];
+    // Continue in… is this pane's conversation, not a session picker — the
+    // pin names it (ADR-0084). An agent's TUI never reaches this block.
+    const handoff = terminalHandoffMenu(ctx.record || { lastSession: ctx.lastSession }, ctx.clis);
+    if (handoff) ownRows.push(handoff);
+    rows.push(
+      SEP,
+      ...ownRows,
       SEP,
       { id: "close-tab", label: "Close tab", icon: "x", key: TERM_MENU_KEYS["close-tab"], hint: "The terminal keeps running." },
       { id: "remove", label: "Remove terminal…", icon: "trash", danger: true },
