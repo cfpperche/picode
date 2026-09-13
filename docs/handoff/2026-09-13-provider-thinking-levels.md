@@ -18,11 +18,11 @@ Edit reopened with `high`+`max` checked, and the empty-selection error was
 captured. The provider picker is unaffected (480px: dialog over=0, list scrolls).
 visual-review: PASS (7 PNGs in `var/screenshots/`; desktop 633px + 480px,
 mobile 390×844; card 5/5; `__picodeOverlayAudit` ok:true in every state)
-Not done / debts: see `docs/handoff/open/providers-custom.md` (per-model
-fields, `off`, sticky actions).
+Not done / debts: levels are one selection for every model in the list (like
+context window and max output); `off` cannot be hidden from the form (pi's
+catalogs use both `off` and `none` as its provider value); the create dialog
+scrolls as a whole, so Back/Add endpoint scroll with the form.
 Merge: fast-forward ready (2 commits + merge of main)
 
-## Next up
-
-- Owner's option 2: prefill from `GET /v1/models` (ids, reasoning, vision,
-  per-model context) — the durable item already sits in the topic file.
+Next: the owner's option 2 (prefill from `GET /v1/models`) is already the P1
+bullet in `docs/handoff/open/providers-custom.md` — nothing session-local.
