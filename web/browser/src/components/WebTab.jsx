@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { IconGlobe } from "./Icons.jsx";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { IconGlobe, IconMonitor, IconSettings } from "./Icons.jsx";
+import { toast } from "../lib/toast.js";
 
 // Work browser tab surface (Phase 3 slice 1): the React side renders the
 // toolbar and an empty region; the actual page is a native WebView2 child
@@ -8,7 +10,7 @@ import { IconGlobe } from "./Icons.jsx";
 // this surface.
 const invoke = typeof window !== "undefined" && window.__TAURI__ ? window.__TAURI__.core.invoke : null;
 
-export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew }) {
+export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew, onBrowserSettings }) {
   const id = tabId.slice(2);
   const [urlDraft, setUrlDraft] = useState("");
   const [started, setStarted] = useState(false);
@@ -63,6 +65,10 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew }) 
 
   const urlRef = useRef(null);
 
+  const shot = () => invoke && invoke("btab_screenshot", { id })
+    .then((path) => { toast(`Screenshot saved to ${path}`); setErr(""); })
+    .catch(fail);
+
   function go(u) {
     const target = (u ?? urlDraft).trim();
     if (!target) return;
@@ -93,16 +99,28 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew }) 
         <button type="button" title="Back" onClick={() => invoke("btab_back", { id }).catch(() => {})}>←</button>
         <button type="button" title="Forward" onClick={() => invoke("btab_forward", { id }).catch(() => {})}>→</button>
         <button type="button" title="Reload" onClick={() => invoke("btab_reload", { id }).catch(() => {})}>⟳</button>
-        <input
-          ref={urlRef}
-          value={urlDraft}
-          onChange={(e) => setUrlDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") go(); }}
-          placeholder="Search or enter a URL"
-          spellCheck={false}
-        />
-        <button type="button" title="Go" onClick={() => go()}>Go</button>
-        <button type="button" title="New browser tab" onClick={onNew}>+</button>
+        <div className="web-tab-urlbar">
+          <input
+            ref={urlRef}
+            value={urlDraft}
+            onChange={(e) => setUrlDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") go(); }}
+            placeholder="Search or enter a URL"
+            spellCheck={false}
+          />
+          <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => go()}>↵</button>
+        </div>
+        <DropdownMenu.Root onOpenChange={(o) => invoke("btab_visibility", { id, visible: !o }).catch(() => {})}>
+          <DropdownMenu.Trigger asChild>
+            <button type="button" className="web-tab-menu" title="Browser options" aria-label="Browser options">⋮</button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content align="end" sideOffset={6} collisionPadding={8} className="um-popover" onCloseAutoFocus={(e) => e.preventDefault()}>
+              <DropdownMenu.Item className="um-item" onSelect={shot}><IconMonitor /> <span>Take a screenshot</span></DropdownMenu.Item>
+              <DropdownMenu.Item className="um-item" onSelect={() => onBrowserSettings?.()}><IconSettings /> <span>Browser settings</span></DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
         {err ? <span className="web-tab-err" title={err}>{err}</span> : null}
       </div>
       <div className="web-tab-host" ref={hostRef} hidden={!started} />

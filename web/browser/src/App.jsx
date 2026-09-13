@@ -46,14 +46,14 @@ import { focusAvailable } from "@picode/shared/domain/focusMode.js";
 import { useFocusMode } from "./lib/useFocusMode.js";
 import { graphActions, undoFor } from "@picode/shared/domain/graphActions.js";
 import { ownerBase } from "@picode/shared/domain/gitOwner.js";
-import { openRepoKeys, pickAction } from "./lib/gitWorkspacePicker.js";
+import { openRepoKeys, ownerIdOf, pickWorkspace } from "./lib/gitWorkspacePicker.js";
 import GitActionDialog from "./components/GitActionDialog.jsx";
 import { paneAt, paneSelection, paneLink, focusPane } from "./lib/termActions.js";
 import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
-import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
 import { nativeApps, nativeSurfaceFor } from "./lib/nativeApps.js";
@@ -667,7 +667,7 @@ export default function App({ shellChrome = false } = {}) {
 
   const fetchRoleState = useCallback(async () => {
     const id = selectedRef.current;
-    if (!id || isTermTab(id)) { setRoleState(null); return; }
+    if (!isAgentTab(id)) { setRoleState(null); return; }
     try {
       const d = await api("/api/agents/" + id + "/role-state");
       if (selectedRef.current === id) setRoleState((d && d.state) || null);
@@ -675,7 +675,7 @@ export default function App({ shellChrome = false } = {}) {
   }, []);
   useEffect(() => {
     setRoleState(null);
-    if (selectedId && !isTermTab(selectedId)) fetchRoleState();
+    if (isAgentTab(selectedId)) fetchRoleState();
   }, [selectedId, fetchRoleState]);
 
   useEffect(() => {
@@ -691,7 +691,7 @@ export default function App({ shellChrome = false } = {}) {
     loadSessions();
   }, [selectedId, workspaces.length, freeAgents.length]);
   useEffect(() => {
-    if (!selectedId || isTermTab(selectedId)) { setSlashExtra([]); return; }
+    if (!isAgentTab(selectedId)) { setSlashExtra([]); return; }
     api("/api/agents/" + selectedId + "/slash")
       .then((d) => setSlashExtra(extraSlash(d.skills, d.templates, d.commands)))
       .catch(() => setSlashExtra([]));
@@ -1444,15 +1444,17 @@ export default function App({ shellChrome = false } = {}) {
     const ws = workspaces.find((w) => w && w.id === wsId);
     if (!ws) return;
     const owner = { kind: "workspace", id: wsId, name: ws.name || "" };
-    let key = "";
-    try {
-      const head = await api(ownerBase(owner) + encodeURIComponent(wsId) + "/git/head");
-      key = (head && head.key) || "";
-    } catch (err) {
-      toastError(err);
+    // The resolution and its two failure rows (a request that throws, an answer
+    // that names no repository) live in the pure module, where they are tests.
+    const { key, action, error } = await pickWorkspace({
+      tabKey: gitTabKey(tabId),
+      openKeys: openRepoKeys(tabs),
+      readHead: () => api(ownerBase(owner) + encodeURIComponent(wsId) + "/git/head"),
+    });
+    if (error) {
+      toastError(error);
       return;
     }
-    const action = pickAction(key, gitTabKey(tabId), openRepoKeys(tabs));
     if (action === "none") return;
     const target = gitTabId(key);
     setGitOwners((m) => {
@@ -2983,6 +2985,7 @@ export default function App({ shellChrome = false } = {}) {
               hidden={selectedId !== id}
               onMeta={(m) => setWebTabs((cur) => ({ ...cur, [tabWebId(id)]: { ...cur[tabWebId(id)], ...m } }))}
               onNew={() => openWebTab("")}
+              onBrowserSettings={() => go("browser")}
             />
           ))}
           <FileSurface
@@ -3011,7 +3014,7 @@ export default function App({ shellChrome = false } = {}) {
                 onClose={() => closeTab(id)}
                 onMenu={openGraphMenu}
                 actionTick={gitActionTick}
-                done={gitActionDone && gitActionDone.ownerId === o.id ? gitActionDone : null}
+                done={gitActionDone && gitActionDone.ownerId === ownerIdOf(o) ? gitActionDone : null}
                 onUndo={(undo) => openGraphAction(
                   { id: "act:" + undo.action, kind: "action", action: undo.action, label: "Undo", tier: "B", needs: undo.name ? ["target", "name"] : ["target"], target: undo.target, name: undo.name },
                   { owner: o, root: (gitAction && gitAction.root) || "", agents: [], refs: [] },
@@ -3434,7 +3437,7 @@ export default function App({ shellChrome = false } = {}) {
           // The graph learns the outcome by watching, not by return value:
           // the command was typed or submitted, not finished (ADR-0096).
           const before = { head: opts.head || "", ref };
-          setGitActionDone({ ownerId: owner.id, verb: opts.verb, door: opts.run ? "run" : "prepare", token, undo: undoFor(item.action, before) });
+          setGitActionDone({ ownerId: ownerIdOf(owner), verb: opts.verb, door: opts.run ? "run" : "prepare", token, undo: undoFor(item.action, before) });
           setGitActionTick((n) => n + 1);
           if (opts.alsoAgent && item.action === "create-worktree") {
             startAgentInWorktree(owner, opts.name, opts.agentName);
@@ -3444,7 +3447,7 @@ export default function App({ shellChrome = false } = {}) {
           const { owner, root, item, ref } = gitAction;
           const token = await gitTokenBefore(owner);
           await askAgentGit(who, text, root, action, verb, { quiet: true });
-          setGitActionDone({ ownerId: owner.id, verb, door: "ask", token, undo: undoFor(item.action, { head: head || "", ref }) });
+          setGitActionDone({ ownerId: ownerIdOf(owner), verb, door: "ask", token, undo: undoFor(item.action, { head: head || "", ref }) });
           setGitActionTick((n) => n + 1);
         }}
       />

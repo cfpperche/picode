@@ -10,6 +10,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   ChevronUp,
   ClipboardPaste,
   Clock,
@@ -85,6 +86,7 @@ export const IconMonitor = lucide(Monitor, 13);
 export const IconPhone = lucide(Smartphone, 13);
 export const IconMoon = lucide(Moon, 13);
 export const IconChevronRight = lucide(ChevronRight, 13);
+export const IconChevronDown = lucide(ChevronDown, 12);
 export const IconChevronLeft = lucide(ChevronLeft, 13);
 export const IconDocs = lucide(Book, 12);
 export const IconExternal = lucide(ExternalLink, 13);

@@ -163,6 +163,73 @@ pub async fn btab_meta(app: AppHandle, id: String) -> Result<serde_json::Value, 
     }
 }
 
+// Slice 2.1 (read tier seed): "Take a screenshot". Native CapturePreview
+// (not CDP) — the PNG comes back base64 for the UI to save.
+#[tauri::command]
+pub async fn btab_screenshot(app: AppHandle, id: String) -> Result<String, String> {
+    use std::sync::mpsc;
+    use webview2_com::CapturePreviewCompletedHandler;
+    use webview2_com::Microsoft::Web::WebView2::Win32::COREWEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT_PNG;
+    use windows::core::HSTRING;
+    use windows::Win32::Storage::FileSystem::FILE_ATTRIBUTE_NORMAL;
+    use windows::Win32::System::Com::{STGM_CREATE, STGM_READWRITE, STGM_SHARE_DENY_WRITE};
+
+    let wv = app.get_webview(&label(&id)).ok_or("tab not open")?;
+    let (tx, rx) = mpsc::channel::<Result<(), String>>();
+    let tx_err = tx.clone();
+    // Data-URL downloads are blocked inside WebView2, so the shell writes
+    // the PNG straight to the user's Pictures folder and the UI shows the
+    // saved path.
+    let dir = std::env::var("USERPROFILE")
+        .map(|home| std::path::PathBuf::from(home).join("Pictures").join("PiCode"))
+        .unwrap_or_else(|_| std::env::temp_dir());
+    let _ = std::fs::create_dir_all(&dir);
+    let ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or_default();
+    let path = dir.join(format!("picode-{id}-{ms}.png"));
+    let shot_path = path.clone();
+
+    wv.with_webview(move |platform| unsafe {
+        let core = match platform.controller().CoreWebView2() {
+            Ok(c) => c,
+            Err(e) => {
+                let _ = tx_err.send(Err(format!("CoreWebView2: {e}")));
+                return;
+            }
+        };
+        let stream = match windows::Win32::UI::Shell::SHCreateStreamOnFileEx(
+            &HSTRING::from(shot_path.to_string_lossy().as_ref()),
+            (STGM_CREATE.0 | STGM_READWRITE.0 | STGM_SHARE_DENY_WRITE.0) as u32,
+            FILE_ATTRIBUTE_NORMAL.0,
+            true,
+            None,
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                let _ = tx_err.send(Err(format!("stream: {e}")));
+                return;
+            }
+        };
+        let tx = tx.clone();
+        let handler = CapturePreviewCompletedHandler::create(Box::new(move |hr| {
+            let _ = tx.send(hr.map_err(|e| format!("capture failed ({e})")));
+            Ok(())
+        }));
+        if let Err(e) = core.CapturePreview(COREWEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT_PNG, &stream, &handler) {
+            let _ = tx_err.send(Err(format!("CapturePreview: {e}")));
+        }
+    });
+
+    match rx.recv_timeout(std::time::Duration::from_secs(8)) {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => return Err(e),
+        Err(_) => return Err("capture timed out".into()),
+    }
+    Ok(path.to_string_lossy().to_string())
+}
+
 #[tauri::command]
 pub async fn btab_close(app: AppHandle, id: String) -> Result<(), String> {
     if let Some(wv) = app.get_webview(&label(&id)) {

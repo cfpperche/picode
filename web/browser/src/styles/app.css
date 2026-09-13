@@ -1737,6 +1737,37 @@ img.ws-face.term-cli-face {
   background: var(--bg-base); color: inherit;
 }
 .web-tab-toolbar input:focus { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+/* Address field (shadcn ButtonGroup): input and action share one pill —
+   the button is the right cap, no separate borders. */
+.web-tab-urlbar {
+  flex: 1; min-width: 140px; display: flex; align-items: stretch;
+  height: var(--ctl-h, 36px);
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--bg-base); overflow: hidden;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.web-tab-urlbar:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.web-tab-urlbar input {
+  flex: 1; min-width: 0; border: none; background: none; color: inherit;
+  padding: 0 6px 0 14px; height: 100%;
+}
+.web-tab-urlbar input:focus { outline: none; }
+.web-tab-go {
+  flex: none; width: 42px; margin: 3px; border: none; border-radius: 999px;
+  background: var(--accent); color: #fff; cursor: pointer;
+  font-size: 15px; line-height: 1; display: flex; align-items: center; justify-content: center;
+}
+.web-tab-go:hover { filter: brightness(1.08); }
+.web-tab-menu {
+  border: none; background: none; border-radius: 8px; color: var(--text-secondary);
+}
+.web-tab-menu:hover { background: var(--border); color: var(--text-primary); }
+.web-tab-menu[aria-expanded="true"] { background: var(--border); color: var(--text-primary); }
+.web-tab-menu span { display: inline-flex; align-items: center; gap: 8px; }
 .web-tab-host { flex: 1 1 auto; min-height: 0; position: relative; }
 .web-tab-err {
   max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

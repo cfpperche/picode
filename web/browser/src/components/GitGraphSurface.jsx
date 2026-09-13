@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
-import { ownerBase } from "@picode/shared/domain/gitOwner.js";
 import { useDebounced } from "../lib/useDebounced.js";
 import { matchCommits, MIN_QUERY } from "../lib/gitgraphSearch.js";
 import { walkParams, resolveSelection } from "../lib/gitgraphBranches.js";
@@ -8,7 +7,8 @@ import GitGraph from "./GitGraph.jsx";
 import { useKeptScroll } from "../lib/keepScroll.js";
 import GitGraphBranches from "./GitGraphBranches.jsx";
 import WorkspacePicker from "./WorkspacePicker.jsx";
-import { currentWorkspaceId, pickerOptions, triggerLabel } from "../lib/gitWorkspacePicker.js";
+import { graphUrl, headUrl, ownerIdOf, ownerRoute } from "../lib/gitWorkspacePicker.js";
+import { pickerOptions, triggerLabel, workspaceForOwner } from "@picode/shared/domain/gitWorkspace.js";
 import CommitDetail from "./CommitDetail.jsx";
 import UncommittedDetail from "./UncommittedDetail.jsx";
 import { UNCOMMITTED, isUncommittedHash } from "../lib/gitgraph.js";
@@ -124,8 +124,8 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
   // amendment): the owner's own workspace, or — for a terminal or an agent —
   // the one it lives in. Nothing when the owner has none (a free agent or
   // terminal): the trigger then wears the repository name.
-  const ownerWorkspaceId = currentWorkspaceId(owner, { workspaces, freeAgents, terminals });
-  const ownerWorkspace = (workspaces || []).find((w) => w && w.id === ownerWorkspaceId) || null;
+  const ownerWorkspace = workspaceForOwner(owner, { workspaces, freeAgents, terminals });
+  const ownerWorkspaceId = ownerWorkspace ? ownerWorkspace.id : "";
   // Only folders that are repositories are offered; the same set the sidebar
   // gates "Git graph" on, so no row can answer 404.
   const wsOptions = useMemo(() => pickerOptions(workspaces), [workspaces]);
@@ -143,7 +143,7 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
     // from: `done` is handed only to that surface, so the others neither
     // watch nor announce it.
     const record = doneRef.current;
-    if (!actionTick || !record || !ownerIdRef.current) return undefined;
+    if (!actionTick || !record || !ownerRef.current.id) return undefined;
     // An action belongs to the owner it was sent through: if the picker moves
     // this tab to another one, the watch ends with it. The banner is cleared
     // by the owner-change effect below, and the App already drops the undo row
@@ -160,10 +160,10 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
       // A hidden tab neither polls nor spends its budget: the reader who
       // comes back after a minute gets a watch that still has its 30 s.
       if (document.hidden) return;
-      if (sentFor && sentFor !== ownerIdRef.current) { clearInterval(timer); return; }
+      if (sentFor && sentFor !== ownerRef.current.key) { clearInterval(timer); return; }
       tries += 1;
       try {
-        const head = await api(`${baseRef.current}${encodeURIComponent(ownerIdRef.current)}/git/head`);
+        const head = await api(headUrl(baseRef.current, ownerRef.current.id));
         if (!live) return;
         if (head && head.token && head.token !== started) {
           setPending(null);
@@ -192,14 +192,25 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
     setMatchIdx((i) => (i + (e.shiftKey ? -1 : 1) + matchList.length) % matchList.length);
   };
 
-  const base = ownerBase(owner);
-  const ownerId = owner ? owner.id : "";
+  // Two identities, and they are not the same string: the route takes the id
+  // from ownerRoute (`base + id`), while the per-owner state hangs on ownerIdOf
+  // — kind and id — so a future owner kind reusing an id cannot pass for the
+  // one before it. Composing them into one variable sent
+  // `/api/workspaces/workspace%3A<id>/git` to the server once; the route and
+  // the state key stay separate on purpose.
+  const { base, id: ownerId } = ownerRoute(owner);
+  const ownerKey = ownerIdOf(owner);
   // The watch above outlives a re-render, so it reads the owner through refs
   // rather than closing over values the next render replaces.
   const baseRef = useRef(base);
   baseRef.current = base;
-  const ownerIdRef = useRef(ownerId);
-  ownerIdRef.current = ownerId;
+  // The watch reads the owner through one ref, and it needs both identities:
+  // `key` to know whether the owner it was sent for is still the one on screen,
+  // `id` to build the route. Handing the key to the URL is what sent
+  // `/api/workspaces/workspace%3A<id>/git/head` (a 404 the poll swallowed, so a
+  // finished action looked like it was still running).
+  const ownerRef = useRef({ key: ownerKey, id: ownerId });
+  ownerRef.current = { key: ownerKey, id: ownerId };
 
   // A different owner is a different folder reading the same history (ADR-0022)
   // and a different place a write is delivered (ADR-0096), so what the open
@@ -207,14 +218,16 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
   // closes (an uncommitted row is indexed positionally inside the worktree
   // list) and yesterday's "Sent — …" banner goes with the owner that sent it.
   // The loaded window, the branch filter and the search stay: those belong to
-  // the repository and to the reader, and the picker changes neither.
-  const shownOwner = useRef(ownerId);
+  // the repository and to the reader, and the picker changes neither. The
+  // identity is ownerIdOf (kind included), so a future owner kind that reuses
+  // an id cannot pass for the one before it.
+  const shownOwner = useRef(ownerKey);
   useEffect(() => {
-    if (shownOwner.current === ownerId) return;
-    shownOwner.current = ownerId;
+    if (shownOwner.current === ownerKey) return;
+    shownOwner.current = ownerKey;
     setSelected("");
     setPending(null);
-  }, [ownerId]);
+  }, [ownerKey]);
 
   // onKey lives in a ref so `load` stays stable across parent re-renders. The
   // App re-renders on every sidebar poll and hands down a fresh onKey closure;
@@ -232,7 +245,7 @@ export default function GitGraphSurface({ owner, hidden, onKey, onClose, onMenu,
         const { branches, remotes } = walkParams(selectedBranches, showRemoteBranches);
         for (const name of branches) params.append("branches", name);
         if (!remotes) params.set("remotes", "0");
-        const g = await api(`${base}${encodeURIComponent(ownerId)}/git?${params}`);
+        const g = await api(graphUrl(base, ownerId, params));
         setGraph(g);
         setError("");
         if (g && g.key && g.key !== keyRef.current) {

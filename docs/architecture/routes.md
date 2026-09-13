@@ -39,7 +39,10 @@ search, text editing and media previews. Its document controller preserves
 unsaved edits across reads and writes, handles mtime conflicts and guards
 navigation with Save/Discard/Cancel. Git provides Changes, History and PR
 views, branch/remote filtering, commit and sibling-worktree details, and the
-existing Prepare, Run when idle and Ask agent actions. Command delivery only
+existing Prepare, Run when idle and Ask agent actions. Its folder row is where
+the reading workspace is named and switched: a sheet of the user's Git
+workspaces, the rule itself in `web/shared/domain/gitWorkspace.js` because the
+browser's graph toolbar asks the same question (ADR-0022 amendment). Command delivery only
 falls back after a confirmed conflict; an unknown network outcome is not
 replayed. Both tools pin the owner folder and require explicit Follow after
 a root mismatch. Compatible `#/file/`, `#/tree/` and `#/git/` links retain
