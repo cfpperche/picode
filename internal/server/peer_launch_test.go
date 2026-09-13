@@ -89,6 +89,110 @@ func TestPeerLaunchResumeBoundary(t *testing.T) {
 	}
 }
 
+func TestPeerResumeExactDecisionTable(t *testing.T) {
+	codex := &store.TerminalLastSession{CLI: "codex", SessionID: "fixture-session", ResumeArgs: []string{"resume", "fixture-session"}}
+	claude := &store.TerminalLastSession{CLI: "claude-code", SessionID: "cc-1", ResumeArgs: []string{"--resume", "cc-1"}}
+	for _, tc := range []struct {
+		name string
+		ls   *store.TerminalLastSession
+		args []string
+		want bool
+	}{
+		{"codex exact", codex, []string{"resume", "fixture-session"}, true},
+		{"codex nil session", nil, []string{"resume", "fixture-session"}, false},
+		{"codex empty argv", codex, nil, false},
+		{"codex leading sandbox", codex, []string{"--sandbox", "workspace-write", "resume", "fixture-session"}, false},
+		{"codex leading config", codex, []string{"-c", "model=x", "resume", "fixture-session"}, false},
+		{"codex leading dashdash", codex, []string{"--", "resume", "fixture-session"}, false},
+		{"codex resume dashdash id", codex, []string{"resume", "--", "fixture-session"}, false},
+		{"codex trailing dashdash", codex, []string{"resume", "fixture-session", "--"}, false},
+		{"codex extra operand", codex, []string{"resume", "fixture-session", "--dangerously-bypass-approvals-and-sandbox"}, false},
+		{"codex continue last", codex, []string{"resume", "--last"}, false},
+		{"codex other id", codex, []string{"resume", "another"}, false},
+		{"codex fork", codex, []string{"fork", "fixture-session"}, false},
+		{"claude exact", claude, []string{"--resume", "cc-1"}, true},
+		{"claude leading global", claude, []string{"--dangerously-skip-permissions", "--resume", "cc-1"}, false},
+		{"claude dashdash", claude, []string{"--resume", "--", "cc-1"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := peerResumeExact(tc.args, tc.ls); got != tc.want {
+				t.Fatalf("peerResumeExact(%v) = %v, want %v", tc.args, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestPeerLaunchCustomResumeDoesNotAttach(t *testing.T) {
+	data := t.TempDir()
+	st, err := store.Open(filepath.Join(data, "state.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	w, err := st.AddWorkspace("Fixture", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	term, err := st.CreateTerminalIn(w.ID, "Fixture", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	binary := filepath.Join(data, "claude")
+	if err := os.WriteFile(binary, []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetCLIConfig("claude-code", clilaunch.Config{Executable: binary}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetTerminalLaunch(term.ID, "claude-code", clilaunch.Overrides{}); err != nil {
+		t.Fatal(err)
+	}
+	resume := []string{"--resume", "fixture-session"}
+	if err := st.SetTerminalLastSession(term.ID, store.TerminalLastSession{CLI: "claude-code", SessionID: "fixture-session", ResumeArgs: resume}); err != nil {
+		t.Fatal(err)
+	}
+	p, token, err := st.EnablePeer("terminal", term.ID, "fixture-session")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := communication.SaveLaunch(data, communication.LaunchConfig{Connection: p, Token: token, URL: "http://localhost" + communication.Path}); err != nil {
+		t.Fatal(err)
+	}
+	deps := Deps{Store: st, DataDir: data}
+	for _, tc := range []struct {
+		name   string
+		args   []string
+		attach bool
+	}{
+		{"exact resume", resume, true},
+		{"leading skip-permissions", []string{"--dangerously-skip-permissions", "--resume", "fixture-session"}, false},
+		{"resume dashdash id", []string{"--resume", "--", "fixture-session"}, false},
+		{"fresh", nil, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			launch, err := st.TerminalLaunch(term.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			launch.Overrides.Args = &tc.args
+			prepared, err := prepareCLITerminal(deps, data, launch)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer prepared.discard()
+			body, err := os.ReadFile(prepared.script)
+			if err != nil {
+				t.Fatal(err)
+			}
+			script := string(body)
+			got := strings.Contains(script, "--mcp-config") && strings.Contains(script, p.ID)
+			if got != tc.attach {
+				t.Fatalf("credential attached=%v, want %v\n%s", got, tc.attach, script)
+			}
+		})
+	}
+}
+
 func TestPiTerminalResumeUsesRecordedPath(t *testing.T) {
 	ls := &store.TerminalLastSession{CLI: "pi", SessionID: "native", Path: "/private/conversation.jsonl"}
 	got := terminalResumeArgs(ls)

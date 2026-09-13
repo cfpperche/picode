@@ -39,7 +39,8 @@ passes the Host/Origin gate and cannot authorize owner APIs.
 
 Automatic Pi, Claude Code and OpenCode setup uses their existing MCP
 integration. Managed Pi checks its session before adapter registration; terminal
-setup attaches only to an exact resume recipe. Private launcher directories are
+setup attaches only to an exact resume recipe. Leading global options, `--`
+and extra operands are a different launch and do not attach. Private launcher directories are
 0700 and credential files 0600. SQLite keeps only the hash. Local HTTPS validates
 the certificate with an additive private CA bundle; no global trust change occurs.
 OpenCode preserves other inline JSON keys and MCP servers; JSONC inline merging
@@ -137,7 +138,9 @@ the workspace view. The request is never automatic: the terminal must be idle,
 its composer must be empty, its process and session must still match, and the
 user confirms that one model turn will be consumed. The request uses the same
 guarded native input path as connection attention, returns a single attempt,
-and never retries after an uncertain delivery.
+and never retries after an uncertain delivery. A recorded session key is
+required, so a fresh Codex/Hermes/OpenCode welcome does not offer the action.
+Measurement: [activation acceptance](../plans/communication-activation-accept.md).
 
 Grok/Hermes/Codex resolve prepared setup in their native shell calls. Pi initial setup
 and hot replacement share one receiver-owned MCP registration; setup uses the

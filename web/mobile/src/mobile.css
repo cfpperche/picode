@@ -265,6 +265,7 @@ html[data-bottombar="edge"] #m-app { bottom: calc(-1 * env(safe-area-inset-top, 
 #m-app .xterm-viewport { scrollbar-width: none; }
 #m-app .xterm-viewport::-webkit-scrollbar { display: none; width: 0; }
 #m-app .xterm-scrollable-element > .scrollbar { display: none; }
+#m-app .xterm-screen { margin-left: auto; margin-right: auto; }
 .m-key {
   flex: none; height: 36px; min-width: 44px; padding: 0 10px; border: 0; border-radius: 8px;
   background: var(--bg-hover); color: var(--text-primary);

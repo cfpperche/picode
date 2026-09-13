@@ -33,14 +33,19 @@ truth; the shell is a client and a supervisor, never a second backend.
   coexist, amending ADR-0120's "supervisor" wording (client + subprocess
   orchestrator). Sessions: A — Overview (this branch); B — Give back in the
   window; C — `picode clean` prunes + `.wslconfig` editing.
-- **Phase 3 — Work Browser + CDP:** Chrome/Edge launched by the app (own
-  `user-data-dir`, `--remote-debugging-pipe` — no open port); agents reach
-  pages through CDP exposed to the daemon over the authenticated channel; the
-  **browser policy** (domains × actions per agent) is visible and revocable in
-  the UI. `ext/` + `browserhost` + ADR-0043 deprecated here.
-- **Phase 4 — conditional:** embedded CEF (our tabs/omnibox, pinned engine,
-  human and agent on the same tab) only if sharing the tab is a hard
-  requirement.
+- **Phase 3 — Embedded Work Browser (owner-corrected 2026-09-13):** not an
+  external Chrome — a **browser panel embedded in the shell** (child
+  WebView2s, the Tauri multiwebview the shell already carries behind the
+  `unstable` feature), tabs + address bar of our own, one shared persistent
+  profile under `%LOCALAPPDATA%\PiCode\WebView2`. Agents reach the SAME
+  pages the human sees through CDP exposed to the daemon over the
+  authenticated channel; the **browser policy** (domains × actions per
+  agent) applies host-side and is visible and revocable in the UI.
+  Benchmark: the ChatGPT desktop Work browser. `ext/` + `browserhost` +
+  ADR-0043 deprecated here. CEF (old Phase 4) is dropped — the spike
+  (below) removed its reason to exist.
+- **Phase 4 — dropped (2026-09-13).** Embedded CEF was conditional on
+  WebView2 failing the browser spike. It did not fail.
 
 ## Decisions taken
 
@@ -75,6 +80,123 @@ truth; the shell is a client and a supervisor, never a second backend.
 
 **Phase 1 closed 2026-09-11** — five of five spikes settled (one pending the
 toast click-through, which only changes the Phase 2 installer scope).
+
+## Phase 3 engine spike — 2026-09-12/13 (lab shipped on `feat/browser-lab`)
+
+The lab (tray → **Browser lab**): a two-webview window — local control strip
+(URL, back/forward/reload, Chrome-UA toggle) over a browsed page — built to
+answer the engine questions before the product decides panel-vs-tab.
+
+| Test | Result |
+|---|---|
+| Page paints; no event-loop deadlock | **PASS** after moving webview creation out of the tray handler into `setup` (in-handler creation froze every window — the v1.0 lesson) |
+| GitHub login in a fresh profile | **PASS** |
+| Persistence across shell restarts | **PASS** (disk profile; quit ≠ logout) |
+| **Google sign-in + OAuth (Continue with Google → GitHub) with WebView2's own UA** | **PASS** — the documented embedded-browser block did not trigger |
+| Profile sprawl | Fixed — one explicit profile, `%LOCALAPPDATA%\PiCode\WebView2`, shared by every webview |
+
+Consequences: **WebView2 stays the engine** for the work browser; CEF and the
+~200 MB Chromium are out. The Chrome-UA override stays in the lab (and becomes
+a per-domain fallback lever in the product) because Google's block is
+risk-based and machine-variable — one passing machine is evidence, not a law.
+### Work Browser parity spec (benchmark: ChatGPT desktop "Work" browser)
+
+Owner requirement 2026-09-13: **the PiCode user gets the same experience as
+the ChatGPT Work browser**. Source: owner screenshots 2026-09-12/13 + the
+vendor's docs. Every item is a requirement for Phase 3 unless marked (v2).
+Mapping to our stack noted inline; slices 1–4 at the end of this section.
+
+**Browser surface (the tab):**
+- [ ] Browser pages open as **editor tabs** with a Chrome-style strip:
+  per-tab favicon + title, close button, new-tab button (slice 1)
+- [ ] Address bar: placeholder "Search or enter a URL"; Enter navigates
+- [ ] Back / forward / reload cluster (slice 1)
+- [ ] Empty state: "Start browsing — Enter a URL to open a page" — one line
+  + the action, never a blank well (slice 1)
+- [ ] History dropdown from the address bar (typed URLs first) (slice 3)
+- [ ] New tab / close per tab; target=_blank and OAuth popups adopt as new
+  tabs, not external windows (slice 1; WebView2 NewWindowRequested)
+- [ ] Find in page (WebView2 Find API, our highlight UI) (slice 1)
+- [ ] Print (ShowPrintUI) and Zoom (± / 100% / reset, ZoomFactor) (slice 1)
+- [ ] **Take a screenshot** button (CapturePreview) — also what the agent's
+  screenshot tier uses (slice 2)
+- [ ] **Device toolbar**: responsive viewport — Dimensions dropdown,
+  width × height, zoom %; off by default (slice 3; controller bounds +
+  CDP Emulation)
+- [ ] Detach to window / panel⇄tab (v2 — editor tab is the v1 surface)
+
+**Options menu (the ⋮ cluster on the bar):** Find in page · Print · Zoom ·
+Show device toolbar · Take a screenshot · Import cookies and passwords… ·
+Passwords and autofill › · Downloads · History · Clear browsing data ·
+Browser settings (opens Preferences ▸ Browser) — every entry maps to an
+item above.
+
+**Settings ▸ Browser (Preferences page section):**
+- [ ] Master toggle: "Let the agent control the built-in browser" — per
+  agent in our model (slice 4)
+- [ ] **Web URL open destination** — where web links open by default (our
+  editor tab / external default browser) (slice 1)
+- [ ] **Local URL open destination** — same for localhost/dev servers
+  (defaults to the work browser) (slice 1)
+- [ ] **Show full URL** toggle — origin only vs path+query+fragment in the
+  address bar (slice 1)
+- [ ] **Browsing data — Clear browsing data** (Profile.
+  ClearBrowsingDataAsync masks: history, site data, cache, downloads)
+  (slice 1)
+- [ ] **Browsing history — Manage** (our own store, recorded from
+  navigation events; list + delete) (slice 3)
+- [ ] **Annotation screenshots** — when the agent comments on a page,
+  include the screenshot (Always include / ask / never) (v2; pairs with
+  visual comments on DOM elements — ChatGPT's annotation mode)
+- [ ] **Password manager — Manage** (WebView2 password autofill on; the
+  store lives in the work profile) (slice 1) · import from Chrome (v2)
+- [ ] **Contact info / general autofill — Manage** (IsGeneralAutofillEnabled)
+  (slice 1)
+- [ ] **Downloads**: Location (default system Downloads, Change), **Ask
+  where to save** toggle (save dialog), **Download history — Manage**
+  (DownloadStarting event drives all three) (slice 1)
+- [ ] **Site settings — camera/mic permissions** per site
+  (PermissionRequested) (slice 3)
+- [ ] **History access for the agent**: Always ask | always | never
+  (slice 4; ask-on-first-use is the v2 approval UX)
+- [ ] **Enable site tools** — discover/call WebMCP-style tools exposed by
+  sites (v2)
+- [ ] **Agent permissions table** — Site or pattern × Browsing × Downloads ×
+  Uploads, values Requires approval | Always allow | Never, plus a Default
+  row; "+ Add" exceptions. Ours: ADR-0128 `{domains, tier}` where Browsing ≙
+  tier (read/act), Downloads/Uploads are `full`-tier scopes; "Requires
+  approval" = the v2 ask-on-first-use prompt; v1 ships the manual editor
+  (slice 4)
+- [ ] **Developer mode — Enable full CDP access**, labeled "Elevated risk",
+  off by default: unlocks raw CDP beyond the curated command catalog. Ours:
+  ADR-0128's opt-in loopback port toggle (same semantics: elevated risk,
+  owner's call, everything else keeps working without it) (slice 2)
+
+**Non-goals kept from the benchmark:** Chrome extensions in the panel
+(delegated to the user's real browser — our `ext/`+browserhost until
+deprecated); full omnibox with synced profile.
+
+**Surface reach (owner, 2026-09-13): the work browser tab is desktop-only
+by nature** — it is a native WebView2 controller hosted by the shell, and
+the whole ADR-0128 enforcement stack (navigation gate, CDP bridge, policy)
+lives in the shell process; a web page cannot host it, and iframes die on
+X-Frame-Options with no work profile. `/browser/` gets the adjacent
+conveniences instead: the **Web/Local URL open destination** setting (links
+from chat can hand off to the shell's work browser or the default browser)
+and a **read-only state card** (title/URL/screenshot of the active tab,
+which the daemon already holds via CDP) — v2, useful for Open-on-phone.
+Agent commands work from any surface (same daemon); only the canvas is
+desktop's.
+
+CDP sub-spike (2026-09-13, from WSL — where the daemon lives): enumerated
+WebView2's targets over loopback, connected to the logged-in GitHub tab,
+`Runtime.evaluate` read the session identity, `Page.captureScreenshot`
+captured the human's view end to end. **Browser Use is feasible on our
+engine.** ADR-0128 now fixes the product form: default transport is the
+host-API bridge (no port), the loopback port survives as an owner opt-in
+with its cost documented, per-agent policy `{domains, tier: read|act|full}`
+denies by default, and the layout is **tabs in the editor with a
+Chrome-inspired tab strip** (owner, 2026-09-13) — not a fixed side panel.
 
 ## Conscious debt
 

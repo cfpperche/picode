@@ -80,8 +80,9 @@ mobile history after scrolling. Overlay audits passed.
 - Repeat Claude and OpenCode full model roundtrips after native account capacity
   returns; do not substitute another account/model or bypass vendor limits.
 - Physical mobile devices and non-Linux pane/process recovery are unverified.
-- Codex custom resume arguments with leading global options or `--` are outside
-  the canonical PiCode-generated resume recipe validated here.
+- Codex custom resume arguments with leading global options or `--` are not the
+  recorded recipe and do not attach (`TestPeerResumeExactDecisionTable`,
+  `TestPeerLaunchCustomResumeDoesNotAttach`).
 - PTY input is not an atomic native editor transaction. Rechecks detect observed
   changes; uncertainty is durable and never automatically retried.
 

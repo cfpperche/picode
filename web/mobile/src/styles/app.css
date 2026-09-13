@@ -700,6 +700,7 @@ img.ws-face.term-cli-face {
 }
 .term-surface .term-pane { padding: 0; }
 .term-surface .xterm { height: 100%; width: 100%; }
+.xterm .xterm-screen { margin-left: auto; margin-right: auto; }
 .file-shell { flex: 1; min-height: 0; position: relative; background: var(--bg-base); }
 .file-shell .term-pane { padding: 0; }
 .file-preview {

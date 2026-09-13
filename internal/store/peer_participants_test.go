@@ -72,6 +72,71 @@ func TestPeerParticipationDecisionTable(t *testing.T) {
 	}
 }
 
+func TestPeerParticipationDoesNotTransferToAnotherWorkspace(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	agent, agentToken, terminal, terminalToken := peerFixture(t, s)
+	t.Run("agent", func(t *testing.T) {
+		assertConsentDoesNotFollowWorkspaceMove(t, s, agent, agentToken, `UPDATE agents SET workspace_id=? WHERE id=?`)
+	})
+	t.Run("terminal", func(t *testing.T) {
+		assertConsentDoesNotFollowWorkspaceMove(t, s, terminal, terminalToken, `UPDATE terminals SET workspace_id=? WHERE id=?`)
+	})
+}
+
+// Owners have no public move API; the grant is keyed to the workspace stored on
+// the owner row, so a workspace_id change must not keep the old capability.
+func assertConsentDoesNotFollowWorkspaceMove(t *testing.T, s *Store, owner PeerConnection, token, moveSQL string) {
+	t.Helper()
+	if err := s.SetPeerParticipants(owner.WorkspaceID, []PeerSelection{{Kind: owner.Kind, OwnerID: owner.OwnerID, Enabled: true}}); err != nil {
+		t.Fatal(err)
+	}
+	p, err := s.PeerParticipant(owner.Kind, owner.OwnerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dest, err := s.AddWorkspace("moved-"+owner.Kind, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.db.Exec(moveSQL, dest.ID, owner.OwnerID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.AuthorizePeer(token); !errors.Is(err, ErrPeerDenied) {
+		t.Fatal("workspace move retained authentication", err)
+	}
+	if _, _, err = s.EnsureParticipantPeer(p, owner.SessionKey); !errors.Is(err, ErrPeerDenied) {
+		t.Fatal("consent transferred to the new workspace", err)
+	}
+	if _, err = s.SetPeerPreparation(p, owner.SessionKey, "connected", "", owner.ID); !errors.Is(err, ErrPeerDenied) {
+		t.Fatal("stale worker reported readiness after move", err)
+	}
+	if err = s.SetPeerParticipants(owner.WorkspaceID, []PeerSelection{{Kind: owner.Kind, OwnerID: owner.OwnerID, Revision: p.Revision, Enabled: true}}); !errors.Is(err, ErrPeerDenied) {
+		t.Fatal("old workspace still accepted the moved owner", err)
+	}
+	stale, err := s.PeerParticipant(owner.Kind, owner.OwnerID)
+	if err != nil || !stale.Enabled || stale.WorkspaceID != owner.WorkspaceID {
+		t.Fatal("move rewrote consent", stale, err)
+	}
+	if err = s.SetPeerParticipants(dest.ID, []PeerSelection{{Kind: owner.Kind, OwnerID: owner.OwnerID, Revision: stale.Revision, Enabled: true}}); err != nil {
+		t.Fatal(err)
+	}
+	next, err := s.PeerParticipant(owner.Kind, owner.OwnerID)
+	if err != nil || next.WorkspaceID != dest.ID || !next.Enabled {
+		t.Fatal(next, err)
+	}
+	got, fresh, err := s.EnsureParticipantPeer(next, owner.SessionKey)
+	if err != nil || got.ID == owner.ID || got.WorkspaceID != dest.ID || fresh == "" {
+		t.Fatal("new workspace reused the old capability", got, fresh, err)
+	}
+	if _, err = s.AuthorizePeer(token); !errors.Is(err, ErrPeerDenied) {
+		t.Fatal("old credential survived re-selection", err)
+	}
+}
+
 func TestPeerParticipationDoesNotTransferToAnotherCLI(t *testing.T) {
 	s, err := Open(filepath.Join(t.TempDir(), "state.db"))
 	if err != nil {

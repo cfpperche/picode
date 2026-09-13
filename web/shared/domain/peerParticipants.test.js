@@ -8,6 +8,7 @@ test("activity, connection and historical proof stay independent", () => {
  for (const [o,p,c,live,identity,label,connection,kind,ready] of [
   [owner,null,null,null,undefined,"Off","","off",false],
   [owner,{...pref,workspaceId:"other"},null,"idle",undefined,"Off","","off",false],
+  [{...owner,workspaceId:"other"},pref,{...peer,active:false},"idle","confirmed","Off","","off",false],
   [{...owner,sessionKey:""},pref,peer,"open","unobserved","No conversation","Not connected","action",false],
   [owner,pref,peer,null,undefined,"Stopped","Not connected","action",false],
   [owner,pref,peer,"needs-you","confirmed","Needs your input","Connected","connected",true],

@@ -48,3 +48,8 @@ test("the ruler paints no outline of its own", () => {
   assert.match(theme, /const RULER_BORDER = "#00000000";/);
   assert.equal((theme.match(/overviewRulerBorder: RULER_BORDER/g) || []).length, 2);
 });
+
+test("xterm-screen splits leftover columns onto both sides", () => {
+  assert.match(desktop, /\.xterm \.xterm-screen \{ margin-left: auto; margin-right: auto; \}/);
+  assert.match(mobile, /#m-app \.xterm-screen \{ margin-left: auto; margin-right: auto; \}/);
+});

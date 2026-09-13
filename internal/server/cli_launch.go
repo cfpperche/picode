@@ -862,8 +862,8 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 		return nil, err
 	}
 	// Only the exact native resume recipe receives this conversation's token.
-	// Ordinary fresh starts, forks and manual commands receive no credential.
-	if peer != nil && v.LastSession != nil && len(terminalResumeArgs(v.LastSession)) > 0 && slices.Equal(c.Args, terminalResumeArgs(v.LastSession)) {
+	// Ordinary fresh starts, forks, custom globals/`--` and manual commands receive no credential.
+	if peer != nil && peerResumeExact(c.Args, v.LastSession) {
 		peerOptions, err = communication.Options(deps.DataDir, *peer)
 		if err != nil {
 			return nil, err
@@ -1023,4 +1023,15 @@ func terminalResumeArgs(ls *store.TerminalLastSession) []string {
 		return []string{"--session", ls.Path}
 	}
 	return append([]string{}, ls.ResumeArgs...)
+}
+
+// peerResumeExact is the only gate that attaches a conversation credential.
+// Leading globals, `--`, extra operands and a different subcommand are a
+// different launch, not the enrolled conversation.
+func peerResumeExact(args []string, ls *store.TerminalLastSession) bool {
+	if ls == nil {
+		return false
+	}
+	recipe := terminalResumeArgs(ls)
+	return len(recipe) > 0 && slices.Equal(args, recipe)
 }
