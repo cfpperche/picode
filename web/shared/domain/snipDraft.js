@@ -215,11 +215,16 @@ export function readDraft(store, id) {
       enums: d.enums && typeof d.enums === "object" && !Array.isArray(d.enums) ? d.enums : {},
       slugLocked: !!d.slugLocked,
       base: d.base || "",
+      origin: typeof d.origin === "string" ? d.origin : "",
     };
   } catch { return null; }
 }
 
-export function writeDraft(store, id, draft, base) {
+// `origin` records why a draft exists at all: "capture"/"import" mean the
+// studio handed this text over on purpose, so an editor that offers to
+// "restore unsaved changes" would be lying about where it came from. Any
+// other value (or none) is a draft the reader was in the middle of.
+export function writeDraft(store, id, draft, base, origin) {
   try {
     store.setItem(draftKey(id), JSON.stringify({
       title: draft.title || "",
@@ -231,6 +236,7 @@ export function writeDraft(store, id, draft, base) {
       enums: draft.enums && typeof draft.enums === "object" && !Array.isArray(draft.enums) ? draft.enums : {},
       slugLocked: !!draft.slugLocked,
       base: base || "",
+      origin: origin || draft.origin || "",
     }));
   } catch { /* quota */ }
 }
@@ -256,6 +262,130 @@ export function draftToRestore(draft, server) {
   // base is the editor's first paint, not a user edit.
   if (!draft.base || draft.base !== server.updatedAt) return null;
   return sameDraft(draft, server) ? null : draft;
+}
+
+// Capture (snippets v2, F3): a selection becomes a snippet title without
+// asking. First words, markdown lead-ins dropped, one line, ends cut at a
+// word boundary — the reader can always edit it in the editor.
+export function titleFromText(text) {
+  const s = String(text == null ? "" : text).replace(/\s+/g, " ").trim();
+  if (!s) return "";
+  const cut = s.replace(/^[#>*\-+`\d.\s]+/, "").trim() || s;
+  const words = cut.split(" ").filter(Boolean);
+  let t = "";
+  for (const w of words) {
+    if ((t + " " + w).trim().length > 60) break;
+    t = (t + " " + w).trim();
+  }
+  t = (t || words[0] || "").slice(0, 60).trim().replace(/[.,;:!?]+$/, "");
+  return t;
+}
+
+// Placeholder detection for import (F7). Other tools spell their slots
+// [LIKE_THIS] or LIKE_THIS; the suggestion turns the ones we find into
+// {{lower_snake}} — never inside an existing {{placeholder}}, and never
+// rewriting anything the reader did not accept.
+const CONV_BRACKET = /\[([A-Za-z][A-Za-z0-9 ._-]{0,40})\]/g;
+const CONV_UPPER = /\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b/g;
+const CONV_KINDS = Object.freeze({ bracket: "[BRACKETS]", upper: "UPPER_CASE" });
+
+// placeholderRanges marks every {{…}} span so conversions skip them.
+function placeholderRanges(s) {
+  const out = [];
+  let i = 0;
+  while (i < s.length) {
+    if (hasAt(s, i, "{{{{") || hasAt(s, i, "}}}}")) { i += 4; continue; }
+    if (hasAt(s, i, "{{")) {
+      const r = readPlaceholder(s, i);
+      if (r.err) return out;
+      out.push([i, r.i]);
+      i = r.i;
+      continue;
+    }
+    i++;
+  }
+  return out;
+}
+
+function inRanges(ranges, start, end) {
+  return ranges.some(([a, b]) => start < b && end > a);
+}
+
+// convName lowercases and snake-cases a captured token into a valid name
+// (a name must start with a letter or _ — ADR-0130 grammar).
+export function convName(raw) {
+  const s = String(raw == null ? "" : raw).trim().toLowerCase();
+  let out = "";
+  for (const ch of s) {
+    if ((ch >= "a" && ch <= "z") || (ch >= "0" && ch <= "9") || ch === "_") out += ch;
+    else if (out && !out.endsWith("_")) out += "_";
+  }
+  out = out.replace(/_+/g, "_").replace(/^_+|_+$/g, "");
+  if (!out) return "";
+  if (!(out[0] >= "a" && out[0] <= "z") && out[0] !== "_") out = "v_" + out;
+  return out.slice(0, SNIP_LIMITS.name);
+}
+
+function scanConversions(body, kind) {
+  const s = String(body == null ? "" : body);
+  // A bracket token and the UPPER_CASE inside it are one slot, not two:
+  // scanning UPPER_CASE skips what the bracket pass already claimed, so the
+  // suggestions never double-count the same placeholder.
+  const ranges = placeholderRanges(s);
+  if (kind === "upper") {
+    const re0 = CONV_BRACKET;
+    re0.lastIndex = 0;
+    let m0;
+    while ((m0 = re0.exec(s)) !== null) {
+      if (!inRanges(ranges, m0.index, m0.index + m0[0].length)) ranges.push([m0.index, m0.index + m0[0].length]);
+    }
+  }
+  const re = kind === "bracket" ? CONV_BRACKET : CONV_UPPER;
+  re.lastIndex = 0;
+  const hits = [];
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    const start = m.index;
+    const end = start + m[0].length;
+    if (inRanges(ranges, start, end)) continue;
+    const name = convName(m[1]);
+    if (!name) continue;
+    hits.push({ start, end, raw: m[0], name });
+  }
+  return hits;
+}
+
+// detectConversions reports what an import would change, per convention.
+// A whole-body scan (not per line): a token is a token wherever it sits.
+export function detectConversions(body) {
+  const kinds = [];
+  for (const kind of ["bracket", "upper"]) {
+    const hits = scanConversions(body, kind);
+    if (!hits.length) continue;
+    const names = [];
+    for (const h of hits) if (!names.includes(h.name)) names.push(h.name);
+    kinds.push({ kind, label: CONV_KINDS[kind], count: hits.length, names, sample: hits.slice(0, 3).map((h) => h.raw) });
+  }
+  return { kinds };
+}
+
+// applyConversions rewrites the body for the accepted conventions. A
+// token already inside an existing {{placeholder}} stays untouched; the
+// rewrite is applied right-to-left so earlier spans keep their offsets.
+export function applyConversions(body, accepted) {
+  const s = String(body == null ? "" : body);
+  const kinds = Array.isArray(accepted) ? accepted : [];
+  const hits = kinds.flatMap((k) => scanConversions(s, k));
+  if (!hits.length) return s;
+  hits.sort((a, b) => b.start - a.start);
+  let out = s;
+  let last = s.length + 1;
+  for (const h of hits) {
+    if (h.end > last) continue; // overlapping with an already-applied span
+    out = out.slice(0, h.start) + "{{" + h.name + "}}" + out.slice(h.end);
+    last = h.start;
+  }
+  return out;
 }
 
 export function formFromSnip(p) {

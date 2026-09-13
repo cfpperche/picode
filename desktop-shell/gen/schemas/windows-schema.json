@@ -189,6 +189,18 @@
           "markdownDescription": "Enables the btab_bounds command without any pre-configured scope."
         },
         {
+          "description": "Enables the btab_cdp_call command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-cdp-call",
+          "markdownDescription": "Enables the btab_cdp_call command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_cdp_events command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-cdp-events",
+          "markdownDescription": "Enables the btab_cdp_events command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_close command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-close",
@@ -325,6 +337,18 @@
           "type": "string",
           "const": "deny-btab-bounds",
           "markdownDescription": "Denies the btab_bounds command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_cdp_call command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-cdp-call",
+          "markdownDescription": "Denies the btab_cdp_call command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_cdp_events command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-cdp-events",
+          "markdownDescription": "Denies the btab_cdp_events command without any pre-configured scope."
         },
         {
           "description": "Denies the btab_close command without any pre-configured scope.",

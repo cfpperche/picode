@@ -4,7 +4,7 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import {
   IconChat, IconChevronRight, IconClear, IconClip, IconCollapse, IconCopy, IconExpand, IconExternal, IconFile, IconFolders,
   IconAgent, IconGit, IconMonitor, IconTerminal, IconMoon, IconPaste, IconPencil, IconReload, IconScrollEnd, IconSelectAll,
-  IconSearch, IconSettings, IconSun, IconTextSize, IconTrash, IconX,
+  IconSearch, IconSettings, IconSun, IconTextSize, IconTrash, IconX, IconPlus,
 } from "./Icons.jsx";
 import { isEditableTarget, insertAtCaret } from "../lib/contextMenuClipboard.js";
 import { buildTermMenu } from "../lib/termMenu.js";
@@ -30,7 +30,7 @@ const TERM_ICONS = {
 // pane-detection logic in App.jsx's own listener. DropdownMenu gives what a
 // menu of this size needs anyway — roving focus, typeahead, submenus — which
 // a Popover never had.
-export default function ContextMenu({ state, onClose, themeMode, onTheme, termHandlers, onOpenAgent, onOpenTerminal, onGraphAction, focusOn, focusable, onFullscreen, clis }) {
+export default function ContextMenu({ state, onClose, themeMode, onTheme, termHandlers, onOpenAgent, onOpenTerminal, onGraphAction, focusOn, focusable, onFullscreen, clis, onSaveSnippet }) {
   // Every read of `state` goes through these: the component stays mounted
   // with state === null so Radix keeps owning its own teardown, and the
   // rows below are evaluated on every render, open or not.
@@ -126,6 +126,15 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
                   reason="No text selected."
                   onSelect={copySelection}
                 />
+                {onSaveSnippet ? (
+                  <Item
+                    icon={<IconPlus />}
+                    label="Save selection as snippet"
+                    disabled={!selection.trim()}
+                    reason="Select text first."
+                    onSelect={() => { ran.current = true; onSaveSnippet(selection); }}
+                  />
+                ) : null}
                 <Item icon={<IconPaste />} label="Paste" disabled={!isEditableTarget(target)} reason="Right-click a text field to paste." onSelect={pasteInto} />
                 <div className="um-divider" />
                 <Item icon={<IconReload />} label="Reload PiCode" onSelect={() => window.location.reload()} />

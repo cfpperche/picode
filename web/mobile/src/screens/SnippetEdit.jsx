@@ -26,7 +26,9 @@ export default function SnippetEdit({ snipId, onBack, onSaved }) {
     let stop = false;
     if (!snipId) {
       const kept = draftToRestore(readDraft(storage(), ""), null);
-      if (kept) { setF({ ...formFromSnip(null), ...kept }); setRestored(true); }
+      // A capture or an import is not a crash: the text is here because the
+      // reader asked for it, so no "restore" banner and no Discard offer.
+      if (kept) { setF({ ...formFromSnip(null), ...kept }); setRestored(!kept.origin); }
       setLoaded(true);
       return undefined;
     }

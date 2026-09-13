@@ -4811,6 +4811,28 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .snip-search { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
 .snip-search .dlg-input { margin: 0; height: var(--ctl-h); flex: 1; min-width: 0; }
 .snip-search svg { flex: none; color: var(--text-secondary); }
+/* Capture and import (snippets v2, PR 4). The capture sheet IS the
+   editor, so it needs the studio's form width rather than the 400px
+   default; the import dialog is a paste box plus suggestions. */
+/* .dlg centres at 42% of the viewport, so anything taller than ~84dvh
+   pushes its own top edge off-screen (the overlay audit catches it): the
+   capture sheet scrolls inside 80dvh instead of growing past the edge. */
+.snip-capture { width: min(720px, calc(100vw - 48px)); max-height: min(80dvh, 820px); overflow: auto; }
+.snip-import { width: min(620px, calc(100vw - 48px)); }
+.snip-import-body { width: 100%; box-sizing: border-box; }
+.snip-conv { display: grid; gap: 6px; margin-top: 4px; }
+.snip-conv-head { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-secondary); font-weight: 600; }
+.snip-conv-row { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.5; }
+.snip-conv-row code { overflow-wrap: break-word; }
+.snip-import .dlg-actions, .m-snip-import .dlg-actions { gap: 8px; }
+.snip-import .dlg-actions .auto-hint, .m-snip-import .dlg-actions .auto-hint { margin-right: auto; }
+.btn-composer-snip {
+  height: 32px; padding: 0 12px; flex: none; white-space: nowrap;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--bg-base); color: var(--text-primary);
+  font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.btn-composer-snip:hover { border-color: var(--accent); color: var(--accent); }
 .snip-try { display: grid; gap: 8px; }
 .snip-try.is-stale { opacity: 0.55; }
 .snip-try-head { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-secondary); font-weight: 600; }

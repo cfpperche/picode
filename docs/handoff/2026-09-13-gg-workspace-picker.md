@@ -4,8 +4,4 @@ Shipped: the git graph toolbar's first item names the **workspace** whose folder
 Verified: `make ci-scoped` PASS; `node --test` 304 browser lib tests (6 new, one per pure decision-table row) + 649 shared; scratch `ggws`/`ggws1` with 4 workspaces over 2 repositories (one pair of sibling worktrees) driven by agent-browser — picker open, same-repo swap (HEAD dot and `this worktree` move, tab unchanged), cross-repo rename (tab label changes, still one tab), adopt, single workspace → plain title, terminal owner → names its workspace.
 visual-review: PASS (var/screenshots/ggws-{2,3,4,5,6,8,9}.png; overlayAudit ok; card 5/5)
 Not done / debts: rows 8 and 9 of the decision table had no automated test in this branch; both were paid on 2026-09-13 (`feat/gg-debts`, the note beside this one). Mobile Git has no switcher.
-Merge: fast-forward ready
-
-## Next up
-
-- Mobile Git: the same workspace-switcher decision for `web/mobile/src/screens/Git.jsx` (ADR-0095).
+Merge: fast-forward ready (the mobile Git switcher came with `901f289f`).

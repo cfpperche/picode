@@ -38,6 +38,7 @@ import Integrations from "./components/Integrations.jsx";
 import Devices from "./components/Devices.jsx";
 import Automations from "./components/Automations.jsx";
 import Snippets from "./components/Snippets.jsx";
+import SnipCaptureSheet from "./components/SnipCaptureSheet.jsx";
 import Palette from "./components/Palette.jsx";
 import SnipRunSheet from "./components/SnipRunSheet.jsx";
 import ContextMenu from "./components/ContextMenu.jsx";
@@ -280,6 +281,7 @@ export default function App({ shellChrome = false } = {}) {
   const [slashExtra, setSlashExtra] = useState([]);
   const [snipPicker, setSnipPicker] = useState([]);
   const [snipRun, setSnipRun] = useState(null);
+  const [snipCapture, setSnipCapture] = useState(null); // text of a selection being saved as a snippet
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [reconnect, setReconnect] = useState(false);
@@ -546,7 +548,13 @@ export default function App({ shellChrome = false } = {}) {
         });
         return;
       }
-      setCtxMenu({ x: e.clientX, y: e.clientY, selection: window.getSelection().toString(), target: e.target });
+      // A selection inside a text field is not in the document selection,
+      // so the menu reads the field itself: Copy and "Save selection as
+      // snippet" must see what the reader highlighted in the composer.
+      const el = e.target;
+      const inField = el && typeof el.selectionStart === "number" && el.selectionEnd > el.selectionStart;
+      const picked = inField ? String(el.value || "").slice(el.selectionStart, el.selectionEnd) : window.getSelection().toString();
+      setCtxMenu({ x: e.clientX, y: e.clientY, selection: picked, target: e.target });
     }
     document.addEventListener("mousedown", onCapture, true);
     document.addEventListener("contextmenu", onContextMenu);
@@ -1189,6 +1197,14 @@ export default function App({ shellChrome = false } = {}) {
   function revealAgent(id, list) {
     openTab(id, list);
     go("workspace", id);
+  }
+
+  // Capture (snippets v2, F3): a selection in the composer, or any text the
+  // context menu was opened over. A blank selection never opens the sheet.
+  function openSnipCapture(text) {
+    const body = String(text == null ? "" : text);
+    if (!body.trim()) return;
+    setSnipCapture(body);
   }
 
   // The git graph's context menu (ADR-0096). The graph resolves what the
@@ -3324,6 +3340,7 @@ export default function App({ shellChrome = false } = {}) {
               kind, onKind: setKind, value: draft, onChange: setDraft, onSend: sendTask,
               roleState, onRoleCommand: (cmd) => sendTask(cmd),
               slashExtra, atAgents, onAgentPage: (name) => go(name, agent?.id, { workspaceId: paneWs?.id }), pkgUpdates,
+              onCaptureSnippet: openSnipCapture,
               status, streaming, waiting, onToggleDock: showTerm, onStop: () => selectedId && stopAgent(selectedId),
               tuiWorking: tuiBusy,
               onAbort: abortTurn,
@@ -3481,6 +3498,12 @@ export default function App({ shellChrome = false } = {}) {
         onRan={() => setSnipRun(null)}
         onClose={() => setSnipRun(null)}
       />
+      <SnipCaptureSheet
+        open={snipCapture != null}
+        text={snipCapture || ""}
+        onClose={() => setSnipCapture(null)}
+        onSaved={() => setSnipCapture(null)}
+      />
       <ContextMenu
         state={ctxMenu}
         onClose={() => setCtxMenu(null)}
@@ -3494,6 +3517,7 @@ export default function App({ shellChrome = false } = {}) {
         onOpenAgent={revealAgent}
         onOpenTerminal={openTermTab}
         onGraphAction={openGraphAction}
+        onSaveSnippet={openSnipCapture}
       />
       <SessionHandoffDialog
         open={!!termHandoff}

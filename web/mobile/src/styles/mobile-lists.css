@@ -40,6 +40,18 @@
 .m-v2-lists .m-list-toolbar { display: flex; align-items: center; gap: 12px; padding: 4px 0; min-width: 0; }
 #m-app .m-v2-lists .m-list-search { width: 100%; flex: 1; min-width: 0; height: var(--ctl-h); min-height: var(--ctl-h); margin: 0; padding: 0 10px; font-family: var(--sans); font-size: 16px; }
 .m-v2-lists .m-list-search::placeholder { color: var(--text-secondary); }
+/* Import sheet (snippets v2, F7) — the list head is the phone's only
+   entry, and the paste box plus suggestions live in a sheet. */
+.m-v2-lists .m-list-head > .btn { align-self: flex-start; }
+.m-snip-import .snip-import-body {
+  width: 100%; box-sizing: border-box; margin-top: 4px;
+  font-family: var(--mono); font-size: 13px; line-height: 1.5;
+}
+.m-snip-import .snip-conv { display: grid; gap: 8px; margin-top: 6px; }
+.m-snip-import .snip-conv-head { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-secondary); font-weight: 600; }
+.m-snip-import .snip-conv-row { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.5; }
+.m-snip-import .snip-conv-row code { font-family: var(--mono); overflow-wrap: break-word; }
+.m-snip-import .auto-hint { color: var(--text-secondary); font-size: 12.5px; }
 .m-v2-lists .m-list-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 16px 0; }
 .m-v2-lists .m-list-empty p, .m-v2-lists .m-list-notice p { margin: 0; color: var(--text-secondary); font-size: 13px; }
 /* Page empty fills the well (Automations auto-empty / HIG). Search misses stay top-aligned. */

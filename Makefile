@@ -1,7 +1,7 @@
 # PiCode — make targets
 # Quality gates are the contract (AGENTS.md); `make ci` mirrors GitHub Actions.
 
-.PHONY: help hooks hooks-check dev ui web docs docs-videos docs-videos-check docs-videos-fresh build restart deploy _deploy cert-timer changelog adr install test test-js fmt fmt-check vet ci-docs ci ci-gates ci-scoped close close-summary handoff worktree worktree-status worktree-gc clean
+.PHONY: help hooks hooks-check dev ui web docs docs-videos docs-videos-check docs-videos-fresh build restart deploy _deploy cert-timer changelog adr install test test-js fmt fmt-check vet ci-docs ci ci-gates ci-scoped close close-summary handoff worktree worktree-status worktree-gc clean desktop desktop-shell desktop-restart
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
