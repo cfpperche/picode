@@ -150,6 +150,46 @@ func TestCustomProviderRefusals(t *testing.T) {
 	}
 }
 
+// A reasoning model's level selection reaches models.json as pi's
+// thinkingLevelMap, comes back in the catalog for the form prefill, and an
+// invented level is refused before the file is touched.
+func TestCustomProviderThinkingLevels(t *testing.T) {
+	_, home, req := newCustomProviderServer(t)
+	status, body := req(http.MethodPut, "/api/providers/custom/cheaperinference", `{
+		"baseUrl": "https://api.cheaperinference.com/v1",
+		"api": "openai-completions",
+		"compat": {"supportsDeveloperRole": false, "supportsReasoningEffort": true},
+		"models": [{"id": "deepseek-v4.1-flash", "reasoning": true, "thinkingLevels": ["high", "max"]}],
+		"key": "ci_live_secret123"
+	}`)
+	if status != http.StatusOK {
+		t.Fatalf("PUT status %d: %s", status, body)
+	}
+	modelsJSON := readHomeFile(t, home, ".pi/agent/models.json")
+	for _, want := range []string{`"reasoning": true`, `"max": "max"`, `"minimal": null`, `"xhigh": null`} {
+		if !strings.Contains(modelsJSON, want) {
+			t.Fatalf("models.json missing %s: %s", want, modelsJSON)
+		}
+	}
+
+	// The catalog hands the map back so Edit prefills the same chips.
+	status, body = req(http.MethodGet, "/api/catalog", "")
+	if status != http.StatusOK {
+		t.Fatalf("catalog status %d", status)
+	}
+	if !strings.Contains(body, `"thinkingLevelMap"`) {
+		t.Fatalf("catalog dropped the level map: %s", body)
+	}
+
+	bad := `{"baseUrl":"https://x.com/v1","api":"openai-completions","models":[{"id":"m","thinkingLevels":["turbo"]}]}`
+	if status, body = req(http.MethodPut, "/api/providers/custom/othergw", bad); status != http.StatusBadRequest {
+		t.Fatalf("bad level status %d: %s", status, body)
+	}
+	if strings.Contains(readHomeFile(t, home, ".pi/agent/models.json"), "othergw") {
+		t.Fatal("a refused definition reached the file")
+	}
+}
+
 // The unsigned definition still shows in the catalog (available, not signed
 // in) so it can be picked up again from Add provider.
 func TestCustomProviderUnsignedShowsInCatalog(t *testing.T) {

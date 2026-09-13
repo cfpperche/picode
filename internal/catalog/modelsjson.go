@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -35,6 +36,11 @@ var customIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 // is preserved, never invented here.
 var customCompatKeys = []string{"supportsDeveloperRole", "supportsReasoningEffort"}
 
+// customThinkingLevels are the pi thinking levels the form manages. "off" is
+// deliberately absent: pi's default map already covers it and its provider
+// value is not always the level name, so the form never invents one.
+var customThinkingLevels = []string{"minimal", "low", "medium", "high", "xhigh", "max"}
+
 // CustomModel is one model row from the form. Pointers distinguish "leave
 // pi's default" from zero; unknown model fields are preserved on merge.
 type CustomModel struct {
@@ -42,6 +48,12 @@ type CustomModel struct {
 	Reasoning     *bool  `json:"reasoning,omitempty"`
 	ContextWindow *int   `json:"contextWindow,omitempty"`
 	MaxTokens     *int   `json:"maxTokens,omitempty"`
+	// ThinkingLevels is the form's level selection; upsert turns it into a
+	// thinkingLevelMap on the entry (selected levels keep their name, the rest
+	// become null = hidden). ThinkingLevelMap is read back for the form's
+	// prefill and is never written from the request.
+	ThinkingLevels   []string       `json:"thinkingLevels,omitempty"`
+	ThinkingLevelMap map[string]any `json:"thinkingLevelMap,omitempty"`
 }
 
 // CustomDefinition is the editable shape of one models.json provider entry.
@@ -206,6 +218,12 @@ func UpsertCustomProvider(id string, def CustomDefinition) error {
 		if m.MaxTokens != nil {
 			fields["maxTokens"] = mustRaw(*m.MaxTokens)
 		}
+		// Levels are written as a map so pi can hide what the model lacks.
+		// A model the form marks as non-reasoning drops the managed levels
+		// again; unknown map keys (a hand-set "off") always survive.
+		if err := mergeThinkingLevels(fields, m); err != nil {
+			return err
+		}
 		models = append(models, fields)
 	}
 	modelsRaw, err := json.Marshal(models)
@@ -245,6 +263,71 @@ func UpsertCustomProvider(id string, def CustomDefinition) error {
 	providers[id] = entryRaw
 	obj["providers"] = mustRaw(providers)
 	return writeModelsJSON(path, obj)
+}
+
+// mergeThinkingLevels turns the form's level selection into a
+// thinkingLevelMap. Selected levels keep their own name as the provider
+// value; unselected managed levels become null, which pi reads as
+// unsupported and hides. Keys the form does not manage (a hand-set "off", a
+// future pi level) are preserved untouched.
+func mergeThinkingLevels(fields map[string]json.RawMessage, m CustomModel) error {
+	if len(m.ThinkingLevels) == 0 {
+		if m.Reasoning != nil && !*m.Reasoning {
+			return dropThinkingLevels(fields)
+		}
+		return nil
+	}
+	selected := map[string]bool{}
+	for _, l := range m.ThinkingLevels {
+		if !slices.Contains(customThinkingLevels, l) {
+			return fmt.Errorf("unsupported thinking level: %s", l)
+		}
+		selected[l] = true
+	}
+	levelMap := map[string]json.RawMessage{}
+	if raw, ok := fields["thinkingLevelMap"]; ok {
+		_ = json.Unmarshal(raw, &levelMap)
+	}
+	for _, l := range customThinkingLevels {
+		if selected[l] {
+			levelMap[l] = mustRaw(l)
+			continue
+		}
+		levelMap[l] = mustRaw(nil)
+	}
+	raw, err := json.Marshal(levelMap)
+	if err != nil {
+		return err
+	}
+	fields["thinkingLevelMap"] = raw
+	return nil
+}
+
+// dropThinkingLevels removes the levels the form manages, and the whole map
+// when nothing else is left, so a model switched back to non-reasoning does
+// not keep a stale level list.
+func dropThinkingLevels(fields map[string]json.RawMessage) error {
+	raw, ok := fields["thinkingLevelMap"]
+	if !ok {
+		return nil
+	}
+	levelMap := map[string]json.RawMessage{}
+	if json.Unmarshal(raw, &levelMap) != nil {
+		return nil
+	}
+	for _, l := range customThinkingLevels {
+		delete(levelMap, l)
+	}
+	if len(levelMap) == 0 {
+		delete(fields, "thinkingLevelMap")
+		return nil
+	}
+	rest, err := json.Marshal(levelMap)
+	if err != nil {
+		return err
+	}
+	fields["thinkingLevelMap"] = rest
+	return nil
 }
 
 // RemoveCustomProvider deletes one definition. It refuses ids it does not
@@ -330,6 +413,11 @@ func validateCustomDef(def CustomDefinition) error {
 		id := strings.TrimSpace(m.ID)
 		if id == "" || strings.ContainsAny(id, " \t\r\n") {
 			return fmt.Errorf("model ids cannot be empty or contain spaces")
+		}
+		for _, l := range m.ThinkingLevels {
+			if !slices.Contains(customThinkingLevels, l) {
+				return fmt.Errorf("unsupported thinking level: %s", l)
+			}
 		}
 		if len(id) > 256 {
 			return fmt.Errorf("model id is too long")

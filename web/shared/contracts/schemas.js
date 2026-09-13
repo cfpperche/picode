@@ -116,6 +116,18 @@ export const CUSTOM_PROVIDER_APIS = [
   { value: "google-generative-ai", label: "Google Generative AI" },
 ];
 
+// THINKING_LEVELS are the pi thinking levels the provider form manages.
+// "off" is deliberately absent: pi's default map already covers it, and its
+// provider value is not always the level name (several pi catalogs send
+// "none"), so the form never invents one. The schema validates against this
+// list, so it lives here next to it.
+export const THINKING_LEVELS = ["minimal", "low", "medium", "high", "xhigh", "max"];
+
+// DEFAULT_THINKING_LEVELS mirrors what pi offers when a model carries no
+// thinkingLevelMap: the standard levels through high. xhigh and max are
+// extended levels and stay hidden until a map claims them.
+export const DEFAULT_THINKING_LEVELS = ["minimal", "low", "medium", "high"];
+
 // customProviderSchema validates the Add/Edit form. takenIds names ids the
 // user may not claim (built-ins plus other custom definitions); requireKey
 // is false while editing, where a blank key keeps the stored credential.
@@ -138,6 +150,8 @@ export function customProviderSchema({ takenIds = [], requireKey = true } = {}) 
     maxTokens: z.string(),
     compatDeveloper: z.boolean(),
     compatReasoning: z.boolean(),
+    reasoningModel: z.boolean(),
+    thinkingLevels: z.array(z.enum(THINKING_LEVELS)),
     key: z.string(),
   }).superRefine((v, ctx) => {
     const fail = (message) => ctx.addIssue({ code: "custom", message });
@@ -150,6 +164,7 @@ export function customProviderSchema({ takenIds = [], requireKey = true } = {}) 
       const raw = v[field].trim();
       if (raw && (!/^\d+$/.test(raw) || Number(raw) <= 0)) fail(label + " must be a positive whole number.");
     }
+    if (v.reasoningModel && !v.thinkingLevels.length) fail("Select at least one thinking level.");
     if (requireKey && !v.key.trim()) fail("API key is required.");
   });
 }

@@ -36,3 +36,19 @@ unsigned definition still appears so it can be picked up again. Row actions
 map to the two files: **Edit endpoint** reopens the form, **Sign out**
 removes only the credential, **Remove endpoint** deletes both with the
 blast radius named.
+
+**Thinking levels.** The form's Advanced section declares a reasoning model
+and picks the levels it answers on (`minimal`…`max`), one selection for every
+model listed, like context window and max output. The selection becomes pi's
+per-model `thinkingLevelMap` (`internal/catalog/modelsjson.go`
+`mergeThinkingLevels`): a selected level keeps its own name as the provider
+value, an unselected managed level becomes `null` (pi hides it), and keys the
+form does not manage — a hand-set `off`, a future pi level — survive. `off`
+is deliberately absent from the form: pi's default map already covers it and
+its provider value is not always the level name (several pi catalogs send
+`none`), so the form never invents one. A model switched back to
+non-reasoning drops the managed keys and keeps the rest; a model the user
+never touched grows no map at all. An invented level is refused by the
+schema and again by `validateCustomDef`, so the GUI is not the only guard.
+The catalog hands the stored `thinkingLevelMap` back inside `definitions`, so
+Edit prefills the same chips it would write (`customThinkingLevels`).

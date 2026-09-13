@@ -2,9 +2,11 @@
 // The schema lives in contracts/schemas.js; these helpers move values
 // between the form, the PUT payload and the catalog row.
 
-import { parseForm, customProviderSchema, customModelIds } from "../contracts/schemas.js";
+import {
+  parseForm, customProviderSchema, customModelIds, THINKING_LEVELS, DEFAULT_THINKING_LEVELS,
+} from "../contracts/schemas.js";
 
-export { customModelIds };
+export { customModelIds, THINKING_LEVELS, DEFAULT_THINKING_LEVELS };
 
 // validateCustomProvider runs the schema. Returns { ok, value, error } like
 // parseForm; value carries the form shapes (payload building is separate).
@@ -19,6 +21,12 @@ export function customProviderPayload(v) {
   const contextWindow = String(v.contextWindow || "").trim();
   const maxTokens = String(v.maxTokens || "").trim();
   const key = String(v.key || "").trim();
+  // A reasoning model gets reasoning:true plus the levels it exposes;
+  // everything else gets an explicit false so the form stays the owner of
+  // the fields it shows. Levels are stored in pi's scale order.
+  const levels = v.reasoningModel
+    ? THINKING_LEVELS.filter((l) => v.thinkingLevels.includes(l))
+    : [];
   return {
     baseUrl: v.baseUrl,
     api: v.api,
@@ -27,6 +35,8 @@ export function customProviderPayload(v) {
       id,
       ...(contextWindow ? { contextWindow: Number(contextWindow) } : {}),
       ...(maxTokens ? { maxTokens: Number(maxTokens) } : {}),
+      reasoning: !!v.reasoningModel,
+      ...(levels.length ? { thinkingLevels: levels } : {}),
     })),
     ...(key ? { key } : {}),
   };
@@ -48,8 +58,26 @@ export function customProviderForm(provider) {
     maxTokens: sized.maxTokens ? String(sized.maxTokens) : "",
     compatDeveloper: !!(p.compat && p.compat.supportsDeveloperRole),
     compatReasoning: !!(p.compat && p.compat.supportsReasoningEffort),
+    reasoningModel: defs.some((m) => m && m.reasoning),
+    thinkingLevels: customThinkingLevels(defs),
     key: "",
   };
+}
+
+// customThinkingLevels prefills the level row from what the file says. A
+// model with an explicit map reports exactly the levels that map claims; a
+// reasoning model without one gets pi's default set (through high) so an
+// untouched Edit writes back the same shape it read.
+export function customThinkingLevels(defs) {
+  for (const m of defs) {
+    if (m && Array.isArray(m.thinkingLevels) && m.thinkingLevels.length) {
+      return THINKING_LEVELS.filter((l) => m.thinkingLevels.includes(l));
+    }
+    if (m && m.thinkingLevelMap && typeof m.thinkingLevelMap === "object") {
+      return THINKING_LEVELS.filter((l) => typeof m.thinkingLevelMap[l] === "string");
+    }
+  }
+  return [...DEFAULT_THINKING_LEVELS];
 }
 
 // customTakenIds lists the ids a new definition may not claim: every

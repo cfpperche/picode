@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -138,6 +139,149 @@ func TestUpsertMergesUnknownFields(t *testing.T) {
 	sp, _ := m1["samplingParams"].(map[string]any)
 	if sp == nil || sp["top_k"].(float64) != 5 {
 		t.Fatalf("samplingParams dropped: %s", rawOf(t, m1))
+	}
+}
+
+func TestUpsertThinkingLevels(t *testing.T) {
+	yes, no := true, false
+
+	// Decision table: the form's selection becomes a thinkingLevelMap, a
+	// non-reasoning model drops the managed keys, and a hand-set key that the
+	// form does not manage survives either way.
+	t.Run("selection becomes a map with hidden levels as null", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		if err := UpsertCustomProvider("gw", CustomDefinition{
+			BaseURL: "https://api.example.com/v1", API: APIOpenAICompletions,
+			Models: []CustomModel{{ID: "m", Reasoning: &yes, ThinkingLevels: []string{"max", "high"}}},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		m := firstModel(t, home, "gw")
+		if m["reasoning"] != true {
+			t.Fatalf("reasoning = %s", rawOf(t, m))
+		}
+		levelMap, _ := m["thinkingLevelMap"].(map[string]any)
+		want := map[string]any{"minimal": nil, "low": nil, "medium": nil, "high": "high", "xhigh": nil, "max": "max"}
+		if len(levelMap) != len(want) {
+			t.Fatalf("map = %s", rawOf(t, levelMap))
+		}
+		for k, v := range want {
+			if levelMap[k] != v {
+				t.Fatalf("map[%s] = %v, want %v (%s)", k, levelMap[k], v, rawOf(t, levelMap))
+			}
+		}
+	})
+
+	t.Run("hand-set keys outside the form survive", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		seed(t, home, `{"providers":{"gw":{"baseUrl":"https://api.example.com/v1","api":"openai-completions","models":[{"id":"m","reasoning":true,"thinkingLevelMap":{"off":"none","high":"high","future":"x"}}]}}}`)
+		if err := UpsertCustomProvider("gw", CustomDefinition{
+			BaseURL: "https://api.example.com/v1", API: APIOpenAICompletions,
+			Models: []CustomModel{{ID: "m", Reasoning: &yes, ThinkingLevels: []string{"high", "max"}}},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		levelMap, _ := firstModel(t, home, "gw")["thinkingLevelMap"].(map[string]any)
+		if levelMap["off"] != "none" || levelMap["future"] != "x" {
+			t.Fatalf("unmanaged keys dropped: %s", rawOf(t, levelMap))
+		}
+		if levelMap["max"] != "max" {
+			t.Fatalf("selection not applied: %s", rawOf(t, levelMap))
+		}
+	})
+
+	t.Run("switching to non-reasoning drops the managed levels only", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		seed(t, home, `{"providers":{"gw":{"baseUrl":"https://api.example.com/v1","api":"openai-completions","models":[{"id":"m","reasoning":true,"thinkingLevelMap":{"off":"none","high":"high","max":"max"}}]}}}`)
+		if err := UpsertCustomProvider("gw", CustomDefinition{
+			BaseURL: "https://api.example.com/v1", API: APIOpenAICompletions,
+			Models: []CustomModel{{ID: "m", Reasoning: &no}},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		m := firstModel(t, home, "gw")
+		if m["reasoning"] != false {
+			t.Fatalf("reasoning = %s", rawOf(t, m))
+		}
+		levelMap, _ := m["thinkingLevelMap"].(map[string]any)
+		if len(levelMap) != 1 || levelMap["off"] != "none" {
+			t.Fatalf("managed keys must go, off must stay: %s", rawOf(t, levelMap))
+		}
+	})
+
+	t.Run("a model without a map keeps none", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		if err := UpsertCustomProvider("gw", CustomDefinition{
+			BaseURL: "https://api.example.com/v1", API: APIOpenAICompletions,
+			Models: []CustomModel{{ID: "m"}},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := firstModel(t, home, "gw")["thinkingLevelMap"]; ok {
+			t.Fatal("an untouched model must not grow a map")
+		}
+	})
+
+	t.Run("unknown level is refused and writes nothing", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		err := UpsertCustomProvider("gw", CustomDefinition{
+			BaseURL: "https://api.example.com/v1", API: APIOpenAICompletions,
+			Models: []CustomModel{{ID: "m", Reasoning: &yes, ThinkingLevels: []string{"turbo"}}},
+		})
+		if err == nil || !strings.Contains(err.Error(), "unsupported thinking level") {
+			t.Fatalf("err = %v", err)
+		}
+		if _, statErr := os.Stat(filepath.Join(home, ".pi", "agent", "models.json")); !os.IsNotExist(statErr) {
+			t.Fatal("a refused definition must not touch the file")
+		}
+	})
+
+	t.Run("re-saving the same definition is byte-identical", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		def := CustomDefinition{
+			BaseURL: "https://api.example.com/v1", API: APIOpenAICompletions,
+			Models: []CustomModel{{ID: "m", Reasoning: &yes, ThinkingLevels: []string{"high", "max"}}},
+		}
+		if err := UpsertCustomProvider("gw", def); err != nil {
+			t.Fatal(err)
+		}
+		first := rawOf(t, readTop(t, home))
+		if err := UpsertCustomProvider("gw", def); err != nil {
+			t.Fatal(err)
+		}
+		if second := rawOf(t, readTop(t, home)); second != first {
+			t.Fatalf("not idempotent:\n%s\n%s", first, second)
+		}
+	})
+}
+
+// firstModel returns the provider's first model row as a decoded object.
+func firstModel(t *testing.T, home, id string) map[string]any {
+	t.Helper()
+	prov, _ := readProviderRows(t, home)[id].(map[string]any)
+	models, _ := prov["models"].([]any)
+	if len(models) == 0 {
+		t.Fatalf("no models under %s: %s", id, rawOf(t, prov))
+	}
+	m, _ := models[0].(map[string]any)
+	return m
+}
+
+// seed writes a hand-edited models.json before the upsert runs.
+func seed(t *testing.T, home, body string) {
+	t.Helper()
+	path := filepath.Join(home, ".pi", "agent", "models.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
 

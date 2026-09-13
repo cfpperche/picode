@@ -11,7 +11,7 @@ import { cliProvidersReturnTo } from "@picode/shared/domain/cliProviders.js";
 
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { readRecents, pushRecent, removeRecent, clearRecents, rememberProviders } from "@picode/shared/domain/providerRecents.js";
-import { validateCustomProvider, customProviderPayload, customProviderForm, customTakenIds } from "@picode/shared/domain/customProviders.js";
+import { validateCustomProvider, customProviderPayload, customProviderForm, customTakenIds, THINKING_LEVELS } from "@picode/shared/domain/customProviders.js";
 import { CUSTOM_PROVIDER_APIS } from "@picode/shared/contracts/schemas.js";
 import { askConfirm } from "../lib/confirm.js";
 import { showUsageButton, usagePath } from "@picode/shared/domain/providerUsage.js";
@@ -349,6 +349,15 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
   }
   function setCheck(k) {
     return (e) => setCf((f) => ({ ...f, [k]: e.target.checked }));
+  }
+  // toggleLevel keeps the selection in pi's scale order, so the saved
+  // thinkingLevelMap reads like the catalog does.
+  function toggleLevel(lvl) {
+    return (e) => setCf((f) => {
+      const next = new Set(f.thinkingLevels);
+      if (e.target.checked) next.add(lvl); else next.delete(lvl);
+      return { ...f, thinkingLevels: THINKING_LEVELS.filter((l) => next.has(l)) };
+    });
   }
 
   // Custom endpoint (ADR-0129): the definition merges into pi's models.json
@@ -782,6 +791,23 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                     <input type="checkbox" checked={cf.compatReasoning} onChange={setCheck("compatReasoning")} />
                     <span><code>reasoning_effort</code> — reasoning models only</span>
                   </label>
+                  <label className="prov-check">
+                    <input type="checkbox" checked={cf.reasoningModel} onChange={setCheck("reasoningModel")} />
+                    <span>Reasoning model — lets you pick thinking levels</span>
+                  </label>
+                  {cf.reasoningModel ? (
+                    <>
+                      <div className="prov-levels" role="group" aria-label="Thinking levels">
+                        {THINKING_LEVELS.map((lvl) => (
+                          <label key={lvl} className={"prov-level" + (cf.thinkingLevels.includes(lvl) ? " on" : "")}>
+                            <input type="checkbox" checked={cf.thinkingLevels.includes(lvl)} onChange={toggleLevel(lvl)} />
+                            <span>{lvl}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <p className="prov-hint">How hard the model may think before answering. Unchecked levels are hidden in the picker. Applies to every model listed.</p>
+                    </>
+                  ) : null}
                   <div className="prov-adv-grid">
                     <input
                       value={cf.contextWindow}
