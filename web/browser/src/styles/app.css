@@ -1816,6 +1816,12 @@ img.ws-face.term-cli-face {
 .xterm .xterm-viewport { scrollbar-width: none; }
 .xterm .xterm-viewport::-webkit-scrollbar { display: none; }
 .xterm .xterm-scrollable-element > .scrollbar { display: none; }
+/* FitAddon floors the column count, so unused pixels collect on the
+   right of a left-aligned .xterm-screen. Auto margins split that
+   remainder before the first fit (termFit.js then sets exact left/right
+   so --term-pad reads the same on both sides). Helpers live inside the
+   screen; mouse mapping uses the screen's box. */
+.xterm .xterm-screen { margin-left: auto; margin-right: auto; }
 .workspace-view.term-on #empty, .workspace-view.term-on .chat-surface { display: none !important; }
 .workspace-view.file-on #empty, .workspace-view.file-on .chat-surface, .workspace-view.file-on .term-surface { display: none !important; }
 /* Dashboard pinned via the logo (App.jsx dashboardPinned) while a real tab

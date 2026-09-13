@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { applyTermSlack } from "@picode/shared/domain/termFit.js";
 import { applyXtermOptions, readTermPrefs, xtermOptions, xtermTheme } from "@picode/shared/domain/termTheme.js";
 import "@xterm/xterm/css/xterm.css";
 
@@ -39,10 +40,10 @@ export default function TermPreview() {
       term.options.scrollback = 80;
       skin(el);
       paint(term);
-      requestAnimationFrame(() => fit.fit());
+      requestAnimationFrame(() => { fit.fit(); applyTermSlack(term); });
     }
     apply();
-    const ro = new ResizeObserver(() => { if (el.isConnected) fit.fit(); });
+    const ro = new ResizeObserver(() => { if (el.isConnected) { fit.fit(); applyTermSlack(term); } });
     ro.observe(el);
     window.addEventListener("picode-term-theme", apply);
     return () => {
