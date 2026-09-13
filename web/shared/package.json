@@ -62,6 +62,7 @@
     "./domain/overlayAudit.js": "./domain/overlayAudit.js",
     "./domain/pathFilter.js": "./domain/pathFilter.js",
     "./domain/pinDraft.js": "./domain/pinDraft.js",
+    "./domain/snipDraft.js": "./domain/snipDraft.js",
     "./domain/pinReminder.js": "./domain/pinReminder.js",
     "./domain/piError.js": "./domain/piError.js",
     "./domain/piKey.js": "./domain/piKey.js",

@@ -7,7 +7,7 @@ test("integrations deep links remain reload-safe", () => {
   for (const hash of ["#/integrations", "#/integrations/connectors", "#/mcps"]) assert.equal(parseRoute(hash), "clis");
 });
 import { isWebTab, tabWebId, webTabId } from "./routes.js";
-import { parseRoute, packagesConfigRoute, packagesConfigHash, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot, appTabId, isAppTab, tabAppId, appHash, appRoute, renamedAppId, renamedAppHash, renamedTabId } from "./routes.js";
+import { parseRoute, packagesConfigRoute, packagesConfigHash, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot, appTabId, isAppTab, tabAppId, appHash, appRoute, renamedAppId, renamedAppHash, renamedTabId, snippetRoute, snippetsHash } from "./routes.js";
 
 test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/preferences"), "preferences");
@@ -25,6 +25,11 @@ test("preferences and settings are distinct", () => {
   assert.equal(parseRoute("#/pins/new"), "pins");
   assert.deepEqual(pinRoute("#/pins/new"), { mode: "new", id: "" });
   assert.deepEqual(pinRoute("#/pins/hello-abc"), { mode: "edit", id: "hello-abc" });
+  assert.equal(parseRoute("#/snippets"), "snippets");
+  assert.equal(parseRoute("#/snippets/new"), "snippets");
+  assert.equal(snippetRoute("#/snippets"), "");
+  assert.equal(snippetRoute("#/snippets/new"), "new");
+  assert.equal(snippetsHash("new"), "#/snippets/new");
 });
 
 test("agent hash is still the workspace shell", () => {

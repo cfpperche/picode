@@ -66,7 +66,11 @@ export function buildTermMenu(ctx = {}) {
   if (cli && running) {
     if (selection) send.push({ id: "ask", label: "Ask " + cli + " about this", icon: "ask" });
     send.push({ id: "attach", label: "Attach files…", icon: "clip" });
+    send.push({ id: "snippet", label: "Send to terminal…", icon: "file" });
   }
+  // A command snippet runs in the pane's own shell (ADR-0130 Q2a): the
+  // row follows the same bare-shell flag Clear does, not the CLI door.
+  if (own && ctx.shell) send.push({ id: "snippet-cmd", label: "Run command…", icon: "file" });
   if (ctx.link) send.push({ id: "open-link", label: "Open " + ctx.link.label, icon: ctx.link.kind === "http" ? "external" : "file" });
   if (send.length) rows.push(SEP, ...send);
 

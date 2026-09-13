@@ -39,6 +39,7 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [bar, setBar] = useState(null);
   const [slashExtra, setSlashExtra] = useState([]);
+  const [snipExtra, setSnipExtra] = useState([]);
   const convRef = useRef(null);
   const termHostRef = useRef(null);
   const nearBottom = useRef(true);
@@ -59,6 +60,12 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
       .then((d) => setSlashExtra(extraSlash(d.skills, d.templates, d.commands)))
       .catch(() => setSlashExtra([]));
   }, [id, mode]);
+  // Snippets do not need a running agent: the picker rides its own state
+  // and the snip.* feed, so /snip: lists while the agent is stopped.
+  useEffect(() => subscribeFeed((ev) => {
+    if (!(ev.type === "feed.open" || ev.type === "feed.reset" || (ev.type && ev.type.startsWith("snip.")))) return;
+    api("/api/snips/picker").then((d) => setSnipExtra(extraSlash([], [], [], d.snips || []))).catch(() => setSnipExtra([]));
+  }), []);
 
   usePoll(async () => {
     if (!id) return;
@@ -165,7 +172,7 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
               onStop={() => onStop(agent, workspace)}
               onAbort={sock.abort}
               agentId={id}
-              slashExtra={slashExtra}
+              slashExtra={[...slashExtra, ...snipExtra]}
               onSlash={cmd => { if (cmd.run === "go-providers" || cmd.run === "go-providers-new") location.hash = cliProvidersHash("pi", { add: cmd.run === "go-providers-new" }); }}
               statusBar={bar}
               lastReply={sock.state.items.findLast(it => it.kind === "block" && !it.cls && it.text)?.text || ""}

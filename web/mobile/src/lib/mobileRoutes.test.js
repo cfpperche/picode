@@ -121,6 +121,22 @@ it("opens editor/tree/Git links with owner identity and folder preconditions", (
   assert.equal(mobileRoute("#/git/x/nope").screen, "work");
 });
 
+it("snippets on the phone mirror the pins map (ADR-0130)", () => {
+  assert.deepEqual(mobileRoute("#/snippets/deploy-abc123"), { screen: "snip", id: "deploy-abc123", section: "" });
+  assert.deepEqual(mobileRoute("#/snippets/new"), { screen: "snipEdit", id: "", section: "" });
+  assert.deepEqual(mobileRoute("#/snippets/deploy-abc123/edit"), { screen: "snipEdit", id: "deploy-abc123", section: "" });
+  assert.deepEqual(mobileRoute("#/snippets"), { screen: "more", id: "", section: "snippets" });
+  assert.deepEqual(mobileRoute("#/more/snippets"), { screen: "more", id: "", section: "snippets" });
+  assert.equal(mobileHash("snip", "deploy-abc123"), "#/snippets/deploy-abc123");
+  assert.equal(mobileHash("snipEdit", "deploy-abc123"), "#/snippets/deploy-abc123/edit");
+  assert.equal(mobileHash("snipEdit", ""), "#/snippets/new");
+  assert.equal(tabOf({ screen: "snip", id: "x" }), "more");
+  assert.equal(tabOf({ screen: "snipEdit", id: "" }), "more");
+  assert.equal(parentHash({ screen: "snip", id: "x" }), "#/more/snippets");
+  assert.equal(parentHash({ screen: "snipEdit", id: "x" }), "#/snippets/x");
+  assert.equal(parentHash({ screen: "snipEdit", id: "" }), "#/more/snippets");
+});
+
 it("pins on the phone: list under More, read-only screen, new and edit forms", () => {
   assert.deepEqual(mobileRoute("#/pins/deploy-abc123"), { screen: "pin", id: "deploy-abc123", section: "" });
   assert.deepEqual(mobileRoute("#/pins/new"), { screen: "pinEdit", id: "", section: "" });

@@ -42,9 +42,9 @@ test("Providers is searchable inside Agent CLIs", () => {
 
 test("Tools holds llama.cpp; Webhooks sit under PiCode", () => {
   assert.deepEqual(MENU_GROUPS.map(([title]) => title), ["Tools", "PiCode"]);
-  assert.deepEqual(MENU_GROUPS[0][1], ["automations", "llama"]);
+  assert.deepEqual(MENU_GROUPS[0][1], ["automations", "snippets", "llama"]);
   assert.deepEqual(menuGroups("").map(g => g.title), ["Tools", "PiCode"]);
-  assert.deepEqual(menuGroups("").find(g => g.title === "Tools").rows.map(r => r[0]), ["automations", "llama"]);
+  assert.deepEqual(menuGroups("").find(g => g.title === "Tools").rows.map(r => r[0]), ["automations", "snippets", "llama"]);
   assert.ok(menuGroups("").find(g => g.title === "PiCode").rows.some(row => row[0] === "integrations"));
 });
 

@@ -15,6 +15,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
 
@@ -163,37 +164,46 @@ func handleTerminalPrompt(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "message or file is required")
 			return
 		}
-		if deps.Tmux == nil || !deps.Tmux.Available() {
-			writeErr(w, http.StatusServiceUnavailable, "Need tmux to send to a terminal.")
-			return
-		}
-		session := tmux.ShellSessionName(t.ID)
-		ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
-		defer cancel()
-		has, err := deps.Tmux.HasSession(ctx, session)
-		if err != nil {
-			writeErr(w, http.StatusConflict, "Open the terminal first, then try again.")
-			return
-		}
-		if !has {
-			writeJSON(w, http.StatusConflict, map[string]any{"error": "Start the terminal first.", "reason": "closed"})
-			return
-		}
-		if !tryLockPrompt(t.ID) {
-			writeJSON(w, http.StatusConflict, map[string]any{"error": "Already sending to this terminal.", "reason": "busy"})
-			return
-		}
-		defer unlockPrompt(t.ID)
 		payload := buildPromptPaste(req.Message, rels)
-		if err := deps.Tmux.PasteText(ctx, session, payload); err != nil {
-			writeJSON(w, http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"})
+		status, body := pasteToTerminal(deps, r.Context(), t, payload)
+		if status != http.StatusOK {
+			writeJSON(w, status, body)
 			return
-		}
-		if deps.Feed != nil {
-			deps.Feed.Ephemeral("terminal.prompt", map[string]any{"termId": t.ID, "typed": true})
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "typed": true})
 	}
+}
+
+// pasteToTerminal is the one delivery path of the ADR-0089 door: tmux
+// present, session alive, one in-flight paste per terminal, bracketed
+// paste + Enter, `terminal.prompt` announced. Callers validate their own
+// inputs first; this only delivers. A non-200 status comes with the JSON
+// body to write (with a reason the UI can name).
+func pasteToTerminal(deps Deps, ctx context.Context, t store.Terminal, payload string) (int, map[string]any) {
+	if deps.Tmux == nil || !deps.Tmux.Available() {
+		return http.StatusServiceUnavailable, map[string]any{"error": "Need tmux to send to a terminal."}
+	}
+	session := tmux.ShellSessionName(t.ID)
+	cctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+	has, err := deps.Tmux.HasSession(cctx, session)
+	if err != nil {
+		return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again."}
+	}
+	if !has {
+		return http.StatusConflict, map[string]any{"error": "Start the terminal first.", "reason": "closed"}
+	}
+	if !tryLockPrompt(t.ID) {
+		return http.StatusConflict, map[string]any{"error": "Already sending to this terminal.", "reason": "busy"}
+	}
+	defer unlockPrompt(t.ID)
+	if err := deps.Tmux.PasteText(cctx, session, payload); err != nil {
+		return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
+	}
+	if deps.Feed != nil {
+		deps.Feed.Ephemeral("terminal.prompt", map[string]any{"termId": t.ID, "typed": true})
+	}
+	return http.StatusOK, nil
 }
 
 func decodeDropData(data string) ([]byte, error) {

@@ -223,6 +223,7 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [MCP (Model Context Protocol) support](architecture/mcp.md) | `docs/architecture/mcp.md` |
 | [Integrations (ADR-0075)](architecture/integrations.md) | `docs/architecture/integrations.md` |
 | [Pins](architecture/pins.md) | `docs/architecture/pins.md` |
+| [Snippets (ADR-0130)](architecture/snippets.md) | `docs/architecture/snippets.md` |
 | [Canvas (ADR-0108, ADR-0118)](architecture/canvas.md) | `docs/architecture/canvas.md` |
 | [Automations (ADR-0045)](architecture/automations.md) | `docs/architecture/automations.md` |
 | [Change feed (ADR-0048)](architecture/change-feed.md) | `docs/architecture/change-feed.md` |

@@ -13,7 +13,8 @@ the exact asking `session_path`; boot reconciliation settles pending replies
 from a full-payload, post-task-timestamp user row before deciding whether to
 reopen them), `messages` (reserved M4 broker inbox),
 `events` (orchestration audit),
-`settings`. Embedded sequential migrations; the M1 JSON registry is imported
+`settings`,
+`snips` (ADR-0130: user prompt/shell templates; not the conversation fence runner). Embedded sequential migrations; the M1 JSON registry is imported
 once and retired (`workspaces.json.migrated`).
 
 Local backup destinations are checked against both live data trees before any
