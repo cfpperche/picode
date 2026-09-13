@@ -2,7 +2,7 @@
 
 ## Next
 
-- Owner: keep Activate now gated on a recorded session, or widen it to cold-start CLIs with no sessionKey (Codex/Hermes/OpenCode welcome). Remote mode stays out of v1 until explicitly in scope.
+- Owner: keep Activate now on a recorded session, or widen to cold-start (no sessionKey). Remote mode stays out of v1.
 
 ## Debts
 
