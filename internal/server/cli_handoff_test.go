@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
+	"github.com/cfpperche/picode/internal/clisession"
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
@@ -232,6 +233,58 @@ func TestHandoffDecisionTable(t *testing.T) {
 	if p["formatVersion"] != "9.9.9" {
 		t.Fatalf("formatVersion must come from the setup check: %v", p["formatVersion"])
 	}
+}
+
+func TestHandoffOversizeFallsBackToBrief(t *testing.T) {
+	ts, _, dataDir, home := handoffServer(t)
+	proj := filepath.Join(t.TempDir(), "proj")
+	if err := os.MkdirAll(proj, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := seedHandoffClaude(t, home, proj)
+	f, err := os.OpenFile(path, os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.Seek(clisession.MaxReadBytes, 0); err != nil {
+		t.Fatal(err)
+	}
+	late := `{"type":"user","message":{"role":"user","content":[{"type":"text","text":"the last request"}]},"timestamp":"2026-09-01T12:00:00.000Z","cwd":"` + proj + `","sessionId":"cc-1","uuid":"u-late"}` + "\n"
+	if _, err := f.WriteString(late); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	fakeCLI(t, ts, home, "grok")
+	body := map[string]any{"id": "cc-1", "path": path, "cwd": proj, "to": "grok"}
+	p := cliRequest(t, ts, "POST", "/api/clis/claude-code/sessions/handoff/preview", body, 200)
+	if p["mode"] != "brief" || p["tooLarge"] != true || !reflect.DeepEqual(p["modes"], []any{"brief"}) {
+		t.Fatalf("oversize preview: %v", p)
+	}
+	if p["briefPreview"] == nil || !strings.Contains(p["briefPreview"].(string), "the last request") {
+		t.Fatalf("brief missed the tail: %v", p)
+	}
+	warnings, _ := p["manifest"].(map[string]any)["warnings"].([]any)
+	if len(warnings) == 0 {
+		t.Fatalf("expected a too-large warning: %v", p["manifest"])
+	}
+	body["mode"] = "native"
+	r := cliRequestFull(t, ts, "POST", "/api/clis/claude-code/sessions/handoff", body)
+	if r["status"] != "413" {
+		t.Fatalf("native execute of oversize: %v", r)
+	}
+	body["mode"] = "brief"
+	res := cliRequest(t, ts, "POST", "/api/clis/claude-code/sessions/handoff", body, 201)
+	cleanupTerm(t, res)
+	brief, _ := res["brief"].(map[string]any)
+	if brief == nil || brief["path"] == nil {
+		t.Fatalf("brief execute: %v", res)
+	}
+	if _, err := os.Stat(brief["path"].(string)); err != nil {
+		t.Fatal(err)
+	}
+	_ = dataDir
 }
 
 func TestHandoffNativeClaudeToCodexCreatesRolloutAndTerminal(t *testing.T) {

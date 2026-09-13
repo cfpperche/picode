@@ -42,6 +42,12 @@ export default function SessionHandoffDialog({ open, session, sourceCli, sourceN
         if (!form.mode && p.mode) setForm((f) => ({ ...f, mode: p.mode }));
       } catch (e) {
         if (mine !== seq.current) return;
+        const modes = e && e.body && Array.isArray(e.body.modes) ? e.body.modes : [];
+        if (e && e.status === 413 && modes.includes("brief") && form.mode !== "brief") {
+          setError("");
+          setForm((f) => ({ ...f, mode: "brief" }));
+          return;
+        }
         setPreview(null); setError((e && e.message) || "Could not prepare the handoff.");
       } finally {
         if (mine === seq.current) setLoading(false);
@@ -54,6 +60,7 @@ export default function SessionHandoffDialog({ open, session, sourceCli, sourceN
   const modes = (preview && preview.modes) || target.modes || [];
   const canNative = modes.includes("native");
   const canBrief = modes.includes("brief");
+  const tooLarge = !!(preview && preview.tooLarge);
   const mode = form.mode || (preview && preview.mode) || modes[0] || "";
 
   async function run(force) {
@@ -116,7 +123,7 @@ export default function SessionHandoffDialog({ open, session, sourceCli, sourceN
             <legend>How</legend>
             <label className="handoff-choice" title="Written in the other CLI's own session format and resumed there.">
               <input type="radio" name="handoff-mode" value="native" checked={mode === "native"} disabled={!canNative} onChange={() => setForm((f) => ({ ...f, mode: "native" }))} />
-              <span><strong>Native session</strong><small>{canNative ? "Turns and tool calls become a real " + target.name + " session." : target.name + " cannot import sessions yet."}</small></span>
+              <span><strong>Native session</strong><small>{canNative ? "Turns and tool calls become a real " + target.name + " session." : tooLarge ? "This conversation is too large to import." : target.name + " cannot import sessions yet."}</small></span>
             </label>
             <label className="handoff-choice" title="A short summary the other CLI reads first.">
               <input type="radio" name="handoff-mode" value="brief" checked={mode === "brief"} disabled={!canBrief} onChange={() => setForm((f) => ({ ...f, mode: "brief" }))} />
