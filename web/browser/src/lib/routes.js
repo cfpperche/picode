@@ -18,6 +18,7 @@ export const ROUTES = {
   integrations: "/integrations/webhooks",
   packages: "/clis/pi/packages",
   devices: "/devices",
+  browser: "/browser",
   pins: "/pins",
   termset: "/termset",
   automations: "/automations",
@@ -35,6 +36,7 @@ export function parseRoute(hash) {
   if (h === "/integrations/webhooks" || h.startsWith("/integrations/webhooks")) return "integrations";
   if (h === "/mcps" || h === "/integrations" || h.startsWith("/integrations/")) return "clis";
   if (h === "/devices") return "devices";
+  if (h === "/browser") return "browser";
   if (h === "/pins" || h.startsWith("/pins/")) return "pins";
   if (h === "/termset" || h.startsWith("/termset/")) return "termset";
   if (h === "/automations" || h.startsWith("/automations/")) return "automations";
@@ -174,7 +176,7 @@ export function pinRoute(hash) {
 // "terminal" left this list on 2026-08-30: terminal appearance lives on the
 // terminal settings page now (#/termset), beside the behaviour it belongs
 // with. An old #/preferences/terminal link falls back to Appearance.
-const PREF_SECTIONS = ["appearance", "shortcuts", "notifications", "server", "backup", "browser"];
+const PREF_SECTIONS = ["appearance", "shortcuts", "notifications", "server", "backup"];
 
 export function prefSection(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "");

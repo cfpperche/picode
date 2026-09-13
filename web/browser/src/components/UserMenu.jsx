@@ -29,7 +29,7 @@ export default function UserMenu({ host, version, inShell = false, themeMode, on
   const searching = !!query.trim();
   const groups = menuGroups(query);
   const actions = menuActions(query);
-  const rows = (list) => list.map(([id, title, sub]) => {
+  const rows = (list) => list.filter(([id]) => id !== "browser" || inShell).map(([id, title, sub]) => {
     const Icon = SECTION_ICONS[id];
     return (
       <DropdownMenu.Item key={id} className="um-item" id={"um-" + id} onSelect={() => onNavigate(id)}>

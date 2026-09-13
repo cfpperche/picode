@@ -145,7 +145,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
   return (
     <PageFrame id="preferences-view" title="Preferences" hidden={hidden}>
       <nav className="pref-tabs" role="tablist" aria-label="Preferences">
-        {[["appearance", "Appearance"], ["shortcuts", "Shortcuts"], ["notifications", "Notifications"], ["server", "Server"], ["backup", "Backup"], ["browser", "Browser"]].map(([id, label]) => (
+        {[["appearance", "Appearance"], ["shortcuts", "Shortcuts"], ["notifications", "Notifications"], ["server", "Server"], ["backup", "Backup"]].map(([id, label]) => (
           <a
             key={id}
             href={"#/preferences" + (id === "appearance" ? "" : "/" + id)}
@@ -163,18 +163,6 @@ export default function Settings({ hidden, themeMode, onTheme }) {
           <ThemeCard option="light" label="Light" desc="Bright surfaces" active={themeMode === "light"} onPick={onTheme} icon={<IconSun size={15} />} />
           <ThemeCard option="system" label="System" desc="Match your OS" active={themeMode === "system"} onPick={onTheme} icon={<IconMonitor size={15} />} />
           <ThemeCard option="dark" label="Dark" desc="Low light" active={themeMode === "dark"} onPick={onTheme} icon={<IconMoon size={15} />} />
-        </div>
-      </section>
-
-      <section className="settings-section" hidden={sec !== "browser"}>
-        <h3 className="sr-only">Browser</h3>
-        <h4 className="settings-sub">Work browser</h4>
-        <div className="settings-card">
-          <p className="settings-hint">Browser tabs open inside the app and share one sign-in profile, so site logins persist on this machine. Site permissions (camera, location, downloads) are asked per site.</p>
-        </div>
-        <h4 className="settings-sub">Developer access</h4>
-        <div className="settings-card">
-          <p className="settings-hint">Agents read pages through the app&rsquo;s authenticated channel. An external debugging port stays off unless enabled for development &mdash; this lab build ships it enabled.</p>
         </div>
       </section>
 
