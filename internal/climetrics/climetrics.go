@@ -172,7 +172,7 @@ type Window struct {
 }
 
 // Request is one aggregation window. The dashboard measures the whole
-// machine (ADR-0128): which folders a product workspace claims is labelling
+// machine (ADR-0127): which folders a product workspace claims is labelling
 // in the server layer, never a filter here.
 type Request struct {
 	From, To, PriorFrom time.Time

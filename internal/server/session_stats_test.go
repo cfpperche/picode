@@ -279,7 +279,7 @@ func TestHandleSessionStatsLabelsWorkspaces(t *testing.T) {
 	}
 }
 
-// The scope query parameter is retired (ADR-0128): the dashboard measures
+// The scope query parameter is retired (ADR-0127): the dashboard measures
 // the whole machine, and a client that still asks for the old
 // managed-folder scope gets exactly the window every other client gets —
 // never a silently narrower answer.

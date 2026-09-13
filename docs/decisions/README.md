@@ -131,3 +131,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0124](0124-close-gate-cache.md) | `make close` reuses a green run when the merge could not have changed what it covered (per-path blob hashes, not names) | accepted, amends 0105 |
 | [0125](0125-llms-generated.md) | llms.txt is generated where it is served (make docs, make deploy) and no longer committed; openapi.json stays versioned because the site renders it | accepted |
 | [0126](0126-remove-session-adopt.md) | Remove session adoption — agents are born only from new sessions | accepted |
+| [0127](0127-dashboard-measures-the-machine.md) | The dashboard measures the whole machine; the `?scope=` mode and its chips retire (amends 0097) | accepted |

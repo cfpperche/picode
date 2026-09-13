@@ -152,7 +152,7 @@ func replay(p *parsed, acc *guestAcc, req Request) (contributed bool) {
 	}
 	// Impact proration counts only entries inside the window. Counting by
 	// time alone was not always enough — the retired scope mode also had to
-	// gate by folder (ADR-0128) — and the window check alone is what remains.
+	// gate by folder (ADR-0127) — and the window check alone is what remains.
 	var inWindow int64
 	for i := range p.ents {
 		e := &p.ents[i]

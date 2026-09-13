@@ -85,7 +85,7 @@ func handleSessionStats(deps Deps) http.HandlerFunc {
 // claimedDirs is every workspace folder, canonicalised, used to label a
 // session folder with the workspace that claims it — and for nothing else.
 // The dashboard measures the whole machine; the filtered scope this list
-// once also fed is retired (ADR-0128).
+// once also fed is retired (ADR-0127).
 func claimedDirs(deps Deps) []string {
 	if deps.Store == nil {
 		return nil
