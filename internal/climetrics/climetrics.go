@@ -171,45 +171,13 @@ type Window struct {
 	Coverage CoverageRow
 }
 
-// Scope decides which folders count.
-type Scope string
-
-const (
-	// ScopeMachine counts every folder this machine's CLIs wrote in. It is
-	// the default: the v1 dashboard counted every pi session wherever it
-	// ran, and narrowing that silently would drop rows the surface has
-	// always shown.
-	ScopeMachine Scope = "machine"
-	// ScopePiCode counts only folders a PiCode workspace claims — a
-	// workspace path, or anything beneath it, so a worktree rolls up into
-	// the workspace that owns it instead of splitting the breakdown.
-	ScopePiCode Scope = "picode"
-)
-
-// Request is one aggregation window.
-//
-// Claimed is the set of canonical workspace directories, and the server
-// fills it: climetrics never sees the store, the same boundary ADR-0042
-// drew when it kept workspace labelling in the handler.
+// Request is one aggregation window. The dashboard measures the whole
+// machine (ADR-0127): which folders a product workspace claims is labelling
+// in the server layer, never a filter here.
 type Request struct {
 	From, To, PriorFrom time.Time
 	Loc                 *time.Location
-	Scope               Scope
-	Claimed             []string
 	Billing             map[string]Billing // per-CLI, from the operator's cli_configs
-}
-
-// InScope answers whether a session's cwd counts for this request.
-func (r Request) InScope(cwd string) bool {
-	if r.Scope != ScopePiCode {
-		return true
-	}
-	for _, dir := range r.Claimed {
-		if cwd == dir || strings.HasPrefix(cwd, dir+"/") {
-			return true
-		}
-	}
-	return false
 }
 
 // BillingFor is what the operator recorded for a CLI, defaulting to unknown
@@ -269,7 +237,6 @@ func Fingerprint(meters []Meter) string {
 // only exist because guest CLIs record more than pi does.
 type FleetStats struct {
 	session.WindowStats
-	Scope    Scope         `json:"scope"`
 	ByCLI    []CLIBucket   `json:"byCli"`
 	Coverage []CoverageRow `json:"coverage"`
 	Impact   *Impact       `json:"impact,omitempty"`
@@ -307,7 +274,7 @@ func unavailableRow(m Meter, b Billing, note string) CoverageRow {
 
 // merge sums every window and ranks once over the union.
 func merge(req Request, windows []Window) FleetStats {
-	out := FleetStats{Scope: req.Scope}
+	out := FleetStats{}
 	out.From = req.From.Format(time.RFC3339)
 	out.To = req.To.Format(time.RFC3339)
 

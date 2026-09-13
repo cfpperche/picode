@@ -118,9 +118,6 @@ func opencodeSessions(db *sql.DB, req Request) (map[string]string, Impact, error
 			continue
 		}
 		dir := row["directory"]
-		if !req.InScope(dir) {
-			continue
-		}
 		dirs[id] = dir
 		// Only count a session's diff when it was touched inside the window.
 		if ms := atoi64(row["time_updated"]); ms > 0 {

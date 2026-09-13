@@ -150,14 +150,13 @@ func replay(p *parsed, acc *guestAcc, req Request) (contributed bool) {
 	if p == nil {
 		return false
 	}
-	// inWindow must respect the scope as well as the window. Counting by
-	// time alone let a file the scope excluded still contribute its lines
-	// and durations: on a picode-scoped window with no matching sessions
-	// the impact panel still read "+10,724 lines".
+	// Impact proration counts only entries inside the window. Counting by
+	// time alone was not always enough — the retired scope mode also had to
+	// gate by folder (ADR-0127) — and the window check alone is what remains.
 	var inWindow int64
 	for i := range p.ents {
 		e := &p.ents[i]
-		if inCurrentWindow(req, e.at) && req.InScope(e.cwd) {
+		if inCurrentWindow(req, e.at) {
 			inWindow += p.weight(e)
 		}
 		before := acc.current.Messages
@@ -167,7 +166,7 @@ func replay(p *parsed, acc *guestAcc, req Request) (contributed bool) {
 		}
 	}
 	for _, c := range p.compactions {
-		if req.InScope(c.cwd) && inCurrentWindow(req, c.at) {
+		if inCurrentWindow(req, c.at) {
 			acc.turns.Compactions++
 		}
 	}

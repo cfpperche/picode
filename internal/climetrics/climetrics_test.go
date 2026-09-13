@@ -35,7 +35,7 @@ func (f fakeMeter) Meter(Request) (Window, error) {
 func testReq() Request {
 	to := time.Date(2026, 9, 8, 0, 0, 0, 0, time.UTC)
 	from := to.AddDate(0, 0, -3)
-	return Request{From: from, To: to, PriorFrom: from.AddDate(0, 0, -3), Loc: time.UTC, Scope: ScopeMachine}
+	return Request{From: from, To: to, PriorFrom: from.AddDate(0, 0, -3), Loc: time.UTC}
 }
 
 func TestAggregateSumsAcrossCLIs(t *testing.T) {
@@ -201,26 +201,6 @@ func TestFingerprintMissesWhenAMeterCannotDescribeItself(t *testing.T) {
 	}
 	if got := Fingerprint([]Meter{known, unknown}); got != "" {
 		t.Fatalf("fingerprint = %q, want empty so the cache misses", got)
-	}
-}
-
-func TestInScopeRollsWorktreesUp(t *testing.T) {
-	r := Request{Scope: ScopePiCode, Claimed: []string{"/home/u/proj"}}
-	for _, c := range []struct {
-		cwd  string
-		want bool
-	}{
-		{"/home/u/proj", true},
-		{"/home/u/proj/.worktrees/feat", true},
-		{"/home/u/project", false}, // prefix of the name, not of the path
-		{"/home/u/other", false},
-	} {
-		if got := r.InScope(c.cwd); got != c.want {
-			t.Fatalf("InScope(%q) = %v, want %v", c.cwd, got, c.want)
-		}
-	}
-	if !(Request{Scope: ScopeMachine}).InScope("/anywhere") {
-		t.Fatal("machine scope claims everything")
 	}
 }
 

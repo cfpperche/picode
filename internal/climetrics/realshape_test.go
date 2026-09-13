@@ -17,7 +17,7 @@ func realReq() Request {
 	// The fixture lines carry their own timestamps (2026-08/09); an all-time
 	// window keeps the tests independent of the day they run on.
 	to := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
-	return Request{To: to, Loc: time.UTC, Scope: ScopeMachine}
+	return Request{To: to, Loc: time.UTC}
 }
 
 func copyFixture(t *testing.T, name, dst string) {
@@ -121,7 +121,7 @@ func TestCoverageIsEvidenceNotAssertion(t *testing.T) {
 	writeTranscript(t, root, "-repo", "s.jsonl", []map[string]any{
 		assistant(day(1), "opus", 10, 5, 0, nil),
 	})
-	w, err := ClaudeCodeMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := ClaudeCodeMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatal(err)
 	}

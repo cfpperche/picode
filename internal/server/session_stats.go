@@ -64,27 +64,16 @@ func (c *statsCache) reset() {
 func handleSessionStats(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rng := normalizeRange(r.URL.Query().Get("range"))
-		scope := normalizeScope(r.URL.Query().Get("scope"))
 		from, to, priorFrom := statsWindow(rng, time.Now(), time.Local)
 		meters := climetrics.Meters()
-		claimed := claimedDirs(deps)
 
-		// The claimed folders are part of the cache identity, not just the
-		// request: a picode-scoped window answered from cache after a new
-		// workspace was added would keep excluding that folder until some
-		// unrelated session file happened to move the fingerprint.
-		fp := climetrics.Fingerprint(meters) + "|ws=" + strings.Join(claimed, ",")
-		key := session.Root() + "|" + rng + "|" + string(scope)
+		fp := climetrics.Fingerprint(meters)
+		key := session.Root() + "|" + rng
 		st, hit := sessionStats.get(key, fp, from, to)
 		if !hit {
 			st = climetrics.Aggregate(climetrics.Request{
 				From: from, To: to, PriorFrom: priorFrom,
-				Loc:   time.Local,
-				Scope: scope,
-				// climetrics never sees the store: the handler is the only
-				// layer that knows which folders PiCode claims, the same
-				// boundary ADR-0042 drew for workspace labels.
-				Claimed: claimed,
+				Loc: time.Local,
 			}, meters)
 			sessionStats.put(key, fp, from, to, st)
 		}
@@ -93,10 +82,10 @@ func handleSessionStats(deps Deps) http.HandlerFunc {
 	}
 }
 
-// claimedDirs is every workspace folder, canonicalised. A picode-scoped
-// window counts a session only when its cwd is one of these or sits beneath
-// one, so a worktree rolls up into the workspace that owns it instead of
-// splitting the breakdown in two.
+// claimedDirs is every workspace folder, canonicalised, used to label a
+// session folder with the workspace that claims it — and for nothing else.
+// The dashboard measures the whole machine; the filtered scope this list
+// once also fed is retired (ADR-0127).
 func claimedDirs(deps Deps) []string {
 	if deps.Store == nil {
 		return nil
@@ -112,22 +101,6 @@ func claimedDirs(deps Deps) []string {
 		}
 	}
 	return out
-}
-
-// normalizeScope clamps to the two supported values, defaulting rather than
-// 400ing on drift — the same spirit as normalizeRange.
-//
-// The default is the whole machine, not PiCode's own folders. The v1
-// dashboard counted every pi session wherever it ran, and a narrower
-// default would silently drop rows the surface has always shown; the
-// picode scope is the opt-in narrowing, not the baseline.
-func normalizeScope(raw string) climetrics.Scope {
-	switch strings.TrimSpace(raw) {
-	case string(climetrics.ScopePiCode):
-		return climetrics.ScopePiCode
-	default:
-		return climetrics.ScopeMachine
-	}
 }
 
 // labelWorkspaces resolves each cwd bucket to the PiCode workspace that owns

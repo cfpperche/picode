@@ -23,7 +23,7 @@ func TestProbeRealTree(t *testing.T) {
 	loc := time.Local
 	to := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc).AddDate(0, 0, 1)
 	from := to.AddDate(0, 0, -7)
-	req := Request{From: from, To: to, PriorFrom: from.AddDate(0, 0, -7), Loc: loc, Scope: ScopeMachine}
+	req := Request{From: from, To: to, PriorFrom: from.AddDate(0, 0, -7), Loc: loc}
 	out := Aggregate(req, Meters())
 	b, _ := json.MarshalIndent(struct {
 		Current  any `json:"current"`
@@ -65,9 +65,9 @@ func TestProbePerf(t *testing.T) {
 		name string
 		req  Request
 	}{
-		{"today", Request{From: to.AddDate(0, 0, -1), To: to, PriorFrom: to.AddDate(0, 0, -2), Loc: time.Local, Scope: ScopeMachine}},
-		{"7d", Request{From: to.AddDate(0, 0, -7), To: to, PriorFrom: to.AddDate(0, 0, -14), Loc: time.Local, Scope: ScopeMachine}},
-		{"all", Request{To: to, Loc: time.Local, Scope: ScopeMachine}},
+		{"today", Request{From: to.AddDate(0, 0, -1), To: to, PriorFrom: to.AddDate(0, 0, -2), Loc: time.Local}},
+		{"7d", Request{From: to.AddDate(0, 0, -7), To: to, PriorFrom: to.AddDate(0, 0, -14), Loc: time.Local}},
+		{"all", Request{To: to, Loc: time.Local}},
 	} {
 		t0 := time.Now()
 		out := Aggregate(c.req, ms)

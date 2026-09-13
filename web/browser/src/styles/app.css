@@ -5285,7 +5285,7 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .shell-name { font-size: 12.5px; font-weight: 650; letter-spacing: 0.2px; }
 .shell-brand:hover .shell-name { color: var(--accent); }
 .shell-row .main-tabs { flex: 1; min-width: 0; border-bottom: 0; }
-.shell-caps { display: flex; align-self: stretch; flex: none; }
+.shell-caps { display: flex; align-self: stretch; flex: none; margin-left: auto; }
 .cap-btn {
   width: 46px; border: 0; background: none; padding: 0;
   display: grid; place-items: center; cursor: pointer;
