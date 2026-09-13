@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-btab-navigate"
+description = "Enables the btab_navigate command without any pre-configured scope."
+commands.allow = ["btab_navigate"]
+
+[[permission]]
+identifier = "deny-btab-navigate"
+description = "Denies the btab_navigate command without any pre-configured scope."
+commands.deny = ["btab_navigate"]

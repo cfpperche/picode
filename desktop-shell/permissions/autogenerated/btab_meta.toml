@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-btab-meta"
+description = "Enables the btab_meta command without any pre-configured scope."
+commands.allow = ["btab_meta"]
+
+[[permission]]
+identifier = "deny-btab-meta"
+description = "Denies the btab_meta command without any pre-configured scope."
+commands.deny = ["btab_meta"]

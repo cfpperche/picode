@@ -15,7 +15,15 @@
     "core:window:allow-internal-toggle-maximize",
     "core:window:allow-close",
     "core:window:allow-start-dragging",
-    "core:window:allow-is-maximized"
+    "core:window:allow-is-maximized",
+    "allow-btab-navigate",
+    "allow-btab-bounds",
+    "allow-btab-visibility",
+    "allow-btab-back",
+    "allow-btab-forward",
+    "allow-btab-reload",
+    "allow-btab-meta",
+    "allow-btab-close"
   ],
   "remote": {
     "urls": [

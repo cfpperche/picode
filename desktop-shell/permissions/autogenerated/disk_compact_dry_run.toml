@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-disk-compact-dry-run"
+description = "Enables the disk_compact_dry_run command without any pre-configured scope."
+commands.allow = ["disk_compact_dry_run"]
+
+[[permission]]
+identifier = "deny-disk-compact-dry-run"
+description = "Denies the disk_compact_dry_run command without any pre-configured scope."
+commands.deny = ["disk_compact_dry_run"]
