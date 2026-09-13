@@ -21,7 +21,7 @@
 //  - a passed content gate can still yield an unpainted frame, so the PNG is
 //    size-checked and re-shot up to three times.
 
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import net from "node:net";
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync, readFileSync, statSync, existsSync } from "node:fs";
