@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -40,8 +41,17 @@ function rootBrandLinks(application) {
 }
 
 export function applicationConfig(application, port) {
+  const appRoot = fileURLToPath(new URL(`../${application}/`, import.meta.url));
+  // Every top-level .html in the application directory is a page (the shell
+  // opens /desktop/management.html in its own window; without an entry here
+  // the build silently drops it and the tray item 404s — 2026-09-12).
+  const pages = Object.fromEntries(
+    readdirSync(appRoot)
+      .filter((f) => f.endsWith(".html"))
+      .map((f) => [f.replace(/\.html$/, ""), appRoot + f]),
+  );
   return defineConfig({
-    root: fileURLToPath(new URL(`../${application}/`, import.meta.url)),
+    root: appRoot,
     base: `/${application}/`,
     publicDir: fileURLToPath(new URL("../public/", import.meta.url)),
     plugins: [react(), tailwindcss(), applicationBoundary(application), rootBrandLinks(application)],
@@ -59,6 +69,7 @@ export function applicationConfig(application, port) {
       alias: [{ find: /^@xterm\/xterm$/, replacement: "@xterm/xterm/lib/xterm.js" }],
     },
     build: {
+      rollupOptions: { input: pages },
       outDir: `../../internal/web/public/${application}`,
       emptyOutDir: true,
       assetsDir: "assets",
