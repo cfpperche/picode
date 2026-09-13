@@ -1776,6 +1776,14 @@ img.ws-face.term-cli-face {
 .web-tab-toolbar .web-tab-menu[aria-expanded="true"] {
   border: none; background: var(--border); color: var(--text-primary);
 }
+.web-tab-menu-list {
+  min-width: 210px; padding: 5px; z-index: 50;
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+}
+.web-tab-menu-list .um-item-name {
+  display: inline-flex; align-items: center; gap: 8px; font-size: 13px;
+}
 .web-tab-host { flex: 1 1 auto; min-height: 0; position: relative; }
 .web-tab-err {
   max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
