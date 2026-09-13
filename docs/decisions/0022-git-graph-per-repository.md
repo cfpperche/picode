@@ -156,4 +156,5 @@ The phone asks the same question (2026-09-13): a Git screen's folder row opens
 the same list of workspaces, and a pick navigates to that workspace's screen —
 no tab strip to rename there, so Back is the way out (ADR-0095's rule that
 mobile takes its Git tools through shared logic, never a desktop component, is
-what let the rule itself move to `web/shared/domain/gitWorkspace.js`).
+what let the rule itself move to `web/shared/domain/workspacePicker.js`, which
+the file tree now asks too).

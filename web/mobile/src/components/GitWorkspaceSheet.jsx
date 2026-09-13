@@ -1,6 +1,6 @@
 import * as Sheet from "./MobileSheet.jsx";
 import { IconCheck, IconGit } from "./Icons.jsx";
-import { pickerOptions } from "@picode/shared/domain/gitWorkspace.js";
+import { pickerOptions } from "@picode/shared/domain/workspacePicker.js";
 
 // Which workspace's folder this Git screen reads through (ADR-0022, ADR-0095).
 // The phone has no tab strip to rename, so a pick is a navigation: the host
@@ -9,7 +9,7 @@ import { pickerOptions } from "@picode/shared/domain/gitWorkspace.js";
 // Only folders that are repositories are listed — the same rule the desktop
 // picker and the sidebar use, so no row can answer "not a Git repository".
 export default function GitWorkspaceSheet({ open, workspaces = [], currentId = "", onPick, onClose }) {
-  const options = pickerOptions(workspaces);
+  const options = pickerOptions(workspaces, { reposOnly: true });
   return (
     <Sheet.Root open={!!open} onOpenChange={value => { if (!value) onClose?.(); }}>
       <Sheet.Portal>

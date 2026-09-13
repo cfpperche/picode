@@ -104,3 +104,33 @@ Refresh through an owner whose cwd moved renames the tab to the new root
 | Open workspace files through an agent/terminal of the workspace | breaks exactly where ADR-0027 begins: the empty workspace |
 | Key the tab by owner | two agents in one folder would carry two copies of the same tree |
 | Embed an editor with its own explorer (OpenHands' shape) | we are an ADE, not a worse IDE — the refusal that survives this ADR |
+
+## Amendment (2026-09-13): the folder line names and switches the workspace
+
+The toolbar's first item was the canonical root as static text (`~/picode`). It
+is now the workspace that root belongs to, opening as a picker of the reader's
+other workspaces — the same control the git graph wears, and the same shared
+rule (`web/shared/domain/workspacePicker.js`). Two differences from the graph,
+both because this tab is a folder and not a repository:
+
+- **Every folder is offered**, not only repositories: a folder that is not a
+  repository is a state here, not an error, so the picker applies no `ws.git`
+  filter.
+- **The hint is the folder**, not a branch (the branch is the graph's fact).
+
+The two identities are unchanged: the hash still names the owner, the tab is
+still the canonical folder (`d:<root>`). A pick resolves the target *before*
+anything moves — the picked workspace's own `…/browse` answers the canonical
+root, never a path in a URL — and then: the same folder swaps the owner in
+place (a terminal's folder read through its workspace, say); another folder
+renames this tab to it, or selects the tab that already holds it and hands it
+the pick (an explicit pick wins over whoever opened it first). One tab per
+folder holds in every row. A pick that cannot resolve — the folder is gone, the
+daemon refused — moves nothing and says so.
+
+The Refuse row "Following the terminal's live cwd" is unchanged: that was a tab
+retargeting *unasked*. This is the reader asking, exactly as a manual Refresh
+already does. Nothing becomes readable that was not: the owner still authorises
+every read and `relUnderCwd` still confines it to that owner's folder, which is
+why a folder outside every workspace is not offered at all — *Add workspace*
+(from the same menu, ADR-0027) is the existing door for that.

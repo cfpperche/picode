@@ -46,14 +46,14 @@ import { focusAvailable } from "@picode/shared/domain/focusMode.js";
 import { useFocusMode } from "./lib/useFocusMode.js";
 import { graphActions, undoFor } from "@picode/shared/domain/graphActions.js";
 import { ownerBase } from "@picode/shared/domain/gitOwner.js";
-import { openRepoKeys, ownerIdOf, pickWorkspace } from "./lib/gitWorkspacePicker.js";
+import { openRepoKeys, openTreeKeys, ownerIdOf, pickTarget } from "./lib/workspacePicker.js";
 import GitActionDialog from "./components/GitActionDialog.jsx";
 import { paneAt, paneSelection, paneLink, focusPane } from "./lib/termActions.js";
 import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
-import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
 import { nativeApps, nativeSurfaceFor } from "./lib/nativeApps.js";
@@ -1446,10 +1446,13 @@ export default function App({ shellChrome = false } = {}) {
     const owner = { kind: "workspace", id: wsId, name: ws.name || "" };
     // The resolution and its two failure rows (a request that throws, an answer
     // that names no repository) live in the pure module, where they are tests.
-    const { key, action, error } = await pickWorkspace({
+    const { key, action, error } = await pickTarget({
       tabKey: gitTabKey(tabId),
       openKeys: openRepoKeys(tabs),
-      readHead: () => api(ownerBase(owner) + encodeURIComponent(wsId) + "/git/head"),
+      readTarget: async () => {
+        const head = await api(ownerBase(owner) + encodeURIComponent(wsId) + "/git/head");
+        return { key: (head && head.key) || "" };
+      },
     });
     if (error) {
       toastError(error);
@@ -1462,6 +1465,51 @@ export default function App({ shellChrome = false } = {}) {
       if (action === "rename") delete next[tabId];
       next[target] = owner;
       writeGitOwners(next);
+      return next;
+    });
+    if (action === "rename") {
+      setTabs((t) => {
+        const swapped = t.map((x) => (x === tabId ? target : x));
+        return swapped.filter((x, i) => swapped.indexOf(x) === i);
+      });
+    }
+    setGoneId("");
+    setSelectedId(target);
+  }
+
+  // The file tree's folder line is a workspace picker (ADR-0030 amendment): the
+  // reader chooses the folder this tree reads, from inside the tab. The tab is
+  // still the canonical folder (`d:<root>`), so a pick resolves the target
+  // first — /browse answers the canonical root, never a path from a URL — and
+  // pickAction turns it into the same three moves the graph's pick makes: the
+  // same folder swaps the owner in place, another folder renames this tab to
+  // it (or hands the pick to the tab that already holds it, an explicit pick
+  // winning over whoever opened it first). One tab per folder holds in all
+  // three. A pick that cannot resolve leaves the tab exactly as it was.
+  async function switchTreeWorkspace(tabId, wsId) {
+    if (!isTreeTab(tabId)) return;
+    const ws = workspaces.find((w) => w && w.id === wsId);
+    if (!ws) return;
+    const owner = { kind: "workspace", id: wsId, name: ws.name || "" };
+    const { key, action, error } = await pickTarget({
+      tabKey: treeTabRoot(tabId),
+      openKeys: openTreeKeys(tabs),
+      readTarget: async () => {
+        const page = await api("/api/workspaces/" + encodeURIComponent(wsId) + "/browse");
+        return { key: (page && page.root) || "" };
+      },
+    });
+    if (error) {
+      toastError(error);
+      return;
+    }
+    if (action === "none") return;
+    const target = treeTabId(key);
+    setTreeOwners((m) => {
+      const next = { ...m };
+      if (action === "rename") delete next[tabId];
+      next[target] = owner;
+      writeTreeOwners(next);
       return next;
     });
     if (action === "rename") {
@@ -3033,6 +3081,10 @@ export default function App({ shellChrome = false } = {}) {
                 key={id}
                 tabId={id}
                 owner={o}
+                workspaces={workspaces}
+                freeAgents={freeAgents}
+                terminals={terminals}
+                onPickWorkspace={(wsId) => switchTreeWorkspace(id, wsId)}
                 hidden={selectedId !== id}
                 onKey={(root) => onTreeKey(id, root)}
                 registerCloseGuard={registerTreeCloseGuard}
