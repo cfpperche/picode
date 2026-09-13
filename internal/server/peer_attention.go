@@ -541,6 +541,7 @@ func StartPeerAttention(ctx context.Context, deps Deps) {
 		}
 		reconcilePeerParticipants(ctx, deps)
 		reconcilePeerChecks(ctx, deps)
+		sweepPeerLaunchFiles(deps)
 		messages, err := deps.Store.PendingPeerAttention()
 		if err != nil {
 			continue
