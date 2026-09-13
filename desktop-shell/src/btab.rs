@@ -62,7 +62,7 @@ fn ensure(app: &AppHandle, id: &str, url: &str) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn btab_navigate(
+pub async fn btab_navigate(
     app: AppHandle,
     state: State<'_, BtabState>,
     id: String,
@@ -85,7 +85,7 @@ pub fn btab_navigate(
 }
 
 #[tauri::command]
-pub fn btab_bounds(
+pub async fn btab_bounds(
     app: AppHandle,
     state: State<'_, BtabState>,
     id: String,
@@ -110,7 +110,7 @@ pub fn btab_bounds(
 }
 
 #[tauri::command]
-pub fn btab_visibility(app: AppHandle, id: String, visible: bool) -> Result<(), String> {
+pub async fn btab_visibility(app: AppHandle, id: String, visible: bool) -> Result<(), String> {
     match app.get_webview(&label(&id)) {
         Some(wv) => {
             if visible {
@@ -124,7 +124,7 @@ pub fn btab_visibility(app: AppHandle, id: String, visible: bool) -> Result<(), 
 }
 
 #[tauri::command]
-pub fn btab_back(app: AppHandle, id: String) -> Result<(), String> {
+pub async fn btab_back(app: AppHandle, id: String) -> Result<(), String> {
     app.get_webview(&label(&id))
         .ok_or("no page")?
         .eval("history.back()")
@@ -132,7 +132,7 @@ pub fn btab_back(app: AppHandle, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn btab_forward(app: AppHandle, id: String) -> Result<(), String> {
+pub async fn btab_forward(app: AppHandle, id: String) -> Result<(), String> {
     app.get_webview(&label(&id))
         .ok_or("no page")?
         .eval("history.forward()")
@@ -140,7 +140,7 @@ pub fn btab_forward(app: AppHandle, id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn btab_reload(app: AppHandle, id: String) -> Result<(), String> {
+pub async fn btab_reload(app: AppHandle, id: String) -> Result<(), String> {
     app.get_webview(&label(&id))
         .ok_or("no page")?
         .eval("location.reload()")
@@ -149,7 +149,7 @@ pub fn btab_reload(app: AppHandle, id: String) -> Result<(), String> {
 
 // The active tab polls this; title is the host for now (v1).
 #[tauri::command]
-pub fn btab_meta(app: AppHandle, id: String) -> Result<serde_json::Value, String> {
+pub async fn btab_meta(app: AppHandle, id: String) -> Result<serde_json::Value, String> {
     match app.get_webview(&label(&id)) {
         Some(wv) => {
             let url = wv.url().map(|u| u.to_string()).unwrap_or_default();
@@ -164,7 +164,7 @@ pub fn btab_meta(app: AppHandle, id: String) -> Result<serde_json::Value, String
 }
 
 #[tauri::command]
-pub fn btab_close(app: AppHandle, id: String) -> Result<(), String> {
+pub async fn btab_close(app: AppHandle, id: String) -> Result<(), String> {
     if let Some(wv) = app.get_webview(&label(&id)) {
         wv.close().map_err(|e| e.to_string())?;
     }
