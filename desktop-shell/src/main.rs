@@ -60,6 +60,10 @@ fn main() {
         }))
         .manage(browserlab::LabState::default())
         .setup(move |app| {
+            // The lab window is built here, hidden — never inside a tray
+            // handler: creating a second webview mid-event-loop deadlocked
+            // the whole app on Windows (frozen captions, blank page).
+            browserlab::init(app);
             let target = match url {
                 Some(u) => WebviewUrl::External(u),
                 None => WebviewUrl::App("offline.html".into()),

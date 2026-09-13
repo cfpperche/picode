@@ -12,7 +12,6 @@
 //   4. OAuth popup (NewWindow) handling.
 //   5. CDP reachability of the same logged-in view (follow-up).
 
-use std::path::PathBuf;
 use std::sync::Mutex;
 
 use tauri::webview::WebviewBuilder;
@@ -29,22 +28,11 @@ const BAR_H: f64 = 54.0;
 #[derive(Default)]
 pub struct LabState(pub Mutex<bool>);
 
-fn lab_data_dir() -> PathBuf {
-    std::env::var("LOCALAPPDATA")
-        .map(|root| PathBuf::from(root).join("picode-shell").join("browserlab"))
-        .unwrap_or_else(|_| std::env::temp_dir().join("picode-shell-browserlab"))
-}
-
-pub fn open(app: &AppHandle) {
-    if let Some(win) = app.get_window("browserlab") {
-        let _ = win.unminimize();
-        let _ = win.show();
-        let _ = win.set_focus();
-        return;
-    }
+pub fn init(app: &tauri::App) {
     let win = match tauri::window::WindowBuilder::new(app, "browserlab")
         .title("PiCode — Browser lab")
         .inner_size(1180.0, 840.0)
+        .visible(false)
         .build()
     {
         Ok(w) => w,
@@ -53,6 +41,16 @@ pub fn open(app: &AppHandle) {
             return;
         }
     };
+    // Closing hides; the tray reopens the same webviews (and their logins).
+    {
+        let hidden = win.clone();
+        win.on_window_event(move |e| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = e {
+                api.prevent_close();
+                let _ = hidden.hide();
+            }
+        });
+    }
     // Test 1 starts on GitHub's login page.
     let (w, h) = (1180.0, 840.0);
     let bar = WebviewBuilder::new("labbar", WebviewUrl::App("lab.html".into())).auto_resize();
@@ -60,7 +58,6 @@ pub fn open(app: &AppHandle) {
         "labpage",
         WebviewUrl::External("https://github.com/login".parse().expect("static url")),
     )
-    .data_directory(lab_data_dir())
     .auto_resize();
     let _ = win.add_child(bar, LogicalPosition::new(0.0, 0.0), LogicalSize::new(w, BAR_H));
     let _ = win.add_child(
@@ -70,9 +67,18 @@ pub fn open(app: &AppHandle) {
     );
 }
 
+pub fn open(app: &AppHandle) {
+    if let Some(win) = app.get_window("browserlab") {
+        let _ = win.unminimize();
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
+}
+
 // rebuild_page swaps the page webview — the only way to change the UA, which
-// WebView2 fixes per-controller at creation. Same data_directory, so the
-// cookies (the login) survive the swap: that is the whole point of test 3.
+// WebView2 fixes per-controller at creation. Same profile (the app's default
+// user-data folder), so the cookies — the login — survive the swap: that is
+// the whole point of test 3.
 fn rebuild_page(app: &AppHandle, url: &str, chrome_ua: bool) -> Result<(), String> {
     let win = app.get_window("browserlab").ok_or("lab window is gone")?;
     // Webview::close detaches it from the window; the strip stays put.
@@ -86,9 +92,8 @@ fn rebuild_page(app: &AppHandle, url: &str, chrome_ua: bool) -> Result<(), Strin
             .parse()
             .map_err(|_| "invalid URL".to_string())?
     };
-    let mut page = WebviewBuilder::new("labpage", WebviewUrl::External(parsed))
-        .data_directory(lab_data_dir())
-        .auto_resize();
+    let mut page = WebviewBuilder::new("labpage", WebviewUrl::External(parsed));
+    page = page.auto_resize();
     if chrome_ua {
         page = page.user_agent(CHROME_UA);
     }
