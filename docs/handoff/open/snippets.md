@@ -1,11 +1,10 @@
 # Snippets — open debts
 
-- **Visual pixel review (partly paid, 2026-09-13).** The v2 authoring
-  surfaces have a pixel PASS from a harness that reads screenshots:
-  placeholder table + Try-it, capture sheet, import dialog (empty and
-  filled), the context menu and the mobile import sheet + mobile editor.
-  Still owed: `#/snippets` empty/list/delete states on the phone and the
-  run sheet (agent + shell confirm).
+- **Visual pixel review (partly paid, 2026-09-13).** Pixel PASS now on
+  the v2 authoring surfaces (table + Try-it, capture sheet, import dialog
+  empty and filled, context menu, mobile import sheet and editor). Still
+  owed: the phone's list/empty/delete states and the run sheet (agent +
+  shell confirm).
 - **Palette shell rows.** The design's E2–E4 wanted **Run command: …**
   palette rows for shell snippets; v1 ships the term-menu / actions
   path only. Revisit if palette invocation of commands is wanted.
@@ -23,11 +22,6 @@
 - **Multiline shell bodies** execute line-by-line (bracketed paste +
   one Enter, bash parses the whole buffer). Authoring guidance only;
   the editor does not warn.
-- **Adversarial round (2026-09-13) fixed:** studio archive/star now
-  refetch (archived rows used to linger until reload); `preview:true`
-  no longer logs `snip.ran` (previews are not runs) and is 400 on
-  prompt kind; `{{branch}}` resolves from the live folder on `/run`
-  (agent and terminal) via `currentBranch` — it used to expand empty.
 
 ## Next
 
