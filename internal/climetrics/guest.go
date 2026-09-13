@@ -91,7 +91,7 @@ func newGuestAcc(req Request, cli string) *guestAcc {
 // window gets breakdowns; the prior one exists solely for the headline
 // delta, exactly as pi's own scan does it.
 func (a *guestAcc) add(e guestEntry) {
-	if e.at.IsZero() || !a.req.InScope(e.cwd) {
+	if e.at.IsZero() {
 		return
 	}
 	switch {

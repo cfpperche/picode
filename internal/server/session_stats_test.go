@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cfpperche/picode/internal/climetrics"
 	"github.com/cfpperche/picode/internal/clisession"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
@@ -198,7 +197,7 @@ func TestHandleSessionStatsCacheServesUntilTreeChanges(t *testing.T) {
 	if got := call(); got.Current.Cost != 0.5 {
 		t.Fatalf("first = %+v", got.Current)
 	}
-	key := root + "|all|" + string(climetrics.ScopeMachine)
+	key := root + "|all"
 	sessionStats.mu.Lock()
 	_, cached := sessionStats.entries[key]
 	sessionStats.mu.Unlock()
@@ -277,5 +276,46 @@ func TestHandleSessionStatsLabelsWorkspaces(t *testing.T) {
 	}
 	if strings.Contains(strings.ToLower(w.Body.String()), `"preview"`) {
 		t.Fatalf("response leaks a preview field: %s", w.Body.String())
+	}
+}
+
+// The scope query parameter is retired (ADR-0128): the dashboard measures
+// the whole machine, and a client that still asks for the old
+// managed-folder scope gets exactly the window every other client gets —
+// never a silently narrower answer.
+func TestHandleSessionStatsIgnoresRetiredScopeParam(t *testing.T) {
+	root := withTestSessionRoot(t)
+	sessionStats.reset()
+	t.Cleanup(sessionStats.reset)
+
+	dir := filepath.Join(root, "workspace-claimed")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	line := `{"type":"message","message":{"role":"assistant","provider":"xai","model":"grok","usage":{"cost":{"total":0.5}}}}` + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "s.jsonl"), []byte(line), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	call := func(query string) float64 {
+		r := httptest.NewRequest(http.MethodGet, "/api/sessions/stats?"+query, nil)
+		w := httptest.NewRecorder()
+		handleSessionStats(Deps{})(w, r)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+		}
+		var got sessionStatsView
+		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+			t.Fatal(err)
+		}
+		return got.Current.Cost
+	}
+
+	// Both spellings — the retired scope and no scope at all — must answer
+	// with the same complete window.
+	with := call("range=all&scope=picode")
+	without := call("range=all")
+	if with != 0.5 || without != 0.5 {
+		t.Fatalf("scope=picode = %v, no scope = %v, want both 0.5", with, without)
 	}
 }

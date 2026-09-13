@@ -140,21 +140,8 @@ export function writeDashboardRange(range) {
 }
 
 const DASH_SCOPE_KEY = "picode-dash-scope";
-const DASH_SCOPES = ["machine", "picode"];
 
-// Which folders the dashboard counts (ADR-0097). A view filter, so it lives
-// beside the range in localStorage and not in the hash — hash routes name
-// what object is open, never how a view is filtered.
-//
-// The default is the whole machine: the v1 dashboard counted every session
-// wherever it ran, and a narrower default would silently drop rows the
-// surface has always shown.
-export function readDashboardScope() {
-  const v = (() => { try { return localStorage.getItem(DASH_SCOPE_KEY) || ""; } catch { return ""; } })();
-  return DASH_SCOPES.includes(v) ? v : "machine";
-}
-
-export function writeDashboardScope(scope) {
-  if (!DASH_SCOPES.includes(scope)) return;
-  try { localStorage.setItem(DASH_SCOPE_KEY, scope); } catch { /* private mode, quota */ }
-}
+// The dashboard scope picker (machine|picode) retired with ADR-0128 — the
+// dashboard measures the whole machine. Drop the stale key so a returning
+// viewer does not carry a preference nothing reads.
+try { localStorage.removeItem(DASH_SCOPE_KEY); } catch { /* private mode */ }

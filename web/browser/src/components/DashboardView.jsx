@@ -6,7 +6,7 @@ import {
   measured, coverageNote, billingBadge, billingTitle, formatDuration, formatLines,
   costPerTurn, costPerLine, signalState, spendState, NOT_REPORTED, PARTIAL,
 } from "@picode/shared/domain/dashboardStats.js";
-import { readDashboardRange, writeDashboardRange, readDashboardScope, writeDashboardScope } from "../lib/openTabs.js";
+import { readDashboardRange, writeDashboardRange } from "../lib/openTabs.js";
 import { relTime, absTime } from "@picode/shared/domain/relTime.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { terminalCliMark } from "@picode/shared/domain/terminalCli.js";
@@ -16,7 +16,6 @@ import DailyChart from "./DailyChart.jsx";
 import TokenBar from "./TokenBar.jsx";
 import TopSessions from "./TopSessions.jsx";
 import DateRangePicker from "./DateRangePicker.jsx";
-import ScopePicker from "./ScopePicker.jsx";
 import CoveragePanel from "./CoveragePanel.jsx";
 import LimitBars from "./LimitBars.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
@@ -34,7 +33,6 @@ const TICK_MS = 30_000;
 // empty-environment card is untouched and lives beside it.
 export default function DashboardView({ workspaces, freeAgents, workingIds, waitingId }) {
   const [range, setRange] = useState(() => readDashboardRange());
-  const [scope, setScope] = useState(() => readDashboardScope());
   const [metric, setMetric] = useState("cost");
   const [stats, setStats] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -45,10 +43,10 @@ export default function DashboardView({ workspaces, freeAgents, workingIds, wait
   const inflight = useRef(null);
 
   useEffect(() => {
-    const keep = mounted.current; // false on first mount (full skeleton), true on a range/scope switch (keep old numbers)
+    const keep = mounted.current; // false on first mount (full skeleton), true on a range switch (keep old numbers)
     mounted.current = true;
     return load(keep);
-  }, [range, scope]);
+  }, [range]);
 
   // Auto-refresh while the dashboard is on screen — the server answers a
   // poll from its fingerprint cache unless a session actually changed, so
@@ -74,7 +72,7 @@ export default function DashboardView({ workspaces, freeAgents, workingIds, wait
     start();
     document.addEventListener("visibilitychange", onVis);
     return () => { stop(); document.removeEventListener("visibilitychange", onVis); };
-  }, [range, scope]);
+  }, [range]);
 
   function load(keep) {
     if (inflight.current) inflight.current();
@@ -85,7 +83,7 @@ export default function DashboardView({ workspaces, freeAgents, workingIds, wait
       setLoadErr("");
     }
     setBusy(true);
-    api("/api/sessions/stats?range=" + encodeURIComponent(range) + "&scope=" + encodeURIComponent(scope))
+    api("/api/sessions/stats?range=" + encodeURIComponent(range))
       .then((rep) => {
         if (cancelled) return;
         setStats(rep);
@@ -106,11 +104,6 @@ export default function DashboardView({ workspaces, freeAgents, workingIds, wait
     writeDashboardRange(next);
   }
 
-  function onScope(next) {
-    setScope(next);
-    writeDashboardScope(next);
-  }
-
   const fleet = fleetStats(workspaces, freeAgents, { workingIds, waitingId });
   const firstLoad = stats === null;
   const coverage = firstLoad ? [] : (stats.coverage || []);
@@ -122,7 +115,7 @@ export default function DashboardView({ workspaces, freeAgents, workingIds, wait
   const timing = firstLoad ? null : stats.timing;
   // An empty panel has two different reasons — nothing ran, or nothing that
   // ran records this — and saying the wrong one sends the reader looking
-  // for a CLI feature when they only changed the scope.
+  // for a CLI feature they cannot fix.
   const idle = firstLoad ? false : stats.current.messages === 0;
   const nothingRan = "No agent activity in this period.";
   // Every panel whose number does not cover every active CLI says so. A
@@ -184,7 +177,7 @@ export default function DashboardView({ workspaces, freeAgents, workingIds, wait
     // nothing that ran was priced, the row says so instead of "$0.00".
     unmeasured: spend === NOT_REPORTED && !w.cost,
     display: spend === NOT_REPORTED && !w.cost ? "not priced" : money(w.cost),
-    title: w.cwd + " · " + w.sessions + (w.sessions === 1 ? " session" : " sessions") + (w.workspace ? "" : " · not a PiCode workspace"),
+    title: w.cwd + " · " + w.sessions + (w.sessions === 1 ? " session" : " sessions") + (w.workspace ? "" : " · outside your workspaces"),
   }));
   // Tool names are not normalised across CLIs — "Bash", "bash" and "shell"
   // are three vendors' words — so the mark disambiguates rather than a
@@ -203,7 +196,6 @@ export default function DashboardView({ workspaces, freeAgents, workingIds, wait
       <div className="dash-inner">
       <div className="dash-head">
         <DateRangePicker value={range} onChange={onRange} />
-        <ScopePicker value={scope} onChange={onScope} />
         <span className="dash-asof-wrap">
           {fetchedAt ? <span className="dash-asof" title={absTime(fetchedAt)}>updated {relTime(fetchedAt)}</span> : null}
           <button type="button" className={"ws-icon-btn dash-refresh" + (busy ? " is-busy" : "")} title="Refresh now" aria-label="Refresh now" disabled={busy} onClick={() => load(true)}>

@@ -159,7 +159,7 @@ func TestCodexCountsTokensButNeverCost(t *testing.T) {
 		codexTurn(day(1), 1000, 200),
 	})
 
-	w, err := CodexMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := CodexMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestCodexUsesTheTurnNotTheRunningTotal(t *testing.T) {
 		codexTurn(day(1), 100, 10),
 		codexTurn(day(1), 100, 10),
 	})
-	w, err := CodexMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := CodexMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +207,7 @@ func TestCodexReportsQuotaWindows(t *testing.T) {
 			},
 		}},
 	})
-	w, err := CodexMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := CodexMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,7 +233,7 @@ func TestCodexPrunesDayDirectories(t *testing.T) {
 	writeRollout(t, root, "2026-09-06", []map[string]any{
 		{"timestamp": day(1), "type": "session_meta", "payload": map[string]any{"id": "new", "cwd": "/repo"}},
 	})
-	r := req(ScopeMachine, 7)
+	r := req(7)
 	got := codexFiles(root, r)
 	for _, p := range got {
 		if strings.Contains(p, "2020") {
@@ -299,7 +299,7 @@ func TestOpenCodeReadsCostStraightOffTheRow(t *testing.T) {
 	clisession.OpenCodeTestDB = path
 	t.Cleanup(func() { clisession.OpenCodeTestDB = old })
 
-	w, err := OpenCodeMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := OpenCodeMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -336,7 +336,7 @@ func TestHermesSpreadsSessionTotalsOverItsMessages(t *testing.T) {
 	clisession.HermesTestDB = path
 	t.Cleanup(func() { clisession.HermesTestDB = old })
 
-	w, err := HermesMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := HermesMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -447,7 +447,7 @@ func TestGrokReadsPromptsTurnsToolsAndUsage(t *testing.T) {
 	grokWrite(t, sess, "events.jsonl", grokTurnEvents())
 	grokWrite(t, sess, "usage.json", grokUsage(grokStamp(10)))
 
-	w, err := GrokMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := GrokMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -505,7 +505,7 @@ func TestGrokPromptsAloneSayWhatIsMissing(t *testing.T) {
 	grokWrite(t, folder, "prompt_history.jsonl",
 		`{"timestamp":"`+grokStamp(0)+`","session_id":"g1","prompt":"SECRETPROMPT"}`+"\n")
 
-	w, err := GrokMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := GrokMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -526,7 +526,7 @@ func TestGrokWithoutUsageSaysTokensAreMissing(t *testing.T) {
 	grokWrite(t, sess, "summary.json", grokSummaryJSON)
 	grokWrite(t, sess, "events.jsonl", grokTurnEvents())
 
-	w, err := GrokMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := GrokMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -552,7 +552,7 @@ func TestGrokPartialUsageNamesBothCounts(t *testing.T) {
 	grokWrite(t, sess, "events.jsonl", grokTurnEvents()+grokTurnEvents2())
 	grokWrite(t, sess, "usage.json", grokUsage(grokStamp(10)))
 
-	w, err := GrokMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := GrokMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -573,7 +573,7 @@ func TestGrokUsageAloneStillCountsTheTurn(t *testing.T) {
 	grokWrite(t, sess, "summary.json", grokSummaryJSON)
 	grokWrite(t, sess, "usage.json", grokUsage(grokStamp(10)))
 
-	w, err := GrokMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := GrokMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -594,7 +594,7 @@ func TestAbsentCLIStillGetsARow(t *testing.T) {
 	clisession.HermesTestDB = filepath.Join(t.TempDir(), "never-installed.db")
 	t.Cleanup(func() { clisession.HermesTestDB = old })
 
-	w, err := HermesMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := HermesMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatalf("an uninstalled CLI is not an error: %v", err)
 	}

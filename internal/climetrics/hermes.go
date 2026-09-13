@@ -136,9 +136,6 @@ func hermesSessions(db *sql.DB, req Request) (map[string]*hermesSession, error) 
 		if !ok || row["id"] == "" {
 			continue
 		}
-		if !req.InScope(row["cwd"]) {
-			continue
-		}
 		// actual_cost_usd is what was billed; estimated_cost_usd is Hermes'
 		// own reckoning before the bill lands. Prefer the settled number
 		// and fall back rather than showing nothing.

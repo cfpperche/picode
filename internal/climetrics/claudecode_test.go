@@ -92,10 +92,10 @@ func costState(model string, in, out, cacheRead int64, cost float64, linesAdd, l
 	}
 }
 
-func req(scope Scope, days int) Request {
+func req(days int) Request {
 	to := time.Date(2026, 9, 8, 0, 0, 0, 0, time.UTC)
 	from := to.AddDate(0, 0, -days)
-	return Request{From: from, To: to, PriorFrom: from.AddDate(0, 0, -days), Loc: time.UTC, Scope: scope}
+	return Request{From: from, To: to, PriorFrom: from.AddDate(0, 0, -days), Loc: time.UTC}
 }
 
 func TestClaudeCodePricesFromTheSessionsOwnSnapshot(t *testing.T) {
@@ -107,7 +107,7 @@ func TestClaudeCodePricesFromTheSessionsOwnSnapshot(t *testing.T) {
 		costState("opus", 800, 100, 100, 1.00, 40, 5, 3000, 1000, 9000),
 	})
 
-	w, err := ClaudeCodeMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := ClaudeCodeMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +136,7 @@ func TestClaudeCodeSplitsCostAcrossTheDaysItWasSpent(t *testing.T) {
 		costState("opus", 1000, 0, 0, 2.00, 0, 0, 0, 0, 0),
 	})
 
-	w, err := ClaudeCodeMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := ClaudeCodeMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func TestClaudeCodeCountsWindowOnly(t *testing.T) {
 		costState("opus", 1000, 0, 0, 2.00, 0, 0, 0, 0, 0),
 	})
 
-	w, err := ClaudeCodeMeter{}.Meter(req(ScopeMachine, 2))
+	w, err := ClaudeCodeMeter{}.Meter(req(2))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestClaudeCodeReportsPartialCostRatherThanAZero(t *testing.T) {
 		assistant(day(1), "opus", 5000, 0, 0, nil),
 	})
 
-	w, err := ClaudeCodeMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := ClaudeCodeMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +211,7 @@ func TestClaudeCodeCountsToolsAndErrors(t *testing.T) {
 		assistant(day(1), "opus", 10, 0, 0, []any{toolUse("Bash"), toolUse("Read"), toolErr()}),
 		assistant(day(1), "opus", 10, 0, 0, []any{toolUse("Bash")}),
 	})
-	w, err := ClaudeCodeMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := ClaudeCodeMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,45 +227,6 @@ func TestClaudeCodeCountsToolsAndErrors(t *testing.T) {
 	}
 	if w.Stats.Turns.Errors != 1 {
 		t.Fatalf("errors = %d, want 1", w.Stats.Turns.Errors)
-	}
-}
-
-func TestClaudeCodeHonoursPiCodeScope(t *testing.T) {
-	root := withClaudeRoot(t)
-	writeTranscript(t, root, "-repo", "claimed.jsonl", []map[string]any{
-		assistant(day(1), "opus", 1000, 0, 0, nil),
-		costState("opus", 1000, 0, 0, 1.00, 0, 0, 0, 0, 0),
-	})
-	writeTranscript(t, root, "-elsewhere", "unclaimed.jsonl", []map[string]any{
-		{"type": "assistant", "timestamp": day(1), "cwd": "/elsewhere",
-			"message": map[string]any{"role": "assistant", "model": "opus",
-				"usage": map[string]any{"input_tokens": 1000}}},
-		costState("opus", 1000, 0, 0, 9.00, 0, 0, 0, 0, 0),
-	})
-
-	r := req(ScopePiCode, 7)
-	r.Claimed = []string{"/repo"}
-	w, err := ClaudeCodeMeter{}.Meter(r)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := w.Stats.Current.Cost; !approx(got, 1.00) {
-		t.Fatalf("cost = %v, want 1.00 — /elsewhere is not a claimed folder", got)
-	}
-
-	// A worktree under a claimed folder rolls up rather than falling out.
-	writeTranscript(t, root, "-repo-wt", "wt.jsonl", []map[string]any{
-		{"type": "assistant", "timestamp": day(1), "cwd": "/repo/.worktrees/x",
-			"message": map[string]any{"role": "assistant", "model": "opus",
-				"usage": map[string]any{"input_tokens": 1000}}},
-		costState("opus", 1000, 0, 0, 3.00, 0, 0, 0, 0, 0),
-	})
-	w, err = ClaudeCodeMeter{}.Meter(r)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := w.Stats.Current.Cost; !approx(got, 4.00) {
-		t.Fatalf("cost = %v, want 4.00 — a worktree belongs to the workspace above it", got)
 	}
 }
 
@@ -293,7 +254,7 @@ func TestClaudeCodeNeverCarriesMessageContent(t *testing.T) {
 		costState("opus", 10, 0, 0, 0.01, 0, 0, 0, 0, 0),
 	})
 
-	w, err := ClaudeCodeMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := ClaudeCodeMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -316,7 +277,7 @@ func TestClaudeCodeSummaryIsAnIdentityNotAPreview(t *testing.T) {
 		{"type": "summary", "summary": "Fix the favicon"},
 		assistant(day(1), "opus", 10, 0, 0, nil),
 	})
-	w, err := ClaudeCodeMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := ClaudeCodeMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -330,7 +291,7 @@ func TestClaudeCodeMissingRootIsEmptyNotAnError(t *testing.T) {
 	clisession.ClaudeTestRoot = filepath.Join(t.TempDir(), "never-installed")
 	t.Cleanup(func() { clisession.ClaudeTestRoot = old })
 
-	w, err := ClaudeCodeMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := ClaudeCodeMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatalf("a CLI that was never installed must not be an error: %v", err)
 	}
@@ -358,7 +319,7 @@ func TestClaudeCodeStaysOutOfTheCredentialRoster(t *testing.T) {
 		assistant(day(1), "opus", 1000, 0, 0, nil),
 		costState("opus", 1000, 0, 0, 25.00, 0, 0, 0, 0, 0),
 	})
-	w, err := ClaudeCodeMeter{}.Meter(req(ScopeMachine, 7))
+	w, err := ClaudeCodeMeter{}.Meter(req(7))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -368,35 +329,5 @@ func TestClaudeCodeStaysOutOfTheCredentialRoster(t *testing.T) {
 	// The spend is not lost — it is just told through the CLI, not the key.
 	if !approx(w.Stats.Current.Cost, 25.00) {
 		t.Fatalf("cost = %v, want 25.00", w.Stats.Current.Cost)
-	}
-}
-
-// TestClaudeCodeScopeAlsoGatesImpact pins a bug the scope toggle found in
-// the browser: proration counted a file's in-*window* tokens without asking
-// whether the scope wanted that folder, so a picode-scoped window with no
-// matching sessions still reported "+10,724 lines".
-func TestClaudeCodeScopeAlsoGatesImpact(t *testing.T) {
-	root := withClaudeRoot(t)
-	writeTranscript(t, root, "-elsewhere", "s1.jsonl", []map[string]any{
-		{"type": "assistant", "timestamp": day(1), "cwd": "/elsewhere",
-			"message": map[string]any{"role": "assistant", "model": "opus",
-				"usage": map[string]any{"input_tokens": 1000}}},
-		costState("opus", 1000, 0, 0, 5.00, 900, 40, 1000, 500, 2000),
-	})
-
-	r := req(ScopePiCode, 7)
-	r.Claimed = []string{"/repo"} // nothing here claims /elsewhere
-	w, err := ClaudeCodeMeter{}.Meter(r)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if w.Impact != nil {
-		t.Fatalf("impact = %+v, want none: the scope excluded the only session", w.Impact)
-	}
-	if w.Timing != nil {
-		t.Fatalf("timing = %+v, want none", w.Timing)
-	}
-	if w.Stats.Current.Cost != 0 {
-		t.Fatalf("cost = %v, want 0", w.Stats.Current.Cost)
 	}
 }
