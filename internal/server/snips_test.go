@@ -7,11 +7,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/rpc"
+	"github.com/cfpperche/picode/internal/snips"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -215,6 +217,73 @@ func TestSnipRunShellIntoTerminal(t *testing.T) {
 		}
 		if raw, err := os.ReadFile(paste); err == nil && len(raw) > 0 {
 			t.Fatalf("preview delivered: %q", raw)
+		}
+	})
+
+	t.Run("preview without confirm is 400", func(t *testing.T) {
+		_, ts, _, term, p := newHarness(t)
+		code, _ := snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+p.ID+"/run", map[string]any{
+			"target": map[string]string{"type": "terminal", "id": term.ID}, "preview": true,
+		})
+		if code != http.StatusBadRequest {
+			t.Fatalf("preview no confirm = %d", code)
+		}
+	})
+
+	t.Run("preview on prompt kind is 400", func(t *testing.T) {
+		st, ts, _, _, _ := newHarness(t)
+		pp, err := st.CreateSnip(store.SnipParams{Title: "Ask", Body: "look {{x}}"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		code, _ := snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+pp.ID+"/run", map[string]any{
+			"target": map[string]string{"type": "agent", "id": "a"}, "values": map[string]string{"x": "1"}, "preview": true,
+		})
+		if code != http.StatusBadRequest {
+			t.Fatalf("prompt preview = %d", code)
+		}
+	})
+
+	t.Run("branch resolves from the live folder", func(t *testing.T) {
+		st, ts, _, term, _ := newHarness(t)
+		fakeTmuxBin(t)
+		stubPane(t, "bash")
+		cwd := term.Cwd
+		if out, err := exec.Command("git", "init", "-q", cwd).CombinedOutput(); err != nil {
+			t.Fatalf("git init: %v %s", err, out)
+		}
+		want, _ := exec.Command("git", "-C", cwd, "branch", "--show-current").Output()
+		p, err := st.CreateSnip(store.SnipParams{Title: "Where", Kind: "shell", Body: "on {{branch}}"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		code, out := snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+p.ID+"/run", map[string]any{
+			"target": map[string]string{"type": "terminal", "id": term.ID}, "confirm": true, "preview": true,
+		})
+		if code != http.StatusOK {
+			t.Fatalf("branch preview = %d %v", code, out)
+		}
+		if out["text"] != "on "+strings.TrimSpace(string(want)) {
+			t.Fatalf("text = %v want branch %q", out["text"], string(want))
+		}
+	})
+
+	t.Run("enum mismatch is 400", func(t *testing.T) {
+		st, ts, _, term, _ := newHarness(t)
+		fakeTmuxBin(t)
+		stubPane(t, "bash")
+		p, err := st.CreateSnip(store.SnipParams{
+			Title: "Ship", Kind: "shell", Body: "echo {{env}}",
+			Placeholders: []snips.Placeholder{{Name: "env", Enum: []string{"dev", "prod"}}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		code, out := snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+p.ID+"/run", map[string]any{
+			"target": map[string]string{"type": "terminal", "id": term.ID}, "values": map[string]string{"env": "staging"}, "confirm": true,
+		})
+		if code != http.StatusBadRequest || !strings.Contains(out["error"].(string), "allowed choices") {
+			t.Fatalf("enum = %d %v", code, out)
 		}
 	})
 

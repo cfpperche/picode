@@ -74,7 +74,8 @@ export default function Snippets({ hidden }) {
       await api("/api/snips/" + encodeURIComponent(p.id) + "/starred", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ starred: !p.starred }),
       });
-    } catch (err) { toastError(err); load(); }
+    } catch (err) { toastError(err); }
+    load();
   }
 
   async function archive(p, e) {
@@ -84,6 +85,7 @@ export default function Snippets({ hidden }) {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ archived: !p.archivedAt }),
       });
     } catch (err) { toastError(err); }
+    load();
   }
 
   async function remove(p) {
