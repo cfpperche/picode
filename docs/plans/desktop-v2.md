@@ -99,9 +99,15 @@ Consequences: **WebView2 stays the engine** for the work browser; CEF and the
 ~200 MB Chromium are out. The Chrome-UA override stays in the lab (and becomes
 a per-domain fallback lever in the product) because Google's block is
 risk-based and machine-variable — one passing machine is evidence, not a law.
-Still open before Phase 3 code: CDP reachability of the logged-in view
-(Runtime.evaluate + screenshot through the host API or a pipe), then the
-panel-vs-editor-tab layout decision (owner).
+CDP sub-spike (2026-09-13, from WSL — where the daemon lives): enumerated
+WebView2's targets over loopback, connected to the logged-in GitHub tab,
+`Runtime.evaluate` read the session identity, `Page.captureScreenshot`
+captured the human's view end to end. **Browser Use is feasible on our
+engine.** ADR-0128 now fixes the product form: default transport is the
+host-API bridge (no port), the loopback port survives as an owner opt-in
+with its cost documented, per-agent policy `{domains, tier: read|act|full}`
+denies by default, and the layout is **tabs in the editor with a
+Chrome-inspired tab strip** (owner, 2026-09-13) — not a fixed side panel.
 
 ## Conscious debt
 
