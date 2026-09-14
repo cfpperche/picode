@@ -233,6 +233,7 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [Chrome extension (ADR-0043)](architecture/chrome-extension.md) | `docs/architecture/chrome-extension.md` |
 | [Docker App and sysadmin tools (ADR-0065)](architecture/docker-app.md) | `docs/architecture/docker-app.md` |
 | [Docker maintenance and health (ADRs 0067/0068)](architecture/docker-maintenance.md) | `docs/architecture/docker-maintenance.md` |
+| [tmux app (ADR-0133)](architecture/tmux-app.md) | `docs/architecture/tmux-app.md` |
 
 ## Component diagram
 

@@ -1,4 +1,4 @@
-import { IconCanvas, IconFlask, IconInbox, IconGrid, IconPackage } from "./Icons.jsx";
+import { IconCanvas, IconFlask, IconInbox, IconGrid, IconPackage, IconTmux } from "./Icons.jsx";
 
 // Manifest icon names → components (ADR-0036). Icons are host-owned: an
 // app names one from this map and an unknown name falls back to a letter
@@ -9,6 +9,7 @@ const APP_ICONS = {
   grid: IconGrid,
   box: IconPackage,
   canvas: IconCanvas,
+  tmux: IconTmux,
 };
 
 export default function AppIcon({ name, label, size = 16 }) {

@@ -48,6 +48,7 @@ export default defineConfig({
           { text: "Providers", link: "/guide/providers" },
           { text: "Packages", link: "/guide/packages" },
           { text: "Docker and sysadmin", link: "/guide/docker" },
+          { text: "tmux sessions", link: "/guide/tmux" },
           { text: "Checklist", link: "/guide/checklist" },
           { text: "Compact earlier", link: "/guide/compact" },
           { text: "Diff panel for pi", link: "/guide/diff-panel" },

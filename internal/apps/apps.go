@@ -109,12 +109,13 @@ func (r *Registry) Find(id string) (App, bool) {
 	return nil, false
 }
 
-// BuiltIns assembles the first-party apps — Inbox, Docker and the Canvas
-// (a native surface, ADR-0109). demo adds the hidden QA apps — the
+// BuiltIns assembles the first-party apps — Inbox, Docker, the Canvas
+// (a native surface, ADR-0109) and the tmux app (a native surface too).
+// demo adds the hidden QA apps — the
 // primitives demo and the native-surface demo (the caller reads
 // PICODE_DEMO_APP; env never reaches this package).
 func BuiltIns(demo bool) []App {
-	list := []App{inboxApp{}, dockerApp{}, canvasApp{}}
+	list := []App{inboxApp{}, dockerApp{}, canvasApp{}, tmuxApp{}}
 	if demo {
 		list = append(list, demoApp{}, nativeDemoApp{})
 	}

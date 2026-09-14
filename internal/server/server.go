@@ -205,6 +205,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerPeerOnboarding(mux, deps)
 	registerPackageRoutes(mux, deps)
 	registerDockerRoutes(mux, deps)
+	registerTmuxRoutes(mux, deps)
 	registerDeviceRoutes(mux, &deps)
 
 	registerWorkspaceRoutes(mux, deps)

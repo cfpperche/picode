@@ -137,3 +137,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0130](0130-picode-snippets.md) | PiCode Snippets — GUI library, expand-before-send, snippet-run door | accepted |
 | [0131](0131-handoff-board-index.md) | The handoff board is an index: next-up inline, debts as a per-topic count with its plan; an invisible topic file fails the generator (refines 0123) | accepted |
 | [0132](0132-browser-command-channel.md) | browser-command-channel | proposed |
+| [0133](0133-tmux-app.md) | The tmux app — PiCode reads the whole tmux server, and acts only on sessions it can attribute | accepted |

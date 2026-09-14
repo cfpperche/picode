@@ -8041,6 +8041,58 @@
         ]
       }
     },
+    "/api/tmux/server": {
+      "get": {
+        "operationId": "getApiTmuxServer",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "tmux"
+        ]
+      }
+    },
+    "/api/tmux/sessions/{name}/reap": {
+      "post": {
+        "operationId": "postApiTmuxSessionsReap",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "tmux"
+        ]
+      }
+    },
     "/api/tui-working": {
       "get": {
         "operationId": "getApiTui-working",
@@ -9252,6 +9304,9 @@
     },
     {
       "name": "terminals"
+    },
+    {
+      "name": "tmux"
     },
     {
       "name": "tui-working"

@@ -17,8 +17,8 @@ func TestRegistry(t *testing.T) {
 	}
 
 	r := NewRegistry(BuiltIns(true)...)
-	if len(r.All()) != 5 {
-		t.Fatalf("demo registry has %d apps, want 5 (inbox + docker + canvas + demo + demo-native)", len(r.All()))
+	if len(r.All()) != 6 {
+		t.Fatalf("demo registry has %d apps, want 6 (inbox + docker + canvas + tmux + demo + demo-native)", len(r.All()))
 	}
 	a, ok := r.Find("demo")
 	if !ok {
@@ -32,8 +32,8 @@ func TestRegistry(t *testing.T) {
 		t.Fatalf("Find(nope) = ok, want miss")
 	}
 	prod := BuiltIns(false)
-	if len(prod) != 3 || prod[0].Manifest().ID != "inbox" || prod[1].Manifest().ID != "docker" || prod[2].Manifest().ID != "canvas" {
-		t.Fatalf("BuiltIns(false) = %v, want inbox, docker and canvas (both demos must stay hidden)", prod)
+	if len(prod) != 4 || prod[0].Manifest().ID != "inbox" || prod[1].Manifest().ID != "docker" || prod[2].Manifest().ID != "canvas" || prod[3].Manifest().ID != "tmux" {
+		t.Fatalf("BuiltIns(false) = %v, want inbox, docker, canvas and tmux (both demos must stay hidden)", prod)
 	}
 }
 
@@ -65,6 +65,38 @@ func TestCanvasApp(t *testing.T) {
 	}
 	if _, err := a.Action(ctx, Host{}, ActionRequest{Action: "open"}); err == nil {
 		t.Fatalf("Action = nil error, want refusal")
+	}
+}
+
+// The tmux app (docs/plans/tmux-app.md): the server-wide inventory. A
+// native surface like the Canvas — no badge (a badge would run a tmux
+// subprocess on every grid render), one honest primitives line, no action:
+// its data lives under /api/tmux and only the desktop renders its body.
+func TestTmuxApp(t *testing.T) {
+	a, ok := NewRegistry(BuiltIns(false)...).Find("tmux")
+	if !ok {
+		t.Fatalf("tmux missing from BuiltIns(false)")
+	}
+	m := a.Manifest()
+	if m.ID != "tmux" || m.Name != "tmux" || m.Icon != "tmux" || m.APIVersion != APIVersion || m.Surface != SurfaceNative {
+		t.Fatalf("tmux manifest = %+v", m)
+	}
+	ctx := context.Background()
+	if b, err := a.Badge(ctx, Host{}); err != nil || b != (Badge{}) {
+		t.Fatalf("Badge = %+v, %v (want none)", b, err)
+	}
+	v, err := a.View(ctx, Host{}, "")
+	if err != nil {
+		t.Fatalf("View error: %v", err)
+	}
+	if err := v.Validate(); err != nil {
+		t.Fatalf("View invalid: %v", err)
+	}
+	if len(v.Blocks) != 1 || !strings.Contains(v.Blocks[0].Markdown, "tmux opens on the desktop") {
+		t.Fatalf("View = %+v", v)
+	}
+	if _, err := a.Action(ctx, Host{}, ActionRequest{Action: "reap"}); err == nil {
+		t.Fatalf("Action = nil error, want refusal (the app acts through /api/tmux)")
 	}
 }
 
