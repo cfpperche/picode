@@ -2,6 +2,7 @@ package browser
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/cfpperche/picode/internal/store"
@@ -98,15 +99,24 @@ func TestVerbsAreClosedAndCaseInsensitive(t *testing.T) {
 			t.Fatalf("%q is not a verb", name)
 		}
 	}
-	for _, name := range []string{"", "evaluate", "navigate", "Runtime.evaluate", "full"} {
+	for _, name := range []string{"", "Runtime.evaluate", "Page.navigate", "full", "click"} {
 		if _, ok := VerbFor(name); ok {
 			t.Fatalf("%q should not be a verb", name)
 		}
 	}
-	// Every verb the daemon will ask for is read-tier today (ADR-0134).
+	// The read verbs are the ones an un-granted agent keeps (ADR-0134); act is
+	// reached only through a grant, and a verb never names a CDP method.
+	read := map[string]bool{"snapshot": true, "screenshot": true, "events": true}
 	for name, v := range Verbs() {
-		if v.Tier != "read" {
-			t.Fatalf("%s: tier %q, want read until the grants exist", name, v.Tier)
+		if read[name] && v.Tier != "read" {
+			t.Fatalf("%s: tier %q, want read", name, v.Tier)
+		}
+		if !read[name] && v.Tier != "act" {
+			t.Fatalf("%s: tier %q, want act", name, v.Tier)
+		}
+		// A tool names a verb, never a method: no verb is a dotted name.
+		if strings.Contains(name, ".") {
+			t.Fatalf("%q looks like a CDP method", name)
 		}
 	}
 }

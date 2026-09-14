@@ -20,7 +20,7 @@ import (
 
 // browserServer is the real mux with a real hub, so the test exercises the
 // stream, the result POST and the hub between them.
-func browserServer(t *testing.T) (*httptest.Server, *browser.Hub) {
+func browserServer(t *testing.T) (*httptest.Server, *browser.Hub, *store.Store) {
 	t.Helper()
 	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
 	if err != nil {
@@ -31,7 +31,7 @@ func browserServer(t *testing.T) (*httptest.Server, *browser.Hub) {
 	hub.Timeout = 3 * time.Second
 	ts := httptest.NewServer(New("127.0.0.1:0", Deps{Store: st, Tmux: tmux.New(), AgentCmd: "cat", Browser: hub}).Handler)
 	t.Cleanup(ts.Close)
-	return ts, hub
+	return ts, hub, st
 }
 
 func openBrowserStream(t *testing.T, ts *httptest.Server) (*bufio.Reader, func()) {
@@ -58,7 +58,7 @@ func postBrowserResult(t *testing.T, ts *httptest.Server, body string) int {
 }
 
 func TestBrowserStreamRoundTrip(t *testing.T) {
-	ts, hub := browserServer(t)
+	ts, hub, _ := browserServer(t)
 	body, closeStream := openBrowserStream(t, ts)
 	defer closeStream()
 
@@ -109,7 +109,7 @@ func TestBrowserStreamRoundTrip(t *testing.T) {
 }
 
 func TestBrowserResultErrorAndEdges(t *testing.T) {
-	ts, hub := browserServer(t)
+	ts, hub, _ := browserServer(t)
 	body, closeStream := openBrowserStream(t, ts)
 	defer closeStream()
 	readFrames(t, body, 1, 3*time.Second) // hello
@@ -145,7 +145,7 @@ func TestBrowserResultErrorAndEdges(t *testing.T) {
 }
 
 func TestBrowserToolResolvesAVerbAndWaits(t *testing.T) {
-	ts, hub := browserServer(t)
+	ts, hub, _ := browserServer(t)
 	body, closeStream := openBrowserStream(t, ts)
 	defer closeStream()
 	readFrames(t, body, 1, 3*time.Second) // hello
@@ -191,9 +191,9 @@ func TestBrowserToolResolvesAVerbAndWaits(t *testing.T) {
 }
 
 func TestBrowserToolRefusesAnUnknownVerb(t *testing.T) {
-	ts, _ := browserServer(t)
+	ts, _, _ := browserServer(t)
 	res, err := http.Post(ts.URL+"/api/browser/tool", "application/json",
-		bytes.NewBufferString(`{"agent":"agent-1","verb":"evaluate"}`))
+		bytes.NewBufferString(`{"agent":"agent-1","verb":"click"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,5 +201,10 @@ func TestBrowserToolRefusesAnUnknownVerb(t *testing.T) {
 	out, _ := io.ReadAll(res.Body)
 	if res.StatusCode != http.StatusBadRequest || !strings.Contains(string(out), "snapshot") {
 		t.Fatalf("answer = %d %s", res.StatusCode, out)
+	}
+	// The vocabulary is published, so an unknown name is answered with what
+	// exists — including the act verbs this agent may not reach yet.
+	if !strings.Contains(string(out), "navigate") {
+		t.Fatalf("answer = %d %s, want the verb list", res.StatusCode, out)
 	}
 }
