@@ -162,6 +162,14 @@ receiver door in reverse: `DeliverTerminalReply` preflights the terminal
 (is pi, live, receiver fresh, the hello names a session and it is the
 item's exact session) and parks done on send, reopening with the response
 preserved on every failure — no task row, the queue belongs to agents.
+An item that predates per-question session stamping carries no session of
+its own; its address is then resolved at reply time from the terminal's
+pinned last session (`TerminalLaunch.LastSession`), and delivered only when
+that pin names the same file the receiver is showing — two independent
+sources, one answer (`docs/plans/inbox-terminal-address.md`). A pin that
+disagrees with the pane, a pin whose file is gone, and `system`-sourced
+items from pi launched outside the launcher all refuse with the item left
+open.
 Every pi that inherited the terminal id watches that terminal's reply
 directory (a nested `pi -p`, a print-mode run, the TUI itself), so each
 reply file names the pid whose hello the daemon accepted and only that
