@@ -210,8 +210,17 @@ default at every tier** — a method the table does not name is refused, never
 assumed harmless. The loopback debug port is now an explicit
 `PICODE_CDP_PORT` opt-in instead of every launch's default.
 
-Still open in the slice: increment 3 (the daemon endpoint and the `browser`
-Pi tool), the per-agent `{domains, tier}` policy UI, and the navigation gate
+Increment 3, first half (2026-09-13, `feat/browser-agent`): the command
+channel itself (ADR-0132). The shell's page opens one stream
+(`GET /api/browser/stream`), the daemon pushes a command down it, the shell
+runs it against the work-browser tab on screen and posts the answer to
+`POST /api/browser/result`; the daemon holds the tool call until the answer
+or the timeout. No new port, no new credential: the line is the session the
+UI already has, and it reconnects like the feed's.
+
+Still open in the slice: the `browser` Pi tool and its per-agent policy
+source (the `{domains, tier}` default is the owner's call — nothing renders a
+tool until it exists), the policy UI, and the navigation gate
 (`NavigationStarting` cancels an origin outside the agent's allowlist) —
 the catalog gate alone does not stop a page from being loaded.
 

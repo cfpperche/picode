@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import PageFrame from "./PageFrame.jsx";
 import * as Dialog from "./ResponsiveDialog.jsx";
-import { IconArchive, IconArchiveRestore, IconChevronLeft, IconPaste, IconPlus, IconSearch, IconStar, IconTrash, IconX } from "./Icons.jsx";
+import { IconArchive, IconArchiveRestore, IconChevronLeft, IconCopy, IconPaste, IconPlus, IconSearch, IconStar, IconTrash, IconX } from "./Icons.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { applySnips, touches } from "@picode/shared/domain/feedReducers.js";
@@ -27,6 +27,7 @@ export default function Snippets({ hidden }) {
   const [view, setView] = useState("live");
   const [loadErr, setLoadErr] = useState("");
   const [importing, setImporting] = useState(false);
+  const [templates, setTemplates] = useState([]);
   const latest = useRef({ q: "", view: "live" });
   latest.current = { q, view };
 
@@ -43,6 +44,11 @@ export default function Snippets({ hidden }) {
       setLoadErr(e.message || "Could not load snippets.");
     }
   }
+
+  useEffect(() => {
+    if (hidden || templates.length) return;
+    api("/api/snips/templates").then((d) => setTemplates(d.items || [])).catch(() => {});
+  }, [hidden, templates.length]);
 
   useEffect(() => {
     const on = () => setSub(snippetRoute());
@@ -105,13 +111,43 @@ export default function Snippets({ hidden }) {
     } catch (err) { toastError(err); }
   }
 
+  // One handoff for every "start me from this text" door: the editor already
+  // restores a draft, so a starter and a duplicate are the same mechanism as
+  // an import, with the origin recorded (ADR-0131's sibling rule: a handoff
+  // is not a crash).
+  // Duplicate (F6): a near-miss is cloned, not retyped. The copy is a new
+  // snippet — the original is never touched — and the slug says so.
+  async function duplicate(p) {
+    // The list carries no body (it never does), so a duplicate from a row
+    // reads the snippet first; the detail already has it.
+    let src = p;
+    if (src && src.id && src.body == null) {
+      try { src = await api("/api/snips/" + encodeURIComponent(src.id)); } catch (e) { toastError(e); return; }
+    }
+    const title = ((src.title || "").trim() + " copy").trim();
+    const slug = (src.slug ? src.slug + "-copy" : "").slice(0, 64);
+    if (typeof sessionStorage !== "undefined") {
+      writeDraft(sessionStorage, "new", {
+        ...formFromSnip(null), title, slug, slugLocked: !!slug, body: src.body || "", tags: (src.tags || []).join(", "), kind: src.kind || "prompt",
+      }, "", "duplicate");
+    }
+    location.hash = snippetsHash("new");
+  }
+
+  function startFrom(body, title, origin, extra) {
+    if (typeof sessionStorage !== "undefined") {
+      writeDraft(sessionStorage, "new", { ...formFromSnip(null), body, title, ...(extra || {}) }, "", origin);
+    }
+    location.hash = snippetsHash("new");
+  }
+
   let body;
   if (sub === "new") {
     body = <Editor key="new" onCancel={() => { location.hash = snippetsHash(""); }} onSaved={(id) => { location.hash = snippetsHash(id); load(); }} />;
   } else if (sub) {
     if (items === null && !loadErr) body = <Skeleton />;
     else if (!current) body = <div className="mcp-empty"><p>That snippet is gone.</p><a className="btn btn-ghost" href={snippetsHash("")}>All snippets</a></div>;
-    else body = <Editor key={current.id} initial={current} onCancel={() => { location.hash = snippetsHash(""); }} onSaved={() => { load(); }} onDelete={() => remove(current)} />;
+    else body = <Editor key={current.id} initial={current} onCancel={() => { location.hash = snippetsHash(""); }} onSaved={() => { load(); }} onDelete={() => remove(current)} onDuplicate={duplicate} />;
   } else {
     body = (
       <List
@@ -126,6 +162,13 @@ export default function Snippets({ hidden }) {
         onArchive={archive}
         onDelete={remove}
         onImport={() => setImporting(true)}
+        templates={templates}
+        onStarter={(tpl) => startFrom(tpl.body, tpl.title, "starter", {
+          // The slug is derived here, not at save: the reader sees the
+          // address the snippet will get, and can change it before saving.
+          slug: snipSlug(tpl.title), slugLocked: true, tags: (tpl.tags || []).join(", "), kind: tpl.kind,
+        })}
+        onDuplicate={duplicate}
       />
     );
   }
@@ -139,9 +182,8 @@ export default function Snippets({ hidden }) {
         onOpen={(body, title) => {
           // Hand the import to the editor through the draft it already
           // restores, so the studio keeps exactly one create path.
-          if (typeof sessionStorage !== "undefined") writeDraft(sessionStorage, "new", { ...formFromSnip(null), body, title }, "", "import");
           setImporting(false);
-          location.hash = snippetsHash("new");
+          startFrom(body, title, "import");
         }}
       />
     </PageFrame>
@@ -153,6 +195,41 @@ export default function Snippets({ hidden }) {
 // rewrite: every kind starts on, each one can be switched off, and the
 // editor opens with the result so the body is readable before anything is
 // saved. Nothing here touches the API — it opens the editor.
+const SUGGESTED_KEY = "picode-snippets-suggested";
+
+// Suggested starters (Automations pattern): always open while the reader has
+// nothing, a remembered <details> once they do — so an old list does not push
+// the reader's own snippets below a wall of suggestions.
+function Suggested({ templates, onStarter, open }) {
+  const [expanded, setExpanded] = useState(() => {
+    if (open) return true;
+    try { return localStorage.getItem(SUGGESTED_KEY) === "1"; } catch { return false; }
+  });
+  const grid = (
+    <ul className="auto-tpl-grid">
+      {templates.map((tpl) => (
+        <li key={tpl.id}>
+          <button type="button" className="auto-tpl" onClick={() => onStarter(tpl)}>
+            <span className="auto-tpl-name">{tpl.title}</span>
+            <span className="auto-tpl-desc">{tpl.description}</span>
+            <span className="auto-tpl-when">{tpl.kind === "shell" ? "Command" : "Prompt"}{(tpl.tags || []).length ? " · " + tpl.tags.join(", ") : ""}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+  if (open) return <section className="settings-section auto-suggested"><h3>Start from a starter</h3>{grid}</section>;
+  return (
+    <details className="auto-details auto-suggested" open={expanded} onToggle={(e) => {
+      setExpanded(e.currentTarget.open);
+      try { localStorage.setItem(SUGGESTED_KEY, e.currentTarget.open ? "1" : "0"); } catch { /* ignore */ }
+    }}>
+      <summary>Start from a starter</summary>
+      {grid}
+    </details>
+  );
+}
+
 function ImportDialog({ open, onClose, onOpen }) {
   const [text, setText] = useState("");
   const [off, setOff] = useState({});
@@ -213,7 +290,7 @@ function Skeleton() {
   );
 }
 
-function List({ items, loadErr, q, setQ, view, setView, archivedCount, onStar, onArchive, onDelete, onImport }) {
+function List({ items, loadErr, q, setQ, view, setView, archivedCount, onStar, onArchive, onDelete, onImport, templates, onStarter, onDuplicate }) {
   if (items === null && !loadErr) return <Skeleton />;
   if (loadErr && items === null) {
     return <div className="mcp-empty"><p>{loadErr}</p></div>;
@@ -251,6 +328,7 @@ function List({ items, loadErr, q, setQ, view, setView, archivedCount, onStar, o
               </a>
               <div className="auto-row-actions" data-align-row>
                 <button type="button" className={"btn btn-ghost" + (p.starred ? " on" : "")} title={p.starred ? "Unstar" : "Keep on top"} aria-pressed={p.starred} onClick={(e) => onStar(p, e)}><IconStar /></button>
+                <button type="button" className="btn btn-ghost" title="Duplicate" aria-label={"Duplicate " + p.title} onClick={(e) => { e.preventDefault(); onDuplicate(p); }}><IconCopy /></button>
                 <button type="button" className="btn btn-ghost" title={p.archivedAt ? "Unarchive" : "Archive"} onClick={(e) => onArchive(p, e)}>{p.archivedAt ? <IconArchiveRestore /> : <IconArchive />}</button>
                 <button type="button" className="btn btn-ghost btn-danger" title="Delete snippet" onClick={() => onDelete(p)}><IconX /></button>
               </div>
@@ -258,6 +336,9 @@ function List({ items, loadErr, q, setQ, view, setView, archivedCount, onStar, o
           ))}
         </ul>
       )}
+      {!searching && view === "live" && templates && templates.length
+        ? <Suggested templates={templates} onStarter={onStarter} open={items.length === 0} />
+        : null}
       {!searching && view === "live" && archivedCount > 0 ? (
         <button type="button" className="pins-archived-link" onClick={() => setView("archived")}>
           {archivedCount} archived
@@ -267,7 +348,7 @@ function List({ items, loadErr, q, setQ, view, setView, archivedCount, onStar, o
   );
 }
 
-export function Editor({ initial, prefill, onCancel, onSaved, onDelete, keepDraft = true, cancelLabel = "All snippets" }) {
+export function Editor({ initial, prefill, onCancel, onSaved, onDelete, onDuplicate, keepDraft = true, cancelLabel = "All snippets" }) {
   const id = initial ? initial.id : "new";
   const [full, setFull] = useState(initial && initial.body != null ? initial : null);
   const [f, setF] = useState(() => {
@@ -307,6 +388,7 @@ export function Editor({ initial, prefill, onCancel, onSaved, onDelete, keepDraf
     const stored = typeof sessionStorage !== "undefined" ? readDraft(sessionStorage, "new") : null;
     const restore = draftToRestore(stored, null);
     if (restore) setF(restore);
+    if (restore && restore.slugLocked) setSlugLocked(true);
     if (stored && stored.enums) setEnums(stored.enums);
     hydrated.current = true;
   }, [initial?.id]);
@@ -399,6 +481,7 @@ export function Editor({ initial, prefill, onCancel, onSaved, onDelete, keepDraf
         <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}><IconChevronLeft /> {cancelLabel}</button>
         <div className="auto-detail-actions" data-align-row>
           {onDelete ? <button type="button" className="btn btn-ghost btn-danger" onClick={onDelete}><IconTrash /> Delete</button> : null}
+          {onDuplicate ? <button type="button" className="btn btn-ghost" onClick={() => onDuplicate(full || initial)}><IconCopy /> Duplicate</button> : null}
           <button type="submit" className="btn btn-primary" disabled={busy || !dirty || invalid}>{busy ? "Saving…" : "Save"}</button>
           {invalid && !busy ? <span className="auto-hint bad">Fix the placeholders first.</span> : null}
         </div>

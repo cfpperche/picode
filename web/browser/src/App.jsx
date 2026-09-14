@@ -3,6 +3,7 @@ import { api, humanizeError, wsURL } from "@picode/shared/client/api.js";
 import { bashLine } from "@picode/shared/domain/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "@picode/shared/domain/theme.js";
 import { readContextMenuPrefs, modifierHeld } from "./lib/contextMenuPrefs.js";
+import { openBrowserChannel } from "./lib/browserChannel.js";
 import { terminalCli, terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { matchAction } from "./lib/appKeys.js";
 import { applyTermChrome } from "@picode/shared/domain/termTheme.js";
@@ -1614,6 +1615,16 @@ export default function App({ shellChrome = false } = {}) {
       openWebTabRef.current(typeof e.payload === "string" ? e.payload : "");
     });
     return () => un.then((f) => f());
+  }, [shellChrome]);
+
+  // The daemon's work-browser command channel (ADR-0132): one stream per shell
+  // window. A command runs against the work-browser tab on screen; the ref
+  // keeps the listener on the current tab without reopening the stream.
+  const selectedTabRef = useRef(selectedId);
+  selectedTabRef.current = selectedId;
+  useEffect(() => {
+    if (!shellChrome) return undefined;
+    return openBrowserChannel(() => (isWebTab(selectedTabRef.current) ? selectedTabRef.current : null));
   }, [shellChrome]);
 
   async function closeTab(id) {

@@ -15,6 +15,8 @@ import (
 )
 
 func registerSnips(mux Registrar, deps Deps) {
+	// Static path before /{id}, like the picker above: a starter is not a row.
+	mux.HandleFunc("GET /api/snips/templates", handleSnipTemplates)
 	mux.HandleFunc("GET /api/snips/picker", handleSnipPicker(deps))
 	mux.HandleFunc("GET /api/snips", handleListSnips(deps))
 	mux.HandleFunc("POST /api/snips", handleCreateSnip(deps))
@@ -56,6 +58,13 @@ func handleListSnips(deps Deps) http.HandlerFunc {
 		archived, _ := deps.Store.CountArchivedSnips()
 		writeJSON(w, http.StatusOK, map[string]any{"snips": list, "archived": archived})
 	}
+}
+
+// handleSnipTemplates serves the built-in starters (snippets v2, F6). No
+// store, no auth beyond the door: the list is code, and the client edits a
+// starter before anything is saved.
+func handleSnipTemplates(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"items": snips.Templates()})
 }
 
 func handleSnipPicker(deps Deps) http.HandlerFunc {
