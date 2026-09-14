@@ -45,7 +45,14 @@ export default function WebTabSurface({ tabId, active, hidden, className = "", e
   useEffect(() => {
     if (!invoke) return undefined;
     invoke("btab_visibility", { id, visible: !hidden }).catch(fail);
-    return undefined;
+    return () => {
+      // Unmount parks the native view. The split pane mounts only for the
+      // active tab, so switching tabs unmounts it — without this the
+      // WebView2 keeps its last bounds and paints over the next tab
+      // (owner report 2026-09-14). The view and its page state survive;
+      // remounting shows it again.
+      invoke("btab_visibility", { id, visible: false }).catch(() => {});
+    };
   }, [id, hidden]);
 
   // Mirror the page's location into the toolbar (active tab only).
