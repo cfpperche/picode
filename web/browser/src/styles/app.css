@@ -1612,7 +1612,10 @@ img.ws-face.term-cli-face {
    never shrink to favicons. Same sheet is imported by /desktop. */
 .main-tabs {
   --tab-strip: var(--bg-base);
-  --tab-active: var(--bg-panel);
+  /* Same plane the sidebar sits on, then one step up so a small chip on
+     the gray strip still reads as that white (simultaneous contrast ate
+     --bg-panel). Light: #fff like the sidebar field; dark: --bg-elevated. */
+  --tab-active: var(--bg-elevated);
   display: flex; flex: none;
   height: var(--chrome-h); min-height: var(--chrome-h);
   background: var(--tab-strip); border-bottom: 1px solid var(--border);
