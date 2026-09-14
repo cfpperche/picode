@@ -851,7 +851,11 @@ export default function App({ shellChrome = false } = {}) {
 
   const whatsNewCurrent = semver || version;
   const whatsNewUnread = hasUnseenRelease({ release: releaseBuild, current: whatsNewCurrent, seen: whatsNewSeen, entries: RELEASE_NOTES });
-  const inboxNeedsYou = apps.some((app) => app.id === "inbox" && app.badge && (Number(app.badge.count) > 0 || app.badge.dot));
+  const inboxBadge = (apps.find((app) => app.id === "inbox") || {}).badge || {};
+  const inboxNeedsYou = Number(inboxBadge.count) > 0 || !!inboxBadge.dot;
+  // The dashboard's attention line wants the count, not the boolean: it is the
+  // only place on the desktop that says how many questions are waiting.
+  const inboxWaiting = Number(inboxBadge.count) || 0;
 
   // A fresh install sees What's New too (ADR-0063, amendment 2026-09-11). The
   // product-state gate that used to stand here — a workspace, an agent or a
@@ -3054,7 +3058,7 @@ export default function App({ shellChrome = false } = {}) {
             </div>
           </div>
 
-          {showHome ? <DashboardView workspaces={workspaces} freeAgents={freeAgents} terminals={terminals} workingIds={tuiWorking} waitingId={waiting ? selectedId : null} onOpen={(id) => openTab(id)} /> : null}
+          {showHome ? <DashboardView workspaces={workspaces} freeAgents={freeAgents} terminals={terminals} workingIds={tuiWorking} waitingId={waiting ? selectedId : null} onOpen={(id) => openTab(id)} inboxWaiting={inboxWaiting} onOpenApp={(id) => { openTab(appTabId(id)); if (parseRoute() !== "workspace") location.hash = appHash(id); }} /> : null}
 
           {tabs.filter(isTermTab).map((id) => {
             const tid = tabTermId(id);

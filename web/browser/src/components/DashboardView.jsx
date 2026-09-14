@@ -33,7 +33,7 @@ const TICK_MS = 30_000;
 // sidebar already shows. App.jsx only mounts this when
 // workspaces+freeAgents+terminals adds up to more than zero; the true
 // empty-environment card is untouched and lives beside it.
-export default function DashboardView({ workspaces, freeAgents, terminals, workingIds, waitingId, onOpen }) {
+export default function DashboardView({ workspaces, freeAgents, terminals, workingIds, waitingId, onOpen, inboxWaiting = 0, onOpenApp }) {
   const [range, setRange] = useState(() => readDashboardRange());
   const [metric, setMetric] = useState("cost");
   const [stats, setStats] = useState(null);
@@ -108,6 +108,14 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
   }
 
   const fleet = fleetStats(workspaces, freeAgents, terminals, { workingIds, waitingId });
+  // What is waiting on the reader, counted without double counting: questions
+  // in the Inbox (server truth, machine-wide — an agent's ask becomes an item
+  // there) plus agent-CLI terminals whose own hooks said `needs-you`. The
+  // selected agent's `waiting` is deliberately not added: that agent asked
+  // through the Inbox, so adding it would count one block twice.
+  const waitingTerminals = fleet.units.filter((u) => u.kind === "terminal" && u.state === FLEET_NEEDS_YOU);
+  const questions = Number(inboxWaiting) || 0;
+  const needsYou = questions + waitingTerminals.length;
   const firstLoad = stats === null;
   const coverage = firstLoad ? [] : (stats.coverage || []);
   const byCli = firstLoad ? [] : (stats.byCli || []);
@@ -130,6 +138,10 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
   const timingNote = firstLoad ? "" : coverageNote(coverage, byCli, "timing");
   const toolsNote = firstLoad ? "" : coverageNote(coverage, byCli, "tools");
   const errorsNote = firstLoad ? "" : coverageNote(coverage, byCli, "errors");
+  // Quota windows are the one panel only some CLIs fill (Codex today), so it
+  // owes the same "Covers X only." footnote the others do — the reader must
+  // not read "1 window" as "the machine has one limit".
+  const limitsNote = firstLoad ? "" : coverageNote(coverage, byCli, "limits");
 
   // A zero-cost "unknown" model row is pi bookkeeping (a turn with no
   // usage block), not a lever anyone can pull — keep the ranking honest
@@ -213,6 +225,27 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
         <div className="dash-body" style={{ opacity: busy && !firstLoad ? 0.6 : 1 }}>
           {loadErr ? (
             <p className="dash-refresh-err">{loadErr} <button type="button" className="btn-link" onClick={() => load(true)}>Retry</button></p>
+          ) : null}
+          {needsYou ? (
+            <div className="dash-attention" role="status">
+              <span className="dash-attention-dot" aria-hidden="true" />
+              <span className="dash-attention-lead">{needsYou} {needsYou === 1 ? "needs" : "need"} you</span>
+              <span className="dash-attention-where">
+                {[
+                  questions ? questions + (questions === 1 ? " question in Inbox" : " questions in Inbox") : "",
+                  waitingTerminals.length
+                    ? waitingTerminals.length + (waitingTerminals.length === 1 ? " terminal" : " terminals") + " waiting"
+                    : "",
+                ].filter(Boolean).join(" \u00b7 ")}
+              </span>
+              {questions ? (
+                <button type="button" className="btn btn-sm dash-attention-act" onClick={() => onOpenApp && onOpenApp("inbox")}>Open Inbox</button>
+              ) : (
+                <button type="button" className="btn btn-sm dash-attention-act" onClick={() => onOpen && onOpen(termTabId(waitingTerminals[0].id))}>
+                  Open {waitingTerminals[0].name}
+                </button>
+              )}
+            </div>
           ) : null}
           <div className="dash-kpi-row">
             <StatTile
@@ -373,7 +406,12 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
             </div>
             <div className="dashboard-section">
               <div className="dash-section-label">Limits</div>
-              {firstLoad ? <Skel /> : <LimitBars limits={stats.limits} />}
+              {firstLoad ? <Skel /> : (
+                <>
+                  <LimitBars limits={stats.limits} />
+                  {limitsNote ? <p className="dash-note">{limitsNote}</p> : null}
+                </>
+              )}
             </div>
             <div className="dashboard-section">
               <div className="dash-section-label">Efficiency</div>

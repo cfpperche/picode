@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { deltaPercent, fleetStats, rangeLabel, compareLabel, formatTokens, percent, tokenSegments, bucketLabel, folderLabel,
   measured, signalState, coversAll, coverageNote, billingBadge, formatDuration, resetsIn, costPerTurn, costPerLine, spendState,
+  limitReading, observedAge,
   FLEET_WORKING, FLEET_NEEDS_YOU, FLEET_IDLE, FLEET_UNREPORTED, FLEET_ORDER, FLEET_LABELS } from "./dashboardStats.js";
 
 describe("deltaPercent", () => {
@@ -233,6 +234,33 @@ describe("formatDuration", () => {
   });
 });
 
+describe("limitReading / observedAge", () => {
+  const now = Date.parse("2026-09-14T12:00:00Z");
+  const at = (iso) => iso;
+  it("is current while the window it describes is still open", () => {
+    assert.equal(limitReading({ resetsAt: "2026-09-20T00:00:00Z" }, now), "current");
+  });
+  // The failure this exists for: a reading whose window has already reset next
+  // to a countdown would present a past window's usage as the current one.
+  it("is expired once the window it describes has reset", () => {
+    assert.equal(limitReading({ resetsAt: "2026-09-14T11:59:00Z" }, now), "expired");
+    assert.equal(limitReading({ resetsAt: "2026-09-14T12:00:00Z" }, now), "expired");
+  });
+  it("is unknown without a reset time rather than guessing either way", () => {
+    assert.equal(limitReading({}, now), "unknown");
+    assert.equal(limitReading({ resetsAt: "not a date" }, now), "unknown");
+    assert.equal(limitReading(null, now), "unknown");
+  });
+  it("measures how old the snapshot is", () => {
+    assert.equal(observedAge({ observedAt: "2026-09-14T09:00:00Z" }, now), 3 * 3600 * 1000);
+    assert.equal(observedAge({ observedAt: "2026-09-14T13:00:00Z" }, now), 0, "a reading from the future is not negative age");
+    assert.equal(observedAge({}, now), null);
+    assert.equal(observedAge({ observedAt: at("") }, now), null);
+  });
+});
+
+// resetsIn is the other half of that contract: it must never claim a window
+// resets in the future when its reset instant is already past.
 describe("resetsIn", () => {
   const now = Date.parse("2026-09-07T12:00:00Z");
   it("is empty without a reset time", () => {

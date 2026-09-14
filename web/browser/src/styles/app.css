@@ -1406,6 +1406,19 @@ img.ws-face.term-cli-face {
   display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;
   margin-bottom: 12px;
 }
+/* The attention line (ADR-0109 amendment 2026-09-14): the one thing the
+   dashboard says before its numbers — what is blocked on the reader, and the
+   one click that goes there. Nothing blocked, no line. */
+.dash-attention {
+  display: flex; align-items: center; gap: 8px;
+  min-height: var(--ctl-h); padding: 0 6px 0 12px; margin-bottom: 12px;
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel);
+  font-size: 12.5px; min-width: 0;
+}
+.dash-attention-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.dash-attention-lead { font-weight: 600; white-space: nowrap; }
+.dash-attention-where { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-attention-act { margin-left: auto; flex: none; }
 .stat-tile {
   background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel);
   padding: 14px 16px; min-width: 0;
@@ -1453,6 +1466,11 @@ img.ws-face.term-cli-face {
   color: var(--text-secondary); cursor: pointer; text-align: left;
 }
 .fleet-more:hover { color: var(--text-primary); text-decoration: underline; }
+
+/* A quota row whose window has already reset: the percentage describes a
+   window that is over, so it recedes instead of reading as current usage. */
+.spend-row.is-stale .spend-bar-fill { opacity: .45; }
+.spend-row.is-stale .spend-amount { color: var(--text-secondary); }
 
 .dashboard-section { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 14px 16px; min-width: 0; }
 .dashboard-section + .dashboard-section { margin-top: 12px; }
