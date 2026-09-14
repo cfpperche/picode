@@ -1,6 +1,6 @@
 # ADR-0135: agent-browser-binding
 
-- **Status**: proposed
+- **Status**: accepted
 - **Date**: 2026-09-14
 - **Boundary**: protocol — the work-browser command channel (ADR-0132) resolves
   its target tab by an explicit agent↔tab binding instead of "the active tab of
