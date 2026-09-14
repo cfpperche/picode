@@ -6,7 +6,7 @@ standard MCP configuration, not Go plugins or another package manager.
 | Definition | External implementation | Access |
 |---|---|---|
 | [deepwiki.json](deepwiki.json) | `https://mcp.deepwiki.com/mcp` | Public GitHub repository documentation, no account required |
-| [gmail.json](gmail.json) | `@gongrzhe/server-gmail-autoauth-mcp` (community, ISC) | Read, draft and send Gmail; needs a one-time Google sign-in first (see the [Integrations guide](https://cfpperche.github.io/picode/guide/integrations)) |
+| [gmail.json](gmail.json) | `@gongrzhe/server-gmail-autoauth-mcp` (community, ISC) | Read, draft and send Gmail; needs a one-time Google sign-in first (see the [Gmail cookbook](https://cfpperche.github.io/picode/guide/mcp-gmail)) |
 
 Open **Integrations → Connectors**, install the MCP adapter through Packages
 if needed, then **Import a connector definition**. Choose a JSON file, review

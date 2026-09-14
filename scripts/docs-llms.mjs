@@ -39,6 +39,8 @@ const CURATED = [
   ["Use", "guide/agent-clis.md", "Agent CLIs"],
   ["Use", "guide/packages.md", "Packages"],
   ["Use", "guide/mcp.md", "MCP"],
+  ["Use", "guide/mcp-gmail.md", "Gmail"],
+  ["Use", "guide/mcp-deepwiki.md", "DeepWiki"],
   ["Use", "guide/llama.md", "llama.cpp"],
   ["Use", "guide/automations.md", "Automations"],
   ["Use", "guide/snippets.md", "Snippets"],
