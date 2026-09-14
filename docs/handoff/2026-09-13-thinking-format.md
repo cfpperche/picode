@@ -12,7 +12,9 @@ green gate: `TestPaneRootSurvivesSIGHUP` (signalled before the pane's trap
 existed; 5/5 failures here, 4/5 on `main` at load ~5) and
 `TestCLITerminalResumeDecisionTable` (`waitCLIFile` returned the creation
 launch's bytes; 2/2 sharded). Measurements: `docs/handoff/open/terminal.md`.
-`TestPeerStopStubbornChildStaysPending` remains red and deterministic.
+`TestPeerStopStubbornChildStaysPending` is the same race and is **not** fixed
+here — `feat/peer-stop-child-race` owns it (ready-marker handshake + exact
+tmux targeting, verified there); no duplicate carried.
 
 Verified on scratch: `thinkingFormat: "deepseek"` written beside the compat
 bools, Edit reopened on it, `pi auth check` + `--list-models` green, row

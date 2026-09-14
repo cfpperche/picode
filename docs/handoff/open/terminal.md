@@ -9,10 +9,16 @@
 - Terminal menus (2026-09-09): the phone's rows are hand-built, not from `termRowMenu.js` (they gained **Send to terminal…** / **Run command…** on 2026-09-13), so desktop rows must be mirrored by hand; **Continue in…** waits on that merge.
 - Scrollbars: the web terminal draws none (a tmux client has no scrollback — `term-scrollbar.test.mjs`); a draggable bar means taking the tmux client off the alternate screen, a decision.
 - CLI pane-death (ADR-0085): an owned OpenCode QA stop left two processes after its pane closed; ADR-0084 pins nothing for terminals stopped before it.
-- **`make ci` is red on `main` (2026-09-13): `TestPeerStopStubbornChildStaysPending`**
+- **`make ci` was red on `main` (2026-09-13): `TestPeerStopStubbornChildStaysPending`**
   (`peer_stop_linux_test.go:73`) fails "stubborn child reported stopped: <nil>" —
   deterministically, in isolation and in the shards, and already at `f3df855e`
   (before the `snip` starters merge). The test came in at 14:29 (`d9bc2dd9`).
+  Owned and fixed by `feat/peer-stop-child-race`: same race as the SIGHUP test
+  below (the pane root is the forked tmux client until it execs the shell and
+  installs its traps), fixed there with a ready-marker handshake plus every
+  tmux command without the ambient `TMUX` and `-t =name`, verified with 20
+  consecutive runs. `feat/thinking-format` measures the same race but carries
+  no duplicate of the fix.
 - **`TestCLITerminalResumeDecisionTable`, the same family one layer up:** the
   resume assertion read back the *creation* launch because `waitCLIFile`
   returns as soon as the path exists — sharded runs failed 2/2 at load ~5
