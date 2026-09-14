@@ -364,6 +364,89 @@ func TestUpsertThinkingFormat(t *testing.T) {
 	})
 }
 
+func TestUpsertChatTemplateObjects(t *testing.T) {
+	yes := true
+	base := CustomDefinition{
+		BaseURL: "https://api.example.com/v1", API: APIOpenAICompletions,
+		ThinkingFormat: "chat-template",
+		Models:         []CustomModel{{ID: "m", Reasoning: &yes, ThinkingLevels: []string{"high"}}},
+	}
+
+	t.Run("kwargs are written beside the bools and read back", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		def := base
+		def.Compat = map[string]bool{"supportsReasoningEffort": true}
+		def.ChatTemplateKwargs = map[string]any{
+			"thinking":        map[string]any{"$var": "thinking.enabled", "omitWhenOff": true},
+			"enable_thinking": true,
+			"budget":          float64(1024),
+			"label":           "x",
+		}
+		if err := UpsertCustomProvider("gw", def); err != nil {
+			t.Fatal(err)
+		}
+		got := LoadCustomDefinitions()["gw"]
+		if got.ChatTemplateKwargs == nil {
+			t.Fatalf("kwargs did not survive the read: %#v", got)
+		}
+		ref, _ := got.ChatTemplateKwargs["thinking"].(map[string]any)
+		if ref["$var"] != "thinking.enabled" || ref["omitWhenOff"] != true || got.ChatTemplateKwargs["enable_thinking"] != true {
+			t.Fatalf("kwargs = %#v", got.ChatTemplateKwargs)
+		}
+		if got.ChatTemplateArgs != nil {
+			t.Fatalf("args invented: %#v", got.ChatTemplateArgs)
+		}
+	})
+
+	t.Run("an empty object clears a stored one", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		def := base
+		def.Compat = map[string]bool{"supportsReasoningEffort": true}
+		def.ChatTemplateKwargs = map[string]any{"enable_thinking": true}
+		if err := UpsertCustomProvider("gw", def); err != nil {
+			t.Fatal(err)
+		}
+		// The form sends the key with no value when the editor is emptied.
+		def.ChatTemplateKwargs = map[string]any{}
+		if err := UpsertCustomProvider("gw", def); err != nil {
+			t.Fatal(err)
+		}
+		if got := LoadCustomDefinitions()["gw"].ChatTemplateKwargs; got != nil {
+			t.Fatalf("a cleared object survived: %#v", got)
+		}
+	})
+
+	t.Run("refuses an object pi would not accept", func(t *testing.T) {
+		for _, tc := range []struct {
+			name string
+			obj  map[string]any
+			want string
+		}{
+			{"unknown var", map[string]any{"t": map[string]any{"$var": "thinking.nope"}}, "$var must be one of"},
+			{"stray sibling", map[string]any{"t": map[string]any{"$var": "thinking.enabled", "x": 1}}, "only $var and omitWhenOff"},
+			{"bad omitWhenOff", map[string]any{"t": map[string]any{"$var": "thinking.enabled", "omitWhenOff": "yes"}}, "omitWhenOff is true or false"},
+			{"array value", map[string]any{"t": []any{1, 2}}, "use a string, number"},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				home := t.TempDir()
+				t.Setenv("HOME", home)
+				def := base
+				def.Compat = map[string]bool{}
+				def.ChatTemplateKwargs = tc.obj
+				err := UpsertCustomProvider("gw", def)
+				if err == nil || !strings.Contains(err.Error(), tc.want) {
+					t.Fatalf("err = %v want %q", err, tc.want)
+				}
+				if _, statErr := os.Stat(filepath.Join(home, ".pi", "agent", "models.json")); !os.IsNotExist(statErr) {
+					t.Fatal("a refused definition must not touch the file")
+				}
+			})
+		}
+	})
+}
+
 func TestUpsertCustomProviderValidation(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	yes := true

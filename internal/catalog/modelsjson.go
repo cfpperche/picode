@@ -56,22 +56,63 @@ type CustomModel struct {
 	ThinkingLevelMap map[string]any `json:"thinkingLevelMap,omitempty"`
 }
 
-// customThinkingFormats are the compat.thinkingFormat values the form offers
-// (pi docs/models.md). The form writes the field itself, so an unknown value
+// customThinkingFormats are the compat.thinkingFormat values the form offers:
+// pi's own union (pi-ai types.d.ts), minus the formats that only make sense on
+// a built-in provider. The form writes the field itself, so an unknown value
 // is refused here rather than handed to pi.
 var customThinkingFormats = []string{
-	"reasoning_effort", "deepseek", "qwen", "openrouter", "together", "zai",
+	"openai", "openrouter", "deepseek", "together", "baseten", "zai", "qwen",
+	"chat-template", "qwen-chat-template", "string-thinking", "ant-ling",
+}
+
+// chatTemplateVars are the pi-controlled references a template object value
+// may use instead of a literal.
+var chatTemplateVars = []string{"thinking.enabled", "thinking.effort", "thinking.budget"}
+
+// validateTemplateObject mirrors the browser's check for chatTemplateKwargs /
+// chatTemplateArgs: values are a string, number, boolean or null, or a
+// {"$var": …} reference with an optional omitWhenOff. The GUI is not the only
+// guard, and a bad object would make pi send a field the provider rejects.
+func validateTemplateObject(key string, obj map[string]any) error {
+	for name, value := range obj {
+		switch v := value.(type) {
+		case nil, string, float64, bool:
+			continue
+		case map[string]any:
+			for other := range v {
+				if other != "$var" && other != "omitWhenOff" {
+					return fmt.Errorf("%s.%s: only $var and omitWhenOff may sit beside each other", key, name)
+				}
+			}
+			ref, ok := v["$var"].(string)
+			if !ok || !slices.Contains(chatTemplateVars, ref) {
+				return fmt.Errorf("%s.%s: $var must be one of %s", key, name, strings.Join(chatTemplateVars, ", "))
+			}
+			if raw, ok := v["omitWhenOff"]; ok {
+				if _, isBool := raw.(bool); !isBool {
+					return fmt.Errorf("%s.%s: omitWhenOff is true or false", key, name)
+				}
+			}
+		default:
+			return fmt.Errorf("%s.%s: use a string, number, true/false, null or a {\"$var\": …} reference", key, name)
+		}
+	}
+	return nil
 }
 
 // CustomDefinition is the editable shape of one models.json provider entry.
 // ThinkingFormat is compat.thinkingFormat: a string among the others there,
-// which is why compat is not a map[string]bool on this struct.
+// which is why compat is not a map[string]bool on this struct. The two chat
+// template objects are compat's only nested values (pi's
+// chatTemplateKwargs / chatTemplateArgs).
 type CustomDefinition struct {
-	BaseURL        string          `json:"baseUrl"`
-	API            string          `json:"api"`
-	Compat         map[string]bool `json:"compat,omitempty"`
-	ThinkingFormat string          `json:"thinkingFormat,omitempty"`
-	Models         []CustomModel   `json:"models"`
+	BaseURL            string          `json:"baseUrl"`
+	API                string          `json:"api"`
+	Compat             map[string]bool `json:"compat,omitempty"`
+	ThinkingFormat     string          `json:"thinkingFormat,omitempty"`
+	ChatTemplateKwargs map[string]any  `json:"chatTemplateKwargs,omitempty"`
+	ChatTemplateArgs   map[string]any  `json:"chatTemplateArgs,omitempty"`
+	Models             []CustomModel   `json:"models"`
 }
 
 // ModelsPath is pi's provider-definition file. PiCode merges into it; it is
@@ -144,6 +185,8 @@ func LoadCustomDefinitions() map[string]CustomDefinition {
 		if raw, ok := entry.Compat["thinkingFormat"]; ok {
 			_ = json.Unmarshal(raw, &thinkingFormat)
 		}
+		kwargs := compatObject(entry.Compat, "chatTemplateKwargs")
+		args := compatObject(entry.Compat, "chatTemplateArgs")
 		if entry.BaseURL == "" {
 			continue
 		}
@@ -152,8 +195,24 @@ func LoadCustomDefinitions() map[string]CustomDefinition {
 		}
 		out[id] = CustomDefinition{
 			BaseURL: entry.BaseURL, API: entry.API, Compat: compat,
-			ThinkingFormat: thinkingFormat, Models: entry.Models,
+			ThinkingFormat: thinkingFormat, ChatTemplateKwargs: kwargs, ChatTemplateArgs: args,
+			Models: entry.Models,
 		}
+	}
+	return out
+}
+
+// compatObject reads one nested compat value (the chat template objects). A
+// value that is not an object reads as absent, so a hand-written string there
+// cannot break the row.
+func compatObject(compat map[string]json.RawMessage, key string) map[string]any {
+	raw, ok := compat[key]
+	if !ok {
+		return nil
+	}
+	var out map[string]any
+	if json.Unmarshal(raw, &out) != nil {
+		return nil
 	}
 	return out
 }
@@ -265,7 +324,7 @@ func UpsertCustomProvider(id string, def CustomDefinition) error {
 	// when the form sent no compat at all (Edit always sends both keys). The
 	// block also runs for a lone thinkingFormat, so an API caller can set the
 	// format without sending the bool map.
-	if def.Compat != nil || def.ThinkingFormat != "" {
+	if def.Compat != nil || def.ThinkingFormat != "" || def.ChatTemplateKwargs != nil || def.ChatTemplateArgs != nil {
 		compat := map[string]json.RawMessage{}
 		if rawCompat, ok := entry["compat"]; ok {
 			_ = json.Unmarshal(rawCompat, &compat)
@@ -284,6 +343,21 @@ func UpsertCustomProvider(id string, def CustomDefinition) error {
 			compat["thinkingFormat"] = mustRaw(def.ThinkingFormat)
 		} else if def.Compat != nil {
 			delete(compat, "thinkingFormat")
+		}
+		// The chat template objects are the form's to own like the bools: sent
+		// with a value they are written, sent empty they clear (a stale inert
+		// object is the drift that confuses the next reader). A caller who sent
+		// no compat at all leaves them alone.
+		for _, obj := range []struct {
+			key string
+			val map[string]any
+		}{{"chatTemplateKwargs", def.ChatTemplateKwargs}, {"chatTemplateArgs", def.ChatTemplateArgs}} {
+			switch {
+			case len(obj.val) > 0:
+				compat[obj.key] = mustRaw(obj.val)
+			case def.Compat != nil:
+				delete(compat, obj.key)
+			}
 		}
 		compatRaw, err := json.Marshal(compat)
 		if err != nil {
@@ -449,6 +523,14 @@ func validateCustomDef(def CustomDefinition) error {
 	}
 	if def.ThinkingFormat != "" && !slices.Contains(customThinkingFormats, def.ThinkingFormat) {
 		return fmt.Errorf("unsupported thinking format: %s", def.ThinkingFormat)
+	}
+	for _, obj := range []struct {
+		key string
+		val map[string]any
+	}{{"chatTemplateKwargs", def.ChatTemplateKwargs}, {"chatTemplateArgs", def.ChatTemplateArgs}} {
+		if e := validateTemplateObject(obj.key, obj.val); e != nil {
+			return e
+		}
 	}
 	seen := map[string]bool{}
 	for _, m := range def.Models {

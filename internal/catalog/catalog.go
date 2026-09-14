@@ -42,9 +42,12 @@ type Provider struct {
 	API     string          `json:"api,omitempty"`
 	Compat  map[string]bool `json:"compat,omitempty"`
 	// ThinkingFormat is compat.thinkingFormat, the one string among the compat
-	// keys the form edits (empty = pi's default for the API type).
-	ThinkingFormat string        `json:"thinkingFormat,omitempty"`
-	Definitions    []CustomModel `json:"definitions,omitempty"`
+	// keys the form edits (empty = pi's default for the API type). The two
+	// template objects are the nested ones (chat-template / baseten).
+	ThinkingFormat     string         `json:"thinkingFormat,omitempty"`
+	ChatTemplateKwargs map[string]any `json:"chatTemplateKwargs,omitempty"`
+	ChatTemplateArgs   map[string]any `json:"chatTemplateArgs,omitempty"`
+	Definitions        []CustomModel  `json:"definitions,omitempty"`
 }
 
 // Report is the payload for GET /api/catalog.
@@ -105,6 +108,8 @@ func Load(piCmd string) (Report, error) {
 		p.API = def.API
 		p.Compat = def.Compat
 		p.ThinkingFormat = def.ThinkingFormat
+		p.ChatTemplateKwargs = def.ChatTemplateKwargs
+		p.ChatTemplateArgs = def.ChatTemplateArgs
 		p.Definitions = def.Models
 	}
 	for _, id := range order {

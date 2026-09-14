@@ -4,9 +4,10 @@
 
 import {
   parseForm, customProviderSchema, customModelIds, THINKING_LEVELS, DEFAULT_THINKING_LEVELS,
+  THINKING_FORMAT_NEEDS, chatTemplateObject,
 } from "../contracts/schemas.js";
 
-export { customModelIds, THINKING_LEVELS, DEFAULT_THINKING_LEVELS };
+export { customModelIds, THINKING_LEVELS, DEFAULT_THINKING_LEVELS, THINKING_FORMAT_NEEDS };  // re-exported: the dialogs import both from here
 
 // validateCustomProvider runs the schema. Returns { ok, value, error } like
 // parseForm; value carries the form shapes (payload building is separate).
@@ -27,13 +28,18 @@ export function customProviderPayload(v) {
   const levels = v.reasoningModel
     ? THINKING_LEVELS.filter((l) => v.thinkingLevels.includes(l))
     : [];
+  // compat.thinkingFormat is pi's own value ("openai" for the reasoning_effort
+  // branch); the empty choice leaves the key out so pi picks for the API type.
+  // The chat-template object rides only with the format that reads it.
+  const kwargs = THINKING_FORMAT_NEEDS[v.thinkingFormat] === "kwargs" ? chatTemplateObject(v.chatTemplateKwargs) : null;
+  const args = THINKING_FORMAT_NEEDS[v.thinkingFormat] === "args" ? chatTemplateObject(v.chatTemplateArgs) : null;
   return {
     baseUrl: v.baseUrl,
     api: v.api,
     compat: { supportsDeveloperRole: !!v.compatDeveloper, supportsReasoningEffort: !!v.compatReasoning },
-    // Empty means pi's default for the API type: the key is left out of the
-    // entry rather than written as an empty string.
     ...(v.thinkingFormat ? { thinkingFormat: v.thinkingFormat } : {}),
+    ...(kwargs ? { chatTemplateKwargs: kwargs } : {}),
+    ...(args ? { chatTemplateArgs: args } : {}),
     models: customModelIds(v.modelsText).map((id) => ({
       id,
       ...(contextWindow ? { contextWindow: Number(contextWindow) } : {}),
@@ -61,7 +67,9 @@ export function customProviderForm(provider) {
     maxTokens: sized.maxTokens ? String(sized.maxTokens) : "",
     compatDeveloper: !!(p.compat && p.compat.supportsDeveloperRole),
     compatReasoning: !!(p.compat && p.compat.supportsReasoningEffort),
-    thinkingFormat: p.thinkingFormat || "",
+    thinkingFormat: customThinkingFormat(p.thinkingFormat),
+    chatTemplateKwargs: jsonText(p.chatTemplateKwargs),
+    chatTemplateArgs: jsonText(p.chatTemplateArgs),
     reasoningModel: defs.some((m) => m && m.reasoning),
     thinkingLevels: customThinkingLevels(defs),
     key: "",
@@ -125,6 +133,28 @@ export function agreedModelLimits(found) {
   const maxTokens = agreed("maxTokens");
   if (maxTokens) out.maxTokens = maxTokens;
   return out;
+}
+
+// customThinkingFormat prefills the select from the file. A hand-edited value
+// the form does not offer (or the undocumented "reasoning_effort", which pi
+// sends down the same branch as "openai") reads as the format pi will
+// actually take, and the next save writes it explicitly.
+export function customThinkingFormat(value) {
+  const v = String(value || "");
+  if (!v) return "";
+  if (v === "reasoning_effort") return "openai";
+  return THINKING_FORMAT_NEEDS[v] === undefined ? "" : v;
+}
+
+// jsonText renders a stored compat object back into the editor, indented so a
+// person can read and edit it.
+function jsonText(value) {
+  if (!value || typeof value !== "object") return "";
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return "";
+  }
 }
 
 // customTakenIds lists the ids a new definition may not claim: every

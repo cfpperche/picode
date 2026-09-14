@@ -108,13 +108,44 @@ export const apiKeySchema = z.object({
 });
 
 // Custom provider endpoints (ADR-0129): the closed list of pi API types the
-// form offers, in display order.
+// form offers, in display order. urlHint is what pi expects in the base URL
+// (pi appends the route itself), taken from pi's own examples so the form
+// never invents a rule: an OpenAI-style root ends with /v1, Google's with
+// /v1beta, and Anthropic-compatible proxies differ — Anthropic's own root is
+// https://api.anthropic.com/v1 while some proxies take no suffix.
 export const CUSTOM_PROVIDER_APIS = [
-  { value: "openai-completions", label: "OpenAI Chat Completions (most gateways)" },
-  { value: "openai-responses", label: "OpenAI Responses" },
-  { value: "anthropic-messages", label: "Anthropic Messages" },
-  { value: "google-generative-ai", label: "Google Generative AI" },
+  {
+    value: "openai-completions",
+    label: "OpenAI Chat Completions (most gateways)",
+    placeholder: "Base URL — e.g. https://api.example.com/v1",
+    urlHint: "pi appends the route: the API root, usually ending in /v1.",
+  },
+  {
+    value: "openai-responses",
+    label: "OpenAI Responses",
+    placeholder: "Base URL — e.g. https://api.example.com/v1",
+    urlHint: "pi appends the route: the API root, usually ending in /v1.",
+  },
+  {
+    value: "anthropic-messages",
+    label: "Anthropic Messages",
+    placeholder: "Base URL — e.g. https://api.anthropic.com/v1",
+    urlHint: "pi appends /messages: Anthropic's own root ends in /v1, some Anthropic-compatible proxies take no suffix.",
+  },
+  {
+    value: "google-generative-ai",
+    label: "Google Generative AI",
+    placeholder: "Base URL — e.g. https://generativelanguage.googleapis.com/v1beta",
+    urlHint: "pi appends the model route: Google's root ends in /v1beta.",
+  },
 ];
+
+// customApiHint is the hint for one API type, with a fallback so a type added
+// later cannot leave the field unexplained.
+export function customApiHint(api) {
+  const found = CUSTOM_PROVIDER_APIS.find((a) => a.value === api);
+  return found || CUSTOM_PROVIDER_APIS[0];
+}
 
 // THINKING_LEVELS are the pi thinking levels the provider form manages.
 // "off" is deliberately absent: pi's default map already covers it, and its
@@ -129,20 +160,37 @@ export const THINKING_LEVELS = ["minimal", "low", "medium", "high", "xhigh", "ma
 export const DEFAULT_THINKING_LEVELS = ["minimal", "low", "medium", "high"];
 
 // CUSTOM_THINKING_FORMATS are the compat.thinkingFormat values the form
-// offers, in display order (pi docs/models.md). The empty value is pi's own
-// default for the API type: the field is then absent from the entry. Only
-// formats that need nothing else are listed — chat-template and
-// qwen-chat-template are driven by chatTemplateKwargs/Args objects this form
-// does not edit, so offering them would be a switch that does nothing.
+// offers, in display order. The values are pi's own union
+// (pi-ai dist/types.d.ts); "openai" is the default and the branch that sends
+// reasoning_effort, which is why the form writes "openai" rather than the
+// undocumented "reasoning_effort" a hand-edited file may carry (that value
+// falls through to the same branch, and the read path maps it back to
+// "openai"). needs names the compat object a format requires, so the editor
+// for it appears only when it is in play.
 export const CUSTOM_THINKING_FORMATS = [
-  { value: "", label: "Default — pi's choice for this API type" },
-  { value: "reasoning_effort", label: "reasoning_effort — the OpenAI standard" },
-  { value: "deepseek", label: "deepseek — DeepSeek's own thinking field" },
-  { value: "qwen", label: "qwen — enable_thinking (DashScope)" },
-  { value: "openrouter", label: "openrouter — reasoning: {effort}" },
-  { value: "together", label: "together — reasoning: {enabled}" },
-  { value: "zai", label: "zai — Z.AI thinking" },
+  { value: "", label: "Default — pi's choice for this API type", needs: "" },
+  { value: "openai", label: "openai — reasoning_effort (the OpenAI standard)", needs: "" },
+  { value: "deepseek", label: "deepseek — thinking: {type} plus reasoning_effort", needs: "" },
+  { value: "qwen", label: "qwen — enable_thinking (DashScope)", needs: "" },
+  { value: "qwen-chat-template", label: "qwen-chat-template — enable_thinking + preserve_thinking", needs: "" },
+  { value: "openrouter", label: "openrouter — reasoning: {effort}", needs: "" },
+  { value: "together", label: "together — reasoning: {enabled}", needs: "" },
+  { value: "zai", label: "zai — thinking: {type}", needs: "" },
+  { value: "ant-ling", label: "ant-ling — reasoning: {effort}", needs: "" },
+  { value: "string-thinking", label: "string-thinking — a top-level thinking string", needs: "" },
+  { value: "chat-template", label: "chat-template — chat_template_kwargs", needs: "kwargs" },
+  { value: "baseten", label: "baseten — chat_template_args", needs: "args" },
 ];
+
+// THINKING_FORMAT_NEEDS maps a format to the object it reads, so the form can
+// skip rendering an editor nothing would use.
+export const THINKING_FORMAT_NEEDS = Object.fromEntries(
+  CUSTOM_THINKING_FORMATS.map((f) => [f.value, f.needs]),
+);
+
+// CHAT_TEMPLATE_VARS are the pi-controlled values a kwargs/args entry may
+// reference instead of a literal; anything else is the provider's own key.
+export const CHAT_TEMPLATE_VARS = ["thinking.enabled", "thinking.effort", "thinking.budget"];
 
 // customProviderSchema validates the Add/Edit form. takenIds names ids the
 // user may not claim (built-ins plus other custom definitions); requireKey
@@ -167,6 +215,8 @@ export function customProviderSchema({ takenIds = [], requireKey = true } = {}) 
     compatDeveloper: z.boolean(),
     compatReasoning: z.boolean(),
     thinkingFormat: z.enum(CUSTOM_THINKING_FORMATS.map((f) => f.value)),
+    chatTemplateKwargs: z.string(),
+    chatTemplateArgs: z.string(),
     reasoningModel: z.boolean(),
     thinkingLevels: z.array(z.enum(THINKING_LEVELS)),
     key: z.string(),
@@ -182,8 +232,51 @@ export function customProviderSchema({ takenIds = [], requireKey = true } = {}) 
       if (raw && (!/^\d+$/.test(raw) || Number(raw) <= 0)) fail(label + " must be a positive whole number.");
     }
     if (v.reasoningModel && !v.thinkingLevels.length) fail("Select at least one thinking level.");
+    // The kwargs/args editors hold JSON; the same parse builds the payload, so
+    // a typo is caught here with a message instead of reaching the file.
+    for (const [field, label] of [["chatTemplateKwargs", "Chat template kwargs"], ["chatTemplateArgs", "Chat template args"]]) {
+      const raw = String(v[field] || "").trim();
+      if (!raw) continue;
+      const bad = chatTemplateObjectError(raw);
+      if (bad) fail(label + ": " + bad);
+    }
     if (requireKey && !v.key.trim()) fail("API key is required.");
   });
+}
+
+// chatTemplateObjectError parses a chat template object and returns the
+// message for the first problem, or "" when it is usable. Values may be a
+// string, number, boolean or null, or a pi-controlled reference such as
+// {"$var": "thinking.enabled"} with an optional omitWhenOff.
+export function chatTemplateObjectError(raw) {
+  let obj;
+  try {
+    obj = JSON.parse(raw);
+  } catch {
+    return "that is not valid JSON.";
+  }
+  if (obj === null || typeof obj !== "object" || Array.isArray(obj)) return "use a JSON object, e.g. {\"enable_thinking\": true}.";
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === null || ["string", "number", "boolean"].includes(typeof value)) continue;
+    if (typeof value === "object" && !Array.isArray(value)) {
+      const keys = Object.keys(value);
+      if (!keys.includes("$var")) return key + ": an object value needs a \"$var\" (pi-controlled thinking value).";
+      if (keys.some((k) => k !== "$var" && k !== "omitWhenOff")) return key + ": only \"$var\" and \"omitWhenOff\" may sit beside each other.";
+      if (!CHAT_TEMPLATE_VARS.includes(value.$var)) return key + ": \"$var\" must be one of " + CHAT_TEMPLATE_VARS.join(", ") + ".";
+      if ("omitWhenOff" in value && typeof value.omitWhenOff !== "boolean") return key + ": \"omitWhenOff\" is true or false.";
+      continue;
+    }
+    return key + ": use a string, number, true/false, null or a {\"$var\": …} reference.";
+  }
+  return "";
+}
+
+// chatTemplateObject parses what the editor holds, or null when it is empty.
+// A payload builder calls it only after the schema has accepted the text.
+export function chatTemplateObject(raw) {
+  const text = String(raw || "").trim();
+  if (!text) return null;
+  return JSON.parse(text);
 }
 
 export const llamaLoginSchema = z.object({

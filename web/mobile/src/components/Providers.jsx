@@ -11,9 +11,9 @@ import { cliProvidersReturnTo } from "@picode/shared/domain/cliProviders.js";
 
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { readRecents, pushRecent, removeRecent, clearRecents, rememberProviders } from "@picode/shared/domain/providerRecents.js";
-import { validateCustomProvider, customProviderPayload, customProviderForm, customTakenIds, THINKING_LEVELS } from "@picode/shared/domain/customProviders.js";
+import { validateCustomProvider, customProviderPayload, customProviderForm, customTakenIds, THINKING_LEVELS, THINKING_FORMAT_NEEDS } from "@picode/shared/domain/customProviders.js";
 import { loadModelsFor, modelLoadChanges, loadingLine } from "@picode/shared/client/modelLoad.js";
-import { CUSTOM_PROVIDER_APIS, CUSTOM_THINKING_FORMATS } from "@picode/shared/contracts/schemas.js";
+import { CUSTOM_PROVIDER_APIS, CUSTOM_THINKING_FORMATS, customApiHint } from "@picode/shared/contracts/schemas.js";
 import { askConfirm } from "../lib/confirm.js";
 import { showUsageButton, usagePath } from "@picode/shared/domain/providerUsage.js";
 import UsageDialog from "./UsageDialog.jsx";
@@ -772,10 +772,12 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                   type="url"
                   value={cf.baseUrl}
                   onChange={setField("baseUrl")}
-                  placeholder="Base URL — e.g. https://api.example.com/v1"
+                  placeholder={customApiHint(cf.api).placeholder}
                   autoComplete="off" spellCheck="false"
                   aria-label="Base URL"
+                  aria-describedby="cf-url-hint"
                 />
+                <p className="prov-hint" id="cf-url-hint">{customApiHint(cf.api).urlHint}</p>
                 <input
                   type="password"
                   value={cf.key}
@@ -824,6 +826,23 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                       <option key={f.value} value={f.value}>{f.label}</option>
                     ))}
                   </select>
+                  {THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" || THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "args" ? (
+                    <textarea
+                      value={THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? cf.chatTemplateKwargs : cf.chatTemplateArgs}
+                      onChange={setField(THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? "chatTemplateKwargs" : "chatTemplateArgs")}
+                      rows={3}
+                      spellCheck="false"
+                      className="prov-json"
+                      placeholder={'{"thinking": {"$var": "thinking.enabled"}}'}
+                      aria-label={THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? "Chat template kwargs" : "Chat template args"}
+                    />
+                  ) : null}
+                  {THINKING_FORMAT_NEEDS[cf.thinkingFormat] ? (
+                    <p className="prov-hint">
+                      JSON sent as <code>{THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? "chat_template_kwargs" : "chat_template_args"}</code>.
+                      Use <code>{'{"$var": "thinking.enabled"}'}</code> (or thinking.effort / thinking.budget) to let pi decide the value.
+                    </p>
+                  ) : null}
                   <label className="prov-check">
                     <input type="checkbox" checked={cf.reasoningModel} onChange={setCheck("reasoningModel")} />
                     <span>Reasoning model — lets you pick thinking levels</span>

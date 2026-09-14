@@ -304,6 +304,9 @@
   transition: border-color .12s ease, color .12s ease;
 }
 .prov-level:hover { border-color: var(--accent); }
+/* The chat-template object editor: JSON, so mono and its own size, at the
+   form's control rhythm rather than a bespoke widget. */
+.prov-json { width: 100%; font-family: var(--mono); font-size: 11.5px; line-height: 1.45; }
 .prov-level.on { border-color: var(--accent); color: var(--accent); }
 .prov-level input[type="checkbox"] {
   width: 13px; height: 13px; padding: 0; flex: 0 0 auto;
