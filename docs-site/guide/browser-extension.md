@@ -1,9 +1,14 @@
+---
+description: Send the Chrome tab you are looking at to a PiCode agent you already created.
+---
+
 # Chrome extension
 
 Send the tab you are looking at to a PiCode agent — URL, title, selected
-text, optional screenshot. The agent is the one you already created. This
-is not a second chat, and it does not replace the isolated browser the
-agent uses for its own work.
+text, optional screenshot. The agent is the one you already created.
+
+- **Where:** load `ext/` in Chrome (`chrome://extensions`, Developer mode, Load unpacked), then `picode extension-install`.
+- **Not this:** not a second chat, and not the [work browser](/guide/browser-tool) the agent uses for its own work.
 
 ## Install
 

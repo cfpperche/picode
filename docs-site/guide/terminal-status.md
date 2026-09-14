@@ -1,21 +1,23 @@
+---
+description: The sidebar shows which CLI is present, when it is working, and when it needs you.
+---
+
 # Activity reporting for coding CLIs
 
 A coding CLI running inside a PiCode terminal can identify itself and
 report its lifecycle, so the sidebar shows **which CLI is present**, when it
-is **working**, and when it **needs you** (ADRs 0056 and 0062).
+is **working**, and when it **needs you**.
 
-PiCode does not read the terminal's pixels, and it does **not** write
-your `~/.claude`, `~/.codex`, `~/.grok`, `~/.hermes/config.yaml`,
-`~/.config/opencode`, or `~/.pi`.
+- **Where:** **Agent CLIs** → **Activity reporting**, from the last icon in the desktop sidebar header or from mobile **More**.
+- **Not this:** PiCode does not read the terminal's pixels, and it does not write your `~/.claude`, `~/.codex`, `~/.grok`, `~/.hermes/config.yaml`, `~/.config/opencode`, or `~/.pi`.
+
 You type `claude`, `codex`, `grok`, `hermes`, `opencode`, or `pi` as usual. Inside a
 PiCode terminal only, a wrapper on that session's PATH launches the real
 binary with the flags, extension, or overlay that CLI accepts. Hermes may
 still record PiCode's hook command in its own `shell-hooks-allowlist.json`
 when it auto-accepts session hooks.
 
-Turn on **Activity reporting** in **Agent CLIs**, opened from the last icon
-in the desktop sidebar header or from mobile **More**. The old Preferences
-address redirects there.
+The old Preferences address redirects here.
 Configured terminals use the switch on their next launch. Existing plain
 shells may need a new terminal to pick up the wrapper PATH; changing a switch
 does not interrupt them. See [Agent CLIs](agent-clis) for launch settings.
