@@ -14,6 +14,14 @@ tool is the owner's: open the desktop app, open a tab, ask for `snapshot`.
 Nothing in the daemon needed a restart (the install is a config write); the
 agent must restart to pick it up.
 
+Verified while installing: a real pi session in this workspace (SDK
+`createAgentSession`, project packages via `.pi/settings.json`) reports
+`browser` in `session.agent.state.tools` — the tool registers. The round trip
+is still open: `POST /api/browser/tool` with `snapshot` answered **"the desktop
+app is not connected"** (502), which is the honest daemon answer with no shell
+on the line. To see page content: run the desktop app, open a work-browser tab,
+then ask a restarted agent for `snapshot`.
+
 ## Next up
 
 - Owner: first runtime check of the browser tool (snapshot/screenshot/events).
