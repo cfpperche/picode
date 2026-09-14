@@ -2122,6 +2122,32 @@
         ]
       }
     },
+    "/api/browser/tool": {
+      "post": {
+        "operationId": "postApiBrowserTool",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      }
+    },
     "/api/canvases": {
       "get": {
         "operationId": "getApiCanvases",
