@@ -67,9 +67,6 @@ const PinStudio = lazy(() => import("./components/PinStudio.jsx"));
 // never opens the app should not carry it. It is a registry entry like any
 // other, and the tab mount wraps every native surface in a Suspense.
 const CanvasSurface = lazy(() => import("./components/canvas/CanvasSurface.jsx"));
-// The tmux app is lazy for the same reason (docs/plans/tmux-app.md): a
-// reader who never opens the server inventory carries none of it.
-const TmuxSurface = lazy(() => import("./components/tmux/TmuxSurface.jsx"));
 import { startPresence } from "@picode/shared/client/device.js";
 import { startReconnectWatch } from "@picode/shared/client/reconnect.js";
 import { startFeed, subscribeFeed, feedConnected } from "@picode/shared/client/feed.js";
@@ -128,7 +125,7 @@ import { useMedia } from "./lib/media.js";
 // Native app surfaces this shell compiled in (ADR-0109), by manifest id:
 // the hidden QA demo (the server lists it with PICODE_DEMO_APP=1) and the
 // Canvas, which arrives as a chunk of its own.
-const NATIVE_APPS = nativeApps({ "demo-native": NativeDemoSurface, canvas: CanvasSurface, tmux: TmuxSurface });
+const NATIVE_APPS = nativeApps({ "demo-native": NativeDemoSurface, canvas: CanvasSurface });
 // One frozen object, so a shell with no app subject published never makes a
 // new map and never re-runs the anchor effect.
 const EMPTY_SUBJECTS = Object.freeze({});
