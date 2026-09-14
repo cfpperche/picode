@@ -124,6 +124,14 @@ export function assemble(changelog, fragments) {
 
 // Commit time decides the order (a fresh clone gives every file the same
 // mtime); an uncommitted fragment falls back to its mtime.
+export function listFragmentPaths(root) {
+  const dir = join(root, "docs", "changelog.d");
+  return readdirSync(dir)
+    .filter((f) => f.endsWith(".md") && f !== "README.md")
+    .map((f) => join(dir, f))
+    .sort((a, b) => when(root, a) - when(root, b));
+}
+
 function when(root, f) {
   try {
     const t = execFileSync("git", ["log", "-1", "--format=%ct", "--", f], { cwd: root, stdio: ["ignore", "pipe", "ignore"] })
@@ -147,11 +155,7 @@ function main() {
     return;
   }
   const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-  const dir = join(root, "docs", "changelog.d");
-  const files = readdirSync(dir)
-    .filter((f) => f.endsWith(".md") && f !== "README.md")
-    .map((f) => join(dir, f))
-    .sort((a, b) => when(root, a) - when(root, b)); // oldest first; newest ends on top
+  const files = listFragmentPaths(root);
   if (!files.length) {
     console.log("changelog: no fragments in docs/changelog.d/");
     return;
