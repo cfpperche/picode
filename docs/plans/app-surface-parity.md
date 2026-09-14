@@ -175,3 +175,29 @@ handoff note.
   record this as an exception.
 - **D4 — Refresh.** Drop it (feed-driven, recommended) or keep it in the card
   toolbar.
+
+## 10. Outcome (2026-09-14, same session)
+
+Owner approved D1–D4 as recommended (`aprovado`). P1–P5 shipped in
+`web/browser/src/components/AppSurface.jsx` + `web/browser/src/styles/app.css`,
+plus four small things the plan did not spell out — each one a state the new
+frame made visible, not new scope:
+
+| Change | Why |
+|---|---|
+| `Refresh` **kept** in the card toolbar (D4) | the `.sessions-toolbar` route precedent, and tmux/docker state changes outside the feed's events; it sits beside `Close` at the head's right, not in the card's first row |
+| tmux tab badge `"21 · 21 unclaimed"` → `"21"` (Go, `internal/apps/tmux.go`) | the long sentence was the product's only badge breaking `primitives.Tab`'s "short count" contract, and an underline tab has no room for it; the unclaimed fact stays in the leftovers group's title and each row's `no record` badge. **Visible on the phone too** — the shared view's badge, disclosed to the owner |
+| a gone item (deep link to a removed one) → "This item is no longer in the list." + **Back to the list**, not the raw store text + `Try again` | `Try again` cannot succeed — the item is gone (ADR-0044 deep links make it easy to hit). Host-side: the apps answer 404, or 500 with `"not found"` |
+| the split's placeholder "Pick an item **on the left**" → "…from the list" | stacked ≤880px the list is above, not left |
+
+Evidence: `var/screenshots/` (docker page/group/detail, inbox page/split/detail/
+narrow/narrow-bottom/gone/recovered, tmux page/group/detail, desktop inbox,
+server-down) — read in this session, not committed. Overlay audit
+`{ok:true}` on `/browser/` and `/desktop/`, with the head's `data-align-row`
+sized 36/36. New guard: `web/tools/app-surface.test.mjs` (4 tests: page frame,
+underline tabs, one scrollbar, mobile untouched).
+
+**Debt named, not fixed:** `internal/server/apps.go` answers **500** for an
+app view whose entity is gone (`inbox: no view at …` / the store's `not found`)
+where 404 is the honest status; the host therefore matches on the message too
+(`docs/handoff/open/app-parity.md`).

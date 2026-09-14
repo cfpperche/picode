@@ -33,8 +33,10 @@ Inbox keeps its specialized route. Public instructions live in the
 Docker inventory groups containers by their exact Compose project label
 (ADR-0066); unlabeled containers appear last under Standalone containers.
 Named list blocks opt into native disclosure with stable `id` and
-`collapsible` fields. Group cards fill the available app canvas width,
-respecting its padding on desktop and phone. Counts summarize running/stopped
+`collapsible` fields. Group cards fill the card's width, respecting its
+padding on desktop and phone (2026-09-14: the surface is a page frame with
+the filter in the card, not a full-bleed canvas — the parity refactor in
+[docs/plans/app-surface-parity.md](../plans/app-surface-parity.md)). Counts summarize running/stopped
 and other actual states. The host stores each app/endpoint/project fold in
 browser preferences; new groups start closed. Search reveals matching groups and clearing it
 restores the saved folds. Presentation changes do not mutate the store or

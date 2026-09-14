@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api, humanizeError } from "@picode/shared/client/api.js";
@@ -8,8 +8,7 @@ import { relTime, absTime } from "@picode/shared/domain/relTime.js";
 import { askConfirm } from "../lib/confirm.js";
 import { toast, toastError } from "../lib/toast.js";
 import { filterListBlocks, countListItems } from "@picode/shared/domain/appSearch.js";
-import AppIcon from "./AppIcon.jsx";
-import { IconChevronLeft, IconChevronRight, IconCheck, IconClock, IconInbox, IconTrash, IconPackage } from "./Icons.jsx";
+import { IconChevronLeft, IconChevronRight, IconCheck, IconClock, IconTrash, IconPackage } from "./Icons.jsx";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { touches } from "@picode/shared/domain/feedReducers.js";
 import { createRefreshQueue } from "@picode/shared/domain/appRefreshQueue.js";
@@ -33,6 +32,10 @@ const LIST_KEY = "picode-app-split-w";
 // surface renders it with host components — chrome (header, split,
 // selection, timestamps) stays host-owned, and a tree this build can't
 // speak is refused, never guessed at.
+// The chrome is a **route page** (2026-09-14): .settings-wrap +
+// .settings-head + .settings-card, the same frame PageFrame draws, with the
+// view's own tabs as an underline nav inside the card. A list app is a page;
+// the canvas surfaces (terminal, file tree, git graph) keep their own.
 // paneMode (ADR-0044): the phone renders a split app as two screens —
 // "list" (rows + tabs + search; an item row calls onOpenItem instead of
 // selecting) and "detail" (one item's panes under the shell's own Back
@@ -43,10 +46,6 @@ const LIST_KEY = "picode-app-split-w";
 // native app ids (ADR-0109): a native app this build did not compile in
 // reaches this surface only by deep link and gets the honest line.
 export default function AppSurface({ appId, hidden, manifest, onClose, initialPath, onPathChange, refreshKey, paneMode, onOpenItem, onGoto, nativeSurfaces }) {
-  // Native radio `name` grouping is document-wide, not component-scoped —
-  // without a per-mount id, a second open app (or the same app reopened)
-  // would fight this one over which segment shows checked.
-  const tabsName = useId();
   // initialPath (ADR-0044): a deep link — the phone's #/inbox/<id> — lands
   // on that item instead of the list. Later changes to it navigate too.
   const [path, setPath] = useState(initialPath || "");
@@ -55,6 +54,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
   const [view, setView] = useState(null); // normalized tree
   const [unsupported, setUnsupported] = useState(false);
   const [error, setError] = useState("");
+  const [missing, setMissing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState("");
   const actionRef = useRef(false);
@@ -88,10 +88,21 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
       const raw = await api("/api/apps/" + encodeURIComponent(appId) + "/view" + (p ? "?path=" + encodeURIComponent(p) : ""));
       if (seq !== seqRef.current) return; // a newer load superseded this one
       const v = normalizeView(raw);
-      if (v) { setView(v); setUnsupported(false); setError(""); }
-      else { setView(null); setUnsupported(true); setError(""); }
+      if (v) { setView(v); setUnsupported(false); setError(""); setMissing(false); }
+      else { setView(null); setUnsupported(true); setError(""); setMissing(false); }
     } catch (e) {
-      if (seq === seqRef.current) setError(humanizeError(e.message || String(e)));
+      if (seq === seqRef.current) {
+        // A read of a path that is gone is not a *failing* read: the item was
+        // answered or removed elsewhere, and a stale deep link (ADR-0044) is
+        // the easy way to hit it. A retry cannot succeed, so the card offers
+        // the way back to the list and says so in a sentence — the raw store
+        // text ("not found") is a fragment. The apps report this as a 404 or
+        // as a not-found message (the inbox answers 500 with "not found",
+        // which internal/server/apps.go should map to 404 one day).
+        const gone = !!p && ((Number(e && e.status) || 0) === 404 || /^\s*not found\s*$/i.test(String((e && e.message) || "")));
+        setMissing(gone);
+        setError(gone ? "This item is no longer in the list." : humanizeError(e.message || String(e)));
+      }
     } finally {
       if (seq === seqRef.current) {
         setBusy(false);
@@ -250,109 +261,130 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
 
   if (paneMode === "detail") {
     return (
-      <section className="app-surface app-surface-detail" aria-label={title} hidden={!!hidden} ref={rootRef}>
-        <PendingNotice text={pending} />
-        {unsupported || badVersion ? (
-          <p className="ft-msg">This app needs a newer PiCode.</p>
-        ) : error ? (
-          <p className="ft-msg">{error}{" "}<button type="button" className="btn btn-sm" onClick={() => load(path)}>Try again</button></p>
-        ) : view === null ? (
-          <Skeleton />
-        ) : (
-          <div className="app-body">
-            {(split ? detailBlocks : view.blocks).length === 0 ? (
-              <Blank icon={manifest ? manifest.icon : ""} label={title} text={view.empty || "Nothing here."} />
+      <section className="app-surface" aria-label={title} hidden={!!hidden} ref={rootRef}>
+        <div className="settings-wrap">
+          <div className="settings-card app-card">
+            <PendingNotice text={pending} />
+            {unsupported || badVersion ? (
+              <p className="app-card-msg">This app needs a newer PiCode.</p>
+            ) : error ? (
+              <p className="app-card-msg">{error}{" "}<button type="button" className="btn btn-sm" onClick={() => (missing ? changePath("") : load(path))}>{missing ? "Back to the list" : "Try again"}</button></p>
+            ) : view === null ? (
+              <Skeleton />
             ) : (
-              <PaneBlocks blocks={split ? detailBlocks : view.blocks} ctx={ctx} badge={selectedRow} />
+              <div className="app-body">
+                {(split ? detailBlocks : view.blocks).length === 0 ? (
+                  <Blank text={view.empty || "Nothing here."} />
+                ) : (
+                  <PaneBlocks blocks={split ? detailBlocks : view.blocks} ctx={ctx} badge={selectedRow} />
+                )}
+              </div>
             )}
           </div>
-        )}
+        </div>
       </section>
     );
   }
   const listOnly = paneMode === "list";
+  // A path inside a stacked view needs its way back to the list; a split
+  // keeps the list in view, so it does not.
+  const backToRoot = !!path && !split && paneMode !== "list";
   return (
     <section className={"app-surface" + (split && !listOnly ? " app-surface-split" : "")} aria-label={title} hidden={!!hidden} ref={rootRef}>
-      <header className="ft-head">
-        {path && !split ? (
-          <button type="button" className="btn btn-sm btn-ghost app-back" title="Back" onClick={() => changePath("")}>
-            <IconChevronLeft size={13} />
-          </button>
-        ) : null}
-        <span className="app-head-icon"><AppIcon name={manifest ? manifest.icon : ""} label={title} size={14} /></span>
-        <h2 className="ft-title" title={title}>{title}</h2>
-        <div className="app-head-left" data-align-row>
-          <TabStrip tabs={view ? view.tabs : []} path={path} onNavigate={changePath} name={tabsName} />
-        </div>
-        {totalItems > 0 ? (
-          <span className="app-search-wrap">
-            <input
-              type="search"
-              className="app-search"
-              placeholder={`Filter ${title.toLowerCase()}`}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Escape" && query) { e.preventDefault(); setQuery(""); } }}
-              aria-label={`Filter ${title} by title or details`}
-            />
-          </span>
-        ) : null}
-        <span className="ft-spacer" />
-        <div className="app-head-right" data-align-row>
-          <button type="button" className="btn btn-sm btn-ghost" onClick={() => load(path)} disabled={busy}>
-            Refresh
-          </button>
-          {onClose ? (
-            <button type="button" className="btn btn-sm btn-ghost" onClick={onClose}>
-              Close
+      <div className="settings-wrap">
+        <header className="settings-head">
+          <h2 className="app-page-title" title={title}>{title}</h2>
+          <span className="ft-spacer" />
+          <div className="app-page-actions" data-align-row>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={() => load(path)} disabled={busy}>
+              Refresh
             </button>
-          ) : null}
-        </div>
-      </header>
-
-      <PendingNotice text={pending} />
-
-      {unsupported || badVersion ? (
-        <p className="ft-msg">
-          {badVersion && manifest.surface && manifest.apiVersion === SUPPORTED_API
-            ? <>This app needs a newer PiCode — its “{manifest.surface}” surface is not in this build.</>
-            : <>This app needs a newer PiCode — it speaks primitives v{badVersion ? manifest.apiVersion : "?"}, this build renders v{SUPPORTED_API}.</>}
-        </p>
-      ) : error ? (
-        <p className="ft-msg">
-          {error}{" "}
-          <button type="button" className="btn btn-sm" onClick={() => load(path)}>Try again</button>
-        </p>
-      ) : view === null ? (
-        <Skeleton />
-      ) : split && listOnly ? (
-        <div className="app-body">
-          {noMatches ? <SearchEmpty query={query} onClear={() => setQuery("")} /> : null}
-          {filteredBodyBlocks.map((b, i) => <AppBlock key={b.id || i} block={b} {...ctx} />)}
-          {listBlocks.length === 0 ? <Blank icon={manifest ? manifest.icon : ""} label={title} text={view.empty} /> : null}
-        </div>
-      ) : split ? (
-        <div className={"app-split" + (resizing ? " resizing" : "")}>
-          <div className="app-pane app-pane-list" style={stacked ? undefined : { flexBasis: listW }}>
-            {noMatches ? <SearchEmpty query={query} onClear={() => setQuery("")} /> : null}
-            {filteredBodyBlocks.map((b, i) => <AppBlock key={b.id || i} block={b} {...ctx} />)}
+            {onClose ? (
+              <button type="button" className="btn btn-sm btn-ghost" onClick={onClose}>
+                Close
+              </button>
+            ) : null}
           </div>
-          {stacked ? null : <div className="app-split-sizer" title="Drag to resize" onPointerDown={onSizerDown} />}
-          <div className="app-pane app-pane-detail" ref={detailRef}>
-            {detailBlocks.length === 0 ? (
-              <Blank icon={manifest ? manifest.icon : ""} label={title} text="Nothing selected — Pick an item on the left." />
-            ) : (
-              <PaneBlocks blocks={detailBlocks} ctx={ctx} badge={selectedRow} />
-            )}
-          </div>
+        </header>
+
+        <div className="settings-card app-card">
+          <PageTabs tabs={view ? view.tabs : []} path={path} onNavigate={changePath} />
+
+          <PendingNotice text={pending} />
+
+          {unsupported || badVersion ? (
+            <p className="app-card-msg">
+              {badVersion && manifest.surface && manifest.apiVersion === SUPPORTED_API
+                ? <>This app needs a newer PiCode — its “{manifest.surface}” surface is not in this build.</>
+                : <>This app needs a newer PiCode — it speaks primitives v{badVersion ? manifest.apiVersion : "?"}, this build renders v{SUPPORTED_API}.</>}
+            </p>
+          ) : error ? (
+            <p className="app-card-msg">
+              {error}{" "}
+              <button type="button" className="btn btn-sm" onClick={() => (missing ? changePath("") : load(path))}>
+                {missing ? "Back to the list" : "Try again"}
+              </button>
+            </p>
+          ) : view === null ? (
+            <Skeleton />
+          ) : (
+            <>
+              {/* Search sits in the card, not in the page head: the rows it
+                  filters live in the card (2026-09-14 parity). */}
+              {backToRoot || totalItems > 0 ? (
+                <div className="app-card-toolbar" data-align-row>
+                  {backToRoot ? (
+                    <button type="button" className="app-card-back" onClick={() => changePath("")}>
+                      <IconChevronLeft size={13} />
+                      {title}
+                    </button>
+                  ) : null}
+                  {totalItems > 0 ? (
+                    <input
+                      type="search"
+                      className="app-search"
+                      placeholder={`Filter ${title.toLowerCase()}`}
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Escape" && query) { e.preventDefault(); setQuery(""); } }}
+                      aria-label={`Filter ${title} by title or details`}
+                    />
+                  ) : null}
+                </div>
+              ) : null}
+
+              {split && listOnly ? (
+                <div className="app-body">
+                  {noMatches ? <SearchEmpty query={query} onClear={() => setQuery("")} /> : null}
+                  {filteredBodyBlocks.map((b, i) => <AppBlock key={b.id || i} block={b} {...ctx} />)}
+                  {listBlocks.length === 0 ? <Blank text={view.empty} /> : null}
+                </div>
+              ) : split ? (
+                <div className={"app-split" + (resizing ? " resizing" : "")}>
+                  <div className="app-pane app-pane-list" style={stacked ? undefined : { flexBasis: listW }}>
+                    {noMatches ? <SearchEmpty query={query} onClear={() => setQuery("")} /> : null}
+                    {filteredBodyBlocks.map((b, i) => <AppBlock key={b.id || i} block={b} {...ctx} />)}
+                  </div>
+                  {stacked ? null : <div className="app-split-sizer" title="Drag to resize" onPointerDown={onSizerDown} />}
+                  <div className="app-pane app-pane-detail" ref={detailRef}>
+                    {detailBlocks.length === 0 ? (
+                      <Blank text="Nothing selected — Pick an item from the list." />
+                    ) : (
+                      <PaneBlocks blocks={detailBlocks} ctx={ctx} badge={selectedRow} />
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="app-body">
+                  {noMatches ? <SearchEmpty query={query} onClear={() => setQuery("")} /> : null}
+                  {filteredBodyBlocks.map((b, i) => <AppBlock key={b.id || i} block={b} {...ctx} />)}
+                  {view.blocks.length === 0 ? <Blank text={view.empty} /> : null}
+                </div>
+              )}
+            </>
+          )}
         </div>
-      ) : (
-        <div className="app-body">
-          {noMatches ? <SearchEmpty query={query} onClear={() => setQuery("")} /> : null}
-          {filteredBodyBlocks.map((b, i) => <AppBlock key={b.id || i} block={b} {...ctx} />)}
-          {view.blocks.length === 0 ? <Blank icon={manifest ? manifest.icon : ""} label={title} text={view.empty} /> : null}
-        </div>
-      )}
+      </div>
     </section>
   );
 }
@@ -374,28 +406,30 @@ function PaneBlocks({ blocks, ctx, badge }) {
   );
 }
 
-// A segmented filter strip, optional per view (ADR-0036: an additive View
-// field, not a new block type). Radio group, not a tablist: the owner's
-// call — a button-group read clearer than an underline once it sat in the
-// header next to the search box. `name` must be per-mount (native radios
-// group by name across the whole document, not per component) — the
-// caller passes a useId() value. Reuses the same onNavigate/path plumbing
-// a list row's Path already drives, so no new wiring exists just for tabs.
-function TabStrip({ tabs, path, onNavigate, name }) {
+// The view's own tabs, optional per view (ADR-0036: an additive View field,
+// not a new block type), as one underline nav inside the card — the Agent
+// CLIs rhythm (.cli-tabs). It was a segmented radio group while it sat in
+// the app's own toolbar; on a page frame the product has one tab idiom
+// (2026-09-14, owner's call). Buttons, not links: navigation is this
+// surface's own state and the host owns the hash.
+function PageTabs({ tabs, path, onNavigate }) {
   if (!tabs || tabs.length === 0) return null;
   const active = activeAppTab(tabs, path);
   return (
-    <div className="app-tabs" role="radiogroup" aria-label="Filter" data-align-row>
+    <nav className="app-page-tabs" aria-label="Views">
       {tabs.map((t) => (
-        <label className="app-tab-opt" key={t.id}>
-          <input type="radio" name={name} checked={t.id === active} onChange={() => onNavigate(t.path)} onClick={() => { if (t.id === active && path !== t.path) onNavigate(t.path); }} />
-          <span className="app-tab-face">
-            {t.label}
-            {t.badge ? <span className="app-tab-badge">{t.badge}</span> : null}
-          </span>
-        </label>
+        <button
+          key={t.id}
+          type="button"
+          className="app-page-tab"
+          aria-current={t.id === active ? "page" : undefined}
+          onClick={() => onNavigate(t.path)}
+        >
+          {t.label}
+          {t.badge ? <span className="app-tab-count">{t.badge}</span> : null}
+        </button>
       ))}
-    </div>
+    </nav>
   );
 }
 
@@ -421,15 +455,16 @@ function Skeleton() {
 }
 
 // The app names its own emptiness (view.empty); the host owns how a
-// blankslate looks — a quiet mark, one line, no call to action.
-function Blank({ icon, label, text }) {
+// blankslate looks — one line, where the reader is already looking, the same
+// idiom a route's empty state uses (.mcp-empty), never a poster centred in
+// the card.
+function Blank({ text }) {
   const line = text || "Nothing here yet.";
   const [head, ...rest] = line.split(" — ");
   return (
-    <div className="app-blank">
-      {icon ? <AppIcon name={icon} label={label} size={24} /> : <IconInbox size={24} />}
-      <p className="app-blank-title">{head}</p>
-      {rest.length ? <p className="app-blank-sub">{rest.join(" — ")}</p> : null}
+    <div className="app-empty">
+      <p className="app-empty-title">{head}</p>
+      {rest.length ? <p className="app-empty-sub">{rest.join(" — ")}</p> : null}
     </div>
   );
 }
