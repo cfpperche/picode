@@ -85,8 +85,11 @@ export default function TermSurface({ term, error, hidden, autoFocus = true, onO
   const meta = [cli, last ? session : "no session to resume", last ? relTime(last.updatedAt) : ""].filter(Boolean).join(" · ");
   const metaTitle = last ? [oneLine(last.preview), absTime(last.updatedAt)].filter(Boolean).join(" · ") : "";
   const attempt = term && term.launchAttempt && term.launchAttempt.error ? term.launchAttempt.error : "";
+  // An empty pane is app chrome and follows the app theme; the class moves
+  // the ground off the terminal's own (see .term-surface.is-empty).
+  const empty = !!(error || (term && term.launchCli && !term.running));
   return (
-    <section className="term-surface" hidden={!!hidden} aria-label={term ? term.name : "Terminal"} onKeyDown={onKey}>
+    <section className={"term-surface" + (empty ? " is-empty" : "")} hidden={!!hidden} aria-label={term ? term.name : "Terminal"} onKeyDown={onKey}>
       {error ? (
         <TermMessage tone="warn" icon={<IconWarn size={18} />} head={error}>
           <a className="btn" href="#/system">Open System</a>

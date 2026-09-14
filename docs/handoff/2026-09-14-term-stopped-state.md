@@ -15,10 +15,10 @@ real click on Resume, dark/dark, light/light, 640px pane, 256×224 probe, phone
 errors), quiet action clicked → `#/clis`. Shots `var/screenshots/final-*.png`.
 
 visual-review: PASS — the pane says what stopped and what Resume continues; the
-screenshot caught a real defect (app tokens on a pane ground that follows the
-*terminal* theme → invisible text in a light app with the default dark
-terminal), fixed with `--term-*` per terminal theme; under 300px the mark goes
-and actions stack (Canvas panel minimum 256×224).
+first cut inked the message per *terminal* theme, the owner ruled the empty
+pane is app chrome and follows the app theme (a light app had a black well), so
+the pane carries `is-empty`, the ground is `--bg-base` and app tokens returned;
+under 300px the mark goes and actions stack (Canvas panel minimum 256×224).
 
 Debts: mobile `Terminal.jsx` keeps its own "That terminal is gone." /
 "Attaching…" states in `m-tool-state`. A Canvas panel bound to a stopped CLI
