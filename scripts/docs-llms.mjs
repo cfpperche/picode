@@ -33,6 +33,7 @@ const outPath = outIdx >= 0 ? argv[outIdx + 1] : join(docsSite, "public", "llms.
 const CURATED = [
   ["Start", "index.md", "What is PiCode"],
   ["Start", "guide/getting-started.md", "Getting started"],
+  ["Start", "guide/from-source.md", "From source"],
   ["Start", "guide/files.md", "Files and changes"],
   ["Use", "guide/index.md", "Use"],
   ["Use", "guide/agent-clis.md", "Agent CLIs"],
