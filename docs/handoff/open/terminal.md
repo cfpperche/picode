@@ -17,3 +17,8 @@
   `feat/tmux-isolation` / `feat/tmux-app` are in this code now — whoever lands
   first owns this line.
 - tmux: never kill by prefix (a prefix sweep killed 29 sessions in 2026-09-06) — exact names from a fixture's API only; a scratch whose daemon dies before `qa-scratch stop` strands its shells.
+- **`TestCLITerminalResumeDecisionTable` is red too** (`cli_launch_test.go:358`,
+  `resume argv=["--default"]`): deterministic on a clean `main` (`02d9f792`,
+  single test, `-count=1`, no shards). Not the peer-stop line above and not
+  recorded anywhere else — found by `feat/tmux-app` (2026-09-13). `make ci`
+  cannot be green until both are resolved.
