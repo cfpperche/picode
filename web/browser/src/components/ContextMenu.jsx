@@ -3,7 +3,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import {
   IconChat, IconChevronRight, IconClear, IconClip, IconCollapse, IconCopy, IconExpand, IconExternal, IconFile, IconFolders,
-  IconAgent, IconGit, IconMonitor, IconTerminal, IconMoon, IconPaste, IconPencil, IconReload, IconScrollEnd, IconSelectAll,
+  IconAgent, IconGit, IconGlobe, IconMonitor, IconTerminal, IconMoon, IconPaste, IconPencil, IconReload, IconScrollEnd, IconSelectAll,
   IconSearch, IconSettings, IconSun, IconTextSize, IconTrash, IconX, IconPlus,
 } from "./Icons.jsx";
 import { isEditableTarget, insertAtCaret } from "../lib/contextMenuClipboard.js";
@@ -20,7 +20,7 @@ const TERM_ICONS = {
   copy: IconCopy, paste: IconPaste, select: IconSelectAll, ask: IconChat, clip: IconClip,
   file: IconFile, external: IconExternal, end: IconScrollEnd, text: IconTextSize,
   clear: IconClear, search: IconSearch, pencil: IconPencil, settings: IconSettings, folders: IconFolders,
-  x: IconX, trash: IconTrash, expand: IconExpand, collapse: IconCollapse,
+  x: IconX, trash: IconTrash, expand: IconExpand, collapse: IconCollapse, globe: IconGlobe,
 };
 
 // The one PiCode context menu. Anchored to the cursor through a zero-size

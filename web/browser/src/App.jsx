@@ -545,6 +545,7 @@ export default function App({ shellChrome = false } = {}) {
             cli: record && record.launchCli ? terminalCliLabel(record.launchCli) : "",
             running: !!(record && record.running),
             shell: !!record && !record.launchCli && !terminalCli(record),
+            splitOn: pane.kind === "agent" ? !!agentPanesRef.current[pane.id] : false,
           },
         });
         return;
@@ -1627,6 +1628,18 @@ export default function App({ shellChrome = false } = {}) {
   // elsewhere. Meta (url/title) is mirrored up for the tab strip.
   const [webTabs, setWebTabs] = useState({});
   const webSeqRef = useRef(0);
+  // Agent split (ADR-0135, slice 1): an agent tab can host a work-browser
+  // pane beside it. agentId -> web id ("w:<id>" without prefix). Layout
+  // only — the daemon binding is slice 2.
+  const [agentPanes, setAgentPanes] = useState({});
+  const agentPanesRef = useRef(agentPanes);
+  agentPanesRef.current = agentPanes;
+  function openAgentSplit(agentId) {
+    webSeqRef.current += 1;
+    const id = String(webSeqRef.current);
+    setWebTabs((m) => ({ ...m, [id]: { url: "", title: "" } }));
+    setAgentPanes((p) => ({ ...p, [agentId]: id }));
+  }
   function openWebTab(url) {
     if (parseRoute(location.hash) !== "workspace") location.hash = "#/";
     webSeqRef.current += 1;
@@ -2209,6 +2222,12 @@ export default function App({ shellChrome = false } = {}) {
     files: (ctx) => openTreeTab("term", ctx.id, ctx.record ? ctx.record.name : ""),
     "close-tab": (ctx) => closeTab(termTabId(ctx.id)),
     remove: (ctx) => removeTerminal(ctx.record),
+    "open-browser": (ctx) => openAgentSplit(ctx.id),
+    "close-browser": (ctx) => {
+      const wid = agentPanesRef.current[ctx.id];
+      if (wid) window.__TAURI__?.core.invoke("btab_close", { id: wid }).catch(() => {});
+      setAgentPanes(({ [ctx.id]: _gone, ...rest }) => rest);
+    },
   };
 
   async function renameTerminal(t) {
@@ -3054,7 +3073,7 @@ export default function App({ shellChrome = false } = {}) {
       </div>
 
       <main id="main">
-        <div id="workspace-view" className={"workspace-view" + (isTermTab(selectedId) ? " term-on" : "") + (isFileTab(selectedId) ? " file-on" : "") + (isGitTab(selectedId) ? " git-on" : "") + (isTreeTab(selectedId) ? " tree-on" : "") + (isAppTab(selectedId) ? " app-on" : "") + (showHome ? " dashboard-on" : "")} hidden={onPane}>
+        <div id="workspace-view" className={"workspace-view" + (isTermTab(selectedId) ? " term-on" : "") + (isFileTab(selectedId) ? " file-on" : "") + (isGitTab(selectedId) ? " git-on" : "") + (isTreeTab(selectedId) ? " tree-on" : "") + (isAppTab(selectedId) ? " app-on" : "") + (showHome ? " dashboard-on" : "") + (agentPanes[selectedId] ? " agent-split-on" : "")} hidden={onPane}>
           {!shellChrome && tabsStrip}
 
           <div id="empty" className="empty" hidden={!(missing || (noTabs && !hasData))}>
@@ -3431,6 +3450,17 @@ export default function App({ shellChrome = false } = {}) {
               ) : null,
             }}
           />
+
+          {agentPanes[selectedId] ? (
+            <WebTabSurface
+              key={"split-" + selectedId}
+              tabId={"w:" + agentPanes[selectedId]}
+              active={true}
+              hidden={noTabs || missing || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId)}
+              className="agent-split-pane"
+              onMeta={(m) => setWebTabs((cur) => ({ ...cur, [agentPanes[selectedId]]: { ...cur[agentPanes[selectedId]], ...m } }))}
+            />
+          ) : null}
 
           {termView && !onPane && agent ? (
             agent.mode === "interactive" ? (

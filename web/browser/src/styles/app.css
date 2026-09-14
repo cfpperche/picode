@@ -1761,6 +1761,14 @@ img.ws-face.term-cli-face {
   position: relative; background: var(--bg-base);
 }
 .web-tab-surface[hidden] { display: none !important; }
+/* Agent split (ADR-0135 slice 1): the agent pane and its bound work-browser
+   pane share the tab side by side; both stay visible while either has
+   focus. Hidden surfaces keep display:none, so row layout only ever sees
+   the active agent pane and the browser pane. */
+.workspace-view.agent-split-on { flex-direction: row; }
+.workspace-view.agent-split-on .chat-surface,
+.workspace-view.agent-split-on .term-surface { flex: 1 1 50%; min-width: 0; }
+.web-tab-surface.agent-split-pane { flex: 1 1 50%; min-width: 0; border-left: 1px solid var(--border, #232329); }
 .web-tab-toolbar {
   display: flex; align-items: center; gap: 6px; flex: none;
   padding: 5px 8px; border-bottom: 1px solid var(--border);

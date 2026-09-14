@@ -10,7 +10,7 @@ import { toast } from "../lib/toast.js";
 // this surface.
 const invoke = typeof window !== "undefined" && window.__TAURI__ ? window.__TAURI__.core.invoke : null;
 
-export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew, onBrowserSettings }) {
+export default function WebTabSurface({ tabId, active, hidden, className = "", onMeta, onNew, onBrowserSettings }) {
   const id = tabId.slice(2);
   const [urlDraft, setUrlDraft] = useState("");
   const [started, setStarted] = useState(false);
@@ -104,7 +104,7 @@ export default function WebTabSurface({ tabId, active, hidden, onMeta, onNew, on
   }
 
   return (
-    <section className="web-tab-surface" hidden={hidden} aria-label="Work browser">
+    <section className={"web-tab-surface" + (className ? " " + className : "")} hidden={hidden} aria-label="Work browser">
       <div className="web-tab-toolbar">
         <button type="button" title="Back" onClick={() => invoke("btab_back", { id }).catch(() => {})}>←</button>
         <button type="button" title="Forward" onClick={() => invoke("btab_forward", { id }).catch(() => {})}>→</button>

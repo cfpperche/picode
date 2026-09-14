@@ -150,3 +150,13 @@ test("every terminal pane offers fullscreen, with the chord and the verb it will
 test("a shell too narrow to host the mode drops the row instead of greying it", () => {
   assert.equal(ids(buildTermMenu({ kind: "term", focusable: false })).includes("fullscreen"), false);
 });
+
+test("agent pane offers the browser split; own terminal does not (ADR-0135 slice 1)", () => {
+  const ids = (rows) => rows.filter((r) => r && r.id).map((r) => r.id);
+  assert.ok(ids(buildTermMenu({ kind: "agent" })).includes("open-browser"));
+  assert.ok(!ids(buildTermMenu({ kind: "agent" })).includes("close-browser"));
+  assert.ok(ids(buildTermMenu({ kind: "agent", splitOn: true })).includes("close-browser"));
+  assert.ok(!ids(buildTermMenu({ kind: "agent", splitOn: true })).includes("open-browser"));
+  const own = ids(buildTermMenu({ kind: "term", shell: true }));
+  assert.ok(!own.includes("open-browser") && !own.includes("close-browser"));
+});

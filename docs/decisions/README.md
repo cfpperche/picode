@@ -139,3 +139,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0132](0132-browser-command-channel.md) | browser-command-channel | accepted |
 | [0133](0133-tmux-app.md) | The tmux app — PiCode reads the whole tmux server, and acts only on sessions it can attribute | accepted; surface amended 2026-09-14 (primitives, not native) |
 | [0134](0134-browser-default-policy.md) | browser-default-policy | accepted (amends 0128) |
+| [0135](0135-agent-browser-binding.md) | agent-browser-binding | proposed |

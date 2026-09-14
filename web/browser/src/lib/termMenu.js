@@ -102,6 +102,15 @@ export function buildTermMenu(ctx = {}) {
   }
   rows.push(SEP, ...view);
 
+  // The owner's split (ADR-0135): an agent's pane can host a work-browser
+  // pane beside it, bound to that agent. A terminal of its own has no agent
+  // to bind, so the row — open or close, one toggle — is agent-pane only.
+  if (ctx.kind === "agent") {
+    rows.push(SEP, ctx.splitOn
+      ? { id: "close-browser", label: "Close browser split", icon: "x" }
+      : { id: "open-browser", label: "Open browser", icon: "globe" });
+  }
+
   if (own) {
     const ownRows = [
       { id: "rename", label: "Rename terminal…", icon: "pencil" },
