@@ -24,6 +24,40 @@
 .m-tool-action-count { margin-left: auto; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .m-tool-state { display: flex; align-items: flex-start; flex-direction: column; gap: 12px; padding: 16px var(--m-pad, 14px); color: var(--text-secondary); font-size: 13px; }
 .m-tool-state p { margin: 0; overflow-wrap: anywhere; }
+/* The terminal pane with no terminal in it (TermSurface): a stopped CLI
+   terminal, or one that refused to open. It was a sentence and a button in
+   the top-left corner; it is an empty state now, the same anatomy the
+   desktop pane draws (web/browser TermSurface, .term-msg there) in one
+   column, because a phone has no width to pair two buttons and the meta row
+   (the pinned conversation a Resume would continue) is the one thing a
+   reader checks before tapping. The pane carries is-empty, so the ground is
+   the app's (--bg-base) and the app tokens are the inks in both themes. */
+.term-msg {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; padding: 20px var(--m-pad, 14px); text-align: center; line-height: 1.45;
+  color: var(--text-secondary);
+}
+.term-msg-mark {
+  display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 4px;
+  border: 1px solid var(--border); border-radius: var(--radius-panel);
+  background: var(--bg-panel); color: var(--text-secondary);
+}
+.term-msg[data-tone="warn"] .term-msg-mark {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 40%, var(--border));
+  background: color-mix(in srgb, var(--warn) 8%, var(--bg-panel));
+}
+.term-msg-head { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.term-msg-meta {
+  margin: 0; max-width: 100%; font-family: var(--mono); font-size: 12px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.term-msg-why { margin: 0; max-width: 56ch; font-size: 13px; }
+.term-msg-why.is-danger { color: var(--danger); }
+.term-msg-acts { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 360px; margin-top: 12px; }
+.term-msg-spin { animation: dash-spin 900ms linear infinite; }
+@media (prefers-reduced-motion: reduce) { .term-msg-spin { animation: none; } }
 .m-tool-loading .gg-skel { display: block; height: 12px; width: 85%; }
 .m-tool-loading .gg-skel:nth-last-child(2) { width: 64%; }
 .m-tool-loading .gg-skel:last-child { width: 42%; }
