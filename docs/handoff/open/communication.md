@@ -4,7 +4,6 @@ The owner kept Activate now gated on a recorded session; remote mode stays out o
 
 ## Next
 
-- Investigate grok attention Enter withheld under load: capture the composer state between paste and Enter, find which check refuses (fit, cursor, frame), fix or accept. Owner-approved top of the queue (`docs/plans/communication-onboarding.md`, matrix section).
 - Owner: deploy — several main commits (incl. `fc464e40`, `e7cca0f9`) are past the 17:06Z deploy of `eed2e3e`.
 
 ## Debts

@@ -1,9 +1,16 @@
+---
+description: Let an agent read the page open in PiCode's work browser.
+---
+
 # Browser tools for pi
 
 Let an agent read the page open in PiCode's own work browser: its structure,
 a screenshot, or what the tab recorded. The agent never names a browser
 command — it asks for one of three verbs, and PiCode decides what that means
 and whether this agent may do it.
+
+- **Where:** install `pi-browser` ([Packages](/guide/packages)). The agent then uses snapshot, screenshot or events on the work-browser tab.
+- **Not this:** not the [Chrome extension](/guide/browser-extension). That sends *your* Chrome tab to an agent. This page is the isolated browser the agent already has.
 
 `pi-browser` is an **optional pi package — an extension, not part of PiCode
 core**. It reaches the daemon over the same authenticated API every other

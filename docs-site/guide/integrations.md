@@ -1,8 +1,14 @@
+---
+description: Connect MCP servers on a CLI and PiCode webhooks. Neither changes your provider account.
+---
+
 # Integrations
 
 Connectors live on the selected CLI in **Agent CLIs**. Webhooks stay under
-PiCode (**Webhooks** in the user menu). Neither changes your LLM provider
-account.
+PiCode (**Webhooks** in the user menu).
+
+- **Where:** **Agent CLIs → Connectors** for MCP; user menu → **Webhooks** for incoming URLs.
+- **Not this:** not [Providers](/guide/providers) (API keys). Connector details: [MCP](/guide/mcp).
 
 ## Connect a service
 

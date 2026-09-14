@@ -40,6 +40,16 @@ test("the card owns the filter, and the card owns no padding of its own", () => 
   assert.match(css, /\.app-surface \{[^}]*overflow-y: auto;/);
 });
 
+test("a list-pane actions row rides the card toolbar, right of the filter", () => {
+  // Inbox's "Clear all done" declares Pane "list": it is the list's bulk
+  // action, so the host draws it in the toolbar row, not under the list.
+  // Detail-pane rows and unpaned rows (empty states) keep their places.
+  assert.match(browser, /b\.type === "actions" && b\.pane === "list"/);
+  assert.match(browser, /className="app-card-bulk"/);
+  // The lifted row must not render twice: the list pane maps the filtered list.
+  assert.doesNotMatch(browser, /filteredBodyBlocks\.map/);
+});
+
 test("the phone keeps its own AppSurface", () => {
   // The parity refactor is desktop/browser only: mobile's copy is a separate
   // file with its own full-width layout and must not have gained the frame.

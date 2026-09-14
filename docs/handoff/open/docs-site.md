@@ -4,5 +4,4 @@ Plan: `docs/benchmarks/2026-09-14-librechat-docs.md`
 
 ## Next
 
-- Feature-page rhythm on Tools guides.
 - Configuration overview (one workflow, then tables) and MCP cookbook (`guide/mcp.md` as index, one page per shipped connector).

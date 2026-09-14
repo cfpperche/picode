@@ -123,6 +123,106 @@ export function writeTreeOwners(map) {
   }
 }
 
+const SPLIT_KEY = "picode-agent-splits";
+const SPLIT_URLS_KEY = "picode-agent-split-urls";
+const splitEmpty = () => ({ panes: {}, ratios: {}, max: {}, urls: {} });
+const clampPct = (n) => Math.min(80, Math.max(20, Math.round(n)));
+const cleanPaneId = (v) => {
+  const id = String(v ?? "");
+  return /^\d+$/.test(id) ? id : "";
+};
+
+// The agent split (ADR-0135): which agent tab hosts a work-browser pane,
+// the dragged width, the maximized flag and the last url per pane. Kept in
+// localStorage so a shell relaunch brings the panes back at the same page
+// (owner directive 2026-09-14). A pane id is the shell's webview id, which
+// restarts at zero every session — the caller seeds its sequence from here.
+export function readAgentSplits() {
+  const out = splitEmpty();
+  try {
+    const j = JSON.parse(localStorage.getItem(SPLIT_KEY) || "null");
+    if (j && typeof j === "object" && !Array.isArray(j)) {
+      for (const [key, id] of Object.entries(j.panes || {})) {
+        const wid = cleanPaneId(id);
+        if (key && wid) out.panes[key] = wid;
+      }
+      for (const [key, pct] of Object.entries(j.ratios || {})) {
+        if (key in out.panes && Number.isFinite(pct)) out.ratios[key] = clampPct(pct);
+      }
+      for (const [key, on] of Object.entries(j.max || {})) {
+        if (key in out.panes && on === true) out.max[key] = true;
+      }
+    }
+    const u = JSON.parse(localStorage.getItem(SPLIT_URLS_KEY) || "null");
+    if (u && typeof u === "object" && !Array.isArray(u)) {
+      for (const [id, url] of Object.entries(u)) {
+        const wid = cleanPaneId(id);
+        if (wid && url) out.urls[wid] = String(url);
+      }
+    }
+  } catch {
+    return splitEmpty();
+  }
+  return out;
+}
+
+export function writeAgentSplits({ panes, ratios, max } = {}) {
+  try {
+    const p = {};
+    for (const [key, id] of Object.entries(panes || {})) {
+      const wid = cleanPaneId(id);
+      if (key && wid) p[key] = wid;
+    }
+    const r = {};
+    for (const [key, pct] of Object.entries(ratios || {})) {
+      if (key in p && Number.isFinite(pct)) r[key] = clampPct(pct);
+    }
+    const m = {};
+    for (const [key, on] of Object.entries(max || {})) if (key in p && on === true) m[key] = true;
+    localStorage.setItem(SPLIT_KEY, JSON.stringify({ panes: p, ratios: r, max: m }));
+  } catch {
+    /* private mode, quota — the split simply will not survive a relaunch */
+  }
+}
+
+export function writeAgentSplitUrls(urls) {
+  try {
+    const u = {};
+    for (const [id, url] of Object.entries(urls || {})) {
+      const wid = cleanPaneId(id);
+      if (wid && url) u[wid] = String(url);
+    }
+    localStorage.setItem(SPLIT_URLS_KEY, JSON.stringify(u));
+  } catch {
+    /* private mode, quota */
+  }
+}
+
+// A split only exists while its host tab does: boot drops the panes whose
+// agent or terminal did not come back, and the urls with them. `tabExists`
+// is the caller's predicate over the pruned strip.
+export function filterAgentSplits(splits, tabExists) {
+  const s = splits || splitEmpty();
+  const panes = {};
+  for (const [key, id] of Object.entries(s.panes || {})) {
+    if (tabExists(key)) panes[key] = id;
+  }
+  const ratios = {};
+  for (const [key, pct] of Object.entries(s.ratios || {})) {
+    if (key in panes) ratios[key] = pct;
+  }
+  const max = {};
+  for (const [key, on] of Object.entries(s.max || {})) {
+    if (key in panes && on === true) max[key] = true;
+  }
+  const urls = {};
+  const live = new Set(Object.values(panes));
+  for (const [id, url] of Object.entries(s.urls || {})) {
+    if (live.has(id)) urls[id] = url;
+  }
+  return { panes, ratios, max, urls };
+}
+
 const DASH_RANGE_KEY = "picode-dash-range";
 const DASH_RANGES = ["today", "7d", "30d", "all"];
 
