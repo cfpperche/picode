@@ -1,3 +1,7 @@
+---
+description: See every tmux session on the machine, including ones PiCode no longer knows.
+---
+
 # tmux sessions
 
 PiCode runs every terminal and every interactive agent inside a tmux session,
@@ -5,8 +9,8 @@ so closing the browser or restarting the daemon does not kill your work. The
 **tmux** app shows the whole server those sessions live on — including the ones
 PiCode no longer knows anything about.
 
-Open it from **Apps → tmux** on the desktop or **More → Apps → tmux** on a
-phone.
+- **Where:** **Apps → tmux** on the desktop, or **More → Apps → tmux** on a phone.
+- **Not this:** not the terminal tab itself. This is the list of sessions on the machine, including orphans.
 
 > **What is tmux?** A program that keeps terminals running after you close the
 > window you were watching them in. PiCode uses it so an agent survives a

@@ -1,7 +1,13 @@
+---
+description: Inspect and operate Docker from PiCode, using the server user's connection.
+---
+
 # Docker and sysadmin tools
 
-Open **Apps → Docker** on desktop or **More → Apps → Docker** on a phone.
 The app uses the Docker connection available to the PiCode server's user.
+
+- **Where:** **Apps → Docker** on desktop, or **More → Apps → Docker** on a phone.
+- **Not this:** not how you [install PiCode](/guide/getting-started). PiCode never starts Docker or changes socket permissions.
 
 ## Connect Docker
 

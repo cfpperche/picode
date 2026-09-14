@@ -1,11 +1,17 @@
+---
+description: What the browser keeps, what PiCode can bind, and what to do about the overlap.
+---
+
 # Keyboard and browser shortcuts
 
 PiCode runs in a browser tab, and the browser keeps some key combinations
 for itself: `Ctrl+T` opens a new tab, `Ctrl+W` closes it, and no web page
 can change that. Agent CLIs (Codex, Claude Code, Grok, OpenCode, Hermes,
 pi) use those same keys — Codex, for example, opens its MCP details with
-`Ctrl+T`. This page shows what works where, and what to do about the few
-keys the browser keeps.
+`Ctrl+T`.
+
+- **Where:** this page is the map. Remap PiCode chords in **Agent CLIs → Keyboard**.
+- **Not this:** PiCode cannot steal `Ctrl+T` or `Ctrl+W` from the browser. Those never reach the page.
 
 ## What the browser keeps for itself
 
