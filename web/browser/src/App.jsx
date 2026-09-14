@@ -57,7 +57,7 @@ import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
-import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId, webHash, webRoute } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
 import { nativeApps, nativeSurfaceFor } from "./lib/nativeApps.js";
@@ -1014,6 +1014,21 @@ export default function App({ shellChrome = false } = {}) {
     // The effect above is replacing this hash; resolving it would flash the
     // gone tab for the one commit before `hashchange` arrives.
     if (renamedAppHash(hash)) return;
+    const fromWeb = webRoute(hash);
+    if (fromWeb) {
+      // A web tab address selects (or restores) that tab. The id may exceed
+      // this session's sequence after a reload — adopt it so the next
+      // openWebTab never mints a colliding id.
+      const wid = "w:" + fromWeb;
+      setGoneId((g) => (g ? "" : g));
+      if (selectedRef.current !== wid) {
+        setTabs((t) => (t.includes(wid) ? t : [...t, wid]));
+        setWebTabs((m) => (m[fromWeb] ? m : { ...m, [fromWeb]: { url: "", title: "" } }));
+        webSeqRef.current = Math.max(webSeqRef.current, Number(fromWeb) || 0);
+        setSelectedId(wid);
+      }
+      return;
+    }
     const tid = termRoute(hash);
     if (tid) {
       if (terminals.some((t) => t.id === tid)) {
@@ -1114,11 +1129,13 @@ export default function App({ shellChrome = false } = {}) {
     // the router to #/agent/g:… — wait for the map instead.
     if (isGitTab(selectedId) && !gitOwner) return;
     if (isTreeTab(selectedId) && !treeOwner) return;
-    // Web tabs own no hash: they are session-scoped native surfaces. The
-    // workspace fallback below would read "w:<id>" as an agent id, fail to
-    // locate it and mark the tab gone ("That agent is gone", 2026-09-13).
-    if (isWebTab(selectedId)) return;
-    const want = isTermTab(selectedId)
+    // Web tabs are session-scoped native surfaces, but they own an address
+    // now (#/web/<id>): skipping the write entirely (2026-09-13) stopped the
+    // "That agent is gone" loop but left the read side re-resolving the
+    // previous tab's hash and yanking the selection back (2026-09-14).
+    const want = isWebTab(selectedId)
+      ? webHash(tabWebId(selectedId))
+      : isTermTab(selectedId)
       ? termHash(tabTermId(selectedId))
       : isAppTab(selectedId)
         ? appHash(tabAppId(selectedId), appRoute(location.hash) === tabAppId(selectedId) ? appPath(location.hash) : "")
@@ -1135,7 +1152,7 @@ export default function App({ shellChrome = false } = {}) {
     // them to #/ once the fleet loaded — found by scripts/docs-shots.mjs,
     // which navigates cold to #/automations and never saw the view.
     if (parseRoute(location.hash) !== "workspace") return;
-    if (!agentRoute(location.hash) && !termRoute(location.hash) && !fileRoute(location.hash) && !gitRoute(location.hash) && !treeRoute(location.hash) && !appRoute(location.hash) && selectedId) {
+    if (!agentRoute(location.hash) && !termRoute(location.hash) && !fileRoute(location.hash) && !gitRoute(location.hash) && !treeRoute(location.hash) && !appRoute(location.hash) && !webRoute(location.hash) && selectedId) {
       history.replaceState(null, "", want);
       setHash(want);
       return;
@@ -1161,6 +1178,15 @@ export default function App({ shellChrome = false } = {}) {
   function openTab(id, list) {
     setDashboardPinned(false);
     if (isTermTab(id)) { openTermTab(tabTermId(id)); return; }
+    if (isWebTab(id)) {
+      // Session-scoped native surface: no owner to locate — the 2026-09-14
+      // regression fell through to the agent lookup and returned silently,
+      // so clicking a browser tab in the strip never selected it.
+      setGoneId("");
+      setSelectedId(id);
+      setTabs((t) => (t.includes(id) ? t : [...t, id]));
+      return;
+    }
     if (isGitTab(id) || isTreeTab(id) || isAppTab(id)) {
       setGoneId("");
       setSelectedId(id);
