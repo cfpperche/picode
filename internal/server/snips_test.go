@@ -469,3 +469,29 @@ func TestSnipExpandAndRun(t *testing.T) {
 		t.Fatalf("missing run = %d %v", code, out)
 	}
 }
+
+// GET /api/snips/templates (snippets v2, F6): the starters ship with the
+// binary, so the door must answer without a store row — and must not be
+// swallowed by GET /api/snips/{id}.
+func TestSnipTemplates(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+
+	code, out := snipJSON(t, ts.URL, http.MethodGet, "/api/snips/templates", nil)
+	if code != http.StatusOK {
+		t.Fatalf("templates: got %d", code)
+	}
+	items, _ := out["items"].([]any)
+	if len(items) < 6 {
+		t.Fatalf("expected at least six starters, got %d", len(items))
+	}
+	for _, raw := range items {
+		item, _ := raw.(map[string]any)
+		body, _ := item["body"].(string)
+		if body == "" {
+			t.Fatalf("starter %v has an empty body", item["id"])
+		}
+		if _, err := snips.Parse(body); err != nil {
+			t.Fatalf("starter %v does not parse: %v", item["id"], err)
+		}
+	}
+}

@@ -50,6 +50,7 @@ not bump `updated_at`.
 | Method | Path |
 |---|---|
 | GET | `/api/snips` live list; `?archived=1`; `?q=` search |
+| GET | `/api/snips/templates` built-in starters — code, not rows (`internal/snips/templates.go`, the `automate.Templates` pattern); static paths before `/{id}` |
 | GET | `/api/snips/picker` live kind `prompt` (static path, not an id) |
 | POST | `/api/snips` |
 | GET/PATCH/DELETE | `/api/snips/{id}` |
@@ -76,6 +77,8 @@ projection that writes back into it (`setDefaultInBody`).
 | Live validation | parse on every keystroke; inline error naming the first problem; Save disabled **with visible reason**; table and Try-it dim to the last good parse |
 | Placeholder table | one row per placeholder — Default / Optional / Enum (comma list, ≤32 × 80); reserved names lose the controls and say "from the target" |
 | Try it | sample value per placeholder (enum → `<select>`), body expanded in the browser; required-but-empty names are listed as "will prompt when it runs" |
+| Starters | `GET /api/snips/templates` — six starters; the grid is open on an empty page and a remembered `<details>` once rows exist (Automations pattern). Clicking one hands the body, tags, kind and a derived slug to the editor as a draft with origin `starter` |
+| Duplicate | a row action and a detail button: reads the snippet (a row carries no body), then hands `title + " copy"`, slug `<slug>-copy` (locked) and the body over as origin `duplicate` |
 | Enums | held in editor state, sent in `placeholders[]`; they ride the draft alongside the body |
 
 ### Capture and import (v2)
