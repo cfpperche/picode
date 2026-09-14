@@ -55,7 +55,15 @@ export default defineConfig({
             items: [
               { text: "Agent CLIs", link: "/guide/agent-clis" },
               { text: "Packages", link: "/guide/packages" },
-              { text: "MCP", link: "/guide/mcp" },
+              {
+                text: "MCP",
+                link: "/guide/mcp",
+                collapsed: false,
+                items: [
+                  { text: "Gmail", link: "/guide/mcp-gmail" },
+                  { text: "DeepWiki", link: "/guide/mcp-deepwiki" },
+                ],
+              },
               { text: "llama.cpp", link: "/guide/llama" },
               { text: "Automations", link: "/guide/automations" },
               { text: "Snippets", link: "/guide/snippets" },
