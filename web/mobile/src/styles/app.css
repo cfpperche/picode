@@ -628,6 +628,14 @@ img.ws-face.term-cli-face {
   opacity: 0.45; cursor: default; filter: none;
 }
 .btn-ghost { background: transparent; }
+/* A phone has no hover: a destructive button has to read destructive at rest,
+   or the only warning is the tap itself. */
+.btn-danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+.btn-danger:active { background: color-mix(in srgb, var(--danger) 20%, transparent); }
 .btn-danger:hover { border-color: var(--danger); color: var(--danger); }
 .chip {
   font-family: var(--mono); font-size: 10.5px; color: var(--text-secondary);

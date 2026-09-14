@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
+	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/snips"
 	"github.com/cfpperche/picode/internal/store"
@@ -302,6 +303,117 @@ func TestSnipRunShellIntoTerminal(t *testing.T) {
 	})
 }
 
+// The shell door refuses to type into a repository another PiCode agent or
+// terminal is writing in — the rule Run command… in a terminal already
+// follows. The preview stays allowed: it types nothing, and the sheet has to
+// show the command before a human can confirm it.
+// What counts as "a snippet ran" for the feed is a boundary, not an accident:
+// the notice is published after the run route has identified a snippet, so a
+// request for an id that does not exist (or a malformed body) is not a run and
+// stays out of the feed, while a snippet that ran and failed — here because its
+// target is gone — is published with ok:false. Pinned because the defer that
+// publishes it sits after those early returns, which reads like an oversight
+// until a test says otherwise.
+func TestSnipRanFeedBoundary(t *testing.T) {
+	st := testStore(t)
+	f := &feed.Feed{Store: st}
+	var got []string
+	f.Listen(func(ev store.Event) {
+		if ev.Type == "snip.ran" {
+			got = append(got, string(ev.Data))
+		}
+	})
+	ts := httptest.NewServer(New("127.0.0.1:0", Deps{Store: st, Feed: f}).Handler)
+	t.Cleanup(ts.Close)
+
+	p, err := st.CreateSnip(store.SnipParams{Title: "Ask", Body: "look at {{x}}"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A snippet that does not exist: no run, no notice.
+	code, _ := snipJSON(t, ts.URL, http.MethodPost, "/api/snips/nope/run", map[string]any{
+		"target": map[string]string{"type": "agent", "id": "a1"},
+	})
+	if code != http.StatusNotFound {
+		t.Fatalf("missing snippet = %d, want 404", code)
+	}
+	if len(got) != 0 {
+		t.Fatalf("the feed logged a run for a snippet that does not exist: %v", got)
+	}
+
+	// A snippet that ran and could not deliver: published, with ok:false.
+	code, _ = snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+p.ID+"/run", map[string]any{
+		"target": map[string]string{"type": "agent", "id": "gone"},
+	})
+	if code == http.StatusOK {
+		t.Fatalf("run into a missing agent = %d, want a failure", code)
+	}
+	if len(got) != 1 {
+		t.Fatalf("feed notices = %v, want exactly one", got)
+	}
+	if !strings.Contains(got[0], `"ok":false`) || !strings.Contains(got[0], p.ID) {
+		t.Fatalf("notice = %s, want ok:false with the snippet id", got[0])
+	}
+}
+
+func TestSnipRunShellRefusesBusyRepository(t *testing.T) {
+	t.Cleanup(resetPromptInFlight)
+	repo := gitRepo(t)
+	st := testStore(t)
+	ws, agent, err := storeWorkspaceWithAgent(st, "App", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	term, err := st.CreateTerminalIn(ws.ID, "QA", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := st.CreateSnip(store.SnipParams{Title: "Deploy", Kind: "shell", Body: "echo hi in {{cwd}}"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(New("127.0.0.1:0", Deps{
+		Store: st, Tmux: tmux.New(), Runtime: rpc.NewRuntime("cat", st, nil), AgentCmd: "cat",
+		TermRuntimes: NewTermRuntimes(),
+	}).Handler)
+	t.Cleanup(ts.Close)
+	paste := fakeTmuxBin(t)
+	swapProbes(t, map[string]string{}, map[string]string{agent.ID: "mid-turn"})
+
+	send := func(extra map[string]any) (int, map[string]any) {
+		t.Helper()
+		req := map[string]any{"target": map[string]string{"type": "terminal", "id": term.ID}, "confirm": true}
+		for k, v := range extra {
+			req[k] = v
+		}
+		return snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+p.ID+"/run", req)
+	}
+
+	code, out := send(map[string]any{"preview": true})
+	if code != http.StatusOK || out["preview"] != true {
+		t.Fatalf("preview while busy = %d %v, want 200 preview", code, out)
+	}
+	if raw, err := os.ReadFile(paste); err == nil && len(raw) > 0 {
+		t.Fatalf("the preview delivered: %q", raw)
+	}
+
+	code, out = send(nil)
+	if code != http.StatusConflict || out["reason"] != "busy" {
+		t.Fatalf("busy repository = %d %v, want 409 busy", code, out)
+	}
+	busy, _ := out["busy"].([]any)
+	if len(busy) != 1 || busy[0].(map[string]any)["id"] != agent.ID || busy[0].(map[string]any)["kind"] != "agent" {
+		t.Fatalf("busy list = %v, want the agent", busy)
+	}
+	if msg, _ := out["error"].(string); !strings.HasSuffix(msg, " is mid-turn in this repository.") {
+		t.Fatalf("busy message = %q", msg)
+	}
+	if raw, err := os.ReadFile(paste); err == nil && len(raw) > 0 {
+		t.Fatalf("the command was delivered into a busy repository: %q", raw)
+	}
+}
+
 func TestSnipRunIntoTerminal(t *testing.T) {
 	newHarness := func(t *testing.T) (*store.Store, *httptest.Server, store.Terminal, store.Snip) {
 		t.Helper()
@@ -535,4 +647,70 @@ func TestSnipSlugAvailability(t *testing.T) {
 	if got := free("/api/snips/slug/review-pr"); got == http.StatusNotFound {
 		t.Fatal("the slug route was matched by /api/snips/{id}")
 	}
+}
+
+// Three layers now guard a snips body, and the test has to tell them apart:
+// under the limit it is stored, a body past the store's 100 KB is refused by
+// the store ("body is too long"), and a request past the decode cap is refused
+// before validation ever sees it ("invalid JSON body"). Without the cap the
+// last row is a 400 too — same status, different layer — so the message is the
+// evidence that the cap is what stopped it.
+func TestSnipDecodeIsCapped(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+
+	code, out := snipJSON(t, ts.URL, http.MethodPost, "/api/snips", map[string]any{
+		"title": "Existing", "body": "one",
+	})
+	if code != http.StatusOK {
+		t.Fatalf("create = %d %v", code, out)
+	}
+	id, _ := out["id"].(string)
+
+	post := func(method, path, body string) (int, map[string]any) {
+		t.Helper()
+		req, _ := http.NewRequest(method, ts.URL+path, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		res := do(t, http.DefaultClient, req)
+		defer res.Body.Close()
+		var parsed map[string]any
+		_ = json.NewDecoder(res.Body).Decode(&parsed)
+		return res.StatusCode, parsed
+	}
+	bodyOf := func(n int) string {
+		return `{"title":"sized","body":"` + strings.Repeat("x", n) + `"}`
+	}
+
+	// Just past the store's limit: the store refuses it, and says so.
+	code, out = post(http.MethodPost, "/api/snips", bodyOf(100_001))
+	if code != http.StatusBadRequest || !strings.Contains(errText(out), "body is too long") {
+		t.Fatalf("past the store limit = %d %v, want 400 body is too long", code, out)
+	}
+	// Past the decode cap: refused before validation, so the message is the
+	// decoder's, not the store's.
+	code, out = post(http.MethodPost, "/api/snips", bodyOf(snipDecodeLimit))
+	if code != http.StatusBadRequest || !strings.Contains(errText(out), "invalid JSON body") {
+		t.Fatalf("past the cap = %d %v, want 400 invalid JSON body", code, out)
+	}
+	code, out = post(http.MethodPatch, "/api/snips/"+id, bodyOf(snipDecodeLimit))
+	if code != http.StatusBadRequest || !strings.Contains(errText(out), "invalid JSON body") {
+		t.Fatalf("oversized PATCH = %d %v, want 400 invalid JSON body", code, out)
+	}
+
+	// Nothing was written by any refused request.
+	code, out = snipJSON(t, ts.URL, http.MethodGet, "/api/snips", nil)
+	if code != http.StatusOK {
+		t.Fatalf("list = %d %v", code, out)
+	}
+	list, _ := out["snips"].([]any)
+	if len(list) != 1 {
+		t.Fatalf("after refused requests the store holds %d snippets, want 1", len(list))
+	}
+	if first, _ := list[0].(map[string]any); first["title"] != "Existing" {
+		t.Fatalf("the existing snippet changed: %v", first)
+	}
+}
+
+func errText(out map[string]any) string {
+	s, _ := out["error"].(string)
+	return s
 }

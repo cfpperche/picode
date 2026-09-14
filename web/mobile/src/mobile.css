@@ -487,3 +487,10 @@ html[data-bottombar="edge"] #m-app { bottom: calc(-1 * env(safe-area-inset-top, 
 .m-pin-label { font-size: 12px; color: var(--text-secondary); }
 .m-snip-preview { display: flex; flex-direction: column; gap: 4px; }
 .m-snip-preview pre { margin: 0; }
+
+/* Managing one snippet on the phone: archive and delete, the two actions the
+   desk has and the phone had no way to reach. */
+.m-snip-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.m-snip-actions .btn { height: 36px; }
+.m-snip-views { display: flex; flex-wrap: wrap; gap: 8px; }
+.m-snip-views .btn { height: 36px; }
