@@ -110,6 +110,7 @@ export default function Pins() {
           onKeyDown={(e) => { if (e.key === "Escape") setQ(""); }}
         />
       </label>
+      <div className="side-scroll">
       {pins.length === 0 ? (
         <p className="side-empty pins-empty">{empty}</p>
       ) : (
@@ -137,6 +138,7 @@ export default function Pins() {
           {archivedCount} archived
         </button>
       ) : null}
+      </div>
     </div>
   );
 }
