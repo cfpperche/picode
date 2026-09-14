@@ -227,10 +227,30 @@ with no grant reads **the tab the human has on screen**, and
 `act`/`full` or any other origin needs an explicit per-agent grant (the
 setting `browser.policy.<agent>`; the editor that writes it is slice 4).
 
-Still open: slice 4 — the grants editor (Settings ▸ Browser: the tier ×
-domains table), the `act` verbs that a grant unlocks, and the navigation gate
-(`NavigationStarting` cancels an agent-caused load of an origin outside the
-grant) — the catalog gate alone does not stop a page from being loaded.
+Increment 4.1 (2026-09-13, `feat/browser-grants`): the act vocabulary and the
+destination rule. `evaluate` (`Runtime.evaluate`) and `navigate`
+(`Page.navigate`) are the first act verbs, so a grant now buys something real:
+`browser.AllowsOrigin` — http/https only, exact host, `*.example.com` or
+`.example.com` for subdomains, port ignored; the table is written in
+`internal/browser/domains.go` and every row of it is a test — and the route
+checks the one verb with a destination before the command leaves. Params now
+travel from the tool to the shell (`Command.Params` was already in the
+channel; the tool request had no field), which also fixed `events since`,
+silently dropped until now.
+
+Caller scope (owner, 2026-09-13 — v1 stays Pi-only): the tool is a pi package,
+so it is reachable from wherever that package is visible. A **managed agent**
+reports its id and therefore has a grant of its own; a **pi TUI** (in a PiCode
+terminal or started by the user) has no id, resolves to the default, and reads
+the tab on screen. The difference is identity, not connectivity, and gating on
+a missing id would be cosmetic — the same process can assert one (ADR-0134).
+User-facing: `docs-site/guide/browser-tool.md`.
+
+Still open in slice 4: the grants editor (Settings ▸ Browser — the tier ×
+domains table; the write path is `browser.Save`), and the shell-side
+navigation gate (`NavigationStarting` cancels an agent-caused load of an
+origin outside the grant, using the same rule as `AllowsOrigin` — the shell
+must mirror it, or the two disagree).
 
 ## Conscious debt
 

@@ -78,6 +78,17 @@ inventory with the uncertainty written on it, plus a human confirming one row.
   decision table, the absence list, the marker/constant pin), the app's
   manifest test, the boundary row.
 
+### Amendment — 2026-09-14: primitives, not a native surface
+
+The owner's production screenshot showed the native body drawn **on top of the
+Docker app** (the component never applied the mount's `hidden`), and named the
+UI/UX deviation from the app this was modeled on. The body moved back to the
+frozen vocabulary on the Docker mold — phase 1+2 now live as `View`/`Action`
+(`internal/apps/tmux.go`), `/api/tmux/*` and the desktop component/CSS/chunk
+are deleted, `apps.Host` grows `Tmux TmuxServer` + `LostSessions`, and the
+phone gains the app. Decision table, markers and audit event unchanged
+(ADR-0133's amendment has the full argument).
+
 ## 4. Phases
 
 | Phase | Content | State |

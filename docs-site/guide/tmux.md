@@ -5,9 +5,8 @@ so closing the browser or restarting the daemon does not kill your work. The
 **tmux** app shows the whole server those sessions live on — including the ones
 PiCode no longer knows anything about.
 
-Open it from **Apps → tmux** on the desktop. A phone lists it as desktop only:
-the phone has no room for a server inventory, and every session in it can be
-reached from the terminals it already shows.
+Open it from **Apps → tmux** on the desktop or **More → Apps → tmux** on a
+phone.
 
 > **What is tmux?** A program that keeps terminals running after you close the
 > window you were watching them in. PiCode uses it so an agent survives a
@@ -24,13 +23,15 @@ Every session on the machine's tmux server, in four kinds:
 | **Not PiCode's** | Your own tmux session, from your own shell. Read-only here: PiCode never touches it. |
 | **exited** | The session's process ended. With PiCode's settings a dead process usually takes its session with it, so this is rare and worth looking at. |
 
-Click a row to expand it: the full session name, the folder it runs in, the
-command, how long it has been up, and how many browsers or clients are attached
-right now.
+Click a row to open its own page: the full session name, the folder it runs
+in, the command, how long it has been up, and how many browsers or clients are
+attached right now. A session PiCode knows opens its terminal or agent from
+there.
 
 ## Removing a leftover
 
-A session under **Not in PiCode's records** offers **Remove**. It stops
+A session under **Not in PiCode's records** offers **Remove this session** on
+its own page. It stops
 whatever is still running inside that session — the work in it is lost — so it
 asks first, and it re-reads the session before acting: if the session changed
 between the page being drawn and your click, nothing happens and the page
@@ -39,7 +40,8 @@ refreshes.
 Removal is never automatic and never a bulk action. There is no "clean up
 everything" button on purpose: a session PiCode cannot attribute may be another
 PiCode's live work, and the only thing that can settle that is you looking at
-it.
+it. Before acting, PiCode re-reads the session — if it changed between the
+page being drawn and your click, nothing happens and the page refreshes.
 
 ## Server
 

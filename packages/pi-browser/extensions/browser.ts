@@ -80,10 +80,19 @@ export default function piBrowser(pi: ExtensionAPI) {
 			"It cannot act on the page: clicking and navigation need a per-agent grant (Settings ▸ Browser).",
 		],
 		parameters: Type.Object({
-			verb: Type.Union([Type.Literal("snapshot"), Type.Literal("screenshot"), Type.Literal("events")], {
-				description: "snapshot | screenshot | events",
-			}),
+			verb: Type.Union(
+				[
+					Type.Literal("snapshot"),
+					Type.Literal("screenshot"),
+					Type.Literal("events"),
+					Type.Literal("evaluate"),
+					Type.Literal("navigate"),
+				],
+				{ description: "snapshot | screenshot | events | evaluate | navigate (the last two need a grant)" },
+			),
 			since: Type.Optional(Type.Number({ description: "events only: the last sequence number you saw" })),
+			expression: Type.Optional(Type.String({ description: "evaluate only: the JavaScript expression to run" })),
+			url: Type.Optional(Type.String({ description: "navigate only: the destination; its origin must be in the grant" })),
 		}),
 		async execute(_toolCallId, params) {
 			const dataDir = resolveDataDir(process.env, homedir());
@@ -98,7 +107,7 @@ export default function piBrowser(pi: ExtensionAPI) {
 			const body = JSON.stringify({
 				agent: (process.env.PICODE_AGENT_ID || "").trim(),
 				verb: params.verb,
-				since: params.since,
+				params: { since: params.since, expression: params.expression, url: params.url },
 			});
 			let answer: { status: number; text: string };
 			try {

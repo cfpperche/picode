@@ -2,8 +2,7 @@
 - **The tmux app: every session on your tmux server, in one screen.** PiCode
   runs every terminal and interactive agent in tmux on your own server, and
   until now a session with no terminal or agent behind it was invisible in the
-  product — you had to leave PiCode and run `tmux ls` to find it. Apps → tmux
-  now shows the whole server: PiCode's sessions (with **Open**), sessions no
+  product — you had to leave PiCode and run `tmux ls` to find it. Apps → tmux (on the phone, More → Apps) now shows the whole server: PiCode's sessions (with **Open**), sessions no
   longer in PiCode's records, and your own tmux sessions beside them, marked as
   not PiCode's and left alone. A row expands to the folder, command, uptime and
   attached clients; the **Server** tab carries the version, socket, client

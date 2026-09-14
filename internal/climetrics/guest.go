@@ -118,7 +118,7 @@ func (a *guestAcc) add(e guestEntry) {
 	a.seen[SigErrors] += e.results
 	a.turns.Errors += e.errs
 
-	day := e.at.In(a.loc).Format("2006-01-02")
+	day := a.req.SeriesKey(e.at)
 	db := a.byDay[day]
 	if db == nil {
 		db = &session.DayBucket{Date: day}

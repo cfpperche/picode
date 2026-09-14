@@ -84,6 +84,49 @@ export function customThinkingLevels(defs) {
   return [...DEFAULT_THINKING_LEVELS];
 }
 
+// mergeModelIds folds what an endpoint listed into the ids a person already
+// typed: ids already there stay where they are, new ones are appended in the
+// endpoint's order, and nothing is ever removed or reordered. Returns the new
+// text plus how many ids it added (the dialog reports the count); a list that
+// adds nothing is not an error, it just has nothing to say.
+export function mergeModelIds(text, found) {
+  const lines = String(text || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const have = new Set(lines);
+  let added = 0;
+  for (const m of found || []) {
+    const id = String((m && m.id) || "").trim();
+    if (!id || have.has(id)) continue;
+    have.add(id);
+    lines.push(id);
+    added++;
+  }
+  return { text: lines.join("\n"), added };
+}
+
+// agreedModelLimits answers the one context window and max output the form can
+// honestly write for a whole list: a number every listed model reports and
+// every one agrees on. One model is a special case of that rule, and a list
+// where they differ returns nothing — writing the largest window onto a model
+// that has a smaller one would be a lie pi then acts on.
+export function agreedModelLimits(found) {
+  const models = (found || []).filter((m) => m && m.id);
+  if (!models.length) return {};
+  const agreed = (key) => {
+    const first = Number(models[0][key]) || 0;
+    if (!first) return null;
+    for (const m of models) {
+      if ((Number(m[key]) || 0) !== first) return null;
+    }
+    return first;
+  };
+  const out = {};
+  const contextWindow = agreed("contextWindow");
+  if (contextWindow) out.contextWindow = contextWindow;
+  const maxTokens = agreed("maxTokens");
+  if (maxTokens) out.maxTokens = maxTokens;
+  return out;
+}
+
 // customTakenIds lists the ids a new definition may not claim: every
 // built-in provider in the catalog plus every other custom definition.
 export function customTakenIds(catalogProviders, exceptId) {

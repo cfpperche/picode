@@ -1,7 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { deltaPercent, fleetStats, rangeLabel, compareLabel, formatTokens, percent, tokenSegments, dayLabel, folderLabel,
+import { deltaPercent, fleetStats, rangeLabel, compareLabel, formatTokens, percent, tokenSegments, bucketLabel, folderLabel,
   measured, signalState, coversAll, coverageNote, billingBadge, formatDuration, resetsIn, costPerTurn, costPerLine, spendState,
+  limitReading, observedAge,
   FLEET_WORKING, FLEET_NEEDS_YOU, FLEET_IDLE, FLEET_UNREPORTED, FLEET_ORDER, FLEET_LABELS } from "./dashboardStats.js";
 
 describe("deltaPercent", () => {
@@ -123,7 +124,7 @@ describe("formatTokens / percent", () => {
   });
 });
 
-describe("tokenSegments / dayLabel", () => {
+describe("tokenSegments / bucketLabel", () => {
   it("splits four slices in a fixed order summing to 100", () => {
     const s = tokenSegments({ input: 10, output: 10, cacheRead: 70, cacheWrite: 10 });
     assert.equal(s.total, 100);
@@ -135,8 +136,15 @@ describe("tokenSegments / dayLabel", () => {
     assert.ok(tokenSegments({}).parts.every((p) => p.pct === 0));
   });
   it("labels a series day in local time", () => {
-    assert.match(dayLabel("2026-08-25"), /25/);
-    assert.equal(dayLabel("nope"), "nope");
+    assert.match(bucketLabel("2026-08-25"), /25/);
+    assert.equal(bucketLabel("nope"), "nope");
+  });
+  // range=today is bucketed by hour, and the key says so: no second flag, and
+  // an older client that never learned the shape still prints the key.
+  it("labels an hour key by its clock hour", () => {
+    assert.equal(bucketLabel("2026-09-13T00"), "00:00");
+    assert.equal(bucketLabel("2026-09-13T14"), "14:00");
+    assert.equal(bucketLabel("2026-09-13T23"), "23:00");
   });
 });
 
@@ -226,6 +234,33 @@ describe("formatDuration", () => {
   });
 });
 
+describe("limitReading / observedAge", () => {
+  const now = Date.parse("2026-09-14T12:00:00Z");
+  const at = (iso) => iso;
+  it("is current while the window it describes is still open", () => {
+    assert.equal(limitReading({ resetsAt: "2026-09-20T00:00:00Z" }, now), "current");
+  });
+  // The failure this exists for: a reading whose window has already reset next
+  // to a countdown would present a past window's usage as the current one.
+  it("is expired once the window it describes has reset", () => {
+    assert.equal(limitReading({ resetsAt: "2026-09-14T11:59:00Z" }, now), "expired");
+    assert.equal(limitReading({ resetsAt: "2026-09-14T12:00:00Z" }, now), "expired");
+  });
+  it("is unknown without a reset time rather than guessing either way", () => {
+    assert.equal(limitReading({}, now), "unknown");
+    assert.equal(limitReading({ resetsAt: "not a date" }, now), "unknown");
+    assert.equal(limitReading(null, now), "unknown");
+  });
+  it("measures how old the snapshot is", () => {
+    assert.equal(observedAge({ observedAt: "2026-09-14T09:00:00Z" }, now), 3 * 3600 * 1000);
+    assert.equal(observedAge({ observedAt: "2026-09-14T13:00:00Z" }, now), 0, "a reading from the future is not negative age");
+    assert.equal(observedAge({}, now), null);
+    assert.equal(observedAge({ observedAt: at("") }, now), null);
+  });
+});
+
+// resetsIn is the other half of that contract: it must never claim a window
+// resets in the future when its reset instant is already past.
 describe("resetsIn", () => {
   const now = Date.parse("2026-09-07T12:00:00Z");
   it("is empty without a reset time", () => {

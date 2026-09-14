@@ -2,7 +2,7 @@
 
 ## Next
 
-- P1: **Load models** — server fetches `GET {baseUrl}/models` with the key; 401/402/404 name the fix. P2: URL hints per API type (Anthropic-compatible wants no `/v1`).
+- P2: URL hints per API type in the form itself (the loader already retries `/v1` and says so on a 404, but the base-URL field still does not hint that an Anthropic-compatible endpoint wants no `/v1`).
 - P4: Verify that spends a real cheap request (Cursor/Raycast bar) — owner call, changes server semantics.
 - Other CLIs (Claude Code, Codex, Grok) have their own custom-endpoint files; each needs its own plan.
 

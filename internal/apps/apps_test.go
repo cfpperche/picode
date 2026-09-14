@@ -68,23 +68,28 @@ func TestCanvasApp(t *testing.T) {
 	}
 }
 
-// The tmux app (docs/plans/tmux-app.md): the server-wide inventory. A
-// native surface like the Canvas — no badge (a badge would run a tmux
-// subprocess on every grid render), one honest primitives line, no action:
-// its data lives under /api/tmux and only the desktop renders its body.
+// The tmux app (docs/plans/tmux-app.md; ADR-0133 as amended 2026-09-14): the
+// server inventory as a PRIMITIVES app on the Docker mold — no native body,
+// no badge, and the frozen vocabulary doing the rendering. The amendment is
+// the point of the manifest assertions: a surface field here would put the
+// custom component back over other tabs.
 func TestTmuxApp(t *testing.T) {
 	a, ok := NewRegistry(BuiltIns(false)...).Find("tmux")
 	if !ok {
 		t.Fatalf("tmux missing from BuiltIns(false)")
 	}
 	m := a.Manifest()
-	if m.ID != "tmux" || m.Name != "tmux" || m.Icon != "tmux" || m.APIVersion != APIVersion || m.Surface != SurfaceNative {
+	if m.ID != "tmux" || m.Name != "tmux" || m.Icon != "tmux" || m.APIVersion != APIVersion {
 		t.Fatalf("tmux manifest = %+v", m)
+	}
+	if m.Surface != "" {
+		t.Fatalf("tmux manifest Surface = %q, want primitives (the 2026-09-14 amendment)", m.Surface)
 	}
 	ctx := context.Background()
 	if b, err := a.Badge(ctx, Host{}); err != nil || b != (Badge{}) {
 		t.Fatalf("Badge = %+v, %v (want none)", b, err)
 	}
+	// No tmux source: the honest blankslate, never a 500.
 	v, err := a.View(ctx, Host{}, "")
 	if err != nil {
 		t.Fatalf("View error: %v", err)
@@ -92,11 +97,11 @@ func TestTmuxApp(t *testing.T) {
 	if err := v.Validate(); err != nil {
 		t.Fatalf("View invalid: %v", err)
 	}
-	if len(v.Blocks) != 1 || !strings.Contains(v.Blocks[0].Markdown, "tmux opens on the desktop") {
-		t.Fatalf("View = %+v", v)
+	if v.Empty == "" || len(v.Blocks) != 0 {
+		t.Fatalf("View = %+v, want the blankslate", v)
 	}
-	if _, err := a.Action(ctx, Host{}, ActionRequest{Action: "reap"}); err == nil {
-		t.Fatalf("Action = nil error, want refusal (the app acts through /api/tmux)")
+	if _, err := a.Action(ctx, Host{}, ActionRequest{Action: "open"}); err == nil {
+		t.Fatalf("Action = nil error, want refusal")
 	}
 }
 

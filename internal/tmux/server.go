@@ -64,6 +64,17 @@ type ServerSession struct {
 	CurrentPath    string
 }
 
+// AbsentTerminal is one terminal whose expected session is not on the
+// server — the absence list the tmux app renders, with the flight
+// recorder's verdict (ADR-0085) attached.
+type AbsentTerminal struct {
+	ID            string
+	Name          string
+	Session       string
+	WorkspaceID   string
+	LostAtRestart bool
+}
+
 // ServerInfo is the server itself: what is running, where its socket lives,
 // and the two settings PiCode depends on the user's tmux.conf not breaking.
 type ServerInfo struct {

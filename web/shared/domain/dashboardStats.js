@@ -198,11 +198,17 @@ export function tokenSegments(tokens) {
   return { total, parts: parts.map((p) => ({ ...p, pct: total ? (100 * p.value) / total : 0 })) };
 }
 
-// dayLabel: "Aug 25" for a YYYY-MM-DD series key, without letting Date
-// parse it as UTC midnight (which would shift it a day in the Americas).
-export function dayLabel(ymd) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd || "");
-  if (!m) return ymd || "";
+// bucketLabel: the axis and tooltip label for one series key. The server
+// sends calendar days ("Aug 25") and, when the window is a single day, hours
+// of that day ("14:00") — the key states its own granularity, so this reads it
+// instead of being told. Day keys are never fed to Date as UTC midnight, which
+// would shift them a day in the Americas.
+export function bucketLabel(key) {
+  const s = String(key || "");
+  const hour = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/.exec(s);
+  if (hour) return hour[4] + ":00";
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return s;
   return new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
@@ -367,6 +373,29 @@ export function resetsIn(resetsAt, now) {
   if (hours < 1) return "resets in " + Math.max(1, Math.round(diff / 60000)) + "m";
   if (hours < 48) return "resets in " + hours + "h";
   return "resets in " + Math.round(hours / 24) + "d";
+}
+
+// limitReading describes what a quota snapshot can still claim. A quota
+// percentage is a *reading of a window*, not a sum over a period: Codex
+// writes it on an event, and the window it describes ends at resetsAt. Once
+// that instant is past, the number belongs to a window that no longer exists
+// — showing it beside "resets in 6d" would present a stale figure as the
+// current state, which is the failure ADR-0097 refuses for cost.
+//   "current" — read inside the window it describes
+//   "expired" — the window it describes has already reset
+//   "unknown" — the payload carries no reset time to judge by
+export function limitReading(limit, now) {
+  const reset = Date.parse((limit && limit.resetsAt) || "");
+  if (!Number.isFinite(reset)) return "unknown";
+  return reset <= (now || Date.now()) ? "expired" : "current";
+}
+
+// observedAge is how long ago the CLI wrote this reading, in milliseconds, or
+// null when the payload carries no observation time.
+export function observedAge(limit, now) {
+  const at = Date.parse((limit && limit.observedAt) || "");
+  if (!Number.isFinite(at)) return null;
+  return Math.max(0, (now || Date.now()) - at);
 }
 
 // costPerTurn and costPerLine are the efficiency levers. Both return null
