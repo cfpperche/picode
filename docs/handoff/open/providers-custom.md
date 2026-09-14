@@ -6,10 +6,8 @@
 
 ## Debts
 
-- Custom endpoints: thinking levels are still one selection for every model
-  listed (context window and max output became per model in the dialogue pass);
-  `off` on pi default.
-- Verify-for-built-ins (pi `auth check`) still answers from credential presence, so a bogus env-backed key reads green there — only custom endpoints spend a real request now.
+- Custom endpoints: thinking levels are one selection for all listed models (window/max-output went per-model); `off` on pi default.
+- Verify-for-built-ins (pi `auth check`) answers from credential presence — a bogus env-backed key reads green; only custom endpoints spend a real request.
 - Hand-written `models.json` without the `providers` wrapper is invalid for pi and invisible to both tools; PiCode refuses to adopt it.
-- Verify-from-the-dialog needs a model id typed before it can ask (a saved definition always has one: the schema refuses a list with none), so the pre-save check says "Add a model id first" rather than probing blind.
-- Listing and probing speak the four API types the form offers; a hand-edited `models.json` with another `api` value is listed in the catalog but its Verify refuses and names what it can speak (adding a shape means teaching `internal/modellist` that shape).
+- Verify-from-dialog needs a typed model id first (a saved definition always has one), so the pre-save check says "Add a model id first" instead of probing blind.
+- Listing/probing speak the four API types the form offers; a hand-edited `models.json` with another `api` value lists but its Verify refuses and says so (new shape = teach `internal/modellist`).

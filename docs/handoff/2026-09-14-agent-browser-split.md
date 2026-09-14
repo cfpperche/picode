@@ -23,11 +23,8 @@ binding, 979b9223) plus the owner directive: **the split survives a relaunch**.
 
 ## Next up
 
-- Owner: merge + deploy; then one post-deploy check in the real shell — open a
-  split on a page, quit the tray/shell, relaunch: the pane must come back at
-  the same page (the `btab_navigate`-on-adopt line is the only shell-only path
-  Chromium could not exercise).
-- Closing rite for this branch: `make close`, then ff to `main` + `make ci`.
+- Owner: deploy, then re-check the split restore in the shell (quit + relaunch:
+  the pane must come back at the same page).
 
 ## Debts
 
