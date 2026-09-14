@@ -3,13 +3,16 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cfpperche/picode/internal/catalog"
+	"github.com/cfpperche/picode/internal/modellist"
 	"github.com/cfpperche/picode/internal/usage"
 )
 
@@ -54,11 +57,33 @@ func providerIDOK(id string) bool {
 // does not spend a token on a test completion. --no-refresh keeps a health
 // check from burning a refresh, and --credentials is never passed: the
 // answer must not carry the secret.
+// handleProviderVerify asks whether the provider works. For a built-in that
+// means pi's own answer (`pi auth check`), which is the code path that will run
+// the agent. A custom endpoint is different: pi only reports the credential's
+// presence, so a wrong key on a gateway reads green. Those are verified with
+// one real, minimal request to the endpoint itself (the owner's call; open
+// topic P4) — a fraction of a cent, and the answer is the endpoint's.
 func handleProviderVerify(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		if !providerIDOK(id) {
 			writeErr(w, http.StatusBadRequest, "invalid provider id")
+			return
+		}
+		// Dispatch: a body carrying a base URL is the dialog verifying what the
+		// form holds (the definition may not be saved yet), and a saved custom
+		// definition is the roster's row. Everything else is a built-in, which
+		// only pi can answer for.
+		var req struct {
+			BaseURL string `json:"baseUrl"`
+			API     string `json:"api"`
+			Key     string `json:"key"`
+			Model   string `json:"model"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		def, isCustom := catalog.LoadCustomDefinitions()[id]
+		if isCustom || strings.TrimSpace(req.BaseURL) != "" {
+			verifyCustomEndpoint(w, r.Context(), id, def, req.BaseURL, req.API, req.Key, req.Model)
 			return
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
@@ -92,6 +117,104 @@ func handleProviderVerify(deps Deps) http.HandlerFunc {
 		res["reason"] = msg
 		writeJSON(w, http.StatusOK, res)
 	}
+}
+
+// verifyCustomEndpoint spends one minimal real request on a custom endpoint and
+// reports what the endpoint said. It answers with the same shape the roster's
+// verify uses ({ok, status, reason}) plus what was actually spent, so the row
+// renders it without knowing which path ran.
+func verifyCustomEndpoint(w http.ResponseWriter, ctx context.Context, id string, def catalog.CustomDefinition, bodyBaseURL, bodyAPI, bodyKey, bodyModel string) {
+	baseURL := strings.TrimSpace(bodyBaseURL)
+	if baseURL == "" {
+		baseURL = def.BaseURL
+	}
+	api := strings.TrimSpace(bodyAPI)
+	if api == "" {
+		api = def.API
+	}
+	key := strings.TrimSpace(bodyKey)
+	if key == "" {
+		if saved, ok := catalog.ActiveAPIKey(id); ok {
+			key = saved
+		}
+	}
+	model := strings.TrimSpace(bodyModel)
+	if model == "" && len(def.Models) > 0 {
+		model = def.Models[0].ID
+	}
+
+	probeCtx, cancel := context.WithTimeout(ctx, 25*time.Second)
+	defer cancel()
+	res, err := modellist.Probe(probeCtx, baseURL, api, key, model)
+	if err != nil {
+		var typed *modellist.Error
+		if !errors.As(err, &typed) {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"provider": id, "ok": false, "status": "unknown", "spent": true,
+				"reason": "The endpoint could not be verified.",
+			})
+			return
+		}
+		status, body := probeFailureReply(typed, model, key != "")
+		body["provider"] = id
+		body["spent"] = typed.Status != 0
+		writeJSON(w, status, body)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"provider":     id,
+		"ok":           true,
+		"status":       "ready",
+		"authType":     "api_key",
+		"verified":     true,
+		"spent":        true,
+		"model":        res.Model,
+		"ms":           res.MS,
+		"label":        probeSuccessLabel(res),
+		"inputTokens":  res.InputTokens,
+		"outputTokens": res.OutputTokens,
+	})
+}
+
+// probeSuccessLabel is what the row shows after a real request: the model that
+// answered, how long it took and what it cost in tokens (when reported).
+func probeSuccessLabel(res modellist.ProbeResult) string {
+	label := res.Model + " answered in " + strconv.Itoa(res.MS) + "ms"
+	if res.InputTokens > 0 || res.OutputTokens > 0 {
+		label += " (" + strconv.Itoa(res.InputTokens) + " in, " + strconv.Itoa(res.OutputTokens) + " out)"
+	}
+	return label
+}
+
+// probeFailureReply is the one line a failed probe shows. It names the model
+// where that is the answer, and never repeats the key.
+func probeFailureReply(e *modellist.Error, model string, keyed bool) (int, map[string]any) {
+	label := ""
+	switch e.Kind {
+	case modellist.KindAuth:
+		if keyed {
+			return http.StatusOK, map[string]any{"ok": false, "status": "refused", "verified": false,
+				"reason": "The endpoint refused the key (" + strconv.Itoa(e.Status) + ")" + detailTail(e.Detail) + "."}
+		}
+		return http.StatusOK, map[string]any{"ok": false, "status": "refused", "verified": false,
+			"reason": "The endpoint wants a key (" + strconv.Itoa(e.Status) + "). Add one and try again."}
+	case modellist.KindQuota:
+		label = "The account cannot make a request (" + strconv.Itoa(e.Status) + ")" + detailTail(e.Detail) + ". Billing or quota needs attention first."
+	case modellist.KindModel:
+		label = "The endpoint does not know " + model + " (" + strconv.Itoa(e.Status) + ")" + detailTail(e.Detail) + ". Check the model id, or the base URL's route."
+	case modellist.KindInput:
+		if !keyed {
+			label = "The endpoint answered " + strconv.Itoa(e.Status) + detailTail(e.Detail) +
+				". Some gateways need the API key in the request."
+		} else {
+			label = "The endpoint rejected the request (" + strconv.Itoa(e.Status) + ")" + detailTail(e.Detail) + "."
+		}
+	case modellist.KindTransport:
+		label = "Could not reach " + e.Host + ": " + e.Detail + "."
+	default:
+		label = "The endpoint answered " + strconv.Itoa(e.Status) + detailTail(e.Detail) + "."
+	}
+	return http.StatusOK, map[string]any{"ok": false, "status": "unknown", "verified": false, "reason": label}
 }
 
 // handleAccountPause keeps a credential but takes the row out of play.

@@ -11,7 +11,7 @@ import { cliProvidersReturnTo } from "@picode/shared/domain/cliProviders.js";
 
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { readRecents, pushRecent, removeRecent, clearRecents, rememberProviders } from "@picode/shared/domain/providerRecents.js";
-import { validateCustomProvider, customProviderPayload, customProviderForm, customTakenIds, THINKING_LEVELS, THINKING_FORMAT_NEEDS } from "@picode/shared/domain/customProviders.js";
+import { validateCustomProvider, customProviderPayload, customProviderForm, customTakenIds, customModelIds, THINKING_LEVELS, THINKING_FORMAT_NEEDS } from "@picode/shared/domain/customProviders.js";
 import { loadModelsFor, modelLoadChanges, loadingLine } from "@picode/shared/client/modelLoad.js";
 import { CUSTOM_PROVIDER_APIS, CUSTOM_THINKING_FORMATS, customApiHint } from "@picode/shared/contracts/schemas.js";
 import { askConfirm } from "../lib/confirm.js";
@@ -80,6 +80,10 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
   const [cf, setCf] = useState(() => customProviderForm(null));
   const [customEdit, setCustomEdit] = useState(false);
   const [load, setLoad] = useState({ state: "idle", line: "", tone: "hint" });
+  const [verify, setVerify] = useState({ state: "idle", line: "", tone: "hint" });
+  // Both buttons report through one line: two lines under one row is noise, and
+  // the later action is the one worth reading.
+  const line = verify.state === "idle" ? load : verify;
   const [recents, setRecents] = useState(readRecents);
   const [usageFor, setUsageFor] = useState(null);
   const [query, setQuery] = useState("");
@@ -177,13 +181,16 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
   }
 
   // Verify asks pi, not the vendor: pi is what runs the agent, so pi's
-  // answer is the one that matters. No token is spent on a test completion.
+  // answer is the one that matters — and for a built-in it costs nothing.
+  // A custom endpoint is the exception: pi only reports whether a credential
+  // is present, which stays green for a wrong key, so those rows are verified
+  // with one minimal real request (the row's action says so).
   async function verifyProvider(p) {
     setVerifying(p.id);
     try {
       const res = await api("/api/providers/" + encodeURIComponent(p.id) + "/verify", { method: "POST" });
       setVerdicts((prev) => ({ ...prev, [p.id]: res }));
-      if (res && res.ok) toast.ok("pi can use " + p.id + ".");
+      if (res && res.ok) toast.ok(res.label ? p.id + ": " + res.label + "." : "pi can use " + p.id + ".");
       else toast.error(p.id + ": " + ((res && (res.reason || res.status)) || "not ready"));
     } catch (ex) {
       toastError(ex);
@@ -393,6 +400,31 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
     }
   }
 
+  // verifyEndpoint spends one minimal real request on what the form holds —
+  // one word in, one token out — so a wrong key or URL is caught before
+  // saving. The button says the cost; the line reports what it spent.
+  async function verifyEndpoint() {
+    if (verify.state === "loading") return;
+    const model = customModelIds(cf.modelsText)[0] || "";
+    if (!model) {
+      setVerify({ state: "failed", tone: "bad", line: "Add a model id first — verification has to ask for one." });
+      return;
+    }
+    setVerify({ state: "loading", tone: "hint", line: "Sending one 1-token request to " + model + "…" });
+    try {
+      const res = await api("/api/providers/" + encodeURIComponent(cf.id || "endpoint") + "/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ baseUrl: cf.baseUrl, api: cf.api, key: cf.key, model }),
+      });
+      if (res && res.ok) setVerify({ state: "done", tone: "hint", line: (res.label || "The endpoint answered") + " — the key works." });
+      else setVerify({ state: "failed", tone: "bad", line: (res && (res.reason || res.status)) || "The endpoint could not be verified." });
+    } catch (ex) {
+      const body = ex && ex.body;
+      setVerify({ state: "failed", tone: "bad", line: (body && body.error) || (ex && ex.message) || "The endpoint could not be verified." });
+    }
+  }
+
   async function saveCustom(e) {
     e.preventDefault();
     const taken = customTakenIds(list, customEdit ? pick && pick.id : null);
@@ -557,7 +589,7 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                         </span>
                         {verdict ? (
                           <span className={"prov-verdict " + (verdict.ok ? "ok" : "bad")} title={verdict.reason || verdict.status}>
-                            {verdict.ok ? "pi can use this" : verdict.reason || verdict.status}
+                            {verdict.ok ? verdict.label || "pi can use this" : verdict.reason || verdict.status}
                           </span>
                         ) : null}
                       </span>
@@ -593,7 +625,11 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                           <DropdownMenu.Portal>
                             <DropdownMenu.Content className="prov-menu" align="end" sideOffset={6} collisionPadding={8}>
                               <DropdownMenu.Item className="prov-menu-item" onSelect={() => verifyProvider(p)}>
-                                {verifying === p.id ? "Checking…" : "Verify with pi"}
+                                {verifying === p.id
+                                  ? "Checking…"
+                                  : p.custom
+                                    ? "Verify with the endpoint (1 request)"
+                                    : "Verify with pi"}
                               </DropdownMenu.Item>
                               {first && p.custom ? (
                                 <DropdownMenu.Item className="prov-menu-item" onSelect={() => editCustom(p)}>
@@ -795,11 +831,14 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                   aria-label="Model ids"
                 />
                 <div className="prov-load">
-                  <button type="button" className="btn btn-ghost" onClick={loadModels} disabled={load.state === "loading"}>
+                  <button type="button" className="btn btn-ghost" onClick={loadModels} disabled={load.state === "loading" || verify.state === "loading"}>
                     {load.state === "loading" ? "Loading…" : "Load models"}
                   </button>
-                  <p className={load.tone === "bad" ? "prov-hint prov-bad" : "prov-hint"} role="status">
-                    {load.line || "Asks the endpoint what it serves and adds the ids you are missing."}
+                  <button type="button" className="btn btn-ghost" onClick={verifyEndpoint} disabled={verify.state === "loading" || load.state === "loading"}>
+                    {verify.state === "loading" ? "Verifying…" : "Verify key"}
+                  </button>
+                  <p className={line.tone === "bad" ? "prov-hint prov-bad" : "prov-hint"} role="status">
+                    {line.text || "Load the ids the endpoint serves, or verify that the key works — verification sends one 1-token request."}
                   </p>
                 </div>
                 <details className="prov-adv">

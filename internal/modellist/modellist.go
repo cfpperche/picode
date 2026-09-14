@@ -204,12 +204,21 @@ func upstreamDetail(body []byte, key string) string {
 }
 
 // redact removes the key from a message that came back from the endpoint.
+//
+// Only a key long enough to be a credential is redacted: a real key is a long
+// random string, while a one- or two-character value would match letters of
+// ordinary words and turn "max_tokens" into "max_to***ens" — over-redaction is
+// safe but it destroys the message a person needs to read. Nothing shorter than
+// credentialMinLen can be a working provider key.
 func redact(s, key string) string {
-	if key == "" {
+	if len(key) < credentialMinLen {
 		return s
 	}
 	return strings.ReplaceAll(s, key, "***")
 }
+
+// credentialMinLen is the shortest string treated as key material.
+const credentialMinLen = 8
 
 // parse reads the two list shapes the supported API types answer with: the
 // OpenAI/Anthropic {"data":[{...}]} envelope and Google's {"models":[{...}]}
