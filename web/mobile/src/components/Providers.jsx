@@ -12,6 +12,7 @@ import { cliProvidersReturnTo } from "@picode/shared/domain/cliProviders.js";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { readRecents, pushRecent, removeRecent, clearRecents, rememberProviders } from "@picode/shared/domain/providerRecents.js";
 import { validateCustomProvider, customProviderPayload, customProviderForm, customTakenIds, THINKING_LEVELS } from "@picode/shared/domain/customProviders.js";
+import { loadModelsFor, modelLoadChanges, loadingLine } from "@picode/shared/client/modelLoad.js";
 import { CUSTOM_PROVIDER_APIS, CUSTOM_THINKING_FORMATS } from "@picode/shared/contracts/schemas.js";
 import { askConfirm } from "../lib/confirm.js";
 import { showUsageButton, usagePath } from "@picode/shared/domain/providerUsage.js";
@@ -78,6 +79,7 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
   const [llamaUrl, setLlamaUrl] = useState("http://127.0.0.1:8080");
   const [cf, setCf] = useState(() => customProviderForm(null));
   const [customEdit, setCustomEdit] = useState(false);
+  const [load, setLoad] = useState({ state: "idle", line: "", tone: "hint" });
   const [recents, setRecents] = useState(readRecents);
   const [usageFor, setUsageFor] = useState(null);
   const [query, setQuery] = useState("");
@@ -375,6 +377,20 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
     setReplacing(true);
     setStep("custom");
     setAdd(true);
+  }
+
+  async function loadModels() {
+    if (load.state === "loading") return;
+    setLoad({ state: "loading", line: loadingLine(cf.baseUrl), tone: "hint" });
+    try {
+      const res = await loadModelsFor({ baseUrl: cf.baseUrl, api: cf.api, key: cf.key, id: cf.id });
+      const { changes, line } = modelLoadChanges(res, cf);
+      setCf((f) => ({ ...f, ...changes }));
+      setLoad({ state: "done", line, tone: "hint" });
+    } catch (ex) {
+      const body = ex && ex.body;
+      setLoad({ state: "failed", line: (body && body.error) || (ex && ex.message) || "The model list could not be read.", tone: "bad" });
+    }
   }
 
   async function saveCustom(e) {
@@ -776,6 +792,14 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                   spellCheck="false"
                   aria-label="Model ids"
                 />
+                <div className="prov-load">
+                  <button type="button" className="btn btn-ghost" onClick={loadModels} disabled={load.state === "loading"}>
+                    {load.state === "loading" ? "Loading…" : "Load models"}
+                  </button>
+                  <p className={load.tone === "bad" ? "prov-hint prov-bad" : "prov-hint"} role="status">
+                    {load.line || "Asks the endpoint what it serves and adds the ids you are missing."}
+                  </p>
+                </div>
                 <details className="prov-adv">
                   <summary>Advanced</summary>
                   <select value={cf.api} onChange={setField("api")} aria-label="API type">

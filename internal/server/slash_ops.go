@@ -15,6 +15,9 @@ func registerSlashOps(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/trust", handleAgentTrust(deps))
 	mux.HandleFunc("PUT /api/providers/custom/{id}", handleCustomProviderPut)
 	mux.HandleFunc("DELETE /api/providers/custom/{id}", handleCustomProviderDelete)
+	// Load models: the literal path wins over the {id} pattern, so this route
+	// can sit beside them (Go 1.22 mux prefers the more specific pattern).
+	mux.HandleFunc("POST /api/providers/custom/models", handleCustomProviderModels)
 	mux.HandleFunc("PUT /api/providers/{id}", handleProviderLogin)
 	mux.HandleFunc("DELETE /api/providers/{id}", handleProviderLogout(deps))
 	mux.HandleFunc("POST /api/providers/{id}/accounts/{aid}/activate", handleAccountActivate)
