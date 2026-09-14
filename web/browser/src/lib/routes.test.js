@@ -6,7 +6,7 @@ test("integrations deep links remain reload-safe", () => {
   assert.equal(parseRoute("#/integrations/webhooks"), "integrations");
   for (const hash of ["#/integrations", "#/integrations/connectors", "#/mcps"]) assert.equal(parseRoute(hash), "clis");
 });
-import { isWebTab, tabWebId, webTabId } from "./routes.js";
+import { isWebTab, tabWebId, webTabId, webHash, webRoute } from "./routes.js";
 import { parseRoute, packagesConfigRoute, packagesConfigHash, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot, appTabId, isAppTab, tabAppId, appHash, appRoute, renamedAppId, renamedAppHash, renamedTabId, snippetRoute, snippetsHash } from "./routes.js";
 
 test("preferences and settings are distinct", () => {
@@ -241,4 +241,19 @@ test("isAgentTab is true only for a bare agent id — the fetches that ask this"
   assert.equal(isAgentTab(gitTabId("/home/goat/picode/.git")), false);
   assert.equal(isAgentTab(appTabId("canvas")), false);
   assert.equal(isAgentTab(webTabId("3")), false);
+});
+
+test("webHash/webRoute round-trip — the router can hold a work-browser tab", () => {
+  // 2026-09-14 regression: web tabs owned no address, so the hash router kept
+  // re-resolving the previous tab's route and yanked the selection back.
+  assert.equal(webHash("2"), "#/web/2");
+  assert.equal(webRoute("#/web/2"), "2");
+  assert.equal(webHash("") || webHash(null), "#/");
+  assert.equal(webRoute("#/"), null);
+  assert.equal(webRoute("#/term/desktop-51c42d"), null);
+  assert.equal(webRoute("#/agent/abc"), null);
+  // A web id is not a path — one segment only.
+  assert.equal(webRoute("#/web/2/extra"), null);
+  // And it parses as a workspace-scope route so the write side may replace it.
+  assert.equal(parseRoute("#/web/2"), "workspace");
 });

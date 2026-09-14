@@ -45,6 +45,7 @@ export function parseRoute(hash) {
   // Legacy #/sessions* deep links render the Agent CLIs shell; AgentClis
   // redirects the hash to #/clis/<cli>/sessions* (ADR-0079).
   if (h.startsWith("/sessions") || h.startsWith("/sessions/")) return "clis";
+  if (h.startsWith("/web/")) return "workspace";
   if (h.startsWith("/term/")) return "workspace";
   if (h.startsWith("/file/")) return "workspace";
   if (h.startsWith("/git/")) return "workspace";
@@ -81,6 +82,21 @@ export function workspaceHash(agentId) {
 
 export function termHash(id) {
   return id ? "#/term/" + encodeURIComponent(id) : "#/";
+}
+
+// Work browser tabs are session-scoped native surfaces, but they own an
+// address: without one the hash router kept re-resolving the previous tab's
+// route and yanked the selection back (2026-09-14). The id is the sequence
+// openWebTab assigned (tab "w:<id>", here without the prefix).
+export function webHash(id) {
+  return id ? "#/web/" + encodeURIComponent(id) : "#/";
+}
+
+export function webRoute(hash) {
+  const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
+  const m = /^\/web\/([^/]+)$/.exec(h);
+  if (!m) return null;
+  try { return decodeURIComponent(m[1]); } catch { return m[1]; }
 }
 
 // Sessions live on the selected CLI's pane (ADR-0079 amendment 2026-09-11):
