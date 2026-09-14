@@ -133,3 +133,31 @@ The graph lists such terminals as occupants of their worktree
 **Open \<name\>** into the pane, and **Ask \<name\>** in the action form.
 Claude Code, Codex, Grok, Hermes and OpenCode terminals stay exactly where
 rule 3 left them: no receiver, no ask.
+
+## Amendment (2026-09-14): sibling drop/prompt on an interactive agent TUI
+
+The pane context menu is one catalog for every xterm PTY. A managed Pi
+agent running in-terminal (`picode-<agentId>`) now has the same Attach /
+Ask / Send rows as an Agent CLI terminal. Those rows must not POST
+`/api/terminals/{agentId}` (the records stay distinct, ADR-0017).
+
+Sibling door:
+
+1. **Stage.** `POST /api/agents/{id}/drop` — same caps and `.picode/drop/`
+   layout as the terminal drop, under the live pane cwd (`GET /api/agents/{id}/cwd`)
+   with `store.AgentCwd` fallback.
+2. **Send.** `POST /api/agents/{id}/prompt` gains additive `paths []string`.
+   Interactive: paste caption + `@path` via `deliverToInteractiveAgent`
+   (receiver-or-paste into `picode-<id>`). Managed `{kind, message, images[]}`
+   is unchanged. Managed + `paths` is 400. Interactive + `images[]` is 409
+   `images`. Inspector still must not use this door (ADR-0078).
+
+| Conditions | Action |
+|---|---|
+| Managed + `{kind, message, images[]}` (no `paths`) | `SendTurn` as today |
+| Managed + `{message, paths}` | **400** |
+| Interactive + `{kind, message, images[]}` (no `paths`) | **409** `images` |
+| Interactive + `{message}` | Paste via `deliverToInteractiveAgent` |
+| Interactive + `{message, paths}` | Paste caption + `@path` after `/drop` |
+| Interactive + in-flight paste/receiver | **409** `busy` |
+| Interactive + no tmux session | **409** `stopped` |

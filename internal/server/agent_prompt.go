@@ -27,10 +27,57 @@ type promptImage struct {
 	Data     string `json:"data"`
 }
 
+func handleAgentDrop(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		agent, err := deps.Store.GetAgent(id)
+		if errors.Is(err, store.ErrNotFound) {
+			writeErr(w, http.StatusNotFound, "agent not found")
+			return
+		} else if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if deps.runMode(r, id) != modeInteractive {
+			writeJSON(w, http.StatusConflict, map[string]any{
+				"error":  "Attach files on an agent is for the in-terminal session.",
+				"reason": "stopped",
+			})
+			return
+		}
+		var req dropBody
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxDropBytes*2)).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON")
+			return
+		}
+		raw, err := decodeDropData(req.Data)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		cwd, err := liveAgentCwd(deps, r, agent)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if strings.TrimSpace(cwd) == "" {
+			writeErr(w, http.StatusBadRequest, "can't write in this folder")
+			return
+		}
+		out, err := writeDropFile(cwd, req.Name, raw)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, out)
+	}
+}
+
 func handleAgentPrompt(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
-		if _, err := deps.Store.GetAgent(id); errors.Is(err, store.ErrNotFound) {
+		agent, err := deps.Store.GetAgent(id)
+		if errors.Is(err, store.ErrNotFound) {
 			writeErr(w, http.StatusNotFound, "agent not found")
 			return
 		} else if err != nil {
@@ -41,37 +88,80 @@ func handleAgentPrompt(deps Deps) http.HandlerFunc {
 			Kind    string        `json:"kind"`
 			Message string        `json:"message"`
 			Images  []promptImage `json:"images"`
+			Paths   []string      `json:"paths"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON")
+			return
+		}
+		mode := deps.runMode(r, id)
+		if len(req.Paths) > 0 && mode == modeManaged {
+			writeErr(w, http.StatusBadRequest, "paths is for the in-terminal session; managed chat uses images")
+			return
+		}
+		if len(req.Images) > 0 && mode == modeInteractive {
+			writeJSON(w, http.StatusConflict, map[string]any{
+				"error":  "Images cannot reach a terminal session. Attach a file instead.",
+				"reason": "images",
+			})
 			return
 		}
 		if err := checkPromptImages(req.Images); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if strings.TrimSpace(req.Message) == "" && len(req.Images) == 0 {
-			writeErr(w, http.StatusBadRequest, "message or image is required")
-			return
-		}
-		ma := deps.Runtime.Get(id)
-		if ma == nil {
+		switch mode {
+		case modeManaged:
+			if strings.TrimSpace(req.Message) == "" && len(req.Images) == 0 {
+				writeErr(w, http.StatusBadRequest, "message or image is required")
+				return
+			}
+			ma := deps.Runtime.Get(id)
+			if ma == nil {
+				writeErr(w, http.StatusConflict, "agent is not running")
+				return
+			}
+			imgs := make([]map[string]any, 0, len(req.Images))
+			for _, im := range req.Images {
+				imgs = append(imgs, map[string]any{
+					"type":     "image",
+					"data":     im.Data,
+					"mimeType": im.MimeType,
+				})
+			}
+			if err := ma.SendTurn(req.Kind, req.Message, imgs); err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+		case modeInteractive:
+			cwd, err := liveAgentCwd(deps, r, agent)
+			if err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			rels, err := checkPromptPaths(cwd, req.Paths)
+			if err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			if strings.TrimSpace(req.Message) == "" && len(rels) == 0 {
+				writeErr(w, http.StatusBadRequest, "message or file is required")
+				return
+			}
+			payload := buildPromptPaste(req.Message, rels)
+			status, body := deps.deliverToInteractiveAgent(r.Context(), agent, payload, tuiDeliverPrompt)
+			if status != http.StatusOK {
+				writeJSON(w, status, body)
+				return
+			}
+			if deps.Feed != nil {
+				deps.Feed.Ephemeral("agent.prompt", map[string]any{"agentId": id, "typed": true})
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"ok": true, "typed": true})
+		default:
 			writeErr(w, http.StatusConflict, "agent is not running")
-			return
 		}
-		imgs := make([]map[string]any, 0, len(req.Images))
-		for _, im := range req.Images {
-			imgs = append(imgs, map[string]any{
-				"type":     "image",
-				"data":     im.Data,
-				"mimeType": im.MimeType,
-			})
-		}
-		if err := ma.SendTurn(req.Kind, req.Message, imgs); err != nil {
-			writeErr(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	}
 }
 

@@ -20,6 +20,7 @@ import (
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
+	"github.com/cfpperche/picode/internal/transcript"
 )
 
 // handoffServer is cleanupServer with the Deps kept, so a test can register
@@ -526,6 +527,40 @@ func TestHandoffToPiAdoptsAgent(t *testing.T) {
 	row := list["sessions"].([]any)[0].(map[string]any)
 	if row["inUseBy"] == nil || row["handoff"].(map[string]any)["from"].(map[string]any)["cli"] != "claude-code" {
 		t.Fatalf("pi row = %v", row)
+	}
+}
+
+func TestLiveHolderForInteractivePi(t *testing.T) {
+	manager := tmux.New()
+	if !manager.Available() {
+		t.Skip("tmux missing")
+	}
+	st := testStore(t)
+	dir := t.TempDir()
+	_, agent, err := storeWorkspaceWithAgent(st, "App", dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "session.jsonl")
+	if err := os.WriteFile(path, []byte(`{"type":"session","id":"s1"}`+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.UpdateAgent(agent.ID, store.AgentPatch{SessionPath: &path}); err != nil {
+		t.Fatal(err)
+	}
+	name := tmux.SessionName(agent.ID)
+	if err := manager.NewSessionEnv(context.Background(), name, dir, nil, "/bin/sh", "-c", "sleep 300"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = manager.KillSession(context.Background(), name) })
+	deps := Deps{Store: st, Tmux: manager, Runtime: rpc.NewRuntime("cat", st, nil)}
+	live := liveHolderFor(deps, "pi", clisession.Ref{Path: path}, transcript.Timeline{})
+	if live == nil || live.Kind != "agent" || live.ID != agent.ID {
+		t.Fatalf("interactive live = %+v", live)
+	}
+	_ = manager.KillSession(context.Background(), name)
+	if liveHolderFor(deps, "pi", clisession.Ref{Path: path}, transcript.Timeline{}) != nil {
+		t.Fatal("stopped interactive still counted as live")
 	}
 }
 

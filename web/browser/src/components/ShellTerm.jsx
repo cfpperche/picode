@@ -91,9 +91,9 @@ export default function ShellTerm({ agentId, session, active, autoFocus = true, 
     }
     const paneEl = document.createElement("div");
     paneEl.className = "term-pane active";
-    // The right-click menu finds its terminal from the pane it was opened
-    // on (lib/termActions.js): an agent's TUI is not a terminal to rename
-    // or remove, so the pane says which one it is.
+    // The right-click menu finds its host from the pane it was opened on
+    // (lib/termActions.js). termKind is the dispatch address (agent vs
+    // terminal APIs), not a reason to hide lifecycle rows.
     paneEl.dataset.termId = agentId;
     paneEl.dataset.termKind = cwdKind === "agent" ? "agent" : "term";
     paneEl.dataset.termCwd = cwdRef.current || "";

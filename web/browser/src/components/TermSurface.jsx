@@ -66,8 +66,8 @@ export default function TermSurface({ term, error, hidden, autoFocus = true, onO
             <ShellTerm agentId={term.id} session={term.session} active={!hidden} autoFocus={autoFocus} cwd={term.cwd} cwdKind={cwdKind} onOpenFile={onOpenFile} />
             {find ? <TermFindBar termId={term.id} onClose={onFindClose} /> : null}
           </div>
-          {term.launchCli && term.running && attach ? (
-            <TermAttachBar term={term} seed={attach} onClose={onAttachClose} />
+          {attach ? (
+            <TermAttachBar term={term} seed={attach} ownerKind={cwdKind === "agent" ? "agent" : "term"} onClose={onAttachClose} />
           ) : null}
         </>
       )}
