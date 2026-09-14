@@ -350,6 +350,8 @@ exec cat
 
 	// Resume restarts the CLI with the session's verified resume args,
 	// replacing the defaults for this one launch.
+	// The args file still holds the creation launch's argv; wait for the new one.
+	_ = os.Remove(output + ".args")
 	res := resume()
 	if res["status"] != "200" {
 		t.Fatalf("resume with pin: %v", res)
