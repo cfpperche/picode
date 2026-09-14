@@ -18,8 +18,7 @@ back and storage keeps it. `__picodeOverlayAudit()` ok in the taken and the
 invalid-body states (the reason badge beside Save is gone; a text span in a
 `data-align-row` is the misalignment the audit exists to catch).
 Pixel PASS: editor in the taken-slug state.
-Honest note: I first read "draft wiped on the next visit" as a product bug —
-it was my test (a closed agent-browser session gets a fresh profile, so
+Honest note: I first read "draft wiped on the next visit" as a product bug — it was my test (a closed agent-browser session gets a fresh profile, so
 localStorage is legitimately empty). The reload test above is the real F4
 check, and the ref version passed it too, so the ordering fix closes a
 transient window rather than a reproduced loss.
