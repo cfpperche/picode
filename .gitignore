@@ -58,3 +58,6 @@ docs/handoff.md
 # `make deploy` for the running site. Nothing in the repository reads it, so no
 # branch carries it and no merge can disagree about it.
 docs-site/public/llms.txt
+# Public changelog page: folded at `make docs` from CHANGELOG.md + fragments.
+# Same reason as llms.txt — no branch carries a generated copy.
+docs-site/changelog.md

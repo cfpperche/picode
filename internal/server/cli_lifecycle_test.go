@@ -275,3 +275,61 @@ func TestCLILifecycleSingleLaneAndPersistence(t *testing.T) {
 	}
 	st.Close()
 }
+
+func TestDetectOnlyCLIsAndMuseChannelCheck(t *testing.T) {
+	ts, _, home := cleanupServer(t)
+	bin := filepath.Join(home, "bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	muse := filepath.Join(bin, "muse")
+	script := "#!/bin/sh\n# muse-code/launcher\n[ -n \"$MUSE_NO_AUTO_UPDATE\" ] || { echo auto-update; exit 1; }\nif [ \"$1\" = \"--version\" ]; then echo 'Muse Code 1.2.1 (1.2.1-R2847.1)'; fi\n"
+	if err := os.WriteFile(muse, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "agy"), []byte("#!/bin/sh\necho 1.2.2\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+
+	museRow := catalogCLI(t, ts, "muse")
+	if museRow["surface"] != "detect" || museRow["installed"] != true {
+		t.Fatalf("muse = %+v", museRow)
+	}
+	agyRow := catalogCLI(t, ts, "agy")
+	if agyRow["surface"] != "detect" || agyRow["installed"] != true {
+		t.Fatalf("agy = %+v", agyRow)
+	}
+	cliRequest(t, ts, "PUT", "/api/clis/muse", map[string]any{"executable": muse}, 400)
+	cliRequest(t, ts, "POST", "/api/clis/muse/terminals", map[string]any{"cwd": home}, 400)
+	cliRequest(t, ts, "POST", "/api/clis/muse/lifecycle", map[string]any{"action": "update", "requestKey": "x"}, 400)
+
+	check := cliRequest(t, ts, "POST", "/api/clis/muse/check", map[string]any{}, 200)
+	if check["error"] != nil && check["error"] != "" {
+		t.Fatalf("check error: %v", check["error"])
+	}
+	if check["version"] != "Muse Code 1.2.1 (1.2.1-R2847.1)" {
+		t.Fatalf("version = %v", check["version"])
+	}
+
+	old := museChannelGet
+	t.Cleanup(func() { museChannelGet = old })
+	museChannelGet = func(ctx context.Context, url string) ([]byte, error) {
+		if url != "https://api.meta.ai/muse-code/channels/muse-stable" {
+			t.Errorf("channel url %s", url)
+		}
+		return []byte(`{"version":"1.2.2-R3000.0"}`), nil
+	}
+	upd := cliRequest(t, ts, "POST", "/api/clis/muse/update-check", map[string]any{}, 200)
+	if upd["latest"] != "1.2.2-R3000.0" || upd["updateAvailable"] != true || upd["updateSource"] != "channel" {
+		t.Fatalf("update-check = %+v", upd)
+	}
+	lifecycle := catalogCLI(t, ts, "muse")["lifecycle"].(map[string]any)
+	if lifecycle["canCheckUpdate"] != true || lifecycle["canUpdate"] != false {
+		t.Fatalf("lifecycle = %+v", lifecycle)
+	}
+	agyLife := catalogCLI(t, ts, "agy")["lifecycle"].(map[string]any)
+	if agyLife["canCheckUpdate"] == true {
+		t.Fatalf("agy must not offer update-check yet: %+v", agyLife)
+	}
+}

@@ -246,11 +246,18 @@ the tab on screen. The difference is identity, not connectivity, and gating on
 a missing id would be cosmetic — the same process can assert one (ADR-0134).
 User-facing: `docs-site/guide/browser-tool.md`.
 
+Increment 4.2 (2026-09-14, `feat/browser-nav-gate`): the shell-side
+navigation gate. An act-tier CDP call arms the grant for its tab (tier
+read leaves whatever is armed alone; a user navigate from the pane's own
+toolbar disarms it — the user is sovereign); `NavigationStarting` then
+cancels any non-user-initiated load outside the domains — covering the
+script redirects the daemon never sees. The decision table is one pure
+function (`picode_shell::origins::gate`), tested against the same rows
+as `browser.AllowsOrigin` (plus userinfo/IPv6), so the two sides of the
+boundary agree by construction.
+
 Still open in slice 4: the grants editor (Settings ▸ Browser — the tier ×
-domains table; the write path is `browser.Save`), and the shell-side
-navigation gate (`NavigationStarting` cancels an agent-caused load of an
-origin outside the grant, using the same rule as `AllowsOrigin` — the shell
-must mirror it, or the two disagree).
+domains table; the write path is `browser.Save`).
 
 ## Conscious debt
 

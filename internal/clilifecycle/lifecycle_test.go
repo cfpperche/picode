@@ -48,6 +48,11 @@ func TestDetectMethodResolvesSymlinksAndWrappers(t *testing.T) {
 			t.Errorf("symlink %s → %s: got %q, want %q", link, c.path, got, c.want)
 		}
 	}
+	museWrapper := filepath.Join(dir, ".local", "bin", "muse")
+	write(museWrapper, "#!/usr/bin/env bash\n# muse-code/launcher\nchannel_url=https://api.meta.ai/muse-code/channels/muse-stable\nexec muse-bin\n")
+	if got := DetectMethod(museWrapper); got != MethodVendor {
+		t.Errorf("wrapper muse: got %q, want vendor", got)
+	}
 	// A plain wrapper script that execs the real venv binary.
 	wrapper := filepath.Join(dir, ".local", "bin", "hermes")
 	write(wrapper, "#!/usr/bin/env bash\nexec \""+filepath.Join(dir, ".hermes", "hermes-agent", "venv", "bin", "hermes")+"\" \"$@\"\n")
@@ -112,6 +117,9 @@ func TestForDecisionTable(t *testing.T) {
 		{"hermes", "unknown", false, "", nil, nil, "", nil},
 		{"opencode", "npm", true, "npm", []string{"upgrade"}, []string{"upgrade"}, "vendor", []string{"uninstall", "--keep-config", "--keep-data", "--force"}},
 		{"opencode", "unknown", false, "", nil, nil, "", nil},
+		{"muse", "vendor", true, "channel", nil, nil, "", nil},
+		{"muse", "unknown", false, "", nil, nil, "", nil},
+		{"agy", "vendor", false, "", nil, nil, "", nil},
 	}
 	for _, c := range cases {
 		p, ok := For(c.cli, Method(c.method))
@@ -152,7 +160,7 @@ func TestForMissingDecisionTable(t *testing.T) {
 			t.Errorf("ForMissing(%s) install argv = %v, err %v", id, argv, err)
 		}
 	}
-	for _, id := range []string{"grok", "hermes"} {
+	for _, id := range []string{"grok", "hermes", "muse", "agy"} {
 		p, ok := ForMissing(id)
 		if ok {
 			t.Errorf("ForMissing(%s) = %+v, want guided (ok=false)", id, p)
@@ -217,5 +225,27 @@ func TestParseHermesCheck(t *testing.T) {
 	}
 	if _, err := ParseHermesCheck("something unexpected"); err == nil {
 		t.Error("unrecognized output must error, never guess")
+	}
+}
+
+func TestParseMuseChannel(t *testing.T) {
+	c, err := ParseMuseChannel([]byte(`{"channel":"muse-stable","version":"1.2.1-R2847.1"}`))
+	if err != nil || c.Version != "1.2.1-R2847.1" {
+		t.Fatalf("ParseMuseChannel = %+v, err %v", c, err)
+	}
+	if _, err := ParseMuseChannel([]byte(`<html>`)); err == nil {
+		t.Error("unreadable output must error")
+	}
+	if _, err := ParseMuseChannel([]byte(`{"channel":"muse-stable","version":""}`)); err == nil {
+		t.Error("missing version must error")
+	}
+}
+
+func TestExtractMuseVersion(t *testing.T) {
+	if got := ExtractMuseVersion("Muse Code 1.2.1 (1.2.1-R2847.1)"); got != "1.2.1-R2847.1" {
+		t.Fatalf("got %q", got)
+	}
+	if got := ExtractMuseVersion("1.2.2"); got != "1.2.2" {
+		t.Fatalf("semver fallback got %q", got)
 	}
 }

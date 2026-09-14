@@ -13,6 +13,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/cfpperche/picode/internal/clilaunch"
 )
 
 const wiringMarker = "picode-hook"
@@ -347,6 +349,10 @@ func handleWiringStatus(deps Deps) http.HandlerFunc {
 func handleWiringEnable(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cli := r.PathValue("cli")
+		if c, ok := clilaunch.Find(cli); ok && c.DetectOnly() {
+			writeErr(w, http.StatusBadRequest, fmt.Sprintf("Launch is not available for %s yet.", c.Name))
+			return
+		}
 		unlock := terminalLock(deps, "cli-config")
 		defer unlock()
 		if deps.Store != nil {

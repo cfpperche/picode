@@ -29,6 +29,7 @@ export default defineConfig({
     nav: [
       { text: "Start", link: "/guide/getting-started" },
       { text: "Use", link: "/guide/" },
+      { text: "Changelog", link: "/changelog" },
       { text: "Commands", link: "/commands" },
     ],
     sidebar: [
@@ -122,6 +123,7 @@ export default defineConfig({
       {
         text: "Reference",
         items: [
+          { text: "Changelog", link: "/changelog" },
           { text: "Commands", link: "/commands" },
           { text: "HTTP API", link: "/api" },
           { text: "License", link: "/license" },

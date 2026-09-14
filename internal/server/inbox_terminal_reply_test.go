@@ -178,7 +178,7 @@ func TestInboxTerminalReplyRefusals(t *testing.T) {
 	deps.Replies.HelloSession(termReplyKey(term.ID), filepath.Join(session.Dir(repo), "other.jsonl"))
 	refused("different session")
 	deps.Replies.HelloSession(termReplyKey(term.ID), sessionPath)
-	// An item with no session path cannot be routed (legacy rows).
+	// An item with no session path cannot be routed on its own (legacy rows).
 	bare := terminalQuestion(t, st, term.ID, "")
 	if _, err := deps.DeliverTerminalReply(bare.ID, store.VerbRespond, "hi"); err == nil || !strings.Contains(err.Error(), "predates session tracking") {
 		t.Fatalf("sessionless item = %v", err)
@@ -199,6 +199,111 @@ func TestInboxTerminalReplyRefusals(t *testing.T) {
 	}
 	if got, _ := st.GetInboxItem(gone.ID); got.State == store.InboxDone || !strings.Contains(got.Body, "terminal no longer exists") {
 		t.Fatalf("gone-terminal item = %+v", got)
+	}
+}
+
+// A sessionless item is deliverable when two independent sources agree: the
+// terminal's pinned last session (the "session update" the debt names) and
+// the conversation the receiver is showing right now name the same file.
+func TestInboxTerminalReplyResolvesPinnedSession(t *testing.T) {
+	ts, deps, st, term, _, sessionPath := piTerminalFixture(t)
+	deps.Replies.HelloSession(termReplyKey(term.ID), sessionPath)
+	if err := st.SetTerminalLastSession(term.ID, store.TerminalLastSession{
+		CLI: "pi", SessionID: "pinned-1", Path: sessionPath, UpdatedAt: time.Now().UTC().Format(time.RFC3339),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	it := terminalQuestion(t, st, term.ID, "")
+
+	type result struct {
+		itemID string
+		err    error
+	}
+	done := make(chan result, 1)
+	go func() {
+		id, err := deps.DeliverTerminalReply(it.ID, store.VerbRespond, "resolved address")
+		done <- result{id, err}
+	}()
+	dir := replyDir(deps.DataDir, termReplyKey(term.ID))
+	var file string
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) && file == "" {
+		if ents, err := os.ReadDir(dir); err == nil {
+			for _, e := range ents {
+				if filepath.Ext(e.Name()) == ".json" {
+					file = filepath.Join(dir, e.Name())
+				}
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if file == "" {
+		t.Fatal("no reply file reached the terminal's receiver directory")
+	}
+	raw, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc replyFile
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc.SessionPath != sessionPath {
+		t.Errorf("reply file session = %q; want the pinned %q", doc.SessionPath, sessionPath)
+	}
+	if code, _ := postRaw(t, ts, "/api/terminals/"+term.ID+"/tui-ack", `{"nonce":`+jsonString(doc.Nonce)+`,"ok":true}`); code != http.StatusNoContent {
+		t.Fatalf("ack: %d", code)
+	}
+	res := <-done
+	if res.err != nil {
+		t.Fatalf("DeliverTerminalReply: %v", res.err)
+	}
+	after, _ := st.GetInboxItem(it.ID)
+	if after.State != store.InboxDone {
+		t.Fatalf("item state = %s; want done", after.State)
+	}
+}
+
+// A pin that disagrees with the conversation the pane is showing refuses
+// instead of guessing (the 2026-09-11 hazard), and a pin whose file is gone
+// falls through to the vanished-session refusal.
+func TestInboxTerminalReplyPinnedSessionDisagreement(t *testing.T) {
+	_, deps, st, term, repo, sessionPath := piTerminalFixture(t)
+	deps.Replies.HelloSession(termReplyKey(term.ID), sessionPath)
+	other := filepath.Join(session.Dir(repo), "other.jsonl")
+	if err := os.WriteFile(other, []byte("{}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetTerminalLastSession(term.ID, store.TerminalLastSession{
+		CLI: "pi", SessionID: "pinned-2", Path: other, UpdatedAt: time.Now().UTC().Format(time.RFC3339),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	it := terminalQuestion(t, st, term.ID, "")
+	if _, err := deps.DeliverTerminalReply(it.ID, store.VerbRespond, "hi"); err == nil || !strings.Contains(err.Error(), "does not match the conversation") {
+		t.Fatalf("disagreeing pin = %v", err)
+	}
+	after, _ := st.GetInboxItem(it.ID)
+	if after.State == store.InboxDone {
+		t.Fatalf("item closed despite the refusal")
+	}
+	if ents, _ := os.ReadDir(replyDir(deps.DataDir, termReplyKey(term.ID))); len(ents) != 0 {
+		t.Fatalf("a reply file was written despite the refusal: %v", ents)
+	}
+
+	// The pin names a file that no longer exists: when the receiver shows
+	// that same (now gone) file, the resolved path flows through the same
+	// vanished-session guard as a stamped one.
+	gone := filepath.Join(session.Dir(repo), "vanished.jsonl")
+	deps.Replies.HelloSession(termReplyKey(term.ID), gone)
+	if err := st.SetTerminalLastSession(term.ID, store.TerminalLastSession{
+		CLI: "pi", SessionID: "pinned-3", Path: gone, UpdatedAt: time.Now().UTC().Format(time.RFC3339),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	it2 := terminalQuestion(t, st, term.ID, "")
+	if _, err := deps.DeliverTerminalReply(it2.ID, store.VerbRespond, "hi"); err == nil || !strings.Contains(err.Error(), "no longer exists") {
+		t.Fatalf("vanished pin = %v", err)
 	}
 }
 

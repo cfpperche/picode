@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -23,12 +24,13 @@ import (
 // lifecyclePlanView rides on cliView: what the surface may offer for this
 // CLI's detected install method.
 type lifecycleView struct {
-	Method     string                     `json:"method"`
-	CanInstall bool                       `json:"canInstall"`
-	CanUpdate  bool                       `json:"canUpdate"`
-	CanFix     bool                       `json:"canReinstall"`
-	Uninstall  clilifecycle.UninstallKind `json:"uninstall"`
-	Docs       string                     `json:"docs,omitempty"`
+	Method         string                     `json:"method"`
+	CanInstall     bool                       `json:"canInstall"`
+	CanUpdate      bool                       `json:"canUpdate"`
+	CanFix         bool                       `json:"canReinstall"`
+	CanCheckUpdate bool                       `json:"canCheckUpdate"`
+	Uninstall      clilifecycle.UninstallKind `json:"uninstall"`
+	Docs           string                     `json:"docs,omitempty"`
 }
 
 // describeLifecycle computes what the surface may offer. A missing CLI gets
@@ -46,11 +48,12 @@ func describeLifecycle(cliID string, installed bool, executable string) lifecycl
 	}
 	plan, ok := clilifecycle.For(cliID, method)
 	return lifecycleView{
-		Method:    string(plan.Method),
-		CanUpdate: ok && len(plan.UpdateArgs) > 0,
-		CanFix:    ok && len(plan.ReinstallArgs) > 0,
-		Uninstall: plan.Uninstall,
-		Docs:      plan.Docs,
+		Method:         string(plan.Method),
+		CanUpdate:      ok && len(plan.UpdateArgs) > 0,
+		CanFix:         ok && len(plan.ReinstallArgs) > 0,
+		CanCheckUpdate: ok && plan.LatestFrom != "",
+		Uninstall:      plan.Uninstall,
+		Docs:           plan.Docs,
 	}
 }
 
@@ -198,6 +201,34 @@ func handleCLIUpdateCheck(deps Deps) http.HandlerFunc {
 // cliNpmLatest is a var so tests can fake the registry.
 var cliNpmLatest = pipkg.NpmLatest
 
+// museChannelGet is a var so tests can fake the Muse Code channel.
+var museChannelGet = func(ctx context.Context, url string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "picode")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode < 200 || res.StatusCode > 299 {
+		return nil, fmt.Errorf("muse channel returned HTTP %d", res.StatusCode)
+	}
+	return io.ReadAll(io.LimitReader(res.Body, 1<<20))
+}
+
+func museNewer(latest, current string) bool {
+	if latest == "" || current == "" || latest == current {
+		return false
+	}
+	if pipkg.Newer(latest, current) {
+		return true
+	}
+	return clilifecycle.ExtractSemver(latest) == clilifecycle.ExtractSemver(current)
+}
+
 func runUpdateCheck(ctx context.Context, cliID string, plan clilifecycle.Plan, c clilaunch.Config, executable string, d *clilaunch.Diagnostic) error {
 	if plan.LatestFrom == "npm" {
 		latest, err := cliNpmLatest(ctx, plan.NpmPackage)
@@ -207,6 +238,22 @@ func runUpdateCheck(ctx context.Context, cliID string, plan clilifecycle.Plan, c
 		d.UpdateSource = "npm"
 		d.Latest = latest
 		d.UpdateAvailable = pipkg.Newer(latest, clilifecycle.ExtractSemver(d.Version))
+		return nil
+	}
+	if plan.LatestFrom == "channel" {
+		checkCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		raw, err := museChannelGet(checkCtx, clilifecycle.MuseChannelURL)
+		if err != nil {
+			return fmt.Errorf("Could not reach the Muse Code channel.")
+		}
+		ch, err := clilifecycle.ParseMuseChannel(raw)
+		if err != nil {
+			return err
+		}
+		d.UpdateSource = "channel"
+		d.Latest = ch.Version
+		d.UpdateAvailable = museNewer(ch.Version, clilifecycle.ExtractMuseVersion(d.Version))
 		return nil
 	}
 	catalog, ok := clilaunch.Find(cliID)
@@ -251,13 +298,17 @@ func runUpdateCheck(ctx context.Context, cliID string, plan clilifecycle.Plan, c
 // handleCLILifecycle accepts an update/reinstall/uninstall job request.
 func handleCLILifecycle(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if deps.CLIJobs == nil {
-			writeErr(w, 503, "CLI lifecycle is unavailable.")
-			return
-		}
 		cli, ok := clilaunch.Find(r.PathValue("cli"))
 		if !ok {
 			writeErr(w, 404, "Unknown CLI.")
+			return
+		}
+		if cli.DetectOnly() {
+			writeErr(w, 400, fmt.Sprintf("Launch is not available for %s yet.", cli.Name))
+			return
+		}
+		if deps.CLIJobs == nil {
+			writeErr(w, 503, "CLI lifecycle is unavailable.")
 			return
 		}
 		var v struct {

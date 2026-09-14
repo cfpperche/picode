@@ -290,6 +290,7 @@ function Tab({ id, active, attn, onSelect, onClose, onReorder, closeTitle, child
       onClick={(e) => { if (e.target.closest(".mtab-close")) return; onSelect(id); }}
       onFocus={(e) => { if (e.target === e.currentTarget) e.currentTarget.scrollIntoView({ inline: "nearest", block: "nearest" }); }}
     >
+      <span className="mtab-bg" aria-hidden="true" />
       {children}
       <button type="button" className="mtab-close" draggable="false" tabIndex={-1} title={closeTitle + " · Alt+W, or Delete on a focused tab"} onClick={() => onClose(id)}>×</button>
     </div>

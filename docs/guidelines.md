@@ -32,6 +32,9 @@ not the generator — study
 ## Public site (`docs-site/`)
 
 - Markdown in `docs-site/`. VitePress builds static HTML (`make docs`).
+- **Changelog** (`/changelog`) is generated at `make docs` from
+  `CHANGELOG.md` plus `docs/changelog.d/` fragments. Do not hand-edit
+  `docs-site/changelog.md`. It is not a blog.
 - Sidebar groups are **Start / Use / Run / Configure / Reference**
   (LibreChat audience split). Do not flatten them back into one Guides list.
 - Live: `https://cfpperche.github.io/picode/`
