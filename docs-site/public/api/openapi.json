@@ -2079,6 +2079,49 @@
         ]
       }
     },
+    "/api/browser/result": {
+      "post": {
+        "operationId": "postApiBrowserResult",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      }
+    },
+    "/api/browser/stream": {
+      "get": {
+        "operationId": "getApiBrowserStream",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      }
+    },
     "/api/canvases": {
       "get": {
         "operationId": "getApiCanvases",
@@ -9090,6 +9133,9 @@
     },
     {
       "name": "backup"
+    },
+    {
+      "name": "browser"
     },
     {
       "name": "canvases"
