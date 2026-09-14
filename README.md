@@ -83,13 +83,20 @@ persistence model.
 
 ## Quick start
 
-The supported service install runs on Linux or WSL with systemd user services.
-Building from source requires:
+The supported install is a GitHub release on Linux or WSL. Follow
+[Getting started](https://cfpperche.github.io/picode/guide/getting-started):
+install Pi and tmux, download `picode-linux-amd64`, run `picode install`,
+open `https://localhost:8445`. Windows uses
+[PiCode Desktop](https://cfpperche.github.io/picode/guide/windows-desktop).
+A machine you reach from elsewhere uses
+[On a server](https://cfpperche.github.io/picode/guide/remote-server).
 
-- [Go 1.26+](https://go.dev)
-- [Node.js 22](https://nodejs.org) (the version used by CI)
-- [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)
-- tmux 3.5+
+### From source
+
+To change PiCode, not to run it. Needs [Go 1.26+](https://go.dev),
+[Node.js 22](https://nodejs.org) (the version used by CI),
+[Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent), and
+tmux 3.5+.
 
 ```bash
 npm install -g @earendil-works/pi-coding-agent
@@ -99,18 +106,11 @@ make build
 ./bin/picode install
 ```
 
-Open `https://localhost:8445`, then:
+Open `https://localhost:8445`, add a workspace, create an agent, then
+**Run**. Closing the browser does not stop the agent. `make cert` installs
+a locally trusted mkcert certificate when you want the browser warning to
+disappear. Full page: [From source](https://cfpperche.github.io/picode/guide/from-source).
 
-1. Add a workspace for a project folder.
-2. Create an agent inside it and choose its provider, model and run mode.
-3. Select **Run agent** and follow the work in Chat or Terminal.
-
-Closing the browser does not stop the agent. PiCode generates a self-signed
-certificate on first run; `make cert` installs a locally trusted mkcert
-certificate when you want the browser warning to disappear.
-
-For release binaries and remote or shared servers, continue with the
-[installation guides](https://cfpperche.github.io/picode/guide/remote-server).
 The docs also cover [phone pairing](https://cfpperche.github.io/picode/guide/mobile)
 and the [Chrome extension](https://cfpperche.github.io/picode/guide/browser-extension).
 

@@ -27,49 +27,70 @@ export default defineConfig({
   themeConfig: {
     logo: "/favicon.svg",
     nav: [
-      { text: "Guide", link: "/guide/getting-started" },
+      { text: "Start", link: "/guide/getting-started" },
+      { text: "Use", link: "/guide/" },
       { text: "Commands", link: "/commands" },
     ],
     sidebar: [
       {
-        // Diátaxis quadrants (docs/benchmarks.md, Documentation benchmarks):
-        // Start teaches by doing; Guides answer "how do I…"; Run it somewhere
-        // is the self-hosting how-tos; Reference is lookup, not learning.
+        // LibreChat audience split (docs/benchmarks/2026-09-14-librechat-docs.md):
+        // Start = first run; Use = capabilities; Run = host it; Configure =
+        // turn a thing on; Reference = lookup. Diátaxis modes still hold.
         text: "Start",
         items: [
           { text: "What is PiCode", link: "/" },
           { text: "Getting started", link: "/guide/getting-started" },
+          { text: "From source", link: "/guide/from-source" },
           { text: "Files and changes", link: "/guide/files" },
         ],
       },
       {
-        text: "Guides",
+        text: "Use",
+        link: "/guide/",
+        collapsed: false,
         items: [
-          { text: "Providers", link: "/guide/providers" },
-          { text: "Packages", link: "/guide/packages" },
-          { text: "Docker and sysadmin", link: "/guide/docker" },
-          { text: "tmux sessions", link: "/guide/tmux" },
-          { text: "Browser tools for pi", link: "/guide/browser-tool" },
-          { text: "Checklist", link: "/guide/checklist" },
-          { text: "Compact earlier", link: "/guide/compact" },
-          { text: "Diff panel for pi", link: "/guide/diff-panel" },
-          { text: "Model roles", link: "/guide/roles" },
-          { text: "Inbox tools for pi", link: "/guide/inbox-tools" },
-          { text: "MCP", link: "/guide/mcp" },
-          { text: "Integrations", link: "/guide/integrations" },
-          { text: "Agent CLIs", link: "/guide/agent-clis" },
-          { text: "Keyboard and browser keys", link: "/guide/keyboard" },
-          { text: "Canvas", link: "/guide/canvas" },
-          { text: "Session messages", link: "/guide/communication" },
-          { text: "CLI activity reporting", link: "/guide/terminal-status" },
-          { text: "llama.cpp", link: "/guide/llama" },
-          { text: "Chrome extension", link: "/guide/browser-extension" },
-          { text: "Automations", link: "/guide/automations" },
-          { text: "Snippets", link: "/guide/snippets" },
+          {
+            text: "Agents",
+            collapsed: false,
+            items: [
+              { text: "Agent CLIs", link: "/guide/agent-clis" },
+              { text: "Packages", link: "/guide/packages" },
+              { text: "MCP", link: "/guide/mcp" },
+              { text: "llama.cpp", link: "/guide/llama" },
+              { text: "Automations", link: "/guide/automations" },
+              { text: "Snippets", link: "/guide/snippets" },
+            ],
+          },
+          {
+            text: "Chat and work",
+            collapsed: false,
+            items: [
+              { text: "Canvas", link: "/guide/canvas" },
+              { text: "Session messages", link: "/guide/communication" },
+              { text: "Inbox tools", link: "/guide/inbox-tools" },
+              { text: "Checklist", link: "/guide/checklist" },
+              { text: "Compact earlier", link: "/guide/compact" },
+              { text: "Diff panel", link: "/guide/diff-panel" },
+            ],
+          },
+          {
+            text: "Tools",
+            collapsed: false,
+            items: [
+              { text: "Browser tools for pi", link: "/guide/browser-tool" },
+              { text: "Chrome extension", link: "/guide/browser-extension" },
+              { text: "Docker and sysadmin", link: "/guide/docker" },
+              { text: "Integrations", link: "/guide/integrations" },
+              { text: "tmux sessions", link: "/guide/tmux" },
+              { text: "CLI activity reporting", link: "/guide/terminal-status" },
+              { text: "Keyboard and browser keys", link: "/guide/keyboard" },
+            ],
+          },
         ],
       },
       {
-        text: "Run it somewhere",
+        text: "Run",
+        collapsed: false,
         items: [
           { text: "On Windows", link: "/guide/windows-desktop" },
           { text: "Security and pairing", link: "/guide/security" },
@@ -81,10 +102,18 @@ export default defineConfig({
         ],
       },
       {
+        text: "Configure",
+        collapsed: false,
+        items: [
+          { text: "Settings", link: "/guide/settings" },
+          { text: "Providers", link: "/guide/providers" },
+          { text: "Model roles", link: "/guide/roles" },
+        ],
+      },
+      {
         text: "Reference",
         items: [
           { text: "Commands", link: "/commands" },
-          { text: "Settings", link: "/guide/settings" },
           { text: "HTTP API", link: "/api" },
           { text: "License", link: "/license" },
         ],

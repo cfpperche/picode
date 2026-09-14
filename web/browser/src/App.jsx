@@ -4,7 +4,6 @@ import { bashLine } from "@picode/shared/domain/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "@picode/shared/domain/theme.js";
 import { readContextMenuPrefs, modifierHeld } from "./lib/contextMenuPrefs.js";
 import { openBrowserChannel } from "./lib/browserChannel.js";
-import { terminalCli, terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { matchAction } from "./lib/appKeys.js";
 import { applyTermChrome } from "@picode/shared/domain/termTheme.js";
 import { closeTerm } from "./lib/terms.js";
@@ -53,7 +52,7 @@ import { ownerBase } from "@picode/shared/domain/gitOwner.js";
 import { openRepoKeys, openTreeKeys, ownerIdOf, pickTarget } from "./lib/workspacePicker.js";
 import GitActionDialog from "./components/GitActionDialog.jsx";
 import { paneAt, paneSelection, paneLink, focusPane } from "./lib/termActions.js";
-import { planAsk } from "./lib/termMenu.js";
+import { planAsk, paneCapabilities } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
@@ -148,11 +147,17 @@ export default function App({ shellChrome = false } = {}) {
   const narrow = useMedia("(max-width: 767px)");
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [workspaces, setWorkspaces] = useState([]);
+  const workspacesRef = useRef([]);
+  workspacesRef.current = workspaces;
   const [freeAgents, setFreeAgents] = useState([]);
+  const freeAgentsRef = useRef([]);
+  freeAgentsRef.current = freeAgents;
   const [selectedId, setSelectedId] = useState(() => readOpenTabs().selected);
   const [formKind, setFormKind] = useState("workspace");
   const [formWs, setFormWs] = useState("");
   const [tabs, setTabs] = useState(() => readOpenTabs().ids);
+  const tabsRef = useRef([]);
+  tabsRef.current = tabs;
   const [tabsReady, setTabsReady] = useState(false);
   const [fleetLoaded, setFleetLoaded] = useState(false);
   const [dashboardPinned, setDashboardPinned] = useState(false);
@@ -311,6 +316,8 @@ export default function App({ shellChrome = false } = {}) {
 
   const [terminals, setTerminals] = useState([]);
   const [clis, setClis] = useState([]);
+  const clisRef = useRef([]);
+  clisRef.current = clis;
   const [termHandoff, setTermHandoff] = useState(null);
   const terminalsRef = useRef([]);
   terminalsRef.current = terminals;
@@ -529,24 +536,25 @@ export default function App({ shellChrome = false } = {}) {
       // in the app gets the generic menu.
       const pane = paneAt(e.target);
       if (pane) {
-        const record = pane.kind === "term" ? terminalsRef.current.find((t) => t.id === pane.id) || null : null;
+        const termRecord = pane.kind === "term" ? terminalsRef.current.find((t) => t.id === pane.id) || null : null;
+        const loc = pane.kind === "agent" ? locate(workspacesRef.current, freeAgentsRef.current, pane.id) : null;
+        const splitOn = pane.kind === "agent" ? !!agentPanesRef.current[pane.id] : !!agentPanesRef.current[termTabId(pane.id)];
         setCtxMenu({
           x: e.clientX,
           y: e.clientY,
           target: e.target,
           selection: paneSelection(pane.entry) || held,
           link: paneLink(pane.entry, e, pane.cwd),
-          term: {
-            id: pane.id,
-            kind: pane.kind,
-            record,
-            // The prompt door is the launch (ADR-0089), so the row follows
-            // exactly what puts the bar on screen — not a TUI we merely see.
-            cli: record && record.launchCli ? terminalCliLabel(record.launchCli) : "",
-            running: !!(record && record.running),
-            shell: !!record && !record.launchCli && !terminalCli(record),
-            splitOn: pane.kind === "agent" ? !!agentPanesRef.current[pane.id] : !!agentPanesRef.current[termTabId(pane.id)],
-          },
+          term: paneCapabilities({
+            host: pane.kind,
+            termRecord,
+            agent: loc && loc.agent,
+            workspace: loc && loc.workspace,
+            paneCwd: pane.cwd,
+            tabs: tabsRef.current,
+            clis: clisRef.current,
+            splitOn,
+          }),
         });
         return;
       }
@@ -2241,7 +2249,12 @@ export default function App({ shellChrome = false } = {}) {
     fullscreen: () => focus.toggle(),
     ask: (ctx) => openTermAttach(ctx, ctx.selection),
     attach: (ctx) => openTermAttach(ctx, ""),
-    snippet: (ctx) => setSnipRun({ target: { type: "terminal", id: ctx.id }, targetName: ctx.record && ctx.record.name, onlyKind: "prompt" }),
+    snippet: (ctx) => setSnipRun({
+      target: { type: ctx.kind === "agent" ? "agent" : "terminal", id: ctx.id },
+      targetName: ctx.record && ctx.record.name,
+      onlyKind: "prompt",
+      via: ctx.kind === "agent" ? "tui" : "cli",
+    }),
     "snippet-cmd": (ctx) => setSnipRun({ target: { type: "terminal", id: ctx.id }, targetName: ctx.record && ctx.record.name, onlyKind: "shell" }),
     find: (ctx) => setTermFind(ctx.id),
     handoff: (ctx, targetId) => {
@@ -2249,7 +2262,7 @@ export default function App({ shellChrome = false } = {}) {
       const record = ctx && ctx.record;
       if (!record || !targetId) return;
       const [cliId, landing] = String(targetId).split(":");
-      const target = handoffTargets(clis, terminalHandoffSourceCli(record)).find((t) => t.id === cliId);
+      const target = handoffTargets(clisRef.current, terminalHandoffSourceCli(record)).find((t) => t.id === cliId);
       if (target) openTermHandoff(record, landing ? { ...target, landing } : target);
     },
     "open-link": (ctx) => {
@@ -2257,11 +2270,27 @@ export default function App({ shellChrome = false } = {}) {
       if (ctx.link.kind === "http") window.open(ctx.link.href, "_blank", "noopener,noreferrer");
       else openFileTab(ctx.kind === "agent" ? "agent" : "term", ctx.id, ctx.link.path);
     },
-    rename: (ctx) => renameTerminal(ctx.record),
-    settings: (ctx) => { location.hash = "#/termset/" + encodeURIComponent(ctx.id); },
-    files: (ctx) => openTreeTab("term", ctx.id, ctx.record ? ctx.record.name : ""),
-    "close-tab": (ctx) => closeTab(termTabId(ctx.id)),
-    remove: (ctx) => removeTerminal(ctx.record),
+    rename: (ctx) => {
+      if (ctx.kind === "agent") {
+        const loc = locate(workspacesRef.current, freeAgentsRef.current, ctx.id);
+        if (loc && loc.agent) renameAgent(loc.agent);
+        return;
+      }
+      renameTerminal(ctx.record);
+    },
+    settings: (ctx) => {
+      location.hash = ctx.kind === "agent" ? "#/termset" : "#/termset/" + encodeURIComponent(ctx.id);
+    },
+    files: (ctx) => openTreeTab(ctx.kind === "agent" ? "agent" : "term", ctx.id, ctx.record ? ctx.record.name : ""),
+    "close-tab": (ctx) => closeTab(ctx.kind === "agent" ? ctx.id : termTabId(ctx.id)),
+    remove: (ctx) => {
+      if (ctx.kind === "agent") {
+        const loc = locate(workspacesRef.current, freeAgentsRef.current, ctx.id);
+        if (loc && loc.agent) removeAgent(loc.agent);
+        return;
+      }
+      removeTerminal(ctx.record);
+    },
     "open-browser": (ctx) => openAgentSplit(ctx.kind === "agent" ? ctx.id : termTabId(ctx.id)),
     "close-browser": (ctx) => closeAgentSplit(ctx.kind === "agent" ? ctx.id : termTabId(ctx.id)),
   };
@@ -3258,6 +3287,8 @@ export default function App({ shellChrome = false } = {}) {
                       openTabs: tabs,
                       openTab, openInteractive, revealAgent, openFileTab,
                       feed: subscribeFeed,
+                      termAttach,
+                      onAttachClose: () => setTermAttach(null),
                       // The app says what it has in focus; the host decides
                       // what follows from that (ADR-0109, amendment
                       // 2026-09-12). An app never names the Inspector.
@@ -3546,6 +3577,8 @@ export default function App({ shellChrome = false } = {}) {
                   term={{ id: agent.id, session: "picode-" + agent.id, name: agent.name + " · TUI", cwd: agent.workPath || (selected && selected.path) }}
                   cwdKind="agent"
                   onOpenFile={(p) => openFileTab("agent", agent.id, p)}
+                  attach={termAttach && termAttach.id === agent.id ? termAttach : null}
+                  onAttachClose={() => setTermAttach(null)}
                   find={termFind === agent.id}
                   onFindClose={() => { setTermFind(""); focusPane(agent.id); }}
                 />
@@ -3626,7 +3659,12 @@ export default function App({ shellChrome = false } = {}) {
           if (a.kind === "fullscreen") { focus.toggle(); return; }
           if (a.kind === "cli-new") { location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : ""); return; }
           if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets") { go(a.kind, agent?.id, { workspaceId: paneWs?.id }); return; }
-          if (a.kind === "snip-run") { setSnipRun({ snipId: a.snipId, target: a.target }); return; }
+          if (a.kind === "snip-run") {
+            const loc = locate(workspacesRef.current, freeAgentsRef.current, a.target && a.target.id);
+            const via = loc && loc.agent && loc.agent.mode === "interactive" ? "tui" : undefined;
+            setSnipRun({ snipId: a.snipId, target: a.target, via });
+            return;
+          }
           if (a.kind === "app") { openTab(appTabId(a.appId)); if (parseRoute() !== "workspace") location.hash = appHash(a.appId); return; }
           if (a.kind === "open") revealAgent(a.wsId);
           if (a.kind === "files") openTreeTab("workspace", a.wsId, a.wsName);
@@ -3642,6 +3680,7 @@ export default function App({ shellChrome = false } = {}) {
         target={snipRun && snipRun.target}
         targetName={snipRun && snipRun.targetName}
         onlyKind={snipRun && snipRun.onlyKind}
+        via={snipRun && snipRun.via}
         onRan={() => setSnipRun(null)}
         onClose={() => setSnipRun(null)}
       />

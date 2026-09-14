@@ -1,7 +1,14 @@
+---
+description: Connect an existing llama.cpp router, or let PiCode run a local CPU service on Linux/WSL.
+---
+
 # llama.cpp
 
 PiCode connects to an existing [llama.cpp](https://github.com/ggml-org/llama.cpp)
 router, or creates a separate local CPU service on Linux/WSL.
+
+- **Where:** **llama.cpp → Local service** (`#/llama/service`) on desktop or mobile.
+- **Not this:** not a cloud account in [Providers](/guide/providers). Connect llama.cpp here, then pick the model on the agent.
 
 ## Let PiCode manage a local service
 

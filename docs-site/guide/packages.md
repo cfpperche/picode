@@ -1,12 +1,17 @@
+---
+description: Extras for Pi (search, tools, themes). Full access — only install what you review.
+---
+
 # Packages
 
 Extras for Pi (search, tools, themes). They run with **full access** — only install what you review.
 
+- **Where:** select an agent, then **Agent CLIs → Packages**, or **Packages** on that agent's ⋯ menu.
+- **Not this:** not MCP servers (that is [Connectors](/guide/mcp) after the adapter) and not API keys ([Providers](/guide/providers)).
+
 Canonical: [pi packages](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md).
 
-Select the agent in the sidebar, then open **Agent CLIs** (header icon) and
-the **Packages** pane — or **Packages** from that agent's ⋯ menu. Pick a
-target and Install. **Installed** lists what each target has (Update when a
+Pick a target and Install. **Installed** lists what each target has (Update when a
 newer version exists, Remove); **Marketplace** is the pi.dev gallery. Without
 an agent selected, only **This machine** is offered.
 
