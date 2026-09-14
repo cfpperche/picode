@@ -98,3 +98,39 @@ changes:
 | Per-agent context-window % on the Fleet tile (pi-agent-dashboard) | One `/status` fetch per running agent from the dashboard; refused until an aggregate endpoint exists. |
 | A 30 s TTL cache (the 0041 note) | Fingerprint is cheaper to reason about and never serves stale numbers; the stat sweep is two orders of magnitude below the scan. |
 | A charting library for the daily chart | Still one bar per day with a native hover; `lib/barchart.js` + `DailyChart.jsx` follow the sparkline/gitgraph split. |
+
+## Amendment (2026-09-13): the Fleet tile counts the whole machine
+
+**Why.** ADR-0127 settled that this dashboard measures the machine and not
+PiCode's own folders, and every windowed panel had always done so — Spend,
+Activity and By CLI read each agent CLI's own session store. The Fleet tile
+was the last exception: it counted managed agents, so the owner's own
+screenshot showed seven live Claude Code and Grok terminals in the sidebar
+beside `1 / 1 running`.
+
+**What changed.** `fleetStats()` takes the terminal list as well, and the
+tile counts three things: managed agents (workspace and free), agent-CLI
+terminals, and shell terminals **apart** — a shell is not an agent and is
+never listed as one, only counted (`N shells`). States fold into four
+buckets in one vocabulary per kind (`agentStatus.js`, `terminalCli.js`):
+`working`, `need you`, `idle`, and `unreported`.
+
+**Why a fourth bucket.** A CLI running in a terminal reports its activity
+through its own hooks (ADR-0062 keeps presence and activity separate), so a
+terminal can hold a CLI whose activity was never reported. Folding that into
+`idle` would be the "$0.00 for unpriced spend" mistake ADR-0097 refuses: a
+quiet-looking agent where the product actually has a blind one. `no signal`
+is that state, with a one-line hint behind it.
+
+**Also.** The value reads `N live` with `live now` under it (`live` = live
+agents + live agent-CLI terminals, since the windowed tiles obey the date
+range and this one cannot) — the old `X / Y running` read as a machine total
+while counting one half. The rows follow the state order, are buttons that
+open the agent or terminal tab, and four of them show at rest with
+`+N more` revealing the rest in place.
+
+**Not done here.** A `needs you` line above the KPI row (the tile already
+sorts those first and accents them), and naming the Inbox app in it —
+ADR-0109's doors do not include a dashboard section, so that is a decision
+before it is a commit. The day-range chart still draws one full-width bar
+(see `docs/handoff/open/dashboard.md`).

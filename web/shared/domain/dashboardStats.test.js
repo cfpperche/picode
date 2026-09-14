@@ -1,7 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { deltaPercent, fleetStats, rangeLabel, compareLabel, formatTokens, percent, tokenSegments, dayLabel, folderLabel,
-  measured, signalState, coversAll, coverageNote, billingBadge, formatDuration, resetsIn, costPerTurn, costPerLine, spendState } from "./dashboardStats.js";
+  measured, signalState, coversAll, coverageNote, billingBadge, formatDuration, resetsIn, costPerTurn, costPerLine, spendState,
+  FLEET_WORKING, FLEET_NEEDS_YOU, FLEET_IDLE, FLEET_UNREPORTED, FLEET_ORDER, FLEET_LABELS } from "./dashboardStats.js";
 
 describe("deltaPercent", () => {
   it("is null with no prior or a zero prior", () => {
@@ -20,25 +21,77 @@ describe("fleetStats", () => {
     { id: "w2", agents: [] },
   ];
   const freeAgents = [{ id: "a3", name: "free", mode: "interactive" }, { id: "a4", mode: "stopped" }];
-  it("counts running vs total across workspaces and free agents", () => {
-    const f = fleetStats(workspaces, freeAgents);
-    assert.equal(f.running, 2);
-    assert.equal(f.total, 4);
-    assert.equal(f.idle, 2);
-    assert.equal(f.working, 0);
+  const term = (over = {}) => ({ id: "t1", name: "canvas", running: true, ...over });
+
+  it("counts agents by state across workspaces and free agents", () => {
+    const f = fleetStats(workspaces, freeAgents, [], {});
+    assert.deepEqual([f.agents.running, f.agents.total], [2, 4]);
+    assert.deepEqual([f.agents.idle, f.agents[FLEET_WORKING], f.agents[FLEET_NEEDS_YOU]], [2, 0, 0]);
   });
-  it("splits running agents into working / waiting / idle from live ids", () => {
-    const f = fleetStats(workspaces, freeAgents, { workingIds: ["a1"], waitingId: "a3" });
-    assert.deepEqual([f.working, f.waiting, f.idle], [1, 1, 0]);
-    assert.deepEqual(f.agents.map((a) => [a.name, a.model, a.state]), [["One", "grok-4.6", "working"], ["free", "", "waiting"]]);
+
+  it("splits live agents into the buckets from their live ids", () => {
+    const f = fleetStats(workspaces, freeAgents, [], { workingIds: ["a1"], waitingId: "a3" });
+    assert.deepEqual([f[FLEET_WORKING], f[FLEET_NEEDS_YOU], f[FLEET_IDLE]], [1, 1, 0]);
+    assert.deepEqual(f.units.map((u) => [u.name, u.detail, u.state]),
+      [["free", "", FLEET_NEEDS_YOU], ["One", "grok-4.6", FLEET_WORKING]]);
   });
+
+  // The decision table this release exists for: a terminal's CLI state is
+  // presence (cli/tui) crossed with activity (state), and the two holes in
+  // that grid — no CLI, no reported activity — are counted, never guessed.
+  it("counts agent-CLI terminals beside agents, by their own vocabulary", () => {
+    const terminals = [
+      term({ id: "t1", cli: "claude-code", state: "working" }),
+      term({ id: "t2", cli: "grok", state: "needs-you" }),
+      term({ id: "t3", cli: "pi", state: "idle" }),
+      term({ id: "t4", tui: { cli: "codex" } }),
+      term({ id: "t5", cli: "pi", running: false }),
+    ];
+    const f = fleetStats([], [], terminals, {});
+    assert.deepEqual([f.terminals.running, f.terminals.total], [4, 5]);
+    assert.deepEqual([f[FLEET_WORKING], f[FLEET_NEEDS_YOU], f[FLEET_IDLE], f[FLEET_UNREPORTED]], [1, 1, 1, 1]);
+    assert.equal(f.live, 4);
+  });
+
+  it("keeps a CLI with no activity signal out of idle", () => {
+    const f = fleetStats([], [], [term({ cli: "codex" })], {});
+    assert.deepEqual([f[FLEET_IDLE], f[FLEET_UNREPORTED]], [0, 1]);
+    assert.equal(f.units[0].state, FLEET_UNREPORTED);
+  });
+
+  it("counts shells apart and never lists them as agents", () => {
+    const f = fleetStats([], [], [term({ id: "s1", name: "build" })], {});
+    assert.deepEqual([f.shells.running, f.shells.total, f.terminals.running], [1, 1, 0]);
+    assert.deepEqual(f.units, []);
+    assert.equal(f.live, 0);
+  });
+
+  it("ranks the units by who is waiting on the reader", () => {
+    const f = fleetStats(workspaces, freeAgents, [term({ cli: "pi", state: "idle" })], { waitingId: "a3" });
+    assert.deepEqual(f.units.map((u) => u.state), [FLEET_NEEDS_YOU, FLEET_IDLE, FLEET_IDLE]);
+    assert.deepEqual(FLEET_ORDER, [FLEET_NEEDS_YOU, FLEET_WORKING, FLEET_IDLE, FLEET_UNREPORTED]);
+    assert.equal(FLEET_LABELS[FLEET_UNREPORTED], "no signal");
+  });
+
+  it("carries the tab identity each unit opens by, ties broken by name", () => {
+    const f = fleetStats(workspaces, [], [term({ id: "grid-layout-3a1c81", cli: "claude-code", state: "idle" })], {});
+    const byKind = Object.fromEntries(f.units.map((u) => [u.kind, u.id]));
+    assert.equal(byKind.agent, "a1");
+    assert.equal(byKind.terminal, "grid-layout-3a1c81");
+    // Two idle units and no winner on state: the alphabet decides, so the
+    // list does not reshuffle between renders, not insertion order.
+    assert.deepEqual(f.units.map((u) => u.key), ["terminal:grid-layout-3a1c81", "agent:a1"]);
+  });
+
   it("handles the legacy single-agent workspace shape via agentsOf", () => {
-    const f = fleetStats([{ id: "w1", agent: { id: "a1", mode: "managed" } }], []);
-    assert.deepEqual([f.running, f.total], [1, 1]);
+    const f = fleetStats([{ id: "w1", agent: { id: "a1", mode: "managed" } }], [], [], {});
+    assert.deepEqual([f.agents.running, f.agents.total], [1, 1]);
   });
+
   it("is zero-safe on empty input", () => {
-    assert.deepEqual(fleetStats([], []).total, 0);
-    assert.deepEqual(fleetStats(null, null).agents, []);
+    assert.equal(fleetStats([], [], [], {}).live, 0);
+    assert.equal(fleetStats([], [], [], {}).agents.total, 0);
+    assert.deepEqual(fleetStats(null, null, null).units, []);
   });
 });
 

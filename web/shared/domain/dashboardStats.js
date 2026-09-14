@@ -1,4 +1,6 @@
 import { agentsOf, displayAgentName } from "./tree.js";
+import { agentRowStatus } from "./agentStatus.js";
+import { terminalCli, terminalStatus } from "./terminalCli.js";
 
 // deltaPercent: null (not a chip-worthy comparison) when there's no prior
 // window (range=all) or the prior total was zero — "vs $0" isn't a
@@ -8,32 +10,145 @@ export function deltaPercent(current, prior) {
   return ((current - prior) / prior) * 100;
 }
 
-// fleetStats: agents by live state, across every workspace plus free
-// agents. Reuses agentsOf() (lib/tree.js) so this counts exactly the same
-// set the sidebar does, including its legacy single-`agent` fallback.
-//   running / total  — kept from v1 (mode !== "stopped")
-//   working          — streaming right now (App's workingIds)
-//   waiting          — blocked on the user (App's waitingId)
-//   idle             — running but neither of the above
-//   agents           — the running ones, for the tile's name/model line
-export function fleetStats(workspaces, freeAgents, live) {
-  const workingIds = (live && live.workingIds) || [];
-  const waitingId = live && live.waitingId;
-  const out = { running: 0, total: 0, working: 0, waiting: 0, idle: 0, agents: [] };
-  const count = (agents, ws) => {
-    for (const a of agents) {
-      out.total++;
-      if (!(a && a.mode && a.mode !== "stopped")) continue;
-      out.running++;
-      let state = "idle";
-      if (a.id === waitingId) state = "waiting";
-      else if (workingIds.includes(a.id)) state = "working";
-      out[state]++;
-      out.agents.push({ id: a.id, name: displayAgentName(a, ws), model: a.model || "", provider: a.provider || "", state });
-    }
+// The four live buckets, in the order a supervisor reads them: who is stuck
+// on me, who is busy, who is ready, who cannot say.
+//
+// "unreported" is the reason this shape exists rather than a plain running
+// count. A CLI running in a terminal reports activity through its own hooks
+// (ADR-0062), and one whose hooks were never wired has presence but no
+// signal. Folding that into "idle" would be the same lie as printing $0.00
+// for spend no CLI priced (ADR-0097): the surface would claim a quiet agent
+// where it only has a blind one.
+export const FLEET_WORKING = "working";
+export const FLEET_NEEDS_YOU = "needs-you";
+export const FLEET_IDLE = "idle";
+export const FLEET_UNREPORTED = "unreported";
+
+// The strip order, and the words the tile prints.
+export const FLEET_ORDER = [FLEET_NEEDS_YOU, FLEET_WORKING, FLEET_IDLE, FLEET_UNREPORTED];
+export const FLEET_LABELS = Object.freeze({
+  [FLEET_NEEDS_YOU]: "need you",
+  [FLEET_WORKING]: "working",
+  [FLEET_IDLE]: "idle",
+  [FLEET_UNREPORTED]: "no signal",
+});
+
+// FLEET_HINTS is the one line behind each bucket's word, for a reader who has
+// never wired a CLI's hooks and would read "no signal" as a broken terminal.
+// Same vocabulary as the Agent CLIs page ("Activity not reported").
+export const FLEET_HINTS = Object.freeze({
+  [FLEET_NEEDS_YOU]: "Blocked on you — answer it to let it continue",
+  [FLEET_WORKING]: "Running a turn right now",
+  [FLEET_IDLE]: "Open, nothing running",
+  [FLEET_UNREPORTED]: "Running, but it has not reported activity — the CLI's hooks are not wired",
+});
+
+// agentState / terminalState fold each kind's own vocabulary (agentStatus.js,
+// terminalCli.js) into the four buckets. "stopped" maps to "" — a stopped
+// agent or a dead session is not a fleet member, it is a row in the store.
+function agentState(ag, live) {
+  const status = agentRowStatus(ag, live);
+  if (status === "needs-you") return FLEET_NEEDS_YOU;
+  if (status === "working") return FLEET_WORKING;
+  if (status === "stopped") return "";
+  // "interactive" is a TUI sitting open with no turn running: ready, the
+  // same as a managed agent that is neither streaming nor blocked.
+  return FLEET_IDLE;
+}
+
+function terminalState(term) {
+  const status = terminalStatus(term);
+  if (status === "needs-you") return FLEET_NEEDS_YOU;
+  if (status === "working") return FLEET_WORKING;
+  if (status === "ready") return FLEET_IDLE;
+  if (status === "open") return FLEET_UNREPORTED;
+  return ""; // stopped
+}
+
+function emptyCounts() {
+  return {
+    total: 0,
+    running: 0,
+    [FLEET_WORKING]: 0,
+    [FLEET_NEEDS_YOU]: 0,
+    [FLEET_IDLE]: 0,
+    [FLEET_UNREPORTED]: 0,
   };
-  for (const ws of workspaces || []) count(agentsOf(ws), ws);
-  count(freeAgents || [], null);
+}
+
+// fleetStats: what is alive on this machine right now — every managed agent
+// (workspace and free), every agent-CLI terminal, and plain shell terminals
+// counted apart because they are not agents.
+//
+// The dashboard measures the machine (ADR-0127), and the windowed tiles have
+// always done so: Spend and By CLI read every agent CLI's own session store.
+// This tile was the exception — it counted managed agents only, so a sidebar
+// of seven live Claude Code and Grok terminals sat beside "1 / 1 running".
+// Terminals are the fleet's other half (ADR-0056 hosts guest CLIs in them,
+// ADR-0062 gives them presence and activity), so they count here.
+//
+//   agents.running / terminals.running / shells.running — live, per kind
+//   live    — agents.running + terminals.running, the tile's headline
+//   units   — one row per live agent and CLI terminal, attention first
+//
+export function fleetStats(workspaces, freeAgents, terminals, live) {
+  const out = {
+    agents: emptyCounts(),
+    terminals: emptyCounts(),
+    shells: emptyCounts(),
+    live: 0,
+    [FLEET_WORKING]: 0,
+    [FLEET_NEEDS_YOU]: 0,
+    [FLEET_IDLE]: 0,
+    [FLEET_UNREPORTED]: 0,
+    units: [],
+  };
+
+  const addAgent = (ag, ws) => {
+    if (!ag) return;
+    out.agents.total++;
+    const state = agentState(ag, live);
+    if (!state) return;
+    out.agents.running++;
+    out.agents[state]++;
+    out[state]++;
+    out.units.push({
+      key: "agent:" + ag.id,
+      kind: "agent",
+      id: ag.id,
+      name: displayAgentName(ag, ws),
+      detail: ag.model || "",
+      state,
+    });
+  };
+
+  for (const ws of workspaces || []) for (const ag of agentsOf(ws)) addAgent(ag, ws);
+  for (const ag of freeAgents || []) addAgent(ag, null);
+
+  for (const term of terminals || []) {
+    if (!term) continue;
+    const cli = terminalCli(term);
+    const bucket = cli ? out.terminals : out.shells;
+    bucket.total++;
+    const state = terminalState(term);
+    if (!state) continue;
+    bucket.running++;
+    bucket[state]++;
+    if (!cli) continue; // a shell is counted, never listed as an agent
+    out[state]++;
+    out.units.push({
+      key: "terminal:" + term.id,
+      kind: "terminal",
+      id: term.id,
+      name: term.name || term.id,
+      detail: cli,
+      state,
+    });
+  }
+
+  out.live = out.agents.running + out.terminals.running;
+  const rank = (u) => FLEET_ORDER.indexOf(u.state);
+  out.units.sort((a, b) => rank(a) - rank(b) || String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" }));
   return out;
 }
 
