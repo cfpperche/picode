@@ -19,6 +19,17 @@ function listURL(q, view) {
   return view === "archived" ? "/api/snips?archived=1" : "/api/snips";
 }
 
+// Drafts live in localStorage (snippets v2, F4): a closed tab or a crash
+// used to take the half-written snippet with it. Same keys and the same
+// `draftToRestore` base rule as before — only the shelf is sturdier — and
+// last-writer-wins across tabs, like the Automations draft.
+function draftStore() {
+  try {
+    if (typeof localStorage !== "undefined") return localStorage;
+  } catch { /* blocked storage falls through */ }
+  try { return typeof sessionStorage !== "undefined" ? sessionStorage : null; } catch { return null; }
+}
+
 export default function Snippets({ hidden }) {
   const [sub, setSub] = useState(() => snippetRoute());
   const [items, setItems] = useState(null);
@@ -126,18 +137,14 @@ export default function Snippets({ hidden }) {
     }
     const title = ((src.title || "").trim() + " copy").trim();
     const slug = (src.slug ? src.slug + "-copy" : "").slice(0, 64);
-    if (typeof sessionStorage !== "undefined") {
-      writeDraft(sessionStorage, "new", {
-        ...formFromSnip(null), title, slug, slugLocked: !!slug, body: src.body || "", tags: (src.tags || []).join(", "), kind: src.kind || "prompt",
-      }, "", "duplicate");
-    }
+    writeDraft(draftStore(), "new", {
+      ...formFromSnip(null), title, slug, slugLocked: !!slug, body: src.body || "", tags: (src.tags || []).join(", "), kind: src.kind || "prompt",
+    }, "", "duplicate");
     location.hash = snippetsHash("new");
   }
 
   function startFrom(body, title, origin, extra) {
-    if (typeof sessionStorage !== "undefined") {
-      writeDraft(sessionStorage, "new", { ...formFromSnip(null), body, title, ...(extra || {}) }, "", origin);
-    }
+    writeDraft(draftStore(), "new", { ...formFromSnip(null), body, title, ...(extra || {}) }, "", origin);
     location.hash = snippetsHash("new");
   }
 
@@ -359,23 +366,24 @@ export function Editor({ initial, prefill, onCancel, onSaved, onDelete, onDuplic
   const [busy, setBusy] = useState(false);
   const [slugLocked, setSlugLocked] = useState(!!(initial && initial.slug));
   const [enums, setEnums] = useState({}); // name -> enum[]; rides the draft, sent on save
+  const [slugState, setSlugState] = useState(""); // "" | "checking" | "free" | "taken"
   const [tryValues, setTryValues] = useState({}); // name -> sample value for Try it (session only)
   const bodyRef = useRef(null);
   const lastGood = useRef("");
   const loaded = useRef(false);
-  const hydrated = useRef(false);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     if (initial && initial.id) {
       api("/api/snips/" + encodeURIComponent(initial.id)).then((p) => {
         setFull(p);
         const form = formFromSnip(p);
-        const stored = typeof sessionStorage !== "undefined" ? readDraft(sessionStorage, p.id) : null;
+        const stored = readDraft(draftStore(), p.id);
         const restore = draftToRestore(stored, form);
         setF(restore ? { ...form, ...restore } : form);
         if (stored && stored.enums) setEnums(stored.enums);
         setSlugLocked(true);
-        hydrated.current = true;
+        setHydrated(true);
       }).catch((e) => setErr(e.message || "Could not load snippet."));
       return;
     }
@@ -384,19 +392,43 @@ export function Editor({ initial, prefill, onCancel, onSaved, onDelete, onDuplic
     // keepDraft=false is a capture: the sheet owns the text and must not
     // read (or clobber) the draft of a snippet the reader is still writing
     // in the studio.
-    if (!keepDraft) { hydrated.current = true; return; }
-    const stored = typeof sessionStorage !== "undefined" ? readDraft(sessionStorage, "new") : null;
+    if (!keepDraft) { setHydrated(true); return; }
+    const stored = readDraft(draftStore(), "new");
     const restore = draftToRestore(stored, null);
     if (restore) setF(restore);
     if (restore && restore.slugLocked) setSlugLocked(true);
     if (stored && stored.enums) setEnums(stored.enums);
-    hydrated.current = true;
+    setHydrated(true);
   }, [initial?.id]);
 
+  // The address is checked while the reader types it (F8), so a clash is a
+  // sentence under the field instead of a 409 after the Save. Debounced, and
+  // the answer a save would give: taken means the save stays off. A failed
+  // check is no check — it never blocks a save on a network hiccup.
+  const wanted = f.slug || snipSlug(f.title);
   useEffect(() => {
-    if (!keepDraft || !hydrated.current || typeof sessionStorage === "undefined") return;
-    writeDraft(sessionStorage, id, { ...f, enums, slugLocked }, full ? full.updatedAt : "");
-  }, [f, id, full, slugLocked, enums, keepDraft]);
+    if (!wanted) { setSlugState(""); return undefined; }
+    let live = true;
+    setSlugState("checking");
+    const t = setTimeout(() => {
+      const q = full && full.id ? "?except=" + encodeURIComponent(full.id) : "";
+      api("/api/snips/slug/" + encodeURIComponent(wanted) + q)
+        .then(() => { if (live) setSlugState("free"); })
+        .catch((e) => { if (live) setSlugState(e && e.status === 409 ? "taken" : ""); });
+    }, 350);
+    return () => { live = false; clearTimeout(t); };
+  }, [wanted, full && full.id]);
+
+  // Writes start only once the hydrated value is IN `f` (F4). With a ref the
+  // write effect ran in the hydration commit, with `f` still the pristine
+  // first paint: one transient render in which storage held an empty draft
+  // (it was corrected on the next render, so a reload test never caught it).
+  // The shelf is durable now, so that window is worth closing — and state is
+  // what closes it, because it flips in the same commit as the restored `f`.
+  useEffect(() => {
+    if (!keepDraft || !hydrated) return;
+    writeDraft(draftStore(), id, { ...f, enums, slugLocked }, full ? full.updatedAt : "");
+  }, [f, id, full, slugLocked, enums, keepDraft, hydrated]);
 
   function set(patch) {
     setF((cur) => {
@@ -443,7 +475,7 @@ export function Editor({ initial, prefill, onCancel, onSaved, onDelete, onDuplic
       const p = full
         ? await api("/api/snips/" + encodeURIComponent(full.id), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
         : await api("/api/snips", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      if (typeof sessionStorage !== "undefined" && keepDraft) clearDraft(sessionStorage, id);
+      if (keepDraft) clearDraft(draftStore(), id);
       toast.ok("Saved.");
       onSaved(p.id);
     } catch (ex) {
@@ -482,8 +514,7 @@ export function Editor({ initial, prefill, onCancel, onSaved, onDelete, onDuplic
         <div className="auto-detail-actions" data-align-row>
           {onDelete ? <button type="button" className="btn btn-ghost btn-danger" onClick={onDelete}><IconTrash /> Delete</button> : null}
           {onDuplicate ? <button type="button" className="btn btn-ghost" onClick={() => onDuplicate(full || initial)}><IconCopy /> Duplicate</button> : null}
-          <button type="submit" className="btn btn-primary" disabled={busy || !dirty || invalid}>{busy ? "Saving…" : "Save"}</button>
-          {invalid && !busy ? <span className="auto-hint bad">Fix the placeholders first.</span> : null}
+          <button type="submit" className="btn btn-primary" disabled={busy || !dirty || invalid || slugState === "taken"}>{busy ? "Saving…" : "Save"}</button>
         </div>
       </div>
       <h3 className="auto-detail-title">{full ? "Edit snippet" : "New snippet"}</h3>
@@ -504,7 +535,11 @@ export function Editor({ initial, prefill, onCancel, onSaved, onDelete, onDuplic
       <label className="auto-field">
         <span>Slug</span>
         <input className="dlg-input" value={f.slug} onChange={(e) => { setSlugLocked(true); set({ slug: e.target.value }); }} placeholder={snipSlug(f.title) || "review-pr"} />
-        <span className="auto-hint">Used as /snip:{f.slug || snipSlug(f.title) || "name"}</span>
+        <span className={"auto-hint" + (slugState === "taken" ? " bad" : "")}>
+          {slugState === "taken"
+            ? "Another snippet already uses /snip:" + wanted + " — pick another address."
+            : "Used as /snip:" + (wanted || "name") + (slugState === "checking" ? " · checking…" : "")}
+        </span>
       </label>
       <label className="auto-field">
         <span>Description</span>

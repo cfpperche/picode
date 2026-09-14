@@ -15,8 +15,9 @@ import (
 )
 
 func registerSnips(mux Registrar, deps Deps) {
-	// Static path before /{id}, like the picker above: a starter is not a row.
+	// Static paths before /{id}: a starter and an address check are not rows.
 	mux.HandleFunc("GET /api/snips/templates", handleSnipTemplates)
+	mux.HandleFunc("GET /api/snips/slug/{slug}", handleSnipSlug(deps))
 	mux.HandleFunc("GET /api/snips/picker", handleSnipPicker(deps))
 	mux.HandleFunc("GET /api/snips", handleListSnips(deps))
 	mux.HandleFunc("POST /api/snips", handleCreateSnip(deps))
@@ -65,6 +66,29 @@ func handleListSnips(deps Deps) http.HandlerFunc {
 // starter before anything is saved.
 func handleSnipTemplates(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"items": snips.Templates()})
+}
+
+// handleSnipSlug answers the editor's debounced "is this address free?"
+// (snippets v2, F8): 204 free, 409 taken — the same verdict a save would
+// reach, so a clash is visible while the reader is still typing. `?except=`
+// names the snippet being edited: its own slug is not a clash.
+func handleSnipSlug(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slug := strings.TrimSpace(r.PathValue("slug"))
+		taken, err := deps.Store.SnipSlugTaken(slug, r.URL.Query().Get("except"))
+		if err != nil {
+			writePinErr(w, err)
+			return
+		}
+		if taken {
+			writeJSON(w, http.StatusConflict, map[string]any{
+				"error":  "Another snippet already uses /snip:" + snips.Slug(slug) + ".",
+				"reason": "slug",
+			})
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 func handleSnipPicker(deps Deps) http.HandlerFunc {

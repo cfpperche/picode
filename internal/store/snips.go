@@ -436,3 +436,24 @@ func (s *Store) ListSnipPicker(includeShell bool) ([]SnipPicker, error) {
 	}
 	return out, rows.Err()
 }
+
+// SnipSlugTaken reports whether slug already belongs to another snippet —
+// the editor's debounced "is this address free?". An archived row keeps its
+// slug (reuse needs a DELETE), so this deliberately does not filter
+// archived_at. `except` is the snippet being edited, whose own slug is not a
+// clash; it is empty when creating.
+func (s *Store) SnipSlugTaken(slug, except string) (bool, error) {
+	slug = snips.Slug(slug)
+	if slug == "" {
+		return false, invalid("slug is required")
+	}
+	var one int
+	err := s.db.QueryRow(`SELECT 1 FROM snips WHERE slug = ? AND id <> ? LIMIT 1`, slug, except).Scan(&one)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("store: snip slug: %w", err)
+	}
+	return true, nil
+}
