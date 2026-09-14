@@ -1,7 +1,8 @@
 # The handoff board is full — two defects and three options
 
-Not a decision record: this is the diagnosis behind the request, for the
-owner to choose. The rule it touches is **ADR-0123** (the board is a
+**Decided**: option A + C, recorded in [ADR-0131](../decisions/0131-handoff-board-index.md)
+(2026-09-13). This file keeps the measurement that motivated it and the
+options as they were weighed; the ADR holds what was chosen. The rule it touches is **ADR-0123** (the board is a
 generated view with a pruning budget) and `docs/handoff/open/README.md`
 (bullets under `## Next` / `## Debts` are the unit).
 
@@ -51,7 +52,15 @@ board is full" both true.
 | **B** | Align the caps: either raise bytes (~16 KB) or keep 12 KB and enforce brevity (bullets ≤ ~140 chars, linted) | Raising it removes the pruning pressure ADR-0123 deliberately kept; linting needs a sweep of the long bullets | The board stays long but stops contradicting itself |
 | **C** | The board renders **per topic: the count and the `Plan:` line**, with the bullets living in the topic file; a session opens the topic it needs | Bigger change to ADR-0123's "one place to read"; costs one extra open for a session that wants the detail | The board stops growing with the number of debts — the only option that scales |
 
-## Recommendation
+## What was chosen (ADR-0131)
+
+**A + C**, with one refinement: **`## Next up` keeps its bullets inline** (it
+is bounded and actionable) and only **debts** become a per-topic count with
+the topic's `Plan:`. Implemented in `scripts/handoff-board.mjs`, tested in
+`scripts/handoff-board.test.mjs`; the board went from 12 232 to ~6 300
+characters.
+
+The reasoning as it stood before the decision:
 
 **A + C.** A closes the silent-hole class cheaply and permanently. C is
 the one that ends the monthly pruning ritual, because the detail already

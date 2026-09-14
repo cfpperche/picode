@@ -21,7 +21,9 @@ per open topic** in `docs/handoff/open/`, and a `docs/handoff.md` that is
    prints the commits, the diff, the scope, the in-flight trees and the docs
    still owed. Write from that output, in a subagent or a fresh session — never
    at the peak context of the session that did the work (ADR-0105).
-2. **Write `docs/handoff/<date>-<branch>.md`**, ≤ 25 lines:
+2. **Write `docs/handoff/<date>-<branch>.md`**, ≤ 25 lines (your note's
+   `## Next up` / `## Debts` bullets are the only part the board renders — the
+   prose is for the reader):
 
    ```markdown
    # <date> — <branch>: <one-line title>
@@ -46,7 +48,11 @@ per open topic** in `docs/handoff/open/`, and a `docs/handoff.md` that is
    (`## Next` for work not started, `## Debts` for what is accepted and unpaid).
    Edit the bullet in the branch that pays it — that deletion is the record. One
    line each; `Plan: docs/plans/<x>.md` when a plan carries the detail; add a
-   new topic file when a genuinely new subject appears.
+   new topic file when a genuinely new subject appears. **The two headings are
+   what the board reads** (ADR-0131): your `## Next` bullets render inline, and
+   your debts as one line (count + file + plan). Bullets under any other heading
+   are invisible to it, and a file whose bullets are *all* outside the two
+   headings fails `make handoff` by name.
 4. **Never touch `docs/handoff.md`.** It is generated (`make handoff`, run by
    `make close`), git-ignored, and the pre-commit hook refuses a committed copy
    — on `main` and in a worktree. Over its 120-line/12 KB budget, `make handoff`
