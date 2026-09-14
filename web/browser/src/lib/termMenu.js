@@ -12,7 +12,8 @@
 // node test runner.
 
 import { focusRowLabel } from "@picode/shared/domain/focusMode.js";
-import { terminalHandoffMenu } from "@picode/shared/domain/sessionHandoff.js";
+import { agentPin, terminalHandoffMenu } from "@picode/shared/domain/sessionHandoff.js";
+import { terminalCli, terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 
 const SEP = { sep: true };
 
@@ -30,28 +31,52 @@ export const TERM_MENU_KEYS = {
   "close-tab": "Alt+W",
 };
 
-// ctx:
-//   kind       "term" (a terminal of its own) | "agent" (an agent's TUI pane)
-//   selection  what xterm has selected at the click (rightClickSelectsWord
-//              already turned a bare right-click into the word under it)
-//   cli        the Agent CLI label ("Claude Code"), "" when this pane has no
-//              launch of its own — the prompt door is that launch (ADR-0089)
-//   running    the CLI is up — the door only exists then
-//   shell      the pane is a bare shell prompt: no CLI launch, no TUI seen
-//   link       { kind: "file" | "http", label } under the cursor, or null
-//   findKey    the chord Find really answers to, when the caller read the
-//              user's own bindings; the default stands in otherwise
-//   focus      fullscreen (focus) mode is already on — the row leaves it
-//   focusable  the shell can host the mode at all (false in the ≤767px
-//              column shell, which has no chrome to hide)
-//   focusKey   the chord for the mode, read from the user's own bindings
-//   record     the terminal JSON (lastSession, cwd) for Continue in…
-//   clis       GET /api/clis rows; Continue in… derives targets from these
+// paneCapabilities turns a live .term-pane + fleet row into the bag
+// buildTermMenu reads. host is the dispatch address (dataset.termKind);
+// promptDoor is the HTTP door, never a fake cli/running on an agent pane.
+export function paneCapabilities({
+  host, termRecord, agent, workspace, paneCwd, tabs, clis,
+  selection, link, focus, focusable, focusKey, findKey, splitOn,
+} = {}) {
+  const interactive = host === "agent" && agent && agent.mode === "interactive";
+  const cliRunning = host === "term" && termRecord && termRecord.launchCli && termRecord.running;
+  const found = host === "term" ? !!termRecord : !!agent;
+  const tabId = host === "agent" ? (agent && agent.id) : (termRecord && ("t:" + termRecord.id));
+  return {
+    host,
+    kind: host, // live handlers still read ctx.kind (open-link, open-browser)
+    id: host === "agent" ? (agent && agent.id) : (termRecord && termRecord.id),
+    selection, link, focus, focusable, focusKey, findKey, splitOn, clis,
+    promptDoor: cliRunning ? "cli" : interactive ? "tui" : null,
+    cliLabel: cliRunning ? terminalCliLabel(termRecord.launchCli) : (interactive ? "Pi" : ""),
+    running: !!(cliRunning || interactive),
+    shell: host === "term" && !!termRecord && !termRecord.launchCli && !terminalCli(termRecord),
+    lifecycle: found ? host : null,
+    filesOwner: found ? host : null,
+    settings: !found ? null : (host === "term" ? "per-terminal" : "global"),
+    tabOpen: !!(tabId && (tabs || []).includes(tabId)),
+    record: host === "term" ? termRecord : agentPin(agent, workspace, paneCwd),
+  };
+}
+
+// ctx is either a paneCapabilities bag or the older {kind, cli, running, …}
+// shape the tests still pass. promptDoor / lifecycle win when present.
 export function buildTermMenu(ctx = {}) {
   const selection = (ctx.selection || "").trim();
-  const cli = ctx.cli || "";
-  const running = !!ctx.running;
-  const own = ctx.kind !== "agent"; // an agent's TUI is not a terminal to rename or remove
+  const host = ctx.host || ctx.kind || "term";
+  const promptDoor = ctx.promptDoor !== undefined
+    ? ctx.promptDoor
+    : (host === "agent" ? null : ((ctx.cli && ctx.running) ? "cli" : null));
+  const cliLabel = ctx.cliLabel || ctx.cli || "";
+  const lifecycle = ctx.lifecycle !== undefined
+    ? ctx.lifecycle
+    : (host === "agent" ? null : "term");
+  const settings = ctx.settings !== undefined
+    ? ctx.settings
+    : (lifecycle === "term" ? "per-terminal" : lifecycle === "agent" ? "global" : null);
+  const filesOwner = ctx.filesOwner !== undefined ? ctx.filesOwner : lifecycle;
+  const tabOpen = ctx.tabOpen !== undefined ? !!ctx.tabOpen : !!lifecycle;
+  const noun = lifecycle === "agent" ? "agent" : "terminal";
   const rows = [
     { id: "copy", label: "Copy", icon: "copy", key: TERM_MENU_KEYS.copy, disabled: !selection, reason: "Select text in the terminal first." },
     { id: "paste", label: "Paste", icon: "paste", key: TERM_MENU_KEYS.paste },
@@ -63,14 +88,14 @@ export function buildTermMenu(ctx = {}) {
   // Chat", Warp's block copy), and the token under the cursor opens where
   // Ctrl+click already opens it.
   const send = [];
-  if (cli && running) {
-    if (selection) send.push({ id: "ask", label: "Ask " + cli + " about this", icon: "ask" });
+  if (promptDoor) {
+    if (selection) send.push({ id: "ask", label: "Ask " + (cliLabel || "Pi") + " about this", icon: "ask" });
     send.push({ id: "attach", label: "Attach files…", icon: "clip" });
     send.push({ id: "snippet", label: "Send to terminal…", icon: "file" });
   }
-  // A command snippet runs in the pane's own shell (ADR-0130 Q2a): the
-  // row follows the same bare-shell flag Clear does, not the CLI door.
-  if (own && ctx.shell) send.push({ id: "snippet-cmd", label: "Run command…", icon: "file" });
+  // A command snippet runs in the pane's own shell (ADR-0130): the row
+  // follows the same bare-shell flag Clear does, not the prompt door.
+  if (ctx.shell && host !== "agent") send.push({ id: "snippet-cmd", label: "Run command…", icon: "file" });
   if (ctx.link) send.push({ id: "open-link", label: "Open " + ctx.link.label, icon: ctx.link.kind === "http" ? "external" : "file" });
   if (send.length) rows.push(SEP, ...send);
 
@@ -91,9 +116,8 @@ export function buildTermMenu(ctx = {}) {
   // Clear is a shell courtesy, not a screen wipe: it sends the same Ctrl-L
   // the user would type. A TUI owns its screen — launched by us or started
   // by hand in a plain terminal — so the row stays away from it rather than
-  // pretending to clear something it does not control. An agent's pane is
-  // always its TUI, so the flag cannot reach it.
-  if (own && ctx.shell) view.push({ id: "clear", label: "Clear", icon: "clear" });
+  // pretending to clear something it does not control.
+  if (ctx.shell && host !== "agent") view.push({ id: "clear", label: "Clear", icon: "clear" });
   // Fullscreen belongs to the shell, not to this pane, but the owner asked
   // for it on every tab's menu — and a terminal pane never shows the
   // generic one, so this is the only place it can appear over a terminal.
@@ -107,29 +131,25 @@ export function buildTermMenu(ctx = {}) {
   // can host a work-browser pane beside it, bound to that agent. A bare
   // shell has no agent to bind, so the row — open or close, one toggle —
   // stays away from it.
-  if (ctx.kind === "agent" || !!ctx.cli) {
+  if (host === "agent" || !!cliLabel) {
     rows.push(SEP, ctx.splitOn
       ? { id: "close-browser", label: "Close browser split", icon: "x" }
       : { id: "open-browser", label: "Open browser", icon: "globe" });
   }
 
-  if (own) {
-    const ownRows = [
-      { id: "rename", label: "Rename terminal…", icon: "pencil" },
-      { id: "settings", label: "Terminal settings", icon: "settings" },
-      { id: "files", label: "Open folder in Files", icon: "folders" },
-    ];
-    // Continue in… is this pane's conversation, not a session picker — the
-    // pin names it (ADR-0084). An agent's TUI never reaches this block.
+  if (lifecycle) {
+    const ownRows = [];
+    ownRows.push({ id: "rename", label: "Rename " + noun + "…", icon: "pencil" });
+    if (settings) ownRows.push({ id: "settings", label: "Terminal settings", icon: "settings" });
+    if (filesOwner) ownRows.push({ id: "files", label: "Open folder in Files", icon: "folders" });
     const handoff = terminalHandoffMenu(ctx.record || { lastSession: ctx.lastSession }, ctx.clis);
     if (handoff) ownRows.push(handoff);
-    rows.push(
-      SEP,
-      ...ownRows,
-      SEP,
-      { id: "close-tab", label: "Close tab", icon: "x", key: TERM_MENU_KEYS["close-tab"], hint: "The terminal keeps running." },
-      { id: "remove", label: "Remove terminal…", icon: "trash", danger: true },
-    );
+    const closeHint = lifecycle === "agent" ? "The session keeps running." : "The terminal keeps running.";
+    rows.push(SEP, ...ownRows, SEP);
+    if (tabOpen) {
+      rows.push({ id: "close-tab", label: "Close tab", icon: "x", key: TERM_MENU_KEYS["close-tab"], hint: closeHint });
+    }
+    rows.push({ id: "remove", label: "Remove " + noun + "…", icon: "trash", danger: true });
   }
   return rows;
 }

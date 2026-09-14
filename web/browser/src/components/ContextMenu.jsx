@@ -113,7 +113,16 @@ export default function ContextMenu({ state, onClose, themeMode, onTheme, termHa
             {graph ? (
               <GraphMenu menu={graph} onRun={runGraph} />
             ) : term ? (
-              buildTermMenu({ kind: term.kind, selection, cli: term.cli, running: term.running, shell: term.shell, link, findKey: formatChord(primaryChord("app.terminal.find")), focus: !!focusOn, focusable: focusable !== false, focusKey: fullscreenChord, record: term.record, clis })
+              buildTermMenu({
+                ...term,
+                selection,
+                link,
+                findKey: formatChord(primaryChord("app.terminal.find")),
+                focus: !!focusOn,
+                focusable: focusable !== false,
+                focusKey: fullscreenChord,
+                clis,
+              })
                 .map((row, i) => (row.sep
                   ? <div key={"s" + i} className="um-divider" />
                   : <TermRow key={row.id} row={row} onRun={runTerm} />))

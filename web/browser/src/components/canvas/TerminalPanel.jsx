@@ -19,7 +19,7 @@ import { claimPane, releasePane } from "./paneOwnership.js";
 // the server answers.
 const liveRecords = new Map();
 
-const TerminalPanel = memo(function TerminalPanel({ kind, target, cwd, hidden, focused, owned, onOpenFile, placeholder }) {
+const TerminalPanel = memo(function TerminalPanel({ kind, target, cwd, hidden, focused, owned, onOpenFile, attach, onAttachClose, placeholder }) {
   const id = target.id;
   const [live, setLive] = useState(() => liveRecords.get(id) || null);
   const [error, setError] = useState("");
@@ -67,6 +67,8 @@ const TerminalPanel = memo(function TerminalPanel({ kind, target, cwd, hidden, f
       autoFocus={!!focused}
       cwdKind={kind === "agent" ? "agent" : undefined}
       onOpenFile={onOpenFile}
+      attach={attach}
+      onAttachClose={onAttachClose}
     />
   );
 });

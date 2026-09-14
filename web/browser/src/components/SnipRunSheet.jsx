@@ -5,13 +5,14 @@ import { SNIP_RESERVED, replaceSnipToken } from "@picode/shared/domain/snipDraft
 import { toast, toastError } from "../lib/toast.js";
 
 // The fill sheet behind every snippet invoke (ADR-0130). Doors label
-// themselves (K13): agent → "Send snippet" (SendTurn); terminal → "Send to
-// terminal" (ADR-0089 paste — the UI says "Sent to the terminal", never
-// "the model saw it"); a Command snippet → "Run command", which always
-// stops at one confirm that names the terminal and shows the expanded
-// command (K14: a UI invariant, not authz). Composer mode adds Insert,
-// which splices the draft and sends nothing.
-export default function SnipRunSheet({ open, mode, snipId, slug, draft, target, targetName, onlyKind, onInsert, onSend, onRan, onClose }) {
+// themselves (K13): managed agent → "Send snippet" (SendTurn); terminal
+// or interactive TUI (`via: "tui"`) → "Send to terminal" (paste — the UI
+// says "Sent to the terminal", never "the model saw it"); a Command
+// snippet → "Run command", which always stops at one confirm that names
+// the terminal and shows the expanded command (K14: a UI invariant, not
+// authz). Composer mode adds Insert, which splices the draft and sends
+// nothing.
+export default function SnipRunSheet({ open, mode, snipId, slug, draft, target, targetName, onlyKind, via, onInsert, onSend, onRan, onClose }) {
   const [snip, setSnip] = useState(null);
   const [choices, setChoices] = useState(null);
   const [pickedId, setPickedId] = useState("");
@@ -22,8 +23,10 @@ export default function SnipRunSheet({ open, mode, snipId, slug, draft, target, 
 
   const effectiveId = snipId || pickedId;
   const isTerm = !!(target && target.type === "terminal");
+  const isTui = via === "tui";
   const isShell = !!((snip && snip.kind === "shell") || onlyKind === "shell");
-  const primary = mode === "run" ? (isTerm ? (isShell ? "Run command" : "Send to terminal") : "Send snippet") : "Send snippet";
+  const terminalCopy = isTerm || isTui;
+  const primary = mode === "run" ? (terminalCopy ? (isShell ? "Run command" : "Send to terminal") : "Send snippet") : "Send snippet";
 
   useEffect(() => {
     if (!open) { setSnip(null); setChoices(null); setPickedId(""); setValues({}); setErr(""); setConfirming(null); return; }
@@ -108,7 +111,7 @@ export default function SnipRunSheet({ open, mode, snipId, slug, draft, target, 
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ target, values, confirm: true }),
     });
-    toast.ok(isTerm ? (isShell ? "Command sent to the terminal." : "Sent to the terminal.") : "Sent.");
+    toast.ok(terminalCopy ? (isShell ? "Command sent to the terminal." : "Sent to the terminal.") : "Sent.");
     if (onRan) onRan();
   }
 
