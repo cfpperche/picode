@@ -1,11 +1,12 @@
 # HTML file preview — study and spec
 
-- **Status:** proposal, 2026-09-14. Awaiting the owner's decisions in
-  *Decisions needed* before implementation.
+- **Status:** v1 implemented 2026-09-14 on `feat/html-preview`: ADR-0136
+  accepted with the eight decisions below as recommended; the route family
+  and policy live in `docs/architecture/file-preview.md`. v1.5 (live reload,
+  preview-only documents, unsaved-text overlay) and v2 (a real second
+  origin) are not started.
 - **Boundary:** security model — a cookie-less, sandboxed origin for project
-  HTML and a capability route. Implementation starts with
-  `make adr NAME=html-file-preview` (Boundary line first; see
-  `docs/decisions/template.md`).
+  HTML and a capability route (ADR-0136).
 - **Scope:** render `.html` / `.htm` files in PiCode's existing file surfaces
   the way a browser shows them — scripts run, relative assets resolve —
   without giving the page any reach into PiCode, its API or its session.
@@ -177,7 +178,7 @@ The app shell's `frame-src 'self'` already allows this URL; no change.
   `docs/architecture/routes.md`, `security-model.md`, a changelog fragment
   and the handoff note travel with the change.
 
-## Decisions needed (owner)
+## Decisions (accepted as recommended, 2026-09-14)
 
 | # | Question | Recommendation |
 |---|---|---|
