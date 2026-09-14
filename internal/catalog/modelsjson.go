@@ -56,12 +56,22 @@ type CustomModel struct {
 	ThinkingLevelMap map[string]any `json:"thinkingLevelMap,omitempty"`
 }
 
+// customThinkingFormats are the compat.thinkingFormat values the form offers
+// (pi docs/models.md). The form writes the field itself, so an unknown value
+// is refused here rather than handed to pi.
+var customThinkingFormats = []string{
+	"reasoning_effort", "deepseek", "qwen", "openrouter", "together", "zai",
+}
+
 // CustomDefinition is the editable shape of one models.json provider entry.
+// ThinkingFormat is compat.thinkingFormat: a string among the others there,
+// which is why compat is not a map[string]bool on this struct.
 type CustomDefinition struct {
-	BaseURL string          `json:"baseUrl"`
-	API     string          `json:"api"`
-	Compat  map[string]bool `json:"compat,omitempty"`
-	Models  []CustomModel   `json:"models"`
+	BaseURL        string          `json:"baseUrl"`
+	API            string          `json:"api"`
+	Compat         map[string]bool `json:"compat,omitempty"`
+	ThinkingFormat string          `json:"thinkingFormat,omitempty"`
+	Models         []CustomModel   `json:"models"`
 }
 
 // ModelsPath is pi's provider-definition file. PiCode merges into it; it is
@@ -110,14 +120,29 @@ func LoadCustomDefinitions() map[string]CustomDefinition {
 		if _, builtin := LoginMethods[id]; builtin {
 			continue
 		}
+		// compat holds bools (the two the form manages) and strings
+		// (thinkingFormat), so it is decoded key by key: typing the whole
+		// object as map[string]bool made one string key fail the entry and
+		// the provider vanish from the catalog.
 		var entry struct {
-			BaseURL string          `json:"baseUrl"`
-			API     string          `json:"api"`
-			Compat  map[string]bool `json:"compat"`
-			Models  []CustomModel   `json:"models"`
+			BaseURL string                     `json:"baseUrl"`
+			API     string                     `json:"api"`
+			Compat  map[string]json.RawMessage `json:"compat"`
+			Models  []CustomModel              `json:"models"`
 		}
 		if json.Unmarshal(entryRaw, &entry) != nil {
 			continue
+		}
+		compat := map[string]bool{}
+		for _, key := range customCompatKeys {
+			var v bool
+			if raw, ok := entry.Compat[key]; ok && json.Unmarshal(raw, &v) == nil {
+				compat[key] = v
+			}
+		}
+		thinkingFormat := ""
+		if raw, ok := entry.Compat["thinkingFormat"]; ok {
+			_ = json.Unmarshal(raw, &thinkingFormat)
 		}
 		if entry.BaseURL == "" {
 			continue
@@ -125,7 +150,10 @@ func LoadCustomDefinitions() map[string]CustomDefinition {
 		if entry.API == "" {
 			entry.API = APIOpenAICompletions
 		}
-		out[id] = CustomDefinition{BaseURL: entry.BaseURL, API: entry.API, Compat: entry.Compat, Models: entry.Models}
+		out[id] = CustomDefinition{
+			BaseURL: entry.BaseURL, API: entry.API, Compat: compat,
+			ThinkingFormat: thinkingFormat, Models: entry.Models,
+		}
 	}
 	return out
 }
@@ -234,8 +262,10 @@ func UpsertCustomProvider(id string, def CustomDefinition) error {
 
 	// Compat: only the keys the form manages are written; unknown hand-set
 	// keys survive. Absent from the form means absent from the entry only
-	// when the form sent no compat at all (Edit always sends both keys).
-	if def.Compat != nil {
+	// when the form sent no compat at all (Edit always sends both keys). The
+	// block also runs for a lone thinkingFormat, so an API caller can set the
+	// format without sending the bool map.
+	if def.Compat != nil || def.ThinkingFormat != "" {
 		compat := map[string]json.RawMessage{}
 		if rawCompat, ok := entry["compat"]; ok {
 			_ = json.Unmarshal(rawCompat, &compat)
@@ -245,6 +275,15 @@ func UpsertCustomProvider(id string, def CustomDefinition) error {
 			if managed {
 				compat[k] = mustRaw(v)
 			}
+		}
+		// thinkingFormat is a string among the bools: empty means pi's own
+		// default for the API type, so the key is removed instead of written
+		// as an empty string. A caller who sent no compat at all keeps a
+		// hand-set format.
+		if def.ThinkingFormat != "" {
+			compat["thinkingFormat"] = mustRaw(def.ThinkingFormat)
+		} else if def.Compat != nil {
+			delete(compat, "thinkingFormat")
 		}
 		compatRaw, err := json.Marshal(compat)
 		if err != nil {
@@ -407,6 +446,9 @@ func validateCustomDef(def CustomDefinition) error {
 	}
 	if len(def.Models) == 0 {
 		return fmt.Errorf("at least one model id is required")
+	}
+	if def.ThinkingFormat != "" && !slices.Contains(customThinkingFormats, def.ThinkingFormat) {
+		return fmt.Errorf("unsupported thinking format: %s", def.ThinkingFormat)
 	}
 	seen := map[string]bool{}
 	for _, m := range def.Models {

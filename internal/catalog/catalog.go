@@ -37,11 +37,14 @@ type Provider struct {
 	Models      []Model   `json:"models"`
 	// Custom definition (ADR-0129). Configuration only — key material never
 	// crosses this struct; Definitions carries the form-editable model rows.
-	Custom      bool            `json:"custom,omitempty"`
-	BaseURL     string          `json:"baseUrl,omitempty"`
-	API         string          `json:"api,omitempty"`
-	Compat      map[string]bool `json:"compat,omitempty"`
-	Definitions []CustomModel   `json:"definitions,omitempty"`
+	Custom  bool            `json:"custom,omitempty"`
+	BaseURL string          `json:"baseUrl,omitempty"`
+	API     string          `json:"api,omitempty"`
+	Compat  map[string]bool `json:"compat,omitempty"`
+	// ThinkingFormat is compat.thinkingFormat, the one string among the compat
+	// keys the form edits (empty = pi's default for the API type).
+	ThinkingFormat string        `json:"thinkingFormat,omitempty"`
+	Definitions    []CustomModel `json:"definitions,omitempty"`
 }
 
 // Report is the payload for GET /api/catalog.
@@ -101,6 +104,7 @@ func Load(piCmd string) (Report, error) {
 		p.BaseURL = def.BaseURL
 		p.API = def.API
 		p.Compat = def.Compat
+		p.ThinkingFormat = def.ThinkingFormat
 		p.Definitions = def.Models
 	}
 	for _, id := range order {

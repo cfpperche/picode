@@ -128,6 +128,22 @@ export const THINKING_LEVELS = ["minimal", "low", "medium", "high", "xhigh", "ma
 // extended levels and stay hidden until a map claims them.
 export const DEFAULT_THINKING_LEVELS = ["minimal", "low", "medium", "high"];
 
+// CUSTOM_THINKING_FORMATS are the compat.thinkingFormat values the form
+// offers, in display order (pi docs/models.md). The empty value is pi's own
+// default for the API type: the field is then absent from the entry. Only
+// formats that need nothing else are listed — chat-template and
+// qwen-chat-template are driven by chatTemplateKwargs/Args objects this form
+// does not edit, so offering them would be a switch that does nothing.
+export const CUSTOM_THINKING_FORMATS = [
+  { value: "", label: "Default — pi's choice for this API type" },
+  { value: "reasoning_effort", label: "reasoning_effort — the OpenAI standard" },
+  { value: "deepseek", label: "deepseek — DeepSeek's own thinking field" },
+  { value: "qwen", label: "qwen — enable_thinking (DashScope)" },
+  { value: "openrouter", label: "openrouter — reasoning: {effort}" },
+  { value: "together", label: "together — reasoning: {enabled}" },
+  { value: "zai", label: "zai — Z.AI thinking" },
+];
+
 // customProviderSchema validates the Add/Edit form. takenIds names ids the
 // user may not claim (built-ins plus other custom definitions); requireKey
 // is false while editing, where a blank key keeps the stored credential.
@@ -150,6 +166,7 @@ export function customProviderSchema({ takenIds = [], requireKey = true } = {}) 
     maxTokens: z.string(),
     compatDeveloper: z.boolean(),
     compatReasoning: z.boolean(),
+    thinkingFormat: z.enum(CUSTOM_THINKING_FORMATS.map((f) => f.value)),
     reasoningModel: z.boolean(),
     thinkingLevels: z.array(z.enum(THINKING_LEVELS)),
     key: z.string(),
