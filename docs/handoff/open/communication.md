@@ -4,7 +4,8 @@ The owner kept Activate now gated on a recorded session; remote mode stays out o
 
 ## Next
 
-- Owner: the 2026-09-14 native matrix connected 6/6 onboarding flows, but check correlation failed on model id-invention (Claude/Opus) and grok's withheld attention Enter under load — decide if either deserves product follow-up (`docs/plans/communication-onboarding.md`).
+- Investigate grok attention Enter withheld under load: capture the composer state between paste and Enter, find which check refuses (fit, cursor, frame), fix or accept. Owner-approved top of the queue (`docs/plans/communication-onboarding.md`, matrix section).
+- Owner: deploy — several main commits (incl. `fc464e40`, `e7cca0f9`) are past the 17:06Z deploy of `eed2e3e`.
 
 ## Debts
 - Communication: mobile/non-Linux recovery and PTY check-to-write remain unverified; uncertain attempts never retry.
