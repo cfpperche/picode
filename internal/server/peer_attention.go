@@ -21,6 +21,62 @@ const peerCLIPointer = "PiCode: run picode messages read; handle messages, then 
 const peerActivationPointer = "PiCode activation: run picode messages read once to finish connecting, then reply activation ready. Do not change files."
 
 var terminalSGR = regexp.MustCompile(`\x1b\[[0-9;:]*m`)
+
+// Refusal reasons for the guarded input path. They are stable metadata: the
+// log may carry the reason, never the pointer, message, token or screen.
+var (
+	errPeerSnapshotGone      = errors.New("pane snapshot unavailable")
+	errPeerPaneChanged       = errors.New("pane changed")
+	errPeerRuntimeChanged    = errors.New("native observation or runtime changed")
+	errPeerConnectionChanged = errors.New("connection changed")
+	errPeerPointerFit        = errors.New("pointer does not fit")
+	errPeerNotRendered       = errors.New("paste not rendered yet")
+	errPeerComposerChanged   = errors.New("composer changed or is not ready")
+)
+
+// Under load a TUI can take longer than one sample interval to render a
+// paste (the 2026-09-14 matrix: Grok received every pointer, the Enter was
+// withheld because the post-paste frame was sampled once, too early, and the
+// attempt expired uncertain). The post-paste state is therefore polled
+// inside a bounded window: Enter still goes only after one full-frame match
+// of the same guards, and expiry refuses the attempt exactly as the single
+// sample did — uncertain, never retried, no draft touched.
+var (
+	peerPasteSettleWindow   = 1200 * time.Millisecond
+	peerPasteSettleInterval = 120 * time.Millisecond
+)
+
+// peerAwaitComposer samples the unchanged post-paste check until it passes or
+// the bounded window expires. Structural refusals (pane, runtime, connection,
+// fit) return immediately; only states a later render can settle keep polling.
+func peerAwaitComposer(ctx context.Context, check func(string) error, expected string) error {
+	deadline := time.Now().Add(peerPasteSettleWindow)
+	for {
+		err := check(expected)
+		if err == nil || !peerUnsettled(err) {
+			return err
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if time.Now().Add(peerPasteSettleInterval).After(deadline) {
+			return err
+		}
+		timer := time.NewTimer(peerPasteSettleInterval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
+func peerUnsettled(err error) bool {
+	return errors.Is(err, errPeerNotRendered) || errors.Is(err, errPeerComposerChanged) ||
+		errors.Is(err, errPeerSnapshotGone)
+}
+
 var grokEmptySuggestion = regexp.MustCompile(`^  │ ❯ \x1b\[2;3m([^\x1b\r\n\t]+)\x1b\[0m( +)│ *$`)
 
 // The screen is an additional conservative input gate. A lifecycle hook and
@@ -459,11 +515,11 @@ func attemptPeerText(ctx context.Context, deps Deps, p store.PeerConnection, poi
 	check := func(expected string) error {
 		current, e := deps.Store.PeerConnection(p.ID)
 		if e != nil || current.SessionKey != p.SessionKey {
-			return errors.New("connection changed")
+			return errPeerConnectionChanged
 		}
 		live, ok := peerLiveTerminal(deps, p)
 		if !ok || live.RunID != rt.RunID || live.PID != rt.PID || live.ProcStart != rt.ProcStart {
-			return errors.New("native observation or runtime changed")
+			return errPeerRuntimeChanged
 		}
 		snap, e := deps.Tmux.InputSnapshot(ctx, name)
 		return peerInputRecheck(p.CLI, before, snap, expected, pointer, e)
@@ -484,15 +540,10 @@ func attemptPeerText(ctx context.Context, deps Deps, p store.PeerConnection, poi
 		finish(peerAttentionFailure("paste failed"))
 		return
 	}
-	timer := time.NewTimer(150 * time.Millisecond)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		finish(ctx.Err())
-		return
-	case <-timer.C:
-	}
-	if err := check(pointer); err != nil {
+	// The recipient's TUI may lag the paste under load; sample the exact
+	// post-paste frame inside the bounded settle window instead of trusting
+	// one instant.
+	if err := peerAwaitComposer(ctx, check, pointer); err != nil {
 		finish(peerAttentionFailure("after paste: " + err.Error()))
 		return
 	}
@@ -505,18 +556,24 @@ func attemptPeerText(ctx context.Context, deps Deps, p store.PeerConnection, poi
 
 func peerInputRecheck(cli string, before, current tmux.InputSnapshot, expected, pointer string, err error) error {
 	if err != nil {
-		return errors.New("pane snapshot unavailable")
+		return errPeerSnapshotGone
 	}
 	if current.PaneID != before.PaneID || current.PanePID != before.PanePID {
-		return errors.New("pane changed")
+		return errPeerPaneChanged
 	}
 	if !peerPointerFits(cli, current, pointer) {
-		return errors.New("pointer does not fit")
+		return errPeerPointerFit
 	}
-	if !peerInputMatches(cli, current, expected) {
-		return errors.New("composer changed or is not ready")
+	if peerInputMatches(cli, current, expected) {
+		return nil
 	}
-	return nil
+	// Classify without exposing screen content: an editor that still matches
+	// the pre-paste empty frame means the TUI has not rendered the paste yet,
+	// the one state a later sample can settle. Anything else stays refused.
+	if expected != "" && peerInputMatches(cli, current, "") {
+		return errPeerNotRendered
+	}
+	return errPeerComposerChanged
 }
 
 // One coalesced loop for the server, driven by the feed. The bounded tick also

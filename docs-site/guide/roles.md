@@ -1,15 +1,19 @@
+---
+description: Optional package that routes an agent to vision or plan models without fighting the model it started with.
+---
+
 # Model roles
 
 One agent, one model — until the work changes. A text-only refactor does
 not need the vision flagship, and a plan deserves max thinking. Switching
 by hand every time breaks the flow.
 
-`pi-roles` routes automatically. It is an **optional pi package — an
-extension, not part of PiCode core**. PiCode never switches models on its
-own: routing exists only where the package is installed, and stays
-dormant until you write a `.pi/roles.json`. Your per-agent model choice
-always survives — the package never overrides the model an agent starts
-with.
+- **Where:** install `pi-roles` ([Packages](/guide/packages)), then `/roles` or `/auto` in the Pi session.
+- **Not this:** PiCode never switches models on its own. The package does not override the model an agent starts with.
+
+`pi-roles` is an **optional pi package — an extension, not part of PiCode
+core**. Routing exists only where the package is installed, and stays
+dormant until you write a `.pi/roles.json`.
 
 Install `packages/pi-roles` from the PiCode repository. Guide for install
 targets: [Packages](/guide/packages).

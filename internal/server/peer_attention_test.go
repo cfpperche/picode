@@ -361,16 +361,17 @@ func TestPeerAttentionFailureReasons(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct {
-		name, want  string
-		change      func(*tmux.InputSnapshot)
-		snapshotErr error
-		pointer     string
+		name, want, expected string
+		change               func(*tmux.InputSnapshot)
+		snapshotErr          error
+		pointer              string
 	}{
 		{name: "ready"},
 		{name: "snapshot unavailable", snapshotErr: errors.New("secret native output"), want: "pane snapshot unavailable"},
 		{name: "pane replaced", change: func(s *tmux.InputSnapshot) { s.PanePID++ }, want: "pane changed"},
 		{name: "draft", change: func(s *tmux.InputSnapshot) { s.Lines[1] = "secret draft" }, want: "composer changed or is not ready"},
 		{name: "too narrow", pointer: strings.Repeat("x", 500), want: "pointer does not fit"},
+		{name: "paste not rendered yet", expected: peerPointer, pointer: peerPointer, want: "paste not rendered yet"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			current := base
@@ -378,7 +379,7 @@ func TestPeerAttentionFailureReasons(t *testing.T) {
 			if tc.change != nil {
 				tc.change(&current)
 			}
-			got := peerInputRecheck("grok", base, current, "", tc.pointer, tc.snapshotErr)
+			got := peerInputRecheck("grok", base, current, tc.expected, tc.pointer, tc.snapshotErr)
 			if tc.want == "" {
 				if got != nil {
 					t.Fatal(got)
@@ -395,6 +396,80 @@ func TestPeerAttentionFailureReasons(t *testing.T) {
 	}
 	if got := peerAttentionReason(peerAttentionFailure("after paste: pane changed")); got != "after paste: pane changed" {
 		t.Fatal(got)
+	}
+}
+
+func TestPeerPasteSettleWindow(t *testing.T) {
+	oldWindow, oldInterval := peerPasteSettleWindow, peerPasteSettleInterval
+	peerPasteSettleWindow, peerPasteSettleInterval = 90*time.Millisecond, 20*time.Millisecond
+	defer func() { peerPasteSettleWindow, peerPasteSettleInterval = oldWindow, oldInterval }()
+
+	for _, tc := range []struct {
+		name       string
+		samples    []error
+		want       error
+		wantCalls  int
+		wantAtMost int
+	}{
+		{name: "first sample passes", samples: []error{nil}, wantCalls: 1, wantAtMost: 1},
+		{
+			name:      "not rendered then rendered",
+			samples:   []error{errPeerNotRendered, errPeerNotRendered, nil},
+			wantCalls: 3, wantAtMost: 3,
+		},
+		{
+			name:       "expiry refuses unsettled",
+			samples:    []error{errPeerNotRendered},
+			want:       errPeerNotRendered,
+			wantAtMost: 8,
+		},
+		{
+			name:       "foreign composer expires unsettled",
+			samples:    []error{errPeerComposerChanged},
+			want:       errPeerComposerChanged,
+			wantAtMost: 8,
+		},
+		{name: "structural refuses immediately", samples: []error{errPeerPaneChanged}, want: errPeerPaneChanged, wantCalls: 1, wantAtMost: 1},
+		{name: "fit refuses immediately", samples: []error{errPeerPointerFit}, want: errPeerPointerFit, wantCalls: 1, wantAtMost: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			check := func(expected string) error {
+				if expected != peerPointer {
+					t.Fatalf("expected the pasted pointer, got %q", expected)
+				}
+				if calls < len(tc.samples) {
+					err := tc.samples[calls]
+					calls++
+					return err
+				}
+				calls++
+				return tc.samples[len(tc.samples)-1]
+			}
+			got := peerAwaitComposer(context.Background(), check, peerPointer)
+			if tc.want == nil {
+				if got != nil {
+					t.Fatal(got)
+				}
+			} else if !errors.Is(got, tc.want) {
+				t.Fatalf("got %v want %v", got, tc.want)
+			}
+			if tc.wantCalls != 0 && calls != tc.wantCalls {
+				t.Fatalf("calls=%d want %d", calls, tc.wantCalls)
+			}
+			if calls > tc.wantAtMost {
+				t.Fatalf("calls=%d exceeds %d", calls, tc.wantAtMost)
+			}
+		})
+	}
+
+	// A cancelled attempt never keeps polling.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	calls := 0
+	got := peerAwaitComposer(ctx, func(string) error { calls++; return errPeerNotRendered }, peerPointer)
+	if !errors.Is(got, context.Canceled) || calls != 1 {
+		t.Fatalf("got %v calls=%d", got, calls)
 	}
 }
 

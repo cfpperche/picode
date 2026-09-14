@@ -1,14 +1,19 @@
+---
+description: Pi JSON for the selected agent, one layer at a time. Not Preferences.
+---
+
 # CLI settings
 
 Two different screens. Do not mix them.
+
+- **Where:** **Agent CLIs**, pick **Pi**, then the **Settings** pane. Composer `/settings` keeps the selected agent in the URL.
+- **Not this:** not Preferences (theme, server port). That is PiCode chrome. This pane is pi JSON. Overview: [Configure](/guide/configure).
 
 | Hash | What | Writes |
 |---|---|---|
 | `#/clis/pi/settings` | **pi** JSON for the selected agent | `~/.pi/agent/settings.json` (this machine), `<cwd>/.pi/settings.json` (workspace, if trusted) |
 | `#/clis/pi/keyboard` | the keyboard map | `~/.pi/agent/keybindings.json` (one map per machine) |
 | `#/preferences` | **PiCode** chrome | theme, server port |
-
-Open **Agent CLIs**, pick **Pi**, then the **Settings** pane. Composer `/settings` preserves the selected agent in the URL.
 
 The pane edits **one layer at a time**. **Edit** picks it — this machine, the
 workspace, or the agent — and the line under it is the file that layer writes.
