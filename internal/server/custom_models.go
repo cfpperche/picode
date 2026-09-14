@@ -105,6 +105,16 @@ func listFailure(e *modellist.Error, keyed bool) (int, map[string]any) {
 	}
 }
 
+// hintTail appends the classified error's own guidance, when it has any. It is
+// a field on the error rather than a sentence a handler invents, so only the
+// failure that can answer a question gets answered.
+func hintTail(hint string) string {
+	if hint == "" {
+		return ""
+	}
+	return " " + hint + "."
+}
+
 // detailTail adds the provider's own words when it gave any, so "invalid api
 // key" reaches the person instead of a bare status.
 func detailTail(detail string) string {

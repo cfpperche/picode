@@ -61,7 +61,14 @@ type Error struct {
 	Status int // upstream status when KindUpstream/KindAuth/KindMissing; 0 otherwise
 	Host   string
 	Detail string
+	// Hint is optional guidance for the caller to append, set only where it
+	// answers the failure the person is looking at (an unknown API type). It is
+	// a field and not a suffix the handler guesses at by matching Detail.
+	Hint string
 }
+
+// SupportedAPIs is what this package can address, in the words a person reads.
+const SupportedAPIs = "OpenAI Chat Completions, OpenAI Responses, Anthropic Messages and Google Generative AI"
 
 func (e *Error) Error() string {
 	if e.Status > 0 {
@@ -89,7 +96,7 @@ func List(ctx context.Context, baseURL, api, key string) (Result, error) {
 	switch api {
 	case APIOpenAICompletions, APIOpenAIResponses, APIAnthropic, APIGoogle:
 	default:
-		return Result{}, &Error{Kind: KindInput, Detail: "unknown API type " + api}
+		return Result{}, &Error{Kind: KindInput, Detail: "unknown API type " + api, Hint: "It covers " + SupportedAPIs}
 	}
 
 	// The first path is the one pi itself uses; a gateway whose base URL has

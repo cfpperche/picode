@@ -101,3 +101,37 @@ Standing limits: the full onboarding matrix was not rerun on native
 Claude/OpenCode/Grok/Hermes (transport acceptance does not establish this flow);
 physical mobile and non-Linux recovery are unverified; PTY input rechecks do not
 make editor access atomic.
+
+## Native onboarding matrix — 2026-09-14
+
+Scratch `localhost:8471`, six real TUIs, one machine reboot mid-run (up since
+11:12Z killed the six scratch sessions; CLI processes orphaned, daemon and
+store survived — recovery via stop+resume re-attached every identity).
+Evidence: `var/qa/onboard-matrix/` (uncommitted).
+
+**Flow (the subject): 6/6 prepared and connected.**
+
+| CLI | Path to connected |
+|---|---|
+| Pi | adapter-missing → adapter installed → stop+resume attached it (`MCP: 1 server enabled`), same session |
+| Claude Code | first message → saved transcript → preparation attached |
+| Codex | first prompt → SessionStart identity → preparation without restart (ADR-0111) |
+| Grok | connected from the welcome screen without a turn |
+| Hermes | curator draft submitted as the first prompt |
+| OpenCode | first prompt → identity + connection prepared; model Forbidden (CF glm-5.3-flash) blocks its reply turns |
+
+**Run tests: 0/5 passed, three independent causes, none in the mailbox.**
+
+- The reboot expired the first probe and left stale context: Claude (Opus 5)
+  then refused fresh request ids citing send-once and finally **invented**
+  `check_onboarding_matrix_20260914_restart_01` instead of the check id — the
+  Codex failure mode from the first matrix, now observed on another vendor.
+- Grok as recipient: the attention paste always landed, the final Enter was
+  consistently withheld → `uncertain`, never retried (by design). Manual Enter
+  → grok read both pending messages, acked both, replied twice, Claude acked
+  both replies: the full native round trip ran uncorrelated with a live check.
+- OpenCode's provider blocks its model turns.
+
+Transport itself was verified natively this run (deliver, read, ack, reply,
+ack); what failed is check **correlation** under a restart plus model
+discretion. The September 12 paired-transport acceptance stands unchanged.

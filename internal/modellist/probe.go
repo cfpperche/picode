@@ -60,7 +60,7 @@ func Probe(ctx context.Context, baseURL, api, key, model string) (ProbeResult, e
 	switch api {
 	case APIOpenAICompletions, APIOpenAIResponses, APIAnthropic, APIGoogle:
 	default:
-		return ProbeResult{}, &Error{Kind: KindInput, Detail: "unknown API type " + api}
+		return ProbeResult{}, &Error{Kind: KindInput, Detail: "unknown API type " + api, Hint: "Verify covers " + SupportedAPIs}
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, probeTimeout)

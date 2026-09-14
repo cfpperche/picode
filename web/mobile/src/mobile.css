@@ -469,3 +469,21 @@ html[data-bottombar="edge"] #m-app { bottom: calc(-1 * env(safe-area-inset-top, 
 .m-pin-limit { margin: 0; font-size: 12px; color: var(--text-secondary); text-align: right; }
 .m-pin-limit.over { color: var(--danger); }
 .m-pin-save { height: 44px; }
+
+/* Snippets v2 on the phone: the placeholder table is a card per {{name}}
+   — a real <table> at 390px scrolls sideways, and the point of the table
+   is that you can read the name and its default in one look. */
+.m-snip-ph { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.m-snip-ph.is-stale { opacity: 0.6; }
+.m-snip-ph-row { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-elevated, transparent); }
+.m-snip-ph-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.m-snip-ph-name { font-size: 13px; color: var(--accent); }
+.m-snip-ph-opt { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+.m-snip-ph-opt input { width: 18px; height: 18px; }
+.m-snip-ph .dlg-input { padding: 8px 10px; font-size: 14px; }
+.m-snip-ph .dlg-input:disabled { opacity: 0.55; }
+.m-pin-hint { margin: 0; font-size: 12px; color: var(--text-secondary); }
+.m-pin-hint.bad { color: var(--danger); }
+.m-pin-label { font-size: 12px; color: var(--text-secondary); }
+.m-snip-preview { display: flex; flex-direction: column; gap: 4px; }
+.m-snip-preview pre { margin: 0; }

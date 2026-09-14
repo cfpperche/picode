@@ -3197,14 +3197,31 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 }
 .dlg-input:focus { outline: none; border-color: var(--accent); }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+/* The create form's actions stay at the dialog's bottom edge. A tall custom
+   endpoint form scrolled them out of reach (measured 2026-09-14: 152px of
+   scroll to reach Add endpoint at a 520px viewport), and the dialog only grew
+   since — two action buttons and an optional JSON editor. The negative margins
+   pull the footer to the dialog's own edges so nothing shows under it while the
+   form scrolls beneath. */
+.dlg-create .dlg-actions {
+  position: sticky; bottom: 0; z-index: 1;
+  margin: 16px -18px 0;
+  padding: 12px 18px 14px;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+}
 .dlg-session { width: min(460px, calc(100vw - 32px)); }
 .dlg-create { width: min(420px, calc(100vw - 32px));
   /* The 42% anchor with a 50% pull-up clips a form taller than 84dvh at the
      viewport top (the custom endpoint form grew past it). Cap the height and
      scroll inside instead of clipping outside; 80dvh leaves a 2% margin at
-     both the top (0.42 - 0.40) and the bottom (0.42 + 0.40). */
+     both the top (0.42 - 0.40) and the bottom (0.42 + 0.40).
+     No bottom padding: the action footer owns that edge, so it can stick flush
+     against it (a strip below a stuck footer would show the form scrolling
+     through). */
   max-height: 80dvh;
   overflow-y: auto;
+  padding-bottom: 0;
 }
 .dlg-hotkeys {
   top: 50%;
