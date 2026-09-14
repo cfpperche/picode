@@ -43,6 +43,7 @@ export function createBrowserChannel({
         method: cmd.method,
         paramsJson: JSON.stringify(cmd.params ?? {}),
         tier: cmd.tier ?? "read",
+        domains: Array.isArray(cmd.domains) ? cmd.domains : [],
       });
       return { output };
     } catch (e) {
