@@ -31,6 +31,9 @@ export function customProviderPayload(v) {
     baseUrl: v.baseUrl,
     api: v.api,
     compat: { supportsDeveloperRole: !!v.compatDeveloper, supportsReasoningEffort: !!v.compatReasoning },
+    // Empty means pi's default for the API type: the key is left out of the
+    // entry rather than written as an empty string.
+    ...(v.thinkingFormat ? { thinkingFormat: v.thinkingFormat } : {}),
     models: customModelIds(v.modelsText).map((id) => ({
       id,
       ...(contextWindow ? { contextWindow: Number(contextWindow) } : {}),
@@ -58,6 +61,7 @@ export function customProviderForm(provider) {
     maxTokens: sized.maxTokens ? String(sized.maxTokens) : "",
     compatDeveloper: !!(p.compat && p.compat.supportsDeveloperRole),
     compatReasoning: !!(p.compat && p.compat.supportsReasoningEffort),
+    thinkingFormat: p.thinkingFormat || "",
     reasoningModel: defs.some((m) => m && m.reasoning),
     thinkingLevels: customThinkingLevels(defs),
     key: "",

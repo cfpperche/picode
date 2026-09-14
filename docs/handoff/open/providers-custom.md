@@ -9,5 +9,8 @@
 ## Debts
 
 - Custom endpoints: levels/context/max per list (P2); `off` on pi default; tall dialogs scroll (sticky actions owed).
+- Thinking format covers the six formats that need nothing else; `chat-template` /
+  `qwen-chat-template` still need a hand-edited `chatTemplateKwargs`/`Args`
+  object in `models.json` (P3 — a form for those objects is the next step).
 - Verify-with-pi answers from credential presence, so a bogus env-backed key reads green — pre-existing roster debt.
 - Hand-written `models.json` without the `providers` wrapper is invalid for pi and invisible to both tools; PiCode refuses to adopt it.

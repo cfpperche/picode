@@ -111,17 +111,20 @@ func handleProviderLogin(w http.ResponseWriter, r *http.Request) {
 func handleCustomProviderPut(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req struct {
-		BaseURL string                `json:"baseUrl"`
-		API     string                `json:"api"`
-		Compat  map[string]bool       `json:"compat"`
-		Models  []catalog.CustomModel `json:"models"`
-		Key     string                `json:"key"`
+		BaseURL        string                `json:"baseUrl"`
+		API            string                `json:"api"`
+		Compat         map[string]bool       `json:"compat"`
+		ThinkingFormat string                `json:"thinkingFormat"`
+		Models         []catalog.CustomModel `json:"models"`
+		Key            string                `json:"key"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	def := catalog.CustomDefinition{BaseURL: req.BaseURL, API: req.API, Models: req.Models}
+	def := catalog.CustomDefinition{
+		BaseURL: req.BaseURL, API: req.API, Models: req.Models, ThinkingFormat: req.ThinkingFormat,
+	}
 	if def.API == "" {
 		def.API = catalog.APIOpenAICompletions
 	}

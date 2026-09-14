@@ -1426,16 +1426,33 @@ img.ws-face.term-cli-face {
    non-zero state reads at a glance, and "waiting" is the one that needs
    the user, so it alone takes the accent. */
 .fleet-strip { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 0 8px; font-size: 11.5px; color: var(--text-primary); font-variant-numeric: tabular-nums; }
-.fleet-strip .is-zero { color: var(--text-secondary); opacity: .7; }
 .fleet-strip .is-waiting { color: var(--accent); font-weight: 600; }
+.fleet-strip .fleet-shells { color: var(--text-secondary); opacity: .8; }
 .fleet-agents { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; }
-.fleet-agent { display: flex; gap: 6px; min-width: 0; align-items: baseline; }
-.fleet-agent-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fleet-agent-model { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Expanded: the whole fleet, scrollable. Four rows keep the tile the same
+   height as its neighbours; the reveal is the reader's choice, never a wall. */
+.fleet-agents.is-open { max-height: 168px; overflow-y: auto; }
+.fleet-agents li { min-width: 0; }
+.fleet-agent {
+  display: flex; gap: 6px; min-width: 0; align-items: baseline; width: 100%;
+  background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit;
+  text-align: left; cursor: pointer; border-radius: 4px;
+}
+.fleet-agent:hover { background: var(--bg-hover, rgba(127, 127, 127, .12)); }
+.fleet-agent:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.fleet-agent-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
+.fleet-agent-where { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; }
+.fleet-agent-state { color: var(--text-secondary); flex: none; }
+.fleet-agent.is-needs-you .fleet-agent-name::before { content: "? "; color: var(--accent); }
+.fleet-agent.is-needs-you .fleet-agent-state { color: var(--accent); }
 .fleet-agent.is-working .fleet-agent-name::before { content: "◉ "; color: var(--accent); }
-.fleet-agent.is-waiting .fleet-agent-name::before { content: "? "; color: var(--accent); }
 .fleet-agent.is-idle .fleet-agent-name::before { content: "● "; color: var(--text-secondary); }
-.fleet-agent-more { color: var(--text-secondary); }
+.fleet-agent.is-unreported .fleet-agent-name::before { content: "○ "; color: var(--text-secondary); }
+.fleet-more {
+  margin-top: 4px; background: none; border: 0; padding: 0; font: inherit; font-size: 11.5px;
+  color: var(--text-secondary); cursor: pointer; text-align: left;
+}
+.fleet-more:hover { color: var(--text-primary); text-decoration: underline; }
 
 .dashboard-section { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 14px 16px; min-width: 0; }
 .dashboard-section + .dashboard-section { margin-top: 12px; }
