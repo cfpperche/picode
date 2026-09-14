@@ -33,24 +33,38 @@ const outPath = outIdx >= 0 ? argv[outIdx + 1] : join(docsSite, "public", "llms.
 const CURATED = [
   ["Start", "index.md", "What is PiCode"],
   ["Start", "guide/getting-started.md", "Getting started"],
-  ["Run it somewhere", "guide/windows-desktop.md", "On Windows"],
-  ["Run it somewhere", "guide/security.md", "Security and pairing"],
-  ["Run it somewhere", "guide/remote-server.md", "On a server"],
-  ["Run it somewhere", "guide/shared-server.md", "Share one server"],
-  ["Run it somewhere", "guide/public-access.md", "Open it to the internet"],
-  ["Run it somewhere", "guide/mobile.md", "On your phone"],
-  ["Guides", "guide/providers.md", "Providers"],
-  ["Guides", "guide/packages.md", "Packages"],
-  ["Guides", "guide/docker.md", "Docker and sysadmin tools"],
-  ["Guides", "guide/checklist.md", "Checklist"],
-  ["Guides", "guide/compact.md", "Compact earlier"],
-  ["Guides", "guide/mcp.md", "MCP"],
-  ["Guides", "guide/terminal-status.md", "Terminal status for CLIs"],
-  ["Guides", "guide/llama.md", "llama.cpp"],
-  ["Guides", "guide/browser-extension.md", "Chrome extension"],
-  ["Guides", "guide/automations.md", "Automations"],
+  ["Start", "guide/files.md", "Files and changes"],
+  ["Use", "guide/index.md", "Use"],
+  ["Use", "guide/agent-clis.md", "Agent CLIs"],
+  ["Use", "guide/packages.md", "Packages"],
+  ["Use", "guide/mcp.md", "MCP"],
+  ["Use", "guide/llama.md", "llama.cpp"],
+  ["Use", "guide/automations.md", "Automations"],
+  ["Use", "guide/snippets.md", "Snippets"],
+  ["Use", "guide/canvas.md", "Canvas"],
+  ["Use", "guide/communication.md", "Session messages"],
+  ["Use", "guide/inbox-tools.md", "Inbox tools"],
+  ["Use", "guide/checklist.md", "Checklist"],
+  ["Use", "guide/compact.md", "Compact earlier"],
+  ["Use", "guide/diff-panel.md", "Diff panel"],
+  ["Use", "guide/browser-tool.md", "Browser tools for pi"],
+  ["Use", "guide/browser-extension.md", "Chrome extension"],
+  ["Use", "guide/docker.md", "Docker and sysadmin tools"],
+  ["Use", "guide/integrations.md", "Integrations"],
+  ["Use", "guide/tmux.md", "tmux sessions"],
+  ["Use", "guide/terminal-status.md", "Terminal status for CLIs"],
+  ["Use", "guide/keyboard.md", "Keyboard and browser keys"],
+  ["Run", "guide/windows-desktop.md", "On Windows"],
+  ["Run", "guide/security.md", "Security and pairing"],
+  ["Run", "guide/remote-server.md", "On a server"],
+  ["Run", "guide/shared-server.md", "Share one server"],
+  ["Run", "guide/ssh-terminals.md", "Agent terminals over SSH"],
+  ["Run", "guide/public-access.md", "Open it to the internet"],
+  ["Run", "guide/mobile.md", "On your phone"],
+  ["Configure", "guide/settings.md", "Settings"],
+  ["Configure", "guide/providers.md", "Providers"],
+  ["Configure", "guide/roles.md", "Model roles"],
   ["Reference", "commands.md", "Commands"],
-  ["Reference", "guide/settings.md", "Settings"],
   ["Reference", "api.md", "HTTP API"],
   ["Reference", "license.md", "License"],
 ];
@@ -129,7 +143,12 @@ for (const [section, rel, label] of CURATED) {
   const meta = pageMeta(rel);
   if (!meta) continue;
   if (!docSections.has(section)) docSections.set(section, []);
-  const href = rel === "index.md" ? BASE + "/" : `${BASE}/${rel.replace(/\.md$/, "")}`;
+  const href =
+    rel === "index.md"
+      ? BASE + "/"
+      : rel === "guide/index.md"
+        ? `${BASE}/guide/`
+        : `${BASE}/${rel.replace(/\.md$/, "")}`;
   docSections
     .get(section)
     .push(`- [${label}](${href}): ${meta.description || meta.title}`);

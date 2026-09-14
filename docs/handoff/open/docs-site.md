@@ -4,7 +4,6 @@ Plan: `docs/benchmarks/2026-09-14-librechat-docs.md`
 
 ## Next
 
-- Sidebar: Start / Use / Run / Configure / Reference (LibreChat audience split; VitePress stays).
 - Getting started is the user first-run (`picode install` / Docker); `make build` / Go / Node move to a from-source page.
 - Existing guides take the feature-page rhythm: what it is, UI path, how to enable, what it is not.
 - Configuration overview (one workflow, then tables) and MCP cookbook (`guide/mcp.md` as index, one page per shipped connector).

@@ -32,6 +32,8 @@ not the generator — study
 ## Public site (`docs-site/`)
 
 - Markdown in `docs-site/`. VitePress builds static HTML (`make docs`).
+- Sidebar groups are **Start / Use / Run / Configure / Reference**
+  (LibreChat audience split). Do not flatten them back into one Guides list.
 - Live: `https://cfpperche.github.io/picode/`
 - Slash-menu hints open **a new tab** at `/commands#{id}` (`id` = `SLASH[].id`).
   No in-app docs route, no iframe.
