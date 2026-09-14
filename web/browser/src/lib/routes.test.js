@@ -6,7 +6,7 @@ test("integrations deep links remain reload-safe", () => {
   assert.equal(parseRoute("#/integrations/webhooks"), "integrations");
   for (const hash of ["#/integrations", "#/integrations/connectors", "#/mcps"]) assert.equal(parseRoute(hash), "clis");
 });
-import { isWebTab, tabWebId, webTabId, webHash, webRoute } from "./routes.js";
+import { isWebTab, tabWebId, webTabId, webHash, webRoute, boundWorkTab } from "./routes.js";
 import { parseRoute, packagesConfigRoute, packagesConfigHash, ROUTES, go, providersNew, providersLlama, pinRoute, prefSection, agentRoute, workspaceHash, termRoute, termHash, sessionsHash, sessionsRoute, isTermTab, termTabId, tabTermId, fileTabId, isFileTab, parseFileTab, fileHash, fileRoute, gitHash, gitRoute, gitTabId, isGitTab, gitTabKey, treeHash, treeRoute, treeTabId, isTreeTab, treeTabRoot, appTabId, isAppTab, tabAppId, appHash, appRoute, renamedAppId, renamedAppHash, renamedTabId, snippetRoute, snippetsHash } from "./routes.js";
 
 test("preferences and settings are distinct", () => {
@@ -256,4 +256,12 @@ test("webHash/webRoute round-trip — the router can hold a work-browser tab", (
   assert.equal(webRoute("#/web/2/extra"), null);
   // And it parses as a workspace-scope route so the write side may replace it.
   assert.equal(parseRoute("#/web/2"), "workspace");
+});
+
+test("boundWorkTab — the channel reads the selected tab's binding (ADR-0135)", () => {
+  assert.equal(boundWorkTab("w:2", {}), "w:2");
+  assert.equal(boundWorkTab("t:desktop-51c42d", { "t:desktop-51c42d": "3" }), "w:3");
+  assert.equal(boundWorkTab("agent-1", { "agent-1": "7" }), "w:7");
+  assert.equal(boundWorkTab("t:desktop-51c42d", {}), null);
+  assert.equal(boundWorkTab(null, { "": "3" }), null);
 });

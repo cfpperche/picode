@@ -99,6 +99,16 @@ export function webRoute(hash) {
   try { return decodeURIComponent(m[1]); } catch { return m[1]; }
 }
 
+// The channel's target resolution (ADR-0135): the selected tab's own web tab
+// wins; otherwise a split binding on that tab (an agent's pane or an
+// agent-CLI terminal) donates its browser pane; nothing bound and nothing
+// active — null, the shell answers "no work-browser tab".
+export function boundWorkTab(selectedTab, panes) {
+  if (isWebTab(selectedTab)) return selectedTab;
+  const bound = panes && panes[selectedTab];
+  return bound ? "w:" + bound : null;
+}
+
 // Sessions live on the selected CLI's pane (ADR-0079 amendment 2026-09-11):
 // machine-wide is #/clis/<cli>/sessions, one folder is #/clis/<cli>/sessions/<workspaceId>.
 export function sessionsHash(wsId, cli = "pi") {

@@ -57,7 +57,7 @@ import { planAsk } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
-import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId, webHash, webRoute } from "./lib/routes.js";
+import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId, webHash, webRoute, boundWorkTab } from "./lib/routes.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
 import { nativeApps, nativeSurfaceFor } from "./lib/nativeApps.js";
@@ -1674,7 +1674,7 @@ export default function App({ shellChrome = false } = {}) {
   selectedTabRef.current = selectedId;
   useEffect(() => {
     if (!shellChrome) return undefined;
-    return openBrowserChannel(() => (isWebTab(selectedTabRef.current) ? selectedTabRef.current : null));
+    return openBrowserChannel(() => boundWorkTab(selectedTabRef.current, agentPanesRef.current));
   }, [shellChrome]);
 
   async function closeTab(id) {
