@@ -238,6 +238,14 @@ travel from the tool to the shell (`Command.Params` was already in the
 channel; the tool request had no field), which also fixed `events since`,
 silently dropped until now.
 
+Caller scope (owner, 2026-09-13 — v1 stays Pi-only): the tool is a pi package,
+so it is reachable from wherever that package is visible. A **managed agent**
+reports its id and therefore has a grant of its own; a **pi TUI** (in a PiCode
+terminal or started by the user) has no id, resolves to the default, and reads
+the tab on screen. The difference is identity, not connectivity, and gating on
+a missing id would be cosmetic — the same process can assert one (ADR-0134).
+User-facing: `docs-site/guide/browser-tool.md`.
+
 Still open in slice 4: the grants editor (Settings ▸ Browser — the tier ×
 domains table; the write path is `browser.Save`), and the shell-side
 navigation gate (`NavigationStarting` cancels an agent-caused load of an

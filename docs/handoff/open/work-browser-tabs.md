@@ -9,7 +9,7 @@ ADR-0134: read on the tab on screen). Plan: `docs/plans/desktop-v2.md`
 
 ## Next
 
-- Slice 4, increment 1 landed (`feat/browser-grants`): the `act` verbs (`evaluate`, `navigate`) and the origin rule they are checked against. Left: the grants editor (Settings ▸ Browser) and the shell's navigation gate — which must mirror `browser.AllowsOrigin`.
+- Slice 4, increment 2 (`feat/browser-scope`) documented the caller scope in the plan and `docs-site/guide/browser-tool.md`. Increment 1 (`feat/browser-grants`): the `act` verbs (`evaluate`, `navigate`) and the origin rule they are checked against. Left: the grants editor (Settings ▸ Browser) and the shell's navigation gate — which must mirror `browser.AllowsOrigin`.
 
 ## Slice 3, still unbuilt
 
@@ -37,6 +37,24 @@ them one by one in `docs/plans/desktop-v2.md`.
   `RECEIVERS` thread-local in `btab.rs`), never in Tauri state.
 - An HTML popover can never paint over a WebView2 sibling: the options menu
   slides the page down (`MENU_H` in `WebTab.jsx`) instead of flipping z-order.
+
+## Scope (v1): Pi only, and read for a TUI
+
+The tool is a pi package, so reach follows install scope: **This agent** is
+private to a managed agent, **This machine** (`~/.pi/agent`) and **this
+project** are visible to a plain `pi` too. A managed agent reports its id and
+can hold a grant; a pi TUI has no id, falls back to the default, and reads the
+tab on screen. Identity is an assertion, not proof (ADR-0134) — a gate on a
+missing id would be cosmetic, so v1 documents the behavior instead of faking a
+boundary. Owner: validate in use, revisit scope after.
+
+**Name collision (found 2026-09-13):** npm already has a `pi-browser`
+("Playwright-backed pi extension that registers the pi-browser tool", keyword
+`pi-package`). Ours is local-only today, so nothing breaks — but the Packages
+gallery searches npm, so a search there offers *that* package, whose tool is
+also called `browser`. Publishing ours needs a name decision (scope or
+rename), and the gallery hit is worth a second look before anyone installs it
+expecting this one.
 
 ## Debts
 
