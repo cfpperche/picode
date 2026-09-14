@@ -13,10 +13,8 @@
 - **Advanced is a section, not a wall.** The disclosure holds grouped sections
   — Request compatibility, Thinking, Model limits — each with a legend and a
   hairline, so it reads as structure once open and stays one line while
-  closed. Load and Verify report in the Model ids unit, so a failure never
-  pushes the alternative below the fold.
-
-### Fixed
-- A failed Load models or Verify says what to do in the field that owns it
-  ("The endpoint refused the key (401): … Check the API key and try again.")
-  instead of leaving the reason far from the control that caused it.
+  closed.
+- **Load models and Verify key report inside Model ids**, the field that owns
+  them, so a refusal line ("The endpoint refused the key (401): invalid api
+  key provided. Check the API key and try again.") sits next to the action that
+  caused it and never pushes the alternative route below the fold.

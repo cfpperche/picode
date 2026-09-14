@@ -8,7 +8,7 @@ disagreed.
 line of help under it (11.5px), 8px apart, 24px between units, adapted from
 shadcn's Field scale and named as such in the CSS section comment. Helper
 prose that was a lecture (a file path, a protocol note) is gone. The closed
-dialog fits a 1080p window; at 900px it overflows 34px with nothing hidden
+dialog fits a 1080p window; at 900px it overflows 34–36px with nothing hidden
 (the sticky footer keeps the action) and the **Advanced** summary stays above
 the fold at 629px vs the footer's 674px.
 
