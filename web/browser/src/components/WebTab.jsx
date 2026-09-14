@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconGlobe, IconMonitor, IconSettings } from "./Icons.jsx";
+import { IconGlobe, IconMonitor, IconSettings, IconX } from "./Icons.jsx";
 import { toast } from "../lib/toast.js";
 
 // Work browser tab surface (Phase 3 slice 1): the React side renders the
@@ -10,7 +10,7 @@ import { toast } from "../lib/toast.js";
 // this surface.
 const invoke = typeof window !== "undefined" && window.__TAURI__ ? window.__TAURI__.core.invoke : null;
 
-export default function WebTabSurface({ tabId, active, hidden, className = "", onMeta, onNew, onBrowserSettings }) {
+export default function WebTabSurface({ tabId, active, hidden, className = "", onClose, onMeta, onNew, onBrowserSettings }) {
   const id = tabId.slice(2);
   const [urlDraft, setUrlDraft] = useState("");
   const [started, setStarted] = useState(false);
@@ -132,6 +132,7 @@ export default function WebTabSurface({ tabId, active, hidden, className = "", o
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
         {err ? <span className="web-tab-err" title={err}>{err}</span> : null}
+        {onClose ? <button type="button" className="web-tab-menu" title="Close browser pane" aria-label="Close browser pane" onClick={onClose}><IconX /></button> : null}
       </div>
       <div className="web-tab-host" ref={hostRef} hidden={!started} />
       {!started ? (
