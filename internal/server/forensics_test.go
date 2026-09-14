@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -173,8 +174,9 @@ func TestPaneRootSurvivesSIGHUP(t *testing.T) {
 		return has
 	}
 
-	// Trapped root survives the exact signal that killed the incident panes.
-	trapped := "picode-sh-hup-trapped-qa"
+	// Unique per process: concurrent test binaries (parallel shards, another
+	// session's make ci) must never share a tmux session name.
+	trapped := "picode-sh-hup-trapped-qa-" + strconv.Itoa(os.Getpid())
 	write(trapped, "trap '' HUP")
 	pid, err := m.PanePID(ctx, trapped)
 	if err != nil {
@@ -189,7 +191,7 @@ func TestPaneRootSurvivesSIGHUP(t *testing.T) {
 	}
 
 	// Control: an untrapped root dies, so the assertion above means something.
-	control := "picode-sh-hup-control-qa"
+	control := "picode-sh-hup-control-qa-" + strconv.Itoa(os.Getpid())
 	write(control, "")
 	cpid, err := m.PanePID(ctx, control)
 	if err != nil {
