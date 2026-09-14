@@ -87,8 +87,8 @@ test("a screenshot lands outside the repo", () => {
 	assert.equal(screenshotPath("/tmp/", 1), "/tmp/picode-browser-1.png");
 });
 
-test("verbs in the tool are the three the daemon knows", () => {
+test("verbs in the tool are the five the daemon knows", () => {
 	// The union in extensions/browser.ts is hand-written; this keeps it honest.
 	const source = readFileSync(new URL("../extensions/browser.ts", import.meta.url), "utf8");
-	for (const verb of ["snapshot", "screenshot", "events"]) assert.match(source, new RegExp(`Type\\.Literal\\("${verb}"\\)`));
+	for (const verb of ["snapshot", "screenshot", "events", "evaluate", "navigate"]) assert.match(source, new RegExp(`Type\\.Literal\\("${verb}"\\)`));
 });

@@ -11,6 +11,9 @@ import "strings"
 type Verb struct {
 	Method string
 	Tier   string
+	// NeedsURL marks the one shape that has a destination: the route resolves
+	// params.url and checks it against the grant before the command leaves.
+	NeedsURL bool
 }
 
 var verbs = map[string]Verb{
@@ -20,6 +23,15 @@ var verbs = map[string]Verb{
 	"screenshot": {Method: "Page.captureScreenshot", Tier: "read"},
 	// What the tab has recorded since the last poll (never reaches the page).
 	"events": {Method: "shell.events", Tier: "read"},
+
+	// --- act (ADR-0128): only an explicit grant reaches these ---
+
+	// Run an expression in the page. The page's own trust, which is why read
+	// has no evaluate and is genuinely read-only.
+	"evaluate": {Method: "Runtime.evaluate", Tier: "act"},
+	// Go to a URL. The one verb with a destination: the grant's domains are
+	// checked here and again at the navigation gate.
+	"navigate": {Method: "Page.navigate", Tier: "act", NeedsURL: true},
 }
 
 // VerbFor resolves a tool's action, case-insensitively. Unknown verbs are

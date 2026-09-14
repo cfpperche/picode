@@ -198,11 +198,17 @@ export function tokenSegments(tokens) {
   return { total, parts: parts.map((p) => ({ ...p, pct: total ? (100 * p.value) / total : 0 })) };
 }
 
-// dayLabel: "Aug 25" for a YYYY-MM-DD series key, without letting Date
-// parse it as UTC midnight (which would shift it a day in the Americas).
-export function dayLabel(ymd) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd || "");
-  if (!m) return ymd || "";
+// bucketLabel: the axis and tooltip label for one series key. The server
+// sends calendar days ("Aug 25") and, when the window is a single day, hours
+// of that day ("14:00") — the key states its own granularity, so this reads it
+// instead of being told. Day keys are never fed to Date as UTC midnight, which
+// would shift them a day in the Americas.
+export function bucketLabel(key) {
+  const s = String(key || "");
+  const hour = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/.exec(s);
+  if (hour) return hour[4] + ":00";
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return s;
   return new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 

@@ -193,6 +193,96 @@ func TestSeriesZeroFillsEveryDay(t *testing.T) {
 	}
 }
 
+// The decision table for bucketing: a day window fills days, an hourly window
+// fills one bucket per real hour, and a fall-back hour (which repeats a clock
+// name) is one bucket rather than two labels on the same bar.
+func TestSeriesBucketsByDayOrByHour(t *testing.T) {
+	day := time.Date(2026, 9, 6, 0, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name   string
+		req    Request
+		wins   int
+		first  string
+		last   string
+		filled string // the key the meter reported data for
+	}{
+		{
+			name:   "day window fills one bucket per calendar day",
+			req:    Request{From: day, To: day.AddDate(0, 0, 3), Loc: time.UTC},
+			wins:   3,
+			first:  "2026-09-06",
+			last:   "2026-09-08",
+			filled: "2026-09-07",
+		},
+		{
+			name:   "hourly window fills one bucket per hour of the day",
+			req:    Request{From: day, To: day.AddDate(0, 0, 1), Loc: time.UTC, Hourly: true},
+			wins:   24,
+			first:  "2026-09-06T00",
+			last:   "2026-09-06T23",
+			filled: "2026-09-06T14",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := fakeMeter{cli: "pi", win: Window{Stats: session.WindowStats{
+				Series: []session.DayBucket{{Date: tc.filled, Cost: 2, Messages: 1, Turns: 1}},
+			}}}
+			out := Aggregate(tc.req, []Meter{m})
+			if len(out.Series) != tc.wins {
+				t.Fatalf("buckets = %d, want %d: %+v", len(out.Series), tc.wins, out.Series)
+			}
+			if out.Series[0].Date != tc.first || out.Series[len(out.Series)-1].Date != tc.last {
+				t.Fatalf("first/last = %s/%s, want %s/%s", out.Series[0].Date, out.Series[len(out.Series)-1].Date, tc.first, tc.last)
+			}
+			var filled int
+			for _, b := range out.Series {
+				if b.Cost > 0 {
+					filled++
+				}
+				if b.Date == "" {
+					t.Fatal("a bucket without a key")
+				}
+			}
+			if filled != 1 {
+				t.Fatalf("only the reported bucket carries data: %+v", out.Series)
+			}
+		})
+	}
+}
+
+func TestSeriesKeysCarryTheirOwnGranularity(t *testing.T) {
+	at := time.Date(2026, 9, 6, 14, 30, 0, 0, time.UTC)
+	if got := (Request{Loc: time.UTC}).SeriesKey(at); got != "2026-09-06" {
+		t.Fatalf("day key = %q", got)
+	}
+	if got := (Request{Loc: time.UTC, Hourly: true}).SeriesKey(at); got != "2026-09-06T14" {
+		t.Fatalf("hour key = %q", got)
+	}
+	// The key is in the caller's zone, like every other figure in the payload.
+	west := time.FixedZone("UTC-3", -3*3600)
+	if got := (Request{Loc: west, Hourly: true}).SeriesKey(at); got != "2026-09-06T11" {
+		t.Fatalf("hour key in UTC-3 = %q", got)
+	}
+}
+
+// A fall-back day repeats one clock hour; two buckets named 01:00 would be
+// two bars under one label, so the hour merges instead.
+func TestHourlySeriesMergesARepeatedDSTHour(t *testing.T) {
+	loc := time.FixedZone("fake", -3600)
+	from := time.Date(2026, 11, 1, 0, 0, 0, 0, loc)
+	series := fillSeries(map[string]*session.DayBucket{}, Request{From: from, To: from.Add(25 * time.Hour), Loc: loc, Hourly: true})
+	seen := map[string]bool{}
+	for _, b := range series {
+		if seen[b.Date] {
+			t.Fatalf("duplicate bucket %s in %d buckets", b.Date, len(series))
+		}
+		seen[b.Date] = true
+	}
+	if len(series) != 25 {
+		t.Fatalf("a 25-hour window is 25 hours under 24 names: got %d buckets", len(series))
+	}
+}
+
 func TestFingerprintMissesWhenAMeterCannotDescribeItself(t *testing.T) {
 	known := fakeMeter{cli: "pi", fp: "1:2:3"}
 	unknown := fakeMeter{cli: "codex", fp: ""}

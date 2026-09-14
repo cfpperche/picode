@@ -43,8 +43,9 @@ func handleBrowserTool(deps Deps) http.HandlerFunc {
 			return
 		}
 		var req struct {
-			Agent string `json:"agent"`
-			Verb  string `json:"verb"`
+			Agent  string          `json:"agent"`
+			Verb   string          `json:"verb"`
+			Params json.RawMessage `json:"params,omitempty"`
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "bad request: "+err.Error())
@@ -60,6 +61,13 @@ func handleBrowserTool(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "unknown verb "+strconv.Quote(req.Verb)+" — use "+strings.Join(names, ", "))
 			return
 		}
+		var params map[string]any
+		if len(req.Params) > 0 {
+			if err := json.Unmarshal(req.Params, &params); err != nil {
+				writeErr(w, http.StatusBadRequest, "params must be an object: "+err.Error())
+				return
+			}
+		}
 		policy := browser.Resolve(deps.Store, req.Agent)
 		if !policy.Allows(verb) {
 			writeErr(w, http.StatusForbidden, fmt.Sprintf(
@@ -67,8 +75,18 @@ func handleBrowserTool(deps Deps) http.HandlerFunc {
 				req.Verb, verb.Tier, policy.Tier))
 			return
 		}
+		// A verb with a destination is checked here too: the shell's
+		// navigation gate is the other half of the same rule (AllowsOrigin).
+		if verb.NeedsURL && !policy.AllowsVerb(verb, params) {
+			raw, _ := params["url"].(string)
+			writeErr(w, http.StatusForbidden, fmt.Sprintf(
+				"%s to %q is outside this agent's grant (domains: %s) — add it in Settings ▸ Browser",
+				req.Verb, raw, strings.Join(policy.Domains, ", ")))
+			return
+		}
 		output, err := deps.Browser.Dispatch(r.Context(), browser.Command{
 			Method:  verb.Method,
+			Params:  req.Params,
 			Tier:    policy.Tier,
 			Domains: policy.Domains,
 		})
