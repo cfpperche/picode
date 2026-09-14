@@ -239,7 +239,9 @@ Codex contexts may use the compatibility fallback, and conflicting IDs are refus
 
 OpenCode input guards measure the editor from its uninterrupted lower border,
 with a blank gutter separating sidebar content. They verify the editor rows
-inside that boundary, the command footer and one constrained wrapped path row.
+inside that boundary, the command footer and the wrapped path rows the cwd's
+length implies, each matched against a path-only pattern (deep worktree paths
+wrap twice or more at narrow widths).
 The same measured width gates pointer fit before claiming or pasting. Drafts,
 unknown footers, damaged borders and changed post-paste text remain refused.
 
