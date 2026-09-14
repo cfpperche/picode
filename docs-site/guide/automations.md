@@ -1,10 +1,15 @@
+---
+description: Run an agent on a timer or a webhook. Each run is a normal PiCode session.
+---
+
 # Automations
 
 Run an agent on a schedule, or whenever another tool calls a URL. Every run
 is an ordinary PiCode agent session: it shows in the sidebar, the dashboard
 counts its cost, and its result lands in the Inbox.
 
-Open it from the user menu → **Automations**, or `Ctrl+K` → Automations.
+- **Where:** user menu → **Automations**, or `Ctrl+K` → Automations.
+- **Not this:** not a [snippet](/guide/snippets) you send by hand, and not a cron job on the host.
 
 <video controls muted preload="metadata" poster="/picode/video/automate-it-poster.jpg" src="/picode/video/automate-it.mp4" style="width:100%;border-radius:12px"></video>
 

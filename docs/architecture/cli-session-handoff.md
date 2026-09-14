@@ -6,9 +6,16 @@ Any session of an Agent CLI can continue in another one from that CLI's
 Sessions pane ("Continue in <CLI>…") **and** from the terminal that is
 running it: the sidebar `⋯` menu, the Agent CLIs Terminals `⋯` menu, and
 the pane's right-click menu. The source is the terminal's pinned
-conversation (`lastSession`, ADR-0084), not a session picker. It is still
+conversation (`lastSession`, ADR-0084) **or**, on a managed Pi agent in
+the terminal, that agent's `sessionPath` (path-only is enough). It is still
 a handoff, never a live switch — the source terminal keeps running and a
 new terminal (or a stopped Pi agent) opens on the target.
+
+Continue in from an interactive Pi TUI always takes the live-confirm path
+once `liveHolderFor` sees `tmux.HasSession(picode-<agentId>)` (managed RPC
+`Runtime.Get` is no longer the only live detector for `cli == "pi"`). The
+dialog is the existing 409 `live` + `force=true`. Pin cwd is
+`workPath` else the workspace folder else the pane cwd.
 
 `internal/transcript` is the portable model —
 ordered events (message, tool call, tool result, thinking, compaction,

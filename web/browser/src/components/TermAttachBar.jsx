@@ -17,7 +17,12 @@ const json = (body) => ({ method: "POST", headers: { "Content-Type": "applicatio
 // `seed` carries what the menu started it with — a selected line as the
 // message, a larger selection as a staged text file (lib/termMenu.js) — and
 // is applied once per token so asking twice never wipes a typed question.
-export default function TermAttachBar({ term, seed, onClose }) {
+export default function TermAttachBar({ term, seed, ownerKind, onClose }) {
+  const agentId = ownerKind === "agent" ? term.id : "";
+  const termId = ownerKind === "agent" ? "" : term.id;
+  const dropBase = agentId
+    ? "/api/agents/" + encodeURIComponent(agentId)
+    : "/api/terminals/" + encodeURIComponent(termId);
   const imgPick = useRef(null);
   const filePick = useRef(null);
   const inputRef = useRef(null);
@@ -99,12 +104,12 @@ export default function TermAttachBar({ term, seed, onClose }) {
       const paths = [];
       for (const it of items) {
         if (it.path) { paths.push(it.path); continue; }
-        const d = await api("/api/terminals/" + encodeURIComponent(term.id) + "/drop", json({ name: it.name, mime: it.mime, data: it.data }));
+        const d = await api(dropBase + "/drop", json({ name: it.name, mime: it.mime, data: it.data }));
         paths.push(d.path);
       }
       // No success toast: the user is looking at the terminal and sees the
       // message land. Toasts stay reserved for failures (toastError below).
-      await api("/api/terminals/" + encodeURIComponent(term.id) + "/prompt", json({ message: text, paths }));
+      await api(dropBase + "/prompt", json({ message: text, paths }));
       setItems([]);
       setText("");
     } catch (e) {
@@ -124,7 +129,7 @@ export default function TermAttachBar({ term, seed, onClose }) {
 
   return (
     <div className="term-attach" onKeyDown={onKeyDown}>
-      <WorkspaceAttach open={pick} termId={term.id} onPick={addWorkspace} onClose={() => setPick(false)} />
+      <WorkspaceAttach open={pick} agentId={agentId || undefined} termId={termId || undefined} onPick={addWorkspace} onClose={() => setPick(false)} />
       <div className="term-attach-head">
         {items.length ? (
           <div className="term-attach-chips">

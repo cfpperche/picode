@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildTermMenu, planAsk, ASK_INLINE_MAX } from "./termMenu.js";
+import { buildTermMenu, paneCapabilities, planAsk, ASK_INLINE_MAX } from "./termMenu.js";
 
 const ids = (rows) => rows.filter((r) => !r.sep).map((r) => r.id);
 const row = (rows, id) => rows.find((r) => r.id === id);
@@ -72,10 +72,10 @@ test("the token under the cursor becomes one open row", () => {
   assert.equal(http.icon, "external");
 });
 
-test("an agent's TUI pane is not a terminal to rename, close or remove", () => {
+test("an agent pane without a fleet row has no lifecycle rows", () => {
   const rows = ids(buildTermMenu({ kind: "agent", selection: "x" }));
-  for (const id of ["rename", "settings", "files", "close-tab", "remove"]) {
-    assert.equal(rows.includes(id), false, id + " must not reach an agent pane");
+  for (const id of ["rename", "settings", "files", "close-tab", "remove", "ask", "attach", "snippet"]) {
+    assert.equal(rows.includes(id), false, id + " must not reach a missing fleet row");
   }
   assert.deepEqual(rows.slice(0, 3), ["copy", "paste", "select-all"]);
 });
@@ -88,7 +88,7 @@ test("remove is the only destructive row, and text size is the only submenu with
   assert.deepEqual(subs[0].sub.map((r) => r.id), ["text-bigger", "text-smaller", "text-reset"]);
 });
 
-test("a pinned CLI pane offers Continue in…; an agent pane never does", () => {
+test("a pinned CLI pane offers Continue in…; a missing agent fleet row does not", () => {
   const cap = { list: true, read: true, write: true, prompt: true };
   const clis = [
     { id: "pi", name: "Pi", installed: true, sessions: cap },
@@ -161,4 +161,96 @@ test("agent pane offers the browser split; own terminal does not (ADR-0135 slice
   assert.ok(ids(buildTermMenu({ kind: "term", cli: "Pi", running: true })).includes("open-browser"));
   const shell = ids(buildTermMenu({ kind: "term", shell: true }));
   assert.ok(!shell.includes("open-browser") && !shell.includes("close-browser"));
+});
+
+const cap = { list: true, read: true, write: true, prompt: true };
+const handoffClis = [
+  { id: "pi", name: "Pi", installed: true, sessions: cap },
+  { id: "codex", name: "Codex", installed: true, sessions: cap },
+];
+
+function atui(extra = {}) {
+  return paneCapabilities({
+    host: "agent",
+    agent: { id: "ag1", name: "Snippets", mode: "interactive", sessionPath: "/p/session.jsonl", workspaceId: "ws1" },
+    workspace: { id: "ws1", path: "/home/goat/picode" },
+    paneCwd: "/home/goat/picode",
+    tabs: ["ag1"],
+    clis: handoffClis,
+    ...extra,
+  });
+}
+
+test("A-TUI with a fleet row gets the /term/ catalog including Ask/Attach/Send", () => {
+  const rows = buildTermMenu({ ...atui(), selection: "panic: nil map" });
+  const got = ids(rows);
+  for (const id of ["copy", "paste", "select-all", "ask", "attach", "snippet", "find", "open-browser", "rename", "settings", "files", "handoff", "close-tab", "remove"]) {
+    assert.ok(got.includes(id), id);
+  }
+  assert.equal(row(rows, "ask").label, "Ask Pi about this");
+  assert.equal(row(rows, "rename").label, "Rename agent…");
+  assert.equal(row(rows, "remove").label, "Remove agent…");
+  assert.equal(row(rows, "close-tab").hint, "The session keeps running.");
+  assert.equal(got.includes("snippet-cmd"), false);
+  assert.equal(got.includes("clear"), false);
+});
+
+test("A-TUI + selection has ask, attach and snippet (promptDoor tui)", () => {
+  const caps = atui({ selection: "x" });
+  assert.equal(caps.promptDoor, "tui");
+  assert.equal(caps.kind, "agent");
+  const got = ids(buildTermMenu(caps));
+  assert.ok(got.includes("snippet"));
+  assert.ok(got.includes("ask"));
+  assert.ok(got.includes("attach"));
+});
+
+test("A-TUI without a selection keeps Attach and Send, drops Ask", () => {
+  const got = ids(buildTermMenu(atui()));
+  assert.equal(got.includes("ask"), false);
+  assert.ok(got.includes("attach"));
+  assert.ok(got.includes("snippet"));
+});
+
+test("A-TUI Close tab follows tabOpen; Canvas without a host tab omits it", () => {
+  const open = ids(buildTermMenu(atui({ tabs: ["ag1"] })));
+  assert.ok(open.includes("close-tab"));
+  const closed = ids(buildTermMenu(atui({ tabs: ["x:canvas"] })));
+  assert.equal(closed.includes("close-tab"), false);
+  assert.ok(closed.includes("rename"));
+  assert.ok(closed.includes("remove"));
+});
+
+test("A-TUI without sessionPath omits Continue in…", () => {
+  const caps = atui({ agent: { id: "ag1", name: "x", mode: "interactive" } });
+  assert.equal(ids(buildTermMenu(caps)).includes("handoff"), false);
+});
+
+test("workspace agent with no workPath still pins cwd from the workspace", () => {
+  const caps = atui({ agent: { id: "ag1", name: "Snippets", mode: "interactive", sessionPath: "/p", workspaceId: "ws1" } });
+  assert.equal(caps.record.cwd, "/home/goat/picode");
+  assert.ok(ids(buildTermMenu(caps)).includes("handoff"));
+});
+
+test("missing fleet row omits lifecycle and the prompt door", () => {
+  const caps = paneCapabilities({ host: "agent", tabs: ["ag1"], selection: "x" });
+  assert.equal(caps.lifecycle, null);
+  assert.equal(caps.promptDoor, null);
+  const got = ids(buildTermMenu(caps));
+  for (const id of ["rename", "remove", "settings", "files", "close-tab", "snippet", "ask", "attach"]) {
+    assert.equal(got.includes(id), false, id);
+  }
+});
+
+test("do not light Ask/Attach from cli/running on an agent pane — promptDoor is the gate", () => {
+  // The forbidden shortcut: filling cli/running as if the agent were a terminal.
+  const poison = buildTermMenu({ kind: "agent", cli: "Pi", running: true, selection: "x" });
+  assert.equal(ids(poison).includes("ask"), false);
+  assert.equal(ids(poison).includes("attach"), false);
+});
+
+test("T-CLI still uses cli && running when promptDoor is omitted", () => {
+  const rows = buildTermMenu({ kind: "term", selection: "x", cli: "Claude Code", running: true });
+  assert.ok(ids(rows).includes("ask"));
+  assert.equal(row(rows, "rename").label, "Rename terminal…");
 });

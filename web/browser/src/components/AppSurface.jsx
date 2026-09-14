@@ -258,6 +258,14 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
   const hasQuery = query.trim().length > 0;
   const filteredBodyBlocks = hasQuery ? filterListBlocks(bodyBlocks, query) : bodyBlocks;
   const noMatches = hasQuery && totalItems > 0 && countListItems(filteredBodyBlocks) === 0;
+  // A list-pane actions row is the list's own bulk action (Inbox's "Clear
+  // all done"), so it rides the card toolbar at the filter's right — the
+  // toolbar row every route page keeps its list actions in — instead of
+  // trailing the list. Detail-pane rows (an item's Done/Snooze) and unpaned
+  // rows (an empty state's "Check again") are not list chrome and stay put.
+  const isBulkRow = (b) => b.type === "actions" && b.pane === "list";
+  const bulkActions = filteredBodyBlocks.filter(isBulkRow).flatMap((b) => b.actions || []);
+  const listPaneBlocks = filteredBodyBlocks.filter((b) => !isBulkRow(b));
 
   if (paneMode === "detail") {
     return (
@@ -330,8 +338,10 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
           ) : (
             <>
               {/* Search sits in the card, not in the page head: the rows it
-                  filters live in the card (2026-09-14 parity). */}
-              {backToRoot || totalItems > 0 ? (
+                  filters live in the card (2026-09-14 parity). The list's own
+                  bulk action shares the row, right-aligned — one toolbar,
+                  like every route page. */}
+              {backToRoot || totalItems > 0 || bulkActions.length > 0 ? (
                 <div className="app-card-toolbar" data-align-row>
                   {backToRoot ? (
                     <button type="button" className="app-card-back" onClick={() => changePath("")}>
@@ -350,20 +360,25 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
                       aria-label={`Filter ${title} by title or details`}
                     />
                   ) : null}
+                  {bulkActions.length > 0 ? (
+                    <div className="app-card-bulk">
+                      {bulkActions.map((a) => <ActionButton key={a.id} action={a} onAction={ctx.onAction} pending={ctx.pending} />)}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 
               {split && listOnly ? (
                 <div className="app-body">
                   {noMatches ? <SearchEmpty query={query} onClear={() => setQuery("")} /> : null}
-                  {filteredBodyBlocks.map((b, i) => <AppBlock key={b.id || i} block={b} {...ctx} />)}
+                  {listPaneBlocks.map((b, i) => <AppBlock key={b.id || i} block={b} {...ctx} />)}
                   {listBlocks.length === 0 ? <Blank text={view.empty} /> : null}
                 </div>
               ) : split ? (
                 <div className={"app-split" + (resizing ? " resizing" : "")}>
                   <div className="app-pane app-pane-list" style={stacked ? undefined : { flexBasis: listW }}>
                     {noMatches ? <SearchEmpty query={query} onClear={() => setQuery("")} /> : null}
-                    {filteredBodyBlocks.map((b, i) => <AppBlock key={b.id || i} block={b} {...ctx} />)}
+                    {listPaneBlocks.map((b, i) => <AppBlock key={b.id || i} block={b} {...ctx} />)}
                   </div>
                   {stacked ? null : <div className="app-split-sizer" title="Drag to resize" onPointerDown={onSizerDown} />}
                   <div className="app-pane app-pane-detail" ref={detailRef}>
@@ -377,7 +392,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
               ) : (
                 <div className="app-body">
                   {noMatches ? <SearchEmpty query={query} onClear={() => setQuery("")} /> : null}
-                  {filteredBodyBlocks.map((b, i) => <AppBlock key={b.id || i} block={b} {...ctx} />)}
+                  {listPaneBlocks.map((b, i) => <AppBlock key={b.id || i} block={b} {...ctx} />)}
                   {view.blocks.length === 0 ? <Blank text={view.empty} /> : null}
                 </div>
               )}

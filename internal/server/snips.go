@@ -366,24 +366,37 @@ func handleSnipRun(deps Deps) http.HandlerFunc {
 			writeJSON(w, status, map[string]any{"error": "Fill in the missing fields.", "missing": missing})
 			return
 		}
-		if deps.Runtime == nil {
+		switch deps.runMode(r, agent.ID) {
+		case modeManaged:
+			if deps.Runtime == nil {
+				reason, status = "stopped", http.StatusConflict
+				writeJSON(w, status, map[string]any{"error": "agent is not running", "reason": reason})
+				return
+			}
+			ma := deps.Runtime.Get(agent.ID)
+			if ma == nil {
+				reason, status = "stopped", http.StatusConflict
+				writeJSON(w, status, map[string]any{"error": "agent is not running", "reason": reason})
+				return
+			}
+			if err := ma.SendTurn(store.TaskPrompt, text, nil); err != nil {
+				status = http.StatusBadRequest
+				writeErr(w, status, err.Error())
+				return
+			}
+			status = http.StatusOK
+			writeJSON(w, status, map[string]any{"ok": true, "typed": true, "text": text})
+		case modeInteractive:
+			code, body := deps.deliverToInteractiveAgent(r.Context(), agent, text, tuiDeliverSnippet)
+			if rsn, _ := body["reason"].(string); rsn != "" {
+				reason = rsn
+			}
+			status = code
+			writeJSON(w, code, body)
+		default:
 			reason, status = "stopped", http.StatusConflict
 			writeJSON(w, status, map[string]any{"error": "agent is not running", "reason": reason})
-			return
 		}
-		ma := deps.Runtime.Get(agent.ID)
-		if ma == nil {
-			reason, status = "stopped", http.StatusConflict
-			writeJSON(w, status, map[string]any{"error": "agent is not running", "reason": reason})
-			return
-		}
-		if err := ma.SendTurn(store.TaskPrompt, text, nil); err != nil {
-			status = http.StatusBadRequest
-			writeErr(w, status, err.Error())
-			return
-		}
-		status = http.StatusOK
-		writeJSON(w, status, map[string]any{"ok": true, "typed": true, "text": text})
 	}
 }
 

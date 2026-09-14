@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { sessionClis, handoffModes, handoffTargets, handoffLandings, landingLabel, handoffSummaryLine, handoffSessionLabel, handoffRequest, sessionFromTerminal, terminalHandoffSourceCli, terminalHandoffMenu, lineageBadges } from "./sessionHandoff.js";
+import { sessionClis, handoffModes, handoffTargets, handoffLandings, landingLabel, handoffSummaryLine, handoffSessionLabel, handoffRequest, sessionFromTerminal, terminalHandoffSourceCli, terminalHandoffMenu, lineageBadges, agentPin } from "./sessionHandoff.js";
 
 const all = { list: true, read: true, write: true, prompt: true };
 const clis = [
@@ -101,8 +101,35 @@ test("sessionFromTerminal is the pin, with cwd/name falling back to the terminal
     { id: "s1", path: "/p", cwd: "/sess", name: "Race", workspaceId: "ws1" },
   );
   assert.equal(sessionFromTerminal({ cwd: "/term", lastSession: { sessionId: "s1" } }).cwd, "/term");
+  assert.deepEqual(
+    sessionFromTerminal({ cwd: "/w", name: "PiCode Snippets", lastSession: { cli: "pi", path: "/p/session.jsonl", cwd: "/w" } }),
+    { id: "", path: "/p/session.jsonl", cwd: "/w", name: "PiCode Snippets", workspaceId: "" },
+  );
+  assert.equal(sessionFromTerminal({ lastSession: { cli: "pi", path: "/p" } }).path, "/p");
   assert.equal(terminalHandoffSourceCli({ lastSession: { cli: "claude-code", sessionId: "s1" } }), "claude-code");
   assert.equal(terminalHandoffSourceCli({ launchCli: "pi" }), "");
+});
+
+test("agentPin uses workPath else workspace.path else pane cwd, and path-only is enough", () => {
+  assert.equal(agentPin(null), null);
+  assert.equal(agentPin({ id: "a1", name: "x" }), null);
+  const pin = agentPin(
+    { id: "a1", name: "Snippets", workspaceId: "ws1", sessionPath: "/p/session.jsonl" },
+    { id: "ws1", path: "/home/goat/picode" },
+    "/ignored",
+  );
+  assert.equal(pin.cwd, "/home/goat/picode");
+  assert.equal(pin.lastSession.cli, "pi");
+  assert.equal(pin.lastSession.path, "/p/session.jsonl");
+  assert.ok(sessionFromTerminal(pin));
+  assert.ok(terminalHandoffMenu(pin, clis));
+  const own = agentPin(
+    { id: "a1", name: "x", workPath: "/own", sessionPath: "/p" },
+    { path: "/ws" },
+    "/pane",
+  );
+  assert.equal(own.cwd, "/own");
+  assert.equal(agentPin({ id: "a1", sessionPath: "/p" }, null, "/pane").cwd, "/pane");
 });
 
 test("terminalHandoffMenu drops the row when it cannot act", () => {

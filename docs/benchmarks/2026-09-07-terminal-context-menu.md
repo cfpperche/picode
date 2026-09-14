@@ -43,6 +43,13 @@ cursor sits on one; `Clear` only on a bare shell — a TUI owns its screen;
 rename/settings/files/close/remove only for a terminal of its own, never for
 an agent's TUI pane.
 
+**Reversed 2026-09-14 for managed-in-terminal lifecycle rows.** The catalog
+stays one builder (`buildTermMenu`); visibility is a capability bag
+(`promptDoor`, `lifecycle`, `tabOpen`) instead of `kind === "agent"`.
+Ask / Attach / Send on an interactive agent TUI ship with the ADR-0089
+sibling drop/prompt on `/api/agents/{id}`. Chat-mode agents stay on the
+generic menu.
+
 A selection handed to the CLI takes one of two shapes:
 
 | Selection | What the bar receives |

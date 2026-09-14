@@ -136,8 +136,11 @@ for a draft with **no** origin — a handoff is not a crash.
 
 `POST /api/snips/{id}/expand` is pure substitution (no git). Missing
 required names are listed; the body is still returned. `POST /api/snips/{id}/run`
-with `target.type=agent` expands with live `cwd` / workspace / agent name
-and `SendTurn`s. `target.type=terminal` delivers through the **ADR-0089
+with `target.type=agent` expands with live `cwd` / workspace / agent name.
+Managed agents `SendTurn`. Interactive agents take ADR-0130 door 5:
+`deliverToInteractiveAgent` (receiver-or-paste into `picode-<id>`, source
+`"snippet"`, proof is tmux/receiver accept). Stopped is 409 `stopped`.
+`target.type=terminal` delivers through the **ADR-0089
 door** (shared `pasteToTerminal`): `termHoldsCLI` must hold, and the
 pane's foreground is re-checked at handler time — a shell (the TUI
 exited, no live wrapper lease) answers 409 `kind`, because a prompt body
@@ -153,7 +156,11 @@ what would run. Composer `/snip:slug` opens a fill sheet (**Insert
 snippet** splices the draft; **Send snippet** calls `fireSend` with the
 spliced text so images stay). Palette **Send snippet** posts `/run`. The
 desktop terminal right-click menu gains **Send to terminal…** (CLI
-panes) and **Run command…** (bare shells), each filtered to its kind.
+panes and interactive agent TUIs) and **Run command…** (bare shells), each filtered to its kind.
+A pane invoke keeps `onlyKind: "prompt"` so Command snippets stay off
+that picker; palette Send snippet stays unfiltered and uses `via: "tui"`
+when the selected agent is interactive (the sheet then says “Sent to the
+terminal.”).
 Every attempt announces ephemeral `snip.ran` (ok + reason, never
 values). That notice is published once the route has identified a snippet,
 so a request whose id does not exist (or whose body is malformed) is not a

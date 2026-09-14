@@ -4515,8 +4515,12 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 }
 .app-page-tab[aria-current] .app-tab-count { background: var(--bg-elevated); }
 
-/* Card toolbar: the way back to the list, and the filter box. */
-.app-card-toolbar { display: flex; align-items: center; gap: 12px; padding: 16px 24px 0; }
+/* Card toolbar: the way back to the list, the filter box, and the list's
+   own bulk action (Inbox's "Clear all done") at the row's right end — the
+   toolbar row every route page keeps its list actions in. Wraps only when
+   the row cannot hold filter + action at once. */
+.app-card-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 24px 0; }
+.app-card-bulk { display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto; }
 .app-card-back {
   display: inline-flex; align-items: center; gap: 4px; flex: none;
   height: var(--ctl-h); padding: 0; border: 0; background: none;
@@ -4632,7 +4636,7 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
    protect, and "filtro" is what was asked for. It lives in the card
    toolbar, the width of the rows it filters. */
 .app-search {
-  flex: 1; min-width: 0;
+  flex: 1 1 240px; min-width: 0;
   height: var(--ctl-h); padding: 0 10px; box-sizing: border-box;
   font: inherit; font-size: 12px; color: var(--text-primary);
   background: var(--bg-base); border: 1px solid var(--border); border-radius: var(--radius-ctl);
