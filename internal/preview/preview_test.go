@@ -1,0 +1,136 @@
+package preview
+
+import (
+	"encoding/base64"
+	"testing"
+	"time"
+)
+
+func TestMintGetExpire(t *testing.T) {
+	s := NewStore(time.Minute)
+	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+	s.now = func() time.Time { return now }
+
+	tk, err := s.Mint("agent", "a1", "/proj", "site/index.html", "s1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tk.Token == "" || tk.Path != "site/index.html" || tk.Root != "/proj" || tk.SessionID != "s1" {
+		t.Fatalf("ticket=%+v", tk)
+	}
+	if !tk.ExpiresAt.Equal(now.Add(time.Minute)) {
+		t.Fatalf("expiry=%v", tk.ExpiresAt)
+	}
+	got, ok := s.Get(tk.Token)
+	if !ok || got.Token != tk.Token || got.OwnerID != "a1" {
+		t.Fatalf("get=%+v ok=%v", got, ok)
+	}
+	if s.Len() != 1 {
+		t.Fatalf("len=%d", s.Len())
+	}
+
+	now = now.Add(time.Minute)
+	if _, ok := s.Get(tk.Token); ok {
+		t.Fatal("expired ticket still resolves")
+	}
+	if s.Len() != 0 {
+		t.Fatalf("expired tickets linger: len=%d", s.Len())
+	}
+}
+
+func TestStoreLazySweepAndZeroTTL(t *testing.T) {
+	s := NewStore(0)
+	if s.ttl != DefaultTTL {
+		t.Fatalf("ttl=%v", s.ttl)
+	}
+	now := time.Now()
+	s.now = func() time.Time { return now }
+	for i := 0; i < 3; i++ {
+		if _, err := s.Mint("term", "t1", "/p", "a.html", "s"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if s.Len() != 3 {
+		t.Fatalf("len=%d", s.Len())
+	}
+	now = now.Add(DefaultTTL)
+	if _, err := s.Mint("term", "t1", "/p", "a.html", "s"); err != nil {
+		t.Fatal(err)
+	}
+	if s.Len() != 1 {
+		t.Fatalf("sweep left %d tickets", s.Len())
+	}
+}
+
+func TestTokensAreUniqueAndOpaque(t *testing.T) {
+	s := NewStore(time.Minute)
+	seen := map[string]bool{}
+	for i := 0; i < 64; i++ {
+		tk, err := s.Mint("agent", "a", "/p", "index.html", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if seen[tk.Token] {
+			t.Fatalf("duplicate token %q", tk.Token)
+		}
+		seen[tk.Token] = true
+		if raw, err := base64.RawURLEncoding.DecodeString(tk.Token); err != nil || len(raw) != TokenBytes {
+			t.Fatalf("token %q is not %d raw bytes: %v", tk.Token, TokenBytes, err)
+		}
+	}
+}
+
+func TestMIMETypeTable(t *testing.T) {
+	rows := []struct {
+		path string
+		want string
+		ok   bool
+	}{
+		{"index.html", "text/html; charset=utf-8", true},
+		{"INDEX.HTM", "text/html; charset=utf-8", true},
+		{"a/b.css", "text/css; charset=utf-8", true},
+		{"m.js", "text/javascript; charset=utf-8", true},
+		{"m.mjs", "text/javascript; charset=utf-8", true},
+		{"d.json", "application/json; charset=utf-8", true},
+		{"x.wasm", "application/wasm", true},
+		{"f.woff2", "font/woff2", true},
+		{"i.avif", "image/avif", true},
+		{"v.webm", "video/webm", true},
+		{"m.gltf", "model/gltf+json", true},
+		{".env", "", false},
+		{"id_rsa", "", false},
+		{"cert.pem", "", false},
+		{"notes.md", "", false},
+		{"app.exe", "", false},
+		{"archive.tar.gz", "", false},
+	}
+	for _, r := range rows {
+		got, ok := MIMEType(r.path)
+		if ok != r.ok || got != r.want {
+			t.Fatalf("%s: got (%q,%v) want (%q,%v)", r.path, got, ok, r.want, r.ok)
+		}
+	}
+}
+
+func TestIsDocumentAndHidden(t *testing.T) {
+	for _, p := range []string{"a.html", "b.HTM", "dir/c.html"} {
+		if !IsDocument(p) {
+			t.Fatalf("%s should be a document", p)
+		}
+	}
+	for _, p := range []string{"a.xhtml", "a.md", "a", ".html"} {
+		if IsDocument(p) {
+			t.Fatalf("%s should not be a document", p)
+		}
+	}
+	for _, p := range []string{".env", "a/.git/config", "dir/.hidden/x.js", "."} {
+		if !Hidden(p) {
+			t.Fatalf("%s should be hidden", p)
+		}
+	}
+	for _, p := range []string{"index.html", "assets/app.js", "a.b/c"} {
+		if Hidden(p) {
+			t.Fatalf("%s should not be hidden", p)
+		}
+	}
+}
