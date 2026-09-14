@@ -9,7 +9,7 @@ ADR-0134: read on the tab on screen). Plan: `docs/plans/desktop-v2.md`
 
 ## Next
 
-- Slice 4 completes it: the grants editor (Settings ▸ Browser), the `act` verbs a grant unlocks, and the navigation gate.
+- Slice 4, increment 1 landed (`feat/browser-grants`): the `act` verbs (`evaluate`, `navigate`) and the origin rule they are checked against. Left: the grants editor (Settings ▸ Browser) and the shell's navigation gate — which must mirror `browser.AllowsOrigin`.
 
 ## Slice 3, still unbuilt
 
