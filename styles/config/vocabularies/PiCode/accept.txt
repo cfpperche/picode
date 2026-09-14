@@ -90,3 +90,7 @@ tooltip
 docker
 sparse
 vhdx
+dropdown
+enum
+standup
+unclosed

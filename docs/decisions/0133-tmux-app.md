@@ -99,6 +99,30 @@ prefix sweep this repository already paid for. The decision table in
 `internal/server/tmux_test.go` exists for exactly that: every row of it is a
 way to kill a live session, and every row is asserted.
 
+## Amendment — 2026-09-14: the body is primitives, not a native surface
+
+The owner's production screenshot (2026-09-14 11:21) showed this app's content
+rendered **on top of the Docker app**. A native body is a component the host
+keeps mounted, and hiding it is the component's own job: the mount passes
+`hidden={selectedId !== id}` and the component must put it on its root —
+`AppSurface` has carried `hidden={!!hidden}` since ADR-0036. This one did not,
+so after its first open it drew over every other tab. The same report named the
+second failure: the hand-rolled chrome was a second UI/UX standard in a shell
+that already has one, and the owner commissioned this app "nos moldes do app
+Docker".
+
+So the body moves back to the frozen vocabulary, on the Docker mold: `View`
+renders the inventory (three collapsible groups — PiCode's, not in PiCode's
+records, not PiCode's), each session's own detail path, and the server tab;
+`Action` performs the one removal behind the same receipt. The `/api/tmux/*`
+family is **removed** — View/Action replaced it — and the phone gains the app
+(primitives render in every shell; the native surface was desktop-only).
+`apps.Host` grows `Tmux TmuxServer` and `LostSessions map[string]bool` — the
+sanctioned direction ("later apps grow Host, not server.Deps") — and
+`tmux.changed` is gone with the custom surface: the action returns the
+refreshed view it replaced. The security model and the read model
+(`internal/tmux/server.go` and its tests) are unchanged.
+
 ## Alternatives considered
 
 | Alternative | Why it lost |

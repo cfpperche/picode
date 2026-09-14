@@ -74,6 +74,9 @@ func handleSessionStats(deps Deps) http.HandlerFunc {
 			st = climetrics.Aggregate(climetrics.Request{
 				From: from, To: to, PriorFrom: priorFrom,
 				Loc: time.Local,
+				// A day window draws one bar if it is bucketed by day, which is
+				// the whole chart (2026-09-13). Hours are what "today" asks.
+				Hourly: rng == "today",
 			}, meters)
 			sessionStats.put(key, fp, from, to, st)
 		}

@@ -2,8 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   customModelIds, validateCustomProvider, customProviderPayload, customProviderForm, customTakenIds,
-  customThinkingLevels, THINKING_LEVELS, DEFAULT_THINKING_LEVELS,
+  customThinkingLevels, customThinkingFormat, mergeModelIds, agreedModelLimits,
+  THINKING_LEVELS, DEFAULT_THINKING_LEVELS, THINKING_FORMAT_NEEDS,
 } from "./customProviders.js";
+import { CHAT_TEMPLATE_VARS, customApiHint, CUSTOM_PROVIDER_APIS, chatTemplateObjectError } from "../contracts/schemas.js";
 
 const good = {
   id: "CheaperInference",
@@ -15,6 +17,8 @@ const good = {
   compatDeveloper: false,
   compatReasoning: false,
   thinkingFormat: "",
+  chatTemplateKwargs: "",
+  chatTemplateArgs: "",
   reasoningModel: false,
   thinkingLevels: [],
   key: "ci_live_x",
@@ -147,6 +151,8 @@ test("customProviderForm prefills from a catalog row and starts blank", () => {
     compatDeveloper: true,
     compatReasoning: false,
     thinkingFormat: "deepseek",
+    chatTemplateKwargs: "",
+    chatTemplateArgs: "",
     reasoningModel: false,
     thinkingLevels: DEFAULT_THINKING_LEVELS,
     key: "",
@@ -171,4 +177,120 @@ test("thinking-level prefill reads the map, the levels list, or pi's default", (
 test("customTakenIds keeps the edited provider claimable", () => {
   const providers = [{ id: "anthropic" }, { id: "cheaperinference" }, { id: "openai" }];
   assert.deepEqual(customTakenIds(providers, "cheaperinference"), ["anthropic", "openai"]);
+});
+
+// Every API type the form offers carries its own hint, so no type can leave the
+// base-URL field unexplained.
+test("each API type ships a base-URL hint and placeholder", () => {
+  for (const api of CUSTOM_PROVIDER_APIS) {
+    assert.ok(api.urlHint && api.urlHint.length > 20, api.value + " has no hint");
+    assert.ok(api.placeholder.startsWith("Base URL"), api.value + " has no placeholder");
+  }
+  assert.equal(customApiHint("anthropic-messages").value, "anthropic-messages");
+  // A type nobody listed still gets a hint instead of a blank line.
+  assert.equal(customApiHint("future-type").value, CUSTOM_PROVIDER_APIS[0].value);
+});
+
+// The chat template object rides only with the format that reads it, and the
+// form writes pi's own value for the OpenAI branch.
+test("thinking format writes pi's value and carries the object it needs", () => {
+  const base = { ...good, reasoningModel: false, thinkingLevels: [] };
+
+  const openai = validateCustomProvider({ ...base, thinkingFormat: "openai" });
+  assert.equal(openai.ok, true);
+  assert.equal(customProviderPayload(openai.value).thinkingFormat, "openai");
+
+  const chat = validateCustomProvider({
+    ...base, thinkingFormat: "chat-template", chatTemplateKwargs: '{"enable_thinking": true}',
+  });
+  assert.equal(chat.ok, true, chat.error);
+  const payload = customProviderPayload(chat.value);
+  assert.deepEqual(payload.chatTemplateKwargs, { enable_thinking: true });
+  assert.equal(payload.chatTemplateArgs, undefined);
+
+  // The object is dropped (not carried along) for a format that ignores it.
+  const plain = customProviderPayload(validateCustomProvider({ ...base, thinkingFormat: "zai", chatTemplateKwargs: '{"x": true}' }).value);
+  assert.equal(plain.chatTemplateKwargs, undefined);
+
+  // baseten reads the other object.
+  const baseten = customProviderPayload(validateCustomProvider({ ...base, thinkingFormat: "baseten", chatTemplateArgs: '{"thinking": {"$var": "thinking.enabled"}}' }).value);
+  assert.deepEqual(baseten.chatTemplateArgs, { thinking: { $var: "thinking.enabled" } });
+  assert.equal(baseten.chatTemplateKwargs, undefined);
+});
+
+test("a bad chat template object is refused with a message, not saved", () => {
+  const base = { ...good, thinkingFormat: "chat-template" };
+  for (const [raw, want] of [
+    ["{", "not valid JSON"],
+    ["[1]", "use a JSON object"],
+    ['{"t": {"$var": "nope"}}', '"$var" must be one of'],
+    ['{"t": {"$var": "thinking.enabled", "x": 1}}', 'only "$var" and "omitWhenOff"'],
+    ['{"t": [1]}', "use a string, number"],
+  ]) {
+    const res = validateCustomProvider({ ...base, chatTemplateKwargs: raw });
+    assert.equal(res.ok, false, raw + " was accepted");
+    assert.ok(res.error.includes(want), raw + " → " + res.error);
+  }
+  // The three pi-controlled references and the omit flag are accepted.
+  for (const ref of CHAT_TEMPLATE_VARS) {
+    assert.equal(chatTemplateObjectError(`{"t": {"$var": "${ref}"}}`), "", ref);
+  }
+  assert.equal(chatTemplateObjectError('{"t": {"$var": "thinking.budget", "omitWhenOff": false}}'), "");
+});
+
+// A hand-edited file may carry the undocumented value the old form wrote; the
+// form reads it as the branch pi actually takes and writes it explicitly next
+// time. Anything the form does not offer reads as "pi's default".
+test("the thinking-format prefill normalizes what the file says", () => {
+  assert.equal(customThinkingFormat("reasoning_effort"), "openai");
+  assert.equal(customThinkingFormat("chat-template"), "chat-template");
+  assert.equal(customThinkingFormat(""), "");
+  assert.equal(customThinkingFormat("mind-meld"), "");
+  assert.equal(customThinkingFormat(undefined), "");
+  assert.deepEqual(Object.keys(THINKING_FORMAT_NEEDS).filter((k) => THINKING_FORMAT_NEEDS[k]), ["chat-template", "baseten"]);
+  const form = customProviderForm({
+    id: "gw",
+    compat: { thinkingFormat: "chat-template", chatTemplateKwargs: { enable_thinking: true } },
+    thinkingFormat: "chat-template",
+    chatTemplateKwargs: { thinking: { $var: "thinking.enabled" } },
+    definitions: [{ id: "m" }],
+  });
+  assert.equal(form.thinkingFormat, "chat-template");
+  assert.deepEqual(JSON.parse(form.chatTemplateKwargs), { thinking: { $var: "thinking.enabled" } });
+  assert.equal(form.chatTemplateArgs, "");
+});
+
+// Loading a list must never cost the typed ids: it appends what is missing, in
+// the endpoint's order, and reports how many it added.
+test("mergeModelIds appends only what is missing, keeping typed order", () => {
+  const found = [{ id: "glm-4.6" }, { id: "deepseek-v4.1-flash" }, { id: "glm-4.6" }, { id: "" }, null];
+  const merged = mergeModelIds("mine-1\n  glm-4.6  \n\nmine-2", found);
+  assert.equal(merged.text, "mine-1\nglm-4.6\nmine-2\ndeepseek-v4.1-flash");
+  assert.equal(merged.added, 1);
+
+  const nothing = mergeModelIds("a\nb", [{ id: "b" }, { id: "a" }]);
+  assert.equal(nothing.text, "a\nb");
+  assert.equal(nothing.added, 0);
+  assert.deepEqual(mergeModelIds("", []), { text: "", added: 0 });
+});
+
+// The form writes one context window and one max output for the whole list, so
+// it only fills them when every listed model reports the same number.
+test("agreedModelLimits fills only unanimous numbers", () => {
+  assert.deepEqual(
+    agreedModelLimits([{ id: "a", contextWindow: 200000, maxTokens: 65536 }, { id: "b", contextWindow: 200000, maxTokens: 65536 }]),
+    { contextWindow: 200000, maxTokens: 65536 },
+  );
+  assert.deepEqual(agreedModelLimits([{ id: "a", contextWindow: 1000000, maxTokens: 1 }]), { contextWindow: 1000000, maxTokens: 1 });
+  // Differing windows: nothing is claimed at all for that field.
+  assert.deepEqual(
+    agreedModelLimits([{ id: "a", contextWindow: 1000000 }, { id: "b", contextWindow: 128000 }]),
+    {},
+  );
+  assert.deepEqual(
+    agreedModelLimits([{ id: "a", contextWindow: 200000, maxTokens: 10 }, { id: "b", contextWindow: 200000 }]),
+    { contextWindow: 200000 },
+  );
+  assert.deepEqual(agreedModelLimits([]), {});
+  assert.deepEqual(agreedModelLimits([{ id: "a" }]), {});
 });

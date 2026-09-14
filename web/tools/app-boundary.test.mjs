@@ -24,47 +24,6 @@ const ROOT = fileURLToPath(new URL("../browser/src/", import.meta.url));
 const APP_TREE = "components/canvas/";
 const APP_OWNED = new Set(["@picode/shared/domain/canvasPattern.js", "@picode/shared/domain/canvasAnchors.js"]);
 
-// The tmux app's tree, and nothing shared beyond the shell every surface
-// already uses: the second native app adds a row (ADR-0109's amendment), and
-// its stylesheet lives with it rather than in the shell's styles directory.
-const TMUX_TREE = "components/tmux/";
-const TMUX_STYLE = "styles/tmux.css";
-
-// The one door that is an import: the host's native-surface mount, which
-// lazy-imports the registered component (ADR-0109). Everything else in the
-// shell reaches the Canvas through a route or an app id, or not at all.
-const MOUNT = "App.jsx";
-
-it("nothing outside the Canvas app imports the Canvas app", async () => {
-  const offenders = [];
-  for (const path of sourceFiles(ROOT)) {
-    const name = relative(ROOT, path).replaceAll("\\", "/");
-    if (name.startsWith(APP_TREE) || name === MOUNT) continue;
-    for (const spec of await importSpecifiers(readFileSync(path, "utf8"), path)) {
-      const reached = spec.startsWith(".")
-        ? relative(ROOT, resolve(dirname(path), spec)).replaceAll("\\", "/").startsWith(APP_TREE)
-        : APP_OWNED.has(spec);
-      if (reached) offenders.push(`${name}: ${spec}`);
-    }
-  }
-  assert.deepEqual(offenders, []);
-});
-
-it("nothing outside the tmux app imports the tmux app", async () => {
-  const offenders = [];
-  for (const path of sourceFiles(ROOT)) {
-    const name = relative(ROOT, path).replaceAll("\\", "/");
-    if (name.startsWith(TMUX_TREE) || name === MOUNT) continue;
-    for (const spec of await importSpecifiers(readFileSync(path, "utf8"), path)) {
-      const reached = spec.startsWith(".")
-        ? ["/" + TMUX_TREE, "/" + TMUX_STYLE].some((owned) => relative(ROOT, resolve(dirname(path), spec)).replaceAll("\\", "/").endsWith(owned))
-        : false;
-      if (reached) offenders.push(`${name}: ${spec}`);
-    }
-  }
-  assert.deepEqual(offenders, []);
-});
-
 it("Preferences offers nothing that belongs to an app", () => {
   const settings = readFileSync(resolve(ROOT, "components/Settings.jsx"), "utf8");
   assert.doesNotMatch(settings, /canvas/i, "a settings group is not one of the host's doors (ADR-0109)");

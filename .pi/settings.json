@@ -7,6 +7,7 @@
     "../packages/pi-checklist",
     "../packages/pi-compact",
     "../packages/pi-diff",
-    "../packages/pi-browser-capture"
+    "../packages/pi-browser-capture",
+    "../packages/pi-browser"
   ]
 }

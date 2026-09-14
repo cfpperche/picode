@@ -15,6 +15,9 @@ func registerSlashOps(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/trust", handleAgentTrust(deps))
 	mux.HandleFunc("PUT /api/providers/custom/{id}", handleCustomProviderPut)
 	mux.HandleFunc("DELETE /api/providers/custom/{id}", handleCustomProviderDelete)
+	// Load models: the literal path wins over the {id} pattern, so this route
+	// can sit beside them (Go 1.22 mux prefers the more specific pattern).
+	mux.HandleFunc("POST /api/providers/custom/models", handleCustomProviderModels)
 	mux.HandleFunc("PUT /api/providers/{id}", handleProviderLogin)
 	mux.HandleFunc("DELETE /api/providers/{id}", handleProviderLogout(deps))
 	mux.HandleFunc("POST /api/providers/{id}/accounts/{aid}/activate", handleAccountActivate)
@@ -111,12 +114,14 @@ func handleProviderLogin(w http.ResponseWriter, r *http.Request) {
 func handleCustomProviderPut(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req struct {
-		BaseURL        string                `json:"baseUrl"`
-		API            string                `json:"api"`
-		Compat         map[string]bool       `json:"compat"`
-		ThinkingFormat string                `json:"thinkingFormat"`
-		Models         []catalog.CustomModel `json:"models"`
-		Key            string                `json:"key"`
+		BaseURL            string                `json:"baseUrl"`
+		API                string                `json:"api"`
+		Compat             map[string]bool       `json:"compat"`
+		ThinkingFormat     string                `json:"thinkingFormat"`
+		ChatTemplateKwargs map[string]any        `json:"chatTemplateKwargs"`
+		ChatTemplateArgs   map[string]any        `json:"chatTemplateArgs"`
+		Models             []catalog.CustomModel `json:"models"`
+		Key                string                `json:"key"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid JSON body")
@@ -124,6 +129,7 @@ func handleCustomProviderPut(w http.ResponseWriter, r *http.Request) {
 	}
 	def := catalog.CustomDefinition{
 		BaseURL: req.BaseURL, API: req.API, Models: req.Models, ThinkingFormat: req.ThinkingFormat,
+		ChatTemplateKwargs: req.ChatTemplateKwargs, ChatTemplateArgs: req.ChatTemplateArgs,
 	}
 	if def.API == "" {
 		def.API = catalog.APIOpenAICompletions

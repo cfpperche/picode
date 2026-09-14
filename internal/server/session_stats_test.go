@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -125,6 +126,72 @@ func TestHandleSessionStatsEmptyState(t *testing.T) {
 	}
 	if len(got.ByProvider) != 0 {
 		t.Fatalf("byProvider = %+v", got.ByProvider)
+	}
+}
+
+// TestHandleSessionStatsBucketsTodayByHour pins the granularity decision per
+// range: the day window one bar per day would be a single full-width block
+// (the owner's 2026-09-13 screenshot), so it is bucketed by hour; every longer
+// window keeps days.
+func TestHandleSessionStatsBucketsTodayByHour(t *testing.T) {
+	root := withTestSessionRoot(t)
+	sessionStats.reset()
+	t.Cleanup(sessionStats.reset)
+	dir := filepath.Join(root, "--tmp--")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	// An hour that is never the current one: a fixture bucketed by file mtime
+	// instead of by its own timestamp must not be able to pass this by luck.
+	hour := (now.Hour() + 5) % 24
+	at := time.Date(now.Year(), now.Month(), now.Day(), hour, 23, 0, 0, time.Local)
+	// pi writes message.timestamp in epoch milliseconds (entryTS); a line
+	// without it is bucketed by file mtime, which is a different hour.
+	line := fmt.Sprintf(`{"type":"message","message":{"role":"assistant","timestamp":%d,"provider":"xai","model":"grok","usage":{"cost":{"total":0.5}}}}`, at.UnixMilli())
+	if err := os.WriteFile(filepath.Join(dir, "s.jsonl"), []byte(line+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	call := func(rng string) sessionStatsView {
+		t.Helper()
+		r := httptest.NewRequest(http.MethodGet, "/api/sessions/stats?range="+rng, nil)
+		w := httptest.NewRecorder()
+		handleSessionStats(Deps{})(w, r)
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s: status = %d, body = %s", rng, w.Code, w.Body.String())
+		}
+		var got sessionStatsView
+		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+			t.Fatalf("%s: decode: %v", rng, err)
+		}
+		return got
+	}
+
+	today := call("today")
+	if len(today.Series) != 24 {
+		t.Fatalf("range=today has %d buckets, want one per hour", len(today.Series))
+	}
+	want := at.Format("2006-01-02T15")
+	if today.Series[0].Date != now.Format("2006-01-02")+"T00" || today.Series[23].Date != now.Format("2006-01-02")+"T23" {
+		t.Fatalf("hour keys run %s..%s", today.Series[0].Date, today.Series[23].Date)
+	}
+	var priced []string
+	for _, b := range today.Series {
+		if b.Cost > 0 {
+			priced = append(priced, b.Date)
+		}
+	}
+	if len(priced) != 1 || priced[0] != want {
+		t.Fatalf("priced buckets = %v, want [%s]", priced, want)
+	}
+
+	week := call("7d")
+	if len(week.Series) != 7 {
+		t.Fatalf("range=7d has %d buckets, want 7", len(week.Series))
+	}
+	if strings.Contains(week.Series[0].Date, "T") {
+		t.Fatalf("a weekly bucket is an hour: %s", week.Series[0].Date)
 	}
 }
 
