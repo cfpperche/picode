@@ -65,6 +65,45 @@ nothing is an answer, not an error. The copy lives in Go, so both apps say
 the same thing, and `web/shared/client/modelLoad.js` (pure, no React) holds
 the line-building and merge the dialogs share.
 
+**URL hints per API type (P2).** The base-URL field carries a hint and a
+placeholder that follow the API type (`customApiHint` in
+`web/shared/contracts/schemas.js`), because pi appends the route itself and the
+root differs: an OpenAI-style root usually ends in `/v1`, Google's in
+`/v1beta`, and Anthropic-compatible endpoints differ — Anthropic's own root is
+`https://api.anthropic.com/v1` while some proxies take no suffix. A test pins
+that every offered API type has a hint, so a new type cannot leave the field
+unexplained.
+
+**Thinking formats (P1 + P3).** The Advanced section offers pi's own
+`thinkingFormat` union: `openai` (the branch that sends `reasoning_effort`),
+`openrouter`, `deepseek`, `together`, `baseten`, `zai`, `qwen`,
+`chat-template`, `qwen-chat-template`, `string-thinking` and `ant-ling`. The
+form writes `openai` rather than the undocumented `reasoning_effort` an earlier
+version of this form produced; both reach the same pi branch, and the read path
+maps the old value to `openai` so a hand-edited file prefills honestly. The two
+formats driven by an object reveal it only when they are chosen
+(`THINKING_FORMAT_NEEDS`): `chat-template` shows the `chatTemplateKwargs`
+editor and `baseten` the `chatTemplateArgs` one, both plain JSON, validated in
+the browser (`chatTemplateObjectError`) and again in Go
+(`validateTemplateObject`) with pi's `$var` references (`thinking.enabled`,
+`thinking.effort`, `thinking.budget`) and an optional `omitWhenOff` allowed and
+anything else refused. The objects are compat's only nested values, so the
+merge writes them whole and clears the key when the editor is emptied.
+
+**Verify (P4).** For a built-in, Verify still asks pi (`pi auth check`), which
+costs nothing and is the code path that runs the agent. A custom endpoint
+cannot be answered that way — pi only reports that a credential is present, so
+a wrong key on a gateway reads green — and `POST
+/api/providers/{id}/verify` therefore sends **one minimal real request**
+(`internal/modellist.Probe`): one word in, the smallest output ceiling each API
+accepts (`max_tokens: 1`, or `max_completion_tokens` after one retry when the
+gateway says so, 16 for the Responses API, `maxOutputTokens: 1` for Google).
+The row's action names the cost before it is spent ("Verify with the endpoint
+(1 request)"); the dialog can verify what the form holds, before saving. The
+answer body is discarded — only the model, the milliseconds and the token
+counts the endpoint reported travel back, and the verdict line shows them
+("glm-4.6 answered in 43ms (4 in, 1 out)").
+
 **Thinking levels.** The form's Advanced section declares a reasoning model
 and picks the levels it answers on (`minimal`…`max`), one selection for every
 model listed, like context window and max output. The selection becomes pi's

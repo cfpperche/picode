@@ -317,12 +317,12 @@
 /* Load models: the button and its one-line report sit under the ids they fill.
    The button keeps the form's control height so the row reads as part of the
    form, not as a stray control. */
-.prov-load { display: flex; align-items: center; gap: 8px; margin: -2px 0 2px; }
+/* Load models / Verify key: the buttons on one line, the one-line report under
+   them at full width. Two buttons beside a sentence turned the sentence into a
+   column of three words (measured 2026-09-14), which is worse than a wrapped
+   block. */
+.prov-load { display: flex; flex-direction: column; gap: 6px; margin: -2px 0 2px; }
+.prov-load-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .prov-load .btn { flex: 0 0 auto; height: var(--ctl-h); }
-.prov-load .prov-hint { flex: 1 1 auto; min-width: 0; }
-@media (max-width: 520px) {
-  /* The phone gives the line its own row: a 11.5px sentence beside a button
-     becomes a column of two words. */
-  .prov-load { flex-direction: column; align-items: stretch; gap: 6px; }
-}
+.prov-load .prov-hint { min-width: 0; }
 .prov-adv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px; }

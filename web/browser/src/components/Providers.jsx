@@ -79,8 +79,8 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
   const [llamaUrl, setLlamaUrl] = useState("http://127.0.0.1:8080");
   const [cf, setCf] = useState(() => customProviderForm(null));
   const [customEdit, setCustomEdit] = useState(false);
-  const [load, setLoad] = useState({ state: "idle", line: "", tone: "hint" });
-  const [verify, setVerify] = useState({ state: "idle", line: "", tone: "hint" });
+  const [load, setLoad] = useState({ state: "idle", text: "", tone: "hint" });
+  const [verify, setVerify] = useState({ state: "idle", text: "", tone: "hint" });
   // Both buttons report through one line: two lines under one row is noise, and
   // the later action is the one worth reading.
   const line = verify.state === "idle" ? load : verify;
@@ -388,15 +388,15 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
 
   async function loadModels() {
     if (load.state === "loading") return;
-    setLoad({ state: "loading", line: loadingLine(cf.baseUrl), tone: "hint" });
+    setLoad({ state: "loading", text: loadingLine(cf.baseUrl), tone: "hint" });
     try {
       const res = await loadModelsFor({ baseUrl: cf.baseUrl, api: cf.api, key: cf.key, id: cf.id });
       const { changes, line } = modelLoadChanges(res, cf);
       setCf((f) => ({ ...f, ...changes }));
-      setLoad({ state: "done", line, tone: "hint" });
+      setLoad({ state: "done", text: line, tone: "hint" });
     } catch (ex) {
       const body = ex && ex.body;
-      setLoad({ state: "failed", line: (body && body.error) || (ex && ex.message) || "The model list could not be read.", tone: "bad" });
+      setLoad({ state: "failed", text: (body && body.error) || (ex && ex.message) || "The model list could not be read.", tone: "bad" });
     }
   }
 
@@ -407,21 +407,21 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
     if (verify.state === "loading") return;
     const model = customModelIds(cf.modelsText)[0] || "";
     if (!model) {
-      setVerify({ state: "failed", tone: "bad", line: "Add a model id first — verification has to ask for one." });
+      setVerify({ state: "failed", tone: "bad", text: "Add a model id first — verification has to ask for one." });
       return;
     }
-    setVerify({ state: "loading", tone: "hint", line: "Sending one 1-token request to " + model + "…" });
+    setVerify({ state: "loading", tone: "hint", text: "Sending one 1-token request to " + model + "…" });
     try {
       const res = await api("/api/providers/" + encodeURIComponent(cf.id || "endpoint") + "/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ baseUrl: cf.baseUrl, api: cf.api, key: cf.key, model }),
       });
-      if (res && res.ok) setVerify({ state: "done", tone: "hint", line: (res.label || "The endpoint answered") + " — the key works." });
-      else setVerify({ state: "failed", tone: "bad", line: (res && (res.reason || res.status)) || "The endpoint could not be verified." });
+      if (res && res.ok) setVerify({ state: "done", tone: "hint", text: (res.label || "The endpoint answered") + " — the key works." });
+      else setVerify({ state: "failed", tone: "bad", text: (res && (res.reason || res.status)) || "The endpoint could not be verified." });
     } catch (ex) {
       const body = ex && ex.body;
-      setVerify({ state: "failed", tone: "bad", line: (body && body.error) || (ex && ex.message) || "The endpoint could not be verified." });
+      setVerify({ state: "failed", tone: "bad", text: (body && body.error) || (ex && ex.message) || "The endpoint could not be verified." });
     }
   }
 
@@ -831,12 +831,14 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                   aria-label="Model ids"
                 />
                 <div className="prov-load">
-                  <button type="button" className="btn btn-ghost" onClick={loadModels} disabled={load.state === "loading" || verify.state === "loading"}>
-                    {load.state === "loading" ? "Loading…" : "Load models"}
-                  </button>
-                  <button type="button" className="btn btn-ghost" onClick={verifyEndpoint} disabled={verify.state === "loading" || load.state === "loading"}>
-                    {verify.state === "loading" ? "Verifying…" : "Verify key"}
-                  </button>
+                  <div className="prov-load-row">
+                    <button type="button" className="btn btn-ghost" onClick={loadModels} disabled={load.state === "loading" || verify.state === "loading"}>
+                      {load.state === "loading" ? "Loading…" : "Load models"}
+                    </button>
+                    <button type="button" className="btn btn-ghost" onClick={verifyEndpoint} disabled={verify.state === "loading" || load.state === "loading"}>
+                      {verify.state === "loading" ? "Verifying…" : "Verify key"}
+                    </button>
+                  </div>
                   <p className={line.tone === "bad" ? "prov-hint prov-bad" : "prov-hint"} role="status">
                     {line.text || "Load the ids the endpoint serves, or verify that the key works — verification sends one 1-token request."}
                   </p>

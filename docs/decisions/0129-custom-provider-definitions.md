@@ -83,3 +83,16 @@ traffic passes through PiCode (ADR-0003). The address is tried at
 `/models` and, only when that 404s, one level down at `/v1/models`; a listing
 call is bounded (12s, 2 MiB) and its failures are classified so each one
 names the fix.
+
+## Amendment (2026-09-14) — verification spends a real request
+
+The owner authorised the one exception to "no model traffic through PiCode": a
+custom endpoint's **Verify** sends a single minimal completion (one word in,
+the smallest output ceiling the API accepts) so a wrong key, an exhausted
+account or an unknown model is caught before the first turn. pi's own answer
+(`auth check`) is what built-ins use and it costs nothing, but for a custom
+endpoint it only reports that a credential is present — a wrong key on a
+gateway reads green, which is the defect this closes. The rule that remains
+untouched: nothing else PiCode sends to a provider is a model call, the probe
+is never automatic (the row's action names its cost), and the answer body is
+discarded — only model, timing and token counts come back.
