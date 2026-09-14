@@ -422,6 +422,15 @@ func TestPeerOpenCodeSidebarAndWrappedFooter(t *testing.T) {
 		}, false},
 		{"dialog footer", func(s *tmux.InputSnapshot) { s.Lines[s.CursorY+4] = "  enter confirm esc cancel" }, false},
 		{"unknown footer", func(s *tmux.InputSnapshot) { s.Lines[s.CursorY+5] = "   permission required" }, false},
+		{"path wraps twice", func(s *tmux.InputSnapshot) {
+			s.Lines = append(s.Lines, "   onboarding-opencode-zai/var/qa/oc-zai")
+		}, true},
+		{"path wrap then footer text", func(s *tmux.InputSnapshot) {
+			s.Lines = append(s.Lines, "   14.0K (1% ctx)")
+		}, false},
+		{"path wrap then bare text", func(s *tmux.InputSnapshot) {
+			s.Lines = append(s.Lines, "junk")
+		}, false},
 		{"copy mode", func(s *tmux.InputSnapshot) { s.InMode = true }, false},
 		{"malformed escape", func(s *tmux.InputSnapshot) { s.Lines[s.CursorY] = "  ┃\x1b[broken" }, false},
 	} {

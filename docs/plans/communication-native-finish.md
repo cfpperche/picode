@@ -13,6 +13,8 @@ installation but omitted its package configuration; that was not a product failu
 | Condition | Action / evidence |
 | --- | --- |
 | Empty OpenCode editor beside native sidebar and wrapped cwd | Accept captured native frame |
+| Deep cwd wrapping the footer across several rows (narrow pane) | Accept every path-only continuation row |
+| Continuation row with non-path footer text or bare junk | Refuse |
 | Exact pasted pointer inside measured editor | Permit final native submission |
 | Draft at, above or below cursor | Refuse |
 | Copy mode, unknown footer, malformed escape or damaged border/gutter | Refuse |
