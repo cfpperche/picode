@@ -1,13 +1,19 @@
+---
+description: The agent writes a plan before it changes anything; the sidebar follows it.
+---
+
 # Checklist
 
 Make an agent write its plan before it changes anything, and follow that
 plan from the sidebar without opening the agent.
 
+- **Where:** after you install `pi-checklist` ([Packages](/guide/packages)), the plan is a line on the agent in the sidebar.
+- **Not this:** not a [canvas](/guide/canvas) pin or note. Optional package — without it, no tool, no gate, no sidebar line.
+
 `pi-checklist` is an **optional pi package — an extension, not part of
 PiCode core**. The tool and the rule live in the package; PiCode only
 renders what the agent reports and stores the obligation level you pick
-per agent. Without the package nothing changes: no tool, no gate, no
-sidebar line.
+per agent.
 
 Install `packages/pi-checklist` from the PiCode repository. Guide for
 install targets: [Packages](/guide/packages).

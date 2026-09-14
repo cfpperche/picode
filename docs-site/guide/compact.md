@@ -1,14 +1,19 @@
+---
+description: Summarize a Pi session before the context window is full.
+---
+
 # Compact earlier
 
 Pi waits until the session is almost out of room before it summarizes.
 On a large model that can be hundreds of thousands of tokens too late,
 and the summary itself can fail.
 
-`pi-compact` fixes that. It is an **optional pi package — an extension,
-not part of PiCode core**. PiCode never compacts differently on its own:
-the behavior below exists only where you install the package, and it
-stays dormant until you write a config file. Uninstall it (or delete the
-config) and every session is back to Pi's stock behavior, byte for byte.
+- **Where:** install `pi-compact` ([Packages](/guide/packages)), then `/compact-edit` in the Pi session.
+- **Not this:** PiCode never compacts on its own. This is not deleting history — it is an earlier summary, and only where the package is installed.
+
+`pi-compact` is an **optional pi package — an extension, not part of
+PiCode core**. It stays dormant until you write a config file. Uninstall it
+(or delete the config) and every session is back to Pi's stock behavior, byte for byte.
 
 Install `packages/pi-compact` from the PiCode repository. Guide for
 install targets: [Packages](/guide/packages).

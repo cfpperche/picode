@@ -1,13 +1,19 @@
+---
+description: See what the agent changed beside its terminal, without opening Files.
+---
+
 # Diff panel for pi
 
 See what the agent changed without leaving its terminal: `/diff` opens a
 side panel with every file changed against `HEAD` and the hunks of the file
 it touched last.
 
+- **Where:** install `pi-diff` ([Packages](/guide/packages)), then `/diff` in a Pi terminal.
+- **Not this:** not the [Files](/guide/files) tab. The package talks to git inside the pi session and never to PiCode.
+
 `pi-diff` is an **optional pi package — an extension, not part of PiCode
-core**. It talks to git inside the pi session and never to PiCode. Without
-it nothing changes; with it, every pi terminal tab (and a plain `pi` outside
-PiCode) has the panel.
+core**. Without it nothing changes; with it, every pi terminal tab (and a
+plain `pi` outside PiCode) has the panel.
 
 Install `packages/pi-diff` from the PiCode repository. Guide for install
 targets: [Packages](/guide/packages).
