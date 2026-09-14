@@ -1769,7 +1769,7 @@ img.ws-face.term-cli-face {
 .workspace-view.agent-split-on .chat-surface,
 .workspace-view.agent-split-on .term-surface { flex: 1 1 0; min-width: 0; }
 .split-divider { flex: 0 0 5px; cursor: col-resize; background: transparent; border-left: 1px solid var(--border, #232329); touch-action: none; }
-.split-divider:hover { background: var(--border, #232329); }
+.split-divider:hover, .split-divider.dragging { background: var(--accent); opacity: .45; }
 /* Expanded (max) mode: the browser owns the tab; the agent pane and the
    divider step aside until the same button returns the split. */
 .workspace-view.agent-split-max .chat-surface,

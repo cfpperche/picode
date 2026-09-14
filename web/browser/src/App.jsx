@@ -3465,12 +3465,15 @@ export default function App({ shellChrome = false } = {}) {
                   e.preventDefault();
                   const view = document.getElementById("workspace-view");
                   if (!view) return;
+                  const handle = e.currentTarget;
+                  handle.classList.add("dragging");
                   const move = (ev) => {
                     const r = view.getBoundingClientRect();
                     const pct = Math.min(80, Math.max(20, Math.round(((r.right - ev.clientX) / r.width) * 100)));
                     setPaneRatios((p) => ({ ...p, [selectedId]: pct }));
                   };
                   const up = () => {
+                    handle.classList.remove("dragging");
                     window.removeEventListener("pointermove", move);
                     window.removeEventListener("pointerup", up);
                   };
