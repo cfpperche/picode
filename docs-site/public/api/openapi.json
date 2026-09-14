@@ -6439,6 +6439,23 @@
         ]
       }
     },
+    "/api/snips/templates": {
+      "get": {
+        "operationId": "getApiSnipsTemplates",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "snips"
+        ]
+      }
+    },
     "/api/snips/{id}": {
       "delete": {
         "operationId": "deleteApiSnips",
