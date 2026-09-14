@@ -118,7 +118,7 @@ Evidence: `var/qa/onboard-matrix/` (uncommitted).
 | Codex | first prompt → SessionStart identity → preparation without restart (ADR-0111) |
 | Grok | connected from the welcome screen without a turn |
 | Hermes | curator draft submitted as the first prompt |
-| OpenCode | first prompt → identity + connection prepared; model Forbidden (CF glm-5.3-flash) blocks its reply turns |
+| OpenCode | first prompt → identity + connection prepared; **resolved 2026-09-14: owner set `model=zai-coding-plan/glm-5.3-flash`** (the Cloudflare default returned Forbidden). At 80 cols the deep worktree path wraps across footer rows and the editor guard reads it as a draft — widen the pane and it connects |
 
 **Run tests: 0/5 passed, three independent causes, none in the mailbox.**
 
@@ -130,7 +130,13 @@ Evidence: `var/qa/onboard-matrix/` (uncommitted).
   consistently withheld → `uncertain`, never retried (by design). Manual Enter
   → grok read both pending messages, acked both, replied twice, Claude acked
   both replies: the full native round trip ran uncorrelated with a live check.
-- OpenCode's provider blocks its model turns.
+- OpenCode's Cloudflare default blocked its model turns — **resolved**: the
+  owner set `zai-coding-plan/glm-5.3-flash`; with that provider OpenCode
+  connected and sent its probe with the correct check id. The correlation then
+  failed because **both scratch tmux sessions were killed externally**
+  mid-window (pane processes survived as HUP-immune orphans — the signature of
+  a `tmux kill-session` by another actor; second occurrence today). Concurrent
+  agents in this repo must not kill sessions they do not own.
 
 Transport itself was verified natively this run (deliver, read, ack, reply,
 ack); what failed is check **correlation** under a restart plus model
