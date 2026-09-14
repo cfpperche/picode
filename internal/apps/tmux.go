@@ -158,9 +158,6 @@ func (a tmuxApp) sessionsView(ctx context.Context, h Host) (View, error) {
 	leftovers.Meta = tmuxGroupMeta(leftovers.Items)
 	foreign.Meta = tmuxGroupMeta(foreign.Items)
 	v.Tabs[0].Badge = strconv.Itoa(len(sessions))
-	if unclaimed > 0 {
-		v.Tabs[0].Badge = fmt.Sprintf("%d · %d unclaimed", len(sessions), unclaimed)
-	}
 
 	v.Blocks = []Block{}
 	if info.Running && len(sessions) == 0 {
