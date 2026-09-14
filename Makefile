@@ -180,6 +180,7 @@ test-js: $(NODE_STAMP) ## Run the frontend unit tests and the pi package suites
 	node --test packages/pi-sysadmin/test/*.test.ts
 	node --test packages/pi-diff/test/*.test.ts
 	node --test packages/pi-browser-capture/test/*.test.ts
+	node --test packages/pi-browser/test/*.test.ts
 	npm install --prefix packages/pi-compact --no-audit --no-fund
 	npm test --prefix packages/pi-compact
 

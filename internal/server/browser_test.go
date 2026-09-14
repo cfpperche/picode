@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -140,5 +141,65 @@ func TestBrowserResultErrorAndEdges(t *testing.T) {
 	}
 	if code := postBrowserResult(t, ts, `not json`); code != http.StatusBadRequest {
 		t.Fatalf("malformed result status = %d, want 400", code)
+	}
+}
+
+func TestBrowserToolResolvesAVerbAndWaits(t *testing.T) {
+	ts, hub := browserServer(t)
+	body, closeStream := openBrowserStream(t, ts)
+	defer closeStream()
+	readFrames(t, body, 1, 3*time.Second) // hello
+
+	type answer struct {
+		status int
+		body   string
+	}
+	done := make(chan answer, 1)
+	go func() {
+		res, err := http.Post(ts.URL+"/api/browser/tool", "application/json",
+			bytes.NewBufferString(`{"agent":"agent-1","verb":"snapshot"}`))
+		if err != nil {
+			done <- answer{0, err.Error()}
+			return
+		}
+		defer res.Body.Close()
+		out, _ := io.ReadAll(res.Body)
+		done <- answer{res.StatusCode, string(out)}
+	}()
+
+	cmd := readFrames(t, body, 1, 3*time.Second)[0]
+	var pushed browser.Command
+	if err := json.Unmarshal([]byte(cmd.Data), &pushed); err != nil {
+		t.Fatal(err)
+	}
+	// The tool names a verb; the daemon decides the method and the tier
+	// (ADR-0134: read on the tab on screen).
+	if pushed.Method != "Accessibility.getFullAXTree" || pushed.Tier != "read" {
+		t.Fatalf("command = %+v", pushed)
+	}
+	if len(pushed.Domains) != 0 {
+		t.Fatalf("domains = %v, want none by default", pushed.Domains)
+	}
+	if code := postBrowserResult(t, ts, `{"id":"`+pushed.ID+`","output":{"nodes":[{"role":"heading"}]}}`); code != http.StatusNoContent {
+		t.Fatalf("result status = %d", code)
+	}
+	got := <-done
+	if got.status != http.StatusOK || !strings.Contains(got.body, `"heading"`) || !strings.Contains(got.body, `"snapshot"`) {
+		t.Fatalf("tool answer = %d %s", got.status, got.body)
+	}
+	_ = hub
+}
+
+func TestBrowserToolRefusesAnUnknownVerb(t *testing.T) {
+	ts, _ := browserServer(t)
+	res, err := http.Post(ts.URL+"/api/browser/tool", "application/json",
+		bytes.NewBufferString(`{"agent":"agent-1","verb":"evaluate"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	out, _ := io.ReadAll(res.Body)
+	if res.StatusCode != http.StatusBadRequest || !strings.Contains(string(out), "snapshot") {
+		t.Fatalf("answer = %d %s", res.StatusCode, out)
 	}
 }

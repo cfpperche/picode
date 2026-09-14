@@ -1,0 +1,28 @@
+{
+  "name": "pi-browser",
+  "version": "0.1.0",
+  "description": "Standalone pi extension: read the work-browser tab the human has open in PiCode's desktop app (ADR-0132, ADR-0134).",
+  "license": "MIT",
+  "type": "module",
+  "keywords": ["pi-package", "pi", "picode", "browser"],
+  "files": [
+    "extensions",
+    "src",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.ts"
+  },
+  "pi": {
+    "extensions": ["./extensions/browser.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cfpperche/picode.git",
+    "directory": "packages/pi-browser"
+  }
+}
