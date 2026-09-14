@@ -1,0 +1,110 @@
+package server
+
+import (
+	"encoding/json"
+	"errors"
+	"net/http"
+	"time"
+
+	"github.com/cfpperche/picode/internal/browser"
+)
+
+// The work-browser command channel (ADR-0132). The desktop shell's page opens
+// the stream — the same authenticated session every other /api/* call uses, no
+// new port and no new credential — and the daemon pushes one command per line.
+// The shell re-checks the method against its tier catalog and the domains
+// against navigation (ADR-0128), runs it, and posts the result back.
+//
+// GET  /api/browser/stream   event: hello | command
+// POST /api/browser/result   {id, output|error} → 204, 404 when the command is gone
+//
+// Payloads are large by API standards (a CDP result can carry a screenshot or
+// a page body), hence resultMaxBytes.
+const resultMaxBytes = 32 << 20
+
+func registerBrowserRoutes(mux Registrar, deps Deps) {
+	mux.HandleFunc("GET /api/browser/stream", handleBrowserStream(deps))
+	mux.HandleFunc("POST /api/browser/result", handleBrowserResult(deps))
+}
+
+func handleBrowserStream(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if deps.Browser == nil {
+			writeErr(w, http.StatusServiceUnavailable, "browser channel is not running")
+			return
+		}
+		fl, ok := w.(http.Flusher)
+		if !ok {
+			writeErr(w, http.StatusInternalServerError, "streaming unsupported")
+			return
+		}
+		events, detach := deps.Browser.Attach()
+		defer detach()
+
+		h := w.Header()
+		h.Set("Content-Type", "text/event-stream; charset=utf-8")
+		h.Set("Cache-Control", "no-cache")
+		h.Set("Connection", "keep-alive")
+		h.Set("X-Accel-Buffering", "no")
+		w.WriteHeader(http.StatusOK)
+		write := func(event string, data any) bool {
+			body, err := json.Marshal(data)
+			if err != nil {
+				return true
+			}
+			if _, err := w.Write([]byte("event: " + event + "\ndata: " + string(body) + "\n\n")); err != nil {
+				return false
+			}
+			fl.Flush()
+			return true
+		}
+		// hello tells the shell it owns the line. A second window attaching
+		// makes itself the active one; the older stream stays open and quiet.
+		if !write("hello", map[string]any{"connected": true}) {
+			return
+		}
+		heartbeat := time.NewTicker(eventsHeartbeat)
+		defer heartbeat.Stop()
+		for {
+			select {
+			case <-r.Context().Done():
+				return
+			case <-heartbeat.C:
+				if _, err := w.Write([]byte(": keep-alive\n\n")); err != nil {
+					return
+				}
+				fl.Flush()
+			case cmd := <-events:
+				if !write("command", cmd) {
+					return
+				}
+			}
+		}
+	}
+}
+
+func handleBrowserResult(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if deps.Browser == nil {
+			writeErr(w, http.StatusServiceUnavailable, "browser channel is not running")
+			return
+		}
+		var res browser.Result
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, resultMaxBytes)).Decode(&res); err != nil {
+			writeErr(w, http.StatusBadRequest, "bad result: "+err.Error())
+			return
+		}
+		if res.ID == "" {
+			writeErr(w, http.StatusBadRequest, "result needs an id")
+			return
+		}
+		switch err := deps.Browser.Complete(res); {
+		case err == nil:
+			w.WriteHeader(http.StatusNoContent)
+		case errors.Is(err, browser.ErrUnknownResult):
+			writeErr(w, http.StatusNotFound, "no such command")
+		default:
+			writeErr(w, http.StatusInternalServerError, err.Error())
+		}
+	}
+}

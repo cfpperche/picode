@@ -27,6 +27,7 @@ import (
 	"github.com/cfpperche/picode/internal/apps"
 	"github.com/cfpperche/picode/internal/auth"
 	"github.com/cfpperche/picode/internal/backup"
+	"github.com/cfpperche/picode/internal/browser"
 	"github.com/cfpperche/picode/internal/catalog"
 	"github.com/cfpperche/picode/internal/clijob"
 	"github.com/cfpperche/picode/internal/clilaunch"
@@ -70,6 +71,7 @@ type Deps struct {
 	Webhooks     *webhooks.Engine // generic outbound event delivery (ADR-0075)
 	Push         *push.Notifier   // Web Push (ADR-0047); nil-safe = 503 on /api/push/*
 	Feed         *feed.Feed       // change feed (ADR-0048); nil-safe = 503 on /api/events
+	Browser      *browser.Hub     // work-browser command channel (ADR-0132); lazily built in New
 	Replies      *TuiReplies      // Inbox replies into the running TUI (ADR-0060); lazy-init in New
 	TermStates   *TermStates      // coding-CLI terminal state (ADR-0056 tier 1); lazy-init in New
 	TermRuntimes *TermRuntimes    // authoritative CLI presence (ADR-0062); lazy-init in New
@@ -128,6 +130,9 @@ func New(addr string, deps Deps) *http.Server {
 	}
 	if deps.Replies == nil {
 		deps.Replies = NewTuiReplies()
+	}
+	if deps.Browser == nil {
+		deps.Browser = browser.New()
 	}
 
 	if deps.Store != nil && deps.DataDir != "" && deps.LlamaService == nil {
@@ -244,6 +249,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerInboxRoutes(mux, deps)
 	registerAutomationRoutes(mux, deps)
 	mux.HandleFunc("GET /api/events", handleEvents(deps))
+	registerBrowserRoutes(mux, deps)
 	registerExtensionRoutes(mux, deps)
 	registerPushRoutes(mux, deps)
 	registerWebhookRoutes(mux, deps)
