@@ -30,6 +30,15 @@ open and refetched on the change feed's terminal events, exactly like the
 Docker app. No tmux binary, or no server running, is the view's `Empty` line —
 an honest blankslate, not a 500.
 
+**The screen** is the host's page frame since 2026-09-14
+([parity plan](../plans/app-surface-parity.md)): Sessions/Server as an
+underline nav inside the card, the filter in the card toolbar, a session's
+detail a stacked path with a back link above it. `Tabs[0].Badge` is the plain
+session count in every shell — the long "N · M unclaimed" sentence was the one
+badge in the product that ignored `primitives.Tab`'s own "short count"
+contract, and the unclaimed fact is already the leftovers group's title and
+each row's `no record` badge.
+
 A session with two panes stays ONE row: the active pane supplies the details
 and `panes` counts them, so a split pane cannot duplicate a row or inflate a
 count.

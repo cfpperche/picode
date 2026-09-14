@@ -133,9 +133,10 @@ func TestTmuxAppViewAttributesEverything(t *testing.T) {
 	if len(v.Tabs) != 2 || v.Tabs[0].Label != "Sessions" || v.Tabs[1].Label != "Server" {
 		t.Fatalf("tabs = %+v", v.Tabs)
 	}
-	// The badge says what the screen is for: how many sessions, how many of
-	// them leftovers.
-	if v.Tabs[0].Badge != "4 · 1 unclaimed" {
+	// The tab badge is one number (primitives.Tab: "short count"): the
+	// leftovers are named by their own group and row badges, and the count
+	// chip beside an underline label has no room for a sentence.
+	if v.Tabs[0].Badge != "4" {
 		t.Fatalf("sessions tab badge = %q", v.Tabs[0].Badge)
 	}
 

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import ScreenHeader from "../components/ScreenHeader.jsx";
-import { IconPencil } from "../components/Icons.jsx";
+import { IconArchive, IconArchiveRestore, IconPencil, IconTrash } from "../components/Icons.jsx";
+import { askConfirm } from "../lib/confirm.js";
+import { toast, toastError } from "../lib/toast.js";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 
@@ -9,6 +11,7 @@ import { subscribeFeed } from "@picode/shared/client/feed.js";
 export default function Snippet({ snipId, onBack, onEdit }) {
   const [snip, setSnip] = useState(null);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let stop = false;
@@ -24,6 +27,35 @@ export default function Snippet({ snipId, onBack, onEdit }) {
     });
     return () => { stop = true; unsub(); };
   }, [snipId]);
+
+  async function archive() {
+    if (!snip || busy) return;
+    setBusy(true);
+    try {
+      await api("/api/snips/" + encodeURIComponent(snip.id) + "/archived", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: !snip.archivedAt }),
+      });
+      toast.ok(snip.archivedAt ? "Snippet unarchived." : "Snippet archived.");
+    } catch (e) { toastError(e); } finally { setBusy(false); }
+  }
+
+  async function remove() {
+    if (!snip || busy) return;
+    const ok = await askConfirm({
+      title: "Delete snippet",
+      message: 'Delete "' + (snip.title || "this snippet") + '"? This cannot be undone.',
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await api("/api/snips/" + encodeURIComponent(snip.id), { method: "DELETE" });
+      toast.ok("Snippet deleted.");
+      onBack();
+    } catch (e) { toastError(e); setBusy(false); }
+  }
 
   return (
     <div className="m-screen m-pin">
@@ -46,6 +78,14 @@ export default function Snippet({ snipId, onBack, onEdit }) {
               ))}
             </div>
           ) : null}
+          <div className="m-snip-actions">
+            <button type="button" className="btn btn-sm" disabled={busy} onClick={archive}>
+              {snip.archivedAt ? <IconArchiveRestore size={14} /> : <IconArchive size={14} />}
+              {snip.archivedAt ? "Unarchive" : "Archive"}
+            </button>
+            <button type="button" className="btn btn-sm btn-danger" disabled={busy} onClick={remove}><IconTrash size={14} /> Delete</button>
+          </div>
+          {snip.archivedAt ? <p className="m-pin-hint">Archived — it is out of the list and the picker until you unarchive it.</p> : null}
         </div>
       ) : null}
     </div>

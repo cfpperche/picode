@@ -89,9 +89,15 @@ state = one line + one action; statusbar = live state, not hints).
   | `#/llama/*` | `LlamaPanel` | 1080px |
   | `#/termset` (+ `/:id`) | `TermSettingsPage` | 1080px |
 
-  Workspace surfaces (`#/`, `#/term/*`, `#/file/*`, `#/git/*`, `#/tree/*`,
-  `#/app/*`) are canvases, not page frames — they keep their own layout.
-  Mobile is full-width by design (ADR-0072/0103).
+  Workspace surfaces (`#/`, `#/term/*`, `#/file/*`, `#/git/*`, `#/tree/*`) are
+  canvases, not page frames — they keep their own layout. `#/app/*` is the
+  exception since 2026-09-14: a primitives app's surface is a **page frame**
+  (`settings-wrap` + `settings-head`, the view's tabs as an underline nav
+  inside the card, the filter in the card toolbar, one line + one action for
+  empty/blocked/error), so an app and a system route read as one product —
+  `docs/plans/app-surface-parity.md`; native app surfaces (Canvas,
+  ADR-0109) are still canvases. Mobile is full-width by design
+  (ADR-0072/0103).
 
 **Control rhythm (shadcn `h-9` / HIG)**
 - [ ] Adjacent controls share `--ctl-h` (36px): input + button in a row are

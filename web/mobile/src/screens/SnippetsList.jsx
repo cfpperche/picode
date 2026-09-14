@@ -8,9 +8,15 @@ import { applyConversions, detectConversions, formFromSnip, titleFromText, write
 
 // Snippets on the phone (More → Snippets): the same list the desktop
 // studio shows — starred first, a search over title, tags and body —
-// and the one action the phone owns here: New.
-function listURL(q) {
-  return q.trim() ? "/api/snips?q=" + encodeURIComponent(q.trim()) : "/api/snips";
+// and the actions the phone owns here: New, Import, and the Archived
+// view that makes archiving reversible from this surface too (without it,
+// archiving on the phone would be a door with no handle on the other side).
+function listURL(view, q) {
+  const p = new URLSearchParams();
+  if (view === "archived") p.set("archived", "1");
+  if (q.trim()) p.set("q", q.trim());
+  const qs = p.toString();
+  return "/api/snips" + (qs ? "?" + qs : "");
 }
 
 function storage() {
@@ -70,15 +76,16 @@ function ImportSheet({ open, onClose, onOpen }) {
 export default function SnippetsList({ onOpen, onNew }) {
   const [snips, setSnips] = useState(null);
   const [q, setQ] = useState("");
+  const [view, setView] = useState("active");
   const [importing, setImporting] = useState(false);
-  const latest = useRef("");
-  latest.current = q;
+  const latest = useRef({ q: "", view: "active" });
+  latest.current = { q, view };
 
   async function load() {
-    const qq = latest.current;
+    const want = latest.current;
     try {
-      const d = await api(listURL(qq));
-      if (latest.current !== qq) return;
+      const d = await api(listURL(want.view, want.q));
+      if (latest.current.q !== want.q || latest.current.view !== want.view) return;
       setSnips(d.snips || []);
     } catch (e) { toastError(e); setSnips([]); }
   }
@@ -86,7 +93,7 @@ export default function SnippetsList({ onOpen, onNew }) {
   useEffect(() => {
     const t = setTimeout(load, q ? 150 : 0);
     return () => clearTimeout(t);
-  }, [q]);
+  }, [q, view]);
 
   useEffect(() => subscribeFeed((ev) => {
     if (ev.type === "feed.open" || ev.type === "feed.reset" || (ev.type && ev.type.startsWith("snip."))) load();
@@ -96,12 +103,18 @@ export default function SnippetsList({ onOpen, onNew }) {
     <div className="m-v2-lists m-pins" aria-label="Snippets">
       <div className="m-screen-head m-list-head">
         <input type="search" className="dlg-input m-list-search" aria-label="Search snippets" placeholder="Search snippets" value={q} onChange={(e) => setQ(e.target.value)} />
-        <button type="button" className="btn btn-sm" onClick={() => setImporting(true)}><IconPaste /> Import</button>
+        <div className="m-snip-views" role="group" aria-label="Which snippets">
+          <button type="button" className={"btn btn-sm" + (view === "active" ? " btn-primary" : "")} aria-pressed={view === "active"} onClick={() => setView("active")}>Active</button>
+          <button type="button" className={"btn btn-sm" + (view === "archived" ? " btn-primary" : "")} aria-pressed={view === "archived"} onClick={() => setView("archived")}>Archived</button>
+          <button type="button" className="btn btn-sm" onClick={() => setImporting(true)}><IconPaste /> Import</button>
+        </div>
       </div>
       {snips === null ? <p className="m-pin-msg">Loading…</p> : snips.length === 0 ? (
         <div className="m-list-empty" role="status">
-          <p>{q.trim() ? "No snippets match." : "Save a prompt you reuse."}</p>
-          {q.trim() ? <button type="button" className="btn btn-sm" onClick={() => setQ("")}>Clear search</button> : <button type="button" className="btn btn-sm btn-primary" onClick={onNew}>New snippet</button>}
+          <p>{q.trim() ? "No snippets match." : view === "archived" ? "Nothing archived." : "Save a prompt you reuse."}</p>
+          {q.trim() ? <button type="button" className="btn btn-sm" onClick={() => setQ("")}>Clear search</button>
+            : view === "archived" ? <button type="button" className="btn btn-sm" onClick={() => setView("active")}>Back to active</button>
+              : <button type="button" className="btn btn-sm btn-primary" onClick={onNew}>New snippet</button>}
         </div>
       ) : (
         <section className="m-section">
