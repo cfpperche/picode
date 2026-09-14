@@ -1632,6 +1632,7 @@ export default function App({ shellChrome = false } = {}) {
   // pane beside it. agentId -> web id ("w:<id>" without prefix). Layout
   // only — the daemon binding is slice 2.
   const [agentPanes, setAgentPanes] = useState({});
+  const [paneRatios, setPaneRatios] = useState({});
   const agentPanesRef = useRef(agentPanes);
   agentPanesRef.current = agentPanes;
   function openAgentSplit(agentId) {
@@ -1639,6 +1640,11 @@ export default function App({ shellChrome = false } = {}) {
     const id = String(webSeqRef.current);
     setWebTabs((m) => ({ ...m, [id]: { url: "", title: "" } }));
     setAgentPanes((p) => ({ ...p, [agentId]: id }));
+  }
+  function closeAgentSplit(key) {
+    const wid = agentPanesRef.current[key];
+    if (wid) window.__TAURI__?.core.invoke("btab_close", { id: wid }).catch(() => {});
+    setAgentPanes(({ [key]: _gone, ...rest }) => rest);
   }
   function openWebTab(url) {
     if (parseRoute(location.hash) !== "workspace") location.hash = "#/";
@@ -2223,12 +2229,7 @@ export default function App({ shellChrome = false } = {}) {
     "close-tab": (ctx) => closeTab(termTabId(ctx.id)),
     remove: (ctx) => removeTerminal(ctx.record),
     "open-browser": (ctx) => openAgentSplit(ctx.kind === "agent" ? ctx.id : termTabId(ctx.id)),
-    "close-browser": (ctx) => {
-      const key = ctx.kind === "agent" ? ctx.id : termTabId(ctx.id);
-      const wid = agentPanesRef.current[key];
-      if (wid) window.__TAURI__?.core.invoke("btab_close", { id: wid }).catch(() => {});
-      setAgentPanes(({ [key]: _gone, ...rest }) => rest);
-    },
+    "close-browser": (ctx) => closeAgentSplit(ctx.kind === "agent" ? ctx.id : termTabId(ctx.id)),
   };
 
   async function renameTerminal(t) {
@@ -3453,14 +3454,40 @@ export default function App({ shellChrome = false } = {}) {
           />
 
           {agentPanes[selectedId] ? (
-            <WebTabSurface
-              key={"split-" + selectedId}
-              tabId={"w:" + agentPanes[selectedId]}
-              active={true}
-              hidden={noTabs || missing || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId)}
-              className="agent-split-pane"
-              onMeta={(m) => setWebTabs((cur) => ({ ...cur, [agentPanes[selectedId]]: { ...cur[agentPanes[selectedId]], ...m } }))}
-            />
+            <>
+              <div
+                className="split-divider"
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize panes"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  const view = document.getElementById("workspace-view");
+                  if (!view) return;
+                  const move = (ev) => {
+                    const r = view.getBoundingClientRect();
+                    const pct = Math.min(80, Math.max(20, Math.round(((ev.clientX - r.left) / r.width) * 100)));
+                    setPaneRatios((p) => ({ ...p, [selectedId]: pct }));
+                  };
+                  const up = () => {
+                    window.removeEventListener("pointermove", move);
+                    window.removeEventListener("pointerup", up);
+                  };
+                  window.addEventListener("pointermove", move);
+                  window.addEventListener("pointerup", up);
+                }}
+              />
+              <div className="agent-split-pane" style={{ flexBasis: (paneRatios[selectedId] ?? 50) + "%" }}>
+                <WebTabSurface
+                  key={"split-" + selectedId}
+                  tabId={"w:" + agentPanes[selectedId]}
+                  active={true}
+                  hidden={noTabs || missing || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId)}
+                  onClose={() => closeAgentSplit(selectedId)}
+                  onMeta={(m) => setWebTabs((cur) => ({ ...cur, [agentPanes[selectedId]]: { ...cur[agentPanes[selectedId]], ...m } }))}
+                />
+              </div>
+            </>
           ) : null}
 
           {termView && !onPane && agent ? (
