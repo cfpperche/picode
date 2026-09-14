@@ -116,6 +116,14 @@ Installing an installed CLI is refused — reinstall covers it. The update
 check line no longer reports "failed" for unmanaged installs; the real check
 error text is shown for genuine failures.
 
+**Detect-only catalog rows** (`surface: detect`): Muse Code (`muse`) and
+Antigravity (`agy`) appear in Agent CLIs for PATH detection, `POST …/check`
+(`--version`) and — for Muse — `POST …/update-check` against the vendor
+channel JSON. They do not seed Activity, intercept wrappers, launch, or
+lifecycle jobs. `muse --version` runs with `MUSE_NO_AUTO_UPDATE=1` so the
+launcher does not background-update. Antigravity has no read-only update
+probe yet (`agy update` mutates).
+
 `terminal_launches.attempt` retains the latest redacted launch failure/time.
 Snapshots include injected branches/files and executable identity. Pending
 state detects configuration and binary changes; the editor compares next and

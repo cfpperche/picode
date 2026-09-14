@@ -66,6 +66,7 @@ type spec struct {
 	uninstall     UninstallKind
 	uninstallArgs []string
 	docs          string
+	latestFrom    string // "channel" for HTTP version checks without a vendor command
 	// npmUpdateOnly marks CLIs whose vendor update command refuses on
 	// npm-managed installs (claude update → "use npm"). Their update and
 	// reinstall go through npm instead.
@@ -118,6 +119,9 @@ var plans = map[string]spec{
 		uninstallArgs: []string{"uninstall", "--keep-config", "--keep-data", "--force"},
 		vendorOnNpm:   true,
 	},
+	"muse": {
+		latestFrom: "channel",
+	},
 }
 
 // DetectMethod classifies an executable path. npm-installed binaries
@@ -158,6 +162,8 @@ func classifyMethod(p string) Method {
 		return MethodVendor
 	case strings.Contains(p, "/.hermes/"):
 		return MethodGit
+	case strings.Contains(p, "api.meta.ai/muse-code"), strings.Contains(p, "muse-code/launcher"), strings.Contains(p, "/muse-bin-"):
+		return MethodVendor
 	default:
 		return MethodUnknown
 	}
@@ -213,12 +219,15 @@ func For(cliID string, m Method) (Plan, bool) {
 	if m != MethodNative && m != MethodVendor && m != MethodGit {
 		return Plan{CLI: cliID, Method: m, Uninstall: UninstallNone}, false
 	}
-	if len(s.updateArgs) == 0 {
+	if len(s.updateArgs) == 0 && s.latestFrom == "" {
 		return Plan{CLI: cliID, Method: m, Uninstall: UninstallNone}, false
 	}
 	p.LatestFrom = "npm"
 	if s.npmPackage != "" {
 		p.NpmPackage = s.npmPackage
+	}
+	if s.latestFrom != "" {
+		p.LatestFrom = s.latestFrom
 	}
 	switch cliID {
 	case "grok":
@@ -322,6 +331,10 @@ func InstallDocs(cliID string) string {
 		return "https://hermes-agent.nousresearch.com/docs/getting-started/installation"
 	case "claude-code":
 		return "https://code.claude.com/docs/en/setup"
+	case "muse":
+		return "https://ai.developer.meta.com/docs/muse-code/"
+	case "agy":
+		return "https://antigravity.google/docs/cli/"
 	default:
 		return ""
 	}
@@ -369,4 +382,53 @@ func ParseHermesCheck(out string) (bool, error) {
 	default:
 		return false, fmt.Errorf("hermes update --check returned unrecognized output")
 	}
+}
+
+// MuseChannelURL is the stable Muse Code release channel (verified 2026-09-14).
+const MuseChannelURL = "https://api.meta.ai/muse-code/channels/muse-stable"
+
+// MuseChannel mirrors the channel JSON (`version`, plus unused fields).
+type MuseChannel struct {
+	Version string `json:"version"`
+}
+
+func ParseMuseChannel(data []byte) (MuseChannel, error) {
+	var c MuseChannel
+	if err := json.Unmarshal(data, &c); err != nil {
+		return c, fmt.Errorf("muse channel returned unreadable output")
+	}
+	if c.Version == "" {
+		return c, fmt.Errorf("muse channel returned no version")
+	}
+	return c, nil
+}
+
+// ExtractMuseVersion prefers the launcher token (1.2.1-R2847.1) over the
+// leading dotted semver in `muse --version`.
+func ExtractMuseVersion(line string) string {
+	best := ""
+	s := line
+	for {
+		i := strings.Index(s, "-R")
+		if i < 0 {
+			break
+		}
+		start := i
+		for start > 0 && (s[start-1] >= '0' && s[start-1] <= '9' || s[start-1] == '.') {
+			start--
+		}
+		end := i + 2
+		for end < len(s) && (s[end] >= '0' && s[end] <= '9' || s[end] == '.') {
+			end++
+		}
+		cand := s[start:end]
+		if strings.Count(cand, ".") >= 2 && strings.Contains(cand, "-R") {
+			best = cand
+		}
+		s = s[i+2:]
+	}
+	if best != "" {
+		return best
+	}
+	return ExtractSemver(line)
 }

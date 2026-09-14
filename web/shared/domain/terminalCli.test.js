@@ -8,13 +8,19 @@ test("terminal CLI aliases use one canonical identity", () => {
   assert.equal(normalizeTerminalCli("codex"), "codex");
   assert.equal(normalizeTerminalCli("hermes"), "hermes");
   assert.equal(normalizeTerminalCli("opencode"), "opencode");
+  assert.equal(normalizeTerminalCli("muse"), "muse");
+  assert.equal(normalizeTerminalCli("agy"), "agy");
   assert.equal(normalizeTerminalCli("unknown"), "");
   assert.equal(terminalCliLabel("pi"), "Pi");
   assert.equal(terminalCliLabel("hermes"), "Hermes Agent");
   assert.equal(terminalCliLabel("opencode"), "OpenCode");
+  assert.equal(terminalCliLabel("muse"), "Muse Code");
+  assert.equal(terminalCliLabel("agy"), "Antigravity");
   assert.equal(terminalCliMark("codex"), "Cx");
   assert.equal(terminalCliMark("hermes"), "H");
   assert.equal(terminalCliMark("opencode"), "Oc");
+  assert.equal(terminalCliMark("muse"), "Mu");
+  assert.equal(terminalCliMark("agy"), "Ag");
 });
 
 test("supported runtimes use their official favicons, best first", () => {
