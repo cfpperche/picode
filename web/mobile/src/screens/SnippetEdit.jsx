@@ -8,7 +8,12 @@ import { toast, toastError } from "../lib/toast.js";
 // title until edited), kind, tags and the body. Same rules as the desk:
 // the draft is retained under the snippet's key until it matches the
 // server copy, Save sends the version it loaded and a 409 keeps the text.
+// Drafts live in localStorage (snippets v2, F4): same keys, same
+// `draftToRestore` base rule, but a closed tab no longer loses the text.
 function storage() {
+  try {
+    if (typeof window !== "undefined" && window.localStorage) return window.localStorage;
+  } catch { /* blocked storage falls through */ }
   try { return typeof window !== "undefined" ? window.sessionStorage : null; } catch { return null; }
 }
 

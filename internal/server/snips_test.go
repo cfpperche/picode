@@ -495,3 +495,44 @@ func TestSnipTemplates(t *testing.T) {
 		}
 	}
 }
+
+// GET /api/snips/slug/{slug} (snippets v2, F8): the editor asks while the
+// reader types, so the answer must be the one a save would reach — free is
+// 204, taken is 409 — and a snippet's own slug is free for itself.
+func TestSnipSlugAvailability(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+
+	code, out := snipJSON(t, ts.URL, http.MethodPost, "/api/snips", map[string]any{
+		"title": "Review PR", "body": "Look at {{pr}}",
+	})
+	if code != http.StatusOK {
+		t.Fatalf("create = %d %v", code, out)
+	}
+	id, _ := out["id"].(string)
+
+	free := func(path string) int {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodGet, ts.URL+path, nil)
+		res := do(t, http.DefaultClient, req)
+		defer res.Body.Close()
+		return res.StatusCode
+	}
+
+	if got := free("/api/snips/slug/brand-new"); got != http.StatusNoContent {
+		t.Fatalf("free slug = %d, want 204", got)
+	}
+	if got := free("/api/snips/slug/review-pr"); got != http.StatusConflict {
+		t.Fatalf("taken slug = %d, want 409", got)
+	}
+	if got := free("/api/snips/slug/Review%20PR"); got != http.StatusConflict {
+		t.Fatalf("normalized taken slug = %d, want 409", got)
+	}
+	if got := free("/api/snips/slug/review-pr?except=" + id); got != http.StatusNoContent {
+		t.Fatalf("own slug = %d, want 204", got)
+	}
+	// The check must not be eaten by GET /api/snips/{id}: that route would
+	// answer "not found" for a slug segment.
+	if got := free("/api/snips/slug/review-pr"); got == http.StatusNotFound {
+		t.Fatal("the slug route was matched by /api/snips/{id}")
+	}
+}

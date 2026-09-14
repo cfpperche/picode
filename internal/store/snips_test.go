@@ -184,3 +184,35 @@ func TestSnipPlaceholderMergeEnum(t *testing.T) {
 		t.Fatalf("enum = %+v", p.Placeholders)
 	}
 }
+
+// The editor asks before it saves: a slug is taken by any other row,
+// including an archived one (the unique index covers archived rows on
+// purpose), and a snippet's own slug is never a clash with itself.
+func TestSnipSlugTaken(t *testing.T) {
+	s := openTest(t)
+	first, err := s.CreateSnip(SnipParams{Title: "Review PR", Body: "look"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if taken, err := s.SnipSlugTaken("review-pr", ""); err != nil || !taken {
+		t.Fatalf("created slug: taken=%v err=%v", taken, err)
+	}
+	if taken, err := s.SnipSlugTaken("review-pr", first.ID); err != nil || taken {
+		t.Fatalf("own slug is not a clash: taken=%v err=%v", taken, err)
+	}
+	if taken, err := s.SnipSlugTaken("Review PR", first.ID); err != nil || taken {
+		t.Fatalf("the check normalizes like the store: taken=%v err=%v", taken, err)
+	}
+	if taken, err := s.SnipSlugTaken("something-else", ""); err != nil || taken {
+		t.Fatalf("free slug: taken=%v err=%v", taken, err)
+	}
+	if _, err := s.SetSnipArchived(first.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if taken, err := s.SnipSlugTaken("review-pr", ""); err != nil || !taken {
+		t.Fatalf("an archived row keeps its slug: taken=%v err=%v", taken, err)
+	}
+	if _, err := s.SnipSlugTaken("", ""); err == nil {
+		t.Fatal("an empty slug is not a free slug")
+	}
+}

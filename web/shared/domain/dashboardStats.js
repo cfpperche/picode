@@ -375,6 +375,29 @@ export function resetsIn(resetsAt, now) {
   return "resets in " + Math.round(hours / 24) + "d";
 }
 
+// limitReading describes what a quota snapshot can still claim. A quota
+// percentage is a *reading of a window*, not a sum over a period: Codex
+// writes it on an event, and the window it describes ends at resetsAt. Once
+// that instant is past, the number belongs to a window that no longer exists
+// — showing it beside "resets in 6d" would present a stale figure as the
+// current state, which is the failure ADR-0097 refuses for cost.
+//   "current" — read inside the window it describes
+//   "expired" — the window it describes has already reset
+//   "unknown" — the payload carries no reset time to judge by
+export function limitReading(limit, now) {
+  const reset = Date.parse((limit && limit.resetsAt) || "");
+  if (!Number.isFinite(reset)) return "unknown";
+  return reset <= (now || Date.now()) ? "expired" : "current";
+}
+
+// observedAge is how long ago the CLI wrote this reading, in milliseconds, or
+// null when the payload carries no observation time.
+export function observedAge(limit, now) {
+  const at = Date.parse((limit && limit.observedAt) || "");
+  if (!Number.isFinite(at)) return null;
+  return Math.max(0, (now || Date.now()) - at);
+}
+
 // costPerTurn and costPerLine are the efficiency levers. Both return null
 // rather than 0 when the denominator is missing, so the panel prints a dash
 // instead of a number that would read as "free".

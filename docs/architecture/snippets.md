@@ -51,6 +51,7 @@ not bump `updated_at`.
 |---|---|
 | GET | `/api/snips` live list; `?archived=1`; `?q=` search |
 | GET | `/api/snips/templates` built-in starters — code, not rows (`internal/snips/templates.go`, the `automate.Templates` pattern); static paths before `/{id}` |
+| GET | `/api/snips/slug/{slug}` the editor's address check — 204 free, 409 taken; `?except=<id>` is the snippet being edited, whose own slug is not a clash |
 | GET | `/api/snips/picker` live kind `prompt` (static path, not an id) |
 | POST | `/api/snips` |
 | GET/PATCH/DELETE | `/api/snips/{id}` |
@@ -63,9 +64,11 @@ snippet-run door; the editor's Kind control offers Prompt and Command.
 
 Host page `#/snippets` through `PageFrame` (1240px). Palette **Snippets**
 and the user menu Tools group open it. Empty state: one line + New
-snippet. Drafts sit in `sessionStorage` (`picode-snip-draft:<id>`). The
-editor parses placeholders in the browser (`web/shared/domain/snipDraft.js`).
-Command kind has no control yet.
+snippet. Drafts sit in **`localStorage`** (`picode-snip-draft:<id>`, the
+same keys and `draftToRestore` base rule as before — a closed tab no
+longer takes the text; last-writer-wins across tabs, like the Automations
+draft). The editor parses placeholders in the browser
+(`web/shared/domain/snipDraft.js`). Command kind has no control yet.
 
 ### Authoring (v2)
 
@@ -79,6 +82,7 @@ projection that writes back into it (`setDefaultInBody`).
 | Try it | sample value per placeholder (enum → `<select>`), body expanded in the browser; required-but-empty names are listed as "will prompt when it runs" |
 | Starters | `GET /api/snips/templates` — six starters; the grid is open on an empty page and a remembered `<details>` once rows exist (Automations pattern). Clicking one hands the body, tags, kind and a derived slug to the editor as a draft with origin `starter` |
 | Duplicate | a row action and a detail button: reads the snippet (a row carries no body), then hands `title + " copy"`, slug `<slug>-copy` (locked) and the body over as origin `duplicate` |
+| Save off | what explains it is written where the problem is — the body's own line and the slug's own line — never a badge beside the button (a text span in a `data-align-row` row is the alignment defect `__picodeOverlayAudit` catches) |
 | Enums | held in editor state, sent in `placeholders[]`; they ride the draft alongside the body |
 
 ### Capture and import (v2)
