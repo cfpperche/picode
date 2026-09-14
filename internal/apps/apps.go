@@ -67,6 +67,15 @@ type Host struct {
 	// through that terminal's receiver. It returns the source terminal.
 	// Optional means this host cannot deliver to terminals.
 	DeliverTerminalReply func(itemID, verb, text string) (termID string, err error)
+	// Tmux is the tmux server this daemon talks to (the tmux app's read
+	// model, ADR-0133). Optional — nil means the app answers its honest
+	// "not available" screen. An interface, not the concrete manager, so a
+	// test scripts the server instead of spawning one.
+	Tmux TmuxServer
+	// LostSessions names the sessions that were alive at the previous
+	// graceful shutdown and did not survive it (ADR-0085's boot diff) — the
+	// "lost at restart" badge on the tmux app's absence list. Optional.
+	LostSessions map[string]bool
 }
 
 // App is one first-party app. Implementations must be safe for

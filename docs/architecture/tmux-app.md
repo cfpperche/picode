@@ -1,98 +1,99 @@
-# tmux app (ADR-0133)
+# tmux app (ADR-0133, amended 2026-09-14)
 
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
-The **tmux app** is a first-party app (`internal/apps/tmux.go`) whose body is
-the desktop component `web/browser/src/components/tmux/TmuxSurface.jsx`,
-registered by manifest id in `web/browser/src/lib/nativeApps.js` (ADR-0109),
-and whose data is a small API family in `internal/server/tmux.go`. It shows
-**every session on the tmux server the daemon talks to** — PiCode's own
-sessions, sessions no store row claims, and the user's own tmux sessions — and
-it can remove one, one confirmed row at a time. Plan:
-[`docs/plans/tmux-app.md`](../plans/tmux-app.md); decision: ADR-0133.
+The **tmux app** is a first-party **primitives app** (`internal/apps/tmux.go`)
+on the Docker mold: one manifest, `View`/`Action` over the frozen vocabulary,
+rendered by every shell's `AppSurface` — desktop and phone. It shows **every
+session on the tmux server the daemon talks to** — PiCode's own sessions, the
+ones no store row claims, and the user's own tmux sessions — and it can remove
+one, one confirmed session at a time. Plan:
+[`docs/plans/tmux-app.md`](../plans/tmux-app.md); decision: ADR-0133 (surface
+amended 2026-09-14: primitives, not a native component — the native body did
+not apply the mount's `hidden` and drew over other tabs, and its chrome was a
+second UI standard).
 
 ## The read
 
-`GET /api/tmux/server` answers one view:
+`View(ctx, h, path)` over three paths:
 
-| Field | Meaning |
+| Path | Screen |
 |---|---|
-| `server` | `installed`, `running`, `socketPath`, `clients`, `version`, `extendedKeysFormat`, counts (`sessions`, `picodeSessions`, `unclaimedSessions`, `foreignSessions`, `attachedSessions`), `sampledAt` |
-| `sessions[]` | one row per **session** (never per pane): `name`, `sessionId`, `created`, `windows`, `panes`, `attached`, `command`, `cwd`, `panePid`, `dead`, `exitCode`, `kind` (`agent`/`terminal`/`other`), `scope`, and the owner facts when known (`ownerId`, `ownerName`, `workspaceId`) |
-| `absent[]` | terminals this daemon has a row for whose session is **not** on the server, with `lostAtRestart` from the flight recorder (ADR-0085) |
+| `""` | the inventory: three collapsible list groups — **PiCode** (live work, each row opens its detail), **Not in PiCode's records** (leftovers; each row opens a detail that carries the removal), **Not PiCode's** (the user's own tmux, read-only, no path). Row: title (owner name when known, else the session name), command, relative start time (`At`, host-formatted), kind, attached clients, panes, live/exited badge. |
+| `item/<session>` | one session's screen: identity (`name`, `$id`, started, folder, command, windows/panes/clients), the owner sentence its scope earns, and — for a leftover only — **Remove this session**. A claimed session links to its own surface instead: `#/term/<id>` or `#/agent/<id>` by markdown, no `Goto` growth. |
+| `"server"` | the server's facts (version, running, socket, sessions · attached, clients, keyboard mode with the Preferences pointer) and the absence list: terminals this daemon has rows for whose session is **not** on the server, `lost at restart` from the flight recorder (ADR-0085). |
 
-It costs **one tmux subprocess** for the whole inventory (`list-panes -a -F`,
-`internal/tmux/server.go`) plus the server facts (`display-message`,
-`list-clients`, `tmux -V`, `show-options`) — no call per session, no call per
-pane, and no timer: the surface refetches from the change feed (`tmux.changed`
-after its own removal, `terminal.*` when a session comes or goes). A machine
-with no tmux binary, or none running, is a 200 with `installed: false` /
-`running: false` and empty lists — an honest empty screen, not a 503 the app
-would have to invent copy for.
+The read costs **one tmux subprocess** for the whole inventory
+(`list-panes -a -F`, `internal/tmux/server.go`) plus the server facts — no call
+per session, no call per pane, and no timer: `View` is fetched by the shell on
+open and refetched on the change feed's terminal events, exactly like the
+Docker app. No tmux binary, or no server running, is the view's `Empty` line —
+an honest blankslate, not a 500.
 
 A session with two panes stays ONE row: the active pane supplies the details
 and `panes` counts them, so a split pane cannot duplicate a row or inflate a
-count (the reference implementation this learned from had that bug).
+count.
 
-## Attribution: the name is a hint, the marker is the receipt
+## Attribution: the name is the hint, the marker is the receipt
 
 Ownership is resolved in two steps, and the split is the whole safety model:
 
 1. **The name**, in the list. `picode-sh-<id>` means a terminal, `picode-<id>`
    means an agent, anything else is not PiCode's namespace. The id is looked up
-   in the store (`GetTerminal`, `GetAgent`); a match is `scope: "yours"`, no
-   match is `scope: "unclaimed"`, a foreign name is `scope: "notPiCode"`.
-   The step is lossy by construction — session names are sanitized to
-   `[a-z0-9-]` — which is exactly why a miss is reported as an uncertainty and
-   never as "nobody's".
+   in `Host.Store` (`GetTerminal`, `GetAgent`); a match is `PiCode`, no match is
+   `Not in PiCode's records`, a foreign name is `Not PiCode's`. The step is
+   lossy by construction — session names are sanitized to `[a-z0-9-]` — which
+   is why a miss is reported as an uncertainty and never as "nobody's".
 2. **The markers**, before any action, from the session's own environment:
-   `PICODE_TERM_ID` and `PICODE_AGENT_ID` are injected at creation
-   (`-e`, `internal/server/terminals.go` and `internal/store/agents.go`; the
-   CLI launch path injects them too). `SessionReceipt` reads them together
-   with the identity in one pass. A marker that resolves to a terminal or an
-   agent this daemon still holds refuses the removal and names the surface
-   that owns the session.
+   `PICODE_TERM_ID` / `PICODE_AGENT_ID`, injected at creation
+   (`internal/server/terminals.go`, `internal/store/agents.go`, the CLI launch
+   path). A marker that resolves to a terminal or an agent this daemon still
+   holds refuses the removal and names the surface that owns the session —
+   including in the detail view, where the removal button is replaced by that
+   sentence.
 
-`internal/server/tmux_test.go:TestTmuxMarkerNamesMatchTheirWriters` pins the
+`internal/apps/tmux_test.go:TestTmuxMarkerNamesMatchTheirWriters` pins the
 marker strings against the store's constant, because a rename in one of the
 three writers would silently turn every session into an "unclaimed" one.
 
 **The uncertainty is in the product, not hidden.** A PiCode-shaped session
-missing from the store may be a leftover of a deleted store, a harness's, or
-**another PiCode instance's on the same machine** — measured 2026-09-14: a
-script over the socket read seven live sessions as unclaimed, and all seven
-belonged to a second instance it had failed to reach. No read in this daemon
-can settle that; the row says so, and a human confirming one row at a time can.
+missing from the store may be a leftover, a harness's, or **another PiCode
+instance's on the same machine** — measured 2026-09-14: a script over the
+socket read seven live sessions as unclaimed, and all seven belonged to a
+second instance it had failed to reach. No read in this daemon can settle
+that; the row says so, and a human confirming one session at a time can.
 
 ## The one action
 
-`POST /api/tmux/sessions/{name}/reap` with `{confirm: true, sessionId, created,
-panePid}`. The decision table, row by row — and every row is a test in
-`TestTmuxReapDecisionTable`:
+`Action(ctx, h, {action: "reap", args: {name, sessionId, created, panePid}})`.
+The args are the **receipt**: they were rendered into the view the human
+confirmed against, and the action re-reads tmux before killing. The decision
+table, row by row — every row is a test in
+`internal/apps/tmux_test.go:TestTmuxReapDecisionTable`:
 
-| Name | Store knows the marker's owner | Receipt | Result |
+| Name | Marker's owner in the store | Receipt | Result |
 |---|---|---|---|
-| not `picode-*` | — | — | 400 — the user's own session is never this app's business |
-| `picode-*` | yes | any | 409 — names the terminal/agent and its door |
-| `picode-*` | no | missing, or `sessionId`/`created`/`panePid` moved | 409 — "changed since this page was drawn" |
-| `picode-*` | no | matches, `confirm: true` | 200 — one `kill-session` by exact name, one `tmux.session.reaped` event |
-| session gone | — | — | 404 |
-| unknown JSON field | — | — | 400 — a field nobody sent is a field nobody meant |
+| not `picode-*` | — | — | refused — the user's own session is never this app's business |
+| `picode-*` | yes | any | refused — names the terminal/agent and its door |
+| `picode-*` | no | missing, or `sessionId`/`created`/`panePid` moved | refused — "changed since this page was drawn" |
+| `picode-*` | no | matches | killed once by exact name, one `tmux.session.reaped` event |
+| session gone | — | — | refused — "no longer running" |
+| unknown action | — | — | refused |
 
 No prefix sweep, no bulk action, no automatic removal: the 2026-09-06 debt
 (*"never kill by prefix"*) is what this table encodes. The removal is
-irreversible, so the response reports the audit honestly — `audit: "recorded"`
-or `"failed"` (the session is gone either way) or `"skipped"` on a host with no
-store — rather than dressing a missing record up as a failed action.
+irreversible, so the answer reports the audit honestly — the toast says so when
+the record could not be written (the session is gone either way). The
+`tmux.changed` ephemeral of the first delivery is gone with the custom
+renderer: the action returns the refreshed view it replaced, and no other
+surface consumed it.
 
-The button that starts this lives in the row's **expanded** detail, next to the
-sentence explaining what PiCode cannot know, and not in the collapsed row: with
-the development machine's 15 leftovers that placement was 15 red buttons
-drawing the eye down a list whose job is to be read (found in visual review,
-2026-09-14, and moved).
+## Host growth (ADR-0109's sanctioned direction)
 
-The `tmux.changed` ephemeral event rides the change feed (ADR-0048) so every
-open surface refreshes.
+`apps.Host` gains `Tmux TmuxServer` (an interface over the manager's read +
+kill methods, so tests script the server instead of spawning one) and
+`LostSessions map[string]bool` (ADR-0085's boot diff). The app never imports
+`internal/server`.
 
 ## What the app does not do
 
@@ -100,8 +101,7 @@ It does not list terminals or agents as a fleet (that is the sidebar's job —
 ADR-0109's doors), it does not offer tmux **settings** (Preferences → Terminal
 owns the live catalog, ADR-0025), it does not open a second attach for a
 terminal that has one (one xterm per terminal), it never creates a session,
-and it draws no phone body: the phone lists the app as desktop-only and
-answers its route with one line.
+and it never acts on a session outside PiCode's namespace.
 
 ## Version note
 
