@@ -9,7 +9,6 @@ import (
 	"context"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -33,15 +32,8 @@ func TestPeerStopStubbornChildStaysPending(t *testing.T) {
 		_ = m.KillSession(ctx, sess)
 	})
 	// The pane itself is the stubborn writer: it ignores both signals a stop
-	// uses (the launcher's SIGHUP ignore and the SIGTERM escalation). It
-	// touches a marker after the trap: the pane root is the forked tmux client
-	// until it execs the shell, so a stop started too early would signal a
-	// process that has no trap yet, the child would die, and the (correct)
-	// "stopped" reading would fail the assertion — measured 2026-09-13:
-	// deterministic in isolation at load ~5, `pane_current_command` goes
-	// `tmux` → `sh` in that window.
-	ready := filepath.Join(t.TempDir(), "ready")
-	script := "trap '' TERM HUP; touch '" + ready + "'; while :; do :; done"
+	// uses (the launcher's SIGHUP ignore and the SIGTERM escalation).
+	script := "trap '' TERM HUP; while :; do :; done"
 	env := os.Environ()[:0]
 	for _, kv := range os.Environ() {
 		if strings.HasPrefix(kv, "TMUX=") {
@@ -53,15 +45,6 @@ func TestPeerStopStubbornChildStaysPending(t *testing.T) {
 	created.Env = env
 	if out, err := created.CombinedOutput(); err != nil {
 		t.Fatalf("new-session: %v: %s", err, out)
-	}
-	for deadline := time.Now().Add(5 * time.Second); ; {
-		if _, err := os.Stat(ready); err == nil {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("pane script never reached its trap line")
-		}
-		time.Sleep(10 * time.Millisecond)
 	}
 	out, err := exec.Command("tmux", "display-message", "-p", "-t", sess, "#{pane_pid}").Output()
 	if err != nil {
