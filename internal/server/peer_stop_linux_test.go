@@ -9,6 +9,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -28,29 +29,43 @@ func TestPeerStopStubbornChildStaysPending(t *testing.T) {
 	}
 	ctx := context.Background()
 	sess := "picode-stopchild-" + strconv.Itoa(os.Getpid())
-	t.Cleanup(func() {
-		_ = m.KillSession(ctx, sess)
-	})
-	// The pane itself is the stubborn writer: it ignores both signals a stop
-	// uses (the launcher's SIGHUP ignore and the SIGTERM escalation).
-	script := "trap '' TERM HUP; while :; do :; done"
-	env := os.Environ()[:0]
+	marker := filepath.Join(t.TempDir(), "ready")
+	script := "trap '' TERM HUP; : > " + marker + "; while :; do :; done"
+	// The test may itself run inside tmux (a PiCode terminal). A nested client
+	// resolves `-t` against the attached session, so every command here runs
+	// without the ambient TMUX environment and targets the session exactly.
+	env := []string{}
 	for _, kv := range os.Environ() {
-		if strings.HasPrefix(kv, "TMUX=") {
-			continue
+		if !strings.HasPrefix(kv, "TMUX=") {
+			env = append(env, kv)
 		}
-		env = append(env, kv)
 	}
-	created := exec.Command("tmux", "new-session", "-d", "-x", "80", "-y", "24", "-s", sess, "sh", "-c", script)
-	created.Env = env
-	if out, err := created.CombinedOutput(); err != nil {
+	run := func(args ...string) ([]byte, error) {
+		cmd := exec.Command("tmux", args...)
+		cmd.Env = env
+		return cmd.CombinedOutput()
+	}
+	if out, err := run("new-session", "-d", "-x", "80", "-y", "24", "-s", sess, "sh", "-c", script); err != nil {
 		t.Fatalf("new-session: %v: %s", err, out)
 	}
-	out, err := exec.Command("tmux", "display-message", "-p", "-t", sess, "#{pane_pid}").Output()
+	t.Cleanup(func() { _, _ = run("kill-session", "-t", "="+sess) })
+	// The pane process must have installed its traps before the stop signals it,
+	// otherwise a startup race decides the test.
+	ready := time.Now().Add(3 * time.Second)
+	for {
+		if _, err := os.Stat(marker); err == nil {
+			break
+		}
+		if time.Now().After(ready) {
+			t.Fatal("pane never installed its traps")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	out, err := run("list-panes", "-t", "="+sess, "-F", "#{pane_pid}")
 	if err != nil {
 		t.Fatalf("pane pid: %v: %s", err, out)
 	}
-	pane, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	pane, err := strconv.Atoi(strings.TrimSpace(strings.Split(string(out), "\n")[0]))
 	if err != nil || pane <= 0 {
 		t.Fatalf("pane pid %q", out)
 	}
