@@ -105,7 +105,7 @@ import { extraSlash } from "@picode/shared/domain/slash.js";
 import { isAutomateCommand, automatePrompt, parseAutomateReply } from "./lib/automateDraft.js";
 import { writeAutomationDraft } from "./lib/automationDraft.js";
 import { isValidCron } from "@picode/shared/domain/cron.js";
-import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners } from "./lib/openTabs.js";
+import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners, readAgentSplits, writeAgentSplits, writeAgentSplitUrls, filterAgentSplits } from "./lib/openTabs.js";
 import { anchorFor, askedNote, ownerExists, readInspectorPrefs, runFallbackNote, writeInspectorPrefs, INSPECTOR_MIN, maxInspectorWidth } from "./lib/inspector.js";
 import { sessionsHash } from "./lib/routes.js";
 import Hotkeys from "./components/Hotkeys.jsx";
@@ -814,6 +814,17 @@ export default function App({ shellChrome = false } = {}) {
         };
         const next = filterOpenTabs(readOpenTabs(), exists);
         setTabs(next.ids);
+        // A split pane only lives while its host tab does: an agent that did
+        // not come back takes its pane with it, and the pane's url goes too.
+        // The webviews are recreated later — once the host tab is actually on
+        // screen (the adoption effect below) — because `ensure` would
+        // otherwise land them at its default rect, on top of the UI.
+        const splits = filterAgentSplits(split0, (key) => next.ids.includes(key));
+        setAgentPanes(splits.panes);
+        setPaneRatios(splits.ratios);
+        setPaneMax(splits.max);
+        splitUrlsRef.current = splits.urls;
+        writeAgentSplitUrls(splits.urls);
         const fromTerm = parseRoute() === "workspace" ? termRoute() : null;
         const fromFile = parseRoute() === "workspace" ? fileRoute() : null;
         const fromGit = parseRoute() === "workspace" ? gitRoute() : null;
@@ -1635,15 +1646,37 @@ export default function App({ shellChrome = false } = {}) {
   // native WebView2 child. Desktop-shell only — the component shows a notice
   // elsewhere. Meta (url/title) is mirrored up for the tab strip.
   const [webTabs, setWebTabs] = useState({});
-  const webSeqRef = useRef(0);
-  // Agent split (ADR-0135, slice 1): an agent tab can host a work-browser
-  // pane beside it. agentId -> web id ("w:<id>" without prefix). Layout
-  // only — the daemon binding is slice 2.
-  const [agentPanes, setAgentPanes] = useState({});
-  const [paneRatios, setPaneRatios] = useState({});
-  const [paneMax, setPaneMax] = useState({});
+  // Agent split (ADR-0135): an agent tab can host a work-browser pane beside
+  // it. agentId (or "term:<id>") -> web id; ratios/max are the layout, and
+  // both the layout and the last url per pane are persisted, so a shell
+  // relaunch brings the panes back at the same page (owner directive
+  // 2026-09-14) instead of asking the user to reopen every split by hand.
+  const split0 = useMemo(readAgentSplits, []);
+  const webSeqRef = useRef(
+    Math.max(0, ...Object.values(split0.panes).map((n) => Number(n)).filter(Number.isFinite)),
+  );
+  const [agentPanes, setAgentPanes] = useState(split0.panes);
+  const [paneRatios, setPaneRatios] = useState(split0.ratios);
+  const [paneMax, setPaneMax] = useState(split0.max);
+  const splitUrlsRef = useRef(split0.urls);
   const agentPanesRef = useRef(agentPanes);
   agentPanesRef.current = agentPanes;
+  useEffect(() => {
+    writeAgentSplits({ panes: agentPanes, ratios: paneRatios, max: paneMax });
+  }, [agentPanes, paneRatios, paneMax]);
+  // A relaunch kills every webview. The first time a restored pane's host tab
+  // is on screen, recreate it at its last url — the surface's own bounds
+  // effect has already stored the rect (child effects run before the
+  // parent's), so the webview lands where the pane is.
+  const splitAdoptedRef = useRef(new Set());
+  useEffect(() => {
+    if (!bootstrapped) return;
+    const id = agentPanes[selectedId];
+    if (!id || splitAdoptedRef.current.has(id)) return;
+    splitAdoptedRef.current.add(id);
+    const url = splitUrlsRef.current[id] || "";
+    if (url) window.__TAURI__?.core.invoke("btab_navigate", { id, url }).catch(() => {});
+  }, [bootstrapped, selectedId, agentPanes]);
   function openAgentSplit(agentId) {
     webSeqRef.current += 1;
     const id = String(webSeqRef.current);
@@ -3521,7 +3554,16 @@ export default function App({ shellChrome = false } = {}) {
                   expanded={!!paneMax[selectedId]}
                   onToggleExpand={() => setPaneMax((p) => ({ ...p, [selectedId]: !p[selectedId] }))}
                   onClose={() => closeAgentSplit(selectedId)}
-                  onMeta={(m) => setWebTabs((cur) => ({ ...cur, [agentPanes[selectedId]]: { ...cur[agentPanes[selectedId]], ...m } }))}
+                  onMeta={(m) => {
+                    const wid = agentPanes[selectedId];
+                    setWebTabs((cur) => ({ ...cur, [wid]: { ...cur[wid], ...m } }));
+                    // The pane's url is what a relaunch navigates back to; the
+                    // 800 ms meta poll repeats it, so only a change writes.
+                    if (m.url && splitUrlsRef.current[wid] !== m.url) {
+                      splitUrlsRef.current = { ...splitUrlsRef.current, [wid]: m.url };
+                      writeAgentSplitUrls(splitUrlsRef.current);
+                    }
+                  }}
                 />
               </div>
             </>
