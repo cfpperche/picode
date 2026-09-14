@@ -5,11 +5,13 @@ import {
   deltaPercent, fleetStats, compareLabel, formatTokens, percent, folderLabel,
   measured, coverageNote, billingBadge, billingTitle, formatDuration, formatLines,
   costPerTurn, costPerLine, signalState, spendState, NOT_REPORTED, PARTIAL,
+  FLEET_ORDER, FLEET_LABELS, FLEET_HINTS, FLEET_NEEDS_YOU, FLEET_WORKING,
 } from "@picode/shared/domain/dashboardStats.js";
 import { readDashboardRange, writeDashboardRange } from "../lib/openTabs.js";
+import { termTabId } from "../lib/routes.js";
 import { relTime, absTime } from "@picode/shared/domain/relTime.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
-import { terminalCliMark } from "@picode/shared/domain/terminalCli.js";
+import { terminalCliLabel, terminalCliMark } from "@picode/shared/domain/terminalCli.js";
 import StatTile from "./StatTile.jsx";
 import RankedBars from "./RankedBars.jsx";
 import DailyChart from "./DailyChart.jsx";
@@ -31,13 +33,14 @@ const TICK_MS = 30_000;
 // sidebar already shows. App.jsx only mounts this when
 // workspaces+freeAgents+terminals adds up to more than zero; the true
 // empty-environment card is untouched and lives beside it.
-export default function DashboardView({ workspaces, freeAgents, workingIds, waitingId }) {
+export default function DashboardView({ workspaces, freeAgents, terminals, workingIds, waitingId, onOpen }) {
   const [range, setRange] = useState(() => readDashboardRange());
   const [metric, setMetric] = useState("cost");
   const [stats, setStats] = useState(null);
   const [busy, setBusy] = useState(false);
   const [loadErr, setLoadErr] = useState("");
   const [fetchedAt, setFetchedAt] = useState(null);
+  const [fleetOpen, setFleetOpen] = useState(false);
   const [, setTick] = useState(0);
   const mounted = useRef(false);
   const inflight = useRef(null);
@@ -104,7 +107,7 @@ export default function DashboardView({ workspaces, freeAgents, workingIds, wait
     writeDashboardRange(next);
   }
 
-  const fleet = fleetStats(workspaces, freeAgents, { workingIds, waitingId });
+  const fleet = fleetStats(workspaces, freeAgents, terminals, { workingIds, waitingId });
   const firstLoad = stats === null;
   const coverage = firstLoad ? [] : (stats.coverage || []);
   const byCli = firstLoad ? [] : (stats.byCli || []);
@@ -244,31 +247,56 @@ export default function DashboardView({ workspaces, freeAgents, workingIds, wait
             />
             <StatTile
               label="Fleet"
-              value={fleet.running + " / " + fleet.total + " running"}
-              compareLabel=""
+              value={fleet.live + " live"}
+              // "live now" only when something is: a timestamp under a zero
+              // would be the third way of saying there is nothing to see.
+              compareLabel={fleet.live ? "live now" : ""}
               points={null}
               loading={false}
             >
-              {fleet.running ? (
-                <div className="fleet-strip">
-                  <span className={fleet.working ? "" : "is-zero"}>{fleet.working} working</span>
-                  <span className={fleet.waiting ? "is-waiting" : "is-zero"}>{fleet.waiting} waiting</span>
-                  <span className={fleet.idle ? "" : "is-zero"}>{fleet.idle} idle</span>
-                </div>
+              {fleet.live ? (
+                <>
+                  <div className="fleet-strip">
+                    {FLEET_ORDER.filter((state) => fleet[state] > 0).map((state) => (
+                      <span key={state} className={state === FLEET_NEEDS_YOU ? "is-waiting" : ""} title={FLEET_HINTS[state]}>
+                        {fleet[state]} {FLEET_LABELS[state]}
+                      </span>
+                    ))}
+                    {fleet.shells.running ? (
+                      <span className="fleet-shells" title="Plain terminals, not agents — no CLI is running in them">
+                        {fleet.shells.running} {fleet.shells.running === 1 ? "shell" : "shells"}
+                      </span>
+                    ) : null}
+                  </div>
+                  <ul className={"fleet-agents" + (fleetOpen ? " is-open" : "")}>
+                    {(fleetOpen ? fleet.units : fleet.units.slice(0, 4)).map((u) => (
+                      <li key={u.key}>
+                        <button
+                          type="button"
+                          className={"fleet-agent is-" + u.state}
+                          title={u.name + " · " + (u.kind === "terminal" ? terminalCliLabel(u.detail) : u.detail || "agent") + " · " + FLEET_LABELS[u.state]}
+                          onClick={() => onOpen && onOpen(u.kind === "terminal" ? termTabId(u.id) : u.id)}
+                        >
+                          <span className="fleet-agent-name">{u.name}</span>
+                          <span className="fleet-agent-where">
+                            {u.kind === "terminal" ? terminalCliLabel(u.detail) : shortModel(u.detail)}
+                          </span>
+                          <span className="fleet-agent-state">{FLEET_LABELS[u.state]}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  {fleet.units.length > 4 ? (
+                    <button type="button" className="fleet-more" aria-expanded={fleetOpen} onClick={() => setFleetOpen((open) => !open)}>
+                      {fleetOpen ? "Show less" : "+" + (fleet.units.length - 4) + " more"}
+                    </button>
+                  ) : null}
+                </>
               ) : (
-                <div className="stat-tile-delta stat-tile-delta-muted">{fleet.total ? "nothing running" : "no agents yet"}</div>
+                <div className="stat-tile-delta stat-tile-delta-muted">
+                  {fleet.agents.total + fleet.terminals.total + fleet.shells.total ? "nothing running" : "no agents yet"}
+                </div>
               )}
-              {fleet.agents.length ? (
-                <ul className="fleet-agents">
-                  {fleet.agents.slice(0, 3).map((a) => (
-                    <li key={a.id} className={"fleet-agent is-" + a.state} title={a.name + (a.model ? " · " + a.model : "") + " · " + a.state}>
-                      <span className="fleet-agent-name">{a.name}</span>
-                      {a.model ? <span className="fleet-agent-model">{shortModel(a.model)}</span> : null}
-                    </li>
-                  ))}
-                  {fleet.agents.length > 3 ? <li className="fleet-agent fleet-agent-more">+{fleet.agents.length - 3} more</li> : null}
-                </ul>
-              ) : null}
             </StatTile>
           </div>
 
