@@ -13,7 +13,22 @@
   (`peer_stop_linux_test.go:73`) fails "stubborn child reported stopped: <nil>" —
   deterministically, in isolation and in the shards, and already at `f3df855e`
   (before the `snip` starters merge). The test came in at 14:29 (`d9bc2dd9`);
-  `TestPaneRootSurvivesSIGHUP` also failed in that run but passes alone (load).
+  `TestPaneRootSurvivesSIGHUP` also failed in that run — measured again
+  2026-09-13 22:5x: **it does not pass alone under load.** `-count=5` fails
+  5/5 (`.worktrees/thinking-format`) and 4/5 (root, `main`), while a single
+  run at low load passes. The cause is a race in the test, not the manager:
+  `tmux.NewSession` returns when tmux accepts `new-session`, with no wait for
+  the pane's command to start, and `PanePID` reads `#{pane_pid}` immediately,
+  so the SIGHUP can arrive before the script's `trap '' HUP` / `exec sleep`
+  runs. A standalone probe with the same script and a private socket
+  (`tmux -L`) reproduced it: HUP right after `new-session` → pane root still
+  the starting process, **died** 3/3; HUP 300 ms later → root `sleep 30`,
+  **alive** 3/3. Fix is on the test side: wait for the pane root to reach the
+  expected process (poll `PanePID`/cmdline) before signalling. Two more of
+  the package's tests ("TestCLIAdapterPreviewMatchesExecution",
+  "TestCLITerminalResumeDecisionTable") failed only inside a full-package run
+  with a live scratch server and passed alone — contention flakiness, not
+  reproduced on their own.
   `feat/tmux-isolation` / `feat/tmux-app` are in this code now — whoever lands
   first owns this line.
 - tmux: never kill by prefix (a prefix sweep killed 29 sessions in 2026-09-06) — exact names from a fixture's API only; a scratch whose daemon dies before `qa-scratch stop` strands its shells.
