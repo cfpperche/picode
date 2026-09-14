@@ -8,3 +8,4 @@
 
 - Native packages/providers/settings: real downloads, vendor OAuth, credential changes, device acceptance and a real process restart remain external.
 - Agent CLIs is not in `SURFACE_PROFILES`, so no docs-shots capture covers it.
+- Antigravity update-check: `agy update` mutates; no read-only probe yet.
