@@ -4,6 +4,7 @@
 
 ## Debts
 
+- The handoff board was already over its byte cap on `main` (12321 bytes without this branch's note; caps 120 lines / 12288) — it is what made `make close` fail on `feat/html-preview`; prune the topics named by `make handoff`, then re-render.
 - `.pi/compact.json` `atPercent 0.5` never fires for large-window models (peaks 379 K); capture tolerance is 128 px.
 - `.git` is ~530 MB (UI bundles, MP4s); a history rewrite is the owner's call. Branch protection and CODEOWNERS need the owner.
 - Tutorial video freshness audits are stale after source relocation.
