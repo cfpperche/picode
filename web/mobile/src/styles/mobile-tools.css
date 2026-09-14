@@ -26,36 +26,78 @@
 .m-tool-state p { margin: 0; overflow-wrap: anywhere; }
 /* The terminal pane with no terminal in it (TermSurface): a stopped CLI
    terminal, or one that refused to open. It was a sentence and a button in
-   the top-left corner; it is an empty state now, the same anatomy the
-   desktop pane draws (web/browser TermSurface, .term-msg there) in one
-   column, because a phone has no width to pair two buttons and the meta row
-   (the pinned conversation a Resume would continue) is the one thing a
-   reader checks before tapping. The pane carries is-empty, so the ground is
-   the app's (--bg-base) and the app tokens are the inks in both themes. */
-.term-msg {
+   the top-left corner; it is an empty state now, the same simulated
+   terminal window the desktop pane draws (web/browser TermSurface,
+   .term-window there) — titlebar, traffic lights, the terminal's own name
+   and folder as the title — one column of actions inside, because a phone
+   has no width to pair two buttons. The page stays the app's (--bg-base
+   via .term-surface.is-empty); the window is dark in both app themes
+   because it is a picture of a terminal, pinned to the dark theme's own
+   values as --tw-* (see the long note in web/browser app.css). */
+.term-empty {
   flex: 1; min-height: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 6px; padding: 20px var(--m-pad, 14px); text-align: center; line-height: 1.45;
-  color: var(--text-secondary);
+  display: grid; place-items: center;
+  padding: 16px var(--m-pad, 14px);
+}
+.term-window {
+  width: min(360px, 100%); container-type: inline-size;
+  border: 1px solid var(--tw-line); border-radius: 10px; overflow: hidden;
+  background: var(--tw-bg);
+  box-shadow: 0 14px 36px color-mix(in srgb, #000 30%, transparent);
+  --tw-bg: #16161c;
+  --tw-bar: #1c1c23;
+  --tw-line: #2c2c34;
+  --tw-ink: #ececf1;
+  --tw-dim: #9b9ba7;
+  --tw-danger: #f7768e;
+  --tw-warn: #e5c07b;
+}
+.term-window-bar {
+  position: relative; display: flex; align-items: center;
+  height: 34px; padding: 0 12px;
+  background: var(--tw-bar); border-bottom: 1px solid var(--tw-line);
+}
+.term-window-lights { display: inline-flex; gap: 6px; }
+.term-window-lights i { width: 10px; height: 10px; border-radius: 50%; }
+.term-window-lights i:nth-child(1) { background: #ff5f57; }
+.term-window-lights i:nth-child(2) { background: #febc2e; }
+.term-window-lights i:nth-child(3) { background: #28c840; }
+.term-window-title {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  max-width: min(70%, 240px);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--mono); font-size: 11px; color: var(--tw-dim);
+}
+.term-msg {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 6px; padding: 20px 16px 22px; text-align: center; line-height: 1.45;
+  color: var(--tw-dim);
 }
 .term-msg-mark {
   display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 4px;
-  border: 1px solid var(--border); border-radius: var(--radius-panel);
-  background: var(--bg-panel); color: var(--text-secondary);
+  border: 1px solid var(--tw-line); border-radius: var(--radius-panel);
+  background: var(--tw-bar); color: var(--tw-dim);
 }
 .term-msg[data-tone="warn"] .term-msg-mark {
-  color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 40%, var(--border));
-  background: color-mix(in srgb, var(--warn) 8%, var(--bg-panel));
+  color: var(--tw-warn);
+  border-color: color-mix(in srgb, var(--tw-warn) 40%, var(--tw-line));
+  background: color-mix(in srgb, var(--tw-warn) 8%, var(--tw-bar));
 }
-.term-msg-head { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.term-msg-head { margin: 0; font-size: 14px; font-weight: 600; color: var(--tw-ink); }
 .term-msg-meta {
   margin: 0; max-width: 100%; font-family: var(--mono); font-size: 12px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .term-msg-why { margin: 0; max-width: 56ch; font-size: 13px; }
-.term-msg-why.is-danger { color: var(--danger); }
-.term-msg-acts { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 360px; margin-top: 12px; }
+.term-msg-why.is-danger { color: var(--tw-danger); }
+.term-msg-acts { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 12px; }
+.term-window .btn:not(.btn-primary) {
+  background: var(--tw-bar); border-color: var(--tw-line); color: var(--tw-ink);
+}
+.term-window .btn:not(.btn-primary):hover {
+  background: color-mix(in srgb, var(--tw-ink) 9%, var(--tw-bar));
+  border-color: var(--tw-dim);
+}
 .term-msg-spin { animation: dash-spin 900ms linear infinite; }
 @media (prefers-reduced-motion: reduce) { .term-msg-spin { animation: none; } }
 .m-tool-loading .gg-skel { display: block; height: 12px; width: 85%; }

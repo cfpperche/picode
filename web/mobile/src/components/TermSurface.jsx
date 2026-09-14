@@ -22,12 +22,30 @@ function oneLine(text) {
 function TermMessage({ tone, icon, head, meta, metaTitle, why, alert, children }) {
   return (
     <div className="term-msg" data-tone={tone || undefined}>
-      <span className="term-msg-mark" aria-hidden="true">{icon}</span>
+      {icon ? <span className="term-msg-mark" aria-hidden="true">{icon}</span> : null}
       <p className="term-msg-head" role="status">{head}</p>
       {meta ? <p className="term-msg-meta" title={metaTitle || undefined}>{meta}</p> : null}
       {why ? <p className="term-msg-why">{why}</p> : null}
       {alert ? <p className="term-msg-why is-danger" role="alert">{alert}</p> : null}
       <div className="term-msg-acts">{children}</div>
+    </div>
+  );
+}
+
+// TermWindow — the same simulated terminal window the desktop pane draws
+// (owner call, 2026-09-14): titlebar, traffic lights, the terminal's own
+// name and folder as the title, content hugged inside and the window
+// centered on the pane. The chrome is decorative (aria-hidden).
+function TermWindow({ title, titleFull, children }) {
+  return (
+    <div className="term-empty">
+      <div className="term-window">
+        <div className="term-window-bar" aria-hidden="true">
+          <span className="term-window-lights"><i /><i /><i /></span>
+          <span className="term-window-title" title={titleFull || undefined}>{title}</span>
+        </div>
+        {children}
+      </div>
     </div>
   );
 }
@@ -66,29 +84,38 @@ export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind }
   // An empty pane is app chrome and follows the app theme; the class moves
   // the ground off the terminal's own (see .term-surface.is-empty).
   const empty = !!(error || (term && term.launchCli && !term.running));
+  // The window's title bar carries the terminal's own name and folder, the
+  // way a real terminal titles itself.
+  const cwdBase = term && term.cwd ? String(term.cwd).split("/").filter(Boolean).pop() : "";
   return (
     <section className={"term-surface" + (empty ? " is-empty" : "")} hidden={!!hidden} aria-label={term ? term.name : "Terminal"} onKeyDown={onKey}>
       {error ? (
-        <TermMessage tone="warn" icon={<IconWarn size={18} />} head={error}>
-          <a className="btn" href="#/system">Open System</a>
-        </TermMessage>
+        <TermWindow title="Terminal">
+          <TermMessage tone="warn" icon={<IconWarn size={18} />} head={error}>
+            <a className="btn" href="#/system">Open System</a>
+          </TermMessage>
+        </TermWindow>
       ) : term?.launchCli && !term.running ? (
-        <TermMessage
-          icon={<IconTerminal size={18} />}
-          head={term.lostAtRestart ? "PiCode restarted while this terminal was running." : "This CLI terminal is stopped."}
-          meta={meta}
-          metaTitle={metaTitle}
-          why={attempt}
-          alert={resumeError}
+        <TermWindow
+          title={term.name + (cwdBase ? " — " + cwdBase : "")}
+          titleFull={term.cwd}
         >
-          {last ? (
-            <button type="button" className="btn btn-primary" disabled={resuming} onClick={resumeLast}>
-              {resuming ? <IconReload size={13} className="term-msg-spin" /> : <IconPlay size={12} />}
-              {resuming ? "Resuming…" : "Resume last session"}
-            </button>
-          ) : null}
-          <a className="btn" href="#/clis">Start from Agent CLIs</a>
-        </TermMessage>
+          <TermMessage
+            head={term.lostAtRestart ? "PiCode restarted while this terminal was running." : "This CLI terminal is stopped."}
+            meta={meta}
+            metaTitle={metaTitle}
+            why={attempt}
+            alert={resumeError}
+          >
+            {last ? (
+              <button type="button" className="btn btn-primary" disabled={resuming} onClick={resumeLast}>
+                {resuming ? <IconReload size={13} className="term-msg-spin" /> : <IconPlay size={12} />}
+                {resuming ? "Resuming…" : "Resume last session"}
+              </button>
+            ) : null}
+            <a className="btn" href="#/clis">Start from Agent CLIs</a>
+          </TermMessage>
+        </TermWindow>
       ) : (
         <ShellTerm agentId={term.id} session={term.session} active={!hidden} cwd={term.cwd} cwdKind={cwdKind} onOpenFile={onOpenFile} />
       )}

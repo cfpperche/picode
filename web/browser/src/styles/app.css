@@ -2226,50 +2226,96 @@ img.ws-face.term-cli-face {
 
 /* ============ a pane with no terminal in it ============ */
 /* A stopped CLI terminal and a terminal that refused to open are the two
-   states where TermSurface has no xterm to show. Both were a sentence and a
-   control pinned to the top-left of the pane's ground — the pane is the
-   whole workspace, so a stop read as a black well with a line in it. They
-   are an empty state now, in the app's own language (.cv-placeholder.cv-state
-   in the Canvas, .empty-card on a route): what is true, what a Resume would
-   continue, why we know, and the actions. The pane carries is-empty and the
-   ground is the app's (--bg-base), so the app tokens are the inks here in
-   both themes (see .term-surface.is-empty above). */
+   states where TermSurface has no xterm to show. Both sit in TermWindow —
+   a picture of a terminal window (owner call, 2026-09-14, after the
+   ohmyz.sh mock): titlebar, traffic lights, the terminal's own name and
+   folder as the title, the content hugged inside and the whole window
+   centered on the pane instead of filling it. The page around it stays the
+   app's (.term-surface.is-empty paints --bg-base); the window is dark in
+   both app themes because it is a picture of a terminal, so its palette is
+   pinned to the dark theme's own values (theme.css) as --tw-* — nothing
+   outside this block reads them. */
+.term-empty {
+  flex: 1; min-height: 0;
+  display: grid; place-items: center;
+  padding: 24px;
+}
+.term-window {
+  width: min(520px, 100%); container-type: inline-size;
+  border: 1px solid var(--tw-line); border-radius: 10px; overflow: hidden;
+  background: var(--tw-bg);
+  box-shadow: 0 14px 36px color-mix(in srgb, #000 26%, transparent);
+  --tw-bg: #16161c;
+  --tw-bar: #1c1c23;
+  --tw-line: #2c2c34;
+  --tw-ink: #ececf1;
+  --tw-dim: #9b9ba7;
+  --tw-danger: #f7768e;
+  --tw-warn: #e5c07b;
+}
+.term-window-bar {
+  position: relative; display: flex; align-items: center;
+  height: 36px; padding: 0 12px;
+  background: var(--tw-bar); border-bottom: 1px solid var(--tw-line);
+}
+/* The macOS traffic lights the mock depicts; decorative only. */
+.term-window-lights { display: inline-flex; gap: 7px; }
+.term-window-lights i { width: 11px; height: 11px; border-radius: 50%; }
+.term-window-lights i:nth-child(1) { background: #ff5f57; }
+.term-window-lights i:nth-child(2) { background: #febc2e; }
+.term-window-lights i:nth-child(3) { background: #28c840; }
+.term-window-title {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  max-width: min(72%, 380px);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--mono); font-size: 11.5px; color: var(--tw-dim);
+}
 .term-msg {
-  flex: 1; min-height: 0; container-type: inline-size;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 6px; padding: 16px; text-align: center; line-height: 1.45; color: var(--text-secondary);
+  display: flex; flex-direction: column; align-items: center;
+  gap: 6px; padding: 24px 28px 26px; text-align: center; line-height: 1.45; color: var(--tw-dim);
 }
 .term-msg-mark {
   display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 4px;
-  border: 1px solid var(--border); border-radius: var(--radius-panel);
-  background: var(--bg-panel); color: var(--text-secondary);
+  border: 1px solid var(--tw-line); border-radius: var(--radius-panel);
+  background: var(--tw-bar); color: var(--tw-dim);
 }
 .term-msg[data-tone="warn"] .term-msg-mark {
-  color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 40%, var(--border));
-  background: color-mix(in srgb, var(--warn) 8%, var(--bg-panel));
+  color: var(--tw-warn);
+  border-color: color-mix(in srgb, var(--tw-warn) 40%, var(--tw-line));
+  background: color-mix(in srgb, var(--tw-warn) 8%, var(--tw-bar));
 }
-.term-msg-head { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.term-msg-head { margin: 0; font-size: 14px; font-weight: 600; color: var(--tw-ink); }
 .term-msg-meta {
   margin: 0; max-width: 100%; font-family: var(--mono); font-size: 12px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .term-msg-why { margin: 0; max-width: 56ch; font-size: 12.5px; }
-.term-msg-why.is-danger { color: var(--danger); }
+.term-msg-why.is-danger { color: var(--tw-danger); }
 .term-msg-acts {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
   gap: 8px; margin-top: 10px;
+}
+/* The quiet action wears the window's own chrome: an app-light button inside
+   a dark terminal picture would break the picture the owner asked for. The
+   primary keeps the accent — it starts work. */
+.term-window .btn:not(.btn-primary) {
+  background: var(--tw-bar); border-color: var(--tw-line); color: var(--tw-ink);
+}
+.term-window .btn:not(.btn-primary):hover {
+  background: color-mix(in srgb, var(--tw-ink) 9%, var(--tw-bar));
+  border-color: var(--tw-dim);
 }
 .term-msg-spin { animation: dash-spin 900ms linear infinite; }
 @media (prefers-reduced-motion: reduce) { .term-msg-spin { animation: none; } }
 /* The smallest Canvas panel is 256x224 px (CANVAS_LIMITS), the body is
    overflow:hidden, and the two actions are ~150px each — so in a panel the
-   mark and the side-by-side pair have to give way rather than clip. The
-   measured box is .term-msg's own (a container query reaches descendants,
-   never the container), which is why the padding is not in here. */
+   side-by-side pair has to give way rather than clip. The measured box is
+   .term-window's own (a container query reaches descendants, never the
+   container), which is why the window's own padding is not in here. */
 @container (max-width: 300px) {
-  .term-msg-mark { display: none; }
+  .term-msg { padding: 14px 12px 16px; }
   .term-msg-acts { flex-direction: column; align-items: stretch; width: 100%; margin-top: 8px; }
+  .term-window-title { display: none; }
 }
 .file-skel { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 .tp-file {
