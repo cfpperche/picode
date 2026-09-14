@@ -27,7 +27,10 @@ within budget) and the manifest committed.
 visual-review: PASS (card 5/5; no overlay in this flow)
 Not done: no live reload (v1.5), unsaved HTML is not previewed by design,
 no console capture (opaque origin), documents >1 MiB cannot mint (the pane's
-text read gates Raw).
-Merge: not merged — `make close` is blocked by the handoff board already
-over its byte cap on `main` (see `docs/handoff/open/process.md`); every other
-close step is green and the tree is clean.
+text read gates Raw), and no `docs/handoff/open/html-preview.md` topic yet.
+Next: v1.5 (live reload from a served-asset watch + SSE, preview-only
+documents over the text cap, unsaved-text overlay) and v2 (a real second
+origin) — plan `docs/plans/html-preview.md`.
+Merge: fast-forward ready pending the owner's review; `make close` green and
+the board back under its cap (12184/12288) because this note replaced the
+study note's obsolete `## Next up` bullets — no other topic was touched.
