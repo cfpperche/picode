@@ -50,12 +50,12 @@ function harness({ tab = "w:7", invoke, post } = {}) {
 // settle lets the async command path finish.
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-test("a CDP command reaches the bridge with its tier and params", async () => {
+test("a CDP command reaches the bridge with its tier, params and domains", async () => {
   const { source, calls } = harness();
-  source.frame(JSON.stringify({ id: "c1", method: "Page.captureScreenshot", params: { format: "png" }, tier: "act" }));
+  source.frame(JSON.stringify({ id: "c1", method: "Page.captureScreenshot", params: { format: "png" }, tier: "act", domains: ["example.com"] }));
   await settle();
   assert.deepEqual(calls.invoke, [
-    ["btab_cdp_call", { id: "7", method: "Page.captureScreenshot", paramsJson: '{"format":"png"}', tier: "act", domains: [] }],
+    ["btab_cdp_call", { id: "7", method: "Page.captureScreenshot", paramsJson: '{"format":"png"}', tier: "act", domains: ["example.com"] }],
   ]);
   assert.deepEqual(calls.post, [{ id: "c1", output: { ok: "btab_cdp_call" } }]);
 });

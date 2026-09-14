@@ -70,6 +70,17 @@ const CLI_FAVICONS = Object.freeze({
     "https://opencode.ai/favicon.svg",
     "https://opencode.ai/favicon.ico",
   ]),
+  // Muse Code is Meta's product; its mark is the vendor's, like Codex
+  // wearing OpenAI's.
+  muse: Object.freeze([
+    CLI_ICON_BASE + "meta.svg",
+    "https://www.meta.com/favicon.ico",
+  ]),
+  agy: Object.freeze([
+    // antigravity.svg is not in the 1.73.0 pin the other marks use.
+    "https://unpkg.com/@lobehub/icons-static-svg@1.95.0/icons/antigravity.svg",
+    "https://antigravity.google/favicon.ico",
+  ]),
   // pi has no lobehub mark; pi.dev serves a transparent SVG.
   pi: Object.freeze(["https://pi.dev/favicon.svg"]),
 });
