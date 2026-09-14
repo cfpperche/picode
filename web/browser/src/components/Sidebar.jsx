@@ -174,11 +174,13 @@ export default function Sidebar({
           <button type="button" className="ws-icon-btn" title="New terminal" onClick={() => onNewTerm && onNewTerm()}><IconPlus /></button>
           <button type="button" className="ws-icon-btn" title="Terminal defaults" onClick={() => { location.hash = "#/termset"; }}><IconSettings /></button>
         </div>
+        <div className="side-scroll">
         {freeTerminals(terminals).length === 0 ? (
           <p className="side-empty pins-empty">No terminals yet. <button type="button" className="side-empty-act" onClick={() => onNewTerm && onNewTerm()}>New terminal</button></p>
         ) : (
           <ul className="ws-list">{freeTerminals(terminals).map(termRow)}</ul>
         )}
+        </div>
       </div>
       ) : tab === "agents" ? (
       <div className="side-section">
@@ -186,11 +188,13 @@ export default function Sidebar({
           <span className="pins-title">Agents</span>
           <button type="button" className="ws-icon-btn" title="New agent" onClick={() => onNewFree()}><IconPlus /></button>
         </div>
+        <div className="side-scroll">
         {sortedFreeAgents.length === 0 ? (
           <p className="side-empty pins-empty">No free agents yet. <button type="button" className="side-empty-act" onClick={() => onNewFree()}>New agent</button></p>
         ) : (
           <ul className="ws-list">{sortedFreeAgents.map((ag) => agentRow(ag, null))}</ul>
         )}
+        </div>
       </div>
       ) : (
       <div className="side-section">
@@ -198,6 +202,7 @@ export default function Sidebar({
           <span className="pins-title">Workspaces</span>
           <button id="btn-new" type="button" className="ws-icon-btn" title="New workspace" onClick={() => onNew()}><IconPlus /></button>
         </div>
+        <div className="side-scroll">
         {workspaces.length === 0 ? (
           <p className="side-empty pins-empty">No workspaces yet. <button type="button" className="side-empty-act" onClick={() => onNew()}>Add workspace</button></p>
         ) : (
@@ -255,6 +260,7 @@ export default function Sidebar({
           })}
         </ul>
         )}
+        </div>
       </div>
       )}
 
