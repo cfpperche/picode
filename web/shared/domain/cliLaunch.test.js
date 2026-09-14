@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cliLocation, cliPaneHash, cliPaneSetupContext, cliTerminals, launchDraft, launchConfig, resolveLaunch, launchOverrides, terminalLaunchCLI, defaultLaunchConfig, profileOverrides, editLaunchOverrides, cliWorkspaceList, launchChanged } from "./cliLaunch.js";
+import { cliLocation, cliPaneHash, cliPaneSetupContext, cliDetectOnly, cliTerminals, launchDraft, launchConfig, resolveLaunch, launchOverrides, terminalLaunchCLI, defaultLaunchConfig, profileOverrides, editLaunchOverrides, cliWorkspaceList, launchChanged } from "./cliLaunch.js";
 import { cliLaunchSchema, parseForm } from "../contracts/schemas.js";
 
 test("CLI manager parses launch routes", () => {
@@ -148,4 +148,10 @@ test("launch comparison detects binary replacement without marking legacy snapsh
     assert.equal(launchChanged(applied, { ...applied, ...patch }), true);
   }
   assert.equal(launchChanged({ ...applied, identity: "" }, applied), false);
+});
+
+test("detect-only catalog rows skip launch chrome", () => {
+  assert.equal(cliDetectOnly({ surface: "detect" }), true);
+  assert.equal(cliDetectOnly({ id: "pi" }), false);
+  assert.equal(cliDetectOnly(null), false);
 });

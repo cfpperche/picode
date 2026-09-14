@@ -82,9 +82,37 @@ pub fn allows_origin(domains: &[String], raw_url: &str) -> bool {
     false
 }
 
+/// The whole navigation gate, one call so the COM handler cannot half-check:
+/// no grant known → the shell enforces nothing (the tab was not driven by an
+/// act-capable agent yet); a user-initiated load is always sovereign; an
+/// agent-caused load must sit inside the grant. The NavigationStarting
+/// handler in btab.rs is this function plus COM plumbing.
+pub fn gate(domains: Option<&[String]>, user_initiated: bool, raw_url: &str) -> bool {
+    match domains {
+        None => true,
+        Some(d) => user_initiated || allows_origin(d, raw_url),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::allows_origin;
+
+    #[test]
+    fn gate_decision_table() {
+        let grant = vec!["example.com".to_string()];
+        let rows: &[(Option<&[String]>, bool, &str, bool)] = &[
+            // (grant, user-initiated, url, allow)
+            (None, false, "https://evil.test/", true), // no grant armed: nothing to enforce
+            (Some(&grant), true, "https://evil.test/", true), // the user is sovereign
+            (Some(&grant), false, "https://example.com/a", true), // inside the grant
+            (Some(&grant), false, "https://evil.test/", false), // agent roams out: cancel
+            (Some(&[]), false, "https://example.com/", false), // empty grant: no destination
+        ];
+        for (domains, user, url, allow) in rows {
+            assert_eq!(gate(*domains, *user, url), *allow, "gate({domains:?}, {user}, {url})");
+        }
+    }
 
     #[test]
     fn mirrors_the_go_table() {

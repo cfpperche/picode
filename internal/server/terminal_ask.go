@@ -204,7 +204,26 @@ func (deps Deps) DeliverTerminalReply(itemID, verb, text string) (termID string,
 	}
 	sessionPath := strings.TrimSpace(it.SessionPath)
 	if sessionPath == "" {
-		return termID, errors.New("this question predates session tracking — answer it in the terminal")
+		// The item predates per-question session stamping (or its pi could not
+		// name a session at ask time). The terminal's pinned last session is
+		// still an address — the "session update" the debt names — but only
+		// when it independently agrees with the conversation the receiver is
+		// showing right now: two sources, one answer. A pin that disagrees
+		// with the pane is the 2026-09-11 "different session" hazard, so it
+		// refuses instead of guessing. The safe-path and file checks below
+		// then apply to the resolved path exactly as to a stamped one.
+		resolved := ""
+		if launch, err := deps.Store.TerminalLaunch(termID); err == nil && launch != nil && launch.LastSession != nil &&
+			strings.TrimSpace(launch.LastSession.CLI) == "pi" {
+			resolved = strings.TrimSpace(launch.LastSession.Path)
+		}
+		switch {
+		case resolved == "":
+			return termID, errors.New("this question predates session tracking — answer it in the terminal")
+		case resolved != shown:
+			return termID, errors.New("the terminal's recorded session does not match the conversation it is showing now, and this question names no session — answer it in the terminal")
+		}
+		sessionPath = resolved
 	}
 	if !safeSessionPath(sessionPath, session.Dir(term.Cwd)) {
 		return termID, errors.New("the question's session could not be identified safely — answer it in the terminal")

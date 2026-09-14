@@ -5,7 +5,10 @@ description: Terminals, session history, and moving a conversation between your 
 # Agent CLIs
 
 Terminals, session history, and moving a conversation between your installed
-Pi, Claude Code, Codex, Grok, Hermes Agent and OpenCode commands.
+Pi, Claude Code, Codex, Grok, Hermes Agent and OpenCode commands. Muse Code
+and Antigravity appear in the list so you can see whether they are installed
+and (for Muse Code) whether an update is available; they cannot open a
+PiCode terminal yet.
 
 - **Where:** last icon in the desktop sidebar header, `Ctrl+K`, or **More** on a phone (`#/clis`).
 - **Not this:** a CLI terminal is not a managed Pi agent. Structured chat, packages and automations still use Pi.

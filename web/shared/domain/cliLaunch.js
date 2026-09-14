@@ -5,6 +5,10 @@ import { cliConnectorsLocation } from "./integrations.js";
 
 const CLI_PANES = new Set(["launch", "terminals", "sessions", "providers", "settings", "keyboard", "packages", "connectors"]);
 
+export function cliDetectOnly(cli) {
+  return !!(cli && cli.surface === "detect");
+}
+
 // Setup panes (Settings / Packages / Connectors) read identity from the
 // hash. When the hash has none, the selected sidebar pane is the fallback
 // so Agent CLIs → Packages still offers This workspace / This agent.

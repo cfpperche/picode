@@ -82,3 +82,24 @@ func TestLaunchDiagnosticsRedactValues(t *testing.T) {
 		t.Fatal("unstable normalization")
 	}
 }
+
+func TestCatalogDetectOnly(t *testing.T) {
+	want := map[string]bool{"muse": true, "agy": true}
+	seen := map[string]bool{}
+	for _, c := range Catalog() {
+		if c.DetectOnly() != want[c.ID] {
+			t.Errorf("%s DetectOnly = %v", c.ID, c.DetectOnly())
+		}
+		if want[c.ID] {
+			seen[c.ID] = true
+			if c.Command == "" || c.Docs == "" {
+				t.Errorf("%s missing command or docs", c.ID)
+			}
+		}
+	}
+	for id := range want {
+		if !seen[id] {
+			t.Errorf("catalog missing %s", id)
+		}
+	}
+}

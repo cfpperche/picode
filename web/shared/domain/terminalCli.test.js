@@ -8,13 +8,19 @@ test("terminal CLI aliases use one canonical identity", () => {
   assert.equal(normalizeTerminalCli("codex"), "codex");
   assert.equal(normalizeTerminalCli("hermes"), "hermes");
   assert.equal(normalizeTerminalCli("opencode"), "opencode");
+  assert.equal(normalizeTerminalCli("muse"), "muse");
+  assert.equal(normalizeTerminalCli("agy"), "agy");
   assert.equal(normalizeTerminalCli("unknown"), "");
   assert.equal(terminalCliLabel("pi"), "Pi");
   assert.equal(terminalCliLabel("hermes"), "Hermes Agent");
   assert.equal(terminalCliLabel("opencode"), "OpenCode");
+  assert.equal(terminalCliLabel("muse"), "Muse Code");
+  assert.equal(terminalCliLabel("agy"), "Antigravity");
   assert.equal(terminalCliMark("codex"), "Cx");
   assert.equal(terminalCliMark("hermes"), "H");
   assert.equal(terminalCliMark("opencode"), "Oc");
+  assert.equal(terminalCliMark("muse"), "Mu");
+  assert.equal(terminalCliMark("agy"), "Ag");
 });
 
 test("supported runtimes use their official favicons, best first", () => {
@@ -44,6 +50,14 @@ test("supported runtimes use their official favicons, best first", () => {
     "https://unpkg.com/@lobehub/icons-static-svg@1.95.0/icons/opencode.svg",
     "https://opencode.ai/favicon.svg",
     "https://opencode.ai/favicon.ico",
+  ]);
+  assert.deepEqual(terminalCliFaviconUrls("muse"), [
+    "https://unpkg.com/@lobehub/icons-static-svg@1.73.0/icons/meta.svg",
+    "https://www.meta.com/favicon.ico",
+  ]);
+  assert.deepEqual(terminalCliFaviconUrls("agy"), [
+    "https://unpkg.com/@lobehub/icons-static-svg@1.95.0/icons/antigravity.svg",
+    "https://antigravity.google/favicon.ico",
   ]);
   assert.deepEqual(terminalCliFaviconUrls("pi"), ["https://pi.dev/favicon.svg"]);
   assert.deepEqual(terminalCliFaviconUrls("shell"), []);
