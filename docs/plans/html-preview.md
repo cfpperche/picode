@@ -46,7 +46,7 @@ study; the feature's own tests will pin the conclusions.
 | Probe | Result |
 |---|---|
 | `<img>`, classic `<script>`, `fetch()` with `credentials:include`, POST | **No `Cookie` header; `Sec-Fetch-Site: cross-site`** — the sandbox does not carry the session at all |
-| fetch / form POST | `Origin: null` — PiCode's `originAllowed` refuses mutating API calls |
+| fetch / form POST | `Origin: null` — `originAllowed` already refuses it on purpose (`internal/auth/auth.go`: *"null" is a sandboxed or file: page: refuse*), and `Sec-Fetch-Site: cross-site` is refused first |
 | `fetch('/whoami')` JSON from the sandbox | Not readable (no CORS header) |
 | After the endpoint adds `Access-Control-Allow-Origin: *` | JSON readable, ES module executes — a token route can feed the sandbox without cookies |
 | `window.top.location = …` | Blocked (SecurityError) |
@@ -114,7 +114,7 @@ The app shell's `frame-src 'self'` already allows this URL; no change.
 | Method other than GET/HEAD | 405 |
 | Document, allowed, no CORS request | serve with CSP sandbox + no-referrer |
 | Asset, allowed | serve with ACAO `*`; module scripts and `fetch` work under the opaque origin |
-| Previewed page calls `/api/*` | CORS blocks reads; `Origin: null` + SameSite Strict refuse writes |
+| Previewed page calls `/api/*` | CORS blocks reads; `Origin: null` is refused for writes by the existing origin check |
 | Previewed page top-navigates | sandbox blocks |
 
 ## UI
@@ -164,8 +164,8 @@ The app shell's `frame-src 'self'` already allows this URL; no change.
   or mobile shows the rendered page: inline and external scripts, styles,
   images, `fetch('data.json')`, ES modules, a CDN import, forms.
 - A page calling `fetch('/api/agents')` reads nothing; a POST to any `/api`
-  route is refused; no PiCode cookie reaches the preview path (probe above,
-  plus a Go test asserting headers).
+  route is refused; the preview route serves its document and assets with no
+  session cookie at all (Go tests pin the headers and the anonymous request).
 - The token URL opened directly in a browser is still sandboxed (header CSP).
 - Expired/revoked/re-minted tickets, traversal, symlink escape, dotfile and
   off-allowlist requests are covered by table tests (every decision-table
