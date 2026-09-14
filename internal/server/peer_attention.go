@@ -267,16 +267,20 @@ func peerOpenCodeInput(s tmux.InputSnapshot, expected string) bool {
 	if !strings.HasSuffix(footer, "ctrl+p commands") {
 		return false
 	}
+	continuations := 0
 	for n := y + 5; n < len(s.Lines); n++ {
 		line := clean(n)
 		if line == "" {
 			continue
 		}
-		// OpenCode may wrap the cwd once below the command footer. Accept
-		// only that captured path continuation, never arbitrary footer text.
-		if n != y+5 || !strings.HasPrefix(footer, "   /") || !openCodePathContinuation.MatchString(line) {
+		// The native footer wraps the cwd across as many rows as its length
+		// needs — deep worktree paths at narrow widths wrap twice or more, and
+		// every extra row is still below the lower border where a user draft
+		// cannot be. Accept only those path-only rows, never arbitrary text.
+		if !strings.HasPrefix(footer, "   /") || continuations == 8 || !openCodePathContinuation.MatchString(line) {
 			return false
 		}
+		continuations++
 	}
 
 	return true
