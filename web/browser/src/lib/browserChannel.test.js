@@ -55,7 +55,7 @@ test("a CDP command reaches the bridge with its tier and params", async () => {
   source.frame(JSON.stringify({ id: "c1", method: "Page.captureScreenshot", params: { format: "png" }, tier: "act" }));
   await settle();
   assert.deepEqual(calls.invoke, [
-    ["btab_cdp_call", { id: "7", method: "Page.captureScreenshot", paramsJson: '{"format":"png"}', tier: "act" }],
+    ["btab_cdp_call", { id: "7", method: "Page.captureScreenshot", paramsJson: '{"format":"png"}', tier: "act", domains: [] }],
   ]);
   assert.deepEqual(calls.post, [{ id: "c1", output: { ok: "btab_cdp_call" } }]);
 });
