@@ -23,4 +23,3 @@ confirm; delivery proved end to end (the pane printed `snippet-ran-ok`). Also:
 `.btn-danger` had only a `:hover` rule, and a phone has no hover. Not verified
 live: the busy refusal through the UI (needs an agent mid-turn) — the server
 test covers it. Docs: architecture, changelog, `open/snippets.md`.
-Merge: fast-forward ready.
