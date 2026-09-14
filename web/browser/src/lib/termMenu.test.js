@@ -157,6 +157,8 @@ test("agent pane offers the browser split; own terminal does not (ADR-0135 slice
   assert.ok(!ids(buildTermMenu({ kind: "agent" })).includes("close-browser"));
   assert.ok(ids(buildTermMenu({ kind: "agent", splitOn: true })).includes("close-browser"));
   assert.ok(!ids(buildTermMenu({ kind: "agent", splitOn: true })).includes("open-browser"));
-  const own = ids(buildTermMenu({ kind: "term", shell: true }));
-  assert.ok(!own.includes("open-browser") && !own.includes("close-browser"));
+  // A terminal launched with an agent CLI hosts an agent too — pi included.
+  assert.ok(ids(buildTermMenu({ kind: "term", cli: "Pi", running: true })).includes("open-browser"));
+  const shell = ids(buildTermMenu({ kind: "term", shell: true }));
+  assert.ok(!shell.includes("open-browser") && !shell.includes("close-browser"));
 });

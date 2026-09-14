@@ -102,10 +102,12 @@ export function buildTermMenu(ctx = {}) {
   }
   rows.push(SEP, ...view);
 
-  // The owner's split (ADR-0135): an agent's pane can host a work-browser
-  // pane beside it, bound to that agent. A terminal of its own has no agent
-  // to bind, so the row — open or close, one toggle — is agent-pane only.
-  if (ctx.kind === "agent") {
+  // The owner's split (ADR-0135): a pane that hosts an agent — an agent's
+  // TUI, or a terminal launched with an agent CLI (pi, Claude Code, …) —
+  // can host a work-browser pane beside it, bound to that agent. A bare
+  // shell has no agent to bind, so the row — open or close, one toggle —
+  // stays away from it.
+  if (ctx.kind === "agent" || !!ctx.cli) {
     rows.push(SEP, ctx.splitOn
       ? { id: "close-browser", label: "Close browser split", icon: "x" }
       : { id: "open-browser", label: "Open browser", icon: "globe" });

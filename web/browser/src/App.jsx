@@ -545,7 +545,7 @@ export default function App({ shellChrome = false } = {}) {
             cli: record && record.launchCli ? terminalCliLabel(record.launchCli) : "",
             running: !!(record && record.running),
             shell: !!record && !record.launchCli && !terminalCli(record),
-            splitOn: pane.kind === "agent" ? !!agentPanesRef.current[pane.id] : false,
+            splitOn: pane.kind === "agent" ? !!agentPanesRef.current[pane.id] : !!agentPanesRef.current[termTabId(pane.id)],
           },
         });
         return;
@@ -2222,11 +2222,12 @@ export default function App({ shellChrome = false } = {}) {
     files: (ctx) => openTreeTab("term", ctx.id, ctx.record ? ctx.record.name : ""),
     "close-tab": (ctx) => closeTab(termTabId(ctx.id)),
     remove: (ctx) => removeTerminal(ctx.record),
-    "open-browser": (ctx) => openAgentSplit(ctx.id),
+    "open-browser": (ctx) => openAgentSplit(ctx.kind === "agent" ? ctx.id : termTabId(ctx.id)),
     "close-browser": (ctx) => {
-      const wid = agentPanesRef.current[ctx.id];
+      const key = ctx.kind === "agent" ? ctx.id : termTabId(ctx.id);
+      const wid = agentPanesRef.current[key];
       if (wid) window.__TAURI__?.core.invoke("btab_close", { id: wid }).catch(() => {});
-      setAgentPanes(({ [ctx.id]: _gone, ...rest }) => rest);
+      setAgentPanes(({ [key]: _gone, ...rest }) => rest);
     },
   };
 
@@ -3456,7 +3457,7 @@ export default function App({ shellChrome = false } = {}) {
               key={"split-" + selectedId}
               tabId={"w:" + agentPanes[selectedId]}
               active={true}
-              hidden={noTabs || missing || isTermTab(selectedId) || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId)}
+              hidden={noTabs || missing || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId)}
               className="agent-split-pane"
               onMeta={(m) => setWebTabs((cur) => ({ ...cur, [agentPanes[selectedId]]: { ...cur[agentPanes[selectedId]], ...m } }))}
             />
