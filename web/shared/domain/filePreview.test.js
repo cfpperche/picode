@@ -4,6 +4,8 @@ import { previewKind, isBlobKind, svgDataUrl, previewEmpty } from "./filePreview
 
 test("previewKind covers track 1", () => {
   assert.equal(previewKind("a.svg"), "svg");
+  assert.equal(previewKind("index.html"), "html");
+  assert.equal(previewKind("INDEX.HTM"), "html");
   assert.equal(previewKind("a.mmd"), "mermaid");
   assert.equal(previewKind("a.md"), "markdown");
   assert.equal(previewKind("a.png"), "image");

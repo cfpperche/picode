@@ -32,7 +32,7 @@ export function fileMessage(raw = "", subject = "file") {
   if (/changed on disk/i.test(raw)) return "This file changed on disk.";
   if (/gone|not found|no such file/i.test(raw)) return `That ${subject} is gone.`;
   if (/too large/i.test(raw)) return "This file is too large to display.";
-  if (/can't show|can't write|unsupported/i.test(raw)) return "Can't display this file.";
+  if (/not available|can't show|can't write|unsupported/i.test(raw)) return "Can't display this file.";
   if (/escapes/i.test(raw)) return "That path is outside this project.";
   if (/permission denied/i.test(raw)) return `You don't have access to this ${subject}.`;
   return humanizeError(raw);
