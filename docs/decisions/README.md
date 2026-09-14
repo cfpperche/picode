@@ -136,3 +136,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0129](0129-custom-provider-definitions.md) | Custom provider definitions in the Providers GUI | accepted |
 | [0130](0130-picode-snippets.md) | PiCode Snippets — GUI library, expand-before-send, snippet-run door | accepted |
 | [0131](0131-handoff-board-index.md) | The handoff board is an index: next-up inline, debts as a per-topic count with its plan; an invisible topic file fails the generator (refines 0123) | accepted |
+| [0132](0132-browser-command-channel.md) | browser-command-channel | proposed |
