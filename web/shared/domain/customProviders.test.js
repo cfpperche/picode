@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   customModelIds, validateCustomProvider, customProviderPayload, customProviderForm, customTakenIds,
-  customThinkingLevels, THINKING_LEVELS, DEFAULT_THINKING_LEVELS,
+  customThinkingLevels, mergeModelIds, agreedModelLimits, THINKING_LEVELS, DEFAULT_THINKING_LEVELS,
 } from "./customProviders.js";
 
 const good = {
@@ -171,4 +171,39 @@ test("thinking-level prefill reads the map, the levels list, or pi's default", (
 test("customTakenIds keeps the edited provider claimable", () => {
   const providers = [{ id: "anthropic" }, { id: "cheaperinference" }, { id: "openai" }];
   assert.deepEqual(customTakenIds(providers, "cheaperinference"), ["anthropic", "openai"]);
+});
+
+// Loading a list must never cost the typed ids: it appends what is missing, in
+// the endpoint's order, and reports how many it added.
+test("mergeModelIds appends only what is missing, keeping typed order", () => {
+  const found = [{ id: "glm-4.6" }, { id: "deepseek-v4.1-flash" }, { id: "glm-4.6" }, { id: "" }, null];
+  const merged = mergeModelIds("mine-1\n  glm-4.6  \n\nmine-2", found);
+  assert.equal(merged.text, "mine-1\nglm-4.6\nmine-2\ndeepseek-v4.1-flash");
+  assert.equal(merged.added, 1);
+
+  const nothing = mergeModelIds("a\nb", [{ id: "b" }, { id: "a" }]);
+  assert.equal(nothing.text, "a\nb");
+  assert.equal(nothing.added, 0);
+  assert.deepEqual(mergeModelIds("", []), { text: "", added: 0 });
+});
+
+// The form writes one context window and one max output for the whole list, so
+// it only fills them when every listed model reports the same number.
+test("agreedModelLimits fills only unanimous numbers", () => {
+  assert.deepEqual(
+    agreedModelLimits([{ id: "a", contextWindow: 200000, maxTokens: 65536 }, { id: "b", contextWindow: 200000, maxTokens: 65536 }]),
+    { contextWindow: 200000, maxTokens: 65536 },
+  );
+  assert.deepEqual(agreedModelLimits([{ id: "a", contextWindow: 1000000, maxTokens: 1 }]), { contextWindow: 1000000, maxTokens: 1 });
+  // Differing windows: nothing is claimed at all for that field.
+  assert.deepEqual(
+    agreedModelLimits([{ id: "a", contextWindow: 1000000 }, { id: "b", contextWindow: 128000 }]),
+    {},
+  );
+  assert.deepEqual(
+    agreedModelLimits([{ id: "a", contextWindow: 200000, maxTokens: 10 }, { id: "b", contextWindow: 200000 }]),
+    { contextWindow: 200000 },
+  );
+  assert.deepEqual(agreedModelLimits([]), {});
+  assert.deepEqual(agreedModelLimits([{ id: "a" }]), {});
 });

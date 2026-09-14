@@ -310,4 +310,16 @@
   margin: 0; accent-color: var(--accent);
 }
 .prov-hint { margin: 0; font-size: 11.5px; color: var(--text-secondary); }
+.prov-hint.prov-bad { color: var(--danger); }
+/* Load models: the button and its one-line report sit under the ids they fill.
+   The button keeps the form's control height so the row reads as part of the
+   form, not as a stray control. */
+.prov-load { display: flex; align-items: center; gap: 8px; margin: -2px 0 2px; }
+.prov-load .btn { flex: 0 0 auto; height: var(--ctl-h); }
+.prov-load .prov-hint { flex: 1 1 auto; min-width: 0; }
+@media (max-width: 520px) {
+  /* The phone gives the line its own row: a 11.5px sentence beside a button
+     becomes a column of two words. */
+  .prov-load { flex-direction: column; align-items: stretch; gap: 6px; }
+}
 .prov-adv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px; }
