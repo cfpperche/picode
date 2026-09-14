@@ -203,6 +203,14 @@ func probeFailureReply(e *modellist.Error, model string, keyed bool) (int, map[s
 	case modellist.KindModel:
 		label = "The endpoint does not know " + model + " (" + strconv.Itoa(e.Status) + ")" + detailTail(e.Detail) + ". Check the model id, or the base URL's route."
 	case modellist.KindInput:
+		// A refusal from the endpoint carries its status; a request PiCode could
+		// not even build has none, and printing "(0)" would be nonsense. The
+		// supported list is named because that is the one input case a person
+		// can act on (a hand-edited `api` value).
+		if e.Status == 0 {
+			label = capitalize(e.Detail) + "." + hintTail(e.Hint)
+			break
+		}
 		if !keyed {
 			label = "The endpoint answered " + strconv.Itoa(e.Status) + detailTail(e.Detail) +
 				". Some gateways need the API key in the request."

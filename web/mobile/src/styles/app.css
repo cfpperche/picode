@@ -1667,6 +1667,15 @@ img.ws-face.term-cli-face {
 }
 .dlg-input:focus { outline: none; border-color: var(--accent); }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+/* The create form's actions stay at the sheet's bottom edge, safe-area
+   included: a tall form scrolled them out of reach (measured 2026-09-14). */
+.dlg.dlg-sheet.dlg-create .dlg-actions {
+  position: sticky; bottom: 0; z-index: 1;
+  margin: 16px -18px 0;
+  padding: 12px 18px calc(20px + var(--sa-bottom));
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+}
 .dlg-create { width: min(420px, calc(100vw - 32px));
   /* The 42% anchor with a 50% pull-up clips a form taller than 84dvh at the
      viewport top (the custom endpoint form grew past it). Cap the height and
@@ -1715,6 +1724,9 @@ img.ws-face.term-cli-face {
   border-radius: 16px 16px 0 0; border-width: 1px 0 0;
   padding: 8px 18px calc(20px + var(--sa-bottom)); outline: none;
 }
+/* A create sheet's action footer owns its bottom edge (safe area included), so
+   a tall form can scroll under it and the actions stay reachable. */
+.dlg.dlg-sheet.dlg-create { padding-bottom: 0; }
 .dlg.dlg-sheet::after { display: none; }
 .dlg.dlg-sheet .dlg-actions { flex-wrap: wrap; }
 .dlg.dlg-sheet .dlg-actions .btn { min-height: 44px; flex: 1 1 auto; }

@@ -107,8 +107,32 @@ func TestCustomVerifyWithoutAModel(t *testing.T) {
 	if status != http.StatusOK || res["ok"] != false {
 		t.Fatalf("status %d res %v", status, res)
 	}
-	if reason, _ := res["reason"].(string); !strings.Contains(reason, "no model to verify") {
+	reason, _ := res["reason"].(string)
+	if !strings.Contains(reason, "No model to verify") {
 		t.Fatalf("reason = %q", reason)
+	}
+	if strings.Contains(reason, "Verify covers") {
+		t.Fatalf("the API-type guidance answered a missing-model failure: %q", reason)
+	}
+}
+
+// An unsupported API type is the one input failure a person can fix by hand:
+// the message must not print an HTTP status it never had.
+func TestCustomVerifyUnsupportedAPIType(t *testing.T) {
+	_, _, req := newCustomProviderServer(t)
+	status, res := verifyCustom(t, req, "odd", `{"baseUrl":"https://api.example.com/v1","api":"pi-messages","key":"sk-abcdefgh","model":"m"}`)
+	if status != http.StatusOK || res["ok"] != false {
+		t.Fatalf("status %d res %v", status, res)
+	}
+	reason, _ := res["reason"].(string)
+	if strings.Contains(reason, "(0)") {
+		t.Fatalf("a status that never existed leaked into the message: %q", reason)
+	}
+	if !strings.Contains(reason, "Unknown API type pi-messages") {
+		t.Fatalf("the reason does not name the type: %q", reason)
+	}
+	if !strings.Contains(reason, "Verify covers OpenAI Chat Completions") {
+		t.Fatalf("the reason does not say what verification can speak: %q", reason)
 	}
 }
 
