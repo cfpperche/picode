@@ -1859,6 +1859,22 @@ img.ws-face.term-cli-face {
   flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
   position: relative; background: #0e0e11;
   padding: var(--term-pad, 8px);
+  /* The pane's ground follows the *terminal's* theme (data-term-theme, set
+     from termTheme.js), and that axis is independent of the app's: the
+     default terminal is dark, so a light app is a normal pairing — and
+     there the app tokens are dark ink on a black pane, which is a sentence
+     nobody can read. Anything drawn *on this ground* (the pane's own
+     message and its mark) carries the pane's ink instead. Every value is
+     the token of the matching theme (theme.css) or xterm's own foreground
+     (termTheme.js xtermTheme, which is the same pairing), restated under
+     this axis because CSS cannot read a token across theme blocks: if a
+     palette moves there, it moves here. */
+  --term-ink: #ececf1;
+  --term-ink-dim: #9b9ba7;
+  --term-chip: #16161c;
+  --term-chip-line: #232329;
+  --term-danger: #f7768e;
+  --term-warn: #e5c07b;
 }
 .term-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; position: relative; }
 /* Find floats over the pane (VS Code's widget): searching must not resize
@@ -1937,7 +1953,15 @@ img.ws-face.term-cli-face {
 .sketch-editor-board { flex: 1; min-height: 0; position: relative; }
 .sketch-editor-board .excalidraw { height: 100% !important; }
 .term-surface[hidden] { display: none !important; }
-:root[data-term-theme="light"] .term-surface { background: #ffffff; }
+:root[data-term-theme="light"] .term-surface {
+  background: #ffffff;
+  --term-ink: #16181d;
+  --term-ink-dim: #5b6472;
+  --term-chip: #f0f2f7;
+  --term-chip-line: #dde2ec;
+  --term-danger: #cf3b54;
+  --term-warn: #a16207;
+}
 /* ADR-0059: one same-tab state while the TUI lends its session to a
    temporary RPC writer. This is deliberately not chat chrome: no transcript,
    composer, model picker, or terminal disconnect card. */
@@ -2163,6 +2187,53 @@ img.ws-face.term-cli-face {
 }
 .file-pane-msg { margin: 0; padding: 12px; color: var(--text-secondary); font-size: 13px; }
 .file-pane-msg a { color: var(--accent); }
+
+/* ============ a pane with no terminal in it ============ */
+/* A stopped CLI terminal and a terminal that refused to open are the two
+   states where TermSurface has no xterm to show. Both were a sentence and a
+   control pinned to the top-left of the pane's ground — the pane is the
+   whole workspace, so a stop read as a black well with a line in it. They
+   are an empty state now, in the app's own language (.cv-placeholder.cv-state
+   in the Canvas, .empty-card on a route): what is true, what a Resume would
+   continue, why we know, and the actions. Colours are tokens, so the two
+   terminal themes (data-term-theme) read the same. */
+.term-msg {
+  flex: 1; min-height: 0; container-type: inline-size;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; padding: 16px; text-align: center; line-height: 1.45; color: var(--term-ink-dim);
+}
+.term-msg-mark {
+  display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 4px;
+  border: 1px solid var(--term-chip-line); border-radius: var(--radius-panel);
+  background: var(--term-chip); color: var(--term-ink-dim);
+}
+.term-msg[data-tone="warn"] .term-msg-mark {
+  color: var(--term-warn);
+  border-color: color-mix(in srgb, var(--term-warn) 40%, var(--term-chip-line));
+  background: color-mix(in srgb, var(--term-warn) 8%, var(--term-chip));
+}
+.term-msg-head { margin: 0; font-size: 14px; font-weight: 600; color: var(--term-ink); }
+.term-msg-meta {
+  margin: 0; max-width: 100%; font-family: var(--mono); font-size: 12px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.term-msg-why { margin: 0; max-width: 56ch; font-size: 12.5px; }
+.term-msg-why.is-danger { color: var(--term-danger); }
+.term-msg-acts {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: 8px; margin-top: 10px;
+}
+.term-msg-spin { animation: dash-spin 900ms linear infinite; }
+@media (prefers-reduced-motion: reduce) { .term-msg-spin { animation: none; } }
+/* The smallest Canvas panel is 256x224 px (CANVAS_LIMITS), the body is
+   overflow:hidden, and the two actions are ~150px each — so in a panel the
+   mark and the side-by-side pair have to give way rather than clip. The
+   measured box is .term-msg's own (a container query reaches descendants,
+   never the container), which is why the padding is not in here. */
+@container (max-width: 300px) {
+  .term-msg-mark { display: none; }
+  .term-msg-acts { flex-direction: column; align-items: stretch; width: 100%; margin-top: 8px; }
+}
 .file-skel { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 .tp-file {
   flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

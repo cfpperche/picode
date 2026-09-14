@@ -266,7 +266,7 @@ beyond what the CLI's own uninstaller does.
 |---|---|
 | Open | Attach to the existing terminal. No second CLI process. |
 | Start | Start a stopped terminal with current settings. |
-| Resume last session | Start the terminal and reopen the conversation it was running, using each CLI's verified resume arguments (Claude Code `--resume <id>`, Codex `resume <id>`, Grok `--resume <id>`, Hermes Agent `--resume <id>`, OpenCode `--session <id>`, pi `--session <file>`). Offered on the stopped terminal surface when a conversation is pinned. |
+| Resume last session | Start the terminal and reopen the conversation it was running, using each CLI's verified resume arguments (Claude Code `--resume <id>`, Codex `resume <id>`, Grok `--resume <id>`, Hermes Agent `--resume <id>`, OpenCode `--session <id>`, pi `--session <file>`). Offered on the stopped terminal surface when a conversation is pinned; the surface names the CLI, the conversation and when it last moved. |
 | Continue in… | Open this terminal's conversation in another CLI. The original terminal stays; a new terminal opens, or a stopped Pi agent when you pick "Pi agent · in the app". Offered when a conversation is pinned. |
 | Stop terminal | End its processes but keep the saved terminal and settings. |
 | Restart terminal | Prepare the next launch, end its processes and launch again. This does not automatically resume a conversation. |
@@ -287,10 +287,15 @@ session of that CLI in the terminal's folder, refreshed as the CLI
 reports activity). When a deploy, crash or daemon restart ends the
 terminal, its surface offers **Resume last session** — the CLI comes back
 in the same conversation. The pin records what was running, so the button
-shows the recovered work even after the process is gone. Nothing resumes
+shows the recovered work even after the process is gone, and the surface
+names it: the CLI, the conversation and how long ago it last moved (hover
+for the opening words and the exact time). Nothing resumes
 automatically: a plain Start still opens a fresh conversation. Terminals
 stopped before this feature shipped have no pin; their conversations stay
-reachable in that CLI's Sessions pane via "Open in terminal".
+reachable in that CLI's Sessions pane via "Open in terminal", and their
+surface says *no session to resume* instead of offering a button it cannot
+honor. If the last launch failed, the surface says that too — fix the
+executable, folder or integration files, then Resume again.
 
 When the terminal died in a daemon restart (not a CLI exit), the surface
 says so: "PiCode restarted while this terminal was running." (ADR-0085:

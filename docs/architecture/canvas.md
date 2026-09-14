@@ -563,7 +563,7 @@ again on `pin.*`, and one `gitdiff` read per `diff` panel, again on a
 | Row | Body when loaded | Actions |
 |---|---|---|
 | `terminal-running` (also a plain shell whose tmux died: opening revives it) | live xterm | Open · Maximize · Remove |
-| `terminal-stopped` (a CLI terminal, `launchCli` + `running: false`) | `TermSurface`'s own stopped state — Resume last session / Start from Agent CLIs | same |
+| `terminal-stopped` (a CLI terminal, `launchCli` + `running: false`) | `TermSurface`'s own stopped state — what stopped, the pinned conversation a Resume would reopen, Resume last session / Start from Agent CLIs (`docs/architecture/routes.md`, "The pane has one state that is not a terminal") | same |
 | `terminal-gone` | "That terminal is gone." | Remove |
 | `agent-interactive` | live TUI | Open · Maximize · Remove |
 | `agent-managed` | the agent's **live conversation, read-only** — `AgentChatPanel`, the **Chat body** section below. Not live (unloaded, over the cap, or a name-plate): one line and **Open** | Open · Maximize · Remove |

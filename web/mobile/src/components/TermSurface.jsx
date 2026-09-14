@@ -1,9 +1,36 @@
 import { useState } from "react";
 import ShellTerm from "./ShellTerm.jsx";
+import { IconPlay, IconReload, IconTerminal, IconWarn } from "./Icons.jsx";
 import { bumpTermFontSize } from "@picode/shared/domain/termTheme.js";
-import { api } from "@picode/shared/client/api.js";
+import { absTime, relTime } from "@picode/shared/domain/relTime.js";
+import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
+import { api, humanizeError } from "@picode/shared/client/api.js";
 
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
+// The catalog's preview is the conversation's opening words and can carry a
+// paragraph; the meta row is one line (CSS ellipsis keeps it to one).
+function oneLine(text) {
+  return String(text || "").replace(/\s+/g, " ").trim();
+}
+
+// TermMessage — the pane with no terminal in it: a stopped CLI terminal or a
+// terminal that refused to open. The phone draws the same anatomy the
+// desktop pane does (web/browser TermSurface), one column wide: a mark, what
+// is true, what a Resume would continue (the ADR-0084 pin, which the phone
+// only had in a tooltip), why we know, and the actions.
+function TermMessage({ tone, icon, head, meta, metaTitle, why, alert, children }) {
+  return (
+    <div className="term-msg" data-tone={tone || undefined}>
+      <span className="term-msg-mark" aria-hidden="true">{icon}</span>
+      <p className="term-msg-head" role="status">{head}</p>
+      {meta ? <p className="term-msg-meta" title={metaTitle || undefined}>{meta}</p> : null}
+      {why ? <p className="term-msg-why">{why}</p> : null}
+      {alert ? <p className="term-msg-why is-danger" role="alert">{alert}</p> : null}
+      <div className="term-msg-acts">{children}</div>
+    </div>
+  );
+}
 
 export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind }) {
   const [resuming, setResuming] = useState(false);
@@ -16,7 +43,7 @@ export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind }
     try {
       await api(`/api/terminals/${encodeURIComponent(term.id)}/launch/start`, json("POST", { resume: true }));
     } catch (e) {
-      setResumeError(e.message);
+      setResumeError(humanizeError(e && e.message ? e.message : String(e)));
     } finally {
       setResuming(false);
     }
@@ -27,25 +54,38 @@ export default function TermSurface({ term, error, hidden, onOpenFile, cwdKind }
     else if (e.key === "-") { e.preventDefault(); bumpTermFontSize(-1); }
     else if (e.key === "0") { e.preventDefault(); bumpTermFontSize(0); }
   }
+  const last = (term && term.lastSession) || null;
+  const cli = term && term.launchCli ? terminalCliLabel(term.launchCli) : "";
+  const session = last ? oneLine(last.name) || oneLine(last.preview) : "";
+  // Nothing pinned (ADR-0084) is a reason, not an empty gap: the meta says
+  // why there is no Resume to press instead of leaving the reader with a
+  // button that is missing for no stated cause.
+  const meta = [cli, last ? session : "no session to resume", last ? relTime(last.updatedAt) : ""].filter(Boolean).join(" · ");
+  const metaTitle = last ? [oneLine(last.preview), absTime(last.updatedAt)].filter(Boolean).join(" · ") : "";
+  const attempt = term && term.launchAttempt && term.launchAttempt.error ? term.launchAttempt.error : "";
   return (
     <section className="term-surface" hidden={!!hidden} aria-label={term ? term.name : "Terminal"} onKeyDown={onKey}>
       {error ? (
-        <p className="file-pane-msg">
-          {error}{" "}
-          <a href="#/system">Open System</a>
-        </p>
+        <TermMessage tone="warn" icon={<IconWarn size={18} />} head={error}>
+          <a className="btn" href="#/system">Open System</a>
+        </TermMessage>
       ) : term?.launchCli && !term.running ? (
-        <div className="file-pane-msg" role="status">
-          <span>{term.lostAtRestart ? "PiCode restarted while this terminal was running. " : "This CLI terminal is stopped. "}</span>
-          {term.lastSession ? (
-            <button type="button" className="btn btn-sm" disabled={resuming} onClick={resumeLast} title={term.lastSession.preview || undefined}>
+        <TermMessage
+          icon={<IconTerminal size={18} />}
+          head={term.lostAtRestart ? "PiCode restarted while this terminal was running." : "This CLI terminal is stopped."}
+          meta={meta}
+          metaTitle={metaTitle}
+          why={attempt}
+          alert={resumeError}
+        >
+          {last ? (
+            <button type="button" className="btn btn-primary" disabled={resuming} onClick={resumeLast}>
+              {resuming ? <IconReload size={13} className="term-msg-spin" /> : <IconPlay size={12} />}
               {resuming ? "Resuming…" : "Resume last session"}
             </button>
           ) : null}
-          {" "}
-          <a href="#/clis">Start from Agent CLIs</a>
-          {resumeError ? <span> {resumeError}</span> : null}
-        </div>
+          <a className="btn" href="#/clis">Start from Agent CLIs</a>
+        </TermMessage>
       ) : (
         <ShellTerm agentId={term.id} session={term.session} active={!hidden} cwd={term.cwd} cwdKind={cwdKind} onOpenFile={onOpenFile} />
       )}

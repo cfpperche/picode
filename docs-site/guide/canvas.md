@@ -125,7 +125,7 @@ the panel's body is asleep.
 | a pin | the note, formatted and read-only |
 | a file | the editor, with **Save** — the same one its tab has |
 | the changes to a file | the diff, kept up to date as the file changes |
-| a stopped CLI terminal | *This CLI terminal is stopped.* — Resume last session |
+| a stopped CLI terminal | *This CLI terminal is stopped.* — the conversation a Resume would reopen, then Resume last session / Start from Agent CLIs |
 | an agent working in its terminal | its live screen |
 | a managed agent | its conversation, live and read-only — the same turns, tools and answers its tab shows |
 | a stopped agent | *Agent is stopped.* — Run |
