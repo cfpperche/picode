@@ -5700,6 +5700,32 @@
         ]
       }
     },
+    "/api/previews": {
+      "post": {
+        "operationId": "postApiPreviews",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "previews"
+        ]
+      }
+    },
     "/api/providers/custom/models": {
       "post": {
         "operationId": "postApiProvidersCustomModels",
@@ -9338,6 +9364,9 @@
     },
     {
       "name": "pins"
+    },
+    {
+      "name": "previews"
     },
     {
       "name": "providers"
