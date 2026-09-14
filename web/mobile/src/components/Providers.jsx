@@ -3,6 +3,7 @@ import * as Dialog from "./MobileSheet.jsx";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Command } from "cmdk";
 import PageFrame from "./PageFrame.jsx";
+import { IconChevronRight } from "./Icons.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { toast, toastError } from "../lib/toast.js";
 import { apiKeySchema, llamaLoginSchema, parseForm } from "@picode/shared/contracts/schemas.js";
@@ -11,7 +12,7 @@ import { cliProvidersReturnTo } from "@picode/shared/domain/cliProviders.js";
 
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { readRecents, pushRecent, removeRecent, clearRecents, rememberProviders } from "@picode/shared/domain/providerRecents.js";
-import { validateCustomProvider, customProviderPayload, customProviderForm, customTakenIds, customModelIds, THINKING_LEVELS, THINKING_FORMAT_NEEDS } from "@picode/shared/domain/customProviders.js";
+import { validateCustomProvider, customProviderPayload, customProviderForm, customTakenIds, customModelIds, syncModelLimits, modelLimitRow, THINKING_LEVELS, THINKING_FORMAT_NEEDS } from "@picode/shared/domain/customProviders.js";
 import { loadModelsFor, modelLoadChanges, loadingLine } from "@picode/shared/client/modelLoad.js";
 import { CUSTOM_PROVIDER_APIS, CUSTOM_THINKING_FORMATS, customApiHint } from "@picode/shared/contracts/schemas.js";
 import { askConfirm } from "../lib/confirm.js";
@@ -353,6 +354,19 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
     ? (customEdit ? "Edit endpoint" : "Custom endpoint")
     : !pick ? "Add provider" : step === "method" || step === "oauth" || step === "llama" ? pick.id : "API key · " + pick.id;
 
+  // The id list drives the per-model limit rows: a row appears with its id and
+  // disappears with it, and the numbers already typed survive the trip.
+  const modelIds = customModelIds(cf.modelsText);
+  function setModelsText(e) {
+    const text = e.target.value;
+    setCf((f) => ({ ...f, modelsText: text, modelLimits: syncModelLimits(f.modelLimits, customModelIds(text)) }));
+  }
+  function setLimit(id, field) {
+    return (e) => {
+      const value = e.target.value;
+      setCf((f) => ({ ...f, modelLimits: { ...f.modelLimits, [id]: { ...modelLimitRow(f.modelLimits, id), [field]: value } } }));
+    };
+  }
   function setField(k) {
     return (e) => setCf((f) => ({ ...f, [k]: e.target.value }));
   }
@@ -795,128 +809,182 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
             ) : null}
 
             {step === "custom" ? (
-              <form className="form-new" noValidate onSubmit={saveCustom}>
-                <input
-                  value={cf.id}
-                  onChange={setField("id")}
-                  placeholder="Name — lowercase, e.g. cheaperinference"
-                  autoComplete="off" spellCheck="false"
-                  disabled={customEdit}
-                  aria-label="Endpoint name"
-                />
-                <input
-                  type="url"
-                  value={cf.baseUrl}
-                  onChange={setField("baseUrl")}
-                  placeholder={customApiHint(cf.api).placeholder}
-                  autoComplete="off" spellCheck="false"
-                  aria-label="Base URL"
-                  aria-describedby="cf-url-hint"
-                />
-                <p className="prov-hint" id="cf-url-hint">{customApiHint(cf.api).urlHint}</p>
-                <input
-                  type="password"
-                  value={cf.key}
-                  onChange={setField("key")}
-                  placeholder={customEdit ? "API key — leave blank to keep the saved one" : "API key"}
-                  autoComplete="off"
-                  aria-label="API key"
-                />
-                <textarea
-                  value={cf.modelsText}
-                  onChange={setField("modelsText")}
-                  rows={3}
-                  placeholder={"Model ids, one per line — copy them exactly from the gateway's model list"}
-                  spellCheck="false"
-                  aria-label="Model ids"
-                />
-                <div className="prov-load">
-                  <div className="prov-load-row">
-                    <button type="button" className="btn btn-ghost" onClick={loadModels} disabled={load.state === "loading" || verify.state === "loading"}>
-                      {load.state === "loading" ? "Loading…" : "Load models"}
-                    </button>
-                    <button type="button" className="btn btn-ghost" onClick={verifyEndpoint} disabled={verify.state === "loading" || load.state === "loading"}>
-                      {verify.state === "loading" ? "Verifying…" : "Verify key"}
-                    </button>
+              <form className="form-new prov-form" noValidate onSubmit={saveCustom}>
+                <div className="prov-field">
+                  <label className="prov-label" htmlFor="cf-name">Name</label>
+                  <input
+                    id="cf-name"
+                    value={cf.id}
+                    onChange={setField("id")}
+                    placeholder="e.g. cheaperinference"
+                    autoComplete="off" spellCheck="false"
+                    disabled={customEdit}
+                    aria-label="Endpoint name"
+                  />
+                  <p className="prov-help">Lowercase, digits and dashes — becomes the provider id.</p>
+                </div>
+                <div className="prov-field">
+                  <label className="prov-label" htmlFor="cf-url">Base URL</label>
+                  <input
+                    id="cf-url"
+                    type="url"
+                    value={cf.baseUrl}
+                    onChange={setField("baseUrl")}
+                    placeholder={customApiHint(cf.api).placeholder}
+                    autoComplete="off" spellCheck="false"
+                    aria-label="Base URL"
+                    aria-describedby="cf-url-hint"
+                  />
+                  <p className="prov-help" id="cf-url-hint">{customApiHint(cf.api).urlHint}</p>
+                </div>
+                <div className="prov-field">
+                  <label className="prov-label" htmlFor="cf-key">API key</label>
+                  <input
+                    id="cf-key"
+                    type="password"
+                    value={cf.key}
+                    onChange={setField("key")}
+                    placeholder={customEdit ? "Leave blank to keep the saved one" : ""}
+                    autoComplete="off"
+                    aria-label="API key"
+                  />
+                  <p className="prov-help">Kept as this endpoint's credential in pi.</p>
+                </div>
+                <div className="prov-field">
+                  <label className="prov-label" htmlFor="cf-models">Model ids</label>
+                  <textarea
+                    id="cf-models"
+                    value={cf.modelsText}
+                    onChange={setModelsText}
+                    rows={3}
+                    placeholder={"One per line — exactly as the gateway spells them"}
+                    spellCheck="false"
+                    aria-label="Model ids"
+                  />
+                  <div className="prov-load">
+                    <div className="prov-load-row">
+                      <button type="button" className="btn btn-ghost" onClick={loadModels} disabled={load.state === "loading" || verify.state === "loading"}>
+                        {load.state === "loading" ? "Loading…" : "Load models"}
+                      </button>
+                      <button type="button" className="btn btn-ghost" onClick={verifyEndpoint} disabled={verify.state === "loading" || load.state === "loading"}>
+                        {verify.state === "loading" ? "Verifying…" : "Verify key"}
+                      </button>
+                    </div>
+                    <p className={line.tone === "bad" ? "prov-hint prov-bad" : "prov-hint"} role="status">
+                      {line.text || "Load the endpoint's ids, or verify the key (one 1-token request)."}
+                    </p>
                   </div>
-                  <p className={line.tone === "bad" ? "prov-hint prov-bad" : "prov-hint"} role="status">
-                    {line.text || "Load the ids the endpoint serves, or verify that the key works — verification sends one 1-token request."}
-                  </p>
                 </div>
                 <details className="prov-adv">
-                  <summary>Advanced</summary>
-                  <select value={cf.api} onChange={setField("api")} aria-label="API type">
-                    {CUSTOM_PROVIDER_APIS.map((a) => (
-                      <option key={a.value} value={a.value}>{a.label}</option>
-                    ))}
-                  </select>
-                  <label className="prov-check">
-                    <input type="checkbox" checked={cf.compatDeveloper} onChange={setCheck("compatDeveloper")} />
-                    <span>OpenAI <code>developer</code> role — most gateways: leave off</span>
-                  </label>
-                  <label className="prov-check">
-                    <input type="checkbox" checked={cf.compatReasoning} onChange={setCheck("compatReasoning")} />
-                    <span><code>reasoning_effort</code> — reasoning models only</span>
-                  </label>
-                  <select
-                    value={cf.thinkingFormat}
-                    onChange={setField("thinkingFormat")}
-                    aria-label="Thinking format"
-                  >
-                    {CUSTOM_THINKING_FORMATS.map((f) => (
-                      <option key={f.value} value={f.value}>{f.label}</option>
-                    ))}
-                  </select>
-                  {THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" || THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "args" ? (
-                    <textarea
-                      value={THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? cf.chatTemplateKwargs : cf.chatTemplateArgs}
-                      onChange={setField(THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? "chatTemplateKwargs" : "chatTemplateArgs")}
-                      rows={3}
-                      spellCheck="false"
-                      className="prov-json"
-                      placeholder={'{"thinking": {"$var": "thinking.enabled"}}'}
-                      aria-label={THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? "Chat template kwargs" : "Chat template args"}
-                    />
-                  ) : null}
-                  {THINKING_FORMAT_NEEDS[cf.thinkingFormat] ? (
-                    <p className="prov-hint">
-                      JSON sent as <code>{THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? "chat_template_kwargs" : "chat_template_args"}</code>.
-                      Use <code>{'{"$var": "thinking.enabled"}'}</code> (or thinking.effort / thinking.budget) to let pi decide the value.
-                    </p>
-                  ) : null}
-                  <label className="prov-check">
-                    <input type="checkbox" checked={cf.reasoningModel} onChange={setCheck("reasoningModel")} />
-                    <span>Reasoning model — lets you pick thinking levels</span>
-                  </label>
-                  {cf.reasoningModel ? (
-                    <>
-                      <div className="prov-levels" role="group" aria-label="Thinking levels">
-                        {THINKING_LEVELS.map((lvl) => (
-                          <label key={lvl} className={"prov-level" + (cf.thinkingLevels.includes(lvl) ? " on" : "")}>
-                            <input type="checkbox" checked={cf.thinkingLevels.includes(lvl)} onChange={toggleLevel(lvl)} />
-                            <span>{lvl}</span>
-                          </label>
+                  <summary>
+                    <IconChevronRight />
+                    Advanced
+                  </summary>
+                  <div className="prov-set">
+                    <span className="prov-legend">Request compatibility</span>
+                    <div className="prov-field">
+                      <label className="prov-label" htmlFor="cf-api">API type</label>
+                      <select id="cf-api" value={cf.api} onChange={setField("api")} aria-label="API type">
+                        {CUSTOM_PROVIDER_APIS.map((a) => (
+                          <option key={a.value} value={a.value}>{a.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="prov-checks">
+                      <label className="prov-check">
+                        <input type="checkbox" checked={cf.compatDeveloper} onChange={setCheck("compatDeveloper")} />
+                        <span>OpenAI <code>developer</code> role — most gateways: leave off</span>
+                      </label>
+                      <label className="prov-check">
+                        <input type="checkbox" checked={cf.compatReasoning} onChange={setCheck("compatReasoning")} />
+                        <span><code>reasoning_effort</code> — reasoning models only</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="prov-set">
+                    <span className="prov-legend">Thinking</span>
+                    <div className="prov-field">
+                      <label className="prov-label" htmlFor="cf-thinking">Thinking format</label>
+                      <select
+                        id="cf-thinking"
+                        value={cf.thinkingFormat}
+                        onChange={setField("thinkingFormat")}
+                        aria-label="Thinking format"
+                      >
+                        {CUSTOM_THINKING_FORMATS.map((f) => (
+                          <option key={f.value} value={f.value}>{f.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" || THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "args" ? (
+                      <div className="prov-field">
+                        <label className="prov-label" htmlFor="cf-json">
+                          {THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? "Chat template kwargs" : "Chat template args"}
+                        </label>
+                        <textarea
+                          id="cf-json"
+                          value={THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? cf.chatTemplateKwargs : cf.chatTemplateArgs}
+                          onChange={setField(THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? "chatTemplateKwargs" : "chatTemplateArgs")}
+                          rows={3}
+                          spellCheck="false"
+                          className="prov-json"
+                          placeholder={'{"thinking": {"$var": "thinking.enabled"}}'}
+                          aria-label={THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? "Chat template kwargs" : "Chat template args"}
+                        />
+                        <p className="prov-help">
+                          JSON sent as <code>{THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? "chat_template_kwargs" : "chat_template_args"}</code>.
+                          Use <code>{'{"$var": "thinking.enabled"}'}</code> (or thinking.effort / thinking.budget) to let pi decide the value.
+                        </p>
+                      </div>
+                    ) : null}
+                    <div className="prov-checks">
+                      <label className="prov-check">
+                        <input type="checkbox" checked={cf.reasoningModel} onChange={setCheck("reasoningModel")} />
+                        <span>Reasoning model — lets you pick thinking levels</span>
+                      </label>
+                    </div>
+                    {cf.reasoningModel ? (
+                      <div className="prov-field">
+                        <label className="prov-label">Thinking levels</label>
+                        <div className="prov-levels" role="group" aria-label="Thinking levels">
+                          {THINKING_LEVELS.map((lvl) => (
+                            <label key={lvl} className={"prov-level" + (cf.thinkingLevels.includes(lvl) ? " on" : "")}>
+                              <input type="checkbox" checked={cf.thinkingLevels.includes(lvl)} onChange={toggleLevel(lvl)} />
+                              <span>{lvl}</span>
+                            </label>
+                          ))}
+                        </div>
+                        <p className="prov-help">Unchecked levels are hidden in the model picker.</p>
+                      </div>
+                    ) : null}
+                  </div>
+                  {modelIds.length ? (
+                    <div className="prov-set">
+                      <span className="prov-legend">Model limits</span>
+                      <p className="prov-help">Blank leaves pi's default.</p>
+                      <div className="prov-limits">
+                        {modelIds.map((id) => (
+                          <div className="prov-limit-row" key={id} data-model={id}>
+                            <span className="prov-limit-id" title={id}>{id}</span>
+                            <input
+                              value={modelLimitRow(cf.modelLimits, id).contextWindow}
+                              onChange={setLimit(id, "contextWindow")}
+                              inputMode="numeric"
+                              placeholder="Context"
+                              aria-label={"Context window for " + id}
+                            />
+                            <input
+                              value={modelLimitRow(cf.modelLimits, id).maxTokens}
+                              onChange={setLimit(id, "maxTokens")}
+                              inputMode="numeric"
+                              placeholder="Max output"
+                              aria-label={"Max output for " + id}
+                            />
+                          </div>
                         ))}
                       </div>
-                      <p className="prov-hint">How hard the model may think. Unchecked levels are hidden in the picker; applies to every model listed.</p>
-                    </>
+                    </div>
                   ) : null}
-                  <div className="prov-adv-grid">
-                    <input
-                      value={cf.contextWindow}
-                      onChange={setField("contextWindow")}
-                      inputMode="numeric"
-                      placeholder="Context window"
-                      aria-label="Context window in tokens"
-                    />
-                    <input
-                      value={cf.maxTokens}
-                      onChange={setField("maxTokens")}
-                      inputMode="numeric"
-                      placeholder="Max output"
-                      aria-label="Max output tokens"
-                    />
-                  </div>
                 </details>
                 <p className="form-error" hidden={!err}>{err}</p>
                 <div className="dlg-actions" data-align-row data-align-wrap>

@@ -364,6 +364,39 @@ func TestUpsertThinkingFormat(t *testing.T) {
 	})
 }
 
+// Per-model limits: the form used to write one context window and max output
+// for every id. Each id carries its own numbers now, so a gateway whose models
+// differ is written correctly instead of refused.
+func TestUpsertPerModelLimits(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	big, small := 1000000, 128000
+	def := CustomDefinition{
+		BaseURL: "https://api.example.com/v1", API: APIOpenAICompletions,
+		Models: []CustomModel{
+			{ID: "big", ContextWindow: &big, MaxTokens: &big},
+			{ID: "small", ContextWindow: &small},
+			{ID: "bare"},
+		},
+	}
+	if err := UpsertCustomProvider("gw", def); err != nil {
+		t.Fatal(err)
+	}
+	got := LoadCustomDefinitions()["gw"].Models
+	if len(got) != 3 {
+		t.Fatalf("models = %+v", got)
+	}
+	if got[0].ContextWindow == nil || *got[0].ContextWindow != big || got[0].MaxTokens == nil || *got[0].MaxTokens != big {
+		t.Fatalf("big = %+v", got[0])
+	}
+	if got[1].ContextWindow == nil || *got[1].ContextWindow != small || got[1].MaxTokens != nil {
+		t.Fatalf("small = %+v", got[1])
+	}
+	if got[2].ContextWindow != nil || got[2].MaxTokens != nil {
+		t.Fatalf("a model with no numbers grew some: %+v", got[2])
+	}
+}
+
 func TestUpsertChatTemplateObjects(t *testing.T) {
 	yes := true
 	base := CustomDefinition{

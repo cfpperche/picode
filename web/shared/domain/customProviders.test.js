@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   customModelIds, validateCustomProvider, customProviderPayload, customProviderForm, customTakenIds,
-  customThinkingLevels, customThinkingFormat, mergeModelIds, agreedModelLimits,
+  customThinkingLevels, customThinkingFormat, mergeModelIds, syncModelLimits, limitsFromDefinitions, modelLimitRow,
   THINKING_LEVELS, DEFAULT_THINKING_LEVELS, THINKING_FORMAT_NEEDS,
 } from "./customProviders.js";
 import { CHAT_TEMPLATE_VARS, customApiHint, CUSTOM_PROVIDER_APIS, chatTemplateObjectError } from "../contracts/schemas.js";
@@ -12,8 +12,7 @@ const good = {
   baseUrl: "https://api.cheaperinference.com/v1",
   api: "openai-completions",
   modelsText: "gpt-5.4\ngemini-3.7-flash\n",
-  contextWindow: "400000",
-  maxTokens: "",
+  modelLimits: { "gpt-5.4": { contextWindow: "400000", maxTokens: "" } },
   compatDeveloper: false,
   compatReasoning: false,
   thinkingFormat: "",
@@ -42,8 +41,8 @@ test("validate refuses the decision-table rows", () => {
     ["no models", { ...good, modelsText: "  \n" }],
     ["space in model id", { ...good, modelsText: "openai gpt" }],
     ["dup model ids", { ...good, modelsText: "m\nm" }],
-    ["zero context", { ...good, contextWindow: "0" }],
-    ["fractional max", { ...good, maxTokens: "1.5" }],
+    ["zero context for a model", { ...good, modelLimits: { "gpt-5.4": { contextWindow: "0", maxTokens: "" } } }],
+    ["fractional max for a model", { ...good, modelLimits: { "gpt-5.4": { contextWindow: "", maxTokens: "1.5" } } }],
     ["missing key on create", { ...good, key: " " }],
     ["bad api", { ...good, api: "ollama" }],
   ];
@@ -60,12 +59,12 @@ test("blank key passes on edit and is omitted from the payload", () => {
   assert.equal("key" in payload, false);
 });
 
-test("payload carries models, sizes and compat; sizes only when set", () => {
+test("payload carries models, per-model sizes and compat", () => {
   const r = validateCustomProvider(good);
   const payload = customProviderPayload(r.value);
   assert.deepEqual(payload.models, [
     { id: "gpt-5.4", contextWindow: 400000, reasoning: false },
-    { id: "gemini-3.7-flash", contextWindow: 400000, reasoning: false },
+    { id: "gemini-3.7-flash", reasoning: false },
   ]);
   assert.deepEqual(payload.compat, { supportsDeveloperRole: false, supportsReasoningEffort: false });
   assert.equal(payload.key, "ci_live_x");
@@ -146,8 +145,10 @@ test("customProviderForm prefills from a catalog row and starts blank", () => {
     baseUrl: "https://api.cheaperinference.com/v1",
     api: "anthropic-messages",
     modelsText: "claude-opus-5\nclaude-sonnet-5",
-    contextWindow: "200000",
-    maxTokens: "32000",
+    modelLimits: {
+      "claude-sonnet-5": { contextWindow: "200000", maxTokens: "32000" },
+      "claude-opus-5": { contextWindow: "", maxTokens: "" },
+    },
     compatDeveloper: true,
     compatReasoning: false,
     thinkingFormat: "deepseek",
@@ -276,21 +277,55 @@ test("mergeModelIds appends only what is missing, keeping typed order", () => {
 
 // The form writes one context window and one max output for the whole list, so
 // it only fills them when every listed model reports the same number.
-test("agreedModelLimits fills only unanimous numbers", () => {
-  assert.deepEqual(
-    agreedModelLimits([{ id: "a", contextWindow: 200000, maxTokens: 65536 }, { id: "b", contextWindow: 200000, maxTokens: 65536 }]),
-    { contextWindow: 200000, maxTokens: 65536 },
-  );
-  assert.deepEqual(agreedModelLimits([{ id: "a", contextWindow: 1000000, maxTokens: 1 }]), { contextWindow: 1000000, maxTokens: 1 });
-  // Differing windows: nothing is claimed at all for that field.
-  assert.deepEqual(
-    agreedModelLimits([{ id: "a", contextWindow: 1000000 }, { id: "b", contextWindow: 128000 }]),
-    {},
-  );
-  assert.deepEqual(
-    agreedModelLimits([{ id: "a", contextWindow: 200000, maxTokens: 10 }, { id: "b", contextWindow: 200000 }]),
-    { contextWindow: 200000 },
-  );
-  assert.deepEqual(agreedModelLimits([]), {});
-  assert.deepEqual(agreedModelLimits([{ id: "a" }]), {});
+test("limits are per model, and a row follows its id", () => {
+  const defs = [
+    { id: "big", contextWindow: 1000000, maxTokens: 384000 },
+    { id: "small" },
+  ];
+  const limits = limitsFromDefinitions(defs);
+  assert.deepEqual(limits, {
+    big: { contextWindow: "1000000", maxTokens: "384000" },
+    small: { contextWindow: "", maxTokens: "" },
+  });
+
+  // A row appears and disappears with the id list; typed numbers survive.
+  const two = { ...limits, small: { contextWindow: "128000", maxTokens: "" } };
+  const synced = syncModelLimits(two, ["small", "new"]);
+  assert.deepEqual(Object.keys(synced), ["small", "new"]);
+  assert.equal(synced.small.contextWindow, "128000");
+  assert.deepEqual(synced.new, { contextWindow: "", maxTokens: "" });
+  assert.deepEqual(modelLimitRow(undefined, "x"), { contextWindow: "", maxTokens: "" });
+});
+
+// The form used to write one context window and max output for every id, which
+// had to refuse a gateway whose models disagreed. Each id carries its own now.
+test("the payload carries each model's own numbers", () => {
+  const parsed = validateCustomProvider({
+    ...good,
+    modelsText: "big\nsmall\nbare",
+    modelLimits: {
+      big: { contextWindow: "1000000", maxTokens: "384000" },
+      small: { contextWindow: "128000", maxTokens: "" },
+      bare: { contextWindow: "", maxTokens: "" },
+      gone: { contextWindow: "5", maxTokens: "5" },
+    },
+  });
+  assert.equal(parsed.ok, true, parsed.error);
+  const models = customProviderPayload(parsed.value).models;
+  assert.deepEqual(models, [
+    { id: "big", contextWindow: 1000000, maxTokens: 384000, reasoning: false },
+    { id: "small", contextWindow: 128000, reasoning: false },
+    { id: "bare", reasoning: false },
+  ]);
+});
+
+test("a per-model row with a bad number names the model", () => {
+  const parsed = validateCustomProvider({
+    ...good,
+    modelLimits: { "glm-4.6": { contextWindow: "0", maxTokens: "abc" } },
+  });
+  assert.equal(parsed.ok, false);
+  assert.match(parsed.error, /glm-4\.6: context window must be a positive whole number/);
+  const ok = validateCustomProvider({ ...good, modelLimits: { "glm-4.6": { contextWindow: "", maxTokens: "" } } });
+  assert.equal(ok.ok, true, ok.error);
 });

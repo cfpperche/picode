@@ -6,7 +6,7 @@
 // dialogs call the same code, which is what keeps browser and phone identical.
 
 import { api } from "./api.js";
-import { mergeModelIds, agreedModelLimits } from "../domain/customProviders.js";
+import { customModelIds, mergeModelIds, syncModelLimits } from "../domain/customProviders.js";
 
 // loadModelsFor asks the server for the ids a form's endpoint serves. The key
 // travels once when the person typed one; otherwise the server reads the saved
@@ -48,34 +48,36 @@ export function loadingLine(baseUrl) {
 export function modelLoadChanges(res, form) {
   const found = (res && res.models) || [];
   const merged = mergeModelIds(form.modelsText, found);
-  const limits = agreedModelLimits(found);
-  const changes = { modelsText: merged.text };
-  const filled = [];
-  if (limits.contextWindow && !String(form.contextWindow || "").trim()) {
-    changes.contextWindow = String(limits.contextWindow);
-    filled.push("context window");
+  const limits = syncModelLimits(form.modelLimits, customModelIds(merged.text));
+  // Each model keeps its own numbers, so a gateway that publishes different
+  // limits per model is filled correctly instead of refused for disagreeing.
+  // A number the person typed stays theirs.
+  let filled = 0;
+  for (const m of found) {
+    const id = String((m && m.id) || "").trim();
+    if (!id || !limits[id]) continue;
+    const row = limits[id];
+    if (Number(m.contextWindow) > 0 && !row.contextWindow) {
+      row.contextWindow = String(m.contextWindow);
+      filled++;
+    }
+    if (Number(m.maxTokens) > 0 && !row.maxTokens) {
+      row.maxTokens = String(m.maxTokens);
+      filled++;
+    }
   }
-  if (limits.maxTokens && !String(form.maxTokens || "").trim()) {
-    changes.maxTokens = String(limits.maxTokens);
-    filled.push("max output");
-  }
-  // A list whose models disagree on limits says so instead of leaving a blank
-  // field unexplained: one shared value cannot be true for all of them, and
-  // the form writes one value for the whole list.
-  const reported = found.some((m) => Number(m && m.contextWindow) > 0 || Number(m && m.maxTokens) > 0);
-  const mixed = reported && !filled.length && !String(form.contextWindow || "").trim() && !String(form.maxTokens || "").trim();
-  return { changes, line: doneLine(found.length, merged.added, filled, mixed) };
+  const changes = { modelsText: merged.text, modelLimits: limits };
+  return { changes, line: doneLine(found.length, merged.added, filled) };
 }
 
 // doneLine reports what actually happened, including the honest nothing: an
 // endpoint that lists no models is a real answer, not a failure.
-export function doneLine(found, added, filled, mixed) {
+export function doneLine(found, added, filled) {
   if (!found) return "The endpoint reports no models — check the API type, or type the ids by hand.";
   const parts = [
     "Found " + found + (found === 1 ? " model" : " models") + ".",
     added ? "Added " + added + " to the list." : "Everything it lists is already here.",
   ];
-  if (filled.length) parts.push("Filled " + filled.join(" and ") + " from the endpoint.");
-  if (mixed) parts.push("It reports different limits per model, so those were left blank.");
+  if (filled) parts.push("Filled " + filled + (filled === 1 ? " limit" : " limits") + " from the endpoint.");
   return parts.join(" ");
 }

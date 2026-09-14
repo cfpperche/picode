@@ -57,11 +57,11 @@ to it — a refused key would be refused twice. Failures are classified
 carries the fix in one line: a 401 says whether a key was sent at all, a 404
 suggests `/v1`, a transport failure names the host and the 12s budget. The
 form merges what comes back into the ids already typed (never reordering or
-dropping one) and fills context window and max output only when **every**
-listed model reports the same number — the form writes one value for the
-whole list, so agreeing is the only honest source; a list whose models differ
-says so instead of leaving a blank field unexplained. An endpoint that lists
-nothing is an answer, not an error. The copy lives in Go, so both apps say
+dropping one). Limits are **per model**: one listing can carry 1M/384k for one
+id and 200k/131k for the next, so agreeing is not a precondition and no number
+is invented. Each id gets its own row (Advanced → Model limits) and a load
+fills the rows the endpoint reported. An endpoint that lists nothing is an
+answer, not an error. The copy lives in Go, so both apps say
 the same thing, and `web/shared/client/modelLoad.js` (pure, no React) holds
 the line-building and merge the dialogs share.
 
@@ -89,6 +89,41 @@ the browser (`chatTemplateObjectError`) and again in Go
 `thinking.effort`, `thinking.budget`) and an optional `omitWhenOff` allowed and
 anything else refused. The objects are compat's only nested values, so the
 merge writes them whole and clears the key when the editor is emptied.
+`thinkingFormat` is a string among compat's bools, which exposed a read-path
+bug: decoding the whole `compat` object as `map[string]bool` failed the entry
+and the provider disappeared from the catalog. `LoadCustomDefinitions` now
+decodes compat key by key (the two managed bools, the format string,
+everything else left alone), pinned by
+`TestLoadCustomDefinitionsWithStringCompat`.
+
+**What a load writes (P5).** The merge is condition-driven, and the rows below
+are the whole table — each is pinned by `web/shared/client/modelLoad.test.js`
+or `web/shared/domain/customProviders.test.js`:
+
+| Condition | What the form writes |
+|---|---|
+| Id already typed and reported by the endpoint | kept where it is; its row filled |
+| Id typed, not reported | row kept, numbers blank — blank is pi's default, never zero |
+| Number already typed by hand | survives the load; a load never overwrites an edit |
+| Id removed from the list | its limit row goes with it |
+| Endpoint reports no limits for an id | the row appears with blanks; the line counts what it filled, and stays silent about limits when it filled none |
+| Listing fails | no row changes; the Model ids line turns red with the fix |
+
+**Dialog rhythm (P5).** One field is one unit — label above, control, one line
+of help below, 8 px apart, 24 px between units — adapted from shadcn's Field
+scale (`web/shared/styles/providers.css` names the adaptation in its section
+comment). Helper prose that is a lecture rather than a state (a file path, a
+protocol note) belongs in docs-site, not under a control. Fields only some
+endpoints need sit behind an **Advanced** disclosure whose sections carry a
+legend and a hairline — Request compatibility, Thinking, Model limits — so a
+collapsed Advanced is one line and an open one reads as structure. Every state
+the dialogue can be in is written in the unit that owns it, never in a second
+dialog: a load reports in the Model ids unit ("Found 3 models. Filled 6 limits
+from the endpoint.") and a failure takes the same line in red with the fix
+("The endpoint refused the key (401): … Check the API key and try again."),
+which keeps Advanced visible instead of pushing the alternative below the
+fold. `.dlg-create` still caps at `80dvh`, scrolls inside and keeps its action
+bar sticky, so the primary button is reachable at any window height.
 
 **Verify (P4).** For a built-in, Verify still asks pi (`pi auth check`), which
 costs nothing and is the code path that runs the agent. A custom endpoint
@@ -116,24 +151,7 @@ its provider value is not always the level name (several pi catalogs send
 `none`), so the form never invents one. A model switched back to
 non-reasoning drops the managed keys and keeps the rest; a model the user
 never touched grows no map at all. An invented level is refused by the
-schema and again by `validateCustomDef`, so the GUI is not the only guard.**Thinking format.** The same section names how thinking travels on the wire
-(`compat.thinkingFormat`), because gateways disagree: OpenAI-style endpoints
-take `reasoning_effort`, DeepSeek and Z.AI their own fields, Qwen a top-level
-`enable_thinking`, OpenRouter `reasoning: {effort}`, Together
-`reasoning: {enabled}`. The select offers pi's documented formats
-(`CUSTOM_THINKING_FORMATS`, mirrored by `customThinkingFormats` in
-`internal/catalog/modelsjson.go` where an invented value is refused); the
-empty choice means pi's own default for the API type and removes the key
-instead of writing an empty string. `chat-template` and
-`qwen-chat-template` are deliberately absent: both are driven by
-`chatTemplateKwargs`/`chatTemplateArgs` objects this form does not edit, so
-offering them would be a switch that does nothing. `thinkingFormat` is a
-string among compat's bools, which exposed a read-path bug: decoding the
-whole `compat` object as `map[string]bool` failed the entry and the provider
-disappeared from the catalog. `LoadCustomDefinitions` now decodes compat key
-by key (the two managed bools, the format string, everything else left
-alone), pinned by `TestLoadCustomDefinitionsWithStringCompat`.
-
+schema and again by `validateCustomDef`, so the GUI is not the only guard.
 The catalog hands the stored `thinkingLevelMap` back inside `definitions`, so
 Edit prefills the same chips it would write (`customThinkingLevels`). The row
 made the create dialog taller than the viewport, and `.dlg-create` centres

@@ -273,12 +273,62 @@
   line-height: 1.5; resize: vertical; min-height: 72px;
 }
 .form-new textarea:focus { outline: none; border-color: var(--accent); }
-.prov-adv { margin-top: 2px; }
-.prov-adv summary {
-  cursor: pointer; color: var(--text-secondary); font-size: 12px;
-  min-height: 28px; display: flex; align-items: center; width: fit-content;
+/* --- Custom endpoint form rhythm -------------------------------------------
+   Adapted from shadcn's Field scale (2026-09-14): one field is label + control
+   + help as a unit (gap-3 label→control), fields sit gap-7 apart, a legend is
+   followed by gap-6, and a checkbox group uses gap-3. PiCode keeps its dense
+   type scale (12px labels, 11.5px help) and the 36px control; the *spacing*
+   is what changes — the owner's report was a form where every gap was 6px and
+   nothing read as a group. */
+.form-new.prov-form { gap: 24px; }
+.prov-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.prov-field > .prov-label {
+  font-size: 12px; font-weight: 600; color: var(--text-primary); line-height: 1.3;
 }
-.prov-adv[open] summary { margin-bottom: 6px; }
+.prov-help { margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--text-secondary); }
+.prov-set { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+/* A legend with a hairline running to the edge: a quiet section boundary that
+   reads as structure instead of another control. */
+.prov-set > .prov-legend {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.prov-set > .prov-legend::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.prov-checks { display: flex; flex-direction: column; gap: 12px; }
+
+/* Per-model limits: one row per listed id, the two numbers the form writes per
+   model. A long id truncates rather than pushing the fields around. */
+.prov-limits { display: flex; flex-direction: column; gap: 10px; }
+.prov-limit-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) 118px 118px; gap: 8px; align-items: center;
+}
+.prov-limit-id {
+  font-family: var(--mono); font-size: 11.5px; color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+@media (max-width: 520px) {
+  /* The phone stacks the numbers under the id: two 118px fields beside an id
+     leaves the id a column of three characters. */
+  .prov-limit-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "id id" "ctx max"; row-gap: 6px; }
+  .prov-limit-id { grid-area: id; }
+  .prov-limit-row > input:nth-of-type(1) { grid-area: ctx; }
+  .prov-limit-row > input:nth-of-type(2) { grid-area: max; }
+}
+
+/* The Advanced disclosure is a section header, not a stray pill: full width,
+   its own row height, a hairline above and a chevron that turns. */
+.prov-adv { margin-top: 0; border-top: 1px solid var(--border); padding-top: 4px; }
+.prov-adv > summary {
+  cursor: pointer; color: var(--text-primary); font-size: 12px; font-weight: 600;
+  min-height: 36px; display: flex; align-items: center; gap: 6px; width: 100%;
+  list-style: none;
+}
+.prov-adv > summary::-webkit-details-marker { display: none; }
+.prov-adv > summary svg { color: var(--text-secondary); transition: transform .12s; flex: none; }
+.prov-adv[open] > summary svg { transform: rotate(90deg); }
+.prov-adv[open] > summary { margin-bottom: 12px; }
+.prov-adv > .prov-set + .prov-set { margin-top: 24px; }
 .prov-adv select { width: 100%; }
 .prov-check {
   display: flex; align-items: flex-start; gap: 8px;

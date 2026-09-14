@@ -118,25 +118,25 @@ export const CUSTOM_PROVIDER_APIS = [
     value: "openai-completions",
     label: "OpenAI Chat Completions (most gateways)",
     placeholder: "Base URL — e.g. https://api.example.com/v1",
-    urlHint: "pi appends the route: the API root, usually ending in /v1.",
+    urlHint: "The API root — pi appends the route.",
   },
   {
     value: "openai-responses",
     label: "OpenAI Responses",
     placeholder: "Base URL — e.g. https://api.example.com/v1",
-    urlHint: "pi appends the route: the API root, usually ending in /v1.",
+    urlHint: "The API root — pi appends the route.",
   },
   {
     value: "anthropic-messages",
     label: "Anthropic Messages",
     placeholder: "Base URL — e.g. https://api.anthropic.com/v1",
-    urlHint: "pi appends /messages: Anthropic's own root ends in /v1, some Anthropic-compatible proxies take no suffix.",
+    urlHint: "pi appends /messages — usually ending in /v1.",
   },
   {
     value: "google-generative-ai",
     label: "Google Generative AI",
     placeholder: "Base URL — e.g. https://generativelanguage.googleapis.com/v1beta",
-    urlHint: "pi appends the model route: Google's root ends in /v1beta.",
+    urlHint: "The model root — Google's ends in /v1beta.",
   },
 ];
 
@@ -210,8 +210,9 @@ export function customProviderSchema({ takenIds = [], requireKey = true } = {}) 
         "URL must start with http:// or https://."),
     api: z.enum(CUSTOM_PROVIDER_APIS.map((a) => a.value)),
     modelsText: z.string(),
-    contextWindow: z.string(),
-    maxTokens: z.string(),
+    // One row per listed id: pi takes contextWindow/maxTokens per model, and
+    // the form used to write one number for the whole list.
+    modelLimits: z.record(z.string(), z.object({ contextWindow: z.string(), maxTokens: z.string() })),
     compatDeveloper: z.boolean(),
     compatReasoning: z.boolean(),
     thinkingFormat: z.enum(CUSTOM_THINKING_FORMATS.map((f) => f.value)),
@@ -227,9 +228,16 @@ export function customProviderSchema({ takenIds = [], requireKey = true } = {}) 
     if (!ids.length) fail("Add at least one model id.");
     if (ids.some((id) => /\s/.test(id))) fail("Model ids cannot contain spaces.");
     if (new Set(ids).size !== ids.length) fail("Each model id can be listed only once.");
-    for (const [field, label] of [["contextWindow", "Context window"], ["maxTokens", "Max output"]]) {
-      const raw = v[field].trim();
-      if (raw && (!/^\d+$/.test(raw) || Number(raw) <= 0)) fail(label + " must be a positive whole number.");
+    // A row is refused where it sits, and the message names the model: with a
+    // list of ids, "Max output must be a positive whole number" alone would
+    // leave the person hunting for the row.
+    for (const [id, row] of Object.entries(v.modelLimits || {})) {
+      for (const [field, label] of [["contextWindow", "Context window"], ["maxTokens", "Max output"]]) {
+        const raw = String((row && row[field]) || "").trim();
+        if (raw && (!/^\d+$/.test(raw) || Number(raw) <= 0)) {
+          fail(id + ": " + label.toLowerCase() + " must be a positive whole number.");
+        }
+      }
     }
     if (v.reasoningModel && !v.thinkingLevels.length) fail("Select at least one thinking level.");
     // The kwargs/args editors hold JSON; the same parse builds the payload, so

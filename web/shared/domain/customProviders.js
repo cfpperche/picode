@@ -19,8 +19,6 @@ export function validateCustomProvider(form, { takenIds = [], requireKey = true 
 // a validated form value. The key is included only when non-empty, so an
 // Edit with a blank key keeps the stored credential.
 export function customProviderPayload(v) {
-  const contextWindow = String(v.contextWindow || "").trim();
-  const maxTokens = String(v.maxTokens || "").trim();
   const key = String(v.key || "").trim();
   // A reasoning model gets reasoning:true plus the levels it exposes;
   // everything else gets an explicit false so the form stays the owner of
@@ -40,13 +38,16 @@ export function customProviderPayload(v) {
     ...(v.thinkingFormat ? { thinkingFormat: v.thinkingFormat } : {}),
     ...(kwargs ? { chatTemplateKwargs: kwargs } : {}),
     ...(args ? { chatTemplateArgs: args } : {}),
-    models: customModelIds(v.modelsText).map((id) => ({
-      id,
-      ...(contextWindow ? { contextWindow: Number(contextWindow) } : {}),
-      ...(maxTokens ? { maxTokens: Number(maxTokens) } : {}),
-      reasoning: !!v.reasoningModel,
-      ...(levels.length ? { thinkingLevels: levels } : {}),
-    })),
+    models: customModelIds(v.modelsText).map((id) => {
+      const row = modelLimitRow(v.modelLimits, id);
+      return {
+        id,
+        ...(row.contextWindow ? { contextWindow: Number(row.contextWindow) } : {}),
+        ...(row.maxTokens ? { maxTokens: Number(row.maxTokens) } : {}),
+        reasoning: !!v.reasoningModel,
+        ...(levels.length ? { thinkingLevels: levels } : {}),
+      };
+    }),
     ...(key ? { key } : {}),
   };
 }
@@ -57,14 +58,12 @@ export function customProviderPayload(v) {
 export function customProviderForm(provider) {
   const p = provider || {};
   const defs = Array.isArray(p.definitions) ? p.definitions : [];
-  const sized = defs.find((m) => m.contextWindow || m.maxTokens) || {};
   return {
     id: p.id || "",
     baseUrl: p.baseUrl || "",
     api: p.api || "openai-completions",
     modelsText: defs.map((m) => m.id).join("\n"),
-    contextWindow: sized.contextWindow ? String(sized.contextWindow) : "",
-    maxTokens: sized.maxTokens ? String(sized.maxTokens) : "",
+    modelLimits: limitsFromDefinitions(defs),
     compatDeveloper: !!(p.compat && p.compat.supportsDeveloperRole),
     compatReasoning: !!(p.compat && p.compat.supportsReasoningEffort),
     thinkingFormat: customThinkingFormat(p.thinkingFormat),
@@ -111,39 +110,38 @@ export function mergeModelIds(text, found) {
   return { text: lines.join("\n"), added };
 }
 
-// agreedModelLimits answers the one context window and max output the form can
-// honestly write for a whole list: a number every listed model reports and
-// every one agrees on. One model is a special case of that rule, and a list
-// where they differ returns nothing — writing the largest window onto a model
-// that has a smaller one would be a lie pi then acts on.
-export function agreedModelLimits(found) {
-  const models = (found || []).filter((m) => m && m.id);
-  if (!models.length) return {};
-  const agreed = (key) => {
-    const first = Number(models[0][key]) || 0;
-    if (!first) return null;
-    for (const m of models) {
-      if ((Number(m[key]) || 0) !== first) return null;
-    }
-    return first;
-  };
+// limitsFromDefinitions reads what the file says per model: each id carries
+// its own context window and max output, which is what pi supports (the form
+// used to write one number for the whole list, which had to refuse a gateway
+// whose models disagree).
+export function limitsFromDefinitions(defs) {
   const out = {};
-  const contextWindow = agreed("contextWindow");
-  if (contextWindow) out.contextWindow = contextWindow;
-  const maxTokens = agreed("maxTokens");
-  if (maxTokens) out.maxTokens = maxTokens;
+  for (const m of defs || []) {
+    if (!m || !m.id) continue;
+    out[m.id] = {
+      contextWindow: m.contextWindow ? String(m.contextWindow) : "",
+      maxTokens: m.maxTokens ? String(m.maxTokens) : "",
+    };
+  }
   return out;
 }
 
-// customThinkingFormat prefills the select from the file. A hand-edited value
-// the form does not offer (or the undocumented "reasoning_effort", which pi
-// sends down the same branch as "openai") reads as the format pi will
-// actually take, and the next save writes it explicitly.
-export function customThinkingFormat(value) {
-  const v = String(value || "");
-  if (!v) return "";
-  if (v === "reasoning_effort") return "openai";
-  return THINKING_FORMAT_NEEDS[v] === undefined ? "" : v;
+// syncModelLimits keeps the rows in step with the id list: one row per id, in
+// the list's order, none for an id that is gone. Numbers already typed survive
+// a trip through the textarea.
+export function syncModelLimits(limits, ids) {
+  const out = {};
+  for (const id of ids || []) out[id] = modelLimitRow(limits, id);
+  return out;
+}
+
+// modelLimitRow is one row, defaulted, so callers never check for existence.
+export function modelLimitRow(limits, id) {
+  const cur = (limits || {})[id] || {};
+  return {
+    contextWindow: String(cur.contextWindow || ""),
+    maxTokens: String(cur.maxTokens || ""),
+  };
 }
 
 // jsonText renders a stored compat object back into the editor, indented so a
@@ -155,6 +153,17 @@ function jsonText(value) {
   } catch {
     return "";
   }
+}
+
+// customThinkingFormat prefills the select from the file. A hand-edited value
+// the form does not offer (or the undocumented "reasoning_effort", which pi
+// sends down the same branch as "openai") reads as the format pi will actually
+// take, and the next save writes it explicitly.
+export function customThinkingFormat(value) {
+  const v = String(value || "");
+  if (!v) return "";
+  if (v === "reasoning_effort") return "openai";
+  return THINKING_FORMAT_NEEDS[v] === undefined ? "" : v;
 }
 
 // customTakenIds lists the ids a new definition may not claim: every
