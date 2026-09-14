@@ -37,6 +37,34 @@ map to the two files: **Edit endpoint** reopens the form, **Sign out**
 removes only the credential, **Remove endpoint** deletes both with the
 blast radius named.
 
+**Load models (P1).** `POST /api/providers/custom/models`
+(`internal/server/custom_models.go`, `internal/modellist`) asks a custom
+endpoint what it serves, so nobody copies ids by hand. This is the one place
+PiCode speaks to a user-configured host, and it is a listing call only: no
+prompt, no completion, no model traffic (ADR-0003). The request carries the
+key the form holds, or — for an existing endpoint — the one the server reads
+from `auth.json` (`catalog.ActiveAPIKey`), and it never travels back: the
+answer is ids, limits and the URL that replied, and a message that echoed the
+key has it redacted before it leaves the server (`internal/modellist`
+`redact`, pinned by tests on both sides). The API type picks the shape and
+the header: `{baseUrl}/models` with `Authorization: Bearer` for the OpenAI
+types, `x-api-key` + `anthropic-version` for Anthropic's `{"data":[…]}`,
+`x-goog-api-key` for Google's `{"models":[{"name":"models/…"}]}` (the
+prefix is stripped). A base URL that does not already end in `/v1` (or
+`/v1beta`) is offered `/v1/models` too, but only a missing list falls through
+to it — a refused key would be refused twice. Failures are classified
+(`auth`, `billing`, `missing`, `upstream`, `transport`, `input`) and each
+carries the fix in one line: a 401 says whether a key was sent at all, a 404
+suggests `/v1`, a transport failure names the host and the 12s budget. The
+form merges what comes back into the ids already typed (never reordering or
+dropping one) and fills context window and max output only when **every**
+listed model reports the same number — the form writes one value for the
+whole list, so agreeing is the only honest source; a list whose models differ
+says so instead of leaving a blank field unexplained. An endpoint that lists
+nothing is an answer, not an error. The copy lives in Go, so both apps say
+the same thing, and `web/shared/client/modelLoad.js` (pure, no React) holds
+the line-building and merge the dialogs share.
+
 **Thinking levels.** The form's Advanced section declares a reasoning model
 and picks the levels it answers on (`minimal`…`max`), one selection for every
 model listed, like context window and max output. The selection becomes pi's
