@@ -1770,6 +1770,11 @@ img.ws-face.term-cli-face {
 .workspace-view.agent-split-on .term-surface { flex: 1 1 0; min-width: 0; }
 .split-divider { flex: 0 0 5px; cursor: col-resize; background: transparent; border-left: 1px solid var(--border, #232329); touch-action: none; }
 .split-divider:hover { background: var(--border, #232329); }
+/* Expanded (max) mode: the browser owns the tab; the agent pane and the
+   divider step aside until the same button returns the split. */
+.workspace-view.agent-split-max .chat-surface,
+.workspace-view.agent-split-max .term-surface,
+.workspace-view.agent-split-max .split-divider { display: none; }
 .agent-split-pane { flex: 0 0 auto; min-width: 0; display: flex; flex-direction: column; }
 .agent-split-pane .web-tab-surface { flex: 1 1 auto; }
 .web-tab-toolbar {
