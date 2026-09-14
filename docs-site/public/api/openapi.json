@@ -6465,6 +6465,32 @@
         ]
       }
     },
+    "/api/snips/slug/{slug}": {
+      "get": {
+        "operationId": "getApiSnipsSlug",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "snips"
+        ]
+      }
+    },
     "/api/snips/templates": {
       "get": {
         "operationId": "getApiSnipsTemplates",
