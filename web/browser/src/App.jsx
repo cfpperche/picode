@@ -1633,6 +1633,7 @@ export default function App({ shellChrome = false } = {}) {
   // only — the daemon binding is slice 2.
   const [agentPanes, setAgentPanes] = useState({});
   const [paneRatios, setPaneRatios] = useState({});
+  const [paneMax, setPaneMax] = useState({});
   const agentPanesRef = useRef(agentPanes);
   agentPanesRef.current = agentPanes;
   function openAgentSplit(agentId) {
@@ -3075,7 +3076,7 @@ export default function App({ shellChrome = false } = {}) {
       </div>
 
       <main id="main">
-        <div id="workspace-view" className={"workspace-view" + (isTermTab(selectedId) ? " term-on" : "") + (isFileTab(selectedId) ? " file-on" : "") + (isGitTab(selectedId) ? " git-on" : "") + (isTreeTab(selectedId) ? " tree-on" : "") + (isAppTab(selectedId) ? " app-on" : "") + (showHome ? " dashboard-on" : "") + (agentPanes[selectedId] ? " agent-split-on" : "")} hidden={onPane}>
+        <div id="workspace-view" className={"workspace-view" + (isTermTab(selectedId) ? " term-on" : "") + (isFileTab(selectedId) ? " file-on" : "") + (isGitTab(selectedId) ? " git-on" : "") + (isTreeTab(selectedId) ? " tree-on" : "") + (isAppTab(selectedId) ? " app-on" : "") + (showHome ? " dashboard-on" : "") + (agentPanes[selectedId] ? " agent-split-on" : "") + (agentPanes[selectedId] && paneMax[selectedId] ? " agent-split-max" : "")} hidden={onPane}>
           {!shellChrome && tabsStrip}
 
           <div id="empty" className="empty" hidden={!(missing || (noTabs && !hasData))}>
@@ -3464,12 +3465,15 @@ export default function App({ shellChrome = false } = {}) {
                   e.preventDefault();
                   const view = document.getElementById("workspace-view");
                   if (!view) return;
+                  const handle = e.currentTarget;
+                  handle.classList.add("dragging");
                   const move = (ev) => {
                     const r = view.getBoundingClientRect();
-                    const pct = Math.min(80, Math.max(20, Math.round(((ev.clientX - r.left) / r.width) * 100)));
+                    const pct = Math.min(80, Math.max(20, Math.round(((r.right - ev.clientX) / r.width) * 100)));
                     setPaneRatios((p) => ({ ...p, [selectedId]: pct }));
                   };
                   const up = () => {
+                    handle.classList.remove("dragging");
                     window.removeEventListener("pointermove", move);
                     window.removeEventListener("pointerup", up);
                   };
@@ -3477,12 +3481,14 @@ export default function App({ shellChrome = false } = {}) {
                   window.addEventListener("pointerup", up);
                 }}
               />
-              <div className="agent-split-pane" style={{ flexBasis: (paneRatios[selectedId] ?? 50) + "%" }}>
+              <div className="agent-split-pane" style={{ flexBasis: paneMax[selectedId] ? "100%" : (paneRatios[selectedId] ?? 50) + "%" }}>
                 <WebTabSurface
                   key={"split-" + selectedId}
                   tabId={"w:" + agentPanes[selectedId]}
                   active={true}
                   hidden={noTabs || missing || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId)}
+                  expanded={!!paneMax[selectedId]}
+                  onToggleExpand={() => setPaneMax((p) => ({ ...p, [selectedId]: !p[selectedId] }))}
                   onClose={() => closeAgentSplit(selectedId)}
                   onMeta={(m) => setWebTabs((cur) => ({ ...cur, [agentPanes[selectedId]]: { ...cur[agentPanes[selectedId]], ...m } }))}
                 />

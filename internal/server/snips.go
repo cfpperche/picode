@@ -14,6 +14,12 @@ import (
 	"github.com/cfpperche/picode/internal/tmux"
 )
 
+// snipDecodeLimit bounds what a snips request may allocate before validation.
+// The store refuses a body over 100 KB; this leaves room for JSON escaping of
+// a full body plus its metadata, and stops an arbitrarily large request from
+// being buffered first (the checklist endpoint's pattern).
+const snipDecodeLimit = 256 << 10
+
 func registerSnips(mux Registrar, deps Deps) {
 	// Static paths before /{id}: a starter and an address check are not rows.
 	mux.HandleFunc("GET /api/snips/templates", handleSnipTemplates)
@@ -105,7 +111,7 @@ func handleSnipPicker(deps Deps) http.HandlerFunc {
 func handleCreateSnip(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req snipReq
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, snipDecodeLimit)).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
@@ -132,7 +138,7 @@ func handleGetSnip(deps Deps) http.HandlerFunc {
 func handleUpdateSnip(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req snipReq
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, snipDecodeLimit)).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
@@ -164,7 +170,7 @@ func handleSnipStarred(deps Deps) http.HandlerFunc {
 		var req struct {
 			Starred bool `json:"starred"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, snipDecodeLimit)).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
@@ -182,7 +188,7 @@ func handleSnipArchived(deps Deps) http.HandlerFunc {
 		var req struct {
 			Archived bool `json:"archived"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, snipDecodeLimit)).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
@@ -222,7 +228,7 @@ func handleSnipExpand(deps Deps) http.HandlerFunc {
 			return
 		}
 		var req snipExpandReq
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, snipDecodeLimit)).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
@@ -246,11 +252,14 @@ func handleSnipRun(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		p, err := deps.Store.GetSnip(r.PathValue("id"))
 		if err != nil {
+			// No snippet, no run: the "snip.ran" notice below is published
+			// after this point on purpose, so a request for an id that does
+			// not exist stays out of the feed (TestSnipRanFeedBoundary).
 			writePinErr(w, err)
 			return
 		}
 		var req snipRunReq
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, snipDecodeLimit)).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
@@ -493,7 +502,16 @@ func runShellIntoTerminal(deps Deps, r *http.Request, p store.Snip, req snipRunR
 		return http.StatusBadRequest, map[string]any{"error": "Fill in the missing fields.", "missing": missing}
 	}
 	if req.Preview {
+		// A preview types nothing, so it is never blocked: the sheet has to
+		// show the command before a human can confirm it.
 		return http.StatusOK, map[string]any{"preview": true, "text": text}
+	}
+	// Same door rule as Run command… in a terminal (handleTerminalRun): a
+	// command must not land in a repository another PiCode agent or terminal
+	// is writing in. The snippet text is arbitrary, so this cannot be
+	// classified per command — it is the state of the repository that decides.
+	if busy := repoBusy(ctx0, deps, r, cwd, t.ID); len(busy) > 0 {
+		return http.StatusConflict, map[string]any{"error": busyMessage(busy), "reason": "busy", "busy": busy}
 	}
 	if !tryLockPrompt(t.ID) {
 		return http.StatusConflict, map[string]any{"error": "Already sending to this terminal.", "reason": "busy"}

@@ -88,6 +88,15 @@ projection that writes back into it (`setDefaultInBody`).
 
 ### Phone editor (v2)
 
+The list is the studio's list: **Active** / **Archived** (the desktop's
+`?archived=1` view), the same search over title, tags and body, and the row
+that says `archived` in its subtitle. The detail screen owns the two
+actions the desk has — **Archive** / **Unarchive** and **Delete** (a
+confirm naming the snippet; deletion navigates back) — so archiving is
+reversible from the phone. Without that view the phone could archive a
+snippet with no way to see it again, which is why the view and the action
+shipped together.
+
 `SnippetEdit` (`#/snippets/new`, `#/snippets/{id}/edit`) carries the same
 rules as the studio — parse on every keystroke, the address check against
 `/api/snips/slug/{slug}` (with `?except=` when editing), enums in
@@ -146,4 +155,20 @@ spliced text so images stay). Palette **Send snippet** posts `/run`. The
 desktop terminal right-click menu gains **Send to terminal…** (CLI
 panes) and **Run command…** (bare shells), each filtered to its kind.
 Every attempt announces ephemeral `snip.ran` (ok + reason, never
-values).
+values). That notice is published once the route has identified a snippet,
+so a request whose id does not exist (or whose body is malformed) is not a
+run and stays out of the feed, while a snippet that ran and failed — a
+target that is gone, say — is published with `ok: false`
+(`TestSnipRanFeedBoundary` pins both rows).
+
+The shell door also consults `repoBusy` before typing, the rule **Run
+command…** in a terminal already follows: if a PiCode agent or another
+terminal is working in the repository the target pane sits in, the run is
+refused with 409 `reason: "busy"` naming who. The snippet text is
+arbitrary, so the state of the repository is what decides, not a
+per-command guess. `preview: true` is never blocked — it types nothing, and
+the confirm step has to be reachable.
+
+Snips requests are read through `snipDecodeLimit` (256 KB): the store
+refuses a body over 100 KB, but without a cap the server buffers an
+arbitrarily large request before validation can say so.
