@@ -1602,14 +1602,23 @@ img.ws-face.term-cli-face {
   .dash-head { flex-wrap: wrap; }
 }
 
-/* ============ agent tabs (IDE-style, top of main) ============ */
+/* ============ agent tabs (Chrome CR23 shape, top of main) ============
+   Visual: Chromium tab_style (raised active surface, top radius, hover
+   pill, separators that yield to hover/active). Concave ears are omitted
+   on purpose: they only read as ears when a same-color toolbar sits under
+   the strip (Chrome's omnibox). Here the surface below is a terminal, a
+   chat or a file, so an ear becomes a fang. Overflow behaviour is
+   unchanged — docs/benchmarks/2026-09-06-tab-strip-overflow.md; tabs still
+   never shrink to favicons. Same sheet is imported by /desktop. */
 .main-tabs {
+  --tab-strip: var(--bg-base);
+  --tab-active: var(--bg-panel);
   display: flex; flex: none;
   height: var(--chrome-h); min-height: var(--chrome-h);
-  background: var(--bg-panel); border-bottom: 1px solid var(--border);
+  background: var(--tab-strip); border-bottom: 1px solid var(--border);
 }
 .tab-strip {
-  display: flex; align-items: stretch; padding: 0; overflow-x: auto; flex: 1; min-width: 0;
+  display: flex; align-items: stretch; padding: 4px 8px 0; overflow-x: auto; flex: 1; min-width: 0;
   position: relative;
   /* No layout scrollbar on the strip — Zed, Firefox, Material. A classic
      bar stole 10px of the 40px chrome. The active tab is revealed by code
@@ -1632,11 +1641,11 @@ img.ws-face.term-cli-face {
   mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
 }
 .tab-arrow {
-  flex: none; width: 26px; padding: 0; border: 0; border-right: 1px solid var(--border);
+  flex: none; width: 28px; margin: 4px 2px 0; padding: 0; border: 0; border-radius: 8px;
   display: inline-flex; align-items: center; justify-content: center;
-  background: var(--bg-panel); color: var(--text-secondary); cursor: pointer;
+  background: transparent; color: var(--text-secondary); cursor: pointer;
 }
-.tab-arrow.right { border-right: 0; border-left: 1px solid var(--border); }
+.tab-arrow.right { border: 0; }
 .tab-arrow:hover:not(:disabled) { color: var(--text-primary); background: var(--bg-hover); }
 .tab-arrow:disabled { opacity: .35; cursor: default; }
 .tab-arrow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
@@ -1646,14 +1655,14 @@ img.ws-face.term-cli-face {
    user — the one thing none of the benchmarks surface. */
 .tab-arrow { position: relative; }
 .tab-arrow-dot { position: absolute; top: 6px; right: 4px; width: 6px; height: 6px; }
-.tab-list-trigger { border-right: 0; border-left: 1px solid var(--border); }
-.mtab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tab-list-trigger { border: 0; }
+.mtab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 8px 8px 0 0; }
 .tab-list { width: 300px; }
 .tab-list-item .mtab-term { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex: none; }
 .tab-list-item .mtab-dot { flex: none; }
 .tab-list-item[aria-current="true"] .um-name { color: var(--accent); }
-/* The indicator rides the strip's top edge: the bottom edge belongs to
-   the active tab's accent underline, which the bar used to cover. */
+/* The indicator rides the strip's top edge so it never sits on the
+   active tab's ears or the hairline under the strip. */
 .tab-indicator {
   position: absolute; top: 0; height: 3px; border-radius: 0 0 2px 2px;
   background: color-mix(in srgb, var(--text-secondary) 45%, transparent);
@@ -1703,24 +1712,49 @@ img.ws-face.term-cli-face {
 .session-rename { font-size: 11px; color: var(--accent); cursor: pointer; }
 .mtab {
   display: flex; align-items: center; gap: 6px;
+  position: relative;
   /* Never shrink: the strip scrolls (Firefox, VS Code), tabs do not
      collapse toward their favicons (Chrome). Needed explicitly now that
      the label's overflow:hidden lets flex treat its min-width as 0. */
   flex: none;
-  padding: 0 8px; font-size: 12.5px;
-  border-right: 1px solid var(--border);
+  z-index: 1;
+  padding: 0 8px 0 10px; font-size: 12.5px;
   cursor: grab; color: var(--text-secondary); white-space: nowrap;
   user-select: none;
+}
+.mtab:hover { z-index: 2; color: var(--text-primary); }
+.mtab.active { z-index: 3; color: var(--text-primary); }
+.mtab.dragging { z-index: 4; opacity: .45; cursor: grabbing; }
+/* Shape on .mtab-bg so hover (a floating pill) and active (a raised
+   surface flush with the strip's bottom) can differ without layout shift. */
+.mtab-bg {
+  position: absolute; pointer-events: none; z-index: -1;
+  top: 0; bottom: 0; left: 2px; right: 2px;
+  border-radius: 8px 8px 0 0;
+}
+.mtab:not(.active):hover .mtab-bg {
+  top: 4px; bottom: 4px;
+  border-radius: 8px;
+  background: var(--bg-hover);
+}
+.mtab.active .mtab-bg { background: var(--tab-active); }
+/* Hairline between two idle tabs; yields next to hover, the active tab,
+   or the last tab (Chrome never paints a trail after the strip). */
+.mtab:not(.active):not(:hover):not(:last-child)::after {
+  content: ""; position: absolute; right: 0; top: 22%; height: 56%; width: 1px;
+  background: var(--border); pointer-events: none;
+}
+.mtab:has(+ .mtab:hover)::after,
+.mtab:has(+ .mtab.active)::after { content: none; }
+.mtab.drag-over::before {
+  content: ""; position: absolute; left: 6px;
+  top: 8px; bottom: 8px; width: 2px; border-radius: 1px;
+  background: var(--accent); z-index: 2; pointer-events: none;
 }
 /* Phase 4: one long name cannot swallow the strip (Chrome caps a tab at
    232 dip, VS Code's fixed sizing at 160 px). The tooltip carries the
    full name or path. */
 .mtab-label { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mtab:hover { color: var(--text-primary); background: var(--bg-hover); }
-.mtab.active { color: var(--text-primary); background: var(--bg-base); box-shadow: inset 0 -2px 0 var(--accent); }
-.mtab.dragging { opacity: .45; cursor: grabbing; }
-.mtab.drag-over { box-shadow: inset 2px 0 0 var(--accent); }
-.mtab.active.drag-over { box-shadow: inset 2px 0 0 var(--accent), inset 0 -2px 0 var(--accent); }
 .mtab-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-secondary); flex: none; }
 .mtab-dot.running { background: var(--ok); }
 /* Needs-you on a terminal tab (ADR-0056 tier 1) — the user's move. */
@@ -1733,10 +1767,15 @@ img.ws-face.term-cli-face {
 .mtab-term .ws-face { margin: 0; }
 .mtab-term img.ws-face { border: 0; padding: 0; }
 .mtab-close {
+  flex: none; width: 16px; height: 16px; padding: 0;
+  display: grid; place-items: center;
   border: none; background: none; color: inherit; cursor: pointer;
-  font-size: 13px; line-height: 1; padding: 1px 3px; opacity: .5; border-radius: 4px;
+  font-size: 14px; line-height: 1; opacity: 0; border-radius: 50%;
 }
-.mtab-close:hover { opacity: 1; color: var(--danger); background: var(--bg-hover); }
+.mtab:hover .mtab-close,
+.mtab.active .mtab-close,
+.mtab:focus-within .mtab-close { opacity: .55; }
+.mtab-close:hover { opacity: 1; background: color-mix(in srgb, var(--text-primary) 12%, transparent); }
 
 /* ============ chat surface (the hero) ============ */
 .chat-surface {
@@ -5222,13 +5261,10 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   /* Elevation over a canvas of its own luminance. A drop shadow alone is
      invisible on a near-black terminal (measured: 2/255 over 17px) and the
      panel's fill is within 1.08:1 of it, so the seam carries the weight:
-     an accent rule on the seam with the surface — the same signal the
-     active tab already wears — says "revealed, not docked" in both themes
-     (measured 5.97:1 dark, 4.13:1 light). The blur behind it is what light
-     mode reads. The tab strip recolours its own 1px border instead of
-     adding a second bar: a 2px rule there would stack under the active
-     tab's 2px underline with the border between them, and read as a
-     stripe rather than one seam. */
+     an accent rule on the seam with the surface says "revealed, not
+     docked" in both themes (measured 5.97:1 dark, 4.13:1 light). The blur
+     behind it is what light mode reads. The tab strip recolours its own
+     1px border instead of adding a second bar, so it stays one seam. */
   #app.focus-reveal-left #sidebar {
     box-shadow: 2px 0 0 var(--accent), 18px 0 34px -12px color-mix(in srgb, #000 55%, transparent);
   }
@@ -5457,7 +5493,7 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 #inspector .ft-name { flex: 1 1 auto; min-width: 0; }
 .insp-count { display: inline-flex; gap: 6px; flex: none; font-size: 11px; font-variant-numeric: tabular-nums; }
 .insp-count-bin { color: var(--text-secondary); font-style: italic; }
-.main-tabs-end { margin-left: auto; display: flex; align-items: center; padding: 0 6px; flex: none; border-left: 1px solid var(--border); }
+.main-tabs-end { margin-left: auto; display: flex; align-items: center; padding: 0 6px; flex: none; }
 @media (max-width: 767px) {
   #inspector { display: none !important; }
   .main-tabs-end { display: none; }
@@ -5575,7 +5611,7 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .shell-row {
   position: fixed; top: 0; left: 0; right: 0; z-index: 60;
   display: flex; align-items: stretch; height: var(--chrome-h);
-  background: var(--bg-panel); border-bottom: 1px solid var(--border);
+  background: var(--bg-base); border-bottom: 1px solid var(--border);
   user-select: none;
 }
 .shell-brand-cluster {
