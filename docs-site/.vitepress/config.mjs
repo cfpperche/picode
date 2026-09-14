@@ -103,6 +103,7 @@ export default defineConfig({
       },
       {
         text: "Configure",
+        link: "/guide/configure",
         collapsed: false,
         items: [
           { text: "Settings", link: "/guide/settings" },

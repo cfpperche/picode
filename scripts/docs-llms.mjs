@@ -62,6 +62,7 @@ const CURATED = [
   ["Run", "guide/ssh-terminals.md", "Agent terminals over SSH"],
   ["Run", "guide/public-access.md", "Open it to the internet"],
   ["Run", "guide/mobile.md", "On your phone"],
+  ["Configure", "guide/configure.md", "Configure"],
   ["Configure", "guide/settings.md", "Settings"],
   ["Configure", "guide/providers.md", "Providers"],
   ["Configure", "guide/roles.md", "Model roles"],

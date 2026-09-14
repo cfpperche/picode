@@ -1,10 +1,14 @@
+---
+description: API keys and account logins for Pi on this machine.
+---
+
 # Providers
 
-Open **Agent CLIs**, pick **Pi**, and choose **Providers** (`#/clis/pi/providers`).
-Accounts apply to this machine. Older Providers links redirect here; other
-CLIs will appear when their provider integration is available.
+Accounts apply to this machine. PiCode reads and writes the same
+`~/.pi/agent/auth.json` as the pi TUI. Keys are never shown again after save.
 
-PiCode reads and writes the same `~/.pi/agent/auth.json` as the pi TUI. Keys are never shown again after save.
+- **Where:** **Agent CLIs**, pick **Pi**, then **Providers** (`#/clis/pi/providers`).
+- **Not this:** not [Connectors](/guide/mcp) and not [Settings](/guide/settings). Older Providers links redirect here; other CLIs appear when their provider integration is available.
 
 Canonical: [pi Providers](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/providers.md).
 
