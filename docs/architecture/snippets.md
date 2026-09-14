@@ -68,7 +68,8 @@ snippet. Drafts sit in **`localStorage`** (`picode-snip-draft:<id>`, the
 same keys and `draftToRestore` base rule as before — a closed tab no
 longer takes the text; last-writer-wins across tabs, like the Automations
 draft). The editor parses placeholders in the browser
-(`web/shared/domain/snipDraft.js`). Command kind has no control yet.
+(`web/shared/domain/snipDraft.js`). The Kind control (Prompt / Command)
+is a `<select>` on both surfaces.
 
 ### Authoring (v2)
 
@@ -84,6 +85,23 @@ projection that writes back into it (`setDefaultInBody`).
 | Duplicate | a row action and a detail button: reads the snippet (a row carries no body), then hands `title + " copy"`, slug `<slug>-copy` (locked) and the body over as origin `duplicate` |
 | Save off | what explains it is written where the problem is — the body's own line and the slug's own line — never a badge beside the button (a text span in a `data-align-row` row is the alignment defect `__picodeOverlayAudit` catches) |
 | Enums | held in editor state, sent in `placeholders[]`; they ride the draft alongside the body |
+
+### Phone editor (v2)
+
+`SnippetEdit` (`#/snippets/new`, `#/snippets/{id}/edit`) carries the same
+rules as the studio — parse on every keystroke, the address check against
+`/api/snips/slug/{slug}` (with `?except=` when editing), enums in
+`placeholders[]`, drafts under the same keys — with two phone decisions:
+
+| Difference | Why |
+|---|---|
+| The table is **a card per placeholder**, not a `<table>` | a four-column table at 390px scrolls sideways or squeezes the name; the name, its default and its choices are read in one look |
+| A required placeholder shows a **disabled** default field reading "Required — the agent asks" | the default means nothing for a required name (it is not written as `{{name=…}}`); the sentence is inside the field, so a dimmed control is never a mystery |
+
+A reserved name (`cwd`, `workspace`, `branch`, `date`, `agent`, `cli`)
+shows no controls and says "Filled from the target — nothing to set here."
+The table dims to the last good parse while the body is invalid, exactly
+as the studio does.
 
 ### Capture and import (v2)
 
