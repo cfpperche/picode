@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners } from "./openTabs.js";
+import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readAgentSplits, writeAgentSplits, writeAgentSplitUrls, filterAgentSplits } from "./openTabs.js";
 
 test("filterOpenTabs drops missing agents", () => {
   const got = filterOpenTabs(
@@ -82,4 +82,53 @@ test("git owners survive a round trip and reject junk", () => {
   assert.deepEqual(readGitOwners(), {});
   store["picode-git-owners"] = JSON.stringify([1, 2]);
   assert.deepEqual(readGitOwners(), {});
+});
+
+test("the agent split survives a relaunch: layout and urls round-trip", () => {
+  const store = {};
+  globalThis.localStorage = {
+    getItem: (k) => (k in store ? store[k] : null),
+    setItem: (k, v) => { store[k] = String(v); },
+  };
+  writeAgentSplits({ panes: { opus: "1", "term:t7": "2" }, ratios: { opus: 33 }, max: { "term:t7": true } });
+  writeAgentSplitUrls({ 1: "https://globo.com/", 2: "" });
+  const got = readAgentSplits();
+  assert.deepEqual(got.panes, { opus: "1", "term:t7": "2" });
+  assert.deepEqual(got.ratios, { opus: 33 });
+  assert.deepEqual(got.max, { "term:t7": true });
+  // An empty url is not a page to come back to.
+  assert.deepEqual(got.urls, { 1: "https://globo.com/" });
+
+  // Junk is dropped field by field: a pane whose id is not a webview id, a
+  // ratio out of the drag range, a max flag on a pane that is gone.
+  store["picode-agent-splits"] = JSON.stringify({
+    panes: { opus: "1", gone: "x", "": "2" },
+    ratios: { opus: 99, gone: 40 },
+    max: { opus: "yes", gone: true },
+  });
+  const clean = readAgentSplits();
+  assert.deepEqual(clean.panes, { opus: "1" });
+  assert.deepEqual(clean.ratios, { opus: 80 });
+  assert.deepEqual(clean.max, {});
+
+  store["picode-agent-splits"] = "{ broken";
+  store["picode-agent-split-urls"] = "{ broken";
+  assert.deepEqual(readAgentSplits(), { panes: {}, ratios: {}, max: {}, urls: {} });
+});
+
+test("filterAgentSplits drops the panes whose host tab is gone", () => {
+  const splits = {
+    panes: { opus: "1", "term:t7": "2", dead: "3" },
+    ratios: { opus: 25, dead: 60 },
+    max: { opus: false, "term:t7": true },
+    urls: { 1: "https://a/", 2: "https://b/", 3: "https://c/" },
+  };
+  const got = filterAgentSplits(splits, (key) => key !== "dead");
+  assert.deepEqual(got.panes, { opus: "1", "term:t7": "2" });
+  assert.deepEqual(got.ratios, { opus: 25 });
+  assert.deepEqual(got.max, { "term:t7": true });
+  // The dead pane's url goes with it; the live panes keep theirs.
+  assert.deepEqual(got.urls, { 1: "https://a/", 2: "https://b/" });
+  // A missing map is an empty split, not a crash.
+  assert.deepEqual(filterAgentSplits(undefined, () => true), { panes: {}, ratios: {}, max: {}, urls: {} });
 });
