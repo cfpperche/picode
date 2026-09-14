@@ -1,0 +1,191 @@
+// Package preview mints and resolves the short-lived capability tickets that
+// let one HTML file render in a sandboxed frame (ADR-0136). A ticket binds a
+// token to one owner directory, one document and the session that asked for
+// it; the package also owns the read-only web-asset policy — the closed MIME
+// list and the dotfile rule. It never writes a file, never touches Pi's
+// session files, and knows nothing about HTTP.
+package preview
+
+import (
+	"crypto/rand"
+	"encoding/base64"
+	"fmt"
+	"path"
+	"strings"
+	"sync"
+	"time"
+)
+
+// DefaultTTL is how long a minted ticket lives. The pane mints again on
+// every open and Reload, so a token that leaks (a log, a screenshot, a
+// shared URL) has an hour of reach at most.
+const DefaultTTL = time.Hour
+
+// TokenBytes is the entropy in a ticket token; the token is a credential.
+const TokenBytes = 32
+
+// Ticket is one capability: a token that serves Root, and the document under
+// it the pane first asked for. SessionID is empty for anonymous mode.
+type Ticket struct {
+	Token     string
+	OwnerKind string // agent | term | workspace
+	OwnerID   string
+	Root      string // absolute, symlink-resolved directory at mint time
+	Path      string // slash-relative document path under Root
+	SessionID string
+	CreatedAt time.Time
+	ExpiresAt time.Time
+}
+
+// Store holds live tickets in memory. A daemon restart drops all of them.
+type Store struct {
+	mu      sync.Mutex
+	ttl     time.Duration
+	now     func() time.Time
+	tickets map[string]Ticket
+}
+
+// NewStore builds a store; ttl <= 0 means DefaultTTL.
+func NewStore(ttl time.Duration) *Store {
+	if ttl <= 0 {
+		ttl = DefaultTTL
+	}
+	return &Store{ttl: ttl, now: time.Now, tickets: make(map[string]Ticket)}
+}
+
+// Mint creates a ticket for one document. It does not validate the path; the
+// caller did that against the filesystem.
+func (s *Store) Mint(ownerKind, ownerID, root, docPath, sessionID string) (Ticket, error) {
+	tok, err := newToken()
+	if err != nil {
+		return Ticket{}, err
+	}
+	now := s.now()
+	t := Ticket{
+		Token:     tok,
+		OwnerKind: ownerKind,
+		OwnerID:   ownerID,
+		Root:      root,
+		Path:      docPath,
+		SessionID: sessionID,
+		CreatedAt: now,
+		ExpiresAt: now.Add(s.ttl),
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.sweepLocked(now)
+	s.tickets[tok] = t
+	return t, nil
+}
+
+// Get resolves a token, forgetting it once expired.
+func (s *Store) Get(token string) (Ticket, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	t, ok := s.tickets[token]
+	if !ok {
+		return Ticket{}, false
+	}
+	if !s.now().Before(t.ExpiresAt) {
+		delete(s.tickets, token)
+		return Ticket{}, false
+	}
+	return t, true
+}
+
+// Len reports live (unexpired) tickets.
+func (s *Store) Len() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.sweepLocked(s.now())
+	return len(s.tickets)
+}
+
+func (s *Store) sweepLocked(now time.Time) {
+	for tok, t := range s.tickets {
+		if !now.Before(t.ExpiresAt) {
+			delete(s.tickets, tok)
+		}
+	}
+}
+
+func newToken() (string, error) {
+	b := make([]byte, TokenBytes)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("preview: token: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+// mimeByExt is the closed list of types a preview may serve: web assets, not
+// the project. `.env`, key files, extension-less files and anything absent
+// here are structurally unservable (ADR-0136).
+var mimeByExt = map[string]string{
+	".html":  "text/html; charset=utf-8",
+	".htm":   "text/html; charset=utf-8",
+	".css":   "text/css; charset=utf-8",
+	".js":    "text/javascript; charset=utf-8",
+	".mjs":   "text/javascript; charset=utf-8",
+	".cjs":   "text/javascript; charset=utf-8",
+	".json":  "application/json; charset=utf-8",
+	".map":   "application/json; charset=utf-8",
+	".svg":   "image/svg+xml",
+	".png":   "image/png",
+	".jpg":   "image/jpeg",
+	".jpeg":  "image/jpeg",
+	".gif":   "image/gif",
+	".webp":  "image/webp",
+	".avif":  "image/avif",
+	".ico":   "image/x-icon",
+	".bmp":   "image/bmp",
+	".woff":  "font/woff",
+	".woff2": "font/woff2",
+	".ttf":   "font/ttf",
+	".otf":   "font/otf",
+	".wasm":  "application/wasm",
+	".txt":   "text/plain; charset=utf-8",
+	".csv":   "text/csv; charset=utf-8",
+	".xml":   "text/xml; charset=utf-8",
+	".mp3":   "audio/mpeg",
+	".wav":   "audio/wav",
+	".ogg":   "audio/ogg",
+	".m4a":   "audio/mp4",
+	".mp4":   "video/mp4",
+	".webm":  "video/webm",
+	".pdf":   "application/pdf",
+	".glb":   "model/gltf-binary",
+	".gltf":  "model/gltf+json",
+}
+
+// MIMEType answers the Content-Type for a servable asset. The second result
+// is false for anything outside the list.
+func MIMEType(rel string) (string, bool) {
+	m, ok := mimeByExt[strings.ToLower(path.Ext(rel))]
+	return m, ok
+}
+
+// IsDocument reports the one thing a ticket may be minted for.
+func IsDocument(rel string) bool {
+	base := strings.ToLower(path.Base(rel))
+	// A file named exactly `.html` is a dotfile with no name, not a document.
+	if base == ".html" || base == ".htm" {
+		return false
+	}
+	switch path.Ext(base) {
+	case ".html", ".htm":
+		return true
+	default:
+		return false
+	}
+}
+
+// Hidden reports a path with any dot-prefixed segment: the preview never
+// serves `.env`, `.git/…` or a `.ssh` alias, however it is spelled.
+func Hidden(rel string) bool {
+	for _, part := range strings.Split(rel, "/") {
+		if strings.HasPrefix(part, ".") {
+			return true
+		}
+	}
+	return false
+}

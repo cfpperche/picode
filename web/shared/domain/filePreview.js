@@ -1,5 +1,7 @@
 const TEXT_KIND = {
   ".svg": "svg",
+  ".html": "html",
+  ".htm": "html",
   ".mmd": "mermaid",
   ".mermaid": "mermaid",
   ".md": "markdown",

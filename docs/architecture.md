@@ -206,6 +206,7 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | Page or capability | File |
 |---|---|
 | [Application routes](architecture/routes.md) | `docs/architecture/routes.md` |
+| [File preview: HTML (ADR-0136)](architecture/file-preview.md) | `docs/architecture/file-preview.md` |
 | [Native CLI settings (ADR-0101)](architecture/cli-settings.md) | `docs/architecture/cli-settings.md` |
 | [Native CLI packages (ADR-0102)](architecture/cli-packages.md) | `docs/architecture/cli-packages.md` |
 | [Native CLI providers (ADR-0103)](architecture/cli-providers.md) | `docs/architecture/cli-providers.md` |

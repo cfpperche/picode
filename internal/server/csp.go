@@ -93,6 +93,13 @@ const PageCSP = "default-src 'none'; style-src 'unsafe-inline'; form-action 'sel
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := r.URL.Path
+		// Previews carry their own policy (ADR-0136): the response's CSP
+		// sandbox is what isolates a served document, and the app policy
+		// would break the page instead.
+		if strings.HasPrefix(p, "/preview/") {
+			next.ServeHTTP(w, r)
+			return
+		}
 		if p == "/" || p == "/index.html" || strings.HasSuffix(p, ".html") {
 			w.Header().Set("Content-Security-Policy", appCSP(r.Host))
 			w.Header().Set("Referrer-Policy", "same-origin")

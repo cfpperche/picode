@@ -2159,6 +2159,12 @@ img.ws-face.term-cli-face {
 .file-preview-frame {
   flex: 1; min-height: 0; width: 100%; border: 0; background: var(--bg-base);
 }
+/* The one preview that is a page (ADR-0136): the frame IS the content, so
+   no padding around it, and browser-default white behind a page that does
+   not paint its own background. */
+.file-preview-html { padding: 0; align-items: stretch; }
+.file-preview-html .file-preview-frame { background: #fff; }
+.file-pane-msg-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .file-preview-audio { max-width: 100%; }
 .file-preview-video { display: block; }
 .file-preview-3d-wrap { display: block; padding: 0; height: 100%; }

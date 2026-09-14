@@ -5,7 +5,8 @@ import { api } from "@picode/shared/client/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import { languageFor } from "../lib/fileLang.js";
 import { fileEditorExtensions } from "../lib/fileEditor.js";
-import { previewKind } from "@picode/shared/domain/filePreview.js";
+import { previewKind, previewEmpty } from "@picode/shared/domain/filePreview.js";
+import { usePreviewTicket } from "../lib/usePreviewTicket.js";
 import { createDocumentGuard, createFileDocument } from "../lib/fileDocument.js";
 import { fileMessage, ownerFileURL, readFile } from "../lib/fileIO.js";
 import { holdDocument, releaseDocument } from "../lib/fileDocs.js";
@@ -56,6 +57,16 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
   const [expanded, setExpanded] = useState(false);
   const kind = previewKind(path);
   const [mode, setMode] = useState(kind ? "preview" : "raw");
+  // One capability ticket per open HTML preview (ADR-0136). Minting pauses
+  // while the editor holds unsaved text: the page on disk would be the
+  // previous version, and the pane says so instead of showing it.
+  const html = usePreviewTicket({
+    ownerKind,
+    ownerId,
+    path,
+    root,
+    enabled: kind === "html" && mode === "preview" && !view.dirty && !previewEmpty(view.text),
+  });
   const [leaving, setLeaving] = useState(false);
   const leaveResolver = useRef(null);
   const hostRef = useRef(null);
@@ -188,6 +199,12 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
             </div>
           ) : null}
           <div className="file-pane-commands" data-align-row>
+            {kind === "html" && mode === "preview" && !view.dirty && !previewEmpty(view.text) ? (
+              <button type="button" className="btn btn-sm btn-ghost" disabled={html.status === "loading"} onClick={() => { void html.reload(); }}>Reload</button>
+            ) : null}
+            {kind === "html" && mode === "preview" && !view.dirty && html.status === "ready" ? (
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => window.open(html.url, "_blank", "noopener,noreferrer")}>Open in browser</button>
+            ) : null}
             {onViewDiff ? <button type="button" className="btn btn-sm btn-ghost" onClick={onViewDiff}>View diff</button> : null}
             {canSave ? <button type="button" className="btn btn-primary btn-sm" onClick={() => doc.save()} disabled={!view.dirty || view.saving}>{view.saving ? "Saving…" : "Save"}</button> : null}
             {/* Close only where there is something to close to: the tree's
@@ -217,7 +234,20 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
           </div>
         ) : null}
         {canSave ? <div className="file-cm" ref={hostRef} hidden={mode !== "raw"} /> : null}
-        {mode === "preview" && showPreview ? <FilePreview kind={kind} text={view.text} src={view.src} /> : null}
+        {mode === "preview" && showPreview ? (
+          kind === "html" && previewEmpty(view.text) ? (
+            <p className="file-pane-msg">Nothing to preview.</p>
+          ) : kind === "html" && view.dirty && !view.error ? (
+            <p className="file-pane-msg file-pane-msg-actions">
+              <span>Unsaved changes aren't in the preview.</span>
+              <button type="button" className="btn btn-sm btn-ghost" disabled={view.saving} onClick={() => { void doc.save(); }}>
+                {view.saving ? "Saving…" : "Save and preview"}
+              </button>
+            </p>
+          ) : (
+            <FilePreview kind={kind} text={view.text} src={view.src} html={kind === "html" ? html : undefined} />
+          )
+        ) : null}
       </div>
       <FileLeaveDialog open={leaving} path={path} onPick={pickLeave} />
     </section>

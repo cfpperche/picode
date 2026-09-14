@@ -63,7 +63,7 @@ export default function FileCard({ agentId, path, onClose, onOpenTab }) {
         {!gone ? (
           <button type="button" className="btn btn-ghost btn-sm file-card-out" onClick={() => onOpenTab && onOpenTab(path)}>
             <IconExternal />
-            Open in tab
+            {kind === "html" ? "Open preview" : "Open in tab"}
           </button>
         ) : null}
         <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Close</button>
@@ -77,8 +77,8 @@ export default function FileCard({ agentId, path, onClose, onOpenTab }) {
         ) : null}
         {view.kind === "msg" ? <p className="file-pane-msg">{view.text}</p> : null}
         {view.kind === "bin" && kind ? <FilePreview kind={kind} src={view.src} /> : null}
-        {view.kind === "text" && kind ? <FilePreview kind={kind} text={view.text} /> : null}
-        {view.kind === "text" && !kind ? (
+        {view.kind === "text" && kind && kind !== "html" ? <FilePreview kind={kind} text={view.text} /> : null}
+        {view.kind === "text" && (!kind || kind === "html") ? (
           <pre className="file-card-pre">{excerpt(view.text)}</pre>
         ) : null}
       </div>

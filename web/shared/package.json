@@ -15,6 +15,7 @@
     "./client/install.js": "./client/install.js",
     "./client/modelLoad.js": "./client/modelLoad.js",
     "./client/push.js": "./client/push.js",
+    "./client/preview.js": "./client/preview.js",
     "./client/reminders.js": "./client/reminders.js",
     "./client/reconnect.js": "./client/reconnect.js",
     "./client/shell.js": "./client/shell.js",

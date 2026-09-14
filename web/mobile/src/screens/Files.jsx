@@ -169,7 +169,7 @@ function FileScreen({ owner, title, initialPath = "", root: initialRoot = "", on
     {error ? <div className="m-file-notice" role="alert"><p>{moved(error) ? "The working folder changed." : fileMessage(error, fileError ? "file" : "folder")}</p><button type="button" className="btn btn-sm" disabled={view.saving || loading || view.refreshing} onClick={errorAction}>{errorLabel}</button></div> : null}
     {path ? <>
       <div className="m-file-path" title={root + "/" + path}>{path}</div>
-      <FileDocument doc={doc} view={!doc && folderError ? { kind: "msg" } : view} path={path} />
+      <FileDocument doc={doc} view={!doc && folderError ? { kind: "msg" } : view} path={path} owner={owner} root={root} />
     </> : <div className="m-files-browser">
       <div className="m-file-folder-bar" data-align-row>
         <button type="button" className="btn btn-sm btn-ghost" disabled={!folder?.dir || loading} onClick={() => browse(folder.parent)}>Up</button>

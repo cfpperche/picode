@@ -31,3 +31,11 @@
   permissions, like Pi itself.
   Roadmap for tailnet, shared and public servers:
   `docs/design/remote-modes-roadmap.md`.
+- **HTML previews are a capability route, not the session** (ADR-0136):
+  `POST /api/previews` mints an hour-long, session-bound ticket for one
+  `.html`/`.htm`; `GET /preview/<ticket>/<path>` serves only allowlisted web
+  assets under the owner's folder (dotfiles and symlinks out, `no-referrer`,
+  `no-store`) to a frame sandboxed by response header (`sandbox`, never
+  `allow-same-origin`). A sandboxed page sends no cookie, reads no `/api`
+  answer (CORS) and its writes are refused as `Origin: null`; revoking the
+  session kills its tickets; the daemon restart drops them all.

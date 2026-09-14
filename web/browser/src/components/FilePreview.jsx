@@ -2,8 +2,10 @@ import { useEffect, useId, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { previewEmpty, svgDataUrl } from "@picode/shared/domain/filePreview.js";
+import { fileMessage } from "../lib/fileIO.js";
 
-export default function FilePreview({ kind, text, src }) {
+export default function FilePreview({ kind, text, src, html }) {
+  if (kind === "html") return <HtmlPreview html={html} />;
   if (kind === "svg") return <SvgPreview text={text} />;
   if (kind === "mermaid") return <MermaidPreview text={text} />;
   if (kind === "markdown") return <MarkdownPreview text={text} />;
@@ -13,6 +15,43 @@ export default function FilePreview({ kind, text, src }) {
   if (kind === "video") return <Media src={src} tag="video" label="video" />;
   if (kind === "model3d") return <ModelPreview src={src} />;
   return null;
+}
+
+// The one preview that is a page. The sandbox flags mirror the response's
+// CSP sandbox (ADR-0136) — two locks on the same door. Never add
+// allow-same-origin: the page must not see PiCode's origin or session, and a
+// nested navigation must not move the app.
+const PREVIEW_SANDBOX = "allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-pointer-lock allow-downloads";
+
+function HtmlPreview({ html }) {
+  if (!html || html.status === "idle" || html.status === "loading") {
+    return (
+      <div className="file-skel" aria-hidden="true">
+        <div className="skel-line w-80" />
+        <div className="skel-line w-50" />
+      </div>
+    );
+  }
+  if (html.status === "error") {
+    return (
+      <p className="file-pane-msg">
+        <span>{fileMessage(html.error)}</span>
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => { void html.reload(); }}>Retry</button>
+      </p>
+    );
+  }
+  return (
+    <div className="file-preview file-preview-html">
+      <iframe
+        className="file-preview-frame"
+        title="HTML preview"
+        src={html.url}
+        sandbox={PREVIEW_SANDBOX}
+        allow="fullscreen; clipboard-write"
+        allowFullScreen
+      />
+    </div>
+  );
 }
 
 function SvgPreview({ text }) {
