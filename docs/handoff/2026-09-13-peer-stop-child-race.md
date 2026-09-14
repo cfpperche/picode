@@ -1,7 +1,7 @@
-# 2026-09-13 — peer-stop-child-race: the peer-stop test stops deciding by race
+# 2026-09-13 — peer-stop-child-race: the server suite is deterministic again
 
-Shipped: `TestPeerStopStubbornChildStaysPending` is deterministic. A ready-marker handshake guarantees the pane installed its TERM/HUP traps before the stop signals it; every tmux command runs without the ambient `TMUX` and targets the session exactly (`list-panes -t =name`), so a test running inside a PiCode terminal no longer reads another pane. The red line in `docs/handoff/open/terminal.md` is paid; the `TestPaneRootSurvivesSIGHUP` load flake stays recorded there.
-Verified: 20 consecutive green runs (`go test -count=20`), no leaked tmux session, neighbouring peer tests green; `make close` next.
+Shipped: three fixture fixes behind `main`'s red CI. The stubborn-child stop test now waits for the pane's installed traps and targets tmux without the ambient client (20× green); the CLI resume row reads the resumed process's own argv instead of the creation launch's stale file; the SIGHUP pane fixtures use process-unique session names so two concurrent test binaries cannot share a pane. The board's red line is replaced by the paid record and a naming rule for future tmux fixtures.
+Verified: `go test ./internal/server/` full package green twice (~190 s each); peer-stop 20×, resume 5×, SIGHUP 20×; no leaked tmux sessions; `make close` next.
 visual-review: n/a
-Not done / debts: none beyond the recorded pane-root load flake.
+Not done / debts: none from this branch; tmux fixture naming rule recorded in `docs/handoff/open/terminal.md`.
 Merge: fast-forward ready after this close.
