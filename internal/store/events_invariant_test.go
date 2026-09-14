@@ -142,7 +142,7 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			after.Cursor++
 			_ = s.SaveWebhookProgress(w, after)
 		}, nil},
-		{"ImportCLIConfigs", func(s *Store) { _ = s.ImportCLIConfigs(map[string]bool{"pi": true}) }, []string{"cli.updated", "cli.updated", "cli.updated", "cli.updated", "cli.updated", "cli.updated"}},
+		{"ImportCLIConfigs", func(s *Store) { _ = s.ImportCLIConfigs(map[string]bool{"pi": true}) }, cliUpdatedN(len(clilaunch.Catalog()))},
 		{"SeedCatalogIntegrationDefaults", func(s *Store) {
 			_ = s.SetCLIConfig("opencode", clilaunch.Config{})
 			s.OnEvent = recorder(s)
@@ -569,3 +569,11 @@ func TestTxEventsAnnounceOnCommitOnly(t *testing.T) {
 }
 
 func timeNowPlusHour() time.Time { return time.Now().Add(time.Hour) }
+
+func cliUpdatedN(n int) []string {
+	out := make([]string, n)
+	for i := range out {
+		out[i] = "cli.updated"
+	}
+	return out
+}

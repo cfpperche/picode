@@ -18,16 +18,24 @@ type CLI struct {
 	Name    string `json:"name"`
 	Command string `json:"command"`
 	Docs    string `json:"docs"`
+	Surface string `json:"surface,omitempty"`
 }
+
+const SurfaceDetect = "detect"
+
+// DetectOnly is true when the catalog lists the CLI without launch.
+func (c CLI) DetectOnly() bool { return c.Surface == SurfaceDetect }
 
 func Catalog() []CLI {
 	return []CLI{
-		{"pi", "Pi", "pi", "https://pi.dev"},
-		{"claude-code", "Claude Code", "claude", "https://code.claude.com/docs/en/setup"},
-		{"codex", "Codex", "codex", "https://developers.openai.com/codex/cli"},
-		{"grok", "Grok", "grok", "https://grok.com/build"},
-		{"hermes", "Hermes Agent", "hermes", "https://hermes-agent.nousresearch.com/docs/getting-started/installation"},
-		{"opencode", "OpenCode", "opencode", "https://opencode.ai/docs"},
+		{"pi", "Pi", "pi", "https://pi.dev", ""},
+		{"claude-code", "Claude Code", "claude", "https://code.claude.com/docs/en/setup", ""},
+		{"codex", "Codex", "codex", "https://developers.openai.com/codex/cli", ""},
+		{"grok", "Grok", "grok", "https://grok.com/build", ""},
+		{"hermes", "Hermes Agent", "hermes", "https://hermes-agent.nousresearch.com/docs/getting-started/installation", ""},
+		{"opencode", "OpenCode", "opencode", "https://opencode.ai/docs", ""},
+		{"muse", "Muse Code", "muse", "https://ai.developer.meta.com/docs/muse-code/", SurfaceDetect},
+		{"agy", "Antigravity", "agy", "https://antigravity.google/docs/cli/", SurfaceDetect},
 	}
 }
 

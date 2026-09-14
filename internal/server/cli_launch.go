@@ -188,6 +188,10 @@ func registerCLIRoutes(mux Registrar, deps Deps) {
 			writeErr(w, 404, "Unknown CLI.")
 			return
 		}
+		if cli.DetectOnly() {
+			writeErr(w, 400, fmt.Sprintf("Launch is not available for %s yet.", cli.Name))
+			return
+		}
 		var c clilaunch.Config
 		if !readCLIJSON(w, r, &c) {
 			return
@@ -333,6 +337,19 @@ func cliEnvironment(c clilaunch.Config) []string {
 	return append(env, "PATH="+cliPath(c))
 }
 
+// dropEnv removes every entry naming key, so a value appended afterwards is
+// the one the child reads (getenv returns the first match).
+func dropEnv(env []string, key string) []string {
+	out := env[:0]
+	for _, kv := range env {
+		if k, _, ok := strings.Cut(kv, "="); ok && k == key {
+			continue
+		}
+		out = append(out, kv)
+	}
+	return out
+}
+
 func handleCLICheck(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cli, ok := clilaunch.Find(r.PathValue("cli"))
@@ -376,6 +393,11 @@ func computeCLICheck(deps Deps, cli clilaunch.CLI, c clilaunch.Config, d CLIDiag
 		defer cancel()
 		cmd := exec.CommandContext(ctx, binary, "--version")
 		cmd.Env = cliEnvironment(c)
+		if cli.ID == "muse" {
+			// The launcher background-updates unless the check is silent;
+			// drop an inherited value so ours is the one the child sees.
+			cmd.Env = append(dropEnv(cmd.Env, "MUSE_NO_AUTO_UPDATE"), "MUSE_NO_AUTO_UPDATE=1")
+		}
 		var output boundedCLIOutput
 		cmd.Stdout = &output
 		cmd.Stderr = &output
@@ -445,6 +467,10 @@ func handleCreateCLITerminal(deps Deps) http.HandlerFunc {
 			writeErr(w, 404, "Unknown CLI.")
 			return
 		}
+		if cli.DetectOnly() {
+			writeErr(w, 400, fmt.Sprintf("Launch is not available for %s yet.", cli.Name))
+			return
+		}
 		var v cliTerminalRequest
 		if !readCLIJSON(w, r, &v) {
 			return
@@ -467,6 +493,9 @@ func handleCreateCLITerminal(deps Deps) http.HandlerFunc {
 // pre-flight both terminal creation and a handoff run before creating
 // anything. Returns the HTTP status for the failure.
 func checkCLILaunch(deps Deps, cli clilaunch.CLI, overrides clilaunch.Overrides) (clilaunch.Config, int, error) {
+	if cli.DetectOnly() {
+		return clilaunch.Config{}, 400, fmt.Errorf("Launch is not available for %s yet.", cli.Name)
+	}
 	c, err := cliConfig(deps, cli.ID)
 	if err != nil {
 		return c, 500, err

@@ -17,7 +17,8 @@ tool-calling protocol.
 
 Agent CLIs (ADR-0069) is a separate terminal manager for installed Pi, Claude
 Code, Codex, Grok, Hermes Agent and OpenCode commands. It reuses terminal records, tmux, invocation
-wrappers and the event feed. These are not Agent records: structured chat,
+wrappers and the event feed. Muse Code and Antigravity are listed for
+installation detection and update checks only — no launch. These are not Agent records: structured chat,
 JSON-RPC, packages, orchestration and session ownership remain Pi-only until
 a future decision supplies those contracts for another CLI.
 

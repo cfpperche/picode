@@ -6,6 +6,8 @@ const CLI_ALIASES = Object.freeze({
   hermes: "hermes",
   opencode: "opencode",
   pi: "pi",
+  muse: "muse",
+  agy: "agy",
 });
 
 const CLI_LABELS = Object.freeze({
@@ -15,6 +17,8 @@ const CLI_LABELS = Object.freeze({
   hermes: "Hermes Agent",
   opencode: "OpenCode",
   pi: "Pi",
+  muse: "Muse Code",
+  agy: "Antigravity",
 });
 
 const CLI_MARKS = Object.freeze({
@@ -24,6 +28,8 @@ const CLI_MARKS = Object.freeze({
   hermes: "H",
   opencode: "Oc",
   pi: "π",
+  muse: "Mu",
+  agy: "Ag",
 });
 
 // Keep runtime identity on the vendor's own mark rather than a home-made
