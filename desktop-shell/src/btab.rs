@@ -7,13 +7,24 @@
 
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use picode_shell::cdppolicy;
+use picode_shell::{cdppolicy, origins};
 use tauri::webview::{NewWindowResponse, WebviewBuilder};
 use tauri::WebviewUrl;
 use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, State};
+use webview2_com::{take_pwstr, NavigationStartingEventHandler};
+
+/// The origin grant per webview id, armed by the last act-capable CDP call
+/// the daemon relayed (tier act/full carries the agent's domain table).
+/// The navigation gate attached in `ensure` reads it; a user-driven
+/// `btab_navigate` disarms it (the user is sovereign); `btab_close` drops
+/// the entry.
+fn grants() -> &'static Mutex<HashMap<String, Vec<String>>> {
+    static GRANTS: OnceLock<Mutex<HashMap<String, Vec<String>>>> = OnceLock::new();
+    GRANTS.get_or_init(|| Mutex::new(HashMap::new()))
+}
 use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2DevToolsProtocolEventReceiver;
 
 #[derive(Default)]
@@ -197,8 +208,52 @@ fn ensure(app: &AppHandle, id: &str, url: &str) -> Result<(), String> {
             NewWindowResponse::Deny
         });
     win.add_child(page, LogicalPosition::new(x, y), LogicalSize::new(w, h))
-        .map(|_| ())
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    attach_navigation_gate(app, id);
+    Ok(())
+}
+
+// The shell-side half of the browser grant (the mirror of the daemon's
+// browser.AllowsOrigin — the two must agree): once an act-capable agent has
+// driven this tab, agent-caused loads must sit inside the grant. That covers
+// not only the CDP navigations the daemon pre-checks but the script
+// redirects it never sees; user-initiated loads are always sovereign. The
+// decision table is tested in picode_shell::origins::gate.
+fn attach_navigation_gate(app: &AppHandle, id: &str) {
+    let Some(wv) = app.get_webview(label(id).as_str()) else {
+        return;
+    };
+    let tab = id.to_string();
+    let _ = wv.with_webview(move |platform| unsafe {
+        let Ok(core) = platform.controller().CoreWebView2() else {
+            return;
+        };
+        let handler = NavigationStartingEventHandler::create(Box::new(move |_, args| {
+            let Some(args) = args else {
+                return Ok(());
+            };
+            let uri = {
+                let mut uri = windows::core::PWSTR::null();
+                args.Uri(&mut uri)?;
+                take_pwstr(uri)
+            };
+            let user = {
+                let mut flag = windows::core::BOOL::default();
+                args.IsUserInitiated(&mut flag)?;
+                flag.as_bool()
+            };
+            let allowed = {
+                let map = grants().lock().unwrap();
+                origins::gate(map.get(&tab).map(|v| v.as_slice()), user, &uri)
+            };
+            if !allowed {
+                args.SetCancel(true)?;
+            }
+            Ok(())
+        }));
+        let mut token: i64 = 0;
+        let _ = core.add_NavigationStarting(&handler, &mut token);
+    });
 }
 
 #[tauri::command]
@@ -220,6 +275,9 @@ pub async fn btab_navigate(
             .insert(id.clone(), (x, y, w, h));
     }
     ensure(&app, &id, &url)?;
+    // A toolbar/start-card navigate is the user's will, not the agent's:
+    // disarm the grant; the agent's next act-tier command re-arms it.
+    grants().lock().unwrap().remove(&id);
     let wv = app.get_webview(&label(&id)).ok_or("webview vanished")?;
     wv.navigate(normalize(&url)?).map_err(|e| e.to_string())
 }
@@ -317,6 +375,7 @@ pub async fn btab_cdp_call(
     method: String,
     params_json: Option<String>,
     tier: String,
+    domains: Option<Vec<String>>,
 ) -> Result<serde_json::Value, String> {
     use webview2_com::CallDevToolsProtocolMethodCompletedHandler;
     use windows::core::HSTRING;
@@ -329,6 +388,13 @@ pub async fn btab_cdp_call(
         return Err(format!("{name}: params_json is not valid JSON"));
     }
     let wv = app.get_webview(&label(&id)).ok_or("tab not open")?;
+    // Arm the navigation gate: an act-capable tier carries the agent's
+    // domain table (absent on legacy envelopes — leave the map alone).
+    if matches!(tier, cdppolicy::Tier::Act | cdppolicy::Tier::Full) {
+        if let Some(domains) = domains {
+            grants().lock().unwrap().insert(id.clone(), domains);
+        }
+    }
     let (tx, rx) = mpsc::channel::<Result<String, String>>();
     let failed = tx.clone();
     let method_c = HSTRING::from(name.as_str());
@@ -490,5 +556,6 @@ pub async fn btab_close(
     }
     state.pending.lock().unwrap().remove(&id);
     state.rings.lock().unwrap().remove(&id);
+    grants().lock().unwrap().remove(&id);
     Ok(())
 }
