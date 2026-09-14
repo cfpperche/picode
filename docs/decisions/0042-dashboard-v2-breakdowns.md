@@ -132,5 +132,36 @@ open the agent or terminal tab, and four of them show at rest with
 **Not done here.** A `needs you` line above the KPI row (the tile already
 sorts those first and accents them), and naming the Inbox app in it —
 ADR-0109's doors do not include a dashboard section, so that is a decision
-before it is a commit. The day-range chart still draws one full-width bar
-(see `docs/handoff/open/dashboard.md`).
+before it is a commit.
+
+## Amendment (2026-09-14): a one-day window is bucketed by hour
+
+**Why.** The date range and the chart disagreed. `Today` was one calendar
+day, so `fillSeries` zero-filled exactly one day and the chart drew a single
+bar stretched across the whole panel under a range picker that promises a
+chart — the same defect this ADR's Fleet amendment had just fixed in the KPI
+row: a window the reader chose, rendered as a figure that cannot be read.
+
+**What changed.** `climetrics.Request` gained `Hourly`, set by the server for
+`range=today` and by nothing else. `Request.SeriesKey` writes `2026-09-14` or
+`2026-09-14T14`, and `fillSeries` steps by real hours — a DST day is 23, 24 or
+25 hours long, and a fall-back hour that repeats its own clock name merges
+into one bucket rather than drawing two bars under one label. Nothing else
+moved: the meters, the per-CLI parse cache (which is window-independent) and
+the `root|range` stats cache are untouched, because the granularity is a pure
+function of the range.
+
+**The key states its own granularity.** No second field, no version bump:
+`web/shared/domain/dashboardStats.js`'s `bucketLabel` (was `dayLabel`) reads
+the shape and returns `14:00` or `Aug 25`, and `DailyChart` titles the panel
+`Hourly` and its aria-label `per hour` from the same test. A client that never
+learned the shape prints the raw key instead of a wrong label.
+
+**Consequences.** Every agent CLI's messages are timestamped to the second
+(pi: `message.timestamp`, epoch ms; guests: their own `at`), so hours are
+already in the data the window is cut from — no meter changed. Hourly
+granularity is a *display* choice: `byModel`, `byWorkspace` and the totals are
+window-scoped and unaffected. Bars stay muted with only the current bucket in
+the accent, so on a Today chart the accent marks 23:00 when something ran
+there and nothing otherwise — deliberate, since accenting a future hour would
+mark nothing.

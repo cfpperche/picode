@@ -178,6 +178,33 @@ type Request struct {
 	From, To, PriorFrom time.Time
 	Loc                 *time.Location
 	Billing             map[string]Billing // per-CLI, from the operator's cli_configs
+
+	// Hourly buckets the series by clock hour instead of by calendar day.
+	// range=today is why it exists: one bar per day over a one-day window is a
+	// single full-width block under a range picker that promises a chart
+	// (the owner's 2026-09-13 screenshot). A pure function of the range, so
+	// the server's root|range cache stays correct.
+	Hourly bool
+}
+
+// LocOf is the request's location, defaulting to the process's, which is the
+// same default every meter applies.
+func (r Request) LocOf() *time.Location {
+	if r.Loc == nil {
+		return time.Local
+	}
+	return r.Loc
+}
+
+// SeriesKey formats one instant as a series key: a calendar day, or an hour
+// of one when the request asked for hourly buckets. The key states its own
+// granularity ("2026-09-13" versus "2026-09-13T14"), so a consumer labels it
+// without a second flag and an older client degrades to the raw key.
+func (r Request) SeriesKey(t time.Time) string {
+	if r.Hourly {
+		return t.In(r.LocOf()).Format("2006-01-02T15")
+	}
+	return t.In(r.LocOf()).Format("2006-01-02")
 }
 
 // BillingFor is what the operator recorded for a CLI, defaulting to unknown
@@ -509,9 +536,9 @@ func rankSessions(in []session.SessionSpend) []session.SessionSpend {
 	return in
 }
 
-// fillSeries zero-fills every calendar day in the window so the bar chart
-// draws gaps as gaps. range=all has no fixed start, so it renders only the
-// days that carry data, ascending.
+// fillSeries zero-fills every bucket in the window so the bar chart draws
+// gaps as gaps. range=all has no fixed start, so it renders only the days
+// that carry data, ascending.
 func fillSeries(m map[string]*session.DayBucket, req Request) []session.DayBucket {
 	if req.From.IsZero() {
 		out := make([]session.DayBucket, 0, len(m))
@@ -521,20 +548,36 @@ func fillSeries(m map[string]*session.DayBucket, req Request) []session.DayBucke
 		sort.Slice(out, func(i, j int) bool { return out[i].Date < out[j].Date })
 		return out
 	}
-	loc := req.Loc
-	if loc == nil {
-		loc = time.Local
-	}
+	loc := req.LocOf()
 	var out []session.DayBucket
-	for d := req.From.In(loc); d.Before(req.To); d = d.AddDate(0, 0, 1) {
-		key := d.Format("2006-01-02")
-		if b := m[key]; b != nil {
-			out = append(out, *b)
-			continue
+	if req.Hourly {
+		// Step by real hours, not by position in the day: a DST day is 23 or
+		// 25 hours long, and a fall-back day repeats one clock hour by name.
+		// That hour is one bucket, so the chart never draws one label twice.
+		seen := map[string]bool{}
+		for h := req.From.In(loc); h.Before(req.To); h = h.Add(time.Hour) {
+			key := h.Format("2006-01-02T15")
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			out = append(out, bucketAt(m, key))
 		}
-		out = append(out, session.DayBucket{Date: key})
+		return out
+	}
+	for d := req.From.In(loc); d.Before(req.To); d = d.AddDate(0, 0, 1) {
+		out = append(out, bucketAt(m, d.Format("2006-01-02")))
 	}
 	return out
+}
+
+// bucketAt reads one series bucket, or an empty one: a day (or hour) with no
+// data is a zero bar, never a missing one.
+func bucketAt(m map[string]*session.DayBucket, key string) session.DayBucket {
+	if b := m[key]; b != nil {
+		return *b
+	}
+	return session.DayBucket{Date: key}
 }
 
 func sortCLIBuckets(in []CLIBucket) {

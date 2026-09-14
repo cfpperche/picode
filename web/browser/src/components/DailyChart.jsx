@@ -1,5 +1,5 @@
 import { barChart } from "../lib/barchart.js";
-import { dayLabel } from "@picode/shared/domain/dashboardStats.js";
+import { bucketLabel } from "@picode/shared/domain/dashboardStats.js";
 import { formatMoney } from "@picode/shared/domain/providerUsage.js";
 
 const METRICS = [
@@ -12,8 +12,10 @@ const METRICS = [
   { key: "turns", label: "Turns", fmt: (v) => Number(v || 0).toLocaleString(), empty: "No turns in this period." },
 ];
 
-// One bar per calendar day of the period. Hover reads the exact day and
-// value through the SVG's native <title> — no tooltip library, and it is
+// One bar per bucket of the period: a calendar day, or (range=today, where one
+// bar per day would be a single full-width block) an hour of the day. The
+// server's key states which — see bucketLabel. Hover reads the exact bucket
+// and value through the SVG's native <title> — no tooltip library, and it is
 // what screen readers announce too. The viewBox is stretched to the
 // container (preserveAspectRatio="none"), so the axis labels live in HTML
 // underneath instead of distorting inside the SVG.
@@ -22,10 +24,12 @@ export default function DailyChart({ series, metric, onMetric }) {
   const chart = barChart((series || []).map((d) => d[m.key]), { width: 600, height: 72, gap: 2, minH: 1.5 });
   const first = series && series.length ? series[0].date : "";
   const last = series && series.length > 1 ? series[series.length - 1].date : "";
+  const hourly = String(first).includes("T");
+  const unit = hourly ? "hour" : "day";
   return (
     <div className="dash-chart">
       <div className="dash-chart-head">
-        <span className="dash-section-label">Daily</span>
+        <span className="dash-section-label">{hourly ? "Hourly" : "Daily"}</span>
         <div className="dash-range dash-metric" role="radiogroup" aria-label="Daily chart metric">
           {METRICS.map((opt) => (
             <label key={opt.key} className="dash-range-opt">
@@ -39,17 +43,17 @@ export default function DailyChart({ series, metric, onMetric }) {
         <p className="dash-empty">{m.empty}</p>
       ) : (
         <>
-          <svg className="dash-chart-svg" viewBox={"0 0 " + chart.width + " " + chart.height} preserveAspectRatio="none" role="img" aria-label={m.label + " per day"}>
+          <svg className="dash-chart-svg" viewBox={"0 0 " + chart.width + " " + chart.height} preserveAspectRatio="none" role="img" aria-label={m.label + " per " + unit}>
             {chart.bars.map((b) => (
               <rect key={b.i} x={b.x} y={b.y} width={b.w} height={b.h} className={"dash-chart-bar" + (b.i === chart.bars.length - 1 ? " is-last" : "")}>
-                <title>{dayLabel(series[b.i].date) + " · " + m.fmt(b.v)}</title>
+                <title>{bucketLabel(series[b.i].date) + " · " + m.fmt(b.v)}</title>
               </rect>
             ))}
           </svg>
           <div className="dash-chart-axis" aria-hidden="true">
-            <span>{dayLabel(first)}</span>
+            <span>{hourly ? "midnight" : bucketLabel(first)}</span>
             <span>{chart.max > 0 ? "peak " + m.fmt(chart.max) : ""}</span>
-            <span>{last ? dayLabel(last) : ""}</span>
+            <span>{last ? (hourly ? "11pm" : bucketLabel(last)) : ""}</span>
           </div>
         </>
       )}
