@@ -1,11 +1,14 @@
+---
+description: Terminals, session history, and moving a conversation between your installed CLIs.
+---
+
 # Agent CLIs
 
-Open **Agent CLIs** from the last icon in the desktop sidebar header,
-`Ctrl+K`, or **More** on a phone. It manages terminals, lists each CLI's
-session history, and moves a conversation from one CLI to another, for
-your installed Pi, Claude Code, Codex, Grok, Hermes Agent and OpenCode
-commands. Managed agents, structured chat, packages and automations still
-use Pi; a CLI terminal is not a new type of managed agent.
+Terminals, session history, and moving a conversation between your installed
+Pi, Claude Code, Codex, Grok, Hermes Agent and OpenCode commands.
+
+- **Where:** last icon in the desktop sidebar header, `Ctrl+K`, or **More** on a phone (`#/clis`).
+- **Not this:** a CLI terminal is not a managed Pi agent. Structured chat, packages and automations still use Pi.
 
 ## Native packages
 

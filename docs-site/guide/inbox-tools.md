@@ -1,15 +1,18 @@
+---
+description: Tools so a pi in a terminal can file questions and finished work into PiCode's Inbox.
+---
+
 # Inbox tools for pi
 
 An agent working in a terminal has no way to reach you — it dumps text
 into the transcript and hopes you are watching. Questions stall the run;
 finished work scrolls away.
 
-`pi-inbox` gives raw pi sessions two tools that file into PiCode's
-**Inbox** app. The Inbox itself **is** PiCode core (approvals, questions
-and results in one feed, on desktop and phone); this package is the
-bridge that lets a `pi` you installed use it. It is an **optional pi
-package — not part of PiCode core**: without it, nothing changes
-anywhere, and a `pi` outside PiCode is unaffected.
+- **Where:** the **Inbox** app is PiCode core. The bridge is the `pi-inbox` package — install from [Packages](/guide/packages).
+- **Not this:** not [session messages](/guide/communication) between agents. Without the package, a `pi` in a terminal cannot file into the Inbox; the Inbox itself still exists.
+
+`pi-inbox` gives raw pi sessions two tools that file into the Inbox. It is an
+**optional pi package — not part of PiCode core**: a `pi` outside PiCode is unaffected.
 
 Install `packages/pi-inbox` from the PiCode repository. Guide for install
 targets: [Packages](/guide/packages).

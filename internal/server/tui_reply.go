@@ -456,6 +456,12 @@ func (deps Deps) deliverViaReceiver(agentID, sessionPath string, task store.Task
 			}
 			// The TUI owns the message now. The row decides whether the
 			// item stays done; a TUI that dies before processing reopens it.
+			// rowWait <= 0: caller treats the ack as proof (snip-run /
+			// interactive prompt) and does not wait on JSONL.
+			if settle.rowWait <= 0 {
+				settle.delivered(task)
+				return nil
+			}
 			go deps.awaitReplyRow(task, sessionPath, baseline, settle)
 			return nil
 		case <-deadline:

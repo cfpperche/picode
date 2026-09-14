@@ -506,6 +506,89 @@ func TestSnipRunIntoTerminal(t *testing.T) {
 	})
 }
 
+func TestSnipRunIntoInteractiveAgent(t *testing.T) {
+	manager := tmux.New()
+	if !manager.Available() {
+		t.Skip("tmux missing")
+	}
+	st := testStore(t)
+	deps := Deps{
+		Store: st, Tmux: manager, DataDir: t.TempDir(),
+		Runtime: rpc.NewRuntime("cat", st, nil), AgentCmd: "cat",
+		Replies: NewTuiReplies(),
+	}
+	ts := httptest.NewServer(New("127.0.0.1:0", deps).Handler)
+	t.Cleanup(ts.Close)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("USERPROFILE", t.TempDir())
+	dir := t.TempDir()
+	_, agent, err := storeWorkspaceWithAgent(st, "App", dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := tmux.SessionName(agent.ID)
+	if err := manager.NewSessionEnv(context.Background(), name, dir, nil, "/bin/sh", "-c", "sleep 300"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = manager.KillSession(context.Background(), name) })
+	if err := st.SetAgentRuntimeMode(agent.ID, store.StatusRunning, "interactive"); err != nil {
+		t.Fatal(err)
+	}
+	p, err := st.CreateSnip(store.SnipParams{Title: "Look", Body: "Look at {{pr}}"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	code, out := snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+p.ID+"/run", map[string]any{
+		"target": map[string]string{"type": "agent", "id": agent.ID}, "values": map[string]string{"pr": "9"},
+	})
+	if code != http.StatusOK || out["typed"] != true {
+		t.Fatalf("interactive run = %d %v", code, out)
+	}
+	if text, _ := out["text"].(string); !strings.Contains(text, "Look at 9") {
+		t.Fatalf("text = %v", out["text"])
+	}
+	pane, err := manager.CaptureTail(context.Background(), name, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(pane, "Look at 9") {
+		t.Fatalf("pane after paste = %q", pane)
+	}
+
+	shell, err := st.CreateSnip(store.SnipParams{Title: "Echo", Kind: "shell", Body: "echo hi"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	code, out = snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+shell.ID+"/run", map[string]any{
+		"target": map[string]string{"type": "agent", "id": agent.ID}, "confirm": true,
+	})
+	if code != http.StatusConflict || out["reason"] != "kind" {
+		t.Fatalf("shell into agent = %d %v", code, out)
+	}
+
+	deps.Replies.mu.Lock()
+	deps.Replies.active[agent.ID] = true
+	deps.Replies.mu.Unlock()
+	code, out = snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+p.ID+"/run", map[string]any{
+		"target": map[string]string{"type": "agent", "id": agent.ID}, "values": map[string]string{"pr": "1"},
+	})
+	if code != http.StatusConflict || out["reason"] != "busy" {
+		t.Fatalf("busy = %d %v", code, out)
+	}
+	deps.Replies.mu.Lock()
+	delete(deps.Replies.active, agent.ID)
+	deps.Replies.mu.Unlock()
+
+	_ = manager.KillSession(context.Background(), name)
+	code, out = snipJSON(t, ts.URL, http.MethodPost, "/api/snips/"+p.ID+"/run", map[string]any{
+		"target": map[string]string{"type": "agent", "id": agent.ID}, "values": map[string]string{"pr": "1"},
+	})
+	if code != http.StatusConflict || out["reason"] != "stopped" {
+		t.Fatalf("stopped after kill = %d %v", code, out)
+	}
+}
+
 func TestSnipExpandAndRun(t *testing.T) {
 	ts, _, _ := cleanupServer(t)
 	code, created := snipJSON(t, ts.URL, http.MethodPost, "/api/snips", map[string]any{

@@ -148,11 +148,14 @@ before a browser attaches. Codex joins Grok/Hermes in per-tool message discovery
 shim and discovery variables. Enabling an identified Codex conversation prepares
 private setup without replacing its process.
 
-The prompt door (ADR-0089) is the one place a user types into a CLI terminal.
-The attach composer opens on demand — the terminal's own context menu on the
-desktop (`Attach files…`), the header paperclip on the phone — and stages up
+The prompt door (ADR-0089) is the one place a user types into a CLI terminal
+**or** an interactive Pi agent TUI. The attach composer opens on demand —
+the pane's context menu on the desktop (`Attach files…` / `Ask … about this`),
+the header paperclip on the phone — and stages up
 to four attachments (4 MB each) under `<cwd>/.picode/drop/` before
-`POST /api/terminals/{id}/prompt` pastes one bracketed message. Its message
+`POST /api/terminals/{id}/prompt` (CLI terminal) or
+`POST /api/agents/{id}/drop` + `/prompt` (interactive agent) pastes one
+bracketed message. Never send an agent id to `/api/terminals/{id}/drop`. Its message
 field is a textarea one control height tall that grows to four lines and then
 scrolls (`web/shared/domain/attachText.js`): on the desktop Enter sends and
 Shift+Enter keeps the newline; on a phone Enter is the newline key (a soft

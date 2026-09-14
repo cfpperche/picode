@@ -33,9 +33,12 @@ Inspired by: **Google** (code review culture, small CLs), **Stripe**
 ## Documentation benchmarks
 
 Inspired by: **Stripe** (docs as a product), **Diátaxis** (tutorials /
-how-to / reference / explanation), **VitePress** (Markdown → static HTML,
-heading anchors, local search — Vite/Vue/Vitest), **pi**
-(`packages/coding-agent/docs`: command tables, no duplicate source of truth).
+how-to / reference / explanation), **LibreChat** (self-hosted agent-product
+IA and feature-page rhythm — see
+[benchmarks/2026-09-14-librechat-docs.md](benchmarks/2026-09-14-librechat-docs.md)),
+**VitePress** (Markdown → static HTML, heading anchors, local search —
+Vite/Vue/Vitest), **pi** (`packages/coding-agent/docs`: command tables, no
+duplicate source of truth).
 
 Public user docs are Markdown in `docs-site/`, built by VitePress, hosted on
 GitHub Pages. The app never hosts a docs viewer. See
@@ -50,6 +53,13 @@ GitHub Pages. The app never hosts a docs viewer. See
    and a same / changed / TUI-only table. Do not paste pi.
 4. **Diátaxis-ish IA.** Getting started ≠ command reference ≠ internal ADRs.
 5. **Short.** Tables over prose. Status of debts said plainly.
+6. **Feature page rhythm (LibreChat).** A user-visible capability gets
+   one public page: what it is, the UI path, how to enable it, what it is
+   not. A how-to that can brick a deploy opens with one sentence that,
+   remembered alone, does not.
+7. **First run is not from source.** Getting started does not lead with
+   the contributor toolchain. `make build` / Go / Node live on a from-source
+   page.
 
 ## UI/UX benchmarks
 

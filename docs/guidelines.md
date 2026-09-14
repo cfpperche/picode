@@ -12,7 +12,10 @@ same commit, handoff, changelog, **isolated git worktree per agent**).
 This file is the **user-facing** contract.
 
 Bars: [Documentation benchmarks](benchmarks.md#documentation-benchmarks)
-(Stripe, Diátaxis, VitePress, pi). Do not invent a docs engine.
+(Stripe, Diátaxis, LibreChat, VitePress, pi). Do not invent a docs engine.
+LibreChat is the self-hosted *page* bar (IA, feature rhythm, first-run),
+not the generator — study
+[benchmarks/2026-09-14-librechat-docs.md](benchmarks/2026-09-14-librechat-docs.md).
 
 ## UI rules that are enforced by tests
 
@@ -29,11 +32,17 @@ Bars: [Documentation benchmarks](benchmarks.md#documentation-benchmarks)
 ## Public site (`docs-site/`)
 
 - Markdown in `docs-site/`. VitePress builds static HTML (`make docs`).
+- Sidebar groups are **Start / Use / Run / Configure / Reference**
+  (LibreChat audience split). Do not flatten them back into one Guides list.
 - Live: `https://cfpperche.github.io/picode/`
 - Slash-menu hints open **a new tab** at `/commands#{id}` (`id` = `SLASH[].id`).
   No in-app docs route, no iframe.
 - Command copy lives in `docs-site/commands.md` as `## /name {#id}` headings.
 - English. Short paragraphs. Tables for TUI vs PiCode.
+- **Feature pages (LibreChat bar).** What it is → the UI path → how to
+  enable it → what it is not. Config how-tos that can brick a deploy open
+  with one sentence that, remembered alone, does not. Getting started is
+  the user first-run, not `make build`.
 - Example local URLs (`https://localhost:8445`) are **inline code**, not
   markdown links. VitePress treats a bare `https://…` as a crawlable
   link and fails the build — that froze GitHub Pages from 2026-08-29.

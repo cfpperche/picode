@@ -1185,6 +1185,16 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
     // onOpenFile(model, path): a path the body found — a terminal's OSC 8
     // link, or the diff body's own **Open file**. The owner is the panel's
     // binding, which for a file or a diff is inside the ref.
+    attachFor: (model) => {
+      const a = (hostRef.current || {}).termAttach;
+      if (!a || !a.id) return null;
+      const id = (model && model.target && model.target.id) || (model && model.ref);
+      return a.id === id ? a : null;
+    },
+    onAttachClose: () => {
+      const h = hostRef.current || {};
+      if (h.onAttachClose) h.onAttachClose();
+    },
     onOpenFile: (model, path) => {
       const h = hostRef.current || {};
       if (!h.openFileTab) return;
@@ -1615,6 +1625,8 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
                 onRemove={() => handlers.onRemove(maxModel)}
                 onRun={() => handlers.onRun(maxModel)}
                 onOpenFile={(path) => handlers.onOpenFile(maxModel, path)}
+                attach={handlers.attachFor ? handlers.attachFor(maxModel) : null}
+                onAttachClose={handlers.onAttachClose}
                 onDirty={(dirty) => handlers.onDirty(maxModel, dirty)}
                 onSaveText={(text) => handlers.onSaveText(maxModel, text)}
               />

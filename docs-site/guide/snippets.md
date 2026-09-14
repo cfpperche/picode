@@ -1,11 +1,17 @@
+---
+description: A saved prompt or shell command, with placeholders filled at send time.
+---
+
 # Snippets
 
 A snippet is a prompt or a shell command you save once and reuse. It can
 carry **placeholders** (<code v-pre>{{name}}</code>) that you fill at send time, and it
 works everywhere you work: the managed agent's composer, the command
 palette, a running Agent CLI terminal (Claude Code, Codex, Grok, Hermes,
-OpenCode, Pi), or a plain shell pane. On the phone it lives under
-**More → Snippets**.
+OpenCode, Pi), or a plain shell pane.
+
+- **Where:** **Tools → Snippets**, `Ctrl+K` → Snippets, or **More → Snippets** on a phone.
+- **Not this:** not an [automation](/guide/automations) that runs on its own.
 
 ## Create one
 

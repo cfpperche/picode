@@ -93,18 +93,31 @@ func agentCwd(deps Deps, id string) (string, error) {
 	return store.AgentCwd(wk, agent), nil
 }
 
+func liveAgentCwd(deps Deps, r *http.Request, agent store.Agent) (string, error) {
+	fallback, err := agentCwd(deps, agent.ID)
+	if err != nil {
+		return "", err
+	}
+	if deps.Tmux != nil && deps.Tmux.Available() {
+		ctx := r.Context()
+		if p, err := deps.Tmux.PaneCwd(ctx, tmux.SessionName(agent.ID)); err == nil && strings.TrimSpace(p) != "" {
+			return p, nil
+		}
+	}
+	return fallback, nil
+}
+
 func handleAgentCwd(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fallback, err := agentCwd(deps, r.PathValue("id"))
+		agent, err := deps.Store.GetAgent(r.PathValue("id"))
 		if err != nil {
 			writeStoreErr(w, err)
 			return
 		}
-		cwd := fallback
-		if deps.Tmux != nil && deps.Tmux.Available() {
-			if p, err := deps.Tmux.PaneCwd(r.Context(), tmux.SessionName(r.PathValue("id"))); err == nil && strings.TrimSpace(p) != "" {
-				cwd = p
-			}
+		cwd, err := liveAgentCwd(deps, r, agent)
+		if err != nil {
+			writeStoreErr(w, err)
+			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"cwd": cwd})
 	}

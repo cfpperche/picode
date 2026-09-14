@@ -117,13 +117,37 @@ export function handoffRequest(session, form, extra = {}) {
 export function sessionFromTerminal(term) {
   const ls = term && term.lastSession;
   const id = String((ls && ls.sessionId) || "").trim();
-  if (!id) return null;
+  const path = String((ls && ls.path) || "").trim();
+  // Path-only is enough for the handoff HTTP route ("session id or path
+  // required"). Agent TUI pins often have sessionPath and no sessionId.
+  if (!id && !path) return null;
   return {
     id,
-    path: String(ls.path || "").trim(),
+    path,
     cwd: String(ls.cwd || (term && term.cwd) || "").trim(),
     name: String(ls.name || (term && term.name) || "").trim(),
     workspaceId: (term && term.workspaceId) || "",
+  };
+}
+
+// agentPin is the Continue-in record for a managed agent's TUI pane.
+// Workspace agents have no workPath; they inherit the workspace folder
+// (store.AgentCwd). Path-only is a valid pin.
+export function agentPin(agent, workspace, paneCwd) {
+  if (!agent) return null;
+  const path = String(agent.sessionPath || "").trim();
+  if (!path) return null;
+  const cwd = String(agent.workPath || (workspace && workspace.path) || paneCwd || "").trim();
+  return {
+    id: agent.id,
+    name: agent.name,
+    cwd,
+    workspaceId: agent.workspaceId || (workspace && workspace.id) || "",
+    lastSession: {
+      cli: "pi",
+      path,
+      cwd,
+    },
   };
 }
 

@@ -3,7 +3,7 @@
 - **Status**: accepted (owner, 2026-09-13 — Q1–Q6 confirmed in the design session)
 - **Date**: 2026-09-13
 - **Boundary**: persistence (SQLite `snips` overlay), protocol (`/api/snips` CRUD + `/expand` + `/run`), security model (expand is pure string replace; kind `shell` PasteText+Enter is a new user-initiated door, not Attach)
-- **Does not change**: ADR-0089 (Attach stays Agent-CLI-only; kind `prompt` into a plain shell is 409 `kind` in v1), ADR-0069 (guest CLIs are not managed agents), ADR-0109 (host surface, not an app), ADR-0003 (no vendor SDKs)
+- **Does not change**: ADR-0089 (kind `prompt` into a plain shell is 409 `kind` in v1; Attach is the file+caption door — interactive agents gained a sibling drop/prompt in the 2026-09-14 amendment of 0089), ADR-0069 (guest CLIs are not managed agents), ADR-0109 (host surface, not an app), ADR-0003 (no vendor SDKs)
 - **Plan**: [docs/plans/snippets.md](../plans/snippets.md)
 
 ## Context
@@ -28,8 +28,9 @@ Delivery reuses existing doors where they already fit, and adds one:
 2. Managed agent, palette **Send snippet** — `POST /api/snips/{id}/run` → `SendTurn` (snippet text only, no images).
 3. Agent CLI TUI, kind `prompt`, `termHoldsCLI && !isShell` — existing ADR-0089 `POST /api/terminals/{id}/prompt`.
 4. Kind `shell`, live `isShell` pane — **snippet-run door**: `ClearLine` + `PasteText` + Enter. Official UI always confirms (names the terminal, shows the expanded command, states that PiCode does not shell-quote). `confirm: true` is a UI invariant, not authz; a paired API client may set the flag. Re-check `isShell` at handler time. Inspector `refuseInspectorCLI` is unchanged.
+5. Interactive agent, kind `prompt` — receiver-or-paste into `tmux.SessionName(id)`, not `SendTurn`. Same `/run` URL. Proof is tmux/receiver accept, not model delivery. Provenance is source `"snippet"`, never Inspector.
 
-Kind `prompt` into an `isShell` pane (including a CLI whose TUI has exited — `termHoldsCLI` stays true from the launch row) is **409 `kind`** in v1. Do not amend ADR-0089. Do not write `.claude/commands/`, `.opencode/commands/` or `.cursor/commands/`. Optional export to Pi templates is v1.1, opt-in, lossy.
+Kind `prompt` into an `isShell` pane (including a CLI whose TUI has exited — `termHoldsCLI` stays true from the launch row) is **409 `kind`** in v1. Kind `shell` into any agent target stays **409 `kind`**. Do not write `.claude/commands/`, `.opencode/commands/` or `.cursor/commands/`. Optional export to Pi templates is v1.1, opt-in, lossy.
 
 ## Consequences
 

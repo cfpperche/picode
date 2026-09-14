@@ -1,6 +1,13 @@
+---
+description: Connectors. PiCode writes the files the MCP adapter reads. Pi does not speak MCP itself.
+---
+
 # MCP
 
-Pi does not speak MCP itself. PiCode writes the files the **MCP adapter** package reads.
+Connectors. PiCode writes the files the **MCP adapter** package reads.
+
+- **Where:** **Agent CLIs → Pi → Connectors**.
+- **Not this:** Pi does not speak MCP itself. Without the adapter, Connectors is one line and **Open packages** — it does not write files.
 
 Canonical: [pi-mcp-adapter](https://github.com/mariozechner/pi-mcp) (install as `npm:pi-mcp-adapter`).
 

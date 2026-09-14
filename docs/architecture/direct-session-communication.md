@@ -118,6 +118,14 @@ cannot repin its conversation. OpenCode verifies root-session metadata and
 selects a conversation through a native user-message hook or exact connected
 resume; background session activity cannot replace it.
 
+Terminal window titles were measured as a candidate delivery signal
+(2026-09-14): at these vendor versions none of the six CLIs publishes
+working/idle in the pane title — Codex sets the folder name, Claude keeps a
+topic label through turns, Grok/OpenCode echo the last prompt. The composer
+frame and the native hooks remain the delivery evidence; the title tiers are
+worth re-measuring when a vendor actually emits status (Orca's stack depends
+on exactly that).
+
 
 ## Workspace onboarding (ADR-0110)
 
