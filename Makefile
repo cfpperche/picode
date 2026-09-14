@@ -1,7 +1,7 @@
 # PiCode — make targets
 # Quality gates are the contract (AGENTS.md); `make ci` mirrors GitHub Actions.
 
-.PHONY: help hooks hooks-check dev ui web docs docs-videos docs-videos-check docs-videos-fresh build restart deploy _deploy cert-timer changelog adr install test test-js fmt fmt-check vet ci-docs ci ci-gates ci-scoped close close-summary handoff worktree worktree-status worktree-gc clean desktop desktop-shell desktop-restart
+.PHONY: help hooks hooks-check dev ui web docs docs-videos docs-videos-check docs-videos-fresh docs-changelog build restart deploy _deploy cert-timer changelog adr install test test-js fmt fmt-check vet ci-docs ci ci-gates ci-scoped close close-summary handoff worktree worktree-status worktree-gc clean desktop desktop-shell desktop-restart
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -61,11 +61,14 @@ $(DOCS_STAMP): docs-site/package-lock.json
 docs: openapi llms $(DOCS_STAMP) ## Build the VitePress public site (GitHub Pages)
 	cd docs-site && npm run build
 
+docs-changelog: ## Generate docs-site/changelog.md from CHANGELOG.md + fragments (not committed)
+	node scripts/docs-changelog.mjs
+
 openapi: ## Generate the OpenAPI spec from the server's route registration
 	mkdir -p docs-site/public/api
 	go run ./cmd/picode-openapi > docs-site/public/api/openapi.json
 
-llms: ## Generate llms.txt (machine-readable map of the docs site)
+llms: docs-changelog ## Generate llms.txt (machine-readable map of the docs site)
 	node scripts/docs-llms.mjs
 
 fixture: ## Run the docs fixture daemon (synthetic seeded UI, 127.0.0.1:18740)
@@ -97,7 +100,7 @@ $(VALE): ## Pinned Vale binary (prose linter), downloaded once into bin/
 	@chmod +x $(VALE)
 
 vale: $(VALE) ## Prose lint on the public docs (spelling + repetition; error gate)
-	$(VALE) --config=.vale.ini --minAlertLevel=error docs-site/*.md docs-site/guide/*.md
+	$(VALE) --config=.vale.ini --minAlertLevel=error docs-site/index.md docs-site/commands.md docs-site/license.md docs-site/api.md docs-site/guide/*.md
 docs-videos: ## Capture stills + render the three docs tutorial videos into docs-site/public/video (needs agent-browser)
 	go build -o bin/picode-docs-fixture ./cmd/picode-docs-fixture
 	fuser -k 18740/tcp 2>/dev/null || true

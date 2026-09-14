@@ -68,6 +68,7 @@ const CURATED = [
   ["Configure", "guide/settings.md", "Settings"],
   ["Configure", "guide/providers.md", "Providers"],
   ["Configure", "guide/roles.md", "Model roles"],
+  ["Reference", "changelog.md", "Changelog"],
   ["Reference", "commands.md", "Commands"],
   ["Reference", "api.md", "HTTP API"],
   ["Reference", "license.md", "License"],
