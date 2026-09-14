@@ -218,11 +218,19 @@ runs it against the work-browser tab on screen and posts the answer to
 or the timeout. No new port, no new credential: the line is the session the
 UI already has, and it reconnects like the feed's.
 
-Still open in the slice: the `browser` Pi tool and its per-agent policy
-source (the `{domains, tier}` default is the owner's call — nothing renders a
-tool until it exists), the policy UI, and the navigation gate
-(`NavigationStarting` cancels an origin outside the agent's allowlist) —
-the catalog gate alone does not stop a page from being loaded.
+Increment 3, second half (2026-09-13, `feat/browser-policy`): the `browser`
+Pi tool and the policy default. The tool (`packages/pi-browser`) names a
+**verb** — `snapshot`, `screenshot`, `events` — never a CDP method: the daemon
+maps the verb (`internal/browser.VerbFor`), resolves the agent's grant, and
+the shell re-checks the method catalog. ADR-0134 fixes the default: an agent
+with no grant reads **the tab the human has on screen**, and
+`act`/`full` or any other origin needs an explicit per-agent grant (the
+setting `browser.policy.<agent>`; the editor that writes it is slice 4).
+
+Still open: slice 4 — the grants editor (Settings ▸ Browser: the tier ×
+domains table), the `act` verbs that a grant unlocks, and the navigation gate
+(`NavigationStarting` cancels an agent-caused load of an origin outside the
+grant) — the catalog gate alone does not stop a page from being loaded.
 
 ## Conscious debt
 

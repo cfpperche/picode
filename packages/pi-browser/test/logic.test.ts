@@ -1,0 +1,94 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { test } from "node:test";
+import {
+	parseAnswer,
+	rejectUnauthorizedFor,
+	resolveDataDir,
+	resolveServerUrl,
+	resolveToken,
+	screenshotPath,
+	summarizeAx,
+	summarizeEvents,
+} from "../src/logic.ts";
+
+test("the daemon is found through PICODE_URL or server.json", () => {
+	assert.deepEqual(resolveServerUrl({ PICODE_URL: "https://box:8445/" }, null), { ok: true, url: "https://box:8445" });
+	assert.deepEqual(resolveServerUrl({ PICODE_URL: "https://user:pass@box/" }, null), { ok: false, error: "PICODE_URL must be an origin like https://box:8445" });
+	assert.deepEqual(resolveServerUrl({}, `{"url":"https://localhost:8445/"}`), { ok: true, url: "https://localhost:8445" });
+	assert.equal(resolveServerUrl({}, null).ok, false);
+	assert.equal(resolveServerUrl({}, "not json").ok, false);
+	assert.equal(resolveServerUrl({}, `{"url":"ftp://x"}`).ok, false);
+});
+
+test("only a hex token counts, from env or file", () => {
+	assert.equal(resolveToken({ PICODE_TOKEN: "a".repeat(32) }, null), "a".repeat(32));
+	assert.equal(resolveToken({}, "b".repeat(64)), "b".repeat(64));
+	assert.equal(resolveToken({ PICODE_TOKEN: "short" }, null), "");
+	assert.equal(resolveToken({}, null), "");
+	assert.equal(resolveDataDir({ PICODE_DATA: "/tmp/picode" }, "/home/u"), "/tmp/picode");
+	assert.equal(resolveDataDir({}, "/home/u"), "/home/u/.picode");
+});
+
+test("localhost certificates are accepted, remote ones verified", () => {
+	assert.equal(rejectUnauthorizedFor("https://localhost:8445"), false);
+	assert.equal(rejectUnauthorizedFor("https://127.0.0.1:8445"), false);
+	assert.equal(rejectUnauthorizedFor("https://box:8445"), true);
+	assert.equal(rejectUnauthorizedFor("not a url"), true);
+});
+
+test("the daemon's answer is read, refusals carry their message", () => {
+	const ok = parseAnswer(200, `{"verb":"snapshot","output":{"nodes":[]}}`);
+	assert.equal(ok.ok, true);
+	if (ok.ok) assert.equal(ok.answer.verb, "snapshot");
+	const forbidden = parseAnswer(403, `{"error":"snapshot needs the act tier; this agent has read"}`);
+	assert.deepEqual(forbidden, { ok: false, error: "snapshot needs the act tier; this agent has read" });
+	assert.equal(parseAnswer(502, `{"error":"the desktop app is not connected"}`).ok, false);
+	assert.equal(parseAnswer(500, "<html>oops</html>").ok, false);
+	assert.equal(parseAnswer(200, "nope").ok, false);
+});
+
+test("snapshot renders roles and names, and skips the noise", () => {
+	const out = {
+		nodes: [
+			{ role: { value: "RootWebArea" }, name: { value: "Example" } },
+			{ role: { value: "generic" }, name: { value: "" } },
+			{ role: { value: "heading" }, name: { value: "  Hello   world " } },
+			{ role: { value: "InlineTextBox" }, name: { value: "Hello world" } },
+			{ role: { value: "link" }, name: { value: "More" } },
+			{ role: { value: "image" }, name: { value: "" } },
+			{ role: { value: "textbox" }, name: { value: "" } },
+		],
+	};
+	assert.deepEqual(summarizeAx(out).lines, ['RootWebArea "Example"', 'heading "Hello world"', 'link "More"', "image", "textbox"]);
+	assert.deepEqual(summarizeAx(out, 2), { lines: ['RootWebArea "Example"', 'heading "Hello world"'], dropped: 3 });
+	assert.deepEqual(summarizeAx(undefined).lines, []);
+	assert.deepEqual(summarizeAx({ nodes: "no" }).lines, []);
+});
+
+test("events render the tail, long params truncated, a quiet page named", () => {
+	const out = {
+		last: 7,
+		events: [
+			{ seq: 6, event: "Page.frameNavigated", params: { url: "https://example.com" } },
+			{ seq: 7, event: "Runtime.consoleAPICalled", params: { text: "x".repeat(400) } },
+		],
+	};
+	const lines = summarizeEvents(out);
+	assert.equal(lines.length, 2);
+	assert.match(lines[0]!, /^Page\.frameNavigated \{/);
+	assert.ok(lines[1]!.length < 200, "a long payload is truncated");
+	assert.deepEqual(summarizeEvents({ last: 7, events: [] }), ["nothing since the cursor (last #7)"]);
+	assert.deepEqual(summarizeEvents({}), []);
+});
+
+test("a screenshot lands outside the repo", () => {
+	assert.equal(screenshotPath("/tmp", 1700000000000), "/tmp/picode-browser-1700000000000.png");
+	assert.equal(screenshotPath("/tmp/", 1), "/tmp/picode-browser-1.png");
+});
+
+test("verbs in the tool are the three the daemon knows", () => {
+	// The union in extensions/browser.ts is hand-written; this keeps it honest.
+	const source = readFileSync(new URL("../extensions/browser.ts", import.meta.url), "utf8");
+	for (const verb of ["snapshot", "screenshot", "events"]) assert.match(source, new RegExp(`Type\\.Literal\\("${verb}"\\)`));
+});

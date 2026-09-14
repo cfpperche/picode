@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -155,10 +156,18 @@ func TestPaneRootSurvivesSIGHUP(t *testing.T) {
 		t.Skip("tmux not installed")
 	}
 	ctx := context.Background()
+	// write starts the pane and waits until its script is past the trap line.
+	// new-session returns when tmux accepts the session, not when the pane's
+	// command runs: signalling straight away killed the *starting* process
+	// and the test read that as "the trap failed" (measured 2026-09-13: 5/5
+	// failures in a worktree and 4/5 in the root checkout at load ~5, while a
+	// single run at low load passed). The marker makes the experiment about
+	// the signal disposition and nothing else.
 	write := func(name, extra string) string {
 		dir := t.TempDir()
 		p := filepath.Join(dir, "pane.sh")
-		script := "#!/bin/sh\n" + extra + "\nexec sleep 30\n"
+		ready := filepath.Join(dir, "ready")
+		script := "#!/bin/sh\n" + extra + "\ntouch '" + ready + "'\nexec sleep 30\n"
 		if err := os.WriteFile(p, []byte(script), 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -166,6 +175,16 @@ func TestPaneRootSurvivesSIGHUP(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = m.KillSession(ctx, name) })
+		deadline := time.Now().Add(5 * time.Second)
+		for {
+			if _, err := os.Stat(ready); err == nil {
+				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("pane %s never reached the trap line", name)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
 		return p
 	}
 	alive := func(name string) bool {
@@ -173,8 +192,9 @@ func TestPaneRootSurvivesSIGHUP(t *testing.T) {
 		return has
 	}
 
-	// Trapped root survives the exact signal that killed the incident panes.
-	trapped := "picode-sh-hup-trapped-qa"
+	// Unique per process: concurrent test binaries (parallel shards, another
+	// session's make ci) must never share a tmux session name.
+	trapped := "picode-sh-hup-trapped-qa-" + strconv.Itoa(os.Getpid())
 	write(trapped, "trap '' HUP")
 	pid, err := m.PanePID(ctx, trapped)
 	if err != nil {
@@ -189,7 +209,7 @@ func TestPaneRootSurvivesSIGHUP(t *testing.T) {
 	}
 
 	// Control: an untrapped root dies, so the assertion above means something.
-	control := "picode-sh-hup-control-qa"
+	control := "picode-sh-hup-control-qa-" + strconv.Itoa(os.Getpid())
 	write(control, "")
 	cpid, err := m.PanePID(ctx, control)
 	if err != nil {

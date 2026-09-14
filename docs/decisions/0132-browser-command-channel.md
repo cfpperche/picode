@@ -1,6 +1,6 @@
 # ADR-0132: browser-command-channel
 
-- **Status**: proposed
+- **Status**: accepted (owner, 2026-09-13 — agreed in session)
 - **Date**: 2026-09-13
 - **Boundary**: protocol and security model — how a browser command travels
   from the daemon (where an agent's request is born) to the desktop shell

@@ -1,15 +1,15 @@
 # Work browser (Phase 3)
 
 Slices 1 and 2.1 (tabs, toolbar, browser settings, screenshot) are accepted
-and deployed; slice 2 increments 1–2 (the host-API CDP bridge and the tier
-gate) landed on `feat/browser-cdp`, and the command channel on
-`feat/browser-agent` (ADR-0132: the shell opens the line, the daemon pushes).
-Plan: `docs/plans/desktop-v2.md` (Phase 3 + the slice 2 section), policy:
-ADR-0128.
+and deployed; slice 2 landed in three parts — the bridge and tier gate
+(`feat/browser-cdp`), the command channel (`feat/browser-agent`, ADR-0132)
+and the `browser` Pi tool with its policy default (`feat/browser-policy`,
+ADR-0134: read on the tab on screen). Plan: `docs/plans/desktop-v2.md`
+(Phase 3 + the slice 2 section), policy: ADR-0128 as amended by 0134.
 
 ## Next
 
-- Slice 2 increment 3: the `browser` Pi tool and its per-agent policy source (the default is the owner's call), then the navigation gate.
+- Slice 4 completes it: the grants editor (Settings ▸ Browser), the `act` verbs a grant unlocks, and the navigation gate.
 
 ## Slice 3, still unbuilt
 

@@ -285,6 +285,85 @@ func seed(t *testing.T, home, body string) {
 	}
 }
 
+// The bug this pins: compat carries bools and (with thinkingFormat) strings;
+// typed as map[string]bool, one string key failed the whole entry and the
+// provider disappeared from the catalog the GUI reads.
+func TestLoadCustomDefinitionsWithStringCompat(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	seed(t, home, `{"providers":{"gw":{"baseUrl":"https://api.example.com/v1","api":"openai-completions","compat":{"supportsDeveloperRole":false,"supportsReasoningEffort":true,"thinkingFormat":"deepseek","futureFlag":"x"},"models":[{"id":"m"}]}}}`)
+	defs := LoadCustomDefinitions()
+	def, ok := defs["gw"]
+	if !ok {
+		t.Fatalf("provider vanished from the catalog: %#v", defs)
+	}
+	if def.ThinkingFormat != "deepseek" {
+		t.Fatalf("thinkingFormat = %q", def.ThinkingFormat)
+	}
+	if def.Compat["supportsReasoningEffort"] != true || def.Compat["supportsDeveloperRole"] != false {
+		t.Fatalf("compat bools = %#v", def.Compat)
+	}
+	if _, invented := def.Compat["futureFlag"]; invented {
+		t.Fatalf("a string key must not become a bool: %#v", def.Compat)
+	}
+}
+
+func TestUpsertThinkingFormat(t *testing.T) {
+	yes := true
+
+	t.Run("a format is written into compat", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		if err := UpsertCustomProvider("gw", CustomDefinition{
+			BaseURL: "https://api.example.com/v1", API: APIOpenAICompletions,
+			ThinkingFormat: "deepseek",
+			Models:         []CustomModel{{ID: "m", Reasoning: &yes, ThinkingLevels: []string{"high", "max"}}},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		compat, _ := readProviderRows(t, home)["gw"].(map[string]any)["compat"].(map[string]any)
+		if compat["thinkingFormat"] != "deepseek" {
+			t.Fatalf("compat = %s", rawOf(t, compat))
+		}
+		// And it survives the read path the GUI uses.
+		if got := LoadCustomDefinitions()["gw"].ThinkingFormat; got != "deepseek" {
+			t.Fatalf("reloaded %q", got)
+		}
+	})
+
+	t.Run("empty means pi's default: the key is removed, bools stay", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		seed(t, home, `{"providers":{"gw":{"baseUrl":"https://api.example.com/v1","api":"openai-completions","compat":{"thinkingFormat":"deepseek","supportsReasoningEffort":true,"off":"none"},"models":[{"id":"m"}]}}}`)
+		if err := UpsertCustomProvider("gw", CustomDefinition{
+			BaseURL: "https://api.example.com/v1", API: APIOpenAICompletions,
+			Compat: map[string]bool{"supportsReasoningEffort": true},
+			Models: []CustomModel{{ID: "m"}},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		compat, _ := readProviderRows(t, home)["gw"].(map[string]any)["compat"].(map[string]any)
+		if _, present := compat["thinkingFormat"]; present {
+			t.Fatalf("empty format must remove the key: %s", rawOf(t, compat))
+		}
+		if compat["supportsReasoningEffort"] != true {
+			t.Fatalf("compat = %s", rawOf(t, compat))
+		}
+	})
+
+	t.Run("an unknown format is refused", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		err := UpsertCustomProvider("gw", CustomDefinition{
+			BaseURL: "https://api.example.com/v1", API: APIOpenAICompletions,
+			ThinkingFormat: "mind-meld", Models: []CustomModel{{ID: "m"}},
+		})
+		if err == nil || !strings.Contains(err.Error(), "unsupported thinking format") {
+			t.Fatalf("err = %v", err)
+		}
+	})
+}
+
 func TestUpsertCustomProviderValidation(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	yes := true

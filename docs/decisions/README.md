@@ -46,7 +46,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0039](0039-per-agent-session-ownership.md) | Per-agent session ownership, tracked in PiCode (`--session-id` for chat attribution; 0040 adds a private dir for pi's own TUI) | accepted, amends 0006, amended by 0040 |
 | [0040](0040-per-agent-session-dir.md) | Per-agent `--session-dir` — extends ownership into pi's own native TUI picker | accepted, amends 0039 |
 | [0041](0041-session-observability-dashboard.md) | Session observability dashboard (spend/activity/fleet) replaces the no-tabs-open home | accepted, amended by 0042 |
-| [0042](0042-dashboard-v2-breakdowns.md) | Dashboard v2 — model/workspace/token/tool/reliability breakdowns, live refresh, fingerprint cache | accepted, amends 0041 |
+| [0042](0042-dashboard-v2-breakdowns.md) | Dashboard v2 — model/workspace/token/tool/reliability breakdowns, live refresh, fingerprint cache | accepted, amends 0041; Fleet tile made machine-wide (agents + agent-CLI terminals, `no signal` bucket) 2026-09-13 |
 | [0043](0043-browser-extension-native-host.md) | Chrome extension is a native-messaging client of existing agents | accepted |
 | [0044](0044-mobile-supervision-shell.md) | Mobile shell is a supervision console (Now / Inbox / Work / More + agent and terminal screens), not desktop parity | accepted, amended (Safari-tab sticky heads; file/Git scope superseded by 0095) |
 | [0045](0045-automations.md) | Automations — daemon scheduler + webhook fire ordinary agent sessions; bounds, runs log, Inbox; v2: `/automate` drafts from the current agent, built-in templates | accepted, amends 0037 (source kind), amended 2026-09-01 (v2), 2026-09-02 (webhook through the gateway, notify URL, message runs deliver now), 2026-09-09 (many schedules per automation: `automation_schedules`, zone per row, `schedule_id` on runs) |
@@ -132,9 +132,10 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0125](0125-llms-generated.md) | llms.txt is generated where it is served (make docs, make deploy) and no longer committed; openapi.json stays versioned because the site renders it | accepted |
 | [0126](0126-remove-session-adopt.md) | Remove session adoption — agents are born only from new sessions | accepted |
 | [0127](0127-dashboard-measures-the-machine.md) | The dashboard measures the whole machine; the `?scope=` mode and its chips retire (amends 0097) | accepted |
-| [0128](0128-work-browser-cdp-policy.md) | work-browser-cdp-policy | proposed |
+| [0128](0128-work-browser-cdp-policy.md) | work-browser-cdp-policy | accepted (amended by 0134) |
 | [0129](0129-custom-provider-definitions.md) | Custom provider definitions in the Providers GUI | accepted |
 | [0130](0130-picode-snippets.md) | PiCode Snippets — GUI library, expand-before-send, snippet-run door | accepted |
 | [0131](0131-handoff-board-index.md) | The handoff board is an index: next-up inline, debts as a per-topic count with its plan; an invisible topic file fails the generator (refines 0123) | accepted |
-| [0132](0132-browser-command-channel.md) | browser-command-channel | proposed |
+| [0132](0132-browser-command-channel.md) | browser-command-channel | accepted |
 | [0133](0133-tmux-app.md) | The tmux app — PiCode reads the whole tmux server, and acts only on sessions it can attribute | accepted |
+| [0134](0134-browser-default-policy.md) | browser-default-policy | accepted (amends 0128) |
