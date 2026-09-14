@@ -14,6 +14,7 @@ const good = {
   maxTokens: "",
   compatDeveloper: false,
   compatReasoning: false,
+  thinkingFormat: "",
   reasoningModel: false,
   thinkingLevels: [],
   key: "ci_live_x",
@@ -110,12 +111,26 @@ test("customModelIds trims and drops blanks", () => {
   assert.deepEqual(customModelIds(""), []);
 });
 
+test("the thinking format rides at the top level, empty meaning pi's default", () => {
+  const set = validateCustomProvider({ ...good, thinkingFormat: "deepseek" });
+  assert.equal(set.ok, true);
+  assert.equal(customProviderPayload(set.value).thinkingFormat, "deepseek");
+
+  const unset = validateCustomProvider(good);
+  assert.equal(unset.ok, true);
+  assert.equal("thinkingFormat" in customProviderPayload(unset.value), false);
+
+  const invented = validateCustomProvider({ ...good, thinkingFormat: "mind-meld" });
+  assert.equal(invented.ok, false);
+});
+
 test("customProviderForm prefills from a catalog row and starts blank", () => {
   const row = {
     id: "cheaperinference",
     baseUrl: "https://api.cheaperinference.com/v1",
     api: "anthropic-messages",
     compat: { supportsDeveloperRole: true },
+    thinkingFormat: "deepseek",
     definitions: [
       { id: "claude-opus-5" },
       { id: "claude-sonnet-5", contextWindow: 200000, maxTokens: 32000 },
@@ -131,6 +146,7 @@ test("customProviderForm prefills from a catalog row and starts blank", () => {
     maxTokens: "32000",
     compatDeveloper: true,
     compatReasoning: false,
+    thinkingFormat: "deepseek",
     reasoningModel: false,
     thinkingLevels: DEFAULT_THINKING_LEVELS,
     key: "",

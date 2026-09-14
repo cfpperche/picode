@@ -349,8 +349,11 @@ exec cat
 	}
 
 	// Resume restarts the CLI with the session's verified resume args,
-	// replacing the defaults for this one launch.
-	// The args file still holds the creation launch's argv; wait for the new one.
+	// replacing the defaults for this one launch. The fixture file is removed
+	// first: waitCLIFile returns as soon as the path exists, so the bytes of
+	// the creation launch would otherwise be read back as a stale "--default"
+	// (sharded runs failed 2/2 at load ~5 while a single process passed). The
+	// plain start below uses the same idiom.
 	_ = os.Remove(output + ".args")
 	res := resume()
 	if res["status"] != "200" {

@@ -12,7 +12,7 @@ import { cliProvidersReturnTo } from "@picode/shared/domain/cliProviders.js";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { readRecents, pushRecent, removeRecent, clearRecents, rememberProviders } from "@picode/shared/domain/providerRecents.js";
 import { validateCustomProvider, customProviderPayload, customProviderForm, customTakenIds, THINKING_LEVELS } from "@picode/shared/domain/customProviders.js";
-import { CUSTOM_PROVIDER_APIS } from "@picode/shared/contracts/schemas.js";
+import { CUSTOM_PROVIDER_APIS, CUSTOM_THINKING_FORMATS } from "@picode/shared/contracts/schemas.js";
 import { askConfirm } from "../lib/confirm.js";
 import { showUsageButton, usagePath } from "@picode/shared/domain/providerUsage.js";
 import UsageDialog from "./UsageDialog.jsx";
@@ -791,6 +791,15 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                     <input type="checkbox" checked={cf.compatReasoning} onChange={setCheck("compatReasoning")} />
                     <span><code>reasoning_effort</code> — reasoning models only</span>
                   </label>
+                  <select
+                    value={cf.thinkingFormat}
+                    onChange={setField("thinkingFormat")}
+                    aria-label="Thinking format"
+                  >
+                    {CUSTOM_THINKING_FORMATS.map((f) => (
+                      <option key={f.value} value={f.value}>{f.label}</option>
+                    ))}
+                  </select>
                   <label className="prov-check">
                     <input type="checkbox" checked={cf.reasoningModel} onChange={setCheck("reasoningModel")} />
                     <span>Reasoning model — lets you pick thinking levels</span>

@@ -49,7 +49,24 @@ its provider value is not always the level name (several pi catalogs send
 `none`), so the form never invents one. A model switched back to
 non-reasoning drops the managed keys and keeps the rest; a model the user
 never touched grows no map at all. An invented level is refused by the
-schema and again by `validateCustomDef`, so the GUI is not the only guard.
+schema and again by `validateCustomDef`, so the GUI is not the only guard.**Thinking format.** The same section names how thinking travels on the wire
+(`compat.thinkingFormat`), because gateways disagree: OpenAI-style endpoints
+take `reasoning_effort`, DeepSeek and Z.AI their own fields, Qwen a top-level
+`enable_thinking`, OpenRouter `reasoning: {effort}`, Together
+`reasoning: {enabled}`. The select offers pi's documented formats
+(`CUSTOM_THINKING_FORMATS`, mirrored by `customThinkingFormats` in
+`internal/catalog/modelsjson.go` where an invented value is refused); the
+empty choice means pi's own default for the API type and removes the key
+instead of writing an empty string. `chat-template` and
+`qwen-chat-template` are deliberately absent: both are driven by
+`chatTemplateKwargs`/`chatTemplateArgs` objects this form does not edit, so
+offering them would be a switch that does nothing. `thinkingFormat` is a
+string among compat's bools, which exposed a read-path bug: decoding the
+whole `compat` object as `map[string]bool` failed the entry and the provider
+disappeared from the catalog. `LoadCustomDefinitions` now decodes compat key
+by key (the two managed bools, the format string, everything else left
+alone), pinned by `TestLoadCustomDefinitionsWithStringCompat`.
+
 The catalog hands the stored `thinkingLevelMap` back inside `definitions`, so
 Edit prefills the same chips it would write (`customThinkingLevels`). The row
 made the create dialog taller than the viewport, and `.dlg-create` centres

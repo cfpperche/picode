@@ -3051,7 +3051,7 @@ export default function App({ shellChrome = false } = {}) {
             </div>
           </div>
 
-          {showHome ? <DashboardView workspaces={workspaces} freeAgents={freeAgents} workingIds={tuiWorking} waitingId={waiting ? selectedId : null} /> : null}
+          {showHome ? <DashboardView workspaces={workspaces} freeAgents={freeAgents} terminals={terminals} workingIds={tuiWorking} waitingId={waiting ? selectedId : null} onOpen={(id) => openTab(id)} /> : null}
 
           {tabs.filter(isTermTab).map((id) => {
             const tid = tabTermId(id);

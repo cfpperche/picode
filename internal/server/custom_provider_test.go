@@ -190,6 +190,49 @@ func TestCustomProviderThinkingLevels(t *testing.T) {
 	}
 }
 
+// The thinking format is the one string compat key the form owns: it lands in
+// models.json beside the bools, comes back in the catalog for the prefill, and
+// an unknown format is refused before the file is touched.
+func TestCustomProviderThinkingFormat(t *testing.T) {
+	_, home, req := newCustomProviderServer(t)
+	status, body := req(http.MethodPut, "/api/providers/custom/gw", `{
+		"baseUrl": "https://api.example.com/v1",
+		"api": "openai-completions",
+		"compat": {"supportsDeveloperRole": false, "supportsReasoningEffort": true},
+		"thinkingFormat": "deepseek",
+		"models": [{"id": "deepseek-v4.1-flash", "reasoning": true, "thinkingLevels": ["high", "max"]}]
+	}`)
+	if status != http.StatusOK {
+		t.Fatalf("PUT status %d: %s", status, body)
+	}
+	modelsJSON := readHomeFile(t, home, ".pi/agent/models.json")
+	if !strings.Contains(modelsJSON, `"thinkingFormat": "deepseek"`) {
+		t.Fatalf("format missing from models.json: %s", modelsJSON)
+	}
+
+	status, body = req(http.MethodGet, "/api/catalog", "")
+	if status != http.StatusOK {
+		t.Fatalf("catalog status %d", status)
+	}
+	if !strings.Contains(body, `"thinkingFormat":"deepseek"`) {
+		t.Fatalf("catalog dropped the format: %s", body)
+	}
+
+	// A hand-edited string compat key must not hide the provider (it used to:
+	// the whole entry failed to decode and the row vanished from the GUI).
+	if !strings.Contains(body, `"custom":true`) {
+		t.Fatalf("custom row missing: %s", body)
+	}
+
+	bad := `{"baseUrl":"https://x.com/v1","api":"openai-completions","thinkingFormat":"mind-meld","models":[{"id":"m"}]}`
+	if status, body = req(http.MethodPut, "/api/providers/custom/othergw", bad); status != http.StatusBadRequest {
+		t.Fatalf("bad format status %d: %s", status, body)
+	}
+	if strings.Contains(readHomeFile(t, home, ".pi/agent/models.json"), "othergw") {
+		t.Fatal("a refused definition reached the file")
+	}
+}
+
 // The unsigned definition still shows in the catalog (available, not signed
 // in) so it can be picked up again from Add provider.
 func TestCustomProviderUnsignedShowsInCatalog(t *testing.T) {
