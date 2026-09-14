@@ -1,14 +1,20 @@
+---
+description: One plane that shows many agents and terminals side by side, live.
+---
+
 # Canvas
 
 A **canvas** is one plane that shows many agents and terminals side by side,
 live. Each tile is a **panel**: the real screen of that agent or terminal —
-the same one its own tab shows — not a picture of it. A panel can also hold
-a **pinned note**, **text you write on the plane**, a **file**, or the
-**changes** to a file — so the plan you are working from and the code you
-are changing sit beside the work.
+the same one its own tab shows. A panel can also hold a **pinned note**,
+**text you write on the plane**, a **file**, or the **changes** to a file —
+so the plan you are working from and the code you are changing sit beside
+the work.
 
-Open it from the **Apps** tab → **Canvas**. Canvases are saved on the
-server, so every browser signed in to your PiCode sees the same ones.
+- **Where:** **Apps** tab → **Canvas**.
+- **Not this:** not a screenshot of the tabs, and not the sidebar list of agents. Each panel is the live screen.
+
+Canvases are saved on the server, so every browser signed in to your PiCode sees the same ones.
 
 ![A canvas on release day: two agent CLIs above, a shell and a note beside them, with the canvas switcher top left and the element toolbar at the bottom](../img/app-canvas.png)
 

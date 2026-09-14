@@ -1,8 +1,15 @@
+---
+description: Connect agents in a workspace so they can talk.
+---
+
 # Communication between agents
 
-Open the workspace menu and choose **Communication**, or open
-**Agent CLIs → Messages** and choose a workspace. Desktop and mobile show the
-same participants: managed Pi agents and native Agent CLI terminals.
+Connect managed Pi agents and native Agent CLI terminals in a workspace so they can talk.
+
+- **Where:** workspace menu → **Communication**, or **Agent CLIs → Messages** and choose a workspace.
+- **Not this:** not the [Inbox](/guide/inbox-tools) (questions to you) and not moving a conversation between CLIs ([Agent CLIs](/guide/agent-clis)).
+
+Desktop and mobile show the same participants.
 
 1. Check the participants you want to connect and select **Apply and connect**.
 2. If one is stopped, select **Open and connect**. Start a normal conversation
