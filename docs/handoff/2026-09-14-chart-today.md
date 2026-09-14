@@ -17,9 +17,3 @@ session: `range=today` 24 buckets with the six spending hours in place,
 `range=7d`/`30d` day buckets unchanged; `__picodeOverlayAudit()` `ok: true`,
 aria read back as "Spend per hour".
 visual-review: PASS (var/screenshots/chart-today-{hourly,week,empty}.png; card 5/5)
-
-## Next up
-
-- Promote `needs you` above the KPI row when more than one thing is blocked
-  (Fleet rows already sort and accent those) — needs the ADR-0109 door
-  decision before naming the Inbox app there.
