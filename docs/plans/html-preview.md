@@ -98,7 +98,7 @@ GET /preview/{token}/{path…}
 | Directory | `…/dir/` → `dir/index.html` when it exists; never a listing |
 | Document headers | `Content-Security-Policy: sandbox allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-pointer-lock allow-downloads; frame-ancestors 'self'`; nosniff; no-store; ETag `W/"<mtime>-<size>"`; Referrer-Policy; Permissions-Policy denying camera/microphone/geolocation/usb/serial/hid/payment |
 | Asset headers | the same minus the CSP, plus `Access-Control-Allow-Origin: *` and `Cross-Origin-Resource-Policy: cross-origin` |
-| Size | document and assets up to `maxAgentBlob` (32 MiB), streamed (`http.ServeContent`, Range/HEAD for free) |
+| Size | assets streamed (`http.ServeContent`, Range/HEAD for free) up to `maxAgentBlob` (32 MiB). The document is served the same way; the v1 pane mints only after its ≤1 MiB text read succeeded (Raw/dirty tracking), so a heavier document is a v1.5 item, not a silent failure |
 | Not wrapped by | the app-shell `securityHeaders`/`appCSP` (registered mux pattern wins; `csp.go` additionally skips `/preview/` as defense) |
 
 The app shell's `frame-src 'self'` already allows this URL; no change.
@@ -146,7 +146,8 @@ The app shell's `frame-src 'self'` already allows this URL; no change.
 
 1. **v1 — the renderer.** ADR + ticket store + route + headers + kind map +
    pane/card/mobile wiring + tests + docs.
-2. **v1.5 — the editing loop.** Ticket-scoped change watch: the route
+2. **v1.5 — the editing loop.** Preview-only documents over the text cap
+   (mint and serve without a Raw pane), ticket-scoped change watch: the route
    records served asset paths, one daemon ticker stats them (no fsnotify
    dependency, cap ~200 paths/ticket) and an SSE channel reloads the parent
    frame when anything changed — no script injection into the page. Plus
