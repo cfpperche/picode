@@ -41,4 +41,4 @@ Each page says what the capability is and where to click. First run is
 | [CLI activity reporting](/guide/terminal-status) | Working / needs you for a CLI in a terminal |
 | [Keyboard and browser keys](/guide/keyboard) | What the browser keeps, what PiCode can bind |
 
-Keys and models: [Configure](/guide/settings). Host it: [Run](/guide/remote-server).
+Keys and models: [Configure](/guide/configure). Host it: [Run](/guide/remote-server).
