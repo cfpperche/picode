@@ -6,10 +6,9 @@ Advanced section offers `compat.thinkingFormat` (pi's default, `reasoning_effort
 removes the key. `chat-template` / `qwen-chat-template` stay out: both need
 `chatTemplateKwargs`/`Args` objects this form does not edit.
 
-A hand-edited format used to be worse than unreachable: `compat` was decoded as
-`map[string]bool`, so a string value failed the entry and the provider vanished
-from the roster, Edit and the catalog while pi kept using it. It is now decoded
-key by key (`TestLoadCustomDefinitionsWithStringCompat`).
+A string value in `compat` used to fail the entry and hide the provider from
+roster, Edit and catalog while pi kept using it; the read path now decodes key
+by key (`TestLoadCustomDefinitionsWithStringCompat`).
 
 Two `main`-owned test races were fixed here on the test side, both blocking a
 green gate: `TestPaneRootSurvivesSIGHUP` (signalled before the pane's trap
@@ -29,7 +28,6 @@ select visible, sheet scrolls inside, overlay audit ok, nothing clipped.
 
 ## Debts
 
-- Context window, max output and thinking settings apply to every model of an
-  instance (per-model editing is P2); `supportsReasoningEffort` and the format
-  are independent controls, and nothing warns about a combination the gateway
-  ignores (cheap request verify is P4).
+- Thinking settings apply to every model of an instance (per-model editing is
+  P2); `supportsReasoningEffort` and the format are independent controls, and
+  nothing warns about a combination the gateway ignores (verify is P4).
