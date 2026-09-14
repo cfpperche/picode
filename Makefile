@@ -163,7 +163,7 @@ desktop: ## Cross-compile the Windows tray + console native host (ADR-0020 / 004
 desktop-shell: ## Build the v2 Windows shell (Rust/Tauri — needs rustup, x86_64-pc-windows-msvc target, cargo-xwin; ADR-0120)
 	cd desktop-shell && cargo xwin build --release --target x86_64-pc-windows-msvc
 
-desktop-restart: desktop ## Swap the Windows exes and relaunch the tray via the logon task (NEVER `&` from WSL — scripts/desktop-swap.sh)
+desktop-restart: desktop desktop-shell ## Build both exes, swap them, relaunch the tray (and the shell if it ran) — NEVER `&` from WSL (scripts/desktop-swap.sh)
 	./scripts/desktop-swap.sh
 
 restart: deploy ## Rebuild and restart the systemd service (`picode deploy`)

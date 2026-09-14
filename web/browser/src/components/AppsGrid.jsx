@@ -31,6 +31,7 @@ export default function AppsGrid({ apps, nativeApps, onOpen }) {
           onKeyDown={(e) => { if (e.key === "Escape") setQ(""); }}
         />
       </label>
+      <div className="side-scroll">
       {shown.length === 0 ? (
         <p className="side-empty pins-empty">
           {searching
@@ -61,6 +62,7 @@ export default function AppsGrid({ apps, nativeApps, onOpen }) {
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }

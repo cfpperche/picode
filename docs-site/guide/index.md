@@ -14,6 +14,8 @@ Each page says what the capability is and where to click. First run is
 | [Agent CLIs](/guide/agent-clis) | Terminals, session history, and moving a conversation between CLIs |
 | [Packages](/guide/packages) | Extras for Pi (search, tools, themes) — full access, review before install |
 | [MCP](/guide/mcp) | Connectors. Pi does not speak MCP; PiCode writes the adapter files |
+| [Gmail](/guide/mcp-gmail) | Read, draft and send mail. Credentials stay outside PiCode |
+| [DeepWiki](/guide/mcp-deepwiki) | Public GitHub documentation. No account |
 | [llama.cpp](/guide/llama) | Local or existing llama.cpp as a model source |
 | [Automations](/guide/automations) | Run an agent on a timer or a webhook |
 | [Snippets](/guide/snippets) | Saved prompts and commands, with placeholders filled at send time |

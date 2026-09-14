@@ -12,6 +12,7 @@
 //! - `Enum`  — one of a fixed list of values
 
 pub mod cdppolicy;
+pub mod origins;
 
 use std::collections::BTreeMap;
 

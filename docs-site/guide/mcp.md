@@ -40,3 +40,14 @@ Clicking an agent in the sidebar leaves this page and opens that agent.
 
 No adapter → Connectors is one line and **Open packages**. It does not write files.
 The page works with a terminal selected; it does not need an agent open.
+
+## Cookbook
+
+The connectors PiCode ships a path for. Each page is install, sign-in if any, and how to revoke. Anything else: **Custom server…** or **Import a file…** above.
+
+| Connector | What it is |
+|---|---|
+| [Gmail](/guide/mcp-gmail) | Read, draft and send mail. Credentials stay in `~/.gmail-mcp/`, not in PiCode. |
+| [DeepWiki](/guide/mcp-deepwiki) | Public GitHub documentation. No account. |
+
+Webhooks are not MCP: [Integrations](/guide/integrations).

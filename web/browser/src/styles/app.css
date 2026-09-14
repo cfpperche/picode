@@ -37,11 +37,11 @@ html, body {
     scrollbar-width: thin;
     scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
   }
-  .side-section {
+  .side-scroll {
     scrollbar-color: transparent transparent;
     transition: scrollbar-color .18s ease;
   }
-  #sidebar:hover .side-section, #sidebar:focus-within .side-section {
+  #sidebar:hover .side-scroll, #sidebar:focus-within .side-scroll {
     scrollbar-color: color-mix(in srgb, var(--text-secondary) 45%, transparent) transparent;
   }
   @media (max-width: 700px) {
@@ -62,11 +62,11 @@ html, body {
    the rail stays invisible at rest (Linear/VS Code). The gutter stays
    reserved, so the reveal is a pure thumb fade with no reflow. Firefox's
    scrollbar-color half of this lives in the @supports block above. */
-.side-section::-webkit-scrollbar-thumb {
+.side-scroll::-webkit-scrollbar-thumb {
   background: transparent;
   transition: background .18s ease;
 }
-#sidebar:hover .side-section::-webkit-scrollbar-thumb, #sidebar:focus-within .side-section::-webkit-scrollbar-thumb {
+#sidebar:hover .side-scroll::-webkit-scrollbar-thumb, #sidebar:focus-within .side-scroll::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--text-secondary) 40%, transparent);
 }
 /* Author `display:` beats the UA [hidden] rule. One global override so
@@ -142,7 +142,11 @@ body {
 }
 .brand-clis[aria-current="page"] { color: var(--text-primary); }
 
-.side-section { flex: 1; overflow-y: auto; padding: 10px 8px; }
+/* Every sidebar tab is one column: the header and search stay pinned at
+   the top and only the `.side-scroll` list area below them scrolls —
+   scrolling no longer carries the tab's controls out of view. */
+.side-section { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 10px 8px; }
+.side-scroll { flex: 1; min-height: 0; overflow-y: auto; }
 .tree-row {
   display: grid;
   grid-template-columns: var(--tree-chev) var(--tree-icon) minmax(0, 1fr) auto auto;
@@ -180,6 +184,7 @@ body {
 .side-empty-act:hover { text-decoration: underline; }
 .pins-pane { padding: 8px 10px; }
 .pins-head {
+  flex: none;
   display: flex; align-items: center; gap: 8px;
   padding: 2px 0 8px;
 }
@@ -325,6 +330,7 @@ body {
 .pin-att-size { font-size: 10px; color: var(--text-secondary); }
 .pin-card-files { margin-top: 2px; font-size: 11px; color: var(--text-secondary); }
 .pins-search {
+  flex: none;
   display: flex; align-items: center; gap: 6px; margin: 0 0 8px; padding: 0 8px;
   height: 30px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
   color: var(--text-secondary);
