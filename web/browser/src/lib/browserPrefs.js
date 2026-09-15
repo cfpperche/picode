@@ -1,0 +1,31 @@
+// One reader for the browser preferences the daemon returns.
+//
+// The settings page reads them twice — once on load, once after every save
+// (the PUT answers with the saved object) — and the two copies drifted: the
+// save path forgot a field, so the switch it belonged to snapped back off
+// after every click. One function, one shape.
+
+export const DEFAULT_BROWSER_PREFS = {
+  showFullUrl: true,
+  webOpenDest: "app",
+  localOpenDest: "app",
+  passwordAutosave: true,
+  generalAutofill: true,
+  askDownload: false,
+  agentAccess: true,
+};
+
+// readBrowserPrefs folds a payload into the shape the page holds: missing
+// fields take the product's default, so an older daemon cannot blank a row.
+export function readBrowserPrefs(payload) {
+  const p = payload && typeof payload === "object" ? payload : {};
+  return {
+    showFullUrl: p.showFullUrl !== false,
+    webOpenDest: p.webOpenDest || DEFAULT_BROWSER_PREFS.webOpenDest,
+    localOpenDest: p.localOpenDest || DEFAULT_BROWSER_PREFS.localOpenDest,
+    passwordAutosave: p.passwordAutosave !== false,
+    generalAutofill: p.generalAutofill !== false,
+    askDownload: p.askDownload === true,
+    agentAccess: p.agentAccess !== false,
+  };
+}

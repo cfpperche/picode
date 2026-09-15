@@ -3,6 +3,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Switch from "@radix-ui/react-switch";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import FolderPicker from "./FolderPicker.jsx";
+import { DEFAULT_BROWSER_PREFS, readBrowserPrefs } from "../lib/browserPrefs.js";
 import PageFrame from "./PageFrame.jsx";
 import { browserGrantSchema } from "@picode/shared/contracts/schemas.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
@@ -179,7 +180,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   const [wipeRange, setWipeRange] = useState(3600);
   const [wipeKinds, setWipeKinds] = useState(() => WIPE_KINDS.filter((k) => k.on).map((k) => k.value));
   const [wipeBusy, setWipeBusy] = useState(false);
-  const [prefs, setPrefs] = useState({ showFullUrl: true, webOpenDest: "app", localOpenDest: "app", passwordAutosave: true, generalAutofill: true, askDownload: false, agentAccess: true });
+  const [prefs, setPrefs] = useState(DEFAULT_BROWSER_PREFS);
 
   const load = useCallback(async () => {
     try {
@@ -246,15 +247,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
       if (invoke) invoke("btab_download_dir").then((p) => setDownloadDir(p || "")).catch(() => {});
       fetch("/api/browser/prefs")
         .then((r) => r.json())
-        .then((p) => setPrefs({
-          showFullUrl: p.showFullUrl !== false,
-          webOpenDest: p.webOpenDest || "app",
-          localOpenDest: p.localOpenDest || "app",
-          passwordAutosave: p.passwordAutosave !== false,
-          generalAutofill: p.generalAutofill !== false,
-          askDownload: p.askDownload === true,
-          agentAccess: p.agentAccess !== false,
-        }))
+        .then((p) => setPrefs(readBrowserPrefs(p)))
         .catch(() => {});
     }
   }, [hidden, load, loadHistory]);
@@ -268,14 +261,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     setPrefs(next);
     fetch("/api/browser/prefs", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
       .then((r) => r.json())
-      .then((p) => setPrefs({
-        showFullUrl: p.showFullUrl !== false,
-        webOpenDest: p.webOpenDest || "app",
-        localOpenDest: p.localOpenDest || "app",
-        passwordAutosave: p.passwordAutosave !== false,
-        generalAutofill: p.generalAutofill !== false,
-        agentAccess: p.agentAccess !== false,
-      }))
+      .then((p) => setPrefs(readBrowserPrefs(p)))
       .catch(() => {});
     // The shell is the half that applies these to the pages; a refusal here
     // (ACL, no shell) must be visible, not a switch that quietly does nothing.
