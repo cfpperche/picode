@@ -24,8 +24,12 @@ export function cliCapabilities(cli) {
 // answers), and none of the setup panes, which all edit Pi-side things.
 export function cliPanes(cli) {
   const cap = cliCapabilities(cli);
-  if (!cap.integration) return ["launch", "terminals"];
-  return ["launch", "terminals", ...(cap.sessions ? ["sessions"] : []), "providers", "settings", "keyboard", "packages", "connectors"];
+  // Sessions follows the session source the server reports, not the adapter:
+  // Muse Code and Antigravity have history on disk before they have
+  // activity reporting (their Sessions tab lists and resumes, nothing more).
+  const sessions = cap.sessions ? ["sessions"] : [];
+  if (!cap.integration) return ["launch", "terminals", ...sessions];
+  return ["launch", "terminals", ...sessions, "providers", "settings", "keyboard", "packages", "connectors"];
 }
 
 // Setup panes (Settings / Packages / Connectors) read identity from the
