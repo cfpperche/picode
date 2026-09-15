@@ -89,7 +89,6 @@ body {
 #sidebar {
   width: 244px; flex: none;
   background: var(--bg-panel);
-  border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   min-height: 0; overflow: hidden;
   position: relative;
@@ -99,6 +98,14 @@ body {
   --tree-icon: 18px;
   --tree-gap: 6px;
 }
+/* The pane's edge is a vertical starting below the 41px bar, not a
+   full-height border, so the header reads as one strip (Chrome frame).
+   Shell mode keeps the full height: its bar is the shell row itself. */
+#sidebar::before {
+  content: ""; position: absolute; top: var(--chrome-h); bottom: 0; right: 0;
+  width: 1px; background: var(--border); pointer-events: none;
+}
+#app.app-shell #sidebar::before { top: 0; }
 #sidebar button, #sidebar input, #sidebar select { font-family: inherit; }
 .sidebar-sizer {
   position: absolute; top: 0; right: -3px; bottom: 0; width: 6px;
@@ -111,6 +118,9 @@ body {
   display: flex; align-items: center; gap: 8px;
   padding: 0 8px 0 14px;
   height: var(--chrome-h); min-height: var(--chrome-h);
+  /* Frame plane (Chrome tab strip): sidebar head, tab strip and inspector
+     head read as one bar; the active tab connects to the toolbar below. */
+  background: var(--bg-base);
   border-bottom: 1px solid var(--border);
 }
 .brand-title {
@@ -1602,26 +1612,35 @@ img.ws-face.term-cli-face {
   .dash-head { flex-wrap: wrap; }
 }
 
-/* ============ agent tabs (Chrome CR23 shape, top of main) ============
-   Visual: Chromium tab_style (raised active surface, top radius, hover
-   pill, separators that yield to hover/active). Concave ears are omitted
-   on purpose: they only read as ears when a same-color toolbar sits under
-   the strip (Chrome's omnibox). Here the surface below is a terminal, a
-   chat or a file, so an ear becomes a fang. Overflow behaviour is
+/* ============ agent tabs (Chrome-connected, top of main) ============
+   Chromium tab_style: the active tab shares its background with the
+   toolbar below and overlaps the strip's bottom edge (Chrome does it with
+   kTabstripToolbarOverlap = 1px), so no hairline cuts it off from the
+   page. Here the toolbar plane is --bg-panel (the file/tree/git headers
+   and the web tab toolbar sit directly under the strip) and the frame
+   plane is --bg-base. The hairline is an ::after
+   layer instead of a border: the active tab (z-index 3) paints over it
+   and reads connected, while inactive tabs (z-index auto, earlier in DOM
+   order) stay behind it. Concave ears stay omitted: they only read when
+   a same-color toolbar sits under the whole strip, and ours meets a
+   terminal, a chat or a file. Measurements:
+   docs/benchmarks/2026-09-15-chrome-tab-header.md. Overflow behaviour is
    unchanged — docs/benchmarks/2026-09-06-tab-strip-overflow.md; tabs still
    never shrink to favicons. Same sheet is imported by /desktop. */
 .main-tabs {
   --tab-strip: var(--bg-base);
-  /* Same plane the sidebar sits on, then one step up so a small chip on
-     the gray strip still reads as that white (simultaneous contrast ate
-     --bg-panel). Light: #fff like the sidebar field; dark: --bg-elevated. */
-  --tab-active: var(--bg-elevated);
+  --tab-active: var(--bg-panel);
   display: flex; flex: none;
+  position: relative;
   height: var(--chrome-h); min-height: var(--chrome-h);
-  background: var(--tab-strip); border-bottom: 1px solid var(--border);
+  background: var(--tab-strip);
+}
+.main-tabs::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+  background: var(--border); pointer-events: none;
 }
 .tab-strip {
-  display: flex; align-items: stretch; padding: 4px 8px 0; overflow-x: auto; flex: 1; min-width: 0;
+  display: flex; align-items: stretch; padding: 6px 8px 0; overflow-x: auto; flex: 1; min-width: 0;
   position: relative;
   /* No layout scrollbar on the strip — Zed, Firefox, Material. A classic
      bar stole 10px of the 40px chrome. The active tab is revealed by code
@@ -1644,7 +1663,7 @@ img.ws-face.term-cli-face {
   mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
 }
 .tab-arrow {
-  flex: none; width: 28px; margin: 4px 2px 0; padding: 0; border: 0; border-radius: 8px;
+  flex: none; width: 28px; margin: 6px 2px 0; padding: 0; border: 0; border-radius: 8px;
   display: inline-flex; align-items: center; justify-content: center;
   background: transparent; color: var(--text-secondary); cursor: pointer;
 }
@@ -1744,7 +1763,7 @@ img.ws-face.term-cli-face {
 /* Hairline between two idle tabs; yields next to hover, the active tab,
    or the last tab (Chrome never paints a trail after the strip). */
 .mtab:not(.active):not(:hover):not(:last-child)::after {
-  content: ""; position: absolute; right: 0; top: 22%; height: 56%; width: 1px;
+  content: ""; position: absolute; right: 0; top: calc(50% - 10px); height: 20px; width: 1px;
   background: var(--border); pointer-events: none;
 }
 .mtab:has(+ .mtab:hover)::after,
@@ -5457,12 +5476,18 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
    file tree's .ft-* idiom and its tabs the .ft-tab pair. */
 #inspector {
   flex: none; width: 320px;
-  background: var(--bg-panel); border-left: 1px solid var(--border);
+  background: var(--bg-panel);
   display: flex; flex-direction: column;
   min-height: 0; min-width: 0; overflow: hidden; position: relative;
   font-family: var(--mono);
   container-type: inline-size;
 }
+/* Same below-the-bar edge as #sidebar::before (Chrome frame). */
+#inspector::before {
+  content: ""; position: absolute; top: var(--chrome-h); bottom: 0; left: 0;
+  width: 1px; background: var(--border); pointer-events: none;
+}
+#app.app-shell #inspector::before { top: 0; }
 #inspector[hidden] { display: none !important; }
 #inspector button, #inspector input { font-family: inherit; }
 .insp-sizer {
@@ -5474,8 +5499,13 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .insp-head {
   display: flex; align-items: center; gap: 8px;
   height: var(--chrome-h); min-height: var(--chrome-h); padding: 0 6px 0 10px;
-  border-bottom: 1px solid var(--border); background: var(--bg-panel); flex: none;
+  /* Frame plane like .brand: one bar across sidebar, tabs, inspector. */
+  border-bottom: 1px solid var(--border); background: var(--bg-base); flex: none;
 }
+/* Shell mode keeps the inspector head on the panel plane: below the shell
+   row it heads its own column (ADR-0122) and blends down into the rail
+   instead of up into the row. */
+#app.app-shell .insp-head { background: var(--bg-panel); }
 .insp-face { width: 18px; height: 18px; display: grid; place-items: center; flex: none; color: var(--text-secondary); }
 .insp-face .ws-face { margin: 0; }
 .insp-face img.ws-face { border: 0; padding: 0; }
@@ -5681,8 +5711,15 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .shell-row {
   position: fixed; top: 0; left: 0; right: 0; z-index: 60;
   display: flex; align-items: stretch; height: var(--chrome-h);
-  background: var(--bg-base); border-bottom: 1px solid var(--border);
+  background: var(--bg-base);
   user-select: none;
+}
+/* Same connected hairline as .main-tabs::after, full window width: the
+   shell row owns the line, so the strip's own is redundant inside it and
+   the active tab still paints over the row's. */
+.shell-row::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+  background: var(--border); pointer-events: none;
 }
 .shell-brand-cluster {
   display: flex; align-items: center; min-width: 0;
@@ -5709,7 +5746,8 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .shell-mark svg { display: block; }
 .shell-name { font-size: 12.5px; font-weight: 650; letter-spacing: 0.2px; }
 .shell-brand:hover .shell-name { color: var(--accent); }
-.shell-row .main-tabs { flex: 1; min-width: 0; border-bottom: 0; }
+.shell-row .main-tabs { flex: 1; min-width: 0; }
+.shell-row .main-tabs::after { content: none; }
 .shell-caps { display: flex; align-self: stretch; flex: none; margin-left: auto; }
 .cap-btn {
   width: 46px; border: 0; background: none; padding: 0;
