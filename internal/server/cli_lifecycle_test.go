@@ -3,13 +3,16 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/cfpperche/picode/internal/clilifecycle"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
@@ -347,24 +350,49 @@ func TestDetectOnlyCLIsAndMuseChannelCheck(t *testing.T) {
 		t.Fatalf("version = %v", check["version"])
 	}
 
-	old := museChannelGet
-	t.Cleanup(func() { museChannelGet = old })
-	museChannelGet = func(ctx context.Context, url string) ([]byte, error) {
-		if url != "https://api.meta.ai/muse-code/channels/muse-stable" {
-			t.Errorf("channel url %s", url)
+	old := channelGet
+	t.Cleanup(func() { channelGet = old })
+	seen := map[string]bool{}
+	channelGet = func(ctx context.Context, url string) ([]byte, error) {
+		seen[url] = true
+		switch {
+		case url == "https://api.meta.ai/muse-code/channels/muse-stable":
+			return []byte(`{"version":"1.2.2-R3000.0"}`), nil
+		case strings.Contains(url, "/manifests/") && strings.HasSuffix(url, ".json"):
+			return []byte(`{"version":"9.9.9","url":"https://storage.googleapis.com/x"}`), nil
+		default:
+			t.Errorf("unexpected channel url %s", url)
+			return nil, fmt.Errorf("unexpected url")
 		}
-		return []byte(`{"version":"1.2.2-R3000.0"}`), nil
 	}
 	upd := cliRequest(t, ts, "POST", "/api/clis/muse/update-check", map[string]any{}, 200)
 	if upd["latest"] != "1.2.2-R3000.0" || upd["updateAvailable"] != true || upd["updateSource"] != "channel" {
-		t.Fatalf("update-check = %+v", upd)
+		t.Fatalf("muse update-check = %+v", upd)
 	}
 	lifecycle := catalogCLI(t, ts, "muse")["lifecycle"].(map[string]any)
 	if lifecycle["canCheckUpdate"] != true || lifecycle["canUpdate"] != false {
-		t.Fatalf("lifecycle = %+v", lifecycle)
+		t.Fatalf("muse lifecycle = %+v", lifecycle)
 	}
-	agyLife := catalogCLI(t, ts, "agy")["lifecycle"].(map[string]any)
-	if agyLife["canCheckUpdate"] == true {
-		t.Fatalf("agy must not offer update-check yet: %+v", agyLife)
+
+	// Antigravity reads the vendor's release manifest: same shape, same menu.
+	agyUpdLife := catalogCLI(t, ts, "agy")["lifecycle"].(map[string]any)
+	if agyUpdLife["canCheckUpdate"] != true || agyUpdLife["canUpdate"] != false || agyUpdLife["canReinstall"] != false {
+		t.Fatalf("agy lifecycle = %+v", agyUpdLife)
+	}
+	// The update check needs the installed version first, exactly as the
+	// surface's Check setup provides it.
+	check = cliRequest(t, ts, "POST", "/api/clis/agy/check", map[string]any{}, 200)
+	if check["error"] != nil && check["error"] != "" {
+		t.Fatalf("agy check error: %v", check["error"])
+	}
+	agyUpd := cliRequest(t, ts, "POST", "/api/clis/agy/update-check", map[string]any{}, 200)
+	if agyUpd["latest"] != "9.9.9" || agyUpd["updateAvailable"] != true || agyUpd["updateSource"] != "channel" {
+		t.Fatalf("agy update-check = %+v", agyUpd)
+	}
+	if !seen["https://api.meta.ai/muse-code/channels/muse-stable"] {
+		t.Fatal("muse channel was never read")
+	}
+	if !seen["https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/"+clilifecycle.AntigravityPlatform(runtime.GOOS, runtime.GOARCH, false)+".json"] {
+		t.Fatalf("agy manifest was never read: %v", seen)
 	}
 }

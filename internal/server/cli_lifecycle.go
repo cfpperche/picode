@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -201,8 +202,8 @@ func handleCLIUpdateCheck(deps Deps) http.HandlerFunc {
 // cliNpmLatest is a var so tests can fake the registry.
 var cliNpmLatest = pipkg.NpmLatest
 
-// museChannelGet is a var so tests can fake the Muse Code channel.
-var museChannelGet = func(ctx context.Context, url string) ([]byte, error) {
+// channelGet is a var so tests can fake a vendor version channel.
+var channelGet = func(ctx context.Context, url string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -219,7 +220,7 @@ var museChannelGet = func(ctx context.Context, url string) ([]byte, error) {
 	return io.ReadAll(io.LimitReader(res.Body, 1<<20))
 }
 
-func museNewer(latest, current string) bool {
+func channelNewer(latest, current string) bool {
 	if latest == "" || current == "" || latest == current {
 		return false
 	}
@@ -227,6 +228,22 @@ func museNewer(latest, current string) bool {
 		return true
 	}
 	return clilifecycle.ExtractSemver(latest) == clilifecycle.ExtractSemver(current)
+}
+
+// libcIsMusl answers the one platform question the Antigravity manifest asks:
+// Alpine-style systems take the _musl artifact. The installer also probes
+// `ldd`; the libc file covers the systems that ship it.
+func libcIsMusl(goarch string) bool {
+	arch := goarch
+	if goarch == "arm64" {
+		arch = "aarch64"
+	}
+	for _, p := range []string{"/lib/libc.musl-" + arch + ".so.1", "/lib/ld-musl-" + arch + ".so.1"} {
+		if _, err := os.Stat(p); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func runUpdateCheck(ctx context.Context, cliID string, plan clilifecycle.Plan, c clilaunch.Config, executable string, d *clilaunch.Diagnostic) error {
@@ -243,17 +260,30 @@ func runUpdateCheck(ctx context.Context, cliID string, plan clilifecycle.Plan, c
 	if plan.LatestFrom == "channel" {
 		checkCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
-		raw, err := museChannelGet(checkCtx, clilifecycle.MuseChannelURL)
-		if err != nil {
-			return fmt.Errorf("Could not reach the Muse Code channel.")
+		url, ok := clilifecycle.ChannelURLFor(cliID, runtime.GOOS, runtime.GOARCH, libcIsMusl(runtime.GOARCH))
+		if !ok {
+			return fmt.Errorf("No version channel is known for %s.", cliID)
 		}
-		ch, err := clilifecycle.ParseMuseChannel(raw)
+		raw, err := channelGet(checkCtx, url)
+		if err != nil {
+			name := cliID
+			if c, ok := clilaunch.Find(cliID); ok {
+				name = c.Name
+			}
+			return fmt.Errorf("Could not reach the %s version channel.", name)
+		}
+		ch, err := clilifecycle.ParseChannelVersion(raw)
 		if err != nil {
 			return err
 		}
 		d.UpdateSource = "channel"
 		d.Latest = ch.Version
-		d.UpdateAvailable = museNewer(ch.Version, clilifecycle.ExtractMuseVersion(d.Version))
+		switch cliID {
+		case "muse":
+			d.UpdateAvailable = channelNewer(ch.Version, clilifecycle.ExtractMuseVersion(d.Version))
+		default:
+			d.UpdateAvailable = channelNewer(ch.Version, clilifecycle.ExtractSemver(d.Version))
+		}
 		return nil
 	}
 	catalog, ok := clilaunch.Find(cliID)

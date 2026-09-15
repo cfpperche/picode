@@ -119,8 +119,10 @@ error text is shown for genuine failures.
 **Catalog capabilities** (`surface`): Muse Code (`muse`) and Antigravity
 (`agy`) carry `surface: terminal` — PATH detection, `POST …/check`
 (`--version`), `POST …/terminals` (New terminal runs the CLI with its own
-defaults) and, for Muse, `POST …/update-check` against the vendor channel
-JSON. They seed no Activity, install no intercept wrapper, expose no launch
+defaults) and `POST …/update-check` against the vendor's channel JSON —
+Muse Code's release channel and Antigravity's per-platform release manifest
+(`manifests/<os>_<arch>[_musl].json`, the same file its installer reads; only
+`version` is used). They seed no Activity, install no intercept wrapper, expose no launch
 settings (`PUT /api/clis/{cli}` is refused), no session source and no
 lifecycle jobs (`POST …/lifecycle` reaches the plan and is refused as
 unmanaged). The surface derives that from two capabilities the server sends:
@@ -129,7 +131,8 @@ unmanaged). The surface derives that from two capabilities the server sends:
 remains for a row that must not launch at all, and `TestCatalogCapabilities`
 pins which catalog rows launch and which integrate. `muse --version` runs
 with `MUSE_NO_AUTO_UPDATE=1` so the launcher does not background-update.
-Antigravity has no read-only update probe yet (`agy update` mutates).
+Every installed row reaches Check for updates through the same ⋯ menu, so a
+channel-backed CLI needs no bespoke button.
 
 `terminal_launches.attempt` retains the latest redacted launch failure/time.
 Snapshots include injected branches/files and executable identity. Pending

@@ -122,6 +122,9 @@ var plans = map[string]spec{
 	"muse": {
 		latestFrom: "channel",
 	},
+	"agy": {
+		latestFrom: "channel",
+	},
 }
 
 // DetectMethod classifies an executable path. npm-installed binaries
@@ -163,6 +166,10 @@ func classifyMethod(p string) Method {
 	case strings.Contains(p, "/.hermes/"):
 		return MethodGit
 	case strings.Contains(p, "api.meta.ai/muse-code"), strings.Contains(p, "muse-code/launcher"), strings.Contains(p, "/muse-bin-"):
+		return MethodVendor
+	case filepath.Base(p) == "agy":
+		// Google's installer writes $HOME/.local/bin/agy and nothing else
+		// identifies the layout; the vendor command name does.
 		return MethodVendor
 	default:
 		return MethodUnknown
@@ -387,18 +394,46 @@ func ParseHermesCheck(out string) (bool, error) {
 // MuseChannelURL is the stable Muse Code release channel (verified 2026-09-14).
 const MuseChannelURL = "https://api.meta.ai/muse-code/channels/muse-stable"
 
-// MuseChannel mirrors the channel JSON (`version`, plus unused fields).
-type MuseChannel struct {
+// AntigravityManifestURL is the release manifest the vendor's installer reads
+// (verified 2026-09-14 through antigravity.google/cli/install.sh). The file
+// carries `version`, `url` and `sha512`; PiCode reads only the version.
+const AntigravityManifestURL = "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/"
+
+// AntigravityPlatform mirrors the installer's platform string: linux_amd64,
+// linux_arm64_musl, darwin_arm64 …
+func AntigravityPlatform(goos, goarch string, musl bool) string {
+	if goos == "linux" && musl {
+		return goos + "_" + goarch + "_musl"
+	}
+	return goos + "_" + goarch
+}
+
+// ChannelURLFor returns the read-only version source for a CLI whose latest
+// version lives in a vendor channel or manifest. No command runs, so nothing
+// can install or change anything.
+func ChannelURLFor(cliID, goos, goarch string, musl bool) (string, bool) {
+	switch cliID {
+	case "muse":
+		return MuseChannelURL, true
+	case "agy":
+		return AntigravityManifestURL + AntigravityPlatform(goos, goarch, musl) + ".json", true
+	default:
+		return "", false
+	}
+}
+
+// ChannelVersion is the `version` field a vendor channel or manifest carries.
+type ChannelVersion struct {
 	Version string `json:"version"`
 }
 
-func ParseMuseChannel(data []byte) (MuseChannel, error) {
-	var c MuseChannel
+func ParseChannelVersion(data []byte) (ChannelVersion, error) {
+	var c ChannelVersion
 	if err := json.Unmarshal(data, &c); err != nil {
-		return c, fmt.Errorf("muse channel returned unreadable output")
+		return c, fmt.Errorf("the version channel returned unreadable output")
 	}
 	if c.Version == "" {
-		return c, fmt.Errorf("muse channel returned no version")
+		return c, fmt.Errorf("the version channel returned no version")
 	}
 	return c, nil
 }
