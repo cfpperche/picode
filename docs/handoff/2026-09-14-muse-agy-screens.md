@@ -1,0 +1,7 @@
+# 2026-09-14 — muse-agy-screens: New terminal for Muse Code and Antigravity matches Pi
+
+Owner-reported: the New terminal screen for Muse Code and Antigravity was a reduced variant of the same route (`#/clis/new/<id>`) — no CLI row, no Launch preview — while Pi / Claude Code / Codex show both. Not asked to implement launch settings, only to keep the screen the same.
+Shipped: `web/browser` and `web/mobile` `AgentClis.jsx` — the CLI combo renders for every row and lists every launchable CLI; the Launch preview always renders (the server's real plan, `POST /api/clis/<cli>/preview`, which already answered for muse/agy); the Launch tab shows the plan summary read-only instead of a one-line notice; the failed-launch editor (`#/clis/terminal/<id>`) shows the same preview. Absent on purpose: Customize checkbox, launch profiles, the row menu's Launch settings item (a row that cannot act is dropped, not greyed).
+Verified: scratch — screens identical to Pi's (same rows/positions); preview executable `/home/goat/.local/bin/{agy,muse}`; blocked state (uninstalled CLI) shows plan problem "was not found. Check its executable or PATH." + Not found; CLI combo lists all 8 launchable rows; overlayAudit ok.
+visual-review: PASS (var/screenshots/{agy,muse,pi}-new-terminal.png, cli-combo.png, agy-launch-tab.png, agy-new-terminal-mobile.png, muse-not-installed.png; overlayAudit ok; card 5/5)
+Known pre-existing: Open terminal stays enabled when the executable is missing (same for every CLI) and the launch fails with the plan problem.
