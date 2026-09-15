@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-btab-set-prefs"
+description = "Enables the btab_set_prefs command without any pre-configured scope."
+commands.allow = ["btab_set_prefs"]
+
+[[permission]]
+identifier = "deny-btab-set-prefs"
+description = "Denies the btab_set_prefs command without any pre-configured scope."
+commands.deny = ["btab_set_prefs"]

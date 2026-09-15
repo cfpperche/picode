@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Switch from "@radix-ui/react-switch";
 import * as Dialog from "./ResponsiveDialog.jsx";
+import FolderPicker from "./FolderPicker.jsx";
 import PageFrame from "./PageFrame.jsx";
 import { browserGrantSchema } from "@picode/shared/contracts/schemas.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
@@ -137,6 +138,22 @@ function Favicon({ url, host }) {
   return <span className="hist-fav" aria-hidden="true">{host.slice(0, 1)}</span>;
 }
 
+// The browser writes on Windows; the folder picker browses the daemon's own
+// tree, where a Windows drive is /mnt/<letter>. The two name the same place.
+const toWindowsPath = (p) => {
+  const m = /^\/mnt\/([a-z])(\/.*)?$/.exec(p || "");
+  if (!m) return "";
+  const rest = (m[2] || "").split("/").filter(Boolean).join("\\");
+  return m[1].toUpperCase() + ":\\" + rest;
+};
+
+const toPickerPath = (p) => {
+  const m = /^([A-Za-z]):[\\/]?(.*)$/.exec(p || "");
+  if (!m) return "";
+  const rest = (m[2] || "").split(/[\\/]/).filter(Boolean).join("/");
+  return "/mnt/" + m[1].toLowerCase() + "/" + rest;
+};
+
 export default function BrowserPage({ hidden, onCreateAgent }) {
   const [rows, setRows] = useState(null); // null = first load: skeleton
   const [drafts, setDrafts] = useState({}); // agentId -> { tier, domainsText }
@@ -152,7 +169,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   const [purgeBusy, setPurgeBusy] = useState(false);
   const [downloadDir, setDownloadDir] = useState("");
   const [dirOpen, setDirOpen] = useState(false);
-  const [dirDraft, setDirDraft] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [downloads, setDownloads] = useState(null);
   const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [dlQuery, setDlQuery] = useState("");
@@ -260,8 +277,12 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
         agentAccess: p.agentAccess !== false,
       }))
       .catch(() => {});
-    invoke?.("btab_set_prefs", { passwordAutosave: next.passwordAutosave, generalAutofill: next.generalAutofill }).catch(() => {});
-    invoke?.("btab_set_ask_download", { ask: !!next.askDownload }).catch(() => {});
+    // The shell is the half that applies these to the pages; a refusal here
+    // (ACL, no shell) must be visible, not a switch that quietly does nothing.
+    invoke?.("btab_set_prefs", { passwordAutosave: next.passwordAutosave, generalAutofill: next.generalAutofill })
+      .catch((e) => toast("The app did not accept the autofill settings: " + (e?.message || e)));
+    invoke?.("btab_set_ask_download", { ask: !!next.askDownload })
+      .catch((e) => toast("The app did not accept the download setting: " + (e?.message || e)));
   };
 
   // Saves land as setting.updated; history mutations as browserhistory.updated.
@@ -415,6 +436,18 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     toast.ok(path ? "Downloads will be saved to " + path : "Downloads go to the system Downloads folder.");
   };
 
+  // A picked path only counts when it names a Windows drive: the browser
+  // cannot write into the Linux side of the tree.
+  const pickDownloadDir = (picked) => {
+    const win = toWindowsPath(picked);
+    if (!win) {
+      toast("Choose a folder inside a Windows drive (C:, E:, …) — the browser writes on Windows.");
+      return;
+    }
+    setPickerOpen(false);
+    saveDownloadDir(win);
+  };
+
   const removeDownload = async (id) => {
     await fetch("/api/browser/downloads/" + id, { method: "DELETE" }).catch(() => {});
     loadDownloads();
@@ -527,7 +560,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
           <h2 className="set-grouph">Downloads</h2>
           <div className="set-panel">
             <Item title="Location" desc={downloadDir || "System Downloads folder"}>
-              <button type="button" className="set-btn" onClick={() => { setDirDraft(downloadDir); setDirOpen(true); }}>Change</button>
+              <button type="button" className="set-btn" onClick={() => setDirOpen(true)}>Change</button>
             </Item>
             <Item title="Ask where to save downloads" desc="Show a save prompt for downloads you start in the built-in browser">
               <SwitchCtl checked={prefs.askDownload} onChange={(v) => setPref({ askDownload: v })} label="Ask where to save downloads" />
@@ -778,23 +811,32 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
           <Dialog.Overlay className="dlg-overlay" />
           <Dialog.Content className="dlg dlg-manage">
             <Dialog.Title className="dlg-title">Download folder</Dialog.Title>
-            <p className="dlg-lede">Where the built-in browser writes downloads. Leave it empty for the system Downloads folder.</p>
-            <input
-              className="hist-search"
-              style={{ marginTop: 0, width: "100%" }}
-              placeholder="C:\\Users\\you\\Downloads"
-              value={dirDraft}
-              onChange={(e) => setDirDraft(e.target.value)}
-              aria-label="Download folder path"
-            />
+            <p className="dlg-lede">Where the built-in browser writes downloads.</p>
+            <div className="set-panel">
+              <div className="set-item">
+                <div className="set-item-body">
+                  <span className="set-item-t">Folder</span>
+                  <span className="set-item-d">{downloadDir || "System Downloads folder"}</span>
+                </div>
+                <div className="set-item-ctl">
+                  <button type="button" className="set-btn" onClick={() => setPickerOpen(true)}>Browse…</button>
+                </div>
+              </div>
+            </div>
             <div className="dlg-actions" data-align-row>
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => saveDownloadDir("")}>Use the system folder</button>
-              <button type="button" className="btn btn-sm btn-ghost" onClick={() => setDirOpen(false)}>Cancel</button>
-              <button type="button" className="btn btn-sm btn-primary" onClick={() => saveDownloadDir(dirDraft.trim())}>Save</button>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => setDirOpen(false)}>Close</button>
             </div>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
+
+      <FolderPicker
+        open={pickerOpen}
+        start={toPickerPath(downloadDir) || "/mnt/c"}
+        onPick={pickDownloadDir}
+        onClose={() => setPickerOpen(false)}
+      />
 
       <Dialog.Root open={downloadsOpen} onOpenChange={(open) => { setDownloadsOpen(open); if (!open) setDlQuery(""); }}>
         <Dialog.Portal>

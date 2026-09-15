@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-btab-download-dir"
+description = "Enables the btab_download_dir command without any pre-configured scope."
+commands.allow = ["btab_download_dir"]
+
+[[permission]]
+identifier = "deny-btab-download-dir"
+description = "Denies the btab_download_dir command without any pre-configured scope."
+commands.deny = ["btab_download_dir"]

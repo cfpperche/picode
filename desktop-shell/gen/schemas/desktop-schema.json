@@ -201,10 +201,22 @@
           "markdownDescription": "Enables the btab_cdp_events command without any pre-configured scope."
         },
         {
+          "description": "Enables the btab_clear_data command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-clear-data",
+          "markdownDescription": "Enables the btab_clear_data command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_close command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-close",
           "markdownDescription": "Enables the btab_close command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_download_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-download-dir",
+          "markdownDescription": "Enables the btab_download_dir command without any pre-configured scope."
         },
         {
           "description": "Enables the btab_forward command without any pre-configured scope.",
@@ -231,16 +243,52 @@
           "markdownDescription": "Enables the btab_navigate command without any pre-configured scope."
         },
         {
+          "description": "Enables the btab_open_external command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-open-external",
+          "markdownDescription": "Enables the btab_open_external command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_open_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-open-path",
+          "markdownDescription": "Enables the btab_open_path command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_reload command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-reload",
           "markdownDescription": "Enables the btab_reload command without any pre-configured scope."
         },
         {
+          "description": "Enables the btab_reveal_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-reveal-path",
+          "markdownDescription": "Enables the btab_reveal_path command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_screenshot command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-screenshot",
           "markdownDescription": "Enables the btab_screenshot command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_set_ask_download command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-set-ask-download",
+          "markdownDescription": "Enables the btab_set_ask_download command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_set_download_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-set-download-dir",
+          "markdownDescription": "Enables the btab_set_download_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_set_prefs command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-set-prefs",
+          "markdownDescription": "Enables the btab_set_prefs command without any pre-configured scope."
         },
         {
           "description": "Enables the btab_visibility command without any pre-configured scope.",
@@ -351,10 +399,22 @@
           "markdownDescription": "Denies the btab_cdp_events command without any pre-configured scope."
         },
         {
+          "description": "Denies the btab_clear_data command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-clear-data",
+          "markdownDescription": "Denies the btab_clear_data command without any pre-configured scope."
+        },
+        {
           "description": "Denies the btab_close command without any pre-configured scope.",
           "type": "string",
           "const": "deny-btab-close",
           "markdownDescription": "Denies the btab_close command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_download_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-download-dir",
+          "markdownDescription": "Denies the btab_download_dir command without any pre-configured scope."
         },
         {
           "description": "Denies the btab_forward command without any pre-configured scope.",
@@ -381,16 +441,52 @@
           "markdownDescription": "Denies the btab_navigate command without any pre-configured scope."
         },
         {
+          "description": "Denies the btab_open_external command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-open-external",
+          "markdownDescription": "Denies the btab_open_external command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_open_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-open-path",
+          "markdownDescription": "Denies the btab_open_path command without any pre-configured scope."
+        },
+        {
           "description": "Denies the btab_reload command without any pre-configured scope.",
           "type": "string",
           "const": "deny-btab-reload",
           "markdownDescription": "Denies the btab_reload command without any pre-configured scope."
         },
         {
+          "description": "Denies the btab_reveal_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-reveal-path",
+          "markdownDescription": "Denies the btab_reveal_path command without any pre-configured scope."
+        },
+        {
           "description": "Denies the btab_screenshot command without any pre-configured scope.",
           "type": "string",
           "const": "deny-btab-screenshot",
           "markdownDescription": "Denies the btab_screenshot command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_set_ask_download command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-set-ask-download",
+          "markdownDescription": "Denies the btab_set_ask_download command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_set_download_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-set-download-dir",
+          "markdownDescription": "Denies the btab_set_download_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_set_prefs command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-set-prefs",
+          "markdownDescription": "Denies the btab_set_prefs command without any pre-configured scope."
         },
         {
           "description": "Denies the btab_visibility command without any pre-configured scope.",

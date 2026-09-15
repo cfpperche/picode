@@ -26,7 +26,15 @@
     "allow-btab-close",
     "allow-btab-screenshot",
     "allow-btab-cdp-call",
-    "allow-btab-cdp-events"
+    "allow-btab-cdp-events",
+    "allow-btab-set-prefs",
+    "allow-btab-clear-data",
+    "allow-btab-download-dir",
+    "allow-btab-set-download-dir",
+    "allow-btab-set-ask-download",
+    "allow-btab-open-external",
+    "allow-btab-open-path",
+    "allow-btab-reveal-path"
   ],
   "remote": {
     "urls": [

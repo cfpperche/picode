@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-btab-set-ask-download"
+description = "Enables the btab_set_ask_download command without any pre-configured scope."
+commands.allow = ["btab_set_ask_download"]
+
+[[permission]]
+identifier = "deny-btab-set-ask-download"
+description = "Denies the btab_set_ask_download command without any pre-configured scope."
+commands.deny = ["btab_set_ask_download"]
