@@ -26,3 +26,7 @@ Not verified by me: the physical Ctrl+click (the harness cannot hold a
 modifier across a synthetic click — the menu's "Open localhost" row, same
 handler, was used) and the real WebView2 path (desktop app only).
 visual-review: PASS (5/5)
+Two things this branch could not fix and that belong to main: `make close`
+stops on the handoff board being over budget (12300 B / 12288; main is already
+over — `providers-custom` carries 6 bullets), and main moved after this branch
+was cut, so it is not a fast-forward today — merge main in before any merge.
