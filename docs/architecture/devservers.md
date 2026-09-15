@@ -92,6 +92,18 @@ terminal whose host is this machine — `localhost`, `127.0.0.0/8`, `::1`,
 page in PiCode's own browser surface. Anything else keeps going to the browser
 the system would pick, exactly as before.
 
+**The preference decides.** Browser settings already asks *"Local development
+sites — where localhost and dev servers open by default"* (`localOpenDest`,
+slice 3), and a URL printed by a dev server in a terminal is that case: a
+viewer who chose **external** keeps the system browser, and the default
+(**app**) gets PiCode's surface. The four outcomes (file, elsewhere, loopback
+→ app, loopback → external) are one pure function with its own test —
+`web/browser/src/lib/openLink.js` / `openLink.test.js` — read fresh per link,
+like the shell's popup door, so the preference is whatever it is now. The
+Servers panel's own **Open** button does not consult it: an explicit control
+inside PiCode asks for PiCode, and the preference governs the default, not a
+click.
+
 ## What this does not do
 
 - **No proxy, no rewrite.** The daemon never serves another process's pages;

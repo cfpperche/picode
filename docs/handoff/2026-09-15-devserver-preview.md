@@ -21,7 +21,8 @@ Verified: `make ci-scoped` PASS; Go tests (parsers, seams, listing rule);
 frontend 792+357+338+9. Scratch `devserver` (:8473): a dev server in a PiCode
 terminal listed with title/owner, **Open** renders it inside PiCode, live
 reload updates it, the terminal's URL opens in PiCode, reload restores the
-tab; audit ok.
+tab; audit ok. The terminal door respects `localOpenDest` (decision table in
+`lib/openLink.js`, 1 test over 5 rows).
 Verified on both shells in a plain browser (`/browser/` = the desktop layout a
 browser opens, `/desktop/` = the composition the Windows shell loads: same
 components, `web/desktop` is `boot()` over `web/browser`): the Servers tab,

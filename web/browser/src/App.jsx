@@ -57,7 +57,7 @@ import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
 import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId, webHash, webRoute, boundWorkTab } from "./lib/routes.js";
-import { isLoopbackUrl } from "@picode/shared/client/devservers.js";
+import { linkOpenTarget } from "./lib/openLink.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
 import { nativeApps, nativeSurfaceFor } from "./lib/nativeApps.js";
@@ -2286,14 +2286,27 @@ export default function App({ shellChrome = false } = {}) {
     },
     "open-link": (ctx) => {
       if (!ctx.link) return;
-      if (ctx.link.kind === "http") {
-        // A server on this machine opens in PiCode's own browser surface: the
-        // page the terminal just printed ("Local: http://localhost:5173/") is
-        // the one being developed. Anything else still goes to the browser the
-        // system would pick.
-        if (isLoopbackUrl(ctx.link.href)) openWebTab(ctx.link.href);
-        else window.open(ctx.link.href, "_blank", "noopener,noreferrer");
-      } else openFileTab(ctx.kind === "agent" ? "agent" : "term", ctx.id, ctx.link.path);
+      // A dev server URL printed in a terminal opens in PiCode's own browser
+      // surface — the page being developed is the one the terminal just
+      // printed. Where local links open is a user preference (Browser
+      // settings, "Local development sites"), so it decides here too: the
+      // decision table lives in lib/openLink.js. Anything not local, and any
+      // file path, behaves exactly as before.
+      const first = linkOpenTarget(ctx.link, "app");
+      if (!first) return;
+      if (first.action === "file") { openFileTab(ctx.kind === "agent" ? "agent" : "term", ctx.id, first.path); return; }
+      if (first.action === "external") { window.open(first.url, "_blank", "noopener,noreferrer"); return; }
+      // One fresh read per link, like the shell's popup door: links are rare
+      // and the preference must be current. A preference we cannot read keeps
+      // the feature's default (PiCode's own surface).
+      fetch("/api/browser/prefs")
+        .then((r) => r.json())
+        .then((p) => {
+          const dest = linkOpenTarget(ctx.link, p.localOpenDest);
+          if (dest.action === "external") window.open(dest.url, "_blank", "noopener,noreferrer");
+          else openWebTab(dest.url);
+        })
+        .catch(() => openWebTab(first.url));
     },
     rename: (ctx) => {
       if (ctx.kind === "agent") {
