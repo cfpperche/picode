@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cliLocation, cliPaneHash, cliPaneSetupContext, cliDetectOnly, cliTerminals, launchDraft, launchConfig, resolveLaunch, launchOverrides, terminalLaunchCLI, defaultLaunchConfig, profileOverrides, editLaunchOverrides, cliWorkspaceList, launchChanged } from "./cliLaunch.js";
+import { cliLocation, cliPaneHash, cliPaneSetupContext, cliCapabilities, cliPanes, cliTerminals, launchDraft, launchConfig, resolveLaunch, launchOverrides, terminalLaunchCLI, defaultLaunchConfig, profileOverrides, editLaunchOverrides, cliWorkspaceList, launchChanged } from "./cliLaunch.js";
 import { cliLaunchSchema, parseForm } from "../contracts/schemas.js";
 
 test("CLI manager parses launch routes", () => {
@@ -150,8 +150,12 @@ test("launch comparison detects binary replacement without marking legacy snapsh
   assert.equal(launchChanged({ ...applied, identity: "" }, applied), false);
 });
 
-test("detect-only catalog rows skip launch chrome", () => {
-  assert.equal(cliDetectOnly({ surface: "detect" }), true);
-  assert.equal(cliDetectOnly({ id: "pi" }), false);
-  assert.equal(cliDetectOnly(null), false);
+test("catalog capabilities decide what a CLI's surface shows", () => {
+  // A full row keeps every pane; Muse Code and Antigravity open a terminal
+  // with no adapter, so they get Launch and Terminals only.
+  assert.deepEqual(cliCapabilities({ id: "pi", integrationCapable: true, launchable: true, sessions: { list: true } }), { launch: true, integration: true, sessions: true });
+  assert.deepEqual(cliCapabilities({ id: "muse", integrationCapable: false, launchable: true, sessions: { list: false } }), { launch: true, integration: false, sessions: false });
+  assert.deepEqual(cliCapabilities(null), { launch: false, integration: false, sessions: false });
+  assert.deepEqual(cliPanes({ id: "muse", integrationCapable: false, launchable: true }), ["launch", "terminals"]);
+  assert.deepEqual(cliPanes({ id: "pi", integrationCapable: true, launchable: true, sessions: { list: true } }), ["launch", "terminals", "sessions", "providers", "settings", "keyboard", "packages", "connectors"]);
 });

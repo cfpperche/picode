@@ -83,21 +83,33 @@ func TestLaunchDiagnosticsRedactValues(t *testing.T) {
 	}
 }
 
-func TestCatalogDetectOnly(t *testing.T) {
-	want := map[string]bool{"muse": true, "agy": true}
+func TestCatalogCapabilities(t *testing.T) {
+	// Decision table: Muse Code and Antigravity open a terminal with no
+	// adapter behind it, so they are launchable and not integrable; every
+	// other catalog row carries both.
+	terminal := map[string]bool{"muse": true, "agy": true}
 	seen := map[string]bool{}
 	for _, c := range Catalog() {
-		if c.DetectOnly() != want[c.ID] {
-			t.Errorf("%s DetectOnly = %v", c.ID, c.DetectOnly())
+		if c.Launchable() != true {
+			t.Errorf("%s Launchable = false, every catalog row opens a terminal", c.ID)
 		}
-		if want[c.ID] {
+		if c.Integrable() == terminal[c.ID] {
+			t.Errorf("%s Integrable = %v", c.ID, c.Integrable())
+		}
+		if c.Surface == SurfaceDetect && c.Launchable() {
+			t.Errorf("%s surface=detect must not launch", c.ID)
+		}
+		if terminal[c.ID] {
 			seen[c.ID] = true
+			if c.Surface != SurfaceTerminal {
+				t.Errorf("%s surface = %q, want %q", c.ID, c.Surface, SurfaceTerminal)
+			}
 			if c.Command == "" || c.Docs == "" {
 				t.Errorf("%s missing command or docs", c.ID)
 			}
 		}
 	}
-	for id := range want {
+	for id := range terminal {
 		if !seen[id] {
 			t.Errorf("catalog missing %s", id)
 		}

@@ -125,7 +125,7 @@ func New(addr string, deps Deps) *http.Server {
 		_, _ = ensureHookScript(deps.DataDir)
 		_, _ = ensurePiReplyExtension(deps.DataDir) // ADR-0060 receiver: fresh on every boot
 		for _, cli := range clilaunch.Catalog() {
-			if cli.DetectOnly() {
+			if !cli.Integrable() {
 				continue
 			}
 			if c, err := cliConfig(deps, cli.ID); err == nil {

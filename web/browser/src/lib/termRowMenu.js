@@ -17,6 +17,10 @@ import { terminalHandoffMenu } from "@picode/shared/domain/sessionHandoff.js";
 
 export function termRowMenu(t = {}, { clis } = {}) {
   const running = !!t.running;
+  // A CLI with no adapter has no launch settings to edit (Muse Code,
+  // Antigravity): the row drops that item rather than opening an empty form.
+  const cli = (clis || []).find((c) => c.id === (t.launchCli || t.cli));
+  const launchSettings = !cli || cli.integrationCapable !== false;
   const lifecycle = running
     ? [
         { id: "restart", label: "Restart terminal", title: "Stop and relaunch with the saved settings." },
@@ -28,7 +32,7 @@ export function termRowMenu(t = {}, { clis } = {}) {
   const handoff = terminalHandoffMenu(t, clis);
   return [
     { id: "rename", label: "Rename…", title: "Change this terminal's name." },
-    { id: "launch", label: "Launch settings", title: "CLI, profile and environment this terminal launches with." },
+    ...(launchSettings ? [{ id: "launch", label: "Launch settings", title: "CLI, profile and environment this terminal launches with." }] : []),
     { id: "settings", label: "Terminal settings", title: "Appearance and behavior of this terminal." },
     { sep: true },
     ...(handoff ? [handoff, { sep: true }] : []),

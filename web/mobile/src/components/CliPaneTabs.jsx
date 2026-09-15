@@ -43,14 +43,19 @@ function Tab({ cli, pane, workspace, ctx, item, extra }) {
   );
 }
 
-export default function CliPaneTabs({ cli, pane = "launch", workspace = "", workspaceId = "", agentId = "", scope = "user", focus = "", layer = "", actions = null, hasPackageUpdates = false }) {
+export default function CliPaneTabs({ cli, pane = "launch", panes = null, workspace = "", workspaceId = "", agentId = "", scope = "user", focus = "", layer = "", actions = null, hasPackageUpdates = false }) {
   const ctx = { workspaceId, agentId, scope, focus, layer };
+  // panes comes from cliPanes(cli): a CLI with no adapter shows Launch and
+  // Terminals only, and the setup group (all Pi-side editors) is absent.
+  const allowed = panes ? new Set(panes) : null;
+  const run = RUN.filter((item) => !allowed || allowed.has(item.id));
+  const setup = SETUP.filter((item) => !allowed || allowed.has(item.id));
   return (
     <div className="cli-pane-bar">
       <nav className="cli-pane-tabs" role="tablist" aria-label="CLI sections">
-        {RUN.map((item) => <Tab key={item.id} cli={cli} pane={pane} workspace={workspace} ctx={ctx} item={item} />)}
-        <span className="cli-pane-split" aria-hidden="true" />
-        {SETUP.map((item) => (
+        {run.map((item) => <Tab key={item.id} cli={cli} pane={pane} workspace={workspace} ctx={ctx} item={item} />)}
+        {run.length && setup.length ? <span className="cli-pane-split" aria-hidden="true" /> : null}
+        {setup.map((item) => (
           <Tab
             key={item.id}
             cli={cli}

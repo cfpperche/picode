@@ -21,10 +21,25 @@ type CLI struct {
 	Surface string `json:"surface,omitempty"`
 }
 
-const SurfaceDetect = "detect"
+const (
+	// SurfaceFull (the empty value) is a CLI with every capability its
+	// catalog row supports: launch, activity integration, sessions and
+	// lifecycle jobs.
+	SurfaceFull = ""
+	// SurfaceTerminal opens a terminal for the CLI and nothing else: no
+	// activity integration, no launch settings, no sessions, no lifecycle
+	// jobs. Muse Code and Antigravity are here until an adapter exists.
+	SurfaceTerminal = "terminal"
+	// SurfaceDetect only reports installation and version: no terminal.
+	SurfaceDetect = "detect"
+)
 
-// DetectOnly is true when the catalog lists the CLI without launch.
-func (c CLI) DetectOnly() bool { return c.Surface == SurfaceDetect }
+// Integrable is true when PiCode may install activity integration and offer
+// launch settings for this CLI.
+func (c CLI) Integrable() bool { return c.Surface == SurfaceFull }
+
+// Launchable is true when PiCode may open a terminal for this CLI.
+func (c CLI) Launchable() bool { return c.Surface != SurfaceDetect }
 
 func Catalog() []CLI {
 	return []CLI{
@@ -34,8 +49,8 @@ func Catalog() []CLI {
 		{"grok", "Grok", "grok", "https://grok.com/build", ""},
 		{"hermes", "Hermes Agent", "hermes", "https://hermes-agent.nousresearch.com/docs/getting-started/installation", ""},
 		{"opencode", "OpenCode", "opencode", "https://opencode.ai/docs", ""},
-		{"muse", "Muse Code", "muse", "https://ai.developer.meta.com/docs/muse-code/", SurfaceDetect},
-		{"agy", "Antigravity", "agy", "https://antigravity.google/docs/cli/", SurfaceDetect},
+		{"muse", "Muse Code", "muse", "https://ai.developer.meta.com/docs/muse-code/", SurfaceTerminal},
+		{"agy", "Antigravity", "agy", "https://antigravity.google/docs/cli/", SurfaceTerminal},
 	}
 }
 

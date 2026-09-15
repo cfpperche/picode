@@ -85,9 +85,9 @@ func TestImportCLIConfigsDefaultsIntegrationOn(t *testing.T) {
 	}
 	for _, cli := range clilaunch.Catalog() {
 		c, found, _ := s2.CLIConfig(cli.ID)
-		if cli.DetectOnly() {
+		if !cli.Integrable() {
 			if !found || c.Integration {
-				t.Fatalf("%s detect-only: found=%v integration=%v", cli.ID, found, c.Integration)
+				t.Fatalf("%s has no adapter: found=%v integration=%v", cli.ID, found, c.Integration)
 			}
 			continue
 		}

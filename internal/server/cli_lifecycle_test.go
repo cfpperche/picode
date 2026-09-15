@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/store"
+	"github.com/cfpperche/picode/internal/tmux"
 )
 
 // fakeNpmCLI creates an executable whose realpath classifies as npm
@@ -290,19 +291,53 @@ func TestDetectOnlyCLIsAndMuseChannelCheck(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(bin, "agy"), []byte("#!/bin/sh\necho 1.2.2\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("PATH", bin)
+	// Prepend the fake bin: replacing PATH would hide tmux and the shell the
+	// launch itself needs.
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	museRow := catalogCLI(t, ts, "muse")
-	if museRow["surface"] != "detect" || museRow["installed"] != true {
+	if museRow["surface"] != "terminal" || museRow["installed"] != true || museRow["launchable"] != true || museRow["integrationCapable"] != false {
 		t.Fatalf("muse = %+v", museRow)
 	}
 	agyRow := catalogCLI(t, ts, "agy")
-	if agyRow["surface"] != "detect" || agyRow["installed"] != true {
+	if agyRow["surface"] != "terminal" || agyRow["installed"] != true || agyRow["launchable"] != true || agyRow["integrationCapable"] != false {
 		t.Fatalf("agy = %+v", agyRow)
 	}
+	// Launch settings stay refused: the surface opens a terminal with the
+	// CLI's own defaults and edits nothing.
 	cliRequest(t, ts, "PUT", "/api/clis/muse", map[string]any{"executable": muse}, 400)
-	cliRequest(t, ts, "POST", "/api/clis/muse/terminals", map[string]any{"cwd": home}, 400)
+	// Lifecycle jobs stay refused: no managed update for this install.
 	cliRequest(t, ts, "POST", "/api/clis/muse/lifecycle", map[string]any{"action": "update", "requestKey": "x"}, 400)
+
+	// New terminal is the one new door: the CLI runs in a PiCode terminal
+	// with no integration files behind it.
+	if !tmux.New().Available() {
+		t.Log("tmux unavailable: terminal creation not exercised")
+	} else {
+		created := cliRequest(t, ts, "POST", "/api/clis/muse/terminals", map[string]any{"cwd": home, "name": "muse qa"}, 201)
+		id, _ := created["id"].(string)
+		if id == "" {
+			t.Fatalf("terminal = %+v", created)
+		}
+		rows := cliRequest(t, ts, "GET", "/api/terminals", nil, 200)["terminals"].([]any)
+		found := false
+		for _, raw := range rows {
+			row := raw.(map[string]any)
+			if row["id"] == id {
+				found = true
+				if row["launchCli"] != "muse" {
+					t.Fatalf("launched terminal = %+v", row)
+				}
+				if applied, _ := row["launchApplied"].(map[string]any); applied != nil && applied["injection"] != nil {
+					t.Fatalf("muse terminal carries an integration plan: %+v", applied)
+				}
+			}
+		}
+		if !found {
+			t.Fatalf("created terminal %s is not listed", id)
+		}
+		cliRequest(t, ts, "DELETE", "/api/terminals/"+id, nil, 204)
+	}
 
 	check := cliRequest(t, ts, "POST", "/api/clis/muse/check", map[string]any{}, 200)
 	if check["error"] != nil && check["error"] != "" {
