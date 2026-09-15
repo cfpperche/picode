@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { IconCollapse, IconExpand, IconGlobe, IconMonitor, IconSettings, IconX } from "./Icons.jsx";
 import { toast } from "../lib/toast.js";
+import { subscribeFeed } from "@picode/shared/client/feed.js";
 
 // Work browser tab surface (Phase 3 slice 1): the React side renders the
 // toolbar and an empty region; the actual page is a native WebView2 child
@@ -63,7 +64,7 @@ export default function WebTabSurface({ tabId, active, hidden, className = "", e
         .then((m) => {
           if (m.url) {
             setStarted(true);
-            setUrlDraft((cur) => (document.activeElement === urlRef.current ? cur : m.url));
+            setUrlDraft((cur) => (document.activeElement === urlRef.current ? cur : trimUrl(m.url)));
             record("history", m.url, false, m.title);
           }
           onMeta?.(m);
@@ -72,11 +73,31 @@ export default function WebTabSurface({ tabId, active, hidden, className = "", e
     const t = setInterval(tick, 800);
     tick();
     return () => clearInterval(t);
-  }, [id, hidden, started, onMeta]);
+  }, [id, hidden, started, onMeta, showFullUrl]);
 
   const urlRef = useRef(null);
   const menuOpenRef = useRef(false);
   const historySeenRef = useRef("");
+  const [showFullUrl, setShowFullUrlState] = useState(true);
+
+  // Address-bar display pref (slice 3): refetch when its setting changes.
+  useEffect(() => {
+    fetch("/api/browser/prefs").then((r) => r.json()).then((p) => setShowFullUrlState(p.showFullUrl !== false)).catch(() => {});
+    return subscribeFeed((ev) => {
+      if (ev.type === "setting.updated") fetch("/api/browser/prefs").then((r) => r.json()).then((p) => setShowFullUrlState(p.showFullUrl !== false)).catch(() => {});
+    });
+  }, []);
+
+  // Origin-only display: scheme + host (+ port when unusual), no path.
+  const trimUrl = (raw) => {
+    if (showFullUrl || !raw) return raw;
+    try {
+      const u = new URL(raw);
+      return u.origin === "null" ? raw : u.origin;
+    } catch {
+      return raw;
+    }
+  };
 
   // History recording (slice 3): a URL new to this tab lands as a visit —
   // typed when the user drove the bar, page-driven otherwise. The store
