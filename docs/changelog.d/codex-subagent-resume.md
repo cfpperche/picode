@@ -1,2 +1,0 @@
-### Fixed
-- **Codex terminals no longer try to resume a sub-agent conversation.** Codex multi-agent v2 sub-agents (helper threads like "Gibbs") could overwrite the conversation a terminal remembers, and Codex refuses to resume them (`Process exited (1)`). Sub-agent threads are now ignored for resume, in live hook reports and in the session list — resume always brings back the conversation you were in.

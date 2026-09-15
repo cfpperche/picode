@@ -11,6 +11,1677 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+### Added
+
+- **Terminals appear in Agent permissions** (ADR-0143): the section now lists
+  the terminals you started in PiCode beside the managed agents — name, tier
+  and domains, with the same editor — and says plainly that a `pi` started
+  outside PiCode has no identity and always reads the tab on screen.
+
+- **Muse Code and Antigravity accept native handoffs.** `Continue in…`
+  now offers them in `native` mode, not just `brief`: the conversation
+  lands as a session their own CLI lists and resumes (Muse: an index row
+  plus a session log; Antigravity: a summaries row plus the brain
+  transcript). Both were proven against the real CLIs, including a
+  same-shape round trip before the write counts.
+
+- **Terminals are listed as principals in the browser grants API** (ADR-0143):
+  `GET /api/browser/policies` returns each terminal with its effective grant,
+  and `POST /api/browser/policy` accepts `term` beside `agent` — the key
+  carries the namespace (`term:<id>`), so a terminal can never widen an
+  agent's grant or the other way round. The settings rows that show them are
+  the next slice.
+
+- **One release, two binaries, one resident to swap (ADR-0142, slice 3).**
+  The release workflow builds `picode-shell-windows-amd64.exe` beside the
+  Go binaries (Rust + cargo-xwin recipe, proven on a fresh Ubuntu 24.04
+  container) and stamps the tag into the shell. `picode-desktop update`
+  downloads both exes, verifies them against `SHA256SUMS` — refusing an
+  unverified binary like the daemon's updater — and swaps both or neither,
+  rolling the tool back if the shell fails. `scripts/desktop-swap.sh`
+  relaunches whoever the `PiCodeDesktop` task points at (tray today, shell
+  after the migration).
+
+- **Terminal agents identify themselves to the built-in browser** (ADR-0143):
+  the `browser` tool now sends the house identity tuple — managed agent id
+  first, then the PiCode terminal id — and the daemon resolves a terminal's
+  own grant (`browser.policy.term:<id>`) beside the existing per-agent key.
+  A caller with neither stays read-only on the tab on screen.
+
+- **The shell tray reaches disk parity (ADR-0142, slice 2).** The tray now
+  shows the disk line (`WSL … · ≈… held · C: … free`, with the `low`
+  warning), a Give-back item with the readiness interlock, an explicit
+  stop-the-distro confirmation and a measured result, plus Restart PiCode
+  and View logs — every duty the Go tray menu owned. One board composes
+  status, disk and tooltip so no timer erases another's write; the
+  keepalive re-arms itself after a compact.
+
+- **Antigravity launch is editable.** Same honest shape as Muse Code in
+  the previous slice: real defaults editor, profiles, the Customize
+  checkbox and the row menu's **Launch settings**. No hook surface in
+  its build either, so Activity reporting stays off with the one-line
+  note and `integration: true` is refused.
+
+- **ADR-0143**: terminal agents are principals in the browser permissions —
+  the identity tuple (managed agent → terminal → unmanaged), the
+  `term:<id>` grant key and the decision table behind it.
+
+- **The shell is becoming the only Windows resident (ADR-0142, slice 1).**
+  `picode-shell.exe` now holds the WSL distro open with a supervised
+  keepalive, polls daemon health every 5 seconds, and reports it in a tray
+  status line and tooltip — the duties the Go tray owned. `--hidden` starts
+  the resident with no window (the logon-task mode); a second launch brings
+  the window up. `picode-desktop startup-repair --retarget-shell` moves the
+  `PiCodeDesktop` task to the shell, refusing foreign tasks and missing
+  executables; plain repair now accepts either resident.
+
+- **Muse Code launch is editable.** Its Launch tab has the real defaults
+  editor (executable, arguments, PATH, environment), profiles, the
+  Customize checkbox and the row menu's **Launch settings** — the gaps in
+  the terminal `···` menu are closed for Muse. Sessions and resume are
+  unchanged.
+
+- **JavaScript** (Settings ▸ Browser ▸ Browser permissions): sites may use
+  JavaScript — on by default, applied to every open tab at once and to the
+  ones created later, through the platform's own setting.
+
+- **ADR-0142: the shell becomes the only Windows resident.** The Go systray
+  (`picode-desktop.exe --tray`) retires; `picode-shell.exe` takes autostart,
+  the WSL keepalive, health/disk polling and the single tray icon, while the
+  Go binary stays as the headless CLI tool the shell drives. Window close
+  hides, tray Quit exits. Migration runbook in
+  `docs/plans/retire-go-tray.md`.
+
+- **Site settings** (Settings ▸ Browser ▸ Browser permissions): one dialog
+  with the six kinds that matter — camera, microphone, location,
+  notifications, clipboard, autoplay — each set to **Allow**, **Block** or
+  the platform's own default, applied to every site through the shell's
+  policy, plus **Recent decisions**: every standing the browser recorded,
+  with the site, the kind and a Reset. Until the Ask prompt lands, a kind
+  with no choice follows the platform's default (deny), which the dialog
+  says plainly.
+
+- **Site permissions, the shell half** (Settings ▸ Browser): every tab now
+  answers permission requests — camera, microphone, location, notifications,
+  clipboard, autoplay, sensors, MIDI, fonts, file system — from the policy
+  the user set (`btab_set_permission_policy`), and reports each outcome as
+  `btat://permission`. The app records the standing through the daemon's
+  API, so the Site settings dialog has real data to list and edit.
+
+- **Site permissions, the data half** (Settings ▸ Browser): the daemon now
+  keeps one standing per site and kind — camera, microphone, location,
+  notifications, clipboard, autoplay, sensors, MIDI, fonts, file system —
+  with `GET/POST /api/browser/permissions`, `DELETE
+  /api/browser/permissions/{id}` and `POST /api/browser/permissions/clear`
+  (optionally one kind), all tested, on migration 050 and the events
+  invariant. The shell feeds it and the Site settings dialog reads it in the
+  next slice.
+
+- **Muse Code and Antigravity sessions can be continued elsewhere.**
+  Both are now handoff sources: `Continue in…` appears on their session
+  rows, offering every CLI that can receive the conversation. Muse reads
+  through its own `export --session` (official transcript); Antigravity
+  reads the CLI's per-conversation transcript, deliberately not the
+  SQLite protobuf (unversioned field numbers). Reasoning never travels;
+  oversized sessions fall back to the brief, which both already support.
+
+- **Muse Code and Antigravity can receive a brief handoff.** `Continue in…`
+  (on a session row, a terminal row, or the pane menu) now lists them as
+  destinations: the conversation travels as an opening brief —
+  `muse "<brief>"` starts the session with it,
+  `agy --prompt-interactive "<brief>"` does the same. They are the first
+  prompt-only targets (no native session import yet), so `brief` is the
+  only mode offered until their writers land.
+
+- **Downloads** (Settings ▸ Browser): Location shows where the built-in
+  browser saves files (the system Downloads folder until changed), with a
+  Change dialog; "Ask where to save downloads" decides between a save
+  prompt and writing straight to the folder; Download history lists every
+  file with its size, time and outcome, searchable, with Open file /
+  Show in folder / Copy path / Remove per row and a two-step Clear all.
+- The shell reports each download (start and outcome) through
+  `btab://download`; the list lives in the daemon store
+  (`GET/POST /api/browser/downloads`, `POST /api/browser/downloads/status`,
+  `DELETE /api/browser/downloads/{id}`, `POST /api/browser/downloads/clear`).
+
+- **Every Agent CLI now shows the same tabs.** Launch, Terminals, Sessions,
+  Providers, Settings, Keyboard, Packages and Connectors appear for all of
+  them, so the pane has one shape instead of three. The tabs a CLI has no
+  native editor for — today all of them except Pi — say
+  **"… for <CLI> are in development — coming soon"** instead of pointing at Pi,
+  and a deep link on a phone scrolls its own tab into view.
+
+- **The tmux app shows the machine's tmux servers.** A new **Sockets** tab
+  lists every tmux server this instance can see — the default socket, every
+  named one, and PiCode's own dedicated socket — with what each holds: N
+  session(s), how many are PiCode's, and whether anything is listening (a
+  socket file with no server is labelled as the leftover it is). The tab
+  badge counts the running servers, and the row for PiCode's own socket says
+  where new terminals will land.
+
+- Custom provider form: per-model **display name**, **input** (`text`,
+  `image`) and **cost** (USD per 1M tokens, all four rates or none), a
+  **streaming usage** compat flag, and a provider string per thinking level
+  (`xhigh` → `high`), so a gateway like `meta-ai` is fully describable in
+  the GUI — no hand-edited `models.json`. Clearing a row field removes the
+  stored key; Edit prefills everything the file holds. The API key flow is
+  unchanged: a literal credential into `auth.json`, exactly as
+  cheaperinference.
+
+- **Servers** in the inspector rail: what is listening on this machine, who owns it (the PiCode terminal or agent whose process holds the port) and what the page calls itself, with one **Open** that shows it in PiCode's own browser tab.
+- A loopback URL printed in a terminal (Ctrl+click, or the pane menu's **Open …**) opens in PiCode's own browser instead of the system browser — unless Browser settings says local development sites should open externally, in which case nothing changes.
+- Without the desktop app, that browser tab renders a page from this machine in a frame, with one line saying so, and its address survives a reload.
+
+- `POST /api/browser/history/delete` removes a selection of visits in
+  one transaction.
+
+- **PiCode terminals get their own tmux server.** Each instance runs tmux on
+  a socket inside its data directory (`~/.picode/tmux.sock` for the main
+  install), separate from your personal tmux: a `kill-server` on one side can
+  no longer take the other down, and scratch/QA instances stop creating their
+  sessions in your tmux. Attach from your own shell with
+  `tmux -S ~/.picode/tmux.sock attach -t picode-…`; inside a PiCode terminal
+  everything works as before.
+- Terminals created before the change keep running: the daemon follows both
+  servers while they drain, and the terminal list, status and tmux app show
+  one fleet. They move to the new server when they are restarted or recreated.
+
+- **The tmux guard has a switch.** Preferences ▸ Terminal (Terminal defaults)
+  gains a **Safety** section: the tmux guard shows its state and toggles
+  between *On* (refuses `kill-server`, pattern kills and other terminals'
+  sessions inside PiCode terminals) and *Off*. The line says the change
+  applies to terminals opened from now on, links to how it works, and keeps
+  the switch honest under failure — a failed refresh says so and offers
+  **Try again**, a failed toggle reverts and reports.
+- The wiring status now installs the guard on first read, so a fresh instance
+  reports the default-on state instead of "off" until its first terminal.
+
+- **Antigravity sessions.** The Antigravity pane has a **Sessions** tab like
+  Muse Code and the adapter CLIs: every conversation Google's CLI keeps on this
+  machine, with its folder, age, size and turn count, grouped by folder and
+  filtered to the workspace you are in. **Open in terminal** resumes that
+  conversation (`agy --conversation <id>`) in its own folder. Read-only.
+- Sessions for a CLI whose history exists before it has an adapter: the pane
+  shows the tab whenever the server reports a session source, instead of only
+  for CLIs with activity reporting.
+
+- **tmux server loss is now recorded while it happens.** A daemon-side watch
+  probes the tmux server every 15 seconds: a server that dies with sessions
+  running gets a `terminal.server_lost` entry (last known session count,
+  socket and when it was last seen) in the feed and a line in the daemon
+  log; its recovery gets `terminal.server_back`, and a running server whose
+  session count drops by five or more between probes leaves a log line.
+  Until now a lost fleet was only reconstructed on the next daemon start.
+
+- **tmux guard.** PiCode terminals now run a `tmux` wrapper that refuses
+  server-wide kills (`kill-server`, `kill-window`, `kill-pane`), pattern
+  kills, and kills of sessions another terminal or the user created. It
+  allows exact kills of sessions your terminal created and stamps sessions
+  you launch with your terminal's mark, so cleanup stays possible. On by
+  default; every refusal is explained on the pane and logged to
+  `<dataDir>/tmux-guard.log`.
+
+- **Clear browsing data** (Settings ▸ Browser ▸ Browsing history): one
+  two-step button clears cookies, site storage, cache, service workers,
+  download history and WebView2's browsing history from the shared work
+  profile — saved passwords and autofill are deliberately untouched (the
+  Autofill switches own those). Our own history list clears with it.
+
+- **Muse Code sessions.** The Muse Code pane has a **Sessions** tab: every
+  conversation the CLI has on this machine, with its folder, model, age and
+  size, filtered to the workspace you are in. **Open in terminal** resumes that
+  exact conversation (`muse --resume <id>`) in its own folder. Read-only —
+  PiCode lists and resumes, it never rewrites Muse's session store.
+- Sessions for a CLI whose history exists before it has an adapter: the pane
+  now shows the tab whenever the server reports a session source, instead of
+  only for CLIs with activity reporting.
+
+- **Autofill and passwords** (Settings ▸ Browser): Password manager and
+  Contact info switches push straight into the work profile — every
+  webview applies them at creation and live on change.
+
+- **Open destinations** (Settings ▸ Browser): web links and popups, and
+  local development sites, each open in PiCode (adopted as tabs) or in
+  the system default browser. The work browser's shell hands external
+  destinations over with a scheme-checked `btab_open_external`.
+
+- **Show full URL** (Settings ▸ Browser ▸ Address bar): on — the address
+  bar keeps the path, query and fragment (today's behavior); off — site
+  origin only. Saved per machine, live on every open tab.
+
+- HTML previews run on their own address (`<ticket>.localhost`), so a page can keep settings, register a worker and use its own storage — and neither **Save** nor **Reload** resets it.
+- When the browser cannot open that address, or when PiCode is reached from another machine, the preview falls back to the sandboxed frame with one line above it saying so.
+
+- **Browsing history (slice 3, first half)**: the work browser records one
+  visit per navigation — a URL re-reported updates the newest row in place
+  instead of piling up (typed flag sticks once set). Settings ▸ Browser
+  gains a **Browsing history** section: newest-first list, per-row Remove,
+  and a two-step **Clear history**. The address-bar dropdown reading this
+  store is the next increment.
+
+- **Muse Code and Antigravity in Agent CLIs.** The catalog lists Meta's `muse`
+  and Google's `agy`: installed or not, Check setup, **New terminal**, which
+  runs the CLI in a PiCode terminal with its own defaults, and **Check for
+  updates** in the same ⋯ menu every other CLI uses — Muse Code against its
+  release channel, Antigravity against the vendor's release manifest. There
+  are no launch settings, no session list and no activity state for these two
+  yet. Both wear their vendor's mark (Meta, Antigravity) wherever the CLI
+  appears.
+
+- HTML previews render unsaved editor changes too: the pane hands the buffer to the preview, and saving the file returns it to disk.
+
+- **The grants editor lives in Settings ▸ Browser**: one row per managed
+  agent with its effective access — Read (the tab on screen), Act or Full
+  plus the hosts it may reach. Pasted entries are forgiven (scheme, path
+  and port stripped); the change saves per row and is live for the
+  agent's next command. Slice 4 of the desktop browser plan is complete.
+
+- HTML previews reload themselves: editing the page or any file it loaded on disk refreshes the frame (served-asset watch over SSE), and a page too large for the text editor still previews from disk.
+
+- HTML files preview as real pages — scripts run, styles and images load from their folder — in a sandbox that never reaches PiCode's session, with Reload and Open in browser.
+
+- **The shell enforces the browser grant at navigation time**: once an
+  act-tier command drives a tab, agent-caused loads outside the agent's
+  domains — script redirects included, not just the `navigate` verb the
+  daemon pre-checks — are cancelled. User-initiated navigation is
+  untouched; navigating the pane from its own toolbar disarms the gate
+  until the agent acts again.
+
+- **A public Changelog on the docs site.** Newest first, including what is
+  still Unreleased. Not a blog — the same Keep a Changelog file, readable
+  next to the guides.
+
+- **An MCP cookbook.** The MCP page is the index. Gmail and DeepWiki each
+  have their own page: install, sign-in if any, and how to revoke.
+
+- **A Configure overview.** Which screen edits which file, the one
+  workflow that does not mix Preferences with pi Settings, and a worked
+  example for a custom endpoint.
+
+- **Agent browser split (ADR-0135)**: a terminal that hosts an agent — the
+  agent's TUI or a CLI launch — can open the work browser beside it
+  (right-click → Open browser), bound to that agent so the `browser` Pi tool
+  acts on the pane on screen. The split resizes (drag), maximizes, and closes
+  from the pane's own controls.
+- **The split survives a relaunch**: the layout (which tabs host a pane, the
+  dragged width, the maximized flag) and each pane's last url persist in
+  localStorage. After the desktop app restarts, the panes come back at the
+  pages they were on — the first time a host tab is shown, its webview is
+  recreated where the pane is. Panes whose agent or terminal is gone are
+  pruned on boot instead of reopening to nowhere.
+
+- **Archiving and deleting snippets now work on the phone.** A snippet's page
+  has **Archive** / **Unarchive** and **Delete** (with a confirm naming the
+  snippet), and the list has an **Archived** view next to **Active** — so an
+  archived snippet is visible and can come back instead of disappearing with no
+  handle on the other side.
+
+- **The Snippets guide now covers the whole editor**: what the slug line means
+  while you type (free, or in use with Save off), the placeholder table
+  (default, optional, and the choices list that becomes a dropdown when you
+  send), where snippets come from (starters, saving a selection, importing a
+  prompt, duplicating), and that a half-written snippet no longer dies with the
+  tab.
+
+- **The phone's snippet editor does what the desk's does.** The placeholder
+  table is there — default, optional, and the list of offered choices per
+  `{{name}}`, with a reserved name (`{{branch}}`, `{{cwd}}`…) saying where it
+  comes from instead of pretending you can set it. Broken `{{placeholders}}`
+  are named under the body while you type, Save waits until they are fixed,
+  and an address already in use is a line under the **Slug** field rather than
+  a refusal after the tap. Choices you add keep working when the snippet runs:
+  a value outside the list is refused.
+
+- **Custom endpoints: the base-URL field now explains itself.** A hint and an
+  example follow the API type you pick — an OpenAI-style root usually ends in
+  `/v1`, Google's in `/v1beta`, and Anthropic-compatible endpoints differ — so
+  the field stops being guesswork.
+- **More thinking formats, including the two that need an object.** The format
+  picker now offers what pi actually supports: `openai` (the old
+  `reasoning_effort` name was written back as `openai`), `deepseek`, `qwen`,
+  `qwen-chat-template`, `openrouter`, `together`, `zai`, `ant-ling`,
+  `string-thinking`, plus **chat-template** and **baseten**, which reveal a
+  JSON editor for `chat_template_kwargs` / `chat_template_args` with pi's
+  `$var` references. A typo is explained inline instead of being saved.
+- **Verify a custom endpoint for real.** The row's **Verify with the endpoint
+  (1 request)** sends one minimal completion (one word in, the smallest output
+  ceiling the API accepts) and reports what the endpoint said — the model, how
+  long it took and the tokens it counted. The dialog can do the same before
+  saving. Built-in providers keep pi's free answer.
+
+- **The snippet editor tells you when an address is already taken** — while you
+  type, not after the save: the line under the **Slug** field says which
+  snippet holds `/snip:…`, and Save stays off until you pick another one. On an
+  existing snippet its own address is never reported as a clash.
+
+- **Docs: browser tools for pi** — a new guide explains what an agent can read
+  in the work browser, what a grant adds (`act`: `evaluate`, `navigate`), and
+  who may call it: a managed agent has its own grant, a plain `pi` TUI reads
+  the tab on screen.
+
+- **The dashboard now says what is waiting on you.** One line above the
+  numbers — “3 need you · 2 questions in Inbox · 1 terminal waiting” — with a
+  single action that goes to the Inbox, or to the waiting terminal when the
+  Inbox is empty. It appears only while something is blocked.
+
+- Sidebar Apps tab: an APPS header and a live "Search apps" filter (Escape clears), with tiles sorted alphabetically — same pattern as the Pins tab.
+
+- **Custom endpoints: load the model list instead of copying it.** The Add/Edit
+  endpoint dialog has a **Load models** button under the ids: it asks the
+  endpoint what it serves and adds the ids you are missing (your typed ones
+  stay, nothing is reordered). It also fills context window and max output when
+  every listed model reports the same number, and says so when they differ. It
+  works for OpenAI-compatible gateways, Anthropic and Google endpoints.
+- **The failure says what to fix.** A refused key, a URL that needs `/v1`, a
+  host that does not resolve, or an account that cannot list: each is one line
+  naming the next step, in both apps and in the same words.
+
+- **The tmux app: every session on your tmux server, in one screen.** PiCode
+  runs every terminal and interactive agent in tmux on your own server, and
+  until now a session with no terminal or agent behind it was invisible in the
+  product — you had to leave PiCode and run `tmux ls` to find it. Apps → tmux (on the phone, More → Apps) now shows the whole server: PiCode's sessions (with **Open**), sessions no
+  longer in PiCode's records, and your own tmux sessions beside them, marked as
+  not PiCode's and left alone. A row expands to the folder, command, uptime and
+  attached clients; the **Server** tab carries the version, socket, client
+  count and keyboard mode, plus the terminals whose sessions are gone
+  (including the ones the flight recorder saw die in a restart).
+- **Removing a leftover asks, and re-reads the session before it acts.** A
+  session PiCode cannot attribute can be removed one row at a time, behind a
+  confirmation and a receipt (session id, start time and pane process): if the
+  session changed since the page was drawn, nothing happens. There is no bulk
+  cleanup, because a session missing from PiCode's records may belong to
+  another PiCode on the same machine — the row says so instead of guessing, and
+  every removal is recorded as an audit event.
+
+- **A grant can let an agent act.** With the `act` tier, two verbs join the
+  browser tool: `evaluate` (run an expression in the page) and `navigate` (go
+  to a URL). Without a grant both are refused by name, with the way to grant
+  them.
+
+- **Agents can read the page open in the work browser.** A new `browser` tool
+  (`snapshot`, `screenshot`, `events`) reads the tab on screen in the desktop
+  app and answers with its structure, a PNG path, or what the tab recorded.
+
+- **Custom endpoints: pick how thinking travels on the wire.** The Advanced
+  section of the Add/Edit endpoint dialog now names the thinking format —
+  `reasoning_effort` (the OpenAI standard), DeepSeek, Qwen, OpenRouter,
+  Together or Z.AI — instead of assuming every gateway speaks
+  `reasoning_effort`. The choice is written as `compat.thinkingFormat` in
+  `~/.pi/agent/models.json`; leaving it at the default writes nothing, so pi
+  keeps choosing for that API type.
+
+- **Starters in the snippets studio.** An empty page now offers six ready
+  prompts — review a pull request, explain an error, write a commit message,
+  summarize uncommitted changes, run the tests and fix failures, standup
+  update — each opening in the editor with its placeholders, tags and address
+  already filled in. Once you have snippets of your own the list collapses into
+  one line you can reopen.
+- **Duplicate, on a list row and in the snippet itself.** A near-miss becomes a
+  copy you can edit: title gets “copy”, the address gets `-copy`, and the
+  original is untouched.
+
+- **Snippets are easier to write.** The studio editor now validates the
+  body as you type — a broken `{{placeholder}}` shows a line naming the
+  problem and **Save** says why it is off — and everything the grammar
+  knows is editable from a table under the body: **Default**,
+  **Optional** and **Enum** per placeholder, written back into the text.
+  A **Try it** pane gives each placeholder a sample value (enums become a
+  picker) and shows the expanded prompt, including what will be asked for
+  at run time.
+- **Save a prompt straight from the composer.** Select text and a **Save
+  as snippet** button appears in the message bar; the same action is in
+  the right-click menu as **Save selection as snippet**, so any text you
+  select — in the composer or anywhere in PiCode — can become a snippet
+  without retyping it in the studio. On the phone it is **Message
+  options → Save as snippet**.
+- **Import a prompt from another tool.** The snippets list gained
+  **Import**: paste a prompt and PiCode finds its slots, offering
+  `[BRACKETS]` and `UPPER_CASE` as `{{placeholders}}` — each suggestion
+  can be switched off — then opens the editor with the result. Available
+  on the phone too.
+
+- Custom endpoint form (Add provider → Custom endpoint): a **Reasoning
+  model** switch with the thinking levels the model answers on
+  (`minimal`…`max`). The selection is written as pi's per-model
+  `thinkingLevelMap`, so the levels a gateway really supports show up in the
+  model picker — `max` included — instead of stopping at `high`. Edit
+  prefills the same levels from the file.
+
+- **Work browser: the shell now speaks CDP itself.** The desktop app carries
+  a command bridge over the page host API, so a page's DevTools protocol is
+  reachable without any open debug port. Read-tier page events (navigation,
+  console, network, log) are recorded per tab for whoever polls them.
+
+- **Continue in Pi now asks where it opens.** Pi is both a CLI and the
+  platform's managed agent, so its "Continue in…" entry has a second
+  menu level — *Pi agent · in the app* (a stopped agent, no installed
+  CLI needed) or *Pi CLI · in a terminal*. The dialog's new **Where**
+  section lets you change the choice before continuing; a brief to the
+  agent lands as its first queued prompt.
+
+- **Files: switch workspace from the tree's toolbar.** The folder line at the
+  top of a Files tab is now the workspace that folder belongs to, opening as a
+  picker of your other workspaces — every folder is offered, repositories or
+  not, with the folder path as its second line and a check on the current one.
+  Picking one re-points the tab: the same folder swaps the owner in place,
+  another folder moves the tab to it (one tab per folder, as ever), and a pick
+  that cannot resolve leaves the tree exactly as it was. A single workspace
+  keeps the plain folder line.
+
+- **Snippets.** Save a reusable prompt or a shell command under Tools or
+  the command palette (`#/snippets`). Placeholders use `{{name}}`.
+  Type `/snip:` in an agent composer to insert or send one, pick **Send
+  snippet** in the command palette, right-click a running Agent CLI
+  terminal and choose **Send to terminal…**, or **Run command…** on a
+  shell pane — the confirm always shows the exact command before it runs.
+
+- **Mobile Git: switch workspace from the screen.** The folder line at the top
+  of a Git screen is now a control when there is more than one workspace to
+  read through: it opens a sheet of your workspaces, each with the branch that
+  folder is on and a check on the current one. Picking one opens the Git screen
+  for that workspace, so Back returns where you were; folders that are not Git
+  repositories are never offered, and a single workspace keeps the plain line.
+
+- **Git graph: switch workspace from the toolbar.** The graph's first item is
+  no longer the repository's name but the workspace its history is read
+  through — a dropdown of your other workspaces, each with the branch that
+  folder is on. Picking one retargets the reading folder without leaving the
+  tab: sibling worktrees of one repository swap in place (the HEAD dot and the
+  `this worktree` row move), and a pick into another repository moves the tab
+  to it, so one tab per repository still holds. Folders that are not
+  repositories are never offered, and a pick that cannot resolve leaves the
+  graph exactly as it was.
+
+- Providers: **Custom endpoint** in Add provider registers any OpenAI-compatible (or Anthropic-/Google-compatible) gateway for pi from the GUI — name, base URL, API key and model ids; no hand-editing `~/.pi/agent/models.json`. Definitions merge into pi's own models file, the key is stored with every other sign-in, and the roster gains a `custom` badge with Edit endpoint / Sign out / Remove endpoint actions.
+
+- **Continue a terminal's conversation in another CLI.** The sidebar `⋯`
+  menu, Agent CLIs → Terminals `⋯`, and the pane's right-click menu offer
+  **Continue in…** for the conversation that terminal is running. The
+  existing preview dialog (what travels, what is left behind) opens; the
+  original terminal stays put. A memory tool that injects a “where you
+  left off” note in the same folder is a separate layer, not this action.
+
+- **Text on the canvas.** The toolbar has a **Text** element: draw a
+  rectangle and a panel appears there ready to type in — a label beside a
+  terminal, a note to whoever opens the canvas next. It saves as you pause
+  and when you click away, and everyone looking at that canvas sees it.
+  Two thousand characters; a pin is still what holds longer writing.
+
+- **The zoom percentage is back, under the zoom buttons.** It says where the
+  camera is, and clicking it returns to 100 % — the only zoom at which a
+  click inside a terminal lands on the character it points at.
+
+- Add an explicit, guarded “Activate now” action for open Agent CLI conversations that still need their first native event.
+
+- Git guard: `main` can no longer be rewound — the reference-transaction
+  hook refuses any move of `main` that is not a fast-forward, including a
+  stale-ref fast-forward onto a divergent tip that silently erased merged
+  work once. A deliberate rollback requires `PICODE_ALLOW_MAIN_REWIND=1`.
+  The guard's functional tests live in the hooks selftest.
+
+- Desktop shell: every window carries a dedicated app bar in the ChatGPT
+  style — brand on the left, drag anywhere on the bar, double-click to
+  maximize, and flat Windows caption buttons (close turns red) on the
+  right. The bar belongs to the shell and works no matter which version
+  of the web UI the daemon serves; the browser renders no bar.
+
+- **Right-click the canvas.** The plane has its own menu now — the same one
+  the `⋯` button opens, with **Show controls** on top.
+- **Show controls hides the canvas chrome.** One switch takes away the zoom
+  column, the toolbar and the minimap, so the plane is only the plane. The
+  right-click menu still works with them gone, which is how you bring them
+  back; the choice is remembered per browser.
+
+- **Terminal attachments: sketch.** The desktop attach bar and the phone
+  sheet gain a Sketch button — an Excalidraw pad (the dependency, not the
+  pin studio) whose drawing leaves the composer as a PNG. The chip reopens
+  for editing until Send.
+
+- **The Inspector follows the panel you are on in a canvas.** Click a
+  terminal or agent panel and the rail shows that one's files, changes and
+  branch — until now a canvas left it on whatever it was showing before, or
+  empty. Focusing a note, file or diff panel leaves the rail where it was.
+
+- Desktop shell: the tray item is now **Management** — a window with three
+  views over the WSL distro. **Disk** shows what the distro holds and runs
+  the Give back flow with live progress; **Clean** measures the prunable
+  caches (`picode clean --list`) and prunes the selected ones — Pi sessions
+  and the PiCode database are never cleanable; **Config** edits
+  `.wslconfig` (memory, processors, swap, sparse disk) with an automatic
+  backup, leaving unknown settings untouched; changes apply at the next
+  full WSL restart.
+- `picode clean` — new subcommand that prunes the caches `picode disk`
+  measures (`--list` to measure, `--apply id1,id2 --yes` to prune,
+  `--json` for tools). Data directories are refused even when asked for by
+  name.
+- Desktop shell: sharper taskbar/window icon (the icon file's largest
+  image now comes first) and the shell's local pages use the product's
+  design tokens.
+
+- **Packages: Configure now works for descriptor-declared packages.**
+  pi-roles was the only package with a Configure button; any extension whose
+  configuration is described (PiCode's catalog, or a `picode.config` manifest
+  in the extension itself) now shows one, backed by a form that edits the
+  package's own config file. Configurable today: pi-web-search (the model
+  that backs native web search) and pi-compact (compaction policy — enabled,
+  token/percent triggers, floor, cooldown, summarizer model, thinking and
+  instructions). The files stay the packages' own source of truth: unknown
+  keys survive saves, unset fields stay unset, and a broken file is reported
+  and never silently replaced. No description for a package you installed?
+  "Describe config…" lets you describe its configuration yourself — create,
+  edit and delete the description at any time; PiCode stores it locally.
+  Public docs (docs-site/guide/packages.md) now explain configuring and
+  describing packages.
+
+- **PiCode Desktop: give the held space back from the tray.** When the disk
+  file is holding space the distro freed, the tray offers **Give back ≈92
+  GB…**. It first asks PiCode whether anyone is working (the same interlock as
+  a deploy — someone mid-turn is named, and it stops), then asks once in a
+  dialog that names the cost, stops Ubuntu, converts the disk file to
+  **sparse**, starts Ubuntu again and reports the before/after measured on the
+  file. From then on WSL returns freed blocks on its own.
+- **`picode-desktop disk-compact`** — the same flow from a terminal.
+  `--dry-run` prints the plan and stops nothing; `--yes` runs it; `--force`
+  overrides the working check; `--method optimize-vhd` compacts with Hyper-V's
+  Optimize-VHD from an administrator terminal (Windows Home: upgrade WSL for
+  the sparse path instead).
+
+- **PiCode Desktop: the tray now tells you what the disk is doing.** One line
+  under the status — `WSL 218 GB · ≈92 GB held by Windows · C: 27 GB free` —
+  refreshed every five minutes, ending in `— low` under 20 GB free, with the
+  tooltip carrying the same sentence and the command that shows the rest.
+- **`picode-desktop disk` reports both halves of a WSL disk in one screen.**
+  The Windows side (the VHDX path from WSL's own registry, the file's real
+  size, whether it is sparse, free space on the volume) and the distro side
+  (filesystem, the caches with the exact command that gives each back, the
+  top-level breakdown of home). It shows **held for nothing**: the space the
+  distro has already freed that the disk file still occupies — invisible in
+  Explorer, and the reason a full `C:` stays full. Read-only.
+- **`picode disk` lists what occupies the machine and what is safe to
+  reclaim**, one line per item with `safe`, `redownload` or `data`, plus the
+  paths it could not read named as such instead of folded into a category.
+  `--json` feeds the tray and, later, the Storage app.
+
+### Changed
+
+- The tmux watcher integration test and the kill-server test address a server they own with `-S` instead of rebinding the process-wide `TMUX_TMPDIR`: a test that ends a server can no longer strand other tests — or a background goroutine — in the same binary on the server it dismantles. The kill test keeps asserting the directory guard; the watcher test asserts the suite's namespace is untouched.
+
+- **No Activity reporting for Muse Code, stated plainly.** Its build
+  offers no hook surface, so the toggle is replaced by a one-line note
+  ("its terminals stay Open") and the server refuses `integration: true`
+  with 400. The startup seed that switches Activity on for empty configs
+  skips hookless CLIs.
+
+- The work-browser tab no longer spends a line telling you it is a frame: the page starts directly under the address bar.
+- The address bar's Open button fills the pill it shares with the field (its hover covered only a 28px strip) and uses the return glyph instead of a text `↵`, which sat high in its box.
+
+- The setup tabs are placeholders until each CLI's editor exists; Pi keeps its
+  real Providers, Settings, Keyboard, Packages and Connectors panes. No editor
+  is implemented for another CLI before its launch settings match the others.
+
+- **Autofill and passwords** rows now open **Manage** dialogs instead of
+  hiding the switches on the page: Password manager offers "Offer to save
+  passwords" and a two-step delete of everything the profile stored;
+  Contact info offers "Save and fill addresses" and the same delete for
+  saved form data. Each dialog says plainly that saved entries live in
+  this machine's browser profile and cannot be listed or edited per entry
+  — WebView2 exposes the switches and a wipe by kind, nothing that reads
+  entries back.
+
+- **Browsing history** now presents the data the way the reference does,
+  inside the dialog: a search field, day groups that collapse (newest
+  open, "Today"/"Yesterday" named), and a row per visit with its site
+  icon, host, visit time and a per-row menu (Copy link, Remove from
+  history). Rows can be selected and removed in one go, and "Clear
+  browsing data" sits on the section header.
+
+- Scratch instances (QA scratch, docs fixture) and their cleanup operate on
+  their own tmux server, so their sessions no longer appear in — or collide
+  with — your tmux.
+
+- **Custom endpoint is now Custom provider.** Titles, buttons, menus,
+  toasts and the Providers guide use the new name (matching ADR-0129);
+  routes, API paths and behavior are unchanged.
+
+- **Clear browsing data** now opens a dialog in the reference shape: a
+  time-range picker (hour / 24 hours / 7 days / 4 weeks / all time) over
+  a checklist of what to clear — browsing history, cookies and site
+  data, cached images and files, download history, autofill form data
+  and site settings — each showing what it will remove.
+
+- Web: the editor tab strip (browser and desktop) now follows Chrome's CR23
+  tab language — raised active tab, hover pill, idle separators — instead of
+  the rectangular accent-underline tabs. Overflow, keys and the all-tabs list
+  are unchanged.
+- Header matches Chrome's tab strip: 41px tall with 35px tabs inset 6px
+  from the top, 20px idle separators, 8px corner radius
+  (`docs/benchmarks/2026-09-15-chrome-tab-header.md`).
+- The selected tab now reads connected to the page on `/browser` and
+  `/desktop`: it shares the toolbar background and no hairline cuts it
+  off, while the sidebar head, tab strip and inspector head read as one
+  header bar with a single hairline between them and the content and no
+  pane verticals crossing it.
+
+- **Settings ▸ Browser follows the reference layout**: a page title and
+  lede, section headers, and cards of rows whose title and description
+  sit left with the control pinned right, divided by hairlines. Switches
+  are pills, selects and actions are outline buttons, and Browsing
+  history opens in a dialog. The chrome around the page stays PiCode's.
+- The master **Browser** switch is real: off refuses every browser verb
+  for every agent server-side until it is turned back on.
+
+- **AGENTS.md**: the scratch-tmux rule now names the measured mechanism —
+  `$TMUX` outranks `TMUX_TMPDIR` (so a "isolated" client still talks to the
+  server it was started in), `-L` overrides `$TMUX`, and `TMUX_TMPDIR` only
+  counts when that directory exists.
+
+- **Custom endpoint is a page, not a dialog.** Add provider → Custom
+  endpoint (and Edit endpoint) opens `#/clis/pi/providers/custom` with the
+  form in Identity / Connection / Models sections, Name + API type side by
+  side on wide screens, and Verify key beside the field it checks. The
+  how-to prose moved to the Providers guide; the page carries a Setup
+  guide link instead.
+
+- **Muse Code and Antigravity keep the same launch screens as every other
+  CLI.** The New terminal screen shows the CLI row and the Launch preview
+  (which command PiCode will run, what it adds), and the Launch tab shows the
+  plan summary instead of a one-line notice. Nothing is editable for them yet
+  — the customize checkbox and launch profiles stay absent — so the screen
+  reads the same and says plainly that the CLI keeps its own defaults.
+
+- Agent CLIs describe what a row can do as capabilities: a CLI can open a
+  terminal without carrying activity, launch settings or sessions.
+
+- Web: the active editor tab is the elevated surface (the white the sidebar
+  reads as), so it no longer disappears into the strip gray.
+
+- **A stopped CLI terminal now sits in a simulated terminal window.** The
+  state — what stopped it, the conversation **Resume last session** would
+  reopen, and the two actions — is drawn inside a framed terminal window
+  (titlebar, traffic lights, the terminal's own name and folder as the
+  title), centered on the page and hugging its content instead of filling
+  the pane. The page keeps the app's theme; the window is a picture of a
+  terminal and is dark in both themes. Same on the phone.
+
+- **A stopped CLI terminal is a real empty state, not a sentence in the
+  corner.** Its pane now shows a mark, what stopped it (a plain stop, a
+  restart that ended it, or a failed last launch), the conversation
+  **Resume last session** would reopen — CLI, name and age, with the opening
+  words on hover — and the two actions. A terminal with nothing pinned says
+  *no session to resume* instead of offering no button and no reason.
+- **The empty terminal pane follows the app's theme** (owner call): a light
+  app no longer shows a black well where a terminal used to be — the ground
+  is the app's own and the message reads in the app's inks, in both themes.
+
+- **`make desktop-restart` swaps the v2 shell too**: the target now builds
+  `picode-shell.exe` (Tauri, ADR-0120) alongside the tray + native host, and
+  `scripts/desktop-swap.sh` stops, copies and relaunches it when it was
+  running. A stale shell refuses page commands with a Tauri ACL error — its
+  capability list compiles into the exe (2026-09-14: `btab_cdp_call` refused
+  for days after the CDP bridge landed). `DRY_RUN=1` prints the plan and
+  touches nothing.
+
+- **Tools docs open with Where and Not this.** Browser tools, Chrome
+  extension, Docker, Integrations, tmux, CLI activity reporting and
+  keyboard each say what the page is, where to click, and what it is not.
+
+- **Inbox: "Clear all done" sits beside the filter** on the Done tab, right-aligned on the toolbar row, instead of trailing the list — the same place every list page keeps its bulk action. Any app that declares a list-pane actions row gets this for free; an item's own actions and empty-state actions are untouched.
+
+- **Chat and work docs open with Where and Not this.** Canvas, session
+  messages, Inbox tools, Checklist, Compact earlier and the diff panel
+  each say what the page is, where to click, and what it is not.
+
+- **Agents docs open with Where and Not this.** Agent CLIs, Packages, MCP,
+  llama.cpp, Automations and Snippets each say what the page is, where to
+  click, and what it is not.
+
+- One right-click menu for every terminal pane (managed Pi in-terminal, Agent CLI, plain shell). Chat and the composer stay on the generic menu.
+- **Send to terminal…** on an in-terminal Pi pastes into the TUI (palette Send snippet too); the sheet says “Sent to the terminal.”
+- **Attach files…** / **Ask Pi about this** on an in-terminal Pi use `/api/agents/{id}/drop` and `/prompt`, not a terminal id.
+- **Rename agent…** / **Remove agent…** (existing cleanup confirm, never “This stops the tmux session.”). **Terminal settings** from an agent pane opens global **Terminal defaults**.
+- **Continue in…** on an in-terminal Pi uses that pane’s session file and asks to continue while the TUI is still writing.
+- Close browser split actually appears when the split is open.
+
+- **Getting started installs from a GitHub release**, not `make build`.
+  Download the binary, run `picode install`, open the app. Building from
+  source is a separate page.
+
+- **Public docs sidebar is Start / Use / Run / Configure / Reference.** The
+  old flat Guides list is gone. Settings and Providers sit under Configure;
+  a Use catalog lists every capability in one place.
+
+- **A snippet Command no longer runs into a repository another agent is
+  writing in.** The confirm step still shows the exact command; running it is
+  refused with a message naming who is at work there, the same rule the
+  terminal's **Run command…** already followed.
+
+- **Docker, Inbox and tmux now read like every other page.** Their surfaces keep the app's tab strip, head actions and filter, but inside the same page frame a system route uses: a 1240px card, the view's tabs as an underline nav with count chips, the filter in the card toolbar, and the list and detail panes inside the card (side by side, stacking on narrow windows). Empty, blocked and error states are one line plus one action instead of a full-page poster.
+
+- **The custom endpoint dialog reads field by field.** Name, Base URL, API key
+  and Model ids carry a label above the control and one line of help under it,
+  with a clear gap between one field and the next — the placeholders were the
+  only label before, so a filled field could not be told from an empty one.
+  The helper prose that read as a lecture (a file path, a protocol note) is
+  gone; what stayed says what the control does.
+- **Limits belong to the model, not to the list.** Context window and max
+  output are one row per model id (Advanced → Model limits), so Load models
+  fills each model's own numbers — a gateway whose models disagree is no
+  longer refused with a blank field and an explanation. A number typed by hand
+  survives a load; a row follows its id into and out of the list.
+- **Advanced is a section, not a wall.** The disclosure holds grouped sections
+  — Request compatibility, Thinking, Model limits — each with a legend and a
+  hairline, so it reads as structure once open and stays one line while
+  closed.
+- **Load models and Verify key report inside Model ids**, the field that owns
+  them, so a refusal line ("The endpoint refused the key (401): invalid api
+  key provided. Check the API key and try again.") sits next to the action that
+  caused it and never pushes the alternative route below the fold.
+
+- **Half-written snippets no longer die with the tab.** Drafts moved from the
+  per-tab shelf to the browser's durable one, so closing the tab or reloading
+  brings the text back (a capture or an import is still handed over as a new
+  snippet rather than announced as "unsaved changes").
+
+- **The Fleet tile counts agent CLI terminals, not just managed agents.**
+  The sidebar's Claude Code, Codex, Grok, Hermes and OpenCode terminals were
+  invisible to the dashboard, which could read `1 / 1 running` beside seven
+  live terminals. The tile now shows `N live` (agents + agent CLIs), states
+  `working` / `need you` / `idle` / `no signal`, names each one, opens its tab
+  on click, and counts plain shells apart — `no signal` means a CLI is running
+  but has not reported activity, never that it is idle.
+
+- **The handoff board is an index now, not a ledger.** Next steps still render
+  inline (they are bounded and they are what a session acts on), but debts are
+  one line per topic — the count, the topic file and its plan. Rendering every
+  debt made the board grow with the backlog, which is what filled it; it is
+  about half the size and no longer trips its budget on one honest entry.
+  `make handoff` now **fails, naming the file**, when a topic file lists bullets
+  outside its `## Next` / `## Debts` headings — six snippet debts were invisible
+  that way for a day.
+
+- **Six snippet debts were invisible on the handoff board.** The board renders
+  the bullets under a topic file's `## Next` / `## Debts` headings, and
+  `docs/handoff/open/snippets.md` had neither — so its debts never reached the
+  sessions that read the board. It has the heading now, consolidated to the
+  three that carry the meaning; the roadmap lives in the plan.
+- Also pruned there and elsewhere: bullets that only restated a plan file, a
+  debt already carried by its owning topic, and the 0.2.0 release step (cut;
+  tag `v0.2.0` exists).
+
+- **Continue dialog uses the width of the screen.** How and How much sit
+  as two columns; the brief preview is wider and taller instead of a
+  520 px column in the middle of the pane.
+
+- Web: the dashboard no longer offers a folder-scope filter — the "This machine | PiCode" chips are gone and `GET /api/sessions/stats` measures the whole machine only (ADR-0127). `Spend by workspace` keeps ranking every folder, naming claimed workspaces and leaving the rest as their own folder; the payload's `scope` field and the `?scope=` parameter are removed.
+
+- Web: the inspector panel no longer carries its own hide button — closing it stays with the single toggle at the end of the editor tab strip (browser and desktop).
+
+- **An empty canvas is empty.** The card explaining what a panel is no longer
+  floats in the middle of a new canvas — the plane, its texture and the
+  toolbar are the whole page.
+- **The canvas switcher is as wide as the canvas's name.** It kept a fixed
+  minimum width, which left a gap after a short name.
+
+- **Panels are added from the canvas toolbar and nowhere else.** The
+  **Add panel…** row left the `⋯` menu, and the empty canvas no longer
+  carries its own button — pick an element below, then draw where it goes.
+
+- **Surface split (routes)**: the responsive web app previously served at
+  `/desktop/` now lives at `/browser/`, and `/desktop/` serves the new
+  bundle composed for the Windows shell only (its entry wraps the app with
+  the shell chrome; the browser never loads it). The Management page moved
+  into that bundle — its design tokens are imported from the shared
+  package, ending the hand-copied token block. The launcher and the docs
+  screenshot machinery follow the new routes. ADR-0122.
+
+- **You choose where a panel goes.** **Add panel** has left the toolbar. In
+  its place, at the bottom of the canvas, there is one button per thing a
+  canvas holds — agent, terminal, pin. Press one, draw the rectangle where
+  you want it, and pick which agent or terminal goes there. The panel is
+  created exactly in the rectangle, at the size you drew. `Esc`, or pressing
+  the button again, cancels.
+- **A new panel no longer appears off screen.** It used to be placed from the
+  canvas origin outward, which is nowhere near what you are looking at once
+  you have panned.
+- **The canvas switcher and the `⋯` menu moved to the top-left corner.** The
+  bottom edge is now for the hands: what you add in the middle, zoom and
+  **Fit** on the left, the minimap on the right.
+- **Files and changes are added from `⋯` → Add panel…** — they are opened
+  from a tab rather than drawn on the plane.
+
+- **The keyboard map is a pane of its own.** It was a *Keys* sub-tab under the
+  Settings pane, which put two tab rows inside one view; it is now **Keyboard**,
+  sitting between Settings and Packages in the Agent CLIs pane bar
+  (`#/clis/pi/keyboard`). The Settings pane no longer has a sub-tab row, and the
+  link keeps the agent and layer you came from, so going back lands where you
+  left. A `?tab=keys` bookmark still opens it.
+
+- **The sketch controls sit where a thumb is.** On the phone the tool row now
+  sits at the bottom of the drawing with the colour/undo row above it, and the
+  library/lock/hand column no longer crowds the pad; the pen is active on open,
+  so drawing starts with the first touch.
+
+- **Go tests are cached across worktrees.** `scripts/go-test.sh` builds with
+  `-trimpath`, so the test cache no longer depends on the tree's absolute path:
+  a package tested once is reused in every worktree and terminal (measured 10.4 s
+  per package before, `(cached)` after). Sessions that touch several packages
+  get those minutes back on every iteration.
+- `make ci` keeps its full output in `var/ci-last.log` and says so when it
+  fails. One full-matrix run failed unreproducibly with nothing but a bare
+  `FAIL` left in the transcript; retries would hide that, evidence does not.
+
+- The contributor docs point at the generated board: `CONTRIBUTING.md`, the
+  `uiux-review`/`visual-review` skills and the affected plans now send a durable
+  next-up or debt to `docs/handoff/open/<topic>.md` instead of telling the
+  reader to edit `docs/handoff.md`, which `make handoff` renders (ADR-0123).
+
+- Opening a sketch on the phone starts with the pen: draw immediately instead
+  of tapping the pencil in the toolbar first.
+
+- **The project board is generated.** `docs/handoff.md` is no longer a file
+  every session edits (it was the repository's most-written file: 406 commits
+  in ten days, 99.8% of its size cap, net losing text). `make handoff` renders
+  it — what is in flight from git, next up and debts from
+  `docs/handoff/open/<topic>.md` and the session notes — and it is not
+  committed (ADR-0123). Contributors with an old clone see it disappear from
+  `git status`; that is the change.
+- `make worktree-status` shows what is actually open: each worktree's branch,
+  commits ahead/behind `main`, dirty files, last commit and last green gate —
+  and flags a tree that has stopped producing commits.
+- `make close` reuses the green scoped run when a catch-up merge brought
+  unrelated work (ADR-0124), instead of re-testing a tree whose tested content
+  did not change; it prints which of the two cases applied and why.
+- `docs-site/public/llms.txt` is generated by the docs build and the deploy
+  instead of being committed (ADR-0125); `make docs` still writes it.
+- `make dev`, `make ci-scoped` and `make close` print the worktree and branch
+  they are running in.
+
+- The floating-controls experiment and the frame handshake were replaced
+  by the dedicated bar (ADR-0122 supersedes ADR-0121).
+
+- **The canvas controls stand in three places.** Zoom and **Fit** are a
+  column at the bottom-left, the canvas switcher and **Add panel** are
+  centred, and the minimap keeps the right corner. The zoom percentage is
+  gone from the row.
+- **The canvas switcher is a PiCode menu, not the browser's.** It used to be
+  a native dropdown, which opened an operating-system list over the plane in
+  colours nothing else in the app uses.
+
+- **The terminal message field is a textarea that grows.** One line tall at
+  rest, four lines maximum, then it scrolls. Enter sends on the desktop and
+  Shift+Enter breaks the line; on a phone Enter breaks the line (no Shift on
+  a soft keyboard) and Send or Ctrl/⌘+Enter submits.
+
+- **Agent CLIs → Settings edits one layer at a time.** A labelled switcher
+  (**Edit: This machine / workspace / agent**) picks the layer, the line under
+  it names the file that layer writes, and the body shows only that layer's
+  rows — instead of stacking the same six knobs for the machine and the
+  workspace and hiding the agent's below them. The chosen layer and the tab
+  travel on the URL (`?layer=…&tab=…`), so a reload or a bookmark lands on the
+  same view; an agent link opens that agent's layer.
+- Rows say where their value comes from: **Set here** (with an accent bar) when
+  this layer sets it, **Pi default** or **From This machine** when it inherits.
+  A row this layer sets offers **Use inherited**, which hands the value back to
+  the layer below instead of freezing a copy of it.
+- **Keys** is a sub-tab of its own: the whole 89-row keyboard map keeps its
+  filter and its Add-then-press-a-key flow, without sitting at the end of the
+  settings scroll. The global settings pane went from ~6000 px of scroll to
+  under 1000 px.
+
+- **The Canvas toolbar is one button group.** The canvas and the camera were
+  two groups with a gap; they are now a single row — the canvas switcher,
+  **Add panel**, the zoom controls, and the `⋯` menu last. **Add panel** is
+  no longer filled in the accent colour, and **Fit** wears React Flow's own
+  four-corner glyph instead of diagonal arrows.
+- **The canvas switcher is always a dropdown, with the app's icon.** With a
+  single canvas it had become a plain label; it is a menu again, so the
+  canvases you could have are visible from the one you are on.
+
+- `picode-desktop` gained a `clean` subcommand that passes `picode clean`
+  through to the distro, streaming its progress.
+
+- **The Canvas chrome is now one toolbar on the bottom edge.** The canvas
+  switcher, **Add panel** and the `⋯` menu left the top-left corner and
+  joined the zoom controls in a single dock centred at the bottom, as two
+  button groups: the canvas and its actions, then the camera. **Add panel**
+  is the filled button there. The minimap keeps the bottom-right corner, and
+  the top of the plane is now empty — nothing floats where you start
+  reading. On a narrow pane the minimap steps aside so the two never
+  overlap.
+
+- **Agent CLIs → Connectors is a roster, not a catalog grid.** The pane opens
+  with one primary action (**Add connector**), then the configured services:
+  each row carries its state, the layer it lives in (title: the config file),
+  the target, a switch and an overflow menu (**Sign out**, **Remove**, whose
+  confirmation names the file). The catalog, the file picker and the target
+  pills left the pane and became one dialog with a search field, a labelled
+  **Save to** control, and two quiet secondary entries (*Custom server…*,
+  *Import a file…*).
+- The redundant workspace line under the Connectors tab bar is gone (it
+  repeated the scope already shown per row), and every control in the pane is
+  the 36 px control height instead of a 28 px pill beside a 36 px button.
+- Live status is only claimed while an agent runs: with the agent stopped the
+  pane says so once, instead of showing `Idle` on every row. A server that
+  needs a login shows **Sign in** on its row even with the agent stopped.
+- The install target is part of the route (`?scope=`), so it survives a
+  reload, and it is stated where the write happens instead of above the list.
+
+- **The Canvas camera controls moved to the bottom-left, as a column.** Zoom
+  in, zoom out, the 100 % readout and **Fit** now stand at the far end of the
+  bottom edge, with the minimap opposite them on the right instead of
+  stacked above. **Fit** is an icon there; its keyboard shortcut (`0`) is
+  unchanged.
+
+- **A Canvas panel resizes from its bottom edge, its right edge and the
+  corner between them.** The other five targets are gone: dragging one of
+  them moved the panel's top-left corner while it resized, so the panel
+  slid away from under the pointer.
+
+- **Agent CLIs → Packages: the install target sits with the action it
+  modifies.** The "This machine / workspace / agent" radios left the row they
+  had under the source input — where they read as if they belonged to the
+  Installed list below — and now sit in the install bar, labelled **Install
+  to**, immediately before Install. Every control in that bar shares the 36 px
+  control height, and the bar wraps as a unit (source, then target plus
+  Install) when the pane is narrow.
+- The redundant workspace line under the Packages tab bar is gone: it repeated
+  the workspace the target pill already names, and it sat hard against the tab
+  rule. The pane owns a 12 px gap under the tabs instead, on Packages and on
+  the pi-roles settings sub-page alike.
+
+- **Fullscreen hides PiCode, and leaves your browser window alone.** Turning
+  it on no longer takes the browser fullscreen with it: your other tabs and
+  your address bar stay where they are, and the mode is exactly what it says —
+  the sidebar, the tab strip and the Inspector step aside, the edges bring
+  them back, `Esc` closes an open panel and leaves on the next press. `F11`
+  still works and now stacks on top of the mode, in either order.
+
+- **The canvas switcher is a name until there is something to switch to.**
+  With one canvas the top-left control opened a list holding the canvas you
+  were already on. It is now simply that canvas's name; the moment a second
+  canvas exists it becomes a picker again. **New canvas** is in the `⋯` menu
+  either way, and the controls do not shift when the second one appears.
+- **An empty canvas now offers its next step in the middle of the plane** —
+  one line saying what a panel is, and **Add panel** — instead of a blank
+  plane with the controls in the corner. The plane, its background and the
+  minimap stay where they are, and the line goes the instant the first panel
+  lands.
+- **The plane no longer shows the React Flow credit.** The drawing library
+  behind the canvas is MIT-licensed and unchanged; only its badge is hidden.
+- **What's New opens on a fresh install too.** A released build used to wait
+  until you had made a workspace, an agent or a terminal, which meant a brand
+  new install saw nothing and looked broken. It now opens once on the first
+  load, still closes for good when you dismiss it, and still waits while a
+  dialog, a reconnect, a waiting agent, an Inbox item or a create/share flow
+  needs you first.
+
+- Agent CLIs strip is **CLIs | Messages**. Settings, Packages and Connectors
+  (MCP) are panes of the selected CLI, next to Launch / Terminals / Sessions /
+  Providers. Webhooks stay a PiCode page. Old Settings, Packages, Integrations
+  connectors and `#/mcps` addresses rewrite.
+- Providers pane dropped the “This machine” lecture; empty llama.cpp is one
+  line plus Set up.
+
+- **A Canvas panel's edges and corners are now something you can actually
+  grab.** Every resize target is the same size to the hand however far in
+  or out the plane is zoomed — a 20-pixel square at each corner, a
+  12-pixel band along each edge — instead of shrinking with the camera
+  until there was nothing left to aim at. What you *see* is the grid's old
+  language back: a short bar at the middle of each edge and a corner mark,
+  appearing when you hover, focus or select the panel.
+- **The line between two linked panels is a curve**, and the line you drag
+  while making the link is the same curve you end up with. Two panels
+  sitting in the same row still join with a straight segment — that is what
+  a symmetric curve between two aligned points is.
+- **A link is easier to hit when zoomed out.** The invisible band along the
+  line no longer thins with the camera.
+- **The Canvas background texture can be seen.** Dots, Grid and Cross were
+  drawn in the colour of a hairline — on the light theme the grid was at
+  1.16:1 against the plane, which is to say invisible. All three now use a
+  colour chosen for a texture, and the dot is two pixels rather than one.
+  The spacing is unchanged, so nothing on a canvas moves.
+- **A stopped agent's panel offers Run as the accented button** the agent
+  tab uses for the same thing, instead of a grey chip that read as
+  disabled. The same rule now runs through every panel placeholder: the
+  action that *starts work* is accented, the action that only opens a tab
+  or drops a dead binding is not.
+
+- **The Canvas background is now chosen on the canvas.** `⋯` → **Background**
+  opens a submenu with Plain, Dots, Grid and Cross, each showing a real
+  sample of its texture and a tick on the one you are using. The rows stay
+  open while you pick, so the plane behind the menu is the preview. Your
+  choice is the same one you had — it is still remembered per browser, and
+  nothing on a canvas moves when the texture changes.
+- **Preferences → Appearance is PiCode's own chrome again**: the theme, and
+  nothing else. The **Canvas background** group has left it, and so has the
+  `⋯` menu's old `Background…` item, which existed only to send you there.
+  An app's settings now live in the app — a project rule from today, not
+  just a tidy-up (ADR-0109).
+- **Messages' list of hand-drawn links reads as Messages'**, because that is
+  whose it is: it is now **Granted contacts** — the pairs you allowed to
+  message each other by drawing a link between two panels on a canvas. Same
+  rows, same Remove, same guarantee that a link never lets one session read
+  another's history.
+
+- **A failed compact no longer leaves the machine without its distro.** The
+  restart after `wsl --terminate` runs even when the conversion fails, and the
+  tray re-arms the keepalive child the terminate killed — without it, WSL
+  idles out sixty seconds after a compact.
+
+- **Agent CLIs** opens from the last icon in the desktop sidebar header
+  (stacked boxes — the catalog of CLIs), not from the user menu Tools
+  list. Clicking it does not switch a rail tab. Package-update marks
+  move to that icon. `Ctrl+K` and mobile **More** are unchanged.
+- Launch **Customize** sits on the Launch pane heading again, not on the
+  Launch / Terminals / Sessions / Providers tab row.
+
+- A CLI's page hosts **Launch**, **Terminals**, **Sessions** and
+  **Providers** as inner tabs. The catalog is the CLI picker. Pi shows the
+  account roster; other CLIs explain that Providers is unavailable and offer
+  Open Pi. `#/clis/<cli>/providers` is the list;
+  `#/clis/<cli>/providers/new` opens Add provider. Old `#/clis/providers*`,
+  `#/providers*` and `#/more/providers*` rewrite onto those addresses.
+  OAuth still returns to the list in the same app.
+
+- A VHDX that is not sparse is named in the report as the reason WSL cannot
+  give freed blocks back, with the one command that changes it — it is not run,
+  because converting or compacting the file stops the distro and its sessions.
+
+- **Fullscreen: the exit control is a button again, not a sentence.** The
+  label and the chord moved into its hint (`Leave fullscreen
+  (Ctrl+Shift+Enter)`), and the glyph now sits in the same 28px square as the
+  Inspector toggle beside it.
+
+- **What's new is a two-column board on a desktop.** The release dialog takes
+  880 px instead of 400 and lays the highlights out in two columns, so a whole
+  release fits one screen: the nine highlights of v0.2.0 are read without
+  scrolling, and a summary stops wrapping at ~40 characters. The dialog also
+  centres itself at any window height — a short window scrolls inside the
+  dialog instead of pushing it against the top of the screen.
+
+- A CLI's page hosts **Launch**, **Terminals** and **Sessions** as inner
+  tabs. The catalog is the CLI picker; switching CLI keeps the pane.
+  `#/clis/<cli>/sessions` lists every folder; `#/clis/<cli>/sessions/<id>`
+  lists one. Old `#/clis/sessions*`, `?cli=` and `#/sessions*` links rewrite
+  onto those addresses. Dashboard top-session rows open that CLI's pane.
+
+- **The Canvas has no bar across the top any more.** The plane runs from
+  edge to edge and the controls float on it: which canvas, **Add panel**
+  and a `⋯` menu sit in one small cluster top-left, the zoom controls and
+  the minimap stay bottom-right. The bar's icon and title were the tab's
+  own words, and its **Close** was the tab's ×.
+- **New canvas, Tidy panels, Rename, Delete canvas and Close tab moved
+  into that `⋯` menu.** Everything the bar carried is still one press
+  away, by mouse or by keyboard — `Tab` reaches both clusters before it
+  reaches the panels.
+- **Fit now leaves the controls their corners**, so opening a canvas no
+  longer parks a panel's header under them.
+- **Maximizing a panel hides the floating controls** while it is up: they
+  belong to the plane, and the plane is what the panel covers. `Esc`
+  brings both back.
+- **The Canvas plane's background is yours to pick.** Preferences →
+  Appearance now offers **Plain**, **Dots** (what it drew before), **Grid**
+  and **Cross**, each card showing the pattern rather than naming it. The
+  choice is remembered per browser and applies the moment you make it, to
+  every canvas already open. It follows the theme's colours, so switching
+  between light and dark re-tints the ground without a reload.
+- **Light mode is no longer pure white.** The page was white and the panels
+  on it were grey, which is upside down: nothing lifted, and the app read as
+  one flat sheet. The page is now a soft, slightly cool grey and the
+  surfaces above it are near-white, with dialogs and menus in white above
+  those. Text sits at 15.9:1 on the page and 17.3:1 on a panel, and links
+  and primary buttons went one step darker to clear the readability bar they
+  were under.
+
+- **Providers: one row per account, columns that line up.** The roster is a
+  dense table now — provider, account, identity, usage, 7-day spend and the
+  actions sit in fixed columns instead of being pushed to the two edges of
+  the card. The quota reading moved into its own column, so two accounts'
+  bars can be compared without reading a label, and a long vendor reason
+  ("Rate limited.") stays on one line instead of wrapping under the buttons.
+  Ten providers plus the llama.cpp pointer and Recently used now fit one
+  1000 px-tall window without scrolling.
+- The search field and Add provider are one cluster instead of two distant
+  corners, and a second account of the same provider repeats the provider's
+  name, dimmed and indented, so a group reads on its own.
+- Recently used is a line of chips (provider, Sign in, remove) instead of a
+  full-height list of rows.
+
+- Saving a terminal's launch settings — or opening one that was removed
+  meanwhile — returns to that CLI's page instead of the machine-wide list.
+
+- **The Matrix app is now called Canvas.** Same boards, same panels, same
+  links; the name says what it is. Old bookmarks keep working —
+  `#/app/matrix` and `#/app/matrix/<id>` land on the canvas — and a tab
+  you had open reopens as the Canvas tab, with the canvas and the view
+  you left it at.
+- **Every board is the canvas plane.** The 12-column grid layout is gone,
+  so there is one place a panel can be and one way to move it. A board
+  still in grid mode was converted once, keeping the arrangement it had —
+  a panel that was smaller than the canvas minimum comes out slightly
+  larger.
+- **The API and the feed were renamed with it**: `/api/matrices…` is now
+  `/api/canvases…` and the `matrix.*` events are `canvas.*`. PiCode's own
+  clients ship in the same binary and were changed together.
+- **PiCode loads lighter for everyone.** Canvas is fetched the first time
+  you open it instead of riding in every page load, and the two layout
+  libraries the grid needed are gone: 18 KB gzip off the first load of the
+  desktop, whether or not you use the app.
+
+### Removed
+
+- **The Go tray is deleted (ADR-0142).** `picode-shell.exe` is the only
+  Windows resident — autostart, keepalive, health, disk line, Give-back,
+  Restart, Logs — and `picode-desktop.exe` is its headless boundary tool
+  (`doctor install disk disk-compact clean startup-check startup-repair
+  update`). The systray dependency is gone, so a second tray cannot come
+  back. A logon task that still points at the tray fails loud with the
+  repair named; `install` registers the shell, staging it from the
+  matching release when no sibling is beside the tool.
+
+- The last `surface: terminal` catalog row. Every launchable CLI now
+  carries an adapter entry; the terminal-only shape stays as the form a
+  future CLI without one rejoins.
+
+- **The user menu no longer carries a layout switch.** The `Layout` group
+  (Desktop / Auto / Mobile) is gone from the menu in the browser, the desktop
+  shell and the narrow/mobile layout — the surface follows the address you
+  open (the launcher, `/browser/`, `/desktop/`, `/mobile/`). Theme
+  (Light / System / Dark) stays in the menu.
+
+- **From a Pi session** in the create dialog (desktop and mobile) and its
+  API, `POST /api/clis/{cli}/sessions/adopt`. Agents are born only from
+  new sessions (ADR-0126, superseding ADR-0021). Agents already created by
+  adoption keep working; session files were never modified. The sessions
+  surface keeps list, delete and auto-clean.
+
+- **File and change panels can no longer be added.** They had no tool of
+  their own and the old **Add panel** dialog was their only way in. Panels
+  already on a canvas keep working.
+
+- The sketch pad's canvas menu drops Load, Save to file, Export image and Save
+  as image — the drawing is inserted into the composer, not saved from the pad.
+
+- **Fullscreen no longer hands the browser's reserved keys to your agent.**
+  Capturing `Ctrl+T`, `Ctrl+W` and the rest needs a page that asked the
+  browser for fullscreen itself, which the mode no longer does; those keys
+  stay with the browser in every window. Everything else still reaches the
+  terminal untouched.
+
+- **Agent CLIs: the general Providers tab is gone.** Provider accounts of a
+  CLI are read in that CLI's **Providers** pane, so the tab strip no longer
+  carries a second CLI picker.
+
+- **Agent CLIs: the general Sessions tab is gone.** Sessions of a CLI are
+  read in that CLI's **Sessions** pane, so the tab strip no longer carries a
+  machine-wide list.
+
+- **Agent CLIs: the general Terminals tab is gone.** A terminal is read in
+  the Terminals section of the CLI that launches it, so the tab strip no
+  longer carries a machine-wide list; an old `#/clis/terminals` link opens
+  the CLI catalog.
+
+### Fixed
+
+- A terminal's folder is right from its first instant, for every reader. `#{pane_current_path}` answers with the tmux *server's* directory — the daemon's own working folder — for a pane tmux has not polled yet (`#{pane_pid}` is already set while it does: 33 of 40 creations in a loop), so anything reading a terminal's cwd in that window saw the wrong folder: the creation response, the file reader that resolves a relative path (`GET /api/terminals/{id}/text`, which answered 404 once under a sharded CI run), the Inspector's root. The tmux manager now remembers the folder it created each session in and answers with it for the first seconds, then follows the shell again.
+
+- In the desktop app, Documentation and other external links now open in
+  the system browser instead of dead-clicking.
+
+- `scripts/qa-scratch.sh stop` ends the daemon **it** started (the pid the daemon itself wrote to `data/server.json`, with the remembered pid as fallback) and verifies the port afterwards, instead of killing whoever holds the recorded port: a stale port file used to make `stop` kill a neighbouring scratch's daemon and leave its own alive. If a different process holds that port, the stop now leaves it alone and says so; terminals are still removed through the API first, so no tmux session is orphaned.
+- `start` refuses a port someone else holds instead of killing its holder, records the daemon's pid, and `status` prints port, pid, liveness and health.
+- A tmux socket that cannot be created is an error, not silence: `NewWithSocket` creates the socket's directory, and tmux's `error creating …`/`error connecting to …` text (printed with exit status 0 by `new-session`) is promoted to an error. Before, a session on an unusable socket path "succeeded" with nothing behind it.
+
+- A new terminal's folder is right from the first response. The creation answer read the pane's directory live, and that read races the pane's own process: tmux returns the *server's* directory — the daemon's own working folder — until the shell has spawned (measured: 12 of 30 creations in a loop), so the UI and the Inspector could see the wrong folder for a moment. The creation answer now names the folder the session was created in; every later poll still reads the live path, where a `cd` shows up.
+
+- The app shell now really runs under the Content-Security-Policy: `/browser/`, `/desktop/` and `/mobile/` — the URLs the launcher and the desktop shell actually load — carried no policy at all, because the header matched only `/`, `/index.html` and `*.html`. The script hash is computed from the file each path serves, so each shell's inline theme bootstrap stays allowed.
+
+- The Inspector's **Servers** tab is reachable with nothing selected: the tab row used to render only when an agent, terminal or workspace was the anchor, so the rail's empty state ("Open an agent or terminal to inspect its files.") had no way to the one panel that is about the machine rather than the selection.
+
+- **The download switch (and every browser preference) survives a save
+  now.** The page read the daemon's preferences twice — on load and after
+  each save — with two copies of the same mapping, and the save path's
+  copy had lost `askDownload`: the switch turned on, the answer came
+  back, and the row snapped off, never to turn on again. One reader,
+  `web/browser/src/lib/browserPrefs.js`, with the regression covered by
+  tests.
+
+- **The work browser's settings switches and actions now actually reach
+  the app.** The shell's ACL manifest (`build.rs`) never listed the
+  commands added after the first slice — `btab_set_prefs`,
+  `btab_clear_data`, `btab_open_external` and the whole Downloads set —
+  so every invoke was refused with "not allowed by ACL" and the page
+  swallowed the error. The commands are in the manifest and the
+  capability now, with their generated permission files.
+- **The download folder is picked with the app's folder browser** (the
+  same one the Add workspace dialog uses) instead of a typed path, and
+  the picked place is translated from the daemon's tree to the Windows
+  drive the browser writes on (`/mnt/c/...` → `C:\...`). A folder
+  outside a Windows drive is refused with a line saying why.
+
+- **One PiCode can no longer remove another PiCode's terminals.** Every
+  session PiCode creates now carries `PICODE_INSTANCE`, the data directory of
+  the instance that created it, and the tmux inspector reads it: a session
+  from a different PiCode on the same machine is labelled *another PiCode
+  instance's work* — with the text saying which one — instead of being
+  offered as a removable leftover. The removal itself refuses it, so the rule
+  holds even if the request does not come from the screen. Sessions created
+  before this version are told apart the same way, by the loopback port their
+  session environment names.
+
+- The work-browser tab took the whole window down: `WebTabSurface` named the "Show full URL" preference in an effect's dependency array above the `useState` that declares it, so rendering any browser tab threw `ReferenceError: Cannot access … before initialization` and React unmounted the app (blank page, every tab gone). A deploy from main would have carried it; a plain-browser session on main reproduces it in one click on **New browser tab**.
+
+- The work-browser tab crashed the whole shell: an address-bar preference was read by an effect before its own state existed (`ReferenceError: Cannot access … before initialization`, blank window on every work-browser tab). The tab strip also never received the tabs' addresses, so every web tab read "New tab".
+
+- **A long session preview no longer breaks the row.** In the Sessions tabs the
+  second line is the CLI's own prompt text — a paragraph, or a quoted Windows
+  path. It sized the line to its whole text and pushed **Open in terminal** and
+  the row menu outside the card; at the same time the model name (a secondary,
+  single-line attribute) refused to shrink, squeezed the session name to
+  nothing and painted over the age/size/count. A session row is now two
+  deterministic lines: identity + facts, then the preview with its buttons,
+  each clamped with `…`. Seen on Muse Code and Grok; every CLI's Sessions tab
+  uses the same row.
+
+- Terminal settings: a failed refresh of the guard no longer leaves the old
+  state on screen without a word.
+
+- Clearing site data no longer touches saved passwords or autofill; the
+  earlier one-click version included general autofill in its mask and
+  missed WebView2's own browsing history.
+
+- The server test that launches a terminal for the change feed no longer leaves
+  the tmux session behind: cleanup ran with `t.Context()`, which is canceled
+  before cleanups start, so every tmux call it made failed and each test run
+  left one session in the shared tmux server.
+
+- **`make ci` no longer leaves orphan shells on your tmux server.** The test
+  suites that start real tmux servers (server, tmux, term) now run them on a
+  private namespace that is torn down with the run — after a 2026-09-15 CI
+  run left twelve orphan shells behind. The harness also refuses, by
+  construction, to end a server outside its own directory.
+
+- **Terminal settings say what is wrong when there is no tmux server to
+  read.** With every terminal closed, the terminal settings catalog now
+  answers "Start a terminal to read the tmux option list." instead of an
+  internal error — a state an isolated test suite exposed on 2026-09-15.
+
+- A guard-style wrapper finding its real binary no longer depends on
+  `dirname(1)`: under a minimal PATH it could resolve to itself and loop.
+
+- **README and architecture docs corrected.** The Agent CLIs list now names
+  Muse Code and Antigravity as onboarding terminal-only entries, and the
+  architecture pages match the current routes (`/browser/`,
+  `/api/canvases`), the Go MCP broker, and the `web/browser` component
+  paths.
+
+- **Muse Code and Antigravity terminals wear their own mark in the sidebar,
+  the tabs and the phone.** A terminal launched with a CLI that reports no
+  activity (both of them today) fell back to the plain-shell icon, the
+  *Shell session* subtitle and the *Terminal open* status. Every surface now
+  resolves the identity from the runtime CLI, otherwise from the CLI the
+  terminal was launched with, so the row reads **Antigravity · Open** or
+  **Muse Code · Open** like any other CLI. It also lands in the dashboard's
+  CLI bucket instead of counting as a plain shell.
+- **A terminal created while the page is open stops looking like a shell.**
+  The creation only announced the bare record, so a new Muse Code or
+  Antigravity terminal kept the default icon until a reload; the launch view
+  now travels on the feed with it.
+
+- **Canvas: the plane fills the pane again, and *No canvas yet* sits in the
+  middle of it.** The page-frame change of 2026-09-14 dropped the surface's
+  own flex column, so the stage collapsed to its content: an open canvas
+  measured 0px tall (an invisible plane) and the empty state hugged the top
+  of the tab. A native surface (Canvas, the QA demo) keeps that column now.
+
+- **Create an agent in the grants empty state now opens the New agent
+  form.** It used to navigate home and nothing else (the handler called a
+  helper that fell through to the default route). The copy also says what
+  is true: grants apply to managed agents — sidebar sessions always read
+  the tab on screen.
+
+- **Grok 1.0.30 suggestions no longer block message delivery.** The new
+  build restyled the unaccepted suggestion in its composer, so automated
+  prompts silently stayed pending. Both captured suggestion styles are now
+  recognized, with the same strict frame, cursor and footer requirements.
+
+- **Inbox replies reach legacy terminal questions.** An `ask_human` item
+  from pi in an Agent CLI terminal that predates per-question session
+  stamping can now be answered from the Inbox when the terminal's pinned
+  session and the conversation its receiver is showing agree; the item
+  still stays open with an honest refusal when they disagree.
+
+- **The agent split's browser pane stayed painted over other tabs**: the
+  native WebView2 kept its last bounds when the hosting tab was switched
+  away (the pane mounts only for the active tab, and unmount never told the
+  shell to hide). Switching tabs — or closing the pane — now parks the
+  view; its page state survives and remounting brings it back.
+
+- Resuming a stopped CLI terminal that fails now says why on the pane
+  ("Codex was not found. Check its executable or PATH.") instead of nothing
+  changing when the button is pressed.
+
+- Sidebar: each tab (Workspaces, Agents, Terminals, Apps, Pins) keeps its header and search bar pinned at the top; scrolling now moves only the list, not the tab's controls.
+
+- **Communication delivery survives slow TUI redraws.** A native CLI
+  (Grok and the others) that renders the received prompt late under load no
+  longer ends a delivery as uncertain: the post-paste composer check is
+  sampled inside a bounded window, and a refusal log names which guard
+  refused without exposing screen content.
+
+- Destructive buttons on the phone (Delete) read destructive **before** the
+  tap. They only had a hover style, and a phone has no hover.
+
+- Opening a link to an inbox item that is gone (answered or removed elsewhere) says so — "This item is no longer in the list" with **Back to the list** — instead of `not found` with a *Try again* that could never work.
+- The tmux app's Sessions tab shows its session count instead of a `21 · 21 unclaimed` sentence, which no tab badge in the product had room for.
+- The split view's empty detail pane says "Pick an item from the list" — on a narrow window the list is above, not to the left.
+
+- **Communication: OpenCode now receives messages in narrow windows with deep project folders.** The delivery check no longer mistakes the wrapped folder path in OpenCode's footer for typed text; it accepts exactly the path rows the width implies and still refuses anything else.
+
+- Desktop: clicking a work-browser tab in the tab strip now selects it (it
+  silently did nothing — `openTab` had no web branch and fell through to the
+  agent lookup), and a selected browser tab no longer snaps back to the
+  previous tab on the next route reconcile. Work-browser tabs own a
+  `#/web/<id>` address the router writes and honors.
+
+- **The guide was showing `&#123;&#123;name&#125;&#125;` instead of `{{name}}`.**
+  Every placeholder on the public Snippets page was written as an HTML entity,
+  which a code block renders as literal text. The braces are real now, on that
+  page and everywhere the guide shows one.
+
+- **The Add/Edit endpoint buttons stay in reach.** A tall custom endpoint form
+  scrolled its **Back** / **Add endpoint** buttons off the bottom of the dialog,
+  so saving meant scrolling to find them. The action row is now pinned to the
+  dialog's (or the phone sheet's) bottom edge and the form scrolls under it.
+- **Verify says what it covers instead of a status it never had.** An endpoint
+  whose API type PiCode cannot speak (a hand-edited `models.json`) answered
+  "rejected the request (0)"; it now names the type and the four API shapes
+  verification can address, and reports that nothing was spent.
+
+- **A wrong key on a custom endpoint no longer reads as verified.** Verify used
+  to answer from credential presence, which stayed green for a bogus key; a
+  gateway that cannot list, a refused key, an exhausted account and an unknown
+  model each now say which one happened.
+
+- **Quota readings no longer outlive their window.** `Limits` now marks a
+  reading whose window has already reset as `stale · reset 2d ago` instead of
+  counting down to a past instant, and every row carries how old the reading
+  is (hover). A panel fed by one CLI also says so: `Covers Codex only.`
+
+- **A gateway's error message can no longer leak your key.** If an endpoint
+  echoes the API key back in an error, PiCode redacts it before the message
+  reaches the browser.
+
+- **The `Today` range drew one bar stretched across the whole chart.** A
+  one-day window was one calendar day, so the panel showed a single
+  full-width block under a range picker that promised a chart. `Today` is now
+  bucketed by hour (24 bars, labelled `midnight` … `11pm`, panel titled
+  `Hourly`), and every longer range keeps one bar per day.
+
+- The `events` verb now honours `since`: the sequence number the agent last saw
+  travelled at the top level of the request, where the channel never read it,
+  so every poll replayed the whole ring.
+
+- **A hand-edited `compat` key no longer hides the provider from the GUI.** A
+  string value in `compat` (such as `"thinkingFormat": "deepseek"`) made the
+  whole entry fail to decode, so the provider silently vanished from the
+  roster, Edit and the catalog while pi kept using it. The file is now read
+  key by key and unknown keys are left untouched.
+
+- Right-clicking a selection **inside a text field** now offers Copy and
+  **Save selection as snippet** enabled: the menu reads the field's own
+  selection, which the page's selection never saw.
+
+- `make desktop-shell` actually builds the Windows shell again — the target
+  was shadowed by the `desktop-shell/` directory and reported "up to date".
+
+- Agent CLIs: the page no longer sticks on its loading skeletons when the terminal list is slow — `GET /api/terminals` now serves a shared snapshot (singleflight + 1s TTL) computed by a bounded worker pool, and the page keeps the last result that landed instead of discarding every response older than the newest request.
+- Agent CLIs: web-tab ids (`w:<n>`) no longer reach `/api/agents/{id}/slash` and `/role-state` as agent ids (console 404s).
+
+- **A file, folder, git or app tab no longer asks the API for an agent's role.**
+  Selecting one of those tabs fetched `/role-state` and `/slash` with a tab id
+  the server does not know as an agent — two 404s per selection, a chat
+  composer asking a repository its role. Both fetches now ask `isAgentTab`
+  (a bare id, not a tagged surface), so they run where an agent is on screen
+  and nowhere else; the composer's role chip and slash list are unchanged on
+  an agent tab.
+
+- **Removing a workspace no longer takes the server down.** The git watcher
+  killed the whole daemon when it noticed a watched folder was gone: that path
+  had left the watch set, and the pass still read the group it no longer had.
+  A removal — a workspace, its last agent, or a folder that stopped being a
+  repository — is now a quiet pass; the removal event is what reconciles the
+  sidebar, as it always did.
+
+- **Private connection setup no longer lingers on disk.** PiCode removes a conversation's private setup files once its connection is revoked or the owner is deleted; the credential stopped working before, but the 0600 files used to stay behind.
+
+- **Continue: a session too large for Native can still use Brief.** The
+  dialog no longer leaves Continue disabled; Native is offered only when
+  the conversation fits, and Brief uses the recent turns.
+
+- **Grok terminals show Needs you while a question card waits.** The
+  `ask_user_question` card notified an `elicitation_dialog` notification that
+  the hook map ignored, so the row stayed on Working for the whole wait. The
+  question is now reported as a held attention, and it survives the sibling
+  tool completions Grok runs in the same parallel batch — the hold ends only
+  when the question tool itself completes.
+
+- **Terminal side padding is even.** xterm's fit floors the column count, so
+  unused pixels collected on the right of every pane (desktop app, browser,
+  and phone). The leftover is now split so both sides match the terminal
+  padding preference.
+
+- **Right-clicking a canvas opens the canvas's own menu again.** PiCode's
+  generic menu (Copy, Paste, Reload PiCode…) was answering instead, which
+  also meant that once you hid the canvas controls there was no way to bring
+  them back. Right-clicking inside a terminal panel still opens that
+  terminal's menu.
+
+- Keep a newly opened Claude Code terminal running when communication is enabled before its conversation is saved; connect after its first message creates a resumable conversation.
+- Keep terminal Pi message notifications pending while its editor contains an unsent draft, allowing delivery once the draft is cleared.
+- Explicitly ask native agents to execute the communication diagnostic after reading it.
+
+- Clicking the keyboard map no longer silently returns to Settings: the pane
+  rewrote the route to carry the selected agent and dropped the sub-tab with
+  it (the new pane cannot lose a tab it does not have, and the layer survives
+  the same rewrite).
+
+- Deliver first-message notifications to an idle Grok welcome screen while preserving draft, identity and exact-submit safeguards.
+
+- Recognize an empty OpenCode editor with its sidebar visible and working directory wrapped below the footer. Communication now measures pointer fit against the editor width while retaining draft and post-paste edit protection.
+
+- **The sketch pad on the phone fits the screen.** The drawing surface now
+  fills the usable area — no header under the status bar, no dead strip under
+  the drawing — and its Cancel/Insert buttons are thumb-sized (44px). It lives
+  inside the shell's viewport, so the software keyboard shrinks it correctly.
+- **The sketch canvas is dark in dark mode.** The pad asked Excalidraw for a
+  near-black canvas, which its dark-theme filter inverted back to light; the
+  canvas is plain white paper now, so the screen is dark and the PNG attached
+  to the terminal stays a white sheet.
+
+- `make worktree-status` no longer reports a finished branch as a stalled one:
+  a worktree whose branch `main` already contains reads *merged — `make
+  worktree-gc` can remove it*, and the handoff board's **In flight** section
+  lists only trees with unfinished work (a dirty tree is never called merged).
+
+- A settings value can now be *un-set*: `PUT /api/pi-settings` accepts
+  `patch.reset[]` and removes exactly those keys from the layer's file
+  (other keys, including ones PiCode does not know, stay). An unknown name is
+  refused rather than reported as inherited. After a reset, a running agent
+  adopts the effective compaction/steering/follow-up values instead of keeping
+  the override that just left the file.
+- A malformed `~/.pi/agent/settings.json` no longer disables the agent's own
+  Model/Tools/Checklist fields on the mobile quick sheet.
+
+- web: a TUI booting inside a terminal (OpenCode boots straight into it) could
+  freeze the pane at its first painted line until a reload. esbuild's minifier
+  dropped the `let` declaration of xterm 6's `requestMode` enum while keeping
+  the `(n = {})` assignment, so the first DECRQM query threw
+  `ReferenceError: n is not defined` inside the parser and stalled xterm's
+  write pipeline. The desktop and mobile builds now pin `@xterm/xterm` to its
+  UMD build, which ships the enum pre-compiled.
+
+- Recover observed native conversations and activity after a PiCode server restart on Linux/WSL, preserving running terminals, drafts and pending messages (ADR-0112).
+- Show activity, connection status and completed communication tests separately on desktop and mobile; keep selected participants visible while reconnecting.
+- Renew Pi receiver presence without restarting its terminal, and bind Hermes message commands to the native conversation when a background review changes its environment.
+- Deliver pending messages when Grok's empty composer shows an unaccepted native suggestion, preserving typed drafts and native approval guards.
+- Keep live native hooks working on hosts without Linux process metadata; distinguish temporary recorder writes from permanent recording failures.
+- Show a failed connection with a Terminal controls action when state recording is blocked, and record bounded delivery failure reasons without logging message content.
+- Bind native message commands to the launched CLI even when PiCode inherits another agent's environment; refuse a missing native identity instead of selecting the parent conversation.
+
+- Mobile rendered the Connectors pane without its stylesheet (the CSS was only
+  imported by the webhooks view, which mobile loads lazily). The pane imports
+  its own styles now.
+- Removing the unreachable second "MCPs" view (`#/mcps` already rewrote to the
+  Connectors pane) leaves one rendering path for both apps.
+
+- **Zooming out no longer turns a terminal panel white.** Below 75 % a panel
+  shows its last screen as text instead of a live terminal, and that text
+  was landing on the panel's own light ground — the same words, suddenly
+  looking like something other than a terminal. The still now keeps the
+  terminal's background and foreground, following your terminal theme.
+
+- **Deploying from a PiCode terminal no longer refuses because of that
+  terminal.** The interlock that protects other people's turns counted the
+  pane running `picode deploy` — which is working, by the act of asking —
+  so a deploy started from inside PiCode could be told to wait for itself.
+  It now ignores the caller's own pane; `--force` still means ending
+  someone else's turn.
+
+- Opening **Packages**, **Connectors** or **Settings** from Agent CLIs while a
+  workspace agent is selected (sidebar icon, then the pane tab) puts that
+  agent and folder on the URL, so **This workspace** / **This agent** appear
+  next to **This machine**.
+
+- **Canvas links now attach to the sides of the panels that face each
+  other.** A link used to leave from one point at the top of each card
+  wherever the two cards sat, so it could run out of a corner, cut across
+  the panel it belonged to, or — when a panel carried several links — leave
+  every one of them from the same spot. A link to a panel on the right now
+  joins right edge to left edge, one below joins bottom to top, and a
+  diagonal neighbour is met on the side it actually lies beyond. The line
+  leaves and enters at a right angle to the border it touches, and follows
+  the panels as you drag them.
+- **Several links out of one panel fan out instead of stacking.** Each one
+  leaves from the point on that side which faces its own target, and two
+  that would land on top of each other are pushed apart just far enough to
+  read as two lines — in the order of their targets, so they do not cross.
+- **The line you drag is the line you get.** While you drag a new link, the
+  preview leaves the same border the finished link will, and jumps to the
+  other panel's facing border as soon as you are over a panel the link can
+  land on.
+
+- Connectors opened from the composer, user menu, palette or More keep the
+  selected agent and workspace in the URL, so “This agent” and reload after
+  Add still work. Free agents resolve the same way as Packages.
+- `#/packages` and `#/settings` without a query adopt the selected pane
+  again once the fleet is ready. `#/clis/connectors` rewrites to Pi.
+  Extra path on Settings is blocked instead of opening the editor.
+
+- **The terminal shows one scrollbar, never two.** The web terminal is a tmux
+  client and tmux attaches on the alternate screen, so xterm has no scrollback
+  of its own — and yet it painted two one-pixel artefacts at the right edge of
+  every terminal: its own scrollbar (one pixel wide, because
+  `overviewRuler.width` is also its `verticalScrollbarSize`) and the overview
+  ruler's white outline. Both are hidden now, on desktop and mobile, together
+  with the eight-pixel scrollbar gutter the viewport reserved for a bar nobody
+  could see (Chromium only removed it on touch platforms; the terminal surface
+  painted over it). The fit keeps reserving the one pixel, so the text grid is
+  unchanged, and the wheel still scrolls what it always scrolled — tmux's
+  history or the TUI's own viewport. The scrollbar a reader sees is the one
+  that belongs to whoever holds the scrollback.
+
+- **The Inspector's branch chip is readable again.** A branch name and a
+  worktree name were sharing one chip's width, each with its own ellipsis,
+  and together they read as `· fe… ·…`. The row shows the branch, which is
+  what it is for; the worktree is in the tooltip with the rest, and on a
+  narrow rail the *unpublished* / *detached* word steps aside for the name
+  instead of the other way round.
+
+- **Fullscreen: the Inspector button in the top strip shows the panel.** It
+  only flipped the rail's dock preference while fullscreen keeps the rail off
+  screen by itself, so the click changed an icon and nothing on the page.
+  Inside the mode it now lays the rail over the page at once — opening the
+  rail when it was closed — and hiding it there takes only the overlay down,
+  never the dock you set outside the mode. A panel opened that way stays until
+  the same button, Escape or the mode: it no longer slides shut behind a
+  pointer that never entered it. The right edge still works, and the rail can
+  be turned on from the strip with the mode already running.
+
+- **Approving a permission prompt no longer leaves the row saying "Needs
+  you" while the agent works.** Grok, Claude Code and Codex report a waiting
+  prompt as `needs-you`, but none of them emits a "permission resolved"
+  event, and none of them registered a tool-activity hook to contradict it —
+  so the row stayed `Needs you` for the rest of the turn. A Grok plan-mode
+  approval showed it for 10+ minutes after the plan had been approved. The
+  tool lifecycle is now the resume signal (`PostToolUse`, plus
+  `PostToolUseFailure` where the CLI has it), so the first tool that runs
+  after the answer returns the terminal to `Working`.
+- A Grok notification that is not a permission prompt (`task_complete`, …)
+  no longer turns the row into a false `Needs you`; only a permission UI
+  that is actually waiting does.
+
+- The release dialog was 400 px wide, not the 560 px it asked for: `.dlg` is
+  declared later in the stylesheet at the same specificity, so its `width` —
+  and its `padding`, which kept the header and footer hairlines inset from the
+  dialog's edge — won silently.
+- The matrix highlight of v0.2.0 wore a generic sparkle: the note's icon name
+  had no glyph in either shell. Desktop draws it with the Canvas glyph, the
+  phone with the panel grid, and `web/tools/release-note-icons.test.mjs` now
+  fails when a published icon name is missing.
+- A build with no release notes showed the changelog link twice — once as the
+  empty state's action and again in the footer.
+
+- Column headings are only drawn when there are rows, so an empty search no
+  longer leaves a header over nothing, and the empty roster shows one action
+  instead of two identical Add provider buttons.
+- With no providers connected the page no longer renders an empty toolbar
+  row.
+
+- **Dashboard: Grok's tokens, cost, turns, tool calls and timings now show
+  up.** The Grok coverage row said "prompt history only" and rendered `—`
+  beside a CLI that has been writing a `summary.json`, an `events.jsonl`
+  turn/tool timeline and a `usage.json` per-turn count into every session
+  directory. Turns, tools and durations come from `events.jsonl`; the model
+  from `summary.json`; tokens and cost from `usage.json`, which Grok only
+  began writing in 1.0.x. Because older sessions have no `usage.json`,
+  tokens and cost report as *partial* with both counts — the coverage row
+  says exactly how many turns are priced — instead of a total that quietly
+  omits them.
+
+- **Inbox: ignoring a question from a pi in an Agent CLI terminal now
+  closes it.** Ignore sends nothing, so it no longer needs that terminal to
+  be live and on the same session — it never claims "no reply" and then
+  refuses to be dismissed.
+- **Inbox: a reply to a terminal question fails with the truth.** A pi in
+  that terminal that had not opened a conversation (a nested `pi -p`, a
+  print-mode run) could take the reply file and answer "the terminal is
+  showing a different session". The daemon now refuses before parking when
+  the receiver names no session, each reply file is addressed to the
+  process whose hello was accepted, and a sessionless hello can no longer
+  take that address over — so another pi in the same terminal can neither
+  consume nor blind the reply.
+
+- **Codex terminals no longer try to resume a sub-agent conversation.** Codex multi-agent v2 sub-agents (helper threads like "Gibbs") could overwrite the conversation a terminal remembers, and Codex refuses to resume them (`Process exited (1)`). Sub-agent threads are now ignored for resume, in live hook reports and in the session list — resume always brings back the conversation you were in.
+
+- An old `#/clis/terminals?…` link now rewrites the address to `#/clis`
+  like the plain address always did, instead of keeping the stale URL while
+  showing the catalog.
+
+### Security
+
+- `frame-src` (with the dev-server preview) allows PiCode's own browser surface to frame this machine's `localhost`/`127.0.0.1` pages over http(s) and nothing else; the framed page remains a separate origin with its own policy, and `frame-ancestors 'self'` keeps PiCode itself unframed by others.
+
+- Read is the default and the ceiling: an agent with no grant reads the tab the
+  human has on screen, and cannot click, type or navigate. Anything more needs
+  an explicit per-agent grant (Settings ▸ Browser, next).
+
+- **The desktop debug port is off by default.** It was opened on loopback in
+  every launch; it is now an explicit `PICODE_CDP_PORT` opt-in for external
+  tooling. The agent access tiers (`read` / `act` / `full`) are enforced
+  against a named command catalog, and an unnamed command is refused at every
+  tier.
+
 ## [0.2.0] - 2026-09-11
 
 ### Added
