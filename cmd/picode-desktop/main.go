@@ -49,6 +49,7 @@ func main() {
 	method := fs.String("method", "", "with disk-compact: sparse (default) | optimize-vhd")
 	apply := fs.String("apply", "", "with clean: comma-separated cache ids to prune")
 	listOnly := fs.Bool("list", false, "with clean: measure and print the prunable caches")
+	retargetShell := fs.Bool("retarget-shell", false, "with startup-repair: move the task to the shell resident")
 	fs.Usage = usage
 	_ = fs.Parse(commandArgs())
 
@@ -67,7 +68,7 @@ func main() {
 	case cmd == "startup-check":
 		exit(runStartupCheck())
 	case cmd == "startup-repair":
-		exit(runStartupRepair())
+		exit(runStartupRepair(*retargetShell))
 	case cmd == "install":
 		exit(runInstall(*distro, *user))
 	case cmd == "uninstall":
@@ -125,6 +126,7 @@ Usage:
   picode-desktop disk-compact    give the held space back: stop the distro, convert the file, start it again
   picode-desktop startup-check   inspect Windows startup without starting WSL
   picode-desktop startup-repair  repair the existing task, without restarting anything
+    --retarget-shell  move the task to the shell resident (ADR-0142) as well
   picode-desktop install         set the machine up and start with Windows
   picode-desktop uninstall       stop starting with Windows (PiCode stays installed)
   picode-desktop update          replace this program with a newer release

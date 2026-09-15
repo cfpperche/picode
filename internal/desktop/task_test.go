@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"unicode/utf16"
@@ -46,8 +48,12 @@ func TestTaskPolicyDecisionTable(t *testing.T) {
 		{"noninteractive", func(s *TaskStatus) { s.Interactive = false }, "signed-in account", false},
 		{"no enabled logon", func(s *TaskStatus) { s.Logon = false }, "sign-in trigger", false},
 		{"trigger limit", func(s *TaskStatus) { s.TriggerLimited = true }, "own execution limit", false},
-		{"foreign action", func(s *TaskStatus) { s.Arguments = "install" }, "single tray launch", false},
-		{"multiple actions", func(s *TaskStatus) { s.Executable = "" }, "single tray launch", false},
+		{"foreign action", func(s *TaskStatus) { s.Arguments = "install" }, "single resident launch", false},
+		{"multiple actions", func(s *TaskStatus) { s.Executable = "" }, "single resident launch", false},
+		{"healthy shell", func(s *TaskStatus) {
+			s.Executable = `C:\Users\owner\PiCode\picode-shell.exe`
+			s.Arguments = "--hidden"
+		}, "", true},
 		{"missing exe", func(s *TaskStatus) { s.ExecutableExists = false }, "executable is missing", false},
 		{"72 hours", func(s *TaskStatus) { s.ExecutionTimeLimit = "PT72H" }, "PT72H", true},
 		{"battery start", func(s *TaskStatus) { s.DisallowStartIfOnBatteries = true }, "battery", true},
@@ -155,6 +161,11 @@ func TestRepairTaskDecisionTable(t *testing.T) {
 		{"already healthy", func(*TaskStatus) {}, false, 1},
 		{"healthy disabled", func(s *TaskStatus) { s.Enabled = false }, false, 1},
 		{"legacy", func(s *TaskStatus) { s.ExecutionTimeLimit = "PT72H" }, false, 2},
+		{"shell legacy", func(s *TaskStatus) {
+			s.Executable = `C:\Users\owner\PiCode\picode-shell.exe`
+			s.Arguments = "--hidden"
+			s.ExecutionTimeLimit = "PT72H"
+		}, false, 2},
 		{"missing", func(s *TaskStatus) { s.Exists = false }, true, 1},
 		{"foreign principal", func(s *TaskStatus) { s.UserID = "someone-else" }, true, 1},
 		{"elevated", func(s *TaskStatus) { s.Limited = false }, true, 1},
@@ -164,6 +175,8 @@ func TestRepairTaskDecisionTable(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			before, after := healthyTask(), healthyTask()
 			tt.change(&before)
+			// A policy repair preserves the action; the reply mirrors it.
+			after.Executable, after.Arguments = before.Executable, before.Arguments
 			r := &fakeRunner{replies: [][]byte{taskJSON(t, before), taskJSON(t, after)}}
 			_, err := RepairTask(r)
 			if (err != nil) != tt.wantErr || len(r.calls) != tt.calls {
@@ -194,6 +207,159 @@ func TestTaskWritesMustVerifyTheReturnedPolicy(t *testing.T) {
 	s.Enabled = false
 	if _, err := InstallTask(&fakeRunner{replies: [][]byte{taskJSON(t, s)}}, s.Executable); err == nil {
 		t.Fatal("install claimed success for a disabled task")
+	}
+}
+
+func TestResidentKind(t *testing.T) {
+	for args, want := range map[string]string{"--tray": "tray", "--hidden": "shell", "": "", "install": "", "--Tray": ""} {
+		if got := ResidentKind(args); got != want {
+			t.Errorf("ResidentKind(%q) = %q, want %q", args, got, want)
+		}
+	}
+}
+
+func TestShellExePrefersSiblingThenInstallFolder(t *testing.T) {
+	tool := filepath.Join(t.TempDir(), "tool")
+	data := t.TempDir()
+	sibling := filepath.Join(tool, ShellExeName)
+	installed := filepath.Join(data, "PiCode", ShellExeName)
+	if err := os.MkdirAll(filepath.Join(data, "PiCode"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(installed, []byte("shell"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got, err := ShellExe(filepath.Join(tool, "picode-desktop.exe"), data)
+	if err != nil || got != installed {
+		t.Fatalf("ShellExe without sibling = %q, %v", got, err)
+	}
+	if err := os.MkdirAll(tool, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sibling, []byte("shell"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got, err = ShellExe(filepath.Join(tool, "picode-desktop.exe"), data)
+	if err != nil || got != sibling {
+		t.Fatalf("ShellExe with sibling = %q, %v", got, err)
+	}
+	bare := filepath.Join(t.TempDir(), "picode-desktop.exe")
+	if _, err := ShellExe(bare, t.TempDir()); err == nil {
+		t.Fatal("missing shell was found")
+	}
+}
+
+func TestRetargetTaskDecisionTable(t *testing.T) {
+	shell := filepath.Join(t.TempDir(), ShellExeName)
+	if err := os.WriteFile(shell, []byte("shell"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tray := filepath.Join(t.TempDir(), "picode-desktop.exe")
+	if err := os.WriteFile(tray, []byte("tray"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	healthyShell := func() TaskStatus {
+		s := healthyTask()
+		s.Executable, s.Arguments = shell, ShellArgs
+		return s
+	}
+	healthyTray := func() TaskStatus {
+		s := healthyTask()
+		s.Executable = tray
+		return s
+	}
+	tests := []struct {
+		name    string
+		exe     string
+		args    string
+		change  func(*TaskStatus)
+		after   func() TaskStatus
+		wantErr string
+		calls   int
+	}{
+		{"tray to shell", shell, ShellArgs, func(*TaskStatus) {}, healthyShell, "", 2},
+		{"already shell healthy", shell, ShellArgs, func(s *TaskStatus) {
+			s.Executable, s.Arguments = shell, ShellArgs
+		}, healthyShell, "", 1},
+		{"already shell legacy policy", shell, ShellArgs, func(s *TaskStatus) {
+			s.Executable, s.Arguments = shell, ShellArgs
+			s.ExecutionTimeLimit = "PT72H"
+		}, healthyShell, "", 2},
+		{"shell back to tray", tray, TrayArgs, func(s *TaskStatus) {
+			s.Executable, s.Arguments = shell, ShellArgs
+		}, healthyTray, "", 2},
+		{"missing task", shell, ShellArgs, func(s *TaskStatus) { s.Exists = false }, healthyShell, "retargeted safely", 1},
+		{"foreign principal", shell, ShellArgs, func(s *TaskStatus) { s.UserID = "someone-else" }, healthyShell, "retargeted safely", 1},
+		{"foreign action", shell, ShellArgs, func(s *TaskStatus) { s.Arguments = "version" }, healthyShell, "unrelated command", 1},
+		{"unknown target launch", shell, "version", func(*TaskStatus) {}, healthyShell, "resident launch", 0},
+		{"relative target", "picode-shell.exe", ShellArgs, func(*TaskStatus) {}, healthyShell, "absolute path", 0},
+		{"missing target file", filepath.Join(t.TempDir(), ShellExeName), ShellArgs, func(*TaskStatus) {}, healthyShell, "missing", 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			before := healthyTask()
+			tt.change(&before)
+			after := tt.after()
+			r := &fakeRunner{replies: [][]byte{taskJSON(t, before), taskJSON(t, after)}}
+			_, err := retargetTask(r, TaskName, tt.exe, tt.args)
+			if (err != nil) != (tt.wantErr != "") || (err != nil && !strings.Contains(err.Error(), tt.wantErr)) {
+				t.Fatalf("err = %v, want %q", err, tt.wantErr)
+			}
+			if len(r.calls) != tt.calls {
+				t.Fatalf("calls = %d, want %d", len(r.calls), tt.calls)
+			}
+		})
+	}
+}
+
+func TestRetargetWritesMustVerifyTheReturnedPolicy(t *testing.T) {
+	shell := filepath.Join(t.TempDir(), ShellExeName)
+	if err := os.WriteFile(shell, []byte("shell"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// The reply still carries the legacy policy: the write must be refused.
+	after := healthyTask()
+	after.Executable, after.Arguments = shell, ShellArgs
+	after.ExecutionTimeLimit = "PT72H"
+	r := &fakeRunner{replies: [][]byte{taskJSON(t, healthyTask()), taskJSON(t, after)}}
+	if _, err := retargetTask(r, TaskName, shell, ShellArgs); err == nil || !strings.Contains(err.Error(), "verification failed") {
+		t.Fatalf("unverified retarget accepted: %v", err)
+	}
+}
+
+func decodeTaskCall(t *testing.T, argv []string) string {
+	t.Helper()
+	if len(argv) != 4 || argv[0] != "-NoProfile" || argv[1] != "-NonInteractive" || argv[2] != "-EncodedCommand" {
+		t.Fatalf("unexpected PowerShell arguments: %v", argv[:3])
+	}
+	b, err := base64.StdEncoding.DecodeString(argv[3])
+	if err != nil {
+		t.Fatal(err)
+	}
+	units := make([]uint16, len(b)/2)
+	for i := range units {
+		units[i] = binary.LittleEndian.Uint16(b[i*2:])
+	}
+	return string(utf16.Decode(units))
+}
+
+func TestRetargetArgsCarryTargetAndGuards(t *testing.T) {
+	exe := `C:\Users\owner\PiCode\picode-shell.exe`
+	script := decodeTaskCall(t, taskRetargetArgs(TaskName, exe, ShellArgs))
+	if !strings.HasSuffix(script, "-Operation 'retarget' -Name 'PiCodeDesktop' -ExecutablePath 'C:\\Users\\owner\\PiCode\\picode-shell.exe' -Arguments '--hidden'") {
+		t.Fatalf("retarget call was not complete: %s", script[len(taskScript):])
+	}
+	for _, guard := range []string{
+		"$Arguments -notin @('--tray', '--hidden')",
+		"'The resident launch must be --tray or --hidden.'",
+		"$definition.Actions.Item(1).Path = $ExecutablePath",
+		"$definition.Actions.Item(1).Arguments = $Arguments",
+		"if ($Operation -ne 'install') { $flags = 4 }",
+		"'Startup task runs an unrelated command; inspect it before reinstalling.'",
+	} {
+		if !strings.Contains(script, guard) {
+			t.Errorf("retarget is missing %s", guard)
+		}
 	}
 }
 

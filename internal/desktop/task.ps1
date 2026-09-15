@@ -1,7 +1,8 @@
 param(
-    [ValidateSet('inspect', 'install', 'repair')][string]$Operation,
+    [ValidateSet('inspect', 'install', 'repair', 'retarget')][string]$Operation,
     [string]$Name,
-    [string]$ExecutablePath
+    [string]$ExecutablePath,
+    [string]$Arguments
 )
 
 $ErrorActionPreference = 'Stop'
@@ -116,15 +117,30 @@ try {
         if ($null -ne $task -and (UserSid $task.Definition.Principal.UserId) -ne $currentSid) {
             throw 'The startup task belongs to another Windows account; no changes made.'
         }
-        if ($Operation -eq 'repair') {
+        if ($Operation -eq 'repair' -or $Operation -eq 'retarget') {
             if ($null -eq $task) { throw 'Startup task is missing. Run picode-desktop install.' }
             $definition = $task.Definition
             if ($definition.Principal.LogonType -ne 3 -or $definition.Principal.RunLevel -ne 0 -or
                 -not (HasLogon $definition) -or $definition.Actions.Count -ne 1 -or
-                $definition.Actions.Item(1).Type -ne 0 -or $definition.Actions.Item(1).Arguments -ne '--tray' -or
-                (TriggerLimited $definition) -or
-                -not (Test-Path -LiteralPath ($definition.Actions.Item(1).Path.Trim('"')) -PathType Leaf)) {
+                $definition.Actions.Item(1).Type -ne 0 -or (TriggerLimited $definition)) {
                 throw 'Startup task is not the expected limited logon task; inspect it before reinstalling.'
+            }
+            if ($definition.Actions.Item(1).Arguments -notin @('--tray', '--hidden')) {
+                throw 'Startup task runs an unrelated command; inspect it before reinstalling.'
+            }
+            if ($Operation -eq 'repair') {
+                if (-not (Test-Path -LiteralPath ($definition.Actions.Item(1).Path.Trim('"')) -PathType Leaf)) {
+                    throw 'Startup task is not the expected limited logon task; inspect it before reinstalling.'
+                }
+            } else {
+                if (-not [IO.Path]::IsPathRooted($ExecutablePath) -or -not (Test-Path -LiteralPath $ExecutablePath -PathType Leaf)) {
+                    throw 'The resident executable must be an existing absolute file path.'
+                }
+                if ($Arguments -notin @('--tray', '--hidden')) {
+                    throw 'The resident launch must be --tray or --hidden.'
+                }
+                $definition.Actions.Item(1).Path = $ExecutablePath
+                $definition.Actions.Item(1).Arguments = $Arguments
             }
         } else {
             if (-not [IO.Path]::IsPathRooted($ExecutablePath) -or -not (Test-Path -LiteralPath $ExecutablePath -PathType Leaf)) {
@@ -153,8 +169,8 @@ try {
             $backup = Join-Path $backupDir ($Name + '-' + [Guid]::NewGuid().ToString('N') + '.xml')
             [IO.File]::WriteAllText($backup, $task.Xml, [Text.Encoding]::Unicode)
         }
-        $flags = 6 # TASK_CREATE_OR_UPDATE; repair must never recreate a task removed concurrently.
-        if ($Operation -eq 'repair') { $flags = 4 }
+        $flags = 6 # TASK_CREATE_OR_UPDATE; repair and retarget must never recreate a task removed concurrently.
+        if ($Operation -ne 'install') { $flags = 4 }
         $folder.RegisterTaskDefinition($Name, $definition, $flags, $currentSid, $null, 3, $null) | Out-Null
         $task = $folder.GetTask($Name)
     }
