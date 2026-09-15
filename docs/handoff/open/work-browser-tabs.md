@@ -14,9 +14,10 @@ screenshot round-tripped through the bound pane).
 ## Next
 
 - Slice 4 (`feat/browser-grants`) left: `act` verbs + origin rule, grants editor, shell navigation gate mirroring `browser.AllowsOrigin`.
-- New browser tab button (tab-strip end) crashes the app (`ReferenceError`, React root unmounts; verified pre-existing on a `main` scratch 2026-09-15).
 
 ## Notes
+
+- **The blank window (any work-browser tab) is FIXED** (2026-09-15, `feat/browser-tab-crash`): `showFullUrl` was read in the meta effect's deps above its own `useState` — a `const` touched in the same render before its declaration throws and unmounts the React root. Verified before/after on two scratches (main: blank page + `ReferenceError`; the fix: the tab opens and its notice renders). No JS linter and no component test exists in this repo to catch the class — a `biome`-style `noInvalidUseBeforeDeclaration` guard would be its own task.
 
 - **Split survives relaunch: DONE (2026-09-14)** — layout + last url persist; boot prunes dead hosts; webview recreated on host-tab show. Post-deploy: re-check the recreate in the shell.
 
