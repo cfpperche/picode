@@ -25,6 +25,7 @@ editor and footer, excluding conversation history. No new protocol or dependency
 | Text changed after paste or pointer wraps | Refuse Enter | `TestPeerGrokBorderedComposer` |
 | Post-paste frame not settled at the first sample (render lag under load) | Poll the exact same guards inside a bounded 1.2 s window; Enter only on a full-frame match | `TestPeerPasteSettleWindow`, `TestPeerAttentionFailureReasons` |
 | Frame still unsettled when the window expires, or a draft appears mid-window | Refuse uncertain, never retry, no draft touched | `TestPeerPasteSettleWindow` |
+| Unaccepted suggestion, Grok 1.0.30 restyle (styled border/gutter/prompt, italic + dim-gray text, styled closing border) | Recognize as empty together with the exact suggestion footer, empty cursor and complete frame — same as the 1.0.25 shape | `TestPeerGrokNativeSuggestion1030`; native `check_NZ2UPKO3QEVF37…` passed with the suggestion visible |
 | Live draft before the paste | Leave pending, refuse silently before any claim | `TestPeerAttentionFailureReasons`; native `check_74DN3QWOTQS7HOGY2J7VTRNCZX` expired with the draft byte-identical |
 
 ## Native acceptance
@@ -69,3 +70,15 @@ pointer pasted and submitted once, native read, correlated `OK` reply and both
 acknowledgments (`native-result.json`, `messages-pi.json`, `messages-grok.json`).
 A second check fired with a live draft in the composer expired after five
 minutes with the draft byte-identical and no paste (row above).
+
+## Grok 1.0.30 suggestion restyle (2026-09-14)
+
+The correlation re-run under load expired claude → grok with zero attention
+attempts: Grok 1.0.30 restyled the unaccepted suggestion (styled border,
+gutter and prompt glyph; italic plus a separate dim-gray foreground closed by
+`\x1b[0m`; colored padding; styled closing border), so the 1.0.25 capture no
+longer matched and the pre-claim empty-editor check silently kept the mail
+pending. Both captured styles are now recognized through one matcher with
+unchanged requirements — exact suggestion footer, empty cursor, complete
+frame, no rows below. `check_NZ2UPKO3QEVF376WNAMKALBJWH` passed natively with
+the suggestion frame visible.

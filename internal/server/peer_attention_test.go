@@ -137,7 +137,44 @@ func TestPeerGrokBorderedComposer(t *testing.T) {
 }
 
 func TestPeerGrokNativeSuggestion(t *testing.T) {
-	raw, err := os.ReadFile("testdata/grok-bordered-suggestion.json")
+	testPeerGrokSuggestionFixture(t, "testdata/grok-bordered-suggestion.json",
+		[]suggestionMutation{
+			{name: "dim only", change: func(s *tmux.InputSnapshot) {
+				s.Lines[s.CursorY] = strings.Replace(s.Lines[s.CursorY], "\x1b[2;3m", "\x1b[2m", 1)
+			}},
+			{name: "italic only", change: func(s *tmux.InputSnapshot) {
+				s.Lines[s.CursorY] = strings.Replace(s.Lines[s.CursorY], "\x1b[2;3m", "\x1b[3m", 1)
+			}},
+		})
+}
+
+// Grok 1.0.30 restyled the unaccepted suggestion (styled border and gutter,
+// italic plus separate dim-gray text, styled closing border) — same captured
+// shape, cursor, frame and footer requirements, verified against a live frame.
+func TestPeerGrokNativeSuggestion1030(t *testing.T) {
+	testPeerGrokSuggestionFixture(t, "testdata/grok-bordered-suggestion-1030.json",
+		[]suggestionMutation{
+			{name: "italic dropped", change: func(s *tmux.InputSnapshot) {
+				s.Lines[s.CursorY] = strings.Replace(s.Lines[s.CursorY], "\x1b[3m", "", 1)
+			}},
+			{name: "dim gray recolored", change: func(s *tmux.InputSnapshot) {
+				s.Lines[s.CursorY] = strings.Replace(s.Lines[s.CursorY], "\x1b[38;2;88;88;88m", "\x1b[38;2;200;200;200m", 1)
+			}},
+			{name: "plain padding recolored", change: func(s *tmux.InputSnapshot) {
+				s.Lines[s.CursorY] = strings.Replace(s.Lines[s.CursorY], "\x1b[48;2;20;20;20m", "", 1)
+			}},
+		})
+}
+
+type suggestionMutation struct {
+	name   string
+	change func(*tmux.InputSnapshot)
+	want   bool
+}
+
+func testPeerGrokSuggestionFixture(t *testing.T, path string, styles []suggestionMutation) {
+	t.Helper()
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,22 +182,21 @@ func TestPeerGrokNativeSuggestion(t *testing.T) {
 	if err = json.Unmarshal(raw, &native); err != nil {
 		t.Fatal(err)
 	}
-	for _, tc := range []struct {
-		name   string
-		change func(*tmux.InputSnapshot)
-		want   bool
-	}{
+	mutations := append([]suggestionMutation{
 		{name: "captured empty suggestion", want: true},
-		{name: "typed draft with cursor at start", change: func(s *tmux.InputSnapshot) { s.Lines[1] = terminalSGR.ReplaceAllString(s.Lines[1], "") }},
-		{name: "dim only", change: func(s *tmux.InputSnapshot) { s.Lines[1] = strings.Replace(s.Lines[1], "\x1b[2;3m", "\x1b[2m", 1) }},
-		{name: "italic only", change: func(s *tmux.InputSnapshot) { s.Lines[1] = strings.Replace(s.Lines[1], "\x1b[2;3m", "\x1b[3m", 1) }},
-		{name: "accepted prefix", change: func(s *tmux.InputSnapshot) { s.Lines[1] = strings.Replace(s.Lines[1], "❯ ", "❯ typed", 1) }},
+		{name: "typed draft with cursor at start", change: func(s *tmux.InputSnapshot) { s.Lines[s.CursorY] = terminalSGR.ReplaceAllString(s.Lines[s.CursorY], "") }},
+		{name: "accepted prefix", change: func(s *tmux.InputSnapshot) {
+			s.Lines[s.CursorY] = strings.Replace(s.Lines[s.CursorY], "❯ ", "❯ typed", 1)
+		}},
 		{name: "cursor moved", change: func(s *tmux.InputSnapshot) { s.CursorX++ }},
-		{name: "wrong footer", change: func(s *tmux.InputSnapshot) { s.Lines[4] = "  Enter:send  │  Shift+Tab:mode  │  Ctrl+x:shortcuts" }},
+		{name: "wrong footer", change: func(s *tmux.InputSnapshot) {
+			s.Lines[s.CursorY+3] = "  Enter:send  │  Shift+Tab:mode  │  Ctrl+x:shortcuts"
+		}},
 		{name: "copy mode", change: func(s *tmux.InputSnapshot) { s.InMode = true }},
 		{name: "resized", change: func(s *tmux.InputSnapshot) { s.Width-- }},
-		{name: "multiline draft", change: func(s *tmux.InputSnapshot) { s.Lines[0] = "  │ previous draft line │" }},
-	} {
+		{name: "multiline draft above", change: func(s *tmux.InputSnapshot) { s.Lines[s.CursorY-1] = "  │ previous draft line │" }},
+	}, styles...)
+	for _, tc := range mutations {
 		t.Run(tc.name, func(t *testing.T) {
 			s := native
 			s.Lines = append([]string(nil), native.Lines...)

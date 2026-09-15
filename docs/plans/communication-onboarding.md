@@ -141,3 +141,31 @@ Evidence: `var/qa/onboard-matrix/` (uncommitted).
 Transport itself was verified natively this run (deliver, read, ack, reply,
 ack); what failed is check **correlation** under a restart plus model
 discretion. The September 12 paired-transport acceptance stands unchanged.
+
+## Correlation re-run — 2026-09-14 (settle-window build, machine under load)
+
+Scratch `localhost:8472`, four TUIs (pi agent + native pi, grok, claude-code,
+opencode), load average 5–9 throughout — deliberately not the quiet machine
+the matrix asked for: the settle window exists to remove the load
+sensitivity, so passing under load is the stronger result. Evidence:
+`var/qa/check-correlation-rerun/`.
+
+| Pair | Result | Cause when it failed in the matrix |
+|---|---|---|
+| pi agent → grok | **passed** (`check_WLMFCEN65BYDZE…`) | grok Enter withheld under load — fixed by the settle window |
+| opencode → native pi | **passed** (`check_I54V6YN3KUEFQG…`) | both scratch sessions killed externally mid-window |
+| pi agent → grok, 1.0.30 suggestion frame visible | **passed** (`check_NZ2UPKO3QEVF37…`) | validates the new suggestion capture natively |
+| claude → grok | expired (`check_H5CTPKDMJUHM…`) | scratch Claude credentials expired mid-run ("Login expired · Please run /login"); the pointer was delivered, the model could not run — vendor/credential cause, not the mailbox |
+
+New vendor finding, fixed in the same branch: Grok 1.0.30 restyled the
+unaccepted suggestion (styled border/gutter/prompt, italic + separate
+dim-gray text, styled closing border), so the 1.0.25 capture no longer
+matched and attention silently kept the mail pending. Both captured styles
+are now recognized
+(`testdata/grok-bordered-suggestion-1030.json`); recognized only with the
+exact suggestion footer, empty cursor and complete frame, as before.
+
+Standing limits: claude → grok needs a Claude login in the scratch HOME
+(owner's weekly limit resets 8am) — transport for that pair was accepted
+2026-09-12 (Claude → Hermes) and grok-as-recipient correlation passed twice
+here. Physical mobile and non-Linux recovery remain unverified.

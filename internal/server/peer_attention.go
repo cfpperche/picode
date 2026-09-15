@@ -79,6 +79,24 @@ func peerUnsettled(err error) bool {
 
 var grokEmptySuggestion = regexp.MustCompile(`^  │ ❯ \x1b\[2;3m([^\x1b\r\n\t]+)\x1b\[0m( +)│ *$`)
 
+// Grok 1.0.30 restyles the same unaccepted suggestion: the border, gutter and
+// prompt glyph carry their own color, the text is italic plus a separate
+// dim-gray foreground closed by \x1b[0m, the padding rows carry fg+bg colors and
+// the closing border is styled too. Same requirements as the 1.0.25 shape:
+// empty cursor, complete frame, exact suggestion footer. Capture:
+// testdata/grok-bordered-suggestion-1030.json.
+var grokEmptySuggestion1030 = regexp.MustCompile(`^  \x1b\[38;2;80;80;88m│\x1b\[38;2;225;225;225m \x1b\[38;2;200;200;200m❯ \x1b\[3m\x1b\[38;2;88;88;88m([^\x1b\r\n\t]+)\x1b\[0m\x1b\[38;2;225;225;225m\x1b\[48;2;20;20;20m( +)\x1b\[38;2;80;80;88m│\x1b\[39m *$`)
+
+// grokSuggestionMatch recognizes either captured suggestion style and returns
+// the suggestion text plus its padding so the row can be normalized to an
+// empty editor.
+func grokSuggestionMatch(line string) []string {
+	if m := grokEmptySuggestion.FindStringSubmatch(line); m != nil {
+		return m
+	}
+	return grokEmptySuggestion1030.FindStringSubmatch(line)
+}
+
 // The screen is an additional conservative input gate. A lifecycle hook and
 // native session binding are mandatory independently of these cursor checks.
 func peerInputMatches(cli string, s tmux.InputSnapshot, expected string) bool {
@@ -149,7 +167,7 @@ func peerGrokBoxInput(s tmux.InputSnapshot, expected string) bool {
 	// empty cursor. Require that exact style and footer together; typed or
 	// partly accepted text must still fail the empty-editor check.
 	if expected == "" {
-		if match := grokEmptySuggestion.FindStringSubmatch(s.Lines[y]); match != nil {
+		if match := grokSuggestionMatch(s.Lines[y]); match != nil {
 			suggestion = true
 			line = "  │ ❯ " + strings.Repeat(" ", utf8.RuneCountInString(match[1])+len(match[2])) + "│"
 		}
