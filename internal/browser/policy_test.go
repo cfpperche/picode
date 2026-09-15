@@ -18,6 +18,35 @@ func testStore(t *testing.T) *store.Store {
 	return st
 }
 
+func TestResolveCallerIsTheHouseIdentity(t *testing.T) {
+	// ADR-0143: managed agent (id) → terminal (term id) → unmanaged, and
+	// unmanaged reads the tab on screen — never more.
+	st := testStore(t)
+	if err := Save(st, "agent-1", Policy{Tier: "act"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Save(st, TerminalPrefix+"term-9", Policy{Tier: "full"}); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name        string
+		agent, term string
+		want        string
+	}{
+		{"managed agent wins over the terminal", "agent-1", "term-9", "act"},
+		{"terminal principal", "", "term-9", "full"},
+		{"agent without a grant", "agent-2", "", "read"},
+		{"terminal without a grant", "", "term-8", "read"},
+		{"unmanaged caller", "", "", "read"},
+		{"ungranted agent next to a granted terminal", "agent-2", "term-9", "read"},
+	}
+	for _, tc := range cases {
+		if got := ResolveCaller(st, tc.agent, tc.term).Tier; got != tc.want {
+			t.Errorf("%s: %s, want %s", tc.name, got, tc.want)
+		}
+	}
+}
+
 func TestDefaultIsReadOnTheTabOnScreen(t *testing.T) {
 	// ADR-0134: no grant reads the tab the human has on screen, and nothing
 	// else. The domains list stays empty — the target is the tab, not an origin.

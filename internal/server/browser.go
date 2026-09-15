@@ -49,6 +49,7 @@ func handleBrowserTool(deps Deps) http.HandlerFunc {
 		}
 		var req struct {
 			Agent  string          `json:"agent"`
+			Term   string          `json:"term,omitempty"`
 			Verb   string          `json:"verb"`
 			Params json.RawMessage `json:"params,omitempty"`
 		}
@@ -77,7 +78,8 @@ func handleBrowserTool(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusForbidden, "agents may not use the built-in browser right now — turn it back on in Settings ▸ Browser")
 			return
 		}
-		policy := browser.Resolve(deps.Store, req.Agent)
+		// ADR-0143: the caller is a managed agent, a terminal, or neither.
+		policy := browser.ResolveCaller(deps.Store, req.Agent, req.Term)
 		if !policy.Allows(verb) {
 			writeErr(w, http.StatusForbidden, fmt.Sprintf(
 				"%s needs the %s tier; this agent has %s — grant it in Settings ▸ Browser",

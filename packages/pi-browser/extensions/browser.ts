@@ -106,6 +106,9 @@ export default function piBrowser(pi: ExtensionAPI) {
 			token = resolveToken(process.env, await readText(join(dataDir, "token")));
 			const body = JSON.stringify({
 				agent: (process.env.PICODE_AGENT_ID || "").trim(),
+				// ADR-0143: the same identity tuple pi-inbox and pi-checklist use —
+				// a CLI in a PiCode terminal has no agent id, only a terminal one.
+				term: (process.env.PICODE_TERM_ID || "").trim(),
 				verb: params.verb,
 				params: { since: params.since, expression: params.expression, url: params.url },
 			});
