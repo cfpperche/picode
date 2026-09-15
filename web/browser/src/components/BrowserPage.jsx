@@ -60,12 +60,18 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     }
   }, [hidden, load, loadHistory]);
 
+  const invoke = typeof window !== "undefined" && window.__TAURI__ ? window.__TAURI__.core.invoke : null;
+
+  // PUT saves the editor's whole state (the endpoint replaces, not patches);
+  // autofill flags are pushed to the shell so every webview picks them up.
   const setPref = (patch) => {
-    setPrefs((p) => ({ ...p, ...patch }));
-    fetch("/api/browser/prefs", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) })
+    const next = { ...prefs, ...patch };
+    setPrefs(next);
+    fetch("/api/browser/prefs", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
       .then((r) => r.json())
       .then((p) => setPrefs(p))
       .catch(() => {});
+    invoke?.("btab_set_prefs", { passwordAutosave: next.passwordAutosave, generalAutofill: next.generalAutofill }).catch(() => {});
   };
   const setShowFullUrl = (on) => setPref({ showFullUrl: on });
   const DESTS = [
@@ -175,6 +181,19 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
           <span className="grant-name">Show full URL</span>
           <span className="settings-hint" style={{ flex: 1 }}>Include the path, query, and fragment in the address bar — off shows the site only.</span>
           <button type="button" className="btn btn-ghost" role="switch" aria-checked={prefs.showFullUrl} aria-label="Show full URL" onClick={() => setShowFullUrl(!prefs.showFullUrl)}>{prefs.showFullUrl ? "On" : "Off"}</button>
+        </div>
+      </div>
+      <h4 className="settings-sub">Autofill and passwords</h4>
+      <div className="settings-card">
+        <div className="grant-row">
+          <span className="grant-name">Password manager</span>
+          <span className="settings-hint" style={{ flex: 1 }}>Save and fill sign-ins in the built-in browser.</span>
+          <button type="button" className="btn btn-ghost" role="switch" aria-checked={prefs.passwordAutosave} aria-label="Password autosave" onClick={() => setPref({ passwordAutosave: !prefs.passwordAutosave })}>{prefs.passwordAutosave ? "On" : "Off"}</button>
+        </div>
+        <div className="grant-row">
+          <span className="grant-name">Contact info</span>
+          <span className="settings-hint" style={{ flex: 1 }}>Save and fill addresses, phone numbers, and email addresses.</span>
+          <button type="button" className="btn btn-ghost" role="switch" aria-checked={prefs.generalAutofill} aria-label="General autofill" onClick={() => setPref({ generalAutofill: !prefs.generalAutofill })}>{prefs.generalAutofill ? "On" : "Off"}</button>
         </div>
       </div>
       <h4 className="settings-sub">Browsing history</h4>
