@@ -1723,6 +1723,20 @@ export default function App({ shellChrome = false } = {}) {
     return () => un.then((f) => f());
   }, [shellChrome]);
 
+  // Downloads (slice 3.3d): the shell reports each download as it starts and
+  // again when it lands or breaks. The row lives in the daemon's store, so
+  // the report goes through the API (the shell never talks to the store) and
+  // Settings ▸ Browser reads it back.
+  useEffect(() => {
+    if (!shellChrome || !window.__TAURI__) return undefined;
+    const un = window.__TAURI__.event.listen("btab://download", (e) => {
+      const d = e.payload ?? {};
+      const url = d.status === "started" ? "/api/browser/downloads" : "/api/browser/downloads/status";
+      fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).catch(() => {});
+    });
+    return () => un.then((f) => f());
+  }, [shellChrome]);
+
   // The daemon's work-browser command channel (ADR-0132): one stream per shell
   // window. A command runs against the work-browser tab on screen; the ref
   // keeps the listener on the current tab without reopening the stream.

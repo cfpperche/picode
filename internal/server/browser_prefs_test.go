@@ -26,7 +26,7 @@ func prefsServer(t *testing.T) *httptest.Server {
 
 func TestPrefsDestinationsRoundTrip(t *testing.T) {
 	ts := prefsServer(t)
-	put, _ := json.Marshal(map[string]any{"showFullUrl": true, "webOpenDest": "external", "localOpenDest": "app", "passwordAutosave": false, "generalAutofill": false, "agentAccess": false})
+	put, _ := json.Marshal(map[string]any{"showFullUrl": true, "webOpenDest": "external", "localOpenDest": "app", "passwordAutosave": false, "generalAutofill": false, "askDownload": true, "agentAccess": false})
 	resp, err := http.NewRequest(http.MethodPut, ts.URL+"/api/browser/prefs", bytes.NewReader(put))
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +53,10 @@ func TestPrefsDestinationsRoundTrip(t *testing.T) {
 	if body["agentAccess"] != false {
 		t.Fatalf("the master switch did not round trip: %v", body)
 	}
-	bad, _ := json.Marshal(map[string]any{"showFullUrl": true, "webOpenDest": "printer", "localOpenDest": "app", "passwordAutosave": true, "generalAutofill": true, "agentAccess": true})
+	if body["askDownload"] != true {
+		t.Fatalf("the download prompt pref did not round trip: %v", body)
+	}
+	bad, _ := json.Marshal(map[string]any{"showFullUrl": true, "webOpenDest": "printer", "localOpenDest": "app", "passwordAutosave": true, "generalAutofill": true, "askDownload": true, "agentAccess": true})
 	badResp, err := http.DefaultClient.Do(mustRequest(http.MethodPut, ts.URL+"/api/browser/prefs", bad))
 	if err != nil {
 		t.Fatal(err)
