@@ -425,6 +425,17 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			_ = s.ConsumePairing(code)
 		}, []string{"pairing.created", "pairing.used"}},
 		{"SetSetting", func(s *Store) { _ = s.SetSetting("k", "v") }, []string{"setting.updated"}},
+		{"SetBrowserPermission (new site)", func(s *Store) {
+			_, _ = s.SetBrowserPermission("meet.example.com", "camera", "allow")
+		}, []string{"browserpermission.updated"}},
+		{"DeleteBrowserPermission", func(s *Store) {
+			p, _ := s.SetBrowserPermission("meet.example.com", "camera", "allow")
+			_ = s.DeleteBrowserPermission(p.ID)
+		}, []string{"browserpermission.updated", "browserpermission.updated"}},
+		{"ClearBrowserPermissions", func(s *Store) {
+			_, _ = s.SetBrowserPermission("meet.example.com", "camera", "allow")
+			_ = s.ClearBrowserPermissions("camera")
+		}, []string{"browserpermission.updated", "browserpermission.updated"}},
 		{"AddBrowserDownload (start)", func(s *Store) {
 			_, _ = s.AddBrowserDownload("https://files.example/a.zip", `C:\Users\me\Downloads\a.zip`, 10)
 		}, []string{"browserdownload.updated"}},

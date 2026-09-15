@@ -33,6 +33,7 @@ func registerBrowserRoutes(mux Registrar, deps Deps) {
 	registerBrowserPolicyRoutes(mux, deps)
 	registerBrowserHistoryRoutes(mux, deps)
 	registerBrowserDownloadRoutes(mux, deps)
+	registerBrowserPermissionRoutes(mux, deps)
 	registerBrowserPrefRoutes(mux, deps)
 }
 

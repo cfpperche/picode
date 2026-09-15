@@ -1,0 +1,8 @@
+# 2026-09-15 — launch-reader: Muse Code and Antigravity as handoff sources
+
+Fatia 2 of docs/plans/launch-muse-agy.md: Muse Code and Antigravity as handoff sources via new Readers (owner approved, 2026-09-15).
+Shipped: MuseSource.Read shells out to muse export --session <id|path> --out <tmp> (60s timeout, MUSE_NO_AUTO_UPDATE=1, MuseBin test override) and projects export_schema_version 1: user_intent.accepted user turns, assistant_message_committed, tool call/result batches linked by call id, model from metadata/model_completed, reasoning counted as thinking and dropped; approval records carry model as an object so it decodes late (found live: 134 automated_review records broke struct-shape decode); over-cap exports get ErrTooLarge even with Tail.
+AgySource.Read parses brain/<id>/transcript.jsonl (USER_INPUT with <USER_REQUEST> unwrap, PLANNER_RESPONSE; GENERIC/LIST_DIRECTORY residue and contentless markers skipped), deliberately not the SQLite protobuf (unversioned fields); a pin carrying the conv db path resolves to its transcript.
+Verified on a scratch seeded with real stores: catalog caps muse/agy {list,read,prompt:true}; preview agy->pi 200 modes [native,brief] 2 messages; preview muse->pi 200 modes [native,brief] 47 messages with 631/631 call/result linkage measured against the real binary. Sessions rows and Continue in… on muse/agy terminals follow the same caps with no UI change.
+Still missing: Launch settings (Fatia 3), native import writers (Fatia 4). One transient ci-scoped FAIL reran green uncached (no cause found).
+visual-review: N/A (no rendered surface changed; verification is API + unit + live-binary probe)

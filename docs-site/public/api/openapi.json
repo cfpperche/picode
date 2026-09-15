@@ -2370,6 +2370,108 @@
         ]
       }
     },
+    "/api/browser/permissions": {
+      "get": {
+        "operationId": "getApiBrowserPermissions",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      },
+      "post": {
+        "operationId": "postApiBrowserPermissions",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      }
+    },
+    "/api/browser/permissions/clear": {
+      "post": {
+        "operationId": "postApiBrowserPermissionsClear",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      }
+    },
+    "/api/browser/permissions/{id}": {
+      "delete": {
+        "operationId": "deleteApiBrowserPermissions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      }
+    },
     "/api/browser/policies": {
       "get": {
         "operationId": "getApiBrowserPolicies",
