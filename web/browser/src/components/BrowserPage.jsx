@@ -61,6 +61,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   }, [hidden, load, loadHistory]);
 
   const invoke = typeof window !== "undefined" && window.__TAURI__ ? window.__TAURI__.core.invoke : null;
+  const [confirmWipe, setConfirmWipe] = useState(false);
 
   // PUT saves the editor's whole state (the endpoint replaces, not patches);
   // autofill flags are pushed to the shell so every webview picks them up.
@@ -109,6 +110,21 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     setConfirmClear(false);
     await fetch("/api/browser/history/clear", { method: "POST" }).catch(() => {});
     loadHistory();
+  };
+
+  // Clear browsing data: the profile is shared, so one call wipes cookies,
+  // site storage and cache for every tab; our own history store clears too.
+  const clearBrowsingData = async () => {
+    if (!confirmWipe) {
+      setConfirmWipe(true);
+      setTimeout(() => setConfirmWipe(false), 4000);
+      return;
+    }
+    setConfirmWipe(false);
+    if (invoke) await invoke("btab_clear_data").catch((e) => toast("Clearing site data failed: " + (e?.message || e)));
+    await fetch("/api/browser/history/clear", { method: "POST" }).catch(() => {});
+    loadHistory();
+    toast.ok("Browsing data cleared.");
   };
 
   const draftOf = (row) => drafts[row.agentId] ?? { tier: row.tier, domainsText: domainsText(row) };
@@ -207,6 +223,9 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
             <div className="grant-row">
               <span className="grant-name">{history.length + (history.length === 50 ? "+" : "")} {history.length === 1 ? "page" : "pages"}</span>
               <span style={{ flex: 1 }} />
+              <button type="button" className={"btn" + (confirmWipe ? " btn-danger" : "")} onClick={clearBrowsingData}>
+                {confirmWipe ? "Really clear site data?" : "Clear browsing data"}
+              </button>
               <button type="button" className={"btn" + (confirmClear ? " btn-danger" : "")} onClick={clearHistory}>
                 {confirmClear ? "Really clear all?" : "Clear history"}
               </button>

@@ -634,3 +634,62 @@ fn apply_autofill(app: &AppHandle, id: &str) {
         let _ = s9.SetIsGeneralAutofillEnabled(gen);
     });
 }
+
+// Clear the work profile's browsing data (slice 3): cookies, all site
+// storage, cache, service workers, download history and WebView2's own
+// browsing history — passwords and autofill are deliberately NOT in the
+// mask (those are the Autofill and passwords switches). The profile is
+// shared, so one open browser tab reaches it for every tab.
+#[tauri::command]
+pub async fn btab_clear_data(app: AppHandle) -> Result<(), String> {
+    let (_, wv) = app
+        .webview_windows()
+        .into_iter()
+        .find(|(name, _)| name.starts_with("btab-"))
+        .ok_or("no browser tab is open")?;
+    let (tx, rx) = mpsc::channel::<Result<(), String>>();
+    let done = tx.clone();
+    let sent = wv.with_webview(move |platform| unsafe {
+        let Ok(core) = platform.controller().CoreWebView2() else {
+            let _ = done.send(Err("the page's webview is gone".into()));
+            return;
+        };
+        let core13: webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_13 = match core.cast() {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = done.send(Err(format!("{e}")));
+                return;
+            }
+        };
+        let Ok(profile) = core13.Profile() else {
+            let _ = done.send(Err("profile unavailable".into()));
+            return;
+        };
+        let p2: webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Profile2 = match profile.cast() {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = done.send(Err(format!("{e}")));
+                return;
+            }
+        };
+        let k = |v: i32| webview2_com::Microsoft::Web::WebView2::Win32::COREWEBVIEW2_BROWSING_DATA_KINDS(v);
+        let mask = k(0x0004 | 0x0008 | 0x0010 | 0x0020 | 0x0040 | 0x0080 | 0x0100 | 0x0200 | 0x0400);
+        let handler_done = done.clone();
+        let handler = webview2_com::ClearBrowsingDataCompletedHandler::create(Box::new(move |hr| {
+            let _ = match hr {
+                Ok(()) => handler_done.send(Ok(())),
+                Err(e) => handler_done.send(Err(format!("{e}"))),
+            };
+            Ok(())
+        }));
+        if let Err(e) = p2.ClearBrowsingData(mask, &handler) {
+            let _ = done.send(Err(format!("{e}")));
+        }
+    });
+    sent.map_err(|e| format!("with_webview: {e}"))?;
+    match rx.recv_timeout(Duration::from_secs(20)) {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(e)) => Err(e),
+        Err(_) => Err("clearing browsing data timed out".into()),
+    }
+}
