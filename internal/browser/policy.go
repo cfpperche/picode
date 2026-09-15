@@ -61,6 +61,26 @@ func tierOrder(tier string) (int, bool) {
 	return 0, false
 }
 
+// TerminalPrefix names a terminal principal's grant (ADR-0143): a CLI running
+// in a PiCode terminal has no agent id of its own, and the prefix keeps the
+// two namespaces apart in the same setting table.
+const TerminalPrefix = "term:"
+
+// ResolveCaller applies the house identity rule (ADR-0143, the same one
+// pi-inbox and pi-checklist use): a managed agent id wins, a terminal id is
+// the second branch, and a caller with neither is unmanaged — Default(),
+// always. A terminal that never got a grant therefore reads the tab on
+// screen, exactly like an agent without one.
+func ResolveCaller(st *store.Store, agentID, termID string) Policy {
+	if id := strings.TrimSpace(agentID); id != "" {
+		return Resolve(st, id)
+	}
+	if term := strings.TrimSpace(termID); term != "" {
+		return Resolve(st, TerminalPrefix+term)
+	}
+	return Default()
+}
+
 // Save writes one agent's grant (slice 4's editor is the writer).
 func Save(st *store.Store, agentID string, p Policy) error {
 	if _, ok := tierOrder(p.Tier); !ok {
