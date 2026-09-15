@@ -1,9 +1,11 @@
 package clisession
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -161,5 +163,77 @@ func TestAgyWorkspaceAndTime(t *testing.T) {
 		if got := agyTime(tc.in); got != tc.want {
 			t.Errorf("agyTime(%q) = %q, want %q", tc.in, got, tc.want)
 		}
+	}
+}
+
+func TestAgyReadTranscript(t *testing.T) {
+	dir := t.TempDir()
+	AgyTestDB = filepath.Join(dir, "conversation_summaries.db")
+	t.Cleanup(func() { AgyTestDB = "" })
+	logs := filepath.Join(dir, "brain", "c1", ".system_generated", "logs")
+	if err := os.MkdirAll(logs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	lines := []string{
+		`{"source":"USER_EXPLICIT","type":"USER_INPUT","status":"DONE","created_at":"2026-09-15T01:52:12Z","content":"<USER_REQUEST>\nfix the race\n</USER_REQUEST>\n<ADDITIONAL_METADATA>\nlocal time\n</ADDITIONAL_METADATA>"}`,
+		`{"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-15T01:52:40Z","content":"On it."}`,
+		`{"source":"MODEL","type":"GENERIC","status":"DONE","created_at":"2026-09-15T01:52:41Z","content":"file dump"}`,
+		`{"source":"SYSTEM","type":"CHECKPOINT","status":"DONE","created_at":"2026-09-15T01:52:42Z"}`,
+		`not json`,
+		`{"source":"USER_EXPLICIT","type":"USER_INPUT","status":"DONE","created_at":"2026-09-15T01:53:00Z","content":"thanks"}`,
+		`{"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-15T01:53:05Z","content":"Done."}`,
+	}
+	if err := os.WriteFile(filepath.Join(logs, "transcript.jsonl"), []byte(strings.Join(lines, "\n")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tl, err := (AgySource{}).Read(context.Background(), Ref{ID: "c1", Cwd: "/w"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tl.Events) != 4 {
+		t.Fatalf("events = %d, want 4 (residue, markers and malformed stay out)", len(tl.Events))
+	}
+	if tl.Events[0].Role != "user" || tl.Events[0].Text != "fix the race" || tl.Events[0].Group != 1 {
+		t.Errorf("first event = %+v, want the unwrapped user turn in group 1", tl.Events[0])
+	}
+	if tl.Events[1].Role != "assistant" || tl.Events[1].Text != "On it." || tl.Events[1].Group != 1 {
+		t.Errorf("second event = %+v, want the assistant turn in group 1", tl.Events[1])
+	}
+	if tl.Events[2].Group != 2 || tl.Events[3].Group != 2 {
+		t.Errorf("second turn groups = %d,%d, want 2,2", tl.Events[2].Group, tl.Events[3].Group)
+	}
+	if tl.Header.Title != "fix the race" || tl.Header.SourceID != "c1" || tl.Header.Cwd != "/w" {
+		t.Errorf("header = %+v", tl.Header)
+	}
+	if tl.Manifest.Dropped["agy.tool-output"] != 1 || tl.Manifest.Dropped["agy.malformed"] != 1 {
+		t.Errorf("manifest = %+v, want one tool-output and one malformed", tl.Manifest.Dropped)
+	}
+}
+
+func TestAgyReadMissingAndEscape(t *testing.T) {
+	dir := t.TempDir()
+	AgyTestDB = filepath.Join(dir, "conversation_summaries.db")
+	t.Cleanup(func() { AgyTestDB = "" })
+	if _, err := (AgySource{}).Read(context.Background(), Ref{ID: "nope"}); err == nil {
+		t.Error("missing transcript reads no error")
+	}
+	if _, err := (AgySource{}).Read(context.Background(), Ref{}); err == nil {
+		t.Error("empty ref reads no error")
+	}
+	// A pin carrying the conversation store resolves to its transcript.
+	logs := filepath.Join(dir, "brain", "c9", ".system_generated", "logs")
+	if err := os.MkdirAll(logs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	line := `{"source":"USER_EXPLICIT","type":"USER_INPUT","status":"DONE","created_at":"2026-09-15T01:52:12Z","content":"hi"}`
+	if err := os.WriteFile(filepath.Join(logs, "transcript.jsonl"), []byte(line), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tl, err := (AgySource{}).Read(context.Background(), Ref{Path: filepath.Join(dir, "conversations", "c9.db")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tl.Events) != 1 || tl.Events[0].Text != "hi" {
+		t.Errorf("db-path pin = %+v, want the one user turn", tl.Events)
 	}
 }
