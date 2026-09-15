@@ -22,6 +22,13 @@ frontend 792+357+338+9. Scratch `devserver` (:8473): a dev server in a PiCode
 terminal listed with title/owner, **Open** renders it inside PiCode, live
 reload updates it, the terminal's URL opens in PiCode, reload restores the
 tab; audit ok.
+Verified on both shells in a plain browser (`/browser/` = the desktop layout a
+browser opens, `/desktop/` = the composition the Windows shell loads: same
+components, `web/desktop` is `boot()` over `web/browser`): the Servers tab,
+the row, **Open** and the frame all work in each; the native WebView2 path is
+the shell's own `btab_navigate`, unchanged by this branch. One visual defect
+found and fixed while checking: the row clipped the workspace name at a 300px
+rail — the owner line now wraps.
 Not verified by me: the physical Ctrl+click (the harness cannot hold a
 modifier across a synthetic click — the menu's "Open localhost" row, same
 handler, was used) and the real WebView2 path (desktop app only).

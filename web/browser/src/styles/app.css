@@ -1838,10 +1838,14 @@ img.ws-face.term-cli-face {
 .insp-server-top { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
 .insp-server-port { font-family: var(--code); font-size: 12px; color: var(--text-secondary); }
 .insp-server-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.insp-server-sub {
+.insp-server-sub, .insp-server-meta {
   font-size: 12px; color: var(--text-secondary); overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap;
 }
+/* The owner line wraps instead of clipping: at a ~300px rail
+   `terminal "Terminal" · Dev server demo` did not fit on one line and the
+   workspace name — half of what the row is for — was cut (measured). */
+.insp-server-meta { font-size: 11px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
 .insp-server-open { flex: none; font-size: 12px; color: var(--accent); }
 /* Agent split (ADR-0135 slice 1): the agent pane and its bound work-browser
    pane share the tab side by side; both stay visible while either has

@@ -73,7 +73,8 @@ export default function InspectorServers({ onOpen, hidden }) {
               <span className="insp-server-port">{s.port}</span>
               <span className="insp-server-name">{s.title || s.tool || "unnamed page"}</span>
             </span>
-            <span className="insp-server-sub">{serverSub(s)}</span>
+            <span className="insp-server-sub" title={s.url}>{s.url}</span>
+            <span className="insp-server-meta" title={serverMeta(s)}>{serverMeta(s)}</span>
           </span>
           <span className="insp-server-open">Open</span>
         </button>
@@ -82,11 +83,13 @@ export default function InspectorServers({ onOpen, hidden }) {
   );
 }
 
-// serverSub is the quieter half of a row: where it answers first (the part a
-// reader came for), then who owns the port. A server nobody in PiCode started
-// is still worth a row — the panel says so instead of guessing.
-function serverSub(s) {
+// serverMeta is the quieter half of a row: who owns the port, and the
+// workspace that owner belongs to. A server nobody in PiCode started is still
+// worth a row — the panel says so instead of guessing. It gets its own line
+// because the rail is ~300px: sharing one with the URL is what hid the
+// workspace name (measured on a 300px rail, "… · terminal \"Terminal\" ·"
+// already reached the edge).
+function serverMeta(s) {
   const who = s.ownerName ? (s.ownerKind === "agent" ? `agent "${s.ownerName}"` : `terminal "${s.ownerName}"`) : "not started here";
-  const mine = s.workspace ? `${who} · ${s.workspace}` : who;
-  return `${s.url} · ${mine}`;
+  return s.workspace ? `${who} · ${s.workspace}` : who;
 }
