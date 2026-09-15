@@ -108,7 +108,13 @@ export function cliLocation(hash = "", legacy = {}) {
   const loc = { view: "clis", id: cli, pane, ...(workspace ? { workspace } : {}) };
   if (pane === "providers") {
     const rest = decode(parts[3]);
+    const rest2 = decode(parts[4]);
     if (rest === "new") loc.add = true;
+    // The custom endpoint form is a page, not a dialog step (benchmarks.md
+    // refuses modals for flows longer than 2 fields): /custom starts one,
+    // /custom/<id> edits it. Anything deeper is an invalid link.
+    else if (rest === "custom" && !rest2 && !parts[5]) loc.custom = "new";
+    else if (rest === "custom" && rest2 && !parts[5]) { loc.custom = "edit"; loc.customId = rest2; }
     else if (rest) loc.invalid = true;
     if (["agentId", "workspaceId", "scope"].some((key) => params.has(key))) loc.scoped = true;
   }

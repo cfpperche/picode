@@ -2,8 +2,9 @@
 export const CLI_PROVIDERS = [{ id: "pi", name: "Pi" }];
 export const supportsCliProviders = id => CLI_PROVIDERS.some(cli => cli.id === id);
 
-export function cliProvidersHash(cli = "pi", { add = false } = {}) {
-  return "#/clis/" + encodeURIComponent(cli || "pi") + "/providers" + (add ? "/new" : "");
+export function cliProvidersHash(cli = "pi", { add = false, custom = false, customId = "" } = {}) {
+  const tail = custom ? "/custom" + (customId ? "/" + encodeURIComponent(customId) : "") : add ? "/new" : "";
+  return "#/clis/" + encodeURIComponent(cli || "pi") + "/providers" + tail;
 }
 
 export function cliProvidersLocation(hash = "") {

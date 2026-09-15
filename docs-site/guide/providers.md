@@ -35,10 +35,11 @@ configured on that provider.
 
 ## Custom endpoint
 
-**Add provider → Custom endpoint** adds a gateway pi does not know out of
-the box — OpenRouter-style aggregators, prepaid wallets, self-hosted routers. The form
-asks for a name, the base URL, the API key and the model ids exactly as the
-gateway spells them.
+**Add provider → Custom endpoint** opens a page that adds a gateway pi
+does not know out of the box — OpenRouter-style aggregators, prepaid wallets,
+self-hosted routers. The form asks for a name, the base URL, the API key and
+the model ids exactly as the gateway spells them. Use lowercase letters,
+digits and dashes for the name — it becomes the provider id.
 
 | Field | Goes to |
 |---|---|

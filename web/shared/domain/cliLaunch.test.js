@@ -27,6 +27,11 @@ test("a CLI page names its pane in the path (ADR-0079 amendment 2026-09-11)", ()
   assert.deepEqual(cliLocation("#/clis/pi/providers"), { view: "clis", id: "pi", pane: "providers" });
   assert.deepEqual(cliLocation("#/clis/pi/providers/new"), { view: "clis", id: "pi", pane: "providers", add: true });
   assert.deepEqual(cliLocation("#/clis/codex/providers"), { view: "clis", id: "codex", pane: "providers" });
+  assert.deepEqual(cliLocation("#/clis/pi/providers/custom"), { view: "clis", id: "pi", pane: "providers", custom: "new" });
+  assert.deepEqual(cliLocation("#/clis/pi/providers/custom/cheap"), { view: "clis", id: "pi", pane: "providers", custom: "edit", customId: "cheap" });
+  assert.deepEqual(cliLocation("#/clis/pi/providers/custom/a%20b"), { view: "clis", id: "pi", pane: "providers", custom: "edit", customId: "a b" });
+  assert.equal(cliLocation("#/clis/pi/providers/custom/cheap/extra").invalid, true);
+  assert.equal(cliLocation("#/clis/pi/providers/nope").invalid, true);
   assert.equal(cliPaneHash("pi", "providers"), "#/clis/pi/providers");
   assert.deepEqual(cliLocation("#/clis/pi/settings"), { view: "clis", pane: "settings", id: "pi", agentId: "", focus: "", layer: "", keysTab: false, legacy: false, redirect: "" });
   assert.deepEqual(cliLocation("#/clis/pi/packages"), { view: "clis", pane: "packages", id: "pi", pkg: "", workspaceId: "", agentId: "", scope: "user", legacy: false, invalid: false, redirect: "" });

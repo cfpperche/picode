@@ -39,7 +39,8 @@ export function prefSection(hash) {
   return "appearance";
 }
 
-export function go(section) {
+export function go(section, customId = "") {
+  if (section === "providers-custom") { location.hash = cliProvidersHash("pi", { custom: true, customId }); return; }
   if (!section || section === "providers" || section === "providers-new") { location.hash = cliProvidersHash("pi", { add: section === "providers-new" }); return; }
   location.hash = "#/more/" + encodeURIComponent(section || "providers");
 }
