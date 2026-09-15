@@ -1,3 +1,7 @@
+#![cfg_attr(
+    not(debug_assertions),
+    windows_subsystem = "windows"
+)]
 // picode-shell is the Desktop v2 window (docs/plans/desktop-v2.md,
 // ADR-0120) and, since ADR-0142, the only Windows resident: a thin Tauri 2
 // shell that renders the PiCode UI served by the daemon inside WSL, holds
@@ -119,7 +123,7 @@ fn main() {
             // merged top row itself — brand, rail tabs, agent tabs and the
             // Windows caption buttons (ADR-0122). The shell only strips the
             // native frame.
-            WebviewWindowBuilder::new(app, "main", target)
+            let main_win = WebviewWindowBuilder::new(app, "main", target)
                 .title("PiCode")
                 .inner_size(1360.0, 880.0)
                 .min_inner_size(720.0, 480.0)
@@ -127,6 +131,18 @@ fn main() {
                 .visible(!hidden)
                 .data_directory(browserlab::webview_profile())
                 .build()?;
+            // Close hides, exactly like the lab window below: without this
+            // the X destroys "main", and tray click + Open PiCode silently
+            // no-op on the missing window (2026-09-15: reopen dead in 0.3.0).
+            {
+                let hidden_main = main_win.clone();
+                main_win.on_window_event(move |e| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = e {
+                        api.prevent_close();
+                        let _ = hidden_main.hide();
+                    }
+                });
+            }
             let status_item =
                 MenuItem::with_id(app, "status", "Starting…", false, None::<&str>)?;
             let status_sep = PredefinedMenuItem::separator(app)?;
