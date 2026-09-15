@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // The guard is the safety property of this file: a harness may end the server
@@ -45,24 +46,28 @@ func TestDefaultSocketDirFollowsTmuxsOwnOrder(t *testing.T) {
 }
 
 // A private directory is accepted, and killing the server there ends it: the
-// socket file disappears and a plain `tmux ls` (which inherits the same
-// environment) sees no server.
+// session list comes back empty. The fixture addresses its server by -S
+// rather than by rebinding the process-wide TMUX_TMPDIR — this test ends a
+// server, and the env shape pointed every other tmux call in the binary at
+// the one being dismantled (2026-09-15). KillIsolatedServer still takes the
+// *directory*: it derives tmux's socket path from it, which is the same path
+// the manager below carries, so the two halves agree without an env.
 func TestKillIsolatedServerEndsAServerInItsOwnDirectory(t *testing.T) {
 	if !New().Available() {
 		t.Skip("tmux not installed")
 	}
 	dir := t.TempDir()
-	t.Setenv(SocketDirEnv, dir) // every tmux call in this test now goes there
-	if err := New().NewSession(context.Background(), SessionName("guard-test"), dir, "sleep", "30"); err != nil {
+	m := NewWithSocket(filepath.Join(dir, "tmux-"+itoa(os.Getuid()), "default"))
+	if err := m.NewSession(context.Background(), SessionName("guard-test"), dir, "sleep", "30"); err != nil {
 		t.Fatalf("NewSession: %v", err)
 	}
-	if got, err := New().ListSessions(context.Background()); err != nil || len(got) != 1 {
+	if got, err := m.ListSessions(context.Background()); err != nil || len(got) != 1 {
 		t.Fatalf("private server should hold the session: %v, %v", got, err)
 	}
 	if err := KillIsolatedServer(context.Background(), dir); err != nil {
 		t.Fatalf("KillIsolatedServer: %v", err)
 	}
-	if got, err := New().ListSessions(context.Background()); err != nil || len(got) != 0 {
+	if got, err := m.ListSessions(context.Background()); err != nil || len(got) != 0 {
 		t.Fatalf("server survived the kill: %v, %v", got, err)
 	}
 }
@@ -88,4 +93,46 @@ func itoa(n int) string {
 		n /= 10
 	}
 	return string(b)
+}
+
+// A socket inside a directory that does not exist yet is the case that made
+// the failure above loud: tmux creates the socket, not its directory, and it
+// exits 0 while printing `error creating …`. NewWithSocket makes the
+// directory, so the session really exists and the list shows it.
+func TestNewWithSocketMakesItsDirectory(t *testing.T) {
+	if !New().Available() {
+		t.Skip("tmux not installed")
+	}
+	dir := t.TempDir()
+	m := NewWithSocket(filepath.Join(dir, "fresh", "deeper", "tmux-"+itoa(os.Getuid()), "default"))
+	name := SessionName("socket-dir-" + time.Now().Format("150405-000000000"))
+	if err := m.NewSession(context.Background(), name, dir, "sleep", "30"); err != nil {
+		t.Fatalf("NewSession: %v", err)
+	}
+	t.Cleanup(func() { _ = m.KillSession(context.Background(), name) })
+	got, err := m.ListSessions(context.Background())
+	if err != nil || len(got) != 1 || got[0].Name != name {
+		t.Fatalf("sessions = %+v, %v; want just %q", got, err, name)
+	}
+}
+
+// And a path that cannot be a socket directory fails loudly instead of
+// pretending: the manager's answer to a silent no-op.
+func TestNewWithSocketReportsAnUnusablePath(t *testing.T) {
+	if !New().Available() {
+		t.Skip("tmux not installed")
+	}
+	dir := t.TempDir()
+	blocker := filepath.Join(dir, "not-a-directory")
+	if err := os.WriteFile(blocker, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m := NewWithSocket(filepath.Join(blocker, "default"))
+	err := m.NewSession(context.Background(), SessionName("unusable"), dir, "sleep", "5")
+	if err == nil {
+		t.Fatal("a session on an unusable socket path must be an error, not silence")
+	}
+	if !strings.Contains(err.Error(), "error creating") && !strings.Contains(err.Error(), "error connecting") {
+		t.Fatalf("error should name tmux's complaint: %v", err)
+	}
 }

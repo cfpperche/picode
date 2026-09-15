@@ -144,6 +144,17 @@ kill methods, so tests script the server instead of spawning one) and
 
 ## Sockets (ADR-0139 follow-up, 2026-09-15)
 
+**A socket tmux cannot create is an error, not silence (2026-09-15).** With
+`-S` inside a directory that did not exist yet, `new-session` printed
+`error creating <path> (No such file or directory)` and **exited 0**, so the
+caller reported a terminal that had never started. Two halves fix it:
+`NewWithSocket` makes the socket's directory (tmux creates the socket, not its
+parent — its own default path handles that for the shared server only), and
+`runStdin` promotes tmux's `error creating …`/`error connecting to …` text to
+the error it means even when the exit status is 0. `serverInfo` reads a live
+socket only when the probe comes back clean, so a dead socket no longer reads
+as running-with-a-garbage-path either.
+
 A third tab answers the operator question the dedicated socket created:
 which tmux servers exist on this machine, what lives on each, and where new
 sessions land. `Manager.MachineSockets` lists every socket file in the user's
