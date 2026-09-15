@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconCollapse, IconExpand, IconGlobe, IconMonitor, IconSettings, IconX } from "./Icons.jsx";
+import { IconCollapse, IconEnter, IconExpand, IconGlobe, IconMonitor, IconSettings, IconX } from "./Icons.jsx";
 import { toast } from "../lib/toast.js";
 import { isLoopbackUrl } from "@picode/shared/client/devservers.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
@@ -177,15 +177,12 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
               placeholder="Search or enter a URL"
               spellCheck={false}
             />
-            <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => setFrameNonce((n) => n + 1)}>↵</button>
+            <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => setFrameNonce((n) => n + 1)}><IconEnter /></button>
           </div>
           {onClose ? <button type="button" className="web-tab-menu" title="Close browser pane" aria-label="Close browser pane" onClick={onClose}><IconX /></button> : null}
         </div>
         {local ? (
-          <>
-            <p className="web-tab-note">The desktop app shows this page in its own window; here it runs in a frame.</p>
-            <iframe key={frameNonce} className="web-tab-frame" title="Work browser" src={frameUrl || url} />
-          </>
+          <iframe key={frameNonce} className="web-tab-frame" title="Work browser" src={frameUrl || url} />
         ) : (
           <>
             <div className="web-tab-empty">
@@ -217,7 +214,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
             placeholder="Search or enter a URL"
             spellCheck={false}
           />
-          <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => go()}>↵</button>
+          <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => go()}><IconEnter /></button>
         </div>
         <DropdownMenu.Root onOpenChange={(o) => { menuOpenRef.current = o; pushRef.current?.(); }}>
           <DropdownMenu.Trigger asChild>

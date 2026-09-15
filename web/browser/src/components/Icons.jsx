@@ -19,6 +19,7 @@ import {
   Clock,
   Cloud,
   Copy,
+  CornerDownLeft,
   Download,
   Eraser,
   Ellipsis,
@@ -124,6 +125,7 @@ export const IconMode = lucide(SlidersHorizontal, 13);
 export const IconLock = lucide(Lock, 12);
 export const IconCopy = lucide(Copy, 13);
 export const IconPaste = lucide(ClipboardPaste, 13);
+export const IconEnter = lucide(CornerDownLeft, 14);
 export const IconReload = lucide(RotateCw, 13);
 export const IconDownload = lucide(Download, 13);
 export const IconGit = lucide(GitBranch, 12);

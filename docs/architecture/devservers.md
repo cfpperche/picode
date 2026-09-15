@@ -53,11 +53,15 @@ version reported every listener and listed Postgres on 5432 and PiCode on 8445.
 
 **Open** hands the URL to `openWebTab`: the work-browser tab the desktop app
 already had (a native WebView2 child). In a **plain browser** there is no
-webview to host a page, so that same tab renders a loopback URL in a frame
-with one line saying so — that is what makes the panel usable outside the
-desktop app, and it is the only reason the app shell's CSP grew
+webview to host a page, so that same tab renders a loopback URL in a frame —
+that is what makes the panel usable outside the desktop app, and it is the
+only reason the app shell's CSP grew
 `frame-src http://localhost:* http://127.0.0.1:*` (plus the https forms): the
-app shell may frame this machine, nothing else. Measured where that policy is
+app shell may frame this machine, nothing else. The frame used to carry a line
+saying so ("The desktop app shows this page in its own window…"); the owner
+had it removed — it spent a row of a 1080p window on every local page, and the
+frame is self-evident. The non-local case still explains itself when a URL is
+typed, and the empty state still says what the surface is for. Measured where that policy is
 sent: `/`, `/index.html` and every `*.html` — i.e. `/browser/index.html` and
 `/desktop/index.html`. The **directory URLs `/browser/` and `/desktop/`**,
 which is where the launcher and the shell actually land, carry no CSP at all

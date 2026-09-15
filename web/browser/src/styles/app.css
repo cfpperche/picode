@@ -1842,10 +1842,6 @@ img.ws-face.term-cli-face {
 /* Frame fallback: in a plain browser there is no native webview to overlay,
    so a page on this machine renders in a frame (the desktop app still uses
    its own window). One line above it says which one you are looking at. */
-.web-tab-note {
-  margin: 0; padding: 6px 10px; font-size: 12.5px; color: var(--text-secondary);
-  background: var(--bg-panel); border-bottom: 1px solid var(--border);
-}
 .web-tab-frame { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: #fff; }
 /* Servers panel: what is listening on this machine, one row, one Open. */
 .insp-servers { display: flex; flex-direction: column; gap: 4px; padding-top: 6px; min-width: 0; }
@@ -1931,11 +1927,17 @@ img.ws-face.term-cli-face {
    single divider — same background as the input, no floating chip. */
 .web-tab-toolbar .web-tab-go {
   flex: none; width: 44px; margin: 0; padding: 0;
+  /* The toolbar's buttons are 28px pills of their own; this one is half of
+     the address pill, so it takes the pill's whole height and its rounding
+     comes from the parent's clip (overflow: hidden + border-radius: 999px).
+     Left as 28px it left a strip of input above and below on hover. */
+  height: 100%;
   border: none !important; border-left: 1px solid var(--border) !important;
   border-radius: 0 !important;
   background: transparent; color: var(--text-secondary); cursor: pointer;
-  font-size: 15px; line-height: 1; display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center;
 }
+.web-tab-toolbar .web-tab-go svg { display: block; }
 .web-tab-toolbar .web-tab-go:hover {
   background: var(--border); color: var(--text-primary);
 }
