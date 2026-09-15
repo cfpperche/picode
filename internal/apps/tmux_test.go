@@ -24,11 +24,16 @@ type fakeTmuxServer struct {
 	info      tmux.ServerInfo
 	sessions  []tmux.ServerSession
 	receipts  map[string]tmux.SessionReceipt
+	sockets   []tmux.MachineSocket
 	killErr   error
 	killed    []string
 }
 
 func (f *fakeTmuxServer) Available() bool { return f.available }
+
+func (f *fakeTmuxServer) MachineSockets(context.Context) []tmux.MachineSocket {
+	return f.sockets
+}
 func (f *fakeTmuxServer) ServerInfo(context.Context) tmux.ServerInfo {
 	return f.info
 }
@@ -130,7 +135,7 @@ func TestTmuxAppViewAttributesEverything(t *testing.T) {
 	if err != nil {
 		t.Fatalf("View: %v", err)
 	}
-	if len(v.Tabs) != 2 || v.Tabs[0].Label != "Sessions" || v.Tabs[1].Label != "Server" {
+	if len(v.Tabs) != 3 || v.Tabs[0].Label != "Sessions" || v.Tabs[1].Label != "Server" || v.Tabs[2].Label != "Sockets" {
 		t.Fatalf("tabs = %+v", v.Tabs)
 	}
 	// The tab badge is one number (primitives.Tab: "short count"): the
@@ -172,6 +177,65 @@ func TestTmuxAppViewAttributesEverything(t *testing.T) {
 
 // The absence list: terminals with no session, and the flight recorder's
 // lost-at-restart verdict on top.
+// The Sockets screen lists every tmux server this instance can see — the
+// operator view ADR-0139 created a need for. One tab, one block, one row per
+// socket; running/dead and PiCode ownership are stated, never inferred by the
+// reader.
+func TestTmuxAppSocketsViewListsServers(t *testing.T) {
+	src := &fakeTmuxServer{
+		available: true,
+		sockets: []tmux.MachineSocket{
+			{Path: "/home/goat/.picode/tmux.sock", Name: "tmux.sock", Ours: true, Running: false},
+			{Path: "/tmp/tmux-1000/default", Name: "default", Running: true, Sessions: 12, PicodeSessions: 10},
+			{Path: "/tmp/tmux-1000/tachyon", Name: "tachyon", Running: true, Sessions: 1, PicodeSessions: 0},
+			{Path: "/tmp/tmux-1000/stale", Name: "stale", Running: false},
+		},
+	}
+	app := tmuxApp{}
+	v, err := app.View(context.Background(), Host{Tmux: src}, "sockets")
+	if err != nil {
+		t.Fatalf("view: %v", err)
+	}
+	if len(v.Tabs) != 3 || v.Tabs[2].ID != "sockets" || v.Tabs[2].Badge != "2" {
+		t.Fatalf("tabs = %+v, want a sockets tab with badge 2 (running)", v.Tabs)
+	}
+	if len(v.Blocks) != 1 || len(v.Blocks[0].Items) != 4 {
+		t.Fatalf("blocks = %+v", v.Blocks)
+	}
+	byTitle := map[string]ListItem{}
+	for _, it := range v.Blocks[0].Items {
+		byTitle[it.Title] = it
+	}
+	ours, ok := byTitle["tmux.sock · this instance"]
+	if !ok {
+		t.Fatalf("our socket row missing: %+v", byTitle)
+	}
+	if ours.Badge != "idle" || ours.Tone != "" {
+		t.Fatalf("our not-yet-running socket = %+v, want a neutral 'idle' row (it is not a leftover)", ours)
+	}
+	if !strings.Contains(ours.Subtitle, "next terminal") {
+		t.Fatalf("our idle row subtitle = %q, want it to say what starts the server", ours.Subtitle)
+	}
+	def, ok := byTitle["default"]
+	if !ok || def.Subtitle != "12 session(s) · 10 PiCode" || def.Tone != "ok" {
+		t.Fatalf("default row = %+v", def)
+	}
+	if got := byTitle["tachyon"].Subtitle; got != "1 session(s) · 0 PiCode" {
+		t.Fatalf("tachyon row = %q", got)
+	}
+	if stale := byTitle["stale"]; stale.Badge != "no server" || stale.Subtitle == "" {
+		t.Fatalf("stale row = %+v", stale)
+	}
+}
+
+func TestTmuxAppSocketsViewWithoutTmux(t *testing.T) {
+	app := tmuxApp{}
+	v, err := app.View(context.Background(), Host{Tmux: &fakeTmuxServer{available: false}}, "sockets")
+	if err != nil || v.Empty == "" {
+		t.Fatalf("view = %+v, %v; want the tmux-missing empty state", v, err)
+	}
+}
+
 func TestTmuxAppServerViewCarriesAbsence(t *testing.T) {
 	st := tmuxTestStore(t)
 	dir := t.TempDir()

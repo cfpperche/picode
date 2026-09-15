@@ -128,6 +128,23 @@ kill methods, so tests script the server instead of spawning one) and
 `LostSessions map[string]bool` (ADR-0085's boot diff). The app never imports
 `internal/server`.
 
+## Sockets (ADR-0139 follow-up, 2026-09-15)
+
+A third tab answers the operator question the dedicated socket created:
+which tmux servers exist on this machine, what lives on each, and where new
+sessions land. `Manager.MachineSockets` lists every socket file in the user's
+tmux directory (the default socket and every `-L` name) plus this instance's
+own `-S` path; a socket somewhere else is undiscoverable by design (there is
+no registry), and the block says so. Liveness is a plain unix-socket dial —
+never a tmux client, which would start a transient server on a dead socket
+just to report it dead. Counts come from one `list-sessions` on the live
+ones; the `picode-` prefix is the cheap name hint, the same one the
+inventory uses.
+
+Rows: name (`· this instance` for ours), badge running / no server, the
+subtitle `N session(s) · M PiCode`, and the socket path in the meta strip.
+The tab badge is the number of running servers.
+
 ## What the app does not do
 
 It does not list terminals or agents as a fleet (that is the sidebar's job —
