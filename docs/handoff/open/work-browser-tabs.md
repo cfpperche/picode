@@ -8,7 +8,9 @@ reviewed by the owner against the reference, one item at a time.
 
 - **Ask prompt** closes Browser permissions v1 (deferral on the UI thread).
 - **Terminal agents as principals** — spec ADR-0143, five steps, in order.
-- **"New browser tab" button crashes the app** (tab-strip end, ReferenceError).
+- **"New browser tab" button: re-verify** — the crash claim did not reproduce
+  in a web scratch (2026-09-15): click → no console error, React root alive,
+  route switched to `#/`. Likely shell-only (the `window.__TAURI__` path).
 - **v2a** unused-site permissions; **v2b** agent history access (needs Ask).
 - **v2c** annotations (step 4 is an ADR); **v2d** Windows Hello opener row.
 - **v3** WebMCP and Developer mode (raw CDP: ADR, off, `full` only, audited).
@@ -23,8 +25,11 @@ reviewed by the owner against the reference, one item at a time.
   bare agent key, the listing returns terminals with a CLI running, the UI
   gives each principal a row and says an outside-PiCode `pi` stays read-only.
   Tests per decision-table row.
-- **Crash**: verified pre-existing on a main scratch 2026-09-15, same class as
-  the blank window `feat/browser-tab-crash` fixed; no linter catches it.
+- **New-tab button**: an earlier note claimed a pre-existing crash on a main
+  scratch; measured again 2026-09-15 and it did **not** reproduce in the web
+  scratch (no error, root alive, `#/` reached). Re-verify in the desktop shell
+  before touching code — the web path has no `window.__TAURI__`, so the shell
+  is the likely home. Same class as the blank window, which no linter catches.
 - **v2a**: remove permissions from unused sites (visit recency is in the
   store). **v2b**: agent access to browsing history (Always ask / Allow /
   Never — needs the Ask prompt). **v2c**: annotations (below; step 4 is an
