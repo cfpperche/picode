@@ -119,7 +119,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
           <div className="mcp-skel" aria-hidden="true"><span className="skel-line w-40" /><span className="skel-line w-70" /></div>
         ) : rows.length === 0 ? (
           <div className="mcp-empty">
-            <p className="settings-hint">No agents yet — browser access is given per agent.</p>
+            <p className="settings-hint">No managed agents yet — grants are given per agent. Sessions from the sidebar always read the tab on screen.</p>
             <button type="button" className="btn btn-primary" onClick={onCreateAgent}>Create an agent</button>
           </div>
         ) : (
