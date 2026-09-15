@@ -128,7 +128,6 @@ gallery hit is worth a look before anyone installs it expecting this one.
 - The options menu's page slide is not animated.
 - No JS check catches use-before-declaration in a component (the blank-window
   class).
-- ADR-0143 step 3's endpoint branch has no test of its own: the resolver's
+- ADR-0143's endpoint branch still has no test of its own: the resolver's
   decision rows are covered (`TestResolveCallerIsTheHouseIdentity`), the wire
-  rows (`term` known/unknown, agent+term together) are not — they go in with
-  the UI slice.
+  rows (`term` known/unknown, `agent`+`term` together) are not.

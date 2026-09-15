@@ -523,8 +523,12 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     loadStands();
   };
 
-  const draftOf = (row) => drafts[row.agentId] ?? { tier: row.tier, domainsText: domainsText(row) };
-  const setDraft = (agentId, next) => setDrafts((d) => ({ ...d, [agentId]: next }));
+  // ADR-0143: a principal is a managed agent or a terminal, and the row key
+  // carries which — the same namespace rule the daemon keys grants with.
+  const keyOf = (row) => (row.termId ? "term:" + row.termId : row.agentId);
+
+  const draftOf = (row) => drafts[keyOf(row)] ?? { tier: row.tier, domainsText: domainsText(row) };
+  const setDraft = (id, next) => setDrafts((d) => ({ ...d, [id]: next }));
 
   const save = async (row) => {
     const d = draftOf(row);
@@ -534,14 +538,16 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
       const r = await fetch("/api/browser/policy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agent: row.agentId, tier: parsed.data.tier, domains: parsed.data.domains }),
+        body: JSON.stringify(row.termId
+          ? { term: row.termId, tier: parsed.data.tier, domains: parsed.data.domains }
+          : { agent: row.agentId, tier: parsed.data.tier, domains: parsed.data.domains }),
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.error || String(r.status));
-      setFlash(row.agentId);
-      setTimeout(() => setFlash((cur) => (cur === row.agentId ? "" : cur)), 2000);
+      setFlash(keyOf(row));
+      setTimeout(() => setFlash((cur) => (cur === keyOf(row) ? "" : cur)), 2000);
       setDrafts((dd) => {
         const next = { ...dd };
-        delete next[row.agentId];
+        delete next[keyOf(row)];
         return next;
       });
     } catch (e) {
@@ -635,15 +641,15 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
 
         <section className="set-group">
           <h2 className="set-grouph">Agent permissions</h2>
-          <p className="set-groupdesc">Which agents may use the built-in browser, and on which sites.</p>
+          <p className="set-groupdesc">Which agents and terminals may use the built-in browser, and on which sites.</p>
           <div className="set-panel">
             {rows === null ? (
               <div className="set-item"><div className="mcp-skel" aria-hidden="true"><span className="skel-line w-40" /><span className="skel-line w-70" /></div></div>
             ) : rows.length === 0 ? (
               <div className="set-item">
                 <div className="set-item-body">
-                  <span className="set-item-t">No managed agents yet</span>
-                  <span className="set-item-d">Grants are given per agent; sessions from the sidebar always read the tab on screen.</span>
+                  <span className="set-item-t">No agents or terminals yet</span>
+                  <span className="set-item-d">Grants are given per principal; anything without one reads the tab on screen.</span>
                 </div>
                 <div className="set-item-ctl">
                   <button type="button" className="set-btn" onClick={onCreateAgent}>Create an agent</button>
@@ -652,18 +658,21 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
             ) : (
               rows.map((row) => (
                 <GrantRow
-                  key={row.agentId}
+                  key={keyOf(row)}
                   row={row}
                   draft={draftOf(row)}
-                  onDraft={(next) => setDraft(row.agentId, next)}
+                  onDraft={(next) => setDraft(keyOf(row), next)}
                   onSave={() => save(row)}
-                  flash={flash === row.agentId}
+                  flash={flash === keyOf(row)}
                 />
               ))
             )}
           </div>
           <p className="set-groupdesc">
             Read — sees the tab you have on screen, nothing else. Act — also opens and drives pages in its own pane, inside the domains you list. Full — everything Act does, plus developer access.
+          </p>
+          <p className="set-groupdesc">
+            Terminals you started in PiCode get a row too — a CLI agent there is a principal like any other. A <code>pi</code> started outside PiCode has no identity at all and always reads the tab on screen.
           </p>
         </section>
       </div>
