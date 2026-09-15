@@ -1,0 +1,7 @@
+# 2026-09-14 — check-correlation-rerun: correlations pass under load; Grok 1.0.30 suggestion captured
+
+Shipped: grok's input guard now recognizes 1.0.30's restyled unaccepted suggestion (styled border/gutter/prompt; italic + separate dim-gray text closed by `ESC[0m`; colored padding; styled closing border) through the same matcher as the 1.0.25 capture — exact suggestion footer, empty cursor and complete frame still required. Found natively: the claude→grok re-run expired with zero attention attempts because the new suggestion style failed the pre-claim empty-editor check silently.
+Verified: `make ci-scoped` green incl. `TestPeerGrokNativeSuggestion1030` (live-captured fixture, 11 mutation rows). Native on scratch `localhost:8472`, four TUIs, load 5–9 (deliberately not quiet — the settle window exists to remove load sensitivity): pi→grok **passed**, opencode→pi **passed** (the killed correlation closes), pi→grok with the suggestion frame visible **passed**; claude→grok expired on the scratch Claude's expired login (pointer delivered, model could not run — credential cause, not the mailbox). Evidence: `var/qa/check-correlation-rerun/` (copied to the root var/qa). Plans: `communication-onboarding.md` matrix section, `grok-communication-input.md`.
+visual-review: n/a (server behavior, no UI)
+Not done / debts: claude→grok correlation pending a Claude login in the scratch HOME (owner's weekly limit resets 8am); `open/communication.md` onboarding debt rewritten accordingly.
+Merge: fast-forward ready.
