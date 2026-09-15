@@ -3,9 +3,12 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -168,6 +171,11 @@ func TestCatalogListsAllScopesWithWarnings(t *testing.T) {
 	if !tmux.New().Available() {
 		t.Skip("tmux not installed")
 	}
+	// The catalog is read from the running tmux; an empty private namespace
+	// (the suites' isolated server) has none to ask — reported by another
+	// agent on 2026-09-15 after 687ab478 made that state a 503. A live
+	// session first, same as the array-entries test.
+	newTerminal(t, ts)
 	got := termSettings(t, ts, "/api/terminals/settings/catalog")
 	rows, ok := got["catalog"].([]any)
 	if !ok || len(rows) < 100 {
@@ -406,13 +414,47 @@ func TestAnEmptyArrayBlockIsRefused(t *testing.T) {
 	res.Body.Close()
 }
 
+// A machine whose last terminal closed has no server to read the option
+// list from; the client would start one and watch it exit empty (measured
+// 2026-09-15). That is a precondition, not an internal error: the catalog
+// answers 503 and names the way out. The private namespace here has no
+// server in it, which the shared test server would otherwise hide.
+func TestCatalogWithoutAServerIs503(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	dir := filepath.Join(t.TempDir(), "tmux")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(tmux.SocketDirEnv, dir)
+	res, err := ts.Client().Get(ts.URL + "/api/terminals/settings/catalog")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	body, _ := io.ReadAll(res.Body)
+	if res.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("catalog without a server = %d %s, want 503", res.StatusCode, body)
+	}
+	if !strings.Contains(string(body), "Start a terminal") {
+		t.Fatalf("503 does not name the way out: %s", body)
+	}
+}
+
 // The catalog carries array entries as the block the editor shows —
 // command-alias ships defaults on every tmux, so its row must not be empty.
+// A live session is created first: the option list is read from the running
+// server, and an empty server exits on its own (the 2026-09-15 isolated-suite
+// finding — without this the test passed only because production's server
+// happened to be alive).
 func TestCatalogCarriesArrayEntries(t *testing.T) {
 	ts, _, _ := cleanupServer(t)
 	if !tmux.New().Available() {
 		t.Skip("tmux not installed")
 	}
+	newTerminal(t, ts)
 	got := termSettings(t, ts, "/api/terminals/settings/catalog")
 	for _, r := range got["catalog"].([]any) {
 		row := r.(map[string]any)

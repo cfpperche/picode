@@ -635,13 +635,47 @@ fn apply_autofill(app: &AppHandle, id: &str) {
     });
 }
 
-// Clear the work profile's browsing data (slice 3): cookies, all site
-// storage, cache, service workers, download history and WebView2's own
-// browsing history — passwords and autofill are deliberately NOT in the
-// mask (those are the Autofill and passwords switches). The profile is
-// shared, so one open browser tab reaches it for every tab.
+// Clear the work profile's browsing data (slice 3): the Clear browsing
+// data dialog sends the kinds it checked and, for a time-range pick, how
+// far back since is (unix seconds; None means all time). Passwords are
+// not a kind here — the Password manager switch owns them.
+fn wipe_mask(kind: &str) -> i32 {
+    // ICoreWebView2BrowsingDataKinds values (bindings 0.38.2).
+    const FILE_SYSTEMS: i32 = 1;
+    const INDEXED_DB: i32 = 2;
+    const LOCAL_STORAGE: i32 = 4;
+    const WEB_SQL: i32 = 8;
+    const CACHE_STORAGE: i32 = 16;
+    const ALL_DOM_STORAGE: i32 = 32;
+    const COOKIES: i32 = 64;
+    const ALL_SITE: i32 = 128;
+    const DISK_CACHE: i32 = 256;
+    const DOWNLOAD_HISTORY: i32 = 512;
+    const GENERAL_AUTOFILL: i32 = 1024;
+    const BROWSING_HISTORY: i32 = 4096;
+    const SETTINGS: i32 = 8192;
+    const SERVICE_WORKERS: i32 = 32768;
+    match kind {
+        "history" => BROWSING_HISTORY,
+        "cookies" => FILE_SYSTEMS | INDEXED_DB | LOCAL_STORAGE | WEB_SQL | ALL_DOM_STORAGE | COOKIES | ALL_SITE | SERVICE_WORKERS,
+        "cache" => CACHE_STORAGE | DISK_CACHE,
+        "downloads" => DOWNLOAD_HISTORY,
+        "autofill" => GENERAL_AUTOFILL,
+        "siteSettings" => SETTINGS,
+        _ => 0,
+    }
+}
+
 #[tauri::command]
-pub async fn btab_clear_data(app: AppHandle) -> Result<(), String> {
+pub async fn btab_clear_data(
+    app: AppHandle,
+    kinds: Vec<String>,
+    since: Option<f64>,
+) -> Result<(), String> {
+    let mask = kinds.iter().fold(0, |acc, k| acc | wipe_mask(k));
+    if mask == 0 {
+        return Err("nothing was selected to clear".into());
+    }
     let (_, wv) = app
         .webview_windows()
         .into_iter()
@@ -672,8 +706,7 @@ pub async fn btab_clear_data(app: AppHandle) -> Result<(), String> {
                 return;
             }
         };
-        let k = |v: i32| webview2_com::Microsoft::Web::WebView2::Win32::COREWEBVIEW2_BROWSING_DATA_KINDS(v);
-        let mask = k(0x0004 | 0x0008 | 0x0010 | 0x0020 | 0x0040 | 0x0080 | 0x0100 | 0x0200 | 0x0400);
+        let mask = webview2_com::Microsoft::Web::WebView2::Win32::COREWEBVIEW2_BROWSING_DATA_KINDS(mask);
         let handler_done = done.clone();
         let handler = webview2_com::ClearBrowsingDataCompletedHandler::create(Box::new(move |hr| {
             let _ = match hr {
@@ -682,12 +715,23 @@ pub async fn btab_clear_data(app: AppHandle) -> Result<(), String> {
             };
             Ok(())
         }));
-        if let Err(e) = p2.ClearBrowsingData(mask, &handler) {
+        let result = match since {
+            // A range: from `since` to now, in unix seconds.
+            Some(start) => {
+                let end = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs_f64())
+                    .unwrap_or(start);
+                p2.ClearBrowsingDataInTimeRange(mask, start, end, &handler)
+            }
+            None => p2.ClearBrowsingData(mask, &handler),
+        };
+        if let Err(e) = result {
             let _ = done.send(Err(format!("{e}")));
         }
     });
     sent.map_err(|e| format!("with_webview: {e}"))?;
-    match rx.recv_timeout(Duration::from_secs(20)) {
+    match rx.recv_timeout(Duration::from_secs(30)) {
         Ok(Ok(())) => Ok(()),
         Ok(Err(e)) => Err(e),
         Err(_) => Err("clearing browsing data timed out".into()),

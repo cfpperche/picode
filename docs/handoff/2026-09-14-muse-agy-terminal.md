@@ -8,4 +8,4 @@ Not done: launch settings, sessions, activity state, resume and lifecycle for th
 
 ## Next up
 
-- Muse Code / Antigravity: launch settings and sessions remain open.
+- Antigravity: launch settings and sessions remain open (muse sessions landed 2026-09-15).

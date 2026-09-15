@@ -348,6 +348,11 @@ func wiringRows(dataDir string) []wiringRow {
 
 func handleWiringStatus(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// The guard defaults on but its wrapper only lands with the first
+		// session; ensure it here so a fresh instance reports (and has) the
+		// state the toggle shows (ADR-0138, 2026-09-15: a scratch with no
+		// terminals read as "off").
+		ensureTmuxGuard(deps.DataDir)
 		writeJSON(w, http.StatusOK, map[string]any{"clis": wiringRows(deps.DataDir)})
 	}
 }

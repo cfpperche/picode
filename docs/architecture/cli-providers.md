@@ -22,8 +22,8 @@ The column template drops the identity column below a 1000 px container and
 folds the cells into a stacked card below 840 px, so one markup serves the
 desktop window, a squeezed window and the phone.
 
-**Custom endpoints (ADR-0129).** Add provider's picker carries a fixed
-**Custom endpoint** door onto its own page (`#/clis/pi/providers/custom`,
+**Custom providers (ADR-0129).** Add provider's picker carries a fixed
+**Custom provider** door onto its own page (`#/clis/pi/providers/custom`,
 `#/clis/pi/providers/custom/<id>` for Edit — benchmarks.md refuses modals
 for flows longer than 2 fields): a named definition (baseUrl, API type,
 compat flags, model ids) that merges into pi's `~/.pi/agent/models.json`
@@ -35,8 +35,8 @@ survive, built-in ids are refused, and a file pi would reject is never
 written. The catalog marks these rows `custom` and carries their editable
 shape (`baseUrl`/`api`/`compat`/`definitions`, key material excluded); an
 unsigned definition still appears so it can be picked up again. Row actions
-map to the two files: **Edit endpoint** reopens the page, **Sign out**
-removes only the credential, **Remove endpoint** deletes both with the
+map to the two files: **Edit provider** reopens the page, **Sign out**
+removes only the credential, **Remove provider** deletes both with the
 blast radius named.
 
 **Load models (P1).** `POST /api/providers/custom/models`
@@ -118,7 +118,7 @@ comment). Helper prose that is a lecture rather than a state (a file path, a
 protocol note) belongs in docs-site, not under a control. The page groups the
 form into Identity, Connection and Models sections (Name + API type share a
 two-column row at 720 px and up; Verify key sits beside the key it checks),
-and fields only some endpoints need sit behind an **Advanced** disclosure
+and fields only some providers need sit behind an **Advanced** disclosure
 whose sections carry a legend and a hairline — Request compatibility,
 Thinking — so a collapsed Advanced is one line and an open one reads as
 structure. Every state the exchange can be in is written in the unit that owns
@@ -129,14 +129,14 @@ and try again."). The actions sit in normal flow at the form's end — no
 sticky footer, nothing to overlap.
 
 **Verify (P4).** For a built-in, Verify still asks pi (`pi auth check`), which
-costs nothing and is the code path that runs the agent. A custom endpoint
+costs nothing and is the code path that runs the agent. A custom provider
 cannot be answered that way — pi only reports that a credential is present, so
 a wrong key on a gateway reads green — and `POST
 /api/providers/{id}/verify` therefore sends **one minimal real request**
 (`internal/modellist.Probe`): one word in, the smallest output ceiling each API
 accepts (`max_tokens: 1`, or `max_completion_tokens` after one retry when the
 gateway says so, 16 for the Responses API, `maxOutputTokens: 1` for Google).
-The row's action names the cost before it is spent ("Verify with the endpoint
+The row's action names the cost before it is spent ("Verify with the provider
 (1 request)"); the page verifies what the form holds, before saving. The
 answer body is discarded — only the model, the milliseconds and the token
 counts the endpoint reported travel back, and the verdict line shows them

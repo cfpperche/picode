@@ -199,6 +199,11 @@ For any UI work:
   scratch's own Terminals list before blaming the server. PiCode terminals
   refuse `kill-server` through the tmux guard — but it is a guardrail, not a
   boundary: an absolute `/usr/bin/tmux kill-server` still bypasses it.
+  A Go test that launches a real terminal cleans it up with a context of its
+  own: `t.Context()` is canceled *before* cleanup functions run, so every
+  tmux call made with it fails silently and the fixture leaks one session
+  per run into the shared server (four `picode-sh-feed-fixture-*` sessions
+  were found in the owner's `tmux ls` this way).
 - **Know which tree you are in.** `make dev`, `make ci-scoped` and `make close`
   print `<worktree> on <branch>` before doing anything; the same line answers
   "did I edit the root checkout by mistake?" (`make worktree-status` lists every

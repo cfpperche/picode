@@ -350,14 +350,14 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
     const radius = blastRadius(p);
     const ok = await askConfirm({
       title: "Remove " + p.id,
-      message: "Deletes the endpoint definition and its saved key from this machine." + (radius ? " " + radius : ""),
+      message: "Deletes the provider definition and its saved key from this machine." + (radius ? " " + radius : ""),
       confirmLabel: "Remove",
       danger: true,
     });
     if (!ok) return;
     try {
       await api("/api/providers/custom/" + encodeURIComponent(p.id), { method: "DELETE" });
-      toast.ok("Endpoint removed.");
+      toast.ok("Provider removed.");
       if (onRefresh) await onRefresh();
     } catch (ex) {
       toastError(ex);
@@ -525,12 +525,12 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                                 {verifying === p.id
                                   ? "Checking…"
                                   : p.custom
-                                    ? "Verify with the endpoint (1 request)"
+                                    ? "Verify with the provider (1 request)"
                                     : "Verify with pi"}
                               </DropdownMenu.Item>
                               {first && p.custom ? (
                                 <DropdownMenu.Item className="prov-menu-item" onSelect={() => editCustom(p)}>
-                                  Edit endpoint
+                                  Edit provider
                                 </DropdownMenu.Item>
                               ) : null}
                               {!envVar && first ? (
@@ -552,7 +552,7 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                               )}
                               {first && p.custom ? (
                                 <DropdownMenu.Item className="prov-menu-item danger" onSelect={() => removeCustom(p)}>
-                                  Remove endpoint
+                                  Remove provider
                                 </DropdownMenu.Item>
                               ) : null}
                             </DropdownMenu.Content>
@@ -627,16 +627,16 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                   {/* forceMount: the custom door survives any search — typing
                       a name the catalog does not know is exactly when it is
                       needed. */}
-                  <Command.Item forceMount value="custom endpoint gateway openai compatible base url" className="cockpit-opt" onSelect={startCustom}>
+                  <Command.Item forceMount value="custom provider endpoint gateway openai compatible base url" className="cockpit-opt" onSelect={startCustom}>
                     <span className="ws-face" aria-hidden="true">+</span>
-                    <span>Custom endpoint</span>
+                    <span>Custom provider</span>
                     <span className="combo-hint">any OpenAI-compatible gateway</span>
                   </Command.Item>
                   {available.map((p) => (
                     <Command.Item key={p.id} value={p.id + " " + p.login} className="cockpit-opt" onSelect={() => chooseProvider(p)}>
                       <ProviderFace id={p.id} />
                       <span>{p.id}</span>
-                      <span className="combo-hint">{p.id === "llama.cpp" ? "local router" : p.custom ? "custom endpoint" : p.login === "both" ? "account or api key" : p.login === "oauth" ? "account" : "api key"}</span>
+                      <span className="combo-hint">{p.id === "llama.cpp" ? "local router" : p.custom ? "custom provider" : p.login === "both" ? "account or api key" : p.login === "oauth" ? "account" : "api key"}</span>
                     </Command.Item>
                   ))}
                 </Command.List>

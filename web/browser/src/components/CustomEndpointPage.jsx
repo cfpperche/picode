@@ -26,7 +26,7 @@ export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) 
   const [busy, setBusy] = useState(false);
   const [load, setLoad] = useState({ state: "idle", text: "", tone: "hint" });
   const [verify, setVerify] = useState({ state: "idle", text: "", tone: "hint" });
-  const title = isEdit ? "Edit endpoint" : "Custom endpoint";
+  const title = isEdit ? "Edit provider" : "Custom provider";
   const back = cliProvidersHash("pi");
 
   // The id list drives the per-model limit rows: a row appears with its id and
@@ -89,11 +89,11 @@ export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ baseUrl: cf.baseUrl, api: cf.api, key: cf.key, model }),
       });
-      if (res && res.ok) setVerify({ state: "done", tone: "hint", text: (res.label || "The endpoint answered") + " — the key works." });
-      else setVerify({ state: "failed", tone: "bad", text: (res && (res.reason || res.status)) || "The endpoint could not be verified." });
+      if (res && res.ok) setVerify({ state: "done", tone: "hint", text: (res.label || "The provider answered") + " — the key works." });
+      else setVerify({ state: "failed", tone: "bad", text: (res && (res.reason || res.status)) || "The provider could not be verified." });
     } catch (ex) {
       const body = ex && ex.body;
-      setVerify({ state: "failed", tone: "bad", text: (body && body.error) || (ex && ex.message) || "The endpoint could not be verified." });
+      setVerify({ state: "failed", tone: "bad", text: (body && body.error) || (ex && ex.message) || "The provider could not be verified." });
     }
   }
 
@@ -110,7 +110,7 @@ export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(customProviderPayload(parsed.value)),
       });
-      toast.ok(isEdit ? "Endpoint updated." : "Endpoint added to pi.");
+      toast.ok(isEdit ? "Provider updated." : "Provider added to pi.");
       pushRecent(parsed.value.id);
       if (onRefresh) await onRefresh();
       go("providers");
@@ -124,7 +124,7 @@ export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) 
   if (isEdit && !editing) {
     return (
       <section id="custom-endpoint-view" aria-label={title}>
-        <p className="prov-empty"><span>Unknown endpoint.</span><a className="btn btn-ghost btn-sm" href={back}>Back to providers</a></p>
+        <p className="prov-empty"><span>Unknown provider.</span><a className="btn btn-ghost btn-sm" href={back}>Back to providers</a></p>
       </section>
     );
   }
@@ -134,7 +134,7 @@ export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) 
       <div className="prov-page-head">
         <a className="btn btn-ghost btn-sm" href={back}><IconBack /> Providers</a>
         <h3>{title}</h3>
-        <a className="btn btn-ghost btn-sm" href={DOCS_BASE + "/guide/providers#custom-endpoint"} target="_blank" rel="noreferrer"><IconDocs /> Setup guide</a>
+        <a className="btn btn-ghost btn-sm" href={DOCS_BASE + "/guide/providers#custom-provider"} target="_blank" rel="noreferrer"><IconDocs /> Setup guide</a>
       </div>
       <form className="form-new prov-form prov-page" noValidate onSubmit={save}>
         <div className="prov-set">
@@ -149,7 +149,7 @@ export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) 
                 placeholder="e.g. cheaperinference"
                 autoComplete="off" spellCheck="false"
                 disabled={isEdit}
-                aria-label="Endpoint name"
+                aria-label="Provider name"
               />
             </div>
             <div className="prov-field">
@@ -324,7 +324,7 @@ export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) 
         <p className="form-error" hidden={!err}>{err}</p>
         <div className="prov-page-actions" data-align-row>
           <a className="btn btn-ghost btn-sm" href={back}>Cancel</a>
-          <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{isEdit ? "Save" : "Add endpoint"}</button>
+          <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{isEdit ? "Save" : "Add provider"}</button>
         </div>
       </form>
     </section>

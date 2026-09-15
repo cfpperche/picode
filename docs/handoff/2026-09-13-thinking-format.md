@@ -22,7 +22,7 @@ survived reload; desktop and mobile screenshots read, overlay audit ok.
 
 ## Next up
 
-- `chatTemplateKwargs` / `chatTemplateArgs` as an Advanced field pair (P3).
+(shipped: the Advanced thinking editors — bullet pruned 2026-09-15 to hold the board budget)
 
 ## Debts
 

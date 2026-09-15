@@ -277,10 +277,11 @@ session it created itself, by exact name.
 
 Each refusal is explained on the terminal, and the reason is logged to
 `<dataDir>/tmux-guard.log`. The guard applies only inside terminals PiCode
-created; your own shell outside PiCode is untouched. If you are debugging
-and need raw tmux semantics, the wiring toggle
-(`POST /api/terminals/wiring/tmux-guard/disable`) turns it off for future
-terminals.
+created; your own shell outside PiCode is untouched. The switch lives in
+**Preferences ▸ Terminal** (Terminal defaults) under **Safety**; the change
+applies to terminals opened from now on. If you are debugging and need raw
+tmux semantics, the same switch (or
+`POST /api/terminals/wiring/tmux-guard/disable`) turns the guard off.
 
 If you build scripts that create scratch tmux servers, do **not** rely on
 `TMUX_TMPDIR` alone: when a command runs inside an existing tmux session,
