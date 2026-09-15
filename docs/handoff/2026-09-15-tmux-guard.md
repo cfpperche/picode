@@ -27,7 +27,3 @@ and exec'd in an endless loop. The guard now resolves with `${0%/*}`
 **Gates.** `make ci-scoped: PASS` (fmt, vet, hooks, go×4, docs, vale) —
 run while the owner held other agents. No UI change, so no visual-review
 scope; the UI row is a named debt, not claimed.
-
-## Next up
-
-- UI toggle for the guard (needs a UI home).

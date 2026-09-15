@@ -1,147 +1,102 @@
 # Work browser (Phase 3)
 
-Slices 1 and 2.1 (tabs, toolbar, browser settings, screenshot) are accepted
-and deployed; slice 2 landed in three parts — the bridge and tier gate
-(`feat/browser-cdp`), the command channel (`feat/browser-agent`, ADR-0132)
-and the `browser` Pi tool with its policy default (`feat/browser-policy`,
-ADR-0134: read on the tab on screen). Plan: `docs/plans/desktop-v2.md`
-(Phase 3 + the slice 2 section), policy: ADR-0128 as amended by 0134.
-
-The split view with per-pane bindings (ADR-0135, `feat/agent-browser-split`)
-landed 2026-09-14, accepted live on Windows the same day (snapshot +
-screenshot round-tripped through the bound pane).
+Policy: ADR-0128 as amended by 0134 (per-agent tier + origins), split view
+ADR-0135. Plan: `docs/plans/desktop-v2.md` (Phase 3). Settings parity is
+reviewed by the owner against the reference, one item at a time.
 
 ## Next
 
-- Slice 4 (`feat/browser-grants`) left: `act` verbs + origin rule, grants editor, shell navigation gate mirroring `browser.AllowsOrigin`.
+- **Ask prompt** closes Browser permissions v1 (deferral on the UI thread).
+- **Terminal agents as principals** — spec ADR-0143, five steps, in order.
+- **"New browser tab" button crashes the app** (tab-strip end, ReferenceError).
+- **v2a** unused-site permissions; **v2b** agent history access (needs Ask).
+- **v2c** annotations (step 4 is an ADR); **v2d** Windows Hello opener row.
+- **v3** WebMCP and Developer mode (raw CDP: ADR, off, `full` only, audited).
 
-## Notes
+## Next — detail
 
-- **The blank window (any work-browser tab) is FIXED** (2026-09-15, `feat/browser-tab-crash`): `showFullUrl` was read in the meta effect's deps above its own `useState` — a `const` touched in the same render before its declaration throws and unmounts the React root. Verified before/after on two scratches (main: blank page + `ReferenceError`; the fix: the tab opens and its notice renders). No JS linter and no component test exists in this repo to catch the class — a `biome`-style `noInvalidUseBeforeDeclaration` guard would be its own task.
-
-- **Split survives relaunch: DONE (2026-09-14)** — layout + last url persist; boot prunes dead hosts; webview recreated on host-tab show. Post-deploy: re-check the recreate in the shell.
-
-## Slice 3, state (owner reviewing the Settings ▸ Browser parity list one
-item at a time, 2026-09-15)
-
-Landed: the history store and its dropdown, the Clear browsing data dialog
-(per-kind WebView2 masks + time range), the Browsing history dialog (search,
-day groups, favicons, per-row menu, bulk remove), the reference-shaped
-settings page with the master Browser switch, open destinations, Show full
-URL, password/contact autofill.
-
-Still unbuilt, in the owner's order: **Downloads** (Location, "Ask where to
-save downloads", Download history — recipe in
-`docs/handoff/2026-09-14-browser-downloads.md`), **Browser permissions**
-(Site settings camera/mic — the `PermissionRequested` handler — the History
-select, Enable site tools), **Developer mode** (the elevated-risk toggle over
-full CDP access), then find in page and the device toolbar.
+- **Ask prompt**: hold the request with `GetDeferral` on the UI thread (COM is
+  not `Send`, the `RECEIVERS` trap), the prompt surface in the tab, "always"
+  writing the per-site standing; makes `Ask` a third policy state.
+- **Terminal agents** (ADR-0143): the extension sends the house tuple
+  (agent → terminal → unmanaged), the resolver keys `term:<id>` beside the
+  bare agent key, the listing returns terminals with a CLI running, the UI
+  gives each principal a row and says an outside-PiCode `pi` stays read-only.
+  Tests per decision-table row.
+- **Crash**: verified pre-existing on a main scratch 2026-09-15, same class as
+  the blank window `feat/browser-tab-crash` fixed; no linter catches it.
+- **v2a**: remove permissions from unused sites (visit recency is in the
+  store). **v2b**: agent access to browsing history (Always ask / Allow /
+  Never — needs the Ask prompt). **v2c**: annotations (below; step 4 is an
+  ADR). **v2d**: the Windows Hello passkey opener row (validate the OS URI on
+  the machine first).
+- **v3**: WebMCP site tools (ADR when the standard lands); Developer mode /
+  raw CDP — the reference itself marks it Elevated risk: if it lands it is
+  off by default, `full` tier only, audited, warning row, ADR first.
+- **Never on WebView2**: third-party cookies, images, embedded content — no
+  host API; a control there would be theatre.
 
 ## Annotations (backlog, owner-registered 2026-09-15)
 
-The reference has "Annotation screenshots" (Always include / Only when needed
-/ Never). It is deliberately absent from our page: PiCode has no annotation
-feature, and a switch that controls nothing is a dead control. Build the
-feature, then the row.
+Deliberately absent from the settings page: a switch that controls nothing is
+a dead control. Build the feature, then the row (Always include / Only when
+needed / Never).
 
-1. **Annotate mode in the work browser tab** — pick an element or draw a
-   rectangle, then a comment box.
-2. **Capture** — the region through CDP `Page.captureScreenshot` with `clip`,
-   plus the selector and the URL.
-3. **Store + endpoints** — migration, feed event (ADR-0048).
-4. **Delivery to the agent** — the annotation (comment + image) enters the
-   session the agent reads.
-5. **The settings row** — "Annotation screenshots", honoured by the capture
-   step, once 1–4 exist.
-
-Step 4 opens a new user→agent input path: it needs an ADR before the
-protocol is fixed.
+1. Annotate mode in the tab: pick an element or draw a rectangle + comment.
+2. Capture: `Page.captureScreenshot` with `clip`, plus selector and URL.
+3. Store + endpoints: migration, feed event (ADR-0048).
+4. Delivery to the agent — a new user→agent input path: ADR before code.
+5. The settings row, honoured by the capture step, once 1–4 exist.
 
 ## Password manager (finding, 2026-09-15)
 
-The owner asked why the reference's Password manager has a list, Add, CSV import
-and Windows Hello, and ours cannot. Measured in `webview2-com-sys 0.38.2`
-(the SDK the shell compiles against):
+Measured in `webview2-com-sys 0.38.2`: the whole password surface is
+`Is`/`SetPasswordAutosaveEnabled` and `Is`/`SetGeneralAutofillEnabled` — no
+enumeration, no per-entry edit, no import. The SDK ships a runtime-UI opener
+where one exists (`ICoreWebView2_6::OpenTaskManagerWindow`) but there is no
+password-manager equivalent. Windows Hello and passkeys are OS surfaces.
 
-- The whole password/autofill surface is `Is`/`SetPasswordAutosaveEnabled` and
-  `Is`/`SetGeneralAutofillEnabled`. No enumeration, no per-entry edit, no
-  import — nothing reads entries back.
-- The SDK *does* ship a runtime-UI opener where one exists: `ICoreWebView2_6::
-  OpenTaskManagerWindow`. There is no password-manager equivalent, so the
-  runtime offers no such window to open.
-- Windows Hello and passkey management are OS surfaces, not host APIs.
+Two honest paths, both owner-gated: **opener rows** (cheap, no vault) or
+**PiCode owns the vault** (DPAPI store, fill injection through CDP, Hello
+unlock through WinRT `UserConsentVerifier`, CSV import) — a security-model
+decision, ADR before code.
 
-Conclusion: the reference's screens are its own vault (store + fill injection,
-WebAuthn passkeys, Hello unlock) or the OS page opened from it — not a read of
-WebView2's store. Two honest paths, both owner-gated:
-
-1. **Opener rows** (cheap, no vault): "Manage passkeys in Windows Hello" and the
-   Windows password/passkey settings page, launched from the dialog. The exact
-   OS URI must be verified on the machine first.
-2. **PiCode owns the vault** (the reference's shape): encrypted store (DPAPI),
-   per-entry CRUD, fill injection through CDP/`AddScriptToExecuteOnDocumentCreated`,
-   Hello unlock through WinRT `UserConsentVerifier`, CSV import. A security-model
-   decision — ADR before code, the same gate as the annotations above.
-
-## Browser permissions — scope decided (owner, 2026-09-15)
-
-**v1, in flight**: the Site settings dialog — Camera, Microphone, Location,
-Notifications, Clipboard read, Autoplay — each **Ask / Allow / Block**, kept
-per site, with Ask prompting in the tab; then the JavaScript toggle
-(`ICoreWebView2Settings::IsScriptEnabled`).
-
-**v2 (approved 2026-09-15)**: agent access to browsing history (Always ask /
-Allow / Never, reusing the policy + prompt machinery); "remove permissions
-from unused sites" (visit recency is already in the store); the annotations
-backlog above; the Windows Hello passkey opener row (validate the OS URI
-first).
-
-**v3**: WebMCP site tools (ADR when the standard lands — it changes the agent
-surface); Developer mode / raw CDP for agents (the reference itself marks it
-Elevated risk: if it lands it is off by default, `full` tier only, audited,
-with a warning row — ADR).
-
-**Never on WebView2**: third-party cookies, images, embedded content — the
-runtime exposes no host API for them, and a control there would be theatre.
-Revisit only if the embedding changes.
-
-### Permissions — implementation notes (measured in webview2-com-sys 0.38.2)
+## Permissions — implementation notes (measured in webview2-com-sys 0.38.2)
 
 - `add_PermissionRequested` is on the base `ICoreWebView2`;
   `PermissionRequestedEventHandler` ships in webview2-com's `callback`.
-- Args carry `PermissionKind()`, `Origin()`, `SetState(state)` and
-  `GetDeferral()` — the deferral is what makes Ask work (hold the request,
-  ask the user in the tab, answer, release).
-- States: `COREWEBVIEW2_PERMISSION_STATE_{DEFAULT,ALLOW,DENY}`. Kinds:
+- Args carry `PermissionKind()`, `Origin()`, `SetState(state)`,
+  `GetDeferral()` — the deferral is what makes Ask work.
+- States `COREWEBVIEW2_PERMISSION_STATE_{DEFAULT,ALLOW,DENY}`; kinds
   AUTOPLAY, CAMERA, CLIPBOARD_READ, GEOLOCATION, MICROPHONE, NOTIFICATIONS
-  (+ sensors, MIDI, local fonts, file system, multiple downloads).
+  (+ sensors, MIDI, local fonts, file system).
 - Standings live on `ICoreWebView2Profile4::SetPermissionState(kind, origin,
-  state)`; the profile is the shared work profile, so one call covers every
-  tab and the ones created later.
+  state)`; the shared work profile means one call covers every tab and the
+  ones created later.
+- Ask, per the reference, is a policy state we do not offer yet — the dialog
+  says so rather than promising a prompt that does not exist.
 
 ## Traps (paid for, keep them paid)
 
 - **A new shell command is THREE edits**: `generate_handler!` (main.rs),
   `build.rs`'s `AppManifest::new().commands(&[…])` and
-  `capabilities/default.json` — miss the second and the command has no
-  permission to allow, and every invoke dies with "not allowed by ACL"
-  while the page swallows it behind a `.catch`. Cost: four features
-  (autofill, clear data, open destinations, downloads) shipped dead
-  (2026-09-15).
-
+  `capabilities/default.json` — miss the second and every invoke dies with
+  "not allowed by ACL" while the page swallows it behind a `.catch`. Cost:
+  four features (autofill, clear data, open destinations, downloads) shipped
+  dead (2026-09-15).
 - Edit in the worktree. UI edits that land in the root checkout leave scratch
-  and deploy testing stale bundles (this happened three times).
+  and deploy testing stale bundles (happened three times).
 - `toast(msg)` defaults to `err`; success needs `toast.ok`.
-- `.web-tab-toolbar button` beats bare class selectors — prefix toolbar button
-  overrides with `.web-tab-toolbar`.
+- `.web-tab-toolbar button` beats bare class selectors — prefix toolbar
+  button overrides with `.web-tab-toolbar`.
 - `um-popover` is styled for the user menu; do not reuse it elsewhere.
 - Data-URL downloads are blocked inside WebView2: write files from Rust and
   toast the path.
 - Tauri commands that create or drive webviews must be async (a sync command
-  runs on the main thread — the lab's v1.0 freeze).
-- `webview2-com-sys 0.38` pins windows/windows-core 0.61; the handlers
-  (`CapturePreviewCompletedHandler`,
-  `CallDevToolsProtocolMethodCompletedHandler`) come ready-made.
+  runs on the main thread). A command that must touch a thread-local —
+  the deferral map — is the exception, and sync for that reason.
+- `webview2-com-sys 0.38` pins windows/windows-core 0.61; the completed
+  handlers come ready-made.
 - COM interfaces are not `Send`: keep event receivers on the UI thread (the
   `RECEIVERS` thread-local in `btab.rs`), never in Tauri state.
 - An HTML popover can never paint over a WebView2 sibling: the options menu
@@ -151,50 +106,20 @@ Revisit only if the embedding changes.
 
 The tool is a pi package, so reach follows install scope: **This agent** is
 private to a managed agent, **This machine** (`~/.pi/agent`) and **this
-project** are visible to a plain `pi` too. A managed agent reports its id and
-can hold a grant; a pi TUI has no id, falls back to the default, and reads the
-tab on screen. Identity is an assertion, not proof (ADR-0134) — a gate on a
-missing id would be cosmetic, so v1 documents the behavior instead of faking a
-boundary. Owner: validate in use, revisit scope after.
+project** are visible to a plain `pi` too. Identity is an assertion, not proof
+(ADR-0134) — a gate on a missing id would be cosmetic, so v1 documents the
+behavior instead of faking a boundary. Owner: validate in use, revisit scope
+after.
 
 **Name collision (found 2026-09-13):** npm already has a `pi-browser`
-("Playwright-backed pi extension that registers the pi-browser tool", keyword
-`pi-package`). Ours is local-only today, so nothing breaks — but the Packages
-gallery searches npm, so a search there offers *that* package, whose tool is
-also called `browser`. Publishing ours needs a name decision (scope or
-rename), and the gallery hit is worth a second look before anyone installs it
-expecting this one.
+("Playwright-backed pi extension", keyword `pi-package`). Ours is local-only,
+so nothing breaks — but the Packages gallery searches npm, and that package's
+tool is also called `browser`. Publishing ours needs a name decision, and the
+gallery hit is worth a look before anyone installs it expecting this one.
 
 ## Debts
 
 - `btab_layer.toml` (autogenerated) is a dead permission.
-
-## Notes
-
 - The options menu's page slide is not animated.
-
-## Terminal agents as principals — approved 2026-09-15, spec is ADR-0143
-
-The human's CLI agents (a `pi`, `claude` or `codex` in a PiCode terminal)
-never appeared in Agent permissions: the tool sends `PICODE_AGENT_ID` only
-(`packages/pi-browser/extensions/browser.ts`), terminals carry
-`PICODE_TERM_ID`, so the daemon resolved `Default()` (read, on screen) and
-the section — built from the managed-agent registry — had no row. Option A
-was chosen over one shared "Terminals" row and over the reference's
-site-pattern table; the reasoning is ADR-0143.
-
-Implementation, in order:
-
-1. `packages/pi-browser/extensions/browser.ts` — send the house tuple
-   (agent → terminal → unmanaged), the same rule as `pi-inbox`'s
-   `agentIdentity`.
-2. `internal/server/browser.go` — accept the kind; `internal/browser/
-   policy.go` — resolve `agent:<id>` / `term:<id>` (bare key = agent id, so
-   every existing grant keeps working), unmanaged → `Default()`, always.
-3. Listing: the grants endpoint returns managed agents **and** terminals
-   with a CLI running (title + CLI), so the UI can render both.
-4. `web/browser/src/components/BrowserPage.jsx` — one row per principal,
-   same editor; a line stating that a `pi` started outside PiCode stays
-   read-only by construction (no row, nothing to edit).
-5. Tests per decision-table row (managed / terminal / unmanaged / unknown
-   id / broken grant → read), plus one endpoint test.
+- No JS check catches use-before-declaration in a component (the blank-window
+  class).

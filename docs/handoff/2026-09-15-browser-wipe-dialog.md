@@ -17,7 +17,3 @@ choosing what is cleared.
   86dvh cap) — the stock 42% anchor clipped it off the top.
 - Fixed the shipped mask bug: the old one-click clear included
   general autofill and missed WebView2 browsing history.
-
-## Next up
-
-- Downloads section, Browser permissions (camera/mic), Developer mode.

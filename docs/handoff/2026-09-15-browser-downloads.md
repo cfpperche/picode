@@ -27,8 +27,3 @@ dialogs instead of sub-routes.
   the row copy ("Show a save prompt").
 - Untested on Windows: the actual DownloadStarting path (needs a real
   download in the desktop app) — first thing to check after the swap.
-
-## Next up
-
-- Browser permissions (Site settings camera/mic, History, Enable site
-  tools), then Developer mode.

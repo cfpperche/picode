@@ -14,8 +14,3 @@ starts; the decision is now dated in the topic file.
   session starts without re-research.
 - Same file, traps: the three-edit rule for a new shell command, with the
   four features it cost.
-
-## Next up
-
-- Browser permissions v1 (dialog, per-kind policy, per-site standings, the
-  in-tab Ask prompt), then the JavaScript toggle and the rest of the v2 list.

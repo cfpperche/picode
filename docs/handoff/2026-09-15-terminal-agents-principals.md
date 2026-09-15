@@ -11,9 +11,3 @@ Agent permissions.
 - `docs/handoff/open/work-browser-tabs.md` carries the implementation order
   (extension → resolver → listing → UI → tests per decision-table row).
 - Docs-only: `ci-scoped` PASS, no deploy (no UI or binary change).
-
-## Next up
-
-- Execute the five steps above in a fresh session; ADR-0143 is the spec.
-- Unchanged behind it: the Ask prompt (closes Browser permissions), the
-  tab-strip crash on "new browser tab", then v2a (unused sites).

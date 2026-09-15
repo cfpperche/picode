@@ -24,8 +24,3 @@ sub-routes.
 - A real list with add/edit means PiCode owning the store and injecting
   fills — a security-model decision (ADR) like the annotations backlog.
   Worth registering there if the owner wants it.
-
-## Next up
-
-- Downloads section, then Browser permissions (camera/mic), then Developer
-  mode.

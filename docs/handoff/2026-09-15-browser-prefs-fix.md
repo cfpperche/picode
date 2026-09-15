@@ -20,9 +20,3 @@ checked, and checked survives a reload with the daemon storing true.
   gone. Three tests, including the round trip that broke.
 - Suíte: 343 pass, 0 fail. Visual: switch toggles both ways, persists
   across reload.
-
-## Next up
-
-- Browser permissions (camera/mic), Developer mode; and the ACL lesson
-  (a new shell command is three edits) to the traps list in
-  `docs/handoff/open/work-browser-tabs.md`.
