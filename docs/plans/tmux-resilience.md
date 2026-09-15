@@ -37,28 +37,33 @@ and leaves no feed event.
 - Acceptance: kill a scratch server's sessions while a scratch daemon runs
   and find the loss in the journal and the feed within one tick.
 
-### Phase 2 — tests stop writing to the live server
+### Phase 2 — tests stop writing to the live server (branch `feat/tmux-test-isolation`)
 
 `make ci` leaked six sessions onto the production server today
 (`picode-sh-feed-fixture-*`, `picode-sh-pi-from-claude-code-race-fix-*`,
-removed by exact name). The stalled `feat/tmux-orphans` branch already
-carries the design — harvest it and fix its one dangerous flaw:
+removed by exact name). What was built instead of the plan's name-sweep:
 
-- Harvest `SocketDirEnv`, `DefaultSocketDir()`, `KillIsolatedServer` and
-  `isolation_test.go` from `feat/tmux-orphans` (uncommitted there; the
-  branch itself is 233 commits behind and gets deleted after harvesting).
-- **Fix the flaw first**: `KillIsolatedServer` builds the child env with
-  `append(os.Environ(), …)`, so an inherited `$TMUX` still outranks
-  `TMUX_TMPDIR` (measured 2026-09-15). Scrub `TMUX`, `TMUX_PANE` and any
-  pre-existing `TMUX_TMPDIR` before appending; same for every test that
-  uses `t.Setenv(SocketDirEnv, …)`. A shared helper
-  (`tmux.IsolatedEnv(dir)`) keeps it in one place.
-- Point the suites that create sessions (`internal/server` feed/handoff
-  tests) at an isolated socket dir, and assert `#{socket_path}` where a
-  server is actually started.
-- Add an orphan sweep for leftovers whose names match the test prefixes,
-  used by the fixtures' `t.Cleanup` — never by pattern from a human shell.
-- Acceptance: run `make ci`, then `tmux ls` shows no test-named session.
+- `internal/tmuxtest` (`TestMain` per suite): private `TMUX_TMPDIR`,
+  `TMUX`/`TMUX_PANE` scrubbed for the whole test binary, the private server
+  killed twice with a 300 ms grace (a straggler watcher ticks after
+  `m.Run`), and the environment deliberately **not** restored — restoring it
+  re-armed the leak for stragglers on 2026-09-15. Wired into `internal/server`,
+  `internal/tmux` (external test package: `tmuxtest` imports it) and
+  `internal/term`; `TestSuiteIsTmuxIsolated` fails loudly if a TestMain is
+  removed.
+- Harvested from `feat/tmux-orphans`: `SocketDirEnv`, `DefaultSocketDir()`,
+  `KillIsolatedServer` (refuses the user's directory) + `isolation_test.go`.
+  Fixed the harvested flaw: its child env was `append(os.Environ(), …)`, so
+  an inherited `$TMUX` still won — `IsolatedEnv(dir)` now scrubs first.
+- No name-matching sweep (deviation from the plan): the private server is
+  killed whole, so leftovers cannot outlive the run, and no code in this
+  repository pattern-kills anything.
+- Found while fixing the harvested test: a tmux client with no server starts
+  one, and a command needing no session watches it exit — "server exited
+  unexpectedly". `serverAbsent` now folds that into "no server" (the tmux app
+  renders an empty server instead of an error after a crash).
+- Acceptance met: `go test ./internal/server/` and `./internal/tmux/` leave
+  zero new sessions on the live server (26 → 26, verified by diff).
 
 ### Phase 3 — guard UI toggle (branch `feat/tmux-guard-ui`)
 

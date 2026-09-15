@@ -327,6 +327,15 @@ func handleGetTermCatalog(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusServiceUnavailable, "Need tmux to read terminal settings.")
 			return
 		}
+		// The option list is read from the running tmux; a machine whose last
+		// terminal closed has no server to ask (the client would start one and
+		// watch it exit empty — measured 2026-09-15, when an isolated test
+		// suite exposed the 500). That state is a precondition, not an
+		// internal error: say what to do instead.
+		if !deps.Tmux.ServerInfo(r.Context()).Running {
+			writeErr(w, http.StatusServiceUnavailable, "Start a terminal to read the tmux option list.")
+			return
+		}
 		entries, err := deps.Tmux.OptionCatalog(r.Context())
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
