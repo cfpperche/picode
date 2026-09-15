@@ -32,6 +32,7 @@ func registerBrowserRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/browser/tool", handleBrowserTool(deps))
 	registerBrowserPolicyRoutes(mux, deps)
 	registerBrowserHistoryRoutes(mux, deps)
+	registerBrowserDownloadRoutes(mux, deps)
 	registerBrowserPrefRoutes(mux, deps)
 }
 

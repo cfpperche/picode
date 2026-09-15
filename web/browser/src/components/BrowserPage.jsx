@@ -104,6 +104,18 @@ const dayLabel = (d) => {
 
 const timeLabel = (d) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
+const bytesLabel = (n) => {
+  if (!n || n <= 0) return "";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = n;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value >= 10 || unit === 0 ? Math.round(value) : value.toFixed(1)} ${units[unit]}`;
+};
+
 // The row's site icon: the site's own /favicon.ico over https, and the
 // host's first letter when that is impossible (http, or no icon).
 function Favicon({ url, host }) {
@@ -138,12 +150,19 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   const [manageOpen, setManageOpen] = useState(""); // "" | "passwords" | "contact"
   const [confirmPurge, setConfirmPurge] = useState(false);
   const [purgeBusy, setPurgeBusy] = useState(false);
+  const [downloadDir, setDownloadDir] = useState("");
+  const [dirOpen, setDirOpen] = useState(false);
+  const [dirDraft, setDirDraft] = useState("");
+  const [downloads, setDownloads] = useState(null);
+  const [downloadsOpen, setDownloadsOpen] = useState(false);
+  const [dlQuery, setDlQuery] = useState("");
+  const [confirmClearAll, setConfirmClearAll] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [wipeOpen, setWipeOpen] = useState(false);
   const [wipeRange, setWipeRange] = useState(3600);
   const [wipeKinds, setWipeKinds] = useState(() => WIPE_KINDS.filter((k) => k.on).map((k) => k.value));
   const [wipeBusy, setWipeBusy] = useState(false);
-  const [prefs, setPrefs] = useState({ showFullUrl: true, webOpenDest: "app", localOpenDest: "app", passwordAutosave: true, generalAutofill: true, agentAccess: true });
+  const [prefs, setPrefs] = useState({ showFullUrl: true, webOpenDest: "app", localOpenDest: "app", passwordAutosave: true, generalAutofill: true, askDownload: false, agentAccess: true });
 
   const load = useCallback(async () => {
     try {
@@ -157,6 +176,19 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   }, []);
 
   const histQueryRef = useRef("");
+  const dlQueryRef = useRef("");
+  const loadDownloads = useCallback(async () => {
+    try {
+      const q = dlQueryRef.current;
+      const r = await fetch("/api/browser/downloads?limit=200" + (q ? "&q=" + encodeURIComponent(q) : ""));
+      if (!r.ok) throw new Error(String(r.status));
+      const data = await r.json();
+      setDownloads(data.downloads ?? []);
+    } catch {
+      /* the list is disposable; the next event retries */
+    }
+  }, []);
+
   const loadHistory = useCallback(async () => {
     setHistLoading(true);
     try {
@@ -174,6 +206,14 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
 
   // The search box filters server-side; 250ms of quiet is enough to ask.
   useEffect(() => {
+    dlQueryRef.current = dlQuery;
+    const t = setTimeout(() => {
+      if (!hidden && downloadsOpen) loadDownloads();
+    }, dlQuery ? 250 : 0);
+    return () => clearTimeout(t);
+  }, [dlQuery, hidden, downloadsOpen, loadDownloads]);
+
+  useEffect(() => {
     histQueryRef.current = histQuery;
     const t = setTimeout(() => {
       if (!hidden && historyOpen) loadHistory();
@@ -185,6 +225,8 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     if (!hidden) {
       load();
       loadHistory();
+      loadDownloads();
+      if (invoke) invoke("btab_download_dir").then((p) => setDownloadDir(p || "")).catch(() => {});
       fetch("/api/browser/prefs")
         .then((r) => r.json())
         .then((p) => setPrefs({
@@ -193,6 +235,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
           localOpenDest: p.localOpenDest || "app",
           passwordAutosave: p.passwordAutosave !== false,
           generalAutofill: p.generalAutofill !== false,
+          askDownload: p.askDownload === true,
           agentAccess: p.agentAccess !== false,
         }))
         .catch(() => {});
@@ -218,6 +261,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
       }))
       .catch(() => {});
     invoke?.("btab_set_prefs", { passwordAutosave: next.passwordAutosave, generalAutofill: next.generalAutofill }).catch(() => {});
+    invoke?.("btab_set_ask_download", { ask: !!next.askDownload }).catch(() => {});
   };
 
   // Saves land as setting.updated; history mutations as browserhistory.updated.
@@ -225,7 +269,8 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   useEffect(() => subscribeFeed((ev) => {
     if (ev.type === "setting.updated") load();
     if (ev.type === "browserhistory.updated") loadHistory();
-  }), [load, loadHistory]);
+    if (ev.type === "browserdownload.updated") loadDownloads();
+  }), [load, loadHistory, loadDownloads]);
 
   const removeVisit = async (vid) => {
     await fetch("/api/browser/history/" + vid, { method: "DELETE" }).catch(() => {});
@@ -358,6 +403,43 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     else toast.ok(kind === "passwords" ? "Saved passwords deleted." : "Saved form data deleted.");
   };
 
+  const saveDownloadDir = async (path) => {
+    try {
+      if (invoke) await invoke("btab_set_download_dir", { path });
+    } catch (e) {
+      toast("Changing the download folder failed: " + (e?.message || e));
+      return;
+    }
+    setDownloadDir(path);
+    setDirOpen(false);
+    toast.ok(path ? "Downloads will be saved to " + path : "Downloads go to the system Downloads folder.");
+  };
+
+  const removeDownload = async (id) => {
+    await fetch("/api/browser/downloads/" + id, { method: "DELETE" }).catch(() => {});
+    loadDownloads();
+  };
+
+  const clearDownloads = async () => {
+    if (!confirmClearAll) {
+      setConfirmClearAll(true);
+      setTimeout(() => setConfirmClearAll(false), 4000);
+      return;
+    }
+    setConfirmClearAll(false);
+    await fetch("/api/browser/downloads/clear", { method: "POST" }).catch(() => {});
+    loadDownloads();
+  };
+
+  const openDownload = async (d, reveal) => {
+    if (!invoke) return;
+    try {
+      await invoke(reveal ? "btab_reveal_path" : "btab_open_path", { path: d.path });
+    } catch (e) {
+      toast("Opening the file failed: " + (e?.message || e));
+    }
+  };
+
   const draftOf = (row) => drafts[row.agentId] ?? { tier: row.tier, domainsText: domainsText(row) };
   const setDraft = (agentId, next) => setDrafts((d) => ({ ...d, [agentId]: next }));
 
@@ -437,6 +519,21 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
             </Item>
             <Item title="Contact info" desc="Add, delete, and edit saved addresses, phone numbers, and email addresses">
               <button type="button" className="set-btn" onClick={() => setManageOpen("contact")}>Manage</button>
+            </Item>
+          </div>
+        </section>
+
+        <section className="set-group">
+          <h2 className="set-grouph">Downloads</h2>
+          <div className="set-panel">
+            <Item title="Location" desc={downloadDir || "System Downloads folder"}>
+              <button type="button" className="set-btn" onClick={() => { setDirDraft(downloadDir); setDirOpen(true); }}>Change</button>
+            </Item>
+            <Item title="Ask where to save downloads" desc="Show a save prompt for downloads you start in the built-in browser">
+              <SwitchCtl checked={prefs.askDownload} onChange={(v) => setPref({ askDownload: v })} label="Ask where to save downloads" />
+            </Item>
+            <Item title="Download history" desc="View and manage files downloaded from the built-in browser">
+              <button type="button" className="set-btn" onClick={() => setDownloadsOpen(true)}>Manage</button>
             </Item>
           </div>
         </section>
@@ -672,6 +769,101 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
             </div>
             <div className="dlg-actions" data-align-row>
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => { setManageOpen(""); setConfirmPurge(false); }}>Close</button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+      <Dialog.Root open={dirOpen} onOpenChange={(open) => { if (!open) setDirOpen(false); }}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="dlg-overlay" />
+          <Dialog.Content className="dlg dlg-manage">
+            <Dialog.Title className="dlg-title">Download folder</Dialog.Title>
+            <p className="dlg-lede">Where the built-in browser writes downloads. Leave it empty for the system Downloads folder.</p>
+            <input
+              className="hist-search"
+              style={{ marginTop: 0, width: "100%" }}
+              placeholder="C:\\Users\\you\\Downloads"
+              value={dirDraft}
+              onChange={(e) => setDirDraft(e.target.value)}
+              aria-label="Download folder path"
+            />
+            <div className="dlg-actions" data-align-row>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => saveDownloadDir("")}>Use the system folder</button>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => setDirOpen(false)}>Cancel</button>
+              <button type="button" className="btn btn-sm btn-primary" onClick={() => saveDownloadDir(dirDraft.trim())}>Save</button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      <Dialog.Root open={downloadsOpen} onOpenChange={(open) => { setDownloadsOpen(open); if (!open) setDlQuery(""); }}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="dlg-overlay" />
+          <Dialog.Content className="dlg dlg-hist">
+            <Dialog.Title className="dlg-title">Download history</Dialog.Title>
+            <input
+              className="hist-search"
+              type="search"
+              placeholder="Search download history"
+              value={dlQuery}
+              onChange={(e) => setDlQuery(e.target.value)}
+              aria-label="Search download history"
+            />
+            <div className="hist-head">
+              <span className="hist-head-t">{dlQuery ? `Results for “${dlQuery}”` : "All-time history"}</span>
+              <button
+                type="button"
+                className={"set-btn" + (confirmClearAll ? " set-btn-danger" : "")}
+                onClick={clearDownloads}
+                disabled={!downloads || downloads.length === 0}
+              >
+                {confirmClearAll ? "Really clear all?" : "Clear all"}
+              </button>
+            </div>
+            {downloads === null ? (
+              <div className="mcp-skel" aria-hidden="true"><span className="skel-line w-40" /><span className="skel-line w-70" /></div>
+            ) : downloads.length === 0 ? (
+              <div className="dl-empty">
+                <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M11 3v10" /><path d="M6.5 9.5L11 14l4.5-4.5" /><path d="M3.5 18h15" />
+                </svg>
+                <span className="dl-empty-t">{dlQuery ? `No downloads match “${dlQuery}”.` : "No downloads yet"}</span>
+                {dlQuery ? null : <span className="dl-empty-d">Files downloaded from the built-in browser will appear here.</span>}
+              </div>
+            ) : (
+              <div className="hist-days">
+                <ul className="hist-rows">
+                  {downloads.map((d) => (
+                    <li className="hist-row" key={d.id}>
+                      <span className="hist-fav" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">{WIPE_ICONS.downloads}</svg>
+                      </span>
+                      <span className="hist-main">
+                        <span className="hist-t" title={d.path || d.name}>{d.name}</span>
+                        <span className="hist-host">{d.host}</span>
+                      </span>
+                      <span className="hist-time" style={d.status === "interrupted" ? { color: "var(--danger)" } : undefined}>
+                        {d.status === "interrupted" ? "interrupted" : d.status === "started" ? "downloading" : bytesLabel(d.total || d.received)}
+                      </span>
+                      <span className="hist-time">{timeLabel(visitDate({ visitedAt: d.startedAt }))}</span>
+                      <DropdownMenu.Root>
+                        <DropdownMenu.Trigger className="hist-more" aria-label={"More actions for " + d.name}>⋯</DropdownMenu.Trigger>
+                        <DropdownMenu.Portal>
+                          <DropdownMenu.Content className="um-popover" align="end" sideOffset={4} collisionPadding={8}>
+                            <DropdownMenu.Item className="um-item" onSelect={() => openDownload(d, false)}>Open file</DropdownMenu.Item>
+                            <DropdownMenu.Item className="um-item" onSelect={() => openDownload(d, true)}>Show in folder</DropdownMenu.Item>
+                            <DropdownMenu.Item className="um-item" onSelect={() => copyLink(d.path || d.url)}>Copy path</DropdownMenu.Item>
+                            <DropdownMenu.Item className="um-item" onSelect={() => removeDownload(d.id)}>Remove from history</DropdownMenu.Item>
+                          </DropdownMenu.Content>
+                        </DropdownMenu.Portal>
+                      </DropdownMenu.Root>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="dlg-actions" data-align-row>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => setDownloadsOpen(false)}>Close</button>
             </div>
           </Dialog.Content>
         </Dialog.Portal>
