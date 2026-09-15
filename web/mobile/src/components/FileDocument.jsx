@@ -16,14 +16,17 @@ export default function FileDocument({ doc, view, path, owner, root }) {
   // ticket serves it from disk, so the pane renders preview-only — no editor
   // and no "too large to display" notice.
   const previewOnly = kind === "html" && view.kind === "msg" && /too large/i.test(view.error || "");
-  // One capability ticket per open HTML preview (ADR-0136); no minting while
-  // the editor holds unsaved text — the pane says the preview is behind.
+  // One capability ticket per open HTML preview (ADR-0136). Unsaved editor
+  // text travels as the ticket's overlay (the hook PUTs it), so the preview
+  // shows what the editor holds while assets still come from disk.
   const html = usePreviewTicket({
     ownerKind: owner && owner.kind,
     ownerId: owner && owner.id,
     path,
     root,
-    enabled: kind === "html" && display === "preview" && !view.dirty && (previewOnly || !previewEmpty(view.text)),
+    text: view.text,
+    dirty: view.dirty,
+    enabled: kind === "html" && display === "preview" && (previewOnly || !previewEmpty(view.text)),
   });
   useEffect(() => {
     if (view.kind !== "text" || !host.current) return;
@@ -56,13 +59,6 @@ export default function FileDocument({ doc, view, path, owner, root }) {
     {kind && display === "preview" && (previewOnly || ["text", "bin"].includes(view.kind)) ? <div className="m-file-preview">
       {kind === "html" && !previewOnly && previewEmpty(view.text) ? (
         <p className="file-pane-msg">Nothing to preview.</p>
-      ) : kind === "html" && view.dirty && !view.error ? (
-        <p className="file-pane-msg file-pane-msg-actions">
-          <span>Unsaved changes aren't in the preview.</span>
-          <button type="button" className="btn btn-sm btn-ghost" disabled={view.saving} onClick={() => { void doc.save(); }}>
-            {view.saving ? "Saving…" : "Save and preview"}
-          </button>
-        </p>
       ) : (
         <FilePreview key={path + ":" + view.src} kind={kind} text={view.text} src={view.src} html={kind === "html" ? html : undefined} />
       )}

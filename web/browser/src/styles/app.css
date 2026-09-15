@@ -5704,3 +5704,17 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .cap-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
 .cap-btn.cap-close:hover { background: #c42b1c; color: #fff; }
 .cap-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Browser grants editor (Settings ▸ Browser): one row per agent —
+   name, tier select, optional domains input, save. Everything sits on
+   the control height so the row stays even. */
+.grant-list { list-style: none; margin: 0; padding: 0; }
+.grant-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.grant-row:last-child { border-bottom: none; }
+.grant-name { display: inline-flex; align-items: center; gap: 6px; min-width: 140px; font-size: 13px; color: var(--text-primary); }
+.grant-tier { height: var(--ctl-h); padding: 0 8px; font-size: 12.5px; font-family: inherit; background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-ctl); }
+.grant-domains { height: var(--ctl-h); padding: 0 8px; font-size: 12.5px; font-family: inherit; background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-ctl); flex: 1 1 220px; min-width: 180px; }
+.grant-domains:focus-visible, .grant-tier:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.grant-domains-bad { border-color: var(--danger, #c42b1c); }
+.grant-error { font-size: 12px; color: var(--danger, #c42b1c); flex-basis: 100%; }
+.devs-tag-off { opacity: .6; }

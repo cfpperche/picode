@@ -114,6 +114,12 @@ type cliView struct {
 	Diagnostic         *CLIDiagnostic   `json:"diagnostic,omitempty"`
 	Plan               clilaunch.Plan   `json:"plan"`
 	Lifecycle          lifecycleView    `json:"lifecycle"`
+	// IntegrationCapable says the surface may offer activity, launch
+	// settings and the setup panes; Launchable says New terminal exists.
+	// They are separate: Muse Code and Antigravity open a terminal with no
+	// adapter behind it (surface "terminal").
+	IntegrationCapable bool `json:"integrationCapable"`
+	Launchable         bool `json:"launchable"`
 	// Sessions advertises what this CLI's session source can do (list,
 	// read a transcript, receive a native session, start from a brief) so
 	// the web derives handoff targets from the server (ADR-0088).
@@ -125,7 +131,7 @@ func describeCLI(deps Deps, cli clilaunch.CLI) (cliView, error) {
 	if err != nil {
 		return cliView{}, err
 	}
-	v := cliView{CLI: cli, Config: c, IntegrationApplied: cliIntegrationPrepared(deps.DataDir, cli), Sessions: clisession.CapabilitiesOf(cli.ID)}
+	v := cliView{CLI: cli, Config: c, IntegrationApplied: cliIntegrationPrepared(deps.DataDir, cli), Sessions: clisession.CapabilitiesOf(cli.ID), IntegrationCapable: cli.Integrable(), Launchable: cli.Launchable()}
 	v.Sessions.Agent = cliAgentLanding(cli.ID)
 	v.Plan, _ = launchPlan(deps, cli, c, clilaunch.Overrides{}, filepath.Join(deps.DataDir, "cli-launch", "{terminal}", "run-{next}"))
 	v.Executable, err = resolveCLIExecutable(cli, c)
@@ -188,8 +194,8 @@ func registerCLIRoutes(mux Registrar, deps Deps) {
 			writeErr(w, 404, "Unknown CLI.")
 			return
 		}
-		if cli.DetectOnly() {
-			writeErr(w, 400, fmt.Sprintf("Launch is not available for %s yet.", cli.Name))
+		if !cli.Integrable() {
+			writeErr(w, 400, fmt.Sprintf("Launch settings are not available for %s yet.", cli.Name))
 			return
 		}
 		var c clilaunch.Config
@@ -467,7 +473,7 @@ func handleCreateCLITerminal(deps Deps) http.HandlerFunc {
 			writeErr(w, 404, "Unknown CLI.")
 			return
 		}
-		if cli.DetectOnly() {
+		if !cli.Launchable() {
 			writeErr(w, 400, fmt.Sprintf("Launch is not available for %s yet.", cli.Name))
 			return
 		}
@@ -493,7 +499,7 @@ func handleCreateCLITerminal(deps Deps) http.HandlerFunc {
 // pre-flight both terminal creation and a handoff run before creating
 // anything. Returns the HTTP status for the failure.
 func checkCLILaunch(deps Deps, cli clilaunch.CLI, overrides clilaunch.Overrides) (clilaunch.Config, int, error) {
-	if cli.DetectOnly() {
+	if !cli.Launchable() {
 		return clilaunch.Config{}, 400, fmt.Errorf("Launch is not available for %s yet.", cli.Name)
 	}
 	c, err := cliConfig(deps, cli.ID)

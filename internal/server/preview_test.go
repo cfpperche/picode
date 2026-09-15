@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -459,5 +460,75 @@ func TestPreviewEventsRefusals(t *testing.T) {
 	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusMethodNotAllowed {
 		t.Fatalf("post status=%d", res.StatusCode)
+	}
+}
+
+func TestPreviewOverlayPut(t *testing.T) {
+	f := newPreviewFixture(t, time.Hour)
+	url := f.mintURL(t, "site/index.html")
+	token := strings.Split(strings.TrimPrefix(url, "/preview/"), "/")[0]
+
+	put := func(t *testing.T, path, body string, raw []byte) *http.Response {
+		t.Helper()
+		var reader io.Reader
+		if raw != nil {
+			reader = bytes.NewReader(raw)
+		} else {
+			reader = strings.NewReader(body)
+		}
+		req, err := http.NewRequest(http.MethodPut, f.ts.URL+path, reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "text/plain; charset=utf-8")
+		res, err := f.ts.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = res.Body.Close() }()
+		return res
+	}
+
+	if res := put(t, url, "<!doctype html><h1>unsaved do editor</h1>", nil); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("put status=%d", res.StatusCode)
+	}
+	res, body := f.get(t, url)
+	if res.StatusCode != http.StatusOK || !strings.Contains(body, "unsaved do editor") {
+		t.Fatalf("overlay not served: status=%d body=%q", res.StatusCode, body)
+	}
+	if strings.Contains(body, "hello preview") {
+		t.Fatal("the disk document leaked through the overlay")
+	}
+	if !strings.HasPrefix(res.Header.Get("Content-Security-Policy"), "sandbox allow-scripts") {
+		t.Fatalf("overlay lost the sandbox: %q", res.Header.Get("Content-Security-Policy"))
+	}
+	// Assets still come from disk.
+	if _, js := f.get(t, "/preview/"+token+"/site/app.js"); !strings.Contains(js, "preview") {
+		t.Fatalf("asset changed under the overlay: %q", js)
+	}
+	// Only the ticket's own document may be overlaid.
+	if res := put(t, "/preview/"+token+"/site/app.js", "nope", nil); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("asset overlay status=%d", res.StatusCode)
+	}
+	// The pane writes UTF-8 text.
+	if res := put(t, url, "", []byte{0xff, 0xfe, 0x00}); res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("invalid utf8 status=%d", res.StatusCode)
+	}
+	// The editor is capped at 1 MiB; the route refuses more.
+	if res := put(t, url, strings.Repeat("x", maxAgentText+1), nil); res.StatusCode != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized status=%d", res.StatusCode)
+	}
+	// Unknown token, other methods.
+	if res := put(t, "/preview/"+strings.Repeat("a", 43)+"/site/index.html", "x", nil); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("unknown token status=%d", res.StatusCode)
+	}
+	req, _ := http.NewRequest(http.MethodDelete, f.ts.URL+url, nil)
+	resDel, err := f.ts.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resDel.Body.Close() }()
+	if resDel.StatusCode != http.StatusMethodNotAllowed {
+		t.Fatalf("delete status=%d", resDel.StatusCode)
 	}
 }

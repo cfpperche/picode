@@ -555,3 +555,19 @@ export const packageDescribeSchema = z.object({
     }
   }
 });
+
+// A browser grant (ADR-0128) as the editor edits it: the tier plus the
+// domain table as one comma-separated line. The transform forgives what
+// people paste — scheme, path, port are stripped — and what survives must
+// be a bare host the origin rule can match.
+export const browserGrantSchema = z.object({
+  tier: z.enum(["read", "act", "full"]),
+  domains: z.string().transform((raw) => raw.split(",").map((entry) => {
+    let host = entry.trim().toLowerCase().replace(/^https?:\/\//, "").split("/")[0];
+    host = host.startsWith("[") ? host.slice(1).split("]")[0] : host.split(":")[0];
+    return host;
+  }).filter(Boolean)).refine(
+    (hosts) => hosts.every((h) => /^[a-z0-9*.\-:]+$/.test(h)),
+    "Use bare hosts like example.com or *.example.com — no scheme, no path.",
+  ),
+});

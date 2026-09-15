@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mintPreview, previewReachable } from "./preview.js";
+import { mintPreview, previewReachable, putPreviewOverlay } from "./preview.js";
 
 function fakeFetch(result) {
   const calls = [];
@@ -63,6 +63,32 @@ test("previewReachable treats only a real refusal as failure", async () => {
       globalThis.fetch = async () => ({ ok: c.ok, status: c.status });
       assert.equal(await previewReachable("/preview/tok/index.html"), c.want, `status ${c.status}`);
     }
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("putPreviewOverlay PUTs the editor buffer to the ticket", async () => {
+  const f = fakeFetch({ ok: true, status: 204 });
+  const original = globalThis.fetch;
+  globalThis.fetch = f.impl;
+  try {
+    await putPreviewOverlay("/preview/tok/index.html", "<h1>não salvo</h1>");
+    assert.equal(f.calls.length, 1);
+    assert.equal(f.calls[0].url, "/preview/tok/index.html");
+    assert.equal(f.calls[0].opts.method, "PUT");
+    assert.equal(f.calls[0].opts.body, "<h1>não salvo</h1>");
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("putPreviewOverlay throws when the ticket refuses", async () => {
+  const f = fakeFetch({ ok: false, status: 413 });
+  const original = globalThis.fetch;
+  globalThis.fetch = f.impl;
+  try {
+    await assert.rejects(() => putPreviewOverlay("/preview/tok/index.html", "x"), (err) => err.status === 413);
   } finally {
     globalThis.fetch = original;
   }

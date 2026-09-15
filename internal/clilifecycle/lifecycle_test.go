@@ -53,6 +53,11 @@ func TestDetectMethodResolvesSymlinksAndWrappers(t *testing.T) {
 	if got := DetectMethod(museWrapper); got != MethodVendor {
 		t.Errorf("wrapper muse: got %q, want vendor", got)
 	}
+	agyBinary := filepath.Join(dir, ".local", "bin", "agy")
+	write(agyBinary, "binary")
+	if got := DetectMethod(agyBinary); got != MethodVendor {
+		t.Errorf("agy: got %q, want vendor", got)
+	}
 	// A plain wrapper script that execs the real venv binary.
 	wrapper := filepath.Join(dir, ".local", "bin", "hermes")
 	write(wrapper, "#!/usr/bin/env bash\nexec \""+filepath.Join(dir, ".hermes", "hermes-agent", "venv", "bin", "hermes")+"\" \"$@\"\n")
@@ -119,7 +124,8 @@ func TestForDecisionTable(t *testing.T) {
 		{"opencode", "unknown", false, "", nil, nil, "", nil},
 		{"muse", "vendor", true, "channel", nil, nil, "", nil},
 		{"muse", "unknown", false, "", nil, nil, "", nil},
-		{"agy", "vendor", false, "", nil, nil, "", nil},
+		{"agy", "vendor", true, "channel", nil, nil, "", nil},
+		{"agy", "unknown", false, "", nil, nil, "", nil},
 	}
 	for _, c := range cases {
 		p, ok := For(c.cli, Method(c.method))
@@ -228,16 +234,41 @@ func TestParseHermesCheck(t *testing.T) {
 	}
 }
 
-func TestParseMuseChannel(t *testing.T) {
-	c, err := ParseMuseChannel([]byte(`{"channel":"muse-stable","version":"1.2.1-R2847.1"}`))
+func TestParseChannelVersion(t *testing.T) {
+	// Muse's channel JSON and Antigravity's manifest share one shape: a
+	// `version` field. Verified 2026-09-14 against both live endpoints.
+	c, err := ParseChannelVersion([]byte(`{"channel":"muse-stable","version":"1.2.1-R2847.1"}`))
 	if err != nil || c.Version != "1.2.1-R2847.1" {
-		t.Fatalf("ParseMuseChannel = %+v, err %v", c, err)
+		t.Fatalf("muse channel = %+v, err %v", c, err)
 	}
-	if _, err := ParseMuseChannel([]byte(`<html>`)); err == nil {
+	m, err := ParseChannelVersion([]byte(`{"version":"1.2.2","url":"https://storage.googleapis.com/x","sha512":"abc"}`))
+	if err != nil || m.Version != "1.2.2" {
+		t.Fatalf("antigravity manifest = %+v, err %v", m, err)
+	}
+	if _, err := ParseChannelVersion([]byte(`<html>`)); err == nil {
 		t.Error("unreadable output must error")
 	}
-	if _, err := ParseMuseChannel([]byte(`{"channel":"muse-stable","version":""}`)); err == nil {
+	if _, err := ParseChannelVersion([]byte(`{"channel":"muse-stable","version":""}`)); err == nil {
 		t.Error("missing version must error")
+	}
+}
+
+func TestChannelURLFor(t *testing.T) {
+	if got, ok := ChannelURLFor("muse", "linux", "amd64", false); !ok || got != MuseChannelURL {
+		t.Fatalf("muse url = %q ok=%v", got, ok)
+	}
+	want := AntigravityManifestURL + "linux_amd64.json"
+	if got, ok := ChannelURLFor("agy", "linux", "amd64", false); !ok || got != want {
+		t.Fatalf("agy url = %q, want %q", got, want)
+	}
+	if got, ok := ChannelURLFor("agy", "linux", "amd64", true); !ok || got != AntigravityManifestURL+"linux_amd64_musl.json" {
+		t.Fatalf("agy musl url = %q", got)
+	}
+	if got, ok := ChannelURLFor("agy", "darwin", "arm64", false); !ok || got != AntigravityManifestURL+"darwin_arm64.json" {
+		t.Fatalf("agy darwin url = %q", got)
+	}
+	if _, ok := ChannelURLFor("pi", "linux", "amd64", false); ok {
+		t.Error("pi has no version channel")
 	}
 }
 

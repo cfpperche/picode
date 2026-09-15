@@ -5,8 +5,27 @@ import { cliConnectorsLocation } from "./integrations.js";
 
 const CLI_PANES = new Set(["launch", "terminals", "sessions", "providers", "settings", "keyboard", "packages", "connectors"]);
 
-export function cliDetectOnly(cli) {
-  return !!(cli && cli.surface === "detect");
+// cliCapabilities reads what the server says one catalog row can do.
+// launch: New terminal exists. integration: activity, launch settings and
+// the setup panes exist (an adapter is behind the CLI). sessions: a session
+// source answers for it. Muse Code and Antigravity are launch without an
+// adapter, so their surface carries no settings and no sessions.
+export function cliCapabilities(cli) {
+  if (!cli) return { launch: false, integration: false, sessions: false };
+  return {
+    launch: cli.launchable !== false,
+    integration: cli.integrationCapable === true,
+    sessions: !!(cli.sessions && cli.sessions.list),
+  };
+}
+
+// cliPanes is the pane list a CLI's surface may show. A row with no
+// integration keeps Launch and Terminals only: no Sessions (no source
+// answers), and none of the setup panes, which all edit Pi-side things.
+export function cliPanes(cli) {
+  const cap = cliCapabilities(cli);
+  if (!cap.integration) return ["launch", "terminals"];
+  return ["launch", "terminals", ...(cap.sessions ? ["sessions"] : []), "providers", "settings", "keyboard", "packages", "connectors"];
 }
 
 // Setup panes (Settings / Packages / Connectors) read identity from the
