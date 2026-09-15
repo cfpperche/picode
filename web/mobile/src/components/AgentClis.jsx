@@ -24,7 +24,7 @@ import CliPaneTabs, { cliSetupHref } from "./CliPaneTabs.jsx";
 import CliCombo from "./CliCombo.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { IconChevronRight } from "./Icons.jsx";
-import { CLIDefaults, LaunchFields, LaunchPreview, confirmDiscard, useLaunchGuard } from "./CliLaunchSettings.jsx";
+import { CLIDefaults, LaunchFields, LaunchPreview, LaunchSummary, confirmDiscard, useLaunchGuard } from "./CliLaunchSettings.jsx";
 import { CLIProfiles, CLIProfileEditor } from "./CliProfiles.jsx";
 
 const json = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -202,7 +202,10 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
           <CLIDefaults cli={selected} editing={launchEditing} onEditingChange={setLaunchEditing} editRequested={editRequested.id === selected.id ? editRequested.at : 0} busy={!!busy} onSave={async (c) => { await run("settings", async () => { const v = await api(`/api/clis/${selected.id}`, json("PUT", c)); if (v.problem) toastError(new Error(v.problem)); else toast.ok("Launch settings saved."); }); }} />
           <CLIDiagnostics cli={selected} terminals={data.terminals} busy={!!busy} run={run} />
           <CLIProfiles cli={selected} profiles={data.profiles} run={run} busy={!!busy} />
-          </> : <p className="cli-muted">Launch settings and sessions are not available for {selected.name} yet. New terminal opens it with its own defaults.</p>}
+          </> : <section className="cli-defaults"><div className="cli-section-heading"><h3>Launch settings</h3></div>
+            <LaunchSummary plan={selected.plan} />
+            <p className="cli-muted">{selected.name} keeps its own launch settings: no extra arguments, no PATH and no activity reporting. New terminal opens it exactly as it is.</p>
+          </section>}
           <a className="cli-docs" href={selected.docs} target="_blank" rel="noreferrer">{selected.name} documentation ↗</a>
         </> : null}
         {pane === "terminals" ? <TerminalList hideTitle cliName={selected.name} terminals={cliTerminals(data.terminals, selected.id)} workspaces={data.workspaces} busy={busy} onAction={action} onNew={() => navigate("/new/" + selected.id)} /> : null}
@@ -326,12 +329,14 @@ function TerminalEditor({ route, data, run, busy }) {
     return () => { stopped = true; };
   }, [retry]); // this editor is keyed by its route
   if (route.view === "terminal" && !existing) return <Notice action="Choose a CLI" onAction={() => navigate("")}>That terminal is gone.</Notice>;
-  // A CLI with no adapter (Muse Code, Antigravity) has no launch settings to
-  // edit: its editor is name, workspace and folder, and an existing terminal
-  // has nothing to open.
+  // A CLI with no adapter (Muse Code, Antigravity) opens with its own
+  // settings: the same launch screens, read-only — the plan PiCode will run,
+  // and nothing to edit or save.
   const cap = cliCapabilities(cli);
   if (existing && !cap.integration) return <section className="cli-editor"><div className="cli-heading"><h3>{existing.name} · Launch settings</h3><button className="btn btn-ghost btn-sm" onClick={() => { location.hash = cliPaneHash(cli.id, "terminals"); }}>Back</button></div>
-    <p className="cli-muted">Launch settings are not available for {cli.name} yet. It opens with its own defaults.</p></section>;
+    <p className="cli-muted">{cli.name} keeps its own launch settings: no extra arguments, no PATH and no activity reporting.</p>
+    <LaunchPreview cli={cli.id} />
+  </section>;
   if (route.profile && !initialProfile) return <Notice action="Choose a profile" onAction={() => { location.hash = cliPaneHash(cli.id, "launch"); }}>That launch profile is no longer available.</Notice>;
   if (loadError) return <Notice danger action="Try again" onAction={() => setRetry((v) => v + 1)}>{loadError}</Notice>;
   const settingsPreview = parseForm(cliLaunchSchema, draft);
@@ -347,16 +352,16 @@ function TerminalEditor({ route, data, run, busy }) {
       }); } catch (e) { setError(e.message); }
     }}>
       <div className="cli-fields">
-        {cap.integration ? <label>CLI<CliCombo ariaLabel="CLI" value={cli.id} options={data.clis.filter((c) => cliCapabilities(c).integration)} onChange={async (id) => { const c = data.clis.find((x) => x.id === id); if (!c || (custom && dirty && !(await confirmDiscard()))) return; setCliId(c.id); setDraft(launchDraft(c.config)); setCustom(false); setProfileId(""); setOriginalOverrides({}); }} /></label> : null}
+        <label>CLI<CliCombo ariaLabel="CLI" value={cli.id} options={data.clis.filter((c) => cliCapabilities(c).launch)} onChange={async (id) => { const c = data.clis.find((x) => x.id === id); if (!c || (custom && dirty && !(await confirmDiscard()))) return; setCliId(c.id); setDraft(launchDraft(c.config)); setCustom(false); setProfileId(""); setOriginalOverrides({}); }} /></label>
         {cap.integration && !existing && data.profiles.some((p) => p.cli === cli.id) ? <label>Launch profile<select value={profileId} onChange={async (e) => { const id = e.target.value; if (custom && dirty && !(await confirmDiscard())) return; const p = data.profiles.find((p) => p.id === id); setProfileId(id); setDraft(launchDraft(p?.config || cli.config)); setCustom(!!p); setOriginalOverrides({}); }}>{<option value="">CLI defaults</option>}{data.profiles.filter((p) => p.cli === cli.id).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label> : null}
         {!existing ? <><label>Name<input autoComplete="off" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label><label>Workspace<select value={form.workspaceId} onChange={(e) => setForm({ ...form, workspaceId: e.target.value, cwd: "" })}><option value="">Free terminal</option>{data.workspaces.filter((w) => w.id !== "ws_free").map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label><label>Folder<input placeholder={form.workspaceId ? "Use workspace folder" : "Use home folder"} value={form.cwd} onChange={(e) => setForm({ ...form, cwd: e.target.value })} /></label></> : null}
         {cap.integration ? <label className="cli-checkbox"><input type="checkbox" checked={custom} onChange={async (e) => { const checked = e.target.checked; if (!checked && dirty && !(await confirmDiscard())) return; setCustom(checked); if (!checked) { setDraft(launchDraft(cli.config)); setProfileId(""); setOriginalOverrides({}); } }} />Customize this terminal</label> : null}
       </div>
-      {cap.integration ? (custom ? <LaunchFields draft={draft} setDraft={setDraft} includeIntegration /> : <p className="cli-muted">Uses {cli.name} launch defaults.</p>) : <p className="cli-muted">Opens {cli.name} with its own defaults.</p>}
+      {cap.integration ? (custom ? <LaunchFields draft={draft} setDraft={setDraft} includeIntegration /> : <p className="cli-muted">Uses {cli.name} launch defaults.</p>) : <p className="cli-muted">{cli.name} keeps its own launch settings: no extra arguments, no PATH and no activity reporting.</p>}
       {existing?.launchAttempt?.error ? <Notice danger action="Back to terminals" onAction={back}>{existing.launchAttempt.error}</Notice> : null}
       {error ? <p className="cli-field-error" role="alert">{error}</p> : null}
       <div className="cli-actions" data-align-row data-align-wrap><button type="submit" className="btn btn-primary btn-sm" disabled={busy || (!existing && !data.terminalAvailable)}>{busy ? (existing ? "Saving…" : "Opening terminal…") : existing ? "Save launch settings" : "Open terminal"}</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={back}>Cancel</button></div>
-      {cap.integration && (!custom || settingsPreview.ok) ? <LaunchPreview cli={cli.id} overrides={overrides} terminalId={existing?.id} applied={existing?.launchApplied} /> : null}
+      {(!custom || settingsPreview.ok) ? <LaunchPreview cli={cli.id} overrides={overrides} terminalId={existing?.id} applied={existing?.launchApplied} /> : null}
     </form>}
   </section>;
 }

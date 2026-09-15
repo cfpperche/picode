@@ -134,6 +134,18 @@ with `MUSE_NO_AUTO_UPDATE=1` so the launcher does not background-update.
 Every installed row reaches Check for updates through the same ⋯ menu, so a
 channel-backed CLI needs no bespoke button.
 
+**One launch surface, read-only without an adapter.** A CLI with no adapter
+keeps the *same* launch screens, with the launcher's own data and nothing to
+edit: the Launch tab renders the plan summary (`executable`, `args`, `path`,
+`env`, `injection`) instead of the defaults editor, `#/clis/new/<cli>` keeps
+the CLI row (its options are every `launchable` row, so the screen can switch
+to a CLI that does have an adapter) and the Launch preview, and
+`#/clis/terminal/<id>` shows that preview for a terminal whose launch failed.
+Only what cannot act is absent — the Customize checkbox, launch profiles and
+the row menu's Launch settings. The preview is the server's real plan
+(`POST /api/clis/<cli>/preview`), including the blocked state: an uninstalled
+CLI reads *Not found* and the plan's problem line instead of an empty grid.
+
 `terminal_launches.attempt` retains the latest redacted launch failure/time.
 Snapshots include injected branches/files and executable identity. Pending
 state detects configuration and binary changes; the editor compares next and
