@@ -4,12 +4,5 @@ In the Tauri shell, _blank anchor clicks and _blank window.open for cross-origin
 Fixes the dead Documentation menu item and every other _blank chrome link (setup guides, changelog, repo, Open in browser, terminal links) in the desktop app.
 Verified: make ci-scoped PASS, make web build ok, 8/8 node tests in externalLinks.test.js; scratch instance verified then stopped.
 visual-review: PASS (var/screenshots/usermenu-docs.png + overlayAudit ok, card 5/5)
+Not done: named-window OAuth popups stay native-only — tracked in docs/handoff/open/desktop-v2.md.
 Merge: fast-forward ready.
-
-## Next up
-
-- none — branch ready to merge.
-
-## Debts
-
-- MCP named-window OAuth popup (window.open 'picode-mcp-auth') still uses the native path and stays dead in the shell — needs its own auth-flow verification before routing.
