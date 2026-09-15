@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -478,5 +479,82 @@ func TestStartupCommandsRetryTheServerStartRace(t *testing.T) {
 				t.Fatalf("tmux calls = %q, want %q", got, want)
 			}
 		})
+	}
+}
+
+// TestPaneCwdIsRightFromTheFirstInstant is the 2026-09-15 race as a test:
+// #{pane_current_path} for a pane tmux has not polled yet is the *server's*
+// directory (this process's cwd), so a read taken in the same instant as
+// new-session answered with the wrong folder — 33 of 40 creations in a loop.
+// The Manager remembers what it created, so the first read is right.
+func TestPaneCwdIsRightFromTheFirstInstant(t *testing.T) {
+	m := requireTmux(t)
+	ctx := context.Background()
+	root := t.TempDir()
+	here, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Clean(root) == filepath.Clean(here) {
+		t.Fatal("fixture must differ from the process cwd to be meaningful")
+	}
+	for i := 0; i < 12; i++ {
+		dir := filepath.Join(root, "shell-"+strconv.Itoa(i))
+		if err := os.Mkdir(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		name := SessionName("born-" + strconv.Itoa(i))
+		if err := m.NewSession(ctx, name, dir, "sleep", "30"); err != nil {
+			t.Fatalf("NewSession: %v", err)
+		}
+		got, err := m.PaneCwd(ctx, name)
+		if err != nil {
+			t.Fatalf("iteration %d: PaneCwd: %v", i, err)
+		}
+		if filepath.Clean(got) != filepath.Clean(dir) {
+			t.Fatalf("iteration %d: PaneCwd = %q, want %q (the folder it was created in)", i, got, dir)
+		}
+		if err := m.KillSession(ctx, name); err != nil {
+			t.Fatalf("iteration %d: KillSession: %v", i, err)
+		}
+	}
+}
+
+// And the creation record never outlives its usefulness: a shell that has
+// moved reports its own folder immediately.
+func TestPaneCwdFollowsAShellThatMovedRightAfterCreation(t *testing.T) {
+	m := requireTmux(t)
+	ctx := context.Background()
+	root := t.TempDir()
+	start, moved := filepath.Join(root, "start"), filepath.Join(root, "moved")
+	for _, dir := range []string{start, moved} {
+		if err := os.Mkdir(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	name := SessionName("born-cd")
+	if err := m.NewSession(ctx, name, start, "/bin/sh"); err != nil {
+		t.Fatalf("NewSession: %v", err)
+	}
+	t.Cleanup(func() { _ = m.KillSession(context.Background(), name) })
+	if got, err := m.PaneCwd(ctx, name); err != nil || filepath.Clean(got) != filepath.Clean(start) {
+		t.Fatalf("first read = %q (err %v), want %q", got, err, start)
+	}
+	if err := m.TypeText(ctx, name, "cd "+moved); err != nil {
+		t.Fatalf("TypeText: %v", err)
+	}
+	if err := m.SendKeys(ctx, name, "Enter"); err != nil {
+		t.Fatalf("SendKeys: %v", err)
+	}
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		got, err := m.PaneCwd(ctx, name)
+		if err == nil && filepath.Clean(got) == filepath.Clean(moved) {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("after cd, PaneCwd = %q (err %v), want %q", got, err, moved)
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
 }
