@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-btab-set-scripts"
+description = "Enables the btab_set_scripts command without any pre-configured scope."
+commands.allow = ["btab_set_scripts"]
+
+[[permission]]
+identifier = "deny-btab-set-scripts"
+description = "Denies the btab_set_scripts command without any pre-configured scope."
+commands.deny = ["btab_set_scripts"]

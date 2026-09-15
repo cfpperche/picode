@@ -227,6 +227,7 @@ fn ensure(app: &AppHandle, id: &str, url: &str) -> Result<(), String> {
     attach_download_handler(app, id);
     attach_permission_handler(app, id);
     apply_autofill(app, id);
+    apply_scripts(app, id);
     Ok(())
 }
 
@@ -1088,5 +1089,49 @@ fn attach_permission_handler(app: &AppHandle, id: &str) {
         }));
         let mut token: i64 = 0;
         let _ = core.add_PermissionRequested(&handler, &mut token);
+    });
+}
+
+// --- JavaScript (slice 3, Browser permissions) ------------------------------
+
+// Sites may use JavaScript: applied to every tab at creation (next to the
+// autofill settings) and to the live ones when the switch moves. On by
+// default, like the platform.
+fn scripts_enabled() -> &'static Mutex<bool> {
+    static SCRIPTS: OnceLock<Mutex<bool>> = OnceLock::new();
+    SCRIPTS.get_or_init(|| Mutex::new(true))
+}
+
+#[tauri::command]
+pub async fn btab_set_scripts(app: AppHandle, enabled: bool) -> Result<(), String> {
+    *scripts_enabled().lock().unwrap() = enabled;
+    for (name, wv) in app.webview_windows() {
+        if !name.starts_with("btab-") {
+            continue;
+        }
+        let _ = wv.with_webview(move |platform| unsafe {
+            let Ok(core) = platform.controller().CoreWebView2() else { return };
+            if let Ok(settings) = core.Settings() {
+                let _ = settings.SetIsScriptEnabled(enabled);
+            }
+        });
+    }
+    Ok(())
+}
+
+// The creation-time half of the switch (the live half is btab_set_scripts):
+// a new tab is born with the setting in force.
+fn apply_scripts(app: &AppHandle, id: &str) {
+    let Some(wv) = app.get_webview(label(id).as_str()) else {
+        return;
+    };
+    let enabled = *scripts_enabled().lock().unwrap();
+    let _ = wv.with_webview(move |platform| unsafe {
+        let Ok(core) = platform.controller().CoreWebView2() else {
+            return;
+        };
+        if let Ok(settings) = core.Settings() {
+            let _ = settings.SetIsScriptEnabled(enabled);
+        }
     });
 }

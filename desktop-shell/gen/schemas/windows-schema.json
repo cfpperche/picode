@@ -297,6 +297,12 @@
           "markdownDescription": "Enables the btab_set_prefs command without any pre-configured scope."
         },
         {
+          "description": "Enables the btab_set_scripts command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-set-scripts",
+          "markdownDescription": "Enables the btab_set_scripts command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_visibility command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-visibility",
@@ -499,6 +505,12 @@
           "type": "string",
           "const": "deny-btab-set-prefs",
           "markdownDescription": "Denies the btab_set_prefs command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_set_scripts command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-set-scripts",
+          "markdownDescription": "Denies the btab_set_scripts command without any pre-configured scope."
         },
         {
           "description": "Denies the btab_visibility command without any pre-configured scope.",

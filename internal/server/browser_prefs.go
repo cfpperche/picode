@@ -50,6 +50,8 @@ type BrowserPrefs struct {
 	// AskDownload is the Downloads section's save prompt: off writes files
 	// straight into the download folder.
 	AskDownload bool `json:"askDownload"`
+	// ScriptsEnabled is the Browser permissions JavaScript switch.
+	ScriptsEnabled bool `json:"scriptsEnabled"`
 	// AgentAccess is the master switch: off refuses every browser verb for
 	// every agent (the grants below stop mattering until it is back on).
 	AgentAccess bool `json:"agentAccess"`
@@ -59,7 +61,7 @@ type BrowserPrefs struct {
 // the address bar shows the full URL, popups open inside the app, and
 // WebView2's own autofill defaults (both on).
 func browserPrefsRead(st *store.Store) (BrowserPrefs, error) {
-	p := BrowserPrefs{ShowFullURL: true, WebOpenDest: "app", LocalOpenDest: "app", PasswordAutosave: true, GeneralAutofill: true, AskDownload: false, AgentAccess: true}
+	p := BrowserPrefs{ShowFullURL: true, WebOpenDest: "app", LocalOpenDest: "app", PasswordAutosave: true, GeneralAutofill: true, AskDownload: false, ScriptsEnabled: true, AgentAccess: true}
 	rows := []struct {
 		key   string
 		apply func(raw string)
@@ -87,6 +89,11 @@ func browserPrefsRead(st *store.Store) (BrowserPrefs, error) {
 		{"browser.generalAutofill", func(raw string) {
 			if raw == "0" {
 				p.GeneralAutofill = false
+			}
+		}},
+		{"browser.scriptsEnabled", func(raw string) {
+			if raw == "0" {
+				p.ScriptsEnabled = false
 			}
 		}},
 		{"browser.askDownload", func(raw string) {
@@ -137,6 +144,7 @@ func handleBrowserPrefsPut(deps Deps) http.HandlerFunc {
 			{"browser.localOpenDest", req.LocalOpenDest},
 			{"browser.passwordAutosave", map[bool]string{true: "1", false: "0"}[req.PasswordAutosave]},
 			{"browser.generalAutofill", map[bool]string{true: "1", false: "0"}[req.GeneralAutofill]},
+			{"browser.scriptsEnabled", map[bool]string{true: "1", false: "0"}[req.ScriptsEnabled]},
 			{"browser.askDownload", map[bool]string{true: "1", false: "0"}[req.AskDownload]},
 			{"browser.agentAccess", map[bool]string{true: "1", false: "0"}[req.AgentAccess]},
 		}
