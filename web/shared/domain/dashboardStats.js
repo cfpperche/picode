@@ -1,6 +1,6 @@
 import { agentsOf, displayAgentName } from "./tree.js";
 import { agentRowStatus } from "./agentStatus.js";
-import { terminalCli, terminalStatus } from "./terminalCli.js";
+import { terminalDisplayCli, terminalStatus } from "./terminalCli.js";
 
 // deltaPercent: null (not a chip-worthy comparison) when there's no prior
 // window (range=all) or the prior total was zero — "vs $0" isn't a
@@ -127,7 +127,7 @@ export function fleetStats(workspaces, freeAgents, terminals, live) {
 
   for (const term of terminals || []) {
     if (!term) continue;
-    const cli = terminalCli(term);
+    const cli = terminalDisplayCli(term);
     const bucket = cli ? out.terminals : out.shells;
     bucket.total++;
     const state = terminalState(term);

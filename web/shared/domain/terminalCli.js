@@ -106,6 +106,17 @@ export function terminalCliMark(id) {
   return CLI_MARKS[normalizeTerminalCli(id)] || ">_";
 }
 
+// Display identity for a row, tab or face: the runtime CLI when the adapter
+// reported one, else the CLI the terminal was launched with. A CLI with no
+// adapter (Muse Code, Antigravity) never reports a runtime, so its terminal
+// would otherwise wear the plain-shell icon and be called "Shell session".
+// A present `tui` stays authoritative even with an empty cli — a Pi terminal
+// whose CLI exited is a shell again, not a Pi terminal.
+export function terminalDisplayCli(term) {
+  if (term && term.tui) return terminalCli(term);
+  return normalizeTerminalCli(term && term.cli) || normalizeTerminalCli(term && term.launchCli);
+}
+
 export function terminalCliFaviconUrls(id) {
   return CLI_FAVICONS[normalizeTerminalCli(id)] || [];
 }
@@ -128,7 +139,10 @@ export function terminalStatusLabel(term) {
   if (status === "needs-you") return "Needs you";
   if (status === "working") return "Working";
   if (status === "ready") return "Ready";
-  if (status === "open") return terminalCli(term) ? "Open" : "Terminal open";
+  // "Open" is the CLI's terminal with no activity to report (a CLI without
+  // an adapter never reports); "Terminal open" is a plain shell. Both are
+  // the same status, and only the identity tells them apart.
+  if (status === "open") return terminalDisplayCli(term) ? "Open" : "Terminal open";
   return "Stopped";
 }
 

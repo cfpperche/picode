@@ -3,7 +3,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { applyTui, touches } from "@picode/shared/domain/feedReducers.js";
 import { displayAgentName, locate } from "@picode/shared/domain/tree.js";
-import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
+import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalDisplayCli, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 import { agentRowStatus, agentStatusLabel } from "@picode/shared/domain/agentStatus.js";
 import { EDGE_KINDS, PANEL_DEFAULT_CANVAS, applyCanvasEvent, bindingState, buildRef, layoutDiff, neighborPanel, normalizeCanvasDetail, normalizeCanvasList, panelOrder, parseRef, refOwner, tidyCanvas, validateEdge } from "@picode/shared/domain/canvas.js";
 import { crossFolderConfirm, edgeGrant, enrolOffer, linkChipTitle, linkCounts, peerIndex, removeConfirm } from "@picode/shared/domain/canvasGrants.js";
@@ -224,7 +224,7 @@ function buildModel(panel, fleet, workingIds, openTabs, dirtyIds, prev) {
   } else if (panel.kind === "terminal") {
     target = (fleet.terminals || []).find((t) => t && t.id === panel.ref) || null;
     if (target) {
-      const cli = terminalCli(target);
+      const cli = terminalDisplayCli(target);
       name = target.name || "Terminal";
       hint = cli ? terminalCliLabel(cli) : "Shell";
       cwd = target.cwd || "";

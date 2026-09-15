@@ -11,7 +11,7 @@ import AppIcon from "./AppIcon.jsx";
 import { IconGlobe } from "./Icons.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
-import { terminalCli, terminalCliLabel, terminalStatus } from "@picode/shared/domain/terminalCli.js";
+import { terminalCli, terminalCliLabel, terminalDisplayCli, terminalStatus } from "@picode/shared/domain/terminalCli.js";
 
 // One description per tab id, shared by the strip and the "All tabs"
 // list so both show the same face, name and status. Null means the tab
@@ -32,7 +32,7 @@ function describeTab(id, { terms, appList, workspaces, freeAgents, webTabs }) {
     return {
       icon: <TerminalCliBadge term={term} />,
       label: term.name,
-      title: terminalCli(term) ? terminalCliLabel(terminalCli(term)) : "Terminal",
+      title: terminalDisplayCli(term) ? terminalCliLabel(terminalDisplayCli(term)) : "Terminal",
       status: st === "needs-you" ? "attn" : st === "working" ? "running" : null,
       closeTitle: "Close tab (terminal keeps running)",
     };

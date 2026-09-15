@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { faceSlice, providerFaviconUrl, providerId, providerLetter } from "@picode/shared/domain/providerIcon.js";
-import { terminalCli, terminalCliFaviconUrls, terminalCliLabel, terminalCliMark } from "@picode/shared/domain/terminalCli.js";
+import { terminalDisplayCli, terminalCliFaviconUrls, terminalCliLabel, terminalCliMark } from "@picode/shared/domain/terminalCli.js";
 import { collapseFaceItems } from "../lib/collapseFaces.js";
 
 export function ProviderFace({ agent, id }) {
@@ -21,7 +21,7 @@ export function ProviderFace({ agent, id }) {
 // agents and terminals are one visual family (same 16px plate, ring and
 // contained art); the full-bleed look stays a row-identity treatment.
 export function TermFace({ term }) {
-  const cli = terminalCli(term);
+  const cli = terminalDisplayCli(term);
   const label = terminalCliLabel(cli);
   const title = (term.name || "Terminal") + (cli ? " — " + label : "");
   const favicons = terminalCliFaviconUrls(cli);

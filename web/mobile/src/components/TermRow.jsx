@@ -2,14 +2,14 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { IconChevronRight, IconEllipsis, IconTrash } from "./Icons.jsx";
 import { termLine } from "@picode/shared/domain/repoLine.js";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
-import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
+import { terminalActivityStamp, terminalCliLabel, terminalDisplayCli, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
 
 // One terminal, with the detected CLI as a stable identity and lifecycle as
 // the right-hand status. No CLI means a plain shell, never an inferred agent.
 export default function TermRow({ term, onOpen, onRemove, busy }) {
   const line = termLine(term);
-  const cli = terminalCli(term);
+  const cli = terminalDisplayCli(term);
   const status = terminalStatus(term);
   const stamp = terminalActivityStamp(term);
   const age = status === "working" && stamp ? " · " + relTime(stamp) : "";

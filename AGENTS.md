@@ -181,6 +181,13 @@ For any UI work:
   `grep '^picode-'` sweep killed 29 live terminals). Use the script's own verb
   (`./scripts/qa-scratch.sh stop <name>`, `fuser -k <port>/tcp`), or an exact
   PID you started and can still see.
+- **Never `tmux kill-server`** — not even with `TMUX_TMPDIR` set, which is how
+  a QA session took the production tmux down and cost the owner every running
+  terminal (2026-09-15). Kill the exact session you created
+  (`tmux kill-session -t picode-sh-<id>`), and let
+  `./scripts/qa-scratch.sh stop <name>` do it for a scratch instance. When a
+  scratch starts terminals, isolate them with `TMUX_TMPDIR=<dir>` — that part
+  works — and then stop them by name; the server is never the right target.
 - **Know which tree you are in.** `make dev`, `make ci-scoped` and `make close`
   print `<worktree> on <branch>` before doing anything; the same line answers
   "did I edit the root checkout by mistake?" (`make worktree-status` lists every

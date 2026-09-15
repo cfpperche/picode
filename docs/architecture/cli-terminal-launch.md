@@ -146,6 +146,27 @@ the row menu's Launch settings. The preview is the server's real plan
 (`POST /api/clis/<cli>/preview`), including the blocked state: an uninstalled
 CLI reads *Not found* and the plan's problem line instead of an empty grid.
 
+**Identity is the runtime CLI, else what it was launched with.** A sidebar
+row, a tab, a canvas face, a terminal list row and the dashboard's fleet
+bucket all resolve through `terminalDisplayCli`
+(`web/shared/domain/terminalCli.js`): `tui.cli` while the adapter reports a
+runtime, otherwise `cli`, otherwise `launchCli`. A CLI with no adapter never
+reports a runtime, so without that last fallback its terminal wears the plain
+shell mark, is called *Shell session*, and lands in the dashboard's shell
+bucket — `terminalCli` stays the *activity* question ("is a supported CLI
+reporting now?") and still gates handoff and the *Activity not reported*
+badge. The same identity rides the status label: a CLI terminal with nothing
+to report reads **Open**, a plain shell *Terminal open*, and *Ready*/*Working*
+stay earned by an activity report.
+
+A terminal created while a page is open reaches that page through the feed,
+where the store's `terminal.created` carries the bare row (id, name, cwd,
+workspace, createdAt) — no CLI, no runtime, no launch state. Creation
+therefore also publishes the `liveTermView` every other terminal response
+uses (`publishTerminalState`), and the fleet reducer lets that complete view
+seed a row (`terminal.changed` for an unknown id) because the two frames race;
+a late bare `terminal.created` never overwrites a filled record.
+
 `terminal_launches.attempt` retains the latest redacted launch failure/time.
 Snapshots include injected branches/files and executable identity. Pending
 state detects configuration and binary changes; the editor compares next and

@@ -137,7 +137,12 @@ export function applyFleet(state, ev) {
     case "terminal.changed":
       // A lifecycle response is a complete live view, not a partial patch.
       // Stop must clear the prior CLI lease and activity as well as running.
-      return terminals.some((t) => t.id === d.id) ? { ...state, terminals: terminals.map((t) => (t.id === d.id ? { ...d } : t)) } : null;
+      // It can also arrive BEFORE the store's bare terminal.created — the two
+      // are separate frames — so it seeds the row instead of being dropped;
+      // the late created patch then leaves it alone (see above).
+      return terminals.some((t) => t.id === d.id)
+        ? { ...state, terminals: terminals.map((t) => (t.id === d.id ? { ...d } : t)) }
+        : { ...state, terminals: [...terminals, d] };
     case "terminal.launch":
     case "cli.updated":
       return null;

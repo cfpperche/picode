@@ -541,8 +541,16 @@ func createCLITerminal(deps Deps, r *http.Request, cli clilaunch.CLI, v cliTermi
 	name := tmux.ShellSessionName(t.ID)
 	if err := ensureShell(deps, r, name, t.ID, t.Cwd); err != nil {
 		// Keep the configured terminal available for repair and retry.
+		publishTerminalState(deps, r, t, false)
 		return t, map[string]any{"id": t.ID, "launchError": err.Error()}, 201, nil
 	}
+	// The store announced terminal.created with the bare row (id, name, cwd,
+	// workspace, createdAt); the identity a sidebar row, a tab and a face draw
+	// — the CLI this terminal launches, its runtime and its launch state —
+	// lives outside it. Announce the same live view every other terminal
+	// response uses, or a terminal created while a page is open reads as a
+	// plain shell until a reload.
+	publishTerminalState(deps, r, t, true)
 	return t, liveTermView(deps, r, t, name, true), 201, nil
 }
 

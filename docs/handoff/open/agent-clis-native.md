@@ -8,3 +8,4 @@
 
 - Native packages/providers/settings: real downloads, vendor OAuth, credential changes, device acceptance and a real process restart remain external.
 - Agent CLIs is not in `SURFACE_PROFILES`, so no docs-shots capture covers it.
+- A launch that fails inside tmux (session start refused after the row exists) is the one branch of createCLITerminal that publishes terminal.changed without a covering test: the pre-flight keeps rejecting the reachable failures (missing executable, missing folder) before the row is created, and there is no seam to force a tmux failure.

@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { IconTerminal } from "./Icons.jsx";
-import { terminalCli, terminalCliFaviconUrls, terminalCliLabel, terminalCliMark } from "@picode/shared/domain/terminalCli.js";
+import { terminalDisplayCli, terminalCliFaviconUrls, terminalCliLabel, terminalCliMark } from "@picode/shared/domain/terminalCli.js";
 
 // A loaded favicon is the identity, same as ProviderFace: the image fills
 // the slot with no chip behind it. The boxed badge is only for fallback
 // marks (and the unused labeled variant).
 export default function TerminalCliBadge({ term, showLabel = false, decorative = false }) {
-  const cli = terminalCli(term);
+  const cli = terminalDisplayCli(term);
   const label = cli ? terminalCliLabel(cli) : "Terminal";
   const favicons = cli ? terminalCliFaviconUrls(cli) : [];
   const [failedCount, setFailedCount] = useState(0);

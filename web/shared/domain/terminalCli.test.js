@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeTerminalCli, terminalActivityStamp, terminalCli, terminalCliFaviconUrls, terminalCliLabel, terminalCliMark, terminalStatus, terminalStatusLabel } from "./terminalCli.js";
+import { normalizeTerminalCli, terminalActivityStamp, terminalCli, terminalCliFaviconUrls, terminalCliLabel, terminalCliMark, terminalDisplayCli, terminalStatus, terminalStatusLabel } from "./terminalCli.js";
 
 test("terminal CLI aliases use one canonical identity", () => {
   assert.equal(normalizeTerminalCli("claude"), "claude-code");
@@ -72,6 +72,25 @@ test("authoritative tui presence wins over legacy projection", () => {
   assert.equal(terminalActivityStamp({ tui: { cli: "pi", startedAt: "2026-09-04T10:00:00Z" } }), "2026-09-04T10:00:00Z");
 });
 
+test("display identity falls back to the launch CLI without a runtime", () => {
+  // Nothing reports a runtime for a CLI with no adapter: its terminal is
+  // still that CLI's terminal, not a plain shell.
+  const agy = { running: true, cli: null, launchCli: "agy", tui: null };
+  assert.equal(terminalCli(agy), "");
+  assert.equal(terminalDisplayCli(agy), "agy");
+  assert.equal(terminalCliLabel(terminalDisplayCli(agy)), "Antigravity");
+  assert.deepEqual(terminalCliFaviconUrls(terminalDisplayCli(agy)).slice(0, 1), ["https://unpkg.com/@lobehub/icons-static-svg@1.95.0/icons/antigravity.svg"]);
+  assert.equal(terminalDisplayCli({ launchCli: "muse" }), "muse");
+  // The runtime projection and the launch CLI still beat nothing.
+  assert.equal(terminalDisplayCli({ cli: "claude", launchCli: "agy" }), "claude-code");
+  assert.equal(terminalDisplayCli({}), "");
+  assert.equal(terminalDisplayCli(null), "");
+  // A present tui is authoritative: a Pi terminal whose CLI exited is a
+  // shell again, whatever it was launched with.
+  assert.equal(terminalDisplayCli({ cli: "pi", launchCli: "pi", tui: { cli: "" } }), "");
+  assert.equal(terminalDisplayCli({ launchCli: "pi", tui: { cli: "claude" } }), "claude-code");
+});
+
 test("stale activity cannot attach to a newer runtime", () => {
   const term = { running: true, state: "working", runId: "old", stateAt: "old", tui: { cli: "pi", runId: "new", startedAt: "new" } };
   assert.equal(terminalStatus(term), "open");
@@ -83,6 +102,11 @@ test("terminal state table distinguishes presence from activity", () => {
   assert.equal(terminalStatusLabel({ running: true }), "Terminal open");
   assert.equal(terminalStatus({ running: true, tui: { cli: "grok" } }), "open");
   assert.equal(terminalStatusLabel({ running: true, tui: { cli: "grok" } }), "Open");
+  // A CLI without an adapter reports no activity: same status, CLI identity.
+  assert.equal(terminalStatus({ running: true, cli: null, launchCli: "agy" }), "open");
+  assert.equal(terminalStatusLabel({ running: true, cli: null, launchCli: "agy" }), "Open");
+  assert.equal(terminalStatusLabel({ running: true, cli: null, launchCli: "muse" }), "Open");
+  assert.equal(terminalStatusLabel({ running: false, cli: null, launchCli: "muse" }), "Stopped");
   assert.equal(terminalStatus({ running: true, state: "idle", cli: "grok" }), "ready");
   assert.equal(terminalStatusLabel({ running: true, state: "idle", cli: "grok" }), "Ready");
   assert.equal(terminalStatus({ running: true, state: "needs-you", cli: "grok" }), "needs-you");

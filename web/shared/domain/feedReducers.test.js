@@ -97,6 +97,20 @@ test("fleet: terminal lifecycle clears stale presence; launch defaults invalidat
   assert.equal(applyFleet(next, { type: "cli.updated", data: { id: "pi" } }), null);
 });
 
+test("fleet: a terminal without an adapter keeps its launch identity", () => {
+  // The store's terminal.created carries the bare row; the CLI a Muse Code or
+  // Antigravity row draws arrives in terminal.changed. Either frame can land
+  // first, and the row must never end up wearing the bare one.
+  const bare = { id: "t", name: "Muse Code", cwd: "/w", workspaceId: "ws", createdAt: "now" };
+  const live = { ...bare, session: "picode-sh-t", running: true, launchCli: "muse", launchPending: false };
+  const seeded = applyFleet({ workspaces: [], freeAgents: [], terminals: [] }, { type: "terminal.changed", data: live });
+  assert.deepEqual(seeded.terminals, [live]);
+  assert.deepEqual(applyFleet(seeded, { type: "terminal.created", data: bare }).terminals, [live]);
+  const inserted = applyFleet({ workspaces: [], freeAgents: [], terminals: [] }, { type: "terminal.created", data: bare });
+  assert.deepEqual(inserted.terminals, [bare]);
+  assert.deepEqual(applyFleet(inserted, { type: "terminal.changed", data: live }).terminals, [live]);
+});
+
 test("fleet: terminal.runtime keeps run identities and rejects stale ends", () => {
   let s = { workspaces: [], freeAgents: [], terminals: [{ id: "t1", name: "T" }] };
   s = applyFleet(s, { type: "terminal.runtime", data: { termId: "t1", action: "started", cli: "pi", source: "wrapper", runId: "new", startedAt: "2026-09-04T10:00:00Z" } });

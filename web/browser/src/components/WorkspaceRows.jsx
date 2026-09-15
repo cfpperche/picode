@@ -9,7 +9,7 @@ import { ProviderFace } from "./ProviderFaces.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { checklistLine, checklistProgress, checklistRows, countDone } from "@picode/shared/domain/checklist.js";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
-import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
+import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalDisplayCli, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 import { agentRowStatus, agentStatusLabel } from "@picode/shared/domain/agentStatus.js";
 import { termRowMenu } from "../lib/termRowMenu.js";
 
@@ -188,7 +188,7 @@ export function TermRow({
   onRenameTerm, onRemoveTerm, onLaunchAction, onContinueTerm, clis,
 }) {
   const line = termLine(t);
-  const cli = terminalCli(t);
+  const cli = terminalDisplayCli(t);
   const cliLabel = cli ? terminalCliLabel(cli) : "Terminal";
   const check = t.checklist;
   const selected = selectedId === "t:" + t.id;

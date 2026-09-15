@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Command } from "cmdk";
 import { agentsOf, displayAgentName } from "@picode/shared/domain/tree.js";
-import { terminalCli, terminalCliLabel, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
+import { terminalDisplayCli, terminalCliLabel, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 import { agentRowStatus, agentStatusLabel } from "@picode/shared/domain/agentStatus.js";
 import * as Dialog from "../ResponsiveDialog.jsx";
 import { ProviderFace } from "../ProviderFaces.jsx";
@@ -99,7 +99,7 @@ export default function PanelPicker({ open, fleet, pins, files, onCanvas, workin
                 {show("terminal") && terminals.length ? (
                   <Command.Group heading="Terminals" className="palette-group">
                     {terminals.map((t) => {
-                      const cli = terminalCli(t);
+                      const cli = terminalDisplayCli(t);
                       return (
                         <Command.Item key={"terminal:" + t.id} value={(t.name || "Terminal") + " " + (cli ? terminalCliLabel(cli) : "shell") + " terminal " + t.id} className="palette-item cv-picker-item" onSelect={() => onPick({ kind: "terminal", ref: t.id })}>
                           <span className="combo-opt-icon"><TerminalCliBadge term={t} decorative /></span>
