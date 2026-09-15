@@ -10,6 +10,7 @@
   "exports": {
     "./client/api.js": "./client/api.js",
     "./client/device.js": "./client/device.js",
+    "./client/devservers.js": "./client/devservers.js",
     "./client/feed.js": "./client/feed.js",
     "./client/githubRepos.js": "./client/githubRepos.js",
     "./client/install.js": "./client/install.js",

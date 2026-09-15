@@ -75,6 +75,7 @@ type Deps struct {
 	Browser      *browser.Hub     // work-browser command channel (ADR-0132); lazily built in New
 	Replies      *TuiReplies      // Inbox replies into the running TUI (ADR-0060); lazy-init in New
 	Previews     *preview.Store   // HTML preview tickets (ADR-0136); lazy-init in New
+	DevServers   *DevServerCache  // dev-server discovery (/api/devservers); lazy-init in New
 	TermStates   *TermStates      // coding-CLI terminal state (ADR-0056 tier 1); lazy-init in New
 	TermRuntimes *TermRuntimes    // authoritative CLI presence (ADR-0062); lazy-init in New
 	// Shared short-lived GET /api/terminals snapshot (singleflight + TTL,
@@ -138,6 +139,9 @@ func New(addr string, deps Deps) *http.Server {
 	}
 	if deps.Previews == nil {
 		deps.Previews = preview.NewStore(preview.DefaultTTL)
+	}
+	if deps.DevServers == nil {
+		deps.DevServers = newDevServerCache()
 	}
 	if deps.Browser == nil {
 		deps.Browser = browser.New()
@@ -234,6 +238,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerChecklistRoutes(mux, deps)
 	registerAgentFileRoutes(mux, deps)
 	registerPreviewRoutes(mux, deps)
+	registerDevServerRoutes(mux, deps)
 	registerTerminalRoutes(mux, deps)
 	registerTerminalWiringRoutes(mux, deps)
 	registerCLIRoutes(mux, deps)

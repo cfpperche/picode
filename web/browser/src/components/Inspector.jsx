@@ -18,6 +18,7 @@ import {
 import InspectorChanges from "./InspectorChanges.jsx";
 import InspectorFiles from "./InspectorFiles.jsx";
 import InspectorPR, { usePullRequest } from "./InspectorPR.jsx";
+import InspectorServers from "./InspectorServers.jsx";
 import InspectorCommitDialog from "./InspectorCommitDialog.jsx";
 import { IconCheck, IconChevronRight, IconEllipsis, IconFolders, IconGit, IconPanelRight, IconPanelRightClose, IconReload } from "./Icons.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
@@ -83,7 +84,7 @@ export default function Inspector({
   hidden, anchor, workspaces, freeAgents, terminals, touchedPaths,
   tab, onTab, width, maxWidth, onWidth, activePath,
   onOpenFile, onOpenDiff, onOpenGraph, onOpenTree, onOpenTerminal, onChanges,
-  runMode, onRunMode, onAskAgent,
+  runMode, onRunMode, onAskAgent, onOpenUrl,
 }) {
   const anchorKind = anchor ? anchor.kind : "";
   const anchorId = anchor ? anchor.id : "";
@@ -302,8 +303,8 @@ export default function Inspector({
   const kinds = useMemo(() => changeKinds(changes), [changes]);
   const dirtyDirs = useMemo(() => changedDirs(changes), [changes]);
   const rows = useMemo(() => flattenTree(levels || {}, expanded), [levels, expanded]);
-  const panel = status.git && (tab === "changes" || tab === "pr") ? tab : "files";
-  const order = status.git ? ["changes", "files", "pr"] : ["files"];
+  const order = status.git ? ["changes", "files", "pr", "servers"] : ["files", "servers"];
+  const panel = order.includes(tab) ? tab : "files";
   const name = info ? info.name : "Inspector";
   const shownPath = root || (info && info.path) || "";
   const shownWidth = liveWidth == null ? width : liveWidth;
@@ -432,7 +433,7 @@ export default function Inspector({
           ) : null}
         </div>
       </header>
-      {owner ? (
+      {owner || panel === "servers" ? (
         <div className="insp-tabs-row">
           <nav className="insp-tabs" role="tablist" aria-label="Inspector view" onKeyDown={onTabKey}>
             {status.git ? (
@@ -444,6 +445,7 @@ export default function Inspector({
             {status.git ? (
               <button type="button" role="tab" className="ft-tab" data-panel="pr" tabIndex={panel === "pr" ? 0 : -1} aria-selected={panel === "pr"} onClick={() => onTab("pr")}>{prTabLabel(pull.page)}</button>
             ) : null}
+            <button type="button" role="tab" className="ft-tab" data-panel="servers" tabIndex={panel === "servers" ? 0 : -1} aria-selected={panel === "servers"} onClick={() => onTab("servers")}>Servers</button>
           </nav>
           {chip ? (
             <span className={"insp-branch" + (chip.unpublished || chip.detached ? " insp-branch-noted" : "")} title={chip.title}>
@@ -469,7 +471,9 @@ export default function Inspector({
         </p>
       ) : null}
       <div className="insp-body" ref={bodyRef}>
-        {!owner ? (
+        {panel === "servers" ? (
+          <InspectorServers hidden={hidden} onOpen={onOpenUrl} />
+        ) : !owner ? (
           <p className="insp-msg">Open an agent or terminal to inspect its files.</p>
         ) : gone ? (
           <p className="insp-msg">That folder is gone. <button type="button" className="btn btn-sm" onClick={refresh} disabled={busy}>Refresh</button></p>
