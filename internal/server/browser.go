@@ -71,6 +71,10 @@ func handleBrowserTool(deps Deps) http.HandlerFunc {
 				return
 			}
 		}
+		if !browserAgentAccess(deps.Store) {
+			writeErr(w, http.StatusForbidden, "agents may not use the built-in browser right now — turn it back on in Settings ▸ Browser")
+			return
+		}
 		policy := browser.Resolve(deps.Store, req.Agent)
 		if !policy.Allows(verb) {
 			writeErr(w, http.StatusForbidden, fmt.Sprintf(
