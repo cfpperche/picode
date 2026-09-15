@@ -71,6 +71,8 @@ fn main() {
             btab::btab_open_path,
             btab::btab_reveal_path,
             btab::btab_clear_data,
+            btab::btab_set_permission_policy,
+            btab::btab_set_scripts,
             browserlab::lab_open,
             browserlab::lab_navigate,
             browserlab::lab_back,

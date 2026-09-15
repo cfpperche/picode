@@ -553,7 +553,8 @@ func createCLITerminal(deps Deps, r *http.Request, cli clilaunch.CLI, v cliTermi
 		return store.Terminal{}, nil, 500, err
 	}
 	name := tmux.ShellSessionName(t.ID)
-	if err := ensureShell(deps, r, name, t.ID, t.Cwd); err != nil {
+	created, err := ensureShell(deps, r, name, t.ID, t.Cwd)
+	if err != nil {
 		// Keep the configured terminal available for repair and retry.
 		publishTerminalState(deps, r, t, false)
 		return t, map[string]any{"id": t.ID, "launchError": err.Error()}, 201, nil
@@ -565,7 +566,7 @@ func createCLITerminal(deps Deps, r *http.Request, cli clilaunch.CLI, v cliTermi
 	// response uses, or a terminal created while a page is open reads as a
 	// plain shell until a reload.
 	publishTerminalState(deps, r, t, true)
-	return t, liveTermView(deps, r, t, name, true), 201, nil
+	return t, termViewForCreation(deps, r, t, name, created), 201, nil
 }
 
 func resolvedTerminalLaunch(deps Deps, v *store.TerminalLaunch) (clilaunch.CLI, clilaunch.Config, string, error) {
@@ -732,7 +733,7 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 					return
 				}
 			}
-			if err := ensureShell(deps, r, name, id, t.Cwd); err != nil {
+			if _, err := ensureShell(deps, r, name, id, t.Cwd); err != nil {
 				publishTerminalState(deps, r, t, false)
 				writeErr(w, 400, err.Error())
 				return

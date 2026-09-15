@@ -14,6 +14,7 @@ test("readBrowserPrefs keeps every field of a full payload", () => {
       passwordAutosave: false,
       generalAutofill: false,
       askDownload: true,
+      scriptsEnabled: false,
       agentAccess: false,
     };
   assert.deepEqual(readBrowserPrefs(saved), saved);

@@ -1741,6 +1741,19 @@ export default function App({ shellChrome = false } = {}) {
     return () => un.then((f) => f());
   }, [shellChrome]);
 
+  // Site permissions: the shell reports every decision it made (policy or
+  // platform default). The standing lives in the daemon's store, so the
+  // report goes through the API and Settings ▸ Browser reads it back.
+  useEffect(() => {
+    if (!shellChrome || !window.__TAURI__) return undefined;
+    const un = window.__TAURI__.event.listen("btab://permission", (e) => {
+      const p = e.payload ?? {};
+      if (!p.origin || !p.kind) return;
+      fetch("/api/browser/permissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p) }).catch(() => {});
+    });
+    return () => un.then((f) => f());
+  }, [shellChrome]);
+
   // The daemon's work-browser command channel (ADR-0132): one stream per shell
   // window. A command runs against the work-browser tab on screen; the ref
   // keeps the listener on the current tab without reopening the stream.
