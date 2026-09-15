@@ -35,6 +35,13 @@ pub fn start(distro: &str) -> io::Result<Child> {
     Ok(child)
 }
 
+/// Stops a keepalive started here: the polite path for the post-compact
+/// re-arm. The job object stays the guarantee for every other death.
+pub fn stop(child: &mut Child) {
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
 fn wsl_exe() -> &'static str {
     "wsl.exe"
 }
