@@ -106,7 +106,9 @@ state = one line + one action; statusbar = live state, not hints).
   inside the card, the filter in the card toolbar, one line + one action for
   empty/blocked/error), so an app and a system route read as one product —
   `docs/plans/app-surface-parity.md`; native app surfaces (Canvas,
-  ADR-0109) are still canvases. Mobile is full-width by design
+  ADR-0109) are still canvases, and own their container — `.native-surface`
+  keeps the flex column the page frame dropped, without which `.cv-stage`
+  measures 0px). Mobile is full-width by design
   (ADR-0072/0103).
 
 **Control rhythm (shadcn `h-9` / HIG)**

@@ -55,3 +55,13 @@ test("the phone keeps its own AppSurface", () => {
   // file with its own full-width layout and must not have gained the frame.
   assert.doesNotMatch(mobile, /settings-card app-card|app-page-tabs/);
 });
+
+test("a native surface keeps the flex column the page frame dropped", () => {
+  // The Canvas hands its body the whole surface (.cv-stage is flex: 1, and
+  // .app-blank centres inside it), and the QA demo hands its .ft-head the
+  // same column. #/app/<id>'s page frame replaced the surface's own flex
+  // column, so a native surface has to declare it — without it the plane
+  // measured 0px tall and *No canvas yet* sat at the top of the pane.
+  assert.match(css, /\.native-surface \{[^}]*display: flex; flex-direction: column;/);
+  assert.match(read("../browser/src/styles/canvas.css"), /\.cv-stage \{[^}]*flex: 1;/);
+});

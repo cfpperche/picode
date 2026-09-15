@@ -4647,6 +4647,14 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
    the file tree; only the chat prose surface (.conversation) opts into
    --sans in this product. */
 .app-surface { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
+/* A native surface (ADR-0109) is not a page frame: the Canvas draws no
+   chrome of its own and the QA demo keeps the old .ft-head, and both hand
+   their body the whole surface. Dropping the flex column from .app-surface
+   (2026-09-14, page-frame parity) therefore collapsed the canvas plane to
+   0px tall and left *No canvas yet* at the top of a 593px surface. A native
+   surface keeps the column — and the scrollbar gutter with it, because a
+   plane's texture has to run to the pane's edge. */
+.native-surface { display: flex; flex-direction: column; min-height: 0; overflow: hidden; scrollbar-gutter: auto; }
 .app-page-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-page-actions { display: flex; align-items: center; gap: 8px; flex: none; }
 /* The card owns no padding of its own: the tab strip runs to its edges and
