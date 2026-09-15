@@ -34,9 +34,11 @@ func handleBrowserPolicies(deps Deps) http.HandlerFunc {
 			return
 		}
 		type grant struct {
-			AgentID   string   `json:"agentId"`
+			Kind      string   `json:"kind"`
+			AgentID   string   `json:"agentId,omitempty"`
+			TermID    string   `json:"termId,omitempty"`
 			Name      string   `json:"name"`
-			Workspace string   `json:"workspaceId"`
+			Workspace string   `json:"workspaceId,omitempty"`
 			Tier      string   `json:"tier"`
 			Domains   []string `json:"domains"`
 			Saved     bool     `json:"saved"`
@@ -50,6 +52,7 @@ func handleBrowserPolicies(deps Deps) http.HandlerFunc {
 				domains = []string{}
 			}
 			out = append(out, grant{
+				Kind:      "agent",
 				AgentID:   a.ID,
 				Name:      a.Name,
 				Workspace: a.WorkspaceID,
@@ -57,6 +60,29 @@ func handleBrowserPolicies(deps Deps) http.HandlerFunc {
 				Domains:   domains,
 				Saved:     saved,
 			})
+		}
+		// ADR-0143: a CLI running in a terminal is a principal too, with its
+		// own row — the human decides what it may do instead of the tool
+		// silently reading the tab on screen.
+		if terms, err := deps.Store.ListTerminals(); err == nil {
+			for _, t := range terms {
+				key := browser.TerminalPrefix + t.ID
+				p := browser.Resolve(deps.Store, key)
+				_, saved, _ := deps.Store.GetSetting(browser.SettingPrefix + key)
+				domains := p.Domains
+				if domains == nil {
+					domains = []string{}
+				}
+				out = append(out, grant{
+					Kind:      "terminal",
+					TermID:    t.ID,
+					Name:      t.Name,
+					Workspace: t.WorkspaceID,
+					Tier:      p.Tier,
+					Domains:   domains,
+					Saved:     saved,
+				})
+			}
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"policies": out})
 	}
@@ -73,6 +99,7 @@ func handleBrowserPolicySave(deps Deps) http.HandlerFunc {
 		}
 		var req struct {
 			Agent   string   `json:"agent"`
+			Term    string   `json:"term"`
 			Tier    string   `json:"tier"`
 			Domains []string `json:"domains"`
 		}
@@ -81,25 +108,43 @@ func handleBrowserPolicySave(deps Deps) http.HandlerFunc {
 			return
 		}
 		req.Agent = strings.TrimSpace(req.Agent)
-		if req.Agent == "" {
+		req.Term = strings.TrimSpace(req.Term)
+		// ADR-0143: one principal per request — a managed agent, or a terminal.
+		// The key carries the difference (browser.TerminalPrefix), so a term id
+		// can never widen an agent's grant or the other way round.
+		key := req.Agent
+		if req.Term != "" {
+			if req.Agent != "" {
+				writeErr(w, http.StatusBadRequest, "send either an agent or a term, not both")
+				return
+			}
+			if _, err := deps.Store.GetTerminal(req.Term); err != nil {
+				writeErr(w, http.StatusNotFound, "unknown terminal: "+req.Term)
+				return
+			}
+			key = browser.TerminalPrefix + req.Term
+		}
+		if key == "" {
 			writeErr(w, http.StatusBadRequest, "an agent id is required")
 			return
 		}
-		known := false
-		agents, err := deps.Store.ListAllAgents()
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		for _, a := range agents {
-			if a.ID == req.Agent {
-				known = true
-				break
+		if req.Agent != "" {
+			known := false
+			agents, err := deps.Store.ListAllAgents()
+			if err != nil {
+				writeErr(w, http.StatusInternalServerError, err.Error())
+				return
 			}
-		}
-		if !known {
-			writeErr(w, http.StatusNotFound, "unknown agent: "+req.Agent)
-			return
+			for _, a := range agents {
+				if a.ID == req.Agent {
+					known = true
+					break
+				}
+			}
+			if !known {
+				writeErr(w, http.StatusNotFound, "unknown agent: "+req.Agent)
+				return
+			}
 		}
 		domains := make([]string, 0, len(req.Domains))
 		for _, d := range req.Domains {
@@ -107,11 +152,11 @@ func handleBrowserPolicySave(deps Deps) http.HandlerFunc {
 				domains = append(domains, d)
 			}
 		}
-		if err := browser.Save(deps.Store, req.Agent, browser.Policy{Tier: req.Tier, Domains: domains}); err != nil {
+		if err := browser.Save(deps.Store, key, browser.Policy{Tier: req.Tier, Domains: domains}); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		p := browser.Resolve(deps.Store, req.Agent)
-		writeJSON(w, http.StatusOK, map[string]any{"agentId": req.Agent, "tier": p.Tier, "domains": p.Domains, "saved": true})
+		p := browser.Resolve(deps.Store, key)
+		writeJSON(w, http.StatusOK, map[string]any{"agentId": req.Agent, "termId": req.Term, "tier": p.Tier, "domains": p.Domains, "saved": true})
 	}
 }
