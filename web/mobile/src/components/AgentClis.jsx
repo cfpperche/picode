@@ -6,7 +6,7 @@ import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { askConfirm } from "../lib/confirm.js";
 import { toast, toastError } from "../lib/toast.js";
 import { cliLaunchSchema, cliTerminalSchema, parseForm } from "@picode/shared/contracts/schemas.js";
-import { cliLocation, cliPaneHash, cliPaneSetupContext, cliDetectOnly, launchDraft, launchConfig, editLaunchOverrides, resolveLaunch, cliTerminals, terminalLaunchCLI, profileOverrides, cliWorkspaceList } from "@picode/shared/domain/cliLaunch.js";
+import { cliLocation, cliPaneHash, cliPaneSetupContext, cliCapabilities, cliPanes, launchDraft, launchConfig, editLaunchOverrides, resolveLaunch, cliTerminals, terminalLaunchCLI, profileOverrides, cliWorkspaceList } from "@picode/shared/domain/cliLaunch.js";
 import { loadPiPackagesContext } from "@picode/shared/domain/cliPackages.js";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { terminalCli, terminalStatusLabel, terminalStatus } from "@picode/shared/domain/terminalCli.js";
@@ -100,13 +100,14 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
   };
   const selected = data?.clis.find((c) => c.id === route.id) || data?.clis[0];
   const pane = route.pane || "launch";
-  const detectOnly = cliDetectOnly(selected);
+  const cap = cliCapabilities(selected);
+  const panes = cliPanes(selected);
+  const panesKey = panes.join(",");
   useEffect(() => {
-    if (!detectOnly || !selected) return;
-    if (route.view === "new" || route.view === "terminal" || (route.view === "clis" && pane !== "launch")) {
-      location.replace("#/clis/" + encodeURIComponent(selected.id));
-    }
-  }, [detectOnly, selected, route.view, pane]);
+    if (!selected) return;
+    const offPane = route.view === "clis" && pane !== "launch" && !panesKey.split(",").includes(pane);
+    if ((route.view === "new" && !cap.launch) || offPane) location.replace("#/clis/" + encodeURIComponent(selected.id));
+  }, [selected, route.view, pane, cap.launch, panesKey]);
   useEffect(() => { setLaunchEditing(false); }, [selected?.id]);
   useEffect(() => { if (pane !== "launch") setLaunchEditing(false); }, [pane]);
   const selectedJob = data?.jobs?.find((j) => j.cli === selected?.id);
@@ -156,24 +157,25 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
     {!data && !error ? <div className="cli-loading" aria-label="Loading Agent CLIs"><div /><div /><div /></div> : null}
     {data && !data.terminalAvailable ? <Notice action="Open System" onAction={() => { location.hash = "#/system"; }}>Terminal control is unavailable.</Notice> : null}
     {data && route.view === "clis" && selected ? <div className="cli-layout">
-      <nav className="cli-catalog" aria-label="Compatible CLIs">{data.clis.map((c) => <a key={c.id} href={cliDetectOnly(c) ? cliPaneHash(c.id) : (c.id === selected.id ? cliSetupHref(c.id, pane, setupCtx, route.workspace || "") : cliPaneHash(c.id, pane, pane === "sessions" ? (route.workspace || "") : ""))} aria-current={c.id === selected.id ? "page" : undefined}>
+      <nav className="cli-catalog" aria-label="Compatible CLIs">{data.clis.map((c) => <a key={c.id} href={c.id === selected.id ? cliSetupHref(c.id, pane, setupCtx, route.workspace || "") : cliPaneHash(c.id, cliPanes(c).includes(pane) ? pane : "launch", pane === "sessions" ? (route.workspace || "") : "")} aria-current={c.id === selected.id ? "page" : undefined}>
         <TerminalCliBadge term={{ cli: c.id }} /><span><strong>{c.name}</strong><small>{c.installed ? (c.diagnostic?.updateAvailable ? "Update available" : "Installed") : "Not found"}</small></span>{c.diagnostic?.updateAvailable ? <span className="cli-update-pill">Update</span> : null}<IconChevronRight size={14} />
       </a>)}</nav>
       <div className="cli-detail" key={selected.id}>
         <div className="cli-heading"><div><h3>{selected.name}</h3><p>{selected.diagnostic?.version || (selected.installed ? "Version not checked" : "Not installed")}{selected.diagnostic?.stale ? " · check out of date" : ""}{selected.diagnostic?.updateAvailable ? ` · update available${selected.diagnostic.latest ? " to " + selected.diagnostic.latest : ""}` : ""}</p>{updateLine ? <p>{updateLine}</p> : selected.diagnostic ? <p>Checked {new Date(selected.diagnostic.checkedAt).toLocaleString()}</p> : null}</div><div className="cli-actions" data-align-row data-align-wrap>
           <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => { run("check:" + selected.id, async () => { const d = await api(`/api/clis/${selected.id}/check`, json("POST", {})); if (d.error) toastError(new Error(d.error)); }).catch(() => {}); }}>{busy === "check:" + selected.id ? "Checking…" : "Check setup"}</button>
-          {!detectOnly && !selected.installed && selected.lifecycle?.canInstall ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("install")}>{lifecycleBusy ? "Working…" : "Install"}</button> : null}
-          {!detectOnly && selected.installed && selected.lifecycle?.canUpdate && selected.diagnostic?.updateAvailable ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("update")}>{lifecycleBusy ? "Working…" : "Update"}</button> : null}
-          {detectOnly && selected.installed && selected.lifecycle?.canCheckUpdate ? <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={checkUpdates}>{busy === "uc:" + selected.id ? "Checking…" : "Check for updates"}</button> : null}
-          {!detectOnly ? <button className="btn btn-primary btn-sm" disabled={!data.terminalAvailable} onClick={() => navigate("/new/" + selected.id)}>New terminal</button> : null}
-          {!detectOnly && selected.installed && (selected.lifecycle?.canUpdate || selected.lifecycle?.canReinstall || selected.lifecycle?.uninstall) ? <DropdownMenu.Root><DropdownMenu.Trigger asChild><button className="btn btn-ghost btn-sm cli-more" aria-label={"Lifecycle actions for " + selected.name} disabled={!!lifecycleBusy}>•••</button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
+          {!cap.integration && !selected.installed && selected.lifecycle?.canInstall ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("install")}>{lifecycleBusy ? "Working…" : "Install"}</button> : null}
+          {!cap.integration && selected.installed && selected.lifecycle?.canUpdate && selected.diagnostic?.updateAvailable ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("update")}>{lifecycleBusy ? "Working…" : "Update"}</button> : null}
+          {!cap.integration && selected.installed && selected.lifecycle?.canCheckUpdate ? <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={checkUpdates}>{busy === "uc:" + selected.id ? "Checking…" : "Check for updates"}</button> : null}
+          {cap.launch ? <button className="btn btn-primary btn-sm" disabled={!data.terminalAvailable} onClick={() => navigate("/new/" + selected.id)}>New terminal</button> : null}
+          {cap.integration && selected.installed && (selected.lifecycle?.canUpdate || selected.lifecycle?.canReinstall || selected.lifecycle?.uninstall) ? <DropdownMenu.Root><DropdownMenu.Trigger asChild><button className="btn btn-ghost btn-sm cli-more" aria-label={"Lifecycle actions for " + selected.name} disabled={!!lifecycleBusy}>•••</button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
             <DropdownMenu.Item className="um-item" onSelect={checkUpdates}>Check for updates</DropdownMenu.Item>
             {selected.lifecycle?.canReinstall ? <DropdownMenu.Item className="um-item" onSelect={() => startLifecycle("reinstall")}>Reinstall</DropdownMenu.Item> : null}
             {selected.lifecycle?.uninstall === "vendor" || selected.lifecycle?.uninstall === "npm" ? <><DropdownMenu.Separator className="um-divider" /><DropdownMenu.Item className="um-item cli-danger-item" onSelect={() => startLifecycle("uninstall")}>Uninstall {selected.name}</DropdownMenu.Item></> : null}
           </DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root> : null}
         </div></div>
         <CLILifecycleCard cli={selected} job={selectedJob} onCheck={checkUpdates} />
-        {!detectOnly && selected.problem ? <Notice action={selected.installed && selected.config.integration && !selected.integrationApplied ? "Repair integration" : "Customize"} onAction={() => {
+        {!cap.integration && selected.problem ? <Notice action="Open documentation" onAction={() => window.open(selected.docs, "_blank", "noopener,noreferrer")}>{selected.problem}</Notice> : null}
+        {cap.integration && selected.problem ? <Notice action={selected.installed && selected.config.integration && !selected.integrationApplied ? "Repair integration" : "Customize"} onAction={() => {
           if (selected.installed && selected.config.integration && !selected.integrationApplied) run("repair", () => api(`/api/clis/${selected.id}/repair`, json("POST", {}))).catch(() => {});
           else {
             setEditRequested({ id: selected.id, at: Date.now() });
@@ -182,10 +184,10 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
           }
         }}>{selected.problem}</Notice> : null}
         {selected.diagnostic?.error ? <Notice danger action="Check again" onAction={() => { run("check:" + selected.id, () => api(`/api/clis/${selected.id}/check`, json("POST", {}))).catch(() => {}); }}>{selected.diagnostic.error}</Notice> : null}
-        {detectOnly && selected.installed ? <Notice action="Open documentation" onAction={() => window.open(selected.docs, "_blank", "noopener,noreferrer")}>Launch is not in PiCode yet.</Notice> : null}
-        {!detectOnly ? <><CliPaneTabs
+        <CliPaneTabs
           cli={selected.id}
           pane={pane}
+          panes={panes}
           workspace={route.workspace || ""}
           workspaceId={setupCtx.workspaceId}
           agentId={setupCtx.agentId}
@@ -194,12 +196,14 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
           layer={setupCtx.layer}
         />
         {pane === "launch" ? <>
+          {cap.integration ? <>
           <div className="cli-integration"><label htmlFor="cli-integration">Activity reporting <span>{selected.config.integration ? "On for new launches" : "Off for new launches"}</span></label>
             <Switch.Root id="cli-integration" className="rx-switch" checked={selected.config.integration} disabled={!!busy} onCheckedChange={(value) => { const old = selected.config.integration; setData((cur) => ({ ...cur, clis: cur.clis.map((c) => c.id === selected.id ? { ...c, config: { ...c.config, integration: value } } : c) })); run("integration", async () => { try { const v = await api(`/api/clis/${selected.id}`, json("PUT", { ...selected.config, integration: value })); if (v.problem) toastError(new Error(v.problem)); } catch (e) { setData((cur) => ({ ...cur, clis: cur.clis.map((c) => c.id === selected.id ? { ...c, config: { ...c.config, integration: old } } : c) })); throw e; } }).catch(() => {}); }}><Switch.Thumb className="rx-switch-thumb" /></Switch.Root>
           </div>
           <CLIDefaults cli={selected} editing={launchEditing} onEditingChange={setLaunchEditing} editRequested={editRequested.id === selected.id ? editRequested.at : 0} busy={!!busy} onSave={async (c) => { await run("settings", async () => { const v = await api(`/api/clis/${selected.id}`, json("PUT", c)); if (v.problem) toastError(new Error(v.problem)); else toast.ok("Launch settings saved."); }); }} />
           <CLIDiagnostics cli={selected} terminals={data.terminals} busy={!!busy} run={run} />
           <CLIProfiles cli={selected} profiles={data.profiles} run={run} busy={!!busy} />
+          </> : <p className="cli-muted">Launch settings and sessions are not available for {selected.name} yet. New terminal opens it with its own defaults.</p>}
           <a className="cli-docs" href={selected.docs} target="_blank" rel="noreferrer">{selected.name} documentation ↗</a>
         </> : null}
         {pane === "terminals" ? <TerminalList hideTitle cliName={selected.name} terminals={cliTerminals(data.terminals, selected.id)} workspaces={data.workspaces} busy={busy} onAction={action} onNew={() => navigate("/new/" + selected.id)} /> : null}
@@ -232,7 +236,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
         /> : null}
         {pane === "settings" || pane === "keyboard" ? <CliSettings pane={pane} hidden={false} route={route} catalog={catalog} onAgentConfig={onAgentConfig} /> : null}
         {pane === "packages" ? <CliPackages hidden={false} route={route} catalog={catalog} onPackageUpdates={onPackageUpdates} /> : null}
-        {pane === "connectors" ? <ConnectorsPane route={route} onReload={onReloadAgent} /> : null}</> : null}
+        {pane === "connectors" ? <ConnectorsPane route={route} onReload={onReloadAgent} /> : null}
       </div>
     </div> : null}
     {data && (route.view === "new" || route.view === "terminal") ? <TerminalEditor key={hash} route={route} data={data} run={run} busy={!!busy} /> : null}
@@ -323,6 +327,12 @@ function TerminalEditor({ route, data, run, busy }) {
     return () => { stopped = true; };
   }, [retry]); // this editor is keyed by its route
   if (route.view === "terminal" && !existing) return <Notice action="Choose a CLI" onAction={() => navigate("")}>That terminal is gone.</Notice>;
+  // A CLI with no adapter (Muse Code, Antigravity) has no launch settings to
+  // edit: its editor is name, workspace and folder, and an existing terminal
+  // has nothing to open.
+  const cap = cliCapabilities(cli);
+  if (existing && !cap.integration) return <section className="cli-editor"><div className="cli-heading"><h3>{existing.name} · Launch settings</h3><button className="btn btn-ghost btn-sm" onClick={() => { location.hash = cliPaneHash(cli.id, "terminals"); }}>Back</button></div>
+    <p className="cli-muted">Launch settings are not available for {cli.name} yet. It opens with its own defaults.</p></section>;
   if (route.profile && !initialProfile) return <Notice action="Choose a profile" onAction={() => { location.hash = cliPaneHash(cli.id, "launch"); }}>That launch profile is no longer available.</Notice>;
   if (loadError) return <Notice danger action="Try again" onAction={() => setRetry((v) => v + 1)}>{loadError}</Notice>;
   const settingsPreview = parseForm(cliLaunchSchema, draft);
@@ -338,16 +348,16 @@ function TerminalEditor({ route, data, run, busy }) {
       }); } catch (e) { setError(e.message); }
     }}>
       <div className="cli-fields">
-        <label>CLI<CliCombo ariaLabel="CLI" value={cli.id} options={data.clis.filter((c) => !cliDetectOnly(c))} onChange={async (id) => { const c = data.clis.find((x) => x.id === id); if (!c || (custom && dirty && !(await confirmDiscard()))) return; setCliId(c.id); setDraft(launchDraft(c.config)); setCustom(false); setProfileId(""); setOriginalOverrides({}); }} /></label>
-        {!existing && data.profiles.some((p) => p.cli === cli.id) ? <label>Launch profile<select value={profileId} onChange={async (e) => { const id = e.target.value; if (custom && dirty && !(await confirmDiscard())) return; const p = data.profiles.find((p) => p.id === id); setProfileId(id); setDraft(launchDraft(p?.config || cli.config)); setCustom(!!p); setOriginalOverrides({}); }}>{<option value="">CLI defaults</option>}{data.profiles.filter((p) => p.cli === cli.id).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label> : null}
+        {cap.integration ? <label>CLI<CliCombo ariaLabel="CLI" value={cli.id} options={data.clis.filter((c) => cliCapabilities(c).integration)} onChange={async (id) => { const c = data.clis.find((x) => x.id === id); if (!c || (custom && dirty && !(await confirmDiscard()))) return; setCliId(c.id); setDraft(launchDraft(c.config)); setCustom(false); setProfileId(""); setOriginalOverrides({}); }} /></label> : null}
+        {cap.integration && !existing && data.profiles.some((p) => p.cli === cli.id) ? <label>Launch profile<select value={profileId} onChange={async (e) => { const id = e.target.value; if (custom && dirty && !(await confirmDiscard())) return; const p = data.profiles.find((p) => p.id === id); setProfileId(id); setDraft(launchDraft(p?.config || cli.config)); setCustom(!!p); setOriginalOverrides({}); }}>{<option value="">CLI defaults</option>}{data.profiles.filter((p) => p.cli === cli.id).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label> : null}
         {!existing ? <><label>Name<input autoComplete="off" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label><label>Workspace<select value={form.workspaceId} onChange={(e) => setForm({ ...form, workspaceId: e.target.value, cwd: "" })}><option value="">Free terminal</option>{data.workspaces.filter((w) => w.id !== "ws_free").map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label><label>Folder<input placeholder={form.workspaceId ? "Use workspace folder" : "Use home folder"} value={form.cwd} onChange={(e) => setForm({ ...form, cwd: e.target.value })} /></label></> : null}
-        <label className="cli-checkbox"><input type="checkbox" checked={custom} onChange={async (e) => { const checked = e.target.checked; if (!checked && dirty && !(await confirmDiscard())) return; setCustom(checked); if (!checked) { setDraft(launchDraft(cli.config)); setProfileId(""); setOriginalOverrides({}); } }} />Customize this terminal</label>
+        {cap.integration ? <label className="cli-checkbox"><input type="checkbox" checked={custom} onChange={async (e) => { const checked = e.target.checked; if (!checked && dirty && !(await confirmDiscard())) return; setCustom(checked); if (!checked) { setDraft(launchDraft(cli.config)); setProfileId(""); setOriginalOverrides({}); } }} />Customize this terminal</label> : null}
       </div>
-      {custom ? <LaunchFields draft={draft} setDraft={setDraft} includeIntegration /> : <p className="cli-muted">Uses {cli.name} launch defaults.</p>}
+      {cap.integration ? (custom ? <LaunchFields draft={draft} setDraft={setDraft} includeIntegration /> : <p className="cli-muted">Uses {cli.name} launch defaults.</p>) : <p className="cli-muted">Opens {cli.name} with its own defaults.</p>}
       {existing?.launchAttempt?.error ? <Notice danger action="Back to terminals" onAction={back}>{existing.launchAttempt.error}</Notice> : null}
       {error ? <p className="cli-field-error" role="alert">{error}</p> : null}
       <div className="cli-actions" data-align-row data-align-wrap><button type="submit" className="btn btn-primary btn-sm" disabled={busy || (!existing && !data.terminalAvailable)}>{busy ? (existing ? "Saving…" : "Opening terminal…") : existing ? "Save launch settings" : "Open terminal"}</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={back}>Cancel</button></div>
-      {!custom || settingsPreview.ok ? <LaunchPreview cli={cli.id} overrides={overrides} terminalId={existing?.id} applied={existing?.launchApplied} /> : null}
+      {cap.integration && (!custom || settingsPreview.ok) ? <LaunchPreview cli={cli.id} overrides={overrides} terminalId={existing?.id} applied={existing?.launchApplied} /> : null}
     </form>}
   </section>;
 }

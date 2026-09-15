@@ -77,7 +77,7 @@ func (s *Store) SetCLIConfig(id string, c clilaunch.Config) error {
 // key used to read as false in Go, which froze OpenCode off on the first
 // boot after it joined the catalog.
 func catalogIntegrationOn(enabled map[string]bool, id string) bool {
-	if cli, ok := clilaunch.Find(id); ok && cli.DetectOnly() {
+	if cli, ok := clilaunch.Find(id); ok && !cli.Integrable() {
 		return false
 	}
 	if enabled == nil {
@@ -130,7 +130,7 @@ func (s *Store) SeedCatalogIntegrationDefaults() error {
 		return nil
 	}
 	for _, cli := range clilaunch.Catalog() {
-		if cli.DetectOnly() {
+		if !cli.Integrable() {
 			continue
 		}
 		c, found, err := s.CLIConfig(cli.ID)

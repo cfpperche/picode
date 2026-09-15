@@ -349,7 +349,7 @@ func handleWiringStatus(deps Deps) http.HandlerFunc {
 func handleWiringEnable(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cli := r.PathValue("cli")
-		if c, ok := clilaunch.Find(cli); ok && c.DetectOnly() {
+		if c, ok := clilaunch.Find(cli); ok && !c.Integrable() {
 			writeErr(w, http.StatusBadRequest, fmt.Sprintf("Launch is not available for %s yet.", c.Name))
 			return
 		}

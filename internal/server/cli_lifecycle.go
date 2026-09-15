@@ -303,8 +303,8 @@ func handleCLILifecycle(deps Deps) http.HandlerFunc {
 			writeErr(w, 404, "Unknown CLI.")
 			return
 		}
-		if cli.DetectOnly() {
-			writeErr(w, 400, fmt.Sprintf("Launch is not available for %s yet.", cli.Name))
+		if !cli.Launchable() {
+			writeErr(w, 400, fmt.Sprintf("Lifecycle actions are not available for %s yet.", cli.Name))
 			return
 		}
 		if deps.CLIJobs == nil {

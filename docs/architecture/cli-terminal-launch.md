@@ -116,13 +116,20 @@ Installing an installed CLI is refused — reinstall covers it. The update
 check line no longer reports "failed" for unmanaged installs; the real check
 error text is shown for genuine failures.
 
-**Detect-only catalog rows** (`surface: detect`): Muse Code (`muse`) and
-Antigravity (`agy`) appear in Agent CLIs for PATH detection, `POST …/check`
-(`--version`) and — for Muse — `POST …/update-check` against the vendor
-channel JSON. They do not seed Activity, intercept wrappers, launch, or
-lifecycle jobs. `muse --version` runs with `MUSE_NO_AUTO_UPDATE=1` so the
-launcher does not background-update. Antigravity has no read-only update
-probe yet (`agy update` mutates).
+**Catalog capabilities** (`surface`): Muse Code (`muse`) and Antigravity
+(`agy`) carry `surface: terminal` — PATH detection, `POST …/check`
+(`--version`), `POST …/terminals` (New terminal runs the CLI with its own
+defaults) and, for Muse, `POST …/update-check` against the vendor channel
+JSON. They seed no Activity, install no intercept wrapper, expose no launch
+settings (`PUT /api/clis/{cli}` is refused), no session source and no
+lifecycle jobs (`POST …/lifecycle` reaches the plan and is refused as
+unmanaged). The surface derives that from two capabilities the server sends:
+`integrationCapable` (activity, launch settings, setup panes) and `launchable`
+(New terminal); `cliPanes` maps them to the pane list. `surface: detect`
+remains for a row that must not launch at all, and `TestCatalogCapabilities`
+pins which catalog rows launch and which integrate. `muse --version` runs
+with `MUSE_NO_AUTO_UPDATE=1` so the launcher does not background-update.
+Antigravity has no read-only update probe yet (`agy update` mutates).
 
 `terminal_launches.attempt` retains the latest redacted launch failure/time.
 Snapshots include injected branches/files and executable identity. Pending

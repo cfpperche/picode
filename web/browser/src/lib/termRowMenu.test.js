@@ -28,6 +28,14 @@ test("an unknown terminal degrades to the stopped shape", () => {
   assert.deepEqual(ids(termRowMenu({})), ids(termRowMenu({ running: false })));
 });
 
+test("a CLI without an adapter drops Launch settings", () => {
+  // Muse Code and Antigravity open a terminal with no launch settings to
+  // edit; the item would otherwise open an empty form.
+  const catalog = [{ id: "muse", integrationCapable: false }, { id: "pi", integrationCapable: true }];
+  assert.deepEqual(ids(termRowMenu({ id: "t1", running: true, launchCli: "muse" }, { clis: catalog })), ["rename", "settings", "restart", "stop", "remove"]);
+  assert.deepEqual(ids(termRowMenu({ id: "t2", running: false, launchCli: "pi" }, { clis: catalog })), ["rename", "launch", "settings", "start", "remove"]);
+});
+
 test("remove is the only dangerous row, everywhere", () => {
   for (const t of [{ running: true }, { running: false }]) {
     const rows = termRowMenu(t);
