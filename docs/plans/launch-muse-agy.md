@@ -97,7 +97,12 @@ written to either CLI's store.
   when a mechanism appears.- **Fatia 3b outcome (shipped):** same shape as 3a, smaller — registry flip
   + summary-only plan branch; toggle/PUT/seed guards needed zero new code.
   No `surface: terminal` rows remain.
-- **Fatia 4 — Writers (native targets, may fail).** Minimum-viable-file
+- **Fatia 4 — Writers (native targets, may fail).**
+  Outcome (shipped, both GO): muse = index row + session log of plain
+  records (UUID-shaped id enforced — the CLI rejects anything else
+  before the store lookup; wire field order kept, exporter sniffs the
+  line prefix); agy = summaries row + brain transcript + existing
+  (possibly empty) store file. Both continue live turns afterwards. Minimum-viable-file
   spike against the real CLI (the Grok ritual), `Write` + round-trip.
   Explicit fallback: brief-only, recorded — never forced.
 - **Fatia 5 — activity beyond `Open`.** Only on a confirmed surface;

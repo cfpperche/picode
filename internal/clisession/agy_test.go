@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 // seedAgyDB writes a conversation_summaries.db with the shape Antigravity
@@ -235,5 +237,61 @@ func TestAgyReadMissingAndEscape(t *testing.T) {
 	}
 	if len(tl.Events) != 1 || tl.Events[0].Text != "hi" {
 		t.Errorf("db-path pin = %+v, want the one user turn", tl.Events)
+	}
+}
+
+func TestAgyWriteRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "conversation_summaries.db")
+	db, err := sql.Open("sqlite", "file:"+dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`CREATE TABLE conversation_summaries (
+		conversation_id TEXT PRIMARY KEY, title TEXT NOT NULL DEFAULT '',
+		preview TEXT NOT NULL DEFAULT '', step_count INTEGER NOT NULL DEFAULT 0,
+		last_modified_time datetime NOT NULL DEFAULT '',
+		workspace_uris TEXT NOT NULL DEFAULT '',
+		last_user_input_time datetime NOT NULL DEFAULT '')`); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	AgyTestDB = dbPath
+	t.Cleanup(func() { AgyTestDB = "" })
+	now := time.Date(2026, 9, 15, 19, 0, 0, 0, time.UTC)
+	got, err := (AgySource{}).Write(context.Background(), sample(), WriteRequest{Cwd: "/home/goat/proj", Now: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Tool traffic has no record type in this format: calls and results
+	// flatten to text turns, so the sample's 4 messages read back as 8.
+	if !reflect.DeepEqual(got.ResumeArgs, []string{"--conversation", got.ID}) || got.Name != "Race fix" || got.Messages != 8 {
+		t.Fatalf("summary = %+v", got)
+	}
+	// The full loop without the vendor binary: the written transcript
+	// reads back through the real reader with identical counts.
+	back, err := (AgySource{}).Read(context.Background(), Ref{ID: got.ID, Cwd: "/home/goat/proj"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if back.Header.Title != "Handoff from Claude Code, session cc-1." && back.Header.Title != "fix the race" {
+		t.Errorf("title = %q", back.Header.Title)
+	}
+	if back.Prepare().Counts().Messages != got.Messages {
+		t.Errorf("round trip messages = %d, want %d", back.Prepare().Counts().Messages, got.Messages)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "conversations", got.ID+".db")); err != nil {
+		t.Errorf("store file: %v", err)
+	}
+}
+
+func TestAgyWriteRequiresFolderAndTurns(t *testing.T) {
+	if _, err := (AgySource{}).Write(context.Background(), sample(), WriteRequest{}); err == nil {
+		t.Error("missing folder writes no error")
+	}
+	empty := sample()
+	empty.Events = nil
+	if _, err := (AgySource{}).Write(context.Background(), empty, WriteRequest{Cwd: "/w"}); err == nil {
+		t.Error("turn-less timeline writes no error")
 	}
 }

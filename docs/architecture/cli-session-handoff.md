@@ -30,22 +30,26 @@ that. Every CLI with a full adapter reads and writes; prompters exist for
 every CLI but Hermes, which cannot be started with an initial prompt.
 
 **List-only sources** (`list` without `read`) are the other end of that
-range: a CLI whose history is on disk before it has an adapter. Muse Code
-reads `~/.local/share/muse/session-index.db` (or `$XDG_DATA_HOME/muse/...`),
-the index Meta's launcher keeps over its own session logs — title, first
-prompt, workspace root, model, prompt count and timestamps are columns
-there, so nothing parses a session log. Its `ResumeArgs` are
-`--resume <session-uuid>`. Antigravity reads
-`~/.gemini/antigravity-cli/conversation_summaries.db` and resumes with
-`--conversation <id>`. Both list and resume, neither reads a transcript yet,
-so neither appears as a handoff source (that needs `read`) or target (that
-needs `write`/`prompt`), and the pane shows them a Sessions tab without the
-handoff menu. The pane list follows the capability, not the adapter:
-`cliPanes` adds Sessions when `sessions.list` is true.
+range: a CLI whose history is on disk before it has an adapter. (Muse Code
+and Antigravity both graduated past this in the launch-parity project:
+Muse reads its index plus the session logs it points at, Antigravity its
+summaries index plus the per-conversation transcripts, so both are full
+handoff sources and brief targets; the paragraph stays for the next CLI
+that arrives list-only.) Muse Code reads `~/.local/share/muse/session-index.db`
+(or `$XDG_DATA_HOME/muse/...`), the index Meta's launcher keeps over its own
+session logs — title, first prompt, workspace root, model, prompt count and
+timestamps are columns there. Its `ResumeArgs` are `--resume <session-uuid>`.
+Antigravity reads `~/.gemini/antigravity-cli/conversation_summaries.db` and
+resumes with `--conversation <id>`. The pane list follows the capability,
+not the adapter: `cliPanes` adds Sessions when `sessions.list` is true.
 
 Writers publish two ways. Claude Code, Codex, pi (as an adopted managed
-agent) and Grok get a new session artifact created in their own store,
-atomically and never over an existing one. OpenCode and Hermes are SQLite
+agent), Grok, Muse Code and Antigravity get a new session artifact created
+in their own store, atomically and never over an existing one — Muse as an
+index row plus a session log of plain records (the exporter dispatches on
+the line prefix, so `schema_version` leads and the session id parses as a
+UUID), Antigravity as a summaries row plus the brain transcript plus the
+(possibly empty) per-conversation store file. OpenCode and Hermes are SQLite
 stores their CLI holds open, so a writer publishes through the vendor's
 own importer instead (ADR-0094): `WriteRequest.Run` executes the CLI in
 the session's folder with its configured executable and environment

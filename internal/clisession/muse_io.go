@@ -104,16 +104,17 @@ func museExportEnv() []string {
 }
 
 type museEvent struct {
-	Kind     string `json:"kind"`
-	Envelope struct {
-		RecordedAt  int64           `json:"recorded_at"`
-		RecordType  string          `json:"record_type"`
-		PayloadType string          `json:"payload_type"`
-		Payload     json.RawMessage `json:"payload"`
-		Children    []struct {
-			RecordJSON string `json:"record_json"`
-		} `json:"children"`
-	} `json:"envelope"`
+	Kind     string       `json:"kind"`
+	Envelope museEnvelope `json:"envelope"`
+}
+
+type museEnvelope struct {
+	RecordedAt  int64           `json:"recorded_at"`
+	PayloadType string          `json:"payload_type"`
+	Payload     json.RawMessage `json:"payload"`
+	Children    []struct {
+		RecordJSON string `json:"record_json"`
+	} `json:"children"`
 }
 
 func parseMuseExport(raw []byte, ref Ref) (transcript.Timeline, error) {
@@ -127,6 +128,10 @@ func parseMuseExport(raw []byte, ref Ref) (transcript.Timeline, error) {
 	if doc.Schema != 1 {
 		return transcript.Timeline{}, fmt.Errorf("muse export schema %d is not supported", doc.Schema)
 	}
+	return parseMuseExportEvents(doc.Events, ref)
+}
+
+func parseMuseExportEvents(events []museEvent, ref Ref) (transcript.Timeline, error) {
 	t := transcript.Timeline{Header: transcript.Header{SourceCLI: "muse", SourceID: ref.ID, SourcePath: ref.Path, Cwd: ref.Cwd, FormatVersion: "export_schema_version 1"}}
 	group := 0
 	emit := func(ev transcript.Event, at int64) {
@@ -243,7 +248,7 @@ func parseMuseExport(raw []byte, ref Ref) (transcript.Timeline, error) {
 			}
 		}
 	}
-	for _, ev := range doc.Events {
+	for _, ev := range events {
 		switch ev.Kind {
 		case "record":
 			feed(ev)

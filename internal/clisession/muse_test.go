@@ -3,9 +3,14 @@ package clisession
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"github.com/cfpperche/picode/internal/transcript"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
+	"time"
 )
 
 // seedMuseDB writes a session-index.db with the shape Muse Code 1.2.1
@@ -243,5 +248,129 @@ func TestMuseReadFailures(t *testing.T) {
 	seedMuseBin(t, `{"export_schema_version":2,"events":[]}`)
 	if _, err := (MuseSource{}).Read(context.Background(), Ref{ID: "s1"}); err == nil {
 		t.Error("future export schema reads no error")
+	}
+}
+
+// seedMuseIndex creates the writer's contract table: exactly the columns
+// insertMuseIndexRow sets, so a drift between the two fails here first.
+func seedMuseIndex(t *testing.T, dir string) string {
+	t.Helper()
+	path := filepath.Join(dir, "session-index.db")
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE sessions (
+		session_id TEXT PRIMARY KEY, session_stream_id TEXT NOT NULL,
+		session_dir TEXT NOT NULL, session_log_path TEXT NOT NULL,
+		layout TEXT NOT NULL, workspace_root TEXT, workspace_key TEXT,
+		provider_id TEXT, model_id TEXT, title TEXT NOT NULL,
+		first_user_prompt TEXT, search_text TEXT NOT NULL,
+		prompt_count INTEGER, created_at_us INTEGER, updated_at_us INTEGER,
+		indexed_at_us INTEGER NOT NULL, status TEXT NOT NULL,
+		status_rank INTEGER NOT NULL, latest_segment_terminated INTEGER)`); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+const museWriteCannedExport = `{"export_schema_version":1,"events":[
+{"kind": "record", "envelope": {"recorded_at": 1789500001000000, "record_type": "event", "payload_type": "runtime.user_intent.accepted", "payload": {"model_messages": [{"content": [{"kind": "text", "text": "a"}]}]}}},
+{"kind": "record", "envelope": {"recorded_at": 1789500002000000, "record_type": "event", "payload_type": "runtime.user_intent.accepted", "payload": {"model_messages": [{"content": [{"kind": "text", "text": "b"}]}]}}},
+{"kind": "record", "envelope": {"recorded_at": 1789500003000000, "record_type": "event", "payload_type": "runtime.session", "payload": {"kind": "run", "event": {"kind": "assistant_message_committed", "text": "c"}}}},
+{"kind": "record", "envelope": {"recorded_at": 1789500004000000, "record_type": "event", "payload_type": "runtime.session", "payload": {"kind": "run", "event": {"kind": "assistant_message_committed", "text": "d"}}}},
+{"kind": "record", "envelope": {"recorded_at": 1789500005000000, "record_type": "event", "payload_type": "runtime.session", "payload": {"kind": "run", "event": {"kind": "assistant_tool_calls_committed", "tool_calls": [{"call_id": "1", "name": "n", "args": "{}"}, {"call_id": "2", "name": "m", "args": "{}"}]}}}},
+{"kind": "record", "envelope": {"recorded_at": 1789500006000000, "record_type": "event", "payload_type": "runtime.session", "payload": {"kind": "run", "event": {"kind": "tool_result_batch_committed", "results": [{"tool_call_id": "1", "text": "x"}, {"tool_call_id": "2", "text": "y"}]}}}}
+]}`
+
+// seedMuseExportBin installs a fake muse whose export answers the canned
+// document regardless of the session: the round trip then checks the
+// written session reads back with the emitted counts.
+func seedMuseExportBin(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	script := "#!/bin/sh\nout=\"\"\nprev=\"\"\nfor a in \"$@\"; do\nif [ \"$prev\" = \"--out\" ]; then out=\"$a\"; fi\nprev=\"$a\"\ndone\ncat \"$MUSE_EXPORT_FIXTURE\" > \"$out\"\n"
+	if err := os.WriteFile(filepath.Join(dir, "muse"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	fix := filepath.Join(dir, "export.json")
+	if err := os.WriteFile(fix, []byte(museWriteCannedExport), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("MUSE_EXPORT_FIXTURE", fix)
+	MuseBin = filepath.Join(dir, "muse")
+	t.Cleanup(func() { MuseBin = "" })
+}
+
+func TestMuseWriteFlow(t *testing.T) {
+	dir := t.TempDir()
+	MuseTestDB = seedMuseIndex(t, dir)
+	t.Cleanup(func() { MuseTestDB = "" })
+	seedMuseExportBin(t)
+	now := time.Date(2026, 9, 15, 19, 0, 0, 0, time.UTC)
+	got, err := (MuseSource{}).Write(context.Background(), sample(), WriteRequest{Cwd: "/home/goat/proj", Now: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got.ResumeArgs, []string{"--resume", got.ID}) || got.Name != "Race fix" || got.Messages != 4 || got.Model != "" {
+		t.Fatalf("summary = %+v", got)
+	}
+	// The source model never becomes this session's model.
+	if body, _ := os.ReadFile(got.Path); strings.Contains(string(body), "claude-sonnet-5") {
+		t.Fatal("the source's model must not be written into the session log")
+	}
+	// Writer-to-reader compatibility without the vendor binary: the raw
+	// log lines wrapped as export envelopes parse to the emitted counts.
+	raw, _ := os.ReadFile(got.Path)
+	var doc struct {
+		Events []museEvent `json:"events"`
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
+		var env museEnvelope
+		if err := json.Unmarshal([]byte(line), &env); err != nil {
+			t.Fatalf("written line is not a record envelope: %v", err)
+		}
+		doc.Events = append(doc.Events, museEvent{Kind: "record", Envelope: env})
+	}
+	tl, err := parseMuseExportEvents(doc.Events, Ref{ID: got.ID, Cwd: "/home/goat/proj"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := tl.Prepare().Counts(); c.Messages != 4 || c.ToolCalls != 2 || c.ToolResults != 2 {
+		t.Fatalf("compat counts = %+v", c)
+	}
+}
+
+func TestMuseWriteRequiresFolderAndTurns(t *testing.T) {
+	if _, err := (MuseSource{}).Write(context.Background(), sample(), WriteRequest{}); err == nil {
+		t.Error("missing folder writes no error")
+	}
+	empty := sample()
+	empty.Events = nil
+	if _, err := (MuseSource{}).Write(context.Background(), empty, WriteRequest{Cwd: "/w"}); err == nil {
+		t.Error("turn-less timeline writes no error")
+	}
+}
+
+func TestValidMuseID(t *testing.T) {
+	for _, id := range []string{transcript.NewID(), "12345678-9abc-4def-8123-456789abcdef", "12345678-9ABC-4DEF-8123-456789ABCDEF"} {
+		if !validMuseID(id) {
+			t.Errorf("%q must parse", id)
+		}
+	}
+	for _, id := range []string{"", "picode-spike-1", "12345678-live-4000-8000-000000000002", "12345678-9abc-4def-8123-456789abcde", "123456789abc-4def-8123-456789abcdef7"} {
+		if validMuseID(id) {
+			t.Errorf("%q must not parse", id)
+		}
+	}
+}
+
+func TestMuseWriteRefusesForeignIDShape(t *testing.T) {
+	dir := t.TempDir()
+	MuseTestDB = seedMuseIndex(t, dir)
+	t.Cleanup(func() { MuseTestDB = "" })
+	if _, err := (MuseSource{}).Write(context.Background(), sample(), WriteRequest{Cwd: "/w", SessionID: "not-a-uuid"}); err == nil {
+		t.Error("foreign id shape writes no error")
 	}
 }
