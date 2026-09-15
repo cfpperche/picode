@@ -61,14 +61,14 @@ app shell may frame this machine, nothing else. The frame used to carry a line
 saying so ("The desktop app shows this page in its own window…"); the owner
 had it removed — it spent a row of a 1080p window on every local page, and the
 frame is self-evident. The non-local case still explains itself when a URL is
-typed, and the empty state still says what the surface is for. Measured where that policy is
-sent: `/`, `/index.html` and every `*.html` — i.e. `/browser/index.html` and
-`/desktop/index.html`. The **directory URLs `/browser/` and `/desktop/`**,
-which is where the launcher and the shell actually land, carry no CSP at all
-(`securityHeaders` matches `/`, `/index.html` or a `.html` suffix): the frame
-is allowed there because nothing restricts it, and the shell is unprotected by
-its own policy there. That gap is older than this feature and is reported, not
-fixed, on this branch. The URL lives in the tab's address bar (editable, Enter
+typed, and the empty state still says what the surface is for. The policy now reaches the URLs the shells are served at — `/browser/`,
+`/desktop/`, `/mobile/` — not only `/`, `/index.html` and `*.html`: the
+coverage gap this feature first ran into was its own doing in the sense that
+nothing restricted the frame, and it hid the fact that the app ran with no
+policy at all. The hash is computed from the file each path serves (the
+launcher has no inline script; every shell carries the theme bootstrap), and
+`frame-src` is why the frame still opens under it. Amendment of 2026-09-15 in
+`docs/decisions/0052-public-access.md`. The URL lives in the tab's address bar (editable, Enter
 reloads), and each web tab's address is kept in `picode-webtab-urls` so a
 reload restores it — the desktop shell reads the address back from its own
 webview instead.

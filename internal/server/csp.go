@@ -27,24 +27,40 @@ import (
 
 var inlineScript = regexp.MustCompile(`(?s)<script>(.*?)</script>`)
 
-var cspOnce struct {
-	sync.Once
-	hashes string
-}
+var cspHashes sync.Map // request-path file → its 'sha256-…' sources
 
 // inlineScriptHashes lists 'sha256-…' sources for every inline <script>
-// in index.html. Embedded builds compute once; a disk build (the UI can
-// be rebuilt under a running daemon) recomputes per call.
-func inlineScriptHashes() string {
+// in the HTML a request path serves. The path matters: the launcher at `/`
+// has no inline script at all, while each shell's own index.html
+// (`/browser/`, `/desktop/`, `/mobile/`) carries the theme bootstrap, and a
+// hash taken from the wrong file is a policy that blocks the script it
+// means to allow. Embedded builds compute once per file; a disk build (the
+// UI can be rebuilt under a running daemon) recomputes per call.
+func inlineScriptHashes(requestPath string) string {
+	file := htmlFileFor(requestPath)
 	if web.Embedded() {
-		cspOnce.Do(func() { cspOnce.hashes = hashInline(readIndex()) })
-		return cspOnce.hashes
+		if h, ok := cspHashes.Load(file); ok {
+			return h.(string)
+		}
+		h := hashInline(readUIHTML(file))
+		cspHashes.Store(file, h)
+		return h
 	}
-	return hashInline(readIndex())
+	return hashInline(readUIHTML(file))
 }
 
-func readIndex() []byte {
-	b, err := fs.ReadFile(web.UI(), "index.html")
+// htmlFileFor maps a request path to the file in the UI bundle that serves
+// it: a directory serves its own index.html, anything else serves itself.
+func htmlFileFor(p string) string {
+	t := strings.TrimPrefix(p, "/")
+	if t == "" || strings.HasSuffix(t, "/") {
+		return t + "index.html"
+	}
+	return t
+}
+
+func readUIHTML(file string) []byte {
+	b, err := fs.ReadFile(web.UI(), file)
 	if err != nil {
 		return nil
 	}
@@ -61,15 +77,16 @@ func hashInline(html []byte) string {
 }
 
 // appCSP is the app shell's policy for the host the browser used, so
-// WebSockets to this same server pass in every browser.
-func appCSP(host string) string {
+// WebSockets to this same server pass in every browser, and for the request
+// path, so the script hash names the file that path actually serves.
+func appCSP(host, requestPath string) string {
 	ws := ""
 	if h := strings.TrimSpace(host); h != "" {
 		ws = " ws://" + h + " wss://" + h
 	}
 	return strings.Join([]string{
 		"default-src 'self'",
-		"script-src 'self' 'wasm-unsafe-eval' " + inlineScriptHashes(),
+		"script-src 'self' 'wasm-unsafe-eval' " + inlineScriptHashes(requestPath),
 		"style-src 'self' 'unsafe-inline'",
 		"img-src 'self' data: blob: https:",
 		"font-src 'self' data:",
@@ -103,8 +120,13 @@ func securityHeaders(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if p == "/" || p == "/index.html" || strings.HasSuffix(p, ".html") {
-			w.Header().Set("Content-Security-Policy", appCSP(r.Host))
+		// The shells are served at directory URLs — the launcher sends every
+		// viewer to /browser/ or /mobile/, the Windows shell loads /desktop/ —
+		// so the policy has to cover those and not only "/" and "*.html":
+		// without this the app in production ran with no policy at all, which
+		// only looked harmless because nothing restricted it either.
+		if p == "/" || strings.HasSuffix(p, "/") || strings.HasSuffix(p, ".html") {
+			w.Header().Set("Content-Security-Policy", appCSP(r.Host, p))
 			w.Header().Set("Referrer-Policy", "same-origin")
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 		}

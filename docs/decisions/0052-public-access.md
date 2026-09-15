@@ -133,3 +133,50 @@ gateway forwards the daemon's headers on proxied pages and adds its own
 only to what it renders. Verified in the browser on the desktop shell,
 the chat, Preferences, Automations, Devices and the mobile shell with
 no violations.
+
+## Amendment 2026-09-15 — the policy reaches the shells' own URLs
+
+The amendment above named the right files and the wrong paths. `securityHeaders`
+matched `/`, `/index.html` and any `*.html`, but the app is not served at those:
+the launcher at `/` immediately sends a desktop-class browser to **`/browser/`**
+and a phone to **`/mobile/`**, and the Windows shell loads **`/desktop/`** — all
+directory URLs, none of them matched. So in practice every shell ran with **no
+policy at all**, and the policy the amendment describes was enforced only on the
+launcher page and on `/…/index.html`. Found while adding `frame-src` for the
+dev-server preview (below), where the absence was mistaken for the allowance.
+
+Two things changed, and they have to travel together:
+
+- **Coverage.** `securityHeaders` now matches a path that ends in `/` as well,
+  so `/browser/`, `/desktop/` and `/mobile/` carry the policy their own
+  `index.html` would have carried — plus `/desktop/management.html`, which the
+  `.html` clause already reached.
+- **The hash comes from the file that path serves.** The launcher's
+  `index.html` has **no** inline script; each shell's has the theme bootstrap
+  (623 bytes for the browser and desktop shells, 1631 for mobile). Hashing the
+  launcher's file yields an empty list — so adding coverage without this would
+  have blocked the very script the hash exists to allow, and the app would have
+  flashed the wrong theme on every load. `inlineScriptHashes(requestPath)` maps
+  the path to its file (`htmlFileFor`: a directory serves its own `index.html`)
+  and memoizes per file for an embedded build, per request for a disk build.
+
+Anchored by `TestEveryServedShellCarriesItsOwnHash`: one row per served shell —
+the policy is present, and the number of `'sha256-'` sources equals the number
+of inline scripts of the file that URL serves, each hash matching it. The test
+fails both ways the bug could come back (coverage dropped, or the hash taken
+from the wrong file). Verified in `feat/csp-shell` on a scratch instance: the
+policy on all four paths and none on assets, zero `securitypolicyviolation`
+events in the browser shell and in the mobile shell, the theme bootstrap
+running (`data-theme` set) in both, a live terminal WebSocket (so `connect-src`
+holds), and the dev-server frame rendering.
+
+The same preview added one source to the policy: **`frame-src 'self'
+http://localhost:* http://127.0.0.1:*`** (plus the https forms), so PiCode's own
+browser surface can show a page served by this machine when there is no native
+webview. It is a widening of what the shell may frame, and it is bounded: the
+frame may only be this machine over http(s), the page stays a separate origin
+with its own policy (the daemon adds none to it), `frame-ancestors 'self'` still
+keeps PiCode unframed by anyone else, and the alternative — extending the
+preview origin (ADR-0136/0137) to live servers — would have proxied a dev
+server and broken its HMR. The desktop shell is unaffected in kind: its pages
+are native WebView2 children, not frames.
