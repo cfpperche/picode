@@ -1969,6 +1969,27 @@ img.ws-face.term-cli-face {
 }
 .web-tab-empty h3 { margin: 8px 0 0; font-size: 14px; color: var(--text-primary); }
 .web-tab-empty p { margin: 0; font-size: 12.5px; }
+/* The Ask prompt (slice 3, Browser permissions): a bar between the toolbar
+   and the page. The page is a native WebView2 sibling, so an HTML popover
+   cannot paint over it — the page makes room above itself instead, the same
+   pattern the options menu uses. */
+.web-tab-ask {
+  flex: none; display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  animation: fade-in var(--motion-fast) var(--ease-out);
+}
+.web-tab-ask-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.web-tab-ask-t {
+  font-size: 13px; font-weight: 600; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.web-tab-ask-d {
+  font-size: 12px; color: var(--text-secondary); overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.web-tab-ask-actions { flex: none; display: flex; align-items: center; gap: 6px; }
+@media (prefers-reduced-motion: reduce) { .web-tab-ask { animation: none; } }
 .term-surface {
   flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
   position: relative; background: #0e0e11;
@@ -4008,7 +4029,13 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   width: min(560px, calc(100vw - 32px));
   top: 50%;
   max-height: min(86dvh, 720px);
+  /* The Site settings dialog is taller than a short window (six kinds plus
+     the decisions list); without this the content ran past the bottom edge
+     and the dialog's Close was unreachable. One surface, one scrollbar: the
+     inner list gives up its own scroll inside a Manage dialog. */
+  overflow-y: auto;
 }
+.dlg-manage .hist-days { max-height: none; }
 .dlg-manage .dlg-lede { margin: 6px 0 16px; font-size: 12.5px; line-height: 1.45; color: var(--text-secondary); }
 .dlg-manage .set-panel { background: var(--bg-base); }
 /* The bulk remove is destructive; the app's .btn-danger is only red on
