@@ -172,3 +172,29 @@ expecting this one.
 ## Notes
 
 - The options menu's page slide is not animated.
+
+## Terminal agents as principals — approved 2026-09-15, spec is ADR-0143
+
+The human's CLI agents (a `pi`, `claude` or `codex` in a PiCode terminal)
+never appeared in Agent permissions: the tool sends `PICODE_AGENT_ID` only
+(`packages/pi-browser/extensions/browser.ts`), terminals carry
+`PICODE_TERM_ID`, so the daemon resolved `Default()` (read, on screen) and
+the section — built from the managed-agent registry — had no row. Option A
+was chosen over one shared "Terminals" row and over the reference's
+site-pattern table; the reasoning is ADR-0143.
+
+Implementation, in order:
+
+1. `packages/pi-browser/extensions/browser.ts` — send the house tuple
+   (agent → terminal → unmanaged), the same rule as `pi-inbox`'s
+   `agentIdentity`.
+2. `internal/server/browser.go` — accept the kind; `internal/browser/
+   policy.go` — resolve `agent:<id>` / `term:<id>` (bare key = agent id, so
+   every existing grant keeps working), unmanaged → `Default()`, always.
+3. Listing: the grants endpoint returns managed agents **and** terminals
+   with a CLI running (title + CLI), so the UI can render both.
+4. `web/browser/src/components/BrowserPage.jsx` — one row per principal,
+   same editor; a line stating that a `pi` started outside PiCode stays
+   read-only by construction (no row, nothing to edit).
+5. Tests per decision-table row (managed / terminal / unmanaged / unknown
+   id / broken grant → read), plus one endpoint test.

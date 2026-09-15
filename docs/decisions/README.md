@@ -147,4 +147,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0140](0140-handoff-note-debt-expiry.md) | Session-note debts expire from the board after 30 days | accepted, supersedes 0131 (note debts) |
 | [0141](0141-instance-stamp-and-the-reap-scope.md) | The instance stamp — one PiCode does not reap another's sessions | accepted |
 | [0142](0142-retire-go-tray.md) | retire-go-tray | proposed |
-| [0143](0143-terminal-agents-as-principals.md) | terminal-agents-as-principals | proposed |
+| [0143](0143-terminal-agents-as-principals.md) | terminal-agents-as-principals | accepted |
