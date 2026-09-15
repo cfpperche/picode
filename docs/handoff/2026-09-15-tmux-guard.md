@@ -30,6 +30,4 @@ scope; the UI row is a named debt, not claimed.
 
 ## Next up
 
-- UI toggle for the guard (needs a home that is not the per-CLI pane).
-- Dedicated socket (`tmux -L picode`) if incidents continue — ADR-0138's
-  chosen alternative, not built.
+- UI toggle for the guard (needs a UI home).
