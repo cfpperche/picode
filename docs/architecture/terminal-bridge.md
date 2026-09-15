@@ -173,6 +173,64 @@ command context (ADR-0111). OpenCode's resume metadata/status lookup runs after
 plugin initialization, without blocking the instance bootstrap; native activity
 invalidates a pending startup snapshot.
 
+### tmux guard (ADR-0138)
+
+The same session PATH (ADR-0056) carries a `tmux` wrapper that is a policy
+gate rather than a launcher. It exists because three measured incidents had
+one shape: an agent inside a managed terminal ran a tmux command whose blast
+radius was the whole server (a prefix sweep killed 29 sessions on
+2026-09-06; `kill-server` took every session, twice, on 2026-09-14/15 — the
+second time from a "scratch" server the agent believed TMUX_TMPDIR had
+isolated). **`$TMUX` outranks `TMUX_TMPDIR`**: a client started inside a
+tmux session talks to the server named in `$TMUX` no matter what
+`TMUX_TMPDIR` says, so "isolated" scratch work runs against production. The
+guard is on by default (`enabled.json` key `tmux-guard`; only an explicit
+opt-out disables it) and the wrapper resolves the real binary with pure
+shell (`${0%/*}`) — a guard that shells out to `dirname` under a minimal
+PATH found itself in its own bin dir and exec'd in an endless loop, caught
+by its own test suite on 2026-09-15.
+
+| Command | Condition | Action |
+|---|---|---|
+| `kill-server`, `kill-window`, `kill-pane` | any | refuse, actionable copy |
+| `kill-session` | `-a` anywhere in a flag cluster | refuse |
+| `kill-session -t X` | X is a pattern | refuse |
+| `kill-session -t X` | X's session environment carries this terminal's `PICODE_TERM_ID` | allow |
+| `kill-session -t X` | another terminal's marker, or no marker (the user's own) | refuse |
+| `send-keys` | payload contains `kill-server`/`pkill`/`killall` | refuse |
+| `new-session` (simple form) | no `PICODE_TERM_ID=` argument | add `-e PICODE_TERM_ID=<this terminal>` |
+| anything else | — | passthrough, unmodified |
+
+Outside a managed terminal the wrapper is not on PATH; invoked directly it
+passes through. Each refusal prints the reason on the pane and appends one
+line to `<dataDir>/tmux-guard.log`. The ownership probe reads the target's
+session environment (`show-environment -t X PICODE_TERM_ID`) — the marker is
+the receipt, the same rule the server-wide read model enforces. The guard is
+a guardrail, not a security boundary: `/usr/bin/tmux kill-server` typed
+verbatim still bypasses it. Probes carry no `-L`/`-S` on purpose: inside a
+pane they inherit `$TMUX`, which names that pane's own server — the
+dedicated socket since ADR-0139 — and from outside a pane they ask the
+default server, where an exact-name kill for a session on another socket
+finds no marker and is refused (fail-closed).
+
+### Dedicated socket and the drain (ADR-0139)
+
+Every instance's sessions live on their own server: the daemon runs tmux
+with `-S <dataDir>/tmux.sock` (production: `~/.picode/tmux.sock`; scratch
+and fixture instances get theirs under their data dir, so two instances can
+never share a server — the trap AGENTS.md records about scratch sessions
+landing in the owner's tmux). `$TMUX` inside a pane names that server, so
+in-pane tmux commands, the guard included, work unchanged.
+
+tmux has no live migration, so pre-move sessions are **drained**: the
+daemon's Manager holds a second Manager on the default socket, every
+session-scoped operation falls back to it when the primary does not have
+the session, and the server-wide reads (`ServerSessions`, `ListSessions`,
+`ListOwned`, `ServerInfo`) merge both sides so the fleet stays one list.
+The bridge asks `SocketFor(session)` which socket to attach with. The
+drain disappears with the last legacy session; nothing is restarted, and
+the rollback is the previous binary.
+
 ### Restart recovery (ADR-0112)
 
 The common native hook writes a private, ordered observation before HTTP, so

@@ -207,6 +207,8 @@ test("provider command navigation opens canonical list or add", () => {
   try {
     go("providers"); assert.equal(location.hash, "#/clis/pi/providers");
     go("providers-new"); assert.equal(location.hash, "#/clis/pi/providers/new");
+    go("providers-custom"); assert.equal(location.hash, "#/clis/pi/providers/custom");
+    go("providers-custom", "", { customId: "cheap" }); assert.equal(location.hash, "#/clis/pi/providers/custom/cheap");
     go("mcps", "A", { workspaceId: "W" });
     assert.equal(location.hash, "#/clis/pi/connectors?workspaceId=W&agentId=A");
     go("connectors", "A", { workspaceId: "W" });

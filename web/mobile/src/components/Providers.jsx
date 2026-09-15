@@ -3,7 +3,6 @@ import * as Dialog from "./MobileSheet.jsx";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Command } from "cmdk";
 import PageFrame from "./PageFrame.jsx";
-import { IconChevronRight } from "./Icons.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { toast, toastError } from "../lib/toast.js";
 import { apiKeySchema, llamaLoginSchema, parseForm } from "@picode/shared/contracts/schemas.js";
@@ -12,9 +11,6 @@ import { cliProvidersReturnTo } from "@picode/shared/domain/cliProviders.js";
 
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { readRecents, pushRecent, removeRecent, clearRecents, rememberProviders } from "@picode/shared/domain/providerRecents.js";
-import { validateCustomProvider, customProviderPayload, customProviderForm, customTakenIds, customModelIds, syncModelLimits, modelLimitRow, THINKING_LEVELS, THINKING_FORMAT_NEEDS } from "@picode/shared/domain/customProviders.js";
-import { loadModelsFor, modelLoadChanges, loadingLine } from "@picode/shared/client/modelLoad.js";
-import { CUSTOM_PROVIDER_APIS, CUSTOM_THINKING_FORMATS, customApiHint } from "@picode/shared/contracts/schemas.js";
 import { askConfirm } from "../lib/confirm.js";
 import { showUsageButton, usagePath } from "@picode/shared/domain/providerUsage.js";
 import UsageDialog from "./UsageDialog.jsx";
@@ -78,13 +74,6 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
   const [userCode, setUserCode] = useState("");
   const [replacing, setReplacing] = useState(false);
   const [llamaUrl, setLlamaUrl] = useState("http://127.0.0.1:8080");
-  const [cf, setCf] = useState(() => customProviderForm(null));
-  const [customEdit, setCustomEdit] = useState(false);
-  const [load, setLoad] = useState({ state: "idle", text: "", tone: "hint" });
-  const [verify, setVerify] = useState({ state: "idle", text: "", tone: "hint" });
-  // Both buttons report through one line: two lines under one row is noise, and
-  // the later action is the one worth reading.
-  const line = verify.state === "idle" ? load : verify;
   const [recents, setRecents] = useState(readRecents);
   const [usageFor, setUsageFor] = useState(null);
   const [query, setQuery] = useState("");
@@ -247,8 +236,6 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
     setUserCode("");
     setReplacing(false);
     setLlamaUrl("http://127.0.0.1:8080");
-    setCf(customProviderForm(null));
-    setCustomEdit(false);
     setAdd(true);
   }
 
@@ -275,12 +262,6 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
     oauthAttempt.current++;
     setWaiting(false);
     setBusy(false);
-    if (step === "custom") {
-      if (replacing) { closeAdd(); return; }
-      setPick(null);
-      setStep("pick");
-      return;
-    }
     if ((step === "key" || step === "oauth") && pick && pick.login === "both") {
       setStep("method");
       return;
@@ -350,131 +331,33 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
   }
 
   const canAccount = pick && ["anthropic", "openai-codex", "github-copilot", "kimi-coding", "xai"].includes(String(pick.id).toLowerCase());
-  const title = step === "custom"
-    ? (customEdit ? "Edit endpoint" : "Custom endpoint")
-    : !pick ? "Add provider" : step === "method" || step === "oauth" || step === "llama" ? pick.id : "API key · " + pick.id;
+  const title = !pick ? "Add provider" : step === "method" || step === "oauth" || step === "llama" ? pick.id : "API key · " + pick.id;
 
-  // The id list drives the per-model limit rows: a row appears with its id and
-  // disappears with it, and the numbers already typed survive the trip.
-  const modelIds = customModelIds(cf.modelsText);
-  function setModelsText(e) {
-    const text = e.target.value;
-    setCf((f) => ({ ...f, modelsText: text, modelLimits: syncModelLimits(f.modelLimits, customModelIds(text)) }));
-  }
-  function setLimit(id, field) {
-    return (e) => {
-      const value = e.target.value;
-      setCf((f) => ({ ...f, modelLimits: { ...f.modelLimits, [id]: { ...modelLimitRow(f.modelLimits, id), [field]: value } } }));
-    };
-  }
-  function setField(k) {
-    return (e) => setCf((f) => ({ ...f, [k]: e.target.value }));
-  }
-  function setCheck(k) {
-    return (e) => setCf((f) => ({ ...f, [k]: e.target.checked }));
-  }
-  // toggleLevel keeps the selection in pi's scale order, so the saved
-  // thinkingLevelMap reads like the catalog does.
-  function toggleLevel(lvl) {
-    return (e) => setCf((f) => {
-      const next = new Set(f.thinkingLevels);
-      if (e.target.checked) next.add(lvl); else next.delete(lvl);
-      return { ...f, thinkingLevels: THINKING_LEVELS.filter((l) => next.has(l)) };
-    });
-  }
-
-  // Custom endpoint (ADR-0129): the definition merges into pi's models.json
-  // and the key lands in auth.json like any native sign-in.
+  // Custom endpoint (ADR-0129) lives on its own page (CustomEndpointPage):
+  // the form outgrew the dialog. These entries close the picker and navigate;
+  // the wantAdd effect's closeAdd is what resets the dialog state.
   function startCustom() {
-    setCustomEdit(false);
-    setCf(customProviderForm(null));
-    setStep("custom");
+    setAdd(false);
+    go("providers-custom");
   }
 
   function editCustom(p) {
-    setCustomEdit(true);
-    setPick(p);
-    setCf(customProviderForm(p));
-    setReplacing(true);
-    setStep("custom");
-    setAdd(true);
-  }
-
-  async function loadModels() {
-    if (load.state === "loading") return;
-    setLoad({ state: "loading", text: loadingLine(cf.baseUrl), tone: "hint" });
-    try {
-      const res = await loadModelsFor({ baseUrl: cf.baseUrl, api: cf.api, key: cf.key, id: cf.id });
-      const { changes, line } = modelLoadChanges(res, cf);
-      setCf((f) => ({ ...f, ...changes }));
-      setLoad({ state: "done", text: line, tone: "hint" });
-    } catch (ex) {
-      const body = ex && ex.body;
-      setLoad({ state: "failed", text: (body && body.error) || (ex && ex.message) || "The model list could not be read.", tone: "bad" });
-    }
-  }
-
-  // verifyEndpoint spends one minimal real request on what the form holds —
-  // one word in, one token out — so a wrong key or URL is caught before
-  // saving. The button says the cost; the line reports what it spent.
-  async function verifyEndpoint() {
-    if (verify.state === "loading") return;
-    const model = customModelIds(cf.modelsText)[0] || "";
-    if (!model) {
-      setVerify({ state: "failed", tone: "bad", text: "Add a model id first — verification has to ask for one." });
-      return;
-    }
-    setVerify({ state: "loading", tone: "hint", text: "Sending one 1-token request to " + model + "…" });
-    try {
-      const res = await api("/api/providers/" + encodeURIComponent(cf.id || "endpoint") + "/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ baseUrl: cf.baseUrl, api: cf.api, key: cf.key, model }),
-      });
-      if (res && res.ok) setVerify({ state: "done", tone: "hint", text: (res.label || "The endpoint answered") + " — the key works." });
-      else setVerify({ state: "failed", tone: "bad", text: (res && (res.reason || res.status)) || "The endpoint could not be verified." });
-    } catch (ex) {
-      const body = ex && ex.body;
-      setVerify({ state: "failed", tone: "bad", text: (body && body.error) || (ex && ex.message) || "The endpoint could not be verified." });
-    }
-  }
-
-  async function saveCustom(e) {
-    e.preventDefault();
-    const taken = customTakenIds(list, customEdit ? pick && pick.id : null);
-    const parsed = validateCustomProvider(cf, { takenIds: taken, requireKey: !customEdit });
-    if (!parsed.ok) { setErr(parsed.error); return; }
-    setBusy(true);
-    setErr("");
-    try {
-      await api("/api/providers/custom/" + encodeURIComponent(parsed.value.id), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(customProviderPayload(parsed.value)),
-      });
-      toast.ok(customEdit ? "Endpoint updated." : "Endpoint added to pi.");
-      setRecents(pushRecent(parsed.value.id));
-      closeAdd();
-      if (onRefresh) await onRefresh();
-    } catch (ex) {
-      toastError(ex);
-    } finally {
-      setBusy(false);
-    }
+    setAdd(false);
+    go("providers-custom", p.id);
   }
 
   async function removeCustom(p) {
     const radius = blastRadius(p);
     const ok = await askConfirm({
       title: "Remove " + p.id,
-      message: "Deletes the endpoint definition and its saved key from this machine." + (radius ? " " + radius : ""),
+      message: "Deletes the provider definition and its saved key from this machine." + (radius ? " " + radius : ""),
       confirmLabel: "Remove",
       danger: true,
     });
     if (!ok) return;
     try {
       await api("/api/providers/custom/" + encodeURIComponent(p.id), { method: "DELETE" });
-      toast.ok("Endpoint removed.");
+      toast.ok("Provider removed.");
       if (onRefresh) await onRefresh();
     } catch (ex) {
       toastError(ex);
@@ -642,12 +525,12 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                                 {verifying === p.id
                                   ? "Checking…"
                                   : p.custom
-                                    ? "Verify with the endpoint (1 request)"
+                                    ? "Verify with the provider (1 request)"
                                     : "Verify with pi"}
                               </DropdownMenu.Item>
                               {first && p.custom ? (
                                 <DropdownMenu.Item className="prov-menu-item" onSelect={() => editCustom(p)}>
-                                  Edit endpoint
+                                  Edit provider
                                 </DropdownMenu.Item>
                               ) : null}
                               {!envVar && first ? (
@@ -669,7 +552,7 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                               )}
                               {first && p.custom ? (
                                 <DropdownMenu.Item className="prov-menu-item danger" onSelect={() => removeCustom(p)}>
-                                  Remove endpoint
+                                  Remove provider
                                 </DropdownMenu.Item>
                               ) : null}
                             </DropdownMenu.Content>
@@ -733,7 +616,7 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
           <Dialog.Content className="dlg dlg-create" onCloseAutoFocus={(e) => e.preventDefault()}>
             <Dialog.Title className="dlg-title">{title}</Dialog.Title>
             <Dialog.Description className="dlg-body">
-              {step === "pick" ? "Pick a provider." : step === "method" ? "Choose how to sign in." : step === "llama" ? "Router URL. API key is optional." : step === "custom" ? (customEdit ? "Update the endpoint definition. Leave the key blank to keep it." : "Point pi at a gateway it does not know natively.") : step === "oauth" ? (userCode ? "Enter this code in the browser tab." : canAccount ? "Finish sign-in in the browser tab." : "Account login is not available here. Use an API key.") : "Paste the key. It is not shown again."}
+              {step === "pick" ? "Pick a provider." : step === "method" ? "Choose how to sign in." : step === "llama" ? "Router URL. API key is optional." : step === "oauth" ? (userCode ? "Enter this code in the browser tab." : canAccount ? "Finish sign-in in the browser tab." : "Account login is not available here. Use an API key.") : "Paste the key. It is not shown again."}
             </Dialog.Description>
 
             {step === "pick" ? (
@@ -744,16 +627,16 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                   {/* forceMount: the custom door survives any search — typing
                       a name the catalog does not know is exactly when it is
                       needed. */}
-                  <Command.Item forceMount value="custom endpoint gateway openai compatible base url" className="cockpit-opt" onSelect={startCustom}>
+                  <Command.Item forceMount value="custom provider endpoint gateway openai compatible base url" className="cockpit-opt" onSelect={startCustom}>
                     <span className="ws-face" aria-hidden="true">+</span>
-                    <span>Custom endpoint</span>
+                    <span>Custom provider</span>
                     <span className="combo-hint">any OpenAI-compatible gateway</span>
                   </Command.Item>
                   {available.map((p) => (
                     <Command.Item key={p.id} value={p.id + " " + p.login} className="cockpit-opt" onSelect={() => chooseProvider(p)}>
                       <ProviderFace id={p.id} />
                       <span>{p.id}</span>
-                      <span className="combo-hint">{p.id === "llama.cpp" ? "local router" : p.custom ? "custom endpoint" : p.login === "both" ? "account or api key" : p.login === "oauth" ? "account" : "api key"}</span>
+                      <span className="combo-hint">{p.id === "llama.cpp" ? "local router" : p.custom ? "custom provider" : p.login === "both" ? "account or api key" : p.login === "oauth" ? "account" : "api key"}</span>
                     </Command.Item>
                   ))}
                 </Command.List>
@@ -804,192 +687,6 @@ export default function Providers({ hidden, catalog, onRefresh, wantAdd, embedde
                 <div className="dlg-actions" data-align-row data-align-wrap>
                   <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>Back</button>
                   <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>Save</button>
-                </div>
-              </form>
-            ) : null}
-
-            {step === "custom" ? (
-              <form className="form-new prov-form" noValidate onSubmit={saveCustom}>
-                <div className="prov-field">
-                  <label className="prov-label" htmlFor="cf-name">Name</label>
-                  <input
-                    id="cf-name"
-                    value={cf.id}
-                    onChange={setField("id")}
-                    placeholder="e.g. cheaperinference"
-                    autoComplete="off" spellCheck="false"
-                    disabled={customEdit}
-                    aria-label="Endpoint name"
-                  />
-                  <p className="prov-help">Lowercase, digits and dashes — becomes the provider id.</p>
-                </div>
-                <div className="prov-field">
-                  <label className="prov-label" htmlFor="cf-url">Base URL</label>
-                  <input
-                    id="cf-url"
-                    type="url"
-                    value={cf.baseUrl}
-                    onChange={setField("baseUrl")}
-                    placeholder={customApiHint(cf.api).placeholder}
-                    autoComplete="off" spellCheck="false"
-                    aria-label="Base URL"
-                    aria-describedby="cf-url-hint"
-                  />
-                  <p className="prov-help" id="cf-url-hint">{customApiHint(cf.api).urlHint}</p>
-                </div>
-                <div className="prov-field">
-                  <label className="prov-label" htmlFor="cf-key">API key</label>
-                  <input
-                    id="cf-key"
-                    type="password"
-                    value={cf.key}
-                    onChange={setField("key")}
-                    placeholder={customEdit ? "Leave blank to keep the saved one" : ""}
-                    autoComplete="off"
-                    aria-label="API key"
-                  />
-                  <p className="prov-help">Kept as this endpoint's credential in pi.</p>
-                </div>
-                <div className="prov-field">
-                  <label className="prov-label" htmlFor="cf-models">Model ids</label>
-                  <textarea
-                    id="cf-models"
-                    value={cf.modelsText}
-                    onChange={setModelsText}
-                    rows={3}
-                    placeholder={"One per line — exactly as the gateway spells them"}
-                    spellCheck="false"
-                    aria-label="Model ids"
-                  />
-                  <div className="prov-load">
-                    <div className="prov-load-row">
-                      <button type="button" className="btn btn-ghost" onClick={loadModels} disabled={load.state === "loading" || verify.state === "loading"}>
-                        {load.state === "loading" ? "Loading…" : "Load models"}
-                      </button>
-                      <button type="button" className="btn btn-ghost" onClick={verifyEndpoint} disabled={verify.state === "loading" || load.state === "loading"}>
-                        {verify.state === "loading" ? "Verifying…" : "Verify key"}
-                      </button>
-                    </div>
-                    <p className={line.tone === "bad" ? "prov-hint prov-bad" : "prov-hint"} role="status">
-                      {line.text || "Load the endpoint's ids, or verify the key (one 1-token request)."}
-                    </p>
-                  </div>
-                </div>
-                <details className="prov-adv">
-                  <summary>
-                    <IconChevronRight />
-                    Advanced
-                  </summary>
-                  <div className="prov-set">
-                    <span className="prov-legend">Request compatibility</span>
-                    <div className="prov-field">
-                      <label className="prov-label" htmlFor="cf-api">API type</label>
-                      <select id="cf-api" value={cf.api} onChange={setField("api")} aria-label="API type">
-                        {CUSTOM_PROVIDER_APIS.map((a) => (
-                          <option key={a.value} value={a.value}>{a.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="prov-checks">
-                      <label className="prov-check">
-                        <input type="checkbox" checked={cf.compatDeveloper} onChange={setCheck("compatDeveloper")} />
-                        <span>OpenAI <code>developer</code> role — most gateways: leave off</span>
-                      </label>
-                      <label className="prov-check">
-                        <input type="checkbox" checked={cf.compatReasoning} onChange={setCheck("compatReasoning")} />
-                        <span><code>reasoning_effort</code> — reasoning models only</span>
-                      </label>
-                    </div>
-                  </div>
-                  <div className="prov-set">
-                    <span className="prov-legend">Thinking</span>
-                    <div className="prov-field">
-                      <label className="prov-label" htmlFor="cf-thinking">Thinking format</label>
-                      <select
-                        id="cf-thinking"
-                        value={cf.thinkingFormat}
-                        onChange={setField("thinkingFormat")}
-                        aria-label="Thinking format"
-                      >
-                        {CUSTOM_THINKING_FORMATS.map((f) => (
-                          <option key={f.value} value={f.value}>{f.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    {THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" || THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "args" ? (
-                      <div className="prov-field">
-                        <label className="prov-label" htmlFor="cf-json">
-                          {THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? "Chat template kwargs" : "Chat template args"}
-                        </label>
-                        <textarea
-                          id="cf-json"
-                          value={THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? cf.chatTemplateKwargs : cf.chatTemplateArgs}
-                          onChange={setField(THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? "chatTemplateKwargs" : "chatTemplateArgs")}
-                          rows={3}
-                          spellCheck="false"
-                          className="prov-json"
-                          placeholder={'{"thinking": {"$var": "thinking.enabled"}}'}
-                          aria-label={THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? "Chat template kwargs" : "Chat template args"}
-                        />
-                        <p className="prov-help">
-                          JSON sent as <code>{THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? "chat_template_kwargs" : "chat_template_args"}</code>.
-                          Use <code>{'{"$var": "thinking.enabled"}'}</code> (or thinking.effort / thinking.budget) to let pi decide the value.
-                        </p>
-                      </div>
-                    ) : null}
-                    <div className="prov-checks">
-                      <label className="prov-check">
-                        <input type="checkbox" checked={cf.reasoningModel} onChange={setCheck("reasoningModel")} />
-                        <span>Reasoning model — lets you pick thinking levels</span>
-                      </label>
-                    </div>
-                    {cf.reasoningModel ? (
-                      <div className="prov-field">
-                        <label className="prov-label">Thinking levels</label>
-                        <div className="prov-levels" role="group" aria-label="Thinking levels">
-                          {THINKING_LEVELS.map((lvl) => (
-                            <label key={lvl} className={"prov-level" + (cf.thinkingLevels.includes(lvl) ? " on" : "")}>
-                              <input type="checkbox" checked={cf.thinkingLevels.includes(lvl)} onChange={toggleLevel(lvl)} />
-                              <span>{lvl}</span>
-                            </label>
-                          ))}
-                        </div>
-                        <p className="prov-help">Unchecked levels are hidden in the model picker.</p>
-                      </div>
-                    ) : null}
-                  </div>
-                  {modelIds.length ? (
-                    <div className="prov-set">
-                      <span className="prov-legend">Model limits</span>
-                      <p className="prov-help">Blank leaves pi's default.</p>
-                      <div className="prov-limits">
-                        {modelIds.map((id) => (
-                          <div className="prov-limit-row" key={id} data-model={id}>
-                            <span className="prov-limit-id" title={id}>{id}</span>
-                            <input
-                              value={modelLimitRow(cf.modelLimits, id).contextWindow}
-                              onChange={setLimit(id, "contextWindow")}
-                              inputMode="numeric"
-                              placeholder="Context"
-                              aria-label={"Context window for " + id}
-                            />
-                            <input
-                              value={modelLimitRow(cf.modelLimits, id).maxTokens}
-                              onChange={setLimit(id, "maxTokens")}
-                              inputMode="numeric"
-                              placeholder="Max output"
-                              aria-label={"Max output for " + id}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                </details>
-                <p className="form-error" hidden={!err}>{err}</p>
-                <div className="dlg-actions" data-align-row data-align-wrap>
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>Back</button>
-                  <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{customEdit ? "Save" : "Add endpoint"}</button>
                 </div>
               </form>
             ) : null}

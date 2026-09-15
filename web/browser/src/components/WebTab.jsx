@@ -22,6 +22,13 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
   // commit 4f1a68a7 — a blank shell whenever a work-browser tab rendered).
   const [showFullUrl, setShowFullUrlState] = useState(true);
   const [err, setErr] = useState("");
+  // The address-bar display pref. The meta effect below names it in its
+  // dependency array, so this declaration has to stay above every effect that
+  // reads it: a `const` touched in the same render before its own `useState`
+  // is a ReferenceError ("Cannot access 'showFullUrl' before
+  // initialization") that unmounts the whole app — a blank window on any
+  // work-browser tab, live on main from 4f1a68a7 until this commit.
+  const [showFullUrl, setShowFullUrlState] = useState(true);
   const fail = (e) => { setErr(String(e?.message || e)); console.error("btab:", e); };
   const hostRef = useRef(null);
   const pushRef = useRef(null);
@@ -96,6 +103,8 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
   const historySeenRef = useRef("");
 
   // Address-bar display pref (slice 3): refetch when its setting changes.
+  // The state itself is declared with the other useState calls above, because
+  // the meta effect names it before this point.
   useEffect(() => {
     fetch("/api/browser/prefs").then((r) => r.json()).then((p) => setShowFullUrlState(p.showFullUrl !== false)).catch(() => {});
     return subscribeFeed((ev) => {

@@ -134,10 +134,51 @@ func (s *Store) DeleteBrowserVisit(id int64) error {
 	return nil
 }
 
+// DeleteBrowserVisits removes several visits at once — the history
+// dialog's selection. Ids that are not there are not an error: the list
+// the dialog saw may already be stale. Returns how many rows went.
+func (s *Store) DeleteBrowserVisits(ids []int64) (int64, error) {
+	marks := make([]string, 0, len(ids))
+	args := make([]any, 0, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			continue
+		}
+		marks = append(marks, "?")
+		args = append(args, id)
+	}
+	if len(marks) == 0 {
+		return 0, nil
+	}
+	res, err := s.db.Exec(`DELETE FROM browser_history WHERE id IN (`+strings.Join(marks, ",")+`)`, args...)
+	if err != nil {
+		return 0, fmt.Errorf("store: delete browser visits: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n > 0 {
+		s.note("browserhistory.updated", nil, nil, nil)
+	}
+	return n, nil
+}
+
 // ClearBrowserHistory removes every visit.
 func (s *Store) ClearBrowserHistory() error {
 	if _, err := s.db.Exec(`DELETE FROM browser_history`); err != nil {
 		return fmt.Errorf("store: clear browser history: %w", err)
+	}
+	s.note("browserhistory.updated", nil, nil, nil)
+	return nil
+}
+
+// ClearBrowserHistorySince deletes the visits at or after one instant, in
+// RFC3339 — the time range the Clear browsing data dialog picked. An empty
+// since clears everything, the same as ClearBrowserHistory.
+func (s *Store) ClearBrowserHistorySince(since string) error {
+	if since == "" {
+		return s.ClearBrowserHistory()
+	}
+	if _, err := s.db.Exec(`DELETE FROM browser_history WHERE visited_at >= ?`, since); err != nil {
+		return fmt.Errorf("store: clear browser history since: %w", err)
 	}
 	s.note("browserhistory.updated", nil, nil, nil)
 	return nil

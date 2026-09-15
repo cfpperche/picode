@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { cliPackagesHash, supportsCliPackages, loadPiPackagesContext, packageContextKey } from "@picode/shared/domain/cliPackages.js";
+import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import Packages from "./Packages.jsx";
 import { askConfirm } from "../lib/confirm.js";
@@ -13,7 +14,7 @@ export default function CliPackages({ hidden, route, catalog, onPackageUpdates, 
   const supported = supportsCliPackages(route.id);
   return <section id="cli-packages-view" hidden={hidden}>
     {route.invalid || !supported ?
-      <div className="cli-notice" role="status"><span>{route.invalid ? "This package link is invalid." : "Packages are not available for this CLI."}</span><a className="btn btn-ghost btn-sm" href={cliPackagesHash("pi")}>{route.invalid ? "All packages" : "Open Pi packages"}</a></div>
+      <div className="cli-notice" role="status"><span>{route.invalid ? "This package link is invalid." : "Packages for " + terminalCliLabel(route.id) + " are in development — coming soon."}</span></div>
       : !hidden ? <PackagesTarget key={route.id + ":" + route.workspaceId + ":" + route.agentId} route={route} catalog={catalog} describe={describe} onUpdates={(updates, workspaceId) => onPackageUpdates?.(updates, workspaceId)} /> : null}
   </section>;
 }

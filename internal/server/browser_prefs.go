@@ -31,37 +31,85 @@ func handleBrowserPrefsGet(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		showFull, dests, err := browserPrefsRead(deps.Store)
+		prefs, err := browserPrefsRead(deps.Store)
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"showFullUrl": showFull, "webOpenDest": dests[0], "localOpenDest": dests[1]})
+		writeJSON(w, http.StatusOK, prefs)
 	}
 }
 
+// BrowserPrefs are the simple browser preferences the settings page edits.
+type BrowserPrefs struct {
+	ShowFullURL      bool   `json:"showFullUrl"`
+	WebOpenDest      string `json:"webOpenDest"`
+	LocalOpenDest    string `json:"localOpenDest"`
+	PasswordAutosave bool   `json:"passwordAutosave"`
+	GeneralAutofill  bool   `json:"generalAutofill"`
+	// AskDownload is the Downloads section's save prompt: off writes files
+	// straight into the download folder.
+	AskDownload bool `json:"askDownload"`
+	// AgentAccess is the master switch: off refuses every browser verb for
+	// every agent (the grants below stop mattering until it is back on).
+	AgentAccess bool `json:"agentAccess"`
+}
+
 // browserPrefsRead folds the simple prefs out of the settings KV. Defaults:
-// the address bar shows the full URL, and popups open inside the app.
-func browserPrefsRead(st *store.Store) (bool, [2]string, error) {
-	showFull := true
-	dests := [2]string{"app", "app"} // web, local
-	for i, key := range []string{prefShowFullURL, "browser.webOpenDest", "browser.localOpenDest"} {
-		raw, ok, err := st.GetSetting(key)
+// the address bar shows the full URL, popups open inside the app, and
+// WebView2's own autofill defaults (both on).
+func browserPrefsRead(st *store.Store) (BrowserPrefs, error) {
+	p := BrowserPrefs{ShowFullURL: true, WebOpenDest: "app", LocalOpenDest: "app", PasswordAutosave: true, GeneralAutofill: true, AskDownload: false, AgentAccess: true}
+	rows := []struct {
+		key   string
+		apply func(raw string)
+	}{
+		{prefShowFullURL, func(raw string) {
+			if raw == "0" {
+				p.ShowFullURL = false
+			}
+		}},
+		{"browser.webOpenDest", func(raw string) {
+			if raw == "external" {
+				p.WebOpenDest = "external"
+			}
+		}},
+		{"browser.localOpenDest", func(raw string) {
+			if raw == "external" {
+				p.LocalOpenDest = "external"
+			}
+		}},
+		{"browser.passwordAutosave", func(raw string) {
+			if raw == "0" {
+				p.PasswordAutosave = false
+			}
+		}},
+		{"browser.generalAutofill", func(raw string) {
+			if raw == "0" {
+				p.GeneralAutofill = false
+			}
+		}},
+		{"browser.askDownload", func(raw string) {
+			if raw == "1" {
+				p.AskDownload = true
+			}
+		}},
+		{"browser.agentAccess", func(raw string) {
+			if raw == "0" {
+				p.AgentAccess = false
+			}
+		}},
+	}
+	for _, row := range rows {
+		raw, ok, err := st.GetSetting(row.key)
 		if err != nil {
-			return false, dests, err
+			return p, err
 		}
-		switch i {
-		case 0:
-			if ok && raw == "0" {
-				showFull = false
-			}
-		default:
-			if ok && raw == "external" {
-				dests[i-1] = "external"
-			}
+		if ok {
+			row.apply(raw)
 		}
 	}
-	return showFull, dests, nil
+	return p, nil
 }
 
 func handleBrowserPrefsPut(deps Deps) http.HandlerFunc {
@@ -70,47 +118,53 @@ func handleBrowserPrefsPut(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusServiceUnavailable, "store is not open")
 			return
 		}
-		var req struct {
-			ShowFullURL   *bool  `json:"showFullUrl"`
-			WebOpenDest   string `json:"webOpenDest"`
-			LocalOpenDest string `json:"localOpenDest"`
-		}
+		var req BrowserPrefs
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "bad request: "+err.Error())
 			return
 		}
-		if req.ShowFullURL == nil && req.WebOpenDest == "" && req.LocalOpenDest == "" {
-			writeErr(w, http.StatusBadRequest, "nothing to save")
+		if req.WebOpenDest != "app" && req.WebOpenDest != "external" {
+			writeErr(w, http.StatusBadRequest, "webOpenDest must be app or external")
 			return
 		}
-		if req.ShowFullURL != nil {
-			value := map[bool]string{true: "1", false: "0"}[*req.ShowFullURL]
-			if err := deps.Store.SetSetting(prefShowFullURL, value); err != nil {
-				writeErr(w, http.StatusInternalServerError, err.Error())
-				return
-			}
+		if req.LocalOpenDest != "app" && req.LocalOpenDest != "external" {
+			writeErr(w, http.StatusBadRequest, "localOpenDest must be app or external")
+			return
 		}
-		for _, row := range []struct{ key, value string }{
+		rows := []struct{ key, value string }{
+			{prefShowFullURL, map[bool]string{true: "1", false: "0"}[req.ShowFullURL]},
 			{"browser.webOpenDest", req.WebOpenDest},
 			{"browser.localOpenDest", req.LocalOpenDest},
-		} {
-			if row.value == "" {
-				continue
-			}
-			if row.value != "app" && row.value != "external" {
-				writeErr(w, http.StatusBadRequest, row.key+" must be app or external")
-				return
-			}
+			{"browser.passwordAutosave", map[bool]string{true: "1", false: "0"}[req.PasswordAutosave]},
+			{"browser.generalAutofill", map[bool]string{true: "1", false: "0"}[req.GeneralAutofill]},
+			{"browser.askDownload", map[bool]string{true: "1", false: "0"}[req.AskDownload]},
+			{"browser.agentAccess", map[bool]string{true: "1", false: "0"}[req.AgentAccess]},
+		}
+		for _, row := range rows {
 			if err := deps.Store.SetSetting(row.key, row.value); err != nil {
 				writeErr(w, http.StatusInternalServerError, err.Error())
 				return
 			}
 		}
-		showFull, dests, err := browserPrefsRead(deps.Store)
+		prefs, err := browserPrefsRead(deps.Store)
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"showFullUrl": showFull, "webOpenDest": dests[0], "localOpenDest": dests[1]})
+		writeJSON(w, http.StatusOK, prefs)
 	}
+}
+
+// browserAgentAccess is the master switch the agent routes check before
+// anything else (Settings ▸ Browser ▸ Browser). Missing means on: the
+// switch exists to turn agent access off, not to gate a fresh install.
+func browserAgentAccess(st *store.Store) bool {
+	if st == nil {
+		return true
+	}
+	raw, ok, err := st.GetSetting("browser.agentAccess")
+	if err != nil {
+		return true
+	}
+	return !ok || raw != "0"
 }

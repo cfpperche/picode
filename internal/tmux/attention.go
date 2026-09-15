@@ -21,7 +21,7 @@ type InputSnapshot struct {
 	Lines            []string
 }
 
-func (m *Manager) InputSnapshot(ctx context.Context, name string) (InputSnapshot, error) {
+func (m *Manager) inputSnapshot(ctx context.Context, name string) (InputSnapshot, error) {
 	var s InputSnapshot
 	out, err := m.run(ctx, "display-message", "-p", "-t", name+":", "#{pane_id}|#{pane_pid}|#{pane_current_command}|#{cursor_x}|#{cursor_y}|#{pane_width}|#{pane_in_mode}")
 	if err != nil {
@@ -50,7 +50,7 @@ func (m *Manager) InputSnapshot(ctx context.Context, name string) (InputSnapshot
 }
 
 // PasteOnly never presses Enter and uses a unique buffer across recipients.
-func (m *Manager) PasteOnly(ctx context.Context, paneID, text string) error {
+func (m *Manager) pasteOnly(ctx context.Context, paneID, text string) error {
 	if !strings.HasPrefix(paneID, "%") {
 		return errors.New("exact pane required")
 	}
@@ -66,7 +66,7 @@ func (m *Manager) PasteOnly(ctx context.Context, paneID, text string) error {
 	_, err := m.run(ctx, "paste-buffer", "-p", "-b", buffer, "-t", paneID)
 	return err
 }
-func (m *Manager) SubmitPane(ctx context.Context, paneID string) error {
+func (m *Manager) submitPane(ctx context.Context, paneID string) error {
 	if !strings.HasPrefix(paneID, "%") {
 		return errors.New("exact pane required")
 	}

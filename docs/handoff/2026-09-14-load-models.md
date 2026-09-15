@@ -24,7 +24,7 @@ read, `__picodeOverlayAudit()` ok each time, no clip, no horizontal overflow.
 
 ## Next up
 
-- P2 in the same topic: URL hints per API type in the base-URL field.
+(shipped: `customApiHint` P2 — bullet pruned 2026-09-15 to hold the board budget)
 
 ## Debts
 

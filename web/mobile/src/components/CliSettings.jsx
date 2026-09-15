@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { api } from "@picode/shared/client/api.js";
 import { cliSettingsHash, supportsCliSettings, loadPiSettingsContext } from "@picode/shared/domain/cliSettings.js";
+import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import PiSettings from "./PiSettings.jsx";
 
 const EDITORS = { pi: { Editor: PiSettings, loadContext: loadPiSettingsContext } };
@@ -9,7 +10,7 @@ const EDITORS = { pi: { Editor: PiSettings, loadContext: loadPiSettingsContext }
 export default function CliSettings({ hidden, route, catalog, onAgentConfig, pane = "settings" }) {
   const supported = supportsCliSettings(route.id);
   return <section id="cli-settings-view" hidden={hidden}>
-    {route.invalid || !supported ? <div className="cli-notice" role="status"><span>{route.invalid ? "This settings link is invalid." : "Settings are not available for this CLI."}</span><a className="btn btn-ghost btn-sm" href={cliSettingsHash("pi")}>Open Pi settings</a></div>
+    {route.invalid || !supported ? <div className="cli-notice" role="status"><span>{route.invalid ? "This settings link is invalid." : (pane === "keyboard" ? "Keyboard settings for " : "Settings for ") + terminalCliLabel(route.id) + " are in development — coming soon."}</span></div>
       : !hidden ? <SettingsEditor key={route.id + ":" + route.agentId} route={route} catalog={catalog} onAgentConfig={onAgentConfig} pane={pane} /> : null}
   </section>;
 }

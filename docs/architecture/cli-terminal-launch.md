@@ -146,6 +146,16 @@ the row menu's Launch settings. The preview is the server's real plan
 (`POST /api/clis/<cli>/preview`), including the blocked state: an uninstalled
 CLI reads *Not found* and the plan's problem line instead of an empty grid.
 
+**The pane tabs are the same everywhere.** `cliPanes` returns Launch,
+Terminals, Sessions (when the CLI has a session source) and the five setup
+tabs — Providers, Settings, Keyboard, Packages, Connectors — for every
+launchable CLI. The setup group is a placeholder wherever the native editor
+does not exist yet (`supportsCli*` in `web/shared/domain/`), rendering
+*"<Tab> for <CLI> are in development — coming soon"* instead of the editor;
+Pi is the only CLI with all five today, and a CLI's placeholder never links to
+Pi. `CliPaneTabs` scrolls the selected tab into view, so a deep link to a late
+tab is not a strip reading Launch…Sessions while the panel says Packages.
+
 **Identity is the runtime CLI, else what it was launched with.** A sidebar
 row, a tab, a canvas face, a terminal list row and the dashboard's fleet
 bucket all resolve through `terminalDisplayCli`

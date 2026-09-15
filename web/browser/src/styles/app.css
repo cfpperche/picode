@@ -89,7 +89,6 @@ body {
 #sidebar {
   width: 244px; flex: none;
   background: var(--bg-panel);
-  border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   min-height: 0; overflow: hidden;
   position: relative;
@@ -99,6 +98,14 @@ body {
   --tree-icon: 18px;
   --tree-gap: 6px;
 }
+/* The pane's edge is a vertical starting below the 41px bar, not a
+   full-height border, so the header reads as one strip (Chrome frame).
+   Shell mode keeps the full height: its bar is the shell row itself. */
+#sidebar::before {
+  content: ""; position: absolute; top: var(--chrome-h); bottom: 0; right: 0;
+  width: 1px; background: var(--border); pointer-events: none;
+}
+#app.app-shell #sidebar::before { top: 0; }
 #sidebar button, #sidebar input, #sidebar select { font-family: inherit; }
 .sidebar-sizer {
   position: absolute; top: 0; right: -3px; bottom: 0; width: 6px;
@@ -111,6 +118,9 @@ body {
   display: flex; align-items: center; gap: 8px;
   padding: 0 8px 0 14px;
   height: var(--chrome-h); min-height: var(--chrome-h);
+  /* Frame plane (Chrome tab strip): sidebar head, tab strip and inspector
+     head read as one bar; the active tab connects to the toolbar below. */
+  background: var(--bg-base);
   border-bottom: 1px solid var(--border);
 }
 .brand-title {
@@ -582,6 +592,15 @@ body {
   font-family: var(--mono); font-size: 11px; color: var(--text-secondary);
 }
 .sess-row .mcp-row-main { flex: 1; }
+/* A session row is two lines: identity + facts, then the CLI's own preview
+   text with its buttons. Both halves have to clamp. The preview can be a
+   paragraph or a quoted Windows path — without the fixed line it sized the
+   cluster to its whole text and pushed the buttons outside the card; the
+   model (a nowrap secondary attribute) refused to shrink, squeezed the name
+   to nothing and painted over the facts. Measured on Muse Code and Grok. */
+.sess-row .sess-meta { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sess-row .mcp-row-actions { flex: 1 0 100%; min-width: 0; }
+.sess-row .mcp-row-actions .btn { flex: none; }
 .sessions-pick { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 14px; }
 .sessions-pick span { font-size: 12.5px; color: var(--text-secondary); }
 .sessions-pick select {
@@ -1602,26 +1621,35 @@ img.ws-face.term-cli-face {
   .dash-head { flex-wrap: wrap; }
 }
 
-/* ============ agent tabs (Chrome CR23 shape, top of main) ============
-   Visual: Chromium tab_style (raised active surface, top radius, hover
-   pill, separators that yield to hover/active). Concave ears are omitted
-   on purpose: they only read as ears when a same-color toolbar sits under
-   the strip (Chrome's omnibox). Here the surface below is a terminal, a
-   chat or a file, so an ear becomes a fang. Overflow behaviour is
+/* ============ agent tabs (Chrome-connected, top of main) ============
+   Chromium tab_style: the active tab shares its background with the
+   toolbar below and overlaps the strip's bottom edge (Chrome does it with
+   kTabstripToolbarOverlap = 1px), so no hairline cuts it off from the
+   page. Here the toolbar plane is --bg-panel (the file/tree/git headers
+   and the web tab toolbar sit directly under the strip) and the frame
+   plane is --bg-base. The hairline is an ::after
+   layer instead of a border: the active tab (z-index 3) paints over it
+   and reads connected, while inactive tabs (z-index auto, earlier in DOM
+   order) stay behind it. Concave ears stay omitted: they only read when
+   a same-color toolbar sits under the whole strip, and ours meets a
+   terminal, a chat or a file. Measurements:
+   docs/benchmarks/2026-09-15-chrome-tab-header.md. Overflow behaviour is
    unchanged — docs/benchmarks/2026-09-06-tab-strip-overflow.md; tabs still
    never shrink to favicons. Same sheet is imported by /desktop. */
 .main-tabs {
   --tab-strip: var(--bg-base);
-  /* Same plane the sidebar sits on, then one step up so a small chip on
-     the gray strip still reads as that white (simultaneous contrast ate
-     --bg-panel). Light: #fff like the sidebar field; dark: --bg-elevated. */
-  --tab-active: var(--bg-elevated);
+  --tab-active: var(--bg-panel);
   display: flex; flex: none;
+  position: relative;
   height: var(--chrome-h); min-height: var(--chrome-h);
-  background: var(--tab-strip); border-bottom: 1px solid var(--border);
+  background: var(--tab-strip);
+}
+.main-tabs::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+  background: var(--border); pointer-events: none;
 }
 .tab-strip {
-  display: flex; align-items: stretch; padding: 4px 8px 0; overflow-x: auto; flex: 1; min-width: 0;
+  display: flex; align-items: stretch; padding: 6px 8px 0; overflow-x: auto; flex: 1; min-width: 0;
   position: relative;
   /* No layout scrollbar on the strip — Zed, Firefox, Material. A classic
      bar stole 10px of the 40px chrome. The active tab is revealed by code
@@ -1644,7 +1672,7 @@ img.ws-face.term-cli-face {
   mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
 }
 .tab-arrow {
-  flex: none; width: 28px; margin: 4px 2px 0; padding: 0; border: 0; border-radius: 8px;
+  flex: none; width: 28px; margin: 6px 2px 0; padding: 0; border: 0; border-radius: 8px;
   display: inline-flex; align-items: center; justify-content: center;
   background: transparent; color: var(--text-secondary); cursor: pointer;
 }
@@ -1744,7 +1772,7 @@ img.ws-face.term-cli-face {
 /* Hairline between two idle tabs; yields next to hover, the active tab,
    or the last tab (Chrome never paints a trail after the strip). */
 .mtab:not(.active):not(:hover):not(:last-child)::after {
-  content: ""; position: absolute; right: 0; top: 22%; height: 56%; width: 1px;
+  content: ""; position: absolute; right: 0; top: calc(50% - 10px); height: 20px; width: 1px;
   background: var(--border); pointer-events: none;
 }
 .mtab:has(+ .mtab:hover)::after,
@@ -3901,6 +3929,124 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .set-pat-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .set-pat-list li { display: flex; align-items: center; gap: 6px; }
 .set-pat-list code { flex: 1; font-size: 12px; }
+
+/* The settings page in the ChatGPT Work shape (owner's parity mandate):
+   page title, section cards, and rows that carry a title + description on
+   the left with the control pinned right, divided by hairlines. The chrome
+   around the page stays PiCode's. */
+.set-page { display: flex; flex-direction: column; gap: 22px; max-width: 780px; }
+.set-title { margin: 18px 0 0; font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+.set-lede { margin: 3px 0 0; font-size: 13.5px; color: var(--text-secondary); }
+.set-group { display: flex; flex-direction: column; gap: 8px; }
+.set-grouph { margin: 6px 0 0; font-size: 14.5px; font-weight: 600; color: var(--text-primary); }
+.set-groupdesc { margin: 0; font-size: 12.5px; color: var(--text-secondary); line-height: 1.4; }
+.set-panel { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); overflow: hidden; }
+.set-item { display: flex; align-items: center; gap: 14px; padding: 13px 16px; }
+.set-item + .set-item { border-top: 1px solid var(--border); }
+.set-item-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.set-item-t { font-size: 13.5px; font-weight: 550; color: var(--text-primary); }
+.set-item-d { font-size: 12.5px; color: var(--text-secondary); line-height: 1.35; }
+.set-item-ctl { display: flex; align-items: center; gap: 8px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
+.set-item-stack { flex-direction: column; align-items: stretch; }
+.set-btn {
+  display: inline-flex; align-items: center; justify-content: center; height: 30px; padding: 0 12px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-ctl); background: var(--bg-panel);
+  color: var(--text-primary); font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; white-space: nowrap;
+}
+.set-btn:hover { background: var(--bg-hover); }
+.set-btn-danger { border-color: var(--danger); color: var(--danger); }
+.set-select {
+  height: 30px; padding: 0 26px 0 10px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-ctl);
+  background: var(--bg-panel) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%23888f9e' stroke-width='1.5' stroke-linecap='round'/></svg>") no-repeat right 9px center;
+  color: var(--text-primary); font: inherit; font-size: 12.5px; appearance: none; cursor: pointer;
+}
+.set-select:hover { background-color: var(--bg-hover); }
+/* Browsing history: the reference's data shape inside our dialog — a
+   search field, day groups that collapse, and a row per visit with its
+   favicon, host, time and a per-row menu. */
+.dlg.dlg-hist {
+  width: min(680px, calc(100vw - 32px));
+  top: 50%;
+  max-height: min(86dvh, 720px);
+}
+.hist-search { width: 100%; height: 34px; margin-top: 14px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-ctl); background: var(--bg-base); color: var(--text-primary); font: inherit; font-size: 13px; }
+.hist-search::placeholder { color: var(--text-secondary); }
+.hist-search:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+.hist-head { display: flex; align-items: center; gap: 10px; margin: 16px 0 8px; }
+.hist-head-t { flex: 1; font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+.hist-days { border: 1px solid var(--border); border-radius: var(--radius-panel); overflow: hidden auto; max-height: 46vh; }
+.hist-day + .hist-day { border-top: 1px solid var(--border); }
+.hist-day-h { display: flex; align-items: center; gap: 8px; width: 100%; margin: 0; padding: 11px 14px; border: 0; background: none; color: var(--text-primary); font: inherit; font-size: 13px; font-weight: 550; text-align: left; cursor: pointer; }
+.hist-day-h:hover { background: var(--bg-hover); }
+.hist-day-n { font-size: 12px; font-weight: 400; color: var(--text-secondary); }
+.hist-day-h svg { margin-left: auto; color: var(--text-secondary); transition: transform .12s; }
+.hist-day-h[aria-expanded="true"] svg { transform: rotate(180deg); }
+.hist-rows { list-style: none; margin: 0; padding: 0; }
+.hist-row { display: flex; align-items: center; gap: 10px; padding: 6px 14px; }
+.hist-row:hover { background: var(--bg-hover); }
+.hist-row input[type="checkbox"] { flex: none; width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.hist-fav { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; background: var(--bg-hover); color: var(--text-secondary); font-size: 10px; font-weight: 600; text-transform: uppercase; overflow: hidden; }
+.hist-fav img { width: 16px; height: 16px; }
+.hist-main { display: flex; align-items: baseline; gap: 8px; flex: 1; min-width: 0; }
+.hist-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; font-weight: 550; color: var(--text-primary); }
+.hist-host { flex: none; max-width: 42%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--text-secondary); }
+.hist-time { flex: none; font-size: 12px; color: var(--text-secondary); }
+.hist-more { flex: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--text-secondary); font: inherit; font-size: 15px; line-height: 1; cursor: pointer; }
+.hist-more:hover { background: var(--bg-hover); color: var(--text-primary); }
+.hist-sel { font-size: 12.5px; color: var(--text-secondary); }
+/* The download list's empty state: one icon, one line, one explanation. */
+.dl-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 34px 16px; color: var(--text-secondary); text-align: center; border: 1px solid var(--border); border-radius: var(--radius-panel); }
+.dl-empty-t { font-size: 13px; font-weight: 550; color: var(--text-primary); }
+.dl-empty-d { font-size: 12.5px; }
+
+/* The Manage dialogs behind Autofill and passwords: the section rows the
+   reference keeps on its own sub-routes, in a dialog instead. */
+.dlg.dlg-manage {
+  width: min(560px, calc(100vw - 32px));
+  top: 50%;
+  max-height: min(86dvh, 720px);
+}
+.dlg-manage .dlg-lede { margin: 6px 0 16px; font-size: 12.5px; line-height: 1.45; color: var(--text-secondary); }
+.dlg-manage .set-panel { background: var(--bg-base); }
+/* The bulk remove is destructive; the app's .btn-danger is only red on
+   hover, which reads as inert in a footer. */
+.dlg-hist .btn-danger { border-color: var(--danger); color: var(--danger); }
+
+/* Clear browsing data: the reference dialog — time-range pills over a
+   checklist of data kinds, then Cancel / Delete data. */
+.dlg.dlg-wipe {
+  width: min(620px, calc(100vw - 32px));
+  /* The stock .dlg anchors at 42%, which lifts a tall dialog off the top
+     of the viewport (the overlay audit calls that a clip). Centred at
+     50% the cap always leaves a margin. */
+  top: 50%;
+  padding: 22px 22px 16px;
+  /* Six rows plus the pills run taller than a laptop viewport: cap it and
+     scroll inside, or the dialog clips off the top (the overlay audit
+     fails on a clipped .dlg). */
+  max-height: min(86dvh, 700px); overflow-y: auto;
+}
+.wipe-pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 14px; }
+.wipe-pill {
+  height: 30px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 99px;
+  background: var(--bg-panel); color: var(--text-primary); font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.wipe-pill:hover { background: var(--bg-hover); }
+.wipe-pill[aria-pressed="true"] { background: var(--text-primary); border-color: var(--text-primary); color: var(--bg-panel); }
+.wipe-list { border: 1px solid var(--border); border-radius: var(--radius-panel); overflow: hidden; }
+.wipe-row { display: flex; align-items: center; gap: 12px; padding: 11px 14px; cursor: pointer; }
+.wipe-row + .wipe-row { border-top: 1px solid var(--border); }
+.wipe-row:hover { background: var(--bg-hover); }
+.wipe-ico { flex: none; display: inline-flex; color: var(--text-secondary); }
+.wipe-body { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.wipe-t { font-size: 13px; font-weight: 550; color: var(--text-primary); }
+.wipe-d { font-size: 12.5px; color: var(--text-secondary); }
+.wipe-row input[type="checkbox"] {
+  flex: none; width: 17px; height: 17px; margin: 0; accent-color: var(--accent); cursor: pointer;
+}
+.dlg-wipe .dlg-actions { margin-top: 16px; }
+
 .rx-switch {
   width: 36px; height: 20px; padding: 0; flex: none;
   border: 0; border-radius: 99px; background: var(--border-strong); cursor: pointer;
@@ -4593,6 +4739,12 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .termset-search-row { position: sticky; top: 0; z-index: 2; background: var(--bg-panel); padding: 6px 0; }
 .termset-search { margin-top: 0; }
 .termset-cat-title { margin: 0; font-size: 13px; font-weight: 650; color: var(--text-primary); }
+/* tmux guard row (ADR-0138): state + switch, hugging its content. */
+.termset-guard { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-top: 10px; }
+.termset-guard strong { font-size: 12.5px; color: var(--text-primary); }
+.termset-guard .rx-switch { flex: none; margin-top: 2px; }
+.termset-guard-docs { color: var(--accent); text-decoration: none; white-space: nowrap; }
+.termset-guard-docs:hover { text-decoration: underline; }
 .termset-cat-note { margin: 4px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--text-secondary); }
 .termset-cat-empty { margin: 12px 0 0; font-size: 12px; color: var(--text-secondary); }
 .termset-cat-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; }
@@ -5493,12 +5645,18 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
    file tree's .ft-* idiom and its tabs the .ft-tab pair. */
 #inspector {
   flex: none; width: 320px;
-  background: var(--bg-panel); border-left: 1px solid var(--border);
+  background: var(--bg-panel);
   display: flex; flex-direction: column;
   min-height: 0; min-width: 0; overflow: hidden; position: relative;
   font-family: var(--mono);
   container-type: inline-size;
 }
+/* Same below-the-bar edge as #sidebar::before (Chrome frame). */
+#inspector::before {
+  content: ""; position: absolute; top: var(--chrome-h); bottom: 0; left: 0;
+  width: 1px; background: var(--border); pointer-events: none;
+}
+#app.app-shell #inspector::before { top: 0; }
 #inspector[hidden] { display: none !important; }
 #inspector button, #inspector input { font-family: inherit; }
 .insp-sizer {
@@ -5510,8 +5668,13 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .insp-head {
   display: flex; align-items: center; gap: 8px;
   height: var(--chrome-h); min-height: var(--chrome-h); padding: 0 6px 0 10px;
-  border-bottom: 1px solid var(--border); background: var(--bg-panel); flex: none;
+  /* Frame plane like .brand: one bar across sidebar, tabs, inspector. */
+  border-bottom: 1px solid var(--border); background: var(--bg-base); flex: none;
 }
+/* Shell mode keeps the inspector head on the panel plane: below the shell
+   row it heads its own column (ADR-0122) and blends down into the rail
+   instead of up into the row. */
+#app.app-shell .insp-head { background: var(--bg-panel); }
 .insp-face { width: 18px; height: 18px; display: grid; place-items: center; flex: none; color: var(--text-secondary); }
 .insp-face .ws-face { margin: 0; }
 .insp-face img.ws-face { border: 0; padding: 0; }
@@ -5717,8 +5880,15 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .shell-row {
   position: fixed; top: 0; left: 0; right: 0; z-index: 60;
   display: flex; align-items: stretch; height: var(--chrome-h);
-  background: var(--bg-base); border-bottom: 1px solid var(--border);
+  background: var(--bg-base);
   user-select: none;
+}
+/* Same connected hairline as .main-tabs::after, full window width: the
+   shell row owns the line, so the strip's own is redundant inside it and
+   the active tab still paints over the row's. */
+.shell-row::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+  background: var(--border); pointer-events: none;
 }
 .shell-brand-cluster {
   display: flex; align-items: center; min-width: 0;
@@ -5745,7 +5915,8 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .shell-mark svg { display: block; }
 .shell-name { font-size: 12.5px; font-weight: 650; letter-spacing: 0.2px; }
 .shell-brand:hover .shell-name { color: var(--accent); }
-.shell-row .main-tabs { flex: 1; min-width: 0; border-bottom: 0; }
+.shell-row .main-tabs { flex: 1; min-width: 0; }
+.shell-row .main-tabs::after { content: none; }
 .shell-caps { display: flex; align-self: stretch; flex: none; margin-left: auto; }
 .cap-btn {
   width: 46px; border: 0; background: none; padding: 0;

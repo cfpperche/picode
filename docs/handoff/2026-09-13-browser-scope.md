@@ -22,8 +22,3 @@ so a gallery search offers that one. Ours is local-only today — no breakage �
 but publishing needs a name decision. Recorded in `work-browser-tabs.md`.
 visual-review: n/a (docs only).
 Not done: the grants editor, the shell navigation gate, runtime acceptance.
-
-## Next up
-
-- Grants editor (Settings ▸ Browser) so `act` becomes reachable.
-- Shell navigation gate mirroring `browser.AllowsOrigin`.

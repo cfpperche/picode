@@ -10,6 +10,7 @@ package catalog
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -34,7 +35,7 @@ var customIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 
 // compat keys the GUI manages; anything else in a hand-edited compat object
 // is preserved, never invented here.
-var customCompatKeys = []string{"supportsDeveloperRole", "supportsReasoningEffort"}
+var customCompatKeys = []string{"supportsDeveloperRole", "supportsReasoningEffort", "supportsUsageInStreaming"}
 
 // customThinkingLevels are the pi thinking levels the form manages. "off" is
 // deliberately absent: pi's default map already covers it and its provider
@@ -48,12 +49,33 @@ type CustomModel struct {
 	Reasoning     *bool  `json:"reasoning,omitempty"`
 	ContextWindow *int   `json:"contextWindow,omitempty"`
 	MaxTokens     *int   `json:"maxTokens,omitempty"`
+	// Name, Input and Cost are form-managed row fields: a value writes it, an
+	// empty one deletes the stored key, so clearing a hand-set value in the
+	// form removes it instead of hiding it. The form always sends the full
+	// row, so blank means delete; a row missing from Models drops the whole
+	// model. Cost is USD per 1M tokens (pi-ai models.js divides rates by
+	// 1e6).
+	Name  string      `json:"name,omitempty"`
+	Input []string    `json:"input,omitempty"`
+	Cost  *CustomCost `json:"cost,omitempty"`
 	// ThinkingLevels is the form's level selection; upsert turns it into a
 	// thinkingLevelMap on the entry (selected levels keep their name, the rest
 	// become null = hidden). ThinkingLevelMap is read back for the form's
 	// prefill and is never written from the request.
 	ThinkingLevels   []string       `json:"thinkingLevels,omitempty"`
 	ThinkingLevelMap map[string]any `json:"thinkingLevelMap,omitempty"`
+	// ThinkingLevelValues overrides the provider value per selected level: a
+	// blank value keeps the level's own name (xhigh), a filled one writes it
+	// (xhigh -> "high"). Keys outside the managed levels are refused.
+	ThinkingLevelValues map[string]string `json:"thinkingLevelValues,omitempty"`
+}
+
+// CustomCost is pi's ModelCostRates: USD per 1M tokens.
+type CustomCost struct {
+	Input      float64 `json:"input"`
+	Output     float64 `json:"output"`
+	CacheRead  float64 `json:"cacheRead"`
+	CacheWrite float64 `json:"cacheWrite"`
 }
 
 // customThinkingFormats are the compat.thinkingFormat values the form offers:
@@ -305,6 +327,23 @@ func UpsertCustomProvider(id string, def CustomDefinition) error {
 		if m.MaxTokens != nil {
 			fields["maxTokens"] = mustRaw(*m.MaxTokens)
 		}
+		// Name, input and cost are form-managed: a value writes it, a blank
+		// deletes the stored key, so the form owns what it shows.
+		if name := strings.TrimSpace(m.Name); name != "" {
+			fields["name"] = mustRaw(name)
+		} else {
+			delete(fields, "name")
+		}
+		if len(m.Input) > 0 {
+			fields["input"] = mustRaw(canonicalInput(m.Input))
+		} else {
+			delete(fields, "input")
+		}
+		if m.Cost != nil {
+			fields["cost"] = mustRaw(*m.Cost)
+		} else {
+			delete(fields, "cost")
+		}
 		// Levels are written as a map so pi can hide what the model lacks.
 		// A model the form marks as non-reasoning drops the managed levels
 		// again; unknown map keys (a hand-set "off") always survive.
@@ -380,9 +419,10 @@ func UpsertCustomProvider(id string, def CustomDefinition) error {
 
 // mergeThinkingLevels turns the form's level selection into a
 // thinkingLevelMap. Selected levels keep their own name as the provider
-// value; unselected managed levels become null, which pi reads as
-// unsupported and hides. Keys the form does not manage (a hand-set "off", a
-// future pi level) are preserved untouched.
+// value unless ThinkingLevelValues overrides it (xhigh -> "high");
+// unselected managed levels become null, which pi reads as unsupported and
+// hides. Keys the form does not manage (a hand-set "off", a future pi
+// level) are preserved untouched.
 func mergeThinkingLevels(fields map[string]json.RawMessage, m CustomModel) error {
 	if len(m.ThinkingLevels) == 0 {
 		if m.Reasoning != nil && !*m.Reasoning {
@@ -403,7 +443,11 @@ func mergeThinkingLevels(fields map[string]json.RawMessage, m CustomModel) error
 	}
 	for _, l := range customThinkingLevels {
 		if selected[l] {
-			levelMap[l] = mustRaw(l)
+			if v := strings.TrimSpace(m.ThinkingLevelValues[l]); v != "" {
+				levelMap[l] = mustRaw(v)
+			} else {
+				levelMap[l] = mustRaw(l)
+			}
 			continue
 		}
 		levelMap[l] = mustRaw(nil)
@@ -414,6 +458,18 @@ func mergeThinkingLevels(fields map[string]json.RawMessage, m CustomModel) error
 	}
 	fields["thinkingLevelMap"] = raw
 	return nil
+}
+
+// canonicalInput writes input modalities in pi's order (text, image),
+// deduplicated. Membership is checked by validateCustomDef.
+func canonicalInput(in []string) []string {
+	var out []string
+	for _, want := range []string{"text", "image"} {
+		if slices.Contains(in, want) {
+			out = append(out, want)
+		}
+	}
+	return out
 }
 
 // dropThinkingLevels removes the levels the form manages, and the whole map
@@ -555,6 +611,29 @@ func validateCustomDef(def CustomDefinition) error {
 		}
 		if m.MaxTokens != nil && *m.MaxTokens <= 0 {
 			return fmt.Errorf("max output must be a positive number")
+		}
+		if len(m.Name) > 120 {
+			return fmt.Errorf("model name is too long")
+		}
+		for _, modality := range m.Input {
+			if modality != "text" && modality != "image" {
+				return fmt.Errorf("unsupported input modality: %s", modality)
+			}
+		}
+		if m.Cost != nil {
+			for _, rate := range []float64{m.Cost.Input, m.Cost.Output, m.Cost.CacheRead, m.Cost.CacheWrite} {
+				if math.IsNaN(rate) || math.IsInf(rate, 0) || rate < 0 {
+					return fmt.Errorf("cost rates must be zero or above")
+				}
+			}
+		}
+		for k, v := range m.ThinkingLevelValues {
+			if !slices.Contains(customThinkingLevels, k) {
+				return fmt.Errorf("unsupported thinking level: %s", k)
+			}
+			if vv := strings.TrimSpace(v); vv == "" || len(vv) > 64 || strings.ContainsAny(vv, " \t\r\n") {
+				return fmt.Errorf("provider value for %s must be one word", k)
+			}
 		}
 	}
 	return nil

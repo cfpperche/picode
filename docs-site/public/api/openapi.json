@@ -2114,6 +2114,134 @@
         ]
       }
     },
+    "/api/browser/downloads": {
+      "get": {
+        "operationId": "getApiBrowserDownloads",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      },
+      "post": {
+        "operationId": "postApiBrowserDownloads",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      }
+    },
+    "/api/browser/downloads/clear": {
+      "post": {
+        "operationId": "postApiBrowserDownloadsClear",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      }
+    },
+    "/api/browser/downloads/status": {
+      "post": {
+        "operationId": "postApiBrowserDownloadsStatus",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      }
+    },
+    "/api/browser/downloads/{id}": {
+      "delete": {
+        "operationId": "deleteApiBrowserDownloads",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      }
+    },
     "/api/browser/history": {
       "get": {
         "operationId": "getApiBrowserHistory",
@@ -2158,6 +2286,32 @@
     "/api/browser/history/clear": {
       "post": {
         "operationId": "postApiBrowserHistoryClear",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      }
+    },
+    "/api/browser/history/delete": {
+      "post": {
+        "operationId": "postApiBrowserHistoryDelete",
         "parameters": null,
         "requestBody": {
           "content": {

@@ -425,6 +425,21 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			_ = s.ConsumePairing(code)
 		}, []string{"pairing.created", "pairing.used"}},
 		{"SetSetting", func(s *Store) { _ = s.SetSetting("k", "v") }, []string{"setting.updated"}},
+		{"AddBrowserDownload (start)", func(s *Store) {
+			_, _ = s.AddBrowserDownload("https://files.example/a.zip", `C:\Users\me\Downloads\a.zip`, 10)
+		}, []string{"browserdownload.updated"}},
+		{"FinishBrowserDownload (outcome)", func(s *Store) {
+			_, _ = s.AddBrowserDownload("https://files.example/a.zip", `C:\Users\me\Downloads\a.zip`, 10)
+			_ = s.FinishBrowserDownload(`C:\Users\me\Downloads\a.zip`, "completed", 10)
+		}, []string{"browserdownload.updated", "browserdownload.updated"}},
+		{"DeleteBrowserDownload", func(s *Store) {
+			d, _ := s.AddBrowserDownload("https://files.example/a.zip", `C:\Users\me\Downloads\a.zip`, 10)
+			_ = s.DeleteBrowserDownload(d.ID)
+		}, []string{"browserdownload.updated", "browserdownload.updated"}},
+		{"ClearBrowserDownloads", func(s *Store) {
+			_, _ = s.AddBrowserDownload("https://files.example/a.zip", `C:\Users\me\Downloads\a.zip`, 10)
+			_ = s.ClearBrowserDownloads()
+		}, []string{"browserdownload.updated", "browserdownload.updated"}},
 		{"AddBrowserVisit (new url)", func(s *Store) { _, _ = s.AddBrowserVisit("https://example.com/a", "Example", false) }, []string{"browserhistory.updated"}},
 		{"AddBrowserVisit (same url updates in place)", func(s *Store) {
 			_, _ = s.AddBrowserVisit("https://example.com/b", "Example", true)

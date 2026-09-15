@@ -6,8 +6,14 @@ description: Terminals, session history, and moving a conversation between your 
 
 Terminals, session history, and moving a conversation between your installed
 Pi, Claude Code, Codex, Grok, Hermes Agent and OpenCode commands. Muse Code
-and Antigravity can open a terminal of their own too (but no session list,
-no activity state and no launch settings yet).
+and Antigravity can open a terminal of their own and list and resume their own
+sessions; they have no activity state (nothing shows Ready or Working) and no
+launch settings yet.
+
+Every CLI's pane carries the same tabs — Launch, Terminals, Sessions,
+Providers, Settings, Keyboard, Packages and Connectors. The tabs a CLI has no
+native editors for (today everything but Pi) say so: *in development — coming
+soon*. They are placeholders, not a promise about a specific release.
 
 - **Where:** last icon in the desktop sidebar header, `Ctrl+K`, or **More** on a phone (`#/clis`).
 - **Not this:** a CLI terminal is not a managed Pi agent. Structured chat, packages and automations still use Pi.
@@ -264,6 +270,47 @@ or npm's for npm-installed tools, after you type the CLI's name. Grok and a nati
 Claude Code install have no uninstall command; PiCode links their official
 guide instead. Uninstalling never touches your settings or conversations
 beyond what the CLI's own uninstaller does.
+
+## tmux guard
+
+PiCode runs every managed terminal inside tmux, on the same server as your
+own sessions. Agent CLIs are literal with commands, and a `tmux kill-server`
+typed by mistake takes down every session on that server — PiCode's
+terminals and yours. The **tmux guard** is on by default inside PiCode
+terminals: it refuses server-wide kills, pattern kills, and kills of
+sessions another terminal or you created. An agent may still close a
+session it created itself, by exact name.
+
+Each refusal is explained on the terminal, and the reason is logged to
+`<dataDir>/tmux-guard.log`. The guard applies only inside terminals PiCode
+created; your own shell outside PiCode is untouched. The switch lives in
+**Preferences ▸ Terminal** (Terminal defaults) under **Safety**; the change
+applies to terminals opened from now on. If you are debugging and need raw
+tmux semantics, the same switch (or
+`POST /api/terminals/wiring/tmux-guard/disable`) turns the guard off.
+
+## Where PiCode's terminals live
+
+PiCode runs its own tmux server, one per instance, on a socket inside the
+data directory: `~/.picode/tmux.sock`. Your personal tmux stays on tmux's
+default socket, so the two can never take each other down — a `kill-server`
+on one side leaves the other running. To attach from your own shell:
+
+```bash
+tmux -S ~/.picode/tmux.sock attach -t picode-…   # ls, capture-pane, … all take -S
+tmux attach -t picode-…                          # your own server: not where they live
+```
+
+Terminals created before this change keep running on the old, shared
+socket until they end or you restart them — the daemon follows both while
+that lasts, and the terminal list shows them side by side.
+
+If you build scripts that create scratch tmux servers, do **not** rely on
+`TMUX_TMPDIR` alone: when a command runs inside an existing tmux session,
+`$TMUX` wins and the command talks to that session's server regardless of
+`TMUX_TMPDIR`. Use an explicit socket (`tmux -S <path>` or `tmux -L <name>`)
+for scratch servers, and exact session
+names for cleanup.
 
 ## Control a terminal
 

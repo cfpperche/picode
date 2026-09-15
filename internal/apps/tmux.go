@@ -46,6 +46,10 @@ type TmuxServer interface {
 	ServerInfo(ctx context.Context) tmux.ServerInfo
 	SessionReceipt(ctx context.Context, name string) (tmux.SessionReceipt, error)
 	KillSession(ctx context.Context, name string) error
+	// MachineSockets lists every tmux server socket this instance can see
+	// (ADR-0139 follow-up): the new sessions' socket, the default one, and
+	// every -L name in the user's tmux directory.
+	MachineSockets(ctx context.Context) []tmux.MachineSocket
 }
 
 // Session scopes — what the UI says about whose session a row is.
@@ -70,12 +74,15 @@ func (tmuxApp) Manifest() Manifest {
 
 func (tmuxApp) Badge(context.Context, Host) (Badge, error) { return Badge{}, nil }
 
-// View renders the three screens: the session inventory (""), one session's
-// detail ("item/<name>"), and the server facts ("server").
+// View renders the four screens: the session inventory (""), one session's
+// detail ("item/<name>"), the server facts ("server"), and the machine's
+// sockets ("sockets").
 func (a tmuxApp) View(ctx context.Context, h Host, path string) (View, error) {
 	switch {
 	case path == "server":
 		return a.serverView(ctx, h)
+	case path == "sockets":
+		return a.socketsView(ctx, h)
 	case strings.HasPrefix(path, "item/"):
 		return a.sessionView(ctx, h, strings.TrimPrefix(path, "item/"))
 	default:
@@ -113,6 +120,7 @@ func (a tmuxApp) sessionsView(ctx context.Context, h Host) (View, error) {
 		Tabs: []Tab{
 			{ID: "sessions", Label: "Sessions", Path: ""},
 			{ID: "server", Label: "Server", Path: "server"},
+			{ID: "sockets", Label: "Sockets", Path: "sockets"},
 		},
 		Empty: "tmux is not available on this machine — agents and terminals need it to keep running after you close the window.",
 	}
@@ -445,7 +453,68 @@ func tmuxAbsent(h Host, sessions []tmux.ServerSession) []tmux.AbsentTerminal {
 }
 
 func tmuxTabs() []Tab {
-	return []Tab{{ID: "sessions", Label: "Sessions", Path: ""}, {ID: "server", Label: "Server", Path: "server"}}
+	return []Tab{
+		{ID: "sessions", Label: "Sessions", Path: ""},
+		{ID: "server", Label: "Server", Path: "server"},
+		{ID: "sockets", Label: "Sockets", Path: "sockets"},
+	}
+}
+
+// socketsView answers the operator question ADR-0139 created: which tmux
+// servers exist on this machine, what lives on each, and where this
+// instance's new sessions land. What can be seen is honest and bounded —
+// every socket file in the user's tmux directory plus this instance's own
+// -S path; a socket elsewhere is undiscoverable and the block says so.
+func (a tmuxApp) socketsView(ctx context.Context, h Host) (View, error) {
+	v := View{APIVersion: APIVersion, Title: a.Manifest().Name, Tabs: tmuxTabs()}
+	if h.Tmux == nil || !h.Tmux.Available() {
+		v.Empty = "tmux is not available on this machine — agents and terminals need it to keep running after you close the window."
+		return v, nil
+	}
+	socks := h.Tmux.MachineSockets(ctx)
+	// Not the Collapsible ListBlock helper: this screen has one block and the
+	// rows are its whole point, so it renders open (a remembered-collapsed
+	// group hid the answer on first visit, seen on the scratch 2026-09-15).
+	block := Block{
+		Type: "list", ID: "tmux-sockets", Title: "tmux servers on this machine",
+		Empty: "No tmux sockets found.",
+		Items: []ListItem{},
+	}
+	running := 0
+	for _, s := range socks {
+		title := s.Name
+		if s.Ours {
+			title += " · this instance"
+		}
+		item := ListItem{ID: s.Path, Title: title, Path: "", Wrap: true, Meta: []string{s.Path}}
+		switch {
+		case s.Running:
+			running++
+			item.Badge = "running"
+			item.Tone = "ok"
+			if s.Sessions > 0 {
+				item.Subtitle = fmt.Sprintf("%d session(s) · %d PiCode", s.Sessions, s.PicodeSessions)
+			} else {
+				item.Subtitle = "running, no sessions"
+			}
+		default:
+			if s.Ours {
+				// Not a leftover: this instance's server starts with the first
+				// new terminal — say what it is, not what it looks like.
+				item.Badge = "idle"
+				item.Subtitle = "no server yet — the next terminal this instance opens starts it"
+			} else {
+				item.Badge = "no server"
+				item.Tone = "warn"
+				item.Subtitle = "nothing listening — a leftover socket file"
+			}
+		}
+		block.Items = append(block.Items, item)
+	}
+	block.Meta = []string{fmt.Sprintf("%d socket(s)", len(socks))}
+	v.Tabs[2].Badge = strconv.Itoa(running)
+	v.Blocks = []Block{block}
+	return v, nil
 }
 
 func ListBlock(title, id, empty string) Block {

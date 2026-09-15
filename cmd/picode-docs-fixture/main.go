@@ -104,10 +104,14 @@ func main() {
 		}
 	}
 
+	// A dedicated socket per fixture instance (ADR-0139): capture sessions
+	// land in the fixture's own server instead of the owner's tmux, and the
+	// default-socket Manager rides along as the drain.
+	fxTmux := tmux.NewWithSocket(filepath.Join(dataDir, "tmux.sock")).WithLegacy(tmux.New())
 	deps := server.Deps{
 		Store:        st,
 		Auth:         nil, // ungated: the capture browser walks straight in
-		Tmux:         tmux.New(),
+		Tmux:         fxTmux,
 		Runtime:      runtime,
 		AgentCmd:     "pi", // ADR-0003; never spawned by the fixture
 		DataDir:      dataDir,

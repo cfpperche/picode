@@ -2,9 +2,11 @@
 // (ADR-0079 phase 2): pi JSONL under ~/.pi/agent/sessions, Claude Code
 // transcripts under ~/.claude/projects, Codex rollouts under
 // ~/.codex/sessions, Grok prompt history under ~/.grok/sessions,
-// Hermes Agent rows in ~/.hermes/state.db (or $HERMES_HOME/state.db) and
+// Hermes Agent rows in ~/.hermes/state.db (or $HERMES_HOME/state.db),
 // OpenCode rows in ~/.local/share/opencode/opencode.db (or
-// $XDG_DATA_HOME/opencode/opencode.db).
+// $XDG_DATA_HOME/opencode/opencode.db), Muse Code rows in
+// ~/.local/share/muse/session-index.db (or $XDG_DATA_HOME/muse/...) and
+// Antigravity rows in ~/.gemini/antigravity-cli/conversation_summaries.db.
 // Nothing here writes, deletes or resumes; it only lists what is on disk.
 package clisession
 
@@ -49,7 +51,7 @@ type Source interface {
 // Sources returns every registered source keyed by catalog CLI id.
 func Sources() map[string]Source {
 	out := map[string]Source{}
-	for _, s := range []Source{PISource{}, ClaudeCodeSource{}, CodexSource{}, GrokSource{}, HermesSource{}, OpenCodeSource{}} {
+	for _, s := range []Source{PISource{}, ClaudeCodeSource{}, CodexSource{}, GrokSource{}, HermesSource{}, OpenCodeSource{}, MuseSource{}, AgySource{}} {
 		out[s.CLI()] = s
 	}
 	return out

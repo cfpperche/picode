@@ -34,9 +34,9 @@ PiCode has two settings worlds. Do not mix them.
 3. Packages or Connectors: restart the agent.
 4. Workspace Settings: the folder must be in pi's trust list (`/trust` in the TUI). Untrusted writes return 409.
 
-## Worked example: add a custom endpoint
+## Worked example: add a custom provider
 
-1. Agent CLIs → Pi → **Providers** → **Add provider** → **Custom endpoint**.
+1. Agent CLIs → Pi → **Providers** → **Add provider** → **Custom provider**.
 2. Name, base URL, API key, and model ids exactly as the gateway spells them.
 3. Save, then pick that provider on the agent.
 

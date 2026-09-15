@@ -17,14 +17,71 @@ screenshot round-tripped through the bound pane).
 
 ## Notes
 
+- **The blank window (any work-browser tab) is FIXED** (2026-09-15, `feat/browser-tab-crash`): `showFullUrl` was read in the meta effect's deps above its own `useState` — a `const` touched in the same render before its declaration throws and unmounts the React root. Verified before/after on two scratches (main: blank page + `ReferenceError`; the fix: the tab opens and its notice renders). No JS linter and no component test exists in this repo to catch the class — a `biome`-style `noInvalidUseBeforeDeclaration` guard would be its own task.
+
 - **Split survives relaunch: DONE (2026-09-14)** — layout + last url persist; boot prunes dead hosts; webview recreated on host-tab show. Post-deploy: re-check the recreate in the shell.
 
-## Slice 3, still unbuilt
+## Slice 3, state (owner reviewing the Settings ▸ Browser parity list one
+item at a time, 2026-09-15)
 
-Find in page, the history store and its dropdown, the device toolbar, site
-permissions, and the `developer mode` toggle (now only a UI over
-`PICODE_CDP_PORT`). The changes/options menus and Settings ▸ Browser list
-them one by one in `docs/plans/desktop-v2.md`.
+Landed: the history store and its dropdown, the Clear browsing data dialog
+(per-kind WebView2 masks + time range), the Browsing history dialog (search,
+day groups, favicons, per-row menu, bulk remove), the reference-shaped
+settings page with the master Browser switch, open destinations, Show full
+URL, password/contact autofill.
+
+Still unbuilt, in the owner's order: **Downloads** (Location, "Ask where to
+save downloads", Download history — recipe in
+`docs/handoff/2026-09-14-browser-downloads.md`), **Browser permissions**
+(Site settings camera/mic — the `PermissionRequested` handler — the History
+select, Enable site tools), **Developer mode** (the elevated-risk toggle over
+full CDP access), then find in page and the device toolbar.
+
+## Annotations (backlog, owner-registered 2026-09-15)
+
+The reference has "Annotation screenshots" (Always include / Only when needed
+/ Never). It is deliberately absent from our page: PiCode has no annotation
+feature, and a switch that controls nothing is a dead control. Build the
+feature, then the row.
+
+1. **Annotate mode in the work browser tab** — pick an element or draw a
+   rectangle, then a comment box.
+2. **Capture** — the region through CDP `Page.captureScreenshot` with `clip`,
+   plus the selector and the URL.
+3. **Store + endpoints** — migration, feed event (ADR-0048).
+4. **Delivery to the agent** — the annotation (comment + image) enters the
+   session the agent reads.
+5. **The settings row** — "Annotation screenshots", honoured by the capture
+   step, once 1–4 exist.
+
+Step 4 opens a new user→agent input path: it needs an ADR before the
+protocol is fixed.
+
+## Password manager (finding, 2026-09-15)
+
+The owner asked why the reference's Password manager has a list, Add, CSV import
+and Windows Hello, and ours cannot. Measured in `webview2-com-sys 0.38.2`
+(the SDK the shell compiles against):
+
+- The whole password/autofill surface is `Is`/`SetPasswordAutosaveEnabled` and
+  `Is`/`SetGeneralAutofillEnabled`. No enumeration, no per-entry edit, no
+  import — nothing reads entries back.
+- The SDK *does* ship a runtime-UI opener where one exists: `ICoreWebView2_6::
+  OpenTaskManagerWindow`. There is no password-manager equivalent, so the
+  runtime offers no such window to open.
+- Windows Hello and passkey management are OS surfaces, not host APIs.
+
+Conclusion: the reference's screens are its own vault (store + fill injection,
+WebAuthn passkeys, Hello unlock) or the OS page opened from it — not a read of
+WebView2's store. Two honest paths, both owner-gated:
+
+1. **Opener rows** (cheap, no vault): "Manage passkeys in Windows Hello" and the
+   Windows password/passkey settings page, launched from the dialog. The exact
+   OS URI must be verified on the machine first.
+2. **PiCode owns the vault** (the reference's shape): encrypted store (DPAPI),
+   per-entry CRUD, fill injection through CDP/`AddScriptToExecuteOnDocumentCreated`,
+   Hello unlock through WinRT `UserConsentVerifier`, CSV import. A security-model
+   decision — ADR before code, the same gate as the annotations above.
 
 ## Traps (paid for, keep them paid)
 

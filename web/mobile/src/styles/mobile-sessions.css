@@ -70,6 +70,12 @@
   font-family: var(--mono); font-size: 11px; color: var(--text-secondary);
 }
 .sess-row .mcp-row-main { flex: 1; }
+/* Same clamp as the desktop sheet: a long preview must not widen the row past
+   its card, and the model must give way instead of covering the name or the
+   facts. Below 720px the sheet already stacks the row. */
+.sess-row .sess-meta { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sess-row .mcp-row-actions { flex: 1 0 100%; min-width: 0; }
+.sess-row .mcp-row-actions .btn { flex: none; }
 .sessions-pick { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 14px; }
 .sessions-pick span { font-size: 12.5px; color: var(--text-secondary); }
 .sessions-pick select {

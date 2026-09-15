@@ -22,19 +22,21 @@ The column template drops the identity column below a 1000 px container and
 folds the cells into a stacked card below 840 px, so one markup serves the
 desktop window, a squeezed window and the phone.
 
-**Custom endpoints (ADR-0129).** Add provider's picker carries a fixed
-**Custom endpoint** door: a named definition (baseUrl, API type, compat
-flags, model ids) that merges into pi's `~/.pi/agent/models.json` under the
-schema's `providers` wrapper, and an API key stored in `auth.json` like any
-native sign-in — never inside the definition. `PUT/DELETE
+**Custom providers (ADR-0129).** Add provider's picker carries a fixed
+**Custom provider** door onto its own page (`#/clis/pi/providers/custom`,
+`#/clis/pi/providers/custom/<id>` for Edit — benchmarks.md refuses modals
+for flows longer than 2 fields): a named definition (baseUrl, API type,
+compat flags, model ids) that merges into pi's `~/.pi/agent/models.json`
+under the schema's `providers` wrapper, and an API key stored in `auth.json`
+like any native sign-in — never inside the definition. `PUT/DELETE
 /api/providers/custom/{id}` (`internal/catalog/modelsjson.go`) merge by
 provider id: untouched entries and unknown fields inside the touched one
 survive, built-in ids are refused, and a file pi would reject is never
 written. The catalog marks these rows `custom` and carries their editable
 shape (`baseUrl`/`api`/`compat`/`definitions`, key material excluded); an
 unsigned definition still appears so it can be picked up again. Row actions
-map to the two files: **Edit endpoint** reopens the form, **Sign out**
-removes only the credential, **Remove endpoint** deletes both with the
+map to the two files: **Edit provider** reopens the page, **Sign out**
+removes only the credential, **Remove provider** deletes both with the
 blast radius named.
 
 **Load models (P1).** `POST /api/providers/custom/models`
@@ -59,11 +61,11 @@ suggests `/v1`, a transport failure names the host and the 12s budget. The
 form merges what comes back into the ids already typed (never reordering or
 dropping one). Limits are **per model**: one listing can carry 1M/384k for one
 id and 200k/131k for the next, so agreeing is not a precondition and no number
-is invented. Each id gets its own row (Advanced → Model limits) and a load
+is invented. Each id gets its own row (Models → Model limits) and a load
 fills the rows the endpoint reported. An endpoint that lists nothing is an
 answer, not an error. The copy lives in Go, so both apps say
 the same thing, and `web/shared/client/modelLoad.js` (pure, no React) holds
-the line-building and merge the dialogs share.
+the line-building and merge both apps share.
 
 **URL hints per API type (P2).** The base-URL field carries a hint and a
 placeholder that follow the API type (`customApiHint` in
@@ -109,32 +111,33 @@ or `web/shared/domain/customProviders.test.js`:
 | Endpoint reports no limits for an id | the row appears with blanks; the line counts what it filled, and stays silent about limits when it filled none |
 | Listing fails | no row changes; the Model ids line turns red with the fix |
 
-**Dialog rhythm (P5).** One field is one unit — label above, control, one line
+**Form rhythm (P5).** One field is one unit — label above, control, one line
 of help below, 8 px apart, 24 px between units — adapted from shadcn's Field
 scale (`web/shared/styles/providers.css` names the adaptation in its section
 comment). Helper prose that is a lecture rather than a state (a file path, a
-protocol note) belongs in docs-site, not under a control. Fields only some
-endpoints need sit behind an **Advanced** disclosure whose sections carry a
-legend and a hairline — Request compatibility, Thinking, Model limits — so a
-collapsed Advanced is one line and an open one reads as structure. Every state
-the dialogue can be in is written in the unit that owns it, never in a second
-dialog: a load reports in the Model ids unit ("Found 3 models. Filled 6 limits
-from the endpoint.") and a failure takes the same line in red with the fix
-("The endpoint refused the key (401): … Check the API key and try again."),
-which keeps Advanced visible instead of pushing the alternative below the
-fold. `.dlg-create` still caps at `80dvh`, scrolls inside and keeps its action
-bar sticky, so the primary button is reachable at any window height.
+protocol note) belongs in docs-site, not under a control. The page groups the
+form into Identity, Connection and Models sections (Name + API type share a
+two-column row at 720 px and up; Verify key sits beside the key it checks),
+and fields only some providers need sit behind an **Advanced** disclosure
+whose sections carry a legend and a hairline — Request compatibility,
+Thinking — so a collapsed Advanced is one line and an open one reads as
+structure. Every state the exchange can be in is written in the unit that owns
+it, never in a second surface: a load reports in the Model ids unit ("Found 3
+models. Filled 6 limits from the endpoint.") and a failure takes the same line
+in red with the fix ("The endpoint refused the key (401): … Check the API key
+and try again."). The actions sit in normal flow at the form's end — no
+sticky footer, nothing to overlap.
 
 **Verify (P4).** For a built-in, Verify still asks pi (`pi auth check`), which
-costs nothing and is the code path that runs the agent. A custom endpoint
+costs nothing and is the code path that runs the agent. A custom provider
 cannot be answered that way — pi only reports that a credential is present, so
 a wrong key on a gateway reads green — and `POST
 /api/providers/{id}/verify` therefore sends **one minimal real request**
 (`internal/modellist.Probe`): one word in, the smallest output ceiling each API
 accepts (`max_tokens: 1`, or `max_completion_tokens` after one retry when the
 gateway says so, 16 for the Responses API, `maxOutputTokens: 1` for Google).
-The row's action names the cost before it is spent ("Verify with the endpoint
-(1 request)"); the dialog can verify what the form holds, before saving. The
+The row's action names the cost before it is spent ("Verify with the provider
+(1 request)"); the page verifies what the form holds, before saving. The
 answer body is discarded — only the model, the milliseconds and the token
 counts the endpoint reported travel back, and the verdict line shows them
 ("glm-4.6 answered in 43ms (4 in, 1 out)").
@@ -153,8 +156,21 @@ non-reasoning drops the managed keys and keeps the rest; a model the user
 never touched grows no map at all. An invented level is refused by the
 schema and again by `validateCustomDef`, so the GUI is not the only guard.
 The catalog hands the stored `thinkingLevelMap` back inside `definitions`, so
-Edit prefills the same chips it would write (`customThinkingLevels`). The row
-made the create dialog taller than the viewport, and `.dlg-create` centres
-with `top: 42%` and no height cap: it now caps at `80dvh` and scrolls inside
-(2% margin top and bottom at that anchor) instead of clipping the title off
-the top of the window.
+Edit prefills the same chips it would write (`customThinkingLevels`). The
+levels row was the control that finally outgrew the create dialog: the form
+moved to its own page instead of growing the dialog again. A selected level
+may also carry its own provider string (`xhigh` → `high`): the value shows
+beside the chip only when it differs from the level name, a blank keeps the
+identity, and the server refuses values for levels the form does not manage.
+
+**Per-model details.** Each model row also carries pi's optional `name`
+(display name, ≤ 120 chars), `input` (the only modalities pi's `Model`
+knows: `text`, `image`) and `cost` (USD per 1M tokens, pi-ai `models.js`
+divides the rates by 1e6). Cost is all or nothing — four rates or none, so
+a half-filled row cannot silently zero real money — and zeros are fine. A
+blank row field deletes the stored key on save, so clearing a hand-set
+value removes it instead of hiding it; a row that never had one writes
+nothing. The third managed compat bool is `supportsUsageInStreaming`, which
+the Responses API needs before pi reads usage off the stream. The API key
+stays exactly the cheaperinference flow: a literal credential into
+`auth.json`, never an env reference inside the definition.

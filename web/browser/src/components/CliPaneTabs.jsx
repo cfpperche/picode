@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
 import { cliSettingsHash, cliSettingsQuery } from "@picode/shared/domain/cliSettings.js";
 import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
@@ -31,10 +32,11 @@ export function cliSetupHref(cli, pane, ctx = {}, workspace = "") {
   return cliPaneHash(cli, pane, pane === "sessions" ? workspace : "");
 }
 
-function Tab({ cli, pane, workspace, ctx, item, extra }) {
+function Tab({ cli, pane, workspace, ctx, item, extra, activeRef }) {
   const selected = pane === item.id;
   return (
     <a
+      ref={selected ? activeRef : null}
       href={cliSetupHref(cli, item.id, ctx, workspace)}
       role="tab"
       aria-selected={selected}
@@ -45,15 +47,21 @@ function Tab({ cli, pane, workspace, ctx, item, extra }) {
 
 export default function CliPaneTabs({ cli, pane = "launch", panes = null, workspace = "", workspaceId = "", agentId = "", scope = "user", focus = "", layer = "", actions = null, hasPackageUpdates = false }) {
   const ctx = { workspaceId, agentId, scope, focus, layer };
-  // panes comes from cliPanes(cli): a CLI with no adapter shows Launch and
-  // Terminals only, and the setup group (all Pi-side editors) is absent.
+  // panes comes from cliPanes(cli). Every CLI carries the setup group; the
+  // ones without a native editor render it as an in-development placeholder
+  // (owner, 2026-09-15), so the strip is the same shape everywhere.
   const allowed = panes ? new Set(panes) : null;
   const run = RUN.filter((item) => !allowed || allowed.has(item.id));
   const setup = SETUP.filter((item) => !allowed || allowed.has(item.id));
+  // The strip scrolls once a CLI carries all eight tabs, so a deep link to
+  // e.g. Packages has to bring its own tab into view — otherwise the panel
+  // says "Packages …" while the reader sees Launch…Sessions.
+  const active = useRef(null);
+  useEffect(() => { active.current?.scrollIntoView({ block: "nearest", inline: "nearest" }); }, [pane, cli]);
   return (
     <div className="cli-pane-bar">
       <nav className="cli-pane-tabs" role="tablist" aria-label="CLI sections">
-        {run.map((item) => <Tab key={item.id} cli={cli} pane={pane} workspace={workspace} ctx={ctx} item={item} />)}
+        {run.map((item) => <Tab key={item.id} cli={cli} pane={pane} workspace={workspace} ctx={ctx} item={item} activeRef={active} />)}
         {run.length && setup.length ? <span className="cli-pane-split" aria-hidden="true" /> : null}
         {setup.map((item) => (
           <Tab
@@ -63,6 +71,7 @@ export default function CliPaneTabs({ cli, pane = "launch", panes = null, worksp
             workspace={workspace}
             ctx={ctx}
             item={item}
+            activeRef={active}
             extra={item.id === "packages" && hasPackageUpdates ? <span aria-label="Package updates available"> •</span> : null}
           />
         ))}

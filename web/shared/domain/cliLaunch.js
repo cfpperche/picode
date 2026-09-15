@@ -24,8 +24,14 @@ export function cliCapabilities(cli) {
 // answers), and none of the setup panes, which all edit Pi-side things.
 export function cliPanes(cli) {
   const cap = cliCapabilities(cli);
-  if (!cap.integration) return ["launch", "terminals"];
-  return ["launch", "terminals", ...(cap.sessions ? ["sessions"] : []), "providers", "settings", "keyboard", "packages", "connectors"];
+  // Sessions follows the session source the server reports, not the adapter:
+  // Muse Code and Antigravity have history on disk before they have
+  // activity reporting (their Sessions tab lists and resumes, nothing more).
+  const sessions = cap.sessions ? ["sessions"] : [];
+  // The setup tabs ride along for every CLI: the ones without a native
+  // integration render them as in-development placeholders instead of
+  // pretending the feature exists (owner, 2026-09-15).
+  return ["launch", "terminals", ...sessions, "providers", "settings", "keyboard", "packages", "connectors"];
 }
 
 // Setup panes (Settings / Packages / Connectors) read identity from the
@@ -104,7 +110,13 @@ export function cliLocation(hash = "", legacy = {}) {
   const loc = { view: "clis", id: cli, pane, ...(workspace ? { workspace } : {}) };
   if (pane === "providers") {
     const rest = decode(parts[3]);
+    const rest2 = decode(parts[4]);
     if (rest === "new") loc.add = true;
+    // The custom endpoint form is a page, not a dialog step (benchmarks.md
+    // refuses modals for flows longer than 2 fields): /custom starts one,
+    // /custom/<id> edits it. Anything deeper is an invalid link.
+    else if (rest === "custom" && !rest2 && !parts[5]) loc.custom = "new";
+    else if (rest === "custom" && rest2 && !parts[5]) { loc.custom = "edit"; loc.customId = rest2; }
     else if (rest) loc.invalid = true;
     if (["agentId", "workspaceId", "scope"].some((key) => params.has(key))) loc.scoped = true;
   }

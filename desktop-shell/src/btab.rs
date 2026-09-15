@@ -11,10 +11,11 @@ use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use picode_shell::{cdppolicy, origins};
+use windows::core::Interface;
 use tauri::webview::{NewWindowResponse, WebviewBuilder};
 use tauri::WebviewUrl;
 use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, State};
-use webview2_com::{take_pwstr, NavigationStartingEventHandler};
+use webview2_com::{take_pwstr, DownloadStartingEventHandler, NavigationStartingEventHandler, StateChangedEventHandler};
 
 /// The origin grant per webview id, armed by the last act-capable CDP call
 /// the daemon relayed (tier act/full carries the agent's domain table).
@@ -25,7 +26,10 @@ fn grants() -> &'static Mutex<HashMap<String, Vec<String>>> {
     static GRANTS: OnceLock<Mutex<HashMap<String, Vec<String>>>> = OnceLock::new();
     GRANTS.get_or_init(|| Mutex::new(HashMap::new()))
 }
-use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2DevToolsProtocolEventReceiver;
+use webview2_com::Microsoft::Web::WebView2::Win32::{
+    ICoreWebView2DevToolsProtocolEventReceiver, COREWEBVIEW2_DOWNLOAD_STATE,
+    COREWEBVIEW2_DOWNLOAD_STATE_COMPLETED, COREWEBVIEW2_DOWNLOAD_STATE_INTERRUPTED,
+};
 
 #[derive(Default)]
 pub struct BtabState {
@@ -210,6 +214,8 @@ fn ensure(app: &AppHandle, id: &str, url: &str) -> Result<(), String> {
     win.add_child(page, LogicalPosition::new(x, y), LogicalSize::new(w, h))
         .map_err(|e| e.to_string())?;
     attach_navigation_gate(app, id);
+    attach_download_handler(app, id);
+    apply_autofill(app, id);
     Ok(())
 }
 
@@ -577,4 +583,392 @@ pub async fn btab_open_external(url: String) -> Result<(), String> {
         .spawn()
         .map(|_| ())
         .map_err(|e| format!("open external: {e}"))
+}
+
+// The work profile's autofill prefs (slice 3): password autosave and
+// general (contact info) autofill. The UI pushes them (btab_set_prefs);
+// the latest values are applied to every webview at creation. Defaults
+// match WebView2's own: both on.
+fn autofill() -> &'static Mutex<(bool, bool)> {
+    static AUTOFILL: OnceLock<Mutex<(bool, bool)>> = OnceLock::new();
+    AUTOFILL.get_or_init(|| Mutex::new((true, true)))
+}
+
+#[tauri::command]
+pub async fn btab_set_prefs(
+    app: AppHandle,
+    password_autosave: Option<bool>,
+    general_autofill: Option<bool>,
+) -> Result<(), String> {
+    {
+        let mut cur = autofill().lock().unwrap();
+        if let Some(v) = password_autosave {
+            cur.0 = v;
+        }
+        if let Some(v) = general_autofill {
+            cur.1 = v;
+        }
+    }
+    let (pw, gen) = *autofill().lock().unwrap();
+    for (name, wv) in app.webview_windows() {
+        if !name.starts_with("btab-") {
+            continue;
+        }
+        let _ = wv.with_webview(move |platform| unsafe {
+            let Ok(core) = platform.controller().CoreWebView2() else { return };
+            let Ok(settings) = core.Settings() else { return };
+            let s9: webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings9 = match settings.cast() { Ok(v) => v, Err(_) => return };
+            let _ = s9.SetIsPasswordAutosaveEnabled(pw);
+            let _ = s9.SetIsGeneralAutofillEnabled(gen);
+        });
+    }
+    Ok(())
+}
+
+// Apply the current autofill prefs to a freshly created webview (called
+// from ensure's attach step).
+fn apply_autofill(app: &AppHandle, id: &str) {
+    let Some(wv) = app.get_webview(label(id).as_str()) else { return };
+    let _ = wv.with_webview(move |platform| unsafe {
+        let Ok(core) = platform.controller().CoreWebView2() else { return };
+        let Ok(settings) = core.Settings() else { return };
+        let s9: webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings9 = match settings.cast() { Ok(v) => v, Err(_) => return };
+        let (pw, gen) = *autofill().lock().unwrap();
+        let _ = s9.SetIsPasswordAutosaveEnabled(pw);
+        let _ = s9.SetIsGeneralAutofillEnabled(gen);
+    });
+}
+
+// Clear the work profile's browsing data (slice 3): the Clear browsing
+// data dialog sends the kinds it checked and, for a time-range pick, how
+// far back since is (unix seconds; None means all time). "passwords" is
+// deliberately absent from that dialog's checklist — the Password manager
+// dialog is the one place that clears them.
+fn wipe_mask(kind: &str) -> i32 {
+    // ICoreWebView2BrowsingDataKinds values (bindings 0.38.2).
+    const FILE_SYSTEMS: i32 = 1;
+    const INDEXED_DB: i32 = 2;
+    const LOCAL_STORAGE: i32 = 4;
+    const WEB_SQL: i32 = 8;
+    const CACHE_STORAGE: i32 = 16;
+    const ALL_DOM_STORAGE: i32 = 32;
+    const COOKIES: i32 = 64;
+    const ALL_SITE: i32 = 128;
+    const DISK_CACHE: i32 = 256;
+    const DOWNLOAD_HISTORY: i32 = 512;
+    const GENERAL_AUTOFILL: i32 = 1024;
+    const PASSWORD_AUTOSAVE: i32 = 2048;
+    const BROWSING_HISTORY: i32 = 4096;
+    const SETTINGS: i32 = 8192;
+    const SERVICE_WORKERS: i32 = 32768;
+    match kind {
+        "history" => BROWSING_HISTORY,
+        "cookies" => FILE_SYSTEMS | INDEXED_DB | LOCAL_STORAGE | WEB_SQL | ALL_DOM_STORAGE | COOKIES | ALL_SITE | SERVICE_WORKERS,
+        "cache" => CACHE_STORAGE | DISK_CACHE,
+        "downloads" => DOWNLOAD_HISTORY,
+        "autofill" => GENERAL_AUTOFILL,
+        "passwords" => PASSWORD_AUTOSAVE,
+        "siteSettings" => SETTINGS,
+        _ => 0,
+    }
+}
+
+#[tauri::command]
+pub async fn btab_clear_data(
+    app: AppHandle,
+    kinds: Vec<String>,
+    since: Option<f64>,
+) -> Result<(), String> {
+    let mask = kinds.iter().fold(0, |acc, k| acc | wipe_mask(k));
+    if mask == 0 {
+        return Err("nothing was selected to clear".into());
+    }
+    let (_, wv) = app
+        .webview_windows()
+        .into_iter()
+        .find(|(name, _)| name.starts_with("btab-"))
+        .ok_or("no browser tab is open")?;
+    let (tx, rx) = mpsc::channel::<Result<(), String>>();
+    let done = tx.clone();
+    let sent = wv.with_webview(move |platform| unsafe {
+        let Ok(core) = platform.controller().CoreWebView2() else {
+            let _ = done.send(Err("the page's webview is gone".into()));
+            return;
+        };
+        let core13: webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_13 = match core.cast() {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = done.send(Err(format!("{e}")));
+                return;
+            }
+        };
+        let Ok(profile) = core13.Profile() else {
+            let _ = done.send(Err("profile unavailable".into()));
+            return;
+        };
+        let p2: webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Profile2 = match profile.cast() {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = done.send(Err(format!("{e}")));
+                return;
+            }
+        };
+        let mask = webview2_com::Microsoft::Web::WebView2::Win32::COREWEBVIEW2_BROWSING_DATA_KINDS(mask);
+        let handler_done = done.clone();
+        let handler = webview2_com::ClearBrowsingDataCompletedHandler::create(Box::new(move |hr| {
+            let _ = match hr {
+                Ok(()) => handler_done.send(Ok(())),
+                Err(e) => handler_done.send(Err(format!("{e}"))),
+            };
+            Ok(())
+        }));
+        let result = match since {
+            // A range: from `since` to now, in unix seconds.
+            Some(start) => {
+                let end = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs_f64())
+                    .unwrap_or(start);
+                p2.ClearBrowsingDataInTimeRange(mask, start, end, &handler)
+            }
+            None => p2.ClearBrowsingData(mask, &handler),
+        };
+        if let Err(e) = result {
+            let _ = done.send(Err(format!("{e}")));
+        }
+    });
+    sent.map_err(|e| format!("with_webview: {e}"))?;
+    match rx.recv_timeout(Duration::from_secs(30)) {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(e)) => Err(e),
+        Err(_) => Err("clearing browsing data timed out".into()),
+    }
+}
+
+// --- downloads (slice 3.3d) -------------------------------------------------
+
+// Ask where to save: false writes the file straight into the profile's
+// download folder without the runtime's own UI; true leaves the runtime UI
+// in place, which is where a save prompt can appear. Default matches the
+// reference and the platform: off.
+fn ask_where() -> &'static Mutex<bool> {
+    static ASK: OnceLock<Mutex<bool>> = OnceLock::new();
+    ASK.get_or_init(|| Mutex::new(false))
+}
+
+// The profile's download folder. An empty string is the platform's answer
+// for "the system Downloads folder", which is exactly what the settings row
+// shows in that case.
+#[tauri::command]
+pub async fn btab_download_dir(app: AppHandle) -> Result<String, String> {
+    let (_, wv) = app
+        .webview_windows()
+        .into_iter()
+        .find(|(name, _)| name.starts_with("btab-"))
+        .ok_or("no browser tab is open")?;
+    let (tx, rx) = mpsc::channel::<Result<String, String>>();
+    let done = tx.clone();
+    let sent = wv.with_webview(move |platform| unsafe {
+        let Ok(core) = platform.controller().CoreWebView2() else {
+            let _ = done.send(Err("the page's webview is gone".into()));
+            return;
+        };
+        let core13: webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_13 = match core.cast() {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = done.send(Err(format!("{e}")));
+                return;
+            }
+        };
+        let Ok(profile) = core13.Profile() else {
+            let _ = done.send(Err("profile unavailable".into()));
+            return;
+        };
+        let mut value = windows::core::PWSTR::null();
+        match profile.DefaultDownloadFolderPath(&mut value) {
+            Ok(()) => {
+                let _ = done.send(Ok(take_pwstr(value)));
+            }
+            Err(e) => {
+                let _ = done.send(Err(format!("{e}")));
+            }
+        }
+    });
+    sent.map_err(|e| format!("with_webview: {e}"))?;
+    match rx.recv_timeout(Duration::from_secs(10)) {
+        Ok(Ok(path)) => Ok(path),
+        Ok(Err(e)) => Err(e),
+        Err(_) => Err("reading the download folder timed out".into()),
+    }
+}
+
+// Point the shared profile at another folder. An empty path hands it back to
+// the platform default. Applied to every live tab and remembered for the
+// ones created later.
+#[tauri::command]
+pub async fn btab_set_download_dir(app: AppHandle, path: String) -> Result<(), String> {
+    let wide: Vec<u16> = path.encode_utf16().chain(std::iter::once(0)).collect();
+    for (name, wv) in app.webview_windows() {
+        if !name.starts_with("btab-") {
+            continue;
+        }
+        let wide = wide.clone();
+        let _ = wv.with_webview(move |platform| unsafe {
+            let Ok(core) = platform.controller().CoreWebView2() else {
+                return;
+            };
+            let Ok(core13) = core.cast::<webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_13>() else {
+                return;
+            };
+            let Ok(profile) = core13.Profile() else {
+                return;
+            };
+            let _ = profile.SetDefaultDownloadFolderPath(windows::core::PCWSTR(wide.as_ptr()));
+        });
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn btab_set_ask_download(ask: bool) -> Result<(), String> {
+    *ask_where().lock().unwrap() = ask;
+    Ok(())
+}
+
+// Hand a downloaded file to the system (the row menu's Open), and show it in
+// Explorer (Show in folder). Both refuse anything that is not an absolute
+// path, so a stray string cannot turn into a command.
+fn check_path(path: &str) -> Result<(), String> {
+    let looks_absolute = path.starts_with("\\\\") || (path.len() > 2 && path.as_bytes()[1] == b':');
+    if !looks_absolute || path.contains('"') {
+        return Err("that is not an absolute Windows path".into());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn btab_open_path(path: String) -> Result<(), String> {
+    check_path(&path)?;
+    use std::os::windows::process::CommandExt;
+    std::process::Command::new("cmd")
+        .args(["/C", "start", "", &path])
+        .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("open path: {e}"))
+}
+
+#[tauri::command]
+pub async fn btab_reveal_path(path: String) -> Result<(), String> {
+    check_path(&path)?;
+    use std::os::windows::process::CommandExt;
+    std::process::Command::new("explorer")
+        .arg(format!("/select,{path}"))
+        .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("reveal path: {e}"))
+}
+
+// Every tab reports its downloads: the start (source, destination, expected
+// size) and the outcome, so Settings ▸ Browser ▸ Download history can show
+// what happened. The UI receives "btab://download" and writes the row
+// through the daemon (the shell never talks to the store itself).
+fn attach_download_handler(app: &AppHandle, id: &str) {
+    let Some(wv) = app.get_webview(label(id).as_str()) else {
+        return;
+    };
+    let emitter = app.clone();
+    let _ = wv.with_webview(move |platform| unsafe {
+        let Ok(core) = platform.controller().CoreWebView2() else {
+            return;
+        };
+        // DownloadStarting lives on the _4 interface, not the base one.
+        let Ok(core4) = core.cast::<webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_4>() else {
+            return;
+        };
+        let started = emitter.clone();
+        let handler = DownloadStartingEventHandler::create(Box::new(move |_, args| {
+            let Some(args) = args else {
+                return Ok(());
+            };
+            let ask = *ask_where().lock().unwrap();
+            // Silent save into the profile's folder unless the user asked to
+            // be asked; with the runtime UI left in place the download can be
+            // renamed or moved before it starts.
+            let _ = args.SetHandled(!ask);
+            let Ok(op) = args.DownloadOperation() else {
+                return Ok(());
+            };
+            let url = {
+                let mut value = windows::core::PWSTR::null();
+                if op.Uri(&mut value).is_ok() {
+                    take_pwstr(value)
+                } else {
+                    String::new()
+                }
+            };
+            let path = {
+                let mut value = windows::core::PWSTR::null();
+                if op.ResultFilePath(&mut value).is_ok() {
+                    take_pwstr(value)
+                } else {
+                    String::new()
+                }
+            };
+            let mut total: i64 = 0;
+            let _ = op.TotalBytesToReceive(&mut total);
+            let _ = started.emit(
+                "btab://download",
+                serde_json::json!({
+                    "status": "started",
+                    "url": url,
+                    "path": path,
+                    "total": total,
+                }),
+            );
+            // The outcome rides the same event, matched by destination path.
+            let done = started.clone();
+            let state_handler = StateChangedEventHandler::create(Box::new(move |op, _| {
+                let Some(op) = op else {
+                    return Ok(());
+                };
+                let mut state = COREWEBVIEW2_DOWNLOAD_STATE(0);
+                if op.State(&mut state).is_err() {
+                    return Ok(());
+                }
+                let status = if state.0 == COREWEBVIEW2_DOWNLOAD_STATE_COMPLETED.0 {
+                    "completed"
+                } else if state.0 == COREWEBVIEW2_DOWNLOAD_STATE_INTERRUPTED.0 {
+                    "interrupted"
+                } else {
+                    return Ok(());
+                };
+                let path = {
+                    let mut value = windows::core::PWSTR::null();
+                    if op.ResultFilePath(&mut value).is_ok() {
+                        take_pwstr(value)
+                    } else {
+                        String::new()
+                    }
+                };
+                let mut received: i64 = 0;
+                let _ = op.BytesReceived(&mut received);
+                let _ = done.emit(
+                    "btab://download",
+                    serde_json::json!({
+                        "status": status,
+                        "path": path,
+                        "received": received,
+                    }),
+                );
+                Ok(())
+            }));
+            let mut token: i64 = 0;
+            let _ = op.add_StateChanged(&state_handler, &mut token);
+            Ok(())
+        }));
+        let mut token: i64 = 0;
+        let _ = core4.add_DownloadStarting(&handler, &mut token);
+    });
 }

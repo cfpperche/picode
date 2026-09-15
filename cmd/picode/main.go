@@ -553,11 +553,15 @@ func serve() {
 	go func() { defer close(hookDone); hooks.Loop(hookCtx) }()
 	defer func() { hookCancel(); <-hookDone }()
 
+	// tmux (ADR-0139): this instance's sessions live on their own socket in
+	// the data dir; the default-socket Manager rides along as the drain for
+	// sessions created before the move, and disappears when they all end.
+	tm := tmux.NewWithSocket(filepath.Join(dataDir, "tmux.sock")).WithLegacy(tmux.New())
 	deps := server.Deps{
 		Webhooks: hooks,
 		Store:    st,
 		Auth:     gate,
-		Tmux:     tmux.New(),
+		Tmux:     tm,
 		Runtime:  runtime,
 		AgentCmd: "pi", // ADR-0003: user-installed pi
 		DataDir:  dataDir,
@@ -607,6 +611,12 @@ func serve() {
 	// against the live pane process and reconciles sessions created before
 	// runId reporting existed. It never infers activity from pane pixels.
 	go server.StartTermRuntimeWatch(backupCtx, deps, 3*time.Second)
+
+	// tmux server watch (plan tmux-resilience, ADR-0138 follow-up): the
+	// daemon can outlive the tmux server, and on 2026-09-15 the loss was
+	// silent until the next boot. One probe per tick records a lost or
+	// recovered server in the journal and the feed while it happens.
+	go server.StartTmuxServerWatch(backupCtx, deps, 15*time.Second)
 
 	// Package updates watcher (ADR-0048 follow-up): one scan set per tick
 	// for the whole fleet, published as packages.updates only when a

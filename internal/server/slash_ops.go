@@ -138,7 +138,7 @@ func handleCustomProviderPut(w http.ResponseWriter, r *http.Request) {
 		// Only the keys the form manages are writable; unknown hand-set keys
 		// survive. A missing object leaves an existing compat block untouched.
 		def.Compat = map[string]bool{}
-		for _, k := range []string{"supportsDeveloperRole", "supportsReasoningEffort"} {
+		for _, k := range []string{"supportsDeveloperRole", "supportsReasoningEffort", "supportsUsageInStreaming"} {
 			if v, ok := req.Compat[k]; ok {
 				def.Compat[k] = v
 			}

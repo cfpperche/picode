@@ -97,12 +97,53 @@ the record could not be written (the session is gone either way). The
 renderer: the action returns the refreshed view it replaced, and no other
 surface consumed it.
 
+## Runtime loss detection (2026-09-15)
+
+`ServerInfo.Running` is the liveness probe, and a daemon-side watch
+(`internal/server/tmux_watch.go`, `StartTmuxServerWatch`, 15 s) reads it once
+per tick. During a socket drain (ADR-0139) the Manager reports running when
+either server answers and the session list merges both, so a legacy server
+dying with sessions at stake is recorded the same way as a primary one. The
+boot diff above only runs at boot, so on 2026-09-15 a server
+death under a live daemon — the third incident in ten days — was invisible
+until hours later; the watcher closes that window while it is happening:
+
+| Previous tick | This tick | Condition | Action |
+|---|---|---|---|
+| running | absent | sessions > 0 | `terminal.server_lost` (count, socket, last-seen) + journal line |
+| running | absent | sessions == 0 | nothing — normal `exit-empty` |
+| absent | running | — | `terminal.server_back` + journal line |
+| running | running | drop ≥ 5 | journal line only (mass closes are also a user action) |
+
+The session count is the last known value while the server answered: a
+listing that fails carries the previous number forward, so one failed read
+cannot fake a loss. Events go through `Store.AppendEvent` (ADR-0048), so the
+change feed carries them; a server that restarts between two ticks is caught
+by the drop line rather than the transitions.
+
 ## Host growth (ADR-0109's sanctioned direction)
 
 `apps.Host` gains `Tmux TmuxServer` (an interface over the manager's read +
 kill methods, so tests script the server instead of spawning one) and
 `LostSessions map[string]bool` (ADR-0085's boot diff). The app never imports
 `internal/server`.
+
+## Sockets (ADR-0139 follow-up, 2026-09-15)
+
+A third tab answers the operator question the dedicated socket created:
+which tmux servers exist on this machine, what lives on each, and where new
+sessions land. `Manager.MachineSockets` lists every socket file in the user's
+tmux directory (the default socket and every `-L` name) plus this instance's
+own `-S` path; a socket somewhere else is undiscoverable by design (there is
+no registry), and the block says so. Liveness is a plain unix-socket dial —
+never a tmux client, which would start a transient server on a dead socket
+just to report it dead. Counts come from one `list-sessions` on the live
+ones; the `picode-` prefix is the cheap name hint, the same one the
+inventory uses.
+
+Rows: name (`· this instance` for ours), badge running / no server, the
+subtitle `N session(s) · M PiCode`, and the socket path in the meta strip.
+The tab badge is the number of running servers.
 
 ## What the app does not do
 

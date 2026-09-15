@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"context"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -44,6 +45,7 @@ func TestCLITerminalCreationAnnouncesItsIdentityOnTheFeed(t *testing.T) {
 		t.Fatalf("creation: %v", created)
 	}
 	killFixture(t, id)
+	waitFixtureSession(t, id)
 
 	announced := waitForTerminalFrame(t, stream, id)
 	if !strings.Contains(announced, `"launchCli":"muse"`) {
@@ -143,7 +145,42 @@ func waitForTerminalFrame(t *testing.T, stream *sseStream, id string) string {
 	return ""
 }
 
+// waitFixtureSession polls until the launched pane exists. Creation answers
+// before tmux has the session, so a cleanup that runs first finds nothing and
+// the session appears afterwards — in the shared tmux server, where the
+// owner's sidebar would list it.
+func waitFixtureSession(t *testing.T, id string) {
+	t.Helper()
+	name := tmux.ShellSessionName(id)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	for i := 0; i < 100; i++ {
+		if has, err := tmux.New().HasSession(ctx, name); err == nil && has {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("tmux session %s never appeared", name)
+}
+
+// killFixture removes the terminal's tmux session when the test ends. The
+// context is its own: t.Context() is canceled before cleanup functions run,
+// and a canceled context made every tmux call fail — which is how these
+// fixtures used to leak into the shared tmux server.
 func killFixture(t *testing.T, id string) {
 	t.Helper()
-	t.Cleanup(func() { _ = tmux.New().KillSession(t.Context(), tmux.ShellSessionName(id)) })
+	name := tmux.ShellSessionName(id)
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		for i := 0; i < 100; i++ {
+			_ = tmux.New().KillSession(ctx, name)
+			has, err := tmux.New().HasSession(ctx, name)
+			if err != nil || !has {
+				return
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		t.Errorf("tmux session %s survived the cleanup", name)
+	})
 }

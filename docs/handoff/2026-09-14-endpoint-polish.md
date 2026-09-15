@@ -35,4 +35,4 @@ visual-card: 1 yes · 2 yes · 3 yes · 4 no · 5 yes (5/5)
 
 ## Debts
 
-- Built-in Verify still answers from credential presence.
+(kept in `open/providers-custom.md` — duplicate pruned 2026-09-15 to hold the board budget)

@@ -65,7 +65,7 @@ func TestCustomProviderLifecycle(t *testing.T) {
 	status, body := req(http.MethodPut, "/api/providers/custom/cheaperinference", `{
 		"baseUrl": "https://api.cheaperinference.com/v1",
 		"api": "openai-completions",
-		"compat": {"supportsDeveloperRole": false, "supportsReasoningEffort": false},
+		"compat": {"supportsDeveloperRole": false, "supportsReasoningEffort": false, "supportsUsageInStreaming": true},
 		"models": [{"id": "gpt-5.4", "contextWindow": 400000, "maxTokens": 32000}],
 		"key": "ci_live_secret123"
 	}`)
@@ -75,6 +75,9 @@ func TestCustomProviderLifecycle(t *testing.T) {
 	modelsJSON := readHomeFile(t, home, ".pi/agent/models.json")
 	if !strings.Contains(modelsJSON, "api.cheaperinference.com") {
 		t.Fatalf("definition missing: %s", modelsJSON)
+	}
+	if !strings.Contains(modelsJSON, `"supportsUsageInStreaming": true`) {
+		t.Fatalf("streaming compat missing: %s", modelsJSON)
 	}
 	if strings.Contains(modelsJSON, "ci_live_secret123") {
 		t.Fatal("key leaked into models.json")

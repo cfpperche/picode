@@ -454,6 +454,7 @@ func ensureShell(deps Deps, r *http.Request, name, termID, cwd string) error {
 		}
 		// Wrappers live in <data>/bin and are only visible inside this
 		// session (ADR-0056 intercept). Empty when nothing is enabled.
+		ensureTmuxGuard(deps.DataDir) // ADR-0138: an upgrade or clean-up must not leave new sessions unguarded.
 		if p := interceptSessionPath(deps.DataDir); p != "" {
 			env = append(env, p)
 		}

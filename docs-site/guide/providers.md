@@ -33,21 +33,22 @@ the last live account cannot be paused — that is **Sign out**.
 Sign out says what it breaks: the confirm names the agents and automations
 configured on that provider.
 
-## Custom endpoint
+## Custom provider
 
-**Add provider → Custom endpoint** adds a gateway pi does not know out of
-the box — OpenRouter-style aggregators, prepaid wallets, self-hosted routers. The form
-asks for a name, the base URL, the API key and the model ids exactly as the
-gateway spells them.
+**Add provider → Custom provider** opens a page that adds a gateway pi
+does not know out of the box — OpenRouter-style aggregators, prepaid wallets,
+self-hosted routers. The form asks for a name, the base URL, the API key and
+the model ids exactly as the gateway spells them. Use lowercase letters,
+digits and dashes for the name — it becomes the provider id.
 
 | Field | Goes to |
 |---|---|
 | Name, Base URL, API type, models, Advanced | `~/.pi/agent/models.json` — pi's own provider definitions |
 | API key | `~/.pi/agent/auth.json` — the same file as every other sign-in |
 
-The key is never written into the definition. **Edit endpoint** reopens the
+The key is never written into the definition. **Edit provider** reopens the
 form (a blank key keeps the saved one); **Sign out** removes the key and
-keeps the definition; **Remove endpoint** deletes both, naming what still
+keeps the definition; **Remove provider** deletes both, naming what still
 uses the provider. Hand-edited `models.json` entries are preserved: PiCode
 merges by name and never touches providers it does not own. Overriding a
 built-in provider's URL is not offered here.

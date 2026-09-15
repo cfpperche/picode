@@ -32,6 +32,7 @@ func registerBrowserRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/browser/tool", handleBrowserTool(deps))
 	registerBrowserPolicyRoutes(mux, deps)
 	registerBrowserHistoryRoutes(mux, deps)
+	registerBrowserDownloadRoutes(mux, deps)
 	registerBrowserPrefRoutes(mux, deps)
 }
 
@@ -70,6 +71,10 @@ func handleBrowserTool(deps Deps) http.HandlerFunc {
 				writeErr(w, http.StatusBadRequest, "params must be an object: "+err.Error())
 				return
 			}
+		}
+		if !browserAgentAccess(deps.Store) {
+			writeErr(w, http.StatusForbidden, "agents may not use the built-in browser right now — turn it back on in Settings ▸ Browser")
+			return
 		}
 		policy := browser.Resolve(deps.Store, req.Agent)
 		if !policy.Allows(verb) {
