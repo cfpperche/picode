@@ -1,0 +1,3 @@
+### Fixed
+
+- A terminal's folder is right from its first instant, for every reader. `#{pane_current_path}` answers with the tmux *server's* directory — the daemon's own working folder — for a pane tmux has not polled yet (`#{pane_pid}` is already set while it does: 33 of 40 creations in a loop), so anything reading a terminal's cwd in that window saw the wrong folder: the creation response, the file reader that resolves a relative path (`GET /api/terminals/{id}/text`, which answered 404 once under a sharded CI run), the Inspector's root. The tmux manager now remembers the folder it created each session in and answers with it for the first seconds, then follows the shell again.

@@ -4,6 +4,7 @@ import App from "./App.jsx";
 import PairingScreen from "./components/PairingScreen.jsx";
 import { consoleEgg } from "./lib/consoleEgg.js";
 import { installHashGuard } from "./lib/hashGuard.js";
+import { installShellExternalLinks } from "./lib/externalLinks.js";
 
 // The one boot path for both entries (ADR-0122): /browser/ renders it plain,
 // /desktop/ renders it with the shell chrome on. No StrictMode: xterm and
@@ -12,6 +13,10 @@ export function boot(rootEl, { shellChrome = false } = {}) {
   window.__picodeOverlayAudit = overlayAudit;
   consoleEgg();
   installHashGuard();
+  // The shell has no second window: without this, every _blank link and
+  // window.open (Documentation first among them) is a dead click there. The
+  // bridge self-gates on the Tauri invoke, so a real browser pays nothing.
+  installShellExternalLinks({ window, document });
   createRoot(rootEl).render(<App shellChrome={shellChrome} />);
 
   // The pairing screen (ADR-0049) lives in its own root: whatever the shell
