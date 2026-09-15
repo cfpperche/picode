@@ -26,7 +26,7 @@ func prefsServer(t *testing.T) *httptest.Server {
 
 func TestPrefsDestinationsRoundTrip(t *testing.T) {
 	ts := prefsServer(t)
-	put, _ := json.Marshal(map[string]any{"showFullUrl": true, "webOpenDest": "external", "localOpenDest": "app", "passwordAutosave": false, "generalAutofill": false})
+	put, _ := json.Marshal(map[string]any{"showFullUrl": true, "webOpenDest": "external", "localOpenDest": "app", "passwordAutosave": false, "generalAutofill": false, "agentAccess": false})
 	resp, err := http.NewRequest(http.MethodPut, ts.URL+"/api/browser/prefs", bytes.NewReader(put))
 	if err != nil {
 		t.Fatal(err)
@@ -50,7 +50,10 @@ func TestPrefsDestinationsRoundTrip(t *testing.T) {
 	if body["passwordAutosave"] != false || body["generalAutofill"] != false {
 		t.Fatalf("autofill prefs did not round trip: %v", body)
 	}
-	bad, _ := json.Marshal(map[string]any{"showFullUrl": true, "webOpenDest": "printer", "localOpenDest": "app", "passwordAutosave": true, "generalAutofill": true})
+	if body["agentAccess"] != false {
+		t.Fatalf("the master switch did not round trip: %v", body)
+	}
+	bad, _ := json.Marshal(map[string]any{"showFullUrl": true, "webOpenDest": "printer", "localOpenDest": "app", "passwordAutosave": true, "generalAutofill": true, "agentAccess": true})
 	badResp, err := http.DefaultClient.Do(mustRequest(http.MethodPut, ts.URL+"/api/browser/prefs", bad))
 	if err != nil {
 		t.Fatal(err)
@@ -65,4 +68,28 @@ func mustRequest(method, url string, body []byte) *http.Request {
 	req, _ := http.NewRequest(method, url, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	return req
+}
+
+// The master switch defaults on and only an explicit "0" turns it off —
+// an unreadable setting must not silently cut agents off the browser.
+func TestBrowserAgentAccess(t *testing.T) {
+	st := newTestStore(t)
+	if !browserAgentAccess(st) {
+		t.Fatal("a fresh store must leave agent access on")
+	}
+	if err := st.SetSetting("browser.agentAccess", "1"); err != nil {
+		t.Fatal(err)
+	}
+	if !browserAgentAccess(st) {
+		t.Fatal("agent access must stay on while the setting is 1")
+	}
+	if err := st.SetSetting("browser.agentAccess", "0"); err != nil {
+		t.Fatal(err)
+	}
+	if browserAgentAccess(st) {
+		t.Fatal("agent access must read off while the setting is 0")
+	}
+	if !browserAgentAccess(nil) {
+		t.Fatal("a nil store must leave agent access on")
+	}
 }
