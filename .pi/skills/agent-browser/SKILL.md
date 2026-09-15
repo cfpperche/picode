@@ -67,6 +67,10 @@ into the same path, then `eval location.reload()`).
 - Other sessions restart production and kill processes by name; a scratch
   daemon that dies mid-run was probably hit — check `journalctl --user -u
   picode` before blaming the code.
+- Terminals a scratch launches live in that instance's own tmux server
+  (`-S <worktree>/var/qa/<name>/data/tmux.sock`, ADR-0139), not the owner's:
+  pass `-S <that socket>` to every tmux command that should see them;
+  without it `tmux ls` shows the owner's sessions and none of the scratch's.
 - The docs fixture (`make fixture`, :18740) seeds a dirty git repo on
   purpose; never `git checkout -- .` inside it.
 

@@ -120,10 +120,21 @@ type Manager struct {
 	// exec runs the tmux binary. Tests script it to reproduce what a live
 	// server cannot on demand: the client that lost the first-server race.
 	exec func(ctx context.Context, stdin string, args ...string) ([]byte, error)
+	// socket is the -S path every command carries (ADR-0139); empty keeps
+	// tmux's default socket, which is what every pre-migration caller and
+	// test uses.
+	socket string
+	// legacy is the drain's second server (ADR-0139): sessions created
+	// before the socket move live there until they end. Nil outside a drain.
+	legacy *Manager
 }
 
-// New returns a Manager.
+// New returns a Manager on tmux's default socket.
 func New() *Manager { return &Manager{exec: execTmux} }
+
+// NewWithSocket returns a Manager whose every command carries -S path, so
+// this instance's sessions live on their own server (ADR-0139).
+func NewWithSocket(path string) *Manager { return &Manager{exec: execTmux, socket: path} }
 
 func execTmux(ctx context.Context, stdin string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "tmux", args...)
@@ -198,10 +209,14 @@ func (m *Manager) run(ctx context.Context, args ...string) (string, error) {
 }
 
 // runStdin feeds stdin to tmux (load-buffer reads the buffer content from it).
+// The socket flag lives here, the one path every command takes.
 func (m *Manager) runStdin(ctx context.Context, stdin string, args ...string) (string, error) {
 	execFn := m.exec
 	if execFn == nil {
 		execFn = execTmux
+	}
+	if m.socket != "" {
+		args = append([]string{"-S", m.socket}, args...)
 	}
 	out, err := execFn(ctx, stdin, args...)
 	if err != nil {
@@ -238,7 +253,7 @@ func (m *Manager) runStartup(ctx context.Context, args ...string) (string, error
 // HasSession reports whether a tmux session with the given name exists.
 // The "=" prefix forces exact-name matching so dots in names can't be
 // parsed as session.window targets.
-func (m *Manager) HasSession(ctx context.Context, name string) (bool, error) {
+func (m *Manager) hasSession(ctx context.Context, name string) (bool, error) {
 	out, err := m.runStartup(ctx, "has-session", "-t", "="+name)
 	if err == nil {
 		return true, nil
@@ -305,7 +320,7 @@ func (m *Manager) NewSessionEnvSize(ctx context.Context, name, cwd string, width
 // without destroying the tmux session or detaching its browser client. tmux's
 // respawn-pane accepts one shell-command string, so every argv element is
 // POSIX-shell quoted before it crosses that boundary.
-func (m *Manager) RespawnPaneEnv(ctx context.Context, name, cwd string, extraEnv []string, command string, args ...string) error {
+func (m *Manager) respawnPaneEnv(ctx context.Context, name, cwd string, extraEnv []string, command string, args ...string) error {
 	if exists, err := m.HasSession(ctx, name); err != nil {
 		return err
 	} else if !exists {
@@ -347,20 +362,20 @@ func (m *Manager) EnsureExtendedKeys(ctx context.Context) error {
 }
 
 // SetEnv sets a session environment variable (tmux set-environment).
-func (m *Manager) SetEnv(ctx context.Context, name, key, value string) error {
+func (m *Manager) setEnv(ctx context.Context, name, key, value string) error {
 	_, err := m.run(ctx, "set-environment", "-t", name+":", key, value)
 	return err
 }
 
 // SetOption sets a session option (e.g. status off on project shells).
-func (m *Manager) SetOption(ctx context.Context, name, key, value string) error {
+func (m *Manager) setOption(ctx context.Context, name, key, value string) error {
 	// set-option treats "=" as a pane name (same as send-keys); use "name:".
 	_, err := m.run(ctx, "set-option", "-t", name+":", key, value)
 	return err
 }
 
 // KillSession terminates the session. Killing a missing session is a no-op.
-func (m *Manager) KillSession(ctx context.Context, name string) error {
+func (m *Manager) killSession(ctx context.Context, name string) error {
 	exists, err := m.HasSession(ctx, name)
 	if err != nil {
 		return err
@@ -373,7 +388,7 @@ func (m *Manager) KillSession(ctx context.Context, name string) error {
 }
 
 // ListSessions returns PiCode-owned tmux sessions (prefix filter).
-func (m *Manager) ListSessions(ctx context.Context) ([]Session, error) {
+func (m *Manager) listSessions(ctx context.Context) ([]Session, error) {
 	out, err := m.run(ctx, "list-sessions", "-F",
 		"#{session_name}\t#{session_created}\t#{session_attached}\t#{session_windows}")
 	if err != nil {
@@ -408,7 +423,7 @@ func (m *Manager) ListSessions(ctx context.Context) ([]Session, error) {
 // SendKeys types into the session's current pane (used to drive `/login` — ADR-0009).
 // Target is "name:" (session), not "=name" — send-keys treats "=" as an exact
 // pane name, which is why `/login` was alerting "can't find pane".
-func (m *Manager) SendKeys(ctx context.Context, name string, keys ...string) error {
+func (m *Manager) sendKeys(ctx context.Context, name string, keys ...string) error {
 	if len(keys) == 0 {
 		return nil
 	}
@@ -420,7 +435,7 @@ func (m *Manager) SendKeys(ctx context.Context, name string, keys ...string) err
 // TypeText types text into the session's pane as literal keystrokes — no key
 // names, no Enter (ADR-0078): the rail pre-fills a command that the human
 // reads and submits in a terminal they can see.
-func (m *Manager) TypeText(ctx context.Context, name, text string) error {
+func (m *Manager) typeText(ctx context.Context, name, text string) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("tmux type: empty session name")
 	}
@@ -450,7 +465,7 @@ func (m *Manager) TypeText(ctx context.Context, name, text string) error {
 //
 // Callers must already have established that the pane sits at a shell prompt;
 // this sends no signal and interrupts nothing.
-func (m *Manager) ClearLine(ctx context.Context, name string) error {
+func (m *Manager) clearLine(ctx context.Context, name string) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("tmux clear-line: empty session name")
 	}
@@ -462,7 +477,7 @@ func (m *Manager) ClearLine(ctx context.Context, name string) error {
 // (ADR-0060 reply fallback): the target editor inserts it wholesale, so no
 // keybinding fires and newlines stay literal, then presses Enter to submit.
 // A named buffer keeps the user's own copy buffer untouched.
-func (m *Manager) PasteText(ctx context.Context, name, text string) error {
+func (m *Manager) pasteText(ctx context.Context, name, text string) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("tmux paste: empty session name")
 	}
@@ -481,7 +496,7 @@ func (m *Manager) PasteText(ctx context.Context, name, text string) error {
 }
 
 // PaneCommand returns tmux's current command name for the active pane.
-func (m *Manager) PaneCommand(ctx context.Context, name string) (string, error) {
+func (m *Manager) paneCommand(ctx context.Context, name string) (string, error) {
 	out, err := m.run(ctx, "display-message", "-p", "-t", name+":", "#{pane_current_command}")
 	if err != nil {
 		return "", err
@@ -496,7 +511,7 @@ func (m *Manager) PaneCommand(ctx context.Context, name string) (string, error) 
 // PanePID returns the PID of the first process in the active pane. It is a
 // reconciliation hint only; a runtime wrapper supplies the stronger process
 // start token used to reject PID reuse.
-func (m *Manager) PanePID(ctx context.Context, name string) (int, error) {
+func (m *Manager) panePID(ctx context.Context, name string) (int, error) {
 	out, err := m.run(ctx, "display-message", "-p", "-t", name+":", "#{pane_pid}")
 	if err != nil {
 		return 0, err
@@ -511,13 +526,13 @@ func (m *Manager) PanePID(ctx context.Context, name string) (int, error) {
 // PaneSessionID returns tmux's immutable session identity (for example $12).
 // Unlike the name, it proves a pane respawn did not kill and recreate the
 // terminal container.
-func (m *Manager) PaneSessionID(ctx context.Context, name string) (string, error) {
+func (m *Manager) paneSessionID(ctx context.Context, name string) (string, error) {
 	out, err := m.run(ctx, "display-message", "-p", "-t", name+":", "#{session_id}")
 	return strings.TrimSpace(out), err
 }
 
 // PaneCwd returns the current pane's working directory (#{pane_current_path}).
-func (m *Manager) PaneCwd(ctx context.Context, name string) (string, error) {
+func (m *Manager) paneCwd(ctx context.Context, name string) (string, error) {
 	out, err := m.run(ctx, "display-message", "-p", "-t", name+":", "#{pane_current_path}")
 	if err != nil {
 		return "", err
@@ -532,7 +547,7 @@ func (m *Manager) PaneCwd(ctx context.Context, name string) (string, error) {
 // CaptureTail returns the last n lines of the session's active pane
 // (tmux capture-pane -p). Used to read the pi TUI's own state, e.g. its
 // "Working…" spinner when the agent is driven from the terminal.
-func (m *Manager) CaptureTail(ctx context.Context, name string, n int) (string, error) {
+func (m *Manager) captureTail(ctx context.Context, name string, n int) (string, error) {
 	if n <= 0 {
 		n = 8
 	}
@@ -593,7 +608,7 @@ func (m *Manager) ExtendedKeysFormat(ctx context.Context) (string, error) {
 // ListOwned returns every PiCode-owned session with its pane facts
 // (ADR-0085 flight recorder). A server that is not running yields an empty
 // list, never an error.
-func (m *Manager) ListOwned(ctx context.Context) ([]OwnedSession, error) {
+func (m *Manager) listOwned(ctx context.Context) ([]OwnedSession, error) {
 	out, err := m.run(ctx, "list-panes", "-a", "-F",
 		"#{session_name}\t#{pane_pid}\t#{pane_current_command}\t#{session_attached}\t#{pane_current_path}")
 	if err != nil {

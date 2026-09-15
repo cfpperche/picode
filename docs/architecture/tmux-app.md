@@ -101,7 +101,10 @@ surface consumed it.
 
 `ServerInfo.Running` is the liveness probe, and a daemon-side watch
 (`internal/server/tmux_watch.go`, `StartTmuxServerWatch`, 15 s) reads it once
-per tick. The boot diff above only runs at boot, so on 2026-09-15 a server
+per tick. During a socket drain (ADR-0139) the Manager reports running when
+either server answers and the session list merges both, so a legacy server
+dying with sessions at stake is recorded the same way as a primary one. The
+boot diff above only runs at boot, so on 2026-09-15 a server
 death under a live daemon — the third incident in ten days — was invisible
 until hours later; the watcher closes that window while it is happening:
 

@@ -283,10 +283,27 @@ applies to terminals opened from now on. If you are debugging and need raw
 tmux semantics, the same switch (or
 `POST /api/terminals/wiring/tmux-guard/disable`) turns the guard off.
 
+## Where PiCode's terminals live
+
+PiCode runs its own tmux server, one per instance, on a socket inside the
+data directory: `~/.picode/tmux.sock`. Your personal tmux stays on tmux's
+default socket, so the two can never take each other down — a `kill-server`
+on one side leaves the other running. To attach from your own shell:
+
+```bash
+tmux -S ~/.picode/tmux.sock attach -t picode-…   # ls, capture-pane, … all take -S
+tmux attach -t picode-…                          # your own server: not where they live
+```
+
+Terminals created before this change keep running on the old, shared
+socket until they end or you restart them — the daemon follows both while
+that lasts, and the terminal list shows them side by side.
+
 If you build scripts that create scratch tmux servers, do **not** rely on
 `TMUX_TMPDIR` alone: when a command runs inside an existing tmux session,
 `$TMUX` wins and the command talks to that session's server regardless of
-`TMUX_TMPDIR`. Use `tmux -L <name>` for scratch servers, and exact session
+`TMUX_TMPDIR`. Use an explicit socket (`tmux -S <path>` or `tmux -L <name>`)
+for scratch servers, and exact session
 names for cleanup.
 
 ## Control a terminal

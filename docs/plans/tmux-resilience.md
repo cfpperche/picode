@@ -77,7 +77,7 @@ failed-toggle states read, overlay audit `ok`, state survives reload, plus
 an end-to-end run of `kill-server` refused inside a seeded scratch
 terminal.
 
-### Phase 4 — dedicated socket for managed sessions (branch `feat/tmux-socket`)
+### Phase 4 — dedicated socket for managed sessions (landed: branch `feat/tmux-socket`, ADR-0139)
 
 The ADR-0138 alternative, now with a measured target: managed sessions move
 to `tmux -L picode` (data-dir scoped name), so a raw `/usr/bin/tmux
@@ -97,6 +97,17 @@ its own ADR before code:
   shell) breaks deliberately: docs-site documents the socket flag.
 - Acceptance: kill-server on the default socket leaves PiCode terminals
   alive; closing a PiCode terminal leaves the user's sessions alive.
+
+Landed as ADR-0139 with two refinements against this sketch: the socket is a
+**path** (`-S <dataDir>/tmux.sock`) instead of `-L picode`, so two instances
+(production + scratch) can never share a server; and the drain lives inside
+`tmux.Manager` (a legacy fallback Manager + merged reads) instead of a new
+router type, keeping `Deps.Tmux` and its ~120 call sites unchanged. The
+guard wrapper needed no socket code: in-pane probes inherit `$TMUX`, which
+names the pane's own server (verified via `/proc/<pane>/environ` on a
+scratch). Verified: a scratch's sessions land on its own socket, the owner's
+tmux sees none of them, the drain tests drive both servers for
+find/act/attach/pane fallback, and the reads merge.
 
 ## Decisions and risks
 
