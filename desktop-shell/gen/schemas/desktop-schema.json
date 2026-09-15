@@ -255,6 +255,12 @@
           "markdownDescription": "Enables the btab_open_path command without any pre-configured scope."
         },
         {
+          "description": "Enables the btab_permission_answer command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-permission-answer",
+          "markdownDescription": "Enables the btab_permission_answer command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_reload command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-reload",
@@ -463,6 +469,12 @@
           "type": "string",
           "const": "deny-btab-open-path",
           "markdownDescription": "Denies the btab_open_path command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_permission_answer command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-permission-answer",
+          "markdownDescription": "Denies the btab_permission_answer command without any pre-configured scope."
         },
         {
           "description": "Denies the btab_reload command without any pre-configured scope.",
