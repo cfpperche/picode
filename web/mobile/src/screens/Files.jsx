@@ -4,6 +4,7 @@ import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { createDocumentGuard, createFileDocument } from "../lib/fileDocument.js";
 import { fileMessage, ownerFileURL, readFile } from "../lib/fileIO.js";
 import { folderPage, parentFolder, searchFileFolders } from "../lib/fileBrowser.js";
+import { previewKind } from "@picode/shared/domain/filePreview.js";
 import { useLaunchGuard } from "../components/CliLaunchSettings.jsx";
 import { askConfirm } from "../lib/confirm.js";
 import ScreenHeader from "../components/ScreenHeader.jsx";
@@ -153,7 +154,10 @@ function FileScreen({ owner, title, initialPath = "", root: initialRoot = "", on
   const openGit = () => navigate(() => callbacks.current.onOpenGit?.(owner, root), true);
   const error = view.error || folderError;
   const fileError = !!view.error && path && doc;
-  const unavailablePreview = fileError && view.kind === "msg" && /too large|can't show|can't write|unsupported/i.test(error);
+  // A too-large HTML page previews from disk (FileDocument owns it): the
+  // "too large" notice and its Browse folder answer would be wrong for it.
+  const previewOnly = fileError && previewKind(path) === "html" && /too large/i.test(error || "");
+  const unavailablePreview = fileError && view.kind === "msg" && !previewOnly && /too large|can't show|can't write|unsupported/i.test(error);
   const errorAction = moved(error) ? follow : unavailablePreview ? () => selectFile("") : fileError ? view.dirty && !/changed on disk/i.test(error) ? () => doc.save() : reloadFile : () => browse(folder?.dir || parentFolder(path));
   const errorLabel = moved(error) ? "Follow folder" : unavailablePreview ? "Browse folder" : fileError ? view.dirty && !/changed on disk/i.test(error) ? "Retry save" : "Reload" : "Try again";
   const searching = !!query.trim();
@@ -166,7 +170,7 @@ function FileScreen({ owner, title, initialPath = "", root: initialRoot = "", on
       <button type="button" className="btn btn-ghost btn-sm m-file-options" aria-label="File actions" onClick={() => setOptions(true)}><IconMore /></button>
     </>} />
     {view.saving ? <div className="m-file-saving" role="progressbar" aria-label="Saving file" /> : null}
-    {error ? <div className="m-file-notice" role="alert"><p>{moved(error) ? "The working folder changed." : fileMessage(error, fileError ? "file" : "folder")}</p><button type="button" className="btn btn-sm" disabled={view.saving || loading || view.refreshing} onClick={errorAction}>{errorLabel}</button></div> : null}
+    {error && !previewOnly ? <div className="m-file-notice" role="alert"><p>{moved(error) ? "The working folder changed." : fileMessage(error, fileError ? "file" : "folder")}</p><button type="button" className="btn btn-sm" disabled={view.saving || loading || view.refreshing} onClick={errorAction}>{errorLabel}</button></div> : null}
     {path ? <>
       <div className="m-file-path" title={root + "/" + path}>{path}</div>
       <FileDocument doc={doc} view={!doc && folderError ? { kind: "msg" } : view} path={path} owner={owner} root={root} />

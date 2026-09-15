@@ -26,6 +26,9 @@ func registerPreviewRoutes(mux Registrar, deps Deps) {
 	// Method-less on purpose: a method-scoped pattern would let a POST fall
 	// through to the UI handler instead of answering 405 here.
 	mux.HandleFunc("/preview/{token}/{path...}", handlePreviewServe(deps))
+	// The live-reload stream at the same ticket; more specific than the
+	// wildcard above, so __events never shadows a file lookup.
+	mux.HandleFunc("/preview/{token}/__events", handlePreviewEvents(deps))
 	mux.HandleFunc("/preview/", func(w http.ResponseWriter, _ *http.Request) { previewDeny(w) })
 }
 
@@ -85,6 +88,7 @@ func handlePreviewMint(deps Deps) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"url":       "/preview/" + tk.Token + "/" + url.PathEscape(tk.Path),
+			"events":    "/preview/" + tk.Token + "/__events",
 			"path":      tk.Path,
 			"expiresAt": tk.ExpiresAt.UTC().Format(time.RFC3339),
 		})
@@ -255,6 +259,9 @@ func handlePreviewServe(deps Deps) http.HandlerFunc {
 			previewDeny(w)
 			return
 		}
+		// Every file the page pulls in joins the ticket's watch set: a
+		// live-reload stream stats exactly what this preview served.
+		deps.Previews.Touch(tk.Token, asset.abs)
 		f, err := os.Open(asset.abs)
 		if err != nil {
 			previewDeny(w)
@@ -267,6 +274,99 @@ func handlePreviewServe(deps Deps) http.HandlerFunc {
 		w.Header().Set("Content-Type", asset.mime)
 		w.Header().Set("ETag", fmt.Sprintf(`W/"%x-%x"`, asset.info.ModTime().UnixNano(), asset.info.Size()))
 		http.ServeContent(w, r, filepath.Base(asset.abs), asset.info.ModTime(), f)
+	}
+}
+
+// previewWatchInterval is how often a live-reload stream stats the files
+// its ticket served; a test shortens it.
+var previewWatchInterval = time.Second
+
+// handlePreviewEvents is the live-reload stream (ADR-0136 v1.5): the pane
+// holds one EventSource per open preview, the daemon stats the files that
+// ticket served, and a change emits one `change` frame. The page itself is
+// never injected into and never asked for anything: the frame is reloaded
+// by its parent, which keeps the sandbox intact.
+func handlePreviewEvents(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.Header().Set("Allow", "GET")
+			previewDenyStatus(w, http.StatusMethodNotAllowed)
+			return
+		}
+		if deps.Previews == nil {
+			previewDeny(w)
+			return
+		}
+		tk, ok := deps.Previews.Get(r.PathValue("token"))
+		if !ok || !previewSessionLive(deps, tk.SessionID) {
+			previewDeny(w)
+			return
+		}
+		fl, ok := w.(http.Flusher)
+		if !ok {
+			previewDenyStatus(w, http.StatusInternalServerError)
+			return
+		}
+		h := w.Header()
+		h.Set("Content-Type", "text/event-stream; charset=utf-8")
+		h.Set("Cache-Control", "no-cache")
+		h.Set("Connection", "keep-alive")
+		h.Set("X-Accel-Buffering", "no")
+		h.Set("Referrer-Policy", "no-referrer")
+		w.WriteHeader(http.StatusOK)
+		write := func(event, data string) bool {
+			if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, data); err != nil {
+				return false
+			}
+			fl.Flush()
+			return true
+		}
+		if !write("hello", `{}`) {
+			return
+		}
+
+		// seen is this connection's snapshot: a path first seen now is seeded
+		// without an event; a path whose mtime/size moved emits.
+		seen := map[string]string{}
+		changed := func() bool {
+			hit := false
+			for _, p := range deps.Previews.Watched(tk.Token) {
+				sig := "gone"
+				if st, err := os.Stat(p); err == nil {
+					sig = fmt.Sprintf("%d-%d", st.ModTime().UnixNano(), st.Size())
+				}
+				if prev, ok := seen[p]; ok {
+					if prev != sig {
+						hit = true
+					}
+				}
+				seen[p] = sig
+			}
+			return hit
+		}
+		changed() // seed
+
+		poll := time.NewTicker(previewWatchInterval)
+		defer poll.Stop()
+		beat := time.NewTicker(eventsHeartbeat)
+		defer beat.Stop()
+		for {
+			select {
+			case <-r.Context().Done():
+				return
+			case <-poll.C:
+				if changed() {
+					if !write("change", `{}`) {
+						return
+					}
+				}
+			case <-beat.C:
+				if _, err := fmt.Fprint(w, ": keep-alive\n\n"); err != nil {
+					return
+				}
+				fl.Flush()
+			}
+		}
 	}
 }
 

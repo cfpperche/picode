@@ -12,6 +12,10 @@ export default function FileDocument({ doc, view, path, owner, root }) {
   const kind = previewKind(path);
   const [display, setDisplay] = useState(kind ? "preview" : "edit");
   useEffect(() => { setDisplay(kind ? "preview" : "edit"); }, [doc, kind]);
+  // A document too large for the text read still has a page to show: the
+  // ticket serves it from disk, so the pane renders preview-only — no editor
+  // and no "too large to display" notice.
+  const previewOnly = kind === "html" && view.kind === "msg" && /too large/i.test(view.error || "");
   // One capability ticket per open HTML preview (ADR-0136); no minting while
   // the editor holds unsaved text — the pane says the preview is behind.
   const html = usePreviewTicket({
@@ -19,7 +23,7 @@ export default function FileDocument({ doc, view, path, owner, root }) {
     ownerId: owner && owner.id,
     path,
     root,
-    enabled: kind === "html" && display === "preview" && !view.dirty && !previewEmpty(view.text),
+    enabled: kind === "html" && display === "preview" && !view.dirty && (previewOnly || !previewEmpty(view.text)),
   });
   useEffect(() => {
     if (view.kind !== "text" || !host.current) return;
@@ -35,10 +39,12 @@ export default function FileDocument({ doc, view, path, owner, root }) {
   }, [doc, path, view.kind, view.revision]);
   useEffect(() => { if (display === "edit") editor.current?.requestMeasure(); }, [display]);
   return <div className="m-file-document">
-    {kind && view.kind === "text" ? <div className="m-file-display" role="group" aria-label="File display" data-align-row>
-      <button type="button" className="btn btn-sm" aria-pressed={display === "preview"} onClick={() => setDisplay("preview")}>Preview</button>
-      <button type="button" className="btn btn-sm" aria-pressed={display === "edit"} onClick={() => setDisplay("edit")}>Edit</button>
-      {kind === "html" && display === "preview" && !view.dirty && !previewEmpty(view.text) ? (
+    {kind && (view.kind === "text" || previewOnly) ? <div className="m-file-display" role="group" aria-label="File display" data-align-row>
+      {view.kind === "text" ? (<>
+        <button type="button" className="btn btn-sm" aria-pressed={display === "preview"} onClick={() => setDisplay("preview")}>Preview</button>
+        <button type="button" className="btn btn-sm" aria-pressed={display === "edit"} onClick={() => setDisplay("edit")}>Edit</button>
+      </>) : null}
+      {kind === "html" && display === "preview" && !view.dirty && (previewOnly || !previewEmpty(view.text)) ? (
         <button type="button" className="btn btn-sm" disabled={html.status === "loading"} onClick={() => { void html.reload(); }}>Reload</button>
       ) : null}
       {kind === "html" && display === "preview" && !view.dirty && html.status === "ready" ? (
@@ -47,8 +53,8 @@ export default function FileDocument({ doc, view, path, owner, root }) {
     </div> : null}
     {view.kind === "load" ? <div className="m-files-loading" role="status" aria-label="Loading file"><span /><span /><span /></div> : null}
     {view.kind === "text" ? <div className="m-file-editor" ref={host} hidden={display !== "edit"} /> : null}
-    {kind && display === "preview" && ["text", "bin"].includes(view.kind) ? <div className="m-file-preview">
-      {kind === "html" && previewEmpty(view.text) ? (
+    {kind && display === "preview" && (previewOnly || ["text", "bin"].includes(view.kind)) ? <div className="m-file-preview">
+      {kind === "html" && !previewOnly && previewEmpty(view.text) ? (
         <p className="file-pane-msg">Nothing to preview.</p>
       ) : kind === "html" && view.dirty && !view.error ? (
         <p className="file-pane-msg file-pane-msg-actions">
