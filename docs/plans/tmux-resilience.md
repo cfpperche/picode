@@ -65,13 +65,17 @@ removed by exact name). What was built instead of the plan's name-sweep:
 - Acceptance met: `go test ./internal/server/` and `./internal/tmux/` leave
   zero new sessions on the live server (26 → 26, verified by diff).
 
-### Phase 3 — guard UI toggle (branch `feat/tmux-guard-ui`)
+### Phase 3 — guard UI toggle (landed: branch `feat/tmux-guard-ui`)
 
-The guard ships API-only (`POST /api/terminals/wiring/tmux-guard/{enable,disable}`,
-default on). Add the row on the CLIs landing (`#/clis`, no CLI selected —
-today an empty surface), browser and mobile mirrored, with copy that says
-what it refuses and what it still allows. Visual review: empty/off/on
-states, overlay audit, screenshots read (`/skill:visual-review`).
+The planned home was the CLIs landing; the landing turned out to always
+select the first CLI (never empty), so the toggle lives where terminal-wide
+behaviour already lives: **Preferences ▸ Terminal**, a **Safety** section
+(browser). Mobile has no terminal-settings page — the toggle is
+desktop-only, the guard stays default-on there (debt in
+`docs/handoff/open/terminal.md`). Visual review done: on/off/failed-refresh/
+failed-toggle states read, overlay audit `ok`, state survives reload, plus
+an end-to-end run of `kill-server` refused inside a seeded scratch
+terminal.
 
 ### Phase 4 — dedicated socket for managed sessions (branch `feat/tmux-socket`)
 
