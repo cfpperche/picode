@@ -171,6 +171,11 @@ func TestCatalogListsAllScopesWithWarnings(t *testing.T) {
 	if !tmux.New().Available() {
 		t.Skip("tmux not installed")
 	}
+	// The catalog is read from the running tmux; an empty private namespace
+	// (the suites' isolated server) has none to ask — reported by another
+	// agent on 2026-09-15 after 687ab478 made that state a 503. A live
+	// session first, same as the array-entries test.
+	newTerminal(t, ts)
 	got := termSettings(t, ts, "/api/terminals/settings/catalog")
 	rows, ok := got["catalog"].([]any)
 	if !ok || len(rows) < 100 {
