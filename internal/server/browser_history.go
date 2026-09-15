@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 func registerBrowserHistoryRoutes(mux Registrar, deps Deps) {
@@ -83,7 +84,16 @@ func handleBrowserHistoryClear(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusServiceUnavailable, "store is not open")
 			return
 		}
-		if err := deps.Store.ClearBrowserHistory(); err != nil {
+		// ?since=<RFC3339> clears only that window (the Clear browsing data
+		// dialog's time range); without it the whole list goes.
+		since := r.URL.Query().Get("since")
+		if since != "" {
+			if _, err := time.Parse(time.RFC3339, since); err != nil {
+				writeErr(w, http.StatusBadRequest, "since must be an RFC3339 timestamp")
+				return
+			}
+		}
+		if err := deps.Store.ClearBrowserHistorySince(since); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}

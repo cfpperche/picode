@@ -142,3 +142,17 @@ func (s *Store) ClearBrowserHistory() error {
 	s.note("browserhistory.updated", nil, nil, nil)
 	return nil
 }
+
+// ClearBrowserHistorySince deletes the visits at or after one instant, in
+// RFC3339 — the time range the Clear browsing data dialog picked. An empty
+// since clears everything, the same as ClearBrowserHistory.
+func (s *Store) ClearBrowserHistorySince(since string) error {
+	if since == "" {
+		return s.ClearBrowserHistory()
+	}
+	if _, err := s.db.Exec(`DELETE FROM browser_history WHERE visited_at >= ?`, since); err != nil {
+		return fmt.Errorf("store: clear browser history since: %w", err)
+	}
+	s.note("browserhistory.updated", nil, nil, nil)
+	return nil
+}
