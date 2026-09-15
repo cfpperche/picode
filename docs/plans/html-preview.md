@@ -158,11 +158,12 @@ The app shell's `frame-src 'self'` already allows this URL; no change.
    nonce, no script injection into the page; and unsaved editor text as the
    ticket's overlay (`PUT` on the document; a clean buffer re-mints so disk
    wins).
-3. **v2 — a real preview origin.** A second origin (listener/subdomain) with
-   a normal, isolated origin: localStorage, workers, service workers,
-   `document.cookie` that is *its own*; also inline artifact cards, viewport
-   presets, console bridge, and the door to preview a running dev server
-   (overlaps the approved browser-preview panel).
+3. **v2 — a real preview origin.** Study, options and measurements in
+   `docs/plans/html-preview-v2.md`; awaiting the owner's decision on five
+   points (origin strategy, remote, storage lifetime, fallback, save). The
+   non-boundary parts (inline artifact cards, viewport presets, console
+   bridge) can ship alone; the door to preview a running dev server overlaps
+   the approved browser-preview panel and is a network capability of its own.
 
 ## Acceptance (v1)
 
