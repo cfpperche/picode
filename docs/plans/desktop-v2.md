@@ -256,8 +256,12 @@ function (`picode_shell::origins::gate`), tested against the same rows
 as `browser.AllowsOrigin` (plus userinfo/IPv6), so the two sides of the
 boundary agree by construction.
 
-Still open in slice 4: the grants editor (Settings ▸ Browser — the tier ×
-domains table; the write path is `browser.Save`).
+Still open in slice 4: nothing — the grants editor (Settings ▸ Browser) is
+increment 4.3 (2026-09-14, `feat/grants-editor`): one row per agent, tier
+select, a paste-forgiving domains line (scheme/path/port stripped before
+save), served by `GET /api/browser/policies` and `POST /api/browser/policy`
+→ `browser.Save`; saves land on the feed (setting.updated) and the open
+editor refetches. **Slice 4 is complete.**
 
 ## Conscious debt
 

@@ -1,20 +1,149 @@
+import { useCallback, useEffect, useState } from "react";
 import PageFrame from "./PageFrame.jsx";
+import { browserGrantSchema } from "@picode/shared/contracts/schemas.js";
+import { subscribeFeed } from "@picode/shared/client/feed.js";
+import { toast } from "../lib/toast.js";
 
 // Browser (ADR-0128): the work browser's own settings surface, reached
 // from the user menu. Desktop-only by nature — the menu entry renders
 // only inside the desktop shell; the web /browser/ app has link-handoff
 // settings of its own instead (v2).
-export default function BrowserPage({ hidden }) {
+//
+// Agent grants (slice 4, ADR-0134): one row per managed agent. Read is
+// the default (the tab on screen); Act and Full name the domains the
+// agent may reach in its own pane. Saving goes through
+// /api/browser/policy → browser.Save and announces itself on the feed.
+
+const TIERS = [
+  { value: "read", label: "Read" },
+  { value: "act", label: "Act" },
+  { value: "full", label: "Full" },
+];
+
+const domainsText = (row) => (row.domains ?? []).join(", ");
+
+export default function BrowserPage({ hidden, onCreateAgent }) {
+  const [rows, setRows] = useState(null); // null = first load: skeleton
+  const [drafts, setDrafts] = useState({}); // agentId -> { tier, domainsText }
+  const [flash, setFlash] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch("/api/browser/policies");
+      if (!r.ok) throw new Error(String(r.status));
+      const data = await r.json();
+      setRows(data.policies ?? []);
+    } catch {
+      toast("Could not load the browser grants.");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hidden) load();
+  }, [hidden, load]);
+
+  // Saves land as setting.updated; refetch on that instead of polling.
+  useEffect(() => subscribeFeed((ev) => {
+    if (ev.type === "setting.updated") load();
+  }), [load]);
+
+  const draftOf = (row) => drafts[row.agentId] ?? { tier: row.tier, domainsText: domainsText(row) };
+  const setDraft = (agentId, next) => setDrafts((d) => ({ ...d, [agentId]: next }));
+
+  const save = async (row) => {
+    const d = draftOf(row);
+    const parsed = browserGrantSchema.safeParse({ tier: d.tier, domains: d.domainsText });
+    if (!parsed.success) return;
+    try {
+      const r = await fetch("/api/browser/policy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agent: row.agentId, tier: parsed.data.tier, domains: parsed.data.domains }),
+      });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.error || String(r.status));
+      setFlash(row.agentId);
+      setTimeout(() => setFlash((cur) => (cur === row.agentId ? "" : cur)), 2000);
+      setDrafts((dd) => {
+        const next = { ...dd };
+        delete next[row.agentId];
+        return next;
+      });
+    } catch (e) {
+      toast("Saving the grant failed: " + (e?.message || e));
+    }
+  };
+
   return (
     <PageFrame id="browser-view" title="Browser" hidden={hidden}>
       <h4 className="settings-sub">Work browser</h4>
       <div className="settings-card">
         <p className="settings-hint">Browser tabs open inside the app and share one sign-in profile, so site logins persist on this machine. Site permissions (camera, location, downloads) are asked per site.</p>
       </div>
-      <h4 className="settings-sub">Developer access</h4>
+      <h4 className="settings-sub">Agent grants</h4>
       <div className="settings-card">
-        <p className="settings-hint">Agents read pages through the app&rsquo;s authenticated channel. An external debugging port stays off unless enabled for development &mdash; this lab build ships it enabled.</p>
+        {rows === null ? (
+          <div className="mcp-skel" aria-hidden="true"><span className="skel-line w-40" /><span className="skel-line w-70" /></div>
+        ) : rows.length === 0 ? (
+          <div className="mcp-empty">
+            <p className="settings-hint">No agents yet — browser access is given per agent.</p>
+            <button type="button" className="btn btn-primary" onClick={onCreateAgent}>Create an agent</button>
+          </div>
+        ) : (
+          <ul className="grant-list">
+            {rows.map((row) => (
+              <GrantRow
+                key={row.agentId}
+                row={row}
+                draft={draftOf(row)}
+                onDraft={(next) => setDraft(row.agentId, next)}
+                onSave={() => save(row)}
+                flash={flash === row.agentId}
+              />
+            ))}
+          </ul>
+        )}
       </div>
+      <p className="settings-hint">
+        Read — sees the tab you have on screen, nothing else. Act — also opens and drives pages in its own pane, inside the domains you list. Full — everything Act does, plus developer access.
+      </p>
     </PageFrame>
+  );
+}
+
+function GrantRow({ row, draft, onDraft, onSave, flash }) {
+  const parsed = browserGrantSchema.safeParse({ tier: draft.tier, domains: draft.domainsText });
+  const valid = parsed.success;
+  const dirty = draft.tier !== row.tier || draft.domainsText !== domainsText(row);
+  const actLike = draft.tier !== "read";
+  return (
+    <li className="grant-row">
+      <span className="grant-name">
+        {row.name}
+        {row.saved ? <span className="devs-tag">custom</span> : <span className="devs-tag devs-tag-off">default</span>}
+      </span>
+      <select
+        className="grant-tier"
+        value={draft.tier}
+        onChange={(e) => onDraft({ ...draft, tier: e.target.value })}
+        aria-label={"Access level for " + row.name}
+      >
+        {TIERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+      </select>
+      {actLike && (
+        <input
+          className={"grant-domains" + (valid ? "" : " grant-domains-bad")}
+          placeholder="example.com, *.example.com"
+          value={draft.domainsText}
+          onChange={(e) => onDraft({ ...draft, domainsText: e.target.value })}
+          aria-label={"Allowed domains for " + row.name}
+        />
+      )}
+      {!valid && actLike && <span className="grant-error">{parsed.error.issues[0].message}</span>}
+      {flash ? (
+        <span className="devs-tag">saved</span>
+      ) : dirty && valid ? (
+        <button type="button" className="btn" onClick={onSave}>Save</button>
+      ) : null}
+    </li>
   );
 }
