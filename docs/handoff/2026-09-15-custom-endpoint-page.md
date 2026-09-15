@@ -3,9 +3,4 @@ Shipped: CustomEndpointPage.jsx twins (browser+mobile, 332 lines each); custom f
 Verified: JS suites green, make web + ci-scoped PASS; QA scratch end-to-end (created qatest endpoint, roster shows it, edit prefill, unknown-id empty state, narrow single-column confirmed at 600px, mobile surface renders page); overlayAudit ok:true both apps.
 visual-review: PASS (7/7 shots read in subagent; card 5/5)
 Not done / debts: see Debts.
-Merge: fast-forward ready.
-
-## Debts
-
-- duplicate-name error renders at form bottom while Name is at top (inline-at-field would be better)
-- pre-existing tab-strip truncation at narrow widths
+Merge: fast-forward ready. Follow-ups live in `docs/handoff/open/providers-custom.md` and `docs/handoff/open/ui-chrome.md` (note-level lists would push the board over its byte cap, ADR-0131 C).
