@@ -57,6 +57,32 @@ feature, then the row.
 Step 4 opens a new user→agent input path: it needs an ADR before the
 protocol is fixed.
 
+## Password manager (finding, 2026-09-15)
+
+The owner asked why the reference's Password manager has a list, Add, CSV import
+and Windows Hello, and ours cannot. Measured in `webview2-com-sys 0.38.2`
+(the SDK the shell compiles against):
+
+- The whole password/autofill surface is `Is`/`SetPasswordAutosaveEnabled` and
+  `Is`/`SetGeneralAutofillEnabled`. No enumeration, no per-entry edit, no
+  import — nothing reads entries back.
+- The SDK *does* ship a runtime-UI opener where one exists: `ICoreWebView2_6::
+  OpenTaskManagerWindow`. There is no password-manager equivalent, so the
+  runtime offers no such window to open.
+- Windows Hello and passkey management are OS surfaces, not host APIs.
+
+Conclusion: the reference's screens are its own vault (store + fill injection,
+WebAuthn passkeys, Hello unlock) or the OS page opened from it — not a read of
+WebView2's store. Two honest paths, both owner-gated:
+
+1. **Opener rows** (cheap, no vault): "Manage passkeys in Windows Hello" and the
+   Windows password/passkey settings page, launched from the dialog. The exact
+   OS URI must be verified on the machine first.
+2. **PiCode owns the vault** (the reference's shape): encrypted store (DPAPI),
+   per-entry CRUD, fill injection through CDP/`AddScriptToExecuteOnDocumentCreated`,
+   Hello unlock through WinRT `UserConsentVerifier`, CSV import. A security-model
+   decision — ADR before code, the same gate as the annotations above.
+
 ## Traps (paid for, keep them paid)
 
 - Edit in the worktree. UI edits that land in the root checkout leave scratch
