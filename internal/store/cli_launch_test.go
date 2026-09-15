@@ -125,14 +125,14 @@ func TestSeedCatalogIntegrationDefaultsDecisionTable(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if err := s.SeedCatalogIntegrationDefaults(); err != nil {
+			if err := s.SeedCatalogIntegrationDefaults(nil); err != nil {
 				t.Fatal(err)
 			}
 			c, _, _ := s.CLIConfig("opencode")
 			if c.Integration != tc.wantOn {
 				t.Fatalf("integration=%v want %v", c.Integration, tc.wantOn)
 			}
-			if err := s.SeedCatalogIntegrationDefaults(); err != nil {
+			if err := s.SeedCatalogIntegrationDefaults(nil); err != nil {
 				t.Fatal(err)
 			}
 			c2, _, _ := s.CLIConfig("opencode")

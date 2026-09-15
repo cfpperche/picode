@@ -116,14 +116,18 @@ type cliView struct {
 	Lifecycle          lifecycleView    `json:"lifecycle"`
 	// IntegrationCapable says the surface may offer activity, launch
 	// settings and the setup panes; Launchable says New terminal exists.
-	// They are separate: Muse Code and Antigravity open a terminal with no
-	// adapter behind it (surface "terminal").
+	// They are separate: Antigravity opens a terminal with no adapter
+	// behind it (surface "terminal").
 	IntegrationCapable bool `json:"integrationCapable"`
 	Launchable         bool `json:"launchable"`
 	// Sessions advertises what this CLI's session source can do (list,
 	// read a transcript, receive a native session, start from a brief) so
 	// the web derives handoff targets from the server (ADR-0088).
 	Sessions clisession.Capabilities `json:"sessions"`
+	// HasIntegrationMechanism says the Activity reporting toggle may be
+	// offered: a plan summary alone (Muse Code today) is not something to
+	// enable. The web hides the toggle and the PUT guards refuse it.
+	HasIntegrationMechanism bool `json:"hasIntegrationMechanism"`
 }
 
 func describeCLI(deps Deps, cli clilaunch.CLI) (cliView, error) {
@@ -131,7 +135,7 @@ func describeCLI(deps Deps, cli clilaunch.CLI) (cliView, error) {
 	if err != nil {
 		return cliView{}, err
 	}
-	v := cliView{CLI: cli, Config: c, IntegrationApplied: cliIntegrationPrepared(deps.DataDir, cli), Sessions: clisession.CapabilitiesOf(cli.ID), IntegrationCapable: cli.Integrable(), Launchable: cli.Launchable()}
+	v := cliView{CLI: cli, Config: c, IntegrationApplied: cliIntegrationPrepared(deps.DataDir, cli), Sessions: clisession.CapabilitiesOf(cli.ID), IntegrationCapable: cli.Integrable(), Launchable: cli.Launchable(), HasIntegrationMechanism: hasIntegrationMechanism(cli.ID)}
 	v.Sessions.Agent = cliAgentLanding(cli.ID)
 	v.Plan, _ = launchPlan(deps, cli, c, clilaunch.Overrides{}, filepath.Join(deps.DataDir, "cli-launch", "{terminal}", "run-{next}"))
 	v.Executable, err = resolveCLIExecutable(cli, c)
@@ -206,6 +210,10 @@ func registerCLIRoutes(mux Registrar, deps Deps) {
 			writeErr(w, 400, err.Error())
 			return
 		}
+		if c.Integration && !hasIntegrationMechanism(cli.ID) {
+			writeErr(w, 400, fmt.Sprintf("Activity reporting is not available for %s in this build.", cli.Name))
+			return
+		}
 		unlock := terminalLock(deps, "cli-config")
 		defer unlock()
 		if err := deps.Store.SetCLIConfig(cli.ID, c); err != nil {
@@ -277,7 +285,8 @@ func registerCLIRoutes(mux Registrar, deps Deps) {
 		if !readCLIJSON(w, r, &v) {
 			return
 		}
-		if _, ok := clilaunch.Find(v.CLI); !ok {
+		wc, ok := clilaunch.Find(v.CLI)
+		if !ok {
 			writeErr(w, 400, "Unknown CLI.")
 			return
 		}
@@ -286,8 +295,13 @@ func registerCLIRoutes(mux Registrar, deps Deps) {
 			writeErr(w, 500, err.Error())
 			return
 		}
-		if err := clilaunch.Validate(clilaunch.Resolve(c, v.Overrides)); err != nil {
+		merged := clilaunch.Resolve(c, v.Overrides)
+		if err := clilaunch.Validate(merged); err != nil {
 			writeErr(w, 400, err.Error())
+			return
+		}
+		if merged.Integration && !hasIntegrationMechanism(v.CLI) {
+			writeErr(w, 400, fmt.Sprintf("Activity reporting is not available for %s in this build.", wc.Name))
 			return
 		}
 		if err := deps.Store.SetTerminalLaunch(id, v.CLI, v.Overrides); err != nil {
@@ -874,6 +888,12 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 		}
 	}()
 	command := binary
+	if c.Integration && !hasIntegrationMechanism(cli.ID) {
+		// Backstop for every path that skips the PUT guards (a profile
+		// carrying integration:true): fail here with the reason, never with
+		// a missing wrapper file.
+		return nil, fmt.Errorf("Activity reporting is not available for %s in this build.", cli.Name)
+	}
 	if c.Integration {
 		hook, err := ensureHookScript(deps.DataDir)
 		if err != nil {

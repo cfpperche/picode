@@ -46,8 +46,25 @@ func cliIntegrationPlan(cli, dir, hook string) clilaunch.IntegrationPlan {
 		p.Environment["OPENCODE_CONFIG"] = opencodeConfigFile(dir)
 		p.Environment["PICODE_OPENCODE_HOOK"] = hook
 		p.Files = append(p.Files, opencodeConfigFile(dir), opencodePluginFile(dir))
+	case "muse":
+		// No branches on purpose: Muse Code 1.3.0 has no hook surface to
+		// report through. The binary carries zero "hook" strings, the
+		// plugins subcommand answers "not available in this build", and no
+		// user plugin path or settings hook key was found (spike, Fatia 3a).
+		// The launch is still editable — defaults, profiles, resume — but
+		// activity stays Open until a vendor surface appears (Fatia 5).
+		p.Summary = "No activity integration: this Muse build offers no hook surface to report through"
 	}
 	return p
+}
+
+// hasIntegrationMechanism says the Activity reporting toggle may be offered:
+// a CLI whose plan carries nothing to install or inject (Muse Code today)
+// has nothing to enable, so the web hides the toggle and the PUT guards
+// refuse it. Summary alone is not a mechanism.
+func hasIntegrationMechanism(id string) bool {
+	p := cliIntegrationPlan(id, "", "")
+	return len(p.Branches) > 0 || len(p.Files) > 0 || len(p.Environment) > 0
 }
 
 func quotedCLIArgs(args []string) string {
