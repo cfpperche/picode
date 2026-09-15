@@ -64,6 +64,7 @@ fn main() {
             btab::btab_cdp_events,
             btab::btab_close,
             btab::btab_open_external,
+            btab::btab_set_prefs,
             browserlab::lab_open,
             browserlab::lab_navigate,
             browserlab::lab_back,
