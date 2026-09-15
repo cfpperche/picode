@@ -16,7 +16,8 @@ files under `docs/architecture/` are what the table below names.
 
 The direction is a multi-CLI ADE. For the current v1, managed agents remain
 Pi; Agent CLIs manages terminal launches for Pi, Claude Code, Codex, Grok,
-Hermes Agent and OpenCode (ADR-0069). Other CLI protocols, packages and first-class agent support are
+Hermes Agent and OpenCode, with Muse Code and Antigravity onboarding as
+terminal-only entries (ADR-0069). Other CLI protocols, packages and first-class agent support are
 future work, not capabilities to infer from a terminal integration.
 
 ## What to read for which change (ADR-0086)
@@ -167,7 +168,7 @@ For any UI work:
 | `make deploy` | Owner only: rebuild, refresh stale captures, restart the service; refuses while agents work |
 | `make changelog` | Fold `docs/changelog.d/` fragments into `CHANGELOG.md` (on `main`, before a release) |
 | `make adr NAME=x` | Seed the next ADR with its number and index row |
-| `make handoff` | Render `docs/handoff.md` (generated view; `make close` ends with it) |
+| `make handoff` | Render `docs/handoff.md` (generated view; `make close` refreshes it before the closing summary) |
 | `make worktree-status` | What is actually in flight: branch, ahead/behind, dirty files, last commit, last green run |
 | `make worktree-gc` | Remove merged, clean, idle worktrees |
 | `make cert-timer` | Install the weekly certificate check (systemd --user) |

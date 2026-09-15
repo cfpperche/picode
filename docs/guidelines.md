@@ -20,7 +20,7 @@ not the generator — study
 ## UI rules that are enforced by tests
 
 - **Dialogs (ADRs 0046/0072).** Desktop modals import
-  `web/desktop/src/components/ResponsiveDialog.jsx`: centered at ≥720px,
+  `web/browser/src/components/ResponsiveDialog.jsx`: centered at ≥720px,
   bottom sheets below. Mobile modals import
   `web/mobile/src/components/MobileSheet.jsx`: sheets at every width.
   Both retain `dlg dlg-*` classes and the `Alert` confirmation API.

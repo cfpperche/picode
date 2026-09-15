@@ -13,7 +13,7 @@ card (a reminder's X closes its Inbox item).
 `{ level, channel, actor, status, title, body, meta[], actions[], key,
 target }`. It is a pure module (ADR-0072 keeps React out of `web/shared`),
 so both applications share the model and its policies while each owns the
-card — `web/desktop/src/components/Notice.jsx` draws a 300px card beside
+card — `web/browser/src/components/Notice.jsx` draws a 300px card beside
 the inspector rail, `web/mobile/.../Notice.jsx` a full-width one above the
 tab bar. `lib/toast.js` is the single door in both apps: `notify(notice)`
 for the model, `toast(text, kind)` unchanged for the one-line call sites,

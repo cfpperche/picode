@@ -12,8 +12,8 @@ browser terminal, or an RPC bridge (`pi --mode rpc`, JSONL over stdio) that
 feeds the rich UI with structured events. An Inbox reply may borrow the RPC
 channel for one correlated turn while a holder preserves the same tmux pane;
 there is still only one session writer. A broker routes messages between
-agents through a Pi extension, so agents talk to each other using Pi's own
-tool-calling protocol.
+agents through a Go MCP server (`picode-communication`), so agents talk to
+each other using the MCP tool protocol.
 
 Agent CLIs (ADR-0069) is a separate terminal manager for installed Pi, Claude
 Code, Codex, Grok, Hermes Agent and OpenCode commands. It reuses terminal records, tmux, invocation

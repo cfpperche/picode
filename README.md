@@ -43,8 +43,10 @@ agent is a real `pi` process, and the genuine Pi TUI remains one tab away.
 
 PiCode is growing toward a multi-CLI ADE. Today, managed agents remain Pi;
 Claude Code, Codex, Grok, Hermes Agent, OpenCode and manual Pi sessions run in managed terminals.
-The Agent CLIs central manager controls their launches and activity reporting,
-without turning those terminals into Pi agents.
+Muse Code and Antigravity are onboarding: they open a terminal of their own,
+with no session list, no activity state and no launch settings yet.
+The Agent CLIs central manager controls their launches and, where integrated,
+activity reporting, without turning those terminals into Pi agents.
 
 **The browser is a door, not a cage.**
 
@@ -55,7 +57,7 @@ without turning those terminals into Pi agents.
 | Agent fleet | Create free agents or attach several agents to a workspace, each with its own model, provider and working directory. |
 | Chat and terminal | Use a structured conversation view or switch to the real Pi TUI running in a tmux-backed browser terminal. |
 | Project tools | Browse and edit files, inspect diffs and Git history, manage sessions, and open persistent project terminals. |
-| Agent CLIs | Configure installed CLI executables, arguments, environment, PATH and hooks; open, stop or restart individual terminals. |
+| Agent CLIs | Configure installed CLI executables, arguments, environment, PATH and activity reporting; open, stop or restart individual terminals. |
 | Human inbox | Collect questions, approvals and finished work in one place; reply without hunting for the right agent tab. |
 | Automations | Start fresh agent runs on a schedule or webhook, with templates, limits and run history. |
 | Desktop and phone | Supervise the same fleet through the desktop UI or the installable mobile PWA, with pairing and push notifications. |

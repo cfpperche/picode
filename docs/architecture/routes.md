@@ -3,7 +3,10 @@
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
 The Go binary serves **two independent React applications** (ADR-0072):
-`web/desktop` at `/desktop/` and `web/mobile` at `/mobile/`. Each has its own
+`web/browser` at `/browser/` (the desktop surface) and `web/mobile` at
+`/mobile/`. `web/desktop` at `/desktop/` is the shell's own bundle (ADR-0122),
+including the Management page — never a surface the launcher sends a browser
+to. Each has its own
 entry, dependencies, UI, styles and build output. `web/shared` exports
 contracts, client adapters, domain helpers and theme tokens through explicit
 subpaths; it contains no React presentation. Source and resolved build checks
