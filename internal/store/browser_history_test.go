@@ -141,3 +141,39 @@ func TestClearBrowserHistorySince(t *testing.T) {
 		t.Fatalf("an empty since clears everything, got %+v", visits)
 	}
 }
+
+// DeleteBrowserVisits is the dialog's selection: the named ids go, a
+// stale id is quietly ignored, and an empty selection is a no-op.
+func TestDeleteBrowserVisits(t *testing.T) {
+	st := historyFixture(t)
+	a, err := st.AddBrowserVisit("https://a.example/1", "A", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := st.AddBrowserVisit("https://b.example/2", "B", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.AddBrowserVisit("https://c.example/3", "C", false); err != nil {
+		t.Fatal(err)
+	}
+
+	n, err := st.DeleteBrowserVisits([]int64{a.ID, b.ID, 99999})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 2 {
+		t.Fatalf("two of the three ids exist, removed %d", n)
+	}
+	visits, err := st.ListBrowserHistory(50, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(visits) != 1 || visits[0].Host != "c.example" {
+		t.Fatalf("only c.example must survive, got %+v", visits)
+	}
+
+	if n, err := st.DeleteBrowserVisits(nil); err != nil || n != 0 {
+		t.Fatalf("an empty selection is a no-op, got %d, %v", n, err)
+	}
+}

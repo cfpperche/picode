@@ -134,6 +134,33 @@ func (s *Store) DeleteBrowserVisit(id int64) error {
 	return nil
 }
 
+// DeleteBrowserVisits removes several visits at once — the history
+// dialog's selection. Ids that are not there are not an error: the list
+// the dialog saw may already be stale. Returns how many rows went.
+func (s *Store) DeleteBrowserVisits(ids []int64) (int64, error) {
+	marks := make([]string, 0, len(ids))
+	args := make([]any, 0, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			continue
+		}
+		marks = append(marks, "?")
+		args = append(args, id)
+	}
+	if len(marks) == 0 {
+		return 0, nil
+	}
+	res, err := s.db.Exec(`DELETE FROM browser_history WHERE id IN (`+strings.Join(marks, ",")+`)`, args...)
+	if err != nil {
+		return 0, fmt.Errorf("store: delete browser visits: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n > 0 {
+		s.note("browserhistory.updated", nil, nil, nil)
+	}
+	return n, nil
+}
+
 // ClearBrowserHistory removes every visit.
 func (s *Store) ClearBrowserHistory() error {
 	if _, err := s.db.Exec(`DELETE FROM browser_history`); err != nil {

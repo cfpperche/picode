@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Switch from "@radix-ui/react-switch";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import PageFrame from "./PageFrame.jsx";
@@ -87,12 +88,53 @@ function SwitchCtl({ checked, onChange, label }) {
   );
 }
 
+// A visit's timestamp arrives as RFC3339 with nanoseconds; Date wants at
+// most milliseconds.
+const visitDate = (v) => new Date(v.visitedAt.replace(/\.(\d{3})\d+/, ".$1"));
+
+const dayKey = (d) => d.toDateString();
+
+const dayLabel = (d) => {
+  const today = new Date();
+  const yesterday = new Date(today.getTime() - 86400000);
+  if (dayKey(d) === dayKey(today)) return "Today";
+  if (dayKey(d) === dayKey(yesterday)) return "Yesterday";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+};
+
+const timeLabel = (d) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+// The row's site icon: the site's own /favicon.ico over https, and the
+// host's first letter when that is impossible (http, or no icon).
+function Favicon({ url, host }) {
+  const [bad, setBad] = useState(false);
+  let origin = "";
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === "https:") origin = parsed.origin;
+  } catch {
+    origin = "";
+  }
+  if (origin && !bad) {
+    return (
+      <span className="hist-fav" aria-hidden="true">
+        <img src={origin + "/favicon.ico"} alt="" loading="lazy" onError={() => setBad(true)} />
+      </span>
+    );
+  }
+  return <span className="hist-fav" aria-hidden="true">{host.slice(0, 1)}</span>;
+}
+
 export default function BrowserPage({ hidden, onCreateAgent }) {
   const [rows, setRows] = useState(null); // null = first load: skeleton
   const [drafts, setDrafts] = useState({}); // agentId -> { tier, domainsText }
   const [flash, setFlash] = useState("");
   const [history, setHistory] = useState(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [histQuery, setHistQuery] = useState("");
+  const [openDays, setOpenDays] = useState(() => new Set());
+  const [selected, setSelected] = useState(() => new Set());
+  const [histLoading, setHistLoading] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [wipeOpen, setWipeOpen] = useState(false);
   const [wipeRange, setWipeRange] = useState(3600);
@@ -111,16 +153,30 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     }
   }, []);
 
+  const histQueryRef = useRef("");
   const loadHistory = useCallback(async () => {
+    setHistLoading(true);
     try {
-      const r = await fetch("/api/browser/history?limit=50");
+      const q = histQueryRef.current;
+      const r = await fetch("/api/browser/history?limit=200" + (q ? "&q=" + encodeURIComponent(q) : ""));
       if (!r.ok) throw new Error(String(r.status));
       const data = await r.json();
       setHistory(data.visits ?? []);
     } catch {
       /* the list is disposable; the next event retries */
+    } finally {
+      setHistLoading(false);
     }
   }, []);
+
+  // The search box filters server-side; 250ms of quiet is enough to ask.
+  useEffect(() => {
+    histQueryRef.current = histQuery;
+    const t = setTimeout(() => {
+      if (!hidden && historyOpen) loadHistory();
+    }, histQuery ? 250 : 0);
+    return () => clearTimeout(t);
+  }, [histQuery, hidden, historyOpen, loadHistory]);
 
   useEffect(() => {
     if (!hidden) {
@@ -215,6 +271,68 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     const cutoff = Date.now() - wipeRange * 1000;
     const n = history.filter((v) => new Date(v.visitedAt.replace(/\.(\d{3})\d+/, ".$1")).getTime() >= cutoff).length;
     return { n, capped: history.length >= 50 && n === history.length };
+  };
+
+  // One group per day, newest first (the API already orders that way).
+  const histGroups = useMemo(() => {
+    if (!Array.isArray(history)) return [];
+    const byDay = new Map();
+    for (const v of history) {
+      const d = visitDate(v);
+      const key = dayKey(d);
+      if (!byDay.has(key)) byDay.set(key, { key, label: dayLabel(d), items: [] });
+      byDay.get(key).items.push({ ...v, when: d });
+    }
+    return [...byDay.values()];
+  }, [history]);
+
+  // The newest day starts open; a search opens them all so nothing hides.
+  useEffect(() => {
+    setOpenDays((cur) => {
+      if (histQuery) return new Set(histGroups.map((g) => g.key));
+      if (cur.size) return cur;
+      return new Set(histGroups.slice(0, 1).map((g) => g.key));
+    });
+  }, [histGroups, histQuery]);
+
+  const toggleDay = (key) => setOpenDays((cur) => {
+    const next = new Set(cur);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
+  });
+
+  const toggleSelected = (id) => setSelected((cur) => {
+    const next = new Set(cur);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  });
+
+  const removeSelected = async () => {
+    const ids = [...selected];
+    if (!ids.length) return;
+    try {
+      await fetch("/api/browser/history/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+    } catch {
+      toast("Removing those visits failed.");
+      return;
+    }
+    setSelected(new Set());
+    loadHistory();
+  };
+
+  const copyLink = async (url) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.ok("Link copied.");
+    } catch {
+      toast("Could not copy the link.");
+    }
   };
 
   const draftOf = (row) => drafts[row.agentId] ?? { tier: row.tier, domainsText: domainsText(row) };
@@ -335,42 +453,92 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
         </section>
       </div>
 
-      <Dialog.Root open={historyOpen} onOpenChange={setHistoryOpen}>
+      <Dialog.Root open={historyOpen} onOpenChange={(open) => { setHistoryOpen(open); if (!open) { setSelected(new Set()); setHistQuery(""); } }}>
         <Dialog.Portal>
           <Dialog.Overlay className="dlg-overlay" />
-          <Dialog.Content className="dlg">
+          <Dialog.Content className="dlg dlg-hist">
             <Dialog.Title className="dlg-title">Browsing history</Dialog.Title>
-            <Dialog.Description className="dlg-body">
-              Pages visited in the built-in browser, newest first.
-            </Dialog.Description>
-            {history === null ? (
-              <div className="mcp-skel" aria-hidden="true"><span className="skel-line w-40" /><span className="skel-line w-70" /></div>
-            ) : history.length === 0 ? (
-              <p className="set-groupdesc" style={{ marginTop: 12 }}>No history yet — pages you visit in the app are listed here.</p>
-            ) : (
-              <ul className="set-hist">
-                {history.map((v) => (
-                  <li key={v.id}>
-                    <span className="set-hist-t" title={v.url}>{v.title || v.host}</span>
-                    <span style={{ color: "var(--text-secondary)", flex: "none" }}>{v.host}</span>
-                    <span style={{ color: "var(--text-secondary)", flex: "none" }}>
-                      {new Date(v.visitedAt.replace(/\.(\d{3})\d+/, ".$1")).toLocaleDateString()}
-                    </span>
-                    <button type="button" className="set-btn" onClick={() => removeVisit(v.id)} aria-label={"Remove " + (v.title || v.host) + " from history"}>Remove</button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="dlg-actions" data-align-row>
-              <button type="button" className="btn btn-sm btn-ghost" onClick={() => setHistoryOpen(false)}>Close</button>
+            <input
+              className="hist-search"
+              type="search"
+              placeholder="Search browsing history"
+              value={histQuery}
+              onChange={(e) => setHistQuery(e.target.value)}
+              aria-label="Search browsing history"
+            />
+            <div className="hist-head">
+              <span className="hist-head-t">{histQuery ? `Results for “${histQuery}”` : "All-time history"}</span>
               <button
                 type="button"
-                className={"btn btn-sm" + (confirmClear ? " btn-danger" : "")}
-                onClick={clearHistory}
-                disabled={!history || history.length === 0}
+                className="set-btn"
+                onClick={() => { setHistoryOpen(false); setWipeOpen(true); }}
               >
-                {confirmClear ? "Really clear all?" : "Clear history"}
+                Clear browsing data
               </button>
+            </div>
+            {history === null || (histLoading && histGroups.length === 0) ? (
+              <div className="mcp-skel" aria-hidden="true"><span className="skel-line w-40" /><span className="skel-line w-70" /></div>
+            ) : histGroups.length === 0 ? (
+              <p className="set-groupdesc">
+                {histQuery
+                  ? `No pages match “${histQuery}”.`
+                  : "No history yet — pages you visit in the app are listed here."}
+              </p>
+            ) : (
+              <div className="hist-days">
+                {histGroups.map((g) => {
+                  const open = openDays.has(g.key);
+                  return (
+                    <div className="hist-day" key={g.key}>
+                      <button type="button" className="hist-day-h" aria-expanded={open} onClick={() => toggleDay(g.key)}>
+                        <span>{g.label}</span>
+                        <span className="hist-day-n">{g.items.length}</span>
+                        <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                          <path d="M1 1l4 4 4-4" />
+                        </svg>
+                      </button>
+                      {open && (
+                        <ul className="hist-rows">
+                          {g.items.map((v) => (
+                            <li className="hist-row" key={v.id}>
+                              <input
+                                type="checkbox"
+                                checked={selected.has(v.id)}
+                                onChange={() => toggleSelected(v.id)}
+                                aria-label={"Select " + (v.title || v.host)}
+                              />
+                              <Favicon url={v.url} host={v.host} />
+                              <span className="hist-main">
+                                <span className="hist-t" title={v.url}>{v.title || v.host}</span>
+                                <span className="hist-host">{v.host}{v.typed ? " · typed" : ""}</span>
+                              </span>
+                              <span className="hist-time">{timeLabel(v.when)}</span>
+                              <DropdownMenu.Root>
+                                <DropdownMenu.Trigger className="hist-more" aria-label={"More actions for " + (v.title || v.host)}>⋯</DropdownMenu.Trigger>
+                                <DropdownMenu.Portal>
+                                  <DropdownMenu.Content className="um-popover" align="end" sideOffset={4} collisionPadding={8}>
+                                    <DropdownMenu.Item className="um-item" onSelect={() => copyLink(v.url)}>Copy link</DropdownMenu.Item>
+                                    <DropdownMenu.Item className="um-item" onSelect={() => removeVisit(v.id)}>Remove from history</DropdownMenu.Item>
+                                  </DropdownMenu.Content>
+                                </DropdownMenu.Portal>
+                              </DropdownMenu.Root>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div className="dlg-actions" data-align-row>
+              {selected.size > 0 ? (
+                <>
+                  <span className="hist-sel">{selected.size} selected</span>
+                  <button type="button" className="btn btn-sm btn-danger" onClick={removeSelected}>Remove</button>
+                </>
+              ) : null}
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => setHistoryOpen(false)}>Close</button>
             </div>
           </Dialog.Content>
         </Dialog.Portal>

@@ -3898,10 +3898,42 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   color: var(--text-primary); font: inherit; font-size: 12.5px; appearance: none; cursor: pointer;
 }
 .set-select:hover { background-color: var(--bg-hover); }
-.set-hist { list-style: none; margin: 12px 0 0; padding: 0; max-height: 46vh; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-ctl); }
-.set-hist li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 12.5px; }
-.set-hist li + li { border-top: 1px solid var(--border); }
-.set-hist .set-hist-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+/* Browsing history: the reference's data shape inside our dialog — a
+   search field, day groups that collapse, and a row per visit with its
+   favicon, host, time and a per-row menu. */
+.dlg.dlg-hist {
+  width: min(680px, calc(100vw - 32px));
+  top: 50%;
+  max-height: min(86dvh, 720px);
+}
+.hist-search { width: 100%; height: 34px; margin-top: 14px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-ctl); background: var(--bg-base); color: var(--text-primary); font: inherit; font-size: 13px; }
+.hist-search::placeholder { color: var(--text-secondary); }
+.hist-search:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+.hist-head { display: flex; align-items: center; gap: 10px; margin: 16px 0 8px; }
+.hist-head-t { flex: 1; font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+.hist-days { border: 1px solid var(--border); border-radius: var(--radius-panel); overflow: hidden auto; max-height: 46vh; }
+.hist-day + .hist-day { border-top: 1px solid var(--border); }
+.hist-day-h { display: flex; align-items: center; gap: 8px; width: 100%; margin: 0; padding: 11px 14px; border: 0; background: none; color: var(--text-primary); font: inherit; font-size: 13px; font-weight: 550; text-align: left; cursor: pointer; }
+.hist-day-h:hover { background: var(--bg-hover); }
+.hist-day-n { font-size: 12px; font-weight: 400; color: var(--text-secondary); }
+.hist-day-h svg { margin-left: auto; color: var(--text-secondary); transition: transform .12s; }
+.hist-day-h[aria-expanded="true"] svg { transform: rotate(180deg); }
+.hist-rows { list-style: none; margin: 0; padding: 0; }
+.hist-row { display: flex; align-items: center; gap: 10px; padding: 6px 14px; }
+.hist-row:hover { background: var(--bg-hover); }
+.hist-row input[type="checkbox"] { flex: none; width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.hist-fav { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; background: var(--bg-hover); color: var(--text-secondary); font-size: 10px; font-weight: 600; text-transform: uppercase; overflow: hidden; }
+.hist-fav img { width: 16px; height: 16px; }
+.hist-main { display: flex; align-items: baseline; gap: 8px; flex: 1; min-width: 0; }
+.hist-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; font-weight: 550; color: var(--text-primary); }
+.hist-host { flex: none; max-width: 42%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--text-secondary); }
+.hist-time { flex: none; font-size: 12px; color: var(--text-secondary); }
+.hist-more { flex: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--text-secondary); font: inherit; font-size: 15px; line-height: 1; cursor: pointer; }
+.hist-more:hover { background: var(--bg-hover); color: var(--text-primary); }
+.hist-sel { font-size: 12.5px; color: var(--text-secondary); }
+/* The bulk remove is destructive; the app's .btn-danger is only red on
+   hover, which reads as inert in a footer. */
+.dlg-hist .btn-danger { border-color: var(--danger); color: var(--danger); }
 
 /* Clear browsing data: the reference dialog — time-range pills over a
    checklist of data kinds, then Cancel / Delete data. */

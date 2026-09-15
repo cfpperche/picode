@@ -16,6 +16,7 @@ func registerBrowserHistoryRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/browser/history", handleBrowserHistoryAdd(deps))
 	mux.HandleFunc("GET /api/browser/history", handleBrowserHistoryList(deps))
 	mux.HandleFunc("DELETE /api/browser/history/{id}", handleBrowserHistoryDelete(deps))
+	mux.HandleFunc("POST /api/browser/history/delete", handleBrowserHistoryDeleteMany(deps))
 	mux.HandleFunc("POST /api/browser/history/clear", handleBrowserHistoryClear(deps))
 }
 
@@ -75,6 +76,37 @@ func handleBrowserHistoryDelete(deps Deps) http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// One selection, one round trip: the history dialog's bulk remove.
+func handleBrowserHistoryDeleteMany(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if deps.Store == nil {
+			writeErr(w, http.StatusServiceUnavailable, "store is not open")
+			return
+		}
+		var req struct {
+			IDs []int64 `json:"ids"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "bad request: "+err.Error())
+			return
+		}
+		if len(req.IDs) == 0 {
+			writeErr(w, http.StatusBadRequest, "ids are required")
+			return
+		}
+		if len(req.IDs) > 500 {
+			writeErr(w, http.StatusBadRequest, "at most 500 ids at once")
+			return
+		}
+		removed, err := deps.Store.DeleteBrowserVisits(req.IDs)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"removed": removed})
 	}
 }
 
