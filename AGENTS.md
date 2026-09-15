@@ -174,7 +174,7 @@ For any UI work:
 | `make cert-timer` | Install the weekly certificate check (systemd --user) |
 | `make desktop-restart` | Swap the Windows tray + native-host exes and relaunch via the logon task — the only supported restart; never background a Windows exe from WSL |
 
-## Two rules for the agent itself
+## Rules for the agent itself
 
 - **Never `pkill -f <pattern>`** (or `killall`) from a session: the pattern
   matches the command line running it, so the shell that issued it dies first
@@ -187,15 +187,23 @@ For any UI work:
   terminal (2026-09-15). Kill the exact session you created
   (`tmux kill-session -t picode-sh-<id>`), and let
   `./scripts/qa-scratch.sh stop <name>` do it for a scratch instance.
-  **`TMUX_TMPDIR` does not isolate on this host**: measured 2026-09-15 on
-  tmux 3.6 — a session started under `TMUX_TMPDIR=/tmp/probe`, with
-  `XDG_RUNTIME_DIR` set *and* unset, appeared in the owner's `tmux ls` while
-  the probe directory stayed empty. A scratch that launches terminals puts
-  them in the owner's tmux (and in every other agent's `killall`/`pkill`
-  radius): trust `tmux ls`, not the variable, and clean up by exact session
-  name. A Go test that launches a terminal cleans it up with a context of its
-  own — `t.Context()` is canceled *before* cleanups run, so tmux calls made
-  with it fail silently and the session leaks.
+  **`$TMUX` outranks `TMUX_TMPDIR`** — measured 2026-09-15: a client started
+  inside a session talks to the server named in `$TMUX` no matter what
+  `TMUX_TMPDIR` says (a probe with `TMUX_TMPDIR=/tmp/x` printed production's
+  `/tmp/tmux-1000/default`). `-L` does override `$TMUX`, but then
+  `TMUX_TMPDIR` counts only if that directory exists — missing, tmux falls
+  back to the shared `tmux-<uid>` dir silently. The safe scratch recipe is
+  `mkdir -p $dir && TMUX_TMPDIR=$dir tmux -L <unique-name> …`; a session
+  launched with neither lands in the owner's tmux (and in every other
+  agent's `pkill` radius). Clean up by exact session name, or check the
+  scratch's own Terminals list before blaming the server. PiCode terminals
+  refuse `kill-server` through the tmux guard — but it is a guardrail, not a
+  boundary: an absolute `/usr/bin/tmux kill-server` still bypasses it.
+  A Go test that launches a real terminal cleans it up with a context of its
+  own: `t.Context()` is canceled *before* cleanup functions run, so every
+  tmux call made with it fails silently and the fixture leaks one session
+  per run into the shared server (four `picode-sh-feed-fixture-*` sessions
+  were found in the owner's `tmux ls` this way).
 - **Know which tree you are in.** `make dev`, `make ci-scoped` and `make close`
   print `<worktree> on <branch>` before doing anything; the same line answers
   "did I edit the root checkout by mistake?" (`make worktree-status` lists every

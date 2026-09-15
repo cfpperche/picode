@@ -5,8 +5,11 @@ package tmux
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -37,6 +40,78 @@ type OwnedSession struct {
 	RootCmd    string `json:"rootCmd"`
 	Attached   bool   `json:"attached"`
 	WorkingDir string `json:"workingDir,omitempty"`
+}
+
+// SocketDirEnv is tmux's own TMUX_TMPDIR: the directory tmux keeps its socket
+// in, as `default` inside a `tmux-<uid>` subdirectory. A daemon leaves it
+// alone — the user's real terminals and agents live on their own server, the
+// one their own `tmux ls` shows. A harness that seeds its own store sets it,
+// so **every** tmux call that process and its children make reaches a private
+// server instead: the tests that create sessions, the helper scripts that
+// shell out to `tmux` themselves, anything they spawn.
+//
+// Chosen over `tmux -L <name>` (a first attempt, 2026-09-13) because -L has to
+// ride every argv: a fake tmux on PATH parses $1, a test that calls
+// exec.Command("tmux", …) misses it entirely, and the resulting failures look
+// like product bugs. TMUX_TMPDIR is inherited by everything, including
+// subprocesses the harness never sees.
+const SocketDirEnv = "TMUX_TMPDIR"
+
+// DefaultSocketDir is where tmux puts the user's own server: tmux's docs
+// order is $TMUX_TMPDIR, then the OS temp dir, then /tmp, always inside
+// tmux-<uid>. KillIsolatedServer refuses this path.
+func DefaultSocketDir() string {
+	base := os.Getenv(SocketDirEnv)
+	if base == "" {
+		base = os.TempDir()
+	}
+	return filepath.Join(base, "tmux-"+strconv.Itoa(os.Getuid()))
+}
+
+// IsolatedEnv is the environment a tmux child needs to reach the server in
+// dir and nowhere else. Measured 2026-09-15: $TMUX outranks TMUX_TMPDIR — a
+// child that inherits the caller's TMUX talks to the caller's server no
+// matter what TMUX_TMPDIR says (a guard fixture "isolated" this way ran
+// kill-server on the live server twice). A pre-existing TMUX_TMPDIR is also
+// dropped: tmux reads the first match, so an inherited one would win over
+// the value appended here.
+func IsolatedEnv(dir string) []string {
+	env := make([]string, 0, len(os.Environ())+1)
+	for _, kv := range os.Environ() {
+		switch {
+		case strings.HasPrefix(kv, "TMUX="), strings.HasPrefix(kv, "TMUX_PANE="), strings.HasPrefix(kv, SocketDirEnv+"="):
+			continue
+		}
+		env = append(env, kv)
+	}
+	return append(env, SocketDirEnv+"="+dir)
+}
+
+// KillIsolatedServer ends the tmux server whose socket lives in dir — the
+// harness's own — and every session on it. It refuses an empty dir and the
+// user's default socket directory, because that is where real work lives: a
+// harness that kills it takes the human's terminals with it (it happened: an
+// unguarded `kill-server` during a 2026-09-13 test run killed 140 sessions
+// across someone else's working tree). The refusal is the point of this
+// function existing at all; a harness that needs a server to kill must have
+// made the directory itself.
+func KillIsolatedServer(ctx context.Context, dir string) error {
+	if dir == "" {
+		return errors.New("tmux: refusing kill-server without a socket directory — that is the user's own server")
+	}
+	if filepath.Clean(dir) == filepath.Clean(DefaultSocketDir()) {
+		return fmt.Errorf("tmux: refusing kill-server in %s — that is the user's own server", dir)
+	}
+	cmd := exec.CommandContext(ctx, "tmux", "kill-server")
+	cmd.Env = IsolatedEnv(dir)
+	out, err := cmd.CombinedOutput()
+	if err != nil && (strings.Contains(string(out), "no server running") || strings.Contains(string(out), "error connecting")) {
+		return nil // nothing to kill is the state a harness wants
+	}
+	if err != nil {
+		return fmt.Errorf("tmux kill-server in %s: %w: %s", dir, err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 // Manager wraps tmux CLI operations. All methods are safe for concurrent
@@ -302,8 +377,9 @@ func (m *Manager) ListSessions(ctx context.Context) ([]Session, error) {
 	out, err := m.run(ctx, "list-sessions", "-F",
 		"#{session_name}\t#{session_created}\t#{session_attached}\t#{session_windows}")
 	if err != nil {
-		// No server running means no sessions at all.
-		if strings.Contains(out, "no server running") || strings.Contains(out, "error connecting") {
+		// No server running means no sessions at all (serverAbsent also
+		// covers the client-started-a-just-dead-server race).
+		if serverAbsent(out) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("tmux list-sessions: %s", out)

@@ -142,3 +142,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0135](0135-agent-browser-binding.md) | agent-browser-binding | proposed |
 | [0136](0136-html-file-preview.md) | HTML file preview through a sandboxed, cookie-less capability route (scripts and relative assets run; `allow-same-origin` never) | accepted |
 | [0137](0137-html-preview-origin.md) | HTML preview on a real per-ticket origin (`<label>.localhost`, Host-routed before the auth gate; storage and workers, sandbox fallback) | accepted |
+| [0138](0138-tmux-terminal-guard.md) | tmux terminal guard — a `tmux` wrapper on the ADR-0056 session PATH refuses `kill-server`/pattern kills and exact-name kills without the terminal's marker; `send-keys` payload check; on by default; dedicated socket named as next step | accepted, extends 0056; amends nothing |

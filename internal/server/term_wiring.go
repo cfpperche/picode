@@ -337,6 +337,12 @@ func wiringRows(dataDir string) []wiringRow {
 			Wired:     interceptWired(dataDir, "pi", "pi"),
 			Note:      "Native lifecycle extension for manual Pi TUI sessions only.",
 		},
+		{
+			ID: TmuxGuardID, Label: "tmux guard", Bin: "tmux",
+			Installed: installedOnPath("tmux"),
+			Wired:     interceptWired(dataDir, TmuxGuardID, "tmux"),
+			Note:      "On by default. Refuses kill-server, pattern kills and other terminals' sessions inside PiCode terminals.",
+		},
 	}
 }
 
@@ -349,6 +355,16 @@ func handleWiringStatus(deps Deps) http.HandlerFunc {
 func handleWiringEnable(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cli := r.PathValue("cli")
+		if cli == TmuxGuardID {
+			unlock := terminalLock(deps, "cli-config")
+			defer unlock()
+			if err := installTmuxGuard(deps.DataDir); err != nil {
+				writeErr(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"clis": wiringRows(deps.DataDir)})
+			return
+		}
 		if c, ok := clilaunch.Find(cli); ok && !c.Integrable() {
 			writeErr(w, http.StatusBadRequest, fmt.Sprintf("Launch is not available for %s yet.", c.Name))
 			return
@@ -382,6 +398,16 @@ func handleWiringEnable(deps Deps) http.HandlerFunc {
 func handleWiringDisable(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cli := r.PathValue("cli")
+		if cli == TmuxGuardID {
+			unlock := terminalLock(deps, "cli-config")
+			defer unlock()
+			if err := uninstallTmuxGuard(deps.DataDir); err != nil {
+				writeErr(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"clis": wiringRows(deps.DataDir)})
+			return
+		}
 		unlock := terminalLock(deps, "cli-config")
 		defer unlock()
 		if deps.Store != nil {

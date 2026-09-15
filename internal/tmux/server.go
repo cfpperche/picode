@@ -271,9 +271,11 @@ func (m *Manager) SessionReceipt(ctx context.Context, name string) (SessionRecei
 
 // serverAbsent reports whether a tmux failure means "there is no server",
 // which every read in this package answers with an empty result rather than
-// an error.
+// an error. A client with no server starts one; a command that needs no
+// session then watches it exit empty and reports "server exited
+// unexpectedly" — the same state seen from the other side.
 func serverAbsent(out string) bool {
-	for _, msg := range []string{"no server running", "error connecting to", "no such file or directory"} {
+	for _, msg := range []string{"no server running", "error connecting to", "no such file or directory", "server exited unexpectedly"} {
 		if strings.Contains(out, msg) {
 			return true
 		}

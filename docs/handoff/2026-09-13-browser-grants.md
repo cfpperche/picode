@@ -26,10 +26,6 @@ endpoint); the shell-side navigation gate; the shell must mirror
 `AllowsOrigin` or daemon and shell can disagree; no Windows runtime
 acceptance of any act verb.
 
-## Next up
-
-- The grants editor (Settings ▸ Browser): list grants + set tier and domains.
-- The navigation gate in the shell, with the same rule as `AllowsOrigin`.
 
 ## Debts
 
