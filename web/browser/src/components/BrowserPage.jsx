@@ -28,6 +28,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   const [flash, setFlash] = useState("");
   const [history, setHistory] = useState(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [prefs, setPrefs] = useState({ showFullUrl: true });
 
   const load = useCallback(async () => {
     try {
@@ -55,8 +56,14 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     if (!hidden) {
       load();
       loadHistory();
+      fetch("/api/browser/prefs").then((r) => r.json()).then((p) => setShowFullUrl(p.showFullUrl !== false)).catch(() => {});
     }
   }, [hidden, load, loadHistory]);
+
+  const setShowFullUrl = (on) => {
+    setPrefs({ showFullUrl: on });
+    fetch("/api/browser/prefs", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ showFullUrl: on }) }).catch(() => {});
+  };
 
   // Saves land as setting.updated; history mutations as browserhistory.updated.
   // Both refetch the surface they feed instead of polling.
@@ -140,6 +147,14 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
       <p className="settings-hint">
         Read — sees the tab you have on screen, nothing else. Act — also opens and drives pages in its own pane, inside the domains you list. Full — everything Act does, plus developer access.
       </p>
+      <h4 className="settings-sub">Address bar</h4>
+      <div className="settings-card">
+        <div className="grant-row">
+          <span className="grant-name">Show full URL</span>
+          <span className="settings-hint" style={{ flex: 1 }}>Include the path, query, and fragment in the address bar — off shows the site only.</span>
+          <button type="button" className="btn btn-ghost" role="switch" aria-checked={prefs.showFullUrl} aria-label="Show full URL" onClick={() => setShowFullUrl(!prefs.showFullUrl)}>{prefs.showFullUrl ? "On" : "Off"}</button>
+        </div>
+      </div>
       <h4 className="settings-sub">Browsing history</h4>
       <div className="settings-card">
         {history === null ? (

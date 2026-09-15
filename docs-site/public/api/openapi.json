@@ -2259,6 +2259,47 @@
         ]
       }
     },
+    "/api/browser/prefs": {
+      "get": {
+        "operationId": "getApiBrowserPrefs",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      },
+      "put": {
+        "operationId": "putApiBrowserPrefs",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      }
+    },
     "/api/browser/result": {
       "post": {
         "operationId": "postApiBrowserResult",
