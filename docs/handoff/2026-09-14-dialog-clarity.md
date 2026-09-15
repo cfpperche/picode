@@ -35,5 +35,4 @@ in all; screenshots in `var/screenshots/clar-*.png` (never committed).
 
 ## Debts
 
-- Thinking levels are still one selection for every model listed (the row made
-  them per list; only context/max became per model).
+(kept in `open/providers-custom.md` — duplicate pruned 2026-09-15 to hold the board budget)

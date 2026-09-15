@@ -40,7 +40,7 @@ visual-card: 1 yes · 2 yes · 3 yes · 4 no · 5 yes (5/5)
 
 ## Next up
 
-- Other CLIs' custom-endpoint files (its own topic note).
+(kept in `open/providers-custom.md` — deferral pruned 2026-09-15 to hold the board budget)
 
 ## Debts
 
