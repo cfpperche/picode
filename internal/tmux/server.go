@@ -40,9 +40,20 @@ import (
 // for. The literal names are duplicated here rather than imported from
 // internal/store so the tmux package stays free of the SQLite layer; the
 // server test asserts they match the store's constants.
+//
+// MarkerInstanceEnv (ADR-0140) answers the next question: whose PiCode? The
+// value is the data directory of the instance that created the session, so a
+// second PiCode on the same machine reading an unclaimed session can tell
+// "a leftover of this instance" from "another instance's live work". The
+// Manager stamps it (one funnel, NewSessionEnvSize) rather than a caller.
+// MarkerURLEnv is the loopback address that instance wrote for its agents'
+// hooks; it is the fallback identity for sessions created before the
+// instance stamp existed.
 const (
-	MarkerTermEnv  = "PICODE_TERM_ID"
-	MarkerAgentEnv = "PICODE_AGENT_ID"
+	MarkerTermEnv     = "PICODE_TERM_ID"
+	MarkerAgentEnv    = "PICODE_AGENT_ID"
+	MarkerInstanceEnv = "PICODE_INSTANCE"
+	MarkerURLEnv      = "PICODE_TERM_URL"
 )
 
 // ServerSession is one session on the tmux server this Manager talks to.
@@ -101,6 +112,12 @@ type SessionReceipt struct {
 	// harness, or the user's own tmux).
 	TermID  string
 	AgentID string
+	// Instance is the data directory of the PiCode that created the session
+	// (MarkerInstanceEnv, ADR-0140); URL is that instance's loopback address
+	// (MarkerURLEnv), present since long before the instance stamp and the
+	// fallback identity for the sessions older than it.
+	Instance string
+	URL      string
 }
 
 // paneListFormat is the one format string the server read uses. Fields are
@@ -263,6 +280,10 @@ func (m *Manager) sessionReceipt(ctx context.Context, name string) (SessionRecei
 				r.TermID = value
 			case MarkerAgentEnv:
 				r.AgentID = value
+			case MarkerInstanceEnv:
+				r.Instance = value
+			case MarkerURLEnv:
+				r.URL = value
 			}
 		}
 	}

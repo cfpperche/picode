@@ -448,9 +448,9 @@ func ensureShell(deps Deps, r *http.Request, name, termID, cwd string) error {
 		// the shell, and PICODE_TERM_URL spares them configuration. The env
 		// must exist from the first pane, so it rides new-session (-e) — a
 		// set-environment afterwards would miss the shell already running.
-		env := []string{"PICODE_TERM_ID=" + termID}
+		env := []string{tmux.MarkerTermEnv + "=" + termID}
 		if u := loopbackURL(deps); u != "" {
-			env = append(env, "PICODE_TERM_URL="+u)
+			env = append(env, tmux.MarkerURLEnv+"="+u)
 		}
 		// Wrappers live in <data>/bin and are only visible inside this
 		// session (ADR-0056 intercept). Empty when nothing is enabled.

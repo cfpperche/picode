@@ -167,7 +167,7 @@ func TestServerInfoWithoutAServer(t *testing.T) {
 func TestSessionReceiptReadsIdentityAndMarkers(t *testing.T) {
 	s := &serverScript{replies: map[string]scriptedReply{
 		"display-message":  {out: "picode-sh-build\t$12\t1789311380\t%3\t4242\n"},
-		"show-environment": {out: "PATH=/usr/bin\nPICODE_TERM_ID=build-1a2b3c\nPICODE_TERM_URL=http://127.0.0.1:8474\n"},
+		"show-environment": {out: "PATH=/usr/bin\nPICODE_TERM_ID=build-1a2b3c\nPICODE_TERM_URL=http://127.0.0.1:8474\nPICODE_INSTANCE=/home/goat/.picode\n"},
 	}}
 	r, err := managerOn(s).SessionReceipt(context.Background(), "picode-sh-build")
 	if err != nil {
@@ -181,6 +181,11 @@ func TestSessionReceiptReadsIdentityAndMarkers(t *testing.T) {
 	}
 	if r.TermID != "build-1a2b3c" || r.AgentID != "" {
 		t.Fatalf("markers = term %q agent %q, want only the term marker", r.TermID, r.AgentID)
+	}
+	// ADR-0140: the receipt carries the creating instance's identity (and the
+	// loopback URL that predates it) so an action can tell whose work this is.
+	if r.Instance != "/home/goat/.picode" || r.URL != "http://127.0.0.1:8474" {
+		t.Fatalf("instance = %q url = %q, want both read from the session environment", r.Instance, r.URL)
 	}
 }
 
