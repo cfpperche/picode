@@ -58,7 +58,7 @@ calling `navigator.mediaDevices.getUserMedia({video:true})` in a web tab
 triggers `PermissionRequested`. A web scratch cannot see any of it.
 Debt to open with this slice: a held request with no answer hangs the site —
 add a timeout that denies, or state the risk.
-- **Terminal agents** (ADR-0143): the extension sends the house tuple
+- **Terminal agents** — ADR-0143 **done** (identity, resolver, listing, rows).
   (agent → terminal → unmanaged), the resolver keys `term:<id>` beside the
   bare agent key, the listing returns terminals with a CLI running, the UI
   gives each principal a row and says an outside-PiCode `pi` stays read-only.
