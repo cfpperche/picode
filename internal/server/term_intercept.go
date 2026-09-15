@@ -53,7 +53,14 @@ func wrapperPath(dataDir, binName string) string {
 }
 
 func interceptOn(dataDir, cliID string) bool {
-	return loadInterceptEnabled(dataDir)[cliID]
+	m := loadInterceptEnabled(dataDir)
+	if cliID == TmuxGuardID {
+		// ADR-0138: the tmux guard defaults on — three measured incidents are
+		// the context. Only an explicit opt-out (wiring disable) turns it off.
+		on, seen := m[cliID]
+		return !seen || on
+	}
+	return m[cliID]
 }
 
 // interceptSessionPath is the PATH=… entry for new-session -e, or empty
@@ -652,6 +659,188 @@ done
 
 func removeWrapper(dataDir, binName string) {
 	_ = os.Remove(wrapperPath(dataDir, binName))
+}
+
+// TmuxGuardID is the wiring row of the tmux guard (ADR-0138). It is not a
+// clilaunch CLI: enable/disable go through installTmuxGuard/uninstallTmuxGuard,
+// and the wrapper gates only the sessions PiCode creates (ADR-0056 PATH).
+const TmuxGuardID = "tmux-guard"
+
+func tmuxGuardLog(dataDir string) string { return filepath.Join(dataDir, "tmux-guard.log") }
+
+// tmuxGuardWrapper is the policy of ADR-0138, one table, enforced in order.
+// It stays a small POSIX sh so it loads before any user rc and can never
+// outlive the real binary it execs. The log path is baked in at write time.
+const tmuxGuardWrapper = `#!/bin/sh
+# PiCode intercept — tmux guard (ADR-0138). Session PATH only.
+#   kill-server / kill-window / kill-pane ............. refuse
+#   kill-session -a (all but target) .................. refuse
+#   kill-session -t PATTERN ........................... refuse
+#   kill-session -t NAME (marker != this terminal) .... refuse
+#   kill-session -t NAME (marker == this terminal) .... allow
+#   send-keys carrying kill-server / pkill / killall .. refuse
+#   new-session (simple form) ......................... stamp PICODE_TERM_ID
+#   anything else (ls, capture-pane, attach, ...) ..... passthrough
+# Outside a managed terminal (no PICODE_TERM_ID) this wrapper is not on
+# PATH; invoked directly it passes straight through. This is a guardrail,
+# not a security boundary: plain accidents must be safe, circumvention
+# must be deliberate. The ownership probe always asks the default server
+# (it carries no -L/-S prefix), so an exact-name kill aimed at another
+# socket finds no marked session there and is refused — fail-closed.
+name=tmux
+` + guardFindReal + `
+picode_log='__PICODE_GUARD_LOG__'
+picode_argv=$*
+
+picode_refuse() {
+  printf '%s\n' "picode tmux guard: refused. $1" >&2
+  printf '%s\trefused\tterm=%s\t%s\n' \
+    "$(date +%Y-%m-%dT%H:%M:%S 2>/dev/null)" "${PICODE_TERM_ID-}" "$picode_argv" \
+    >>"$picode_log" 2>/dev/null || true
+  exit 1
+}
+
+[ -n "${PICODE_TERM_ID-}" ] || exec "$real" "$@"
+
+picode_cmd=
+picode_skip=
+picode_target=
+picode_allbut=
+picode_pending_t=
+for picode_a in "$@"; do
+  if [ -n "$picode_skip" ]; then picode_skip=; continue; fi
+  if [ -z "$picode_cmd" ]; then
+    case "$picode_a" in
+      -c|-f|-L|-S) picode_skip=1 ;;
+      -c*|-f*|-L*|-S*) ;;
+      -*) ;;
+      *) picode_cmd=$picode_a ;;
+    esac
+    continue
+  fi
+  case "$picode_a" in
+    -t) picode_pending_t=1 ;;
+    -t?*) picode_target=${picode_a#-t} ;;
+    # An 'a' anywhere in a flag cluster is kill-session's all-but-target
+    # (-a, -at X, -aC); fail-closed — only kill-session reads it, other
+    # commands ignore it. Must sit after the -t rules: '-ta' is a target.
+    -*a*) picode_allbut=1 ;;
+    *) [ -n "$picode_pending_t" ] && { picode_target=$picode_a; picode_pending_t=; } ;;
+  esac
+done
+
+case "$picode_cmd" in
+  kill-server|kill-window|kill-pane)
+    picode_refuse "'$picode_cmd' reaches beyond this terminal: it takes down every session on the server, PiCode's and yours. Close terminals from the app, or kill one exact session: tmux kill-session -t <name>."
+    ;;
+  kill-session)
+    [ -n "$picode_allbut" ] && picode_refuse "'kill-session -a' kills every other session on the server; the guard allows only exact, owned kills."
+    if [ -z "$picode_target" ]; then
+      if [ -n "${TMUX-}" ]; then
+        picode_target=$("$real" display-message -p '#S' 2>/dev/null)
+      fi
+      [ -n "$picode_target" ] || exec "$real" "$@"
+    fi
+    case "$picode_target" in
+      *\**|*\?*|*\[*|*\]*|*\\*)
+        picode_refuse "'$picode_target' is a pattern. Only exact session names may be killed — run 'tmux ls' and pick one name."
+        ;;
+    esac
+    picode_owner=$("$real" show-environment -t "$picode_target" PICODE_TERM_ID 2>/dev/null)
+    picode_owner=${picode_owner#PICODE_TERM_ID=}
+    [ "$picode_owner" = "$PICODE_TERM_ID" ] || picode_refuse "'$picode_target' was not created by this terminal. Only sessions this terminal created may be killed."
+    ;;
+  send-keys)
+    case "$picode_argv" in
+      *kill-server*|*pkill*|*killall*)
+        picode_refuse "send-keys would type a server or process killer into a pane. If that pane is yours, run the command there yourself."
+        ;;
+    esac
+    ;;
+  new-session)
+    # A plain child session does not inherit the marker (measured, tmux 3.6),
+    # so stamp the sessions this terminal creates — you own what you create.
+    # Only the simple form (argv[1] is the command) is rewritten; exotic
+    # server flags pass through unstamped and stay kill-refused.
+    if [ "${1-}" = "new-session" ]; then
+      case "$picode_argv" in
+        *PICODE_TERM_ID=*) ;;
+        *) shift; exec "$real" new-session -e "PICODE_TERM_ID=$PICODE_TERM_ID" "$@" ;;
+      esac
+    fi
+    ;;
+  mine)
+    [ "${1-}" = "mine" ] && {
+      "$real" list-sessions -F '#S' 2>/dev/null | while IFS= read -r picode_s; do
+        picode_o=$("$real" show-environment -t "$picode_s" PICODE_TERM_ID 2>/dev/null)
+        [ "${picode_o#PICODE_TERM_ID=}" = "$PICODE_TERM_ID" ] && printf '%s\n' "$picode_s"
+      done
+      exit 0
+    }
+    ;;
+esac
+
+exec "$real" "$@"
+`
+
+// guardFindReal resolves the real tmux without external binaries. The
+// shared wrapperFindReal shells out to dirname(1); when the guard ran under
+// a minimal PATH (a test fixture, a hardened launch), dirname was absent,
+// the computed `here` was wrong, and the guard found *itself* in the bin
+// dir and exec'd in an endless self-loop (caught 2026-09-15). A guard must
+// not depend on the environment it polices: ${0%/*} is pure shell.
+const guardFindReal = `here=${0%/*}
+[ "$here" = "$0" ] && here=.
+real=
+IFS=:
+for d in $PATH; do
+  [ "$d" = "$here" ] && continue
+  if [ -x "$d/$name" ]; then real="$d/$name"; break; fi
+done
+unset IFS
+if [ -z "$real" ]; then
+  printf '%s\n' "picode: $name is not installed outside this terminal." >&2
+  exit 127
+fi
+`
+
+func writeTmuxGuard(dataDir string) error {
+	body := strings.Replace(tmuxGuardWrapper, "__PICODE_GUARD_LOG__", tmuxGuardLog(dataDir), 1)
+	return writeExecutable(wrapperPath(dataDir, "tmux"), body)
+}
+
+func installTmuxGuard(dataDir string) error {
+	if err := writeTmuxGuard(dataDir); err != nil {
+		return err
+	}
+	m := loadInterceptEnabled(dataDir)
+	if m[TmuxGuardID] {
+		return nil
+	}
+	m[TmuxGuardID] = true
+	return saveInterceptEnabled(dataDir, m)
+}
+
+func uninstallTmuxGuard(dataDir string) error {
+	removeWrapper(dataDir, "tmux")
+	// Persist an explicit false: the guard defaults on, so a deleted key
+	// would read as "never configured" and silently re-arm the guard.
+	m := loadInterceptEnabled(dataDir)
+	m[TmuxGuardID] = false
+	return saveInterceptEnabled(dataDir, m)
+}
+
+// ensureTmuxGuard (re)creates the wrapper when the guard is on and the file
+// is missing — an upgrade or an operator's clean-up must not silently leave
+// new sessions unguarded. Called at session creation, beside the rcfile.
+func ensureTmuxGuard(dataDir string) {
+	if !interceptOn(dataDir, TmuxGuardID) {
+		return
+	}
+	if _, err := os.Stat(wrapperPath(dataDir, "tmux")); err == nil {
+		return
+	}
+	_ = writeTmuxGuard(dataDir)
 }
 
 // stripLegacyUserClaudeHooks undoes the 2026-09-03 file-wiring if it
