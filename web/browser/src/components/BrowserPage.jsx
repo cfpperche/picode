@@ -106,6 +106,20 @@ const dayLabel = (d) => {
 
 const timeLabel = (d) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
+// The kinds the dialog offers, in the order the reference lists them. The
+// value is the daemon's own vocabulary (the shell maps the platform's kinds
+// onto it); "*" as the origin is the standing for every site — that is what
+// the per-kind allow/block choice writes.
+const PERMISSION_KINDS = [
+  { value: "camera", title: "Camera", d: "Sites can ask to use your camera" },
+  { value: "microphone", title: "Microphone", d: "Sites can ask to use your microphone" },
+  { value: "location", title: "Location", d: "Sites can ask for your location" },
+  { value: "notifications", title: "Notifications", d: "Sites can ask to send notifications" },
+  { value: "clipboard", title: "Clipboard", d: "Sites can ask to read your clipboard" },
+  { value: "autoplay", title: "Autoplay", d: "Sites can start playing media" },
+];
+const ALL_SITES = "*";
+
 const bytesLabel = (n) => {
   if (!n || n <= 0) return "";
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -175,6 +189,8 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [dlQuery, setDlQuery] = useState("");
   const [confirmClearAll, setConfirmClearAll] = useState(false);
+  const [siteOpen, setSiteOpen] = useState(false);
+  const [stands, setStands] = useState(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [wipeOpen, setWipeOpen] = useState(false);
   const [wipeRange, setWipeRange] = useState(3600);
@@ -204,6 +220,17 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
       setDownloads(data.downloads ?? []);
     } catch {
       /* the list is disposable; the next event retries */
+    }
+  }, []);
+
+  const loadStands = useCallback(async () => {
+    try {
+      const r = await fetch("/api/browser/permissions?limit=200");
+      if (!r.ok) throw new Error(String(r.status));
+      const data = await r.json();
+      setStands(data.permissions ?? []);
+    } catch {
+      /* disposable; the next event retries */
     }
   }, []);
 
@@ -244,6 +271,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
       load();
       loadHistory();
       loadDownloads();
+      loadStands();
       if (invoke) invoke("btab_download_dir").then((p) => setDownloadDir(p || "")).catch(() => {});
       fetch("/api/browser/prefs")
         .then((r) => r.json())
@@ -273,8 +301,19 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
 
   // Saves land as setting.updated; history mutations as browserhistory.updated.
   // Both refetch the surface they feed instead of polling.
+  // The shell keeps the policy in memory; the standings in the daemon are the
+  // truth, so every load (and every feed event) hands them back to it.
+  useEffect(() => {
+    if (!invoke || !Array.isArray(stands)) return;
+    for (const st of stands) {
+      if (st.origin !== ALL_SITES) continue;
+      invoke("btab_set_permission_policy", { kind: st.kind, state: st.decision }).catch(() => {});
+    }
+  }, [stands, invoke]);
+
   useEffect(() => subscribeFeed((ev) => {
     if (ev.type === "setting.updated") load();
+    if (ev.type === "browserpermission.updated") loadStands();
     if (ev.type === "browserhistory.updated") loadHistory();
     if (ev.type === "browserdownload.updated") loadDownloads();
   }), [load, loadHistory, loadDownloads]);
@@ -459,6 +498,29 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     }
   };
 
+  const policyOf = (kind) => (stands || []).find((st) => st.origin === ALL_SITES && st.kind === kind)?.decision || "";
+
+  const setPolicy = async (kind, decision) => {
+    try {
+      const r = await fetch("/api/browser/permissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ origin: ALL_SITES, kind, decision }),
+      });
+      if (!r.ok) throw new Error(String(r.status));
+    } catch {
+      toast("Saving the permission failed.");
+      return;
+    }
+    if (invoke) await invoke("btab_set_permission_policy", { kind, state: decision }).catch(() => {});
+    loadStands();
+  };
+
+  const forgetStanding = async (id) => {
+    await fetch("/api/browser/permissions/" + id, { method: "DELETE" }).catch(() => {});
+    loadStands();
+  };
+
   const draftOf = (row) => drafts[row.agentId] ?? { tier: row.tier, domainsText: domainsText(row) };
   const setDraft = (agentId, next) => setDrafts((d) => ({ ...d, [agentId]: next }));
 
@@ -553,6 +615,15 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
             </Item>
             <Item title="Download history" desc="View and manage files downloaded from the built-in browser">
               <button type="button" className="set-btn" onClick={() => setDownloadsOpen(true)}>Manage</button>
+            </Item>
+          </div>
+        </section>
+
+        <section className="set-group">
+          <h2 className="set-grouph">Browser permissions</h2>
+          <div className="set-panel">
+            <Item title="Site settings" desc="Camera, microphone, and the other permissions sites ask for">
+              <button type="button" className="set-btn" onClick={() => setSiteOpen(true)}>Manage</button>
             </Item>
           </div>
         </section>
@@ -823,6 +894,60 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
         onPick={pickDownloadDir}
         onClose={() => setPickerOpen(false)}
       />
+
+      <Dialog.Root open={siteOpen} onOpenChange={setSiteOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="dlg-overlay" />
+          <Dialog.Content className="dlg dlg-manage">
+            <Dialog.Title className="dlg-title">Site settings</Dialog.Title>
+            <p className="dlg-lede">
+              What sites may do in the built-in browser. Allow or block each kind for every site; without a choice the platform's own default (deny) stands, and every decision the browser makes is listed below.
+            </p>
+            <div className="set-panel">
+              {PERMISSION_KINDS.map((k) => (
+                <Item key={k.value} title={k.title} desc={k.d}>
+                  <select
+                    className="set-select"
+                    value={policyOf(k.value)}
+                    onChange={(e) => setPolicy(k.value, e.target.value)}
+                    aria-label={k.title + " policy"}
+                  >
+                    <option value="">Platform default</option>
+                    <option value="allow">Allow</option>
+                    <option value="deny">Block</option>
+                  </select>
+                </Item>
+              ))}
+            </div>
+            <div className="hist-head">
+              <span className="hist-head-t">Recent decisions</span>
+            </div>
+            {stands === null ? (
+              <div className="mcp-skel" aria-hidden="true"><span className="skel-line w-40" /><span className="skel-line w-70" /></div>
+            ) : stands.length === 0 ? (
+              <p className="set-groupdesc">Nothing yet — decisions appear here as sites ask.</p>
+            ) : (
+              <div className="hist-days">
+                <ul className="hist-rows">
+                  {stands.map((st) => (
+                    <li className="hist-row" key={st.id}>
+                      <span className="hist-main">
+                        <span className="hist-t" title={st.origin}>{st.origin === ALL_SITES ? "Every site" : st.origin}</span>
+                        <span className="hist-host">{st.kind}</span>
+                      </span>
+                      <span className="hist-time" style={st.decision === "deny" ? { color: "var(--danger)" } : undefined}>{st.decision}</span>
+                      <button type="button" className="set-btn" onClick={() => forgetStanding(st.id)} aria-label={"Forget the " + st.kind + " decision"}>Reset</button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="dlg-actions" data-align-row>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => setSiteOpen(false)}>Close</button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <Dialog.Root open={downloadsOpen} onOpenChange={(open) => { setDownloadsOpen(open); if (!open) setDlQuery(""); }}>
         <Dialog.Portal>
