@@ -28,7 +28,6 @@ tests, the Go tests for the policy, verb table and routes, `npm run
 build:browser`); the worktree is committed and clean, waiting for a gate that
 is not red for reasons of its own.
 
-
 ## Debts
 
 - The `browser` extension has never run inside Pi here: its tool registration is unverified (the peer dep is not in this tree).

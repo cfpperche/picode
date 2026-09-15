@@ -36,7 +36,9 @@
   --radius-ctl: 8px;
   --radius-panel: 12px;
   --ctl-h: 36px;
-  --chrome-h: 40px;
+  /* Chrome parity (docs/benchmarks/2026-09-15-chrome-tab-header.md):
+     kTabStripHeight = kTabHeight (34 + 1 overlap) + kTabStripPadding (6). */
+  --chrome-h: 41px;
   --chat-col: 768px;
   --chat-gutter: 24px;
   --motion-fast: 120ms;

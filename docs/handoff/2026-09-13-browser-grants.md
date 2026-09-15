@@ -26,7 +26,6 @@ endpoint); the shell-side navigation gate; the shell must mirror
 `AllowsOrigin` or daemon and shell can disagree; no Windows runtime
 acceptance of any act verb.
 
-
 ## Debts
 
 - Two writers of one rule: `AllowsOrigin` (Go) and the gate to come (Rust); keep them in step.

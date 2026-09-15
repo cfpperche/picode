@@ -21,11 +21,3 @@ default is the owner's call — ADR-0128 says deny by default, slice 4 owns the
 UI), the navigation gate, and a cancel frame (a timeout ends the wait, not a
 command already on the stream).
 Merge: fast-forward ready.
-
-## Next up
-
-- The `browser` Pi tool (`internal/pipkg`) plus the per-agent policy source, then the navigation gate, then the policy UI.
-
-## Debts
-
-- Nothing calls `Dispatch` in production yet: the channel is inert until the tool lands.

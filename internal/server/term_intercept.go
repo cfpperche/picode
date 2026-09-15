@@ -684,9 +684,11 @@ const tmuxGuardWrapper = `#!/bin/sh
 # Outside a managed terminal (no PICODE_TERM_ID) this wrapper is not on
 # PATH; invoked directly it passes straight through. This is a guardrail,
 # not a security boundary: plain accidents must be safe, circumvention
-# must be deliberate. The ownership probe always asks the default server
-# (it carries no -L/-S prefix), so an exact-name kill aimed at another
-# socket finds no marked session there and is refused — fail-closed.
+# must be deliberate. The probes carry no -L/-S on purpose: inside a pane
+# they inherit $TMUX — that pane's own server, the dedicated socket
+# included (ADR-0139) — and outside one they ask the default server, where
+# an exact-name kill aimed at another socket finds no marked session and is
+# refused (fail-closed).
 name=tmux
 ` + guardFindReal + `
 picode_log='__PICODE_GUARD_LOG__'
