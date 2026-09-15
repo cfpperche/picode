@@ -15,11 +15,49 @@ reviewed by the owner against the reference, one item at a time.
 - **v2c** annotations (step 4 is an ADR); **v2d** Windows Hello opener row.
 - **v3** WebMCP and Developer mode (raw CDP: ADR, off, `full` only, audited).
 
-## Next — detail
+## Ask prompt — measured state and the sketch (2026-09-15)
 
-- **Ask prompt**: hold the request with `GetDeferral` on the UI thread (COM is
-  not `Send`, the `RECEIVERS` trap), the prompt surface in the tab, "always"
-  writing the per-site standing; makes `Ask` a third policy state.
+The shell already has the handler (`attach_permission_handler`, btab.rs):
+`permission_policy()` is a `Mutex<HashMap<String, bool>>`, the closure maps
+the platform kind through `permission_kind_name`, answers from that map, and
+reports `btab://permission` so the standings list shows what each site got.
+There is **no deferral** — that is the whole of the missing half.
+
+Three edits in `desktop-shell/src/btab.rs`, two in the ACL:
+
+1. `permission_policy()` becomes `HashMap<String, String>` ("allow"/"deny"/
+   "ask"); `btab_set_permission_policy` gains `"ask"` beside `allow`/`deny`/
+   `default`. Until the dialog offers Ask, no kind can be in this state, so
+   the new branch below is unreachable and harmless.
+2. In the handler, `"ask"`: `args.GetDeferral(&mut deferral)`, stash
+   `(args.clone(), deferral)` under a counter id in a **thread_local**
+   `RefCell<HashMap<u64, …>>` (COM objects are apartment-bound and this
+   closure runs on the UI thread — the `RECEIVERS` rule), emit
+   `btab://permission-ask` `{id, origin, kind}`, and return **without**
+   `SetState`. Use fully qualified
+   `webview2_com::Microsoft::Web::WebView2::Win32::…` types so the import
+   block does not grow. No deferral available → SetState(DENY) as today.
+   `None` (no policy) keeps falling through to the platform default — do not
+   add a SetState there.
+3. `#[tauri::command] pub fn btab_permission_answer(app, id, state, remember)`
+   — **sync on purpose** (a sync command runs on the main thread, which is
+   where the thread_local can be touched): remove the entry, `SetState`,
+   `deferral.Complete()`, optionally remember the kind in the policy map, and
+   emit the same `btab://permission` outcome so the list stays truthful.
+4. ACL, the usual three edits (`generate_handler!`, `build.rs` commands,
+   `capabilities/default.json`) plus the generated `permission/` file.
+
+Then the visible half: Ask as the third option in the per-kind select (and in
+the Go vocabulary — `NormalizePermissionDecision` accepts allow/deny today),
+plus the prompt surface listening for `btab://permission-ask` (Allow / Block /
+Always, the last writing the per-site standing through the API the dialog
+already uses).
+
+Verification needs the desktop shell and a page that asks: a local test page
+calling `navigator.mediaDevices.getUserMedia({video:true})` in a web tab
+triggers `PermissionRequested`. A web scratch cannot see any of it.
+Debt to open with this slice: a held request with no answer hangs the site —
+add a timeout that denies, or state the risk.
 - **Terminal agents** (ADR-0143): the extension sends the house tuple
   (agent → terminal → unmanaged), the resolver keys `term:<id>` beside the
   bare agent key, the listing returns terminals with a CLI running, the UI
