@@ -123,7 +123,13 @@ func isEmptyLaunchConfig(c clilaunch.Config) bool {
 // that were inserted with the empty default and Integration false (the
 // OpenCode-on-first-deploy bug). A later owner off-switch is a second
 // SetCLIConfig and is not revisited after this seed flag is set.
-func (s *Store) SeedCatalogIntegrationDefaults() error {
+//
+// allow decides which CLIs may be switched on; nil keeps the historical
+// rule (every Integrable row). The server passes its integration-mechanism
+// predicate, so a CLI whose launch is editable but hookless (Muse Code)
+// is never seeded on — seeding it would break every default launch at
+// prepare time, where integration without a mechanism is refused.
+func (s *Store) SeedCatalogIntegrationDefaults(allow func(id string) bool) error {
 	if v, ok, err := s.GetSetting(catalogIntegrationSeedKey); err != nil {
 		return err
 	} else if ok && v == "1" {
@@ -131,6 +137,9 @@ func (s *Store) SeedCatalogIntegrationDefaults() error {
 	}
 	for _, cli := range clilaunch.Catalog() {
 		if !cli.Integrable() {
+			continue
+		}
+		if allow != nil && !allow(cli.ID) {
 			continue
 		}
 		c, found, err := s.CLIConfig(cli.ID)

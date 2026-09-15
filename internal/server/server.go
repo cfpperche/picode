@@ -103,8 +103,19 @@ func New(addr string, deps Deps) *http.Server {
 	// JSON file each and must resolve before the first listing.
 	pipkg.LoadUserDescriptors(filepath.Join(deps.DataDir, "package-configs"))
 	if deps.Store != nil {
-		_ = deps.Store.ImportCLIConfigs(loadInterceptEnabled(deps.DataDir))
-		_ = deps.Store.SeedCatalogIntegrationDefaults()
+		// The intercept map doubles as first-insert defaults, but only
+		// where a mechanism exists: seeding Activity on for a hookless CLI
+		// (Muse Code) would break its default launches at prepare time.
+		// The copy is deliberate — a forced false here must not persist as
+		// an owner choice, or a future mechanism would stay switched off.
+		enabled := loadInterceptEnabled(deps.DataDir)
+		for _, cli := range clilaunch.Catalog() {
+			if !hasIntegrationMechanism(cli.ID) {
+				enabled[cli.ID] = false
+			}
+		}
+		_ = deps.Store.ImportCLIConfigs(enabled)
+		_ = deps.Store.SeedCatalogIntegrationDefaults(hasIntegrationMechanism)
 		sweepPinDirs(deps.DataDir, deps.Store)
 	}
 

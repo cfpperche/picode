@@ -135,16 +135,28 @@ Every installed row reaches Check for updates through the same ⋯ menu, so a
 channel-backed CLI needs no bespoke button.
 
 **One launch surface, read-only without an adapter.** A CLI with no adapter
-keeps the *same* launch screens, with the launcher's own data and nothing to
-edit: the Launch tab renders the plan summary (`executable`, `args`, `path`,
-`env`, `injection`) instead of the defaults editor, `#/clis/new/<cli>` keeps
-the CLI row (its options are every `launchable` row, so the screen can switch
-to a CLI that does have an adapter) and the Launch preview, and
-`#/clis/terminal/<id>` shows that preview for a terminal whose launch failed.
-Only what cannot act is absent — the Customize checkbox, launch profiles and
-the row menu's Launch settings. The preview is the server's real plan
+(Antigravity today) keeps the *same* launch screens, with the launcher's own
+data and nothing to edit: the Launch tab renders the plan summary
+(`executable`, `args`, `path`, `env`, `injection`) instead of the defaults
+editor, `#/clis/new/<cli>` keeps the CLI row (its options are every
+`launchable` row, so the screen can switch to a CLI that does have an
+adapter) and the Launch preview, and `#/clis/terminal/<id>` shows that
+preview for a terminal whose launch failed. Only what cannot act is absent
+— the Customize checkbox, launch profiles and the row menu's Launch
+settings. The preview is the server's real plan
 (`POST /api/clis/<cli>/preview`), including the blocked state: an uninstalled
 CLI reads *Not found* and the plan's problem line instead of an empty grid.
+
+**Editable launch without activity (Muse Code).** Muse Code left the
+no-adapter group with its launch editable but no hook surface in its
+build, so the plan carries a summary and nothing to install or inject.
+The Activity reporting toggle is offered only where the plan carries a
+mechanism (arg branches, files, or environment — `hasIntegrationMechanism`
+on the catalog row, refused with 400 on PUT and at prepare time); Muse
+shows a one-line note instead and its terminals stay Open. The seed that
+switches Activity on for empty configs takes the same predicate, and the
+startup copy it forces off is never persisted — a future mechanism must
+not inherit a stale owner-off.
 
 **The pane tabs are the same everywhere.** `cliPanes` returns Launch,
 Terminals, Sessions (when the CLI has a session source) and the five setup

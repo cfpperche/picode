@@ -88,6 +88,13 @@ written to either CLI's store.
   Customize. Decision table first (installed? integration on/off? hook
   supported? resume vs new?), one test per row, including the known
   uncovered tmux-failure branch.
+  Outcome 3a (shipped): NO hook surface in Muse Code 1.3.0 — zero
+  "hook" strings in the binary, `plugins` subcommand unavailable, no
+  user plugin path — so the flip shipped WITHOUT activity: plan summary
+  only, toggle hidden behind `hasIntegrationMechanism` (catalog row +
+  PUT/prepend guards), seed skips hookless CLIs (copy forced off, never
+  persisted). Fatia 5 must revisit the seed flag for existing instances
+  when a mechanism appears.
 - **Fatia 4 — Writers (native targets, may fail).** Minimum-viable-file
   spike against the real CLI (the Grok ritual), `Write` + round-trip.
   Explicit fallback: brief-only, recorded — never forced.

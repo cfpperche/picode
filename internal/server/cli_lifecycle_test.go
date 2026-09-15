@@ -299,16 +299,19 @@ func TestDetectOnlyCLIsAndMuseChannelCheck(t *testing.T) {
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	museRow := catalogCLI(t, ts, "muse")
-	if museRow["surface"] != "terminal" || museRow["installed"] != true || museRow["launchable"] != true || museRow["integrationCapable"] != false {
+	// Full surface serializes omitempty: the key is absent, not "terminal".
+	if s, ok := museRow["surface"]; (ok && s != "") || museRow["installed"] != true || museRow["launchable"] != true || museRow["integrationCapable"] != true {
 		t.Fatalf("muse = %+v", museRow)
 	}
 	agyRow := catalogCLI(t, ts, "agy")
 	if agyRow["surface"] != "terminal" || agyRow["installed"] != true || agyRow["launchable"] != true || agyRow["integrationCapable"] != false {
 		t.Fatalf("agy = %+v", agyRow)
 	}
-	// Launch settings stay refused: the surface opens a terminal with the
-	// CLI's own defaults and edits nothing.
-	cliRequest(t, ts, "PUT", "/api/clis/muse", map[string]any{"executable": muse}, 400)
+	// Launch settings save: the surface opens a terminal with editable
+	// defaults (Fatia 3a), but Activity reporting stays refused — 1.3.0
+	// offers no hook surface.
+	cliRequest(t, ts, "PUT", "/api/clis/muse", map[string]any{"executable": muse}, 200)
+	cliRequest(t, ts, "PUT", "/api/clis/muse", map[string]any{"executable": muse, "integration": true}, 400)
 	// Lifecycle jobs stay refused: no managed update for this install.
 	cliRequest(t, ts, "POST", "/api/clis/muse/lifecycle", map[string]any{"action": "update", "requestKey": "x"}, 400)
 

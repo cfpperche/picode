@@ -146,7 +146,7 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 		{"SeedCatalogIntegrationDefaults", func(s *Store) {
 			_ = s.SetCLIConfig("opencode", clilaunch.Config{})
 			s.OnEvent = recorder(s)
-			_ = s.SeedCatalogIntegrationDefaults()
+			_ = s.SeedCatalogIntegrationDefaults(nil)
 		}, []string{"cli.updated", "setting.updated"}},
 		{"SetTerminalLaunch", func(s *Store) {
 			tm, _ := s.CreateTerminalIn("", "cli", proj)
