@@ -13,6 +13,7 @@ component; HTML is a page, so it gets an origin instead.
 |---|---|
 | `POST /api/previews {kind, id, path, root}` | 200 `{url, path, expiresAt}` — an ordinary authed API (cookie/bearer, origin check); `.html`/`.htm` under the owner's resolved folder only, `root` precondition honored (ADR-0074) |
 | `GET`/`HEAD` `/preview/{token}/{path…}` | the document or one allowlisted asset; everything else 404 "This preview is not available." (method-less mux pattern, so a POST answers 405 here instead of falling through to the app shell) |
+| `PUT` `/preview/{token}/{document}` | the pane's unsaved editor buffer becomes the ticket's **overlay** (204); the ticket is the gate, only the ticket's own document can be overlaid, UTF-8 and ≤1 MiB (the editor's cap) |
 | `GET` `/preview/{token}/__events` | the live-reload stream for that ticket: `hello`, then one `change` frame when a file the ticket served moved on disk |
 
 ## Policy
@@ -37,12 +38,12 @@ component; HTML is a page, so it gets an origin instead.
   cross-origin` so ES modules and `fetch` work from the opaque origin.
 - **Pane**: one `usePreviewTicket` per app (browser and mobile own their
   own, ADR-0072) mints on open and Reload, HEAD-preflights the new URL, and
-  pauses while the editor is dirty — the pane says "Unsaved changes aren't in
-  the preview" instead of showing the previous version. The `iframe` mirrors
-  the sandbox flags, `allow="fullscreen; clipboard-write"`. A document too
-  large for the pane's text read (`>1 MiB`) renders **preview-only** from the
-  ticket route: no Raw, no "too large" banner, because the page itself is
-  there.
+  **PUTs the editor buffer as the ticket's overlay while it is dirty** — the
+  preview shows what the pane holds, and a clean buffer re-mints so the file
+  on disk wins. The `iframe` mirrors the sandbox flags,
+  `allow="fullscreen; clipboard-write"`. A document too large for the pane's
+  text read (`>1 MiB`) renders **preview-only** from the ticket route: no
+  Raw, no "too large" banner, because the page itself is there.
 
 ## Why not `srcdoc`/`blob:`
 
@@ -64,6 +65,6 @@ no script is injected into the page and the sandbox is untouched. Five
 consecutive stream failures close it (an expired ticket 404s forever) and the
 manual **Reload** remains.
 
-Still v1.5-or-later (`docs/plans/html-preview.md`): previewing unsaved editor
-text, and a real second origin with localStorage and workers — the v2
-boundary move.
+Still open from the v1.5 plan (`docs/plans/html-preview.md`): nothing — v1.5
+is complete. A real second origin with localStorage and workers is the v2
+boundary move, and it needs its own ADR.

@@ -1,15 +1,18 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/cfpperche/picode/internal/auth"
 	"github.com/cfpperche/picode/internal/preview"
@@ -236,11 +239,6 @@ func previewAssetFor(root, rel string) (previewAsset, error) {
 
 func handlePreviewServe(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			w.Header().Set("Allow", "GET, HEAD")
-			previewDenyStatus(w, http.StatusMethodNotAllowed)
-			return
-		}
 		if deps.Previews == nil {
 			previewDeny(w)
 			return
@@ -250,9 +248,24 @@ func handlePreviewServe(deps Deps) http.HandlerFunc {
 			previewDeny(w)
 			return
 		}
+		switch r.Method {
+		case http.MethodPut:
+			handlePreviewOverlayPut(deps, tk, w, r)
+			return
+		case http.MethodGet, http.MethodHead:
+		default:
+			w.Header().Set("Allow", "GET, HEAD, PUT")
+			previewDenyStatus(w, http.StatusMethodNotAllowed)
+			return
+		}
 		rel := r.PathValue("path")
 		if rel == "" {
 			rel = tk.Path
+		}
+		// The pane's unsaved buffer, when there is one, is the document.
+		if text, ok := deps.Previews.Overlay(tk.Token); ok && previewIsDocument(tk, rel) {
+			servePreviewOverlay(w, r, text)
+			return
 		}
 		asset, err := previewAssetFor(tk.Root, rel)
 		if err != nil {
@@ -368,6 +381,52 @@ func handlePreviewEvents(deps Deps) http.HandlerFunc {
 			}
 		}
 	}
+}
+
+// previewIsDocument reports whether the request path is the document this
+// ticket was minted for — the only file an overlay may stand in for.
+func previewIsDocument(tk preview.Ticket, rel string) bool {
+	_, outRel, err := relUnderCwd(tk.Root, rel)
+	return err == nil && outRel == tk.Path
+}
+
+// servePreviewOverlay answers the document from the editor buffer instead of
+// disk, under the same sandbox policy as any preview document.
+func servePreviewOverlay(w http.ResponseWriter, r *http.Request, text string) {
+	for k, v := range previewHeaders() {
+		w.Header().Set(k, v)
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("ETag", fmt.Sprintf(`W/"overlay-%x"`, len(text)))
+	http.ServeContent(w, r, "index.html", time.Time{}, strings.NewReader(text))
+}
+
+// handlePreviewOverlayPut takes the pane's unsaved editor buffer. The ticket
+// is the gate and only the ticket's own document can be overlaid, so a
+// sandboxed page replacing its own preview gains nothing it did not have.
+func handlePreviewOverlayPut(deps Deps, tk preview.Ticket, w http.ResponseWriter, r *http.Request) {
+	rel := r.PathValue("path")
+	if rel == "" {
+		rel = tk.Path
+	}
+	if !previewIsDocument(tk, rel) {
+		previewDeny(w)
+		return
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxAgentText))
+	if err != nil {
+		previewDenyStatus(w, http.StatusRequestEntityTooLarge)
+		return
+	}
+	if bytes.IndexByte(body, 0) >= 0 || !utf8.Valid(body) {
+		previewDenyStatus(w, http.StatusBadRequest)
+		return
+	}
+	if !deps.Previews.SetOverlay(tk.Token, string(body)) {
+		previewDeny(w)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // previewSessionLive keeps a ticket alive only while the session that asked

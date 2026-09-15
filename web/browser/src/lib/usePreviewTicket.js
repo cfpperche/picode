@@ -1,20 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { mintPreview, previewReachable } from "@picode/shared/client/preview.js";
+import { mintPreview, previewReachable, putPreviewOverlay } from "@picode/shared/client/preview.js";
 
 // One ticket per open preview (ADR-0136). enabled=false (Raw mode, another
-// kind, unsaved text) keeps the last answer without minting; a path/owner/root
+// kind, empty text) keeps the last answer without minting; a path/owner/root
 // change or reload() mints again, which is also how an expired hour is
 // renewed. Every settled answer is fenced by `gen`, so a slow mint for a file
 // the viewer already left can never overwrite the current one.
+//
+// Unsaved text is the ticket's overlay: while the buffer is dirty the pane
+// PUTs it and the frame renders the editor's version (relative assets still
+// resolve); when the buffer is clean again the ticket is re-minted so the
+// file on disk wins.
 //
 // Live reload: the daemon holds one EventSource per ticket. A served file
 // changed on disk emits `change`, and this hook bumps a frame nonce so the
 // parent reloads the iframe — the page itself is never injected into and the
 // sandbox stays exactly as it was.
-export function usePreviewTicket({ ownerKind, ownerId, path, root, enabled }) {
+export function usePreviewTicket({ ownerKind, ownerId, path, root, text, dirty, enabled }) {
   const [state, setState] = useState({ status: "idle", url: "", events: "", error: "" });
   const [nonce, setNonce] = useState(0);
   const gen = useRef(0);
+  const overlaid = useRef(false);
   const load = useCallback(async () => {
     const mine = ++gen.current;
     setState((s) => ({ ...s, status: "loading", error: "" }));
@@ -38,7 +44,29 @@ export function usePreviewTicket({ ownerKind, ownerId, path, root, enabled }) {
     return () => { gen.current++; };
   }, [enabled, load]);
 
-  const { status, events } = state;
+  const { status, url, events } = state;
+  useEffect(() => {
+    if (!enabled || status !== "ready" || !url || !dirty) return undefined;
+    let stop = false;
+    void (async () => {
+      try {
+        await putPreviewOverlay(url, text == null ? "" : text);
+      } catch {
+        return; // the frame keeps the last version; the dirty dot still says why
+      }
+      if (!stop) setNonce((n) => n + 1);
+    })();
+    overlaid.current = true;
+    return () => { stop = true; };
+  }, [enabled, status, url, dirty, text]);
+
+  useEffect(() => {
+    if (!enabled || !overlaid.current || dirty || status !== "ready") return;
+    // Saved (or discarded): a fresh ticket serves the file, not the buffer.
+    overlaid.current = false;
+    void load();
+  }, [enabled, dirty, status, load]);
+
   useEffect(() => {
     if (status !== "ready" || !events) return undefined;
     let source = null;

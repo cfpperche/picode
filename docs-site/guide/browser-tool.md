@@ -43,9 +43,10 @@ grant, per agent:
   `file:`, `data:` and `javascript:` are never allowed, listed or not;
 - `full` is the tier that reaches outside the page (downloads, uploads).
 
-The grants editor is **Settings ▸ Browser** (in progress — the daemon and the
-shell already enforce grants; the surface to write them is the next
-increment). Until it lands, an agent stays read-only.
+The grants editor is **Settings ▸ Browser**: one row per agent — pick the
+tier, and for Act or Full list the hosts it may reach (paste-friendly:
+scheme, path and port are stripped). It saves per row and the change is
+live for the agent's next command.
 
 ## Two things it needs
 

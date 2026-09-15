@@ -51,10 +51,12 @@ type Store struct {
 }
 
 // entry is one ticket plus the files it has served, the set a live-reload
-// stream stats.
+// stream stats, and the unsaved editor buffer the pane may overlay on the
+// document (ADR-0136 v1.5).
 type entry struct {
-	ticket Ticket
-	watch  map[string]struct{}
+	ticket  Ticket
+	watch   map[string]struct{}
+	overlay *string
 }
 
 // NewStore builds a store; ttl <= 0 means DefaultTTL.
@@ -141,6 +143,33 @@ func (s *Store) Watched(token string) []string {
 		out = append(out, p)
 	}
 	return out
+}
+
+// SetOverlay replaces the ticket's document with the pane's unsaved editor
+// buffer: the preview shows what the editor holds, disk untouched. The
+// ticket is the gate (the sandbox already owns its own content); the caller
+// only offers this for the document the ticket was minted for.
+func (s *Store) SetOverlay(token, text string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	e, ok := s.tickets[token]
+	if !ok || !s.now().Before(e.ticket.ExpiresAt) {
+		return false
+	}
+	t := text
+	e.overlay = &t
+	return true
+}
+
+// Overlay answers the ticket's unsaved buffer, when the pane set one.
+func (s *Store) Overlay(token string) (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	e, ok := s.tickets[token]
+	if !ok || !s.now().Before(e.ticket.ExpiresAt) || e.overlay == nil {
+		return "", false
+	}
+	return *e.overlay, true
 }
 
 // Len reports live (unexpired) tickets.
