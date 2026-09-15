@@ -2114,6 +2114,49 @@
         ]
       }
     },
+    "/api/browser/policies": {
+      "get": {
+        "operationId": "getApiBrowserPolicies",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      }
+    },
+    "/api/browser/policy": {
+      "post": {
+        "operationId": "postApiBrowserPolicy",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      }
+    },
     "/api/browser/result": {
       "post": {
         "operationId": "postApiBrowserResult",

@@ -3613,7 +3613,7 @@ export default function App({ shellChrome = false } = {}) {
         {route === "llama" ? <LlamaPanel onRefresh={async () => { try { setCatalog(await api("/api/catalog")); } catch { /* pi missing */ } }} /> : null}
         <Integrations hidden={route !== "integrations"} />
         <Devices hidden={route !== "devices"} />
-        <BrowserPage hidden={route !== "browser"} />
+        <BrowserPage hidden={route !== "browser"} onCreateAgent={() => go("agents")} />
         <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} />
         <Snippets hidden={route !== "snippets"} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
