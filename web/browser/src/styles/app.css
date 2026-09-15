@@ -592,6 +592,15 @@ body {
   font-family: var(--mono); font-size: 11px; color: var(--text-secondary);
 }
 .sess-row .mcp-row-main { flex: 1; }
+/* A session row is two lines: identity + facts, then the CLI's own preview
+   text with its buttons. Both halves have to clamp. The preview can be a
+   paragraph or a quoted Windows path — without the fixed line it sized the
+   cluster to its whole text and pushed the buttons outside the card; the
+   model (a nowrap secondary attribute) refused to shrink, squeezed the name
+   to nothing and painted over the facts. Measured on Muse Code and Grok. */
+.sess-row .sess-meta { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sess-row .mcp-row-actions { flex: 1 0 100%; min-width: 0; }
+.sess-row .mcp-row-actions .btn { flex: none; }
 .sessions-pick { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 14px; }
 .sessions-pick span { font-size: 12.5px; color: var(--text-secondary); }
 .sessions-pick select {
