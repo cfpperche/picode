@@ -1,21 +1,24 @@
 #!/usr/bin/env bash
-# Swap the Windows tray + native-host + v2-shell exes and relaunch the tray
-# through its logon task (the shell through a detached Windows start).
+# Swap the Windows tool + native-host + shell exes and relaunch the resident
+# through its logon task (ADR-0142: the task's target is the resident — the
+# Go tray before the migration, the shell after).
 #
 # The rule this script exists to enforce (2026-09-02 incident): NEVER
-# launch picode-desktop.exe in the background from a WSL shell (`exe … &`).
-# That process dies with the shell, the keepalive child dies with the tray,
-# and the 60s WSL idle timeout reclaims the whole VM — the server, every
-# tmux session and every managed agent go down with it. The logon task
-# (`schtasks /run /tn PiCodeDesktop`) launches the tray detached from WSL,
-# which is the only supported way to (re)start it from here.
+# launch a resident exe in the background from a WSL shell (`exe … &`).
+# That process dies with the shell, the keepalive child dies with it, and
+# the 60s WSL idle timeout reclaims the whole VM — the server, every tmux
+# session and every managed agent go down with it. The logon task
+# (`schtasks /run /tn PiCodeDesktop`) launches the resident detached from
+# WSL, which is the only supported way to (re)start it from here.
 #
-# The v2 shell (ADR-0120) is swapped in the same pass: its Tauri capability
-# list compiles into the exe, so a stale picode-shell.exe refuses commands
-# the page legitimately sends (2026-09-14: `btab_cdp_call` answered
-# "not allowed by ACL" for days after the CDP bridge landed). `make
-# desktop-restart` builds both exes before calling this script; run alone,
-# it swaps the shell only when a build exists and warns otherwise.
+# The shell's Tauri capability list compiles into the exe, so a stale
+# picode-shell.exe refuses commands the page legitimately sends (2026-09-14:
+# `btab_cdp_call` answered "not allowed by ACL" for days after the CDP
+# bridge landed). `make desktop-restart` builds every exe before calling
+# this script; run alone, it swaps the shell only when a build exists and
+# warns otherwise. A pre-migration shell that was running comes back through
+# a detached Windows start — it carries no keepalive duty there, so cmd
+# start cannot strand the VM the way a WSL-backgrounded exe would.
 #
 # DRY_RUN=1 prints the plan and touches nothing (the read-only probes run).
 set -euo pipefail
@@ -51,9 +54,21 @@ if /mnt/c/Windows/System32/tasklist.exe /FI "IMAGENAME eq picode-shell.exe" 2>/d
   shell_running=true
 fi
 
+# Who the task starts is who comes back: the tray before the migration, the
+# shell after. A task that cannot be read is a pre-migration machine.
+resident="tray"
+if task_xml=$(/mnt/c/Windows/System32/schtasks.exe /query /tn PiCodeDesktop /xml 2>/dev/null); then
+  if grep -q "picode-shell.exe" <<<"$task_xml"; then
+    resident="shell"
+  fi
+else
+  echo "desktop-swap: cannot read the PiCodeDesktop task — assuming the tray is the resident" >&2
+fi
+echo "Resident: $resident (the PiCodeDesktop task's target)"
+
 echo "Stopping the tray if it is running…"
 stop_exe picode-desktop.exe
-if [[ $have_shell == true && $shell_running == true ]]; then
+if [[ $shell_running == true ]]; then
   echo "Stopping the shell if it is running…"
   stop_exe picode-shell.exe
 fi
@@ -69,7 +84,7 @@ fi
 echo "Re-registering the Chrome native host…"
 run "$dest/picode-nmh.exe" extension-install
 
-echo "Relaunching the tray via the logon task (detached from WSL)…"
+echo "Relaunching the resident via the logon task (detached from WSL)…"
 if [[ -n "$dry" ]]; then
   echo "  [dry-run] schtasks /run /tn PiCodeDesktop"
 else
@@ -77,17 +92,23 @@ else
 fi
 sleep 3
 
-if /mnt/c/Windows/System32/tasklist.exe /FI "IMAGENAME eq picode-desktop.exe" 2>/dev/null | grep -q picode-desktop.exe; then
-  echo "Tray is running."
+if [[ $resident == "shell" ]]; then
+  want="picode-shell.exe"; came_up="Shell is running."
+  missing="desktop-swap: the shell did not come up — check the Windows task 'PiCodeDesktop'"
 else
-  echo "desktop-swap: the tray did not come up — check the Windows task 'PiCodeDesktop'" >&2
+  want="picode-desktop.exe"; came_up="Tray is running."
+  missing="desktop-swap: the tray did not come up — check the Windows task 'PiCodeDesktop'"
+fi
+if /mnt/c/Windows/System32/tasklist.exe /FI "IMAGENAME eq $want" 2>/dev/null | grep -q "$want"; then
+  echo "$came_up"
+else
+  echo "$missing" >&2
   exit 1
 fi
 
-if [[ $have_shell == true && $shell_running == true ]]; then
-  # A plain detached Windows start: the shell carries no keepalive duty (the
-  # tray owns the VM lifetime), so cmd start cannot strand the VM the way a
-  # WSL-backgrounded exe would.
+if [[ $shell_running == true && $resident != "shell" ]]; then
+  # Pre-migration coexistence: the task brought the tray back; the shell
+  # that was running comes back through a detached start.
   echo "Relaunching the shell…"
   (cd /mnt/c/Windows/Temp && run /mnt/c/Windows/System32/cmd.exe /c start "" "${win_dest}\\picode-shell.exe")
   sleep 3
