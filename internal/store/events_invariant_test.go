@@ -426,14 +426,14 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 		}, []string{"pairing.created", "pairing.used"}},
 		{"SetSetting", func(s *Store) { _ = s.SetSetting("k", "v") }, []string{"setting.updated"}},
 		{"SetBrowserPermission (new site)", func(s *Store) {
-			_, _ = s.SetBrowserPermission("meet.example.com", "camera", "allow")
+			_, _ = s.SetBrowserPermission("meet.example.com", "camera", "allow", false)
 		}, []string{"browserpermission.updated"}},
 		{"DeleteBrowserPermission", func(s *Store) {
-			p, _ := s.SetBrowserPermission("meet.example.com", "camera", "allow")
+			p, _ := s.SetBrowserPermission("meet.example.com", "camera", "allow", true)
 			_ = s.DeleteBrowserPermission(p.ID)
 		}, []string{"browserpermission.updated", "browserpermission.updated"}},
 		{"ClearBrowserPermissions", func(s *Store) {
-			_, _ = s.SetBrowserPermission("meet.example.com", "camera", "allow")
+			_, _ = s.SetBrowserPermission("meet.example.com", "camera", "allow", false)
 			_ = s.ClearBrowserPermissions("camera")
 		}, []string{"browserpermission.updated", "browserpermission.updated"}},
 		{"AddBrowserDownload (start)", func(s *Store) {
