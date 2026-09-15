@@ -450,3 +450,66 @@ func TestDeleteWorkspaceKillsItsTerminals(t *testing.T) {
 		}
 	}
 }
+
+// TestCreatedTerminalAnswersWithItsOwnFolder is the regression test for the
+// 2026-09-15 flake: the creation response's cwd came back as the *daemon's*
+// own working directory (12 of 30 creations in a loop), because the live read
+// of #{pane_current_path} races the pane's process — tmux answers with the
+// *server's* directory until the pane's command has spawned, and the server
+// was started by the daemon. Each iteration therefore ends its session (the
+// empty server exits, so the next creation starts a new one) and asserts that
+// the response names the folder the session was created in; the pane's own
+// cwd is then waited for, since it is the thing this same race makes
+// unreadable in the first milliseconds.
+func TestCreatedTerminalAnswersWithItsOwnFolder(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	tm := tmux.New()
+	if !tm.Available() {
+		t.Skip("tmux not installed")
+	}
+	ctx := context.Background()
+	for i := 0; i < 8; i++ {
+		proj := t.TempDir()
+		created := postJSON(t, ts, "/api/workspaces", map[string]any{"name": "App", "path": proj})
+		if created.StatusCode != http.StatusCreated {
+			t.Fatalf("iteration %d: workspace = %d", i, created.StatusCode)
+		}
+		var ws map[string]any
+		_ = json.NewDecoder(created.Body).Decode(&ws)
+		created.Body.Close()
+		wsID, _ := ws["id"].(string)
+		wsPath, _ := ws["path"].(string)
+		want, _ := filepath.EvalSymlinks(wsPath)
+
+		made := postJSON(t, ts, "/api/terminals", map[string]any{"workspaceId": wsID})
+		if made.StatusCode != http.StatusCreated {
+			t.Fatalf("iteration %d: terminal = %d", i, made.StatusCode)
+		}
+		var page map[string]any
+		_ = json.NewDecoder(made.Body).Decode(&page)
+		made.Body.Close()
+		sess, _ := page["session"].(string)
+		got, _ := filepath.EvalSymlinks(page["cwd"].(string))
+		if got != want {
+			_ = tm.KillSession(ctx, sess)
+			t.Fatalf("iteration %d: response cwd=%q want %q", i, page["cwd"], wsPath)
+		}
+		// The session really is in that folder — once its pane has spawned.
+		deadline := time.Now().Add(3 * time.Second)
+		for {
+			pane, err := tm.PaneCwd(ctx, sess)
+			real, _ := filepath.EvalSymlinks(pane)
+			if err == nil && real == want {
+				break
+			}
+			if time.Now().After(deadline) {
+				_ = tm.KillSession(ctx, sess)
+				t.Fatalf("iteration %d: pane cwd=%q err=%v want %q", i, pane, err, wsPath)
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		if err := tm.KillSession(ctx, sess); err != nil {
+			t.Fatalf("iteration %d: kill session: %v", i, err)
+		}
+	}
+}

@@ -56,8 +56,37 @@ func termView(t store.Terminal, session string, live bool) map[string]any {
 // response carrying the record cwd would overwrite the live one while the
 // stale git survived the merge, pairing one directory's path with another's
 // branch on the selected terminal.
+// termViewForCreation picks the view for a request that may have just created
+// the session: fresh (the folder it was created in) when it did, live
+// otherwise.
+func termViewForCreation(deps Deps, r *http.Request, t store.Terminal, session string, created bool) map[string]any {
+	if created {
+		return freshTermView(deps, r, t, session)
+	}
+	return liveTermView(deps, r, t, session, true)
+}
+
 func liveTermView(deps Deps, r *http.Request, t store.Terminal, session string, live bool) map[string]any {
-	cwd := liveTermCwd(deps, r, t)
+	return termViewWith(deps, r, t, session, live, liveTermCwd(deps, r, t))
+}
+
+// freshTermView is the view for a session this request just created: its cwd
+// is the one it was created in, not a live read. The live read races the
+// pane's own process — tmux answers #{pane_current_path} with the *server's*
+// directory while the pane's command has not spawned yet, and the server's
+// directory is the daemon's own cwd. Measured 2026-09-15: 12 of 30 creation
+// responses carried /home/goat/picode/internal/server (the daemon's cwd)
+// instead of the workspace folder; that is the flake in
+// TestCreateTerminalInWorkspaceUsesItsFolder, and a moment of the wrong folder
+// in the UI and in the Inspector's root assertion. The next poll reads live
+// again, which is where a user's own `cd` shows up.
+func freshTermView(deps Deps, r *http.Request, t store.Terminal, session string) map[string]any {
+	return termViewWith(deps, r, t, session, true, t.Cwd)
+}
+
+// termViewWith renders the terminal view for a known cwd — live read or the
+// folder we just created the session in.
+func termViewWith(deps Deps, r *http.Request, t store.Terminal, session string, live bool, cwd string) map[string]any {
 	view := termView(t, session, live)
 	view["cwd"] = cwd
 	view["git"] = gitinfo.Inspect(cwd)
@@ -181,13 +210,14 @@ func handleCreateTerminal(deps Deps) http.HandlerFunc {
 			return
 		}
 		name := tmux.ShellSessionName(t.ID)
-		if err := ensureShell(deps, r, name, t.ID, t.Cwd); err != nil {
+		created, err := ensureShell(deps, r, name, t.ID, t.Cwd)
+		if err != nil {
 			_ = deps.Store.DeleteTerminal(t.ID)
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		invalidateTerminals(deps)
-		writeJSON(w, http.StatusCreated, liveTermView(deps, r, t, name, true))
+		writeJSON(w, http.StatusCreated, termViewForCreation(deps, r, t, name, created))
 	}
 }
 
@@ -227,11 +257,12 @@ func handleOpenTerminal(deps Deps) http.HandlerFunc {
 				return
 			}
 		}
-		if err := ensureShell(deps, r, name, t.ID, t.Cwd); err != nil {
+		created, err := ensureShell(deps, r, name, t.ID, t.Cwd)
+		if err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, liveTermView(deps, r, t, name, true))
+		writeJSON(w, http.StatusOK, termViewForCreation(deps, r, t, name, created))
 	}
 }
 
@@ -422,22 +453,26 @@ func handlePutTerminalText(deps Deps) http.HandlerFunc {
 	}
 }
 
-func ensureShell(deps Deps, r *http.Request, name, termID, cwd string) error {
+// ensureShell makes sure the terminal's session exists, and reports whether
+// this call is the one that created it (the caller needs that: a cwd read
+// taken in the same instant as the creation races the pane's own process).
+func ensureShell(deps Deps, r *http.Request, name, termID, cwd string) (bool, error) {
 	if !deps.Tmux.Available() {
-		return errors.New("Need tmux to open a terminal.")
+		return false, errors.New("Need tmux to open a terminal.")
 	}
 	has, err := deps.Tmux.HasSession(r.Context(), name)
 	if err != nil {
-		return err
+		return false, err
 	}
+	hadSession := has
 	if !has && deps.Store != nil {
 		launch, err := deps.Store.TerminalLaunch(termID)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if launch != nil {
 			if err := launchCLITerminal(deps, r, name, cwd, launch); err != nil {
-				return err
+				return false, err
 			}
 			has = true
 		}
@@ -470,7 +505,7 @@ func ensureShell(deps Deps, r *http.Request, name, termID, cwd string) error {
 			}
 		}
 		if err := deps.Tmux.NewSessionEnv(r.Context(), name, cwd, env, cmd, args...); err != nil {
-			return err
+			return false, err
 		}
 	}
 	// Everything PiCode manages — status bar, passthrough, mouse, extended
@@ -481,5 +516,5 @@ func ensureShell(deps Deps, r *http.Request, name, termID, cwd string) error {
 	applyScoped(r.Context(), deps, name, termOptionResolver(deps)(name))
 	_ = deps.Tmux.SetEnv(r.Context(), name, "TERM", "xterm-256color")
 	_ = deps.Tmux.SetEnv(r.Context(), name, "COLORTERM", "truecolor")
-	return nil
+	return !hadSession, nil
 }
