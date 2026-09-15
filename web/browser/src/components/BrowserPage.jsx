@@ -297,6 +297,8 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
       .catch((e) => toast("The app did not accept the autofill settings: " + (e?.message || e)));
     invoke?.("btab_set_ask_download", { ask: !!next.askDownload })
       .catch((e) => toast("The app did not accept the download setting: " + (e?.message || e)));
+    invoke?.("btab_set_scripts", { enabled: next.scriptsEnabled !== false })
+      .catch((e) => toast("The app did not accept the JavaScript setting: " + (e?.message || e)));
   };
 
   // Saves land as setting.updated; history mutations as browserhistory.updated.
@@ -624,6 +626,9 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
           <div className="set-panel">
             <Item title="Site settings" desc="Camera, microphone, and the other permissions sites ask for">
               <button type="button" className="set-btn" onClick={() => setSiteOpen(true)}>Manage</button>
+            </Item>
+            <Item title="JavaScript" desc="Sites can use JavaScript">
+              <SwitchCtl checked={prefs.scriptsEnabled} onChange={(v) => setPref({ scriptsEnabled: v })} label="Sites can use JavaScript" />
             </Item>
           </div>
         </section>
