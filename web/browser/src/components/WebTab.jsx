@@ -4,6 +4,7 @@ import { IconCollapse, IconEnter, IconExpand, IconGlobe, IconMonitor, IconSettin
 import { toast } from "../lib/toast.js";
 import { isLoopbackUrl } from "@picode/shared/client/devservers.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
+import { askTitle } from "../lib/browserPermissions.js";
 
 // Work browser tab surface (Phase 3 slice 1): the React side renders the
 // toolbar and an empty region; the actual page is a native WebView2 child
@@ -12,7 +13,7 @@ import { subscribeFeed } from "@picode/shared/client/feed.js";
 // this surface.
 const invoke = typeof window !== "undefined" && window.__TAURI__ ? window.__TAURI__.core.invoke : null;
 
-export default function WebTabSurface({ tabId, url = "", active, hidden, className = "", expanded = false, onClose, onMeta, onNew, onBrowserSettings, onToggleExpand }) {
+export default function WebTabSurface({ tabId, url = "", active, hidden, className = "", expanded = false, asks = [], onAnswerAsk, onClose, onMeta, onNew, onBrowserSettings, onToggleExpand }) {
   const id = tabId.slice(2);
   const [urlDraft, setUrlDraft] = useState("");
   const [started, setStarted] = useState(false);
@@ -25,6 +26,14 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
   const fail = (e) => { setErr(String(e?.message || e)); console.error("btab:", e); };
   const hostRef = useRef(null);
   const pushRef = useRef(null);
+  // The parent re-creates onMeta on every render. Keeping it in a ref (and
+  // out of the meta effect's deps) is what stops the 800ms poll from
+  // re-arming on every state update it just caused: the effect ran tick(),
+  // tick() wrote the parent's state, the parent handed back a new onMeta,
+  // the effect re-ran — a render loop that pinned a core while a work
+  // browser tab was open (found 2026-09-15 in the forced-render scratch).
+  const onMetaRef = useRef(onMeta);
+  onMetaRef.current = onMeta;
 
   // Bounds sync: the region's viewport-relative rect drives the native
   // webview. ResizeObserver + window resize cover sidebar, inspector and
@@ -48,6 +57,15 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
       window.removeEventListener("resize", push);
     };
   }, [id, hidden, started]);
+
+  // The Ask bar (slice 3, Browser permissions) takes room above the page, so
+  // the host's rect moves when it appears or goes. The native webview has to
+  // follow: the ResizeObserver above only fires when the host's size changes,
+  // and this is the belt for the cases it misses.
+  const ask = asks[0] || null;
+  useEffect(() => {
+    pushRef.current?.();
+  }, [ask?.id]);
 
   useEffect(() => {
     if (!invoke) return undefined;
@@ -73,13 +91,13 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
             setUrlDraft((cur) => (document.activeElement === urlRef.current ? cur : trimUrl(m.url)));
             record("history", m.url, false, m.title);
           }
-          onMeta?.(m);
+          onMetaRef.current?.(m);
         })
         .catch(fail);
     const t = setInterval(tick, 800);
     tick();
     return () => clearInterval(t);
-  }, [id, hidden, started, onMeta, showFullUrl]);
+  }, [id, hidden, started, showFullUrl]);
 
   const urlRef = useRef(null);
   const menuOpenRef = useRef(false);
@@ -235,6 +253,22 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
         ) : null}
         {onClose ? <button type="button" className="web-tab-menu" title="Close browser pane" aria-label="Close browser pane" onClick={onClose}><IconX /></button> : null}
       </div>
+      {ask ? (
+        <div className="web-tab-ask" role="alert" aria-label="Site permission request">
+          <div className="web-tab-ask-main">
+            <span className="web-tab-ask-t">{askTitle(ask)}</span>
+            <span className="web-tab-ask-d">
+              Allow or block this request. Always allow remembers it for this site.
+              {asks.length > 1 ? ` ${asks.length - 1} more waiting.` : ""}
+            </span>
+          </div>
+          <div className="web-tab-ask-actions">
+            <button type="button" className="btn btn-primary" onClick={() => onAnswerAsk(ask, "allow", false)}>Allow</button>
+            <button type="button" className="btn" onClick={() => onAnswerAsk(ask, "deny", false)}>Block</button>
+            <button type="button" className="btn btn-ghost" onClick={() => onAnswerAsk(ask, "allow", true)}>Always allow</button>
+          </div>
+        </div>
+      ) : null}
       <div className="web-tab-host" ref={hostRef} hidden={!started} />
       {!started ? (
         <div className="web-tab-empty">

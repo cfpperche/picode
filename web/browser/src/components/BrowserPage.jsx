@@ -4,6 +4,7 @@ import * as Switch from "@radix-ui/react-switch";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import FolderPicker from "./FolderPicker.jsx";
 import { DEFAULT_BROWSER_PREFS, readBrowserPrefs } from "../lib/browserPrefs.js";
+import { ALL_SITES, permissionPush } from "../lib/browserPermissions.js";
 import PageFrame from "./PageFrame.jsx";
 import { browserGrantSchema } from "@picode/shared/contracts/schemas.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
@@ -118,7 +119,6 @@ const PERMISSION_KINDS = [
   { value: "clipboard", title: "Clipboard", d: "Sites can ask to read your clipboard" },
   { value: "autoplay", title: "Autoplay", d: "Sites can start playing media" },
 ];
-const ALL_SITES = "*";
 
 const bytesLabel = (n) => {
   if (!n || n <= 0) return "";
@@ -303,13 +303,15 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
 
   // Saves land as setting.updated; history mutations as browserhistory.updated.
   // Both refetch the surface they feed instead of polling.
-  // The shell keeps the policy in memory; the standings in the daemon are the
-  // truth, so every load (and every feed event) hands them back to it.
+  // The shell keeps the policy in memory; the rows in the daemon are the
+  // truth, so every load (and every feed event) hands back the policy the
+  // shell is allowed to know: the every-site rows, and a site row only when
+  // it is a standing (a one-off decision must not become permanent).
   useEffect(() => {
     if (!invoke || !Array.isArray(stands)) return;
     for (const st of stands) {
-      if (st.origin !== ALL_SITES) continue;
-      invoke("btab_set_permission_policy", { kind: st.kind, state: st.decision }).catch(() => {});
+      const push = permissionPush(st);
+      if (push) invoke("btab_set_permission_policy", push).catch(() => {});
     }
   }, [stands, invoke]);
 
@@ -502,24 +504,45 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
 
   const policyOf = (kind) => (stands || []).find((st) => st.origin === ALL_SITES && st.kind === kind)?.decision || "";
 
+  // The dialog's per-kind choice writes the every-site standing. Platform
+  // default forgets that row (only that row — a site's remembered answers
+  // are not the kind policy), and the live shell drops the entry so the
+  // platform default takes over now, not at the next restart.
   const setPolicy = async (kind, decision) => {
+    const row = (stands || []).find((st) => st.origin === ALL_SITES && st.kind === kind);
     try {
-      const r = await fetch("/api/browser/permissions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ origin: ALL_SITES, kind, decision }),
-      });
-      if (!r.ok) throw new Error(String(r.status));
+      if (!decision) {
+        if (row) {
+          const r = await fetch("/api/browser/permissions/" + row.id, { method: "DELETE" });
+          if (!r.ok && r.status !== 404) throw new Error(String(r.status));
+        }
+      } else {
+        const r = await fetch("/api/browser/permissions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ origin: ALL_SITES, kind, decision, standing: true }),
+        });
+        if (!r.ok) throw new Error(String(r.status));
+      }
     } catch {
       toast("Saving the permission failed.");
       return;
     }
-    if (invoke) await invoke("btab_set_permission_policy", { kind, state: decision }).catch(() => {});
+    if (invoke) await invoke("btab_set_permission_policy", { kind, state: decision || "default", origin: null }).catch(() => {});
     loadStands();
   };
 
-  const forgetStanding = async (id) => {
-    await fetch("/api/browser/permissions/" + id, { method: "DELETE" }).catch(() => {});
+  // Reset forgets one row and tells the live shell to drop the matching
+  // entry, so a reset takes effect now instead of at the next restart.
+  const forgetStanding = async (st) => {
+    await fetch("/api/browser/permissions/" + st.id, { method: "DELETE" }).catch(() => {});
+    if (invoke) {
+      await invoke("btab_set_permission_policy", {
+        kind: st.kind,
+        state: "default",
+        origin: st.origin === ALL_SITES ? null : st.origin,
+      }).catch(() => {});
+    }
     loadStands();
   };
 
@@ -915,7 +938,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
           <Dialog.Content className="dlg dlg-manage">
             <Dialog.Title className="dlg-title">Site settings</Dialog.Title>
             <p className="dlg-lede">
-              What sites may do in the built-in browser. Allow or block each kind for every site; without a choice the platform's own default (deny) stands, and every decision the browser makes is listed below.
+              What sites may do in the built-in browser. Allow or block each kind for every site, choose Ask to be prompted when a site asks, or leave the platform's own default (deny) in place. Every decision the browser makes is listed below; a site you answered "Always allow" for stays remembered there.
             </p>
             <div className="set-panel">
               {PERMISSION_KINDS.map((k) => (
@@ -929,6 +952,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
                     <option value="">Platform default</option>
                     <option value="allow">Allow</option>
                     <option value="deny">Block</option>
+                    <option value="ask">Ask</option>
                   </select>
                 </Item>
               ))}
@@ -947,10 +971,10 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
                     <li className="hist-row" key={st.id}>
                       <span className="hist-main">
                         <span className="hist-t" title={st.origin}>{st.origin === ALL_SITES ? "Every site" : st.origin}</span>
-                        <span className="hist-host">{st.kind}</span>
+                        <span className="hist-host">{st.kind}{st.standing ? " · saved" : ""}</span>
                       </span>
                       <span className="hist-time" style={st.decision === "deny" ? { color: "var(--danger)" } : undefined}>{st.decision}</span>
-                      <button type="button" className="set-btn" onClick={() => forgetStanding(st.id)} aria-label={"Forget the " + st.kind + " decision"}>Reset</button>
+                      <button type="button" className="set-btn" onClick={() => forgetStanding(st)} aria-label={"Forget the " + st.kind + " decision"}>Reset</button>
                     </li>
                   ))}
                 </ul>

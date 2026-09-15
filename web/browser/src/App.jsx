@@ -1650,6 +1650,11 @@ export default function App({ shellChrome = false } = {}) {
   // reads the address back from WebView2 instead (lib/openTabs.js).
   const [webTabs, setWebTabs] = useState(readWebTabUrls);
   useEffect(() => { writeWebTabUrls(webTabs); }, [webTabs]);
+  // The Ask prompts the shell is holding (slice 3, Browser permissions): one
+  // entry per held request, shown in its own tab and answered through
+  // btab_permission_answer. The shell times an unanswered prompt out and
+  // reports the outcome with the same ask id, which drops the bar.
+  const [permissionAsks, setPermissionAsks] = useState([]);
   // Agent split (ADR-0135): an agent tab can host a work-browser pane beside
   // it. agentId (or "term:<id>") -> web id; ratios/max are the layout, and
   // both the layout and the last url per pane are persisted, so a shell
@@ -1689,7 +1694,10 @@ export default function App({ shellChrome = false } = {}) {
   }
   function closeAgentSplit(key) {
     const wid = agentPanesRef.current[key];
-    if (wid) window.__TAURI__?.core.invoke("btab_close", { id: wid }).catch(() => {});
+    if (wid) {
+      window.__TAURI__?.core.invoke("btab_close", { id: wid }).catch(() => {});
+      setPermissionAsks((cur) => cur.filter((a) => a.tab !== wid));
+    }
     setAgentPanes(({ [key]: _gone, ...rest }) => rest);
   }
   function openWebTab(url) {
@@ -1741,18 +1749,45 @@ export default function App({ shellChrome = false } = {}) {
     return () => un.then((f) => f());
   }, [shellChrome]);
 
-  // Site permissions: the shell reports every decision it made (policy or
-  // platform default). The standing lives in the daemon's store, so the
-  // report goes through the API and Settings ▸ Browser reads it back.
+  // Site permissions: the shell reports every decision it made (policy,
+  // platform default, or an answered Ask prompt). The row lives in the
+  // daemon's store, so the report goes through the API and Settings ▸
+  // Browser reads it back. An answered prompt also carries its ask id,
+  // which dismisses the bar even when the shell's own timeout was the one
+  // that answered.
   useEffect(() => {
     if (!shellChrome || !window.__TAURI__) return undefined;
     const un = window.__TAURI__.event.listen("btab://permission", (e) => {
       const p = e.payload ?? {};
+      if (p.ask) setPermissionAsks((cur) => cur.filter((x) => x.id !== p.ask));
       if (!p.origin || !p.kind) return;
       fetch("/api/browser/permissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p) }).catch(() => {});
     });
     return () => un.then((f) => f());
   }, [shellChrome]);
+
+  // The Ask prompt's other half: the shell holds a site's request and names
+  // it here, the tab renders the bar, and the answer command completes the
+  // deferral. "Always allow" is `remember` — the shell writes the site's
+  // standing, which lands back in the store through the report above.
+  useEffect(() => {
+    if (!shellChrome || !window.__TAURI__) return undefined;
+    const un = window.__TAURI__.event.listen("btab://permission-ask", (e) => {
+      const a = e.payload ?? {};
+      if (!a.id || !a.tab) return;
+      setPermissionAsks((cur) => [
+        ...cur.filter((x) => x.id !== a.id),
+        { id: a.id, tab: String(a.tab), origin: String(a.origin || ""), kind: String(a.kind || "unknown") },
+      ]);
+    });
+    return () => un.then((f) => f());
+  }, [shellChrome]);
+
+  const answerPermission = (ask, state, remember) => {
+    setPermissionAsks((cur) => cur.filter((x) => x.id !== ask.id));
+    window.__TAURI__?.core.invoke("btab_permission_answer", { id: ask.id, state, remember })
+      .catch((e) => toast("Answering the permission failed: " + (e?.message || e)));
+  };
 
   // The daemon's work-browser command channel (ADR-0132): one stream per shell
   // window. A command runs against the work-browser tab on screen; the ref
@@ -1773,7 +1808,11 @@ export default function App({ shellChrome = false } = {}) {
       delete next[id];
       return next;
     });
-    if (isWebTab(id)) window.__TAURI__?.core.invoke("btab_close", { id: tabWebId(id) }).catch(() => {});
+    if (isWebTab(id)) {
+      const wid = tabWebId(id);
+      window.__TAURI__?.core.invoke("btab_close", { id: wid }).catch(() => {});
+      setPermissionAsks((cur) => cur.filter((a) => a.tab !== wid));
+    }
     if (isTermTab(id)) closeShellTerm(tabTermId(id));
     if (isGitTab(id)) {
       setGitOwners((m) => {
@@ -3258,6 +3297,8 @@ export default function App({ shellChrome = false } = {}) {
               url={(webTabs[tabWebId(id)] && webTabs[tabWebId(id)].url) || ""}
               active={selectedId === id}
               hidden={selectedId !== id}
+              asks={permissionAsks.filter((a) => a.tab === tabWebId(id))}
+              onAnswerAsk={answerPermission}
               onMeta={(m) => setWebTabs((cur) => ({ ...cur, [tabWebId(id)]: { ...cur[tabWebId(id)], ...m } }))}
               onNew={() => openWebTab("")}
               onBrowserSettings={() => go("browser")}
@@ -3619,6 +3660,8 @@ export default function App({ shellChrome = false } = {}) {
                   active={true}
                   hidden={noTabs || missing || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId)}
                   expanded={!!paneMax[selectedId]}
+                  asks={permissionAsks.filter((a) => a.tab === agentPanes[selectedId])}
+                  onAnswerAsk={answerPermission}
                   onToggleExpand={() => setPaneMax((p) => ({ ...p, [selectedId]: !p[selectedId] }))}
                   onClose={() => closeAgentSplit(selectedId)}
                   onMeta={(m) => {
