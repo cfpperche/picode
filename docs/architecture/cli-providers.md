@@ -158,4 +158,19 @@ schema and again by `validateCustomDef`, so the GUI is not the only guard.
 The catalog hands the stored `thinkingLevelMap` back inside `definitions`, so
 Edit prefills the same chips it would write (`customThinkingLevels`). The
 levels row was the control that finally outgrew the create dialog: the form
-moved to its own page instead of growing the dialog again.
+moved to its own page instead of growing the dialog again. A selected level
+may also carry its own provider string (`xhigh` → `high`): the value shows
+beside the chip only when it differs from the level name, a blank keeps the
+identity, and the server refuses values for levels the form does not manage.
+
+**Per-model details.** Each model row also carries pi's optional `name`
+(display name, ≤ 120 chars), `input` (the only modalities pi's `Model`
+knows: `text`, `image`) and `cost` (USD per 1M tokens, pi-ai `models.js`
+divides the rates by 1e6). Cost is all or nothing — four rates or none, so
+a half-filled row cannot silently zero real money — and zeros are fine. A
+blank row field deletes the stored key on save, so clearing a hand-set
+value removes it instead of hiding it; a row that never had one writes
+nothing. The third managed compat bool is `supportsUsageInStreaming`, which
+the Responses API needs before pi reads usage off the stream. The API key
+stays exactly the cheaperinference flow: a literal credential into
+`auth.json`, never an env reference inside the definition.

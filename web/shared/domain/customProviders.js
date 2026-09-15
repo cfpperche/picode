@@ -4,10 +4,10 @@
 
 import {
   parseForm, customProviderSchema, customModelIds, THINKING_LEVELS, DEFAULT_THINKING_LEVELS,
-  THINKING_FORMAT_NEEDS, chatTemplateObject,
+  THINKING_FORMAT_NEEDS, chatTemplateObject, CUSTOM_INPUT_MODALITIES,
 } from "../contracts/schemas.js";
 
-export { customModelIds, THINKING_LEVELS, DEFAULT_THINKING_LEVELS, THINKING_FORMAT_NEEDS };  // re-exported: the dialogs import both from here
+export { customModelIds, THINKING_LEVELS, DEFAULT_THINKING_LEVELS, THINKING_FORMAT_NEEDS, CUSTOM_INPUT_MODALITIES };  // re-exported: the pages import both from here
 
 // validateCustomProvider runs the schema. Returns { ok, value, error } like
 // parseForm; value carries the form shapes (payload building is separate).
@@ -31,21 +31,35 @@ export function customProviderPayload(v) {
   // The chat-template object rides only with the format that reads it.
   const kwargs = THINKING_FORMAT_NEEDS[v.thinkingFormat] === "kwargs" ? chatTemplateObject(v.chatTemplateKwargs) : null;
   const args = THINKING_FORMAT_NEEDS[v.thinkingFormat] === "args" ? chatTemplateObject(v.chatTemplateArgs) : null;
+  // Level values ride only for selected levels: a filled value overrides the
+  // provider string, a blank one keeps the level's own name server-side.
+  const levelValues = {};
+  for (const l of levels) {
+    const value = String((v.thinkingLevelValues || {})[l] || "").trim();
+    if (value) levelValues[l] = value;
+  }
   return {
     baseUrl: v.baseUrl,
     api: v.api,
-    compat: { supportsDeveloperRole: !!v.compatDeveloper, supportsReasoningEffort: !!v.compatReasoning },
+    compat: { supportsDeveloperRole: !!v.compatDeveloper, supportsReasoningEffort: !!v.compatReasoning, supportsUsageInStreaming: !!v.compatStreaming },
     ...(v.thinkingFormat ? { thinkingFormat: v.thinkingFormat } : {}),
     ...(kwargs ? { chatTemplateKwargs: kwargs } : {}),
     ...(args ? { chatTemplateArgs: args } : {}),
     models: customModelIds(v.modelsText).map((id) => {
       const row = modelLimitRow(v.modelLimits, id);
+      const name = String(row.name || "").trim();
+      const input = CUSTOM_INPUT_MODALITIES.filter((m) => (row.input || []).includes(m));
+      const rates = ["input", "output", "cacheRead", "cacheWrite"].map((k) => String((row.cost || {})[k] || "").trim());
       return {
         id,
+        ...(name ? { name } : {}),
+        ...(input.length ? { input } : {}),
+        ...(rates.every(Boolean) ? { cost: { input: Number(rates[0]), output: Number(rates[1]), cacheRead: Number(rates[2]), cacheWrite: Number(rates[3]) } } : {}),
         ...(row.contextWindow ? { contextWindow: Number(row.contextWindow) } : {}),
         ...(row.maxTokens ? { maxTokens: Number(row.maxTokens) } : {}),
         reasoning: !!v.reasoningModel,
         ...(levels.length ? { thinkingLevels: levels } : {}),
+        ...(Object.keys(levelValues).length ? { thinkingLevelValues: levelValues } : {}),
       };
     }),
     ...(key ? { key } : {}),
@@ -66,11 +80,13 @@ export function customProviderForm(provider) {
     modelLimits: limitsFromDefinitions(defs),
     compatDeveloper: !!(p.compat && p.compat.supportsDeveloperRole),
     compatReasoning: !!(p.compat && p.compat.supportsReasoningEffort),
+    compatStreaming: !!(p.compat && p.compat.supportsUsageInStreaming),
     thinkingFormat: customThinkingFormat(p.thinkingFormat),
     chatTemplateKwargs: jsonText(p.chatTemplateKwargs),
     chatTemplateArgs: jsonText(p.chatTemplateArgs),
     reasoningModel: defs.some((m) => m && m.reasoning),
     thinkingLevels: customThinkingLevels(defs),
+    thinkingLevelValues: customThinkingLevelValues(defs),
     key: "",
   };
 }
@@ -89,6 +105,24 @@ export function customThinkingLevels(defs) {
     }
   }
   return [...DEFAULT_THINKING_LEVELS];
+}
+
+// customThinkingLevelValues prefills the per-level provider strings: only
+// values that differ from the level name show (xhigh -> "high"); identity
+// values read as blank, and unmanaged keys ("off") are not shown — the
+// server keeps them untouched.
+export function customThinkingLevelValues(defs) {
+  for (const m of defs || []) {
+    if (m && m.thinkingLevelMap && typeof m.thinkingLevelMap === "object") {
+      const out = {};
+      for (const l of THINKING_LEVELS) {
+        const value = m.thinkingLevelMap[l];
+        if (typeof value === "string" && value !== "" && value !== l) out[l] = value;
+      }
+      return out;
+    }
+  }
+  return {};
 }
 
 // mergeModelIds folds what an endpoint listed into the ids a person already
@@ -113,7 +147,8 @@ export function mergeModelIds(text, found) {
 // limitsFromDefinitions reads what the file says per model: each id carries
 // its own context window and max output, which is what pi supports (the form
 // used to write one number for the whole list, which had to refuse a gateway
-// whose models disagree).
+// whose models disagree). Name, input modalities and cost ride the same row;
+// numbers read back as the strings the inputs hold, zeros included.
 export function limitsFromDefinitions(defs) {
   const out = {};
   for (const m of defs || []) {
@@ -121,9 +156,21 @@ export function limitsFromDefinitions(defs) {
     out[m.id] = {
       contextWindow: m.contextWindow ? String(m.contextWindow) : "",
       maxTokens: m.maxTokens ? String(m.maxTokens) : "",
+      name: typeof m.name === "string" ? m.name : "",
+      input: Array.isArray(m.input) ? CUSTOM_INPUT_MODALITIES.filter((mod) => m.input.includes(mod)) : [],
+      cost: {
+        input: costText(m.cost && m.cost.input),
+        output: costText(m.cost && m.cost.output),
+        cacheRead: costText(m.cost && m.cost.cacheRead),
+        cacheWrite: costText(m.cost && m.cost.cacheWrite),
+      },
     };
   }
   return out;
+}
+
+function costText(value) {
+  return typeof value === "number" && Number.isFinite(value) ? String(value) : "";
 }
 
 // syncModelLimits keeps the rows in step with the id list: one row per id, in
@@ -138,9 +185,18 @@ export function syncModelLimits(limits, ids) {
 // modelLimitRow is one row, defaulted, so callers never check for existence.
 export function modelLimitRow(limits, id) {
   const cur = (limits || {})[id] || {};
+  const cost = (cur && cur.cost) || {};
   return {
     contextWindow: String(cur.contextWindow || ""),
     maxTokens: String(cur.maxTokens || ""),
+    name: String(cur.name || ""),
+    input: Array.isArray(cur.input) ? cur.input.filter((m) => CUSTOM_INPUT_MODALITIES.includes(m)) : [],
+    cost: {
+      input: String(cost.input || ""),
+      output: String(cost.output || ""),
+      cacheRead: String(cost.cacheRead || ""),
+      cacheWrite: String(cost.cacheWrite || ""),
+    },
   };
 }
 
