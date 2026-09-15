@@ -26,8 +26,22 @@ create-only, atomic, re-read before it counts) and `Prompter` (launch
 arguments for an initial prompt). They are discovered by type assertion,
 never by a switch, and `GET /api/clis` advertises them as
 `sessions: {list, read, write, prompt}`; the web derives the targets from
-that. All six CLIs read and write; prompters exist for every CLI but
-Hermes, which cannot be started with an initial prompt.
+that. Every CLI with a full adapter reads and writes; prompters exist for
+every CLI but Hermes, which cannot be started with an initial prompt.
+
+**List-only sources** (`list` without `read`) are the other end of that
+range: a CLI whose history is on disk before it has an adapter. Muse Code
+reads `~/.local/share/muse/session-index.db` (or `$XDG_DATA_HOME/muse/...`),
+the index Meta's launcher keeps over its own session logs — title, first
+prompt, workspace root, model, prompt count and timestamps are columns
+there, so nothing parses a session log. Its `ResumeArgs` are
+`--resume <session-uuid>`. Antigravity reads
+`~/.gemini/antigravity-cli/conversation_summaries.db` and resumes with
+`--conversation <id>`. Both list and resume, neither reads a transcript yet,
+so neither appears as a handoff source (that needs `read`) or target (that
+needs `write`/`prompt`), and the pane shows them a Sessions tab without the
+handoff menu. The pane list follows the capability, not the adapter:
+`cliPanes` adds Sessions when `sessions.list` is true.
 
 Writers publish two ways. Claude Code, Codex, pi (as an adopted managed
 agent) and Grok get a new session artifact created in their own store,

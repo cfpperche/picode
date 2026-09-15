@@ -186,9 +186,14 @@ For any UI work:
   a QA session took the production tmux down and cost the owner every running
   terminal (2026-09-15). Kill the exact session you created
   (`tmux kill-session -t picode-sh-<id>`), and let
-  `./scripts/qa-scratch.sh stop <name>` do it for a scratch instance. When a
-  scratch starts terminals, isolate them with `TMUX_TMPDIR=<dir>` — that part
-  works — and then stop them by name; the server is never the right target.
+  `./scripts/qa-scratch.sh stop <name>` do it for a scratch instance.
+  **`TMUX_TMPDIR` does not isolate on this host**: tmux 3.6 with
+  `XDG_RUNTIME_DIR` set keeps using the shared `tmux-<uid>` socket — measured
+  on 2026-09-15, a session started under `TMUX_TMPDIR=/tmp/probe` appeared in
+  `tmux ls` for every other tree. A scratch that launches terminals therefore
+  puts them in the owner's tmux (and in every other agent's `pkill` radius);
+  clean up by exact session name, or check the scratch's own Terminals list
+  before blaming the server.
 - **Know which tree you are in.** `make dev`, `make ci-scoped` and `make close`
   print `<worktree> on <branch>` before doing anything; the same line answers
   "did I edit the root checkout by mistake?" (`make worktree-status` lists every
