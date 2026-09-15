@@ -28,7 +28,8 @@ const (
 	SurfaceFull = ""
 	// SurfaceTerminal opens a terminal for the CLI and nothing else: no
 	// activity integration, no launch settings, no sessions, no lifecycle
-	// jobs. Antigravity is here until an adapter exists.
+	// jobs. No catalog row uses it today; it remains for a future CLI that
+	// needs a terminal before its adapter exists.
 	SurfaceTerminal = "terminal"
 	// SurfaceDetect only reports installation and version: no terminal.
 	SurfaceDetect = "detect"
@@ -50,7 +51,7 @@ func Catalog() []CLI {
 		{"hermes", "Hermes Agent", "hermes", "https://hermes-agent.nousresearch.com/docs/getting-started/installation", ""},
 		{"opencode", "OpenCode", "opencode", "https://opencode.ai/docs", ""},
 		{"muse", "Muse Code", "muse", "https://ai.developer.meta.com/docs/muse-code/", ""},
-		{"agy", "Antigravity", "agy", "https://antigravity.google/docs/cli/", SurfaceTerminal},
+		{"agy", "Antigravity", "agy", "https://antigravity.google/docs/cli/", ""},
 	}
 }
 

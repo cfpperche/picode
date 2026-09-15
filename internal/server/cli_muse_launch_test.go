@@ -30,8 +30,8 @@ func TestIntegrationMechanismTable(t *testing.T) {
 }
 
 // Decision table: the Activity toggle saves only where a mechanism exists.
-// Muse refuses with its own reason; Antigravity still refuses at the
-// adapter gate; a CLI with hooks saves.
+// Muse and Antigravity refuse with their own reason (no hook surface);
+// a CLI with hooks saves.
 func TestIntegrationToggleGuard(t *testing.T) {
 	ts, _, _ := cleanupServer(t)
 	// The catalog row carries the toggle contract, so the web never
@@ -68,8 +68,8 @@ func TestIntegrationToggleGuard(t *testing.T) {
 	}
 	cliRequest(t, ts, "PUT", "/api/clis/muse", body(false), 200)
 	res = cliRequestFull(t, ts, "PUT", "/api/clis/agy", body(true))
-	if res["status"] != "400" || !strings.Contains(bodyErr(res), "not available for Antigravity yet") {
-		t.Errorf("agy integration on = %v, want the adapter-gate 400", res)
+	if res["status"] != "400" || !strings.Contains(bodyErr(res), "not available for Antigravity in this build") {
+		t.Errorf("agy integration on = %v, want the mechanism-guard 400", res)
 	}
 }
 

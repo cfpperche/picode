@@ -7,10 +7,10 @@ description: Terminals, session history, and moving a conversation between your 
 Terminals, session history, and moving a conversation between your installed
 Pi, Claude Code, Codex, Grok, Hermes Agent and OpenCode commands. Muse Code
 and Antigravity can open a terminal of their own and list and resume their own
-sessions. Muse Code has editable launch settings (executable, arguments,
-environment, profiles) like the rest; Antigravity keeps the read-only
-summary until its adapter lands. Neither reports activity yet (nothing
-shows Ready or Working — their terminals read Open).
+sessions. Muse Code and Antigravity have editable launch settings
+(executable, arguments, environment, profiles) like the rest. Neither
+reports activity yet (nothing shows Ready or Working — their terminals
+read Open).
 
 Every CLI's pane carries the same tabs — Launch, Terminals, Sessions,
 Providers, Settings, Keyboard, Packages and Connectors. The tabs a CLI has no

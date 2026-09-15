@@ -304,7 +304,8 @@ func TestDetectOnlyCLIsAndMuseChannelCheck(t *testing.T) {
 		t.Fatalf("muse = %+v", museRow)
 	}
 	agyRow := catalogCLI(t, ts, "agy")
-	if agyRow["surface"] != "terminal" || agyRow["installed"] != true || agyRow["launchable"] != true || agyRow["integrationCapable"] != false {
+	// Full surface serializes omitempty: the key is absent, not "terminal".
+	if s, ok := agyRow["surface"]; (ok && s != "") || agyRow["installed"] != true || agyRow["launchable"] != true || agyRow["integrationCapable"] != true {
 		t.Fatalf("agy = %+v", agyRow)
 	}
 	// Launch settings save: the surface opens a terminal with editable
@@ -312,6 +313,9 @@ func TestDetectOnlyCLIsAndMuseChannelCheck(t *testing.T) {
 	// offers no hook surface.
 	cliRequest(t, ts, "PUT", "/api/clis/muse", map[string]any{"executable": muse}, 200)
 	cliRequest(t, ts, "PUT", "/api/clis/muse", map[string]any{"executable": muse, "integration": true}, 400)
+	// Same for Antigravity (Fatia 3b): editable defaults, no activity.
+	cliRequest(t, ts, "PUT", "/api/clis/agy", map[string]any{"executable": filepath.Join(bin, "agy")}, 200)
+	cliRequest(t, ts, "PUT", "/api/clis/agy", map[string]any{"executable": filepath.Join(bin, "agy"), "integration": true}, 400)
 	// Lifecycle jobs stay refused: no managed update for this install.
 	cliRequest(t, ts, "POST", "/api/clis/muse/lifecycle", map[string]any{"action": "update", "requestKey": "x"}, 400)
 

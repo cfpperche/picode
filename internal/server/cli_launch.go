@@ -116,8 +116,8 @@ type cliView struct {
 	Lifecycle          lifecycleView    `json:"lifecycle"`
 	// IntegrationCapable says the surface may offer activity, launch
 	// settings and the setup panes; Launchable says New terminal exists.
-	// They are separate: Antigravity opens a terminal with no adapter
-	// behind it (surface "terminal").
+	// They stay separate flags: a future surface ("terminal") opens a
+	// terminal with no adapter behind it.
 	IntegrationCapable bool `json:"integrationCapable"`
 	Launchable         bool `json:"launchable"`
 	// Sessions advertises what this CLI's session source can do (list,
