@@ -4,7 +4,7 @@ import { parseRoute } from "../browser/src/lib/routes.js";
 import { mobileRoute } from "../mobile/src/lib/mobileRoutes.js";
 
 test("CLI routes and old preferences reach both application managers", () => {
-  for (const hash of ["#/clis", "#/clis/codex", "#/clis/codex/terminals", "#/clis/pi/sessions", "#/clis/pi/providers", "#/clis/pi/settings", "#/clis/pi/packages", "#/clis/pi/connectors", "#/clis/terminals", "#/preferences/status"]) {
+  for (const hash of ["#/clis", "#/clis/codex", "#/clis/codex/terminals", "#/clis/pi/sessions", "#/clis/pi/providers", "#/clis/pi/providers/custom", "#/clis/pi/providers/custom/cheap", "#/clis/pi/settings", "#/clis/pi/packages", "#/clis/pi/connectors", "#/clis/terminals", "#/preferences/status"]) {
     assert.equal(parseRoute(hash), "clis");
     assert.equal(mobileRoute(hash).section, "clis");
   }

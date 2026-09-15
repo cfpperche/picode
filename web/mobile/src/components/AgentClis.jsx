@@ -234,6 +234,8 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
           add={!!route.add}
           invalid={!!route.invalid || !route.id}
           scoped={!!route.scoped}
+          custom={route.custom || ""}
+          customId={route.customId || ""}
           onCatalogChange={onCatalogChange}
         /> : null}
         {pane === "settings" || pane === "keyboard" ? <CliSettings pane={pane} hidden={false} route={route} catalog={catalog} onAgentConfig={onAgentConfig} /> : null}
