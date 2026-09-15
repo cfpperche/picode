@@ -20,12 +20,41 @@ screenshot round-tripped through the bound pane).
 
 - **Split survives relaunch: DONE (2026-09-14)** — layout + last url persist; boot prunes dead hosts; webview recreated on host-tab show. Post-deploy: re-check the recreate in the shell.
 
-## Slice 3, still unbuilt
+## Slice 3, state (owner reviewing the Settings ▸ Browser parity list one
+item at a time, 2026-09-15)
 
-Find in page, the history store and its dropdown, the device toolbar, site
-permissions, and the `developer mode` toggle (now only a UI over
-`PICODE_CDP_PORT`). The changes/options menus and Settings ▸ Browser list
-them one by one in `docs/plans/desktop-v2.md`.
+Landed: the history store and its dropdown, the Clear browsing data dialog
+(per-kind WebView2 masks + time range), the Browsing history dialog (search,
+day groups, favicons, per-row menu, bulk remove), the reference-shaped
+settings page with the master Browser switch, open destinations, Show full
+URL, password/contact autofill.
+
+Still unbuilt, in the owner's order: **Downloads** (Location, "Ask where to
+save downloads", Download history — recipe in
+`docs/handoff/2026-09-14-browser-downloads.md`), **Browser permissions**
+(Site settings camera/mic — the `PermissionRequested` handler — the History
+select, Enable site tools), **Developer mode** (the elevated-risk toggle over
+full CDP access), then find in page and the device toolbar.
+
+## Annotations (backlog, owner-registered 2026-09-15)
+
+The reference has "Annotation screenshots" (Always include / Only when needed
+/ Never). It is deliberately absent from our page: PiCode has no annotation
+feature, and a switch that controls nothing is a dead control. Build the
+feature, then the row.
+
+1. **Annotate mode in the work browser tab** — pick an element or draw a
+   rectangle, then a comment box.
+2. **Capture** — the region through CDP `Page.captureScreenshot` with `clip`,
+   plus the selector and the URL.
+3. **Store + endpoints** — migration, feed event (ADR-0048).
+4. **Delivery to the agent** — the annotation (comment + image) enters the
+   session the agent reads.
+5. **The settings row** — "Annotation screenshots", honoured by the capture
+   step, once 1–4 exist.
+
+Step 4 opens a new user→agent input path: it needs an ADR before the
+protocol is fixed.
 
 ## Traps (paid for, keep them paid)
 
