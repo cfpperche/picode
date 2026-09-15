@@ -1839,6 +1839,42 @@ img.ws-face.term-cli-face {
   position: relative; background: var(--bg-base);
 }
 .web-tab-surface[hidden] { display: none !important; }
+/* Frame fallback: in a plain browser there is no native webview to overlay,
+   so a page on this machine renders in a frame (the desktop app still uses
+   its own window). One line above it says which one you are looking at. */
+.web-tab-note {
+  margin: 0; padding: 6px 10px; font-size: 12.5px; color: var(--text-secondary);
+  background: var(--bg-panel); border-bottom: 1px solid var(--border);
+}
+.web-tab-frame { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: #fff; }
+/* Servers panel: what is listening on this machine, one row, one Open. */
+.insp-servers { display: flex; flex-direction: column; gap: 4px; padding-top: 6px; min-width: 0; }
+.insp-servers-head { display: flex; align-items: center; gap: 8px; padding: 0 4px; }
+.insp-servers-title {
+  flex: 1; min-width: 0; font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-secondary); font-weight: 600;
+}
+.insp-server {
+  display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+  padding: 7px 8px; border: 1px solid transparent; border-radius: 8px;
+  background: none; color: inherit; cursor: pointer; font: inherit;
+}
+.insp-server:hover { background: var(--bg-hover, rgba(127, 127, 127, .12)); border-color: var(--border); }
+.insp-server:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+.insp-server-glyph { flex: none; display: inline-flex; color: var(--accent); }
+.insp-server-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.insp-server-top { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+.insp-server-port { font-family: var(--code); font-size: 12px; color: var(--text-secondary); }
+.insp-server-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.insp-server-sub, .insp-server-meta {
+  font-size: 12px; color: var(--text-secondary); overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+/* The owner line wraps instead of clipping: at a ~300px rail
+   `terminal "Terminal" · Dev server demo` did not fit on one line and the
+   workspace name — half of what the row is for — was cut (measured). */
+.insp-server-meta { font-size: 11px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+.insp-server-open { flex: none; font-size: 12px; color: var(--accent); }
 /* Agent split (ADR-0135 slice 1): the agent pane and its bound work-browser
    pane share the tab side by side; both stay visible while either has
    focus. Hidden surfaces keep display:none, so row layout only ever sees

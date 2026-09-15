@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { IconCollapse, IconExpand, IconGlobe, IconMonitor, IconSettings, IconX } from "./Icons.jsx";
 import { toast } from "../lib/toast.js";
+import { isLoopbackUrl } from "@picode/shared/client/devservers.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 
 // Work browser tab surface (Phase 3 slice 1): the React side renders the
@@ -11,18 +12,16 @@ import { subscribeFeed } from "@picode/shared/client/feed.js";
 // this surface.
 const invoke = typeof window !== "undefined" && window.__TAURI__ ? window.__TAURI__.core.invoke : null;
 
-export default function WebTabSurface({ tabId, active, hidden, className = "", expanded = false, onClose, onMeta, onNew, onBrowserSettings, onToggleExpand }) {
+export default function WebTabSurface({ tabId, url = "", active, hidden, className = "", expanded = false, onClose, onMeta, onNew, onBrowserSettings, onToggleExpand }) {
   const id = tabId.slice(2);
   const [urlDraft, setUrlDraft] = useState("");
   const [started, setStarted] = useState(false);
-  const [err, setErr] = useState("");
-  // The address-bar display pref. The meta effect below names it in its
-  // dependency array, so this declaration has to stay above every effect that
-  // reads it: a `const` touched in the same render before its own `useState`
-  // is a ReferenceError ("Cannot access 'showFullUrl' before
-  // initialization") that unmounts the whole app — a blank window on any
-  // work-browser tab, live on main from 4f1a68a7 until this commit.
+  // The address-bar display pref. It is read by the meta-poll effect's deps
+  // below, so it must be declared before them: a `const` read earlier in the
+  // same render is a ReferenceError that takes the whole app down (main,
+  // commit 4f1a68a7 — a blank shell whenever a work-browser tab rendered).
   const [showFullUrl, setShowFullUrlState] = useState(true);
+  const [err, setErr] = useState("");
   const fail = (e) => { setErr(String(e?.message || e)); console.error("btab:", e); };
   const hostRef = useRef(null);
   const pushRef = useRef(null);
@@ -84,6 +83,16 @@ export default function WebTabSurface({ tabId, active, hidden, className = "", e
 
   const urlRef = useRef(null);
   const menuOpenRef = useRef(false);
+  // Frame fallback (browser shell): no native webview exists, so a local
+  // server renders in a frame instead. The address lives here because the
+  // desktop shell is the only thing that can read a webview's URL back.
+  const [frameUrl, setFrameUrl] = useState(url);
+  const [frameNonce, setFrameNonce] = useState(0);
+  const local = isLoopbackUrl(frameUrl || url);
+  useEffect(() => {
+    if (invoke) return;
+    setFrameUrl(url || "");
+  }, [url]);
   const historySeenRef = useRef("");
 
   // Address-bar display pref (slice 3): refetch when its setting changes.
@@ -154,9 +163,41 @@ export default function WebTabSurface({ tabId, active, hidden, className = "", e
   }
 
   if (!invoke) {
+    const typed = (frameUrl || "").trim();
     return (
       <section className="web-tab-surface" hidden={hidden} aria-label="Work browser">
-        <p className="file-pane-msg">The work browser runs in the PiCode desktop app.</p>
+        <div className="web-tab-toolbar">
+          <button type="button" title="Reload" onClick={() => setFrameNonce((n) => n + 1)}>⟳</button>
+          <div className="web-tab-urlbar">
+            <input
+              ref={urlRef}
+              value={frameUrl}
+              onChange={(e) => setFrameUrl(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") setFrameNonce((n) => n + 1); }}
+              placeholder="Search or enter a URL"
+              spellCheck={false}
+            />
+            <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => setFrameNonce((n) => n + 1)}>↵</button>
+          </div>
+          {onClose ? <button type="button" className="web-tab-menu" title="Close browser pane" aria-label="Close browser pane" onClick={onClose}><IconX /></button> : null}
+        </div>
+        {local ? (
+          <>
+            <p className="web-tab-note">The desktop app shows this page in its own window; here it runs in a frame.</p>
+            <iframe key={frameNonce} className="web-tab-frame" title="Work browser" src={frameUrl || url} />
+          </>
+        ) : (
+          <>
+            <div className="web-tab-empty">
+              <IconGlobe size={28} />
+              <h3>Start browsing</h3>
+              <p>Enter a URL to open a page</p>
+            </div>
+            {typed ? (
+              <p className="file-pane-msg">Only servers on this machine open without the desktop app — anything else opens in your browser.</p>
+            ) : null}
+          </>
+        )}
       </section>
     );
   }

@@ -76,7 +76,10 @@ func appCSP(host string) string {
 		"connect-src 'self'" + ws,
 		"media-src 'self' blob: data:",
 		"worker-src 'self' blob:",
-		"frame-src 'self'",
+		// The work browser's frame fallback (dev-server preview) may show a page
+		// served by this machine; anything else stays unframed, and the page is
+		// a separate origin whatever it is.
+		"frame-src 'self' http://localhost:* http://127.0.0.1:* https://localhost:* https://127.0.0.1:*",
 		"object-src 'none'",
 		"base-uri 'self'",
 		"form-action 'self'",

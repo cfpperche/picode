@@ -57,6 +57,7 @@ import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
 import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId, webHash, webRoute, boundWorkTab } from "./lib/routes.js";
+import { linkOpenTarget } from "./lib/openLink.js";
 import AppSurface from "./components/AppSurface.jsx";
 import NativeDemoSurface from "./components/NativeDemoSurface.jsx";
 import { nativeApps, nativeSurfaceFor } from "./lib/nativeApps.js";
@@ -105,7 +106,7 @@ import { extraSlash } from "@picode/shared/domain/slash.js";
 import { isAutomateCommand, automatePrompt, parseAutomateReply } from "./lib/automateDraft.js";
 import { writeAutomationDraft } from "./lib/automationDraft.js";
 import { isValidCron } from "@picode/shared/domain/cron.js";
-import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners, readAgentSplits, writeAgentSplits, writeAgentSplitUrls, filterAgentSplits } from "./lib/openTabs.js";
+import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners, readAgentSplits, writeAgentSplits, writeAgentSplitUrls, filterAgentSplits, readWebTabUrls, writeWebTabUrls } from "./lib/openTabs.js";
 import { anchorFor, askedNote, ownerExists, readInspectorPrefs, runFallbackNote, writeInspectorPrefs, INSPECTOR_MIN, maxInspectorWidth } from "./lib/inspector.js";
 import { sessionsHash } from "./lib/routes.js";
 import Hotkeys from "./components/Hotkeys.jsx";
@@ -1645,7 +1646,10 @@ export default function App({ shellChrome = false } = {}) {
   // Work browser tabs (Phase 3 slice 1): "w:<id>" editor tabs backed by a
   // native WebView2 child. Desktop-shell only — the component shows a notice
   // elsewhere. Meta (url/title) is mirrored up for the tab strip.
-  const [webTabs, setWebTabs] = useState({});
+  // A shell without a webview restores what its tabs opened; the desktop shell
+  // reads the address back from WebView2 instead (lib/openTabs.js).
+  const [webTabs, setWebTabs] = useState(readWebTabUrls);
+  useEffect(() => { writeWebTabUrls(webTabs); }, [webTabs]);
   // Agent split (ADR-0135): an agent tab can host a work-browser pane beside
   // it. agentId (or "term:<id>") -> web id; ratios/max are the layout, and
   // both the layout and the last url per pane are persisted, so a shell
@@ -2296,8 +2300,27 @@ export default function App({ shellChrome = false } = {}) {
     },
     "open-link": (ctx) => {
       if (!ctx.link) return;
-      if (ctx.link.kind === "http") window.open(ctx.link.href, "_blank", "noopener,noreferrer");
-      else openFileTab(ctx.kind === "agent" ? "agent" : "term", ctx.id, ctx.link.path);
+      // A dev server URL printed in a terminal opens in PiCode's own browser
+      // surface — the page being developed is the one the terminal just
+      // printed. Where local links open is a user preference (Browser
+      // settings, "Local development sites"), so it decides here too: the
+      // decision table lives in lib/openLink.js. Anything not local, and any
+      // file path, behaves exactly as before.
+      const first = linkOpenTarget(ctx.link, "app");
+      if (!first) return;
+      if (first.action === "file") { openFileTab(ctx.kind === "agent" ? "agent" : "term", ctx.id, first.path); return; }
+      if (first.action === "external") { window.open(first.url, "_blank", "noopener,noreferrer"); return; }
+      // One fresh read per link, like the shell's popup door: links are rare
+      // and the preference must be current. A preference we cannot read keeps
+      // the feature's default (PiCode's own surface).
+      fetch("/api/browser/prefs")
+        .then((r) => r.json())
+        .then((p) => {
+          const dest = linkOpenTarget(ctx.link, p.localOpenDest);
+          if (dest.action === "external") window.open(dest.url, "_blank", "noopener,noreferrer");
+          else openWebTab(dest.url);
+        })
+        .catch(() => openWebTab(first.url));
     },
     rename: (ctx) => {
       if (ctx.kind === "agent") {
@@ -3052,6 +3075,7 @@ export default function App({ shellChrome = false } = {}) {
     freeAgents={freeAgents}
     terminals={terminals}
     apps={apps}
+    webTabs={webTabs}
     selectedId={selectedId}
     onSelect={(id) => openTab(id)}
     onClose={closeTab}
@@ -3218,6 +3242,7 @@ export default function App({ shellChrome = false } = {}) {
             <WebTabSurface
               key={id}
               tabId={id}
+              url={(webTabs[tabWebId(id)] && webTabs[tabWebId(id)].url) || ""}
               active={selectedId === id}
               hidden={selectedId !== id}
               onMeta={(m) => setWebTabs((cur) => ({ ...cur, [tabWebId(id)]: { ...cur[tabWebId(id)], ...m } }))}
@@ -3670,6 +3695,10 @@ export default function App({ shellChrome = false } = {}) {
         runMode={!!inspectorPrefs.run}
         onRunMode={(run) => rememberInspector({ run })}
         onAskAgent={askAgentGit}
+        onOpenUrl={(url, title) => {
+          const id = openWebTab(url || "");
+          if (title) setWebTabs((m) => ({ ...m, [tabWebId(id)]: { ...m[tabWebId(id)], title } }));
+        }}
       />
 
       <FocusEdges zones={focus.zones} />

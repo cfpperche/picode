@@ -3864,6 +3864,23 @@
         ]
       }
     },
+    "/api/devservers": {
+      "get": {
+        "operationId": "getApiDevservers",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "devservers"
+        ]
+      }
+    },
     "/api/docker/containers": {
       "get": {
         "operationId": "getApiDockerContainers",
@@ -9659,6 +9676,9 @@
     },
     {
       "name": "devices"
+    },
+    {
+      "name": "devservers"
     },
     {
       "name": "docker"

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readAgentSplits, writeAgentSplits, writeAgentSplitUrls, filterAgentSplits } from "./openTabs.js";
+import { filterAgentSplits, filterOpenTabs, moveTab, readAgentSplits, readGitOwners, readOpenTabs, readTermWanted, readWebTabUrls, writeAgentSplitUrls, writeAgentSplits, writeGitOwners, writeOpenTabs, writeTermWanted, writeWebTabUrls } from "./openTabs.js";
 
 test("filterOpenTabs drops missing agents", () => {
   const got = filterOpenTabs(
@@ -131,4 +131,22 @@ test("filterAgentSplits drops the panes whose host tab is gone", () => {
   assert.deepEqual(got.urls, { 1: "https://a/", 2: "https://b/" });
   // A missing map is an empty split, not a crash.
   assert.deepEqual(filterAgentSplits(undefined, () => true), { panes: {}, ratios: {}, max: {}, urls: {} });
+});
+
+test("web tab addresses round-trip for shells without a webview", () => {
+  const store = new Map();
+  const original = globalThis.localStorage;
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+  };
+  try {
+    writeWebTabUrls({ 1: { url: "http://localhost:5173/", title: "Acme" }, 2: { url: "", title: "x" }, 3: "junk" });
+    assert.deepEqual(readWebTabUrls(), { 1: { url: "http://localhost:5173/", title: "Acme" } });
+    // Corrupt storage is not a crash: the strip opens empty tabs instead.
+    localStorage.setItem("picode-webtab-urls", "{not json");
+    assert.deepEqual(readWebTabUrls(), {});
+  } finally {
+    globalThis.localStorage = original;
+  }
 });

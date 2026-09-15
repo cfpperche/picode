@@ -49,6 +49,38 @@ const TERM_KEY = "picode-term-view";
 
 // Which agents were last viewed in the terminal (TUI dock), so a reload
 // lands back in the terminal instead of the chat.
+// Web tab addresses, for shells without a webview to read them back from.
+// The desktop shell gets each page's URL from its own WebView2 (`btab_meta`);
+// a plain browser has nothing to ask, so the tab restores what it opened.
+const WEBTAB_KEY = "picode-webtab-urls";
+
+export function readWebTabUrls() {
+  try {
+    const j = JSON.parse(localStorage.getItem(WEBTAB_KEY) || "null");
+    if (!j || typeof j !== "object") return {};
+    const out = {};
+    for (const [id, v] of Object.entries(j)) {
+      const url = v && typeof v.url === "string" ? v.url : "";
+      if (!id || !url) continue;
+      out[id] = { url, title: typeof v.title === "string" ? v.title : "" };
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+export function writeWebTabUrls(map) {
+  try {
+    const out = {};
+    for (const [id, v] of Object.entries(map || {})) {
+      if (!id || !v || !v.url) continue;
+      out[id] = { url: v.url, title: v.title || "" };
+    }
+    localStorage.setItem(WEBTAB_KEY, JSON.stringify(out));
+  } catch { /* a full or blocked storage is not worth breaking a tab over */ }
+}
+
 export function readTermWanted() {
   try {
     const j = JSON.parse(localStorage.getItem(TERM_KEY) || "[]");
