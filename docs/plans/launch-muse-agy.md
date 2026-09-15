@@ -94,7 +94,9 @@ written to either CLI's store.
   only, toggle hidden behind `hasIntegrationMechanism` (catalog row +
   PUT/prepend guards), seed skips hookless CLIs (copy forced off, never
   persisted). Fatia 5 must revisit the seed flag for existing instances
-  when a mechanism appears.
+  when a mechanism appears.- **Fatia 3b outcome (shipped):** same shape as 3a, smaller — registry flip
+  + summary-only plan branch; toggle/PUT/seed guards needed zero new code.
+  No `surface: terminal` rows remain.
 - **Fatia 4 — Writers (native targets, may fail).** Minimum-viable-file
   spike against the real CLI (the Grok ritual), `Write` + round-trip.
   Explicit fallback: brief-only, recorded — never forced.

@@ -54,6 +54,12 @@ func cliIntegrationPlan(cli, dir, hook string) clilaunch.IntegrationPlan {
 		// The launch is still editable — defaults, profiles, resume — but
 		// activity stays Open until a vendor surface appears (Fatia 5).
 		p.Summary = "No activity integration: this Muse build offers no hook surface to report through"
+	case "agy":
+		// Same honest shape as muse: Antigravity 1.2.3 offers no hooks
+		// anywhere (settings.json holds only model and trustedWorkspaces),
+		// so the launch is editable but activity stays Open (spike, Fatia
+		// 0; polling fallback stays a Fatia 5 question).
+		p.Summary = "No activity integration: this Antigravity build offers no hook surface to report through"
 	}
 	return p
 }
