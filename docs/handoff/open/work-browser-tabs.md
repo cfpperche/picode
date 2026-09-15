@@ -8,9 +8,8 @@ reviewed by the owner against the reference, one item at a time.
 
 - **Ask prompt** closes Browser permissions v1 (deferral on the UI thread).
 - **Terminal agents as principals** — spec ADR-0143, five steps, in order.
-- **"New browser tab" button: re-verify** — the crash claim did not reproduce
-  in a web scratch (2026-09-15): click → no console error, React root alive,
-  route switched to `#/`. Likely shell-only (the `window.__TAURI__` path).
+- **"New browser tab" button: re-verify in the shell** (no repro in a web
+  scratch, 2026-09-15).
 - **v2a** unused-site permissions; **v2b** agent history access (needs Ask).
 - **v2c** annotations (step 4 is an ADR); **v2d** Windows Hello opener row.
 - **v3** WebMCP and Developer mode (raw CDP: ADR, off, `full` only, audited).
