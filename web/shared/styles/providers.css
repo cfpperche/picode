@@ -301,19 +301,32 @@
    model. A long id truncates rather than pushing the fields around. */
 .prov-limits { display: flex; flex-direction: column; gap: 10px; }
 .prov-limit-row {
-  display: grid; grid-template-columns: minmax(0, 1fr) 118px 118px; gap: 8px; align-items: center;
+  display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 104px 104px; gap: 8px; align-items: center;
 }
 .prov-limit-id {
   font-family: var(--mono); font-size: 11.5px; color: var(--text-secondary);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
 }
+/* Reads + cost ride under the numbers, full width: one glanceable row per
+   model, not a second card. The shared .form-new input rule would stretch
+   every sub-input to 100%, so each names its own width. */
+.prov-model-sub { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px 20px; align-items: center; }
+.prov-model-reads, .prov-model-cost {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 11.5px; color: var(--text-secondary);
+}
+.prov-model-check { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.prov-model-check input[type="checkbox"] { width: 13px; height: 13px; margin: 0; accent-color: var(--accent); }
+.prov-model-cost input { width: 72px; height: 28px; font-size: 11.5px; }
 @media (max-width: 520px) {
-  /* The phone stacks the numbers under the id: two 118px fields beside an id
-     leaves the id a column of three characters. */
-  .prov-limit-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "id id" "ctx max"; row-gap: 6px; }
+  /* The phone stacks the row under the id: four fields beside an id leaves
+     the id a column of three characters. */
+  .prov-limit-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "id id" "name name" "ctx max" "sub sub"; row-gap: 6px; }
   .prov-limit-id { grid-area: id; }
-  .prov-limit-row > input:nth-of-type(1) { grid-area: ctx; }
-  .prov-limit-row > input:nth-of-type(2) { grid-area: max; }
+  .prov-limit-name { grid-area: name; }
+  .prov-limit-ctx { grid-area: ctx; }
+  .prov-limit-max { grid-area: max; }
+  .prov-model-sub { grid-area: sub; }
 }
 
 /* The Advanced disclosure is a section header, not a stray pill: full width,
@@ -362,6 +375,10 @@
   width: 13px; height: 13px; padding: 0; flex: 0 0 auto;
   margin: 0; accent-color: var(--accent);
 }
+/* A checked level may override the provider string it sends (xhigh -> "high"):
+   the value input sits beside its chip, blank meaning the level's own name. */
+.prov-level-pair { display: inline-flex; align-items: center; gap: 6px; }
+.prov-level-value { width: 84px; height: 28px; font-size: 11.5px; }
 .prov-hint { margin: 0; font-size: 11.5px; color: var(--text-secondary); }
 .prov-hint.prov-bad { color: var(--danger); }
 /* Load models: the button on its own row, the one-line report under it at
