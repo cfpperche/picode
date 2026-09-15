@@ -425,6 +425,19 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			_ = s.ConsumePairing(code)
 		}, []string{"pairing.created", "pairing.used"}},
 		{"SetSetting", func(s *Store) { _ = s.SetSetting("k", "v") }, []string{"setting.updated"}},
+		{"AddBrowserVisit (new url)", func(s *Store) { _, _ = s.AddBrowserVisit("https://example.com/a", "Example", false) }, []string{"browserhistory.updated"}},
+		{"AddBrowserVisit (same url updates in place)", func(s *Store) {
+			_, _ = s.AddBrowserVisit("https://example.com/b", "Example", true)
+			_, _ = s.AddBrowserVisit("https://example.com/b", "Example", false)
+		}, []string{"browserhistory.updated", "browserhistory.updated"}},
+		{"DeleteBrowserVisit", func(s *Store) {
+			v, _ := s.AddBrowserVisit("https://example.com/c", "", false)
+			_ = s.DeleteBrowserVisit(v.ID)
+		}, []string{"browserhistory.updated", "browserhistory.updated"}},
+		{"ClearBrowserHistory", func(s *Store) {
+			_, _ = s.AddBrowserVisit("https://example.com/d", "", false)
+			_ = s.ClearBrowserHistory()
+		}, []string{"browserhistory.updated", "browserhistory.updated"}},
 		{"BeginDockerOperation", func(s *Store) {
 			_, _, _ = s.BeginDockerOperation(DockerOperation{RequestKey: "request-123", Endpoint: "unix:///tmp/a", ContainerID: "a", Action: "start"})
 		}, []string{"docker.operation"}},

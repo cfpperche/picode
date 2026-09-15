@@ -31,6 +31,7 @@ func registerBrowserRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/browser/result", handleBrowserResult(deps))
 	mux.HandleFunc("POST /api/browser/tool", handleBrowserTool(deps))
 	registerBrowserPolicyRoutes(mux, deps)
+	registerBrowserHistoryRoutes(mux, deps)
 }
 
 // handleBrowserTool is what a Pi tool calls: a verb, not a CDP method. The

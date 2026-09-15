@@ -26,6 +26,8 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   const [rows, setRows] = useState(null); // null = first load: skeleton
   const [drafts, setDrafts] = useState({}); // agentId -> { tier, domainsText }
   const [flash, setFlash] = useState("");
+  const [history, setHistory] = useState(null);
+  const [confirmClear, setConfirmClear] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -38,14 +40,46 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     }
   }, []);
 
-  useEffect(() => {
-    if (!hidden) load();
-  }, [hidden, load]);
+  const loadHistory = useCallback(async () => {
+    try {
+      const r = await fetch("/api/browser/history?limit=50");
+      if (!r.ok) throw new Error(String(r.status));
+      const data = await r.json();
+      setHistory(data.visits ?? []);
+    } catch {
+      /* the list is disposable; the next event retries */
+    }
+  }, []);
 
-  // Saves land as setting.updated; refetch on that instead of polling.
+  useEffect(() => {
+    if (!hidden) {
+      load();
+      loadHistory();
+    }
+  }, [hidden, load, loadHistory]);
+
+  // Saves land as setting.updated; history mutations as browserhistory.updated.
+  // Both refetch the surface they feed instead of polling.
   useEffect(() => subscribeFeed((ev) => {
     if (ev.type === "setting.updated") load();
-  }), [load]);
+    if (ev.type === "browserhistory.updated") loadHistory();
+  }), [load, loadHistory]);
+
+  const removeVisit = async (vid) => {
+    await fetch("/api/browser/history/" + vid, { method: "DELETE" }).catch(() => {});
+    loadHistory();
+  };
+
+  const clearHistory = async () => {
+    if (!confirmClear) {
+      setConfirmClear(true);
+      setTimeout(() => setConfirmClear(false), 4000);
+      return;
+    }
+    setConfirmClear(false);
+    await fetch("/api/browser/history/clear", { method: "POST" }).catch(() => {});
+    loadHistory();
+  };
 
   const draftOf = (row) => drafts[row.agentId] ?? { tier: row.tier, domainsText: domainsText(row) };
   const setDraft = (agentId, next) => setDrafts((d) => ({ ...d, [agentId]: next }));
@@ -106,6 +140,34 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
       <p className="settings-hint">
         Read — sees the tab you have on screen, nothing else. Act — also opens and drives pages in its own pane, inside the domains you list. Full — everything Act does, plus developer access.
       </p>
+      <h4 className="settings-sub">Browsing history</h4>
+      <div className="settings-card">
+        {history === null ? (
+          <div className="mcp-skel" aria-hidden="true"><span className="skel-line w-40" /><span className="skel-line w-70" /></div>
+        ) : history.length === 0 ? (
+          <p className="settings-hint">No history yet — pages you visit in the app are listed here.</p>
+        ) : (
+          <>
+            <div className="grant-row">
+              <span className="grant-name">{history.length + (history.length === 50 ? "+" : "")} {history.length === 1 ? "page" : "pages"}</span>
+              <span style={{ flex: 1 }} />
+              <button type="button" className={"btn" + (confirmClear ? " btn-danger" : "")} onClick={clearHistory}>
+                {confirmClear ? "Really clear all?" : "Clear history"}
+              </button>
+            </div>
+            <ul className="grant-list">
+              {history.map((v) => (
+                <li key={v.id} className="grant-row">
+                  <span className="grant-name" title={v.url}>{v.title || v.host}</span>
+                  <span className="grant-error" style={{ color: "var(--text-secondary)" }}>{v.host}{v.typed ? " · typed" : ""} · {new Date(v.visitedAt.replace(/\.(\d{3})\d+/, ".$1")).toLocaleString()}</span>
+                  <span style={{ flex: 1 }} />
+                  <button type="button" className="btn" onClick={() => removeVisit(v.id)} aria-label={"Remove " + (v.title || v.host) + " from history"}>Remove</button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
     </PageFrame>
   );
 }

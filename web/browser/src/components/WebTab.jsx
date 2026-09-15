@@ -64,6 +64,7 @@ export default function WebTabSurface({ tabId, active, hidden, className = "", e
           if (m.url) {
             setStarted(true);
             setUrlDraft((cur) => (document.activeElement === urlRef.current ? cur : m.url));
+            record("history", m.url, false, m.title);
           }
           onMeta?.(m);
         })
@@ -75,6 +76,23 @@ export default function WebTabSurface({ tabId, active, hidden, className = "", e
 
   const urlRef = useRef(null);
   const menuOpenRef = useRef(false);
+  const historySeenRef = useRef("");
+
+  // History recording (slice 3): a URL new to this tab lands as a visit —
+  // typed when the user drove the bar, page-driven otherwise. The store
+  // updates the newest row in place for re-reports, so the 800 ms poll
+  // costs one cheap UPDATE, not rows.
+  const record = (which, url, typed, title) => {
+    if (which === "history") {
+      if (historySeenRef.current === url) return;
+      historySeenRef.current = url;
+      fetch("/api/browser/history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, title: title || "", typed }),
+      }).catch(() => {});
+    }
+  };
 
   // While the options menu is open, the page webview slides down below the
   // menu's rect — an HTML popover can't paint over a native WebView2
@@ -98,7 +116,11 @@ export default function WebTabSurface({ tabId, active, hidden, className = "", e
       w: r?.width,
       h: r?.height,
     })
-      .then(() => { setStarted(true); setErr(""); })
+      .then(() => {
+        setStarted(true);
+        setErr("");
+        record("history", target, true);
+      })
       .catch(fail);
   }
 
