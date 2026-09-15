@@ -14,9 +14,10 @@ screenshot round-tripped through the bound pane).
 ## Next
 
 - Slice 4 (`feat/browser-grants`) left: `act` verbs + origin rule, grants editor, shell navigation gate mirroring `browser.AllowsOrigin`.
-- New browser tab button (tab-strip end) crashes the app (`ReferenceError`, React root unmounts; verified pre-existing on a `main` scratch 2026-09-15).
 
 ## Notes
+
+- **The blank window (any work-browser tab) is FIXED** (2026-09-15, `feat/browser-tab-crash`): `showFullUrl` was read in the meta effect's deps above its own `useState` — a `const` touched in the same render before its declaration throws and unmounts the React root. Verified before/after on two scratches (main: blank page + `ReferenceError`; the fix: the tab opens and its notice renders). No JS linter and no component test exists in this repo to catch the class — a `biome`-style `noInvalidUseBeforeDeclaration` guard would be its own task.
 
 - **Split survives relaunch: DONE (2026-09-14)** — layout + last url persist; boot prunes dead hosts; webview recreated on host-tab show. Post-deploy: re-check the recreate in the shell.
 
@@ -55,6 +56,32 @@ feature, then the row.
 
 Step 4 opens a new user→agent input path: it needs an ADR before the
 protocol is fixed.
+
+## Password manager (finding, 2026-09-15)
+
+The owner asked why the reference's Password manager has a list, Add, CSV import
+and Windows Hello, and ours cannot. Measured in `webview2-com-sys 0.38.2`
+(the SDK the shell compiles against):
+
+- The whole password/autofill surface is `Is`/`SetPasswordAutosaveEnabled` and
+  `Is`/`SetGeneralAutofillEnabled`. No enumeration, no per-entry edit, no
+  import — nothing reads entries back.
+- The SDK *does* ship a runtime-UI opener where one exists: `ICoreWebView2_6::
+  OpenTaskManagerWindow`. There is no password-manager equivalent, so the
+  runtime offers no such window to open.
+- Windows Hello and passkey management are OS surfaces, not host APIs.
+
+Conclusion: the reference's screens are its own vault (store + fill injection,
+WebAuthn passkeys, Hello unlock) or the OS page opened from it — not a read of
+WebView2's store. Two honest paths, both owner-gated:
+
+1. **Opener rows** (cheap, no vault): "Manage passkeys in Windows Hello" and the
+   Windows password/passkey settings page, launched from the dialog. The exact
+   OS URI must be verified on the machine first.
+2. **PiCode owns the vault** (the reference's shape): encrypted store (DPAPI),
+   per-entry CRUD, fill injection through CDP/`AddScriptToExecuteOnDocumentCreated`,
+   Hello unlock through WinRT `UserConsentVerifier`, CSV import. A security-model
+   decision — ADR before code, the same gate as the annotations above.
 
 ## Traps (paid for, keep them paid)
 

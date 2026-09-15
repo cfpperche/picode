@@ -7,19 +7,22 @@ import {
 } from "./customProviders.js";
 import { CHAT_TEMPLATE_VARS, customApiHint, CUSTOM_PROVIDER_APIS, chatTemplateObjectError } from "../contracts/schemas.js";
 
+const goodRow = { contextWindow: "400000", maxTokens: "", name: "", input: [], cost: { input: "", output: "", cacheRead: "", cacheWrite: "" } };
 const good = {
   id: "CheaperInference",
   baseUrl: "https://api.cheaperinference.com/v1",
   api: "openai-completions",
   modelsText: "gpt-5.4\ngemini-3.7-flash\n",
-  modelLimits: { "gpt-5.4": { contextWindow: "400000", maxTokens: "" } },
+  modelLimits: { "gpt-5.4": { ...goodRow } },
   compatDeveloper: false,
   compatReasoning: false,
+  compatStreaming: false,
   thinkingFormat: "",
   chatTemplateKwargs: "",
   chatTemplateArgs: "",
   reasoningModel: false,
   thinkingLevels: [],
+  thinkingLevelValues: {},
   key: "ci_live_x",
 };
 
@@ -41,8 +44,12 @@ test("validate refuses the decision-table rows", () => {
     ["no models", { ...good, modelsText: "  \n" }],
     ["space in model id", { ...good, modelsText: "openai gpt" }],
     ["dup model ids", { ...good, modelsText: "m\nm" }],
-    ["zero context for a model", { ...good, modelLimits: { "gpt-5.4": { contextWindow: "0", maxTokens: "" } } }],
-    ["fractional max for a model", { ...good, modelLimits: { "gpt-5.4": { contextWindow: "", maxTokens: "1.5" } } }],
+    ["zero context for a model", { ...good, modelLimits: { "gpt-5.4": { ...goodRow, contextWindow: "0" } } }],
+    ["fractional max for a model", { ...good, modelLimits: { "gpt-5.4": { ...goodRow, contextWindow: "", maxTokens: "1.5" } } }],
+    ["half-filled cost", { ...good, modelLimits: { "gpt-5.4": { ...goodRow, cost: { input: "1", output: "", cacheRead: "", cacheWrite: "" } } } }],
+    ["negative cost", { ...good, modelLimits: { "gpt-5.4": { ...goodRow, cost: { input: "-1", output: "0", cacheRead: "0", cacheWrite: "0" } } } }],
+    ["bad level value", { ...good, reasoningModel: true, thinkingLevels: ["high"], thinkingLevelValues: { high: "two words" } }],
+    ["level value for an unknown level", { ...good, reasoningModel: true, thinkingLevels: ["high"], thinkingLevelValues: { turbo: "x" } }],
     ["missing key on create", { ...good, key: " " }],
     ["bad api", { ...good, api: "ollama" }],
   ];
@@ -66,7 +73,7 @@ test("payload carries models, per-model sizes and compat", () => {
     { id: "gpt-5.4", contextWindow: 400000, reasoning: false },
     { id: "gemini-3.7-flash", reasoning: false },
   ]);
-  assert.deepEqual(payload.compat, { supportsDeveloperRole: false, supportsReasoningEffort: false });
+  assert.deepEqual(payload.compat, { supportsDeveloperRole: false, supportsReasoningEffort: false, supportsUsageInStreaming: false });
   assert.equal(payload.key, "ci_live_x");
   assert.equal(payload.api, "openai-completions");
 });
@@ -140,22 +147,25 @@ test("customProviderForm prefills from a catalog row and starts blank", () => {
     ],
   };
   const form = customProviderForm(row);
+  const blankRow = { name: "", input: [], cost: { input: "", output: "", cacheRead: "", cacheWrite: "" } };
   assert.deepEqual(form, {
     id: "cheaperinference",
     baseUrl: "https://api.cheaperinference.com/v1",
     api: "anthropic-messages",
     modelsText: "claude-opus-5\nclaude-sonnet-5",
     modelLimits: {
-      "claude-sonnet-5": { contextWindow: "200000", maxTokens: "32000" },
-      "claude-opus-5": { contextWindow: "", maxTokens: "" },
+      "claude-sonnet-5": { contextWindow: "200000", maxTokens: "32000", ...blankRow },
+      "claude-opus-5": { contextWindow: "", maxTokens: "", ...blankRow },
     },
     compatDeveloper: true,
     compatReasoning: false,
+    compatStreaming: false,
     thinkingFormat: "deepseek",
     chatTemplateKwargs: "",
     chatTemplateArgs: "",
     reasoningModel: false,
     thinkingLevels: DEFAULT_THINKING_LEVELS,
+    thinkingLevelValues: {},
     key: "",
   });
   assert.equal(customProviderForm(null).api, "openai-completions");
@@ -283,9 +293,10 @@ test("limits are per model, and a row follows its id", () => {
     { id: "small" },
   ];
   const limits = limitsFromDefinitions(defs);
+  const blank = { name: "", input: [], cost: { input: "", output: "", cacheRead: "", cacheWrite: "" } };
   assert.deepEqual(limits, {
-    big: { contextWindow: "1000000", maxTokens: "384000" },
-    small: { contextWindow: "", maxTokens: "" },
+    big: { contextWindow: "1000000", maxTokens: "384000", ...blank },
+    small: { contextWindow: "", maxTokens: "", ...blank },
   });
 
   // A row appears and disappears with the id list; typed numbers survive.
@@ -293,8 +304,8 @@ test("limits are per model, and a row follows its id", () => {
   const synced = syncModelLimits(two, ["small", "new"]);
   assert.deepEqual(Object.keys(synced), ["small", "new"]);
   assert.equal(synced.small.contextWindow, "128000");
-  assert.deepEqual(synced.new, { contextWindow: "", maxTokens: "" });
-  assert.deepEqual(modelLimitRow(undefined, "x"), { contextWindow: "", maxTokens: "" });
+  assert.deepEqual(synced.new, { contextWindow: "", maxTokens: "", name: "", input: [], cost: { input: "", output: "", cacheRead: "", cacheWrite: "" } });
+  assert.deepEqual(modelLimitRow(undefined, "x"), { contextWindow: "", maxTokens: "", name: "", input: [], cost: { input: "", output: "", cacheRead: "", cacheWrite: "" } });
 });
 
 // The form used to write one context window and max output for every id, which
@@ -304,10 +315,10 @@ test("the payload carries each model's own numbers", () => {
     ...good,
     modelsText: "big\nsmall\nbare",
     modelLimits: {
-      big: { contextWindow: "1000000", maxTokens: "384000" },
-      small: { contextWindow: "128000", maxTokens: "" },
-      bare: { contextWindow: "", maxTokens: "" },
-      gone: { contextWindow: "5", maxTokens: "5" },
+      big: { ...goodRow, contextWindow: "1000000", maxTokens: "384000" },
+      small: { ...goodRow, contextWindow: "128000", maxTokens: "" },
+      bare: { ...goodRow, contextWindow: "", maxTokens: "" },
+      gone: { ...goodRow, contextWindow: "5", maxTokens: "5" },
     },
   });
   assert.equal(parsed.ok, true, parsed.error);
@@ -322,10 +333,76 @@ test("the payload carries each model's own numbers", () => {
 test("a per-model row with a bad number names the model", () => {
   const parsed = validateCustomProvider({
     ...good,
-    modelLimits: { "glm-4.6": { contextWindow: "0", maxTokens: "abc" } },
+    modelLimits: { "glm-4.6": { ...goodRow, contextWindow: "0", maxTokens: "abc" } },
   });
   assert.equal(parsed.ok, false);
   assert.match(parsed.error, /glm-4\.6: context window must be a positive whole number/);
-  const ok = validateCustomProvider({ ...good, modelLimits: { "glm-4.6": { contextWindow: "", maxTokens: "" } } });
+  const ok = validateCustomProvider({ ...good, modelLimits: { "glm-4.6": { ...goodRow, contextWindow: "", maxTokens: "" } } });
   assert.equal(ok.ok, true, ok.error);
+});
+
+test("the payload carries name, input, cost and level values", () => {
+  const parsed = validateCustomProvider({
+    ...good,
+    reasoningModel: true,
+    thinkingLevels: ["high", "xhigh"],
+    thinkingLevelValues: { xhigh: "high" },
+    modelsText: "muse-spark-1.3",
+    modelLimits: {
+      "muse-spark-1.3": {
+        ...goodRow,
+        contextWindow: "1048576",
+        maxTokens: "131072",
+        name: "Muse Spark 1.3",
+        input: ["image", "text"],
+        cost: { input: "0", output: "0", cacheRead: "0", cacheWrite: "0" },
+      },
+    },
+  });
+  assert.equal(parsed.ok, true, parsed.error);
+  const [model] = customProviderPayload(parsed.value).models;
+  assert.deepEqual(model, {
+    id: "muse-spark-1.3",
+    name: "Muse Spark 1.3",
+    input: ["text", "image"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 1048576,
+    maxTokens: 131072,
+    reasoning: true,
+    thinkingLevels: ["high", "xhigh"],
+    thinkingLevelValues: { xhigh: "high" },
+  });
+});
+
+test("level values for unselected levels never reach the wire", () => {
+  const parsed = validateCustomProvider({
+    ...good,
+    reasoningModel: true,
+    thinkingLevels: ["high"],
+    thinkingLevelValues: { high: "", max: "max" },
+  });
+  assert.equal(parsed.ok, true, parsed.error);
+  const [model] = customProviderPayload(parsed.value).models;
+  assert.equal("thinkingLevelValues" in model, false);
+});
+
+test("prefill reads name, input, cost and level values back", () => {
+  const form = customProviderForm({
+    id: "meta-ai",
+    compat: { supportsUsageInStreaming: true },
+    definitions: [{
+      id: "muse-spark-1.3",
+      name: "Muse Spark 1.3",
+      input: ["text", "image"],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      reasoning: true,
+      thinkingLevelMap: { minimal: "minimal", xhigh: "high", off: "none" },
+    }],
+  });
+  assert.equal(form.compatStreaming, true);
+  assert.deepEqual(form.modelLimits["muse-spark-1.3"].name, "Muse Spark 1.3");
+  assert.deepEqual(form.modelLimits["muse-spark-1.3"].input, ["text", "image"]);
+  assert.deepEqual(form.modelLimits["muse-spark-1.3"].cost, { input: "0", output: "0", cacheRead: "0", cacheWrite: "0" });
+  assert.deepEqual(form.thinkingLevels, ["minimal", "xhigh"]);
+  assert.deepEqual(form.thinkingLevelValues, { xhigh: "high" });
 });

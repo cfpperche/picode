@@ -20,9 +20,10 @@ test("a loaded list fills each model's own limits", () => {
     form,
   );
   assert.equal(changes.modelsText, "typed-one\nm-2");
+  const blank = { name: "", input: [], cost: { input: "", output: "", cacheRead: "", cacheWrite: "" } };
   assert.deepEqual(changes.modelLimits, {
-    "typed-one": { contextWindow: "1000000", maxTokens: "384000" },
-    "m-2": { contextWindow: "128000", maxTokens: "16384" },
+    "typed-one": { contextWindow: "1000000", maxTokens: "384000", ...blank },
+    "m-2": { contextWindow: "128000", maxTokens: "16384", ...blank },
   });
   assert.equal(line, "Found 2 models. Added 1 to the list. Filled 4 limits from the endpoint.");
 });
@@ -34,8 +35,9 @@ test("typed limits win, and disagreement is not a problem", () => {
     { models: [{ id: "a", contextWindow: 1000000, maxTokens: 384000 }, { id: "b", contextWindow: 128000, maxTokens: 16384 }] },
     { ...form, modelsText: "a\nb", modelLimits: { a: { contextWindow: "8000", maxTokens: "512" } } },
   );
-  assert.deepEqual(changes.modelLimits.a, { contextWindow: "8000", maxTokens: "512" });
-  assert.deepEqual(changes.modelLimits.b, { contextWindow: "128000", maxTokens: "16384" });
+  const blank = { name: "", input: [], cost: { input: "", output: "", cacheRead: "", cacheWrite: "" } };
+  assert.deepEqual(changes.modelLimits.a, { contextWindow: "8000", maxTokens: "512", ...blank });
+  assert.deepEqual(changes.modelLimits.b, { contextWindow: "128000", maxTokens: "16384", ...blank });
   assert.equal(line, "Found 2 models. Everything it lists is already here. Filled 2 limits from the endpoint.");
 });
 

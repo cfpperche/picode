@@ -397,6 +397,133 @@ func TestUpsertPerModelLimits(t *testing.T) {
 	}
 }
 
+func TestUpsertModelNameInputCost(t *testing.T) {
+	seedBody := `{"providers": {"gw": {"baseUrl": "https://api.example.com/v1", "api": "openai-completions", "models": [{"id": "m", "name": "Old Name", "input": ["text"], "cost": {"input": 1, "output": 2, "cacheRead": 3, "cacheWrite": 4}}]}}}`
+
+	t.Run("name, input and cost round-trip, zeros included", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		def := CustomDefinition{
+			BaseURL: "https://api.example.com/v1", API: APIOpenAICompletions,
+			Models: []CustomModel{{
+				ID: "m", Name: "Muse Spark 1.3", Input: []string{"text", "image"},
+				Cost: &CustomCost{Input: 0, Output: 0, CacheRead: 0, CacheWrite: 0},
+			}},
+		}
+		if err := UpsertCustomProvider("gw", def); err != nil {
+			t.Fatal(err)
+		}
+		got := LoadCustomDefinitions()["gw"].Models
+		if len(got) != 1 || got[0].Name != "Muse Spark 1.3" {
+			t.Fatalf("name = %+v", got)
+		}
+		if len(got[0].Input) != 2 || got[0].Input[0] != "text" || got[0].Input[1] != "image" {
+			t.Fatalf("input = %+v", got[0])
+		}
+		if got[0].Cost == nil || got[0].Cost.Input != 0 || got[0].Cost.CacheWrite != 0 {
+			t.Fatalf("cost = %+v", got[0])
+		}
+	})
+
+	t.Run("blank clears a hand-set name, input and cost", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		seed(t, home, seedBody)
+		def := CustomDefinition{
+			BaseURL: "https://api.example.com/v1", API: APIOpenAICompletions,
+			Models: []CustomModel{{ID: "m"}},
+		}
+		if err := UpsertCustomProvider("gw", def); err != nil {
+			t.Fatal(err)
+		}
+		got := LoadCustomDefinitions()["gw"].Models
+		if len(got) != 1 || got[0].Name != "" || got[0].Input != nil || got[0].Cost != nil {
+			t.Fatalf("cleared = %+v", got)
+		}
+	})
+
+	t.Run("unknown input modality is refused", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		def := CustomDefinition{
+			BaseURL: "https://api.example.com/v1", API: APIOpenAICompletions,
+			Models: []CustomModel{{ID: "m", Input: []string{"text", "smell"}}},
+		}
+		if err := UpsertCustomProvider("gw", def); err == nil {
+			t.Fatal("smell accepted")
+		}
+	})
+
+	t.Run("negative cost is refused", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		def := CustomDefinition{
+			BaseURL: "https://api.example.com/v1", API: APIOpenAICompletions,
+			Models: []CustomModel{{ID: "m", Cost: &CustomCost{Input: -1}}},
+		}
+		if err := UpsertCustomProvider("gw", def); err == nil {
+			t.Fatal("negative cost accepted")
+		}
+	})
+}
+
+func TestUpsertThinkingLevelValues(t *testing.T) {
+	t.Run("a filled value overrides the level name", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		yes := true
+		def := CustomDefinition{
+			BaseURL: "https://api.example.com/v1", API: APIOpenAICompletions,
+			Models: []CustomModel{{
+				ID: "m", Reasoning: &yes,
+				ThinkingLevels:      []string{"high", "xhigh"},
+				ThinkingLevelValues: map[string]string{"xhigh": "high"},
+			}},
+		}
+		if err := UpsertCustomProvider("gw", def); err != nil {
+			t.Fatal(err)
+		}
+		got := LoadCustomDefinitions()["gw"].Models[0].ThinkingLevelMap
+		if got["high"] != "high" || got["xhigh"] != "high" {
+			t.Fatalf("map = %#v", got)
+		}
+	})
+
+	t.Run("an override for an unmanaged level is refused", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		yes := true
+		def := CustomDefinition{
+			BaseURL: "https://api.example.com/v1", API: APIOpenAICompletions,
+			Models: []CustomModel{{
+				ID: "m", Reasoning: &yes,
+				ThinkingLevels:      []string{"high"},
+				ThinkingLevelValues: map[string]string{"ultra": "ultra"},
+			}},
+		}
+		if err := UpsertCustomProvider("gw", def); err == nil {
+			t.Fatal("ultra accepted")
+		}
+	})
+}
+
+func TestUpsertStreamingCompat(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	def := CustomDefinition{
+		BaseURL: "https://api.example.com/v1", API: APIOpenAICompletions,
+		Compat: map[string]bool{"supportsUsageInStreaming": true},
+		Models: []CustomModel{{ID: "m"}},
+	}
+	if err := UpsertCustomProvider("gw", def); err != nil {
+		t.Fatal(err)
+	}
+	got := LoadCustomDefinitions()["gw"].Compat
+	if got["supportsUsageInStreaming"] != true {
+		t.Fatalf("compat = %#v", got)
+	}
+}
+
 func TestUpsertChatTemplateObjects(t *testing.T) {
 	yes := true
 	base := CustomDefinition{

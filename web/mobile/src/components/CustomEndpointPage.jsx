@@ -5,7 +5,7 @@ import { go } from "../lib/routes.js";
 import { cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { DOCS_BASE } from "../lib/commandDocs.js";
 import { IconBack, IconChevronRight, IconDocs } from "./Icons.jsx";
-import { validateCustomProvider, customProviderPayload, customProviderForm, customTakenIds, customModelIds, syncModelLimits, modelLimitRow, THINKING_LEVELS, THINKING_FORMAT_NEEDS } from "@picode/shared/domain/customProviders.js";
+import { validateCustomProvider, customProviderPayload, customProviderForm, customTakenIds, customModelIds, syncModelLimits, modelLimitRow, THINKING_LEVELS, THINKING_FORMAT_NEEDS, CUSTOM_INPUT_MODALITIES } from "@picode/shared/domain/customProviders.js";
 import { loadModelsFor, modelLoadChanges, loadingLine } from "@picode/shared/client/modelLoad.js";
 import { CUSTOM_PROVIDER_APIS, CUSTOM_THINKING_FORMATS, customApiHint } from "@picode/shared/contracts/schemas.js";
 import { pushRecent } from "@picode/shared/domain/providerRecents.js";
@@ -40,6 +40,29 @@ export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) 
     return (e) => {
       const value = e.target.value;
       setCf((f) => ({ ...f, modelLimits: { ...f.modelLimits, [id]: { ...modelLimitRow(f.modelLimits, id), [field]: value } } }));
+    };
+  }
+  function setCost(id, field) {
+    return (e) => {
+      const value = e.target.value;
+      setCf((f) => {
+        const row = modelLimitRow(f.modelLimits, id);
+        return { ...f, modelLimits: { ...f.modelLimits, [id]: { ...row, cost: { ...row.cost, [field]: value } } } };
+      });
+    };
+  }
+  function toggleInput(id, modality) {
+    return (e) => setCf((f) => {
+      const row = modelLimitRow(f.modelLimits, id);
+      const next = new Set(row.input);
+      if (e.target.checked) next.add(modality); else next.delete(modality);
+      return { ...f, modelLimits: { ...f.modelLimits, [id]: { ...row, input: CUSTOM_INPUT_MODALITIES.filter((m) => next.has(m)) } } };
+    });
+  }
+  function setLevelValue(lvl) {
+    return (e) => {
+      const value = e.target.value;
+      setCf((f) => ({ ...f, thinkingLevelValues: { ...f.thinkingLevelValues, [lvl]: value } }));
     };
   }
   function setField(k) {
@@ -219,28 +242,68 @@ export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) 
           </div>
           {modelIds.length ? (
             <div className="prov-set">
-              <span className="prov-legend">Model limits</span>
-              <p className="prov-help">Blank leaves pi's default.</p>
+              <span className="prov-legend">Model details</span>
+              <p className="prov-help">Blank leaves pi's default. Cost is USD per 1M tokens — fill all four rates or leave them blank.</p>
               <div className="prov-limits">
-                {modelIds.map((id) => (
-                  <div className="prov-limit-row" key={id} data-model={id}>
-                    <span className="prov-limit-id" title={id}>{id}</span>
-                    <input
-                      value={modelLimitRow(cf.modelLimits, id).contextWindow}
-                      onChange={setLimit(id, "contextWindow")}
-                      inputMode="numeric"
-                      placeholder="Context"
-                      aria-label={"Context window for " + id}
-                    />
-                    <input
-                      value={modelLimitRow(cf.modelLimits, id).maxTokens}
-                      onChange={setLimit(id, "maxTokens")}
-                      inputMode="numeric"
-                      placeholder="Max output"
-                      aria-label={"Max output for " + id}
-                    />
-                  </div>
-                ))}
+                {modelIds.map((id) => {
+                  const row = modelLimitRow(cf.modelLimits, id);
+                  return (
+                    <div className="prov-limit-row" key={id} data-model={id}>
+                      <span className="prov-limit-id" title={id}>{id}</span>
+                      <input
+                        className="prov-limit-name"
+                        value={row.name}
+                        onChange={setLimit(id, "name")}
+                        placeholder="Display name"
+                        autoComplete="off" spellCheck="false"
+                        aria-label={"Display name for " + id}
+                      />
+                      <input
+                        className="prov-limit-ctx"
+                        value={row.contextWindow}
+                        onChange={setLimit(id, "contextWindow")}
+                        inputMode="numeric"
+                        placeholder="Context"
+                        aria-label={"Context window for " + id}
+                      />
+                      <input
+                        className="prov-limit-max"
+                        value={row.maxTokens}
+                        onChange={setLimit(id, "maxTokens")}
+                        inputMode="numeric"
+                        placeholder="Max output"
+                        aria-label={"Max output for " + id}
+                      />
+                      <div className="prov-model-sub">
+                        <span className="prov-model-reads">Reads
+                          {CUSTOM_INPUT_MODALITIES.map((modality) => (
+                            <label key={modality} className="prov-model-check">
+                              <input
+                                type="checkbox"
+                                checked={row.input.includes(modality)}
+                                onChange={toggleInput(id, modality)}
+                                aria-label={modality + " input for " + id}
+                              />
+                              <span>{modality}</span>
+                            </label>
+                          ))}
+                        </span>
+                        <span className="prov-model-cost">$/1M
+                          {[["input", "In"], ["output", "Out"], ["cacheRead", "Rd"], ["cacheWrite", "Wr"]].map(([field, short]) => (
+                            <input
+                              key={field}
+                              value={row.cost[field]}
+                              onChange={setCost(id, field)}
+                              inputMode="decimal"
+                              placeholder={short}
+                              aria-label={short + " cost ($/1M tokens) for " + id}
+                            />
+                          ))}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ) : null}
@@ -260,6 +323,10 @@ export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) 
               <label className="prov-check">
                 <input type="checkbox" checked={cf.compatReasoning} onChange={setCheck("compatReasoning")} />
                 <span><code>reasoning_effort</code> — reasoning models only</span>
+              </label>
+              <label className="prov-check">
+                <input type="checkbox" checked={cf.compatStreaming} onChange={setCheck("compatStreaming")} />
+                <span><code>include_usage</code> in streams — token counts ride the stream</span>
               </label>
             </div>
           </div>
@@ -309,14 +376,29 @@ export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) 
               <div className="prov-field">
                 <label className="prov-label">Thinking levels</label>
                 <div className="prov-levels" role="group" aria-label="Thinking levels">
-                  {THINKING_LEVELS.map((lvl) => (
-                    <label key={lvl} className={"prov-level" + (cf.thinkingLevels.includes(lvl) ? " on" : "")}>
-                      <input type="checkbox" checked={cf.thinkingLevels.includes(lvl)} onChange={toggleLevel(lvl)} />
-                      <span>{lvl}</span>
-                    </label>
-                  ))}
+                  {THINKING_LEVELS.map((lvl) => {
+                    const on = cf.thinkingLevels.includes(lvl);
+                    return (
+                      <span key={lvl} className="prov-level-pair">
+                        <label className={"prov-level" + (on ? " on" : "")}>
+                          <input type="checkbox" checked={on} onChange={toggleLevel(lvl)} />
+                          <span>{lvl}</span>
+                        </label>
+                        {on ? (
+                          <input
+                            className="prov-level-value"
+                            value={(cf.thinkingLevelValues || {})[lvl] || ""}
+                            onChange={setLevelValue(lvl)}
+                            placeholder={lvl}
+                            autoComplete="off" spellCheck="false"
+                            aria-label={"Provider value for " + lvl}
+                          />
+                        ) : null}
+                      </span>
+                    );
+                  })}
                 </div>
-                <p className="prov-help">Unchecked levels are hidden in the model picker.</p>
+                <p className="prov-help">Unchecked levels are hidden in the model picker. A filled value overrides the provider string a level sends.</p>
               </div>
             ) : null}
           </div>

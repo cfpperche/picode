@@ -159,6 +159,10 @@ export const THINKING_LEVELS = ["minimal", "low", "medium", "high", "xhigh", "ma
 // extended levels and stay hidden until a map claims them.
 export const DEFAULT_THINKING_LEVELS = ["minimal", "low", "medium", "high"];
 
+// CUSTOM_INPUT_MODALITIES are pi's per-model input vocabulary
+// (pi-ai types.d.ts Model.input): exactly text and image.
+export const CUSTOM_INPUT_MODALITIES = ["text", "image"];
+
 // CUSTOM_THINKING_FORMATS are the compat.thinkingFormat values the form
 // offers, in display order. The values are pi's own union
 // (pi-ai dist/types.d.ts); "openai" is the default and the branch that sends
@@ -211,15 +215,28 @@ export function customProviderSchema({ takenIds = [], requireKey = true } = {}) 
     api: z.enum(CUSTOM_PROVIDER_APIS.map((a) => a.value)),
     modelsText: z.string(),
     // One row per listed id: pi takes contextWindow/maxTokens per model, and
-    // the form used to write one number for the whole list.
-    modelLimits: z.record(z.string(), z.object({ contextWindow: z.string(), maxTokens: z.string() })),
+    // the form used to write one number for the whole list. Name, input
+    // modalities and cost ride the same row; the server deletes a stored key
+    // the row leaves blank, so the form owns what it shows.
+    modelLimits: z.record(z.string(), z.object({
+      contextWindow: z.string(),
+      maxTokens: z.string(),
+      name: z.string(),
+      input: z.array(z.enum(CUSTOM_INPUT_MODALITIES)),
+      cost: z.object({ input: z.string(), output: z.string(), cacheRead: z.string(), cacheWrite: z.string() }),
+    })),
     compatDeveloper: z.boolean(),
     compatReasoning: z.boolean(),
+    compatStreaming: z.boolean(),
     thinkingFormat: z.enum(CUSTOM_THINKING_FORMATS.map((f) => f.value)),
     chatTemplateKwargs: z.string(),
     chatTemplateArgs: z.string(),
     reasoningModel: z.boolean(),
     thinkingLevels: z.array(z.enum(THINKING_LEVELS)),
+    // thinkingLevelValues overrides the provider value per selected level: a
+    // blank value keeps the level's own name (xhigh), a filled one writes it
+    // (xhigh -> "high"). Values for unselected levels never reach the wire.
+    thinkingLevelValues: z.record(z.string(), z.string()),
     key: z.string(),
   }).superRefine((v, ctx) => {
     const fail = (message) => ctx.addIssue({ code: "custom", message });
@@ -238,6 +255,27 @@ export function customProviderSchema({ takenIds = [], requireKey = true } = {}) 
           fail(id + ": " + label.toLowerCase() + " must be a positive whole number.");
         }
       }
+      if (String((row && row.name) || "").trim().length > 120) {
+        fail(id + ": name must be 120 characters or less.");
+      }
+      // Cost is all or nothing: pi's ModelCost needs all four rates, and a
+      // half-filled row would silently zero real money. Zeros are fine.
+      const cost = (row && row.cost) || {};
+      const rates = ["input", "output", "cacheRead", "cacheWrite"].map((k) => String(cost[k] || "").trim());
+      if (rates.some(Boolean) && rates.some((r) => !r)) {
+        fail(id + ": fill all four cost rates or leave them blank.");
+      }
+      for (const r of rates) {
+        if (r && (!/^\d+(\.\d+)?$/.test(r) || !Number.isFinite(Number(r)))) {
+          fail(id + ": cost rates must be zero or above.");
+        }
+      }
+    }
+    for (const [level, value] of Object.entries(v.thinkingLevelValues || {})) {
+      const trimmed = String(value || "").trim();
+      if (!trimmed) continue;
+      if (!THINKING_LEVELS.includes(level)) fail("Unknown thinking level: " + level + ".");
+      else if (trimmed.length > 64 || /\s/.test(trimmed)) fail("Provider value for " + level + " must be one word.");
     }
     if (v.reasoningModel && !v.thinkingLevels.length) fail("Select at least one thinking level.");
     // The kwargs/args editors hold JSON; the same parse builds the payload, so
