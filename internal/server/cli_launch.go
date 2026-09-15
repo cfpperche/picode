@@ -1025,7 +1025,7 @@ func (p *preparedCLILaunch) startSized(deps Deps, r *http.Request, name, cwd str
 	if blocked, e := peerStopPending(deps, p.id); e != nil || blocked {
 		return errors.New("The previous process has not finished closing. Try again after it exits.")
 	}
-	env := append(append([]string{}, p.environment...), "PICODE_TERM_ID="+p.id, "PICODE_TERM_URL="+loopbackURL(deps))
+	env := append(append([]string{}, p.environment...), tmux.MarkerTermEnv+"="+p.id, tmux.MarkerURLEnv+"="+loopbackURL(deps))
 	if b := interceptBinEnv(deps.DataDir); b != "" {
 		env = append(env, b)
 	}

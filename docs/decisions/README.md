@@ -137,7 +137,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0130](0130-picode-snippets.md) | PiCode Snippets — GUI library, expand-before-send, snippet-run door | accepted; amended 2026-09-14 (fifth delivery door: interactive agent TUI paste) |
 | [0131](0131-handoff-board-index.md) | The handoff board is an index: next-up inline, debts as a per-topic count with its plan; an invisible topic file fails the generator (refines 0123) | accepted |
 | [0132](0132-browser-command-channel.md) | browser-command-channel | accepted |
-| [0133](0133-tmux-app.md) | The tmux app — PiCode reads the whole tmux server, and acts only on sessions it can attribute | accepted; surface amended 2026-09-14 (primitives, not native) |
+| [0133](0133-tmux-app.md) | The tmux app — PiCode reads the whole tmux server, and acts only on sessions it can attribute | accepted; surface amended 2026-09-14 (primitives, not native); reap scope narrowed by ADR-0141 |
 | [0134](0134-browser-default-policy.md) | browser-default-policy | accepted (amends 0128) |
 | [0135](0135-agent-browser-binding.md) | agent-browser-binding | proposed |
 | [0136](0136-html-file-preview.md) | HTML file preview through a sandboxed, cookie-less capability route (scripts and relative assets run; `allow-same-origin` never) | accepted |
@@ -145,3 +145,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0138](0138-tmux-terminal-guard.md) | tmux terminal guard — a `tmux` wrapper on the ADR-0056 session PATH refuses `kill-server`/pattern kills and exact-name kills without the terminal's marker; `send-keys` payload check; on by default; dedicated socket named as next step | accepted, extends 0056; amends nothing |
 | [0139](0139-tmux-dedicated-socket.md) | tmux dedicated socket — per-instance `-S <dataDir>/tmux.sock`; new sessions there, `$TMUX`-inherited panes keep working, the daemon drains legacy sessions through a fallback Manager (no live migration exists); scratch instances stop sharing the owner's server | accepted, extends 0138 |
 | [0140](0140-handoff-note-debt-expiry.md) | Session-note debts expire from the board after 30 days | accepted, supersedes 0131 (note debts) |
+| [0141](0141-instance-stamp-and-the-reap-scope.md) | The instance stamp — one PiCode does not reap another's sessions | accepted |

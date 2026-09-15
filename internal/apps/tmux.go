@@ -17,9 +17,13 @@ package apps
 //     head, tabs, filter and cards as the Docker app, and the phone gets it
 //     for free.
 //
-// The security model is untouched (ADR-0133): the name is the cheap hint the
-// list uses, the session's own environment markers are the receipt read before
-// any removal, and the removal re-verifies identity and refuses on any change.
+// The security model is ADR-0133's, narrowed by ADR-0141: the name is the
+// cheap hint the list uses, the session's own environment markers are the
+// receipt read before any removal, and the removal re-verifies identity and
+// refuses on any change. Its scope is now one instance: a session stamped by
+// another PiCode on this machine (or, before the stamp existed, one carrying
+// another instance's port) is named as such and gets no removal door, because
+// "no record here" is not proof of garbage while two PiCodes share a machine.
 // What changed is only who renders it: the API family /api/tmux/* is gone —
 // View and Action replaced it — and with it the custom renderer, its CSS and
 // its chunk.
@@ -27,13 +31,14 @@ package apps
 import (
 	"context"
 	"fmt"
+	"github.com/cfpperche/picode/internal/store"
+	"github.com/cfpperche/picode/internal/tmux"
+	"net/url"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/cfpperche/picode/internal/store"
-	"github.com/cfpperche/picode/internal/tmux"
 )
 
 // TmuxServer is the slice of the tmux manager an app may use. Defined here so
@@ -50,6 +55,10 @@ type TmuxServer interface {
 	// (ADR-0139 follow-up): the new sessions' socket, the default one, and
 	// every -L name in the user's tmux directory.
 	MachineSockets(ctx context.Context) []tmux.MachineSocket
+	// Instance is this daemon's own identity as stamped into the sessions
+	// it creates (ADR-0140) — the value another PiCode reads to tell this
+	// instance's leftovers from its own.
+	Instance() string
 }
 
 // Session scopes — what the UI says about whose session a row is.
@@ -248,12 +257,25 @@ func (a tmuxApp) sessionView(ctx context.Context, h Host, name string) (View, er
 			v.Blocks = append(v.Blocks, detailMarkdown(fmt.Sprintf("This session is the terminal **%s**. Open it from Terminals; the server inventory reads it, it does not manage it.", ownerName)))
 		}
 	case scopeUnclaimed:
-		v.Blocks = append(v.Blocks, detailMarkdown(
-			"No terminal or agent with this name is in PiCode's records. It may be a leftover from a previous run, or a session belonging to another PiCode on this machine — PiCode cannot tell those apart, so nothing removes it on its own."))
 		receipt, err := h.Tmux.SessionReceipt(ctx, name)
 		if err != nil {
 			v.Blocks = append(v.Blocks, detailMarkdown("This session could not be read just now ("+err.Error()+"). Refresh and try again."))
 			return v, nil
+		}
+		if where, elsewhere := tmuxElsewhere(h, receipt); elsewhere {
+			// Another instance's work is not this instance's to remove
+			// (ADR-0140), and the sentence names it so the operator knows
+			// where to go instead.
+			v.Blocks = append(v.Blocks, detailMarkdown(fmt.Sprintf(
+				"No terminal or agent in PiCode's records here claims this session, because it belongs to **another PiCode instance** — %s. That is live work on the same machine, so this instance leaves it alone: open that PiCode to manage or remove it.", where)))
+			return v, nil
+		}
+		if receipt.Instance != "" && h.Tmux.Instance() != "" {
+			v.Blocks = append(v.Blocks, detailMarkdown(
+				"No terminal or agent with this name is in PiCode's records any more, and this instance is the one that created the session — a leftover, and nothing else can be relying on it."))
+		} else {
+			v.Blocks = append(v.Blocks, detailMarkdown(
+				"No terminal or agent with this name is in PiCode's records. It may be a leftover from a previous run, or a session belonging to another PiCode on this machine — this session predates the stamp that would tell them apart, so PiCode cannot tell those apart, and nothing removes it on its own."))
 		}
 		if owner, door := tmuxMarkerOwner(h.Store, receipt); owner != "" {
 			// The marker is authoritative and it names live work: refuse the
@@ -347,6 +369,9 @@ func (a tmuxApp) reap(ctx context.Context, h Host, args map[string]string) (stri
 			return "", fmt.Errorf("that session belongs to %s, which still exists in PiCode. Remove the %s instead", owner, door)
 		}
 	}
+	if where, elsewhere := tmuxElsewhere(h, receipt); elsewhere {
+		return "", fmt.Errorf("that session belongs to another PiCode instance (%s) — remove it from that instance", where)
+	}
 	if err := h.Tmux.KillSession(ctx, name); err != nil {
 		return "", err
 	}
@@ -395,6 +420,52 @@ func tmuxAttribution(st *store.Store, name string) (kind, scope, ownerID, ownerN
 	default:
 		return kindOther, scopeForeign, "", "", ""
 	}
+}
+
+// tmuxElsewhere reports whether an unclaimed session was created by ANOTHER
+// PiCode instance on this machine (ADR-0140), and names it. That is the
+// difference between "a leftover nobody owns" — which this instance may
+// remove — and "someone else's live work", which it may not touch: two
+// PiCodes share the machine, not their stores, so "no record here" is not
+// proof of garbage.
+//
+// The instance stamp is authoritative. A session created before the stamp
+// existed falls back to the loopback address it carries: a different port on
+// the same machine is a different instance (nothing else can hold that port).
+// When neither can be read the answer is "no" — the session is treated as
+// before, and the screen says why it cannot be sure.
+func tmuxElsewhere(h Host, receipt tmux.SessionReceipt) (where string, yes bool) {
+	if h.Tmux == nil {
+		return "", false
+	}
+	ours := h.Tmux.Instance()
+	if receipt.Instance != "" {
+		if ours == "" || filepath.Clean(receipt.Instance) == filepath.Clean(ours) {
+			return "", false
+		}
+		if receipt.URL != "" {
+			return receipt.URL, true
+		}
+		return "its data directory is " + receipt.Instance, true
+	}
+	if ours == "" || receipt.URL == "" || h.LoopbackURL == "" {
+		return "", false
+	}
+	mine, theirs := tmuxPort(h.LoopbackURL), tmuxPort(receipt.URL)
+	if mine == "" || theirs == "" || mine == theirs {
+		return "", false
+	}
+	return receipt.URL, true
+}
+
+// tmuxPort is the port of a loopback URL, "" when the string does not carry
+// one.
+func tmuxPort(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	return u.Port()
 }
 
 // tmuxMarkerOwner answers whether the session's own marker names something this

@@ -21,7 +21,10 @@ func registerAppsRoutes(mux Registrar, deps Deps) {
 func appsHost(deps Deps, r *http.Request) apps.Host {
 	return apps.Host{
 		Store: deps.Store, DataDir: deps.DataDir,
-		Docker: deps.Docker, Actor: dockerActor(r),
+		// The address this instance answers on locally: the identity a session
+		// created before ADR-0140's stamp carries, compared by port.
+		LoopbackURL: loopbackURL(deps),
+		Docker:      deps.Docker, Actor: dockerActor(r),
 		Tmux:         deps.Tmux,
 		LostSessions: deps.LostSessions,
 		// Negate once, right here, matching handleRespondInbox's own

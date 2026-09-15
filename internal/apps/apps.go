@@ -47,8 +47,15 @@ type Manifest struct {
 type Host struct {
 	Store   *store.Store
 	DataDir string
-	Docker  *docker.Service
-	Actor   string
+	// LoopbackURL is the address this daemon answers on locally
+	// (https://localhost:8445). It identifies the instance in the one place
+	// no self-declared stamp exists: a session created before ADR-0140's
+	// PICODE_INSTANCE marker, whose own PICODE_TERM_URL names a port. Empty
+	// means this host cannot identify itself that way, and no session is
+	// called someone else's on that basis.
+	LoopbackURL string
+	Docker      *docker.Service
+	Actor       string
 	// AgentDeliverable answers whether a reply queued for this agent will
 	// be drained automatically — false only when the agent is currently
 	// running in a TUI/tmux session, which nothing watches for follow_up

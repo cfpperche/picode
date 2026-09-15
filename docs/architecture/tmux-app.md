@@ -20,7 +20,7 @@ second UI standard).
 | Path | Screen |
 |---|---|
 | `""` | the inventory: three collapsible list groups — **PiCode** (live work, each row opens its detail), **Not in PiCode's records** (leftovers; each row opens a detail that carries the removal), **Not PiCode's** (the user's own tmux, read-only, no path). Row: title (owner name when known, else the session name), command, relative start time (`At`, host-formatted), kind, attached clients, panes, live/exited badge. |
-| `item/<session>` | one session's screen: identity (`name`, `$id`, started, folder, command, windows/panes/clients), the owner sentence its scope earns, and — for a leftover only — **Remove this session**. A claimed session links to its own surface instead: `#/term/<id>` or `#/agent/<id>` by markdown, no `Goto` growth. |
+| `item/<session>` | one session's screen: identity (`name`, `$id`, started, folder, command, windows/panes/clients), the owner sentence its scope earns, and — for a leftover of *this* instance only — **Remove this session**. A claimed session links to its own surface instead: `#/term/<id>` or `#/agent/<id>` by markdown, no `Goto` growth; another instance's session gets the sentence naming it and no door (ADR-0141). |
 | `"server"` | the server's facts (version, running, socket, sessions · attached, clients, keyboard mode with the Preferences pointer) and the absence list: terminals this daemon has rows for whose session is **not** on the server, `lost at restart` from the flight recorder (ADR-0085). |
 
 The read costs **one tmux subprocess** for the whole inventory
@@ -62,15 +62,28 @@ Ownership is resolved in two steps, and the split is the whole safety model:
    sentence.
 
 `internal/apps/tmux_test.go:TestTmuxMarkerNamesMatchTheirWriters` pins the
-marker strings against the store's constant, because a rename in one of the
-three writers would silently turn every session into an "unclaimed" one.
+marker strings (against the store's constant where one exists, literally
+otherwise), because a rename in one of the writers would silently turn every
+session into an "unclaimed" one — or, for `PICODE_INSTANCE`/`PICODE_TERM_URL`,
+silently re-open the reap to another instance's work.
 
-**The uncertainty is in the product, not hidden.** A PiCode-shaped session
-missing from the store may be a leftover, a harness's, or **another PiCode
-instance's on the same machine** — measured 2026-09-14: a script over the
-socket read seven live sessions as unclaimed, and all seven belonged to a
-second instance it had failed to reach. No read in this daemon can settle
-that; the row says so, and a human confirming one session at a time can.
+**Whose session is it: the instance stamp (ADR-0141).** A PiCode-shaped
+session missing from the store may be a leftover, a harness's, or **another
+PiCode instance's on the same machine** — measured 2026-09-14: a script over
+the socket read seven live sessions as unclaimed, and all seven belonged to a
+second instance it had failed to reach. ADR-0139 made that ambiguity visible
+in every instance (each one now reads the default server's fleet beside its
+own), so a scratch could see production's twelve terminals, one click from a
+removal. The session itself now settles it: the Manager stamps every session
+it creates with `PICODE_INSTANCE` = its data directory (`filepath.Dir` of its
+socket, one funnel — `NewSessionEnvSize`, after the caller's env, so no caller
+can claim another identity), the receipt reads it beside `PICODE_TERM_URL`,
+and a session stamped by a different directory — or, before the stamp existed,
+carrying a different port — is *another instance's work*: named on screen, no
+removal door, and `reap` refuses it even if a request arrives by hand. A
+session with neither stamp nor URL (an agent created before this version)
+keeps the old sentence and the human's judgement; the list still carries no
+per-row verdict, because ADR-0133 rule 1 keeps it one tmux call.
 
 ## The one action
 
@@ -85,7 +98,8 @@ table, row by row — every row is a test in
 | not `picode-*` | — | — | refused — the user's own session is never this app's business |
 | `picode-*` | yes | any | refused — names the terminal/agent and its door |
 | `picode-*` | no | missing, or `sessionId`/`created`/`panePid` moved | refused — "changed since this page was drawn" |
-| `picode-*` | no | matches | killed once by exact name, one `tmux.session.reaped` event |
+| `picode-*` | no | matches, stamped by another instance (or another instance's port) | refused — "belongs to another PiCode instance", named |
+| `picode-*` | no | matches, stamped by this instance | killed once by exact name, one `tmux.session.reaped` event |
 | session gone | — | — | refused — "no longer running" |
 | unknown action | — | — | refused |
 
