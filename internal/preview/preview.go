@@ -24,6 +24,11 @@ const DefaultTTL = time.Hour
 // TokenBytes is the entropy in a ticket token; the token is a credential.
 const TokenBytes = 32
 
+// MaxWatch caps the paths watched per ticket, so a page that pulls in a
+// thousand files cannot turn the live-reload poller into a filesystem
+// crawl. The document is served first and always fits.
+const MaxWatch = 200
+
 // Ticket is one capability: a token that serves Root, and the document under
 // it the pane first asked for. SessionID is empty for anonymous mode.
 type Ticket struct {
@@ -42,7 +47,14 @@ type Store struct {
 	mu      sync.Mutex
 	ttl     time.Duration
 	now     func() time.Time
-	tickets map[string]Ticket
+	tickets map[string]*entry
+}
+
+// entry is one ticket plus the files it has served, the set a live-reload
+// stream stats.
+type entry struct {
+	ticket Ticket
+	watch  map[string]struct{}
 }
 
 // NewStore builds a store; ttl <= 0 means DefaultTTL.
@@ -50,7 +62,7 @@ func NewStore(ttl time.Duration) *Store {
 	if ttl <= 0 {
 		ttl = DefaultTTL
 	}
-	return &Store{ttl: ttl, now: time.Now, tickets: make(map[string]Ticket)}
+	return &Store{ttl: ttl, now: time.Now, tickets: make(map[string]*entry)}
 }
 
 // Mint creates a ticket for one document. It does not validate the path; the
@@ -74,7 +86,7 @@ func (s *Store) Mint(ownerKind, ownerID, root, docPath, sessionID string) (Ticke
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.sweepLocked(now)
-	s.tickets[tok] = t
+	s.tickets[tok] = &entry{ticket: t, watch: make(map[string]struct{})}
 	return t, nil
 }
 
@@ -82,15 +94,53 @@ func (s *Store) Mint(ownerKind, ownerID, root, docPath, sessionID string) (Ticke
 func (s *Store) Get(token string) (Ticket, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	t, ok := s.tickets[token]
+	e, ok := s.tickets[token]
 	if !ok {
 		return Ticket{}, false
 	}
-	if !s.now().Before(t.ExpiresAt) {
+	if !s.now().Before(e.ticket.ExpiresAt) {
 		delete(s.tickets, token)
 		return Ticket{}, false
 	}
-	return t, true
+	return e.ticket, true
+}
+
+// Touch records a file the ticket served, among the paths a live-reload
+// stream polls. Unknown and expired tokens are ignored; the per-ticket cap
+// is MaxWatch.
+func (s *Store) Touch(token, path string) {
+	if token == "" || path == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	e, ok := s.tickets[token]
+	if !ok || !s.now().Before(e.ticket.ExpiresAt) {
+		return
+	}
+	if _, seen := e.watch[path]; seen {
+		return
+	}
+	if len(e.watch) >= MaxWatch {
+		return
+	}
+	e.watch[path] = struct{}{}
+}
+
+// Watched snapshots the ticket's served files for one poll. A missing or
+// expired ticket has none.
+func (s *Store) Watched(token string) []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	e, ok := s.tickets[token]
+	if !ok || !s.now().Before(e.ticket.ExpiresAt) {
+		return nil
+	}
+	out := make([]string, 0, len(e.watch))
+	for p := range e.watch {
+		out = append(out, p)
+	}
+	return out
 }
 
 // Len reports live (unexpired) tickets.
@@ -102,8 +152,8 @@ func (s *Store) Len() int {
 }
 
 func (s *Store) sweepLocked(now time.Time) {
-	for tok, t := range s.tickets {
-		if !now.Before(t.ExpiresAt) {
+	for tok, e := range s.tickets {
+		if !now.Before(e.ticket.ExpiresAt) {
 			delete(s.tickets, tok)
 		}
 	}

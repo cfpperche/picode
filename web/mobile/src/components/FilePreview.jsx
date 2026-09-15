@@ -45,7 +45,7 @@ function HtmlPreview({ html }) {
       <iframe
         className="file-preview-frame"
         title="HTML preview"
-        src={html.url}
+        src={html.frameUrl || html.url}
         sandbox={PREVIEW_SANDBOX}
         allow="fullscreen; clipboard-write"
         allowFullScreen

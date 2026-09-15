@@ -1,10 +1,11 @@
 # HTML file preview — study and spec
 
-- **Status:** v1 implemented 2026-09-14 on `feat/html-preview`: ADR-0136
-  accepted with the eight decisions below as recommended; the route family
-  and policy live in `docs/architecture/file-preview.md`. v1.5 (live reload,
-  preview-only documents, unsaved-text overlay) and v2 (a real second
-  origin) are not started.
+- **Status:** v1 and half of v1.5 implemented on 2026-09-14 (`feat/html-preview`,
+  then `feat/html-preview-live`): ADR-0136 accepted with the eight decisions
+  below as recommended; the route family and policy live in
+  `docs/architecture/file-preview.md`. Shipped from v1.5: live reload
+  (served-asset watch + `__events` SSE) and preview-only documents over the
+  text cap. Still open: unsaved-text overlay, and v2 (a real second origin).
 - **Boundary:** security model — a cookie-less, sandboxed origin for project
   HTML and a capability route (ADR-0136).
 - **Scope:** render `.html` / `.htm` files in PiCode's existing file surfaces
@@ -147,13 +148,14 @@ The app shell's `frame-src 'self'` already allows this URL; no change.
 
 1. **v1 — the renderer.** ADR + ticket store + route + headers + kind map +
    pane/card/mobile wiring + tests + docs.
-2. **v1.5 — the editing loop.** Preview-only documents over the text cap
-   (mint and serve without a Raw pane), ticket-scoped change watch: the route
-   records served asset paths, one daemon ticker stats them (no fsnotify
-   dependency, cap ~200 paths/ticket) and an SSE channel reloads the parent
-   frame when anything changed — no script injection into the page. Plus
-   *Preview unsaved edits* (parent PUTs the editor text to the token route
-   as a memory overlay) if the owner wants it.
+2. **v1.5 — the editing loop.** *Shipped 2026-09-14 on
+   `feat/html-preview-live`:* preview-only documents over the text cap (mint
+   and serve without a Raw pane), and live reload — the route records served
+   asset paths (`preview.Store.Touch`, cap `MaxWatch` = 200/ticket), the
+   pane's EventSource stats them every second on `/preview/<token>/__events`,
+   and a change reloads the parent frame with a nonce; no script injection
+   into the page. *Still open:* *Preview unsaved edits* (parent PUTs the
+   editor text to the token route as a memory overlay) if the owner wants it.
 3. **v2 — a real preview origin.** A second origin (listener/subdomain) with
    a normal, isolated origin: localStorage, workers, service workers,
    `document.cookie` that is *its own*; also inline artifact cards, viewport
@@ -187,7 +189,7 @@ The app shell's `frame-src 'self'` already allows this URL; no change.
 | 3 | Ticket scope | owner's project root (VS Code/JetBrains parity; `../shared/style.css` works) + allowlist + dotfile denial. Tighter alternative: the document's directory subtree |
 | 4 | Network egress | allow, like a normal browser tab. Residual risk named: the page can read *allowlisted* sibling files and post them out; only a per-preview "no network" toggle fully closes it |
 | 5 | Ticket lifetime | 1 h, bound to the minting session; dies with daemon/revoke |
-| 6 | Unsaved-edits preview | v1.5 (save is one keystroke; overlay adds a writable route) |
+| 6 | Unsaved-edits preview | v1.5 remainder (save is one keystroke; overlay adds a writable route) |
 | 7 | Inline chat card | v2 (v1: source + **Open preview**) |
 | 8 | Mobile | v1 (shared hook + `FileDocument` toggle) |
 

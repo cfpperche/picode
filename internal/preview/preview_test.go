@@ -2,6 +2,7 @@ package preview
 
 import (
 	"encoding/base64"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -132,5 +133,57 @@ func TestIsDocumentAndHidden(t *testing.T) {
 		if Hidden(p) {
 			t.Fatalf("%s should not be hidden", p)
 		}
+	}
+}
+
+func TestTouchAndWatched(t *testing.T) {
+	s := NewStore(time.Minute)
+	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+	s.now = func() time.Time { return now }
+	tk, err := s.Mint("agent", "a1", "/proj", "site/index.html", "s1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := s.Watched(tk.Token); len(got) != 0 {
+		t.Fatalf("fresh ticket watches %v", got)
+	}
+	s.Touch(tk.Token, "/proj/site/index.html")
+	s.Touch(tk.Token, "/proj/site/app.js")
+	s.Touch(tk.Token, "/proj/site/app.js") // no duplicate
+	s.Touch("nope", "/proj/site/x.js")
+	s.Touch(tk.Token, "")
+	got := s.Watched(tk.Token)
+	if len(got) != 2 {
+		t.Fatalf("watched=%v", got)
+	}
+	seen := map[string]bool{}
+	for _, p := range got {
+		seen[p] = true
+	}
+	if !seen["/proj/site/index.html"] || !seen["/proj/site/app.js"] {
+		t.Fatalf("watched=%v", got)
+	}
+	if s.Watched("nope") != nil {
+		t.Fatal("unknown token watches something")
+	}
+
+	now = now.Add(time.Minute)
+	if got := s.Watched(tk.Token); got != nil {
+		t.Fatalf("expired ticket watches %v", got)
+	}
+	s.Touch(tk.Token, "/proj/site/late.js") // expired: ignored, not resurrected
+}
+
+func TestTouchCap(t *testing.T) {
+	s := NewStore(time.Minute)
+	tk, err := s.Mint("term", "t1", "/p", "index.html", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < MaxWatch+50; i++ {
+		s.Touch(tk.Token, fmt.Sprintf("/p/asset-%d.js", i))
+	}
+	if got := len(s.Watched(tk.Token)); got != MaxWatch {
+		t.Fatalf("watched=%d want %d", got, MaxWatch)
 	}
 }
