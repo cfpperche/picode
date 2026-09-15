@@ -25,11 +25,14 @@ type fakeTmuxServer struct {
 	sessions  []tmux.ServerSession
 	receipts  map[string]tmux.SessionReceipt
 	sockets   []tmux.MachineSocket
+	instance  string
 	killErr   error
 	killed    []string
 }
 
 func (f *fakeTmuxServer) Available() bool { return f.available }
+
+func (f *fakeTmuxServer) Instance() string { return f.instance }
 
 func (f *fakeTmuxServer) MachineSockets(context.Context) []tmux.MachineSocket {
 	return f.sockets
@@ -97,6 +100,16 @@ func TestTmuxMarkerNamesMatchTheirWriters(t *testing.T) {
 	// this is the one place its literal is pinned.
 	if tmux.MarkerTermEnv != "PICODE_TERM_ID" {
 		t.Fatalf("tmux.MarkerTermEnv = %q, want PICODE_TERM_ID", tmux.MarkerTermEnv)
+	}
+	// ADR-0140: the instance stamp and the loopback URL are read here and
+	// written by internal/server — pinned so a rename cannot silently turn
+	// every session into "someone else's" (or reopen the reap to another
+	// instance's work).
+	if tmux.MarkerInstanceEnv != "PICODE_INSTANCE" {
+		t.Fatalf("tmux.MarkerInstanceEnv = %q, want PICODE_INSTANCE", tmux.MarkerInstanceEnv)
+	}
+	if tmux.MarkerURLEnv != "PICODE_TERM_URL" {
+		t.Fatalf("tmux.MarkerURLEnv = %q, want PICODE_TERM_URL", tmux.MarkerURLEnv)
 	}
 }
 
@@ -276,6 +289,54 @@ func TestTmuxAppServerViewCarriesAbsence(t *testing.T) {
 }
 
 // No tmux: the honest blankslate, not an error.
+// The detail screen is where the verdict is read and the only place a removal
+// can be asked for: another instance's session gets the sentence and no door.
+func TestTmuxAppSessionViewRefusesAnotherInstancesSession(t *testing.T) {
+	const name = "picode-sh-elsewhere"
+	src := &fakeTmuxServer{
+		available: true, instance: "/home/goat/.picode",
+		sessions: []tmux.ServerSession{sessionRow(name, 1)},
+		receipts: map[string]tmux.SessionReceipt{
+			name: {Name: name, SessionID: "$9", Created: time.Unix(1789311380, 0).UTC(), PaneID: "%4", PanePID: 77,
+				Instance: "/home/goat/.worktrees/other/var/qa/data", URL: "https://localhost:8475"},
+		},
+	}
+	v, err := tmuxApp{}.View(context.Background(), Host{Tmux: src}, "item/"+name)
+	if err != nil {
+		t.Fatalf("View: %v", err)
+	}
+	for _, b := range v.Blocks {
+		if b.Type == "actions" {
+			t.Fatalf("blocks = %+v, want no actions block for another instance's session", v.Blocks)
+		}
+	}
+	text := ""
+	for _, b := range v.Blocks {
+		text += b.Markdown
+	}
+	if !strings.Contains(text, "another PiCode instance") || !strings.Contains(text, "8475") {
+		t.Fatalf("detail = %q, want the other instance named", text)
+	}
+
+	// The same screen for this instance's own leftover keeps the door.
+	src.receipts[name] = tmux.SessionReceipt{Name: name, SessionID: "$9", Created: time.Unix(1789311380, 0).UTC(), PaneID: "%4", PanePID: 77, Instance: "/home/goat/.picode"}
+	v, err = tmuxApp{}.View(context.Background(), Host{Tmux: src}, "item/"+name)
+	if err != nil {
+		t.Fatalf("View: %v", err)
+	}
+	found := false
+	for _, b := range v.Blocks {
+		for _, a := range b.Actions {
+			if a.ID == "reap" {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("blocks = %+v, want the reap door for the instance's own leftover", v.Blocks)
+	}
+}
+
 func TestTmuxAppWithoutTmux(t *testing.T) {
 	app := tmuxApp{}
 	for _, src := range []TmuxServer{nil, &fakeTmuxServer{available: false}} {
@@ -396,6 +457,53 @@ func TestTmuxReapDecisionTable(t *testing.T) {
 		_, err := tmuxApp{}.Action(context.Background(), Host{Tmux: src}, ActionRequest{Action: "reap", Args: good})
 		if err == nil {
 			t.Fatalf("err = nil, want the kill's failure")
+		}
+	})
+
+	t.Run("a session stamped by another instance is refused and named", func(t *testing.T) {
+		src := &fakeTmuxServer{available: true, instance: "/home/goat/.picode", receipts: map[string]tmux.SessionReceipt{
+			name: {Name: name, SessionID: "$7", Created: time.Unix(1789311380, 0).UTC(), PaneID: "%3", PanePID: 4242,
+				Instance: "/home/goat/.worktrees/other/var/qa/data", URL: "https://localhost:8475"},
+		}}
+		_, err := tmuxApp{}.Action(context.Background(), Host{Tmux: src}, ActionRequest{Action: "reap", Args: good})
+		if err == nil || len(src.killed) != 0 {
+			t.Fatalf("err = %v killed = %v, want refusal and nothing killed", err, src.killed)
+		}
+		if msg := err.Error(); !strings.Contains(msg, "another PiCode instance") || !strings.Contains(msg, "8475") {
+			t.Fatalf("message = %q, want it to name the other instance", msg)
+		}
+	})
+
+	t.Run("a session stamped by this instance is a leftover and is reaped", func(t *testing.T) {
+		src := &fakeTmuxServer{available: true, instance: "/home/goat/.picode", receipts: map[string]tmux.SessionReceipt{
+			name: {Name: name, SessionID: "$7", Created: time.Unix(1789311380, 0).UTC(), PaneID: "%3", PanePID: 4242,
+				Instance: "/home/goat/.picode"},
+		}}
+		if _, err := (tmuxApp{}).Action(context.Background(), Host{Tmux: src}, ActionRequest{Action: "reap", Args: good}); err != nil {
+			t.Fatalf("Action: %v", err)
+		}
+		if len(src.killed) != 1 {
+			t.Fatalf("killed = %v, want the instance's own leftover removed", src.killed)
+		}
+	})
+
+	t.Run("a pre-stamp session follows its port, not its name", func(t *testing.T) {
+		// No PICODE_INSTANCE: the sessions created before ADR-0140. The port
+		// in the session's own PICODE_TERM_URL is the only identity left.
+		receipt := func(u string) map[string]tmux.SessionReceipt {
+			return map[string]tmux.SessionReceipt{name: {Name: name, SessionID: "$7", Created: time.Unix(1789311380, 0).UTC(), PaneID: "%3", PanePID: 4242, URL: u}}
+		}
+		other := &fakeTmuxServer{available: true, instance: "/mine", receipts: receipt("https://localhost:8445")}
+		_, err := tmuxApp{}.Action(context.Background(), Host{Tmux: other, LoopbackURL: "https://localhost:8475"}, ActionRequest{Action: "reap", Args: good})
+		if err == nil || len(other.killed) != 0 {
+			t.Fatalf("err = %v killed = %v, want the other port refused", err, other.killed)
+		}
+		mine := &fakeTmuxServer{available: true, instance: "/mine", receipts: receipt("https://localhost:8475")}
+		if _, err := (tmuxApp{}).Action(context.Background(), Host{Tmux: mine, LoopbackURL: "https://localhost:8475"}, ActionRequest{Action: "reap", Args: good}); err != nil {
+			t.Fatalf("own port: %v", err)
+		}
+		if len(mine.killed) != 1 {
+			t.Fatalf("killed = %v, want our own pre-stamp leftover removed", mine.killed)
 		}
 	})
 

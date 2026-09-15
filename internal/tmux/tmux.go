@@ -124,6 +124,12 @@ type Manager struct {
 	// tmux's default socket, which is what every pre-migration caller and
 	// test uses.
 	socket string
+	// instance is this daemon's own identity (ADR-0140): the data directory
+	// its socket lives in. Every session this Manager creates carries it as
+	// MarkerInstanceEnv, so another PiCode reading the same server can tell
+	// "a leftover" from "someone else's live work". Derived from the socket
+	// path because that is the one place the two are already tied together.
+	instance string
 	// legacy is the drain's second server (ADR-0139): sessions created
 	// before the socket move live there until they end. Nil outside a drain.
 	legacy *Manager
@@ -133,8 +139,16 @@ type Manager struct {
 func New() *Manager { return &Manager{exec: execTmux} }
 
 // NewWithSocket returns a Manager whose every command carries -S path, so
-// this instance's sessions live on their own server (ADR-0139).
-func NewWithSocket(path string) *Manager { return &Manager{exec: execTmux, socket: path} }
+// this instance's sessions live on their own server (ADR-0139). The socket's
+// directory is this instance's identity (ADR-0140).
+func NewWithSocket(path string) *Manager {
+	return &Manager{exec: execTmux, socket: path, instance: filepath.Dir(path)}
+}
+
+// Instance is this daemon's own identity as stamped into the sessions it
+// creates — empty on a Manager with no dedicated socket (tmux's default
+// server is shared, so no single data directory owns it).
+func (m *Manager) Instance() string { return m.instance }
 
 func execTmux(ctx context.Context, stdin string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "tmux", args...)
@@ -302,6 +316,12 @@ func (m *Manager) NewSessionEnvSize(ctx context.Context, name, cwd string, width
 			continue
 		}
 		full = append(full, "-e", e)
+	}
+	// The instance stamp (ADR-0140) rides the same -e: a caller cannot
+	// supply its own, because "whose session is this" is not a caller's claim
+	// to make.
+	if m.instance != "" {
+		full = append(full, "-e", MarkerInstanceEnv+"="+m.instance)
 	}
 	full = append(full, "--", command)
 	full = append(full, args...)
