@@ -44,5 +44,4 @@ visual-card: 1 yes · 2 yes · 3 yes · 4 no · 5 yes (5/5)
 
 ## Debts
 
-- Built-in Verify still answers from credential presence.
 - `string-thinking` on a non-OpenAI transport is listed but not verified.

@@ -20,4 +20,4 @@ Merge: fast-forward ready
 
 ## Next up
 
-- none local
+(none — placeholder pruned 2026-09-14 to hold the board budget)

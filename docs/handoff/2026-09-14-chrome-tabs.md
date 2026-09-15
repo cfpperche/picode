@@ -18,4 +18,4 @@ Merge: fast-forward ready after this note.
 
 ## Next up
 
-- Owner: `git merge --ff-only feat/chrome-tabs` from the root, then `make ci`.
+(none — merged; bullet pruned 2026-09-14 to hold the board budget)

@@ -9,5 +9,4 @@ Merge: fast-forward ready after this close.
 ## Next up
 
 - Investigate grok attention Enter withheld under load: capture the composer state between paste and Enter, identify which check refuses, fix or accept. Top of the communication queue.
-- Owner: deploy — `fc464e40`, `e7cca0f9`, `625aa228`, `cc4794b5`, `82c61b11`, `4e4f44bd` and later main commits are past the 17:06Z deploy.
 - Optional: re-run the expired check correlations on a quiet machine.
