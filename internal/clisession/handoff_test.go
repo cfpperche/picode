@@ -764,6 +764,8 @@ func TestPromptArgs(t *testing.T) {
 		{"grok", []string{"--session-id", "sid", "do it"}},
 		{"pi", []string{"--session-id", "sid", "do it"}},
 		{"opencode", []string{"--prompt", "do it"}},
+		{"muse", []string{"do it"}},
+		{"agy", []string{"--prompt-interactive", "do it"}},
 	}
 	for _, c := range cases {
 		p, ok := PrompterFor(c.cli)
