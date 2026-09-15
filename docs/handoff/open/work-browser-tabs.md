@@ -6,57 +6,43 @@ reviewed by the owner against the reference, one item at a time.
 
 ## Next
 
-- **Ask prompt** closes Browser permissions v1 (deferral on the UI thread).
-- **Terminal agents as principals** — ADR-0143 **done** (identity, resolver, listing, rows).
 - **"New browser tab" button: re-verify in the shell** (no repro in a web
   scratch, 2026-09-15).
-- **v2a** unused-site permissions; **v2b** agent history access (needs Ask).
+- **v2a** unused-site permissions; **v2b** agent history access (the Ask
+  machinery landed 2026-09-15; the history grant is its own path).
 - **v2c** annotations (step 4 is an ADR); **v2d** Windows Hello opener row.
 - **v3** WebMCP and Developer mode (raw CDP: ADR, off, `full` only, audited).
 
-## Ask prompt — measured state and the sketch (2026-09-15)
+## Ask prompt — landed (2026-09-15)
 
-The shell already has the handler (`attach_permission_handler`, btab.rs):
-`permission_policy()` is a `Mutex<HashMap<String, bool>>`, the closure maps
-the platform kind through `permission_kind_name`, answers from that map, and
-reports `btab://permission` so the standings list shows what each site got.
-There is **no deferral** — that is the whole of the missing half.
+Browser permissions v1 is complete. The shell's policy map is tri-state
+(`allow`/`deny`/`ask`) keyed by site and kind; the decision table lives in
+`desktop-shell/src/permissions.rs` (site over kind over the platform default,
+host-tested). `"ask"` holds the platform's request through `GetDeferral` in a
+UI-thread map and emits `btab://permission-ask` `{id, tab, origin, kind}`;
+`btab_permission_answer(id, state, remember)` is **sync on purpose** (COM
+objects on the UI thread) and completes it. A 60 s watchdog, or closing the
+tab, denies instead of hanging the page.
 
-Three edits in `desktop-shell/src/btab.rs`, two in the ACL:
+| Site entry | Kind entry | Action | Report `standing` |
+|---|---|---|---|
+| allow / deny | — | SetState(ALLOW/DENY) | true |
+| ask | — | defer → prompt | the answer's |
+| — | allow / deny | SetState(ALLOW/DENY) | false |
+| — | ask | defer → prompt | the answer's |
+| — | — | platform default (no SetState) | false |
 
-1. `permission_policy()` becomes `HashMap<String, String>` ("allow"/"deny"/
-   "ask"); `btab_set_permission_policy` gains `"ask"` beside `allow`/`deny`/
-   `default`. Until the dialog offers Ask, no kind can be in this state, so
-   the new branch below is unreachable and harmless.
-2. In the handler, `"ask"`: `args.GetDeferral(&mut deferral)`, stash
-   `(args.clone(), deferral)` under a counter id in a **thread_local**
-   `RefCell<HashMap<u64, …>>` (COM objects are apartment-bound and this
-   closure runs on the UI thread — the `RECEIVERS` rule), emit
-   `btab://permission-ask` `{id, origin, kind}`, and return **without**
-   `SetState`. Use fully qualified
-   `webview2_com::Microsoft::Web::WebView2::Win32::…` types so the import
-   block does not grow. No deferral available → SetState(DENY) as today.
-   `None` (no policy) keeps falling through to the platform default — do not
-   add a SetState there.
-3. `#[tauri::command] pub fn btab_permission_answer(app, id, state, remember)`
-   — **sync on purpose** (a sync command runs on the main thread, which is
-   where the thread_local can be touched): remove the entry, `SetState`,
-   `deferral.Complete()`, optionally remember the kind in the policy map, and
-   emit the same `btab://permission` outcome so the list stays truthful.
-4. ACL, the usual three edits (`generate_handler!`, `build.rs` commands,
-   `capabilities/default.json`) plus the generated `permission/` file.
+Answer: Allow / Block answer once; **Always allow** also writes the site's
+standing (the shell map now, the store through the report). The store row
+carries `standing` (migration 051): the dialog's per-kind rows and the
+prompt's Always are policy, every other row is the decision log, and the
+load-time push hands back only standings — an Allow-once can never become
+permanent. The bar renders between the toolbar and the page (a native
+sibling, so it makes room above it, the `MENU_H` pattern).
 
-Then the visible half: Ask as the third option in the per-kind select (and in
-the Go vocabulary — `NormalizePermissionDecision` accepts allow/deny today),
-plus the prompt surface listening for `btab://permission-ask` (Allow / Block /
-Always, the last writing the per-site standing through the API the dialog
-already uses).
-
-Verification needs the desktop shell and a page that asks: a local test page
-calling `navigator.mediaDevices.getUserMedia({video:true})` in a web tab
-triggers `PermissionRequested`. A web scratch cannot see any of it.
-Debt to open with this slice: a held request with no answer hangs the site —
-add a timeout that denies, or state the risk.
+First live run is the owner's: deploy + restart, set Camera to Ask, open a
+page that calls `getUserMedia` in a work-browser tab, answer the bar, reload
+to see the remembered standing.
 - **Terminal agents** — ADR-0143 **done** (identity, resolver, listing, rows).
   (agent → terminal → unmanaged), the resolver keys `term:<id>` beside the
   bare agent key, the listing returns terminals with a CLI running, the UI
@@ -69,9 +55,10 @@ add a timeout that denies, or state the risk.
   is the likely home. Same class as the blank window, which no linter catches.
 - **v2a**: remove permissions from unused sites (visit recency is in the
   store). **v2b**: agent access to browsing history (Always ask / Allow /
-  Never — needs the Ask prompt). **v2c**: annotations (below; step 4 is an
-  ADR). **v2d**: the Windows Hello passkey opener row (validate the OS URI on
-  the machine first).
+  Never — the Ask machinery landed 2026-09-15, but a first-use history grant
+  is its own path). **v2c**: annotations (below; step 4 is an ADR). **v2d**:
+  the Windows Hello passkey opener row (validate the OS URI on the machine
+  first).
 - **v3**: WebMCP site tools (ADR when the standard lands); Developer mode /
   raw CDP — the reference itself marks it Elevated risk: if it lands it is
   off by default, `full` tier only, audited, warning row, ADR first.
@@ -115,8 +102,9 @@ decision, ADR before code.
 - Standings live on `ICoreWebView2Profile4::SetPermissionState(kind, origin,
   state)`; the shared work profile means one call covers every tab and the
   ones created later.
-- Ask, per the reference, is a policy state we do not offer yet — the dialog
-  says so rather than promising a prompt that does not exist.
+- Ask is a live policy state: `GetDeferral` holds the request, the tab
+  answers through `btab_permission_answer`, and a 60 s watchdog denies an
+  unanswered one (the section above).
 
 ## Traps (paid for, keep them paid)
 
@@ -161,6 +149,12 @@ gallery hit is worth a look before anyone installs it expecting this one.
 
 ## Debts
 
+- The Ask deferral/answer/watchdog path has never run outside Windows:
+  `cargo xwin build` plus the pure decision table are the evidence here; the
+  owner's live check is the first run.
+- An Ask waits only in the tab that asked; a request from a tab the user is
+  not looking at is denied when the 60 s watchdog fires (nowhere else shows
+  it).
 - `btab_layer.toml` (autogenerated) is a dead permission.
 - The options menu's page slide is not animated.
 - No JS check catches use-before-declaration in a component (the blank-window
