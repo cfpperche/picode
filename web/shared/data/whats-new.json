@@ -70,5 +70,41 @@
         "summary": "Install, run and watch a local llama.cpp service from PiCode, with download progress and a health view of its own."
       }
     ]
+  },
+  {
+    "version": "0.3.0",
+    "date": "2026-09-15",
+    "highlights": [
+      {
+        "icon": "terminal",
+        "title": "One tray icon on Windows",
+        "summary": "The shell is now the only resident: close its window and the service keeps running in the tray; reopen and you are back where you were."
+      },
+      {
+        "icon": "workspace",
+        "title": "The work browser grew up",
+        "summary": "Site permissions, downloads, history, autofill and one-click clear — the built-in browser now covers daily work."
+      },
+      {
+        "icon": "agent",
+        "title": "Muse Code and Antigravity join Agent CLIs",
+        "summary": "Launch them from the catalog, browse their sessions, and hand a conversation to another CLI with Continue in…."
+      },
+      {
+        "icon": "inbox",
+        "title": "Agents can read the page you are on",
+        "summary": "A new browser tool plus act-tier grants: an agent can read the open page and, when you allow it, act on it."
+      },
+      {
+        "icon": "matrix",
+        "title": "Text and polish on the canvas",
+        "summary": "Drop text anywhere on the plane, right-click for its own menu, and read the zoom level at a glance."
+      },
+      {
+        "icon": "phone",
+        "title": "Snippets everywhere, including the phone",
+        "summary": "Save reusable prompts and commands once; write, duplicate and archive them from the desk or the phone."
+      }
+    ]
   }
 ]

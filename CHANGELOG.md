@@ -11,6 +11,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-15
+
 ### Added
 
 - **Terminals appear in Agent permissions** (ADR-0143): the section now lists
