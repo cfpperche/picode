@@ -1,6 +1,7 @@
 package clisession
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"path/filepath"
@@ -162,5 +163,85 @@ func TestMuseSourceWithoutOptionalColumns(t *testing.T) {
 	}
 	if got[0].Messages != 2 || got[0].Model != "" || got[0].Size != 0 {
 		t.Fatalf("missing columns stay empty: %+v", got[0])
+	}
+}
+
+const museExportFixture = `{"export_schema_version":1,"events":[
+{"kind":"record","envelope":{"recorded_at":1789437092000000,"record_type":"event","payload_type":"runtime.session","payload":{"kind":"metadata","record":{"workspace_root":"/w","model_id":"m1"}}}},
+{"kind":"record","envelope":{"recorded_at":1789437093000000,"record_type":"event","payload_type":"runtime.user_intent.accepted","payload":{"model_messages":[{"content":[{"kind":"text","text":"fix the race"}]}]}}},
+{"kind":"record","envelope":{"recorded_at":1789437094000000,"record_type":"event","payload_type":"runtime.session","payload":{"kind":"run","event":{"kind":"assistant_message_committed","message_id":"m1","text":"On it."}}}},
+{"kind":"record","envelope":{"recorded_at":1789437095000000,"record_type":"event","payload_type":"runtime.session","payload":{"kind":"run","event":{"kind":"assistant_tool_calls_committed","tool_calls":[{"call_id":"call_1","name":"read_file","args":"{\"path\":\"x\"}"}]}}}},
+{"kind":"record","envelope":{"recorded_at":1789437096000000,"record_type":"event","payload_type":"runtime.session","payload":{"kind":"run","event":{"kind":"tool_result_batch_committed","results":[{"tool_call_id":"call_1","text":"contents"}]}}}},
+{"kind":"record","envelope":{"recorded_at":1789437097000000,"record_type":"event","payload_type":"runtime.session","payload":{"kind":"run","event":{"kind":"reasoning_committed","text":"secret plan"}}}},
+{"kind":"record","envelope":{"recorded_at":1789437098000000,"record_type":"event","payload_type":"runtime.session","payload":{"kind":"run","event":{"kind":"model_completed","model":"m1"}}}},
+{"kind":"record","envelope":{"recorded_at":1789437098500000,"record_type":"event","payload_type":"runtime.session","payload":{"kind":"run","run_id":"r1","event":{"kind":"automated_review_completed","model":{"id":"m1"}}}}},
+{"kind":"gap","envelope":{"recorded_at":0,"record_type":"","payload_type":"","payload":null}}
+]}`
+
+// seedMuseBin installs a fake muse that answers `export --session … --out
+// <file>` by copying the fixture the test names in MUSE_EXPORT_FIXTURE.
+func seedMuseBin(t *testing.T, fixture string) {
+	t.Helper()
+	dir := t.TempDir()
+	script := "#!/bin/sh\nout=\"\"\nprev=\"\"\nfor a in \"$@\"; do\nif [ \"$prev\" = \"--out\" ]; then out=\"$a\"; fi\nprev=\"$a\"\ndone\ncp \"$MUSE_EXPORT_FIXTURE\" \"$out\"\n"
+	if err := os.WriteFile(filepath.Join(dir, "muse"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	fix := filepath.Join(dir, "export.json")
+	if err := os.WriteFile(fix, []byte(fixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("MUSE_EXPORT_FIXTURE", fix)
+	MuseBin = filepath.Join(dir, "muse")
+	t.Cleanup(func() { MuseBin = "" })
+}
+
+func TestMuseReadExport(t *testing.T) {
+	seedMuseBin(t, museExportFixture)
+	tl, err := (MuseSource{}).Read(context.Background(), Ref{ID: "s1", Cwd: ""})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tl.Events) != 4 {
+		t.Fatalf("events = %d, want user + assistant + call + result", len(tl.Events))
+	}
+	if tl.Events[0].Role != "user" || tl.Events[0].Text != "fix the race" {
+		t.Errorf("first event = %+v", tl.Events[0])
+	}
+	if tl.Events[1].Role != "assistant" || tl.Events[1].Text != "On it." || tl.Events[1].Model != "m1" {
+		t.Errorf("second event = %+v, want the assistant turn with the model", tl.Events[1])
+	}
+	call, res := tl.Events[2].Call, tl.Events[3].Result
+	if call == nil || call.ID != "call_1" || call.Name != "read_file" || res == nil || res.CallID != "call_1" || res.Text != "contents" {
+		t.Errorf("tool beats = %+v %+v, want the linked call and result", tl.Events[2], tl.Events[3])
+	}
+	for _, ev := range tl.Events {
+		if ev.Group != 1 {
+			t.Errorf("event group = %d, want one turn in group 1", ev.Group)
+		}
+	}
+	if tl.Header.Title != "fix the race" || tl.Header.Cwd != "/w" || tl.Header.Model != "m1" {
+		t.Errorf("header = %+v", tl.Header)
+	}
+	if tl.Manifest.Dropped["muse.malformed"] != 0 {
+		t.Errorf("manifest = %+v, the object-model review record must parse", tl.Manifest.Dropped)
+	}
+	if tl.Manifest.Dropped["thinking"] != 1 || tl.Manifest.Dropped["muse.gap"] != 1 {
+		t.Errorf("manifest = %+v, want reasoning and the gap counted", tl.Manifest.Dropped)
+	}
+}
+
+func TestMuseReadFailures(t *testing.T) {
+	if _, err := (MuseSource{}).Read(context.Background(), Ref{}); err == nil {
+		t.Error("empty ref reads no error")
+	}
+	MuseBin = filepath.Join(t.TempDir(), "absent-muse")
+	t.Cleanup(func() { MuseBin = "" })
+	if _, err := (MuseSource{}).Read(context.Background(), Ref{ID: "s1"}); err == nil {
+		t.Error("missing binary reads no error")
+	}
+	seedMuseBin(t, `{"export_schema_version":2,"events":[]}`)
+	if _, err := (MuseSource{}).Read(context.Background(), Ref{ID: "s1"}); err == nil {
+		t.Error("future export schema reads no error")
 	}
 }

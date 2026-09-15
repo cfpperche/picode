@@ -78,6 +78,10 @@ written to either CLI's store.
 - **Fatia 2 — Reader: muse via `export`, agy via conv-db mapping.**
   Unlocks `Continue in…` on muse terminals (source). Agy Reader joins
   only if the step codes map cleanly, else recorded debt.
+  Outcome (shipped): agy reads brain transcript.jsonl, not the SQLite
+  (web research + local 9/9 id match; protobuf fields unversioned).
+  muse `export` gotcha: approval records carry `model` as an object, so
+  it decodes late.
 - **Fatia 3 — launch flip (3a muse, 3b agy, independent).**
   Drop `SurfaceTerminal`, add the `cliIntegrationPlan` branch per the
   findings above, assets + receiver, preview, profiles, menu item,
