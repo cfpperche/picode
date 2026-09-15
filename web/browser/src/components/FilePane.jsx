@@ -57,6 +57,10 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
   const [expanded, setExpanded] = useState(false);
   const kind = previewKind(path);
   const [mode, setMode] = useState(kind ? "preview" : "raw");
+  // A document too large for the text read still has a page to show: the
+  // ticket serves it from disk, so the pane renders preview-only — no Raw,
+  // and the usual "too large to display" banner would be a lie.
+  const previewOnly = kind === "html" && view.kind === "msg" && /too large/i.test(view.error || "");
   // One capability ticket per open HTML preview (ADR-0136). Minting pauses
   // while the editor holds unsaved text: the page on disk would be the
   // previous version, and the pane says so instead of showing it.
@@ -65,7 +69,7 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
     ownerId,
     path,
     root,
-    enabled: kind === "html" && mode === "preview" && !view.dirty && !previewEmpty(view.text),
+    enabled: kind === "html" && mode === "preview" && !view.dirty && (previewOnly || !previewEmpty(view.text)),
   });
   const [leaving, setLeaving] = useState(false);
   const leaveResolver = useRef(null);
@@ -178,7 +182,7 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
   }, [expanded]);
 
   const canSave = view.kind === "text";
-  const showPreview = !!kind && (canSave || view.kind === "bin");
+  const showPreview = !!kind && (canSave || view.kind === "bin" || previewOnly);
   const saveError = canSave && view.dirty && view.error;
   const conflict = /changed on disk|folder changed/i.test(view.error);
   const moved = /folder changed/i.test(view.error) && onRefreshRoot;
@@ -199,7 +203,7 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
             </div>
           ) : null}
           <div className="file-pane-commands" data-align-row>
-            {kind === "html" && mode === "preview" && !view.dirty && !previewEmpty(view.text) ? (
+            {kind === "html" && mode === "preview" && !view.dirty && (previewOnly || !previewEmpty(view.text)) ? (
               <button type="button" className="btn btn-sm btn-ghost" disabled={html.status === "loading"} onClick={() => { void html.reload(); }}>Reload</button>
             ) : null}
             {kind === "html" && mode === "preview" && !view.dirty && html.status === "ready" ? (
@@ -219,7 +223,7 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
           </div>
         </div>
       </header>
-      {view.error ? (
+      {view.error && !previewOnly ? (
         <p className="file-pane-notice" role="status">
           <span>{fileMessage(view.error)}</span>
           <button type="button" className="btn btn-sm btn-ghost" disabled={view.saving || view.refreshing} onClick={moved ? onRefreshRoot : saveError && !conflict ? () => doc.save() : reload}>
@@ -235,7 +239,7 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
         ) : null}
         {canSave ? <div className="file-cm" ref={hostRef} hidden={mode !== "raw"} /> : null}
         {mode === "preview" && showPreview ? (
-          kind === "html" && previewEmpty(view.text) ? (
+          kind === "html" && !previewOnly && previewEmpty(view.text) ? (
             <p className="file-pane-msg">Nothing to preview.</p>
           ) : kind === "html" && view.dirty && !view.error ? (
             <p className="file-pane-msg file-pane-msg-actions">

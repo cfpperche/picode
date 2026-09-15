@@ -13,6 +13,7 @@ component; HTML is a page, so it gets an origin instead.
 |---|---|
 | `POST /api/previews {kind, id, path, root}` | 200 `{url, path, expiresAt}` — an ordinary authed API (cookie/bearer, origin check); `.html`/`.htm` under the owner's resolved folder only, `root` precondition honored (ADR-0074) |
 | `GET`/`HEAD` `/preview/{token}/{path…}` | the document or one allowlisted asset; everything else 404 "This preview is not available." (method-less mux pattern, so a POST answers 405 here instead of falling through to the app shell) |
+| `GET` `/preview/{token}/__events` | the live-reload stream for that ticket: `hello`, then one `change` frame when a file the ticket served moved on disk |
 
 ## Policy
 
@@ -38,7 +39,10 @@ component; HTML is a page, so it gets an origin instead.
   own, ADR-0072) mints on open and Reload, HEAD-preflights the new URL, and
   pauses while the editor is dirty — the pane says "Unsaved changes aren't in
   the preview" instead of showing the previous version. The `iframe` mirrors
-  the sandbox flags, `allow="fullscreen; clipboard-write"`.
+  the sandbox flags, `allow="fullscreen; clipboard-write"`. A document too
+  large for the pane's text read (`>1 MiB`) renders **preview-only** from the
+  ticket route: no Raw, no "too large" banner, because the page itself is
+  there.
 
 ## Why not `srcdoc`/`blob:`
 
@@ -49,8 +53,17 @@ own policy — which is why the ticket route exists.
 
 ## Live reload
 
-v1 is manual: **Reload** re-mints and re-loads, and opening the preview or
-saving the file mints fresh. v1.5 (`docs/plans/html-preview.md`) records the
-assets each ticket served, stats them from one ticker and reloads the parent
-frame over SSE — no script injection into the page. A real second origin with
-localStorage and workers is the v2 boundary move.
+The route records every file a ticket serves (`preview.Store.Touch`, capped
+at `MaxWatch` = 200 paths per ticket; the document is served first and always
+fits). The pane holds one `EventSource` per open preview on
+`/preview/<token>/__events`; that connection stats the watched paths every
+second and emits one `change` frame when an mtime or size moved (a path seen
+for the first time is seeded silently, a vanished one reads `gone`). The hook
+bumps a `v=` nonce on the iframe `src`, so the **parent reloads the frame** —
+no script is injected into the page and the sandbox is untouched. Five
+consecutive stream failures close it (an expired ticket 404s forever) and the
+manual **Reload** remains.
+
+Still v1.5-or-later (`docs/plans/html-preview.md`): previewing unsaved editor
+text, and a real second origin with localStorage and workers — the v2
+boundary move.

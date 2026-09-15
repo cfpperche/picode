@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -358,5 +360,104 @@ func TestSecurityHeadersSkipPreview(t *testing.T) {
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/index.html", nil))
 	if !strings.Contains(rec.Header().Get("Content-Security-Policy"), "default-src 'self'") {
 		t.Fatal("the app shell still gets its policy")
+	}
+}
+
+func TestPreviewServeRecordsWatchedPaths(t *testing.T) {
+	f := newPreviewFixture(t, time.Hour)
+	url := f.mintURL(t, "site/index.html")
+	token := strings.Split(strings.TrimPrefix(url, "/preview/"), "/")[0]
+	f.get(t, url)
+	f.get(t, "/preview/"+token+"/site/app.js")
+	root := canonDir(f.root)
+
+	watched := f.deps.Previews.Watched(token)
+	seen := map[string]bool{}
+	for _, p := range watched {
+		seen[p] = true
+	}
+	if !seen[filepath.Join(root, "site", "index.html")] {
+		t.Fatalf("document not watched: %v", watched)
+	}
+	if !seen[filepath.Join(root, "site", "app.js")] {
+		t.Fatalf("asset not watched: %v", watched)
+	}
+}
+
+func TestPreviewEventsStream(t *testing.T) {
+	old := previewWatchInterval
+	previewWatchInterval = 10 * time.Millisecond
+	t.Cleanup(func() { previewWatchInterval = old })
+
+	f := newPreviewFixture(t, time.Hour)
+	url := f.mintURL(t, "site/index.html")
+	token := strings.Split(strings.TrimPrefix(url, "/preview/"), "/")[0]
+	f.get(t, url)
+	f.get(t, "/preview/"+token+"/site/app.js")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	timer := time.AfterFunc(5*time.Second, cancel)
+	defer timer.Stop()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, f.ts.URL+"/preview/"+token+"/__events", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := f.ts.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	if res.StatusCode != http.StatusOK || !strings.HasPrefix(res.Header.Get("Content-Type"), "text/event-stream") {
+		t.Fatalf("status=%d type=%q", res.StatusCode, res.Header.Get("Content-Type"))
+	}
+	reader := bufio.NewReader(res.Body)
+	readEvent := func() string {
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				return ""
+			}
+			if strings.HasPrefix(line, "event: ") {
+				return strings.TrimSpace(strings.TrimPrefix(line, "event: "))
+			}
+		}
+	}
+	if ev := readEvent(); ev != "hello" {
+		t.Fatalf("first event=%q (stream dead before a change)", ev)
+	}
+
+	// Change a served asset: a different size moves the signature even if
+	// the clock is coarse.
+	if err := os.WriteFile(filepath.Join(f.root, "site", "app.js"), []byte("// changed by the test\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for {
+		ev := readEvent()
+		if ev == "" {
+			t.Fatal("stream closed before the change event")
+		}
+		if ev == "change" {
+			return
+		}
+	}
+}
+
+func TestPreviewEventsRefusals(t *testing.T) {
+	f := newPreviewFixture(t, time.Hour)
+	unknown := "/preview/" + strings.Repeat("a", 43) + "/__events"
+	if res, _ := f.get(t, unknown); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("unknown token status=%d", res.StatusCode)
+	}
+	url := f.mintURL(t, "site/index.html")
+	token := strings.Split(strings.TrimPrefix(url, "/preview/"), "/")[0]
+	req, _ := http.NewRequest(http.MethodPost, f.ts.URL+"/preview/"+token+"/__events", nil)
+	res, err := f.ts.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	if res.StatusCode != http.StatusMethodNotAllowed {
+		t.Fatalf("post status=%d", res.StatusCode)
 	}
 }
