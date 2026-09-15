@@ -7,8 +7,7 @@ reviewed by the owner against the reference, one item at a time.
 ## Next
 
 - **Ask prompt** closes Browser permissions v1 (deferral on the UI thread).
-- **Terminal agents as principals** — ADR-0143, steps 1–2 landed; listing + UI
-  rows still open (a grant needs a row the human can edit).
+- **Terminal agents as principals** — ADR-0143 **done** (identity, resolver, listing, rows).
 - **"New browser tab" button: re-verify in the shell** (no repro in a web
   scratch, 2026-09-15).
 - **v2a** unused-site permissions; **v2b** agent history access (needs Ask).
