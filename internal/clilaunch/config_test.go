@@ -84,11 +84,11 @@ func TestLaunchDiagnosticsRedactValues(t *testing.T) {
 }
 
 func TestCatalogCapabilities(t *testing.T) {
-	// Decision table: Antigravity opens a terminal with no adapter behind
-	// it, so it is launchable and not integrable; every other catalog row
-	// carries both. Muse Code left this group in Fatia 3a: its launch is
-	// editable, but 1.3.0 offers no hook surface, so activity stays Open.
-	terminal := map[string]bool{"agy": true}
+	// Decision table: every catalog row opens a terminal and carries an
+	// adapter. Antigravity left the terminal-only group in Fatia 3b (Muse
+	// Code in 3a); the `terminal` set stays as the shape a future CLI
+	// without an adapter rejoins.
+	terminal := map[string]bool{}
 	seen := map[string]bool{}
 	for _, c := range Catalog() {
 		if c.Launchable() != true {

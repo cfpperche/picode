@@ -135,8 +135,8 @@ Every installed row reaches Check for updates through the same ⋯ menu, so a
 channel-backed CLI needs no bespoke button.
 
 **One launch surface, read-only without an adapter.** A CLI with no adapter
-(Antigravity today) keeps the *same* launch screens, with the launcher's own
-data and nothing to edit: the Launch tab renders the plan summary
+keeps the *same* launch screens, with the launcher's own data and nothing to
+edit: the Launch tab renders the plan summary
 (`executable`, `args`, `path`, `env`, `injection`) instead of the defaults
 editor, `#/clis/new/<cli>` keeps the CLI row (its options are every
 `launchable` row, so the screen can switch to a CLI that does have an
@@ -147,9 +147,10 @@ settings. The preview is the server's real plan
 (`POST /api/clis/<cli>/preview`), including the blocked state: an uninstalled
 CLI reads *Not found* and the plan's problem line instead of an empty grid.
 
-**Editable launch without activity (Muse Code).** Muse Code left the
-no-adapter group with its launch editable but no hook surface in its
-build, so the plan carries a summary and nothing to install or inject.
+**Editable launch without activity (Muse Code, Antigravity).** Both left
+the no-adapter group with their launch editable but no hook surface in
+their builds, so each plan carries a summary and nothing to install or
+inject.
 The Activity reporting toggle is offered only where the plan carries a
 mechanism (arg branches, files, or environment — `hasIntegrationMechanism`
 on the catalog row, refused with 400 on PUT and at prepare time); Muse
