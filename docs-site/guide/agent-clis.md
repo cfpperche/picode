@@ -265,6 +265,29 @@ Claude Code install have no uninstall command; PiCode links their official
 guide instead. Uninstalling never touches your settings or conversations
 beyond what the CLI's own uninstaller does.
 
+## tmux guard
+
+PiCode runs every managed terminal inside tmux, on the same server as your
+own sessions. Agent CLIs are literal with commands, and a `tmux kill-server`
+typed by mistake takes down every session on that server — PiCode's
+terminals and yours. The **tmux guard** is on by default inside PiCode
+terminals: it refuses server-wide kills, pattern kills, and kills of
+sessions another terminal or you created. An agent may still close a
+session it created itself, by exact name.
+
+Each refusal is explained on the terminal, and the reason is logged to
+`<dataDir>/tmux-guard.log`. The guard applies only inside terminals PiCode
+created; your own shell outside PiCode is untouched. If you are debugging
+and need raw tmux semantics, the wiring toggle
+(`POST /api/terminals/wiring/tmux-guard/disable`) turns it off for future
+terminals.
+
+If you build scripts that create scratch tmux servers, do **not** rely on
+`TMUX_TMPDIR` alone: when a command runs inside an existing tmux session,
+`$TMUX` wins and the command talks to that session's server regardless of
+`TMUX_TMPDIR`. Use `tmux -L <name>` for scratch servers, and exact session
+names for cleanup.
+
 ## Control a terminal
 
 | Action | Result |
