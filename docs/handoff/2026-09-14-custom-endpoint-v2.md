@@ -38,10 +38,6 @@ overflow. Evidence in `var/screenshots/cx-*.png` (not committed).
 
 visual-card: 1 yes · 2 yes · 3 yes · 4 no · 5 yes (5/5)
 
-## Next up
-
-(kept in `open/providers-custom.md` — deferral pruned 2026-09-15 to hold the board budget)
-
 ## Debts
 
 - `string-thinking` on a non-OpenAI transport is listed but not verified.

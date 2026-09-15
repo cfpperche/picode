@@ -3902,6 +3902,41 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .set-hist li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 12.5px; }
 .set-hist li + li { border-top: 1px solid var(--border); }
 .set-hist .set-hist-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+
+/* Clear browsing data: the reference dialog — time-range pills over a
+   checklist of data kinds, then Cancel / Delete data. */
+.dlg.dlg-wipe {
+  width: min(620px, calc(100vw - 32px));
+  /* The stock .dlg anchors at 42%, which lifts a tall dialog off the top
+     of the viewport (the overlay audit calls that a clip). Centred at
+     50% the cap always leaves a margin. */
+  top: 50%;
+  padding: 22px 22px 16px;
+  /* Six rows plus the pills run taller than a laptop viewport: cap it and
+     scroll inside, or the dialog clips off the top (the overlay audit
+     fails on a clipped .dlg). */
+  max-height: min(86dvh, 700px); overflow-y: auto;
+}
+.wipe-pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 14px; }
+.wipe-pill {
+  height: 30px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 99px;
+  background: var(--bg-panel); color: var(--text-primary); font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.wipe-pill:hover { background: var(--bg-hover); }
+.wipe-pill[aria-pressed="true"] { background: var(--text-primary); border-color: var(--text-primary); color: var(--bg-panel); }
+.wipe-list { border: 1px solid var(--border); border-radius: var(--radius-panel); overflow: hidden; }
+.wipe-row { display: flex; align-items: center; gap: 12px; padding: 11px 14px; cursor: pointer; }
+.wipe-row + .wipe-row { border-top: 1px solid var(--border); }
+.wipe-row:hover { background: var(--bg-hover); }
+.wipe-ico { flex: none; display: inline-flex; color: var(--text-secondary); }
+.wipe-body { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.wipe-t { font-size: 13px; font-weight: 550; color: var(--text-primary); }
+.wipe-d { font-size: 12.5px; color: var(--text-secondary); }
+.wipe-row input[type="checkbox"] {
+  flex: none; width: 17px; height: 17px; margin: 0; accent-color: var(--accent); cursor: pointer;
+}
+.dlg-wipe .dlg-actions { margin-top: 16px; }
+
 .rx-switch {
   width: 36px; height: 20px; padding: 0; flex: none;
   border: 0; border-radius: 99px; background: var(--border-strong); cursor: pointer;
@@ -4594,6 +4629,12 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .termset-search-row { position: sticky; top: 0; z-index: 2; background: var(--bg-panel); padding: 6px 0; }
 .termset-search { margin-top: 0; }
 .termset-cat-title { margin: 0; font-size: 13px; font-weight: 650; color: var(--text-primary); }
+/* tmux guard row (ADR-0138): state + switch, hugging its content. */
+.termset-guard { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-top: 10px; }
+.termset-guard strong { font-size: 12.5px; color: var(--text-primary); }
+.termset-guard .rx-switch { flex: none; margin-top: 2px; }
+.termset-guard-docs { color: var(--accent); text-decoration: none; white-space: nowrap; }
+.termset-guard-docs:hover { text-decoration: underline; }
 .termset-cat-note { margin: 4px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--text-secondary); }
 .termset-cat-empty { margin: 12px 0 0; font-size: 12px; color: var(--text-secondary); }
 .termset-cat-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; }

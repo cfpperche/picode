@@ -99,6 +99,19 @@ func TestInterceptDoesNotWriteUserClaudeSettings(t *testing.T) {
 	if _, err := os.Stat(wrap); !os.IsNotExist(err) {
 		t.Fatal("wrapper should be gone after disable")
 	}
+	// The tmux guard defaults on (ADR-0138): with the CLI wrappers gone it is
+	// still an intercept, and it is the one wrapper left.
+	if interceptSessionPath(dataDir) == "" {
+		t.Fatal("the guard must keep the intercept bin dir on PATH")
+	}
+	entries, err := os.ReadDir(interceptBinDir(dataDir))
+	if err != nil || len(entries) != 1 || entries[0].Name() != "tmux" {
+		t.Fatalf("intercept dir = %v (err %v), want only the tmux guard", entries, err)
+	}
+	// Disabling the guard as well restores the no-interception state.
+	if res := postJSON(t, ts, "/api/terminals/wiring/tmux-guard/disable", map[string]any{}); res.StatusCode != http.StatusOK {
+		t.Fatalf("disable tmux-guard = %d", res.StatusCode)
+	}
 	if interceptSessionPath(dataDir) != "" {
 		t.Fatal("PATH must not be prepended when nothing is intercepting")
 	}
