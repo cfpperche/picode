@@ -2181,6 +2181,32 @@
         ]
       }
     },
+    "/api/browser/history/delete": {
+      "post": {
+        "operationId": "postApiBrowserHistoryDelete",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      }
+    },
     "/api/browser/history/{id}": {
       "delete": {
         "operationId": "deleteApiBrowserHistory",
