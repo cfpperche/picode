@@ -285,6 +285,12 @@
           "markdownDescription": "Enables the btab_set_download_dir command without any pre-configured scope."
         },
         {
+          "description": "Enables the btab_set_permission_policy command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-set-permission-policy",
+          "markdownDescription": "Enables the btab_set_permission_policy command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_set_prefs command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-set-prefs",
@@ -481,6 +487,12 @@
           "type": "string",
           "const": "deny-btab-set-download-dir",
           "markdownDescription": "Denies the btab_set_download_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_set_permission_policy command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-set-permission-policy",
+          "markdownDescription": "Denies the btab_set_permission_policy command without any pre-configured scope."
         },
         {
           "description": "Denies the btab_set_prefs command without any pre-configured scope.",

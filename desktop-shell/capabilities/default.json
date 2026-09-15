@@ -34,7 +34,8 @@
     "allow-btab-set-ask-download",
     "allow-btab-open-external",
     "allow-btab-open-path",
-    "allow-btab-reveal-path"
+    "allow-btab-reveal-path",
+    "allow-btab-set-permission-policy"
   ],
   "remote": {
     "urls": [

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-btab-set-permission-policy"
+description = "Enables the btab_set_permission_policy command without any pre-configured scope."
+commands.allow = ["btab_set_permission_policy"]
+
+[[permission]]
+identifier = "deny-btab-set-permission-policy"
+description = "Denies the btab_set_permission_policy command without any pre-configured scope."
+commands.deny = ["btab_set_permission_policy"]
