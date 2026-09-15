@@ -14,7 +14,7 @@ screenshot round-tripped through the bound pane).
 ## Next
 
 - Slice 4 (`feat/browser-grants`) left: `act` verbs + origin rule, grants editor, shell navigation gate mirroring `browser.AllowsOrigin`.
-- New browser tab button (globe, tab-strip end) crashes the app: minified `ReferenceError`, React root unmounts to a solid page (found 2026-09-15 on a `feat/chrome-tabs` scratch, reproduced on a `main` scratch, so pre-existing).
+- New browser tab button (tab-strip end) crashes the app (`ReferenceError`, React root unmounts; verified pre-existing on a `main` scratch 2026-09-15).
 
 ## Notes
 

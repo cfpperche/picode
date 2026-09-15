@@ -28,10 +28,6 @@ tests, the Go tests for the policy, verb table and routes, `npm run
 build:browser`); the worktree is committed and clean, waiting for a gate that
 is not red for reasons of its own.
 
-## Next up
-
-- Slice 4: the per-agent grants editor (Settings  Browser), the `act` verbs, and the navigation gate.
-
 ## Debts
 
 - The `browser` extension has never run inside Pi here: its tool registration is unverified (the peer dep is not in this tree).

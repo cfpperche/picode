@@ -14,7 +14,3 @@ the list is the only scroller (`.pins-head` / `.pins-search` are
   terms-bottom, agents-bottom, pins-bottom, apps-tab) — headers pinned,
   single scrollbar, `__picodeOverlayAudit` ok. Card 5/5.
 - No ADR: no protocol/persistence/security/process boundary crossed.
-
-## Next up
-
-- (none) — branch is ready to fast-forward main; owner runs `make deploy`.
