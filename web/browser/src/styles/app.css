@@ -3959,6 +3959,16 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .hist-more { flex: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--text-secondary); font: inherit; font-size: 15px; line-height: 1; cursor: pointer; }
 .hist-more:hover { background: var(--bg-hover); color: var(--text-primary); }
 .hist-sel { font-size: 12.5px; color: var(--text-secondary); }
+
+/* The Manage dialogs behind Autofill and passwords: the section rows the
+   reference keeps on its own sub-routes, in a dialog instead. */
+.dlg.dlg-manage {
+  width: min(560px, calc(100vw - 32px));
+  top: 50%;
+  max-height: min(86dvh, 720px);
+}
+.dlg-manage .dlg-lede { margin: 6px 0 16px; font-size: 12.5px; line-height: 1.45; color: var(--text-secondary); }
+.dlg-manage .set-panel { background: var(--bg-base); }
 /* The bulk remove is destructive; the app's .btn-danger is only red on
    hover, which reads as inert in a footer. */
 .dlg-hist .btn-danger { border-color: var(--danger); color: var(--danger); }

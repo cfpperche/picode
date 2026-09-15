@@ -135,6 +135,9 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   const [openDays, setOpenDays] = useState(() => new Set());
   const [selected, setSelected] = useState(() => new Set());
   const [histLoading, setHistLoading] = useState(false);
+  const [manageOpen, setManageOpen] = useState(""); // "" | "passwords" | "contact"
+  const [confirmPurge, setConfirmPurge] = useState(false);
+  const [purgeBusy, setPurgeBusy] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [wipeOpen, setWipeOpen] = useState(false);
   const [wipeRange, setWipeRange] = useState(3600);
@@ -335,6 +338,26 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     }
   };
 
+  // Only the browser profile's own saved data can be cleared here: WebView2
+  // exposes the autosave switches and a wipe by kind, and nothing that
+  // lists entries. The line in the dialog says exactly that.
+  const purgeSaved = async (kind) => {
+    if (!confirmPurge) {
+      setConfirmPurge(true);
+      setTimeout(() => setConfirmPurge(false), 4000);
+      return;
+    }
+    setConfirmPurge(false);
+    setPurgeBusy(true);
+    let failed = "";
+    if (invoke) {
+      await invoke("btab_clear_data", { kinds: [kind], since: null }).catch((e) => { failed = String(e?.message || e); });
+    }
+    setPurgeBusy(false);
+    if (failed) toast("Deleting the saved data failed: " + failed);
+    else toast.ok(kind === "passwords" ? "Saved passwords deleted." : "Saved form data deleted.");
+  };
+
   const draftOf = (row) => drafts[row.agentId] ?? { tier: row.tier, domainsText: domainsText(row) };
   const setDraft = (agentId, next) => setDrafts((d) => ({ ...d, [agentId]: next }));
 
@@ -409,11 +432,11 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
         <section className="set-group">
           <h2 className="set-grouph">Autofill and passwords</h2>
           <div className="set-panel">
-            <Item title="Password manager" desc="Save and fill sign-ins in the built-in browser">
-              <SwitchCtl checked={prefs.passwordAutosave} onChange={(v) => setPref({ passwordAutosave: v })} label="Password autosave" />
+            <Item title="Password manager" desc="Add, delete, and edit saved passwords">
+              <button type="button" className="set-btn" onClick={() => setManageOpen("passwords")}>Manage</button>
             </Item>
-            <Item title="Contact info" desc="Save and fill addresses, phone numbers, and email addresses">
-              <SwitchCtl checked={prefs.generalAutofill} onChange={(v) => setPref({ generalAutofill: v })} label="General autofill" />
+            <Item title="Contact info" desc="Add, delete, and edit saved addresses, phone numbers, and email addresses">
+              <button type="button" className="set-btn" onClick={() => setManageOpen("contact")}>Manage</button>
             </Item>
           </div>
         </section>
@@ -597,6 +620,58 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
               >
                 {wipeBusy ? "Deleting…" : "Delete data"}
               </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      <Dialog.Root open={!!manageOpen} onOpenChange={(open) => { if (!open) { setManageOpen(""); setConfirmPurge(false); } }}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="dlg-overlay" />
+          <Dialog.Content className="dlg dlg-manage">
+            <Dialog.Title className="dlg-title">{manageOpen === "passwords" ? "Password manager" : "Contact info"}</Dialog.Title>
+            <p className="dlg-lede">
+              {manageOpen === "passwords"
+                ? "Saved passwords live in this machine's browser profile. PiCode can turn saving on or off and delete everything the profile stored — it cannot show or edit single entries."
+                : "Saved names, addresses, phone numbers, and email addresses live in this machine's browser profile. PiCode can turn saving on or off and delete everything the profile stored — it cannot show or edit single entries."}
+            </p>
+            <div className="set-panel">
+              {manageOpen === "passwords" ? (
+                <>
+                  <Item title="Offer to save passwords" desc="Save and fill sign-ins in the built-in browser">
+                    <SwitchCtl checked={prefs.passwordAutosave} onChange={(v) => setPref({ passwordAutosave: v })} label="Password autosave" />
+                  </Item>
+                  <Item title="Saved passwords" desc="Passwords stored by the browser profile on this machine.">
+                    <button
+                      type="button"
+                      className={"set-btn" + (confirmPurge ? " set-btn-danger" : "")}
+                      onClick={() => purgeSaved("passwords")}
+                      disabled={purgeBusy}
+                    >
+                      {purgeBusy ? "Deleting…" : confirmPurge ? "Really delete?" : "Delete data"}
+                    </button>
+                  </Item>
+                </>
+              ) : (
+                <>
+                  <Item title="Save and fill addresses" desc="Includes information like phone numbers, email addresses, and shipping addresses">
+                    <SwitchCtl checked={prefs.generalAutofill} onChange={(v) => setPref({ generalAutofill: v })} label="General autofill" />
+                  </Item>
+                  <Item title="Saved form data" desc="Names, addresses, and other entries saved to fill forms on this machine.">
+                    <button
+                      type="button"
+                      className={"set-btn" + (confirmPurge ? " set-btn-danger" : "")}
+                      onClick={() => purgeSaved("autofill")}
+                      disabled={purgeBusy}
+                    >
+                      {purgeBusy ? "Deleting…" : confirmPurge ? "Really delete?" : "Delete data"}
+                    </button>
+                  </Item>
+                </>
+              )}
+            </div>
+            <div className="dlg-actions" data-align-row>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={() => { setManageOpen(""); setConfirmPurge(false); }}>Close</button>
             </div>
           </Dialog.Content>
         </Dialog.Portal>

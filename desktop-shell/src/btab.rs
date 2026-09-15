@@ -637,8 +637,9 @@ fn apply_autofill(app: &AppHandle, id: &str) {
 
 // Clear the work profile's browsing data (slice 3): the Clear browsing
 // data dialog sends the kinds it checked and, for a time-range pick, how
-// far back since is (unix seconds; None means all time). Passwords are
-// not a kind here — the Password manager switch owns them.
+// far back since is (unix seconds; None means all time). "passwords" is
+// deliberately absent from that dialog's checklist — the Password manager
+// dialog is the one place that clears them.
 fn wipe_mask(kind: &str) -> i32 {
     // ICoreWebView2BrowsingDataKinds values (bindings 0.38.2).
     const FILE_SYSTEMS: i32 = 1;
@@ -652,6 +653,7 @@ fn wipe_mask(kind: &str) -> i32 {
     const DISK_CACHE: i32 = 256;
     const DOWNLOAD_HISTORY: i32 = 512;
     const GENERAL_AUTOFILL: i32 = 1024;
+    const PASSWORD_AUTOSAVE: i32 = 2048;
     const BROWSING_HISTORY: i32 = 4096;
     const SETTINGS: i32 = 8192;
     const SERVICE_WORKERS: i32 = 32768;
@@ -661,6 +663,7 @@ fn wipe_mask(kind: &str) -> i32 {
         "cache" => CACHE_STORAGE | DISK_CACHE,
         "downloads" => DOWNLOAD_HISTORY,
         "autofill" => GENERAL_AUTOFILL,
+        "passwords" => PASSWORD_AUTOSAVE,
         "siteSettings" => SETTINGS,
         _ => 0,
     }
