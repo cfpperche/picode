@@ -47,13 +47,16 @@ type BrowserPrefs struct {
 	LocalOpenDest    string `json:"localOpenDest"`
 	PasswordAutosave bool   `json:"passwordAutosave"`
 	GeneralAutofill  bool   `json:"generalAutofill"`
+	// AgentAccess is the master switch: off refuses every browser verb for
+	// every agent (the grants below stop mattering until it is back on).
+	AgentAccess bool `json:"agentAccess"`
 }
 
 // browserPrefsRead folds the simple prefs out of the settings KV. Defaults:
 // the address bar shows the full URL, popups open inside the app, and
 // WebView2's own autofill defaults (both on).
 func browserPrefsRead(st *store.Store) (BrowserPrefs, error) {
-	p := BrowserPrefs{ShowFullURL: true, WebOpenDest: "app", LocalOpenDest: "app", PasswordAutosave: true, GeneralAutofill: true}
+	p := BrowserPrefs{ShowFullURL: true, WebOpenDest: "app", LocalOpenDest: "app", PasswordAutosave: true, GeneralAutofill: true, AgentAccess: true}
 	rows := []struct {
 		key   string
 		apply func(raw string)
@@ -81,6 +84,11 @@ func browserPrefsRead(st *store.Store) (BrowserPrefs, error) {
 		{"browser.generalAutofill", func(raw string) {
 			if raw == "0" {
 				p.GeneralAutofill = false
+			}
+		}},
+		{"browser.agentAccess", func(raw string) {
+			if raw == "0" {
+				p.AgentAccess = false
 			}
 		}},
 	}
@@ -121,6 +129,7 @@ func handleBrowserPrefsPut(deps Deps) http.HandlerFunc {
 			{"browser.localOpenDest", req.LocalOpenDest},
 			{"browser.passwordAutosave", map[bool]string{true: "1", false: "0"}[req.PasswordAutosave]},
 			{"browser.generalAutofill", map[bool]string{true: "1", false: "0"}[req.GeneralAutofill]},
+			{"browser.agentAccess", map[bool]string{true: "1", false: "0"}[req.AgentAccess]},
 		}
 		for _, row := range rows {
 			if err := deps.Store.SetSetting(row.key, row.value); err != nil {
@@ -135,4 +144,18 @@ func handleBrowserPrefsPut(deps Deps) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, prefs)
 	}
+}
+
+// browserAgentAccess is the master switch the agent routes check before
+// anything else (Settings ▸ Browser ▸ Browser). Missing means on: the
+// switch exists to turn agent access off, not to gate a fresh install.
+func browserAgentAccess(st *store.Store) bool {
+	if st == nil {
+		return true
+	}
+	raw, ok, err := st.GetSetting("browser.agentAccess")
+	if err != nil {
+		return true
+	}
+	return !ok || raw != "0"
 }

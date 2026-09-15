@@ -3884,6 +3884,43 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .set-pat-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .set-pat-list li { display: flex; align-items: center; gap: 6px; }
 .set-pat-list code { flex: 1; font-size: 12px; }
+
+/* The settings page in the ChatGPT Work shape (owner's parity mandate):
+   page title, section cards, and rows that carry a title + description on
+   the left with the control pinned right, divided by hairlines. The chrome
+   around the page stays PiCode's. */
+.set-page { display: flex; flex-direction: column; gap: 22px; max-width: 780px; }
+.set-title { margin: 18px 0 0; font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+.set-lede { margin: 3px 0 0; font-size: 13.5px; color: var(--text-secondary); }
+.set-group { display: flex; flex-direction: column; gap: 8px; }
+.set-grouph { margin: 6px 0 0; font-size: 14.5px; font-weight: 600; color: var(--text-primary); }
+.set-groupdesc { margin: 0; font-size: 12.5px; color: var(--text-secondary); line-height: 1.4; }
+.set-panel { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel); overflow: hidden; }
+.set-item { display: flex; align-items: center; gap: 14px; padding: 13px 16px; }
+.set-item + .set-item { border-top: 1px solid var(--border); }
+.set-item-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.set-item-t { font-size: 13.5px; font-weight: 550; color: var(--text-primary); }
+.set-item-d { font-size: 12.5px; color: var(--text-secondary); line-height: 1.35; }
+.set-item-ctl { display: flex; align-items: center; gap: 8px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
+.set-item-stack { flex-direction: column; align-items: stretch; }
+.set-btn {
+  display: inline-flex; align-items: center; justify-content: center; height: 30px; padding: 0 12px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-ctl); background: var(--bg-panel);
+  color: var(--text-primary); font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; white-space: nowrap;
+}
+.set-btn:hover { background: var(--bg-hover); }
+.set-btn-danger { border-color: var(--danger); color: var(--danger); }
+.set-select {
+  height: 30px; padding: 0 26px 0 10px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-ctl);
+  background: var(--bg-panel) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%23888f9e' stroke-width='1.5' stroke-linecap='round'/></svg>") no-repeat right 9px center;
+  color: var(--text-primary); font: inherit; font-size: 12.5px; appearance: none; cursor: pointer;
+}
+.set-select:hover { background-color: var(--bg-hover); }
+.set-hist { list-style: none; margin: 12px 0 0; padding: 0; max-height: 46vh; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-ctl); }
+.set-hist li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 12.5px; }
+.set-hist li + li { border-top: 1px solid var(--border); }
+.set-hist .set-hist-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .rx-switch {
   width: 36px; height: 20px; padding: 0; flex: none;
   border: 0; border-radius: 99px; background: var(--border-strong); cursor: pointer;
