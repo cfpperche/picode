@@ -69,6 +69,36 @@ func TestLatestReleaseOK(t *testing.T) {
 	}
 }
 
+func TestLatestReleaseNamesEveryAsset(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"tag_name": "v0.3.0",
+			"html_url": "https://example.test/r",
+			"assets": []any{
+				map[string]any{"name": "picode-desktop-windows-amd64.exe", "browser_download_url": "https://example.test/tool"},
+				map[string]any{"name": "picode-shell-windows-amd64.exe", "browser_download_url": "https://example.test/shell"},
+				map[string]any{"name": "SHA256SUMS", "browser_download_url": "https://example.test/sums"},
+			},
+		})
+	}))
+	defer ts.Close()
+	oldRoot, oldC := APIRoot, HTTPClient
+	APIRoot, HTTPClient = ts.URL, ts.Client()
+	defer func() { APIRoot, HTTPClient = oldRoot, oldC }()
+	// One fetch serves the two-binary update: the wanted asset lands on the
+	// struct, every asset lands on the map.
+	rel, err := LatestReleaseFor("picode-desktop-windows-amd64.exe")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rel.AssetURL != "https://example.test/tool" || rel.SumsURL != "https://example.test/sums" {
+		t.Fatalf("%+v", rel)
+	}
+	if rel.URLs["picode-shell-windows-amd64.exe"] != "https://example.test/shell" {
+		t.Fatalf("shell URL missing: %+v", rel.URLs)
+	}
+}
+
 func TestVerifySHA256(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "picode-linux-amd64")

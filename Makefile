@@ -166,7 +166,7 @@ desktop: ## Cross-compile the Windows tray + console native host (ADR-0020 / 004
 desktop-shell: ## Build the v2 Windows shell (Rust/Tauri — needs rustup, x86_64-pc-windows-msvc target, cargo-xwin; ADR-0120)
 	cd desktop-shell && cargo xwin build --release --target x86_64-pc-windows-msvc
 
-desktop-restart: desktop desktop-shell ## Build both exes, swap them, relaunch the tray (and the shell if it ran) — NEVER `&` from WSL (scripts/desktop-swap.sh)
+desktop-restart: desktop desktop-shell ## Build every exe, swap them, relaunch the resident — NEVER `&` from WSL (scripts/desktop-swap.sh)
 	./scripts/desktop-swap.sh
 
 restart: deploy ## Rebuild and restart the systemd service (`picode deploy`)
@@ -214,7 +214,9 @@ ci-docs: ## Verify committed docs parity, then build the public site
 # The gates are independent, so they run four at a time (ADR-0105): the Vite
 # build, the docs site and the JS suites overlap the Go tests instead of
 # queueing behind them. --output-sync keeps each gate's log in one piece.
-ci: ## Everything CI runs — the gate for the merge on main (full output in var/ci-last.log)
+ci: handoff ## Everything CI runs — the gate for the merge on main (full output in var/ci-last.log)
+# `handoff` is a prerequisite on purpose: rendering the board is the check that
+# keeps it inside its cap (ADR-0123), and `make close` alone let it drift green.
 	./scripts/ci.sh
 
 ci-gates: hooks-check fmt-check vet test test-js build ci-docs vale

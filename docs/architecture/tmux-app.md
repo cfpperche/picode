@@ -144,6 +144,19 @@ kill methods, so tests script the server instead of spawning one) and
 
 ## Sockets (ADR-0139 follow-up, 2026-09-15)
 
+**A session's folder is known from its first instant (2026-09-15).**
+`#{pane_current_path}` for a pane tmux has not polled yet is the *server's*
+directory — the cwd of the client that started the tmux server, i.e. this
+daemon — so a read taken in the same instant as `new-session` answered with the
+wrong folder, and `#{pane_pid}` is already set while it does (measured: 33 of 40
+creations in a loop; the first read of a relative path through
+`/api/terminals/{id}/text` therefore 404'd, once, under a sharded CI run). The
+Manager therefore remembers the folder it created (or respawned) each session in
+— `bornCwd`, a five-second grace — and answers with that until tmux reports a
+path that is not the server's, at which point the record is dropped and the live
+path rules (a shell that `cd`s right away shows its new folder immediately). A
+daemon with no record for the session reads tmux, exactly as before.
+
 **A socket tmux cannot create is an error, not silence (2026-09-15).** With
 `-S` inside a directory that did not exist yet, `new-session` printed
 `error creating <path> (No such file or directory)` and **exited 0**, so the

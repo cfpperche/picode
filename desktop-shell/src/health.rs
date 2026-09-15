@@ -51,6 +51,59 @@ pub fn fetch(base: &str) -> Result<Health, String> {
     parse(&String::from_utf8_lossy(&out.stdout))
 }
 
+/// Who is working, for the compact interlock: the same question `picode
+/// deploy` asks, because stopping the distro ends the same work. Empty
+/// means ready.
+pub fn deploy_ready(base: &str) -> Result<Vec<String>, String> {
+    let url = format!("{}/api/deploy/readiness", base.trim_end_matches('/'));
+    let mut cmd = Command::new(curl_exe());
+    cmd.args(["-sk", "--max-time", "5", &url]);
+    hide_console(&mut cmd);
+    let out = cmd.output().map_err(|e| format!("curl: {e}"))?;
+    if !out.status.success() {
+        return Err(format!("readiness curl exit {}", code(&out)));
+    }
+    parse_readiness(&String::from_utf8_lossy(&out.stdout))
+}
+
+#[derive(Deserialize)]
+struct ReadinessJson {
+    #[serde(default)]
+    ready: bool,
+    #[serde(default)]
+    busy: Vec<BusyJson>,
+}
+
+#[derive(Deserialize)]
+struct BusyJson {
+    #[serde(default)]
+    kind: String,
+    #[serde(default)]
+    id: String,
+    #[serde(default)]
+    name: String,
+}
+
+fn parse_readiness(text: &str) -> Result<Vec<String>, String> {
+    let body: ReadinessJson =
+        serde_json::from_str(text).map_err(|e| format!("readiness is not JSON: {e}"))?;
+    if body.ready {
+        return Ok(vec![]);
+    }
+    Ok(body
+        .busy
+        .iter()
+        .map(|b| {
+            let name = if b.name.is_empty() { &b.id } else { &b.name };
+            if b.kind.is_empty() {
+                name.to_string()
+            } else {
+                format!("{} {name}", b.kind)
+            }
+        })
+        .collect())
+}
+
 fn code(out: &std::process::Output) -> String {
     out.status.code().map(|c| c.to_string()).unwrap_or_else(|| "signal".to_string())
 }
@@ -112,5 +165,18 @@ mod tests {
     fn closed_port_fails_closed() {
         // Port 9 (discard) answers nowhere; loopback refuses fast.
         assert!(fetch("https://127.0.0.1:9").is_err());
+    }
+
+    #[test]
+    fn readiness_names_who_is_working() {
+        let busy = parse_readiness(
+            r#"{"ready":false,"busy":[{"kind":"agent","id":"a1","name":"Work"},{"kind":"terminal","id":"t2","name":""}]}"#,
+        )
+        .expect("readiness");
+        assert_eq!(busy, vec!["agent Work", "terminal t2"]);
+        let ready =
+            parse_readiness(r#"{"ready":true,"busy":[]}"#).expect("ready");
+        assert!(ready.is_empty());
+        assert!(parse_readiness("nope").is_err());
     }
 }

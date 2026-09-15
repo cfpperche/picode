@@ -7,10 +7,10 @@ reviewed by the owner against the reference, one item at a time.
 ## Next
 
 - **Ask prompt** closes Browser permissions v1 (deferral on the UI thread).
-- **Terminal agents as principals** — spec ADR-0143, five steps, in order.
-- **"New browser tab" button: re-verify** — the crash claim did not reproduce
-  in a web scratch (2026-09-15): click → no console error, React root alive,
-  route switched to `#/`. Likely shell-only (the `window.__TAURI__` path).
+- **Terminal agents as principals** — ADR-0143, steps 1–2 landed; listing + UI
+  rows still open (a grant needs a row the human can edit).
+- **"New browser tab" button: re-verify in the shell** (no repro in a web
+  scratch, 2026-09-15).
 - **v2a** unused-site permissions; **v2b** agent history access (needs Ask).
 - **v2c** annotations (step 4 is an ADR); **v2d** Windows Hello opener row.
 - **v3** WebMCP and Developer mode (raw CDP: ADR, off, `full` only, audited).
@@ -128,3 +128,7 @@ gallery hit is worth a look before anyone installs it expecting this one.
 - The options menu's page slide is not animated.
 - No JS check catches use-before-declaration in a component (the blank-window
   class).
+- ADR-0143 step 3's endpoint branch has no test of its own: the resolver's
+  decision rows are covered (`TestResolveCallerIsTheHouseIdentity`), the wire
+  rows (`term` known/unknown, agent+term together) are not — they go in with
+  the UI slice.

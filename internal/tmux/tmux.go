@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -133,6 +134,21 @@ type Manager struct {
 	// legacy is the drain's second server (ADR-0139): sessions created
 	// before the socket move live there until they end. Nil outside a drain.
 	legacy *Manager
+	// born is the folder each session was created in, kept for the moment
+	// tmux needs to take over the answer — see paneCwd. Guarded by bornMu.
+	bornMu sync.Mutex
+	born   map[string]bornShell
+	// ownCwd is this process's working directory, the value tmux reports for
+	// a pane whose path it has not polled yet (it inherits the cwd of the
+	// client that started the server). Read once: a daemon never chdirs.
+	ownCwd string
+}
+
+// bornShell is one session's creation record: the folder it was created in and
+// when. The record only matters for the first moments of a session's life.
+type bornShell struct {
+	cwd string
+	at  time.Time
 }
 
 // New returns a Manager on tmux's default socket.
@@ -344,6 +360,7 @@ func (m *Manager) NewSessionEnvSize(ctx context.Context, name, cwd string, width
 	if _, err := m.runStartup(ctx, full...); err != nil {
 		return err
 	}
+	m.rememberBorn(name, cwd)
 	_ = m.EnsureExtendedKeys(ctx)
 	// PiCode owns the surface: the tmux status line would render as a green
 	// bar at the bottom of the web terminal. Terminals turn it off per
@@ -362,6 +379,7 @@ func (m *Manager) respawnPaneEnv(ctx context.Context, name, cwd string, extraEnv
 	} else if !exists {
 		return fmt.Errorf("tmux session %q does not exist", name)
 	}
+	m.rememberBorn(name, cwd)
 	full := []string{"respawn-pane", "-k", "-t", name + ":", "-c", cwd}
 	for _, e := range extraEnv {
 		if e == "" || !strings.Contains(e, "=") || strings.ContainsAny(e, "\n\x00") {
@@ -567,6 +585,54 @@ func (m *Manager) paneSessionID(ctx context.Context, name string) (string, error
 	return strings.TrimSpace(out), err
 }
 
+// rememberBorn notes the folder a session was just created (or respawned) in.
+func (m *Manager) rememberBorn(name, cwd string) {
+	if strings.TrimSpace(cwd) == "" {
+		return
+	}
+	if m.ownCwd == "" {
+		if wd, err := os.Getwd(); err == nil {
+			m.ownCwd = wd
+		}
+	}
+	m.bornMu.Lock()
+	defer m.bornMu.Unlock()
+	if m.born == nil {
+		m.born = map[string]bornShell{}
+	}
+	m.born[name] = bornShell{cwd: cwd, at: time.Now()}
+}
+
+// bornCwd answers the folder a session was created in, while that answer is
+// still better than tmux's: right after new-session, #{pane_current_path} is
+// the *server's* directory — this process's cwd, inherited by the tmux server
+// — until tmux polls the new pane's process (measured 2026-09-15: 33 of 40
+// creations in a loop, #{pane_pid} already set, so the pid reads as ready while
+// the path does not). The window is milliseconds; a shell that has since
+// moved reports its own path and wins immediately.
+func (m *Manager) bornCwd(name, live string) (string, bool) {
+	m.bornMu.Lock()
+	defer m.bornMu.Unlock()
+	rec, ok := m.born[name]
+	if !ok {
+		return "", false
+	}
+	if time.Since(rec.at) > bornGrace {
+		delete(m.born, name)
+		return "", false
+	}
+	if live != "" && (m.ownCwd == "" || live != m.ownCwd) {
+		// tmux has a real answer (the pane's own folder, or where it moved):
+		// the creation record has done its job.
+		delete(m.born, name)
+		return "", false
+	}
+	return rec.cwd, true
+}
+
+// bornGrace is how long a creation record outranks tmux's server-cwd fallback.
+const bornGrace = 5 * time.Second
+
 // PaneCwd returns the current pane's working directory (#{pane_current_path}).
 func (m *Manager) paneCwd(ctx context.Context, name string) (string, error) {
 	out, err := m.run(ctx, "display-message", "-p", "-t", name+":", "#{pane_current_path}")
@@ -574,6 +640,9 @@ func (m *Manager) paneCwd(ctx context.Context, name string) (string, error) {
 		return "", err
 	}
 	p := strings.TrimSpace(out)
+	if born, ok := m.bornCwd(name, p); ok {
+		return born, nil
+	}
 	if p == "" {
 		return "", fmt.Errorf("tmux pane cwd empty")
 	}

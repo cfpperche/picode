@@ -60,6 +60,12 @@ func TestReleaseWorkflowPublishesTheAssetUpdateLooksFor(t *testing.T) {
 	if !strings.Contains(workflow, DesktopAsset) {
 		t.Errorf("the release workflow does not build %q", DesktopAsset)
 	}
+	// The shell ships in the same tag (ADR-0142); `update` refuses a
+	// release without it, so a workflow that drops the asset breaks every
+	// update instead of half of one.
+	if !strings.Contains(workflow, ShellAsset) {
+		t.Errorf("the release workflow does not build %q", ShellAsset)
+	}
 	// internal/install.assetName() builds this shape for picode itself.
 	if !strings.Contains(workflow, "picode-${goos}-${goarch}") {
 		t.Error("the release workflow does not build picode-<goos>-<goarch>, which `picode update` looks for")

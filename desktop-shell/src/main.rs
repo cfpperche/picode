@@ -3,13 +3,17 @@
 // shell that renders the PiCode UI served by the daemon inside WSL, holds
 // the distro open with a keepalive, and keeps one tray. The daemon is the
 // source of truth; this process is a client and a supervisor, never a
-// second backend. The disk actions arrive next; the Go tray owned them —
-// and the keepalive — until this shell took over.
+// second backend. The keepalive, the disk line and the Give-back, Restart
+// and Logs actions live here now; the Go tray owned them until this shell
+// took over.
 
 mod btab;
+mod board;
 mod browserlab;
 mod clean;
+mod dialog;
 mod disk;
+mod diskline;
 mod health;
 mod keepalive;
 mod status;
@@ -126,7 +130,30 @@ fn main() {
             let status_item =
                 MenuItem::with_id(app, "status", "Starting…", false, None::<&str>)?;
             let status_sep = PredefinedMenuItem::separator(app)?;
+            // The one fact a person otherwise leaves PiCode to check in
+            // Explorer: what the distro's disk costs Windows, and how much
+            // room is left — plus the action the number exists for.
+            let disk_item =
+                MenuItem::with_id(app, "disk", "Disk: reading…", false, None::<&str>)?;
+            let compact_item = MenuItem::with_id(
+                app,
+                "compact",
+                "No held space to give back",
+                false,
+                None::<&str>,
+            )?;
+            let disk_sep = PredefinedMenuItem::separator(app)?;
             let open = MenuItem::with_id(app, "open", "Open PiCode", true, None::<&str>)?;
+            let restart = MenuItem::with_id(
+                app,
+                "restart",
+                "Restart PiCode",
+                true,
+                None::<&str>,
+            )?;
+            let logs =
+                MenuItem::with_id(app, "logs", "View logs", true, None::<&str>)?;
+            let actions_sep = PredefinedMenuItem::separator(app)?;
             let lab = MenuItem::with_id(app, "browserlab", "Browser lab", true, None::<&str>)?;
             let newbtab = MenuItem::with_id(app, "newbtab", "New browser tab", true, None::<&str>)?;
             let management =
@@ -144,7 +171,22 @@ fn main() {
             )?;
             let menu = Menu::with_items(
                 app,
-                &[&status_item, &status_sep, &open, &lab, &newbtab, &management, &notify, &quit],
+                &[
+                    &status_item,
+                    &status_sep,
+                    &disk_item,
+                    &compact_item,
+                    &disk_sep,
+                    &open,
+                    &restart,
+                    &logs,
+                    &actions_sep,
+                    &lab,
+                    &newbtab,
+                    &management,
+                    &notify,
+                    &quit,
+                ],
             )?;
 
             TrayIconBuilder::with_id("picode")
@@ -154,6 +196,19 @@ fn main() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, ev| match ev.id.as_ref() {
                     "open" => show_main(app),
+                    // The heavy actions never run on the event thread: a
+                    // compact takes minutes, and a blocked menu is a hung
+                    // tray.
+                    "compact" => {
+                        let app = app.clone();
+                        std::thread::spawn(move || compact_flow(&app));
+                    }
+                    "restart" => {
+                        std::thread::spawn(restart_flow);
+                    }
+                    "logs" => {
+                        std::thread::spawn(logs_flow);
+                    }
                     "browserlab" => browserlab::open(app),
                     "newbtab" => {
                         let _ = app.emit("btab://new", "");
@@ -191,15 +246,18 @@ fn main() {
                 })
                 .build(app)?;
 
-            // The resident loop: hold the distro open and report health, the
-            // way the retired Go tray did. One thread owns the cached URL,
-            // the boot id and the keepalive child, so the health timer can
-            // never erase what the disk timer wrote (and the disk half joins
-            // the same composition next slice).
-            let poll_app = app.handle().clone();
-            let poll_status = status_item.clone();
-            let poll_open = open.clone();
-            std::thread::spawn(move || poll_loop(poll_app, poll_status, poll_open));
+            // The resident loops report to one board: health every five
+            // seconds, disk every five minutes, the way the retired Go tray
+            // did. The board composes, so no timer erases another's write.
+            board::init(board::Board::new(
+                app.handle().clone(),
+                status_item.clone(),
+                disk_item.clone(),
+                compact_item.clone(),
+                open.clone(),
+            ));
+            std::thread::spawn(poll_loop);
+            std::thread::spawn(disk_loop);
 
             Ok(())
         })
@@ -210,86 +268,246 @@ fn main() {
 // How often the resident asks PiCode whether it is up: one curl to a
 // loopback port, cheap enough for a timer.
 const POLL_EVERY_SECS: u64 = 5;
+// How often the resident re-reads the disk. Those numbers move over hours,
+// and every read spawns the tool, wsl.exe and PowerShell — five minutes
+// keeps the line current without turning the tray into a poller.
+const DISK_EVERY_SECS: u64 = 5 * 60;
 
-fn poll_loop(app: tauri::AppHandle, status: MenuItem<tauri::Wry>, open: MenuItem<tauri::Wry>) {
+fn poll_loop() {
+    let Some(board) = board::get() else { return };
     let mut url: Option<String> = None;
     let mut boot_id = String::new();
-    let mut child: Option<std::process::Child> = None;
     loop {
-        tick(&app, &status, &open, &mut url, &mut boot_id, &mut child);
+        if url.is_none() {
+            match discover_server() {
+                Some((distro, found)) => {
+                    board.note_distro(&distro);
+                    board.ensure_keepalive();
+                    url = Some(found.to_string());
+                }
+                None => {
+                    board.set_health(false, "PiCode has not started yet", None);
+                    std::thread::sleep(std::time::Duration::from_secs(POLL_EVERY_SECS));
+                    continue;
+                }
+            }
+        }
+        let base = url.clone().expect("discovered above");
+        match health::fetch(&base) {
+            Ok(h) => {
+                // The port can move inside its range (8445-8455), so a
+                // failed probe invalidates the cached address rather than
+                // being reported forever — and a changed boot id names the
+                // restart.
+                let restarted = !boot_id.is_empty() && boot_id != h.boot_id;
+                boot_id = h.boot_id.clone();
+                let mut detail = base.clone();
+                if restarted {
+                    detail.push_str(" (restarted)");
+                }
+                board.set_health(true, &detail, Some(&base));
+            }
+            Err(_) => {
+                url = None;
+                board.set_health(false, "not answering", None);
+            }
+        }
+        board.ensure_keepalive();
         std::thread::sleep(std::time::Duration::from_secs(POLL_EVERY_SECS));
     }
 }
 
-fn tick(
-    app: &tauri::AppHandle,
-    status: &MenuItem<tauri::Wry>,
-    open: &MenuItem<tauri::Wry>,
-    url: &mut Option<String>,
-    boot_id: &mut String,
-    child: &mut Option<std::process::Child>,
-) {
-    // A dead keepalive is re-armed, never mourned: wsl --terminate takes it
-    // down with the distro, and without this the distro would idle out
-    // sixty seconds after coming back.
-    if let Some(c) = child.as_mut() {
-        if matches!(c.try_wait(), Ok(Some(_))) {
-            *child = None;
-        }
+fn disk_loop() {
+    let Some(board) = board::get() else { return };
+    loop {
+        refresh_disk(board);
+        std::thread::sleep(std::time::Duration::from_secs(DISK_EVERY_SECS));
     }
-    if url.is_none() {
-        match discover_server() {
-            Some((distro, found)) => {
-                if child.is_none() {
-                    match keepalive::start(&distro) {
-                        Ok(c) => *child = Some(c),
-                        Err(e) => eprintln!("keepalive: cannot hold {distro} open: {e}"),
-                    }
-                }
-                *url = Some(found.to_string());
-            }
-            None => {
-                set_status(app, status, open, false, "PiCode has not started yet");
-                return;
-            }
-        }
-    }
-    let base = url.clone().expect("discovered above");
-    match health::fetch(&base) {
-        Ok(h) => {
-            // The port can move inside its range (8445-8455), so a failed
-            // probe invalidates the cached address rather than being
-            // reported forever — and a changed boot id names the restart.
-            let restarted = !boot_id.is_empty() && *boot_id != h.boot_id;
-            *boot_id = h.boot_id;
-            let mut detail = base;
-            if restarted {
-                detail.push_str(" (restarted)");
-            }
-            set_status(app, status, open, true, &detail);
-        }
-        Err(_) => {
-            *url = None;
-            set_status(app, status, open, false, "not answering");
+}
+
+fn refresh_disk(board: &board::Board) {
+    match disk::line_facts() {
+        Ok(facts) => board.set_disk(Some(facts)),
+        Err(e) => {
+            eprintln!("disk: {e}");
+            board.set_disk(None);
         }
     }
 }
 
-fn set_status(
-    app: &tauri::AppHandle,
-    status: &MenuItem<tauri::Wry>,
-    open: &MenuItem<tauri::Wry>,
-    up: bool,
-    detail: &str,
-) {
-    let _ = status.set_text(status::title(up, detail));
-    let _ = open.set_enabled(up);
-    // The disk line joins this composition next slice; until then the
-    // tooltip is the status alone.
-    if let Some(tray) = app.tray_by_id("picode") {
-        let _ = tray.set_tooltip(Some(status::tooltip(detail, None, false)));
+// compact_flow is what the Give-back item runs. Every refusal before the
+// compact is a dialog that says why; the compact itself is the one thing
+// this tray does that ends sessions, so the dialog asking about it names
+// that in plain words.
+fn compact_flow(app: &tauri::AppHandle) {
+    let Some(board) = board::get() else { return };
+    if !board.begin_compact() {
+        return;
+    }
+    let distro = board.distro().unwrap_or_else(|| "the distro".to_string());
+
+    let done = |board: &board::Board| {
+        board.end_compact();
+        refresh_disk(board);
+    };
+
+    // The interlock first: this is the one action here that ends other
+    // people's work, so a server that cannot answer is a refusal.
+    let Some(url) = board.url() else {
+        dialog::alert(
+            "PiCode",
+            "PiCode is not answering, so the tray cannot check whether agents are working.\n\nOpen PiCode, wait for it to come up, and try again.",
+        );
+        done(board);
+        return;
+    };
+    let busy = match health::deploy_ready(&url) {
+        Ok(busy) => busy,
+        Err(e) => {
+            dialog::alert(
+                "PiCode",
+                &format!("Could not ask PiCode whether agents are working:\n{e}"),
+            );
+            done(board);
+            return;
+        }
+    };
+    if !busy.is_empty() {
+        dialog::alert(
+            "PiCode",
+            &format!(
+                "Someone is still working:\n\n  {}\n\nAsk them to finish, then give the space back.",
+                busy.join("\n  ")
+            ),
+        );
+        done(board);
+        return;
+    }
+
+    let held = board.facts().map(|f| f.held).unwrap_or(0);
+    if !dialog::confirm(
+        "Give back disk space",
+        &format!(
+            "Stopping {distro} returns ≈{} to C:.\n\nEverything inside it ends now — agents, terminals and tmux sessions do not come back.\n\nContinue?",
+            diskline::bytes(held)
+        ),
+    ) {
+        done(board);
+        return;
+    }
+
+    let outcome = disk::disk_compact(app.clone());
+    // wsl --terminate took the keepalive's child down with the distro. The
+    // distro is starting again; without this it would idle out from under
+    // it sixty seconds later.
+    board.rearm_keepalive();
+    done(board);
+
+    match outcome {
+        Ok(o) if !o.error.is_empty() => dialog::alert(
+            "PiCode",
+            &format!(
+                "The compact failed and {distro} was started again:\n{}",
+                o.error
+            ),
+        ),
+        Ok(o) if !o.refused.is_empty() => {
+            dialog::alert("PiCode", &format!("PiCode refused the compact:\n{}", o.refused))
+        }
+        Ok(o) => {
+            let (before, after, back) = (
+                o.before,
+                o.after.unwrap_or(o.before),
+                o.returned.unwrap_or(0),
+            );
+            dialog::alert(
+                "PiCode",
+                &format!(
+                    "Before: {} on disk\nAfter: {}\nBack on C: ≈{}\n\n{distro} is starting again; its sessions do not come back.",
+                    diskline::bytes(before),
+                    diskline::bytes(after),
+                    diskline::bytes(back)
+                ),
+            );
+        }
+        Err(e) => dialog::alert(
+            "PiCode",
+            &format!("The compact failed and {distro} was started again:\n{e}"),
+        ),
     }
 }
+
+fn restart_flow() {
+    let Some(board) = board::get() else { return };
+    let Some(distro) = board.distro() else {
+        dialog::alert("PiCode", "The distro is not known yet — wait for the tray to come up.");
+        return;
+    };
+    let user = resolve_user(&distro);
+    let mut argv = vec!["-d".to_string(), distro];
+    if let Some(user) = user {
+        argv.push("-u".to_string());
+        argv.push(user);
+    }
+    argv.extend(["--", "systemctl", "--user", "restart", "picode"].iter().map(|s| s.to_string()));
+    let mut cmd = std::process::Command::new("wsl.exe");
+    cmd.args(&argv);
+    hide_console(&mut cmd);
+    if let Err(e) = cmd.status() {
+        dialog::alert("PiCode", &format!("Could not restart PiCode:\n{e}"));
+        return;
+    }
+    // The next health tick reports the truth; until then say what is true.
+    board.set_health(false, "restarting…", None);
+}
+
+fn logs_flow() {
+    let Some(board) = board::get() else { return };
+    let Some(distro) = board.distro() else {
+        dialog::alert("PiCode", "The distro is not known yet — wait for the tray to come up.");
+        return;
+    };
+    // A log window is the one place a console is wanted, so this one
+    // deliberately opens Windows Terminal instead of suppressing it.
+    let user = resolve_user(&distro);
+    let mut wt = vec!["wsl.exe".to_string(), "-d".to_string(), distro];
+    if let Some(user) = user {
+        wt.push("-u".to_string());
+        wt.push(user);
+    }
+    wt.extend(["--", "journalctl", "--user", "-u", "picode", "-f"].iter().map(|s| s.to_string()));
+    if std::process::Command::new("wt.exe").args(&wt).spawn().is_err() {
+        let mut cmdline = vec!["/c".to_string(), "start".to_string(), String::new()];
+        cmdline.extend(wt);
+        let _ = std::process::Command::new("cmd").args(&cmdline).spawn();
+    }
+}
+
+/// The Linux account the service runs as: what the distro logs in as. An
+/// unreadable or root answer means "the distro default", which is what an
+/// omitted -u already selects.
+fn resolve_user(distro: &str) -> Option<String> {
+    let out = std::process::Command::new("wsl.exe")
+        .args(["-d", distro, "--", "whoami"])
+        .output()
+        .ok()?;
+    let name = console_string(&out.stdout);
+    let name = name.trim();
+    if name.is_empty() || name == "root" || name.chars().any(char::is_whitespace) {
+        return None;
+    }
+    Some(name.to_string())
+}
+
+#[cfg(windows)]
+fn hide_console(cmd: &mut std::process::Command) {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    cmd.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(windows))]
+fn hide_console(_cmd: &mut std::process::Command) {}
 
 // open_management_window opens the Management page on demand — the second
 // window of the shell: the WSL disk view, the cache prunes and the

@@ -26,6 +26,10 @@ type Release struct {
 	Asset    string
 	AssetURL string
 	SumsURL  string // the SHA256SUMS asset; "" when the release has none
+	// URLs names every asset in the release, so one fetch serves an update
+	// that refreshes two binaries from the same tag (ADR-0142): a second
+	// fetch could straddle a new publish and mix versions.
+	URLs map[string]string
 }
 
 // SumsAsset is the checksum file release.yml publishes beside the binaries.
@@ -112,11 +116,12 @@ func LatestReleaseFor(want string) (Release, error) {
 	if err := json.Unmarshal(body, &g); err != nil {
 		return Release{}, err
 	}
-	rel := Release{Tag: stripV(g.TagName), URL: g.HTMLURL}
+	rel := Release{Tag: stripV(g.TagName), URL: g.HTMLURL, URLs: map[string]string{}}
 	for _, a := range g.Assets {
 		if a.Name == SumsAsset {
 			rel.SumsURL = a.BrowserDownloadURL
 		}
+		rel.URLs[a.Name] = a.BrowserDownloadURL
 		if rel.Asset == "" && (a.Name == want || a.Name == want+".tar.gz") {
 			rel.Asset = a.Name
 			rel.AssetURL = a.BrowserDownloadURL
