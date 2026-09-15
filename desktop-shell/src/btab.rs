@@ -15,7 +15,10 @@ use windows::core::Interface;
 use tauri::webview::{NewWindowResponse, WebviewBuilder};
 use tauri::WebviewUrl;
 use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, State};
-use webview2_com::{take_pwstr, DownloadStartingEventHandler, NavigationStartingEventHandler, StateChangedEventHandler};
+use webview2_com::{
+    take_pwstr, DownloadStartingEventHandler, NavigationStartingEventHandler,
+    PermissionRequestedEventHandler, StateChangedEventHandler,
+};
 
 /// The origin grant per webview id, armed by the last act-capable CDP call
 /// the daemon relayed (tier act/full carries the agent's domain table).
@@ -29,6 +32,13 @@ fn grants() -> &'static Mutex<HashMap<String, Vec<String>>> {
 use webview2_com::Microsoft::Web::WebView2::Win32::{
     ICoreWebView2DevToolsProtocolEventReceiver, COREWEBVIEW2_DOWNLOAD_STATE,
     COREWEBVIEW2_DOWNLOAD_STATE_COMPLETED, COREWEBVIEW2_DOWNLOAD_STATE_INTERRUPTED,
+    COREWEBVIEW2_PERMISSION_KIND, COREWEBVIEW2_PERMISSION_KIND_AUTOPLAY,
+    COREWEBVIEW2_PERMISSION_KIND_CAMERA, COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ,
+    COREWEBVIEW2_PERMISSION_KIND_FILE_READ_WRITE, COREWEBVIEW2_PERMISSION_KIND_GEOLOCATION,
+    COREWEBVIEW2_PERMISSION_KIND_LOCAL_FONTS, COREWEBVIEW2_PERMISSION_KIND_MICROPHONE,
+    COREWEBVIEW2_PERMISSION_KIND_MIDI_SYSTEM_EXCLUSIVE_MESSAGES,
+    COREWEBVIEW2_PERMISSION_KIND_NOTIFICATIONS, COREWEBVIEW2_PERMISSION_KIND_OTHER_SENSORS,
+    COREWEBVIEW2_PERMISSION_STATE_ALLOW, COREWEBVIEW2_PERMISSION_STATE_DENY,
 };
 
 #[derive(Default)]
@@ -215,6 +225,7 @@ fn ensure(app: &AppHandle, id: &str, url: &str) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     attach_navigation_gate(app, id);
     attach_download_handler(app, id);
+    attach_permission_handler(app, id);
     apply_autofill(app, id);
     Ok(())
 }
@@ -970,5 +981,112 @@ fn attach_download_handler(app: &AppHandle, id: &str) {
         }));
         let mut token: i64 = 0;
         let _ = core4.add_DownloadStarting(&handler, &mut token);
+    });
+}
+
+// --- site permissions (slice 3, Browser permissions) ------------------------
+
+// The policy the user set per kind, in the Settings dialog: kind name →
+// allow. A kind with no entry follows the platform's own default (which is
+// to deny). The prompt ("ask") lands with the Site settings dialog; until
+// then a request without a policy is answered the way an unhandled request
+// always was, and the outcome is reported so the dialog can show it.
+fn permission_policy() -> &'static Mutex<std::collections::HashMap<String, bool>> {
+    static POLICY: OnceLock<Mutex<std::collections::HashMap<String, bool>>> = OnceLock::new();
+    POLICY.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+}
+
+// The platform's kind as the daemon names it (the store's closed list).
+fn permission_kind_name(kind: i32) -> &'static str {
+    match kind {
+        x if x == COREWEBVIEW2_PERMISSION_KIND_CAMERA.0 => "camera",
+        x if x == COREWEBVIEW2_PERMISSION_KIND_MICROPHONE.0 => "microphone",
+        x if x == COREWEBVIEW2_PERMISSION_KIND_GEOLOCATION.0 => "location",
+        x if x == COREWEBVIEW2_PERMISSION_KIND_NOTIFICATIONS.0 => "notifications",
+        x if x == COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ.0 => "clipboard",
+        x if x == COREWEBVIEW2_PERMISSION_KIND_AUTOPLAY.0 => "autoplay",
+        x if x == COREWEBVIEW2_PERMISSION_KIND_OTHER_SENSORS.0 => "sensors",
+        x if x == COREWEBVIEW2_PERMISSION_KIND_MIDI_SYSTEM_EXCLUSIVE_MESSAGES.0 => "midi",
+        x if x == COREWEBVIEW2_PERMISSION_KIND_LOCAL_FONTS.0 => "fonts",
+        x if x == COREWEBVIEW2_PERMISSION_KIND_FILE_READ_WRITE.0 => "filesystem",
+        _ => "unknown",
+    }
+}
+
+// What the user decided for a kind: allow, deny, or the platform default.
+#[tauri::command]
+pub async fn btab_set_permission_policy(kind: String, state: String) -> Result<(), String> {
+    let kind = kind.trim().to_lowercase();
+    if kind.is_empty() {
+        return Err("a permission kind is required".into());
+    }
+    let mut policy = permission_policy().lock().unwrap();
+    match state.trim().to_lowercase().as_str() {
+        "allow" => {
+            policy.insert(kind, true);
+        }
+        "deny" => {
+            policy.insert(kind, false);
+        }
+        "default" => {
+            policy.remove(&kind);
+        }
+        other => return Err(format!("{other:?} is not a permission state")),
+    }
+    Ok(())
+}
+
+// Every tab answers permission requests from that policy and reports the
+// outcome, so the Site settings dialog can list what each site got.
+fn attach_permission_handler(app: &AppHandle, id: &str) {
+    let Some(wv) = app.get_webview(label(id).as_str()) else {
+        return;
+    };
+    let emitter = app.clone();
+    let _ = wv.with_webview(move |platform| unsafe {
+        let Ok(core) = platform.controller().CoreWebView2() else {
+            return;
+        };
+        let handler = PermissionRequestedEventHandler::create(Box::new(move |_, args| {
+            let Some(args) = args else {
+                return Ok(());
+            };
+            let mut kind = COREWEBVIEW2_PERMISSION_KIND(0);
+            let _ = args.PermissionKind(&mut kind);
+            let name = permission_kind_name(kind.0);
+            let origin = {
+                let mut value = windows::core::PWSTR::null();
+                if args.Uri(&mut value).is_ok() {
+                    take_pwstr(value)
+                } else {
+                    String::new()
+                }
+            };
+            let decided = permission_policy().lock().unwrap().get(name).copied();
+            let allow = match decided {
+                Some(v) => {
+                    let _ = args.SetState(if v {
+                        COREWEBVIEW2_PERMISSION_STATE_ALLOW
+                    } else {
+                        COREWEBVIEW2_PERMISSION_STATE_DENY
+                    });
+                    v
+                }
+                // No policy: the request falls through to the platform's own
+                // default, which denies. Reported so it is visible.
+                None => false,
+            };
+            let _ = emitter.emit(
+                "btab://permission",
+                serde_json::json!({
+                    "origin": origin,
+                    "kind": name,
+                    "decision": if allow { "allow" } else { "deny" },
+                }),
+            );
+            Ok(())
+        }));
+        let mut token: i64 = 0;
+        let _ = core.add_PermissionRequested(&handler, &mut token);
     });
 }

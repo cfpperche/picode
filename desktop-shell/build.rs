@@ -25,6 +25,7 @@ fn main() {
             "btab_set_ask_download",
             "btab_open_path",
             "btab_reveal_path",
+            "btab_set_permission_policy",
             "lab_open",
             "lab_navigate",
             "lab_back",
