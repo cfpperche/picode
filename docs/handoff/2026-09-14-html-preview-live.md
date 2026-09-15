@@ -17,8 +17,7 @@ the 390×844 mobile frame; `big.html` (1.1 MiB) preview-only on both; empty
 state unchanged; every screenshot read; `__picodeOverlayAudit()` ok.
 visual-review: PASS (card 5/5)
 Not done: unsaved-editor-text preview (v1.5 remainder), v2 (its own ADR).
-QA: the first agent-browser session wedged after the first live reload;
-`close --all` + a fresh session recovered it — SSE emitted 0 spurious events.
+QA: the first agent-browser session wedged after the first live reload; `close --all` + a fresh session recovered it (0 spurious SSE events).
 Merge: fast-forward ready, pending the owner's review.
 
 ## Next up
