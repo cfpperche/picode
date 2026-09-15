@@ -433,8 +433,12 @@ export default function Inspector({
           ) : null}
         </div>
       </header>
-      {owner || panel === "servers" ? (
-        <div className="insp-tabs-row">
+      {/* The row always renders, owner or not: Servers is about this
+          machine, not about the anchor (a dev server exists whether or not
+          an agent is selected), so it must not hide behind one. With no
+          owner the row is Files + Servers, and Files carries the "open an
+          agent or terminal" message — one click away either way. */}
+      <div className="insp-tabs-row">
           <nav className="insp-tabs" role="tablist" aria-label="Inspector view" onKeyDown={onTabKey}>
             {status.git ? (
               <button type="button" role="tab" className="ft-tab" data-panel="changes" tabIndex={panel === "changes" ? 0 : -1} aria-selected={panel === "changes"} onClick={() => onTab("changes")}>
@@ -457,7 +461,6 @@ export default function Inspector({
             </span>
           ) : root && !status.git && !gone ? <span className="insp-branch insp-branch-none">Not a git repository</span> : null}
         </div>
-      ) : null}
       {blocked ? (
         <p className="insp-notice" role="status">
           <span>{blockedMessage(anchorKind, blocked.cwd)}</span>

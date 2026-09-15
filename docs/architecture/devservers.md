@@ -75,7 +75,12 @@ webview instead.
 
 Two smaller things the same door needed: the tab strip now receives `webTabs`
 (it never had, so every web tab read "New tab"), and opening a row carries the
-page's title so the tab is named before anything reports back.
+page's title so the tab is named before anything reports back. The tab itself is reachable
+with **no anchor at all**: the rail's row used to render only with an owner,
+so the empty state ("Open an agent or terminal to inspect its files.") had no
+way to Servers. Now the row always renders — the no-owner rail is Files +
+Servers, and Files keeps that message — because what listens on this machine
+does not depend on what is selected.
 
 **Both shells carry it, because they are one app.** `/browser/` (the desktop
 layout a browser opens) and `/desktop/` (the composition the Windows shell
