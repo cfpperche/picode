@@ -16,11 +16,11 @@ import (
 	"time"
 )
 
-// TestMain doubles as a disposable tray-shaped process for the real scheduler.
-// Only a copy in a test directory containing its control file accepts --tray.
-// It never imports the production tray or starts WSL.
+// TestMain doubles as a disposable resident-shaped process for the real scheduler.
+// Only a copy in a test directory containing its control file accepts --hidden.
+// It never imports the production resident or starts WSL.
 func TestMain(m *testing.M) {
-	if len(os.Args) == 2 && os.Args[1] == "--tray" {
+	if len(os.Args) == 2 && os.Args[1] == "--hidden" {
 		exe, err := os.Executable()
 		if err != nil {
 			os.Exit(10)
@@ -116,7 +116,7 @@ func TestWindowsTaskPolicyRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := nativeTaskRunner{}
-	s, err := taskOperation(r, "install", name, exe)
+	s, err := taskOperation(r, "install", name, exe, ShellArgs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,17 +156,17 @@ func TestWindowsTaskPolicyRoundTrip(t *testing.T) {
 	taskNativeScript(t, name, "$d = $folder.GetTask($name).Definition; $d.Actions.Item(1).Arguments = 'version'; "+
 		"$folder.RegisterTaskDefinition($name, $d, 4, $null, $null, 3, $null) | Out-Null")
 	before = taskPreservedFields(t, name)
-	if _, err := taskOperation(r, "repair", name, ""); err == nil {
-		t.Fatal("write boundary accepted a non-tray action")
+	if _, err := taskOperation(r, "repair", name, "", ""); err == nil {
+		t.Fatal("write boundary accepted a non-resident action")
 	}
 	if after := taskPreservedFields(t, name); !reflect.DeepEqual(before, after) {
 		t.Fatal("refused repair changed the task")
 	}
-	missing, err := taskOperation(r, "inspect", name+"-missing", "")
+	missing, err := taskOperation(r, "inspect", name+"-missing", "", "")
 	if err != nil || missing.Exists {
 		t.Fatalf("missing task: %+v, %v", missing, err)
 	}
-	if _, err := taskOperation(r, "repair", name+"-missing", ""); err == nil {
+	if _, err := taskOperation(r, "repair", name+"-missing", "", ""); err == nil {
 		t.Fatal("repair created a missing task")
 	}
 }
@@ -182,7 +182,7 @@ func TestWindowsTaskRetargetRoundTrip(t *testing.T) {
 	}
 	name := "PiCodeDesktop-test-" + rand.Text()
 	r := nativeTaskRunner{}
-	if _, err := taskOperation(r, "install", name, oldExe); err != nil {
+	if _, err := taskOperation(r, "install", name, oldExe, ShellArgs); err != nil {
 		t.Fatal(err)
 	}
 	registerTaskCleanup(t, name)
@@ -253,7 +253,7 @@ func TestWindowsTaskLaunchRetryAndQuit(t *testing.T) {
 	writeCommand("wait")
 	name := "PiCodeDesktop-test-" + rand.Text()
 	r := nativeTaskRunner{}
-	if _, err := taskOperation(r, "install", name, exe); err != nil {
+	if _, err := taskOperation(r, "install", name, exe, ShellArgs); err != nil {
 		t.Fatal(err)
 	}
 	registerTaskCleanup(t, name)
@@ -283,7 +283,7 @@ func TestWindowsTaskLaunchRetryAndQuit(t *testing.T) {
 		"$trigger.ExecutionTimeLimit = 'PT0S'; $trigger.Enabled = $true; "+
 		"$folder.RegisterTaskDefinition($name, $d, 4, $null, $null, 3, $null) | Out-Null")
 	waitFor("missing executable result", 20*time.Second, func() bool {
-		s, err := taskOperation(r, "inspect", name, "")
+		s, err := taskOperation(r, "inspect", name, "", "")
 		return err == nil && uint32(s.LastResult) == 0x80070002
 	})
 	if runs() != 0 {
@@ -303,7 +303,7 @@ func TestWindowsTaskLaunchRetryAndQuit(t *testing.T) {
 	t.Log("single instance verified; asking the disposable helper to Quit with status zero")
 	writeCommand("quit")
 	waitFor("normal exit", 15*time.Second, func() bool {
-		s, err := taskOperation(r, "inspect", name, "")
+		s, err := taskOperation(r, "inspect", name, "", "")
 		return err == nil && s.State == 3 && s.LastResult == 0
 	})
 	// Observe beyond the configured restart interval, not just two happy clicks.
@@ -321,7 +321,7 @@ func TestWindowsTaskLaunchRetryAndQuit(t *testing.T) {
 	waitFor("manual restart after Quit", 15*time.Second, func() bool { return runs() == 2 })
 	writeCommand("crash")
 	waitFor("runtime failure recorded", 15*time.Second, func() bool {
-		s, err := taskOperation(r, "inspect", name, "")
+		s, err := taskOperation(r, "inspect", name, "", "")
 		return err == nil && s.State == 3 && s.LastResult == 1
 	})
 }

@@ -117,8 +117,8 @@ func TestInspectTaskBoundary(t *testing.T) {
 }
 
 func TestTaskArgumentsQuoteDataAndCarryCompletePolicy(t *testing.T) {
-	path := `C:\Users\O'Brien\工具 $value\picode-desktop.exe`
-	args := taskArgs("install", TaskName, path)
+	path := `C:\Users\O'Brien\工具 $value\picode-shell.exe`
+	args := taskArgs("install", TaskName, path, ShellArgs)
 	if len(args) != 4 || args[0] != "-NoProfile" || args[1] != "-NonInteractive" || args[2] != "-EncodedCommand" {
 		t.Fatalf("unexpected PowerShell arguments: %v", args[:3])
 	}
@@ -131,7 +131,7 @@ func TestTaskArgumentsQuoteDataAndCarryCompletePolicy(t *testing.T) {
 		units[i] = binary.LittleEndian.Uint16(b[i*2:])
 	}
 	script := string(utf16.Decode(units))
-	if !strings.HasSuffix(script, "-Operation 'install' -Name 'PiCodeDesktop' -ExecutablePath 'C:\\Users\\O''Brien\\工具 $value\\picode-desktop.exe'") {
+	if !strings.HasSuffix(script, "-Operation 'install' -Name 'PiCodeDesktop' -ExecutablePath 'C:\\Users\\O''Brien\\工具 $value\\picode-shell.exe' -Arguments '--hidden'") {
 		t.Fatalf("path was not kept literal: %s", script[len(taskScript):])
 	}
 	for _, policy := range []string{
@@ -140,7 +140,8 @@ func TestTaskArgumentsQuoteDataAndCarryCompletePolicy(t *testing.T) {
 		"RunOnlyIfNetworkAvailable = $false", "StopOnIdleEnd = $false",
 		"RestartCount = 3", "RestartInterval = 'PT1M'", "MultipleInstances = 2",
 		"Principal.LogonType = 3", "Principal.RunLevel = 0", "Triggers.Create(9)",
-		"$trigger.UserId = $currentSid", "$action.Arguments = '--tray'",
+		"$trigger.UserId = $currentSid", "$action.Arguments = $Arguments",
+		"'Install registers the shell resident (--hidden).'",
 	} {
 		if !strings.Contains(script, policy) {
 			t.Errorf("complete policy missing %s", policy)
@@ -194,7 +195,7 @@ func TestTaskWritesMustVerifyTheReturnedPolicy(t *testing.T) {
 			r := &fakeRunner{replies: [][]byte{taskJSON(t, legacy), taskJSON(t, legacy)}}
 			var err error
 			if name == "install" {
-				_, err = InstallTask(r, legacy.Executable)
+				_, err = InstallTask(r, legacy.Executable, ShellArgs)
 			} else {
 				_, err = RepairTask(r)
 			}
@@ -205,8 +206,17 @@ func TestTaskWritesMustVerifyTheReturnedPolicy(t *testing.T) {
 	}
 	s := healthyTask()
 	s.Enabled = false
-	if _, err := InstallTask(&fakeRunner{replies: [][]byte{taskJSON(t, s)}}, s.Executable); err == nil {
+	if _, err := InstallTask(&fakeRunner{replies: [][]byte{taskJSON(t, s)}}, s.Executable, ShellArgs); err == nil {
 		t.Fatal("install claimed success for a disabled task")
+	}
+}
+
+func TestInstallTaskRefusesANewTray(t *testing.T) {
+	r := &fakeRunner{}
+	if _, err := InstallTask(r, `C:\PiCode\picode-desktop.exe`, TrayArgs); err == nil {
+		t.Fatal("install registered the retired tray")
+	} else if len(r.calls) != 0 {
+		t.Fatalf("refused install still called the runner %d time(s)", len(r.calls))
 	}
 }
 
@@ -345,7 +355,7 @@ func decodeTaskCall(t *testing.T, argv []string) string {
 
 func TestRetargetArgsCarryTargetAndGuards(t *testing.T) {
 	exe := `C:\Users\owner\PiCode\picode-shell.exe`
-	script := decodeTaskCall(t, taskRetargetArgs(TaskName, exe, ShellArgs))
+	script := decodeTaskCall(t, taskArgs("retarget", TaskName, exe, ShellArgs))
 	if !strings.HasSuffix(script, "-Operation 'retarget' -Name 'PiCodeDesktop' -ExecutablePath 'C:\\Users\\owner\\PiCode\\picode-shell.exe' -Arguments '--hidden'") {
 		t.Fatalf("retarget call was not complete: %s", script[len(taskScript):])
 	}

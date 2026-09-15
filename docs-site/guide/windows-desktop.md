@@ -5,8 +5,12 @@ description: Start PiCode Desktop at Windows sign-in, inspect its task and repai
 # PiCode Desktop on Windows
 
 PiCode Desktop starts at Windows sign-in and places an icon in the notification
-area. The PiCode server runs inside WSL. The tray opens PiCode in your browser,
-reports whether the server answers, and holds WSL open while it runs.
+area. The PiCode server runs inside WSL. The shell holds WSL open while it
+runs, reports whether the server answers, and opens PiCode in its own window.
+
+Closing the window only hides it — the tray icon keeps the service running.
+Reopen the shell and work resumes where it was. **Quit**, in the tray menu,
+is what actually ends the resident.
 
 ## Check startup
 
@@ -30,11 +34,11 @@ includes the same task checks alongside the broader installation checks.
 | Different account, command, or missing executable | Inspect the registration before reinstalling. Repair will not replace it silently. |
 | Access or inspection error | Check task permissions. An unreadable task is not reported as missing. |
 
-A last result is historical information, not proof of why the tray stopped.
+A last result is historical information, not proof of why the shell stopped.
 
 ## Repair an existing task
 
-Upgrade the installed tray executable first. Older builds could incorrectly
+Upgrade PiCode Desktop first. Older builds could incorrectly
 report an error after a normal Quit.
 
 ```powershell
@@ -45,10 +49,10 @@ report an error after a normal Quit.
 Repair backs up the task definition under
 `%LOCALAPPDATA%\PiCode\task-backups` and updates only its runtime policy.
 It preserves the registered program, account, sign-in triggers and whether
-startup is enabled. It does not restart the tray, server, agents or terminals;
+startup is enabled. It does not restart the shell, server, agents or terminals;
 it does not set up WSL again or change certificate trust.
 
-Windows may ask for administrator approval for an existing task. The tray
+Windows may ask for administrator approval for an existing task. The shell
 itself still runs without administrator privileges. Approving the prompt is
 not the final result: run `startup-check` again after repair finishes.
 
@@ -58,32 +62,32 @@ not the final result: run `startup-check` again after repair finishes.
 - Has no time limit and no battery, idle or network conditions.
 - Ignores a second task launch while that task is already running.
 - Requests up to three retries for failures to launch, one minute apart.
-- Does not retry a normal **Quit** in the updated tray.
+- Does not retry a normal **Quit**.
 
 Task settings alone do not upgrade an already running executable. After an
-upgrade, restart the tray to load the new program. Repository developers use
-`make desktop-restart`; do not launch the tray in the background from WSL.
+upgrade, restart the shell to load the new program. Repository developers use
+`make desktop-restart`; do not launch the shell in the background from WSL.
 
 ## Availability limits
 
 The Task Scheduler retry setting is not a general crash supervisor: a process
 that starts and later exits with an error may remain stopped. Use the task's
-last result for diagnosis, then explicitly reopen the tray when appropriate.
+last result for diagnosis, then explicitly reopen the shell when appropriate.
 
-The tray still owns the process that keeps WSL active. If the tray ends, WSL
+The shell still owns the process that keeps WSL active. If the shell ends, WSL
 may shut down when idle. Even a successful launch retry takes at least one
 minute; existing agents and terminals are not guaranteed to survive that gap.
 The Windows task does not turn PiCode into a machine-wide service independent
 of sign-in. See Microsoft's [restart semantics](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-tsch/2ff4aa5a-7bc4-449f-bbb1-27475645867f).
 
-**Quit** closes the tray without explicitly stopping the PiCode service, but
-also releases the process that holds WSL open. Closing only the browser leaves the tray and
-agents running. See [getting started](/guide/getting-started) for installation
-inside Linux or WSL.
+**Quit** closes the shell without explicitly stopping the PiCode service, but
+also releases the process that holds WSL open. Closing only the window leaves
+the resident and agents running. See [getting started](/guide/getting-started)
+for installation inside Linux or WSL.
 
 ## See what the disk is doing
 
-The tray keeps one line about the disk, refreshed every five minutes:
+The tray icon keeps one line about the disk, refreshed every five minutes:
 
 ```
 WSL 218 GB · ≈92 GB held by Windows · C: 27 GB free
@@ -113,8 +117,8 @@ Inside Ubuntu
   biggest                  Go build cache 30 GB · npm cache 5.8 GB · Go module cache 2.1 GB
 ```
 
-Measuring starts the distro if it was stopped — the tray keeps it up anyway,
-but a laptop where you quit the tray will see WSL boot under the command.
+Measuring starts the distro if it was stopped — the shell keeps it up anyway,
+but a laptop where you quit the shell will see WSL boot under the command.
 
 **Held for nothing** is the number Windows cannot show you anywhere: space the
 distro has already freed that the disk file still occupies. WSL gives it back
@@ -124,7 +128,7 @@ also keeps that space.
 
 ### Give the space back
 
-When there is something to give back, the tray offers it: **Give back ≈92 GB…**
+When there is something to give back, the tray menu offers it: **Give back ≈92 GB…**
 under the disk line. Choosing it
 
 1. asks PiCode whether anyone is working — the same check `picode deploy` uses;

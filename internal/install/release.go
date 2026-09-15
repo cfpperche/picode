@@ -93,7 +93,17 @@ func LatestRelease() (Release, error) {
 // picode-desktop.exe — can share the same release and the same update check
 // instead of growing its own copy of this code.
 func LatestReleaseFor(want string) (Release, error) {
-	url := APIRoot + "/repos/" + ReleaseRepo + "/releases/latest"
+	return fetchRelease(APIRoot+"/repos/"+ReleaseRepo+"/releases/latest", want)
+}
+
+// ReleaseByTag is LatestReleaseFor pinned to one tag, so an install stages
+// the shell from its own release instead of whatever is latest — the pair
+// that ships together stays the pair that runs together.
+func ReleaseByTag(tag, want string) (Release, error) {
+	return fetchRelease(APIRoot+"/repos/"+ReleaseRepo+"/releases/tags/"+tag, want)
+}
+
+func fetchRelease(url, want string) (Release, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return Release{}, err

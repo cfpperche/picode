@@ -20,8 +20,8 @@ text, optional screenshot. The agent is the one you already created.
 picode extension-install
 ```
 
-Chrome on Windows with PiCode inside WSL — the tray binary cannot be the
-host (it is a GUI program). `make desktop` builds a console sibling,
+Chrome on Windows with PiCode inside WSL — the tool binary cannot be the
+host (it links as a GUI program). `make desktop` builds a console sibling,
 `picode-nmh.exe`. Then:
 
 ```text

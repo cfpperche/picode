@@ -172,7 +172,7 @@ For any UI work:
 | `make worktree-status` | What is actually in flight: branch, ahead/behind, dirty files, last commit, last green run |
 | `make worktree-gc` | Remove merged, clean, idle worktrees |
 | `make cert-timer` | Install the weekly certificate check (systemd --user) |
-| `make desktop-restart` | Swap the Windows tray + native-host exes and relaunch via the logon task — the only supported restart; never background a Windows exe from WSL |
+| `make desktop-restart` | Swap the Windows tool + native-host + shell exes and relaunch the resident via the logon task — the only supported restart; never background a Windows exe from WSL |
 
 ## Rules for the agent itself
 

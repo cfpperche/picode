@@ -17,12 +17,9 @@ func TaskDeleteArgs() []string {
 	return []string{"/delete", "/tn", TaskName, "/f"}
 }
 
-// KeepaliveArgs holds the distro open. WSL shuts an idle VM down (vmIdleTimeout
-// defaults to 60s), and setting that to -1 is reported as unreliable across
-// Windows builds — a live child process is the deterministic answer.
-func KeepaliveArgs(distro string) []string {
-	return WSLArgs(distro, "", "/bin/sleep", "infinity")
-}
+// The distro keepalive (`wsl.exe -d <distro> -- /bin/sleep infinity`,
+// supervised so it cannot outlive its owner) lives in the shell resident
+// since ADR-0142; the Go side keeps no copy of that argv.
 
 // CACountArgs counts mkcert roots already trusted by this machine. Import is
 // gated on this so a logon does not re-import the CA every time.

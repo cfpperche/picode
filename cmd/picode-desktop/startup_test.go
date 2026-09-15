@@ -129,18 +129,6 @@ func TestStartupRepairRetarget(t *testing.T) {
 	}
 }
 
-func TestTrayResultDecisionTable(t *testing.T) {
-	setupErr := errors.New("distro not found")
-	for _, err := range []error{nil, setupErr} {
-		for _, quit := range []bool{false, true} {
-			got := trayResult(err, quit)
-			if quit && got != nil || !quit && got != err {
-				t.Fatalf("setup=%v quit=%v returned %v", err, quit, got)
-			}
-		}
-	}
-}
-
 // Regression: exit(nil) previously returned to the unknown-command branch,
 // making a normal tray Quit incorrectly report exit status 2.
 func TestCommandExitDoesNotFallThrough(t *testing.T) {

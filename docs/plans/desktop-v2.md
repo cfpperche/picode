@@ -29,9 +29,11 @@ truth; the shell is a client and a supervisor, never a second backend.
   `disk-compact --yes --json` (readiness interlock + stop/convert/start, the
   Go path verified live) with plan/running/measured in the window;
   **`--json` added to disk-compact** (Go, additive). **Rejected in review**
-  (owner): porting the keepalive to Rust and retiring the Go tray — the two
-  coexist, amending ADR-0120's "supervisor" wording (client + subprocess
-  orchestrator). Sessions: A — Overview (this branch); B — Give back in the
+  (owner, 2026-09-11): porting the keepalive to Rust and retiring the Go tray —
+  the two coexist, amending ADR-0120's "supervisor" wording (client +
+  subprocess orchestrator). **Reversed 2026-09-15 by ADR-0142**: the keepalive
+  was ported, the Go tray deleted, and the shell is the only resident.
+  Sessions: A — Overview (this branch); B — Give back in the
   window; C — `picode clean` prunes + `.wslconfig` editing.
 - **Phase 3 — Embedded Work Browser (owner-corrected 2026-09-13):** not an
   external Chrome — a **browser panel embedded in the shell** (child
@@ -66,7 +68,7 @@ truth; the shell is a client and a supervisor, never a second backend.
 | xterm.js/WebGL in WebView2 | Terminal render with and without acceleration |
 | Feed SSE in webview | Live feed for 30 minutes |
 | Pairing in the embedded profile | QR/token once; session persists under `%LOCALAPPDATA%` |
-| Duplicated keepalive during transition | Go tray and shell coexist; one-wins in Phase 2 |
+| Duplicated keepalive during transition | **RESOLVED 2026-09-15 (ADR-0142):** the shell won; the Go tray is deleted. |
 
 ## Spike run — 2026-09-11 (evidence + owner checklist)
 
@@ -265,7 +267,7 @@ editor refetches. **Slice 4 is complete.**
 
 ## Conscious debt
 
-- Optimize-VHD from the tray/app (needs an elevation design).
+- Optimize-VHD from the shell tray/menu (needs an elevation design).
 - Taskbar identity for the managed Work Browser (it is Chrome's icon).
 - Icon resolution: the shell's `icons/icon.ico` now carries 16–256 px
   (tools/mkicon.go, the shell variant of the tray generator) — the v1 tray

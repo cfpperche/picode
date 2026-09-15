@@ -144,7 +144,10 @@ try {
             }
         } else {
             if (-not [IO.Path]::IsPathRooted($ExecutablePath) -or -not (Test-Path -LiteralPath $ExecutablePath -PathType Leaf)) {
-                throw 'The tray executable must be an existing absolute file path.'
+                throw 'The resident executable must be an existing absolute file path.'
+            }
+            if ($Arguments -ne '--hidden') {
+                throw 'Install registers the shell resident (--hidden).'
             }
             $definition = $service.NewTask(0)
             $definition.RegistrationInfo.Description = 'PiCode Desktop: start at sign-in with bounded launch retries.'
@@ -157,7 +160,7 @@ try {
             $trigger.ExecutionTimeLimit = 'PT0S'
             $action = $definition.Actions.Create(0)
             $action.Path = $ExecutablePath
-            $action.Arguments = '--tray'
+            $action.Arguments = $Arguments
             $definition.Settings.Enabled = $true
         }
         ApplyPolicy $definition.Settings

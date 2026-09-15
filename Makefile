@@ -157,7 +157,7 @@ cert-timer: ## Install the weekly certificate check (systemd --user)
 build: web ## Build UI + bin/picode (embeds the UI — ADR-0023)
 	go build -tags embedui -o bin/picode ./cmd/picode
 
-desktop: ## Cross-compile the Windows tray + console native host (ADR-0020 / 0043)
+desktop: ## Cross-compile the Windows boundary tool + console native host (ADR-0020 / 0043)
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
 		go build -ldflags "-H=windowsgui -s -w" -o bin/picode-desktop.exe ./cmd/picode-desktop
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \

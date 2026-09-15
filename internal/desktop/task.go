@@ -112,11 +112,17 @@ func TaskAccessDenied(err error) bool {
 	return errors.As(err, &taskErr) && uint32(taskErr.Code) == 0x80070005
 }
 
-func InspectTask(r Runner) (TaskStatus, error) { return taskOperation(r, "inspect", TaskName, "") }
+func InspectTask(r Runner) (TaskStatus, error) { return taskOperation(r, "inspect", TaskName, "", "") }
 
 // InstallTask registers the whole policy in one write, then verifies it.
-func InstallTask(r Runner, exe string) (TaskStatus, error) {
-	s, err := taskOperation(r, "install", TaskName, exe)
+// A fresh registration always points at the shell resident (ADR-0142);
+// resurrecting the retired tray as a new task is refused here and at the
+// write boundary alike.
+func InstallTask(r Runner, exe, args string) (TaskStatus, error) {
+	if args != ShellArgs {
+		return TaskStatus{}, fmt.Errorf("install registers the shell resident (%s); got %q", ShellArgs, args)
+	}
+	s, err := taskOperation(r, "install", TaskName, exe, args)
 	if err == nil {
 		err = s.verifyPolicy()
 		if err == nil && !s.Enabled {
@@ -153,7 +159,7 @@ func retargetTask(r Runner, name, exe, args string) (TaskStatus, error) {
 	if st, err := os.Stat(exe); err != nil || st.IsDir() {
 		return TaskStatus{}, fmt.Errorf("the resident executable is missing: %s", exe)
 	}
-	before, err := taskOperation(r, "inspect", name, "")
+	before, err := taskOperation(r, "inspect", name, "", "")
 	if err != nil {
 		return before, err
 	}
@@ -169,13 +175,13 @@ func retargetTask(r Runner, name, exe, args string) (TaskStatus, error) {
 		if len(before.PolicyIssues()) == 0 {
 			return before, nil
 		}
-		s, err := taskOperation(r, "repair", name, "")
+		s, err := taskOperation(r, "repair", name, "", "")
 		if err == nil {
 			err = s.verifyPolicy()
 		}
 		return s, err
 	}
-	s, err := taskRetargetOperation(r, name, exe, args)
+	s, err := taskOperation(r, "retarget", name, exe, args)
 	if err == nil {
 		err = s.verifyPolicy()
 	}
@@ -183,7 +189,7 @@ func retargetTask(r Runner, name, exe, args string) (TaskStatus, error) {
 }
 
 func repairTask(r Runner, name string) (TaskStatus, error) {
-	before, err := taskOperation(r, "inspect", name, "")
+	before, err := taskOperation(r, "inspect", name, "", "")
 	if err != nil {
 		return before, err
 	}
@@ -193,19 +199,15 @@ func repairTask(r Runner, name string) (TaskStatus, error) {
 	if !before.CanRepair() {
 		return before, fmt.Errorf("startup task cannot be repaired safely; inspect its registration before running picode-desktop install")
 	}
-	s, err := taskOperation(r, "repair", name, "")
+	s, err := taskOperation(r, "repair", name, "", "")
 	if err == nil {
 		err = s.verifyPolicy()
 	}
 	return s, err
 }
 
-func taskOperation(r Runner, operation, name, exe string) (TaskStatus, error) {
-	return runTaskCall(r, taskArgs(operation, name, exe), operation)
-}
-
-func taskRetargetOperation(r Runner, name, exe, args string) (TaskStatus, error) {
-	return runTaskCall(r, taskRetargetArgs(name, exe, args), "retarget")
+func taskOperation(r Runner, operation, name, exe, args string) (TaskStatus, error) {
+	return runTaskCall(r, taskArgs(operation, name, exe, args), operation)
 }
 
 func runTaskCall(r Runner, argv []string, operation string) (TaskStatus, error) {
@@ -252,15 +254,7 @@ func (s TaskStatus) CanRetarget() bool {
 		s.Interactive && s.Limited && s.Logon && !s.TriggerLimited
 }
 
-func taskArgs(operation, name, exe string) []string {
-	return taskCallArgs(operation, name, exe, "")
-}
-
-func taskRetargetArgs(name, exe, args string) []string {
-	return taskCallArgs("retarget", name, exe, args)
-}
-
-func taskCallArgs(operation, name, exe, args string) []string {
+func taskArgs(operation, name, exe, args string) []string {
 	quote := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
 	script := "& {\n" + taskScript + "\n} -Operation " + quote(operation) +
 		" -Name " + quote(name) + " -ExecutablePath " + quote(exe)
@@ -290,11 +284,11 @@ func (s TaskStatus) PolicyIssues() []string {
 		{s.Logon, "an enabled sign-in trigger is missing"},
 		{!s.TriggerLimited, "a startup trigger has its own execution limit"},
 		{s.Executable != "" && ResidentKind(s.Arguments) != "", "startup command is not a single resident launch"},
-		{s.ExecutableExists, "registered tray executable is missing"},
+		{s.ExecutableExists, "registered resident executable is missing"},
 		{s.ExecutionTimeLimit == "PT0S", "execution limit is " + s.ExecutionTimeLimit + " (expected no limit)"},
-		{!s.DisallowStartIfOnBatteries && !s.StopIfGoingOnBatteries, "battery conditions can stop or block the tray"},
+		{!s.DisallowStartIfOnBatteries && !s.StopIfGoingOnBatteries, "battery conditions can stop or block the resident"},
 		{!s.RunOnlyIfIdle && !s.StopOnIdleEnd, "idle settings differ from the resident-task policy"},
-		{!s.RunOnlyIfNetworkAvailable, "a network condition can block the tray"},
+		{!s.RunOnlyIfNetworkAvailable, "a network condition can block the resident"},
 		{s.MultipleInstances == 2, "duplicate task launches are not ignored"},
 		{s.RestartCount == 3 && s.RestartInterval == "PT1M", "launch retry policy is not three retries one minute apart"},
 	}

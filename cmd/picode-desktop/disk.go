@@ -99,7 +99,7 @@ func distroReport(r desktop.Runner, distro, user string) (hostfs.Report, error) 
 	return rep, nil
 }
 
-// distroUsed reads one number, the way the tray needs it: a df inside the
+// distroUsed reads one number, the way the disk line needs it: a df inside the
 // distro, without walking a single directory.
 func distroUsed(r desktop.Runner, distro, user string) (int64, error) {
 	out, err := r.Output(desktop.WSLExe, desktop.WSLArgs(distro, user, "df", "-B1", "--output=size,used,avail,target")...)
@@ -181,7 +181,7 @@ func driveOf(path string) string {
 	return "C"
 }
 
-// The two numbers that make a tray line worth reading: a volume this close to
+// The two numbers that make the disk line worth reading: a volume this close to
 // full is one that starts refusing writes, and a file holding this much unused
 // space is worth one conversion.
 const (
@@ -192,8 +192,8 @@ const (
 	heldWorthTelling = 8 << 30 // 8 GiB
 )
 
-// diskLine is the tray's one line about the disk, and the pure half of the
-// tray update: the wording is tested here instead of discovered in a
+// diskLine is the one line about the disk, and its pure half: the wording is
+// tested here instead of discovered in a
 // screenshot nobody can take from CI.
 //
 // It returns the menu title and whether the wording is a warning. A line with

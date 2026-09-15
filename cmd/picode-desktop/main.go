@@ -1,6 +1,8 @@
-// picode-desktop is the Windows half of PiCode Desktop (ADR-0020). It brings
-// the WSL distro up at logon, drives `picode provision` inside it, and then
-// lives in the notification area so PiCode is one click away.
+// picode-desktop is the Windows/WSL boundary tool of PiCode Desktop
+// (ADR-0020): it provisions the distro, measures and compacts its disk,
+// and owns the logon task — headless, one command at a time. The shell
+// (picode-shell.exe) is the resident since ADR-0142: it holds WSL open,
+// keeps the tray, and drives this program as a subprocess tool.
 //
 // It owns only the Windows/WSL boundary. Everything inside the distro belongs
 // to `picode provision`, which is why this program never mentions systemd.
@@ -10,11 +12,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/cfpperche/picode/internal/browserhost"
 	"github.com/cfpperche/picode/internal/desktop"
+	"github.com/cfpperche/picode/internal/install"
 	"github.com/cfpperche/picode/internal/provision"
 	"github.com/cfpperche/picode/internal/version"
 )
@@ -41,7 +45,9 @@ func main() {
 	fs := flag.NewFlagSet("picode-desktop", flag.ExitOnError)
 	distro := fs.String("distro", "", "WSL distribution (default: the only WSL 2 one, else the default)")
 	user := fs.String("user", "", "Linux account to provision (default: the distro's own)")
-	tray := fs.Bool("tray", false, "run in the notification area (the logon task passes this)")
+	// Kept parsing so a pre-migration logon task fails with the retired
+	// message below instead of an unknown-flag dump.
+	tray := fs.Bool("tray", false, "retired with the Go tray (ADR-0142)")
 	asJSON := fs.Bool("json", false, "with `disk`: emit the measurement as JSON")
 	yes := fs.Bool("yes", false, "with disk-compact: stop the distro and compact without asking again")
 	dryRun := fs.Bool("dry-run", false, "with disk-compact: print the plan, stop nothing")
@@ -84,13 +90,24 @@ func main() {
 	case cmd == "help":
 		usage()
 	default:
-		if *tray || cmd == "" {
-			exit(runTray(*distro, *user))
+		if *tray {
+			exit(runRetiredTray())
+		}
+		if cmd == "" {
+			usage()
+			os.Exit(2)
 		}
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", cmd)
 		usage()
 		os.Exit(2)
 	}
+}
+
+// runRetiredTray is the kind failure mode for a logon task that still points
+// at the Go tray: loud, on stderr, with the repair named. The task retries a
+// failing launch three times and then stops — no retry storm.
+func runRetiredTray() error {
+	return fmt.Errorf("the Go tray retired (ADR-0142) — run `picode-desktop startup-repair --retarget-shell` to move startup to the shell")
 }
 
 // command is the first bare argument; flags may come before or after it.
@@ -117,10 +134,9 @@ func commandArgs() []string {
 }
 
 func usage() {
-	fmt.Println(`picode-desktop — PiCode in the Windows notification area (ADR-0020)
+	fmt.Println(`picode-desktop — the Windows/WSL boundary tool (ADR-0020, resident retired in ADR-0142)
 
 Usage:
-  picode-desktop                 run in the notification area
   picode-desktop doctor          report what setup would change, touch nothing
   picode-desktop disk            report both halves of the disk: Windows' file and the distro's use
   picode-desktop disk-compact    give the held space back: stop the distro, convert the file, start it again
@@ -129,7 +145,7 @@ Usage:
     --retarget-shell  move the task to the shell resident (ADR-0142) as well
   picode-desktop install         set the machine up and start with Windows
   picode-desktop uninstall       stop starting with Windows (PiCode stays installed)
-  picode-desktop update          replace this program with a newer release
+  picode-desktop update          replace the tool and the shell with a newer release
   picode-desktop extension-install    register the Chrome native host (ADR-0043)
   picode-desktop extension-uninstall  remove that host registration
   picode-desktop version         print this build's version
@@ -137,7 +153,6 @@ Usage:
 Flags:
   --distro string   WSL distribution (default: the only WSL 2 one, else the default)
   --user string     Linux account to provision (default: the distro's own)
-  --tray            run in the notification area (the logon task passes this)
   --json            with the disk command: emit the measurement as JSON
   --yes             with disk-compact: stop the distro and compact without asking again
   --dry-run         with disk-compact: print the plan, stop nothing
@@ -305,11 +320,63 @@ func installWindowsSide(a app) error {
 	if err != nil {
 		return err
 	}
-	if _, err := desktop.InstallTask(a.runner, exe); err != nil {
+	shell, err := stageShellExe(exe)
+	if err != nil {
+		return err
+	}
+	if _, err := desktop.InstallTask(a.runner, shell, desktop.ShellArgs); err != nil {
 		return fmt.Errorf("register the logon task: %w", err)
 	}
 	fmt.Println("  ok     starts at sign-in; no time limit; launch retry policy configured")
 	return nil
+}
+
+// stageShellExe finds the shell install registers: the sibling beside this
+// program when it is there, otherwise the release matching this build,
+// verified before it lands. A missing shell is an error, not a tray-shaped
+// fallback — there is no tray left to fall back to.
+func stageShellExe(selfExe string) (string, error) {
+	if shell, err := desktop.ShellExe(selfExe, os.Getenv("LOCALAPPDATA")); err == nil {
+		return shell, nil
+	}
+	var rel install.Release
+	var err error
+	if tag := shellReleaseTag(); tag == "" {
+		rel, err = install.LatestReleaseFor(ShellAsset)
+	} else {
+		rel, err = install.ReleaseByTag(tag, ShellAsset)
+	}
+	if err != nil {
+		return "", err
+	}
+	if rel.AssetURL == "" {
+		return "", fmt.Errorf("release %s has no %s — download it from %s", rel.Tag, ShellAsset, rel.URL)
+	}
+	if rel.SumsURL == "" {
+		return "", fmt.Errorf("release %s has no %s — refusing to install an unverified binary", rel.Tag, install.SumsAsset)
+	}
+	sums, err := install.Fetch(rel.SumsURL)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", install.SumsAsset, err)
+	}
+	dest := filepath.Join(filepath.Dir(selfExe), desktop.ShellExeName)
+	if err := install.Download(rel.AssetURL, dest); err != nil {
+		return "", fmt.Errorf("download %s: %w", ShellAsset, err)
+	}
+	if err := install.VerifySHA256(dest, sums, ShellAsset); err != nil {
+		_ = os.Remove(dest)
+		return "", err
+	}
+	return dest, nil
+}
+
+// shellReleaseTag pins the staged shell to this build's release. An
+// unstamped source build tracks latest instead — "" means "latest".
+func shellReleaseTag() string {
+	if version.Stamped == "release" && version.Version != "" {
+		return "v" + version.Version
+	}
+	return ""
 }
 
 func trustCA(a app) error {

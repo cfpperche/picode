@@ -158,7 +158,7 @@ func TestDistroReportIgnoresANoiseBanner(t *testing.T) {
 	}
 }
 
-// TestDiskLineIsTheSentenceAPersonReads pins the tray wording: the numbers, in
+// TestDiskLineIsTheSentenceAPersonReads pins the line's wording: the numbers, in
 // the order that answers "is my disk full", and no line at all invented when
 // nothing could be read.
 func TestDiskLineIsTheSentenceAPersonReads(t *testing.T) {

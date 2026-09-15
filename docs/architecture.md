@@ -54,21 +54,21 @@ backup, so a file that already satisfies the check comes back byte for byte
 identical. `--dry-run` reports the plan; `--json` feeds it to a caller. Root
 work (`wsl.conf`, linger) and user work (unit, cert) are separate scopes, so
 the two can be applied by different runs. On WSL that caller is PiCode
-Desktop, the Windows tray binary that owns the logon task.
+Desktop, the Windows tool that owns the logon task.
 
-`picode-desktop` (`cmd/picode-desktop`, `internal/desktop`) is that binary: a
-single `.exe` cross-compiled from WSL with `CGO_ENABLED=0` (`make desktop`).
-`doctor` reports, `install` applies and registers the logon task, and the
-default mode sits in the notification area. It drives the distro through
+`picode-desktop` (`cmd/picode-desktop`, `internal/desktop`) is that tool: a
+single `.exe` cross-compiled from WSL with `CGO_ENABLED=0` (`make desktop`),
+headless, one command at a time. `doctor` reports, `install` applies and
+registers the logon task. It drives the distro through
 **two** `picode provision --json` calls — `-u root` for `wsl.conf` and
 lingering, then `-u <owner>` for the unit, certificate and data dir, because
 installing those as root would put PiCode in `/root`. The merged view keeps
 whichever pass resolved each step. Windows-side it owns only what cannot live
 in the distro: trusting the mkcert CA (already elevated at install, so no UAC
-dance), an interactive user-logon task with limited privileges, and a
-`sleep infinity` child that stops
-WSL's idle timeout from reclaiming the VM. It learns the address from
-`server.json` once, then polls `/api/health` over HTTP rather than spawning
+dance) and an interactive user-logon task with limited privileges. The shell
+(`picode-shell.exe`, Tauri) is the resident since ADR-0142: it holds the VM
+open with a supervised `sleep infinity` child, learns the address from
+`server.json`, and polls `/api/health` over HTTP rather than spawning
 `wsl.exe` on a timer. `wsl.exe` answers in UTF-16LE **without a BOM**, so its
 output is decoded by inspecting the bytes.
 
@@ -90,13 +90,13 @@ on a non-English Windows. The difference between what the file holds and what
 the distro uses is space Windows keeps for data the distro has already freed:
 invisible in Explorer, and unavailable to WSL while the file is not sparse —
 which is the state a permanently running distro stays in, since both the
-compaction and the sparse conversion need the distro stopped. The tray shows
-that as one line refreshed every five minutes and warns in words below 20 GB
-free; `fyne.io/systray` v1.12 has no balloon API left, so the tooltip is the
-alert surface. Both disk commands only read.
+compaction and the sparse conversion need the distro stopped. The shell's tray
+icon shows that as one line refreshed every five minutes and warns in words
+below 20 GB free; with no balloon API, the tooltip is the alert surface. Both
+disk commands only read.
 
-The one action is `picode-desktop disk-compact`, and the tray carries it as
-**Give back ≈N GB…**. It refuses to run blind: first the server's readiness
+The one action is `picode-desktop disk-compact`, and the shell's tray menu
+carries it as **Give back ≈N GB…**. It refuses to run blind: first the server's readiness
 interlock (the same `GET /api/deploy/readiness` `picode deploy` asks), then an
 explicit confirmation that names the cost — stopping the distro ends every
 agent, terminal and tmux session in it. The flow stops the distro, converts
@@ -122,12 +122,11 @@ registered executable and last result without inventing an exit cause.
 policy, preserving action, principal, triggers and enabled/disabled choice.
 It does not start/stop a process or touch the distro, certificates or agents;
 only access denied may request UAC. Missing or unexpected task definitions are
-refused. A normal tray Quit exits zero, including after setup resolution failed.
-The scheduler is not a general crash supervisor: an already-started process
-that later exits nonzero may remain stopped. Even a successful launch retry's
-one-minute gap does not guarantee WSL/session survival; separating keepalive
-from the tray remains future work. Upgrade the tray executable before repairing
-an old installation.
+refused. A normal shell Quit exits zero. The scheduler is not a general crash
+supervisor: an already-started process that later exits nonzero may remain
+stopped. Even a successful launch retry's one-minute gap does not guarantee
+WSL/session survival. Upgrade the executables before repairing an old
+installation.
 
 On a machine without WSL, `install` first walks a stage machine derived from
 what it observes — never from saved progress, so an interrupted run resumes
@@ -176,16 +175,19 @@ newer run on the same ref cancels its predecessor.
 classifier and final gate still run in every row, so path routing cannot turn a
 change into a workflow with no status.
 
-Both binaries ship in one GitHub release, tag-triggered
+Every binary ships in one GitHub release, tag-triggered
 (`.github/workflows/release.yml`), with the version stamped through
 `-X internal/version.Version` — `Version` is a var for exactly that. Asset
 names are a contract: `internal/install.assetName()` looks for
 `picode-<goos>-<goarch>`, and `picode-desktop` for
-`picode-desktop-windows-amd64.exe`; a test reads the workflow to keep the two
+`picode-desktop-windows-amd64.exe` plus the shell's
+`picode-shell-windows-amd64.exe`; a test reads the workflow to keep them
 from drifting. `picode update` and `picode-desktop update` both use
-`install.LatestReleaseFor`. Elevation is decided at **runtime** (`ShellExecuteW`
-with `runas`), never by a manifest: the same executable is also the tray, and a
-`requireAdministrator` manifest would elevate that too.
+`install.LatestReleaseFor`, both verify `SHA256SUMS` before swapping, and the
+desktop one refreshes the tool and the shell together or neither. Elevation is
+decided at **runtime** (`ShellExecuteW` with `runas`), never by a manifest:
+the tool does its everyday reads unelevated, and a `requireAdministrator`
+manifest would prompt for those too.
 
 The release workflow also validates matching `CHANGELOG.md` and
 `whats-new.json` entries and publishes the changelog section as the GitHub

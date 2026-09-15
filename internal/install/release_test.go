@@ -99,6 +99,35 @@ func TestLatestReleaseNamesEveryAsset(t *testing.T) {
 	}
 }
 
+func TestReleaseByTagPinsThePair(t *testing.T) {
+	var gotPath string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"tag_name": "v0.7.0",
+			"html_url": "https://example.test/r",
+			"assets": []any{
+				map[string]any{"name": "picode-shell-windows-amd64.exe", "browser_download_url": "https://example.test/shell"},
+				map[string]any{"name": "SHA256SUMS", "browser_download_url": "https://example.test/sums"},
+			},
+		})
+	}))
+	defer ts.Close()
+	oldRoot, oldC := APIRoot, HTTPClient
+	APIRoot, HTTPClient = ts.URL, ts.Client()
+	defer func() { APIRoot, HTTPClient = oldRoot, oldC }()
+	rel, err := ReleaseByTag("v0.7.0", "picode-shell-windows-amd64.exe")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(gotPath, "/releases/tags/v0.7.0") {
+		t.Fatalf("fetched %s", gotPath)
+	}
+	if rel.Tag != "0.7.0" || rel.AssetURL != "https://example.test/shell" {
+		t.Fatalf("%+v", rel)
+	}
+}
+
 func TestVerifySHA256(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "picode-linux-amd64")

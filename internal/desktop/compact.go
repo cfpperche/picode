@@ -12,7 +12,7 @@ import (
 // own keepalive holds it open by design (ADR-0020).
 //
 // Stopping the distro ends every session inside it. Nothing here decides that:
-// the callers show the cost and ask (the tray confirms in a dialog, the CLI
+// the callers show the cost and ask (the shell confirms in a dialog, the CLI
 // wants --yes), and the server's readiness interlock is consulted before this
 // code runs at all.
 

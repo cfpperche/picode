@@ -11,10 +11,11 @@ import (
 )
 
 // Elevation is decided at runtime rather than declared in a manifest. A
-// `requireAdministrator` manifest applies to the whole executable, and this one
-// is also the tray — which must stay unelevated, or it cannot reach Explorer's
-// notification area and would hand the browser administrator rights. So only
-// installation asks up front; startup repair asks only after access denied.
+// `requireAdministrator` manifest applies to the whole executable, and this
+// one does its everyday reads — disk, doctor, the shell's probes —
+// unelevated; prompting for those would train the owner to click Yes
+// without reading. So only installation asks up front; startup repair asks
+// only after access denied.
 
 var (
 	shell32          = syscall.NewLazyDLL("shell32.dll")
