@@ -22,6 +22,10 @@ test("provider list/new URLs normalize legacy links without adding agent scope",
     assert.equal(!!route.add, add);
     assert.equal(route.redirect, undefined); assert.equal(route.invalid, undefined);
   }
+  assert.equal(cliProvidersHash("pi", { custom: true }), "#/clis/pi/providers/custom");
+  assert.equal(cliProvidersHash("pi", { custom: true, customId: "a b" }), "#/clis/pi/providers/custom/a%20b");
+  assert.deepEqual(cliLocation(cliProvidersHash("pi", { custom: true })), { view: "clis", id: "pi", pane: "providers", custom: "new" });
+  assert.deepEqual(cliLocation(cliProvidersHash("pi", { custom: true, customId: "cheap" })), { view: "clis", id: "pi", pane: "providers", custom: "edit", customId: "cheap" });
 });
 
 test("provider support does not follow launch support or malformed paths", () => {

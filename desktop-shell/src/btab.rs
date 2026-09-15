@@ -11,6 +11,7 @@ use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use picode_shell::{cdppolicy, origins};
+use windows::core::Interface;
 use tauri::webview::{NewWindowResponse, WebviewBuilder};
 use tauri::WebviewUrl;
 use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, State};
@@ -210,6 +211,7 @@ fn ensure(app: &AppHandle, id: &str, url: &str) -> Result<(), String> {
     win.add_child(page, LogicalPosition::new(x, y), LogicalSize::new(w, h))
         .map_err(|e| e.to_string())?;
     attach_navigation_gate(app, id);
+    apply_autofill(app, id);
     Ok(())
 }
 
@@ -577,4 +579,58 @@ pub async fn btab_open_external(url: String) -> Result<(), String> {
         .spawn()
         .map(|_| ())
         .map_err(|e| format!("open external: {e}"))
+}
+
+// The work profile's autofill prefs (slice 3): password autosave and
+// general (contact info) autofill. The UI pushes them (btab_set_prefs);
+// the latest values are applied to every webview at creation. Defaults
+// match WebView2's own: both on.
+fn autofill() -> &'static Mutex<(bool, bool)> {
+    static AUTOFILL: OnceLock<Mutex<(bool, bool)>> = OnceLock::new();
+    AUTOFILL.get_or_init(|| Mutex::new((true, true)))
+}
+
+#[tauri::command]
+pub async fn btab_set_prefs(
+    app: AppHandle,
+    password_autosave: Option<bool>,
+    general_autofill: Option<bool>,
+) -> Result<(), String> {
+    {
+        let mut cur = autofill().lock().unwrap();
+        if let Some(v) = password_autosave {
+            cur.0 = v;
+        }
+        if let Some(v) = general_autofill {
+            cur.1 = v;
+        }
+    }
+    let (pw, gen) = *autofill().lock().unwrap();
+    for (name, wv) in app.webview_windows() {
+        if !name.starts_with("btab-") {
+            continue;
+        }
+        let _ = wv.with_webview(move |platform| unsafe {
+            let Ok(core) = platform.controller().CoreWebView2() else { return };
+            let Ok(settings) = core.Settings() else { return };
+            let s9: webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings9 = match settings.cast() { Ok(v) => v, Err(_) => return };
+            let _ = s9.SetIsPasswordAutosaveEnabled(pw);
+            let _ = s9.SetIsGeneralAutofillEnabled(gen);
+        });
+    }
+    Ok(())
+}
+
+// Apply the current autofill prefs to a freshly created webview (called
+// from ensure's attach step).
+fn apply_autofill(app: &AppHandle, id: &str) {
+    let Some(wv) = app.get_webview(label(id).as_str()) else { return };
+    let _ = wv.with_webview(move |platform| unsafe {
+        let Ok(core) = platform.controller().CoreWebView2() else { return };
+        let Ok(settings) = core.Settings() else { return };
+        let s9: webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings9 = match settings.cast() { Ok(v) => v, Err(_) => return };
+        let (pw, gen) = *autofill().lock().unwrap();
+        let _ = s9.SetIsPasswordAutosaveEnabled(pw);
+        let _ = s9.SetIsGeneralAutofillEnabled(gen);
+    });
 }

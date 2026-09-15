@@ -237,6 +237,10 @@ export function go(name, agentId, extra = {}) {
     location.hash = cliProvidersHash("pi", { add: true });
     return;
   }
+  if (name === "providers-custom") {
+    location.hash = cliProvidersHash("pi", { custom: true, customId: extra.customId || "" });
+    return;
+  }
   if (name === "providers-llama") {
     location.hash = "#/llama/models";
     return;
