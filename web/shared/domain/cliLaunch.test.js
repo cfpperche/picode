@@ -161,7 +161,6 @@ test("catalog capabilities decide what a CLI's surface shows", () => {
   assert.deepEqual(cliCapabilities({ id: "pi", integrationCapable: true, launchable: true, sessions: { list: true } }), { launch: true, integration: true, sessions: true });
   assert.deepEqual(cliCapabilities({ id: "muse", integrationCapable: false, launchable: true, sessions: { list: false } }), { launch: true, integration: false, sessions: false });
   assert.deepEqual(cliCapabilities(null), { launch: false, integration: false, sessions: false });
-  assert.deepEqual(cliPanes({ id: "muse", integrationCapable: false, launchable: true }), ["launch", "terminals"]);
-  assert.deepEqual(cliPanes({ id: "muse", integrationCapable: false, launchable: true, sessions: { list: true } }), ["launch", "terminals", "sessions"]);
+  assert.deepEqual(cliPanes({ id: "muse", integrationCapable: false, launchable: true, sessions: { list: true } }), ["launch", "terminals", "sessions", "providers", "settings", "keyboard", "packages", "connectors"]);
   assert.deepEqual(cliPanes({ id: "pi", integrationCapable: true, launchable: true, sessions: { list: true } }), ["launch", "terminals", "sessions", "providers", "settings", "keyboard", "packages", "connectors"]);
 });

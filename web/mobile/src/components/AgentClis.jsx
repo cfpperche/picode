@@ -9,7 +9,7 @@ import { cliLaunchSchema, cliTerminalSchema, parseForm } from "@picode/shared/co
 import { cliLocation, cliPaneHash, cliPaneSetupContext, cliCapabilities, cliPanes, launchDraft, launchConfig, editLaunchOverrides, resolveLaunch, cliTerminals, terminalLaunchCLI, profileOverrides, cliWorkspaceList } from "@picode/shared/domain/cliLaunch.js";
 import { loadPiPackagesContext } from "@picode/shared/domain/cliPackages.js";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
-import { terminalCli, terminalStatusLabel, terminalStatus } from "@picode/shared/domain/terminalCli.js";
+import { terminalCli, terminalCliLabel, terminalStatusLabel, terminalStatus } from "@picode/shared/domain/terminalCli.js";
 import { termHash } from "../lib/routes.js";
 import AgentClisFrame from "./AgentClisFrame.jsx";
 import CliTabs from "./CliTabs.jsx";
@@ -259,7 +259,7 @@ function ConnectorsPane({ route, onReload }) {
     return () => { live = false; };
   }, [route.workspaceId, route.agentId, route.scope, route.invalid, supported]);
   if (route.invalid || !supported) {
-    return <section id="cli-connectors-view"><div className="cli-notice" role="status"><span>{route.invalid ? "This connector link is invalid." : "Connectors are not available for this CLI."}</span><a className="btn btn-ghost btn-sm" href={cliConnectorsHash("pi")}>Open Pi</a></div></section>;
+    return <section id="cli-connectors-view"><div className="cli-notice" role="status"><span>{route.invalid ? "This connector link is invalid." : "Connectors for " + terminalCliLabel(route.id) + " are in development — coming soon."}</span></div></section>;
   }
   if (error) {
     return <section id="cli-connectors-view"><div className="cli-notice is-error" role="alert"><span>{error.message}</span><a className="btn btn-ghost btn-sm" href={cliConnectorsHash("pi")}>Open Pi</a></div></section>;

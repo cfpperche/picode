@@ -28,7 +28,9 @@ export function cliPanes(cli) {
   // Muse Code and Antigravity have history on disk before they have
   // activity reporting (their Sessions tab lists and resumes, nothing more).
   const sessions = cap.sessions ? ["sessions"] : [];
-  if (!cap.integration) return ["launch", "terminals", ...sessions];
+  // The setup tabs ride along for every CLI: the ones without a native
+  // integration render them as in-development placeholders instead of
+  // pretending the feature exists (owner, 2026-09-15).
   return ["launch", "terminals", ...sessions, "providers", "settings", "keyboard", "packages", "connectors"];
 }
 

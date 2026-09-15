@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
-import { cliProvidersHash, supportsCliProviders } from "@picode/shared/domain/cliProviders.js";
+import { supportsCliProviders } from "@picode/shared/domain/cliProviders.js";
+import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import Providers from "./Providers.jsx";
 import CustomEndpointPage from "./CustomEndpointPage.jsx";
 
@@ -8,7 +9,7 @@ export default function CliProviders({ hidden, cli = "pi", add = false, invalid 
   const supported = supportsCliProviders(cli);
   const blocked = invalid || scoped || !supported;
   return <section id="cli-providers-view" className="cli-providers-pane" hidden={hidden}>
-    {blocked ? <div className="cli-notice" role="status"><span>{invalid ? "This provider link is invalid." : !supported ? "Providers are not available for this CLI." : "Accounts stay on this machine."}</span><a className="btn btn-ghost btn-sm" href={cliProvidersHash("pi")}>Open Pi</a></div>
+    {blocked ? <div className="cli-notice" role="status"><span>{invalid ? "This provider link is invalid." : !supported ? "Providers for " + terminalCliLabel(cli) + " are in development — coming soon." : "Accounts stay on this machine."}</span></div>
       : !hidden ? <PiProviders wantAdd={add} custom={custom} customId={customId} onCatalogChange={onCatalogChange} /> : null}
   </section>;
 }

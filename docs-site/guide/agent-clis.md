@@ -6,8 +6,14 @@ description: Terminals, session history, and moving a conversation between your 
 
 Terminals, session history, and moving a conversation between your installed
 Pi, Claude Code, Codex, Grok, Hermes Agent and OpenCode commands. Muse Code
-and Antigravity can open a terminal of their own too (but no session list,
-no activity state and no launch settings yet).
+and Antigravity can open a terminal of their own and list and resume their own
+sessions; they have no activity state (nothing shows Ready or Working) and no
+launch settings yet.
+
+Every CLI's pane carries the same tabs — Launch, Terminals, Sessions,
+Providers, Settings, Keyboard, Packages and Connectors. The tabs a CLI has no
+native editors for (today everything but Pi) say so: *in development — coming
+soon*. They are placeholders, not a promise about a specific release.
 
 - **Where:** last icon in the desktop sidebar header, `Ctrl+K`, or **More** on a phone (`#/clis`).
 - **Not this:** a CLI terminal is not a managed Pi agent. Structured chat, packages and automations still use Pi.
