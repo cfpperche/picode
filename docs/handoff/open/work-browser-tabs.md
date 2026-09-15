@@ -83,7 +83,51 @@ WebView2's store. Two honest paths, both owner-gated:
    Hello unlock through WinRT `UserConsentVerifier`, CSV import. A security-model
    decision — ADR before code, the same gate as the annotations above.
 
+## Browser permissions — scope decided (owner, 2026-09-15)
+
+**v1, in flight**: the Site settings dialog — Camera, Microphone, Location,
+Notifications, Clipboard read, Autoplay — each **Ask / Allow / Block**, kept
+per site, with Ask prompting in the tab; then the JavaScript toggle
+(`ICoreWebView2Settings::IsScriptEnabled`).
+
+**v2 (approved 2026-09-15)**: agent access to browsing history (Always ask /
+Allow / Never, reusing the policy + prompt machinery); "remove permissions
+from unused sites" (visit recency is already in the store); the annotations
+backlog above; the Windows Hello passkey opener row (validate the OS URI
+first).
+
+**v3**: WebMCP site tools (ADR when the standard lands — it changes the agent
+surface); Developer mode / raw CDP for agents (the reference itself marks it
+Elevated risk: if it lands it is off by default, `full` tier only, audited,
+with a warning row — ADR).
+
+**Never on WebView2**: third-party cookies, images, embedded content — the
+runtime exposes no host API for them, and a control there would be theatre.
+Revisit only if the embedding changes.
+
+### Permissions — implementation notes (measured in webview2-com-sys 0.38.2)
+
+- `add_PermissionRequested` is on the base `ICoreWebView2`;
+  `PermissionRequestedEventHandler` ships in webview2-com's `callback`.
+- Args carry `PermissionKind()`, `Origin()`, `SetState(state)` and
+  `GetDeferral()` — the deferral is what makes Ask work (hold the request,
+  ask the user in the tab, answer, release).
+- States: `COREWEBVIEW2_PERMISSION_STATE_{DEFAULT,ALLOW,DENY}`. Kinds:
+  AUTOPLAY, CAMERA, CLIPBOARD_READ, GEOLOCATION, MICROPHONE, NOTIFICATIONS
+  (+ sensors, MIDI, local fonts, file system, multiple downloads).
+- Standings live on `ICoreWebView2Profile4::SetPermissionState(kind, origin,
+  state)`; the profile is the shared work profile, so one call covers every
+  tab and the ones created later.
+
 ## Traps (paid for, keep them paid)
+
+- **A new shell command is THREE edits**: `generate_handler!` (main.rs),
+  `build.rs`'s `AppManifest::new().commands(&[…])` and
+  `capabilities/default.json` — miss the second and the command has no
+  permission to allow, and every invoke dies with "not allowed by ACL"
+  while the page swallows it behind a `.catch`. Cost: four features
+  (autofill, clear data, open destinations, downloads) shipped dead
+  (2026-09-15).
 
 - Edit in the worktree. UI edits that land in the root checkout leave scratch
   and deploy testing stale bundles (this happened three times).
