@@ -608,6 +608,12 @@ func serve() {
 	// runId reporting existed. It never infers activity from pane pixels.
 	go server.StartTermRuntimeWatch(backupCtx, deps, 3*time.Second)
 
+	// tmux server watch (plan tmux-resilience, ADR-0138 follow-up): the
+	// daemon can outlive the tmux server, and on 2026-09-15 the loss was
+	// silent until the next boot. One probe per tick records a lost or
+	// recovered server in the journal and the feed while it happens.
+	go server.StartTmuxServerWatch(backupCtx, deps, 15*time.Second)
+
 	// Package updates watcher (ADR-0048 follow-up): one scan set per tick
 	// for the whole fleet, published as packages.updates only when a
 	// scope's result changes, instead of one 30 min poll per browser.
