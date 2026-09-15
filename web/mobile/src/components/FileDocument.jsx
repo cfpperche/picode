@@ -48,7 +48,7 @@ export default function FileDocument({ doc, view, path, owner, root }) {
         <button type="button" className="btn btn-sm" aria-pressed={display === "edit"} onClick={() => setDisplay("edit")}>Edit</button>
       </>) : null}
       {kind === "html" && display === "preview" && !view.dirty && (previewOnly || !previewEmpty(view.text)) ? (
-        <button type="button" className="btn btn-sm" disabled={html.status === "loading"} onClick={() => { void html.reload(); }}>Reload</button>
+        <button type="button" className="btn btn-sm" disabled={html.status === "loading"} onClick={() => { void html.refresh(); }}>Reload</button>
       ) : null}
       {kind === "html" && display === "preview" && !view.dirty && html.status === "ready" ? (
         <button type="button" className="btn btn-sm" onClick={() => window.open(html.url, "_blank", "noopener,noreferrer")}>Open</button>

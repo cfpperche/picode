@@ -206,7 +206,7 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
           ) : null}
           <div className="file-pane-commands" data-align-row>
             {kind === "html" && mode === "preview" && !view.dirty && (previewOnly || !previewEmpty(view.text)) ? (
-              <button type="button" className="btn btn-sm btn-ghost" disabled={html.status === "loading"} onClick={() => { void html.reload(); }}>Reload</button>
+              <button type="button" className="btn btn-sm btn-ghost" disabled={html.status === "loading"} onClick={() => { void html.refresh(); }}>Reload</button>
             ) : null}
             {kind === "html" && mode === "preview" && !view.dirty && html.status === "ready" ? (
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => window.open(html.url, "_blank", "noopener,noreferrer")}>Open in browser</button>

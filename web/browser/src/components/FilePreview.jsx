@@ -17,11 +17,29 @@ export default function FilePreview({ kind, text, src, html }) {
   return null;
 }
 
-// The one preview that is a page. The sandbox flags mirror the response's
-// CSP sandbox (ADR-0136) — two locks on the same door. Never add
-// allow-same-origin: the page must not see PiCode's origin or session, and a
-// nested navigation must not move the app.
+// The one preview that is a page. Two shapes (ADR-0137): on the ticket's own
+// origin the page is an ordinary cross-origin page — no sandbox attribute, or
+// it would be an opaque origin again — and that separate origin is what keeps
+// it out of PiCode. On the fallback path form the flags mirror the response's
+// CSP sandbox (ADR-0136): two locks on the same door. Never add
+// allow-same-origin to the fallback: the page must not see PiCode's origin or
+// session, and a nested navigation must not move the app.
 const PREVIEW_SANDBOX = "allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-pointer-lock allow-downloads";
+
+// SandboxNote is the one line the pane owes a reader whose page did not get
+// its own origin: this browser cannot open `<label>.localhost`, or PiCode was
+// not reached on this machine's loopback. One line, no action — the preview
+// itself works, it just has no site storage.
+function SandboxNote({ html }) {
+  if (!html || html.status !== "ready" || html.mode !== "sandbox") return null;
+  return (
+    <p className="file-preview-note">
+      {html.originOffered
+        ? "This browser can't open the preview's own address, so the page runs without site storage or workers."
+        : "Previews opened from another machine run without site storage or workers."}
+    </p>
+  );
+}
 
 function HtmlPreview({ html }) {
   if (!html || html.status === "idle" || html.status === "loading") {
@@ -42,11 +60,12 @@ function HtmlPreview({ html }) {
   }
   return (
     <div className="file-preview file-preview-html">
+      <SandboxNote html={html} />
       <iframe
         className="file-preview-frame"
         title="HTML preview"
         src={html.frameUrl || html.url}
-        sandbox={PREVIEW_SANDBOX}
+        sandbox={html.mode === "origin" ? undefined : PREVIEW_SANDBOX}
         allow="fullscreen; clipboard-write"
         allowFullScreen
       />

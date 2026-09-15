@@ -3,6 +3,7 @@ package preview
 import (
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -12,7 +13,7 @@ func TestMintGetExpire(t *testing.T) {
 	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	s.now = func() time.Time { return now }
 
-	tk, err := s.Mint("agent", "a1", "/proj", "site/index.html", "s1")
+	tk, err := s.Mint(Request{OwnerKind: "agent", OwnerID: "a1", Root: "/proj", Path: "site/index.html", SessionID: "s1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +48,7 @@ func TestStoreLazySweepAndZeroTTL(t *testing.T) {
 	now := time.Now()
 	s.now = func() time.Time { return now }
 	for i := 0; i < 3; i++ {
-		if _, err := s.Mint("term", "t1", "/p", "a.html", "s"); err != nil {
+		if _, err := s.Mint(Request{OwnerKind: "term", OwnerID: "t1", Root: "/p", Path: "a.html", SessionID: "s"}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -55,7 +56,7 @@ func TestStoreLazySweepAndZeroTTL(t *testing.T) {
 		t.Fatalf("len=%d", s.Len())
 	}
 	now = now.Add(DefaultTTL)
-	if _, err := s.Mint("term", "t1", "/p", "a.html", "s"); err != nil {
+	if _, err := s.Mint(Request{OwnerKind: "term", OwnerID: "t1", Root: "/p", Path: "a.html", SessionID: "s"}); err != nil {
 		t.Fatal(err)
 	}
 	if s.Len() != 1 {
@@ -67,7 +68,7 @@ func TestTokensAreUniqueAndOpaque(t *testing.T) {
 	s := NewStore(time.Minute)
 	seen := map[string]bool{}
 	for i := 0; i < 64; i++ {
-		tk, err := s.Mint("agent", "a", "/p", "index.html", "")
+		tk, err := s.Mint(Request{OwnerKind: "agent", OwnerID: "a", Root: "/p", Path: "index.html", SessionID: ""})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -140,7 +141,7 @@ func TestTouchAndWatched(t *testing.T) {
 	s := NewStore(time.Minute)
 	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	s.now = func() time.Time { return now }
-	tk, err := s.Mint("agent", "a1", "/proj", "site/index.html", "s1")
+	tk, err := s.Mint(Request{OwnerKind: "agent", OwnerID: "a1", Root: "/proj", Path: "site/index.html", SessionID: "s1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +177,7 @@ func TestTouchAndWatched(t *testing.T) {
 
 func TestTouchCap(t *testing.T) {
 	s := NewStore(time.Minute)
-	tk, err := s.Mint("term", "t1", "/p", "index.html", "")
+	tk, err := s.Mint(Request{OwnerKind: "term", OwnerID: "t1", Root: "/p", Path: "index.html", SessionID: ""})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +193,7 @@ func TestOverlay(t *testing.T) {
 	s := NewStore(time.Minute)
 	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	s.now = func() time.Time { return now }
-	tk, err := s.Mint("agent", "a1", "/proj", "site/index.html", "s1")
+	tk, err := s.Mint(Request{OwnerKind: "agent", OwnerID: "a1", Root: "/proj", Path: "site/index.html", SessionID: "s1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,5 +215,87 @@ func TestOverlay(t *testing.T) {
 	now = now.Add(time.Minute)
 	if _, ok := s.Overlay(tk.Token); ok {
 		t.Fatal("expired ticket kept its overlay")
+	}
+}
+
+// TestLabel pins the DNS half of a ticket (ADR-0137): one lowercase base32
+// label, unique per ticket, resolvable by name as well as by token, and gone
+// the moment the ticket expires.
+func TestLabel(t *testing.T) {
+	s := NewStore(time.Minute)
+	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+	s.now = func() time.Time { return now }
+
+	first, err := s.Mint(Request{OwnerKind: "agent", OwnerID: "a1", Root: "/p", Path: "index.html"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(first.Label) != 26 {
+		t.Fatalf("label=%q (len %d), want 26 base32 chars", first.Label, len(first.Label))
+	}
+	if first.Label != strings.ToLower(first.Label) {
+		t.Fatalf("label %q is not lowercase", first.Label)
+	}
+	if strings.ContainsAny(first.Label, "0189") {
+		t.Fatalf("label %q is not base32", first.Label)
+	}
+	second, err := s.Mint(Request{OwnerKind: "agent", OwnerID: "a1", Root: "/p", Path: "index.html"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.Label == first.Label || second.Token == first.Token {
+		t.Fatalf("two tickets share an identity: %q %q", first.Label, second.Label)
+	}
+
+	got, ok := s.ByLabel(first.Label)
+	if !ok || got.Token != first.Token {
+		t.Fatalf("byLabel=%+v ok=%v", got, ok)
+	}
+	// DNS names are case-insensitive; the lookup must be too.
+	if got, ok := s.ByLabel(strings.ToUpper(first.Label)); !ok || got.Token != first.Token {
+		t.Fatalf("uppercase label did not resolve: %+v ok=%v", got, ok)
+	}
+	if _, ok := s.ByLabel("notaticket"); ok {
+		t.Fatal("unknown label resolved")
+	}
+	if _, ok := s.ByLabel(""); ok {
+		t.Fatal("empty label resolved")
+	}
+
+	// Expiry drops both names, so a stale host cannot keep serving.
+	now = now.Add(time.Minute)
+	if _, ok := s.ByLabel(first.Label); ok {
+		t.Fatal("expired label still resolves")
+	}
+	if _, ok := s.Get(first.Token); ok {
+		t.Fatal("expired token still resolves after the label lookup")
+	}
+	if s.Len() != 0 {
+		t.Fatalf("a label lookup left a ticket behind: len=%d", s.Len())
+	}
+}
+
+// TestClearOverlay: Save hands the document back to disk without dropping the
+// ticket (ADR-0137 D5) — the origin, and with it the page's storage, stays.
+func TestClearOverlay(t *testing.T) {
+	s := NewStore(time.Minute)
+	tk, err := s.Mint(Request{OwnerKind: "agent", OwnerID: "a1", Root: "/p", Path: "index.html"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !s.SetOverlay(tk.Token, "buffer") {
+		t.Fatal("set overlay refused")
+	}
+	if !s.ClearOverlay(tk.Token) {
+		t.Fatal("clear overlay refused")
+	}
+	if _, ok := s.Overlay(tk.Token); ok {
+		t.Fatal("overlay survived the clear")
+	}
+	if _, ok := s.Get(tk.Token); !ok {
+		t.Fatal("clearing the overlay dropped the ticket")
+	}
+	if s.ClearOverlay("nope") {
+		t.Fatal("unknown token cleared an overlay")
 	}
 }

@@ -16,10 +16,13 @@ have previews; text files use the editor. Markdown, HTML and SVG offer
 An HTML file renders the way a browser shows it: its scripts run and its
 styles, scripts and images load from the same folder. Edits you have not
 saved yet appear too — the preview renders what the editor holds, and
-**Save** writes it to disk. The page is kept in a sandbox, so it cannot read
-PiCode itself or sign in as you — it has no cookies and no local storage,
-and a button that saves to the page's own storage does nothing. A link
-inside the page opens a normal browser tab.
+**Save** writes it to disk. The page runs on its own address, so a page that
+saves settings or registers a worker behaves like a normal page there, and
+its storage starts fresh when you open a preview (Reload re-reads the page
+without clearing it). It still cannot read PiCode itself or sign in as you. A link inside the page opens a normal
+browser tab. When the browser cannot open that address — or when you reached
+PiCode from another machine — the page still renders, one line above it says
+so, and anything that saves data on the page stops working.
 
 **Changes** lists files changed since the latest commit. Select an item to
 review its diff, then choose **Open file** to inspect or edit its current

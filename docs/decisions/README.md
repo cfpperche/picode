@@ -141,3 +141,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0134](0134-browser-default-policy.md) | browser-default-policy | accepted (amends 0128) |
 | [0135](0135-agent-browser-binding.md) | agent-browser-binding | proposed |
 | [0136](0136-html-file-preview.md) | HTML file preview through a sandboxed, cookie-less capability route (scripts and relative assets run; `allow-same-origin` never) | accepted |
+| [0137](0137-html-preview-origin.md) | HTML preview on a real per-ticket origin (`<label>.localhost`, Host-routed before the auth gate; storage and workers, sandbox fallback) | accepted |

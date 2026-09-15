@@ -754,8 +754,15 @@ img.ws-face.term-cli-face {
 /* The one preview that is a page (ADR-0136): the frame IS the content, so
    no padding around it, and browser-default white behind a page that does
    not paint its own background. */
-.file-preview-html { padding: 0; align-items: stretch; }
+.file-preview-html { padding: 0; align-items: stretch; flex-direction: column; }
 .file-preview-html .file-preview-frame { background: #fff; }
+/* A page that did not get its own origin (ADR-0137): one line above the frame
+   saying why site storage and workers are unavailable. */
+.file-preview-note {
+  flex: 0 0 auto; margin: 0; padding: 8px 12px; font-size: 12.5px;
+  color: var(--text-secondary); background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
 .file-pane-msg-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .file-preview-audio { max-width: 100%; }
 .file-preview-video { display: block; }

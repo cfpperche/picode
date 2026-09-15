@@ -31,11 +31,16 @@
   permissions, like Pi itself.
   Roadmap for tailnet, shared and public servers:
   `docs/design/remote-modes-roadmap.md`.
-- **HTML previews are a capability route, not the session** (ADR-0136):
-  `POST /api/previews` mints an hour-long, session-bound ticket for one
-  `.html`/`.htm`; `GET /preview/<ticket>/<path>` serves only allowlisted web
-  assets under the owner's folder (dotfiles and symlinks out, `no-referrer`,
-  `no-store`) to a frame sandboxed by response header (`sandbox`, never
-  `allow-same-origin`). A sandboxed page sends no cookie, reads no `/api`
-  answer (CORS) and its writes are refused as `Origin: null`; revoking the
-  session kills its tickets; the daemon restart drops them all.
+- **HTML previews are a capability route, not the session** (ADR-0136,
+  ADR-0137): `POST /api/previews` mints an hour-long, session-bound ticket for
+  one `.html`/`.htm`; the path form `GET /preview/<ticket>/<path>` serves only
+  allowlisted web assets under the owner's folder (dotfiles and symlinks out,
+  `no-referrer`, `no-store`) to a frame sandboxed by response header
+  (`sandbox`, never `allow-same-origin`), and the host form serves the same
+  ticket from `<label>.localhost` — a real origin, reached before the auth
+  gate, that serves the preview namespace and answers 404 for `/api` and the
+  app shell. A sandboxed page sends no cookie and reads no `/api` answer
+  (CORS); the host form cannot either: `Origin == r.Host` fails for it, its
+  `SameSite=Strict` host-only cookie is not sent (measured), and no route
+  answers CORS except the deliberate `/api/health` probe. Revoking the session
+  kills both forms; the daemon restart drops them all.

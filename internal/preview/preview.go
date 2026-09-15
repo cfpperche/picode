@@ -8,6 +8,7 @@ package preview
 
 import (
 	"crypto/rand"
+	"encoding/base32"
 	"encoding/base64"
 	"fmt"
 	"path"
@@ -15,6 +16,10 @@ import (
 	"sync"
 	"time"
 )
+
+// LabelBytes is the entropy in a ticket's DNS label. The label is the
+// origin's name (ADR-0137), so it is a credential too.
+const LabelBytes = 16
 
 // DefaultTTL is how long a minted ticket lives. The pane mints again on
 // every open and Reload, so a token that leaks (a log, a screenshot, a
@@ -30,16 +35,32 @@ const TokenBytes = 32
 const MaxWatch = 200
 
 // Ticket is one capability: a token that serves Root, and the document under
-// it the pane first asked for. SessionID is empty for anonymous mode.
+// it the pane first asked for. Label is the same capability's DNS name, the
+// origin the pane may reach it at (ADR-0137). FrameOrigin is the origin that
+// minted it — the only one allowed to frame or read it. SessionID is empty
+// for anonymous mode.
 type Ticket struct {
-	Token     string
-	OwnerKind string // agent | term | workspace
-	OwnerID   string
-	Root      string // absolute, symlink-resolved directory at mint time
-	Path      string // slash-relative document path under Root
-	SessionID string
-	CreatedAt time.Time
-	ExpiresAt time.Time
+	Token       string
+	Label       string
+	OwnerKind   string // agent | term | workspace
+	OwnerID     string
+	Root        string // absolute, symlink-resolved directory at mint time
+	Path        string // slash-relative document path under Root
+	SessionID   string
+	FrameOrigin string // minting UI origin; empty when not a browser
+	CreatedAt   time.Time
+	ExpiresAt   time.Time
+}
+
+// Request is what a mint needs. It is a struct rather than six positional
+// strings because two of them are credentials and one is an origin.
+type Request struct {
+	OwnerKind   string
+	OwnerID     string
+	Root        string
+	Path        string
+	SessionID   string
+	FrameOrigin string
 }
 
 // Store holds live tickets in memory. A daemon restart drops all of them.
@@ -48,6 +69,7 @@ type Store struct {
 	ttl     time.Duration
 	now     func() time.Time
 	tickets map[string]*entry
+	byLabel map[string]string // DNS label → token, for the origin form
 }
 
 // entry is one ticket plus the files it has served, the set a live-reload
@@ -64,31 +86,49 @@ func NewStore(ttl time.Duration) *Store {
 	if ttl <= 0 {
 		ttl = DefaultTTL
 	}
-	return &Store{ttl: ttl, now: time.Now, tickets: make(map[string]*entry)}
+	return &Store{ttl: ttl, now: time.Now, tickets: make(map[string]*entry), byLabel: make(map[string]string)}
 }
 
 // Mint creates a ticket for one document. It does not validate the path; the
 // caller did that against the filesystem.
-func (s *Store) Mint(ownerKind, ownerID, root, docPath, sessionID string) (Ticket, error) {
+func (s *Store) Mint(req Request) (Ticket, error) {
 	tok, err := newToken()
 	if err != nil {
 		return Ticket{}, err
 	}
 	now := s.now()
-	t := Ticket{
-		Token:     tok,
-		OwnerKind: ownerKind,
-		OwnerID:   ownerID,
-		Root:      root,
-		Path:      docPath,
-		SessionID: sessionID,
-		CreatedAt: now,
-		ExpiresAt: now.Add(s.ttl),
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.sweepLocked(now)
+	// A label collision is a birthday problem with 2^128 options; loop a few
+	// times rather than trust it, and never reuse a live label.
+	t := Ticket{
+		Token:       tok,
+		OwnerKind:   req.OwnerKind,
+		OwnerID:     req.OwnerID,
+		Root:        req.Root,
+		Path:        req.Path,
+		SessionID:   req.SessionID,
+		FrameOrigin: req.FrameOrigin,
+		CreatedAt:   now,
+		ExpiresAt:   now.Add(s.ttl),
+	}
+	for i := 0; i < 5; i++ {
+		label, err := newLabel()
+		if err != nil {
+			return Ticket{}, err
+		}
+		if _, taken := s.byLabel[label]; taken {
+			continue
+		}
+		t.Label = label
+		break
+	}
+	if t.Label == "" {
+		return Ticket{}, fmt.Errorf("preview: could not allocate a label")
+	}
 	s.tickets[tok] = &entry{ticket: t, watch: make(map[string]struct{})}
+	s.byLabel[t.Label] = tok
 	return t, nil
 }
 
@@ -96,12 +136,32 @@ func (s *Store) Mint(ownerKind, ownerID, root, docPath, sessionID string) (Ticke
 func (s *Store) Get(token string) (Ticket, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.getLocked(token)
+}
+
+// ByLabel resolves a ticket's DNS label (the origin form, ADR-0137); labels
+// are case-insensitive because DNS names are.
+func (s *Store) ByLabel(label string) (Ticket, bool) {
+	label = strings.ToLower(strings.TrimSpace(label))
+	if label == "" {
+		return Ticket{}, false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	tok, ok := s.byLabel[label]
+	if !ok {
+		return Ticket{}, false
+	}
+	return s.getLocked(tok)
+}
+
+func (s *Store) getLocked(token string) (Ticket, bool) {
 	e, ok := s.tickets[token]
 	if !ok {
 		return Ticket{}, false
 	}
 	if !s.now().Before(e.ticket.ExpiresAt) {
-		delete(s.tickets, token)
+		s.removeLocked(token)
 		return Ticket{}, false
 	}
 	return e.ticket, true
@@ -161,6 +221,21 @@ func (s *Store) SetOverlay(token, text string) bool {
 	return true
 }
 
+// ClearOverlay drops the ticket's unsaved buffer so the file on disk serves
+// again. The ticket's own origin uses this on Save: the buffer and the file
+// are equal at that moment, and clearing keeps the origin (and its storage)
+// alive while leaving no overlay to mask later disk changes.
+func (s *Store) ClearOverlay(token string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	e, ok := s.tickets[token]
+	if !ok || !s.now().Before(e.ticket.ExpiresAt) {
+		return false
+	}
+	e.overlay = nil
+	return true
+}
+
 // Overlay answers the ticket's unsaved buffer, when the pane set one.
 func (s *Store) Overlay(token string) (string, bool) {
 	s.mu.Lock()
@@ -183,9 +258,16 @@ func (s *Store) Len() int {
 func (s *Store) sweepLocked(now time.Time) {
 	for tok, e := range s.tickets {
 		if !now.Before(e.ticket.ExpiresAt) {
-			delete(s.tickets, tok)
+			s.removeLocked(tok)
 		}
 	}
+}
+
+func (s *Store) removeLocked(token string) {
+	if e, ok := s.tickets[token]; ok {
+		delete(s.byLabel, e.ticket.Label)
+	}
+	delete(s.tickets, token)
 }
 
 func newToken() (string, error) {
@@ -194,6 +276,17 @@ func newToken() (string, error) {
 		return "", fmt.Errorf("preview: token: %w", err)
 	}
 	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+// newLabel is the DNS-safe half of a ticket: 26 lowercase base32 characters
+// (130 bits), one label, valid inside `<label>.localhost`.
+func newLabel() (string, error) {
+	b := make([]byte, LabelBytes)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("preview: label: %w", err)
+	}
+	enc := base32.StdEncoding.WithPadding(base32.NoPadding)
+	return strings.ToLower(enc.EncodeToString(b)), nil
 }
 
 // mimeByExt is the closed list of types a preview may serve: web assets, not

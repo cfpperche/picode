@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mintPreview, previewReachable, putPreviewOverlay } from "./preview.js";
+import { clearPreviewOverlay, mintPreview, previewForms, previewReachable, putPreviewOverlay } from "./preview.js";
 
 function fakeFetch(result) {
   const calls = [];
@@ -89,6 +89,47 @@ test("putPreviewOverlay throws when the ticket refuses", async () => {
   globalThis.fetch = f.impl;
   try {
     await assert.rejects(() => putPreviewOverlay("/preview/tok/index.html", "x"), (err) => err.status === 413);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("previewForms prefers the ticket's own origin over the sandbox", () => {
+  const mint = {
+    path: "site/index.html",
+    sandbox: { url: "/preview/tok/site/index.html", events: "/preview/tok/__events" },
+    origin: { url: "http://abc.localhost:8473/site/index.html", events: "http://abc.localhost:8473/__events" },
+  };
+  assert.deepEqual(previewForms(mint), [
+    { mode: "origin", url: "http://abc.localhost:8473/site/index.html", events: "http://abc.localhost:8473/__events" },
+    { mode: "sandbox", url: "/preview/tok/site/index.html", events: "/preview/tok/__events" },
+  ]);
+  // A remote mint carries no origin: the path form is all there is.
+  assert.deepEqual(previewForms({ sandbox: mint.sandbox }), [
+    { mode: "sandbox", url: "/preview/tok/site/index.html", events: "/preview/tok/__events" },
+  ]);
+  assert.deepEqual(previewForms({}), []);
+  assert.deepEqual(previewForms(null), []);
+});
+
+test("clearPreviewOverlay DELETEs the overlay and surfaces refusals", async () => {
+  const f = fakeFetch({ ok: true, status: 204 });
+  const original = globalThis.fetch;
+  globalThis.fetch = f.impl;
+  try {
+    await clearPreviewOverlay("http://abc.localhost:8473/site/index.html");
+    assert.equal(f.calls[0].url, "http://abc.localhost:8473/site/index.html");
+    assert.equal(f.calls[0].opts.method, "DELETE");
+  } finally {
+    globalThis.fetch = original;
+  }
+  const bad = fakeFetch({ ok: false, status: 404 });
+  globalThis.fetch = bad.impl;
+  try {
+    await assert.rejects(
+      () => clearPreviewOverlay("http://gone.localhost:8473/site/index.html"),
+      (err) => err.status === 404,
+    );
   } finally {
     globalThis.fetch = original;
   }

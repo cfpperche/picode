@@ -1,8 +1,11 @@
 # HTML preview v2 — a real second origin (study)
 
-- **Status:** study, measured 2026-09-14; **no code**. Awaiting the owner's
-  decision on the five points at the bottom — they become ADR-0137 if
-  approved.
+- **Status:** study, measured 2026-09-14; **implemented** the same day on
+  `feat/html-preview-origin` (ADR-0137, accepted) with D1–D5 as recommended.
+  The measurements below were confirmed by the Go tests (host routing, header
+  and CORS split, off-loopback mint) and by the visual QA on a scratch
+  instance (storage and its lifetime, the app out of reach, the fallback
+  line).
 - **Boundary:** security model + process (a second origin and how it is
   reached) — hence the ADR; the parts of v2 that cross no boundary are listed
   at the end and can ship on their own.
@@ -36,7 +39,7 @@ reading the code and by measurement):
 | `picode_session` is **host-only** (no `Domain=`) and `SameSite=Strict` | `auth.setCookie` | cross-site requests carry **no cookie at all** |
 | `Origin == r.Host` (host **and port**) unless `Origin` is absent | `auth.originAllowed` | a preview origin is a foreign origin: any mutating request, any WS upgrade and `/api/events` are refused (`403 cross-site request refused`) |
 | `Sec-Fetch-Site: cross-site` refused outright | `auth.originAllowed` | the browser's own header closes the door first |
-| **No CORS headers anywhere** in the server | routes | a cross-origin `fetch` cannot read a response, even if it is sent |
+| **No CORS headers anywhere** in the server except the deliberate `/api/health` probe | routes | a cross-origin `fetch` cannot read a response, even if it is sent |
 | The preview host serves **only** the preview namespace | `preview.go` | a same-origin `fetch("/api/…")` from the page is a 404, not the API |
 
 Measured in the PiCode QA Chromium (probe: a page on one loopback origin
@@ -112,7 +115,7 @@ sandbox until C is decided.
 - "Open in browser" would open the v2 origin, not a sandboxed one — a
   behaviour change for that button to document.
 
-## Decision — owner's call
+## Decision — owner's call (approved 2026-09-14)
 
 | # | Decision | Recommendation |
 |---|---|---|
@@ -122,9 +125,10 @@ sandbox until C is decided.
 | D4 | Browser that cannot resolve `*.localhost` | **Fall back to the v1 sandbox**, one line in the pane; a loopback second listener (A) only if a real user hits it |
 | D5 | Save | **Same ticket/origin** — storage survives Save |
 
-If D1–D5 are approved as recommended, the work is one ADR plus a branch of
-roughly the size of v1.1: ticket label + Host routing + header split + iframe
-attribute + pane fallback + tests + docs.
+Shipped as written: `previewHostHandler` routes the label before the auth
+gate, the origin form drops the CSP sandbox and the iframe's `sandbox`
+attribute, the pane falls back with a line, and Save issues a `DELETE` that
+hands the document back to disk without changing the origin.
 
 **Not part of this decision** (no boundary crossed, each can ship alone and
 without the ADR): inline artifact cards in the chat, viewport presets, the

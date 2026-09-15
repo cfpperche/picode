@@ -179,6 +179,12 @@ func New(addr string, deps Deps) *http.Server {
 	if deps.Auth != nil {
 		handler = deps.Auth.Wrap(mux) // the one gate in front of every route (ADR-0049)
 	}
+	if deps.Previews != nil {
+		// A ticket's own origin (ADR-0137) is served before the gate and
+		// outside it: that origin is a preview, not the app, and the ticket
+		// is its only credential. Any other Host falls through unchanged.
+		handler = previewHostHandler(deps, handler)
+	}
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           handler,

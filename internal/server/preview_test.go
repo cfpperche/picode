@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -84,11 +85,24 @@ func newPreviewFixture(t *testing.T, ttl time.Duration) *previewFixture {
 
 func (f *previewFixture) mint(t *testing.T, query, body string) (int, map[string]any) {
 	t.Helper()
+	return f.mintWith(t, query, body, nil)
+}
+
+func (f *previewFixture) mintWith(t *testing.T, query, body string, hdr map[string]string) (int, map[string]any) {
+	t.Helper()
 	req, err := http.NewRequest(http.MethodPost, f.ts.URL+"/api/previews"+query, strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	for k, v := range hdr {
+		if strings.EqualFold(k, "Host") {
+			// Go reads the Host from the request, not from a header entry.
+			req.Host = v
+			continue
+		}
+		req.Header.Set(k, v)
+	}
 	res, err := f.ts.Client().Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -119,14 +133,65 @@ func (f *previewFixture) mintURL(t *testing.T, rel string) string {
 	if code != http.StatusOK {
 		t.Fatalf("mint %s: status %d body %v", rel, code, out)
 	}
-	raw, _ := out["url"].(string)
+	box, _ := out["sandbox"].(map[string]any)
+	raw, _ := box["url"].(string)
 	if !strings.HasPrefix(raw, "/preview/") {
-		t.Fatalf("mint %s: url %q", rel, raw)
+		t.Fatalf("mint %s: sandbox url %q", rel, raw)
 	}
 	if _, ok := out["expiresAt"].(string); !ok {
 		t.Fatalf("mint %s: no expiresAt in %v", rel, out)
 	}
 	return raw
+}
+
+// mintOrigin mints a document and returns its own-origin URL parts: the host
+// to send as Host and the path the URL carries.
+func (f *previewFixture) mintOrigin(t *testing.T, rel string) (host, docPath string) {
+	t.Helper()
+	code, out := f.mint(t, "", fmt.Sprintf(`{"kind":"workspace","id":%q,"path":%q}`, f.ws.ID, rel))
+	if code != http.StatusOK {
+		t.Fatalf("mint %s: status %d body %v", rel, code, out)
+	}
+	origin, ok := out["origin"].(map[string]any)
+	if !ok {
+		t.Fatalf("mint %s: no origin offered in %v", rel, out)
+	}
+	raw, _ := origin["url"].(string)
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		t.Fatalf("mint %s: origin url %q", rel, raw)
+	}
+	if !strings.HasSuffix(u.Hostname(), ".localhost") {
+		t.Fatalf("mint %s: origin host %q is not a ticket label", rel, u.Hostname())
+	}
+	if events, _ := origin["events"].(string); !strings.HasSuffix(events, "/__events") {
+		t.Fatalf("mint %s: origin events %q", rel, events)
+	}
+	return u.Host, u.Path
+}
+
+// do sends one request to the test listener with an explicit Host header, so
+// the origin form can be exercised without DNS.
+func (f *previewFixture) do(t *testing.T, method, host, path string, hdr map[string]string, body string) (*http.Response, string) {
+	t.Helper()
+	req, err := http.NewRequest(method, f.ts.URL+path, strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Host = host
+	for k, v := range hdr {
+		req.Header.Set(k, v)
+	}
+	res, err := f.ts.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res, string(b)
 }
 
 func TestPreviewMintTable(t *testing.T) {
@@ -285,7 +350,7 @@ func TestPreviewServeTable(t *testing.T) {
 
 func TestPreviewTicketExpiry(t *testing.T) {
 	f := newPreviewFixture(t, time.Millisecond)
-	tk, err := f.deps.Previews.Mint("workspace", f.ws.ID, f.root, "site/index.html", "")
+	tk, err := f.deps.Previews.Mint(preview.Request{OwnerKind: "workspace", OwnerID: f.ws.ID, Root: f.root, Path: "site/index.html"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +366,7 @@ func TestPreviewTicketDiesWithItsSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tk, err := f.deps.Previews.Mint("workspace", f.ws.ID, f.root, "site/index.html", sess.ID)
+	tk, err := f.deps.Previews.Mint(preview.Request{OwnerKind: "workspace", OwnerID: f.ws.ID, Root: f.root, Path: "site/index.html", SessionID: sess.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -530,5 +595,230 @@ func TestPreviewOverlayPut(t *testing.T) {
 	defer func() { _ = resDel.Body.Close() }()
 	if resDel.StatusCode != http.StatusMethodNotAllowed {
 		t.Fatalf("delete status=%d", resDel.StatusCode)
+	}
+}
+
+// ---- the ticket's own origin (ADR-0137) ----
+
+// TestPreviewHostLabelTable pins the one Host shape a ticket owns: a single
+// label before `.localhost`, nothing nested, nothing else.
+func TestPreviewHostLabelTable(t *testing.T) {
+	cases := []struct {
+		host  string
+		label string
+		ok    bool
+	}{
+		{"abc234.localhost", "abc234", true},
+		{"abc234.localhost:8473", "abc234", true},
+		{"ABC234.LocalHost:8473", "abc234", true},
+		{"localhost", "", false},
+		{"localhost:8473", "", false},
+		{"a.b.localhost", "", false},
+		{"abc.localhost.evil.example", "", false},
+		{"evil.example", "", false},
+		{"127.0.0.1:8473", "", false},
+		{"", "", false},
+	}
+	for _, c := range cases {
+		label, ok := previewHostLabel(c.host)
+		if ok != c.ok || label != c.label {
+			t.Fatalf("previewHostLabel(%q) = %q,%v want %q,%v", c.host, label, ok, c.label, c.ok)
+		}
+	}
+}
+
+// TestPreviewOriginFormDecisionTable is the host form's contract: the project
+// over a real origin with no CSP sandbox, the app and API out of reach, and
+// unknown labels answering 404 rather than the UI.
+func TestPreviewOriginFormDecisionTable(t *testing.T) {
+	f := newPreviewFixture(t, time.Hour)
+	host, docPath := f.mintOrigin(t, "site/index.html")
+	port := strings.TrimPrefix(host, host[:strings.LastIndex(host, ":")+1])
+
+	res, body := f.do(t, http.MethodGet, host, docPath, nil, "")
+	if res.StatusCode != http.StatusOK || !strings.Contains(body, "hello preview") {
+		t.Fatalf("origin document status=%d body=%q", res.StatusCode, body)
+	}
+	csp := res.Header.Get("Content-Security-Policy")
+	if strings.Contains(csp, "sandbox") {
+		t.Fatalf("origin document still carries a CSP sandbox: %q", csp)
+	}
+	if got := res.Header.Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("no minting origin, yet ACAO=%q", got)
+	}
+	for k, want := range map[string]string{
+		"Referrer-Policy":              "no-referrer",
+		"Cache-Control":                "no-store",
+		"X-Content-Type-Options":       "nosniff",
+		"Cross-Origin-Resource-Policy": "cross-origin",
+	} {
+		if got := res.Header.Get(k); got != want {
+			t.Fatalf("%s=%q want %q", k, got, want)
+		}
+	}
+	if res.Header.Get("Permissions-Policy") == "" {
+		t.Fatal("Permissions-Policy missing on the origin form")
+	}
+
+	// Assets resolve relative to the origin, same allowlist as the sandbox.
+	res, body = f.do(t, http.MethodGet, host, "/site/app.js", nil, "")
+	if res.StatusCode != http.StatusOK || !strings.Contains(body, "document.title") {
+		t.Fatalf("asset status=%d body=%q", res.StatusCode, body)
+	}
+	if ct := res.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/javascript") {
+		t.Fatalf("asset content-type=%q", ct)
+	}
+	// The project root is served; a dotfile and a non-allowlisted type are not.
+	if res, _ := f.do(t, http.MethodGet, host, "/site/.hidden.html", nil, ""); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("dotfile status=%d", res.StatusCode)
+	}
+	if res, _ := f.do(t, http.MethodGet, host, "/site/notes.md", nil, ""); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("non-allowlisted status=%d", res.StatusCode)
+	}
+	if res, _ := f.do(t, http.MethodGet, host, "/.env", nil, ""); res.StatusCode != http.StatusNotFound {
+		t.Fatalf(".env status=%d", res.StatusCode)
+	}
+
+	// PiCode is not on this origin: no API, no app shell, no other route.
+	for _, p := range []string{"/api/agents", "/api/health", "/desktop/", "/index.html"} {
+		res, body := f.do(t, http.MethodGet, host, p, nil, "")
+		if res.StatusCode != http.StatusNotFound || !strings.Contains(body, "This preview is not available") {
+			t.Fatalf("%s on the ticket origin: status=%d body=%q", p, res.StatusCode, body)
+		}
+	}
+	// An unknown or expired label is a refusal, never a fall-through to the UI.
+	if res, _ := f.do(t, http.MethodGet, "zzzznotaticket.localhost:"+port, docPath, nil, ""); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("unknown label status=%d", res.StatusCode)
+	}
+	// Other methods are answered here too: no silent fall-through.
+	res, _ = f.do(t, http.MethodPost, host, docPath, nil, "x")
+	if res.StatusCode != http.StatusMethodNotAllowed || !strings.Contains(res.Header.Get("Allow"), "PUT") {
+		t.Fatalf("post status=%d allow=%q", res.StatusCode, res.Header.Get("Allow"))
+	}
+	// The sandboxed path form keeps its own policy, unchanged.
+	boxURL := f.mintURL(t, "site/index.html")
+	res, _ = f.get(t, boxURL)
+	if csp := res.Header.Get("Content-Security-Policy"); !strings.Contains(csp, "sandbox allow-scripts") {
+		t.Fatalf("sandbox form lost its CSP sandbox: %q", csp)
+	}
+	if got := res.Header.Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Fatalf("sandbox form ACAO=%q want *", got)
+	}
+}
+
+// TestPreviewOriginFormCORSAndOverlay covers the pane's cross-origin calls on
+// the ticket origin: HEAD (the reachability preflight), the PUT that carries
+// the unsaved buffer, and the DELETE that hands the document back to disk on
+// Save — plus the CORS answers that let only the minting UI read any of it.
+func TestPreviewOriginFormCORSAndOverlay(t *testing.T) {
+	const ui = "http://localhost:5173"
+	f := newPreviewFixture(t, time.Hour)
+	code, out := f.mintWith(t, "", fmt.Sprintf(`{"kind":"workspace","id":%q,"path":"site/index.html"}`, f.ws.ID),
+		map[string]string{"Origin": ui})
+	if code != http.StatusOK {
+		t.Fatalf("mint status=%d body=%v", code, out)
+	}
+	origin, _ := out["origin"].(map[string]any)
+	raw, _ := origin["url"].(string)
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		t.Fatalf("origin url %q", raw)
+	}
+	host := u.Host
+	events, _ := origin["events"].(string)
+	if !strings.HasSuffix(events, "/__events") {
+		t.Fatalf("origin events %q", events)
+	}
+
+	// HEAD: what the pane's reachability check does, and what it may read.
+	res, _ := f.do(t, http.MethodHead, host, u.Path, map[string]string{"Origin": ui}, "")
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("preflight HEAD status=%d", res.StatusCode)
+	}
+	if got := res.Header.Get("Access-Control-Allow-Origin"); got != ui {
+		t.Fatalf("HEAD ACAO=%q want %q", got, ui)
+	}
+	if csp := res.Header.Get("Content-Security-Policy"); csp != "frame-ancestors "+ui {
+		t.Fatalf("HEAD CSP=%q", csp)
+	}
+	// A different origin is not echoed: only the minting UI may read.
+	res, _ = f.do(t, http.MethodGet, host, u.Path, map[string]string{"Origin": "http://evil.example"}, "")
+	if got := res.Header.Get("Access-Control-Allow-Origin"); got != ui {
+		t.Fatalf("foreign origin got ACAO=%q want %q", got, ui)
+	}
+
+	// The browser preflights the pane's PUT (and DELETE).
+	res, _ = f.do(t, http.MethodOptions, host, u.Path, map[string]string{
+		"Origin":                        ui,
+		"Access-Control-Request-Method": "PUT",
+	}, "")
+	if res.StatusCode != http.StatusNoContent {
+		t.Fatalf("preflight status=%d", res.StatusCode)
+	}
+	if got := res.Header.Get("Access-Control-Allow-Origin"); got != ui {
+		t.Fatalf("preflight ACAO=%q want %q", got, ui)
+	}
+	for _, m := range []string{"PUT", "DELETE"} {
+		if !strings.Contains(res.Header.Get("Access-Control-Allow-Methods"), m) {
+			t.Fatalf("preflight allow-methods %q missing %s", res.Header.Get("Access-Control-Allow-Methods"), m)
+		}
+	}
+
+	// Unsaved buffer: the origin serves the editor's text, not disk. Every
+	// answer carries the CORS allowance — a Go client cannot see a missing
+	// one, a browser turns it into a bare network failure.
+	res, _ = f.do(t, http.MethodPut, host, u.Path, map[string]string{
+		"Origin":       ui,
+		"Content-Type": "text/plain; charset=utf-8",
+	}, "<p>buffer</p>")
+	if res.StatusCode != http.StatusNoContent {
+		t.Fatalf("overlay PUT status=%d", res.StatusCode)
+	}
+	if got := res.Header.Get("Access-Control-Allow-Origin"); got != ui {
+		t.Fatalf("overlay PUT ACAO=%q want %q", got, ui)
+	}
+	if res, _ := f.do(t, http.MethodPut, host, "/site/app.js", map[string]string{"Origin": ui}, "x"); res.Header.Get("Access-Control-Allow-Origin") != ui {
+		t.Fatalf("refusal ACAO=%q want %q", res.Header.Get("Access-Control-Allow-Origin"), ui)
+	}
+	_, body := f.do(t, http.MethodGet, host, u.Path, nil, "")
+	if !strings.Contains(body, "buffer") {
+		t.Fatalf("overlay not served: %q", body)
+	}
+	// Only the ticket's own document may be overlaid.
+	if res, _ := f.do(t, http.MethodPut, host, "/site/app.js", map[string]string{"Origin": ui}, "x"); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("overlay on an asset status=%d", res.StatusCode)
+	}
+	// Save: DELETE hands the document back to disk without changing the
+	// origin, so the page's storage survives.
+	res, _ = f.do(t, http.MethodDelete, host, u.Path, map[string]string{"Origin": ui}, "")
+	if res.StatusCode != http.StatusNoContent {
+		t.Fatalf("overlay DELETE status=%d", res.StatusCode)
+	}
+	if got := res.Header.Get("Access-Control-Allow-Origin"); got != ui {
+		t.Fatalf("overlay DELETE ACAO=%q want %q", got, ui)
+	}
+	_, body = f.do(t, http.MethodGet, host, u.Path, nil, "")
+	if strings.Contains(body, "buffer") || !strings.Contains(body, "hello preview") {
+		t.Fatalf("disk did not win after DELETE: %q", body)
+	}
+}
+
+// TestPreviewOriginNotOfferedOffLoopback pins D2: a mint from anywhere but
+// this machine's loopback never learns a `<label>.localhost` URL it could not
+// reach; it gets the sandbox form only.
+func TestPreviewOriginNotOfferedOffLoopback(t *testing.T) {
+	f := newPreviewFixture(t, time.Hour)
+	for _, host := range []string{"picode.tailnet.ts.net", "192.168.1.20:8473", "picode.local:8473"} {
+		code, out := f.mintWith(t, "", fmt.Sprintf(`{"kind":"workspace","id":%q,"path":"site/index.html"}`, f.ws.ID),
+			map[string]string{"Host": host})
+		if code != http.StatusOK {
+			t.Fatalf("mint from %s: status=%d body=%v", host, code, out)
+		}
+		if _, ok := out["origin"]; ok {
+			t.Fatalf("mint from %s offered an origin: %v", host, out["origin"])
+		}
+		if box, _ := out["sandbox"].(map[string]any); box["url"] == "" || box["url"] == nil {
+			t.Fatalf("mint from %s lost the sandbox form: %v", host, out)
+		}
 	}
 }

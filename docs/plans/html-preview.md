@@ -158,12 +158,15 @@ The app shell's `frame-src 'self'` already allows this URL; no change.
    nonce, no script injection into the page; and unsaved editor text as the
    ticket's overlay (`PUT` on the document; a clean buffer re-mints so disk
    wins).
-3. **v2 — a real preview origin.** Study, options and measurements in
-   `docs/plans/html-preview-v2.md`; awaiting the owner's decision on five
-   points (origin strategy, remote, storage lifetime, fallback, save). The
-   non-boundary parts (inline artifact cards, viewport presets, console
-   bridge) can ship alone; the door to preview a running dev server overlaps
-   the approved browser-preview panel and is a network capability of its own.
+3. **v2 — a real preview origin.** *Shipped 2026-09-14*
+   (`feat/html-preview-origin`, ADR-0137, study and measurements in
+   `docs/plans/html-preview-v2.md`): the ticket also names a DNS label, the
+   listener routes `<label>.localhost:<port>` before the auth gate, and the
+   pane prefers that origin (storage, workers, its own cookie) with the
+   sandboxed path form as the fallback. Still open, non-boundary: inline
+   artifact cards in the chat, viewport presets, the console bridge. The door
+   to preview a running dev server is a network capability of its own
+   (overlaps the approved browser-preview panel) and stays unbuilt.
 
 ## Acceptance (v1)
 
