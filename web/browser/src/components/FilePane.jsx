@@ -61,15 +61,17 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
   // ticket serves it from disk, so the pane renders preview-only — no Raw,
   // and the usual "too large to display" banner would be a lie.
   const previewOnly = kind === "html" && view.kind === "msg" && /too large/i.test(view.error || "");
-  // One capability ticket per open HTML preview (ADR-0136). Minting pauses
-  // while the editor holds unsaved text: the page on disk would be the
-  // previous version, and the pane says so instead of showing it.
+  // One capability ticket per open HTML preview (ADR-0136). Unsaved editor
+  // text travels as the ticket's overlay (the hook PUTs it), so the preview
+  // shows what the pane holds while the assets still come from disk.
   const html = usePreviewTicket({
     ownerKind,
     ownerId,
     path,
     root,
-    enabled: kind === "html" && mode === "preview" && !view.dirty && (previewOnly || !previewEmpty(view.text)),
+    text: view.text,
+    dirty: view.dirty,
+    enabled: kind === "html" && mode === "preview" && (previewOnly || !previewEmpty(view.text)),
   });
   const [leaving, setLeaving] = useState(false);
   const leaveResolver = useRef(null);
@@ -241,13 +243,6 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
         {mode === "preview" && showPreview ? (
           kind === "html" && !previewOnly && previewEmpty(view.text) ? (
             <p className="file-pane-msg">Nothing to preview.</p>
-          ) : kind === "html" && view.dirty && !view.error ? (
-            <p className="file-pane-msg file-pane-msg-actions">
-              <span>Unsaved changes aren't in the preview.</span>
-              <button type="button" className="btn btn-sm btn-ghost" disabled={view.saving} onClick={() => { void doc.save(); }}>
-                {view.saving ? "Saving…" : "Save and preview"}
-              </button>
-            </p>
           ) : (
             <FilePreview kind={kind} text={view.text} src={view.src} html={kind === "html" ? html : undefined} />
           )

@@ -187,3 +187,32 @@ func TestTouchCap(t *testing.T) {
 		t.Fatalf("watched=%d want %d", got, MaxWatch)
 	}
 }
+
+func TestOverlay(t *testing.T) {
+	s := NewStore(time.Minute)
+	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+	s.now = func() time.Time { return now }
+	tk, err := s.Mint("agent", "a1", "/proj", "site/index.html", "s1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := s.Overlay(tk.Token); ok {
+		t.Fatal("fresh ticket has an overlay")
+	}
+	if !s.SetOverlay(tk.Token, "texto do editor") {
+		t.Fatal("set overlay refused")
+	}
+	if got, ok := s.Overlay(tk.Token); !ok || got != "texto do editor" {
+		t.Fatalf("overlay=%q ok=%v", got, ok)
+	}
+	if !s.SetOverlay(tk.Token, "") || func() bool { got, _ := s.Overlay(tk.Token); return got != "" }() {
+		t.Fatal("an empty overlay must be a real, replaceable overlay")
+	}
+	if s.SetOverlay("nope", "x") {
+		t.Fatal("unknown token accepted an overlay")
+	}
+	now = now.Add(time.Minute)
+	if _, ok := s.Overlay(tk.Token); ok {
+		t.Fatal("expired ticket kept its overlay")
+	}
+}

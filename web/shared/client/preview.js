@@ -29,3 +29,22 @@ export async function previewReachable(url, signal) {
   if (res.status === 405) return true;
   return res.ok;
 }
+
+// putPreviewOverlay hands the pane's unsaved editor buffer to the ticket.
+// The frame then renders what the editor holds while the project's relative
+// assets keep resolving; the file on disk is not touched. Only the ticket's
+// own document can be overlaid, so a page replacing its own preview gains
+// nothing it did not already have.
+export async function putPreviewOverlay(url, text) {
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+    body: text == null ? "" : String(text),
+  });
+  if (!res.ok) {
+    const err = new Error("Can't update this preview.");
+    err.status = res.status;
+    throw err;
+  }
+  return true;
+}

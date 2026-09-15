@@ -14,11 +14,12 @@ have previews; text files use the editor. Markdown, HTML and SVG offer
 **Ctrl+S** (**Command+S** on macOS).
 
 An HTML file renders the way a browser shows it: its scripts run and its
-styles, scripts and images load from the same folder. The page is kept in a
-sandbox, so it cannot read PiCode itself or sign in as you — it has no
-cookies and no local storage, and a button that saves to the page's own
-storage does nothing. **Save** your edits before expecting them in the
-preview, then **Reload**. A link inside the page opens a normal browser tab.
+styles, scripts and images load from the same folder. Edits you have not
+saved yet appear too — the preview renders what the editor holds, and
+**Save** writes it to disk. The page is kept in a sandbox, so it cannot read
+PiCode itself or sign in as you — it has no cookies and no local storage,
+and a button that saves to the page's own storage does nothing. A link
+inside the page opens a normal browser tab.
 
 **Changes** lists files changed since the latest commit. Select an item to
 review its diff, then choose **Open file** to inspect or edit its current
