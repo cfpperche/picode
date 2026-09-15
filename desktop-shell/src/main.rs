@@ -1,17 +1,18 @@
 // picode-shell is the Desktop v2 window (docs/plans/desktop-v2.md,
-// ADR-0120): a thin Tauri 2 shell that renders the PiCode UI served by the
-// daemon inside WSL, plus a tray. The daemon is the source of truth; this
-// process is a client and a supervisor, never a second backend.
-//
-// Phase 1 scope, deliberately small: discover the server address, open the
-// window on it, keep a tray with Open/Quit, and stay single-instance. The
-// keepalive, the disk actions and the browser policy arrive in later phases —
-// the Go tray keeps owning them until then.
+// ADR-0120) and, since ADR-0142, the only Windows resident: a thin Tauri 2
+// shell that renders the PiCode UI served by the daemon inside WSL, holds
+// the distro open with a keepalive, and keeps one tray. The daemon is the
+// source of truth; this process is a client and a supervisor, never a
+// second backend. The disk actions arrive next; the Go tray owned them —
+// and the keepalive — until this shell took over.
 
 mod btab;
 mod browserlab;
 mod clean;
 mod disk;
+mod health;
+mod keepalive;
+mod status;
 mod wslconfig;
 
 // The undecorated window's frame — drag handles and window controls — is
@@ -21,7 +22,7 @@ mod wslconfig;
 // script: no build step lives between the shell and its window frame.
 use std::process::Command;
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager, WebviewUrl, WebviewWindowBuilder,
 };
@@ -42,9 +43,13 @@ fn main() {
             _ => eprintln!("PICODE_CDP_PORT is not a port number; the debug port stays off"),
         }
     }
+    // The logon task starts the resident hidden: sign-in never pops a window,
+    // the tray holds the service, and a second launch brings the window up
+    // through the single-instance handler below.
+    let hidden = std::env::args().any(|a| a == "--hidden");
     // The shell loads its own bundle, not the launcher's pick: /desktop/ is
     // composed for the shell only (ADR-0122), /browser/ is what a browser gets.
-    let url = discover_server_url().map(|mut u| {
+    let url = discover_server().map(|(_, mut u)| {
         u.set_path("/desktop/");
         u
     });
@@ -115,8 +120,12 @@ fn main() {
                 .inner_size(1360.0, 880.0)
                 .min_inner_size(720.0, 480.0)
                 .decorations(false)
+                .visible(!hidden)
                 .data_directory(browserlab::webview_profile())
                 .build()?;
+            let status_item =
+                MenuItem::with_id(app, "status", "Starting…", false, None::<&str>)?;
+            let status_sep = PredefinedMenuItem::separator(app)?;
             let open = MenuItem::with_id(app, "open", "Open PiCode", true, None::<&str>)?;
             let lab = MenuItem::with_id(app, "browserlab", "Browser lab", true, None::<&str>)?;
             let newbtab = MenuItem::with_id(app, "newbtab", "New browser tab", true, None::<&str>)?;
@@ -133,7 +142,10 @@ fn main() {
                 true,
                 None::<&str>,
             )?;
-            let menu = Menu::with_items(app, &[&open, &lab, &newbtab, &management, &notify, &quit])?;
+            let menu = Menu::with_items(
+                app,
+                &[&status_item, &status_sep, &open, &lab, &newbtab, &management, &notify, &quit],
+            )?;
 
             TrayIconBuilder::with_id("picode")
                 .icon(app.default_window_icon().expect("bundled icon").clone())
@@ -179,10 +191,104 @@ fn main() {
                 })
                 .build(app)?;
 
+            // The resident loop: hold the distro open and report health, the
+            // way the retired Go tray did. One thread owns the cached URL,
+            // the boot id and the keepalive child, so the health timer can
+            // never erase what the disk timer wrote (and the disk half joins
+            // the same composition next slice).
+            let poll_app = app.handle().clone();
+            let poll_status = status_item.clone();
+            let poll_open = open.clone();
+            std::thread::spawn(move || poll_loop(poll_app, poll_status, poll_open));
+
             Ok(())
         })
         .run(tauri::generate_context!())
         .expect("error while running picode-shell");
+}
+
+// How often the resident asks PiCode whether it is up: one curl to a
+// loopback port, cheap enough for a timer.
+const POLL_EVERY_SECS: u64 = 5;
+
+fn poll_loop(app: tauri::AppHandle, status: MenuItem<tauri::Wry>, open: MenuItem<tauri::Wry>) {
+    let mut url: Option<String> = None;
+    let mut boot_id = String::new();
+    let mut child: Option<std::process::Child> = None;
+    loop {
+        tick(&app, &status, &open, &mut url, &mut boot_id, &mut child);
+        std::thread::sleep(std::time::Duration::from_secs(POLL_EVERY_SECS));
+    }
+}
+
+fn tick(
+    app: &tauri::AppHandle,
+    status: &MenuItem<tauri::Wry>,
+    open: &MenuItem<tauri::Wry>,
+    url: &mut Option<String>,
+    boot_id: &mut String,
+    child: &mut Option<std::process::Child>,
+) {
+    // A dead keepalive is re-armed, never mourned: wsl --terminate takes it
+    // down with the distro, and without this the distro would idle out
+    // sixty seconds after coming back.
+    if let Some(c) = child.as_mut() {
+        if matches!(c.try_wait(), Ok(Some(_))) {
+            *child = None;
+        }
+    }
+    if url.is_none() {
+        match discover_server() {
+            Some((distro, found)) => {
+                if child.is_none() {
+                    match keepalive::start(&distro) {
+                        Ok(c) => *child = Some(c),
+                        Err(e) => eprintln!("keepalive: cannot hold {distro} open: {e}"),
+                    }
+                }
+                *url = Some(found.to_string());
+            }
+            None => {
+                set_status(app, status, open, false, "PiCode has not started yet");
+                return;
+            }
+        }
+    }
+    let base = url.clone().expect("discovered above");
+    match health::fetch(&base) {
+        Ok(h) => {
+            // The port can move inside its range (8445-8455), so a failed
+            // probe invalidates the cached address rather than being
+            // reported forever — and a changed boot id names the restart.
+            let restarted = !boot_id.is_empty() && *boot_id != h.boot_id;
+            *boot_id = h.boot_id;
+            let mut detail = base;
+            if restarted {
+                detail.push_str(" (restarted)");
+            }
+            set_status(app, status, open, true, &detail);
+        }
+        Err(_) => {
+            *url = None;
+            set_status(app, status, open, false, "not answering");
+        }
+    }
+}
+
+fn set_status(
+    app: &tauri::AppHandle,
+    status: &MenuItem<tauri::Wry>,
+    open: &MenuItem<tauri::Wry>,
+    up: bool,
+    detail: &str,
+) {
+    let _ = status.set_text(status::title(up, detail));
+    let _ = open.set_enabled(up);
+    // The disk line joins this composition next slice; until then the
+    // tooltip is the status alone.
+    if let Some(tray) = app.tray_by_id("picode") {
+        let _ = tray.set_tooltip(Some(status::tooltip(detail, None, false)));
+    }
 }
 
 // open_management_window opens the Management page on demand — the second
@@ -190,9 +296,11 @@ fn main() {
 // .wslconfig form, local pages, Rust commands behind them.
 // management_url points the Management webview at the served bundle.
 fn management_url(app: &tauri::AppHandle) -> tauri::Url {
-    let mut url = discover_server_url().unwrap_or_else(|| {
-        tauri::Url::parse("https://localhost:8445/").expect("static fallback origin")
-    });
+    let mut url = discover_server()
+        .map(|(_, u)| u)
+        .unwrap_or_else(|| {
+            tauri::Url::parse("https://localhost:8445/").expect("static fallback origin")
+        });
     url.set_path("/desktop/management.html");
     let _ = app;
     url
@@ -203,7 +311,8 @@ fn open_management_window(app: &tauri::AppHandle) {
         show(&win);
         return;
     }
-    let mut url = discover_server_url()
+    let mut url = discover_server()
+        .map(|(_, u)| u)
         .unwrap_or_else(|| tauri::Url::parse("https://localhost:8445/").expect("static origin"));
     url.set_path("/desktop/management.html");
     let _ = tauri::WebviewWindowBuilder::new(app, "management", WebviewUrl::External(url))
@@ -227,11 +336,12 @@ fn show(win: &tauri::WebviewWindow) {
     let _ = win.set_focus();
 }
 
-/// discover_server_url finds the daemon the same way the Go tray does: the
-// address lives in <data>/server.json inside the distro, and wsl.exe is the
-// door to it. The first distro that answers wins — on every machine this
-// product targets there is exactly one.
-fn discover_server_url() -> Option<tauri::Url> {
+/// discover_server finds the daemon the same way the Go tray did: the address
+// lives in <data>/server.json inside the distro, and wsl.exe is the door to
+// it. The first distro that answers wins — on every machine this product
+// targets there is exactly one — and the winner's name comes back with the
+// URL, because the keepalive must hold that same distro open.
+fn discover_server() -> Option<(String, tauri::Url)> {
     let out = Command::new("wsl.exe")
         .args(["--list", "--quiet"])
         .output()
@@ -255,7 +365,7 @@ fn discover_server_url() -> Option<tauri::Url> {
         if let Some(start) = text.find('{') {
             if let Ok(found) = serde_json::from_str::<ServerJson>(text[start..].trim_end()) {
                 if let Ok(parsed) = tauri::Url::parse(&found.url) {
-                    return Some(parsed);
+                    return Some((distro.to_string(), parsed));
                 }
             }
         }

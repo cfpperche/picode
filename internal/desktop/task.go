@@ -7,12 +7,57 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"unicode/utf16"
 )
 
 // TaskName belongs to the current user's interactive Windows login (ADR-0020).
 const TaskName = "PiCodeDesktop"
+
+// The two resident launches the task may point at: the retired Go tray
+// (ADR-0020) and the shell (ADR-0142). Anything else is a foreign command
+// the task tools must not touch.
+const (
+	TrayArgs  = "--tray"
+	ShellArgs = "--hidden"
+)
+
+// ShellExeName is the resident the task moves to.
+const ShellExeName = "picode-shell.exe"
+
+// ResidentKind names which resident a task action launches: "tray",
+// "shell", or "" for a foreign command. The launch argument decides, not
+// the executable name — a renamed copy is still the same resident.
+func ResidentKind(args string) string {
+	switch args {
+	case TrayArgs:
+		return "tray"
+	case ShellArgs:
+		return "shell"
+	default:
+		return ""
+	}
+}
+
+// ShellExe finds the shell resident: next to the running tool first (a
+// self-contained folder), then the canonical PiCode install folder.
+func ShellExe(selfExe, localAppData string) (string, error) {
+	candidates := []string{}
+	if dir := filepath.Dir(selfExe); dir != "" && dir != "." {
+		candidates = append(candidates, filepath.Join(dir, ShellExeName))
+	}
+	if localAppData != "" {
+		candidates = append(candidates, filepath.Join(localAppData, "PiCode", ShellExeName))
+	}
+	for _, c := range candidates {
+		if st, err := os.Stat(c); err == nil && !st.IsDir() {
+			return c, nil
+		}
+	}
+	return "", fmt.Errorf("picode-shell.exe was not found next to the tool or in %%LOCALAPPDATA%%\\PiCode — reinstall PiCode Desktop")
+}
 
 //go:embed task.ps1
 var taskScript string
@@ -82,9 +127,59 @@ func InstallTask(r Runner, exe string) (TaskStatus, error) {
 }
 
 // RepairTask preserves the existing action, identity, triggers and opt-out.
-// It never launches the tray, provisions WSL, or changes machine-wide policy.
+// It never launches the resident, provisions WSL, or changes machine-wide
+// policy.
 func RepairTask(r Runner) (TaskStatus, error) {
 	return repairTask(r, TaskName)
+}
+
+// RetargetTask moves the task's action to a new resident launch — the
+// migration from the Go tray to the shell (ADR-0142) — and converges its
+// policy in the same write. It refuses a foreign current action (that is
+// install's job, not a silent takeover), an unknown target launch, and a
+// target executable that is not an existing absolute file. When the action
+// already is the target, it degrades to a policy repair.
+func RetargetTask(r Runner, exe, args string) (TaskStatus, error) {
+	return retargetTask(r, TaskName, exe, args)
+}
+
+func retargetTask(r Runner, name, exe, args string) (TaskStatus, error) {
+	if ResidentKind(args) == "" {
+		return TaskStatus{}, fmt.Errorf("cannot point startup at %q — the resident launch is --tray or --hidden", args)
+	}
+	if !filepath.IsAbs(exe) {
+		return TaskStatus{}, fmt.Errorf("the resident executable must be an absolute path")
+	}
+	if st, err := os.Stat(exe); err != nil || st.IsDir() {
+		return TaskStatus{}, fmt.Errorf("the resident executable is missing: %s", exe)
+	}
+	before, err := taskOperation(r, "inspect", name, "")
+	if err != nil {
+		return before, err
+	}
+	if !before.CanRetarget() {
+		return before, fmt.Errorf("startup task cannot be retargeted safely; inspect its registration before running picode-desktop install")
+	}
+	if ResidentKind(before.Arguments) == "" {
+		return before, fmt.Errorf("startup task runs an unrelated command; inspect it before reinstalling")
+	}
+	if before.Executable == exe && before.Arguments == args {
+		// Already there: a policy repair on the inspected state, not a
+		// second look at the task.
+		if len(before.PolicyIssues()) == 0 {
+			return before, nil
+		}
+		s, err := taskOperation(r, "repair", name, "")
+		if err == nil {
+			err = s.verifyPolicy()
+		}
+		return s, err
+	}
+	s, err := taskRetargetOperation(r, name, exe, args)
+	if err == nil {
+		err = s.verifyPolicy()
+	}
+	return s, err
 }
 
 func repairTask(r Runner, name string) (TaskStatus, error) {
@@ -106,7 +201,15 @@ func repairTask(r Runner, name string) (TaskStatus, error) {
 }
 
 func taskOperation(r Runner, operation, name, exe string) (TaskStatus, error) {
-	out, err := r.Output("powershell.exe", taskArgs(operation, name, exe)...)
+	return runTaskCall(r, taskArgs(operation, name, exe), operation)
+}
+
+func taskRetargetOperation(r Runner, name, exe, args string) (TaskStatus, error) {
+	return runTaskCall(r, taskRetargetArgs(name, exe, args), "retarget")
+}
+
+func runTaskCall(r Runner, argv []string, operation string) (TaskStatus, error) {
+	out, err := r.Output("powershell.exe", argv...)
 	var envelope struct {
 		TaskStatus
 		Exists *bool  `json:"exists"`
@@ -139,13 +242,31 @@ func taskOperation(r Runner, operation, name, exe string) (TaskStatus, error) {
 func (s TaskStatus) CanRepair() bool {
 	return s.Exists && s.UserID != "" && s.UserID == s.CurrentUserID &&
 		s.Interactive && s.Limited && s.Logon && !s.TriggerLimited &&
-		s.Executable != "" && s.ExecutableExists && s.Arguments == "--tray"
+		s.Executable != "" && s.ExecutableExists && ResidentKind(s.Arguments) != ""
+}
+
+// CanRetarget is the ownership half of CanRepair: the identity and trigger
+// shape a retarget preserves, without the action shape it replaces.
+func (s TaskStatus) CanRetarget() bool {
+	return s.Exists && s.UserID != "" && s.UserID == s.CurrentUserID &&
+		s.Interactive && s.Limited && s.Logon && !s.TriggerLimited
 }
 
 func taskArgs(operation, name, exe string) []string {
+	return taskCallArgs(operation, name, exe, "")
+}
+
+func taskRetargetArgs(name, exe, args string) []string {
+	return taskCallArgs("retarget", name, exe, args)
+}
+
+func taskCallArgs(operation, name, exe, args string) []string {
 	quote := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
 	script := "& {\n" + taskScript + "\n} -Operation " + quote(operation) +
 		" -Name " + quote(name) + " -ExecutablePath " + quote(exe)
+	if args != "" {
+		script += " -Arguments " + quote(args)
+	}
 	units := utf16.Encode([]rune(script))
 	encoded := make([]byte, len(units)*2)
 	for i, unit := range units {
@@ -168,7 +289,7 @@ func (s TaskStatus) PolicyIssues() []string {
 		{s.Interactive && s.Limited, "startup must use the signed-in account without administrator rights"},
 		{s.Logon, "an enabled sign-in trigger is missing"},
 		{!s.TriggerLimited, "a startup trigger has its own execution limit"},
-		{s.Executable != "" && s.Arguments == "--tray", "startup command is not a single tray launch"},
+		{s.Executable != "" && ResidentKind(s.Arguments) != "", "startup command is not a single resident launch"},
 		{s.ExecutableExists, "registered tray executable is missing"},
 		{s.ExecutionTimeLimit == "PT0S", "execution limit is " + s.ExecutionTimeLimit + " (expected no limit)"},
 		{!s.DisallowStartIfOnBatteries && !s.StopIfGoingOnBatteries, "battery conditions can stop or block the tray"},

@@ -20,15 +20,31 @@ func runStartupCheck() error {
 	return nil
 }
 
-func runStartupRepair() error {
+func runStartupRepair(retargetShell bool) error {
 	if runtime.GOOS != "windows" {
 		return fmt.Errorf("startup-repair runs on Windows")
 	}
-	return repairStartup(osRunner{}, elevate, os.Stdout)
+	return repairStartup(osRunner{}, elevate, os.Stdout, retargetShell)
 }
 
-func repairStartup(r desktop.Runner, requestElevation func() (bool, error), w io.Writer) error {
-	status, err := desktop.RepairTask(r)
+func repairStartup(r desktop.Runner, requestElevation func() (bool, error), w io.Writer, retargetShell bool) error {
+	act := "repaired"
+	repair := desktop.RepairTask
+	if retargetShell {
+		act = "retargeted to the shell resident"
+		self, err := os.Executable()
+		if err != nil {
+			return err
+		}
+		shell, err := desktop.ShellExe(self, os.Getenv("LOCALAPPDATA"))
+		if err != nil {
+			return err
+		}
+		repair = func(r desktop.Runner) (desktop.TaskStatus, error) {
+			return desktop.RetargetTask(r, shell, desktop.ShellArgs)
+		}
+	}
+	status, err := repair(r)
 	if desktop.TaskAccessDenied(err) {
 		if relaunched, elevateErr := requestElevation(); elevateErr != nil {
 			return elevateErr
@@ -41,13 +57,20 @@ func repairStartup(r desktop.Runner, requestElevation func() (bool, error), w io
 		return err
 	}
 	if status.Backup == "" {
-		fmt.Fprintln(w, "Startup policy already matches; nothing changed.")
+		fmt.Fprintf(w, "Startup policy already matches; nothing changed (still %s).\n", residentName(status.Arguments))
 	} else {
-		fmt.Fprintln(w, "Startup policy repaired. No process was started or stopped.")
+		fmt.Fprintf(w, "Startup policy %s. No process was started or stopped.\n", act)
 		fmt.Fprintf(w, "Previous task definition: %s\n", status.Backup)
 	}
 	printStartupStatus(w, status, nil)
 	return nil
+}
+
+func residentName(args string) string {
+	if kind := desktop.ResidentKind(args); kind != "" {
+		return "the " + kind + " resident"
+	}
+	return "an unrelated command"
 }
 
 // printStartupStatus is shared by doctor and the WSL-independent check command.
@@ -63,7 +86,7 @@ func printStartupStatus(w io.Writer, s desktop.TaskStatus, err error) bool {
 		fmt.Fprintln(w, "         Run picode-desktop install.")
 		return false
 	}
-	fmt.Fprintf(w, "  info   Tray task: %s\n", s.StateName())
+	fmt.Fprintf(w, "  info   Resident task: %s\n", s.StateName())
 	if s.Enabled {
 		fmt.Fprintln(w, "  ok     Startup task enabled")
 	} else {
