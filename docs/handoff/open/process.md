@@ -2,7 +2,7 @@
 
 ## Next
 
-- Handoff board is over budget on main (116 lines / 12670 bytes vs 120/12288 caps, 2026-09-15), so every branch's `make close` fails at `make handoff` until paid debts are pruned from the largest open topics.
+- The handoff board sits at its 12288-byte cap: `make close` fails at `make handoff` until a paid debt is pruned (2026-09-15).
 
 ## Debts
 

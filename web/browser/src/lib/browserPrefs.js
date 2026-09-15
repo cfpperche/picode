@@ -12,6 +12,7 @@ export const DEFAULT_BROWSER_PREFS = {
   passwordAutosave: true,
   generalAutofill: true,
   askDownload: false,
+  scriptsEnabled: true,
   agentAccess: true,
 };
 
@@ -26,6 +27,7 @@ export function readBrowserPrefs(payload) {
     passwordAutosave: p.passwordAutosave !== false,
     generalAutofill: p.generalAutofill !== false,
     askDownload: p.askDownload === true,
+    scriptsEnabled: p.scriptsEnabled !== false,
     agentAccess: p.agentAccess !== false,
   };
 }

@@ -141,7 +141,16 @@ func New() *Manager { return &Manager{exec: execTmux} }
 // NewWithSocket returns a Manager whose every command carries -S path, so
 // this instance's sessions live on their own server (ADR-0139). The socket's
 // directory is this instance's identity (ADR-0140).
+//
+// The directory is created here because tmux creates the socket but not its
+// parent: with -S inside a directory that does not exist yet, `new-session`
+// prints `error creating <path> (No such file or directory)` **and exits 0**,
+// so the caller believes a session exists when nothing was started (measured
+// 2026-09-15, while giving two tests their own sockets). `runStdin` reports
+// that text as the error it is, so a directory that cannot be made still
+// fails loudly instead of silently.
 func NewWithSocket(path string) *Manager {
+	_ = os.MkdirAll(filepath.Dir(path), 0o700)
 	return &Manager{exec: execTmux, socket: path, instance: filepath.Dir(path)}
 }
 
@@ -235,6 +244,13 @@ func (m *Manager) runStdin(ctx context.Context, stdin string, args ...string) (s
 	out, err := execFn(ctx, stdin, args...)
 	if err != nil {
 		return string(out), fmt.Errorf("tmux %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+	}
+	// A socket failure is not always an exit code: `new-session` with -S in a
+	// directory tmux cannot use prints `error creating <path>` and exits 0.
+	// Silence there is the worst answer — the caller reports a terminal that
+	// does not exist — so the text is promoted to the error it means.
+	if msg := strings.TrimSpace(string(out)); strings.HasPrefix(msg, "error creating ") || strings.HasPrefix(msg, "error connecting to ") {
+		return string(out), fmt.Errorf("tmux %s: %s", strings.Join(args, " "), msg)
 	}
 	return string(out), nil
 }

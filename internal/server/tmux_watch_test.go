@@ -10,6 +10,8 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -174,19 +176,22 @@ func TestTmuxServerWatchIntegration(t *testing.T) {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Skip("tmux not installed — integration test skipped")
 	}
-	m := tmux.New()
+	tmp := t.TempDir()
+	// This test *ends* a server, so it owns its socket outright (-S) instead of
+	// rebinding the process-wide TMUX_TMPDIR: that shape pointed every other
+	// tmux call in this binary — background goroutines included — at the
+	// server this test then dismantles (the trap class of 2026-09-15), and it
+	// is why the fixture used to need $TMUX/$TMUX_PANE scrubbing and a
+	// restore. The suite's isolation is tmuxtest's, and this test asserts it
+	// left it alone.
+	suitedir := os.Getenv(tmux.SocketDirEnv)
+	if suitedir == "" {
+		t.Fatalf("%s is unset — the suite is not isolated; keep TestMain(tmuxtest.Main)", tmux.SocketDirEnv)
+	}
+	m := tmux.NewWithSocket(filepath.Join(tmp, "tmux-"+strconv.Itoa(os.Getuid()), "default"))
 	if !m.Available() {
 		t.Skip("tmux not available")
 	}
-	tmp := t.TempDir()
-	// Scrub what outranks TMUX_TMPDIR ($TMUX, $TMUX_PANE) and restore after.
-	for _, key := range []string{"TMUX", "TMUX_PANE", "TMUX_TMPDIR"} {
-		if old, ok := os.LookupEnv(key); ok {
-			_ = os.Unsetenv(key)
-			t.Cleanup(func() { _ = os.Setenv(key, old) })
-		}
-	}
-	t.Setenv("TMUX_TMPDIR", tmp)
 
 	ctx := context.Background()
 	name := tmux.SessionName("watch-" + time.Now().Format("150405-000000000"))
@@ -225,5 +230,9 @@ func TestTmuxServerWatchIntegration(t *testing.T) {
 	emitTmuxServerTransitions(rec, tmuxServerState{running: true, socket: info.SocketPath, sessions: 1}, cur, time.Now().UTC())
 	if got := rec.types(); len(got) != 1 || got[0] != "terminal.server_lost" {
 		t.Fatalf("events = %v, want terminal.server_lost", got)
+	}
+	// Ending a server must not have moved the suite's own namespace.
+	if got := os.Getenv(tmux.SocketDirEnv); got != suitedir {
+		t.Fatalf("this test changed %s: %q → %q", tmux.SocketDirEnv, suitedir, got)
 	}
 }

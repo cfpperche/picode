@@ -35,7 +35,8 @@
     "allow-btab-open-external",
     "allow-btab-open-path",
     "allow-btab-reveal-path",
-    "allow-btab-set-permission-policy"
+    "allow-btab-set-permission-policy",
+    "allow-btab-set-scripts"
   ],
   "remote": {
     "urls": [
