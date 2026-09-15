@@ -195,10 +195,15 @@ For any UI work:
   back to the shared `tmux-<uid>` dir silently. The safe scratch recipe is
   `mkdir -p $dir && TMUX_TMPDIR=$dir tmux -L <unique-name> …`; a session
   launched with neither lands in the owner's tmux (and in every other
-  agent's `pkill` radius). Clean up by exact session name, or check the
+  agent's `pkill` radius). Since ADR-0139 each PiCode instance — production,
+  `qa-scratch`, the docs fixture — runs its own server on a socket in its
+  data dir, so a scratch's terminals no longer land in the owner's tmux;
+  tools that shell out to `tmux` themselves must still pass `-S <socket>`.
+  Clean up by exact session name, or check the
   scratch's own Terminals list before blaming the server. PiCode terminals
   refuse `kill-server` through the tmux guard — but it is a guardrail, not a
-  boundary: an absolute `/usr/bin/tmux kill-server` still bypasses it.
+  boundary: an absolute `/usr/bin/tmux kill-server` reaches that terminal's
+  own server, and raw kills on any socket still bypass the guard.
   A Go test that launches a real terminal cleans it up with a context of its
   own: `t.Context()` is canceled *before* cleanup functions run, so every
   tmux call made with it fails silently and the fixture leaks one session

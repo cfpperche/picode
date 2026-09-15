@@ -112,8 +112,14 @@ func Bridge(tm *tmux.Manager, resolve func(session string) []tmux.ScopedValue, o
 			}
 		}
 
-		// Initial size; the client sends a resize right after attach.
-		cmd := exec.Command("tmux", "attach-session", "-t", "="+name)
+		// Initial size; the client sends a resize right after attach. The
+		// socket follows the session (ADR-0139): during the drain a session
+		// may still live on the legacy, default-socket server.
+		attachArgs := []string{"attach-session", "-t", "=" + name}
+		if sock := tm.SocketFor(r.Context(), name); sock != "" {
+			attachArgs = append([]string{"-S", sock}, attachArgs...)
+		}
+		cmd := exec.Command("tmux", attachArgs...)
 		cmd.Env = append(os.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor")
 		ptyFile, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: 24, Cols: 80})
 		if err != nil {

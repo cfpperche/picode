@@ -207,9 +207,29 @@ line to `<dataDir>/tmux-guard.log`. The ownership probe reads the target's
 session environment (`show-environment -t X PICODE_TERM_ID`) — the marker is
 the receipt, the same rule the server-wide read model enforces. The guard is
 a guardrail, not a security boundary: `/usr/bin/tmux kill-server` typed
-verbatim still bypasses it. The named next step if incidents continue is a
-dedicated socket for managed sessions (`tmux -L picode`), recorded as an
-alternative in the ADR rather than built.
+verbatim still bypasses it. Probes carry no `-L`/`-S` on purpose: inside a
+pane they inherit `$TMUX`, which names that pane's own server — the
+dedicated socket since ADR-0139 — and from outside a pane they ask the
+default server, where an exact-name kill for a session on another socket
+finds no marker and is refused (fail-closed).
+
+### Dedicated socket and the drain (ADR-0139)
+
+Every instance's sessions live on their own server: the daemon runs tmux
+with `-S <dataDir>/tmux.sock` (production: `~/.picode/tmux.sock`; scratch
+and fixture instances get theirs under their data dir, so two instances can
+never share a server — the trap AGENTS.md records about scratch sessions
+landing in the owner's tmux). `$TMUX` inside a pane names that server, so
+in-pane tmux commands, the guard included, work unchanged.
+
+tmux has no live migration, so pre-move sessions are **drained**: the
+daemon's Manager holds a second Manager on the default socket, every
+session-scoped operation falls back to it when the primary does not have
+the session, and the server-wide reads (`ServerSessions`, `ListSessions`,
+`ListOwned`, `ServerInfo`) merge both sides so the fleet stays one list.
+The bridge asks `SocketFor(session)` which socket to attach with. The
+drain disappears with the last legacy session; nothing is restarted, and
+the rollback is the previous binary.
 
 ### Restart recovery (ADR-0112)
 
