@@ -28,7 +28,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   const [flash, setFlash] = useState("");
   const [history, setHistory] = useState(null);
   const [confirmClear, setConfirmClear] = useState(false);
-  const [prefs, setPrefs] = useState({ showFullUrl: true });
+  const [prefs, setPrefs] = useState({ showFullUrl: true, webOpenDest: "app", localOpenDest: "app" });
 
   const load = useCallback(async () => {
     try {
@@ -56,14 +56,31 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     if (!hidden) {
       load();
       loadHistory();
-      fetch("/api/browser/prefs").then((r) => r.json()).then((p) => setShowFullUrl(p.showFullUrl !== false)).catch(() => {});
+      fetch("/api/browser/prefs").then((r) => r.json()).then((p) => setPrefs({ showFullUrl: p.showFullUrl !== false, webOpenDest: p.webOpenDest || "app", localOpenDest: p.localOpenDest || "app" })).catch(() => {});
     }
   }, [hidden, load, loadHistory]);
 
-  const setShowFullUrl = (on) => {
-    setPrefs({ showFullUrl: on });
-    fetch("/api/browser/prefs", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ showFullUrl: on }) }).catch(() => {});
+  const setPref = (patch) => {
+    setPrefs((p) => ({ ...p, ...patch }));
+    fetch("/api/browser/prefs", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) })
+      .then((r) => r.json())
+      .then((p) => setPrefs(p))
+      .catch(() => {});
   };
+  const setShowFullUrl = (on) => setPref({ showFullUrl: on });
+  const DESTS = [
+    { value: "app", label: "PiCode" },
+    { value: "external", label: "Default browser" },
+  ];
+  const destRow = (label, key, sub) => (
+    <div className="grant-row">
+      <span className="grant-name">{label}</span>
+      <span className="settings-hint" style={{ flex: 1 }}>{sub}</span>
+      <select className="grant-tier" value={prefs[key]} onChange={(e) => setPref({ [key]: e.target.value })} aria-label={label}>
+        {DESTS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+      </select>
+    </div>
+  );
 
   // Saves land as setting.updated; history mutations as browserhistory.updated.
   // Both refetch the surface they feed instead of polling.
@@ -147,6 +164,11 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
       <p className="settings-hint">
         Read — sees the tab you have on screen, nothing else. Act — also opens and drives pages in its own pane, inside the domains you list. Full — everything Act does, plus developer access.
       </p>
+      <h4 className="settings-sub">Open destinations</h4>
+      <div className="settings-card">
+        {destRow("Web links and popups", "webOpenDest", "Where new web pages open by default")}
+        {destRow("Local development sites", "localOpenDest", "Where localhost and dev servers open by default")}
+      </div>
       <h4 className="settings-sub">Address bar</h4>
       <div className="settings-card">
         <div className="grant-row">

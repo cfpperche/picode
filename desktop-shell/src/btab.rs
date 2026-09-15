@@ -559,3 +559,22 @@ pub async fn btab_close(
     grants().lock().unwrap().remove(&id);
     Ok(())
 }
+
+// Open a URL in the system default browser — the "Default browser" side of
+// the web/local open-destination prefs (slice 3). CREATE_NO_WINDOW keeps
+// cmd's console from flashing; the URL is scheme-checked here so nothing
+// else can ride this command into an arbitrary shell verb.
+#[tauri::command]
+pub async fn btab_open_external(url: String) -> Result<(), String> {
+    let ok = url.starts_with("http://") || url.starts_with("https://");
+    if !ok {
+        return Err("only http and https URLs can be handed to the system browser".into());
+    }
+    use std::os::windows::process::CommandExt;
+    std::process::Command::new("cmd")
+        .args(["/C", "start", "", &url])
+        .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("open external: {e}"))
+}

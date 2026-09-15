@@ -1703,7 +1703,22 @@ export default function App({ shellChrome = false } = {}) {
   useEffect(() => {
     if (!shellChrome || !window.__TAURI__) return undefined;
     const un = window.__TAURI__.event.listen("btab://new", (e) => {
-      openWebTabRef.current(typeof e.payload === "string" ? e.payload : "");
+      const url = typeof e.payload === "string" ? e.payload : "";
+      if (!url) { openWebTabRef.current(""); return; }
+      let host = "";
+      try { host = new URL(url).hostname.toLowerCase(); } catch { /* fall through to the app */ }
+      const isLocal = ["localhost", "127.0.0.1", "::1"].includes(host);
+      // Open destinations (slice 3): the pref decides whether a popup adopts
+      // as a tab or hands off to the system default browser. One fresh read
+      // per popup — popups are rare and the pref must be current.
+      fetch("/api/browser/prefs")
+        .then((r) => r.json())
+        .then((p) => {
+          const dest = isLocal ? (p.localOpenDest || "app") : (p.webOpenDest || "app");
+          if (dest === "external") return window.__TAURI__.core.invoke("btab_open_external", { url });
+          openWebTabRef.current(url);
+        })
+        .catch(() => openWebTabRef.current(url));
     });
     return () => un.then((f) => f());
   }, [shellChrome]);

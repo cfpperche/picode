@@ -63,6 +63,7 @@ fn main() {
             btab::btab_cdp_call,
             btab::btab_cdp_events,
             btab::btab_close,
+            btab::btab_open_external,
             browserlab::lab_open,
             browserlab::lab_navigate,
             browserlab::lab_back,
