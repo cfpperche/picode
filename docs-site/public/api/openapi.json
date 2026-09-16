@@ -12,7 +12,7 @@
   "info": {
     "description": "The HTTP API the PiCode web UI itself speaks — same daemon, same pairing-gated session. Generated from the server's route registration by cmd/picode-openapi; do not edit the JSON by hand. Authenticate with the picode_session cookie issued when you pair a browser (Settings → Pairing).",
     "title": "PiCode HTTP API",
-    "version": "0.3.0"
+    "version": "0.3.1"
   },
   "openapi": "3.1.0",
   "paths": {
