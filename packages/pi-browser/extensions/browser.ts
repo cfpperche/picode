@@ -72,12 +72,14 @@ export default function piBrowser(pi: ExtensionAPI) {
 		description:
 			"Read the web page the human has open in PiCode's work browser (the desktop app). " +
 			"Verbs: snapshot (the page as an accessibility tree — roles and names), screenshot (writes a PNG and returns its path), " +
-			"events (what the tab recorded: navigation, console, network). Read-only: it cannot click, type or navigate.",
+			"events (what the tab recorded: navigation, console, network), cdp (one Chrome DevTools Protocol method by name; needs Developer mode). " +
+			"Read-only by default: it cannot click, type or navigate.",
 		promptSnippet: "Read the page open in PiCode's work browser (desktop app)",
 		promptGuidelines: [
 			"Use snapshot to read the page's structure, screenshot when the visual matters, events for what happened since the last poll.",
 			"This reads the tab the human has on screen; if they are looking elsewhere, say which page you read.",
 			"It cannot act on the page: clicking and navigation need a per-agent grant (Settings ▸ Browser).",
+			"cdp names one protocol method and needs two things the human controls: Developer mode on, and the Full tier for this agent. A refusal says which is missing — do not retry around it.",
 		],
 		parameters: Type.Object({
 			verb: Type.Union(
@@ -87,12 +89,15 @@ export default function piBrowser(pi: ExtensionAPI) {
 					Type.Literal("events"),
 					Type.Literal("evaluate"),
 					Type.Literal("navigate"),
+					Type.Literal("cdp"),
 				],
-				{ description: "snapshot | screenshot | events | evaluate | navigate (the last two need a grant)" },
+				{ description: "snapshot | screenshot | events | evaluate | navigate | cdp (evaluate/navigate need a grant; cdp needs Developer mode and the Full tier)" },
 			),
 			since: Type.Optional(Type.Number({ description: "events only: the last sequence number you saw" })),
 			expression: Type.Optional(Type.String({ description: "evaluate only: the JavaScript expression to run" })),
 			url: Type.Optional(Type.String({ description: "navigate only: the destination; its origin must be in the grant" })),
+			method: Type.Optional(Type.String({ description: "cdp only: the full protocol method name, e.g. Network.getAllCookies" })),
+			params: Type.Optional(Type.String({ description: "cdp only: the method's parameters as a JSON object, e.g. {\"urls\":true}" })),
 		}),
 		async execute(_toolCallId, params) {
 			const dataDir = resolveDataDir(process.env, homedir());
@@ -104,13 +109,25 @@ export default function piBrowser(pi: ExtensionAPI) {
 				};
 			}
 			token = resolveToken(process.env, await readText(join(dataDir, "token")));
+			// cdp names a protocol method the daemon does not resolve from its
+			// catalog (ADR-0144): the method and its JSON parameters travel as
+			// the verb's params, and the daemon decides whether this caller may
+			// have them at all.
+			let cdpParams: unknown;
+			if (params.params) {
+				try {
+					cdpParams = JSON.parse(params.params);
+				} catch {
+					return { content: [{ type: "text", text: "browser: params must be a JSON object" }], isError: true };
+				}
+			}
 			const body = JSON.stringify({
 				agent: (process.env.PICODE_AGENT_ID || "").trim(),
 				// ADR-0143: the same identity tuple pi-inbox and pi-checklist use —
 				// a CLI in a PiCode terminal has no agent id, only a terminal one.
 				term: (process.env.PICODE_TERM_ID || "").trim(),
 				verb: params.verb,
-				params: { since: params.since, expression: params.expression, url: params.url },
+				params: { since: params.since, expression: params.expression, url: params.url, method: params.method, params: cdpParams },
 			});
 			let answer: { status: number; text: string };
 			try {

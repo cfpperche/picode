@@ -33,6 +33,7 @@ fn main() {
             "btab_set_permission_policy",
             "btab_permission_answer",
             "btab_set_scripts",
+            "btab_set_developer_mode",
             "lab_open",
             "lab_navigate",
             "lab_back",

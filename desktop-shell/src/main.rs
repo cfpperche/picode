@@ -96,6 +96,7 @@ fn main() {
             btab::btab_set_permission_policy,
             btab::btab_permission_answer,
             btab::btab_set_scripts,
+            btab::btab_set_developer_mode,
             browserlab::lab_open,
             browserlab::lab_navigate,
             browserlab::lab_back,

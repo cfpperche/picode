@@ -175,10 +175,13 @@ behind a still) instead of sliding it down.
   tier (read/act), Downloads/Uploads are `full`-tier scopes; "Requires
   approval" = the v2 ask-on-first-use prompt; v1 ships the manual editor
   (slice 4)
-- [ ] **Developer mode — Enable full CDP access**, labeled "Elevated risk",
+- [x] **Developer mode — Enable full CDP access**, labeled "Elevated risk",
   off by default: unlocks raw CDP beyond the curated command catalog. Ours:
-  ADR-0128's opt-in loopback port toggle (same semantics: elevated risk,
-  owner's call, everything else keeps working without it) (slice 2)
+  ADR-0144 — the daemon grows one `cdp` verb that needs the machine setting
+  *and* the `full` tier, the shell re-checks both from its own copy of the
+  setting, and every call (allowed or refused) lands in an audit the card
+  lists. The loopback port stays an env var, deliberately not a UI row.
+  (landed 2026-09-16)
 
 **Non-goals kept from the benchmark:** Chrome extensions in the panel
 (delegated to the user's real browser — our `ext/`+browserhost until

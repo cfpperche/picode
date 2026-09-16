@@ -1,6 +1,9 @@
 package browser
 
-import "strings"
+import (
+	"errors"
+	"strings"
+)
 
 // Verb is the product's vocabulary for the browser tool: one friendly action,
 // the CDP method it runs, and the tier that method needs. The shell's catalog
@@ -14,6 +17,10 @@ type Verb struct {
 	// NeedsURL marks the one shape that has a destination: the route resolves
 	// params.url and checks it against the grant before the command leaves.
 	NeedsURL bool
+	// Raw marks the one verb whose CDP method comes from the caller instead
+	// of this table (ADR-0144). It needs the machine's developer mode *and*
+	// the full tier, and the daemon records every call.
+	Raw bool
 }
 
 var verbs = map[string]Verb{
@@ -32,6 +39,14 @@ var verbs = map[string]Verb{
 	// Go to a URL. The one verb with a destination: the grant's domains are
 	// checked here and again at the navigation gate.
 	"navigate": {Method: "Page.navigate", Tier: "act", NeedsURL: true},
+
+	// --- full (ADR-0144): raw CDP, machine opt-in, audited ---
+
+	// A CDP method named by the caller, outside the catalog above. Off unless
+	// the owner turned Developer mode on for this machine, and never for a
+	// tier below full: the catalog is what keeps an agent's browsing narrow,
+	// so the way past it must be deliberate and recorded.
+	"cdp": {Tier: "full", Raw: true},
 }
 
 // VerbFor resolves a tool's action, case-insensitively. Unknown verbs are
@@ -56,6 +71,38 @@ func Verbs() map[string]Verb {
 // grants what the other refuses.
 func (p Policy) Allows(v Verb) bool {
 	return p.Rank() >= rankOf(v.Tier)
+}
+
+// AllowsRaw is the second half of ADR-0144's decision: a raw verb needs the
+// full tier *and* the machine's developer mode. Both are inputs here so the
+// table is one testable place, and neither alone is enough:
+//
+// | developer mode | tier  | raw CDP |
+// | -------------- | ----- | ------- |
+// | off            | any   | refused |
+// | on             | read  | refused |
+// | on             | act   | refused |
+// | on             | full  | allowed |
+func (p Policy) AllowsRaw(developerMode bool) bool {
+	return developerMode && p.Rank() >= rankOf("full")
+}
+
+// RawMethod reads the method name a raw verb carries. Empty or non-string is
+// an error: an unnamed method must never travel as "whatever the page does".
+func RawMethod(params map[string]any) (string, error) {
+	raw, ok := params["method"]
+	if !ok {
+		return "", errors.New("cdp needs a method, e.g. {\"method\": \"Network.getAllCookies\"}")
+	}
+	method, ok := raw.(string)
+	if !ok {
+		return "", errors.New("cdp method must be a string")
+	}
+	method = strings.TrimSpace(method)
+	if method == "" {
+		return "", errors.New("cdp needs a method, e.g. {\"method\": \"Network.getAllCookies\"}")
+	}
+	return method, nil
 }
 
 // Rank orders the tiers for comparison; 0 is "no tier" (refused).

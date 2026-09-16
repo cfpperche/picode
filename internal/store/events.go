@@ -152,6 +152,16 @@ func (s *Store) RecentEvents(limit int) ([]Event, error) {
 	return s.queryEvents(`SELECT id, agent_id, workspace_id, type, data, created_at FROM events ORDER BY id DESC LIMIT ?`, limit)
 }
 
+// EventsOfType reads the newest events of one type — the reader behind the
+// raw-CDP audit (ADR-0144), where the question is "what did the agent do with
+// the door open", not "what happened on this machine lately".
+func (s *Store) EventsOfType(eventType string, limit int) ([]Event, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	return s.queryEvents(`SELECT id, agent_id, workspace_id, type, data, created_at FROM events WHERE type = ? ORDER BY id DESC LIMIT ?`, eventType, limit)
+}
+
 // AgentEvents returns the newest events for one agent.
 func (s *Store) AgentEvents(agentID string, limit int) ([]Event, error) {
 	if limit <= 0 {

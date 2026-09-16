@@ -6,12 +6,13 @@ reviewed by the owner against the reference, one item at a time.
 
 ## Next
 
-- **"New browser tab" button: re-verify in the shell** (no repro in a web
-  scratch, 2026-09-15).
 - **v2a** unused-site permissions; **v2b** agent history access (the Ask
   machinery landed 2026-09-15; the history grant is its own path).
 - **v2c** annotations (step 4 is an ADR); **v2d** Windows Hello opener row.
-- **v3** WebMCP and Developer mode (raw CDP: ADR, off, `full` only, audited).
+- **v3** WebMCP site tools (ADR when the standard lands). Developer mode
+  landed 2026-09-16 (ADR-0144).
+- The reference's permissions table (Site or pattern × Browsing × Downloads ×
+  Uploads + Default row): the data exists, the shape does not.
 
 ## Options menu — landed (2026-09-15)
 
@@ -83,8 +84,8 @@ to see the remembered standing.
   the Windows Hello passkey opener row (validate the OS URI on the machine
   first).
 - **v3**: WebMCP site tools (ADR when the standard lands); Developer mode /
-  raw CDP — the reference itself marks it Elevated risk: if it lands it is
-  off by default, `full` tier only, audited, warning row, ADR first.
+  raw CDP **landed 2026-09-16** (ADR-0144: machine setting + `full` tier,
+  shell re-check, every call audited; the loopback port stays an env var).
 - **Never on WebView2**: third-party cookies, images, embedded content — no
   host API; a control there would be theatre.
 
@@ -187,12 +188,16 @@ gallery hit is worth a look before anyone installs it expecting this one.
 
 ## Debts
 
+- The work browser has no `docs/architecture/<subsystem>.md` file: its shape
+  lives across ADR-0128/0132/0134/0135/0143/0144 and the plan. Worth one file
+  the next time a browser slice lands.
 - The Ask deferral/answer/watchdog path has never run outside Windows:
   `cargo xwin build` plus the pure decision table are the evidence here; the
   owner's live check is the first run.
-- An Ask waits only in the tab that asked; a request from a tab the user is
-  not looking at is denied when the 60 s watchdog fires (nowhere else shows
-  it).
+- An Ask waits only in the tab that asked: a request from a tab the user is
+  not looking at is denied when the 60 s watchdog fires. That is the
+  limitation the Ask bar's own placement makes honest — nowhere else shows a
+  waiting request.
 - The COM capture + native hide half of the still/overlay path has no
   automated test (Windows-only); the JS decode gate is unit-tested
   (`lib/previewStill.js`).

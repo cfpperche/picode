@@ -30,6 +30,7 @@ func registerBrowserRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/browser/stream", handleBrowserStream(deps))
 	mux.HandleFunc("POST /api/browser/result", handleBrowserResult(deps))
 	mux.HandleFunc("POST /api/browser/tool", handleBrowserTool(deps))
+	mux.HandleFunc("GET /api/browser/developer/audit", handleBrowserDeveloperAudit(deps))
 	registerBrowserPolicyRoutes(mux, deps)
 	registerBrowserHistoryRoutes(mux, deps)
 	registerBrowserDownloadRoutes(mux, deps)
@@ -80,7 +81,44 @@ func handleBrowserTool(deps Deps) http.HandlerFunc {
 		}
 		// ADR-0143: the caller is a managed agent, a terminal, or neither.
 		policy := browser.ResolveCaller(deps.Store, req.Agent, req.Term)
-		if !policy.Allows(verb) {
+		// ADR-0144: the raw verb is the one shape whose method the catalog did
+		// not name. Machine opt-in plus the full tier, and either refusal is
+		// recorded — the audit is the point of letting it exist at all.
+		method := verb.Method
+		cdpParams := req.Params
+		if verb.Raw {
+			devMode := browserDeveloperMode(deps.Store)
+			if !devMode {
+				browserAuditRaw(deps, req.Agent, req.Term, params, "refused", "developer mode is off")
+				writeErr(w, http.StatusForbidden, "raw CDP is off — turn on Developer mode in Settings ▸ Browser (Elevated risk)")
+				return
+			}
+			if !policy.AllowsRaw(devMode) {
+				browserAuditRaw(deps, req.Agent, req.Term, params, "refused", "tier is "+policy.Tier)
+				writeErr(w, http.StatusForbidden, fmt.Sprintf(
+					"raw CDP needs the full tier; this agent has %s — grant it in Settings ▸ Browser",
+					policy.Tier))
+				return
+			}
+			rawMethod, err := browser.RawMethod(params)
+			if err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			method = rawMethod
+			// {method, params}: the protocol's own parameters are nested so the
+			// verb's bookkeeping can never leak into the call the page runs.
+			cdpParams = json.RawMessage("{}")
+			if raw, ok := params["params"]; ok {
+				body, err := json.Marshal(raw)
+				if err != nil {
+					writeErr(w, http.StatusBadRequest, "cdp params must be JSON: "+err.Error())
+					return
+				}
+				cdpParams = body
+			}
+		}
+		if !verb.Raw && !policy.Allows(verb) {
 			writeErr(w, http.StatusForbidden, fmt.Sprintf(
 				"%s needs the %s tier; this agent has %s — grant it in Settings ▸ Browser",
 				req.Verb, verb.Tier, policy.Tier))
@@ -96,16 +134,98 @@ func handleBrowserTool(deps Deps) http.HandlerFunc {
 			return
 		}
 		output, err := deps.Browser.Dispatch(r.Context(), browser.Command{
-			Method:  verb.Method,
-			Params:  req.Params,
+			Method:  method,
+			Params:  cdpParams,
 			Tier:    policy.Tier,
 			Domains: policy.Domains,
+			Raw:     verb.Raw,
 		})
 		if err != nil {
+			if verb.Raw {
+				browserAuditRaw(deps, req.Agent, req.Term, map[string]any{"method": method}, "failed", err.Error())
+			}
 			writeErr(w, http.StatusBadGateway, err.Error())
 			return
 		}
+		if verb.Raw {
+			browserAuditRaw(deps, req.Agent, req.Term, map[string]any{"method": method}, "allowed", "")
+		}
 		writeJSON(w, http.StatusOK, map[string]any{"verb": req.Verb, "output": output})
+	}
+}
+
+// browserAuditRaw records one raw CDP call (ADR-0144): who asked, which
+// method, and the outcome — allowed, refused, or failed. The event is the
+// record the settings card and the agent's conversation are read against;
+// a write failure must not turn into an unrecorded call passing silently,
+// so it is announced on the feed like any other event (ADR-0048).
+func browserAuditRaw(deps Deps, agentID, termID string, params map[string]any, outcome, reason string) {
+	if deps.Store == nil {
+		return
+	}
+	method, _ := params["method"].(string)
+	var agent *string
+	if strings.TrimSpace(agentID) != "" {
+		agent = &agentID
+	}
+	data := map[string]any{"method": method, "outcome": outcome}
+	if strings.TrimSpace(termID) != "" {
+		data["termId"] = termID
+	}
+	if reason != "" {
+		data["reason"] = reason
+	}
+	// The caller's own words are not the only thing worth knowing when this
+	// goes wrong; the method is the record. A failure here is logged by the
+	// store and never blocks the call the owner asked for.
+	_ = deps.Store.AppendEvent("browser.cdp", agent, nil, data)
+}
+
+// handleBrowserDeveloperAudit is the settings card's reader (ADR-0144): the
+// newest raw CDP calls, allowed or refused, so "audited" is something the
+// owner can look at rather than a promise in a document.
+func handleBrowserDeveloperAudit(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if deps.Store == nil {
+			writeErr(w, http.StatusServiceUnavailable, "store is not open")
+			return
+		}
+		limit := 20
+		if raw := r.URL.Query().Get("limit"); raw != "" {
+			if n, err := strconv.Atoi(raw); err == nil && n > 0 && n <= 200 {
+				limit = n
+			}
+		}
+		rows, err := deps.Store.EventsOfType("browser.cdp", limit)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		type call struct {
+			ID       int64  `json:"id"`
+			Method   string `json:"method"`
+			Outcome  string `json:"outcome"`
+			Reason   string `json:"reason,omitempty"`
+			AgentID  string `json:"agentId,omitempty"`
+			TermID   string `json:"termId,omitempty"`
+			CalledAt string `json:"calledAt"`
+		}
+		calls := make([]call, 0, len(rows))
+		for _, ev := range rows {
+			var data struct {
+				Method  string `json:"method"`
+				Outcome string `json:"outcome"`
+				Reason  string `json:"reason"`
+				TermID  string `json:"termId"`
+			}
+			_ = json.Unmarshal(ev.Data, &data)
+			entry := call{ID: ev.ID, Method: data.Method, Outcome: data.Outcome, Reason: data.Reason, TermID: data.TermID, CalledAt: ev.CreatedAt}
+			if ev.AgentID != nil {
+				entry.AgentID = *ev.AgentID
+			}
+			calls = append(calls, entry)
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"calls": calls, "developerMode": browserDeveloperMode(deps.Store)})
 	}
 }
 

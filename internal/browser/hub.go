@@ -48,6 +48,10 @@ type Command struct {
 	Params  json.RawMessage `json:"params,omitempty"`
 	Tier    string          `json:"tier"`
 	Domains []string        `json:"domains,omitempty"`
+	// Raw marks a method the catalog did not name (ADR-0144): the shell lets
+	// it past its own table only when its copy of the developer-mode setting
+	// is on and the tier above is full.
+	Raw bool `json:"raw,omitempty"`
 }
 
 // Result is the shell's answer to one command. Error is the shell's refusal

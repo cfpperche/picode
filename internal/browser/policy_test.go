@@ -134,18 +134,27 @@ func TestVerbsAreClosedAndCaseInsensitive(t *testing.T) {
 		}
 	}
 	// The read verbs are the ones an un-granted agent keeps (ADR-0134); act is
-	// reached only through a grant, and a verb never names a CDP method.
+	// reached only through a grant, and full is the raw door (ADR-0144). A new
+	// verb has to be added here on purpose — that is what this test is for.
 	read := map[string]bool{"snapshot": true, "screenshot": true, "events": true}
+	full := map[string]bool{"cdp": true}
 	for name, v := range Verbs() {
 		if read[name] && v.Tier != "read" {
 			t.Fatalf("%s: tier %q, want read", name, v.Tier)
 		}
-		if !read[name] && v.Tier != "act" {
+		if full[name] && (v.Tier != "full" || !v.Raw) {
+			t.Fatalf("%s: tier %q raw %v, want full + raw", name, v.Tier, v.Raw)
+		}
+		if !read[name] && !full[name] && v.Tier != "act" {
 			t.Fatalf("%s: tier %q, want act", name, v.Tier)
 		}
-		// A tool names a verb, never a method: no verb is a dotted name.
+		// A tool names a verb, never a method: no verb is a dotted name. The
+		// raw verb carries no method at all — the caller supplies it.
 		if strings.Contains(name, ".") {
 			t.Fatalf("%q looks like a CDP method", name)
+		}
+		if v.Raw && v.Method != "" {
+			t.Fatalf("%s: the raw verb must not pin a method, got %q", name, v.Method)
 		}
 	}
 }
