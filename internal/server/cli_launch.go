@@ -171,6 +171,11 @@ func syncCLIIntegration(deps Deps, id string, on bool) error {
 	if err := os.Remove(wrapperPath(deps.DataDir, cli.Command)); err != nil && !os.IsNotExist(err) {
 		return err
 	}
+	if id == "agy" {
+		// The reporter lives in the user's settings.json, not our data
+		// dir: off must stop the reports, not just the map entry.
+		removeAgyTitleReporter(deps.DataDir)
+	}
 	m := loadInterceptEnabled(deps.DataDir)
 	delete(m, id)
 	return saveInterceptEnabled(deps.DataDir, m)
@@ -888,6 +893,9 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 		}
 	}()
 	command := binary
+	// Wrapper-less reporters (agy: settings.json title command) need no
+	// PATH shadow; the switch below only writes intercept wrappers.
+	needsWrapper := true
 	if c.Integration && !hasIntegrationMechanism(cli.ID) {
 		// Backstop for every path that skips the PUT guards (a profile
 		// carrying integration:true): fail here with the reason, never with
@@ -912,18 +920,22 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 			err = writeHermesIntercept(dir, hook)
 		case "opencode":
 			err = writeOpencodeIntercept(dir, hook)
+		case "agy":
+			needsWrapper = false
 		}
 		if err != nil {
 			return nil, err
 		}
-		command = wrapperPath(dir, cli.Command)
-		raw, err := os.ReadFile(command)
-		if err != nil {
-			return nil, err
-		}
-		body := strings.Replace(string(raw), wrapperFindReal, "real="+shellQuote(binary)+"\n", 1)
-		if err := writeExecutable(command, body); err != nil {
-			return nil, err
+		if needsWrapper {
+			command = wrapperPath(dir, cli.Command)
+			raw, err := os.ReadFile(command)
+			if err != nil {
+				return nil, err
+			}
+			body := strings.Replace(string(raw), wrapperFindReal, "real="+shellQuote(binary)+"\n", 1)
+			if err := writeExecutable(command, body); err != nil {
+				return nil, err
+			}
 		}
 	}
 	peerOptions := communication.LaunchOptions{Env: map[string]string{}}

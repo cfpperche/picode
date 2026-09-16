@@ -12,14 +12,15 @@ import (
 	"github.com/cfpperche/picode/internal/tmux"
 )
 
-// Decision table, Fatia 3a: Muse Code's launch is editable but its build
+// Decision table, Fatia 3a/5: Muse Code's launch is editable but its build
 // offers no hook surface, so the plan carries a summary and nothing to
 // install or inject; every other integrable CLI carries a mechanism
-// (arg branches, files, or environment), Antigravity none.
+// (arg branches, files, or environment) — Antigravity reports through its
+// title command since Fatia 5.
 func TestIntegrationMechanismTable(t *testing.T) {
 	for _, c := range clilaunch.Catalog() {
 		got := hasIntegrationMechanism(c.ID)
-		want := c.ID != "muse" && c.ID != "agy"
+		want := c.ID != "muse"
 		if got != want {
 			t.Errorf("%s hasIntegrationMechanism = %v, want %v", c.ID, got, want)
 		}
@@ -30,7 +31,7 @@ func TestIntegrationMechanismTable(t *testing.T) {
 }
 
 // Decision table: the Activity toggle saves only where a mechanism exists.
-// Muse and Antigravity refuse with their own reason (no hook surface);
+// Muse refuses without one; Antigravity reports through its title command;
 // a CLI with hooks saves.
 func TestIntegrationToggleGuard(t *testing.T) {
 	ts, _, _ := cleanupServer(t)
@@ -45,7 +46,7 @@ func TestIntegrationToggleGuard(t *testing.T) {
 			continue
 		}
 		seen[id] = true
-		if got, want := row["hasIntegrationMechanism"], id == "pi"; got != want {
+		if got, want := row["hasIntegrationMechanism"], id != "muse"; got != want {
 			t.Errorf("%s hasIntegrationMechanism = %v, want %v", id, got, want)
 		}
 	}
@@ -67,9 +68,17 @@ func TestIntegrationToggleGuard(t *testing.T) {
 		t.Errorf("muse integration on = %v, want 400 naming Muse Code", res)
 	}
 	cliRequest(t, ts, "PUT", "/api/clis/muse", body(false), 200)
-	res = cliRequestFull(t, ts, "PUT", "/api/clis/agy", body(true))
-	if res["status"] != "400" || !strings.Contains(bodyErr(res), "not available for Antigravity in this build") {
-		t.Errorf("agy integration on = %v, want the mechanism-guard 400", res)
+	cliRequest(t, ts, "PUT", "/api/clis/agy", body(true), 200)
+	// On means installed: the row reports applied and the user's settings
+	// carry our title block; off removes the block again.
+	row := catalogCLI(t, ts, "agy")
+	if row["integrationApplied"] != true {
+		t.Fatalf("agy applied = %v after toggle on", row["integrationApplied"])
+	}
+	cliRequest(t, ts, "PUT", "/api/clis/agy", body(false), 200)
+	row = catalogCLI(t, ts, "agy")
+	if row["integrationApplied"] != false {
+		t.Fatalf("agy applied = %v after toggle off", row["integrationApplied"])
 	}
 }
 

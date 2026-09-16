@@ -569,6 +569,15 @@ func TestHookMapPy(t *testing.T) {
 		// Grok's other notifications carry no attention meaning; a
 		// task_complete must not turn the row into a false "Needs you".
 		{`{"hook_event_name":"Notification","notification_type":"task_complete"}`, "grok", ""},
+		// Antigravity title/statusline payloads (Fatia 5): the CLI reports
+		// its own lifecycle as agent_state. Unknown states claim nothing.
+		{`{"agent_state":"idle","conversation_id":"c1"}`, "agy", "idle\n"},
+		{`{"agent_state":"working","conversation_id":"c1"}`, "agy", "working\n"},
+		{`{"agent_state":"thinking","conversation_id":"c1"}`, "agy", "working\n"},
+		{`{"agent_state":"tool_use","conversation_id":"c1"}`, "agy", "working\n"},
+		{`{"agent_state":"initializing","conversation_id":"c1"}`, "agy", "working\n"},
+		{`{"agent_state":"exploding","conversation_id":"c1"}`, "agy", ""},
+		{`{"conversation_id":"c1"}`, "agy", ""},
 	}
 	for _, tc := range cases {
 		if got := run(tc.in, tc.cli); got != tc.want {

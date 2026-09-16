@@ -887,12 +887,112 @@ func installIntercept(dataDir, cliID string) error {
 		if err := writePiIntercept(dataDir, hook); err != nil {
 			return err
 		}
+	case "agy":
+		if err := installAgyTitleReporter(dataDir); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("unknown CLI %q", cliID)
 	}
 	m := loadInterceptEnabled(dataDir)
 	m[cliID] = true
 	return saveInterceptEnabled(dataDir, m)
+}
+
+// agySettingsPath is the CLI's own settings file. There is no flag or
+// env to point the CLI elsewhere, so the title reporter installs here —
+// merged key by key, never overwritten, and only our own block removed.
+func agySettingsPath() (string, error) {
+	return homeFile(".gemini", "antigravity-cli", "settings.json")
+}
+
+func agyTitleBlock(reporter string) map[string]any {
+	return map[string]any{"type": "command", "command": reporter, "enabled": true}
+}
+
+// installAgyTitleReporter merges our title block into the user's settings.
+// A foreign title command is refused, never replaced: the file is theirs.
+//
+// Exception to the retired user-home writes (claudeSetWiring): agy offers
+// no --settings flag and no config env (full flag list and binary strings
+// checked, Fatia 5), so its own settings.json is the only install path.
+// The merge is one key, foreign blocks refuse loudly, and removal deletes
+// only what we installed.
+func installAgyTitleReporter(dataDir string) error {
+	reporter := agyTitleReporterPath(dataDir)
+	body := strings.Replace(agyTitleSh, "__PICODE_HOOK_ABS__", hookScriptPath(dataDir), 1)
+	if !strings.Contains(body, hookScriptPath(dataDir)) {
+		return fmt.Errorf("reporter template lost its hook path placeholder")
+	}
+	if err := writeExecutable(reporter, body); err != nil {
+		return err
+	}
+	settings, err := agySettingsPath()
+	if err != nil {
+		return err
+	}
+	doc := map[string]any{}
+	mode := os.FileMode(0o600)
+	if raw, err := os.ReadFile(settings); err == nil {
+		if st, serr := os.Stat(settings); serr == nil {
+			mode = st.Mode().Perm()
+		}
+		if uerr := json.Unmarshal(raw, &doc); uerr != nil {
+			return fmt.Errorf("your Antigravity settings.json does not parse; PiCode will not touch it")
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	if cur, ok := doc["title"].(map[string]any); ok {
+		if cmd, _ := cur["command"].(string); cmd == reporter {
+			return nil
+		}
+		return fmt.Errorf("your Antigravity title command is custom; PiCode will not replace it")
+	} else if _, present := doc["title"]; present {
+		return fmt.Errorf("your Antigravity title setting has an unknown shape; PiCode will not touch it")
+	}
+	doc["title"] = agyTitleBlock(reporter)
+	raw, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return err
+	}
+	return writeInterceptFile(settings, append(raw, '\n'), mode)
+}
+
+// removeAgyTitleReporter removes only our own block, and the file itself
+// when we created it (nothing else left in it).
+func removeAgyTitleReporter(dataDir string) {
+	reporter := agyTitleReporterPath(dataDir)
+	_ = os.Remove(reporter)
+	settings, err := agySettingsPath()
+	if err != nil {
+		return
+	}
+	raw, err := os.ReadFile(settings)
+	if err != nil {
+		return
+	}
+	var doc map[string]any
+	if json.Unmarshal(raw, &doc) != nil {
+		return
+	}
+	cur, ok := doc["title"].(map[string]any)
+	if !ok {
+		return
+	}
+	if cmd, _ := cur["command"].(string); cmd != reporter {
+		return
+	}
+	delete(doc, "title")
+	if len(doc) == 0 {
+		_ = os.Remove(settings)
+		return
+	}
+	if out, err := json.MarshalIndent(doc, "", "  "); err == nil {
+		if st, serr := os.Stat(settings); serr == nil {
+			_ = writeInterceptFile(settings, append(out, '\n'), st.Mode().Perm())
+		}
+	}
 }
 
 func uninstallIntercept(dataDir, cliID string) error {
@@ -911,6 +1011,8 @@ func uninstallIntercept(dataDir, cliID string) error {
 	case "pi":
 		removeWrapper(dataDir, "pi")
 		_ = os.Remove(piTerminalStateExtensionFile(dataDir))
+	case "agy":
+		removeAgyTitleReporter(dataDir)
 	default:
 		return fmt.Errorf("unknown CLI %q", cliID)
 	}

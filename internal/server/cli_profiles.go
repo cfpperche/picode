@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 	"os"
 
@@ -9,6 +10,9 @@ import (
 )
 
 func cliIntegrationPrepared(dir string, cli clilaunch.CLI) bool {
+	if cli.ID == "agy" {
+		return agyReporterPrepared(dir)
+	}
 	if !interceptWired(dir, cli.ID, cli.Command) {
 		return false
 	}
@@ -19,6 +23,37 @@ func cliIntegrationPrepared(dir string, cli clilaunch.CLI) bool {
 		}
 	}
 	return true
+}
+
+// agyReporterPrepared is the applied check for the wrapper-less reporter:
+// the script exists and the user's title block points at it. A user-side
+// `/title off` reads as not-applied (repair reinstalls), never as an error.
+func agyReporterPrepared(dir string) bool {
+	rep := agyTitleReporterPath(dir)
+	if st, err := os.Stat(rep); err != nil || st.IsDir() || st.Size() == 0 {
+		return false
+	}
+	if st, err := os.Stat(hookScriptPath(dir)); err != nil || st.IsDir() || st.Size() == 0 {
+		return false
+	}
+	settings, err := agySettingsPath()
+	if err != nil {
+		return false
+	}
+	raw, err := os.ReadFile(settings)
+	if err != nil {
+		return false
+	}
+	var doc map[string]any
+	if json.Unmarshal(raw, &doc) != nil {
+		return false
+	}
+	cur, ok := doc["title"].(map[string]any)
+	if !ok {
+		return false
+	}
+	cmd, _ := cur["command"].(string)
+	return cmd == rep
 }
 
 func registerCLIProfileRoutes(mux Registrar, deps Deps) {

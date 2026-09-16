@@ -105,7 +105,12 @@ written to either CLI's store.
   (possibly empty) store file. Both continue live turns afterwards. Minimum-viable-file
   spike against the real CLI (the Grok ritual), `Write` + round-trip.
   Explicit fallback: brief-only, recorded — never forced.
-- **Fatia 5 — activity beyond `Open`.** Only on a confirmed surface;
+- **Fatia 5 — activity beyond `Open`.**
+  Outcome (shipped for agy): title-command reporter (measured live:
+  authenticating/idle/working/idle; stale transcript_path dropped).
+  Terminal titles carry no signal in either build (measured absent),
+  muse has no push surface (serve deferred to managed agents per owner).
+  No hooks.json decision hook: it gates tools. Only on a confirmed surface;
   otherwise `Open` stays and the docs say so.
 
 Open questions for the slices: full muse hook event list; agy lock
