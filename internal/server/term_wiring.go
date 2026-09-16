@@ -54,6 +54,14 @@ func hookScriptPath(dataDir string) string { return filepath.Join(dataDir, wirin
 //go:embed intercept/native-observation.py
 var nativeObservationPy string
 
+//go:embed intercept/agy-title.sh
+var agyTitleSh string
+
+// agyTitleReporterPath is the installed reporter the CLI's title command runs.
+func agyTitleReporterPath(dataDir string) string {
+	return filepath.Join(interceptDir(dataDir), "agy-title.sh")
+}
+
 const hookMapPy = `import json, sys, os, time, datetime
 raw = sys.stdin.read()
 if not raw.strip() and len(sys.argv) > 1:
@@ -105,6 +113,20 @@ def report(state, attention=""):
         if result["pid"] and result["runId"] and not recorder.save_observation(os.path.dirname(__file__), os.environ.get("PICODE_TERM_ID", ""), result):
             return
     print(json.dumps(result))
+# Antigravity title/statusline payloads (settings.json command): the CLI
+# reports its own lifecycle as agent_state, with no hook_event_name. The
+# transcript_path it sends points at the IDE tree and is stale, so it is
+# dropped — session identity comes from session_id (its conversation_id
+# alias), the way the agy reader resolves the brain dir.
+agy = str(d.get("agent_state") or "")
+if agy:
+    d.pop("transcript_path", None)
+    d.pop("transcriptPath", None)
+    if agy == "idle":
+        report("idle"); sys.exit(0)
+    if agy in ("working", "thinking", "tool_use", "initializing"):
+        report("working"); sys.exit(0)
+    sys.exit(0)
 if d.get("state") in ("idle","working","needs-you"):
     report(d["state"]); sys.exit(0)
 if typ == "agent-turn-complete":

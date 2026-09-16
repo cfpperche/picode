@@ -113,7 +113,7 @@ func (s *Store) ImportCLIConfigs(enabled map[string]bool) error {
 	return s.commit(tx)
 }
 
-const catalogIntegrationSeedKey = "cli.catalog-integration-default-v1"
+const catalogIntegrationSeedKey = "cli.catalog-integration-default-v2"
 
 func isEmptyLaunchConfig(c clilaunch.Config) bool {
 	return c.Executable == "" && len(c.Args) == 0 && len(c.Env) == 0 && len(c.Path) == 0

@@ -147,10 +147,20 @@ settings. The preview is the server's real plan
 (`POST /api/clis/<cli>/preview`), including the blocked state: an uninstalled
 CLI reads *Not found* and the plan's problem line instead of an empty grid.
 
-**Editable launch without activity (Muse Code, Antigravity).** Both left
-the no-adapter group with their launch editable but no hook surface in
-their builds, so each plan carries a summary and nothing to install or
-inject.
+**Editable launch without activity (Muse Code).** Muse left the
+no-adapter group with its launch editable but no hook surface in its
+build, so the plan carries a summary and nothing to install or inject.
+
+**Activity without a wrapper (Antigravity).** The CLI reports its own
+lifecycle through the `title` command in its settings file
+(`agent_state: idle | thinking | working | tool_use | initializing`), so
+PiCode installs a reporter script there — merged into the user's file,
+foreign blocks refused, ours removed on toggle-off. The reporter posts
+through `picode-hook` (the shared mapper learned the `agent_state`
+dialect) and prints the short title the CLI renders. No `hooks.json`
+decision hook ships: a PreToolUse command gates tools, and a bad one
+would break the owner's sessions. There is no approval signal in the
+payload, so Antigravity reports Ready/Working and never needs-you.
 The Activity reporting toggle is offered only where the plan carries a
 mechanism (arg branches, files, or environment — `hasIntegrationMechanism`
 on the catalog row, refused with 400 on PUT and at prepare time); Muse

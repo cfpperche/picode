@@ -315,7 +315,9 @@ func TestDetectOnlyCLIsAndMuseChannelCheck(t *testing.T) {
 	cliRequest(t, ts, "PUT", "/api/clis/muse", map[string]any{"executable": muse, "integration": true}, 400)
 	// Same for Antigravity (Fatia 3b): editable defaults, no activity.
 	cliRequest(t, ts, "PUT", "/api/clis/agy", map[string]any{"executable": filepath.Join(bin, "agy")}, 200)
-	cliRequest(t, ts, "PUT", "/api/clis/agy", map[string]any{"executable": filepath.Join(bin, "agy"), "integration": true}, 400)
+	// Fatia 5: the title reporter is a mechanism, so Activity saves (files
+	// land on repair, which is a separate notice, not a refusal).
+	cliRequest(t, ts, "PUT", "/api/clis/agy", map[string]any{"executable": filepath.Join(bin, "agy"), "integration": true}, 200)
 	// Lifecycle jobs stay refused: no managed update for this install.
 	cliRequest(t, ts, "POST", "/api/clis/muse/lifecycle", map[string]any{"action": "update", "requestKey": "x"}, 400)
 
