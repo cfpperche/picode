@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconCollapse, IconEnter, IconExpand, IconGlobe, IconMonitor, IconSettings, IconX } from "./Icons.jsx";
+import { IconChevronRight, IconCollapse, IconEnter, IconExpand, IconGlobe, IconMonitor, IconReload, IconSettings, IconX } from "./Icons.jsx";
 import { toast } from "../lib/toast.js";
 import { isLoopbackUrl } from "@picode/shared/client/devservers.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { askTitle } from "../lib/browserPermissions.js";
+import { subscribeAppOverlays } from "../lib/appOverlays.js";
+import { requestBrowserDialog } from "../lib/browserDialogs.js";
 
 // Work browser tab surface (Phase 3 slice 1): the React side renders the
 // toolbar and an empty region; the actual page is a native WebView2 child
@@ -35,6 +37,60 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
   const onMetaRef = useRef(onMeta);
   onMetaRef.current = onMeta;
 
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [still, setStill] = useState(""); // the page, frozen while the menu is over it
+  const [zoom, setZoom] = useState(1);
+  const [findOpen, setFindOpen] = useState(false);
+  const [findQuery, setFindQuery] = useState("");
+  const [findState, setFindState] = useState({ count: 0, active: 0 });
+  const [overlayCover, setOverlayCover] = useState(false);
+
+  // An open application dialog would sit behind the native view (owner
+  // report 2026-09-15): hide it while one is open, and the dialog's own
+  // overlay dims the window again.
+  useEffect(() => subscribeAppOverlays(setOverlayCover), []);
+
+  // The menu opens over the page, and a native WebView2 paints over HTML —
+  // so the tab freezes the page into a still and hides the webview while the
+  // menu is up. The capture is prefetched on hover; the still is only
+  // swapped in when it is ready, so the page never blinks out first.
+  const previewRef = useRef({ url: "", at: 0, inflight: null });
+  useEffect(() => () => {
+    if (previewRef.current.url) URL.revokeObjectURL(previewRef.current.url);
+  }, []);
+  const grabPreview = (maxAge = 1200) => {
+    if (!invoke) return Promise.resolve("");
+    const cur = previewRef.current;
+    if (cur.url && Date.now() - cur.at < maxAge) return Promise.resolve(cur.url);
+    if (cur.inflight) return cur.inflight;
+    const inflight = invoke("btab_preview", { id })
+      .then((bytes) => {
+        const url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
+        if (previewRef.current.url) URL.revokeObjectURL(previewRef.current.url);
+        previewRef.current = { url, at: Date.now(), inflight: null };
+        return url;
+      })
+      .catch(() => {
+        previewRef.current.inflight = null;
+        return "";
+      });
+    previewRef.current.inflight = inflight;
+    return inflight;
+  };
+  const onMenuOpenChange = (open) => {
+    setMenuOpen(open);
+    if (!open) {
+      setStill("");
+      return;
+    }
+    if (previewRef.current.url) setStill(previewRef.current.url);
+    grabPreview().then((url) => {
+      if (url) setStill(url);
+    });
+    if (started) invoke("btab_zoom", { id }).then((z) => { if (typeof z === "number") setZoom(z); }).catch(() => {});
+  };
+  const covered = overlayCover || (menuOpen && !!still);
+
   // Bounds sync: the region's viewport-relative rect drives the native
   // webview. ResizeObserver + window resize cover sidebar, inspector and
   // window moves; switching editor tabs hides instead of resizing.
@@ -44,8 +100,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     if (!el) return undefined;
     const push = () => {
       const r = el.getBoundingClientRect();
-      const off = menuOpenRef.current ? MENU_H : 0;
-      invoke("btab_bounds", { id, x: r.left, y: r.top + off, w: r.width, h: r.height - off }).catch(fail);
+      invoke("btab_bounds", { id, x: r.left, y: r.top, w: r.width, h: r.height }).catch(fail);
     };
     const ro = new ResizeObserver(push);
     ro.observe(el);
@@ -69,7 +124,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
 
   useEffect(() => {
     if (!invoke) return undefined;
-    invoke("btab_visibility", { id, visible: !hidden }).catch(fail);
+    invoke("btab_visibility", { id, visible: !hidden && !covered }).catch(fail);
     return () => {
       // Unmount parks the native view. The split pane mounts only for the
       // active tab, so switching tabs unmounts it — without this the
@@ -78,7 +133,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
       // remounting shows it again.
       invoke("btab_visibility", { id, visible: false }).catch(() => {});
     };
-  }, [id, hidden]);
+  }, [id, hidden, covered]);
 
   // Mirror the page's location into the toolbar (active tab only).
   useEffect(() => {
@@ -100,7 +155,6 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
   }, [id, hidden, started, showFullUrl]);
 
   const urlRef = useRef(null);
-  const menuOpenRef = useRef(false);
   // Frame fallback (browser shell): no native webview exists, so a local
   // server renders in a frame instead. The address lives here because the
   // desktop shell is the only thing that can read a webview's URL back.
@@ -150,11 +204,54 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     }
   };
 
-  // While the options menu is open, the page webview slides down below the
-  // menu's rect — an HTML popover can't paint over a native WebView2
-  // sibling, so the page makes room instead. Bounds stay in sync with
-  // resize: push() applies the offset whenever it fires.
-  const MENU_H = 96;
+  // Zoom steps: the reference's own ladder, 25% to 500%.
+  const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5];
+
+  const applyZoom = (factor) => {
+    if (!invoke) return;
+    invoke("btab_set_zoom", { id, factor })
+      .then((next) => setZoom(typeof next === "number" ? next : factor))
+      .catch((e) => toast("Zoom failed: " + (e?.message || e)));
+  };
+  const zoomStep = (dir) => {
+    const at = ZOOM_STEPS.findIndex((z) => z >= zoom - 0.001);
+    const next = ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, Math.max(0, (at < 0 ? ZOOM_STEPS.indexOf(1) : at) + dir))];
+    if (next && next !== zoom) applyZoom(next);
+  };
+
+  const printPage = () => invoke && invoke("btab_print", { id })
+    .catch((e) => toast("Printing failed: " + (e?.message || e)));
+
+  // Find in page: the runtime's find session does the highlighting, the bar
+  // above the page shows where it landed. A null `forward` starts a fresh
+  // search (the input changed); an empty query stops and clears.
+  const runFind = (query, forward) => {
+    if (!invoke) return;
+    invoke("btab_find", { id, query: query ?? "", forward: forward ?? null })
+      .then((state) => setFindState({ count: state?.count || 0, active: state?.active || 0 }))
+      .catch((e) => toast("Find failed: " + (e?.message || e)));
+  };
+  const closeFind = () => {
+    setFindOpen(false);
+    setFindQuery("");
+    setFindState({ count: 0, active: 0 });
+    runFind("", null);
+  };
+
+  // The input searches as you type; 250ms of quiet is enough to ask.
+  useEffect(() => {
+    if (!invoke || !findOpen) return undefined;
+    const t = setTimeout(() => runFind(findQuery, null), 250);
+    return () => clearTimeout(t);
+  }, [findQuery, findOpen]);
+
+  // The menu's History/Downloads/Clear data/Passwords items: the dialogs
+  // live in Settings ▸ Browser (option A, owner 2026-09-15), so the request
+  // rides the route change and the settings page opens it.
+  const openBrowserDialog = (name) => {
+    requestBrowserDialog(name);
+    onBrowserSettings?.();
+  };
 
   const shot = () => invoke && invoke("btab_screenshot", { id })
     .then((path) => { toast.ok(`Screenshot saved to ${path}`); setErr(""); })
@@ -234,13 +331,48 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
           />
           <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => go()}><IconEnter /></button>
         </div>
-        <DropdownMenu.Root onOpenChange={(o) => { menuOpenRef.current = o; pushRef.current?.(); }}>
+        <DropdownMenu.Root open={menuOpen} onOpenChange={onMenuOpenChange}>
           <DropdownMenu.Trigger asChild>
-            <button type="button" className="web-tab-menu" title="Browser options" aria-label="Browser options">⋮</button>
+            <button
+              type="button"
+              className="web-tab-menu"
+              title="Browser options"
+              aria-label="Browser options"
+              onPointerEnter={() => grabPreview(1500)}
+              onPointerDown={() => grabPreview(1500)}
+            >⋮</button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content align="end" sideOffset={6} collisionPadding={8} className="web-tab-menu-list" onCloseAutoFocus={(e) => e.preventDefault()}>
+              <DropdownMenu.Item className="um-item" onSelect={() => setFindOpen(true)}>Find in page</DropdownMenu.Item>
+              <DropdownMenu.Item className="um-item" onSelect={printPage}>Print</DropdownMenu.Item>
+              <DropdownMenu.Separator className="web-tab-menu-sep" />
+              <div className="web-tab-zoom" role="group" aria-label="Zoom">
+                <span>Zoom</span>
+                <span className="web-tab-zoom-ctl">
+                  <button type="button" onClick={() => zoomStep(-1)} aria-label="Zoom out" title="Zoom out">−</button>
+                  <span className="web-tab-zoom-val">{Math.round(zoom * 100)}%</span>
+                  <button type="button" onClick={() => zoomStep(1)} aria-label="Zoom in" title="Zoom in">+</button>
+                  <button type="button" onClick={() => applyZoom(1)} aria-label="Reset zoom" title="Reset zoom"><IconReload /></button>
+                </span>
+              </div>
               <DropdownMenu.Item className="um-item" onSelect={shot}><span className="um-item-name"><IconMonitor />Take a screenshot</span></DropdownMenu.Item>
+              <DropdownMenu.Separator className="web-tab-menu-sep" />
+              <DropdownMenu.Sub>
+                <DropdownMenu.SubTrigger className="um-item">
+                  <span className="um-item-name">Passwords and autofill<IconChevronRight className="web-tab-sub-arrow" /></span>
+                </DropdownMenu.SubTrigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.SubContent className="web-tab-menu-list web-tab-submenu" sideOffset={4} alignOffset={-6} collisionPadding={8}>
+                    <DropdownMenu.Item className="um-item" onSelect={() => openBrowserDialog("passwords")}>Password manager</DropdownMenu.Item>
+                    <DropdownMenu.Item className="um-item" onSelect={() => openBrowserDialog("contact")}>Contact info</DropdownMenu.Item>
+                  </DropdownMenu.SubContent>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Sub>
+              <DropdownMenu.Item className="um-item" onSelect={() => openBrowserDialog("downloads")}>Downloads</DropdownMenu.Item>
+              <DropdownMenu.Item className="um-item" onSelect={() => openBrowserDialog("history")}>History</DropdownMenu.Item>
+              <DropdownMenu.Item className="um-item" onSelect={() => openBrowserDialog("wipe")}>Clear browsing data</DropdownMenu.Item>
+              <DropdownMenu.Separator className="web-tab-menu-sep" />
               <DropdownMenu.Item className="um-item" onSelect={() => onBrowserSettings?.()}><span className="um-item-name"><IconSettings />Browser settings</span></DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
@@ -253,6 +385,26 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
         ) : null}
         {onClose ? <button type="button" className="web-tab-menu" title="Close browser pane" aria-label="Close browser pane" onClick={onClose}><IconX /></button> : null}
       </div>
+      {findOpen ? (
+        <div className="web-tab-find" role="search" aria-label="Find in page">
+          <input
+            autoFocus
+            value={findQuery}
+            onChange={(e) => setFindQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); runFind(findQuery, !e.shiftKey); }
+              if (e.key === "Escape") { e.preventDefault(); closeFind(); }
+            }}
+            placeholder="Find in page"
+            aria-label="Find in page"
+            spellCheck={false}
+          />
+          <span className="web-tab-find-count" aria-live="polite">{findState.count ? `${findState.active + 1}/${findState.count}` : "0/0"}</span>
+          <button type="button" onClick={() => runFind(findQuery, false)} aria-label="Previous match" title="Previous (Shift+Enter)">↑</button>
+          <button type="button" onClick={() => runFind(findQuery, true)} aria-label="Next match" title="Next (Enter)">↓</button>
+          <button type="button" onClick={closeFind} aria-label="Close find bar" title="Close (Esc)"><IconX /></button>
+        </div>
+      ) : null}
       {ask ? (
         <div className="web-tab-ask" role="alert" aria-label="Site permission request">
           <div className="web-tab-ask-main">
@@ -269,7 +421,9 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
           </div>
         </div>
       ) : null}
-      <div className="web-tab-host" ref={hostRef} hidden={!started} />
+      <div className="web-tab-host" ref={hostRef} hidden={!started}>
+        {still ? <img className="web-tab-still" src={still} alt="" aria-hidden="true" /> : null}
+      </div>
       {!started ? (
         <div className="web-tab-empty">
           <IconGlobe size={28} />

@@ -5,6 +5,7 @@ import * as Dialog from "./ResponsiveDialog.jsx";
 import FolderPicker from "./FolderPicker.jsx";
 import { DEFAULT_BROWSER_PREFS, readBrowserPrefs } from "../lib/browserPrefs.js";
 import { ALL_SITES, permissionPush } from "../lib/browserPermissions.js";
+import { takeBrowserDialog } from "../lib/browserDialogs.js";
 import PageFrame from "./PageFrame.jsx";
 import { browserGrantSchema } from "@picode/shared/contracts/schemas.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
@@ -197,6 +198,18 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   const [wipeKinds, setWipeKinds] = useState(() => WIPE_KINDS.filter((k) => k.on).map((k) => k.value));
   const [wipeBusy, setWipeBusy] = useState(false);
   const [prefs, setPrefs] = useState(DEFAULT_BROWSER_PREFS);
+
+  // The work-tab options menu asks for one of these dialogs (option A, owner
+  // 2026-09-15): the request rode the route change, and this page opens it
+  // as soon as it is on screen.
+  useEffect(() => {
+    if (hidden) return;
+    const want = takeBrowserDialog();
+    if (want === "history") setHistoryOpen(true);
+    else if (want === "downloads") setDownloadsOpen(true);
+    else if (want === "wipe") setWipeOpen(true);
+    else if (want === "passwords" || want === "contact") setManageOpen(want);
+  }, [hidden]);
 
   const load = useCallback(async () => {
     try {

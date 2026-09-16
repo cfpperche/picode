@@ -1950,13 +1950,60 @@ img.ws-face.term-cli-face {
   border: none; background: var(--border); color: var(--text-primary);
 }
 .web-tab-menu-list {
-  min-width: 210px; padding: 5px; z-index: 50;
+  min-width: 232px; padding: 5px; z-index: 50;
   background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
 }
+.web-tab-menu-list .um-item { padding: 7px 9px; font-size: 13px; }
 .web-tab-menu-list .um-item-name {
   display: inline-flex; align-items: center; gap: 8px; font-size: 13px;
 }
+/* The reference's options menu shape (ChatGPT Work, owner 2026-09-15):
+   hairlines between groups and the zoom row as a segmented pill. */
+.web-tab-menu-sep { height: 1px; margin: 5px -5px; background: var(--border); }
+.web-tab-zoom {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 5px 9px; font-size: 13px; color: var(--text-primary);
+}
+.web-tab-zoom-ctl {
+  display: inline-flex; align-items: center; gap: 1px;
+  border: 1px solid var(--border); border-radius: 999px; padding: 1px;
+}
+.web-tab-zoom-ctl button {
+  width: 24px; height: 24px; padding: 0; border: 0; border-radius: 999px;
+  background: none; color: var(--text-secondary); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.web-tab-zoom-ctl button:hover { background: var(--bg-hover); color: var(--text-primary); }
+.web-tab-zoom-ctl button svg { display: block; }
+.web-tab-zoom-val { min-width: 42px; text-align: center; font-size: 12px; }
+.web-tab-submenu { min-width: 190px; }
+.web-tab-sub-arrow { margin-left: auto; color: var(--text-secondary); flex: none; }
+/* Find in page: a bar above the page, like the toolbar it sits under. */
+.web-tab-find {
+  flex: none; display: flex; align-items: center; gap: 6px;
+  padding: 5px 8px; border-bottom: 1px solid var(--border); background: var(--bg-panel);
+}
+.web-tab-find input {
+  flex: 1; min-width: 0; height: var(--ctl-h, 36px); padding: 0 12px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--bg-base); color: inherit;
+}
+.web-tab-find input:focus { outline: 1px solid var(--accent); outline-offset: -1px; }
+.web-tab-find-count {
+  flex: none; min-width: 42px; text-align: center; font-size: 12px;
+  color: var(--text-secondary); font-variant-numeric: tabular-nums;
+}
+.web-tab-find button {
+  flex: none; width: 36px; height: var(--ctl-h, 36px); padding: 0;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: none; color: inherit; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.web-tab-find button:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+/* The menu's still: the page as it was when the menu opened. The native
+   webview is hidden while it stands in, so the menu paints over the page. */
+.web-tab-still { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
 .web-tab-host { flex: 1 1 auto; min-height: 0; position: relative; }
 .web-tab-err {
   max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

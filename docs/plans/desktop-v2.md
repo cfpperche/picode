@@ -120,8 +120,9 @@ Mapping to our stack noted inline; slices 1–4 at the end of this section.
   as new tabs, while a sized popup opens as a real window — OAuth flows post
   back through `window.opener` (slice 1 + fix 2026-09-15; WebView2
   NewWindowRequested)
-- [ ] Find in page (WebView2 Find API, our highlight UI) (slice 1)
-- [ ] Print (ShowPrintUI) and Zoom (± / 100% / reset, ZoomFactor) (slice 1)
+- [x] Find in page (WebView2 Find API + our bar; landed 2026-09-15)
+- [x] Print (ShowPrintUI) and Zoom (± / 100% / reset, ZoomFactor) (landed
+  2026-09-15)
 - [ ] **Take a screenshot** button (CapturePreview) — also what the agent's
   screenshot tier uses (slice 2)
 - [ ] **Device toolbar**: responsive viewport — Dimensions dropdown,
@@ -133,7 +134,10 @@ Mapping to our stack noted inline; slices 1–4 at the end of this section.
 Show device toolbar · Take a screenshot · Import cookies and passwords… ·
 Passwords and autofill › · Downloads · History · Clear browsing data ·
 Browser settings (opens Preferences ▸ Browser) — every entry maps to an
-item above.
+item above. Landed 2026-09-15 without *Show device toolbar* and *Import
+cookies and passwords…* (neither exists yet; a dead item is worse than a
+missing one), and the menu opens **over** the page (native view hidden
+behind a still) instead of sliding it down.
 
 **Settings ▸ Browser (Preferences page section):**
 - [ ] Master toggle: "Let the agent control the built-in browser" — per

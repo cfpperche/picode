@@ -19,8 +19,3 @@ Merge: fast-forward ready.
 
 - Owner: live-check Ask in the shell (deploy + restart) — the first
   deferral run.
-
-## Debts
-
-- The Ask COM path (deferral, answer, watchdog) has never run outside
-  Windows.

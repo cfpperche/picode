@@ -520,7 +520,7 @@ async fn capture_png(app: &AppHandle, id: &str, path: &std::path::Path) -> Resul
     let (tx, rx) = mpsc::channel::<Result<(), String>>();
     let tx_err = tx.clone();
     let shot_path = path.to_path_buf();
-    wv.with_webview(move |platform| unsafe {
+    let _ = wv.with_webview(move |platform| unsafe {
         let core = match platform.controller().CoreWebView2() {
             Ok(c) => c,
             Err(e) => {
@@ -686,7 +686,7 @@ pub async fn btab_find(
 ) -> Result<serde_json::Value, String> {
     use webview2_com::FindStartCompletedHandler;
     use webview2_com::Microsoft::Web::WebView2::Win32::{
-        ICoreWebView2Find, ICoreWebView2FindOptions, ICoreWebView2_28,
+        ICoreWebView2Environment15, ICoreWebView2Find, ICoreWebView2FindOptions, ICoreWebView2_28,
     };
     use windows::core::HSTRING;
 
@@ -721,7 +721,20 @@ pub async fn btab_find(
             (if forward { find.FindNext() } else { find.FindPrevious() })
                 .map_err(|e| format!("find: {e}"))
         } else {
-            let options: ICoreWebView2FindOptions = match core28.CreateFindOptions() {
+            // FindOptions are minted by the environment (_15), not the
+            // webview — the environment comes back through _2.
+            let environment = match core28.Environment() {
+                Ok(env) => env,
+                Err(e) => {
+                    let _ = done.send(Err(format!("find: {e}")));
+                    return;
+                }
+            };
+            let Ok(environment15) = environment.cast::<ICoreWebView2Environment15>() else {
+                let _ = done.send(Err("this WebView2 runtime has no Find API".into()));
+                return;
+            };
+            let options: ICoreWebView2FindOptions = match environment15.CreateFindOptions() {
                 Ok(v) => v,
                 Err(e) => {
                     let _ = done.send(Err(format!("find: {e}")));
