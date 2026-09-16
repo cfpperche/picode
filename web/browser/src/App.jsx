@@ -1712,9 +1712,10 @@ export default function App({ shellChrome = false } = {}) {
       let host = "";
       try { host = new URL(url).hostname.toLowerCase(); } catch { /* fall through to the app */ }
       const isLocal = ["localhost", "127.0.0.1", "::1"].includes(host);
-      // Open destinations (slice 3): the pref decides whether a popup adopts
-      // as a tab or hands off to the system default browser. One fresh read
-      // per popup — popups are rare and the pref must be current.
+      // Open destinations (slice 3): the pref decides whether a new-tab
+      // request adopts as a tab or hands off to the system default browser.
+      // One fresh read per request — a `target=_blank` is rare and the pref
+      // must be current.
       fetch("/api/browser/prefs")
         .then((r) => r.json())
         .then((p) => {

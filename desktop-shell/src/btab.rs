@@ -3,7 +3,8 @@
 // editor tab ("w:<id>"). The React side renders the toolbar and reports the
 // viewport rect of the page region (ResizeObserver); this module positions
 // the native webview there. ADR-0128: one shared profile, no debug port in
-// this path, popups adopt as new tabs.
+// this path, `target=_blank` and unsized `window.open` adopt as new tabs — a
+// sized popup opens as a real window (OAuth needs `window.opener`).
 
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
@@ -216,8 +217,19 @@ fn ensure(app: &AppHandle, id: &str, url: &str) -> Result<(), String> {
     let emitter = app.clone();
     let page = WebviewBuilder::new(label, WebviewUrl::External(parsed))
         .data_directory(super::browserlab::webview_profile())
-        .on_new_window(move |url, _features| {
-            // Popups adopt as new editor tabs (the UI listens on this event).
+        .on_new_window(move |url, features| {
+            // A `window.open` that names a size or position is a popup
+            // window, not a tab — this is where OAuth lives: Google Identity
+            // Services opens `accounts.google.com` sized and posts the
+            // credential back through `window.opener`, and adopting that URL
+            // as a tab severs the opener, leaving the flow dead-ended on a
+            // blank bridge page (x.com login, 2026-09-15). Allow leaves the
+            // request to the runtime, which opens its own popup window on
+            // the same profile. A request without features (`target=_blank`,
+            // plain `window.open`) still adopts as an editor tab.
+            if features.size().is_some() || features.position().is_some() {
+                return NewWindowResponse::Allow;
+            }
             let _ = emitter.emit("btab://new", url.to_string());
             NewWindowResponse::Deny
         });

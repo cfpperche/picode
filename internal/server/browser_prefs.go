@@ -4,7 +4,7 @@ package server
 // read and one write. Backed by the settings KV — a save announces
 // setting.updated, so an open Settings ▸ Browser refetches. showFullUrl
 // defaults to true (today's address bar); the open destinations default to
-// the app (popups adopt as tabs, slice 1).
+// the app (a new-tab request adopts as a tab, slice 1).
 
 import (
 	"encoding/json"
