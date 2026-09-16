@@ -1088,7 +1088,7 @@ func museHookCommands(event any, hook string) (ours bool, foreign bool, ok bool)
 // settings file is the only install path that follows PiCode terminals.
 func installMuseHooks(dataDir string) error {
 	hook := museHookPath(dataDir)
-	body := "#!/bin/sh\n# PiCode Muse Code activity observer (Fatia 6, docs/plans/launch-muse-agy.md).\n# Observer-only: posts the stdin payload through picode-hook (shared\n# mapper) and always exits 0 with no output, so it can never block a\n# tool. The hook path below is absolute: the CLI's environment is the\n# user's, not ours, so PATH is not trusted.\n.exec " + shellQuote(hookScriptPath(dataDir)) + " auto muse\n"
+	body := "#!/bin/sh\n# PiCode Muse Code activity observer (Fatia 6, docs/plans/launch-muse-agy.md).\n# Observer-only: posts the stdin payload through picode-hook (shared\n# mapper) and always exits 0 with no output, so it can never block a\n# tool. The hook path below is absolute: the CLI's environment is the\n# user's, not ours, so PATH is not trusted.\nexec " + shellQuote(hookScriptPath(dataDir)) + " auto muse\n"
 	if err := writeExecutable(hook, body); err != nil {
 		return err
 	}

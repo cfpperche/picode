@@ -2,6 +2,9 @@ package server
 
 import (
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -242,4 +245,56 @@ func TestMusePrepareNeedsNoWrapper(t *testing.T) {
 		t.Fatalf("prepare: %v", err)
 	}
 	defer p.discard()
+}
+
+// End to end through the installed wrapper: the measured R3233.1 payload
+// rides picode-hook to the daemon's door (stub server) and the wrapper
+// stays silent on stdout, the way an observer hook must.
+func TestMuseHookFlow(t *testing.T) {
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("python3 not on PATH")
+	}
+	museTestHome(t)
+	dataDir := t.TempDir()
+	if _, err := ensureHookScript(dataDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := installMuseHooks(dataDir); err != nil {
+		t.Fatal(err)
+	}
+	var received []byte
+	hook := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		buf, _ := io.ReadAll(r.Body)
+		received = buf
+		w.WriteHeader(200)
+	}))
+	defer hook.Close()
+	for _, tc := range []struct{ in, want string }{
+		{`{"hook_event_name":"PreToolUse","session_id":"s9","turn_id":"t9","cwd":"/w","tool_name":"read","tool_input":{},"tool_use_id":"c9"}`, "working"},
+		{`{"hook_event_name":"Stop","session_id":"s9","turn_id":"t9","cwd":"/w","stop_hook_active":false}`, "idle"},
+	} {
+		received = nil
+		cmd := exec.Command(museHookPath(dataDir))
+		cmd.Stdin = strings.NewReader(tc.in)
+		cmd.Env = append(os.Environ(),
+			"PICODE_TERM_ID=t-muse-1",
+			"PICODE_TERM_URL="+hook.URL,
+			"PICODE_TUI_PID=", "PICODE_TUI_RUN_ID=",
+			"PATH="+os.Getenv("PATH"),
+		)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("hook %s: %v", tc.in, err)
+		}
+		if len(out) != 0 {
+			t.Fatalf("hook printed %q, want silence", out)
+		}
+		var posted map[string]any
+		if err := json.Unmarshal(received, &posted); err != nil {
+			t.Fatalf("hook got no JSON for %s: %q", tc.in, received)
+		}
+		if posted["state"] != tc.want || posted["cli"] != "muse" || posted["sessionId"] != "s9" {
+			t.Fatalf("posted = %s, want state %s", received, tc.want)
+		}
+	}
 }
