@@ -27,8 +27,20 @@ func TestHookMapAgyReport(t *testing.T) {
 		t.Fatal(err)
 	}
 	in := `{"agent_state":"working","conversation_id":"c9","session_id":"c9","transcript_path":"/home/goat/.gemini/antigravity/brain/c9/x.jsonl","cwd":"/w"}`
+	// Stdin comes from a file, not a pipe: twice under sharded load the
+	// pipe-fed run exited 0 with empty output (unreproduced in isolation);
+	// the pipe plumbing itself stays covered by TestAgyTitleReporterFlow.
+	inFile := filepath.Join(dir, "in.json")
+	if err := os.WriteFile(inFile, []byte(in), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fh, err := os.Open(inFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fh.Close()
 	cmd := exec.Command("python3", filepath.Join(dir, "picode-hook-map.py"))
-	cmd.Stdin = strings.NewReader(in)
+	cmd.Stdin = fh
 	cmd.Env = append(os.Environ(), "PICODE_HOOK_CLI=agy", "PICODE_HOOK_REPORT=1")
 	out, err := cmd.Output()
 	if err != nil {
@@ -39,7 +51,12 @@ func TestHookMapAgyReport(t *testing.T) {
 	}
 	var got map[string]any
 	if err := json.Unmarshal(out, &got); err != nil {
-		t.Fatalf("report is not JSON: %s", out)
+		// Twice under sharded load this came back empty with exit 0; never
+		// in isolation. Capture everything before failing so the next
+		// occurrence diagnoses itself instead of shrugging.
+		again, _ := exec.Command("python3", filepath.Join(dir, "picode-hook-map.py")).Output()
+		st, _ := os.Stat(filepath.Join(dir, "picode-hook-map.py"))
+		t.Fatalf("report is not JSON: %q rerun=%q size=%d err=%v", out, again, st.Size(), err)
 	}
 	if got["state"] != "working" || got["cli"] != "agy" || got["sessionId"] != "c9" {
 		t.Fatalf("report = %s", out)
