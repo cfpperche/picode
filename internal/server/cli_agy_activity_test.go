@@ -27,21 +27,13 @@ func TestHookMapAgyReport(t *testing.T) {
 		t.Fatal(err)
 	}
 	in := `{"agent_state":"working","conversation_id":"c9","session_id":"c9","transcript_path":"/home/goat/.gemini/antigravity/brain/c9/x.jsonl","cwd":"/w"}`
-	// Stdin comes from a file, not a pipe: twice under sharded load the
-	// pipe-fed run exited 0 with empty output (unreproduced in isolation);
-	// the pipe plumbing itself stays covered by TestAgyTitleReporterFlow.
-	inFile := filepath.Join(dir, "in.json")
-	if err := os.WriteFile(inFile, []byte(in), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	fh, err := os.Open(inFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer fh.Close()
+	// Hermetic against ambient terminal vars: PID/RUN_ID engage the
+	// observation gate, and with TERM_ID stripped (as the shard harness
+	// does) the recorder silently drops the report. Empty pins the gate
+	// shut; the full chain with a real run id is TestAgyTitleReporterFlow.
 	cmd := exec.Command("python3", filepath.Join(dir, "picode-hook-map.py"))
-	cmd.Stdin = fh
-	cmd.Env = append(os.Environ(), "PICODE_HOOK_CLI=agy", "PICODE_HOOK_REPORT=1")
+	cmd.Stdin = strings.NewReader(in)
+	cmd.Env = append(os.Environ(), "PICODE_HOOK_CLI=agy", "PICODE_HOOK_REPORT=1", "PICODE_TUI_PID=", "PICODE_TUI_RUN_ID=")
 	out, err := cmd.Output()
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
