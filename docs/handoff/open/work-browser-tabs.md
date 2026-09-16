@@ -164,6 +164,11 @@ decision, ADR before code.
   the page into a still (`btab_preview`) and hides it; an open `.dlg` hides
   it through `appOverlays.js`. Bounds tricks (sliding the page) are the old
   workaround and are refused now.
+- **The agent split renders WebTabSurface too.** A prop added to the tab
+  instance must be added there as well (2026-09-16: `onBrowserSettings` was
+  tabs-only, so every settings link in the split's ⋮ menu silently no-op'd
+  through `?.`). Same for parking: the tab hides on tab switch AND on
+  route change (`onPane`), or the page covers the settings views.
 
 ## Scope (v1): Pi only, and read for a TUI
 
@@ -188,8 +193,9 @@ gallery hit is worth a look before anyone installs it expecting this one.
 - An Ask waits only in the tab that asked; a request from a tab the user is
   not looking at is denied when the 60 s watchdog fires (nowhere else shows
   it).
-- The options-menu still/overlay path (capture, hide, restore) has no
-  automated test: the capture and the native hiding are Windows-only.
+- The COM capture + native hide half of the still/overlay path has no
+  automated test (Windows-only); the JS decode gate is unit-tested
+  (`lib/previewStill.js`).
 - **Device toolbar** and **Import cookies and passwords…** are the two
   reference options-menu entries still missing; import has no WebView2 API
   (cookies would go through CDP).
