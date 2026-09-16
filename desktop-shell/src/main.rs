@@ -29,12 +29,20 @@ mod wslconfig;
 // (tauri.localhost) own their chrome and are skipped. Kept as one plain
 // script: no build step lives between the shell and its window frame.
 use std::process::Command;
+use std::sync::OnceLock;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager, WebviewUrl, WebviewWindowBuilder,
 };
 use tauri_plugin_notification::NotificationExt;
+
+/// The main window, kept from the moment it is built. The registry lookup
+/// (`get_webview_window("main")`) answered None on a resident started by the
+/// logon task with `--hidden`, while the native window was alive and
+/// perfectly showable — which is exactly the state where Open PiCode must
+/// still work (2026-09-16, Tauri 2.11.5).
+static MAIN_WINDOW: OnceLock<tauri::WebviewWindow> = OnceLock::new();
 
 fn main() {
     // ADR-0128: no debug port exists in default operation. The shell bridges
@@ -57,10 +65,6 @@ fn main() {
     let hidden = std::env::args().any(|a| a == "--hidden");
     // The shell loads its own bundle, not the launcher's pick: /desktop/ is
     // composed for the shell only (ADR-0122), /browser/ is what a browser gets.
-    let url = discover_server().map(|(_, mut u)| {
-        u.set_path("/desktop/");
-        u
-    });
 
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
@@ -109,9 +113,9 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // A second launch means someone wanted PiCode on screen: focus the
             // window the first instance already owns instead of starting over.
-            if let Some(win) = app.get_webview_window("main") {
-                show(&win);
-            }
+            // Routed through show_main so a missing window is rebuilt, not
+            // silently ignored.
+            show_main(app);
         }))
         .manage(browserlab::LabState::default())
         .manage(btab::BtabState::default())
@@ -120,34 +124,9 @@ fn main() {
             // handler: creating a second webview mid-event-loop deadlocked
             // the whole app on Windows (frozen captions, blank page).
             browserlab::init(app);
-            let target = match url {
-                Some(u) => WebviewUrl::External(u),
-                None => WebviewUrl::App("offline.html".into()),
-            };
-
-            // Undecorated, single webview: the /desktop/ bundle renders the
-            // merged top row itself — brand, rail tabs, agent tabs and the
-            // Windows caption buttons (ADR-0122). The shell only strips the
-            // native frame.
-            let main_win = WebviewWindowBuilder::new(app, "main", target)
-                .title("PiCode")
-                .inner_size(1360.0, 880.0)
-                .min_inner_size(720.0, 480.0)
-                .decorations(false)
-                .visible(!hidden)
-                .data_directory(browserlab::webview_profile())
-                .build()?;
-            // Close hides, exactly like the lab window below: without this
-            // the X destroys "main", and tray click + Open PiCode silently
-            // no-op on the missing window (2026-09-15: reopen dead in 0.3.0).
-            {
-                let hidden_main = main_win.clone();
-                main_win.on_window_event(move |e| {
-                    if let tauri::WindowEvent::CloseRequested { api, .. } = e {
-                        api.prevent_close();
-                        let _ = hidden_main.hide();
-                    }
-                });
+            let main_win = build_main_window(app.handle(), main_target())?;
+            if hidden {
+                let _ = main_win.hide();
             }
             let status_item =
                 MenuItem::with_id(app, "status", "Starting…", false, None::<&str>)?;
@@ -564,9 +543,80 @@ fn open_management_window(app: &tauri::AppHandle) {
         .build();
 }
 
+/// What the main window loads: the daemon's /desktop/ when it answers,
+/// the bundled offline page until then.
+fn main_target() -> WebviewUrl {
+    match discover_server().map(|(_, mut u)| {
+        u.set_path("/desktop/");
+        u
+    }) {
+        Some(u) => WebviewUrl::External(u),
+        None => WebviewUrl::App("offline.html".into()),
+    }
+}
+
+/// The main window's build, in one place: setup creates it, and Open PiCode
+/// rebuilds it if it ever goes missing instead of silently no-op'ing
+/// (2026-09-16: the logon task's --hidden launch left the resident with no
+/// main window at all, and every Open path quietly did nothing).
+fn build_main_window(
+    app: &tauri::AppHandle,
+    target: WebviewUrl,
+) -> tauri::Result<tauri::WebviewWindow> {
+    // Undecorated, single webview: the /desktop/ bundle renders the
+    // merged top row itself — brand, rail tabs, agent tabs and the
+    // Windows caption buttons (ADR-0122). The shell only strips the
+    // native frame.
+    let win = WebviewWindowBuilder::new(app, "main", target)
+        .title("PiCode")
+        .inner_size(1360.0, 880.0)
+        .min_inner_size(720.0, 480.0)
+        .decorations(false)
+        // One creation path for both starts: build visible, hide right after
+        // when the logon task asked for --hidden (same setup turn, before
+        // first paint, so sign-in stays pop-free). Measured 2026-09-16: at
+        // logon the window ends up visible-but-parked off-screen either way;
+        // what actually broke Open PiCode was the missed handle lookup, not
+        // the build order.
+        .visible(true)
+        .data_directory(browserlab::webview_profile())
+        .build()?;
+    // Remember the handle here, where both the first build and a rebuild
+    // land: show_main drives this one, not a registry lookup that has been
+    // observed to miss.
+    let _ = MAIN_WINDOW.set(win.clone());
+    // Close hides, exactly like the lab window below: without this
+    // the X destroys "main", and tray click + Open PiCode silently
+    // no-op on the missing window (2026-09-15: reopen dead in 0.3.0).
+    {
+        let hidden_main = win.clone();
+        win.on_window_event(move |e| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = e {
+                api.prevent_close();
+                let _ = hidden_main.hide();
+            }
+        });
+    }
+    Ok(win)
+}
+
 fn show_main(app: &tauri::AppHandle) {
-    if let Some(win) = app.get_webview_window("main") {
-        show(&win);
+    // Open PiCode must never silently no-op. Order: the handle kept at build
+    // time, then the registry, then a rebuild (which is what a resident that
+    // somehow lost the window needs).
+    if let Some(win) = MAIN_WINDOW.get() {
+        show(win);
+        return;
+    }
+    match app.get_webview_window("main") {
+        Some(win) => show(&win),
+        None => match build_main_window(app, main_target()) {
+            Ok(win) => show(&win),
+            Err(e) => {
+                eprintln!("open: cannot rebuild the main window ({e})");
+                dialog::alert("PiCode", &format!("Could not open PiCode:\n{e}"));
+            }
+        },
     }
 }
 
@@ -574,6 +624,21 @@ fn show(win: &tauri::WebviewWindow) {
     let _ = win.unminimize();
     let _ = win.show();
     let _ = win.set_focus();
+    // The Tauri calls can answer Ok and leave the window hidden — measured
+    // 2026-09-16 on a resident started with `--hidden`: the native handle was
+    // alive and ShowWindow brought it up instantly, while the app's own path
+    // never did. Ask Windows directly as well; a window already visible costs
+    // nothing here.
+    if let Ok(hwnd) = win.hwnd() {
+        use windows::Win32::UI::WindowsAndMessaging::{
+            SetForegroundWindow, ShowWindow, SW_RESTORE, SW_SHOW,
+        };
+        unsafe {
+            let _ = ShowWindow(hwnd, SW_RESTORE);
+            let _ = ShowWindow(hwnd, SW_SHOW);
+            let _ = SetForegroundWindow(hwnd);
+        }
+    }
 }
 
 /// discover_server finds the daemon the same way the Go tray did: the address
