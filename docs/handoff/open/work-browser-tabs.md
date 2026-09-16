@@ -23,14 +23,13 @@ toolbar and Import cookies and passwords… stay out until they exist.
 
 Two facts the slice established:
 
-- **The menu opens over the page.** A windowed WebView2 paints over HTML,
-  so the tab captures the page (`btab_preview`, raw PNG over IPC) and hides
-  the native view behind it while the menu is up — the same trick any future
-  overlay over a work tab needs. The old `MENU_H` slide is gone.
-- **An open application dialog hides the work webview too** (owner report
-  2026-09-15: "New workspace" cut in half by the page). `appOverlays.js`
-  watches `.dlg[data-state="open"]` and the tab contributes it to its
-  visibility, so the dialog's own dim covers the whole window.
+- **Everything opens over the page now, by geometry.** Any visible floating
+  layer that intersects the tab (the shared vocabulary in
+  `floatingLayers.js`) hides the native view and shows the frozen page
+  (`btab_preview`, raw PNG over IPC). It began with the options menu
+  (2026-09-15) and the "New workspace" dialog cut in half by the page; the
+  class-only `.dlg` observer that fixed those missed the command palette and
+  the editor's own tab menus, which is the 2026-09-16 sweep.
 
 Find drives the WebView2 Find API (`ICoreWebView2Find` via the environment's
 `CreateFindOptions`); Zoom/Print are the controller's `ZoomFactor` and
@@ -153,8 +152,16 @@ decision, ADR before code.
   handlers come ready-made.
 - COM interfaces are not `Send`: keep event receivers on the UI thread (the
   `RECEIVERS` thread-local in `btab.rs`), never in Tauri state.
-- An HTML popover can never paint over a WebView2 sibling: the options menu
-  slides the page down (`MENU_H` in `WebTab.jsx`) instead of flipping z-order.
+- **An HTML layer can never paint over a WebView2 sibling.** The rule is
+  geometry, not a memory of which overlays exist: `floatingLayers.js` collects
+  every visible layer from the shared vocabulary (`OVERLAY_SELECTORS` in
+  `web/shared/domain/overlayAudit.js` — role+state for Radix, the app's own
+  classes for the rest) and the tab hides the native view when any of them
+  intersects its rectangle, showing the frozen page behind (`btab_preview`).
+  The old `MENU_H` slide is gone (2026-09-16: the owner's editor tab menu came
+  up invisible under the page — a class-only list never saw the palette
+  either). A new floating surface belongs in the shared list, or both the hide
+  rule and the clipping audit lose sight of it.
 - **A sized popup must stay a window.** `window.open(url, name,
   "width=…,height=…")` carries window features; adopting it as a tab severs
   `window.opener`, and the OAuth popup dead-ends on a blank bridge page

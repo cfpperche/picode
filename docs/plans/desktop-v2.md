@@ -137,7 +137,11 @@ Browser settings (opens Preferences ▸ Browser) — every entry maps to an
 item above. Landed 2026-09-15 without *Show device toolbar* and *Import
 cookies and passwords…* (neither exists yet; a dead item is worse than a
 missing one), and the menu opens **over** the page (native view hidden
-behind a still) instead of sliding it down.
+behind a still) instead of sliding it down. Since 2026-09-16 that rule is
+general — *any* floating layer that intersects a work tab parks the native
+view (`web/browser/src/lib/floatingLayers.js` over the shared layer list in
+`web/shared/domain/overlayAudit.js`), so the command palette, the editor's
+tab menus, dialogs and toasts behave the same way.
 
 **Settings ▸ Browser (Preferences page section):**
 - [ ] Master toggle: "Let the agent control the built-in browser" — per

@@ -1,10 +1,33 @@
-const SELECTORS = [
+// The app's vocabulary of floating layers — everything that can paint over the
+// content well. Two consumers, one list, on purpose:
+//
+//   - `overlayAudit` checks them for clipping (the visual-review gate);
+//   - the work browser's tab uses the same list to decide when the native
+//     WebView2 must get out of the way (a native child window always paints
+//     over HTML, so an overlay that intersects it is invisible until the page
+//     hides — `web/browser/src/lib/floatingLayers.js`).
+//
+// A new floating surface belongs here, or both checks lose sight of it.
+//
+// Toasts are matched per item (`[data-sonner-toast]`), not by sonner's
+// container: the container stays mounted with a box of its own, and an
+// always-present layer would keep the work browser hidden forever.
+export const OVERLAY_SELECTORS = [
+  // Radix's own semantics first: role + data-state catches every portal the
+  // app opens, whatever class it wears. The palette's `.palette` (a raw Radix
+  // Dialog, not the app's `.dlg` wrapper) is the case that proved the point —
+  // a class-only list had no idea it was there (2026-09-16).
   "[data-radix-popper-content-wrapper]",
+  '[role="dialog"][data-state="open"]',
+  '[role="alertdialog"][data-state="open"]',
+  '[role="menu"][data-state="open"]',
+  '[role="listbox"][data-state="open"]',
+  // The app's own layers, which are not Radix content.
   ".cockpit-pop",
   ".session-pop",
   ".slash-menu",
   ".toast",
-  "[data-sonner-toaster]",
+  "[data-sonner-toast]",
   ".dlg",
   ".create-drawer",
   ".rail-pop",
@@ -13,6 +36,8 @@ const SELECTORS = [
   ".img-lite",
   "#inspector",
 ];
+
+const SELECTORS = OVERLAY_SELECTORS;
 
 export function overlayAudit(win = globalThis) {
   const doc = win.document;
@@ -37,6 +62,20 @@ export function overlayAudit(win = globalThis) {
       });
     }
   }
+  // A floating layer over the work browser must have the native view out of
+  // the way; the tab says so by marking its host (`.web-tab-host[data-covered]`).
+  const uncovered = [];
+  for (const host of doc.querySelectorAll(".web-tab-host")) {
+    const hs = win.getComputedStyle(host);
+    if (hs.display === "none" || hs.visibility === "hidden") continue;
+    const r = host.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) continue;
+    if (host.getAttribute?.("data-covered") === "1") continue;
+    if (layerRectsOver(doc, win).some((layer) => intersects(r, layer))) {
+      uncovered.push({ sel: ".web-tab-host", top: Math.round(r.top), bottom: Math.round(r.bottom) });
+    }
+  }
+
   const rows = [];
   for (const row of doc.querySelectorAll("[data-align-row]")) {
     const rs = [];
@@ -64,8 +103,30 @@ export function overlayAudit(win = globalThis) {
   }
   return {
     ok: hits.every((h) => !h.clipTop && !h.clipBottom && !h.clipLeft && !h.clipRight)
-      && rows.every((r) => !r.misaligned),
+      && rows.every((r) => !r.misaligned)
+      && uncovered.length === 0,
     hits,
     rows,
+    uncovered,
   };
+}
+
+// layerRectsOver is the geometry half of the same vocabulary, kept local so
+// this module stays dependency-free for the mobile/tests harness.
+function layerRectsOver(doc, win) {
+  const out = [];
+  for (const sel of SELECTORS) {
+    for (const el of doc.querySelectorAll(sel)) {
+      const s = win.getComputedStyle(el);
+      if (s.display === "none" || s.visibility === "hidden") continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) continue;
+      out.push({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
+    }
+  }
+  return out;
+}
+
+function intersects(a, b) {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
 }
