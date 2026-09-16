@@ -143,6 +143,11 @@ decision, ADR before code.
   `RECEIVERS` thread-local in `btab.rs`), never in Tauri state.
 - An HTML popover can never paint over a WebView2 sibling: the options menu
   slides the page down (`MENU_H` in `WebTab.jsx`) instead of flipping z-order.
+- **A sized popup must stay a window.** `window.open(url, name,
+  "width=…,height=…")` carries window features; adopting it as a tab severs
+  `window.opener`, and the OAuth popup dead-ends on a blank bridge page
+  (x.com + Google, 2026-09-15). `on_new_window` allows feature-sized requests
+  to the runtime and adopts only unsized ones as tabs.
 
 ## Scope (v1): Pi only, and read for a TUI
 

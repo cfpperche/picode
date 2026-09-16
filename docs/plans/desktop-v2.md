@@ -116,8 +116,10 @@ Mapping to our stack noted inline; slices 1–4 at the end of this section.
 - [ ] Empty state: "Start browsing — Enter a URL to open a page" — one line
   + the action, never a blank well (slice 1)
 - [ ] History dropdown from the address bar (typed URLs first) (slice 3)
-- [ ] New tab / close per tab; target=_blank and OAuth popups adopt as new
-  tabs, not external windows (slice 1; WebView2 NewWindowRequested)
+- [ ] New tab / close per tab; target=_blank and unsized `window.open` adopt
+  as new tabs, while a sized popup opens as a real window — OAuth flows post
+  back through `window.opener` (slice 1 + fix 2026-09-15; WebView2
+  NewWindowRequested)
 - [ ] Find in page (WebView2 Find API, our highlight UI) (slice 1)
 - [ ] Print (ShowPrintUI) and Zoom (± / 100% / reset, ZoomFactor) (slice 1)
 - [ ] **Take a screenshot** button (CapturePreview) — also what the agent's
