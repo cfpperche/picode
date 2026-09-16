@@ -106,5 +106,21 @@
         "summary": "Save reusable prompts and commands once; write, duplicate and archive them from the desk or the phone."
       }
     ]
+  },
+  {
+    "version": "0.3.1",
+    "date": "2026-09-15",
+    "highlights": [
+      {
+        "icon": "terminal",
+        "title": "The tray reopens the shell",
+        "summary": "Closing the window hid it for good; tray click and Open PiCode now bring it back on the same page."
+      },
+      {
+        "icon": "workspace",
+        "title": "No more stray console window",
+        "summary": "The shell no longer opens a terminal window next to its tray icon on every start."
+      }
+    ]
   }
 ]

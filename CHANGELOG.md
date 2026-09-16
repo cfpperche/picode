@@ -11,6 +11,8 @@ to the `[Unreleased]` section. The repository's official language is English
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-15
+
 ### Fixed
 
 - **The tray reopens the shell again.** Closing the shell window destroyed it
