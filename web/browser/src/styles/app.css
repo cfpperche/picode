@@ -6036,4 +6036,11 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .grant-domains:focus-visible, .grant-tier:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .grant-domains-bad { border-color: var(--danger, #c42b1c); }
 .grant-error { font-size: 12px; color: var(--danger, #c42b1c); flex-basis: 100%; }
+/* The field explains itself: one line per entry, and a named line for an entry
+   that would open nothing (the silent `*` this replaced). */
+.grant-covers { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.grant-cover { font-size: 12px; color: var(--text-secondary); line-height: 1.35; }
+.grant-cover-label { color: var(--text-primary); }
+.grant-cover.is-dead .grant-cover-label,
+.grant-cover.is-dead .grant-cover-d { color: var(--warn); }
 .devs-tag-off { opacity: .6; }

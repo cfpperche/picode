@@ -6,6 +6,8 @@
 //!
 //!   - only http and https: an agent may not follow file:, data: or
 //!     javascript: anywhere, listed or not;
+//!   - the entry `*` matches any host — the owner's deliberate "this agent may
+//!     go anywhere", which the scheme rule above still narrows to the web;
 //!   - the entry `example.com` matches that host exactly;
 //!   - the entry `*.example.com` (or `.example.com`) also matches its
 //!     subdomains;
@@ -58,6 +60,11 @@ pub fn allows_origin(domains: &[String], raw_url: &str) -> bool {
         if want.is_empty() {
             continue;
         }
+        if want == "*" {
+            // Any host. The scheme check above already ran: this is the web,
+            // not a way to reach file:// or a data: page.
+            return true;
+        }
         // Both spellings of "this host and its subdomains": *.example.com and
         // the leading-dot .example.com are the same promise.
         if let Some(suffix) = want.strip_prefix("*.") {
@@ -96,7 +103,7 @@ pub fn gate(domains: Option<&[String]>, user_initiated: bool, raw_url: &str) -> 
 
 #[cfg(test)]
 mod tests {
-    use super::allows_origin;
+    use super::{allows_origin, gate};
 
     #[test]
     fn gate_decision_table() {
@@ -123,6 +130,12 @@ mod tests {
             ("exact host is case-insensitive", vec!["Example.COM"], "https://example.com/", true),
             ("trailing whitespace in the entry", vec![" example.com "], "https://example.com/", true),
             ("another host", vec!["example.com"], "https://evil.test/", false),
+            // The owner's "any site": every host, still only over http/https.
+            ("the any-site entry", vec!["*"], "https://anything.test/x", true),
+            ("the any-site entry and a dev server", vec!["*"], "http://localhost:5173/", true),
+            ("the any-site entry never reaches file:", vec!["*"], "file:///etc/passwd", false),
+            ("an any-site entry with whitespace", vec![" * "], "https://anything.test/", true),
+            ("a grant without it stays narrow", vec!["example.com"], "https://anything.test/", false),
             ("subdomain needs the wildcard", vec!["example.com"], "https://docs.example.com/", false),
             ("wildcard covers the host itself", vec!["*.example.com"], "https://example.com/", true),
             ("wildcard covers subdomains", vec!["*.example.com"], "https://docs.example.com/", true),

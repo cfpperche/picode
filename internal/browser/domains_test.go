@@ -15,6 +15,12 @@ func TestAllowsOrigin(t *testing.T) {
 		{"no grant allows no destination", nil, "https://example.com/a", false},
 		{"empty grant entry is ignored", []string{"  "}, "https://example.com/", false},
 		{"exact host", []string{"example.com"}, "https://example.com/a?b=1", true},
+		// The owner's "any site": every host, still only over http/https.
+		{"the any-site entry", []string{"*"}, "https://anything.test/x", true},
+		{"the any-site entry and a dev server", []string{"*"}, "http://localhost:5173/", true},
+		{"the any-site entry never reaches file:", []string{"*"}, "file:///etc/passwd", false},
+		{"an any-site entry with whitespace", []string{" * "}, "https://anything.test/", true},
+		{"a grant without it stays narrow", []string{"example.com"}, "https://anything.test/", false},
 		{"exact host is case-insensitive", []string{"Example.COM"}, "https://example.com/", true},
 		{"trailing whitespace in the entry", []string{" example.com "}, "https://example.com/", true},
 		{"another host", []string{"example.com"}, "https://evil.test/", false},

@@ -242,7 +242,10 @@ Increment 4.1 (2026-09-13, `feat/browser-grants`): the act vocabulary and the
 destination rule. `evaluate` (`Runtime.evaluate`) and `navigate`
 (`Page.navigate`) are the first act verbs, so a grant now buys something real:
 `browser.AllowsOrigin` — http/https only, exact host, `*.example.com` or
-`.example.com` for subdomains, port ignored; the table is written in
+`.example.com` for subdomains, `*` for any host (2026-09-16: the owner's
+"any site", one token, still web-only — and the field now says what each
+entry covers, naming the entries that would open nothing), port ignored; the
+table is written in
 `internal/browser/domains.go` and every row of it is a test — and the route
 checks the one verb with a destination before the command leaves. Params now
 travel from the tool to the shell (`Command.Params` was already in the

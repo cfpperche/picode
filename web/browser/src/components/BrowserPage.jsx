@@ -4,6 +4,7 @@ import * as Switch from "@radix-ui/react-switch";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import FolderPicker from "./FolderPicker.jsx";
 import { DEFAULT_BROWSER_PREFS, readBrowserPrefs } from "../lib/browserPrefs.js";
+import { describeDomainField } from "../lib/browserDomains.js";
 import { ALL_SITES, permissionPush } from "../lib/browserPermissions.js";
 import { takeBrowserDialog } from "../lib/browserDialogs.js";
 import { IconWarn } from "./Icons.jsx";
@@ -1164,6 +1165,10 @@ function GrantRow({ row, draft, onDraft, onSave, flash }) {
   const valid = parsed.success;
   const dirty = draft.tier !== row.tier || draft.domainsText !== domainsText(row);
   const actLike = draft.tier !== "read";
+  // What the field currently means, in words (browserDomains.js is the same
+  // reading the matchers do — a hint, never a check). An entry that opens
+  // nothing is named here instead of being saved in silence.
+  const covers = actLike ? describeDomainField(draft.domainsText) : [];
   return (
     <div className="set-item">
       <div className="set-item-body">
@@ -1172,6 +1177,23 @@ function GrantRow({ row, draft, onDraft, onSave, flash }) {
           {row.saved ? <span className="devs-tag">custom</span> : <span className="devs-tag devs-tag-off">default</span>}
         </span>
         {!valid && actLike ? <span className="set-item-d" style={{ color: "var(--danger)" }}>{parsed.error.issues[0].message}</span> : null}
+        {actLike && valid ? (
+          covers.length === 0 ? (
+            <span className="set-item-d">
+              No sites yet — this agent can only read the tab you have on screen. Add a host, or * for any site.
+            </span>
+          ) : (
+            <ul className="grant-covers">
+              {covers.map((c) => (
+                <li key={c.entry} className={"grant-cover" + (c.kind === "dead" ? " is-dead" : "")}>
+                  <span className="grant-cover-label">{c.label}</span>
+                  {c.covers ? <span className="grant-cover-d"> — {c.covers}</span> : null}
+                  {c.kind === "dead" ? <span className="grant-cover-d"> — {c.miss}</span> : null}
+                </li>
+              ))}
+            </ul>
+          )
+        ) : null}
       </div>
       <div className="set-item-ctl">
         <select
@@ -1185,7 +1207,7 @@ function GrantRow({ row, draft, onDraft, onSave, flash }) {
         {actLike && (
           <input
             className={"grant-domains" + (valid ? "" : " grant-domains-bad")}
-            placeholder="example.com, *.example.com"
+            placeholder="example.com, *.example.com, *"
             value={draft.domainsText}
             onChange={(e) => onDraft({ ...draft, domainsText: e.target.value })}
             aria-label={"Allowed domains for " + row.name}

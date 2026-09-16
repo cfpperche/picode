@@ -170,6 +170,15 @@ decision, ADR before code.
   tabs-only, so every settings link in the split's ⋮ menu silently no-op'd
   through `?.`). Same for parking: the tab hides on tab switch AND on
   route change (`onPane`), or the page covers the settings views.
+- **A grant entry the matchers read literally opens nothing.** `*` was the
+  live case: the domains field accepted it (the charset allows `*`), both
+  matchers compared it to the host, nothing matched, and nothing said so.
+  Since 2026-09-16 `*` means any http/https host in both matchers, and
+  `browserDomains.js` says in the field what each entry covers — including
+  "matches nothing" for the shapes that still do (`*example.com`, `*.`, `.`).
+- **`rustc --edition 2021 --test src/origins.rs` runs that module's tests
+  without cargo** (the host `cargo test` is broken here); it needs the test
+  module's `use super::{…}` to list what the tests call.
 
 ## Scope (v1): Pi only, and read for a TUI
 
