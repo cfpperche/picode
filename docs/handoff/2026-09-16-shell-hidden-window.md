@@ -34,11 +34,5 @@ shell-only; the daemon was never touched.
 
 ## Next up
 
-- Owner: right-click the tray → Open PiCode (or double-click the PiCode
-  shortcut) — the window must come up in front, every time.
-
-## Debts
-
-- The open path has no automated test: driving the tray needs a click, and
-  the window dance is Windows-only. The failure mode is at least loud now
-  (an alert box, not silence) if the rebuild fallback is ever reached.
+- Owner: tray ▸ Open PiCode (or the PiCode shortcut) — the window must come
+  up in front, every time.

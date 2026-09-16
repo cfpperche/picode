@@ -20,4 +20,6 @@
 
 ## Debts
 
+- The shell's open path (tray ▸ Open PiCode, second launch) has no automated
+  test: it needs a tray click, and the window dance is Windows-only.
 - Named-window OAuth popups (`window.open(url, 'picode-mcp-auth')`) still use the native path in the shell's main window — needs its own auth-flow verification before routing out (the `_blank` bridge covers the rest since 2026-09-15).
