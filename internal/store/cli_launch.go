@@ -113,7 +113,7 @@ func (s *Store) ImportCLIConfigs(enabled map[string]bool) error {
 	return s.commit(tx)
 }
 
-const catalogIntegrationSeedKey = "cli.catalog-integration-default-v2"
+const catalogIntegrationSeedKey = "cli.catalog-integration-default-v3"
 
 func isEmptyLaunchConfig(c clilaunch.Config) bool {
 	return c.Executable == "" && len(c.Args) == 0 && len(c.Env) == 0 && len(c.Path) == 0
@@ -126,8 +126,8 @@ func isEmptyLaunchConfig(c clilaunch.Config) bool {
 //
 // allow decides which CLIs may be switched on; nil keeps the historical
 // rule (every Integrable row). The server passes its integration-mechanism
-// predicate, so a CLI whose launch is editable but hookless (Muse Code)
-// is never seeded on — seeding it would break every default launch at
+// predicate, so a CLI whose launch is editable but mechanism-less is
+// never seeded on — seeding it would break every default launch at
 // prepare time, where integration without a mechanism is refused.
 func (s *Store) SeedCatalogIntegrationDefaults(allow func(id string) bool) error {
 	if v, ok, err := s.GetSetting(catalogIntegrationSeedKey); err != nil {

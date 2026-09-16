@@ -891,6 +891,10 @@ func installIntercept(dataDir, cliID string) error {
 		if err := installAgyTitleReporter(dataDir); err != nil {
 			return err
 		}
+	case "muse":
+		if err := installMuseHooks(dataDir); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("unknown CLI %q", cliID)
 	}
@@ -995,6 +999,203 @@ func removeAgyTitleReporter(dataDir string) {
 	}
 }
 
+// museHookEvents are the observer hooks PiCode installs. SessionStart and
+// Stop bracket a session, UserPromptSubmit and the tool pair bracket work,
+// PermissionRequest surfaces approvals as needs-you through the shared
+// mapper. Observer-only by construction: the hook always exits 0 with no
+// output, so it can never block a tool (measured live against R3233.1).
+var museHookEvents = []string{"SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PermissionRequest", "Stop"}
+
+func museHookPath(dataDir string) string {
+	return filepath.Join(interceptDir(dataDir), "muse-hook.sh")
+}
+
+// museSettingsPath mirrors the launcher: XDG_CONFIG_HOME wins when set,
+// otherwise ~/.config (binary strings, Fatia 6).
+func museSettingsPath() (string, error) {
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		return filepath.Join(xdg, "muse", "settings.json"), nil
+	}
+	return homeFile(".config", "muse", "settings.json")
+}
+
+// museHookGroup is the canonical entry installMuseHooks writes per event
+// (measured live: no matcher needed, bare command path, fires on exec
+// turns and TUI sessions alike).
+func museHookGroup(hook string) map[string]any {
+	return map[string]any{"hooks": []any{map[string]any{"type": "command", "command": hook}}}
+}
+
+// museGroupIsOurs reports whether a hook group is exactly the canonical
+// entry we install (used to prune only our own groups on removal).
+func museGroupIsOurs(group any, hook string) bool {
+	raw, err := json.Marshal(group)
+	if err != nil {
+		return false
+	}
+	want, err := json.Marshal(museHookGroup(hook))
+	if err != nil {
+		return false
+	}
+	return string(raw) == string(want)
+}
+
+// museHookCommands scans one event's groups for handler commands. Foreign
+// shapes refuse with ok=false so the merge never clobbers what it does
+// not understand.
+func museHookCommands(event any, hook string) (ours bool, foreign bool, ok bool) {
+	groups, good := event.([]any)
+	if !good {
+		return false, false, false
+	}
+	for _, g := range groups {
+		gm, good := g.(map[string]any)
+		if !good {
+			return false, true, false
+		}
+		handlers, good := gm["hooks"].([]any)
+		if !good {
+			return false, true, false
+		}
+		for _, h := range handlers {
+			hm, good := h.(map[string]any)
+			if !good {
+				return false, true, false
+			}
+			cmd, _ := hm["command"].(string)
+			if cmd == "" {
+				return false, true, false
+			}
+			if hm["type"] == "command" {
+				ours = ours || cmd == hook
+				foreign = foreign || cmd != hook
+			} else {
+				foreign = true
+			}
+		}
+	}
+	return ours, foreign, true
+}
+
+// installMuseHooks merges our observer hooks into the user's settings.
+// Same contract as the agy reporter: foreign entries refuse loudly, a
+// malformed file is never clobbered, removal deletes only what we
+// installed. schema_version is preserved (added when absent: the CLI
+// refuses to start without it).
+//
+// Exception to the retired user-home writes (claudeSetWiring): project
+// .muse/hooks.json would pollute the owner's repos, so the global
+// settings file is the only install path that follows PiCode terminals.
+func installMuseHooks(dataDir string) error {
+	hook := museHookPath(dataDir)
+	body := "#!/bin/sh\n# PiCode Muse Code activity observer (Fatia 6, docs/plans/launch-muse-agy.md).\n# Observer-only: posts the stdin payload through picode-hook (shared\n# mapper) and always exits 0 with no output, so it can never block a\n# tool. The hook path below is absolute: the CLI's environment is the\n# user's, not ours, so PATH is not trusted.\n.exec " + shellQuote(hookScriptPath(dataDir)) + " auto muse\n"
+	if err := writeExecutable(hook, body); err != nil {
+		return err
+	}
+	settings, err := museSettingsPath()
+	if err != nil {
+		return err
+	}
+	doc := map[string]any{}
+	mode := os.FileMode(0o600)
+	if raw, err := os.ReadFile(settings); err == nil {
+		if st, serr := os.Stat(settings); serr == nil {
+			mode = st.Mode().Perm()
+		}
+		if json.Unmarshal(raw, &doc) != nil {
+			return fmt.Errorf("refusing to merge: %s is not JSON", settings)
+		}
+	}
+	if _, ok := doc["schema_version"]; !ok {
+		doc["schema_version"] = 1
+	}
+	hooks, _ := doc["hooks"].(map[string]any)
+	if doc["hooks"] != nil && hooks == nil {
+		return fmt.Errorf("refusing to merge: %s has a foreign hooks block", settings)
+	}
+	if hooks == nil {
+		hooks = map[string]any{}
+		doc["hooks"] = hooks
+	}
+	for _, ev := range museHookEvents {
+		cur, present := hooks[ev]
+		if !present {
+			hooks[ev] = []any{museHookGroup(hook)}
+			continue
+		}
+		ours, foreign, ok := museHookCommands(cur, hook)
+		if !ok || foreign {
+			return fmt.Errorf("refusing to merge: %s has a foreign %s hook", settings, ev)
+		}
+		if !ours {
+			hooks[ev] = append(cur.([]any), museHookGroup(hook))
+		}
+	}
+	out, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return err
+	}
+	return writeInterceptFile(settings, append(out, '\n'), mode)
+}
+
+// removeMuseHooks deletes the observer script and our settings entries.
+// Anything foreign is left alone; an emptied hooks map is pruned, and a
+// file we created (nothing but schema_version and hooks) is removed.
+func removeMuseHooks(dataDir string) {
+	hook := museHookPath(dataDir)
+	_ = os.Remove(hook)
+	settings, err := museSettingsPath()
+	if err != nil {
+		return
+	}
+	raw, err := os.ReadFile(settings)
+	if err != nil {
+		return
+	}
+	var doc map[string]any
+	if json.Unmarshal(raw, &doc) != nil {
+		return
+	}
+	hooks, ok := doc["hooks"].(map[string]any)
+	if !ok {
+		return
+	}
+	for _, ev := range museHookEvents {
+		cur, present := hooks[ev]
+		if !present {
+			continue
+		}
+		ours, _, ok := museHookCommands(cur, hook)
+		if !ok || !ours {
+			continue
+		}
+		groups := cur.([]any)
+		kept := groups[:0]
+		for _, g := range groups {
+			if !museGroupIsOurs(g, hook) {
+				kept = append(kept, g)
+			}
+		}
+		if len(kept) == 0 {
+			delete(hooks, ev)
+		} else {
+			hooks[ev] = kept
+		}
+	}
+	if len(hooks) == 0 {
+		delete(doc, "hooks")
+	}
+	if len(doc) == 0 {
+		_ = os.Remove(settings)
+		return
+	}
+	if out, err := json.MarshalIndent(doc, "", "  "); err == nil {
+		if st, serr := os.Stat(settings); serr == nil {
+			_ = writeInterceptFile(settings, append(out, '\n'), st.Mode().Perm())
+		}
+	}
+}
+
 func uninstallIntercept(dataDir, cliID string) error {
 	switch cliID {
 	case "claude-code":
@@ -1013,6 +1214,8 @@ func uninstallIntercept(dataDir, cliID string) error {
 		_ = os.Remove(piTerminalStateExtensionFile(dataDir))
 	case "agy":
 		removeAgyTitleReporter(dataDir)
+	case "muse":
+		removeMuseHooks(dataDir)
 	default:
 		return fmt.Errorf("unknown CLI %q", cliID)
 	}
