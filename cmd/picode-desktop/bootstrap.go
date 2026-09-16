@@ -11,7 +11,9 @@ import (
 
 // maxStages bounds the loop. Every stage is meant to change what Detect sees;
 // one that does not would otherwise spin forever, so it is reported instead.
-const maxStages = 8
+// install-picode and install-runtime joined after create-user (ADR-0098),
+// which is why the clean path needs room past eight.
+const maxStages = 10
 
 // bootstrap walks a machine up to the point where `picode provision` can run:
 // WSL installed, a WSL 2 distro registered, and a real account to own it. It
@@ -20,7 +22,7 @@ const maxStages = 8
 //
 // It returns false when the machine needs a Windows restart; setup continues
 // on its own at the next logon.
-func bootstrap(a *app, distroFlag string) (ready bool, err error) {
+func bootstrap(a *app, distroFlag string, yes bool) (ready bool, err error) {
 	var last desktop.Stage
 
 	for i := 0; i < maxStages; i++ {
@@ -59,6 +61,16 @@ func bootstrap(a *app, distroFlag string) (ready bool, err error) {
 			if err := createAccount(a, state, distroFlag); err != nil {
 				return false, err
 			}
+
+		case desktop.StageInstallPicode:
+			if err := runInstallPicode(a, state, distroFlag); err != nil {
+				return false, err
+			}
+
+		case desktop.StageInstallRuntime:
+			if err := runInstallRuntime(a, state, distroFlag, yes, os.Stdin); err != nil {
+				return false, err
+			}
 		}
 	}
 	return false, fmt.Errorf("setup did not settle after %d stages", maxStages)
@@ -92,6 +104,10 @@ func createAccount(a *app, state desktop.MachineState, distroFlag string) error 
 	if err := a.runner.Run(desktop.WSLExe,
 		desktop.WSLArgs(picked.Name, "root", desktop.SetDefaultUserCommand(name)...)...); err != nil {
 		return fmt.Errorf("set %q as the default account: %w", name, err)
+	}
+	if err := a.runner.Run(desktop.WSLExe,
+		desktop.WSLArgs(picked.Name, "root", desktop.SetRegisteredCommand()...)...); err != nil {
+		return fmt.Errorf("mark the distro as PiCode-registered: %w", err)
 	}
 
 	fmt.Printf("  ok     created the Linux account %q\n", name)

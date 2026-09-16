@@ -49,7 +49,7 @@ func main() {
 	// message below instead of an unknown-flag dump.
 	tray := fs.Bool("tray", false, "retired with the Go tray (ADR-0142)")
 	asJSON := fs.Bool("json", false, "with `disk`: emit the measurement as JSON")
-	yes := fs.Bool("yes", false, "with disk-compact: stop the distro and compact without asking again")
+	yes := fs.Bool("yes", false, "with disk-compact: stop the distro and compact without asking again; with install: install the runtime on an adopted distro without asking")
 	dryRun := fs.Bool("dry-run", false, "with disk-compact: print the plan, stop nothing")
 	force := fs.Bool("force", false, "with disk-compact: proceed even when someone is mid-turn")
 	method := fs.String("method", "", "with disk-compact: sparse (default) | optimize-vhd")
@@ -76,7 +76,7 @@ func main() {
 	case cmd == "startup-repair":
 		exit(runStartupRepair(*retargetShell))
 	case cmd == "install":
-		exit(runInstall(*distro, *user))
+		exit(runInstall(*distro, *user, *yes))
 	case cmd == "uninstall":
 		exit(runUninstall())
 	case cmd == "update":
@@ -155,6 +155,7 @@ Flags:
   --user string     Linux account to provision (default: the distro's own)
   --json            with the disk command: emit the measurement as JSON
   --yes             with disk-compact: stop the distro and compact without asking again
+                  with install: install the runtime on an adopted distro without asking
   --dry-run         with disk-compact: print the plan, stop nothing
   --force           with disk-compact: proceed even when someone is mid-turn
   --method string   with disk-compact: sparse (default) | optimize-vhd
@@ -238,7 +239,7 @@ func runDoctor(distroFlag, userFlag string) error {
 	return nil
 }
 
-func runInstall(distroFlag, userFlag string) error {
+func runInstall(distroFlag, userFlag string, yes bool) error {
 	if runtime.GOOS != "windows" {
 		return fmt.Errorf("install runs on Windows — from inside the distro use `picode provision`")
 	}
@@ -254,7 +255,7 @@ func runInstall(distroFlag, userFlag string) error {
 	// A clean machine has no distro to resolve yet, so the bootstrap runs
 	// first and only then is there something to name.
 	pre := app{runner: osRunner{}}
-	ready, err := bootstrap(&pre, distroFlag)
+	ready, err := bootstrap(&pre, distroFlag, yes)
 	if err != nil {
 		return err
 	}
@@ -281,6 +282,14 @@ func runInstall(distroFlag, userFlag string) error {
 
 	if err := installWindowsSide(a); err != nil {
 		return err
+	}
+	// Install ends with the resident running, not just registered: the
+	// task launch is what a logon does, and a failure here still leaves
+	// the logon path intact.
+	if err := a.runner.Run("schtasks", desktop.TaskRunArgs()...); err != nil {
+		fmt.Printf("  warn   the shell did not start now (%v) — it starts at sign-in\n", err)
+	} else {
+		fmt.Println("  ok     the shell is running in the tray")
 	}
 	url, err := desktop.ServerURL(a.runner, a.distro, a.user)
 	if err != nil {

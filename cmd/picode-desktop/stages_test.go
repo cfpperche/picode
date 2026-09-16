@@ -1,0 +1,307 @@
+package main
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/cfpperche/picode/internal/desktop"
+	"github.com/cfpperche/picode/internal/install"
+	"github.com/cfpperche/picode/internal/version"
+)
+
+func TestConfirm(t *testing.T) {
+	rows := []struct {
+		name  string
+		in    string
+		want  bool
+		wantE bool
+	}{
+		{"yes", "y\n", true, false},
+		{"word yes", "YES\n", true, false},
+		{"empty means yes", "\n", true, false},
+		{"no", "n\n", false, false},
+		{"word no", "no\n", false, false},
+		{"closed stdin refuses", "", false, true},
+	}
+	for _, tt := range rows {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := confirm(strings.NewReader(tt.in), "Proceed?")
+			if got != tt.want || (err != nil) != tt.wantE {
+				t.Errorf("confirm = %v, %v", got, err)
+			}
+		})
+	}
+}
+
+func TestPicodeVersionOf(t *testing.T) {
+	rows := []struct {
+		in   string
+		want string
+	}{
+		{"picode 0.3.1\n", "0.3.1"},
+		{"picode 0.3.1+a892ede", "0.3.1"},
+		{"garbage", ""},
+		{"", ""},
+	}
+	for _, tt := range rows {
+		if got := picodeVersionOf([]byte(tt.in)); got != tt.want {
+			t.Errorf("picodeVersionOf(%q) = %q", tt.in, got)
+		}
+	}
+}
+
+var testUbuntu = desktop.Distro{Name: "Ubuntu", State: "Stopped", Version: 2, Default: true}
+
+// releaseServer serves the GitHub release API plus asset bytes and a
+// matching SHA256SUMS, and records which release URL was asked for.
+func releaseServer(t *testing.T, tag, asset string, body []byte) (*httptest.Server, *string) {
+	t.Helper()
+	var gotPath string
+	sum := sha256.Sum256(body)
+	mux := http.NewServeMux()
+	release := fmt.Sprintf(`{"tag_name":%q,"html_url":"http://example.test/rel","assets":[{"name":%q,"browser_download_url":"%%URL%%/asset"},{"name":"SHA256SUMS","browser_download_url":"%%URL%%/sums"}]}`,
+		tag, asset)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/releases/latest") || strings.Contains(r.URL.Path, "/releases/tags/"):
+			gotPath = r.URL.Path
+			base := "http://" + r.Host
+			fmt.Fprint(w, strings.ReplaceAll(release, "%URL%", base))
+		case r.URL.Path == "/asset":
+			w.Write(body)
+		case r.URL.Path == "/sums":
+			fmt.Fprintf(w, "%s  %s\n", hex.EncodeToString(sum[:]), asset)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+	ts := httptest.NewServer(mux)
+	t.Cleanup(ts.Close)
+	oldRoot, oldC := install.APIRoot, install.HTTPClient
+	install.APIRoot, install.HTTPClient = ts.URL, ts.Client()
+	t.Cleanup(func() { install.APIRoot, install.HTTPClient = oldRoot, oldC })
+	return ts, &gotPath
+}
+
+func stamp(t *testing.T, v, stamped string) {
+	t.Helper()
+	oldV, oldS := version.Version, version.Stamped
+	version.Version, version.Stamped = v, stamped
+	t.Cleanup(func() { version.Version, version.Stamped = oldV, oldS })
+}
+
+func TestLinuxReleasePinsThisBuild(t *testing.T) {
+	_, gotPath := releaseServer(t, "v0.3.1", "picode-linux-amd64", []byte("bin"))
+	stamp(t, "0.3.1", "release")
+	rel, err := linuxRelease("picode-linux-amd64")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(*gotPath, "/releases/tags/v0.3.1") {
+		t.Errorf("stamped build asked %q", *gotPath)
+	}
+	if rel.Tag != "0.3.1" || rel.AssetURL == "" || rel.SumsURL == "" {
+		t.Errorf("release = %+v", rel)
+	}
+}
+
+func TestLinuxReleaseTracksLatestUnstamped(t *testing.T) {
+	_, gotPath := releaseServer(t, "v0.9.9", "picode-linux-amd64", []byte("bin"))
+	stamp(t, "0.3.1", "")
+	rel, err := linuxRelease("picode-linux-amd64")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(*gotPath, "/releases/latest") {
+		t.Errorf("unstamped build asked %q", *gotPath)
+	}
+	if rel.Tag != "0.9.9" {
+		t.Errorf("tag = %q", rel.Tag)
+	}
+}
+
+func TestFetchLinuxBinaryVerifies(t *testing.T) {
+	body := []byte("fake-linux-binary")
+	releaseServer(t, "v0.3.1", "picode-linux-amd64", body)
+	stamp(t, "0.3.1", "release")
+	rel, err := linuxRelease("picode-linux-amd64")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bin, err := fetchLinuxBinary(rel, "picode-linux-amd64")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(bin.tmp)
+	if !strings.HasSuffix(bin.staged, "picode-linux-amd64") {
+		t.Errorf("staged = %q", bin.staged)
+	}
+}
+
+func TestFetchLinuxBinaryRefusesTamperedSums(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "tampered")
+	})
+	ts := httptest.NewServer(mux)
+	t.Cleanup(ts.Close)
+	rel := install.Release{Tag: "0.3.1", AssetURL: ts.URL + "/a", SumsURL: ts.URL + "/s"}
+	if _, err := fetchLinuxBinary(rel, "picode-linux-amd64"); err == nil {
+		t.Error("a non-checksum sums file must fail")
+	}
+}
+
+func TestRunInstallPicodeSkipsMatching(t *testing.T) {
+	releaseServer(t, "v0.3.1", "picode-linux-amd64", []byte("bin"))
+	stamp(t, "0.3.1", "release")
+	stub := &diskStub{}
+	a := &app{runner: stub}
+	state := desktop.MachineState{Distros: []desktop.Distro{testUbuntu}, DefaultUser: "goat", PicodeVersion: "0.3.1"}
+	if err := runInstallPicode(a, state, ""); err != nil {
+		t.Fatal(err)
+	}
+	if len(stub.calls) != 0 {
+		t.Errorf("%d runner calls for a matching binary", len(stub.calls))
+	}
+}
+
+const probeClean = `@@picode@@
+picode 0.3.1
+@@tools@@
+v22.14.0
+@@family@@
+ID=ubuntu
+@@marker@@
+adopted
+`
+
+// piRegistry serves {"engines":{"node":...}} and replaces the seam.
+func piRegistry(t *testing.T, engines string) {
+	t.Helper()
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `{"engines":{"node":%q}}`, engines)
+	}))
+	t.Cleanup(ts.Close)
+	oldURL, oldC := desktop.PiRegistryURL, install.HTTPClient
+	desktop.PiRegistryURL, install.HTTPClient = ts.URL, ts.Client()
+	t.Cleanup(func() { desktop.PiRegistryURL, install.HTTPClient = oldURL, oldC })
+}
+
+func runtimeState(missing []string, nodeMajor, family string, registered bool) desktop.MachineState {
+	return desktop.MachineState{
+		Distros: []desktop.Distro{testUbuntu}, DefaultUser: "goat",
+		PicodeVersion: "0.3.1", Missing: missing, NodeMajor: nodeMajor,
+		Family: family, RegisteredByDesktop: registered,
+	}
+}
+
+func TestRunInstallRuntimeNothingMissing(t *testing.T) {
+	stub := &diskStub{}
+	if err := runInstallRuntime(&app{runner: stub}, runtimeState(nil, "22", "ubuntu", true), "", false, nil); err != nil {
+		t.Fatal(err)
+	}
+	if len(stub.calls) != 0 {
+		t.Errorf("%d calls for a complete runtime", len(stub.calls))
+	}
+}
+
+func TestRunInstallRuntimeNonUbuntuStops(t *testing.T) {
+	stub := &diskStub{}
+	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux"}, "", "debian", false), "", true, nil)
+	if err == nil || !strings.Contains(err.Error(), "not Ubuntu") {
+		t.Fatalf("err = %v", err)
+	}
+	if len(stub.calls) != 0 {
+		t.Errorf("%d calls before the family gate", len(stub.calls))
+	}
+}
+
+func TestRunInstallRuntimeRegisteredNeedsNoAsking(t *testing.T) {
+	piRegistry(t, ">=22.19.0")
+	stub := &diskStub{
+		replies: [][]byte{nil, nil, nil, nil, []byte(probeClean)},
+		errs:    []error{nil, nil, errors.New("mkcert absent"), nil, nil},
+	}
+	// nil stdin: registered distros must never consult it.
+	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux", "pi"}, "22", "ubuntu", true), "", false, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(callStrings(stub.calls), "\n")
+	for _, want := range []string{"apt-get update", "apt-get install -y tmux", "npm install -g @earendil-works/pi-coding-agent@latest"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("calls lack %q:\n%s", want, joined)
+		}
+	}
+	if strings.Contains(joined, "nodesource") {
+		t.Errorf("node 22 must not reinstall:\n%s", joined)
+	}
+}
+
+func TestRunInstallRuntimeAdoptedAsks(t *testing.T) {
+	piRegistry(t, ">=22.19.0")
+	stub := &diskStub{}
+	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux"}, "22", "ubuntu", false), "", false, strings.NewReader("n\n"))
+	if err == nil || !strings.Contains(err.Error(), "--yes") {
+		t.Fatalf("err = %v", err)
+	}
+	if len(stub.calls) != 0 {
+		t.Errorf("%d calls after a decline", len(stub.calls))
+	}
+}
+
+func TestRunInstallRuntimeAdoptedEOFRefuses(t *testing.T) {
+	stub := &diskStub{}
+	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux"}, "22", "ubuntu", false), "", false, strings.NewReader(""))
+	if err == nil || !strings.Contains(err.Error(), "--yes") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestRunInstallRuntimeYesSkipsTheQuestion(t *testing.T) {
+	piRegistry(t, ">=22.19.0")
+	stub := &diskStub{replies: [][]byte{nil, nil, nil, nil, []byte(probeClean)}}
+	if err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux", "pi"}, "22", "ubuntu", false), "", true, nil); err != nil {
+		t.Fatal(err)
+	}
+	if len(stub.calls) == 0 {
+		t.Error("no calls after --yes")
+	}
+}
+
+func TestRunInstallRuntimeUpgradesOldNode(t *testing.T) {
+	piRegistry(t, ">=22.19.0")
+	stub := &diskStub{replies: [][]byte{nil, nil, nil, nil, nil, []byte(probeClean)}}
+	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"pi"}, "18", "ubuntu", true), "", false, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if joined := strings.Join(callStrings(stub.calls), "\n"); !strings.Contains(joined, "node_22.x") {
+		t.Errorf("no nodejs 22 upgrade:\n%s", joined)
+	}
+}
+
+func TestRunInstallRuntimeReportsLeftovers(t *testing.T) {
+	piRegistry(t, ">=22.19.0")
+	stillMissing := "@@tools@@\nmissing:tmux\nv22.1.0\n"
+	stub := &diskStub{replies: [][]byte{nil, nil, nil, []byte(stillMissing)}}
+	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux"}, "22", "ubuntu", true), "", false, nil)
+	if err == nil || !strings.Contains(err.Error(), "still missing") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func callStrings(calls [][]string) []string {
+	out := make([]string, 0, len(calls))
+	for _, c := range calls {
+		out = append(out, strings.Join(c, " "))
+	}
+	return out
+}

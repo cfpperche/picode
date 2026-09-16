@@ -22,11 +22,13 @@ const rebootRequired = 3010
 type Stage string
 
 const (
-	StageInstallWSL    Stage = "install-wsl"
-	StageReboot        Stage = "reboot"
-	StageInstallDistro Stage = "install-distro"
-	StageCreateUser    Stage = "create-user"
-	StageProvision     Stage = "provision"
+	StageInstallWSL     Stage = "install-wsl"
+	StageReboot         Stage = "reboot"
+	StageInstallDistro  Stage = "install-distro"
+	StageCreateUser     Stage = "create-user"
+	StageInstallPicode  Stage = "install-picode"
+	StageInstallRuntime Stage = "install-runtime"
+	StageProvision      Stage = "provision"
 )
 
 // MachineState is what could be observed about this Windows machine.
@@ -37,6 +39,19 @@ type MachineState struct {
 	// DefaultUser is the distro's login account, empty when the distro has
 	// only root — which is what `--no-launch` leaves behind.
 	DefaultUser string
+	// PicodeVersion is the picode inside the picked distro ("" when
+	// missing); WantPicode is the release install-picode converges on (""
+	// for an unstamped tool, where presence is enough).
+	PicodeVersion string
+	WantPicode    string
+	// Missing names the absent RuntimeTools; NodeMajor is the installed
+	// node major ("" when node is missing).
+	Missing   []string
+	NodeMajor string
+	// Family is the picked distro's os-release ID; RegisteredByDesktop
+	// tells whether this program registered it (no asking there).
+	Family              string
+	RegisteredByDesktop bool
 }
 
 // NextStage decides what to do next. Order is not negotiable: the feature has
@@ -53,6 +68,10 @@ func NextStage(s MachineState) Stage {
 		return StageInstallDistro
 	case s.DefaultUser == "" || s.DefaultUser == "root":
 		return StageCreateUser
+	case PicodeWanted(s.PicodeVersion, s.WantPicode):
+		return StageInstallPicode
+	case len(s.Missing) > 0:
+		return StageInstallRuntime
 	default:
 		return StageProvision
 	}
@@ -220,8 +239,24 @@ func Detect(r Runner, preferred string) MachineState {
 	if err != nil {
 		return s
 	}
-	if user, err := DefaultUser(r, picked.Name); err == nil {
-		s.DefaultUser = user
+	user, err := DefaultUser(r, picked.Name)
+	if err != nil {
+		return s
+	}
+	s.DefaultUser = user
+	if user == "" || user == "root" {
+		return s
+	}
+	// One observation call for everything below the account. A failing
+	// probe degrades to "missing" inside the parse, never to an error.
+	s.WantPicode = WantPicode()
+	if out, err := r.Output(WSLExe, WSLArgs(picked.Name, user, ProbeArgs()...)...); err == nil {
+		probe := ParseProbe(out)
+		s.PicodeVersion = probe.Picode
+		s.Missing = probe.Missing
+		s.NodeMajor = probe.NodeMajor
+		s.Family = probe.Family
+		s.RegisteredByDesktop = probe.Registered
 	}
 	return s
 }
@@ -240,6 +275,10 @@ func Describe(stage Stage, distro string) string {
 		return fmt.Sprintf("install the %s distribution", distro)
 	case StageCreateUser:
 		return "create the Linux account PiCode runs as"
+	case StageInstallPicode:
+		return "install the picode binary inside the distribution"
+	case StageInstallRuntime:
+		return "install tmux, git, node and pi inside the distribution"
 	default:
 		return "set PiCode up inside the distribution"
 	}

@@ -53,7 +53,32 @@ func TestNextStage(t *testing.T) {
 		},
 		{
 			name:  "a ready machine goes straight to provisioning",
+			state: MachineState{WSLPresent: true, Distros: []Distro{ubuntu}, DefaultUser: "goat", PicodeVersion: "0.3.1"},
+			want:  StageProvision,
+		},
+		{
+			name:  "a machine without picode installs it before anything else",
 			state: MachineState{WSLPresent: true, Distros: []Distro{ubuntu}, DefaultUser: "goat"},
+			want:  StageInstallPicode,
+		},
+		{
+			name:  "a stale picode is replaced",
+			state: MachineState{WSLPresent: true, Distros: []Distro{ubuntu}, DefaultUser: "goat", PicodeVersion: "0.2.0", WantPicode: "0.3.1"},
+			want:  StageInstallPicode,
+		},
+		{
+			name:  "a matching picode with missing tools installs the runtime",
+			state: MachineState{WSLPresent: true, Distros: []Distro{ubuntu}, DefaultUser: "goat", PicodeVersion: "0.3.1", WantPicode: "0.3.1", Missing: []string{"tmux", "pi"}},
+			want:  StageInstallRuntime,
+		},
+		{
+			name:  "an unstamped tool takes any present picode",
+			state: MachineState{WSLPresent: true, Distros: []Distro{ubuntu}, DefaultUser: "goat", PicodeVersion: "0.3.1"},
+			want:  StageProvision,
+		},
+		{
+			name:  "a matching picode and a full runtime provision",
+			state: MachineState{WSLPresent: true, Distros: []Distro{ubuntu}, DefaultUser: "goat", PicodeVersion: "0.3.1", WantPicode: "0.3.1"},
 			want:  StageProvision,
 		},
 	}

@@ -59,7 +59,12 @@ Desktop, the Windows tool that owns the logon task.
 `picode-desktop` (`cmd/picode-desktop`, `internal/desktop`) is that tool: a
 single `.exe` cross-compiled from WSL with `CGO_ENABLED=0` (`make desktop`),
 headless, one command at a time. `doctor` reports, `install` applies and
-registers the logon task. It drives the distro through
+registers the logon task. `install` walks a state machine
+(`internal/desktop.NextStage`, derived from observation so any interruption
+resumes): WSL, distro, account, then — since ADR-0098's stages landed — the
+picode binary (the tool's own release, verified) and the runtime (tmux, git,
+curl, Node.js from NodeSource, pi; Ubuntu only), asking first on a distro
+PiCode did not register, and ends with the shell running. It drives the distro through
 **two** `picode provision --json` calls — `-u root` for `wsl.conf` and
 lingering, then `-u <owner>` for the unit, certificate and data dir, because
 installing those as root would put PiCode in `/root`. The merged view keeps

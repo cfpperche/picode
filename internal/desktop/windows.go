@@ -17,6 +17,13 @@ func TaskDeleteArgs() []string {
 	return []string{"/delete", "/tn", TaskName, "/f"}
 }
 
+// TaskRunArgs starts the logon task's resident now. It is the only
+// supported way to (re)launch the resident from a shell: a backgrounded exe
+// dies with the shell and strands the distro (scripts/desktop-swap.sh).
+func TaskRunArgs() []string {
+	return []string{"/run", "/tn", TaskName}
+}
+
 // The distro keepalive (`wsl.exe -d <distro> -- /bin/sleep infinity`,
 // supervised so it cannot outlive its owner) lives in the shell resident
 // since ADR-0142; the Go side keeps no copy of that argv.
