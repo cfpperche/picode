@@ -37,7 +37,7 @@ tests cover the failing row. 1097 JS tests, `make web`, `make close`.
 
 ## Debts
 
-- Focus mode's edge strips and its fixed sidebar are excluded from the layer
-  list on purpose (always-on chrome would hide the page for as long as focus
-  mode lasts). Over the browser pane those handles therefore do not respond;
-  a transition-aware recompute is the fix if it ever matters.
+- Focus mode's edge strips are excluded from the layer list on purpose
+  (always-on chrome would hide the page for the whole session). Those handles
+  do not respond over the browser pane; a transition-aware recompute fixes it
+  if it ever matters.

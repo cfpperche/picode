@@ -11,7 +11,6 @@ Gates: `make ci-scoped` PASS (full); xwin release build ok; Go tests ok; Rust un
 
 ## Next up
 
-- Slice 2: disk/action parity.
 - Slice 3: update+release.
 - Slice 4: tray deletion + live migration.
 
@@ -19,4 +18,3 @@ Gates: `make ci-scoped` PASS (full); xwin release build ok; Go tests ok; Rust un
 
 - Host `cargo test` broken pre-existing (windows-future/windows-core skew in lockfile, untouched).
 - Native Windows task tests compile in CI, run on owner Windows.
-- Live keepalive/task acceptance owner-side per `docs/plans/retire-go-tray.md`.
