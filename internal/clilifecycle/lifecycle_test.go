@@ -107,25 +107,26 @@ func TestForDecisionTable(t *testing.T) {
 		ok                bool
 		latestFrom        string
 		update, reinstall []string
+		updateEnv         []string
 		uninstall         UninstallKind
 		uninstallArgs     []string
 	}{
-		{"pi", "npm", true, "npm", []string{"update"}, []string{"install", "-g", "@earendil-works/pi-coding-agent@latest"}, "npm", []string{"remove", "-g", "@earendil-works/pi-coding-agent"}},
-		{"pi", "unknown", false, "", nil, nil, "", nil},
-		{"codex", "npm", true, "npm", []string{"update"}, []string{"install", "-g", "@openai/codex@latest"}, "npm", []string{"remove", "-g", "@openai/codex"}},
-		{"claude-code", "native", true, "npm", []string{"update"}, []string{"install"}, "guided", nil},
-		{"claude-code", "npm", true, "npm", []string{"install", "-g", "@anthropic-ai/claude-code@latest"}, []string{"install", "-g", "@anthropic-ai/claude-code@latest"}, "npm", []string{"remove", "-g", "@anthropic-ai/claude-code"}},
-		{"claude-code", "unknown", false, "", nil, nil, "", nil},
-		{"grok", "vendor", true, "vendor", []string{"update"}, []string{"update", "--force-reinstall"}, "guided", nil},
-		{"grok", "npm", false, "", nil, nil, "", nil},
-		{"hermes", "git", true, "vendor", []string{"update", "--yes"}, []string{"update", "--force", "--yes"}, "vendor", []string{"uninstall", "--yes"}},
-		{"hermes", "unknown", false, "", nil, nil, "", nil},
-		{"opencode", "npm", true, "npm", []string{"upgrade"}, []string{"upgrade"}, "vendor", []string{"uninstall", "--keep-config", "--keep-data", "--force"}},
-		{"opencode", "unknown", false, "", nil, nil, "", nil},
-		{"muse", "vendor", true, "channel", nil, nil, "", nil},
-		{"muse", "unknown", false, "", nil, nil, "", nil},
-		{"agy", "vendor", true, "channel", nil, nil, "", nil},
-		{"agy", "unknown", false, "", nil, nil, "", nil},
+		{"pi", "npm", true, "npm", []string{"update"}, []string{"install", "-g", "@earendil-works/pi-coding-agent@latest"}, nil, "npm", []string{"remove", "-g", "@earendil-works/pi-coding-agent"}},
+		{"pi", "unknown", false, "", nil, nil, nil, "", nil},
+		{"codex", "npm", true, "npm", []string{"update"}, []string{"install", "-g", "@openai/codex@latest"}, nil, "npm", []string{"remove", "-g", "@openai/codex"}},
+		{"claude-code", "native", true, "npm", []string{"update"}, []string{"install"}, nil, "guided", nil},
+		{"claude-code", "npm", true, "npm", []string{"install", "-g", "@anthropic-ai/claude-code@latest"}, []string{"install", "-g", "@anthropic-ai/claude-code@latest"}, nil, "npm", []string{"remove", "-g", "@anthropic-ai/claude-code"}},
+		{"claude-code", "unknown", false, "", nil, nil, nil, "", nil},
+		{"grok", "vendor", true, "vendor", []string{"update"}, []string{"update", "--force-reinstall"}, nil, "guided", nil},
+		{"grok", "npm", false, "", nil, nil, nil, "", nil},
+		{"hermes", "git", true, "vendor", []string{"update", "--yes"}, []string{"update", "--force", "--yes"}, nil, "vendor", []string{"uninstall", "--yes"}},
+		{"hermes", "unknown", false, "", nil, nil, nil, "", nil},
+		{"opencode", "npm", true, "npm", []string{"upgrade"}, []string{"upgrade"}, nil, "vendor", []string{"uninstall", "--keep-config", "--keep-data", "--force"}},
+		{"opencode", "unknown", false, "", nil, nil, nil, "", nil},
+		{"muse", "vendor", true, "channel", nil, nil, []string{"MUSE_LAUNCHER_INSTALL=1"}, "guided", nil},
+		{"muse", "unknown", false, "", nil, nil, nil, "", nil},
+		{"agy", "vendor", true, "channel", []string{"update"}, []string{"update"}, nil, "guided", nil},
+		{"agy", "unknown", false, "", nil, nil, nil, "", nil},
 	}
 	for _, c := range cases {
 		p, ok := For(c.cli, Method(c.method))
@@ -144,6 +145,12 @@ func TestForDecisionTable(t *testing.T) {
 		}
 		if strings.Join(p.ReinstallArgs, " ") != strings.Join(c.reinstall, " ") {
 			t.Errorf("For(%s,%s) ReinstallArgs = %v, want %v", c.cli, c.method, p.ReinstallArgs, c.reinstall)
+		}
+		if strings.Join(p.UpdateEnv, " ") != strings.Join(c.updateEnv, " ") {
+			t.Errorf("For(%s,%s) UpdateEnv = %v, want %v", c.cli, c.method, p.UpdateEnv, c.updateEnv)
+		}
+		if p.CanUpdate() != (len(c.update) > 0 || len(c.updateEnv) > 0) {
+			t.Errorf("For(%s,%s) CanUpdate = %v", c.cli, c.method, p.CanUpdate())
 		}
 		if p.Uninstall != c.uninstall {
 			t.Errorf("For(%s,%s) Uninstall = %q, want %q", c.cli, c.method, p.Uninstall, c.uninstall)

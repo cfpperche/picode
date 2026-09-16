@@ -46,14 +46,17 @@ const (
 // vectors were verified against each vendor's --help output on 2026-09-06;
 // the tests assert the recorded shapes.
 type Plan struct {
-	CLI           string        `json:"cli"`
-	Method        Method        `json:"method"`
-	NpmPackage    string        `json:"npmPackage,omitempty"`
-	LatestFrom    string        `json:"latestFrom"` // "npm" or "vendor"
-	UpdateViaNpm  bool          `json:"updateViaNpm,omitempty"`
-	CheckArgs     []string      `json:"checkArgs,omitempty"`
-	UpdateArgs    []string      `json:"updateArgs,omitempty"`
-	ReinstallArgs []string      `json:"reinstallArgs,omitempty"`
+	CLI           string   `json:"cli"`
+	Method        Method   `json:"method"`
+	NpmPackage    string   `json:"npmPackage,omitempty"`
+	LatestFrom    string   `json:"latestFrom"` // "npm" or "vendor"
+	UpdateViaNpm  bool     `json:"updateViaNpm,omitempty"`
+	CheckArgs     []string `json:"checkArgs,omitempty"`
+	UpdateArgs    []string `json:"updateArgs,omitempty"`
+	ReinstallArgs []string `json:"reinstallArgs,omitempty"`
+	// UpdateEnv overlays env for update and reinstall (Muse's launcher
+	// entrypoint). An action is offered when its argv OR env is present.
+	UpdateEnv     []string      `json:"updateEnv,omitempty"`
 	Uninstall     UninstallKind `json:"uninstall"`
 	UninstallArgs []string      `json:"uninstallArgs,omitempty"`
 	Docs          string        `json:"docs,omitempty"`
@@ -63,6 +66,10 @@ type spec struct {
 	npmPackage    string
 	updateArgs    []string
 	reinstallArgs []string
+	// updateEnv overlays process env for update and reinstall. Muse ships
+	// no update argv: its launcher updates when MUSE_LAUNCHER_INSTALL=1
+	// (verified against the installed launcher script, 2026-09-16).
+	updateEnv     []string
 	uninstall     UninstallKind
 	uninstallArgs []string
 	docs          string
@@ -121,9 +128,18 @@ var plans = map[string]spec{
 	},
 	"muse": {
 		latestFrom: "channel",
+		// No update argv: MUSE_LAUNCHER_INSTALL=1 turns a bare run into
+		// the vendor updater (it exits 0 before arg parsing).
+		updateEnv: []string{"MUSE_LAUNCHER_INSTALL=1"},
+		uninstall: UninstallGuided,
+		docs:      "https://ai.developer.meta.com/docs/muse-code/",
 	},
 	"agy": {
-		latestFrom: "channel",
+		latestFrom:    "channel",
+		updateArgs:    []string{"update"},
+		reinstallArgs: []string{"update"},
+		uninstall:     UninstallGuided,
+		docs:          "https://antigravity.google/docs/cli/",
 	},
 }
 
@@ -246,8 +262,20 @@ func For(cliID string, m Method) (Plan, bool) {
 	}
 	p.UpdateArgs = s.updateArgs
 	p.ReinstallArgs = s.reinstallArgs
+	p.UpdateEnv = s.updateEnv
 	p.UninstallArgs = s.uninstallArgs
 	return p, true
+}
+
+// CanUpdate reports whether the plan offers an update. Muse offers an
+// env-only entrypoint, so env presence counts alongside argv.
+func (p Plan) CanUpdate() bool {
+	return len(p.UpdateArgs) > 0 || len(p.UpdateEnv) > 0
+}
+
+// CanReinstall reports whether the plan offers a reinstall.
+func (p Plan) CanReinstall() bool {
+	return len(p.ReinstallArgs) > 0 || len(p.UpdateEnv) > 0
 }
 
 // Args returns the argv for one action, or an error when the plan does not
@@ -261,12 +289,12 @@ func (p Plan) Args(a Action) ([]string, error) {
 		}
 		return []string{"install", "-g", p.NpmPackage + "@latest"}, nil
 	case ActionUpdate:
-		if len(p.UpdateArgs) == 0 {
+		if !p.CanUpdate() {
 			return nil, fmt.Errorf("%s cannot be updated through PiCode for this install.", p.CLI)
 		}
 		return p.UpdateArgs, nil
 	case ActionReinstall:
-		if len(p.ReinstallArgs) == 0 {
+		if !p.CanReinstall() {
 			return nil, fmt.Errorf("%s cannot be reinstalled through PiCode for this install.", p.CLI)
 		}
 		return p.ReinstallArgs, nil

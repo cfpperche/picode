@@ -50,8 +50,8 @@ func describeLifecycle(cliID string, installed bool, executable string) lifecycl
 	plan, ok := clilifecycle.For(cliID, method)
 	return lifecycleView{
 		Method:         string(plan.Method),
-		CanUpdate:      ok && len(plan.UpdateArgs) > 0,
-		CanFix:         ok && len(plan.ReinstallArgs) > 0,
+		CanUpdate:      ok && plan.CanUpdate(),
+		CanFix:         ok && plan.CanReinstall(),
 		CanCheckUpdate: ok && plan.LatestFrom != "",
 		Uninstall:      plan.Uninstall,
 		Docs:           plan.Docs,
@@ -142,7 +142,18 @@ func resolveLifecycleExec(deps Deps, cli clilaunch.CLI, action clilifecycle.Acti
 	if err != nil {
 		return clijob.Exec{}, err
 	}
-	return clijob.Exec{Exe: executable, Args: args, Env: cliEnvironment(c)}, nil
+	env := cliEnvironment(c)
+	if (action == clilifecycle.ActionUpdate || action == clilifecycle.ActionReinstall) && len(plan.UpdateEnv) > 0 {
+		// Overlay the vendor entrypoint (Muse's launcher flag): drop first
+		// so the appended value is the one the child reads.
+		for _, kv := range plan.UpdateEnv {
+			if k, _, ok := strings.Cut(kv, "="); ok {
+				env = dropEnv(env, k)
+			}
+		}
+		env = append(env, plan.UpdateEnv...)
+	}
+	return clijob.Exec{Exe: executable, Args: args, Env: env}, nil
 }
 
 func detectMethod(deps Deps, cli clilaunch.CLI, c clilaunch.Config) clilifecycle.Method {

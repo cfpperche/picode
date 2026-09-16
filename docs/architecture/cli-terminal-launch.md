@@ -122,14 +122,13 @@ error text is shown for genuine failures.
 defaults) and `POST …/update-check` against the vendor's channel JSON —
 Muse Code's release channel and Antigravity's per-platform release manifest
 (`manifests/<os>_<arch>[_musl].json`, the same file its installer reads; only
-`version` is used). They seed no Activity, install no intercept wrapper, expose no launch
-settings (`PUT /api/clis/{cli}` is refused), no session source and no
-lifecycle jobs (`POST …/lifecycle` reaches the plan and is refused as
-unmanaged). The surface derives that from two capabilities the server sends:
-`integrationCapable` (activity, launch settings, setup panes) and `launchable`
-(New terminal); `cliPanes` maps them to the pane list. `surface: detect`
-remains for a row that must not launch at all, and `TestCatalogCapabilities`
-pins which catalog rows launch and which integrate. `muse --version` runs
+`version` is used). Lifecycle jobs run the vendors' own commands: `agy
+update` for Antigravity, and Muse's launcher as its own updater
+(`MUSE_LAUNCHER_INSTALL=1` on a bare run — it exits 0 before arg parsing,
+so the plan carries env instead of argv); neither ships an uninstaller, so
+both uninstall guided with the vendor docs link. Muse still seeds no
+Activity (its 1.3.0 build offers no hook surface); Antigravity reports
+through its title command. `muse --version` runs
 with `MUSE_NO_AUTO_UPDATE=1` so the launcher does not background-update.
 Every installed row reaches Check for updates through the same ⋯ menu, so a
 channel-backed CLI needs no bespoke button.
