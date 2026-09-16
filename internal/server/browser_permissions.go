@@ -45,12 +45,13 @@ func handleBrowserPermissionsSet(deps Deps) http.HandlerFunc {
 			Origin   string `json:"origin"`
 			Kind     string `json:"kind"`
 			Decision string `json:"decision"`
+			Standing bool   `json:"standing"`
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "bad request: "+err.Error())
 			return
 		}
-		row, err := deps.Store.SetBrowserPermission(req.Origin, req.Kind, req.Decision)
+		row, err := deps.Store.SetBrowserPermission(req.Origin, req.Kind, req.Decision, req.Standing)
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return

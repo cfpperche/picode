@@ -8,10 +8,11 @@
 
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use picode_shell::{cdppolicy, origins};
+use picode_shell::{cdppolicy, origins, permissions};
 use windows::core::Interface;
 use tauri::webview::{NewWindowResponse, WebviewBuilder};
 use tauri::WebviewUrl;
@@ -31,7 +32,8 @@ fn grants() -> &'static Mutex<HashMap<String, Vec<String>>> {
     GRANTS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 use webview2_com::Microsoft::Web::WebView2::Win32::{
-    ICoreWebView2DevToolsProtocolEventReceiver, COREWEBVIEW2_DOWNLOAD_STATE,
+    ICoreWebView2Deferral, ICoreWebView2DevToolsProtocolEventReceiver,
+    ICoreWebView2PermissionRequestedEventArgs, COREWEBVIEW2_DOWNLOAD_STATE,
     COREWEBVIEW2_DOWNLOAD_STATE_COMPLETED, COREWEBVIEW2_DOWNLOAD_STATE_INTERRUPTED,
     COREWEBVIEW2_PERMISSION_KIND, COREWEBVIEW2_PERMISSION_KIND_AUTOPLAY,
     COREWEBVIEW2_PERMISSION_KIND_CAMERA, COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ,
@@ -793,11 +795,29 @@ pub async fn btab_close(
 ) -> Result<(), String> {
     if let Some(wv) = app.get_webview(&label(&id)) {
         // Drop this tab's event receivers on the UI thread before the webview
-        // goes: a receiver kept past its page would keep the page alive.
+        // goes: a receiver kept past its page would keep the page alive. A
+        // held Ask dies with it — every deferral is completed (denied) so a
+        // closed page is not pinned by one.
         let tab = id.clone();
         let _ = wv.with_webview(move |_| {
             RECEIVERS.with(|r| {
                 r.borrow_mut().remove(&tab);
+            });
+            PENDING_PERMISSIONS.with(|p| {
+                let mut map = p.borrow_mut();
+                let asks: Vec<u64> = map
+                    .iter()
+                    .filter(|(_, v)| v.tab == tab)
+                    .map(|(k, _)| *k)
+                    .collect();
+                for ask in asks {
+                    if let Some(v) = map.remove(&ask) {
+                        unsafe {
+                            let _ = v.args.SetState(COREWEBVIEW2_PERMISSION_STATE_DENY);
+                            let _ = v.deferral.Complete();
+                        }
+                    }
+                }
             });
         });
         wv.close().map_err(|e| e.to_string())?;
@@ -1217,14 +1237,13 @@ fn attach_download_handler(app: &AppHandle, id: &str) {
 
 // --- site permissions (slice 3, Browser permissions) ------------------------
 
-// The policy the user set per kind, in the Settings dialog: kind name →
-// allow. A kind with no entry follows the platform's own default (which is
-// to deny). The prompt ("ask") lands with the Site settings dialog; until
-// then a request without a policy is answered the way an unhandled request
-// always was, and the outcome is reported so the dialog can show it.
-fn permission_policy() -> &'static Mutex<std::collections::HashMap<String, bool>> {
-    static POLICY: OnceLock<Mutex<std::collections::HashMap<String, bool>>> = OnceLock::new();
-    POLICY.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+// The policy the user set per kind (the every-site entry) or per site (an
+// "Always allow" answer from the Ask prompt): see picode_shell::permissions
+// for the decision table. A kind with no entry follows the platform's own
+// default (which is to deny).
+fn permission_policy() -> &'static Mutex<HashMap<String, String>> {
+    static POLICY: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+    POLICY.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 // The platform's kind as the daemon names it (the store's closed list).
@@ -1244,36 +1263,141 @@ fn permission_kind_name(kind: i32) -> &'static str {
     }
 }
 
-// What the user decided for a kind: allow, deny, or the platform default.
+/// How long an unanswered Ask holds the page's request before the shell
+/// denies it. A held request with no answer hangs the site, so a prompt the
+/// user never sees expires instead of pinning the deferral forever.
+const PERMISSION_ASK_TTL: Duration = Duration::from_secs(60);
+
+// One held request: the platform args and its deferral, plus what the prompt
+// and the report need. COM interfaces are not Send, so this lives in a
+// thread_local on the UI thread (the same rule as RECEIVERS), and the answer
+// command is sync for the same reason.
+struct PendingPermission {
+    tab: String,
+    origin: String,
+    kind: String,
+    args: ICoreWebView2PermissionRequestedEventArgs,
+    deferral: ICoreWebView2Deferral,
+}
+
+thread_local! {
+    static PENDING_PERMISSIONS: RefCell<HashMap<u64, PendingPermission>> = RefCell::new(HashMap::new());
+}
+
+fn next_ask_id() -> u64 {
+    static SEQ: AtomicU64 = AtomicU64::new(0);
+    SEQ.fetch_add(1, Ordering::Relaxed) + 1
+}
+
+// Every decision the shell makes is reported, so Settings ▸ Browser can list
+// what each site got. `standing` marks a decision that is (or refreshes) a
+// saved per-site standing rather than a one-off answer; `ask` names the
+// prompt an answer belongs to, which the tab uses to drop its bar.
+fn report_permission(
+    app: &AppHandle,
+    origin: &str,
+    kind: &str,
+    allow: bool,
+    standing: bool,
+    ask: Option<u64>,
+) {
+    let mut payload = serde_json::json!({
+        "origin": origin,
+        "kind": kind,
+        "decision": if allow { "allow" } else { "deny" },
+        "standing": standing,
+    });
+    if let Some(id) = ask {
+        payload["ask"] = serde_json::json!(id);
+    }
+    let _ = app.emit("btab://permission", payload);
+}
+
+// The watchdog behind PERMISSION_ASK_TTL: sleep off the UI thread, then run
+// the denial where the pending COM objects live.
+fn expire_permission_ask(app: &AppHandle, ask: u64) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(PERMISSION_ASK_TTL);
+        let main = app.clone();
+        let _ = app.run_on_main_thread(move || {
+            let pending = PENDING_PERMISSIONS.with(|p| p.borrow_mut().remove(&ask));
+            let Some(p) = pending else {
+                return;
+            };
+            unsafe {
+                let _ = p.args.SetState(COREWEBVIEW2_PERMISSION_STATE_DENY);
+                let _ = p.deferral.Complete();
+            }
+            report_permission(&main, &p.origin, &p.kind, false, false, Some(ask));
+        });
+    });
+}
+
+// What the user decided for a kind — for every site (no origin), or for one
+// site (an Ask prompt's "Always", relayed back on load): allow, deny, ask,
+// or "default" to forget the entry.
 #[tauri::command]
-pub async fn btab_set_permission_policy(kind: String, state: String) -> Result<(), String> {
-    let kind = kind.trim().to_lowercase();
-    if kind.is_empty() {
-        return Err("a permission kind is required".into());
-    }
+pub async fn btab_set_permission_policy(
+    kind: String,
+    state: String,
+    origin: Option<String>,
+) -> Result<(), String> {
     let mut policy = permission_policy().lock().unwrap();
-    match state.trim().to_lowercase().as_str() {
-        "allow" => {
-            policy.insert(kind, true);
-        }
-        "deny" => {
-            policy.insert(kind, false);
-        }
-        "default" => {
-            policy.remove(&kind);
-        }
-        other => return Err(format!("{other:?} is not a permission state")),
+    permissions::set(&mut policy, origin.as_deref(), &kind, &state)
+}
+
+// Answer a held Ask prompt. Sync on purpose: the pending deferrals are COM
+// objects on the UI thread (a sync command runs there), and `remember` is
+// the prompt's "Always" — it writes the site's standing so the next request
+// from it does not ask again.
+#[tauri::command]
+pub fn btab_permission_answer(
+    app: AppHandle,
+    id: u64,
+    state: String,
+    remember: bool,
+) -> Result<(), String> {
+    let allow = match state.trim().to_ascii_lowercase().as_str() {
+        "allow" => true,
+        "deny" => false,
+        other => return Err(format!("{other:?} is not a permission answer")),
+    };
+    let pending = PENDING_PERMISSIONS.with(|p| p.borrow_mut().remove(&id));
+    let Some(p) = pending else {
+        return Err("that request is no longer waiting".into());
+    };
+    unsafe {
+        let _ = p.args.SetState(if allow {
+            COREWEBVIEW2_PERMISSION_STATE_ALLOW
+        } else {
+            COREWEBVIEW2_PERMISSION_STATE_DENY
+        });
+        let _ = p.deferral.Complete();
     }
+    if remember {
+        let mut policy = permission_policy().lock().unwrap();
+        permissions::set(
+            &mut policy,
+            Some(&p.origin),
+            &p.kind,
+            if allow { permissions::ALLOW } else { permissions::DENY },
+        )?;
+    }
+    report_permission(&app, &p.origin, &p.kind, allow, remember, Some(id));
     Ok(())
 }
 
 // Every tab answers permission requests from that policy and reports the
-// outcome, so the Site settings dialog can list what each site got.
+// outcome, so the Site settings dialog can list what each site got. The
+// "ask" state holds the request through a deferral and prompts in the tab;
+// every other state answers immediately.
 fn attach_permission_handler(app: &AppHandle, id: &str) {
     let Some(wv) = app.get_webview(label(id).as_str()) else {
         return;
     };
     let emitter = app.clone();
+    let tab = id.to_string();
     let _ = wv.with_webview(move |platform| unsafe {
         let Ok(core) = platform.controller().CoreWebView2() else {
             return;
@@ -1293,28 +1417,60 @@ fn attach_permission_handler(app: &AppHandle, id: &str) {
                     String::new()
                 }
             };
-            let decided = permission_policy().lock().unwrap().get(name).copied();
-            let allow = match decided {
-                Some(v) => {
-                    let _ = args.SetState(if v {
-                        COREWEBVIEW2_PERMISSION_STATE_ALLOW
-                    } else {
-                        COREWEBVIEW2_PERMISSION_STATE_DENY
-                    });
-                    v
+            let (decided, standing) = {
+                let policy = permission_policy().lock().unwrap();
+                match permissions::decide(&policy, &origin, name) {
+                    permissions::Decision::Site(state) => (Some(state.to_string()), true),
+                    permissions::Decision::Kind(state) => (Some(state.to_string()), false),
+                    permissions::Decision::None => (None, false),
                 }
+            };
+            match decided.as_deref() {
+                Some("allow") => {
+                    let _ = args.SetState(COREWEBVIEW2_PERMISSION_STATE_ALLOW);
+                    report_permission(&emitter, &origin, name, true, standing, None);
+                }
+                Some("deny") => {
+                    let _ = args.SetState(COREWEBVIEW2_PERMISSION_STATE_DENY);
+                    report_permission(&emitter, &origin, name, false, standing, None);
+                }
+                Some("ask") => match args.GetDeferral() {
+                    Ok(deferral) => {
+                        let ask = next_ask_id();
+                        PENDING_PERMISSIONS.with(|p| {
+                            p.borrow_mut().insert(
+                                ask,
+                                PendingPermission {
+                                    tab: tab.clone(),
+                                    origin: origin.clone(),
+                                    kind: name.to_string(),
+                                    args: args.clone(),
+                                    deferral,
+                                },
+                            );
+                        });
+                        let _ = emitter.emit(
+                            "btab://permission-ask",
+                            serde_json::json!({
+                                "id": ask,
+                                "tab": tab,
+                                "origin": origin,
+                                "kind": name,
+                            }),
+                        );
+                        expire_permission_ask(&emitter, ask);
+                    }
+                    // No deferral: the request cannot wait, so it is denied
+                    // now instead of hanging the page.
+                    Err(_) => {
+                        let _ = args.SetState(COREWEBVIEW2_PERMISSION_STATE_DENY);
+                        report_permission(&emitter, &origin, name, false, false, None);
+                    }
+                },
                 // No policy: the request falls through to the platform's own
                 // default, which denies. Reported so it is visible.
-                None => false,
-            };
-            let _ = emitter.emit(
-                "btab://permission",
-                serde_json::json!({
-                    "origin": origin,
-                    "kind": name,
-                    "decision": if allow { "allow" } else { "deny" },
-                }),
-            );
+                _ => report_permission(&emitter, &origin, name, false, false, None),
+            }
             Ok(())
         }));
         let mut token: i64 = 0;

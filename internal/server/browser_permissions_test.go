@@ -36,14 +36,17 @@ func TestBrowserPermissionsEndpoints(t *testing.T) {
 		return res.StatusCode, out
 	}
 
-	if code, _ := post("/api/browser/permissions", map[string]any{"origin": "meet.example.com", "kind": "camera", "decision": "allow"}); code != http.StatusOK {
-		t.Fatalf("a decision must be accepted, got %d", code)
+	if code, _ := post("/api/browser/permissions", map[string]any{"origin": "meet.example.com", "kind": "camera", "decision": "allow", "standing": true}); code != http.StatusOK {
+		t.Fatalf("a remembered answer must be accepted, got %d", code)
 	}
 	if code, _ := post("/api/browser/permissions", map[string]any{"origin": "meet.example.com", "kind": "camera", "decision": "sometimes"}); code != http.StatusBadRequest {
 		t.Fatalf("an unknown decision must be refused, got %d", code)
 	}
 	if code, _ := post("/api/browser/permissions", map[string]any{"origin": "meet.example.com", "kind": "telepathy", "decision": "allow"}); code != http.StatusBadRequest {
 		t.Fatalf("an unknown kind must be refused, got %d", code)
+	}
+	if code, _ := post("/api/browser/permissions", map[string]any{"origin": "*", "kind": "location", "decision": "ask", "standing": true}); code != http.StatusOK {
+		t.Fatalf("the ask policy must be accepted, got %d", code)
 	}
 	if code, _ := post("/api/browser/permissions", map[string]any{"origin": "meet.example.com", "kind": "microphone", "decision": "deny"}); code != http.StatusOK {
 		t.Fatalf("a second kind must be accepted, got %d", code)
@@ -60,8 +63,8 @@ func TestBrowserPermissionsEndpoints(t *testing.T) {
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		t.Fatal(err)
 	}
-	if len(body.Permissions) != 1 || body.Permissions[0].Kind != "camera" || body.Permissions[0].Decision != "allow" {
-		t.Fatalf("the list must carry the camera standing only, got %+v", body.Permissions)
+	if len(body.Permissions) != 1 || body.Permissions[0].Kind != "camera" || body.Permissions[0].Decision != "allow" || !body.Permissions[0].Standing {
+		t.Fatalf("the list must carry the camera standing (and its flag), got %+v", body.Permissions)
 	}
 
 	if code, _ := post("/api/browser/permissions/clear", map[string]any{"kind": "camera"}); code != http.StatusNoContent {
@@ -71,7 +74,12 @@ func TestBrowserPermissionsEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(left) != 1 || left[0].Kind != "microphone" {
-		t.Fatalf("only the camera standing must go, got %+v", left)
+	if len(left) != 2 {
+		t.Fatalf("only the camera rows must go, got %+v", left)
+	}
+	for _, p := range left {
+		if p.Kind == "camera" {
+			t.Fatalf("the camera rows must be gone, got %+v", left)
+		}
 	}
 }

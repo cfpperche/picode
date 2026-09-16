@@ -1,8 +1,8 @@
 package store
 
-// The site-permission standings, table-tested: a decision inserts, the same
-// pair changes in place, the kind and origin vocabularies are closed, and
-// delete/clear behave.
+// The site-permission rows, table-tested: a decision inserts, the same pair
+// changes in place, a standing is never demoted by a later one-off decision,
+// the kind and origin vocabularies are closed, and delete/clear behave.
 
 import (
 	"database/sql"
@@ -13,16 +13,19 @@ import (
 func TestBrowserPermissions(t *testing.T) {
 	st := historyFixture(t)
 
-	first, err := st.SetBrowserPermission("Meet.Example.com", "camera", "allow")
+	first, err := st.SetBrowserPermission("Meet.Example.com", "camera", "allow", false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if first.Origin != "meet.example.com" || first.Kind != "camera" || first.Decision != "allow" {
-		t.Fatalf("the standing must be normalized: %+v", first)
+		t.Fatalf("the row must be normalized: %+v", first)
+	}
+	if first.Standing {
+		t.Fatalf("a reported decision is not a standing: %+v", first)
 	}
 
 	// The same site and kind changes in place.
-	same, err := st.SetBrowserPermission("meet.example.com", "camera", "deny")
+	same, err := st.SetBrowserPermission("meet.example.com", "camera", "deny", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,8 +40,26 @@ func TestBrowserPermissions(t *testing.T) {
 		t.Fatalf("one pair, one row, got %+v", rows)
 	}
 
-	// Two kinds for the same site are two standings.
-	if _, err := st.SetBrowserPermission("meet.example.com", "microphone", "allow"); err != nil {
+	// A standing is policy: a later one-off decision on the same pair updates
+	// the word but must not demote it (the shell reports every decision,
+	// including the ones the standing itself produced).
+	standing, err := st.SetBrowserPermission("meet.example.com", "camera", "allow", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !standing.Standing {
+		t.Fatalf("the saved answer must be a standing: %+v", standing)
+	}
+	after, err := st.SetBrowserPermission("meet.example.com", "camera", "deny", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Decision != "deny" || !after.Standing {
+		t.Fatalf("a one-off decision cannot demote a standing: %+v", after)
+	}
+
+	// Two kinds for the same site are two rows.
+	if _, err := st.SetBrowserPermission("meet.example.com", "microphone", "allow", false); err != nil {
 		t.Fatal(err)
 	}
 	onlyCamera, err := st.ListBrowserPermissions(10, "camera", "")
@@ -55,15 +76,23 @@ func TestBrowserPermissions(t *testing.T) {
 		t.Fatalf("a miss must be empty, got %+v", got)
 	}
 
-	// The vocabularies are closed.
-	if _, err := st.SetBrowserPermission("", "camera", "allow"); err == nil {
+	// The vocabularies are closed; "ask" is a policy word, so the every-site
+	// entry accepts it.
+	if _, err := st.SetBrowserPermission("", "camera", "allow", false); err == nil {
 		t.Fatal("an empty origin must be refused")
 	}
-	if _, err := st.SetBrowserPermission("a.example", "telepathy", "allow"); err == nil {
+	if _, err := st.SetBrowserPermission("a.example", "telepathy", "allow", false); err == nil {
 		t.Fatal("an unknown kind must be refused")
 	}
-	if _, err := st.SetBrowserPermission("a.example", "camera", "maybe"); err == nil {
+	if _, err := st.SetBrowserPermission("a.example", "camera", "maybe", false); err == nil {
 		t.Fatal("an unknown decision must be refused")
+	}
+	ask, err := st.SetBrowserPermission("*", "camera", "ask", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ask.Decision != "ask" || !ask.Standing {
+		t.Fatalf("an ask policy must be stored as a standing: %+v", ask)
 	}
 
 	// Per-kind reset leaves the other kinds alone.
@@ -75,7 +104,7 @@ func TestBrowserPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(rows) != 1 || rows[0].Kind != "microphone" {
-		t.Fatalf("only the camera standings must go, got %+v", rows)
+		t.Fatalf("only the camera rows must go, got %+v", rows)
 	}
 
 	if err := st.DeleteBrowserPermission(rows[0].ID); err != nil {

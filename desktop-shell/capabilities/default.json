@@ -41,6 +41,7 @@
     "allow-btab-open-path",
     "allow-btab-reveal-path",
     "allow-btab-set-permission-policy",
+    "allow-btab-permission-answer",
     "allow-btab-set-scripts"
   ],
   "remote": {

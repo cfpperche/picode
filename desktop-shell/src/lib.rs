@@ -13,6 +13,7 @@
 
 pub mod cdppolicy;
 pub mod origins;
+pub mod permissions;
 
 use std::collections::BTreeMap;
 
