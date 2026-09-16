@@ -27,9 +27,8 @@ menu-still.png); the real still over x.com is the owner's click.
 
 ## Next up
 
-- Owner: split with x.com → ⋮ → the page must freeze visibly behind the
-  menu; Browser settings → Settings ▸ Browser with no x.com bleeding
-  through; example.com too (tells a blank capture from a blank page).
+- Owner: split + x.com → ⋮ freezes the page behind the menu; Browser
+  settings shows with no bleed-through; example.com too.
 
 ## Debts
 
