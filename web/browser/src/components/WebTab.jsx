@@ -7,6 +7,7 @@ import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { askTitle } from "../lib/browserPermissions.js";
 import { subscribeAppOverlays } from "../lib/appOverlays.js";
 import { requestBrowserDialog } from "../lib/browserDialogs.js";
+import { previewUrl, verifyPreviewUrl } from "../lib/previewStill.js";
 
 // Work browser tab surface (Phase 3 slice 1): the React side renders the
 // toolbar and an empty region; the actual page is a native WebView2 child
@@ -39,6 +40,8 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [still, setStill] = useState(""); // the page, frozen while the menu is over it
+  const [previewBusy, setPreviewBusy] = useState(false); // a capture is in flight
+  const [previewFailed, setPreviewFailed] = useState(false); // the capture proved worthless
   const [zoom, setZoom] = useState(1);
   const [findOpen, setFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState("");
@@ -52,8 +55,19 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
 
   // The menu opens over the page, and a native WebView2 paints over HTML —
   // so the tab freezes the page into a still and hides the webview while the
-  // menu is up. The capture is prefetched on hover; the still is only
-  // swapped in when it is ready, so the page never blinks out first.
+  // menu is up. The capture is prefetched on hover. A blob URL is not a
+  // still until it decodes to real pixels (an empty capture resolves the
+  // IPC call fine and makes a truthy URL — hiding the live page behind
+  // that is the uniform gray the owner saw on x.com, 2026-09-16).
+  //
+  // covered =
+  // | menu | verified still | capture in flight | capture failed | dialog open | webview  |
+  // | ---- | -------------- | ----------------- | -------------- | ----------- | -------- |
+  // | open | yes            | —                 | —              | —           | hidden (the frozen page sits behind the menu) |
+  // | open | no             | yes               | —              | —           | hidden (host gray until the still lands) |
+  // | open | no             | no                | yes            | —           | hidden (host gray; the menu still works) |
+  // | shut | —              | —                 | —              | no          | visible |
+  // | —    | —              | —                 | —              | yes         | hidden (the dialog dims the window) |
   const previewRef = useRef({ url: "", at: 0, inflight: null });
   useEffect(() => () => {
     if (previewRef.current.url) URL.revokeObjectURL(previewRef.current.url);
@@ -64,8 +78,10 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     if (cur.url && Date.now() - cur.at < maxAge) return Promise.resolve(cur.url);
     if (cur.inflight) return cur.inflight;
     const inflight = invoke("btab_preview", { id })
-      .then((bytes) => {
-        const url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
+      .then((bytes) => previewUrl(bytes))
+      .then((url) => (url ? verifyPreviewUrl(url).catch(() => "") : ""))
+      .then((url) => {
+        if (!url) throw new Error("preview: unusable capture");
         if (previewRef.current.url) URL.revokeObjectURL(previewRef.current.url);
         previewRef.current = { url, at: Date.now(), inflight: null };
         return url;
@@ -81,15 +97,34 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     setMenuOpen(open);
     if (!open) {
       setStill("");
+      setPreviewBusy(false);
+      setPreviewFailed(false);
       return;
     }
     if (previewRef.current.url) setStill(previewRef.current.url);
+    else setPreviewBusy(true);
     grabPreview().then((url) => {
-      if (url) setStill(url);
+      setPreviewBusy(false);
+      if (url) {
+        setStill(url);
+        setPreviewFailed(false);
+      } else {
+        setPreviewFailed(true);
+      }
     });
     if (started) invoke("btab_zoom", { id }).then((z) => { if (typeof z === "number") setZoom(z); }).catch(() => {});
   };
-  const covered = overlayCover || (menuOpen && !!still);
+  const covered = overlayCover || (menuOpen && (!!still || previewBusy || previewFailed));
+  // A tab switch hides without unmounting, and Radix never fires
+  // onOpenChange(false) for a menu that unmounts open: park the cover
+  // state here or the webview stays hidden behind a menu that is gone.
+  useEffect(() => {
+    if (!hidden) return;
+    setMenuOpen(false);
+    setStill("");
+    setPreviewBusy(false);
+    setPreviewFailed(false);
+  }, [hidden]);
 
   // Bounds sync: the region's viewport-relative rect drives the native
   // webview. ResizeObserver + window resize cover sidebar, inspector and
@@ -124,6 +159,10 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
 
   useEffect(() => {
     if (!invoke) return undefined;
+    // hidden covers tab selection AND the route: the settings views paint
+    // over the pane, so App parks the tab (onPane) while the route is
+    // elsewhere — otherwise the page keeps its bounds and covers them
+    // (2026-09-16: Browser settings opened behind the live x.com view).
     invoke("btab_visibility", { id, visible: !hidden && !covered }).catch(fail);
     return () => {
       // Unmount parks the native view. The split pane mounts only for the
@@ -422,7 +461,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
         </div>
       ) : null}
       <div className="web-tab-host" ref={hostRef} hidden={!started}>
-        {still ? <img className="web-tab-still" src={still} alt="" aria-hidden="true" /> : null}
+        {still ? <img className="web-tab-still" src={still} alt="" aria-hidden="true" onError={() => { setStill(""); setPreviewFailed(true); }} /> : null}
       </div>
       {!started ? (
         <div className="web-tab-empty">

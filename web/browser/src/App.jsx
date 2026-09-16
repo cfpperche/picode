@@ -3297,7 +3297,7 @@ export default function App({ shellChrome = false } = {}) {
               tabId={id}
               url={(webTabs[tabWebId(id)] && webTabs[tabWebId(id)].url) || ""}
               active={selectedId === id}
-              hidden={selectedId !== id}
+              hidden={selectedId !== id || onPane}
               asks={permissionAsks.filter((a) => a.tab === tabWebId(id))}
               onAnswerAsk={answerPermission}
               onMeta={(m) => setWebTabs((cur) => ({ ...cur, [tabWebId(id)]: { ...cur[tabWebId(id)], ...m } }))}
@@ -3659,10 +3659,11 @@ export default function App({ shellChrome = false } = {}) {
                   key={"split-" + selectedId}
                   tabId={"w:" + agentPanes[selectedId]}
                   active={true}
-                  hidden={noTabs || missing || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId)}
+                  hidden={noTabs || missing || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId) || onPane}
                   expanded={!!paneMax[selectedId]}
                   asks={permissionAsks.filter((a) => a.tab === agentPanes[selectedId])}
                   onAnswerAsk={answerPermission}
+                  onBrowserSettings={() => go("browser")}
                   onToggleExpand={() => setPaneMax((p) => ({ ...p, [selectedId]: !p[selectedId] }))}
                   onClose={() => closeAgentSplit(selectedId)}
                   onMeta={(m) => {

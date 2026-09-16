@@ -588,6 +588,13 @@ pub async fn btab_preview(app: AppHandle, id: String) -> Result<tauri::ipc::Resp
     capture_png(&app, &id, &path).await?;
     let bytes = std::fs::read(&path).map_err(|e| format!("preview: {e}"))?;
     let _ = std::fs::remove_file(&path);
+    // A capture can resolve with zero bytes when the page has not composited
+    // a frame yet. The tab treats any answered IPC as a still worth hiding
+    // the live page behind — an empty blob URL hides it behind nothing
+    // (owner report 2026-09-16: uniform gray where x.com should freeze).
+    if bytes.is_empty() {
+        return Err("preview: empty capture — the page has not painted".into());
+    }
     Ok(tauri::ipc::Response::new(bytes))
 }
 

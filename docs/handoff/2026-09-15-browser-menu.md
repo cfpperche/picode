@@ -17,8 +17,3 @@ visual-review: PASS (menu-open.png + menu-submenu.png + find-bar.png; the
 still capture and native hiding are shell-only — owner's live check).
 Not done: Show device toolbar, Import cookies and passwords (topic file).
 Merge: last in the popup → ask-prompt → browser-menu chain.
-
-## Next up
-
-- Owner: with the shell restarted, use the ⋮ menu on a loaded page (the
-  page stays put under it) and open New workspace over the page.
