@@ -14,9 +14,6 @@
   single-instance helper `app.picode.shell-siw` and tells you nothing about
   whether `main` is hidden, parked off-screen (`-21333,-21333`) or on screen.
 
-## Next
-
-- Policy UI for the desktop-v2 gates (ADR-0120). The daemon endpoint and the navigation gate are tracked in `work-browser-tabs.md`.
 
 ## Debts
 

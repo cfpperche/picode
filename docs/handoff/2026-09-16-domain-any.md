@@ -29,9 +29,3 @@ Not run live: the field's hint and a real `*` navigate — owner's click.
 
 - Owner: set an agent to Act with `*`, ask it to open something, and check the
   field's hint reads "Any site" while you type it.
-
-## Debts
-
-- The JS hint in `browserDomains.js` is a third reading of the rule (the two
-  matchers are the enforcement). It is described and tested as a hint; if the
-  matchers ever change, this file is the one that will lie first.
