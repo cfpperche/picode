@@ -219,6 +219,12 @@
           "markdownDescription": "Enables the btab_download_dir command without any pre-configured scope."
         },
         {
+          "description": "Enables the btab_find command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-find",
+          "markdownDescription": "Enables the btab_find command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_forward command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-forward",
@@ -253,6 +259,18 @@
           "type": "string",
           "const": "allow-btab-open-path",
           "markdownDescription": "Enables the btab_open_path command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_preview command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-preview",
+          "markdownDescription": "Enables the btab_preview command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_print command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-print",
+          "markdownDescription": "Enables the btab_print command without any pre-configured scope."
         },
         {
           "description": "Enables the btab_reload command without any pre-configured scope.",
@@ -303,10 +321,22 @@
           "markdownDescription": "Enables the btab_set_scripts command without any pre-configured scope."
         },
         {
+          "description": "Enables the btab_set_zoom command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-set-zoom",
+          "markdownDescription": "Enables the btab_set_zoom command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_visibility command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-visibility",
           "markdownDescription": "Enables the btab_visibility command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_zoom command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-zoom",
+          "markdownDescription": "Enables the btab_zoom command without any pre-configured scope."
         },
         {
           "description": "Enables the clean_apply command without any pre-configured scope.",
@@ -429,6 +459,12 @@
           "markdownDescription": "Denies the btab_download_dir command without any pre-configured scope."
         },
         {
+          "description": "Denies the btab_find command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-find",
+          "markdownDescription": "Denies the btab_find command without any pre-configured scope."
+        },
+        {
           "description": "Denies the btab_forward command without any pre-configured scope.",
           "type": "string",
           "const": "deny-btab-forward",
@@ -463,6 +499,18 @@
           "type": "string",
           "const": "deny-btab-open-path",
           "markdownDescription": "Denies the btab_open_path command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_preview command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-preview",
+          "markdownDescription": "Denies the btab_preview command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_print command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-print",
+          "markdownDescription": "Denies the btab_print command without any pre-configured scope."
         },
         {
           "description": "Denies the btab_reload command without any pre-configured scope.",
@@ -513,10 +561,22 @@
           "markdownDescription": "Denies the btab_set_scripts command without any pre-configured scope."
         },
         {
+          "description": "Denies the btab_set_zoom command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-set-zoom",
+          "markdownDescription": "Denies the btab_set_zoom command without any pre-configured scope."
+        },
+        {
           "description": "Denies the btab_visibility command without any pre-configured scope.",
           "type": "string",
           "const": "deny-btab-visibility",
           "markdownDescription": "Denies the btab_visibility command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_zoom command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-zoom",
+          "markdownDescription": "Denies the btab_zoom command without any pre-configured scope."
         },
         {
           "description": "Denies the clean_apply command without any pre-configured scope.",

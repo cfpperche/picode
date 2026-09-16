@@ -503,31 +503,21 @@ pub async fn btab_cdp_events(
 // Slice 2.1 (read tier seed): "Take a screenshot". Native CapturePreview
 // (not CDP) — the PNG comes back base64 for the UI to save.
 #[tauri::command]
-pub async fn btab_screenshot(app: AppHandle, id: String) -> Result<String, String> {
-    use std::sync::mpsc;
+// Capture the tab's visible page to a PNG file. "Take a screenshot" (saved
+// to Pictures) and the menu's still (a temp file read back as bytes) both go
+// through here. Data-URL downloads are blocked inside WebView2, so the PNG
+// always lands on disk first.
+async fn capture_png(app: &AppHandle, id: &str, path: &std::path::Path) -> Result<(), String> {
     use webview2_com::CapturePreviewCompletedHandler;
     use webview2_com::Microsoft::Web::WebView2::Win32::COREWEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT_PNG;
     use windows::core::HSTRING;
     use windows::Win32::Storage::FileSystem::FILE_ATTRIBUTE_NORMAL;
     use windows::Win32::System::Com::{STGM_CREATE, STGM_READWRITE, STGM_SHARE_DENY_WRITE};
 
-    let wv = app.get_webview(&label(&id)).ok_or("tab not open")?;
+    let wv = app.get_webview(&label(id)).ok_or("tab not open")?;
     let (tx, rx) = mpsc::channel::<Result<(), String>>();
     let tx_err = tx.clone();
-    // Data-URL downloads are blocked inside WebView2, so the shell writes
-    // the PNG straight to the user's Pictures folder and the UI shows the
-    // saved path.
-    let dir = std::env::var("USERPROFILE")
-        .map(|home| std::path::PathBuf::from(home).join("Pictures").join("PiCode"))
-        .unwrap_or_else(|_| std::env::temp_dir());
-    let _ = std::fs::create_dir_all(&dir);
-    let ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or_default();
-    let path = dir.join(format!("picode-{id}-{ms}.png"));
-    let shot_path = path.clone();
-
+    let shot_path = path.to_path_buf();
     wv.with_webview(move |platform| unsafe {
         let core = match platform.controller().CoreWebView2() {
             Ok(c) => c,
@@ -558,13 +548,241 @@ pub async fn btab_screenshot(app: AppHandle, id: String) -> Result<String, Strin
             let _ = tx_err.send(Err(format!("CapturePreview: {e}")));
         }
     });
+    match rx.recv_timeout(Duration::from_secs(8)) {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(e)) => Err(e),
+        Err(_) => Err("capture timed out".into()),
+    }
+}
 
-    match rx.recv_timeout(std::time::Duration::from_secs(8)) {
+#[tauri::command]
+pub async fn btab_screenshot(app: AppHandle, id: String) -> Result<String, String> {
+    // The PNG goes to the user's Pictures folder and the UI shows the saved
+    // path.
+    let dir = std::env::var("USERPROFILE")
+        .map(|home| std::path::PathBuf::from(home).join("Pictures").join("PiCode"))
+        .unwrap_or_else(|_| std::env::temp_dir());
+    let _ = std::fs::create_dir_all(&dir);
+    let ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or_default();
+    let path = dir.join(format!("picode-{id}-{ms}.png"));
+    capture_png(&app, &id, &path).await?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+// The options menu opens over the page: a native WebView2 is a sibling that
+// paints over HTML, so the tab hides it and shows this PNG in its place. Raw
+// bytes, not a data URL — base64 would inflate them by a third across IPC,
+// and Tauri hands the frontend an ArrayBuffer.
+#[tauri::command]
+pub async fn btab_preview(app: AppHandle, id: String) -> Result<tauri::ipc::Response, String> {
+    let path = std::env::temp_dir().join(format!(
+        "picode-preview-{}-{}.png",
+        std::process::id(),
+        id
+    ));
+    capture_png(&app, &id, &path).await?;
+    let bytes = std::fs::read(&path).map_err(|e| format!("preview: {e}"))?;
+    let _ = std::fs::remove_file(&path);
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+// The runtime's own print dialog for this tab.
+#[tauri::command]
+pub async fn btab_print(app: AppHandle, id: String) -> Result<(), String> {
+    use webview2_com::Microsoft::Web::WebView2::Win32::{
+        COREWEBVIEW2_PRINT_DIALOG_KIND_BROWSER, ICoreWebView2_16,
+    };
+    let wv = app.get_webview(&label(&id)).ok_or("tab not open")?;
+    let (tx, rx) = mpsc::channel::<Result<(), String>>();
+    let done = tx.clone();
+    let sent = wv.with_webview(move |platform| unsafe {
+        let Ok(core) = platform.controller().CoreWebView2() else {
+            let _ = done.send(Err("the page's webview is gone".into()));
+            return;
+        };
+        let core16: ICoreWebView2_16 = match core.cast() {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = done.send(Err(format!("this WebView2 runtime cannot print ({e})")));
+                return;
+            }
+        };
+        let _ = done.send(
+            core16
+                .ShowPrintUI(COREWEBVIEW2_PRINT_DIALOG_KIND_BROWSER)
+                .map_err(|e| format!("print: {e}")),
+        );
+    });
+    sent.map_err(|e| format!("with_webview: {e}"))?;
+    match rx.recv_timeout(Duration::from_secs(10)) {
+        Ok(result) => result,
+        Err(_) => Ok(()),
+    }
+}
+
+// The tab's zoom factor, as the options menu shows it (1.0 = 100%).
+#[tauri::command]
+pub async fn btab_zoom(app: AppHandle, id: String) -> Result<f64, String> {
+    let wv = app.get_webview(&label(&id)).ok_or("tab not open")?;
+    let (tx, rx) = mpsc::channel::<Result<f64, String>>();
+    let done = tx.clone();
+    let sent = wv.with_webview(move |platform| unsafe {
+        let controller = platform.controller();
+        let mut z = 1.0f64;
+        let _ = done.send(
+            controller
+                .ZoomFactor(&mut z)
+                .map(|_| z)
+                .map_err(|e| format!("zoom: {e}")),
+        );
+    });
+    sent.map_err(|e| format!("with_webview: {e}"))?;
+    match rx.recv_timeout(Duration::from_secs(5)) {
+        Ok(result) => result,
+        Err(_) => Err("zoom: no answer".into()),
+    }
+}
+
+// Set the tab's zoom factor. The range matches the reference's own steps.
+#[tauri::command]
+pub async fn btab_set_zoom(app: AppHandle, id: String, factor: f64) -> Result<f64, String> {
+    if !(0.25..=5.0).contains(&factor) {
+        return Err(format!("{factor} is outside the zoom range (25%–500%)"));
+    }
+    let wv = app.get_webview(&label(&id)).ok_or("tab not open")?;
+    let (tx, rx) = mpsc::channel::<Result<f64, String>>();
+    let done = tx.clone();
+    let sent = wv.with_webview(move |platform| unsafe {
+        let controller = platform.controller();
+        let _ = done.send(
+            controller
+                .SetZoomFactor(factor)
+                .map(|_| factor)
+                .map_err(|e| format!("zoom: {e}")),
+        );
+    });
+    sent.map_err(|e| format!("with_webview: {e}"))?;
+    match rx.recv_timeout(Duration::from_secs(5)) {
+        Ok(result) => result,
+        Err(_) => Err("zoom: no answer".into()),
+    }
+}
+
+// Find in page through the runtime's find session. `forward` = None starts a
+// fresh search (the input changed), Some(true|false) steps next/previous, and
+// an empty query stops the session and clears the highlights. Returns the
+// match state the menu shows as "2/7".
+#[tauri::command]
+pub async fn btab_find(
+    app: AppHandle,
+    id: String,
+    query: String,
+    forward: Option<bool>,
+) -> Result<serde_json::Value, String> {
+    use webview2_com::FindStartCompletedHandler;
+    use webview2_com::Microsoft::Web::WebView2::Win32::{
+        ICoreWebView2Find, ICoreWebView2FindOptions, ICoreWebView2_28,
+    };
+    use windows::core::HSTRING;
+
+    let wv = app.get_webview(&label(&id)).ok_or("tab not open")?;
+    let query = query.trim().to_string();
+    let fresh = forward.is_none() && !query.is_empty();
+    let (tx, rx) = mpsc::channel::<Result<(), String>>();
+    let done = tx.clone();
+    let (start_tx, start_rx) = mpsc::channel::<Result<(), String>>();
+    let sent = wv.with_webview(move |platform| unsafe {
+        let Ok(core) = platform.controller().CoreWebView2() else {
+            let _ = done.send(Err("the page's webview is gone".into()));
+            return;
+        };
+        let core28: ICoreWebView2_28 = match core.cast() {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = done.send(Err(format!("this WebView2 runtime has no Find API ({e})")));
+                return;
+            }
+        };
+        let find: ICoreWebView2Find = match core28.Find() {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = done.send(Err(format!("find: {e}")));
+                return;
+            }
+        };
+        let result = if query.is_empty() {
+            find.Stop().map_err(|e| format!("find: {e}"))
+        } else if let Some(forward) = forward {
+            (if forward { find.FindNext() } else { find.FindPrevious() })
+                .map_err(|e| format!("find: {e}"))
+        } else {
+            let options: ICoreWebView2FindOptions = match core28.CreateFindOptions() {
+                Ok(v) => v,
+                Err(e) => {
+                    let _ = done.send(Err(format!("find: {e}")));
+                    return;
+                }
+            };
+            let _ = options.SetFindTerm(&HSTRING::from(query.as_str()));
+            let _ = options.SetShouldHighlightAllMatches(true);
+            let handler = FindStartCompletedHandler::create(Box::new(move |hr| {
+                let _ = start_tx.send(hr.map_err(|e| format!("find: {e}")));
+                Ok(())
+            }));
+            find.Start(&options, &handler)
+                .map_err(|e| format!("find: {e}"))
+        };
+        let _ = done.send(result);
+    });
+    sent.map_err(|e| format!("with_webview: {e}"))?;
+    match rx.recv_timeout(Duration::from_secs(5)) {
         Ok(Ok(())) => {}
         Ok(Err(e)) => return Err(e),
-        Err(_) => return Err("capture timed out".into()),
+        Err(_) => return Err("find: no answer".into()),
     }
-    Ok(path.to_string_lossy().to_string())
+    if fresh {
+        match start_rx.recv_timeout(Duration::from_secs(3)) {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => return Err(e),
+            Err(_) => return Err("find: the search did not finish".into()),
+        }
+    }
+    if forward.is_some() {
+        // The match counters update on the runtime's own schedule; a short
+        // beat is enough for the menu's read.
+        std::thread::sleep(Duration::from_millis(80));
+    }
+    // The COM objects are thread-bound, so the state is read in a second
+    // pass on the UI thread — this command already runs off it.
+    let (tx2, rx2) = mpsc::channel::<Result<serde_json::Value, String>>();
+    let done2 = tx2.clone();
+    let sent2 = wv.with_webview(move |platform| unsafe {
+        let Ok(core) = platform.controller().CoreWebView2() else {
+            let _ = done2.send(Err("the page's webview is gone".into()));
+            return;
+        };
+        let Ok(core28) = core.cast::<ICoreWebView2_28>() else {
+            let _ = done2.send(Ok(serde_json::json!({ "count": 0, "active": 0 })));
+            return;
+        };
+        let Ok(find) = core28.Find() else {
+            let _ = done2.send(Ok(serde_json::json!({ "count": 0, "active": 0 })));
+            return;
+        };
+        let mut count = 0i32;
+        let mut active = 0i32;
+        let _ = find.MatchCount(&mut count);
+        let _ = find.ActiveMatchIndex(&mut active);
+        let _ = done2.send(Ok(serde_json::json!({ "count": count, "active": active })));
+    });
+    sent2.map_err(|e| format!("with_webview: {e}"))?;
+    match rx2.recv_timeout(Duration::from_secs(3)) {
+        Ok(result) => result,
+        Err(_) => Ok(serde_json::json!({ "count": 0, "active": 0 })),
+    }
 }
 
 #[tauri::command]
