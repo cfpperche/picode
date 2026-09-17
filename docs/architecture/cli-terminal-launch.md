@@ -136,6 +136,17 @@ with `MUSE_NO_AUTO_UPDATE=1` so the launcher does not background-update.
 Every installed row reaches Check for updates through the same ⋯ menu, so a
 channel-backed CLI needs no bespoke button.
 
+**Omp is the terminal-only row.** Omp (oh-my-pi, a Pi fork) carries
+`surface: terminal` — PATH detection, `POST …/check` (`omp --version`, which
+needs Bun ≥ 1.3.14 on PATH; an older Bun dies with a syntax error from its
+bundle) and `POST …/terminals` (New terminal runs `omp` with its own
+defaults). There is no integration plan (`hasIntegrationMechanism` is
+false, so the Activity toggle is hidden and the seed skips the row), no
+session source (the Sessions tab is absent) and no lifecycle spec
+(`update-check` answers *No managed lifecycle for this install method.*;
+install is guided through the vendor's docs link only). Its Launch tab is
+the read-only plan summary, like any row without an adapter.
+
 **One launch surface, read-only without an adapter.** A CLI with no adapter
 keeps the *same* launch screens, with the launcher's own data and nothing to
 edit: the Launch tab renders the plan summary

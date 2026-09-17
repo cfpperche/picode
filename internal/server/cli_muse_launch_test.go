@@ -15,11 +15,13 @@ import (
 // Decision table: every integrable CLI carries a mechanism (arg branches,
 // files, or environment). Muse Code and Antigravity launch through the PATH
 // wrapper like the rest since the wrapper slice; their reporting differs
-// (agy title reporter, muse presence lease only).
+// (agy title reporter, muse presence lease only). Terminal-only rows — Omp
+// today — carry no mechanism: the toggle is hidden and the seed skips them.
 func TestIntegrationMechanismTable(t *testing.T) {
 	for _, c := range clilaunch.Catalog() {
-		if got := hasIntegrationMechanism(c.ID); !got {
-			t.Errorf("%s hasIntegrationMechanism = false, want true", c.ID)
+		want := c.Integrable()
+		if got := hasIntegrationMechanism(c.ID); got != want {
+			t.Errorf("%s hasIntegrationMechanism = %v, want %v", c.ID, got, want)
 		}
 	}
 	if p := cliIntegrationPlan("muse", t.TempDir(), "hook"); len(p.Files) != 1 || p.Summary == "" {

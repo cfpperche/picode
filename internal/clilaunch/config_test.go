@@ -84,11 +84,11 @@ func TestLaunchDiagnosticsRedactValues(t *testing.T) {
 }
 
 func TestCatalogCapabilities(t *testing.T) {
-	// Decision table: every catalog row opens a terminal and carries an
-	// adapter. Antigravity left the terminal-only group in Fatia 3b (Muse
-	// Code in 3a); the `terminal` set stays as the shape a future CLI
-	// without an adapter rejoins.
-	terminal := map[string]bool{}
+	// Decision table: every catalog row opens a terminal, and every row
+	// but Omp carries an adapter. Antigravity left the terminal-only group
+	// in Fatia 3b (Muse Code in 3a); the `terminal` set stays as the shape
+	// a future CLI without an adapter rejoins — Omp is its first member.
+	terminal := map[string]bool{"omp": true}
 	seen := map[string]bool{}
 	for _, c := range Catalog() {
 		if c.Launchable() != true {

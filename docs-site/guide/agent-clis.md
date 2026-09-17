@@ -14,6 +14,12 @@ when idle) through a reporter PiCode installs as its title command — it
 never reports needs-you, approvals still happen in its own terminal. Muse
 Code reports nothing yet (its terminals read Open).
 
+Omp (oh-my-pi, a fork of Pi) opens a terminal of its own: detection,
+Check setup and New terminal. Its launch settings, sessions and activity
+have no adapter yet, so its terminals read Open and its Launch tab is a
+read-only preview. Omp is a Bun program and needs Bun 1.3.14 or newer on
+PATH — an older Bun fails Check setup with a syntax error from its bundle.
+
 Every CLI's pane carries the same tabs — Launch, Terminals, Sessions,
 Providers, Settings, Keyboard, Packages and Connectors. The tabs a CLI has no
 native editors for (today everything but Pi) say so: *in development — coming
@@ -38,8 +44,8 @@ agent target. See [Packages](/guide/packages) for installation and configuration
 PiCode does not install CLIs for the first time or manage their credentials
 here — with one exception: **Install** appears for pi, Codex and Claude Code
 when the CLI is missing and npm is available, running the same npm command
-the reinstall action uses. Grok and Hermes Agent install through their own
-guides; their cards link to them. A missing executable also offers
+the reinstall action uses. Grok, Hermes Agent and Omp install through their
+own guides; their cards link to them. A missing executable also offers
 **Customize**; the CLI's documentation link explains its installation.
 Checking setup runs `--version`, without starting a conversation.
 
@@ -265,9 +271,9 @@ that CLI keep the old version until you restart them; PiCode asks before it
 touches a CLI with live terminals.
 
 When a CLI is **not installed**, its detail page offers **Install** for pi,
-Codex and Claude Code (needs npm on the machine). Grok and Hermes Agent
-install through their own guides — the card links to them and PiCode never
-runs their install scripts.
+Codex and Claude Code (needs npm on the machine). Grok, Hermes Agent and
+Omp install through their own guides — the card links to them and PiCode
+never runs their install scripts.
 
 **Uninstall** runs the CLI's own uninstall command (Hermes Agent, OpenCode)
 or npm's for npm-installed tools, after you type the CLI's name. Grok and a native

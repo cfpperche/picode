@@ -99,3 +99,5 @@ antigravity
 muse
 agy
 muse-code
+omp
+oh-my-pi

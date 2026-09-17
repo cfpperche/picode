@@ -16,8 +16,8 @@ files under `docs/architecture/` are what the table below names.
 
 The direction is a multi-CLI ADE. For the current v1, managed agents remain
 Pi; Agent CLIs manages terminal launches for Pi, Claude Code, Codex, Grok,
-Hermes Agent and OpenCode, with Muse Code and Antigravity onboarding as
-terminal-only entries (ADR-0069). Other CLI protocols, packages and first-class agent support are
+Hermes Agent, OpenCode, Muse Code and Antigravity, with Omp onboarding as a
+terminal-only entry (ADR-0069). Other CLI protocols, packages and first-class agent support are
 future work, not capabilities to infer from a terminal integration.
 
 ## What to read for which change (ADR-0086)
