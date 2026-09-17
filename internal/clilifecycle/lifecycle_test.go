@@ -90,6 +90,8 @@ func TestDetectMethodDecisionTable(t *testing.T) {
 		{"/home/u/.grok/downloads/grok-1.0.13-linux-x86_64", MethodVendor},
 		{"/home/u/.hermes/hermes-agent/venv/bin/hermes", MethodGit},
 		{"/home/u/.bun/install/global/node_modules/opencode-ai/bin/opencode.exe", MethodNpm},
+		{"/home/u/.bun/install/global/node_modules/@oh-my-pi/pi-coding-agent/dist/cli.js", MethodUnknown},
+		{"/home/u/.local/bin/omp", MethodVendor},
 		{"/opt/homebrew/bin/codex", MethodUnknown},
 		{"", MethodUnknown},
 	}
@@ -127,6 +129,13 @@ func TestForDecisionTable(t *testing.T) {
 		{"muse", "unknown", false, "", nil, nil, nil, "", nil},
 		{"agy", "vendor", true, "channel", []string{"update"}, []string{"update"}, nil, "guided", nil},
 		{"agy", "unknown", false, "", nil, nil, nil, "", nil},
+		// omp: npm installs mutate through npm (deterministic target — the
+		// vendor updater resolves by PATH and hit an npm copy while run
+		// from a bun install, measured 2026-09-17); native installs run
+		// the vendor updater with its own check command.
+		{"omp", "npm", true, "npm", []string{"install", "-g", "@oh-my-pi/pi-coding-agent@latest"}, []string{"install", "-g", "@oh-my-pi/pi-coding-agent@latest"}, nil, "npm", []string{"remove", "-g", "@oh-my-pi/pi-coding-agent"}},
+		{"omp", "vendor", true, "vendor", []string{"update"}, []string{"update", "--force"}, nil, "guided", nil},
+		{"omp", "unknown", false, "", nil, nil, nil, "", nil},
 	}
 	for _, c := range cases {
 		p, ok := For(c.cli, Method(c.method))
@@ -285,5 +294,19 @@ func TestExtractMuseVersion(t *testing.T) {
 	}
 	if got := ExtractMuseVersion("1.2.2"); got != "1.2.2" {
 		t.Fatalf("semver fallback got %q", got)
+	}
+}
+
+func TestParseOmpCheck(t *testing.T) {
+	latest, err := ParseOmpCheck("Current version: 18.2.4\n✔ Already up to date\n")
+	if err != nil || latest != "" {
+		t.Errorf("up to date: latest = %q err = %v, want empty/nil", latest, err)
+	}
+	latest, err = ParseOmpCheck("Current version: 18.2.3\nNew version available: 18.2.4\n")
+	if err != nil || latest != "18.2.4" {
+		t.Errorf("outdated: latest = %q err = %v, want 18.2.4/nil", latest, err)
+	}
+	if _, err := ParseOmpCheck("some future layout"); err == nil {
+		t.Error("unreadable output accepted")
 	}
 }

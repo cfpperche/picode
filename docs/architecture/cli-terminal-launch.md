@@ -152,9 +152,13 @@ activity through the pi-shaped terminal-state extension injected with
 `PICODE_TERM_ID` survives). `Check setup` runs `omp --version`, which needs
 Bun ≥ 1.3.14 on PATH; an older Bun dies with a syntax error from its
 bundle. Lifecycle mirrors pi with the real npm package
-(`@oh-my-pi/pi-coding-agent`): `omp update` on native installs, npm on
-npm installs (the vendor updater's npm shim handling is a known weak
-spot), uninstall guided. One measured foot-gun guards both preview and
+(`@oh-my-pi/pi-coding-agent`), split by install method — each measured:
+npm installs update/reinstall/uninstall through npm (a deterministic
+target; run from a bun install, the vendor updater resolved by PATH and
+updated an npm copy), native installs run `omp update` / `omp update
+--force` with the vendor's own check (`omp update --check`, output
+measured), a bun-global install is honestly unknown (no deterministic
+mutation target), and a missing omp installs through npm like pi. One measured foot-gun guards both preview and
 prepare: omp refuses a run outright when a `--trusted-extension` launch
 argument meets the injected `-e`, so that combination is a named problem,
 never a broken launch.
