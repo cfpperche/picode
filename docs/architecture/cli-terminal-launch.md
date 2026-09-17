@@ -126,8 +126,11 @@ Muse Code's release channel and Antigravity's per-platform release manifest
 update` for Antigravity, and Muse's launcher as its own updater
 (`MUSE_LAUNCHER_INSTALL=1` on a bare run — it exits 0 before arg parsing,
 so the plan carries env instead of argv); neither ships an uninstaller, so
-both uninstall guided with the vendor docs link. Muse still seeds no
-Activity (its 1.3.0 build offers no hook surface); Antigravity reports
+both uninstall guided with the vendor docs link. Muse still reports no
+Activity: R3233 grew real hooks, but the CLI scrubs the hook environment
+to PATH alone (measured; `managed_hooks_env_vars` is enterprise-policy
+tier), so a settings reporter cannot attribute a report to a terminal —
+Open stays honest until a vendor surface carries identity. Antigravity reports
 through its title command. `muse --version` runs
 with `MUSE_NO_AUTO_UPDATE=1` so the launcher does not background-update.
 Every installed row reaches Check for updates through the same ⋯ menu, so a

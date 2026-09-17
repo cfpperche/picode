@@ -1,8 +1,8 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,10 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/store"
-	"github.com/cfpperche/picode/internal/tmux"
 )
 
 // The mapper needs no muse branch: hook_event_name payloads ride the
@@ -55,246 +54,52 @@ func TestHookMapMuseReport(t *testing.T) {
 	}
 }
 
-func museTestHome(t *testing.T) string {
-	t.Helper()
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("XDG_CONFIG_HOME", "")
-	return home
-}
-
-func museTestSettings(t *testing.T) string {
-	t.Helper()
-	museTestHome(t)
-	p, err := museSettingsPath()
+// Decision table: a session report with no native runtime behind the
+// terminal (wrapper-less observers: muse hooks, agy title) reports
+// plainly instead of 409ing; a terminal WITH a live runtime keeps the
+// strict identity fence.
+func TestSessionReportWithoutRuntimeFallsBack(t *testing.T) {
+	data := t.TempDir()
+	s, err := store.Open(filepath.Join(data, "state.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	return p
-}
-
-func readMuseDoc(t *testing.T, path string) map[string]any {
-	t.Helper()
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
+	defer s.Close()
+	w, _ := s.AddWorkspace("fixture", data)
+	deps := Deps{Store: s, TermRuntimes: NewTermRuntimes(), TermStates: NewTermStates()}
+	post := func(termID string, body map[string]any) int {
+		t.Helper()
+		raw, _ := json.Marshal(body)
+		req := httptest.NewRequest(http.MethodPost, "/api/terminals/"+termID+"/state", bytes.NewReader(raw))
+		req.SetPathValue("id", termID)
+		rec := httptest.NewRecorder()
+		handleSetTerminalState(deps)(rec, req)
+		return rec.Code
 	}
-	var doc map[string]any
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		t.Fatal(err)
+	seq := time.Now().UnixNano()
+	// Muse Stop-shaped report, no runtime: accepted, idle set.
+	plain, _ := s.CreateTerminalIn(w.ID, "Muse", data)
+	if code := post(plain.ID, map[string]any{"state": "idle", "cli": "muse", "sessionId": "sx", "sessionSeq": seq}); code != http.StatusOK {
+		t.Fatalf("muse fallback = %d, want 200", code)
 	}
-	return doc
-}
-
-func museEventCommands(t *testing.T, path, ev string) []string {
-	t.Helper()
-	doc := readMuseDoc(t, path)
-	hooks := doc["hooks"].(map[string]any)
-	var out []string
-	for _, g := range hooks[ev].([]any) {
-		for _, h := range g.(map[string]any)["hooks"].([]any) {
-			out = append(out, h.(map[string]any)["command"].(string))
-		}
+	if st, _ := deps.TermStates.Get(plain.ID); st.State != TermIdle {
+		t.Fatalf("muse state = %q, want idle", st.State)
 	}
-	return out
-}
-
-func TestMuseHooksSettingsMerge(t *testing.T) {
-	path := museTestSettings(t)
-	dataDir := t.TempDir()
-	if _, err := ensureHookScript(dataDir); err != nil {
-		t.Fatal(err)
+	// Agy working-shaped report, no runtime: accepted, working set.
+	plain2, _ := s.CreateTerminalIn(w.ID, "Agy", data)
+	if code := post(plain2.ID, map[string]any{"state": "working", "cli": "agy", "sessionId": "c9", "sessionSeq": seq}); code != http.StatusOK {
+		t.Fatalf("agy fallback = %d, want 200", code)
 	}
-	// Absent file: created with schema_version and all six events.
-	if err := installMuseHooks(dataDir); err != nil {
-		t.Fatal(err)
+	if st, _ := deps.TermStates.Get(plain2.ID); st.State != TermWorking {
+		t.Fatalf("agy state = %q, want working", st.State)
 	}
-	doc := readMuseDoc(t, path)
-	if doc["schema_version"] != float64(1) {
-		t.Fatalf("schema_version = %v", doc["schema_version"])
+	// Live runtime + foreign session: still a conflict, state untouched.
+	native, _ := s.CreateTerminalIn(w.ID, "Grok", data)
+	deps.TermRuntimes.Start(native.ID, TermRuntime{CLI: "grok", RunID: "run-1", PID: os.Getpid()})
+	if code := post(native.ID, map[string]any{"state": "working", "cli": "grok", "runId": "run-1", "sessionId": "other", "sessionSeq": int64(1)}); code != http.StatusConflict {
+		t.Fatalf("stale native report = %d, want 409", code)
 	}
-	hook := museHookPath(dataDir)
-	for _, ev := range museHookEvents {
-		cmds := museEventCommands(t, path, ev)
-		if len(cmds) != 1 || cmds[0] != hook {
-			t.Fatalf("%s commands = %v", ev, cmds)
-		}
-	}
-	// Idempotent: a second install changes nothing.
-	before, _ := os.ReadFile(path)
-	if err := installMuseHooks(dataDir); err != nil {
-		t.Fatal(err)
-	}
-	after, _ := os.ReadFile(path)
-	if string(before) != string(after) {
-		t.Fatal("second install rewrote the settings")
-	}
-	// Foreign entry on any event refuses, never replaces.
-	doc["hooks"].(map[string]any)["Stop"] = []any{museHookGroup("/bin/false")}
-	raw, _ := json.Marshal(doc)
-	if err := os.WriteFile(path, raw, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := installMuseHooks(dataDir); err == nil || !strings.Contains(err.Error(), "foreign") {
-		t.Fatalf("foreign hook install = %v, want a refusal", err)
-	}
-	if cmds := museEventCommands(t, path, "Stop"); len(cmds) != 1 || cmds[0] != "/bin/false" {
-		t.Fatalf("foreign Stop was touched: %v", cmds)
-	}
-	// Malformed file refuses, never clobbered.
-	if err := os.WriteFile(path, []byte("{nope"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := installMuseHooks(dataDir); err == nil {
-		t.Fatal("malformed settings merged without error")
-	}
-	if raw, _ := os.ReadFile(path); string(raw) != "{nope" {
-		t.Fatal("malformed settings were clobbered")
-	}
-}
-
-func TestMuseHooksUninstall(t *testing.T) {
-	path := museTestSettings(t)
-	dataDir := t.TempDir()
-	if _, err := ensureHookScript(dataDir); err != nil {
-		t.Fatal(err)
-	}
-	if err := installMuseHooks(dataDir); err != nil {
-		t.Fatal(err)
-	}
-	// A foreign group on a shared event survives; ours is pruned.
-	doc := readMuseDoc(t, path)
-	ev := doc["hooks"].(map[string]any)["Stop"].([]any)
-	doc["hooks"].(map[string]any)["Stop"] = append(ev, museHookGroup("/bin/false"))
-	raw, _ := json.Marshal(doc)
-	if err := os.WriteFile(path, raw, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	removeMuseHooks(dataDir)
-	doc = readMuseDoc(t, path)
-	hooks := doc["hooks"].(map[string]any)
-	if _, present := hooks["SessionStart"]; present {
-		t.Fatal("SessionStart survived uninstall")
-	}
-	if cmds := museEventCommands(t, path, "Stop"); len(cmds) != 1 || cmds[0] != "/bin/false" {
-		t.Fatalf("Stop after uninstall = %v", cmds)
-	}
-	if _, err := os.Stat(museHookPath(dataDir)); !os.IsNotExist(err) {
-		t.Fatal("hook script survived uninstall")
-	}
-	// Clean removal of a file we created deletes it.
-	if err := os.WriteFile(path, []byte("{}"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := installMuseHooks(dataDir); err != nil {
-		t.Fatal(err)
-	}
-	removeMuseHooks(dataDir)
-	if _, err := os.ReadFile(path); err == nil {
-		// Only schema_version remains: valid file, kept.
-		doc = map[string]any{}
-		if raw, err := os.ReadFile(path); err == nil {
-			_ = json.Unmarshal(raw, &doc)
-		}
-		if len(doc) != 1 || doc["schema_version"] != float64(1) {
-			t.Fatalf("settings after full uninstall = %v", doc)
-		}
-	}
-}
-
-func TestMuseHooksPrepared(t *testing.T) {
-	museTestHome(t)
-	dataDir := t.TempDir()
-	if museHooksPrepared(dataDir) {
-		t.Fatal("nothing installed, yet prepared")
-	}
-	if _, err := ensureHookScript(dataDir); err != nil {
-		t.Fatal(err)
-	}
-	if err := installMuseHooks(dataDir); err != nil {
-		t.Fatal(err)
-	}
-	if !museHooksPrepared(dataDir) {
-		t.Fatal("installed hooks read not prepared")
-	}
-	removeMuseHooks(dataDir)
-	if museHooksPrepared(dataDir) {
-		t.Fatal("prepared after uninstall")
-	}
-}
-
-func TestMusePrepareNeedsNoWrapper(t *testing.T) {
-	museTestHome(t)
-	dir := t.TempDir()
-	st, err := store.Open(filepath.Join(dir, "picode.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = st.Close() })
-	exe := "/bin/true"
-	if _, err := os.Stat(exe); err != nil {
-		t.Skip("no /bin/true on this platform")
-	}
-	if err := st.SetCLIConfig("muse", clilaunch.Config{Executable: exe, Integration: true}); err != nil {
-		t.Fatal(err)
-	}
-	deps := Deps{Store: st, Tmux: tmux.NewWithSocket(filepath.Join(dir, "unused-sock")), DataDir: dir}
-	v := &store.TerminalLaunch{TerminalID: "t-muse-prep", CLI: "muse", Overrides: clilaunch.Overrides{}}
-	p, err := prepareCLITerminal(deps, t.TempDir(), v)
-	if err != nil {
-		t.Fatalf("prepare: %v", err)
-	}
-	defer p.discard()
-}
-
-// End to end through the installed wrapper: the measured R3233.1 payload
-// rides picode-hook to the daemon's door (stub server) and the wrapper
-// stays silent on stdout, the way an observer hook must.
-func TestMuseHookFlow(t *testing.T) {
-	if _, err := exec.LookPath("python3"); err != nil {
-		t.Skip("python3 not on PATH")
-	}
-	museTestHome(t)
-	dataDir := t.TempDir()
-	if _, err := ensureHookScript(dataDir); err != nil {
-		t.Fatal(err)
-	}
-	if err := installMuseHooks(dataDir); err != nil {
-		t.Fatal(err)
-	}
-	var received []byte
-	hook := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		buf, _ := io.ReadAll(r.Body)
-		received = buf
-		w.WriteHeader(200)
-	}))
-	defer hook.Close()
-	for _, tc := range []struct{ in, want string }{
-		{`{"hook_event_name":"PreToolUse","session_id":"s9","turn_id":"t9","cwd":"/w","tool_name":"read","tool_input":{},"tool_use_id":"c9"}`, "working"},
-		{`{"hook_event_name":"Stop","session_id":"s9","turn_id":"t9","cwd":"/w","stop_hook_active":false}`, "idle"},
-	} {
-		received = nil
-		cmd := exec.Command(museHookPath(dataDir))
-		cmd.Stdin = strings.NewReader(tc.in)
-		cmd.Env = append(os.Environ(),
-			"PICODE_TERM_ID=t-muse-1",
-			"PICODE_TERM_URL="+hook.URL,
-			"PICODE_TUI_PID=", "PICODE_TUI_RUN_ID=",
-			"PATH="+os.Getenv("PATH"),
-		)
-		out, err := cmd.Output()
-		if err != nil {
-			t.Fatalf("hook %s: %v", tc.in, err)
-		}
-		if len(out) != 0 {
-			t.Fatalf("hook printed %q, want silence", out)
-		}
-		var posted map[string]any
-		if err := json.Unmarshal(received, &posted); err != nil {
-			t.Fatalf("hook got no JSON for %s: %q", tc.in, received)
-		}
-		if posted["state"] != tc.want || posted["cli"] != "muse" || posted["sessionId"] != "s9" {
-			t.Fatalf("posted = %s, want state %s", received, tc.want)
-		}
+	if _, ok := deps.TermStates.Get(native.ID); ok {
+		t.Fatal("conflicting report set state")
 	}
 }

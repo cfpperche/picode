@@ -176,10 +176,6 @@ func syncCLIIntegration(deps Deps, id string, on bool) error {
 		// dir: off must stop the reports, not just the map entry.
 		removeAgyTitleReporter(deps.DataDir)
 	}
-	if id == "muse" {
-		// Same: the observer hooks live in the user's Muse settings.
-		removeMuseHooks(deps.DataDir)
-	}
 	m := loadInterceptEnabled(deps.DataDir)
 	delete(m, id)
 	return saveInterceptEnabled(deps.DataDir, m)
@@ -925,9 +921,6 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 		case "opencode":
 			err = writeOpencodeIntercept(dir, hook)
 		case "agy":
-			needsWrapper = false
-		case "muse":
-			// Settings hooks like agy's title reporter: no PATH shadow.
 			needsWrapper = false
 		}
 		if err != nil {

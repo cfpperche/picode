@@ -13,9 +13,6 @@ func cliIntegrationPrepared(dir string, cli clilaunch.CLI) bool {
 	if cli.ID == "agy" {
 		return agyReporterPrepared(dir)
 	}
-	if cli.ID == "muse" {
-		return museHooksPrepared(dir)
-	}
 	if !interceptWired(dir, cli.ID, cli.Command) {
 		return false
 	}
@@ -57,47 +54,6 @@ func agyReporterPrepared(dir string) bool {
 	}
 	cmd, _ := cur["command"].(string)
 	return cmd == rep
-}
-
-// museHooksPrepared is the applied check for the wrapper-less observer:
-// the hook script exists and every installed event in the user's settings
-// carries our command. A user-side removal reads as not-applied (repair
-// reinstalls), never as an error.
-func museHooksPrepared(dir string) bool {
-	hook := museHookPath(dir)
-	if st, err := os.Stat(hook); err != nil || st.IsDir() || st.Size() == 0 {
-		return false
-	}
-	if st, err := os.Stat(hookScriptPath(dir)); err != nil || st.IsDir() || st.Size() == 0 {
-		return false
-	}
-	settings, err := museSettingsPath()
-	if err != nil {
-		return false
-	}
-	raw, err := os.ReadFile(settings)
-	if err != nil {
-		return false
-	}
-	var doc map[string]any
-	if json.Unmarshal(raw, &doc) != nil {
-		return false
-	}
-	hooks, ok := doc["hooks"].(map[string]any)
-	if !ok {
-		return false
-	}
-	for _, ev := range museHookEvents {
-		cur, present := hooks[ev]
-		if !present {
-			return false
-		}
-		ours, _, ok := museHookCommands(cur, hook)
-		if !ok || !ours {
-			return false
-		}
-	}
-	return true
 }
 
 func registerCLIProfileRoutes(mux Registrar, deps Deps) {

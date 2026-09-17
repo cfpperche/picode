@@ -331,11 +331,27 @@ func handleSetTerminalState(deps Deps) http.HandlerFunc {
 			return
 		}
 		var st TermState
+		nativeErr := error(nil)
 		if req.SessionID != "" {
-			if err := recordNativeTerminalObservation(deps, id, req.CLI, req.RunID, req.SessionID, req.SessionPath, req.SessionSeq, req.State, req.Source, req.Attention); err != nil {
+			nativeErr = recordNativeTerminalObservation(deps, id, req.CLI, req.RunID, req.SessionID, req.SessionPath, req.SessionSeq, req.State, req.Source, req.Attention)
+		}
+		if nativeErr != nil {
+			// Wrapper-less observers (agy title reporter, muse settings
+			// hooks) never start a native runtime, so a session report
+			// with no runtime entry has no identity fence to protect:
+			// report it plainly instead of dropping the signal (which
+			// left those CLIs stuck Open). A terminal WITH a runtime
+			// keeps the strict conflict.
+			hasRuntime := false
+			if req.SessionID != "" && deps.TermRuntimes != nil {
+				_, hasRuntime = deps.TermRuntimes.Get(id)
+			}
+			if hasRuntime {
 				writeErr(w, http.StatusConflict, "Native conversation report is stale or invalid.")
 				return
 			}
+			st = reportTermStateForRun(deps, id, req.State, strings.TrimSpace(req.CLI), runID, req.Attention, time.Now())
+		} else if req.SessionID != "" {
 			st, _ = deps.TermStates.Get(id)
 			if deps.Feed != nil {
 				data := map[string]any{"termId": id, "state": st.State, "cli": st.CLI, "runId": st.RunID, "at": st.At}
