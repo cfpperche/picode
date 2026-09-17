@@ -4,7 +4,7 @@ import { askConfirm } from "../lib/confirm.js";
 import { registerHashGuard } from "../lib/hashGuard.js";
 import { cliLaunchSchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { launchDraft, launchConfig, defaultLaunchConfig, launchChanged, launchArgs } from "@picode/shared/domain/cliLaunch.js";
-import { quickSettingsFor, readQuickValue, applyQuickValue, argLine } from "@picode/shared/domain/cliLaunchPresets.js";
+import { quickSettingsFor, readQuickValue, applyQuickSetting, argLine } from "@picode/shared/domain/cliLaunchPresets.js";
 
 export const cliJSON = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 export const confirmDiscard = () => askConfirm({ title: "Discard launch changes?", message: "Your unsaved changes will be lost.", confirmLabel: "Discard changes", danger: true });
@@ -47,7 +47,7 @@ export function LaunchFields({ draft, setDraft, includeIntegration = false, cli 
   const field = (key) => ({ value: draft[key], onChange: (e) => setDraft({ ...draft, [key]: e.target.value }) });
   const specs = cli ? quickSettingsFor(cli.id) : null;
   const args = launchArgs(draft.argsText);
-  const setQuick = (spec, value) => setDraft({ ...draft, argsText: applyQuickValue(args, spec, value).map(argLine).join("\n") });
+  const setQuick = (spec, value) => setDraft({ ...draft, argsText: applyQuickSetting(args, specs, spec, value).map(argLine).join("\n") });
   const quick = specs?.map((spec) => {
     const current = readQuickValue(args, spec);
     if (spec.type === "boolean") {

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { quickSettingsFor, readQuickValue, applyQuickValue, argLine } from "./cliLaunchPresets.js";
+import { quickSettingsFor, readQuickValue, applyQuickValue, applyQuickSetting, argLine } from "./cliLaunchPresets.js";
 import { launchArgs } from "./cliLaunch.js";
 
 const MODEL = { key: "model", type: "text", flags: ["--model"] };
@@ -8,10 +8,14 @@ const CODEX_MODEL = { key: "model", type: "text", flags: ["--model", "-m"] };
 const THINKING = { key: "thinking", type: "select", flags: ["--thinking"] };
 const REASONING = { key: "reasoning", type: "select", flags: ["-c"], kv: "model_reasoning_effort" };
 const AUTO = { key: "auto", type: "boolean", flags: ["--auto"] };
+const YOLO = { key: "yolo", type: "boolean", flags: ["--yolo"], group: "codex" };
+const SANDBOX = { key: "sandbox", type: "select", flags: ["--sandbox", "-s"], group: "codex" };
+const APPROVAL = { key: "approval", type: "select", flags: ["--ask-for-approval", "-a"], group: "codex" };
+const CODEX_SPECS = quickSettingsFor("codex");
 
 test("quick settings exist only for CLIs with verified flags", () => {
-  for (const id of ["pi", "claude-code", "codex", "opencode"]) assert.ok(quickSettingsFor(id), id);
-  for (const id of ["grok", "hermes", "omp", "muse", "agy", "unknown"]) assert.equal(quickSettingsFor(id), null, id);
+  for (const id of ["pi", "claude-code", "codex", "grok", "hermes", "opencode", "omp"]) assert.ok(quickSettingsFor(id), id);
+  for (const id of ["muse", "agy", "unknown"]) assert.equal(quickSettingsFor(id), null, id);
 });
 
 test("a value is appended when the flag is absent", () => {
@@ -88,4 +92,28 @@ test("argLine quotes only what the textarea format needs, and the round trip hol
 test("the full draft round trip: quick patch survives launchArgs parsing", () => {
   const args = applyQuickValue(launchArgs('"--flag with space"\n--model\nhaiku'), MODEL, "sonnet:high");
   assert.deepEqual(args, ["--flag with space", "--model", "sonnet:high"]);
+});
+
+test("verified specs match the installed CLIs (grok 1.0.34, hermes 0.21.3, omp 18.2.4)", () => {
+  assert.deepEqual(quickSettingsFor("grok").map((s) => s.label), ["Approvals", "Auto-approve tools"]);
+  assert.deepEqual(quickSettingsFor("hermes").map((s) => s.label), ["Model", "Reasoning effort", "YOLO"]);
+  assert.deepEqual(quickSettingsFor("omp").map((s) => s.label), ["Model"]);
+  assert.deepEqual(quickSettingsFor("codex").map((s) => s.label), ["Model", "Reasoning effort", "Sandbox", "Approvals", "YOLO"]);
+  assert.deepEqual(applyQuickValue([], quickSettingsFor("omp")[0], "opus"), ["--model", "opus"]);
+  assert.deepEqual(applyQuickValue([], quickSettingsFor("grok")[1], "on"), ["--always-approve"]);
+  assert.deepEqual(applyQuickValue([], quickSettingsFor("hermes")[1], "high"), ["--reasoning", "high"]);
+});
+
+test("a codex exclusivity pick clears its group siblings (yolo vs sandbox/approval)", () => {
+  const withSandbox = applyQuickValue([], SANDBOX, "workspace-write");
+  const yolo = applyQuickSetting(withSandbox, CODEX_SPECS, CODEX_SPECS.find((s) => s.key === "yolo"), "on");
+  assert.deepEqual(yolo, ["--yolo"]);
+  // back the other way: choosing a sandbox clears yolo
+  const sandbox = applyQuickSetting(yolo, CODEX_SPECS, SANDBOX, "workspace-write");
+  assert.deepEqual(sandbox, ["--sandbox", "workspace-write"]);
+  // emptying a control does not clear the group
+  const cleared = applyQuickSetting(sandbox, CODEX_SPECS, SANDBOX, "");
+  assert.deepEqual(cleared, []);
+  const approval = applyQuickSetting(withSandbox, CODEX_SPECS, APPROVAL, "never");
+  assert.deepEqual(approval, ["--ask-for-approval", "never"]);
 });

@@ -5,16 +5,18 @@
 // replaced, every argument the user typed stays exactly where it was.
 // Values are individual argv entries, never a shell string (ADR-0069).
 //
-// Flags verified against the vendor docs on 2026-09-17 (pi README CLI
-// reference, code.claude.com/docs/en/cli, developers.openai.com/codex/cli/
-// reference, opencode.ai/docs/cli). Grok, Hermes, Omp, Muse Code and
-// Antigravity stay advanced-only until their installed versions verify the
-// same flags — quickSettingsFor returns null and LaunchFields renders
-// exactly as before.
+// Flags verified against the installed binaries on 2026-09-17 (grok 1.0.34,
+// Hermes Agent v0.21.3, omp 18.2.4, codex-cli 0.154.0 — each exercised with
+// `--help` and a `--flag --version` parse check) plus the vendor docs for
+// pi, Claude Code and OpenCode. Muse Code and Antigravity stay excluded:
+// they have no adapter, so their launch screens are read-only by design.
+//
+// spec.group marks mutually exclusive controls (a vendor flag conflict):
+// applying one clears the others in the group (applyQuickSetting).
 
 const option = (value, label, warn) => (warn ? { value, label, warn } : { value, label });
 
-const CLAUDE_MODES = [
+const PERMISSION_MODES = [
   option("default", "Ask before edits"),
   option("acceptEdits", "Edit automatically"),
   option("plan", "Plan only"),
@@ -23,7 +25,7 @@ const CLAUDE_MODES = [
   option("bypassPermissions", "Skip all prompts", "Runs without permission prompts. For containers or disposable VMs."),
 ];
 
-const CODEX_SANDBOX = [
+const SANDBOX_MODES = [
   option("read-only", "Read only"),
   option("workspace-write", "Write inside the workspace"),
   option("danger-full-access", "Full access", "No sandbox: full file and network access."),
@@ -39,6 +41,8 @@ const PI_THINKING = ["off", "minimal", "low", "medium", "high", "xhigh", "max"].
 
 const CODEX_EFFORT = ["minimal", "low", "medium", "high", "xhigh"].map((v) => option(v, v));
 
+const HERMES_REASONING = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"].map((v) => option(v, v));
+
 export const CLI_QUICK_SETTINGS = {
   pi: [
     { key: "model", label: "Model", type: "text", flags: ["--model"], placeholder: "sonnet:high · openai/gpt-4o", hint: "Same model syntax as the pi CLI." },
@@ -46,17 +50,30 @@ export const CLI_QUICK_SETTINGS = {
   ],
   "claude-code": [
     { key: "model", label: "Model", type: "text", flags: ["--model"], suggestions: ["sonnet", "opus", "haiku", "fable"], placeholder: "sonnet", hint: "Alias or full model id." },
-    { key: "permissionMode", label: "Approvals", type: "select", flags: ["--permission-mode"], options: CLAUDE_MODES },
+    { key: "permissionMode", label: "Approvals", type: "select", flags: ["--permission-mode"], options: PERMISSION_MODES },
   ],
   codex: [
     { key: "model", label: "Model", type: "text", flags: ["--model", "-m"], placeholder: "gpt-5.3-codex", hint: "Overrides the configured model." },
     { key: "reasoning", label: "Reasoning effort", type: "select", flags: ["-c"], kv: "model_reasoning_effort", options: CODEX_EFFORT },
-    { key: "sandbox", label: "Sandbox", type: "select", flags: ["--sandbox", "-s"], options: CODEX_SANDBOX },
-    { key: "approval", label: "Approvals", type: "select", flags: ["--ask-for-approval", "-a"], options: CODEX_APPROVALS },
+    { key: "sandbox", label: "Sandbox", type: "select", flags: ["--sandbox", "-s"], options: SANDBOX_MODES, group: "codex" },
+    { key: "approval", label: "Approvals", type: "select", flags: ["--ask-for-approval", "-a"], options: CODEX_APPROVALS, group: "codex" },
+    { key: "yolo", label: "YOLO", type: "boolean", flags: ["--yolo"], group: "codex", hint: "Skips all approvals and the sandbox (--dangerously-bypass-approvals-and-sandbox)." },
+  ],
+  grok: [
+    { key: "permissionMode", label: "Approvals", type: "select", flags: ["--permission-mode"], options: PERMISSION_MODES },
+    { key: "alwaysApprove", label: "Auto-approve tools", type: "boolean", flags: ["--always-approve"], hint: "All tool executions are approved without asking." },
+  ],
+  hermes: [
+    { key: "model", label: "Model", type: "text", flags: ["--model", "-m"], placeholder: "anthropic/claude-sonnet-4.6", hint: "Model override for this invocation." },
+    { key: "reasoning", label: "Reasoning effort", type: "select", flags: ["--reasoning"], options: HERMES_REASONING },
+    { key: "yolo", label: "YOLO", type: "boolean", flags: ["--yolo"], hint: "Bypasses approval prompts for dangerous commands." },
   ],
   opencode: [
     { key: "model", label: "Model", type: "text", flags: ["--model", "-m"], placeholder: "provider/model", hint: "Model in provider/model form." },
     { key: "auto", label: "Auto-approve actions", type: "boolean", flags: ["--auto"], hint: "Actions not explicitly denied are approved." },
+  ],
+  omp: [
+    { key: "model", label: "Model", type: "text", flags: ["--model"], placeholder: "opus · openai/gpt-5.2", hint: "Fuzzy match, same as the omp CLI." },
   ],
 };
 
@@ -122,6 +139,20 @@ export function applyQuickValue(args, spec, value) {
     out.splice(insertAt < 0 ? out.length : insertAt, 0, ...pair);
   }
   return out;
+}
+
+// applyQuickSetting applies one control's value, first clearing the other
+// controls in its exclusivity group — a documented vendor flag conflict,
+// e.g. codex --yolo vs --sandbox / --ask-for-approval. An emptied control
+// never clears its group (removal is not a choice that conflicts).
+export function applyQuickSetting(args, specs, spec, value) {
+  let next = args;
+  if (spec.group && value) {
+    for (const other of specs) {
+      if (other !== spec && other.group === spec.group) next = applyQuickValue(next, other, "");
+    }
+  }
+  return applyQuickValue(next, spec, value);
 }
 
 // argLine serializes one argv entry back to a textarea line, quoted when

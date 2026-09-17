@@ -9,7 +9,12 @@
   [pi CLI reference](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/README.md),
   [Claude Code CLI flags](https://code.claude.com/docs/en/cli),
   [Codex command line options](https://developers.openai.com/codex/cli/reference),
-  [OpenCode CLI](https://opencode.ai/docs/cli/).
+  [OpenCode CLI](https://opencode.ai/docs/cli/). Flags for the remaining
+  CLIs verified against the installed binaries the same day — `--help`
+  plus a `--flag --version` parse check per quick flag: grok 1.0.34
+  (`--permission-mode`, `--always-approve`), Hermes Agent v0.21.3
+  (`--model`, `--reasoning`, `--yolo`), omp 18.2.4 (`--model`), codex-cli
+  0.154.0 (`--yolo` accepted).
   In-house bars: [benchmarks.md](../benchmarks.md) (progressive disclosure,
   one page width, UI copy rule), ADR-0069 (launch model: argument array,
   never a shell string), ADR-0070 (profiles are copies, not links).
@@ -53,9 +58,16 @@ knowing the exact flag and typing it into the raw argument textarea:
   vendor docs, not the installed binary; the launch preview and Check
   setup remain the truth. A flag a future CLI drops degrades to the
   advanced textarea, not to an error.
-- **Covering every CLI on day one.** Grok, Hermes, Omp, Muse Code and
-  Antigravity stay advanced-only until their installed versions verify
-  the same flags — a wrong generated flag is worse than no control.
+- **Covering CLIs without a verified or editable surface.** Muse Code and
+  Antigravity have no adapter, so their launch screens are read-only by
+  design — there is nothing to attach a control to. Grok's `--sandbox` and
+  `--reasoning-effort` accept no documented value list in 1.0.34, so they
+  stay advanced-only rather than offering guessed options. A wrong
+  generated flag is worse than no control.
+- **Conflicting flags coexisting.** Codex `--yolo` conflicts with
+  `--sandbox` / `--ask-for-approval` (documented in the vendor CLI);
+  picking one clears the others in the same exclusivity group instead of
+  composing a launch the CLI refuses.
 
 ## What follows
 
