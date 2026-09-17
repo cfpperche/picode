@@ -147,9 +147,12 @@ channel-backed CLI needs no bespoke button.
 gained sessions, then its adapter in the omp-adapter slice: editable launch
 defaults, the PATH wrapper (presence lease; maintenance subcommands and the
 protocol modes `--mode rpc|json|acp|rpc-ui` exec or mark non-TUI), and
-activity through the pi-shaped terminal-state extension injected with
-`-e` — the same extension API, measured live (session events fire,
-`PICODE_TERM_ID` survives). `Check setup` runs `omp --version`, which needs
+activity through the omp-shaped terminal-state extension injected with
+`-e` — the same extension load mechanism as pi, but omp's own event set
+(measured live on 18.2.4: `agent_end` settles the run, and the approval
+dialog emits no extension event, so omp reports Ready and Working and
+never needs-you — approvals happen in its own terminal). `Check setup`
+runs `omp --version`, which needs
 Bun ≥ 1.3.14 on PATH; an older Bun dies with a syntax error from its
 bundle. Lifecycle mirrors pi with the real npm package
 (`@oh-my-pi/pi-coding-agent`), split by install method — each measured:

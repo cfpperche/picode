@@ -118,6 +118,16 @@ created (no credentials were pointed at omp).
   reporter name "omp"), self-guarded on TUI mode so headless runs report
   nothing. Live TUI Ready/Working acceptance with the owner's auth is the
   external remainder (the scratch has no omp credentials by design).
+  Amendment (2026-09-17, live TUI after deploy — owner screenshot): the
+  session stuck on Working after replying. Root cause measured in a live
+  TUI (isolated tmux): omp never fires pi's settle events — agent_settled
+  and ui_prompt_* do not exist in the bundle, and the approval dialog
+  emits no extension event — so the pi-shaped template reported working
+  and never idle. omp got its own template: session_start idle,
+  agent_start working, agent_end idle (the measured settle point, one per
+  run, spanning tool loops and approval waits), session_shutdown idle.
+  omp never reports needs-you; turn_start/turn_end fire many times per
+  run and carry no state.
 - **Fatia 5 — lifecycle.** Spec: `updateArgs ["update"]`,
   `CheckArgs ["update","--check"]`, vendor output parse; npm fallback via
   the real package name. Uninstall guided (vendor docs).
