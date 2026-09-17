@@ -89,6 +89,9 @@ func TestWrapperPresenceLease(t *testing.T) {
 		{"omp", "none", []string{"config", "path"}},
 		{"omp", "none", []string{"acp"}},
 		{"omp", "none", []string{"--mode", "rpc"}},
+		{"omp", "none", []string{"--mode=rpc"}},
+		{"omp", "none", []string{"--export", "session.html"}},
+		{"omp", "none", []string{"--export=session.html"}},
 		{"omp", "none", []string{"-p", "hi"}},
 		{"omp", "none", []string{"--version"}},
 	}

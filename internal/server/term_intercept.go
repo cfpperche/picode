@@ -139,7 +139,7 @@ picode_tui=1
 case "$name:${1-}:${2-}" in
   codex:exec:*|codex:app-server:*|codex:mcp-server:*) picode_tui=0 ;;
   pi:--mode:rpc|pi:--mode:json) picode_tui=0 ;;
-  omp:--mode:rpc|omp:--mode:json|omp:--mode:acp|omp:--mode:rpc-ui) picode_tui=0 ;;
+  omp:--mode:rpc|omp:--mode:json|omp:--mode:acp|omp:--mode:rpc-ui|omp:--mode=rpc*|omp:--mode=json*|omp:--mode=acp*) picode_tui=0 ;;
 esac
 # Hermes: interactive entry points (bare, chat, flags, a prompt) keep the lease.
 # Named maintenance subcommands do not.
@@ -477,9 +477,15 @@ func writeOmpIntercept(dataDir, hook string) error {
 	ompArgs := quotedCLIArgs(cliIntegrationPlan("omp", dataDir, hook).Branches[0].Args)
 	passthrough := `# Named maintenance subcommands skip the presence lease and the extension.
 # Bare runs (with or without a prompt), -c/--continue and -r/--resume keep both.
+# --export renders a file and exits: exec straight past the lease (measured:
+# it is a one-shot render, not a session).
 if [ "$name" = omp ]; then
   case "${1-}" in
-    ""|-*) ;;
+    "") ;;
+    --export|--export=*)
+      exec "$real" "$@"
+      ;;
+    -*) ;;
     OMP_MAINT)
       exec "$real" "$@"
       ;;
