@@ -169,3 +169,15 @@ Standing limits: claude → grok needs a Claude login in the scratch HOME
 (owner's weekly limit resets 8am) — transport for that pair was accepted
 2026-09-12 (Claude → Hermes) and grok-as-recipient correlation passed twice
 here. Physical mobile and non-Linux recovery remain unverified.
+
+## Finale attempt — 2026-09-17 (quota, not the mailbox)
+
+Scratch `localhost:8472`, claude-code + grok TUIs, both connections applied and
+identity-confirmed. `check_EGQOMAZS7QDLN7TVBOOTBYYZA3` (claude → grok) expired
+with **zero messages created**: the Claude account's weekly quota was
+exhausted ("Usage limit reached · continuing automatically at 12:10am"), so
+its composer footer changed to a limit notice the input guard does not
+recognize — and the sender attention correctly refused the unknown layout
+(silent pre-claim refusal) instead of pasting into it. The guards behaved
+as designed in front of a genuinely unready composer; retry after the quota
+reset. Evidence: `var/qa/claude-grok-finale/`.
