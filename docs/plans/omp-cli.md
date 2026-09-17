@@ -126,6 +126,23 @@ created (no credentials were pointed at omp).
   installs update/reinstall/uninstall through npm; native installs run
   `omp update` / `omp update --force` (measured working); uninstall
   guided. The bun-global layout classifies unknown until observed.
+- **Fatia 5b — lifecycle matrix.** Close the install-method unknowns, all
+  probe-driven.
+  Outcome (shipped 2026-09-17): three probes measured. (1) bun-global
+  (isolated `BUN_INSTALL_DIR`): the realpath resolves into node_modules,
+  so npm commands would miss the bun copy — and `omp update` run from
+  the bun copy updated an npm install it found by PATH, so the vendor
+  updater has no deterministic target either; bun-global omp is honestly
+  `MethodUnknown` (scoped to `@oh-my-pi`, leaving opencode's
+  installer-aware bun handling on npm intact). (2) The curl installer
+  lands one native binary at `~/.local/bin/omp` (`PI_INSTALL_DIR`
+  overridable) — classified `MethodVendor`, mutating through
+  `omp update` / `omp update --force` like grok accepts. (3)
+  `omp update --check` prints "New version available: X" only when one
+  exists — `ParseOmpCheck` feeds a vendor `LatestFrom` for native
+  installs (npm installs keep the npm registry, which is their own
+  channel). A missing omp now installs through the npm lane (ADR-0093,
+  `ForMissing` derives it from the spec).
 - **Adversarial finding (measured, guarded).** `--trusted-extension` in
   launch args + PiCode's injected `-e` = omp refuses the whole run
   ("--trusted-extension cannot be combined with --extension, -e, or
