@@ -1259,8 +1259,11 @@ function GrantRow({ row, draft, onDraft, onSave, flash }) {
   // reading the matchers do — a hint, never a check). An entry that opens
   // nothing is named here instead of being saved in silence.
   const covers = actLike ? describeDomainField(draft.domainsText) : [];
+  // A row that carries a domain list stacks (name and hints, then the
+  // controls): side by side, the field was squeezed to a stub and the select
+  // wrapped above it (seen in review, 2026-09-15).
   return (
-    <div className="set-item">
+    <div className={"set-item" + (actLike ? " set-item-stack" : "")}>
       <div className="set-item-body">
         <span className="set-item-t">
           {row.name}
