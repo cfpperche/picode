@@ -5,7 +5,7 @@ import { toast } from "../lib/toast.js";
 import { isLoopbackUrl } from "@picode/shared/client/devservers.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { askTitle } from "../lib/browserPermissions.js";
-import { subscribeAppOverlays } from "../lib/appOverlays.js";
+import { subscribeFloatingLayers, overlapsLayers, rectOf } from "../lib/floatingLayers.js";
 import { requestBrowserDialog } from "../lib/browserDialogs.js";
 import { previewUrl, verifyPreviewUrl } from "../lib/previewStill.js";
 
@@ -48,10 +48,16 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
   const [findState, setFindState] = useState({ count: 0, active: 0 });
   const [overlayCover, setOverlayCover] = useState(false);
 
-  // An open application dialog would sit behind the native view (owner
-  // report 2026-09-15): hide it while one is open, and the dialog's own
-  // overlay dims the window again.
-  useEffect(() => subscribeAppOverlays(setOverlayCover), []);
+  // Any floating layer that reaches the page — the tab-strip menu, the
+  // command palette, a toast, a dropdown — needs the native view out of the
+  // way, and the rule is geometry, not a list of remembered overlays
+  // (2026-09-16: the owner's editor tab menu came up invisible under the
+  // page). The same list drives the clipping audit, so a new floating
+  // surface is seen by both or by neither.
+  useEffect(() => subscribeFloatingLayers((layers) => {
+    const host = hostRef.current;
+    setOverlayCover(overlapsLayers(host ? rectOf(host) : null, layers));
+  }), []);
 
   // The menu opens over the page, and a native WebView2 paints over HTML —
   // so the tab freezes the page into a still and hides the webview while the
@@ -115,6 +121,26 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     if (started) invoke("btab_zoom", { id }).then((z) => { if (typeof z === "number") setZoom(z); }).catch(() => {});
   };
   const covered = overlayCover || (menuOpen && (!!still || previewBusy || previewFailed));
+  // Whatever the reason, a covered page shows the frozen frame instead of
+  // the host's empty background. The menu prefetches on hover; every other
+  // layer takes the capture when it first covers the page (cached, so the
+  // second time is instant).
+  useEffect(() => {
+    if (!covered) {
+      // The still belongs to the moment it was taken: keeping it would show a
+      // stale frame the next time anything covers the page.
+      setStill("");
+      return undefined;
+    }
+    if (still) return undefined;
+    let live = true;
+    grabPreview().then((url) => {
+      if (live && url) setStill(url);
+    });
+    return () => {
+      live = false;
+    };
+  }, [covered, still]);
   // A tab switch hides without unmounting, and Radix never fires
   // onOpenChange(false) for a menu that unmounts open: park the cover
   // state here or the webview stays hidden behind a menu that is gone.
@@ -460,7 +486,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
           </div>
         </div>
       ) : null}
-      <div className="web-tab-host" ref={hostRef} hidden={!started}>
+      <div className="web-tab-host" ref={hostRef} hidden={!started} data-covered={covered ? "1" : undefined}>
         {still ? <img className="web-tab-still" src={still} alt="" aria-hidden="true" onError={() => { setStill(""); setPreviewFailed(true); }} /> : null}
       </div>
       {!started ? (

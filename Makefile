@@ -1,7 +1,7 @@
 # PiCode — make targets
 # Quality gates are the contract (AGENTS.md); `make ci` mirrors GitHub Actions.
 
-.PHONY: help hooks hooks-check dev ui web docs docs-videos docs-videos-check docs-videos-fresh docs-changelog build restart deploy _deploy cert-timer changelog adr install test test-js fmt fmt-check vet ci-docs ci ci-gates ci-scoped close close-summary handoff worktree worktree-status worktree-gc clean desktop desktop-shell desktop-restart
+.PHONY: help hooks hooks-check dev ui web docs docs-videos docs-videos-check docs-videos-fresh docs-changelog build restart deploy _deploy cert-timer changelog adr install test test-js fmt fmt-check vet ci-docs ci ci-gates ci-scoped close close-summary handoff land worktree worktree-status worktree-gc clean desktop desktop-shell desktop-restart
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -240,6 +240,9 @@ adr: ## Seed the next decision record with its index row: make adr NAME=<short-t
 
 handoff: ## Render docs/handoff.md (generated view: git state + open topics + session notes, ADR-0123)
 	node scripts/handoff-board.mjs
+
+land: ## Put a worktree branch on main: fast-forward + make ci (refuses a dirty overlap; never commits)
+	node scripts/land.mjs "$(BRANCH)"
 
 worktree: ## New isolated tree ready to build: make worktree NAME=<name> [BRANCH=feat/<name>]
 	./scripts/worktree.sh "$(NAME)" $(BRANCH)

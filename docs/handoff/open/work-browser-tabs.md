@@ -6,12 +6,13 @@ reviewed by the owner against the reference, one item at a time.
 
 ## Next
 
-- **"New browser tab" button: re-verify in the shell** (no repro in a web
-  scratch, 2026-09-15).
 - **v2a** unused-site permissions; **v2b** agent history access (the Ask
   machinery landed 2026-09-15; the history grant is its own path).
 - **v2c** annotations (step 4 is an ADR); **v2d** Windows Hello opener row.
-- **v3** WebMCP and Developer mode (raw CDP: ADR, off, `full` only, audited).
+- **v3** WebMCP site tools (ADR when the standard lands). Developer mode
+  landed 2026-09-16 (ADR-0144).
+- The reference's permissions table (Site or pattern × Browsing × Downloads ×
+  Uploads + Default row): the data exists, the shape does not.
 
 ## Options menu — landed (2026-09-15)
 
@@ -22,14 +23,13 @@ toolbar and Import cookies and passwords… stay out until they exist.
 
 Two facts the slice established:
 
-- **The menu opens over the page.** A windowed WebView2 paints over HTML,
-  so the tab captures the page (`btab_preview`, raw PNG over IPC) and hides
-  the native view behind it while the menu is up — the same trick any future
-  overlay over a work tab needs. The old `MENU_H` slide is gone.
-- **An open application dialog hides the work webview too** (owner report
-  2026-09-15: "New workspace" cut in half by the page). `appOverlays.js`
-  watches `.dlg[data-state="open"]` and the tab contributes it to its
-  visibility, so the dialog's own dim covers the whole window.
+- **Everything opens over the page now, by geometry.** Any visible floating
+  layer that intersects the tab (the shared vocabulary in
+  `floatingLayers.js`) hides the native view and shows the frozen page
+  (`btab_preview`, raw PNG over IPC). It began with the options menu
+  (2026-09-15) and the "New workspace" dialog cut in half by the page; the
+  class-only `.dlg` observer that fixed those missed the command palette and
+  the editor's own tab menus, which is the 2026-09-16 sweep.
 
 Find drives the WebView2 Find API (`ICoreWebView2Find` via the environment's
 `CreateFindOptions`); Zoom/Print are the controller's `ZoomFactor` and
@@ -83,8 +83,8 @@ to see the remembered standing.
   the Windows Hello passkey opener row (validate the OS URI on the machine
   first).
 - **v3**: WebMCP site tools (ADR when the standard lands); Developer mode /
-  raw CDP — the reference itself marks it Elevated risk: if it lands it is
-  off by default, `full` tier only, audited, warning row, ADR first.
+  raw CDP **landed 2026-09-16** (ADR-0144: machine setting + `full` tier,
+  shell re-check, every call audited; the loopback port stays an env var).
 - **Never on WebView2**: third-party cookies, images, embedded content — no
   host API; a control there would be theatre.
 
@@ -152,8 +152,16 @@ decision, ADR before code.
   handlers come ready-made.
 - COM interfaces are not `Send`: keep event receivers on the UI thread (the
   `RECEIVERS` thread-local in `btab.rs`), never in Tauri state.
-- An HTML popover can never paint over a WebView2 sibling: the options menu
-  slides the page down (`MENU_H` in `WebTab.jsx`) instead of flipping z-order.
+- **An HTML layer can never paint over a WebView2 sibling.** The rule is
+  geometry, not a memory of which overlays exist: `floatingLayers.js` collects
+  every visible layer from the shared vocabulary (`OVERLAY_SELECTORS` in
+  `web/shared/domain/overlayAudit.js` — role+state for Radix, the app's own
+  classes for the rest) and the tab hides the native view when any of them
+  intersects its rectangle, showing the frozen page behind (`btab_preview`).
+  The old `MENU_H` slide is gone (2026-09-16: the owner's editor tab menu came
+  up invisible under the page — a class-only list never saw the palette
+  either). A new floating surface belongs in the shared list, or both the hide
+  rule and the clipping audit lose sight of it.
 - **A sized popup must stay a window.** `window.open(url, name,
   "width=…,height=…")` carries window features; adopting it as a tab severs
   `window.opener`, and the OAuth popup dead-ends on a blank bridge page
@@ -169,6 +177,20 @@ decision, ADR before code.
   tabs-only, so every settings link in the split's ⋮ menu silently no-op'd
   through `?.`). Same for parking: the tab hides on tab switch AND on
   route change (`onPane`), or the page covers the settings views.
+- **The domains field's hint is a third reading of the rule.** Two matchers
+  enforce it (`internal/browser/domains.go`, `desktop-shell/src/origins.rs`);
+  `browserDomains.js` only describes it, and is tested as a description. If
+  the matchers change, that file lies first — and the lying is cosmetic, never
+  a grant.
+- **A grant entry the matchers read literally opens nothing.** `*` was the
+  live case: the domains field accepted it (the charset allows `*`), both
+  matchers compared it to the host, nothing matched, and nothing said so.
+  Since 2026-09-16 `*` means any http/https host in both matchers, and
+  `browserDomains.js` says in the field what each entry covers — including
+  "matches nothing" for the shapes that still do (`*example.com`, `*.`, `.`).
+- **`rustc --edition 2021 --test src/origins.rs` runs that module's tests
+  without cargo** (the host `cargo test` is broken here); it needs the test
+  module's `use super::{…}` to list what the tests call.
 
 ## Scope (v1): Pi only, and read for a TUI
 
@@ -187,12 +209,16 @@ gallery hit is worth a look before anyone installs it expecting this one.
 
 ## Debts
 
+- The work browser has no `docs/architecture/<subsystem>.md` file: its shape
+  lives across ADR-0128/0132/0134/0135/0143/0144 and the plan. Worth one file
+  the next time a browser slice lands.
 - The Ask deferral/answer/watchdog path has never run outside Windows:
   `cargo xwin build` plus the pure decision table are the evidence here; the
   owner's live check is the first run.
-- An Ask waits only in the tab that asked; a request from a tab the user is
-  not looking at is denied when the 60 s watchdog fires (nowhere else shows
-  it).
+- An Ask waits only in the tab that asked: a request from a tab the user is
+  not looking at is denied when the 60 s watchdog fires. That is the
+  limitation the Ask bar's own placement makes honest — nowhere else shows a
+  waiting request.
 - The COM capture + native hide half of the still/overlay path has no
   automated test (Windows-only); the JS decode gate is unit-tested
   (`lib/previewStill.js`).
@@ -200,7 +226,6 @@ gallery hit is worth a look before anyone installs it expecting this one.
   reference options-menu entries still missing; import has no WebView2 API
   (cookies would go through CDP).
 - `btab_layer.toml` (autogenerated) is a dead permission.
-- The options menu's page slide is not animated.
 - No JS check catches use-before-declaration in a component (the blank-window
   class).
 - ADR-0143's endpoint branch still has no test of its own: the resolver's

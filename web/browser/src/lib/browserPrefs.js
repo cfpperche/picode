@@ -14,6 +14,7 @@ export const DEFAULT_BROWSER_PREFS = {
   askDownload: false,
   scriptsEnabled: true,
   agentAccess: true,
+  developerMode: false,
 };
 
 // readBrowserPrefs folds a payload into the shape the page holds: missing
@@ -29,5 +30,8 @@ export function readBrowserPrefs(payload) {
     askDownload: p.askDownload === true,
     scriptsEnabled: p.scriptsEnabled !== false,
     agentAccess: p.agentAccess !== false,
+    // Fail closed like the daemon does (ADR-0144): a payload that omits it
+    // must not read as "raw CDP is on".
+    developerMode: p.developerMode === true,
   };
 }

@@ -137,7 +137,11 @@ Browser settings (opens Preferences ▸ Browser) — every entry maps to an
 item above. Landed 2026-09-15 without *Show device toolbar* and *Import
 cookies and passwords…* (neither exists yet; a dead item is worse than a
 missing one), and the menu opens **over** the page (native view hidden
-behind a still) instead of sliding it down.
+behind a still) instead of sliding it down. Since 2026-09-16 that rule is
+general — *any* floating layer that intersects a work tab parks the native
+view (`web/browser/src/lib/floatingLayers.js` over the shared layer list in
+`web/shared/domain/overlayAudit.js`), so the command palette, the editor's
+tab menus, dialogs and toasts behave the same way.
 
 **Settings ▸ Browser (Preferences page section):**
 - [ ] Master toggle: "Let the agent control the built-in browser" — per
@@ -175,10 +179,13 @@ behind a still) instead of sliding it down.
   tier (read/act), Downloads/Uploads are `full`-tier scopes; "Requires
   approval" = the v2 ask-on-first-use prompt; v1 ships the manual editor
   (slice 4)
-- [ ] **Developer mode — Enable full CDP access**, labeled "Elevated risk",
+- [x] **Developer mode — Enable full CDP access**, labeled "Elevated risk",
   off by default: unlocks raw CDP beyond the curated command catalog. Ours:
-  ADR-0128's opt-in loopback port toggle (same semantics: elevated risk,
-  owner's call, everything else keeps working without it) (slice 2)
+  ADR-0144 — the daemon grows one `cdp` verb that needs the machine setting
+  *and* the `full` tier, the shell re-checks both from its own copy of the
+  setting, and every call (allowed or refused) lands in an audit the card
+  lists. The loopback port stays an env var, deliberately not a UI row.
+  (landed 2026-09-16)
 
 **Non-goals kept from the benchmark:** Chrome extensions in the panel
 (delegated to the user's real browser — our `ext/`+browserhost until
@@ -239,7 +246,10 @@ Increment 4.1 (2026-09-13, `feat/browser-grants`): the act vocabulary and the
 destination rule. `evaluate` (`Runtime.evaluate`) and `navigate`
 (`Page.navigate`) are the first act verbs, so a grant now buys something real:
 `browser.AllowsOrigin` — http/https only, exact host, `*.example.com` or
-`.example.com` for subdomains, port ignored; the table is written in
+`.example.com` for subdomains, `*` for any host (2026-09-16: the owner's
+"any site", one token, still web-only — and the field now says what each
+entry covers, naming the entries that would open nothing), port ignored; the
+table is written in
 `internal/browser/domains.go` and every row of it is a test — and the route
 checks the one verb with a destination before the command leaves. Params now
 travel from the tool to the shell (`Command.Params` was already in the

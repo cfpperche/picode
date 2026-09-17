@@ -16,8 +16,16 @@ test("readBrowserPrefs keeps every field of a full payload", () => {
       askDownload: true,
       scriptsEnabled: false,
       agentAccess: false,
+      developerMode: true,
     };
   assert.deepEqual(readBrowserPrefs(saved), saved);
+});
+
+test("developer mode defaults off and survives a round trip", () => {
+  assert.equal(DEFAULT_BROWSER_PREFS.developerMode, false);
+  assert.equal(readBrowserPrefs({}).developerMode, false);
+  const on = readBrowserPrefs({ ...DEFAULT_BROWSER_PREFS, developerMode: true });
+  assert.equal(readBrowserPrefs(on).developerMode, true);
 });
 
 test("askDownload survives the round trip the save path makes", () => {

@@ -21,7 +21,3 @@ is still open: `POST /api/browser/tool` with `snapshot` answered **"the desktop
 app is not connected"** (502), which is the honest daemon answer with no shell
 on the line. To see page content: run the desktop app, open a work-browser tab,
 then ask a restarted agent for `snapshot`.
-
-## Next up
-
-- Owner: first runtime check of the browser tool (snapshot/screenshot/events).

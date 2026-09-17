@@ -17,8 +17,3 @@ One-debt branch: `make desktop-restart` now covers the v2 shell.
 - This quites the debt recorded in `docs/handoff/open/work-browser-tabs.md`
   (the manual shell swap that masked the CDP bridge behind a Tauri ACL
   refusal for a day).
-
-## Next up
-
-- Owner: next `make desktop-restart` is the live acceptance (watch it swap
-  the shell; the app blinks once).

@@ -25,9 +25,23 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 // ADR-0105's 8 KB was measured against a hand-edited file gamed with 581-byte
 // lines; this view is generated from a fixed source set and read once per
 // session, so it carries the ledger at 12 KB and still fails over budget.
+// ADR-0145: the board is a *bounded view*. Its sources are append-only (one
+// note per session, one bullet per item), so a fixed byte cap could only be
+// met by deleting another agent's prose — measured 2026-09-16: four prune
+// rounds in one session, one "paid" line already false. The view now truncates
+// by design (per-topic bullets, a short note window) and the targets below are
+// a warning, not a gate.
 const MAX_LINES = 120;
 const MAX_BYTES = 12 * 1024;
-const NOTE_FRESH_DAYS = 30;
+// A note is a handoff to the next session, not a ledger: its bullets ride the
+// board for a week. Durable items belong in docs/handoff/open/<topic>.md.
+const NOTE_FRESH_DAYS = 7;
+// Per topic, before the pointer line: enough to see what is next, not the
+// whole list. The file has the rest.
+const TOPIC_NEXT_MAX = 2;
+// Bullets a topic's Debts section may contribute as a *count* line is always
+// one line; the quota is what keeps the biggest topics from dominating.
+const NOTE_BULLET_MAX = 8;
 
 const NEXT_HEADINGS = ["next", "next up", "next steps"];
 const DEBT_HEADINGS = ["debts", "debt", "debts / open questions", "open questions", "known debts"];
@@ -100,8 +114,34 @@ export function parseTopicFile(markdown, stem) {
   const sections = parseSections(markdown);
   const title = (/^#\s+(.+)$/m.exec(markdown)?.[1] ?? stem).trim();
   const next = pick(sections, NEXT_HEADINGS);
-  const debts = pick(sections, DEBT_HEADINGS);
-  return { stem, title, next, debts, plan: planPath(markdown), bullets: countBullets(markdown), visible: next.length + debts.length };
+  const { open: debts, paid } = scanDebts(markdown);
+  return { stem, title, next, debts, paid, plan: planPath(markdown), bullets: countBullets(markdown), visible: next.length + debts.length + paid.length };
+}
+
+// A debt bullet carries its state when it wants to: `- [x]` is paid, a plain
+// `- ` bullet (and `- [ ]`) is open. Paid ones leave the board and stay in the
+// file — the ledger keeps its history, the view keeps its size (ADR-0145).
+function scanDebts(markdown) {
+  const open = [];
+  const paid = [];
+  let inDebts = false;
+  for (const raw of markdown.split("\n")) {
+    const heading = /^##\s+(.*)$/.exec(raw);
+    if (heading) {
+      inDebts = DEBT_HEADINGS.includes(normalizeHeading(heading[1]));
+      continue;
+    }
+    if (/^#\s+/.test(raw)) {
+      inDebts = false;
+      continue;
+    }
+    if (!inDebts) continue;
+    const item = /^[-*]\s+(?:\[([ xX])\]\s*)?(.*)$/.exec(raw);
+    if (!item) continue;
+    const done = (item[1] ?? "").toLowerCase() === "x";
+    (done ? paid : open).push(item[2].trim());
+  }
+  return { open, paid };
 }
 
 // ADR-0131 (A): a topic file that opens with prose and lists its debts anyway
@@ -114,7 +154,8 @@ export function parseNote(markdown, fileName) {
   const stem = fileName.replace(/\.md$/, "");
   const date = (stem.match(/^(\d{4}-\d{2}-\d{2})/) ?? [])[1] ?? "";
   const sections = parseSections(markdown);
-  return { stem, date, branch: stem.replace(/^\d{4}-\d{2}-\d{2}-/, ""), next: pick(sections, NEXT_HEADINGS), debts: pick(sections, DEBT_HEADINGS) };
+  const { open: debts } = scanDebts(markdown);
+  return { stem, date, branch: stem.replace(/^\d{4}-\d{2}-\d{2}-/, ""), next: pick(sections, NEXT_HEADINGS), debts };
 }
 
 export function ageInDays(date, now) {
@@ -128,32 +169,52 @@ function attribute(bullets, source) {
 }
 
 export function render({ worktrees, topics, notes, now = Date.now(), idleHours = 24 }) {
-  // ADR-0140: a session note is transient, so both its sections leave the
-  // board after NOTE_FRESH_DAYS. A debt that still matters past that belongs
-  // in docs/handoff/open/<topic>.md; the note's text stays in git either way.
-  const fresh = notes.filter((n) => ageInDays(n.date, now) <= NOTE_FRESH_DAYS);
-  const next = [
-    ...topics.flatMap((t) => attribute(t.next, t.stem)),
-    ...fresh.flatMap((n) => attribute(n.next, n.stem)),
-  ];
-  // Debts are the unbounded side: they accumulate per topic and only matter
-  // when that topic is being worked on. The board carries the count and the
-  // plan; the bullets stay in the file (ADR-0131 C).
+  // ADR-0145: every section is bounded by construction, so the view always
+  // renders and the targets below can only warn. A note is a handoff to the
+  // next session: its bullets ride along for NOTE_FRESH_DAYS, newest first, and
+  // the ones that do not fit are named by a pointer rather than dropped in
+  // silence.
+  const fresh = notes.filter((n) => ageInDays(n.date, now) <= NOTE_FRESH_DAYS).sort((a, b) => (a.date < b.date ? 1 : -1));
+  const next = [];
+  let nextHidden = 0;
+  for (const t of topics) {
+    next.push(...attribute(t.next.slice(0, TOPIC_NEXT_MAX), t.stem));
+    if (t.next.length > TOPIC_NEXT_MAX) {
+      next.push(`- …+${t.next.length - TOPIC_NEXT_MAX} more in \`docs/handoff/open/${t.stem}.md\``);
+      nextHidden += t.next.length - TOPIC_NEXT_MAX;
+    }
+  }
+  const noteNext = fresh.flatMap((n) => attribute(n.next.slice(0, 1), n.stem));
+  next.push(...noteNext.slice(0, NOTE_BULLET_MAX));
+  if (noteNext.length > NOTE_BULLET_MAX) {
+    next.push(`- …+${noteNext.length - NOTE_BULLET_MAX} more from recent session notes in \`docs/handoff/\``);
+    nextHidden += noteNext.length - NOTE_BULLET_MAX;
+  }
+  // Debts: a topic is one line (its count, its file, its plan — ADR-0131 C); a
+  // fresh note's open debt is a line of its own until it ages out or moves into
+  // the topic that owns it.
   const debts = [
     ...[...topics]
       .filter((t) => t.debts.length)
       .sort((a, b) => b.debts.length - a.debts.length || a.stem.localeCompare(b.stem))
-      .map((t) => `- ${t.debts.length} debt(s) — *${t.stem}* — open \`docs/handoff/open/${t.stem}.md\`${t.plan ? ` — Plan: \`${t.plan}\`` : ""}`),
-    ...fresh.flatMap((n) => attribute(n.debts, n.stem)),
+      .map((t) => {
+        const paid = t.paid.length ? `, ${t.paid.length} paid` : "";
+        return `- ${t.debts.length} open debt(s)${paid} — *${t.stem}* — open \`docs/handoff/open/${t.stem}.md\`${t.plan ? ` — Plan: \`${t.plan}\`` : ""}`;
+      }),
   ];
+  const noteDebts = fresh.flatMap((n) => attribute(n.debts.slice(0, 1), n.stem));
+  debts.push(...noteDebts.slice(0, NOTE_BULLET_MAX));
+  if (noteDebts.length > NOTE_BULLET_MAX) {
+    debts.push(`- …+${noteDebts.length - NOTE_BULLET_MAX} more from recent session notes in \`docs/handoff/\``);
+  }
 
   const lines = [
     "# Handoff — living project state",
     "",
     "> Generated by `make handoff` (ADR-0123): **do not edit this file**, it is not in git.",
-    "> *In flight* is git state. *Next up* carries the one-line next steps; *debts* list each",
-    "> topic's count with its plan, and the bullets live in `docs/handoff/open/<topic>.md`",
-    "> (fresh notes — ≤ 30 days — contribute their `## Next up` / `## Debts` bullets directly).",
+    "> *In flight* is git state. *Next up* is a **view**: two bullets per topic plus the",
+    `> newest session notes (≤ ${NOTE_FRESH_DAYS} days), then a pointer — the rest lives in \`docs/handoff/open/<topic>.md\`.`,
+    "> *Debts* counts each topic's **open** ones (`- [ ]`, or a plain bullet); `- [x] paid` stays in the file.",
     "> To change something here: edit that topic file or your session note, then run `make handoff`.",
     "",
     `_${new Date(now).toISOString().replace(/\.\d+Z$/, "Z")} — ${worktrees.length - 1} worktree(s), ${topics.length} open topic(s), ${notes.length} note(s)_`,
@@ -173,15 +234,17 @@ export function render({ worktrees, topics, notes, now = Date.now(), idleHours =
   ];
   const text = lines.join("\n");
 
-  // Who overflows, if anyone: the generator names the files, the writer prunes.
+  // Who is over quota: named so the *sources* can be trimmed, never the view.
   const over = [];
-  const notesBytes = text.length;
-  if (lines.length > MAX_LINES || notesBytes > MAX_BYTES) {
+  const bytes = text.length;
+  if (lines.length > MAX_LINES || bytes > MAX_BYTES) {
     const weigh = (list) =>
-      list.map((entry) => ({ stem: entry.stem, lines: entry.next.length + entry.debts.length })).sort((a, b) => b.lines - a.lines);
+      list
+        .map((entry) => ({ stem: entry.stem, lines: entry.next.length + entry.debts.length + (entry.paid?.length ?? 0) }))
+        .sort((a, b) => b.lines - a.lines);
     over.push(...weigh([...topics, ...notes]).slice(0, 8));
   }
-  return { text, over, stats: { lines: lines.length, bytes: notesBytes } };
+  return { text, over, stats: { lines: lines.length, bytes, hidden: nextHidden } };
 }
 
 function readTopics() {
@@ -246,15 +309,18 @@ function main() {
     return 1;
   }
   if (over.length) {
+    // ADR-0145: over the target is a warning, never a gate. The view is bounded
+    // by construction, so this points at the *sources* to trim — topics first,
+    // since a note ages out on its own.
     console.error(
-      `handoff: over budget (${stats.lines} lines / ${stats.bytes} bytes; the caps are ${MAX_LINES} lines and ${MAX_BYTES} bytes).\n` +
-        "Prune the largest sources (bullets under `## Next` / `## Debts`):",
+      `handoff: over target (${stats.lines} lines / ${stats.bytes} bytes; the targets are ${MAX_LINES} lines and ${MAX_BYTES} bytes).\n` +
+        "The view still rendered; trim the largest sources if the board reads badly:",
     );
     for (const o of over) console.error(`  - ${o.stem}: ${o.lines} bullet(s)`);
-    return 1;
+    if (stats.hidden) console.error(`  (${stats.hidden} bullet(s) behind pointers)`);
   }
   writeFileSync(outPath, text);
-  console.log(`handoff: wrote docs/handoff.md (${stats.lines} lines, ${stats.bytes} bytes)`);
+  console.log(`handoff: wrote docs/handoff.md (${stats.lines} lines, ${stats.bytes} bytes${stats.hidden ? `, ${stats.hidden} behind pointers` : ""})`);
   return 0;
 }
 

@@ -21,16 +21,9 @@ binding, 979b9223) plus the owner directive: **the split survives a relaunch**.
   the stale `picode-shell.exe` (pre-CDP capabilities) was the ACL refusal;
   rebuilt + swapped + relaunched by hand (see the debts below).
 
-## Next up
-
-- Owner: deploy, then re-check the split restore in the shell (quit + relaunch:
-  the pane must come back at the same page).
 
 ## Debts
 
-- `make desktop-restart` swaps the Go tray + native host only; the v2 shell
-  must be rebuilt (`make desktop-shell`) and copied by hand — recorded in
-  docs/handoff/open/work-browser-tabs.md.
 - The tab-strip × and expand toggle live in the pane toolbar, which renders
   only in the shell; their write path shares the same persist effect and tests
   but got no Chromium click.

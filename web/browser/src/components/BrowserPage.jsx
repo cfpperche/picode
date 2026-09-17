@@ -4,8 +4,11 @@ import * as Switch from "@radix-ui/react-switch";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import FolderPicker from "./FolderPicker.jsx";
 import { DEFAULT_BROWSER_PREFS, readBrowserPrefs } from "../lib/browserPrefs.js";
+import { describeDomainField } from "../lib/browserDomains.js";
 import { ALL_SITES, permissionPush } from "../lib/browserPermissions.js";
 import { takeBrowserDialog } from "../lib/browserDialogs.js";
+import { IconWarn } from "./Icons.jsx";
+import { relTime } from "@picode/shared/domain/relTime.js";
 import PageFrame from "./PageFrame.jsx";
 import { browserGrantSchema } from "@picode/shared/contracts/schemas.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
@@ -198,6 +201,9 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   const [wipeKinds, setWipeKinds] = useState(() => WIPE_KINDS.filter((k) => k.on).map((k) => k.value));
   const [wipeBusy, setWipeBusy] = useState(false);
   const [prefs, setPrefs] = useState(DEFAULT_BROWSER_PREFS);
+  // The raw-CDP audit (ADR-0144): null while loading, [] when empty, so the
+  // card can tell "nothing yet" from "not read yet".
+  const [devAudit, setDevAudit] = useState(null);
 
   // The work-tab options menu asks for one of these dialogs (option A, owner
   // 2026-09-15): the request rode the route change, and this page opens it
@@ -247,6 +253,19 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     }
   }, []);
 
+  // The audit is what makes Developer mode defensible: every raw CDP call,
+  // allowed or refused, newest first (ADR-0144).
+  const loadDevAudit = useCallback(async () => {
+    try {
+      const r = await fetch("/api/browser/developer/audit?limit=20");
+      if (!r.ok) throw new Error(String(r.status));
+      const data = await r.json();
+      setDevAudit(data.calls ?? []);
+    } catch {
+      setDevAudit([]);
+    }
+  }, []);
+
   const loadHistory = useCallback(async () => {
     setHistLoading(true);
     try {
@@ -285,10 +304,22 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
       loadHistory();
       loadDownloads();
       loadStands();
+      loadDevAudit();
       if (invoke) invoke("btab_download_dir").then((p) => setDownloadDir(p || "")).catch(() => {});
       fetch("/api/browser/prefs")
         .then((r) => r.json())
-        .then((p) => setPrefs(readBrowserPrefs(p)))
+        .then((p) => {
+          const next = readBrowserPrefs(p);
+          setPrefs(next);
+          // The shell keeps its own copy of the switches it applies per page
+          // (JavaScript on creation, developer mode at every raw CDP call).
+          // Push on load as well as on save: after an app restart the shell's
+          // copy is at its default until something tells it otherwise, and a
+          // settings page that only pushes on save leaves that gap until the
+          // next click.
+          invoke?.("btab_set_scripts", { enabled: next.scriptsEnabled !== false }).catch(() => {});
+          invoke?.("btab_set_developer_mode", { enabled: next.developerMode === true }).catch(() => {});
+        })
         .catch(() => {});
     }
   }, [hidden, load, loadHistory]);
@@ -312,6 +343,8 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
       .catch((e) => toast("The app did not accept the download setting: " + (e?.message || e)));
     invoke?.("btab_set_scripts", { enabled: next.scriptsEnabled !== false })
       .catch((e) => toast("The app did not accept the JavaScript setting: " + (e?.message || e)));
+    invoke?.("btab_set_developer_mode", { enabled: next.developerMode === true })
+      .catch((e) => toast("The app did not accept the developer mode setting: " + (e?.message || e)));
   };
 
   // Saves land as setting.updated; history mutations as browserhistory.updated.
@@ -333,6 +366,9 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     if (ev.type === "browserpermission.updated") loadStands();
     if (ev.type === "browserhistory.updated") loadHistory();
     if (ev.type === "browserdownload.updated") loadDownloads();
+    // The audit refetches on its own events: a raw call the owner is watching
+    // for shows up while the page is open (ADR-0144).
+    if (ev.type === "browser.cdp") loadDevAudit();
   }), [load, loadHistory, loadDownloads]);
 
   const removeVisit = async (vid) => {
@@ -711,6 +747,54 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
             Terminals you started in PiCode get a row too — a CLI agent there is a principal like any other. A <code>pi</code> started outside PiCode has no identity at all and always reads the tab on screen.
           </p>
         </section>
+
+        <section className="set-group">
+          <h2 className="set-grouph">Developer mode</h2>
+          <div className="set-panel">
+            <div className="set-item set-item-risk">
+              <div className="set-item-body">
+                <span className="set-risk"><IconWarn /> Elevated risk</span>
+                <span className="set-item-t">Enable full CDP access</span>
+                <span className="set-item-d">
+                  Lets an agent at the Full tier name any Chrome DevTools Protocol method, not only the ones PiCode allows on its own. Off, everything keeps working — the agent just stays inside the curated list.
+                </span>
+              </div>
+              <div className="set-item-ctl">
+                <SwitchCtl checked={prefs.developerMode} onChange={(v) => setPref({ developerMode: v })} label="Enable full CDP access" />
+              </div>
+            </div>
+            <div className="set-item">
+              <div className="set-item-body">
+                <span className="set-item-d">
+                  Raw access reaches what the curated list deliberately keeps away: the browser's stored cookies, sessions and page storage. Turn it on while you need it, and check the calls below afterwards.
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="set-panel">
+            <div className="set-item set-item-col">
+              <div className="set-item-body">
+                <span className="set-item-t">Raw calls</span>
+                {devAudit === null ? (
+                  <span className="set-item-d">Reading…</span>
+                ) : devAudit.length === 0 ? (
+                  <span className="set-item-d">No raw calls yet. Every call an agent makes with the switch on is listed here, allowed or refused.</span>
+                ) : (
+                  <ul className="set-audit">
+                    {devAudit.map((call) => (
+                      <li key={call.id} className="set-audit-row">
+                        <code className="set-audit-method">{call.method}</code>
+                        <span className={"set-audit-outcome" + (call.outcome === "allowed" ? " is-ok" : "")}>{call.outcome}</span>
+                        <span className="set-audit-actor">{call.agentId || call.termId || "unknown"}</span>
+                        <span className="set-audit-when">{relTime(call.calledAt)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
 
       <Dialog.Root open={historyOpen} onOpenChange={(open) => { setHistoryOpen(open); if (!open) { setSelected(new Set()); setHistQuery(""); } }}>
@@ -1081,6 +1165,10 @@ function GrantRow({ row, draft, onDraft, onSave, flash }) {
   const valid = parsed.success;
   const dirty = draft.tier !== row.tier || draft.domainsText !== domainsText(row);
   const actLike = draft.tier !== "read";
+  // What the field currently means, in words (browserDomains.js is the same
+  // reading the matchers do — a hint, never a check). An entry that opens
+  // nothing is named here instead of being saved in silence.
+  const covers = actLike ? describeDomainField(draft.domainsText) : [];
   return (
     <div className="set-item">
       <div className="set-item-body">
@@ -1089,6 +1177,23 @@ function GrantRow({ row, draft, onDraft, onSave, flash }) {
           {row.saved ? <span className="devs-tag">custom</span> : <span className="devs-tag devs-tag-off">default</span>}
         </span>
         {!valid && actLike ? <span className="set-item-d" style={{ color: "var(--danger)" }}>{parsed.error.issues[0].message}</span> : null}
+        {actLike && valid ? (
+          covers.length === 0 ? (
+            <span className="set-item-d">
+              No sites yet — this agent can only read the tab you have on screen. Add a host, or * for any site.
+            </span>
+          ) : (
+            <ul className="grant-covers">
+              {covers.map((c) => (
+                <li key={c.entry} className={"grant-cover" + (c.kind === "dead" ? " is-dead" : "")}>
+                  <span className="grant-cover-label">{c.label}</span>
+                  {c.covers ? <span className="grant-cover-d"> — {c.covers}</span> : null}
+                  {c.kind === "dead" ? <span className="grant-cover-d"> — {c.miss}</span> : null}
+                </li>
+              ))}
+            </ul>
+          )
+        ) : null}
       </div>
       <div className="set-item-ctl">
         <select
@@ -1102,7 +1207,7 @@ function GrantRow({ row, draft, onDraft, onSave, flash }) {
         {actLike && (
           <input
             className={"grant-domains" + (valid ? "" : " grant-domains-bad")}
-            placeholder="example.com, *.example.com"
+            placeholder="example.com, *.example.com, *"
             value={draft.domainsText}
             onChange={(e) => onDraft({ ...draft, domainsText: e.target.value })}
             aria-label={"Allowed domains for " + row.name}

@@ -148,3 +148,5 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0141](0141-instance-stamp-and-the-reap-scope.md) | The instance stamp — one PiCode does not reap another's sessions | accepted |
 | [0142](0142-retire-go-tray.md) | retire-go-tray | proposed |
 | [0143](0143-terminal-agents-as-principals.md) | terminal-agents-as-principals | accepted |
+| [0144](0144-developer-mode-cdp.md) | Developer mode — raw CDP for a full-tier agent | accepted |
+| [0145](0145-board-bounded-view.md) | The handoff board is a bounded view | accepted |

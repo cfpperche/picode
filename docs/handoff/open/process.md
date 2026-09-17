@@ -2,7 +2,7 @@
 
 ## Next
 
-- The handoff board sits at its 12288-byte cap: `make close` fails at `make handoff` until a paid debt is pruned (2026-09-15).
+- [x] The handoff board sat at its cap and failed `make close` until a paid debt was pruned — superseded by ADR-0145 (bounded view: 2 bullets per topic, 7-day notes, open debts only, over target warns).
 
 ## Debts
 

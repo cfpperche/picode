@@ -408,12 +408,31 @@ pub async fn btab_cdp_call(
     params_json: Option<String>,
     tier: String,
     domains: Option<Vec<String>>,
+    raw: Option<bool>,
 ) -> Result<serde_json::Value, String> {
     use webview2_com::CallDevToolsProtocolMethodCompletedHandler;
     use windows::core::HSTRING;
 
     let tier = cdppolicy::Tier::parse(&tier)?;
-    cdppolicy::allows(tier, &method)?;
+    // Two doors, and only two. The catalog (ADR-0128) is the narrow one; a
+    // raw call (ADR-0144) is the one the owner opened on this machine, and it
+    // needs the full tier here as well — the daemon checked both, and neither
+    // process grants what the other refuses.
+    if raw.unwrap_or(false) {
+        if !*developer_mode().lock().unwrap() {
+            return Err(format!(
+                "{method}: raw CDP is off — turn on Developer mode in Settings ▸ Browser"
+            ));
+        }
+        if tier != cdppolicy::Tier::Full {
+            return Err(format!(
+                "{method}: raw CDP needs the full tier — this command carried {}",
+                tier.name()
+            ));
+        }
+    } else {
+        cdppolicy::allows(tier, &method)?;
+    };
     let name = method.trim().to_string();
     let params = params_json.unwrap_or_else(|| "{}".to_string());
     if serde_json::from_str::<serde_json::Value>(&params).is_err() {
@@ -1496,6 +1515,23 @@ fn attach_permission_handler(app: &AppHandle, id: &str) {
         let mut token: i64 = 0;
         let _ = core.add_PermissionRequested(&handler, &mut token);
     });
+}
+
+// --- Raw CDP (ADR-0144) ----------------------------------------------------
+
+// Developer mode, as the page last told us. The daemon owns the setting and
+// refuses first; this copy is the shell's own gate, so a command that arrived
+// with a raw flag while the owner has the mode off is refused here too.
+// Off unless the page said otherwise.
+fn developer_mode() -> &'static Mutex<bool> {
+    static DEVELOPER: OnceLock<Mutex<bool>> = OnceLock::new();
+    DEVELOPER.get_or_init(|| Mutex::new(false))
+}
+
+#[tauri::command]
+pub async fn btab_set_developer_mode(enabled: bool) -> Result<(), String> {
+    *developer_mode().lock().unwrap() = enabled;
+    Ok(())
 }
 
 // --- JavaScript (slice 3, Browser permissions) ------------------------------

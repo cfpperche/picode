@@ -55,6 +55,10 @@ type BrowserPrefs struct {
 	// AgentAccess is the master switch: off refuses every browser verb for
 	// every agent (the grants below stop mattering until it is back on).
 	AgentAccess bool `json:"agentAccess"`
+	// DeveloperMode unlocks the raw CDP verb for full-tier principals
+	// (ADR-0144). Off by default, and an unreadable key means off: the one
+	// setting whose failure mode must be "no access".
+	DeveloperMode bool `json:"developerMode"`
 }
 
 // browserPrefsRead folds the simple prefs out of the settings KV. Defaults:
@@ -106,6 +110,11 @@ func browserPrefsRead(st *store.Store) (BrowserPrefs, error) {
 				p.AgentAccess = false
 			}
 		}},
+		{prefDeveloperMode, func(raw string) {
+			if raw == "1" {
+				p.DeveloperMode = true
+			}
+		}},
 	}
 	for _, row := range rows {
 		raw, ok, err := st.GetSetting(row.key)
@@ -147,6 +156,7 @@ func handleBrowserPrefsPut(deps Deps) http.HandlerFunc {
 			{"browser.scriptsEnabled", map[bool]string{true: "1", false: "0"}[req.ScriptsEnabled]},
 			{"browser.askDownload", map[bool]string{true: "1", false: "0"}[req.AskDownload]},
 			{"browser.agentAccess", map[bool]string{true: "1", false: "0"}[req.AgentAccess]},
+			{prefDeveloperMode, map[bool]string{true: "1", false: "0"}[req.DeveloperMode]},
 		}
 		for _, row := range rows {
 			if err := deps.Store.SetSetting(row.key, row.value); err != nil {
@@ -175,4 +185,20 @@ func browserAgentAccess(st *store.Store) bool {
 		return true
 	}
 	return !ok || raw != "0"
+}
+
+// prefDeveloperMode is the raw-CDP switch (ADR-0144): "1" when the owner
+// turned Developer mode on. Fail closed — an unreadable key, or no store at
+// all, means the raw door is shut.
+const prefDeveloperMode = "browser.developerMode"
+
+func browserDeveloperMode(st *store.Store) bool {
+	if st == nil {
+		return false
+	}
+	raw, ok, err := st.GetSetting(prefDeveloperMode)
+	if err != nil || !ok {
+		return false
+	}
+	return raw == "1"
 }
