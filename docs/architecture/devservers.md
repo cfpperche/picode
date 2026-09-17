@@ -96,22 +96,26 @@ without it, the frame above.
 ## The terminal door
 
 Ctrl+click (or the pane menu's **Open <host>**) on an `http(s)` link in a
-terminal whose host is this machine — `localhost`, `127.0.0.0/8`, `::1`,
-`*.localhost` (`isLoopbackUrl`, `web/shared/client/devservers.js`) — opens the
-page in PiCode's own browser surface. Anything else keeps going to the browser
-the system would pick, exactly as before.
+terminal opens it where the human said web links belong. A URL printed in a
+terminal is a browsing action inside PiCode, so the two rows Browser settings
+already offers decide it — read fresh per link, like the shell's popup door:
 
-**The preference decides.** Browser settings already asks *"Local development
-sites — where localhost and dev servers open by default"* (`localOpenDest`,
-slice 3), and a URL printed by a dev server in a terminal is that case: a
-viewer who chose **external** keeps the system browser, and the default
-(**app**) gets PiCode's surface. The four outcomes (file, elsewhere, loopback
-→ app, loopback → external) are one pure function with its own test —
-`web/browser/src/lib/openLink.js` / `openLink.test.js` — read fresh per link,
-like the shell's popup door, so the preference is whatever it is now. The
-Servers panel's own **Open** button does not consult it: an explicit control
-inside PiCode asks for PiCode, and the preference governs the default, not a
-click.
+| the link | the preference | the action |
+| --- | --- | --- |
+| loopback (`isLoopbackUrl`) | `localOpenDest` | PiCode's surface, unless "external" |
+| any other host | `webOpenDest` | PiCode's surface, unless "external" |
+| a path under the terminal's cwd | — | the file pane, unchanged |
+
+Both preferences default to PiCode, so Ctrl+click on a printed link is
+normally a **work-browser tab**. Until 2026-09-17 every non-loopback link left
+for the system browser from the terminal, which made this the one door that
+ignored where the human had said web URLs open (owner's call, 2026-09-17). The
+three outcomes are one pure function with its own test —
+`web/browser/src/lib/openLink.js` / `openLink.test.js` — and the terminal
+wiring hands the URL up (`web/shared/domain/termLinks.js` takes the app's
+opener) instead of calling `window.open` itself. The Servers panel's own
+**Open** button does not consult it: an explicit control inside PiCode asks for
+PiCode, and the preference governs the default, not a click.
 
 ## What this does not do
 

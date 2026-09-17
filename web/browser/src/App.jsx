@@ -2359,7 +2359,7 @@ export default function App({ shellChrome = false } = {}) {
       // settings, "Local development sites"), so it decides here too: the
       // decision table lives in lib/openLink.js. Anything not local, and any
       // file path, behaves exactly as before.
-      const first = linkOpenTarget(ctx.link, "app");
+      const first = linkOpenTarget(ctx.link, "app", "app");
       if (!first) return;
       if (first.action === "file") { openFileTab(ctx.kind === "agent" ? "agent" : "term", ctx.id, first.path); return; }
       if (first.action === "external") { window.open(first.url, "_blank", "noopener,noreferrer"); return; }
@@ -2369,7 +2369,7 @@ export default function App({ shellChrome = false } = {}) {
       fetch("/api/browser/prefs")
         .then((r) => r.json())
         .then((p) => {
-          const dest = linkOpenTarget(ctx.link, p.localOpenDest);
+          const dest = linkOpenTarget(ctx.link, p.localOpenDest, p.webOpenDest);
           if (dest.action === "external") window.open(dest.url, "_blank", "noopener,noreferrer");
           else openWebTab(dest.url);
         })
@@ -3115,6 +3115,26 @@ export default function App({ shellChrome = false } = {}) {
     } catch (e) { if (reportError) toastError(e); else throw e; }
   }
 
+  // A link printed in a terminal is a browsing action inside PiCode: Ctrl+click
+  // and the pane menu's Open both land here, and the human's own preference
+  // decides (Browser settings — local dev sites vs web URLs, both defaulting to
+  // PiCode's surface). The system browser stays reachable by setting either to
+  // "Default browser"; before 2026-09-17 every non-loopback link left the app
+  // from the terminal, which is the one door that ignored that preference.
+  const openTermLink = useCallback((href) => {
+    const url = String(href || "").trim();
+    if (!url) return;
+    fetch("/api/browser/prefs")
+      .then((r) => r.json())
+      .then((p) => {
+        const target = linkOpenTarget({ kind: "http", href: url }, p.localOpenDest, p.webOpenDest);
+        if (!target) return;
+        if (target.action === "external") window.open(target.url, "_blank", "noopener,noreferrer");
+        else openWebTab(target.url);
+      })
+      .catch(() => openWebTab(url));
+  }, []);
+
   const onPane = route !== "workspace";
   const missing = !!goneId;
   const noTabs = tabs.length === 0 && !missing;
@@ -3284,6 +3304,7 @@ export default function App({ shellChrome = false } = {}) {
                 hidden={selectedId !== id}
                 error={selectedId === id ? termError : ""}
                 onOpenFile={(p) => openFileTab("term", tid, p)}
+                onOpenLink={openTermLink}
                 attach={termAttach && termAttach.id === tid ? termAttach : null}
                 onAttachClose={() => setTermAttach(null)}
                 find={termFind === tid}
@@ -3689,6 +3710,7 @@ export default function App({ shellChrome = false } = {}) {
                   term={{ id: agent.id, session: "picode-" + agent.id, name: agent.name + " · TUI", cwd: agent.workPath || (selected && selected.path) }}
                   cwdKind="agent"
                   onOpenFile={(p) => openFileTab("agent", agent.id, p)}
+                  onOpenLink={openTermLink}
                   attach={termAttach && termAttach.id === agent.id ? termAttach : null}
                   onAttachClose={() => setTermAttach(null)}
                   find={termFind === agent.id}

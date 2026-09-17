@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  hasOpenModifier, stripLineCol, classify, findLinks, linkAt, tokenAt, underCwd, relPath,
+  hasOpenModifier, stripLineCol, classify, findLinks, linkAt, tokenAt, underCwd, relPath, wireTermLinks,
 } from "./termLinks.js";
 
 const cwd = "/home/goat/picode";
@@ -91,4 +91,35 @@ test("tokenAt hits a path even when classify would reject it", () => {
   assert.ok(tok);
   assert.equal(tok.raw.includes("ping.txt"), true);
   assert.equal(linkAt(line, line.indexOf("ping") + 1, cwd), null);
+});
+
+// The app hands its own opener in: Ctrl+click on a link must land where the
+// human's preference says (PiCode's browser surface by default), and a bare
+// terminal — no opener — keeps the platform's own behavior.
+test("wireTermLinks hands an http hit to the caller's opener", async () => {
+  const calls = [];
+  const win = { open: (...a) => { calls.push(a); return null; }, addEventListener() {}, removeEventListener() {} };
+  globalThis.window = win;
+  const term = {
+    options: {},
+    element: null,
+    buffer: { active: { getLine: () => null } },
+    registerLinkProvider: () => ({ dispose() {} }),
+  };
+  const opened = [];
+  wireTermLinks(term, () => cwd, undefined, undefined, (href) => opened.push(href));
+  const ev = { ctrlKey: true, preventDefault() {}, stopImmediatePropagation() {} };
+  term.options.linkHandler.activate(ev, "https://example.com/x");
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(opened, ["https://example.com/x"]);
+  assert.deepEqual(calls, []);
+
+  // No opener: the platform's own window.open, as before.
+  const bare = { ...term, options: {} };
+  wireTermLinks(bare, () => cwd, undefined, undefined);
+  bare.options.linkHandler.activate(ev, "https://example.com/y");
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], "https://example.com/y");
+  delete globalThis.window;
 });
