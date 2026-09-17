@@ -9,7 +9,10 @@ import {
 	resolveToken,
 	screenshotPath,
 	summarizeAx,
+	summarizeCdp,
+	summarizeEvaluate,
 	summarizeEvents,
+	summarizeNavigate,
 } from "../src/logic.ts";
 
 test("the daemon is found through PICODE_URL or server.json", () => {
@@ -91,4 +94,35 @@ test("verbs in the tool are the five the daemon knows", () => {
 	// The union in extensions/browser.ts is hand-written; this keeps it honest.
 	const source = readFileSync(new URL("../extensions/browser.ts", import.meta.url), "utf8");
 	for (const verb of ["snapshot", "screenshot", "events", "evaluate", "navigate"]) assert.match(source, new RegExp(`Type\\.Literal\\("${verb}"\\)`));
+});
+
+// The act verbs' answers, found broken by using the tool with a full grant
+// (2026-09-17): all three ran and all three arrived as "the page has no
+// accessible content", because the AX renderer was the only formatter.
+test("evaluate answers with the value, not a tree", () => {
+	assert.equal(summarizeEvaluate({ result: { type: "number", value: 2 } }), "2");
+	assert.equal(summarizeEvaluate({ result: { type: "string", value: "PI-CODE" } }), "PI-CODE");
+	assert.equal(summarizeEvaluate({ result: { type: "object", value: { a: 1 } } }), '{"a":1}');
+	assert.equal(summarizeEvaluate({ result: { type: "undefined" } }), "undefined");
+	assert.equal(summarizeEvaluate({ result: { type: "function", description: "() => 1" } }), "() => 1");
+	assert.equal(summarizeEvaluate({}), "evaluate returned nothing");
+});
+
+test("a page exception is an answer about the page, said in one line", () => {
+	const out = { exceptionDetails: { text: "Uncaught", exception: { description: "Error: boom\n    at <anonymous>:1:1" } } };
+	assert.equal(summarizeEvaluate(out), "the page threw: Error: boom");
+});
+
+test("navigate says where it went, or why it did not", () => {
+	assert.equal(summarizeNavigate({ frameId: "F1" }, "https://example.com/"), "navigated to https://example.com/");
+	assert.equal(summarizeNavigate({ errorText: "net::ERR_NAME_NOT_RESOLVED" }, "https://nope.invalid/"), "navigate failed: net::ERR_NAME_NOT_RESOLVED");
+	assert.equal(summarizeNavigate({}), "navigated");
+});
+
+test("cdp answers with JSON and a cap", () => {
+	assert.equal(summarizeCdp({ cookies: [] }), '{"cookies":[]}');
+	const big = summarizeCdp({ blob: "x".repeat(5000) }, 100);
+	assert.ok(big.startsWith('{"blob":"xxx'));
+	assert.match(big, /\(\d+ more chars\)$/);
+	assert.equal(summarizeCdp("plain"), '"plain"');
 });

@@ -28,7 +28,10 @@ import {
 	resolveToken,
 	screenshotPath,
 	summarizeAx,
+	summarizeCdp,
+	summarizeEvaluate,
 	summarizeEvents,
+	summarizeNavigate,
 } from "../src/logic.ts";
 
 async function readText(path: string): Promise<string | null> {
@@ -153,6 +156,15 @@ export default function piBrowser(pi: ExtensionAPI) {
 			if (verb === "events") {
 				const lines = summarizeEvents(output);
 				return { content: [{ type: "text", text: lines.length ? lines.join("\n") : "The tab recorded nothing." }] };
+			}
+			if (verb === "evaluate") {
+				return { content: [{ type: "text", text: summarizeEvaluate(output) }] };
+			}
+			if (verb === "navigate") {
+				return { content: [{ type: "text", text: summarizeNavigate(output, params.url) }] };
+			}
+			if (verb === "cdp") {
+				return { content: [{ type: "text", text: summarizeCdp(output) }] };
 			}
 			const { lines, dropped } = summarizeAx(output);
 			const text = lines.length

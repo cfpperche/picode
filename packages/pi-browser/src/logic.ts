@@ -125,3 +125,47 @@ export function summarizeEvents(output: unknown, max = 40): string[] {
 	if (typeof last === "number" && lines.length === 0) lines.push(`nothing since the cursor (last #${last})`);
 	return lines;
 }
+// --- the act verbs' answers --------------------------------------------------
+
+// Found by using the tool with a full grant (2026-09-17): `evaluate`,
+// `navigate` and `cdp` all ran, and all three were then rendered by the
+// accessibility-tree formatter — the agent got "The page has no accessible
+// content" for a call that worked. Each verb answers with its own payload, so
+// each gets its own line.
+
+/** summarizeEvaluate renders Runtime.evaluate's answer: the value, or the page's own exception. */
+export function summarizeEvaluate(output: unknown): string {
+	const result = (output as { result?: unknown })?.result as { value?: unknown; description?: unknown; type?: unknown } | undefined;
+	const exception = (output as { exceptionDetails?: unknown })?.exceptionDetails as
+		| { text?: unknown; exception?: { description?: unknown } }
+		| undefined;
+	if (exception) {
+		// The page threw: that is an answer about the page, not a tool failure,
+		// so it reads as one line instead of an error.
+		const detail = exception.exception?.description ?? exception.text;
+		return `the page threw: ${typeof detail === "string" ? detail.split("\n")[0] : "an exception"}`;
+	}
+	if (!result) return "evaluate returned nothing";
+	if (result.type === "undefined") return "undefined";
+	if (result.value !== undefined) return typeof result.value === "string" ? result.value : JSON.stringify(result.value);
+	if (typeof result.description === "string") return result.description;
+	return JSON.stringify(result);
+}
+
+/** summarizeNavigate renders Page.navigate's answer: where it went, or why it did not. */
+export function summarizeNavigate(output: unknown, url = ""): string {
+	const error = (output as { errorText?: unknown })?.errorText;
+	if (typeof error === "string" && error !== "") return `navigate failed: ${error}`;
+	return url ? `navigated to ${url}` : "navigated";
+}
+
+/** summarizeCdp renders a raw method's answer as JSON, capped so a big payload cannot flood the context. */
+export function summarizeCdp(output: unknown, max = 4000): string {
+	let text: string;
+	try {
+		text = JSON.stringify(output) ?? String(output);
+	} catch {
+		text = String(output);
+	}
+	return text.length > max ? `${text.slice(0, max)}… (${text.length - max} more chars)` : text;
+}

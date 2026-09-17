@@ -12,10 +12,13 @@ app) — the `browser` tool (ADR-0132, ADR-0134).
 | `navigate` | the page after a navigation, inside the grant's domains | act |
 | `cdp` | one Chrome DevTools Protocol method by name — needs Developer mode **and** the Full tier | full |
 
-Read-only by construction: the tool names a verb, the daemon maps it to a CDP
+Read-only unless granted: the tool names a verb, the daemon maps it to a CDP
 method the shell's catalog allows at that tier, and the default policy is
-**read on the tab on screen** — it cannot click, type or navigate. Acting needs
-a per-agent grant (Settings ▸ Browser, slice 4).
+**read on the tab on screen** — with no grant it cannot click, type or
+navigate. Acting needs a grant (Settings ▸ Browser). Each verb answers in its
+own shape: `snapshot` as `role "name"` lines, `events` as the recorded ring,
+`evaluate` as the value (or `the page threw: …`), `navigate` as where it went,
+`cdp` as the method's JSON.
 
 `cdp` is the one verb that names a protocol method itself, and it is the one
 the owner opens deliberately: with **Developer mode** off (the default) the
