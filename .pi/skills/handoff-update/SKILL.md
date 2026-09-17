@@ -35,28 +35,32 @@ per open topic** in `docs/handoff/open/`, and a `docs/handoff.md` that is
 
    ## Next up
 
-   - session-local follow-up (rendered into the board for 30 days)
+   - session-local follow-up (on the board for 7 days, one bullet)
 
    ## Debts
 
-   - something accepted here that outlives the branch (no age limit)
+   - something accepted here that outlives the branch (open until paid)
    ```
 
    The two sections are optional bullets; prose paragraphs are not read by the
    generator.
 3. **A durable item goes to its topic instead**: `docs/handoff/open/<topic>.md`
    (`## Next` for work not started, `## Debts` for what is accepted and unpaid).
-   Edit the bullet in the branch that pays it — that deletion is the record. One
-   line each; `Plan: docs/plans/<x>.md` when a plan carries the detail; add a
-   new topic file when a genuinely new subject appears. **The two headings are
-   what the board reads** (ADR-0131): your `## Next` bullets render inline, and
-   your debts as one line (count + file + plan). Bullets under any other heading
-   are invisible to it, and a file whose bullets are *all* outside the two
-   headings fails `make handoff` by name.
+   Pay an item in the branch that pays it — for a debt, flip `- [ ]` to `- [x]`
+   (the record stays, the board drops it); for a next, delete it. One line each;
+   `Plan: docs/plans/<x>.md` when a plan carries the detail; add a new topic
+   file when a genuinely new subject appears. **The two headings are what the
+   board reads** (ADR-0131): the board renders the *first two* `## Next` bullets
+   of each topic (then `…+N more in <file>` — ADR-0145) and the **open** debt
+   count. Bullets under any other heading are invisible to it, and a file whose
+   bullets are *all* outside the two headings fails `make handoff` by name.
 4. **Never touch `docs/handoff.md`.** It is generated (`make handoff`, run by
    `make close`), git-ignored, and the pre-commit hook refuses a committed copy
-   — on `main` and in a worktree. Over its 120-line/12 KB budget, `make handoff`
-   fails and names the topic files to prune; it never truncates silently.
+   — on `main` and in a worktree. **Never prune another session's bullets to
+   fit it** (ADR-0145): the view truncates per topic, counts open debts only,
+   and over its 120-line/12 KB target it warns and still renders — `make close`
+   is never blocked by how much the team wrote down. The named sources are for
+   reading badly, not for deleting.
 5. **Changelog**: user-visible change without a fragment → write
    `docs/changelog.d/<branch-slug>.md` now (`### Added` / `### Fixed` +
    one line each). Never edit `CHANGELOG.md`; `make changelog` assembles it.
