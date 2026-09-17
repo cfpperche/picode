@@ -3135,6 +3135,24 @@ export default function App({ shellChrome = false } = {}) {
       .catch(() => openWebTab(url));
   }, []);
 
+  // The wordmark's one action, shared by the shell's top row and the
+  // browser's sidebar: show the dashboard. Pinning alone was not enough.
+  //  - The dashboard is rendered inside the workspace view, which the
+  //    non-workspace routes keep hidden, so from Agent CLIs, Browser,
+  //    Preferences or Devices the click looked dead until the human
+  //    navigated back on their own. It now comes back to the workspace
+  //    route (the hash a tab already owns is left alone).
+  //  - In the shell the brand is a button inside a drag region; nothing
+  //    inside it may carry data-tauri-drag-region, or Tauri answers the
+  //    mousedown with a native window drag and the click never fires
+  //    (2026-09-17: the wordmark dragged the window instead of opening
+  //    the dashboard).
+  const openDashboard = useCallback(() => {
+    setDashboardPinned(true);
+    setNavigationOpen(false);
+    if (parseRoute() !== "workspace") go("workspace");
+  }, []);
+
   const onPane = route !== "workspace";
   const missing = !!goneId;
   const noTabs = tabs.length === 0 && !missing;
@@ -3175,10 +3193,13 @@ export default function App({ shellChrome = false } = {}) {
       {shellChrome && (
         <header className="shell-row" data-tauri-drag-region>
           <div className="shell-brand-cluster" data-tauri-drag-region>
-            <button type="button" className="shell-brand" title="Dashboard"
-                    onClick={() => { setDashboardPinned(true); setNavigationOpen(false); }}>
-              <span className="shell-mark" data-tauri-drag-region><IconBrandMark /></span>
-              <span className="shell-name" data-tauri-drag-region>PiCode</span>
+            {/* No data-tauri-drag-region inside this button: Tauri starts
+                a window drag on the element the mousedown lands on, and a
+                span carrying the attribute swallows the click before the
+                button sees it. The row around it stays draggable. */}
+            <button type="button" className="shell-brand" title="Dashboard" onClick={openDashboard}>
+              <span className="shell-mark"><IconBrandMark /></span>
+              <span className="shell-name">PiCode</span>
             </button>
             <RailTabs tab={sideTab} selectTab={selectSideTab} apps={apps} pkgUpdates={pkgUpdates} onOpenClis={() => { go("clis"); setNavigationOpen(false); }} />
           </div>
@@ -3230,7 +3251,7 @@ export default function App({ shellChrome = false } = {}) {
         onRenameTerm={renameTerminal}
         onGitGraph={openGitTab}
         onFileTree={openTreeTab}
-        onOpenDashboard={() => { setDashboardPinned(true); setNavigationOpen(false); }}
+        onOpenDashboard={openDashboard}
         onOpenClis={() => { go("clis"); setNavigationOpen(false); }}
         apps={apps}
         nativeApps={NATIVE_APPS}
