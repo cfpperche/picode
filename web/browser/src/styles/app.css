@@ -155,8 +155,8 @@ body {
 /* Every sidebar tab is one column: the header and search stay pinned at
    the top and only the `.side-scroll` list area below them scrolls —
    scrolling no longer carries the tab's controls out of view. */
-.side-section { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 10px 8px; }
-.side-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.side-section { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 10px 0 0; }
+.side-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0 8px 10px; }
 .tree-row {
   display: grid;
   grid-template-columns: var(--tree-chev) var(--tree-icon) minmax(0, 1fr) auto auto;
@@ -192,11 +192,11 @@ body {
   font: inherit; color: var(--accent); cursor: pointer;
 }
 .side-empty-act:hover { text-decoration: underline; }
-.pins-pane { padding: 8px 10px; }
+.pins-pane { padding: 8px 0 0; }
 .pins-head {
   flex: none;
   display: flex; align-items: center; gap: 8px;
-  padding: 2px 0 8px;
+  padding: 2px 8px 8px;
 }
 .pins-title {
   flex: 1; min-width: 0;
@@ -341,7 +341,7 @@ body {
 .pin-card-files { margin-top: 2px; font-size: 11px; color: var(--text-secondary); }
 .pins-search {
   flex: none;
-  display: flex; align-items: center; gap: 6px; margin: 0 0 8px; padding: 0 8px;
+  display: flex; align-items: center; gap: 6px; margin: 0 8px 8px; padding: 0 8px;
   height: 30px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
   color: var(--text-secondary);
 }
