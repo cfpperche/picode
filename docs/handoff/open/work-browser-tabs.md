@@ -6,7 +6,7 @@ reviewed by the owner against the reference, one item at a time.
 
 ## Next
 
-- **v2a** unused-site permissions; **v2b** agent history access (the Ask
+- **v2a** unused sites; **v2b** agent history — landed (ADR-0146).
   machinery landed 2026-09-15; the history grant is its own path).
 - **v2c** annotations (step 4 is an ADR); **v2d** Windows Hello opener row.
 - **v3** WebMCP site tools (ADR when the standard lands). Developer mode
