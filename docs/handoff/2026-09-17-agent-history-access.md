@@ -29,7 +29,15 @@ prompt surface) are named in the ADR.
   updated deliberately; 383 web tests, 12 package tests.
 - Visual: the row reads "Agent history access — Never" in Browser permissions.
 
-## Not verified
+## Verified live (owner set Allow for it, 2026-09-17)
 
-An agent actually calling it: the pi-browser package's tool carries the verb,
-and the package ships on deploy — the owner's own CLI agent is the live check.
+Against the deployed daemon, reading **counts and field names only** so the
+owner's own browsing list never entered the session: `limit 3` → 200 with three
+rows (`host, id, title, typed, url, visitedAt`, three distinct hosts); a query
+narrowed it to the five QA pages that match; an anonymous caller (no agent, no
+term) is answered too — the gate is the setting, not a tier. `summarizeHistory`
+was exercised on fabricated rows: `date  title — url` per line plus the count,
+and a title equal to its URL is not repeated.
+
+Still the owner's: a CLI agent invoking the verb through the pi-browser tool
+itself (the same endpoint, one layer up).
