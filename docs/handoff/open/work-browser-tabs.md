@@ -136,6 +136,14 @@ decision, ADR before code.
 
 ## Traps (paid for, keep them paid)
 
+- **The built UI and the scratch can disagree.** `make web` is stamp-guarded
+  (`var/web.built`), and a scratch embeds the bundle at build time — so a UI
+  edit can be "built" while the running page is one revision older. It bit me
+  on 2026-09-17: a leftover `setPreviewBusy` call in an old bundle threw
+  `ReferenceError` and blanked the app, and I spent a while blaming the new
+  code. `rm -f var/web.built` before the scratch build when a UI file changed,
+  and grep the *served* asset for a string only the new code has.
+
 - **A new shell command is THREE edits**: `generate_handler!` (main.rs),
   `build.rs`'s `AppManifest::new().commands(&[…])` and
   `capabilities/default.json` — miss the second and every invoke dies with

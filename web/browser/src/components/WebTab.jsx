@@ -40,7 +40,6 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [still, setStill] = useState(""); // the page, frozen while the menu is over it
-  const [previewBusy, setPreviewBusy] = useState(false); // a capture is in flight
   const [previewFailed, setPreviewFailed] = useState(false); // the capture proved worthless
   const [zoom, setZoom] = useState(1);
   const [findOpen, setFindOpen] = useState(false);
@@ -70,10 +69,15 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
   // | menu | verified still | capture in flight | capture failed | dialog open | webview  |
   // | ---- | -------------- | ----------------- | -------------- | ----------- | -------- |
   // | open | yes            | —                 | —              | —           | hidden (the frozen page sits behind the menu) |
-  // | open | no             | yes               | —              | —           | hidden (host gray until the still lands) |
+  // | open | no             | yes               | —              | —           | **visible** (the menu waits for this row to resolve — see below) |
   // | open | no             | no                | yes            | —           | hidden (host gray; the menu still works) |
   // | shut | —              | —                 | —              | no          | visible |
   // | —    | —              | —                 | —              | yes         | hidden (the dialog dims the window) |
+  //
+  // The waiting row is why `menuOpen` is only set once there is something to
+  // sit behind the menu: hiding the live page before its still exists showed
+  // the host's gray for the length of a capture, and the owner read that as
+  // the page blinking on every menu click (2026-09-17).
   const previewRef = useRef({ url: "", at: 0, inflight: null });
   useEffect(() => () => {
     if (previewRef.current.url) URL.revokeObjectURL(previewRef.current.url);
@@ -99,28 +103,47 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     previewRef.current.inflight = inflight;
     return inflight;
   };
+  // A menu open has to arrive with its backdrop: the still (the frozen page
+  // the HTML sits on) is prefetched on hover and focus, and when it is not
+  // there yet the menu waits for the capture instead of parking the live page
+  // behind a strip of gray. A failed capture still opens it — over the host
+  // gray, which is the honest "we could not freeze this page".
   const onMenuOpenChange = (open) => {
-    setMenuOpen(open);
     if (!open) {
+      setMenuOpen(false);
       setStill("");
-      setPreviewBusy(false);
       setPreviewFailed(false);
       return;
     }
-    if (previewRef.current.url) setStill(previewRef.current.url);
-    else setPreviewBusy(true);
-    grabPreview().then((url) => {
-      setPreviewBusy(false);
+    // A plain browser has no native page to cover: nothing to wait for.
+    if (!invoke) {
+      setMenuOpen(true);
+      return;
+    }
+    const opened = () => {
+      setMenuOpen(true);
+      if (started) invoke("btab_zoom", { id }).then((z) => { if (typeof z === "number") setZoom(z); }).catch(() => {});
+    };
+    if (previewRef.current.url) {
+      setStill(previewRef.current.url);
+      setPreviewFailed(false);
+      opened();
+      return;
+    }
+    // The capture is a shell round-trip; if it stalls, the menu opens anyway
+    // (over the host gray) instead of a click that appears to do nothing.
+    const timed = new Promise((r) => setTimeout(() => r(""), 600));
+    Promise.race([grabPreview(), timed]).then((url) => {
       if (url) {
         setStill(url);
         setPreviewFailed(false);
       } else {
         setPreviewFailed(true);
       }
+      opened();
     });
-    if (started) invoke("btab_zoom", { id }).then((z) => { if (typeof z === "number") setZoom(z); }).catch(() => {});
   };
-  const covered = overlayCover || (menuOpen && (!!still || previewBusy || previewFailed));
+  const covered = overlayCover || (menuOpen && (!!still || previewFailed));
   // Whatever the reason, a covered page shows the frozen frame instead of
   // the host's empty background. The menu prefetches on hover; every other
   // layer takes the capture when it first covers the page (cached, so the
@@ -148,7 +171,6 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     if (!hidden) return;
     setMenuOpen(false);
     setStill("");
-    setPreviewBusy(false);
     setPreviewFailed(false);
   }, [hidden]);
 
@@ -405,6 +427,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
               aria-label="Browser options"
               onPointerEnter={() => grabPreview(1500)}
               onPointerDown={() => grabPreview(1500)}
+              onFocus={() => grabPreview(1500)}
             >⋮</button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
