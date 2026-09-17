@@ -41,7 +41,8 @@ use webview2_com::Microsoft::Web::WebView2::Win32::{
     COREWEBVIEW2_PERMISSION_KIND_LOCAL_FONTS, COREWEBVIEW2_PERMISSION_KIND_MICROPHONE,
     COREWEBVIEW2_PERMISSION_KIND_MIDI_SYSTEM_EXCLUSIVE_MESSAGES,
     COREWEBVIEW2_PERMISSION_KIND_NOTIFICATIONS, COREWEBVIEW2_PERMISSION_KIND_OTHER_SENSORS,
-    COREWEBVIEW2_PERMISSION_STATE_ALLOW, COREWEBVIEW2_PERMISSION_STATE_DENY,
+    COREWEBVIEW2_PERMISSION_STATE_ALLOW, COREWEBVIEW2_PERMISSION_STATE_DEFAULT,
+    COREWEBVIEW2_PERMISSION_STATE_DENY,
 };
 
 #[derive(Default)]
@@ -1302,6 +1303,86 @@ fn permission_kind_name(kind: i32) -> &'static str {
     }
 }
 
+// The platform's kind for the name the dialog and the Ask prompt write — the
+// reverse of `permission_kind_name`, over the store's closed vocabulary.
+fn permission_kind_of(name: &str) -> Option<COREWEBVIEW2_PERMISSION_KIND> {
+    Some(match name.trim().to_ascii_lowercase().as_str() {
+        "camera" => COREWEBVIEW2_PERMISSION_KIND_CAMERA,
+        "microphone" => COREWEBVIEW2_PERMISSION_KIND_MICROPHONE,
+        "location" => COREWEBVIEW2_PERMISSION_KIND_GEOLOCATION,
+        "notifications" => COREWEBVIEW2_PERMISSION_KIND_NOTIFICATIONS,
+        "clipboard" => COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ,
+        "autoplay" => COREWEBVIEW2_PERMISSION_KIND_AUTOPLAY,
+        "sensors" => COREWEBVIEW2_PERMISSION_KIND_OTHER_SENSORS,
+        "midi" => COREWEBVIEW2_PERMISSION_KIND_MIDI_SYSTEM_EXCLUSIVE_MESSAGES,
+        "fonts" => COREWEBVIEW2_PERMISSION_KIND_LOCAL_FONTS,
+        "filesystem" => COREWEBVIEW2_PERMISSION_KIND_FILE_READ_WRITE,
+        _ => return None,
+    })
+}
+
+// The engine keeps its own per-origin memory of a decision (the permission
+// manager behind `SetPermissionState`), so a standing we forget in our map
+// would keep working until the app restarts — and the dialog's Reset would be
+// a control that does not do what it says. Every write that names a concrete
+// origin tells the engine too. The profile is shared, so one call covers
+// every tab, including the ones created later; the main window's profile is
+// reachable even with no browser tab open. A `*` origin has no engine
+// equivalent — that policy is ours alone.
+fn apply_engine_state(app: &AppHandle, kind: &str, origin: Option<&str>, state: &str) {
+    let Some(origin) = origin
+        .map(str::trim)
+        .filter(|o| !o.is_empty() && *o != permissions::ANY_SITE)
+    else {
+        return;
+    };
+    let Some(platform_kind) = permission_kind_of(kind) else {
+        return;
+    };
+    let target = match state.trim().to_ascii_lowercase().as_str() {
+        "allow" => COREWEBVIEW2_PERMISSION_STATE_ALLOW,
+        "deny" => COREWEBVIEW2_PERMISSION_STATE_DENY,
+        _ => COREWEBVIEW2_PERMISSION_STATE_DEFAULT,
+    };
+    let origin = origin.to_string();
+    for (name, wv) in app.webview_windows() {
+        if !name.starts_with("btab-") && name != "main" {
+            continue;
+        }
+        let origin = origin.clone();
+        let _ = wv.with_webview(move |platform| unsafe {
+            let Ok(core) = platform.controller().CoreWebView2() else {
+                return;
+            };
+            let Ok(core13) =
+                core.cast::<webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_13>()
+            else {
+                return;
+            };
+            let Ok(profile) = core13.Profile() else {
+                return;
+            };
+            let Ok(profile4) = profile
+                .cast::<webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Profile4>()
+            else {
+                return;
+            };
+            let wide: Vec<u16> = origin.encode_utf16().chain(std::iter::once(0)).collect();
+            // The engine completes it asynchronously; nothing waits on it —
+            // the next request from that origin is the only thing that can
+            // tell whether it landed, and it re-asks either way.
+            let handler =
+                webview2_com::SetPermissionStateCompletedHandler::create(Box::new(|_| Ok(())));
+            let _ = profile4.SetPermissionState(
+                platform_kind,
+                windows::core::PCWSTR(wide.as_ptr()),
+                target,
+                &handler,
+            );
+        });
+    }
+}
+
 /// How long an unanswered Ask holds the page's request before the shell
 /// denies it. A held request with no answer hangs the site, so a prompt the
 /// user never sees expires instead of pinning the deferral forever.
@@ -1378,12 +1459,19 @@ fn expire_permission_ask(app: &AppHandle, ask: u64) {
 // or "default" to forget the entry.
 #[tauri::command]
 pub async fn btab_set_permission_policy(
+    app: AppHandle,
     kind: String,
     state: String,
     origin: Option<String>,
 ) -> Result<(), String> {
-    let mut policy = permission_policy().lock().unwrap();
-    permissions::set(&mut policy, origin.as_deref(), &kind, &state)
+    {
+        let mut policy = permission_policy().lock().unwrap();
+        permissions::set(&mut policy, origin.as_deref(), &kind, &state)?;
+    }
+    // A site's entry is also the engine's: forgetting one must make the next
+    // request ask again, instead of waiting for a restart.
+    apply_engine_state(&app, &kind, origin.as_deref(), &state);
+    Ok(())
 }
 
 // Answer a held Ask prompt. Sync on purpose: the pending deferrals are COM
@@ -1415,13 +1503,18 @@ pub fn btab_permission_answer(
         let _ = p.deferral.Complete();
     }
     if remember {
-        let mut policy = permission_policy().lock().unwrap();
-        permissions::set(
-            &mut policy,
-            Some(&p.origin),
-            &p.kind,
-            if allow { permissions::ALLOW } else { permissions::DENY },
-        )?;
+        {
+            let mut policy = permission_policy().lock().unwrap();
+            permissions::set(
+                &mut policy,
+                Some(&p.origin),
+                &p.kind,
+                if allow { permissions::ALLOW } else { permissions::DENY },
+            )?;
+        }
+        // "Always" is a standing for the site, so the engine's own memory
+        // agrees with ours — and survives a relaunch of the app.
+        apply_engine_state(&app, &p.kind, Some(&p.origin), if allow { "allow" } else { "deny" });
     }
     report_permission(&app, &p.origin, &p.kind, allow, remember, Some(id));
     Ok(())
