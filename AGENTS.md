@@ -169,6 +169,7 @@ For any UI work:
 | `make ui` | Vite HMR on :5173 (proxies API to the Go server) |
 | `make web` / `make build` | Build React UI → `internal/web/public` / UI + `bin/picode` |
 | `make ci-scoped` / `make close` | Gates for this diff / end-of-session rite |
+| `make land BRANCH=x` | Landing rite from the root: fast-forward `main` to the branch, then `make ci` (never commits; refuses an overlapping dirty tree) |
 | `make ci` | Everything CI runs — the gate for the merge on `main` |
 | `make deploy` | Owner only: rebuild, refresh stale captures, restart the service; refuses while agents work |
 | `make changelog` | Fold `docs/changelog.d/` fragments into `CHANGELOG.md` (on `main`, before a release) |
