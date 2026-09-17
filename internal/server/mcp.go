@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -23,7 +24,21 @@ func registerMCPRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("DELETE /api/mcp", handleMCPRemove(deps))
 }
 
+// connectorDrivers declares which agent CLI a /api/mcp request drives.
+// Only Pi ships a driver today (ADR-0150); guest CLIs join as their codecs
+// land in internal/connectors. A request naming any other CLI fails loudly
+// instead of silently writing Pi's files.
+var connectorDrivers = map[string]bool{"pi": true}
+
+func requireConnectorDriver(cli string) error {
+	if cli == "" || connectorDrivers[cli] {
+		return nil
+	}
+	return fmt.Errorf("connectors for %s are not available yet", cli)
+}
+
 type mcpMutateReq struct {
+	CLI         string            `json:"cli"`
 	Scope       string            `json:"scope"`
 	WorkspaceID string            `json:"workspaceId"`
 	AgentID     string            `json:"agentId"`
@@ -45,6 +60,10 @@ type mcpMutateReq struct {
 
 func handleMCPGet(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if err := requireConnectorDriver(r.URL.Query().Get("cli")); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		p, sources, err := mcpPaths(deps, r.URL.Query().Get("workspace"), r.URL.Query().Get("agent"))
 		if err != nil {
 			writeErr(w, statusForStore(err), err.Error())
@@ -66,6 +85,10 @@ func handleMCPImport(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req mcpMutateReq
 		_ = json.NewDecoder(r.Body).Decode(&req)
+		if err := requireConnectorDriver(req.CLI); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		p, sources, err := mcpPaths(deps, req.WorkspaceID, req.AgentID)
 		if err != nil {
 			writeErr(w, statusForStore(err), err.Error())
@@ -107,6 +130,10 @@ func handleMCPAdd(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
+		if err := requireConnectorDriver(req.CLI); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		p, sources, err := mcpPaths(deps, req.WorkspaceID, req.AgentID)
 		if err != nil {
 			writeErr(w, statusForStore(err), err.Error())
@@ -136,6 +163,10 @@ func handleMCPToggle(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "disabled is required")
 			return
 		}
+		if err := requireConnectorDriver(req.CLI); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		p, sources, err := mcpPaths(deps, req.WorkspaceID, req.AgentID)
 		if err != nil {
 			writeErr(w, statusForStore(err), err.Error())
@@ -159,6 +190,7 @@ func handleMCPRemove(deps Deps) http.HandlerFunc {
 		name := r.URL.Query().Get("name")
 		wsID := r.URL.Query().Get("workspace")
 		agentID := r.URL.Query().Get("agent")
+		cli := r.URL.Query().Get("cli")
 		if name == "" {
 			var req mcpMutateReq
 			_ = json.NewDecoder(r.Body).Decode(&req)
@@ -172,6 +204,11 @@ func handleMCPRemove(deps Deps) http.HandlerFunc {
 			if agentID == "" {
 				agentID = req.AgentID
 			}
+			cli = req.CLI
+		}
+		if err := requireConnectorDriver(cli); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
 		}
 		p, sources, err := mcpPaths(deps, wsID, agentID)
 		if err != nil {
@@ -198,6 +235,10 @@ func handleMCPAuth(deps Deps) http.HandlerFunc {
 			return
 		}
 		if err := mcp.ValidName(req.Name); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if err := requireConnectorDriver(req.CLI); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -292,6 +333,10 @@ func handleMCPAuthLogout(deps Deps) http.HandlerFunc {
 		var req mcpMutateReq
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if err := requireConnectorDriver(req.CLI); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		if err := mcp.ValidName(req.Name); err != nil {

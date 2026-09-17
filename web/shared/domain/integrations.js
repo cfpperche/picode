@@ -1,6 +1,19 @@
 // Headless contracts only; desktop and mobile own their presentation.
-export const CLI_CONNECTORS = [{ id: "pi", name: "Pi" }];
-export const supportsCliConnectors = (id) => CLI_CONNECTORS.some((cli) => cli.id === id);
+// A CLI is connector-capable only when a driver declares its capabilities
+// here (ADR-0150). Pi ships the first driver; guest CLIs join as their
+// codecs land. The pane renders what a driver declares and nothing more.
+export const CONNECTOR_DRIVERS = {
+  pi: {
+    id: "pi",
+    name: "Pi",
+    status: "live", // live | configured — what the pane may honestly claim
+    auth: ["oauth", "bearer"],
+    toggle: "entry", // per-entry enable/disable, not stub-overlay
+  },
+};
+export const CLI_CONNECTORS = Object.values(CONNECTOR_DRIVERS);
+export const connectorDriver = (id) => CONNECTOR_DRIVERS[id] || null;
+export const supportsCliConnectors = (id) => !!connectorDriver(id);
 
 export function cliConnectorsHash(cli = "pi", { workspaceId = "", agentId = "", scope = "user" } = {}) {
   const query = new URLSearchParams();

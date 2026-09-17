@@ -152,3 +152,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0145](0145-board-bounded-view.md) | The handoff board is a bounded view | accepted |
 | [0146](0146-agent-history-access.md) | agent-history-access | accepted |
 | [0149](0149-post-land-note.md) | A post-merge correction to an existing handoff note lands on main | accepted, amends 0105 |
+| [0150](0150-connectors-for-every-agent-cli.md) | connectors-for-every-agent-cli | proposed |

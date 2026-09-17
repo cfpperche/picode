@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { integrationSection, destinationLabel, readConnectorDefinition, connectorTabs, cliConnectorsHash, cliConnectorsLocation, supportsCliConnectors } from "./integrations.js";
+import { integrationSection, destinationLabel, readConnectorDefinition, connectorTabs, cliConnectorsHash, cliConnectorsLocation, supportsCliConnectors, connectorDriver, CLI_CONNECTORS } from "./integrations.js";
 import { webhookSchema } from "../contracts/schemas.js";
 
 test("integration routes and safe destination labels", () => {
@@ -14,6 +14,11 @@ test("integration routes and safe destination labels", () => {
 test("connectors nest on the selected CLI; webhooks stay platform", () => {
   assert.equal(supportsCliConnectors("pi"), true);
   assert.equal(supportsCliConnectors("codex"), false);
+  assert.equal(connectorDriver("pi").name, "Pi");
+  assert.equal(connectorDriver("pi").status, "live");
+  assert.equal(connectorDriver("codex"), null);
+  assert.equal(connectorDriver(""), null);
+  assert.deepEqual(CLI_CONNECTORS.map((c) => c.id), ["pi"]);
   assert.equal(cliConnectorsHash("pi"), "#/clis/pi/connectors");
   assert.equal(cliConnectorsLocation("#/integrations").redirect, "#/clis/pi/connectors");
   assert.equal(cliConnectorsLocation("#/integrations/connectors").redirect, "#/clis/pi/connectors");
