@@ -750,6 +750,17 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
             <Item title="JavaScript" desc="Sites can use JavaScript">
               <SwitchCtl checked={prefs.scriptsEnabled} onChange={(v) => setPref({ scriptsEnabled: v })} label="Sites can use JavaScript" />
             </Item>
+            <Item title="Agent history access" desc="Whether agents may read where you have been — off unless you allow it">
+              <select
+                className="set-select"
+                value={prefs.historyAccess}
+                onChange={(e) => setPref({ historyAccess: e.target.value })}
+                aria-label="Agent history access"
+              >
+                <option value="never">Never</option>
+                <option value="allow">Allow</option>
+              </select>
+            </Item>
           </div>
         </section>
 

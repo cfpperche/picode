@@ -136,7 +136,9 @@ func TestVerbsAreClosedAndCaseInsensitive(t *testing.T) {
 	// The read verbs are the ones an un-granted agent keeps (ADR-0134); act is
 	// reached only through a grant, and full is the raw door (ADR-0144). A new
 	// verb has to be added here on purpose — that is what this test is for.
-	read := map[string]bool{"snapshot": true, "screenshot": true, "events": true}
+	// `history` is read-tier because it drives nothing, and it has its own gate
+	// on top (ADR-0146).
+	read := map[string]bool{"snapshot": true, "screenshot": true, "events": true, "history": true}
 	full := map[string]bool{"cdp": true}
 	for name, v := range Verbs() {
 		if read[name] && v.Tier != "read" {

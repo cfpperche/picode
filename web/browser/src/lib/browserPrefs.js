@@ -13,6 +13,7 @@ export const DEFAULT_BROWSER_PREFS = {
   generalAutofill: true,
   askDownload: false,
   scriptsEnabled: true,
+  historyAccess: "never",
   agentAccess: true,
   developerMode: false,
 };
@@ -29,6 +30,9 @@ export function readBrowserPrefs(payload) {
     generalAutofill: p.generalAutofill !== false,
     askDownload: p.askDownload === true,
     scriptsEnabled: p.scriptsEnabled !== false,
+    // Fail closed (ADR-0146): a payload without the field is never, not a
+    // permission the page invented.
+    historyAccess: p.historyAccess === "allow" ? "allow" : "never",
     agentAccess: p.agentAccess !== false,
     // Fail closed like the daemon does (ADR-0144): a payload that omits it
     // must not read as "raw CDP is on".

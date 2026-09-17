@@ -169,3 +169,17 @@ export function summarizeCdp(output: unknown, max = 4000): string {
 	}
 	return text.length > max ? `${text.slice(0, max)}… (${text.length - max} more chars)` : text;
 }
+
+/** summarizeHistory renders the visits the daemon returned: newest first, one line each. */
+export function summarizeHistory(output: unknown, max = 60): string {
+	const visits = (output as { visits?: { url?: string; title?: string; visitedAt?: string }[] })?.visits;
+	if (!Array.isArray(visits) || visits.length === 0) return "No visits match.";
+	const shown = visits.slice(0, max);
+	const lines = shown.map((v) => {
+		const when = v.visitedAt ? new Date(v.visitedAt).toISOString().replace("T", " ").slice(0, 16) : "";
+		const title = v.title && v.title !== v.url ? v.title + " — " : "";
+		return `${when}  ${title}${v.url || ""}`.trim();
+	});
+	const extra = visits.length > shown.length ? `, ${visits.length - shown.length} more` : "";
+	return lines.join("\n") + `\n(${visits.length} visit${visits.length === 1 ? "" : "s"}${extra})`;
+}

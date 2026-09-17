@@ -79,6 +79,35 @@ func handleBrowserTool(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusForbidden, "agents may not use the built-in browser right now — turn it back on in Settings ▸ Browser")
 			return
 		}
+		// ADR-0146: the history is its own permission (never by default), not a
+		// side effect of a tier — and the daemon answers it from the store, so a
+		// read works with no browser tab open and no shell running.
+		if req.Verb == "history" {
+			prefs, perr := browserPrefsRead(deps.Store)
+			if perr != nil {
+				writeErr(w, http.StatusInternalServerError, perr.Error())
+				return
+			}
+			if prefs.HistoryAccess != "allow" {
+				writeErr(w, http.StatusForbidden, "reading the browsing history is off — turn on Agent history access in Settings ▸ Browser")
+				return
+			}
+			limit := 100
+			if n, ok := params["limit"].(float64); ok && n > 0 {
+				limit = int(n)
+			}
+			if limit > 200 {
+				limit = 200
+			}
+			query, _ := params["query"].(string)
+			visits, herr := deps.Store.ListBrowserHistory(limit, query)
+			if herr != nil {
+				writeErr(w, http.StatusInternalServerError, herr.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"verb": "history", "output": map[string]any{"visits": visits, "query": query}})
+			return
+		}
 		// ADR-0143: the caller is a managed agent, a terminal, or neither.
 		policy := browser.ResolveCaller(deps.Store, req.Agent, req.Term)
 		// ADR-0144: the raw verb is the one shape whose method the catalog did

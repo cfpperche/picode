@@ -30,6 +30,11 @@ var verbs = map[string]Verb{
 	"screenshot": {Method: "Page.captureScreenshot", Tier: "read"},
 	// What the tab has recorded since the last poll (never reaches the page).
 	"events": {Method: "shell.events", Tier: "read"},
+	// history reads the human's own browsing record — not a page, so the
+	// daemon answers it from the store and no shell method is named
+	// (ADR-0146). Its own gate is the setting `browser.historyAccess`,
+	// never by default; the tier is read because nothing is driven.
+	"history": {Tier: "read"},
 
 	// --- act (ADR-0128): only an explicit grant reaches these ---
 
