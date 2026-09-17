@@ -7,7 +7,7 @@
 // sized popup opens as a real window (OAuth needs `window.opener`).
 
 use std::cell::RefCell;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::Duration;
@@ -49,6 +49,10 @@ use webview2_com::Microsoft::Web::WebView2::Win32::{
 pub struct BtabState {
     // Bounds the UI reported before the webview existed (first navigate).
     pub pending: Mutex<HashMap<String, (f64, f64, f64, f64)>>,
+    // Tabs created without a reported rect: born hidden, so a page can never
+    // paint at the placeholder rect over the pane's own empty state until the
+    // first bounds call places it (owner report 2026-09-17).
+    pub unplaced: Mutex<HashSet<String>>,
     // Per-tab CDP event rings. The event handlers run on the UI thread and
     // append here; btab_cdp_events drains them by sequence number.
     rings: Arc<Mutex<HashMap<String, Ring>>>,
@@ -214,9 +218,19 @@ fn ensure(app: &AppHandle, id: &str, url: &str) -> Result<(), String> {
     let win = app.get_window("main").ok_or("main window is gone")?;
     let parsed = normalize(url)?;
     let (mut x, mut y, mut w, mut h) = (120.0, 120.0, 900.0, 640.0);
-    if let Some(b) = app.state::<BtabState>().pending.lock().unwrap().remove(id) {
+    let placed = if let Some(b) = app.state::<BtabState>().pending.lock().unwrap().remove(id) {
         (x, y, w, h) = b;
-    }
+        true
+    } else {
+        // No host rect yet. The decision table for the first frame:
+        //
+        //   rect reported before creation  → created at it, visible
+        //   no rect yet                    → created hidden at the placeholder,
+        //                                    shown by the first btab_bounds
+        //   an explicit btab_visibility    → wins over that (the flag drops)
+        //   tab closed before any of them  → nothing to show
+        false
+    };
     let emitter = app.clone();
     let page = WebviewBuilder::new(label, WebviewUrl::External(parsed))
         .data_directory(super::browserlab::webview_profile())
@@ -236,8 +250,17 @@ fn ensure(app: &AppHandle, id: &str, url: &str) -> Result<(), String> {
             let _ = emitter.emit("btab://new", url.to_string());
             NewWindowResponse::Deny
         });
-    win.add_child(page, LogicalPosition::new(x, y), LogicalSize::new(w, h))
+    let child = win
+        .add_child(page, LogicalPosition::new(x, y), LogicalSize::new(w, h))
         .map_err(|e| e.to_string())?;
+    if !placed {
+        let _ = child.hide();
+        app.state::<BtabState>()
+            .unplaced
+            .lock()
+            .unwrap()
+            .insert(id.to_string());
+    }
     attach_navigation_gate(app, id);
     attach_download_handler(app, id);
     attach_permission_handler(app, id);
@@ -326,12 +349,19 @@ pub async fn btab_bounds(
     h: f64,
 ) -> Result<(), String> {
     match app.get_webview(&label(&id)) {
-        Some(wv) => wv
-            .set_bounds(tauri::Rect {
+        Some(wv) => {
+            wv.set_bounds(tauri::Rect {
                 position: LogicalPosition::new(x, y).into(),
                 size: LogicalSize::new(w, h).into(),
             })
-            .map_err(|e| e.to_string()),
+            .map_err(|e| e.to_string())?;
+            // The first placement of a tab that was born hidden: this is what
+            // makes the page appear, now that it is where it belongs.
+            if app.state::<BtabState>().unplaced.lock().unwrap().remove(&id) {
+                let _ = wv.show();
+            }
+            Ok(())
+        }
         None => {
             // No webview yet — remember where it goes for the first navigate.
             state.pending.lock().unwrap().insert(id, (x, y, w, h));
@@ -342,6 +372,10 @@ pub async fn btab_bounds(
 
 #[tauri::command]
 pub async fn btab_visibility(app: AppHandle, id: String, visible: bool) -> Result<(), String> {
+    // An explicit call is the UI's will: it also settles a tab that was born
+    // waiting for its first placement, so bounds never shows it behind the
+    // caller's back afterwards.
+    app.state::<BtabState>().unplaced.lock().unwrap().remove(&id);
     match app.get_webview(&label(&id)) {
         Some(wv) => {
             if visible {
@@ -863,6 +897,7 @@ pub async fn btab_close(
         wv.close().map_err(|e| e.to_string())?;
     }
     state.pending.lock().unwrap().remove(&id);
+    state.unplaced.lock().unwrap().remove(&id);
     state.rings.lock().unwrap().remove(&id);
     grants().lock().unwrap().remove(&id);
     Ok(())
