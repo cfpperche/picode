@@ -3800,6 +3800,15 @@ export default function App({ shellChrome = false } = {}) {
           const id = openWebTab(url || "");
           if (title) setWebTabs((m) => ({ ...m, [tabWebId(id)]: { ...m[tabWebId(id)], title } }));
         }}
+        onOpenOwner={(owner) => {
+          // The Servers panel's "Show terminal": the row already answered
+          // whose process holds the port, so this only brings that owner's
+          // tab forward — no lookup, no guessing by name.
+          if (!owner || !owner.id) return;
+          if (owner.kind === "agent") { revealAgent(owner.id); return; }
+          openTermTab(owner.id);
+          if (parseRoute() !== "workspace") location.hash = termHash(owner.id);
+        }}
       />
 
       <FocusEdges zones={focus.zones} />
