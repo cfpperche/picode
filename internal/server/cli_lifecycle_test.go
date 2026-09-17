@@ -313,7 +313,8 @@ func TestDetectOnlyCLIsAndMuseChannelCheck(t *testing.T) {
 	// defaults (Fatia 3a), but Activity reporting stays refused — 1.3.0
 	// offers no hook surface.
 	cliRequest(t, ts, "PUT", "/api/clis/muse", map[string]any{"executable": muse}, 200)
-	cliRequest(t, ts, "PUT", "/api/clis/muse", map[string]any{"executable": muse, "integration": true}, 400)
+	// Wrapper slice: the PATH wrapper is a mechanism, so Activity saves.
+	cliRequest(t, ts, "PUT", "/api/clis/muse", map[string]any{"executable": muse, "integration": true}, 200)
 	// Same for Antigravity (Fatia 3b): editable defaults, no activity.
 	cliRequest(t, ts, "PUT", "/api/clis/agy", map[string]any{"executable": filepath.Join(bin, "agy")}, 200)
 	// Fatia 5: the title reporter is a mechanism, so Activity saves (files
@@ -342,8 +343,12 @@ func TestDetectOnlyCLIsAndMuseChannelCheck(t *testing.T) {
 				if row["launchCli"] != "muse" {
 					t.Fatalf("launched terminal = %+v", row)
 				}
-				if applied, _ := row["launchApplied"].(map[string]any); applied != nil && applied["injection"] != nil {
-					t.Fatalf("muse terminal carries an integration plan: %+v", applied)
+				// The wrapper slice: integration is on, so the terminal
+				// launches through the PATH wrapper with the presence
+				// lease plan behind it.
+				applied, _ := row["launchApplied"].(map[string]any)
+				if applied == nil || applied["injection"] == nil {
+					t.Fatalf("muse terminal carries no integration plan: %+v", row)
 				}
 			}
 		}

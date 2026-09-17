@@ -12,27 +12,23 @@ import (
 	"github.com/cfpperche/picode/internal/tmux"
 )
 
-// Decision table, Fatia 3a/5: Muse Code's launch is editable but its build
-// offers no hook surface, so the plan carries a summary and nothing to
-// install or inject; every other integrable CLI carries a mechanism
-// (arg branches, files, or environment) — Antigravity reports through its
-// title command since Fatia 5.
+// Decision table: every integrable CLI carries a mechanism (arg branches,
+// files, or environment). Muse Code and Antigravity launch through the PATH
+// wrapper like the rest since the wrapper slice; their reporting differs
+// (agy title reporter, muse presence lease only).
 func TestIntegrationMechanismTable(t *testing.T) {
 	for _, c := range clilaunch.Catalog() {
-		got := hasIntegrationMechanism(c.ID)
-		want := c.ID != "muse"
-		if got != want {
-			t.Errorf("%s hasIntegrationMechanism = %v, want %v", c.ID, got, want)
+		if got := hasIntegrationMechanism(c.ID); !got {
+			t.Errorf("%s hasIntegrationMechanism = false, want true", c.ID)
 		}
 	}
-	if p := cliIntegrationPlan("muse", t.TempDir(), "hook"); len(p.Branches) != 0 || len(p.Files) != 0 || len(p.Environment) != 0 || p.Summary == "" {
-		t.Errorf("muse plan = %+v, want a summary and nothing to install", p)
+	if p := cliIntegrationPlan("muse", t.TempDir(), "hook"); len(p.Files) != 1 || p.Summary == "" {
+		t.Errorf("muse plan = %+v, want a summary and the wrapper file", p)
 	}
 }
 
-// Decision table: the Activity toggle saves only where a mechanism exists.
-// Muse refuses without one; Antigravity reports through its title command;
-// a CLI with hooks saves.
+// Decision table: the Activity toggle saves where a mechanism exists.
+// Muse and Antigravity launch through the wrapper; a CLI with hooks saves.
 func TestIntegrationToggleGuard(t *testing.T) {
 	ts, _, _ := cleanupServer(t)
 	// The catalog row carries the toggle contract, so the web never
@@ -46,8 +42,8 @@ func TestIntegrationToggleGuard(t *testing.T) {
 			continue
 		}
 		seen[id] = true
-		if got, want := row["hasIntegrationMechanism"], id != "muse"; got != want {
-			t.Errorf("%s hasIntegrationMechanism = %v, want %v", id, got, want)
+		if got := row["hasIntegrationMechanism"]; got != true {
+			t.Errorf("%s hasIntegrationMechanism = %v, want true", id, got)
 		}
 	}
 	for _, id := range []string{"muse", "agy", "pi"} {
@@ -58,20 +54,20 @@ func TestIntegrationToggleGuard(t *testing.T) {
 	body := func(on bool) map[string]any {
 		return map[string]any{"executable": "", "args": []any{}, "env": map[string]any{}, "integration": on}
 	}
-	bodyErr := func(res map[string]any) string {
-		b, _ := res["body"].(map[string]any)
-		e, _ := b["error"].(string)
-		return e
-	}
-	res := cliRequestFull(t, ts, "PUT", "/api/clis/muse", body(true))
-	if res["status"] != "400" || !strings.Contains(bodyErr(res), "not available for Muse Code") {
-		t.Errorf("muse integration on = %v, want 400 naming Muse Code", res)
+	cliRequest(t, ts, "PUT", "/api/clis/muse", body(true), 200)
+	row := catalogCLI(t, ts, "muse")
+	if row["integrationApplied"] != true {
+		t.Fatalf("muse applied = %v after toggle on", row["integrationApplied"])
 	}
 	cliRequest(t, ts, "PUT", "/api/clis/muse", body(false), 200)
+	row = catalogCLI(t, ts, "muse")
+	if row["integrationApplied"] != false {
+		t.Fatalf("muse applied = %v after toggle off", row["integrationApplied"])
+	}
 	cliRequest(t, ts, "PUT", "/api/clis/agy", body(true), 200)
 	// On means installed: the row reports applied and the user's settings
 	// carry our title block; off removes the block again.
-	row := catalogCLI(t, ts, "agy")
+	row = catalogCLI(t, ts, "agy")
 	if row["integrationApplied"] != true {
 		t.Fatalf("agy applied = %v after toggle on", row["integrationApplied"])
 	}

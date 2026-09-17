@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
@@ -47,27 +48,26 @@ func cliIntegrationPlan(cli, dir, hook string) clilaunch.IntegrationPlan {
 		p.Environment["PICODE_OPENCODE_HOOK"] = hook
 		p.Files = append(p.Files, opencodeConfigFile(dir), opencodePluginFile(dir))
 	case "muse":
-		// No branches on purpose: Muse Code 1.3.0 has no hook surface to
-		// report through. The binary carries zero "hook" strings, the
-		// plugins subcommand answers "not available in this build", and no
-		// user plugin path or settings hook key was found (spike, Fatia 3a).
-		// The launch is still editable — defaults, profiles, resume — but
-		// activity stays Open until a vendor surface appears (Fatia 5).
-		p.Summary = "No activity integration: this Muse build offers no hook surface to report through"
+		// Presence lease and native runtime via the PATH wrapper (same
+		// shape as every other CLI). Hook reports stay unattributable —
+		// the CLI scrubs the hook env to PATH — so activity stays Open;
+		// the wrapper file below is what cliIntegrationPrepared checks.
+		p.Summary = "Presence lease via the PATH wrapper (hook reports carry no terminal identity)"
+		p.Files = append(p.Files, wrapperPath(dir, "muse"))
 	case "agy":
 		// Reports through the settings.json title command installed by
-		// installIntercept: no arg injection, no PATH wrapper. The reporter
-		// file below is what cliIntegrationPrepared checks.
-		p.Summary = "Activity via the title reporter in your Antigravity settings"
-		p.Files = append(p.Files, agyTitleReporterPath(dir))
+		// installIntercept, plus the PATH wrapper for presence and precise
+		// pins. The reporter file below is what cliIntegrationPrepared checks.
+		p.Summary = "Activity via the title reporter in your Antigravity settings, presence via the PATH wrapper"
+		p.Files = append(p.Files, agyTitleReporterPath(dir), wrapperPath(dir, "agy"))
 	}
 	return p
 }
 
 // hasIntegrationMechanism says the Activity reporting toggle may be offered:
-// a CLI whose plan carries nothing to install or inject (Muse Code today)
-// has nothing to enable, so the web hides the toggle and the PUT guards
-// refuse it. Summary alone is not a mechanism.
+// a CLI whose plan carries nothing to install or inject has nothing to
+// enable, so the web hides the toggle and the PUT guards refuse it.
+// Summary alone is not a mechanism.
 func hasIntegrationMechanism(id string) bool {
 	p := cliIntegrationPlan(id, "", "")
 	return len(p.Branches) > 0 || len(p.Files) > 0 || len(p.Environment) > 0
@@ -138,7 +138,11 @@ func launchPlan(deps Deps, cli clilaunch.CLI, base clilaunch.Config, overrides c
 			}
 			p.Injection.Files = append(p.Injection.Files, filepath.Join(dir, "message-bin", "picode"))
 		}
-		p.Injection.Files = append(p.Injection.Files, wrapperPath(dir, cli.Command), hookScriptPath(deps.DataDir))
+		for _, f := range []string{wrapperPath(dir, cli.Command), hookScriptPath(deps.DataDir)} {
+			if !slices.Contains(p.Injection.Files, f) {
+				p.Injection.Files = append(p.Injection.Files, f)
+			}
+		}
 		p.ManagedEnv = append(p.ManagedEnv, "PICODE_TUI_RUN_ID")
 	}
 	return p, c

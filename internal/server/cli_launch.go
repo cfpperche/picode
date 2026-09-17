@@ -940,8 +940,10 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 			err = writeHermesIntercept(dir, hook)
 		case "opencode":
 			err = writeOpencodeIntercept(dir, hook)
+		case "muse":
+			err = writeMuseIntercept(dir, hook)
 		case "agy":
-			needsWrapper = false
+			err = writeAgyIntercept(dir, hook)
 		}
 		if err != nil {
 			return nil, err
