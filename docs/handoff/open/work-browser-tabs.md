@@ -80,12 +80,9 @@ to see the remembered standing.
   scratch (no error, root alive, `#/` reached). Re-verify in the desktop shell
   before touching code — the web path has no `window.__TAURI__`, so the shell
   is the likely home. Same class as the blank window, which no linter catches.
-- **v2a**: remove permissions from unused sites (visit recency is in the
-  store). **v2b**: agent access to browsing history (Always ask / Allow /
-  Never — the Ask machinery landed 2026-09-15, but a first-use history grant
-  is its own path). **v2c**: annotations (below; step 4 is an ADR). **v2d**:
-  the Windows Hello passkey opener row (validate the OS URI on the machine
-  first).
+- **v2a**: remove permissions from unused sites (visit recency is in the store).
+- **v2b** agent history — landed (ADR-0146: allow/never by default, answered by
+  the daemon; the first-use prompt is its own decision, named in the ADR).
 - **v3**: WebMCP site tools (ADR when the standard lands); Developer mode /
   raw CDP **landed 2026-09-16** (ADR-0144: machine setting + `full` tier,
   shell re-check, every call audited; the loopback port stays an env var).
