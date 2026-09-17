@@ -20,8 +20,8 @@ Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code and Antigravity
 commands. It reuses terminal records, tmux, invocation wrappers and the event
 feed. Muse Code and Antigravity are full catalog rows (sessions, editable
 launch, activity where the vendor surface carries identity). Omp (oh-my-pi)
-is the terminal-only entry: detection, version and New terminal, without
-activity, launch settings, sessions or lifecycle jobs. These are not Agent records: structured chat,
+is the newest entry: terminal, on-disk sessions and resume, without
+activity, launch settings or lifecycle jobs. These are not Agent records: structured chat,
 JSON-RPC, packages, orchestration and session ownership remain Pi-only until
 a future decision supplies those contracts for another CLI.
 

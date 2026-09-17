@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -69,8 +70,27 @@ func seedPinAgyDB(t *testing.T, dir, cwd, cid string) {
 	t.Cleanup(func() { clisession.AgyTestDB = "" })
 }
 
+// seedPinOmpSessions points the omp reader at a fixture sessions root
+// holding one live conversation in cwd (bucket encoding: "/" → "-").
+func seedPinOmpSessions(t *testing.T, dir, cwd, sid string) {
+	t.Helper()
+	at := time.Now().Add(5 * time.Minute).UTC().Format("2006-01-02T15:04:05.000Z")
+	body := `{"type":"session","version":3,"id":"` + sid + `","timestamp":"` + at + `","cwd":"` + cwd + `"}` + "\n" +
+		`{"type":"message","id":"m1","timestamp":"` + at + `","message":{"role":"user","content":[{"type":"text","text":"say plum"}]}}` + "\n"
+	bucket := filepath.Join(dir, strings.ReplaceAll(cwd, "/", "-"))
+	if err := os.MkdirAll(bucket, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	name := "2026-09-17T00-00-00-000Z_" + sid + ".jsonl"
+	if err := os.WriteFile(filepath.Join(bucket, name), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	clisession.OmpTestRoot = dir
+	t.Cleanup(func() { clisession.OmpTestRoot = "" })
+}
+
 // Stopping a wrapper-less terminal pins the latest session written in its
-// folder, so Continue in… and resume work for muse and agy the way the
+// folder, so Continue in… and resume work for muse, agy and omp the way the
 // runtime pin does for wrapper CLIs. A session predating the terminal
 // never pins (no stealing across terminals sharing a folder).
 func TestStopPinsWrapperlessSession(t *testing.T) {
@@ -86,6 +106,7 @@ func TestStopPinsWrapperlessSession(t *testing.T) {
 	}{
 		{"muse", "pin-muse-1", seedPinMuseDB, []string{"--resume", "pin-muse-1"}},
 		{"agy", "pin-agy-1", seedPinAgyDB, []string{"--conversation", "pin-agy-1"}},
+		{"omp", "pin-omp-1", seedPinOmpSessions, []string{"--resume", "pin-omp-1"}},
 	} {
 		t.Run(tc.cli, func(t *testing.T) {
 			created := cliRequest(t, ts, "POST", "/api/terminals", map[string]any{"name": "pin-" + tc.cli, "cwd": cwd}, 201)

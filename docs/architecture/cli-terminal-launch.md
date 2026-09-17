@@ -38,19 +38,26 @@ reporter prerequisites. It does not certify authentication or every hook.
 (ADR-0079 phase 2; `internal/clisession`): pi reads its JSONL root, Claude
 Code its `~/.claude/projects` transcripts, Codex its `~/.codex/sessions`
 rollouts, Grok its `~/.grok/sessions` prompt history, Hermes Agent its
-`~/.hermes/state.db` (or `$HERMES_HOME/state.db`) SQLite rows, and OpenCode
+`~/.hermes/state.db` (or `$HERMES_HOME/state.db`) SQLite rows, OpenCode
 its `~/.local/share/opencode/opencode.db` (or `$XDG_DATA_HOME/opencode/opencode.db`)
-SQLite rows, each parsed defensively (malformed files are skipped, missing
-roots are an empty list). Hermes listing is the active home only (no
-`profiles/` scan), `source` cli/tui with a folder and at least one message;
-preview is the session title. OpenCode listing skips child sessions
-(`parent_id`), archived rows and empty transcripts; timestamps are
-milliseconds; preview is the session title. The OpenCode CLI's own
-`session list` is project-scoped and is not used.
+SQLite rows, Muse Code its index, Antigravity its summaries DB, and Omp its
+`~/.omp/agent/sessions` JSONL (pi's bucket-per-cwd layout with omp's own
+encoding, `$PI_CODING_AGENT_DIR` honored; XDG relocation via
+`omp config init-xdg` not followed yet), each parsed defensively (malformed
+files are skipped, missing roots are an empty list). Hermes listing is the
+active home only (no `profiles/` scan), `source` cli/tui with a folder and
+at least one message; preview is the session title. OpenCode listing skips
+child sessions (`parent_id`), archived rows and empty transcripts;
+timestamps are milliseconds; preview is the session title. The OpenCode
+CLI's own `session list` is project-scoped and is not used. Omp listing
+reads the schema-v3 header for id/cwd, the newest `title` record, the
+provider-qualified `model_change`, and the first user text as preview; a
+file with no header or no message is not a session.
 Rows carry the server-verified resume arguments for that CLI (verified
 2026-09 against each CLI's `--help`: `claude --resume <id>`, `codex resume
 <id>` positional, `grok --resume <id>`, `hermes --resume <id>` on Hermes
-Agent v0.18.2, `opencode --session <id>` on OpenCode 1.18.29); pi's row carries none — pi resumes
+Agent v0.18.2, `opencode --session <id>` on OpenCode 1.18.29, `omp --resume
+<id>` on omp 18.2.4); pi's row carries none — pi resumes
 through its own chat flow. Cost is pi-only on this surface: guest formats
 are not shown with per-session spend. Non-Pi sessions open through
 `POST /api/clis/<cli>/terminals` with the resume arguments as launch
@@ -136,16 +143,17 @@ with `MUSE_NO_AUTO_UPDATE=1` so the launcher does not background-update.
 Every installed row reaches Check for updates through the same ⋯ menu, so a
 channel-backed CLI needs no bespoke button.
 
-**Omp is the terminal-only row.** Omp (oh-my-pi, a Pi fork) carries
+**Omp is the terminal-plus-sessions row.** Omp (oh-my-pi, a Pi fork) carries
 `surface: terminal` — PATH detection, `POST …/check` (`omp --version`, which
 needs Bun ≥ 1.3.14 on PATH; an older Bun dies with a syntax error from its
 bundle) and `POST …/terminals` (New terminal runs `omp` with its own
-defaults). There is no integration plan (`hasIntegrationMechanism` is
-false, so the Activity toggle is hidden and the seed skips the row), no
-session source (the Sessions tab is absent) and no lifecycle spec
-(`update-check` answers *No managed lifecycle for this install method.*;
-install is guided through the vendor's docs link only). Its Launch tab is
-the read-only plan summary, like any row without an adapter.
+defaults). Since the sessions slice it also lists its on-disk JSONL
+sessions with `--resume <id>` resume (see the sessions paragraph above);
+it still has no integration plan (`hasIntegrationMechanism` is false, so
+the Activity toggle is hidden and the seed skips the row) and no lifecycle
+spec (`update-check` answers *No managed lifecycle for this install
+method.*; install is guided through the vendor's docs link only). Its
+Launch tab is the read-only plan summary, like any row without an adapter.
 
 **One launch surface, read-only without an adapter.** A CLI with no adapter
 keeps the *same* launch screens, with the launcher's own data and nothing to

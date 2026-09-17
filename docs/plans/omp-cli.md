@@ -82,12 +82,30 @@ created (no credentials were pointed at omp).
 - **Fatia 2 — sessions.** Gate: one real omp session (owner runs omp, or
   approves pointing omp at a key). `OmpSource` over `~/.omp/agent/sessions`,
   `ResumeArgs: ["--resume", id]` (confirm on the installed `--help`).
+  Outcome (shipped 2026-09-17): owner authorized auth — the probe ran two
+  real headless sessions against the owner's Google key via `--api-key`
+  (nothing written to omp's auth store), Bun upgraded to 1.4.2 on this
+  machine, and the format was read from real files, not docs: schema-v3
+  header (`session` id/timestamp/cwd), `title`/`model_change`/
+  `thinking_level_change`/`message`/`custom` records, message timestamps in
+  epoch millis (outer records ISO), bucket = cwd with "/" → "-".
+  `OmpSource` lists machine-wide and per-cwd (filter reads the header's
+  cwd, not the bucket name), name = newest non-empty title else first user
+  text, model = provider-qualified `model_change` else last message model,
+  no-header/no-message files are not sessions. Resume verified headless:
+  `omp --resume <id>` continues the conversation (needs `--model` again in
+  print mode).
 - **Fatia 3 — launch.** Drop `SurfaceTerminal`, `cliIntegrationPlan` branch
   (PATH wrapper + presence lease), `PI_CODING_AGENT_DIR` reserved,
   `OMP_MAINT` passthrough list, decision table.
 - **Fatia 4 — activity.** Gate: extension-event probe against a real
   session with `PICODE_TERM_ID` in the env. No mechanism measured → omp
   stays honestly `Open` (the muse outcome).
+  Probe result (2026-09-17, measured): **GO.** A minimal extension loaded
+  under `-e`, `session_start`/`agent_start`/`agent_end` all fired, and
+  `PICODE_TERM_ID` survived into the extension process. omp can take the
+  pi-shaped terminal-state extension; Fatia 4 is an implementation slice,
+  not a discovery one.
 - **Fatia 5 — lifecycle.** Spec: `updateArgs ["update"]`,
   `CheckArgs ["update","--check"]`, vendor output parse; npm fallback via
   the real package name. Uninstall guided (vendor docs).
@@ -96,4 +114,8 @@ created (no credentials were pointed at omp).
   real CLI (the grok ritual), with brief-only fallback recorded.
 
 Open question carried now: does omp accept a hand-made session file (Fatia
-6 Writer) — unknowable until a session exists to clone.
+6 Writer) — a real session exists now, so the minimum-viable-file spike can
+run. The Fatia 3 wrapper's maintenance passthrough still needs the exact
+subcommand enumeration (config, update, models, gc, stats, token,
+completions, plugin, install, setup, acp, share, join, collab, render,
+export…).
