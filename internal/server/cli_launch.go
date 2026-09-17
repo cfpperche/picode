@@ -689,9 +689,29 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 		if action != "start" {
 			// Last chance to pin the native conversation before the pane goes
 			// away (ADR-0084).
-			if deps.TermRuntimes != nil && action != "remove" {
-				if rt, ok := deps.TermRuntimes.Get(id); ok && rt.CLI != "" {
-					pinTerminalLastSession(deps, id, rt)
+			if action != "remove" {
+				pinned := false
+				if deps.TermRuntimes != nil {
+					if rt, ok := deps.TermRuntimes.Get(id); ok && rt.CLI != "" {
+						pinTerminalLastSession(deps, id, rt)
+						pinned = true
+					}
+				}
+				if !pinned && deps.Store != nil {
+					if launch, err := deps.Store.TerminalLaunch(id); err == nil && launch != nil && launch.CLI != "" {
+						// Wrapper-less CLIs (muse, agy) never register a
+						// runtime, so the pin above never fires for them:
+						// pin the latest session written in this folder
+						// instead. Same Latest() recovery heuristic (and
+						// same grok/hermes exclusion inside); a missed pin
+						// only costs the resume shortcut and Continue in…,
+						// never the terminal.
+						var since time.Time
+						if at, err := time.Parse(time.RFC3339Nano, t.CreatedAt); err == nil {
+							since = at
+						}
+						pinTerminalLastSession(deps, id, TermRuntime{CLI: launch.CLI, StartedAt: since})
+					}
 				}
 			}
 			// Stop escalation (ADR-0085): the pane root ignores SIGHUP now, so
