@@ -17,6 +17,16 @@ community **`pi-mcp-adapter`** extension (`pi install npm:pi-mcp-adapter`):
 
 ## Connectors pane (2026-09-12, `docs/plans/connectors-ux.md`)
 
+Every agent CLI gets this pane at `#/clis/<cli>/connectors` (ADR-0150):
+one per-CLI driver behind `/api/mcp?cli=<id>` manages that CLI's native MCP
+config — Pi's driver is the adapter implementation below; guest CLIs gain
+drivers (`internal/connectors`, one codec per config shape) in later phases.
+`web/shared/domain/integrations.js` `CONNECTOR_DRIVERS` declares each CLI's
+honest capability set (status `live` vs `configured`), and a request naming a
+CLI without a driver fails loudly instead of writing Pi's files. Until a
+guest driver lands, `#/clis/<cli>/connectors` for other CLIs shows the
+"in development" placeholder.
+
 `#/clis/pi/connectors` is one surface in three bands: the header (the intro
 line and the single primary action, **Add connector**), the configured roster,
 and the connector-packages section when a package declares `pi.mcp`. `#/mcps`,

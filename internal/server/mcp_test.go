@@ -273,6 +273,58 @@ func TestMCPAuthLogoutNeedsName(t *testing.T) {
 	_ = res.Body.Close()
 }
 
+// ADR-0150: only Pi ships a connectors driver. A request naming a CLI
+// without a driver must fail loudly instead of writing Pi's files.
+func TestMCPRejectsCLIWithoutDriver(t *testing.T) {
+	ts := newTestServer(t, "cat")
+
+	get, err := ts.Client().Get(ts.URL + "/api/mcp?cli=codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if get.StatusCode != http.StatusBadRequest {
+		t.Fatalf("GET cli=codex status %d", get.StatusCode)
+	}
+	_ = get.Body.Close()
+
+	add := postJSON(t, ts, "/api/mcp", map[string]any{
+		"cli": "claude", "scope": "user", "name": "deepwiki", "url": "https://mcp.deepwiki.com/mcp",
+	})
+	if add.StatusCode != http.StatusBadRequest {
+		t.Fatalf("POST cli=claude status %d", add.StatusCode)
+	}
+	_ = add.Body.Close()
+
+	del, err := http.NewRequest(http.MethodDelete, ts.URL+"/api/mcp?scope=user&name=deepwiki&cli=omp", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rm := do(t, ts.Client(), del)
+	if rm.StatusCode != http.StatusBadRequest {
+		t.Fatalf("DELETE cli=omp status %d", rm.StatusCode)
+	}
+	_ = rm.Body.Close()
+
+	// An empty cli means Pi: the pre-existing contract is unchanged.
+	empty, err := ts.Client().Get(ts.URL + "/api/mcp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if empty.StatusCode != http.StatusOK {
+		t.Fatalf("GET without cli status %d", empty.StatusCode)
+	}
+	_ = empty.Body.Close()
+
+	pi, err := ts.Client().Get(ts.URL + "/api/mcp?cli=pi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pi.StatusCode != http.StatusOK {
+		t.Fatalf("GET cli=pi status %d", pi.StatusCode)
+	}
+	_ = pi.Body.Close()
+}
+
 func TestMCPAuthShortPi(t *testing.T) {
 	rpc.AuthTestInstant = true
 	t.Cleanup(func() { rpc.AuthTestInstant = false })
