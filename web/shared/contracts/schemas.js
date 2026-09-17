@@ -594,6 +594,39 @@ export const packageDescribeSchema = z.object({
   }
 });
 
+// Every permission kind the daemon stores and the shell maps (the store's
+// closed list, `internal/store/browser_permissions.go`). The dialog shows a
+// titled subset and lets the rest be authored by name: a control nobody can
+// reach is worse than a longer list.
+export const BROWSER_PERMISSION_KINDS = [
+  "camera",
+  "microphone",
+  "location",
+  "notifications",
+  "clipboard",
+  "autoplay",
+  "sensors",
+  "midi",
+  "fonts",
+  "filesystem",
+];
+
+// One site exception, authored by hand in Settings ▸ Browser (the reference's
+// "+ Add"): a site or pattern, a kind, and the decision to remember. The
+// normalization mirrors browserGrantSchema, and `*` is every site — those are
+// the two spellings the store and the shell already match.
+export const browserSiteSchema = z.object({
+  site: z.string().transform((raw) => {
+    let host = String(raw || "").trim().toLowerCase().replace(/^https?:\/\//, "").split("/")[0];
+    return host.startsWith("[") ? host.slice(1).split("]")[0] : host.split(":")[0];
+  }).refine(
+    (host) => host === "*" || /^[a-z0-9*.\-]+$/.test(host),
+    "Use a site like example.com, a pattern like *.example.com, or * for every site.",
+  ),
+  kind: z.enum(BROWSER_PERMISSION_KINDS),
+  decision: z.enum(["allow", "deny", "ask"]),
+});
+
 // A browser grant (ADR-0128) as the editor edits it: the tier plus the
 // domain table as one comma-separated line. The transform forgives what
 // people paste — scheme, path, port are stripped — and what survives must

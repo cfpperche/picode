@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createWorkspaceSchema, createFreeAgentSchema, mcpAddSchema, pairsToMap, parseForm, appFormSchema, commitMessageSchema, rolesConfigSchema, canvasNameSchema } from "./schemas.js";
+import { BROWSER_PERMISSION_KINDS, browserSiteSchema, createWorkspaceSchema, createFreeAgentSchema, mcpAddSchema, pairsToMap, parseForm, appFormSchema, commitMessageSchema, rolesConfigSchema, canvasNameSchema } from "./schemas.js";
 
 const pick = { provider: "xai", model: "grok-4.6", thinking: "low" };
 
@@ -92,4 +92,32 @@ test("canvas name: trimmed, 1–80 characters, the store's messages (ADR-0108)",
   assert.equal(parseForm(canvasNameSchema, { name: "é".repeat(81) }).error, "name is too long (max 80 characters)");
   assert.equal(parseForm(canvasNameSchema, { name: "😀".repeat(80) }).ok, true, "code points, not UTF-16 units");
   assert.deepEqual(parseForm(canvasNameSchema, { name: "  Ops  " }).value, { name: "Ops" });
+});
+
+// The site exception the dialog's "+ Add" writes (ADR-0145's follow-up, the
+// reference's affordance): one site or pattern, normalized the way the grant
+// field is, plus a kind and a decision from the closed vocabularies.
+test("browserSiteSchema normalizes a pasted site and refuses a non-host", () => {
+  const ok = browserSiteSchema.safeParse({ site: " https://Example.com/path ", kind: "camera", decision: "allow" });
+  assert.equal(ok.success, true);
+  assert.equal(ok.data.site, "example.com");
+
+  const pattern = browserSiteSchema.safeParse({ site: "*.example.com", kind: "microphone", decision: "deny" });
+  assert.equal(pattern.success, true);
+  const every = browserSiteSchema.safeParse({ site: "*", kind: "clipboard", decision: "ask" });
+  assert.equal(every.success, true);
+
+  assert.equal(browserSiteSchema.safeParse({ site: "", kind: "camera", decision: "allow" }).success, false);
+  assert.equal(browserSiteSchema.safeParse({ site: "not a host!", kind: "camera", decision: "allow" }).success, false);
+  assert.equal(browserSiteSchema.safeParse({ site: "x.com", kind: "telepathy", decision: "allow" }).success, false);
+  assert.equal(browserSiteSchema.safeParse({ site: "x.com", kind: "camera", decision: "maybe" }).success, false);
+});
+
+test("every kind the store accepts is offered", () => {
+  // The store's closed list (internal/store/browser_permissions.go) — a kind
+  // the shell maps but the schema refuses is a row nobody can author.
+  assert.deepEqual(BROWSER_PERMISSION_KINDS, [
+    "camera", "microphone", "location", "notifications", "clipboard",
+    "autoplay", "sensors", "midi", "fonts", "filesystem",
+  ]);
 });

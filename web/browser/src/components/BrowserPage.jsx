@@ -10,7 +10,7 @@ import { takeBrowserDialog } from "../lib/browserDialogs.js";
 import { IconWarn } from "./Icons.jsx";
 import { relTime } from "@picode/shared/domain/relTime.js";
 import PageFrame from "./PageFrame.jsx";
-import { browserGrantSchema } from "@picode/shared/contracts/schemas.js";
+import { BROWSER_PERMISSION_KINDS, browserGrantSchema, browserSiteSchema } from "@picode/shared/contracts/schemas.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { toast } from "../lib/toast.js";
 
@@ -201,6 +201,11 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   const [wipeKinds, setWipeKinds] = useState(() => WIPE_KINDS.filter((k) => k.on).map((k) => k.value));
   const [wipeBusy, setWipeBusy] = useState(false);
   const [prefs, setPrefs] = useState(DEFAULT_BROWSER_PREFS);
+  // The dialog's "+ Add" (the reference's own affordance): author an exception
+  // for a site instead of waiting for that site to ask.
+  const [newSite, setNewSite] = useState({ site: "", kind: "camera", decision: "allow" });
+  const [newSiteError, setNewSiteError] = useState("");
+  const [addingSite, setAddingSite] = useState(false);
   // The raw-CDP audit (ADR-0144): null while loading, [] when empty, so the
   // card can tell "nothing yet" from "not read yet".
   const [devAudit, setDevAudit] = useState(null);
@@ -579,6 +584,43 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     }
     if (invoke) await invoke("btab_set_permission_policy", { kind, state: decision || "default", origin: null }).catch(() => {});
     loadStands();
+  };
+
+  // Author one exception (the reference's "+ Add"): the store already owns
+  // the vocabulary and the shell already applies standings pushed from this
+  // page, so this is only the missing way to write a row by hand.
+  const addSite = async () => {
+    const parsed = browserSiteSchema.safeParse(newSite);
+    if (!parsed.success) {
+      setNewSiteError(parsed.error.issues[0].message);
+      return;
+    }
+    setNewSiteError("");
+    setAddingSite(true);
+    try {
+      const res = await fetch("/api/browser/permissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // The store's field names: `origin` is the site or pattern the row
+        // keys on (the dialog's word is "site").
+        body: JSON.stringify({
+          origin: parsed.data.site,
+          kind: parsed.data.kind,
+          decision: parsed.data.decision,
+          standing: true,
+        }),
+      });
+      if (!res.ok) {
+        const why = (await res.text()).replace(/^store:\s*/, "").trim();
+        throw new Error(why || `the daemon answered ${res.status}`);
+      }
+      setNewSite({ site: "", kind: parsed.data.kind, decision: parsed.data.decision });
+      loadStands();
+    } catch (e) {
+      setNewSiteError("Could not save it — " + (e?.message || "the daemon is not reachable"));
+    } finally {
+      setAddingSite(false);
+    }
   };
 
   // Reset forgets one row and tells the live shell to drop the matching
@@ -1054,13 +1096,61 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
                 </Item>
               ))}
             </div>
+            {/* The reference's "+ Add": a site exception authored by hand,
+                instead of only reacting to a prompt. Same rows the Ask bar
+                writes, with standing on. It sits above the log because it is
+                the action; the log is the record. */}
+            <div className="hist-head">
+              <span className="hist-head-t">Add an exception</span>
+            </div>
+            <form
+              className="site-add"
+              noValidate
+              onSubmit={(e) => {
+                e.preventDefault();
+                addSite();
+              }}
+            >
+              <input
+                className={"site-add-site" + (newSiteError ? " grant-domains-bad" : "")}
+                placeholder="x.com, *.example.com, *"
+                value={newSite.site}
+                onChange={(e) => setNewSite({ ...newSite, site: e.target.value })}
+                aria-label="Site or pattern for the exception"
+                spellCheck={false}
+              />
+              <select
+                className="set-select"
+                value={newSite.kind}
+                onChange={(e) => setNewSite({ ...newSite, kind: e.target.value })}
+                aria-label="Permission kind"
+              >
+                {BROWSER_PERMISSION_KINDS.map((k) => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
+              </select>
+              <select
+                className="set-select"
+                value={newSite.decision}
+                onChange={(e) => setNewSite({ ...newSite, decision: e.target.value })}
+                aria-label="Decision for the exception"
+              >
+                <option value="allow">Always allow</option>
+                <option value="ask">Ask</option>
+                <option value="deny">Block</option>
+              </select>
+              <button type="submit" className="set-btn" disabled={addingSite || !newSite.site.trim()}>
+                {addingSite ? "Adding…" : "Add"}
+              </button>
+            </form>
+            {newSiteError ? <p className="grant-error">{newSiteError}</p> : null}
             <div className="hist-head">
               <span className="hist-head-t">Recent decisions</span>
             </div>
             {stands === null ? (
               <div className="mcp-skel" aria-hidden="true"><span className="skel-line w-40" /><span className="skel-line w-70" /></div>
             ) : stands.length === 0 ? (
-              <p className="set-groupdesc">Nothing yet — decisions appear here as sites ask.</p>
+              <p className="set-groupdesc">Nothing yet — add one above, or wait for a site to ask.</p>
             ) : (
               <div className="hist-days">
                 <ul className="hist-rows">

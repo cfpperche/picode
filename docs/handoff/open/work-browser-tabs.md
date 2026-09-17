@@ -11,8 +11,13 @@ reviewed by the owner against the reference, one item at a time.
 - **v2c** annotations (step 4 is an ADR); **v2d** Windows Hello opener row.
 - **v3** WebMCP site tools (ADR when the standard lands). Developer mode
   landed 2026-09-16 (ADR-0144).
-- The reference's permissions table (Site or pattern × Browsing × Downloads ×
-  Uploads + Default row): the data exists, the shape does not.
+- The reference's permissions table turned out to be **our Site settings dialog
+  transposed** (a row per kind with the tri-state, a per-site log below): the
+  missing piece was the "+ Add" and it landed 2026-09-16 (`browserSiteSchema`).
+  The Browsing/Downloads/Uploads *columns* would each need new enforcement —
+  Browsing is the grant's `{domains, tier}`, Downloads is one global Ask,
+  Uploads has no file-chooser hook — so the columns stay out until someone wants
+  the gate behind them (ADR-0144's shape, not a restyle).
 
 ## Options menu — landed (2026-09-15)
 

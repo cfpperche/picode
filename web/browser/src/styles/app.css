@@ -6036,6 +6036,17 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .grant-domains:focus-visible, .grant-tier:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .grant-domains-bad { border-color: var(--danger, #c42b1c); }
 .grant-error { font-size: 12px; color: var(--danger, #c42b1c); flex-basis: 100%; }
+/* Site settings' "+ Add": one control row, every control on --ctl-h. */
+/* Two deliberate lines: the site ("where"), then what to remember about it
+   ("what") — four controls in one row wrapped the last into the margin. */
+.site-add { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 10px; }
+.site-add-site {
+  height: var(--ctl-h); padding: 0 10px; font-size: 12.5px; font-family: inherit;
+  background: var(--bg-base); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  flex: 1 1 100%; min-width: 160px;
+}
+.site-add-site:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 /* The field explains itself: one line per entry, and a named line for an entry
    that would open nothing (the silent `*` this replaced). */
 .grant-covers { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
