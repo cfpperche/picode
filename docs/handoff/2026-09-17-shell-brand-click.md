@@ -51,7 +51,8 @@ init script with a recording `__TAURI_INTERNALS__.invoke`:
 accent). No unit test exists for a React click handler (no DOM harness in
 `web/`), so the table is covered by the browser run above; the Windows
 native drag swallow itself is verified by the injected script, not by a run
-inside the shell — the owner's Windows click is the last check.
+inside the shell. Owner-confirmed 2026-09-17: the wordmark opens the
+dashboard in the desktop app on DESKTOP-BGG95NA.
 
 visual-review: PASS (brand-click-dashboard.png + brand-click-hover.png,
 overlayAudit ok; card 5/5)
