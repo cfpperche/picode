@@ -9,7 +9,12 @@ the pane's right-click menu. The source is the terminal's pinned
 conversation (`lastSession`, ADR-0084) **or**, on a managed Pi agent in
 the terminal, that agent's `sessionPath` (path-only is enough). It is still
 a handoff, never a live switch — the source terminal keeps running and a
-new terminal (or a stopped Pi agent) opens on the target.
+new terminal (or a stopped Pi agent) opens on the target. Terminals whose
+CLI never registers a native runtime (Muse Code, Antigravity — no PATH
+wrapper by design) pin the same way at stop time: the latest session the
+vendor store holds for that folder past the terminal's creation, so
+Continue in… and resume work there too. A session predating the terminal
+never pins (no stealing across terminals in a shared folder).
 
 Continue in from an interactive Pi TUI always takes the live-confirm path
 once `liveHolderFor` sees `tmux.HasSession(picode-<agentId>)` (managed RPC
