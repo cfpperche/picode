@@ -186,6 +186,28 @@ as it owns the WebView2 bounds today, and the same lesson from
 cannot be painted over, so a "live view" of the agent's window is a still
 plus a native hide, not an overlay.
 
+**Measured 2026-09-17: crate generations.** Adding xcap 0.9.8, windows-capture
+2.0.1, enigo 0.6.1, uiautomation 0.25.1 and arboard 3.6.1 to the shell resolves
+and type-checks for the Windows target (`cargo check --target
+x86_64-pc-windows-msvc`, 34 s, only pre-existing warnings). It is not a
+conflict, it is a duplication: tauri 2.11.5, wry 0.55, webview2-com 0.38 and
+enigo sit on the `windows` 0.61 generation; xcap, windows-capture and
+uiautomation on 0.62; arboard uses the windows-sys 0.60 already compiled. The
+cost is a second copy of the `windows` family in the binary and an `HWND`
+that is a different type on each side (raw-pointer conversion at the seams).
+Tauri's dev branch already moved to wry 0.57 / webview2-com 0.39 / windows
+0.62 (PR #15996 merged 2026-09-16, unreleased), so the next Tauri release
+lines everything up. Pinning to 0.61 today would mean xcap =0.8.1,
+uiautomation =0.23.0 and windows-capture =1.5.0 (9–12 months old) and a second
+bump later: not worth it. The `windows` 0.61 crate the shell already depends on
+ships the bindings for all of it — `Win32_UI_Accessibility` (IUIAutomation),
+`Win32_UI_Input_KeyboardAndMouse` (SendInput), `Win32_Graphics_Gdi`,
+`Graphics_Capture`, `Win32_UI_HiDpi`, `Win32_System_DataExchange` and
+`Media_Ocr` — so the own-code path costs feature flags, not a dependency.
+Decision (owner, 2026-09-17): agent-desktop is a benchmark only; own code on
+`windows` first; the `uiautomation` crate is re-evaluated once Tauri ships
+0.62.
+
 ### Who ships this open-source (for patterns, not code — licences stay put)
 
 | Project | Licence · activity | Perception | Actuation | Isolation | Take-away |

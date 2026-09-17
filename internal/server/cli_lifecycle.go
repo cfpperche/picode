@@ -322,6 +322,15 @@ func runUpdateCheck(ctx context.Context, cliID string, plan clilifecycle.Plan, c
 		d.Latest = c2.LatestVersion
 		d.UpdateAvailable = c2.UpdateAvailable
 		return nil
+	case "omp":
+		latest, err := clilifecycle.ParseOmpCheck(output.String())
+		if err != nil {
+			return err
+		}
+		d.UpdateSource = "vendor"
+		d.Latest = latest
+		d.UpdateAvailable = latest != "" && pipkg.Newer(latest, clilifecycle.ExtractSemver(d.Version))
+		return nil
 	case "hermes":
 		available, err := clilifecycle.ParseHermesCheck(output.String())
 		if err != nil {

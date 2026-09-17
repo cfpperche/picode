@@ -156,6 +156,79 @@ func (s *Store) ClearBrowserPermissions(kind string) error {
 	return nil
 }
 
+// PruneBrowserPermissions forgets the site entries whose host has not been
+// visited since `since` — the dialog's cleanup for sites the human no longer
+// uses. Decision table, one row per condition:
+//
+//	the entry                    | the site's visits          | result
+//	-----------------------------|----------------------------|--------
+//	the every-site policy ("*")  | anything                   | kept (it is policy, not a site)
+//	a site, visited since        | inside the window          | kept
+//	a site, last visit before    | only older than the window | forgotten
+//	a site, never visited        | none recorded              | forgotten
+//	nothing matches              | —                          | nothing forgotten, no event
+//
+// One mutation, one event (ADR-0048). The forgotten entries are returned so
+// the caller can also clear the live shell's copy — a standing that survived
+// only in the shell would come back on the next report.
+func (s *Store) PruneBrowserPermissions(since time.Time) ([]BrowserPermission, error) {
+	rows, err := s.db.Query(`SELECT id, origin, kind, decision, standing, decided_at
+		FROM browser_permissions WHERE origin <> '*'`)
+	if err != nil {
+		return nil, fmt.Errorf("store: list browser permissions: %w", err)
+	}
+	var all []BrowserPermission
+	for rows.Next() {
+		p, err := scanBrowserPermission(rows)
+		if err != nil {
+			rows.Close()
+			return nil, err
+		}
+		all = append(all, p)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	stale := make([]BrowserPermission, 0, len(all))
+	for _, p := range all {
+		host := browserVisitHost(p.Origin)
+		if host == "" {
+			continue
+		}
+		var last sql.NullString
+		if err := s.db.QueryRow(`SELECT MAX(visited_at) FROM browser_history WHERE host = ?`, host).Scan(&last); err != nil {
+			return nil, fmt.Errorf("store: last visit for %s: %w", host, err)
+		}
+		if !last.Valid {
+			stale = append(stale, p)
+			continue
+		}
+		when, perr := time.Parse(time.RFC3339Nano, last.String)
+		if perr != nil || when.Before(since) {
+			stale = append(stale, p)
+		}
+	}
+	if len(stale) == 0 {
+		return nil, nil
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("store: prune browser permissions: %w", err)
+	}
+	for _, p := range stale {
+		if _, err := tx.Exec(`DELETE FROM browser_permissions WHERE id = ?`, p.ID); err != nil {
+			_ = tx.Rollback()
+			return nil, fmt.Errorf("store: prune browser permissions: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("store: prune browser permissions: %w", err)
+	}
+	s.note("browserpermission.updated", nil, nil, nil)
+	return stale, nil
+}
+
 func scanBrowserPermission(row rowScanner) (BrowserPermission, error) {
 	var p BrowserPermission
 	if err := row.Scan(&p.ID, &p.Origin, &p.Kind, &p.Decision, &p.Standing, &p.DecidedAt); err != nil {

@@ -50,8 +50,9 @@ agent target. See [Packages](/guide/packages) for installation and configuration
 PiCode does not install CLIs for the first time or manage their credentials
 here — with one exception: **Install** appears for pi, Codex and Claude Code
 when the CLI is missing and npm is available, running the same npm command
-the reinstall action uses. Grok, Hermes Agent and Omp install through their
-own guides; their cards link to them. A missing executable also offers
+the reinstall action uses. Grok and Hermes Agent install through their own
+guides; Omp installs through npm like pi, Codex and Claude Code. A missing
+executable also offers
 **Customize**; the CLI's documentation link explains its installation.
 Checking setup runs `--version`, without starting a conversation.
 
@@ -277,8 +278,8 @@ that CLI keep the old version until you restart them; PiCode asks before it
 touches a CLI with live terminals.
 
 When a CLI is **not installed**, its detail page offers **Install** for pi,
-Codex and Claude Code (needs npm on the machine). Grok, Hermes Agent and
-Omp install through their own guides — the card links to them and PiCode
+Codex, Claude Code and Omp (needs npm on the machine). Grok and Hermes
+Agent install through their own guides — the card links to them and PiCode
 never runs their install scripts.
 
 **Uninstall** runs the CLI's own uninstall command (Hermes Agent, OpenCode)

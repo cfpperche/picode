@@ -2454,6 +2454,32 @@
         ]
       }
     },
+    "/api/browser/permissions/prune": {
+      "post": {
+        "operationId": "postApiBrowserPermissionsPrune",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      }
+    },
     "/api/browser/permissions/{id}": {
       "delete": {
         "operationId": "deleteApiBrowserPermissions",
@@ -3987,6 +4013,84 @@
       "get": {
         "operationId": "getApiDevservers",
         "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "devservers"
+        ]
+      }
+    },
+    "/api/devservers/hide": {
+      "post": {
+        "operationId": "postApiDevserversHide",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "devservers"
+        ]
+      }
+    },
+    "/api/devservers/stop": {
+      "post": {
+        "operationId": "postApiDevserversStop",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "devservers"
+        ]
+      }
+    },
+    "/api/devservers/unhide": {
+      "post": {
+        "operationId": "postApiDevserversUnhide",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Success"

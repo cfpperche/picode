@@ -74,6 +74,9 @@ type spec struct {
 	uninstallArgs []string
 	docs          string
 	latestFrom    string // "channel" for HTTP version checks without a vendor command
+	// checkArgs is the vendor's own check command for LatestFrom
+	// "vendor" (omp update --check, measured 2026-09-17).
+	checkArgs []string
 	// npmUpdateOnly marks CLIs whose vendor update command refuses on
 	// npm-managed installs (claude update → "use npm"). Their update and
 	// reinstall go through npm instead.
@@ -95,15 +98,19 @@ var plans = map[string]spec{
 	},
 	"omp": {
 		// Same shape as pi — omp is its fork — with the real npm package
-		// name. `omp update` (measured on 18.2.4) detects the install
-		// method itself; npm installs update through npm because the
-		// vendor updater's npm shim handling is a known weak spot.
+		// name. npm installs update through npm (deterministic target; the
+		// vendor updater's npm shim handling is a known weak spot), native
+		// installs through the vendor's own updater, whose update check
+		// output is measured: "Current version: X" plus "New version
+		// available: Y" when one exists.
 		npmPackage:    "@oh-my-pi/pi-coding-agent",
 		updateArgs:    []string{"update"},
 		reinstallArgs: []string{"update", "--force"},
 		uninstall:     UninstallGuided,
 		docs:          "https://omp.sh/docs",
 		npmUpdateOnly: true,
+		latestFrom:    "vendor",
+		checkArgs:     []string{"update", "--check"},
 	},
 	"claude-code": {
 		npmPackage:    "@anthropic-ai/claude-code",
@@ -185,10 +192,23 @@ func DetectMethod(path string) Method {
 
 func classifyMethod(p string) Method {
 	switch {
+	case strings.Contains(p, "/.bun/") && strings.Contains(p, "/@oh-my-pi/"):
+		// Measured 2026-09-17: a bun-global omp's realpath carries
+		// node_modules, so the npm pattern below would claim it — but npm
+		// commands miss the bun copy, and the vendor updater resolves its
+		// target by PATH (run from a bun install it updated an npm copy).
+		// No deterministic mutation target: honestly unknown. (OpenCode's
+		// bun installs keep classifying npm: its vendor commands are
+		// installer-aware.)
+		return MethodUnknown
 	case strings.Contains(p, "/node_modules/"):
 		return MethodNpm
 	case strings.Contains(p, "/.local/share/claude/"), strings.Contains(p, "/claude/versions/"):
 		return MethodNative
+	case strings.Contains(p, "/.local/bin/omp"):
+		// The vendor curl installer lands a single native binary here
+		// (PI_INSTALL_DIR can move it; this is the measured default).
+		return MethodVendor
 	case strings.Contains(p, "/.grok/"):
 		return MethodVendor
 	case strings.Contains(p, "/.hermes/"):
@@ -264,6 +284,7 @@ func For(cliID string, m Method) (Plan, bool) {
 	if s.latestFrom != "" {
 		p.LatestFrom = s.latestFrom
 	}
+	p.CheckArgs = s.checkArgs
 	switch cliID {
 	case "grok":
 		p.LatestFrom = "vendor"
@@ -429,6 +450,30 @@ func ParseHermesCheck(out string) (bool, error) {
 	default:
 		return false, fmt.Errorf("hermes update --check returned unrecognized output")
 	}
+}
+
+// ParseOmpCheck reads `omp update --check` text (measured on omp 18.2.4,
+// 2026-09-17):
+//
+//	Current version: 18.2.4\n✔ Already up to date
+//	Current version: 18.2.3\nNew version available: 18.2.4
+//
+// The latest version appears only when one exists; an up-to-date check
+// returns ("", nil).
+func ParseOmpCheck(out string) (string, error) {
+	for _, line := range strings.Split(out, "\n") {
+		if v, ok := strings.CutPrefix(line, "New version available: "); ok {
+			v = strings.TrimSpace(v)
+			if v == "" {
+				return "", fmt.Errorf("omp update --check returned an empty version")
+			}
+			return v, nil
+		}
+	}
+	if !strings.Contains(out, "Already up to date") {
+		return "", fmt.Errorf("omp update --check returned unreadable output")
+	}
+	return "", nil
 }
 
 // MuseChannelURL is the stable Muse Code release channel (verified 2026-09-14).

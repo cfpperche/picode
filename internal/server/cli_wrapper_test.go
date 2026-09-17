@@ -147,7 +147,16 @@ func TestWrapperInstallShape(t *testing.T) {
 				t.Fatal(err)
 			}
 			if !strings.Contains(string(ext), `"omp"`) || !strings.Contains(string(ext), "session_start") {
-				t.Error("omp extension not pi-shaped or not named omp")
+				t.Error("omp extension not shaped for omp or not named omp")
+			}
+			// omp's measured event set: agent_end settles; agent_settled and
+			// ui_prompt_* never fire — their absence is what stuck a finished
+			// session on Working.
+			if !strings.Contains(string(ext), `"agent_end"`) {
+				t.Error("omp extension lacks the agent_end settle point")
+			}
+			if strings.Contains(string(ext), "agent_settled") || strings.Contains(string(ext), "ui_prompt_start") {
+				t.Error("omp extension listens to pi events omp never fires")
 			}
 		}
 	}
