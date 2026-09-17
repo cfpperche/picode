@@ -170,14 +170,31 @@ Standing limits: claude → grok needs a Claude login in the scratch HOME
 2026-09-12 (Claude → Hermes) and grok-as-recipient correlation passed twice
 here. Physical mobile and non-Linux recovery remain unverified.
 
-## Finale attempt — 2026-09-17 (quota, not the mailbox)
+## Finale — 2026-09-17: claude → grok PASSED, plus two vendor findings
 
-Scratch `localhost:8472`, claude-code + grok TUIs, both connections applied and
-identity-confirmed. `check_EGQOMAZS7QDLN7TVBOOTBYYZA3` (claude → grok) expired
-with **zero messages created**: the Claude account's weekly quota was
-exhausted ("Usage limit reached · continuing automatically at 12:10am"), so
-its composer footer changed to a limit notice the input guard does not
-recognize — and the sender attention correctly refused the unknown layout
-(silent pre-claim refusal) instead of pasting into it. The guards behaved
-as designed in front of a genuinely unready composer; retry after the quota
-reset. Evidence: `var/qa/claude-grok-finale/`.
+Scratch `localhost:8471`, claude-code (Sonnet 5, quota reset overnight) +
+grok 1.0.34 TUIs. `check_OXO4VYUIMMLORYT2B6UXUQFVOU` **passed**: claude sent
+`msg_44CT5NJBUORX` with the check id (no id-invention — the matrix's vendor
+discretion did not reproduce), grok read, replied `msg_ADPWFWZNJQGW` with
+`reply_to`, both ACKs. Evidence: `var/qa/claude-grok-finale/`.
+
+Two findings on the way there, both fixed and covered:
+
+1. **Grok 1.0.34 Enter footer.** The auto-update (1.0.30 → 1.0.34) appended
+   `Shift+Enter/Alt+Enter:newline` to the post-paste footer; the exact match
+   refused and the attempt expired uncertain. Diagnosed from the classified
+   refusal (`after paste: composer changed or is not ready`) plus a pane
+   capture. Both footer shapes are now accepted for pasted text only.
+2. **Claude ghost suggestion.** Claude Code renders a predicted follow-up dim
+   (`❯\u00a0` + `\x1b[2m` text) after an empty cursor; the claude-code guard
+   had no ghost exception (hermes/codex did), so the sender attention kept
+   the mail pending silently. Recognized now with the same strictness, from
+   a live capture (`testdata/claude-ghost-suggestion.json`).
+3. **Unattributed pane resize (environment).** The grok pane shrank 166 → 80
+   cols mid-run, truncating the long footer and making the frame
+   unrecognizable; no product code resizes panes. Restored with
+   `resize-window`; the guards refused safely throughout.
+
+With this, every matrix correlation has now passed natively at least once.
+What remains is vendor behavior (first prompts, model discretion) and the
+standing limits below.
