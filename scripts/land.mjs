@@ -116,6 +116,9 @@ function main() {
   console.log(`land: main is at ${head} and green. Cleanup:`);
   console.log(`  git worktree remove .worktrees/<name> && git branch -d ${branch}`);
   console.log("  make handoff");
+  console.log("A fact that only exists now — the owner confirming it live, a debt paid by");
+  console.log("observation — is one commit on main amending the note or topic file it");
+  console.log("corrects (ADR-0149): no branch, no worktree, no gate run.");
   return 0;
 }
 

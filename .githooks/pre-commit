@@ -5,7 +5,8 @@
 # state that blocks every other agent (AGENTS.md §5). ADR-0105 added the
 # living-docs rules: whitespace errors stop here (they used to fail GitHub CI
 # unread), CHANGELOG.md is assembled from fragments, and handoff state reaches
-# main only inside a fast-forwarded branch.
+# main only inside a fast-forwarded branch — except a correction to a note
+# that already landed (ADR-0149).
 #
 # Escape hatch: PICODE_ALLOW_SWITCH=1 git commit …  (or --no-verify)
 
@@ -85,10 +86,23 @@ if [ "$gd" = "$cd" ]; then
     # Handoff state and changelog fragments travel with the branch and reach
     # main by fast-forward. 65 direct "record the merge/deploy" commits in
     # three days were the prose ADR-0086 had already banned.
-    if staged ACMR | grep -qE '^(docs/handoff/|docs/changelog\.d/)'; then
-      refuse "Refusing to commit handoff state or changelog fragments directly on main (ADR-0105)." \
-        "They belong to the branch that did the work: edit them in its worktree, then" \
-        "git merge --ff-only <branch>. Deploy history is the data dir's var/deploy-log.jsonl, not prose."
+    if staged ACMR | grep -qE '^docs/changelog\.d/'; then
+      refuse "Refusing to commit changelog fragments directly on main (ADR-0105)." \
+        "A fragment belongs to the branch that did the work: write" \
+        "docs/changelog.d/<branch-slug>.md in its worktree, then" \
+        "git merge --ff-only <branch>. 'make changelog' folds it into CHANGELOG.md."
+    fi
+    # A fact that only exists after the merge has no branch any more: the
+    # owner's live confirmation, a debt paid by observation. ADR-0149 lets
+    # the correction land on main, next to the claim it corrects — amending
+    # what a branch already wrote, and adding a topic file, which is where a
+    # durable item lives (ADR-0145). A *new* session note still belongs to
+    # its branch: a note records a session, and main does not have one.
+    if staged A | grep -E '^docs/handoff/' | grep -qvE '^docs/handoff/open/'; then
+      refuse "Refusing to commit a new session note directly on main (ADR-0149)." \
+        "Write docs/handoff/<date>-<branch>.md in the worktree of the session it" \
+        "records. On main you may amend a note that already landed, or add" \
+        "docs/handoff/open/<topic>.md for a durable item."
     fi
     exit 0
   fi

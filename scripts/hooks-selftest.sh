@@ -94,11 +94,18 @@ if (printf '# Changelog\n\n## [Unreleased]\n\n- typed on main\n' > CHANGELOG.md 
 git reset -q; git checkout -q -- CHANGELOG.md 2>/dev/null
 if (printf '# Changelog\n\n## [Unreleased]\n\n## [0.2.0] - 2026-09-10\n\n### Added\n\n- a thing\n' > CHANGELOG.md && git add CHANGELOG.md && git commit -q -m "release 0.2.0" 2>/dev/null); then ok "release cut on main allowed"; else bad "release cut on main allowed" "the hook blocks the version heading the release process writes"; fi
 
-# 2g. Handoff state never lands on main directly (ADR-0105).
+# 2g. Handoff state reaches main by fast-forward — and, since ADR-0149, a
+#     correction to what already landed reaches it directly, next to the
+#     claim it corrects. A *new* note still belongs to its branch.
 if (mkdir -p docs && printf '# Handoff — living project state\n\nrecorded the merge\n' > docs/handoff.md && git add -f docs/handoff.md && git commit -q -m "handoff on main" 2>/dev/null); then bad "board on main refused" "main took a generated board"; else ok "board on main refused"; fi
 git reset -q; rm -rf docs
-if (mkdir -p docs/handoff && printf 'note\n' > docs/handoff/2026-01-01-x.md && git add docs/handoff && git commit -q -m "note on main" 2>/dev/null); then bad "session note on main refused" "main took a session note directly"; else ok "session note on main refused"; fi
+if (mkdir -p docs/handoff && printf 'note\n' > docs/handoff/2026-01-01-x.md && git add docs/handoff && git commit -q -m "note on main" 2>/dev/null); then bad "new session note on main refused" "main took a session note directly"; else ok "new session note on main refused"; fi
 git reset -q; rm -rf docs
+# A note that a branch already landed: seeded through the documented one-off
+# escape hatch, because main may not create one.
+(mkdir -p docs/handoff && printf 'note\n' > docs/handoff/2026-01-01-y.md && git add docs/handoff && PICODE_ALLOW_SWITCH=1 git commit -q -m "seed a landed note (one-off)")
+if (printf 'note\ncorrected\n' > docs/handoff/2026-01-01-y.md && git add docs/handoff/2026-01-01-y.md && git commit -q -m "correct a landed note" 2>/dev/null); then ok "amending a landed note on main allowed"; else bad "amending a landed note on main allowed" "the post-merge correction has no door (ADR-0149)"; fi
+if (mkdir -p docs/handoff/open && printf '# Topic\n\n## Debts\n\n- [x] paid in the field\n' > docs/handoff/open/topic.md && git add docs/handoff/open/topic.md && git commit -q -m "a durable item on main" 2>/dev/null); then ok "new topic file on main allowed"; else bad "new topic file on main allowed" "a fact learned after the merge has nowhere to go"; fi
 if (date > root2.txt && git add root2.txt && git commit -q -m "ordinary main commit" 2>/dev/null); then ok "ordinary commit on main still allowed"; else bad "ordinary commit on main still allowed" "the living-docs guard is too broad"; fi
 
 # 3. Escape hatch, return home, and the pre-commit belt when off main.
