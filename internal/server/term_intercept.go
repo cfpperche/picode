@@ -349,9 +349,11 @@ func piTerminalStateExtensionFile(dataDir string) string {
 	return filepath.Join(interceptDir(dataDir), "pi-terminal-state.ts")
 }
 
-// ompTerminalStateExtensionFile is the same pi-shaped reporter for omp: a
-// Pi fork whose extension API accepts the same events (measured 2026-09-17:
-// session_start/agent_start/agent_end fire, PICODE_TERM_ID survives).
+// ompTerminalStateExtensionFile is the omp reporter: a pi fork whose
+// extension API accepts the same load mechanism, but a different event set
+// (measured 2026-09-17, live TUI: session events fire, PICODE_TERM_ID
+// survives — and the pi events agent_settled / ui_prompt_start /
+// ui_prompt_end never fire, so pi's template left omp stuck on Working).
 func ompTerminalStateExtensionFile(dataDir string) string {
 	return filepath.Join(interceptDir(dataDir), "omp-terminal-state.ts")
 }
@@ -406,6 +408,39 @@ export default function (pi) {
   pi.on("ui_prompt_start", async (_event, ctx) => report("needs-you", ctx));
   pi.on("ui_prompt_end", async (_event, ctx) => report(ctx.isIdle() ? "idle" : "working", ctx));
   pi.on("agent_settled", async (_event, ctx) => report("idle", ctx));
+  pi.on("session_shutdown", async (_event, ctx) => report("idle", ctx));
+}
+`
+
+// omp fires pi's session_start/agent_start/session_shutdown, but — measured
+// live on 18.2.4 (2026-09-17) — never agent_settled and never the
+// ui_prompt_* pair: agent_end is the only settle point, and the approval
+// dialog emits no extension event, so omp never reports needs-you
+// (approvals happen in its own terminal). turn_start/turn_end fire many
+// times per run and carry no state.
+const ompTerminalStateExtensionTmpl = `import { spawn } from "node:child_process";
+
+const reporter = %s;
+let pending = Promise.resolve();
+
+function report(state, ctx) {
+  if (!process.env.PICODE_TERM_ID || ctx.mode !== "tui") return Promise.resolve();
+  pending = pending.then(() => new Promise((resolve) => {
+    try {
+      const child = spawn(reporter, [state, "omp"], { stdio: "ignore", env: { ...process.env, PICODE_NATIVE_SESSION_ID: ctx.sessionManager.getSessionId(), PICODE_NATIVE_SESSION_PATH: ctx.sessionManager.getSessionFile() || "" } });
+      child.once("error", resolve);
+      child.once("close", resolve);
+    } catch {
+      resolve();
+    }
+  }));
+  return pending;
+}
+
+export default function (pi) {
+  pi.on("session_start", async (_event, ctx) => report("idle", ctx));
+  pi.on("agent_start", async (_event, ctx) => report("working", ctx));
+  pi.on("agent_end", async (_event, ctx) => report("idle", ctx));
   pi.on("session_shutdown", async (_event, ctx) => report("idle", ctx));
 }
 `
@@ -470,7 +505,7 @@ func writeOmpIntercept(dataDir, hook string) error {
 		return err
 	}
 	extension := ompTerminalStateExtensionFile(dataDir)
-	body := fmt.Sprintf(piTerminalStateExtensionTmpl, tomlString(hook), "omp")
+	body := fmt.Sprintf(ompTerminalStateExtensionTmpl, tomlString(hook))
 	if err := writeInterceptFile(extension, []byte(body), 0o600); err != nil {
 		return err
 	}
