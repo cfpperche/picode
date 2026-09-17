@@ -8,7 +8,9 @@ import { LaunchFields, LaunchPreview, cliJSON, useLaunchGuard, confirmDiscard } 
 
 export function CLIProfiles({ cli, profiles, run, busy }) {
   const rows = profiles.filter((p) => p.cli === cli.id);
-  return <details className="cli-profiles"><summary>Launch profiles{rows.length ? ` · ${rows.length}` : ""}</summary>
+  // Profiles are the reusable launch settings; once one exists the list
+  // opens by default instead of hiding behind a collapsed summary.
+  return <details className="cli-profiles" open={rows.length ? true : undefined}><summary>Launch profiles{rows.length ? ` · ${rows.length}` : ""}</summary>
     <div className="cli-section-heading"><h4>Reusable launch settings</h4><a className="btn btn-ghost btn-sm" href={`#/clis/profile/new/${cli.id}`}>New profile</a></div>
     {!rows.length ? <p className="cli-muted">No profiles for {cli.name} yet.</p> : rows.map((p) => <div className="cli-profile-row" key={p.id}><strong>{p.name}</strong><div className="cli-actions" data-align-row>
       <a className="btn btn-ghost btn-sm" href={`#/clis/new/${cli.id}?profile=${encodeURIComponent(p.id)}`}>Use</a>
@@ -42,7 +44,7 @@ export function CLIProfileEditor({ route, data, run, busy }) {
     }); } catch (e) { setError(e.message); }
   }}>
     <div className="cli-fields"><label>Profile name<input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" /></label></div>
-    <LaunchFields draft={draft} setDraft={setDraft} includeIntegration />
+    <LaunchFields draft={draft} setDraft={setDraft} includeIntegration cli={cli} />
     {error ? <p className="cli-field-error" role="alert">{error}</p> : null}
     <div className="cli-actions" data-align-row><button className="btn btn-primary btn-sm" disabled={busy}>{busy ? "Saving…" : "Save profile"}</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={async () => { if (!dirty || await confirmDiscard()) { allowNavigation(); location.hash = "#/clis/" + cli.id; } }}>Cancel</button></div>
     {settings.ok ? <LaunchPreview cli={cli.id} config={launchConfig(settings.value)} /> : null}

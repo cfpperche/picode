@@ -155,14 +155,17 @@ export function launchDraft(c = {}) {
 
 export const launchLines = (text) => String(text || "").split("\n").filter((line) => line.trim());
 
+// launchArgs parses the args textarea into argv entries; a line that starts
+// with a quote is JSON-decoded (the same encoding argLine writes back).
+export const launchArgs = (text) => launchLines(text).map((a) => { if (a.startsWith('"')) { try { const s = JSON.parse(a); if (typeof s === "string") return s; } catch { /* literal argument */ } } return a; });
+
 export function launchConfig(v) {
   const env = {};
   for (const line of launchLines(v.envText)) {
     const i = line.indexOf("=");
     env[line.slice(0, i).trim()] = line.slice(i + 1);
   }
-  const args = launchLines(v.argsText).map((a) => { if (a.startsWith('"')) { try { const s = JSON.parse(a); if (typeof s === "string") return s; } catch { /* literal argument */ } } return a; });
-  return { executable: v.executable.trim(), args, path: launchLines(v.pathText).map((p) => p.trim()), env, integration: v.integration };
+  return { executable: v.executable.trim(), args: launchArgs(v.argsText), path: launchLines(v.pathText).map((p) => p.trim()), env, integration: v.integration };
 }
 
 export function resolveLaunch(base, patch = {}) {
