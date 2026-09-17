@@ -136,10 +136,20 @@ created (no credentials were pointed at omp).
 - **Fatia 6 — handoff.** Reader on the JSONL; Prompter via positional
   prompt; Writer only after a minimum-viable-file round-trip against the
   real CLI (the grok ritual), with brief-only fallback recorded.
+  Outcome (shipped 2026-09-17): the spike measured GO first — a full clone
+  with a new id and a header+one-message minimum both resumed live, the
+  model reading the cloned history, and omp accepts non-ULID ids. Shipped
+  `OmpSource.Read` (pi-family projection: live-chain replay, title records
+  outside the chain, provider-qualified model_change, thinking dropped into
+  the manifest), `PromptArgs` = the positional prompt (omp cannot pre-assign
+  ids), and `Write` at the measured-minimal shape into the cwd bucket with
+  the usual read-back round-trip. omp is now a full handoff source and a
+  native + brief target.
 
-Open question carried now: does omp accept a hand-made session file (Fatia
-6 Writer) — a real session exists now, so the minimum-viable-file spike can
-run. The Fatia 3 wrapper's maintenance passthrough still needs the exact
+Open question carried now: none for the Writer — the spike ran live on
+2026-09-17: a full clone with a new id and a header+one-message minimum
+both resumed against omp 18.2.4 with the model reading the cloned history.
+The Fatia 3 wrapper's maintenance passthrough still needs the exact
 subcommand enumeration (config, update, models, gc, stats, token,
 completions, plugin, install, setup, acp, share, join, collab, render,
 export…).

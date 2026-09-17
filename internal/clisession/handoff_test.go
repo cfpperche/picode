@@ -74,6 +74,7 @@ func TestCapabilitiesOf(t *testing.T) {
 		"grok":        {List: true, Read: true, Write: true, Prompt: true},
 		"hermes":      {List: true, Read: true, Write: true, Prompt: false},
 		"opencode":    {List: true, Read: true, Write: true, Prompt: true},
+		"omp":         {List: true, Read: true, Write: true, Prompt: true},
 		"nope":        {},
 	}
 	for cli, want := range cases {
@@ -766,6 +767,7 @@ func TestPromptArgs(t *testing.T) {
 		{"opencode", []string{"--prompt", "do it"}},
 		{"muse", []string{"do it"}},
 		{"agy", []string{"--prompt-interactive", "do it"}},
+		{"omp", []string{"do it"}},
 	}
 	for _, c := range cases {
 		p, ok := PrompterFor(c.cli)

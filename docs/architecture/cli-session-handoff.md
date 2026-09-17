@@ -47,14 +47,22 @@ timestamps are columns there. Its `ResumeArgs` are `--resume <session-uuid>`.
 Antigravity reads `~/.gemini/antigravity-cli/conversation_summaries.db` and
 resumes with `--conversation <id>`. The pane list follows the capability,
 not the adapter: `cliPanes` adds Sessions when `sessions.list` is true.
+Omp reads its own `~/.omp/agent/sessions` JSONL — pi-family schema v3 with
+omp's cwd-bucket encoding, `title` records outside the entry chain and
+provider-qualified `model_change` records — verified against real files
+and against a hand-written minimal file the CLI resumed live (omp 18.2.4,
+2026-09-17); its `ResumeArgs` are `--resume <id>`.
 
 Writers publish two ways. Claude Code, Codex, pi (as an adopted managed
-agent), Grok, Muse Code and Antigravity get a new session artifact created
-in their own store, atomically and never over an existing one — Muse as an
-index row plus a session log of plain records (the exporter dispatches on
-the line prefix, so `schema_version` leads and the session id parses as a
-UUID), Antigravity as a summaries row plus the brain transcript plus the
-(possibly empty) per-conversation store file. OpenCode and Hermes are SQLite
+agent), Grok, Muse Code, Antigravity and Omp get a new session artifact
+created in their own store, atomically and never over an existing one —
+Muse as an index row plus a session log of plain records (the exporter
+dispatches on the line prefix, so `schema_version` leads and the session
+id parses as a UUID), Antigravity as a summaries row plus the brain
+transcript plus the (possibly empty) per-conversation store file, Omp as a
+schema-v3 JSONL in its cwd bucket at the measured-minimal shape (header,
+optional omp-shaped title record, one provider-qualified `model_change`,
+chained messages; thinking never written). OpenCode and Hermes are SQLite
 stores their CLI holds open, so a writer publishes through the vendor's
 own importer instead (ADR-0094): `WriteRequest.Run` executes the CLI in
 the session's folder with its configured executable and environment

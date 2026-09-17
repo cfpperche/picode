@@ -16,7 +16,10 @@ Code reports nothing yet (its terminals read Open).
 
 Omp (oh-my-pi, a fork of Pi) works like the rest: editable launch settings,
 an Activity reporting toggle (it shares pi's extension API, so it reports
-Ready and Working), Sessions with resume, and Check for updates. It is a
+Ready and Working), Sessions with resume, and Check for updates. It joins
+**Continue in…** both ways: its own sessions move to another CLI, and other
+CLIs' conversations arrive as native omp sessions you resume with
+`--resume <id>`. It is a
 Bun program and needs Bun 1.3.14 or newer on PATH — an older Bun fails
 Check setup with a syntax error from its bundle. One conflict to know:
 omp refuses to start if your launch arguments carry `--trusted-extension`
