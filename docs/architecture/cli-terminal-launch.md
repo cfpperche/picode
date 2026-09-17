@@ -143,17 +143,21 @@ with `MUSE_NO_AUTO_UPDATE=1` so the launcher does not background-update.
 Every installed row reaches Check for updates through the same ⋯ menu, so a
 channel-backed CLI needs no bespoke button.
 
-**Omp is the terminal-plus-sessions row.** Omp (oh-my-pi, a Pi fork) carries
-`surface: terminal` — PATH detection, `POST …/check` (`omp --version`, which
-needs Bun ≥ 1.3.14 on PATH; an older Bun dies with a syntax error from its
-bundle) and `POST …/terminals` (New terminal runs `omp` with its own
-defaults). Since the sessions slice it also lists its on-disk JSONL
-sessions with `--resume <id>` resume (see the sessions paragraph above);
-it still has no integration plan (`hasIntegrationMechanism` is false, so
-the Activity toggle is hidden and the seed skips the row) and no lifecycle
-spec (`update-check` answers *No managed lifecycle for this install
-method.*; install is guided through the vendor's docs link only). Its
-Launch tab is the read-only plan summary, like any row without an adapter.
+**Omp is a full row.** Omp (oh-my-pi, a Pi fork) launched as terminal-only,
+gained sessions, then its adapter in the omp-adapter slice: editable launch
+defaults, the PATH wrapper (presence lease; maintenance subcommands and the
+protocol modes `--mode rpc|json|acp|rpc-ui` exec or mark non-TUI), and
+activity through the pi-shaped terminal-state extension injected with
+`-e` — the same extension API, measured live (session events fire,
+`PICODE_TERM_ID` survives). `Check setup` runs `omp --version`, which needs
+Bun ≥ 1.3.14 on PATH; an older Bun dies with a syntax error from its
+bundle. Lifecycle mirrors pi with the real npm package
+(`@oh-my-pi/pi-coding-agent`): `omp update` on native installs, npm on
+npm installs (the vendor updater's npm shim handling is a known weak
+spot), uninstall guided. One measured foot-gun guards both preview and
+prepare: omp refuses a run outright when a `--trusted-extension` launch
+argument meets the injected `-e`, so that combination is a named problem,
+never a broken launch.
 
 **One launch surface, read-only without an adapter.** A CLI with no adapter
 keeps the *same* launch screens, with the launcher's own data and nothing to

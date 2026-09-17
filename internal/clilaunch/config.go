@@ -52,9 +52,10 @@ func Catalog() []CLI {
 		{"opencode", "OpenCode", "opencode", "https://opencode.ai/docs", ""},
 		{"muse", "Muse Code", "muse", "https://ai.developer.meta.com/docs/muse-code/", ""},
 		{"agy", "Antigravity", "agy", "https://antigravity.google/docs/cli/", ""},
-		// Omp (oh-my-pi, a Pi fork) opens a terminal only until its adapter
-		// lands: no activity plan, no session source, no lifecycle spec.
-		{"omp", "Omp", "omp", "https://omp.sh/docs", SurfaceTerminal},
+		// Omp (oh-my-pi, a Pi fork) is a full row since the omp-adapter
+		// slice: launch settings, PATH wrapper, activity extension, sessions
+		// and lifecycle.
+		{"omp", "Omp", "omp", "https://omp.sh/docs", ""},
 	}
 }
 
@@ -137,7 +138,7 @@ func Validate(c Config) error {
 		if !envKey.MatchString(k) || !check(v) {
 			return fmt.Errorf("Environment variables need a valid name and a single-line value.")
 		}
-		if strings.HasPrefix(k, "PICODE_") || k == "PATH" || k == "HOME" || k == "SHELL" || k == "GROK_HOME" || k == "HERMES_HOME" || k == "OPENCODE_CONFIG" {
+		if strings.HasPrefix(k, "PICODE_") || k == "PATH" || k == "HOME" || k == "SHELL" || k == "GROK_HOME" || k == "HERMES_HOME" || k == "OPENCODE_CONFIG" || k == "PI_CODING_AGENT_DIR" {
 			return fmt.Errorf("%s is managed by the launcher.", k)
 		}
 	}

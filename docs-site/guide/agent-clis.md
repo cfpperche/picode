@@ -14,11 +14,14 @@ when idle) through a reporter PiCode installs as its title command — it
 never reports needs-you, approvals still happen in its own terminal. Muse
 Code reports nothing yet (its terminals read Open).
 
-Omp (oh-my-pi, a fork of Pi) opens a terminal of its own and lists its own
-sessions (open one in a terminal to resume it). Its launch settings and
-activity have no adapter yet, so its terminals read Open and its Launch tab
-is a read-only preview. Omp is a Bun program and needs Bun 1.3.14 or newer on
-PATH — an older Bun fails Check setup with a syntax error from its bundle.
+Omp (oh-my-pi, a fork of Pi) works like the rest: editable launch settings,
+an Activity reporting toggle (it shares pi's extension API, so it reports
+Ready and Working), Sessions with resume, and Check for updates. It is a
+Bun program and needs Bun 1.3.14 or newer on PATH — an older Bun fails
+Check setup with a syntax error from its bundle. One conflict to know:
+omp refuses to start if your launch arguments carry `--trusted-extension`
+while Activity reporting is on, so PiCode names that combination in the
+launch preview instead of starting a broken terminal.
 
 Every CLI's pane carries the same tabs — Launch, Terminals, Sessions,
 Providers, Settings, Keyboard, Packages and Connectors. The tabs a CLI has no

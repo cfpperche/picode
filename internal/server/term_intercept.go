@@ -139,6 +139,7 @@ picode_tui=1
 case "$name:${1-}:${2-}" in
   codex:exec:*|codex:app-server:*|codex:mcp-server:*) picode_tui=0 ;;
   pi:--mode:rpc|pi:--mode:json) picode_tui=0 ;;
+  omp:--mode:rpc|omp:--mode:json|omp:--mode:acp|omp:--mode:rpc-ui) picode_tui=0 ;;
 esac
 # Hermes: interactive entry points (bare, chat, flags, a prompt) keep the lease.
 # Named maintenance subcommands do not.
@@ -348,6 +349,13 @@ func piTerminalStateExtensionFile(dataDir string) string {
 	return filepath.Join(interceptDir(dataDir), "pi-terminal-state.ts")
 }
 
+// ompTerminalStateExtensionFile is the same pi-shaped reporter for omp: a
+// Pi fork whose extension API accepts the same events (measured 2026-09-17:
+// session_start/agent_start/agent_end fire, PICODE_TERM_ID survives).
+func ompTerminalStateExtensionFile(dataDir string) string {
+	return filepath.Join(interceptDir(dataDir), "omp-terminal-state.ts")
+}
+
 // PiCode's Inbox reply receiver (ADR-0060): consumes one-shot reply files and
 // submits them through the TUI's own message path. Injected into every agent
 // TUI PiCode spawns, independent of the opt-in terminal-status roster.
@@ -382,7 +390,7 @@ function report(state, ctx) {
   if (!process.env.PICODE_TERM_ID || ctx.mode !== "tui") return Promise.resolve();
   pending = pending.then(() => new Promise((resolve) => {
     try {
-      const child = spawn(reporter, [state, "pi"], { stdio: "ignore", env: { ...process.env, PICODE_NATIVE_SESSION_ID: ctx.sessionManager.getSessionId(), PICODE_NATIVE_SESSION_PATH: ctx.sessionManager.getSessionFile() || "" } });
+      const child = spawn(reporter, [state, "%s"], { stdio: "ignore", env: { ...process.env, PICODE_NATIVE_SESSION_ID: ctx.sessionManager.getSessionId(), PICODE_NATIVE_SESSION_PATH: ctx.sessionManager.getSessionFile() || "" } });
       child.once("error", resolve);
       child.once("close", resolve);
     } catch {
@@ -407,7 +415,7 @@ func writePiIntercept(dataDir, hook string) error {
 		return err
 	}
 	extension := piTerminalStateExtensionFile(dataDir)
-	body := fmt.Sprintf(piTerminalStateExtensionTmpl, tomlString(hook))
+	body := fmt.Sprintf(piTerminalStateExtensionTmpl, tomlString(hook), "pi")
 	if err := writeInterceptFile(extension, []byte(body), 0o600); err != nil {
 		return err
 	}
@@ -447,6 +455,44 @@ const museMaintenanceCommands = `exec|export|trace|skills|sandbox|schema|session
 // continuations keep the lease; print mode is already caught by the
 // generic --print loop below, subcommands here complete it.
 const agyMaintenanceCommands = `agent|agents|changelog|help|install|mcp|mic-serve|models|plugin|plugins|remote-control|update`
+
+// ompMaintenanceCommands is the first positional that means "not an omp
+// agent session": every subcommand omp dispatches — auth, config, models,
+// protocol servers, even its interactive tools (git, shell) — is not a
+// session the presence lease should describe. Only bare runs (with or
+// without a prompt), -c/--continue and -r/--resume keep it; protocol
+// modes (--mode rpc/json/acp/rpc-ui) are caught by the wrapperLifecycle
+// case above. Verified against `omp --help` on 18.2.4.
+const ompMaintenanceCommands = `acp|agents|auth-broker|auth-gateway|bench|browser-relay|cleanse|collab|commit|completions|compress|config|dry-balance|gallery|gc|git|grep|grievances|if-bench|images|install|join|models|plugin|ps|read|render|say|search|setup|share|shell|ssh|stats|tiny-models|token|ttsr|update|usage|worktree`
+
+func writeOmpIntercept(dataDir, hook string) error {
+	if err := os.MkdirAll(interceptDir(dataDir), 0o755); err != nil {
+		return err
+	}
+	extension := ompTerminalStateExtensionFile(dataDir)
+	body := fmt.Sprintf(piTerminalStateExtensionTmpl, tomlString(hook), "omp")
+	if err := writeInterceptFile(extension, []byte(body), 0o600); err != nil {
+		return err
+	}
+	ompArgs := quotedCLIArgs(cliIntegrationPlan("omp", dataDir, hook).Branches[0].Args)
+	passthrough := `# Named maintenance subcommands skip the presence lease and the extension.
+# Bare runs (with or without a prompt), -c/--continue and -r/--resume keep both.
+if [ "$name" = omp ]; then
+  case "${1-}" in
+    ""|-*) ;;
+    OMP_MAINT)
+      exec "$real" "$@"
+      ;;
+  esac
+fi
+`
+	passthrough = strings.Replace(passthrough, "OMP_MAINT", ompMaintenanceCommands, 1)
+	wrapper := "#!/bin/sh\n# PiCode Omp integration (omp is a Pi fork: pi-shaped extension).\nname=omp\n" +
+		wrapperFindReal + passthrough + wrapperLifecycle(hook) +
+		"\"$real\"" + ompArgs + " \"$@\"\n" +
+		wrapperLifecycleEnd
+	return writeExecutable(wrapperPath(dataDir, "omp"), wrapper)
+}
 
 func writeMuseIntercept(dataDir, hook string) error {
 	// Maintenance subcommands exec straight past the lease below (the
@@ -947,6 +993,10 @@ func installIntercept(dataDir, cliID string) error {
 		}
 	case "muse":
 		if err := writeMuseIntercept(dataDir, hook); err != nil {
+			return err
+		}
+	case "omp":
+		if err := writeOmpIntercept(dataDir, hook); err != nil {
 			return err
 		}
 	default:

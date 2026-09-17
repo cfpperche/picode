@@ -60,6 +60,13 @@ func cliIntegrationPlan(cli, dir, hook string) clilaunch.IntegrationPlan {
 		// pins. The reporter file below is what cliIntegrationPrepared checks.
 		p.Summary = "Activity via the title reporter in your Antigravity settings, presence via the PATH wrapper"
 		p.Files = append(p.Files, agyTitleReporterPath(dir), wrapperPath(dir, "agy"))
+	case "omp":
+		// omp is a Pi fork: the same extension API, measured live (the
+		// session events fire and PICODE_TERM_ID survives). The extension
+		// self-guards on TUI mode, so headless -p runs report nothing.
+		p.Summary = "Activity extension via -e (omp shares pi's extension API)"
+		p.Branches = append(p.Branches, clilaunch.Injection{When: "Interactive invocation (not maintenance subcommands, protocol modes, help/version)", Args: []string{"-e", ompTerminalStateExtensionFile(dir)}})
+		p.Files = append(p.Files, wrapperPath(dir, "omp"), ompTerminalStateExtensionFile(dir))
 	}
 	return p
 }
@@ -71,6 +78,19 @@ func cliIntegrationPlan(cli, dir, hook string) clilaunch.IntegrationPlan {
 func hasIntegrationMechanism(id string) bool {
 	p := cliIntegrationPlan(id, "", "")
 	return len(p.Branches) > 0 || len(p.Files) > 0 || len(p.Environment) > 0
+}
+
+// ompTrustedExtensionConflict: omp refuses a run outright when a
+// --trusted-extension launch argument meets PiCode's injected -e
+// (measured on 18.2.4: "--trusted-extension cannot be combined with
+// --extension, -e, or --hook").
+func ompTrustedExtensionConflict(c clilaunch.Config) bool {
+	for _, a := range c.Args {
+		if a == "--trusted-extension" || strings.HasPrefix(a, "--trusted-extension=") {
+			return true
+		}
+	}
+	return false
 }
 
 func quotedCLIArgs(args []string) string {
@@ -94,6 +114,9 @@ func launchPlan(deps Deps, cli clilaunch.CLI, base clilaunch.Config, overrides c
 	p.CLI = cli.ID
 	if err != nil {
 		p.Problem = err.Error()
+	}
+	if p.Problem == "" && cli.ID == "omp" && c.Integration && ompTrustedExtensionConflict(c) {
+		p.Problem = "Your --trusted-extension argument conflicts with PiCode's Omp activity extension. Turn Activity reporting off for Omp, or drop the flag."
 	}
 	for _, key := range []string{"executable", "args", "path", "env", "integration"} {
 		p.Origins[key] = "CLI defaults"

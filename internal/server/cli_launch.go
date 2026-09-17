@@ -922,6 +922,11 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 		// a missing wrapper file.
 		return nil, fmt.Errorf("Activity reporting is not available for %s in this build.", cli.Name)
 	}
+	if c.Integration && cli.ID == "omp" && ompTrustedExtensionConflict(c) {
+		// Measured on 18.2.4: omp refuses the whole run when a
+		// --trusted-extension argument meets PiCode's injected -e.
+		return nil, fmt.Errorf("Your --trusted-extension argument conflicts with PiCode's Omp activity extension. Turn Activity reporting off for Omp, or drop the flag.")
+	}
 	if c.Integration {
 		hook, err := ensureHookScript(deps.DataDir)
 		if err != nil {
@@ -942,6 +947,8 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 			err = writeOpencodeIntercept(dir, hook)
 		case "muse":
 			err = writeMuseIntercept(dir, hook)
+		case "omp":
+			err = writeOmpIntercept(dir, hook)
 		case "agy":
 			err = writeAgyIntercept(dir, hook)
 		}

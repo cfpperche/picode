@@ -93,6 +93,18 @@ var plans = map[string]spec{
 		updateArgs:    []string{"update"},
 		reinstallArgs: []string{"update", "--force"},
 	},
+	"omp": {
+		// Same shape as pi — omp is its fork — with the real npm package
+		// name. `omp update` (measured on 18.2.4) detects the install
+		// method itself; npm installs update through npm because the
+		// vendor updater's npm shim handling is a known weak spot.
+		npmPackage:    "@oh-my-pi/pi-coding-agent",
+		updateArgs:    []string{"update"},
+		reinstallArgs: []string{"update", "--force"},
+		uninstall:     UninstallGuided,
+		docs:          "https://omp.sh/docs",
+		npmUpdateOnly: true,
+	},
 	"claude-code": {
 		npmPackage:    "@anthropic-ai/claude-code",
 		updateArgs:    []string{"update"},

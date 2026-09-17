@@ -15,8 +15,8 @@ import (
 // Decision table: every integrable CLI carries a mechanism (arg branches,
 // files, or environment). Muse Code and Antigravity launch through the PATH
 // wrapper like the rest since the wrapper slice; their reporting differs
-// (agy title reporter, muse presence lease only). Terminal-only rows — Omp
-// today — carry no mechanism: the toggle is hidden and the seed skips them.
+// (agy title reporter, muse presence lease only). Omp reports through the
+// pi-shaped terminal-state extension since the omp-adapter slice.
 func TestIntegrationMechanismTable(t *testing.T) {
 	for _, c := range clilaunch.Catalog() {
 		want := c.Integrable()

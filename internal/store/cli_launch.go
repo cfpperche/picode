@@ -113,7 +113,10 @@ func (s *Store) ImportCLIConfigs(enabled map[string]bool) error {
 	return s.commit(tx)
 }
 
-const catalogIntegrationSeedKey = "cli.catalog-integration-default-v3"
+// v4 (2026-09-17): omp joined the full rows — existing instances (flag
+// already "1" on v3) reseed once so omp gets the Activity-on default the
+// same first-insert path gave every other CLI. Same bump muse needed.
+const catalogIntegrationSeedKey = "cli.catalog-integration-default-v4"
 
 func isEmptyLaunchConfig(c clilaunch.Config) bool {
 	return c.Executable == "" && len(c.Args) == 0 && len(c.Env) == 0 && len(c.Path) == 0

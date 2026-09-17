@@ -54,6 +54,7 @@ func TestValidateLaunchDecisionTable(t *testing.T) {
 		{"reserved grok home", Config{Env: map[string]string{"GROK_HOME": "/other"}}, false},
 		{"reserved hermes home", Config{Env: map[string]string{"HERMES_HOME": "/other"}}, false},
 		{"reserved opencode config", Config{Env: map[string]string{"OPENCODE_CONFIG": "/other.json"}}, false},
+		{"reserved omp agent dir", Config{Env: map[string]string{"PI_CODING_AGENT_DIR": "/home/x/.omp"}}, false},
 		{"reserved path", Config{Env: map[string]string{"PATH": "/other"}}, false},
 		{"relative path", Config{Path: []string{"relative"}}, false},
 		{"path separator", Config{Path: []string{"/a:/b"}}, false},
@@ -84,11 +85,11 @@ func TestLaunchDiagnosticsRedactValues(t *testing.T) {
 }
 
 func TestCatalogCapabilities(t *testing.T) {
-	// Decision table: every catalog row opens a terminal, and every row
-	// but Omp carries an adapter. Antigravity left the terminal-only group
-	// in Fatia 3b (Muse Code in 3a); the `terminal` set stays as the shape
-	// a future CLI without an adapter rejoins — Omp is its first member.
-	terminal := map[string]bool{"omp": true}
+	// Decision table: every catalog row opens a terminal and carries an
+	// adapter — Omp joined the full rows in the omp-adapter slice (it left
+	// the terminal-only group the omp-cli slice created). The `terminal`
+	// set stays as the shape a future CLI without an adapter rejoins.
+	terminal := map[string]bool{}
 	seen := map[string]bool{}
 	for _, c := range Catalog() {
 		if c.Launchable() != true {

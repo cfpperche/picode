@@ -98,17 +98,41 @@ created (no credentials were pointed at omp).
 - **Fatia 3 — launch.** Drop `SurfaceTerminal`, `cliIntegrationPlan` branch
   (PATH wrapper + presence lease), `PI_CODING_AGENT_DIR` reserved,
   `OMP_MAINT` passthrough list, decision table.
+  Outcome (shipped 2026-09-17): wrapper mirrors muse's shape — maintenance
+  subcommands (the omp subcommand registry, measured off `--help`: acp
+  through worktree, including its interactive tools git/shell) exec past
+  the lease; bare runs, prompts, -c/--resume keep it; protocol modes
+  `--mode rpc|json|acp|rpc-ui` mark non-TUI in the shared wrapperLifecycle
+  template (pi's row lives in the same case). `PI_CODING_AGENT_DIR` joined
+  the launcher-owned env keys (validate refuses it). Seed bumped v3→v4 so
+  existing instances give omp the Activity-on default (the muse v2→v3
+  precedent). `normalizeTerminalCLI` (server) learned omp — runtime reports
+  were being canonicalized to "" without it.
 - **Fatia 4 — activity.** Gate: extension-event probe against a real
   session with `PICODE_TERM_ID` in the env. No mechanism measured → omp
   stays honestly `Open` (the muse outcome).
-  Probe result (2026-09-17, measured): **GO.** A minimal extension loaded
-  under `-e`, `session_start`/`agent_start`/`agent_end` all fired, and
-  `PICODE_TERM_ID` survived into the extension process. omp can take the
-  pi-shaped terminal-state extension; Fatia 4 is an implementation slice,
-  not a discovery one.
+  Outcome (shipped 2026-09-17): the gate measured **GO** on 2026-09-17 —
+  a minimal extension loaded under `-e`, `session_start`/`agent_start`/
+  `agent_end` all fired, and `PICODE_TERM_ID` survived into the extension
+  process. Shipped the pi-shaped terminal-state extension (same template,
+  reporter name "omp"), self-guarded on TUI mode so headless runs report
+  nothing. Live TUI Ready/Working acceptance with the owner's auth is the
+  external remainder (the scratch has no omp credentials by design).
 - **Fatia 5 — lifecycle.** Spec: `updateArgs ["update"]`,
   `CheckArgs ["update","--check"]`, vendor output parse; npm fallback via
   the real package name. Uninstall guided (vendor docs).
+  Outcome (shipped 2026-09-17): pi-shaped spec with the real npm package
+  (`@oh-my-pi/pi-coding-agent`, `npmUpdateOnly` like claude-code): npm
+  installs update/reinstall/uninstall through npm; native installs run
+  `omp update` / `omp update --force` (measured working); uninstall
+  guided. The bun-global layout classifies unknown until observed.
+- **Adversarial finding (measured, guarded).** `--trusted-extension` in
+  launch args + PiCode's injected `-e` = omp refuses the whole run
+  ("--trusted-extension cannot be combined with --extension, -e, or
+  --hook"). Preview names the conflict and prepare refuses with the
+  reason (`ompTrustedExtensionConflict`, 5-row decision table);
+  `--no-extensions` + explicit `-e` measured fine (explicit paths still
+  load).
 - **Fatia 6 — handoff.** Reader on the JSONL; Prompter via positional
   prompt; Writer only after a minimum-viable-file round-trip against the
   real CLI (the grok ritual), with brief-only fallback recorded.
