@@ -15,6 +15,7 @@ test("readBrowserPrefs keeps every field of a full payload", () => {
       generalAutofill: false,
       askDownload: true,
       scriptsEnabled: false,
+      historyAccess: "allow",
       agentAccess: false,
       developerMode: true,
     };
@@ -32,6 +33,18 @@ test("askDownload survives the round trip the save path makes", () => {
   const on = readBrowserPrefs({ ...DEFAULT_BROWSER_PREFS, askDownload: true });
   assert.equal(on.askDownload, true);
   assert.equal(readBrowserPrefs(on).askDownload, true);
+});
+
+test("history access fails closed and survives a round trip", () => {
+  // ADR-0146: only the exact word "allow" opens it — a missing field, a
+  // boolean, a typo and a stale payload all read as never.
+  assert.equal(DEFAULT_BROWSER_PREFS.historyAccess, "never");
+  for (const payload of [{}, null, { historyAccess: undefined }, { historyAccess: true }, { historyAccess: "sometimes" }]) {
+    assert.equal(readBrowserPrefs(payload).historyAccess, "never", JSON.stringify(payload));
+  }
+  const on = readBrowserPrefs({ ...DEFAULT_BROWSER_PREFS, historyAccess: "allow" });
+  assert.equal(on.historyAccess, "allow");
+  assert.equal(readBrowserPrefs(on).historyAccess, "allow");
 });
 
 test("readBrowserPrefs defaults what a payload omits", () => {

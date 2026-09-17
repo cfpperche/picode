@@ -52,6 +52,9 @@ type BrowserPrefs struct {
 	AskDownload bool `json:"askDownload"`
 	// ScriptsEnabled is the Browser permissions JavaScript switch.
 	ScriptsEnabled bool `json:"scriptsEnabled"`
+	// HistoryAccess is whether an agent may read the browsing history:
+	// "never" (the default) or "allow" (ADR-0146).
+	HistoryAccess string `json:"historyAccess"`
 	// AgentAccess is the master switch: off refuses every browser verb for
 	// every agent (the grants below stop mattering until it is back on).
 	AgentAccess bool `json:"agentAccess"`
@@ -65,7 +68,7 @@ type BrowserPrefs struct {
 // the address bar shows the full URL, popups open inside the app, and
 // WebView2's own autofill defaults (both on).
 func browserPrefsRead(st *store.Store) (BrowserPrefs, error) {
-	p := BrowserPrefs{ShowFullURL: true, WebOpenDest: "app", LocalOpenDest: "app", PasswordAutosave: true, GeneralAutofill: true, AskDownload: false, ScriptsEnabled: true, AgentAccess: true}
+	p := BrowserPrefs{ShowFullURL: true, WebOpenDest: "app", LocalOpenDest: "app", PasswordAutosave: true, GeneralAutofill: true, AskDownload: false, ScriptsEnabled: true, HistoryAccess: "never", AgentAccess: true}
 	rows := []struct {
 		key   string
 		apply func(raw string)
@@ -98,6 +101,11 @@ func browserPrefsRead(st *store.Store) (BrowserPrefs, error) {
 		{"browser.scriptsEnabled", func(raw string) {
 			if raw == "0" {
 				p.ScriptsEnabled = false
+			}
+		}},
+		{"browser.historyAccess", func(raw string) {
+			if raw == "allow" {
+				p.HistoryAccess = "allow"
 			}
 		}},
 		{"browser.askDownload", func(raw string) {
@@ -147,6 +155,13 @@ func handleBrowserPrefsPut(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "localOpenDest must be app or external")
 			return
 		}
+		// A missing or unknown value is the default, never a wider one: an
+		// older page that does not send the field cannot turn access on, and
+		// cannot leave a previous "allow" standing by accident either.
+		historyAccess := "never"
+		if req.HistoryAccess == "allow" {
+			historyAccess = "allow"
+		}
 		rows := []struct{ key, value string }{
 			{prefShowFullURL, map[bool]string{true: "1", false: "0"}[req.ShowFullURL]},
 			{"browser.webOpenDest", req.WebOpenDest},
@@ -154,6 +169,7 @@ func handleBrowserPrefsPut(deps Deps) http.HandlerFunc {
 			{"browser.passwordAutosave", map[bool]string{true: "1", false: "0"}[req.PasswordAutosave]},
 			{"browser.generalAutofill", map[bool]string{true: "1", false: "0"}[req.GeneralAutofill]},
 			{"browser.scriptsEnabled", map[bool]string{true: "1", false: "0"}[req.ScriptsEnabled]},
+			{"browser.historyAccess", historyAccess},
 			{"browser.askDownload", map[bool]string{true: "1", false: "0"}[req.AskDownload]},
 			{"browser.agentAccess", map[bool]string{true: "1", false: "0"}[req.AgentAccess]},
 			{prefDeveloperMode, map[bool]string{true: "1", false: "0"}[req.DeveloperMode]},

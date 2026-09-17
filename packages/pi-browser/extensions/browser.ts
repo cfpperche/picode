@@ -31,6 +31,7 @@ import {
 	summarizeCdp,
 	summarizeEvaluate,
 	summarizeEvents,
+	summarizeHistory,
 	summarizeNavigate,
 } from "../src/logic.ts";
 
@@ -75,7 +76,7 @@ export default function piBrowser(pi: ExtensionAPI) {
 		description:
 			"Read the web page the human has open in PiCode's work browser (the desktop app). " +
 			"Verbs: snapshot (the page as an accessibility tree — roles and names), screenshot (writes a PNG and returns its path), " +
-			"events (what the tab recorded: navigation, console, network), cdp (one Chrome DevTools Protocol method by name; needs Developer mode). " +
+			"events (what the tab recorded: navigation, console, network), cdp (one Chrome DevTools Protocol method by name; needs Developer mode), history (where the human has been; off until they allow it in Settings). " +
 			"Read-only by default: it cannot click, type or navigate.",
 		promptSnippet: "Read the page open in PiCode's work browser (desktop app)",
 		promptGuidelines: [
@@ -93,11 +94,14 @@ export default function piBrowser(pi: ExtensionAPI) {
 					Type.Literal("evaluate"),
 					Type.Literal("navigate"),
 					Type.Literal("cdp"),
+					Type.Literal("history"),
 				],
 				{ description: "snapshot | screenshot | events | evaluate | navigate | cdp (evaluate/navigate need a grant; cdp needs Developer mode and the Full tier)" },
 			),
 			since: Type.Optional(Type.Number({ description: "events only: the last sequence number you saw" })),
 			expression: Type.Optional(Type.String({ description: "evaluate only: the JavaScript expression to run" })),
+			query: Type.Optional(Type.String({ description: "history only: a search over url and title" })),
+			limit: Type.Optional(Type.Number({ description: "history only: how many visits to return (default 100, max 200)" })),
 			url: Type.Optional(Type.String({ description: "navigate only: the destination; its origin must be in the grant" })),
 			method: Type.Optional(Type.String({ description: "cdp only: the full protocol method name, e.g. Network.getAllCookies" })),
 			params: Type.Optional(Type.String({ description: "cdp only: the method's parameters as a JSON object, e.g. {\"urls\":true}" })),
@@ -130,7 +134,7 @@ export default function piBrowser(pi: ExtensionAPI) {
 				// a CLI in a PiCode terminal has no agent id, only a terminal one.
 				term: (process.env.PICODE_TERM_ID || "").trim(),
 				verb: params.verb,
-				params: { since: params.since, expression: params.expression, url: params.url, method: params.method, params: cdpParams },
+				params: { since: params.since, expression: params.expression, url: params.url, method: params.method, params: cdpParams, query: params.query, limit: params.limit },
 			});
 			let answer: { status: number; text: string };
 			try {
@@ -152,6 +156,9 @@ export default function piBrowser(pi: ExtensionAPI) {
 				const path = screenshotPath(tmpdir(), Date.now());
 				await writeFile(path, Buffer.from(data, "base64"));
 				return { content: [{ type: "text", text: `Screenshot of the page on screen written to ${path}` }], details: { path } };
+			}
+			if (verb === "history") {
+				return { content: [{ type: "text", text: summarizeHistory(output) }] };
 			}
 			if (verb === "events") {
 				const lines = summarizeEvents(output);
