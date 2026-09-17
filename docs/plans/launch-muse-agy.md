@@ -124,6 +124,11 @@ written to either CLI's store.
   way), and the server test suite runs under an isolated HOME. Muse
   keeps launch parity + managed update/reinstall and stays honestly
   Open until a vendor surface carries identity (MSP serve).
+- **Fatia 7 — PATH wrapper for muse and agy (owner-ordered).** Same
+  shape as every other CLI: presence lease, native runtime, no
+  `needsWrapper` carve-out. Reporting unchanged (agy via title, muse
+  honestly Open). Maintenance subcommands skip the lease
+  (MUSE_MAINT/AGY_MAINT lists). Seed bump v2→v3 (muse joins seeding).
 
 Open questions for the slices: full muse hook event list; agy lock
 staleness; whether `agy --model` ids stay stable enough to offer in

@@ -149,15 +149,18 @@ settings. The preview is the server's real plan
 (`POST /api/clis/<cli>/preview`), including the blocked state: an uninstalled
 CLI reads *Not found* and the plan's problem line instead of an empty grid.
 
-**Editable launch without activity (Muse Code).** Muse left the
-no-adapter group with its launch editable but no hook surface in its
-build, so the plan carries a summary and nothing to install or inject.
+**Presence lease without activity (Muse Code).** Muse launches through
+the PATH wrapper like every other CLI, so presence and pins work — but
+its hook reports carry no terminal identity (env scrubbed to PATH), so
+there is nothing to report through and activity stays Open.
 
-**Activity without a wrapper (Antigravity).** The CLI reports its own
+**Activity through the settings reporter (Antigravity).** The CLI reports its own
 lifecycle through the `title` command in its settings file
 (`agent_state: idle | thinking | working | tool_use | initializing`), so
 PiCode installs a reporter script there — merged into the user's file,
-foreign blocks refused, ours removed on toggle-off. The reporter posts
+foreign blocks refused, ours removed on toggle-off — and launches the CLI
+through the PATH wrapper like every other surface (presence lease and
+precise pins; the lease skips maintenance subcommands). The reporter posts
 through `picode-hook` (the shared mapper learned the `agent_state`
 dialect) and prints the short title the CLI renders. No `hooks.json`
 decision hook ships: a PreToolUse command gates tools, and a bad one

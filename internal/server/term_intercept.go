@@ -435,6 +435,57 @@ func writePiIntercept(dataDir, hook string) error {
 	return writeExecutable(wrapperPath(dataDir, "pi"), wrapper)
 }
 
+// museMaintenanceCommands is the first positional that means "not the
+// interactive TUI". Bare runs (with or without a prompt) and resume keep
+// the presence lease; every vendor subcommand below is headless, auth,
+// setup or inspection. Kept in one place so future subcommands land here,
+// next to the hermes/opencode lists above.
+const museMaintenanceCommands = `exec|export|trace|skills|sandbox|schema|session-message|mcp|auth|login|logout|init|config|serve`
+
+// agyMaintenanceCommands is the first positional that means "not the
+// interactive TUI". Bare runs and --prompt-interactive/--conversation
+// continuations keep the lease; print mode is already caught by the
+// generic --print loop below, subcommands here complete it.
+const agyMaintenanceCommands = `agent|agents|changelog|help|install|mcp|mic-serve|models|plugin|plugins|remote-control|update`
+
+func writeMuseIntercept(dataDir, hook string) error {
+	// Maintenance subcommands exec straight past the lease below (the
+	// hermes shape): wrapperLifecycle owns the picode_tui=1 default, so a
+	// later assignment would only take effect after runtime-start already
+	// ran. Bare runs (with or without a starting prompt) and resume keep it.
+	passthrough := `# Named maintenance subcommands skip the presence lease.
+# Bare runs (with or without a starting prompt) and resume keep it.
+if [ "$name" = muse ]; then
+  case "${1-}" in
+    ""|resume|-*) ;;
+    MUSE_MAINT)
+      exec "$real" "$@"
+      ;;
+  esac
+fi
+`
+	passthrough = strings.Replace(passthrough, "MUSE_MAINT", museMaintenanceCommands, 1)
+	body := "#!/bin/sh\n# PiCode Muse Code integration.\nname=muse\n" + wrapperFindReal + passthrough + wrapperLifecycle(hook) + "\"$real\" \"$@\"\n" + wrapperLifecycleEnd
+	return writeExecutable(wrapperPath(dataDir, "muse"), body)
+}
+
+func writeAgyIntercept(dataDir, hook string) error {
+	passthrough := `# Named maintenance subcommands skip the presence lease.
+# Bare runs, prompt-interactive and conversation continuations keep it.
+if [ "$name" = agy ]; then
+  case "${1-}" in
+    ""|-*) ;;
+    AGY_MAINT)
+      exec "$real" "$@"
+      ;;
+  esac
+fi
+`
+	passthrough = strings.Replace(passthrough, "AGY_MAINT", agyMaintenanceCommands, 1)
+	body := "#!/bin/sh\n# PiCode Antigravity integration.\nname=agy\n" + wrapperFindReal + passthrough + wrapperLifecycle(hook) + "\"$real\" \"$@\"\n" + wrapperLifecycleEnd
+	return writeExecutable(wrapperPath(dataDir, "agy"), body)
+}
+
 func writeGrokIntercept(dataDir, hook string) error {
 	if err := writeNativeAssets(dataDir); err != nil {
 		return err
@@ -891,6 +942,13 @@ func installIntercept(dataDir, cliID string) error {
 		if err := installAgyTitleReporter(dataDir); err != nil {
 			return err
 		}
+		if err := writeAgyIntercept(dataDir, hook); err != nil {
+			return err
+		}
+	case "muse":
+		if err := writeMuseIntercept(dataDir, hook); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("unknown CLI %q", cliID)
 	}
@@ -1013,6 +1071,9 @@ func uninstallIntercept(dataDir, cliID string) error {
 		_ = os.Remove(piTerminalStateExtensionFile(dataDir))
 	case "agy":
 		removeAgyTitleReporter(dataDir)
+		removeWrapper(dataDir, "agy")
+	case "muse":
+		removeWrapper(dataDir, "muse")
 	default:
 		return fmt.Errorf("unknown CLI %q", cliID)
 	}

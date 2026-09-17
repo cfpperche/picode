@@ -11,6 +11,10 @@ import (
 
 func cliIntegrationPrepared(dir string, cli clilaunch.CLI) bool {
 	if cli.ID == "agy" {
+		// Reporter chain plus the PATH wrapper (uniform launch).
+		if st, err := os.Stat(wrapperPath(dir, "agy")); err != nil || st.IsDir() || st.Size() == 0 {
+			return false
+		}
 		return agyReporterPrepared(dir)
 	}
 	if !interceptWired(dir, cli.ID, cli.Command) {
