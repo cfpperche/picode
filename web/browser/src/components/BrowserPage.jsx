@@ -625,6 +625,35 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
 
   // Reset forgets one row and tells the live shell to drop the matching
   // entry, so a reset takes effect now instead of at the next restart.
+  // "Forget unused": rows whose site has not been visited in 90 days. The
+  // store forgets them and answers with what it forgot, so the live shell's
+  // copy is cleared too — a standing that survived only there would come back
+  // on the next report (the same rule the single Reset follows).
+  const pruneUnused = async () => {
+    let removed = 0;
+    let forgotten = [];
+    try {
+      const r = await fetch("/api/browser/permissions/prune", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days: 90 }),
+      });
+      if (!r.ok) throw new Error(String(r.status));
+      const body = await r.json();
+      removed = body.removed ?? 0;
+      forgotten = Array.isArray(body.forgotten) ? body.forgotten : [];
+    } catch {
+      toast("Forgetting unused sites failed.");
+      return;
+    }
+    for (const row of forgotten) {
+      await invoke?.("btab_set_permission_policy", { kind: row.kind, state: "default", origin: row.origin }).catch(() => {});
+    }
+    if (removed === 0) toast.ok("Nothing to forget — every site has been visited in the last 90 days.");
+    else toast.ok(`Forgot ${removed} unused ${removed === 1 ? "entry" : "entries"}.`);
+    loadStands();
+  };
+
   const forgetStanding = async (st) => {
     await fetch("/api/browser/permissions/" + st.id, { method: "DELETE" }).catch(() => {});
     if (invoke) {
@@ -1157,6 +1186,16 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
             {newSiteError ? <p className="grant-error">{newSiteError}</p> : null}
             <div className="hist-head">
               <span className="hist-head-t">Recent decisions</span>
+              {stands && stands.length > 0 ? (
+                <button
+                  type="button"
+                  className="set-btn"
+                  onClick={pruneUnused}
+                  title="Forgets the sites you have not visited in the last 90 days"
+                >
+                  Forget unused
+                </button>
+              ) : null}
             </div>
             {stands === null ? (
               <div className="mcp-skel" aria-hidden="true"><span className="skel-line w-40" /><span className="skel-line w-70" /></div>

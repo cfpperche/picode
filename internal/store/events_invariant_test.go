@@ -432,6 +432,10 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			p, _ := s.SetBrowserPermission("meet.example.com", "camera", "allow", true)
 			_ = s.DeleteBrowserPermission(p.ID)
 		}, []string{"browserpermission.updated", "browserpermission.updated"}},
+		{"PruneBrowserPermissions", func(s *Store) {
+			_, _ = s.SetBrowserPermission("never-visited.test", "camera", "allow", false)
+			_, _ = s.PruneBrowserPermissions(time.Now())
+		}, []string{"browserpermission.updated", "browserpermission.updated"}},
 		{"ClearBrowserPermissions", func(s *Store) {
 			_, _ = s.SetBrowserPermission("meet.example.com", "camera", "allow", false)
 			_ = s.ClearBrowserPermissions("camera")
