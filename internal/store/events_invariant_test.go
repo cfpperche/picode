@@ -514,6 +514,19 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			_ = s.RecoverDockerJobs()
 		}, []string{"docker.job"}},
 		{"SaveDockerMonitor", func(s *Store) { _, _ = s.SaveDockerMonitor(DefaultDockerMonitor("unix:///tmp/qa", "demo")) }, []string{"docker.monitor"}},
+		{"CreateWebapp", func(s *Store) {
+			_, _ = s.CreateWebapp("Example", "https://example.com", []byte("png"), "image/png")
+		}, []string{"webapp.installed"}},
+		{"UpdateWebappName", func(s *Store) {
+			app, _ := s.CreateWebapp("Example", "https://example.com", nil, "")
+			s.OnEvent = recorder(s)
+			_, _ = s.UpdateWebappName(app.ID, "Renamed")
+		}, []string{"webapp.updated"}},
+		{"DeleteWebapp", func(s *Store) {
+			app, _ := s.CreateWebapp("Example", "https://example.com", nil, "")
+			s.OnEvent = recorder(s)
+			_ = s.DeleteWebapp(app.ID)
+		}, []string{"webapp.removed"}},
 		{"RecordDockerHealth", func(s *Store) {
 			m, _ := s.SaveDockerMonitor(DefaultDockerMonitor("unix:///tmp/qa", "demo"))
 			s.OnEvent = recorder(s)

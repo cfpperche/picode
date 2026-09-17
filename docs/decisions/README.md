@@ -151,3 +151,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0144](0144-developer-mode-cdp.md) | Developer mode — raw CDP for a full-tier agent | accepted |
 | [0145](0145-board-bounded-view.md) | The handoff board is a bounded view | accepted |
 | [0146](0146-agent-history-access.md) | agent-history-access | accepted |
+| [0147](0147-user-installed-webapps.md) | user-installed-webapps | accepted |

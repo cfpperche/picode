@@ -4926,6 +4926,25 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .app-icon-letter { font-weight: 700; line-height: 1; }
+.app-icon-img { object-fit: contain; }
+.app-tile-wrap { position: relative; min-width: 0; }
+.app-tile-wrap > .app-tile { width: 100%; }
+.app-tile-menu {
+  position: absolute; right: 0; top: 0; display: grid; place-items: center;
+  width: 24px; height: 24px; border: 1px solid var(--border);
+  border-radius: var(--radius-ctl); background: var(--bg-elevated);
+  color: var(--text-secondary); cursor: pointer;
+  opacity: 0; transition: opacity 120ms;
+}
+.app-tile-wrap:hover .app-tile-menu,
+.app-tile-wrap:focus-within .app-tile-menu { opacity: 1; }
+.app-tile-menu:hover { background: var(--bg-hover); color: var(--text-primary); }
+.app-tile-menu:focus-visible { outline: 2px solid var(--accent); }
+.webapp-field { display: grid; gap: 8px; margin-top: 12px; }
+.webapp-field .dlg-input { width: 100%; height: var(--ctl-h); margin: 0; box-sizing: border-box; }
+.webapp-resolved { overflow-wrap: anywhere; color: var(--text-secondary); font-size: 12px; margin-top: 12px; }
+.dlg-webapp .dlg-actions .btn { min-height: var(--ctl-h); }
+.dlg-webapp[aria-busy="true"] .webapp-field { opacity: 0.65; transition: opacity 150ms; }
 
 
 /* The open app renders as a PiCode page — PageFrame's geometry (ADR-0103):

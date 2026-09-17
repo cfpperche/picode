@@ -1,24 +1,139 @@
 import { useState } from "react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { appTile } from "../lib/nativeApps.js";
 import { visibleApps } from "../lib/appsGrid.js";
+import { webappError, submitWebappForm } from "../lib/webapps.js";
+import { api } from "@picode/shared/client/api.js";
 import AppIcon from "./AppIcon.jsx";
-import { IconSearch } from "./Icons.jsx";
+import * as Dialog from "./ResponsiveDialog.jsx";
+import { Alert as AlertDialog } from "./ResponsiveDialog.jsx";
+import { IconSearch, IconPlus, IconEllipsis, IconPencil, IconTrash } from "./Icons.jsx";
 
-// The Apps sidebar tab (ADR-0036): a phone-style grid of app tiles drawn
-// entirely from manifests — no app code runs until a tile is opened.
-// nativeApps is this shell's registry of native surfaces (ADR-0109): a
-// native app it did not compile in stays on the grid, dimmed and honest.
-// Header and search follow the Pins pattern (same classes as the other
-// sidebar tabs); the list sorts alphabetically and filters as you type.
-// Apps are first-party built-ins, so the header carries no add action.
-export default function AppsGrid({ apps, nativeApps, onOpen }) {
+function WebappDialog({ app, onClose, onSaved, onOpen }) {
+  const editing = !!app;
+  const [url, setUrl] = useState(editing ? app.url : "");
+  const [name, setName] = useState(editing ? app.name : "");
+  const [preview, setPreview] = useState(editing ? { url: app.url } : null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [existing, setExisting] = useState(null);
+  async function run(fn) {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    setExisting(null);
+    try { await fn(); } catch (e) {
+      setError(webappError(e));
+      if (e?.body?.reason === "duplicate") setExisting(e.body.existing);
+    } finally { setBusy(false); }
+  }
+  function check(e) {
+    e.preventDefault();
+    run(async () => {
+      const { preview: resolved } = await submitWebappForm(api, { mode: "install", preview: null, url, name });
+      setPreview(resolved);
+      if (!name.trim()) setName(resolved.name || "");
+    });
+  }
+  async function install() {
+    await run(async () => {
+      const { saved } = await submitWebappForm(api, { mode: "install", preview, url, name });
+      onSaved(saved);
+      onClose();
+    });
+  }
+  async function save(e) {
+    e.preventDefault();
+    await run(async () => {
+      const { saved } = await submitWebappForm(api, { mode: "rename", app, name });
+      onSaved(saved);
+      onClose();
+    });
+  }
+  const resolvedUrl = preview?.url || "";
+  return (
+    <Dialog.Root open onOpenChange={(open) => { if (!open && !busy) onClose(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="dlg-overlay" />
+        <Dialog.Content className="dlg dlg-webapp" aria-busy={busy}>
+          <Dialog.Title className="dlg-title">{editing ? "Rename web app" : "Add a web app"}</Dialog.Title>
+          <Dialog.Description className="dlg-body">
+            {editing ? "Choose a name for this shortcut." : "Enter the address of a web app to add it to Apps."}
+          </Dialog.Description>
+          {editing || preview ? (
+            <form noValidate onSubmit={editing ? save : (e) => { e.preventDefault(); install(); }}>
+              <label className="webapp-field">
+                <span>Name</span>
+                <input
+                  className="dlg-input"
+                  type="text"
+                  placeholder={editing ? "Name" : "Filled from the site"}
+                  value={name}
+                  autoFocus
+                  disabled={busy}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </label>
+              {!editing && resolvedUrl ? <p className="webapp-resolved" role="status">Will open {resolvedUrl}</p> : null}
+              {error ? <p className="form-error" role="alert">{error}</p> : null}
+              <div className="dlg-actions" data-align-row>
+                {!editing && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setPreview(null); setError(""); setExisting(null); }} disabled={busy}>Back</button>}
+                <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} disabled={busy}>Cancel</button>
+                {existing ? <button type="button" className="btn btn-primary btn-sm" onClick={() => { onOpen(existing); onClose(); }}>Open existing</button> : <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{busy ? editing ? "Saving…" : "Adding…" : editing ? "Save" : "Add app"}</button>}
+              </div>
+            </form>
+          ) : (
+            <form noValidate onSubmit={check}>
+              <label className="webapp-field">
+                <span>Address</span>
+                <input
+                  className="dlg-input"
+                  type="text"
+                  inputMode="url"
+                  placeholder="example.com"
+                  value={url}
+                  autoFocus
+                  disabled={busy}
+                  onChange={(e) => setUrl(e.target.value)}
+                />
+              </label>
+              {error ? <p className="form-error" role="alert">{error}</p> : null}
+              <div className="dlg-actions">
+                <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} disabled={busy}>Cancel</button>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{busy ? "Checking…" : "Continue"}</button>
+              </div>
+            </form>
+          )}
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsLoaded = false, nativeApps, onOpen, onOpenWebapp, onSavedWebapp, onRemoveWebapp, onRetryWebapps, desktop }) {
   const [q, setQ] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [renaming, setRenaming] = useState(null);
+  const [removing, setRemoving] = useState(null);
+  const [removeBusy, setRemoveBusy] = useState(false);
+  const [removeError, setRemoveError] = useState("");
+  async function remove() {
+    if (removeBusy) return;
+    setRemoveBusy(true);
+    setRemoveError("");
+    try { await onRemoveWebapp(removing); setRemoving(null); }
+    catch (e) { setRemoveError(webappError(e)); }
+    finally { setRemoveBusy(false); }
+  }
   const shown = visibleApps(apps || [], q);
+  const webShown = visibleApps(webapps || [], q);
   const searching = !!q.trim();
+  const empty = webappsLoaded && shown.length === 0 && webShown.length === 0;
   return (
     <div className="side-section">
       <div className="pins-head">
         <span className="pins-title">Apps</span>
+        <button type="button" className="ws-icon-btn" title="Add a web app" aria-label="Add a web app" onClick={() => setAdding(true)}><IconPlus /></button>
       </div>
       <label className="pins-search">
         <IconSearch />
@@ -32,11 +147,16 @@ export default function AppsGrid({ apps, nativeApps, onOpen }) {
         />
       </label>
       <div className="side-scroll">
-      {shown.length === 0 ? (
+      {webappsErr ? (
+        <p className="side-empty pins-empty" role="alert">
+          {webappsErr} <button type="button" className="side-empty-act" onClick={onRetryWebapps}>Retry</button>
+        </p>
+      ) : null}
+      {!webappsLoaded && !webappsErr && <p className="side-empty" role="status">Loading web apps…</p>}
+      {empty ? (
         <p className="side-empty pins-empty">
-          {searching
-            ? "No apps match."
-            : "No apps yet. Apps extend PiCode with new surfaces; the first ones arrive in a coming release."}
+          {searching ? "No apps match." : "No apps yet."}{" "}
+          <button type="button" className="side-empty-act" onClick={() => setAdding(true)}>Add a web app</button>
         </p>
       ) : (
         <div className="app-grid" role="list">
@@ -60,9 +180,62 @@ export default function AppsGrid({ apps, nativeApps, onOpen }) {
               </button>
             );
           })}
+          {webShown.map((a) => (
+            <div key={a.id} className="app-tile-wrap" role="listitem">
+              <button
+                type="button"
+                className="app-tile"
+                title={a.url}
+                onClick={() => onOpenWebapp(a)}
+              >
+                <span className="app-tile-face">
+                  <AppIcon name="globe" label={a.name} size={20} iconUrl={a.hasIcon ? "/api/webapps/" + encodeURIComponent(a.id) + "/icon" : null} />
+                  {a.badge > 0 ? <span className="app-tile-badge">{a.badge > 99 ? "99+" : a.badge}</span> : null}
+                </span>
+                <span className="app-tile-name">{a.name}</span>
+              </button>
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <button type="button" className="app-tile-menu" aria-label={"Actions for " + a.name} title="Actions"><IconEllipsis size={13} /></button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content className="ws-row-menu" side="right" align="start" sideOffset={4} collisionPadding={8}>
+                    <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => onOpenWebapp(a)}>Open</DropdownMenu.Item>
+                    <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setRenaming(a)}><IconPencil size={13} /> Rename</DropdownMenu.Item>
+                    <DropdownMenu.Separator className="ws-row-menu-sep" />
+                    <DropdownMenu.Item className="ws-row-menu-item danger" onSelect={() => { setRemoveError(""); setRemoving(a); }}><IconTrash size={13} /> Remove</DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+            </div>
+          ))}
         </div>
       )}
       </div>
+      {adding && (
+        <WebappDialog onClose={() => setAdding(false)} onSaved={onSavedWebapp} onOpen={onOpenWebapp} />
+      )}
+      {renaming && (
+        <WebappDialog app={renaming} onClose={() => setRenaming(null)} onSaved={onSavedWebapp} onOpen={onOpenWebapp} />
+      )}
+      {removing && (
+        <AlertDialog.Root open onOpenChange={(open) => { if (!open && !removeBusy) setRemoving(null); }}>
+          <AlertDialog.Portal>
+            <AlertDialog.Overlay className="dlg-overlay" />
+            <AlertDialog.Content className="dlg">
+              <AlertDialog.Title className="dlg-title">Remove web app</AlertDialog.Title>
+              <AlertDialog.Description className="dlg-body">
+                Remove {removing.name}? Its open tab closes and the shortcut is uninstalled.
+              </AlertDialog.Description>
+              {removeError && <p className="form-error" role="alert">{removeError}</p>}
+              <div className="dlg-actions" data-align-row>
+                <AlertDialog.Close className="btn btn-ghost btn-sm" disabled={removeBusy}>Cancel</AlertDialog.Close>
+                <button type="button" className="btn btn-danger btn-sm" disabled={removeBusy} onClick={remove}>{removeBusy ? "Removing…" : "Remove"}</button>
+              </div>
+            </AlertDialog.Content>
+          </AlertDialog.Portal>
+        </AlertDialog.Root>
+      )}
     </div>
   );
 }
