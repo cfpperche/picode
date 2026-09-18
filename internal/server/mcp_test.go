@@ -348,7 +348,7 @@ func writeFakeCLI(t *testing.T, name, listOut string) string {
 	return dir
 }
 
-// ADR-0150 phase 1: ?cli=claude|codex answers with the same Report shape as
+// ADR-0150 phase 1: ?cli=claude-code|codex answers with the same Report shape as
 // Pi's /api/mcp, guest auth/import refuse with instructions, and guest
 // mutations land in the CLI's native config.
 func TestMCPGuestDriversDispatch(t *testing.T) {
@@ -359,8 +359,8 @@ func TestMCPGuestDriversDispatch(t *testing.T) {
 	writeFakeCLI(t, "codex", "")
 	ts := newTestServer(t, "cat")
 
-	// GET ?cli=claude: Report shape with the guest adapter source.
-	res, err := ts.Client().Get(ts.URL + "/api/mcp?cli=claude")
+	// GET ?cli=claude-code: Report shape with the guest adapter source.
+	res, err := ts.Client().Get(ts.URL + "/api/mcp?cli=claude-code")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -386,7 +386,7 @@ func TestMCPGuestDriversDispatch(t *testing.T) {
 	}
 	_ = res.Body.Close()
 	if res.StatusCode != http.StatusOK || rep.Adapter.Source != "native:claude" || !rep.Adapter.Installed {
-		t.Fatalf("GET cli=claude = %d %+v", res.StatusCode, rep.Adapter)
+		t.Fatalf("GET cli=claude-code = %d %+v", res.StatusCode, rep.Adapter)
 	}
 	if len(rep.Servers) != 1 || rep.Servers[0].Name != "relay" || rep.Servers[0].Scope != "user" || rep.Servers[0].Live != "" {
 		t.Fatalf("servers = %+v", rep.Servers)
@@ -407,7 +407,7 @@ func TestMCPGuestDriversDispatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	add := postJSON(t, ts, "/api/mcp", map[string]any{
-		"cli": "claude", "scope": "project", "workspaceId": wk.ID, "name": "docs", "url": "https://docs.example/mcp",
+		"cli": "claude-code", "scope": "project", "workspaceId": wk.ID, "name": "docs", "url": "https://docs.example/mcp",
 	})
 	if add.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(add.Body)
@@ -457,7 +457,7 @@ func TestMCPGuestDriversDispatch(t *testing.T) {
 	}
 
 	// Claude has no per-server switch: the refusal is the observable result.
-	off = mcpPatch(t, ts, map[string]any{"cli": "claude", "scope": "project", "workspaceId": wk.ID, "name": "docs", "disabled": true})
+	off = mcpPatch(t, ts, map[string]any{"cli": "claude-code", "scope": "project", "workspaceId": wk.ID, "name": "docs", "disabled": true})
 	if off.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(off), "turn on and off in Claude Code") {
 		t.Fatalf("claude toggle = %d %s", off.StatusCode, thisBody(off))
 	}
@@ -488,7 +488,7 @@ func thisBody(res *http.Response) string {
 func TestMCPGuestAuthAndImportRefusals(t *testing.T) {
 	ts := newTestServer(t, "cat")
 
-	auth := postJSON(t, ts, "/api/mcp/auth", map[string]any{"cli": "claude", "name": "docs"})
+	auth := postJSON(t, ts, "/api/mcp/auth", map[string]any{"cli": "claude-code", "name": "docs"})
 	if auth.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(auth), "claude mcp login docs") {
 		t.Fatalf("claude auth = %d %s", auth.StatusCode, thisBody(auth))
 	}
@@ -506,7 +506,7 @@ func TestMCPGuestAuthAndImportRefusals(t *testing.T) {
 	}
 	_ = logout.Body.Close()
 
-	imp := postJSON(t, ts, "/api/mcp/import", map[string]any{"cli": "claude", "picks": []any{map[string]any{"kind": "cursor", "servers": []any{"x"}}}})
+	imp := postJSON(t, ts, "/api/mcp/import", map[string]any{"cli": "claude-code", "picks": []any{map[string]any{"kind": "cursor", "servers": []any{"x"}}}})
 	if imp.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(imp), "arrive in a later phase") {
 		t.Fatalf("claude import = %d %s", imp.StatusCode, thisBody(imp))
 	}

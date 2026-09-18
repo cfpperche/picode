@@ -28,7 +28,12 @@ const claudeBin = "claude"
 // turns connectors on and off in its own interface.
 const ToggleRefusal = "Claude Code connectors turn on and off in Claude Code; remove instead"
 
-func (Claude) ID() string { return "claude" }
+// ID matches the CLI catalog id (internal/clilaunch) so deep links such as
+// #/clis/claude-code/connectors resolve to this driver.
+func (Claude) ID() string { return "claude-code" }
+
+// Bin is the vendor binary; it is not the driver id.
+func (Claude) Bin() string { return claudeBin }
 
 type claudePaths struct{ Paths }
 
@@ -162,11 +167,14 @@ func claudeRowsFromJSON(out string, layer mcp.Layer) []mcp.Server {
 	return rows
 }
 
-// claudeRowsFromLines parses `name: detail` lines (and whitespace tables
-// from older CLIs). The detail (command, URL, health suffix) is display-only
-// — rows carry it in Command so the pane shows what the CLI printed and
-// nothing more. Unparseable lines are skipped, never an error: a formatting
-// change upstream must not break the pane.
+// claudeRowsFromLines parses `name: detail` lines. The detail (command, URL,
+// health suffix) is display-only — rows carry it in Command so the pane shows
+// what the CLI printed and nothing more. With no servers configured the
+// vendor prints a sentence instead of a list ("No MCP servers configured. …");
+// any line matching that prose means the whole list is empty. A line without
+// a `:` separator is banner noise, never a row. Unparseable lines are
+// skipped, never an error: a formatting change upstream must not break the
+// pane.
 func claudeRowsFromLines(out string, layer mcp.Layer) []mcp.Server {
 	var rows []mcp.Server
 	for _, line := range strings.Split(out, "\n") {
@@ -175,14 +183,14 @@ func claudeRowsFromLines(out string, layer mcp.Layer) []mcp.Server {
 			strings.HasSuffix(line, "...") || strings.HasSuffix(line, "…") {
 			continue
 		}
-		name, rest := line, ""
-		if i := strings.Index(line, ":"); i > 0 {
-			name, rest = strings.TrimSpace(line[:i]), strings.TrimSpace(line[i+1:])
-		} else if i := strings.IndexAny(line, " \t"); i > 0 {
-			name, rest = strings.TrimSpace(line[:i]), strings.TrimSpace(line[i+1:])
-		} else {
+		if claudeEmptyList(line) {
+			return nil
+		}
+		i := strings.Index(line, ":")
+		if i <= 0 {
 			continue
 		}
+		name, rest := strings.TrimSpace(line[:i]), strings.TrimSpace(line[i+1:])
 		if name == "" || !claudeRowName(name) {
 			continue
 		}
@@ -194,6 +202,16 @@ func claudeRowsFromLines(out string, layer mcp.Layer) []mcp.Server {
 		rows = append(rows, row)
 	}
 	return rows
+}
+
+// claudeEmptyList reports the vendor's "nothing configured" prose. The match
+// is anchored at the start of the line so a server detail that happens to
+// contain the words never reads as an empty list.
+func claudeEmptyList(line string) bool {
+	l := strings.ToLower(line)
+	return strings.HasPrefix(l, "no mcp servers") ||
+		strings.HasPrefix(l, "no servers") ||
+		strings.HasPrefix(l, "no connectors")
 }
 
 // claudeRowName accepts only server-name-shaped tokens so banner prose

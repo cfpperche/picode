@@ -11,8 +11,10 @@ export const CONNECTOR_DRIVERS = {
     auth: ["oauth", "bearer"],
     toggle: "entry", // per-entry enable/disable, not stub-overlay
   },
-  claude: {
-    id: "claude",
+  // id matches the CLI catalog id so #/clis/<id>/connectors highlights the
+  // right roster entry (AgentClis selected = find(c.id === route.id)).
+  "claude-code": {
+    id: "claude-code",
     name: "Claude Code",
     status: "configured",
     auth: ["oauth"],

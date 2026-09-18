@@ -27,6 +27,8 @@ const codexBin = "codex"
 
 func (Codex) ID() string { return "codex" }
 
+func (Codex) Bin() string { return codexBin }
+
 type codexPaths struct{ Paths }
 
 func (c codexPaths) user() string {

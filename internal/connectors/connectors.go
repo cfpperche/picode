@@ -45,9 +45,12 @@ func (p Paths) home() string {
 // Driver is one guest CLI's native MCP management surface. Method shapes
 // mirror internal/mcp so the /api/mcp handlers can dispatch without
 // translating payloads; reports reuse mcp.Report verbatim, so the pane sees
-// the exact response shape Pi produces.
+// the exact response shape Pi produces. ID matches the CLI catalog id while
+// Bin is the vendor binary the driver shells out to — they differ for
+// claude-code, whose binary is `claude`.
 type Driver interface {
 	ID() string
+	Bin() string
 	List(p Paths) (mcp.Report, error)
 	Add(p Paths, scope, name string, entry mcp.Entry) error
 	Toggle(p Paths, scope, name string, disabled bool) error
@@ -58,7 +61,7 @@ type Driver interface {
 // driver is internal/mcp itself) or has no driver yet.
 func For(cli string) Driver {
 	switch cli {
-	case "claude":
+	case "claude-code":
 		return Claude{}
 	case "codex":
 		return Codex{}

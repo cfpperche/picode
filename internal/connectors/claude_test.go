@@ -242,6 +242,45 @@ func TestClaudeListTolerantLines(t *testing.T) {
 	}
 }
 
+// Decision table: what `claude mcp list` prints × rows the parser may make.
+// The empty-list sentence must never split into a "No" server, and a line
+// without a `:` separator is banner noise, never a row.
+func TestClaudeListEmptyAndNoiseLines(t *testing.T) {
+	layer := mcp.Layer{ID: "claude-user", Scope: "user"}
+	cases := []struct {
+		name string
+		out  string
+		want int
+	}{
+		{"vendor printed nothing", "", 0},
+		{"vendor empty sentence", "No MCP servers configured. Use `claude mcp add` to add a server.\n", 0},
+		{"empty sentence variant", "No servers configured.\n", 0},
+		{"connectors empty phrase", "No connectors configured.\n", 0},
+		{"empty phrase wins over rows", "docs: npx -y docs\nNo MCP servers configured.\n", 0},
+		{"banner noise without colon", "Checking MCP server health\n", 0},
+		{"server line parses", "docs: npx -y docs-mcp\n", 1},
+	}
+	for _, tc := range cases {
+		if rows := claudeRowsFromLines(tc.out, layer); len(rows) != tc.want {
+			t.Fatalf("%s: rows = %+v, want %d", tc.name, rows, tc.want)
+		}
+	}
+}
+
+// The badge count defect end to end: the empty-list sentence yields zero
+// servers through the full List path.
+func TestClaudeListEmptyVendorSentenceNoRows(t *testing.T) {
+	writeFakeClaude(t, "No MCP servers configured. Use `claude mcp add` to add a server.\n")
+	p := Paths{Home: t.TempDir()}
+	rep, err := Claude{}.List(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.Servers) != 0 {
+		t.Fatalf("servers = %+v", rep.Servers)
+	}
+}
+
 func TestClaudeMalformedProjectFileRefuses(t *testing.T) {
 	cwd := t.TempDir()
 	p := Paths{Home: t.TempDir(), Cwd: cwd}

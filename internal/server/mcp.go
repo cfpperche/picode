@@ -26,10 +26,10 @@ func registerMCPRoutes(mux Registrar, deps Deps) {
 }
 
 // connectorDrivers declares which agent CLI a /api/mcp request drives.
-// Pi ships the adapter driver below; claude and codex dispatch to their
+// Pi ships the adapter driver below; claude-code and codex dispatch to their
 // guest drivers in internal/connectors (ADR-0150 phase 1). A request naming
 // any other CLI fails loudly instead of silently writing Pi's files.
-var connectorDrivers = map[string]bool{"pi": true, "claude": true, "codex": true}
+var connectorDrivers = map[string]bool{"pi": true, "claude-code": true, "codex": true}
 
 func requireConnectorDriver(cli string) error {
 	if cli == "" || connectorDrivers[cli] {
@@ -336,9 +336,10 @@ func handleMCPAuth(deps Deps) http.HandlerFunc {
 			return
 		}
 		// Guest sign-in never runs through PiCode's flow: the vendor CLI is
-		// the only authority for its own credentials (ADR-0150).
-		if connectors.For(req.CLI) != nil {
-			writeErr(w, http.StatusBadRequest, "sign in from a terminal instead: "+req.CLI+" mcp login "+req.Name)
+		// the only authority for its own credentials (ADR-0150). The command
+		// names the vendor binary, not the driver id.
+		if d := connectors.For(req.CLI); d != nil {
+			writeErr(w, http.StatusBadRequest, "sign in from a terminal instead: "+d.Bin()+" mcp login "+req.Name)
 			return
 		}
 		if deps.Runtime == nil {
@@ -443,8 +444,8 @@ func handleMCPAuthLogout(deps Deps) http.HandlerFunc {
 			return
 		}
 		// Guest tokens live in the CLI's own store; PiCode never clears them.
-		if connectors.For(req.CLI) != nil {
-			writeErr(w, http.StatusBadRequest, req.CLI+" keeps its own sign-ins; manage them with the "+req.CLI+" CLI")
+		if d := connectors.For(req.CLI); d != nil {
+			writeErr(w, http.StatusBadRequest, req.CLI+" keeps its own sign-ins; manage them with the "+d.Bin()+" CLI")
 			return
 		}
 		if err := mcp.ClearOAuthTokens(req.Name); err != nil {
