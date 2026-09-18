@@ -17,13 +17,14 @@ export const MENU_SECTIONS = [
   ["packages", "Packages", "Skills, extensions, updates"],
   ["preferences", "Preferences", "Theme, notifications, backup"],
   ["browser", "Browser", "Work browser and site access"],
+  ["computer", "Computer", "Agents using this computer"],
   ["devices", "Devices", "Who is connected"],
   ["system", "System", "Version, host, paths"],
 ];
 
 export const MENU_GROUPS = [
   ["Tools", ["automations", "snippets", "llama"]],
-  ["PiCode", ["preferences", "browser", "devices", "system", "integrations"]],
+  ["PiCode", ["preferences", "browser", "computer", "devices", "system", "integrations"]],
 ];
 
 export const MENU_ACTIONS = [

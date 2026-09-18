@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"sync"
@@ -14,6 +15,47 @@ import (
 type sessionStatsView struct {
 	climetrics.FleetStats
 	Range string `json:"range"` // the clamped value actually used, not the raw query
+	// Desktop is the computer tool's share of the window (ADR-0148): steps
+	// the shell ran, time they took, and the calls it refused. Absent when
+	// the store is closed; zero when nothing happened.
+	Desktop *desktopStats `json:"desktop,omitempty"`
+}
+
+type desktopStats struct {
+	Steps   int   `json:"steps"`
+	Ms      int64 `json:"ms"`
+	Refused int   `json:"refused"`
+	Failed  int   `json:"failed"`
+}
+
+// desktopStatsFor counts the computer.step rows in the window — a cheap
+// indexed read, so it is not part of the fingerprint cache.
+func desktopStatsFor(deps Deps, from, to time.Time) *desktopStats {
+	if deps.Store == nil {
+		return nil
+	}
+	rows, err := deps.Store.EventsOfTypeBetween("computer.step", from, to, 0)
+	if err != nil {
+		return nil
+	}
+	out := &desktopStats{}
+	for _, ev := range rows {
+		var data struct {
+			Outcome string `json:"outcome"`
+			Ms      int64  `json:"ms"`
+		}
+		_ = json.Unmarshal(ev.Data, &data)
+		switch data.Outcome {
+		case "allowed":
+			out.Steps++
+			out.Ms += data.Ms
+		case "refused":
+			out.Refused++
+		case "failed":
+			out.Failed++
+		}
+	}
+	return out
 }
 
 // statsCache memoises one WindowStats per (root, range). An entry is served
@@ -67,7 +109,8 @@ func handleSessionStats(deps Deps) http.HandlerFunc {
 		rng := normalizeRange(r.URL.Query().Get("range"))
 		st := statsForRange(rng)
 		st.WindowStats = labelWorkspaces(deps, st.WindowStats)
-		writeJSON(w, http.StatusOK, sessionStatsView{FleetStats: st, Range: rng})
+		from, to, _ := statsWindow(rng, time.Now(), time.Local)
+		writeJSON(w, http.StatusOK, sessionStatsView{FleetStats: st, Range: rng, Desktop: desktopStatsFor(deps, from, to)})
 	}
 }
 

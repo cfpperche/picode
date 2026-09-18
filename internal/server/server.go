@@ -282,6 +282,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerAutomationRoutes(mux, deps)
 	mux.HandleFunc("GET /api/events", handleEvents(deps))
 	registerBrowserRoutes(mux, deps)
+	registerComputerRoutes(mux, deps)
 	registerExtensionRoutes(mux, deps)
 	registerPushRoutes(mux, deps)
 	registerWebhookRoutes(mux, deps)

@@ -9,6 +9,7 @@
 // Rust catalog — this module only routes the method to the right bridge call.
 
 import { tabWebId } from "./routes.js";
+import { createComputerRunner } from "./computerChannel.js";
 
 const BRIDGE =
   typeof window !== "undefined" && window.__TAURI__ ? window.__TAURI__.core.invoke : null;
@@ -28,9 +29,17 @@ export function createBrowserChannel({
   invoke,
   source,
   post,
+  runComputer = null,
   onError = (message, err) => console.error(message, err),
 }) {
   const run = async (cmd) => {
+    // ADR-0148: a computer frame is a desktop action, not a CDP method. It
+    // never touches a tab; a page without a runner answers instead of
+    // pushing it through the browser bridge.
+    if (cmd.kind === "computer") {
+      if (!runComputer) return { error: "not_connected: this page cannot drive the computer" };
+      return runComputer(cmd);
+    }
     const id = tabWebId(activeTabId());
     if (!id) return { error: "no work-browser tab is open in the desktop app" };
     try {
@@ -87,6 +96,7 @@ export function openBrowserChannel(activeTabId) {
   const channel = createBrowserChannel({
     activeTabId,
     invoke: BRIDGE,
+    runComputer: createComputerRunner({ invoke: BRIDGE }),
     source: new EventSource("/api/browser/stream"),
     post: async (result) => {
       const res = await fetch("/api/browser/result", {

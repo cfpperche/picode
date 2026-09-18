@@ -141,6 +141,7 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
   const turns = firstLoad ? null : stats.turns;
   const impact = firstLoad ? null : stats.impact;
   const timing = firstLoad ? null : stats.timing;
+  const desktop = firstLoad ? null : stats.desktop;
   // An empty panel has two different reasons — nothing ran, or nothing that
   // ran records this — and saying the wrong one sends the reader looking
   // for a CLI feature they cannot fix.
@@ -420,6 +421,19 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
                   </p>
                 </>
               ) : <p className="dash-empty">{idle ? nothingRan : "No agent CLI here records how long a request took."}</p>}
+            </div>
+            <div className="dashboard-section">
+              <div className="dash-section-label">Desktop</div>
+              {firstLoad ? <Skel /> : desktop && (desktop.steps || desktop.refused || desktop.failed) ? (
+                <>
+                  <dl className="dash-facts">
+                    <div><dt>Steps on the computer</dt><dd>{desktop.steps}</dd></div>
+                    <div><dt>Time acting</dt><dd>{formatDuration(desktop.ms)}</dd></div>
+                    <div><dt>Refused or failed</dt><dd>{desktop.refused + desktop.failed}</dd></div>
+                  </dl>
+                  <p className="dash-note">Computer use through the desktop app (ADR-0148): every step the shell ran for an agent, and the calls it turned away.</p>
+                </>
+              ) : <p className="dash-empty">No agent used the computer in this period.</p>}
             </div>
             <div className="dashboard-section">
               <div className="dash-section-label">Limits</div>

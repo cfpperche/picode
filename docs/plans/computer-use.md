@@ -184,6 +184,13 @@ Owner acts: runs the lab and reports the DPI × monitor matrix.
 
 ### M2 — End to end (`feat/computer-m2`)
 
+Status 2026-09-18: landed on the branch — `internal/computer` (grant,
+catalog), the four routes with `computer.step` audit, kind dispatch on the
+shell line, the grants mirror into the shell, Settings ▸ Computer (switch per
+principal, recent steps), `packages/pi-computer`. The first real run with an
+agent is the owner's.
+
+
 Scope: `internal/computer/{policy,actions}.go` + tests;
 `internal/server/{computer,computer_policies}.go` + tests; `registerAll`;
 `lib/computerChannel.js` + kind dispatch in `browserChannel.js`;
@@ -200,6 +207,12 @@ Owner acts: first real run with one of their agents and with a CLI in a
 terminal.
 
 ### M3 — Visuals, dashboard, docs (`feat/computer-m3`)
+
+Status 2026-09-18: landed on the branch — the capture as "Last capture"
+with its source and time, action step labels, the Desktop panel on the
+dashboard (`desktop` on the stats route), the public guide, and
+`docs/architecture/computer-tool.md`.
+
 
 Scope: `details.preview` → `ToolCapture`; `stepLabel`; `session_ops.go` +
 `Store.EventsOfTypeSince`; `dashboardStats.js`, `DashboardView.jsx`;
