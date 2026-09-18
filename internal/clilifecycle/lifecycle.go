@@ -151,7 +151,7 @@ var plans = map[string]spec{
 		// the vendor updater (it exits 0 before arg parsing).
 		updateEnv: []string{"MUSE_LAUNCHER_INSTALL=1"},
 		uninstall: UninstallGuided,
-		docs:      "https://ai.developer.meta.com/docs/muse-code/",
+		docs:      "https://dev.meta.ai/docs/muse-code",
 	},
 	"agy": {
 		latestFrom:    "channel",
@@ -400,7 +400,7 @@ func InstallDocs(cliID string) string {
 	case "claude-code":
 		return "https://code.claude.com/docs/en/setup"
 	case "muse":
-		return "https://ai.developer.meta.com/docs/muse-code/"
+		return "https://dev.meta.ai/docs/muse-code"
 	case "agy":
 		return "https://antigravity.google/docs/cli/"
 	default:

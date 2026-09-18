@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { webappBadge, updateWebappMeta, webappTabId, submitWebappForm, webappOpenPlan, webappIdFromTab, removedWebappTabs, webappError, DESKTOP_REQUIRED } from "./webapps.js";
+import { webappBadge, updateWebappMeta, webappTabId, submitWebappForm, webappOpenPlan, webappChromeless, webappIdFromTab, removedWebappTabs, webappError, DESKTOP_REQUIRED } from "./webapps.js";
 ;
 
 test("rename submits the edited name instead of the original name", async () => {
@@ -69,6 +69,15 @@ test("removed tabs are exactly the installed-app tabs whose app is gone", () => 
   const live = [{ id: "mail-abc123" }];
   const tabs = ["w:1", webappTabId("mail-abc123"), webappTabId("gone-000000")];
   assert.deepEqual(removedWebappTabs(tabs, live), [webappTabId("gone-000000")]);
+});
+
+test("app mode: standalone, fullscreen and minimal-ui hide the browser toolbar", () => {
+  assert.equal(webappChromeless("standalone"), true);
+  assert.equal(webappChromeless("fullscreen"), true);
+  assert.equal(webappChromeless("minimal-ui"), true);
+  assert.equal(webappChromeless("browser"), false);
+  assert.equal(webappChromeless(undefined), false);
+  assert.equal(webappChromeless("browser-extensions"), false);
 });
 
 test("error mapping: duplicate, unreachable and validation", () => {
