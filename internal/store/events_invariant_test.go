@@ -546,6 +546,11 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_, _ = s.UpdateWebappName(app.ID, "Renamed")
 		}, []string{"webapp.updated"}},
+		{"UpdateWebappMetadata", func(s *Store) {
+			app, _ := s.CreateWebapp(WebappInput{Name: "Example", URL: "https://example.com", Icon: nil, IconMime: ""})
+			s.OnEvent = recorder(s)
+			_, _ = s.UpdateWebappMetadata(app.ID, WebappInput{StartURL: "https://example.com/start"})
+		}, []string{"webapp.updated"}},
 		{"DeleteWebapp", func(s *Store) {
 			app, _ := s.CreateWebapp(WebappInput{Name: "Example", URL: "https://example.com", Icon: nil, IconMime: ""})
 			s.OnEvent = recorder(s)

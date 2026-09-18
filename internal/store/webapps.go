@@ -199,6 +199,25 @@ func normalizeWebappThemeColor(raw string) string {
 	return raw
 }
 
+// normalizeWebappManifestFields validates the manifest-derived identity a
+// refresh or an install carries; the name and the url are the user's and
+// are handled by their own rules.
+func normalizeWebappManifestFields(in WebappInput) (startURL, scope, display, themeColor string, err error) {
+	startURL, err = normalizeWebappOptionalURL(in.StartURL)
+	if err != nil {
+		return "", "", "", "", err
+	}
+	scope, err = normalizeWebappOptionalURL(in.Scope)
+	if err != nil {
+		return "", "", "", "", err
+	}
+	display = strings.ToLower(strings.TrimSpace(in.Display))
+	if display != "" && !webappDisplay[display] {
+		return "", "", "", "", invalid("display must be standalone, fullscreen, minimal-ui or browser")
+	}
+	return startURL, scope, display, normalizeWebappThemeColor(in.ThemeColor), nil
+}
+
 func (s *Store) CreateWebapp(in WebappInput) (Webapp, error) {
 	name, err := normalizeWebappName(in.Name)
 	if err != nil {
@@ -208,19 +227,10 @@ func (s *Store) CreateWebapp(in WebappInput) (Webapp, error) {
 	if err != nil {
 		return Webapp{}, err
 	}
-	startURL, err := normalizeWebappOptionalURL(in.StartURL)
+	startURL, scope, display, themeColor, err := normalizeWebappManifestFields(in)
 	if err != nil {
 		return Webapp{}, err
 	}
-	scope, err := normalizeWebappOptionalURL(in.Scope)
-	if err != nil {
-		return Webapp{}, err
-	}
-	display := strings.ToLower(strings.TrimSpace(in.Display))
-	if display != "" && !webappDisplay[display] {
-		return Webapp{}, invalid("display must be standalone, fullscreen, minimal-ui or browser")
-	}
-	themeColor := normalizeWebappThemeColor(in.ThemeColor)
 	if len(in.Icon) > maxWebAppIcon {
 		return Webapp{}, invalid("icon is too large (max %d KB)", maxWebAppIcon/1000)
 	}
@@ -278,6 +288,48 @@ func (s *Store) UpdateWebappName(id, name string) (Webapp, error) {
 	}
 	if err := s.AppendEventTx(tx, "webapp.updated", nil, nil, row.Webapp); err != nil {
 		s.rollback(tx)
+		return Webapp{}, err
+	}
+	if err := s.commit(tx); err != nil {
+		return Webapp{}, err
+	}
+	return row.Webapp, nil
+}
+
+// UpdateWebappMetadata rewrites the manifest-derived identity and the
+// icon of one webapp. The name and the url are the user's — a refresh
+// never touches them. Empty icon bytes keep the stored icon (a favicon
+// that failed to fetch this round is not a reason to forget the old one).
+func (s *Store) UpdateWebappMetadata(id string, in WebappInput) (Webapp, error) {
+	startURL, scope, display, themeColor, err := normalizeWebappManifestFields(in)
+	if err != nil {
+		return Webapp{}, err
+	}
+	if len(in.Icon) > maxWebAppIcon {
+		return Webapp{}, invalid("icon is too large (max %d KB)", maxWebAppIcon/1000)
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return Webapp{}, err
+	}
+	defer s.rollback(tx)
+	if len(in.Icon) == 0 {
+		if _, err := tx.Exec(`UPDATE webapps SET start_url=?, scope=?, display=?, theme_color=? WHERE id=?`,
+			startURL, scope, display, themeColor, id); err != nil {
+			return Webapp{}, fmt.Errorf("store: refresh webapp: %w", err)
+		}
+	} else if _, err := tx.Exec(`UPDATE webapps SET start_url=?, scope=?, display=?, theme_color=?, icon=?, icon_mime=? WHERE id=?`,
+		startURL, scope, display, themeColor, in.Icon, in.IconMime, id); err != nil {
+		return Webapp{}, fmt.Errorf("store: refresh webapp: %w", err)
+	}
+	row, err := scanWebappRow(tx.QueryRow(`SELECT `+webappCols+` FROM webapps WHERE id = ?`, id))
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return Webapp{}, ErrNotFound
+		}
+		return Webapp{}, fmt.Errorf("store: refresh webapp: %w", err)
+	}
+	if err := s.AppendEventTx(tx, "webapp.updated", nil, nil, row.Webapp); err != nil {
 		return Webapp{}, err
 	}
 	if err := s.commit(tx); err != nil {
