@@ -115,7 +115,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     listen("btab://annotate", (event) => {
       const outer = event?.payload;
       const msg = typeof outer === "string" ? JSON.parse(outer) : outer;
-      if (!msg || String(msg.id) !== id) return;
+      if (!msg || String(msg.id) !== tabId) return;
       let inner = msg.raw;
       if (typeof inner === "string") { try { inner = JSON.parse(inner); } catch { inner = null; } }
       if (!inner) return;
@@ -128,7 +128,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     if (!invoke) return;
     const next = !annotOn;
     setAnnotOn(next);
-    invoke("btab_annotate_mode", { id, on: next }).catch((e) => {
+    invoke("btab_annotate_mode", { id: tabId, on: next }).catch((e) => {
       setAnnotOn(false);
       toast("Annotate mode failed: " + (e?.message || e));
     });
