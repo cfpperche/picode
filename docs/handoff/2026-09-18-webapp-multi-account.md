@@ -17,7 +17,7 @@ Merge: fast-forward ready.
 
 ## Next up
 
-- Owner on Windows: the two-tile isolation proof (separate logins, restart, clear-data) — same checklist as ADR-0153.
+- Confirmed live by the owner (2026-09-18): multi-account tested and approved — the plan `docs/plans/installed-webapps-v2.md` is fully delivered.
 
 ## Debts
 
