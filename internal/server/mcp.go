@@ -124,6 +124,8 @@ func handleMCPGet(deps Deps) http.HandlerFunc {
 			return
 		}
 		rep.Adapter.Installed = mcp.AdapterConfigured(sources)
+		// Pi has the packages; the tool cards are for guests (ADR-0154).
+		rep.Presets = mcp.WithoutToolPresets(rep.Presets)
 		applyMCPLive(deps, r.URL.Query().Get("agent"), &rep)
 		mcp.ApplySigned(&rep)
 		writeJSON(w, http.StatusOK, rep)

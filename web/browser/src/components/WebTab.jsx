@@ -8,6 +8,7 @@ import { askTitle } from "../lib/browserPermissions.js";
 import { subscribeFloatingLayers, overlapsLayers, rectOf } from "../lib/floatingLayers.js";
 import { requestBrowserDialog } from "../lib/browserDialogs.js";
 import { previewUrl, verifyPreviewUrl } from "../lib/previewStill.js";
+import { cropRect, stylesToCSS } from "../lib/annotate.js";
 
 // Work browser tab surface (Phase 3 slice 1): the React side renders the
 // toolbar and an empty region; the actual page is a native WebView2 child
@@ -120,10 +121,91 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
       if (typeof inner === "string") { try { inner = JSON.parse(inner); } catch { inner = null; } }
       if (!inner) return;
       if (inner.kind === "pick") toast.ok("Picked " + (inner.selector || inner.tag || "element"));
+      if (inner.kind === "comment") { void sendAnnotation(inner); return; }
       if (inner.kind === "exit") setAnnotOn(false);
     }).then((u) => { unlisten = u; }).catch(() => {});
     return () => { try { if (unlisten) unlisten(); } catch { /* already gone */ } };
   }, [id]);
+  // The crop comes from a fresh viewport capture, cut with the element's rect
+  // scaled from CSS pixels to the capture's own size (the page reports vw/vh).
+  const cropFromPreview = async (msg) => {
+    if (!invoke || !msg || !msg.vw || !msg.vh || !msg.rect) return "";
+    try {
+      const bytes = await invoke("btab_preview", { id: tabId });
+      const url = await previewUrl(bytes);
+      if (!url) return "";
+      const img = await new Promise((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = reject;
+        i.src = url;
+      });
+      const rect = cropRect({
+        rect: msg.rect,
+        naturalWidth: img.naturalWidth,
+        naturalHeight: img.naturalHeight,
+        displayWidth: msg.vw,
+        displayHeight: msg.vh,
+      });
+      if (!rect) { URL.revokeObjectURL(url); return ""; }
+      const canvas = document.createElement("canvas");
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { URL.revokeObjectURL(url); return ""; }
+      ctx.drawImage(img, rect.x, rect.y, rect.width, rect.height, 0, 0, rect.width, rect.height);
+      const data = canvas.toDataURL("image/png");
+      URL.revokeObjectURL(url);
+      return data.startsWith("data:image/png;base64,") ? data.slice("data:image/png;base64,".length) : "";
+    } catch {
+      return "";
+    }
+  };
+
+  // What the page sent becomes an annotation (ADR-0152): the two staged files
+  // in the terminal's drop folder, the row in the store, and — when the human
+  // wrote a sentence — that sentence through the prompt door with the paths.
+  const sendAnnotation = async (msg) => {
+    try {
+      const list = await fetch("/api/terminals").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      const terminals = Array.isArray(list) ? list : list?.terminals || [];
+      const live = terminals.find((t) => t && t.running);
+      if (!live) { toast("Nothing to send to: no agent terminal is running."); return; }
+      const prefs = await fetch("/api/browser/prefs").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      const shots = prefs && (prefs.annotationShots === "always" || prefs.annotationShots === "never") ? prefs.annotationShots : "ask";
+      // "never" means no picture at all; "ask" includes it for now — the
+      // per-annotation question is the slice that owns the box's checkbox.
+      const image = shots === "never" ? "" : await cropFromPreview(msg);
+      const res = await fetch("/api/browser/annotations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          terminalId: live.id,
+          url: liveUrlRef.current || url,
+          title: "",
+          selector: msg.selector || "",
+          comment: msg.comment || "",
+          dom: msg.html || "",
+          css: stylesToCSS(msg.styles || {}),
+          image,
+        }),
+      });
+      if (!res.ok) { toast("The annotation was not saved: " + res.status); return; }
+      const body = await res.json().catch(() => ({}));
+      const paths = Array.isArray(body.paths) ? body.paths : [];
+      const note = String(msg.comment || "").trim();
+      const drop = await fetch(`/api/terminals/${encodeURIComponent(live.id)}/drop`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: note || "Annotated element", paths }),
+      }).catch(() => null);
+      if (drop && drop.ok) toast.ok("Annotation sent to " + (live.name || live.id) + ".");
+      else toast.ok("Annotation saved; the terminal is not running an agent CLI, so nothing was sent.");
+    } catch (e) {
+      toast("Annotation failed: " + (e?.message || e));
+    }
+  };
+
   const toggleAnnotate = () => {
     if (!invoke) return;
     const next = !annotOn;

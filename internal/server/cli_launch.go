@@ -135,6 +135,9 @@ type cliView struct {
 	// terminal with no adapter behind it.
 	IntegrationCapable bool `json:"integrationCapable"`
 	Launchable         bool `json:"launchable"`
+	// ToolsCapable says PiCode can inject its own tool servers into this
+	// CLI's launches (ADR-0154); the others take them at workspace scope.
+	ToolsCapable bool `json:"toolsCapable"`
 	// Sessions advertises what this CLI's session source can do (list,
 	// read a transcript, receive a native session, start from a brief) so
 	// the web derives handoff targets from the server (ADR-0088).
@@ -150,7 +153,7 @@ func describeCLI(deps Deps, cli clilaunch.CLI) (cliView, error) {
 	if err != nil {
 		return cliView{}, err
 	}
-	v := cliView{CLI: cli, Config: c, IntegrationApplied: cliIntegrationPrepared(deps.DataDir, cli), Sessions: clisession.CapabilitiesOf(cli.ID), IntegrationCapable: cli.Integrable(), Launchable: cli.Launchable(), HasIntegrationMechanism: hasIntegrationMechanism(cli.ID)}
+	v := cliView{CLI: cli, Config: c, IntegrationApplied: cliIntegrationPrepared(deps.DataDir, cli), Sessions: clisession.CapabilitiesOf(cli.ID), IntegrationCapable: cli.Integrable(), Launchable: cli.Launchable(), HasIntegrationMechanism: hasIntegrationMechanism(cli.ID), ToolsCapable: hasToolLaunchMechanism(cli.ID)}
 	v.Sessions.Agent = cliAgentLanding(cli.ID)
 	v.Plan, _ = launchPlan(deps, cli, c, clilaunch.Overrides{}, filepath.Join(deps.DataDir, "cli-launch", "{terminal}", "run-{next}"))
 	v.Executable, err = resolveInstalledCLI(cli, c)
@@ -232,6 +235,10 @@ func registerCLIRoutes(mux Registrar, deps Deps) {
 		}
 		if c.Integration && !hasIntegrationMechanism(cli.ID) {
 			writeErr(w, 400, fmt.Sprintf("Activity reporting is not available for %s in this build.", cli.Name))
+			return
+		}
+		if err := toolLaunchRefusal(cli, c); err != nil {
+			writeErr(w, 400, err.Error())
 			return
 		}
 		unlock := terminalLock(deps, "cli-config")
@@ -322,6 +329,10 @@ func registerCLIRoutes(mux Registrar, deps Deps) {
 		}
 		if merged.Integration && !hasIntegrationMechanism(v.CLI) {
 			writeErr(w, 400, fmt.Sprintf("Activity reporting is not available for %s in this build.", wc.Name))
+			return
+		}
+		if err := toolLaunchRefusal(wc, merged); err != nil {
+			writeErr(w, 400, err.Error())
 			return
 		}
 		if err := deps.Store.SetTerminalLaunch(id, v.CLI, v.Overrides); err != nil {
@@ -1024,6 +1035,24 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 			return nil, err
 		}
 		peerOptions.Env["PATH"] = commands + string(os.PathListSeparator) + cliPath(c)
+	}
+
+	// PiCode tools (ADR-0154): the families in the launch settings ride the
+	// same options as the peer-communication server.
+	if families, err := toolFamilies(c); err != nil {
+		return nil, err
+	} else if len(families) > 0 {
+		if !hasToolLaunchMechanism(cli.ID) {
+			return nil, fmt.Errorf("PiCode tools at launch are not available for %s yet — add the PiCode connector in its Connectors pane instead.", cli.Name)
+		}
+		existing, specified := c.Env["OPENCODE_CONFIG_CONTENT"]
+		if !specified {
+			existing = os.Getenv("OPENCODE_CONFIG_CONTENT")
+		}
+		peerOptions, err = toolLaunchOptions(cli.ID, families, dir, peerOptions, existing)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var body strings.Builder

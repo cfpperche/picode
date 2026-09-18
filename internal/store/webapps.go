@@ -60,8 +60,13 @@ type Webapp struct {
 	Scope      string `json:"scope,omitempty"`
 	Display    string `json:"display,omitempty"`
 	ThemeColor string `json:"themeColor,omitempty"`
-	HasIcon    bool   `json:"hasIcon"`
-	CreatedAt  string `json:"createdAt"`
+	// Partitioned marks installs born after ADR-0153: the shell gives
+	// their webview its own user-data folder (own logins, own clear-data
+	// blast radius). Legacy rows keep the shared profile until removed
+	// and re-added.
+	Partitioned bool   `json:"partitioned"`
+	HasIcon     bool   `json:"hasIcon"`
+	CreatedAt   string `json:"createdAt"`
 }
 
 // WebappInput is what an install hands the store: the typed address plus
@@ -83,14 +88,16 @@ type webappRow struct {
 	IconMime string
 }
 
-const webappCols = `id, name, url, start_url, scope, display, theme_color, icon, icon_mime, created_at`
+const webappCols = `id, name, url, start_url, scope, display, theme_color, partitioned, icon, icon_mime, created_at`
 
 func scanWebappRow(row interface{ Scan(...any) error }) (webappRow, error) {
 	var r webappRow
 	var icon []byte
-	if err := row.Scan(&r.ID, &r.Name, &r.URL, &r.StartURL, &r.Scope, &r.Display, &r.ThemeColor, &icon, &r.IconMime, &r.CreatedAt); err != nil {
+	var partitioned int
+	if err := row.Scan(&r.ID, &r.Name, &r.URL, &r.StartURL, &r.Scope, &r.Display, &r.ThemeColor, &partitioned, &icon, &r.IconMime, &r.CreatedAt); err != nil {
 		return webappRow{}, err
 	}
+	r.Partitioned = partitioned != 0
 	r.HasIcon = len(icon) > 0
 	return r, nil
 }
@@ -160,10 +167,6 @@ func normalizeWebappName(name string) (string, error) {
 		return "", invalid("name is too long (max %d characters)", maxWebAppName)
 	}
 	return name, nil
-}
-
-func webappUnique(err error) bool {
-	return err != nil && strings.Contains(strings.ToLower(err.Error()), "unique")
 }
 
 var webappDisplay = map[string]bool{"standalone": true, "fullscreen": true, "minimal-ui": true, "browser": true}
@@ -240,18 +243,13 @@ func (s *Store) CreateWebapp(in WebappInput) (Webapp, error) {
 	if err != nil {
 		return Webapp{}, err
 	}
-	_, err = tx.Exec(`INSERT INTO webapps (id, name, url, start_url, scope, display, theme_color, icon, icon_mime, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	_, err = tx.Exec(`INSERT INTO webapps (id, name, url, start_url, scope, display, theme_color, partitioned, icon, icon_mime, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
 		id, name, rawURL, startURL, scope, display, themeColor, in.Icon, in.IconMime, now)
-	if webappUnique(err) {
-		s.rollback(tx)
-		existing, _ := s.GetWebappByURL(rawURL)
-		return Webapp{}, DuplicateWebappError{Existing: existing.Webapp}
-	}
 	if err != nil {
 		s.rollback(tx)
 		return Webapp{}, fmt.Errorf("store: create webapp: %w", err)
 	}
-	created := Webapp{ID: id, Name: name, URL: rawURL, StartURL: startURL, Scope: scope, Display: display, ThemeColor: themeColor, HasIcon: len(in.Icon) > 0, CreatedAt: now}
+	created := Webapp{ID: id, Name: name, URL: rawURL, StartURL: startURL, Scope: scope, Display: display, ThemeColor: themeColor, Partitioned: true, HasIcon: len(in.Icon) > 0, CreatedAt: now}
 	if err := s.AppendEventTx(tx, "webapp.installed", nil, nil, created); err != nil {
 		s.rollback(tx)
 		return Webapp{}, err

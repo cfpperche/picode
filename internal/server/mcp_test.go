@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cfpperche/picode/internal/mcp"
 	"github.com/cfpperche/picode/internal/rpc"
 )
 
@@ -324,7 +325,24 @@ func TestMCPRejectsCLIWithoutDriver(t *testing.T) {
 	if pi.StatusCode != http.StatusOK {
 		t.Fatalf("GET cli=pi status %d", pi.StatusCode)
 	}
+	// Pi has the packages: the PiCode tool cards (ADR-0154) are not in its catalog.
+	var piRep struct {
+		Presets []struct {
+			ID string `json:"id"`
+		} `json:"presets"`
+	}
+	if err := json.NewDecoder(pi.Body).Decode(&piRep); err != nil {
+		t.Fatal(err)
+	}
 	_ = pi.Body.Close()
+	for _, p := range piRep.Presets {
+		if mcp.IsToolPreset(p.ID) {
+			t.Fatalf("pi catalog carries %s", p.ID)
+		}
+	}
+	if len(piRep.Presets) == 0 {
+		t.Fatal("pi catalog is empty")
+	}
 }
 
 // writeFakeCLI plants a shell script that logs argv and answers `mcp list`

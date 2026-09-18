@@ -139,6 +139,17 @@ func launchPlan(deps Deps, cli clilaunch.CLI, base clilaunch.Config, overrides c
 	if overrides.Integration != nil {
 		p.Origins["integration"] = "Terminal override"
 	}
+	p.Origins["tools"] = "CLI defaults"
+	if overrides.Tools != nil {
+		p.Origins["tools"] = "Terminal override"
+	}
+	if families, err := toolFamilies(c); err != nil {
+		if p.Problem == "" {
+			p.Problem = err.Error()
+		}
+	} else {
+		p.ToolInjection = toolLaunchPlan(cli, families, dir)
+	}
 	if c.Integration {
 		p.Injection = cliIntegrationPlan(cli.ID, dir, hookScriptPath(deps.DataDir))
 		if cli.ID == "pi" && len(c.Args) > 0 {

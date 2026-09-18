@@ -233,7 +233,7 @@ fn ensure(app: &AppHandle, id: &str, url: &str) -> Result<(), String> {
     };
     let emitter = app.clone();
     let page = WebviewBuilder::new(label, WebviewUrl::External(parsed))
-        .data_directory(super::browserlab::webview_profile())
+        .data_directory(super::browserlab::profile_for(id))
         .on_new_window(move |url, features| {
             // A `window.open` that names a size or position is a popup
             // window, not a tab — this is where OAuth lives: Google Identity

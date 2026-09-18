@@ -13,6 +13,9 @@ work on your desktop.
 - **Where:** install `pi-computer` ([Packages](/guide/packages)), then switch the agent on in **Settings ▸ Computer** (user menu, desktop app only).
 - **Not this:** not the [work browser](/guide/browser-tool). That reads and drives web pages inside PiCode's own browser. This page is the whole desktop.
 
+Claude Code, Codex and the other agent CLIs get the same tool over MCP:
+[PiCode tools for other agent CLIs](/guide/picode-mcp).
+
 `pi-computer` is an **optional pi package — an extension, not part of PiCode
 core**. It reaches the daemon over the same authenticated API every other
 call uses (the install token); it opens no port and adds no credential.

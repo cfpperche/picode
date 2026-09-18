@@ -16,11 +16,14 @@ type IntegrationPlan struct {
 
 type Plan struct {
 	Snapshot
-	Origins       map[string]string `json:"origins"`
-	Injection     IntegrationPlan   `json:"injection"`
-	InheritedPath []string          `json:"inheritedPath"`
-	ManagedEnv    []string          `json:"managedEnv"`
-	Problem       string            `json:"problem,omitempty"`
+	Origins   map[string]string `json:"origins"`
+	Injection IntegrationPlan   `json:"injection"`
+	// ToolInjection is what ADR-0154's launch scope adds: the MCP servers
+	// for Config.Tools, or the reason this CLI gets none at launch.
+	ToolInjection *IntegrationPlan `json:"toolInjection,omitempty"`
+	InheritedPath []string         `json:"inheritedPath"`
+	ManagedEnv    []string         `json:"managedEnv"`
+	Problem       string           `json:"problem,omitempty"`
 }
 
 type Diagnostic struct {

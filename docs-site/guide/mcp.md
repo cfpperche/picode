@@ -49,5 +49,6 @@ The connectors PiCode ships a path for. Each page is install, sign-in if any, an
 |---|---|
 | [Gmail](/guide/mcp-gmail) | Read, draft and send mail. Credentials stay in `~/.gmail-mcp/`, not in PiCode. |
 | [DeepWiki](/guide/mcp-deepwiki) | Public GitHub documentation. No account. |
+| [PiCode · Computer, PiCode · Browser](/guide/picode-mcp) | PiCode's own tools for Claude Code, Codex and the other CLIs. No account; the switch is in Settings. |
 
 Webhooks are not MCP: [Integrations](/guide/integrations).

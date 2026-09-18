@@ -54,6 +54,7 @@ export const cliLaunchSchema = z.object({
   pathText: z.string().max(8192),
   envText: z.string().max(32768),
   integration: z.boolean(),
+  tools: z.array(z.string().regex(/^[a-z][a-z0-9-]{0,31}$/, "PiCode tools are named computer, browser, …")).max(8, "Too many PiCode tools.").default([]),
 }).superRefine((v, ctx) => {
   const fail = (message) => ctx.addIssue({ code: "custom", message });
   if (Object.values(v).some((x) => typeof x === "string" && /[\0\r]/.test(x))) fail("Launch settings contain an invalid character.");
