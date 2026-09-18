@@ -120,6 +120,25 @@ Navigation asks before discarding unsaved edits.
 activity-reporting switch unchanged. Review the preview and save to apply.
 New launches use the saved settings; existing processes keep running.
 
+**Common controls** sit above an **Advanced** reveal of the fields below.
+They write the CLI's own documented flags into the same argument list —
+everything you typed there stays, and clearing a control removes its flag.
+Each CLI offers what its installed flags support:
+
+| Control | Flag it writes | Offered for |
+|---|---|---|
+| Model | `--model` | Pi, Claude Code, Codex, Hermes Agent, OpenCode, Omp |
+| Thinking / Reasoning effort | `--thinking`, `--reasoning`, `-c model_reasoning_effort=…` | Pi, Codex, Hermes Agent |
+| Approvals | `--permission-mode`, `--ask-for-approval` | Claude Code, Codex, Grok |
+| Sandbox | `--sandbox` | Codex |
+| YOLO | `--yolo`, `--always-approve` | Codex, Hermes Agent, Grok (auto-approve) |
+
+Codex refuses YOLO together with a sandbox or approval choice, so picking
+one clears the others (and vice versa). Skipping prompts or granting full
+access shows a one-line warning on the control. Muse Code and Antigravity
+have no editable launch settings; the Grok sandbox and reasoning flags
+accept no documented value list yet and stay under **Advanced**.
+
 | Setting | Meaning |
 |---|---|
 | Executable | A command name or absolute path. Leave empty to detect the CLI. |
@@ -231,9 +250,11 @@ before continuing, since its newest turns may not be on disk yet.
 
 ## Reuse launch profiles
 
-Expand **Launch profiles** for a CLI, then select **New profile**. Name it,
-edit its launch settings and save. **Use** opens a new-terminal form with that
-profile selected. Profiles can also be selected while creating a terminal.
+**Launch profiles** holds a CLI's reusable settings and opens by default
+once a profile exists. Select **New profile**. Name it,
+edit its launch settings (quick controls included) and save. **Use** opens
+a new-terminal form with that profile selected. Profiles can also be
+selected while creating a terminal.
 
 A profile is copied, not linked. Changing or removing it leaves existing
 terminals unchanged. Its explicit empty arguments and automatic executable
