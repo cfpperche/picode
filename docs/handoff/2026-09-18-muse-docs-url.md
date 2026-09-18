@@ -14,6 +14,8 @@ dev.meta.ai and the old host now answers 500.
   already covers.
 
 ## Debts
-- The transient "detection correct but lifecycle all-false" state seen once
-  today (self-healed after a check/resolve) is unexplained — watch for menus
-  vanishing after a service restart.
+- [x] The transient "lifecycle all-false" state: explained and fixed in
+  feat/lifecycle-flip — a vendor self-update rewrites its launcher mid-swap,
+  one request's Stat read it as absent, and the not-installed branch strips
+  the lifecycle (no npm package for these CLIs). The resolver now retries
+  once before declaring a CLI absent.

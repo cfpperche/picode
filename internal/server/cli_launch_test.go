@@ -265,6 +265,32 @@ func TestCLIExecutableSkipsWrapperAndRejectsRelativePath(t *testing.T) {
 	}
 }
 
+func TestResolveInstalledCLIRetriesThroughAnUpdateWindow(t *testing.T) {
+	dir := t.TempDir()
+	cli, _ := clilaunch.Find("pi")
+	target := filepath.Join(dir, "pi")
+	old := resolveRetryDelay
+	resolveRetryDelay = 30 * time.Millisecond
+	t.Cleanup(func() { resolveRetryDelay = old })
+	t.Setenv("PATH", dir)
+	// Absent on the first attempt, materialized mid-flight: a vendor
+	// self-update swaps its launcher while a request is in flight.
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		if err := os.WriteFile(target, []byte("#!/bin/sh\n"), 0o700); err != nil {
+			t.Error(err)
+		}
+	}()
+	if _, err := resolveInstalledCLI(cli, clilaunch.Config{}); err != nil {
+		t.Fatalf("the retry did not ride out an update window: %v", err)
+	}
+	// A genuinely absent CLI still fails both attempts — the retry must not
+	// paper over a real uninstall.
+	if _, err := resolveInstalledCLI(cli, clilaunch.Config{Executable: "/nonexistent/pi"}); err == nil {
+		t.Fatal("a genuinely missing CLI resolved")
+	}
+}
+
 func TestCLITerminalWithoutTmuxKeepsConfigurationAvailable(t *testing.T) {
 	ts, _, home := cleanupServer(t)
 	t.Setenv("PATH", t.TempDir())
