@@ -32,12 +32,14 @@
 .cli-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
 .cli-fields label { display: flex; flex-direction: column; gap: 8px; color: var(--text-primary); font-size: 12px; }
 .cli-fields label > span { color: var(--text-secondary); font-size: 11px; }
+.cli-fields label > span.is-warn { color: var(--warn); }
 .cli-fields input, .cli-fields select, .cli-fields textarea, .cli-list-heading input { width: 100%; min-width: 0; border: 1px solid var(--border-strong); border-radius: var(--radius-ctl); background: var(--bg-base); color: var(--text-primary); padding: 8px 10px; font: 12px var(--mono); }
 .cli-fields input, .cli-fields select { height: var(--ctl-h); }
 .cli-fields textarea { resize: vertical; line-height: 1.6; }
 .cli-launch-fields { grid-template-columns: 1fr; gap: 12px; }
 .cli-launch-fields details { border-top: 1px solid var(--border); }
 .cli-launch-fields summary, .cli-profiles > summary, .cli-diagnostics > summary { cursor: pointer; padding: 12px 0; color: var(--text-secondary); font-size: 12px; }
+.cli-launch-fields summary:focus-visible, .cli-profiles > summary:focus-visible, .cli-diagnostics > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-ctl); }
 .cli-launch-fields details[open] label { padding-bottom: 8px; animation: cli-enter var(--motion-fast) var(--ease-out); }
 .cli-pane-bar { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 8px 0 0; border-bottom: 1px solid var(--border); }
 .cli-pane-tabs { display: flex; gap: 2px; min-width: 0; }

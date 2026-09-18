@@ -2114,6 +2114,82 @@
         ]
       }
     },
+    "/api/browser/annotations": {
+      "get": {
+        "operationId": "getApiBrowserAnnotations",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      },
+      "post": {
+        "operationId": "postApiBrowserAnnotations",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      }
+    },
+    "/api/browser/annotations/{id}": {
+      "delete": {
+        "operationId": "deleteApiBrowserAnnotations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "browser"
+        ]
+      }
+    },
     "/api/browser/developer/audit": {
       "get": {
         "operationId": "getApiBrowserDeveloperAudit",
@@ -4013,6 +4089,84 @@
       "get": {
         "operationId": "getApiDevservers",
         "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "devservers"
+        ]
+      }
+    },
+    "/api/devservers/hide": {
+      "post": {
+        "operationId": "postApiDevserversHide",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "devservers"
+        ]
+      }
+    },
+    "/api/devservers/stop": {
+      "post": {
+        "operationId": "postApiDevserversStop",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "devservers"
+        ]
+      }
+    },
+    "/api/devservers/unhide": {
+      "post": {
+        "operationId": "postApiDevserversUnhide",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Success"
@@ -8716,6 +8870,167 @@
         ]
       }
     },
+    "/api/webapps": {
+      "get": {
+        "operationId": "getApiWebapps",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "webapps"
+        ]
+      },
+      "post": {
+        "operationId": "postApiWebapps",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "webapps"
+        ]
+      }
+    },
+    "/api/webapps/resolve": {
+      "post": {
+        "operationId": "postApiWebappsResolve",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "webapps"
+        ]
+      }
+    },
+    "/api/webapps/{id}": {
+      "delete": {
+        "operationId": "deleteApiWebapps",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "webapps"
+        ]
+      },
+      "patch": {
+        "operationId": "patchApiWebapps",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "webapps"
+        ]
+      }
+    },
+    "/api/webapps/{id}/icon": {
+      "get": {
+        "operationId": "getApiWebappsIcon",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "webapps"
+        ]
+      }
+    },
     "/api/webhooks": {
       "get": {
         "operationId": "getApiWebhooks",
@@ -9905,6 +10220,9 @@
     },
     {
       "name": "version"
+    },
+    {
+      "name": "webapps"
     },
     {
       "name": "webhooks"

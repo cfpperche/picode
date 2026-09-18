@@ -44,3 +44,38 @@
   `SameSite=Strict` host-only cookie is not sent (measured), and no route
   answers CORS except the deliberate `/api/health` probe. Revoking the session
   kills both forms; the daemon restart drops them all.
+- **Installed webapps fetch is a bounded, user-initiated retrieval, not a
+  proxy** (ADR-0147): `/api/webapps/resolve` and install fetch the page the
+  user named — 4 s timeout, 256 KB caps (64 KB manifest), four redirects, no
+  proxy, no credentials forwarded — with a DNS-rebind guard: every resolved
+  address of a non-local hostname must be public (checked at dial, the
+  validated IP dialed directly), redirects may not cross from a public origin
+  onto a local name or private address, and explicit loopback URLs stay
+  first-class. Metadata (PWA manifest, then same-origin `<link rel=icon>`,
+  then `/favicon.ico`) is same-origin only. `GET /api/webapps/{id}/icon`
+  serves stored bytes behind `Content-Security-Policy: default-src 'none'`
+  and `nosniff` (a hostile SVG stays inert). The webapp itself renders in
+  the shell's WebView2 child: no daemon token, no `host` object, no approval
+  UI; cookies are engine-isolated per origin, and the shared work profile
+  means "Clear browsing data" wipes webapp logins with the work browser's.
+- **App-shell CSP** (ADR-0052): HTML responses for `/`, `/browser/`, `/desktop/`
+  and `/mobile/` carry `appCSP`. `connect-src` is `'self'` plus the request
+  host's `ws://`/`wss://`. The Windows shell's pages (`/desktop/`,
+  `/desktop/management.html`) also name Tauri 2's IPC
+  (`ipc: http://ipc.localhost https://ipc.localhost`) so WebView2 can fetch
+  plugin commands; the browser and mobile shells do not, because they never
+  talk to that host. Assets and API answers carry no policy.
+
+## Handing a target to the operating system (the desktop shell)
+
+One command hands a target to Windows: `btab_open_external`, which runs
+`cmd /C start "" <target>`. Whatever reaches it is executed by the OS, so the
+guard is an allowlist of target *shapes* and refuses every character that
+could turn a target into a second command (quotes, spaces, `&`, `|`, `<`,
+`>`, `^`, backtick). Two classes are allowed: `http(s)://` — links that leave
+the app (ADR-0122) — and `ms-settings:` screens, which the v2d row uses for
+what PiCode deliberately does not reimplement (Windows Hello, passkeys,
+saved passwords). The allowlist and its decision table live in
+`desktop-shell/src/external.rs`, where the rows run as tests without cargo.
+Everything else — `file:`, `javascript:`, `data:`, bare `cmd:` — is refused
+with a message, never silently ignored.

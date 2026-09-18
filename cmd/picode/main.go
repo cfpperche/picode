@@ -628,6 +628,11 @@ func serve() {
 	// without eight vendor calls on every page load.
 	go server.StartUsageRefresh(backupCtx, deps, providerusage.DefaultRefresh)
 
+	// Dashboard stats (dash-perf Fase 1): warm the parse + range cache in
+	// the background so the first dashboard open is warm (~100-200ms)
+	// instead of a cold ~8s parse. Delayed 5s so traffic wins the boot.
+	server.StartSessionStatsWarmup(backupCtx)
+
 	// Automations scheduler (ADR-0045): lives with the process, not the
 	// HTTP server, so a rebind never drops a schedule.
 	autoCtx, autoCancel := context.WithCancel(context.Background())

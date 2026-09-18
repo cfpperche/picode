@@ -17,6 +17,62 @@ community **`pi-mcp-adapter`** extension (`pi install npm:pi-mcp-adapter`):
 
 ## Connectors pane (2026-09-12, `docs/plans/connectors-ux.md`)
 
+Every agent CLI gets this pane at `#/clis/<cli>/connectors` (ADR-0150):
+one per-CLI driver behind `/api/mcp?cli=<id>` manages that CLI's native MCP
+config — Pi's driver is the adapter implementation below. Since phase 1
+(2026-09-17) the guest drivers for **Claude Code** and **Codex** live in
+`internal/connectors` and answer through the same handlers with the same
+`Report` JSON shape: the pane does not branch on the CLI. Each driver
+mirrors `internal/mcp`'s types, preserves unknown keys and `${VAR}`
+placeholders verbatim, writes atomically, and reports honestly: no headless
+status signal, so guest rows never claim live state.
+
+- **Claude Code** — project scope is the workspace `.mcp.json`, edited
+  directly as JSON; user scope is Claude Code's own store, so the vendor CLI
+  (`claude mcp add/remove/list … --scope user`) is the only read/write path
+  and `~/.claude.json` is never opened. Claude has no per-server switch, so
+  driver `toggle: "none"` removes the pane's switch and a toggle request is
+  refused ("Claude Code connectors turn on and off in Claude Code; remove
+  instead"). Sign-in is likewise Claude Code's: the pane shows the vendor
+  command (`claude mcp login <name>`) as copyable text instead of a
+  PiCode-driven flow.
+- **Codex** — `~/.codex/config.toml` and `<workspace>/.codex/config.toml`
+  (the folder is read only when it exists; Add may create it). Edits are a
+  surgical splice: only the `[mcp_servers.<name>]` table span is replaced or
+  deleted — comments, unrelated tables and placeholders survive
+  byte-for-byte (golden-tested) — the result is re-parsed before it lands,
+  and `enabled` is the real per-server switch (`toggle: "entry"`).
+
+Since phase 2 (2026-09-18) two more JSON-codec drivers share the
+merge-by-key rewrite (`map[string]any`, 2-space indent, re-read before
+write, atomic rename) and never shell out — both scopes are plain files:
+
+- **Omp** — `~/.omp/agent/mcp.json` and `<workspace>/.omp/mcp.json`. The
+  document's own keys (`$schema`, `disabledServers`, `enabledServers`) and
+  unknown entry fields (`timeout`, `auth`, `oauth`, …) survive every write;
+  the entry's `enabled` field is the toggle. Omp's OAuth is TUI-only, so
+  the sign-in hint is a copyable TUI command (`/mcp reauth <name>`), not a
+  terminal one.
+- **Antigravity** (`agy`) — `~/.gemini/config/mcp_config.json` and
+  `<workspace>/.agents/mcp_config.json`. Remote servers ride `serverUrl`;
+  `disabled` is the toggle and Antigravity's own fields
+  (`authProviderType`, `oauth`, `disabledTools`) are preserved. An entry
+  keeping its URL under the legacy `url` key still displays but reports
+  `owned: false`, and Toggle/Remove refuse it ("legacy entry managed in
+  Antigravity"); an Add over the same name converts it to `serverUrl`. Its
+  sign-in hint is plain text — no command exists to copy.
+
+Guest sign-in hints are declared per driver (`AuthHint` in Go,
+`signIn` in `CONNECTOR_DRIVERS`): copyable for claude-code, codex and omp,
+plain text for agy.
+
+`web/shared/domain/integrations.js` `CONNECTOR_DRIVERS` declares each CLI's
+honest capability set (status `live` vs `configured`), and a request naming a
+CLI without a driver fails loudly instead of writing Pi's files. Guest
+host-config imports and the driven sign-in flow arrive in later phases; the
+API refuses them with instructions (imports → "arrive in a later phase",
+auth → the vendor's own `… mcp login <name>` command).
+
 `#/clis/pi/connectors` is one surface in three bands: the header (the intro
 line and the single primary action, **Add connector**), the configured roster,
 and the connector-packages section when a package declares `pi.mcp`. `#/mcps`,

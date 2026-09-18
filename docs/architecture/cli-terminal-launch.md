@@ -147,9 +147,12 @@ channel-backed CLI needs no bespoke button.
 gained sessions, then its adapter in the omp-adapter slice: editable launch
 defaults, the PATH wrapper (presence lease; maintenance subcommands and the
 protocol modes `--mode rpc|json|acp|rpc-ui` exec or mark non-TUI), and
-activity through the pi-shaped terminal-state extension injected with
-`-e` — the same extension API, measured live (session events fire,
-`PICODE_TERM_ID` survives). `Check setup` runs `omp --version`, which needs
+activity through the omp-shaped terminal-state extension injected with
+`-e` — the same extension load mechanism as pi, but omp's own event set
+(measured live on 18.2.4: `agent_end` settles the run, and the approval
+dialog emits no extension event, so omp reports Ready and Working and
+never needs-you — approvals happen in its own terminal). `Check setup`
+runs `omp --version`, which needs
 Bun ≥ 1.3.14 on PATH; an older Bun dies with a syntax error from its
 bundle. Lifecycle mirrors pi with the real npm package
 (`@oh-my-pi/pi-coding-agent`), split by install method — each measured:
@@ -247,6 +250,23 @@ navigation through a hash guard installed before route observers, use shared
 Zod schemas, and preview after edits with a debounce (not periodic API polling).
 Feed invalidation keeps profiles and checks current.
 Workspace menus and the palette open the shared terminal editor with context.
+
+**Quick launch settings** (2026-09-17, benchmark note
+`docs/benchmarks/2026-09-17-cli-launch-quick-presets.md`): for pi,
+Claude Code, Codex, Grok, Hermes Agent, OpenCode and Omp the launch editors
+render verified per-CLI controls — model, additional folders
+(`--add-dir`, repeatable), approvals/permission mode,
+thinking or reasoning effort, sandbox, and the vendors' skip-everything
+flags (codex `--yolo`, hermes `--yolo`, grok `--always-approve`) — above an
+**Advanced** reveal of the raw fields. Each control patches the draft
+argument array in place (`web/shared/domain/cliLaunchPresets.js`): the
+generated flag is replaced at its position, every other argument keeps its
+order, and an emptied control removes the flag. Codex's yolo/sandbox/
+approval controls form an exclusivity group (the CLI refuses the
+combination); picking one clears the others. No new persistence — Save,
+preview, overrides and profiles keep their contracts. A dangerous pick
+shows a one-line warning inline. Muse Code and Antigravity have no adapter
+and keep their read-only launch screens.
 
 
 ADR-0107 amends session pinning for communication: Grok/Hermes pins use native

@@ -28,7 +28,8 @@ per open topic** in `docs/handoff/open/`, and a `docs/handoff.md` that is
    ```markdown
    # <date> — <branch>: <one-line title>
    Shipped: what exists now (ADR numbers, routes, files).
-   Verified: gates run, what was tested where (scratch instance, real tmux…).
+   Verified: gates run, what was tested where (scratch instance, real tmux…),
+             and the method's blind spot ("not run inside the Windows shell").
    visual-review: PASS | FAIL | UNVERIFIED | n/a
    Not done / debts: what remains, honestly.
    Merge: fast-forward ready | merged as <sha>.
@@ -41,6 +42,12 @@ per open topic** in `docs/handoff/open/`, and a `docs/handoff.md` that is
 
    - something accepted here that outlives the branch (open until paid)
    ```
+
+   **Never write a line that expires.** "The owner's click is the last check"
+   is true for an hour and then rots; `not run inside the Windows shell` is
+   true forever. Record the *method and its blind spot*, never a pending
+   state — nothing in the flow asks you to, and a stale pending line costs the
+   next session real work.
 
    The two sections are optional bullets; prose paragraphs are not read by the
    generator.
@@ -65,6 +72,11 @@ per open topic** in `docs/handoff/open/`, and a `docs/handoff.md` that is
    `docs/changelog.d/<branch-slug>.md` now (`### Added` / `### Fixed` +
    one line each). Never edit `CHANGELOG.md`; `make changelog` assembles it.
 6. **Commit** the note with the code, or as the `docs:` commit right after.
+   A fact that only exists **after** the merge — the owner confirming the fix
+   live, a debt paid by observation — is one commit on `main` (ADR-0149):
+   amend the note or the topic file it corrects. No worktree, no branch, no
+   gate run, because the fact cannot exist earlier. A *new* note or changelog
+   fragment still belongs to a branch — the hook refuses those on `main`.
 
 ## Verdict
 

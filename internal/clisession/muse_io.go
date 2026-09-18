@@ -39,6 +39,10 @@ func museBinary() string {
 }
 
 // MuseSessionsRoot is the local session store the export resolves ids in.
+// MuseSessionsRoot is the local session store the export resolves ids in,
+// exported so a metric reads the same logs this package projects.
+func MuseSessionsRoot() string { return museSessionsRoot() }
+
 func museSessionsRoot() string { return filepath.Join(filepath.Dir(museDBPath()), "sessions") }
 
 // Read projects a Muse session through the CLI's own exporter

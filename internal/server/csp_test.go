@@ -125,6 +125,68 @@ func TestEveryServedShellCarriesItsOwnHash(t *testing.T) {
 	}
 }
 
+func TestDesktopShellPath(t *testing.T) {
+	cases := []struct {
+		path string
+		want bool
+	}{
+		{"/desktop", true},
+		{"/desktop/", true},
+		{"/desktop/management.html", true},
+		{"/desktop/index.html", true},
+		{"/browser/", false},
+		{"/mobile/", false},
+		{"/", false},
+		{"/desktop-evil", false},
+	}
+	for _, c := range cases {
+		if got := desktopShellPath(c.path); got != c.want {
+			t.Errorf("desktopShellPath(%q) = %v, want %v", c.path, got, c.want)
+		}
+	}
+}
+
+// TestDesktopShellAllowsTauriIPC is the regression the 2026-09-15 coverage
+// left unverified: putting the app policy on /desktop/ blocked Tauri 2's
+// WebView2 IPC (http://ipc.localhost/plugin:window|is_maximized and
+// plugin:event|listen). Only the Windows shell's pages name that host;
+// a browser or phone opening /browser/ or /mobile/ must not.
+func TestDesktopShellAllowsTauriIPC(t *testing.T) {
+	writeUI(t, shellUI())
+	ts := newTestServer(t, "cat")
+	const ipc = "ipc: http://ipc.localhost https://ipc.localhost"
+
+	for _, path := range []string{"/desktop/", "/desktop/management.html"} {
+		t.Run("allows "+path, func(t *testing.T) {
+			res, err := ts.Client().Get(ts.URL + path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			res.Body.Close()
+			csp := res.Header.Get("Content-Security-Policy")
+			if csp == "" {
+				t.Fatalf("%s served without a CSP", path)
+			}
+			if !strings.Contains(csp, ipc) {
+				t.Fatalf("%s connect-src missing Tauri IPC: %q", path, csp)
+			}
+		})
+	}
+	for _, path := range []string{"/", "/browser/", "/mobile/"} {
+		t.Run("denies "+path, func(t *testing.T) {
+			res, err := ts.Client().Get(ts.URL + path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			res.Body.Close()
+			csp := res.Header.Get("Content-Security-Policy")
+			if strings.Contains(csp, "ipc.localhost") || strings.Contains(csp, "ipc:") {
+				t.Fatalf("%s must not name Tauri IPC: %q", path, csp)
+			}
+		})
+	}
+}
+
 func TestHashInline(t *testing.T) {
 	h := hashInline([]byte("<html><script>alert(1)</script><script src=x></script><script>b()</script>"))
 	if strings.Count(h, "'sha256-") != 2 {

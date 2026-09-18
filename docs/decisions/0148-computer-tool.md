@@ -1,7 +1,7 @@
 # ADR-0148: Computer use for agents — one grant, the whole desktop, refinements later
 
-- **Status**: proposed (the owner approved the plan in session on 2026-09-17;
-  this text awaits their read)
+- **Status**: accepted (owner approved the plan on 2026-09-17 and this text
+  on 2026-09-18, in session)
 - **Date**: 2026-09-17
 - **Boundary**: security model — an agent, or a CLI running in a PiCode
   terminal, once granted, acts on the user's Windows desktop with the user's

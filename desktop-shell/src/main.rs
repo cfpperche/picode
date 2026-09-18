@@ -12,6 +12,7 @@
 // took over.
 
 mod btab;
+mod external;
 mod board;
 mod browserlab;
 mod clean;
@@ -573,6 +574,7 @@ fn build_main_window(
         .inner_size(1360.0, 880.0)
         .min_inner_size(720.0, 480.0)
         .decorations(false)
+        .disable_drag_drop_handler()
         // One creation path for both starts: build visible, hide right after
         // when the logon task asked for --hidden (same setup turn, before
         // first paint, so sign-in stays pop-free). Measured 2026-09-16: at

@@ -129,7 +129,7 @@ var plans = map[string]spec{
 		updateArgs:    []string{"update"},
 		reinstallArgs: []string{"update", "--force-reinstall"},
 		uninstall:     UninstallGuided,
-		docs:          "https://grok.com/build",
+		docs:          "https://docs.x.ai/build/cli/reference",
 	},
 	"hermes": {
 		updateArgs:    []string{"update", "--yes"},
@@ -151,7 +151,7 @@ var plans = map[string]spec{
 		// the vendor updater (it exits 0 before arg parsing).
 		updateEnv: []string{"MUSE_LAUNCHER_INSTALL=1"},
 		uninstall: UninstallGuided,
-		docs:      "https://ai.developer.meta.com/docs/muse-code/",
+		docs:      "https://dev.meta.ai/docs/muse-code",
 	},
 	"agy": {
 		latestFrom:    "channel",
@@ -394,13 +394,13 @@ func ForMissing(cliID string) (Plan, bool) {
 func InstallDocs(cliID string) string {
 	switch cliID {
 	case "grok":
-		return "https://grok.com/build"
+		return "https://docs.x.ai/build/cli/reference"
 	case "hermes":
 		return "https://hermes-agent.nousresearch.com/docs/getting-started/installation"
 	case "claude-code":
 		return "https://code.claude.com/docs/en/setup"
 	case "muse":
-		return "https://ai.developer.meta.com/docs/muse-code/"
+		return "https://dev.meta.ai/docs/muse-code"
 	case "agy":
 		return "https://antigravity.google/docs/cli/"
 	default:

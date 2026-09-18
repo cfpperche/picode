@@ -1,6 +1,57 @@
 // Headless contracts only; desktop and mobile own their presentation.
-export const CLI_CONNECTORS = [{ id: "pi", name: "Pi" }];
-export const supportsCliConnectors = (id) => CLI_CONNECTORS.some((cli) => cli.id === id);
+// A CLI is connector-capable only when a driver declares its capabilities
+// here (ADR-0150). The pane renders what a driver declares and nothing more:
+// status "configured" never claims live state, toggle "none" removes the
+// switch entirely (Claude Code turns servers on/off in its own interface).
+// signIn is the vendor's own sign-in path shown to guests: command renders
+// as copyable code (a terminal command by default, or the TUI named in
+// `where`); text renders as a plain sentence when no command exists.
+export const CONNECTOR_DRIVERS = {
+  pi: {
+    id: "pi",
+    name: "Pi",
+    status: "live", // live | configured — what the pane may honestly claim
+    auth: ["oauth", "bearer"],
+    toggle: "entry", // per-entry enable/disable, not stub-overlay
+  },
+  // id matches the CLI catalog id so #/clis/<id>/connectors highlights the
+  // right roster entry (AgentClis selected = find(c.id === route.id)).
+  "claude-code": {
+    id: "claude-code",
+    name: "Claude Code",
+    status: "configured",
+    auth: ["oauth"],
+    toggle: "none", // sign-in and on/off live inside Claude Code
+    signIn: { command: "claude mcp login {name}" },
+  },
+  codex: {
+    id: "codex",
+    name: "Codex",
+    status: "configured",
+    auth: ["oauth", "bearer"],
+    toggle: "entry", // [mcp_servers.<name>] enabled flag
+    signIn: { command: "codex mcp login {name}" },
+  },
+  omp: {
+    id: "omp",
+    name: "Omp",
+    status: "configured",
+    auth: ["oauth"],
+    toggle: "entry", // entry's enabled flag
+    signIn: { command: "/mcp reauth {name}", where: "the Omp TUI" }, // OAuth is TUI-only
+  },
+  agy: {
+    id: "agy",
+    name: "Antigravity",
+    status: "configured",
+    auth: ["oauth"],
+    toggle: "entry", // entry's disabled flag
+    signIn: { text: "Authenticate in Antigravity (Agent Settings → Authenticate)" },
+  },
+};
+export const CLI_CONNECTORS = Object.values(CONNECTOR_DRIVERS);
+export const connectorDriver = (id) => CONNECTOR_DRIVERS[id] || null;
+export const supportsCliConnectors = (id) => !!connectorDriver(id);
 
 export function cliConnectorsHash(cli = "pi", { workspaceId = "", agentId = "", scope = "user" } = {}) {
   const query = new URLSearchParams();

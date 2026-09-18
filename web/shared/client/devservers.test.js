@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isLoopbackUrl, listDevServers } from "./devservers.js";
+import { hideDevServer, isLoopbackUrl, listDevServers, stopDevServer, unhideDevServer } from "./devservers.js";
 
 test("isLoopbackUrl answers this machine, and only this machine", () => {
   const yes = [
@@ -39,6 +39,34 @@ test("listDevServers reads the guarded route, and asks for a refresh when told",
     assert.equal(calls[0].url, "/api/devservers");
     await listDevServers({ refresh: true });
     assert.equal(calls[1].url, "/api/devservers?refresh=1");
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+// The panel's three verbs travel with the row's identity — the port, the pid
+// and the process's start token — because that is what the server re-derives
+// before it signals or hides anything.
+test("the panel's writes carry the identity of the process", async () => {
+  const calls = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    calls.push({ url, opts, body: opts && opts.body ? JSON.parse(opts.body) : null });
+    return { ok: true, status: 200, statusText: "OK", json: async () => ({}) };
+  };
+  try {
+    await stopDevServer({ port: 45683, pid: 3257366, startKey: "987654" });
+    assert.equal(calls[0].url, "/api/devservers/stop");
+    assert.equal(calls[0].opts.method, "POST");
+    assert.deepEqual(calls[0].body, { port: 45683, pid: 3257366, startKey: "987654", force: false });
+    await stopDevServer({ port: 45683, pid: 3257366, startKey: "987654", force: true });
+    assert.equal(calls[1].body.force, true);
+    await hideDevServer({ port: 45683, pid: 3257366, startKey: "987654" });
+    assert.equal(calls[2].url, "/api/devservers/hide");
+    assert.deepEqual(calls[2].body, { port: 45683, pid: 3257366, startKey: "987654" });
+    await unhideDevServer("12");
+    assert.equal(calls[3].url, "/api/devservers/unhide");
+    assert.deepEqual(calls[3].body, { hideId: 12 });
   } finally {
     globalThis.fetch = original;
   }

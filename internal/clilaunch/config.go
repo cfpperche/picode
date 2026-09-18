@@ -47,10 +47,10 @@ func Catalog() []CLI {
 		{"pi", "Pi", "pi", "https://pi.dev", ""},
 		{"claude-code", "Claude Code", "claude", "https://code.claude.com/docs/en/setup", ""},
 		{"codex", "Codex", "codex", "https://developers.openai.com/codex/cli", ""},
-		{"grok", "Grok", "grok", "https://grok.com/build", ""},
+		{"grok", "Grok", "grok", "https://docs.x.ai/build/cli/reference", ""},
 		{"hermes", "Hermes Agent", "hermes", "https://hermes-agent.nousresearch.com/docs/getting-started/installation", ""},
 		{"opencode", "OpenCode", "opencode", "https://opencode.ai/docs", ""},
-		{"muse", "Muse Code", "muse", "https://ai.developer.meta.com/docs/muse-code/", ""},
+		{"muse", "Muse Code", "muse", "https://dev.meta.ai/docs/muse-code", ""},
 		{"agy", "Antigravity", "agy", "https://antigravity.google/docs/cli/", ""},
 		// Omp (oh-my-pi, a Pi fork) is a full row since the omp-adapter
 		// slice: launch settings, PATH wrapper, activity extension, sessions

@@ -50,7 +50,7 @@ export default function Sidebar({
   onFileTree,
   onOpenDashboard,
   onOpenClis,
-  apps, nativeApps, onOpenApp,
+  apps, nativeApps, onOpenApp, webapps, webappsErr, webappsLoaded, onRetryWebapps, onOpenWebapp, onSavedWebapp, onRemoveWebapp, desktop,
 }) {
   const [width, setWidth] = useState(() => {
     const n = parseInt(localStorage.getItem(SIDE_KEY) || "", 10);
@@ -166,7 +166,7 @@ export default function Sidebar({
       {tab === "pins" ? (
         <Pins />
       ) : tab === "apps" ? (
-        <AppsGrid apps={apps} nativeApps={nativeApps} onOpen={onOpenApp} />
+        <AppsGrid apps={apps} nativeApps={nativeApps} onOpen={onOpenApp} webapps={webapps} webappsErr={webappsErr} webappsLoaded={webappsLoaded} onRetryWebapps={onRetryWebapps} onOpenWebapp={onOpenWebapp} onSavedWebapp={onSavedWebapp} onRemoveWebapp={onRemoveWebapp} desktop={desktop} />
       ) : tab === "terms" ? (
       <div className="side-section">
         <div className="pins-head">

@@ -3,7 +3,8 @@ import { api } from "@picode/shared/client/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import { registerHashGuard } from "../lib/hashGuard.js";
 import { cliLaunchSchema, parseForm } from "@picode/shared/contracts/schemas.js";
-import { launchDraft, launchConfig, defaultLaunchConfig, launchChanged } from "@picode/shared/domain/cliLaunch.js";
+import { launchDraft, launchConfig, defaultLaunchConfig, launchChanged, launchArgs, launchLines } from "@picode/shared/domain/cliLaunch.js";
+import { quickSettingsFor, readQuickValue, readQuickList, applyQuickSetting, applyQuickList, argLine } from "@picode/shared/domain/cliLaunchPresets.js";
 
 export const cliJSON = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 export const confirmDiscard = () => askConfirm({ title: "Discard launch changes?", message: "Your unsaved changes will be lost.", confirmLabel: "Discard changes", danger: true });
@@ -38,13 +39,61 @@ export function useLaunchGuard(dirty, confirm = confirmDiscard) {
   return () => { bypass.current = true; };
 }
 
-export function LaunchFields({ draft, setDraft, includeIntegration = false }) {
+// QuickListField edits a repeatable flag (one value per line). The text is
+// local so trailing newlines survive typing; it re-seeds when the parsed
+// argv changes underneath (CLI switch, profile load, an Advanced edit).
+function QuickListField({ spec, values, onApply }) {
+  const joined = values.join("\n");
+  const [text, setText] = useState(joined);
+  const [seen, setSeen] = useState(joined);
+  if (seen !== joined) { setSeen(joined); setText(joined); }
+  return <label>{spec.label}
+    <textarea aria-label={spec.label} rows={2} spellCheck={false} placeholder={spec.placeholder} value={text}
+      onChange={(e) => { setText(e.target.value); onApply(launchLines(e.target.value)); }} />
+    {spec.hint ? <span>{spec.hint}</span> : null}
+  </label>;
+}
+
+// LaunchFields is the launch editor used by the CLI defaults, a terminal's
+// overrides and launch profiles. When the CLI has verified quick controls
+// (cliLaunchPresets.js) they render first, patching the same argument
+// array the Advanced reveal exposes; without them the form is unchanged.
+export function LaunchFields({ draft, setDraft, includeIntegration = false, cli }) {
   const field = (key) => ({ value: draft[key], onChange: (e) => setDraft({ ...draft, [key]: e.target.value }) });
-  return <div className="cli-fields cli-launch-fields">
+  const specs = cli ? quickSettingsFor(cli.id) : null;
+  const args = launchArgs(draft.argsText);
+  const setQuick = (spec, value) => setDraft({ ...draft, argsText: applyQuickSetting(args, specs, spec, value).map(argLine).join("\n") });
+  const quick = specs?.map((spec) => {
+    if (spec.type === "list") {
+      return <QuickListField key={spec.key} spec={spec} values={readQuickList(args, spec)}
+        onApply={(vals) => setDraft({ ...draft, argsText: applyQuickList(args, spec, vals).map(argLine).join("\n") })} />;
+    }
+    const current = readQuickValue(args, spec);
+    if (spec.type === "boolean") {
+      return <label key={spec.key} className="cli-checkbox"><input type="checkbox" checked={current === "on"} onChange={(e) => setQuick(spec, e.target.checked ? "on" : "")} />{spec.label}</label>;
+    }
+    const warn = spec.options?.find((o) => o.value === current)?.warn;
+    const listed = spec.options?.some((o) => o.value === current);
+    return <label key={spec.key}>{spec.label}
+      {spec.type === "select" ? <select value={current} onChange={(e) => setQuick(spec, e.target.value)}>
+        <option value="">CLI default</option>
+        {spec.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        {current && !listed ? <option value={current}>{current}</option> : null}
+      </select>
+        : <><input type="text" list={`cli-quick-${cli.id}-${spec.key}`} placeholder={spec.placeholder} autoComplete="off" spellCheck={false} value={current} onChange={(e) => setQuick(spec, e.target.value)} />
+          {spec.suggestions ? <datalist id={`cli-quick-${cli.id}-${spec.key}`}>{spec.suggestions.map((s) => <option key={s} value={s} />)}</datalist> : null}</>}
+      {warn ? <span className="is-warn">{warn}</span> : spec.hint ? <span>{spec.hint}</span> : null}
+    </label>;
+  });
+  const advanced = <>
     <label>Executable<input type="text" placeholder="Automatic detection" autoComplete="off" {...field("executable")} /><span>Empty uses the detected CLI; a path pins this executable.</span></label>
     <details open={!!draft.argsText || undefined}><summary>Additional arguments</summary><label><span>One argument per line</span><textarea aria-label="Additional arguments" rows={3} spellCheck={false} {...field("argsText")} /></label></details>
     <details open={!!draft.pathText || undefined}><summary>Extra PATH entries</summary><label><span>One absolute directory per line</span><textarea aria-label="Extra PATH entries" rows={2} placeholder="/opt/tools/bin" spellCheck={false} {...field("pathText")} /></label></details>
     <details><summary>Environment {draft.envText ? "· customized" : "· no additions"}</summary><label><span>One NAME=value per line · values visible while editing</span><textarea aria-label="Environment" rows={3} autoComplete="off" spellCheck={false} {...field("envText")} /></label></details>
+  </>;
+  return <div className="cli-fields cli-launch-fields">
+    {quick}
+    {specs ? <details className="cli-advanced" open={!!(draft.executable || draft.argsText || draft.pathText || draft.envText) || undefined}><summary>Advanced</summary>{advanced}</details> : advanced}
     {includeIntegration ? <label className="cli-checkbox"><input type="checkbox" checked={draft.integration} onChange={(e) => setDraft({ ...draft, integration: e.target.checked })} />Report activity on new launches</label> : null}
   </div>;
 }
@@ -125,7 +174,7 @@ export function CLIDefaults({ cli, busy, onSave, editRequested, hideTitle = fals
       e.preventDefault(); if (!parsed.ok) { setError(parsed.error); return; }
       try { await onSave(launchConfig(parsed.value)); setError(""); setEditing(false); } catch (e) { setError(e.message); }
     }}>
-      <LaunchFields draft={draft} setDraft={setDraft} />
+      <LaunchFields draft={draft} setDraft={setDraft} cli={cli} />
       {error ? <p className="cli-field-error" role="alert">{error}</p> : null}
       <div className="cli-actions" data-align-row><button className="btn btn-primary btn-sm" disabled={busy || !dirty}>{busy ? "Saving…" : "Save changes"}</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={async () => { if (!dirty || await confirmDiscard()) { setDraft(launchDraft(cli.config)); setEditing(false); setError(""); } }}>Discard</button></div>
       {parsed.ok ? <LaunchPreview cli={cli.id} config={launchConfig(parsed.value)} /> : null}

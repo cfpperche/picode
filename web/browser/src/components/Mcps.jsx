@@ -10,10 +10,10 @@ import { mcpAddSchema, pairsToMap, parseForm } from "@picode/shared/contracts/sc
 import { toast } from "../lib/toast.js";
 import PageFrame from "./PageFrame.jsx";
 import PiSpinner from "./PiSpinner.jsx";
-import { readConnectorDefinition, destinationLabel, connectorTabs } from "@picode/shared/domain/integrations.js";
+import { readConnectorDefinition, destinationLabel, connectorTabs, connectorDriver } from "@picode/shared/domain/integrations.js";
 import "../styles/integrations.css";
 
-export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath, agentId, agentName, agentWorkPath, agentRunning, onReload, scope: scopeProp = "user", onScopeChange = () => {} }) {
+export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, workspacePath, agentId, agentName, agentWorkPath, agentRunning, onReload, scope: scopeProp = "user", onScopeChange = () => {} }) {
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState("");
   const scope = scopeProp;
@@ -30,9 +30,12 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   const signCtl = useRef({ id: "", stop: false });
   const dataRef = useRef(null);
   dataRef.current = data;
+  const driver = connectorDriver(cli) || connectorDriver("pi");
+  const guest = cli !== "pi" && !!driver;
 
   function listURL() {
     const q = [];
+    if (guest) q.push("cli=" + encodeURIComponent(cli));
     if (workspaceId) q.push("workspace=" + encodeURIComponent(workspaceId));
     if (agentId) q.push("agent=" + encodeURIComponent(agentId));
     return "/api/mcp" + (q.length ? "?" + q.join("&") : "");
@@ -53,7 +56,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
     setData(null);
     setLoadError("");
     load();
-  }, [hidden, workspaceId, agentId]);
+  }, [hidden, workspaceId, agentId, cli]);
   useEffect(() => {
     if (hidden) return;
     load();
@@ -75,7 +78,10 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   useEffect(() => {
     if (!workspaceId && scope === "project") setScope("user");
     if (!agentWorkPath && scope === "agent") setScope("user");
-  }, [workspaceId, agentWorkPath, scope]);
+    // Guests have no per-agent layer in phase 1; a stale agent-scope link
+    // falls back to the machine instead of a 400 on the next action.
+    if (guest && scope === "agent") setScope("user");
+  }, [workspaceId, agentWorkPath, scope, guest]);
 
   const loading = !hidden && data === null && !loadError;
   const installed = !!(data && data.adapter && data.adapter.installed);
@@ -115,6 +121,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
       scope,
       workspaceId: workspaceId || undefined,
       agentId: agentId || undefined,
+      ...(guest ? { cli } : {}),
       ...extra,
     };
   }
@@ -184,7 +191,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
       setForm(emptyForm());
       setCustomOpen(false);
     }
-    if (auth === "oauth") await signIn({ name, auth: "oauth", disabled: false }, { quiet: true });
+    if (auth === "oauth" && !guest) await signIn({ name, auth: "oauth", disabled: false }, { quiet: true });
   }
 
   async function toggle(s) {
@@ -212,13 +219,36 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
   }
 
   function canSignIn(s) {
+    if (guest) return false;
     if (!s || s.disabled) return false;
     if (s.live === "live") return false;
     if (s.live === "signin") return true;
     return s.auth === "oauth" && !s.signedIn && !justSigned[s.name];
   }
 
+  // Guests never sign in through PiCode: the pane shows the vendor's own
+  // path instead of a failing call (ADR-0150) — a copyable command (a
+  // terminal one by default, or the vendor TUI) beside the controls, or a
+  // plain sentence on its own line under the row when the vendor signs in
+  // outside any command line (a sentence inline would squeeze the target
+  // and unbalance the action row).
+  function needsVendorSignIn(s) {
+    return guest && !s.disabled && s.transport === "url" && driver.auth.includes("oauth");
+  }
+
+  function vendorSignIn(s) {
+    const si = driver.signIn || {};
+    if (si.text) return { text: si.text };
+    const command = String(si.command || cli + " mcp login " + s.name).replaceAll("{name}", s.name);
+    return { command, where: si.where || "a terminal" };
+  }
+
+  function copyVendorCmd(cmd) {
+    navigator.clipboard.writeText(cmd).then(() => toast.ok("Command copied.")).catch(() => toast.error("Clipboard blocked — copy it by hand."));
+  }
+
   function canSignOut(s) {
+    if (guest) return false;
     if (!s || s.disabled) return false;
     return !!(s.signedIn || justSigned[s.name]);
   }
@@ -321,7 +351,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
     if (!installed || !s.owned) return;
     const ok = await askConfirm({
       title: "Remove " + s.name,
-      message: "Delete this server from " + (s.path || "the config") + ".",
+      message: "Delete this server from " + (s.path || driver.name + "'s configuration") + ".",
       confirmLabel: "Remove",
       danger: true,
     });
@@ -330,6 +360,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
       name: s.name,
       scope: writeScope(s, scope),
     });
+    if (guest) q.set("cli", cli);
     if (workspaceId) q.set("workspace", workspaceId);
     if (agentId) q.set("agent", agentId);
     await runJob("remove", s.name, () => api("/api/mcp?" + q.toString(), { method: "DELETE" }));
@@ -352,10 +383,17 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
           <button type="button" className="btn btn-primary" onClick={() => { setLoadError(""); load(); }}>Retry</button>
         </div>
       ) : !installed ? (
-        <div className="mcp-empty">
-          <p>Install the MCP adapter to connect services.</p>
-          <a className="btn btn-primary" href={cliPackagesHash("pi", { workspaceId, agentId })}>Open packages</a>
-        </div>
+        guest ? (
+          <div className="mcp-empty">
+            <p>{driver.name} is not installed on this machine.</p>
+            <button type="button" className="btn btn-primary" onClick={() => load()}>Check again</button>
+          </div>
+        ) : (
+          <div className="mcp-empty">
+            <p>Install the MCP adapter to connect services.</p>
+            <a className="btn btn-primary" href={cliPackagesHash("pi", { workspaceId, agentId })}>Open packages</a>
+          </div>
+        )
       ) : (
         <>
           {!!data?.connectorPackages?.length && <section className="pkg-installed">
@@ -365,15 +403,17 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
           </section>}
           <section className="pkg-installed">
             <h3>Configured services{servers.length ? <span className="mcp-count">{servers.length}</span> : null}</h3>
-            {!agentRunning && servers.length ? <p className="pkg-fine">Live status comes from a running agent.</p> : null}
+            {!guest && !agentRunning && servers.length ? <p className="pkg-fine">Live status comes from a running agent.</p> : null}
             {servers.length ? (
               <ul className="mcp-list">
                 {servers.map((s) => {
                   const word = agentRunning ? rowLive(s) : "";
                   const state = word === "live" || word === "failed" ? word : "";
                   const menu = canSignOut(s) || s.owned;
+                  const vendor = needsVendorSignIn(s) ? vendorSignIn(s) : null;
+                  const note = vendor && !vendor.command ? vendor.text : "";
                   return (
-                  <li key={s.layer + ":" + s.name} className={"mcp-row" + (s.disabled ? " off" : "")}>
+                  <li key={s.layer + ":" + s.name} className={"mcp-row" + (s.disabled ? " off" : "") + (note ? " has-note" : "")}>
                     <div className="mcp-row-main">
                       {state ? (
                         <span className={"mcp-live " + state} title={liveTitle(state)}>{liveLabel(state)}</span>
@@ -383,18 +423,25 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
                       <code className="mcp-target" title={targetOf(s)}>{targetOf(s)}</code>
                     </div>
                     <div className="mcp-row-actions" data-align-row>
-                      {canSignIn(s) ? (
+                      {vendor && vendor.command ? (
+                        <span className="mcp-login">
+                          <code title={"Run this in " + vendor.where + " to sign in to " + s.name}>{vendor.command}</code>
+                          <button type="button" className="btn btn-ghost btn-sm" disabled={!!job} aria-label={"Copy the sign-in command for " + s.name} onClick={() => copyVendorCmd(vendor.command)}>Copy</button>
+                        </span>
+                      ) : !vendor && canSignIn(s) ? (
                         <button type="button" className="btn btn-ghost" disabled={!!job} onClick={() => signIn(s)}>Sign in</button>
                       ) : null}
-                      <span className="mcp-switch">
-                        <Switch.Root
-                          className="rx-switch"
-                          checked={!s.disabled}
-                          disabled={!!job}
-                          onCheckedChange={() => toggle(s)}
-                          aria-label={(s.disabled ? "Enable " : "Disable ") + s.name}
-                        ><Switch.Thumb className="rx-switch-thumb" /></Switch.Root>
-                      </span>
+                      {driver.toggle !== "none" ? (
+                        <span className="mcp-switch">
+                          <Switch.Root
+                            className="rx-switch"
+                            checked={!s.disabled}
+                            disabled={!!job}
+                            onCheckedChange={() => toggle(s)}
+                            aria-label={(s.disabled ? "Enable " : "Disable ") + s.name}
+                          ><Switch.Thumb className="rx-switch-thumb" /></Switch.Root>
+                        </span>
+                      ) : null}
                       {menu ? (
                         <DropdownMenu.Root>
                           <DropdownMenu.Trigger asChild>
@@ -403,12 +450,13 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
                           <DropdownMenu.Portal>
                             <DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
                               {canSignOut(s) ? <DropdownMenu.Item className="um-item" onSelect={() => signOut(s)}>Sign out</DropdownMenu.Item> : null}
-                              {s.owned ? <><DropdownMenu.Separator className="um-divider" /><DropdownMenu.Item className="um-item cli-danger-item" onSelect={() => remove(s)}>Remove</DropdownMenu.Item></> : null}
+                              {s.owned ? <>{canSignOut(s) ? <DropdownMenu.Separator className="um-divider" /> : null}<DropdownMenu.Item className="um-item cli-danger-item" onSelect={() => remove(s)}>Remove</DropdownMenu.Item></> : null}
                             </DropdownMenu.Content>
                           </DropdownMenu.Portal>
                         </DropdownMenu.Root>
                       ) : null}
                     </div>
+                    {note ? <p className="mcp-login-note">{note}</p> : null}
                   </li>
                   );
                 })}
@@ -432,7 +480,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
         scope={scope}
         onScope={setScope}
         canProject={canProject}
-        canAgent={canAgent}
+        canAgent={canAgent && !guest}
         workspaceName={workspaceName}
         agentName={agentName}
         configured={configuredNames}
@@ -441,6 +489,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
         onCustom={() => { setAddOpen(false); setForm(emptyForm()); setFormError(""); setCustomOpen(true); }}
         onHostPick={(pick) => { setAddOpen(false); setHostPick(pick); }}
         onImport={(file) => { setAddOpen(false); importDefinition(file); }}
+        showImport={!guest}
       />
 
       {customOpen ? (
@@ -552,7 +601,7 @@ export default function Mcps({ hidden, workspaceId, workspaceName, workspacePath
 // (custom server, definition file). The target ("Save to") is stated beside
 // the list instead of floating above the pane as a second unlabelled pill
 // row (docs/plans/connectors-ux.md).
-function AddConnectorDialog({ open, onOpenChange, query, onQuery, presets, tabs, catalogTab, onCatalogTab, scope, onScope, canProject, canAgent, workspaceName, agentName, configured, job, onAdd, onCustom, onHostPick, onImport }) {
+function AddConnectorDialog({ open, onOpenChange, query, onQuery, presets, tabs, catalogTab, onCatalogTab, scope, onScope, canProject, canAgent, workspaceName, agentName, configured, job, onAdd, onCustom, onHostPick, onImport, showImport = true }) {
   if (!open) return null;
   const tab = tabs.find((t) => t.id === catalogTab) || tabs[0];
   const needle = query.trim().toLowerCase();
@@ -647,7 +696,7 @@ function AddConnectorDialog({ open, onOpenChange, query, onQuery, presets, tabs,
           )}
           <div className="connector-secondary" data-align-row>
             <button type="button" className="btn btn-ghost" disabled={!!job} onClick={onCustom}>Custom server…</button>
-            <label className="btn btn-ghost connector-file">Import a file…<input type="file" accept=".json,application/json" disabled={!!job} onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) onImport(file); }} /></label>
+            {showImport ? <label className="btn btn-ghost connector-file">Import a file…<input type="file" accept=".json,application/json" disabled={!!job} onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) onImport(file); }} /></label> : null}
           </div>
         </Dialog.Content>
       </Dialog.Portal>
