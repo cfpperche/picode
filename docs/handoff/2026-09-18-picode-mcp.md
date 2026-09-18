@@ -22,4 +22,4 @@ uiux-review: PASS (9/9; jargon: none in chrome).
 
 ## Debts
 - Codex `-c mcp_servers.*` overrides and MCP image blocks in Codex/OpenCode/Grok are unverified live (fallback: the PNG under `<data>/var/captures/`).
-- `TestCLIRestartPreparationFailureAndWorkspaceCleanup` is flaky on main too (1 in 4 runs: `PanePID` races the fresh pane); not touched here.
+- `TestCLIRestartPreparationFailureAndWorkspaceCleanup` flakes 3–6 % under load (parallel shards) since the 2026-09-15 tmux-hardening/pane-ready window (0/18 at 0b733f6a, 1/36 at 00a77f80); it reads `PanePID` right after creation and again after the 400 — test race, not mine to fix here.
