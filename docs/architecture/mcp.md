@@ -63,8 +63,33 @@ write, atomic rename) and never shell out — both scopes are plain files:
   sign-in hint is plain text — no command exists to copy.
 
 Guest sign-in hints are declared per driver (`AuthHint` in Go,
-`signIn` in `CONNECTOR_DRIVERS`): copyable for claude-code, codex and omp,
-plain text for agy.
+`signIn` in `CONNECTOR_DRIVERS`): copyable for claude-code, codex, omp and
+opencode, plain text for agy and grok.
+
+Since phase 3 (2026-09-18) two more codecs complete the set of shapes so
+far, one JSON, one TOML:
+
+- **OpenCode** — `$XDG_CONFIG_HOME/opencode/opencode.json` (default
+  `~/.config/…`) and the workspace's own `opencode.json`. The document's
+  `mcp` block holds `{name: {type: "local"|"remote", command: […]|url,
+  enabled?, environment?, …}}`: the command array round-trips as an array,
+  `environment` carries the entry's env, `enabled` is the toggle, and
+  everything outside the block (`$schema`, `theme`, provider settings) plus
+  unknown entry fields (`oauth`, `timeout`, …) survive every write. This
+  driver manages only these two files — the session config PiCode generates
+  for launches through `OPENCODE_CONFIG` is a different document and is
+  never touched. Its sign-in hint is the vendor command
+  (`opencode mcp auth <name>`).
+- **Grok** — `~/.grok/config.toml` and `<workspace>/.grok/config.toml`,
+  sharing Codex's surgical TOML splice (one helper in
+  `internal/connectors/toml.go`): only the `[mcp_servers.<name>]` span is
+  replaced or deleted, so comments, unrelated tables and
+  `${VAR}`/`${VAR:-default}` placeholders survive byte-for-byte, and
+  Grok's own fields (`startup_timeout_sec`, `tool_timeout_sec`, …) survive
+  an update. Grok has no per-server switch, so driver `toggle: "none"`
+  removes the pane's switch and a toggle request is refused ("remove and
+  re-add instead"); OAuth happens on first use inside Grok, so its
+  sign-in hint is plain text.
 
 `web/shared/domain/integrations.js` `CONNECTOR_DRIVERS` declares each CLI's
 honest capability set (status `live` vs `configured`), and a request naming a

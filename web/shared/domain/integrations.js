@@ -48,6 +48,22 @@ export const CONNECTOR_DRIVERS = {
     toggle: "entry", // entry's disabled flag
     signIn: { text: "Authenticate in Antigravity (Agent Settings → Authenticate)" },
   },
+  opencode: {
+    id: "opencode",
+    name: "OpenCode",
+    status: "configured",
+    auth: ["oauth"],
+    toggle: "entry", // entry's enabled flag in the opencode.json mcp block
+    signIn: { command: "opencode mcp auth {name}" },
+  },
+  grok: {
+    id: "grok",
+    name: "Grok",
+    status: "configured",
+    auth: ["oauth"],
+    toggle: "none", // Grok's config has no per-server switch
+    signIn: { text: "Sign in happens on first use inside Grok" },
+  },
 };
 export const CLI_CONNECTORS = Object.values(CONNECTOR_DRIVERS);
 export const connectorDriver = (id) => CONNECTOR_DRIVERS[id] || null;
