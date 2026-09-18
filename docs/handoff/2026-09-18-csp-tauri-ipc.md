@@ -6,6 +6,7 @@ Tauri 2's IPC (`ipc: http://ipc.localhost https://ipc.localhost`) so WebView2
 ADR-0052 amendment; `appCSP` in `internal/server/csp.go`.
 Verified: `make close` green; `TestDesktopShellAllowsTauriIPC` and
 `TestDesktopShellPath` (desktop vs `/`, `/browser/`, `/mobile/`, and
-`/desktop-evil`). Blind spot: not run inside the Windows shell.
+`/desktop-evil`). Owner confirmed live in the Windows shell DevTools:
+console clean after deploy (2026-09-18).
 visual-review: n/a
-Merge: fast-forward ready.
+Merge: merged as bb1c26a2.
