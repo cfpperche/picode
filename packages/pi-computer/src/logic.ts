@@ -130,12 +130,12 @@ export function captureLine(output: unknown): string {
 }
 
 /** previewDetails is the small still the PiCode UI shows as "Last capture". */
-export function previewDetails(output: unknown, title?: string): { preview: { image: string; title: string; seq: number; final: boolean }; window?: unknown } | undefined {
+export function previewDetails(output: unknown, title?: string, now = Date.now()): { preview: { image: string; title: string; seq: number; final: boolean; source: string; ts: number }; window?: unknown } | undefined {
 	const m = metaOf(output);
 	if (typeof m.preview !== "string" || !m.preview) return undefined;
 	const w = m.window;
 	return {
-		preview: { image: m.preview, title: title || (w && w.title ? w.title : `display ${m.display ?? 1}`), seq: m.seq ?? 0, final: true },
+		preview: { image: m.preview, title: title || (w && w.title ? w.title : `display ${m.display ?? 1}`), seq: m.seq ?? 0, final: true, source: "computer", ts: now },
 		window: w ?? undefined,
 	};
 }

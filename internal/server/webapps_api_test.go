@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/cfpperche/picode/internal/store"
@@ -246,6 +247,74 @@ func TestWebappOversizedPageStillResolvesFromHead(t *testing.T) {
 	code, body, _ = webappCall(t, ts, http.MethodPost, "/api/webapps", fmt.Sprintf(`{"url":%q}`, origin.URL))
 	if code != http.StatusOK || body["name"] != "Big App" {
 		t.Fatalf("install on an oversized page = %d %v", code, body)
+	}
+}
+
+func TestWebappRefreshReplacesManifestIdentityKeepsNameAndURL(t *testing.T) {
+	png := []byte("PNGNEW")
+	manifest := atomic.Value{}
+	manifest.Store([]byte(`{"name":"Ignored Name","display":"browser"}`))
+	origin := webappOrigin(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/manifest.webmanifest":
+			w.Header().Set("Content-Type", "application/manifest+json")
+			_, _ = w.Write(manifest.Load().([]byte))
+		case "/icons/app.png":
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write(png)
+		default:
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write([]byte(`<!doctype html><title>Old Title</title><link rel="manifest" href="/manifest.webmanifest">`))
+		}
+	}))
+	ts := newWebappServer(t)
+	code, first, _ := webappCall(t, ts, http.MethodPost, "/api/webapps", fmt.Sprintf(`{"url":%q,"name":"My Zulip"}`, origin.URL))
+	if code != http.StatusOK {
+		t.Fatalf("install = %d %v", code, first)
+	}
+	manifest.Store([]byte(`{"name":"Ignored Again","start_url":"/app/","scope":"/app/","display":"standalone","theme_color":"#123456","icons":[{"src":"/icons/app.png","sizes":"192x192","type":"image/png"}]}`))
+	code, refreshed, _ := webappCall(t, ts, http.MethodPost, "/api/webapps/"+first["id"].(string)+"/refresh", "")
+	if code != http.StatusOK {
+		t.Fatalf("refresh = %d %v", code, refreshed)
+	}
+	if refreshed["name"] != "My Zulip" || refreshed["url"] != first["url"] {
+		t.Fatalf("refresh must keep the user's name and url: %v", refreshed)
+	}
+	if refreshed["display"] != "standalone" || refreshed["startUrl"] != origin.URL+"/app/" || refreshed["themeColor"] != "#123456" || refreshed["hasIcon"] != true {
+		t.Fatalf("refreshed identity = %v", refreshed)
+	}
+}
+
+func TestWebappRefreshSiteDownLeavesTileUntouched(t *testing.T) {
+	origin := webappDemoOrigin(t)
+	url := origin.URL
+	ts := newWebappServer(t)
+	code, first, _ := webappCall(t, ts, http.MethodPost, "/api/webapps", fmt.Sprintf(`{"url":%q}`, url))
+	if code != http.StatusOK {
+		t.Fatalf("install = %d %v", code, first)
+	}
+	origin.Close()
+	code, body, _ := webappCall(t, ts, http.MethodPost, "/api/webapps/"+first["id"].(string)+"/refresh", "")
+	if code != http.StatusBadGateway || !strings.Contains(body["error"].(string), "stays as it was") {
+		t.Fatalf("refresh while down = %d %v", code, body)
+	}
+	res, err := http.Get(ts.URL + "/api/webapps")
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	defer res.Body.Close()
+	var list []map[string]any
+	_ = json.NewDecoder(res.Body).Decode(&list)
+	if len(list) != 1 || list[0]["name"] != first["name"] || list[0]["hasIcon"] != first["hasIcon"] {
+		t.Fatalf("row changed after refused refresh: %v", list)
+	}
+}
+
+func TestWebappRefreshUnknownIDIs404(t *testing.T) {
+	ts := newWebappServer(t)
+	code, _, _ := webappCall(t, ts, http.MethodPost, "/api/webapps/nope/refresh", "")
+	if code != http.StatusNotFound {
+		t.Fatalf("unknown id refresh = %d", code)
 	}
 }
 

@@ -87,6 +87,7 @@ export default defineConfig({
             collapsed: false,
             items: [
               { text: "Browser tools for pi", link: "/guide/browser-tool" },
+              { text: "Computer use for pi", link: "/guide/computer-tool" },
               { text: "Chrome extension", link: "/guide/browser-extension" },
               { text: "Docker and sysadmin", link: "/guide/docker" },
               { text: "Integrations", link: "/guide/integrations" },

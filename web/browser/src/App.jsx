@@ -172,6 +172,7 @@ export default function App({ shellChrome = false } = {}) {
   const [bootstrapped, setBootstrapped] = useState(false);
   const [webapps, setWebapps] = useState([]);
   const [webappsErr, setWebappsErr] = useState("");
+  const [iconVersions, setIconVersions] = useState({});
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [whatsNewMode, setWhatsNewMode] = useState("manual");
   const [whatsNewSeen, setWhatsNewSeen] = useState(readSeenVersion);
@@ -1760,6 +1761,14 @@ export default function App({ shellChrome = false } = {}) {
     setWebapps((list) => list.filter((a) => a.id !== app.id));
     closeInstalledTab(webappTabId(app.id));
     webappsWatchRef.current?.refresh();
+  }
+
+  async function refreshWebapp(app) {
+    const updated = await api("/api/webapps/" + encodeURIComponent(app.id) + "/refresh", { method: "POST" });
+    setWebapps((list) => list.map((a) => (a.id === app.id ? updated : a)));
+    setIconVersions((v) => ({ ...v, [app.id]: Date.now() }));
+    webappsWatchRef.current?.refresh();
+    toast.ok(app.name + " updated");
   }
 
   function openWebapp(app) {
@@ -3357,6 +3366,8 @@ export default function App({ shellChrome = false } = {}) {
         onOpenWebapp={openWebapp}
         onSavedWebapp={savedWebapp}
         onRemoveWebapp={removeWebapp}
+        onRefreshWebapp={refreshWebapp}
+        iconVersions={iconVersions}
         desktop={shellChrome && !!window.__TAURI__}
         onChat={(id) => {
           revealAgent(id);

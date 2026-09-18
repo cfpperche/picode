@@ -3,14 +3,23 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { appTile } from "../lib/nativeApps.js";
 import { visibleApps } from "../lib/appsGrid.js";
 import { webappError, submitWebappForm } from "../lib/webapps.js";
+import { toast } from "../lib/toast.js";
 import { api } from "@picode/shared/client/api.js";
 import AppIcon from "./AppIcon.jsx";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import { Alert as AlertDialog } from "./ResponsiveDialog.jsx";
-import { IconSearch, IconPlus, IconEllipsis, IconPencil, IconTrash } from "./Icons.jsx";
+import { IconSearch, IconPlus, IconEllipsis, IconPencil, IconTrash, IconReload } from "./Icons.jsx";
 
-function WebappDialog({ app, onClose, onSaved, onOpen }) {
-  const editing = !!app;
+// The icon endpoint URL. `version` (a timestamp bumped on refresh) busts
+// the browser cache so a re-fetched icon shows without a page reload.
+// Kept local: the same-shaped export in lib/webapps.js built a dangling
+// global in the minified bundle once (vite workspace resolution quirk).
+function webappIconURL(id, version) {
+  const base = "/api/webapps/" + encodeURIComponent(id) + "/icon";
+  return version ? base + "?v=" + encodeURIComponent(version) : base;
+}
+
+function WebappDialog({ app, onClose, onSaved, onOpen }) {  const editing = !!app;
   const [url, setUrl] = useState(editing ? app.url : "");
   const [name, setName] = useState(editing ? app.name : "");
   const [preview, setPreview] = useState(editing ? { url: app.url } : null);
@@ -110,13 +119,21 @@ function WebappDialog({ app, onClose, onSaved, onOpen }) {
   );
 }
 
-export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsLoaded = false, nativeApps, onOpen, onOpenWebapp, onSavedWebapp, onRemoveWebapp, onRetryWebapps, desktop }) {
+export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsLoaded = false, nativeApps, onOpen, onOpenWebapp, onSavedWebapp, onRemoveWebapp, onRefreshWebapp, iconVersions = {}, onRetryWebapps, desktop }) {
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
   const [renaming, setRenaming] = useState(null);
   const [removing, setRemoving] = useState(null);
   const [removeBusy, setRemoveBusy] = useState(false);
   const [removeError, setRemoveError] = useState("");
+  const [refreshingId, setRefreshingId] = useState(null);
+  async function refresh(a) {
+    if (refreshingId) return;
+    setRefreshingId(a.id);
+    try { await onRefreshWebapp(a); }
+    catch (e) { toast(webappError(e)); }
+    finally { setRefreshingId(null); }
+  }
   async function remove() {
     if (removeBusy) return;
     setRemoveBusy(true);
@@ -189,7 +206,7 @@ export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsL
                 onClick={() => onOpenWebapp(a)}
               >
                 <span className="app-tile-face">
-                  <AppIcon name="globe" label={a.name} size={20} iconUrl={a.hasIcon ? "/api/webapps/" + encodeURIComponent(a.id) + "/icon" : null} />
+                  <AppIcon name="globe" label={a.name} size={20} iconUrl={a.hasIcon ? webappIconURL(a.id, iconVersions[a.id]) : null} />
                   {a.badge > 0 ? <span className="app-tile-badge">{a.badge > 99 ? "99+" : a.badge}</span> : null}
                 </span>
                 <span className="app-tile-name">{a.name}</span>
@@ -201,6 +218,7 @@ export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsL
                 <DropdownMenu.Portal>
                   <DropdownMenu.Content className="ws-row-menu" side="right" align="start" sideOffset={4} collisionPadding={8}>
                     <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => onOpenWebapp(a)}>Open</DropdownMenu.Item>
+                    <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => refresh(a)} disabled={refreshingId === a.id}><IconReload size={13} /> {refreshingId === a.id ? "Refreshing…" : "Refresh"}</DropdownMenu.Item>
                     <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setRenaming(a)}><IconPencil size={13} /> Rename</DropdownMenu.Item>
                     <DropdownMenu.Separator className="ws-row-menu-sep" />
                     <DropdownMenu.Item className="ws-row-menu-item danger" onSelect={() => { setRemoveError(""); setRemoving(a); }}><IconTrash size={13} /> Remove</DropdownMenu.Item>
