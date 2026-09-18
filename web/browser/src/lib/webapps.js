@@ -57,6 +57,16 @@ function webappLaunchURL(app) {
   }
 }
 
+// App mode (ADR-0147 amendment, owner decision 2026-09-18): a web app that
+// declares an app-like display opens inside its tab without the browser
+// toolbar — the page fills the surface, browser actions stay in the tab
+// menu. `browser` (or no manifest) keeps the full toolbar.
+const CHROMELESS_DISPLAY = new Set(["standalone", "fullscreen", "minimal-ui"]);
+
+export function webappChromeless(display) {
+  return typeof display === "string" && CHROMELESS_DISPLAY.has(display);
+}
+
 export function webappOpenPlan(app, tabs, desktop) {
   const tab = webappTabId(app?.id);
   if (!tab) return { action: "invalid" };
