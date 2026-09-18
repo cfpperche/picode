@@ -7,4 +7,5 @@
 ## Debts
 
 - Capture integration (ADR-0054): no real emitter-to-RPC run, no slow-consumer/cancellation matrix.
-- `app-inspector.png` is older than the Servers panel v2 (PNG last changed 18:54, the UI landed 20:42) and `docs-check --strict` passes anyway: the manifest rewrite that rode the 21:37 deploy (`8395deb0`) recorded the *current* inputs for every capture, so a capture that was never retaken became "current". Recapturing is `make docs-shots`; the checker cannot be trusted for this one until its manifest stops recording inputs it did not photograph. Measured 2026-09-17.
+- The Servers panel (rail → Servers) has no public capture: `app-inspector` photographs `/browser/` scoped to `#inspector` and waits for the *Uncommitted* header — the Changes tab. Refreshing for the panel's v2 changed nothing (2026-09-17: 5 surfaces, only `app-canvas` changed; `app-inspector` differed by 122 px, kept under the 128-px budget). Capturing the panel is a new scenario, not a refresh.
+- `docs-shots` keeps the committed image when a fresh capture differs by ≤128 px, so a small but real change to a captured surface ships without an updated image (measured: `app-inspector` 122 px, 2026-09-17). Decide whether the budget should be per-surface.
