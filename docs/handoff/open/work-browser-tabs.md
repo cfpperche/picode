@@ -92,6 +92,38 @@ to see the remembered standing.
 - **Never on WebView2**: third-party cookies, images, embedded content — no
   host API; a control there would be theatre.
 
+## Annotations — the target, from the owner's screenshots (2026-09-18, 18:19)
+
+Slices 1 and 2 landed and the owner **rejected them as buggy**: the frozen
+picker is gone and the in-page mode exists, but it does not behave like the
+reference. Three screenshots were sent showing the *reference* — this is the
+spec, to be built literally, not interpreted:
+
+1. **Chrome strip**, replacing the URL bar while the mode is on: a close ✕
+   (exit), a trash (discard every annotation), three small icons, and
+   **"Send N"** — the count of pending annotations rides the button.
+2. **Multiple annotations**, each with a **numbered pin** on its element
+   (1, 2, 3 …), the selected one outlined. They accumulate; nothing is sent
+   until Send.
+3. **The anchored card** at the element: a small icon, the text input, a
+   trash (discard this one), a mic, **Cancel** and **Save** — a small white
+   rounded card beside or below the element, not a full-width bar.
+4. **After Save it collapses to a small chip** on the element showing the
+   typed text, with a "…" menu and an "×" to remove it.
+5. On Send the whole set becomes **one context** ("5 annotations" in the
+   reference's chat) — for us: one package to the agent terminal through
+   ADR-0152's prompt door, carrying every pin's selector, styles and crop.
+
+What exists today: the in-page shadow-DOM overlay (hover, pick with outline
+and pin, Esc), a single anchored box with Send/Cancel, one POST per Send with
+the viewport crop, and delivery through the prompt door. What is missing is
+everything above: the strip with the count, the numbers, the accumulating
+set, the collapsed chip, and the card's own controls.
+
+The specific bugs were named only as "cheio de bugs"; the next session
+reproduces the flow against these screenshots and fixes each difference it
+finds, with the owner's print as the acceptance.
+
 ## Annotations — the ChatGPT-Work shape (owner's reference, 2026-09-18)
 
 The owner rejected the frozen-panel picker outright and specified the
