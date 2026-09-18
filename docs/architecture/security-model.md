@@ -58,6 +58,13 @@
   the shell's WebView2 child: no daemon token, no `host` object, no approval
   UI; cookies are engine-isolated per origin, and the shared work profile
   means "Clear browsing data" wipes webapp logins with the work browser's.
+- **App-shell CSP** (ADR-0052): HTML responses for `/`, `/browser/`, `/desktop/`
+  and `/mobile/` carry `appCSP`. `connect-src` is `'self'` plus the request
+  host's `ws://`/`wss://`. The Windows shell's pages (`/desktop/`,
+  `/desktop/management.html`) also name Tauri 2's IPC
+  (`ipc: http://ipc.localhost https://ipc.localhost`) so WebView2 can fetch
+  plugin commands; the browser and mobile shells do not, because they never
+  talk to that host. Assets and API answers carry no policy.
 
 ## Handing a target to the operating system (the desktop shell)
 
