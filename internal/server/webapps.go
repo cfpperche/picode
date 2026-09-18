@@ -15,6 +15,7 @@ func registerWebappRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/webapps", handleListWebapps(deps))
 	mux.HandleFunc("POST /api/webapps", handleCreateWebapp(deps))
 	mux.HandleFunc("POST /api/webapps/resolve", handleResolveWebapp(deps))
+	mux.HandleFunc("POST /api/webapps/{id}/refresh", handleRefreshWebapp(deps))
 	mux.HandleFunc("GET /api/webapps/{id}/icon", handleWebappIcon(deps))
 	mux.HandleFunc("PATCH /api/webapps/{id}", handlePatchWebapp(deps))
 	mux.HandleFunc("DELETE /api/webapps/{id}", handleDeleteWebapp(deps))
@@ -153,6 +154,51 @@ func handleCreateWebapp(deps Deps) http.HandlerFunc {
 			}
 		}
 		app, err := deps.Store.CreateWebapp(store.WebappInput{Name: name, URL: target, StartURL: id.StartURL, Scope: id.Scope, Display: id.Display, ThemeColor: id.ThemeColor, Icon: icon, IconMime: iconMime})
+		if err != nil {
+			writeWebappErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, app)
+	}
+}
+
+// handleRefreshWebapp re-resolves an installed webapp's stored address and
+// rewrites its manifest-derived identity and icon. The user's name and url
+// are never touched. A site that does not answer leaves the tile exactly
+// as it was — a stale tile beats a broken one.
+func handleRefreshWebapp(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		row, err := deps.Store.GetWebapp(r.PathValue("id"))
+		if err != nil {
+			writeWebappErr(w, err)
+			return
+		}
+		client := webappNewClient()
+		page, err := webappFetchPage(r.Context(), client, row.URL, webappBodyCap)
+		if err != nil {
+			writeErr(w, http.StatusBadGateway, "site is not reachable; the tile stays as it was: "+err.Error())
+			return
+		}
+		if page.status >= 400 {
+			writeErr(w, http.StatusBadGateway, fmt.Sprintf("site answered HTTP %d; the tile stays as it was", page.status))
+			return
+		}
+		id2 := webappLookupMetadata(r.Context(), client, page)
+		if id2.IconURL == "" {
+			if u, ok := webappFindIconURL(page.finalURL, page.body); ok {
+				id2.IconURL = u
+			}
+		}
+		icon, iconMime := row.Icon, row.IconMime
+		if id2.IconURL != "" {
+			if data, mime, ferr := webappFetchIcon(r.Context(), client, id2.IconURL); ferr == nil {
+				icon, iconMime = data, mime
+			}
+		}
+		app, err := deps.Store.UpdateWebappMetadata(row.ID, store.WebappInput{
+			StartURL: id2.StartURL, Scope: id2.Scope, Display: id2.Display, ThemeColor: id2.ThemeColor,
+			Icon: icon, IconMime: iconMime,
+		})
 		if err != nil {
 			writeWebappErr(w, err)
 			return

@@ -121,6 +121,41 @@ func TestWebappManifestFieldsRoundTrip(t *testing.T) {
 	}
 }
 
+func TestWebappRefreshMetadata(t *testing.T) {
+	s := openTest(t)
+	app, _ := s.CreateWebapp(WebappInput{Name: "Zulip", URL: "https://chat.example.com", Icon: []byte("OLD"), IconMime: "image/png"})
+	updated, err := s.UpdateWebappMetadata(app.ID, WebappInput{
+		StartURL: "https://chat.example.com/app/", Scope: "https://chat.example.com/app/",
+		Display: "standalone", ThemeColor: "#1d2b53",
+		Icon: []byte("NEW"), IconMime: "image/webp",
+	})
+	if err != nil {
+		t.Fatalf("refresh: %v", err)
+	}
+	if updated.Name != "Zulip" || updated.URL != "https://chat.example.com" {
+		t.Fatalf("refresh must not touch name/url: %+v", updated)
+	}
+	if updated.StartURL != "https://chat.example.com/app/" || updated.Display != "standalone" || updated.ThemeColor != "#1d2b53" || !updated.HasIcon {
+		t.Fatalf("refreshed = %+v", updated)
+	}
+	icon, mime, _ := s.GetWebappIcon(app.ID)
+	if string(icon) != "NEW" || mime != "image/webp" {
+		t.Fatalf("icon after refresh = %q %q", icon, mime)
+	}
+	if _, err := s.UpdateWebappMetadata(app.ID, WebappInput{Display: "kiosk"}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("bad display = %v", err)
+	}
+	if _, err := s.UpdateWebappMetadata("nope", WebappInput{}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("missing row = %v", err)
+	}
+	failed, _ := s.UpdateWebappMetadata(app.ID, WebappInput{Display: "kiosk"})
+	_ = failed
+	list, _ := s.ListWebapps()
+	if list[0].Display != "standalone" {
+		t.Fatalf("a failed refresh must not change the row: %+v", list[0])
+	}
+}
+
 func TestWebappURLCanonicalization(t *testing.T) {
 	s := openTest(t)
 	for raw, want := range map[string]string{
