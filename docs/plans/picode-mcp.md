@@ -2,7 +2,10 @@
 
 Status: design approved by the owner in session on 2026-09-18 (one server per
 pi package; scope and toggle are the CLI's; a guest's per-agent scope is
-launch injection). Executes ADR-0154 (proposed).
+launch injection). Executes ADR-0154 (proposed). N0 landed on the branch
+2026-09-18: `picode mcp` with `computer` and `browser`, the catalog cards,
+launch injection for Claude Code, Codex and OpenCode, the Launch settings
+group, the guide. The owner's first run with Claude Code is pending.
 
 ## Objective
 

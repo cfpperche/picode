@@ -23,3 +23,25 @@ func TestPresetsAreComplete(t *testing.T) {
 		t.Fatal("gmail preset missing from catalog")
 	}
 }
+
+// PiCode's own tool cards (ADR-0154) lead the catalog for guests and are
+// runnable as written: the daemon's binary, `mcp <family>`.
+func TestToolPresetsLeadTheCatalogAndPiHidesThem(t *testing.T) {
+	all := Presets()
+	if len(all) < 2 || all[0].ID != "picode-computer" || all[1].ID != "picode-browser" {
+		t.Fatalf("catalog head = %v", all[:2])
+	}
+	for _, p := range all[:2] {
+		if !IsToolPreset(p.ID) || p.Entry.Command == "" || len(p.Entry.Args) != 2 || p.Entry.Args[0] != "mcp" {
+			t.Fatalf("tool preset %q = %+v", p.ID, p.Entry)
+		}
+	}
+	for _, p := range WithoutToolPresets(all) {
+		if IsToolPreset(p.ID) {
+			t.Fatalf("pi still sees %s", p.ID)
+		}
+	}
+	if len(WithoutToolPresets(all)) != len(all)-2 {
+		t.Fatal("only the tool cards are hidden")
+	}
+}

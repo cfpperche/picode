@@ -8,8 +8,9 @@ import (
 )
 
 func TestResolveLaunchDecisionTable(t *testing.T) {
-	base := Config{Executable: "/bin/pi", Args: []string{"base"}, Env: map[string]string{"KEEP": "a", "CHANGE": "b", "DROP": "c"}, Path: []string{"/base"}, Integration: true}
+	base := Config{Executable: "/bin/pi", Args: []string{"base"}, Env: map[string]string{"KEEP": "a", "CHANGE": "b", "DROP": "c"}, Path: []string{"/base"}, Integration: true, Tools: []string{"computer"}}
 	argEmpty := []string{}
+	tools := []string{"browser", "computer"}
 	path := []string{"/override"}
 	exe := "/other/pi"
 	value := "new"
@@ -25,6 +26,9 @@ func TestResolveLaunchDecisionTable(t *testing.T) {
 		{"explicit executable", Overrides{Executable: &exe}, func(c Config) bool { return c.Executable == exe }},
 		{"turn off", Overrides{Integration: &off}, func(c Config) bool { return !c.Integration }},
 		{"environment merge and deletion", Overrides{Env: map[string]*string{"CHANGE": &value, "DROP": nil}}, func(c Config) bool { return reflect.DeepEqual(c.Env, map[string]string{"KEEP": "a", "CHANGE": "new"}) }},
+		{"tools inherit", Overrides{}, func(c Config) bool { return reflect.DeepEqual(c.Tools, []string{"computer"}) }},
+		{"tools override", Overrides{Tools: &tools}, func(c Config) bool { return reflect.DeepEqual(c.Tools, []string{"browser", "computer"}) }},
+		{"tools cleared", Overrides{Tools: &argEmpty}, func(c Config) bool { return len(c.Tools) == 0 }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c := Resolve(base, tc.override)
@@ -58,6 +62,9 @@ func TestValidateLaunchDecisionTable(t *testing.T) {
 		{"reserved path", Config{Env: map[string]string{"PATH": "/other"}}, false},
 		{"relative path", Config{Path: []string{"relative"}}, false},
 		{"path separator", Config{Path: []string{"/a:/b"}}, false},
+		{"tools named", Config{Tools: []string{"computer", "browser"}}, true},
+		{"tool name shape", Config{Tools: []string{"Computer Use"}}, false},
+		{"too many tools", Config{Tools: []string{"a", "b", "c", "d", "e", "f", "g", "h", "i"}}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := Validate(tc.config); (got == nil) != tc.valid {

@@ -87,6 +87,11 @@
 .cli-fields input:focus, .cli-fields textarea:focus, .cli-fields select:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 .cli-fields label.cli-checkbox { flex-direction: row; align-items: center; align-self: end; min-height: var(--ctl-h); }
 .cli-checkbox input { width: 15px; height: 15px; accent-color: var(--accent); }
+/* PiCode tools (ADR-0154): one row per family, the hint under the label. */
+.cli-fields .cli-tools { grid-column: 1 / -1; display: grid; gap: 6px; margin: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius, 8px); }
+.cli-fields .cli-tools legend { font-size: 12px; font-weight: 500; color: var(--text-secondary); padding: 0 4px; }
+.cli-fields .cli-tools label.cli-checkbox { align-self: start; flex-wrap: wrap; column-gap: 8px; min-height: 0; padding: 2px 0; }
+.cli-fields .cli-tools label.cli-checkbox span { flex-basis: 100%; padding-left: 23px; font-size: 11px; color: var(--text-secondary); }
 .cli-terminals { margin-top: 12px; }
 .cli-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 .cli-list-heading input { max-width: 240px; height: var(--ctl-h); }

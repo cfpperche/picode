@@ -88,6 +88,7 @@ export default defineConfig({
             items: [
               { text: "Browser tools for pi", link: "/guide/browser-tool" },
               { text: "Computer use for pi", link: "/guide/computer-tool" },
+              { text: "PiCode tools for other agent CLIs", link: "/guide/picode-mcp" },
               { text: "Chrome extension", link: "/guide/browser-extension" },
               { text: "Docker and sysadmin", link: "/guide/docker" },
               { text: "Integrations", link: "/guide/integrations" },
