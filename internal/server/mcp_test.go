@@ -275,12 +275,12 @@ func TestMCPAuthLogoutNeedsName(t *testing.T) {
 }
 
 // ADR-0150: a request naming a CLI without a driver must fail loudly
-// instead of writing Pi's files. claude-code, codex, omp and agy ship
-// drivers; every other guest CLI still has none.
+// instead of writing Pi's files. claude-code, codex, omp, agy, opencode and
+// grok ship drivers; every other guest CLI still has none.
 func TestMCPRejectsCLIWithoutDriver(t *testing.T) {
 	ts := newTestServer(t, "cat")
 
-	get, err := ts.Client().Get(ts.URL + "/api/mcp?cli=grok")
+	get, err := ts.Client().Get(ts.URL + "/api/mcp?cli=muse")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -290,20 +290,20 @@ func TestMCPRejectsCLIWithoutDriver(t *testing.T) {
 	_ = get.Body.Close()
 
 	add := postJSON(t, ts, "/api/mcp", map[string]any{
-		"cli": "grok", "scope": "user", "name": "deepwiki", "url": "https://mcp.deepwiki.com/mcp",
+		"cli": "muse", "scope": "user", "name": "deepwiki", "url": "https://mcp.deepwiki.com/mcp",
 	})
 	if add.StatusCode != http.StatusBadRequest {
-		t.Fatalf("POST cli=grok status %d", add.StatusCode)
+		t.Fatalf("POST cli=muse status %d", add.StatusCode)
 	}
 	_ = add.Body.Close()
 
-	del, err := http.NewRequest(http.MethodDelete, ts.URL+"/api/mcp?scope=user&name=deepwiki&cli=grok", nil)
+	del, err := http.NewRequest(http.MethodDelete, ts.URL+"/api/mcp?scope=user&name=deepwiki&cli=muse", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	rm := do(t, ts.Client(), del)
 	if rm.StatusCode != http.StatusBadRequest {
-		t.Fatalf("DELETE cli=grok status %d", rm.StatusCode)
+		t.Fatalf("DELETE cli=muse status %d", rm.StatusCode)
 	}
 	_ = rm.Body.Close()
 
@@ -656,6 +656,20 @@ func TestMCPGuestAuthAndImportRefusals(t *testing.T) {
 	}
 	_ = auth.Body.Close()
 
+	// Phase 3: OpenCode signs in through its own terminal command; Grok
+	// signs in on first use inside the CLI — plain text, nothing to copy.
+	auth = postJSON(t, ts, "/api/mcp/auth", map[string]any{"cli": "opencode", "name": "docs"})
+	if auth.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(auth), "opencode mcp auth docs") {
+		t.Fatalf("opencode auth = %d %s", auth.StatusCode, thisBody(auth))
+	}
+	_ = auth.Body.Close()
+
+	auth = postJSON(t, ts, "/api/mcp/auth", map[string]any{"cli": "grok", "name": "docs"})
+	if auth.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(auth), "inside Grok") {
+		t.Fatalf("grok auth = %d %s", auth.StatusCode, thisBody(auth))
+	}
+	_ = auth.Body.Close()
+
 	logout := postJSON(t, ts, "/api/mcp/auth/logout", map[string]any{"cli": "codex", "name": "docs"})
 	if logout.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(logout), "codex") {
 		t.Fatalf("codex logout = %d %s", logout.StatusCode, thisBody(logout))
@@ -673,6 +687,151 @@ func TestMCPGuestAuthAndImportRefusals(t *testing.T) {
 		t.Fatalf("omp import = %d %s", imp.StatusCode, thisBody(imp))
 	}
 	_ = imp.Body.Close()
+
+	imp = postJSON(t, ts, "/api/mcp/import", map[string]any{"cli": "opencode", "picks": []any{map[string]any{"kind": "cursor", "servers": []any{"x"}}}})
+	if imp.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(imp), "arrive in a later phase") {
+		t.Fatalf("opencode import = %d %s", imp.StatusCode, thisBody(imp))
+	}
+	_ = imp.Body.Close()
+}
+
+// ADR-0150 phase 3: ?cli=opencode|grok answer through their guest drivers —
+// the OpenCode `mcp` block of opencode.json (command arrays, per-entry
+// enabled flag) and Grok's TOML tables (toggle refused: no per-server
+// switch).
+func TestMCPGuestDriversPhase3(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", "") // resolve OpenCode's user file from HOME
+	writeFakeCLI(t, "opencode", "")
+	writeFakeCLI(t, "grok", "")
+	ts := newTestServer(t, "cat")
+
+	for _, tc := range []struct{ cli, source string }{{"opencode", "native:opencode"}, {"grok", "native:grok"}} {
+		res, err := ts.Client().Get(ts.URL + "/api/mcp?cli=" + tc.cli)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var rep struct {
+			Adapter struct {
+				Installed bool   `json:"installed"`
+				Source    string `json:"source"`
+			} `json:"adapter"`
+		}
+		if err := json.NewDecoder(res.Body).Decode(&rep); err != nil {
+			t.Fatal(err)
+		}
+		_ = res.Body.Close()
+		if res.StatusCode != http.StatusOK || rep.Adapter.Source != tc.source || !rep.Adapter.Installed {
+			t.Fatalf("GET cli=%s = %d %+v", tc.cli, res.StatusCode, rep.Adapter)
+		}
+	}
+
+	wsDir := t.TempDir()
+	wres := postJSON(t, ts, "/api/workspaces", map[string]any{"name": "ws", "path": wsDir})
+	if wres.StatusCode != http.StatusCreated {
+		t.Fatalf("workspace = %d", wres.StatusCode)
+	}
+	var wk workspaceView
+	if err := json.NewDecoder(wres.Body).Decode(&wk); err != nil {
+		t.Fatal(err)
+	}
+
+	// OpenCode add lands in the workspace's opencode.json as a local entry
+	// with a command array; toggle flips the entry's enabled flag.
+	add := postJSON(t, ts, "/api/mcp", map[string]any{
+		"cli": "opencode", "scope": "project", "workspaceId": wk.ID, "name": "docs", "command": "npx", "args": []string{"-y", "docs-mcp"},
+	})
+	if add.StatusCode != http.StatusOK {
+		t.Fatalf("opencode add = %d %s", add.StatusCode, thisBody(add))
+	}
+	_ = add.Body.Close()
+	ocPath := filepath.Join(wsDir, "opencode.json")
+	ocRaw, err := os.ReadFile(ocPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var oc map[string]any
+	if err := json.Unmarshal(ocRaw, &oc); err != nil {
+		t.Fatalf("opencode project file: %s", ocRaw)
+	}
+	docs, _ := oc["mcp"].(map[string]any)["docs"].(map[string]any)
+	if docs == nil || docs["type"] != "local" {
+		t.Fatalf("opencode entry = %v", docs)
+	}
+	cmd, _ := docs["command"].([]any)
+	if len(cmd) != 3 || cmd[0] != "npx" || cmd[2] != "docs-mcp" {
+		t.Fatalf("command array = %v", docs["command"])
+	}
+	off := mcpPatch(t, ts, map[string]any{"cli": "opencode", "scope": "project", "workspaceId": wk.ID, "name": "docs", "disabled": true})
+	if off.StatusCode != http.StatusOK {
+		t.Fatalf("opencode toggle = %d %s", off.StatusCode, thisBody(off))
+	}
+	_ = off.Body.Close()
+	ocRaw, _ = os.ReadFile(ocPath)
+	if err := json.Unmarshal(ocRaw, &oc); err != nil {
+		t.Fatal(err)
+	}
+	docs, _ = oc["mcp"].(map[string]any)["docs"].(map[string]any)
+	if docs["enabled"] != false {
+		t.Fatalf("opencode toggle: %v", docs)
+	}
+
+	// Grok add lands in .grok/config.toml; toggle is refused — Grok has no
+	// per-server switch — and the file survives untouched.
+	add = postJSON(t, ts, "/api/mcp", map[string]any{
+		"cli": "grok", "scope": "project", "workspaceId": wk.ID, "name": "docs", "command": "npx", "args": []string{"-y", "x"},
+	})
+	if add.StatusCode != http.StatusOK {
+		t.Fatalf("grok add = %d %s", add.StatusCode, thisBody(add))
+	}
+	_ = add.Body.Close()
+	grokPath := filepath.Join(wsDir, ".grok", "config.toml")
+	grokRaw, err := os.ReadFile(grokPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(grokRaw), "[mcp_servers.docs]") {
+		t.Fatalf("grok project file: %s", grokRaw)
+	}
+	seed := string(grokRaw)
+	off = mcpPatch(t, ts, map[string]any{"cli": "grok", "scope": "project", "workspaceId": wk.ID, "name": "docs", "disabled": true})
+	if off.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(off), "remove and re-add instead") {
+		t.Fatalf("grok toggle = %d %s", off.StatusCode, thisBody(off))
+	}
+	_ = off.Body.Close()
+	if got, _ := os.ReadFile(grokPath); string(got) != seed {
+		t.Fatalf("refused grok toggle modified the file:\n%q", got)
+	}
+
+	// Guest remove deletes each entry again.
+	del, err := http.NewRequest(http.MethodDelete, ts.URL+"/api/mcp?cli=opencode&scope=project&workspace="+wk.ID+"&name=docs", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rmv := do(t, ts.Client(), del)
+	if rmv.StatusCode != http.StatusOK {
+		t.Fatalf("opencode remove = %d %s", rmv.StatusCode, thisBody(rmv))
+	}
+	_ = rmv.Body.Close()
+	ocRaw, _ = os.ReadFile(ocPath)
+	if strings.Contains(string(ocRaw), "docs") {
+		t.Fatalf("opencode remove: %s", ocRaw)
+	}
+	del, err = http.NewRequest(http.MethodDelete, ts.URL+"/api/mcp?cli=grok&scope=project&workspace="+wk.ID+"&name=docs", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rmv = do(t, ts.Client(), del)
+	if rmv.StatusCode != http.StatusOK {
+		t.Fatalf("grok remove = %d %s", rmv.StatusCode, thisBody(rmv))
+	}
+	_ = rmv.Body.Close()
+	grokRaw, _ = os.ReadFile(grokPath)
+	if strings.Contains(string(grokRaw), "mcp_servers.docs") {
+		t.Fatalf("grok remove: %s", grokRaw)
+	}
 }
 
 func TestMCPAuthShortPi(t *testing.T) {

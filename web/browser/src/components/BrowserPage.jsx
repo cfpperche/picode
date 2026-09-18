@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import * as Switch from "@radix-ui/react-switch";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import FolderPicker from "./FolderPicker.jsx";
 import { DEFAULT_BROWSER_PREFS, readBrowserPrefs } from "../lib/browserPrefs.js";
@@ -11,6 +10,7 @@ import { takeBrowserDialog } from "../lib/browserDialogs.js";
 import { IconWarn } from "./Icons.jsx";
 import { relTime } from "@picode/shared/domain/relTime.js";
 import PageFrame from "./PageFrame.jsx";
+import { Item, SwitchCtl } from "./settingsControls.jsx";
 import { BROWSER_PERMISSION_KINDS, browserGrantSchema, browserSiteSchema } from "@picode/shared/contracts/schemas.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { toast } from "../lib/toast.js";
@@ -75,26 +75,6 @@ const WIPE_ICONS = {
   siteSettings: <><circle cx="8" cy="8" r="2.4" /><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4" /></>,
 };
 
-// One row of a section card: title + description left, control right.
-function Item({ title, desc, children }) {
-  return (
-    <div className="set-item">
-      <div className="set-item-body">
-        <span className="set-item-t">{title}</span>
-        {desc ? <span className="set-item-d">{desc}</span> : null}
-      </div>
-      <div className="set-item-ctl">{children}</div>
-    </div>
-  );
-}
-
-function SwitchCtl({ checked, onChange, label }) {
-  return (
-    <Switch.Root className="rx-switch" checked={!!checked} onCheckedChange={onChange} aria-label={label}>
-      <Switch.Thumb className="rx-switch-thumb" />
-    </Switch.Root>
-  );
-}
 
 // A visit's timestamp arrives as RFC3339 with nanoseconds; Date wants at
 // most milliseconds.
@@ -743,6 +723,14 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
             </Item>
             <Item title="Show full URL" desc="Include the path, query, and fragment in the address bar">
               <SwitchCtl checked={prefs.showFullUrl} onChange={(v) => setPref({ showFullUrl: v })} label="Show full URL" />
+            </Item>
+
+            <Item title="Annotation screenshots" desc="What the browser sends when you point at an element: the cropped image, a question each time you annotate, or the element alone.">
+              <select className="set-select" value={prefs.annotationShots} onChange={(e) => setPref({ annotationShots: e.target.value })} aria-label="Annotation screenshots">
+                <option value="always">Always include</option>
+                <option value="ask">Ask each time</option>
+                <option value="never">Never</option>
+              </select>
             </Item>
             <Item title="Browsing data" desc="Clear browsing history, site data, cache, and download history from the in-app browser">
               <button type="button" className="set-btn" onClick={() => setWipeOpen(true)}>Clear browsing data</button>

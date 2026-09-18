@@ -11,7 +11,7 @@ import (
 // catalog id so deep links and the roster resolve, and the binary the
 // driver names must be the catalog's executable.
 func TestDriverIDsMatchCatalog(t *testing.T) {
-	for _, id := range []string{"claude-code", "codex", "omp", "agy"} {
+	for _, id := range []string{"claude-code", "codex", "omp", "agy", "opencode", "grok"} {
 		d := For(id)
 		if d == nil {
 			t.Fatalf("no driver registered for catalog id %q", id)
@@ -29,9 +29,10 @@ func TestDriverIDsMatchCatalog(t *testing.T) {
 	}
 }
 
-// Guest sign-in hints: terminal commands for claude-code and codex, the
-// Omp TUI command, plain text for Antigravity. The command, when present,
-// is the copyable piece and must appear inside the refusal sentence.
+// Guest sign-in hints: terminal commands for claude-code, codex and
+// opencode, the Omp TUI command, plain text for Antigravity (settings) and
+// Grok (first use inside the CLI). The command, when present, is the
+// copyable piece and must appear inside the refusal sentence.
 func TestAuthHintsAreDriverSpecific(t *testing.T) {
 	cases := []struct {
 		id      string
@@ -43,6 +44,8 @@ func TestAuthHintsAreDriverSpecific(t *testing.T) {
 		{id: "codex", wantCmd: "codex mcp login docs", wantIn: "codex mcp login docs"},
 		{id: "omp", wantCmd: "/mcp reauth docs", wantIn: "/mcp reauth docs", notIn: "omp /mcp"},
 		{id: "agy", wantCmd: "", wantIn: "Antigravity"},
+		{id: "opencode", wantCmd: "opencode mcp auth docs", wantIn: "opencode mcp auth docs"},
+		{id: "grok", wantCmd: "", wantIn: "inside Grok", notIn: "grok "},
 	}
 	for _, tc := range cases {
 		d := For(tc.id)

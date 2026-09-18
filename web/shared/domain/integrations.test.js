@@ -16,10 +16,14 @@ test("connectors nest on the selected CLI; webhooks stay platform", () => {
   assert.equal(supportsCliConnectors("claude-code"), true);
   assert.equal(supportsCliConnectors("claude"), false);
   assert.equal(supportsCliConnectors("codex"), true);
-  assert.equal(supportsCliConnectors("grok"), false);
+  assert.equal(supportsCliConnectors("opencode"), true);
+  assert.equal(supportsCliConnectors("grok"), true);
+  assert.equal(supportsCliConnectors("muse"), false);
+  assert.equal(supportsCliConnectors("claude"), false);
   assert.equal(connectorDriver("pi").name, "Pi");
   assert.equal(connectorDriver("pi").status, "live");
-  assert.equal(connectorDriver("grok"), null);
+  assert.equal(connectorDriver("opencode").name, "OpenCode");
+  assert.equal(connectorDriver("muse"), null);
   assert.equal(connectorDriver(""), null);
   assert.equal(cliConnectorsHash("pi"), "#/clis/pi/connectors");
   assert.equal(cliConnectorsHash("claude-code"), "#/clis/claude-code/connectors");
@@ -51,6 +55,8 @@ test("every connector driver declares its capability set", () => {
     { id: "codex", name: "Codex", status: "configured", auth: ["oauth", "bearer"], toggle: "entry", signIn: { command: "codex mcp login {name}" } },
     { id: "omp", name: "Omp", status: "configured", auth: ["oauth"], toggle: "entry", signIn: { command: "/mcp reauth {name}", where: "the Omp TUI" } },
     { id: "agy", name: "Antigravity", status: "configured", auth: ["oauth"], toggle: "entry", signIn: { text: "Authenticate in Antigravity (Agent Settings → Authenticate)" } },
+    { id: "opencode", name: "OpenCode", status: "configured", auth: ["oauth"], toggle: "entry", signIn: { command: "opencode mcp auth {name}" } },
+    { id: "grok", name: "Grok", status: "configured", auth: ["oauth"], toggle: "none", signIn: { text: "Sign in happens on first use inside Grok" } },
   ]);
   for (const d of CLI_CONNECTORS) {
     assert.ok(["live", "configured"].includes(d.status), d.id + " status");

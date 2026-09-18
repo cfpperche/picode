@@ -4,6 +4,7 @@ import { bashLine } from "@picode/shared/domain/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "@picode/shared/domain/theme.js";
 import { readContextMenuPrefs, modifierHeld } from "./lib/contextMenuPrefs.js";
 import { openBrowserChannel } from "./lib/browserChannel.js";
+import { enabledKeys } from "./lib/computerChannel.js";
 import { matchAction } from "./lib/appKeys.js";
 import { DESKTOP_REQUIRED, webappTabId, webappIdFromTab, webappOpenPlan, webappChromeless, watchWebapps, removedWebappTabs, webappBadge, updateWebappMeta } from "./lib/webapps.js";
 import { applyTermChrome } from "@picode/shared/domain/termTheme.js";
@@ -32,6 +33,7 @@ import GitGraphSurface from "./components/GitGraphSurface.jsx";
 import FileTreeSurface from "./components/FileTreeSurface.jsx";
 import Settings from "./components/Settings.jsx";
 import BrowserPage from "./components/BrowserPage.jsx";
+import ComputerPage from "./components/ComputerPage.jsx";
 import AgentClis from "./components/AgentClis.jsx";
 import { cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 import System from "./components/System.jsx";
@@ -1875,6 +1877,26 @@ export default function App({ shellChrome = false } = {}) {
   useEffect(() => {
     if (!shellChrome) return undefined;
     return openBrowserChannel(() => boundWorkTab(selectedTabRef.current, agentPanesRef.current));
+  }, [shellChrome]);
+  // ADR-0148: the shell keeps a mirror of the computer grants (one bit per
+  // principal) and refuses on its own copy too. Pushed at load and whenever a
+  // setting changes; the daemon stays the decision point.
+  useEffect(() => {
+    if (!shellChrome || !window.__TAURI__) return undefined;
+    const push = async () => {
+      try {
+        const r = await fetch("/api/computer/policies");
+        if (!r.ok) return;
+        const data = await r.json();
+        await window.__TAURI__.core.invoke("computer_set_grants", { keys: enabledKeys(data.policies) });
+      } catch {
+        /* the next setting change retries */
+      }
+    };
+    push();
+    return subscribeFeed((ev) => {
+      if (ev.type === "setting.updated") push();
+    });
   }, [shellChrome]);
 
   async function closeTab(id) {
@@ -3865,6 +3887,7 @@ export default function App({ shellChrome = false } = {}) {
         <Integrations hidden={route !== "integrations"} />
         <Devices hidden={route !== "devices"} />
         <BrowserPage hidden={route !== "browser"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setFormKind("free"); setShowForm(true); }} />
+        <ComputerPage hidden={route !== "computer"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setFormKind("free"); setShowForm(true); }} />
         <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} />
         <Snippets hidden={route !== "snippets"} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />

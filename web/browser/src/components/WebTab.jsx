@@ -103,6 +103,8 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     previewRef.current.inflight = inflight;
     return inflight;
   };
+
+
   // A menu open has to arrive with its backdrop: the still (the frozen page
   // the HTML sits on) is prefetched on hover and focus, and when it is not
   // there yet the menu waits for the capture instead of parking the live page
@@ -436,7 +438,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
             />
             <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => go()}><IconEnter /></button>
           </div>
-          <DropdownMenu.Root open={menuOpen} onOpenChange={onMenuOpenChange}>
+        <DropdownMenu.Root open={menuOpen} onOpenChange={onMenuOpenChange}>
             <DropdownMenu.Trigger asChild>
               <button
                 type="button"

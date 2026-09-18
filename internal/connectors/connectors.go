@@ -80,6 +80,10 @@ func For(cli string) Driver {
 		return Omp{}
 	case "agy":
 		return AGY{}
+	case "opencode":
+		return OpenCode{}
+	case "grok":
+		return Grok{}
 	default:
 		return nil
 	}

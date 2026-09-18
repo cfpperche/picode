@@ -42,6 +42,22 @@ if git diff --cached --name-only --diff-filter=ACMR 2>/dev/null | grep -qx 'docs
     "session note docs/handoff/<date>-<branch>.md — then run \`make handoff\`."
 fi
 
+# Conflict markers riding the staged diff: a conflicted merge resolved with
+# `git add -A` ships the markers and breaks the build (2026-09-18, twice in
+# one day — once on main). `git diff --check` already refuses markers, but
+# the merge-in-progress early exit below skips it — and a conflict
+# RESOLUTION is exactly the commit where markers ride. Only ADDED lines are
+# checked (an unchanged or quoted marker never blocks an unrelated commit);
+# the bare `=======` separator stays with the whitespace check below, which
+# refuses it outside merges as it always has.
+markers=$(git diff --cached -U0 2>/dev/null | grep -E '^\+(<<<<<<<|>>>>>>>)' || true)
+if [ -n "$markers" ]; then
+  printf '%s\n' "$markers" | head -n 10 >&2
+  refuse "Conflict markers in the staged diff (above)." \
+    "A conflicted merge was resolved by wholesale staging (git add -A does this)." \
+    "Resolve the file and stage explicit paths."
+fi
+
 gd=$(git rev-parse --absolute-git-dir 2>/dev/null) || exit 0
 cd=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 0
 

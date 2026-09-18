@@ -12,6 +12,7 @@ const SECTION_ICONS = {
   connectors: IconMcp,
   settings: IconSettings,
   browser: IconGlobe,
+  computer: IconMonitor,
   integrations: IconMcp,
   llama: IconModel,
   packages: IconPackage,
@@ -30,7 +31,7 @@ export default function UserMenu({ host, version, inShell = false, themeMode, on
   const searching = !!query.trim();
   const groups = menuGroups(query);
   const actions = menuActions(query);
-  const rows = (list) => list.filter(([id]) => id !== "browser" || inShell).map(([id, title, sub]) => {
+  const rows = (list) => list.filter(([id]) => (id !== "browser" && id !== "computer") || inShell).map(([id, title, sub]) => {
     const Icon = SECTION_ICONS[id];
     return (
       <DropdownMenu.Item key={id} className="um-item" id={"um-" + id} onSelect={() => onNavigate(id)}>

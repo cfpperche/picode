@@ -15,13 +15,20 @@ mod btab;
 mod external;
 mod board;
 mod browserlab;
+mod capture;
 mod clean;
+mod clipboard;
+mod computer;
+mod computerlab;
+mod desktop;
 mod dialog;
 mod disk;
 mod diskline;
 mod health;
+mod input;
 mod keepalive;
 mod status;
+mod uia;
 mod wslconfig;
 
 // The undecorated window's frame — drag handles and window controls — is
@@ -104,6 +111,12 @@ fn main() {
             browserlab::lab_forward,
             browserlab::lab_reload,
             browserlab::lab_current_url,
+            computer::computer_displays,
+            computer::computer_windows,
+            computer::computer_call,
+            computer::computer_set_grants,
+            computer::computer_preview,
+            computerlab::computerlab_open,
             disk::disk_report,
             disk::disk_compact,
             disk::disk_compact_dry_run,
@@ -121,11 +134,13 @@ fn main() {
         }))
         .manage(browserlab::LabState::default())
         .manage(btab::BtabState::default())
+        .manage(computer::ComputerState::default())
         .setup(move |app| {
             // The lab window is built here, hidden — never inside a tray
             // handler: creating a second webview mid-event-loop deadlocked
             // the whole app on Windows (frozen captions, blank page).
             browserlab::init(app);
+            computerlab::init(app);
             let main_win = build_main_window(app.handle(), main_target())?;
             if hidden {
                 let _ = main_win.hide();
@@ -158,6 +173,8 @@ fn main() {
                 MenuItem::with_id(app, "logs", "View logs", true, None::<&str>)?;
             let actions_sep = PredefinedMenuItem::separator(app)?;
             let lab = MenuItem::with_id(app, "browserlab", "Browser lab", true, None::<&str>)?;
+            let computerlab_item =
+                MenuItem::with_id(app, "computerlab", "Computer lab", true, None::<&str>)?;
             let newbtab = MenuItem::with_id(app, "newbtab", "New browser tab", true, None::<&str>)?;
             let management =
                 MenuItem::with_id(app, "management", "Management\u{2026}", true, None::<&str>)?;
@@ -185,6 +202,7 @@ fn main() {
                     &logs,
                     &actions_sep,
                     &lab,
+                    &computerlab_item,
                     &newbtab,
                     &management,
                     &notify,
@@ -213,6 +231,7 @@ fn main() {
                         std::thread::spawn(logs_flow);
                     }
                     "browserlab" => browserlab::open(app),
+                    "computerlab" => computerlab::open(app),
                     "newbtab" => {
                         let _ = app.emit("btab://new", "");
                     }

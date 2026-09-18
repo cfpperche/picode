@@ -58,6 +58,10 @@ type BrowserPrefs struct {
 	// AgentAccess is the master switch: off refuses every browser verb for
 	// every agent (the grants below stop mattering until it is back on).
 	AgentAccess bool `json:"agentAccess"`
+	// AnnotationShots decides what rides along with a browser annotation
+	// (v2c): "always" includes the crop, "ask" (the default) asks at the
+	// moment the annotation is made, "never" sends the element without it.
+	AnnotationShots string `json:"annotationShots"`
 	// DeveloperMode unlocks the raw CDP verb for full-tier principals
 	// (ADR-0144). Off by default, and an unreadable key means off: the one
 	// setting whose failure mode must be "no access".
@@ -68,7 +72,7 @@ type BrowserPrefs struct {
 // the address bar shows the full URL, popups open inside the app, and
 // WebView2's own autofill defaults (both on).
 func browserPrefsRead(st *store.Store) (BrowserPrefs, error) {
-	p := BrowserPrefs{ShowFullURL: true, WebOpenDest: "app", LocalOpenDest: "app", PasswordAutosave: true, GeneralAutofill: true, AskDownload: false, ScriptsEnabled: true, HistoryAccess: "never", AgentAccess: true}
+	p := BrowserPrefs{ShowFullURL: true, WebOpenDest: "app", LocalOpenDest: "app", PasswordAutosave: true, GeneralAutofill: true, AskDownload: false, ScriptsEnabled: true, HistoryAccess: "never", AgentAccess: true, AnnotationShots: "ask"}
 	rows := []struct {
 		key   string
 		apply func(raw string)
@@ -111,6 +115,11 @@ func browserPrefsRead(st *store.Store) (BrowserPrefs, error) {
 		{"browser.askDownload", func(raw string) {
 			if raw == "1" {
 				p.AskDownload = true
+			}
+		}},
+		{"browser.annotationShots", func(raw string) {
+			if raw == "always" || raw == "never" {
+				p.AnnotationShots = raw
 			}
 		}},
 		{"browser.agentAccess", func(raw string) {
@@ -162,6 +171,12 @@ func handleBrowserPrefsPut(deps Deps) http.HandlerFunc {
 		if req.HistoryAccess == "allow" {
 			historyAccess = "allow"
 		}
+		// Same rule for the annotation screenshots: a missing or unknown
+		// value is the default ("ask"), never a wider one.
+		annotationShots := "ask"
+		if req.AnnotationShots == "always" || req.AnnotationShots == "never" {
+			annotationShots = req.AnnotationShots
+		}
 		rows := []struct{ key, value string }{
 			{prefShowFullURL, map[bool]string{true: "1", false: "0"}[req.ShowFullURL]},
 			{"browser.webOpenDest", req.WebOpenDest},
@@ -170,6 +185,7 @@ func handleBrowserPrefsPut(deps Deps) http.HandlerFunc {
 			{"browser.generalAutofill", map[bool]string{true: "1", false: "0"}[req.GeneralAutofill]},
 			{"browser.scriptsEnabled", map[bool]string{true: "1", false: "0"}[req.ScriptsEnabled]},
 			{"browser.historyAccess", historyAccess},
+			{"browser.annotationShots", annotationShots},
 			{"browser.askDownload", map[bool]string{true: "1", false: "0"}[req.AskDownload]},
 			{"browser.agentAccess", map[bool]string{true: "1", false: "0"}[req.AgentAccess]},
 			{prefDeveloperMode, map[bool]string{true: "1", false: "0"}[req.DeveloperMode]},

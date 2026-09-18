@@ -161,6 +161,15 @@ Owner acts: reads and approves ADR-0148.
 
 ### M1 — Actuator and lab (`feat/computer-m1`)
 
+Status 2026-09-18: code landed on the branch (the desk thread, GDI capture
+with WIC scaling, SendInput, UI Automation snapshot, clipboard, `open`, the
+five commands and the Computer lab); the pure modules are tested, the cross
+build is green; the owner's DPI × monitor matrix on the lab is the gate.
+Known limits of this slice: `PrintWindow` black frames fall back to a screen
+capture; `focus` reports `foreground_refused` when Windows keeps the focus;
+the lab window itself appears in a screenshot of the monitor it sits on.
+
+
 Scope: `desktop-shell/src/{computer,desktop,capture,input,uia,clipboard,computerlab}.rs`,
 the pure modules, the five commands, `ui/computerlab.html`,
 `capabilities/computerlab.json`, the `Cargo.toml` features.
@@ -174,6 +183,13 @@ a printed crosshair lands where the page drew it; `type` into Notepad and
 Owner acts: runs the lab and reports the DPI × monitor matrix.
 
 ### M2 — End to end (`feat/computer-m2`)
+
+Status 2026-09-18: landed on the branch — `internal/computer` (grant,
+catalog), the four routes with `computer.step` audit, kind dispatch on the
+shell line, the grants mirror into the shell, Settings ▸ Computer (switch per
+principal, recent steps), `packages/pi-computer`. The first real run with an
+agent is the owner's.
+
 
 Scope: `internal/computer/{policy,actions}.go` + tests;
 `internal/server/{computer,computer_policies}.go` + tests; `registerAll`;

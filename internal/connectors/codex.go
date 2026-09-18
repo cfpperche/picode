@@ -7,20 +7,16 @@ import (
 	"sort"
 	"strings"
 
-	toml "github.com/pelletier/go-toml/v2"
-
 	"github.com/cfpperche/picode/internal/mcp"
 )
 
 // Codex manages Codex CLI's MCP servers in TOML config files: the user file
 // (~/.codex/config.toml) and the workspace file (<workspace>/.codex/config.toml).
 //
-// Writes are surgical by contract (ADR-0150): only the byte span of the
-// `[mcp_servers.<name>]` table — header to the next column-0 `[` or EOF — is
-// replaced or deleted; every other byte (comments, unrelated tables, ${VAR}
-// placeholders) survives untouched. The spliced text is re-parsed before it
-// is written and the write is atomic, so corruption fails loudly instead of
-// landing on disk.
+// Writes share the surgical TOML splice of the package (toml.go, ADR-0150):
+// only the byte span of the `[mcp_servers.<name>]` table — header to the
+// next column-0 `[` or EOF — is replaced or deleted; every other byte
+// (comments, unrelated tables, ${VAR} placeholders) survives untouched.
 type Codex struct{}
 
 const codexBin = "codex"
@@ -86,7 +82,7 @@ func (d Codex) List(p Paths) (mcp.Report, error) {
 	}
 	seen := map[string]bool{}
 	for _, layer := range rep.Layers {
-		raw, err := readCodexFile(layer.Path)
+		raw, err := readTOMLFile(layer.Path)
 		if err != nil {
 			return rep, err
 		}
@@ -124,19 +120,19 @@ func (d Codex) Add(p Paths, scope, name string, entry mcp.Entry) error {
 		}
 		path = filepath.Join(p.Cwd, ".codex", "config.toml")
 	}
-	text, err := readCodexText(path)
+	text, err := readTOMLText(path)
 	if err != nil {
 		return err
 	}
-	entries, err := parseCodex(text, path)
+	entries, err := parseTOMLServers(text, path)
 	if err != nil {
 		return err
 	}
-	block, err := codexBlock(name, codexEntryMap(entry, entries[name]))
+	block, err := tomlBlock("codex", name, codexEntryMap(entry, entries[name]))
 	if err != nil {
 		return err
 	}
-	return spliceCodex(path, text, name, block)
+	return spliceTOMLTable(path, text, name, block)
 }
 
 // Toggle flips the table's `enabled` flag — Codex has a real per-server
@@ -153,11 +149,11 @@ func (d Codex) Toggle(p Paths, scope, name string, disabled bool) error {
 	if err != nil {
 		return err
 	}
-	text, err := readCodexText(path)
+	text, err := readTOMLText(path)
 	if err != nil {
 		return err
 	}
-	entries, err := parseCodex(text, path)
+	entries, err := parseTOMLServers(text, path)
 	if err != nil {
 		return err
 	}
@@ -167,11 +163,11 @@ func (d Codex) Toggle(p Paths, scope, name string, disabled bool) error {
 	}
 	merged := codexEntryMap(mcp.Entry{}, prev)
 	merged["enabled"] = !disabled
-	block, err := codexBlock(name, merged)
+	block, err := tomlBlock("codex", name, merged)
 	if err != nil {
 		return err
 	}
-	return spliceCodex(path, text, name, block)
+	return spliceTOMLTable(path, text, name, block)
 }
 
 // Remove deletes the table span and nothing else.
@@ -187,18 +183,18 @@ func (d Codex) Remove(p Paths, scope, name string) error {
 	if err != nil {
 		return err
 	}
-	text, err := readCodexText(path)
+	text, err := readTOMLText(path)
 	if err != nil {
 		return err
 	}
-	entries, err := parseCodex(text, path)
+	entries, err := parseTOMLServers(text, path)
 	if err != nil {
 		return err
 	}
 	if _, ok := entries[name]; !ok {
 		return fmt.Errorf("server %q is not in %s", name, path)
 	}
-	return spliceCodex(path, text, name, "")
+	return spliceTOMLTable(path, text, name, "")
 }
 
 // codexWritePath resolves Toggle/Remove targets: they edit what exists and
@@ -212,183 +208,6 @@ func codexWritePath(p codexPaths, scope string) (string, error) {
 		return "", fmt.Errorf("select a workspace that has a .codex folder first")
 	}
 	return path, nil
-}
-
-// codexBlock renders one `[mcp_servers.<name>]` table from the merged entry.
-// The entry is marshaled inside a wrapper document so nested maps (env,
-// unknown tables) come out as proper [mcp_servers.<name>.…] sub-tables —
-// marshaling the bare entry would emit them at the root level — then the
-// wrapper's preamble is cut and everything from this table's header on is
-// kept.
-func codexBlock(name string, entry map[string]any) (string, error) {
-	wrapper := map[string]any{"mcp_servers": map[string]any{name: entry}}
-	b, err := toml.Marshal(wrapper)
-	if err != nil {
-		return "", fmt.Errorf("cannot encode %s for the codex config: %w", name, err)
-	}
-	lines := strings.SplitAfter(string(b), "\n")
-	for i, line := range lines {
-		if codexHeader(line, name) {
-			return strings.Join(lines[i:], ""), nil
-		}
-	}
-	return "", fmt.Errorf("cannot encode %s for the codex config", name)
-}
-
-// codexHeader reports whether a header line opens this server's table
-// (bare, double-quoted or literal-quoted key form).
-func codexHeader(line, name string) bool {
-	switch strings.TrimRight(line, " \t\r\n") {
-	case "[mcp_servers." + name + "]",
-		`[mcp_servers."` + name + `"]`,
-		"[mcp_servers.'" + name + "']":
-		return true
-	}
-	return false
-}
-
-// spliceCodex replaces (block == "") or rewrites the table's byte span,
-// validates the whole result, and lands it atomically.
-func spliceCodex(path, text, name, block string) error {
-	start, end, ok := tomlTableSpan(text, name)
-	var out string
-	switch {
-	case !ok && block == "":
-		return fmt.Errorf("server %q is not in %s", name, path)
-	case !ok:
-		appended := ensureTrailingNewline(text)
-		// Separate the new table from whatever the file ended with, without
-		// stacking blank lines.
-		if appended != "" && !strings.HasSuffix(appended, "\n\n") {
-			appended += "\n"
-		}
-		out = appended + block
-	case block == "":
-		out = text[:start] + text[end:]
-	default:
-		// The blank line that separated the old table from the next one sat
-		// inside the span; keep one before the following table.
-		replacement := block
-		if strings.HasPrefix(text[end:], "[") && !strings.HasSuffix(replacement, "\n\n") {
-			replacement += "\n"
-		}
-		out = text[:start] + replacement + text[end:]
-	}
-	var check map[string]any
-	if err := toml.Unmarshal([]byte(out), &check); err != nil {
-		return fmt.Errorf("the edit would make %s invalid TOML: %v", path, err)
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	return atomicWrite(path, []byte(out))
-}
-
-// tomlTableSpan returns the byte span of [mcp_servers.<name>]: from its
-// header line to the next line that opens a table outside this entry, or
-// EOF. The entry's own sub-tables ([mcp_servers.<name>.…]) sit inside the
-// span and are rewritten with it; every other table — including a bare
-// [mcp_servers] parent — starts with "[" at column 0 and ends it. Bare,
-// double-quoted and literal-quoted key forms all match.
-func tomlTableSpan(text, name string) (start, end int, ok bool) {
-	type linePos struct{ start, end int }
-	var lines []linePos
-	texts := []string{}
-	pos := 0
-	for pos < len(text) {
-		nl := strings.IndexByte(text[pos:], '\n')
-		lineEnd, next := len(text), len(text)+1
-		if nl >= 0 {
-			lineEnd, next = pos+nl, pos+nl+1
-		}
-		lines = append(lines, linePos{start: pos, end: lineEnd})
-		texts = append(texts, strings.TrimRight(text[pos:lineEnd], "\r"))
-		if nl < 0 {
-			break
-		}
-		pos = next
-	}
-	subPrefix := []string{
-		"[mcp_servers." + name + ".",
-		`[mcp_servers."` + name + `".`,
-		"[mcp_servers.'" + name + "'.",
-	}
-	for i, ln := range lines {
-		if !codexHeader(texts[i], name) {
-			continue
-		}
-		for j := i + 1; j < len(lines); j++ {
-			if !strings.HasPrefix(texts[j], "[") {
-				continue
-			}
-			sub := false
-			for _, p := range subPrefix {
-				if strings.HasPrefix(texts[j], p) {
-					sub = true
-					break
-				}
-			}
-			if sub {
-				continue
-			}
-			return ln.start, lines[j].start, true
-		}
-		return ln.start, len(text), true
-	}
-	return 0, 0, false
-}
-
-func ensureTrailingNewline(s string) string {
-	if s == "" || strings.HasSuffix(s, "\n") {
-		return s
-	}
-	return s + "\n"
-}
-
-// readCodexFile parses a config into a generic map. A missing file is an
-// empty config; malformed TOML is an error — refuse loudly, never write on
-// top of a file we could not read (ADR-0150).
-func readCodexFile(path string) (map[string]any, error) {
-	text, err := readCodexText(path)
-	if err != nil || strings.TrimSpace(text) == "" {
-		return map[string]any{}, err
-	}
-	var raw map[string]any
-	if err := toml.Unmarshal([]byte(text), &raw); err != nil {
-		return nil, fmt.Errorf("%s is not valid TOML", path)
-	}
-	return raw, nil
-}
-
-func readCodexText(path string) (string, error) {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", nil
-		}
-		return "", err
-	}
-	return string(b), nil
-}
-
-// parseCodex returns the mcp_servers entries of a config text. Malformed
-// TOML refuses the whole operation before any splice is attempted.
-func parseCodex(text, path string) (map[string]map[string]any, error) {
-	out := map[string]map[string]any{}
-	if strings.TrimSpace(text) == "" {
-		return out, nil
-	}
-	var raw map[string]any
-	if err := toml.Unmarshal([]byte(text), &raw); err != nil {
-		return nil, fmt.Errorf("%s is not valid TOML", path)
-	}
-	servers, _ := raw["mcp_servers"].(map[string]any)
-	for name, e := range servers {
-		if m, ok := e.(map[string]any); ok {
-			out[name] = m
-		}
-	}
-	return out, nil
 }
 
 func codexServers(raw map[string]any, layer mcp.Layer) []mcp.Server {

@@ -19,6 +19,7 @@ export const ROUTES = {
   packages: "/clis/pi/packages",
   devices: "/devices",
   browser: "/browser",
+  computer: "/computer",
   pins: "/pins",
   termset: "/termset",
   automations: "/automations",
@@ -38,6 +39,7 @@ export function parseRoute(hash) {
   if (h === "/mcps" || h === "/integrations" || h.startsWith("/integrations/")) return "clis";
   if (h === "/devices") return "devices";
   if (h === "/browser") return "browser";
+  if (h === "/computer") return "computer";
   if (h === "/pins" || h.startsWith("/pins/")) return "pins";
   if (h === "/termset" || h.startsWith("/termset/")) return "termset";
   if (h === "/automations" || h.startsWith("/automations/")) return "automations";

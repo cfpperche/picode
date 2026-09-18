@@ -18,6 +18,7 @@ test("readBrowserPrefs keeps every field of a full payload", () => {
       historyAccess: "allow",
       agentAccess: false,
       developerMode: true,
+      annotationShots: "always",
     };
   assert.deepEqual(readBrowserPrefs(saved), saved);
 });
@@ -54,4 +55,11 @@ test("readBrowserPrefs defaults what a payload omits", () => {
   assert.equal(odd.agentAccess, true);
   assert.equal(odd.askDownload, false);
   assert.equal(odd.webOpenDest, "app");
+});
+
+test("the annotation screenshot policy defaults to ask and never widens", () => {
+  assert.equal(readBrowserPrefs({}).annotationShots, "ask");
+  assert.equal(readBrowserPrefs({ annotationShots: "always" }).annotationShots, "always");
+  assert.equal(readBrowserPrefs({ annotationShots: "never" }).annotationShots, "never");
+  assert.equal(readBrowserPrefs({ annotationShots: "sometimes" }).annotationShots, "ask");
 });
