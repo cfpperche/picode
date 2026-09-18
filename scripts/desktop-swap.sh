@@ -66,6 +66,27 @@ else
 fi
 echo "Resident: $resident (the PiCodeDesktop task's target)"
 
+# The distro keepalive (ADR-0154): the scheduled task holds the distro open
+# independent of the resident, so the taskkill below cannot strand it into
+# WSL's idle reclaim — the failure that ends every tmux session, agent and
+# terminal at once. Ensure it BEFORE any kill; on failure warn and continue
+# (that is the pre-fix behavior, not a worse one).
+echo "Ensuring the distro keepalive task (PiCodeDistro)…"
+if [[ -n "$dry" ]]; then
+  echo "  [dry-run] powershell: Register-ScheduledTask PiCodeDistro + Start-ScheduledTask"
+else
+  /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile -Command - <<'PS' || echo "desktop-swap: the keepalive task could not be ensured — continuing without it" >&2
+$ErrorActionPreference = 'Stop'
+try {
+  $action = New-ScheduledTaskAction -Execute 'C:\Windows\System32\conhost.exe' -Argument '--headless wsl.exe --exec /bin/sleep infinity'
+  $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+  $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable
+  Register-ScheduledTask -TaskName 'PiCodeDistro' -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
+  Start-ScheduledTask -TaskName 'PiCodeDistro'
+} catch { Write-Error $_; exit 1 }
+PS
+fi
+
 echo "Stopping the tray if it is running…"
 stop_exe picode-desktop.exe
 if [[ $shell_running == true ]]; then
