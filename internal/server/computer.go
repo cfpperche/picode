@@ -147,11 +147,17 @@ func (s computerStep) record(deps Deps, outcome, reason string, output json.RawM
 			}
 		}
 	}
-	var agent *string
+	// The agent column is a foreign key: an id the store does not know (a
+	// caller claiming an agent that does not exist) cannot go there, so the
+	// row keeps the id in its payload and falls back to no column. A refusal
+	// is worth recording exactly when the caller is a stranger.
 	if s.agentID != "" {
-		agent = &s.agentID
+		data["agentId"] = s.agentID
+		if err := deps.Store.AppendEvent("computer.step", &s.agentID, nil, data); err == nil {
+			return
+		}
 	}
-	_ = deps.Store.AppendEvent("computer.step", agent, nil, data)
+	_ = deps.Store.AppendEvent("computer.step", nil, nil, data)
 }
 
 // handleComputerPolicies lists every principal — managed agents and the
