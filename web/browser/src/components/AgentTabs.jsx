@@ -6,6 +6,7 @@ import { repoNameFromKey } from "../lib/gitgraph.js";
 import { revealLeft } from "../lib/tabStrip.js";
 import { useTabStrip } from "../lib/useTabStrip.js";
 import { matchAction } from "../lib/appKeys.js";
+import { webappIdFromTab } from "../lib/webapps.js";
 import { IconFile, IconGit, IconFolders, IconChevronLeft, IconChevronRight, IconList, IconCheck } from "./Icons.jsx";
 import AppIcon from "./AppIcon.jsx";
 import { IconGlobe } from "./Icons.jsx";
@@ -16,7 +17,18 @@ import { terminalCli, terminalCliLabel, terminalDisplayCli, terminalStatus } fro
 // One description per tab id, shared by the strip and the "All tabs"
 // list so both show the same face, name and status. Null means the tab
 // has nothing to render yet (a terminal the client has not received).
-function describeTab(id, { terms, appList, workspaces, freeAgents, webTabs }) {
+function describeTab(id, { terms, appList, workspaces, freeAgents, webTabs, webapps }) {
+  const installedId = webappIdFromTab(id);
+  const installed = installedId ? (webapps || []).find((a) => a.id === installedId) : null;
+  if (installed) {
+    return {
+      icon: <AppIcon name="globe" label={installed.name} size={13} iconUrl={installed.hasIcon ? "/api/webapps/" + encodeURIComponent(installed.id) + "/icon" : null} />,
+      label: installed.name,
+      title: installed.url,
+      status: null,
+      closeTitle: "Close tab",
+    };
+  }
   if (isWebTab(id)) {
     const w = webTabs?.[tabWebId(id)];
     const label = (w?.title || w?.url || "").replace(/^https?:\/\//, "").split("/")[0] || "New tab";
@@ -84,8 +96,8 @@ function StatusDot({ status }) {
   return null;
 }
 
-export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, apps, webTabs, selectedId, onSelect, onClose, onReorder, sessionSlot, endSlot, keepVisible }) {
-  const ctx = { terms: terminals || [], appList: apps || [], workspaces, freeAgents, webTabs };
+export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, apps, webapps, webTabs, selectedId, onSelect, onClose, onReorder, sessionSlot, endSlot, keepVisible }) {
+  const ctx = { terms: terminals || [], appList: apps || [], workspaces, freeAgents, webTabs, webapps };
   const entries = tabs.map((id) => ({ id, d: describeTab(id, ctx) })).filter((e) => e.d);
   const ids = entries.map((e) => e.id);
   const stripRef = useRef(null);

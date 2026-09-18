@@ -5,7 +5,7 @@ import { applyTheme, persistTheme, readThemeMode } from "@picode/shared/domain/t
 import { readContextMenuPrefs, modifierHeld } from "./lib/contextMenuPrefs.js";
 import { openBrowserChannel } from "./lib/browserChannel.js";
 import { matchAction } from "./lib/appKeys.js";
-import { DESKTOP_REQUIRED, webappTabId, webappIdFromTab, webappOpenPlan, watchWebapps, removedWebappTabs, webappBadge, updateWebappMeta } from "./lib/webapps.js";
+import { DESKTOP_REQUIRED, webappTabId, webappIdFromTab, webappOpenPlan, webappChromeless, watchWebapps, removedWebappTabs, webappBadge, updateWebappMeta } from "./lib/webapps.js";
 import { applyTermChrome } from "@picode/shared/domain/termTheme.js";
 import { closeTerm } from "./lib/terms.js";
 import { termWorkspaceId, workspaceForTerminal } from "./lib/termGroups.js";
@@ -3237,6 +3237,7 @@ export default function App({ shellChrome = false } = {}) {
     freeAgents={freeAgents}
     terminals={terminals}
     apps={apps}
+    webapps={webapps}
     webTabs={webTabs}
     selectedId={selectedId}
     onSelect={(id) => openTab(id)}
@@ -3412,20 +3413,25 @@ export default function App({ shellChrome = false } = {}) {
               />
             );
           })}
-          {tabs.filter(isWebTab).map((id) => (
-            <WebTabSurface
-              key={id}
-              tabId={id}
-              url={(webTabs[tabWebId(id)] && webTabs[tabWebId(id)].url) || ""}
-              active={selectedId === id}
-              hidden={selectedId !== id || onPane}
-              asks={permissionAsks.filter((a) => a.tab === tabWebId(id))}
-              onAnswerAsk={answerPermission}
-              onMeta={(m) => setWebTabs((cur) => updateWebappMeta(cur, tabsRef.current, id, m))}
-              onNew={() => openWebTab("")}
-              onBrowserSettings={() => go("browser")}
-            />
-          ))}
+          {tabs.filter(isWebTab).map((id) => {
+            const app = webapps.find((a) => a.id === webappIdFromTab(id));
+            return (
+              <WebTabSurface
+                key={id}
+                tabId={id}
+                url={(webTabs[tabWebId(id)] && webTabs[tabWebId(id)].url) || app?.url || ""}
+                active={selectedId === id}
+                hidden={selectedId !== id || onPane}
+                chromeless={!!app && webappChromeless(app.display)}
+                chromelessTitle={app?.name || ""}
+                asks={permissionAsks.filter((a) => a.tab === tabWebId(id))}
+                onAnswerAsk={answerPermission}
+                onMeta={(m) => setWebTabs((cur) => updateWebappMeta(cur, tabsRef.current, id, m))}
+                onNew={() => openWebTab("")}
+                onBrowserSettings={() => go("browser")}
+              />
+            );
+          })}
 
           <FileSurface
             owner={fileTabInfo}

@@ -49,3 +49,17 @@ The standalone-window door stays exactly where it was — deferred, owner's
 call — so a PWA today installs with its full identity and launches at its
 own start page inside the work browser; a Chrome-style app window is the
 next boundary decision, not this one.
+
+## Amendment 2026-09-18 — app mode inside the shell (the standalone question, settled)
+
+Asked to choose between a Chrome-style standalone window (v2's deferred
+door) and staying in the shell, the owner chose the shell: an installed
+web app whose manifest declares an app-like `display` (`standalone`,
+`fullscreen`, `minimal-ui`) opens **without the browser toolbar** — a
+minimal titlebar (the app's own name left; ⋮ menu right, carrying Reload,
+Copy address and the usual browser actions) and the page filling the
+surface. `display: browser` (and plain shortcuts) keep the full toolbar.
+The separate-window alternative stays refused for now: the user works
+inside PiCode, not across windows; revisiting it costs an ADR that
+re-opens the btab plumbing question. Login persistence, the shared
+profile and the CDP policy are unchanged.

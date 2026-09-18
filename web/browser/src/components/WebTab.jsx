@@ -16,10 +16,13 @@ import { previewUrl, verifyPreviewUrl } from "../lib/previewStill.js";
 // this surface.
 const invoke = typeof window !== "undefined" && window.__TAURI__ ? window.__TAURI__.core.invoke : null;
 
-export default function WebTabSurface({ tabId, url = "", active, hidden, className = "", expanded = false, asks = [], onAnswerAsk, onClose, onMeta, onNew, onBrowserSettings, onToggleExpand }) {
+export default function WebTabSurface({ tabId, url = "", active, hidden, className = "", expanded = false, chromeless = false, chromelessTitle = "", asks = [], onAnswerAsk, onClose, onMeta, onNew, onBrowserSettings, onToggleExpand }) {
   const id = tabId.slice(2);
   const [urlDraft, setUrlDraft] = useState("");
   const [started, setStarted] = useState(false);
+  // The page's live address, tracked for app mode's "Copy address" (the
+  // URL bar that normally shows it is hidden there).
+  const liveUrlRef = useRef(url);
   // The address-bar display pref. It is read by the meta-poll effect's deps
   // below, so it must be declared before them: a `const` read earlier in the
   // same render is a ReferenceError that takes the whole app down (main,
@@ -230,6 +233,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
         .then((m) => {
           if (m.url) {
             setStarted(true);
+            liveUrlRef.current = m.url;
             setUrlDraft((cur) => (document.activeElement === urlRef.current ? cur : trimUrl(m.url)));
             record("history", m.url, false, m.title);
           }
@@ -404,20 +408,26 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
   return (
     <section className={"web-tab-surface" + (className ? " " + className : "")} hidden={hidden} aria-label="Work browser">
       <div className="web-tab-toolbar">
-        <button type="button" title="Back" onClick={() => invoke("btab_back", { id }).catch(() => {})}>←</button>
-        <button type="button" title="Forward" onClick={() => invoke("btab_forward", { id }).catch(() => {})}>→</button>
-        <button type="button" title="Reload" onClick={() => invoke("btab_reload", { id }).catch(() => {})}>⟳</button>
-        <div className="web-tab-urlbar">
-          <input
-            ref={urlRef}
-            value={urlDraft}
-            onChange={(e) => setUrlDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") go(); }}
-            placeholder="Search or enter a URL"
-            spellCheck={false}
-          />
-          <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => go()}><IconEnter /></button>
-        </div>
+        {chromeless ? (
+          <span className="web-tab-appname" title={liveUrlRef.current || url}>{chromelessTitle}</span>
+        ) : (
+          <>
+            <button type="button" title="Back" onClick={() => invoke("btab_back", { id }).catch(() => {})}>←</button>
+            <button type="button" title="Forward" onClick={() => invoke("btab_forward", { id }).catch(() => {})}>→</button>
+            <button type="button" title="Reload" onClick={() => invoke("btab_reload", { id }).catch(() => {})}>⟳</button>
+            <div className="web-tab-urlbar">
+              <input
+                ref={urlRef}
+                value={urlDraft}
+                onChange={(e) => setUrlDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") go(); }}
+                placeholder="Search or enter a URL"
+                spellCheck={false}
+              />
+              <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => go()}><IconEnter /></button>
+            </div>
+          </>
+        )}
         <DropdownMenu.Root open={menuOpen} onOpenChange={onMenuOpenChange}>
           <DropdownMenu.Trigger asChild>
             <button
@@ -432,6 +442,17 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content align="end" sideOffset={6} collisionPadding={8} className="web-tab-menu-list" onCloseAutoFocus={(e) => e.preventDefault()}>
+              {chromeless ? (
+                <>
+                  <DropdownMenu.Item className="um-item" onSelect={() => invoke("btab_reload", { id }).catch(() => {})}>Reload</DropdownMenu.Item>
+                  <DropdownMenu.Item className="um-item" onSelect={() => {
+                    const target = liveUrlRef.current || url;
+                    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(target).then(() => toast.ok("Address copied")).catch(() => toast("Could not copy the address"));
+                    else toast("Copy is not available here");
+                  }}>Copy address</DropdownMenu.Item>
+                  <DropdownMenu.Separator className="web-tab-menu-sep" />
+                </>
+              ) : null}
               <DropdownMenu.Item className="um-item" onSelect={() => setFindOpen(true)}>Find in page</DropdownMenu.Item>
               <DropdownMenu.Item className="um-item" onSelect={printPage}>Print</DropdownMenu.Item>
               <DropdownMenu.Separator className="web-tab-menu-sep" />
