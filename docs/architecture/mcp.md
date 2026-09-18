@@ -19,13 +19,36 @@ community **`pi-mcp-adapter`** extension (`pi install npm:pi-mcp-adapter`):
 
 Every agent CLI gets this pane at `#/clis/<cli>/connectors` (ADR-0150):
 one per-CLI driver behind `/api/mcp?cli=<id>` manages that CLI's native MCP
-config — Pi's driver is the adapter implementation below; guest CLIs gain
-drivers (`internal/connectors`, one codec per config shape) in later phases.
+config — Pi's driver is the adapter implementation below. Since phase 1
+(2026-09-17) the guest drivers for **Claude Code** and **Codex** live in
+`internal/connectors` and answer through the same handlers with the same
+`Report` JSON shape: the pane does not branch on the CLI. Each driver
+mirrors `internal/mcp`'s types, preserves unknown keys and `${VAR}`
+placeholders verbatim, writes atomically, and reports honestly: no headless
+status signal, so guest rows never claim live state.
+
+- **Claude Code** — project scope is the workspace `.mcp.json`, edited
+  directly as JSON; user scope is Claude Code's own store, so the vendor CLI
+  (`claude mcp add/remove/list … --scope user`) is the only read/write path
+  and `~/.claude.json` is never opened. Claude has no per-server switch, so
+  driver `toggle: "none"` removes the pane's switch and a toggle request is
+  refused ("Claude Code connectors turn on and off in Claude Code; remove
+  instead"). Sign-in is likewise Claude Code's: the pane shows the vendor
+  command (`claude mcp login <name>`) as copyable text instead of a
+  PiCode-driven flow.
+- **Codex** — `~/.codex/config.toml` and `<workspace>/.codex/config.toml`
+  (the folder is read only when it exists; Add may create it). Edits are a
+  surgical splice: only the `[mcp_servers.<name>]` table span is replaced or
+  deleted — comments, unrelated tables and placeholders survive
+  byte-for-byte (golden-tested) — the result is re-parsed before it lands,
+  and `enabled` is the real per-server switch (`toggle: "entry"`).
+
 `web/shared/domain/integrations.js` `CONNECTOR_DRIVERS` declares each CLI's
 honest capability set (status `live` vs `configured`), and a request naming a
-CLI without a driver fails loudly instead of writing Pi's files. Until a
-guest driver lands, `#/clis/<cli>/connectors` for other CLIs shows the
-"in development" placeholder.
+CLI without a driver fails loudly instead of writing Pi's files. Guest
+host-config imports and the driven sign-in flow arrive in later phases; the
+API refuses them with instructions (imports → "arrive in a later phase",
+auth → the vendor's own `… mcp login <name>` command).
 
 `#/clis/pi/connectors` is one surface in three bands: the header (the intro
 line and the single primary action, **Add connector**), the configured roster,
