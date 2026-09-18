@@ -950,8 +950,15 @@ thread_local! {
 /// through CDP, so no tier applies — this is the human's own UI.
 #[tauri::command]
 pub async fn btab_annotate_mode(app: AppHandle, id: String, on: bool) -> Result<(), String> {
+    // A work tab is a child Webview under the main window (WebviewBuilder in
+    // `ensure`), never a WebviewWindow: looking it up as a window answers "no
+    // such tab" for every tab that exists. The app's own tab id may carry a
+    // prefix the shell never saw (`w:2` vs `2`), so the id's tail is tried too
+    // — `ensure` is what named the webview, and it is named once.
+    let tail = id.rsplit(':').next().unwrap_or(id.as_str()).to_string();
     let wv = app
-        .get_webview_window(&format!("btab-{id}"))
+        .get_webview(&label(&id))
+        .or_else(|| app.get_webview(&label(&tail)))
         .ok_or_else(|| format!("no such tab: {id}"))?;
     let emitter = app.clone();
     let tab = id.clone();
