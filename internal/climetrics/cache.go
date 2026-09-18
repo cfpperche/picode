@@ -32,7 +32,7 @@ type parsed struct {
 // parseCache memoises parses by (path, size, mtime).
 //
 // This is what makes the dashboard's 60-second poll affordable. Measured on
-// this machine before it existed: a cold 7-day window over all six CLIs took
+// this machine before it existed: a cold 7-day window over all nine CLIs took
 // 5.8s and `all` took 11.4s, and because agents write constantly the
 // fingerprint changed on almost every poll — so almost every poll paid it.
 // With the cache a poll re-parses only the handful of files that actually

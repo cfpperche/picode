@@ -2,7 +2,7 @@
 // recorded about its own sessions into one dashboard window (ADR-0097).
 //
 // It exists because the dashboard measured pi and only pi while PiCode ran
-// six CLIs, so the headline number was a fraction of the real one. Each
+// nine CLIs, so the headline number was a fraction of the real one. Each
 // adapter reads the same session files internal/clisession already lists,
 // and reports two things: what it found, and what that CLI does not record
 // at all. A signal a CLI never writes comes back as StateNotReported, never
@@ -241,6 +241,7 @@ func Meters() []Meter {
 	return []Meter{
 		PiMeter{}, ClaudeCodeMeter{}, CodexMeter{},
 		OpenCodeMeter{}, HermesMeter{}, GrokMeter{},
+		OmpMeter{}, MuseMeter{}, AgyMeter{},
 	}
 }
 
