@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/cfpperche/picode/internal/connectors"
 	"github.com/cfpperche/picode/internal/mcp"
 	"github.com/cfpperche/picode/internal/pipkg"
 	"github.com/cfpperche/picode/internal/store"
@@ -25,10 +26,10 @@ func registerMCPRoutes(mux Registrar, deps Deps) {
 }
 
 // connectorDrivers declares which agent CLI a /api/mcp request drives.
-// Only Pi ships a driver today (ADR-0150); guest CLIs join as their codecs
-// land in internal/connectors. A request naming any other CLI fails loudly
-// instead of silently writing Pi's files.
-var connectorDrivers = map[string]bool{"pi": true}
+// Pi ships the adapter driver below; claude and codex dispatch to their
+// guest drivers in internal/connectors (ADR-0150 phase 1). A request naming
+// any other CLI fails loudly instead of silently writing Pi's files.
+var connectorDrivers = map[string]bool{"pi": true, "claude": true, "codex": true}
 
 func requireConnectorDriver(cli string) error {
 	if cli == "" || connectorDrivers[cli] {
@@ -58,10 +59,57 @@ type mcpMutateReq struct {
 	Cancelled   bool              `json:"cancelled"`
 }
 
+// connectorPaths resolves the workspace folder a guest driver edits. Guest
+// drivers have no per-agent layer in phase 1; a stale workspace id resolves
+// to no project layer rather than failing the pane.
+func connectorPaths(deps Deps, workspaceID string) (connectors.Paths, error) {
+	p := connectors.Paths{}
+	if workspaceID == "" || deps.Store == nil {
+		return p, nil
+	}
+	ws, err := deps.Store.GetWorkspace(workspaceID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return p, nil
+		}
+		return p, err
+	}
+	p.Cwd = ws.Path
+	return p, nil
+}
+
+// writeConnector answers a guest mutation with the same Report shape as
+// /api/mcp, so the pane does not branch on the driver.
+func writeConnector(w http.ResponseWriter, deps Deps, d connectors.Driver, p connectors.Paths) {
+	// Native files stay authoritative; this only invalidates views.
+	announceMCPConfig(deps)
+	rep, err := d.List(p)
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+		return
+	}
+	writeJSON(w, http.StatusOK, rep)
+}
+
 func handleMCPGet(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := requireConnectorDriver(r.URL.Query().Get("cli")); err != nil {
+		cli := r.URL.Query().Get("cli")
+		if err := requireConnectorDriver(cli); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if d := connectors.For(cli); d != nil {
+			p, err := connectorPaths(deps, r.URL.Query().Get("workspace"))
+			if err != nil {
+				writeErr(w, statusForStore(err), err.Error())
+				return
+			}
+			rep, err := d.List(p)
+			if err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, rep)
 			return
 		}
 		p, sources, err := mcpPaths(deps, r.URL.Query().Get("workspace"), r.URL.Query().Get("agent"))
@@ -87,6 +135,11 @@ func handleMCPImport(deps Deps) http.HandlerFunc {
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		if err := requireConnectorDriver(req.CLI); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		// Host imports are a later phase for guests (ADR-0150 phase 5).
+		if connectors.For(req.CLI) != nil {
+			writeErr(w, http.StatusBadRequest, "connector imports for "+req.CLI+" arrive in a later phase")
 			return
 		}
 		p, sources, err := mcpPaths(deps, req.WorkspaceID, req.AgentID)
@@ -134,6 +187,20 @@ func handleMCPAdd(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		if d := connectors.For(req.CLI); d != nil {
+			p, err := connectorPaths(deps, req.WorkspaceID)
+			if err != nil {
+				writeErr(w, statusForStore(err), err.Error())
+				return
+			}
+			entry := mcp.Entry{Command: req.Command, Args: req.Args, URL: req.URL, Env: req.Env, Headers: req.Headers, Auth: req.Auth, BearerToken: req.BearerToken}
+			if err := d.Add(p, req.Scope, req.Name, entry); err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			writeConnector(w, deps, d, p)
+			return
+		}
 		p, sources, err := mcpPaths(deps, req.WorkspaceID, req.AgentID)
 		if err != nil {
 			writeErr(w, statusForStore(err), err.Error())
@@ -165,6 +232,19 @@ func handleMCPToggle(deps Deps) http.HandlerFunc {
 		}
 		if err := requireConnectorDriver(req.CLI); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if d := connectors.For(req.CLI); d != nil {
+			p, err := connectorPaths(deps, req.WorkspaceID)
+			if err != nil {
+				writeErr(w, statusForStore(err), err.Error())
+				return
+			}
+			if err := d.Toggle(p, req.Scope, req.Name, *req.Disabled); err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			writeConnector(w, deps, d, p)
 			return
 		}
 		p, sources, err := mcpPaths(deps, req.WorkspaceID, req.AgentID)
@@ -210,6 +290,19 @@ func handleMCPRemove(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		if d := connectors.For(cli); d != nil {
+			p, err := connectorPaths(deps, wsID)
+			if err != nil {
+				writeErr(w, statusForStore(err), err.Error())
+				return
+			}
+			if err := d.Remove(p, scope, name); err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			writeConnector(w, deps, d, p)
+			return
+		}
 		p, sources, err := mcpPaths(deps, wsID, agentID)
 		if err != nil {
 			writeErr(w, statusForStore(err), err.Error())
@@ -240,6 +333,12 @@ func handleMCPAuth(deps Deps) http.HandlerFunc {
 		}
 		if err := requireConnectorDriver(req.CLI); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		// Guest sign-in never runs through PiCode's flow: the vendor CLI is
+		// the only authority for its own credentials (ADR-0150).
+		if connectors.For(req.CLI) != nil {
+			writeErr(w, http.StatusBadRequest, "sign in from a terminal instead: "+req.CLI+" mcp login "+req.Name)
 			return
 		}
 		if deps.Runtime == nil {
@@ -335,12 +434,17 @@ func handleMCPAuthLogout(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
+		if err := mcp.ValidName(req.Name); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		if err := requireConnectorDriver(req.CLI); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if err := mcp.ValidName(req.Name); err != nil {
-			writeErr(w, http.StatusBadRequest, err.Error())
+		// Guest tokens live in the CLI's own store; PiCode never clears them.
+		if connectors.For(req.CLI) != nil {
+			writeErr(w, http.StatusBadRequest, req.CLI+" keeps its own sign-ins; manage them with the "+req.CLI+" CLI")
 			return
 		}
 		if err := mcp.ClearOAuthTokens(req.Name); err != nil {
