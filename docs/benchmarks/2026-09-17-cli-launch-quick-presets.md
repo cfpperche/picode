@@ -10,9 +10,14 @@
   [Claude Code CLI flags](https://code.claude.com/docs/en/cli),
   [Codex command line options](https://developers.openai.com/codex/cli/reference),
   [OpenCode CLI](https://opencode.ai/docs/cli/). Flags for the remaining
-  CLIs verified against the installed binaries the same day — `--help`
+  CLIs verified against the installed binaries the same days — `--help`
   plus a `--flag --version` parse check per quick flag: grok 1.0.34
-  (`--permission-mode`, `--always-approve`), Hermes Agent v0.21.3
+  (the official xAI "Grok Build" CLI — an earlier draft mis-attributed it
+  to the community superagent-ai/grok-cli; the owner's pointer to
+  docs.x.ai/build/cli/reference corrected it: `--model`, `--effort`,
+  `--sandbox` with the built-in profiles off/workspace/devbox/read-only/
+  strict, `--permission-mode`, `--always-approve` alias `--yolo`),
+  Hermes Agent v0.21.3
   (`--model`, `--reasoning`, `--yolo`), omp 18.2.4 (`--model`), codex-cli
   0.154.0 (`--yolo` accepted); `--add-dir` verified the same way on
   claude (variadic), codex and omp 18.2.4 (space and joined forms).
@@ -61,10 +66,10 @@ knowing the exact flag and typing it into the raw argument textarea:
   advanced textarea, not to an error.
 - **Covering CLIs without a verified or editable surface.** Muse Code and
   Antigravity have no adapter, so their launch screens are read-only by
-  design — there is nothing to attach a control to. Grok's `--sandbox` and
-  `--reasoning-effort` accept no documented value list in 1.0.34, so they
-  stay advanced-only rather than offering guessed options. A wrong
-  generated flag is worse than no control.
+  design — there is nothing to attach a control to. Grok's effort levels
+  are model-dependent and undocumented as a fixed list, so effort is a
+  text field rather than a select of guessed options. A wrong generated
+  flag is worse than no control.
 - **Conflicting flags coexisting.** Codex `--yolo` conflicts with
   `--sandbox` / `--ask-for-approval` (documented in the vendor CLI);
   picking one clears the others in the same exclusivity group instead of
