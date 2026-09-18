@@ -4025,6 +4025,92 @@
         ]
       }
     },
+    "/api/computer/audit": {
+      "get": {
+        "operationId": "getApiComputerAudit",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "computer"
+        ]
+      }
+    },
+    "/api/computer/policies": {
+      "get": {
+        "operationId": "getApiComputerPolicies",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "computer"
+        ]
+      }
+    },
+    "/api/computer/policy": {
+      "post": {
+        "operationId": "postApiComputerPolicy",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "computer"
+        ]
+      }
+    },
+    "/api/computer/tool": {
+      "post": {
+        "operationId": "postApiComputerTool",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "computer"
+        ]
+      }
+    },
     "/api/deploy/readiness": {
       "get": {
         "operationId": "getApiDeployReadiness",
@@ -10130,6 +10216,9 @@
     },
     {
       "name": "communication"
+    },
+    {
+      "name": "computer"
     },
     {
       "name": "deploy"
