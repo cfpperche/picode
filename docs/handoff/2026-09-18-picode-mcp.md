@@ -22,3 +22,4 @@ uiux-review: PASS (9/9; jargon: none in chrome).
 
 ## Debts
 - Codex `-c mcp_servers.*` overrides and MCP image blocks in Codex/OpenCode/Grok are unverified live (fallback: the PNG under `<data>/var/captures/`).
+- `TestCLIRestartPreparationFailureAndWorkspaceCleanup` is flaky on main too (1 in 4 runs: `PanePID` races the fresh pane); not touched here.
