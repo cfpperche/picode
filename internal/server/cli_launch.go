@@ -74,6 +74,21 @@ func isCLIWrapper(path string) bool {
 	return bytes.Contains(b, []byte("# PiCode intercept"))
 }
 
+// resolveRetryDelay rides out the window a vendor self-update leaves its
+// launcher or symlink missing mid-swap (2026-09-18: four rows flipped to
+// not-installed for one request while their CLIs updated themselves, then
+// healed on the next). Package var so the selftest can shorten it.
+var resolveRetryDelay = 150 * time.Millisecond
+
+func resolveInstalledCLI(cli clilaunch.CLI, c clilaunch.Config) (string, error) {
+	p, err := resolveCLIExecutable(cli, c)
+	if err == nil {
+		return p, nil
+	}
+	time.Sleep(resolveRetryDelay)
+	return resolveCLIExecutable(cli, c)
+}
+
 func resolveCLIExecutable(cli clilaunch.CLI, c clilaunch.Config) (string, error) {
 	name := strings.TrimSpace(c.Executable)
 	if name == "" {
@@ -138,7 +153,7 @@ func describeCLI(deps Deps, cli clilaunch.CLI) (cliView, error) {
 	v := cliView{CLI: cli, Config: c, IntegrationApplied: cliIntegrationPrepared(deps.DataDir, cli), Sessions: clisession.CapabilitiesOf(cli.ID), IntegrationCapable: cli.Integrable(), Launchable: cli.Launchable(), HasIntegrationMechanism: hasIntegrationMechanism(cli.ID)}
 	v.Sessions.Agent = cliAgentLanding(cli.ID)
 	v.Plan, _ = launchPlan(deps, cli, c, clilaunch.Overrides{}, filepath.Join(deps.DataDir, "cli-launch", "{terminal}", "run-{next}"))
-	v.Executable, err = resolveCLIExecutable(cli, c)
+	v.Executable, err = resolveInstalledCLI(cli, c)
 	v.Installed = err == nil
 	if err != nil {
 		v.Problem = err.Error()

@@ -177,6 +177,12 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the btab_annotate_mode command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-annotate-mode",
+          "markdownDescription": "Enables the btab_annotate_mode command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_back command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-back",
@@ -463,6 +469,12 @@
           "type": "string",
           "const": "allow-wslconfig-write",
           "markdownDescription": "Enables the wslconfig_write command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_annotate_mode command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-annotate-mode",
+          "markdownDescription": "Denies the btab_annotate_mode command without any pre-configured scope."
         },
         {
           "description": "Denies the btab_back command without any pre-configured scope.",

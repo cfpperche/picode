@@ -13,6 +13,7 @@
 
 mod btab;
 mod external;
+mod annotate;
 mod board;
 mod browserlab;
 mod capture;
@@ -94,6 +95,7 @@ fn main() {
             btab::btab_cdp_events,
             btab::btab_close,
             btab::btab_open_external,
+            btab::btab_annotate_mode,
             btab::btab_set_prefs,
             btab::btab_download_dir,
             btab::btab_set_download_dir,

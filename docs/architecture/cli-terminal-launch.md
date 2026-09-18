@@ -32,6 +32,11 @@ Old generations are reclaimed after a successful new launch; Remove deletes
 only that terminal's private launch files, not native CLI data.
 
 `GET /api/clis` resolves installation without starting a conversation;
+A vendor self-update rewrites its launcher or symlink in place, so one
+`Stat` can land inside that swap window and read the CLI as absent — the
+resolver retries once (~150 ms) before declaring a CLI not installed
+(2026-09-18: four rows flipped their lifecycle off for a single request
+while grok, hermes, muse and omp updated themselves).
 `POST /api/clis/<cli>/check` explicitly runs bounded `--version` and checks
 reporter prerequisites. It does not certify authentication or every hook.
 `GET /api/clis/<cli>/sessions?cwd=` lists a CLI's on-disk sessions read-only
