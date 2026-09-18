@@ -1,0 +1,23 @@
+{
+  "name": "pi-computer",
+  "version": "0.1.0",
+  "description": "Standalone pi extension: let an agent use the Windows desktop through PiCode's desktop app — screenshots, mouse, keyboard, windows, clipboard, programs (ADR-0148).",
+  "license": "MIT",
+  "type": "module",
+  "keywords": ["pi-package", "pi", "picode", "computer-use", "desktop"],
+  "files": ["extensions", "src", "LICENSE", "README.md"],
+  "scripts": {
+    "test": "node --test test/*.test.ts"
+  },
+  "pi": {
+    "extensions": ["./extensions/computer.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cfpperche/picode.git",
+    "directory": "packages/pi-computer"
+  }
+}
