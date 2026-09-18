@@ -275,8 +275,8 @@ func TestMCPAuthLogoutNeedsName(t *testing.T) {
 }
 
 // ADR-0150: a request naming a CLI without a driver must fail loudly
-// instead of writing Pi's files. claude and codex ship phase-1 drivers;
-// every other guest CLI still has none.
+// instead of writing Pi's files. claude-code, codex, omp and agy ship
+// drivers; every other guest CLI still has none.
 func TestMCPRejectsCLIWithoutDriver(t *testing.T) {
 	ts := newTestServer(t, "cat")
 
@@ -290,10 +290,10 @@ func TestMCPRejectsCLIWithoutDriver(t *testing.T) {
 	_ = get.Body.Close()
 
 	add := postJSON(t, ts, "/api/mcp", map[string]any{
-		"cli": "omp", "scope": "user", "name": "deepwiki", "url": "https://mcp.deepwiki.com/mcp",
+		"cli": "grok", "scope": "user", "name": "deepwiki", "url": "https://mcp.deepwiki.com/mcp",
 	})
 	if add.StatusCode != http.StatusBadRequest {
-		t.Fatalf("POST cli=omp status %d", add.StatusCode)
+		t.Fatalf("POST cli=grok status %d", add.StatusCode)
 	}
 	_ = add.Body.Close()
 
@@ -483,6 +483,148 @@ func thisBody(res *http.Response) string {
 	return string(raw)
 }
 
+// ADR-0150 phase 2: ?cli=omp|agy answer through their guest drivers — the
+// same Report shape, native files edited in place, the AGY legacy url-only
+// entry reported unowned and refused on write.
+func TestMCPGuestDriversPhase2(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	writeFakeCLI(t, "omp", "")
+	writeFakeCLI(t, "agy", "")
+	ts := newTestServer(t, "cat")
+
+	for _, tc := range []struct{ cli, source string }{{"omp", "native:omp"}, {"agy", "native:agy"}} {
+		res, err := ts.Client().Get(ts.URL + "/api/mcp?cli=" + tc.cli)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var rep struct {
+			Adapter struct {
+				Installed bool   `json:"installed"`
+				Source    string `json:"source"`
+			} `json:"adapter"`
+		}
+		if err := json.NewDecoder(res.Body).Decode(&rep); err != nil {
+			t.Fatal(err)
+		}
+		_ = res.Body.Close()
+		if res.StatusCode != http.StatusOK || rep.Adapter.Source != tc.source || !rep.Adapter.Installed {
+			t.Fatalf("GET cli=%s = %d %+v", tc.cli, res.StatusCode, rep.Adapter)
+		}
+	}
+
+	wsDir := t.TempDir()
+	wres := postJSON(t, ts, "/api/workspaces", map[string]any{"name": "ws", "path": wsDir})
+	if wres.StatusCode != http.StatusCreated {
+		t.Fatalf("workspace = %d", wres.StatusCode)
+	}
+	var wk workspaceView
+	if err := json.NewDecoder(wres.Body).Decode(&wk); err != nil {
+		t.Fatal(err)
+	}
+
+	// Omp add lands in .omp/mcp.json; toggle flips the entry's enabled flag.
+	add := postJSON(t, ts, "/api/mcp", map[string]any{
+		"cli": "omp", "scope": "project", "workspaceId": wk.ID, "name": "docs", "url": "https://docs.example/mcp",
+	})
+	if add.StatusCode != http.StatusOK {
+		t.Fatalf("omp add = %d %s", add.StatusCode, thisBody(add))
+	}
+	_ = add.Body.Close()
+	ompRaw, err := os.ReadFile(filepath.Join(wsDir, ".omp", "mcp.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(ompRaw), `"https://docs.example/mcp"`) {
+		t.Fatalf("omp project file: %s", ompRaw)
+	}
+	off := mcpPatch(t, ts, map[string]any{"cli": "omp", "scope": "project", "workspaceId": wk.ID, "name": "docs", "disabled": true})
+	if off.StatusCode != http.StatusOK {
+		t.Fatalf("omp toggle = %d %s", off.StatusCode, thisBody(off))
+	}
+	_ = off.Body.Close()
+	ompRaw, _ = os.ReadFile(filepath.Join(wsDir, ".omp", "mcp.json"))
+	if !strings.Contains(string(ompRaw), `"enabled": false`) {
+		t.Fatalf("omp toggle: %s", ompRaw)
+	}
+
+	// AGY add writes serverUrl, never the legacy url key.
+	add = postJSON(t, ts, "/api/mcp", map[string]any{
+		"cli": "agy", "scope": "project", "workspaceId": wk.ID, "name": "relay", "url": "https://relay.example/mcp",
+	})
+	if add.StatusCode != http.StatusOK {
+		t.Fatalf("agy add = %d %s", add.StatusCode, thisBody(add))
+	}
+	_ = add.Body.Close()
+	agyPath := filepath.Join(wsDir, ".agents", "mcp_config.json")
+	agyRaw, err := os.ReadFile(agyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(agyRaw), `"serverUrl"`) || strings.Contains(string(agyRaw), `"url"`) {
+		t.Fatalf("agy project file: %s", agyRaw)
+	}
+
+	// A legacy url-only AGY entry displays unowned; Toggle refuses and the
+	// file survives untouched.
+	seed := `{"mcpServers":{"old":{"url":"https://old.example/mcp"},"relay":{"serverUrl":"https://relay.example/mcp"}}}`
+	if err := os.WriteFile(agyPath, []byte(seed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	off = mcpPatch(t, ts, map[string]any{"cli": "agy", "scope": "project", "workspaceId": wk.ID, "name": "old", "disabled": true})
+	if off.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(off), "legacy entry managed in Antigravity") {
+		t.Fatalf("agy legacy toggle = %d %s", off.StatusCode, thisBody(off))
+	}
+	_ = off.Body.Close()
+	if got, _ := os.ReadFile(agyPath); string(got) != seed {
+		t.Fatalf("legacy file modified: %q", got)
+	}
+	res, err := ts.Client().Get(ts.URL + "/api/mcp?cli=agy&workspace=" + wk.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rep struct {
+		Servers []struct {
+			Name  string `json:"name"`
+			URL   string `json:"url"`
+			Owned bool   `json:"owned"`
+		} `json:"servers"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&rep); err != nil {
+		t.Fatal(err)
+	}
+	_ = res.Body.Close()
+	owned := map[string]bool{}
+	for _, s := range rep.Servers {
+		owned[s.Name] = s.Owned
+		if s.Name == "old" && s.Owned {
+			t.Fatalf("legacy row reported owned: %+v", rep.Servers)
+		}
+		if s.Name == "old" && s.URL != "https://old.example/mcp" {
+			t.Fatalf("legacy row url = %q", s.URL)
+		}
+	}
+	if len(rep.Servers) != 2 || !owned["relay"] || owned["old"] {
+		t.Fatalf("agy rows = %+v", rep.Servers)
+	}
+
+	// Guest remove of the managed AGY entry works; the legacy row is kept.
+	del, err := http.NewRequest(http.MethodDelete, ts.URL+"/api/mcp?cli=agy&scope=project&workspace="+wk.ID+"&name=relay", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rmv := do(t, ts.Client(), del)
+	if rmv.StatusCode != http.StatusOK {
+		t.Fatalf("agy remove = %d %s", rmv.StatusCode, thisBody(rmv))
+	}
+	_ = rmv.Body.Close()
+	agyRaw, _ = os.ReadFile(agyPath)
+	if !strings.Contains(string(agyRaw), "old") || strings.Contains(string(agyRaw), "relay") {
+		t.Fatalf("agy remove: %s", agyRaw)
+	}
+}
+
 // Guest auth and import refuse with the vendor instruction; logout points at
 // the CLI. The pi-mcp-adapter gate must not apply to guests.
 func TestMCPGuestAuthAndImportRefusals(t *testing.T) {
@@ -500,6 +642,20 @@ func TestMCPGuestAuthAndImportRefusals(t *testing.T) {
 	}
 	_ = auth.Body.Close()
 
+	// Omp's OAuth is TUI-only; Antigravity signs in through its own
+	// settings — the hints are driver-specific, never PiCode's flow.
+	auth = postJSON(t, ts, "/api/mcp/auth", map[string]any{"cli": "omp", "name": "docs"})
+	if auth.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(auth), "/mcp reauth docs") {
+		t.Fatalf("omp auth = %d %s", auth.StatusCode, thisBody(auth))
+	}
+	_ = auth.Body.Close()
+
+	auth = postJSON(t, ts, "/api/mcp/auth", map[string]any{"cli": "agy", "name": "docs"})
+	if auth.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(auth), "Agent Settings") {
+		t.Fatalf("agy auth = %d %s", auth.StatusCode, thisBody(auth))
+	}
+	_ = auth.Body.Close()
+
 	logout := postJSON(t, ts, "/api/mcp/auth/logout", map[string]any{"cli": "codex", "name": "docs"})
 	if logout.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(logout), "codex") {
 		t.Fatalf("codex logout = %d %s", logout.StatusCode, thisBody(logout))
@@ -509,6 +665,12 @@ func TestMCPGuestAuthAndImportRefusals(t *testing.T) {
 	imp := postJSON(t, ts, "/api/mcp/import", map[string]any{"cli": "claude-code", "picks": []any{map[string]any{"kind": "cursor", "servers": []any{"x"}}}})
 	if imp.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(imp), "arrive in a later phase") {
 		t.Fatalf("claude import = %d %s", imp.StatusCode, thisBody(imp))
+	}
+	_ = imp.Body.Close()
+
+	imp = postJSON(t, ts, "/api/mcp/import", map[string]any{"cli": "omp", "picks": []any{map[string]any{"kind": "cursor", "servers": []any{"x"}}}})
+	if imp.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(imp), "arrive in a later phase") {
+		t.Fatalf("omp import = %d %s", imp.StatusCode, thisBody(imp))
 	}
 	_ = imp.Body.Close()
 }

@@ -26,10 +26,11 @@ func registerMCPRoutes(mux Registrar, deps Deps) {
 }
 
 // connectorDrivers declares which agent CLI a /api/mcp request drives.
-// Pi ships the adapter driver below; claude-code and codex dispatch to their
-// guest drivers in internal/connectors (ADR-0150 phase 1). A request naming
-// any other CLI fails loudly instead of silently writing Pi's files.
-var connectorDrivers = map[string]bool{"pi": true, "claude-code": true, "codex": true}
+// Pi ships the adapter driver below; claude-code, codex, omp and agy
+// dispatch to their guest drivers in internal/connectors (ADR-0150). A
+// request naming any other CLI fails loudly instead of silently writing
+// Pi's files.
+var connectorDrivers = map[string]bool{"pi": true, "claude-code": true, "codex": true, "omp": true, "agy": true}
 
 func requireConnectorDriver(cli string) error {
 	if cli == "" || connectorDrivers[cli] {
@@ -335,11 +336,12 @@ func handleMCPAuth(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		// Guest sign-in never runs through PiCode's flow: the vendor CLI is
-		// the only authority for its own credentials (ADR-0150). The command
-		// names the vendor binary, not the driver id.
+		// Guest sign-in never runs through PiCode's flow: the vendor is
+		// the only authority for its own credentials (ADR-0150). The
+		// refusal carries the driver's own hint — a terminal command, a
+		// TUI command, or the vendor's settings path.
 		if d := connectors.For(req.CLI); d != nil {
-			writeErr(w, http.StatusBadRequest, "sign in from a terminal instead: "+d.Bin()+" mcp login "+req.Name)
+			writeErr(w, http.StatusBadRequest, d.AuthHint(req.Name).Text)
 			return
 		}
 		if deps.Runtime == nil {
