@@ -80,6 +80,7 @@ export default defineConfig({
               { text: "Checklist", link: "/guide/checklist" },
               { text: "Compact earlier", link: "/guide/compact" },
               { text: "Diff panel", link: "/guide/diff-panel" },
+              { text: "Web apps", link: "/guide/web-apps" },
             ],
           },
           {
