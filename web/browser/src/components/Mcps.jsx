@@ -228,8 +228,10 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
 
   // Guests never sign in through PiCode: the pane shows the vendor's own
   // path instead of a failing call (ADR-0150) — a copyable command (a
-  // terminal one by default, or the vendor TUI), or a plain sentence when
-  // the vendor signs in outside any command line.
+  // terminal one by default, or the vendor TUI) beside the controls, or a
+  // plain sentence on its own line under the row when the vendor signs in
+  // outside any command line (a sentence inline would squeeze the target
+  // and unbalance the action row).
   function needsVendorSignIn(s) {
     return guest && !s.disabled && s.transport === "url" && driver.auth.includes("oauth");
   }
@@ -409,8 +411,9 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
                   const state = word === "live" || word === "failed" ? word : "";
                   const menu = canSignOut(s) || s.owned;
                   const vendor = needsVendorSignIn(s) ? vendorSignIn(s) : null;
+                  const note = vendor && !vendor.command ? vendor.text : "";
                   return (
-                  <li key={s.layer + ":" + s.name} className={"mcp-row" + (s.disabled ? " off" : "")}>
+                  <li key={s.layer + ":" + s.name} className={"mcp-row" + (s.disabled ? " off" : "") + (note ? " has-note" : "")}>
                     <div className="mcp-row-main">
                       {state ? (
                         <span className={"mcp-live " + state} title={liveTitle(state)}>{liveLabel(state)}</span>
@@ -420,16 +423,12 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
                       <code className="mcp-target" title={targetOf(s)}>{targetOf(s)}</code>
                     </div>
                     <div className="mcp-row-actions" data-align-row>
-                      {vendor ? (
-                        vendor.command ? (
-                          <span className="mcp-login">
-                            <code title={"Run this in " + vendor.where + " to sign in to " + s.name}>{vendor.command}</code>
-                            <button type="button" className="btn btn-ghost btn-sm" disabled={!!job} aria-label={"Copy the sign-in command for " + s.name} onClick={() => copyVendorCmd(vendor.command)}>Copy</button>
-                          </span>
-                        ) : (
-                          <span className="mcp-login" title={"How to sign in to " + s.name}>{vendor.text}</span>
-                        )
-                      ) : canSignIn(s) ? (
+                      {vendor && vendor.command ? (
+                        <span className="mcp-login">
+                          <code title={"Run this in " + vendor.where + " to sign in to " + s.name}>{vendor.command}</code>
+                          <button type="button" className="btn btn-ghost btn-sm" disabled={!!job} aria-label={"Copy the sign-in command for " + s.name} onClick={() => copyVendorCmd(vendor.command)}>Copy</button>
+                        </span>
+                      ) : !vendor && canSignIn(s) ? (
                         <button type="button" className="btn btn-ghost" disabled={!!job} onClick={() => signIn(s)}>Sign in</button>
                       ) : null}
                       {driver.toggle !== "none" ? (
@@ -457,6 +456,7 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
                         </DropdownMenu.Root>
                       ) : null}
                     </div>
+                    {note ? <p className="mcp-login-note">{note}</p> : null}
                   </li>
                   );
                 })}
