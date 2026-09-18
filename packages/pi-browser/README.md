@@ -6,7 +6,7 @@ app) — the `browser` tool (ADR-0132, ADR-0134).
 | Verb | What it returns | Tier |
 |---|---|---|
 | `snapshot` | the page as an accessibility tree: `role "name"` lines | read |
-| `screenshot` | a PNG of the page on screen, written to a temp path | read |
+| `screenshot` | the page on screen as an image the model sees | read |
 | `events` | what the tab recorded: navigation, console, network | read |
 | `evaluate` | the result of a JavaScript expression | act |
 | `navigate` | the page after a navigation, inside the grant's domains | act |

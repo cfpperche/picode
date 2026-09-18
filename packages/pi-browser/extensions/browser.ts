@@ -12,21 +12,21 @@
  * desktop app is not connected", and that is what the model gets.
  */
 
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { defineTool, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import {
+	imageBlock,
 	parseAnswer,
 	rejectUnauthorizedFor,
 	resolveDataDir,
 	resolveServerUrl,
 	resolveToken,
-	screenshotPath,
 	summarizeAx,
 	summarizeCdp,
 	summarizeEvaluate,
@@ -75,7 +75,7 @@ export default function piBrowser(pi: ExtensionAPI) {
 		label: "Browser",
 		description:
 			"Read the web page the human has open in PiCode's work browser (the desktop app). " +
-			"Verbs: snapshot (the page as an accessibility tree — roles and names), screenshot (writes a PNG and returns its path), " +
+			"Verbs: snapshot (the page as an accessibility tree — roles and names), screenshot (the page as an image you see), " +
 			"events (what the tab recorded: navigation, console, network), cdp (one Chrome DevTools Protocol method by name; needs Developer mode), history (where the human has been; off until they allow it in Settings). " +
 			"Read-only by default: it cannot click, type or navigate.",
 		promptSnippet: "Read the page open in PiCode's work browser (desktop app)",
@@ -149,13 +149,14 @@ export default function piBrowser(pi: ExtensionAPI) {
 			const { verb, output } = parsed.answer;
 
 			if (verb === "screenshot") {
-				const data = (output as { data?: unknown })?.data;
-				if (typeof data !== "string" || data === "") {
+				// The capture goes to the model as an image block (pi resizes it
+				// after the tool_result hook), not as a temp path it would then
+				// have to read: one call to see the page.
+				const image = imageBlock(output);
+				if (!image) {
 					return { content: [{ type: "text", text: "browser: the page could not be captured" }], isError: true };
 				}
-				const path = screenshotPath(tmpdir(), Date.now());
-				await writeFile(path, Buffer.from(data, "base64"));
-				return { content: [{ type: "text", text: `Screenshot of the page on screen written to ${path}` }], details: { path } };
+				return { content: [{ type: "text", text: "Screenshot of the page on screen (attached)." }, image] };
 			}
 			if (verb === "history") {
 				return { content: [{ type: "text", text: summarizeHistory(output) }] };
