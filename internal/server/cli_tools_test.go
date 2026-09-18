@@ -157,7 +157,9 @@ func TestToolFamiliesAndRefusals(t *testing.T) {
 // The routes refuse tools for a CLI that cannot take them at launch and
 // keep them for one that can; the preview names what will be injected.
 func TestToolLaunchRoutes(t *testing.T) {
-	ts := newTestServer(t, "cat")
+	// cleanupServer gives the daemon a data dir: the PUT syncs the intercept
+	// files there, never into the package directory.
+	ts, _, _ := cleanupServer(t)
 	cliRequest(t, ts, "PUT", "/api/clis/grok", map[string]any{"executable": "/bin/true", "args": []any{}, "env": map[string]any{}, "integration": false, "tools": []any{"computer"}}, 400)
 	v := cliRequest(t, ts, "PUT", "/api/clis/claude-code", map[string]any{"executable": "/bin/true", "args": []any{}, "env": map[string]any{}, "integration": false, "tools": []any{"computer", "browser"}}, 200)
 	if v["toolsCapable"] != true {
