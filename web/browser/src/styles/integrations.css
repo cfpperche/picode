@@ -57,3 +57,7 @@
 .mcp-form.integration-form { gap: 14px; }
 .mcp-field-group { display: flex; flex-direction: column; gap: 6px; }
 .mcp-group-label { font-size: 12px; color: var(--text-secondary); }
+/* Guest sign-in never runs through PiCode: the vendor command is shown as
+   copyable text where Pi's "Sign in" button would sit (ADR-0150). */
+.mcp-login { display: inline-flex; align-items: center; gap: 6px; }
+.mcp-login code { font-family: var(--mono); font-size: 12px; color: var(--text-secondary); white-space: nowrap; }

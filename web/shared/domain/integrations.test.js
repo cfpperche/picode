@@ -13,12 +13,13 @@ test("integration routes and safe destination labels", () => {
 
 test("connectors nest on the selected CLI; webhooks stay platform", () => {
   assert.equal(supportsCliConnectors("pi"), true);
-  assert.equal(supportsCliConnectors("codex"), false);
+  assert.equal(supportsCliConnectors("claude"), true);
+  assert.equal(supportsCliConnectors("codex"), true);
+  assert.equal(supportsCliConnectors("grok"), false);
   assert.equal(connectorDriver("pi").name, "Pi");
   assert.equal(connectorDriver("pi").status, "live");
-  assert.equal(connectorDriver("codex"), null);
+  assert.equal(connectorDriver("grok"), null);
   assert.equal(connectorDriver(""), null);
-  assert.deepEqual(CLI_CONNECTORS.map((c) => c.id), ["pi"]);
   assert.equal(cliConnectorsHash("pi"), "#/clis/pi/connectors");
   assert.equal(cliConnectorsLocation("#/integrations").redirect, "#/clis/pi/connectors");
   assert.equal(cliConnectorsLocation("#/integrations/connectors").redirect, "#/clis/pi/connectors");
@@ -36,6 +37,21 @@ test("connectors nest on the selected CLI; webhooks stay platform", () => {
   const adopted = cliConnectorsLocation("#/mcps", { workspaceId: "w", agentId: "a" });
   assert.equal(adopted.adoptPane, true);
   assert.equal(adopted.redirect, "#/clis/pi/connectors?workspaceId=w&agentId=a");
+});
+
+// ADR-0150: each driver declares its honest capability set — the pane shows
+// exactly this and nothing more.
+test("every connector driver declares its capability set", () => {
+  assert.deepEqual(CLI_CONNECTORS, [
+    { id: "pi", name: "Pi", status: "live", auth: ["oauth", "bearer"], toggle: "entry" },
+    { id: "claude", name: "Claude Code", status: "configured", auth: ["oauth"], toggle: "none" },
+    { id: "codex", name: "Codex", status: "configured", auth: ["oauth", "bearer"], toggle: "entry" },
+  ]);
+  for (const d of CLI_CONNECTORS) {
+    assert.ok(["live", "configured"].includes(d.status), d.id + " status");
+    assert.ok(["entry", "none"].includes(d.toggle), d.id + " toggle");
+    assert.ok(d.auth.length > 0, d.id + " auth");
+  }
 });
 
 test("connector tabs keep the catalog fixed and list only hosts with servers", () => {

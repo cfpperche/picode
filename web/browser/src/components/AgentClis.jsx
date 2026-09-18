@@ -274,6 +274,7 @@ function ConnectorsPane({ route, onReload }) {
   const workspace = ctx.workspace, agent = ctx.agent;
   return <Mcps
     hidden={false}
+    cli={route.id || "pi"}
     scope={route.scope}
     onScopeChange={(scope) => { location.hash = cliConnectorsHash(route.id || "pi", { workspaceId: route.workspaceId, agentId: route.agentId, scope }); }}
     workspaceId={workspace?.id || ""}

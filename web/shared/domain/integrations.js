@@ -1,7 +1,8 @@
 // Headless contracts only; desktop and mobile own their presentation.
 // A CLI is connector-capable only when a driver declares its capabilities
-// here (ADR-0150). Pi ships the first driver; guest CLIs join as their
-// codecs land. The pane renders what a driver declares and nothing more.
+// here (ADR-0150). The pane renders what a driver declares and nothing more:
+// status "configured" never claims live state, toggle "none" removes the
+// switch entirely (Claude Code turns servers on/off in its own interface).
 export const CONNECTOR_DRIVERS = {
   pi: {
     id: "pi",
@@ -9,6 +10,20 @@ export const CONNECTOR_DRIVERS = {
     status: "live", // live | configured — what the pane may honestly claim
     auth: ["oauth", "bearer"],
     toggle: "entry", // per-entry enable/disable, not stub-overlay
+  },
+  claude: {
+    id: "claude",
+    name: "Claude Code",
+    status: "configured",
+    auth: ["oauth"],
+    toggle: "none", // sign-in and on/off live inside Claude Code
+  },
+  codex: {
+    id: "codex",
+    name: "Codex",
+    status: "configured",
+    auth: ["oauth", "bearer"],
+    toggle: "entry", // [mcp_servers.<name>] enabled flag
   },
 };
 export const CLI_CONNECTORS = Object.values(CONNECTOR_DRIVERS);
