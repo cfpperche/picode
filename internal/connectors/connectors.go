@@ -84,6 +84,10 @@ func For(cli string) Driver {
 		return OpenCode{}
 	case "grok":
 		return Grok{}
+	case "muse":
+		return Muse{}
+	case "hermes":
+		return Hermes{}
 	default:
 		return nil
 	}

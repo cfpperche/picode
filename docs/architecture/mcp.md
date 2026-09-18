@@ -63,8 +63,8 @@ write, atomic rename) and never shell out — both scopes are plain files:
   sign-in hint is plain text — no command exists to copy.
 
 Guest sign-in hints are declared per driver (`AuthHint` in Go,
-`signIn` in `CONNECTOR_DRIVERS`): copyable for claude-code, codex, omp and
-opencode, plain text for agy and grok.
+`signIn` in `CONNECTOR_DRIVERS`): copyable for claude-code, codex, omp,
+opencode, muse and hermes, plain text for agy and grok.
 
 Since phase 3 (2026-09-18) two more codecs complete the set of shapes so
 far, one JSON, one TOML:
@@ -90,6 +90,30 @@ far, one JSON, one TOML:
   removes the pane's switch and a toggle request is refused ("remove and
   re-add instead"); OAuth happens on first use inside Grok, so its
   sign-in hint is plain text.
+
+Since phase 4 (2026-09-18) the last two codecs close the set: every catalog
+CLI now has a Connectors pane (ADR-0150 complete). Both keep a single config
+file, so project scope refuses with a pointer to it instead of inventing a
+per-workspace variant:
+
+- **Muse** — the one JSON settings file at `~/.config/muse/settings.json`.
+  Its `mcp_servers` block holds `{name: {transport: "stdio"|"streamable_http",
+  command, args, env | url, headers, enabled?, mode?, …}}`: a URL entry
+  rides `transport: "streamable_http"`, `enabled` is the toggle, and
+  `schema_version`, `mode` and every unknown document/entry key survive
+  every write (same JSON codec as the other drivers). Its sign-in hint is
+  the vendor command (`muse mcp login <name>`).
+- **Hermes** (`hermes`) — the one YAML config file at
+  `~/.hermes/config.yaml`. Its `mcp_servers` block holds `{name: {command,
+  args, env | url, headers, enabled?, auth?, tools?}}`; `enabled` is the
+  toggle. YAML has comments and key order worth keeping, so this codec
+  edits the document as a `yaml.Node` tree (`gopkg.in/yaml.v3`, ADR-0150
+  decision 3) instead of a generic map: untouched keys keep their position
+  and comments, entries' own fields (`auth`, `tools.include/exclude`, …)
+  survive an update, `${VAR}` placeholders travel as plain scalars and are
+  never interpreted, and a malformed file refuses with a clear error before
+  anything is written. Its sign-in hint is the vendor command
+  (`hermes mcp login <name>`).
 
 `web/shared/domain/integrations.js` `CONNECTOR_DRIVERS` declares each CLI's
 honest capability set (status `live` vs `configured`), and a request naming a

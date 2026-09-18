@@ -26,11 +26,10 @@ func registerMCPRoutes(mux Registrar, deps Deps) {
 }
 
 // connectorDrivers declares which agent CLI a /api/mcp request drives.
-// Pi ships the adapter driver below; claude-code, codex, omp, agy, opencode
-// and grok dispatch to their guest drivers in internal/connectors
-// (ADR-0150). A request naming any other CLI fails loudly instead of
-// silently writing Pi's files.
-var connectorDrivers = map[string]bool{"pi": true, "claude-code": true, "codex": true, "omp": true, "agy": true, "opencode": true, "grok": true}
+// Pi ships the adapter driver below; every other catalog CLI dispatches to
+// its guest driver in internal/connectors (ADR-0150). A request naming any
+// other CLI fails loudly instead of silently writing Pi's files.
+var connectorDrivers = map[string]bool{"pi": true, "claude-code": true, "codex": true, "omp": true, "agy": true, "opencode": true, "grok": true, "muse": true, "hermes": true}
 
 func requireConnectorDriver(cli string) error {
 	if cli == "" || connectorDrivers[cli] {

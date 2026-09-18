@@ -280,30 +280,30 @@ func TestMCPAuthLogoutNeedsName(t *testing.T) {
 func TestMCPRejectsCLIWithoutDriver(t *testing.T) {
 	ts := newTestServer(t, "cat")
 
-	get, err := ts.Client().Get(ts.URL + "/api/mcp?cli=muse")
+	get, err := ts.Client().Get(ts.URL + "/api/mcp?cli=cursor")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if get.StatusCode != http.StatusBadRequest {
-		t.Fatalf("GET cli=grok status %d", get.StatusCode)
+		t.Fatalf("GET cli=cursor status %d", get.StatusCode)
 	}
 	_ = get.Body.Close()
 
 	add := postJSON(t, ts, "/api/mcp", map[string]any{
-		"cli": "muse", "scope": "user", "name": "deepwiki", "url": "https://mcp.deepwiki.com/mcp",
+		"cli": "cursor", "scope": "user", "name": "deepwiki", "url": "https://mcp.deepwiki.com/mcp",
 	})
 	if add.StatusCode != http.StatusBadRequest {
-		t.Fatalf("POST cli=muse status %d", add.StatusCode)
+		t.Fatalf("POST cli=cursor status %d", add.StatusCode)
 	}
 	_ = add.Body.Close()
 
-	del, err := http.NewRequest(http.MethodDelete, ts.URL+"/api/mcp?scope=user&name=deepwiki&cli=muse", nil)
+	del, err := http.NewRequest(http.MethodDelete, ts.URL+"/api/mcp?scope=user&name=deepwiki&cli=cursor", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	rm := do(t, ts.Client(), del)
 	if rm.StatusCode != http.StatusBadRequest {
-		t.Fatalf("DELETE cli=muse status %d", rm.StatusCode)
+		t.Fatalf("DELETE cli=cursor status %d", rm.StatusCode)
 	}
 	_ = rm.Body.Close()
 
@@ -670,6 +670,19 @@ func TestMCPGuestAuthAndImportRefusals(t *testing.T) {
 	}
 	_ = auth.Body.Close()
 
+	// Phase 4: muse and hermes sign in through their own terminal commands.
+	auth = postJSON(t, ts, "/api/mcp/auth", map[string]any{"cli": "muse", "name": "docs"})
+	if auth.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(auth), "muse mcp login docs") {
+		t.Fatalf("muse auth = %d %s", auth.StatusCode, thisBody(auth))
+	}
+	_ = auth.Body.Close()
+
+	auth = postJSON(t, ts, "/api/mcp/auth", map[string]any{"cli": "hermes", "name": "docs"})
+	if auth.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(auth), "hermes mcp login docs") {
+		t.Fatalf("hermes auth = %d %s", auth.StatusCode, thisBody(auth))
+	}
+	_ = auth.Body.Close()
+
 	logout := postJSON(t, ts, "/api/mcp/auth/logout", map[string]any{"cli": "codex", "name": "docs"})
 	if logout.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(logout), "codex") {
 		t.Fatalf("codex logout = %d %s", logout.StatusCode, thisBody(logout))
@@ -691,6 +704,12 @@ func TestMCPGuestAuthAndImportRefusals(t *testing.T) {
 	imp = postJSON(t, ts, "/api/mcp/import", map[string]any{"cli": "opencode", "picks": []any{map[string]any{"kind": "cursor", "servers": []any{"x"}}}})
 	if imp.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(imp), "arrive in a later phase") {
 		t.Fatalf("opencode import = %d %s", imp.StatusCode, thisBody(imp))
+	}
+	_ = imp.Body.Close()
+
+	imp = postJSON(t, ts, "/api/mcp/import", map[string]any{"cli": "hermes", "picks": []any{map[string]any{"kind": "cursor", "servers": []any{"x"}}}})
+	if imp.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(imp), "arrive in a later phase") {
+		t.Fatalf("hermes import = %d %s", imp.StatusCode, thisBody(imp))
 	}
 	_ = imp.Body.Close()
 }
@@ -831,6 +850,141 @@ func TestMCPGuestDriversPhase3(t *testing.T) {
 	grokRaw, _ = os.ReadFile(grokPath)
 	if strings.Contains(string(grokRaw), "mcp_servers.docs") {
 		t.Fatalf("grok remove: %s", grokRaw)
+	}
+}
+
+// ADR-0150 phase 4: ?cli=muse|hermes answer through their guest drivers —
+// Muse's settings.json mcp_servers block (transport stdio|streamable_http,
+// per-entry enabled flag, schema_version and mode preserved) and Hermes's
+// config.yaml mcp_servers block (yaml.Node edits: comments and key order
+// survive). Both CLIs keep one config file, so project scope refuses.
+func TestMCPGuestDriversPhase4(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	writeFakeCLI(t, "muse", "")
+	writeFakeCLI(t, "hermes", "")
+	ts := newTestServer(t, "cat")
+
+	for _, tc := range []struct{ cli, source string }{{"muse", "native:muse"}, {"hermes", "native:hermes"}} {
+		res, err := ts.Client().Get(ts.URL + "/api/mcp?cli=" + tc.cli)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var rep struct {
+			Adapter struct {
+				Installed bool   `json:"installed"`
+				Source    string `json:"source"`
+			} `json:"adapter"`
+		}
+		if err := json.NewDecoder(res.Body).Decode(&rep); err != nil {
+			t.Fatal(err)
+		}
+		_ = res.Body.Close()
+		if res.StatusCode != http.StatusOK || rep.Adapter.Source != tc.source || !rep.Adapter.Installed {
+			t.Fatalf("GET cli=%s = %d %+v", tc.cli, res.StatusCode, rep.Adapter)
+		}
+	}
+
+	// Muse add lands in ~/.config/muse/settings.json with the
+	// streamable_http transport; toggle flips enabled; remove deletes.
+	add := postJSON(t, ts, "/api/mcp", map[string]any{
+		"cli": "muse", "scope": "user", "name": "docs", "url": "https://docs.example/mcp",
+	})
+	if add.StatusCode != http.StatusOK {
+		t.Fatalf("muse add = %d %s", add.StatusCode, thisBody(add))
+	}
+	_ = add.Body.Close()
+	musePath := filepath.Join(home, ".config", "muse", "settings.json")
+	museRaw, err := os.ReadFile(musePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var museDoc map[string]any
+	if err := json.Unmarshal(museRaw, &museDoc); err != nil {
+		t.Fatalf("muse settings: %s", museRaw)
+	}
+	docs, _ := museDoc["mcp_servers"].(map[string]any)["docs"].(map[string]any)
+	if docs == nil || docs["transport"] != "streamable_http" {
+		t.Fatalf("muse entry = %v", docs)
+	}
+	off := mcpPatch(t, ts, map[string]any{"cli": "muse", "scope": "user", "name": "docs", "disabled": true})
+	if off.StatusCode != http.StatusOK {
+		t.Fatalf("muse toggle = %d %s", off.StatusCode, thisBody(off))
+	}
+	_ = off.Body.Close()
+	museRaw, _ = os.ReadFile(musePath)
+	if err := json.Unmarshal(museRaw, &museDoc); err != nil {
+		t.Fatal(err)
+	}
+	docs, _ = museDoc["mcp_servers"].(map[string]any)["docs"].(map[string]any)
+	if docs["enabled"] != false {
+		t.Fatalf("muse toggle: %v", docs)
+	}
+
+	// Hermes add lands in ~/.hermes/config.yaml; toggle flips enabled;
+	// a comment above the entry survives the whole round trip.
+	add = postJSON(t, ts, "/api/mcp", map[string]any{
+		"cli": "hermes", "scope": "user", "name": "docs", "command": "npx", "args": []string{"-y", "docs-mcp"},
+	})
+	if add.StatusCode != http.StatusOK {
+		t.Fatalf("hermes add = %d %s", add.StatusCode, thisBody(add))
+	}
+	_ = add.Body.Close()
+	hermesPath := filepath.Join(home, ".hermes", "config.yaml")
+	hermesRaw, err := os.ReadFile(hermesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(hermesRaw), "command: npx") {
+		t.Fatalf("hermes config: %s", hermesRaw)
+	}
+	off = mcpPatch(t, ts, map[string]any{"cli": "hermes", "scope": "user", "name": "docs", "disabled": true})
+	if off.StatusCode != http.StatusOK {
+		t.Fatalf("hermes toggle = %d %s", off.StatusCode, thisBody(off))
+	}
+	_ = off.Body.Close()
+	hermesRaw, _ = os.ReadFile(hermesPath)
+	if !strings.Contains(string(hermesRaw), "enabled: false") {
+		t.Fatalf("hermes toggle: %s", hermesRaw)
+	}
+
+	// Both CLIs keep one config file: project scope refuses loudly.
+	proj := postJSON(t, ts, "/api/mcp", map[string]any{
+		"cli": "hermes", "scope": "project", "name": "docs", "command": "npx",
+	})
+	if proj.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(proj), "no per-workspace file") {
+		t.Fatalf("hermes project add = %d %s", proj.StatusCode, thisBody(proj))
+	}
+	_ = proj.Body.Close()
+	proj = postJSON(t, ts, "/api/mcp", map[string]any{
+		"cli": "muse", "scope": "project", "name": "docs", "url": "https://docs.example/mcp",
+	})
+	if proj.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(proj), "no per-workspace file") {
+		t.Fatalf("muse project add = %d %s", proj.StatusCode, thisBody(proj))
+	}
+	_ = proj.Body.Close()
+
+	// Guest removes clean up again.
+	for _, cli := range []string{"hermes", "muse"} {
+		del, err := http.NewRequest(http.MethodDelete, ts.URL+"/api/mcp?cli="+cli+"&scope=user&name=docs", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rmv := do(t, ts.Client(), del)
+		if rmv.StatusCode != http.StatusOK {
+			t.Fatalf("%s remove = %d %s", cli, rmv.StatusCode, thisBody(rmv))
+		}
+		_ = rmv.Body.Close()
+	}
+	hermesRaw, _ = os.ReadFile(hermesPath)
+	if strings.Contains(string(hermesRaw), "docs") {
+		t.Fatalf("hermes remove: %s", hermesRaw)
+	}
+	museRaw, _ = os.ReadFile(musePath)
+	if strings.Contains(string(museRaw), "docs") {
+		t.Fatalf("muse remove: %s", museRaw)
 	}
 }
 

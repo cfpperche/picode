@@ -64,6 +64,22 @@ export const CONNECTOR_DRIVERS = {
     toggle: "none", // Grok's config has no per-server switch
     signIn: { text: "Sign in happens on first use inside Grok" },
   },
+  muse: {
+    id: "muse",
+    name: "Muse Code",
+    status: "configured",
+    auth: ["oauth"],
+    toggle: "entry", // entry's enabled flag in settings.json mcp_servers
+    signIn: { command: "muse mcp login {name}" },
+  },
+  hermes: {
+    id: "hermes",
+    name: "Hermes Agent",
+    status: "configured",
+    auth: ["oauth"],
+    toggle: "entry", // entry's enabled flag in config.yaml mcp_servers
+    signIn: { command: "hermes mcp login {name}" },
+  },
 };
 export const CLI_CONNECTORS = Object.values(CONNECTOR_DRIVERS);
 export const connectorDriver = (id) => CONNECTOR_DRIVERS[id] || null;
