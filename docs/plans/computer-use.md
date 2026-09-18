@@ -208,6 +208,12 @@ terminal.
 
 ### M3 — Visuals, dashboard, docs (`feat/computer-m3`)
 
+Status 2026-09-18: landed on the branch — the capture as "Last capture"
+with its source and time, action step labels, the Desktop panel on the
+dashboard (`desktop` on the stats route), the public guide, and
+`docs/architecture/computer-tool.md`.
+
+
 Scope: `details.preview` → `ToolCapture`; `stepLabel`; `session_ops.go` +
 `Store.EventsOfTypeSince`; `dashboardStats.js`, `DashboardView.jsx`;
 `docs-site/guide/computer-tool.md` + `config.mjs`;

@@ -48,6 +48,7 @@ agent can use the Windows desktop through the desktop app: screenshots,
 mouse, keyboard, windows, the clipboard, opening programs. Off until you
 switch the agent on in Settings ▸ Computer; on, the agent acts with your own
 permissions on your desktop, without a sandbox.
+Guide: [Computer use for pi](/guide/computer-tool).
 
 Docker sysadmin: install `packages/pi-sysadmin` to give an agent Docker
 inspection and operation tools. The Docker App works independently of the
