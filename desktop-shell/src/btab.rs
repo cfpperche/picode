@@ -924,6 +924,102 @@ pub async fn btab_open_external(url: String) -> Result<(), String> {
         .map_err(|e| format!("open external: {e}"))
 }
 
+// --- Annotate mode (v2c) ----------------------------------------------------
+
+// Tabs with the in-page annotate mode on. The script is injected into the live
+// page (never over it: WebView2 forbids painting HTML over a native child), so
+// the page keeps running and the overlay is the page's own DOM.
+fn annotate_tabs() -> &'static std::sync::Mutex<std::collections::HashSet<String>> {
+    static TABS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<String>>> =
+        std::sync::OnceLock::new();
+    TABS.get_or_init(|| std::sync::Mutex::new(std::collections::HashSet::new()))
+}
+
+thread_local! {
+    // One message receiver per annotate-enabled tab. COM interfaces are not
+    // Send, so they live on the UI thread beside RECEIVERS; dropping one tears
+    // its subscription down.
+    static ANNOTATE_RECEIVERS: std::cell::RefCell<std::collections::HashMap<String, webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2WebMessageReceivedEventHandler>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+/// btab_annotate_mode turns the in-page annotate mode on or off for one tab.
+/// On: enable WebView2's message channel for the tab, subscribe to its
+/// messages (once), and inject the script into the page that is already
+/// loaded. Off: tell the page to take its overlay down. Nothing here goes
+/// through CDP, so no tier applies — this is the human's own UI.
+#[tauri::command]
+pub async fn btab_annotate_mode(app: AppHandle, id: String, on: bool) -> Result<(), String> {
+    let wv = app
+        .get_webview_window(&format!("btab-{id}"))
+        .ok_or_else(|| format!("no such tab: {id}"))?;
+    let emitter = app.clone();
+    let tab = id.clone();
+    let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
+    wv.with_webview(move |platform| unsafe {
+        use webview2_com::WebMessageReceivedEventHandler;
+        use windows::core::{HSTRING, PWSTR};
+        let core = match platform.controller().CoreWebView2() {
+            Ok(core) => core,
+            Err(e) => {
+                let _ = tx.send(Err(format!("CoreWebView2: {e}")));
+                return;
+            }
+        };
+        if let Ok(settings) = core.Settings() {
+            let _ = settings.SetIsWebMessageEnabled(true);
+        }
+        let already = ANNOTATE_RECEIVERS.with(|r| r.borrow().contains_key(&tab));
+        if !already {
+            let emitter = emitter.clone();
+            let tab_for_handler = tab.clone();
+            let handler = WebMessageReceivedEventHandler::create(Box::new(move |_sender, args| {
+                if let Some(args) = args {
+                    let mut raw = PWSTR::null();
+                    if args.WebMessageAsJson(&mut raw).is_ok() {
+                        let payload = unsafe { raw.to_string().unwrap_or_default() };
+                        // The UI matches the tab: {id, raw} keeps the page's own
+                        // JSON intact instead of re-encoding it here.
+                        let outer = serde_json::json!({ "id": tab_for_handler, "raw": payload });
+                        let _ = emitter.emit("btab://annotate", outer.to_string());
+                    }
+                }
+                Ok(())
+            }));
+            let mut token = 0i64;
+            if let Err(e) = core.add_WebMessageReceived(&handler, &mut token) {
+                let _ = tx.send(Err(format!("add_WebMessageReceived: {e}")));
+                return;
+            }
+            ANNOTATE_RECEIVERS.with(|r| {
+                r.borrow_mut().insert(tab.clone(), handler);
+            });
+        }
+        let script = if on {
+            crate::annotate::SCRIPT
+        } else {
+            crate::annotate::EXIT_SCRIPT
+        };
+        match core.ExecuteScript(&HSTRING::from(script), None) {
+            Ok(_) => {}
+            Err(e) => {
+                let _ = tx.send(Err(format!("ExecuteScript: {e}")));
+                return;
+            }
+        }
+        let _ = tx.send(Ok(()));
+    });
+    let out = rx.recv().unwrap_or_else(|_| Err("the shell did not answer".into()));
+    out?;
+    let mut set = annotate_tabs().lock().unwrap();
+    if on {
+        set.insert(id);
+    } else {
+        set.remove(&id);
+    }
+    Ok(())
+}
+
 // The work profile's autofill prefs (slice 3): password autosave and
 // general (contact info) autofill. The UI pushes them (btab_set_prefs);
 // the latest values are applied to every webview at creation. Defaults

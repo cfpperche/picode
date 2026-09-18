@@ -17,6 +17,7 @@
     "core:window:allow-start-dragging",
     "core:window:allow-is-maximized",
     "allow-btab-navigate",
+    "allow-btab-annotate-mode",
     "allow-btab-bounds",
     "allow-btab-visibility",
     "allow-btab-back",

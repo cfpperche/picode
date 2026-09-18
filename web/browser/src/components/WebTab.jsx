@@ -104,6 +104,43 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     return inflight;
   };
 
+  // ---- annotate mode (v2c): the page stays LIVE; the UI lives inside it ----
+  // Nothing is drawn over the native view: the shell injects a script into the
+  // page (shadow DOM), and the page talks back on WebView2's message channel.
+  const [annotOn, setAnnotOn] = useState(false);
+  useEffect(() => {
+    const listen = typeof window !== "undefined" ? window.__TAURI__?.event?.listen : null;
+    if (typeof listen !== "function") return undefined;
+    let unlisten = null;
+    listen("btab://annotate", (event) => {
+      const outer = event?.payload;
+      const msg = typeof outer === "string" ? JSON.parse(outer) : outer;
+      if (!msg || String(msg.id) !== id) return;
+      let inner = msg.raw;
+      if (typeof inner === "string") { try { inner = JSON.parse(inner); } catch { inner = null; } }
+      if (!inner) return;
+      if (inner.kind === "pick") toast.ok("Picked " + (inner.selector || inner.tag || "element"));
+      if (inner.kind === "exit") setAnnotOn(false);
+    }).then((u) => { unlisten = u; }).catch(() => {});
+    return () => { try { if (unlisten) unlisten(); } catch { /* already gone */ } };
+  }, [id]);
+  const toggleAnnotate = () => {
+    if (!invoke) return;
+    const next = !annotOn;
+    setAnnotOn(next);
+    invoke("btab_annotate_mode", { id, on: next }).catch((e) => {
+      setAnnotOn(false);
+      toast("Annotate mode failed: " + (e?.message || e));
+    });
+  };
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === ".") { e.preventDefault(); toggleAnnotate(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
 
   // A menu open has to arrive with its backdrop: the still (the frozen page
   // the HTML sits on) is prefetched on hover and focus, and when it is not
@@ -438,6 +475,14 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
             />
             <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => go()}><IconEnter /></button>
           </div>
+        <button
+          type="button"
+          className={"web-tab-annot-btn" + (annotOn ? " on" : "")}
+          title={annotOn ? "Stop annotating" : "Annotate this page (Ctrl+.)"}
+          aria-label="Annotate this page"
+          aria-pressed={annotOn}
+          onClick={toggleAnnotate}
+        >{annotOn ? "Annotating" : "✎"}</button>
         <DropdownMenu.Root open={menuOpen} onOpenChange={onMenuOpenChange}>
             <DropdownMenu.Trigger asChild>
               <button
