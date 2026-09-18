@@ -50,10 +50,12 @@ export const CLI_QUICK_SETTINGS = {
   ],
   "claude-code": [
     { key: "model", label: "Model", type: "text", flags: ["--model"], suggestions: ["sonnet", "opus", "haiku", "fable"], placeholder: "sonnet", hint: "Alias or full model id." },
+    { key: "addDirs", label: "Additional folders", type: "list", flags: ["--add-dir"], placeholder: "/srv/shared", hint: "One directory per line, allowed for tool access." },
     { key: "permissionMode", label: "Approvals", type: "select", flags: ["--permission-mode"], options: PERMISSION_MODES },
   ],
   codex: [
     { key: "model", label: "Model", type: "text", flags: ["--model", "-m"], placeholder: "gpt-5.3-codex", hint: "Overrides the configured model." },
+    { key: "addDirs", label: "Additional folders", type: "list", flags: ["--add-dir"], placeholder: "/srv/shared", hint: "One directory per line, writable alongside the workspace." },
     { key: "reasoning", label: "Reasoning effort", type: "select", flags: ["-c"], kv: "model_reasoning_effort", options: CODEX_EFFORT },
     { key: "sandbox", label: "Sandbox", type: "select", flags: ["--sandbox", "-s"], options: SANDBOX_MODES, group: "codex" },
     { key: "approval", label: "Approvals", type: "select", flags: ["--ask-for-approval", "-a"], options: CODEX_APPROVALS, group: "codex" },
@@ -74,6 +76,7 @@ export const CLI_QUICK_SETTINGS = {
   ],
   omp: [
     { key: "model", label: "Model", type: "text", flags: ["--model"], placeholder: "opus · openai/gpt-5.2", hint: "Fuzzy match, same as the omp CLI." },
+    { key: "addDirs", label: "Additional folders", type: "list", flags: ["--add-dir"], placeholder: "/srv/shared", hint: "One directory per line, beyond the working directory." },
   ],
 };
 
@@ -159,4 +162,44 @@ export function applyQuickSetting(args, specs, spec, value) {
 // the entry is empty, starts with a quote, or carries whitespace.
 export function argLine(a) {
   return a === "" || /["\s]/.test(a) ? JSON.stringify(a) : a;
+}
+
+// readQuickList returns every value of a repeatable flag (spec.type
+// "list"), in argv order. Joined forms count; a bare flag with no value
+// contributes nothing.
+export function readQuickList(args, spec) {
+  const out = [];
+  for (let i = 0; i < args.length; i++) {
+    const m = matchFlag(args[i], spec.flags);
+    if (!m) continue;
+    if (m.joined !== undefined) { out.push(m.joined); continue; }
+    const next = args[i + 1];
+    if (next !== undefined && !next.startsWith("-")) { out.push(next); i++; }
+  }
+  return out;
+}
+
+// applyQuickList returns argv with every pair of the repeatable flag
+// replaced by values (one pair per value, in order). The block takes the
+// first old pair's position, so surrounding arguments keep their order; a
+// fresh list appends at the end and an empty list removes the flag.
+export function applyQuickList(args, spec, values) {
+  const out = [];
+  let insertAt = -1;
+  for (let i = 0; i < args.length; i++) {
+    const m = matchFlag(args[i], spec.flags);
+    if (!m) { out.push(args[i]); continue; }
+    if (insertAt < 0) insertAt = out.length;
+    if (m.joined === undefined) {
+      const next = args[i + 1];
+      if (next !== undefined && !next.startsWith("-")) i++;
+    }
+  }
+  const pairs = [];
+  for (const v of values) {
+    if (!v) continue;
+    pairs.push(spec.flags[0], v);
+  }
+  if (pairs.length) out.splice(insertAt < 0 ? out.length : insertAt, 0, ...pairs);
+  return out;
 }

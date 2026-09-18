@@ -254,7 +254,8 @@ Workspace menus and the palette open the shared terminal editor with context.
 **Quick launch settings** (2026-09-17, benchmark note
 `docs/benchmarks/2026-09-17-cli-launch-quick-presets.md`): for pi,
 Claude Code, Codex, Grok, Hermes Agent, OpenCode and Omp the launch editors
-render verified per-CLI controls — model, approvals/permission mode,
+render verified per-CLI controls — model, additional folders
+(`--add-dir`, repeatable), approvals/permission mode,
 thinking or reasoning effort, sandbox, and the vendors' skip-everything
 flags (codex `--yolo`, hermes `--yolo`, grok `--always-approve`) — above an
 **Advanced** reveal of the raw fields. Each control patches the draft

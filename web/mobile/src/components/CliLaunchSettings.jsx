@@ -3,8 +3,8 @@ import { api } from "@picode/shared/client/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import { registerHashGuard } from "../lib/hashGuard.js";
 import { cliLaunchSchema, parseForm } from "@picode/shared/contracts/schemas.js";
-import { launchDraft, launchConfig, defaultLaunchConfig, launchChanged, launchArgs } from "@picode/shared/domain/cliLaunch.js";
-import { quickSettingsFor, readQuickValue, applyQuickSetting, argLine } from "@picode/shared/domain/cliLaunchPresets.js";
+import { launchDraft, launchConfig, defaultLaunchConfig, launchChanged, launchArgs, launchLines } from "@picode/shared/domain/cliLaunch.js";
+import { quickSettingsFor, readQuickValue, readQuickList, applyQuickSetting, applyQuickList, argLine } from "@picode/shared/domain/cliLaunchPresets.js";
 
 export const cliJSON = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 export const confirmDiscard = () => askConfirm({ title: "Discard launch changes?", message: "Your unsaved changes will be lost.", confirmLabel: "Discard changes", danger: true });
@@ -39,6 +39,21 @@ export function useLaunchGuard(dirty, confirm = confirmDiscard) {
   return () => { bypass.current = true; };
 }
 
+// QuickListField edits a repeatable flag (one value per line). The text is
+// local so trailing newlines survive typing; it re-seeds when the parsed
+// argv changes underneath (CLI switch, profile load, an Advanced edit).
+function QuickListField({ spec, values, onApply }) {
+  const joined = values.join("\n");
+  const [text, setText] = useState(joined);
+  const [seen, setSeen] = useState(joined);
+  if (seen !== joined) { setSeen(joined); setText(joined); }
+  return <label>{spec.label}
+    <textarea aria-label={spec.label} rows={2} spellCheck={false} placeholder={spec.placeholder} value={text}
+      onChange={(e) => { setText(e.target.value); onApply(launchLines(e.target.value)); }} />
+    {spec.hint ? <span>{spec.hint}</span> : null}
+  </label>;
+}
+
 // LaunchFields is the launch editor used by the CLI defaults, a terminal's
 // overrides and launch profiles. When the CLI has verified quick controls
 // (cliLaunchPresets.js) they render first, patching the same argument
@@ -49,6 +64,10 @@ export function LaunchFields({ draft, setDraft, includeIntegration = false, cli 
   const args = launchArgs(draft.argsText);
   const setQuick = (spec, value) => setDraft({ ...draft, argsText: applyQuickSetting(args, specs, spec, value).map(argLine).join("\n") });
   const quick = specs?.map((spec) => {
+    if (spec.type === "list") {
+      return <QuickListField key={spec.key} spec={spec} values={readQuickList(args, spec)}
+        onApply={(vals) => setDraft({ ...draft, argsText: applyQuickList(args, spec, vals).map(argLine).join("\n") })} />;
+    }
     const current = readQuickValue(args, spec);
     if (spec.type === "boolean") {
       return <label key={spec.key} className="cli-checkbox"><input type="checkbox" checked={current === "on"} onChange={(e) => setQuick(spec, e.target.checked ? "on" : "")} />{spec.label}</label>;

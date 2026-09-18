@@ -128,6 +128,7 @@ Each CLI offers what its installed flags support:
 | Control | Flag it writes | Offered for |
 |---|---|---|
 | Model | `--model` | Pi, Claude Code, Codex, Hermes Agent, OpenCode, Omp |
+| Additional folders | `--add-dir` | Claude Code, Codex, Omp |
 | Thinking / Reasoning effort | `--thinking`, `--reasoning`, `-c model_reasoning_effort=…` | Pi, Codex, Hermes Agent |
 | Approvals | `--permission-mode`, `--ask-for-approval` | Claude Code, Codex, Grok |
 | Sandbox | `--sandbox` | Codex |

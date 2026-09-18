@@ -14,7 +14,8 @@
   plus a `--flag --version` parse check per quick flag: grok 1.0.34
   (`--permission-mode`, `--always-approve`), Hermes Agent v0.21.3
   (`--model`, `--reasoning`, `--yolo`), omp 18.2.4 (`--model`), codex-cli
-  0.154.0 (`--yolo` accepted).
+  0.154.0 (`--yolo` accepted); `--add-dir` verified the same way on
+  claude (variadic), codex and omp 18.2.4 (space and joined forms).
   In-house bars: [benchmarks.md](../benchmarks.md) (progressive disclosure,
   one page width, UI copy rule), ADR-0069 (launch model: argument array,
   never a shell string), ADR-0070 (profiles are copies, not links).

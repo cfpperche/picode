@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { quickSettingsFor, readQuickValue, applyQuickValue, applyQuickSetting, argLine } from "./cliLaunchPresets.js";
+import { quickSettingsFor, readQuickValue, readQuickList, applyQuickValue, applyQuickSetting, applyQuickList, argLine } from "./cliLaunchPresets.js";
 import { launchArgs } from "./cliLaunch.js";
 
 const MODEL = { key: "model", type: "text", flags: ["--model"] };
@@ -97,8 +97,8 @@ test("the full draft round trip: quick patch survives launchArgs parsing", () =>
 test("verified specs match the installed CLIs (grok 1.0.34, hermes 0.21.3, omp 18.2.4)", () => {
   assert.deepEqual(quickSettingsFor("grok").map((s) => s.label), ["Approvals", "Auto-approve tools"]);
   assert.deepEqual(quickSettingsFor("hermes").map((s) => s.label), ["Model", "Reasoning effort", "YOLO"]);
-  assert.deepEqual(quickSettingsFor("omp").map((s) => s.label), ["Model"]);
-  assert.deepEqual(quickSettingsFor("codex").map((s) => s.label), ["Model", "Reasoning effort", "Sandbox", "Approvals", "YOLO"]);
+  assert.deepEqual(quickSettingsFor("omp").map((s) => s.label), ["Model", "Additional folders"]);
+  assert.deepEqual(quickSettingsFor("codex").map((s) => s.label), ["Model", "Additional folders", "Reasoning effort", "Sandbox", "Approvals", "YOLO"]);
   assert.deepEqual(applyQuickValue([], quickSettingsFor("omp")[0], "opus"), ["--model", "opus"]);
   assert.deepEqual(applyQuickValue([], quickSettingsFor("grok")[1], "on"), ["--always-approve"]);
   assert.deepEqual(applyQuickValue([], quickSettingsFor("hermes")[1], "high"), ["--reasoning", "high"]);
@@ -116,4 +116,30 @@ test("a codex exclusivity pick clears its group siblings (yolo vs sandbox/approv
   assert.deepEqual(cleared, []);
   const approval = applyQuickSetting(withSandbox, CODEX_SPECS, APPROVAL, "never");
   assert.deepEqual(approval, ["--ask-for-approval", "never"]);
+});
+
+test("lists read every pair and replace the block in place", () => {
+  const ADDDIR = { key: "addDirs", type: "list", flags: ["--add-dir"] };
+  assert.deepEqual(readQuickList(["--add-dir", "/a", "--add-dir", "/b"], ADDDIR), ["/a", "/b"]);
+  // full replace: block takes the first pair's position, user args stay
+  assert.deepEqual(
+    applyQuickList(["--model", "sonnet", "--add-dir", "/a", "--add-dir", "/b", "--plan"], ADDDIR, ["/x", "/y z"]),
+    ["--model", "sonnet", "--add-dir", "/x", "--add-dir", "/y z", "--plan"],
+  );
+  // fresh list appends at the end
+  assert.deepEqual(applyQuickList(["--plan"], ADDDIR, ["/x"]), ["--plan", "--add-dir", "/x"]);
+  // empty list removes every pair
+  assert.deepEqual(applyQuickList(["--add-dir", "/a", "--plan"], ADDDIR, []), ["--plan"]);
+  // joined forms are consumed too
+  assert.deepEqual(applyQuickList(["--add-dir=/a"], ADDDIR, []), []);
+  assert.deepEqual(readQuickList(["--add-dir=/a", "--add-dir", "/b"], ADDDIR), ["/a", "/b"]);
+  // a flag-shaped next argument is not eaten as a value
+  assert.deepEqual(readQuickList(["--add-dir", "--plan"], ADDDIR), []);
+});
+
+test("v2 specs: additional folders on claude, codex and omp only", () => {
+  assert.deepEqual(quickSettingsFor("claude-code").filter((s) => s.type === "list").map((s) => s.flags), [["--add-dir"]]);
+  assert.deepEqual(quickSettingsFor("codex").filter((s) => s.type === "list").map((s) => s.flags), [["--add-dir"]]);
+  assert.deepEqual(quickSettingsFor("omp").filter((s) => s.type === "list").map((s) => s.flags), [["--add-dir"]]);
+  for (const id of ["pi", "grok", "hermes", "opencode"]) assert.equal(quickSettingsFor(id).some((s) => s.type === "list"), false, id);
 });
