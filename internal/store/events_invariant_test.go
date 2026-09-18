@@ -440,6 +440,10 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			_, _ = s.SetBrowserPermission("meet.example.com", "camera", "allow", false)
 			_ = s.ClearBrowserPermissions("camera")
 		}, []string{"browserpermission.updated", "browserpermission.updated"}},
+		{"CreateBrowserAnnotation + DeleteBrowserAnnotation", func(s *Store) {
+			a, _ := s.CreateBrowserAnnotation(BrowserAnnotation{URL: "https://x.test/", Selector: ".a"})
+			_ = s.DeleteBrowserAnnotation(a.ID)
+		}, []string{"browserannotation.updated", "browserannotation.updated"}},
 		{"AddBrowserDownload (start)", func(s *Store) {
 			_, _ = s.AddBrowserDownload("https://files.example/a.zip", `C:\Users\me\Downloads\a.zip`, 10)
 		}, []string{"browserdownload.updated"}},

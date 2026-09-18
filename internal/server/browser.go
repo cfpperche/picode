@@ -33,6 +33,7 @@ func registerBrowserRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/browser/developer/audit", handleBrowserDeveloperAudit(deps))
 	registerBrowserPolicyRoutes(mux, deps)
 	registerBrowserHistoryRoutes(mux, deps)
+	registerBrowserAnnotationRoutes(mux, deps)
 	registerBrowserDownloadRoutes(mux, deps)
 	registerBrowserPermissionRoutes(mux, deps)
 	registerBrowserPrefRoutes(mux, deps)

@@ -7,7 +7,9 @@ reviewed by the owner against the reference, one item at a time.
 ## Next
 
 - **v2a** unused sites — landed; **v2b** agent history — landed (ADR-0146).
-- **v2c** annotations (step 4 is an ADR); **v2d** Windows Hello
+- **v2c** annotations — step 3 landed (store + endpoints + staged files,
+  ADR-0152); **steps 1–2** (picker over the frozen page, capture) are next, and
+the **settings row** lands with step 5. **v2d** Windows Hello
   opener row — landed (the OS screen, not a vault).
 - **v3** WebMCP site tools (ADR when the standard lands). Developer mode
   landed 2026-09-16 (ADR-0144).
@@ -98,7 +100,9 @@ needed / Never).
 
 1. Annotate mode in the tab: pick an element or draw a rectangle + comment.
 2. Capture: `Page.captureScreenshot` with `clip`, plus selector and URL.
-3. Store + endpoints: migration, feed event (ADR-0048).
+3. Store + endpoints: migration, feed event (ADR-0048). — **landed 2026-09-18**
+   (migration 055, `browser_annotations`, the two staged files, ADR-0152).
+   The picker (1) and the capture (2) remain.
 4. Delivery to the agent — a new user→agent input path: ADR before code.
 5. The settings row, honoured by the capture step, once 1–4 exist.
 

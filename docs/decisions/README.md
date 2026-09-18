@@ -155,3 +155,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0149](0149-post-land-note.md) | A post-merge correction to an existing handoff note lands on main | accepted, amends 0105 |
 | [0150](0150-connectors-for-every-agent-cli.md) | connectors-for-every-agent-cli | proposed |
 | [0151](0151-devservers-stop.md) | devservers-stop — the panel may end what it started | accepted |
+| [0152](0152-annotation-delivery.md) | annotation-delivery — one staged file, its path in the prompt door | accepted |
