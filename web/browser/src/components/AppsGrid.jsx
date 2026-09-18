@@ -130,7 +130,7 @@ function WebappDialog({ app, anotherAccount, onClose, onSaved, onOpen }) {
   );
 }
 
-export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsLoaded = false, nativeApps, onOpen, onOpenWebapp, onSavedWebapp, onRemoveWebapp, onRefreshWebapp, iconVersions = {}, onRetryWebapps, desktop }) {
+export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsLoaded = false, nativeApps, onOpen, onOpenWebapp, onSavedWebapp, onRemoveWebapp, onRefreshWebapp, onClearWebappData, iconVersions = {}, onRetryWebapps, desktop }) {
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
   const [renaming, setRenaming] = useState(null);
@@ -139,12 +139,23 @@ export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsL
   const [removeBusy, setRemoveBusy] = useState(false);
   const [removeError, setRemoveError] = useState("");
   const [refreshingId, setRefreshingId] = useState(null);
+  const [clearing, setClearing] = useState(null);
+  const [clearBusy, setClearBusy] = useState(false);
+  const [clearError, setClearError] = useState("");
   async function refresh(a) {
     if (refreshingId) return;
     setRefreshingId(a.id);
     try { await onRefreshWebapp(a); }
     catch (e) { toast(webappError(e)); }
     finally { setRefreshingId(null); }
+  }
+  async function clearData() {
+    if (clearBusy) return;
+    setClearBusy(true);
+    setClearError("");
+    try { await onClearWebappData(clearing); setClearing(null); }
+    catch (e) { setClearError(webappError(e)); }
+    finally { setClearBusy(false); }
   }
   async function remove() {
     if (removeBusy) return;
@@ -233,6 +244,7 @@ export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsL
                     <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => refresh(a)} disabled={refreshingId === a.id}><IconReload size={13} /> {refreshingId === a.id ? "Refreshing…" : "Refresh"}</DropdownMenu.Item>
                     <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setAnotherFor(a)}>Add another account</DropdownMenu.Item>
                     <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setRenaming(a)}><IconPencil size={13} /> Rename</DropdownMenu.Item>
+                    {desktop && <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => { setClearError(""); setClearing(a); }}><IconTrash size={13} /> Clear data</DropdownMenu.Item>}
                     <DropdownMenu.Separator className="ws-row-menu-sep" />
                     <DropdownMenu.Item className="ws-row-menu-item danger" onSelect={() => { setRemoveError(""); setRemoving(a); }}><IconTrash size={13} /> Remove</DropdownMenu.Item>
                   </DropdownMenu.Content>
@@ -251,6 +263,24 @@ export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsL
       )}
       {anotherFor && (
         <WebappDialog anotherAccount={anotherFor} onClose={() => setAnotherFor(null)} onSaved={onSavedWebapp} onOpen={onOpenWebapp} />
+      )}
+      {clearing && (
+        <AlertDialog.Root open onOpenChange={(open) => { if (!open && !clearBusy) setClearing(null); }}>
+          <AlertDialog.Portal>
+            <AlertDialog.Overlay className="dlg-overlay" />
+            <AlertDialog.Content className="dlg">
+              <AlertDialog.Title className="dlg-title">Clear {clearing.name}'s data</AlertDialog.Title>
+              <AlertDialog.Description className="dlg-body">
+                Signs you out of {clearing.name} and deletes everything it stored inside PiCode. The app itself stays installed.
+              </AlertDialog.Description>
+              {clearError && <p className="form-error" role="alert">{clearError}</p>}
+              <div className="dlg-actions" data-align-row>
+                <AlertDialog.Close className="btn btn-ghost btn-sm" disabled={clearBusy}>Cancel</AlertDialog.Close>
+                <button type="button" className="btn btn-danger btn-sm" disabled={clearBusy} onClick={clearData}>{clearBusy ? "Clearing…" : "Clear data"}</button>
+              </div>
+            </AlertDialog.Content>
+          </AlertDialog.Portal>
+        </AlertDialog.Root>
       )}
       {removing && (
         <AlertDialog.Root open onOpenChange={(open) => { if (!open && !removeBusy) setRemoving(null); }}>

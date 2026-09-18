@@ -44,3 +44,14 @@ keeps the by-url lookup) and the install request gains
 trip), and the duplicate conflict dialog (default installs still 409)
 gains **Add as new account** beside Open existing. Each row stays one
 partition; removing one account never touches the others.
+
+## Amendment 2026-09-18 — per-app clear ships (the "future want" arrives)
+
+The tile menu gains **Clear data** (desktop only, confirmed): the shell
+closes the app's webview and removes its partition folder —
+`btab_clear_app_data`, whose containment is `browserlab::app_partition`
+(only `app-<webappId>` ids in the minted shape name a folder, always
+under `WebView2\webapps\`). Remove also clears the folder (best effort —
+a removal from the plain browser cannot reach shell folders; that orphan
+is reclaimed on re-install). Settings ▸ Browser clear-data keeps its
+work-profile scope.

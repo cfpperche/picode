@@ -1757,6 +1757,12 @@ export default function App({ shellChrome = false } = {}) {
   }
 
   async function removeWebapp(app) {
+    // The partition folder lives on the shell: best effort to remove it
+    // with the rest (a browser-UI removal cannot — an orphan folder is
+    // the accepted leftover, reclaimed on re-install).
+    try {
+      await window.__TAURI__?.core.invoke("btab_clear_app_data", { id: "app-" + app.id });
+    } catch { /* row removal proceeds regardless */ }
     await api("/api/webapps/" + encodeURIComponent(app.id), { method: "DELETE" });
     setWebapps((list) => list.filter((a) => a.id !== app.id));
     closeInstalledTab(webappTabId(app.id));
@@ -1769,6 +1775,12 @@ export default function App({ shellChrome = false } = {}) {
     setIconVersions((v) => ({ ...v, [app.id]: Date.now() }));
     webappsWatchRef.current?.refresh();
     toast.ok(app.name + " updated");
+  }
+
+  async function clearWebappData(app) {
+    await window.__TAURI__?.core.invoke("btab_clear_app_data", { id: "app-" + app.id });
+    setIconVersions((v) => ({ ...v, [app.id]: Date.now() }));
+    toast.ok(app.name + "'s data cleared — sign in again next time");
   }
 
   function openWebapp(app) {
@@ -3367,6 +3379,7 @@ export default function App({ shellChrome = false } = {}) {
         onSavedWebapp={savedWebapp}
         onRemoveWebapp={removeWebapp}
         onRefreshWebapp={refreshWebapp}
+        onClearWebappData={clearWebappData}
         iconVersions={iconVersions}
         desktop={shellChrome && !!window.__TAURI__}
         onChat={(id) => {

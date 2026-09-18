@@ -94,6 +94,7 @@ fn main() {
             btab::btab_cdp_call,
             btab::btab_cdp_events,
             btab::btab_close,
+            btab::btab_clear_app_data,
             btab::btab_open_external,
             btab::btab_annotate_mode,
             btab::btab_set_prefs,

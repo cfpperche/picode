@@ -67,3 +67,10 @@ the app's storage goes with it, and nothing else is touched.
 - Not a security sandbox against the site: it is the real site, running
   with your real login. Treat it like the tab you would have opened in
   your browser.
+
+## Start fresh on one app
+
+The tile menu (**⋯**) → **Clear data**: PiCode signs you out of that app
+and deletes everything it stored inside PiCode — other apps and the work
+browser are untouched. The app stays installed; the next open is a first
+visit. Removing a tile clears its storage the same way.
