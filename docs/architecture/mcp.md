@@ -115,6 +115,21 @@ per-workspace variant:
   anything is written. Its sign-in hint is the vendor command
   (`hermes mcp login <name>`).
 
+Reading and writing are held to different bars (ADR-0150, connectors-codec
+robustness). Every guest `List` reads leniently and writes strictly: the
+JSON codec tries strict JSON first, then strips the JSONC escapes vendors
+hand-write (one trailing comma before a closer, `//` and `/* */` comments —
+OpenCode leaves both in `opencode.json`) and retries; a rewrite through Add
+still lands canonical strict JSON. A file that exists but parses under no
+form blocks only its own layer, never the pane: the layer reports
+`exists: true` plus a short `error` reason ("is not valid JSON" — the same
+degradation for TOML and YAML), contributes no servers, and healthy layers
+keep listing, so `GET /api/mcp` answers 200. The pane renders one blocked
+line naming the file (`blockedLayers` in `integrations.js`) with **Open**
+(`POST /api/mcp/reveal` — the server re-derives the path from the driver's
+own layer list, so no path travels from the client) and **Retry**; every
+write on top of an unreadable file still refuses — corruption over silence.
+
 `web/shared/domain/integrations.js` `CONNECTOR_DRIVERS` declares each CLI's
 honest capability set (status `live` vs `configured`), and a request naming a
 CLI without a driver fails loudly instead of writing Pi's files. Guest

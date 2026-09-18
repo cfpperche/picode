@@ -1109,3 +1109,104 @@ func mcpPatch(t *testing.T, ts *httptest.Server, body any) *http.Response {
 	req.Header.Set("Content-Type", "application/json")
 	return do(t, ts.Client(), req)
 }
+
+// A guest config file PiCode cannot parse must not fail GET /api/mcp: the
+// report still answers 200 with the layer blocked (exists + reason, no
+// servers from it) while a healthy layer keeps listing. The owner's actual
+// repro — OpenCode's JSONC-ish trailing comma — reads without blocking at
+// all. The pane's Open action reveals the layer's own path, never a
+// client-supplied one.
+type mcpLayerView struct {
+	ID     string `json:"id"`
+	Path   string `json:"path"`
+	Exists bool   `json:"exists"`
+	Error  string `json:"error"`
+}
+
+type mcpReportView struct {
+	Layers  []mcpLayerView `json:"layers"`
+	Servers []any          `json:"servers"`
+}
+
+func TestMCPGuestMalformedLayerDegrades(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	writeFakeCLI(t, "opencode", "")
+	ts := newTestServer(t, "cat")
+
+	userFile := filepath.Join(home, ".config", "opencode", "opencode.json")
+	if err := os.MkdirAll(filepath.Dir(userFile), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	get := func() (int, mcpReportView) {
+		var rep mcpReportView
+		res, err := ts.Client().Get(ts.URL + "/api/mcp?cli=opencode")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := json.NewDecoder(res.Body).Decode(&rep); err != nil {
+			t.Fatal(err)
+		}
+		_ = res.Body.Close()
+		return res.StatusCode, rep
+	}
+	blocked := func(rep mcpReportView) *mcpLayerView {
+		for i := range rep.Layers {
+			if rep.Layers[i].Error != "" {
+				return &rep.Layers[i]
+			}
+		}
+		return nil
+	}
+
+	// The owner's repro: JSONC-ish trailing comma after a schema-only
+	// config. Tolerated on read — 200, no blocked layer.
+	if err := os.WriteFile(userFile, []byte("{\n  \"$schema\": \"https://opencode.ai/config.json\",\n}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, rep := get()
+	if code != http.StatusOK {
+		t.Fatalf("JSONC user file: GET = %d", code)
+	}
+	if b := blocked(rep); b != nil {
+		t.Fatalf("JSONC user file blocked: %+v", b)
+	}
+
+	// Genuinely malformed: 200 with the layer blocked and no servers.
+	if err := os.WriteFile(userFile, []byte("{not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, rep = get()
+	if code != http.StatusOK {
+		t.Fatalf("malformed user file: GET = %d", code)
+	}
+	if len(rep.Servers) != 0 {
+		t.Fatalf("servers from a broken layer: %v", rep.Servers)
+	}
+	b := blocked(rep)
+	if b == nil || !b.Exists || b.Error != "is not valid JSON" || !strings.HasSuffix(b.Path, "opencode.json") {
+		t.Fatalf("blocked layer = %+v", b)
+	}
+
+	// The Open action: reveal resolves the layer server-side.
+	opened := ""
+	oldReveal := revealFn
+	revealFn = func(p string) error { opened = p; return nil }
+	t.Cleanup(func() { revealFn = oldReveal })
+	res := postJSON(t, ts, "/api/mcp/reveal", map[string]any{"cli": "opencode", "scope": "user"})
+	if res.StatusCode != http.StatusOK || opened != b.Path {
+		t.Fatalf("reveal = %d, opened %q, want %q", res.StatusCode, opened, b.Path)
+	}
+	_ = res.Body.Close()
+
+	// No path comes from the client: an unknown CLI is refused outright.
+	opened = ""
+	res = postJSON(t, ts, "/api/mcp/reveal", map[string]any{"cli": "../pi", "scope": "user", "path": "/etc/passwd"})
+	if res.StatusCode != http.StatusBadRequest || opened != "" {
+		t.Fatalf("reveal unknown cli = %d, opened %q", res.StatusCode, opened)
+	}
+	_ = res.Body.Close()
+}

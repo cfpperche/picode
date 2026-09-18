@@ -23,6 +23,7 @@ func registerMCPRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/mcp/auth/logout", handleMCPAuthLogout(deps))
 	mux.HandleFunc("PATCH /api/mcp", handleMCPToggle(deps))
 	mux.HandleFunc("DELETE /api/mcp", handleMCPRemove(deps))
+	mux.HandleFunc("POST /api/mcp/reveal", handleMCPReveal(deps))
 }
 
 // connectorDrivers declares which agent CLI a /api/mcp request drives.
@@ -128,6 +129,45 @@ func handleMCPGet(deps Deps) http.HandlerFunc {
 		applyMCPLive(deps, r.URL.Query().Get("agent"), &rep)
 		mcp.ApplySigned(&rep)
 		writeJSON(w, http.StatusOK, rep)
+	}
+}
+
+// handleMCPReveal opens one driver config layer in the host file manager —
+// the blocked-layer "Open" action when a config file does not parse. The
+// path never comes from the client: it is recomputed from the driver's own
+// layer list, so only a real vendor config location can be revealed.
+func handleMCPReveal(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req mcpMutateReq
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		d := connectors.For(req.CLI)
+		if d == nil {
+			writeErr(w, http.StatusBadRequest, "connectors reveal needs a guest CLI")
+			return
+		}
+		p, err := connectorPaths(deps, req.WorkspaceID)
+		if err != nil {
+			writeErr(w, statusForStore(err), err.Error())
+			return
+		}
+		scope := req.Scope
+		if scope == "" {
+			scope = "user"
+		}
+		for _, layer := range d.Layers(p) {
+			if layer.Scope == scope && layer.Path != "" {
+				if err := revealFn(layer.Path); err != nil {
+					writeErr(w, http.StatusBadRequest, err.Error())
+					return
+				}
+				writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+				return
+			}
+		}
+		writeErr(w, http.StatusBadRequest, "no config file for that scope")
 	}
 }
 

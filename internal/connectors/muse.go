@@ -82,7 +82,11 @@ func (d Muse) List(p Paths) (mcp.Report, error) {
 	}
 	raw, err := readJSONFile(rep.Layers[0].Path)
 	if err != nil {
-		return rep, err
+		// The one file exists but does not parse: the layer reports the
+		// reason and the pane shows a blocked line for it (ADR-0150) —
+		// the report still answers 200.
+		blockLayer(&rep.Layers[0], err)
+		raw = nil
 	}
 	servers, _ := raw["mcp_servers"].(map[string]any)
 	for name, e := range servers {

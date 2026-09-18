@@ -62,6 +62,7 @@ type Driver interface {
 	ID() string
 	Bin() string
 	AuthHint(name string) AuthHint
+	Layers(p Paths) []mcp.Layer
 	List(p Paths) (mcp.Report, error)
 	Add(p Paths, scope, name string, entry mcp.Entry) error
 	Toggle(p Paths, scope, name string, disabled bool) error

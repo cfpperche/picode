@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { integrationSection, destinationLabel, readConnectorDefinition, connectorTabs, cliConnectorsHash, cliConnectorsLocation, supportsCliConnectors, connectorDriver, CLI_CONNECTORS } from "./integrations.js";
+import { integrationSection, destinationLabel, readConnectorDefinition, connectorTabs, cliConnectorsHash, cliConnectorsLocation, supportsCliConnectors, connectorDriver, blockedLayers, CLI_CONNECTORS } from "./integrations.js";
 import { webhookSchema } from "../contracts/schemas.js";
 
 test("integration routes and safe destination labels", () => {
@@ -124,4 +124,28 @@ test("definition import decision table refuses ambiguity or unsupported options"
   ]) assert.throws(() => readConnectorDefinition(JSON.stringify(value)));
   assert.throws(() => readConnectorDefinition("x".repeat(65537)));
   assert.throws(() => readConnectorDefinition("not json"));
+});
+
+// A blocked config layer names the file for the one-line pane state
+// (ADR-0150): empty when healthy, one entry per errored layer, Windows
+// separators included in the basename.
+test("blocked layers name the file and stay empty when healthy", () => {
+  assert.deepEqual(blockedLayers(null), []);
+  assert.deepEqual(blockedLayers({}), []);
+  assert.deepEqual(blockedLayers({ layers: [{ id: "opencode-user", path: "/home/u/.config/opencode/opencode.json" }] }), []);
+  assert.deepEqual(blockedLayers({ layers: [{ id: "a", error: "" }, { id: "b", error: "x" }] }).map((l) => l.scope), ["user"]);
+  assert.deepEqual(
+    blockedLayers({
+      layers: [
+        { id: "opencode-user", path: "/home/u/.config/opencode/opencode.json", exists: true, scope: "user", error: "is not valid JSON" },
+        { id: "opencode-project", path: "/home/u/w/opencode.json", exists: true, scope: "project", error: "" },
+      ],
+      servers: [],
+    }),
+    [{ scope: "user", error: "is not valid JSON", path: "/home/u/.config/opencode/opencode.json", file: "opencode.json" }],
+  );
+  assert.deepEqual(
+    blockedLayers({ layers: [{ id: "grok-user", path: "C:\\Users\\u\\.grok\\config.toml", exists: true, scope: "user", error: "is not valid TOML" }] }),
+    [{ scope: "user", error: "is not valid TOML", path: "C:\\Users\\u\\.grok\\config.toml", file: "config.toml" }],
+  );
 });

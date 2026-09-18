@@ -81,7 +81,7 @@ func (d Claude) List(p Paths) (mcp.Report, error) {
 		Found:             []mcp.HostInfo{},
 	}
 	seen := map[string]bool{}
-	for _, layer := range rep.Layers {
+	for i, layer := range rep.Layers {
 		var rows []mcp.Server
 		var err error
 		if layer.Scope == "user" {
@@ -90,7 +90,14 @@ func (d Claude) List(p Paths) (mcp.Report, error) {
 			rows, err = listClaudeFile(layer.Path, layer)
 		}
 		if err != nil {
-			return rep, err
+			// A project file that exists but does not parse blocks only
+			// its own layer (ADR-0150); a user-store failure is a vendor
+			// CLI problem and still fails the pane with its message.
+			if layer.Scope == "user" {
+				return rep, err
+			}
+			blockLayer(&rep.Layers[i], err)
+			continue
 		}
 		for _, s := range rows {
 			if !seen[s.Name] {
@@ -435,8 +442,13 @@ func claudeEntryMap(e mcp.Entry, prev map[string]any) map[string]any {
 }
 
 // readJSONFile is the shared reader for the JSON-codec drivers (Claude
-// project files, Omp, Antigravity): a missing file is an empty config,
-// malformed JSON refuses every write on top of it (ADR-0150).
+// project files, Omp, Antigravity, OpenCode, Muse): a missing file is an
+// empty config. Strict JSON is tried first; on failure the JSONC escapes
+// vendors hand-write (// and /* */ comments, one trailing comma before a
+// closer) are stripped and the parse retried — tolerate on read what the
+// vendor tolerates, normalized in memory. Writes stay strict JSON, so a
+// rewrite lands canonical. A file neither form parses refuses every write
+// on top of it (ADR-0150).
 func readJSONFile(path string) (map[string]any, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -447,7 +459,10 @@ func readJSONFile(path string) (map[string]any, error) {
 	}
 	var raw map[string]any
 	if err := json.Unmarshal(b, &raw); err != nil {
-		return nil, fmt.Errorf("%s is not valid JSON", path)
+		if lenient, lerr := lenientJSON(b); lerr == nil {
+			return lenient, nil
+		}
+		return nil, &parseError{path, "is not valid JSON"}
 	}
 	return raw, nil
 }
