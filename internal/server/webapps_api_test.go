@@ -377,6 +377,27 @@ func TestWebappDuplicateURLConflictsWithExistingID(t *testing.T) {
 	}
 }
 
+func TestWebappInstallAllowDuplicateInstallsSecondAccount(t *testing.T) {
+	origin := webappOrigin(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte(`<!doctype html><title>Dup</title>`))
+	}))
+	ts := newWebappServer(t)
+	body := fmt.Sprintf(`{"url":%q,"name":"Work","allowDuplicate":true}`, origin.URL)
+	code, first, _ := webappCall(t, ts, http.MethodPost, "/api/webapps", body)
+	if code != http.StatusOK {
+		t.Fatalf("first install = %d %v", code, first)
+	}
+	body = fmt.Sprintf(`{"url":%q,"name":"Personal","allowDuplicate":true}`, origin.URL)
+	code, second, _ := webappCall(t, ts, http.MethodPost, "/api/webapps", body)
+	if code != http.StatusOK {
+		t.Fatalf("second-account install = %d %v", code, second)
+	}
+	if second["id"] == first["id"] || second["name"] != "Personal" || second["partitioned"] != true {
+		t.Fatalf("second account = %v", second)
+	}
+}
+
 func TestWebappSchemeRefused(t *testing.T) {
 	ts := newWebappServer(t)
 	for _, raw := range []string{`{"url":"ftp://example.com"}`, `{"url":"javascript:alert(1)"}`, `{"url":"file:///etc/passwd"}`} {

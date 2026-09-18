@@ -19,10 +19,12 @@ function webappIconURL(id, version) {
   return version ? base + "?v=" + encodeURIComponent(version) : base;
 }
 
-function WebappDialog({ app, onClose, onSaved, onOpen }) {  const editing = !!app;
-  const [url, setUrl] = useState(editing ? app.url : "");
-  const [name, setName] = useState(editing ? app.name : "");
-  const [preview, setPreview] = useState(editing ? { url: app.url } : null);
+function WebappDialog({ app, anotherAccount, onClose, onSaved, onOpen }) {
+  const editing = !!app;
+  const another = !!anotherAccount;
+  const [url, setUrl] = useState(editing ? app.url : another ? anotherAccount.url : "");
+  const [name, setName] = useState(editing ? app.name : another ? anotherAccount.name + " (2)" : "");
+  const [preview, setPreview] = useState(editing ? { url: app.url } : another ? { url: anotherAccount.url } : null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [existing, setExisting] = useState(null);
@@ -43,9 +45,9 @@ function WebappDialog({ app, onClose, onSaved, onOpen }) {  const editing = !!ap
       setPreview(resolved);
       if (!name.trim()) setName(resolved.name || "");});
   }
-  async function install() {
+  async function install(force) {
     await run(async () => {
-      const { saved } = await submitWebappForm(api, { mode: "install", preview, url, name });
+      const { saved } = await submitWebappForm(api, { mode: "install", preview, url, name, allowDuplicate: another || force });
       onSaved(saved);
       onClose();
     });
@@ -64,9 +66,13 @@ function WebappDialog({ app, onClose, onSaved, onOpen }) {  const editing = !!ap
       <Dialog.Portal>
         <Dialog.Overlay className="dlg-overlay" />
         <Dialog.Content className="dlg dlg-webapp" aria-busy={busy}>
-          <Dialog.Title className="dlg-title">{editing ? "Rename web app" : "Add a web app"}</Dialog.Title>
+          <Dialog.Title className="dlg-title">{editing ? "Rename web app" : another ? "Add another account" : "Add a web app"}</Dialog.Title>
           <Dialog.Description className="dlg-body">
-            {editing ? "Choose a name for this shortcut." : "Enter the address of a web app to add it to Apps."}
+            {editing
+              ? "Choose a name for this shortcut."
+              : another
+                ? `Another independent copy of ${anotherAccount.name} — its logins and data stay separate.`
+                : "Enter the address of a web app to add it to Apps."}
           </Dialog.Description>
           {editing || preview ? (
             <form noValidate onSubmit={editing ? save : (e) => { e.preventDefault(); install(); }}>
@@ -88,7 +94,12 @@ function WebappDialog({ app, onClose, onSaved, onOpen }) {  const editing = !!ap
               <div className="dlg-actions" data-align-row>
                 {!editing && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setPreview(null); setError(""); setExisting(null); }} disabled={busy}>Back</button>}
                 <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} disabled={busy}>Cancel</button>
-                {existing ? <button type="button" className="btn btn-primary btn-sm" onClick={() => { onOpen(existing); onClose(); }}>Open existing</button> : <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{busy ? editing ? "Saving…" : "Adding…" : editing ? "Save" : "Add app"}</button>}
+                {existing ? (
+                  <>
+                    <button type="button" className="btn btn-primary btn-sm" onClick={() => { onOpen(existing); onClose(); }}>Open existing</button>
+                    <button type="button" className="btn btn-sm" onClick={() => install(true)} disabled={busy}>Add as new account</button>
+                  </>
+                ) : <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{busy ? editing ? "Saving…" : "Adding…" : editing ? "Save" : "Add app"}</button>}
               </div>
             </form>
           ) : (
@@ -123,6 +134,7 @@ export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsL
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
   const [renaming, setRenaming] = useState(null);
+  const [anotherFor, setAnotherFor] = useState(null);
   const [removing, setRemoving] = useState(null);
   const [removeBusy, setRemoveBusy] = useState(false);
   const [removeError, setRemoveError] = useState("");
@@ -219,6 +231,7 @@ export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsL
                   <DropdownMenu.Content className="ws-row-menu" side="right" align="start" sideOffset={4} collisionPadding={8}>
                     <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => onOpenWebapp(a)}>Open</DropdownMenu.Item>
                     <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => refresh(a)} disabled={refreshingId === a.id}><IconReload size={13} /> {refreshingId === a.id ? "Refreshing…" : "Refresh"}</DropdownMenu.Item>
+                    <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setAnotherFor(a)}>Add another account</DropdownMenu.Item>
                     <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setRenaming(a)}><IconPencil size={13} /> Rename</DropdownMenu.Item>
                     <DropdownMenu.Separator className="ws-row-menu-sep" />
                     <DropdownMenu.Item className="ws-row-menu-item danger" onSelect={() => { setRemoveError(""); setRemoving(a); }}><IconTrash size={13} /> Remove</DropdownMenu.Item>
@@ -235,6 +248,9 @@ export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsL
       )}
       {renaming && (
         <WebappDialog app={renaming} onClose={() => setRenaming(null)} onSaved={onSavedWebapp} onOpen={onOpenWebapp} />
+      )}
+      {anotherFor && (
+        <WebappDialog anotherAccount={anotherFor} onClose={() => setAnotherFor(null)} onSaved={onSavedWebapp} onOpen={onOpenWebapp} />
       )}
       {removing && (
         <AlertDialog.Root open onOpenChange={(open) => { if (!open && !removeBusy) setRemoving(null); }}>
