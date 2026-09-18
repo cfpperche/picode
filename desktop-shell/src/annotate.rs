@@ -39,6 +39,9 @@ mod tests {
             "Escape",
             "__picodeAnnotateV1",
             "\"pick\"",
+            "\"comment\"",
+            "add a comment...",
+            "reposition",
             "\"enter\"",
             "\"exit\"",
         ] {
