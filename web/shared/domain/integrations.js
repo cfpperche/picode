@@ -3,6 +3,9 @@
 // here (ADR-0150). The pane renders what a driver declares and nothing more:
 // status "configured" never claims live state, toggle "none" removes the
 // switch entirely (Claude Code turns servers on/off in its own interface).
+// signIn is the vendor's own sign-in path shown to guests: command renders
+// as copyable code (a terminal command by default, or the TUI named in
+// `where`); text renders as a plain sentence when no command exists.
 export const CONNECTOR_DRIVERS = {
   pi: {
     id: "pi",
@@ -19,6 +22,7 @@ export const CONNECTOR_DRIVERS = {
     status: "configured",
     auth: ["oauth"],
     toggle: "none", // sign-in and on/off live inside Claude Code
+    signIn: { command: "claude mcp login {name}" },
   },
   codex: {
     id: "codex",
@@ -26,6 +30,23 @@ export const CONNECTOR_DRIVERS = {
     status: "configured",
     auth: ["oauth", "bearer"],
     toggle: "entry", // [mcp_servers.<name>] enabled flag
+    signIn: { command: "codex mcp login {name}" },
+  },
+  omp: {
+    id: "omp",
+    name: "Omp",
+    status: "configured",
+    auth: ["oauth"],
+    toggle: "entry", // entry's enabled flag
+    signIn: { command: "/mcp reauth {name}", where: "the Omp TUI" }, // OAuth is TUI-only
+  },
+  agy: {
+    id: "agy",
+    name: "Antigravity",
+    status: "configured",
+    auth: ["oauth"],
+    toggle: "entry", // entry's disabled flag
+    signIn: { text: "Authenticate in Antigravity (Agent Settings → Authenticate)" },
   },
 };
 export const CLI_CONNECTORS = Object.values(CONNECTOR_DRIVERS);

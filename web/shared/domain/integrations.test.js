@@ -47,14 +47,30 @@ test("connectors nest on the selected CLI; webhooks stay platform", () => {
 test("every connector driver declares its capability set", () => {
   assert.deepEqual(CLI_CONNECTORS, [
     { id: "pi", name: "Pi", status: "live", auth: ["oauth", "bearer"], toggle: "entry" },
-    { id: "claude-code", name: "Claude Code", status: "configured", auth: ["oauth"], toggle: "none" },
-    { id: "codex", name: "Codex", status: "configured", auth: ["oauth", "bearer"], toggle: "entry" },
+    { id: "claude-code", name: "Claude Code", status: "configured", auth: ["oauth"], toggle: "none", signIn: { command: "claude mcp login {name}" } },
+    { id: "codex", name: "Codex", status: "configured", auth: ["oauth", "bearer"], toggle: "entry", signIn: { command: "codex mcp login {name}" } },
+    { id: "omp", name: "Omp", status: "configured", auth: ["oauth"], toggle: "entry", signIn: { command: "/mcp reauth {name}", where: "the Omp TUI" } },
+    { id: "agy", name: "Antigravity", status: "configured", auth: ["oauth"], toggle: "entry", signIn: { text: "Authenticate in Antigravity (Agent Settings → Authenticate)" } },
   ]);
   for (const d of CLI_CONNECTORS) {
     assert.ok(["live", "configured"].includes(d.status), d.id + " status");
     assert.ok(["entry", "none"].includes(d.toggle), d.id + " toggle");
     assert.ok(d.auth.length > 0, d.id + " auth");
+    if (d.id !== "pi") {
+      assert.ok(d.signIn, d.id + " sign-in hint");
+      if (d.signIn.command) assert.ok(d.signIn.command.includes("{name}"), d.id + " sign-in command template");
+      else assert.ok(d.signIn.text, d.id + " sign-in text");
+    }
   }
+});
+
+// The claude-code lesson: a driver id must be a CLI catalog id, so deep
+// links and the roster resolve. The catalog itself lives server-side
+// (internal/clilaunch, covered by TestDriverIDsMatchCatalog in Go); here we
+// cross against the shared id normalizer.
+test("connector driver ids are canonical catalog ids", async () => {
+  const { normalizeTerminalCli } = await import("./terminalCli.js");
+  for (const d of CLI_CONNECTORS) assert.equal(normalizeTerminalCli(d.id), d.id, d.id);
 });
 
 test("connector tabs keep the catalog fixed and list only hosts with servers", () => {

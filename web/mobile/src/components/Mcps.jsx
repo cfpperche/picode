@@ -226,14 +226,19 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
     return s.auth === "oauth" && !s.signedIn && !justSigned[s.name];
   }
 
-  // Guests never sign in through PiCode: a remote server shows the vendor's
-  // own command as copyable text instead of a failing call (ADR-0150).
+  // Guests never sign in through PiCode: the pane shows the vendor's own
+  // path instead of a failing call (ADR-0150) — a copyable command (a
+  // terminal one by default, or the vendor TUI), or a plain sentence when
+  // the vendor signs in outside any command line.
   function needsVendorSignIn(s) {
     return guest && !s.disabled && s.transport === "url" && driver.auth.includes("oauth");
   }
 
-  function vendorSignInCmd(s) {
-    return cli + " mcp login " + s.name;
+  function vendorSignIn(s) {
+    const si = driver.signIn || {};
+    if (si.text) return { text: si.text };
+    const command = String(si.command || cli + " mcp login " + s.name).replaceAll("{name}", s.name);
+    return { command, where: si.where || "a terminal" };
   }
 
   function copyVendorCmd(cmd) {
@@ -403,6 +408,7 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
                   const word = agentRunning ? rowLive(s) : "";
                   const state = word === "live" || word === "failed" ? word : "";
                   const menu = canSignOut(s) || s.owned;
+                  const vendor = needsVendorSignIn(s) ? vendorSignIn(s) : null;
                   return (
                   <li key={s.layer + ":" + s.name} className={"mcp-row" + (s.disabled ? " off" : "")}>
                     <div className="mcp-row-main">
@@ -414,11 +420,15 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
                       <code className="mcp-target" title={targetOf(s)}>{targetOf(s)}</code>
                     </div>
                     <div className="mcp-row-actions" data-align-row>
-                      {needsVendorSignIn(s) ? (
-                        <span className="mcp-login">
-                          <code title={"Run this in a terminal to sign in to " + s.name}>{vendorSignInCmd(s)}</code>
-                          <button type="button" className="btn btn-ghost btn-sm" disabled={!!job} aria-label={"Copy the sign-in command for " + s.name} onClick={() => copyVendorCmd(vendorSignInCmd(s))}>Copy</button>
-                        </span>
+                      {vendor ? (
+                        vendor.command ? (
+                          <span className="mcp-login">
+                            <code title={"Run this in " + vendor.where + " to sign in to " + s.name}>{vendor.command}</code>
+                            <button type="button" className="btn btn-ghost btn-sm" disabled={!!job} aria-label={"Copy the sign-in command for " + s.name} onClick={() => copyVendorCmd(vendor.command)}>Copy</button>
+                          </span>
+                        ) : (
+                          <span className="mcp-login" title={"How to sign in to " + s.name}>{vendor.text}</span>
+                        )
                       ) : canSignIn(s) ? (
                         <button type="button" className="btn btn-ghost" disabled={!!job} onClick={() => signIn(s)}>Sign in</button>
                       ) : null}
