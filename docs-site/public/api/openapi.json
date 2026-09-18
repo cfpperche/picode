@@ -9117,6 +9117,41 @@
         ]
       }
     },
+    "/api/webapps/{id}/refresh": {
+      "post": {
+        "operationId": "postApiWebappsRefresh",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "webapps"
+        ]
+      }
+    },
     "/api/webhooks": {
       "get": {
         "operationId": "getApiWebhooks",
