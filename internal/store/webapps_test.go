@@ -8,7 +8,7 @@ import (
 
 func TestWebappCRUD(t *testing.T) {
 	s := openTest(t)
-	app, err := s.CreateWebapp(" Example ", "https://example.com/web?a=1", []byte("PNGDATA"), "image/png")
+	app, err := s.CreateWebapp(WebappInput{Name: " Example ", URL: "https://example.com/web?a=1", Icon: []byte("PNGDATA"), IconMime: "image/png"})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -41,11 +41,11 @@ func TestWebappCRUD(t *testing.T) {
 
 func TestWebappDuplicateURLIsConflictWithExisting(t *testing.T) {
 	s := openTest(t)
-	first, err := s.CreateWebapp("Example", "https://example.com", nil, "")
+	first, err := s.CreateWebapp(WebappInput{Name: "Example", URL: "https://example.com", Icon: nil, IconMime: ""})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	_, err = s.CreateWebapp("Other", "https://EXAMPLE.com/", nil, "")
+	_, err = s.CreateWebapp(WebappInput{Name: "Other", URL: "https://EXAMPLE.com/", Icon: nil, IconMime: ""})
 	var dup DuplicateWebappError
 	if !errors.As(err, &dup) {
 		t.Fatalf("want DuplicateWebappError, got %v", err)
@@ -68,27 +68,56 @@ func TestWebappValidation(t *testing.T) {
 		{"empty name", ""},
 	}
 	for _, c := range cases {
-		if _, err := s.CreateWebapp("App", c.url, nil, ""); !errors.Is(err, ErrInvalid) {
+		if _, err := s.CreateWebapp(WebappInput{Name: "App", URL: c.url}); !errors.Is(err, ErrInvalid) {
 			t.Fatalf("%s: want ErrInvalid, got %v", c.name, err)
 		}
 	}
-	if _, err := s.CreateWebapp("   ", "https://example.com", nil, ""); !errors.Is(err, ErrInvalid) {
+	if _, err := s.CreateWebapp(WebappInput{Name: "   ", URL: "https://example.com", Icon: nil, IconMime: ""}); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("blank name: want ErrInvalid, got %v", err)
 	}
-	if _, err := s.CreateWebapp("App", "https://example.com/#frag", nil, ""); err != nil {
+	if _, err := s.CreateWebapp(WebappInput{Name: "App", URL: "https://example.com/#frag", Icon: nil, IconMime: ""}); err != nil {
 		t.Fatalf("fragment url should be accepted: %v", err)
 	}
 }
 
 func TestWebappGetByURL(t *testing.T) {
 	s := openTest(t)
-	app, _ := s.CreateWebapp("Example", "https://example.com/x", nil, "")
+	app, _ := s.CreateWebapp(WebappInput{Name: "Example", URL: "https://example.com/x", Icon: nil, IconMime: ""})
 	row, err := s.GetWebappByURL("https://example.com/x")
 	if err != nil || row.ID != app.ID {
 		t.Fatalf("by url = %+v err=%v", row, err)
 	}
 	if _, err := s.GetWebappByURL("https://other.com"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing = %v", err)
+	}
+}
+
+func TestWebappManifestFieldsRoundTrip(t *testing.T) {
+	s := openTest(t)
+	app, err := s.CreateWebapp(WebappInput{
+		Name: "Zulip", URL: "https://chat.example.com",
+		StartURL: "https://chat.example.com/app/?source=pwa", Scope: "https://chat.example.com/app/",
+		Display: "Standalone", ThemeColor: "#1D2B53",
+		Icon: []byte("PNGDATA"), IconMime: "image/png",
+	})
+	if err != nil {
+		t.Fatalf("create with manifest fields: %v", err)
+	}
+	if app.StartURL != "https://chat.example.com/app/?source=pwa" || app.Scope != "https://chat.example.com/app/" || app.Display != "standalone" || app.ThemeColor != "#1d2b53" {
+		t.Fatalf("created = %+v", app)
+	}
+	list, _ := s.ListWebapps()
+	if list[0].StartURL != app.StartURL || list[0].ThemeColor != "#1d2b53" {
+		t.Fatalf("listed = %+v", list[0])
+	}
+	for _, bad := range []WebappInput{
+		{Name: "Bad start", URL: "https://x.com", StartURL: "ftp://x.com"},
+		{Name: "Bad scope", URL: "https://x.com", Scope: "https://user:pass@x.com/"},
+		{Name: "Bad display", URL: "https://x.com", Display: "kiosk"},
+	} {
+		if _, err := s.CreateWebapp(bad); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("%+v: want ErrInvalid, got %v", bad, err)
+		}
 	}
 }
 
@@ -105,21 +134,21 @@ func TestWebappURLCanonicalization(t *testing.T) {
 			t.Fatalf("normalize(%q) = %q, %v; want %q", raw, got, err, want)
 		}
 	}
-	deep, err := s.CreateWebapp("Deep", "https://example.com/#/inbox", nil, "")
+	deep, err := s.CreateWebapp(WebappInput{Name: "Deep", URL: "https://example.com/#/inbox", Icon: nil, IconMime: ""})
 	if err != nil {
 		t.Fatalf("deep link: %v", err)
 	}
 	if deep.URL != "https://example.com/#/inbox" {
 		t.Fatalf("fragment must survive: %q", deep.URL)
 	}
-	six, err := s.CreateWebapp("Six", "http://[::1]:3000/ui", nil, "")
+	six, err := s.CreateWebapp(WebappInput{Name: "Six", URL: "http://[::1]:3000/ui", Icon: nil, IconMime: ""})
 	if err != nil {
 		t.Fatalf("ipv6 with port: %v", err)
 	}
 	if six.URL != "http://[::1]:3000/ui" {
 		t.Fatalf("ipv6 url = %q", six.URL)
 	}
-	_, err = s.CreateWebapp("Long", "https://example.com/"+strings.Repeat("a", maxWebAppURL), nil, "")
+	_, err = s.CreateWebapp(WebappInput{Name: "Long", URL: "https://example.com/" + strings.Repeat("a", maxWebAppURL)})
 	if !errors.Is(err, ErrInvalid) {
 		t.Fatalf("overlong url = %v", err)
 	}
@@ -127,7 +156,7 @@ func TestWebappURLCanonicalization(t *testing.T) {
 
 func TestWebappIconAbsentAndMissingRow(t *testing.T) {
 	s := openTest(t)
-	app, _ := s.CreateWebapp("Bare", "https://bare.example.com", nil, "")
+	app, _ := s.CreateWebapp(WebappInput{Name: "Bare", URL: "https://bare.example.com", Icon: nil, IconMime: ""})
 	icon, mime, err := s.GetWebappIcon(app.ID)
 	if err != nil || icon != nil || mime != "" {
 		t.Fatalf("no-icon = %q %q err=%v", icon, mime, err)

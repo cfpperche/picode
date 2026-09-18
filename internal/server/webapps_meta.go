@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/cfpperche/picode/internal/store"
 )
 
 var (
@@ -160,9 +162,13 @@ type webappManifestIcon struct {
 }
 
 type webappManifest struct {
-	Name      string               `json:"name"`
-	ShortName string               `json:"short_name"`
-	Icons     []webappManifestIcon `json:"icons"`
+	Name       string               `json:"name"`
+	ShortName  string               `json:"short_name"`
+	StartURL   string               `json:"start_url"`
+	Scope      string               `json:"scope"`
+	Display    string               `json:"display"`
+	ThemeColor string               `json:"theme_color"`
+	Icons      []webappManifestIcon `json:"icons"`
 }
 
 const (
@@ -261,17 +267,81 @@ func webappFetchManifest(ctx context.Context, client *http.Client, raw string) (
 // a same-origin PWA manifest wins (name, then icon resolved against the
 // manifest URL), the <title> is the fallback. An empty name means the
 // caller derives one from the host.
-func webappLookupMetadata(ctx context.Context, client *http.Client, page webappFetchResult) (string, string) {
+// webappIdentity is what the fetch proved about the site: the manifest's
+// own identity when there is one, the <title> otherwise. The manifest
+// addresses are resolved against the manifest URL, same-origin only, and
+// normalized like any other webapp address — an invalid one is dropped,
+// never guessed.
+type webappIdentity struct {
+	Name       string
+	IconURL    string
+	StartURL   string
+	Scope      string
+	Display    string
+	ThemeColor string
+	PWA        bool
+}
+
+var webappDisplayValues = map[string]bool{"standalone": true, "fullscreen": true, "minimal-ui": true, "browser": true}
+
+func webappSanitizeThemeColor(raw string) string {
+	raw = strings.TrimSpace(strings.ToLower(raw))
+	switch len(raw) {
+	case 4, 5, 7, 9:
+	default:
+		return ""
+	}
+	if raw[0] != '#' {
+		return ""
+	}
+	for _, r := range raw[1:] {
+		if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'f') {
+			return ""
+		}
+	}
+	return raw
+}
+
+func webappManifestAddress(m webappManifest, base *url.URL, raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	ref, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	resolved := base.ResolveReference(ref)
+	if resolved == nil || (resolved.Scheme != "http" && resolved.Scheme != "https") || resolved.Host == "" {
+		return ""
+	}
+	if !isSameWebappOrigin(base, resolved) {
+		return ""
+	}
+	normalized, err := store.NormalizeWebappURL(resolved.String())
+	if err != nil {
+		return ""
+	}
+	return normalized
+}
+
+func webappLookupMetadata(ctx context.Context, client *http.Client, page webappFetchResult) webappIdentity {
 	if raw, ok := webappManifestLinkURL(page.finalURL, page.body); ok {
 		if m, ok := webappFetchManifest(ctx, client, raw); ok {
 			if name := webappManifestName(m); name != "" {
-				base, err := url.Parse(raw)
-				if err != nil {
-					return name, ""
+				id := webappIdentity{Name: name, PWA: true}
+				if base, err := url.Parse(raw); err == nil {
+					id.IconURL = webappManifestIconURL(m, base)
+					id.StartURL = webappManifestAddress(m, base, m.StartURL)
+					id.Scope = webappManifestAddress(m, base, m.Scope)
 				}
-				return name, webappManifestIconURL(m, base)
+				if d := strings.ToLower(strings.TrimSpace(m.Display)); webappDisplayValues[d] {
+					id.Display = d
+				}
+				id.ThemeColor = webappSanitizeThemeColor(m.ThemeColor)
+				return id
 			}
 		}
 	}
-	return webappTitle(page.body), ""
+	return webappIdentity{Name: webappTitle(page.body)}
 }

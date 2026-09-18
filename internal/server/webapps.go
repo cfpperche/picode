@@ -24,6 +24,11 @@ type webappResolveOut struct {
 	Name          string `json:"name"`
 	URL           string `json:"url"`
 	IconAvailable bool   `json:"iconAvailable"`
+	PWA           bool   `json:"pwa"`
+	StartURL      string `json:"startUrl,omitempty"`
+	Scope         string `json:"scope,omitempty"`
+	Display       string `json:"display,omitempty"`
+	ThemeColor    string `json:"themeColor,omitempty"`
 }
 
 func writeWebappErr(w http.ResponseWriter, err error) {
@@ -79,22 +84,23 @@ func handleResolveWebapp(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadGateway, fmt.Sprintf("site answered HTTP %d", page.status))
 			return
 		}
-		name, iconURL := webappLookupMetadata(r.Context(), client, page)
+		id := webappLookupMetadata(r.Context(), client, page)
+		name := id.Name
 		if name == "" {
 			name = webappDeriveName(page.finalURL, "")
 		}
-		if iconURL == "" {
+		if id.IconURL == "" {
 			if u, ok := webappFindIconURL(page.finalURL, page.body); ok {
-				iconURL = u
+				id.IconURL = u
 			}
 		}
 		iconAvail := false
-		if iconURL != "" {
-			if _, _, err := webappFetchIcon(r.Context(), client, iconURL); err == nil {
+		if id.IconURL != "" {
+			if _, _, err := webappFetchIcon(r.Context(), client, id.IconURL); err == nil {
 				iconAvail = true
 			}
 		}
-		writeJSON(w, http.StatusOK, webappResolveOut{Name: name, URL: target, IconAvailable: iconAvail})
+		writeJSON(w, http.StatusOK, webappResolveOut{Name: name, URL: target, IconAvailable: iconAvail, PWA: id.PWA, StartURL: id.StartURL, Scope: id.Scope, Display: id.Display, ThemeColor: id.ThemeColor})
 	}
 }
 
@@ -126,26 +132,27 @@ func handleCreateWebapp(deps Deps) http.HandlerFunc {
 			writeWebappErr(w, store.DuplicateWebappError{Existing: row.Webapp})
 			return
 		}
-		name, iconURL := webappLookupMetadata(r.Context(), client, page)
+		id := webappLookupMetadata(r.Context(), client, page)
+		name := id.Name
 		if name == "" {
 			name = webappDeriveName(page.finalURL, "")
 		}
 		if trimmed := strings.TrimSpace(req.Name); trimmed != "" {
 			name = trimmed
 		}
-		if iconURL == "" {
+		if id.IconURL == "" {
 			if u, ok := webappFindIconURL(page.finalURL, page.body); ok {
-				iconURL = u
+				id.IconURL = u
 			}
 		}
 		var icon []byte
 		iconMime := ""
-		if iconURL != "" {
-			if data, mime, ferr := webappFetchIcon(r.Context(), client, iconURL); ferr == nil {
+		if id.IconURL != "" {
+			if data, mime, ferr := webappFetchIcon(r.Context(), client, id.IconURL); ferr == nil {
 				icon, iconMime = data, mime
 			}
 		}
-		app, err := deps.Store.CreateWebapp(name, target, icon, iconMime)
+		app, err := deps.Store.CreateWebapp(store.WebappInput{Name: name, URL: target, StartURL: id.StartURL, Scope: id.Scope, Display: id.Display, ThemeColor: id.ThemeColor, Icon: icon, IconMime: iconMime})
 		if err != nil {
 			writeWebappErr(w, err)
 			return

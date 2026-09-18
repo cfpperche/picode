@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { webappBadge, updateWebappMeta, webappTabId, submitWebappForm, webappOpenPlan, webappIdFromTab, removedWebappTabs, webappError, DESKTOP_REQUIRED } from "./webapps.js";
+;
 
 test("rename submits the edited name instead of the original name", async () => {
   const app = { id: "mail-abc123", name: "Original name" };
@@ -53,6 +54,15 @@ test("open plan: focus an open tab, open a new one, refuse without the desktop",
   assert.equal(webappOpenPlan({ id: "bad id!" }, [], true).action, "invalid");
   assert.equal(webappIdFromTab(tab), "mail-abc123");
   assert.equal(webappIdFromTab("w:app-../escape"), null);
+});
+
+test("launch url: a bare address defers to the manifest start_url; a typed deep link wins", () => {
+  const bare = { id: "app-abc123", url: "https://app.example.com", startUrl: "https://app.example.com/app/?source=pwa" };
+  const deep = { id: "app-abc123", url: "https://app.example.com/#/inbox", startUrl: "https://app.example.com/app/?source=pwa" };
+  const plain = { id: "app-abc123", url: "https://app.example.com" };
+  assert.equal(webappOpenPlan(bare, [], true).url, "https://app.example.com/app/?source=pwa");
+  assert.equal(webappOpenPlan(deep, [], true).url, "https://app.example.com/#/inbox");
+  assert.equal(webappOpenPlan(plain, [], true).url, "https://app.example.com");
 });
 
 test("removed tabs are exactly the installed-app tabs whose app is gone", () => {

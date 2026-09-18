@@ -44,11 +44,24 @@ export function removedWebappTabs(tabs, apps) {
   });
 }
 
+// A manifest start_url launches when the user typed a bare address (they
+// deferred to the app's own entry point); a deep link they typed wins.
+function webappLaunchURL(app) {
+  if (!app?.startUrl) return app.url;
+  try {
+    const typed = new URL(app.url);
+    const bare = (typed.pathname === "/" || typed.pathname === "") && !typed.search && !typed.hash;
+    return bare ? app.startUrl : app.url;
+  } catch {
+    return app.url;
+  }
+}
+
 export function webappOpenPlan(app, tabs, desktop) {
   const tab = webappTabId(app?.id);
   if (!tab) return { action: "invalid" };
   if (!desktop) return { action: "desktop-required" };
-  return { action: tabs.includes(tab) ? "focus" : "open", tab, id: tab.slice(2), url: app.url };
+  return { action: tabs.includes(tab) ? "focus" : "open", tab, id: tab.slice(2), url: webappLaunchURL(app) };
 }
 
 export function updateWebappMeta(meta, tabs, tab, update) {

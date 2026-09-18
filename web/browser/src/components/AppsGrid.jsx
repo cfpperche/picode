@@ -32,8 +32,7 @@ function WebappDialog({ app, onClose, onSaved, onOpen }) {
     run(async () => {
       const { preview: resolved } = await submitWebappForm(api, { mode: "install", preview: null, url, name });
       setPreview(resolved);
-      if (!name.trim()) setName(resolved.name || "");
-    });
+      if (!name.trim()) setName(resolved.name || "");});
   }
   async function install() {
     await run(async () => {
@@ -74,7 +73,8 @@ function WebappDialog({ app, onClose, onSaved, onOpen }) {
                   onChange={(e) => setName(e.target.value)}
                 />
               </label>
-              {!editing && resolvedUrl ? <p className="webapp-resolved" role="status">Will open {resolvedUrl}</p> : null}
+              {!editing && resolvedUrl ? <p className="webapp-resolved" role="status">Will open {preview.pwa && preview.startUrl ? preview.startUrl : resolvedUrl}</p> : null}
+              {!editing && preview.pwa ? <p className="webapp-resolved" role="note">Web app detected — it installs with its own name, icon and start page.</p> : null}
               {error ? <p className="form-error" role="alert">{error}</p> : null}
               <div className="dlg-actions" data-align-row>
                 {!editing && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setPreview(null); setError(""); setExisting(null); }} disabled={busy}>Back</button>}
