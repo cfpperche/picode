@@ -744,6 +744,14 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
             <Item title="Show full URL" desc="Include the path, query, and fragment in the address bar">
               <SwitchCtl checked={prefs.showFullUrl} onChange={(v) => setPref({ showFullUrl: v })} label="Show full URL" />
             </Item>
+
+            <Item title="Annotation screenshots" desc="What the browser sends when you point at an element: the cropped image, a question each time you annotate, or the element alone.">
+              <select className="set-select" value={prefs.annotationShots} onChange={(e) => setPref({ annotationShots: e.target.value })} aria-label="Annotation screenshots">
+                <option value="always">Always include</option>
+                <option value="ask">Ask each time</option>
+                <option value="never">Never</option>
+              </select>
+            </Item>
             <Item title="Browsing data" desc="Clear browsing history, site data, cache, and download history from the in-app browser">
               <button type="button" className="set-btn" onClick={() => setWipeOpen(true)}>Clear browsing data</button>
             </Item>

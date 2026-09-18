@@ -8,6 +8,8 @@ import { askTitle } from "../lib/browserPermissions.js";
 import { subscribeFloatingLayers, overlapsLayers, rectOf } from "../lib/floatingLayers.js";
 import { requestBrowserDialog } from "../lib/browserDialogs.js";
 import { previewUrl, verifyPreviewUrl } from "../lib/previewStill.js";
+import { createPortal } from "react-dom";
+import { cropRect, parsePick, pickLabel, pickScript, stillToViewport, stylesToCSS } from "../lib/annotate.js";
 
 // Work browser tab surface (Phase 3 slice 1): the React side renders the
 // toolbar and an empty region; the actual page is a native WebView2 child
@@ -102,6 +104,164 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
       });
     previewRef.current.inflight = inflight;
     return inflight;
+  };
+
+  // ---- annotate mode (v2c step 1): point at an element and send it on ----
+  // The native page is hidden (btab_visibility) and its frozen still is shown
+  // instead, because HTML can never paint over a WebView2 child. Clicks land
+  // on the still, resolve to a viewport point, and come back as one element
+  // through the same CDP door the agent's browser verbs use.
+  const [annotOn, setAnnotOn] = useState(false);
+  const [annotStill, setAnnotStill] = useState("");
+  const [annotPick, setAnnotPick] = useState(null);
+  const [annotComment, setAnnotComment] = useState("");
+  const [annotWantShot, setAnnotWantShot] = useState(true);
+  const [annotShots, setAnnotShots] = useState("ask"); // always | ask | never
+  const [annotTerminals, setAnnotTerminals] = useState([]);
+  const [annotTerminal, setAnnotTerminal] = useState("");
+  const [annotBusy, setAnnotBusy] = useState(false);
+  const stillRef = useRef(null);
+
+  useEffect(() => {
+    if (!annotOn) return undefined;
+    let alive = true;
+    fetch("/api/browser/prefs")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((p) => { if (alive && p && (p.annotationShots === "always" || p.annotationShots === "never")) setAnnotShots(p.annotationShots); })
+      .catch(() => {});
+    fetch("/api/terminals")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        if (!alive) return;
+        const list = Array.isArray(body) ? body : body?.terminals || [];
+        const live = list.filter((t) => t && t.running);
+        setAnnotTerminals(live);
+        setAnnotTerminal((cur) => cur || (live[0]?.id ?? ""));
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [annotOn]);
+
+  // Leaving the mode (or unmounting with it on) must always give the live page
+  // back: a hidden view with no overlay would look like a dead tab.
+  useEffect(() => {
+    if (!annotOn) return undefined;
+    return () => { if (invoke) invoke("btab_visibility", { id, visible: true }).catch(() => {}); };
+  }, [annotOn, id]);
+
+  const startAnnotate = async () => {
+    if (!invoke) return;
+    const still = await grabPreview(0);
+    if (!still) { toast("Could not freeze the page for annotating."); return; }
+    setAnnotStill(still);
+    setAnnotPick(null);
+    setAnnotComment("");
+    setAnnotWantShot(true);
+    setAnnotOn(true);
+    invoke("btab_visibility", { id, visible: false }).catch(() => {});
+  };
+  const stopAnnotate = () => {
+    setAnnotOn(false);
+    setAnnotPick(null);
+  };
+
+  const pickAt = async (event) => {
+    const img = event.currentTarget;
+    const box = img.getBoundingClientRect();
+    const point = stillToViewport({
+      clickX: event.clientX - box.left,
+      clickY: event.clientY - box.top,
+      naturalWidth: img.naturalWidth,
+      naturalHeight: img.naturalHeight,
+      displayWidth: box.width,
+      displayHeight: box.height,
+    });
+    if (!point) { toast("That point is not on the frozen page."); return; }
+    const scale = { sx: box.width / (img.naturalWidth || 1), sy: box.height / (img.naturalHeight || 1) };
+    let res;
+    try {
+      res = await invoke("btab_cdp_call", {
+        id,
+        method: "Runtime.evaluate",
+        params_json: JSON.stringify({ expression: pickScript(point.x, point.y), returnByValue: true }),
+        tier: "read",
+        raw: false,
+      });
+    } catch (e) {
+      toast("Could not read the page element: " + (e?.message || e));
+      return;
+    }
+    const pick = parsePick(res);
+    if (!pick) { toast("No element answered at that point."); return; }
+    setAnnotPick({ ...pick, scale });
+  };
+
+  const croppedShot = () => {
+    const img = stillRef.current;
+    if (!img || !annotPick) return "";
+    const box = img.getBoundingClientRect();
+    const rect = cropRect({
+      rect: annotPick.rect,
+      naturalWidth: img.naturalWidth,
+      naturalHeight: img.naturalHeight,
+      displayWidth: box.width,
+      displayHeight: box.height,
+    });
+    if (!rect) return "";
+    const canvas = document.createElement("canvas");
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return "";
+    ctx.drawImage(img, rect.x, rect.y, rect.width, rect.height, 0, 0, rect.width, rect.height);
+    const dataUrl = canvas.toDataURL("image/png");
+    return dataUrl.startsWith("data:image/png;base64,") ? dataUrl.slice("data:image/png;base64,".length) : "";
+  };
+
+  const saveAnnotation = async () => {
+    if (!annotPick) { toast("Pick an element on the page first."); return; }
+    setAnnotBusy(true);
+    const wantImage = annotShots === "always" || (annotShots === "ask" && annotWantShot);
+    try {
+      const res = await fetch("/api/browser/annotations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          terminalId: annotTerminal,
+          url: liveUrlRef.current || url,
+          title: "",
+          selector: annotPick.selector,
+          comment: annotComment,
+          dom: annotPick.html,
+          css: stylesToCSS(annotPick.styles),
+          image: wantImage ? croppedShot() : "",
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        toast("The annotation was not saved: " + (text || res.status));
+        return;
+      }
+      const body = await res.json().catch(() => ({}));
+      const paths = Array.isArray(body.paths) ? body.paths : [];
+      const note = annotComment.trim();
+      if (note && annotTerminal && paths.length) {
+        const drop = await fetch(`/api/terminals/${encodeURIComponent(annotTerminal)}/drop`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: note, paths }),
+        }).catch(() => null);
+        if (drop && drop.ok) toast.ok("Annotation sent to the agent.");
+        else toast.ok("Annotation saved; nothing was sent (the terminal is not running an agent CLI).");
+      } else {
+        toast.ok("Annotation saved.");
+      }
+      stopAnnotate();
+    } catch (e) {
+      toast("The annotation was not saved: " + (e?.message || e));
+    } finally {
+      setAnnotBusy(false);
+    }
   };
   // A menu open has to arrive with its backdrop: the still (the frozen page
   // the HTML sits on) is prefetched on hover and focus, and when it is not
@@ -436,7 +596,80 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
             />
             <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => go()}><IconEnter /></button>
           </div>
-          <DropdownMenu.Root open={menuOpen} onOpenChange={onMenuOpenChange}>
+          <button
+          type="button"
+          className={"web-tab-annot-btn" + (annotOn ? " on" : "")}
+          title={annotOn ? "Stop annotating" : "Point at an element and send it to an agent"}
+          aria-label="Annotate an element"
+          aria-pressed={annotOn}
+          onClick={() => (annotOn ? stopAnnotate() : startAnnotate())}
+        >✎</button>
+        {annotOn && annotStill
+          ? createPortal(
+              <div className="annot-veil" role="dialog" aria-label="Annotate an element">
+                <div className="annot-head">
+                  <strong>{annotPick ? "Element picked" : "Click the element to annotate"}</strong>
+                  {annotPick ? <span className="annot-sub">{pickLabel(annotPick)}</span> : null}
+                  <button type="button" className="set-btn" onClick={stopAnnotate}>Cancel</button>
+                </div>
+                <div className="annot-stage">
+                  <div className="annot-img-wrap">
+                    <img
+                      ref={stillRef}
+                      src={annotStill}
+                      alt="Frozen page"
+                      onClick={pickAt}
+                      draggable={false}
+                    />
+                    {annotPick ? (
+                      <span
+                        className="annot-outline"
+                        style={{
+                          left: annotPick.rect.x * annotPick.scale.sx,
+                          top: annotPick.rect.y * annotPick.scale.sy,
+                          width: annotPick.rect.width * annotPick.scale.sx,
+                          height: annotPick.rect.height * annotPick.scale.sy,
+                        }}
+                      />
+                    ) : null}
+                  </div>
+                </div>
+                <div className="annot-foot">
+                  <input
+                    className="annot-note"
+                    value={annotComment}
+                    onChange={(e) => setAnnotComment(e.target.value)}
+                    placeholder="What should change here?"
+                    aria-label="Annotation comment"
+                  />
+                  {annotShots === "always" ? <span className="annot-sub">Screenshot: always</span> : null}
+                  {annotShots === "never" ? <span className="annot-sub">Screenshot: never</span> : null}
+                  {annotShots === "ask" ? (
+                    <label className="annot-check">
+                      <input type="checkbox" checked={annotWantShot} onChange={(e) => setAnnotWantShot(e.target.checked)} />
+                      Include the screenshot
+                    </label>
+                  ) : null}
+                  <select
+                    className="set-select"
+                    value={annotTerminal}
+                    onChange={(e) => setAnnotTerminal(e.target.value)}
+                    aria-label="Send the annotation to"
+                  >
+                    {annotTerminals.length === 0 ? <option value="">No agent terminal running</option> : null}
+                    {annotTerminals.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name || t.id}</option>
+                    ))}
+                  </select>
+                  <button type="button" className="set-btn" onClick={saveAnnotation} disabled={annotBusy || !annotPick}>
+                    {annotBusy ? "Saving…" : "Save and send"}
+                  </button>
+                </div>
+              </div>,
+              document.body,
+            )
+          : null}
+        <DropdownMenu.Root open={menuOpen} onOpenChange={onMenuOpenChange}>
             <DropdownMenu.Trigger asChild>
               <button
                 type="button"
