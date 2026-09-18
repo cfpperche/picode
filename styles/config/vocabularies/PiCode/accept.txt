@@ -101,3 +101,6 @@ agy
 muse-code
 omp
 oh-my-pi
+excalidraw
+figma
+whatsapp

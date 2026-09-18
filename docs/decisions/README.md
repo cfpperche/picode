@@ -158,4 +158,5 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0151](0151-devservers-stop.md) | devservers-stop — the panel may end what it started | accepted |
 | [0152](0152-annotation-delivery.md) | annotation-delivery — one staged file, its path in the prompt door | accepted |
 | [0153](0153-webapp-partitions.md) | webapp-partitions | proposed |
+| [0154](0154-picode-mcp.md) | picode-mcp — PiCode tools for every agent CLI over MCP; one server per pi package, scope and toggle are the CLI's, guests' agent scope is launch injection | proposed |
 | [0155](0155-distro-keepalive-task.md) | The distro keepalive is a scheduled task, not the shell's child | proposed |

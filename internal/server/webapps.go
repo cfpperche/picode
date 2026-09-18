@@ -108,8 +108,9 @@ func handleResolveWebapp(deps Deps) http.HandlerFunc {
 func handleCreateWebapp(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
-			URL  string `json:"url"`
-			Name string `json:"name"`
+			URL            string `json:"url"`
+			Name           string `json:"name"`
+			AllowDuplicate bool   `json:"allowDuplicate"`
 		}
 		if !webappDecode(w, r, &req) {
 			return
@@ -129,9 +130,11 @@ func handleCreateWebapp(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadGateway, fmt.Sprintf("site answered HTTP %d; nothing was installed", page.status))
 			return
 		}
-		if row, dupErr := deps.Store.GetWebappByURL(target); dupErr == nil {
-			writeWebappErr(w, store.DuplicateWebappError{Existing: row.Webapp})
-			return
+		if !req.AllowDuplicate {
+			if row, dupErr := deps.Store.GetWebappByURL(target); dupErr == nil {
+				writeWebappErr(w, store.DuplicateWebappError{Existing: row.Webapp})
+				return
+			}
 		}
 		id := webappLookupMetadata(r.Context(), client, page)
 		name := id.Name

@@ -169,10 +169,6 @@ func normalizeWebappName(name string) (string, error) {
 	return name, nil
 }
 
-func webappUnique(err error) bool {
-	return err != nil && strings.Contains(strings.ToLower(err.Error()), "unique")
-}
-
 var webappDisplay = map[string]bool{"standalone": true, "fullscreen": true, "minimal-ui": true, "browser": true}
 
 // normalizeWebappOptionalURL validates an optional manifest address; empty
@@ -249,11 +245,6 @@ func (s *Store) CreateWebapp(in WebappInput) (Webapp, error) {
 	}
 	_, err = tx.Exec(`INSERT INTO webapps (id, name, url, start_url, scope, display, theme_color, partitioned, icon, icon_mime, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
 		id, name, rawURL, startURL, scope, display, themeColor, in.Icon, in.IconMime, now)
-	if webappUnique(err) {
-		s.rollback(tx)
-		existing, _ := s.GetWebappByURL(rawURL)
-		return Webapp{}, DuplicateWebappError{Existing: existing.Webapp}
-	}
 	if err != nil {
 		s.rollback(tx)
 		return Webapp{}, fmt.Errorf("store: create webapp: %w", err)

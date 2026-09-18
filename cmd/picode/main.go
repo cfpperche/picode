@@ -124,6 +124,8 @@ func dispatch(cmd string, args []string) bool {
 		fmt.Println("picode " + version.Build())
 	case cmd == "token":
 		runToken(args)
+	case cmd == "mcp":
+		runMCP(args)
 	case cmd == "gateway":
 		runGateway(args)
 	case cmd == "users":
@@ -156,6 +158,7 @@ Usage:
     --json          progress and outcome as JSON lines (picode-desktop clean reads it)
   picode pair                 print a one-time link to pair another device
   picode token [rotate]       print the install token path, or rotate it
+  picode mcp <family…>        serve PiCode's tools to an agent CLI over MCP on stdio (computer, browser)
   picode install [--env K=V]  copy to ~/.local/bin and start on Linux login (systemd --user)
     --env KEY=VALUE   service environment (repeatable), e.g. --env PICODE_DATA=/srv/picode;
                       written to ~/.config/systemd/user/picode.service.d/env.conf

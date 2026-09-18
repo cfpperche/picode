@@ -83,7 +83,11 @@ func (d Hermes) List(p Paths) (mcp.Report, error) {
 	}
 	root, err := readYAMLRoot(rep.Layers[0].Path)
 	if err != nil {
-		return rep, err
+		// The one file exists but does not parse: the layer reports the
+		// reason and the pane shows a blocked line for it (ADR-0150) — the
+		// report still answers 200.
+		blockLayer(&rep.Layers[0], err)
+		root = nil
 	}
 	servers := yamlChild(root, "mcp_servers")
 	if servers == nil || servers.Kind != yaml.MappingNode {
@@ -282,14 +286,16 @@ func readYAMLRoot(path string) (*yaml.Node, error) {
 	}
 	var doc yaml.Node
 	if err := yaml.Unmarshal(b, &doc); err != nil {
-		return nil, fmt.Errorf("%s is not valid YAML", path)
+		// Typed so List degrades just this layer (ADR-0150); writes on top
+		// still refuse.
+		return nil, &parseError{path, "is not valid YAML"}
 	}
 	if doc.Kind != yaml.DocumentNode || len(doc.Content) == 0 {
 		return nil, nil
 	}
 	root := doc.Content[0]
 	if root.Kind != yaml.MappingNode {
-		return nil, fmt.Errorf("%s does not hold a config mapping; PiCode will not touch it", path)
+		return nil, &parseError{path, "does not hold a config mapping"}
 	}
 	return root, nil
 }

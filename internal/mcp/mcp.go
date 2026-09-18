@@ -24,6 +24,10 @@ type Layer struct {
 	Exists   bool   `json:"exists"`
 	Writable bool   `json:"writable"`
 	Scope    string `json:"scope"` // user | project | agent | import
+	// Error names why the file could not be read ("is not valid JSON");
+	// empty means the file parsed or does not exist. A blocked layer
+	// contributes no servers and never fails the whole report.
+	Error string `json:"error,omitempty"`
 }
 
 // Server is one named MCP server after merge (highest layer wins).
@@ -94,16 +98,56 @@ var nameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 var envKeyRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 var headerNameRe = regexp.MustCompile(`^[A-Za-z0-9!#$%&'*+.^_` + "`" + `|~-]+$`)
 
-// Presets copied from pi-mcp-adapter 2.28 KNOWN_SERVER_PRESETS.
-func Presets() []Preset {
+// ToolPresetPrefix names the presets that are PiCode's own tools served
+// over MCP (ADR-0154). They are for guest CLIs: pi has the packages.
+const ToolPresetPrefix = "picode-"
+
+// IsToolPreset reports whether a preset (or a server named after one) is
+// one of PiCode's own tool families.
+func IsToolPreset(id string) bool { return strings.HasPrefix(id, ToolPresetPrefix) }
+
+// toolBinary is the running daemon: the same binary serves `picode mcp`,
+// so a connector written from here points at what is installed, not at a
+// PATH lookup that a launch outside PiCode may not have.
+func toolBinary() string {
+	if exe, err := os.Executable(); err == nil && exe != "" {
+		return exe
+	}
+	return "picode"
+}
+
+// ToolPresets are the PiCode tool families as one-click connector cards,
+// first in the catalog. The server name a card creates is its id.
+func ToolPresets() []Preset {
+	bin := toolBinary()
 	return []Preset{
+		{ID: "picode-computer", Name: "PiCode · Computer", Summary: "Use the Windows desktop through PiCode's desktop app. Off until you switch this terminal on in Settings ▸ Computer.", Entry: Entry{Command: bin, Args: []string{"mcp", "computer"}}},
+		{ID: "picode-browser", Name: "PiCode · Browser", Summary: "Read the page open in PiCode's work browser (desktop app); acting needs a grant in Settings ▸ Browser.", Entry: Entry{Command: bin, Args: []string{"mcp", "browser"}}},
+	}
+}
+
+// WithoutToolPresets is the catalog for pi, which has the packages instead.
+func WithoutToolPresets(in []Preset) []Preset {
+	out := make([]Preset, 0, len(in))
+	for _, p := range in {
+		if !IsToolPreset(p.ID) {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// Presets copied from pi-mcp-adapter 2.28 KNOWN_SERVER_PRESETS, after
+// PiCode's own tool cards (ADR-0154).
+func Presets() []Preset {
+	return append(ToolPresets(), []Preset{
 		{ID: "deepwiki", Name: "DeepWiki", Summary: "Ask questions about public GitHub repositories.", Entry: Entry{URL: "https://mcp.deepwiki.com/mcp"}},
 		{ID: "context7", Name: "Context7", Summary: "Look up current library documentation and examples.", Entry: Entry{URL: "https://mcp.context7.com/mcp"}},
 		{ID: "notion", Name: "Notion", Summary: "Search and work with your Notion workspace.", Entry: Entry{URL: "https://mcp.notion.com/mcp", Auth: "oauth"}},
 		{ID: "github", Name: "GitHub", Summary: "Work with GitHub through your Copilot account.", Entry: Entry{URL: "https://api.githubcopilot.com/mcp", Auth: "oauth"}},
 		{ID: "chrome-devtools", Name: "Chrome DevTools", Summary: "Inspect and automate a local Chrome browser.", Entry: Entry{Command: "npx", Args: []string{"-y", "chrome-devtools-mcp@1.6.0"}}},
 		{ID: "gmail", Name: "Gmail", Summary: "Read, draft and send email. Needs a one-time Google sign-in before first use.", Entry: Entry{Command: "npx", Args: []string{"-y", "@gongrzhe/server-gmail-autoauth-mcp"}}},
-	}
+	}...)
 }
 
 func (p Paths) home() string {

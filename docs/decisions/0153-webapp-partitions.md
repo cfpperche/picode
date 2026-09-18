@@ -32,3 +32,15 @@ An installed webapp's webview gets **its own user-data folder**, derived by the 
 - **Cookie migration for legacy apps** (export from the shared profile, import into the new one) — refused: HttpOnly/session/sameSite state across profiles is fragile and silently wrong; a one-time re-login is honest.
 - **Partition the work browser too** (per workspace/project, the Cursor model) — out of scope; that changes the agent-binding story (ADR-0135) and deserves its own decision.
 - **Keep the shared profile and rely on engine per-origin isolation** — status quo ante; it already separates *sites*, but cannot give two *accounts* of one site, and keeps clear-data global.
+
+## Amendment 2026-09-18 — multi-account is a first-class, discoverable flow
+
+The owner was right that hiding multi-account behind a hand-typed
+`#trabalho` fragment was undiscoverable. The store drops the UNIQUE
+constraint on `url` (migration 057 rebuilds the table; a plain index
+keeps the by-url lookup) and the install request gains
+`allowDuplicate`. Two doors make it discoverable: the tile menu gains
+**Add another account** (pre-filled, pre-consented — no error round
+trip), and the duplicate conflict dialog (default installs still 409)
+gains **Add as new account** beside Open existing. Each row stays one
+partition; removing one account never touches the others.

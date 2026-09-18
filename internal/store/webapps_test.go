@@ -39,19 +39,25 @@ func TestWebappCRUD(t *testing.T) {
 	}
 }
 
-func TestWebappDuplicateURLIsConflictWithExisting(t *testing.T) {
+func TestWebappSameURLTwiceCoexists(t *testing.T) {
 	s := openTest(t)
-	first, err := s.CreateWebapp(WebappInput{Name: "Example", URL: "https://example.com", Icon: nil, IconMime: ""})
+	first, err := s.CreateWebapp(WebappInput{Name: "Work", URL: "https://example.com", Icon: nil, IconMime: ""})
 	if err != nil {
-		t.Fatalf("create: %v", err)
+		t.Fatalf("first: %v", err)
 	}
-	_, err = s.CreateWebapp(WebappInput{Name: "Other", URL: "https://EXAMPLE.com/", Icon: nil, IconMime: ""})
-	var dup DuplicateWebappError
-	if !errors.As(err, &dup) {
-		t.Fatalf("want DuplicateWebappError, got %v", err)
+	second, err := s.CreateWebapp(WebappInput{Name: "Personal", URL: "https://EXAMPLE.com/", Icon: nil, IconMime: ""})
+	if err != nil {
+		t.Fatalf("a second install of the same address must coexist (multi-account): %v", err)
 	}
-	if dup.Existing.ID != first.ID {
-		t.Fatalf("dup.Existing = %+v want %s", dup.Existing, first.ID)
+	if first.ID == second.ID {
+		t.Fatalf("two rows must have distinct ids")
+	}
+	if !second.Partitioned {
+		t.Fatalf("every install is partitioned (ADR-0153)")
+	}
+	list, _ := s.ListWebapps()
+	if len(list) != 2 {
+		t.Fatalf("list = %d rows, want 2", len(list))
 	}
 }
 

@@ -149,6 +149,22 @@ export function connectorTabs(found) {
   return [{ id: "catalog", label: "Catalog", fixed: true }, ...hosts];
 }
 
+// Config files PiCode could not read (ADR-0150): one line per blocked layer
+// names the file instead of a pane-wide error. `file` names the document,
+// `path` keeps the full location for the Open tooltip.
+export function blockedLayers(data) {
+  const layers = (data && Array.isArray(data.layers)) ? data.layers : [];
+  return layers
+    .filter((l) => l && l.error)
+    .map((l) => ({ scope: l.scope || "user", error: l.error, path: l.path || "", file: fileName(l.path) }));
+}
+
+function fileName(p) {
+  const s = String(p || "");
+  const i = Math.max(s.lastIndexOf("/"), s.lastIndexOf("\\"));
+  return i >= 0 ? s.slice(i + 1) : s;
+}
+
 export function readConnectorDefinition(text) {
   if (text.length > 65536) throw new Error("Choose a connector file smaller than 64 KB.");
   let data;

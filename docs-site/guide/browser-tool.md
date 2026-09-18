@@ -12,6 +12,9 @@ and whether this agent may do it.
 - **Where:** install `pi-browser` ([Packages](/guide/packages)). The agent then uses snapshot, screenshot or events on the work-browser tab.
 - **Not this:** not the [Chrome extension](/guide/browser-extension). That sends *your* Chrome tab to an agent. This page is the isolated browser the agent already has.
 
+Claude Code, Codex and the other agent CLIs get the same tool over MCP:
+[PiCode tools for other agent CLIs](/guide/picode-mcp).
+
 `pi-browser` is an **optional pi package — an extension, not part of PiCode
 core**. It reaches the daemon over the same authenticated API every other
 call uses (the install token); it opens no port and adds no credential.

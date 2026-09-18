@@ -3,7 +3,7 @@ import { api } from "@picode/shared/client/api.js";
 import { askConfirm } from "../lib/confirm.js";
 import { registerHashGuard } from "../lib/hashGuard.js";
 import { cliLaunchSchema, parseForm } from "@picode/shared/contracts/schemas.js";
-import { launchDraft, launchConfig, defaultLaunchConfig, launchChanged, launchArgs, launchLines } from "@picode/shared/domain/cliLaunch.js";
+import { launchDraft, launchConfig, defaultLaunchConfig, launchChanged, launchArgs, launchLines, PICODE_TOOL_FAMILIES } from "@picode/shared/domain/cliLaunch.js";
 import { quickSettingsFor, readQuickValue, readQuickList, applyQuickSetting, applyQuickList, argLine } from "@picode/shared/domain/cliLaunchPresets.js";
 
 export const cliJSON = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -91,8 +91,18 @@ export function LaunchFields({ draft, setDraft, includeIntegration = false, cli 
     <details open={!!draft.pathText || undefined}><summary>Extra PATH entries</summary><label><span>One absolute directory per line</span><textarea aria-label="Extra PATH entries" rows={2} placeholder="/opt/tools/bin" spellCheck={false} {...field("pathText")} /></label></details>
     <details><summary>Environment {draft.envText ? "· customized" : "· no additions"}</summary><label><span>One NAME=value per line · values visible while editing</span><textarea aria-label="Environment" rows={3} autoComplete="off" spellCheck={false} {...field("envText")} /></label></details>
   </>;
+  // PiCode tools (ADR-0154): one switch per family, only for a CLI that
+  // takes MCP servers at launch; the others get the connector at workspace
+  // scope from their Connectors pane, and the form says nothing here.
+  const tools = draft.tools || [];
+  const toggleTool = (id, on) => setDraft({ ...draft, tools: on ? [...tools.filter((t) => t !== id), id] : tools.filter((t) => t !== id) });
+  const toolGroup = cli?.toolsCapable ? <fieldset className="cli-tools" aria-label="PiCode tools">
+    <legend>PiCode tools</legend>
+    {PICODE_TOOL_FAMILIES.map((f) => <label key={f.id} className="cli-checkbox"><input type="checkbox" checked={tools.includes(f.id)} onChange={(e) => toggleTool(f.id, e.target.checked)} />{f.label}<span>{f.hint}</span></label>)}
+  </fieldset> : null;
   return <div className="cli-fields cli-launch-fields">
     {quick}
+    {toolGroup}
     {specs ? <details className="cli-advanced" open={!!(draft.executable || draft.argsText || draft.pathText || draft.envText) || undefined}><summary>Advanced</summary>{advanced}</details> : advanced}
     {includeIntegration ? <label className="cli-checkbox"><input type="checkbox" checked={draft.integration} onChange={(e) => setDraft({ ...draft, integration: e.target.checked })} />Report activity on new launches</label> : null}
   </div>;
@@ -110,6 +120,7 @@ export function LaunchSummary({ plan, title = "Launch settings", compact = false
       <dt>Extra PATH</dt><dd>{list(plan.path, "None · service PATH")}<small>{plan.path?.length ? plan.origins?.path : null}</small></dd>
       <dt>Environment</dt><dd>{list(plan.envKeys?.map((k) => k + "=••••"), "No additions")}<small>{plan.envKeys?.length ? plan.origins?.env : null}</small></dd>
       <dt>PiCode additions</dt><dd>{plan.integration ? injection?.summary || "Activity reporting on" : "None · activity reporting off"}<small>{plan.origins?.integration}</small></dd>
+      {plan.tools?.length ? <><dt>PiCode tools</dt><dd>{plan.toolInjection?.summary || plan.tools.join(", ")}<small>{plan.origins?.tools}</small></dd></> : null}
     </dl>
     {!compact ? <details className="cli-effective"><summary>View launch details</summary>
       <div className="cli-injection">
