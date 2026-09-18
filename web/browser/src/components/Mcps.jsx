@@ -10,7 +10,7 @@ import { mcpAddSchema, pairsToMap, parseForm } from "@picode/shared/contracts/sc
 import { toast } from "../lib/toast.js";
 import PageFrame from "./PageFrame.jsx";
 import PiSpinner from "./PiSpinner.jsx";
-import { readConnectorDefinition, destinationLabel, connectorTabs, connectorDriver } from "@picode/shared/domain/integrations.js";
+import { readConnectorDefinition, destinationLabel, connectorTabs, connectorDriver, blockedLayers } from "@picode/shared/domain/integrations.js";
 import "../styles/integrations.css";
 
 export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, workspacePath, agentId, agentName, agentWorkPath, agentRunning, onReload, scope: scopeProp = "user", onScopeChange = () => {} }) {
@@ -88,6 +88,7 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
   const servers = (data && data.servers) || [];
   const presets = (data && data.presets) || [];
   const tabs = connectorTabs(data && data.found);
+  const blocked = blockedLayers(data);
   const canProject = !!workspaceId;
   const canAgent = !!agentWorkPath;
   // A catalog entry is "Added" when the selected layer already has it; another
@@ -366,12 +367,35 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
     await runJob("remove", s.name, () => api("/api/mcp?" + q.toString(), { method: "DELETE" }));
   }
 
+  // A blocked config file is opened in the host file manager; the server
+  // resolves the path itself, so the client never supplies one.
+  async function revealBlocked(b) {
+    try {
+      await api("/api/mcp/reveal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cli, scope: b.scope }),
+      });
+    } catch (err) {
+      toast.error(humanizeError(err.message || String(err)));
+    }
+  }
+
   return (
     <PageFrame id="connectors-view" title="Connectors" embedded hidden={hidden}>
       <div className="connectors-head">
         <p className="integrations-intro">Connect services your agents can use.</p>
         {installed && !loading ? <button type="button" className="btn btn-primary" disabled={!!job} onClick={() => { setSvcQuery(""); setAddOpen(true); }}>Add connector</button> : null}
       </div>
+      {blocked.map((b) => (
+        <div key={b.scope + ":" + b.path} className="mcp-blocked" role="status">
+          <span className="mcp-blocked-text"><code title={b.path || undefined}>{b.file}</code> {b.error}.</span>
+          <span className="mcp-row-actions" data-align-row>
+            {guest ? <button type="button" className="btn btn-ghost btn-sm" disabled={!!job} onClick={() => revealBlocked(b)}>Open</button> : null}
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => load()}>Retry</button>
+          </span>
+        </div>
+      ))}
       {loading ? (
         <div className="mcp-skel" aria-hidden="true">
           <div className="skel-line w-70" />
