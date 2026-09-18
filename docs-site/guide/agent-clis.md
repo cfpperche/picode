@@ -127,18 +127,19 @@ Each CLI offers what its installed flags support:
 
 | Control | Flag it writes | Offered for |
 |---|---|---|
-| Model | `--model` | Pi, Claude Code, Codex, Hermes Agent, OpenCode, Omp |
+| Model | `--model` | Pi, Claude Code, Codex, Grok, Hermes Agent, OpenCode, Omp |
 | Additional folders | `--add-dir` | Claude Code, Codex, Omp |
-| Thinking / Reasoning effort | `--thinking`, `--reasoning`, `-c model_reasoning_effort=…` | Pi, Codex, Hermes Agent |
+| Thinking / Reasoning effort | `--thinking`, `--effort`, `--reasoning`, `-c model_reasoning_effort=…` | Pi, Codex, Grok, Hermes Agent |
 | Approvals | `--permission-mode`, `--ask-for-approval` | Claude Code, Codex, Grok |
-| Sandbox | `--sandbox` | Codex |
+| Sandbox | `--sandbox` | Codex, Grok |
 | YOLO | `--yolo`, `--always-approve` | Codex, Hermes Agent, Grok (auto-approve) |
 
 Codex refuses YOLO together with a sandbox or approval choice, so picking
 one clears the others (and vice versa). Skipping prompts or granting full
-access shows a one-line warning on the control. Muse Code and Antigravity
-have no editable launch settings; the Grok sandbox and reasoning flags
-accept no documented value list yet and stay under **Advanced**.
+access shows a one-line warning on the control. The Grok sandbox offers the
+built-in profiles (`workspace`, `devbox`, `read-only`, `strict`) and
+accepts a custom profile name typed in the field. Muse Code and
+Antigravity have no editable launch settings.
 
 | Setting | Meaning |
 |---|---|
