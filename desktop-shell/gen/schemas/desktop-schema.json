@@ -363,6 +363,42 @@
           "markdownDescription": "Enables the clean_list command without any pre-configured scope."
         },
         {
+          "description": "Enables the computer_call command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-computer-call",
+          "markdownDescription": "Enables the computer_call command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the computer_displays command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-computer-displays",
+          "markdownDescription": "Enables the computer_displays command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the computer_preview command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-computer-preview",
+          "markdownDescription": "Enables the computer_preview command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the computer_set_grants command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-computer-set-grants",
+          "markdownDescription": "Enables the computer_set_grants command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the computer_windows command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-computer-windows",
+          "markdownDescription": "Enables the computer_windows command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the computerlab_open command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-computerlab-open",
+          "markdownDescription": "Enables the computerlab_open command without any pre-configured scope."
+        },
+        {
           "description": "Enables the disk_compact command without any pre-configured scope.",
           "type": "string",
           "const": "allow-disk-compact",
@@ -613,6 +649,42 @@
           "type": "string",
           "const": "deny-clean-list",
           "markdownDescription": "Denies the clean_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the computer_call command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-computer-call",
+          "markdownDescription": "Denies the computer_call command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the computer_displays command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-computer-displays",
+          "markdownDescription": "Denies the computer_displays command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the computer_preview command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-computer-preview",
+          "markdownDescription": "Denies the computer_preview command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the computer_set_grants command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-computer-set-grants",
+          "markdownDescription": "Denies the computer_set_grants command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the computer_windows command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-computer-windows",
+          "markdownDescription": "Denies the computer_windows command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the computerlab_open command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-computerlab-open",
+          "markdownDescription": "Denies the computerlab_open command without any pre-configured scope."
         },
         {
           "description": "Denies the disk_compact command without any pre-configured scope.",

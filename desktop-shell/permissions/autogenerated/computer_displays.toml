@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-computer-displays"
+description = "Enables the computer_displays command without any pre-configured scope."
+commands.allow = ["computer_displays"]
+
+[[permission]]
+identifier = "deny-computer-displays"
+description = "Denies the computer_displays command without any pre-configured scope."
+commands.deny = ["computer_displays"]
