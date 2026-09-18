@@ -29,6 +29,12 @@ func (Codex) ID() string { return "codex" }
 
 func (Codex) Bin() string { return codexBin }
 
+// AuthHint is Codex's own sign-in command for one server.
+func (Codex) AuthHint(name string) AuthHint {
+	cmd := codexBin + " mcp login " + name
+	return AuthHint{Text: "sign in from a terminal instead: " + cmd, Command: cmd}
+}
+
 type codexPaths struct{ Paths }
 
 func (c codexPaths) user() string {

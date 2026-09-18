@@ -35,6 +35,12 @@ func (Claude) ID() string { return "claude-code" }
 // Bin is the vendor binary; it is not the driver id.
 func (Claude) Bin() string { return claudeBin }
 
+// AuthHint is Claude Code's own sign-in command for one server.
+func (Claude) AuthHint(name string) AuthHint {
+	cmd := claudeBin + " mcp login " + name
+	return AuthHint{Text: "sign in from a terminal instead: " + cmd, Command: cmd}
+}
+
 type claudePaths struct{ Paths }
 
 func (c claudePaths) project() string {
@@ -235,7 +241,7 @@ func trimHealth(s string) string {
 }
 
 func listClaudeFile(path string, layer mcp.Layer) ([]mcp.Server, error) {
-	raw, err := readClaudeFile(path)
+	raw, err := readJSONFile(path)
 	if err != nil || raw == nil {
 		return nil, err
 	}
@@ -293,7 +299,7 @@ func (d Claude) Add(p Paths, scope, name string, entry mcp.Entry) error {
 	if path == "" {
 		return fmt.Errorf("select a workspace first")
 	}
-	raw, err := readClaudeFileOrEmpty(path)
+	raw, err := readJSONFileOrEmpty(path)
 	if err != nil {
 		return err
 	}
@@ -375,7 +381,7 @@ func (d Claude) Remove(p Paths, scope, name string) error {
 	if path == "" {
 		return fmt.Errorf("select a workspace first")
 	}
-	raw, err := readClaudeFile(path)
+	raw, err := readJSONFile(path)
 	if err != nil {
 		return err
 	}
@@ -428,7 +434,10 @@ func claudeEntryMap(e mcp.Entry, prev map[string]any) map[string]any {
 	return out
 }
 
-func readClaudeFile(path string) (map[string]any, error) {
+// readJSONFile is the shared reader for the JSON-codec drivers (Claude
+// project files, Omp, Antigravity): a missing file is an empty config,
+// malformed JSON refuses every write on top of it (ADR-0150).
+func readJSONFile(path string) (map[string]any, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -443,8 +452,8 @@ func readClaudeFile(path string) (map[string]any, error) {
 	return raw, nil
 }
 
-func readClaudeFileOrEmpty(path string) (map[string]any, error) {
-	raw, err := readClaudeFile(path)
+func readJSONFileOrEmpty(path string) (map[string]any, error) {
+	raw, err := readJSONFile(path)
 	if err != nil {
 		return nil, err
 	}

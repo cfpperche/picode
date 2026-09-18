@@ -42,29 +42,44 @@ func (p Paths) home() string {
 	return h
 }
 
+// AuthHint is the vendor's own sign-in path for one server: Text is the
+// sentence the auth API refuses with, and Command — when non-empty — is the
+// copyable piece inside it (a terminal command, or a TUI command for
+// TUI-only vendors like Omp; empty when the vendor signs in through its
+// own settings, as Antigravity does).
+type AuthHint struct {
+	Text    string
+	Command string
+}
+
 // Driver is one guest CLI's native MCP management surface. Method shapes
 // mirror internal/mcp so the /api/mcp handlers can dispatch without
 // translating payloads; reports reuse mcp.Report verbatim, so the pane sees
 // the exact response shape Pi produces. ID matches the CLI catalog id while
-// Bin is the vendor binary the driver shells out to — they differ for
-// claude-code, whose binary is `claude`.
+// Bin is the vendor binary the driver names — they differ for claude-code,
+// whose binary is `claude`.
 type Driver interface {
 	ID() string
 	Bin() string
+	AuthHint(name string) AuthHint
 	List(p Paths) (mcp.Report, error)
 	Add(p Paths, scope, name string, entry mcp.Entry) error
 	Toggle(p Paths, scope, name string, disabled bool) error
 	Remove(p Paths, scope, name string) error
 }
 
-// For returns the phase-1 guest driver for cli, or nil when cli is Pi (its
-// driver is internal/mcp itself) or has no driver yet.
+// For returns the guest driver for cli, or nil when cli is Pi (its driver
+// is internal/mcp itself) or has no driver yet.
 func For(cli string) Driver {
 	switch cli {
 	case "claude-code":
 		return Claude{}
 	case "codex":
 		return Codex{}
+	case "omp":
+		return Omp{}
+	case "agy":
+		return AGY{}
 	default:
 		return nil
 	}

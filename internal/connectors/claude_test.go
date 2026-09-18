@@ -36,7 +36,7 @@ func TestClaudeProjectGoldenRoundTrip(t *testing.T) {
 	if err := (Claude{}).Add(p, "project", "docs", mcp.Entry{URL: "https://mcp.deepwiki.com/mcp", Auth: "oauth"}); err != nil {
 		t.Fatal(err)
 	}
-	raw, err := readClaudeFile(path)
+	raw, err := readJSONFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestClaudeProjectGoldenRoundTrip(t *testing.T) {
 	if err := (Claude{}).Add(p, "project", "docs", mcp.Entry{Command: "npx", Args: []string{"-y", "docs"}}); err != nil {
 		t.Fatal(err)
 	}
-	raw, _ = readClaudeFile(path)
+	raw, _ = readJSONFile(path)
 	docs, _ = raw["mcpServers"].(map[string]any)["docs"].(map[string]any)
 	if docs["command"] != "npx" || docs["url"] != nil || docs["type"] != nil {
 		t.Fatalf("transport switch did not clean the other side: %v", docs)
@@ -80,7 +80,7 @@ func TestClaudeProjectGoldenRoundTrip(t *testing.T) {
 	if err := (Claude{}).Remove(p, "project", "docs"); err != nil {
 		t.Fatal(err)
 	}
-	raw, _ = readClaudeFile(path)
+	raw, _ = readJSONFile(path)
 	if _, still := raw["mcpServers"].(map[string]any)["docs"]; still {
 		t.Fatal("docs survived Remove")
 	}
