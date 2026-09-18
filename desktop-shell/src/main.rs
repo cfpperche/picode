@@ -566,14 +566,30 @@ fn open_management_window(app: &tauri::AppHandle) {
         .build();
 }
 
+/// The restart gate: a daemon restart window can hold the port with a
+/// listener that answers 404 for /desktop/, and the webview would park on
+/// that dead body forever (2026-09-18: back-to-back deploys bricked the
+/// resident until a manual restart). Wait — bounded — for a real 200; the
+/// UI reloads itself on boot changes, so this gate only has to cover the
+/// shell's navigations.
+fn await_desktop_ready(base: &str) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    while !health::status_ok(base, "/desktop/") && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+}
+
 /// What the main window loads: the daemon's /desktop/ when it answers,
 /// the bundled offline page until then.
 fn main_target() -> WebviewUrl {
-    match discover_server().map(|(_, mut u)| {
+    match discover_server().map(|(base, mut u)| {
         u.set_path("/desktop/");
-        u
+        (base, u)
     }) {
-        Some(u) => WebviewUrl::External(u),
+        Some((base, u)) => {
+            await_desktop_ready(&base);
+            WebviewUrl::External(u)
+        }
         None => WebviewUrl::App("offline.html".into()),
     }
 }

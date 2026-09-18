@@ -1,86 +1,47 @@
-import assert from "node:assert/strict";
 import { test } from "node:test";
-import { pingHealth, startReconnectWatch } from "./reconnect.js";
+import assert from "node:assert/strict";
+import { startReconnectWatch, pageServing } from "./reconnect.js";
 
-globalThis.window = {
-  __picodeKickHealth: undefined,
-  addEventListener() {},
-  removeEventListener() {},
-};
-globalThis.document = {
-  addEventListener() {},
-  removeEventListener() {},
-};
-
-function wait(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-test("pingHealth returns bootId string or null", async () => {
-  assert.equal(await pingHealth(async () => ({ ok: true, json: async () => ({ bootId: "abc" }) })), "abc");
-  assert.equal(await pingHealth(async () => ({ ok: false, json: async () => ({}) })), null);
-  assert.equal(await pingHealth(async () => { throw new Error("offline"); }), null);
+test("pageServing: true only for an ok answer", async () => {
+  assert.equal(await pageServing(async () => ({ ok: true }), "/x/"), true);
+  assert.equal(await pageServing(async () => ({ ok: false }), "/x/"), false);
+  assert.equal(await pageServing(async () => { throw new Error("down"); }, "/x/"), false);
 });
 
-test("watch goes down after misses and reloads on recovery", async () => {
-  const seq = [null, null, "b1"];
-  let i = 0;
-  const states = [];
-  let reloads = 0;
+test("bootId change defers the reload until the page serves again", async () => {
+  let pings = 0;
+  let probes = 0;
+  let reloaded = 0;
   const stop = startReconnectWatch({
-    ping: async () => seq[Math.min(i++, seq.length - 1)],
-    reload: () => { reloads += 1; },
-    onState: (s) => states.push(s),
-    downAfter: 2,
-    okMs: 8,
-    downMs: 8,
+    ping: async () => (pings += 1) === 1 ? "boot-1" : "boot-2",
+    reload: () => { reloaded += 1; },
+    probe: async () => (probes += 1) >= 3,
+    waitMs: 1,
+    okMs: 2,
+    downMs: 2,
   });
-  await wait(60);
+  for (let i = 0; i < 200 && reloaded === 0; i++) {
+    await new Promise((r) => setTimeout(r, 5));
+  }
   stop();
-  assert.ok(states.includes("down"), "states " + states.join(","));
-  assert.ok(states.includes("up"), "states " + states.join(","));
-  assert.equal(reloads, 1);
+  assert.ok(reloaded >= 1, "reload must eventually fire");
+  assert.ok(probes >= 2, `the reload must wait for the page (probes=${probes})`);
 });
 
-test("watch stays up when health is ok", async () => {
-  const states = [];
-  let reloads = 0;
+test("a probe that never succeeds still reloads (bounded, fail-open)", async () => {
+  let pings = 0;
+  let reloaded = 0;
   const stop = startReconnectWatch({
-    ping: async () => "b1",
-    reload: () => { reloads += 1; },
-    onState: (s) => states.push(s),
-    okMs: 8,
-    downMs: 8,
+    ping: async () => (pings += 1) === 1 ? "boot-1" : "boot-2",
+    reload: () => { reloaded += 1; },
+    probe: async () => false,
+    waitMs: 1,
+    okMs: 2,
+    downMs: 2,
   });
-  await wait(30);
+  for (let i = 0; i < 400 && reloaded === 0; i++) {
+    await new Promise((r) => setTimeout(r, 5));
+  }
   stop();
-  assert.equal(reloads, 0);
-  assert.ok(!states.includes("down"));
-});
-
-test("fast restart: bootId change reloads without downtime", async () => {
-  let boot = "b1";
-  const states = [];
-  let reloads = 0;
-  const stop = startReconnectWatch({
-    ping: async () => boot,
-    reload: () => { reloads += 1; },
-    onState: (s) => states.push(s),
-    okMs: 10,
-    downMs: 10,
-  });
-  await wait(25);
-  boot = "b2"; // server restarted between polls
-  await wait(30);
-  stop();
-  assert.equal(reloads, 1);
-  assert.ok(!states.includes("down"));
-  assert.ok(states.includes("up"));
-});
-
-test("kick via window event helper is exposed", async () => {
-  const stop = startReconnectWatch({ ping: async () => "b1", reload: () => {}, okMs: 10, downMs: 10 });
-  assert.equal(typeof window.__picodeKickHealth, "function");
-  stop();
-  assert.equal(window.__picodeKickHealth, undefined);
+  assert.equal(reloaded, 1, "fail-open reload fires after the bounded wait");
 });

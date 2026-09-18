@@ -104,6 +104,19 @@ fn parse_readiness(text: &str) -> Result<Vec<String>, String> {
         .collect())
 }
 
+/// Whether one daemon path answers HTTP 200. This is the readiness gate
+/// for the shell's first navigation: a restart window can hold the port
+/// with a listener that 404s, and navigating into that window leaves the
+/// resident parked on a dead body forever (2026-09-18, back-to-back
+/// deploys bricked the shell until a manual restart).
+pub fn status_ok(base: &str, path: &str) -> bool {
+    let url = format!("{}{}", base.trim_end_matches('/'), path);
+    let mut cmd = Command::new(curl_exe());
+    cmd.args(["-sk", "-o", "NUL", "-w", "%{http_code}", "--max-time", "5", &url]);
+    hide_console(&mut cmd);
+    matches!(cmd.output(), Ok(out) if String::from_utf8_lossy(&out.stdout).trim() == "200")
+}
+
 fn code(out: &std::process::Output) -> String {
     out.status.code().map(|c| c.to_string()).unwrap_or_else(|| "signal".to_string())
 }
