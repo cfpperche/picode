@@ -16,13 +16,10 @@ import { previewUrl, verifyPreviewUrl } from "../lib/previewStill.js";
 // this surface.
 const invoke = typeof window !== "undefined" && window.__TAURI__ ? window.__TAURI__.core.invoke : null;
 
-export default function WebTabSurface({ tabId, url = "", active, hidden, className = "", expanded = false, chromeless = false, chromelessTitle = "", asks = [], onAnswerAsk, onClose, onMeta, onNew, onBrowserSettings, onToggleExpand }) {
+export default function WebTabSurface({ tabId, url = "", active, hidden, className = "", expanded = false, chromeless = false, asks = [], onAnswerAsk, onClose, onMeta, onNew, onBrowserSettings, onToggleExpand }) {
   const id = tabId.slice(2);
   const [urlDraft, setUrlDraft] = useState("");
   const [started, setStarted] = useState(false);
-  // The page's live address, tracked for app mode's "Copy address" (the
-  // URL bar that normally shows it is hidden there).
-  const liveUrlRef = useRef(url);
   // The address-bar display pref. It is read by the meta-poll effect's deps
   // below, so it must be declared before them: a `const` read earlier in the
   // same render is a ReferenceError that takes the whole app down (main,
@@ -225,6 +222,23 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     };
   }, [id, hidden, covered]);
 
+  // App mode keeps no toolbar: Ctrl+F summons the find bar over the page
+  // (WebView2 ships no native find UI); reload and zoom stay engine
+  // accelerators (F5, Ctrl+R, Ctrl +/-) and the page's right-click menu is
+  // the engine's own. Passwords/downloads/history live in Settings ▸
+  // Browser, where the toolbar menu only ever linked.
+  useEffect(() => {
+    if (!invoke || !chromeless || !active || hidden) return undefined;
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setFindOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [invoke, chromeless, active, hidden]);
+
   // Mirror the page's location into the toolbar (active tab only).
   useEffect(() => {
     if (!invoke || hidden) return undefined;
@@ -233,7 +247,6 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
         .then((m) => {
           if (m.url) {
             setStarted(true);
-            liveUrlRef.current = m.url;
             setUrlDraft((cur) => (document.activeElement === urlRef.current ? cur : trimUrl(m.url)));
             record("history", m.url, false, m.title);
           }
@@ -407,93 +420,78 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
 
   return (
     <section className={"web-tab-surface" + (className ? " " + className : "")} hidden={hidden} aria-label="Work browser">
-      <div className="web-tab-toolbar">
-        {chromeless ? (
-          <span className="web-tab-appname" title={liveUrlRef.current || url}>{chromelessTitle}</span>
-        ) : (
-          <>
-            <button type="button" title="Back" onClick={() => invoke("btab_back", { id }).catch(() => {})}>←</button>
-            <button type="button" title="Forward" onClick={() => invoke("btab_forward", { id }).catch(() => {})}>→</button>
-            <button type="button" title="Reload" onClick={() => invoke("btab_reload", { id }).catch(() => {})}>⟳</button>
-            <div className="web-tab-urlbar">
-              <input
-                ref={urlRef}
-                value={urlDraft}
-                onChange={(e) => setUrlDraft(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") go(); }}
-                placeholder="Search or enter a URL"
-                spellCheck={false}
-              />
-              <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => go()}><IconEnter /></button>
-            </div>
-          </>
-        )}
-        <DropdownMenu.Root open={menuOpen} onOpenChange={onMenuOpenChange}>
-          <DropdownMenu.Trigger asChild>
-            <button
-              type="button"
-              className="web-tab-menu"
-              title="Browser options"
-              aria-label="Browser options"
-              onPointerEnter={() => grabPreview(1500)}
-              onPointerDown={() => grabPreview(1500)}
-              onFocus={() => grabPreview(1500)}
-            >⋮</button>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content align="end" sideOffset={6} collisionPadding={8} className="web-tab-menu-list" onCloseAutoFocus={(e) => e.preventDefault()}>
-              {chromeless ? (
-                <>
-                  <DropdownMenu.Item className="um-item" onSelect={() => invoke("btab_reload", { id }).catch(() => {})}>Reload</DropdownMenu.Item>
-                  <DropdownMenu.Item className="um-item" onSelect={() => {
-                    const target = liveUrlRef.current || url;
-                    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(target).then(() => toast.ok("Address copied")).catch(() => toast("Could not copy the address"));
-                    else toast("Copy is not available here");
-                  }}>Copy address</DropdownMenu.Item>
-                  <DropdownMenu.Separator className="web-tab-menu-sep" />
-                </>
-              ) : null}
-              <DropdownMenu.Item className="um-item" onSelect={() => setFindOpen(true)}>Find in page</DropdownMenu.Item>
-              <DropdownMenu.Item className="um-item" onSelect={printPage}>Print</DropdownMenu.Item>
-              <DropdownMenu.Separator className="web-tab-menu-sep" />
-              <div className="web-tab-zoom" role="group" aria-label="Zoom">
-                <span>Zoom</span>
-                <span className="web-tab-zoom-ctl">
-                  <button type="button" onClick={() => zoomStep(-1)} aria-label="Zoom out" title="Zoom out">−</button>
-                  <span className="web-tab-zoom-val">{Math.round(zoom * 100)}%</span>
-                  <button type="button" onClick={() => zoomStep(1)} aria-label="Zoom in" title="Zoom in">+</button>
-                  <button type="button" onClick={() => applyZoom(1)} aria-label="Reset zoom" title="Reset zoom"><IconReload /></button>
-                </span>
-              </div>
-              <DropdownMenu.Item className="um-item" onSelect={shot}><span className="um-item-name"><IconMonitor />Take a screenshot</span></DropdownMenu.Item>
-              <DropdownMenu.Separator className="web-tab-menu-sep" />
-              <DropdownMenu.Sub>
-                <DropdownMenu.SubTrigger className="um-item">
-                  <span className="um-item-name">Passwords and autofill<IconChevronRight className="web-tab-sub-arrow" /></span>
-                </DropdownMenu.SubTrigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.SubContent className="web-tab-menu-list web-tab-submenu" sideOffset={4} alignOffset={-6} collisionPadding={8}>
-                    <DropdownMenu.Item className="um-item" onSelect={() => openBrowserDialog("passwords")}>Password manager</DropdownMenu.Item>
-                    <DropdownMenu.Item className="um-item" onSelect={() => openBrowserDialog("contact")}>Contact info</DropdownMenu.Item>
-                  </DropdownMenu.SubContent>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Sub>
-              <DropdownMenu.Item className="um-item" onSelect={() => openBrowserDialog("downloads")}>Downloads</DropdownMenu.Item>
-              <DropdownMenu.Item className="um-item" onSelect={() => openBrowserDialog("history")}>History</DropdownMenu.Item>
-              <DropdownMenu.Item className="um-item" onSelect={() => openBrowserDialog("wipe")}>Clear browsing data</DropdownMenu.Item>
-              <DropdownMenu.Separator className="web-tab-menu-sep" />
-              <DropdownMenu.Item className="um-item" onSelect={() => onBrowserSettings?.()}><span className="um-item-name"><IconSettings />Browser settings</span></DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        </DropdownMenu.Root>
-        {err ? <span className="web-tab-err" title={err}>{err}</span> : null}
-        {onToggleExpand ? (
-          <button type="button" className="web-tab-menu" title={expanded ? "Back to split" : "Expand browser"} aria-label={expanded ? "Back to split" : "Expand browser"} onClick={onToggleExpand}>
-            {expanded ? <IconCollapse /> : <IconExpand />}
-          </button>
-        ) : null}
-        {onClose ? <button type="button" className="web-tab-menu" title="Close browser pane" aria-label="Close browser pane" onClick={onClose}><IconX /></button> : null}
-      </div>
+      {!chromeless ? (
+        <div className="web-tab-toolbar">
+          <button type="button" title="Back" onClick={() => invoke("btab_back", { id }).catch(() => {})}>←</button>
+          <button type="button" title="Forward" onClick={() => invoke("btab_forward", { id }).catch(() => {})}>→</button>
+          <button type="button" title="Reload" onClick={() => invoke("btab_reload", { id }).catch(() => {})}>⟳</button>
+          <div className="web-tab-urlbar">
+            <input
+              ref={urlRef}
+              value={urlDraft}
+              onChange={(e) => setUrlDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") go(); }}
+              placeholder="Search or enter a URL"
+              spellCheck={false}
+            />
+            <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => go()}><IconEnter /></button>
+          </div>
+          <DropdownMenu.Root open={menuOpen} onOpenChange={onMenuOpenChange}>
+            <DropdownMenu.Trigger asChild>
+              <button
+                type="button"
+                className="web-tab-menu"
+                title="Browser options"
+                aria-label="Browser options"
+                onPointerEnter={() => grabPreview(1500)}
+                onPointerDown={() => grabPreview(1500)}
+                onFocus={() => grabPreview(1500)}
+              >⋮</button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content align="end" sideOffset={6} collisionPadding={8} className="web-tab-menu-list" onCloseAutoFocus={(e) => e.preventDefault()}>
+                <DropdownMenu.Item className="um-item" onSelect={() => setFindOpen(true)}>Find in page</DropdownMenu.Item>
+                <DropdownMenu.Item className="um-item" onSelect={printPage}>Print</DropdownMenu.Item>
+                <DropdownMenu.Separator className="web-tab-menu-sep" />
+                <div className="web-tab-zoom" role="group" aria-label="Zoom">
+                  <span>Zoom</span>
+                  <span className="web-tab-zoom-ctl">
+                    <button type="button" onClick={() => zoomStep(-1)} aria-label="Zoom out" title="Zoom out">−</button>
+                    <span className="web-tab-zoom-val">{Math.round(zoom * 100)}%</span>
+                    <button type="button" onClick={() => zoomStep(1)} aria-label="Zoom in" title="Zoom in">+</button>
+                    <button type="button" onClick={() => applyZoom(1)} aria-label="Reset zoom" title="Reset zoom"><IconReload /></button>
+                  </span>
+                </div>
+                <DropdownMenu.Item className="um-item" onSelect={shot}><span className="um-item-name"><IconMonitor />Take a screenshot</span></DropdownMenu.Item>
+                <DropdownMenu.Separator className="web-tab-menu-sep" />
+                <DropdownMenu.Sub>
+                  <DropdownMenu.SubTrigger className="um-item">
+                    <span className="um-item-name">Passwords and autofill<IconChevronRight className="web-tab-sub-arrow" /></span>
+                  </DropdownMenu.SubTrigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.SubContent className="web-tab-menu-list web-tab-submenu" sideOffset={4} alignOffset={-6} collisionPadding={8}>
+                      <DropdownMenu.Item className="um-item" onSelect={() => openBrowserDialog("passwords")}>Password manager</DropdownMenu.Item>
+                      <DropdownMenu.Item className="um-item" onSelect={() => openBrowserDialog("contact")}>Contact info</DropdownMenu.Item>
+                    </DropdownMenu.SubContent>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Sub>
+                <DropdownMenu.Item className="um-item" onSelect={() => openBrowserDialog("downloads")}>Downloads</DropdownMenu.Item>
+                <DropdownMenu.Item className="um-item" onSelect={() => openBrowserDialog("history")}>History</DropdownMenu.Item>
+                <DropdownMenu.Item className="um-item" onSelect={() => openBrowserDialog("wipe")}>Clear browsing data</DropdownMenu.Item>
+                <DropdownMenu.Separator className="web-tab-menu-sep" />
+                <DropdownMenu.Item className="um-item" onSelect={() => onBrowserSettings?.()}><span className="um-item-name"><IconSettings />Browser settings</span></DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
+          {err ? <span className="web-tab-err" title={err}>{err}</span> : null}
+          {onToggleExpand ? (
+            <button type="button" className="web-tab-menu" title={expanded ? "Back to split" : "Expand browser"} aria-label={expanded ? "Back to split" : "Expand browser"} onClick={onToggleExpand}>
+              {expanded ? <IconCollapse /> : <IconExpand />}
+            </button>
+          ) : null}
+          {onClose ? <button type="button" className="web-tab-menu" title="Close browser pane" aria-label="Close browser pane" onClick={onClose}><IconX /></button> : null}
+        </div>
+      ) : null}
       {findOpen ? (
         <div className="web-tab-find" role="search" aria-label="Find in page">
           <input

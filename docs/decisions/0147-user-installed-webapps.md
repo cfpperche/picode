@@ -63,3 +63,13 @@ The separate-window alternative stays refused for now: the user works
 inside PiCode, not across windows; revisiting it costs an ADR that
 re-opens the btab plumbing question. Login persistence, the shared
 profile and the CDP policy are unchanged.
+
+## Amendment 2026-09-18 — the app owns the viewport, no titlebar
+
+First live round of app mode: the owner removed the minimal titlebar too —
+an app-like web app's tab surface is **entirely the page**. What remains:
+engine accelerators (F5 / Ctrl+R reload, Ctrl +/- zoom), the page's own
+right-click menu, and Ctrl+F summoning the find bar over the page.
+Passwords/downloads/history/clear-data were always links into
+Settings ▸ Browser, which stays their home. Screenshot and print lose
+their app-mode button (print keeps its engine accelerator); accepted.

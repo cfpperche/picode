@@ -4979,14 +4979,6 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .app-tile-wrap:focus-within .app-tile-menu { opacity: 1; }
 .app-tile-menu:hover { background: var(--bg-hover); color: var(--text-primary); }
 .app-tile-menu:focus-visible { outline: 2px solid var(--accent); }
-/* App mode (ADR-0147 amendment): a standalone web app keeps a minimal
-   titlebar — its own name left, browser actions in the ⋮ menu right. */
-.web-tab-appname {
-  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  color: var(--text-secondary); font-size: 12px; font-weight: 600;
-  padding-left: 6px;
-  user-select: none;
-}
 .webapp-field { display: grid; gap: 8px; margin-top: 12px; }
 .webapp-field .dlg-input { width: 100%; height: var(--ctl-h); margin: 0; box-sizing: border-box; }
 .webapp-resolved { overflow-wrap: anywhere; color: var(--text-secondary); font-size: 12px; margin-top: 12px; }
