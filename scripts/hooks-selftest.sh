@@ -77,6 +77,30 @@ if (cd "$repo/wt" && git add -f docs/handoff.md && git commit -q -m "forced boar
 if (cd "$repo/wt" && printf 'trailing blank \n' > ws.txt && git add ws.txt && git commit -q -m ws 2>/dev/null); then bad "trailing whitespace refused" "a whitespace error was committed"; else ok "trailing whitespace refused"; fi
 if (cd "$repo/wt" && printf 'clean\n' > ws.txt && git add ws.txt && git commit -q -m ws 2>/dev/null); then ok "clean file allowed"; else bad "clean file allowed" "the whitespace check refuses a clean file"; fi
 
+# 2e-2. Conflict markers in the staged diff (2026-09-18: a conflicted merge
+#       resolved with git add -A shipped the markers and broke main's build —
+#       twice in one day). Decision table: an added start marker refused; an
+#       added end marker refused; the bare `=======` separator refused by
+#       the pre-existing whitespace check; a marker quoted mid-line allowed;
+#       a marker outside the added lines (context) allowed.
+if (cd "$repo/wt" && printf 'x\n<<<<<<< HEAD\ny\n' > cm.txt && git add cm.txt && git commit -q -m cm 2>/dev/null); then bad "added start marker refused" "a conflict start marker was committed"; else ok "added start marker refused"; fi
+if (cd "$repo/wt" && printf 'x\n>>>>>>> main\ny\n' > cm.txt && git add cm.txt && git commit -q -m cm 2>/dev/null); then bad "added end marker refused" "a conflict end marker was committed"; else ok "added end marker refused"; fi
+if (cd "$repo/wt" && printf 'Title\n=======\nbody\n' > cm.txt && git add cm.txt && git commit -q -m cm 2>/dev/null); then bad "bare separator refused (whitespace check)" "the pre-existing git --check refusal of ======= regressed"; else ok "bare separator refused (whitespace check)"; fi
+if (cd "$repo/wt" && printf 'x\necho "<<<<<<< quoted"\ny\n' > cm.txt && git add cm.txt && git commit -q -m cm 2>/dev/null); then ok "marker quoted mid-line allowed" "a string starting with a quote was refused"; else bad "marker quoted mid-line allowed" "a mid-line marker was refused"; fi
+(cd "$repo/wt" && printf 'x\n"<<<<<<< quoted in a string"\ny\n' > cm.txt && git add cm.txt && git commit -q -m cm 2>/dev/null) # seed a committed quote for the context row
+if (cd "$repo/wt" && printf 'x\n"<<<<<<< quoted in a string"\nz\n' > cm.txt && git add cm.txt && git commit -q -m cm 2>/dev/null); then ok "marker outside the added lines allowed" "an unchanged quoted marker blocked an unrelated edit"; else bad "marker outside the added lines allowed" "the check scans context, not just added lines"; fi
+(cd "$repo/wt" && git reset -q 2>/dev/null; rm -f cm.txt)
+# …and the incident replay: markers entering through a conflict RESOLUTION
+# commit (MERGE_HEAD present), which skips every later check. This row is
+# why the marker check sits before the merge early-exit.
+(cd "$repo/wt" \
+  && git switch -q -c cm-a && printf 'a\n' > cmm.txt && git add cmm.txt && git commit -q -m "cm side a" \
+  && git switch -q -c cm-b HEAD~1 && printf 'b\n' > cmm.txt && git add cmm.txt && git commit -q -m "cm side b" \
+  && git switch -q cm-a && git merge -q cm-b 2>/dev/null; true)
+if (cd "$repo/wt" && printf '<<<<<<< HEAD\na\n=======\nb\n>>>>>>> cm-b\n' > cmm.txt && git add cmm.txt && git commit -q -m "bad resolution" 2>/dev/null); then bad "marker resolution refused (merge)" "the incident path still commits markers through a merge"; else ok "marker resolution refused (merge)"; fi
+if (cd "$repo/wt" && printf 'a\nb\n' > cmm.txt && git add cmm.txt && git commit -q -m "clean resolution" 2>/dev/null); then ok "clean resolution (merge) allowed" "the guard blocks the documented flow"; else bad "clean resolution (merge) allowed" "a correct merge resolution was refused"; fi
+(cd "$repo/wt" && git switch -q feat/wt2 && git branch -q -D cm-a cm-b 2>/dev/null; rm -f cmm.txt)
+
 # 2f. The changelog is assembled from fragments (ADR-0105). The assembler is
 # copied in so the hook also parses staged fragments here, as it does in a
 # real checkout.
