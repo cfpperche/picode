@@ -15,7 +15,7 @@ Merge: fast-forward ready.
 
 ## Next up
 
-- Owner: confirm the desktop app is healthy after desktop-restart (and after the next deploy, which is what used to brick it).
+- Confirmed live by the owner (2026-09-18): after `make desktop-restart` the desktop app is healthy and showing the app. The fire test remains the next deploy — the auto-reload should wait out the restart window instead of bricking the shell.
 
 ## Debts
 
