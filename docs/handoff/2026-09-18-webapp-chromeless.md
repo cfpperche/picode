@@ -15,12 +15,13 @@ titlebar only, menu shows Reload/Copy address, `overlayAudit` ok, regular
 work tab keeps its toolbar (screenshots read).
 visual-review: PASS for layout (titlebar/menu/tab-label); the page canvas
 is stub-blank by construction — the live page fills it only in the real
-shell (owner verifies on Excalidraw).
-Merge: fast-forward ready.
+shell. Confirmed live by the owner (2026-09-18, after deploy): app mode
+works — the page fills the surface as described.
+Merge: fast-forward ready; landed and deployed the same day.
 
 ## Next up
 
-- Owner clicks Excalidraw in the desktop shell: page fills the surface, tab strip label and ⋮ menu behave (recorded in open/installed-webapps.md).
+- Remaining observations live on open/installed-webapps.md: the `(N)` title badge rendering on a tile and a login surviving a shell restart.
 
 ## Debts
 
