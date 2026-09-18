@@ -1,0 +1,2 @@
+# Connectors parity (ADR-0150) — durable debts
+- [ ] Guest codecs are strict: OpenCode itself writes trailing commas (JSONC-ish) into opencode.json and our parse error blanks the whole pane. Fix: tolerate/normalize trailing commas where the vendor does, and degrade malformed user files to a blocked state naming the file (one line + action) instead of a pane-wide error. Repro 2026-09-18: owner real file had `,}` after schema-only config.

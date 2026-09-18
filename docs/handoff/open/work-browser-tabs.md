@@ -92,6 +92,34 @@ to see the remembered standing.
 - **Never on WebView2**: third-party cookies, images, embedded content — no
   host API; a control there would be theatre.
 
+## Annotations — the ChatGPT-Work shape (owner's reference, 2026-09-18)
+
+The owner rejected the frozen-panel picker outright and specified the
+reference exactly (four screenshots): the page stays **live**, the annotation
+UI lives **inside the page**, and the editor offers the element's computed
+styles with live preview (Text color / Background / Opacity / Font
+family·Size·Weight) plus one Send. Two conclusions from the study and the
+crate inspection: no CEF — `webview2-com-sys 0.38.2` already ships
+`AddScriptToExecuteOnDocumentCreated`, `ExecuteScript`,
+`add_WebMessageReceived`, `SetIsWebMessageEnabled`, `PostWebMessageAsJson` —
+and no CDP, so this path never meets the tier gate that killed the frozen
+picker.
+
+**Slice 1 — accepted live 2026-09-18** ✓: the toolbar chip + `Ctrl+.`, the
+injected shadow-DOM overlay (hover highlight, click to pick with outline and
+pin, Esc), and the pick reaching the chrome over the WebMessage channel. The
+owner's screenshot shows the blue outline and the pin on the live GitHub page.
+
+Remaining: **slice 2** the comment box anchored to the element (the payload
+already carries selector/html/rect/styles), **slice 3** the style inspector
+with live preview and original→proposed in the package, **slice 4** the chrome
+strip ("Annotating · host", trash, Send), multiple annotations and one Send.
+
+**Trap (paid 2026-09-18, twice):** a work tab is a child **Webview** under the
+main window (`WebviewBuilder` in `ensure`), never a `WebviewWindow` —
+`get_webview_window` answers "no such tab" for every tab that exists, which
+cost two deploys and two wrong id theories before anyone read `ensure`.
+
 ## Annotations (backlog, owner-registered 2026-09-15)
 
 Deliberately absent from the settings page: a switch that controls nothing is
