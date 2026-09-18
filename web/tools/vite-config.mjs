@@ -80,9 +80,11 @@ export function applicationConfig(application, port) {
       port,
       strictPort: true,
       hmr: { clientPort: port },
+      // PICODE_DEV_API points the proxy at a scratch daemon
+      // (scripts/qa-scratch.sh start …) instead of the local production one.
       proxy: {
-        "/api": { target: "https://localhost:8445", secure: false },
-        "/ws": { target: "wss://localhost:8445", ws: true, secure: false },
+        "/api": { target: process.env.PICODE_DEV_API || "https://localhost:8445", secure: false },
+        "/ws": { target: (process.env.PICODE_DEV_API || "https://localhost:8445").replace(/^http/, "ws"), ws: true, secure: false },
       },
     },
   });

@@ -72,7 +72,7 @@ func TestStatsWindow(t *testing.T) {
 
 // withTestSessionRoot isolates every agent CLI's session store, not just
 // pi's. The dashboard went cross-CLI, so a test that isolates one store
-// reads the developer's own machine for the other five — which is how these
+// reads the developer's own machine for the other eight — which is how these
 // tests first failed, with a real $2,327 of Claude Code spend leaking into
 // an assertion about a single 0.5 fixture.
 //
@@ -87,11 +87,17 @@ func withTestSessionRoot(t *testing.T) string {
 	oldCodex := clisession.CodexTestRoot
 	oldOpenCode := clisession.OpenCodeTestDB
 	oldHermes := clisession.HermesTestDB
+	oldOmp := clisession.OmpTestRoot
+	oldMuse := clisession.MuseTestDB
+	oldAgy := clisession.AgyTestDB
 	session.TestRoot = dir
 	clisession.ClaudeTestRoot = filepath.Join(empty, "claude")
 	clisession.CodexTestRoot = filepath.Join(empty, "codex")
 	clisession.OpenCodeTestDB = filepath.Join(empty, "opencode.db")
 	clisession.HermesTestDB = filepath.Join(empty, "hermes.db")
+	clisession.OmpTestRoot = filepath.Join(empty, "omp")
+	clisession.MuseTestDB = filepath.Join(empty, "muse", "session-index.db")
+	clisession.AgyTestDB = filepath.Join(empty, "agy.db")
 	t.Setenv("GROK_HOME", filepath.Join(empty, "grok"))
 	t.Cleanup(func() {
 		session.TestRoot = oldPi
@@ -99,6 +105,9 @@ func withTestSessionRoot(t *testing.T) string {
 		clisession.CodexTestRoot = oldCodex
 		clisession.OpenCodeTestDB = oldOpenCode
 		clisession.HermesTestDB = oldHermes
+		clisession.OmpTestRoot = oldOmp
+		clisession.MuseTestDB = oldMuse
+		clisession.AgyTestDB = oldAgy
 	})
 	return dir
 }

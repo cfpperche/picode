@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import { formatMoney } from "@picode/shared/domain/providerUsage.js";
 import {
@@ -7,7 +7,7 @@ import {
   costPerTurn, costPerLine, signalState, spendState, NOT_REPORTED, PARTIAL,
   FLEET_ORDER, FLEET_LABELS, FLEET_HINTS, FLEET_NEEDS_YOU, FLEET_WORKING,
 } from "@picode/shared/domain/dashboardStats.js";
-import { readDashboardRange, writeDashboardRange } from "../lib/openTabs.js";
+import { readDashboardRange, writeDashboardRange, readDashboardStats, writeDashboardStats } from "../lib/openTabs.js";
 import { termTabId } from "../lib/routes.js";
 import { relTime, absTime } from "@picode/shared/domain/relTime.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
@@ -36,17 +36,23 @@ const TICK_MS = 30_000;
 export default function DashboardView({ workspaces, freeAgents, terminals, workingIds, waitingId, onOpen, inboxWaiting = 0, onOpenApp }) {
   const [range, setRange] = useState(() => readDashboardRange());
   const [metric, setMetric] = useState("cost");
-  const [stats, setStats] = useState(null);
+  // F1: paint the last good payload instantly while the fresh fetch runs
+  // underneath. The range key is read lazily once; a range switch still
+  // keeps the previous range's numbers (keep=true) until its own fetch
+  // lands, so the well never blanks on navigation.
+  const [stats, setStats] = useState(() => readDashboardStats(readDashboardRange())?.data || null);
   const [busy, setBusy] = useState(false);
   const [loadErr, setLoadErr] = useState("");
-  const [fetchedAt, setFetchedAt] = useState(null);
+  const [fetchedAt, setFetchedAt] = useState(() => readDashboardStats(readDashboardRange())?.at || null);
   const [fleetOpen, setFleetOpen] = useState(false);
   const [, setTick] = useState(0);
   const mounted = useRef(false);
   const inflight = useRef(null);
 
   useEffect(() => {
-    const keep = mounted.current; // false on first mount (full skeleton), true on a range switch (keep old numbers)
+    // First mount with a cached payload is a refresh, not a cold load:
+    // keep the cached numbers visible (dimmed) while revalidating.
+    const keep = mounted.current || stats !== null;
     mounted.current = true;
     return load(keep);
   }, [range]);
@@ -91,7 +97,9 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
         if (cancelled) return;
         setStats(rep);
         setLoadErr("");
-        setFetchedAt(new Date().toISOString());
+        const now = new Date().toISOString();
+        setFetchedAt(now);
+        writeDashboardStats(range, rep);
       })
       .catch(() => {
         if (cancelled) return;
@@ -107,18 +115,27 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
     writeDashboardRange(next);
   }
 
-  const fleet = fleetStats(workspaces, freeAgents, terminals, { workingIds, waitingId });
+  // F3: the 30s "updated Xm" tick re-renders, but these derivations only
+  // recompute when their inputs change — otherwise every tick re-maps
+  // 40+ model rows, 100+ workspace rows and the fleet sort for nothing.
+  const fleet = useMemo(
+    () => fleetStats(workspaces, freeAgents, terminals, { workingIds, waitingId }),
+    [workspaces, freeAgents, terminals, workingIds, waitingId],
+  );
   // What is waiting on the reader, counted without double counting: questions
   // in the Inbox (server truth, machine-wide — an agent's ask becomes an item
   // there) plus agent-CLI terminals whose own hooks said `needs-you`. The
   // selected agent's `waiting` is deliberately not added: that agent asked
   // through the Inbox, so adding it would count one block twice.
-  const waitingTerminals = fleet.units.filter((u) => u.kind === "terminal" && u.state === FLEET_NEEDS_YOU);
+  const waitingTerminals = useMemo(
+    () => fleet.units.filter((u) => u.kind === "terminal" && u.state === FLEET_NEEDS_YOU),
+    [fleet],
+  );
   const questions = Number(inboxWaiting) || 0;
   const needsYou = questions + waitingTerminals.length;
   const firstLoad = stats === null;
-  const coverage = firstLoad ? [] : (stats.coverage || []);
-  const byCli = firstLoad ? [] : (stats.byCli || []);
+  const coverage = useMemo(() => (firstLoad ? [] : (stats.coverage || [])), [firstLoad, stats]);
+  const byCli = useMemo(() => (firstLoad ? [] : (stats.byCli || [])), [firstLoad, stats]);
   const cmp = compareLabel(range);
   const sessionsDelta = !firstLoad && stats.prior ? stats.current.sessions - stats.prior.sessions : null;
   const turns = firstLoad ? null : stats.turns;
@@ -146,7 +163,7 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
   // A zero-cost "unknown" model row is pi bookkeeping (a turn with no
   // usage block), not a lever anyone can pull — keep the ranking honest
   // by dropping only that.
-  const modelItems = firstLoad ? [] : stats.byModel.filter((m) => !(m.model === "unknown" && m.cost === 0)).map((m) => ({
+  const modelItems = useMemo(() => (firstLoad ? [] : stats.byModel.filter((m) => !(m.model === "unknown" && m.cost === 0)).map((m) => ({
     key: (m.cli || "") + "/" + m.provider + "/" + m.model,
     label: shortModel(m.model),
     sub: m.provider,
@@ -160,7 +177,7 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
     unmeasured: !measured(signalState(coverage, m.cli, "cost")) && !m.cost,
     display: measured(signalState(coverage, m.cli, "cost")) || m.cost ? money(m.cost) : "not priced",
     title: (m.cli ? cliLabelOf(coverage, m.cli) + " · " : "") + m.provider + " · " + m.model + " · " + m.messages.toLocaleString() + " turns",
-  }));
+  }))), [firstLoad, stats, coverage]);
 
   // The pivot this release exists for: which CLI the money and the work went
   // to. A CLI that records no price shows why instead of a $0.00 that would
@@ -169,7 +186,7 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
   // still owes the coverage panel a row — that is where "installed and
   // silent" belongs — but padding the spend list with $0.00 bars would say
   // six CLIs were free rather than that none of them ran.
-  const cliItems = firstLoad ? [] : stats.byCli.filter((c) => c.messages > 0).map((c) => {
+  const cliItems = useMemo(() => (firstLoad ? [] : stats.byCli.filter((c) => c.messages > 0).map((c) => {
     const priced = measured(c.costState);
     return {
       key: c.cli,
@@ -183,8 +200,8 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
         c.sessions.toLocaleString() + (c.sessions === 1 ? " session" : " sessions") +
         (priced ? "" : " · this CLI records no cost"),
     };
-  });
-  const workspaceItems = firstLoad ? [] : stats.byWorkspace.map((w) => ({
+  })), [firstLoad, stats]);
+  const workspaceItems = useMemo(() => (firstLoad ? [] : stats.byWorkspace.map((w) => ({
     key: w.cwd,
     label: w.workspace || folderLabel(w.cwd) || w.cwd,
     value: w.cost,
@@ -193,18 +210,18 @@ export default function DashboardView({ workspaces, freeAgents, terminals, worki
     unmeasured: spend === NOT_REPORTED && !w.cost,
     display: spend === NOT_REPORTED && !w.cost ? "not priced" : money(w.cost),
     title: w.cwd + " · " + w.sessions + (w.sessions === 1 ? " session" : " sessions") + (w.workspace ? "" : " · outside your workspaces"),
-  }));
+  }))), [firstLoad, stats, spend]);
   // Tool names are not normalised across CLIs — "Bash", "bash" and "shell"
   // are three vendors' words — so the mark disambiguates rather than a
   // merge asserting an equivalence we cannot back.
-  const toolItems = firstLoad ? [] : stats.tools.map((t) => ({
+  const toolItems = useMemo(() => (firstLoad ? [] : stats.tools.map((t) => ({
     key: (t.cli || "") + ":" + t.name,
     label: t.name,
     badge: t.cli ? terminalCliMark(t.cli) : "",
     badgeTitle: t.cli ? cliLabelOf(coverage, t.cli) : "",
     value: t.calls,
     display: t.calls.toLocaleString(),
-  }));
+  }))), [firstLoad, stats, coverage]);
 
   return (
     <div className="dashboard-view">

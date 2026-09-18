@@ -257,6 +257,8 @@ export function filterAgentSplits(splits, tabExists) {
 
 const DASH_RANGE_KEY = "picode-dash-range";
 const DASH_RANGES = ["today", "7d", "30d", "all"];
+const DASH_STATS_PREFIX = "picode-dash-stats:";
+const DASH_STATS_TTL_MS = 10 * 60 * 1000;
 
 // The dashboard's date-range choice is a per-viewer preference, not a
 // navigable identity — it has no hash route (see ADR on the session
@@ -270,6 +272,39 @@ export function writeDashboardRange(range) {
   if (!DASH_RANGES.includes(range)) return;
   try { localStorage.setItem(DASH_RANGE_KEY, range); } catch { /* private mode, quota */ }
 }
+
+// Last good /api/sessions/stats payload per range, so the dashboard paints
+// instantly on reload instead of a full skeleton over a cold ~8s parse.
+// Served stale while the fresh fetch runs underneath (F1); the fetch still
+// replaces it on success. TTL is a freshness hint for the "updated" line,
+// never a gate — stale numbers with a refresh beat a blank well.
+export function readDashboardStats(range) {
+  if (!DASH_RANGES.includes(range)) return null;
+  try {
+    const j = JSON.parse(localStorage.getItem(DASH_STATS_PREFIX + range) || "null");
+    if (!j || typeof j !== "object" || !j.data || typeof j.data !== "object") return null;
+    if (!j.data.current || !Array.isArray(j.data.series)) return null;
+    return { data: j.data, at: typeof j.at === "string" ? j.at : null };
+  } catch {
+    return null;
+  }
+}
+
+export function writeDashboardStats(range, data) {
+  if (!DASH_RANGES.includes(range) || !data || typeof data !== "object") return;
+  try {
+    localStorage.setItem(DASH_STATS_PREFIX + range, JSON.stringify({ at: new Date().toISOString(), data }));
+  } catch { /* private mode, quota — the dashboard simply loads cold */ }
+}
+
+export function dashboardStatsAge(at) {
+  if (!at) return Infinity;
+  const t = Date.parse(at);
+  if (!Number.isFinite(t)) return Infinity;
+  return Date.now() - t;
+}
+
+export { DASH_STATS_TTL_MS };
 
 const DASH_SCOPE_KEY = "picode-dash-scope";
 

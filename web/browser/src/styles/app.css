@@ -1843,34 +1843,73 @@ img.ws-face.term-cli-face {
    so a page on this machine renders in a frame (the desktop app still uses
    its own window). One line above it says which one you are looking at. */
 .web-tab-frame { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: #fff; }
-/* Servers panel: what is listening on this machine, one row, one Open. */
-.insp-servers { display: flex; flex-direction: column; gap: 4px; padding-top: 6px; min-width: 0; }
+/* Servers panel v2: what is listening on this machine, what each port is, and
+   the verbs to act on it (Open, Copy, Show terminal, Stop, Hide). A row is a
+   container, not one big button, because a port that is not a page gets no
+   Open — its verbs live in the menu — and because a row carries a second
+   interaction (the owner's terminal) the old single button could not hold. */
+.insp-servers { display: flex; flex-direction: column; gap: 6px; padding-top: 6px; min-width: 0; }
 .insp-servers-head { display: flex; align-items: center; gap: 8px; padding: 0 4px; }
 .insp-servers-title {
   flex: 1; min-width: 0; font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
   color: var(--text-secondary); font-weight: 600;
 }
+.insp-note { margin: 0 4px; font-size: 11px; line-height: 1.45; color: var(--text-secondary); overflow-wrap: anywhere; }
+.insp-group {
+  margin: 4px 4px 0; font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-secondary); font-weight: 600;
+}
+.insp-server-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .insp-server {
-  display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
-  padding: 7px 8px; border: 1px solid transparent; border-radius: 8px;
-  background: none; color: inherit; cursor: pointer; font: inherit;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "hit menu" "meta menu" "pending menu";
+  align-items: start; gap: 1px 6px; padding: 6px 6px 7px 8px;
+  border: 1px solid transparent; border-radius: 8px; min-width: 0;
 }
 .insp-server:hover { background: var(--bg-hover, rgba(127, 127, 127, .12)); border-color: var(--border); }
-.insp-server:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
-.insp-server-glyph { flex: none; display: inline-flex; color: var(--accent); }
+.insp-server:focus-within { border-color: var(--border); }
+.insp-server-hit {
+  grid-area: hit; display: flex; align-items: flex-start; gap: 9px; min-width: 0;
+  padding: 0; border: 0; background: none; color: inherit; font: inherit;
+  text-align: left; cursor: pointer;
+}
+.insp-server-static { cursor: default; }
+.insp-server-hit:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.insp-server-glyph { flex: none; display: inline-flex; margin-top: 1px; color: var(--accent); }
+.insp-server[data-kind="api"] .insp-server-glyph, .insp-server[data-kind="opaque"] .insp-server-glyph { color: var(--text-secondary); }
 .insp-server-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .insp-server-top { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
-.insp-server-port { font-family: var(--code); font-size: 12px; color: var(--text-secondary); }
+.insp-server-port { font-family: var(--code); font-size: 12px; color: var(--text-secondary); flex: none; }
 .insp-server-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.insp-server-sub, .insp-server-meta {
+.insp-server-open { flex: none; margin-left: auto; font-size: 12px; color: var(--accent); }
+.insp-server-sub {
   font-size: 12px; color: var(--text-secondary); overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap;
 }
 /* The owner line wraps instead of clipping: at a ~300px rail
    `terminal "Terminal" · Dev server demo` did not fit on one line and the
-   workspace name — half of what the row is for — was cut (measured). */
-.insp-server-meta { font-size: 11px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
-.insp-server-open { flex: none; font-size: 12px; color: var(--accent); }
+   workspace name — half of what the row is for — was cut (measured). It is
+   indented to sit under the text, level with the port. */
+.insp-server-meta {
+  grid-area: meta; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px;
+  padding-left: 24px; font-size: 11px; line-height: 1.4; color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+/* What the port is, when it is not a page — the fact the first version hid. */
+.insp-server-note {
+  flex: none; padding: 0 6px; border: 1px solid var(--border); border-radius: 999px;
+  font-size: 10px; white-space: nowrap;
+}
+.insp-server-pending {
+  grid-area: pending; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin: 2px 0 0 24px; font-size: 11px; color: var(--accent);
+}
+.insp-server-pending.is-failed { color: var(--danger); }
+.insp-server-pending .btn { height: 24px; }
+.insp-server-menu { grid-area: menu; align-self: start; }
+.insp-server-more-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 4px 0; }
+.composer-more-item.is-danger { color: var(--danger); }
+.composer-more-item.is-danger svg { color: var(--danger); }
 /* Agent split (ADR-0135 slice 1): the agent pane and its bound work-browser
    pane share the tab side by side; both stay visible while either has
    focus. Hidden surfaces keep display:none, so row layout only ever sees
@@ -4926,6 +4965,25 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .app-icon-letter { font-weight: 700; line-height: 1; }
+.app-icon-img { object-fit: contain; }
+.app-tile-wrap { position: relative; min-width: 0; }
+.app-tile-wrap > .app-tile { width: 100%; }
+.app-tile-menu {
+  position: absolute; right: 0; top: 0; display: grid; place-items: center;
+  width: 24px; height: 24px; border: 1px solid var(--border);
+  border-radius: var(--radius-ctl); background: var(--bg-elevated);
+  color: var(--text-secondary); cursor: pointer;
+  opacity: 0; transition: opacity 120ms;
+}
+.app-tile-wrap:hover .app-tile-menu,
+.app-tile-wrap:focus-within .app-tile-menu { opacity: 1; }
+.app-tile-menu:hover { background: var(--bg-hover); color: var(--text-primary); }
+.app-tile-menu:focus-visible { outline: 2px solid var(--accent); }
+.webapp-field { display: grid; gap: 8px; margin-top: 12px; }
+.webapp-field .dlg-input { width: 100%; height: var(--ctl-h); margin: 0; box-sizing: border-box; }
+.webapp-resolved { overflow-wrap: anywhere; color: var(--text-secondary); font-size: 12px; margin-top: 12px; }
+.dlg-webapp .dlg-actions .btn { min-height: var(--ctl-h); }
+.dlg-webapp[aria-busy="true"] .webapp-field { opacity: 0.65; transition: opacity 150ms; }
 
 
 /* The open app renders as a PiCode page — PageFrame's geometry (ADR-0103):

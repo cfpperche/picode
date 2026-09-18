@@ -30,6 +30,9 @@ func (OmpSource) CLI() string { return "omp" }
 // OmpTestRoot, when set, replaces the sessions root (tests only).
 var OmpTestRoot string
 
+// OmpSessionsRoot is omp's sessions directory, exported so a metric opens
+// the same tree this package lists.
+
 func (OmpSource) List(cwd string) ([]Summary, error) {
 	root := ompSessionsRoot()
 	if root == "" {
@@ -57,6 +60,11 @@ func (OmpSource) List(cwd string) ([]Summary, error) {
 	sortNewest(out)
 	return out, nil
 }
+
+// OmpSessionsRoot is omp's sessions directory, exported so a metric reads
+// the same tree this package lists ($PI_CODING_AGENT_DIR/sessions when the
+// override is set, else ~/.omp/agent/sessions).
+func OmpSessionsRoot() string { return ompSessionsRoot() }
 
 // ompSessionsRoot is omp's sessions directory: $PI_CODING_AGENT_DIR/sessions
 // when the override is set, else ~/.omp/agent/sessions.

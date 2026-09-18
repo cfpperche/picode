@@ -13,6 +13,19 @@ import { parseSnip, utf8Bytes, SNIP_LIMITS } from "../domain/snipDraft.js";
 
 const required = (label) => z.string().trim().min(1, label + " is required.");
 
+export const webappUrlSchema = z.object({
+  url: required("URL").max(2048, "Use a URL up to 2048 characters.").refine((raw) => {
+    try {
+      const u = new URL(raw.includes("://") ? raw : "https://" + raw);
+      return ["http:", "https:"].includes(u.protocol) && !!u.hostname && !u.username && !u.password && !/[\s\\]/.test(raw);
+    } catch { return false; }
+  }, "Use an HTTP or HTTPS address without a username or password."),
+});
+export const webappNameSchema = z.object({
+  name: required("Name").refine((name) => [...name].length <= 200, "Use up to 200 characters for the name."),
+});
+export const webappInstallSchema = webappUrlSchema.extend(webappNameSchema.shape);
+
 export const webhookSchema = z.object({
   url: z.string().trim().max(2048).refine((raw) => {
     try { const u = new URL(raw); return ["http:", "https:"].includes(u.protocol) && !!u.hostname && !u.username && !u.password && !u.hash; } catch { return false; }

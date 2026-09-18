@@ -2,7 +2,7 @@
 // recorded about its own sessions into one dashboard window (ADR-0097).
 //
 // It exists because the dashboard measured pi and only pi while PiCode ran
-// six CLIs, so the headline number was a fraction of the real one. Each
+// nine CLIs, so the headline number was a fraction of the real one. Each
 // adapter reads the same session files internal/clisession already lists,
 // and reports two things: what it found, and what that CLI does not record
 // at all. A signal a CLI never writes comes back as StateNotReported, never
@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cfpperche/picode/internal/session"
@@ -240,6 +241,7 @@ func Meters() []Meter {
 	return []Meter{
 		PiMeter{}, ClaudeCodeMeter{}, CodexMeter{},
 		OpenCodeMeter{}, HermesMeter{}, GrokMeter{},
+		OmpMeter{}, MuseMeter{}, AgyMeter{},
 	}
 }
 
@@ -274,20 +276,32 @@ type FleetStats struct {
 // Aggregate runs every registered Meter and merges the results. A Meter
 // that fails degrades to a coverage row explaining itself — one unreadable
 // CLI must not take the dashboard down with it.
+//
+// Meters run concurrently: each one parses its own store (JSONL, SQLite)
+// and the cold 7d window was 8.2s sequential (pi 4.5s + codex 2.7s +
+// claude-code 1.25s on this machine). The shared parseCache is mutex-guarded,
+// each guestAcc is per-meter, and merge is single-threaded over the finished
+// windows — so the wall time drops to the slowest meter, not the sum.
 func Aggregate(req Request, meters []Meter) FleetStats {
-	windows := make([]Window, 0, len(meters))
-	for _, m := range meters {
-		w, err := m.Meter(req)
-		if err != nil {
-			windows = append(windows, Window{
-				CLI:      m.CLI(),
-				Coverage: unavailableRow(m, req.BillingFor(m.CLI()), err.Error()),
-			})
-			continue
-		}
-		w.CLI = m.CLI()
-		windows = append(windows, w)
+	windows := make([]Window, len(meters))
+	var wg sync.WaitGroup
+	for i, m := range meters {
+		wg.Add(1)
+		go func(i int, m Meter) {
+			defer wg.Done()
+			w, err := m.Meter(req)
+			if err != nil {
+				windows[i] = Window{
+					CLI:      m.CLI(),
+					Coverage: unavailableRow(m, req.BillingFor(m.CLI()), err.Error()),
+				}
+				return
+			}
+			w.CLI = m.CLI()
+			windows[i] = w
+		}(i, m)
 	}
+	wg.Wait()
 	return merge(req, windows)
 }
 

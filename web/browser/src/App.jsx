@@ -5,6 +5,7 @@ import { applyTheme, persistTheme, readThemeMode } from "@picode/shared/domain/t
 import { readContextMenuPrefs, modifierHeld } from "./lib/contextMenuPrefs.js";
 import { openBrowserChannel } from "./lib/browserChannel.js";
 import { matchAction } from "./lib/appKeys.js";
+import { DESKTOP_REQUIRED, webappTabId, webappIdFromTab, webappOpenPlan, watchWebapps, removedWebappTabs, webappBadge, updateWebappMeta } from "./lib/webapps.js";
 import { applyTermChrome } from "@picode/shared/domain/termTheme.js";
 import { closeTerm } from "./lib/terms.js";
 import { termWorkspaceId, workspaceForTerminal } from "./lib/termGroups.js";
@@ -167,6 +168,8 @@ export default function App({ shellChrome = false } = {}) {
   const [semver, setSemver] = useState("");
   const [releaseBuild, setReleaseBuild] = useState(false);
   const [bootstrapped, setBootstrapped] = useState(false);
+  const [webapps, setWebapps] = useState([]);
+  const [webappsErr, setWebappsErr] = useState("");
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [whatsNewMode, setWhatsNewMode] = useState("manual");
   const [whatsNewSeen, setWhatsNewSeen] = useState(readSeenVersion);
@@ -964,6 +967,26 @@ export default function App({ shellChrome = false } = {}) {
   const fleetRef = useRef({ workspaces: [], freeAgents: [], terminals: [] });
   fleetRef.current = { workspaces, freeAgents, terminals };
   useEffect(() => startFeed(), []);
+  const webappsWatchRef = useRef(null);
+  const [webappsLoaded, setWebappsLoaded] = useState(false);
+  useEffect(() => {
+    const watcher = watchWebapps({
+      api,
+      subscribe: subscribeFeed,
+      onList: (list) => { setWebapps(list); setWebappsLoaded(true); },
+      onError: setWebappsErr,
+      onRemoved: (id) => {
+        setWebapps((list) => list.filter((a) => a.id !== id));
+        closeInstalledTab(webappTabId(id));
+      },
+    });
+    webappsWatchRef.current = watcher;
+    return () => { watcher.stop(); webappsWatchRef.current = null; };
+  }, []);
+  useEffect(() => {
+    if (!webappsLoaded || !tabsReady) return;
+    removedWebappTabs(tabs, webapps).forEach(closeInstalledTab);
+  }, [webapps, webappsLoaded, tabs, tabsReady]);
   useEffect(() => subscribeFeed((ev) => {
     if (ev.type === "feed.open" || ev.type === "feed.reset" || (ev.type && ev.type.startsWith("cli."))) {
       api("/api/clis").then((d) => setClis(d.clis || [])).catch(() => {});
@@ -1712,6 +1735,51 @@ export default function App({ shellChrome = false } = {}) {
   }
   const openWebTabRef = useRef(openWebTab);
   openWebTabRef.current = openWebTab;
+
+  function closeInstalledTab(tab) {
+    if (!webappIdFromTab(tab)) return;
+    const id = tab.slice(2);
+    const next = tabsRef.current.filter((t) => t !== tab);
+    tabsRef.current = next;
+    setTabs((tabs) => tabs.filter((t) => t !== tab));
+    setSelectedId((selected) => selected === tab ? next.at(-1) || null : selected);
+    setWebTabs(({ [id]: _gone, ...rest }) => rest);
+    setPermissionAsks((asks) => asks.filter((ask) => ask.tab !== id));
+    window.__TAURI__?.core.invoke("btab_close", { id }).catch((error) => toastError(error));
+  }
+
+  function savedWebapp(app) {
+    setWebapps((list) => [...list.filter((a) => a.id !== app.id), app]);
+    webappsWatchRef.current?.refresh();
+  }
+
+  async function removeWebapp(app) {
+    await api("/api/webapps/" + encodeURIComponent(app.id), { method: "DELETE" });
+    setWebapps((list) => list.filter((a) => a.id !== app.id));
+    closeInstalledTab(webappTabId(app.id));
+    webappsWatchRef.current?.refresh();
+  }
+
+  function openWebapp(app) {
+    const plan = webappOpenPlan(app, tabsRef.current, shellChrome && !!window.__TAURI__);
+    if (plan.action === "invalid") return;
+    if (plan.action === "desktop-required") {
+      toast.info(DESKTOP_REQUIRED);
+      return;
+    }
+    if (plan.action === "focus") {
+      setSelectedId(plan.tab);
+      if (parseRoute(location.hash) !== "workspace") location.hash = "#/";
+      return;
+    }
+    if (parseRoute(location.hash) !== "workspace") location.hash = "#/";
+    tabsRef.current = [...tabsRef.current, plan.tab];
+    setTabs((t) => (t.includes(plan.tab) ? t : [...t, plan.tab]));
+    setSelectedId(plan.tab);
+    setWebTabs((m) => ({ ...m, [plan.id]: { url: plan.url, title: "" } }));
+    window.__TAURI__?.core.invoke("btab_navigate", { id: plan.id, url: plan.url }).catch(toastError);
+  }
+
   useEffect(() => {
     if (!shellChrome || !window.__TAURI__) return undefined;
     const un = window.__TAURI__.event.listen("btab://new", (e) => {
@@ -1813,6 +1881,7 @@ export default function App({ shellChrome = false } = {}) {
       const wid = tabWebId(id);
       window.__TAURI__?.core.invoke("btab_close", { id: wid }).catch(() => {});
       setPermissionAsks((cur) => cur.filter((a) => a.tab !== wid));
+      setWebTabs(({ [wid]: _gone, ...rest }) => rest);
     }
     if (isTermTab(id)) closeShellTerm(tabTermId(id));
     if (isGitTab(id)) {
@@ -3158,6 +3227,8 @@ export default function App({ shellChrome = false } = {}) {
   const noTabs = tabs.length === 0 && !missing;
   const hasData = (workspaces.length + freeAgents.length + terminals.length) > 0;
   const showHome = (noTabs || dashboardPinned) && hasData && !isWebTab(selectedId);
+  const badgeTabs = tabsRef.current;
+  const webappsBadged = webapps.map((a) => ({ ...a, badge: webappBadge(a, badgeTabs, webTabs) }));
 
   const tabsStrip = (
 <AgentTabs
@@ -3256,6 +3327,14 @@ export default function App({ shellChrome = false } = {}) {
         apps={apps}
         nativeApps={NATIVE_APPS}
         onOpenApp={(id) => { openTab(appTabId(id)); if (parseRoute() !== "workspace") location.hash = appHash(id); }}
+        webapps={webappsBadged}
+        webappsErr={webappsErr}
+        webappsLoaded={webappsLoaded}
+        onRetryWebapps={() => webappsWatchRef.current?.refresh()}
+        onOpenWebapp={openWebapp}
+        onSavedWebapp={savedWebapp}
+        onRemoveWebapp={removeWebapp}
+        desktop={shellChrome && !!window.__TAURI__}
         onChat={(id) => {
           revealAgent(id);
           setTermWanted((s) => {
@@ -3342,11 +3421,12 @@ export default function App({ shellChrome = false } = {}) {
               hidden={selectedId !== id || onPane}
               asks={permissionAsks.filter((a) => a.tab === tabWebId(id))}
               onAnswerAsk={answerPermission}
-              onMeta={(m) => setWebTabs((cur) => ({ ...cur, [tabWebId(id)]: { ...cur[tabWebId(id)], ...m } }))}
+              onMeta={(m) => setWebTabs((cur) => updateWebappMeta(cur, tabsRef.current, id, m))}
               onNew={() => openWebTab("")}
               onBrowserSettings={() => go("browser")}
             />
           ))}
+
           <FileSurface
             owner={fileTabInfo}
             path={fileTabInfo ? fileTabInfo.path : ""}
@@ -3669,7 +3749,7 @@ export default function App({ shellChrome = false } = {}) {
             }}
           />
 
-          {agentPanes[selectedId] ? (
+          {agentPanes[selectedId] && !webappIdFromTab(selectedId) ? (
             <>
               <div
                 className="split-divider"
@@ -3799,6 +3879,15 @@ export default function App({ shellChrome = false } = {}) {
         onOpenUrl={(url, title) => {
           const id = openWebTab(url || "");
           if (title) setWebTabs((m) => ({ ...m, [tabWebId(id)]: { ...m[tabWebId(id)], title } }));
+        }}
+        onOpenOwner={(owner) => {
+          // The Servers panel's "Show terminal": the row already answered
+          // whose process holds the port, so this only brings that owner's
+          // tab forward — no lookup, no guessing by name.
+          if (!owner || !owner.id) return;
+          if (owner.kind === "agent") { revealAgent(owner.id); return; }
+          openTermTab(owner.id);
+          if (parseRoute() !== "workspace") location.hash = termHash(owner.id);
         }}
       />
 

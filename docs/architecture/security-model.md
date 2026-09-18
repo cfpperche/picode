@@ -44,3 +44,17 @@
   `SameSite=Strict` host-only cookie is not sent (measured), and no route
   answers CORS except the deliberate `/api/health` probe. Revoking the session
   kills both forms; the daemon restart drops them all.
+- **Installed webapps fetch is a bounded, user-initiated retrieval, not a
+  proxy** (ADR-0147): `/api/webapps/resolve` and install fetch the page the
+  user named — 4 s timeout, 256 KB caps (64 KB manifest), four redirects, no
+  proxy, no credentials forwarded — with a DNS-rebind guard: every resolved
+  address of a non-local hostname must be public (checked at dial, the
+  validated IP dialed directly), redirects may not cross from a public origin
+  onto a local name or private address, and explicit loopback URLs stay
+  first-class. Metadata (PWA manifest, then same-origin `<link rel=icon>`,
+  then `/favicon.ico`) is same-origin only. `GET /api/webapps/{id}/icon`
+  serves stored bytes behind `Content-Security-Policy: default-src 'none'`
+  and `nosniff` (a hostile SVG stays inert). The webapp itself renders in
+  the shell's WebView2 child: no daemon token, no `host` object, no approval
+  UI; cookies are engine-isolated per origin, and the shared work profile
+  means "Clear browsing data" wipes webapp logins with the work browser's.
