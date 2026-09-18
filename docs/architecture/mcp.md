@@ -43,6 +43,29 @@ status signal, so guest rows never claim live state.
   byte-for-byte (golden-tested) — the result is re-parsed before it lands,
   and `enabled` is the real per-server switch (`toggle: "entry"`).
 
+Since phase 2 (2026-09-18) two more JSON-codec drivers share the
+merge-by-key rewrite (`map[string]any`, 2-space indent, re-read before
+write, atomic rename) and never shell out — both scopes are plain files:
+
+- **Omp** — `~/.omp/agent/mcp.json` and `<workspace>/.omp/mcp.json`. The
+  document's own keys (`$schema`, `disabledServers`, `enabledServers`) and
+  unknown entry fields (`timeout`, `auth`, `oauth`, …) survive every write;
+  the entry's `enabled` field is the toggle. Omp's OAuth is TUI-only, so
+  the sign-in hint is a copyable TUI command (`/mcp reauth <name>`), not a
+  terminal one.
+- **Antigravity** (`agy`) — `~/.gemini/config/mcp_config.json` and
+  `<workspace>/.agents/mcp_config.json`. Remote servers ride `serverUrl`;
+  `disabled` is the toggle and Antigravity's own fields
+  (`authProviderType`, `oauth`, `disabledTools`) are preserved. An entry
+  keeping its URL under the legacy `url` key still displays but reports
+  `owned: false`, and Toggle/Remove refuse it ("legacy entry managed in
+  Antigravity"); an Add over the same name converts it to `serverUrl`. Its
+  sign-in hint is plain text — no command exists to copy.
+
+Guest sign-in hints are declared per driver (`AuthHint` in Go,
+`signIn` in `CONNECTOR_DRIVERS`): copyable for claude-code, codex and omp,
+plain text for agy.
+
 `web/shared/domain/integrations.js` `CONNECTOR_DRIVERS` declares each CLI's
 honest capability set (status `live` vs `configured`), and a request naming a
 CLI without a driver fails loudly instead of writing Pi's files. Guest
