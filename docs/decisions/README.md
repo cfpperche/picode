@@ -157,3 +157,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0150](0150-connectors-for-every-agent-cli.md) | connectors-for-every-agent-cli | proposed |
 | [0151](0151-devservers-stop.md) | devservers-stop — the panel may end what it started | accepted |
 | [0152](0152-annotation-delivery.md) | annotation-delivery — one staged file, its path in the prompt door | accepted |
+| [0154](0154-picode-mcp.md) | picode-mcp — PiCode tools for every agent CLI over MCP; one server per pi package, scope and toggle are the CLI's, guests' agent scope is launch injection | proposed |
