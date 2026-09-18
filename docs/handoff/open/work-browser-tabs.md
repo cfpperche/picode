@@ -8,8 +8,9 @@ reviewed by the owner against the reference, one item at a time.
 
 - **v2a** unused sites — landed; **v2b** agent history — landed (ADR-0146).
 - **v2c** annotations — step 3 landed (store + endpoints + staged files,
-  ADR-0152); **steps 1–2** (picker over the frozen page, capture) are next, and
-the **settings row** lands with step 5. **v2d** Windows Hello
+  ADR-0152); **step 4 landed 2026-09-18** (strip with Send N, numbered
+  pins, anchored card, chips, one-package Send, `btab_annotate_clear`);
+  remaining: the **style inspector** and the **settings row** (step 5). **v2d** Windows Hello
   opener row — landed (the OS screen, not a vault).
 - **v3** WebMCP site tools (ADR when the standard lands). Developer mode
   landed 2026-09-16 (ADR-0144).

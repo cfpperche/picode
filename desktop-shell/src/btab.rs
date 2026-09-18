@@ -1027,6 +1027,48 @@ pub async fn btab_annotate_mode(app: AppHandle, id: String, on: bool) -> Result<
     Ok(())
 }
 
+/// btab_annotate_clear discards annotations in one tab's loaded document
+/// without leaving the mode: everything (the strip's trash) or just the most
+/// recent pin (the strip's undo, `last`). It reuses the mode's ExecuteScript
+/// path (no CDP, no tier): both snippets are guarded no-ops when the document
+/// never armed the mode, so a click after a navigation that dropped the
+/// script clears nothing and fails nothing.
+#[tauri::command]
+pub async fn btab_annotate_clear(app: AppHandle, id: String, last: Option<bool>) -> Result<(), String> {
+    let tail = id.rsplit(':').next().unwrap_or(id.as_str()).to_string();
+    let wv = app
+        .get_webview(&label(&id))
+        .or_else(|| app.get_webview(&label(&tail)))
+        .ok_or_else(|| format!("no such tab: {id}"))?;
+    let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
+    wv.with_webview(move |platform| unsafe {
+        use windows::core::HSTRING;
+        let core = match platform.controller().CoreWebView2() {
+            Ok(core) => core,
+            Err(e) => {
+                let _ = tx.send(Err(format!("CoreWebView2: {e}")));
+                return;
+            }
+        };
+        match core.ExecuteScript(
+            &HSTRING::from(if last.unwrap_or(false) {
+                crate::annotate::DROP_LAST_SCRIPT
+            } else {
+                crate::annotate::CLEAR_SCRIPT
+            }),
+            None,
+        ) {
+            Ok(_) => {
+                let _ = tx.send(Ok(()));
+            }
+            Err(e) => {
+                let _ = tx.send(Err(format!("ExecuteScript: {e}")));
+            }
+        }
+    });
+    rx.recv().unwrap_or_else(|_| Err("the shell did not answer".into()))
+}
+
 // The work profile's autofill prefs (slice 3): password autosave and
 // general (contact info) autofill. The UI pushes them (btab_set_prefs);
 // the latest values are applied to every webview at creation. Defaults

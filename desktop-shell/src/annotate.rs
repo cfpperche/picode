@@ -7,18 +7,31 @@
 // referee. That is the shape the reference (ChatGPT Work) has and the owner
 // asked for exactly: live page, highlight, pick, comment, styles, send.
 //
-// This module owns the two scripts and the contract between them and the
+// This module owns the scripts and the contract between them and the
 // shell. Its tests run without cargo:
 //   rustc --edition 2021 --test src/annotate.rs
 
-/// SCRIPT enters the mode: hint chip, hover highlight, click to pick (outline
-/// plus pin), Esc to leave, and one message per event. Idempotent per document.
+/// SCRIPT enters the mode: hover highlight, click to pick (outline plus a
+/// numbered pin), an anchored card per note (icon, input, trash-this, mic,
+/// Cancel, Save), saved notes collapsing to chips (text, … menu, ×), Esc to
+/// leave, and one message per event. Idempotent per document.
 pub const SCRIPT: &str = include_str!("annotate.js");
 
 /// EXIT_SCRIPT leaves the mode in whatever document is loaded now — the escape
 /// hatch for the toolbar button, which cannot assume the script is still armed.
 pub const EXIT_SCRIPT: &str =
     "(() => { const h = window.__picodeAnnotateV1; if (h && typeof h.exit === 'function') { h.exit(); } })();";
+
+/// CLEAR_SCRIPT discards every annotation in the loaded document without
+/// leaving the mode — the strip's trash. Guarded like the exit script: the
+/// toolbar can be clicked in a tab whose document never armed the mode.
+pub const CLEAR_SCRIPT: &str =
+    "(() => { const h = window.__picodeAnnotateV1; if (h && typeof h.clear === 'function') { h.clear(); } })();";
+
+/// DROP_LAST_SCRIPT removes the most recent annotation without leaving the
+/// mode — the strip's undo. Guarded the same way as the clear script.
+pub const DROP_LAST_SCRIPT: &str =
+    "(() => { const h = window.__picodeAnnotateV1; if (h && typeof h.dropLast === 'function') { h.dropLast(); } })();";
 
 /// REINJECT_SCRIPT re-enters after a navigation when the mode is still on: the
 /// new document has no script, and a hidden mode would look like a dead button.
@@ -39,11 +52,17 @@ mod tests {
             "Escape",
             "__picodeAnnotateV1",
             "\"pick\"",
-            "\"comment\"",
+            "\"saved\"",
+            "\"removed\"",
+            "\"state\"",
+            "\"exit\"",
             "add a comment...",
             "reposition",
             "\"enter\"",
-            "\"exit\"",
+            ".clear",
+            "dropLast",
+            "Dictate the note",
+            "Copy text",
         ] {
             assert!(SCRIPT.contains(needle), "the injected script lost: {needle}");
         }
@@ -56,6 +75,22 @@ mod tests {
         assert!(EXIT_SCRIPT.contains("if (h && typeof h.exit === 'function')"));
         assert!(!EXIT_SCRIPT.contains(".exit()") || EXIT_SCRIPT.contains("typeof h.exit"));
         assert!(EXIT_SCRIPT.starts_with("(() => {"));
+    }
+
+    // The clear script is guarded the same way: trash can be clicked while
+    // the document has no instance (navigation dropped it, say).
+    #[test]
+    fn the_clear_script_is_guarded() {
+        assert!(CLEAR_SCRIPT.contains("if (h && typeof h.clear === 'function')"));
+        assert!(CLEAR_SCRIPT.starts_with("(() => {"));
+    }
+
+    // Undo rides the same guard: dropping the last pin in a dead document
+    // clears nothing and fails nothing.
+    #[test]
+    fn the_drop_last_script_is_guarded() {
+        assert!(DROP_LAST_SCRIPT.contains("if (h && typeof h.dropLast === 'function')"));
+        assert!(DROP_LAST_SCRIPT.starts_with("(() => {"));
     }
 
     // Re-injection is the same script: one contract, one asset.

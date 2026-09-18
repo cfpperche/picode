@@ -8,7 +8,9 @@ import { askTitle } from "../lib/browserPermissions.js";
 import { subscribeFloatingLayers, overlapsLayers, rectOf } from "../lib/floatingLayers.js";
 import { requestBrowserDialog } from "../lib/browserDialogs.js";
 import { previewUrl, verifyPreviewUrl } from "../lib/previewStill.js";
-import { cropRect, stylesToCSS } from "../lib/annotate.js";
+import { cropRect, stylesToCSS, stateItems, batchMessage } from "../lib/annotate.js";
+import AnnotateStrip from "./AnnotateStrip.jsx";
+import AnnotatePreview from "./AnnotatePreview.jsx";
 
 // Work browser tab surface (Phase 3 slice 1): the React side renders the
 // toolbar and an empty region; the actual page is a native WebView2 child
@@ -108,7 +110,47 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
   // ---- annotate mode (v2c): the page stays LIVE; the UI lives inside it ----
   // Nothing is drawn over the native view: the shell injects a script into the
   // page (shadow DOM), and the page talks back on WebView2's message channel.
+  // Annotations accumulate as numbered pins; the strip's Send ships the whole
+  // set as ONE context through the prompt door (ADR-0152: one row per pin,
+  // one message carrying every path). Nothing leaves the page until Send.
   const [annotOn, setAnnotOn] = useState(false);
+  const [annotItems, setAnnotItems] = useState([]);
+  const [annotShots, setAnnotShots] = useState(true);
+  const [annotSending, setAnnotSending] = useState(false);
+  const annotOnRef = useRef(false);
+  const annotItemsRef = useRef([]);
+  annotOnRef.current = annotOn;
+  annotItemsRef.current = annotItems;
+  // The page's current URL, mirrored by the meta poll below: annotations are
+  // filed under what the tab shows, not what it was opened with. (This ref
+  // was missing once — every Send died on a ReferenceError.)
+  const liveUrlRef = useRef("");
+  // Leaving clears both sides at once: the page drops its overlay (or is
+  // already gone) and the chrome drops the count. Idempotent, so the strip's
+  // ✕ and the page's own Esc converge instead of double-announcing.
+  const leaveAnnotate = (announce) => {
+    if (!annotOnRef.current) return;
+    const pending = annotItemsRef.current.length;
+    annotOnRef.current = false;
+    setAnnotOn(false);
+    setAnnotItems([]);
+    setAnnotSending(false);
+    if (announce && pending > 0) toast(`Annotate mode off — ${pending} unsent annotation${pending === 1 ? "" : "s"} discarded.`);
+  };
+  const exitAnnotate = () => {
+    if (invoke) invoke("btab_annotate_mode", { id: tabId, on: false }).catch(() => {});
+    leaveAnnotate(true);
+  };
+  const clearAnnotate = () => {
+    const n = annotItemsRef.current.length;
+    if (invoke) invoke("btab_annotate_clear", { id: tabId }).catch((e) => toast("Discard failed: " + (e?.message || e)));
+    setAnnotItems([]);
+    if (n > 0) toast.ok(`All ${n} annotation${n === 1 ? "" : "s"} discarded.`);
+  };
+  const undoAnnotate = () => {
+    if (!annotItemsRef.current.length || !invoke) return;
+    invoke("btab_annotate_clear", { id: tabId, last: true }).catch((e) => toast("Undo failed: " + (e?.message || e)));
+  };
   useEffect(() => {
     const listen = typeof window !== "undefined" ? window.__TAURI__?.event?.listen : null;
     if (typeof listen !== "function") return undefined;
@@ -121,8 +163,11 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
       if (typeof inner === "string") { try { inner = JSON.parse(inner); } catch { inner = null; } }
       if (!inner) return;
       if (inner.kind === "pick") toast.ok("Picked " + (inner.selector || inner.tag || "element"));
-      if (inner.kind === "comment") { void sendAnnotation(inner); return; }
-      if (inner.kind === "exit") setAnnotOn(false);
+      else if (inner.kind === "state") setAnnotItems(stateItems(inner));
+      else if (inner.kind === "note") toast.ok(String(inner.message || ""));
+      else if (inner.kind === "warn") toast(String(inner.message || ""));
+      else if (inner.kind === "exit") leaveAnnotate(true);
+      // saved / removed / enter ride the state sync that follows them.
     }).then((u) => { unlisten = u; }).catch(() => {});
     return () => { try { if (unlisten) unlisten(); } catch { /* already gone */ } };
   }, [id]);
@@ -162,55 +207,83 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     }
   };
 
-  // What the page sent becomes an annotation (ADR-0152): the two staged files
-  // in the terminal's drop folder, the row in the store, and — when the human
-  // wrote a sentence — that sentence through the prompt door with the paths.
-  const sendAnnotation = async (msg) => {
+  // Send ships the whole set as one package (ADR-0152): one row per pin in
+  // the store, then ONE message through the prompt door carrying every path
+  // — the reference's "N annotations" context. An open draft blocks the
+  // Send (its note is unfinished); with no agent terminal running nothing is
+  // staged and nothing is lost.
+  const sendAll = async () => {
+    const items = annotItemsRef.current;
+    const ready = items.filter((it) => it.saved);
+    if (items.length > ready.length) { toast("Finish the open note first — Save or Cancel it."); return; }
+    if (ready.length === 0) { toast("Pin a note first — click any element."); return; }
+    setAnnotSending(true);
     try {
       const list = await fetch("/api/terminals").then((r) => (r.ok ? r.json() : null)).catch(() => null);
       const terminals = Array.isArray(list) ? list : list?.terminals || [];
       const live = terminals.find((t) => t && t.running);
       if (!live) { toast("Nothing to send to: no agent terminal is running."); return; }
       const prefs = await fetch("/api/browser/prefs").then((r) => (r.ok ? r.json() : null)).catch(() => null);
-      const shots = prefs && (prefs.annotationShots === "always" || prefs.annotationShots === "never") ? prefs.annotationShots : "ask";
-      // "never" means no picture at all; "ask" includes it for now — the
-      // per-annotation question is the slice that owns the box's checkbox.
-      const image = shots === "never" ? "" : await cropFromPreview(msg);
-      const res = await fetch("/api/browser/annotations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          terminalId: live.id,
-          url: liveUrlRef.current || url,
-          title: "",
-          selector: msg.selector || "",
-          comment: msg.comment || "",
-          dom: msg.html || "",
-          css: stylesToCSS(msg.styles || {}),
-          image,
-        }),
-      });
-      if (!res.ok) { toast("The annotation was not saved: " + res.status); return; }
-      const body = await res.json().catch(() => ({}));
-      const paths = Array.isArray(body.paths) ? body.paths : [];
-      const note = String(msg.comment || "").trim();
+      const policy = prefs && (prefs.annotationShots === "always" || prefs.annotationShots === "never") ? prefs.annotationShots : "ask";
+      // "never" means no picture at all; "always" always crops; "ask"
+      // follows the strip's camera toggle for this session.
+      const includeShots = policy === "never" ? false : policy === "always" ? true : annotShots;
+      const paths = [];
+      const staged = [];
+      for (const it of ready) {
+        const image = includeShots ? await cropFromPreview(it) : "";
+        const res = await fetch("/api/browser/annotations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            terminalId: live.id,
+            url: liveUrlRef.current || url,
+            title: "",
+            selector: it.selector || "",
+            comment: it.comment || "",
+            dom: it.html || "",
+            css: stylesToCSS(it.styles || {}),
+            image,
+          }),
+        });
+        if (!res.ok) throw new Error(`annotation ${it.n} was not saved (${res.status})`);
+        const body = await res.json().catch(() => ({}));
+        for (const p of Array.isArray(body.paths) ? body.paths : []) paths.push(p);
+        staged.push({ n: it.n, selector: it.selector, comment: it.comment });
+      }
+      const message = batchMessage({ url: liveUrlRef.current || url, items: staged });
       const drop = await fetch(`/api/terminals/${encodeURIComponent(live.id)}/drop`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: note || "Annotated element", paths }),
+        body: JSON.stringify({ message, paths }),
       }).catch(() => null);
-      if (drop && drop.ok) toast.ok("Annotation sent to " + (live.name || live.id) + ".");
-      else toast.ok("Annotation saved; the terminal is not running an agent CLI, so nothing was sent.");
+      if (drop && drop.ok) {
+        toast.ok(`${ready.length} annotation${ready.length === 1 ? "" : "s"} sent to ${live.name || live.id}.`);
+        if (invoke) invoke("btab_annotate_clear", { id: tabId }).catch(() => {});
+        setAnnotItems([]);
+      } else {
+        toast.ok("Annotations saved; the terminal is not running an agent CLI, so nothing was sent.");
+      }
     } catch (e) {
       toast("Annotation failed: " + (e?.message || e));
+    } finally {
+      setAnnotSending(false);
     }
   };
 
   const toggleAnnotate = () => {
-    if (!invoke) return;
-    const next = !annotOn;
-    setAnnotOn(next);
-    invoke("btab_annotate_mode", { id: tabId, on: next }).catch((e) => {
+    if (annotOnRef.current) { exitAnnotate(); return; }
+    // The plain browser has no live page to inject into: the preview shows
+    // the mode's shape over a sample page instead.
+    if (!invoke) {
+      annotOnRef.current = true;
+      setAnnotOn(true);
+      return;
+    }
+    annotOnRef.current = true;
+    setAnnotOn(true);
+    invoke("btab_annotate_mode", { id: tabId, on: true }).catch((e) => {
+      annotOnRef.current = false;
       setAnnotOn(false);
       toast("Annotate mode failed: " + (e?.message || e));
     });
@@ -368,6 +441,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
         .then((m) => {
           if (m.url) {
             setStarted(true);
+            liveUrlRef.current = m.url;
             setUrlDraft((cur) => (document.activeElement === urlRef.current ? cur : trimUrl(m.url)));
             record("history", m.url, false, m.title);
           }
@@ -485,6 +559,9 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
   function go(u) {
     const target = (u ?? urlDraft).trim();
     if (!target) return;
+    // Navigating drops the document the script was injected into: leaving
+    // first keeps the chrome honest instead of counting pins on a dead page.
+    if (annotOnRef.current) exitAnnotate();
     const r = hostRef.current?.getBoundingClientRect();
     invoke("btab_navigate", {
       id,
@@ -502,8 +579,24 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
       .catch(fail);
   }
 
+  // One guard for the buttons that drive the page (Back/Forward/Reload
+  // call it inline); go() above calls exitAnnotate directly.
+  const navGuard = () => { if (annotOnRef.current) exitAnnotate(); };
+
   if (!invoke) {
     const typed = (frameUrl || "").trim();
+    if (annotOn) {
+      return (
+        <section className="web-tab-surface" hidden={hidden} aria-label="Work browser">
+          <AnnotatePreview onExit={toggleAnnotate} />
+          {onClose ? (
+            <div className="web-tab-toolbar">
+              <button type="button" className="web-tab-menu" title="Close browser pane" aria-label="Close browser pane" onClick={onClose}><IconX /></button>
+            </div>
+          ) : null}
+        </section>
+      );
+    }
     return (
       <section className="web-tab-surface" hidden={hidden} aria-label="Work browser">
         <div className="web-tab-toolbar">
@@ -519,6 +612,14 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
             />
             <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => setFrameNonce((n) => n + 1)}><IconEnter /></button>
           </div>
+          <button
+            type="button"
+            className="web-tab-annot-btn"
+            title="Preview annotate mode (Ctrl+.)"
+            aria-label="Preview annotate mode"
+            aria-pressed={false}
+            onClick={toggleAnnotate}
+          >✎</button>
           {onClose ? <button type="button" className="web-tab-menu" title="Close browser pane" aria-label="Close browser pane" onClick={onClose}><IconX /></button> : null}
         </div>
         {local ? (
@@ -543,10 +644,24 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     <section className={"web-tab-surface" + (className ? " " + className : "")} hidden={hidden} aria-label="Work browser">
       {!chromeless ? (
         <div className="web-tab-toolbar">
-          <button type="button" title="Back" onClick={() => invoke("btab_back", { id }).catch(() => {})}>←</button>
-          <button type="button" title="Forward" onClick={() => invoke("btab_forward", { id }).catch(() => {})}>→</button>
-          <button type="button" title="Reload" onClick={() => invoke("btab_reload", { id }).catch(() => {})}>⟳</button>
-          <div className="web-tab-urlbar">
+          <button type="button" title="Back" onClick={() => { navGuard(); invoke("btab_back", { id }).catch(() => {}); }}>←</button>
+          <button type="button" title="Forward" onClick={() => { navGuard(); invoke("btab_forward", { id }).catch(() => {}); }}>→</button>
+          <button type="button" title="Reload" onClick={() => { navGuard(); invoke("btab_reload", { id }).catch(() => {}); }}>⟳</button>
+          {annotOn ? (
+            <AnnotateStrip
+              count={annotItems.filter((it) => it.saved).length}
+              total={annotItems.length}
+              shotsOn={annotShots}
+              sending={annotSending}
+              onExit={exitAnnotate}
+              onClear={clearAnnotate}
+              onUndo={undoAnnotate}
+              onToggleShots={() => setAnnotShots((v) => !v)}
+              onHint={() => toast.ok("Click an element to pin it · Enter saves · Esc exits.")}
+              onSend={sendAll}
+            />
+          ) : (
+          <><div className="web-tab-urlbar">
             <input
               ref={urlRef}
               value={urlDraft}
@@ -559,12 +674,13 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
           </div>
         <button
           type="button"
-          className={"web-tab-annot-btn" + (annotOn ? " on" : "")}
-          title={annotOn ? "Stop annotating" : "Annotate this page (Ctrl+.)"}
+          className="web-tab-annot-btn"
+          title="Annotate this page (Ctrl+.)"
           aria-label="Annotate this page"
-          aria-pressed={annotOn}
+          aria-pressed={false}
           onClick={toggleAnnotate}
-        >{annotOn ? "Annotating" : "✎"}</button>
+        >✎</button></>
+          )}
         <DropdownMenu.Root open={menuOpen} onOpenChange={onMenuOpenChange}>
             <DropdownMenu.Trigger asChild>
               <button

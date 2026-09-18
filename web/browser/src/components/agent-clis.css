@@ -205,18 +205,9 @@
 
 @media (max-width: 767px) { .cli-tabs { overflow-x: auto; gap: 16px; } .cli-tabs a { flex: none; white-space: nowrap; } }
 
-/* Annotate mode (v2c): the frozen page with a picker over it. The veil is a
-   full-window layer because the still must cover the whole native region. */
+/* Annotate mode (v2c, the ChatGPT-Work shape): the strip replaces the URL
+   bar while the mode is on; pins, the card and chips live inside the page
+   (desktop) or over the sample page (fallback preview) — never over the
+   native view, which WebView2 forbids covering. */
 .web-tab-annot-btn { height: var(--ctl-h); min-width: var(--ctl-h); padding: 0 8px; margin-right: 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: inherit; cursor: pointer; }
 .web-tab-annot-btn.on { border-color: var(--accent, #4a9eff); color: var(--accent, #4a9eff); }
-.annot-veil { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; background: var(--surface, #111); }
-.annot-head { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
-.annot-head .set-btn { margin-left: auto; }
-.annot-sub { color: var(--muted, #888); font-size: 12px; }
-.annot-stage { flex: 1; overflow: auto; display: grid; place-items: center; padding: 12px; }
-.annot-img-wrap { position: relative; line-height: 0; }
-.annot-img-wrap img { max-width: 100%; max-height: calc(100vh - 160px); cursor: crosshair; user-select: none; }
-.annot-outline { position: absolute; border: 2px solid var(--accent, #4a9eff); background: color-mix(in srgb, var(--accent, #4a9eff) 12%, transparent); pointer-events: none; border-radius: 3px; }
-.annot-foot { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--border); }
-.annot-note { flex: 1; height: var(--ctl-h); padding: 0 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: inherit; }
-.annot-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
