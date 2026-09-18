@@ -148,8 +148,9 @@ func spliceTOMLTable(path, text, name, block string) error {
 }
 
 // readTOMLFile parses a config into a generic map. A missing file is an
-// empty config; malformed TOML is an error — refuse loudly, never write on
-// top of a file we could not read (ADR-0150).
+// empty config; malformed TOML is a typed parseError — List degrades just
+// that layer, writes still refuse loudly, never on top of a file we could
+// not read (ADR-0150).
 func readTOMLFile(path string) (map[string]any, error) {
 	text, err := readTOMLText(path)
 	if err != nil || strings.TrimSpace(text) == "" {
@@ -157,7 +158,7 @@ func readTOMLFile(path string) (map[string]any, error) {
 	}
 	var raw map[string]any
 	if err := toml.Unmarshal([]byte(text), &raw); err != nil {
-		return nil, fmt.Errorf("%s is not valid TOML", path)
+		return nil, &parseError{path, "is not valid TOML"}
 	}
 	return raw, nil
 }

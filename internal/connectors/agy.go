@@ -79,10 +79,14 @@ func (d AGY) List(p Paths) (mcp.Report, error) {
 		Found:             []mcp.HostInfo{},
 	}
 	seen := map[string]bool{}
-	for _, layer := range rep.Layers {
+	for i, layer := range rep.Layers {
 		raw, err := readJSONFile(layer.Path)
 		if err != nil {
-			return rep, err
+			// A file that exists but does not parse blocks only its own
+			// layer: the pane shows the file and a Retry/Open pair, and
+			// the other layers still list (ADR-0150).
+			blockLayer(&rep.Layers[i], err)
+			continue
 		}
 		for _, s := range agyServers(raw, layer) {
 			if !seen[s.Name] {

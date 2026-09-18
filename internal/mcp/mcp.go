@@ -24,6 +24,10 @@ type Layer struct {
 	Exists   bool   `json:"exists"`
 	Writable bool   `json:"writable"`
 	Scope    string `json:"scope"` // user | project | agent | import
+	// Error names why the file could not be read ("is not valid JSON");
+	// empty means the file parsed or does not exist. A blocked layer
+	// contributes no servers and never fails the whole report.
+	Error string `json:"error,omitempty"`
 }
 
 // Server is one named MCP server after merge (highest layer wins).

@@ -87,10 +87,13 @@ func (d Grok) List(p Paths) (mcp.Report, error) {
 		Found:             []mcp.HostInfo{},
 	}
 	seen := map[string]bool{}
-	for _, layer := range rep.Layers {
+	for i, layer := range rep.Layers {
 		raw, err := readTOMLFile(layer.Path)
 		if err != nil {
-			return rep, err
+			// A file that exists but does not parse blocks only its own
+			// layer (ADR-0150); the other layers still list.
+			blockLayer(&rep.Layers[i], err)
+			continue
 		}
 		for _, s := range grokServers(raw, layer) {
 			if !seen[s.Name] {
