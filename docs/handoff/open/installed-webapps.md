@@ -1,9 +1,14 @@
 # Installed webapps (ADR-0147)
 
-Open items accepted or deferred when the user-installed webapps shipped
-(2026-09-17, branch `feat/installed-webapps`).
+Topic record for the user-installed webapps arc (shipped 2026-09-17/18;
+branches `feat/installed-webapps`, `feat/webapp-head-truncate`,
+`feat/webapp-pwa`, `feat/webapp-chromeless`, `feat/webapp-appmode-fullbleed`).
 
-## Next
+## Paid
 
-- Remaining shell checks: the `(N)` title badge renders on the tile while the webapp tab is open, and a webapp login survives a shell restart via the shared WebView2 profile. (Tile click opens the webapp in the shell with its login — confirmed by the owner live, 2026-09-18.)
-- Per-webapp WebView2 partitions (two accounts of one service) — v2 item from ADR-0147; revisit with the standalone-window PWA idea (`display: standalone`).
+- [x] Shell checks closed by the owner's call (2026-09-18): tile click opens the webapp in the shell with its login; login persisted across tile reinstall and shell reloads in live use; the `(N)` badge ships unit-tested (title parse) and was accepted without a separate shell screenshot.
+- [x] Full-bleed app mode (no titlebar) confirmed live by the owner.
+
+## Debts
+
+- [ ] Standalone window (Chrome-style, its own taskbar icon) stays refused while the owner works in-shell; revisiting costs an ADR that re-opens the btab plumbing question.

@@ -20,7 +20,7 @@ Merge: landed and deployed the same day (captures refreshed by deploy).
 
 ## Next up
 
-- Remaining observations live on open/installed-webapps.md: the `(N)` title badge rendering on a tile and a login surviving a shell restart.
+- (paid 2026-09-18) topic closed by the owner; record in open/installed-webapps.md.
 
 ## Debts
 

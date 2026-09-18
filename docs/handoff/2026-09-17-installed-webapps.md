@@ -26,8 +26,7 @@ Merge: fast-forward ready after main merge.
 
 ## Next up
 
-- Verify on the Windows shell: tile click focuses/reopens `w:app-<id>`, badge counts, login survives restart (shared profile).
-- Refresh stale docs captures (`make docs-shots`) before the next deploy — Apps grid changed.
+- (paid 2026-09-18) shell checks confirmed in live use; docs captures refreshed by `make deploy`.
 
 ## Debts
 
