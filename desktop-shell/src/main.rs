@@ -97,6 +97,7 @@ fn main() {
             btab::btab_clear_app_data,
             btab::btab_open_external,
             btab::btab_annotate_mode,
+            btab::btab_annotate_clear,
             btab::btab_set_prefs,
             btab::btab_download_dir,
             btab::btab_set_download_dir,

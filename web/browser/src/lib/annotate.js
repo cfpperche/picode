@@ -141,3 +141,57 @@ export function pickLabel(pick) {
   const r = pick.rect || {};
   return `${pick.selector || pick.tag || "element"} — ${Math.round(r.width || 0)}×${Math.round(r.height || 0)}`;
 }
+
+// sendLabel is what rides the strip's Send button: the count of pending
+// (saved) annotations, or a bare Send when there is nothing to ship yet.
+export function sendLabel(count) {
+  const n = Number(count) || 0;
+  return n > 0 ? `Send ${n}` : "Send";
+}
+
+// stateItems normalizes a state sync from the page into trusted items: the
+// chrome's Send count and batch payloads come from here, so junk (a rect
+// that is not a rect, a comment that is not a string) is dropped, never
+// rendered or posted.
+export function stateItems(msg) {
+  const raw = Array.isArray(msg?.items) ? msg.items : [];
+  const out = [];
+  for (const it of raw) {
+    if (!it || typeof it !== "object") continue;
+    const rect = it.rect || {};
+    if (!Number.isFinite(Number(rect.width)) || !Number.isFinite(Number(rect.height))) continue;
+    out.push({
+      n: Number(it.n) || 0,
+      selector: typeof it.selector === "string" ? it.selector : "",
+      tag: typeof it.tag === "string" ? it.tag : "",
+      html: typeof it.html === "string" ? it.html : "",
+      rect: {
+        x: Number(rect.x) || 0,
+        y: Number(rect.y) || 0,
+        width: Number(rect.width) || 0,
+        height: Number(rect.height) || 0,
+      },
+      styles: it.styles && typeof it.styles === "object" ? it.styles : {},
+      vw: Number(it.vw) || 0,
+      vh: Number(it.vh) || 0,
+      comment: typeof it.comment === "string" ? it.comment : "",
+      saved: it.saved === true,
+    });
+  }
+  return out;
+}
+
+// batchMessage is the ONE context the agent gets for the whole set (the
+// reference's "5 annotations"): a head line plus one numbered line per pin,
+// each pin's sentence (or its selector when the note is empty).
+export function batchMessage({ url, items }) {
+  const list = Array.isArray(items) ? items : [];
+  const head = `${list.length} annotation${list.length === 1 ? "" : "s"}${url ? ` on ${url}` : ""}`;
+  const lines = list.map((it) => {
+    const n = it && it.n != null ? it.n : "?";
+    const comment = it && typeof it.comment === "string" ? it.comment.trim() : "";
+    const sel = it && typeof it.selector === "string" ? it.selector : "";
+    return `${n}. ${comment || sel || "element"}`;
+  });
+  return [head, ...lines].join("\n");
+}

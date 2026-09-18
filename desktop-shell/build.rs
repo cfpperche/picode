@@ -23,6 +23,8 @@ fn main() {
             "btab_cdp_events",
             "btab_close",
             "btab_open_external",
+            "btab_annotate_mode",
+            "btab_annotate_clear",
             "btab_set_prefs",
             "btab_clear_data",
             "btab_download_dir",
