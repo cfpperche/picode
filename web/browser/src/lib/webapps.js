@@ -8,14 +8,15 @@ export function webappError(error) {
   return error?.issues?.[0]?.message || error?.message || "Could not save the web app. Try again.";
 }
 
-export async function submitWebappForm(api, { mode, app, preview, url, name }) {
+export async function submitWebappForm(api, { mode, app, preview, url, name, allowDuplicate }) {
   const schema = mode === "rename" ? webappNameSchema : preview ? webappInstallSchema : webappUrlSchema;
   const payload = schema.parse({ url: preview?.url || url, name });
   const path = mode === "rename" ? "/api/webapps/" + encodeURIComponent(app.id) : preview ? "/api/webapps" : "/api/webapps/resolve";
+  const body = mode === "install" && allowDuplicate ? { ...payload, allowDuplicate: true } : payload;
   const result = await api(path, {
     method: mode === "rename" ? "PATCH" : "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
   return mode === "rename" || preview ? { saved: result } : { preview: result };
 }

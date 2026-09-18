@@ -3,6 +3,24 @@ import assert from "node:assert/strict";
 import { webappBadge, updateWebappMeta, webappTabId, submitWebappForm, webappOpenPlan, webappChromeless, webappIdFromTab, removedWebappTabs, webappError, DESKTOP_REQUIRED } from "./webapps.js";
 ;
 
+test("install forwards allowDuplicate so a second account can coexist", async () => {
+  const calls = [];
+  const api = async (path, options) => {
+    calls.push({ path, ...options });
+    return { id: "x-1", name: "N", url: "https://x.com" };
+  };
+  await submitWebappForm(api, {
+    mode: "install",
+    preview: { url: "https://x.com" },
+    url: "https://x.com",
+    name: "N",
+    allowDuplicate: true,
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].path, "/api/webapps");
+  assert.deepEqual(JSON.parse(calls[0].body), { url: "https://x.com", name: "N", allowDuplicate: true });
+});
+
 test("rename submits the edited name instead of the original name", async () => {
   const app = { id: "mail-abc123", name: "Original name" };
   const calls = [];
