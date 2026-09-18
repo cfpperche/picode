@@ -441,7 +441,7 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
                           <DropdownMenu.Portal>
                             <DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
                               {canSignOut(s) ? <DropdownMenu.Item className="um-item" onSelect={() => signOut(s)}>Sign out</DropdownMenu.Item> : null}
-                              {s.owned ? <><DropdownMenu.Separator className="um-divider" /><DropdownMenu.Item className="um-item cli-danger-item" onSelect={() => remove(s)}>Remove</DropdownMenu.Item></> : null}
+                              {s.owned ? <>{canSignOut(s) ? <DropdownMenu.Separator className="um-divider" /> : null}<DropdownMenu.Item className="um-item cli-danger-item" onSelect={() => remove(s)}>Remove</DropdownMenu.Item></> : null}
                             </DropdownMenu.Content>
                           </DropdownMenu.Portal>
                         </DropdownMenu.Root>
