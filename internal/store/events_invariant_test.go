@@ -468,6 +468,22 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			_, _ = s.AddBrowserVisit("https://example.com/d", "", false)
 			_ = s.ClearBrowserHistory()
 		}, []string{"browserhistory.updated", "browserhistory.updated"}},
+		{"HideDevServer", func(s *Store) {
+			_, _ = s.HideDevServer(5173, 4242, "900", `terminal "web"`, "vite")
+		}, []string{"devserver.hidden"}},
+		{"UnhideDevServer", func(s *Store) {
+			h, _ := s.HideDevServer(5173, 4242, "900", `terminal "web"`, "vite")
+			s.OnEvent = nil
+			s.OnEvent = recorder(s)
+			_ = s.UnhideDevServer(h.ID)
+		}, []string{"devserver.hidden"}},
+		{"PruneDevServerHides", func(s *Store) {
+			live, _ := s.HideDevServer(5173, 4242, "900", "", "vite")
+			_, _ = s.HideDevServer(3000, 4243, "901", "", "astro")
+			s.OnEvent = nil
+			s.OnEvent = recorder(s)
+			_, _ = s.PruneDevServerHides([]int64{live.ID})
+		}, []string{"devserver.hidden"}},
 		{"BeginDockerOperation", func(s *Store) {
 			_, _, _ = s.BeginDockerOperation(DockerOperation{RequestKey: "request-123", Endpoint: "unix:///tmp/a", ContainerID: "a", Action: "start"})
 		}, []string{"docker.operation"}},
@@ -518,6 +534,19 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			_ = s.RecoverDockerJobs()
 		}, []string{"docker.job"}},
 		{"SaveDockerMonitor", func(s *Store) { _, _ = s.SaveDockerMonitor(DefaultDockerMonitor("unix:///tmp/qa", "demo")) }, []string{"docker.monitor"}},
+		{"CreateWebapp", func(s *Store) {
+			_, _ = s.CreateWebapp("Example", "https://example.com", []byte("png"), "image/png")
+		}, []string{"webapp.installed"}},
+		{"UpdateWebappName", func(s *Store) {
+			app, _ := s.CreateWebapp("Example", "https://example.com", nil, "")
+			s.OnEvent = recorder(s)
+			_, _ = s.UpdateWebappName(app.ID, "Renamed")
+		}, []string{"webapp.updated"}},
+		{"DeleteWebapp", func(s *Store) {
+			app, _ := s.CreateWebapp("Example", "https://example.com", nil, "")
+			s.OnEvent = recorder(s)
+			_ = s.DeleteWebapp(app.ID)
+		}, []string{"webapp.removed"}},
 		{"RecordDockerHealth", func(s *Store) {
 			m, _ := s.SaveDockerMonitor(DefaultDockerMonitor("unix:///tmp/qa", "demo"))
 			s.OnEvent = recorder(s)

@@ -277,6 +277,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerOAuthRoutes(mux)
 	registerBackupRoutes(mux, deps)
 	registerAppsRoutes(mux, deps)
+	registerWebappRoutes(mux, deps)
 	registerInboxRoutes(mux, deps)
 	registerAutomationRoutes(mux, deps)
 	mux.HandleFunc("GET /api/events", handleEvents(deps))
