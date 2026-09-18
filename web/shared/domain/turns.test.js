@@ -72,6 +72,8 @@ test("day marks", () => {
 test("step labels stay factual", () => {
   assert.equal(stepLabel({ cls: "thinking" }), "Thought");
   assert.equal(stepLabel({ kind: "tool", name: "read", args: "/x/foo.go" }), "Read foo.go");
+  assert.equal(stepLabel({ kind: "tool", name: "computer", args: "left_click [412,88]" }), "Computer: left_click [412,88]");
+  assert.equal(stepLabel({ kind: "tool", name: "computer", args: "" }), "Used the computer");
   assert.equal(stepLabel({ kind: "tool", name: "read", args: "@" + "/home/goat/very/long/path/to/README.md" }), "Read README.md");
   assert.equal(stepLabel({ kind: "tool", name: "web_search", args: "lula" }), "Searched lula");
 });

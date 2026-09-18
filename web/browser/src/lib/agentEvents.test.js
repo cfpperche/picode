@@ -128,6 +128,18 @@ describe("reduceAgentEvent", () => {
       ]);
       assert.equal(item(state).preview, null);
     });
+    it("the computer tool's end result carries its capture (ADR-0148)", () => {
+      const { state } = run([
+        { type: "agent_start" },
+        { type: "tool_execution_start", toolCallId: "k1", toolName: "computer", args: { action: "left_click", coordinate: [412, 88] } },
+        { type: "tool_execution_end", toolCallId: "k1", toolName: "computer", result: { details: { preview: { ...frame2, source: "computer" } } }, isError: false },
+      ]);
+      const it = item(state, "k1");
+      assert.equal(it.status, "ok");
+      assert.equal(it.args, "left_click [412,88]");
+      assert.equal(it.preview.image, frame2.image);
+      assert.equal(it.preview.source, "computer");
+    });
     it("the final result is authoritative: an end preview replaces the live one", () => {
       const { state } = run([...start,
         { type: "tool_execution_update", toolCallId: "b1", partialResult: { details: { preview: frame } } },

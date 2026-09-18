@@ -246,3 +246,32 @@ func TestComputerPoliciesListAndSave(t *testing.T) {
 		t.Fatalf("audit = %s", abody)
 	}
 }
+
+func TestDesktopStatsCountTheWindow(t *testing.T) {
+	ts, _, st := browserServer(t)
+	agent := seedAgent(t, st, "worker")
+	if err := computer.Save(st, agent, true); err != nil {
+		t.Fatal(err)
+	}
+	// Two refusals (no grant for a stranger) and nothing allowed: the shell is
+	// not on the line, so the granted call fails instead.
+	_, _ = postComputerTool(t, ts, `{"agent":"nobody","action":"screenshot"}`)
+	_, _ = postComputerTool(t, ts, `{"agent":"`+agent+`","action":"screenshot"}`)
+	res, err := http.Get(ts.URL + "/api/sessions/stats?range=today")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	var view struct {
+		Desktop *struct {
+			Steps, Refused, Failed int
+			Ms                     int64
+		} `json:"desktop"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&view); err != nil {
+		t.Fatal(err)
+	}
+	if view.Desktop == nil || view.Desktop.Refused != 1 || view.Desktop.Failed != 1 || view.Desktop.Steps != 0 {
+		t.Fatalf("desktop = %+v", view.Desktop)
+	}
+}

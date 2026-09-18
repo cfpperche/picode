@@ -52,7 +52,9 @@ test("a capture becomes an image block plus a line that names its pixel space", 
 	assert.equal(captureLine(output), "Screenshot of display 1 (1280×800 image, scale 2) — coordinates you send are pixels of this image; cursor at [236, 220].");
 	const win = { ...output, meta: { ...output.meta, window: { exe: "notepad.exe", title: "Untitled - Notepad" }, cursor: null } };
 	assert.match(captureLine(win), /^Screenshot of window notepad\.exe "Untitled - Notepad"/);
-	const details = previewDetails(output);
+	const details = previewDetails(output, undefined, 1700000000000);
+	assert.equal(details?.preview.source, "computer");
+	assert.equal(details?.preview.ts, 1700000000000);
 	assert.equal(details?.preview.image, "data:image/jpeg;base64,/9j/");
 	assert.equal(details?.preview.title, "display 1");
 	assert.equal(details?.preview.seq, 3);
