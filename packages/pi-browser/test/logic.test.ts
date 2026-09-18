@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
+	imageBlock,
 	parseAnswer,
 	rejectUnauthorizedFor,
 	resolveDataDir,
 	resolveServerUrl,
 	resolveToken,
-	screenshotPath,
 	summarizeAx,
 	summarizeCdp,
 	summarizeEvaluate,
@@ -85,9 +85,11 @@ test("events render the tail, long params truncated, a quiet page named", () => 
 	assert.deepEqual(summarizeEvents({}), []);
 });
 
-test("a screenshot lands outside the repo", () => {
-	assert.equal(screenshotPath("/tmp", 1700000000000), "/tmp/picode-browser-1700000000000.png");
-	assert.equal(screenshotPath("/tmp/", 1), "/tmp/picode-browser-1.png");
+test("a screenshot becomes an image block the model sees", () => {
+	assert.deepEqual(imageBlock({ data: "iVBORw0KGgo=" }), { type: "image", data: "iVBORw0KGgo=", mimeType: "image/png" });
+	assert.equal(imageBlock({ data: "" }), null, "an empty capture is no image");
+	assert.equal(imageBlock({}), null);
+	assert.equal(imageBlock(null), null);
 });
 
 test("verbs in the tool are the five the daemon knows", () => {

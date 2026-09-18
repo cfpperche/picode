@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-computer-preview"
+description = "Enables the computer_preview command without any pre-configured scope."
+commands.allow = ["computer_preview"]
+
+[[permission]]
+identifier = "deny-computer-preview"
+description = "Denies the computer_preview command without any pre-configured scope."
+commands.deny = ["computer_preview"]

@@ -5,10 +5,12 @@
 // replaced, every argument the user typed stays exactly where it was.
 // Values are individual argv entries, never a shell string (ADR-0069).
 //
-// Flags verified against the installed binaries on 2026-09-17 (grok 1.0.34,
-// Hermes Agent v0.21.3, omp 18.2.4, codex-cli 0.154.0 — each exercised with
-// `--help` and a `--flag --version` parse check) plus the vendor docs for
-// pi, Claude Code and OpenCode. Muse Code and Antigravity stay excluded:
+// Flags verified against the installed binaries on 2026-09-17/18 (grok
+// 1.0.34 — the official xAI "Grok Build" CLI, reference
+// docs.x.ai/build/cli/reference —, Hermes Agent v0.21.3, omp 18.2.4,
+// codex-cli 0.154.0 — each exercised with `--help` and a
+// `--flag --version` parse check) plus the vendor docs for pi, Claude Code
+// and OpenCode. Muse Code and Antigravity stay excluded:
 // they have no adapter, so their launch screens are read-only by design.
 //
 // spec.group marks mutually exclusive controls (a vendor flag conflict):
@@ -41,6 +43,16 @@ const PI_THINKING = ["off", "minimal", "low", "medium", "high", "xhigh", "max"].
 
 const CODEX_EFFORT = ["minimal", "low", "medium", "high", "xhigh"].map((v) => option(v, v));
 
+// Built-in Grok sandbox profiles (docs.x.ai/build/features/sandbox, verified
+// 2026-09-18 against the installed 1.0.34 — custom profile names are legal
+// too and render as an "as typed" option when present).
+const GROK_SANDBOX = [
+  option("workspace", "Write inside the workspace"),
+  option("devbox", "Cloud devbox"),
+  option("read-only", "Read only"),
+  option("strict", "Strict (untrusted repositories)"),
+];
+
 const HERMES_REASONING = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"].map((v) => option(v, v));
 
 export const CLI_QUICK_SETTINGS = {
@@ -62,8 +74,11 @@ export const CLI_QUICK_SETTINGS = {
     { key: "yolo", label: "YOLO", type: "boolean", flags: ["--yolo"], group: "codex", hint: "Skips all approvals and the sandbox (--dangerously-bypass-approvals-and-sandbox)." },
   ],
   grok: [
+    { key: "model", label: "Model", type: "text", flags: ["--model", "-m"], placeholder: "grok-4.3", hint: "Model id; grok models lists the catalog." },
+    { key: "effort", label: "Reasoning effort", type: "text", flags: ["--effort", "--reasoning-effort"], placeholder: "high", hint: "Effort level; depends on the model." },
+    { key: "sandbox", label: "Sandbox", type: "select", flags: ["--sandbox"], options: GROK_SANDBOX },
     { key: "permissionMode", label: "Approvals", type: "select", flags: ["--permission-mode"], options: PERMISSION_MODES },
-    { key: "alwaysApprove", label: "Auto-approve tools", type: "boolean", flags: ["--always-approve"], hint: "All tool executions are approved without asking." },
+    { key: "alwaysApprove", label: "Auto-approve tools", type: "boolean", flags: ["--always-approve"], hint: "All tool executions are approved without asking (alias --yolo)." },
   ],
   hermes: [
     { key: "model", label: "Model", type: "text", flags: ["--model", "-m"], placeholder: "anthropic/claude-sonnet-4.6", hint: "Model override for this invocation." },

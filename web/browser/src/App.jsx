@@ -3423,7 +3423,6 @@ export default function App({ shellChrome = false } = {}) {
                 active={selectedId === id}
                 hidden={selectedId !== id || onPane}
                 chromeless={!!app && webappChromeless(app.display)}
-                chromelessTitle={app?.name || ""}
                 asks={permissionAsks.filter((a) => a.tab === tabWebId(id))}
                 onAnswerAsk={answerPermission}
                 onMeta={(m) => setWebTabs((cur) => updateWebappMeta(cur, tabsRef.current, id, m))}

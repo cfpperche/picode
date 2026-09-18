@@ -105,9 +105,17 @@ export function summarizeAx(output: unknown, max = MAX_LINES): { lines: string[]
 	return { lines, dropped };
 }
 
-/** screenshotPath names the file one capture writes, outside the repo. */
-export function screenshotPath(dir: string, now: number): string {
-	return `${dir.replace(/\/+$/, "")}/picode-browser-${now}.png`;
+/** ImageBlock is pi's image content: what the model sees instead of a path. */
+export type ImageBlock = { type: "image"; data: string; mimeType: string };
+
+/**
+ * imageBlock turns the daemon's screenshot answer ({data: base64 PNG}) into
+ * the image block pi hands the model, or null when nothing was captured.
+ */
+export function imageBlock(output: unknown): ImageBlock | null {
+	const data = (output as { data?: unknown } | null)?.data;
+	if (typeof data !== "string" || data === "") return null;
+	return { type: "image", data, mimeType: "image/png" };
 }
 
 /** summarizeEvents renders the tab's recorded ring for the events verb. */

@@ -25,7 +25,7 @@ only, or **This machine** so a plain `pi` in a terminal sees it too.
 | Verb | Answer |
 |---|---|
 | `snapshot` | The page as roles and names (the accessibility tree, no script runs) |
-| `screenshot` | A PNG written to a temp path, for when the look matters |
+| `screenshot` | The page as an image the agent sees, for when the look matters |
 | `events` | What the tab recorded since the sequence number you last saw |
 
 These three are **read**, and read is the default: nobody has to grant

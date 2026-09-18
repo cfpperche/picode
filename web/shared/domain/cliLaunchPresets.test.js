@@ -95,12 +95,16 @@ test("the full draft round trip: quick patch survives launchArgs parsing", () =>
 });
 
 test("verified specs match the installed CLIs (grok 1.0.34, hermes 0.21.3, omp 18.2.4)", () => {
-  assert.deepEqual(quickSettingsFor("grok").map((s) => s.label), ["Approvals", "Auto-approve tools"]);
+  assert.deepEqual(quickSettingsFor("grok").map((s) => s.label), ["Model", "Reasoning effort", "Sandbox", "Approvals", "Auto-approve tools"]);
   assert.deepEqual(quickSettingsFor("hermes").map((s) => s.label), ["Model", "Reasoning effort", "YOLO"]);
   assert.deepEqual(quickSettingsFor("omp").map((s) => s.label), ["Model", "Additional folders"]);
   assert.deepEqual(quickSettingsFor("codex").map((s) => s.label), ["Model", "Additional folders", "Reasoning effort", "Sandbox", "Approvals", "YOLO"]);
   assert.deepEqual(applyQuickValue([], quickSettingsFor("omp")[0], "opus"), ["--model", "opus"]);
-  assert.deepEqual(applyQuickValue([], quickSettingsFor("grok")[1], "on"), ["--always-approve"]);
+  const grok = quickSettingsFor("grok");
+  assert.deepEqual(applyQuickValue([], grok.find((s) => s.key === "alwaysApprove"), "on"), ["--always-approve"]);
+  assert.deepEqual(applyQuickValue([], grok.find((s) => s.key === "effort"), "high"), ["--effort", "high"]);
+  assert.deepEqual(applyQuickValue([], grok.find((s) => s.key === "sandbox"), "strict"), ["--sandbox", "strict"]);
+  assert.deepEqual(applyQuickValue([], grok.find((s) => s.key === "model"), "grok-4.3"), ["--model", "grok-4.3"]);
   assert.deepEqual(applyQuickValue([], quickSettingsFor("hermes")[1], "high"), ["--reasoning", "high"]);
 });
 

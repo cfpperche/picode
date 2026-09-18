@@ -2,26 +2,25 @@
 
 Shipped: owner chose option B (in-shell, no separate window). An installed
 web app whose manifest declares `standalone`/`fullscreen`/`minimal-ui`
-opens chromeless: no back/forward/reload/URL bar — a minimal titlebar with
-the app's own name left and the ⋮ menu right (Reload + Copy address added
-at the top for app mode; the rest of the browser actions unchanged).
+opens chromeless. First round kept a minimal titlebar; the owner cut it
+the same day (`feat/webapp-appmode-fullbleed`, landed 4d11fe1d): the tab
+surface is **entirely the page** — engine accelerators (F5 / Ctrl+R,
+Ctrl ±), the page's own right-click menu, and Ctrl+F for find remain.
 `display: browser` and plain work tabs keep the full toolbar. Installed
-tabs are labeled with the app's name and manifest icon in the tab strip
-(AgentTabs now receives webapps). ADR-0147 amendment records the decision;
-the standalone-window door stays refused while the owner works in-shell.
+tabs are labeled with the app's name and manifest icon in the tab strip.
+ADR-0147 amendments record both rounds; the standalone-window door stays
+refused while the owner works in-shell.
 Verified: `webappChromeless` matrix + launch-rule tests (8 JS tests);
-scratch /desktop/ with a `__TAURI__` stub — chromeless tab renders
-titlebar only, menu shows Reload/Copy address, `overlayAudit` ok, regular
-work tab keeps its toolbar (screenshots read).
-visual-review: PASS for layout (titlebar/menu/tab-label); the page canvas
-is stub-blank by construction — the live page fills it only in the real
-shell. Confirmed live by the owner (2026-09-18, after deploy): app mode
-works — the page fills the surface as described.
-Merge: fast-forward ready; landed and deployed the same day.
+scratch /desktop/ with a `__TAURI__` stub — full-bleed surface, Ctrl+F
+find bar, regular work tab keeps its toolbar (screenshots read).
+visual-review: PASS for layout; the page canvas is stub-blank by
+construction — confirmed live by the owner (2026-09-18, both rounds:
+app mode and the full-bleed cut).
+Merge: landed and deployed the same day (captures refreshed by deploy).
 
 ## Next up
 
-- Remaining observations live on open/installed-webapps.md: the `(N)` title badge rendering on a tile and a login surviving a shell restart.
+- (paid 2026-09-18) topic closed by the owner; record in open/installed-webapps.md.
 
 ## Debts
 

@@ -5,6 +5,16 @@
 - [x] The handoff board sat at its cap and failed `make close` until a paid debt was pruned — superseded by ADR-0145 (bounded view: 2 bullets per topic, 7-day notes, open debts only, over target warns).
 
 ## Debts
+- [ ] **A conflicted merge plus `git add -A` committed conflict markers into
+  `WebTab.jsx`, and main's web build broke for ~10 minutes (2026-09-18).** The
+  landing loop hid the merge output, so a stopped-with-conflicts merge looked
+  like "main moved again", and the next `git add -A` swept the markers into the
+  feature commit. Recovery: `PICODE_ALLOW_MAIN_REWIND=1 git reset --hard` to the
+  last green tip, work preserved on `feat/annot-pick`. Candidates: the landing
+  loop must abort on a non-zero merge exit (never `> /dev/null`), `make close`
+  should fail on a file containing conflict markers, and a ff must be refused
+  when `ci-scoped` did not pass.
+
 - [ ] **A dirty root checkout is silently allowed until a landing refuses.**
   On 2026-09-18 my own uncommitted one-line edit to a handoff topic sat in the
   root and blocked `git merge --ff-only` for five retries while I blamed other

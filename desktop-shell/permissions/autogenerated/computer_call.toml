@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-computer-call"
+description = "Enables the computer_call command without any pre-configured scope."
+commands.allow = ["computer_call"]
+
+[[permission]]
+identifier = "deny-computer-call"
+description = "Denies the computer_call command without any pre-configured scope."
+commands.deny = ["computer_call"]

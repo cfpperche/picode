@@ -188,3 +188,37 @@ func TestBusyStreamRefusesMore(t *testing.T) {
 		t.Fatalf("err = %v, want ErrBusy after %d undrained commands", lastErr, backlog)
 	}
 }
+
+func TestCommandTimeoutOverridesTheHub(t *testing.T) {
+	h := New()
+	h.Timeout = 5 * time.Second
+	_, detach := h.Attach() // a shell that never answers
+	defer detach()
+	start := time.Now()
+	_, err := h.Dispatch(context.Background(), Command{Kind: "computer", Method: "screenshot", Timeout: 20 * time.Millisecond})
+	if err == nil || !strings.Contains(err.Error(), "did not answer") {
+		t.Fatalf("err = %v, want a timeout", err)
+	}
+	if time.Since(start) > time.Second {
+		t.Fatal("the per-command timeout was not honoured")
+	}
+}
+
+func TestKindAndPrincipalTravelOnTheWire(t *testing.T) {
+	body, err := json.Marshal(Command{ID: "1", Kind: "computer", Method: "screenshot", Principal: "agent-1", Timeout: time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"kind":"computer"`, `"principal":"agent-1"`} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("frame %s lacks %s", body, want)
+		}
+	}
+	if strings.Contains(strings.ToLower(string(body)), "timeout") {
+		t.Errorf("the timeout travelled: %s", body)
+	}
+	body, _ = json.Marshal(Command{ID: "2", Method: "Page.captureScreenshot", Tier: "read"})
+	if strings.Contains(string(body), "kind") || strings.Contains(string(body), "principal") {
+		t.Errorf("a browser frame grew fields it does not carry: %s", body)
+	}
+}

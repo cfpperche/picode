@@ -129,7 +129,7 @@ var plans = map[string]spec{
 		updateArgs:    []string{"update"},
 		reinstallArgs: []string{"update", "--force-reinstall"},
 		uninstall:     UninstallGuided,
-		docs:          "https://grok.com/build",
+		docs:          "https://docs.x.ai/build/cli/reference",
 	},
 	"hermes": {
 		updateArgs:    []string{"update", "--yes"},
@@ -394,7 +394,7 @@ func ForMissing(cliID string) (Plan, bool) {
 func InstallDocs(cliID string) string {
 	switch cliID {
 	case "grok":
-		return "https://grok.com/build"
+		return "https://docs.x.ai/build/cli/reference"
 	case "hermes":
 		return "https://hermes-agent.nousresearch.com/docs/getting-started/installation"
 	case "claude-code":
