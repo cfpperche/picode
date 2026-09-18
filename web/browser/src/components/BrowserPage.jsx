@@ -4,6 +4,7 @@ import * as Switch from "@radix-ui/react-switch";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import FolderPicker from "./FolderPicker.jsx";
 import { DEFAULT_BROWSER_PREFS, readBrowserPrefs } from "../lib/browserPrefs.js";
+import { openWindowsSignIn, shellInvoke } from "../lib/windowsSettings.js";
 import { describeDomainField } from "../lib/browserDomains.js";
 import { ALL_SITES, permissionPush } from "../lib/browserPermissions.js";
 import { takeBrowserDialog } from "../lib/browserDialogs.js";
@@ -625,6 +626,15 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
 
   // Reset forgets one row and tells the live shell to drop the matching
   // entry, so a reset takes effect now instead of at the next restart.
+  // The one operating-system screen PiCode opens on purpose: Windows keeps
+  // the face/finger/PIN and the passkeys, and we say so instead of imitating
+  // it. Hidden outside the shell — a plain browser has no such screen.
+  const openSignIn = async () => {
+    const outcome = await openWindowsSignIn(window);
+    if (outcome === "asked") toast.ok("Asked Windows to open Sign-in options.");
+    else if (outcome === "failed") toast("Windows did not open that screen.");
+  };
+
   // "Forget unused": rows whose site has not been visited in 90 days. The
   // store forgets them and answers with what it forgot, so the live shell's
   // copy is cleared too — a standing that survived only there would come back
@@ -1054,6 +1064,16 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
                       {purgeBusy ? "Deleting…" : confirmPurge ? "Really delete?" : "Delete data"}
                     </button>
                   </Item>
+                  {shellInvoke(window) ? (
+                    <Item
+                      title="Windows Hello and passkeys"
+                      desc="Your face, finger or PIN — and the passkeys bound to them — are kept and unlocked by Windows, not by PiCode. This opens Windows' own Sign-in options."
+                    >
+                      <button type="button" className="set-btn" onClick={openSignIn}>
+                        Open Windows settings
+                      </button>
+                    </Item>
+                  ) : null}
                 </>
               ) : (
                 <>

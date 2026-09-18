@@ -42,6 +42,7 @@
     "./domain/checklist.js": "./domain/checklist.js",
     "./domain/chip.js": "./domain/chip.js",
     "./domain/cliLaunch.js": "./domain/cliLaunch.js",
+    "./domain/cliLaunchPresets.js": "./domain/cliLaunchPresets.js",
     "./domain/cloneUrl.js": "./domain/cloneUrl.js",
     "./domain/customProviders.js": "./domain/customProviders.js",
     "./domain/composerHist.js": "./domain/composerHist.js",

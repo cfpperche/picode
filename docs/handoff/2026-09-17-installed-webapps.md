@@ -1,6 +1,7 @@
 # 2026-09-17 — installed-webapps: user-installed web apps as desktop shortcuts
 
-Shipped: ADR-0147; `webapps` table (migration 052) with in-transaction
+Shipped: ADR-0147; `webapps` table (migration 053, renumbered after main
+took 052) with in-transaction
 `webapp.installed/updated/removed`; `/api/webapps` (list, resolve, install,
 rename, delete, icon) with a bounded, DNS-rebind-guarded fetch — PWA manifest
 first, favicon fallback, unreachable site refuses the install, loopback
@@ -14,8 +15,13 @@ Verified: `make ci-scoped` PASS then `make close` green; scratch instance
 Open existing)/unreachable refusal/no-shell toast/remove, `overlayAudit`
 ok on every overlay; Go store+server suites incl. ADR-0048 invariant rows.
 visual-review: PASS (7 screenshots read; empty/hover/menu/dialog states).
-Not done: shell-only paths unverified on Windows (btab focus-or-open,
-badge from `btab_meta`, session persistence across restarts).
+Not done: shell-only paths unverified at ship time. Confirmed live by the
+owner (2026-09-18, after deploy): the GitHub tile opens the webapp inside
+the desktop shell with its login working. Still unobserved: the `(N)`
+badge rendering on the tile and a login surviving a shell restart.
+Dogfood found one real bug — github.com streams more than the 256 KB
+body cap — fixed by sampling the page for metadata (55a7967a) and
+redeployed the same night.
 Merge: fast-forward ready after main merge.
 
 ## Next up

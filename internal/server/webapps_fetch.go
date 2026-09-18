@@ -105,7 +105,18 @@ func portNum(port string) int {
 	return n
 }
 
-func webappFetch(ctx context.Context, client *http.Client, raw string, maxBytes int64) (webappFetchResult, error) {
+// webappFetchPage retrieves the page the user named for metadata only:
+// a body past the cap is truncated, not refused — the <head> (title,
+// manifest link, icon) sits in the first kilobytes, and sites like
+// github.com stream more than any sane cap. Everything a truncated body
+// cannot prove falls back honestly (title → host name, favicon).
+func webappFetchPage(ctx context.Context, client *http.Client, raw string, maxBytes int64) (webappFetchResult, error) {
+	return webappFetch(ctx, client, raw, maxBytes, true)
+}
+
+// webappFetch retrieves manifest and icon bytes, where a truncated body is
+// a wrong answer: over the cap is an error.
+func webappFetch(ctx context.Context, client *http.Client, raw string, maxBytes int64, truncate bool) (webappFetchResult, error) {
 	ctx, cancel := context.WithTimeout(ctx, webappTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
@@ -119,6 +130,13 @@ func webappFetch(ctx context.Context, client *http.Client, raw string, maxBytes 
 		return webappFetchResult{}, webappInaccessibleError{err.Error()}
 	}
 	defer func() { _ = res.Body.Close() }()
+	if truncate {
+		body, err := ioReadTruncated(res.Body, maxBytes)
+		if err != nil {
+			return webappFetchResult{}, webappInaccessibleError{err.Error()}
+		}
+		return webappFetchResult{finalURL: res.Request.URL, body: body, headers: res.Header, status: res.StatusCode}, nil
+	}
 	body, err := ioReadLimited(res.Body, maxBytes)
 	if err != nil {
 		return webappFetchResult{}, webappInaccessibleError{err.Error()}
@@ -135,4 +153,8 @@ func ioReadLimited(r io.Reader, max int64) ([]byte, error) {
 		return nil, errors.New("response too large")
 	}
 	return data, nil
+}
+
+func ioReadTruncated(r io.Reader, max int64) ([]byte, error) {
+	return io.ReadAll(io.LimitReader(r, max))
 }

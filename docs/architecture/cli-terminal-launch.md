@@ -251,6 +251,22 @@ Zod schemas, and preview after edits with a debounce (not periodic API polling).
 Feed invalidation keeps profiles and checks current.
 Workspace menus and the palette open the shared terminal editor with context.
 
+**Quick launch settings** (2026-09-17, benchmark note
+`docs/benchmarks/2026-09-17-cli-launch-quick-presets.md`): for pi,
+Claude Code, Codex, Grok, Hermes Agent, OpenCode and Omp the launch editors
+render verified per-CLI controls — model, approvals/permission mode,
+thinking or reasoning effort, sandbox, and the vendors' skip-everything
+flags (codex `--yolo`, hermes `--yolo`, grok `--always-approve`) — above an
+**Advanced** reveal of the raw fields. Each control patches the draft
+argument array in place (`web/shared/domain/cliLaunchPresets.js`): the
+generated flag is replaced at its position, every other argument keeps its
+order, and an emptied control removes the flag. Codex's yolo/sandbox/
+approval controls form an exclusivity group (the CLI refuses the
+combination); picking one clears the others. No new persistence — Save,
+preview, overrides and profiles keep their contracts. A dangerous pick
+shows a one-line warning inline. Muse Code and Antigravity have no adapter
+and keep their read-only launch screens.
+
 
 ADR-0107 amends session pinning for communication: Grok/Hermes pins use native
 reports, and enrolled owners never fall back to cwd/latest-session discovery.
