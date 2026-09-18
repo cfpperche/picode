@@ -18,15 +18,27 @@ use picode_shell::b64;
 /// (IgnoreNew) — which makes `schtasks /run` the universal ensure verb.
 pub const TASK_NAME: &str = "PiCodeDistro";
 
-/// The task action for one distro. Some(d) pins `-d`; None uses WSL's own
-/// default — the safe choice before the shell has discovered the distro,
-/// and what a foreign ensure (scripts/desktop-swap.sh) registers.
-pub fn task_action(distro: Option<&str>) -> String {
+/// The task action for one distro: (execute, arguments). The action runs
+/// wsl.exe under a headless conhost — a scheduled task with a plain
+/// console-app action allocates a visible console window in the user's
+/// session (the defect the owner reported on 2026-09-18), and S4U needs
+/// admin. Some(d) pins `-d`; None uses WSL's own default — the safe
+/// choice before the shell has discovered the distro, and what a foreign
+/// ensure (scripts/desktop-swap.sh) registers.
+pub fn task_action(distro: Option<&str>) -> (String, String) {
     match distro {
-        Some(d) if plain_distro(d) => format!("-d {d} --exec /bin/sleep infinity"),
-        _ => "--exec /bin/sleep infinity".to_string(),
+        Some(d) if plain_distro(d) => (
+            CONHOST.to_string(),
+            format!("--headless wsl.exe -d {d} --exec /bin/sleep infinity"),
+        ),
+        _ => (
+            CONHOST.to_string(),
+            "--headless wsl.exe --exec /bin/sleep infinity".to_string(),
+        ),
     }
 }
+
+const CONHOST: &str = "C:\\Windows\\System32\\conhost.exe";
 
 /// Distro names ride inside a PowerShell registration payload, so only the
 /// plain shapes a name can have pass through; anything else degrades to
@@ -49,9 +61,10 @@ pub struct TaskEnsure {
 
 impl TaskEnsure {
     pub fn ensure(&mut self, distro: Option<&str>) -> bool {
-        let action = task_action(distro);
+        let (execute, arguments) = task_action(distro);
+        let action = format!("{execute} {arguments}");
         if self.registered_action.as_deref() != Some(action.as_str()) {
-            if !register(&action) {
+            if !register(&execute, &arguments) {
                 return false;
             }
             self.registered_action = Some(action);
@@ -73,14 +86,15 @@ impl TaskEnsure {
 }
 
 #[cfg(windows)]
-fn register(action: &str) -> bool {
+fn register(execute: &str, arguments: &str) -> bool {
     // Register-ScheduledTask works non-elevated for the current user; the
-    // schtasks CLI cannot (onlogon needs admin, /sd is locale-brittle).
-    // Settings mirror internal/desktop's ApplyPolicy: no time limit, run
-    // on battery, IgnoreNew, restart on failure three times a minute apart.
+    // schtasks CLI cannot (onlogon needs admin, /sd is locale-brittle, and
+    // S4U — the other way to hide the window — needs admin too). Settings
+    // mirror internal/desktop's ApplyPolicy: no time limit, run on
+    // battery, IgnoreNew, restart on failure three times a minute apart.
     let script = format!(
         "$ErrorActionPreference='Stop'; try {{ \
-          $a = New-ScheduledTaskAction -Execute 'wsl.exe' -Argument '{action}'; \
+          $a = New-ScheduledTaskAction -Execute '{execute}' -Argument '{arguments}'; \
           $t = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME; \
           $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries \
             -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew \
@@ -266,20 +280,28 @@ mod tests {
     }
 
     #[test]
-    fn task_action_pins_a_plain_distro_name() {
+    fn task_action_wraps_wsl_in_a_headless_conhost() {
+        // A plain console-app action allocates a visible console window in
+        // the user's session; the headless conhost is what keeps the task
+        // windowless (S4U needs admin).
         assert_eq!(
             task_action(Some("Ubuntu")),
-            "-d Ubuntu --exec /bin/sleep infinity"
-        );
-        assert_eq!(
-            task_action(Some("Ubuntu-22.04")),
-            "-d Ubuntu-22.04 --exec /bin/sleep infinity"
+            (
+                "C:\\Windows\\System32\\conhost.exe".to_string(),
+                "--headless wsl.exe -d Ubuntu --exec /bin/sleep infinity".to_string()
+            )
         );
     }
 
     #[test]
     fn task_action_falls_back_to_the_default_distro() {
-        assert_eq!(task_action(None), "--exec /bin/sleep infinity");
+        assert_eq!(
+            task_action(None),
+            (
+                "C:\\Windows\\System32\\conhost.exe".to_string(),
+                "--headless wsl.exe --exec /bin/sleep infinity".to_string()
+            )
+        );
     }
 
     #[test]
@@ -289,19 +311,29 @@ mod tests {
         // distro instead.
         assert_eq!(
             task_action(Some("Ubuntu'; Remove-Item C:\\")),
-            "--exec /bin/sleep infinity"
+            (
+                "C:\\Windows\\System32\\conhost.exe".to_string(),
+                "--headless wsl.exe --exec /bin/sleep infinity".to_string()
+            )
         );
-        assert_eq!(task_action(Some("")), "--exec /bin/sleep infinity");
+        assert_eq!(
+            task_action(Some("")),
+            (
+                "C:\\Windows\\System32\\conhost.exe".to_string(),
+                "--headless wsl.exe --exec /bin/sleep infinity".to_string()
+            )
+        );
     }
 
     #[test]
     fn taskensure_latches_the_registered_action_and_forgets_on_demand() {
         let mut t = TaskEnsure::default();
         assert!(t.registered_action.is_none());
-        t.registered_action = Some(task_action(Some("Ubuntu")));
+        let (execute, arguments) = task_action(Some("Ubuntu"));
+        t.registered_action = Some(format!("{execute} {arguments}"));
         assert_eq!(
             t.registered_action.as_deref(),
-            Some("-d Ubuntu --exec /bin/sleep infinity")
+            Some("C:\\Windows\\System32\\conhost.exe --headless wsl.exe -d Ubuntu --exec /bin/sleep infinity")
         );
         t.forget();
         assert!(t.registered_action.is_none());

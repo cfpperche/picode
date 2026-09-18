@@ -78,7 +78,7 @@ else
   /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile -Command - <<'PS' || echo "desktop-swap: the keepalive task could not be ensured — continuing without it" >&2
 $ErrorActionPreference = 'Stop'
 try {
-  $action = New-ScheduledTaskAction -Execute 'wsl.exe' -Argument '--exec /bin/sleep infinity'
+  $action = New-ScheduledTaskAction -Execute 'C:\Windows\System32\conhost.exe' -Argument '--headless wsl.exe --exec /bin/sleep infinity'
   $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
   $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable
   Register-ScheduledTask -TaskName 'PiCodeDistro' -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null

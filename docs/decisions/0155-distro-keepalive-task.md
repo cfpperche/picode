@@ -30,24 +30,29 @@ the coupling that makes the rule necessary stayed in the design.
 ## Decision
 
 The distro's Windows-side owner is a **scheduled task, `PiCodeDistro`**,
-whose action is `wsl.exe [-d <distro>] --exec /bin/sleep infinity` —
-logon trigger, no execution-time limit, IgnoreNew, restart-on-failure
-(three tries, one minute apart). Its lifetime is independent of any
-process: the shell crash it was built to survive is now survived. The
-shell's duty shrinks to *ensuring* the task (register when the action
-differs, `schtasks /run` otherwise — idempotent), with ADR-0142's job-
-object child kept as the fallback for machines where the task machinery
-fails. `scripts/desktop-swap.sh` ensures the task **before** any taskkill,
-so the swap window never leaves the distro unowned. Deliberate release is
-unchanged: the Give back / compact flows terminate the instance, the sleep
-dies with it (the task returns to Ready), and the next ensure re-arms.
+whose action is `conhost.exe --headless wsl.exe [-d <distro>] --exec
+/bin/sleep infinity` — logon trigger, no execution-time limit, IgnoreNew,
+restart-on-failure (three tries, one minute apart). The headless conhost
+is load-bearing: a scheduled task whose action is a plain console app
+allocates a visible console window in the user's session, and the other
+way out — an S4U principal, which runs in a non-interactive session —
+needs admin to register. With the headless wrapper the task is windowless
+and stays creatable by the shell and the swap script, non-elevated. Its
+lifetime is independent of any process: the shell crash it was built to
+survive is now survived. The shell's duty shrinks to *ensuring* the task
+(register when the action differs, `schtasks /run` otherwise — idempotent),
+with ADR-0142's job-object child kept as the fallback for machines where
+the task machinery fails. `scripts/desktop-swap.sh` ensures the task
+**before** any taskkill, so the swap window never leaves the distro
+unowned. Deliberate release is unchanged: the Give back / compact flows
+terminate the instance, the sleep dies with it (the task returns to
+Ready), and the next ensure re-arms.
 
 The registration payload goes through PowerShell cmdlets
 (`Register-ScheduledTask`), not the `schtasks /create` CLI: ONLOGON needs
 admin there, and `/sd` is locale-brittle. Distro names are validated
 (alphanumeric, `-_.`, space) before they enter the payload; anything else
 degrades to WSL's default distro.
-
 ## Consequences
 
 - **Fixes the class, not the instance**: shell crash, Windows update,
