@@ -5586,6 +5586,32 @@
         ]
       }
     },
+    "/api/mcp/reveal": {
+      "post": {
+        "operationId": "postApiMcpReveal",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
     "/api/oauth/cancel": {
       "post": {
         "operationId": "postApiOauthCancel",
