@@ -909,13 +909,15 @@ pub async fn btab_close(
 // else can ride this command into an arbitrary shell verb.
 #[tauri::command]
 pub async fn btab_open_external(url: String) -> Result<(), String> {
-    let ok = url.starts_with("http://") || url.starts_with("https://");
-    if !ok {
-        return Err("only http and https URLs can be handed to the system browser".into());
-    }
+    // The allowlist and its decision table live in external.rs, where its
+    // tests run without cargo: http(s) for links that leave the app, and
+    // `ms-settings:` for the OS screens PiCode does not reimplement (v2d).
+    let target = crate::external::external_target(&url).ok_or_else(|| {
+        "only http, https and ms-settings: targets can be handed to the system".to_string()
+    })?;
     use std::os::windows::process::CommandExt;
     std::process::Command::new("cmd")
-        .args(["/C", "start", "", &url])
+        .args(["/C", "start", "", &target])
         .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
         .spawn()
         .map(|_| ())

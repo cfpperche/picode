@@ -12,6 +12,7 @@
 // took over.
 
 mod btab;
+mod external;
 mod board;
 mod browserlab;
 mod clean;

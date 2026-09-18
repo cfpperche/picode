@@ -58,3 +58,17 @@
   the shell's WebView2 child: no daemon token, no `host` object, no approval
   UI; cookies are engine-isolated per origin, and the shared work profile
   means "Clear browsing data" wipes webapp logins with the work browser's.
+
+## Handing a target to the operating system (the desktop shell)
+
+One command hands a target to Windows: `btab_open_external`, which runs
+`cmd /C start "" <target>`. Whatever reaches it is executed by the OS, so the
+guard is an allowlist of target *shapes* and refuses every character that
+could turn a target into a second command (quotes, spaces, `&`, `|`, `<`,
+`>`, `^`, backtick). Two classes are allowed: `http(s)://` — links that leave
+the app (ADR-0122) — and `ms-settings:` screens, which the v2d row uses for
+what PiCode deliberately does not reimplement (Windows Hello, passkeys,
+saved passwords). The allowlist and its decision table live in
+`desktop-shell/src/external.rs`, where the rows run as tests without cargo.
+Everything else — `file:`, `javascript:`, `data:`, bare `cmd:` — is refused
+with a message, never silently ignored.
