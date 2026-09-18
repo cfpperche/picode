@@ -70,7 +70,7 @@ func handleResolveWebapp(deps Deps) http.HandlerFunc {
 			return
 		}
 		client := webappNewClient()
-		page, err := webappFetch(r.Context(), client, target, webappBodyCap)
+		page, err := webappFetchPage(r.Context(), client, target, webappBodyCap)
 		if err != nil {
 			writeErr(w, http.StatusBadGateway, "site is not reachable: "+err.Error())
 			return
@@ -113,7 +113,7 @@ func handleCreateWebapp(deps Deps) http.HandlerFunc {
 			return
 		}
 		client := webappNewClient()
-		page, err := webappFetch(r.Context(), client, target, webappBodyCap)
+		page, err := webappFetchPage(r.Context(), client, target, webappBodyCap)
 		if err != nil {
 			writeErr(w, http.StatusBadGateway, "site is not reachable; nothing was installed: "+err.Error())
 			return

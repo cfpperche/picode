@@ -202,6 +202,26 @@ func TestWebappIconServedWithHardHeaders(t *testing.T) {
 	}
 }
 
+func TestWebappOversizedPageStillResolvesFromHead(t *testing.T) {
+	pad := strings.Repeat("<!-- filler -->", 40*1024)
+	origin := webappOrigin(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintf(w, "<!doctype html><html><head><title>Big App</title><link rel=\"icon\" href=\"/f.png\"></head><body>%s</body></html>", pad)
+	}))
+	ts := newWebappServer(t)
+	code, body, _ := webappCall(t, ts, http.MethodPost, "/api/webapps/resolve", fmt.Sprintf(`{"url":%q}`, origin.URL))
+	if code != http.StatusOK {
+		t.Fatalf("resolve on an oversized page = %d %v", code, body)
+	}
+	if body["name"] != "Big App" {
+		t.Fatalf("name from the head of a truncated body = %v", body)
+	}
+	code, body, _ = webappCall(t, ts, http.MethodPost, "/api/webapps", fmt.Sprintf(`{"url":%q}`, origin.URL))
+	if code != http.StatusOK || body["name"] != "Big App" {
+		t.Fatalf("install on an oversized page = %d %v", code, body)
+	}
+}
+
 func TestWebappInstallRefusesUnreachableSite(t *testing.T) {
 	ts := newWebappServer(t)
 	code, body, _ := webappCall(t, ts, http.MethodPost, "/api/webapps", `{"url":"http://127.0.0.1:1/"}`)

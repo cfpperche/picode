@@ -113,7 +113,7 @@ func isSameWebappOrigin(a, b *url.URL) bool {
 }
 
 func webappFetchIcon(ctx context.Context, client *http.Client, raw string) ([]byte, string, error) {
-	res, err := webappFetch(ctx, client, raw, webappIconCap)
+	res, err := webappFetch(ctx, client, raw, webappIconCap, false)
 	if err != nil {
 		return nil, "", err
 	}
@@ -244,7 +244,7 @@ func webappManifestIconURL(m webappManifest, base *url.URL) string {
 
 func webappFetchManifest(ctx context.Context, client *http.Client, raw string) (webappManifest, bool) {
 	var m webappManifest
-	res, err := webappFetch(ctx, client, raw, webappManifestCap)
+	res, err := webappFetch(ctx, client, raw, webappManifestCap, false)
 	if err != nil {
 		return m, false
 	}
