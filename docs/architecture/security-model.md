@@ -56,8 +56,12 @@
   serves stored bytes behind `Content-Security-Policy: default-src 'none'`
   and `nosniff` (a hostile SVG stays inert). The webapp itself renders in
   the shell's WebView2 child: no daemon token, no `host` object, no approval
-  UI; cookies are engine-isolated per origin, and the shared work profile
-  means "Clear browsing data" wipes webapp logins with the work browser's.
+  UI; cookies are engine-isolated per origin. Since ADR-0153 an installed
+  app's webview uses **its own user-data folder**
+  (`WebView2\webapps\<webappId>`, derived by the shell from the tab id):
+  its logins and its "clear data" are contained — one account per service
+  becomes possible, and legacy installs (column `partitioned = 0`) keep
+  the shared work profile, whose "Clear browsing data" wipes them too.
 - **App-shell CSP** (ADR-0052): HTML responses for `/`, `/browser/`, `/desktop/`
   and `/mobile/` carry `appCSP`. `connect-src` is `'self'` plus the request
   host's `ws://`/`wss://`. The Windows shell's pages (`/desktop/`,
