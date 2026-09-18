@@ -141,7 +141,7 @@ func TestWebappManifestMetadataWins(t *testing.T) {
 		switch r.URL.Path {
 		case "/manifest.webmanifest":
 			w.Header().Set("Content-Type", "application/manifest+json")
-			_, _ = w.Write([]byte(`{"name":"Zulip","icons":[{"src":"icons/app-192.png","sizes":"192x192","type":"image/png"}]}`))
+			_, _ = w.Write([]byte(`{"name":"Zulip","start_url":"/app/?source=pwa","scope":"/app/","display":"standalone","theme_color":"#1D2B53","icons":[{"src":"icons/app-192.png","sizes":"192x192","type":"image/png"}]}`))
 		case "/icons/app-192.png":
 			w.Header().Set("Content-Type", "image/png")
 			_, _ = w.Write(png)
@@ -155,8 +155,11 @@ func TestWebappManifestMetadataWins(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("resolve = %d %v", code, body)
 	}
-	if body["name"] != "Zulip" || body["iconAvailable"] != true {
+	if body["name"] != "Zulip" || body["iconAvailable"] != true || body["pwa"] != true {
 		t.Fatalf("resolve should use the manifest identity, got %v", body)
+	}
+	if body["startUrl"] != origin.URL+"/app/?source=pwa" || body["scope"] != origin.URL+"/app/" || body["display"] != "standalone" || body["themeColor"] != "#1d2b53" {
+		t.Fatalf("manifest fields = %v", body)
 	}
 	if body["url"] != origin.URL {
 		t.Fatalf("resolve url = %v, want %s", body["url"], origin.URL)
@@ -164,6 +167,30 @@ func TestWebappManifestMetadataWins(t *testing.T) {
 	code, body, _ = webappCall(t, ts, http.MethodPost, "/api/webapps", fmt.Sprintf(`{"url":%q}`, origin.URL))
 	if code != http.StatusOK || body["name"] != "Zulip" || body["hasIcon"] != true {
 		t.Fatalf("install = %d %v", code, body)
+	}
+	if body["startUrl"] != origin.URL+"/app/?source=pwa" || body["display"] != "standalone" {
+		t.Fatalf("stored manifest fields = %v", body)
+	}
+}
+
+func TestWebappManifestCrossOriginStartURLRefused(t *testing.T) {
+	origin := webappOrigin(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/manifest.webmanifest":
+			w.Header().Set("Content-Type", "application/manifest+json")
+			_, _ = w.Write([]byte(`{"name":"Hijack","start_url":"https://evil.example/grab","display":"Crazy","theme_color":"not-a-color","icons":[]}`))
+		default:
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write([]byte(`<!doctype html><title>Hijack</title><link rel="manifest" href="/manifest.webmanifest">`))
+		}
+	}))
+	ts := newWebappServer(t)
+	code, body, _ := webappCall(t, ts, http.MethodPost, "/api/webapps", fmt.Sprintf(`{"url":%q}`, origin.URL))
+	if code != http.StatusOK || body["name"] != "Hijack" {
+		t.Fatalf("install = %d %v", code, body)
+	}
+	if body["startUrl"] != nil || body["display"] != nil || body["themeColor"] != nil {
+		t.Fatalf("cross-origin start_url, unknown display and bad color must be dropped, got %v", body)
 	}
 }
 

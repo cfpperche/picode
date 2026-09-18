@@ -53,11 +53,28 @@ type DuplicateWebappError struct{ Existing Webapp }
 func (e DuplicateWebappError) Error() string { return "a webapp for this URL already exists" }
 
 type Webapp struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	URL       string `json:"url"`
-	HasIcon   bool   `json:"hasIcon"`
-	CreatedAt string `json:"createdAt"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	URL        string `json:"url"`
+	StartURL   string `json:"startUrl,omitempty"`
+	Scope      string `json:"scope,omitempty"`
+	Display    string `json:"display,omitempty"`
+	ThemeColor string `json:"themeColor,omitempty"`
+	HasIcon    bool   `json:"hasIcon"`
+	CreatedAt  string `json:"createdAt"`
+}
+
+// WebappInput is what an install hands the store: the typed address plus
+// whatever the PWA manifest proved (launch URL, scope, display, color).
+type WebappInput struct {
+	Name       string
+	URL        string
+	StartURL   string
+	Scope      string
+	Display    string
+	ThemeColor string
+	Icon       []byte
+	IconMime   string
 }
 
 type webappRow struct {
@@ -66,12 +83,12 @@ type webappRow struct {
 	IconMime string
 }
 
-const webappCols = `id, name, url, icon, icon_mime, created_at`
+const webappCols = `id, name, url, start_url, scope, display, theme_color, icon, icon_mime, created_at`
 
 func scanWebappRow(row interface{ Scan(...any) error }) (webappRow, error) {
 	var r webappRow
 	var icon []byte
-	if err := row.Scan(&r.ID, &r.Name, &r.URL, &icon, &r.IconMime, &r.CreatedAt); err != nil {
+	if err := row.Scan(&r.ID, &r.Name, &r.URL, &r.StartURL, &r.Scope, &r.Display, &r.ThemeColor, &icon, &r.IconMime, &r.CreatedAt); err != nil {
 		return webappRow{}, err
 	}
 	r.HasIcon = len(icon) > 0
@@ -149,16 +166,62 @@ func webappUnique(err error) bool {
 	return err != nil && strings.Contains(strings.ToLower(err.Error()), "unique")
 }
 
-func (s *Store) CreateWebapp(name, rawURL string, icon []byte, iconMime string) (Webapp, error) {
-	name, err := normalizeWebappName(name)
+var webappDisplay = map[string]bool{"standalone": true, "fullscreen": true, "minimal-ui": true, "browser": true}
+
+// normalizeWebappOptionalURL validates an optional manifest address; empty
+// stays empty, anything malformed is refused rather than silently dropped.
+func normalizeWebappOptionalURL(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", nil
+	}
+	return NormalizeWebappURL(raw)
+}
+
+func normalizeWebappThemeColor(raw string) string {
+	raw = strings.TrimSpace(strings.ToLower(raw))
+	if raw == "" {
+		return ""
+	}
+	ok := false
+	switch len(raw) {
+	case 4, 5, 7, 9:
+		_, ok = strings.CutPrefix(raw, "#")
+	}
+	if !ok {
+		return ""
+	}
+	for _, r := range raw[1:] {
+		if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'f') {
+			return ""
+		}
+	}
+	return raw
+}
+
+func (s *Store) CreateWebapp(in WebappInput) (Webapp, error) {
+	name, err := normalizeWebappName(in.Name)
 	if err != nil {
 		return Webapp{}, err
 	}
-	rawURL, err = NormalizeWebappURL(rawURL)
+	rawURL, err := NormalizeWebappURL(in.URL)
 	if err != nil {
 		return Webapp{}, err
 	}
-	if len(icon) > maxWebAppIcon {
+	startURL, err := normalizeWebappOptionalURL(in.StartURL)
+	if err != nil {
+		return Webapp{}, err
+	}
+	scope, err := normalizeWebappOptionalURL(in.Scope)
+	if err != nil {
+		return Webapp{}, err
+	}
+	display := strings.ToLower(strings.TrimSpace(in.Display))
+	if display != "" && !webappDisplay[display] {
+		return Webapp{}, invalid("display must be standalone, fullscreen, minimal-ui or browser")
+	}
+	themeColor := normalizeWebappThemeColor(in.ThemeColor)
+	if len(in.Icon) > maxWebAppIcon {
 		return Webapp{}, invalid("icon is too large (max %d KB)", maxWebAppIcon/1000)
 	}
 	now := nowUTC()
@@ -167,8 +230,8 @@ func (s *Store) CreateWebapp(name, rawURL string, icon []byte, iconMime string) 
 	if err != nil {
 		return Webapp{}, err
 	}
-	_, err = tx.Exec(`INSERT INTO webapps (id, name, url, icon, icon_mime, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		id, name, rawURL, icon, iconMime, now)
+	_, err = tx.Exec(`INSERT INTO webapps (id, name, url, start_url, scope, display, theme_color, icon, icon_mime, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, name, rawURL, startURL, scope, display, themeColor, in.Icon, in.IconMime, now)
 	if webappUnique(err) {
 		s.rollback(tx)
 		existing, _ := s.GetWebappByURL(rawURL)
@@ -178,14 +241,15 @@ func (s *Store) CreateWebapp(name, rawURL string, icon []byte, iconMime string) 
 		s.rollback(tx)
 		return Webapp{}, fmt.Errorf("store: create webapp: %w", err)
 	}
-	if err := s.AppendEventTx(tx, "webapp.installed", nil, nil, Webapp{ID: id, Name: name, URL: rawURL, HasIcon: len(icon) > 0, CreatedAt: now}); err != nil {
+	created := Webapp{ID: id, Name: name, URL: rawURL, StartURL: startURL, Scope: scope, Display: display, ThemeColor: themeColor, HasIcon: len(in.Icon) > 0, CreatedAt: now}
+	if err := s.AppendEventTx(tx, "webapp.installed", nil, nil, created); err != nil {
 		s.rollback(tx)
 		return Webapp{}, err
 	}
 	if err := s.commit(tx); err != nil {
 		return Webapp{}, err
 	}
-	return Webapp{ID: id, Name: name, URL: rawURL, HasIcon: len(icon) > 0, CreatedAt: now}, nil
+	return created, nil
 }
 
 func (s *Store) UpdateWebappName(id, name string) (Webapp, error) {

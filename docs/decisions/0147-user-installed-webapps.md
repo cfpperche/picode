@@ -34,3 +34,18 @@ In the UI, `AppsGrid` gains the add action; installed webapps render as tiles be
 - **Separate Tauri window per webapp (`WebviewWindow`)** — deferred: escapes the shell chrome (ADR-0122), loses btab bounds/preview/find plumbing; revisit for PWAs declaring `display: standalone`.
 - **`chrome --app=URL`** — refused: depends on an installed Chrome, sits on the deprecated extension path (ADR-0120), and leaves the shell.
 - **Per-webapp WebView2 partitions** — deferred to v2 (two accounts of one service); v1 shares the work profile.
+
+## Amendment 2026-09-18 — the manifest's own identity, not just its name
+
+Dogfooding (GitHub installed live, opened in the shell with its login)
+confirmed the shortcut model; the owner clarified the product intent was
+PWA-first. The manifest is now read beyond name/icon: `start_url`, `scope`,
+`display` and `theme_color` persist with the shortcut (migration 054,
+same-origin resolved against the manifest URL, anything malformed dropped).
+Launch rule: a **bare** typed address defers to the manifest's `start_url`
+(the app's own entry point); a deep link the user typed wins — explicit
+intent beats the app default. The add dialog announces a detected web app.
+The standalone-window door stays exactly where it was — deferred, owner's
+call — so a PWA today installs with its full identity and launches at its
+own start page inside the work browser; a Chrome-style app window is the
+next boundary decision, not this one.

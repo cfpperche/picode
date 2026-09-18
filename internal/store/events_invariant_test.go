@@ -535,15 +535,15 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 		}, []string{"docker.job"}},
 		{"SaveDockerMonitor", func(s *Store) { _, _ = s.SaveDockerMonitor(DefaultDockerMonitor("unix:///tmp/qa", "demo")) }, []string{"docker.monitor"}},
 		{"CreateWebapp", func(s *Store) {
-			_, _ = s.CreateWebapp("Example", "https://example.com", []byte("png"), "image/png")
+			_, _ = s.CreateWebapp(WebappInput{Name: "Example", URL: "https://example.com", Icon: []byte("png"), IconMime: "image/png"})
 		}, []string{"webapp.installed"}},
 		{"UpdateWebappName", func(s *Store) {
-			app, _ := s.CreateWebapp("Example", "https://example.com", nil, "")
+			app, _ := s.CreateWebapp(WebappInput{Name: "Example", URL: "https://example.com", Icon: nil, IconMime: ""})
 			s.OnEvent = recorder(s)
 			_, _ = s.UpdateWebappName(app.ID, "Renamed")
 		}, []string{"webapp.updated"}},
 		{"DeleteWebapp", func(s *Store) {
-			app, _ := s.CreateWebapp("Example", "https://example.com", nil, "")
+			app, _ := s.CreateWebapp(WebappInput{Name: "Example", URL: "https://example.com", Icon: nil, IconMime: ""})
 			s.OnEvent = recorder(s)
 			_ = s.DeleteWebapp(app.ID)
 		}, []string{"webapp.removed"}},
