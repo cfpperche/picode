@@ -37,7 +37,6 @@
 .connector-pick .pkg-scope-btn { height: var(--ctl-h); min-height: var(--ctl-h); }
 .connector-scope { display: flex; align-items: center; gap: 8px; }
 .connector-scope .pkg-scope { margin: 0; }
-.connector-secondary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; border-top: 1px solid var(--border); padding-top: 12px; }
 .conn-tile {
   display: inline-flex; align-items: center; justify-content: center;
   width: 56px; height: 56px; border-radius: 12px;
@@ -74,3 +73,14 @@
   -webkit-line-clamp: 2;
   flex: 0 0 auto;
 }
+
+.connector-market .pkg-grid { margin-top: 12px; }
+.connector-group { margin: 16px 2px 0; }
+/* The letter tile needs less column than a package screenshot, and the Add
+   button pins to the card foot so buttons align across a row. Wide screens
+   only: under 641px the shared package styles stack the card. */
+@media (min-width: 641px) {
+  .connector-market .pkg-card { grid-template-columns: 88px 1fr; min-height: 0; }
+}
+.connector-market .pkg-card { min-height: 0; }
+.connector-market .pkg-card-foot { margin-top: auto; }
