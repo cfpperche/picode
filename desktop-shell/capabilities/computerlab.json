@@ -11,6 +11,8 @@
     "allow-computer-windows",
     "allow-computer-call",
     "allow-computer-set-grants",
-    "allow-computer-preview"
+    "allow-computer-preview",
+    "allow-computer-embed",
+    "allow-computer-unembed"
   ]
 }

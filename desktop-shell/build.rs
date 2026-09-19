@@ -49,6 +49,8 @@ fn main() {
             "computer_set_grants",
             "computer_preview",
             "computerlab_open",
+            "computer_embed",
+            "computer_unembed",
             "disk_report",
             "disk_compact",
             "disk_compact_dry_run",

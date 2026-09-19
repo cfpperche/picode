@@ -47,6 +47,8 @@
     <select id="display"></select>
     <select id="window"><option value="">— window: none (the display) —</option></select>
     <button id="focus">Focus window</button>
+    <button id="embed" title="Spike: SetParent the window into PiCode's right half">Embed into PiCode</button>
+    <button id="unembed">Unembed</button>
   </fieldset>
   <fieldset>
     <legend>See</legend>
@@ -184,6 +186,10 @@
   $("cursor").onclick = () => call("cursor_position", {});
   $("wait").onclick = () => call("wait", { duration: 1 });
   $("focus").onclick = () => { const w = $("window").value; if (!w) return log("pick a window first", "err"); call("focus", { window: Number(w) }); };
+  // Spike (2026-09-18): host the window inside PiCode's main window and
+  // measure what breaks. Always unembed before closing PiCode.
+  $("embed").onclick = () => { const w = $("window").value; if (!w) return log("pick a window first", "err"); inv("computer_embed", { window: Number(w) }).then((r) => log("embed ok " + JSON.stringify(r), "ok")).catch((e) => log("embed: " + e, "err")); };
+  $("unembed").onclick = () => { const w = $("window").value; if (!w) return log("pick a window first", "err"); inv("computer_unembed", { window: Number(w) }).then((r) => log("unembed ok " + JSON.stringify(r), "ok")).catch((e) => log("unembed: " + e, "err")); };
   $("type").onclick = () => call("type", { text: $("typetext").value });
   $("key").onclick = () => call("key", { text: $("keytext").value });
   $("scrollup").onclick = () => call("scroll", { coordinate: lastPoint, scroll_direction: "up", scroll_amount: 3 });
