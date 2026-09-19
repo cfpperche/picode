@@ -264,12 +264,16 @@ func TestClaudeListCurrentHealthFormat(t *testing.T) {
 		"healthy":   "npx -y mcp",
 		"pending":   "https://example.invalid/mcp",
 	}
+	wantLive := map[string]string{"probe": "failed", "dashserve": "failed", "healthy": "live", "pending": ""}
 	if len(rep.Servers) != len(want) {
 		t.Fatalf("servers = %+v", rep.Servers)
 	}
 	for _, s := range rep.Servers {
 		if s.Command != want[s.Name] {
 			t.Fatalf("%s row = %+v, want command %q", s.Name, s, want[s.Name])
+		}
+		if s.Live != wantLive[s.Name] {
+			t.Fatalf("%s live = %q, want %q", s.Name, s.Live, wantLive[s.Name])
 		}
 		// URL-shaped targets are remote servers: the row reports them the
 		// way the file codec does, so the pane handles both scopes alike.

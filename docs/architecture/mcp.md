@@ -24,8 +24,9 @@ config — Pi's driver is the adapter implementation below. Since phase 1
 `internal/connectors` and answer through the same handlers with the same
 `Report` JSON shape: the pane does not branch on the CLI. Each driver
 mirrors `internal/mcp`'s types, preserves unknown keys and `${VAR}`
-placeholders verbatim, writes atomically, and reports honestly: no headless
-status signal, so guest rows never claim live state.
+placeholders verbatim, writes atomically, and reports honestly: a guest row
+claims live state only when its vendor exposes a headless signal (below);
+otherwise the row stays honestly "configured".
 
 - **Claude Code** — project scope is the workspace `.mcp.json`, edited
   directly as JSON; user scope is Claude Code's own store, so the vendor CLI
@@ -180,6 +181,25 @@ driven sign-in flow: auth points at the vendor's own `… mcp login <name>`
 command. Definition-file import and host-config discovery are removed
 (ADR-0157) — the Pi adapter keeps its own import, and with every CLI's native
 config managed here, the marketplace replaces "use from another app".
+
+## Guest live status (ADR-0150 decision 4, 2026-09-19)
+
+Three vendors expose a headless status signal, and their drivers now surface
+it on every pane load — the vendor's own verdict, never invented:
+
+- **claude-code** — `claude mcp list` health-checks servers; the ✓ / ✗ / ✘
+  tails the driver already parsed for display become the row's
+  Live / Failed state (zero extra cost).
+- **OpenCode** — `opencode mcp list` reports per-server status; ● rows are
+  live, ✗ rows failed, disabled rows show no connection claim.
+- **Hermes** — `hermes mcp list`'s status column: ✓ live, ✗ failed,
+  "✗ disabled" is the enabled flag's own off state, not health.
+
+Probes run per pane load with a 15s budget and a 60s cache (vendor CLIs fork;
+a hung or missing CLI is skipped and the row stays "configured" — degradation
+over invention). Codex, Grok, AGY, Muse and Omp expose no headless health and
+stay "configured"; guest live state refreshes on pane load, not through the
+feed (that stream remains the adapter's).
 
 ## Marketplace (ADR-0157, 2026-09-18)
 

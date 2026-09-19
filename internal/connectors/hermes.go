@@ -2,6 +2,7 @@ package connectors
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -117,6 +118,15 @@ func (d Hermes) List(p Paths) (mcp.Report, error) {
 	sort.Slice(rep.Servers, func(i, j int) bool {
 		return strings.ToLower(rep.Servers[i].Name) < strings.ToLower(rep.Servers[j].Name)
 	})
+	// The vendor list is the headless status signal (ADR-0150 decision 4):
+	// report what it says, never invent. A slow or missing CLI is skipped.
+	if live := hermesLive(p); len(live) > 0 {
+		for i := range rep.Servers {
+			if state, ok := live[rep.Servers[i].Name]; ok {
+				rep.Servers[i].Live = state
+			}
+		}
+	}
 	return rep, nil
 }
 
@@ -419,4 +429,50 @@ func yamlStringMapNode(m map[string]string) *yaml.Node {
 		out.Content = append(out.Content, yamlStr(k), yamlStr(m[k]))
 	}
 	return out
+}
+
+// hermesLive parses `hermes mcp list` — the vendor's own headless status
+// table (Name / Transport / Tools / Status). Measured v0.21.3: data rows
+// carry the server name in the first column and a status token in the last
+// ("✗ disabled", healthy rows show ✓). A row whose status is only the
+// disabled flag keeps the honest empty Live — off is not connection health.
+func hermesLive(p Paths) map[string]string {
+	if !installed(hermesBin) {
+		return nil
+	}
+	key := "hermes|" + p.home()
+	if live, ok := cachedStatus(key); ok {
+		return live
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
+	defer cancel()
+	out, err := runVendorCLIContext(ctx, hermesBin, "mcp", "list")
+	if err != nil {
+		return nil
+	}
+	live := map[string]string{}
+	for _, raw := range strings.Split(out, "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "─") || strings.Contains(line, "MCP Servers") ||
+			strings.HasPrefix(line, "Name") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 4 {
+			continue
+		}
+		// The status token can be one word ("✗") or two ("✓ connected").
+		status := fields[len(fields)-2] + " " + fields[len(fields)-1]
+		switch {
+		case strings.Contains(status, "disabled"):
+			// off is the enabled flag's own pane state, not connection
+			// health — the vendor's "✗ disabled" marks a turned-off row.
+		case strings.Contains(status, "✗"), strings.Contains(status, "failed"):
+			live[fields[0]] = "failed"
+		case strings.Contains(status, "✓"):
+			live[fields[0]] = "live"
+		}
+	}
+	putStatus(key, live)
+	return live
 }

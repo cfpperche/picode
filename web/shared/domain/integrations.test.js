@@ -51,14 +51,14 @@ test("connectors nest on the selected CLI; webhooks stay platform", () => {
 test("every connector driver declares its capability set", () => {
   assert.deepEqual(CLI_CONNECTORS, [
     { id: "pi", name: "Pi", status: "live", auth: ["oauth", "bearer"], toggle: "entry" },
-    { id: "claude-code", name: "Claude Code", status: "configured", auth: ["oauth"], toggle: "none", signIn: { command: "claude mcp login {name}" } },
+    { id: "claude-code", name: "Claude Code", status: "live", auth: ["oauth"], toggle: "none", signIn: { command: "claude mcp login {name}" } },
     { id: "codex", name: "Codex", status: "configured", auth: ["oauth", "bearer"], toggle: "entry", signIn: { command: "codex mcp login {name}" } },
     { id: "omp", name: "Omp", status: "configured", auth: ["oauth"], toggle: "entry", signIn: { command: "/mcp reauth {name}", where: "the Omp TUI" } },
     { id: "agy", name: "Antigravity", status: "configured", auth: ["oauth"], toggle: "entry", signIn: { text: "Authenticate in Antigravity (Agent Settings → Authenticate)" } },
-    { id: "opencode", name: "OpenCode", status: "configured", auth: ["oauth"], toggle: "entry", signIn: { command: "opencode mcp auth {name}" } },
+    { id: "opencode", name: "OpenCode", status: "live", auth: ["oauth"], toggle: "entry", signIn: { command: "opencode mcp auth {name}" } },
     { id: "grok", name: "Grok", status: "configured", auth: ["oauth"], toggle: "entry", signIn: { text: "Sign in happens on first use inside Grok" } },
     { id: "muse", name: "Muse Code", status: "configured", auth: ["oauth"], toggle: "entry", signIn: { command: "muse mcp login {name}" } },
-    { id: "hermes", name: "Hermes Agent", status: "configured", auth: ["oauth"], toggle: "entry", signIn: { command: "hermes mcp login {name}" } },
+    { id: "hermes", name: "Hermes Agent", status: "live", auth: ["oauth"], toggle: "entry", signIn: { command: "hermes mcp login {name}" } },
   ]);
   for (const d of CLI_CONNECTORS) {
     assert.ok(["live", "configured"].includes(d.status), d.id + " status");

@@ -439,7 +439,10 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
                 {servers.length ? (
                   <ul className="mcp-list">
                     {servers.map((s) => {
-                      const word = agentRunning ? rowLive(s) : "";
+                      // Pi rows stream live state from the adapter while an
+                      // agent runs; live-capable guests probe their vendor
+                      // CLI on the server, agent-independent (ADR-0150 d4).
+                      const word = agentRunning || (guest && driver.status === "live") ? rowLive(s) : "";
                       const state = word === "live" || word === "failed" ? word : "";
                       const menu = canSignOut(s) || s.owned;
                       const vendor = needsVendorSignIn(s) ? vendorSignIn(s) : null;

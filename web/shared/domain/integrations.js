@@ -19,7 +19,8 @@ export const CONNECTOR_DRIVERS = {
   "claude-code": {
     id: "claude-code",
     name: "Claude Code",
-    status: "configured",
+    status: "live", // `claude mcp list` health-checks servers (✓/✘ tails)
+
     auth: ["oauth"],
     toggle: "none", // sign-in and on/off live inside Claude Code
     signIn: { command: "claude mcp login {name}" },
@@ -51,7 +52,8 @@ export const CONNECTOR_DRIVERS = {
   opencode: {
     id: "opencode",
     name: "OpenCode",
-    status: "configured",
+    status: "live", // `opencode mcp list` reports per-server status
+
     auth: ["oauth"],
     toggle: "entry", // entry's enabled flag in the opencode.json mcp block
     signIn: { command: "opencode mcp auth {name}" },
@@ -75,7 +77,8 @@ export const CONNECTOR_DRIVERS = {
   hermes: {
     id: "hermes",
     name: "Hermes Agent",
-    status: "configured",
+    status: "live", // `hermes mcp list` reports per-server status
+
     auth: ["oauth"],
     toggle: "entry", // entry's enabled flag in config.yaml mcp_servers
     signIn: { command: "hermes mcp login {name}" },
