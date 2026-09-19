@@ -31,7 +31,7 @@ func TestToolPresetsLeadTheCatalogAndPiHidesThem(t *testing.T) {
 	if len(all) < 2 || all[0].ID != "picode-computer" || all[1].ID != "picode-browser" {
 		t.Fatalf("catalog head = %v", all[:2])
 	}
-	for _, p := range all[:2] {
+	for _, p := range all[:len(ToolPresets())] {
 		if !IsToolPreset(p.ID) || p.Entry.Command == "" || len(p.Entry.Args) != 2 || p.Entry.Args[0] != "mcp" {
 			t.Fatalf("tool preset %q = %+v", p.ID, p.Entry)
 		}
@@ -41,7 +41,7 @@ func TestToolPresetsLeadTheCatalogAndPiHidesThem(t *testing.T) {
 			t.Fatalf("pi still sees %s", p.ID)
 		}
 	}
-	if len(WithoutToolPresets(all)) != len(all)-2 {
+	if len(WithoutToolPresets(all)) != len(all)-len(ToolPresets()) {
 		t.Fatal("only the tool cards are hidden")
 	}
 }
