@@ -50,7 +50,7 @@ export default function Sidebar({
   onFileTree,
   onOpenDashboard,
   onOpenClis,
-  apps, nativeApps, onOpenApp, webapps, webappsErr, webappsLoaded, onRetryWebapps, onOpenWebapp, onSavedWebapp, onRemoveWebapp, onRefreshWebapp, desktop,
+  apps, nativeApps, onOpenApp, webapps, webappsErr, webappsLoaded, onRetryWebapps, onOpenWebapp, onSavedWebapp, onRemoveWebapp, onRefreshWebapp, onClearWebappData, desktop,
 }) {
   const [width, setWidth] = useState(() => {
     const n = parseInt(localStorage.getItem(SIDE_KEY) || "", 10);
@@ -166,7 +166,7 @@ export default function Sidebar({
       {tab === "pins" ? (
         <Pins />
       ) : tab === "apps" ? (
-        <AppsGrid apps={apps} nativeApps={nativeApps} onOpen={onOpenApp} webapps={webapps} webappsErr={webappsErr} webappsLoaded={webappsLoaded} onRetryWebapps={onRetryWebapps} onOpenWebapp={onOpenWebapp} onSavedWebapp={onSavedWebapp} onRemoveWebapp={onRemoveWebapp} onRefreshWebapp={onRefreshWebapp} desktop={desktop} />
+        <AppsGrid apps={apps} nativeApps={nativeApps} onOpen={onOpenApp} webapps={webapps} webappsErr={webappsErr} webappsLoaded={webappsLoaded} onRetryWebapps={onRetryWebapps} onOpenWebapp={onOpenWebapp} onSavedWebapp={onSavedWebapp} onRemoveWebapp={onRemoveWebapp} onRefreshWebapp={onRefreshWebapp} onClearWebappData={onClearWebappData} desktop={desktop} />
       ) : tab === "terms" ? (
       <div className="side-section">
         <div className="pins-head">

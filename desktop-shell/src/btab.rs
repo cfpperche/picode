@@ -867,12 +867,23 @@ pub async fn btab_close(
     state: State<'_, BtabState>,
     id: String,
 ) -> Result<(), String> {
-    if let Some(wv) = app.get_webview(&label(&id)) {
+    close_inner(&app, &state, &id)
+}
+
+// The body of btab_close, shared with the per-app data clear: a webview
+// must be closed before its partition folder can be removed, and closing
+// is the same ceremony either way.
+fn close_inner(
+    app: &AppHandle,
+    state: &BtabState,
+    id: &str,
+) -> Result<(), String> {
+    if let Some(wv) = app.get_webview(&label(id)) {
         // Drop this tab's event receivers on the UI thread before the webview
         // goes: a receiver kept past its page would keep the page alive. A
         // held Ask dies with it — every deferral is completed (denied) so a
         // closed page is not pinned by one.
-        let tab = id.clone();
+        let tab = id.to_string();
         let _ = wv.with_webview(move |_| {
             RECEIVERS.with(|r| {
                 r.borrow_mut().remove(&tab);
@@ -896,11 +907,47 @@ pub async fn btab_close(
         });
         wv.close().map_err(|e| e.to_string())?;
     }
-    state.pending.lock().unwrap().remove(&id);
-    state.unplaced.lock().unwrap().remove(&id);
-    state.rings.lock().unwrap().remove(&id);
-    grants().lock().unwrap().remove(&id);
+    state.pending.lock().unwrap().remove(id);
+    state.unplaced.lock().unwrap().remove(id);
+    state.rings.lock().unwrap().remove(id);
+    grants().lock().unwrap().remove(id);
     Ok(())
+}
+
+// Clear one installed web app's own storage (ADR-0153): close its webview
+// (the folder is in use while it lives) and remove the partition folder.
+// Only ids that name a partition qualify — browserlab::app_partition is
+// the containment, so the folder removed is always the app's own.
+#[tauri::command]
+pub async fn btab_clear_app_data(
+    app: AppHandle,
+    state: State<'_, BtabState>,
+    id: String,
+) -> Result<(), String> {
+    let folder = super::browserlab::app_partition(&id)
+        .ok_or_else(|| "only installed web apps have their own data to clear".to_string())?;
+    close_inner(&app, &state, &id)?;
+    if !folder.exists() {
+        return Ok(());
+    }
+    // Closing a webview tears its browser process down asynchronously; the
+    // first removal attempt can still meet a locked file. Three tries, a
+    // breath between, then the honest failure.
+    let mut last = String::new();
+    for attempt in 0..3 {
+        match std::fs::remove_dir_all(&folder) {
+            Ok(()) => return Ok(()),
+            Err(e) => {
+                last = e.to_string();
+                if attempt < 2 {
+                    std::thread::sleep(std::time::Duration::from_millis(300));
+                }
+            }
+        }
+    }
+    Err(format!(
+        "could not clear the app's data — close its tab and try again: {last}"
+    ))
 }
 
 // Open a URL in the system default browser — the "Default browser" side of
@@ -1025,6 +1072,48 @@ pub async fn btab_annotate_mode(app: AppHandle, id: String, on: bool) -> Result<
         set.remove(&id);
     }
     Ok(())
+}
+
+/// btab_annotate_clear discards annotations in one tab's loaded document
+/// without leaving the mode: everything (the strip's trash) or just the most
+/// recent pin (the strip's undo, `last`). It reuses the mode's ExecuteScript
+/// path (no CDP, no tier): both snippets are guarded no-ops when the document
+/// never armed the mode, so a click after a navigation that dropped the
+/// script clears nothing and fails nothing.
+#[tauri::command]
+pub async fn btab_annotate_clear(app: AppHandle, id: String, last: Option<bool>) -> Result<(), String> {
+    let tail = id.rsplit(':').next().unwrap_or(id.as_str()).to_string();
+    let wv = app
+        .get_webview(&label(&id))
+        .or_else(|| app.get_webview(&label(&tail)))
+        .ok_or_else(|| format!("no such tab: {id}"))?;
+    let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
+    wv.with_webview(move |platform| unsafe {
+        use windows::core::HSTRING;
+        let core = match platform.controller().CoreWebView2() {
+            Ok(core) => core,
+            Err(e) => {
+                let _ = tx.send(Err(format!("CoreWebView2: {e}")));
+                return;
+            }
+        };
+        match core.ExecuteScript(
+            &HSTRING::from(if last.unwrap_or(false) {
+                crate::annotate::DROP_LAST_SCRIPT
+            } else {
+                crate::annotate::CLEAR_SCRIPT
+            }),
+            None,
+        ) {
+            Ok(_) => {
+                let _ = tx.send(Ok(()));
+            }
+            Err(e) => {
+                let _ = tx.send(Err(format!("ExecuteScript: {e}")));
+            }
+        }
+    });
+    rx.recv().unwrap_or_else(|_| Err("the shell did not answer".into()))
 }
 
 // The work profile's autofill prefs (slice 3): password autosave and

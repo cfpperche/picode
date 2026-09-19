@@ -3,10 +3,13 @@ import { test } from "node:test";
 
 import {
   PICK_STYLES,
+  batchMessage,
   cropRect,
   parsePick,
   pickLabel,
   pickScript,
+  sendLabel,
+  stateItems,
   stillToViewport,
   stylesToCSS,
 } from "./annotate.js";
@@ -77,4 +80,45 @@ test("styles become readable lines and the label is one line", () => {
     "button.save — 80×32",
   );
   assert.equal(pickLabel(null), "");
+});
+
+test("the Send button carries the pending count", () => {
+  assert.equal(sendLabel(0), "Send");
+  assert.equal(sendLabel(1), "Send 1");
+  assert.equal(sendLabel(5), "Send 5");
+  assert.equal(sendLabel(undefined), "Send");
+});
+
+test("a state sync becomes trusted items, junk dropped", () => {
+  const msg = {
+    kind: "state",
+    count: 2,
+    items: [
+      { n: 1, selector: "h1", tag: "h1", html: "<h1>Hi</h1>", rect: { x: 1, y: 2, width: 30, height: 10 }, styles: { color: "red" }, vw: 800, vh: 600, comment: "fix", saved: true },
+      { n: 2, selector: "p", rect: { x: 1, y: 2, width: 30, height: 10 }, comment: "", saved: false },
+      { n: 3, selector: "junk" }, // no rect, no item
+      null,
+      "x",
+    ],
+  };
+  const items = stateItems(msg);
+  assert.equal(items.length, 2);
+  assert.equal(items[0].comment, "fix");
+  assert.equal(items[0].saved, true);
+  assert.equal(items[1].saved, false);
+  assert.deepEqual(items[0].rect, { x: 1, y: 2, width: 30, height: 10 });
+  assert.equal(stateItems(null).length, 0);
+  assert.equal(stateItems({}).length, 0);
+});
+
+test("the batch is one context: a head line plus numbered pins", () => {
+  assert.equal(
+    batchMessage({ url: "https://x.test/", items: [
+      { n: 1, selector: "h1", comment: "Fix this" },
+      { n: 2, selector: "p.lede", comment: "" },
+    ] }),
+    "2 annotations on https://x.test/\n1. Fix this\n2. p.lede",
+  );
+  assert.equal(batchMessage({ url: "", items: [{ n: 1, selector: "", comment: "" }] }), "1 annotation\n1. element");
+  assert.equal(batchMessage({}), "0 annotations");
 });

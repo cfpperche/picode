@@ -72,10 +72,15 @@ pub fn webapp_profile(webapp_id: &str) -> Option<PathBuf> {
 // The folder an id runs in: installed web apps partition (ADR-0153);
 // every other tab — work browser, lab, management — shares the profile.
 pub fn profile_for(id: &str) -> PathBuf {
-    match id.strip_prefix("app-") {
-        Some(webapp_id) => webapp_profile(webapp_id).unwrap_or_else(webview_profile),
-        None => webview_profile(),
-    }
+    app_partition(id).unwrap_or_else(webview_profile)
+}
+
+// The partition folder of an installed-app tab id, when the id is one
+// (`app-<webappId>` in the minted shape). None for anything else — the
+// containment guarantee behind "clear this app's data": the folder it
+// names is always under WebView2\webapps\<validated id>.
+pub fn app_partition(id: &str) -> Option<PathBuf> {
+    webapp_profile(id.strip_prefix("app-")?)
 }
 
 #[cfg(test)]
@@ -98,6 +103,16 @@ mod tests {
         assert_eq!(profile_for("app-"), webview_profile());
         assert_eq!(profile_for("app-has space"), webview_profile());
         assert_eq!(profile_for("app-.."), webview_profile());
+    }
+
+    #[test]
+    fn app_partition_names_only_installed_app_ids() {
+        assert!(app_partition("app-mail-abc123")
+            .unwrap()
+            .ends_with(std::path::Path::new("webapps").join("mail-abc123")));
+        assert!(app_partition("7").is_none());
+        assert!(app_partition("app-Bad/Path").is_none());
+        assert!(app_partition("app-").is_none());
     }
 }
 
