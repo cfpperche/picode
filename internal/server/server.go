@@ -35,6 +35,7 @@ import (
 	"github.com/cfpperche/picode/internal/feed"
 	"github.com/cfpperche/picode/internal/llamajob"
 	"github.com/cfpperche/picode/internal/llamaservice"
+	"github.com/cfpperche/picode/internal/mcpcatalog"
 	"github.com/cfpperche/picode/internal/pipkg"
 	"github.com/cfpperche/picode/internal/presence"
 	"github.com/cfpperche/picode/internal/preview"
@@ -67,17 +68,18 @@ type Deps struct {
 	Insecure     bool
 	Presence     *presence.Registry
 	Backup       *backup.Engine
-	Apps         *apps.Registry   // apps host (ADR-0036); nil-safe = no apps
-	Docker       *docker.Service  // shared operations for the Docker App and Pi tools
-	Webhooks     *webhooks.Engine // generic outbound event delivery (ADR-0075)
-	Push         *push.Notifier   // Web Push (ADR-0047); nil-safe = 503 on /api/push/*
-	Feed         *feed.Feed       // change feed (ADR-0048); nil-safe = 503 on /api/events
-	Browser      *browser.Hub     // work-browser command channel (ADR-0132); lazily built in New
-	Replies      *TuiReplies      // Inbox replies into the running TUI (ADR-0060); lazy-init in New
-	Previews     *preview.Store   // HTML preview tickets (ADR-0136); lazy-init in New
-	DevServers   *DevServerCache  // dev-server discovery (/api/devservers); lazy-init in New
-	TermStates   *TermStates      // coding-CLI terminal state (ADR-0056 tier 1); lazy-init in New
-	TermRuntimes *TermRuntimes    // authoritative CLI presence (ADR-0062); lazy-init in New
+	Apps         *apps.Registry    // apps host (ADR-0036); nil-safe = no apps
+	Docker       *docker.Service   // shared operations for the Docker App and Pi tools
+	Webhooks     *webhooks.Engine  // generic outbound event delivery (ADR-0075)
+	Push         *push.Notifier    // Web Push (ADR-0047); nil-safe = 503 on /api/push/*
+	Feed         *feed.Feed        // change feed (ADR-0048); nil-safe = 503 on /api/events
+	Browser      *browser.Hub      // work-browser command channel (ADR-0132); lazily built in New
+	Replies      *TuiReplies       // Inbox replies into the running TUI (ADR-0060); lazy-init in New
+	Connectors   *mcpcatalog.Store // curated connector catalog (ADR-0157); lazy-init in New from DataDir
+	Previews     *preview.Store    // HTML preview tickets (ADR-0136); lazy-init in New
+	DevServers   *DevServerCache   // dev-server discovery (/api/devservers); lazy-init in New
+	TermStates   *TermStates       // coding-CLI terminal state (ADR-0056 tier 1); lazy-init in New
+	TermRuntimes *TermRuntimes     // authoritative CLI presence (ADR-0062); lazy-init in New
 	// Shared short-lived GET /api/terminals snapshot (singleflight + TTL,
 	// terminals_cache.go): the CLIs page refetches on every terminal.* feed
 	// event and one round costs a dozen subprocesses per terminal. Nil-safe
@@ -156,6 +158,13 @@ func New(addr string, deps Deps) *http.Server {
 	}
 	if deps.Browser == nil {
 		deps.Browser = browser.New()
+	}
+	if deps.Connectors == nil {
+		// Curated connector catalog (ADR-0157): the constructor never
+		// fetches — the first gallery search serves the seed (plus any
+		// cache file) and refreshes in the background. No DataDir means
+		// the cache stays in memory.
+		deps.Connectors = mcpcatalog.NewStore(deps.DataDir)
 	}
 
 	if deps.Store != nil && deps.DataDir != "" && deps.LlamaService == nil {

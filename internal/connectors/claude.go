@@ -77,8 +77,6 @@ func (d Claude) List(p Paths) (mcp.Report, error) {
 		Layers:            d.Layers(p),
 		Servers:           []mcp.Server{},
 		ConnectorPackages: []mcp.ConnectorPackage{},
-		Imports:           []string{},
-		Found:             []mcp.HostInfo{},
 	}
 	seen := map[string]bool{}
 	for i, layer := range rep.Layers {

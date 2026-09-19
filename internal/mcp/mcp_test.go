@@ -283,98 +283,41 @@ func TestToggleStubDoesNotCopyURL(t *testing.T) {
 	}
 }
 
-func TestImportHosts(t *testing.T) {
+// The shared layers (~/.config/mcp, ~/.agents) stay read-only: servers
+// there merge with scope "import" — including the host-style `mcp_servers`
+// key form — and Toggle writes a disabled stub into the owned file while
+// Remove is refused.
+func TestSharedLayerServer(t *testing.T) {
 	home := t.TempDir()
 	p := Paths{Home: home}
-
-	res, err := ImportHosts(p, nil)
-	if err != nil {
+	shared := p.SharedGlobal()
+	if err := os.MkdirAll(filepath.Dir(shared), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if len(res.Added) != 0 || len(res.Found) != 0 {
-		t.Fatalf("empty home: %+v", res)
-	}
-
-	if err := os.MkdirAll(filepath.Join(home, ".cursor"), 0o755); err != nil {
+	if err := os.WriteFile(shared, []byte(`{"mcp_servers":{"ext":{"url":"https://c.example/mcp"}}}`), 0o644); err != nil {
 		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(home, ".cursor", "mcp.json"), []byte(`{"mcpServers":{"from-cursor":{"url":"https://c.example/mcp"}}}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := ImportHosts(p, []ImportPick{{Kind: "codex", Servers: []string{"x"}}}); err == nil {
-		t.Fatal("codex not on this machine")
-	}
-	res, err = ImportHosts(p, []ImportPick{{Kind: "cursor", Servers: []string{"from-cursor"}}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(res.Added) != 1 || res.Added[0] != "cursor" {
-		t.Fatalf("added = %+v", res)
 	}
 	rep, err := List(p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rep.Imports) != 1 || rep.Imports[0] != "cursor" {
-		t.Fatalf("imports = %v", rep.Imports)
-	}
-	if len(rep.Found) != 1 || !rep.Found[0].On || len(rep.Found[0].Servers) != 1 {
-		t.Fatalf("found = %+v", rep.Found)
-	}
-	if len(rep.Servers) != 1 || rep.Servers[0].Name != "from-cursor" || rep.Servers[0].Owned {
+	if len(rep.Servers) != 1 || rep.Servers[0].Name != "ext" || rep.Servers[0].Owned || rep.Servers[0].Layer != "shared-global" {
 		t.Fatalf("servers = %+v", rep.Servers)
 	}
-
-	again, err := ImportHosts(p, []ImportPick{{Kind: "cursor", Servers: []string{"from-cursor"}}})
-	if err != nil {
+	if err := Toggle(p, "user", "ext", true); err != nil {
 		t.Fatal(err)
 	}
-	if len(again.Added) != 0 || len(again.Removed) != 0 {
-		t.Fatalf("second = %+v", again)
+	rep, _ = List(p)
+	if !rep.Servers[0].Disabled {
+		t.Fatalf("after toggle: %+v", rep.Servers)
 	}
-	off, err := ImportHosts(p, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(off.Removed) != 1 || off.Removed[0] != "cursor" {
-		t.Fatalf("remove = %+v", off)
-	}
-}
-
-func TestImportPickDisablesOther(t *testing.T) {
-	home := t.TempDir()
-	p := Paths{Home: home}
-	if err := os.MkdirAll(filepath.Join(home, ".cursor"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(home, ".cursor", "mcp.json"), []byte(`{"mcpServers":{"keep":{"url":"https://a.example/mcp"},"drop":{"url":"https://b.example/mcp"}}}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := ImportHosts(p, []ImportPick{{Kind: "cursor", Servers: []string{"keep"}}}); err != nil {
-		t.Fatal(err)
-	}
-	rep, err := List(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	by := map[string]Server{}
-	for _, s := range rep.Servers {
-		by[s.Name] = s
-	}
-	if by["keep"].Disabled || !by["drop"].Disabled {
-		t.Fatalf("%+v", rep.Servers)
-	}
-	if by["drop"].Owned || by["keep"].Owned {
-		t.Fatalf("import overlay must not be owned: %+v", rep.Servers)
-	}
-	if err := Remove(p, "user", "drop"); err == nil {
+	if err := Remove(p, "user", "ext"); err == nil {
 		t.Fatal("remove overlay stub")
 	}
 	rep, _ = List(p)
 	for _, s := range rep.Servers {
-		if s.Name == "drop" && !s.Disabled {
-			t.Fatal("remove unmasked import")
+		if s.Name == "ext" && !s.Disabled {
+			t.Fatal("remove unmasked shared server")
 		}
 	}
 }
@@ -384,20 +327,6 @@ func TestServersFromToml(t *testing.T) {
 	got := serversFromToml(s)
 	if got["picode-dogfood"]["url"] != "https://mcp.context7.com/mcp" {
 		t.Fatalf("%+v", got)
-	}
-}
-
-func TestFoundHostsSkipsEmptyFile(t *testing.T) {
-	home := t.TempDir()
-	p := Paths{Home: home}
-	if err := os.MkdirAll(filepath.Join(home, ".claude"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(home, ".claude.json"), []byte(`{"theme":"dark"}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if got := FoundHosts(p); len(got) != 0 {
-		t.Fatalf("empty claude offered: %+v", got)
 	}
 }
 

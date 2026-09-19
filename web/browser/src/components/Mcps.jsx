@@ -10,7 +10,7 @@ import { mcpAddSchema, pairsToMap, parseForm } from "@picode/shared/contracts/sc
 import { toast } from "../lib/toast.js";
 import PageFrame from "./PageFrame.jsx";
 import PiSpinner from "./PiSpinner.jsx";
-import { readConnectorDefinition, destinationLabel, connectorTabs, connectorDriver, blockedLayers } from "@picode/shared/domain/integrations.js";
+import { connectorDriver, blockedLayers, connectorAddBody, connectorScopeNames } from "@picode/shared/domain/integrations.js";
 import "../styles/integrations.css";
 
 export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, workspacePath, agentId, agentName, agentWorkPath, agentRunning, onReload, scope: scopeProp = "user", onScopeChange = () => {} }) {
@@ -21,11 +21,12 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
   const [job, setJob] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [formError, setFormError] = useState("");
-  const [catalogTab, setCatalogTab] = useState("catalog");
   const [customOpen, setCustomOpen] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
-  const [svcQuery, setSvcQuery] = useState("");
-  const [hostPick, setHostPick] = useState(null);
+  const [tab, setTab] = useState("installed"); // installed | marketplace
+  const [q, setQ] = useState("");
+  const [hits, setHits] = useState([]);
+  const [searching, setSearching] = useState(true);
+  const [catError, setCatError] = useState(false);
   const [justSigned, setJustSigned] = useState({});
   const signCtl = useRef({ id: "", stop: false });
   const dataRef = useRef(null);
@@ -86,14 +87,21 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
   const loading = !hidden && data === null && !loadError;
   const installed = !!(data && data.adapter && data.adapter.installed);
   const servers = (data && data.servers) || [];
-  const presets = (data && data.presets) || [];
-  const tabs = connectorTabs(data && data.found);
   const blocked = blockedLayers(data);
   const canProject = !!workspaceId;
   const canAgent = !!agentWorkPath;
   // A catalog entry is "Added" when the selected layer already has it; another
   // layer's copy is not this one (docs/plans/connectors-ux.md).
-  const configuredNames = new Set(servers.filter((s) => s.scope === scope).map((s) => s.name));
+  const configuredNames = connectorScopeNames(servers, scope);
+
+  // Marketplace search (ADR-0157): one debounced gallery fetch per query,
+  // seed hits first. A refetch keeps the last results up; skeletons cover
+  // the first load, the error card covers a failed one.
+  useEffect(() => {
+    if (hidden || !installed || tab !== "marketplace") return;
+    const t = setTimeout(pullGallery, q ? 280 : 0);
+    return () => clearTimeout(t);
+  }, [hidden, installed, tab, q]);
 
   async function runJob(action, label, fn) {
     if (job) return null;
@@ -125,25 +133,6 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
       ...(guest ? { cli } : {}),
       ...extra,
     };
-  }
-
-  function whereLabel() {
-    return scope === "user" ? "this machine" : scope === "project" ? (workspaceName || "this workspace") : (agentName || "this agent");
-  }
-
-  async function importDefinition(file) {
-    if (!file || job) return;
-    try {
-      if (file.size > 65536) throw new Error("Choose a connector file smaller than 64 KB.");
-      const entry = readConnectorDefinition(await file.text());
-      const where = whereLabel();
-      const message = entry.command
-        ? "Runs " + [entry.command, ...(entry.args || [])].map(v => JSON.stringify(v)).join(" ") + " with your system permissions. Add to " + where + " only if you trust its source."
-        : "Allows agents in " + where + " to use tools from " + destinationLabel(entry.url) + ". Only connect services you trust.";
-      if (!await askConfirm({ title: "Add " + entry.name + "?", message, confirmLabel: "Add connector" })) return;
-      setFormError("");
-      await addServer(entry);
-    } catch (err) { setFormError(err.message); }
   }
 
   async function addServer(entry) {
@@ -195,6 +184,26 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
     if (auth === "oauth" && !guest) await signIn({ name, auth: "oauth", disabled: false }, { quiet: true });
   }
 
+  async function pullGallery() {
+    setSearching(true);
+    try {
+      const page = await api("/api/connectors/gallery?q=" + encodeURIComponent(q.trim()));
+      setHits(page.hits || []);
+      setCatError(false);
+    } catch {
+      setHits([]);
+      setCatError(true);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  function openCustom() {
+    setForm(emptyForm());
+    setFormError("");
+    setCustomOpen(true);
+  }
+
   async function toggle(s) {
     if (!installed) return;
     const turningOn = !!s.disabled;
@@ -209,14 +218,6 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
     }));
     if (!next) return;
     if (turningOn) await signIn({ ...s, disabled: false }, { quiet: true });
-  }
-
-  async function applyPicks(picks) {
-    await runJob("import", "apps", () => api("/api/mcp/import", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body({ picks })),
-    }));
   }
 
   function canSignIn(s) {
@@ -385,7 +386,6 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
     <PageFrame id="connectors-view" title="Connectors" embedded hidden={hidden}>
       <div className="connectors-head">
         <p className="integrations-intro">Connect services your agents can use.</p>
-        {installed && !loading ? <button type="button" className="btn btn-primary" disabled={!!job} onClick={() => { setSvcQuery(""); setAddOpen(true); }}>Add connector</button> : null}
       </div>
       {blocked.map((b) => (
         <div key={b.scope + ":" + b.path} className="mcp-blocked" role="status">
@@ -420,101 +420,193 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
         )
       ) : (
         <>
-          {!!data?.connectorPackages?.length && <section className="pkg-installed">
-            <h3>Connector packages</h3>
-            <ul className="mcp-list">{data.connectorPackages.map(p => <li key={p.scope + p.source} className="mcp-row integration-package"><div className="mcp-row-main"><strong>{p.name}</strong><span className="pkg-fine">Installed · {p.scope === "user" ? "This machine" : "This workspace"}</span></div><a className="btn btn-ghost" href={cliPackagesHash("pi", { workspaceId, agentId })}>Manage package</a></li>)}</ul>
-            <p className="pkg-fine">Package tools load through the MCP adapter when an agent starts.</p>
-          </section>}
-          <section className="pkg-installed">
-            <h3>Configured services{servers.length ? <span className="mcp-count">{servers.length}</span> : null}</h3>
-            {!guest && !agentRunning && servers.length ? <p className="pkg-fine">Live status comes from a running agent.</p> : null}
-            {servers.length ? (
-              <ul className="mcp-list">
-                {servers.map((s) => {
-                  const word = agentRunning ? rowLive(s) : "";
-                  const state = word === "live" || word === "failed" ? word : "";
-                  const menu = canSignOut(s) || s.owned;
-                  const vendor = needsVendorSignIn(s) ? vendorSignIn(s) : null;
-                  const note = vendor && !vendor.command ? vendor.text : "";
-                  return (
-                  <li key={s.layer + ":" + s.name} className={"mcp-row" + (s.disabled ? " off" : "") + (note ? " has-note" : "")}>
-                    <div className="mcp-row-main">
-                      {state ? (
-                        <span className={"mcp-live " + state} title={liveTitle(state)}>{liveLabel(state)}</span>
+          <div className="pkg-tabs" role="tablist" aria-label="Connectors">
+            <button type="button" role="tab" className="pkg-tab" aria-selected={tab === "installed"} onClick={() => setTab("installed")}>
+              Installed{servers.length ? <span className="pkg-tab-count">{servers.length}</span> : null}
+            </button>
+            <button type="button" role="tab" className="pkg-tab" aria-selected={tab === "marketplace"} onClick={() => setTab("marketplace")}>Marketplace</button>
+          </div>
+          {tab === "installed" ? (
+            <>
+              {!!data?.connectorPackages?.length && <section className="pkg-installed">
+                <h3>Connector packages</h3>
+                <ul className="mcp-list">{data.connectorPackages.map(p => <li key={p.scope + p.source} className="mcp-row integration-package"><div className="mcp-row-main"><strong>{p.name}</strong><span className="pkg-fine">Installed · {p.scope === "user" ? "This machine" : "This workspace"}</span></div><a className="btn btn-ghost" href={cliPackagesHash("pi", { workspaceId, agentId })}>Manage package</a></li>)}</ul>
+                <p className="pkg-fine">Package tools load through the MCP adapter when an agent starts.</p>
+              </section>}
+              <section className="pkg-installed">
+                <h3>Configured services{servers.length ? <span className="mcp-count">{servers.length}</span> : null}</h3>
+                {!guest && !agentRunning && servers.length ? <p className="pkg-fine">Live status comes from a running agent.</p> : null}
+                {servers.length ? (
+                  <ul className="mcp-list">
+                    {servers.map((s) => {
+                      const word = agentRunning ? rowLive(s) : "";
+                      const state = word === "live" || word === "failed" ? word : "";
+                      const menu = canSignOut(s) || s.owned;
+                      const vendor = needsVendorSignIn(s) ? vendorSignIn(s) : null;
+                      const note = vendor && !vendor.command ? vendor.text : "";
+                      return (
+                      <li key={s.layer + ":" + s.name} className={"mcp-row" + (s.disabled ? " off" : "") + (note ? " has-note" : "")}>
+                        <div className="mcp-row-main">
+                          {state ? (
+                            <span className={"mcp-live " + state} title={liveTitle(state)}>{liveLabel(state)}</span>
+                          ) : null}
+                          <strong className="mcp-name">{s.name}</strong>
+                          <span className="pkg-scope-tag" title={s.path || undefined}>{scopeLabel(s, workspaceName, agentName)}</span>
+                          <code className="mcp-target" title={targetOf(s)}>{targetOf(s)}</code>
+                        </div>
+                        <div className="mcp-row-actions" data-align-row>
+                          {vendor && vendor.command ? (
+                            <span className="mcp-login">
+                              <code title={"Run this in " + vendor.where + " to sign in to " + s.name}>{vendor.command}</code>
+                              <button type="button" className="btn btn-ghost btn-sm" disabled={!!job} aria-label={"Copy the sign-in command for " + s.name} onClick={() => copyVendorCmd(vendor.command)}>Copy</button>
+                            </span>
+                          ) : !vendor && canSignIn(s) ? (
+                            <button type="button" className="btn btn-ghost" disabled={!!job} onClick={() => signIn(s)}>Sign in</button>
+                          ) : null}
+                          {driver.toggle !== "none" ? (
+                            <span className="mcp-switch">
+                              <Switch.Root
+                                className="rx-switch"
+                                checked={!s.disabled}
+                                disabled={!!job}
+                                onCheckedChange={() => toggle(s)}
+                                aria-label={(s.disabled ? "Enable " : "Disable ") + s.name}
+                              ><Switch.Thumb className="rx-switch-thumb" /></Switch.Root>
+                            </span>
+                          ) : null}
+                          {menu ? (
+                            <DropdownMenu.Root>
+                              <DropdownMenu.Trigger asChild>
+                                <button type="button" className="btn btn-ghost btn-sm mcp-more" aria-label={"More actions for " + s.name} disabled={!!job}>•••</button>
+                              </DropdownMenu.Trigger>
+                              <DropdownMenu.Portal>
+                                <DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
+                                  {canSignOut(s) ? <DropdownMenu.Item className="um-item" onSelect={() => signOut(s)}>Sign out</DropdownMenu.Item> : null}
+                                  {s.owned ? <>{canSignOut(s) ? <DropdownMenu.Separator className="um-divider" /> : null}<DropdownMenu.Item className="um-item cli-danger-item" onSelect={() => remove(s)}>Remove</DropdownMenu.Item></> : null}
+                                </DropdownMenu.Content>
+                              </DropdownMenu.Portal>
+                            </DropdownMenu.Root>
+                          ) : null}
+                        </div>
+                        {note ? <p className="mcp-login-note">{note}</p> : null}
+                      </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="pkg-fine">No connectors yet.</p>
+                )}
+              </section>
+            </>
+          ) : (
+            // Marketplace (ADR-0157): the curated catalog is the add surface —
+            // search the gallery, save to the selected layer, custom form stays
+            // as the quiet escape hatch.
+            <section className="connector-market" role="tabpanel" aria-label="Connector marketplace">
+              <div className="connector-pick" data-align-row data-align-wrap>
+                <input
+                  className="pkg-search"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Search connectors…"
+                  aria-label="Search connectors"
+                  disabled={!!job}
+                  autoComplete="off"
+                />
+                {canProject || (canAgent && !guest) ? (
+                  <div className="connector-scope">
+                    <span className="mcp-group-label">Save to</span>
+                    <div className="pkg-scope" role="radiogroup" aria-label="Save to">
+                      <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => setScope("user")}>This machine</button>
+                      {canProject ? (
+                        <button
+                          type="button"
+                          role="radio"
+                          className="pkg-scope-btn"
+                          aria-checked={scope === "project"}
+                          title={"Saves in " + (workspaceName || "this folder")}
+                          onClick={() => setScope("project")}
+                        >{workspaceName || "This workspace"}</button>
                       ) : null}
-                      <strong className="mcp-name">{s.name}</strong>
-                      <span className="pkg-scope-tag" title={s.path || undefined}>{scopeLabel(s, workspaceName, agentName)}</span>
-                      <code className="mcp-target" title={targetOf(s)}>{targetOf(s)}</code>
+                      {canAgent && !guest ? (
+                        <button
+                          type="button"
+                          role="radio"
+                          className="pkg-scope-btn"
+                          aria-checked={scope === "agent"}
+                          title={"Saves with " + (agentName || "this agent")}
+                          onClick={() => setScope("agent")}
+                        >This agent</button>
+                      ) : null}
                     </div>
-                    <div className="mcp-row-actions" data-align-row>
-                      {vendor && vendor.command ? (
-                        <span className="mcp-login">
-                          <code title={"Run this in " + vendor.where + " to sign in to " + s.name}>{vendor.command}</code>
-                          <button type="button" className="btn btn-ghost btn-sm" disabled={!!job} aria-label={"Copy the sign-in command for " + s.name} onClick={() => copyVendorCmd(vendor.command)}>Copy</button>
-                        </span>
-                      ) : !vendor && canSignIn(s) ? (
-                        <button type="button" className="btn btn-ghost" disabled={!!job} onClick={() => signIn(s)}>Sign in</button>
-                      ) : null}
-                      {driver.toggle !== "none" ? (
-                        <span className="mcp-switch">
-                          <Switch.Root
-                            className="rx-switch"
-                            checked={!s.disabled}
-                            disabled={!!job}
-                            onCheckedChange={() => toggle(s)}
-                            aria-label={(s.disabled ? "Enable " : "Disable ") + s.name}
-                          ><Switch.Thumb className="rx-switch-thumb" /></Switch.Root>
-                        </span>
-                      ) : null}
-                      {menu ? (
-                        <DropdownMenu.Root>
-                          <DropdownMenu.Trigger asChild>
-                            <button type="button" className="btn btn-ghost btn-sm mcp-more" aria-label={"More actions for " + s.name} disabled={!!job}>•••</button>
-                          </DropdownMenu.Trigger>
-                          <DropdownMenu.Portal>
-                            <DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
-                              {canSignOut(s) ? <DropdownMenu.Item className="um-item" onSelect={() => signOut(s)}>Sign out</DropdownMenu.Item> : null}
-                              {s.owned ? <>{canSignOut(s) ? <DropdownMenu.Separator className="um-divider" /> : null}<DropdownMenu.Item className="um-item cli-danger-item" onSelect={() => remove(s)}>Remove</DropdownMenu.Item></> : null}
-                            </DropdownMenu.Content>
-                          </DropdownMenu.Portal>
-                        </DropdownMenu.Root>
-                      ) : null}
-                    </div>
-                    {note ? <p className="mcp-login-note">{note}</p> : null}
-                  </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <p className="pkg-fine">No connectors yet.</p>
-            )}
-          </section>
+                  </div>
+                ) : null}
+              </div>
+              {catError ? (
+                <div className="mcp-empty">
+                  <p>Couldn't load the catalog.</p>
+                  <button type="button" className="btn btn-primary" disabled={!!job} onClick={() => pullGallery()}>Retry</button>
+                </div>
+              ) : searching && !hits.length ? (
+                <ul className="pkg-grid" aria-busy="true">
+                  {Array.from({ length: 6 }, (_, i) => (
+                    <li key={"skel-" + i} className="pkg-card pkg-skel" aria-hidden="true">
+                      <div className="pkg-preview"><span className="conn-tile" /></div>
+                      <div className="pkg-card-body">
+                        <div className="skel-line w-50" />
+                        <div className="skel-line w-90" />
+                        <div className="skel-line w-70" />
+                        <div className="skel-line w-40" />
+                        <div className="skel-line w-80" />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : hits.length ? (
+                <>
+                  <ul className="pkg-grid" aria-busy={searching}>
+                    {hits.map((h) => {
+                      const on = configuredNames.has(h.id);
+                      return (
+                        <li key={h.id} className="pkg-card">
+                          <div className="pkg-preview" aria-hidden="true">
+                            <span className="conn-tile">{(h.name || h.id || "?").trim().charAt(0).toUpperCase()}</span>
+                          </div>
+                          <div className="pkg-card-body">
+                            <div className="pkg-card-head">
+                              <span className="pkg-card-name" title={h.name}>{h.name}</span>
+                              <span className="pkg-type">{h.kind === "stdio" ? "Local command" : "Remote"}</span>
+                              {h.auth === "oauth" ? <span className="pkg-type">Sign-in required</span> : null}
+                            </div>
+                            <p className="pkg-card-desc">{h.summary || " "}</p>
+                            <div className="pkg-card-foot">
+                              <span className="pkg-foot-spacer" />
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm"
+                                disabled={!!job || on}
+                                onClick={() => addServer(connectorAddBody(h))}
+                              >{on ? "Added" : "Add"}</button>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <div className="connector-secondary" data-align-row>
+                    <button type="button" className="btn btn-ghost" disabled={!!job} onClick={openCustom}>Custom server…</button>
+                  </div>
+                </>
+              ) : (
+                <div className="mcp-empty">
+                  <p>No connectors match — try another word.</p>
+                  <button type="button" className="btn btn-primary" onClick={openCustom}>Custom server…</button>
+                </div>
+              )}
+            </section>
+          )}
         </>
       )}
-
-      <AddConnectorDialog
-        open={addOpen && !!installed}
-        onOpenChange={(v) => { setAddOpen(v); if (!v) setSvcQuery(""); }}
-        query={svcQuery}
-        onQuery={setSvcQuery}
-        presets={presets}
-        tabs={tabs}
-        catalogTab={catalogTab}
-        onCatalogTab={setCatalogTab}
-        scope={scope}
-        onScope={setScope}
-        canProject={canProject}
-        canAgent={canAgent && !guest}
-        workspaceName={workspaceName}
-        agentName={agentName}
-        configured={configuredNames}
-        job={job}
-        onAdd={(entry) => addServer(entry)}
-        onCustom={() => { setAddOpen(false); setForm(emptyForm()); setFormError(""); setCustomOpen(true); }}
-        onHostPick={(pick) => { setAddOpen(false); setHostPick(pick); }}
-        onImport={(file) => { setAddOpen(false); importDefinition(file); }}
-        showImport={!guest}
-      />
 
       {customOpen ? (
         <Dialog.Root open onOpenChange={(v) => { if (!v) setCustomOpen(false); }}>
@@ -589,26 +681,6 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
         </Dialog.Root>
       ) : null}
 
-      {hostPick ? (
-        <Dialog.Root open onOpenChange={(v) => { if (!v) setHostPick(null); }}>
-          <Dialog.Portal>
-            <Dialog.Overlay className="dlg-overlay" />
-            <Dialog.Content className="dlg integration-dialog" onCloseAutoFocus={(e) => e.preventDefault()}>
-              <Dialog.Title className="dlg-title">Add {hostPick.server} from {hostPick.label}?</Dialog.Title>
-              <Dialog.Description className="dlg-body">Pi reads those apps. The server lands in {whereLabel()}.</Dialog.Description>
-              <div className="dlg-actions">
-                <button type="button" className="btn btn-ghost" disabled={!!job} onClick={() => setHostPick(null)}>Cancel</button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={!!job}
-                  onClick={() => { const hp = hostPick; setHostPick(null); applyPicks([{ kind: hp.kind, servers: [hp.server] }]); }}
-                >Add connector</button>
-              </div>
-            </Dialog.Content>
-          </Dialog.Portal>
-        </Dialog.Root>
-      ) : null}
       {job ? (
         <JobOverlay
           job={job}
@@ -618,113 +690,6 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
         />
       ) : null}
     </PageFrame>
-  );
-}
-
-// One Add flow: a searchable service list plus the two escape hatches
-// (custom server, definition file). The target ("Save to") is stated beside
-// the list instead of floating above the pane as a second unlabelled pill
-// row (docs/plans/connectors-ux.md).
-function AddConnectorDialog({ open, onOpenChange, query, onQuery, presets, tabs, catalogTab, onCatalogTab, scope, onScope, canProject, canAgent, workspaceName, agentName, configured, job, onAdd, onCustom, onHostPick, onImport, showImport = true }) {
-  if (!open) return null;
-  const tab = tabs.find((t) => t.id === catalogTab) || tabs[0];
-  const needle = query.trim().toLowerCase();
-  const fixed = !!tab.fixed;
-  const rows = fixed
-    ? presets.map((p) => ({ key: p.id, name: p.name, summary: p.summary, added: configured.has(p.id), entry: { name: p.id, ...p.entry } }))
-    : (tab.servers || []).map((s) => ({ key: s.name, name: s.name, summary: s.on ? "Added from " + tab.label : "Found in " + tab.label, added: !!s.on, pick: { kind: tab.id, label: tab.label, server: s.name } }));
-  const shown = rows.filter((r) => !needle || (r.name + " " + r.summary).toLowerCase().includes(needle));
-  return (
-    <Dialog.Root open onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="dlg-overlay" />
-        <Dialog.Content className="dlg integration-dialog add-connector-dialog" onCloseAutoFocus={(e) => e.preventDefault()}>
-          <Dialog.Title className="dlg-title">Add connector</Dialog.Title>
-          <Dialog.Description className="dlg-body">A connector runs with the tools its author ships. Only connect what you trust.</Dialog.Description>
-          <div className="connector-pick" data-align-row data-align-wrap>
-            <input
-              className="dlg-input"
-              value={query}
-              onChange={(e) => onQuery(e.target.value)}
-              placeholder="Search services…"
-              aria-label="Search services"
-              disabled={!!job}
-              autoComplete="off"
-            />
-            {canProject || canAgent ? (
-              <div className="connector-scope">
-                <span className="mcp-group-label">Save to</span>
-                <div className="pkg-scope" role="radiogroup" aria-label="Save to">
-                  <button type="button" role="radio" className="pkg-scope-btn" aria-checked={scope === "user"} onClick={() => onScope("user")}>This machine</button>
-                  {canProject ? (
-                    <button
-                      type="button"
-                      role="radio"
-                      className="pkg-scope-btn"
-                      aria-checked={scope === "project"}
-                      title={"Saves in " + (workspaceName || "this folder")}
-                      onClick={() => onScope("project")}
-                    >{workspaceName || "This workspace"}</button>
-                  ) : null}
-                  {canAgent ? (
-                    <button
-                      type="button"
-                      role="radio"
-                      className="pkg-scope-btn"
-                      aria-checked={scope === "agent"}
-                      title={"Saves with " + (agentName || "this agent")}
-                      onClick={() => onScope("agent")}
-                    >This agent</button>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-          </div>
-          {tabs.length > 1 ? (
-            <div className="connector-source">
-              <span className="mcp-group-label">Source</span>
-              <div className="catalog-tabs" role="tablist" aria-label="Connector sources">
-                {tabs.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={catalogTab === t.id}
-                    className="pkg-scope-btn"
-                    disabled={!!job}
-                    onClick={() => onCatalogTab(t.id)}
-                  >{t.label}</button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          {shown.length ? (
-            <ul className="connector-list" role="tabpanel" aria-label={fixed ? "Cataloged services" : tab.label + " servers"}>
-              {shown.map((r) => (
-                <li key={r.key} className="connector-option">
-                  <div className="connector-option-main">
-                    <strong>{r.name}</strong>
-                    <span>{r.summary}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    disabled={!!job || r.added}
-                    onClick={() => (r.pick ? onHostPick(r.pick) : onAdd(r.entry))}
-                  >{r.added ? "Added" : "Add"}</button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="pkg-fine">No service matches “{query.trim()}”.</p>
-          )}
-          <div className="connector-secondary" data-align-row>
-            <button type="button" className="btn btn-ghost" disabled={!!job} onClick={onCustom}>Custom server…</button>
-            {showImport ? <label className="btn btn-ghost connector-file">Import a file…<input type="file" accept=".json,application/json" disabled={!!job} onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) onImport(file); }} /></label> : null}
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
   );
 }
 
@@ -820,7 +785,7 @@ function startJobTick(setJob, stepCount) {
 
 function JobOverlay({ job, running, onClose, onCancel }) {
   const steps = [
-    { id: "write", label: job.action === "signin" ? "Sign in to " + job.label : job.action === "signout" ? "Sign out " + job.label : job.action === "import" ? "Import servers" : (job.action === "remove" ? "Remove " : job.action === "toggle" ? "Update " : "Save ") + job.label },
+    { id: "write", label: job.action === "signin" ? "Sign in to " + job.label : job.action === "signout" ? "Sign out " + job.label : (job.action === "remove" ? "Remove " : job.action === "toggle" ? "Update " : "Save ") + job.label },
     { id: "reload", label: job.action === "signin" ? "Finish in the browser tab" : (running ? "Reload this agent" : "Applies on next start") },
   ];
   return (

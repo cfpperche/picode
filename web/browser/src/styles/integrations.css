@@ -21,9 +21,8 @@
 .integration-form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
 .integration-form .dlg-input, .integration-dialog > .dlg-input { width: 100%; min-width: 0; height: var(--ctl-h); margin-top: 0; box-sizing: border-box; }
 .integration-form p { margin: 0; }
-/* Connectors (docs/plans/connectors-ux.md): a configured roster and one Add
-   dialog. The catalog is a list of services with a labelled target, not a grid
-   of anonymous tiles competing with the pane. */
+/* Connectors (ADR-0157): the roster stays a list; the catalog is the Packages
+   card grid — search plus Save-to on one row, a letter tile per card. */
 .connectors-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .connectors-head .integrations-intro { margin: 0; }
 .mcp-count {
@@ -34,25 +33,20 @@
 .mcp-switch { display: grid; place-items: center; height: var(--ctl-h); }
 .mcp-more { width: var(--ctl-h); padding: 0; letter-spacing: 1px; }
 .connector-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.connector-pick .dlg-input { flex: 1 1 220px; min-width: 0; margin-top: 0; height: var(--ctl-h); }
-.connector-scope, .connector-source { display: flex; align-items: center; gap: 8px; }
-.add-connector-dialog .pkg-scope-btn { height: var(--ctl-h); min-height: var(--ctl-h); }
-.connector-scope .pkg-scope, .connector-source .catalog-tabs { margin: 0; }
-.connector-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 44dvh; overflow-y: auto; }
-.connector-option { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--bg-base); border: 1px solid var(--border); border-radius: var(--radius-ctl); }
-.connector-option-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.connector-option-main strong { font-size: 13px; }
-.connector-option-main span { font-size: 12px; line-height: 1.4; color: var(--text-secondary); }
-.connector-option .btn { flex: none; }
+.connector-pick .pkg-search { flex: 1 1 220px; min-width: 0; height: var(--ctl-h); }
+.connector-pick .pkg-scope-btn { height: var(--ctl-h); min-height: var(--ctl-h); }
+.connector-scope { display: flex; align-items: center; gap: 8px; }
+.connector-scope .pkg-scope { margin: 0; }
 .connector-secondary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; border-top: 1px solid var(--border); padding-top: 12px; }
-.connector-file { display: inline-flex; align-items: center; cursor: pointer; }
-.connector-file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.connector-file:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.conn-tile {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 56px; height: 56px; border-radius: 12px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  font-family: var(--mono); font-size: 22px; font-weight: 650; color: var(--accent);
+}
 @keyframes integration-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes integration-pulse { from { opacity: .5; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .integration-row, .integration-row[aria-busy="true"] .integration-status { animation: none; } }
-
-.catalog-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
 
 .mcp-form.integration-form { gap: 14px; }
 .mcp-field-group { display: flex; flex-direction: column; gap: 6px; }

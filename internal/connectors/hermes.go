@@ -78,8 +78,6 @@ func (d Hermes) List(p Paths) (mcp.Report, error) {
 		Layers:            d.Layers(p),
 		Servers:           []mcp.Server{},
 		ConnectorPackages: []mcp.ConnectorPackage{},
-		Imports:           []string{},
-		Found:             []mcp.HostInfo{},
 	}
 	root, err := readYAMLRoot(rep.Layers[0].Path)
 	if err != nil {
