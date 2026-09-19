@@ -74,7 +74,7 @@ export default function piComputer(pi: ExtensionAPI) {
 		promptSnippet: "Use the computer (screen, mouse, keyboard) through PiCode's desktop app",
 		promptGuidelines: [
 			"A screenshot is one whole monitor (display 1 by default) or one window when you pass `window`; every coordinate you send is a pixel of the LAST image you received — not a screen coordinate. Take a screenshot before the first click and after a window changes.",
-			"Clicks, typing, scrolling and keys return a fresh image: read it before the next step. `windows` lists what is open; `focus` brings a window forward before you type into it.",
+			"Clicks, typing, scrolling and keys return a fresh image: read it before the next step. `windows` lists what is open; `focus` brings a window forward before you type into it. For long text, or when an app shows your typing garbled, use `type` with mode `paste`.",
 			"`snapshot` reads a window's accessibility tree with each element's centre in the last image — use it to find small controls and to read text back instead of guessing from pixels.",
 			"You act with the human's permissions on their desktop. Before paying, sending a message, deleting or overwriting files, or typing a password, stop and confirm with the human.",
 			"A refusal names what is missing (the grant, the desktop app, a stale window id, a window that is no longer in front: `foreground_changed` means the human moved — look again or `focus` the window, then act); say so and do not retry around it.",
@@ -96,6 +96,7 @@ export default function piComputer(pi: ExtensionAPI) {
 			window: Type.Optional(Type.Integer({ description: "screenshot/snapshot/focus: a window id from `windows`" })),
 			depth: Type.Optional(Type.Integer({ minimum: 0, maximum: 24, description: "snapshot: how deep to walk (default 24)" })),
 			target: Type.Optional(Type.String({ description: "open: a program name (notepad.exe), a file path or a URL" })),
+			mode: Type.Optional(Type.Union([Type.Literal("keys"), Type.Literal("paste")], { description: "type: keys (default, keystrokes) or paste (clipboard + Ctrl+V — whole and fast; use it for long text or when an app garbles keystrokes)" })),
 		}),
 		async execute(_toolCallId, params) {
 			const dataDir = resolveDataDir(process.env, homedir());

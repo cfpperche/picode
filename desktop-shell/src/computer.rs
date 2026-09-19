@@ -307,6 +307,30 @@ fn same_front(desk: &Desk, principal: &str) -> Result<(), String> {
     }
 }
 
+/// The most characters one paste carries: one clipboard write, one Ctrl+V.
+const MAX_PASTE: usize = 100_000;
+
+/// `type` with mode "paste": the text goes through the clipboard and one
+/// Ctrl+V, so the app receives it as a paste, not as keystrokes. Measured
+/// 2026-09-18: Windows 11 Notepad (WinUI) garbles synthetic keystrokes
+/// whenever it falls behind, while a paste lands whole. The human's
+/// clipboard text is put back afterwards; content that is not text (an
+/// image, files) cannot be restored and is replaced — the guide says so.
+fn paste_text(t: &str) -> Result<(), String> {
+    if t.chars().count() > MAX_PASTE {
+        return Err(format!("type: {} characters is more than one paste carries ({MAX_PASTE}) — split it", t.chars().count()));
+    }
+    let previous = clipboard::read_text().ok().map(|(s, _)| s);
+    clipboard::write_text(t)?;
+    std::thread::sleep(Duration::from_millis(40));
+    let result = input::chord(&keys::parse_chord("ctrl+v")?);
+    std::thread::sleep(Duration::from_millis(80));
+    if let Some(prev) = previous {
+        let _ = clipboard::write_text(&prev);
+    }
+    result
+}
+
 fn display_of(displays: &[desktop::DisplayInfo], x: i32, y: i32) -> usize {
     displays.iter().find(|d| x >= d.left && x < d.right && y >= d.top && y < d.bottom).map(|d| d.index).unwrap_or(0)
 }
@@ -527,10 +551,17 @@ fn run(desk: &mut Desk, job: &Job) -> Result<Reply, String> {
         "type" => {
             same_front(desk, principal)?;
             let t = text(p, "text").ok_or("type: text is required")?;
-            if t.chars().count() > input::MAX_TYPE {
-                return Err(format!("type: {} characters is more than one call types ({}) — split it", t.chars().count(), input::MAX_TYPE));
+            let mode = text(p, "mode").unwrap_or_else(|| "keys".into()).to_ascii_lowercase();
+            match mode.as_str() {
+                "keys" => {
+                    if t.chars().count() > input::MAX_TYPE {
+                        return Err(format!("type: {} characters is more than one call types ({}) — split it, or use mode \"paste\"", t.chars().count(), input::MAX_TYPE));
+                    }
+                    input::type_text(&t)?;
+                }
+                "paste" => paste_text(&t)?,
+                other => return Err(format!("type: mode '{other}' is not keys or paste")),
             }
-            input::type_text(&t)?;
             std::thread::sleep(Duration::from_millis(120));
             json(recapture(desk, principal))
         }

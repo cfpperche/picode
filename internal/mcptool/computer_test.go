@@ -101,7 +101,7 @@ func TestComputerSchemaIsTheDaemonsCatalog(t *testing.T) {
 		}
 	}
 	// Every parameter the pi package declares, no more, no less.
-	want := []string{"action", "coordinate", "start_coordinate", "text", "scroll_direction", "scroll_amount", "duration", "repeat", "region", "display", "window", "depth", "target"}
+	want := []string{"action", "coordinate", "start_coordinate", "text", "scroll_direction", "scroll_amount", "duration", "repeat", "region", "display", "window", "depth", "target", "mode"}
 	if len(props) != len(want) {
 		t.Fatalf("properties = %d, want %d", len(props), len(want))
 	}
