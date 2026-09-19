@@ -44,9 +44,12 @@ empty, is left alone. Other CLIs stay Connectors-only. Grants are still
 Settings ▸ Computer / Browser keyed `term:<id>`; the MCP server never
 invents identity (`PICODE_TERM_ID` → `grant.FromIDs`).
 
-A workspace **New → Agent CLI** picker (Cursor: runtime ≤2 clicks from the
-sidebar) POSTs `/principals` and starts the terminal. `#/clis/new` remains
-for a free CLI terminal. Uninstalled CLIs are hidden; empty is one line +
-Open Agent CLIs.
+A workspace **New → Agent** picker (Cursor: runtime ≤2 clicks from the
+sidebar) POSTs `/api/workspaces/{id}/agents` `{cli}` (ADR-0160 Fatia B).
+Pi is always listed; other CLIs must be installed. A guest agent gets a
+launch terminal (`agents.terminal_id`); `Runtime.Start` is not called.
+`#/clis` remains the runtime hub (install, Launch, Sessions, Providers,
+Settings, Packages, Connectors). `#/clis/new` remains a free CLI terminal.
+Uninstalled guests are hidden.
 
 Decision table: [ADR-0159](../decisions/0159-managed-cli-principals.md).

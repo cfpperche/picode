@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import { managedPrincipalSchema, parseForm } from "@picode/shared/contracts/schemas.js";
-import { catalogForPrincipal } from "@picode/shared/domain/managedPrincipal.js";
+import { catalogForAgent } from "@picode/shared/domain/managedPrincipal.js";
 
-// Workspace catalog picker (ADR-0159 Fatia 3). Cursor: runtime ≤2 clicks
-// from the sidebar. Adaptation: native select in this dialog, not a trip
-// through #/clis/new.
+// Workspace New → Agent (ADR-0160). Cursor: runtime ≤2 clicks from the
+// sidebar. Adaptation: native select (Pi + installed CLIs). The Agent CLIs
+// hub stays the place to install runtimes.
 
 export default function NewCliPrincipal({ open, workspace, onClose, onCreated }) {
   const [status, setStatus] = useState("loading");
@@ -30,7 +30,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
     let live = true;
     api("/api/clis").then((d) => {
       if (!live) return;
-      const rows = catalogForPrincipal(d.clis || []);
+      const rows = catalogForAgent(d.clis || []);
       setClis(rows);
       setCliId(rows[0] ? rows[0].id : "");
       setStatus("ok");
@@ -43,7 +43,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
   }, [open, retry]);
 
   const selected = clis.find((c) => c.id === cliId);
-  const title = "New Agent CLI" + (workspace && workspace.name ? " in " + workspace.name : "");
+  const title = "New agent" + (workspace && workspace.name ? " in " + workspace.name : "");
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -55,7 +55,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
     try {
       const body = { cli: parsed.value.cli };
       if (parsed.value.name) body.name = parsed.value.name;
-      const created = await api("/api/workspaces/" + encodeURIComponent(workspace.id) + "/principals", {
+      const created = await api("/api/workspaces/" + encodeURIComponent(workspace.id) + "/agents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -71,7 +71,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
   let body = null;
   if (status === "loading") {
     body = (
-      <div className="form-new" aria-label="Loading CLIs" role="status">
+      <div className="form-new" aria-label="Loading agents" role="status">
         <div className="skel-line" style={{ height: "var(--ctl-h)", width: "100%" }} />
         <div className="skel-line" style={{ height: "var(--ctl-h)", width: "100%" }} />
       </div>
@@ -79,7 +79,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
   } else if (status === "err") {
     body = (
       <div className="form-new">
-        <p className="form-error" role="alert">{loadError || "Couldn’t load Agent CLIs."}</p>
+        <p className="form-error" role="alert">{loadError || "Couldn’t load agents."}</p>
         <div className="dlg-actions">
           <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
           <button type="button" className="btn btn-primary btn-sm" onClick={() => setRetry((n) => n + 1)}>Try again</button>
@@ -89,7 +89,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
   } else if (!clis.length) {
     body = (
       <div className="form-new">
-        <p>No coding CLIs installed.</p>
+        <p>No agents to create. Install a CLI first.</p>
         <div className="dlg-actions">
           <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
           <button type="button" className="btn btn-primary btn-sm" onClick={() => { onClose(); location.hash = "#/clis"; }}>Open Agent CLIs</button>
@@ -99,7 +99,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
   } else {
     body = (
       <form className="form-new create-form" noValidate onSubmit={onSubmit}>
-        <select aria-label="CLI" value={cliId} onChange={(e) => setCliId(e.target.value)} autoFocus disabled={!!busy}>
+        <select aria-label="Agent" value={cliId} onChange={(e) => setCliId(e.target.value)} autoFocus disabled={!!busy}>
           {clis.map((c) => (
             <option key={c.id} value={c.id}>{c.name || c.id}</option>
           ))}
@@ -128,7 +128,7 @@ export default function NewCliPrincipal({ open, workspace, onClose, onCreated })
         <Dialog.Overlay className="dlg-overlay" />
         <Dialog.Content className="dlg dlg-create" onCloseAutoFocus={(e) => e.preventDefault()}>
           <Dialog.Title className="dlg-title">{title}</Dialog.Title>
-          <Dialog.Description className="dlg-body">Pick a coding CLI for this folder.</Dialog.Description>
+          <Dialog.Description className="dlg-body">Pick which agent runs in this folder.</Dialog.Description>
           {body}
         </Dialog.Content>
       </Dialog.Portal>

@@ -98,6 +98,10 @@ func handleManagedStart(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		if !agent.IsPi() {
+			writeErr(w, http.StatusBadRequest, "Managed start is only for Pi agents.")
+			return
+		}
 
 		// ADR-0006: exclusive run mode — stop interactive first. The reply
 		// guard blocks a concurrent send while the tmux session tears down.
@@ -557,7 +561,8 @@ func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "use POST /api/agents for free agents")
 			return
 		}
-		if _, err := deps.Store.GetWorkspace(wsID); errors.Is(err, store.ErrNotFound) {
+		wk, err := deps.Store.GetWorkspace(wsID)
+		if errors.Is(err, store.ErrNotFound) {
 			writeErr(w, http.StatusNotFound, "workspace not found")
 			return
 		} else if err != nil {
@@ -565,6 +570,7 @@ func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
 			return
 		}
 		var req struct {
+			CLI      string `json:"cli"`
 			Name     string `json:"name"`
 			WorkPath string `json:"workPath"`
 			Provider string `json:"provider"`
@@ -589,18 +595,47 @@ func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
 			}
 			work = resolved
 		}
-		agent, err := deps.Store.AddAgent(wsID, req.Name, work)
+		agent, err := deps.Store.AddAgentWithCLI(wsID, req.CLI, req.Name, work)
 		if err != nil {
-			writeErr(w, http.StatusBadRequest, err.Error())
+			writeErr(w, storeStatus(err), err.Error())
 			return
 		}
-		agent, err = patchNewAgent(deps, agent, req.Provider, req.Model, req.Thinking)
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
+		if !agent.IsPi() {
+			agent, err = attachGuestTerminal(deps, wk, agent)
+			if err != nil {
+				_ = deps.Store.DeleteAgent(agent.ID)
+				writeErr(w, storeStatus(err), err.Error())
+				return
+			}
+		} else {
+			agent, err = patchNewAgent(deps, agent, req.Provider, req.Model, req.Thinking)
+			if err != nil {
+				writeErr(w, http.StatusInternalServerError, err.Error())
+				return
+			}
 		}
 		writeJSON(w, http.StatusCreated, agentView{Agent: agent, Mode: string(modeStopped)})
 	}
+}
+
+// attachGuestTerminal gives a non-Pi agent its interactive process (ADR-0160):
+// a workspace terminal with launch set, not Runtime.Start.
+func attachGuestTerminal(deps Deps, wk store.Workspace, agent store.Agent) (store.Agent, error) {
+	tm, err := deps.Store.CreateTerminalIn(wk.ID, agent.Name, wk.Path)
+	if err != nil {
+		return agent, err
+	}
+	if err := deps.Store.SetTerminalLaunch(tm.ID, agent.CLI, managedCLILaunchOverrides(agent.CLI)); err != nil {
+		_ = deps.Store.DeleteTerminal(tm.ID)
+		return agent, err
+	}
+	tid := tm.ID
+	bound, err := deps.Store.UpdateAgent(agent.ID, store.AgentPatch{TerminalID: &tid})
+	if err != nil {
+		_ = deps.Store.DeleteTerminal(tm.ID)
+		return agent, err
+	}
+	return bound, nil
 }
 
 func patchNewAgent(deps Deps, agent store.Agent, provider, model, thinking string) (store.Agent, error) {

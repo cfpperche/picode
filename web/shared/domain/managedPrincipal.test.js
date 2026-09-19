@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { catalogForPrincipal } from "./managedPrincipal.js";
+import { catalogForPrincipal, catalogForAgent, agentIsPi } from "./managedPrincipal.js";
 import { managedPrincipalSchema, parseForm } from "../contracts/schemas.js";
 
 test("catalogForPrincipal keeps installed launchable CLIs", () => {
@@ -17,6 +17,20 @@ test("catalogForPrincipal keeps installed launchable CLIs", () => {
 test("catalogForPrincipal is empty when nothing is installed", () => {
   assert.deepEqual(catalogForPrincipal([]), []);
   assert.deepEqual(catalogForPrincipal([{ id: "grok", installed: false, launchable: true }]), []);
+});
+
+test("catalogForAgent always leads with Pi", () => {
+  const rows = catalogForAgent([
+    { id: "claude-code", name: "Claude Code", installed: true, launchable: true },
+    { id: "grok", name: "Grok", installed: false, launchable: true },
+  ]);
+  assert.deepEqual(rows.map((c) => c.id), ["pi", "claude-code"]);
+});
+
+test("agentIsPi treats missing cli as Pi", () => {
+  assert.equal(agentIsPi({}), true);
+  assert.equal(agentIsPi({ cli: "pi" }), true);
+  assert.equal(agentIsPi({ cli: "claude-code" }), false);
 });
 
 test("managedPrincipalSchema accepts a catalog id and an optional name", () => {

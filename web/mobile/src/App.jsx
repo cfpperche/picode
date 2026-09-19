@@ -566,15 +566,20 @@ export default function MobileApp() {
         onCreated={async (created) => {
           setCliPrincipalWs(null);
           if (!created || !created.id) return;
-          try {
-            await api("/api/terminals/" + encodeURIComponent(created.id) + "/launch/start", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ confirm: false }),
-            });
-          } catch (e) { toastError(e); }
+          if (created.cli && created.cli !== "pi" && created.terminalId) {
+            try {
+              await api("/api/terminals/" + encodeURIComponent(created.terminalId) + "/launch/start", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ confirm: false }),
+              });
+            } catch (e) { toastError(e); }
+            await reload({ force: true });
+            openTerm(created.terminalId);
+            return;
+          }
           await reload({ force: true });
-          openTerm(created.id);
+          openAgent(created.id);
         }}
       />
       <ShareDrawer open={shareOpen} onClose={() => setShareOpen(false)} />

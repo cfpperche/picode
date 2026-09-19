@@ -60,6 +60,7 @@ import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
 import NewCliPrincipal from "./components/NewCliPrincipal.jsx";
+import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
 import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId, webHash, webRoute, boundWorkTab } from "./lib/routes.js";
 import { linkOpenTarget } from "./lib/openLink.js";
 import AppSurface from "./components/AppSurface.jsx";
@@ -2362,6 +2363,15 @@ export default function App({ shellChrome = false } = {}) {
       return;
     }
     try {
+      if (!agentIsPi(loc.agent) && loc.agent.terminalId) {
+        await api("/api/terminals/" + encodeURIComponent(loc.agent.terminalId) + "/launch/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ confirm: false }),
+        });
+        await openTermTab(loc.agent.terminalId);
+        return;
+      }
       await api(`/api/agents/${loc.agent.id}/managed/start`, { method: "POST" });
       const list = await refreshFleetFallback();
       openTab(loc.agent.id, list);
@@ -2610,6 +2620,15 @@ export default function App({ shellChrome = false } = {}) {
       return;
     }
     try {
+      if (!agentIsPi(loc.agent) && loc.agent.terminalId) {
+        await api("/api/terminals/" + encodeURIComponent(loc.agent.terminalId) + "/launch/stop", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ confirm: true }),
+        });
+        await refreshFleetFallback();
+        return;
+      }
       await api(`/api/agents/${loc.agent.id}/close`, { method: "POST" });
       closeShellTerm(loc.agent.id);
       if (panelRef.current && panelRef.current.agentId === loc.agent.id) panelRef.current.stopped = true;
@@ -3348,8 +3367,10 @@ export default function App({ shellChrome = false } = {}) {
         selectedId={selectedId}
         onNew={() => { setFormKind("workspace"); setShowForm(true); }}
         onNewFree={() => { setFormKind("free"); setShowForm(true); }}
-        onNewAgent={(id) => { setFormKind("agent"); setFormWs(id); setShowForm(true); }}
-        onNewCliPrincipal={(ws) => setCliPrincipalWs(ws)}
+        onNewAgent={(id) => {
+          const ws = workspaces.find((w) => w.id === id);
+          if (ws && ws.id !== "ws_free") setCliPrincipalWs(ws);
+        }}
         onSelect={(id) => revealAgent(id)}
         onRun={startManaged}
         onStop={stopAgent}
@@ -4086,8 +4107,13 @@ export default function App({ shellChrome = false } = {}) {
         onCreated={async (created) => {
           setCliPrincipalWs(null);
           if (!created || !created.id) return;
+          if (agentIsPi(created) || !created.terminalId) {
+            await refreshFleetFallback();
+            openTab(created.id);
+            return;
+          }
           try {
-            await api("/api/terminals/" + encodeURIComponent(created.id) + "/launch/start", {
+            await api("/api/terminals/" + encodeURIComponent(created.terminalId) + "/launch/start", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ confirm: false }),
@@ -4095,8 +4121,8 @@ export default function App({ shellChrome = false } = {}) {
           } catch (err) {
             toastError(err);
           }
-          await openTermTab(created.id);
-          location.hash = termHash(created.id);
+          await openTermTab(created.terminalId);
+          location.hash = termHash(created.terminalId);
         }}
       />
       <SessionInfo

@@ -99,3 +99,41 @@ func TestAddAgentWithCLI(t *testing.T) {
 		t.Fatalf("unknown cli err=%v", err)
 	}
 }
+
+func TestAgentTerminalBind(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	w, err := s.AddWorkspace("App", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := s.AddAgentWithCLI(w.ID, "claude-code", "Claude", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.TerminalID != nil {
+		t.Fatalf("fresh guest has terminal %v", a.TerminalID)
+	}
+	tm, err := s.CreateTerminalIn(w.ID, "Claude", w.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tid := tm.ID
+	got, err := s.UpdateAgent(a.ID, AgentPatch{TerminalID: &tid})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.TerminalID == nil || *got.TerminalID != tid {
+		t.Fatalf("terminalId=%v", got.TerminalID)
+	}
+	b, err := s.AddAgentWithCLI(w.ID, "codex", "Codex", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpdateAgent(b.ID, AgentPatch{TerminalID: &tid}); !errors.Is(err, ErrConflict) {
+		t.Fatalf("second bind err=%v", err)
+	}
+}

@@ -37,6 +37,10 @@ HTTP API (Go 1.22 method patterns):
   version response includes `semver`, display `version`, and `release`, which
   tells the shells whether the bundled What’s New notes may auto-open
   (ADR-0063).
+- `POST /api/workspaces/{id}/agents` `{name, cli?, …}` — create an agent in
+  that folder (ADR-0160). `cli` defaults to Pi; a launchable catalog CLI
+  creates the agent plus its interactive terminal, not a managed RPC
+  process.
 - `GET/POST /api/workspaces` — list (with live `running` flag) / add.
   Add registers the folder only (ADR-0027): the 201 carries `agents: []`
   and no `agent` key; an idempotent re-add answers with the real agents

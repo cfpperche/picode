@@ -28,9 +28,9 @@ free CLI terminal, not an agent.
 | Slice | Ships |
 |---|---|
 | **A** (this branch) | `agents.cli` (default `pi`); `Runtime.Start` refuses non-Pi; ADR-0160 |
-| **B** | `POST /api/agents` `{cli}` creates a guest agent + launch terminal; one New → Agent picker |
+| **B** | `POST /api/workspaces/{id}/agents` `{cli}` creates a guest agent + launch terminal; one New → Agent picker. `#/clis` hub stays (install, Launch, Sessions, Providers, Settings, Packages, Connectors). |
 | **C** | Migrate `managed_clis` → `agents`; principals list = agents; drop the table |
-| **D** | UI copy: one "Agent"; `#/clis` stays the catalog |
+| **D** | Copy polish if any "Agent CLI" labels remain outside the hub |
 | **E** | Rekey Inbox / `picode mcp` / grants onto the agent id |
 | **F** | Automations and Inspector ask through the prompt door (old Fatia 4) |
 | **∞** | Managed mode per CLI — out until ADR-0091 is re-measured |

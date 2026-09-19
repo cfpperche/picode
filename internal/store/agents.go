@@ -37,15 +37,17 @@ type Agent struct {
 	WorkPath         *string  `json:"workPath"`
 	Packages         []string `json:"packages"`
 	PackagesIsolated bool     `json:"packagesIsolated"`
+	TerminalID       *string  `json:"terminalId,omitempty"`
 }
 
-const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, session_path, last_started_at, last_status, last_status_at, work_path, packages, packages_isolated, checklist, cli`
+const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, session_path, last_started_at, last_status, last_status_at, work_path, packages, packages_isolated, checklist, cli, terminal_id`
 
 func scanAgent(row interface{ Scan(...any) error }, a *Agent) error {
 	var pkgs string
 	var isolated int
+	var termID sql.NullString
 	err := row.Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
-		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath, &pkgs, &isolated, &a.Checklist, &a.CLI)
+		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath, &pkgs, &isolated, &a.Checklist, &a.CLI, &termID)
 	if err != nil {
 		return err
 	}
@@ -53,6 +55,12 @@ func scanAgent(row interface{ Scan(...any) error }, a *Agent) error {
 	a.PackagesIsolated = isolated != 0
 	if strings.TrimSpace(a.CLI) == "" {
 		a.CLI = CLIPi
+	}
+	if termID.Valid && strings.TrimSpace(termID.String) != "" {
+		id := strings.TrimSpace(termID.String)
+		a.TerminalID = &id
+	} else {
+		a.TerminalID = nil
 	}
 	return nil
 }
@@ -217,6 +225,7 @@ type AgentPatch struct {
 	SessionPath      *string
 	ExtraPrompt      *string
 	PackagesIsolated *bool
+	TerminalID       *string
 }
 
 // UpdateAgent applies a patch. Returns the row after the write.
@@ -264,13 +273,19 @@ func (s *Store) UpdateAgent(id string, p AgentPatch) (Agent, error) {
 	if p.PackagesIsolated != nil {
 		a.PackagesIsolated = *p.PackagesIsolated
 	}
+	if p.TerminalID != nil {
+		a.TerminalID = emptyToNil(*p.TerminalID)
+	}
 	iso := 0
 	if a.PackagesIsolated {
 		iso = 1
 	}
-	_, err = s.db.Exec(`UPDATE agents SET name=?, provider=?, model=?, thinking=?, extra_prompt=?, op_mode=?, session_path=?, packages_isolated=?, checklist=? WHERE id=?`,
-		a.Name, a.Provider, a.Model, a.Thinking, a.ExtraPrompt, a.OpMode, a.SessionPath, iso, a.Checklist, id)
+	_, err = s.db.Exec(`UPDATE agents SET name=?, provider=?, model=?, thinking=?, extra_prompt=?, op_mode=?, session_path=?, packages_isolated=?, checklist=?, terminal_id=? WHERE id=?`,
+		a.Name, a.Provider, a.Model, a.Thinking, a.ExtraPrompt, a.OpMode, a.SessionPath, iso, a.Checklist, a.TerminalID, id)
 	if err != nil {
+		if isUniqueConstraint(err) {
+			return Agent{}, conflictError{"That terminal already belongs to an agent."}
+		}
 		return Agent{}, fmt.Errorf("store: update agent: %w", err)
 	}
 	if p.SessionPath != nil && a.SessionPath != nil {
@@ -530,6 +545,10 @@ func (s *Store) ListAllAgents() ([]Agent, error) {
 
 // DeleteAgent removes one agent. Workspace is kept.
 func (s *Store) DeleteAgent(id string) error {
+	a, err := s.GetAgent(id)
+	if err != nil {
+		return err
+	}
 	_, _ = s.db.Exec(`DELETE FROM agent_checklists WHERE agent_id = ?`, id)
 	res, err := s.db.Exec(`DELETE FROM agents WHERE id = ?`, id)
 	if err != nil {
@@ -539,5 +558,8 @@ func (s *Store) DeleteAgent(id string) error {
 		return ErrNotFound
 	}
 	s.note("agent.deleted", nil, nil, idData(id))
+	if a.TerminalID != nil && strings.TrimSpace(*a.TerminalID) != "" {
+		_ = s.DeleteTerminal(*a.TerminalID)
+	}
 	return nil
 }
