@@ -15,16 +15,15 @@ there is still only one session writer. A broker routes messages between
 agents through a Go MCP server (`picode-communication`), so agents talk to
 each other using the MCP tool protocol.
 
-Agent CLIs (ADR-0069) is a separate terminal manager for installed Pi, Claude
-Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code and Antigravity
-commands. It reuses terminal records, tmux, invocation wrappers and the event
-feed. Muse Code, Antigravity and Omp are full catalog rows (sessions,
-editable launch, activity where the vendor surface carries identity —
-omp reports through a pi-shaped extension since it is a Pi fork). These are
-not Agent records: structured chat, JSON-RPC and Pi packages stay Pi-only
-(ADR-0091). A workspace may bind a CLI terminal as a **managed principal**
-(ADR-0159, `term:<id>`) without a composer or `Runtime.Start`; Inbox, fleet
-and automations rekey onto that identity in later slices.
+Agent CLIs (ADR-0069) is the **interactive** stack for installed Pi, Claude
+Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code, Antigravity and Omp:
+catalog, launch, tmux, sensors, pins. A workspace *instance* of a launchable
+CLI is an **agent** (`agents.cli`, ADR-0160) — the same class as Pi, with
+only interactive mode until that CLI gets a managed adapter. Structured
+chat, JSON-RPC and Pi packages stay Pi-only (ADR-0091). `Runtime.Start`
+(`pi --mode rpc`) refuses a non-Pi agent. Unbound `#/clis/new` terminals
+and project shells stay terminals, not agents. `managed_clis` (ADR-0159)
+is transitional until those rows migrate onto `agents`.
 
 `picode install` (ADR-0018) enables a systemd **user** unit so it starts with
 this Linux session (WSL included). Its `KillMode=process` leaves tmux-owned

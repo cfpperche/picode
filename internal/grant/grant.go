@@ -21,9 +21,9 @@ const (
 	KindTerminal Kind = "terminal"
 )
 
-// Principal is a managed actor: a Pi agent row, or an Agent CLI terminal
-// bound to a workspace. Guests never become agent rows. The zero value is
-// unmanaged — no key, no grant of its own.
+// Principal is a managed actor: an agents row (ADR-0160, any catalog CLI),
+// or a terminal that is not an agent (unbound CLI / shell). The zero value
+// is unmanaged — no key, no grant of its own.
 type Principal struct {
 	Kind Kind   `json:"kind"`
 	ID   string `json:"id"`

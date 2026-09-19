@@ -2,10 +2,12 @@
 
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
-A **principal** is who a grant, Inbox item, or automation is for. Pi agents
-are rows in `agents`. Guest coding CLIs stay Agent CLI terminals
-(ADR-0069). This subsystem binds a terminal to a workspace as a durable
-identity without making it an agent.
+A **principal** is who a grant, Inbox item, or automation is for.
+ADR-0160: a workspace instance of a launchable CLI **is an agent**
+(`agents.cli`). This file still describes the ADR-0159 `managed_clis`
+binding (transitional) until the migrate slice copies those rows onto
+`agents`. Unbound CLI terminals stay terminals. `Runtime.Start` never
+runs for a non-Pi agent.
 
 `internal/grant.Principal` is `{kind: agent|terminal, id}`. `Key()` is the
 house spelling ADR-0143 already uses: the agent id, or `term:<id>`.

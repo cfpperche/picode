@@ -7,16 +7,22 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/session"
 )
 
 func stringsTrimSpace(s string) string { return strings.TrimSpace(s) }
 
-// Agent is a configured pi instance in a workspace.
+// CLIPi is the catalog id for the Pi runtime (ADR-0160).
+const CLIPi = "pi"
+
+// Agent is a configured runtime in a workspace (ADR-0160): Pi by default,
+// or any launchable catalog CLI. Managed RPC (`Runtime.Start`) is Pi-only.
 type Agent struct {
 	ID               string   `json:"id"`
 	WorkspaceID      string   `json:"workspaceId"`
 	Name             string   `json:"name"`
+	CLI              string   `json:"cli"`
 	CreatedAt        string   `json:"createdAt"`
 	Provider         *string  `json:"provider"`
 	Model            *string  `json:"model"`
@@ -33,19 +39,43 @@ type Agent struct {
 	PackagesIsolated bool     `json:"packagesIsolated"`
 }
 
-const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, session_path, last_started_at, last_status, last_status_at, work_path, packages, packages_isolated, checklist`
+const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, session_path, last_started_at, last_status, last_status_at, work_path, packages, packages_isolated, checklist, cli`
 
 func scanAgent(row interface{ Scan(...any) error }, a *Agent) error {
 	var pkgs string
 	var isolated int
 	err := row.Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
-		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath, &pkgs, &isolated, &a.Checklist)
+		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath, &pkgs, &isolated, &a.Checklist, &a.CLI)
 	if err != nil {
 		return err
 	}
 	a.Packages = decodePackages(pkgs)
 	a.PackagesIsolated = isolated != 0
+	if strings.TrimSpace(a.CLI) == "" {
+		a.CLI = CLIPi
+	}
 	return nil
+}
+
+// IsPi is true when managed RPC (`pi --mode rpc`) may start this agent.
+func (a Agent) IsPi() bool {
+	c := strings.TrimSpace(a.CLI)
+	return c == "" || strings.EqualFold(c, CLIPi)
+}
+
+func normalizeAgentCLI(cli string) (string, error) {
+	cli = strings.TrimSpace(cli)
+	if cli == "" {
+		cli = CLIPi
+	}
+	entry, ok := clilaunch.Find(cli)
+	if !ok {
+		return "", invalidError{"Unknown CLI."}
+	}
+	if !entry.Launchable() {
+		return "", invalidError{"That CLI cannot run as an agent."}
+	}
+	return entry.ID, nil
 }
 
 func decodePackages(raw string) []string {
@@ -401,9 +431,27 @@ func emptyToNil(s string) *string {
 	return &s
 }
 
-// AddAgent creates an agent in a workspace (use FreeWorkspaceID for unbound).
+// AddAgent creates a Pi agent in a workspace (use FreeWorkspaceID for unbound).
 func (s *Store) AddAgent(workspaceID, name, workPath string) (Agent, error) {
+	if stringsTrimSpace(name) == "" {
+		return Agent{}, fmt.Errorf("store: name is required")
+	}
+	return s.AddAgentWithCLI(workspaceID, CLIPi, name, workPath)
+}
+
+// AddAgentWithCLI creates an agent for a launchable catalog CLI (ADR-0160).
+// Empty cli is Pi. Name may be empty: the catalog name is used.
+func (s *Store) AddAgentWithCLI(workspaceID, cli, name, workPath string) (Agent, error) {
+	cli, err := normalizeAgentCLI(cli)
+	if err != nil {
+		return Agent{}, err
+	}
 	name = stringsTrimSpace(name)
+	if name == "" {
+		if e, ok := clilaunch.Find(cli); ok {
+			name = e.Name
+		}
+	}
 	if name == "" {
 		return Agent{}, fmt.Errorf("store: name is required")
 	}
@@ -417,15 +465,16 @@ func (s *Store) AddAgent(workspaceID, name, workPath string) (Agent, error) {
 		ID:          newID(name, "agent"),
 		WorkspaceID: workspaceID,
 		Name:        name,
+		CLI:         cli,
 		CreatedAt:   nowUTC(),
 		LastStatus:  StatusNeverStarted,
 		WorkPath:    emptyToNil(workPath),
 	}
-	if _, err := s.db.Exec(`INSERT INTO agents (id, workspace_id, name, created_at, last_status, work_path) VALUES (?, ?, ?, ?, ?, ?)`,
-		a.ID, a.WorkspaceID, a.Name, a.CreatedAt, a.LastStatus, a.WorkPath); err != nil {
+	if _, err := s.db.Exec(`INSERT INTO agents (id, workspace_id, name, created_at, last_status, work_path, cli) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		a.ID, a.WorkspaceID, a.Name, a.CreatedAt, a.LastStatus, a.WorkPath, a.CLI); err != nil {
 		return Agent{}, fmt.Errorf("store: insert agent: %w", err)
 	}
-	a, err := s.GetAgent(a.ID)
+	a, err = s.GetAgent(a.ID)
 	if err != nil {
 		return Agent{}, err
 	}
