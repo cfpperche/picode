@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-btab-annotate-overlay"
+description = "Enables the btab_annotate_overlay command without any pre-configured scope."
+commands.allow = ["btab_annotate_overlay"]
+
+[[permission]]
+identifier = "deny-btab-annotate-overlay"
+description = "Denies the btab_annotate_overlay command without any pre-configured scope."
+commands.deny = ["btab_annotate_overlay"]

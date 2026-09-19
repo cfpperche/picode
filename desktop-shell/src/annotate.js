@@ -651,6 +651,12 @@
     // The pull door: the shell calls this through ExecuteScript and hands the
     // JSON straight to the strip. Null while the mode is off.
     state: () => (on ? statePayload() : null),
+    // The picture the agent gets must show the PAGE, not our own pin and
+    // chip: the chrome hides this overlay around its capture and shows it
+    // again. The first clean shot proved why — the crop came back as a photo
+    // of the annotation card covering the element (owner 2026-09-19).
+    hide: () => { host.style.visibility = "hidden"; },
+    show: () => { host.style.visibility = ""; },
   };
   enter();
 })();
