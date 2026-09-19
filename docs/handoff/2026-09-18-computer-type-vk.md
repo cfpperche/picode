@@ -14,12 +14,14 @@ the layout lacks (á on US, emoji), AltGr characters (Ctrl+Alt would fire
 shortcuts) and dead keys (`MAPVK_VK_TO_CHAR` high bit; ´ ^ ~ ' " on
 US-International). `TYPE_PACE` and `MAX_TYPE` unchanged.
 
-Proof: cross `cargo check` clean; `make desktop-shell` builds; live after
-`make desktop-restart`: a long sentence with digits and punctuation under
-load lands intact (read back with `snapshot`). Layout used: ENG.
+Proof: cross `cargo check` clean; `make desktop-shell` builds. Live, after
+`make desktop-restart`, under load: the sentence lands intact in Windows
+Terminal (cmd), but Windows 11 Notepad (WinUI) still reads shifted keys
+unshifted and drops some — that app, not the injection. Layout: ENG.
 
 ## Next up
 - Owner: `make desktop-restart`, then type the same sentence again while other sessions are busy.
 
 ## Debts
+- WinUI apps (Notepad, Settings) garble synthetic keystrokes when behind; a `mode: "paste"` for `type` (clipboard + Ctrl+V, clipboard restored) is the workaround to offer.
 - The shell resolves keys against its own thread's layout; a target app on another layout gets the shell's mapping. Unicode-packet text is layout-free; keystrokes are not.
