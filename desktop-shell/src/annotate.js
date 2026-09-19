@@ -139,7 +139,7 @@
       .sel { background: rgba(74, 158, 255, 0.16); }
       .pin { position: fixed; min-width: 18px; height: 18px; padding: 0 2px; border-radius: 999px; background: #4a9eff; color: #fff; font: 600 11px/18px system-ui, sans-serif; text-align: center; pointer-events: auto; cursor: pointer; display: none; box-shadow: 0 1px 4px rgba(0,0,0,.35); box-sizing: border-box; }
       .pin.on { outline: 2px solid #fff; box-shadow: 0 0 0 4px rgba(74,158,255,.55), 0 1px 4px rgba(0,0,0,.35); }
-      .card { position: fixed; display: none; pointer-events: auto; background: #fff; color: #111; border: 1px solid rgba(0,0,0,.12); border-radius: 10px; box-shadow: 0 6px 22px rgba(0,0,0,.28); padding: 8px; font: 13px/1.4 system-ui, sans-serif; width: 320px; max-width: calc(100vw - 8px); box-sizing: border-box; }
+      .card { position: fixed; display: none; pointer-events: auto; background: #fff; color: #111; border: 1px solid rgba(0,0,0,.12); border-radius: 10px; box-shadow: 0 6px 22px rgba(0,0,0,.28); padding: 8px; font: 13px/1.4 system-ui, sans-serif; width: 328px; max-width: calc(100vw - 8px); box-sizing: border-box; }
       .card .row { display: flex; align-items: center; gap: 6px; }
       .card .mark { flex: none; width: 22px; height: 22px; border-radius: 6px; background: rgba(74,158,255,.14); color: #1f6feb; font: 600 13px/22px system-ui, sans-serif; text-align: center; }
       .card input { border: 0; outline: 0; font: inherit; color: inherit; background: transparent; min-width: 0; flex: 1; }
@@ -156,7 +156,7 @@
       .card .styles .scount { color: #1f6feb; font-weight: 600; }
       .card .styles .chev { margin-left: auto; color: #888; font-weight: 400; }
       .card .styles[open] .chev { transform: rotate(180deg); }
-      .card .sgrid { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 5px 6px; align-items: center; margin-top: 7px; }
+      .card .sgrid { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 5px 6px; align-items: center; margin-top: 7px; }
       .card .slab { color: #666; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .card .sctl { display: flex; align-items: center; gap: 4px; min-width: 0; }
       .card .sctl > input, .card .sctl > select { height: 22px; min-width: 0; box-sizing: border-box; border: 1px solid rgba(0,0,0,.16); border-radius: 5px; background: #fff; color: #111; font: 11px/1.2 system-ui, sans-serif; }
