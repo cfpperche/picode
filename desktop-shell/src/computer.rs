@@ -77,6 +77,11 @@ fn grants() -> &'static Mutex<HashSet<String>> {
 struct Desk {
     frames: HashMap<String, Frame>,
     shots: HashMap<String, Vec<u8>>,
+    /// The window in front when each principal last looked (a capture) or
+    /// chose (`focus`). Input acts on whatever is in front, and the human
+    /// moves the front with every click of their own: an action lands only
+    /// while the front is still what the principal saw (ADR-0156).
+    seen: HashMap<String, isize>,
     seq: u64,
     uia: Option<uia::Uia>,
     held_keys: Vec<u16>,
@@ -261,6 +266,7 @@ fn finish_frame(desk: &mut Desk, principal: &str, shot: capture::Shot, window: O
     desk.seq += 1;
     desk.frames.insert(principal.to_string(), frame);
     desk.shots.insert(principal.to_string(), png.clone());
+    desk.seen.insert(principal.to_string(), desktop::foreground_root());
     Ok(json!({
         "ok": true,
         "image": b64::encode(&png),
@@ -277,6 +283,28 @@ fn finish_frame(desk: &mut Desk, principal: &str, shot: capture::Shot, window: O
             "preview": format!("data:image/jpeg;base64,{}", b64::encode(&jpg)),
         }
     }))
+}
+
+/// The foreground guard (ADR-0156): an input action runs only while the
+/// window in front is the one this principal last captured or focused.
+/// Measured 2026-09-18: a `type` meant for Notepad landed in the human's
+/// own terminal because they clicked it between the agent's look and its
+/// keystrokes. The head `foreground_changed` tells the model to look
+/// again (or `focus`) instead of retrying.
+fn same_front(desk: &Desk, principal: &str) -> Result<(), String> {
+    let front = desktop::foreground_root();
+    match desk.seen.get(principal) {
+        None => Err("foreground_changed: you have not looked at the screen yet — take a screenshot, or focus the window you mean, before acting".into()),
+        Some(&seen) if seen == front => Ok(()),
+        Some(_) => {
+            let displays = desktop::displays();
+            let now = match desktop::window(front, &displays) {
+                Some(w) => format!("{} \"{}\" (id {})", w.exe, w.title, front),
+                None => "another window".into(),
+            };
+            Err(format!("foreground_changed: the window in front is now {now}, not the one you last saw — the human moved; take a screenshot, or focus the window you mean, before acting"))
+        }
+    }
 }
 
 fn display_of(displays: &[desktop::DisplayInfo], x: i32, y: i32) -> usize {
@@ -367,6 +395,7 @@ fn modifiers(params: &Value) -> Result<Vec<u16>, String> {
 }
 
 fn click(desk: &mut Desk, principal: &str, params: &Value, b: input::Button, count: u32) -> Result<Value, String> {
+    same_front(desk, principal)?;
     if let Some(p) = point(params, "coordinate")? {
         let (px, py) = physical(desk, principal, p)?;
         input::move_to(px, py)?;
@@ -385,6 +414,7 @@ fn click(desk: &mut Desk, principal: &str, params: &Value, b: input::Button, cou
 }
 
 fn drag(desk: &mut Desk, principal: &str, params: &Value) -> Result<Value, String> {
+    same_front(desk, principal)?;
     let start = point(params, "start_coordinate")?.ok_or("left_click_drag: start_coordinate is required")?;
     let end = point(params, "coordinate")?.ok_or("left_click_drag: coordinate is required")?;
     let (sx, sy) = physical(desk, principal, start)?;
@@ -443,6 +473,7 @@ fn run(desk: &mut Desk, job: &Job) -> Result<Reply, String> {
         "focus" => {
             let id = int(p, "window").ok_or("focus: window (an id from windows) is required")?;
             desktop::focus(id as isize)?;
+            desk.seen.insert(principal.to_string(), id as isize);
             let displays = desktop::displays();
             json(Ok(json!({ "ok": true, "window": desktop::window(id as isize, &displays), "meta": {} })))
         }
@@ -453,12 +484,14 @@ fn run(desk: &mut Desk, job: &Job) -> Result<Reply, String> {
         "triple_click" => json(click(desk, principal, p, input::Button::Left, 3)),
         "left_click_drag" => json(drag(desk, principal, p)),
         "mouse_move" => {
+            same_front(desk, principal)?;
             let pt = point(p, "coordinate")?.ok_or("mouse_move: coordinate is required")?;
             let (px, py) = physical(desk, principal, pt)?;
             input::move_to(px, py)?;
             json(Ok(json!({ "ok": true, "screen": [px, py], "meta": {} })))
         }
         "left_mouse_down" | "left_mouse_up" => {
+            same_front(desk, principal)?;
             if let Some(pt) = point(p, "coordinate")? {
                 let (px, py) = physical(desk, principal, pt)?;
                 input::move_to(px, py)?;
@@ -473,6 +506,7 @@ fn run(desk: &mut Desk, job: &Job) -> Result<Reply, String> {
             json(Ok(json!({ "ok": true, "meta": {} })))
         }
         "scroll" => {
+            same_front(desk, principal)?;
             if let Some(pt) = point(p, "coordinate")? {
                 let (px, py) = physical(desk, principal, pt)?;
                 input::move_to(px, py)?;
@@ -491,6 +525,7 @@ fn run(desk: &mut Desk, job: &Job) -> Result<Reply, String> {
             json(recapture(desk, principal))
         }
         "type" => {
+            same_front(desk, principal)?;
             let t = text(p, "text").ok_or("type: text is required")?;
             if t.chars().count() > input::MAX_TYPE {
                 return Err(format!("type: {} characters is more than one call types ({}) — split it", t.chars().count(), input::MAX_TYPE));
@@ -500,6 +535,7 @@ fn run(desk: &mut Desk, job: &Job) -> Result<Reply, String> {
             json(recapture(desk, principal))
         }
         "key" => {
+            same_front(desk, principal)?;
             let t = text(p, "text").ok_or("key: text is required (for example ctrl+s, Return, alt+F4)")?;
             let chord = keys::parse_chord(&t)?;
             let repeat = int(p, "repeat").unwrap_or(1).clamp(1, MAX_REPEAT as i64);
@@ -513,6 +549,7 @@ fn run(desk: &mut Desk, job: &Job) -> Result<Reply, String> {
             json(recapture(desk, principal))
         }
         "hold_key" => {
+            same_front(desk, principal)?;
             let t = text(p, "text").ok_or("hold_key: text is required")?;
             let chord = keys::parse_chord(&t)?;
             let secs = num(p, "duration").unwrap_or(1.0).clamp(0.0, MAX_WAIT_SECS);

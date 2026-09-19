@@ -24,7 +24,7 @@ var computerGuidelines = []string{
 	"Clicks, typing, scrolling and keys return a fresh image: read it before the next step. `windows` lists what is open; `focus` brings a window forward before you type into it.",
 	"`snapshot` reads a window's accessibility tree with each element's centre in the last image — use it to find small controls and to read text back instead of guessing from pixels.",
 	"You act with the human's permissions on their desktop. Before paying, sending a message, deleting or overwriting files, or typing a password, stop and confirm with the human.",
-	"A refusal names what is missing (the grant, the desktop app, a stale window id); say so and do not retry around it.",
+	"A refusal names what is missing (the grant, the desktop app, a stale window id, a window that is no longer in front: `foreground_changed` means the human moved — look again or `focus` the window, then act); say so and do not retry around it.",
 }
 
 // actionsWithImage answer with a fresh capture (the pi package's set).

@@ -61,6 +61,15 @@ paying, sending a message, deleting files or typing a password.
 | A CLI in a PiCode terminal | the terminal's id | its own switch, listed by the terminal's name |
 | A `pi` you started yourself | none | refused, always |
 
+## Where a click or a keystroke lands
+
+Input goes to the window in front, and you move the front with every click
+of your own. So the agent may click, type or press keys only while the
+window in front is still the one it last looked at (its last screenshot)
+or chose (`focus`). If you clicked elsewhere in between, the action is
+refused and the agent is told to look again — nothing is typed into what
+you are using. The refusal is one of the rows on Settings ▸ Computer.
+
 ## What you see
 
 Every call, allowed or refused, is listed on **Settings ▸ Computer** and
