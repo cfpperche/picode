@@ -894,6 +894,12 @@ fn close_inner(
             ANNOTATE_RECEIVERS.with(|r| {
                 r.borrow_mut().remove(&tab);
             });
+            ANNOTATE_NAV.with(|r| {
+                r.borrow_mut().remove(&tab);
+            });
+            if let Ok(mut tabs) = annotate_tabs().lock() {
+                tabs.remove(&tab);
+            }
             PENDING_PERMISSIONS.with(|p| {
                 let mut map = p.borrow_mut();
                 let asks: Vec<u64> = map
@@ -987,10 +993,19 @@ pub async fn btab_open_external(url: String) -> Result<(), String> {
 
 // The script is injected into the live page (never over it: WebView2 forbids
 // painting HTML over a native child), so the page keeps running and the
-// overlay is the page's own DOM. The mode's own state lives in the page (the
-// script instance) and in the receiver map below — the old `annotate_tabs`
-// set was written and never read, and it was never pruned on close, which is
-// how a stale entry taught the arm path to skip a subscription.
+// overlay is the page's own DOM. The mode's state lives in the page (the
+// script instance), in the receiver maps below, and in the set of armed
+// tabs — every one of them pruned on close, because a stale entry is what
+// taught the arm path to skip a subscription and leave a page silent.
+
+// Tabs whose annotate mode is on: a completed navigation means a new
+// document, and the re-injection below reads this to know whether the mode
+// should survive it.
+fn annotate_tabs() -> &'static std::sync::Mutex<std::collections::HashSet<String>> {
+    static TABS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<String>>> =
+        std::sync::OnceLock::new();
+    TABS.get_or_init(|| std::sync::Mutex::new(std::collections::HashSet::new()))
+}
 
 thread_local! {
     // One message receiver per annotate-enabled tab, with the token that
@@ -1002,6 +1017,13 @@ thread_local! {
     // while every message went nowhere, silently (owner 2026-09-18: a saved
     // chip and a Send that never lit up).
     static ANNOTATE_RECEIVERS: std::cell::RefCell<std::collections::HashMap<String, (webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2WebMessageReceivedEventHandler, i64)>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+
+    // The navigation hook that keeps the mode alive across a full page load
+    // (the script belongs to the document, and a new document has none):
+    // REINJECT_SCRIPT, which is the same idempotent script, is executed on
+    // every completed navigation while the tab is armed.
+    static ANNOTATE_NAV: std::cell::RefCell<std::collections::HashMap<String, (webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2NavigationCompletedEventHandler, i64)>> =
         std::cell::RefCell::new(std::collections::HashMap::new());
 }
 
@@ -1025,7 +1047,7 @@ pub async fn btab_annotate_mode(app: AppHandle, id: String, on: bool) -> Result<
     let emitter = app.clone();
     let tab = id.clone();
     let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
-    wv.with_webview(move |platform| unsafe {
+    let _ = wv.with_webview(move |platform| unsafe {
         use webview2_com::WebMessageReceivedEventHandler;
         use windows::core::{HSTRING, PWSTR};
         let core = match platform.controller().CoreWebView2() {
@@ -1038,7 +1060,7 @@ pub async fn btab_annotate_mode(app: AppHandle, id: String, on: bool) -> Result<
         if let Ok(settings) = core.Settings() {
             let _ = settings.SetIsWebMessageEnabled(true);
         }
-        // (Re)subscribe every arm: the old registration (if any) is removed
+        // (Re)subscribe every arm: the old registrations (if any) are removed
         // first, so a webview recreated under the same id gets a live channel
         // instead of inheriting the map's stale key, and a re-arm never
         // double-delivers. Removal on a dead core fails harmlessly.
@@ -1046,7 +1068,11 @@ pub async fn btab_annotate_mode(app: AppHandle, id: String, on: bool) -> Result<
         if let Some((_handler, token)) = previous {
             let _ = core.remove_WebMessageReceived(token);
         }
-        {
+        let previous_nav = ANNOTATE_NAV.with(|r| r.borrow_mut().remove(&tab));
+        if let Some((_handler, token)) = previous_nav {
+            let _ = core.remove_NavigationCompleted(token);
+        }
+        if on {
             let emitter = emitter.clone();
             let tab_for_handler = tab.clone();
             let handler = WebMessageReceivedEventHandler::create(Box::new(move |_sender, args| {
@@ -1070,6 +1096,33 @@ pub async fn btab_annotate_mode(app: AppHandle, id: String, on: bool) -> Result<
             ANNOTATE_RECEIVERS.with(|r| {
                 r.borrow_mut().insert(tab.clone(), (handler, token));
             });
+            // The mode lives in the document, and a navigation is a new
+            // document: without this the overlay vanished while the strip
+            // still said it was on (the REINJECT_SCRIPT debt, 2026-09-19).
+            // The script is idempotent and its enter() re-reports the state,
+            // so re-executing it on every completed navigation is safe.
+            let nav_core = core.clone();
+            let nav_tab = tab.clone();
+            let nav = webview2_com::NavigationCompletedEventHandler::create(Box::new(move |_sender, _args| {
+                let armed = annotate_tabs()
+                    .lock()
+                    .map(|s| s.contains(&nav_tab))
+                    .unwrap_or(false);
+                if armed {
+                    let _ = unsafe {
+                        nav_core.ExecuteScript(&HSTRING::from(crate::annotate::REINJECT_SCRIPT), None)
+                    };
+                }
+                Ok(())
+            }));
+            let mut nav_token = 0i64;
+            if let Err(e) = core.add_NavigationCompleted(&nav, &mut nav_token) {
+                let _ = tx.send(Err(format!("add_NavigationCompleted: {e}")));
+                return;
+            }
+            ANNOTATE_NAV.with(|r| {
+                r.borrow_mut().insert(tab.clone(), (nav, nav_token));
+            });
         }
         let script = if on {
             crate::annotate::SCRIPT
@@ -1087,6 +1140,15 @@ pub async fn btab_annotate_mode(app: AppHandle, id: String, on: bool) -> Result<
     });
     let out = rx.recv().unwrap_or_else(|_| Err("the shell did not answer".into()));
     out?;
+    // The set the navigation hook reads. Written only after the webview's
+    // thread did its part, so a navigation that lands in between sees the
+    // mode as still off and the next arm re-injects anyway.
+    let mut tabs = annotate_tabs().lock().unwrap();
+    if on {
+        tabs.insert(id);
+    } else {
+        tabs.remove(&id);
+    }
     Ok(())
 }
 
@@ -1104,7 +1166,7 @@ pub async fn btab_annotate_clear(app: AppHandle, id: String, last: Option<bool>)
         .or_else(|| app.get_webview(&label(&tail)))
         .ok_or_else(|| format!("no such tab: {id}"))?;
     let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
-    wv.with_webview(move |platform| unsafe {
+    let _ = wv.with_webview(move |platform| unsafe {
         use windows::core::HSTRING;
         let core = match platform.controller().CoreWebView2() {
             Ok(core) => core,

@@ -198,6 +198,27 @@ mod tests {
         assert_eq!(REINJECT_SCRIPT, SCRIPT);
     }
 
+    // The mode lives in the document, so the shell must re-inject it on a
+    // completed navigation. The guard is static (btab.rs is Windows-only
+    // code — it cannot run here), and it exists because the constant sat
+    // unused while the overlay died on every full page load (2026-09-19).
+    #[test]
+    fn the_shell_reinjects_on_a_completed_navigation() {
+        let shell = include_str!("btab.rs");
+        assert!(
+            shell.contains("add_NavigationCompleted"),
+            "the navigation hook is gone: the mode dies on a full page load"
+        );
+        assert!(
+            shell.contains("crate::annotate::REINJECT_SCRIPT"),
+            "the hook must reinject the one script"
+        );
+        assert!(
+            shell.contains("remove_NavigationCompleted"),
+            "re-arming must drop the previous hook"
+        );
+    }
+
     // The pick payload carries what the note and the future editor need.
     #[test]
     fn the_pick_payload_names_its_fields() {

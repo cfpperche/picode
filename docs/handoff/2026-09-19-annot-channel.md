@@ -26,3 +26,6 @@ arm wrote and nothing ever read) was never pruned either.
 - `REINJECT_SCRIPT` is still never called (warning in the cross-build): a
   full page navigation while the mode is on loses the script and the strip
   keeps claiming it is armed. A NavigationCompleted hook is the fix.
+  — **paid 2026-09-19** by `feat/annot-nav`: the hook is wired, the set it
+  reads is pruned on close and on mode-off, and the cross-build stopped
+  warning about the constant.
