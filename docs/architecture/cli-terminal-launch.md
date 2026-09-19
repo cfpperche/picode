@@ -74,8 +74,12 @@ in-use guards) stays on its own endpoints.
 `restart` and `remove` POST routes serialize per terminal. Start is idempotent
 while live, Stop retains configuration, and active destructive actions require
 confirmation. Restart validates the next executable and directory before
-ending the current session. A CLI exit returns to an interactive shell;
-browser/daemon reconnect only reconciles, never restarts work automatically.
+ending the current session. When a conversation is pinned, Restart prepares
+that session's verified resume arguments for the next generation (ADR-0158;
+same one-shot recipe as `start` with `resume: true`); without a pin it
+applies current settings to a fresh conversation. A CLI exit returns to an
+interactive shell; browser/daemon reconnect only reconciles, never restarts
+work automatically.
 
 Manual CLI commands in ordinary terminals retain session-local wrapper
 instrumentation. Launch defaults apply to the central manager, not to commands
@@ -245,7 +249,8 @@ Snapshots include injected branches/files and executable identity. Pending
 state detects configuration and binary changes; the editor compares next and
 last-applied settings and lists terminals affected by a defaults edit. Restart
 prepares all launch artifacts before stopping the existing process, then uses
-that exact generation. Spawn failure after stopping is reported without claiming
+that exact generation — including the pinned session's resume recipe when one
+exists (ADR-0158). Spawn failure after stopping is reported without claiming
 rollback. Workspace deletion holds terminal locks and collects exact private
 launch directories; native CLI data and unrelated terminal directories survive.
 

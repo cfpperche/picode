@@ -16,6 +16,7 @@ const row = (rows, id) => rows.find((r) => r.id === id);
 test("a running terminal offers restart and stop, not start", () => {
   const rows = termRowMenu({ id: "t1", running: true });
   assert.deepEqual(ids(rows), ["rename", "launch", "settings", "restart", "stop", "remove"]);
+  assert.match(row(rows, "restart").title, /same conversation/);
 });
 
 test("a stopped terminal offers start, not restart or stop", () => {

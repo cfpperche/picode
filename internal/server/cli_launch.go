@@ -671,10 +671,7 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 				writeErr(w, 400, "No previous session recorded for this terminal yet.")
 				return
 			}
-			resumeLaunch := *launch
-			args := terminalResumeArgs(ls)
-			resumeLaunch.Overrides.Args = &args
-			prepared, perr := prepareCLITerminal(deps, t.Cwd, &resumeLaunch)
+			prepared, perr := prepareCLITerminal(deps, t.Cwd, launchWithPinnedSession(launch))
 			if perr != nil {
 				recordCLILaunchAttempt(deps, id, perr)
 				writeErr(w, 400, perr.Error())
@@ -693,13 +690,17 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 		}
 		var prepared *preparedCLILaunch
 		if action == "restart" {
-			launch, err := deps.Store.TerminalLaunch(id)
+			// Pin first so the next generation can reopen the conversation
+			// (ADR-0158). Prepare still runs before kill: a bad resume recipe
+			// must not destroy the live pane.
+			pinCLITerminalLastSession(deps, id, t)
+			launch, err = deps.Store.TerminalLaunch(id)
 			if err != nil {
 				writeStoreErr(w, err)
 				return
 			}
 			if launch != nil {
-				prepared, err = prepareCLITerminal(deps, t.Cwd, launch)
+				prepared, err = prepareCLITerminal(deps, t.Cwd, launchWithPinnedSession(launch))
 				if err != nil {
 					recordCLILaunchAttempt(deps, id, err)
 					writeErr(w, 400, err.Error())
@@ -716,29 +717,7 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 			// Last chance to pin the native conversation before the pane goes
 			// away (ADR-0084).
 			if action != "remove" {
-				pinned := false
-				if deps.TermRuntimes != nil {
-					if rt, ok := deps.TermRuntimes.Get(id); ok && rt.CLI != "" {
-						pinTerminalLastSession(deps, id, rt)
-						pinned = true
-					}
-				}
-				if !pinned && deps.Store != nil {
-					if launch, err := deps.Store.TerminalLaunch(id); err == nil && launch != nil && launch.CLI != "" {
-						// Wrapper-less CLIs (muse, agy) never register a
-						// runtime, so the pin above never fires for them:
-						// pin the latest session written in this folder
-						// instead. Same Latest() recovery heuristic (and
-						// same grok/hermes exclusion inside); a missed pin
-						// only costs the resume shortcut and Continue in…,
-						// never the terminal.
-						var since time.Time
-						if at, err := time.Parse(time.RFC3339Nano, t.CreatedAt); err == nil {
-							since = at
-						}
-						pinTerminalLastSession(deps, id, TermRuntime{CLI: launch.CLI, StartedAt: since})
-					}
-				}
+				pinCLITerminalLastSession(deps, id, t)
 			}
 			// Stop escalation (ADR-0085): the pane root ignores SIGHUP now, so
 			// a plain kill-session would leave it running headless. Kill the
@@ -811,6 +790,34 @@ func publishTerminalState(deps Deps, r *http.Request, t store.Terminal, live boo
 			pinTerminalLastSession(deps, t.ID, rt)
 		}
 	}
+}
+
+// pinCLITerminalLastSession is the last-chance pin before stop/restart
+// (ADR-0084). Wrapper runtimes pin from the live run; wrapper-less CLIs
+// (muse, agy) never register one, so the latest session written in this
+// folder after the terminal's creation is used instead. Same Latest()
+// heuristic (and same grok/hermes exclusion inside). A missed pin only
+// costs the resume shortcut and Continue in…, never the terminal.
+func pinCLITerminalLastSession(deps Deps, id string, t store.Terminal) {
+	pinned := false
+	if deps.TermRuntimes != nil {
+		if rt, ok := deps.TermRuntimes.Get(id); ok && rt.CLI != "" {
+			pinTerminalLastSession(deps, id, rt)
+			pinned = true
+		}
+	}
+	if pinned || deps.Store == nil {
+		return
+	}
+	launch, err := deps.Store.TerminalLaunch(id)
+	if err != nil || launch == nil || launch.CLI == "" {
+		return
+	}
+	var since time.Time
+	if at, err := time.Parse(time.RFC3339Nano, t.CreatedAt); err == nil {
+		since = at
+	}
+	pinTerminalLastSession(deps, id, TermRuntime{CLI: launch.CLI, StartedAt: since})
 }
 
 // pinTerminalLastSession resolves the native CLI session this terminal is
@@ -1174,10 +1181,30 @@ func applyTerminalLaunch(deps Deps, view map[string]any, id string) {
 
 // Pi's catalog uses its own session UI, but a terminal resume needs its file.
 func terminalResumeArgs(ls *store.TerminalLastSession) []string {
+	if ls == nil {
+		return nil
+	}
 	if ls.CLI == "pi" && ls.Path != "" {
 		return []string{"--session", ls.Path}
 	}
 	return append([]string{}, ls.ResumeArgs...)
+}
+
+// launchWithPinnedSession returns a one-shot copy of v whose argument
+// override is the pinned session's resume recipe (ADR-0084, ADR-0158).
+// The store record is not written. Other overrides (env, path, executable,
+// tools) stay. When there is nothing to resume, v is returned unchanged.
+func launchWithPinnedSession(v *store.TerminalLaunch) *store.TerminalLaunch {
+	if v == nil || v.LastSession == nil || v.LastSession.SessionID == "" {
+		return v
+	}
+	args := terminalResumeArgs(v.LastSession)
+	if len(args) == 0 {
+		return v
+	}
+	cp := *v
+	cp.Overrides.Args = &args
+	return &cp
 }
 
 // peerResumeExact is the only gate that attaches a conversation credential.

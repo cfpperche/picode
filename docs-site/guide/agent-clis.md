@@ -361,7 +361,7 @@ names for cleanup.
 | Resume last session | Start the terminal and reopen the conversation it was running, using each CLI's verified resume arguments (Claude Code `--resume <id>`, Codex `resume <id>`, Grok `--resume <id>`, Hermes Agent `--resume <id>`, OpenCode `--session <id>`, pi `--session <file>`). Offered on the stopped terminal surface when a conversation is pinned; the surface names the CLI, the conversation and when it last moved. |
 | Continue in… | Open this terminal's conversation in another CLI. The original terminal stays; a new terminal opens, or a stopped Pi agent when you pick "Pi agent · in the app". Offered when a conversation is pinned. |
 | Stop terminal | End its processes but keep the saved terminal and settings. |
-| Restart terminal | Prepare the next launch, end its processes and launch again. This does not automatically resume a conversation. |
+| Restart terminal | Prepare the next launch, end its processes and launch again. A pinned conversation is reopened with that CLI's verified resume arguments (the same recipe as Resume last session). Without a pin, Restart starts a fresh conversation. |
 | Remove terminal | End its processes and remove its PiCode record and launch files. Native CLI data stays yours. |
 
 The action menu names the terminal. Interrupting a live terminal requires
@@ -381,8 +381,9 @@ terminal, its surface offers **Resume last session** — the CLI comes back
 in the same conversation. The pin records what was running, so the button
 shows the recovered work even after the process is gone, and the surface
 names it: the CLI, the conversation and how long ago it last moved (hover
-for the opening words and the exact time). Nothing resumes
-automatically: a plain Start still opens a fresh conversation. Terminals
+for the opening words and the exact time). Nothing resumes automatically after a crash or daemon restart: a plain Start
+still opens a fresh conversation. **Restart terminal** on a live Agent CLI
+is the attended path — it reopens the pinned conversation (ADR-0158). Terminals
 stopped before this feature shipped have no pin; their conversations stay
 reachable in that CLI's Sessions pane via "Open in terminal", and their
 surface says *no session to resume* instead of offering a button it cannot

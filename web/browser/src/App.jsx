@@ -2559,7 +2559,11 @@ export default function App({ shellChrome = false } = {}) {
     const destructive = op === "remove" || (t.running && op !== "start");
     if (destructive && !(await askConfirm({
       title: `${op === "stop" ? "Stop" : op === "restart" ? "Restart" : "Remove"} ${t.name || "terminal"}?`,
-      message: t.running ? "This ends the processes running in this terminal." : "Remove this saved terminal and its launch settings?",
+      message: op === "restart"
+        ? (t.lastSession
+          ? "This ends the processes running in this terminal, then reopens the same conversation."
+          : "This ends the processes running in this terminal.")
+        : t.running ? "This ends the processes running in this terminal." : "Remove this saved terminal and its launch settings?",
       confirmLabel: op === "stop" ? "Stop terminal" : op === "restart" ? "Restart terminal" : "Remove terminal",
       danger: true,
     }))) return;

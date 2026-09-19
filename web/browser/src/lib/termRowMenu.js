@@ -23,7 +23,7 @@ export function termRowMenu(t = {}, { clis } = {}) {
   const launchSettings = !cli || cli.integrationCapable !== false;
   const lifecycle = running
     ? [
-        { id: "restart", label: "Restart terminal", title: "Stop and relaunch with the saved settings." },
+        { id: "restart", label: "Restart terminal", title: "Stop and relaunch this CLI in the same conversation." },
         { id: "stop", label: "Stop terminal", title: "End the processes in this terminal; the launch stays saved." },
       ]
     : [

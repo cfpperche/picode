@@ -139,7 +139,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
   };
   const action = async (t, op) => {
     const destructive = op === "remove" || (t.running && op !== "start");
-    if (destructive && !(await askConfirm({ title: `${op === "remove" ? "Remove" : op === "stop" ? "Stop" : "Restart"} ${t.name}?`, message: t.running ? "This ends the processes running in this terminal." : "Remove this saved terminal and its launch settings?", confirmLabel: op === "remove" ? "Remove terminal" : op === "stop" ? "Stop terminal" : "Restart terminal", danger: true }))) return;
+    if (destructive && !(await askConfirm({ title: `${op === "remove" ? "Remove" : op === "stop" ? "Stop" : "Restart"} ${t.name}?`, message: op === "restart" ? (t.lastSession ? "This ends the processes running in this terminal, then reopens the same conversation." : "This ends the processes running in this terminal.") : t.running ? "This ends the processes running in this terminal." : "Remove this saved terminal and its launch settings?", confirmLabel: op === "remove" ? "Remove terminal" : op === "stop" ? "Stop terminal" : "Restart terminal", danger: true }))) return;
     try {
       await run(t.id + ":" + op, async () => {
         await api(`/api/terminals/${encodeURIComponent(t.id)}/launch/${op}`, json("POST", { confirm: destructive }));

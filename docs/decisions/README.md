@@ -73,7 +73,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0066](0066-docker-project-groups.md) | Docker project groups inside the App, with saved disclosures and search | accepted |
 | [0067](0067-docker-maintenance-plans.md) | Reviewed project operations, selected resource removal, shared jobs and supervised procedures | accepted |
 | [0068](0068-docker-health-monitoring.md) | Opt-in project sampling, deduplicated incidents and supervised diagnosis | accepted |
-| [0069](0069-agent-cli-terminals.md) | Dedicated CLI terminal control, inherited launch settings and invocation-scoped integration | accepted |
+| [0069](0069-agent-cli-terminals.md) | Dedicated CLI terminal control, inherited launch settings and invocation-scoped integration | accepted, Restart-without-resume amended by [0158](0158-cli-restart-resumes-session.md) |
 | [0070](0070-cli-launch-inspection.md) | Inspect launch defaults, copy terminal profiles and separate setup from observed activity | accepted |
 | [0071](0071-desktop-task-reliability.md) | Explicit resident Windows task policy, read-only startup checks and scoped repair | accepted, extends 0020 |
 | [0072](0072-independent-web-applications.md) | Independent desktop/mobile builds and presentation; explicit shared contracts and stable PWA identity | accepted; file/Git scope superseded by 0095 |
@@ -88,7 +88,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0081](0081-terminal-checklists.md) | The internal checklist follows the agent into its terminal: publish target falls back to PICODE_TERM_ID, terminal cards and panes carry the same line | accepted, extends 0055 and 0069 |
 | [0082](0082-browser-capture-sidecar.md) | Browser capture as a standalone sidecar extension: bounded frames over RPC, no patched agent | accepted, supersedes the emitter placement of 0076 |
 | [0083](0083-llama-operation-jobs.md) | Durable model operations, progress, cancellation and reconnect | accepted |
-| [0084](0084-cli-terminal-session-recovery.md) | CLI terminal session recovery — pin the native conversation while alive, resume it in one click after a stop or restart | accepted, extends 0069 and 0079; native communication pinning amended by ADR-0107 |
+| [0084](0084-cli-terminal-session-recovery.md) | CLI terminal session recovery — pin the native conversation while alive, resume it in one click after a stop or restart | accepted, extends 0069 and 0079; native communication pinning amended by ADR-0107; Restart menu resumes the pin (ADR-0158) |
 | [0085](0085-session-forensics.md) | Session forensics — shutdown snapshot + boot diff, SIGHUP-immune pane roots, deploy log | accepted, extends 0084 |
 | [0086](0086-process-cost.md) | The rite around a change costs less than the change: batched guarded deploys, scoped gates, `make close`, a 100-line handoff with per-session files, advisory capture parity | accepted, amends 0018 and 0084/0085; amended 2026-09-08 (docs site path `www/` renamed to `docs-site/`); amended by 0105 (deploy on request, no timer; captures at deploy; changelog fragments; byte cap); amended 2026-09-11 (the readiness guard ignores the pane that is asking) |
 | [0087](0087-cli-lifecycle.md) | CLI lifecycle — update check, update, reinstall, uninstall by orchestrating the vendors' own commands as durable jobs | accepted, extends 0069 and 0083 |
@@ -162,3 +162,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0155](0155-distro-keepalive-task.md) | The distro keepalive is a scheduled task, not the shell's child | proposed |
 | [0156](0156-computer-foreground-guard.md) | computer-foreground-guard — input acts only in the window the agent last saw (amends ADR-0148, refinement d) | proposed |
 | [0157](0157-curated-connector-catalog.md) | curated-connector-catalog | proposed |
+| [0158](0158-cli-restart-resumes-session.md) | Restart an Agent CLI terminal resumes its pinned conversation | accepted, amends 0069 and 0084 |

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/cfpperche/picode/internal/clilaunch"
+	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
 )
 
@@ -32,6 +33,53 @@ func TestClipCLIVersion(t *testing.T) {
 		if got := clipCLIVersion(tc.in); got != tc.want {
 			t.Errorf("clipCLIVersion(%q) = %q, want %q", tc.in, got, tc.want)
 		}
+	}
+}
+
+func TestLaunchWithPinnedSession(t *testing.T) {
+	if launchWithPinnedSession(nil) != nil {
+		t.Fatal("nil launch")
+	}
+	plain := &store.TerminalLaunch{CLI: "claude-code"}
+	if launchWithPinnedSession(plain) != plain {
+		t.Fatal("no pin should return the same pointer")
+	}
+	noID := &store.TerminalLaunch{LastSession: &store.TerminalLastSession{CLI: "claude-code"}}
+	if launchWithPinnedSession(noID) != noID {
+		t.Fatal("empty session id should return the same pointer")
+	}
+	noArgs := &store.TerminalLaunch{LastSession: &store.TerminalLastSession{CLI: "claude-code", SessionID: "s1"}}
+	if launchWithPinnedSession(noArgs) != noArgs {
+		t.Fatal("empty recipe should return the same pointer")
+	}
+	pi := &store.TerminalLaunch{CLI: "pi", LastSession: &store.TerminalLastSession{CLI: "pi", SessionID: "s1", Path: "/p/session.jsonl"}}
+	got := launchWithPinnedSession(pi)
+	if got == pi {
+		t.Fatal("pi resume should copy")
+	}
+	if got.Overrides.Args == nil || !reflect.DeepEqual(*got.Overrides.Args, []string{"--session", "/p/session.jsonl"}) {
+		t.Fatalf("pi args=%v", got.Overrides.Args)
+	}
+	if pi.Overrides.Args != nil {
+		t.Fatal("mutated original pi launch")
+	}
+	defaults := []string{"--default"}
+	cc := &store.TerminalLaunch{
+		CLI:       "claude-code",
+		Overrides: clilaunch.Overrides{Args: &defaults},
+		LastSession: &store.TerminalLastSession{
+			CLI: "claude-code", SessionID: "sess-1", ResumeArgs: []string{"--resume", "sess-1"},
+		},
+	}
+	got = launchWithPinnedSession(cc)
+	if got == cc {
+		t.Fatal("claude resume should copy")
+	}
+	if !reflect.DeepEqual(*got.Overrides.Args, []string{"--resume", "sess-1"}) {
+		t.Fatalf("claude args=%v", *got.Overrides.Args)
+	}
+	if !reflect.DeepEqual(*cc.Overrides.Args, []string{"--default"}) {
+		t.Fatal("mutated original claude args")
 	}
 }
 
@@ -412,6 +460,96 @@ exec cat
 	res = cliRequestFull(t, ts, "POST", "/api/terminals/"+plainID+"/launch/start", map[string]any{"resume": true})
 	if res["status"] != "400" {
 		t.Fatalf("resume without launch: %v", res)
+	}
+}
+
+// ADR-0158: Restart on a live Agent CLI terminal reopens the pinned
+// conversation (same recipe as start?resume=true). Without a pin it still
+// applies current settings to a fresh conversation.
+func TestCLITerminalRestartResumesPinnedSession(t *testing.T) {
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	ts, _, home := cleanupServer(t)
+	t.Setenv("SHELL", "/bin/bash")
+	toolDir := filepath.Join(home, "tools")
+	if err := os.MkdirAll(toolDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(home, "out")
+	binary := filepath.Join(toolDir, "fake-cli")
+	script := `#!/bin/sh
+if [ "$1" = --version ]; then printf 'fixture-cli 1.0\n'; exit 0; fi
+printf '%s\000' "$@" > "$QA_OUTPUT.args"
+exec cat
+`
+	if err := os.WriteFile(binary, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	base := clilaunch.Config{Executable: binary, Args: []string{"--default"}, Env: map[string]string{"QA_OUTPUT": output}, Path: []string{toolDir}}
+	cliRequest(t, ts, "PUT", "/api/clis/claude-code", base, 200)
+
+	created := cliRequest(t, ts, "POST", "/api/clis/claude-code/terminals", map[string]any{"name": "Restart fixture", "cwd": home}, 201)
+	id := created["id"].(string)
+	name := tmux.ShellSessionName(id)
+	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), name) })
+	endpoint := "/api/terminals/" + id + "/launch"
+	waitCLIFile(t, filepath.Join(output+".args"))
+
+	pid, err := tmux.New().PanePID(context.Background(), name)
+	if err != nil || pid <= 0 {
+		t.Fatalf("pane pid: %d %v", pid, err)
+	}
+
+	// No pin yet: restart applies current settings, fresh conversation.
+	_ = os.Remove(output + ".args")
+	cliRequest(t, ts, "POST", endpoint+"/restart", map[string]any{"confirm": true}, 200)
+	if got := strings.Split(strings.TrimSuffix(string(waitCLIFile(t, filepath.Join(output+".args"))), "\x00"), "\x00"); !reflect.DeepEqual(got, []string{"--default"}) {
+		t.Fatalf("restart without pin argv=%q", got)
+	}
+	next, err := tmux.New().PanePID(context.Background(), name)
+	if err != nil || next <= 0 || next == pid {
+		t.Fatalf("restart without pin did not replace process: before=%d after=%d err=%v", pid, next, err)
+	}
+	pid = next
+
+	runtime := "/api/terminals/" + id + "/runtime"
+	cliRequest(t, ts, "POST", runtime, map[string]any{"action": "start", "cli": "claude-code", "runId": "run-restart", "pid": os.Getpid()}, 200)
+	seed := filepath.Join(home, ".claude", "projects", "fixture", "sess-1.jsonl")
+	if err := os.MkdirAll(filepath.Dir(seed), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	line := `{"type":"user","message":{"role":"user","content":[{"text":"incident work","type":"text"}]},"timestamp":"` + time.Now().Add(2*time.Second).UTC().Format(time.RFC3339) + `","cwd":"` + home + `","session_id":"sess-1"}`
+	if err := os.WriteFile(seed, []byte(line+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cliRequest(t, ts, "POST", runtime, map[string]any{"action": "end", "runId": "run-restart"}, 200)
+
+	terms := cliRequest(t, ts, "GET", "/api/terminals", map[string]any{}, 200)
+	var view map[string]any
+	for _, raw := range terms["terminals"].([]any) {
+		if m := raw.(map[string]any); m["id"] == id {
+			view = m
+		}
+	}
+	if view == nil || view["lastSession"] == nil {
+		t.Fatalf("no pinned lastSession before restart: %v", view)
+	}
+
+	_ = os.Remove(output + ".args")
+	restarted := cliRequest(t, ts, "POST", endpoint+"/restart", map[string]any{"confirm": true}, 200)
+	if restarted["running"] != true {
+		t.Fatalf("restart with pin not live: %v", restarted)
+	}
+	if got := strings.Split(strings.TrimSuffix(string(waitCLIFile(t, filepath.Join(output+".args"))), "\x00"), "\x00"); !reflect.DeepEqual(got, []string{"--resume", "sess-1"}) {
+		t.Fatalf("restart with pin argv=%q", got)
+	}
+	after, err := tmux.New().PanePID(context.Background(), name)
+	if err != nil || after <= 0 || after == pid {
+		t.Fatalf("restart with pin did not replace process: before=%d after=%d err=%v", pid, after, err)
+	}
+	if restarted["lastSession"] == nil {
+		t.Fatal("restart dropped the pin")
 	}
 }
 
