@@ -53,10 +53,9 @@ has no receiver. So `ask_human` files the question and **waits**: it polls
 `GET /api/inbox/{id}` every 2 s for up to `PICODE_ASK_WAIT` seconds (90 by
 default, under the client's own tool timeout), and returns the answer as
 the tool result. At the deadline it names the item so the model can call
-`ask_human` again with `item` to keep waiting. On the daemon, a question
-from a terminal that is not running pi is answered by recording the
-response on the item (`RespondInboxItem`) instead of the terminal delivery
-that would refuse it. `checklist` publishes under the terminal (or agent)
+`ask_human` again with `item` to keep waiting. On the daemon, `Deps.AnswerTerminalQuestion` is the one rule for both the
+inbox route and the Inbox app: a terminal running pi gets the reply
+delivered; any other terminal has the answer recorded on the item. `checklist` publishes under the terminal (or agent)
 exactly as pi-checklist does; pi's mutation gate and reminder have no MCP
 equivalent and are not pretended.
 

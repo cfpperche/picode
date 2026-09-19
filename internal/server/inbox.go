@@ -109,20 +109,7 @@ func handleRespondInbox(deps Deps) http.HandlerFunc {
 		// exception: it sends nothing, so it closes the item locally like an
 		// agent's ignore does, however the terminal looks right now.
 		if it, err := deps.Store.GetInboxItem(id); err == nil && it.SourceKind == store.InboxFromTerminal && req.Verb != store.VerbIgnore {
-			// A terminal that is not running pi has no receiver to deliver
-			// to, but a guest CLI asking through `picode mcp inbox`
-			// (ADR-0154, N1) waits on the item itself: record the answer
-			// and close the item, and the poller reads it back.
-			if !termHostsPi(deps, it.SourceID) {
-				it, err := deps.Store.RespondInboxItem(id, req.Verb, req.Text)
-				if err != nil {
-					writeStoreErr(w, err)
-					return
-				}
-				writeJSON(w, http.StatusOK, it)
-				return
-			}
-			if _, err := deps.DeliverTerminalReply(id, req.Verb, req.Text); err != nil {
+			if _, err := deps.AnswerTerminalQuestion(id, req.Verb, req.Text); err != nil {
 				if errors.Is(err, store.ErrNotFound) {
 					writeErr(w, http.StatusConflict, "terminal no longer exists — reply not delivered; the item stays open")
 					return
