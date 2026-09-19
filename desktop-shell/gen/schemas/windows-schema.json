@@ -261,12 +261,6 @@
           "markdownDescription": "Enables the btab_forward command without any pre-configured scope."
         },
         {
-          "description": "Enables the btab_layer command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-btab-layer",
-          "markdownDescription": "Enables the btab_layer command without any pre-configured scope."
-        },
-        {
           "description": "Enables the btab_meta command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-meta",
@@ -589,12 +583,6 @@
           "type": "string",
           "const": "deny-btab-forward",
           "markdownDescription": "Denies the btab_forward command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the btab_layer command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-btab-layer",
-          "markdownDescription": "Denies the btab_layer command without any pre-configured scope."
         },
         {
           "description": "Denies the btab_meta command without any pre-configured scope.",

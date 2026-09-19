@@ -243,6 +243,7 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [Security model (ADR-0007)](architecture/security-model.md) | `docs/architecture/security-model.md` |
 | [Shared box: the gateway (ADR-0051)](architecture/gateway.md) | `docs/architecture/gateway.md` |
 | [Chrome extension (ADR-0043)](architecture/chrome-extension.md) | `docs/architecture/chrome-extension.md` |
+| [Work browser (ADRs 0128/0132/0134/0135/0143/0144/0146/0152)](architecture/work-browser.md) | `docs/architecture/work-browser.md` |
 | [Docker App and sysadmin tools (ADR-0065)](architecture/docker-app.md) | `docs/architecture/docker-app.md` |
 | [Docker maintenance and health (ADRs 0067/0068)](architecture/docker-maintenance.md) | `docs/architecture/docker-maintenance.md` |
 | [tmux app (ADR-0133)](architecture/tmux-app.md) | `docs/architecture/tmux-app.md` |
