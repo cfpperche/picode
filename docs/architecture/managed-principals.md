@@ -42,4 +42,9 @@ empty, is left alone. Other CLIs stay Connectors-only. Grants are still
 Settings ▸ Computer / Browser keyed `term:<id>`; the MCP server never
 invents identity (`PICODE_TERM_ID` → `grant.FromIDs`).
 
+A workspace **New → Agent CLI** picker (Cursor: runtime ≤2 clicks from the
+sidebar) POSTs `/principals` and starts the terminal. `#/clis/new` remains
+for a free CLI terminal. Uninstalled CLIs are hidden; empty is one line +
+Open Agent CLIs.
+
 Decision table: [ADR-0159](../decisions/0159-managed-cli-principals.md).

@@ -40,7 +40,7 @@ export default function Sidebar({
   workspaces, selectedId,
   onNew, onSelect, onRun, onStop, onRemove,
   userMenu, termView, onChat, onTerm,
-  freeAgents, onNewFree, onNewAgent, onRemoveAgent, onRenameAgent,
+  freeAgents, onNewFree, onNewAgent, onNewCliPrincipal, onRemoveAgent, onRenameAgent,
   workingId,
   workingIds,
   waitingId,
@@ -229,7 +229,7 @@ export default function Sidebar({
                   <DropdownMenu.Root><DropdownMenu.Trigger asChild><button type="button" className="ws-icon-btn" title="New in this folder" aria-label={"New in " + ws.name}><IconPlus /></button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="um-popover" side="bottom" align="end" sideOffset={6} collisionPadding={12}>
                     <DropdownMenu.Item className="um-item" onSelect={() => onNewAgent && onNewAgent(ws.id)}>Agent</DropdownMenu.Item>
                     <DropdownMenu.Item className="um-item" onSelect={() => onNewTerm?.(ws.id)}>Shell terminal</DropdownMenu.Item>
-                    <DropdownMenu.Item className="um-item" onSelect={() => { location.hash = "#/clis/new/pi?workspace=" + encodeURIComponent(ws.id); }}>Agent CLI terminal</DropdownMenu.Item>
+                    <DropdownMenu.Item className="um-item" onSelect={() => onNewCliPrincipal && onNewCliPrincipal(ws)}>Agent CLI</DropdownMenu.Item>
                   </DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>
                   <RowMenu label={ws.name}>
                     <RowMenuItem onSelect={() => { location.hash = "#/clis/messages/" + encodeURIComponent("workspace:" + ws.id); }}><IconSession size={13} /> Communication</RowMenuItem>

@@ -3694,7 +3694,7 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .hotkey-body { overflow: auto; flex: 1; min-height: 0; }
 .dlg-hotkeys .dlg-actions { flex: none; margin-top: 12px; }
 .dlg-create .form-new { padding: 12px 0 0; }
-.dlg-create .form-new input, .dlg-create .cfg-fields select { width: 100%; }
+.dlg-create .form-new input, .dlg-create .form-new select, .dlg-create .cfg-fields select { width: 100%; }
 /* Workspace source: one control, two origins (ADR-0034). Same native-radio
    mechanics as .termset-seg — the input covers its whole segment so the hit
    area is the segment, not a hidden 1px corner. */

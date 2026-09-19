@@ -78,6 +78,13 @@ export const cliTerminalSchema = z.object({
   cwd: z.string(),
 });
 
+// Workspace catalog picker (ADR-0159 Fatia 3): bind a launchable CLI as a
+// managed principal. Empty name lets the server use the catalog name.
+export const managedPrincipalSchema = z.object({
+  cli: required("CLI").max(64, "Unknown CLI."),
+  name: z.string().trim().max(80, "Use up to 80 characters for the name."),
+});
+
 export const cliProfileSchema = z.object({ name: required("Profile name").max(80, "Use up to 80 characters for the name.") });
 
 // Cross-CLI session handoff (ADR-0088): the choices the dialog sends.

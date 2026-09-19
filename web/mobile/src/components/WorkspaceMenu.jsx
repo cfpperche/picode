@@ -1,10 +1,10 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconAgent, IconChat, IconEllipsis, IconFolder, IconGit, IconTerminal } from "./Icons.jsx";
+import { IconAgent, IconChat, IconCli, IconEllipsis, IconFolder, IconGit, IconTerminal } from "./Icons.jsx";
 
-// The five per-workspace actions collapse into one ellipsis menu on the
+// Per-workspace actions collapse into one ellipsis menu on the
 // group head (HIG), so no row inside Work can grow wider than the phone
 // screen — the old action strip forced a page-wide horizontal scroll.
-export default function WorkspaceMenu({ ws, onCreate, onNewTerm, onOpenFiles, onOpenGit }) {
+export default function WorkspaceMenu({ ws, onCreate, onNewTerm, onNewCliPrincipal, onOpenFiles, onOpenGit }) {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
@@ -17,6 +17,7 @@ export default function WorkspaceMenu({ ws, onCreate, onNewTerm, onOpenFiles, on
           <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => onOpenGit({ kind: "workspace", id: ws.id })}><IconGit size={14} /> Git</DropdownMenu.Item>
           <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => onCreate("agent", ws)}><IconAgent size={14} /> New agent</DropdownMenu.Item>
           <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => onNewTerm(ws)}><IconTerminal size={14} /> New terminal</DropdownMenu.Item>
+          <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => onNewCliPrincipal && onNewCliPrincipal(ws)}><IconCli size={14} /> New Agent CLI</DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>

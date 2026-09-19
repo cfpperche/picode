@@ -20,7 +20,7 @@ let rememberedQuery = "";
 // Paseo's workspace grouping, adapted to one focused phone list. Search
 // retains the parent folder when it finds an agent or terminal inside it.
 export default function Work({ section, focusWs, onSection, loaded, error, workspaces, freeAgents, terminals, workingIds, busyId, checklists,
-  onOpenAgent, onOpenTerm, onStart, onStop, onTermAction, clis = [], onCreate, onNewTerm, onOpenChanges, onOpenFiles, onOpenGit, onRefresh }) {
+  onOpenAgent, onOpenTerm, onStart, onStop, onTermAction, clis = [], onCreate, onNewTerm, onNewCliPrincipal, onOpenChanges, onOpenFiles, onOpenGit, onRefresh }) {
   const [query, updateQuery] = useState(() => rememberedQuery);
   const [searchOpen, setSearchOpen] = useState(() => !!rememberedQuery);
   const focusSearch = useRef(false);
@@ -78,7 +78,7 @@ export default function Work({ section, focusWs, onSection, loaded, error, works
             <span className="m-work-group-face"><WsFavicon ws={ws} size={22} /></span>
             <div className="m-work-group-title"><h3>{ws.name}</h3><p title={ws.path}>{[shortPath(ws.path), ws.git?.branch].filter(Boolean).join(" · ")}</p></div>
             {ws.git?.dirty ? <button type="button" className="btn btn-ghost btn-sm m-changes-btn" aria-label={ws.git.dirty + " changes in " + ws.name} onClick={() => onOpenChanges("workspace", ws.id, ws.name)}><IconGit size={13} /> {ws.git.dirty}</button> : null}
-            <WorkspaceMenu ws={ws} onCreate={onCreate} onNewTerm={onNewTerm} onOpenFiles={onOpenFiles} onOpenGit={onOpenGit} />
+            <WorkspaceMenu ws={ws} onCreate={onCreate} onNewTerm={onNewTerm} onNewCliPrincipal={onNewCliPrincipal} onOpenFiles={onOpenFiles} onOpenGit={onOpenGit} />
           </div>
           {wsAgents.length || wsTerms.length ? <ul className="m-list m-group-list">
             {wsAgents.map(agent => <AgentRow key={agent.id} agent={agent} workspace={ws} workingIds={workingIds} checklist={checklists?.[agent.id]} busy={busyId === agent.id} onOpen={onOpenAgent} onStart={onStart} onStop={onStop} />)}

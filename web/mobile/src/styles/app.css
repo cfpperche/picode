@@ -1728,7 +1728,7 @@ img.ws-face.term-cli-face {
   overflow-y: auto;
 }
 .dlg-create .form-new { padding: 12px 0 0; }
-.dlg-create .form-new input, .dlg-create .cfg-fields select { width: 100%; }
+.dlg-create .form-new input, .dlg-create .form-new select, .dlg-create .cfg-fields select { width: 100%; }
 .create-seg {
   display: flex; width: 100%; margin-bottom: 4px; box-sizing: border-box;
   border: 1px solid var(--border); border-radius: var(--radius-ctl); overflow: hidden;

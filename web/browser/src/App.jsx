@@ -59,6 +59,7 @@ import { planAsk, paneCapabilities } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
+import NewCliPrincipal from "./components/NewCliPrincipal.jsx";
 import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId, webHash, webRoute, boundWorkTab } from "./lib/routes.js";
 import { linkOpenTarget } from "./lib/openLink.js";
 import AppSurface from "./components/AppSurface.jsx";
@@ -253,6 +254,7 @@ export default function App({ shellChrome = false } = {}) {
   const [catalog, setCatalog] = useState({ providers: [], thinking: [] });
   const [newCfg, setNewCfg] = useState({ provider: "", model: "", thinking: "" });
   const [showForm, setShowForm] = useState(false);
+  const [cliPrincipalWs, setCliPrincipalWs] = useState(null);
   const [formError, setFormError] = useState("");
   const [formBusy, setFormBusy] = useState(false);
   const [termWanted, setTermWanted] = useState(() => new Set(readTermWanted()));
@@ -3347,6 +3349,7 @@ export default function App({ shellChrome = false } = {}) {
         onNew={() => { setFormKind("workspace"); setShowForm(true); }}
         onNewFree={() => { setFormKind("free"); setShowForm(true); }}
         onNewAgent={(id) => { setFormKind("agent"); setFormWs(id); setShowForm(true); }}
+        onNewCliPrincipal={(ws) => setCliPrincipalWs(ws)}
         onSelect={(id) => revealAgent(id)}
         onRun={startManaged}
         onStop={stopAgent}
@@ -3967,7 +3970,14 @@ export default function App({ shellChrome = false } = {}) {
           if (a.kind === "whats-new") { openWhatsNew(); return; }
           if (a.kind === "inspector") { toggleInspector(); return; }
           if (a.kind === "fullscreen") { focus.toggle(); return; }
-          if (a.kind === "cli-new") { location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : ""); return; }
+          if (a.kind === "cli-new") {
+            if (a.wsId) {
+              const ws = workspacesRef.current.find((w) => w.id === a.wsId);
+              if (ws && ws.id !== "ws_free") { setCliPrincipalWs(ws); return; }
+            }
+            location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : "");
+            return;
+          }
           if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets") { go(a.kind, agent?.id, { workspaceId: paneWs?.id }); return; }
           if (a.kind === "snip-run") {
             const loc = locate(workspacesRef.current, freeAgentsRef.current, a.target && a.target.id);
@@ -4068,6 +4078,26 @@ export default function App({ shellChrome = false } = {}) {
         onSubmit={submitNew}
         onClose={() => { setShowForm(false); setFormError(""); }}
         busy={formBusy}
+      />
+      <NewCliPrincipal
+        open={!!cliPrincipalWs}
+        workspace={cliPrincipalWs}
+        onClose={() => setCliPrincipalWs(null)}
+        onCreated={async (created) => {
+          setCliPrincipalWs(null);
+          if (!created || !created.id) return;
+          try {
+            await api("/api/terminals/" + encodeURIComponent(created.id) + "/launch/start", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ confirm: false }),
+            });
+          } catch (err) {
+            toastError(err);
+          }
+          await openTermTab(created.id);
+          location.hash = termHash(created.id);
+        }}
       />
       <SessionInfo
         open={sessionOpen}

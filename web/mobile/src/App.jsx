@@ -28,6 +28,7 @@ import WhatsNew from "./components/WhatsNew.jsx";
 import RELEASE_NOTES from "@picode/shared/data/whats-new.json";
 import TabBar from "./components/TabBar.jsx";
 import CreateSheet from "./components/CreateSheet.jsx";
+import NewCliPrincipal from "./components/NewCliPrincipal.jsx";
 import { agentState } from "./components/StateChip.jsx";
 import Now from "./screens/Now.jsx";
 const Inbox = lazy(() => import("./screens/Inbox.jsx"));
@@ -93,6 +94,7 @@ export default function MobileApp() {
     return () => window.removeEventListener(OPEN_EVENT, on);
   }, []);
   const [create, setCreate] = useState(null); // { kind, workspace } | null
+  const [cliPrincipalWs, setCliPrincipalWs] = useState(null);
   // Recovery links inside the sheet navigate to a full screen. Close it
   // only after navigation succeeds, so route guards can still cancel it.
   useEffect(() => { setCreate(null); }, [route]);
@@ -532,7 +534,7 @@ export default function MobileApp() {
       <Work section={section} focusWs={section === "workspaces" ? route.id : ""} onSection={setSection} loaded={loaded} error={fleetError} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals}
         workingIds={tuiWorking} busyId={busyId} checklists={checklists}
         onOpenAgent={(a) => openAgent(a.id)} onOpenTerm={(t) => openTerm(t.id)} onStart={startAgent} onStop={stopAgent} onTermAction={onTermAction} clis={clis}
-        onCreate={(kind, ws) => setCreate({ kind, workspace: ws || (kind === "agent" ? (workspaces[0] || null) : null) })} onNewTerm={newTerminal}
+        onCreate={(kind, ws) => setCreate({ kind, workspace: ws || (kind === "agent" ? (workspaces[0] || null) : null) })} onNewTerm={newTerminal} onNewCliPrincipal={setCliPrincipalWs}
         onOpenChanges={openChanges} onOpenFiles={openFiles} onOpenGit={openGit} onRefresh={refreshAll} />
     );
   } else if (route.screen === "more") {
@@ -557,6 +559,24 @@ export default function MobileApp() {
       {pushed ? null : <TabBar active={tab} badges={badges} />}
       <CreateSheet open={!!create} kind={create ? create.kind : "workspace"} workspace={create ? create.workspace : null} catalog={catalog}
         onClose={() => setCreate(null)} onCreated={onCreated} />
+      <NewCliPrincipal
+        open={!!cliPrincipalWs}
+        workspace={cliPrincipalWs}
+        onClose={() => setCliPrincipalWs(null)}
+        onCreated={async (created) => {
+          setCliPrincipalWs(null);
+          if (!created || !created.id) return;
+          try {
+            await api("/api/terminals/" + encodeURIComponent(created.id) + "/launch/start", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ confirm: false }),
+            });
+          } catch (e) { toastError(e); }
+          await reload({ force: true });
+          openTerm(created.id);
+        }}
+      />
       <ShareDrawer open={shareOpen} onClose={() => setShareOpen(false)} />
       <Toasts />
       {reconnect ? <Reconnect onReload={() => location.reload()} /> : null}
