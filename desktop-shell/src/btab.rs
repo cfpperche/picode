@@ -933,20 +933,26 @@ pub async fn btab_clear_app_data(
     // Closing a webview tears its browser process down asynchronously; the
     // first removal attempt can still meet a locked file. Three tries, a
     // breath between, then the honest failure.
+    // Closing a webview tears its browser process down asynchronously; the
+    // folder stays locked past the close for a while (the app's tab is
+    // usually open when someone asks for the clear — 2026-09-18, owner run:
+    // three 300ms retries lost that race and the dialog swallowed the real
+    // reason behind a generic message). Give the engine a real budget — ten
+    // seconds — then the honest failure.
     let mut last = String::new();
-    for attempt in 0..3 {
+    for attempt in 0..20 {
         match std::fs::remove_dir_all(&folder) {
             Ok(()) => return Ok(()),
             Err(e) => {
                 last = e.to_string();
-                if attempt < 2 {
-                    std::thread::sleep(std::time::Duration::from_millis(300));
+                if attempt < 19 {
+                    std::thread::sleep(std::time::Duration::from_millis(500));
                 }
             }
         }
     }
     Err(format!(
-        "could not clear the app's data — close its tab and try again: {last}"
+        "could not clear the app's data — its files were still in use: {last}"
     ))
 }
 

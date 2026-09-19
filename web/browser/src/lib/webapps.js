@@ -3,8 +3,10 @@ import { webappUrlSchema, webappInstallSchema, webappNameSchema } from "@picode/
 export const DESKTOP_REQUIRED = "Web apps require PiCode Desktop. Open PiCode Desktop to continue.";
 
 export function webappError(error) {
+  if (typeof error === "string") return error;
   if (error?.body?.reason === "duplicate") return "A web app for this address is already installed.";
   if (/site is not reachable|answered HTTP/.test(error?.message || "")) return "That address did not answer. Check it and try again — nothing was installed.";
+  if (/could not clear/.test(error?.message || "")) return error.message;
   return error?.issues?.[0]?.message || error?.message || "Could not save the web app. Try again.";
 }
 

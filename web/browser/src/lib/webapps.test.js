@@ -104,3 +104,11 @@ test("error mapping: duplicate, unreachable and validation", () => {
   assert.match(webappError({ issues: [{ message: "URL is required." }] }), /URL is required/);
   assert.equal(DESKTOP_REQUIRED, "Web apps require PiCode Desktop. Open PiCode Desktop to continue.");
 });
+
+test("shell errors arrive as strings and pass through untouched", () => {
+  assert.match(
+    webappError("could not clear the app's data — its files were still in use: locked"),
+    /files were still in use/,
+  );
+  assert.equal(webappError("only installed web apps have their own data to clear"), "only installed web apps have their own data to clear");
+});
