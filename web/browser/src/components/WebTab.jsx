@@ -8,7 +8,7 @@ import { askTitle } from "../lib/browserPermissions.js";
 import { subscribeFloatingLayers, overlapsLayers, rectOf } from "../lib/floatingLayers.js";
 import { requestBrowserDialog } from "../lib/browserDialogs.js";
 import { previewUrl, verifyPreviewUrl } from "../lib/previewStill.js";
-import { cropRect, stylesToCSS, stateItems, batchMessage, parseAnnotMessage, resolveSendTarget } from "../lib/annotate.js";
+import { cropRect, stylesToCSS, stateItems, batchMessage, parseAnnotMessage, parseStatePayload, resolveSendTarget } from "../lib/annotate.js";
 import AnnotateStrip from "./AnnotateStrip.jsx";
 import AnnotatePreview from "./AnnotatePreview.jsx";
 
@@ -286,6 +286,35 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
       setAnnotSending(false);
     }
   };
+
+  // The pull door: while the mode is on, ask the shell for the page's state
+  // on a slow tick. The push channel (the page's own postMessage) is the
+  // fast path; this one needs no page-side bridge at all and is what makes
+  // Send light up in a document whose bridge is dead (owner 2026-09-19: the
+  // card and the chips worked while every message vanished). A poll is cheap
+  // — ExecuteScript in the same process — and it also repairs a state the
+  // push path dropped.
+  useEffect(() => {
+    if (!invoke || !annotOn || hidden) return undefined;
+    let stop = false;
+    const tick = () => {
+      invoke("btab_annotate_state", { id: tabId })
+        .then((raw) => {
+          const state = parseStatePayload(raw);
+          if (stop || !state) return;
+          annotSeenRef.current = true;
+          if (state.kind === "off") { leaveAnnotate(true); return; }
+          setAnnotItems(stateItems(state));
+        })
+        .catch(() => {});
+    };
+    tick();
+    const t = setInterval(tick, 1500);
+    return () => {
+      stop = true;
+      clearInterval(t);
+    };
+  }, [annotOn, hidden, tabId]);
 
   // Arm the mode, and make silence visible. The page answers an arm with its
   // `enter` (+ the state it holds), so no answer means the channel is dead:

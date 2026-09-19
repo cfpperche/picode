@@ -1194,6 +1194,48 @@ pub async fn btab_annotate_clear(app: AppHandle, id: String, last: Option<bool>)
     rx.recv().unwrap_or_else(|_| Err("the shell did not answer".into()))
 }
 
+/// btab_annotate_state pulls one tab's annotation state through the host→page
+/// direction, which needs no page-side bridge: ExecuteScript's return value
+/// comes back on the command's own result. The strip polls this while the
+/// mode is on, so Send lights up even in a document whose `postMessage`
+/// channel is dead (owner 2026-09-19: the page worked, every message
+/// vanished). Empty string when the document never armed the mode.
+#[tauri::command]
+pub async fn btab_annotate_state(app: AppHandle, id: String) -> Result<String, String> {
+    let tail = id.rsplit(':').next().unwrap_or(id.as_str()).to_string();
+    let wv = app
+        .get_webview(&label(&id))
+        .or_else(|| app.get_webview(&label(&tail)))
+        .ok_or_else(|| format!("no such tab: {id}"))?;
+    let (tx, rx) = std::sync::mpsc::channel::<Result<String, String>>();
+    let _ = wv.with_webview(move |platform| unsafe {
+        use webview2_com::ExecuteScriptCompletedHandler;
+        use windows::core::HSTRING;
+        let core = match platform.controller().CoreWebView2() {
+            Ok(core) => core,
+            Err(e) => {
+                let _ = tx.send(Err(format!("CoreWebView2: {e}")));
+                return;
+            }
+        };
+        // The error path reports through a second sender: the handler takes
+        // the first one by move.
+        let fail = tx.clone();
+        let handler = ExecuteScriptCompletedHandler::create(Box::new(move |_err, result| {
+            // `result` is the script's value as JSON: the page returned a
+            // JSON string, so it arrives quoted. Decode once here and the
+            // app receives the payload itself.
+            let payload: String = serde_json::from_str(&result).unwrap_or_default();
+            let _ = tx.send(Ok(payload));
+            Ok(())
+        }));
+        if let Err(e) = core.ExecuteScript(&HSTRING::from(crate::annotate::STATE_SCRIPT), &handler) {
+            let _ = fail.send(Err(format!("ExecuteScript: {e}")));
+        }
+    });
+    rx.recv().unwrap_or_else(|_| Err("the shell did not answer".into()))
+}
+
 // The work profile's autofill prefs (slice 3): password autosave and
 // general (contact info) autofill. The UI pushes them (btab_set_prefs);
 // the latest values are applied to every webview at creation. Defaults
@@ -1974,6 +2016,12 @@ fn apply_scripts(app: &AppHandle, id: &str) {
         };
         if let Ok(settings) = core.Settings() {
             let _ = settings.SetIsScriptEnabled(enabled);
+            // Web messages ON at creation, not only when annotate mode is
+            // armed: the injected annotate script posts its picks and its
+            // state to the host, and a document created before the setting
+            // was applied never gets the channel back — the page worked
+            // (card, chips) while every message vanished (owner 2026-09-19).
+            let _ = settings.SetIsWebMessageEnabled(true);
         }
     });
 }

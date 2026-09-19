@@ -26,6 +26,7 @@ fn main() {
             "btab_open_external",
             "btab_annotate_mode",
             "btab_annotate_clear",
+            "btab_annotate_state",
             "btab_set_prefs",
             "btab_clear_data",
             "btab_download_dir",

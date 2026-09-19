@@ -253,6 +253,29 @@ export function resolveSendTarget({ boundSession, terminals }) {
   return { none: true, reason: "Nothing to send to: no agent terminal is running." };
 }
 
+// parseStatePayload reads the pull door's answer: the shell hands back the
+// JSON text the page returned, possibly JSON-encoded once more (an
+// ExecuteScript result is a JSON value), or nothing at all for an unarmed
+// document. Junk in, null out — the caller keeps its last good state.
+export function parseStatePayload(raw) {
+  let value = raw;
+  for (let i = 0; i < 2; i += 1) {
+    if (typeof value !== "string") break;
+    if (!value.trim()) return null;
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  if (!value || typeof value !== "object") return null;
+  // "off" is an answer too: the page is alive and its mode is off (the human
+  // pressed Esc in the page), which the strip mirrors. An empty answer means
+  // something else — no script in this document (a navigation in flight).
+  if (value.kind !== "state" && value.kind !== "off") return null;
+  return value;
+}
+
 // batchMessage is the ONE context the agent gets for the whole set (the
 // reference's "5 annotations"): a head line plus one numbered line per pin,
 // each pin's sentence (or its selector when the note is empty).

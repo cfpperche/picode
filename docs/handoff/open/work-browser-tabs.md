@@ -219,6 +219,21 @@ decision, ADR before code.
 - Edit in the worktree. UI edits that land in the root checkout leave scratch
   and deploy testing stale bundles (happened three times).
 - `toast(msg)` defaults to `err`; success needs `toast.ok`.
+- **A settings call after the document exists is too late.**
+  `SetIsWebMessageEnabled` is applied at webview creation now (`apply_scripts`,
+  beside `SetIsScriptEnabled`): arming annotate mode called it *after* the page
+  had loaded and the page's `chrome.webview.postMessage` stayed dead — the
+  card, the pins and the chips all worked (they are the page's own DOM) while
+  every message vanished and the strip never lit up (owner 2026-09-19).
+- **The page→host channel is not a foundation; the host→page one is.** The
+  annotate strip polls `btab_annotate_state` (ExecuteScript's *return value*
+  comes back on the command's own result, so it needs no page-side bridge)
+  every 1.5 s while the mode is on. The page's `postMessage` stays the fast
+  path; the pull is what makes Send work when the bridge is dead.
+- The page keeps its `__picodeAnnotateV1` handle when it leaves the mode:
+  the pull answers `{kind:"off"}` for "this page turned itself off" and `""`
+  for "no script here at all" (a navigation in flight). Those two must not
+  read the same, or the strip mirrors the wrong one.
 - `.web-tab-toolbar button` beats bare class selectors — prefix toolbar
   button overrides with `.web-tab-toolbar`.
 - `um-popover` is styled for the user menu; do not reuse it elsewhere.

@@ -207,6 +207,19 @@
     };
   };
 
+  // statePayload is what the strip needs, in one shape, from two doors: the
+  // message channel (push, post()) and ExecuteScript's return value (pull —
+  // the host asks; the answer rides the command's own result). The pull is
+  // the guaranteed one: it needs no page→host bridge, so a page that cannot
+  // post still lights the strip up (owner 2026-09-19).
+  const statePayload = () => ({
+    kind: "state",
+    url: location.href,
+    count: items.filter((it) => it.saved).length,
+    total: items.length,
+    items: items.map(payload),
+  });
+
   const sync = () => {
     // Renumber by position so pins read 1..N after a removal.
     items.forEach((it, i) => {
@@ -215,13 +228,7 @@
       it.pin.classList.toggle("on", editing === it);
     });
     outlineSelected();
-    post({
-      kind: "state",
-      url: location.href,
-      count: items.filter((it) => it.saved).length,
-      total: items.length,
-      items: items.map(payload),
-    });
+    post(statePayload());
   };
 
   const outlineSelected = () => {
@@ -628,13 +635,22 @@
     hl.style.display = "none";
     sel.style.display = "none";
     host.remove();
-    post({ kind: "exit" });    try {
-      delete window[KEY];
-    } catch (e) {
-      window[KEY] = null;
-    }
+    post({ kind: "exit" });
+    // The handle STAYS, marked off: enter() re-arms this same instance, and
+    // the pull door can answer "off" instead of "nothing" — the strip has to
+    // tell a page that left the mode (Esc in the page) from a document with
+    // no script at all (a navigation in flight). Deleting the handle made
+    // those two answers identical (2026-09-19).
   }
 
-  window[KEY] = { enter, exit, clear, dropLast };
+  window[KEY] = {
+    enter,
+    exit,
+    clear,
+    dropLast,
+    // The pull door: the shell calls this through ExecuteScript and hands the
+    // JSON straight to the strip. Null while the mode is off.
+    state: () => (on ? statePayload() : null),
+  };
   enter();
 })();

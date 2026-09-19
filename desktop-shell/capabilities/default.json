@@ -19,6 +19,7 @@
     "allow-btab-navigate",
     "allow-btab-annotate-mode",
     "allow-btab-annotate-clear",
+    "allow-btab-annotate-state",
     "allow-btab-bounds",
     "allow-btab-visibility",
     "allow-btab-back",

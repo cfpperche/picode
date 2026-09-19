@@ -33,6 +33,11 @@ pub const CLEAR_SCRIPT: &str =
 pub const DROP_LAST_SCRIPT: &str =
     "(() => { const h = window.__picodeAnnotateV1; if (h && typeof h.dropLast === 'function') { h.dropLast(); } })();";
 
+/// STATE_SCRIPT is the pull door: the shell executes it and hands its return
+/// value to the strip, so the count and the payloads arrive even when the
+/// page cannot post to the host. An unarmed document answers an empty string.
+pub const STATE_SCRIPT: &str = "(() => { const h = window.__picodeAnnotateV1; if (!h || typeof h.state !== 'function') { return ''; } try { return JSON.stringify(h.state() || { kind: 'off' }); } catch (e) { return ''; } })();";
+
 /// REINJECT_SCRIPT re-enters after a navigation when the mode is still on: the
 /// new document has no script, and a hidden mode would look like a dead button.
 pub const REINJECT_SCRIPT: &str = SCRIPT;
@@ -157,6 +162,35 @@ mod tests {
             "pre-stringified posts double-encode through WebMessageAsJson"
         );
     }
+    // The pull door: the shell must be able to ask the page for its state
+    // through ExecuteScript (no page-side bridge involved), because a
+    // document whose postMessage is dead otherwise leaves Send dark forever
+    // (owner 2026-09-19).
+    #[test]
+    fn the_state_pull_is_wired_on_both_sides() {
+        assert!(SCRIPT.contains("state: () => (on ? statePayload() : null)"), "the page exposes state()");
+        assert!(SCRIPT.contains("const statePayload = () => ({"), "one shape for both doors");
+        let shell = include_str!("btab.rs");
+        assert!(shell.contains("crate::annotate::STATE_SCRIPT"), "the shell pulls with STATE_SCRIPT");
+        assert!(shell.contains("ExecuteScriptCompletedHandler"), "the pull reads the script's result");
+        assert!(STATE_SCRIPT.contains("JSON.stringify(h.state()"), "the pull script serializes state()");
+        // An armed handle that reports nothing means the PAGE turned the mode
+        // off (Esc); no handle at all means the script is not there (a
+        // navigation in flight) — different answers, different reactions.
+        assert!(STATE_SCRIPT.contains("{ kind: 'off' }"), "disarmed is its own answer");
+    }
+
+    // The page keeps its handle when it leaves the mode: enter() re-arms the
+    // same instance, and the pull door answers "off" rather than "nothing",
+    // which is how the strip mirrors an Esc pressed in the page.
+    #[test]
+    fn leaving_the_mode_keeps_the_handle_answering_off() {
+        let exit = SCRIPT.split("function exit()").nth(1).expect("exit() is gone");
+        let body = exit.split("function clear()").next().unwrap_or(exit);
+        assert!(body.contains("post({ kind: \"exit\" })"), "exit still announces itself");
+        assert!(!body.contains("delete window[KEY]"), "the handle must survive exit");
+    }
+
     // The exit script must be a no-op when the mode was never armed: the
     // toolbar can be clicked in a tab that never entered.
     #[test]

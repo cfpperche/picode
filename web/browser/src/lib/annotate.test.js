@@ -8,6 +8,7 @@ import {
   cropRect,
   parseAnnotMessage,
   parsePick,
+  parseStatePayload,
   pickLabel,
   pickScript,
   resolveSendTarget,
@@ -221,4 +222,23 @@ test("Send delivers to the bound session, never to a stranger", () => {
   assert.equal(empty.none, true);
   assert.ok(empty.reason.includes("Nothing to send to"));
   assert.equal(resolveSendTarget({}).none, true);
+});
+
+test("the pull door's answer is parsed, however it arrives", () => {
+  const state = { kind: "state", url: "https://x.test/", count: 2, total: 2, items: [{ n: 1, rect: { x: 0, y: 0, width: 10, height: 10 }, comment: "a" }] };
+  // the shell decodes one layer already: the payload arrives as JSON text
+  assert.equal(parseStatePayload(JSON.stringify(state)).count, 2);
+  // a doubly-encoded answer (ExecuteScript wraps a string result once more)
+  assert.equal(parseStatePayload(JSON.stringify(JSON.stringify(state))).count, 2);
+  // an object, for a caller that already decoded it
+  assert.equal(parseStatePayload(state).count, 2);
+  // an unarmed document answers "" — and junk never becomes a state
+  assert.equal(parseStatePayload(""), null);
+  assert.equal(parseStatePayload('""'), null);
+  assert.equal(parseStatePayload("null"), null);
+  assert.equal(parseStatePayload("{bad"), null);
+  assert.equal(parseStatePayload(JSON.stringify({ kind: "pick" })), null);
+  // the page's own mode being off is an answer, not junk
+  assert.equal(parseStatePayload(JSON.stringify({ kind: "off" })).kind, "off");
+  assert.equal(parseStatePayload(undefined), null);
 });
