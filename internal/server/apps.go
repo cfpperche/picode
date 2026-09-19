@@ -33,8 +33,12 @@ func appsHost(deps Deps, r *http.Request) apps.Host {
 		DeliverReply: func(itemID, verb, text string) (string, error) {
 			return deps.DeliverReply(r.Context(), itemID, verb, text)
 		},
+		// The same rule as the inbox route: pi terminals get the reply
+		// delivered, any other terminal gets the answer recorded on the
+		// item (ADR-0154, N1) — the Inbox app must not refuse what the
+		// route accepts (2026-09-19, the first live ask_human from Claude Code).
 		DeliverTerminalReply: func(itemID, verb, text string) (string, error) {
-			return deps.DeliverTerminalReply(itemID, verb, text)
+			return deps.AnswerTerminalQuestion(itemID, verb, text)
 		},
 	}
 }
