@@ -27,7 +27,12 @@ func TestManagedCLINeedsYouFilesInboxOnce(t *testing.T) {
 	if err := st.SetTerminalLaunch(tm.ID, "claude-code", clilaunch.Overrides{}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.AddManagedCLI(w.ID, "claude-code", "Claude", tm.ID); err != nil {
+	a, err := st.AddAgentWithCLI(w.ID, "claude-code", "Claude", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tid := tm.ID
+	if _, err := st.UpdateAgent(a.ID, store.AgentPatch{TerminalID: &tid}); err != nil {
 		t.Fatal(err)
 	}
 	deps := Deps{Store: st, TermStates: NewTermStates()}

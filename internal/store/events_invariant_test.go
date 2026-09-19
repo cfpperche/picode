@@ -562,21 +562,6 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 			s.OnEvent = recorder(s)
 			_ = s.RecordDockerHealth(m.Endpoint, m.Project, m.Revision, json.RawMessage(`{}`), nil, time.Now())
 		}, []string{"docker.health"}},
-		{"AddManagedCLI", func(s *Store) {
-			w, _ := s.AddWorkspace("W", proj)
-			tm, _ := s.CreateTerminalIn(w.ID, "claude", proj)
-			_ = s.SetTerminalLaunch(tm.ID, "claude-code", clilaunch.Overrides{})
-			s.OnEvent = recorder(s)
-			_, _ = s.AddManagedCLI(w.ID, "claude-code", "Claude", tm.ID)
-		}, []string{"managed_cli.added"}},
-		{"RemoveManagedCLI", func(s *Store) {
-			w, _ := s.AddWorkspace("W", proj)
-			tm, _ := s.CreateTerminalIn(w.ID, "claude", proj)
-			_ = s.SetTerminalLaunch(tm.ID, "claude-code", clilaunch.Overrides{})
-			m, _ := s.AddManagedCLI(w.ID, "claude-code", "Claude", tm.ID)
-			s.OnEvent = recorder(s)
-			_ = s.RemoveManagedCLI(m.ID)
-		}, []string{"managed_cli.removed"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

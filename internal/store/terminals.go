@@ -165,12 +165,14 @@ func (s *Store) RenameTerminal(id, name string) (Terminal, error) {
 }
 
 func (s *Store) DeleteTerminal(id string) error {
-	// A managed-CLI binding dies with the terminal (ADR-0159). Announce it
-	// before the row cascades away so the feed is not a silent DELETE.
-	if m, err := s.ManagedCLIByTerminal(id); err == nil {
-		if err := s.RemoveManagedCLI(m.ID); err != nil && !errors.Is(err, ErrNotFound) {
-			return err
+	// A guest agent's TUI is this terminal (ADR-0160). Drop the agent row
+	// first so DeleteAgent cannot recurse into DeleteTerminal.
+	if a, err := s.AgentByTerminal(id); err == nil {
+		_, _ = s.db.Exec(`DELETE FROM agent_checklists WHERE agent_id = ?`, a.ID)
+		if _, err := s.db.Exec(`DELETE FROM agents WHERE id = ?`, a.ID); err != nil {
+			return fmt.Errorf("store: delete guest agent with terminal: %w", err)
 		}
+		s.note("agent.deleted", nil, nil, idData(a.ID))
 	}
 	// Same disposal as agent_checklists on DeleteAgent: the row is keyed by
 	// this id and nothing else refers to it, so it goes with the terminal.

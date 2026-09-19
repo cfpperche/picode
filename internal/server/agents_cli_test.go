@@ -51,10 +51,6 @@ func TestAddWorkspaceAgentCLICreatesGuest(t *testing.T) {
 	if len(wss) != 1 || len(wss[0].Agents) != 1 || wss[0].Agents[0].CLI != "claude-code" {
 		t.Fatalf("workspaces = %+v", wss)
 	}
-	if len(wss[0].ManagedCLIs) != 0 {
-		t.Fatalf("must not write managed_clis: %+v", wss[0].ManagedCLIs)
-	}
-
 	start := postJSON(t, ts, "/api/agents/"+ag.ID+"/managed/start", map[string]string{})
 	if start.StatusCode != http.StatusBadRequest {
 		t.Fatalf("managed start guest = %d", start.StatusCode)

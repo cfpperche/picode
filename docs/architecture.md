@@ -22,8 +22,8 @@ CLI is an **agent** (`agents.cli`, ADR-0160) — the same class as Pi, with
 only interactive mode until that CLI gets a managed adapter. Structured
 chat, JSON-RPC and Pi packages stay Pi-only (ADR-0091). `Runtime.Start`
 (`pi --mode rpc`) refuses a non-Pi agent. Unbound `#/clis/new` terminals
-and project shells stay terminals, not agents. `managed_clis` (ADR-0159)
-is transitional until those rows migrate onto `agents`.
+and project shells stay terminals, not agents. Leftover `managed_clis`
+rows (ADR-0159) migrated onto `agents` (Fatia C) and the table is gone.
 
 `picode install` (ADR-0018) enables a systemd **user** unit so it starts with
 this Linux session (WSL included). Its `KillMode=process` leaves tmux-owned
