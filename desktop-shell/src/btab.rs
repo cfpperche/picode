@@ -888,6 +888,12 @@ fn close_inner(
             RECEIVERS.with(|r| {
                 r.borrow_mut().remove(&tab);
             });
+            // The annotate channel dies with its page too: a receiver kept
+            // past the webview is exactly what made a later tab under the
+            // same id look dead (the arm path used to skip subscribing).
+            ANNOTATE_RECEIVERS.with(|r| {
+                r.borrow_mut().remove(&tab);
+            });
             PENDING_PERMISSIONS.with(|p| {
                 let mut map = p.borrow_mut();
                 let asks: Vec<u64> = map
@@ -979,28 +985,31 @@ pub async fn btab_open_external(url: String) -> Result<(), String> {
 
 // --- Annotate mode (v2c) ----------------------------------------------------
 
-// Tabs with the in-page annotate mode on. The script is injected into the live
-// page (never over it: WebView2 forbids painting HTML over a native child), so
-// the page keeps running and the overlay is the page's own DOM.
-fn annotate_tabs() -> &'static std::sync::Mutex<std::collections::HashSet<String>> {
-    static TABS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<String>>> =
-        std::sync::OnceLock::new();
-    TABS.get_or_init(|| std::sync::Mutex::new(std::collections::HashSet::new()))
-}
+// The script is injected into the live page (never over it: WebView2 forbids
+// painting HTML over a native child), so the page keeps running and the
+// overlay is the page's own DOM. The mode's own state lives in the page (the
+// script instance) and in the receiver map below — the old `annotate_tabs`
+// set was written and never read, and it was never pruned on close, which is
+// how a stale entry taught the arm path to skip a subscription.
 
 thread_local! {
-    // One message receiver per annotate-enabled tab. COM interfaces are not
-    // Send, so they live on the UI thread beside RECEIVERS; dropping one tears
-    // its subscription down.
-    static ANNOTATE_RECEIVERS: std::cell::RefCell<std::collections::HashMap<String, webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2WebMessageReceivedEventHandler>> =
+    // One message receiver per annotate-enabled tab, with the token that
+    // unsubscribes it. COM interfaces are not Send, so they live on the UI
+    // thread beside RECEIVERS. Keying on the tab id alone was the bug: a
+    // webview can be recreated under the same id (a closed pane reopened
+    // restores its tab), and the arm path skipped the subscription because
+    // the id was already in the map — the page then worked (card, chips)
+    // while every message went nowhere, silently (owner 2026-09-18: a saved
+    // chip and a Send that never lit up).
+    static ANNOTATE_RECEIVERS: std::cell::RefCell<std::collections::HashMap<String, (webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2WebMessageReceivedEventHandler, i64)>> =
         std::cell::RefCell::new(std::collections::HashMap::new());
 }
 
 /// btab_annotate_mode turns the in-page annotate mode on or off for one tab.
-/// On: enable WebView2's message channel for the tab, subscribe to its
-/// messages (once), and inject the script into the page that is already
-/// loaded. Off: tell the page to take its overlay down. Nothing here goes
-/// through CDP, so no tier applies — this is the human's own UI.
+/// On: enable WebView2's message channel for the tab, (re)subscribe to its
+/// messages, and inject the script into the page that is already loaded.
+/// Off: tell the page to take its overlay down. Nothing here goes through
+/// CDP, so no tier applies — this is the human's own UI.
 #[tauri::command]
 pub async fn btab_annotate_mode(app: AppHandle, id: String, on: bool) -> Result<(), String> {
     // A work tab is a child Webview under the main window (WebviewBuilder in
@@ -1029,8 +1038,15 @@ pub async fn btab_annotate_mode(app: AppHandle, id: String, on: bool) -> Result<
         if let Ok(settings) = core.Settings() {
             let _ = settings.SetIsWebMessageEnabled(true);
         }
-        let already = ANNOTATE_RECEIVERS.with(|r| r.borrow().contains_key(&tab));
-        if !already {
+        // (Re)subscribe every arm: the old registration (if any) is removed
+        // first, so a webview recreated under the same id gets a live channel
+        // instead of inheriting the map's stale key, and a re-arm never
+        // double-delivers. Removal on a dead core fails harmlessly.
+        let previous = ANNOTATE_RECEIVERS.with(|r| r.borrow_mut().remove(&tab));
+        if let Some((_handler, token)) = previous {
+            let _ = core.remove_WebMessageReceived(token);
+        }
+        {
             let emitter = emitter.clone();
             let tab_for_handler = tab.clone();
             let handler = WebMessageReceivedEventHandler::create(Box::new(move |_sender, args| {
@@ -1052,7 +1068,7 @@ pub async fn btab_annotate_mode(app: AppHandle, id: String, on: bool) -> Result<
                 return;
             }
             ANNOTATE_RECEIVERS.with(|r| {
-                r.borrow_mut().insert(tab.clone(), handler);
+                r.borrow_mut().insert(tab.clone(), (handler, token));
             });
         }
         let script = if on {
@@ -1071,12 +1087,6 @@ pub async fn btab_annotate_mode(app: AppHandle, id: String, on: bool) -> Result<
     });
     let out = rx.recv().unwrap_or_else(|_| Err("the shell did not answer".into()));
     out?;
-    let mut set = annotate_tabs().lock().unwrap();
-    if on {
-        set.insert(id);
-    } else {
-        set.remove(&id);
-    }
     Ok(())
 }
 

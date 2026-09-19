@@ -569,16 +569,24 @@
   card.addEventListener("click", (e) => e.stopPropagation());
 
   function enter() {
-    if (on) return;
-    on = true;
-    if (!host.isConnected) document.documentElement.appendChild(host);
-    document.addEventListener("mousemove", onMove, true);
-    document.addEventListener("click", pick, true);
-    document.addEventListener("click", onDocClick, true);
-    document.addEventListener("keydown", onKey, true);
-    window.addEventListener("scroll", reposition, true);
-    window.addEventListener("resize", reposition, true);
+    // Re-arming (the chrome's recovery path) must ANNOUNCE, not return
+    // early: the listener setup is idempotent, the report is the point. An
+    // early `if (on) return;` here is exactly what made a re-arm silent.
+    if (!on) {
+      on = true;
+      if (!host.isConnected) document.documentElement.appendChild(host);
+      document.addEventListener("mousemove", onMove, true);
+      document.addEventListener("click", pick, true);
+      document.addEventListener("click", onDocClick, true);
+      document.addEventListener("keydown", onKey, true);
+      window.addEventListener("scroll", reposition, true);
+      window.addEventListener("resize", reposition, true);
+    }
     post({ kind: "enter", url: location.href });
+    // The arm also reports what the page already holds: re-arming is the
+    // recovery path (the chrome retries once when the page does not answer),
+    // and the pins here survive it — only turning the mode OFF discards them.
+    sync();
   }
 
   function clear() {
@@ -620,8 +628,7 @@
     hl.style.display = "none";
     sel.style.display = "none";
     host.remove();
-    post({ kind: "exit" });
-    try {
+    post({ kind: "exit" });    try {
       delete window[KEY];
     } catch (e) {
       window[KEY] = null;

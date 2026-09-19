@@ -118,6 +118,9 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
   const [annotShots, setAnnotShots] = useState(true);
   const [annotSending, setAnnotSending] = useState(false);
   const annotOnRef = useRef(false);
+  // Did this tab's page answer the arm? Any message (enter/state/pick) proves
+  // the channel; the arm's watchdog reads it once.
+  const annotSeenRef = useRef(false);
   const annotItemsRef = useRef([]);
   annotOnRef.current = annotOn;
   annotItemsRef.current = annotItems;
@@ -158,6 +161,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     listen("btab://annotate", (event) => {
       const parsed = parseAnnotMessage(event?.payload);
       if (!parsed || parsed.id !== tabId) return;
+      annotSeenRef.current = true;
       const inner = parsed.inner;
       if (inner.kind === "pick") toast.ok("Picked " + (inner.selector || inner.tag || "element"));
       else if (inner.kind === "state") setAnnotItems(stateItems(inner));
@@ -283,6 +287,29 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     }
   };
 
+  // Arm the mode, and make silence visible. The page answers an arm with its
+  // `enter` (+ the state it holds), so no answer means the channel is dead:
+  // the card and the chips keep working (they are the page's own DOM) while
+  // Send never lights up — the failure the owner met with no signal at all
+  // (2026-09-19). Re-arming re-subscribes in the shell and the page keeps its
+  // pins, so one silent retry is the repair; a second silence is the truth,
+  // said out loud.
+  const armAnnotate = (retriesLeft = 1) => {
+    invoke("btab_annotate_mode", { id: tabId, on: true })
+      .then(() => {
+        setTimeout(() => {
+          if (!annotOnRef.current || annotSeenRef.current) return;
+          if (retriesLeft > 0) { armAnnotate(retriesLeft - 1); return; }
+          toast("Annotate mode: this page is not answering — annotations will not reach the strip.");
+        }, 2500);
+      })
+      .catch((e) => {
+        annotOnRef.current = false;
+        setAnnotOn(false);
+        toast("Annotate mode failed: " + (e?.message || e));
+      });
+  };
+
   const toggleAnnotate = () => {
     if (annotOnRef.current) { exitAnnotate(); return; }
     // The plain browser has no live page to inject into: the preview shows
@@ -293,12 +320,9 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
       return;
     }
     annotOnRef.current = true;
+    annotSeenRef.current = false;
     setAnnotOn(true);
-    invoke("btab_annotate_mode", { id: tabId, on: true }).catch((e) => {
-      annotOnRef.current = false;
-      setAnnotOn(false);
-      toast("Annotate mode failed: " + (e?.message || e));
-    });
+    armAnnotate();
   };
   useEffect(() => {
     const onKey = (e) => {

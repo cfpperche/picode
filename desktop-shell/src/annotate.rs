@@ -70,6 +70,34 @@ mod tests {
         }
     }
 
+    // Re-arming is the recovery path: the chrome retries once when the page
+    // does not answer, and the page must report what it holds on `enter` —
+    // otherwise a recovered channel would show an empty strip with the pins
+    // still on the page (owner 2026-09-19: a saved chip and a Send that
+    // never lit up).
+    #[test]
+    fn entering_reports_the_state_it_already_holds() {
+        let enter = SCRIPT
+            .split("function enter()")
+            .nth(1)
+            .expect("enter() is gone");
+        let body = enter.split("function exit()").next().unwrap_or(enter);
+        assert!(body.contains("post({ kind: \"enter\""), "enter still announces itself");
+        assert!(body.contains("sync();"), "enter must also sync the state");
+        // The early return is what made a re-arm silent: the page kept its
+        // pins and told the chrome nothing.
+        for line in body.lines() {
+            let code = line.trim();
+            if code.starts_with("//") {
+                continue;
+            }
+            assert!(
+                !code.contains("if (on) return"),
+                "enter must not return early: a re-arm has to report"
+            );
+        }
+    }
+
     // While a card is open every other open path is locked: a stray click
     // off the card must not steal it onto a new pin and drop the unsaved
     // draft (owner 2026-09-18).
