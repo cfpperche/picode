@@ -217,8 +217,10 @@ Installed is the roster as built above; Marketplace is the add surface.
 - Cards carry capability badges (Remote / Local command / Sign-in required);
   **Add** builds the same POST `/api/mcp` body the old dialog rows built and
   runs it through the driver of the selected CLI. **Added** (disabled) marks
-  a name already in the selected scope. **Custom server…** stays as the
-  manual escape hatch.
+  a name already in the selected scope. **Docs** (when the registry sent a
+  `websiteUrl` or repository URL, or the seed has a cookbook page) opens that
+  page in the browser; a card without a URL hides the link. **Custom
+  server…** stays as the manual escape hatch.
 - The definition-import endpoint (`POST /api/mcp/import`), the file reader,
   and `Report.Found`/`Report.Imports` are gone, as are the guests'
   "arrive in a later phase" refusals — there is no later phase.

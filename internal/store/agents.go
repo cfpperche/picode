@@ -171,6 +171,24 @@ func (s *Store) GetAgent(id string) (Agent, error) {
 	return a, nil
 }
 
+// AgentByTerminal returns the agent bound to this terminal, if any
+// (ADR-0160 Fatia C: the guest TUI lives on agents.terminal_id).
+func (s *Store) AgentByTerminal(terminalID string) (Agent, error) {
+	terminalID = strings.TrimSpace(terminalID)
+	if terminalID == "" {
+		return Agent{}, ErrNotFound
+	}
+	var a Agent
+	row := s.db.QueryRow(`SELECT `+agentCols+` FROM agents WHERE terminal_id = ?`, terminalID)
+	if err := scanAgentInto(row, &a); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Agent{}, ErrNotFound
+		}
+		return Agent{}, fmt.Errorf("store: agent by terminal: %w", err)
+	}
+	return a, nil
+}
+
 // AgentStatus values (cached view of runtime truth; see ADR-0005).
 const (
 	StatusNeverStarted = "never_started"
@@ -562,4 +580,12 @@ func (s *Store) DeleteAgent(id string) error {
 		_ = s.DeleteTerminal(*a.TerminalID)
 	}
 	return nil
+}
+
+func isUniqueConstraint(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "unique constraint") || strings.Contains(msg, "constraint failed")
 }

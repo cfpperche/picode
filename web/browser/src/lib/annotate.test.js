@@ -269,3 +269,39 @@ test("the crop reports why it failed, and the Send says it", () => {
   assert.ok(surface.includes('return { data: "", why:'), "every give-up names its step");
   assert.ok(surface.includes("The screenshot did not come through: "), "the Send says what happened");
 });
+
+test("a style proposal travels as original -> proposed, never as one list", () => {
+  // The inspector previews on the live page, so the element's own values are
+  // the mutated ones by the time anything is sent: the note has to say both,
+  // or the agent reads our preview as "the page looks like this" (2026-09-19).
+  const styles = { color: "rgb(31, 35, 40)", "font-size": "14px", display: "" };
+  const edits = { color: { from: "rgb(31, 35, 40)", to: "#b00020" }, "font-size": { from: "14px", to: "" } };
+  assert.equal(
+    stylesToCSS(styles, edits),
+    "color: rgb(31, 35, 40)\nfont-size: 14px\n/* proposed */\ncolor: #b00020",
+  );
+  assert.equal(stylesToCSS(styles), "color: rgb(31, 35, 40)\nfont-size: 14px", "no edits, no section");
+  assert.equal(stylesToCSS(null, { color: { to: "#fff" } }), "/* proposed */\ncolor: #fff");
+  assert.equal(stylesToCSS(styles, { color: { to: "   " } }), "color: rgb(31, 35, 40)\nfont-size: 14px", "an empty proposal is not one");
+});
+
+test("the state sync carries the proposals, and drops junk", () => {
+  const items = stateItems({
+    items: [
+      { n: 1, rect: { width: 10, height: 10 }, styleEdits: { color: { from: "a", to: "b" } } },
+      { n: 2, rect: { width: 10, height: 10 }, styleEdits: { color: { to: "" }, junk: "nope", "": { to: "x" } } },
+      { n: 3, rect: { width: 10, height: 10 }, styleEdits: "not an object" },
+    ],
+  });
+  assert.deepEqual(items[0].styleEdits, { color: { from: "a", to: "b" } });
+  assert.deepEqual(items[1].styleEdits, {}, "an empty or shapeless proposal never reaches the note");
+  assert.deepEqual(items[2].styleEdits, {});
+});
+
+test("the Send posts the proposals beside the snapshot", () => {
+  const surface = readFileSync(new URL("../components/WebTab.jsx", import.meta.url), "utf8");
+  assert.ok(
+    surface.includes("stylesToCSS(it.styles || {}, it.styleEdits || {})"),
+    "the note's styles block carries the inspector's proposals",
+  );
+});

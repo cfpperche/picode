@@ -10,42 +10,34 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 )
 
-// principalView is one workspace actor (ADR-0159): a Pi agent or a bound
-// Agent CLI terminal. Kind/id/key match grant.Principal.
+// principalView is one workspace actor (ADR-0160): an agents row. Kind/id/key
+// match grant.Principal. Guests carry cli and the interactive terminal.
 type principalView struct {
-	Kind         string `json:"kind"`
-	ID           string `json:"id"`
-	Key          string `json:"key"`
-	Name         string `json:"name"`
-	WorkspaceID  string `json:"workspaceId"`
-	CLI          string `json:"cli,omitempty"`
-	ManagedCLIID string `json:"managedCliId,omitempty"`
-	AgentID      string `json:"agentId,omitempty"`
+	Kind        string `json:"kind"`
+	ID          string `json:"id"`
+	Key         string `json:"key"`
+	Name        string `json:"name"`
+	WorkspaceID string `json:"workspaceId"`
+	CLI         string `json:"cli,omitempty"`
+	AgentID     string `json:"agentId,omitempty"`
+	TerminalID  string `json:"terminalId,omitempty"`
 }
 
 func agentPrincipal(a store.Agent) principalView {
 	p := grant.Principal{Kind: grant.KindAgent, ID: a.ID}
-	return principalView{
+	v := principalView{
 		Kind:        string(p.Kind),
 		ID:          p.ID,
 		Key:         p.Key(),
 		Name:        a.Name,
 		WorkspaceID: a.WorkspaceID,
+		CLI:         a.CLI,
 		AgentID:     a.ID,
 	}
-}
-
-func managedCLIPrincipal(m store.ManagedCLI) principalView {
-	p := m.Principal()
-	return principalView{
-		Kind:         string(p.Kind),
-		ID:           p.ID,
-		Key:          p.Key(),
-		Name:         m.Name,
-		WorkspaceID:  m.WorkspaceID,
-		CLI:          m.CLI,
-		ManagedCLIID: m.ID,
+	if a.TerminalID != nil {
+		v.TerminalID = *a.TerminalID
 	}
+	return v
 }
 
 func handleListWorkspacePrincipals(deps Deps) http.HandlerFunc {
@@ -60,17 +52,9 @@ func handleListWorkspacePrincipals(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		managed, err := deps.Store.ListManagedCLIs(wsID)
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		out := make([]principalView, 0, len(agents)+len(managed))
+		out := make([]principalView, 0, len(agents))
 		for _, a := range agents {
 			out = append(out, agentPrincipal(a))
-		}
-		for _, m := range managed {
-			out = append(out, managedCLIPrincipal(m))
 		}
 		writeJSON(w, http.StatusOK, out)
 	}
@@ -103,58 +87,77 @@ func handleAddWorkspacePrincipal(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "Unknown CLI.")
 			return
 		}
-		name := strings.TrimSpace(req.Name)
-		if name == "" {
-			name = entry.Name
+		agent, err := deps.Store.AddAgentWithCLI(wsID, cli, strings.TrimSpace(req.Name), "")
+		if err != nil {
+			writeErr(w, storeStatus(err), err.Error())
+			return
 		}
 		terminalID := strings.TrimSpace(req.TerminalID)
-		created := false
+		if agent.IsPi() && terminalID == "" {
+			writeJSON(w, http.StatusCreated, agentPrincipal(agent))
+			return
+		}
 		if terminalID == "" {
-			tm, err := deps.Store.CreateTerminalIn(wsID, name, wk.Path)
+			bound, err := attachGuestTerminal(deps, wk, agent)
 			if err != nil {
+				_ = deps.Store.DeleteAgent(agent.ID)
 				writeErr(w, storeStatus(err), err.Error())
 				return
 			}
-			if err := deps.Store.SetTerminalLaunch(tm.ID, cli, managedCLILaunchOverrides(cli)); err != nil {
-				_ = deps.Store.DeleteTerminal(tm.ID)
-				writeErr(w, storeStatus(err), err.Error())
-				return
-			}
-			terminalID = tm.ID
-			created = true
-		} else if launch, err := deps.Store.TerminalLaunch(terminalID); err != nil {
+			writeJSON(w, http.StatusCreated, agentPrincipal(bound))
+			return
+		}
+		tm, err := deps.Store.GetTerminal(terminalID)
+		if err != nil {
+			_ = deps.Store.DeleteAgent(agent.ID)
+			writeErr(w, storeStatus(err), err.Error())
+			return
+		}
+		if tm.WorkspaceID != wk.ID {
+			_ = deps.Store.DeleteAgent(agent.ID)
+			writeErr(w, http.StatusBadRequest, "That terminal belongs to another workspace.")
+			return
+		}
+		launch, err := deps.Store.TerminalLaunch(terminalID)
+		if err != nil {
+			_ = deps.Store.DeleteAgent(agent.ID)
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
-		} else if launch == nil {
-			if err := deps.Store.SetTerminalLaunch(terminalID, cli, managedCLILaunchOverrides(cli)); err != nil {
+		}
+		if launch == nil {
+			if err := deps.Store.SetTerminalLaunch(terminalID, agent.CLI, managedCLILaunchOverrides(agent.CLI)); err != nil {
+				_ = deps.Store.DeleteAgent(agent.ID)
 				writeErr(w, storeStatus(err), err.Error())
 				return
 			}
+		} else if launch.CLI != agent.CLI {
+			_ = deps.Store.DeleteAgent(agent.ID)
+			writeErr(w, http.StatusBadRequest, "That terminal is launched as a different CLI.")
+			return
 		} else {
-			filled := fillManagedCLITools(launch.Overrides, cli)
+			filled := fillManagedCLITools(launch.Overrides, agent.CLI)
 			if launch.Overrides.Tools == nil && filled.Tools != nil {
-				if err := deps.Store.SetTerminalLaunch(terminalID, cli, filled); err != nil {
+				if err := deps.Store.SetTerminalLaunch(terminalID, agent.CLI, filled); err != nil {
+					_ = deps.Store.DeleteAgent(agent.ID)
 					writeErr(w, storeStatus(err), err.Error())
 					return
 				}
 			}
 		}
-		m, err := deps.Store.AddManagedCLI(wsID, cli, name, terminalID)
+		bound, err := deps.Store.UpdateAgent(agent.ID, store.AgentPatch{TerminalID: &terminalID})
 		if err != nil {
-			if created {
-				_ = deps.Store.DeleteTerminal(terminalID)
-			}
+			_ = deps.Store.DeleteAgent(agent.ID)
 			writeErr(w, storeStatus(err), err.Error())
 			return
 		}
-		writeJSON(w, http.StatusCreated, managedCLIPrincipal(m))
+		writeJSON(w, http.StatusCreated, agentPrincipal(bound))
 	}
 }
 
 func handleDeleteManagedCLI(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
-		if err := deps.Store.RemoveManagedCLI(id); err != nil {
+		if err := deps.Store.DeleteAgent(id); err != nil {
 			writeErr(w, storeStatus(err), err.Error())
 			return
 		}

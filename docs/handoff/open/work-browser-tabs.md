@@ -7,12 +7,14 @@ reviewed by the owner against the reference, one item at a time.
 ## Next
 
 - **v2a** unused sites — landed; **v2b** agent history — landed (ADR-0146).
-- **v2c** annotations — step 3 landed (store + endpoints + staged files,
-  ADR-0152); **step 4 landed 2026-09-18** (strip with Send N, numbered
-  pins, anchored card, chips, one-package Send, `btab_annotate_clear`); the
-  mode now survives a full page load (a `NavigationCompleted` hook
-  re-injects the script, 2026-09-19); remaining: the **style inspector** and
-  the **settings row** (step 5). **v2d** Windows Hello
+- **v2c** annotations — **complete**. Step 3 landed (store + endpoints +
+  staged files, ADR-0152); step 4 landed 2026-09-18 (strip with Send N,
+  numbered pins, anchored card, chips, one-package Send,
+  `btab_annotate_clear`); the mode survives a page load (a
+  `NavigationCompleted` hook re-injects the script, 2026-09-19); **step 5
+  landed 2026-09-19** — the style inspector (six rows, live preview,
+  original → proposed in the note) and the annotation-screenshots row
+  (always / ask / never, honoured by the capture). **v2d** Windows Hello
   opener row — landed (the OS screen, not a vault).
 - **v3** WebMCP site tools (ADR when the standard lands). Developer mode
   landed 2026-09-16 (ADR-0144).
@@ -219,6 +221,17 @@ decision, ADR before code.
 - Edit in the worktree. UI edits that land in the root checkout leave scratch
   and deploy testing stale bundles (happened three times).
 - `toast(msg)` defaults to `err`; success needs `toast.ok`.
+- **A preview is a mutation, and the note must not read it back.** The style
+  inspector applies live inline styles (`!important`, or a page rule marked
+  `!important` swallows the preview silently), so the item snapshots the
+  element's computed values at pick time (`styles0`) and its own inline
+  values (`inline0`). Reading `getComputedStyle` when the payload is built
+  returns the preview — the note would then tell the agent "the page looks
+  like this" about the one thing it does not. Every exit that discards an
+  annotation (Cancel, the card's trash, the chip's ×, the ⋯ menu's Remove,
+  Clear, leaving the mode) restores through `inline0`, and two pins on one
+  element re-apply each other's proposals instead of wiping them
+  (owner 2026-09-19).
 - **A settings call after the document exists is too late.**
   `SetIsWebMessageEnabled` is applied at webview creation now (`apply_scripts`,
   beside `SetIsScriptEnabled`): arming annotate mode called it *after* the page

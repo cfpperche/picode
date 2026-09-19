@@ -13,9 +13,11 @@ Canonical: [pi-mcp-adapter](https://github.com/mariozechner/pi-mcp) (install as 
 
 1. Agent CLIs → Pi → **Packages** → This machine → install `npm:pi-mcp-adapter`.
 2. Agent CLIs → Pi → **Connectors** → **Marketplace**. Search the catalog, set
-   **Save to** (machine, workspace or agent), and press **Add**. PiCode's own
-   connectors sit at the top; the rest is a curated slice of the official MCP
-   Registry. **Custom server…** takes a command or URL by hand.
+   **Save to** (machine, workspace or agent), and press **Add**. **Docs** on a
+   card opens that connector's own page (PiCode's cookbook for the seed;
+   the vendor site or repository for the rest). PiCode's own connectors sit
+   at the top; the rest is a curated slice of the official MCP Registry.
+   **Custom server…** takes a command or URL by hand.
 3. Every agent CLI has the same Connectors pane — **Agent CLIs → \<cli\> →
    Connectors** writes that CLI's own config file.
 4. A row shows **Live** or **Failed** while an agent is running; with the agent

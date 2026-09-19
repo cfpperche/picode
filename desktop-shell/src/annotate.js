@@ -51,6 +51,7 @@
   const STYLE_PROPS = [
     "color",
     "background-color",
+    "opacity",
     "font-family",
     "font-size",
     "font-weight",
@@ -63,6 +64,52 @@
     "width",
     "height",
   ];
+
+  // ---- The style inspector (v2c step 5) --------------------------------
+  // The card offers the element's own computed styles (the reference's list:
+  // text colour, background, opacity, font family · size · weight) and every
+  // change is a PREVIEW on the live page, so the human sees the result before
+  // sending it. What travels to the agent is original → proposed — the
+  // mutated value alone would read as "the page looks like this", which is
+  // the one thing it does not. Cancel, the trash and leaving the mode put the
+  // element back exactly as the page had it.
+  const INSPECT = [
+    { key: "color", label: "Text color", kind: "color" },
+    { key: "background-color", label: "Background", kind: "color" },
+    { key: "opacity", label: "Opacity", kind: "range" },
+    { key: "font-family", label: "Font", kind: "font" },
+    { key: "font-size", label: "Size", kind: "number" },
+    { key: "font-weight", label: "Weight", kind: "weight" },
+  ];
+  const FONT_STACKS = [
+    { label: "System", value: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" },
+    { label: "Serif", value: "Georgia, 'Times New Roman', serif" },
+    { label: "Monospace", value: "ui-monospace, Consolas, 'Courier New', monospace" },
+  ];
+  const WEIGHTS = [[300, "Light"], [400, "Regular"], [500, "Medium"], [600, "Semibold"], [700, "Bold"]];
+  const SIZE_MIN = 8;
+  const SIZE_MAX = 96;
+
+  const controlHTML = (d) => {
+    if (d.kind === "color") {
+      return `<input type="color" data-p="${d.key}" data-k="pick" aria-label="${d.label}">` +
+        `<input type="text" data-p="${d.key}" data-k="text" spellcheck="false" aria-label="${d.label} value">`;
+    }
+    if (d.kind === "range") {
+      return `<input type="range" data-p="${d.key}" data-k="range" min="0" max="1" step="0.05" aria-label="${d.label}">` +
+        `<span class="txt" data-p="${d.key}" data-k="read"></span>`;
+    }
+    if (d.kind === "number") {
+      return `<input type="number" data-p="${d.key}" data-k="num" min="${SIZE_MIN}" max="${SIZE_MAX}" step="1" aria-label="${d.label}">` +
+        `<span class="txt">px</span>`;
+    }
+    if (d.kind === "font") {
+      return `<select data-p="${d.key}" data-k="select" aria-label="${d.label}"><option value="">As on the page</option>` +
+        FONT_STACKS.map((f) => `<option value="${f.value}">${f.label}</option>`).join("") + `</select>`;
+    }
+    return `<select data-p="${d.key}" data-k="select" aria-label="${d.label}"><option value="">As on the page</option>` +
+      WEIGHTS.map(([v, l]) => `<option value="${v}">${l} ${v}</option>`).join("") + `</select>`;
+  };
 
   const readable = (el) => {
     let s = String(el.tagName || "").toLowerCase();
@@ -92,7 +139,7 @@
       .sel { background: rgba(74, 158, 255, 0.16); }
       .pin { position: fixed; min-width: 18px; height: 18px; padding: 0 2px; border-radius: 999px; background: #4a9eff; color: #fff; font: 600 11px/18px system-ui, sans-serif; text-align: center; pointer-events: auto; cursor: pointer; display: none; box-shadow: 0 1px 4px rgba(0,0,0,.35); box-sizing: border-box; }
       .pin.on { outline: 2px solid #fff; box-shadow: 0 0 0 4px rgba(74,158,255,.55), 0 1px 4px rgba(0,0,0,.35); }
-      .card { position: fixed; display: none; pointer-events: auto; background: #fff; color: #111; border: 1px solid rgba(0,0,0,.12); border-radius: 10px; box-shadow: 0 6px 22px rgba(0,0,0,.28); padding: 8px; font: 13px/1.4 system-ui, sans-serif; width: 300px; max-width: calc(100vw - 8px); box-sizing: border-box; }
+      .card { position: fixed; display: none; pointer-events: auto; background: #fff; color: #111; border: 1px solid rgba(0,0,0,.12); border-radius: 10px; box-shadow: 0 6px 22px rgba(0,0,0,.28); padding: 8px; font: 13px/1.4 system-ui, sans-serif; width: 328px; max-width: calc(100vw - 8px); box-sizing: border-box; }
       .card .row { display: flex; align-items: center; gap: 6px; }
       .card .mark { flex: none; width: 22px; height: 22px; border-radius: 6px; background: rgba(74,158,255,.14); color: #1f6feb; font: 600 13px/22px system-ui, sans-serif; text-align: center; }
       .card input { border: 0; outline: 0; font: inherit; color: inherit; background: transparent; min-width: 0; flex: 1; }
@@ -102,6 +149,28 @@
       .card .actions button { border: 0; border-radius: 7px; font: 600 12px/1 system-ui, sans-serif; padding: 8px 12px; cursor: pointer; }
       .card .save { background: #1f6feb; color: #fff; }
       .card .cancel { background: rgba(0,0,0,.06); color: #333; }
+      .card .styles { margin-top: 8px; border-top: 1px solid rgba(0,0,0,.08); padding-top: 6px; }
+      .card .styles > summary { display: flex; align-items: center; gap: 6px; cursor: pointer; list-style: none; padding: 2px 0; font-weight: 600; color: #333; }
+      .card .styles > summary::-webkit-details-marker { display: none; }
+      .card .styles .swatch { flex: none; width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,.25); background: #fff; }
+      .card .styles .scount { color: #1f6feb; font-weight: 600; }
+      .card .styles .chev { margin-left: auto; color: #888; font-weight: 400; }
+      .card .styles[open] .chev { transform: rotate(180deg); }
+      .card .sgrid { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 5px 6px; align-items: center; margin-top: 7px; }
+      .card .slab { color: #666; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .card .sctl { display: flex; align-items: center; gap: 4px; min-width: 0; }
+      .card .sctl > input, .card .sctl > select { height: 22px; min-width: 0; box-sizing: border-box; border: 1px solid rgba(0,0,0,.16); border-radius: 5px; background: #fff; color: #111; font: 11px/1.2 system-ui, sans-serif; }
+      .card .sctl input[type="color"] { flex: none; width: 24px; padding: 0; cursor: pointer; }
+      .card .sctl input[type="text"] { flex: 1; padding: 0 4px; }
+      .card .sctl input[type="number"] { flex: 1; padding: 0 2px 0 4px; }
+      .card .sctl input[type="range"] { flex: 1; border: 0; background: transparent; padding: 0; }
+      .card .sctl select { flex: 1; padding: 0 2px; }
+      .card .sctl .txt { flex: none; color: #666; font-size: 11px; }
+      .card .sctl .bad { border-color: #d1242f; box-shadow: 0 0 0 2px rgba(209,36,47,.15); }
+      .card .sreset { flex: none; border: 0; background: transparent; color: #888; font: 12px/1 system-ui, sans-serif; padding: 3px; border-radius: 5px; cursor: pointer; visibility: hidden; }
+      .card .sreset:hover { background: rgba(0,0,0,.06); color: #111; }
+      .anchip .aa { display: none; margin-right: 4px; padding: 0 3px; border-radius: 3px; background: rgba(31,111,235,.12); color: #1f6feb; font: 600 10px/14px system-ui, sans-serif; }
+      .anchip.styled .aa { display: inline-block; }
       .anchip { position: fixed; display: none; pointer-events: auto; align-items: center; gap: 2px; background: #fff; color: #111; border: 1px solid rgba(0,0,0,.12); border-radius: 999px; box-shadow: 0 2px 10px rgba(0,0,0,.22); padding: 3px 4px 3px 8px; font: 12px/1.5 system-ui, sans-serif; max-width: 240px; box-sizing: border-box; }
       .anchip .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .anchip button { flex: none; border: 0; background: transparent; color: #666; font: 12px/1 system-ui, sans-serif; padding: 4px 5px; border-radius: 6px; cursor: pointer; }
@@ -120,6 +189,17 @@
         <button class="icon trash" title="Discard this annotation" aria-label="Discard this annotation">🗑</button>
         <button class="icon mic" title="Dictate the note" aria-label="Dictate the note">🎙</button>
       </div>
+      <details class="styles">
+        <summary>
+          <span class="swatch" aria-hidden="true"></span>
+          <span>Styles</span>
+          <span class="scount"></span>
+          <span class="chev" aria-hidden="true">▾</span>
+        </summary>
+        <div class="sgrid">
+          ${INSPECT.map((d) => `<span class="slab" title="${d.label}">${d.label}</span><span class="sctl">${controlHTML(d)}<button class="sreset" data-p="${d.key}" title="Back to the page's own ${d.label.toLowerCase()}" aria-label="Reset ${d.label}">↺</button></span>`).join("")}
+        </div>
+      </details>
       <div class="actions">
         <button class="cancel">Cancel</button>
         <button class="save">Save</button>
@@ -139,7 +219,188 @@
   const micBtn = card.querySelector(".mic");
   const saveBtn = card.querySelector(".save");
   const cancelBtn = card.querySelector(".cancel");
+  const stylesBox = card.querySelector(".styles");
+  const styleSwatch = card.querySelector(".styles .swatch");
+  const styleCount = card.querySelector(".styles .scount");
   const menu = root.querySelector(".menu");
+
+  // The inspector's own helpers. `styles0` is the computed snapshot taken at
+  // pick time — reading it live would return the preview's own mutation and
+  // turn "what the page had" into "what we just set". `inline0` remembers the
+  // element's own inline values for those six properties, so putting a page
+  // back never deletes a style the page itself wrote.
+  const toHex = (v) => {
+    const s = String(v || "").trim();
+    const m = s.match(/rgba?\(([^)]+)\)/i);
+    if (!m) return /^#[0-9a-f]{6}$/i.test(s) ? s : "#ffffff";
+    const parts = m[1].split(/[,\s\/]+/).filter((x) => x !== "").map(Number);
+    const [r, g, b, a] = parts;
+    if (parts.length > 3 && a === 0) return "#ffffff"; // transparent reads as the card's own white
+    const hex = [r, g, b]
+      .map((n) => Math.max(0, Math.min(255, Math.round(Number.isFinite(n) ? n : 0))).toString(16).padStart(2, "0"))
+      .join("");
+    return "#" + hex;
+  };
+
+  const sameStyle = (a) => String(a || "").replace(/\s+/g, "").replace(/'/g, "\"").toLowerCase();
+
+  const inline0Of = (el) => {
+    const out = {};
+    for (const d of INSPECT) {
+      out[d.key] = [el.style.getPropertyValue(d.key), el.style.getPropertyPriority(d.key)];
+    }
+    return out;
+  };
+
+  // backToOne puts one property back the way the page had it: the element's
+  // own inline value if it had one, the page's rule otherwise.
+  const backToOne = (it, prop) => {
+    const own = (it.inline0 && it.inline0[prop]) || ["", ""];
+    if (own[0]) it.el.style.setProperty(prop, own[0], own[1]);
+    else it.el.style.removeProperty(prop);
+  };
+
+  // restoreStyles drops what THIS annotation proposed. Two pins can sit on
+  // one element, so a property the other one still proposes is re-applied
+  // instead of being wiped with ours.
+  const restoreStyles = (it) => {
+    if (!it || !it.edits) return;
+    const props = Object.keys(it.edits);
+    it.edits = {};
+    for (const p of props) {
+      const other = items.find((x) => x !== it && x.el === it.el && x.edits && x.edits[p]);
+      if (other) it.el.style.setProperty(p, other.edits[p].to, "important");
+      else backToOne(it, p);
+    }
+  };
+
+  const restoreAllStyles = () => {
+    items.forEach((it) => restoreStyles(it));
+  };
+
+  const applyEdit = (it, prop, value) => {
+    const original = (it.styles0 && it.styles0[prop]) || "";
+    const next = String(value == null ? "" : value).trim();
+    if (!next || sameStyle(next) === sameStyle(original)) {
+      delete it.edits[prop];
+      backToOne(it, prop);
+    } else {
+      it.edits[prop] = { from: original, to: next };
+      // !important: a page rule that is itself !important would swallow the
+      // preview and the human would watch nothing happen.
+      it.el.style.setProperty(prop, next, "important");
+    }
+    renderStyles(it);
+  };
+
+  const matchOption = (prop, value) => {
+    const sel = stylesBox.querySelector(`select[data-p="${prop}"]`);
+    if (!sel) return false;
+    return Array.from(sel.options).some((o) => o.value && sameStyle(o.value) === sameStyle(value));
+  };
+
+  // renderStyles paints every control from the item's truth (edits first, the
+  // page's own value otherwise). The DOM never decides what is proposed.
+  const renderStyles = (it) => {
+    const cur = (p) => (it.edits && it.edits[p] ? it.edits[p].to : (it.styles0 && it.styles0[p]) || "");
+    for (const d of INSPECT) {
+      const p = d.key;
+      const v = cur(p);
+      const pick = stylesBox.querySelector(`[data-p="${p}"][data-k="pick"]`);
+      const text = stylesBox.querySelector(`[data-p="${p}"][data-k="text"]`);
+      const range = stylesBox.querySelector(`[data-p="${p}"][data-k="range"]`);
+      const read = stylesBox.querySelector(`[data-p="${p}"][data-k="read"]`);
+      const num = stylesBox.querySelector(`[data-p="${p}"][data-k="num"]`);
+      const sel = stylesBox.querySelector(`select[data-p="${p}"]`);
+      const reset = stylesBox.querySelector(`.sreset[data-p="${p}"]`);
+      if (pick) pick.value = toHex(v);
+      if (text) { text.value = v; text.classList.remove("bad"); }
+      if (range) range.value = String(Math.max(0, Math.min(1, parseFloat(v) || 0)));
+      if (read) read.textContent = Math.round((parseFloat(v) || 0) * 100) + "%";
+      if (num) num.value = String(Math.round(parseFloat(v) || 0));
+      if (sel) sel.value = matchOption(p, v) ? v : "";
+      if (reset) reset.style.visibility = it.edits && it.edits[p] ? "visible" : "hidden";
+    }
+    const n = Object.keys(it.edits || {}).length;
+    styleCount.textContent = n ? n + (n === 1 ? " change" : " changes") : "";
+    styleSwatch.style.background = cur("color") || "#fff";
+    markChip(it);
+  };
+
+  const markChip = (it) => {
+    if (!it || !it.chip) return;
+    it.chip.classList.toggle("styled", Object.keys(it.edits || {}).length > 0);
+  };
+
+  const announce = (it) => {
+    post(Object.assign({ kind: "styled" }, payload(it)));
+  };
+
+  const onStyleEvent = (e) => {
+    const it = editing;
+    if (!on || !it) return;
+    const t = e.target;
+    if (!t || !t.getAttribute) return;
+    const prop = t.getAttribute("data-p");
+    const kind = t.getAttribute("data-k");
+    if (!prop || !kind || kind === "read") return;
+    // Text, number and the selects speak on change (Enter/blur), the colour
+    // picker and the slider live while dragging: on `input` only those two.
+    const isChange = e.type === "change";
+    if (kind !== "pick" && kind !== "range" && !isChange) return;
+    if (kind === "pick" || kind === "range") {
+      e.stopPropagation();
+      applyEdit(it, prop, t.value);
+      announce(it);
+      return;
+    }
+    if (kind === "num") {
+      const n = Math.round(parseFloat(t.value) || 0);
+      if (!(n >= SIZE_MIN && n <= SIZE_MAX)) {
+        post({ kind: "warn", message: "A font size between " + SIZE_MIN + " and " + SIZE_MAX + " px, please." });
+        renderStyles(it);
+        return;
+      }
+      applyEdit(it, prop, n + "px");
+      announce(it);
+      return;
+    }
+    if (kind === "text") {
+      const v = String(t.value || "").trim();
+      if (v && !(window.CSS && CSS.supports && CSS.supports("color", v))) {
+        // Say it instead of silently keeping the old colour: an ignored edit
+        // looks exactly like a page that refuses to change.
+        t.classList.add("bad");
+        post({ kind: "warn", message: '"' + v + '" is not a colour this page accepts.' });
+        return;
+      }
+      applyEdit(it, prop, v);
+      announce(it);
+      return;
+    }
+    if (kind === "select") {
+      applyEdit(it, prop, String(t.value || "").trim());
+      announce(it);
+    }
+  };
+
+  // A new card opens the section the last one left open: the human who works
+  // with styles keeps them in view, the one who never touches them keeps a
+  // small card (the disclosure is remembered for the session).
+  let stylesOpen = false;
+  stylesBox.addEventListener("toggle", () => { stylesOpen = stylesBox.open; });
+  stylesBox.addEventListener("input", onStyleEvent);
+  stylesBox.addEventListener("change", onStyleEvent);
+  stylesBox.addEventListener("click", (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest(".sreset") : null;
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const it = editing;
+    if (!on || !it) return;
+    applyEdit(it, btn.getAttribute("data-p"), "");
+    announce(it);
+  });
 
   // Page hotkeys must never see keystrokes meant for the card. The event is
   // retargeted to the host once it leaves the shadow root — a div, not a
@@ -199,7 +460,10 @@
       tag: item.tag,
       html: String(el.outerHTML || "").slice(0, 20000),
       rect: item.rect,
-      styles: computed(el),
+      // The snapshot from pick time, never a live read: after a preview the
+      // element's own computed values carry our mutation (v2c step 5).
+      styles: item.styles0 || computed(el),
+      styleEdits: item.edits || {},
       vw: item.vw,
       vh: item.vh,
       comment: item.comment,
@@ -284,6 +548,10 @@
     closeMenu();
     hl.style.display = "none";
     input.value = it.comment || "";
+    // The disclosure keeps the session's answer, and every control is painted
+    // from this item's truth before it is shown.
+    stylesBox.open = stylesOpen;
+    renderStyles(it);
     cardOpen = true;
     placeCard(it);
     input.focus();
@@ -303,6 +571,9 @@
   const removeItem = (it) => {
     if (editing === it) closeCard();
     if (menuFor === it) closeMenu();
+    // The annotation is gone, so its proposal is gone: the page goes back to
+    // what it had (a preview nobody can see the note for is a lie).
+    restoreStyles(it);
     it.pin.remove();
     it.chip.remove();
     items = items.filter((x) => x !== it);
@@ -456,6 +727,12 @@
       selector: readable(el),
       tag: String(el.tagName || "").toLowerCase(),
       rect: null,
+      // The style inspector's two snapshots: the computed values the human is
+      // looking at now, and the element's own inline values (so cancelling
+      // never deletes a style the page itself wrote).
+      styles0: computed(el),
+      inline0: inline0Of(el),
+      edits: {},
       vw: window.innerWidth,
       vh: window.innerHeight,
       comment: "",
@@ -486,17 +763,26 @@
   const cancelCard = () => {
     const it = editing;
     // Cancel on a never-saved draft removes its pin (nothing was kept);
-    // cancel while editing a saved note keeps the old text.
+    // cancel while editing a saved note keeps the old text but drops the
+    // styles the card was previewing.
     if (it && !it.saved) {
       closeCard();
       removeItem(it);
       return;
     }
+    if (it) restoreStyles(it);
     closeCard();
   };
 
   const onKey = (e) => {
     if (!on) return;
+    // Enter inside a style control applies that control — it must not save the
+    // whole card mid-edit. The shadow root's own activeElement is the only
+    // place that answer survives the retargeting below, and it has to be read
+    // for BOTH branches: a keystroke in the card arrives at this listener with
+    // the host as its target.
+    const focused = cardOpen ? root.activeElement : null;
+    const inStyles = !!(focused && focused.getAttribute && focused.getAttribute("data-p"));
     // This listener lives on the document, outside the shadow tree, where the
     // event target is retargeted to the host — so "is this the card's input?"
     // cannot be asked by comparing the event target to the input element (it
@@ -505,6 +791,7 @@
     // cancels or closes it.
     if (inHost(e)) {
       if (e.key === "Enter" && cardOpen) {
+        if (inStyles) return;
         e.preventDefault();
         e.stopPropagation();
         save();
@@ -517,6 +804,7 @@
       return;
     }
     if (e.key === "Enter" && cardOpen) {
+      if (inStyles) return;
       e.preventDefault();
       e.stopPropagation();
       save();
@@ -599,6 +887,7 @@
   function clear() {
     closeMenu();
     closeCard();
+    restoreAllStyles();
     items.forEach((it) => {
       it.pin.remove();
       it.chip.remove();
@@ -620,6 +909,9 @@
     on = false;
     closeMenu();
     closeCard();
+    // Leaving the mode takes every preview with it: the page is handed back
+    // exactly as it was found.
+    restoreAllStyles();
     items.forEach((it) => {
       it.pin.remove();
       it.chip.remove();

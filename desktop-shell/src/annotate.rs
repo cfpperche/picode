@@ -200,6 +200,42 @@ mod tests {
         assert!(!body.contains("delete window[KEY]"), "the handle must survive exit");
     }
 
+    // The style inspector (v2c step 5): the reference's six rows, one original
+    // snapshot, and every exit that puts the page back.
+    #[test]
+    fn the_inspector_offers_the_reference_rows_and_keeps_the_original() {
+        for row in ["Text color", "Background", "Opacity", "Font", "Size", "Weight"] {
+            assert!(SCRIPT.contains(&format!("label: \"{row}\"")), "the card offers {row}");
+        }
+        assert!(SCRIPT.contains("styles0: computed(el)"), "the computed values are snapshotted at pick");
+        assert!(SCRIPT.contains("styles: item.styles0 || computed(el)"), "the payload sends the snapshot, not a live read");
+        assert!(SCRIPT.contains("inline0: inline0Of(el)"), "the page's own inline values are remembered");
+        assert!(SCRIPT.contains(r#"setProperty(prop, next, "important")"#), "a page rule marked !important cannot swallow the preview");
+        assert!(SCRIPT.contains("styleEdits: item.edits || {}"), "the proposals travel with the pin");
+    }
+
+    #[test]
+    fn every_exit_that_discards_an_annotation_puts_the_page_back() {
+        // Decision table (the branch's handoff note): Cancel on a draft, the
+        // card's trash, the chip's x, the menu's Remove, Clear and leaving the
+        // mode all restore; Save and Send keep the preview.
+        assert!(SCRIPT.contains("const removeItem = (it) => {\n    if (editing === it) closeCard();\n    if (menuFor === it) closeMenu();"));
+        assert!(SCRIPT.contains("restoreStyles(it);\n    it.pin.remove();"), "a removed pin restores its element");
+        assert!(SCRIPT.contains("if (it) restoreStyles(it);\n    closeCard();"), "Cancel on a saved note restores");
+        assert!(SCRIPT.contains("const restoreAllStyles = () =>"), "Clear and exit restore the set");
+        assert!(SCRIPT.contains("    restoreAllStyles();\n    items.forEach((it) => {"), "exit restores before the pins go");
+        assert!(SCRIPT.contains("restoreAllStyles();\n    items.forEach((it) => {\n      it.pin.remove();"), "clear restores too");
+        assert!(SCRIPT.contains("const other = items.find((x) => x !== it && x.el === it.el && x.edits && x.edits[p]);"),
+            "two pins on one element compose instead of wiping each other");
+    }
+
+    #[test]
+    fn enter_in_a_style_control_applies_it_instead_of_saving_the_card() {
+        assert!(SCRIPT.contains("const focused = cardOpen ? root.activeElement : null;"));
+        assert!(SCRIPT.contains("const inStyles = !!(focused && focused.getAttribute && focused.getAttribute(\"data-p\"));"));
+        assert_eq!(SCRIPT.matches("if (inStyles) return;").count(), 2, "both Enter paths respect the style controls");
+    }
+
     // The shot must not photograph our own overlay.
     #[test]
     fn the_overlay_scripts_are_guarded_and_named() {
@@ -280,11 +316,11 @@ mod tests {
         for field in ["selector", "tag", "html", "rect", "styles"] {
             assert!(SCRIPT.contains(&format!("{field}:")), "pick payload lost {field}");
         }
-        for prop in ["color", "background-color", "font-family", "font-size", "font-weight"] {
+        for prop in ["color", "background-color", "opacity", "font-family", "font-size", "font-weight"] {
             assert!(SCRIPT.contains(&format!("\"{prop}\"")), "style list lost {prop}");
         }
-        // opacity is not in the capture list yet (the editor adds it later):
-        // the script must not pretend it is.
-        assert!(!SCRIPT.contains("\"opacity\""));
+        // opacity was deliberately left out until the editor existed (a value
+        // nothing could change); the style inspector is that editor (step 5).
+        assert!(SCRIPT.contains("const INSPECT = ["), "the inspector owns the capture list");
     }
 }

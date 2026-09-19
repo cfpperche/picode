@@ -108,6 +108,18 @@ func TestSeedMapsPresets(t *testing.T) {
 	if it := findSeed(t, "picode-computer"); !strings.HasPrefix(it.ID, "picode-") || it.Kind != "stdio" {
 		t.Fatalf("picode-computer = %+v", it)
 	}
+	if it := findSeed(t, "deepwiki"); it.DocsURL != picodeGuide+"/mcp-deepwiki" {
+		t.Fatalf("deepwiki docs = %q", it.DocsURL)
+	}
+	if it := findSeed(t, "gmail"); it.DocsURL != picodeGuide+"/mcp-gmail" {
+		t.Fatalf("gmail docs = %q", it.DocsURL)
+	}
+	if it := findSeed(t, "picode-computer"); it.DocsURL != picodeGuide+"/picode-mcp" {
+		t.Fatalf("picode-computer docs = %q", it.DocsURL)
+	}
+	if it := findSeed(t, "notion"); it.DocsURL != "" {
+		t.Fatalf("notion docs = %q, want empty (no cookbook page)", it.DocsURL)
+	}
 	seen := map[string]bool{}
 	for _, it := range seed {
 		if seen[it.ID] {
@@ -498,5 +510,74 @@ func TestRefreshPageBudgetPublishesPartialCatalog(t *testing.T) {
 	s2 := NewStore(dir)
 	if got := len(s2.Search(context.Background(), "")); got < maxRegistryPages {
 		t.Fatalf("restarted store hits = %d, want the persisted partial catalog", got)
+	}
+}
+
+func TestDocsURLFromWebsiteThenRepository(t *testing.T) {
+	pages := map[string]string{
+		"": `{"servers":[` +
+			`{"server":{"name":"io.acme/site","title":"Site","description":"Has a website",` +
+			`"websiteUrl":"https://acme.example/docs","repository":{"url":"https://github.com/acme/mcp"},` +
+			`"remotes":[{"type":"streamable-http","url":"https://acme.example/mcp"}]},` +
+			`"_meta":{"io.modelcontextprotocol.registry/official":{"status":"active"}}},` +
+			`{"server":{"name":"io.acme/repo","title":"Repo","description":"Only a repository",` +
+			`"repository":{"url":"https://github.com/acme/repo-mcp"},` +
+			`"remotes":[{"type":"streamable-http","url":"https://acme.example/mcp"}]},` +
+			`"_meta":{"io.modelcontextprotocol.registry/official":{"status":"active"}}},` +
+			`{"server":{"name":"io.acme/bad","title":"Bad","description":"Javascript docs",` +
+			`"websiteUrl":"javascript:alert(1)",` +
+			`"remotes":[{"type":"streamable-http","url":"https://acme.example/mcp"}]},` +
+			`"_meta":{"io.modelcontextprotocol.registry/official":{"status":"active"}}}` +
+			`],"metadata":{}}`,
+	}
+	srv, _ := registryServer(t, pages, nil)
+	s := NewStore("")
+	s.Base = srv.URL
+	if err := s.Refresh(context.Background()); err != nil {
+		t.Fatalf("refresh: %v", err)
+	}
+	byID := map[string]Item{}
+	for _, hit := range s.Search(context.Background(), "io.acme") {
+		byID[hit.ID] = hit
+	}
+	if got := byID["io.acme/site"].DocsURL; got != "https://acme.example/docs" {
+		t.Fatalf("website wins = %q", got)
+	}
+	if got := byID["io.acme/repo"].DocsURL; got != "https://github.com/acme/repo-mcp" {
+		t.Fatalf("repo fallback = %q", got)
+	}
+	if got := byID["io.acme/bad"].DocsURL; got != "" {
+		t.Fatalf("javascript: rejected = %q", got)
+	}
+}
+
+func TestOldCacheServesAndIsStale(t *testing.T) {
+	dir := t.TempDir()
+	cf := cacheFileV1{
+		Version:     0,
+		RefreshedAt: time.Now(),
+		Items: []Item{{
+			ID:      "io.acme/old",
+			Name:    "Old",
+			Summary: "cached without docsUrl",
+			Kind:    "url",
+			URL:     "https://old.example/mcp",
+			Source:  "registry",
+		}},
+	}
+	b, err := json.Marshal(cf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, cacheFileName), b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// A dead local base keeps Search from hitting the real registry when
+	// the old file is treated as stale.
+	s := NewStore(dir)
+	s.Base = "http://127.0.0.1:1"
+	hits := s.Search(context.Background(), "old")
+	if len(hits) != 1 || hits[0].ID != "io.acme/old" {
+		t.Fatalf("hits = %+v", hits)
 	}
 }

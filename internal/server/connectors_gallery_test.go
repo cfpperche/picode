@@ -58,6 +58,7 @@ func TestConnectorsGalleryServesSeed(t *testing.T) {
 	if hitString(deepwiki, "url") != "https://mcp.deepwiki.com/mcp" ||
 		hitString(deepwiki, "kind") != "url" ||
 		hitString(deepwiki, "source") != "picode" ||
+		hitString(deepwiki, "docsUrl") != "https://cfpperche.github.io/picode/guide/mcp-deepwiki" ||
 		deepwiki["featured"] != true {
 		t.Fatalf("deepwiki hit = %+v", deepwiki)
 	}
@@ -84,7 +85,8 @@ func TestConnectorsGalleryRegistryAfterRefresh(t *testing.T) {
 	token := "syncedwikitest"
 	pages := map[string]string{
 		"": `{"servers":[{"server":{"name":"io.picodetest/synced","title":"Synced Test",` +
-			`"description":"A ` + token + ` connector","remotes":[{"type":"streamable-http","url":"https://synced.example/mcp"}]},` +
+			`"description":"A ` + token + ` connector","websiteUrl":"https://synced.example/docs",` +
+			`"remotes":[{"type":"streamable-http","url":"https://synced.example/mcp"}]},` +
 			`"_meta":{"io.modelcontextprotocol.registry/official":{"status":"active"}}}],"metadata":{}}`,
 	}
 	var reg = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -112,7 +114,8 @@ func TestConnectorsGalleryRegistryAfterRefresh(t *testing.T) {
 		t.Fatalf("registry hits = %+v", hits)
 	}
 	if hitString(hits[0], "source") != "registry" || hits[0]["featured"] != false ||
-		hitString(hits[0], "url") != "https://synced.example/mcp" {
+		hitString(hits[0], "url") != "https://synced.example/mcp" ||
+		hitString(hits[0], "docsUrl") != "https://synced.example/docs" {
 		t.Fatalf("registry hit = %+v", hits[0])
 	}
 	// Full listing: seed cards first, registry row appended.

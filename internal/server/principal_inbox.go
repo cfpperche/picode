@@ -6,20 +6,22 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 )
 
-// Reason on Inbox items filed when a managed CLI principal reports needs-you
-// (ADR-0159 Fatia 1). Dedup and auto-done key off this, not the title.
+// Reason on Inbox items filed when a guest agent reports needs-you
+// (ADR-0159 Fatia 1; lookup is agents.terminal_id since ADR-0160 Fatia C).
+// Dedup and auto-done key off this, not the title. Rekey onto the agent id
+// is Fatia E.
 const cliNeedsYouReason = "cli-needs-you"
 
-// syncManagedCLIInbox files one Inbox item when a bound CLI asks for the
-// human, and marks it done when the CLI is no longer waiting. Unbound
-// terminals stay chips-only (ADR-0056 tier 1). Push rides inbox.created
-// (blocking FYI). No composer, no Runtime.Start.
+// syncManagedCLIInbox files one Inbox item when a guest agent's TUI asks
+// for the human, and marks it done when the CLI is no longer waiting.
+// Unbound terminals stay chips-only (ADR-0056 tier 1). Push rides
+// inbox.created (blocking FYI). No composer, no Runtime.Start.
 func syncManagedCLIInbox(deps Deps, termID, state string) {
 	if deps.Store == nil || termID == "" {
 		return
 	}
-	m, err := deps.Store.ManagedCLIByTerminal(termID)
-	if err != nil {
+	a, err := deps.Store.AgentByTerminal(termID)
+	if err != nil || a.IsPi() {
 		return
 	}
 	open, err := deps.Store.ActiveInboxBySourceReason(store.InboxFromTerminal, termID, cliNeedsYouReason)
@@ -31,15 +33,15 @@ func syncManagedCLIInbox(deps Deps, termID, state string) {
 		if len(open) > 0 {
 			return
 		}
-		name := m.Name
+		name := a.Name
 		if name == "" {
-			name = m.CLI
+			name = a.CLI
 		}
 		_, err := deps.Store.CreateInboxItem(store.InboxItemParams{
 			Kind:        store.InboxFYI,
 			SourceKind:  store.InboxFromTerminal,
 			SourceID:    termID,
-			WorkspaceID: m.WorkspaceID,
+			WorkspaceID: a.WorkspaceID,
 			Reason:      cliNeedsYouReason,
 			Title:       name + " needs you",
 			Body:        "Open the terminal to continue. PiCode cannot answer inside this CLI's own prompt.",
