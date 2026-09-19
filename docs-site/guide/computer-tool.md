@@ -37,6 +37,7 @@ Keep the switch off for agents you are not watching.
 | `snapshot` | a window's controls as lines: role, name, position in the last image, the text of a field |
 | `windows`, `focus` | what is open, and bringing one window to the front |
 | clicks, `left_click_drag`, `mouse_move`, `scroll`, `type`, `key`, `hold_key` | the action, then a fresh image |
+| `type` with `mode: "paste"` | the text through the clipboard and one Ctrl+V — whole and fast, for long text or an app that garbles keystrokes; your clipboard text is put back afterwards (an image or files on it are not) |
 | `clipboard_read`, `clipboard_write` | the clipboard's text |
 | `open` | a program, a file or a URL, opened as Windows would |
 

@@ -70,7 +70,21 @@ mod tests {
         }
     }
 
-    // The wire contract: the page posts the message OBJECT and lets the
+    // While a card is open every other open path is locked: a stray click
+    // off the card must not steal it onto a new pin and drop the unsaved
+    // draft (owner 2026-09-18).
+    #[test]
+    fn picks_stay_locked_while_the_card_is_open() {
+        assert!(
+            SCRIPT.contains("if (!on || cardOpen || inHost(e)) return;"),
+            "page clicks must not pick while a card is open"
+        );
+        for needle in [
+            "if (cardOpen) return; // locked: finish the open note first"
+        ] {
+            assert!(SCRIPT.matches(needle).count() >= 3, "pins, chips and menus lock too: {needle}");
+        }
+    }
     // host serialize it once. A pre-stringified text risks coming back from
     // WebMessageAsJson JSON-encoded a second time, which the chrome parses
     // into a string with no kind and drops silently (owner 2026-09-18).

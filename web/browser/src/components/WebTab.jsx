@@ -8,7 +8,7 @@ import { askTitle } from "../lib/browserPermissions.js";
 import { subscribeFloatingLayers, overlapsLayers, rectOf } from "../lib/floatingLayers.js";
 import { requestBrowserDialog } from "../lib/browserDialogs.js";
 import { previewUrl, verifyPreviewUrl } from "../lib/previewStill.js";
-import { cropRect, stylesToCSS, stateItems, batchMessage, parseAnnotMessage } from "../lib/annotate.js";
+import { cropRect, stylesToCSS, stateItems, batchMessage, parseAnnotMessage, resolveSendTarget } from "../lib/annotate.js";
 import AnnotateStrip from "./AnnotateStrip.jsx";
 import AnnotatePreview from "./AnnotatePreview.jsx";
 
@@ -19,7 +19,7 @@ import AnnotatePreview from "./AnnotatePreview.jsx";
 // this surface.
 const invoke = typeof window !== "undefined" && window.__TAURI__ ? window.__TAURI__.core.invoke : null;
 
-export default function WebTabSurface({ tabId, url = "", active, hidden, className = "", expanded = false, chromeless = false, asks = [], onAnswerAsk, onClose, onMeta, onNew, onBrowserSettings, onToggleExpand }) {
+export default function WebTabSurface({ tabId, url = "", active, hidden, className = "", expanded = false, chromeless = false, asks = [], onAnswerAsk, onClose, onMeta, onNew, onBrowserSettings, onToggleExpand, boundSession = "" }) {
   const id = tabId.slice(2);
   const [urlDraft, setUrlDraft] = useState("");
   const [started, setStarted] = useState(false);
@@ -218,8 +218,12 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     try {
       const list = await fetch("/api/terminals").then((r) => (r.ok ? r.json() : null)).catch(() => null);
       const terminals = Array.isArray(list) ? list : list?.terminals || [];
-      const live = terminals.find((t) => t && t.running);
-      if (!live) { toast("Nothing to send to: no agent terminal is running."); return; }
+      // A pane open on a session delivers to THAT session (owner
+      // 2026-09-18) — a bound miss never falls through to a stranger's
+      // terminal; a standalone tab keeps the first-running fallback.
+      const target = resolveSendTarget({ boundSession, terminals });
+      if (target.none) { toast(target.reason); return; }
+      const live = { id: target.kind === "agent" ? target.terminalId : target.id, name: target.name };
       const prefs = await fetch("/api/browser/prefs").then((r) => (r.ok ? r.json() : null)).catch(() => null);
       const policy = prefs && (prefs.annotationShots === "always" || prefs.annotationShots === "never") ? prefs.annotationShots : "ask";
       // "never" means no picture at all; "always" always crops; "ask"
@@ -249,17 +253,28 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
         staged.push({ n: it.n, selector: it.selector, comment: it.comment });
       }
       const message = batchMessage({ url: liveUrlRef.current || url, items: staged });
-      const drop = await fetch(`/api/terminals/${encodeURIComponent(live.id)}/drop`, {
+      // Delivery follows the target: an agent-bound pane pastes through the
+      // agent's own prompt door (its chat), a terminal-bound one through the
+      // terminal's. Staging always rides the terminal row, so the files land
+      // where the prompt door resolves its paths.
+      const promptBase = target.kind === "agent"
+        ? `/api/agents/${encodeURIComponent(target.agentId)}`
+        : `/api/terminals/${encodeURIComponent(live.id)}`;
+      const prompt = await fetch(`${promptBase}/prompt`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message, paths }),
       }).catch(() => null);
-      if (drop && drop.ok) {
+      if (prompt && prompt.ok) {
         toast.ok(`${ready.length} annotation${ready.length === 1 ? "" : "s"} sent to ${live.name || live.id}.`);
         if (invoke) invoke("btab_annotate_clear", { id: tabId }).catch(() => {});
         setAnnotItems([]);
       } else {
-        toast.ok("Annotations saved; the terminal is not running an agent CLI, so nothing was sent.");
+        const failure = await prompt?.json().catch(() => null);
+        const reason = failure && typeof failure.error === "string" && failure.error.trim()
+          ? failure.error.trim()
+          : "the terminal did not accept it";
+        toast(`Annotations saved, but not sent: ${reason}.`);
       }
     } catch (e) {
       toast("Annotation failed: " + (e?.message || e));

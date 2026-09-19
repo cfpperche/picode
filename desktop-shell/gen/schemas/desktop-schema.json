@@ -213,6 +213,12 @@
           "markdownDescription": "Enables the btab_cdp_events command without any pre-configured scope."
         },
         {
+          "description": "Enables the btab_clear_app_data command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-clear-app-data",
+          "markdownDescription": "Enables the btab_clear_app_data command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_clear_data command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-clear-data",
@@ -387,6 +393,12 @@
           "markdownDescription": "Enables the computer_displays command without any pre-configured scope."
         },
         {
+          "description": "Enables the computer_embed command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-computer-embed",
+          "markdownDescription": "Enables the computer_embed command without any pre-configured scope."
+        },
+        {
           "description": "Enables the computer_preview command without any pre-configured scope.",
           "type": "string",
           "const": "allow-computer-preview",
@@ -397,6 +409,12 @@
           "type": "string",
           "const": "allow-computer-set-grants",
           "markdownDescription": "Enables the computer_set_grants command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the computer_unembed command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-computer-unembed",
+          "markdownDescription": "Enables the computer_unembed command without any pre-configured scope."
         },
         {
           "description": "Enables the computer_windows command without any pre-configured scope.",
@@ -511,6 +529,12 @@
           "type": "string",
           "const": "deny-btab-cdp-events",
           "markdownDescription": "Denies the btab_cdp_events command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_clear_app_data command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-clear-app-data",
+          "markdownDescription": "Denies the btab_clear_app_data command without any pre-configured scope."
         },
         {
           "description": "Denies the btab_clear_data command without any pre-configured scope.",
@@ -687,6 +711,12 @@
           "markdownDescription": "Denies the computer_displays command without any pre-configured scope."
         },
         {
+          "description": "Denies the computer_embed command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-computer-embed",
+          "markdownDescription": "Denies the computer_embed command without any pre-configured scope."
+        },
+        {
           "description": "Denies the computer_preview command without any pre-configured scope.",
           "type": "string",
           "const": "deny-computer-preview",
@@ -697,6 +727,12 @@
           "type": "string",
           "const": "deny-computer-set-grants",
           "markdownDescription": "Denies the computer_set_grants command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the computer_unembed command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-computer-unembed",
+          "markdownDescription": "Denies the computer_unembed command without any pre-configured scope."
         },
         {
           "description": "Denies the computer_windows command without any pre-configured scope.",

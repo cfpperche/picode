@@ -13,7 +13,7 @@ Merge: fast-forward ready.
 
 ## Next up
 
-- Owner on Windows: Clear data on a signed-in app — now expected to succeed within ~a second of teardown; if the ten-second budget ever runs out, the dialog shows the real reason.
+- Confirmed live by the owner (2026-09-18, after the ACL fix + shell swap): Clear data works with the app's tab open — signs out that app only.
 
 ## Debts
 

@@ -21,6 +21,7 @@ mod clean;
 mod clipboard;
 mod computer;
 mod computerlab;
+mod embed;
 mod desktop;
 mod dialog;
 mod disk;
@@ -121,6 +122,8 @@ fn main() {
             computer::computer_set_grants,
             computer::computer_preview,
             computerlab::computerlab_open,
+            embed::computer_embed,
+            embed::computer_unembed,
             disk::disk_report,
             disk::disk_compact,
             disk::disk_compact_dry_run,

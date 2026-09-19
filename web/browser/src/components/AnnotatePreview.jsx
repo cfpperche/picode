@@ -50,6 +50,9 @@ export default function AnnotatePreview({ onExit }) {
     // after React released the synthetic event, when currentTarget is null
     // (a blank root from a render-phase throw — found via agent-browser).
     const node = e.currentTarget;
+    // Locked while a card is open, like the page script: a stray click must
+    // not steal the card and drop the unsaved draft (owner 2026-09-18).
+    if (editing != null) return;
     if (!node || e.target.closest?.("[data-annot-ui]")) return;
     const box = node.getBoundingClientRect();
     const x = e.clientX - box.left + node.offsetLeft;
@@ -123,6 +126,15 @@ export default function AnnotatePreview({ onExit }) {
     }
   };
 
+  // Pin/chip/dots reopen only with no card open — same lock as the page.
+  const guardedOpen = (id) => {
+    if (editing != null) return;
+    openCard(id);
+  };
+  const guardedMenu = (id) => {
+    if (editing != null) return;
+    setMenuFor(menuFor === id ? null : id);
+  };
   const editingItem = items.find((x) => x.id === editing) || null;
   const menuItem = items.find((x) => x.id === menuFor) || null;
 
@@ -135,17 +147,17 @@ export default function AnnotatePreview({ onExit }) {
         style={{ left: it.x - 9, top: it.y - 9 }}
         title={`Edit annotation ${it.n}`}
         aria-label={`Edit annotation ${it.n}`}
-        onClick={(e) => { e.stopPropagation(); openCard(it.id); }}
+        onClick={(e) => { e.stopPropagation(); guardedOpen(it.id); }}
       >{it.n}</button>
       {it.saved ? (
         <span
           className="annot-chip"
           data-annot-ui
           style={{ left: Math.min(it.x + 12, 400), top: Math.max(it.y - 16, 0) }}
-          onClick={(e) => { e.stopPropagation(); openCard(it.id); }}
+          onClick={(e) => { e.stopPropagation(); guardedOpen(it.id); }}
         >
           <span className="annot-chip-txt" title={it.comment || `Annotation ${it.n}`}>{it.comment || `Annotation ${it.n}`}</span>
-          <button type="button" data-annot-ui title="Annotation options" aria-label="Annotation options" onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === it.id ? null : it.id); }}>…</button>
+          <button type="button" data-annot-ui title="Annotation options" aria-label="Annotation options" onClick={(e) => { e.stopPropagation(); guardedMenu(it.id); }}>…</button>
           <button type="button" data-annot-ui title="Remove this annotation" aria-label="Remove this annotation" onClick={(e) => { e.stopPropagation(); removeItem(it.id); }}>×</button>
         </span>
       ) : null}

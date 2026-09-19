@@ -13,6 +13,11 @@
 // | new draft     | removes the pin, closes       | keeps it, collapses chip | removes, closes  |
 // | editing saved | closes, keeps the old text    | updates the chip text    | removes, closes  |
 //
+// While a card is open every other open path is LOCKED (page clicks create
+// nothing, pins/chips/menus do not reopen): a stray click off the card
+// used to steal it onto a new pin and evaporate the unsaved draft (owner
+// 2026-09-18). The strip already teaches this ("Save the open note").
+//
 // Page → chrome messages (one postMessage each; the shell relays them):
 //   enter {url} · pick {n, …payload} · saved {n, comment, …payload} ·
 //   removed {n} · state {url, count, items} · note {message} · warn {message} ·
@@ -284,6 +289,7 @@
     pin.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (cardOpen) return; // locked: finish the open note first
       openCard(it);
     });
     const chip = document.createElement("div");
@@ -297,6 +303,7 @@
     dots.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (cardOpen) return; // locked: finish the open note first
       openMenu(it);
     });
     const x = document.createElement("button");
@@ -312,6 +319,7 @@
     chip.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (cardOpen) return; // locked: finish the open note first
       openCard(it);
     });
     root.append(pin, chip);
@@ -402,7 +410,10 @@
   };
 
   const pick = (e) => {
-    if (!on || inHost(e)) return;
+    // Locked while a card is open: a click that misses the card must not
+    // steal it onto a new pin and drop the unsaved draft (owner 2026-09-18).
+    // Save/Cancel/Esc/trash close the card; the next click then picks.
+    if (!on || cardOpen || inHost(e)) return;
     const el = under(e);
     if (!el) return;
     // A click on an existing pin or chip reopens it (their own listeners run

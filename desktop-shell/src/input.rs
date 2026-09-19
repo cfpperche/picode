@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use picode_shell::keys::{self, Chord, Key};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    GetDoubleClickTime, MapVirtualKeyW, SendInput, VkKeyScanW, INPUT, INPUT_0, INPUT_KEYBOARD,
+    GetDoubleClickTime, MapVirtualKeyW, SendInput, VkKeyScanW, INPUT, INPUT_0, INPUT_KEYBOARD, MAPVK_VK_TO_CHAR,
     INPUT_MOUSE, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
     KEYEVENTF_UNICODE, MAPVK_VK_TO_VSC, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_HWHEEL, MOUSEEVENTF_LEFTDOWN,
     MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_MOVE,
@@ -225,14 +225,58 @@ pub fn type_text(text: &str) -> Result<(), String> {
                 key(0x09, true)?;
                 key(0x09, false)?;
             }
-            c => {
-                let mut units = [0u16; 2];
-                for u in c.encode_utf16(&mut units).iter() {
-                    send(&[keybd(0, *u, KEYEVENTF_UNICODE), keybd(0, *u, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP)])?;
+            c => match layout_key(c) {
+                // A layout key carries its character in the keystroke
+                // itself, so a backlog in the app's queue cannot rewrite
+                // it. Measured 2026-09-18 under load: Unicode packets paced
+                // 5 ms apart still arrived as runs of one repeated
+                // character whenever Notepad fell behind ("do PiCode"
+                // became "dddddddde"); layout keystrokes did not.
+                Some((vk, shift)) => {
+                    if shift {
+                        key(keys::VK_SHIFT, true)?;
+                    }
+                    let r = key(vk, true).and_then(|_| key(vk, false));
+                    if shift {
+                        let _ = key(keys::VK_SHIFT, false);
+                    }
+                    r?;
                 }
-            }
+                None => {
+                    let mut units = [0u16; 2];
+                    for u in c.encode_utf16(&mut units).iter() {
+                        send(&[keybd(0, *u, KEYEVENTF_UNICODE), keybd(0, *u, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP)])?;
+                    }
+                }
+            },
         }
         std::thread::sleep(TYPE_PACE);
     }
     Ok(())
+}
+
+/// The key of the current layout that produces `c` with at most Shift, or
+/// None when the character needs a Unicode packet: absent from the layout
+/// (á on US, emoji), behind AltGr (Ctrl+Alt would also fire shortcuts), or
+/// a dead key (´ ^ ~ on US-International wait for the next key).
+fn layout_key(c: char) -> Option<(u16, bool)> {
+    let mut units = [0u16; 2];
+    let encoded = c.encode_utf16(&mut units);
+    if encoded.len() != 1 || (c as u32) < 0x20 {
+        return None;
+    }
+    let r = unsafe { VkKeyScanW(encoded[0]) };
+    if r == -1 {
+        return None;
+    }
+    let vk = (r & 0xFF) as u16;
+    let state = (r >> 8) & 0xFF;
+    if state & !1 != 0 {
+        return None;
+    }
+    let dead = unsafe { MapVirtualKeyW(vk as u32, MAPVK_VK_TO_CHAR) } & 0x8000_0000 != 0;
+    if dead {
+        return None;
+    }
+    Some((vk, state & 1 != 0))
 }

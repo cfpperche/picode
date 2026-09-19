@@ -10,6 +10,7 @@ import {
   parsePick,
   pickLabel,
   pickScript,
+  resolveSendTarget,
   sendLabel,
   stateItems,
   stillToViewport,
@@ -159,4 +160,40 @@ test("page events unwrap to {id, inner} at any encoding depth", () => {
   assert.equal(parseAnnotMessage({ id: "w:2" }), null);
   assert.equal(parseAnnotMessage({ id: "w:2", raw: 42 }), null);
   assert.equal(parseAnnotMessage(JSON.stringify({ id: "w:2", raw: "{bad" })), null);
+});
+
+test("Send delivers to the bound session, never to a stranger", () => {
+  const terms = [
+    { id: "a", name: "aaa", running: false },
+    { id: "desktop", name: "desktop", running: true },
+    { id: "other", name: "other", running: true },
+  ];
+  // term-bound split: its own terminal, even when it is not first
+  assert.deepEqual(
+    resolveSendTarget({ boundSession: "t:desktop", terminals: terms }),
+    { kind: "terminal", id: "desktop", name: "desktop" },
+  );
+  // term-bound but stopped: named reason, NO fallback to "other"
+  const stopped = resolveSendTarget({ boundSession: "t:a", terminals: terms });
+  assert.equal(stopped.none, true);
+  assert.ok(stopped.reason.includes("aaa"));
+  // term-bound but gone: named reason, NO fallback
+  assert.equal(resolveSendTarget({ boundSession: "t:gone", terminals: terms }).none, true);
+  // agent-bound with a running same-id terminal: agent door + terminal row
+  assert.deepEqual(
+    resolveSendTarget({ boundSession: "desktop", terminals: terms }),
+    { kind: "agent", agentId: "desktop", terminalId: "desktop", name: "desktop" },
+  );
+  // agent-bound with none: named reason, NO fallback
+  assert.equal(resolveSendTarget({ boundSession: "ghost", terminals: terms }).none, true);
+  // standalone tab: first running, as before
+  assert.deepEqual(
+    resolveSendTarget({ boundSession: "", terminals: terms }),
+    { kind: "terminal", id: "desktop", name: "desktop" },
+  );
+  // standalone, nothing running
+  const empty = resolveSendTarget({ boundSession: "", terminals: [{ id: "a", running: false }] });
+  assert.equal(empty.none, true);
+  assert.ok(empty.reason.includes("Nothing to send to"));
+  assert.equal(resolveSendTarget({}).none, true);
 });

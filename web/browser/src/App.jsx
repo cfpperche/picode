@@ -3831,6 +3831,7 @@ export default function App({ shellChrome = false } = {}) {
                 <WebTabSurface
                   key={"split-" + selectedId}
                   tabId={"w:" + agentPanes[selectedId]}
+                  boundSession={selectedId}
                   active={true}
                   hidden={noTabs || missing || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId) || onPane}
                   expanded={!!paneMax[selectedId]}
