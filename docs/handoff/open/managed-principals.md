@@ -2,7 +2,6 @@
 
 ## Next
 
-- Fatia 1: bound CLI principals on the same fleet / Inbox / push surface as Pi agents (`needs-you` → Open terminal); no composer. ADR-0159.
 - Fatia 2: `picode mcp` tools on the bound principal (ADR-0154); Computer/Browser grants already key `term:<id>`.
 - Fatia 3: Create a CLI runner from the workspace (catalog picker), not only `#/clis`.
 - Fatia 4: automations and Inspector ask deliver through the prompt door (0089/0107), never `SendTurn`.
