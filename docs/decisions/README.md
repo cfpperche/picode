@@ -161,3 +161,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0154](0154-picode-mcp.md) | picode-mcp — PiCode tools for every agent CLI over MCP; one server per pi package, scope and toggle are the CLI's, guests' agent scope is launch injection | proposed |
 | [0155](0155-distro-keepalive-task.md) | The distro keepalive is a scheduled task, not the shell's child | proposed |
 | [0156](0156-computer-foreground-guard.md) | computer-foreground-guard — input acts only in the window the agent last saw (amends ADR-0148, refinement d) | proposed |
+| [0157](0157-curated-connector-catalog.md) | curated-connector-catalog | proposed |
