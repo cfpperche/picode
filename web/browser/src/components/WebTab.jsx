@@ -177,7 +177,11 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
   const cropFromPreview = async (msg) => {
     if (!invoke || !msg || !msg.vw || !msg.vh || !msg.rect) return "";
     try {
-      const bytes = await invoke("btab_preview", { id: tabId });
+      // The native tab id, not the React tab id: this surface's other native
+      // calls (bounds, zoom, find) all pass the tail, and the crop came back
+      // empty for every Send until this matched (2026-09-19 — the shell
+      // resolves either shape now, but the call sites stay consistent).
+      const bytes = await invoke("btab_preview", { id });
       const url = await previewUrl(bytes);
       if (!url) return "";
       const img = await new Promise((resolve, reject) => {
