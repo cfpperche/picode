@@ -61,6 +61,8 @@ mod tests {
             "\"enter\"",
             ".clear",
             "dropLast",
+            "cardOpen",
+            "menuOpen",
             "Dictate the note",
             "Copy text",
         ] {
@@ -77,7 +79,17 @@ mod tests {
         assert!(EXIT_SCRIPT.starts_with("(() => {"));
     }
 
-    // The clear script is guarded the same way: trash can be clicked while
+    // Open/closed travels in flags, never in inline styles: reading
+    // `node.style.display` as state inverts the mode (inline display starts
+    // as "" — hover dead until the first pick, stuck on after it; owner
+    // 2026-09-18). This asserts the pattern cannot creep back in.
+    #[test]
+    fn the_script_reads_no_state_from_inline_styles() {
+        assert!(
+            !SCRIPT.contains(".style.display !=="),
+            "state travels in flags, not inline styles"
+        );
+    }
     // the document has no instance (navigation dropped it, say).
     #[test]
     fn the_clear_script_is_guarded() {

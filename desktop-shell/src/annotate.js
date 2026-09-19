@@ -132,6 +132,12 @@
 
   let on = false;
   let seq = 0;
+  let cardOpen = false;
+  let menuOpen = false;
+  // Open/closed travels in flags, never in inline styles: reading
+  // `node.style.display` as state inverts the mode (inline display starts
+  // as "", so `!== "none"` is true before anything ever opened — no
+  // hover until the first pick, hover forever after it; owner 2026-09-18).
   // items: {id, n, el, selector, tag, html, rect, styles, vw, vh, comment, saved,
   //          pin, chip, chipTxt, menuFor}
   let items = [];
@@ -230,6 +236,7 @@
   const closeMenu = () => {
     menu.style.display = "none";
     menuFor = null;
+    menuOpen = false;
   };
 
   const openCard = (it) => {
@@ -237,6 +244,7 @@
     closeMenu();
     hl.style.display = "none";
     input.value = it.comment || "";
+    cardOpen = true;
     placeCard(it);
     input.focus();
     items.forEach((x) => x.pin.classList.toggle("on", x === it));
@@ -245,6 +253,7 @@
 
   const closeCard = () => {
     card.style.display = "none";
+    cardOpen = false;
     input.blur();
     editing = null;
     items.forEach((x) => x.pin.classList.toggle("on", false));
@@ -307,6 +316,7 @@
 
   const openMenu = (it) => {
     menuFor = it;
+    menuOpen = true;
     menu.style.display = "block";
     const r = it.chip.getBoundingClientRect();
     const mw = menu.offsetWidth || 130;
@@ -353,7 +363,7 @@
       items = items.filter((it) => it.el.isConnected);
       if (editing && !keptEditing) closeCard();
       else editing = keptEditing;
-      if (card.style.display !== "none" && editing) placeCard(editing);
+      if (cardOpen && editing) placeCard(editing);
       sync();
       return;
     }
@@ -361,7 +371,7 @@
       placePin(it);
       placeChip(it);
     });
-    if (card.style.display !== "none" && editing) placeCard(editing);
+    if (cardOpen && editing) placeCard(editing);
     if (menuFor) openMenu(menuFor);
   };
 
@@ -376,7 +386,7 @@
   };
 
   const onMove = (e) => {
-    if (!on || card.style.display !== "none") return;
+    if (!on || cardOpen) return;
     const el = under(e);
     if (!el) {
       hl.style.display = "none";
@@ -449,12 +459,12 @@
       } else if (e.key === "Escape") {
         e.preventDefault();
         e.stopPropagation();
-        if (menu.style.display !== "none") closeMenu();
+        if (menuOpen) closeMenu();
         else cancelCard();
       }
       return;
     }
-    if (e.key === "Enter" && card.style.display !== "none" && e.target === input) {
+    if (e.key === "Enter" && cardOpen && e.target === input) {
       e.preventDefault();
       e.stopPropagation();
       save();
@@ -463,8 +473,8 @@
     if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();
-      if (menu.style.display !== "none") closeMenu();
-      else if (card.style.display !== "none") cancelCard();
+      if (menuOpen) closeMenu();
+      else if (cardOpen) cancelCard();
       else exit();
     }
   };
@@ -474,7 +484,7 @@
     // the open card's own chrome stays (its buttons act). Clicks on pins and
     // chips are handled by their listeners.
     if (!on || inHost(e)) return;
-    if (menu.style.display !== "none") closeMenu();
+    if (menuOpen) closeMenu();
   };
 
   saveBtn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); save(); });

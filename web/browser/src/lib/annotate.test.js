@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import {
@@ -109,6 +110,19 @@ test("a state sync becomes trusted items, junk dropped", () => {
   assert.deepEqual(items[0].rect, { x: 1, y: 2, width: 30, height: 10 });
   assert.equal(stateItems(null).length, 0);
   assert.equal(stateItems({}).length, 0);
+});
+
+test("the injected page script never reads open-state from inline styles", () => {
+  // Owner 2026-09-18: inline display starts as "", so `!== "none"` is true
+  // before anything ever opened — hover dead until the first pick, hover
+  // stuck on after it. Open/closed travels in flags, asserted here so the
+  // pattern cannot creep back in.
+  const src = readFileSync(
+    new URL("../../../../desktop-shell/src/annotate.js", import.meta.url),
+    "utf8",
+  );
+  assert.ok(!/\.style\.display !==/.test(src), "state travels in flags, not inline styles");
+  for (const flag of ["cardOpen", "menuOpen"]) assert.ok(src.includes(flag), flag);
 });
 
 test("the batch is one context: a head line plus numbered pins", () => {
