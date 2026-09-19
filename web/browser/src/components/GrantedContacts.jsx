@@ -3,6 +3,7 @@ import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { normalizeCanvasDetail, normalizeCanvasList } from "@picode/shared/domain/canvas.js";
 import { edgeGrant, peerIndex, removeConfirm } from "@picode/shared/domain/canvasGrants.js";
+import { principalLabel } from "@picode/shared/domain/managedPrincipal.js";
 import { askConfirm } from "../lib/confirm.js";
 import { appHash } from "../lib/routes.js";
 
@@ -156,4 +157,4 @@ export default function GrantedContacts({ hidden }) {
 }
 
 // The same words the participants list above uses for the same two kinds.
-const kindOf = (end) => (end.kind === "agent" ? "Pi agent" : end.cli || "Agent CLI");
+const kindOf = (end) => (end.kind === "agent" ? principalLabel(end) : end.cli || "Agent CLI");

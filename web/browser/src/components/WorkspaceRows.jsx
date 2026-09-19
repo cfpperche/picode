@@ -5,12 +5,15 @@ import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { repoLine, termLine } from "@picode/shared/domain/repoLine.js";
 import { relTime, absTime } from "@picode/shared/domain/relTime.js";
+import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { checklistLine, checklistProgress, checklistRows, countDone } from "@picode/shared/domain/checklist.js";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalDisplayCli, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 import { agentRowStatus, agentStatusLabel } from "@picode/shared/domain/agentStatus.js";
+import { agentRowMenu } from "@picode/shared/domain/agentRowMenu.js";
+import { agentSubtitle } from "@picode/shared/domain/managedPrincipal.js";
 import { termRowMenu } from "../lib/termRowMenu.js";
 
 export function RowMenu({ label, children }) {
@@ -54,6 +57,19 @@ const TERM_ROW_MENU_ICONS = {
   start: <IconPlay size={12} />,
   restart: <IconReload size={13} />,
   stop: <IconStop size={12} />,
+  remove: <IconX size={13} />,
+};
+
+// Same contract as TERM_ROW_MENU_ICONS: labels and order live in
+// agentRowMenu.js, this map is only the renderer's business.
+const AGENT_ROW_MENU_ICONS = {
+  start: <IconPlay size={14} />,
+  stop: <IconStop size={13} />,
+  restart: <IconReload size={13} />,
+  launch: <IconSettings size={14} />,
+  chat: <IconChat size={14} />,
+  term: <IconTerminal size={14} />,
+  rename: <IconPencil size={13} />,
   remove: <IconX size={13} />,
 };
 
@@ -124,16 +140,35 @@ export function AgentRow({
   onFileTree, onGitGraph,
   actions = true, meta = false,
   onRenameAgent, onRun, onStop, onRemoveAgent, onRemove, onChat, onTerm, termView,
+  clis, terms, onLaunchAction,
 }) {
   const mode = ag.mode || "stopped";
+  const guest = !agentIsPi(ag);
+  // A guest's process is its bound terminal (ADR-0160): the status pill
+  // and the lifecycle rows read the terminal, because runMode never sees
+  // the terminal's tmux session.
+  const term = guest && ag.terminalId ? (terms || []).find((t) => t.id === ag.terminalId) : null;
   const label = displayAgentName(ag, ws);
   const model = shortModel(ag.model || "");
   const title = model ? label + " — " + model : label;
   const repo = repoLine(ag, ws);
-  const stamp = ag.lastStatusAt || ag.lastStartedAt || ag.createdAt;
+  const stamp = term && terminalActivityStamp(term) || ag.lastStatusAt || ag.lastStartedAt || ag.createdAt;
   const check = checklists && checklists[ag.id];
   const status = agentRowStatus(ag, { workingId, workingIds, waitingId });
   const select = () => onSelect(ag.id);
+  const onMenuItem = (r) => {
+    switch (r.id) {
+      case "start": return onRun && onRun(ag.id);
+      case "stop": return guest ? onLaunchAction && onLaunchAction(term, "stop") : onStop && onStop(ag.id);
+      case "restart": return onLaunchAction && onLaunchAction(term, "restart");
+      case "launch": location.hash = "#/clis/terminal/" + encodeURIComponent(ag.terminalId); return;
+      case "chat": return onChat && onChat(ag.id);
+      case "term": return onTerm && onTerm(ag.id);
+      case "rename": return onRenameAgent && onRenameAgent(ag, label);
+      case "remove": return onRemoveAgent ? onRemoveAgent(ag) : onRemove(ws);
+      default: return undefined;
+    }
+  };
   return (
     <li className={"ws-item is-" + status + (ag.id === selectedId ? " active" : "")}>
       <div className="ws-row-main">
@@ -152,19 +187,17 @@ export function AgentRow({
           </span>
           <span className="ws-copy">
             <span className="ws-title" title={title}>{label}</span>
-            <span className="ws-subtitle">{model || (mode === "interactive" ? "Interactive session" : "Pi agent")}</span>
+            <span className="ws-subtitle">{model || agentSubtitle(ag)}</span>
           </span>
-          <AgentStatus status={status} stamp={stamp} />
+          {guest && term ? <TerminalStatus term={term} /> : <AgentStatus status={status} stamp={stamp} />}
         </div>
         {actions ? (
           <RowMenu label={label}>
-            {mode === "stopped"
-              ? <RowMenuItem onSelect={() => onRun && onRun(ag.id)}><IconPlay size={14} /> Start agent</RowMenuItem>
-              : <RowMenuItem onSelect={() => onStop && onStop(ag.id)}><IconStop size={13} /> Stop agent</RowMenuItem>}
-            <RowMenuItem onSelect={() => onChat && onChat(ag.id)}><IconChat size={14} /> Open chat</RowMenuItem>
-            <RowMenuItem onSelect={() => onTerm && onTerm(ag.id)}><IconTerminal size={14} /> Open terminal</RowMenuItem>
-            <RowMenuItem onSelect={() => onRenameAgent && onRenameAgent(ag, label)}><IconPencil size={13} /> Rename</RowMenuItem>
-            <RowMenuItem danger onSelect={() => onRemoveAgent ? onRemoveAgent(ag) : onRemove(ws)}><IconX size={13} /> Remove agent</RowMenuItem>
+            {agentRowMenu(ag, { clis, term }).map((r) => (
+              <RowMenuItem key={r.id} title={r.title} danger={r.danger} onSelect={() => onMenuItem(r)}>
+                {AGENT_ROW_MENU_ICONS[r.id]} {r.label}
+              </RowMenuItem>
+            ))}
           </RowMenu>
         ) : null}
       </div>

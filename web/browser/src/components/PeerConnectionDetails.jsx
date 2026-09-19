@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { usePeerCommunication, peerOwnerKey } from "../lib/usePeerCommunication.js";
+import { principalLabel } from "@picode/shared/domain/managedPrincipal.js";
 import { askConfirm } from "../lib/confirm.js";
 import "./peer-messages.css";
 
@@ -34,7 +35,7 @@ function Mailbox({ hidden, ownerKey }) {
     {!!m.data?.owners.length && <>
       <label className="peer-picker">Conversation<select aria-label="Conversation" value={m.owner ? peerOwnerKey(m.owner) : ""} disabled={m.busy} onChange={e => { location.hash = `#/clis/messages/${encodeURIComponent(e.target.value)}`; }}>
         {!m.owner ? <option value="">Choose a conversation</option> : null}
-        {m.data.owners.map(o => <option key={peerOwnerKey(o)} value={peerOwnerKey(o)}>{o.label} · {o.kind === "agent" ? "Pi agent" : (o.cli || "Shell")}</option>)}
+        {m.data.owners.map(o => <option key={peerOwnerKey(o)} value={peerOwnerKey(o)}>{o.label} · {o.kind === "agent" ? principalLabel(o) : (o.cli || "Shell")}</option>)}
       </select></label>
       {!m.owner ? <div className="cli-notice"><span>This conversation is no longer available.</span><a className="btn btn-ghost" href="#/clis/messages">Choose another</a></div> : <>
         {!m.owner.sessionKey || !m.owner.cli ? <div className="cli-notice"><span>Open a conversation first so PiCode can identify it.</span><a className="btn btn-ghost" href={m.owner.kind === "agent" ? `#/agent/${m.owner.ownerId}` : "#/clis"}>Open {m.owner.kind === "agent" ? "agent" : "Agent CLIs"}</a></div> : <div className="peer-connection">

@@ -4,6 +4,7 @@ import { applyTheme, persistTheme, readThemeMode, resolvedTheme } from "@picode/
 import { startPresence } from "@picode/shared/client/device.js";
 import { startFeed, subscribeFeed } from "@picode/shared/client/feed.js";
 import { applyTui, touches } from "@picode/shared/domain/feedReducers.js";
+import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
 import { applyChecklists, indexChecklists } from "@picode/shared/domain/checklist.js";
 import { startReconnectWatch } from "@picode/shared/client/reconnect.js";
 import { normalizeManifests, nativeApp } from "@picode/shared/contracts/appPrimitives.js";
@@ -415,13 +416,22 @@ export default function MobileApp() {
     try { await fn(); await reload({ force: true }); } catch (e) { toastError(e); } finally { setBusyId(""); }
   }
 
+  function guestTerm(agent) {
+    return terminals.find((t) => t.id === agent.terminalId) || { id: agent.terminalId, name: agent.name };
+  }
+
   function startAgent(agent, workspace) {
+    // A guest's process is its bound terminal (ADR-0160): start the CLI
+    // launch, not the managed runtime — and open the TUI, which is the
+    // conversation.
+    if (!agentIsPi(agent) && agent.terminalId) return launchTerminalAction(guestTerm(agent), "start");
     return withBusy(agent, async () => {
       await api("/api/agents/" + agent.id + "/managed/start", { method: "POST" });
     });
   }
 
   function stopAgent(agent, workspace) {
+    if (!agentIsPi(agent) && agent.terminalId) return launchTerminalAction(guestTerm(agent), "stop");
     return withBusy(agent, async () => {
       if (agent.mode === "interactive") {
         // Agent-scoped control matters in multi-agent workspaces; the
