@@ -10,8 +10,12 @@ import (
 	"github.com/cfpperche/picode/internal/mcp"
 )
 
-// Codex manages Codex CLI's MCP servers in TOML config files: the user file
-// (~/.codex/config.toml) and the workspace file (<workspace>/.codex/config.toml).
+// Codex manages Codex CLI's MCP servers in its TOML config file
+// (~/.codex/config.toml). It is a plain file, so PiCode edits it directly
+// and never shells out; there is no per-workspace variant — measured
+// against codex-cli 0.155.0 (2026-09-18), `codex mcp list` reads only
+// CODEX_HOME's config.toml and a <workspace>/.codex/config.toml is never
+// loaded — so project scope refuses with a pointer to the one file.
 //
 // Writes share the surgical TOML splice of the package (toml.go, ADR-0150):
 // only the byte span of the `[mcp_servers.<name>]` table — header to the
@@ -37,35 +41,24 @@ func (c codexPaths) user() string {
 	return filepath.Join(c.home(), ".codex", "config.toml")
 }
 
-// project is listed only when the workspace already keeps a .codex folder;
-// Add creates it on request, reading never invents it.
-func (c codexPaths) project() string {
-	if c.Cwd == "" {
-		return ""
+// scopePath resolves the one file or refuses: Codex keeps a single config
+// file — there is no per-workspace file the CLI would load.
+func (c codexPaths) scopePath(scope string) (string, error) {
+	switch scope {
+	case "user", "":
+		return c.user(), nil
+	default:
+		return "", fmt.Errorf("Codex keeps one config file (%s); there is no per-workspace file", c.user())
 	}
-	dir := filepath.Join(c.Cwd, ".codex")
-	if st, err := os.Stat(dir); err != nil || !st.IsDir() {
-		return ""
-	}
-	return filepath.Join(dir, "config.toml")
 }
 
 func (Codex) Layers(p Paths) []mcp.Layer {
-	pv := codexPaths{p}
 	out := []mcp.Layer{}
-	user := mcp.Layer{ID: "codex-user", Label: "Codex user", Path: pv.user(), Scope: "user", Writable: true}
+	user := mcp.Layer{ID: "codex-user", Label: "Codex user", Path: codexPaths{p}.user(), Scope: "user", Writable: true}
 	if st, err := os.Stat(user.Path); err == nil && !st.IsDir() {
 		user.Exists = true
 	}
-	out = append(out, user)
-	if path := pv.project(); path != "" {
-		layer := mcp.Layer{ID: "codex-project", Label: "This folder", Path: path, Scope: "project", Writable: true}
-		if st, err := os.Stat(path); err == nil && !st.IsDir() {
-			layer.Exists = true
-		}
-		out = append(out, layer)
-	}
-	return out
+	return append(out, user)
 }
 
 // List reports the servers Codex would load. Live stays empty: Codex exposes
@@ -99,8 +92,8 @@ func (d Codex) List(p Paths) (mcp.Report, error) {
 	return rep, nil
 }
 
-// Add upserts one server by rewriting only that server's table span. It may
-// create <workspace>/.codex/config.toml when asked to save there.
+// Add upserts one server by rewriting only that server's table span in the
+// one config file Codex loads.
 func (d Codex) Add(p Paths, scope, name string, entry mcp.Entry) error {
 	if err := mcp.ValidName(name); err != nil {
 		return err
@@ -112,13 +105,9 @@ func (d Codex) Add(p Paths, scope, name string, entry mcp.Entry) error {
 	if err != nil {
 		return err
 	}
-	pv := codexPaths{p}
-	path := pv.user()
-	if sc == "project" {
-		if p.Cwd == "" {
-			return fmt.Errorf("select a workspace first")
-		}
-		path = filepath.Join(p.Cwd, ".codex", "config.toml")
+	path, err := codexPaths{p}.scopePath(sc)
+	if err != nil {
+		return err
 	}
 	text, err := readTOMLText(path)
 	if err != nil {
@@ -145,7 +134,7 @@ func (d Codex) Toggle(p Paths, scope, name string, disabled bool) error {
 	if err != nil {
 		return err
 	}
-	path, err := codexWritePath(codexPaths{p}, sc)
+	path, err := codexPaths{p}.scopePath(sc)
 	if err != nil {
 		return err
 	}
@@ -179,7 +168,7 @@ func (d Codex) Remove(p Paths, scope, name string) error {
 	if err != nil {
 		return err
 	}
-	path, err := codexWritePath(codexPaths{p}, sc)
+	path, err := codexPaths{p}.scopePath(sc)
 	if err != nil {
 		return err
 	}
@@ -195,19 +184,6 @@ func (d Codex) Remove(p Paths, scope, name string) error {
 		return fmt.Errorf("server %q is not in %s", name, path)
 	}
 	return spliceTOMLTable(path, text, name, "")
-}
-
-// codexWritePath resolves Toggle/Remove targets: they edit what exists and
-// never create a config folder the way Add may.
-func codexWritePath(p codexPaths, scope string) (string, error) {
-	if scope == "user" {
-		return p.user(), nil
-	}
-	path := p.project()
-	if path == "" {
-		return "", fmt.Errorf("select a workspace that has a .codex folder first")
-	}
-	return path, nil
 }
 
 func codexServers(raw map[string]any, layer mcp.Layer) []mcp.Server {

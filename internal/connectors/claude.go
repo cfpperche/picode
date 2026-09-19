@@ -211,6 +211,15 @@ func claudeRowsFromLines(out string, layer mcp.Layer) []mcp.Server {
 		row := mcp.Server{Name: name, Layer: layer.ID, Path: layer.Path, Scope: layer.Scope, Owned: layer.Writable}
 		if rest != "" {
 			row.Command = rest
+			// A URL target is a remote server: report it like the file
+			// codec does, so the pane's transport handling matches across
+			// scopes (the line format is display-only otherwise).
+			if strings.HasPrefix(rest, "https://") || strings.HasPrefix(rest, "http://") {
+				row.URL = rest
+				row.Transport = "url"
+			} else {
+				row.Transport = "stdio"
+			}
 		}
 		rows = append(rows, row)
 	}
@@ -241,10 +250,22 @@ func claudeRowName(name string) bool {
 }
 
 func trimHealth(s string) string {
-	for _, suffix := range []string{"- ✓ Connected", "✓ Connected", "- ✗ Failed to connect", "✗ Failed to connect"} {
-		s = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(s), suffix))
+	// Health rides a " - <glyph> …" tail; the glyph and wording moved
+	// between releases (✓ Connected, ✗/✘ Failed to connect) and a failure
+	// carries a "— reason" detail behind it. Cut at the first health
+	// marker, whatever follows it.
+	for _, marker := range []string{" - ✓", " - ✗", " - ✘", " - ⏸", "- ✓", "- ✗", "- ✘", "- ⏸"} {
+		if i := strings.Index(s, marker); i >= 0 {
+			s = strings.TrimSpace(s[:i])
+			break
+		}
 	}
-	return strings.TrimSuffix(strings.TrimSpace(s), "-")
+	s = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(s), "-"))
+	// The target carries a transport tag on current CLIs: "…/mcp (HTTP)".
+	for _, tag := range []string{" (HTTP)", " (SSE)", " (stdio)"} {
+		s = strings.TrimSuffix(s, tag)
+	}
+	return strings.TrimSpace(s)
 }
 
 func listClaudeFile(path string, layer mcp.Layer) ([]mcp.Server, error) {
@@ -331,28 +352,32 @@ func (Claude) addUser(name string, e mcp.Entry) error {
 	if !installed(claudeBin) {
 		return fmt.Errorf("%s is not installed or not on PATH", claudeBin)
 	}
-	args := []string{"mcp", "add"}
-	url := strings.TrimSpace(e.URL)
-	if url != "" {
-		args = append(args, "--transport", "http")
+	_, err := runVendorCLI(claudeBin, claudeAddArgs(name, e)...)
+	return err
+}
+
+// claudeAddArgs builds `claude mcp add` for the user store. Measured against
+// claude 2.1.277 (2026-09-18): --env and --header are variadic and swallow
+// the positionals that follow them, so the name comes first and every flag
+// rides behind it; a stdio command goes after `--` or an argument starting
+// with "-" would be parsed as an option (the vendor's own examples use the
+// same shape).
+func claudeAddArgs(name string, e mcp.Entry) []string {
+	args := []string{"mcp", "add", name, "--scope", "user"}
+	if url := strings.TrimSpace(e.URL); url != "" {
+		args = append(args, url, "--transport", "http")
+		for _, k := range sortKeys(headersOf(e)) {
+			args = append(args, "--header", k+": "+headersOf(e)[k])
+		}
+		return args
 	}
 	for _, k := range sortKeys(e.Env) {
 		args = append(args, "--env", k+"="+e.Env[k])
 	}
-	hs := headersOf(e)
-	for _, k := range sortKeys(hs) {
-		args = append(args, "--header", k+": "+hs[k])
-	}
-	args = append(args, name)
-	if url != "" {
-		args = append(args, url)
-	} else {
-		args = append(args, strings.TrimSpace(e.Command))
-		args = append(args, e.Args...)
-	}
-	args = append(args, "--scope", "user")
-	_, err := runVendorCLI(claudeBin, args...)
-	return err
+	args = append(args, "--")
+	args = append(args, strings.TrimSpace(e.Command))
+	args = append(args, e.Args...)
+	return args
 }
 
 // Toggle is refused in both scopes: `.mcp.json` has no disabled field and

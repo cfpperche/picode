@@ -11,10 +11,17 @@ import (
 )
 
 // OpenCode manages OpenCode's MCP servers in its native JSON configs: the
-// user file ($XDG_CONFIG_HOME/opencode/opencode.json, default
+// user file ($XDG_CONFIG_HOME/opencode/opencode.json[.c], default
 // ~/.config/opencode/opencode.json) and the workspace file
-// (<workspace>/opencode.json). Both are plain files, so PiCode edits them
-// directly and never shells out.
+// (<workspace>/opencode.json[.c]). Both are plain files, so PiCode edits
+// them directly and never shells out.
+//
+// Measured against opencode 1.18.31 (2026-09-18): the vendor merges
+// opencode.json and opencode.jsonc, and its own `opencode mcp add` writes
+// the .jsonc, which also wins a name conflict. This driver therefore lists
+// both layers (jsonc first, the winner), and a mutation targets the file
+// the name already lives in, else the jsonc when it exists, else
+// opencode.json.
 //
 // The document's `mcp` block holds {name: {type: "local"|"remote",
 // command: […]|url, enabled?, environment?, headers?, …}}; every other key
@@ -39,36 +46,80 @@ func (OpenCode) AuthHint(name string) AuthHint {
 
 type opencodePaths struct{ Paths }
 
-// user honors XDG_CONFIG_HOME: OpenCode resolves its config through the XDG
-// base-directory rule, so an override must also move the file PiCode edits.
-func (c opencodePaths) user() string {
+// userDir honors XDG_CONFIG_HOME: OpenCode resolves its config through the
+// XDG base-directory rule, so an override must also move the file PiCode
+// edits.
+func (c opencodePaths) userDir() string {
 	if x := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME")); x != "" {
-		return filepath.Join(x, "opencode", "opencode.json")
+		return filepath.Join(x, "opencode")
 	}
-	return filepath.Join(c.home(), ".config", "opencode", "opencode.json")
+	return filepath.Join(c.home(), ".config", "opencode")
 }
 
-// project is the workspace's own opencode.json (no dot-folder), listed
-// whenever a workspace is selected; Add creates it on request.
-func (c opencodePaths) project() string {
-	if c.Cwd == "" {
-		return ""
+// candidates returns the config files of one scope in vendor precedence
+// order: the .jsonc (what `opencode mcp add` writes and what wins a name
+// conflict) before opencode.json.
+func (c opencodePaths) candidates(scope string) []string {
+	dir := c.userDir()
+	if scope == "project" {
+		if c.Cwd == "" {
+			return nil
+		}
+		dir = c.Cwd
 	}
-	return filepath.Join(c.Cwd, "opencode.json")
+	return []string{
+		filepath.Join(dir, "opencode.jsonc"),
+		filepath.Join(dir, "opencode.json"),
+	}
+}
+
+// opencodeLayerID distinguishes the two user files in reports: the pane's
+// remove-confirm names the file the row is managed in.
+func opencodeLayerID(scope, path string) string {
+	if strings.HasSuffix(path, ".jsonc") {
+		return "opencode-" + scope + "c"
+	}
+	return "opencode-" + scope
 }
 
 func (OpenCode) Layers(p Paths) []mcp.Layer {
 	pv := opencodePaths{p}
 	out := []mcp.Layer{}
-	user := mcp.Layer{ID: "opencode-user", Label: "OpenCode user", Path: pv.user(), Scope: "user", Writable: true}
-	if st, err := os.Stat(user.Path); err == nil && !st.IsDir() {
-		user.Exists = true
-	}
-	out = append(out, user)
-	if path := pv.project(); path != "" {
-		layer := mcp.Layer{ID: "opencode-project", Label: "This folder", Path: path, Scope: "project", Writable: true}
-		if st, err := os.Stat(path); err == nil && !st.IsDir() {
-			layer.Exists = true
+	for _, scope := range []string{"user", "project"} {
+		candidates := pv.candidates(scope)
+		if candidates == nil {
+			continue
+		}
+		anyExists := false
+		for _, path := range candidates {
+			if st, err := os.Stat(path); err == nil && !st.IsDir() {
+				anyExists = true
+				break
+			}
+		}
+		if anyExists {
+			// List what exists, winner first; a file the vendor ignores is
+			// never fabricated as a layer.
+			for _, path := range candidates {
+				label := "OpenCode user"
+				if scope == "project" {
+					label = "This folder"
+				}
+				if strings.HasSuffix(path, ".jsonc") {
+					label += " (jsonc)"
+				}
+				layer := mcp.Layer{ID: opencodeLayerID(scope, path), Label: label, Path: path, Scope: scope, Writable: true}
+				if st, err := os.Stat(path); err == nil && !st.IsDir() {
+					layer.Exists = true
+					out = append(out, layer)
+				}
+			}
+			continue
+		}
+		// Nothing yet: opencode.json is the default a write creates.
+		layer := mcp.Layer{ID: opencodeLayerID(scope, candidates[1]), Label: "OpenCode user", Path: candidates[1], Scope: scope, Writable: true}
+		if scope == "project" {
+			layer.Label = "This folder"
 		}
 		out = append(out, layer)
 	}
@@ -142,7 +193,9 @@ func opencodeServers(raw map[string]any, layer mcp.Layer) []mcp.Server {
 	return rows
 }
 
-// Add upserts one server and may create the workspace file on request.
+// Add upserts one server, targeting the file the name already lives in —
+// the .jsonc when it holds it (the vendor's conflict winner) — else the
+// jsonc when it exists, else opencode.json.
 func (d OpenCode) Add(p Paths, scope, name string, entry mcp.Entry) error {
 	if err := mcp.ValidName(name); err != nil {
 		return err
@@ -154,7 +207,12 @@ func (d OpenCode) Add(p Paths, scope, name string, entry mcp.Entry) error {
 	if err != nil {
 		return err
 	}
-	path, err := opencodeWritePath(opencodePaths{p}, sc)
+	pv := opencodePaths{p}
+	candidates := pv.candidates(sc)
+	if candidates == nil {
+		return fmt.Errorf("select a workspace first")
+	}
+	path, err := opencodeTarget(candidates, name)
 	if err != nil {
 		return err
 	}
@@ -172,8 +230,74 @@ func (d OpenCode) Add(p Paths, scope, name string, entry mcp.Entry) error {
 	return writeJSONFile(path, raw)
 }
 
-// Toggle flips the entry's `enabled` field — OpenCode has a real per-server
-// switch (driver toggle: "entry").
+// opencodeCandidateFiles returns the candidate files that exist, in
+// precedence order, parsed; an existing file that fails to parse is a
+// refusal, never a silent skip — a shadowing malformed file would make any
+// write invisible to the vendor.
+type opencodeConfig struct {
+	path string
+	raw  map[string]any
+}
+
+func opencodeCandidateFiles(candidates []string) ([]opencodeConfig, error) {
+	out := make([]opencodeConfig, 0, len(candidates))
+	for _, path := range candidates {
+		st, err := os.Stat(path)
+		if err != nil || st.IsDir() {
+			continue
+		}
+		raw, err := readJSONFile(path)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, opencodeConfig{path: path, raw: raw})
+	}
+	return out, nil
+}
+
+// opencodeTarget resolves the file a name belongs to: the file already
+// holding it wins, else the first file that exists, else opencode.json.
+func opencodeTarget(candidates []string, name string) (string, error) {
+	files, err := opencodeCandidateFiles(candidates)
+	if err != nil {
+		return "", err
+	}
+	for _, f := range files {
+		if servers, _ := f.raw["mcp"].(map[string]any); servers != nil {
+			if _, ok := servers[name]; ok {
+				return f.path, nil
+			}
+		}
+	}
+	if len(files) > 0 {
+		return files[0].path, nil
+	}
+	return candidates[len(candidates)-1], nil
+}
+
+// opencodeExisting resolves Toggle/Remove targets: the file that holds the
+// name is edited; when neither file has it, the error names where it would
+// be — the same observable the single-file drivers give.
+func opencodeExisting(candidates []string, name string) (string, error) {
+	files, err := opencodeCandidateFiles(candidates)
+	if err != nil {
+		return "", err
+	}
+	for _, f := range files {
+		if servers, _ := f.raw["mcp"].(map[string]any); servers != nil {
+			if _, ok := servers[name]; ok {
+				return f.path, nil
+			}
+		}
+	}
+	if len(files) > 0 {
+		return "", fmt.Errorf("server %q is not in %s", name, files[0].path)
+	}
+	return "", fmt.Errorf("server %q is not in %s", name, candidates[len(candidates)-1])
+}
+
+// Toggle flips the entry's `enabled` field in the file that owns the name —
+// OpenCode has a real per-server switch (driver toggle: "entry").
 func (d OpenCode) Toggle(p Paths, scope, name string, disabled bool) error {
 	if err := mcp.ValidName(name); err != nil {
 		return err
@@ -182,7 +306,12 @@ func (d OpenCode) Toggle(p Paths, scope, name string, disabled bool) error {
 	if err != nil {
 		return err
 	}
-	path, err := opencodeWritePath(opencodePaths{p}, sc)
+	pv := opencodePaths{p}
+	candidates := pv.candidates(sc)
+	if candidates == nil {
+		return fmt.Errorf("select a workspace first")
+	}
+	path, err := opencodeExisting(candidates, name)
 	if err != nil {
 		return err
 	}
@@ -202,7 +331,7 @@ func (d OpenCode) Toggle(p Paths, scope, name string, disabled bool) error {
 	return writeJSONFile(path, raw)
 }
 
-// Remove deletes the entry and nothing else.
+// Remove deletes the entry from the file that owns it and nothing else.
 func (d OpenCode) Remove(p Paths, scope, name string) error {
 	if err := mcp.ValidName(name); err != nil {
 		return err
@@ -211,7 +340,12 @@ func (d OpenCode) Remove(p Paths, scope, name string) error {
 	if err != nil {
 		return err
 	}
-	path, err := opencodeWritePath(opencodePaths{p}, sc)
+	pv := opencodePaths{p}
+	candidates := pv.candidates(sc)
+	if candidates == nil {
+		return fmt.Errorf("select a workspace first")
+	}
+	path, err := opencodeExisting(candidates, name)
 	if err != nil {
 		return err
 	}
@@ -226,18 +360,6 @@ func (d OpenCode) Remove(p Paths, scope, name string) error {
 	delete(servers, name)
 	raw["mcp"] = servers
 	return writeJSONFile(path, raw)
-}
-
-// opencodeWritePath resolves Toggle/Remove targets: they edit what exists
-// and never create a workspace file the way Add may.
-func opencodeWritePath(p opencodePaths, scope string) (string, error) {
-	if scope == "user" {
-		return p.user(), nil
-	}
-	if p.Cwd == "" {
-		return "", fmt.Errorf("select a workspace first")
-	}
-	return p.project(), nil
 }
 
 // opencodeEntryMap merges the new definition into the previous entry:

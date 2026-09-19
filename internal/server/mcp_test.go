@@ -447,41 +447,55 @@ func TestMCPGuestDriversDispatch(t *testing.T) {
 		t.Fatalf("project file: %s", raw)
 	}
 
-	// Codex add goes to its TOML file.
+	// Codex keeps one config file: project scope refuses, and the workspace
+	// stays untouched (the vendor never loads a per-workspace file).
 	add = postJSON(t, ts, "/api/mcp", map[string]any{
 		"cli": "codex", "scope": "project", "workspaceId": wk.ID, "name": "docs", "command": "npx", "args": []string{"-y", "x"},
 	})
-	if add.StatusCode != http.StatusOK {
-		t.Fatalf("codex add = %d", add.StatusCode)
+	if add.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(add), "keeps one config file") {
+		t.Fatalf("codex project add = %d %s", add.StatusCode, thisBody(add))
 	}
-	_ = add.Body.Close()
-	tomlRaw, err := os.ReadFile(filepath.Join(wsDir, ".codex", "config.toml"))
+	add.Body.Close()
+	if _, err := os.Stat(filepath.Join(wsDir, ".codex")); !os.IsNotExist(err) {
+		t.Fatalf("codex project add touched the workspace: %v", err)
+	}
+
+	// The user-scope path still writes its TOML table.
+	add = postJSON(t, ts, "/api/mcp", map[string]any{
+		"cli": "codex", "scope": "user", "name": "docs", "command": "npx", "args": []string{"-y", "x"},
+	})
+	if add.StatusCode != http.StatusOK {
+		t.Fatalf("codex add = %d %s", add.StatusCode, thisBody(add))
+	}
+	add.Body.Close()
+	tomlRaw, err := os.ReadFile(filepath.Join(home, ".codex", "config.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(tomlRaw), "[mcp_servers.docs]") {
-		t.Fatalf("codex project file: %s", tomlRaw)
+		t.Fatalf("codex user file: %s", tomlRaw)
 	}
 
 	// Guest toggle of the codex server flips enabled in place.
-	off := mcpPatch(t, ts, map[string]any{"cli": "codex", "scope": "project", "workspaceId": wk.ID, "name": "docs", "disabled": true})
+	off := mcpPatch(t, ts, map[string]any{"cli": "codex", "scope": "user", "name": "docs", "disabled": true})
 	if off.StatusCode != http.StatusOK {
 		t.Fatalf("codex toggle = %d", off.StatusCode)
 	}
-	_ = off.Body.Close()
-	tomlRaw, _ = os.ReadFile(filepath.Join(wsDir, ".codex", "config.toml"))
+	off.Body.Close()
+	tomlRaw, _ = os.ReadFile(filepath.Join(home, ".codex", "config.toml"))
 	if !strings.Contains(string(tomlRaw), "enabled = false") {
 		t.Fatalf("codex toggle: %s", tomlRaw)
 	}
 
 	// Claude has no per-server switch: the refusal is the observable result.
-	off = mcpPatch(t, ts, map[string]any{"cli": "claude-code", "scope": "project", "workspaceId": wk.ID, "name": "docs", "disabled": true})
+	off = mcpPatch(t, ts, map[string]any{"cli": "claude-code", "scope": "user", "name": "docs", "disabled": true})
 	if off.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(off), "turn on and off in Claude Code") {
 		t.Fatalf("claude toggle = %d %s", off.StatusCode, thisBody(off))
 	}
+	off.Body.Close()
 
-	// Guest remove (project) deletes the table again.
-	del, err := http.NewRequest(http.MethodDelete, ts.URL+"/api/mcp?cli=codex&scope=project&workspace="+wk.ID+"&name=docs", nil)
+	// Guest remove (user) deletes the table again.
+	del, err := http.NewRequest(http.MethodDelete, ts.URL+"/api/mcp?cli=codex&scope=user&name=docs", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -489,8 +503,8 @@ func TestMCPGuestDriversDispatch(t *testing.T) {
 	if rmv.StatusCode != http.StatusOK {
 		t.Fatalf("codex remove = %d", rmv.StatusCode)
 	}
-	_ = rmv.Body.Close()
-	tomlRaw, _ = os.ReadFile(filepath.Join(wsDir, ".codex", "config.toml"))
+	rmv.Body.Close()
+	tomlRaw, _ = os.ReadFile(filepath.Join(home, ".codex", "config.toml"))
 	if strings.Contains(string(tomlRaw), "mcp_servers.docs") {
 		t.Fatalf("codex remove: %s", tomlRaw)
 	}
@@ -567,21 +581,34 @@ func TestMCPGuestDriversPhase2(t *testing.T) {
 		t.Fatalf("omp toggle: %s", ompRaw)
 	}
 
-	// AGY add writes serverUrl, never the legacy url key.
+	// AGY keeps one config file: project scope refuses, the workspace stays
+	// untouched (the vendor CLI resolves only the user file).
 	add = postJSON(t, ts, "/api/mcp", map[string]any{
 		"cli": "agy", "scope": "project", "workspaceId": wk.ID, "name": "relay", "url": "https://relay.example/mcp",
+	})
+	if add.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(add), "keeps one config file") {
+		t.Fatalf("agy project add = %d %s", add.StatusCode, thisBody(add))
+	}
+	add.Body.Close()
+	if _, err := os.Stat(filepath.Join(wsDir, ".agents")); !os.IsNotExist(err) {
+		t.Fatalf("agy project add touched the workspace: %v", err)
+	}
+
+	// The user file takes the add: serverUrl, never the legacy url key.
+	add = postJSON(t, ts, "/api/mcp", map[string]any{
+		"cli": "agy", "scope": "user", "name": "relay", "url": "https://relay.example/mcp",
 	})
 	if add.StatusCode != http.StatusOK {
 		t.Fatalf("agy add = %d %s", add.StatusCode, thisBody(add))
 	}
-	_ = add.Body.Close()
-	agyPath := filepath.Join(wsDir, ".agents", "mcp_config.json")
+	add.Body.Close()
+	agyPath := filepath.Join(home, ".gemini", "config", "mcp_config.json")
 	agyRaw, err := os.ReadFile(agyPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(agyRaw), `"serverUrl"`) || strings.Contains(string(agyRaw), `"url"`) {
-		t.Fatalf("agy project file: %s", agyRaw)
+		t.Fatalf("agy user file: %s", agyRaw)
 	}
 
 	// A legacy url-only AGY entry displays unowned; Toggle refuses and the
@@ -590,7 +617,7 @@ func TestMCPGuestDriversPhase2(t *testing.T) {
 	if err := os.WriteFile(agyPath, []byte(seed), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	off = mcpPatch(t, ts, map[string]any{"cli": "agy", "scope": "project", "workspaceId": wk.ID, "name": "old", "disabled": true})
+	off = mcpPatch(t, ts, map[string]any{"cli": "agy", "scope": "user", "name": "old", "disabled": true})
 	if off.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(off), "legacy entry managed in Antigravity") {
 		t.Fatalf("agy legacy toggle = %d %s", off.StatusCode, thisBody(off))
 	}
@@ -628,7 +655,7 @@ func TestMCPGuestDriversPhase2(t *testing.T) {
 	}
 
 	// Guest remove of the managed AGY entry works; the legacy row is kept.
-	del, err := http.NewRequest(http.MethodDelete, ts.URL+"/api/mcp?cli=agy&scope=project&workspace="+wk.ID+"&name=relay", nil)
+	del, err := http.NewRequest(http.MethodDelete, ts.URL+"/api/mcp?cli=agy&scope=user&name=relay", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -815,31 +842,36 @@ func TestMCPGuestDriversPhase3(t *testing.T) {
 		t.Fatalf("opencode toggle: %v", docs)
 	}
 
-	// Grok add lands in .grok/config.toml; toggle is refused — Grok has no
-	// per-server switch — and the file survives untouched.
+	// Grok add lands in .grok/config.toml with the vendor's enabled flag;
+	// toggle flips it in place and maintains the personal overlay array.
 	add = postJSON(t, ts, "/api/mcp", map[string]any{
 		"cli": "grok", "scope": "project", "workspaceId": wk.ID, "name": "docs", "command": "npx", "args": []string{"-y", "x"},
 	})
 	if add.StatusCode != http.StatusOK {
 		t.Fatalf("grok add = %d %s", add.StatusCode, thisBody(add))
 	}
-	_ = add.Body.Close()
+	add.Body.Close()
 	grokPath := filepath.Join(wsDir, ".grok", "config.toml")
 	grokRaw, err := os.ReadFile(grokPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(grokRaw), "[mcp_servers.docs]") {
+	if !strings.Contains(string(grokRaw), "[mcp_servers.docs]") || !strings.Contains(string(grokRaw), "enabled = true") {
 		t.Fatalf("grok project file: %s", grokRaw)
 	}
-	seed := string(grokRaw)
 	off = mcpPatch(t, ts, map[string]any{"cli": "grok", "scope": "project", "workspaceId": wk.ID, "name": "docs", "disabled": true})
-	if off.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(off), "remove and re-add instead") {
+	if off.StatusCode != http.StatusOK {
 		t.Fatalf("grok toggle = %d %s", off.StatusCode, thisBody(off))
 	}
-	_ = off.Body.Close()
-	if got, _ := os.ReadFile(grokPath); string(got) != seed {
-		t.Fatalf("refused grok toggle modified the file:\n%q", got)
+	off.Body.Close()
+	grokRaw, _ = os.ReadFile(grokPath)
+	if !strings.Contains(string(grokRaw), "enabled = false") {
+		t.Fatalf("grok toggle: %s", grokRaw)
+	}
+	// A project toggle is the sticky project flag only: no overlay array
+	// anywhere near the user file.
+	if _, err := os.Stat(filepath.Join(home, ".grok")); !os.IsNotExist(err) {
+		t.Fatalf("grok project toggle touched the user config: %v", err)
 	}
 
 	// Guest remove deletes each entry again.

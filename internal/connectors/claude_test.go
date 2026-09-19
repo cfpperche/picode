@@ -172,18 +172,20 @@ func TestClaudeUserScopeViaVendorCLI(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	// Measured against claude 2.1.277: --env/--header are variadic and
+	// swallow the positionals that follow, so the name leads and the flags
+	// trail it; a stdio command is guarded by `--`.
 	lines := readLog(t, log)
 	if len(lines) == 0 {
 		t.Fatal("claude was never called")
 	}
 	argv := lines[len(lines)-1]
-	for _, want := range []string{"mcp add", "--transport http", "--header Authorization: Bearer tok", "docs", "https://docs.example/mcp", "--scope user"} {
-		if !strings.Contains(argv, want) {
-			t.Fatalf("argv %q missing %q", argv, want)
-		}
+	wantURL := "mcp add docs --scope user https://docs.example/mcp --transport http --header Authorization: Bearer tok"
+	if argv != wantURL {
+		t.Fatalf("url argv = %q, want %q", argv, wantURL)
 	}
 
-	// A command entry carries env through --env instead.
+	// A command entry carries env through --env and the command after --.
 	if err := (Claude{}).Add(p, "user", "local", mcp.Entry{
 		Command: "npx", Args: []string{"-y", "docs"}, Env: map[string]string{"K": "v"},
 	}); err != nil {
@@ -191,10 +193,9 @@ func TestClaudeUserScopeViaVendorCLI(t *testing.T) {
 	}
 	lines = readLog(t, log)
 	argv = lines[len(lines)-1]
-	for _, want := range []string{"mcp add", "--env K=v", "local", "npx -y docs", "--scope user"} {
-		if !strings.Contains(argv, want) {
-			t.Fatalf("command argv %q missing %q", argv, want)
-		}
+	wantCmd := "mcp add local --scope user --env K=v -- npx -y docs"
+	if argv != wantCmd {
+		t.Fatalf("command argv = %q, want %q", argv, wantCmd)
 	}
 
 	rep, err := Claude{}.List(p)
@@ -239,6 +240,46 @@ func TestClaudeListTolerantLines(t *testing.T) {
 	}
 	if rep.Servers[1].Name != "relay" || strings.Contains(rep.Servers[1].Command, "Failed") {
 		t.Fatalf("relay row = %+v", rep.Servers[1])
+	}
+}
+
+// Lines captured from claude 2.1.277 `claude mcp list` (2026-09-18): the
+// health glyph is ✘ on failures, the target carries a transport tag, and a
+// failure detail rides behind an em dash. The row keeps the target only.
+func TestClaudeListCurrentHealthFormat(t *testing.T) {
+	writeFakeClaude(t, "Checking MCP server health…\n"+
+		"\n"+
+		"probe: https://example.invalid/mcp (HTTP) - ✘ Failed to connect — ENOTFOUND: getaddrinfo ENOTFOUND example.invalid\n"+
+		"dashserve: /bin/echo --version - ✘ Failed to connect — CONNECTION_CLOSED: Connection closed\n"+
+		"healthy: npx -y mcp - ✓ Connected\n"+
+		"pending: https://example.invalid/mcp (HTTP) - ⏸ Pending approval (run `claude` to approve)\n")
+	p := Paths{Home: t.TempDir()}
+	rep, err := Claude{}.List(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"probe":     "https://example.invalid/mcp",
+		"dashserve": "/bin/echo --version",
+		"healthy":   "npx -y mcp",
+		"pending":   "https://example.invalid/mcp",
+	}
+	if len(rep.Servers) != len(want) {
+		t.Fatalf("servers = %+v", rep.Servers)
+	}
+	for _, s := range rep.Servers {
+		if s.Command != want[s.Name] {
+			t.Fatalf("%s row = %+v, want command %q", s.Name, s, want[s.Name])
+		}
+		// URL-shaped targets are remote servers: the row reports them the
+		// way the file codec does, so the pane handles both scopes alike.
+		if strings.HasPrefix(s.Command, "http") {
+			if s.Transport != "url" || s.URL != s.Command {
+				t.Fatalf("%s row does not report the url transport: %+v", s.Name, s)
+			}
+		} else if s.Transport != "stdio" {
+			t.Fatalf("%s row does not report the stdio transport: %+v", s.Name, s)
+		}
 	}
 }
 

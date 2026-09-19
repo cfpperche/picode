@@ -274,3 +274,51 @@ func TestMuseDecisionTable(t *testing.T) {
 		})
 	}
 }
+
+// Measured against Muse Code 1.3.0 (2026-09-18): muse refuses a
+// settings.json without schema_version as malformed, so every write path
+// must keep the key present — a file PiCode creates from scratch, and an
+// older file a Toggle or Remove rewrites.
+func TestMuseWriteKeepsSchemaVersion(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+
+	addPath := filepath.Join(t.TempDir(), ".config", "muse", "settings.json")
+	pAdd := Paths{Home: filepath.Dir(filepath.Dir(filepath.Dir(addPath)))}
+	if err := (Muse{}).Add(pAdd, "user", "docs", mcp.Entry{URL: "https://docs.example/mcp"}); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := readJSONFile(addPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if raw["schema_version"] == nil {
+		t.Fatalf("created file has no schema_version: %v", raw)
+	}
+
+	// An existing file that predates the key gains it on the next write,
+	// and an existing value is never overwritten.
+	p, path := seedMuse(t, `{"mcp_servers":{"docs":{"transport":"stdio","command":"npx"}}}`)
+	if err := (Muse{}).Toggle(p, "user", "docs", true); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ = readJSONFile(path)
+	if raw["schema_version"] == nil {
+		t.Fatalf("toggle did not add schema_version: %v", raw)
+	}
+	if err := (Muse{}).Remove(p, "user", "docs"); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ = readJSONFile(path)
+	if raw["schema_version"] == nil {
+		t.Fatalf("remove did not add schema_version: %v", raw)
+	}
+
+	p, path = seedMuse(t, `{"schema_version": 7, "mcp_servers":{"docs":{"transport":"stdio","command":"npx"}}}`)
+	if err := (Muse{}).Toggle(p, "user", "docs", true); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ = readJSONFile(path)
+	if raw["schema_version"] != float64(7) {
+		t.Fatalf("existing schema_version overwritten: %v", raw)
+	}
+}

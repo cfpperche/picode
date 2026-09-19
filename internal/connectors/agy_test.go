@@ -23,47 +23,36 @@ const agyGolden = `{
   }
 }`
 
+// seedAgy plants the one config file Antigravity loads (the user file,
+// measured against agy 1.2.6); scope "project" only opens an empty
+// workspace directory — there is no workspace file to read or write.
 func seedAgy(t *testing.T, scope, text string) (Paths, string) {
 	t.Helper()
-	if text == "skip" { // dirs exist, file does not
-		return Paths{Home: t.TempDir(), Cwd: t.TempDir()}, ""
-	}
 	home := t.TempDir()
-	if scope == "user" {
-		var path string
-		if text != "" {
-			if err := os.MkdirAll(filepath.Join(home, ".gemini", "config"), 0o755); err != nil {
-				t.Fatal(err)
-			}
-			path = filepath.Join(home, ".gemini", "config", "mcp_config.json")
-			if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
-				t.Fatal(err)
-			}
-		}
-		return Paths{Home: home}, path
-	}
-	cwd := ""
 	var path string
 	if text != "" {
-		cwd = t.TempDir()
-		if err := os.MkdirAll(filepath.Join(cwd, ".agents"), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Join(home, ".gemini", "config"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		path = filepath.Join(cwd, ".agents", "mcp_config.json")
+		path = filepath.Join(home, ".gemini", "config", "mcp_config.json")
 		if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	return Paths{Home: home, Cwd: cwd}, path
+	p := Paths{Home: home}
+	if scope == "project" {
+		p.Cwd = t.TempDir()
+	}
+	return p, path
 }
 
 func TestAGYGoldenRoundTrip(t *testing.T) {
 	writeFakeBin(t, "agy")
-	p, path := seedAgy(t, "project", agyGolden)
+	p, path := seedAgy(t, "user", agyGolden)
 
 	// Add: remote servers ride serverUrl, never the legacy url key; unknown
 	// per-entry keys on the surviving entry survive the rewrite.
-	if err := (AGY{}).Add(p, "project", "docs", mcp.Entry{URL: "https://mcp.deepwiki.com/mcp", Auth: "oauth"}); err != nil {
+	if err := (AGY{}).Add(p, "user", "docs", mcp.Entry{URL: "https://mcp.deepwiki.com/mcp", Auth: "oauth"}); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := readJSONFile(path)
@@ -100,7 +89,7 @@ func TestAGYGoldenRoundTrip(t *testing.T) {
 
 	// Update merges by key: switching transport drops the other side, keeps
 	// Antigravity's fields on the surviving entry.
-	if err := (AGY{}).Add(p, "project", "keep", mcp.Entry{URL: "https://kept.example/mcp"}); err != nil {
+	if err := (AGY{}).Add(p, "user", "keep", mcp.Entry{URL: "https://kept.example/mcp"}); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ = readJSONFile(path)
@@ -113,7 +102,7 @@ func TestAGYGoldenRoundTrip(t *testing.T) {
 	}
 
 	// Remove deletes the entry and nothing else.
-	if err := (AGY{}).Remove(p, "project", "docs"); err != nil {
+	if err := (AGY{}).Remove(p, "user", "docs"); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ = readJSONFile(path)
@@ -183,7 +172,7 @@ func TestAGYCwdPreservedThroughToggle(t *testing.T) {
 func TestAGYLegacyURLEntry(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	seed := `{"mcpServers":{"old":{"url":"https://old.example/mcp"}}}`
-	p, path := seedAgy(t, "project", seed)
+	p, path := seedAgy(t, "user", seed)
 
 	rep, err := AGY{}.List(p)
 	if err != nil {
@@ -193,10 +182,10 @@ func TestAGYLegacyURLEntry(t *testing.T) {
 		t.Fatalf("legacy row = %+v", rep.Servers)
 	}
 
-	if err := (AGY{}).Toggle(p, "project", "old", true); err == nil || !strings.Contains(err.Error(), "legacy entry managed in Antigravity") {
+	if err := (AGY{}).Toggle(p, "user", "old", true); err == nil || !strings.Contains(err.Error(), "legacy entry managed in Antigravity") {
 		t.Fatalf("legacy toggle = %v", err)
 	}
-	if err := (AGY{}).Remove(p, "project", "old"); err == nil || !strings.Contains(err.Error(), "legacy entry managed in Antigravity") {
+	if err := (AGY{}).Remove(p, "user", "old"); err == nil || !strings.Contains(err.Error(), "legacy entry managed in Antigravity") {
 		t.Fatalf("legacy remove = %v", err)
 	}
 	if got, _ := os.ReadFile(path); string(got) != seed {
@@ -204,7 +193,7 @@ func TestAGYLegacyURLEntry(t *testing.T) {
 	}
 
 	// An Add over the legacy name converts it to the managed shape.
-	if err := (AGY{}).Add(p, "project", "old", mcp.Entry{URL: "https://old.example/mcp"}); err != nil {
+	if err := (AGY{}).Add(p, "user", "old", mcp.Entry{URL: "https://old.example/mcp"}); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ := readJSONFile(path)
@@ -224,7 +213,7 @@ func TestAGYLegacyURLEntry(t *testing.T) {
 func TestAGYDisabledReadsDisabled(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	seed := `{"mcpServers":{"docs":{"serverUrl":"https://d.example/mcp","disabled":true}}}`
-	p, _ := seedAgy(t, "project", seed)
+	p, _ := seedAgy(t, "user", seed)
 	rep, err := AGY{}.List(p)
 	if err != nil {
 		t.Fatal(err)
@@ -236,14 +225,14 @@ func TestAGYDisabledReadsDisabled(t *testing.T) {
 
 func TestAGYMalformedFileRefuses(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
-	p, path := seedAgy(t, "project", "{not json")
-	if err := (AGY{}).Add(p, "project", "docs", mcp.Entry{URL: "https://x.example/mcp"}); err == nil {
+	p, path := seedAgy(t, "user", "{not json")
+	if err := (AGY{}).Add(p, "user", "docs", mcp.Entry{URL: "https://x.example/mcp"}); err == nil {
 		t.Fatal("add on malformed file must fail")
 	}
-	if err := (AGY{}).Toggle(p, "project", "docs", true); err == nil {
+	if err := (AGY{}).Toggle(p, "user", "docs", true); err == nil {
 		t.Fatal("toggle on malformed file must fail")
 	}
-	if err := (AGY{}).Remove(p, "project", "docs"); err == nil {
+	if err := (AGY{}).Remove(p, "user", "docs"); err == nil {
 		t.Fatal("remove on malformed file must fail")
 	}
 	if raw, _ := os.ReadFile(path); string(raw) != "{not json" {
@@ -251,9 +240,47 @@ func TestAGYMalformedFileRefuses(t *testing.T) {
 	}
 }
 
+// Live verification (agy 1.2.6): only ~/.gemini/config/mcp_config.json is
+// ever loaded, so project scope refuses all three writes and touches
+// nothing — no workspace file appears and the user file keeps its bytes.
+func TestAGYProjectScopeRefuses(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	p, path := seedAgy(t, "project", agyGolden)
+	before := fileText(t, path)
+
+	// One layer even with a workspace open: the user file is all there is.
+	rep, err := AGY{}.List(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.Layers) != 1 || rep.Layers[0].Scope != "user" {
+		t.Fatalf("layers = %+v", rep.Layers)
+	}
+
+	addErr := (AGY{}).Add(p, "project", "docs", mcp.Entry{URL: "https://d.example/mcp"})
+	toggleErr := (AGY{}).Toggle(p, "project", "docs", true)
+	removeErr := (AGY{}).Remove(p, "project", "docs")
+	for _, err := range []error{addErr, toggleErr, removeErr} {
+		if err == nil || !strings.Contains(err.Error(), "keeps one config file") {
+			t.Fatalf("project-scope op = %v, want the one-config-file refusal", err)
+		}
+	}
+	entries, err := os.ReadDir(p.Cwd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("workspace not empty: %v", entries)
+	}
+	if got := fileText(t, path); got != before {
+		t.Fatalf("user file changed:\n%q", got)
+	}
+}
+
 // The decision table (ADR-0150): add/toggle/remove × scope × missing file ×
 // malformed file × legacy entry — every row ends in an observable result,
-// never a panic and never a silently rewritten file.
+// never a panic and never a silently rewritten file. Project scope refuses:
+// Antigravity keeps one config file and there is no workspace file to write.
 func TestAGYDecisionTable(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -263,10 +290,7 @@ func TestAGYDecisionTable(t *testing.T) {
 		wantErr string
 	}{
 		{name: "add user no file", scope: "user", op: "add"},
-		{name: "add project no cwd", scope: "project", op: "add", wantErr: "select a workspace"},
-		{name: "add creates project file", scope: "project", op: "add", seed: "skip"},
 		{name: "toggle user no file", scope: "user", op: "toggle", wantErr: "is not in"},
-		{name: "toggle project no cwd", scope: "project", op: "toggle", wantErr: "select a workspace"},
 		{name: "remove user no file", scope: "user", op: "remove", wantErr: "is not in"},
 		{name: "toggle user missing server", scope: "user", op: "toggle", seed: `{"other":1}`, wantErr: "is not in"},
 		{name: "remove missing server", scope: "user", op: "remove", seed: `{"other":1}`, wantErr: "is not in"},
@@ -275,6 +299,9 @@ func TestAGYDecisionTable(t *testing.T) {
 		{name: "add on malformed", scope: "user", op: "add", seed: "{not json", wantErr: "not valid JSON"},
 		{name: "toggle legacy url entry", scope: "user", op: "toggle", seed: `{"mcpServers":{"docs":{"url":"https://d.example/mcp"}}}`, wantErr: "legacy entry managed in Antigravity"},
 		{name: "remove legacy url entry", scope: "user", op: "remove", seed: `{"mcpServers":{"docs":{"url":"https://d.example/mcp"}}}`, wantErr: "legacy entry managed in Antigravity"},
+		{name: "add project scope", scope: "project", op: "add", wantErr: "no per-workspace file"},
+		{name: "toggle project scope", scope: "project", op: "toggle", wantErr: "no per-workspace file"},
+		{name: "remove project scope", scope: "project", op: "remove", wantErr: "no per-workspace file"},
 		{name: "add agent scope", scope: "agent", op: "add", wantErr: "not available yet"},
 		{name: "toggle agent scope", scope: "agent", op: "toggle", wantErr: "not available yet"},
 		{name: "remove agent scope", scope: "agent", op: "remove", wantErr: "not available yet"},
@@ -296,9 +323,9 @@ func TestAGYDecisionTable(t *testing.T) {
 				if err != nil {
 					t.Fatalf("want success, got %v", err)
 				}
-				if tc.seed == "skip" {
-					if _, serr := os.Stat(filepath.Join(p.Cwd, ".agents", "mcp_config.json")); serr != nil {
-						t.Fatalf("add did not create the project file: %v", serr)
+				if tc.seed == "" && tc.op == "add" {
+					if _, serr := os.Stat(filepath.Join(p.Home, ".gemini", "config", "mcp_config.json")); serr != nil {
+						t.Fatalf("add did not create the user file: %v", serr)
 					}
 				}
 				return
@@ -306,38 +333,11 @@ func TestAGYDecisionTable(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
 				t.Fatalf("err = %v, want it to contain %q", err, tc.wantErr)
 			}
-			if tc.seed != "" && tc.seed != "skip" {
+			if tc.seed != "" {
 				if got, _ := os.ReadFile(path); string(got) != tc.seed {
 					t.Fatalf("refused op still modified the file:\n%q", got)
 				}
 			}
 		})
-	}
-}
-
-func TestAGYToggleWritePathKeepsOtherScope(t *testing.T) {
-	// A docs server in the user file is untouched by a project toggle of a
-	// same-named server.
-	t.Setenv("PATH", t.TempDir())
-	home := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(home, ".gemini", "config"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	userSeed := `{"mcpServers":{"docs":{"serverUrl":"https://user.example/mcp"}}}`
-	if err := os.WriteFile(filepath.Join(home, ".gemini", "config", "mcp_config.json"), []byte(userSeed), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	p, projectPath := seedAgy(t, "project", `{"mcpServers":{"docs":{"serverUrl":"https://project.example/mcp"}}}`)
-	p.Home = home
-	if err := (AGY{}).Toggle(p, "project", "docs", true); err != nil {
-		t.Fatal(err)
-	}
-	if got, _ := os.ReadFile(filepath.Join(home, ".gemini", "config", "mcp_config.json")); string(got) != userSeed {
-		t.Fatalf("user file changed:\n%q", got)
-	}
-	raw, _ := readJSONFile(projectPath)
-	docs, _ := raw["mcpServers"].(map[string]any)["docs"].(map[string]any)
-	if docs["disabled"] != true {
-		t.Fatalf("project file not toggled: %v", docs)
 	}
 }

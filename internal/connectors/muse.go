@@ -138,6 +138,7 @@ func (d Muse) Add(p Paths, scope, name string, entry mcp.Entry) error {
 	if err != nil {
 		return err
 	}
+	ensureMuseSchema(raw)
 	servers, _ := raw["mcp_servers"].(map[string]any)
 	if servers == nil {
 		servers = map[string]any{}
@@ -146,6 +147,17 @@ func (d Muse) Add(p Paths, scope, name string, entry mcp.Entry) error {
 	servers[name] = museEntryMap(entry, prev)
 	raw["mcp_servers"] = servers
 	return writeJSONFile(path, raw)
+}
+
+// ensureMuseSchema keeps the settings file valid for Muse's own loader:
+// measured against Muse Code 1.3.0 (2026-09-18), a settings.json without
+// schema_version is refused as malformed ("missing field `schema_version`"),
+// so a file PiCode creates must carry it. An existing value survives —
+// merge-by-key, never overwritten.
+func ensureMuseSchema(raw map[string]any) {
+	if _, ok := raw["schema_version"]; !ok {
+		raw["schema_version"] = 1
+	}
 }
 
 // Toggle flips the entry's `enabled` field — Muse has a real per-server
@@ -171,6 +183,7 @@ func (d Muse) Toggle(p Paths, scope, name string, disabled bool) error {
 	if !ok {
 		return fmt.Errorf("server %q is not in %s", name, path)
 	}
+	ensureMuseSchema(raw)
 	merged := museEntryMap(mcp.Entry{}, prev)
 	merged["enabled"] = !disabled
 	servers[name] = merged
@@ -199,6 +212,7 @@ func (d Muse) Remove(p Paths, scope, name string) error {
 	if _, ok := servers[name]; !ok {
 		return fmt.Errorf("server %q is not in %s", name, path)
 	}
+	ensureMuseSchema(raw)
 	delete(servers, name)
 	raw["mcp_servers"] = servers
 	return writeJSONFile(path, raw)

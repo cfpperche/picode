@@ -10,10 +10,12 @@ import (
 	"github.com/cfpperche/picode/internal/mcp"
 )
 
-// AGY manages Antigravity's MCP servers in its native JSON configs: the
-// user file (~/.gemini/config/mcp_config.json) and the workspace file
-// (<workspace>/.agents/mcp_config.json). Both are plain files, edited
-// directly — never through the vendor CLI.
+// AGY manages Antigravity's MCP servers in its native JSON config: the
+// single file at ~/.gemini/config/mcp_config.json. It is a plain file,
+// edited directly — never through the vendor CLI. There is no per-workspace
+// variant: measured against agy 1.2.6 (2026-09-18), `agy mcp list/add`
+// resolve only the user file and never load a workspace config, so project
+// scope refuses with a pointer to the one file.
 //
 // Remote servers ride the `serverUrl` field. An entry that keeps its URL
 // under the legacy `url` key still displays, but it is reported as not
@@ -41,29 +43,24 @@ func (c agyPaths) user() string {
 	return filepath.Join(c.home(), ".gemini", "config", "mcp_config.json")
 }
 
-func (c agyPaths) project() string {
-	if c.Cwd == "" {
-		return ""
+// scopePath resolves the one file or refuses: Antigravity keeps a single
+// config file — there is no per-workspace file the CLI would load.
+func (c agyPaths) scopePath(scope string) (string, error) {
+	switch scope {
+	case "user", "":
+		return c.user(), nil
+	default:
+		return "", fmt.Errorf("Antigravity keeps one config file (%s); there is no per-workspace file", c.user())
 	}
-	return filepath.Join(c.Cwd, ".agents", "mcp_config.json")
 }
 
 func (AGY) Layers(p Paths) []mcp.Layer {
-	pv := agyPaths{p}
 	out := []mcp.Layer{}
-	user := mcp.Layer{ID: "agy-user", Label: "Antigravity user", Path: pv.user(), Scope: "user", Writable: true}
+	user := mcp.Layer{ID: "agy-user", Label: "Antigravity user", Path: agyPaths{p}.user(), Scope: "user", Writable: true}
 	if st, err := os.Stat(user.Path); err == nil && !st.IsDir() {
 		user.Exists = true
 	}
-	out = append(out, user)
-	if path := pv.project(); path != "" {
-		layer := mcp.Layer{ID: "agy-project", Label: "This folder", Path: path, Scope: "project", Writable: true}
-		if st, err := os.Stat(path); err == nil && !st.IsDir() {
-			layer.Exists = true
-		}
-		out = append(out, layer)
-	}
-	return out
+	return append(out, user)
 }
 
 // List reports the servers Antigravity would load. Live stays empty — the
@@ -166,7 +163,7 @@ func (d AGY) Add(p Paths, scope, name string, entry mcp.Entry) error {
 	if err != nil {
 		return err
 	}
-	path, err := agyWritePath(agyPaths{p}, sc)
+	path, err := agyPaths{p}.scopePath(sc)
 	if err != nil {
 		return err
 	}
@@ -194,7 +191,7 @@ func (d AGY) Toggle(p Paths, scope, name string, disabled bool) error {
 	if err != nil {
 		return err
 	}
-	path, err := agyWritePath(agyPaths{p}, sc)
+	path, err := agyPaths{p}.scopePath(sc)
 	if err != nil {
 		return err
 	}
@@ -226,7 +223,7 @@ func (d AGY) Remove(p Paths, scope, name string) error {
 	if err != nil {
 		return err
 	}
-	path, err := agyWritePath(agyPaths{p}, sc)
+	path, err := agyPaths{p}.scopePath(sc)
 	if err != nil {
 		return err
 	}
@@ -245,18 +242,6 @@ func (d AGY) Remove(p Paths, scope, name string) error {
 	delete(servers, name)
 	raw["mcpServers"] = servers
 	return writeJSONFile(path, raw)
-}
-
-// agyWritePath resolves Toggle/Remove targets: they edit what exists and
-// never create a workspace file the way Add may.
-func agyWritePath(p agyPaths, scope string) (string, error) {
-	if scope == "user" {
-		return p.user(), nil
-	}
-	if p.Cwd == "" {
-		return "", fmt.Errorf("select a workspace first")
-	}
-	return p.project(), nil
 }
 
 // agyEntryMap merges the new definition into the previous entry:

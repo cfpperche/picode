@@ -61,7 +61,7 @@ export const CONNECTOR_DRIVERS = {
     name: "Grok",
     status: "configured",
     auth: ["oauth"],
-    toggle: "none", // Grok's config has no per-server switch
+    toggle: "entry", // [mcp_servers.<name>] enabled flag + disabled_mcp_servers overlay
     signIn: { text: "Sign in happens on first use inside Grok" },
   },
   muse: {

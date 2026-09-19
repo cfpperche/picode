@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 
+	toml "github.com/pelletier/go-toml/v2"
+
 	"github.com/cfpperche/picode/internal/mcp"
 )
 
@@ -22,15 +24,14 @@ import (
 // (startup_timeout_sec, tool_timeout_sec, …) survive an update through
 // merge-by-key.
 //
-// Grok's config has no per-server switch, so Toggle is refused and the pane
-// (driver toggle: "none") renders no switch at all.
+// Toggle mirrors what grok mcp disable/enable writes (measured against grok
+// 1.0.34, 2026-09-18): the entry's `enabled` flag plus — in the user file
+// only — the top-level `disabled_mcp_servers` array (the vendor's personal
+// overlay; it never rewrites project configs). Remove strips the name from
+// the array of the same file and nothing else.
 type Grok struct{}
 
 const grokBin = "grok"
-
-// ToggleRefusal is the honest answer to an enable/disable ask: Grok loads
-// every configured server; there is no flag to flip.
-const grokToggleRefusal = "Grok connectors have no on/off switch; remove and re-add instead"
 
 func (Grok) ID() string { return "grok" }
 
@@ -133,25 +134,75 @@ func (d Grok) Add(p Paths, scope, name string, entry mcp.Entry) error {
 	if err != nil {
 		return err
 	}
-	block, err := tomlBlock("grok", name, grokEntryMap(entry, entries[name]))
+	block, err := tomlBlock("grok", name, grokEntryMap(entry, entries[name], entries[name] == nil))
 	if err != nil {
 		return err
 	}
 	return spliceTOMLTable(path, text, name, block)
 }
 
-// Toggle is refused: Grok has no per-server switch to flip.
-func (Grok) Toggle(p Paths, scope, name string, disabled bool) error {
+// Toggle mirrors the vendor's own enable/disable writes (driver toggle:
+// "entry"): the table's `enabled` flag everywhere, plus the user file's
+// top-level `disabled_mcp_servers` overlay for user scope — the mechanism
+// `grok mcp disable` uses when the entry lives in a project config.
+func (d Grok) Toggle(p Paths, scope, name string, disabled bool) error {
 	if err := mcp.ValidName(name); err != nil {
 		return err
 	}
-	if _, err := guestScope(scope); err != nil {
+	sc, err := guestScope(scope)
+	if err != nil {
 		return err
 	}
-	return fmt.Errorf(grokToggleRefusal)
+	path, err := grokWritePath(grokPaths{p}, sc)
+	if err != nil {
+		return err
+	}
+	text, err := readTOMLText(path)
+	if err != nil {
+		return err
+	}
+	entries, err := parseTOMLServers(text, path)
+	if err != nil {
+		return err
+	}
+	prev, ok := entries[name]
+	if !ok {
+		return fmt.Errorf("server %q is not in %s", name, path)
+	}
+	merged := grokEntryMap(mcp.Entry{}, prev, false)
+	merged["enabled"] = !disabled
+	block, err := tomlBlock("grok", name, merged)
+	if err != nil {
+		return err
+	}
+	if err := spliceTOMLTable(path, text, name, block); err != nil {
+		return err
+	}
+	if sc != "user" {
+		return nil
+	}
+	// The overlay array rides the same file; mirror the vendor: disable
+	// appends the name, enable clears it, an empty array removes the key.
+	after, err := readTOMLText(path)
+	if err != nil {
+		return err
+	}
+	names := tomlStringArray(after, "disabled_mcp_servers")
+	set := map[string]bool{}
+	for _, n := range names {
+		set[n] = true
+	}
+	if disabled {
+		set[name] = true
+	} else {
+		delete(set, name)
+	}
+	return rewriteTOMLStringArray(path, after, "disabled_mcp_servers", set)
 }
 
-// Remove deletes the table span and nothing else.
+// Remove deletes the table span; in the user file it also drops the name
+// from the `disabled_mcp_servers` overlay — what `grok mcp remove` leaves
+// behind (the vendor cleans only the file it edits, never the other scope).
 func (d Grok) Remove(p Paths, scope, name string) error {
 	if err := mcp.ValidName(name); err != nil {
 		return err
@@ -175,7 +226,118 @@ func (d Grok) Remove(p Paths, scope, name string) error {
 	if _, ok := entries[name]; !ok {
 		return fmt.Errorf("server %q is not in %s", name, path)
 	}
-	return spliceTOMLTable(path, text, name, "")
+	if err := spliceTOMLTable(path, text, name, ""); err != nil {
+		return err
+	}
+	after, err := readTOMLText(path)
+	if err != nil {
+		return err
+	}
+	set := map[string]bool{}
+	for _, n := range tomlStringArray(after, "disabled_mcp_servers") {
+		if n != name {
+			set[n] = true
+		}
+	}
+	return rewriteTOMLStringArray(path, after, "disabled_mcp_servers", set)
+}
+
+// tomlStringArray reads a top-level string array key ("disabled_mcp_servers")
+// from config text via a full parse; a missing key or a non-array value
+// yields nil. Values that are not strings are skipped.
+func tomlStringArray(text, key string) []string {
+	var raw map[string]any
+	if err := toml.Unmarshal([]byte(text), &raw); err != nil {
+		return nil
+	}
+	arr, ok := raw[key].([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(arr))
+	for _, v := range arr {
+		if s, ok := v.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// rewriteTOMLStringArray replaces the byte span of a top-level `key = [...]`
+// with the sorted names (empty set removes the key, matching what the
+// vendor leaves behind), inserting the key at the top of the file when it
+// does not exist yet and the set is non-empty — the position and shape the
+// vendor's own disable writes. The result is validated as TOML and written
+// atomically; nothing is touched when there is nothing to do.
+func rewriteTOMLStringArray(path, text, key string, set map[string]bool) error {
+	names := make([]string, 0, len(set))
+	for n := range set {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	quoted := make([]string, len(names))
+	for i, n := range names {
+		quoted[i] = `"` + strings.ReplaceAll(n, `"`, `\"`) + `"`
+	}
+	rendered := key + " = [" + strings.Join(quoted, ", ") + "]\n"
+
+	start, end := tomlTopLevelKeySpan(text, key)
+	var out string
+	switch {
+	case start < 0 && len(names) == 0:
+		return nil
+	case start < 0:
+		out = rendered + text
+	case len(names) == 0:
+		out = text[:start] + text[end:]
+	default:
+		out = text[:start] + rendered + text[end:]
+	}
+	var check map[string]any
+	if err := toml.Unmarshal([]byte(out), &check); err != nil {
+		return fmt.Errorf("the edit would make %s invalid TOML: %v", path, err)
+	}
+	return atomicWrite(path, []byte(out))
+}
+
+// tomlTopLevelKeySpan finds `key = …` at column 0 before the first table
+// header and returns the span of its logical line (brackets may span lines).
+// start < 0 when the key is absent or never appears at top level.
+func tomlTopLevelKeySpan(text, key string) (start, end int) {
+	type linePos struct{ start, end int }
+	var lines []linePos
+	texts := []string{}
+	pos := 0
+	for pos < len(text) {
+		nl := strings.IndexByte(text[pos:], '\n')
+		lineEnd, next := len(text), len(text)+1
+		if nl >= 0 {
+			lineEnd, next = pos+nl, pos+nl+1
+		}
+		lines = append(lines, linePos{start: pos, end: lineEnd})
+		texts = append(texts, strings.TrimRight(text[pos:lineEnd], "\r"))
+		if nl < 0 {
+			break
+		}
+		pos = next
+	}
+	prefix := key + " ="
+	for i, ln := range lines {
+		t := strings.TrimSpace(texts[i])
+		if strings.HasPrefix(t, "[") {
+			break // a table opened; the top-level region ended
+		}
+		if !strings.HasPrefix(t, prefix) {
+			continue
+		}
+		depth := strings.Count(t, "[") - strings.Count(t, "]")
+		for j := i + 1; j < len(lines) && depth > 0; j++ {
+			depth += strings.Count(texts[j], "[") - strings.Count(texts[j], "]")
+			return ln.start, min(lines[j].end+1, len(text))
+		}
+		return ln.start, min(ln.end+1, len(text))
+	}
+	return -1, -1
 }
 
 // grokAddPath resolves Add targets: Add creates the workspace file on
@@ -222,6 +384,9 @@ func grokServers(raw map[string]any, layer mcp.Layer) []mcp.Server {
 			Env:     redact(stringMap(entry["env"])),
 			Headers: redact(stringMap(entry["headers"])),
 		}
+		if enabled, ok := entry["enabled"].(bool); ok {
+			s.Disabled = !enabled
+		}
 		if s.URL != "" {
 			s.Transport = "url"
 		} else {
@@ -233,10 +398,13 @@ func grokServers(raw map[string]any, layer mcp.Layer) []mcp.Server {
 }
 
 // grokEntryMap merges the new definition into the previous entry: unknown
-// keys (startup_timeout_sec, tool_timeout_sec, …) survive an update;
-// switching transport drops the other side's fields (same merge rule as
+// keys (startup_timeout_sec, tool_timeout_sec, …) and the previous enabled
+// flag survive an update — only Toggle flips it. A brand-new entry starts
+// `enabled = true`, the shape the vendor's own add writes; a missing flag
+// means enabled too (documented default), so updates never add one back.
+// Switching transport drops the other side's fields (same merge rule as
 // internal/mcp).
-func grokEntryMap(e mcp.Entry, prev map[string]any) map[string]any {
+func grokEntryMap(e mcp.Entry, prev map[string]any, isNew bool) map[string]any {
 	out := map[string]any{}
 	for k, v := range prev {
 		out[k] = v
@@ -245,6 +413,9 @@ func grokEntryMap(e mcp.Entry, prev map[string]any) map[string]any {
 	cmd := strings.TrimSpace(e.Command)
 	if url == "" && cmd == "" {
 		return out
+	}
+	if isNew {
+		out["enabled"] = true
 	}
 	if url != "" {
 		delete(out, "command")

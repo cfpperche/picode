@@ -69,7 +69,7 @@ func TestGrokAddAndRemovePreserveFileByteForByte(t *testing.T) {
 		"model = \"grok-4\"\n",
 		"[mcp_servers.docs]\nurl = \"https://mcp.deepwiki.com/mcp\"\nstartup_timeout_sec = 10\n",
 		"# A table Grok owns.\n[theme]\nname = \"dark\"\n",
-		"[mcp_servers.relay]\nurl = 'https://relay.example/mcp'\n",
+		"[mcp_servers.relay]\nenabled = true\nurl = 'https://relay.example/mcp'\n",
 		"[mcp_servers.relay.headers]\nAuthorization = 'Bearer tok'\n",
 	} {
 		if !strings.Contains(got, want) {
@@ -119,24 +119,149 @@ func TestGrokReplaceKeepsNeighboursExact(t *testing.T) {
 	}
 }
 
-// Toggle is refused — Grok has no per-server switch — and the refusal must
-// leave the file untouched.
-func TestGrokToggleRefusesAndKeepsFile(t *testing.T) {
+// Toggle mirrors what grok mcp disable/enable writes (measured against grok
+// 1.0.34): the entry's `enabled` flag plus — in the user file only — the
+// top-level `disabled_mcp_servers` overlay. Comments and ${VAR} placeholders
+// survive both writes.
+func TestGrokToggleFlipsEnabledAndOverlay(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
-	p, path := seedGrok(t, "project", grokGolden)
+	seed := "# Grok rules — must survive every write.\n" +
+		"model = \"grok-4\"\n" +
+		"\n" +
+		"# docs serves the library\n" +
+		"[mcp_servers.docs]\n" +
+		"url = \"https://mcp.deepwiki.com/mcp\"\n" +
+		"args = [\"${DOCS_HOME}/run.js\"]\n" +
+		"\n" +
+		"[theme]\n" +
+		"name = \"dark\"\n"
+	p, path := seedGrok(t, "user", seed)
 
-	if err := (Grok{}).Toggle(p, "project", "docs", true); err == nil ||
-		!strings.Contains(err.Error(), "remove and re-add instead") {
-		t.Fatalf("toggle err = %v, want the remove-and-re-add refusal", err)
+	if err := (Grok{}).Toggle(p, "user", "docs", true); err != nil {
+		t.Fatal(err)
 	}
-	if got := fileText(t, path); got != grokGolden {
-		t.Fatalf("refused toggle modified the file:\n%q", got)
+	got := fileText(t, path)
+	want := "disabled_mcp_servers = [\"docs\"]\n" +
+		"# Grok rules — must survive every write.\n" +
+		"model = \"grok-4\"\n" +
+		"\n" +
+		"# docs serves the library\n" +
+		"[mcp_servers.docs]\n" +
+		"args = ['${DOCS_HOME}/run.js']\n" +
+		"enabled = false\n" +
+		"url = 'https://mcp.deepwiki.com/mcp'\n" +
+		"\n" +
+		"[theme]\n" +
+		"name = \"dark\"\n"
+	if got != want {
+		t.Fatalf("toggle off:\n--- got:\n%q\n--- want:\n%q", got, want)
 	}
-	if err := (Grok{}).Toggle(p, "project", "docs", false); err == nil {
-		t.Fatal("toggle on must be refused too")
+
+	// Enabling restores the flag and removes the overlay line entirely.
+	if err := (Grok{}).Toggle(p, "user", "docs", false); err != nil {
+		t.Fatal(err)
 	}
-	if err := (Grok{}).Toggle(p, "user", "docs", true); err == nil {
-		t.Fatal("user-scope toggle must be refused too")
+	got = fileText(t, path)
+	want = "# Grok rules — must survive every write.\n" +
+		"model = \"grok-4\"\n" +
+		"\n" +
+		"# docs serves the library\n" +
+		"[mcp_servers.docs]\n" +
+		"args = ['${DOCS_HOME}/run.js']\n" +
+		"enabled = true\n" +
+		"url = 'https://mcp.deepwiki.com/mcp'\n" +
+		"\n" +
+		"[theme]\n" +
+		"name = \"dark\"\n"
+	if got != want {
+		t.Fatalf("toggle on:\n--- got:\n%q\n--- want:\n%q", got, want)
+	}
+	if strings.Contains(got, "disabled_mcp_servers") {
+		t.Fatalf("overlay line survived enable:\n%q", got)
+	}
+}
+
+// Remove strips the name from the user file's disabled_mcp_servers array;
+// when the array empties, the key goes with it.
+func TestGrokRemoveStripsOverlayName(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	seed := "disabled_mcp_servers = [\"docs\", \"relay\"]\n" +
+		"\n" +
+		"[mcp_servers.docs]\n" +
+		"url = 'https://d.example/mcp'\n" +
+		"\n" +
+		"[mcp_servers.relay]\n" +
+		"url = 'https://r.example/mcp'\n"
+	p, path := seedGrok(t, "user", seed)
+
+	if err := (Grok{}).Remove(p, "user", "docs"); err != nil {
+		t.Fatal(err)
+	}
+	got := fileText(t, path)
+	want := "disabled_mcp_servers = [\"relay\"]\n" +
+		"\n" +
+		"[mcp_servers.relay]\n" +
+		"url = 'https://r.example/mcp'\n"
+	if got != want {
+		t.Fatalf("remove docs:\n--- got:\n%q\n--- want:\n%q", got, want)
+	}
+
+	if err := (Grok{}).Remove(p, "user", "relay"); err != nil {
+		t.Fatal(err)
+	}
+	got = fileText(t, path)
+	if strings.Contains(got, "disabled_mcp_servers") || strings.Contains(got, "mcp_servers") {
+		t.Fatalf("emptied overlay key or table span survived:\n%q", got)
+	}
+	if strings.TrimSpace(got) != "" {
+		t.Fatalf("remove left unexpected bytes:\n%q", got)
+	}
+}
+
+// The overlay is the user file's personal layer: a project toggle writes
+// only the project entry's enabled flag and never touches the user file,
+// and a user toggle never touches the project file.
+func TestGrokToggleScopesAreIndependent(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	userSeed := "disabled_mcp_servers = [\"other\"]\n\n[mcp_servers.relay]\nurl = 'https://u.example/mcp'\n"
+	projectSeed := "[mcp_servers.docs]\nurl = 'https://p.example/mcp'\n"
+	home, cwd := t.TempDir(), t.TempDir()
+	for _, dir := range []string{filepath.Join(home, ".grok"), filepath.Join(cwd, ".grok")} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	userPath := filepath.Join(home, ".grok", "config.toml")
+	projectPath := filepath.Join(cwd, ".grok", "config.toml")
+	if err := os.WriteFile(userPath, []byte(userSeed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(projectPath, []byte(projectSeed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p := Paths{Home: home, Cwd: cwd}
+
+	if err := (Grok{}).Toggle(p, "project", "docs", true); err != nil {
+		t.Fatal(err)
+	}
+	if got := fileText(t, projectPath); !strings.Contains(got, "enabled = false") || strings.Contains(got, "disabled_mcp_servers") {
+		t.Fatalf("project toggle:\n%q", got)
+	}
+	if got := fileText(t, userPath); got != userSeed {
+		t.Fatalf("project toggle touched the user file:\n%q", got)
+	}
+	projectAfter := fileText(t, projectPath)
+
+	if err := (Grok{}).Toggle(p, "user", "relay", true); err != nil {
+		t.Fatal(err)
+	}
+	got := fileText(t, userPath)
+	want := "disabled_mcp_servers = [\"other\", \"relay\"]\n\n[mcp_servers.relay]\nenabled = false\nurl = 'https://u.example/mcp'\n"
+	if got != want {
+		t.Fatalf("user toggle:\n--- got:\n%q\n--- want:\n%q", got, want)
+	}
+	if got := fileText(t, projectPath); got != projectAfter {
+		t.Fatalf("user toggle touched the project file:\n%q", got)
 	}
 }
 
@@ -180,7 +305,7 @@ func TestGrokUserScope(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := fileText(t, filepath.Join(home, ".grok", "config.toml"))
-	want := "[mcp_servers.docs]\nargs = ['-y', 'docs']\ncommand = 'npx'\n\n[mcp_servers.docs.env]\nTOKEN = '${DOCS_TOKEN}'\n"
+	want := "[mcp_servers.docs]\nargs = ['-y', 'docs']\ncommand = 'npx'\nenabled = true\n\n[mcp_servers.docs.env]\nTOKEN = '${DOCS_TOKEN}'\n"
 	if got != want {
 		t.Fatalf("user add:\n--- got:\n%q\n--- want:\n%q", got, want)
 	}
@@ -244,8 +369,9 @@ func TestGrokMalformedFileRefuses(t *testing.T) {
 
 // The decision table (ADR-0150): add/toggle/remove × scope × binary
 // missing × malformed file — every row ends in an observable result, never
-// a panic and never a silently rewritten file. Toggle refuses in both
-// scopes.
+// a panic and never a silently rewritten file. Toggle follows the vendor's
+// own semantics: it flips the entry's enabled flag, refusing only when the
+// server is missing (`is not in`) or the workspace has no .grok folder.
 func TestGrokDecisionTable(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -256,8 +382,11 @@ func TestGrokDecisionTable(t *testing.T) {
 	}{
 		{name: "add user no file", scope: "user", op: "add"},
 		{name: "add project no cwd", scope: "project", op: "add", wantErr: "select a workspace"},
-		{name: "toggle user no file", scope: "user", op: "toggle", wantErr: "remove and re-add"},
-		{name: "toggle project no cwd", scope: "project", op: "toggle", wantErr: "remove and re-add"},
+		{name: "toggle user no file", scope: "user", op: "toggle", wantErr: "is not in"},
+		{name: "toggle user server", scope: "user", op: "toggle", seed: "[mcp_servers.docs]\nurl = 'https://d.example/mcp'\n"},
+		{name: "toggle project no cwd", scope: "project", op: "toggle", wantErr: ".grok folder"},
+		{name: "toggle project server", scope: "project", op: "toggle", seed: "[mcp_servers.docs]\nurl = 'https://d.example/mcp'\n"},
+		{name: "toggle user missing server", scope: "user", op: "toggle", seed: "x = 1\n", wantErr: "is not in"},
 		{name: "remove user no file", scope: "user", op: "remove", wantErr: "is not in"},
 		{name: "remove project no folder", scope: "project", op: "remove", wantErr: ".grok folder"},
 		{name: "remove missing server", scope: "user", op: "remove", seed: "x = 1\n", wantErr: "is not in"},
