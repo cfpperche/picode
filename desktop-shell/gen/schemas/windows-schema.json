@@ -213,6 +213,12 @@
           "markdownDescription": "Enables the btab_cdp_events command without any pre-configured scope."
         },
         {
+          "description": "Enables the btab_clear_app_data command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-clear-app-data",
+          "markdownDescription": "Enables the btab_clear_app_data command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_clear_data command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-clear-data",
@@ -511,6 +517,12 @@
           "type": "string",
           "const": "deny-btab-cdp-events",
           "markdownDescription": "Denies the btab_cdp_events command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_clear_app_data command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-clear-app-data",
+          "markdownDescription": "Denies the btab_clear_app_data command without any pre-configured scope."
         },
         {
           "description": "Denies the btab_clear_data command without any pre-configured scope.",

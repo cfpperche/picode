@@ -22,6 +22,7 @@ fn main() {
             "btab_cdp_call",
             "btab_cdp_events",
             "btab_close",
+            "btab_clear_app_data",
             "btab_open_external",
             "btab_annotate_mode",
             "btab_annotate_clear",

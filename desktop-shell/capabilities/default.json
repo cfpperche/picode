@@ -36,6 +36,7 @@
     "allow-btab-cdp-events",
     "allow-btab-set-prefs",
     "allow-btab-clear-data",
+    "allow-btab-clear-app-data",
     "allow-btab-download-dir",
     "allow-btab-set-download-dir",
     "allow-btab-set-ask-download",

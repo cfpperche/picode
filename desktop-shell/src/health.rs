@@ -193,3 +193,60 @@ mod tests {
         assert!(parse_readiness("nope").is_err());
     }
 }
+
+#[cfg(test)]
+mod acl_tests {
+    // The webview refuses a command that is registered but not allowed by
+    // any capability with "not allowed by ACL" — an error no user should
+    // ever see (2026-09-18: btab_clear_app_data shipped exactly so). The
+    // sources are embedded, so this runs wherever the tests run.
+    //
+    // Permissions are kebab-case versions of the snake_case commands
+    // (btab_clear_data -> allow-btab-clear-data).
+
+    const MAIN_RS: &str = include_str!("main.rs");
+    const BUILD_RS: &str = include_str!("../build.rs");
+    const CAPABILITIES: &str = concat!(
+        include_str!("../capabilities/default.json"),
+        include_str!("../capabilities/lab.json"),
+        include_str!("../capabilities/computerlab.json"),
+    );
+
+    // Registered for the management window and internal tray calls, never
+    // invoked from the served /desktop/ UI (grep proves it) — no ACL entry,
+    // on purpose. A NEW command must not land here.
+    const ACL_EXCEPTIONS: [&str; 8] = [
+        "computerlab_open",
+        "disk_report",
+        "disk_compact",
+        "disk_compact_dry_run",
+        "clean_list",
+        "clean_apply",
+        "wslconfig_read",
+        "wslconfig_write",
+    ];
+
+    #[test]
+    fn every_registered_command_is_allowed_by_the_acl() {
+        let start = MAIN_RS
+            .find("generate_handler!")
+            .expect("the invoke_handler block must exist");
+        let open = start + MAIN_RS[start..].find('[').expect("the list opens");
+        let end = open + MAIN_RS[open..].find(']').expect("the list closes");
+        for entry in MAIN_RS[open + 1..end].split(',') {
+            let name = entry.trim().rsplit("::").next().unwrap_or("").trim();
+            if name.is_empty() || ACL_EXCEPTIONS.contains(&name) {
+                continue;
+            }
+            let permission = format!("\"allow-{}\"", name.replace('_', "-"));
+            assert!(
+                BUILD_RS.contains(&format!("\"{name}\"")),
+                "command `{name}` is registered in generate_handler! but build.rs does not generate its permission — the ACL entry would dangle"
+            );
+            assert!(
+                CAPABILITIES.contains(&permission),
+                "command `{name}` is registered in generate_handler! but no capability allows `{permission}` — the webview refuses it with 'not allowed by ACL'"
+            );
+        }
+    }
+}
