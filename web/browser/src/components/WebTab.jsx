@@ -8,7 +8,7 @@ import { askTitle } from "../lib/browserPermissions.js";
 import { subscribeFloatingLayers, overlapsLayers, rectOf } from "../lib/floatingLayers.js";
 import { requestBrowserDialog } from "../lib/browserDialogs.js";
 import { previewUrl, verifyPreviewUrl } from "../lib/previewStill.js";
-import { cropRect, stylesToCSS, stateItems, batchMessage } from "../lib/annotate.js";
+import { cropRect, stylesToCSS, stateItems, batchMessage, parseAnnotMessage } from "../lib/annotate.js";
 import AnnotateStrip from "./AnnotateStrip.jsx";
 import AnnotatePreview from "./AnnotatePreview.jsx";
 
@@ -156,12 +156,9 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     if (typeof listen !== "function") return undefined;
     let unlisten = null;
     listen("btab://annotate", (event) => {
-      const outer = event?.payload;
-      const msg = typeof outer === "string" ? JSON.parse(outer) : outer;
-      if (!msg || String(msg.id) !== tabId) return;
-      let inner = msg.raw;
-      if (typeof inner === "string") { try { inner = JSON.parse(inner); } catch { inner = null; } }
-      if (!inner) return;
+      const parsed = parseAnnotMessage(event?.payload);
+      if (!parsed || parsed.id !== tabId) return;
+      const inner = parsed.inner;
       if (inner.kind === "pick") toast.ok("Picked " + (inner.selector || inner.tag || "element"));
       else if (inner.kind === "state") setAnnotItems(stateItems(inner));
       else if (inner.kind === "note") toast.ok(String(inner.message || ""));
@@ -252,17 +249,26 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
         staged.push({ n: it.n, selector: it.selector, comment: it.comment });
       }
       const message = batchMessage({ url: liveUrlRef.current || url, items: staged });
-      const drop = await fetch(`/api/terminals/${encodeURIComponent(live.id)}/drop`, {
+      // Delivery is the prompt door (ADR-0089: {message, paths} pasted into
+      // the TUI), NOT the drop door ({name, mime, data} stages one file) —
+      // posting here once returned 400 "file data is required" and the
+      // toast below blamed the terminal (owner 2026-09-18: chip saved,
+      // "sent" never arrived).
+      const prompt = await fetch(`/api/terminals/${encodeURIComponent(live.id)}/prompt`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message, paths }),
       }).catch(() => null);
-      if (drop && drop.ok) {
+      if (prompt && prompt.ok) {
         toast.ok(`${ready.length} annotation${ready.length === 1 ? "" : "s"} sent to ${live.name || live.id}.`);
         if (invoke) invoke("btab_annotate_clear", { id: tabId }).catch(() => {});
         setAnnotItems([]);
       } else {
-        toast.ok("Annotations saved; the terminal is not running an agent CLI, so nothing was sent.");
+        const failure = await prompt?.json().catch(() => null);
+        const reason = failure && typeof failure.error === "string" && failure.error.trim()
+          ? failure.error.trim()
+          : "the terminal did not accept it";
+        toast(`Annotations saved, but not sent: ${reason}.`);
       }
     } catch (e) {
       toast("Annotation failed: " + (e?.message || e));

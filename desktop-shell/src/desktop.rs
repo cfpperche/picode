@@ -165,6 +165,12 @@ pub fn foreground() -> isize {
     unsafe { GetForegroundWindow().0 as isize }
 }
 
+/// The top-level window in front — what `windows` lists and what input
+/// lands in, whichever child control holds the focus.
+pub fn foreground_root() -> isize {
+    unsafe { GetAncestor(GetForegroundWindow(), GA_ROOT).0 as isize }
+}
+
 pub fn is_window(id: isize) -> bool {
     unsafe { IsWindow(Some(hwnd(id))).as_bool() }
 }

@@ -29,9 +29,15 @@
     return;
   }
 
+  // The message goes as an OBJECT, never pre-stringified: the host reads it
+  // through WebMessageAsJson, which returns the value's JSON serialization —
+  // deterministic for an object. A pre-stringified text risks coming back
+  // JSON-encoded a second time (a quoted string), which the chrome would
+  // parse into a string with no kind and drop silently: saved chip in the
+  // page, Send 0 in the strip (owner 2026-09-18).
   const post = (msg) => {
     try {
-      window.chrome?.webview?.postMessage(JSON.stringify(msg));
+      window.chrome?.webview?.postMessage(msg);
     } catch (e) {
       /* no channel: stay silent, the host notices that nothing arrived */
     }

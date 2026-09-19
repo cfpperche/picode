@@ -239,7 +239,7 @@ Owner acts: picks the tasks.
 
 (a) window binding + read/act/full tiers; (b) mechanical Ask classes
 (`IsPassword`, launching executables, clipboard writes) on the existing Ask
-bar; (c) app allowlist; (d) human-activity pause and foreground checks; (e)
+bar; (c) app allowlist; (d) human-activity pause and foreground checks — the foreground check landed 2026-09-18 as ADR-0156 (`foreground_changed`), after the first live run typed into the human's own terminal; the activity pause stays open; (e)
 integrity check (UIPI) and a step budget; (f) a Windows Sandbox spike via
 `wsb` as a disposable arena. Each amends ADR-0148.
 

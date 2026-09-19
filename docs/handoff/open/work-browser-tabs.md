@@ -286,6 +286,11 @@ gallery hit is worth a look before anyone installs it expecting this one.
 
 ## Debts
 
+- Batch Send pastes through the prompt door, which takes at most 4 files
+  per call — one note stages 2 files (note + crop), so 3+ notes save fine
+  but do not deliver in one paste. Chunked pastes vs. one combined note vs.
+  raising the cap is a protocol decision (owner) once multi-note Send is
+  exercised live.
 - The work browser has no `docs/architecture/<subsystem>.md` file: its shape
   lives across ADR-0128/0132/0134/0135/0143/0144 and the plan. Worth one file
   the next time a browser slice lands.

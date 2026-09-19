@@ -181,6 +181,42 @@ export function stateItems(msg) {
   return out;
 }
 
+// parseAnnotMessage unwraps one page→chrome event into {id, inner} or null.
+// The shell relays the page's object through WebMessageAsJson, but a JSON
+// text that arrives JSON-encoded a second time (a quoted string instead of
+// an object) is unwrapped once more rather than dropped silently — that
+// silent drop read as "chip saved, Send 0" (owner 2026-09-18). Junk in,
+// null out, never a throw.
+export function parseAnnotMessage(outer) {
+  let msg = outer;
+  if (typeof msg === "string") {
+    try {
+      msg = JSON.parse(msg);
+    } catch {
+      return null;
+    }
+  }
+  if (!msg || typeof msg !== "object") return null;
+  const id = msg.id != null ? String(msg.id) : "";
+  let inner = msg.raw;
+  if (typeof inner === "string") {
+    try {
+      inner = JSON.parse(inner);
+    } catch {
+      return null;
+    }
+  }
+  if (typeof inner === "string") {
+    try {
+      inner = JSON.parse(inner);
+    } catch {
+      return null;
+    }
+  }
+  if (!inner || typeof inner !== "object") return null;
+  return { id, inner };
+}
+
 // batchMessage is the ONE context the agent gets for the whole set (the
 // reference's "5 annotations"): a head line plus one numbered line per pin,
 // each pin's sentence (or its selector when the note is empty).

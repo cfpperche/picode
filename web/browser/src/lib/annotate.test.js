@@ -6,6 +6,7 @@ import {
   PICK_STYLES,
   batchMessage,
   cropRect,
+  parseAnnotMessage,
   parsePick,
   pickLabel,
   pickScript,
@@ -135,4 +136,27 @@ test("the batch is one context: a head line plus numbered pins", () => {
   );
   assert.equal(batchMessage({ url: "", items: [{ n: 1, selector: "", comment: "" }] }), "1 annotation\n1. element");
   assert.equal(batchMessage({}), "0 annotations");
+});
+
+test("page events unwrap to {id, inner} at any encoding depth", () => {
+  const state = { kind: "state", count: 1, items: [] };
+  // the shell's envelope as text, the page's object as text: the normal path
+  const single = parseAnnotMessage(JSON.stringify({ id: "w:2", raw: JSON.stringify(state) }));
+  assert.equal(single.id, "w:2");
+  assert.equal(single.inner.kind, "state");
+  // the page's JSON text JSON-encoded a second time (a quoted string):
+  // unwrap once more instead of dropping the sync silently
+  const doubly = JSON.stringify({ id: "w:2", raw: JSON.stringify(JSON.stringify(state)) });
+  assert.equal(parseAnnotMessage(doubly).inner.kind, "state");
+  // already objects all the way down
+  const plain = parseAnnotMessage({ id: "w:2", raw: state });
+  assert.equal(plain.inner.count, 1);
+  // junk in, null out, never a throw
+  assert.equal(parseAnnotMessage(""), null);
+  assert.equal(parseAnnotMessage("{bad"), null);
+  assert.equal(parseAnnotMessage(null), null);
+  assert.equal(parseAnnotMessage(42), null);
+  assert.equal(parseAnnotMessage({ id: "w:2" }), null);
+  assert.equal(parseAnnotMessage({ id: "w:2", raw: 42 }), null);
+  assert.equal(parseAnnotMessage(JSON.stringify({ id: "w:2", raw: "{bad" })), null);
 });

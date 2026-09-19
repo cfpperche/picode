@@ -34,7 +34,7 @@ window, width, height, scale, bounds, seq, cursor, preview (JPEG data URL ≤
 480 px), ms}}`; `snapshot` is `{window, lines[], dropped, nodes}`; `windows`
 is `{windows[], displays[]}`; the rest one small object. Shell refusals are
 `error` strings with a fixed head word: `disabled`, `no such window`,
-`bad_coordinate`, `foreground_refused`, `capture_failed`, `unknown_action`,
+`bad_coordinate`, `foreground_refused`, `foreground_changed` (ADR-0156: the window in front is not the one this principal last captured or focused — input actions only), `capture_failed`, `unknown_action`,
 `timeout`; the daemon adds `not connected` (no shell) and the grant refusal
 that names Settings ▸ Computer.
 
