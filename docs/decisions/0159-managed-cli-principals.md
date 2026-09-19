@@ -1,6 +1,6 @@
 # ADR-0159: CLI terminals as managed principals
 
-- **Status**: accepted (owner session, 2026-09-19)
+- **Status**: superseded by [ADR-0160](0160-cli-runtimes-are-agents.md) (workspace CLI instances are agents; this table is transitional)
 - **Date**: 2026-09-19
 - **Boundary**: persistence — a workspace may bind an Agent CLI terminal as a
   durable principal; security model — that binding is the same `grant.Key`

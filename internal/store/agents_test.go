@@ -1,6 +1,8 @@
 package store
 
 import (
+	"errors"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -52,5 +54,48 @@ func TestCLIFlagsSessionDir(t *testing.T) {
 
 	if got := (Agent{}).CLIFlags(); len(got) != 0 {
 		t.Fatalf("empty-id agent must get no flags at all, got %v", got)
+	}
+}
+
+func TestAddAgentCLIDefaultPi(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	a, err := s.AddAgent(FreeWorkspaceID, "default", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.CLI != CLIPi || !a.IsPi() {
+		t.Fatalf("cli=%q IsPi=%v", a.CLI, a.IsPi())
+	}
+	got, err := s.GetAgent(a.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.CLI != CLIPi {
+		t.Fatalf("reload cli=%q", got.CLI)
+	}
+}
+
+func TestAddAgentWithCLI(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	a, err := s.AddAgentWithCLI(FreeWorkspaceID, "claude-code", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.CLI != "claude-code" || a.IsPi() {
+		t.Fatalf("cli=%q IsPi=%v", a.CLI, a.IsPi())
+	}
+	if a.Name != "Claude Code" {
+		t.Fatalf("name=%q, want catalog name", a.Name)
+	}
+	if _, err := s.AddAgentWithCLI(FreeWorkspaceID, "not-a-cli", "x", ""); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("unknown cli err=%v", err)
 	}
 }

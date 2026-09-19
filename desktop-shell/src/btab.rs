@@ -121,7 +121,7 @@ fn subscribe(
     };
     use windows::core::{HSTRING, PWSTR};
 
-    let wv = app.get_webview(&label(id)).ok_or("tab not open")?;
+    let wv = find_webview(app, id).ok_or("tab not open")?;
     let (tx, rx) = mpsc::channel::<Result<(), String>>();
     let tab = id.to_string();
     let sent = tx.clone();
@@ -206,6 +206,18 @@ fn normalize(url: &str) -> Result<tauri::Url, String> {
         format!("https://{}", trimmed)
     };
     full.parse().map_err(|_| "invalid URL".to_string())
+}
+
+// find_webview resolves a tab id to its native webview. The app's own tab id
+// may carry a prefix the shell never saw (`w:2` vs `2`) because `ensure` names
+// the webview from the id it was given — so the id's tail is tried too. Every
+// command that needs "the webview of this tab" goes through here: a caller
+// that passed the prefixed id used to miss it and fail silently in a
+// `.catch` (the annotation crop, 2026-09-19).
+fn find_webview(app: &AppHandle, id: &str) -> Option<tauri::Webview> {
+    let tail = id.rsplit(':').next().unwrap_or(id);
+    app.get_webview(&label(id))
+        .or_else(|| app.get_webview(&label(tail)))
 }
 
 // ensure creates the webview on first navigate — a browser tab with no URL
@@ -1039,11 +1051,7 @@ pub async fn btab_annotate_mode(app: AppHandle, id: String, on: bool) -> Result<
     // such tab" for every tab that exists. The app's own tab id may carry a
     // prefix the shell never saw (`w:2` vs `2`), so the id's tail is tried too
     // — `ensure` is what named the webview, and it is named once.
-    let tail = id.rsplit(':').next().unwrap_or(id.as_str()).to_string();
-    let wv = app
-        .get_webview(&label(&id))
-        .or_else(|| app.get_webview(&label(&tail)))
-        .ok_or_else(|| format!("no such tab: {id}"))?;
+    let wv = find_webview(&app, &id).ok_or_else(|| format!("no such tab: {id}"))?;
     let emitter = app.clone();
     let tab = id.clone();
     let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
@@ -1160,11 +1168,7 @@ pub async fn btab_annotate_mode(app: AppHandle, id: String, on: bool) -> Result<
 /// script clears nothing and fails nothing.
 #[tauri::command]
 pub async fn btab_annotate_clear(app: AppHandle, id: String, last: Option<bool>) -> Result<(), String> {
-    let tail = id.rsplit(':').next().unwrap_or(id.as_str()).to_string();
-    let wv = app
-        .get_webview(&label(&id))
-        .or_else(|| app.get_webview(&label(&tail)))
-        .ok_or_else(|| format!("no such tab: {id}"))?;
+    let wv = find_webview(&app, &id).ok_or_else(|| format!("no such tab: {id}"))?;
     let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
     let _ = wv.with_webview(move |platform| unsafe {
         use windows::core::HSTRING;
@@ -1202,11 +1206,7 @@ pub async fn btab_annotate_clear(app: AppHandle, id: String, last: Option<bool>)
 /// vanished). Empty string when the document never armed the mode.
 #[tauri::command]
 pub async fn btab_annotate_state(app: AppHandle, id: String) -> Result<String, String> {
-    let tail = id.rsplit(':').next().unwrap_or(id.as_str()).to_string();
-    let wv = app
-        .get_webview(&label(&id))
-        .or_else(|| app.get_webview(&label(&tail)))
-        .ok_or_else(|| format!("no such tab: {id}"))?;
+    let wv = find_webview(&app, &id).ok_or_else(|| format!("no such tab: {id}"))?;
     let (tx, rx) = std::sync::mpsc::channel::<Result<String, String>>();
     let _ = wv.with_webview(move |platform| unsafe {
         use webview2_com::ExecuteScriptCompletedHandler;

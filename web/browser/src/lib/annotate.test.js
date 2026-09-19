@@ -242,3 +242,21 @@ test("the pull door's answer is parsed, however it arrives", () => {
   assert.equal(parseStatePayload(JSON.stringify({ kind: "off" })).kind, "off");
   assert.equal(parseStatePayload(undefined), null);
 });
+
+test("the crop asks the shell for the preview with the native tab id", () => {
+  // The annotation crop came back empty for every Send until this call site
+  // stopped passing the React tab id ("w:3") to a command that only resolved
+  // the native one ("3") — the failure was a silent `.catch` (2026-09-19).
+  const surface = readFileSync(
+    new URL("../components/WebTab.jsx", import.meta.url),
+    "utf8",
+  );
+  assert.ok(
+    surface.includes('invoke("btab_preview", { id })'),
+    "the preview takes the native tab id",
+  );
+  assert.ok(
+    !surface.includes('invoke("btab_preview", { id: tabId })'),
+    "the React tab id belongs to the annotate commands, not to the preview",
+  );
+});

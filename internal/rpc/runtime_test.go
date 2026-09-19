@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -518,5 +519,31 @@ func TestCapturedStopDoesNotStopReplacement(t *testing.T) {
 	defer cancel()
 	if _, e = next.GetState(ctx); e != nil {
 		t.Fatal("captured stop killed replacement", e)
+	}
+}
+
+func TestStartRefusesNonPiAgent(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	w, pi, err := addWorkspaceWithAgent(st, "Mix", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	claude, err := st.AddAgentWithCLI(w.ID, "claude-code", "Claude", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt := startRuntime(t, st)
+	if err := rt.Start(claude.ID, w.Path); !errors.Is(err, ErrManagedPiOnly) {
+		t.Fatalf("Start guest = %v, want ErrManagedPiOnly", err)
+	}
+	if rt.Get(claude.ID) != nil {
+		t.Fatal("guest must not register as managed")
+	}
+	if err := rt.Start(pi.ID, w.Path); err != nil {
+		t.Fatalf("Start pi: %v", err)
 	}
 }

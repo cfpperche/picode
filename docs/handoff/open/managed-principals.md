@@ -1,9 +1,10 @@
-# Managed CLI principals
+# Managed CLI principals → agents (ADR-0160)
+
+Plan: `docs/plans/cli-as-agents.md`
 
 ## Next
 
-- Fatia 4: automations and Inspector ask deliver through the prompt door (0089/0107), never `SendTurn`.
-- Fatia 5: pin is session ownership; Restart already resumes (0158).
-- Fatia ∞: structured chat / ACP — out until ADR-0091 is re-measured.
+- Fatia B: `POST /api/agents` `{cli}` creates a guest agent + launch terminal; one New → Agent picker.
+- Fatia C: migrate `managed_clis` → `agents`; drop the table.
 
 ## Debts

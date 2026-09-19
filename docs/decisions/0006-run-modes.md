@@ -1,7 +1,8 @@
 # ADR-0006: Agent run modes — one live pi process per agent
 
 - **Status**: accepted (amends ADR-0002's simultaneous dual-channel model);
-  the session-visibility clause below is itself narrowed by ADR-0039
+  the session-visibility clause below is itself narrowed by ADR-0039;
+  "one live pi process" amended by ADR-0160 (one live process of the agent's CLI; managed RPC remains Pi-only)
 - **Date**: 2026-08-24
 
 ## Context
