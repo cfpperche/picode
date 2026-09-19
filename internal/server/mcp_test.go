@@ -210,50 +210,15 @@ func TestMCPProjectAndAgent(t *testing.T) {
 	}
 }
 
-func TestMCPImport(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
-	ts := newTestServer(t, "cat")
-
-	no := postJSON(t, ts, "/api/mcp/import", map[string]any{})
-	if no.StatusCode != http.StatusConflict {
-		t.Fatalf("no adapter = %d", no.StatusCode)
-	}
-
-	settings := filepath.Join(home, ".pi", "agent", "settings.json")
-	if err := os.MkdirAll(filepath.Dir(settings), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(settings, []byte(`{"packages":["npm:pi-mcp-adapter"]}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	missing := postJSON(t, ts, "/api/mcp/import", map[string]any{})
-	if missing.StatusCode != http.StatusBadRequest {
-		t.Fatalf("no kinds = %d", missing.StatusCode)
-	}
-
-	if err := os.MkdirAll(filepath.Join(home, ".cursor"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(home, ".cursor", "mcp.json"), []byte(`{"mcpServers":{"ext":{"url":"https://c.example/mcp"}}}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	hit := postJSON(t, ts, "/api/mcp/import", map[string]any{
-		"picks": []any{map[string]any{"kind": "cursor", "servers": []any{"ext"}}},
-	})
-	if hit.StatusCode != http.StatusOK {
-		t.Fatalf("import = %d", hit.StatusCode)
-	}
-	var body map[string]any
-	if err := json.NewDecoder(hit.Body).Decode(&body); err != nil {
-		t.Fatal(err)
-	}
-	imp, _ := body["import"].(map[string]any)
-	added, _ := imp["added"].([]any)
-	if len(added) != 1 || added[0] != "cursor" {
-		t.Fatalf("import body = %v", body["import"])
+// ADR-0157: the definition-import endpoint is gone. Routes() is the
+// server's own registry, so this holds regardless of how the fallback
+// answers the unmatched path: the unbuilt-UI handler serves 503 and the
+// built UI's file server 405 — neither is the old API contract.
+func TestMCPImportGone(t *testing.T) {
+	for _, r := range Routes() {
+		if r.Method == http.MethodPost && r.Pattern == "/api/mcp/import" {
+			t.Fatal("POST /api/mcp/import is still registered")
+		}
 	}
 }
 
@@ -367,7 +332,7 @@ func writeFakeCLI(t *testing.T, name, listOut string) string {
 }
 
 // ADR-0150 phase 1: ?cli=claude-code|codex answers with the same Report shape as
-// Pi's /api/mcp, guest auth/import refuse with instructions, and guest
+// Pi's /api/mcp, guest auth refuses with instructions, and guest
 // mutations land in the CLI's native config.
 func TestMCPGuestDriversDispatch(t *testing.T) {
 	home := t.TempDir()
@@ -394,8 +359,6 @@ func TestMCPGuestDriversDispatch(t *testing.T) {
 		} `json:"servers"`
 		Presets []any             `json:"presets"`
 		Layers  []any             `json:"layers"`
-		Found   []any             `json:"found"`
-		Imports []any             `json:"imports"`
 		Packs   []any             `json:"connectorPackages"`
 		Envs    map[string]string `json:"-"`
 	}
@@ -409,8 +372,8 @@ func TestMCPGuestDriversDispatch(t *testing.T) {
 	if len(rep.Servers) != 1 || rep.Servers[0].Name != "relay" || rep.Servers[0].Scope != "user" || rep.Servers[0].Live != "" {
 		t.Fatalf("servers = %+v", rep.Servers)
 	}
-	if len(rep.Presets) == 0 || len(rep.Found) != 0 || len(rep.Packs) != 0 || len(rep.Imports) != 0 {
-		t.Fatalf("report shape = presets %d found %v packs %v imports %v", len(rep.Presets), rep.Found, rep.Packs, rep.Imports)
+	if len(rep.Presets) == 0 || len(rep.Packs) != 0 {
+		t.Fatalf("report shape = presets %d packs %v", len(rep.Presets), rep.Packs)
 	}
 
 	// Guest add (project scope, no binary needed) writes the native file and
@@ -670,9 +633,9 @@ func TestMCPGuestDriversPhase2(t *testing.T) {
 	}
 }
 
-// Guest auth and import refuse with the vendor instruction; logout points at
+// Guest auth refuses with the vendor instruction; logout points at
 // the CLI. The pi-mcp-adapter gate must not apply to guests.
-func TestMCPGuestAuthAndImportRefusals(t *testing.T) {
+func TestMCPGuestAuthRefusals(t *testing.T) {
 	ts := newTestServer(t, "cat")
 
 	auth := postJSON(t, ts, "/api/mcp/auth", map[string]any{"cli": "claude-code", "name": "docs"})
@@ -733,30 +696,6 @@ func TestMCPGuestAuthAndImportRefusals(t *testing.T) {
 		t.Fatalf("codex logout = %d %s", logout.StatusCode, thisBody(logout))
 	}
 	_ = logout.Body.Close()
-
-	imp := postJSON(t, ts, "/api/mcp/import", map[string]any{"cli": "claude-code", "picks": []any{map[string]any{"kind": "cursor", "servers": []any{"x"}}}})
-	if imp.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(imp), "arrive in a later phase") {
-		t.Fatalf("claude import = %d %s", imp.StatusCode, thisBody(imp))
-	}
-	_ = imp.Body.Close()
-
-	imp = postJSON(t, ts, "/api/mcp/import", map[string]any{"cli": "omp", "picks": []any{map[string]any{"kind": "cursor", "servers": []any{"x"}}}})
-	if imp.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(imp), "arrive in a later phase") {
-		t.Fatalf("omp import = %d %s", imp.StatusCode, thisBody(imp))
-	}
-	_ = imp.Body.Close()
-
-	imp = postJSON(t, ts, "/api/mcp/import", map[string]any{"cli": "opencode", "picks": []any{map[string]any{"kind": "cursor", "servers": []any{"x"}}}})
-	if imp.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(imp), "arrive in a later phase") {
-		t.Fatalf("opencode import = %d %s", imp.StatusCode, thisBody(imp))
-	}
-	_ = imp.Body.Close()
-
-	imp = postJSON(t, ts, "/api/mcp/import", map[string]any{"cli": "hermes", "picks": []any{map[string]any{"kind": "cursor", "servers": []any{"x"}}}})
-	if imp.StatusCode != http.StatusBadRequest || !strings.Contains(thisBody(imp), "arrive in a later phase") {
-		t.Fatalf("hermes import = %d %s", imp.StatusCode, thisBody(imp))
-	}
-	_ = imp.Body.Close()
 }
 
 // ADR-0150 phase 3: ?cli=opencode|grok answer through their guest drivers —

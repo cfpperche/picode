@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { integrationSection, destinationLabel, readConnectorDefinition, connectorTabs, cliConnectorsHash, cliConnectorsLocation, supportsCliConnectors, connectorDriver, blockedLayers, CLI_CONNECTORS } from "./integrations.js";
+import { integrationSection, destinationLabel, cliConnectorsHash, cliConnectorsLocation, supportsCliConnectors, connectorDriver, blockedLayers, CLI_CONNECTORS, connectorAddBody, connectorScopeNames } from "./integrations.js";
 import { webhookSchema } from "../contracts/schemas.js";
 
 test("integration routes and safe destination labels", () => {
@@ -82,48 +81,10 @@ test("connector driver ids are canonical catalog ids", async () => {
   for (const d of CLI_CONNECTORS) assert.equal(normalizeTerminalCli(d.id), d.id, d.id);
 });
 
-test("connector tabs keep the catalog fixed and list only hosts with servers", () => {
-  const found = [
-    { kind: "vscode", label: "VS Code", servers: [] },
-    { kind: "codex", label: "Codex", servers: [{ name: "ctx", on: false }] },
-    { kind: "claude-code", label: "Claude Code", servers: [{ name: "a", on: true }, { name: "b", on: false }] },
-  ];
-  const tabs = connectorTabs(found);
-  assert.deepEqual(tabs.map((t) => t.id), ["catalog", "claude-code", "codex"]);
-  assert.deepEqual(tabs.map((t) => t.label), ["Catalog", "Claude Code", "Codex"]);
-  assert.equal(tabs[0].fixed, true);
-  assert.deepEqual(connectorTabs([]).map((t) => t.id), ["catalog"]);
-  assert.deepEqual(connectorTabs().map((t) => t.id), ["catalog"]);
-});
-
 test("webhook form validates and normalizes", () => {
   assert.deepEqual(webhookSchema.parse({url:"https://example.com",types:" Agent.,inbox.,agent. "}).types,["agent.","inbox."]);
   for (const url of ["", "https://", "file:///etc/passwd", "https://u:p@example.com", "https://example.com/#x"]) assert.equal(webhookSchema.safeParse({url,types:"agent."}).success,false);
   for (const types of ["", "*", "webhook.","Agent. whatever"]) assert.equal(webhookSchema.safeParse({url:"https://example.com",types}).success,false);
-});
-
-test("external definition imports without a provider-specific branch", () => {
-  const deepwiki = readFileSync(new URL("../../../connectors/deepwiki.json", import.meta.url), "utf8");
-  assert.equal(readConnectorDefinition(deepwiki).url,"https://mcp.deepwiki.com/mcp");
-  const gmail = readConnectorDefinition(readFileSync(new URL("../../../connectors/gmail.json", import.meta.url), "utf8"));
-  assert.deepEqual(gmail,{name:"gmail",command:"npx",args:["-y","@gongrzhe/server-gmail-autoauth-mcp"]});
-  const arbitrary = {mcpServers:{"custom-vendor":{command:"node",args:["/opt/my connector/server.js","--readonly"],env:{API_TOKEN:"example"}}}};
-  assert.deepEqual(readConnectorDefinition(JSON.stringify(arbitrary)),{name:"custom-vendor",...arbitrary.mcpServers["custom-vendor"]});
-  const remote = {mcpServers:{vendor:{url:"https://example.com/mcp",auth:"bearer",bearerToken:"example",headers:{"X-Read-Only":"true"}}}};
-  assert.deepEqual(readConnectorDefinition(JSON.stringify(remote)),{name:"vendor",...remote.mcpServers.vendor});
-});
-
-test("definition import decision table refuses ambiguity or unsupported options", () => {
-  for (const value of [null, {}, {mcpServers:{a:{url:"https://example.com"},b:{url:"https://example.com"}}},
-    {mcpServers:{a:{url:"file:///private"}}}, {mcpServers:{a:{url:"https://example.com",command:"node"}}},
-    {mcpServers:{a:{command:"node",args:"--flag"}}}, {mcpServers:{a:{command:"node",cwd:"/private"}}},
-    {mcpServers:{a:{url:"https://example.com",headers:{x:42}}}}, {mcpServers:{a:{url:"https://example.com",disabled:true}}},
-    {mcpServers:{a:{command:"node",auth:"bearer"}}}, {mcpServers:{a:{url:"https://example.com",env:{TOKEN:"x"}}}},
-    {mcpServers:{a:{url:"https://example.com",headers:{Authorization:"!secret-command"}}}},
-    {mcpServers:{a:{url:"https://example.com",unknown:"x"}}}, {mcpServers:{a:{url:"https://example.com",auth:"magic"}}}
-  ]) assert.throws(() => readConnectorDefinition(JSON.stringify(value)));
-  assert.throws(() => readConnectorDefinition("x".repeat(65537)));
-  assert.throws(() => readConnectorDefinition("not json"));
 });
 
 // A blocked config layer names the file for the one-line pane state
@@ -148,4 +109,29 @@ test("blocked layers name the file and stay empty when healthy", () => {
     blockedLayers({ layers: [{ id: "grok-user", path: "C:\\Users\\u\\.grok\\config.toml", exists: true, scope: "user", error: "is not valid TOML" }] }),
     [{ scope: "user", error: "is not valid TOML", path: "C:\\Users\\u\\.grok\\config.toml", file: "config.toml" }],
   );
+});
+
+// Marketplace (ADR-0157): a gallery hit builds the same POST /api/mcp entry
+// the preset rows built, and "Added" reads only the selected scope's layer.
+test("catalog hits build add bodies and Added-checks per scope", () => {
+  assert.deepEqual(
+    connectorAddBody({ id: "deepwiki", name: "DeepWiki", summary: "Ask questions about public GitHub repositories.", kind: "url", url: "https://mcp.deepwiki.com/mcp", auth: "oauth", featured: true, source: "picode" }),
+    { name: "deepwiki", url: "https://mcp.deepwiki.com/mcp", command: "", args: [], auth: "oauth" },
+  );
+  assert.deepEqual(
+    connectorAddBody({ id: "files", name: "Files", kind: "stdio", command: "npx", args: ["-y", "@picode/mcp-files"] }),
+    { name: "files", url: "", command: "npx", args: ["-y", "@picode/mcp-files"], auth: "" },
+  );
+  assert.deepEqual(connectorAddBody(null), { name: "", url: "", command: "", args: [], auth: "" });
+  assert.deepEqual(connectorAddBody({ id: "x", kind: "stdio", args: "not-a-list", auth: "oauth" }), { name: "x", url: "", command: "", args: [], auth: "oauth" });
+  const servers = [
+    { name: "deepwiki", scope: "user" },
+    { name: "deepwiki", scope: "project" },
+    { name: "other", scope: "agent" },
+  ];
+  assert.deepEqual([...connectorScopeNames(servers, "user")], ["deepwiki"]);
+  assert.deepEqual([...connectorScopeNames(servers, "project")], ["deepwiki"]);
+  assert.deepEqual([...connectorScopeNames(servers, "agent")], ["other"]);
+  assert.equal(connectorScopeNames(null, "user").size, 0);
+  assert.deepEqual([...connectorScopeNames([{ name: "a", scope: "user" }, null], "user")], ["a"]);
 });

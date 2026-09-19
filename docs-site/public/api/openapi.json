@@ -4111,6 +4111,23 @@
         ]
       }
     },
+    "/api/connectors/gallery": {
+      "get": {
+        "operationId": "getApiConnectorsGallery",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "connectors"
+        ]
+      }
+    },
     "/api/deploy/readiness": {
       "get": {
         "operationId": "getApiDeployReadiness",
@@ -5547,32 +5564,6 @@
       "get": {
         "operationId": "getApiMcpAuthStatus",
         "parameters": null,
-        "responses": {
-          "200": {
-            "description": "Success"
-          },
-          "401": {
-            "description": "Not paired"
-          }
-        },
-        "tags": [
-          "mcp"
-        ]
-      }
-    },
-    "/api/mcp/import": {
-      "post": {
-        "operationId": "postApiMcpImport",
-        "parameters": null,
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Success"
@@ -10280,6 +10271,9 @@
     },
     {
       "name": "computer"
+    },
+    {
+      "name": "connectors"
     },
     {
       "name": "deploy"

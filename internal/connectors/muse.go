@@ -77,8 +77,6 @@ func (d Muse) List(p Paths) (mcp.Report, error) {
 		Layers:            d.Layers(p),
 		Servers:           []mcp.Server{},
 		ConnectorPackages: []mcp.ConnectorPackage{},
-		Imports:           []string{},
-		Found:             []mcp.HostInfo{},
 	}
 	raw, err := readJSONFile(rep.Layers[0].Path)
 	if err != nil {

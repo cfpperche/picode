@@ -9,14 +9,15 @@ import (
 
 	"github.com/cfpperche/picode/internal/connectors"
 	"github.com/cfpperche/picode/internal/mcp"
+	"github.com/cfpperche/picode/internal/mcpcatalog"
 	"github.com/cfpperche/picode/internal/pipkg"
 	"github.com/cfpperche/picode/internal/store"
 )
 
 func registerMCPRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/mcp", handleMCPGet(deps))
+	mux.HandleFunc("GET /api/connectors/gallery", handleConnectorsGallery(deps))
 	mux.HandleFunc("POST /api/mcp", handleMCPAdd(deps))
-	mux.HandleFunc("POST /api/mcp/import", handleMCPImport(deps))
 	mux.HandleFunc("POST /api/mcp/auth", handleMCPAuth(deps))
 	mux.HandleFunc("GET /api/mcp/auth/status", handleMCPAuthStatus(deps))
 	mux.HandleFunc("POST /api/mcp/auth/reply", handleMCPAuthReply(deps))
@@ -53,8 +54,6 @@ type mcpMutateReq struct {
 	Headers     map[string]string `json:"headers"`
 	Auth        string            `json:"auth"`
 	BearerToken string            `json:"bearerToken"`
-	Kinds       []string          `json:"kinds"`
-	Picks       []mcp.ImportPick  `json:"picks"`
 	ID          string            `json:"id"`
 	Value       string            `json:"value"`
 	Cancelled   bool              `json:"cancelled"`
@@ -132,6 +131,20 @@ func handleMCPGet(deps Deps) http.HandlerFunc {
 	}
 }
 
+// handleConnectorsGallery serves the curated marketplace catalog
+// (ADR-0157): seed cards pinned first, then the filtered registry sync.
+// It always answers — the seed alone when offline — and kicks one
+// background registry refresh when the cache is stale.
+func handleConnectorsGallery(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		store := deps.Connectors
+		if store == nil {
+			store = mcpcatalog.NewStore(deps.DataDir)
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"hits": store.Search(r.Context(), r.URL.Query().Get("q"))})
+	}
+}
+
 // handleMCPReveal opens one driver config layer in the host file manager —
 // the blocked-layer "Open" action when a config file does not parse. The
 // path never comes from the client: it is recomputed from the driver's own
@@ -168,53 +181,6 @@ func handleMCPReveal(deps Deps) http.HandlerFunc {
 			}
 		}
 		writeErr(w, http.StatusBadRequest, "no config file for that scope")
-	}
-}
-
-func handleMCPImport(deps Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req mcpMutateReq
-		_ = json.NewDecoder(r.Body).Decode(&req)
-		if err := requireConnectorDriver(req.CLI); err != nil {
-			writeErr(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		// Host imports are a later phase for guests (ADR-0150 phase 5).
-		if connectors.For(req.CLI) != nil {
-			writeErr(w, http.StatusBadRequest, "connector imports for "+req.CLI+" arrive in a later phase")
-			return
-		}
-		p, sources, err := mcpPaths(deps, req.WorkspaceID, req.AgentID)
-		if err != nil {
-			writeErr(w, statusForStore(err), err.Error())
-			return
-		}
-		if !mcp.AdapterConfigured(sources) {
-			writeErr(w, http.StatusConflict, "install pi-mcp-adapter first")
-			return
-		}
-		picks := req.Picks
-		if picks == nil && req.Kinds != nil {
-			writeErr(w, http.StatusBadRequest, "choose which servers")
-			return
-		}
-		if picks == nil {
-			writeErr(w, http.StatusBadRequest, "choose which servers")
-			return
-		}
-		res, err := mcp.ImportHosts(p, picks)
-		if err != nil {
-			writeErr(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		rep, err := mcp.List(p)
-		if err != nil {
-			writeErr(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		rep.Adapter.Installed = mcp.AdapterConfigured(sources)
-		announceMCPConfig(deps)
-		writeJSON(w, http.StatusOK, map[string]any{"import": res, "adapter": rep.Adapter, "layers": rep.Layers, "servers": rep.Servers, "presets": rep.Presets, "imports": rep.Imports, "found": rep.Found, "connectorPackages": rep.ConnectorPackages})
 	}
 }
 

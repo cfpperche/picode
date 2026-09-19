@@ -70,8 +70,6 @@ func (d Codex) List(p Paths) (mcp.Report, error) {
 		Layers:            d.Layers(p),
 		Servers:           []mcp.Server{},
 		ConnectorPackages: []mcp.ConnectorPackage{},
-		Imports:           []string{},
-		Found:             []mcp.HostInfo{},
 	}
 	seen := map[string]bool{}
 	for _, layer := range rep.Layers {

@@ -175,25 +175,38 @@ write on top of an unreadable file still refuses — corruption over silence.
 
 `web/shared/domain/integrations.js` `CONNECTOR_DRIVERS` declares each CLI's
 honest capability set (status `live` vs `configured`), and a request naming a
-CLI without a driver fails loudly instead of writing Pi's files. Guest
-host-config imports and the driven sign-in flow arrive in later phases; the
-API refuses them with instructions (imports → "arrive in a later phase",
-auth → the vendor's own `… mcp login <name>` command).
+CLI without a driver fails loudly instead of writing Pi's files. There is no
+driven sign-in flow: auth points at the vendor's own `… mcp login <name>`
+command. Definition-file import and host-config discovery are removed
+(ADR-0157) — the Pi adapter keeps its own import, and with every CLI's native
+config managed here, the marketplace replaces "use from another app".
 
-`#/clis/pi/connectors` is one surface in three bands: the header (the intro
-line and the single primary action, **Add connector**), the configured roster,
-and the connector-packages section when a package declares `pi.mcp`. `#/mcps`,
-`#/integrations*` and both apps' `ConnectorsPane` render this view embedded —
-there is no separate "MCPs" page.
+## Marketplace (ADR-0157, 2026-09-18)
 
-The Add flow is one `ResponsiveDialog` (desktop) / `MobileSheet` (mobile): a
-searchable service list over the catalog and the host imports
-(`connectorTabs(found)`), a labelled **Save to** control, and two secondary
-entries — the custom-server form (`mcpAddSchema`) and the definition-file
-import, which keeps its review-and-confirm step. **Save to** is the pane's
-scope: it writes `scope=user|project|agent` onto the route so a reload keeps
-the target, and the add request carries the same value. Adding from a host app
-keeps its confirmation.
+The pane is **Installed | Marketplace** subtabs, the Packages pattern:
+Installed is the roster as built above; Marketplace is the add surface.
+
+- `internal/mcpcatalog` serves the catalog behind
+  `GET /api/connectors/gallery?q=`: the **seed** — the hand-picked presets
+  and PiCode's own `picode-*` connectors, featured first — plus a filtered
+  sync of the **official MCP Registry** (status active, a description, and a
+  streamable-HTTP remote; stdio beyond the seed stays hand-curated). The
+  sync paginates the registry's v0 API, caches the merged list in the data
+  dir, refreshes in the background at most daily, and degrades to the seed
+  when the registry is unreachable — the pane answers offline.
+- Cards carry capability badges (Remote / Local command / Sign-in required);
+  **Add** builds the same POST `/api/mcp` body the old dialog rows built and
+  runs it through the driver of the selected CLI. **Added** (disabled) marks
+  a name already in the selected scope. **Custom server…** stays as the
+  manual escape hatch.
+- The definition-import endpoint (`POST /api/mcp/import`), the file reader,
+  and `Report.Found`/`Report.Imports` are gone, as are the guests'
+  "arrive in a later phase" refusals — there is no later phase.
+- The connector-packages section (packages declaring `pi.mcp`) stays on the
+  Installed side, unchanged.
+
+`#/mcps`, `#/integrations*` and both apps' `ConnectorsPane` render this view
+embedded — there is no separate "MCPs" page.
 
 A configured row carries the status (only while an agent runs — `Live`,
 `Failed`, or the `Sign in` next action; with the agent stopped the pane says so
