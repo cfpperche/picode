@@ -16,10 +16,14 @@ import { closeTerm } from "./lib/terms.js";
 import { mobileHash, toolHash, tabOf, readWorkSection, writeWorkSection } from "./lib/mobileRoutes.js";
 import { agentOwnerWs, termOwnerWs } from "./lib/workBack.js";
 import { askConfirm } from "./lib/confirm.js";
+import { askPrompt } from "./lib/prompt.js";
+import { sessionFromTerminal, terminalHandoffSourceCli } from "@picode/shared/domain/sessionHandoff.js";
 import Reconnect from "./components/Reconnect.jsx";
 import ShareDrawer, { OPEN_EVENT } from "./components/ShareDrawer.jsx";
 import Toasts from "./components/Toasts.jsx";
 import ConfirmDialog from "./components/ConfirmDialog.jsx";
+import PromptDialog from "./components/PromptDialog.jsx";
+import SessionHandoffDialog from "./components/SessionHandoffDialog.jsx";
 import WhatsNew from "./components/WhatsNew.jsx";
 import RELEASE_NOTES from "@picode/shared/data/whats-new.json";
 import TabBar from "./components/TabBar.jsx";
@@ -64,6 +68,8 @@ export default function MobileApp() {
   const route = useHashRoute();
   const [themeMode, setThemeMode] = useState(readThemeMode);
   const [catalog, setCatalog] = useState(null);
+  const [clis, setClis] = useState([]);
+  const [termHandoff, setTermHandoff] = useState(null);
   const [system, setSystem] = useState(null);
   const [version, setVersion] = useState("");
   const [semver, setSemver] = useState("");
@@ -139,6 +145,10 @@ export default function MobileApp() {
         setReleaseBuild(!!ver.release);
       } catch { /* offline */ }
       await loadCatalog();
+      try {
+        const d = await api("/api/clis");
+        setClis(d.clis || []);
+      } catch { /* Agent CLIs catalog is optional for Work */ }
     })();
   }, []);
 
@@ -323,6 +333,80 @@ export default function MobileApp() {
     } catch (e) { toastError(e); } finally { setBusyId(""); }
   }
 
+  async function renameTerminal(t) {
+    if (!t) return;
+    const name = await askPrompt({ title: "Rename terminal", defaultValue: t.name || "Terminal", confirmLabel: "Save" });
+    if (!name) return;
+    setBusyId(t.id);
+    try {
+      await api("/api/terminals/" + encodeURIComponent(t.id), {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }),
+      });
+      await reload({ force: true });
+    } catch (e) { toastError(e); } finally { setBusyId(""); }
+  }
+
+  async function launchTerminalAction(t, op) {
+    if (!t || !op) return;
+    const destructive = t.running && op !== "start";
+    if (destructive && !(await askConfirm({
+      title: `${op === "stop" ? "Stop" : "Restart"} ${t.name || "terminal"}?`,
+      message: op === "restart"
+        ? (t.lastSession
+          ? "This ends the processes running in this terminal, then reopens the same conversation."
+          : "This ends the processes running in this terminal.")
+        : "This ends the processes running in this terminal.",
+      confirmLabel: op === "stop" ? "Stop terminal" : "Restart terminal",
+      danger: true,
+    }))) return;
+    setBusyId(t.id);
+    try {
+      await api(`/api/terminals/${encodeURIComponent(t.id)}/launch/${op}`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm: destructive }),
+      });
+      await reload({ force: true });
+      if (op === "start") openTerm(t.id);
+      else toast.ok(op === "stop" ? "Terminal stopped." : "Terminal restarted.");
+    } catch (e) { toastError(e); } finally { setBusyId(""); }
+  }
+
+  function openTermHandoff(term, target) {
+    const session = sessionFromTerminal(term);
+    const sourceCli = terminalHandoffSourceCli(term);
+    if (!session || !sourceCli || !target || (target.landing !== "agent" && !target.installed)) return;
+    const source = clis.find((c) => c.id === sourceCli);
+    setTermHandoff({
+      session,
+      sourceCli,
+      sourceName: (source && source.name) || sourceCli,
+      target,
+    });
+  }
+
+  function onTermHandoffDone(res, target) {
+    setTermHandoff(null);
+    const next = res && res.terminal;
+    const adopted = res && res.agent;
+    if (next && next.launchError) {
+      toastError(new Error(next.launchError));
+    } else if (next && next.id) {
+      toast.ok(target.name + " is opening with this conversation.");
+      openTerm(next.id);
+    } else if (adopted && adopted.id) {
+      toast.ok(res.brief ? "Continued as a Pi agent: " + adopted.name + ". Its first message reads the brief." : "Continued as a Pi agent: " + adopted.name + ".");
+      openAgent(adopted.id);
+    } else {
+      toast.ok("Handoff recorded.");
+    }
+  }
+
+  function onTermAction(term, id, extra) {
+    if (id === "rename") return renameTerminal(term);
+    if (id === "remove") return removeTerminal(term);
+    if (id === "handoff") return openTermHandoff(term, extra);
+    if (id === "start" || id === "restart" || id === "stop") return launchTerminalAction(term, id);
+  }
+
   async function withBusy(agent, fn) {
     setBusyId(agent.id);
     try { await fn(); await reload({ force: true }); } catch (e) { toastError(e); } finally { setBusyId(""); }
@@ -446,7 +530,7 @@ export default function MobileApp() {
     body = (
       <Work section={section} focusWs={section === "workspaces" ? route.id : ""} onSection={setSection} loaded={loaded} error={fleetError} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals}
         workingIds={tuiWorking} busyId={busyId} checklists={checklists}
-        onOpenAgent={(a) => openAgent(a.id)} onOpenTerm={(t) => openTerm(t.id)} onStart={startAgent} onStop={stopAgent} onRemoveTerm={removeTerminal}
+        onOpenAgent={(a) => openAgent(a.id)} onOpenTerm={(t) => openTerm(t.id)} onStart={startAgent} onStop={stopAgent} onTermAction={onTermAction} clis={clis}
         onCreate={(kind, ws) => setCreate({ kind, workspace: ws || (kind === "agent" ? (workspaces[0] || null) : null) })} onNewTerm={newTerminal}
         onOpenChanges={openChanges} onOpenFiles={openFiles} onOpenGit={openGit} onRefresh={refreshAll} />
     );
@@ -477,6 +561,16 @@ export default function MobileApp() {
       {reconnect ? <Reconnect onReload={() => location.reload()} /> : null}
       <WhatsNew open={whatsNewOpen} onClose={closeWhatsNew} currentSemver={whatsNewCurrent} seenVersion={whatsNewSeen} notes={RELEASE_NOTES} unseenOnly={whatsNewMode === "auto"} />
       <ConfirmDialog />
+      <PromptDialog />
+      <SessionHandoffDialog
+        open={!!termHandoff}
+        session={termHandoff ? termHandoff.session : null}
+        sourceCli={termHandoff ? termHandoff.sourceCli : ""}
+        sourceName={termHandoff ? termHandoff.sourceName : ""}
+        target={termHandoff ? termHandoff.target : null}
+        onClose={() => setTermHandoff(null)}
+        onDone={onTermHandoffDone}
+      />
     </div>
   );
 }

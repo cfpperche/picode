@@ -106,6 +106,7 @@
     "./styles/providers.css": "./styles/providers.css",
     "./domain/llamaJobs.js": "./domain/llamaJobs.js",
     "./domain/sessionHandoff.js": "./domain/sessionHandoff.js",
+    "./domain/termRowMenu.js": "./domain/termRowMenu.js",
     "./domain/cliSettings.js": "./domain/cliSettings.js",
     "./domain/cliPackages.js": "./domain/cliPackages.js",
     "./domain/cliProviders.js": "./domain/cliProviders.js",

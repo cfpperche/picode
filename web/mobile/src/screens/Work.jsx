@@ -20,7 +20,7 @@ let rememberedQuery = "";
 // Paseo's workspace grouping, adapted to one focused phone list. Search
 // retains the parent folder when it finds an agent or terminal inside it.
 export default function Work({ section, focusWs, onSection, loaded, error, workspaces, freeAgents, terminals, workingIds, busyId, checklists,
-  onOpenAgent, onOpenTerm, onStart, onStop, onRemoveTerm, onCreate, onNewTerm, onOpenChanges, onOpenFiles, onOpenGit, onRefresh }) {
+  onOpenAgent, onOpenTerm, onStart, onStop, onTermAction, clis = [], onCreate, onNewTerm, onOpenChanges, onOpenFiles, onOpenGit, onRefresh }) {
   const [query, updateQuery] = useState(() => rememberedQuery);
   const [searchOpen, setSearchOpen] = useState(() => !!rememberedQuery);
   const focusSearch = useRef(false);
@@ -82,13 +82,13 @@ export default function Work({ section, focusWs, onSection, loaded, error, works
           </div>
           {wsAgents.length || wsTerms.length ? <ul className="m-list m-group-list">
             {wsAgents.map(agent => <AgentRow key={agent.id} agent={agent} workspace={ws} workingIds={workingIds} checklist={checklists?.[agent.id]} busy={busyId === agent.id} onOpen={onOpenAgent} onStart={onStart} onStop={onStop} />)}
-            {wsTerms.map(term => <TermRow key={term.id} term={term} busy={busyId === term.id} onOpen={onOpenTerm} onRemove={onRemoveTerm} />)}
+            {wsTerms.map(term => <TermRow key={term.id} term={term} busy={busyId === term.id} onOpen={onOpenTerm} onAction={onTermAction} clis={clis} />)}
           </ul> : <p className="m-empty-line m-work-empty">No agents or terminals yet.</p>}
 
         </section>
       )) : <ul className="m-list m-group-list" aria-label={LABELS[sec]}>
         {sec === "agents" ? agents.map(agent => <AgentRow key={agent.id} agent={agent} workspace={null} workingIds={workingIds} checklist={checklists?.[agent.id]} busy={busyId === agent.id} onOpen={onOpenAgent} onStart={onStart} onStop={onStop} />)
-          : terms.map(term => <TermRow key={term.id} term={term} busy={busyId === term.id} onOpen={onOpenTerm} onRemove={onRemoveTerm} />)}
+          : terms.map(term => <TermRow key={term.id} term={term} busy={busyId === term.id} onOpen={onOpenTerm} onAction={onTermAction} clis={clis} />)}
       </ul>}
     </PullScreen>
   );
