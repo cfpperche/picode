@@ -54,6 +54,12 @@ use tauri_plugin_notification::NotificationExt;
 /// still work (2026-09-16, Tauri 2.11.5).
 static MAIN_WINDOW: OnceLock<tauri::WebviewWindow> = OnceLock::new();
 
+/// The main window for modules that need its native handle (embed.rs):
+/// the kept handle first, the registry as a fallback — see MAIN_WINDOW.
+pub fn main_window(app: &tauri::AppHandle) -> Option<tauri::WebviewWindow> {
+    MAIN_WINDOW.get().cloned().or_else(|| app.get_webview_window("main"))
+}
+
 fn main() {
     // ADR-0128: no debug port exists in default operation. The shell bridges
     // CDP through the host API (btab_cdp_call), so the loopback port is an

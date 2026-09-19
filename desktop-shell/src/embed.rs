@@ -12,7 +12,7 @@
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use windows::Win32::Foundation::{HWND, RECT};
 use windows::Win32::UI::HiDpi::{SetThreadDpiHostingBehavior, DPI_HOSTING_BEHAVIOR_MIXED};
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -36,7 +36,10 @@ fn hwnd(id: isize) -> HWND {
 }
 
 fn main_hwnd(app: &AppHandle) -> Result<HWND, String> {
-    let win = app.get_webview_window("main").ok_or("no main window")?;
+    // The registry answers None on a resident the logon task started with
+    // --hidden (2026-09-19, the first morning of the spike); the kept
+    // handle in main.rs is what always works.
+    let win = crate::main_window(app).ok_or("no main window")?;
     let h = win.hwnd().map_err(|e| format!("main hwnd: {e}"))?;
     Ok(hwnd(h.0 as isize))
 }
