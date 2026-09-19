@@ -20,6 +20,7 @@
     "allow-btab-annotate-mode",
     "allow-btab-annotate-clear",
     "allow-btab-annotate-state",
+    "allow-btab-annotate-overlay",
     "allow-btab-bounds",
     "allow-btab-visibility",
     "allow-btab-back",

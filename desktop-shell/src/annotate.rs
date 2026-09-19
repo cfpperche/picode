@@ -38,6 +38,15 @@ pub const DROP_LAST_SCRIPT: &str =
 /// page cannot post to the host. An unarmed document answers an empty string.
 pub const STATE_SCRIPT: &str = "(() => { const h = window.__picodeAnnotateV1; if (!h || typeof h.state !== 'function') { return ''; } try { return JSON.stringify(h.state() || { kind: 'off' }); } catch (e) { return ''; } })();";
 
+/// HIDE_SCRIPT / SHOW_SCRIPT bracket a page capture: the annotation overlay
+/// (pins, chips, card) is our UI inside the page, so it would be photographed
+/// on top of the very element the agent is being shown. Guarded no-ops when
+/// the document never armed the mode.
+pub const HIDE_SCRIPT: &str =
+    "(() => { const h = window.__picodeAnnotateV1; if (h && typeof h.hide === 'function') { h.hide(); } })();";
+pub const SHOW_SCRIPT: &str =
+    "(() => { const h = window.__picodeAnnotateV1; if (h && typeof h.show === 'function') { h.show(); } })();";
+
 /// REINJECT_SCRIPT re-enters after a navigation when the mode is still on: the
 /// new document has no script, and a hidden mode would look like a dead button.
 pub const REINJECT_SCRIPT: &str = SCRIPT;
@@ -189,6 +198,18 @@ mod tests {
         let body = exit.split("function clear()").next().unwrap_or(exit);
         assert!(body.contains("post({ kind: \"exit\" })"), "exit still announces itself");
         assert!(!body.contains("delete window[KEY]"), "the handle must survive exit");
+    }
+
+    // The shot must not photograph our own overlay.
+    #[test]
+    fn the_overlay_scripts_are_guarded_and_named() {
+        assert!(HIDE_SCRIPT.contains("typeof h.hide === 'function'"), "hide is guarded");
+        assert!(SHOW_SCRIPT.contains("typeof h.show === 'function'"), "show is guarded");
+        assert!(SCRIPT.contains("hide: () => { host.style.visibility = \"hidden\"; }"));
+        assert!(SCRIPT.contains("show: () => { host.style.visibility = \"\"; }"));
+        let shell = include_str!("btab.rs");
+        assert!(shell.contains("crate::annotate::HIDE_SCRIPT"), "the shell hides before a capture");
+        assert!(shell.contains("crate::annotate::SHOW_SCRIPT"), "and shows again after");
     }
 
     // The exit script must be a no-op when the mode was never armed: the

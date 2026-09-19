@@ -195,12 +195,19 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
         if (RETRY_MS[attempt]) await new Promise((r) => setTimeout(r, RETRY_MS[attempt]));
         url = "";
         try {
+          // The pins, the chips and the card are DOM inside the page, so they
+          // would be photographed on top of the element the agent is being
+          // shown — the first clean shot was a picture of our own card over
+          // the breadcrumb (owner 2026-09-19). Hidden for the capture only.
+          await invoke("btab_annotate_overlay", { id, on: false }).catch(() => {});
           const bytes = await invoke("btab_preview", { id });
           url = previewUrl(bytes);
           if (url) break;
           why = "the page preview came back empty";
         } catch (e) {
           why = String((e && (e.message || e)) || "the shell did not answer");
+        } finally {
+          await invoke("btab_annotate_overlay", { id, on: true }).catch(() => {});
         }
       }
       if (!url) return { data: "", why };

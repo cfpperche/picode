@@ -189,6 +189,12 @@
           "markdownDescription": "Enables the btab_annotate_mode command without any pre-configured scope."
         },
         {
+          "description": "Enables the btab_annotate_overlay command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-annotate-overlay",
+          "markdownDescription": "Enables the btab_annotate_overlay command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_annotate_state command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-annotate-state",
@@ -511,6 +517,12 @@
           "type": "string",
           "const": "deny-btab-annotate-mode",
           "markdownDescription": "Denies the btab_annotate_mode command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_annotate_overlay command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-annotate-overlay",
+          "markdownDescription": "Denies the btab_annotate_overlay command without any pre-configured scope."
         },
         {
           "description": "Denies the btab_annotate_state command without any pre-configured scope.",

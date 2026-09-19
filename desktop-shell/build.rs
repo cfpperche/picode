@@ -27,6 +27,7 @@ fn main() {
             "btab_annotate_mode",
             "btab_annotate_clear",
             "btab_annotate_state",
+            "btab_annotate_overlay",
             "btab_set_prefs",
             "btab_clear_data",
             "btab_download_dir",

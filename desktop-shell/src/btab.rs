@@ -1198,6 +1198,40 @@ pub async fn btab_annotate_clear(app: AppHandle, id: String, last: Option<bool>)
     rx.recv().unwrap_or_else(|_| Err("the shell did not answer".into()))
 }
 
+/// btab_annotate_overlay hides or shows the in-page annotation overlay. The
+/// chrome brackets a page capture with it: pins, chips and the card live in
+/// the page, so without this the picture sent to the agent is a photograph of
+/// our own UI over the element it is meant to show (owner 2026-09-19).
+#[tauri::command]
+pub async fn btab_annotate_overlay(app: AppHandle, id: String, on: bool) -> Result<(), String> {
+    let wv = find_webview(&app, &id).ok_or_else(|| format!("no such tab: {id}"))?;
+    let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
+    let _ = wv.with_webview(move |platform| unsafe {
+        use windows::core::HSTRING;
+        let core = match platform.controller().CoreWebView2() {
+            Ok(core) => core,
+            Err(e) => {
+                let _ = tx.send(Err(format!("CoreWebView2: {e}")));
+                return;
+            }
+        };
+        let script = if on {
+            crate::annotate::SHOW_SCRIPT
+        } else {
+            crate::annotate::HIDE_SCRIPT
+        };
+        match core.ExecuteScript(&HSTRING::from(script), None) {
+            Ok(_) => {
+                let _ = tx.send(Ok(()));
+            }
+            Err(e) => {
+                let _ = tx.send(Err(format!("ExecuteScript: {e}")));
+            }
+        }
+    });
+    rx.recv().unwrap_or_else(|_| Err("the shell did not answer".into()))
+}
+
 /// btab_annotate_state pulls one tab's annotation state through the host→page
 /// direction, which needs no page-side bridge: ExecuteScript's return value
 /// comes back on the command's own result. The strip polls this while the
