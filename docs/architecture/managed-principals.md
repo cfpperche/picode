@@ -29,7 +29,10 @@ HTTP:
 Workspace list/get carry `managedClis` next to `agents`. The change feed
 patches `managed_cli.added` / `managed_cli.removed`. Structured chat,
 JSON-RPC, ACP and `SendTurn` for guests are out of scope (ADR-0091).
-Inbox, fleet, automations and `picode mcp` rekey onto `Principal` in
-later slices; they must not grow a second identity rule.
+When a bound CLI reports `needs-you`, PiCode files one blocking Inbox FYI
+(`reason=cli-needs-you`, source the terminal). Push rides `inbox.created`.
+Leaving `needs-you` marks that item done. Unbound terminals stay chips-only.
+The Inbox action **Open terminal** focuses the pane (`goto: term:<id>`).
+No composer. Deploy readiness already treats any working terminal as busy.
 
 Decision table: [ADR-0159](../decisions/0159-managed-cli-principals.md).

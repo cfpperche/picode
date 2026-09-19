@@ -241,6 +241,9 @@ func reportTermStateForRun(deps Deps, id, state, cli, runID, attention string, n
 		}
 		deps.Feed.Ephemeral("terminal.state", data)
 	}
+	if changed {
+		syncManagedCLIInbox(deps, id, st.State)
+	}
 	return st
 }
 

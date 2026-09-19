@@ -372,6 +372,9 @@ func (a inboxApp) itemView(h Host, id string) (View, error) {
 			if it.Kind == store.InboxReminder && it.SourceKind == store.InboxFromPin {
 				acts = append(acts, Action{ID: "open-pin", Label: "Open pin", Icon: "pin", Primary: true, Args: map[string]string{"item": it.ID}})
 			}
+			if it.SourceKind == store.InboxFromTerminal && it.SourceID != "" {
+				acts = append(acts, Action{ID: "open-terminal", Label: "Open terminal", Icon: "terminal", Primary: true, Args: map[string]string{"item": it.ID}})
+			}
 			acts = append(acts, Action{ID: "done", Label: "Done", Icon: "check", Args: map[string]string{"item": it.ID}})
 			acts = append(acts, Action{ID: "snooze", Label: "Snooze 1h", Icon: "clock", Args: map[string]string{"item": it.ID}})
 		}
@@ -428,6 +431,15 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 			return ActionResult{}, err
 		}
 		return ActionResult{Goto: "pin:" + it.SourceID}, nil
+	case "open-terminal":
+		it, err := h.Store.GetInboxItem(id)
+		if err != nil {
+			return ActionResult{}, err
+		}
+		if it.SourceKind != store.InboxFromTerminal || it.SourceID == "" {
+			return ActionResult{}, fmt.Errorf("inbox: not a terminal item")
+		}
+		return ActionResult{Goto: "term:" + it.SourceID}, nil
 	case "snooze":
 		until := time.Now().UTC().Add(time.Hour).Format(time.RFC3339)
 		if _, err := h.Store.SetInboxItemState(id, "", &until); err != nil {

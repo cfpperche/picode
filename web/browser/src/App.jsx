@@ -3604,6 +3604,11 @@ export default function App({ shellChrome = false } = {}) {
                   if (g.startsWith("agent:")) openInteractive(g.slice("agent:".length));
                   // A reminder's "Open pin" lands in the studio (ADR-0100).
                   if (g.startsWith("pin:")) location.hash = "#/pins/" + encodeURIComponent(g.slice("pin:".length));
+                  if (g.startsWith("term:")) {
+                    const tid = g.slice("term:".length);
+                    openTermTab(tid);
+                    location.hash = termHash(tid);
+                  }
                 }}
               />
             );

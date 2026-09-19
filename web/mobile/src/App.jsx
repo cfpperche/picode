@@ -275,6 +275,7 @@ export default function MobileApp() {
     const value = String(goto || "");
     if (value.startsWith("agent:")) openAgent(value.slice("agent:".length));
     if (value.startsWith("pin:")) push("#/pins/" + encodeURIComponent(value.slice("pin:".length)));
+    if (value.startsWith("term:")) openTerm(value.slice("term:".length));
   }
   function openChanges(kind, id, title) {
     if (id) push(mobileHash("changes", id, kind));

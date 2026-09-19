@@ -296,6 +296,25 @@ func (s *Store) ListInboxItems(f InboxFilter) ([]InboxItem, error) {
 	return out, rows.Err()
 }
 
+// ActiveInboxBySourceReason lists not-done items for one source and reason.
+func (s *Store) ActiveInboxBySourceReason(sourceKind, sourceID, reason string) ([]InboxItem, error) {
+	rows, err := s.db.Query(`SELECT `+inboxCols+` FROM inbox_items WHERE source_kind = ? AND source_id = ? AND reason = ? AND state != ? ORDER BY created_at`,
+		sourceKind, sourceID, reason, InboxDone)
+	if err != nil {
+		return nil, fmt.Errorf("store: inbox by source: %w", err)
+	}
+	defer rows.Close()
+	out := []InboxItem{}
+	for rows.Next() {
+		var it InboxItem
+		if err := scanInboxItem(rows, &it); err != nil {
+			return nil, err
+		}
+		out = append(out, it)
+	}
+	return out, rows.Err()
+}
+
 // RespondInboxItem answers an item with one of its allowed verbs and
 // marks it done (responding IS the done).
 func (s *Store) RespondInboxItem(id, verb, text string) (InboxItem, error) {
