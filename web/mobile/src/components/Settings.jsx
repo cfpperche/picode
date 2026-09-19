@@ -173,8 +173,8 @@ export default function Settings({ hidden, themeMode, onTheme }) {
           <div className="set-row">
             <label htmlFor="layout-bottombar">Bottom bar buttons</label>
             <select id="layout-bottombar" value={layoutPrefs.bottomBar} onChange={(e) => saveLayout({ bottomBar: e.target.value })}>
-              <option value="auto">Auto — adapts to how the app opened</option>
-              <option value="low">Low — closer to the bottom edge</option>
+              <option value="auto">Auto — docks to the phone's bottom</option>
+              <option value="low">Low — keep buttons in reach</option>
               <option value="edge">Screen edge — labels can clip on some iPhones</option>
             </select>
           </div>
@@ -185,7 +185,7 @@ export default function Settings({ hidden, themeMode, onTheme }) {
             </select>
           </div>
         </div>
-        <p className="set-note">Fits the shell to your screen. "Screen edge" rests the buttons on the phone's physical bottom edge — on iPhones where the system reserves a hidden strip there, the labels may be cut; pick "Low" if so.</p>
+        <p className="set-note">Fits the shell to your screen. Auto rests the bar on the phone's bottom edge. If the labels are cut, pick Low.</p>
       </section>
 
       <section className="settings-section" hidden={sec !== "shortcuts"}>

@@ -90,14 +90,16 @@ html[data-standalone][data-pushed="1"], html[data-standalone][data-pushed="1"] b
    the layout viewport ends right below the nav, so every scrap of nav
    padding under the labels is dead reach. "edge" pushes the whole shell
    into the letterbox strip — some iOS versions paint it, some clip it;
-   it is the user's dial, not a default. */
-html[data-bottombar="low"] .m-tab { justify-content: flex-end; padding-bottom: 5px; }
-html[data-bottombar="low"] .m-tab::before { top: auto; bottom: 1px; height: 41px; }
+   "low" is the fallback that keeps the buttons in the layout viewport. */
+html[data-bottombar="low"] .m-tab,
+html[data-bottombar="edge"] .m-tab { justify-content: flex-end; padding-bottom: 5px; }
+html[data-bottombar="low"] .m-tab::before,
+html[data-bottombar="edge"] .m-tab::before { top: auto; bottom: 1px; height: 41px; }
 html[data-bottombar="edge"] #m-app { bottom: calc(-1 * var(--letterbox)); }
 /* A pushed screen has no tab bar, so the letterbox is just empty canvas.
-   Grow the shell into it (same reach as "edge") so a terminal is not
-   sitting above a blank strip. Tab screens keep the pref: auto/low leave
-   the bar in reach. */
+   Grow the shell into it even when Layout is "low", so a terminal is not
+   sitting above a blank strip. Auto on a letterboxed install resolves to
+   edge, which docks the tab bar the same way. */
 html[data-standalone] #m-app.is-pushed { bottom: calc(-1 * var(--letterbox)); }
 html[data-standalone] #m-app.is-pushed.kb-open,
 html[data-bottombar="edge"] #m-app.kb-open { bottom: auto; }

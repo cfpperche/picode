@@ -36,7 +36,7 @@ export function useVisualViewport() {
         el.style.removeProperty("--vv-offset-top");
         el.style.setProperty("--kb-inset", "0px");
         el.classList.remove("kb-open");
-        document.documentElement.style.setProperty("--letterbox", letterboxPx(window.screen.height, innerHeight) + "px");
+        document.documentElement.style.setProperty("--letterbox", letterboxPx(window.screen.height, innerHeight, { opaqueStatusBar: true }) + "px");
         return;
       }
       el.style.setProperty("--vv-height", layout.height + "px");
