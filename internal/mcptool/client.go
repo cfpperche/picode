@@ -133,9 +133,11 @@ func RejectUnauthorizedFor(rawURL string) bool {
 	return ip == nil || !ip.IsLoopback()
 }
 
-// Daemon posts one JSON body to one route and returns the status and body.
+// Daemon posts one JSON body to one route, or reads one, and returns the
+// status and body.
 type Daemon interface {
 	Post(ctx context.Context, path string, body []byte) (int, []byte, error)
+	Get(ctx context.Context, path string) (int, []byte, error)
 }
 
 // HTTPDaemon is the production Daemon.
@@ -156,11 +158,26 @@ func NewHTTPDaemon(base string, token func() string) *HTTPDaemon {
 
 // Post implements Daemon.
 func (d *HTTPDaemon) Post(ctx context.Context, path string, body []byte) (int, []byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, d.URL+path, bytes.NewReader(body))
+	return d.do(ctx, http.MethodPost, path, body)
+}
+
+// Get implements Daemon.
+func (d *HTTPDaemon) Get(ctx context.Context, path string) (int, []byte, error) {
+	return d.do(ctx, http.MethodGet, path, nil)
+}
+
+func (d *HTTPDaemon) do(ctx context.Context, method, path string, body []byte) (int, []byte, error) {
+	var reader io.Reader
+	if body != nil {
+		reader = bytes.NewReader(body)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, d.URL+path, reader)
 	if err != nil {
 		return 0, nil, err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	if d.Token != nil {
 		if t := d.Token(); t != "" {
 			req.Header.Set("Authorization", "Bearer "+t)

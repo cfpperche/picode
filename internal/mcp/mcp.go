@@ -121,6 +121,8 @@ func ToolPresets() []Preset {
 	return []Preset{
 		{ID: "picode-computer", Name: "PiCode · Computer", Summary: "Use the Windows desktop through PiCode's desktop app. Off until you switch this terminal on in Settings ▸ Computer.", Entry: Entry{Command: bin, Args: []string{"mcp", "computer"}}},
 		{ID: "picode-browser", Name: "PiCode · Browser", Summary: "Read the page open in PiCode's work browser (desktop app); acting needs a grant in Settings ▸ Browser.", Entry: Entry{Command: bin, Args: []string{"mcp", "browser"}}},
+		{ID: "picode-inbox", Name: "PiCode · Inbox", Summary: "Let the agent file notes and questions into your Inbox; a question waits for your answer there.", Entry: Entry{Command: bin, Args: []string{"mcp", "inbox"}}},
+		{ID: "picode-checklist", Name: "PiCode · Checklist", Summary: "The agent's plan for the task, shown as the current step on its card.", Entry: Entry{Command: bin, Args: []string{"mcp", "checklist"}}},
 	}
 }
 

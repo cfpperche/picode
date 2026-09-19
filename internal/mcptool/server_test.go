@@ -14,16 +14,31 @@ import (
 
 // fakeDaemon records the last call and answers a fixed status and body.
 type fakeDaemon struct {
-	status int
-	body   string
-	path   string
-	got    map[string]any
-	auth   string
+	status   int
+	body     string
+	path     string
+	got      map[string]any
+	auth     string
+	gets     []string
+	getCalls int
 }
 
 func (f *fakeDaemon) Post(_ context.Context, path string, body []byte) (int, []byte, error) {
 	f.path = path
 	_ = json.Unmarshal(body, &f.got)
+	return f.status, []byte(f.body), nil
+}
+
+// Get answers from gets (a queue, one per call) so a poll can see an item
+// change; with no queue it answers the fixed body.
+func (f *fakeDaemon) Get(_ context.Context, path string) (int, []byte, error) {
+	f.path = path
+	f.getCalls++
+	if len(f.gets) > 0 {
+		next := f.gets[0]
+		f.gets = f.gets[1:]
+		return 200, []byte(next), nil
+	}
 	return f.status, []byte(f.body), nil
 }
 
