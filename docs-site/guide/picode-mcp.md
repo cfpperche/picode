@@ -50,9 +50,12 @@ The server has the same name in every place (`picode-computer`,
 `picode-browser`), so a CLI that already has it from a file does not get it
 twice from the launch.
 
-Launch settings offer the group only for the CLIs PiCode can inject into
-today: Claude Code, Codex and OpenCode. For Grok, Hermes Agent, Muse Code,
-Antigravity and Omp use the Connectors pane.
+Launch settings offer the group only for the CLIs that take servers on the
+command line or environment: Claude Code, Codex and OpenCode. Grok, Hermes
+Agent, Muse Code and Antigravity have no such mechanism (verified against
+their binaries and docs, 2026-09-19): only their config files, so use the
+Connectors pane at workspace or machine scope. Omp is a pi fork and can
+take pi's own packages with `-e` per launch; that path is not built.
 
 ## By hand
 
@@ -77,4 +80,5 @@ process; the cards add one each.
 
 ## Where it goes next
 
-Launch injection for the CLIs that gain a mechanism for it.
+Launch injection for a CLI the day its vendor adds a flag or environment
+variable for it; the Omp `-e` path if there is demand.
