@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   readLayoutPrefs, persistLayoutPrefs, defaultLayoutPrefs,
-  resolveBottomBar, BOTTOM_BAR_MODES, BAR_HEIGHTS,
+  resolveBottomBar, letterboxPx, LETTERBOX_MIN, BOTTOM_BAR_MODES, BAR_HEIGHTS,
 } from "./layoutPrefs.js";
 
 function memoryStorage(seed = {}) {
@@ -33,6 +33,14 @@ test("unknown stored values fall back to defaults", () => {
 test("mode catalogs cover the persisted space", () => {
   assert.ok(BOTTOM_BAR_MODES.includes(defaultLayoutPrefs().bottomBar));
   assert.ok(BAR_HEIGHTS.includes(defaultLayoutPrefs().barHeight));
+});
+
+test("letterboxPx is the screen-minus-layout gap, ignoring noise", () => {
+  assert.equal(letterboxPx(844, 844), 0);
+  assert.equal(letterboxPx(844, 840), 0); // 4px < LETTERBOX_MIN
+  assert.equal(letterboxPx(844, 844 - LETTERBOX_MIN), 0);
+  assert.equal(letterboxPx(844, 797), 47);
+  assert.equal(letterboxPx(852, 771), 81);
 });
 
 test("auto resolves by the bootstrap's letterbox measurement", () => {

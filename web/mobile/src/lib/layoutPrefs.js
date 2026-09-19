@@ -1,4 +1,13 @@
 const KEY = "picode-layout";
+export const LETTERBOX_MIN = 24;
+
+// How tall the WebKit standalone letterbox is: the layout viewport is
+// shorter than the screen by a status-bar-sized strip parked below it
+// (WebKit 313800). Gaps of 24px or less are noise, not that strip.
+export function letterboxPx(screenHeight, innerHeight) {
+  const gap = Math.round(Number(screenHeight) - Number(innerHeight));
+  return gap > LETTERBOX_MIN ? gap : 0;
+}
 
 // Where the bottom bar's buttons sit and how tall the bar is — the two
 // dials a phone owner needs to fit the shell to their screen. "auto" keeps

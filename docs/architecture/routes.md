@@ -62,8 +62,10 @@ strip below the layout viewport that no element can reach and still reports
 `env(safe-area-inset-bottom)` inside it (WebKit 313800/254868); the mobile
 shell detects that mode at bootstrap (`navigator.standalone`), treats the
 bottom inset as already reserved — Safari and Android keep real insets —
-and paints the canvas so the unreachable strip continues the surface above
-it (tab-bar panel on tab screens, content background when pushed).
+and measures the gap as `--letterbox` (`screen.height - innerHeight`).
+Tab screens paint the canvas so the strip continues the tab bar; a pushed
+screen (terminal, agent) grows `#m-app` into the strip so it is not a blank
+band under the TUI. "Screen edge" in Layout uses the same variable.
 The status bar itself is opaque (`black` in dark, `default` in light): iOS 26
 Liquid Glass frosts `black-translucent` over the header. Heads still pad with
 `env(safe-area-inset-top)`, which is 0 when the bar is opaque.

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { KEYBOARD_INSET_THRESHOLD, inputIsFocused, shellLayout } from "@picode/shared/domain/keyboardInset.js";
 import { scheduleTermFit } from "@picode/shared/domain/termFit.js";
+import { letterboxPx } from "../lib/layoutPrefs.js";
 import { terms } from "../lib/terms.js";
 
 // Pin #m-app to the visual viewport only while the software keyboard
@@ -35,6 +36,7 @@ export function useVisualViewport() {
         el.style.removeProperty("--vv-offset-top");
         el.style.setProperty("--kb-inset", "0px");
         el.classList.remove("kb-open");
+        document.documentElement.style.setProperty("--letterbox", letterboxPx(window.screen.height, innerHeight) + "px");
         return;
       }
       el.style.setProperty("--vv-height", layout.height + "px");
