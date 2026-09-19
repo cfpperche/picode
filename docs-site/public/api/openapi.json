@@ -4978,6 +4978,30 @@
         "tags": [
           "inbox"
         ]
+      },
+      "get": {
+        "operationId": "getApiInbox",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "inbox"
+        ]
       }
     },
     "/api/inbox/{id}/respond": {
