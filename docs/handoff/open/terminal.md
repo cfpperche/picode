@@ -4,7 +4,7 @@
 
 ## Debts
 
-- Terminal menus (2026-09-09): the phone's rows are hand-built, not from `termRowMenu.js` (they gained **Send to terminal…** / **Run command…** on 2026-09-13), so desktop rows must be mirrored by hand; **Continue in…** waits on that merge.
+- Agent CLIs Terminals ⋯ on the phone is still hand-built (Launch settings / Restart / Stop / Remove), not `termRowMenu`. Work rows use the shared menu (`surface: "phone"`) since 2026-09-19.
 - Scrollbars: the web terminal draws none (a tmux client has no scrollback — `term-scrollbar.test.mjs`); a draggable bar means taking the tmux client off the alternate screen, a decision.
 
 ## Traps
