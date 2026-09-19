@@ -127,12 +127,26 @@ export function parsePick(value) {
 
 // stylesToCSS is how the note carries the computed styles: one `prop: value`
 // per line, empty ones dropped — readable by an agent, not a JSON blob.
-export function stylesToCSS(styles) {
-  if (!styles || typeof styles !== "object") return "";
-  return Object.entries(styles)
-    .filter(([, v]) => typeof v === "string" && v.trim() !== "")
-    .map(([k, v]) => `${k}: ${v.trim()}`)
-    .join("\n");
+//
+// When the style inspector proposed changes, they follow a `/* proposed */`
+// marker in the same shape, so the agent reads what the page HAD and what the
+// human wants side by side. The two must not be one list: the preview mutates
+// the live element, and a single list of values would read as "this is the
+// page", which is the one thing it is not (v2c step 5, owner 2026-09-18).
+export function stylesToCSS(styles, edits) {
+  const lines = [];
+  if (styles && typeof styles === "object") {
+    for (const [k, v] of Object.entries(styles)) {
+      if (typeof v === "string" && v.trim() !== "") lines.push(`${k}: ${v.trim()}`);
+    }
+  }
+  const changed = Object.entries(edits && typeof edits === "object" ? edits : {})
+    .filter(([, v]) => v && typeof v === "object" && String(v.to ?? "").trim() !== "");
+  if (changed.length) {
+    lines.push("/* proposed */");
+    for (const [k, v] of changed) lines.push(`${k}: ${String(v.to).trim()}`);
+  }
+  return lines.join("\n");
 }
 
 // pickLabel is the one line the overlay shows for the chosen element.
@@ -149,6 +163,21 @@ import { isTermTab, tabTermId } from "./routes.js";
 export function sendLabel(count) {
   const n = Number(count) || 0;
   return n > 0 ? `Send ${n}` : "Send";
+}
+
+// normalizeEdits keeps the inspector's proposals trustworthy: a prop ->
+// {from, to} map of non-empty strings, everything else dropped before it can
+// reach the note or the store.
+function normalizeEdits(raw) {
+  const out = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const [k, v] of Object.entries(raw)) {
+    if (!k || !v || typeof v !== "object") continue;
+    const to = typeof v.to === "string" ? v.to.trim() : "";
+    if (!to) continue;
+    out[String(k)] = { from: typeof v.from === "string" ? v.from : "", to };
+  }
+  return out;
 }
 
 // stateItems normalizes a state sync from the page into trusted items: the
@@ -174,6 +203,10 @@ export function stateItems(msg) {
         height: Number(rect.height) || 0,
       },
       styles: it.styles && typeof it.styles === "object" ? it.styles : {},
+      // What the inspector proposed, prop -> {from, to}: the note says both,
+      // and the Send reads this (never the live element, which carries the
+      // preview's own mutation).
+      styleEdits: normalizeEdits(it.styleEdits),
       vw: Number(it.vw) || 0,
       vh: Number(it.vh) || 0,
       comment: typeof it.comment === "string" ? it.comment : "",

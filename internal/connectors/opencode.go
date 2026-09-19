@@ -1,6 +1,7 @@
 package connectors
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -150,6 +151,15 @@ func (d OpenCode) List(p Paths) (mcp.Report, error) {
 			if !seen[s.Name] {
 				rep.Servers = append(rep.Servers, s)
 				seen[s.Name] = true
+			}
+		}
+	}
+	// The vendor list is the headless status signal (ADR-0150 decision 4):
+	// report what it says, never invent. A slow or missing CLI is skipped.
+	if live := opencodeLive(p); len(live) > 0 {
+		for i := range rep.Servers {
+			if state, ok := live[rep.Servers[i].Name]; ok {
+				rep.Servers[i].Live = state
 			}
 		}
 	}
@@ -399,4 +409,66 @@ func opencodeEntryMap(e mcp.Entry, prev map[string]any) map[string]any {
 		delete(out, "environment")
 	}
 	return out
+}
+
+// opencodeLive parses `opencode mcp list` — the vendor's own headless
+// status report (list MCP servers and their status). Measured 1.18.31:
+// box-drawing lines like "●  ○ probe disabled" (off), "●  ✗ remote failed"
+// (connection failure), healthy rows carry ● and no failure word. ANSI
+// colors ride the output and are stripped. Names not found in the probe
+// keep the honest empty Live.
+func opencodeLive(p Paths) map[string]string {
+	if !installed(opencodeBin) {
+		return nil
+	}
+	key := "opencode|" + p.home() + "|" + p.Cwd
+	if live, ok := cachedStatus(key); ok {
+		return live
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
+	defer cancel()
+	out, err := runVendorCLIContext(ctx, opencodeBin, "mcp", "list")
+	if err != nil {
+		return nil // a hung or broken CLI is skipped this round, never invented
+	}
+	live := map[string]string{}
+	ansi := func(s string) string {
+		var b strings.Builder
+		for i := 0; i < len(s); i++ {
+			if s[i] == 0x1b {
+				for i < len(s) && s[i] != 'm' {
+					i++
+				}
+				continue
+			}
+			b.WriteByte(s[i])
+		}
+		return b.String()
+	}
+	for _, raw := range strings.Split(out, "\n") {
+		line := strings.Map(func(r rune) rune {
+			if strings.ContainsRune("│┌└─├┤", r) {
+				return -1
+			}
+			return r
+		}, ansi(raw))
+		trimmed := strings.TrimLeft(line, " ●○✗*")
+		if trimmed == "" || trimmed == line {
+			continue // no status glyph on this line
+		}
+		name := strings.Fields(trimmed)
+		if len(name) == 0 {
+			continue
+		}
+		switch {
+		case strings.Contains(line, "disabled"):
+			// off is the enabled flag's own pane state, not connection health
+		case strings.Contains(line, "failed"):
+			live[name[0]] = "failed"
+		default:
+			live[name[0]] = "live"
+		}
+	}
+	putStatus(key, live)
+	return live
 }

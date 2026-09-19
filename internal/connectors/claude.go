@@ -119,6 +119,7 @@ func (Claude) listUser(layer mcp.Layer) ([]mcp.Server, error) {
 		return nil, nil
 	}
 	stdout, err := runVendorCLI(claudeBin, "mcp", "list")
+
 	if err != nil {
 		return nil, err
 	}
@@ -205,8 +206,22 @@ func claudeRowsFromLines(out string, layer mcp.Layer) []mcp.Server {
 		if name == "" || !claudeRowName(name) {
 			continue
 		}
+		// Health rides the same line the target does (claude health-checks
+		// on list): the glyphs are the vendor's own headless status signal
+		// (ADR-0150 decision 4 — reported, never invented). Pending
+		// approval is a project-approval state, not connection health.
+		live := ""
+		for _, m := range []struct{ marker, state string }{
+			{" - ✓", "live"}, {" - ✗", "failed"}, {" - ✘", "failed"},
+			{"- ✓", "live"}, {"- ✗", "failed"}, {"- ✘", "failed"},
+		} {
+			if strings.Contains(rest, m.marker) {
+				live = m.state
+				break
+			}
+		}
 		rest = trimHealth(rest)
-		row := mcp.Server{Name: name, Layer: layer.ID, Path: layer.Path, Scope: layer.Scope, Owned: layer.Writable}
+		row := mcp.Server{Name: name, Layer: layer.ID, Path: layer.Path, Scope: layer.Scope, Owned: layer.Writable, Live: live}
 		if rest != "" {
 			row.Command = rest
 			// A URL target is a remote server: report it like the file

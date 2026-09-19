@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -266,4 +267,61 @@ func sortKeys(m map[string]string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// probeTimeout bounds one vendor status probe. A pane load must not wait on
+// a hung CLI; a probe that outlives it is skipped this round (the cache
+// retry comes with the next pane load).
+const probeTimeout = 15 * time.Second
+
+// statusTTL is how long a vendor status probe answers from cache. Vendor
+// CLIs fork and (for claude) health-check their servers; a pane reload must
+// not repeat that on every GET.
+const statusTTL = 60 * time.Second
+
+type statusEntry struct {
+	at   time.Time
+	live map[string]string
+}
+
+// statusCache memoizes vendor probes per driver and HOME/CWD pair. It is
+// package-level because drivers are stateless structs.
+var statusCache = struct {
+	mu      sync.Mutex
+	entries map[string]statusEntry
+}{entries: map[string]statusEntry{}}
+
+// cachedStatus returns the probe result for key when it is younger than
+// statusTTL, otherwise ok=false (the caller re-probes).
+func cachedStatus(key string) (map[string]string, bool) {
+	statusCache.mu.Lock()
+	defer statusCache.mu.Unlock()
+	e, ok := statusCache.entries[key]
+	if !ok || time.Since(e.at) >= statusTTL {
+		return nil, false
+	}
+	return e.live, true
+}
+
+func putStatus(key string, live map[string]string) {
+	statusCache.mu.Lock()
+	defer statusCache.mu.Unlock()
+	statusCache.entries[key] = statusEntry{at: time.Now(), live: live}
+}
+
+// runVendorCLIContext shells out to the vendor CLI under ctx — the probe
+// flavor of runVendorCLI with a tighter budget than API requests.
+func runVendorCLIContext(ctx context.Context, bin string, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, bin, args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			msg = err.Error()
+		}
+		return stdout.String(), fmt.Errorf("%s failed: %s", bin, msg)
+	}
+	return stdout.String(), nil
 }

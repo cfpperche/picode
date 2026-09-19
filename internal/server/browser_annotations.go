@@ -203,7 +203,10 @@ func annotationNote(url, title, selector, comment, dom, css, shot string) string
 		fmt.Fprintf(&b, "\nHTML:\n```html\n%s\n```\n", clipText(strings.TrimSpace(dom)))
 	}
 	if strings.TrimSpace(css) != "" {
-		fmt.Fprintf(&b, "\nComputed styles:\n```css\n%s\n```\n", clipText(strings.TrimSpace(css)))
+		// "Styles", not "computed styles": the block carries what the page had
+		// AND — after a /* proposed */ marker — what the human wants instead
+		// (the style inspector, v2c step 5).
+		fmt.Fprintf(&b, "\nStyles:\n```css\n%s\n```\n", clipText(strings.TrimSpace(css)))
 	}
 	return b.String()
 }

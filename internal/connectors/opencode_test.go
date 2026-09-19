@@ -372,3 +372,56 @@ func TestOpencodeToggleWritePathKeepsOtherScope(t *testing.T) {
 		t.Fatalf("project file not toggled: %v", docs)
 	}
 }
+
+// `opencode mcp list` is the headless status signal (ADR-0150 d4): rows
+// measured live on 1.18.31 — box-drawing, ANSI colors, ● healthy,
+// "✗ <name> failed", "○ <name> disabled". List merges the vendor verdict
+// into the file rows by name; a second List inside the TTL reuses the cache.
+func TestOpenCodeLiveStatusFromVendorList(t *testing.T) {
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	// Octal escapes: /bin/sh is dash here, and its printf does not speak \x.
+	script := "#!/bin/sh\nPATH=\"$PATH:/usr/bin:/bin\"\necho \"$@\" >> \"" + log + "\"\n" +
+		"if [ \"$1\" = mcp ] && [ \"$2\" = list ]; then printf '\342\224\202\n\342\227\217  \342\227\213 probe \033[90mdisabled\n\342\224\202      \033[90m/bin/echo hi\n\342\227\217  \342\234\227 remote \033[90mfailed\n\342\224\202      SSE error: nope\n\342\227\217  \342\227\217 healthy \033[90m\n\342\224\202\n\342\224\224  3 server(s)\n'; exit 0; fi\nexit 0\n"
+	if err := os.WriteFile(filepath.Join(dir, "opencode"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	home := t.TempDir()
+	p := Paths{Home: home}
+	if err := os.MkdirAll(filepath.Join(home, ".config", "opencode"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	seed := `{"mcp":{"probe":{"type":"local","command":["/bin/echo"]},"remote":{"type":"remote","url":"https://x.example/mcp"},"healthy":{"type":"local","command":["/bin/echo"]}}}`
+	if err := os.WriteFile(filepath.Join(home, ".config", "opencode", "opencode.json"), []byte(seed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rep, err := (OpenCode{}).List(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{"probe": "", "remote": "failed", "healthy": "live"}
+	for _, s := range rep.Servers {
+		if s.Live != want[s.Name] {
+			t.Fatalf("%s live = %q, want %q", s.Name, s.Live, want[s.Name])
+		}
+	}
+	// Second list inside the status TTL answers from the probe cache.
+	before := readCalls(t, log)
+	if _, err := (OpenCode{}).List(p); err != nil {
+		t.Fatal(err)
+	}
+	if after := readCalls(t, log); len(after) != len(before) {
+		t.Fatalf("probe re-ran inside the TTL: %v -> %v", before, after)
+	}
+}
+
+func readCalls(t *testing.T, log string) []string {
+	t.Helper()
+	raw, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.Split(strings.TrimSpace(string(raw)), "\n")
+}

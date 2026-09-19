@@ -315,3 +315,44 @@ func mustRead(t *testing.T, path string) string {
 	}
 	return string(b)
 }
+
+// `hermes mcp list` is the headless status signal (ADR-0150 d4). Measured
+// v0.21.3: a table whose last column carries the status ("✗ disabled");
+// healthy rows show ✓ (token per vendor docs — the disabled row is the
+// measured one). List merges the vendor verdict into the file rows.
+func TestHermesLiveStatusFromVendorList(t *testing.T) {
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	script := "#!/bin/sh\nPATH=\"$PATH:/usr/bin:/bin\"\necho \"$@\" >> \"" + log + "\"\n" +
+		"if [ \"$1\" = mcp ] && [ \"$2\" = list ]; then printf '  MCP Servers:\\n\\n  Name             Transport                      Tools        Status    \\n  \\342\\224\\200\\342\\224\\200\\342\\224\\200\\342\\224\\200\\n  probe            /bin/echo hi                   all          \\342\\234\\227 disabled\\n  remote           https://x.example/mcp          -            \\342\\234\\223 connected\\n'; exit 0; fi\nexit 0\n"
+	if err := os.WriteFile(filepath.Join(dir, "hermes"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+	home := t.TempDir()
+	p := Paths{Home: home}
+	if err := os.MkdirAll(filepath.Join(home, ".hermes"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	seed := "mcp_servers:\n  probe:\n    command: /bin/echo\n  remote:\n    url: https://x.example/mcp\n"
+	if err := os.WriteFile(filepath.Join(home, ".hermes", "config.yaml"), []byte(seed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rep, err := (Hermes{}).List(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{"probe": "", "remote": "live"}
+	for _, s := range rep.Servers {
+		if s.Live != want[s.Name] {
+			t.Fatalf("%s live = %q, want %q", s.Name, s.Live, want[s.Name])
+		}
+	}
+	before := readCalls(t, log)
+	if _, err := (Hermes{}).List(p); err != nil {
+		t.Fatal(err)
+	}
+	if after := readCalls(t, log); len(after) != len(before) {
+		t.Fatalf("probe re-ran inside the TTL: %v -> %v", before, after)
+	}
+}
