@@ -141,6 +141,28 @@
   const cancelBtn = card.querySelector(".cancel");
   const menu = root.querySelector(".menu");
 
+  // Page hotkeys must never see keystrokes meant for the card. The event is
+  // retargeted to the host once it leaves the shadow root — a div, not a
+  // form field — so a page listener's "ignore while typing" check fails and
+  // its single-letter shortcut fires: GitHub's "s" opened its search over
+  // the card mid-word (owner 2026-09-18). The shield bubbles after the input
+  // already took the key (insertion is a default action) and stops before
+  // document/window listeners. The pointer shields close the same leak for
+  // clicks that land on the card over a page control.
+  const SHIELD_EVENTS = [
+    "keydown",
+    "keypress",
+    "keyup",
+    "pointerdown",
+    "pointerup",
+    "mousedown",
+    "mouseup",
+    "dblclick",
+  ];
+  for (const type of SHIELD_EVENTS) {
+    root.addEventListener(type, (e) => e.stopPropagation(), false);
+  }
+
   let on = false;
   let seq = 0;
   let cardOpen = false;
@@ -468,8 +490,14 @@
 
   const onKey = (e) => {
     if (!on) return;
+    // This listener lives on the document, outside the shadow tree, where the
+    // event target is retargeted to the host — so "is this the card's input?"
+    // cannot be asked by comparing the event target to the input element (it
+    // is the host; Enter-to-save was dead for exactly that reason until
+    // 2026-09-18). The open card IS the answer: Enter saves it, Escape
+    // cancels or closes it.
     if (inHost(e)) {
-      if (e.key === "Enter" && e.target === input) {
+      if (e.key === "Enter" && cardOpen) {
         e.preventDefault();
         e.stopPropagation();
         save();
@@ -481,7 +509,7 @@
       }
       return;
     }
-    if (e.key === "Enter" && cardOpen && e.target === input) {
+    if (e.key === "Enter" && cardOpen) {
       e.preventDefault();
       e.stopPropagation();
       save();

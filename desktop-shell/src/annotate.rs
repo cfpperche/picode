@@ -85,6 +85,36 @@ mod tests {
             assert!(SCRIPT.matches(needle).count() >= 3, "pins, chips and menus lock too: {needle}");
         }
     }
+
+    // Keystrokes typed in the card must not reach the page: outside the
+    // shadow root the event retargets to the host (a div, not a form field),
+    // so a page's "ignore while typing" check fails and its single-letter
+    // hotkey fires — GitHub's "s" opened its search over the card mid-word
+    // (owner 2026-09-18, reproduced against @github/hotkey with a real key).
+    // The shield stops propagation at the shadow root, after the input took
+    // the key.
+    #[test]
+    fn the_script_shields_its_own_keys_and_pointers_from_the_page() {
+        assert!(SCRIPT.contains("const SHIELD_EVENTS = ["), "the shield list is gone");
+        for ev in ["\"keydown\"", "\"keypress\"", "\"keyup\""] {
+            assert!(SCRIPT.contains(ev), "the shield lost {ev}");
+        }
+        assert!(
+            SCRIPT.contains("root.addEventListener(type, (e) => e.stopPropagation(), false)"),
+            "the shield must stop propagation at the shadow root"
+        );
+    }
+
+    // Enter saves only through the open-card flag: a document-level listener
+    // sees the event target retargeted to the host, so `e.target === input`
+    // is never true there and Enter-to-save silently did nothing.
+    #[test]
+    fn enter_saves_through_the_card_flag_not_the_retargeted_target() {
+        assert!(!SCRIPT.contains("e.target === input"), "retargeted target decides nothing");
+        assert!(SCRIPT.contains("if (e.key === \"Enter\" && cardOpen)"));
+    }
+
+    // The wire contract: the page posts the message OBJECT and lets the
     // host serialize it once. A pre-stringified text risks coming back from
     // WebMessageAsJson JSON-encoded a second time, which the chrome parses
     // into a string with no kind and drops silently (owner 2026-09-18).

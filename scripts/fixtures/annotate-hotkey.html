@@ -1,0 +1,95 @@
+<!doctype html>
+<html>
+<!--
+  annotate-hotkey — reproduction harness for the injected annotate script
+  (desktop-shell/src/annotate.js) against a PAGE that owns the keyboard.
+
+  Why: the annotation card lives in a shadow root. A keystroke typed in it
+  crosses the shadow boundary composed, and outside the tree its target is
+  retargeted to the HOST — a div, not a form field. A page hotkey library
+  that skips form fields therefore treats the keystroke as a page shortcut:
+  GitHub's "s" opened its search over the card mid-word and swallowed the
+  character (owner 2026-09-18, screenshots). The script answers with a
+  propagation shield at the shadow root.
+
+  This page uses the REAL library GitHub ships (@github/hotkey, loaded from
+  unpkg), with a "Search or jump to…" dialog on the "s" hotkey. No PiCode
+  instance, no desktop shell: serve it and inject the script by hand.
+
+  How to run it (all three steps were run for the 2026-09-18 fix):
+    1. serve:   python3 -m http.server 8904 --bind 127.0.0.1   (from this dir)
+    2. script:  copy desktop-shell/src/annotate.js here, relax the shadow
+                root for inspection, and inject it:
+                  sed 's/mode: "closed"/mode: "open"/' annotate.js > script.js
+                then, in the browser session:
+                  eval "(() => { window.__posted = []; window.chrome = { webview:
+                        { postMessage(m) { window.__posted.push(m); } } };
+                        const s = document.createElement('script');
+                        s.src = '/script.js'; document.head.appendChild(s); return 'injected'; })()"
+    3. pin:     eval-click #home, focus the card input, then press real keys
+                (agent-browser `press s` sends a trusted keydown; `keyboard
+                type` inserts text WITHOUT key events, so it proves nothing):
+                  eval "(() => { const h = document.querySelector('[data-picode-annotate]');
+                        const el = document.getElementById('home'); const r = el.getBoundingClientRect();
+                        el.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.left + 20, clientY: r.top + 8 }));
+                        h.shadowRoot.querySelector('.card input').focus(); return 'pinned'; })()"
+                  press t   →  press e  →  press s   (the "s" is the whole test)
+                  eval "(() => JSON.stringify({ value: document.querySelector('[data-picode-annotate]')
+                        .shadowRoot.querySelector('.card input').value,
+                        hotkeyPanelOpen: !document.getElementById('search').hidden }))()"
+
+  Expected (fixed script): value "tes", hotkeyPanelOpen false, card open.
+  The bug (2026-09-18):    value "",    hotkeyPanelOpen true, focus stolen —
+                           the library saw target=DIV and fired, and its
+                           preventDefault ate the "s".
+  Also covered by the same run: press Enter saves (`saved` in __posted,
+  state.count 1), a semantic click on role=button "Save" saves (the pointer
+  shield must not eat it), and one Escape exits the mode.
+-->
+<head>
+  <meta charset="utf-8">
+  <title>annotate-hotkey harness</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; background: #fff; color: #111; }
+    .nav { display: flex; gap: 12px; align-items: center; margin-bottom: 20px; }
+    .fake-search { flex: 1; max-width: 420px; padding: 7px 12px; border: 1px solid #d0d7de; border-radius: 6px; color: #59636e; font-size: 13px; background: #f6f8fa; }
+    h1 { font-size: 22px; }
+    .card { border: 1px solid #d0d7de; border-radius: 10px; padding: 16px 18px; max-width: 520px; margin-bottom: 12px; }
+    /* [hidden] must win: a bare display:flex on #search would keep the panel
+       painted over the page and the whole harness would lie. */
+    #search[hidden] { display: none; }
+    #search { position: fixed; inset: 0; background: rgba(0, 0, 0, .35); display: flex; align-items: flex-start; justify-content: center; padding-top: 120px; }
+    .panel { background: #fff; width: 640px; border-radius: 12px; padding: 16px; box-shadow: 0 20px 50px rgba(0, 0, 0, .35); }
+    .panel input { width: 100%; padding: 9px 12px; font-size: 14px; border: 1px solid #8250df; border-radius: 8px; outline: none; box-sizing: border-box; }
+    .panel .row { display: flex; justify-content: space-between; padding: 8px 4px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <strong>Acme</strong>
+    <span class="fake-search" id="search-trigger" data-hotkey="s">Search or jump to…</span>
+  </div>
+  <h1 id="home">Home</h1>
+  <div class="card" id="c1"><strong>Top repositories</strong><p>Find a repository…</p></div>
+  <div class="card" id="c2"><strong>Feed</strong><p>router-for-me/CLIProxyAPI released v7.3.8</p></div>
+  <div id="search" hidden>
+    <div class="panel">
+      <input id="q" placeholder="Search or jump to…" aria-label="Search">
+      <div class="row"><span>Owners</span><span>Jump to</span></div>
+      <div class="row"><span>Repositories</span><span>Jump to</span></div>
+      <div class="row"><span>Suggestions</span><span>Chat with Copilot</span></div>
+    </div>
+  </div>
+  <script type="module">
+    // The real thing, unmodified: install(element) reads data-hotkey and
+    // listens `keydown` on document (bubble), skipping form fields — the
+    // check that fails once the event leaves a shadow root.
+    const { install } = await import('https://unpkg.com/@github/hotkey@3/dist/index.js');
+    const trigger = document.getElementById('search-trigger');
+    const panel = document.getElementById('search');
+    trigger.addEventListener('click', () => { panel.hidden = false; document.getElementById('q').focus(); });
+    install(trigger);
+    window.__harnessReady = true;
+  </script>
+</body>
+</html>

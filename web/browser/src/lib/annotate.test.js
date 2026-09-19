@@ -139,6 +139,31 @@ test("the batch is one context: a head line plus numbered pins", () => {
   assert.equal(batchMessage({}), "0 annotations");
 });
 
+test("the injected page script shields its own keys from page hotkeys", () => {
+  // Owner 2026-09-18: typing "s" in the card opened GitHub's search over it.
+  // Outside the shadow root the event retargets to the host — a div, not a
+  // form field — so the page's "ignore while typing" check fails and its
+  // hotkey fires. The shield stops propagation at the shadow root, after the
+  // input took the key. Reproduced against @github/hotkey in a real browser.
+  const src = readFileSync(
+    new URL("../../../../desktop-shell/src/annotate.js", import.meta.url),
+    "utf8",
+  );
+  assert.ok(src.includes("const SHIELD_EVENTS = ["), "the shield list is gone");
+  for (const ev of ["\"keydown\"", "\"keypress\"", "\"keyup\""]) {
+    assert.ok(src.includes(ev), `the shield lost ${ev}`);
+  }
+  assert.ok(
+    src.includes("root.addEventListener(type, (e) => e.stopPropagation(), false)"),
+    "the shield must stop propagation at the shadow root",
+  );
+  // Enter-to-save cannot ask "is the target the card's input?": a document
+  // listener sees the target retargeted to the host. The open card is the
+  // answer (this read as "Enter does nothing" until 2026-09-18).
+  assert.ok(!src.includes("e.target === input"), "the retargeted target decides nothing");
+  assert.ok(src.includes('if (e.key === "Enter" && cardOpen)'), "Enter rides the card flag");
+});
+
 test("page events unwrap to {id, inner} at any encoding depth", () => {
   const state = { kind: "state", count: 1, items: [] };
   // the shell's envelope as text, the page's object as text: the normal path
