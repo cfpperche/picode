@@ -27,8 +27,20 @@ pub enum Button {
     Middle,
 }
 
-/// The most characters one `type` sends: a pasted novel is not a keystroke.
-pub const MAX_TYPE: usize = 10_000;
+/// The most characters one `type` sends in one call. With `TYPE_PACE`
+/// between characters this is 10 s, inside the daemon's 20 s window for the
+/// action; a longer text is split by the caller (the tool says so).
+pub const MAX_TYPE: usize = 2_000;
+
+/// The pause between two typed characters. Measured 2026-09-18 in Windows
+/// 11 Notepad through the real line (Claude Code → picode mcp → daemon →
+/// shell): `KEYEVENTF_UNICODE` events fired back to back arrive at the app
+/// as the *last* character repeated — two characters survived, eleven did
+/// not (" 0123456789" landed as " 9999999999"). The app translates each
+/// packet message when it gets to it, and a queue that already holds later
+/// packets hands it the newest one. A pause lets each packet be translated
+/// before the next is posted.
+pub const TYPE_PACE: Duration = Duration::from_millis(5);
 
 fn send(inputs: &[INPUT]) -> Result<(), String> {
     let n = unsafe { SendInput(inputs, std::mem::size_of::<INPUT>() as i32) } as usize;
@@ -220,6 +232,7 @@ pub fn type_text(text: &str) -> Result<(), String> {
                 }
             }
         }
+        std::thread::sleep(TYPE_PACE);
     }
     Ok(())
 }
