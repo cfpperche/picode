@@ -1,5 +1,5 @@
 import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import * as Switch from "@radix-ui/react-switch";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
@@ -541,6 +541,7 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
                     </div>
                   </div>
                 ) : null}
+                <button type="button" className="btn btn-ghost" disabled={!!job} onClick={openCustom}>Custom server…</button>
               </div>
               {catError ? (
                 <div className="mcp-empty">
@@ -564,43 +565,47 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
                 </ul>
               ) : hits.length ? (
                 <>
-                  <ul className="pkg-grid" aria-busy={searching}>
-                    {hits.map((h) => {
-                      const on = configuredNames.has(h.id);
-                      return (
-                        <li key={h.id} className="pkg-card">
-                          <div className="pkg-preview" aria-hidden="true">
-                            <span className="conn-tile">{(h.name || h.id || "?").trim().charAt(0).toUpperCase()}</span>
-                          </div>
-                          <div className="pkg-card-body">
-                            <div className="pkg-card-head">
-                              <span className="pkg-card-name" title={h.name}>{h.name}</span>
-                              <span className="pkg-type">{h.kind === "stdio" ? "Local command" : "Remote"}</span>
-                              {h.auth === "oauth" ? <span className="pkg-type">Sign-in required</span> : null}
-                            </div>
-                            <p className="pkg-card-desc">{h.summary || " "}</p>
-                            <div className="pkg-card-foot">
-                              <span className="pkg-foot-spacer" />
-                              <button
-                                type="button"
-                                className="btn btn-primary btn-sm"
-                                disabled={!!job || on}
-                                onClick={() => addServer(connectorAddBody(h))}
-                              >{on ? "Added" : "Add"}</button>
-                            </div>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  <div className="connector-secondary" data-align-row>
-                    <button type="button" className="btn btn-ghost" disabled={!!job} onClick={openCustom}>Custom server…</button>
-                  </div>
+                  {[
+                    ["PiCode", hits.filter((h) => h.source === "picode")],
+                    ["Catalog", hits.filter((h) => h.source !== "picode")],
+                  ].map(([group, rows]) => rows.length ? (
+                    <Fragment key={group}>
+                      <p className="mcp-group-label connector-group">{group}</p>
+                      <ul className="pkg-grid" aria-busy={searching}>
+                        {rows.map((h) => {
+                          const on = configuredNames.has(h.id);
+                          return (
+                            <li key={h.id} className="pkg-card">
+                              <div className="pkg-preview" aria-hidden="true">
+                                <span className="conn-tile">{(h.name || h.id || "?").trim().charAt(0).toUpperCase()}</span>
+                              </div>
+                              <div className="pkg-card-body">
+                                <div className="pkg-card-head">
+                                  <span className="pkg-card-name" title={h.name}>{h.name}</span>
+                                  <span className="pkg-type">{h.kind === "stdio" ? "Local" : "Remote"}</span>
+                                  {h.auth === "oauth" ? <span className="pkg-type">Sign-in required</span> : null}
+                                </div>
+                                <p className="pkg-card-desc">{h.summary || " "}</p>
+                                <div className="pkg-card-foot">
+                                  <span className="pkg-foot-spacer" />
+                                  <button
+                                    type="button"
+                                    className="btn btn-primary btn-sm"
+                                    disabled={!!job || on}
+                                    onClick={() => addServer(connectorAddBody(h))}
+                                  >{on ? "Added" : "Add"}</button>
+                                </div>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </Fragment>
+                  ) : null)}
                 </>
               ) : (
                 <div className="mcp-empty">
-                  <p>No connectors match — try another word.</p>
-                  <button type="button" className="btn btn-primary" onClick={openCustom}>Custom server…</button>
+                  <p>No connectors match — try another word, or use Custom server… above.</p>
                 </div>
               )}
             </section>
