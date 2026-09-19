@@ -174,20 +174,40 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
   }, [id]);
   // The crop comes from a fresh viewport capture, cut with the element's rect
   // scaled from CSS pixels to the capture's own size (the page reports vw/vh).
+  // cropFromPreview returns { data, why }: the crop, and — when there is none
+  // — the step that gave up and what the shell said. The reason used to die
+  // in a bare `catch`, which is how a Send shipped the note alone for days
+  // with nobody able to say where it stopped (owner 2026-09-19).
   const cropFromPreview = async (msg) => {
-    if (!invoke || !msg || !msg.vw || !msg.vh || !msg.rect) return "";
+    if (!invoke) return { data: "", why: "this window has no desktop shell" };
+    if (!msg || !msg.vw || !msg.vh || !msg.rect) return { data: "", why: "the pin carried no element rect" };
+    // A capture taken while the native view is hidden comes back empty, and
+    // the view is hidden whenever a floating layer crosses the tab — a toast
+    // is one of them ([data-sonner-toast] is in the shared vocabulary, and a
+    // pick toast lives four seconds). So retry on a ladder that outlives
+    // that: 0, 1.5 s, 4 s. The last reason is kept for the case where the
+    // view was not the problem.
+    const RETRY_MS = [0, 1500, 4000];
+    let url = "";
+    let why = "";
     try {
-      // The native tab id, not the React tab id: this surface's other native
-      // calls (bounds, zoom, find) all pass the tail, and the crop came back
-      // empty for every Send until this matched (2026-09-19 — the shell
-      // resolves either shape now, but the call sites stay consistent).
-      const bytes = await invoke("btab_preview", { id });
-      const url = await previewUrl(bytes);
-      if (!url) return "";
+      for (let attempt = 0; attempt < RETRY_MS.length; attempt += 1) {
+        if (RETRY_MS[attempt]) await new Promise((r) => setTimeout(r, RETRY_MS[attempt]));
+        url = "";
+        try {
+          const bytes = await invoke("btab_preview", { id });
+          url = previewUrl(bytes);
+          if (url) break;
+          why = "the page preview came back empty";
+        } catch (e) {
+          why = String((e && (e.message || e)) || "the shell did not answer");
+        }
+      }
+      if (!url) return { data: "", why };
       const img = await new Promise((resolve, reject) => {
         const i = new Image();
         i.onload = () => resolve(i);
-        i.onerror = reject;
+        i.onerror = () => reject(new Error("the page preview did not decode"));
         i.src = url;
       });
       const rect = cropRect({
@@ -197,18 +217,21 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
         displayWidth: msg.vw,
         displayHeight: msg.vh,
       });
-      if (!rect) { URL.revokeObjectURL(url); return ""; }
+      if (!rect) return { data: "", why: "the element sits outside the captured frame" };
       const canvas = document.createElement("canvas");
       canvas.width = rect.width;
       canvas.height = rect.height;
       const ctx = canvas.getContext("2d");
-      if (!ctx) { URL.revokeObjectURL(url); return ""; }
+      if (!ctx) return { data: "", why: "this window cannot cut the image" };
       ctx.drawImage(img, rect.x, rect.y, rect.width, rect.height, 0, 0, rect.width, rect.height);
       const data = canvas.toDataURL("image/png");
-      URL.revokeObjectURL(url);
-      return data.startsWith("data:image/png;base64,") ? data.slice("data:image/png;base64,".length) : "";
-    } catch {
-      return "";
+      if (!data.startsWith("data:image/png;base64,")) return { data: "", why: "the crop did not encode" };
+      return { data: data.slice("data:image/png;base64,".length), why: "" };
+    } catch (e) {
+      const said = e && (e.message || e);
+      return { data: "", why: said ? String(said) : "the shell did not answer" };
+    } finally {
+      if (url) URL.revokeObjectURL(url);
     }
   };
 
@@ -239,8 +262,11 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
       const includeShots = policy === "never" ? false : policy === "always" ? true : annotShots;
       const paths = [];
       const staged = [];
+      let shotTrouble = "";
       for (const it of ready) {
-        const image = includeShots ? await cropFromPreview(it) : "";
+        const shot = includeShots ? await cropFromPreview(it) : { data: "", why: "" };
+        if (includeShots && !shot.data) shotTrouble = shot.why;
+        const image = shot.data;
         const res = await fetch("/api/browser/annotations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -275,6 +301,11 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
       }).catch(() => null);
       if (prompt && prompt.ok) {
         toast.ok(`${ready.length} annotation${ready.length === 1 ? "" : "s"} sent to ${live.name || live.id}.`);
+        // The note is delivered; a missing picture is its own truth, said
+        // out loud instead of vanishing (the crop's reason is the shell's own
+        // words when the invoke is what failed).
+        if (shotTrouble) toast("The screenshot did not come through: " + shotTrouble);
+        else if (!includeShots) toast("Sent without screenshots — the camera is off.");
         if (invoke) invoke("btab_annotate_clear", { id: tabId }).catch(() => {});
         setAnnotItems([]);
       } else {
