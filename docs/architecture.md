@@ -20,9 +20,11 @@ Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code and Antigravity
 commands. It reuses terminal records, tmux, invocation wrappers and the event
 feed. Muse Code, Antigravity and Omp are full catalog rows (sessions,
 editable launch, activity where the vendor surface carries identity —
-omp reports through a pi-shaped extension since it is a Pi fork). These are not Agent records: structured chat,
-JSON-RPC, packages, orchestration and session ownership remain Pi-only until
-a future decision supplies those contracts for another CLI.
+omp reports through a pi-shaped extension since it is a Pi fork). These are
+not Agent records: structured chat, JSON-RPC and Pi packages stay Pi-only
+(ADR-0091). A workspace may bind a CLI terminal as a **managed principal**
+(ADR-0159, `term:<id>`) without a composer or `Runtime.Start`; Inbox, fleet
+and automations rekey onto that identity in later slices.
 
 `picode install` (ADR-0018) enables a systemd **user** unit so it starts with
 this Linux session (WSL included). Its `KillMode=process` leaves tmux-owned
@@ -307,6 +309,7 @@ One file per subsystem under `docs/architecture/` (ADR-0105). A handler, store o
 
 | Subsystem | File |
 |---|---|
+| Managed CLI principals | [managed-principals.md](architecture/managed-principals.md) |
 
 ## Explicit non-goals
 

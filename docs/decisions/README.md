@@ -163,3 +163,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0156](0156-computer-foreground-guard.md) | computer-foreground-guard — input acts only in the window the agent last saw (amends ADR-0148, refinement d) | proposed |
 | [0157](0157-curated-connector-catalog.md) | curated-connector-catalog | proposed |
 | [0158](0158-cli-restart-resumes-session.md) | Restart an Agent CLI terminal resumes its pinned conversation | accepted, amends 0069 and 0084 |
+| [0159](0159-managed-cli-principals.md) | CLI terminals as managed principals — bind a guest TUI to a workspace without an agent row or chat | accepted, amends 0056/0069/0091 |

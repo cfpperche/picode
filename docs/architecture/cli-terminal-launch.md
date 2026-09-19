@@ -3,7 +3,9 @@
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
 `internal/clilaunch` holds a small catalog and configuration resolution; it
-does not implement an agent runtime. SQLite tables `cli_configs` and
+does not implement an agent runtime. A workspace may bind one of those
+terminals as a managed principal (ADR-0159) — see
+[managed-principals.md](managed-principals.md). Binding is not a runtime. SQLite tables `cli_configs` and
 `terminal_launches` store defaults and terminal overrides. First boot imports
 catalog rows: Activity reporting defaults **on** unless `enabled.json`
 explicitly lists the CLI as false. A missing key is not false — that freeze

@@ -20,10 +20,11 @@ import (
 // object here would read as a truthy agent with an empty id in the UI.
 type workspaceView struct {
 	store.Workspace
-	Agent      *agentView    `json:"agent,omitempty"` // first agent; kept for older clients
-	Agents     []agentView   `json:"agents"`
-	Git        *gitinfo.Info `json:"git,omitempty"`
-	HasFavicon bool          `json:"hasFavicon"`
+	Agent       *agentView         `json:"agent,omitempty"` // first agent; kept for older clients
+	Agents      []agentView        `json:"agents"`
+	ManagedCLIs []store.ManagedCLI `json:"managedClis"`
+	Git         *gitinfo.Info      `json:"git,omitempty"`
+	HasFavicon  bool               `json:"hasFavicon"`
 }
 
 type agentView struct {
@@ -73,6 +74,9 @@ func registerWorkspaceRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/agents/{id}/tasks", handleEnqueueTask(deps))
 	mux.HandleFunc("GET /api/agents/{id}/tasks", handleListTasks(deps))
 	mux.HandleFunc("POST /api/workspaces/{id}/agents", handleAddWorkspaceAgent(deps))
+	mux.HandleFunc("GET /api/workspaces/{id}/principals", handleListWorkspacePrincipals(deps))
+	mux.HandleFunc("POST /api/workspaces/{id}/principals", handleAddWorkspacePrincipal(deps))
+	mux.HandleFunc("DELETE /api/managed-clis/{id}", handleDeleteManagedCLI(deps))
 	mux.HandleFunc("GET /api/agents", handleListFreeAgents(deps))
 	mux.HandleFunc("POST /api/agents", handleAddFreeAgent(deps))
 	mux.HandleFunc("DELETE /api/agents/{id}", handleDeleteAgent(deps))
@@ -102,7 +106,11 @@ func (deps Deps) view(r *http.Request, w store.Workspace) (workspaceView, error)
 	if len(views) > 0 {
 		first = &views[0]
 	}
-	return workspaceView{Workspace: w, Agent: first, Agents: views, Git: gitinfo.Inspect(w.Path), HasFavicon: workspaceHasFavicon(w.Path)}, nil
+	managed, err := deps.Store.ListManagedCLIs(w.ID)
+	if err != nil {
+		return workspaceView{}, err
+	}
+	return workspaceView{Workspace: w, Agent: first, Agents: views, ManagedCLIs: managed, Git: gitinfo.Inspect(w.Path), HasFavicon: workspaceHasFavicon(w.Path)}, nil
 }
 
 func handleList(deps Deps) http.HandlerFunc {

@@ -5417,6 +5417,41 @@
         ]
       }
     },
+    "/api/managed-clis/{id}": {
+      "delete": {
+        "operationId": "deleteApiManaged-clis",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "managed-clis"
+        ]
+      }
+    },
     "/api/mcp": {
       "delete": {
         "operationId": "deleteApiMcp",
@@ -9926,6 +9961,65 @@
         ]
       }
     },
+    "/api/workspaces/{id}/principals": {
+      "get": {
+        "operationId": "getApiWorkspacesPrincipals",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      },
+      "post": {
+        "operationId": "postApiWorkspacesPrincipals",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
     "/api/workspaces/{id}/reveal": {
       "post": {
         "operationId": "postApiWorkspacesReveal",
@@ -10334,6 +10428,9 @@
     },
     {
       "name": "llama"
+    },
+    {
+      "name": "managed-clis"
     },
     {
       "name": "mcp"
