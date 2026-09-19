@@ -7,6 +7,13 @@
 
 ## Debts
 
+- **A flake in the gate, seen once (2026-09-19).** `TestCLIAdapterPreviewMatchesExecution`
+  failed in a parallel `make ci` shard with `TempDir RemoveAll cleanup: unlinkat
+  …/data/native-observations: directory not empty` — a writer still touching the
+  temp data dir while the test's cleanup removes it. It passes 3/3 alone and the
+  next full run was green, so the cost is a red gate once in a while, not a wrong
+  answer. Whoever owns the CLI inspection test owns the fix (wait for the writer,
+  or give the observation dir its own lifetime).
 - Native packages/providers/settings: real downloads, vendor OAuth, credential changes, device acceptance and a real process restart remain external.
 - Agent CLIs is not in `SURFACE_PROFILES`, so no docs-shots capture covers it.
 - A launch that failed inside tmux (session start refused after the row exists) keeps a covering test since Fatia 3a: the pre-flight still rejects the reachable failures first, and the dead-socket attempt persists without leaking a session.
