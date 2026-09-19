@@ -21,8 +21,9 @@ its state from the bound terminal: the subtitle names the CLI
 (`agentSubtitle`), the status pill and the Start/Restart/Stop menu act on
 the terminal (`agentRowMenu`, shared with the node tests), and Launch
 settings opens `#/clis/terminal/<terminalId>` — the same screens the
-Agent CLIs hub offers. A guest never offers Open chat: the TUI is the
-conversation (owner 2026-09-19).
+Agent CLIs hub offers. Its face is the CLI's favicon, the same one the
+terminal rows wear (`ProviderFace` → `GuestCliFace`); a guest never
+offers Open chat: the TUI is the conversation (owner 2026-09-19).
 
 HTTP:
 
