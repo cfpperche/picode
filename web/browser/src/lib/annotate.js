@@ -142,6 +142,8 @@ export function pickLabel(pick) {
   return `${pick.selector || pick.tag || "element"} — ${Math.round(r.width || 0)}×${Math.round(r.height || 0)}`;
 }
 
+import { isTermTab, tabTermId } from "./routes.js";
+
 // sendLabel is what rides the strip's Send button: the count of pending
 // (saved) annotations, or a bare Send when there is nothing to ship yet.
 export function sendLabel(count) {
@@ -215,6 +217,40 @@ export function parseAnnotMessage(outer) {
   }
   if (!inner || typeof inner !== "object") return null;
   return { id, inner };
+}
+
+// resolveSendTarget picks where a Send delivers (owner 2026-09-18: a
+// browser pane open on a session delivers to THAT session — never to
+// whatever terminal happens to run first).
+//
+// Decision table (a bound miss never falls through to a stranger session):
+// | bound session        | terminal in list     | result                                |
+// |----------------------|----------------------|---------------------------------------|
+// | term tab, running    | yes, running         | { kind: "terminal", id }              |
+// | term tab, stopped    | yes, not running     | { none, reason } — keep notes         |
+// | term tab, gone       | no                   | { none, reason } — keep notes         |
+// | agent tab            | same id, running     | { kind: "agent", agentId, terminalId }|
+// | agent tab            | missing / stopped    | { none, reason } — keep notes         |
+// | none (standalone)    | any running          | { kind: "terminal", first running }   |
+// | none (standalone)    | none running         | { none, "Nothing to send to…" }       |
+export function resolveSendTarget({ boundSession, terminals }) {
+  const list = Array.isArray(terminals) ? terminals : [];
+  const live = (id) => list.find((t) => t && t.id === id);
+  if (boundSession) {
+    if (isTermTab(boundSession)) {
+      const id = tabTermId(boundSession);
+      const t = live(id);
+      if (t && t.running) return { kind: "terminal", id, name: t.name || id };
+      if (t) return { none: true, reason: `${t.name || id} is not running — start it and Send again.` };
+      return { none: true, reason: "That terminal is gone." };
+    }
+    const t = live(boundSession);
+    if (t && t.running) return { kind: "agent", agentId: boundSession, terminalId: t.id, name: t.name || t.id };
+    return { none: true, reason: "That agent has no running terminal — open it in a terminal and Send again." };
+  }
+  const first = list.find((t) => t && t.running);
+  if (first) return { kind: "terminal", id: first.id, name: first.name || first.id };
+  return { none: true, reason: "Nothing to send to: no agent terminal is running." };
 }
 
 // batchMessage is the ONE context the agent gets for the whole set (the
