@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -43,8 +44,11 @@ const (
 	// refreshAfter is the cache age past which Search kicks one
 	// background refresh.
 	refreshAfter = 24 * time.Hour
-	// fetchTimeout bounds one background refresh.
-	fetchTimeout = 60 * time.Second
+	// fetchTimeout bounds one background refresh. The full registry is
+	// 8k+ servers over 80+ sequential pages; measured 2026-09-19, a 60s
+	// budget never finished a pass, so production stayed seed-only forever
+	// (the failure was swallowed and retried into the same wall).
+	fetchTimeout = 10 * time.Minute
 	// maxSearchHits caps what Search returns to the pane.
 	maxSearchHits = 200
 	// maxRegistryPages bounds pagination (100/page → 12k servers, above
@@ -179,7 +183,9 @@ func (s *Store) kickRefreshIfStale() {
 		}()
 		ctx, cancel := context.WithTimeout(context.Background(), fetchTimeout)
 		defer cancel()
-		_ = s.Refresh(ctx) // offline degrades to the seed; retried on a later search
+		if err := s.Refresh(ctx); err != nil {
+			log.Printf("mcpcatalog: background refresh failed (retried on a later search): %v", err)
+		}
 	}()
 }
 

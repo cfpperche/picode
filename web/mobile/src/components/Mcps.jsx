@@ -566,11 +566,15 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
               ) : hits.length ? (
                 <>
                   {[
-                    ["PiCode", hits.filter((h) => h.source === "picode")],
-                    ["Catalog", hits.filter((h) => h.source !== "picode")],
+                    // The seed rides unlabeled at the top; only the synced
+                    // registry rows take a group label — the seed mixes
+                    // PiCode tools and hand-picked presets, so "PiCode"
+                    // mislabeled more than it explained (owner, 2026-09-19).
+                    ["", hits.filter((h) => h.source !== "registry")],
+                    ["Catalog", hits.filter((h) => h.source === "registry")],
                   ].map(([group, rows]) => rows.length ? (
-                    <Fragment key={group}>
-                      <p className="mcp-group-label connector-group">{group}</p>
+                    <Fragment key={group || "seed"}>
+                      {group ? <p className="mcp-group-label connector-group">{group}</p> : null}
                       <ul className="pkg-grid" aria-busy={searching}>
                         {rows.map((h) => {
                           const on = configuredNames.has(h.id);
