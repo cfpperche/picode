@@ -260,3 +260,12 @@ test("the crop asks the shell for the preview with the native tab id", () => {
     "the React tab id belongs to the annotate commands, not to the preview",
   );
 });
+
+test("the crop reports why it failed, and the Send says it", () => {
+  // The crop used to end in a bare `catch { return "" }`: the note shipped
+  // alone, the picture vanished, and nothing said so (owner 2026-09-19).
+  const surface = readFileSync(new URL("../components/WebTab.jsx", import.meta.url), "utf8");
+  assert.ok(surface.includes("const shot = includeShots ? await cropFromPreview(it)"), "the crop's answer is kept");
+  assert.ok(surface.includes('return { data: "", why:'), "every give-up names its step");
+  assert.ok(surface.includes("The screenshot did not come through: "), "the Send says what happened");
+});
