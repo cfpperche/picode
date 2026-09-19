@@ -284,7 +284,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
             selector: it.selector || "",
             comment: it.comment || "",
             dom: it.html || "",
-            css: stylesToCSS(it.styles || {}),
+            css: stylesToCSS(it.styles || {}, it.styleEdits || {}),
             image,
           }),
         });
