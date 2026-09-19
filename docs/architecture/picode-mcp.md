@@ -13,7 +13,7 @@ into the pi package's words. Plan: `docs/plans/picode-mcp.md`.
 
 | Question | Decided by | Where |
 |---|---|---|
-| Which tools exist | the server's catalog | `internal/mcptool.Families()`: `computer`, `browser` (N0); inbox and checklist are N1 |
+| Which tools exist | the server's catalog | `internal/mcptool.Families()`: `computer`, `browser`, `inbox` (`notify_human`, `ask_human`), `checklist` |
 | Who is calling | the environment the CLI inherited | `PICODE_AGENT_ID`, else `PICODE_TERM_ID` → `term:<id>`; neither → the tool answers `NoIdentity` and never dials |
 | Where the daemon is | `PICODE_URL`, `PICODE_TERM_URL`, else `server.json` | `mcptool.ResolveURL`; unreachable at start is not fatal — the tool answers with the reason |
 | The credential | the install token, read per call | `mcptool.ReadToken`: `PICODE_TOKEN` or `<data>/token`; a rotation needs no restart |
@@ -45,6 +45,20 @@ notification gets no line; nothing but protocol goes to stdout.
 The server name is the same in every scope so a launch entry and a file
 entry collapse where the CLI merges by name. `cliView.toolsCapable` tells
 the form which CLIs show the group; the PUT routes refuse the rest.
+
+## ask_human over MCP
+
+pi ends its turn and the human's reply rides pi's receiver back; a guest CLI
+has no receiver. So `ask_human` files the question and **waits**: it polls
+`GET /api/inbox/{id}` every 2 s for up to `PICODE_ASK_WAIT` seconds (90 by
+default, under the client's own tool timeout), and returns the answer as
+the tool result. At the deadline it names the item so the model can call
+`ask_human` again with `item` to keep waiting. On the daemon, a question
+from a terminal that is not running pi is answered by recording the
+response on the item (`RespondInboxItem`) instead of the terminal delivery
+that would refuse it. `checklist` publishes under the terminal (or agent)
+exactly as pi-checklist does; pi's mutation gate and reminder have no MCP
+equivalent and are not pretended.
 
 ## Refuse
 

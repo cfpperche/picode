@@ -19,6 +19,8 @@ is asking, and whether you switched them on.
 |---|---|---|
 | Computer | `computer` | The Windows desktop through the desktop app: screenshot, windows, click, type, clipboard, open. Same twenty-three actions as [Computer use for pi](/guide/computer-tool). |
 | Browser | `browser` | The page open in PiCode's work browser: snapshot, screenshot, events; acting needs a grant. Same verbs as [Browser tools for pi](/guide/browser-tool). |
+| Inbox | `notify_human`, `ask_human` | A note into your [Inbox](/guide/inbox-tools), or a question. Over MCP `ask_human` waits for your answer in the Inbox and returns it to the agent; when it gives up waiting it names the item so the agent can keep waiting. |
+| Checklist | `checklist` | The agent's plan for the task; the current step shows on the terminal's card, as it does for pi ([Checklist](/guide/checklist)). The gate pi enforces before a change does not exist over MCP; the plan is the agent's discipline. |
 
 Same names, same parameters, same answers. A prompt written for the pi tool
 works unchanged in Claude Code.
@@ -62,7 +64,8 @@ claude mcp add picode-computer -- picode mcp computer
 claude mcp add picode-browser -- picode mcp browser
 ```
 
-`picode mcp computer browser` serves both families from one process.
+`picode mcp computer browser inbox checklist` serves every family from one
+process; the cards add one each.
 
 ## What it will not do
 
@@ -74,5 +77,4 @@ claude mcp add picode-browser -- picode mcp browser
 
 ## Where it goes next
 
-Inbox (`notify_human`, `ask_human`) and Checklist as further families, and
-launch injection for the CLIs that gain a mechanism for it.
+Launch injection for the CLIs that gain a mechanism for it.
