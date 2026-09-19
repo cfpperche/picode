@@ -16,6 +16,7 @@ import {
   stateItems,
   stillToViewport,
   stylesToCSS,
+  pastePaths,
 } from "./annotate.js";
 
 test("a click on the still becomes a viewport point, scale only", () => {
@@ -304,4 +305,40 @@ test("the Send posts the proposals beside the snapshot", () => {
     surface.includes("stylesToCSS(it.styles || {}, it.styleEdits || {})"),
     "the note's styles block carries the inspector's proposals",
   );
+});
+
+test("a Send of any size arrives as one message", () => {
+  // The owner's call (2026-09-19): the number of annotations is the human's
+  // business. The prompt door still takes at most four files per paste
+  // (ADR-0089), so the note — which names every crop — is the package, and
+  // the crops fill whatever room is left.
+  const paths = ["/d/annotation-1.md", "/d/annotation-1-1.png", "/d/annotation-1-2.png", "/d/annotation-1-3.png", "/d/annotation-1-4.png"];
+  const two = pastePaths([paths[0], paths[1], paths[2]]);
+  assert.deepEqual(two, { paste: [paths[0], paths[1], paths[2]], left: 0 }, "everything fits, everything goes");
+  const five = pastePaths(paths);
+  assert.deepEqual(five.paste, paths.slice(0, 4), "the door's four files, note first");
+  assert.equal(five.left, 1, "and it says how many stayed behind");
+  const fifty = pastePaths([paths[0], ...Array.from({ length: 50 }, (_, i) => `/d/c${i}.png`)]);
+  assert.equal(fifty.paste.length, 4);
+  assert.equal(fifty.left, 47, "no cap on annotations, only on attachments per paste");
+  assert.deepEqual(pastePaths(["", null, " /d/x.md "]), { paste: [" /d/x.md "], left: 0 }, "junk paths never reach the door");
+  assert.deepEqual(pastePaths([]), { paste: [], left: 0 });
+});
+
+test("the message points at the screenshots it could not attach", () => {
+  const items = [{ n: 1, comment: "fix this" }, { n: 2, selector: "#x" }];
+  assert.equal(batchMessage({ url: "https://x/", items }), "2 annotations on https://x/\n1. fix this\n2. #x");
+  assert.equal(
+    batchMessage({ url: "https://x/", items, stagedShots: 3 }),
+    "2 annotations on https://x/\n1. fix this\n2. #x\n\n3 more screenshots staged next to the note.",
+  );
+  assert.equal(batchMessage({ url: "https://x/", items: [items[0]], stagedShots: 1 }).includes("1 more screenshot staged"), true);
+});
+
+test("the Send posts the whole set in one request", () => {
+  const surface = readFileSync(new URL("../components/WebTab.jsx", import.meta.url), "utf8");
+  assert.ok(surface.includes("items: batch,"), "the batch rides one body");
+  assert.ok(!surface.includes('body: JSON.stringify({ message, paths })'), "one paste, not one per pin");
+  assert.ok(surface.includes("paths: paste.paste"), "the door gets note + the crops that fit");
+  assert.ok(surface.includes('fetch("/api/browser/annotations"'), "one staging call for the set");
 });

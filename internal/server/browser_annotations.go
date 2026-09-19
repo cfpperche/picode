@@ -42,40 +42,67 @@ func clipText(s string) string {
 	return s[:annotationTextCap] + "\n…[truncated]"
 }
 
+// annotationItem is one pin of a Send: what the human pointed at, what they
+// said, the evidence, and the crop's file name once it is staged.
+type annotationItem struct {
+	Selector string
+	Comment  string
+	DOM      string
+	CSS      string
+	Shot     string
+}
+
 func handleBrowserAnnotationCreate(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if deps.Store == nil {
 			writeErr(w, http.StatusServiceUnavailable, "store is not open")
 			return
 		}
+		// A Send is a SET: the whole set arrives in one call, one crop per
+		// pin, and one note for all of them — the reference's "N annotations"
+		// as a single context. How many pins a Send may carry is the human's
+		// business, not the transport's (owner 2026-09-19); the only bounds
+		// are the per-file size cap and the disk.
 		var req struct {
 			TerminalID string `json:"terminalId"`
 			URL        string `json:"url"`
 			Title      string `json:"title"`
-			Selector   string `json:"selector"`
-			Comment    string `json:"comment"`
-			DOM        string `json:"dom"`
-			CSS        string `json:"css"`
-			Image      string `json:"image"` // base64 PNG, no data: prefix
+			Items      []struct {
+				Selector string `json:"selector"`
+				Comment  string `json:"comment"`
+				DOM      string `json:"dom"`
+				CSS      string `json:"css"`
+				Image    string `json:"image"` // base64 PNG, no data: prefix
+			} `json:"items"`
 		}
 		if r.Body != nil {
-			if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, annotationImageCap+4<<20)).Decode(&req); err != nil {
+			if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, (annotationImageCap+4<<20)*4)).Decode(&req); err != nil {
 				writeErr(w, http.StatusBadRequest, "invalid annotation body")
 				return
 			}
 		}
-		var image []byte
-		if strings.TrimSpace(req.Image) != "" {
-			var err error
-			image, err = base64.StdEncoding.DecodeString(strings.TrimSpace(req.Image))
+		if len(req.Items) == 0 {
+			writeErr(w, http.StatusBadRequest, "an annotation needs at least one item")
+			return
+		}
+		// Every image is decoded and checked BEFORE anything is written: a
+		// Send that cannot be staged whole must not leave half a package on
+		// disk and half in the store.
+		images := make([][]byte, len(req.Items))
+		for i, it := range req.Items {
+			if strings.TrimSpace(it.Image) == "" {
+				continue
+			}
+			raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(it.Image))
 			if err != nil {
-				writeErr(w, http.StatusBadRequest, "the screenshot is not valid base64")
+				writeErr(w, http.StatusBadRequest, fmt.Sprintf("the screenshot of item %d is not valid base64", i+1))
 				return
 			}
-			if len(image) > annotationImageCap {
-				writeErr(w, http.StatusRequestEntityTooLarge, "the screenshot is over 4 MB")
+			if len(raw) > annotationImageCap {
+				writeErr(w, http.StatusRequestEntityTooLarge, fmt.Sprintf("the screenshot of item %d is over 4 MB", i+1))
 				return
 			}
+			images[i] = raw
 		}
 		terminals, err := deps.Store.ListTerminals()
 		if err != nil {
@@ -96,49 +123,57 @@ func handleBrowserAnnotationCreate(deps Deps) http.HandlerFunc {
 		now := time.Now().UTC()
 		base := "annotation-" + now.Format("20060102-150405") + "-" + strconv.FormatInt(now.UnixNano()%100000, 10)
 		dir := filepath.Join(cwd, ".picode", "drop")
-		shot, note := "", ""
-		if len(image) > 0 {
-			if err := os.MkdirAll(dir, 0o755); err != nil {
-				writeErr(w, http.StatusInternalServerError, "staging folder: "+err.Error())
-				return
-			}
-			shot = base + ".png"
-			if err := os.WriteFile(filepath.Join(dir, shot), image, 0o644); err != nil {
-				writeErr(w, http.StatusInternalServerError, "screenshot: "+err.Error())
-				return
-			}
-		}
-		body := annotationNote(req.URL, req.Title, req.Selector, req.Comment, req.DOM, req.CSS, shot)
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			writeErr(w, http.StatusInternalServerError, "staging folder: "+err.Error())
 			return
 		}
-		note = base + ".md"
-		if err := os.WriteFile(filepath.Join(dir, note), []byte(body), 0o644); err != nil {
+		items := make([]annotationItem, len(req.Items))
+		for i, it := range req.Items {
+			items[i] = annotationItem{Selector: it.Selector, Comment: it.Comment, DOM: it.DOM, CSS: it.CSS}
+			if len(images[i]) == 0 {
+				continue
+			}
+			shot := fmt.Sprintf("%s-%d.png", base, i+1)
+			if err := os.WriteFile(filepath.Join(dir, shot), images[i], 0o644); err != nil {
+				writeErr(w, http.StatusInternalServerError, "screenshot: "+err.Error())
+				return
+			}
+			items[i].Shot = shot
+		}
+		note := base + ".md"
+		if err := os.WriteFile(filepath.Join(dir, note), []byte(annotationNote(req.URL, req.Title, items)), 0o644); err != nil {
 			writeErr(w, http.StatusInternalServerError, "note: "+err.Error())
 			return
 		}
-		row, err := deps.Store.CreateBrowserAnnotation(store.BrowserAnnotation{
-			TerminalID:  req.TerminalID,
-			WorkspaceID: workspaceID,
-			URL:         req.URL,
-			Title:       req.Title,
-			Selector:    req.Selector,
-			Comment:     req.Comment,
-			DOM:         clipText(req.DOM),
-			CSS:         clipText(req.CSS),
-			Shot:        shot,
-			Note:        note,
-		})
-		if err != nil {
-			writeErr(w, http.StatusBadRequest, err.Error())
-			return
+		rows := make([]store.BrowserAnnotation, 0, len(items))
+		for _, it := range items {
+			row, err := deps.Store.CreateBrowserAnnotation(store.BrowserAnnotation{
+				TerminalID:  req.TerminalID,
+				WorkspaceID: workspaceID,
+				URL:         req.URL,
+				Title:       req.Title,
+				Selector:    it.Selector,
+				Comment:     it.Comment,
+				DOM:         clipText(it.DOM),
+				CSS:         clipText(it.CSS),
+				Shot:        it.Shot,
+				Note:        note,
+			})
+			if err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			rows = append(rows, row)
 		}
+		// The note first: it is the package, and the prompt door's own file
+		// cap (ADR-0089) then decides how many crops ride along.
 		paths := []string{filepath.Join(dir, note)}
-		if shot != "" {
-			paths = append(paths, filepath.Join(dir, shot))
+		for _, it := range items {
+			if it.Shot != "" {
+				paths = append(paths, filepath.Join(dir, it.Shot))
+			}
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"annotation": row, "paths": paths})
+		writeJSON(w, http.StatusOK, map[string]any{"annotations": rows, "paths": paths})
 	}
 }
 
@@ -180,33 +215,41 @@ func handleBrowserAnnotationDelete(deps Deps) http.HandlerFunc {
 	}
 }
 
-// annotationNote is what the agent reads: the human's sentence first, then the
-// page, the element and the captures — a tiny document, not a data dump.
-func annotationNote(url, title, selector, comment, dom, css, shot string) string {
+// annotationNote is what the agent reads: the whole Send as ONE document —
+// the human's sentences, in order, each with its element, evidence and crop.
+// It is per Send, not per pin, so the number of pins a human may pin is not
+// bounded by how many notes a transport will carry (owner 2026-09-19).
+func annotationNote(url, title string, items []annotationItem) string {
 	var b strings.Builder
-	if strings.TrimSpace(comment) != "" {
-		b.WriteString(strings.TrimSpace(comment) + "\n\n")
+	if len(items) == 1 {
+		fmt.Fprintf(&b, "1 annotation on %s\n", strings.TrimSpace(url))
 	} else {
-		b.WriteString("Annotated element (no comment written).\n\n")
+		fmt.Fprintf(&b, "%d annotations on %s\n", len(items), strings.TrimSpace(url))
 	}
-	fmt.Fprintf(&b, "Page: %s\n", strings.TrimSpace(url))
 	if strings.TrimSpace(title) != "" {
 		fmt.Fprintf(&b, "Title: %s\n", strings.TrimSpace(title))
 	}
-	if strings.TrimSpace(selector) != "" {
-		fmt.Fprintf(&b, "Element: %s\n", strings.TrimSpace(selector))
-	}
-	if shot != "" {
-		fmt.Fprintf(&b, "Screenshot: %s (same folder)\n", shot)
-	}
-	if strings.TrimSpace(dom) != "" {
-		fmt.Fprintf(&b, "\nHTML:\n```html\n%s\n```\n", clipText(strings.TrimSpace(dom)))
-	}
-	if strings.TrimSpace(css) != "" {
-		// "Styles", not "computed styles": the block carries what the page had
-		// AND — after a /* proposed */ marker — what the human wants instead
-		// (the style inspector, v2c step 5).
-		fmt.Fprintf(&b, "\nStyles:\n```css\n%s\n```\n", clipText(strings.TrimSpace(css)))
+	for i, it := range items {
+		comment := strings.TrimSpace(it.Comment)
+		if comment == "" {
+			comment = "Annotated element (no comment written)."
+		}
+		fmt.Fprintf(&b, "\n## %d. %s\n", i+1, strings.ReplaceAll(comment, "\n", " "))
+		if strings.TrimSpace(it.Selector) != "" {
+			fmt.Fprintf(&b, "Element: %s\n", strings.TrimSpace(it.Selector))
+		}
+		if it.Shot != "" {
+			fmt.Fprintf(&b, "Screenshot: %s (same folder)\n", it.Shot)
+		}
+		if strings.TrimSpace(it.DOM) != "" {
+			fmt.Fprintf(&b, "\nHTML:\n```html\n%s\n```\n", clipText(strings.TrimSpace(it.DOM)))
+		}
+		if strings.TrimSpace(it.CSS) != "" {
+			// "Styles", not "computed styles": the block carries what the page
+			// had AND — after a /* proposed */ marker — what the human wants
+			// instead (the style inspector, v2c step 5).
+			fmt.Fprintf(&b, "\nStyles:\n```css\n%s\n```\n", clipText(strings.TrimSpace(it.CSS)))
+		}
 	}
 	return b.String()
 }

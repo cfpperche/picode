@@ -316,11 +316,13 @@ gallery hit is worth a look before anyone installs it expecting this one.
 
 ## Debts
 
-- Batch Send pastes through the prompt door, which takes at most 4 files
-  per call — one note stages 2 files (note + crop), so 3+ notes save fine
-  but do not deliver in one paste. Chunked pastes vs. one combined note vs.
-  raising the cap is a protocol decision (owner) once multi-note Send is
-  exercised live.
+- [x] Batch Send pasted through the prompt door, which takes at most 4 files
+  per call, so 3+ notes saved fine but did not deliver in one paste —
+  **paid 2026-09-19**: the owner's call is no limit on the number of
+  annotations, so a Send is now ONE note for the whole set plus one crop per
+  pin, and the paste carries the note first with the crops the door has room
+  for (ADR-0152 amendment). The door's own cap is untouched and still means
+  "attachments per paste".
 - [x] The work browser's `docs/architecture/` file — **paid 2026-09-19**:
   `docs/architecture/work-browser.md` (who decides what, the line, tabs, the
   overlay rule, permissions, annotations, evidence, architectural traps).

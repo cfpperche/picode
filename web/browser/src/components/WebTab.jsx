@@ -8,7 +8,7 @@ import { askTitle } from "../lib/browserPermissions.js";
 import { subscribeFloatingLayers, overlapsLayers, rectOf } from "../lib/floatingLayers.js";
 import { requestBrowserDialog } from "../lib/browserDialogs.js";
 import { previewUrl, verifyPreviewUrl } from "../lib/previewStill.js";
-import { cropRect, stylesToCSS, stateItems, batchMessage, parseAnnotMessage, parseStatePayload, resolveSendTarget } from "../lib/annotate.js";
+import { cropRect, stylesToCSS, stateItems, batchMessage, parseAnnotMessage, parseStatePayload, pastePaths, resolveSendTarget } from "../lib/annotate.js";
 import AnnotateStrip from "./AnnotateStrip.jsx";
 import AnnotatePreview from "./AnnotatePreview.jsx";
 
@@ -267,33 +267,47 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
       // "never" means no picture at all; "always" always crops; "ask"
       // follows the strip's camera toggle for this session.
       const includeShots = policy === "never" ? false : policy === "always" ? true : annotShots;
-      const paths = [];
+      // ONE package per Send: every pin travels in one request, the daemon
+      // answers with one note for the whole set plus a crop per pin
+      // (ADR-0152 amendment). The count is the human's business — nothing
+      // here caps it.
       const staged = [];
+      const batch = [];
       let shotTrouble = "";
       for (const it of ready) {
         const shot = includeShots ? await cropFromPreview(it) : { data: "", why: "" };
         if (includeShots && !shot.data) shotTrouble = shot.why;
-        const image = shot.data;
-        const res = await fetch("/api/browser/annotations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            terminalId: live.id,
-            url: liveUrlRef.current || url,
-            title: "",
-            selector: it.selector || "",
-            comment: it.comment || "",
-            dom: it.html || "",
-            css: stylesToCSS(it.styles || {}, it.styleEdits || {}),
-            image,
-          }),
+        batch.push({
+          selector: it.selector || "",
+          comment: it.comment || "",
+          dom: it.html || "",
+          css: stylesToCSS(it.styles || {}, it.styleEdits || {}),
+          image: shot.data || "",
         });
-        if (!res.ok) throw new Error(`annotation ${it.n} was not saved (${res.status})`);
-        const body = await res.json().catch(() => ({}));
-        for (const p of Array.isArray(body.paths) ? body.paths : []) paths.push(p);
         staged.push({ n: it.n, selector: it.selector, comment: it.comment });
       }
-      const message = batchMessage({ url: liveUrlRef.current || url, items: staged });
+      const res = await fetch("/api/browser/annotations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          terminalId: live.id,
+          url: liveUrlRef.current || url,
+          title: "",
+          items: batch,
+        }),
+      });
+      if (!res.ok) {
+        const why = await res.json().catch(() => null);
+        throw new Error((why && why.error) || `the annotations were not saved (${res.status})`);
+      }
+      const saved = await res.json().catch(() => ({}));
+      const paths = Array.isArray(saved.paths) ? saved.paths : [];
+      // The prompt door takes at most four files per paste (ADR-0089), and the
+      // note is the package: the crops it has room for ride along, the note
+      // names every one of them. So the cap never bounds how many annotations
+      // a Send may carry (owner 2026-09-19).
+      const paste = pastePaths(paths);
+      const message = batchMessage({ url: liveUrlRef.current || url, items: staged, stagedShots: paste.left });
       // Delivery follows the target: an agent-bound pane pastes through the
       // agent's own prompt door (its chat), a terminal-bound one through the
       // terminal's. Staging always rides the terminal row, so the files land
@@ -304,7 +318,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
       const prompt = await fetch(`${promptBase}/prompt`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, paths }),
+        body: JSON.stringify({ message, paths: paste.paste }),
       }).catch(() => null);
       if (prompt && prompt.ok) {
         toast.ok(`${ready.length} annotation${ready.length === 1 ? "" : "s"} sent to ${live.name || live.id}.`);

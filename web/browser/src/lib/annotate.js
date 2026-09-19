@@ -312,7 +312,7 @@ export function parseStatePayload(raw) {
 // batchMessage is the ONE context the agent gets for the whole set (the
 // reference's "5 annotations"): a head line plus one numbered line per pin,
 // each pin's sentence (or its selector when the note is empty).
-export function batchMessage({ url, items }) {
+export function batchMessage({ url, items, stagedShots }) {
   const list = Array.isArray(items) ? items : [];
   const head = `${list.length} annotation${list.length === 1 ? "" : "s"}${url ? ` on ${url}` : ""}`;
   const lines = list.map((it) => {
@@ -321,5 +321,26 @@ export function batchMessage({ url, items }) {
     const sel = it && typeof it.selector === "string" ? it.selector : "";
     return `${n}. ${comment || sel || "element"}`;
   });
-  return [head, ...lines].join("\n");
+  const out = [head, ...lines];
+  // Say where the pictures are when the paste could not carry them all: the
+  // note names every crop, so the agent reads what it needs (the number of
+  // annotations is never capped, only the attachments per paste).
+  const left = Number(stagedShots) || 0;
+  if (left > 0) out.push("", `${left} more screenshot${left === 1 ? "" : "s"} staged next to the note.`);
+  return out.join("\n");
 }
+
+// pastePaths splits a staged package for the prompt door: the note first (it
+// IS the package: every pin, its evidence, and the name of every crop), then
+// as many crops as the door's own file cap leaves room for (ADR-0089 takes at
+// most four files per paste). Returns the paths to paste and how many crops
+// stayed behind, so the message can say so. A Send of fifty annotations still
+// arrives as one message and one context (owner 2026-09-19).
+export function pastePaths(paths, cap = PASTE_FILE_CAP) {
+  const list = (Array.isArray(paths) ? paths : []).filter((p) => typeof p === "string" && p.trim() !== "");
+  const limit = Math.max(1, Number(cap) || PASTE_FILE_CAP);
+  return { paste: list.slice(0, limit), left: Math.max(0, list.length - limit) };
+}
+
+// The prompt door's per-paste ceiling (ADR-0089, decision 1).
+export const PASTE_FILE_CAP = 4;

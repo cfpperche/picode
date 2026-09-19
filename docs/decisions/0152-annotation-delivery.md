@@ -45,3 +45,47 @@ file plus its path in a message; a single element first, multi later; and an
   the permission watchdog, which must deny.
 - Annotations are announced on the feed (`browserannotation.updated`), so a
   future list surface has one source of truth.
+
+## Amendment (2026-09-19): one note per Send, and no cap on how many pins it carries
+
+The owner exercised v2c live and asked for **no limit on the number of
+annotations** (2026-09-19). The decision above staged one note per pin, so a
+Send of N pins produced 2N files, and the prompt door's own cap of four files
+per paste (ADR-0089, decision 1 — unchanged, and unchanged *for this reason*)
+stopped a three-pin Send from delivering at all: it failed visibly with
+"at most 4 files" and left the rows in the store.
+
+What changes, and why it is the smallest honest change:
+
+1. **The note is per Send, not per pin.** `POST /api/browser/annotations`
+   takes the whole set (`items[]`), stages one crop per pin and writes **one**
+   markdown document: the count and the page, then one section per pin (its
+   sentence as a heading, its element, its HTML, its styles, its crop's file
+   name). This is the reference's "N annotations" as a single context, and it
+   is what makes N unbounded: the paste carries the note first.
+2. **The paste carries the note plus the crops the door has room for.**
+   `pastePaths` fills the door's four files, note first; the ones that do not
+   fit stay staged beside the note, which names every one of them, and the
+   message says how many stayed ("3 more screenshots staged next to the
+   note"). ADR-0089's cap keeps its meaning — a bound on *attachments per
+   paste*, not on how many things a human may annotate.
+3. **A Send is staged whole or not at all.** Every image is decoded and
+   checked before anything is written, so a bad item cannot leave half a
+   package on disk and half in the store.
+4. Rows stay one per pin (the store's shape is unchanged); they share the
+   note name, which is the package they arrived in.
+
+Consequences: the number of annotations is bounded only by the human and the
+disk; the per-file cap (4 MB) still applies per crop; a very large Send costs
+the agent one document plus the pictures it chooses to open.
+
+### Decision table (every row tested)
+
+| Pins | Camera | Files staged | Pasted | Message adds |
+|---|---|---|---|---|
+| 1 | on | note + 1 crop | both (2 ≤ 4) | — |
+| 3 | on | note + 3 crops | both (4 ≤ 4) | — |
+| 4 | on | note + 4 crops | note + 3 crops | "1 more screenshot staged next to the note." |
+| N | off | note only | note | — (the strip says the camera was off) |
+| N | on, one image bad | nothing | nothing | the Send fails, the store keeps no row |
+| 0 | — | nothing | nothing | "an annotation needs at least one item" |
