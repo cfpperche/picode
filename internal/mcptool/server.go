@@ -94,6 +94,31 @@ type Server struct {
 	Instructions string
 	tools        []Tool
 	mu           sync.Mutex // one writer for the line-oriented output
+	out          io.Writer  // set by Serve; notifications go through it
+	inflight     sync.Map   // request id (string) → context.CancelFunc
+}
+
+// progressKey carries the progress reporter of a tools/call in its context.
+type progressKey struct{}
+
+// Progress reports a long call's state to the client as a
+// notifications/progress (the client's idle timeout counts silence, not
+// wall-clock: Claude Code aborts a call that sends nothing for its idle
+// window, never one that keeps reporting). It is a no-op when the client
+// sent no progress token.
+type Progress func(message string)
+
+// ProgressFrom is the call's reporter, or a no-op.
+func ProgressFrom(ctx context.Context) Progress {
+	if p, ok := ctx.Value(progressKey{}).(Progress); ok && p != nil {
+		return p
+	}
+	return func(string) {}
+}
+
+// WithProgress attaches a reporter (tests use it directly).
+func WithProgress(ctx context.Context, p Progress) context.Context {
+	return context.WithValue(ctx, progressKey{}, p)
 }
 
 // NewServer assembles the tools of the given families for one caller.
@@ -147,17 +172,33 @@ const (
 // writes each answer as one line to w. Notifications get no line. Nothing
 // but protocol ever goes to w — logs belong on stderr.
 func (s *Server) Serve(ctx context.Context, r io.Reader, w io.Writer) error {
+	s.mu.Lock()
+	s.out = w
+	s.mu.Unlock()
 	in := bufio.NewReaderSize(r, 1<<20)
+	var calls sync.WaitGroup
+	defer calls.Wait()
 	for {
 		line, err := in.ReadBytes('\n')
 		if len(strings.TrimSpace(string(line))) > 0 {
-			if out := s.Handle(ctx, line); out != nil {
-				s.mu.Lock()
-				_, werr := w.Write(append(out, '\n'))
-				s.mu.Unlock()
-				if werr != nil {
-					return werr
-				}
+			if id, ok := toolCallID(line); ok {
+				// A tool call may wait a long time (ask_human): it runs on
+				// its own goroutine so ping, list and a cancellation still
+				// get through on the line. Its cancel is registered before
+				// the goroutine starts, so a cancellation that arrives at
+				// once still finds it.
+				msg := append([]byte(nil), line...)
+				callCtx, cancel := context.WithCancel(ctx)
+				s.inflight.Store(id, cancel)
+				calls.Add(1)
+				go func() {
+					defer calls.Done()
+					defer s.inflight.Delete(id)
+					defer cancel()
+					_ = s.write(s.Handle(callCtx, msg))
+				}()
+			} else if werr := s.write(s.Handle(ctx, line)); werr != nil {
+				return werr
 			}
 		}
 		if err != nil {
@@ -172,6 +213,38 @@ func (s *Server) Serve(ctx context.Context, r io.Reader, w io.Writer) error {
 	}
 }
 
+// write sends one line; nil means nothing to send.
+func (s *Server) write(out []byte) error {
+	if out == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.out == nil {
+		return nil
+	}
+	_, err := s.out.Write(append(out, '\n'))
+	return err
+}
+
+// notify sends a server→client notification.
+func (s *Server) notify(method string, params any) {
+	_ = s.write(encode(map[string]any{"jsonrpc": "2.0", "method": method, "params": params}))
+}
+
+// toolCallID is the request id of a tools/call line, as the cancellation
+// map keys it (the raw JSON of the id, so 7 and "7" stay distinct).
+func toolCallID(line []byte) (string, bool) {
+	var probe struct {
+		Method string          `json:"method"`
+		ID     json.RawMessage `json:"id"`
+	}
+	if json.Unmarshal(line, &probe) != nil || probe.Method != "tools/call" || len(probe.ID) == 0 {
+		return "", false
+	}
+	return string(probe.ID), true
+}
+
 // Handle answers one message; nil means "nothing to send" (a notification,
 // or a response the client sent us). Exposed for tests and for a transport
 // other than stdio.
@@ -184,7 +257,17 @@ func (s *Server) Handle(ctx context.Context, msg []byte) []byte {
 		return nil // a response or an ack from the client
 	}
 	if len(req.ID) == 0 || string(req.ID) == "null" {
-		return nil // notifications (notifications/initialized, cancelled, …) need no answer
+		if req.Method == "notifications/cancelled" {
+			var p struct {
+				RequestID json.RawMessage `json:"requestId"`
+			}
+			if json.Unmarshal(req.Params, &p) == nil {
+				if cancel, ok := s.inflight.Load(string(p.RequestID)); ok {
+					cancel.(context.CancelFunc)()
+				}
+			}
+		}
+		return nil // notifications (initialized, cancelled, …) need no answer
 	}
 	res := response{JSONRPC: "2.0", ID: req.ID}
 	switch req.Method {
@@ -250,9 +333,20 @@ func (s *Server) call(ctx context.Context, params json.RawMessage) (Result, *rpc
 	var p struct {
 		Name      string          `json:"name"`
 		Arguments json.RawMessage `json:"arguments"`
+		Meta      struct {
+			ProgressToken json.RawMessage `json:"progressToken"`
+		} `json:"_meta"`
 	}
 	if err := json.Unmarshal(params, &p); err != nil || strings.TrimSpace(p.Name) == "" {
 		return Result{}, &rpcError{codeInvalidParams, "tools/call needs a tool name"}
+	}
+	if len(p.Meta.ProgressToken) > 0 {
+		token := p.Meta.ProgressToken
+		var n float64
+		ctx = WithProgress(ctx, func(message string) {
+			n++
+			s.notify("notifications/progress", map[string]any{"progressToken": token, "progress": n, "message": message})
+		})
 	}
 	for _, t := range s.tools {
 		if t.Name == p.Name {
