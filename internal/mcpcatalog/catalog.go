@@ -72,6 +72,12 @@ type Store struct {
 	registry    []Item    // last synced registry items (sorted by id)
 	refreshedAt time.Time // zero until a refresh or cache load succeeded
 	refreshing  bool      // one background refresh at a time
+
+	// writeMu serializes the cache write. Two refreshes at once (a manual
+	// one and the background timer) shared one tmp path, so the slower
+	// rename found the file already moved and failed with "no such file or
+	// directory" — a CI flake that looked like a connectors bug (2026-09-19).
+	writeMu sync.Mutex
 }
 
 // NewStore builds a store persisted under dataDir ("" → memory only).
@@ -353,7 +359,9 @@ func (s *Store) loadCache() {
 	s.refreshedAt = cf.RefreshedAt
 }
 
-// writeCache persists the merged view atomically (tmp file + rename).
+// writeCache persists the merged view atomically: a unique tmp file of its
+// own, renamed over the target, under a lock that keeps two writers from
+// sharing (and stealing) that file.
 func (s *Store) writeCache() error {
 	if s.dataDir == "" {
 		return nil
@@ -369,12 +377,24 @@ func (s *Store) writeCache() error {
 	if err := os.MkdirAll(s.dataDir, 0o755); err != nil {
 		return err
 	}
-	tmp := s.cachePath() + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	tmp, err := os.CreateTemp(s.dataDir, cacheFileName+".*.tmp")
+	if err != nil {
 		return err
 	}
-	if err := os.Rename(tmp, s.cachePath()); err != nil {
-		_ = os.Remove(tmp)
+	tmpName := tmp.Name()
+	if _, err := tmp.Write(b); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpName)
+		return err
+	}
+	if err := os.Rename(tmpName, s.cachePath()); err != nil {
+		_ = os.Remove(tmpName)
 		return err
 	}
 	return nil

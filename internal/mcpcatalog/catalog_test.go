@@ -408,3 +408,53 @@ func TestRefreshFailureKeepsPreviousState(t *testing.T) {
 		t.Errorf("status 500: hits = %+v, previous state lost", hits)
 	}
 }
+
+// Two refreshes at once share one cache: the write must be serialized and its
+// tmp file private to the call. Before this, both writers used
+// "connectors-catalog.json.tmp" and the slower rename failed with ENOENT —
+// an error the gallery surfaced as "refresh: ... no such file or directory"
+// (CI flake, 2026-09-19, and a real one when the background timer and a
+// manual refresh met).
+func TestConcurrentRefreshesWriteTheCacheWithoutRacing(t *testing.T) {
+	srv, _ := registryServer(t, map[string]string{"": page("", entry("io.picodetest/one", "One", "A connector", "active", httpRemote))}, nil)
+	t.Cleanup(srv.Close)
+
+	dir := t.TempDir()
+	st := NewStore(dir)
+	st.Base = srv.URL
+
+	const writers = 8
+	errs := make(chan error, writers)
+	start := make(chan struct{})
+	for i := 0; i < writers; i++ {
+		go func() {
+			<-start
+			errs <- st.Refresh(context.Background())
+		}()
+	}
+	close(start)
+	for i := 0; i < writers; i++ {
+		if err := <-errs; err != nil {
+			t.Fatalf("concurrent refresh: %v", err)
+		}
+	}
+	// The cache is a whole, loadable file afterwards.
+	b, err := os.ReadFile(filepath.Join(dir, cacheFileName))
+	if err != nil {
+		t.Fatalf("cache after concurrent refreshes: %v", err)
+	}
+	var cf cacheFileV1
+	if err := json.Unmarshal(b, &cf); err != nil {
+		t.Fatalf("cache is not valid JSON: %v", err)
+	}
+	// Nothing of the writers' own making is left behind.
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".tmp") {
+			t.Fatalf("leftover tmp file: %s", e.Name())
+		}
+	}
+}
