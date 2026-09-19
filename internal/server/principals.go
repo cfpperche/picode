@@ -115,7 +115,7 @@ func handleAddWorkspacePrincipal(deps Deps) http.HandlerFunc {
 				writeErr(w, storeStatus(err), err.Error())
 				return
 			}
-			if err := deps.Store.SetTerminalLaunch(tm.ID, cli, clilaunch.Overrides{}); err != nil {
+			if err := deps.Store.SetTerminalLaunch(tm.ID, cli, managedCLILaunchOverrides(cli)); err != nil {
 				_ = deps.Store.DeleteTerminal(tm.ID)
 				writeErr(w, storeStatus(err), err.Error())
 				return
@@ -126,9 +126,17 @@ func handleAddWorkspacePrincipal(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		} else if launch == nil {
-			if err := deps.Store.SetTerminalLaunch(terminalID, cli, clilaunch.Overrides{}); err != nil {
+			if err := deps.Store.SetTerminalLaunch(terminalID, cli, managedCLILaunchOverrides(cli)); err != nil {
 				writeErr(w, storeStatus(err), err.Error())
 				return
+			}
+		} else {
+			filled := fillManagedCLITools(launch.Overrides, cli)
+			if launch.Overrides.Tools == nil && filled.Tools != nil {
+				if err := deps.Store.SetTerminalLaunch(terminalID, cli, filled); err != nil {
+					writeErr(w, storeStatus(err), err.Error())
+					return
+				}
 			}
 		}
 		m, err := deps.Store.AddManagedCLI(wsID, cli, name, terminalID)

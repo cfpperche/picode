@@ -35,4 +35,11 @@ Leaving `needs-you` marks that item done. Unbound terminals stay chips-only.
 The Inbox action **Open terminal** focuses the pane (`goto: term:<id>`).
 No composer. Deploy readiness already treats any working terminal as busy.
 
+Binding is the opt-in for `picode mcp` at launch (ADR-0154): Claude Code,
+Codex and OpenCode get every family (`computer`, `browser`, `inbox`,
+`checklist`) when Tools was unset. An explicit Tools list, including
+empty, is left alone. Other CLIs stay Connectors-only. Grants are still
+Settings ▸ Computer / Browser keyed `term:<id>`; the MCP server never
+invents identity (`PICODE_TERM_ID` → `grant.FromIDs`).
+
 Decision table: [ADR-0159](../decisions/0159-managed-cli-principals.md).

@@ -15,6 +15,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/cfpperche/picode/internal/grant"
 )
 
 // Identity is the house identity tuple (ADR-0143): a managed agent's id,
@@ -40,16 +42,10 @@ func IdentityFrom(env Env) Identity {
 // Empty is true for a caller PiCode cannot name.
 func (id Identity) Empty() bool { return id.Agent == "" && id.Term == "" }
 
-// Principal is the grant key the daemon will derive (internal/grant.Key),
-// used here only to name the captures directory.
+// Principal is the grant key (ADR-0143/0159): agent id, else term:<id>.
+// Used to name the captures directory; the daemon derives the same key.
 func (id Identity) Principal() string {
-	if id.Agent != "" {
-		return id.Agent
-	}
-	if id.Term != "" {
-		return "term:" + id.Term
-	}
-	return ""
+	return grant.FromIDs(id.Agent, id.Term).Key()
 }
 
 // NoIdentity is the answer to a call from outside PiCode's launch paths.

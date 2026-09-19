@@ -32,6 +32,25 @@ func hasToolLaunchMechanism(cli string) bool {
 	return false
 }
 
+// managedCLILaunchOverrides is the launch default when a workspace binds a
+// CLI as a principal (ADR-0159 Fatia 2). CLIs that take servers at launch
+// get every picode-mcp family; the rest stay Connectors-only. Binding is
+// the opt-in. Grants stay on Settings ▾ Computer / Browser (term:<id>).
+func managedCLILaunchOverrides(cli string) clilaunch.Overrides {
+	return fillManagedCLITools(clilaunch.Overrides{}, cli)
+}
+
+// fillManagedCLITools writes the catalog onto an unset Tools override.
+// A non-nil Tools (including an empty list the person saved) is left alone.
+func fillManagedCLITools(ov clilaunch.Overrides, cli string) clilaunch.Overrides {
+	if ov.Tools != nil || !hasToolLaunchMechanism(cli) {
+		return ov
+	}
+	tools := append([]string{}, mcptool.FamilyNames()...)
+	ov.Tools = &tools
+	return ov
+}
+
 // toolFamilies validates the families a config names against the catalog.
 func toolFamilies(c clilaunch.Config) ([]string, error) {
 	out := []string{}

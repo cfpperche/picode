@@ -9,6 +9,7 @@ import (
 
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/communication"
+	"github.com/cfpperche/picode/internal/mcptool"
 )
 
 // Decision table for ADR-0154's launch scope: CLI × families × what the
@@ -122,6 +123,28 @@ func anyStrings(v any) []string {
 		out = append(out, x.(string))
 	}
 	return out
+}
+
+func TestFillManagedCLITools(t *testing.T) {
+	want := strings.Join(mcptool.FamilyNames(), ",")
+	filled := fillManagedCLITools(clilaunch.Overrides{}, "claude-code")
+	if filled.Tools == nil || strings.Join(*filled.Tools, ",") != want {
+		t.Fatalf("claude default = %v", filled.Tools)
+	}
+	none := fillManagedCLITools(clilaunch.Overrides{}, "grok")
+	if none.Tools != nil {
+		t.Fatalf("grok should stay Connectors-only, got %v", none.Tools)
+	}
+	keep := []string{"computer"}
+	kept := fillManagedCLITools(clilaunch.Overrides{Tools: &keep}, "claude-code")
+	if kept.Tools == nil || strings.Join(*kept.Tools, ",") != "computer" {
+		t.Fatalf("existing tools overwritten: %v", kept.Tools)
+	}
+	empty := []string{}
+	off := fillManagedCLITools(clilaunch.Overrides{Tools: &empty}, "claude-code")
+	if off.Tools == nil || len(*off.Tools) != 0 {
+		t.Fatalf("explicit empty tools filled: %v", off.Tools)
+	}
 }
 
 func TestToolFamiliesAndRefusals(t *testing.T) {

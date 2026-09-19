@@ -3,6 +3,8 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/cfpperche/picode/internal/store"
@@ -100,6 +102,63 @@ func TestManagedCLIHTTPDoesNotCreateAgent(t *testing.T) {
 	if len(wss[0].ManagedCLIs) != 0 {
 		t.Fatalf("unbind left managedClis = %+v", wss[0].ManagedCLIs)
 	}
+}
+
+func TestManagedCLIHTTPDefaultsPiCodeTools(t *testing.T) {
+	ts := newTestServer(t, "cat")
+	proj := t.TempDir()
+	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App", "path": proj})
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("add workspace = %d", res.StatusCode)
+	}
+	var wk workspaceView
+	if err := json.NewDecoder(res.Body).Decode(&wk); err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+
+	res = postJSON(t, ts, "/api/workspaces/"+wk.ID+"/principals", map[string]string{"cli": "claude-code"})
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("bind claude = %d", res.StatusCode)
+	}
+	var claude principalView
+	if err := json.NewDecoder(res.Body).Decode(&claude); err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if got := launchToolNames(t, ts, claude.ID); strings.Join(got, ",") != "computer,browser,inbox,checklist" {
+		t.Fatalf("claude tools = %v", got)
+	}
+
+	res = postJSON(t, ts, "/api/workspaces/"+wk.ID+"/principals", map[string]string{"cli": "grok", "name": "Grok"})
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("bind grok = %d", res.StatusCode)
+	}
+	var grok principalView
+	if err := json.NewDecoder(res.Body).Decode(&grok); err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if got := launchToolNames(t, ts, grok.ID); got != nil {
+		t.Fatalf("grok tools = %v", got)
+	}
+}
+
+func launchToolNames(t *testing.T, ts *httptest.Server, termID string) []string {
+	t.Helper()
+	got := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals/"+termID+"/launch"))
+	defer got.Body.Close()
+	if got.StatusCode != http.StatusOK {
+		t.Fatalf("launch GET = %d", got.StatusCode)
+	}
+	var launch store.TerminalLaunch
+	if err := json.NewDecoder(got.Body).Decode(&launch); err != nil {
+		t.Fatal(err)
+	}
+	if launch.Overrides.Tools == nil {
+		return nil
+	}
+	return *launch.Overrides.Tools
 }
 
 func TestManagedCLIHTTPRefusesFreeWorkspace(t *testing.T) {
