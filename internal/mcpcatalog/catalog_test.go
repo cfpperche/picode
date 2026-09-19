@@ -458,3 +458,45 @@ func TestConcurrentRefreshesWriteTheCacheWithoutRacing(t *testing.T) {
 		}
 	}
 }
+
+// The registry outgrew the page budget on 2026-09-19 (120 pages stopped
+// covering it): hitting the cap is a normal stop that publishes the partial
+// catalog — the old fatal error threw every fetched page away and left the
+// pane seed-only forever.
+func TestRefreshPageBudgetPublishesPartialCatalog(t *testing.T) {
+	pages := map[string]string{}
+	cursor := ""
+	// A cursor chain two pages longer than the budget: the refresh must
+	// stop at the budget and keep what it fetched.
+	for i := 0; i <= maxRegistryPages; i++ {
+		next := fmt.Sprintf("page-%d", i+1)
+		pages[cursor] = page(next, entry(
+			fmt.Sprintf("io.acme/server-%03d", i),
+			fmt.Sprintf("Server %03d", i),
+			"Reachable remote connector",
+			"active",
+			httpRemote,
+		))
+		cursor = next
+	}
+	srv, counter := registryServer(t, pages, nil)
+	dir := t.TempDir()
+	s := NewStore(dir)
+	s.Base = srv.URL
+	if err := s.Refresh(context.Background()); err != nil {
+		t.Fatalf("refresh at the page budget must not fail: %v", err)
+	}
+	hits := s.Search(context.Background(), "")
+	if len(hits) < maxRegistryPages {
+		t.Fatalf("hits = %d, want the full page budget of rows", len(hits))
+	}
+	if got := counter.Load(); got != maxRegistryPages {
+		t.Fatalf("registry requests = %d, want %d (stop at the budget)", got, maxRegistryPages)
+	}
+	// The partial catalog persists: a restarted store serves it without
+	// fetching (Search answers from the cache file).
+	s2 := NewStore(dir)
+	if got := len(s2.Search(context.Background(), "")); got < maxRegistryPages {
+		t.Fatalf("restarted store hits = %d, want the persisted partial catalog", got)
+	}
+}

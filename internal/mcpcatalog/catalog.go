@@ -51,9 +51,11 @@ const (
 	fetchTimeout = 10 * time.Minute
 	// maxSearchHits caps what Search returns to the pane.
 	maxSearchHits = 200
-	// maxRegistryPages bounds pagination (100/page → 12k servers, above
-	// the registry's current size).
-	maxRegistryPages = 120
+	// maxRegistryPages bounds pagination (100/page each). The registry
+	// outgrew 120 pages on 2026-09-19; hitting the cap is a normal stop —
+	// the partial catalog publishes and the next refresh continues from
+	// scratch a day later.
+	maxRegistryPages = 200
 	// statusMetaKey is the registry's official _meta namespace carrying
 	// the publication status.
 	statusMetaKey = "io.modelcontextprotocol.registry/official"
@@ -227,10 +229,14 @@ func (s *Store) Refresh(ctx context.Context) error {
 	cursor := ""
 	pages := 0
 	for {
-		pages++
-		if pages > maxRegistryPages {
-			return fmt.Errorf("registry pagination exceeded %d pages", maxRegistryPages)
+		if pages >= maxRegistryPages {
+			// A full pass through the page budget publishes what was
+			// fetched: a catalog of the first ~20k servers is useful; a
+			// fatal error (the old behavior) threw every fetched page
+			// away and left production seed-only forever.
+			break
 		}
+		pages++
 		u := strings.TrimSuffix(s.Base, "/") + "/v0/servers?version=latest&limit=100"
 		if cursor != "" {
 			u += "&cursor=" + url.QueryEscape(cursor)
