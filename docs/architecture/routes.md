@@ -64,6 +64,9 @@ shell detects that mode at bootstrap (`navigator.standalone`), treats the
 bottom inset as already reserved — Safari and Android keep real insets —
 and paints the canvas so the unreachable strip continues the surface above
 it (tab-bar panel on tab screens, content background when pushed).
+The status bar itself is opaque (`black` in dark, `default` in light): iOS 26
+Liquid Glass frosts `black-translucent` over the header. Heads still pad with
+`env(safe-area-inset-top)`, which is 0 when the bar is opaque.
 Both mobile settings paths save via the agent
 PATCH endpoint; changed tool mode restarts the same runtime, as on desktop.
 The model catalog parser accepts capability rows only when both final columns

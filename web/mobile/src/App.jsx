@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
-import { applyTheme, persistTheme, readThemeMode } from "@picode/shared/domain/theme.js";
+import { applyTheme, persistTheme, readThemeMode, resolvedTheme } from "@picode/shared/domain/theme.js";
 import { startPresence } from "@picode/shared/client/device.js";
 import { startFeed, subscribeFeed } from "@picode/shared/client/feed.js";
 import { applyTui, touches } from "@picode/shared/domain/feedReducers.js";
@@ -98,7 +98,13 @@ export default function MobileApp() {
   const { workspaces, freeAgents, terminals, loaded, error: fleetError, reload } = fleet;
   const [workSection, setWorkSection] = useState(readWorkSection);
 
-  useEffect(() => { applyTheme(themeMode); }, [themeMode]);
+  useEffect(() => {
+    applyTheme(themeMode);
+    // iOS 26 frosts a translucent status bar over the header. Opaque
+    // (black / default) keeps the title at --text-primary.
+    const bar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (bar) bar.setAttribute("content", resolvedTheme(themeMode) === "light" ? "default" : "black");
+  }, [themeMode]);
   useEffect(() => startPresence(), []);
   useEffect(() => startFeed(), []);
   // Zoom lock (owner): a supervision console is read at one scale. The

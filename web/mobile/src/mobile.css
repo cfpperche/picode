@@ -105,12 +105,16 @@ html[data-bottombar="edge"] #m-app { bottom: calc(-1 * env(safe-area-inset-top, 
   font-variant-numeric: tabular-nums;
 }
 
-/* ---- pushed-screen header ---- */
+/* ---- pushed-screen header ----
+   Opaque fill, no backdrop-filter: iOS 26 Liquid Glass frosted a
+   translucent status bar over this strip and washed the title (~132 vs
+   --text-primary 236). The PWA meta is black/default, not black-translucent. */
 .m-head {
   flex: none; display: grid; grid-template-columns: var(--m-tap) minmax(0, 1fr) auto; align-items: center; gap: 6px;
   min-height: calc(52px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) var(--m-pad) 0 4px;
   margin: 0 calc(-1 * var(--m-pad)) 0; background: var(--bg-panel); border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 5;
+  color: var(--text-primary);
 }
 .m-head-back, .m-head-spacer {
   width: var(--m-tap); height: var(--m-tap); display: inline-flex; align-items: center; justify-content: center;
