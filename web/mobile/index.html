@@ -35,14 +35,18 @@
      report env 0) — so measure, don't assume: flag only when the visual
      viewport is really shorter than the screen. The layout preferences
      (Preferences → Layout) build on this flag; "auto" bottom bar resolves
-     low only for letterboxed installs. navigator.standalone is iOS-only, so
+     to the screen edge on a letterboxed install. navigator.standalone is iOS-only, so
      Android/Chrome standalone keeps real env() insets. */
   if (navigator.standalone === true && window.innerWidth < window.innerHeight) {
-    var inner = window.innerHeight;
-    var vvH = (window.visualViewport && window.visualViewport.height) || inner;
-    if (window.screen.height - vvH > 24) document.documentElement.dataset.standalone = "1";
-    var box = Math.round(window.screen.height - inner);
-    if (box > 24) document.documentElement.style.setProperty("--letterbox", box + "px");
+    var gap = Math.round(window.screen.height - window.innerHeight);
+    /* Opaque status bar (meta is black/default): the layout viewport
+       already starts below the bar, so `gap` is bar + letterbox. The
+       WebKit strip is status-bar-sized; a gap of one bar is chrome only. */
+    var box = gap > 48 ? Math.round(gap / 2) : 0;
+    if (box > 24) {
+      document.documentElement.dataset.standalone = "1";
+      document.documentElement.style.setProperty("--letterbox", box + "px");
+    }
   }
 })();
 </script>

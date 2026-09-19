@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 // fakeDaemon records the last call and answers a fixed status and body.
@@ -247,5 +250,108 @@ func TestDiscoveryMirrorsThePiPackages(t *testing.T) {
 	id := IdentityFrom(MapEnv(map[string]string{"PICODE_TERM_ID": " t1 "}))
 	if id.Principal() != "term:t1" || IdentityFrom(MapEnv(map[string]string{"PICODE_AGENT_ID": "a", "PICODE_TERM_ID": "t"})).Principal() != "a" || !IdentityFrom(MapEnv(nil)).Empty() {
 		t.Fatal("identity rule")
+	}
+}
+
+// blockingDaemon answers open until release is closed, then done.
+type blockingDaemon struct {
+	release chan struct{}
+	started chan struct{}
+	once    sync.Once
+}
+
+func (b *blockingDaemon) Post(_ context.Context, _ string, _ []byte) (int, []byte, error) {
+	return 201, []byte(`{"id":"in_9","state":"open"}`), nil
+}
+
+func (b *blockingDaemon) Get(ctx context.Context, _ string) (int, []byte, error) {
+	b.once.Do(func() {
+		if b.started != nil {
+			close(b.started)
+		}
+	})
+	select {
+	case <-b.release:
+		return 200, []byte(`{"id":"in_9","state":"done","response":"respond: yes"}`), nil
+	case <-ctx.Done():
+		return 0, nil, ctx.Err()
+	case <-time.After(50 * time.Millisecond):
+		return 200, []byte(`{"id":"in_9","state":"open"}`), nil
+	}
+}
+
+// A long ask_human neither blocks the line nor stays silent: ping is
+// answered meanwhile, progress notifications carry the client's token, and
+// the answer lands when the human writes it.
+func TestServeRunsCallsConcurrentlyWithProgress(t *testing.T) {
+	d := &blockingDaemon{release: make(chan struct{})}
+	s := NewServer("picode", "x", []Family{inboxFamily}, &Caller{Daemon: d, Identity: Identity{Term: "t"}})
+	pr, pw := io.Pipe()
+	var out lockedBuffer
+	done := make(chan error, 1)
+	go func() { done <- s.Serve(context.Background(), pr, &out) }()
+	_, _ = pw.Write([]byte(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"ask_human","arguments":{"question":"go?"},"_meta":{"progressToken":"tok-1"}}}` + "\n"))
+	_, _ = pw.Write([]byte(`{"jsonrpc":"2.0","id":2,"method":"ping"}` + "\n"))
+	waitFor(t, func() bool { return strings.Contains(out.String(), `"id":2`) }, "ping answered while the call waits")
+	if strings.Contains(out.String(), `"id":1,"result"`) {
+		t.Fatal("the call answered before the human did")
+	}
+	waitFor(t, func() bool {
+		return strings.Contains(out.String(), `"notifications/progress"`) && strings.Contains(out.String(), `"progressToken":"tok-1"`)
+	}, "a progress notification with the client's token")
+	close(d.release)
+	waitFor(t, func() bool { return strings.Contains(out.String(), "The human answered: yes") }, "the answer")
+	_ = pw.Close()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
+// notifications/cancelled ends the wait: the call answers with the item
+// to resume, and the server is free for the next call.
+func TestCancelledEndsTheWait(t *testing.T) {
+	d := &blockingDaemon{release: make(chan struct{}), started: make(chan struct{})}
+	s := NewServer("picode", "x", []Family{inboxFamily}, &Caller{Daemon: d, Identity: Identity{Term: "t"}})
+	pr, pw := io.Pipe()
+	var out lockedBuffer
+	done := make(chan error, 1)
+	go func() { done <- s.Serve(context.Background(), pr, &out) }()
+	_, _ = pw.Write([]byte(`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"ask_human","arguments":{"question":"go?"}}}` + "\n"))
+	<-d.started
+	_, _ = pw.Write([]byte(`{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":7}}` + "\n"))
+	waitFor(t, func() bool {
+		return strings.Contains(out.String(), "still open in the human") && strings.Contains(out.String(), "(item in_9)")
+	}, "the still-open answer after cancellation")
+	_ = pw.Close()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
+type lockedBuffer struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (l *lockedBuffer) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.Write(p)
+}
+
+func (l *lockedBuffer) String() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.String()
+}
+
+func waitFor(t *testing.T, cond func() bool, what string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for !cond() {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %s", what)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }

@@ -20,11 +20,16 @@ import (
 const (
 	inboxMaxTitle = 200
 	inboxMaxBody  = 100_000
-	// askWaitDefault is how long one ask_human call waits before it hands
-	// the wait back to the model (PICODE_ASK_WAIT seconds overrides): under
-	// the client's own tool timeout, and long enough for a human at the desk.
-	askWaitDefault = 90 * time.Second
+	// askWaitDefault is how long one ask_human call waits for the human
+	// (PICODE_ASK_WAIT seconds overrides). A client's tool timeout is
+	// wall-clock (Claude Code: ~28 h by default) plus an idle window that
+	// progress notifications keep open, so the wait is long: the human may
+	// be away from the desk. At the deadline, or when the client cancels,
+	// the call names the item so the model can resume the wait.
+	askWaitDefault = 8 * time.Hour
 	askPoll        = 2 * time.Second
+	// askProgressEvery is how often the wait reports progress to the client.
+	askProgressEvery = 15 * time.Second
 )
 
 const inboxUnreachable = "PiCode is not reachable (no server.json or connection refused) — could not file to the inbox. " +
@@ -38,7 +43,7 @@ var notifyGuidelines = []string{
 
 var askGuidelines = []string{
 	"Use ask_human when you are genuinely blocked on a decision only the human can make.",
-	"ask_human waits for the answer and returns it; if it comes back unanswered, keep waiting with the item id it names instead of asking again.",
+	"ask_human waits for the answer — hours if needed — and returns it; if it ever comes back unanswered, keep waiting with the item id it names instead of asking again.",
 	"Ask one consolidated question; do not file several ask_human items in a row.",
 }
 
@@ -226,7 +231,15 @@ func askCall(ctx context.Context, c *Caller, args json.RawMessage, wait time.Dur
 		}
 	}
 	deadline := time.Now().Add(wait)
+	started := time.Now()
+	progress := ProgressFrom(ctx)
+	progress("waiting for the human's answer in the PiCode inbox (item " + id + ")")
+	lastProgress := time.Now()
 	for {
+		if time.Since(lastProgress) >= askProgressEvery {
+			progress("still waiting for the human (" + elapsed(time.Since(started)) + ", item " + id + ")")
+			lastProgress = time.Now()
+		}
 		status, body, err := c.Daemon.Get(ctx, "/api/inbox/"+id)
 		if err == nil && status == 200 {
 			var it struct {
@@ -244,4 +257,12 @@ func askCall(ctx context.Context, c *Caller, args json.RawMessage, wait time.Dur
 		}
 		sleep(askPoll)
 	}
+}
+
+func elapsed(d time.Duration) string {
+	d = d.Round(time.Minute)
+	if d < time.Hour {
+		return itoa(int(d.Minutes())) + " min"
+	}
+	return itoa(int(d.Hours())) + " h " + itoa(int(d.Minutes())%60) + " min"
 }
