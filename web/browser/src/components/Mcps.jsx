@@ -10,7 +10,7 @@ import { mcpAddSchema, pairsToMap, parseForm } from "@picode/shared/contracts/sc
 import { toast } from "../lib/toast.js";
 import PageFrame from "./PageFrame.jsx";
 import PiSpinner from "./PiSpinner.jsx";
-import { connectorDriver, blockedLayers, connectorAddBody, connectorScopeNames } from "@picode/shared/domain/integrations.js";
+import { connectorDriver, blockedLayers, connectorAddBody, connectorScopeNames, connectorDocsUrl } from "@picode/shared/domain/integrations.js";
 import "../styles/integrations.css";
 
 export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, workspacePath, agentId, agentName, agentWorkPath, agentRunning, onReload, scope: scopeProp = "user", onScopeChange = () => {} }) {
@@ -578,6 +578,7 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
                       <ul className="pkg-grid" aria-busy={searching}>
                         {rows.map((h) => {
                           const on = configuredNames.has(h.id);
+                          const docs = connectorDocsUrl(h);
                           return (
                             <li key={h.id} className="pkg-card">
                               <div className="pkg-preview" aria-hidden="true">
@@ -591,6 +592,9 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
                                 </div>
                                 <p className="pkg-card-desc">{h.summary || " "}</p>
                                 <div className="pkg-card-foot">
+                                  {docs ? (
+                                    <a className="btn btn-ghost btn-sm" href={docs} target="_blank" rel="noopener noreferrer" aria-label={"Docs for " + h.name}>Docs</a>
+                                  ) : null}
                                   <span className="pkg-foot-spacer" />
                                   <button
                                     type="button"

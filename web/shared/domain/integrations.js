@@ -175,3 +175,15 @@ export function connectorScopeNames(servers, scope) {
   const list = Array.isArray(servers) ? servers : [];
   return new Set(list.filter((s) => s && s.scope === scope).map((s) => s.name));
 }
+
+// connectorDocsUrl is the card's Docs href: http(s) only. Missing, blank,
+// or javascript: values hide the link rather than rendering a dead control.
+export function connectorDocsUrl(hit) {
+  try {
+    const parsed = new URL(String(hit && hit.docsUrl || "").trim());
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+    return parsed.href;
+  } catch {
+    return "";
+  }
+}

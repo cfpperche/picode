@@ -34,6 +34,7 @@ type Item struct {
 	Command  string   `json:"command,omitempty"`
 	Args     []string `json:"args,omitempty"`
 	Auth     string   `json:"auth,omitempty"` // "oauth" when known
+	DocsURL  string   `json:"docsUrl,omitempty"`
 	Featured bool     `json:"featured"`
 	Source   string   `json:"source"` // "picode" | "registry"
 }
@@ -61,7 +62,25 @@ const (
 	statusMetaKey = "io.modelcontextprotocol.registry/official"
 	// cacheFileName is the catalog cache inside the data dir.
 	cacheFileName = "connectors-catalog.json"
+	// cacheVersion bumps when Item grows a field the on-disk cache must
+	// relearn (docsUrl). An older file still answers, but Search treats it
+	// as stale so a background refresh fills the new field.
+	cacheVersion = 1
+	// picodeGuide is the public cookbook root for seed connectors that
+	// have a PiCode page (docs-site/guide).
+	picodeGuide = "https://cfpperche.github.io/picode/guide"
 )
+
+// seedDocs maps preset ids onto their cookbook page. Connectors without a
+// PiCode page stay blank — the card hides Docs rather than inventing a URL.
+var seedDocs = map[string]string{
+	"gmail":            picodeGuide + "/mcp-gmail",
+	"deepwiki":         picodeGuide + "/mcp-deepwiki",
+	"picode-computer":  picodeGuide + "/picode-mcp",
+	"picode-browser":   picodeGuide + "/picode-mcp",
+	"picode-inbox":     picodeGuide + "/picode-mcp",
+	"picode-checklist": picodeGuide + "/picode-mcp",
+}
 
 // Store answers catalog searches. Zero-value is not usable; use NewStore.
 type Store struct {
@@ -102,7 +121,7 @@ func Seed() []Item {
 	presets := mcp.Presets()
 	out := make([]Item, 0, len(presets))
 	for _, p := range presets {
-		it := Item{ID: p.ID, Name: p.Name, Summary: p.Summary, Featured: true, Source: "picode"}
+		it := Item{ID: p.ID, Name: p.Name, Summary: p.Summary, Featured: true, Source: "picode", DocsURL: seedDocs[p.ID]}
 		if p.Entry.URL != "" {
 			it.Kind = "url"
 			it.URL = p.Entry.URL
@@ -204,7 +223,11 @@ type registryEntry struct {
 		Name        string `json:"name"`
 		Title       string `json:"title"`
 		Description string `json:"description"`
-		Remotes     []struct {
+		WebsiteURL  string `json:"websiteUrl"`
+		Repository  struct {
+			URL string `json:"url"`
+		} `json:"repository"`
+		Remotes []struct {
 			Type string `json:"type"`
 			URL  string `json:"url"`
 		} `json:"remotes"`
@@ -216,6 +239,7 @@ type registryEntry struct {
 // Seed cards are re-derived from the running binary on load, so only
 // registry rows survive a restart load.
 type cacheFileV1 struct {
+	Version     int       `json:"version"`
 	RefreshedAt time.Time `json:"refreshedAt"`
 	Items       []Item    `json:"items"`
 }
@@ -327,8 +351,38 @@ func itemFromEntry(e registryEntry) (Item, bool) {
 		Summary: e.Server.Description,
 		Kind:    "url",
 		URL:     remoteURL,
+		DocsURL: firstHTTPURL(e.Server.WebsiteURL, e.Server.Repository.URL),
 		Source:  "registry",
 	}, true
+}
+
+// firstHTTPURL returns the first http(s) URL in candidates. javascript:,
+// data: and host-less strings never become a card link.
+func firstHTTPURL(candidates ...string) string {
+	for _, c := range candidates {
+		if u := httpURL(c); u != "" {
+			return u
+		}
+	}
+	return ""
+}
+
+func httpURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return ""
+	}
+	if u.Host == "" {
+		return ""
+	}
+	return u.String()
 }
 
 func entryStatus(e registryEntry) string {
@@ -368,7 +422,9 @@ func (s *Store) loadCache() {
 		}
 	}
 	s.registry = registry
-	s.refreshedAt = cf.RefreshedAt
+	if cf.Version >= cacheVersion {
+		s.refreshedAt = cf.RefreshedAt
+	}
 }
 
 // writeCache persists the merged view atomically: a unique tmp file of its
@@ -379,7 +435,7 @@ func (s *Store) writeCache() error {
 		return nil
 	}
 	s.mu.Lock()
-	cf := cacheFileV1{RefreshedAt: s.refreshedAt, Items: append(append([]Item(nil), Seed()...), s.registry...)}
+	cf := cacheFileV1{Version: cacheVersion, RefreshedAt: s.refreshedAt, Items: append(append([]Item(nil), Seed()...), s.registry...)}
 	s.mu.Unlock()
 	b, err := json.MarshalIndent(cf, "", "  ")
 	if err != nil {

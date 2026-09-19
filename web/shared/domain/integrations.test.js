@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { integrationSection, destinationLabel, cliConnectorsHash, cliConnectorsLocation, supportsCliConnectors, connectorDriver, blockedLayers, CLI_CONNECTORS, connectorAddBody, connectorScopeNames } from "./integrations.js";
+import { integrationSection, destinationLabel, cliConnectorsHash, cliConnectorsLocation, supportsCliConnectors, connectorDriver, blockedLayers, CLI_CONNECTORS, connectorAddBody, connectorScopeNames, connectorDocsUrl } from "./integrations.js";
 import { webhookSchema } from "../contracts/schemas.js";
 
 test("integration routes and safe destination labels", () => {
@@ -134,4 +134,14 @@ test("catalog hits build add bodies and Added-checks per scope", () => {
   assert.deepEqual([...connectorScopeNames(servers, "agent")], ["other"]);
   assert.equal(connectorScopeNames(null, "user").size, 0);
   assert.deepEqual([...connectorScopeNames([{ name: "a", scope: "user" }, null], "user")], ["a"]);
+});
+
+test("connector docs links are http(s) only", () => {
+  assert.equal(connectorDocsUrl({ docsUrl: "https://latlong.ai" }), "https://latlong.ai/");
+  assert.equal(connectorDocsUrl({ docsUrl: "http://example.com/docs" }), "http://example.com/docs");
+  assert.equal(connectorDocsUrl({ docsUrl: "  https://acme.example/docs  " }), "https://acme.example/docs");
+  assert.equal(connectorDocsUrl({ docsUrl: "javascript:alert(1)" }), "");
+  assert.equal(connectorDocsUrl({ docsUrl: "" }), "");
+  assert.equal(connectorDocsUrl(null), "");
+  assert.equal(connectorDocsUrl({}), "");
 });
