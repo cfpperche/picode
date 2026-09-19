@@ -70,6 +70,21 @@ mod tests {
         }
     }
 
+    // The wire contract: the page posts the message OBJECT and lets the
+    // host serialize it once. A pre-stringified text risks coming back from
+    // WebMessageAsJson JSON-encoded a second time, which the chrome parses
+    // into a string with no kind and drops silently (owner 2026-09-18).
+    #[test]
+    fn the_page_posts_objects_not_strings() {
+        assert!(
+            SCRIPT.contains("postMessage(msg)"),
+            "the page must post the object and let the host serialize it"
+        );
+        assert!(
+            !SCRIPT.contains("postMessage(JSON.stringify"),
+            "pre-stringified posts double-encode through WebMessageAsJson"
+        );
+    }
     // The exit script must be a no-op when the mode was never armed: the
     // toolbar can be clicked in a tab that never entered.
     #[test]

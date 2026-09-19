@@ -8,7 +8,7 @@ import { askTitle } from "../lib/browserPermissions.js";
 import { subscribeFloatingLayers, overlapsLayers, rectOf } from "../lib/floatingLayers.js";
 import { requestBrowserDialog } from "../lib/browserDialogs.js";
 import { previewUrl, verifyPreviewUrl } from "../lib/previewStill.js";
-import { cropRect, stylesToCSS, stateItems, batchMessage } from "../lib/annotate.js";
+import { cropRect, stylesToCSS, stateItems, batchMessage, parseAnnotMessage } from "../lib/annotate.js";
 import AnnotateStrip from "./AnnotateStrip.jsx";
 import AnnotatePreview from "./AnnotatePreview.jsx";
 
@@ -156,12 +156,9 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     if (typeof listen !== "function") return undefined;
     let unlisten = null;
     listen("btab://annotate", (event) => {
-      const outer = event?.payload;
-      const msg = typeof outer === "string" ? JSON.parse(outer) : outer;
-      if (!msg || String(msg.id) !== tabId) return;
-      let inner = msg.raw;
-      if (typeof inner === "string") { try { inner = JSON.parse(inner); } catch { inner = null; } }
-      if (!inner) return;
+      const parsed = parseAnnotMessage(event?.payload);
+      if (!parsed || parsed.id !== tabId) return;
+      const inner = parsed.inner;
       if (inner.kind === "pick") toast.ok("Picked " + (inner.selector || inner.tag || "element"));
       else if (inner.kind === "state") setAnnotItems(stateItems(inner));
       else if (inner.kind === "note") toast.ok(String(inner.message || ""));
