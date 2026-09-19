@@ -23,5 +23,5 @@ unshifted and drops some — that app, not the injection. Layout: ENG.
 - Owner: `make desktop-restart`, then type the same sentence again while other sessions are busy.
 
 ## Debts
-- WinUI apps (Notepad, Settings) garble synthetic keystrokes when behind; a `mode: "paste"` for `type` (clipboard + Ctrl+V, clipboard restored) is the workaround to offer.
-- The shell resolves keys against its own thread's layout; a target app on another layout gets the shell's mapping. Unicode-packet text is layout-free; keystrokes are not.
+- WinUI apps garble synthetic keystrokes when behind: offer `mode: "paste"` (clipboard + Ctrl+V, clipboard restored).
+- Keys resolve against the shell's own layout; an app on another layout gets that mapping.
