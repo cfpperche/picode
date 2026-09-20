@@ -2065,6 +2065,21 @@ img.ws-face.term-cli-face {
   flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   padding: 0 8px; font-size: 12px; color: var(--text-secondary);
 }
+.annot-target select {
+  height: var(--ctl-h, 36px);
+  max-width: 180px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  padding: 0 8px;
+  font: inherit;
+}
+.annot-target-fixed {
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+}
 .annot-strip .annot-send {
   flex: none; height: 28px; min-width: 0; padding: 0 14px;
   border: none; border-radius: 999px;

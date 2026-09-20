@@ -2,6 +2,8 @@
 
 ## Next
 
+- tmux 3.7c is in PATH (`/usr/local/bin`) while the running server is still 3.6: at the first server restart (reboot, or the last session ending) re-measure `extended-keys-format`, `allow-passthrough`, `display-popup` and the floating-pane gestures on 3.7c, then refresh ADR-0025's 3.6-era numbers (ADR-0164).
+
 ## Debts
 
 - Agent CLIs Terminals ⋯ on the phone is still hand-built (Launch settings / Restart / Stop / Remove), not `termRowMenu`. Work rows use the shared menu (`surface: "phone"`) since 2026-09-19.
@@ -19,4 +21,8 @@
 
 - tmux fixtures: a **fixed session name shared across concurrent test binaries** (the heavy package runs in four shards) was the cause of the 2026-09-13 flakes — `TestPaneRootSurvivesSIGHUP` and `TestPeerStopStubbornChildStaysPending` went red under concurrent closes. Process-unique fixture names, plus a ready-marker handshake so the pane's script has installed its traps before a stop signals it, are the fixes. If a tmux fixture reddens again, suspect a shared fixed name first.
 - tmux: never kill by prefix (2026-09-06 sweep: 29 sessions); guard tests: no `kill-server`, exact-name cleanup, deadlines on every exec.
+- The tmux in PATH is now the source build in `/usr/local/bin` (3.7c) shadowing apt's `/usr/bin/tmux` (3.6a), so PATH order decides which binary a terminal uses and an apt upgrade would be invisible; build flags change what the server advertises to pane apps (without `--enable-sixel` the DA1 answer loses attribute 4 — `?1;2c` instead of `?1;2;4c`, measured 2026-09-20).
+- `~/.local/bin/pkg-config` is a **mock** ("plausible values" for cargo builds) that precedes the real `/usr/bin/pkg-config` in PATH: any `configure` that trusts it gets invented answers. It bit the tmux build ("libevent: yes" from a lie); `PKG_CONFIG=/usr/bin/pkg-config` is the fix.
 - Suites that start tmux servers go through `internal/tmuxtest` (`TestMain`): private `TMUX_TMPDIR`, `TMUX`/`TMUX_PANE` scrubbed, the private server killed twice with a grace between (a straggler watcher finished a tick after `m.Run` and leaked a session on 2026-09-15 — the env is deliberately not restored). No name-matching orphan sweep exists; leftovers die with the private server.
+- The tmuxtest teardown is not enough on its own (measured 2026-09-20): 14 `/tmp/picode-tmuxtest-*` dirs, 7 with live servers, sessions back to 2026-09-18, and one pane spinning `while :; do :; done` since 2026-09-19 18:18 — a namespace outlives its suite when the test binary is killed (a shard under a 10-minute timeout, a canceled `make ci`), and the twice-kill reaps the server it started, not the one a dead binary started. The missing piece is a stale sweep (age + no test process) before the next run. Cleaned later on 2026-09-20: the 7 dirs older than 20 minutes went (5 sessions killed by exact name, including the pane spinning since 19/09 18:18) and the 5 belonging to a test run in flight were left alone.
+- The 3.7c build in `/usr/local` is not systemd-enabled (Ubuntu's 3.6 is: panes land in their own scopes). Measured no impact on PiCode, which never creates panes and keeps the server in the unit's cgroup (ADR-0002); parity rebuild is `--enable-systemd` plus `libsystemd-dev`.
