@@ -3877,6 +3877,10 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .tree-card-meta { font-size: 11px; color: var(--text-secondary); }
 [data-sonner-toaster] {
   font-family: var(--sans);
+  /* Refusals from in-pane cards (the attach composer, snippet sheets) must
+     paint above whatever opened them: without an explicit layer the toast
+     lost to the pane's own stacking contexts (owner report 2026-09-20). */
+  z-index: 1100;
 }
 @media (max-width: 767px) {
   /* Mobile has a fixed 56px bottom nav. Keep toasts above it so an error
@@ -6288,3 +6292,12 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .grant-cover.is-dead .grant-cover-label,
 .grant-cover.is-dead .grant-cover-d { color: var(--warn); }
 .devs-tag-off { opacity: .6; }
+
+/* A door refusal (working, occupied, busy) names its fix inside the attach
+   card — the Send happened here, and a toast can lose the layering. */
+.term-attach-error {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--danger);
+}
+.term-attach-error::before { content: "⚠ "; }

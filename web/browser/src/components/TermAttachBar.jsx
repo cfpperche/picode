@@ -30,6 +30,7 @@ export default function TermAttachBar({ term, seed, ownerKind, onClose }) {
   const [items, setItems] = useState([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sendError, setSendError] = useState("");
   const [pick, setPick] = useState(false);
   const [sketch, setSketch] = useState(null);
 
@@ -116,8 +117,12 @@ export default function TermAttachBar({ term, seed, ownerKind, onClose }) {
       }
       setItems([]);
       setText("");
+      setSendError("");
     } catch (e) {
-      toastError(e);
+      // Door refusals (working, occupied, busy, closed) name their fix in
+      // the message — show them here, inside the card, where the Send
+      // happened. A toast can lose the layering to the pane around it.
+      setSendError(e && e.message ? e.message : String(e));
     } finally {
       setBusy(false);
     }
@@ -159,6 +164,7 @@ export default function TermAttachBar({ term, seed, ownerKind, onClose }) {
       </div>
       {/* Not a [data-align-row]: the field grows by design (overlayAudit's
           equal-height rule is for fixed controls). The row is bottom-aligned. */}
+      {sendError ? <p className="term-attach-error" role="alert">{sendError}</p> : null}
       <form className="term-attach-row" noValidate onSubmit={(e) => { e.preventDefault(); send(); }}>
         <input ref={imgPick} type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/*" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
         <input ref={filePick} type="file" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />

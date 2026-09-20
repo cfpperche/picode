@@ -21,6 +21,7 @@ export default function TermAttachSheet({ term, open, onClose }) {
   const [items, setItems] = useState([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sendError, setSendError] = useState("");
   const [pick, setPick] = useState(false);
   const [sketch, setSketch] = useState(null);
 
@@ -97,9 +98,12 @@ export default function TermAttachSheet({ term, open, onClose }) {
       }
       setItems([]);
       setText("");
+      setSendError("");
       onClose();
     } catch (e) {
-      toastError(e);
+      // Door refusals name their fix — show them inside the sheet, above
+      // the composer, where the Send happened.
+      setSendError(e && e.message ? e.message : String(e));
     } finally {
       setBusy(false);
     }
@@ -116,6 +120,7 @@ export default function TermAttachSheet({ term, open, onClose }) {
         <Dialog.Overlay className="dlg-overlay" />
         <Dialog.Content className="dlg dlg-sheet" onCloseAutoFocus={(e) => e.preventDefault()}>
           <Dialog.Title className="dlg-title">Send to the terminal</Dialog.Title>
+          {sendError ? <p className="dlg-body" role="alert" style={{ color: "var(--danger)", margin: "0 0 8px" }}>{sendError}</p> : null}
           <WorkspaceAttach open={pick} termId={term.id} onPick={addWorkspace} onClose={() => setPick(false)} />
           {items.length ? (
             <div className="term-attach-chips">
