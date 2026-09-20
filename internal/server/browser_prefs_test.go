@@ -26,7 +26,7 @@ func prefsServer(t *testing.T) *httptest.Server {
 
 func TestPrefsDestinationsRoundTrip(t *testing.T) {
 	ts := prefsServer(t)
-	put, _ := json.Marshal(map[string]any{"showFullUrl": true, "webOpenDest": "external", "localOpenDest": "app", "passwordAutosave": false, "generalAutofill": false, "askDownload": true, "scriptsEnabled": false, "agentAccess": false})
+	put, _ := json.Marshal(map[string]any{"showFullUrl": true, "webOpenDest": "external", "localOpenDest": "app", "passwordAutosave": false, "generalAutofill": false, "askDownload": true, "scriptsEnabled": false, "agentAccess": false, "annotationShots": "always"})
 	resp, err := http.NewRequest(http.MethodPut, ts.URL+"/api/browser/prefs", bytes.NewReader(put))
 	if err != nil {
 		t.Fatal(err)
@@ -49,6 +49,9 @@ func TestPrefsDestinationsRoundTrip(t *testing.T) {
 	}
 	if body["passwordAutosave"] != false || body["generalAutofill"] != false {
 		t.Fatalf("autofill prefs did not round trip: %v", body)
+	}
+	if body["annotationShots"] != "always" {
+		t.Fatalf("the annotation screenshot policy must round-trip: %v", body["annotationShots"])
 	}
 	if body["agentAccess"] != false {
 		t.Fatalf("the master switch did not round trip: %v", body)

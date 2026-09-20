@@ -84,7 +84,7 @@ export default function Inspector({
   hidden, anchor, workspaces, freeAgents, terminals, touchedPaths,
   tab, onTab, width, maxWidth, onWidth, activePath,
   onOpenFile, onOpenDiff, onOpenGraph, onOpenTree, onOpenTerminal, onChanges,
-  runMode, onRunMode, onAskAgent, onOpenUrl,
+  runMode, onRunMode, onAskAgent, onOpenUrl, onOpenOwner,
 }) {
   const anchorKind = anchor ? anchor.kind : "";
   const anchorId = anchor ? anchor.id : "";
@@ -475,7 +475,7 @@ export default function Inspector({
       ) : null}
       <div className="insp-body" ref={bodyRef}>
         {panel === "servers" ? (
-          <InspectorServers hidden={hidden} onOpen={onOpenUrl} />
+          <InspectorServers hidden={hidden} onOpen={onOpenUrl} onOpenOwner={onOpenOwner} />
         ) : !owner ? (
           <p className="insp-msg">Open an agent or terminal to inspect its files.</p>
         ) : gone ? (

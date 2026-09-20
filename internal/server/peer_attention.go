@@ -22,6 +22,13 @@ const peerActivationPointer = "PiCode activation: run picode messages read once 
 
 var terminalSGR = regexp.MustCompile(`\x1b\[[0-9;:]*m`)
 
+// Claude Code predicts a follow-up after an empty cursor and renders it dim.
+// Recognize only that exact captured shape — a reset glyph, ❯ plus a
+// non-breaking space, one dim run, no trailing content — so typed (bright)
+// text and a cursor inside the text still refuse. Capture:
+// testdata/claude-ghost-suggestion.json.
+var claudeEmptySuggestion = regexp.MustCompile(`^\x1b\[39m❯\xa0\x1b\[2m([^\x1b\r\n\t]+)\x1b\[0m$`)
+
 // Refusal reasons for the guarded input path. They are stable metadata: the
 // log may carry the reason, never the pointer, message, token or screen.
 var (
@@ -146,6 +153,12 @@ func peerInputMatches(cli string, s tmux.InputSnapshot, expected string) bool {
 	if (cli == "hermes" || cli == "codex") && strings.HasPrefix(line, marker+" ") && ((cli == "hermes" && strings.Contains(raw, "\x1b[3m")) || (cli == "codex" && strings.Contains(raw, "\x1b[2m"))) {
 		return true
 	}
+	// Claude Code renders a predicted follow-up dim after the empty cursor.
+	// The ghost is never submitted text: typed input is bright and parks the
+	// cursor inside it, never at the ghost's start.
+	if cli == "claude-code" && claudeEmptySuggestion.MatchString(raw) {
+		return true
+	}
 	return false
 }
 
@@ -190,10 +203,23 @@ func peerGrokBoxInput(s tmux.InputSnapshot, expected string) bool {
 	} else if expected != "" {
 		footer = "  Enter:send  │  Shift+Tab:mode  │  Ctrl+x:shortcuts"
 	}
+	// Grok 1.0.34 appends a newline hint to the post-paste footer. Accept
+	// that exact second shape for pasted text only; empty, suggestion and
+	// welcome states keep their single footers.
+	footers := []string{footer}
+	if !suggestion && expected != "" {
+		footers = append(footers, "  Enter:send  │  Shift+Enter/Alt+Enter:newline  │  Shift+Tab:mode  │  Ctrl+x:shortcuts")
+	}
 	// The first-turn welcome screen uses a right-aligned release channel.
 	// Typing the pointer dismisses it and must produce the normal Enter footer.
 	welcome := expected == "" && !suggestion && clean(y+3) == strings.Repeat(" ", s.Width-10)+"[stable]"
-	if clean(y+2) != "" || (clean(y+3) != footer && !welcome) {
+	matched := false
+	for _, f := range footers {
+		if clean(y+3) == f {
+			matched = true
+		}
+	}
+	if clean(y+2) != "" || (!matched && !welcome) {
 		return false
 	}
 	for n := y + 4; n < len(s.Lines); n++ {

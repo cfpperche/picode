@@ -177,6 +177,30 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the btab_annotate_clear command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-annotate-clear",
+          "markdownDescription": "Enables the btab_annotate_clear command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_annotate_mode command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-annotate-mode",
+          "markdownDescription": "Enables the btab_annotate_mode command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_annotate_overlay command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-annotate-overlay",
+          "markdownDescription": "Enables the btab_annotate_overlay command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_annotate_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-annotate-state",
+          "markdownDescription": "Enables the btab_annotate_state command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_back command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-back",
@@ -201,6 +225,12 @@
           "markdownDescription": "Enables the btab_cdp_events command without any pre-configured scope."
         },
         {
+          "description": "Enables the btab_clear_app_data command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-clear-app-data",
+          "markdownDescription": "Enables the btab_clear_app_data command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_clear_data command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-clear-data",
@@ -219,16 +249,16 @@
           "markdownDescription": "Enables the btab_download_dir command without any pre-configured scope."
         },
         {
+          "description": "Enables the btab_find command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-find",
+          "markdownDescription": "Enables the btab_find command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_forward command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-forward",
           "markdownDescription": "Enables the btab_forward command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the btab_layer command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-btab-layer",
-          "markdownDescription": "Enables the btab_layer command without any pre-configured scope."
         },
         {
           "description": "Enables the btab_meta command without any pre-configured scope.",
@@ -255,6 +285,24 @@
           "markdownDescription": "Enables the btab_open_path command without any pre-configured scope."
         },
         {
+          "description": "Enables the btab_permission_answer command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-permission-answer",
+          "markdownDescription": "Enables the btab_permission_answer command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_preview command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-preview",
+          "markdownDescription": "Enables the btab_preview command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_print command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-print",
+          "markdownDescription": "Enables the btab_print command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_reload command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-reload",
@@ -277,6 +325,12 @@
           "type": "string",
           "const": "allow-btab-set-ask-download",
           "markdownDescription": "Enables the btab_set_ask_download command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_set_developer_mode command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-set-developer-mode",
+          "markdownDescription": "Enables the btab_set_developer_mode command without any pre-configured scope."
         },
         {
           "description": "Enables the btab_set_download_dir command without any pre-configured scope.",
@@ -303,10 +357,22 @@
           "markdownDescription": "Enables the btab_set_scripts command without any pre-configured scope."
         },
         {
+          "description": "Enables the btab_set_zoom command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-set-zoom",
+          "markdownDescription": "Enables the btab_set_zoom command without any pre-configured scope."
+        },
+        {
           "description": "Enables the btab_visibility command without any pre-configured scope.",
           "type": "string",
           "const": "allow-btab-visibility",
           "markdownDescription": "Enables the btab_visibility command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the btab_zoom command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-btab-zoom",
+          "markdownDescription": "Enables the btab_zoom command without any pre-configured scope."
         },
         {
           "description": "Enables the clean_apply command without any pre-configured scope.",
@@ -319,6 +385,54 @@
           "type": "string",
           "const": "allow-clean-list",
           "markdownDescription": "Enables the clean_list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the computer_call command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-computer-call",
+          "markdownDescription": "Enables the computer_call command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the computer_displays command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-computer-displays",
+          "markdownDescription": "Enables the computer_displays command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the computer_embed command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-computer-embed",
+          "markdownDescription": "Enables the computer_embed command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the computer_preview command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-computer-preview",
+          "markdownDescription": "Enables the computer_preview command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the computer_set_grants command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-computer-set-grants",
+          "markdownDescription": "Enables the computer_set_grants command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the computer_unembed command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-computer-unembed",
+          "markdownDescription": "Enables the computer_unembed command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the computer_windows command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-computer-windows",
+          "markdownDescription": "Enables the computer_windows command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the computerlab_open command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-computerlab-open",
+          "markdownDescription": "Enables the computerlab_open command without any pre-configured scope."
         },
         {
           "description": "Enables the disk_compact command without any pre-configured scope.",
@@ -387,6 +501,30 @@
           "markdownDescription": "Enables the wslconfig_write command without any pre-configured scope."
         },
         {
+          "description": "Denies the btab_annotate_clear command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-annotate-clear",
+          "markdownDescription": "Denies the btab_annotate_clear command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_annotate_mode command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-annotate-mode",
+          "markdownDescription": "Denies the btab_annotate_mode command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_annotate_overlay command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-annotate-overlay",
+          "markdownDescription": "Denies the btab_annotate_overlay command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_annotate_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-annotate-state",
+          "markdownDescription": "Denies the btab_annotate_state command without any pre-configured scope."
+        },
+        {
           "description": "Denies the btab_back command without any pre-configured scope.",
           "type": "string",
           "const": "deny-btab-back",
@@ -411,6 +549,12 @@
           "markdownDescription": "Denies the btab_cdp_events command without any pre-configured scope."
         },
         {
+          "description": "Denies the btab_clear_app_data command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-clear-app-data",
+          "markdownDescription": "Denies the btab_clear_app_data command without any pre-configured scope."
+        },
+        {
           "description": "Denies the btab_clear_data command without any pre-configured scope.",
           "type": "string",
           "const": "deny-btab-clear-data",
@@ -429,16 +573,16 @@
           "markdownDescription": "Denies the btab_download_dir command without any pre-configured scope."
         },
         {
+          "description": "Denies the btab_find command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-find",
+          "markdownDescription": "Denies the btab_find command without any pre-configured scope."
+        },
+        {
           "description": "Denies the btab_forward command without any pre-configured scope.",
           "type": "string",
           "const": "deny-btab-forward",
           "markdownDescription": "Denies the btab_forward command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the btab_layer command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-btab-layer",
-          "markdownDescription": "Denies the btab_layer command without any pre-configured scope."
         },
         {
           "description": "Denies the btab_meta command without any pre-configured scope.",
@@ -465,6 +609,24 @@
           "markdownDescription": "Denies the btab_open_path command without any pre-configured scope."
         },
         {
+          "description": "Denies the btab_permission_answer command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-permission-answer",
+          "markdownDescription": "Denies the btab_permission_answer command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_preview command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-preview",
+          "markdownDescription": "Denies the btab_preview command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_print command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-print",
+          "markdownDescription": "Denies the btab_print command without any pre-configured scope."
+        },
+        {
           "description": "Denies the btab_reload command without any pre-configured scope.",
           "type": "string",
           "const": "deny-btab-reload",
@@ -487,6 +649,12 @@
           "type": "string",
           "const": "deny-btab-set-ask-download",
           "markdownDescription": "Denies the btab_set_ask_download command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_set_developer_mode command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-set-developer-mode",
+          "markdownDescription": "Denies the btab_set_developer_mode command without any pre-configured scope."
         },
         {
           "description": "Denies the btab_set_download_dir command without any pre-configured scope.",
@@ -513,10 +681,22 @@
           "markdownDescription": "Denies the btab_set_scripts command without any pre-configured scope."
         },
         {
+          "description": "Denies the btab_set_zoom command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-set-zoom",
+          "markdownDescription": "Denies the btab_set_zoom command without any pre-configured scope."
+        },
+        {
           "description": "Denies the btab_visibility command without any pre-configured scope.",
           "type": "string",
           "const": "deny-btab-visibility",
           "markdownDescription": "Denies the btab_visibility command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the btab_zoom command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-btab-zoom",
+          "markdownDescription": "Denies the btab_zoom command without any pre-configured scope."
         },
         {
           "description": "Denies the clean_apply command without any pre-configured scope.",
@@ -529,6 +709,54 @@
           "type": "string",
           "const": "deny-clean-list",
           "markdownDescription": "Denies the clean_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the computer_call command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-computer-call",
+          "markdownDescription": "Denies the computer_call command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the computer_displays command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-computer-displays",
+          "markdownDescription": "Denies the computer_displays command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the computer_embed command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-computer-embed",
+          "markdownDescription": "Denies the computer_embed command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the computer_preview command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-computer-preview",
+          "markdownDescription": "Denies the computer_preview command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the computer_set_grants command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-computer-set-grants",
+          "markdownDescription": "Denies the computer_set_grants command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the computer_unembed command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-computer-unembed",
+          "markdownDescription": "Denies the computer_unembed command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the computer_windows command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-computer-windows",
+          "markdownDescription": "Denies the computer_windows command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the computerlab_open command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-computerlab-open",
+          "markdownDescription": "Denies the computerlab_open command without any pre-configured scope."
         },
         {
           "description": "Denies the disk_compact command without any pre-configured scope.",

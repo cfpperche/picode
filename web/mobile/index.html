@@ -6,7 +6,10 @@
 <meta name="theme-color" content="#0e0e11">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- Opaque status bar (black in dark, default in light). iOS 26 Liquid
+     Glass frosts black-translucent and washes the header; env(safe-area-inset-top)
+     is 0 when the bar is opaque, so existing head padding stays honest. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="PiCode">
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -22,6 +25,8 @@
   var dark = mode === "dark" || (mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.dataset.theme = dark ? "dark" : "light";
   document.documentElement.style.colorScheme = dark ? "dark" : "light";
+  var sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+  if (sb) sb.setAttribute("content", dark ? "black" : "default");
   /* iOS standalone (Add to Home Screen) letterboxes a bottom strip outside
      the layout viewport on current iOS (WebKit 313800/254868): env(bottom)
      is double-counted there and CSS can only paint the canvas. The behavior
@@ -30,11 +35,18 @@
      report env 0) — so measure, don't assume: flag only when the visual
      viewport is really shorter than the screen. The layout preferences
      (Preferences → Layout) build on this flag; "auto" bottom bar resolves
-     low only for letterboxed installs. navigator.standalone is iOS-only, so
+     to the screen edge on a letterboxed install. navigator.standalone is iOS-only, so
      Android/Chrome standalone keeps real env() insets. */
   if (navigator.standalone === true && window.innerWidth < window.innerHeight) {
-    var vvH = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
-    if (window.screen.height - vvH > 24) document.documentElement.dataset.standalone = "1";
+    var gap = Math.round(window.screen.height - window.innerHeight);
+    /* Opaque status bar (meta is black/default): the layout viewport
+       already starts below the bar, so `gap` is bar + letterbox. The
+       WebKit strip is status-bar-sized; a gap of one bar is chrome only. */
+    var box = gap > 48 ? Math.round(gap / 2) : 0;
+    if (box > 24) {
+      document.documentElement.dataset.standalone = "1";
+      document.documentElement.style.setProperty("--letterbox", box + "px");
+    }
   }
 })();
 </script>

@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import * as Switch from "@radix-ui/react-switch";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import FolderPicker from "./FolderPicker.jsx";
 import { DEFAULT_BROWSER_PREFS, readBrowserPrefs } from "../lib/browserPrefs.js";
+import { openWindowsSignIn, shellInvoke } from "../lib/windowsSettings.js";
+import { describeDomainField } from "../lib/browserDomains.js";
+import { ALL_SITES, permissionPush } from "../lib/browserPermissions.js";
+import { takeBrowserDialog } from "../lib/browserDialogs.js";
+import { IconWarn } from "./Icons.jsx";
+import { relTime } from "@picode/shared/domain/relTime.js";
 import PageFrame from "./PageFrame.jsx";
-import { browserGrantSchema } from "@picode/shared/contracts/schemas.js";
+import { Item, SwitchCtl } from "./settingsControls.jsx";
+import { BROWSER_PERMISSION_KINDS, browserGrantSchema, browserSiteSchema } from "@picode/shared/contracts/schemas.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { toast } from "../lib/toast.js";
 
@@ -69,26 +75,6 @@ const WIPE_ICONS = {
   siteSettings: <><circle cx="8" cy="8" r="2.4" /><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4" /></>,
 };
 
-// One row of a section card: title + description left, control right.
-function Item({ title, desc, children }) {
-  return (
-    <div className="set-item">
-      <div className="set-item-body">
-        <span className="set-item-t">{title}</span>
-        {desc ? <span className="set-item-d">{desc}</span> : null}
-      </div>
-      <div className="set-item-ctl">{children}</div>
-    </div>
-  );
-}
-
-function SwitchCtl({ checked, onChange, label }) {
-  return (
-    <Switch.Root className="rx-switch" checked={!!checked} onCheckedChange={onChange} aria-label={label}>
-      <Switch.Thumb className="rx-switch-thumb" />
-    </Switch.Root>
-  );
-}
 
 // A visit's timestamp arrives as RFC3339 with nanoseconds; Date wants at
 // most milliseconds.
@@ -118,7 +104,6 @@ const PERMISSION_KINDS = [
   { value: "clipboard", title: "Clipboard", d: "Sites can ask to read your clipboard" },
   { value: "autoplay", title: "Autoplay", d: "Sites can start playing media" },
 ];
-const ALL_SITES = "*";
 
 const bytesLabel = (n) => {
   if (!n || n <= 0) return "";
@@ -197,6 +182,26 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   const [wipeKinds, setWipeKinds] = useState(() => WIPE_KINDS.filter((k) => k.on).map((k) => k.value));
   const [wipeBusy, setWipeBusy] = useState(false);
   const [prefs, setPrefs] = useState(DEFAULT_BROWSER_PREFS);
+  // The dialog's "+ Add" (the reference's own affordance): author an exception
+  // for a site instead of waiting for that site to ask.
+  const [newSite, setNewSite] = useState({ site: "", kind: "camera", decision: "allow" });
+  const [newSiteError, setNewSiteError] = useState("");
+  const [addingSite, setAddingSite] = useState(false);
+  // The raw-CDP audit (ADR-0144): null while loading, [] when empty, so the
+  // card can tell "nothing yet" from "not read yet".
+  const [devAudit, setDevAudit] = useState(null);
+
+  // The work-tab options menu asks for one of these dialogs (option A, owner
+  // 2026-09-15): the request rode the route change, and this page opens it
+  // as soon as it is on screen.
+  useEffect(() => {
+    if (hidden) return;
+    const want = takeBrowserDialog();
+    if (want === "history") setHistoryOpen(true);
+    else if (want === "downloads") setDownloadsOpen(true);
+    else if (want === "wipe") setWipeOpen(true);
+    else if (want === "passwords" || want === "contact") setManageOpen(want);
+  }, [hidden]);
 
   const load = useCallback(async () => {
     try {
@@ -231,6 +236,19 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
       setStands(data.permissions ?? []);
     } catch {
       /* disposable; the next event retries */
+    }
+  }, []);
+
+  // The audit is what makes Developer mode defensible: every raw CDP call,
+  // allowed or refused, newest first (ADR-0144).
+  const loadDevAudit = useCallback(async () => {
+    try {
+      const r = await fetch("/api/browser/developer/audit?limit=20");
+      if (!r.ok) throw new Error(String(r.status));
+      const data = await r.json();
+      setDevAudit(data.calls ?? []);
+    } catch {
+      setDevAudit([]);
     }
   }, []);
 
@@ -272,10 +290,22 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
       loadHistory();
       loadDownloads();
       loadStands();
+      loadDevAudit();
       if (invoke) invoke("btab_download_dir").then((p) => setDownloadDir(p || "")).catch(() => {});
       fetch("/api/browser/prefs")
         .then((r) => r.json())
-        .then((p) => setPrefs(readBrowserPrefs(p)))
+        .then((p) => {
+          const next = readBrowserPrefs(p);
+          setPrefs(next);
+          // The shell keeps its own copy of the switches it applies per page
+          // (JavaScript on creation, developer mode at every raw CDP call).
+          // Push on load as well as on save: after an app restart the shell's
+          // copy is at its default until something tells it otherwise, and a
+          // settings page that only pushes on save leaves that gap until the
+          // next click.
+          invoke?.("btab_set_scripts", { enabled: next.scriptsEnabled !== false }).catch(() => {});
+          invoke?.("btab_set_developer_mode", { enabled: next.developerMode === true }).catch(() => {});
+        })
         .catch(() => {});
     }
   }, [hidden, load, loadHistory]);
@@ -299,17 +329,21 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
       .catch((e) => toast("The app did not accept the download setting: " + (e?.message || e)));
     invoke?.("btab_set_scripts", { enabled: next.scriptsEnabled !== false })
       .catch((e) => toast("The app did not accept the JavaScript setting: " + (e?.message || e)));
+    invoke?.("btab_set_developer_mode", { enabled: next.developerMode === true })
+      .catch((e) => toast("The app did not accept the developer mode setting: " + (e?.message || e)));
   };
 
   // Saves land as setting.updated; history mutations as browserhistory.updated.
   // Both refetch the surface they feed instead of polling.
-  // The shell keeps the policy in memory; the standings in the daemon are the
-  // truth, so every load (and every feed event) hands them back to it.
+  // The shell keeps the policy in memory; the rows in the daemon are the
+  // truth, so every load (and every feed event) hands back the policy the
+  // shell is allowed to know: the every-site rows, and a site row only when
+  // it is a standing (a one-off decision must not become permanent).
   useEffect(() => {
     if (!invoke || !Array.isArray(stands)) return;
     for (const st of stands) {
-      if (st.origin !== ALL_SITES) continue;
-      invoke("btab_set_permission_policy", { kind: st.kind, state: st.decision }).catch(() => {});
+      const push = permissionPush(st);
+      if (push) invoke("btab_set_permission_policy", push).catch(() => {});
     }
   }, [stands, invoke]);
 
@@ -318,6 +352,9 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     if (ev.type === "browserpermission.updated") loadStands();
     if (ev.type === "browserhistory.updated") loadHistory();
     if (ev.type === "browserdownload.updated") loadDownloads();
+    // The audit refetches on its own events: a raw call the owner is watching
+    // for shows up while the page is open (ADR-0144).
+    if (ev.type === "browser.cdp") loadDevAudit();
   }), [load, loadHistory, loadDownloads]);
 
   const removeVisit = async (vid) => {
@@ -502,24 +539,120 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
 
   const policyOf = (kind) => (stands || []).find((st) => st.origin === ALL_SITES && st.kind === kind)?.decision || "";
 
+  // The dialog's per-kind choice writes the every-site standing. Platform
+  // default forgets that row (only that row — a site's remembered answers
+  // are not the kind policy), and the live shell drops the entry so the
+  // platform default takes over now, not at the next restart.
   const setPolicy = async (kind, decision) => {
+    const row = (stands || []).find((st) => st.origin === ALL_SITES && st.kind === kind);
     try {
-      const r = await fetch("/api/browser/permissions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ origin: ALL_SITES, kind, decision }),
-      });
-      if (!r.ok) throw new Error(String(r.status));
+      if (!decision) {
+        if (row) {
+          const r = await fetch("/api/browser/permissions/" + row.id, { method: "DELETE" });
+          if (!r.ok && r.status !== 404) throw new Error(String(r.status));
+        }
+      } else {
+        const r = await fetch("/api/browser/permissions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ origin: ALL_SITES, kind, decision, standing: true }),
+        });
+        if (!r.ok) throw new Error(String(r.status));
+      }
     } catch {
       toast("Saving the permission failed.");
       return;
     }
-    if (invoke) await invoke("btab_set_permission_policy", { kind, state: decision }).catch(() => {});
+    if (invoke) await invoke("btab_set_permission_policy", { kind, state: decision || "default", origin: null }).catch(() => {});
     loadStands();
   };
 
-  const forgetStanding = async (id) => {
-    await fetch("/api/browser/permissions/" + id, { method: "DELETE" }).catch(() => {});
+  // Author one exception (the reference's "+ Add"): the store already owns
+  // the vocabulary and the shell already applies standings pushed from this
+  // page, so this is only the missing way to write a row by hand.
+  const addSite = async () => {
+    const parsed = browserSiteSchema.safeParse(newSite);
+    if (!parsed.success) {
+      setNewSiteError(parsed.error.issues[0].message);
+      return;
+    }
+    setNewSiteError("");
+    setAddingSite(true);
+    try {
+      const res = await fetch("/api/browser/permissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // The store's field names: `origin` is the site or pattern the row
+        // keys on (the dialog's word is "site").
+        body: JSON.stringify({
+          origin: parsed.data.site,
+          kind: parsed.data.kind,
+          decision: parsed.data.decision,
+          standing: true,
+        }),
+      });
+      if (!res.ok) {
+        const why = (await res.text()).replace(/^store:\s*/, "").trim();
+        throw new Error(why || `the daemon answered ${res.status}`);
+      }
+      setNewSite({ site: "", kind: parsed.data.kind, decision: parsed.data.decision });
+      loadStands();
+    } catch (e) {
+      setNewSiteError("Could not save it — " + (e?.message || "the daemon is not reachable"));
+    } finally {
+      setAddingSite(false);
+    }
+  };
+
+  // Reset forgets one row and tells the live shell to drop the matching
+  // entry, so a reset takes effect now instead of at the next restart.
+  // The one operating-system screen PiCode opens on purpose: Windows keeps
+  // the face/finger/PIN and the passkeys, and we say so instead of imitating
+  // it. Hidden outside the shell — a plain browser has no such screen.
+  const openSignIn = async () => {
+    const outcome = await openWindowsSignIn(window);
+    if (outcome === "asked") toast.ok("Asked Windows to open Sign-in options.");
+    else if (outcome === "failed") toast("Windows did not open that screen.");
+  };
+
+  // "Forget unused": rows whose site has not been visited in 90 days. The
+  // store forgets them and answers with what it forgot, so the live shell's
+  // copy is cleared too — a standing that survived only there would come back
+  // on the next report (the same rule the single Reset follows).
+  const pruneUnused = async () => {
+    let removed = 0;
+    let forgotten = [];
+    try {
+      const r = await fetch("/api/browser/permissions/prune", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days: 90 }),
+      });
+      if (!r.ok) throw new Error(String(r.status));
+      const body = await r.json();
+      removed = body.removed ?? 0;
+      forgotten = Array.isArray(body.forgotten) ? body.forgotten : [];
+    } catch {
+      toast("Forgetting unused sites failed.");
+      return;
+    }
+    for (const row of forgotten) {
+      await invoke?.("btab_set_permission_policy", { kind: row.kind, state: "default", origin: row.origin }).catch(() => {});
+    }
+    if (removed === 0) toast.ok("Nothing to forget — every site has been visited in the last 90 days.");
+    else toast.ok(`Forgot ${removed} unused ${removed === 1 ? "entry" : "entries"}.`);
+    loadStands();
+  };
+
+  const forgetStanding = async (st) => {
+    await fetch("/api/browser/permissions/" + st.id, { method: "DELETE" }).catch(() => {});
+    if (invoke) {
+      await invoke("btab_set_permission_policy", {
+        kind: st.kind,
+        state: "default",
+        origin: st.origin === ALL_SITES ? null : st.origin,
+      }).catch(() => {});
+    }
     loadStands();
   };
 
@@ -591,6 +724,14 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
             <Item title="Show full URL" desc="Include the path, query, and fragment in the address bar">
               <SwitchCtl checked={prefs.showFullUrl} onChange={(v) => setPref({ showFullUrl: v })} label="Show full URL" />
             </Item>
+
+            <Item title="Annotation screenshots" desc="What the browser sends when you point at an element: the cropped image, a question each time you annotate, or the element alone.">
+              <select className="set-select" value={prefs.annotationShots} onChange={(e) => setPref({ annotationShots: e.target.value })} aria-label="Annotation screenshots">
+                <option value="always">Always include</option>
+                <option value="ask">Ask each time</option>
+                <option value="never">Never</option>
+              </select>
+            </Item>
             <Item title="Browsing data" desc="Clear browsing history, site data, cache, and download history from the in-app browser">
               <button type="button" className="set-btn" onClick={() => setWipeOpen(true)}>Clear browsing data</button>
             </Item>
@@ -636,6 +777,17 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
             <Item title="JavaScript" desc="Sites can use JavaScript">
               <SwitchCtl checked={prefs.scriptsEnabled} onChange={(v) => setPref({ scriptsEnabled: v })} label="Sites can use JavaScript" />
             </Item>
+            <Item title="Agent history access" desc="Whether agents may read where you have been — off unless you allow it">
+              <select
+                className="set-select"
+                value={prefs.historyAccess}
+                onChange={(e) => setPref({ historyAccess: e.target.value })}
+                aria-label="Agent history access"
+              >
+                <option value="never">Never</option>
+                <option value="allow">Allow</option>
+              </select>
+            </Item>
           </div>
         </section>
 
@@ -674,6 +826,54 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
           <p className="set-groupdesc">
             Terminals you started in PiCode get a row too — a CLI agent there is a principal like any other. A <code>pi</code> started outside PiCode has no identity at all and always reads the tab on screen.
           </p>
+        </section>
+
+        <section className="set-group">
+          <h2 className="set-grouph">Developer mode</h2>
+          <div className="set-panel">
+            <div className="set-item set-item-risk">
+              <div className="set-item-body">
+                <span className="set-risk"><IconWarn /> Elevated risk</span>
+                <span className="set-item-t">Enable full CDP access</span>
+                <span className="set-item-d">
+                  Lets an agent at the Full tier name any Chrome DevTools Protocol method, not only the ones PiCode allows on its own. Off, everything keeps working — the agent just stays inside the curated list.
+                </span>
+              </div>
+              <div className="set-item-ctl">
+                <SwitchCtl checked={prefs.developerMode} onChange={(v) => setPref({ developerMode: v })} label="Enable full CDP access" />
+              </div>
+            </div>
+            <div className="set-item">
+              <div className="set-item-body">
+                <span className="set-item-d">
+                  Raw access reaches what the curated list deliberately keeps away: the browser's stored cookies, sessions and page storage. Turn it on while you need it, and check the calls below afterwards.
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="set-panel">
+            <div className="set-item set-item-col">
+              <div className="set-item-body">
+                <span className="set-item-t">Raw calls</span>
+                {devAudit === null ? (
+                  <span className="set-item-d">Reading…</span>
+                ) : devAudit.length === 0 ? (
+                  <span className="set-item-d">No raw calls yet. Every call an agent makes with the switch on is listed here, allowed or refused.</span>
+                ) : (
+                  <ul className="set-audit">
+                    {devAudit.map((call) => (
+                      <li key={call.id} className="set-audit-row">
+                        <code className="set-audit-method">{call.method}</code>
+                        <span className={"set-audit-outcome" + (call.outcome === "allowed" ? " is-ok" : "")}>{call.outcome}</span>
+                        <span className="set-audit-actor">{call.agentId || call.termId || "unknown"}</span>
+                        <span className="set-audit-when">{relTime(call.calledAt)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
         </section>
       </div>
 
@@ -852,6 +1052,16 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
                       {purgeBusy ? "Deleting…" : confirmPurge ? "Really delete?" : "Delete data"}
                     </button>
                   </Item>
+                  {shellInvoke(window) ? (
+                    <Item
+                      title="Windows Hello and passkeys"
+                      desc="Your face, finger or PIN — and the passkeys bound to them — are kept and unlocked by Windows, not by PiCode. This opens Windows' own Sign-in options."
+                    >
+                      <button type="button" className="set-btn" onClick={openSignIn}>
+                        Open Windows settings
+                      </button>
+                    </Item>
+                  ) : null}
                 </>
               ) : (
                 <>
@@ -915,7 +1125,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
           <Dialog.Content className="dlg dlg-manage">
             <Dialog.Title className="dlg-title">Site settings</Dialog.Title>
             <p className="dlg-lede">
-              What sites may do in the built-in browser. Allow or block each kind for every site; without a choice the platform's own default (deny) stands, and every decision the browser makes is listed below.
+              What sites may do in the built-in browser. Allow or block each kind for every site, choose Ask to be prompted when a site asks, or leave the platform's own default (deny) in place. Every decision the browser makes is listed below; a site you answered "Always allow" for stays remembered there.
             </p>
             <div className="set-panel">
               {PERMISSION_KINDS.map((k) => (
@@ -929,17 +1139,76 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
                     <option value="">Platform default</option>
                     <option value="allow">Allow</option>
                     <option value="deny">Block</option>
+                    <option value="ask">Ask</option>
                   </select>
                 </Item>
               ))}
             </div>
+            {/* The reference's "+ Add": a site exception authored by hand,
+                instead of only reacting to a prompt. Same rows the Ask bar
+                writes, with standing on. It sits above the log because it is
+                the action; the log is the record. */}
+            <div className="hist-head">
+              <span className="hist-head-t">Add an exception</span>
+            </div>
+            <form
+              className="site-add"
+              noValidate
+              onSubmit={(e) => {
+                e.preventDefault();
+                addSite();
+              }}
+            >
+              <input
+                className={"site-add-site" + (newSiteError ? " grant-domains-bad" : "")}
+                placeholder="x.com, *.example.com, *"
+                value={newSite.site}
+                onChange={(e) => setNewSite({ ...newSite, site: e.target.value })}
+                aria-label="Site or pattern for the exception"
+                spellCheck={false}
+              />
+              <select
+                className="set-select"
+                value={newSite.kind}
+                onChange={(e) => setNewSite({ ...newSite, kind: e.target.value })}
+                aria-label="Permission kind"
+              >
+                {BROWSER_PERMISSION_KINDS.map((k) => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
+              </select>
+              <select
+                className="set-select"
+                value={newSite.decision}
+                onChange={(e) => setNewSite({ ...newSite, decision: e.target.value })}
+                aria-label="Decision for the exception"
+              >
+                <option value="allow">Always allow</option>
+                <option value="ask">Ask</option>
+                <option value="deny">Block</option>
+              </select>
+              <button type="submit" className="set-btn" disabled={addingSite || !newSite.site.trim()}>
+                {addingSite ? "Adding…" : "Add"}
+              </button>
+            </form>
+            {newSiteError ? <p className="grant-error">{newSiteError}</p> : null}
             <div className="hist-head">
               <span className="hist-head-t">Recent decisions</span>
+              {stands && stands.length > 0 ? (
+                <button
+                  type="button"
+                  className="set-btn"
+                  onClick={pruneUnused}
+                  title="Forgets the sites you have not visited in the last 90 days"
+                >
+                  Forget unused
+                </button>
+              ) : null}
             </div>
             {stands === null ? (
               <div className="mcp-skel" aria-hidden="true"><span className="skel-line w-40" /><span className="skel-line w-70" /></div>
             ) : stands.length === 0 ? (
-              <p className="set-groupdesc">Nothing yet — decisions appear here as sites ask.</p>
+              <p className="set-groupdesc">Nothing yet — add one above, or wait for a site to ask.</p>
             ) : (
               <div className="hist-days">
                 <ul className="hist-rows">
@@ -947,10 +1216,10 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
                     <li className="hist-row" key={st.id}>
                       <span className="hist-main">
                         <span className="hist-t" title={st.origin}>{st.origin === ALL_SITES ? "Every site" : st.origin}</span>
-                        <span className="hist-host">{st.kind}</span>
+                        <span className="hist-host">{st.kind}{st.standing ? " · saved" : ""}</span>
                       </span>
                       <span className="hist-time" style={st.decision === "deny" ? { color: "var(--danger)" } : undefined}>{st.decision}</span>
-                      <button type="button" className="set-btn" onClick={() => forgetStanding(st.id)} aria-label={"Forget the " + st.kind + " decision"}>Reset</button>
+                      <button type="button" className="set-btn" onClick={() => forgetStanding(st)} aria-label={"Forget the " + st.kind + " decision"}>Reset</button>
                     </li>
                   ))}
                 </ul>
@@ -1044,14 +1313,38 @@ function GrantRow({ row, draft, onDraft, onSave, flash }) {
   const valid = parsed.success;
   const dirty = draft.tier !== row.tier || draft.domainsText !== domainsText(row);
   const actLike = draft.tier !== "read";
+  // What the field currently means, in words (browserDomains.js is the same
+  // reading the matchers do — a hint, never a check). An entry that opens
+  // nothing is named here instead of being saved in silence.
+  const covers = actLike ? describeDomainField(draft.domainsText) : [];
+  // A row that carries a domain list stacks (name and hints, then the
+  // controls): side by side, the field was squeezed to a stub and the select
+  // wrapped above it (seen in review, 2026-09-15).
   return (
-    <div className="set-item">
+    <div className={"set-item" + (actLike ? " set-item-stack" : "")}>
       <div className="set-item-body">
         <span className="set-item-t">
           {row.name}
           {row.saved ? <span className="devs-tag">custom</span> : <span className="devs-tag devs-tag-off">default</span>}
         </span>
         {!valid && actLike ? <span className="set-item-d" style={{ color: "var(--danger)" }}>{parsed.error.issues[0].message}</span> : null}
+        {actLike && valid ? (
+          covers.length === 0 ? (
+            <span className="set-item-d">
+              No sites yet — this agent can only read the tab you have on screen. Add a host, or * for any site.
+            </span>
+          ) : (
+            <ul className="grant-covers">
+              {covers.map((c) => (
+                <li key={c.entry} className={"grant-cover" + (c.kind === "dead" ? " is-dead" : "")}>
+                  <span className="grant-cover-label">{c.label}</span>
+                  {c.covers ? <span className="grant-cover-d"> — {c.covers}</span> : null}
+                  {c.kind === "dead" ? <span className="grant-cover-d"> — {c.miss}</span> : null}
+                </li>
+              ))}
+            </ul>
+          )
+        ) : null}
       </div>
       <div className="set-item-ctl">
         <select
@@ -1065,7 +1358,7 @@ function GrantRow({ row, draft, onDraft, onSave, flash }) {
         {actLike && (
           <input
             className={"grant-domains" + (valid ? "" : " grant-domains-bad")}
-            placeholder="example.com, *.example.com"
+            placeholder="example.com, *.example.com, *"
             value={draft.domainsText}
             onChange={(e) => onDraft({ ...draft, domainsText: e.target.value })}
             aria-label={"Allowed domains for " + row.name}

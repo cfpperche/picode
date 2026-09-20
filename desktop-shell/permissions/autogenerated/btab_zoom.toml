@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-btab-zoom"
+description = "Enables the btab_zoom command without any pre-configured scope."
+commands.allow = ["btab_zoom"]
+
+[[permission]]
+identifier = "deny-btab-zoom"
+description = "Denies the btab_zoom command without any pre-configured scope."
+commands.deny = ["btab_zoom"]

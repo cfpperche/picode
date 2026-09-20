@@ -13,6 +13,7 @@ package server
 // would have to be named as debt in docs/handoff/open/<topic>.md.
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"os/exec"
@@ -415,11 +416,35 @@ func TestTmuxGuardMinimalPathDoesNotSelfExec(t *testing.T) {
 
 func requireRealTmux(t *testing.T) string {
 	t.Helper()
-	p, err := exec.LookPath("tmux")
-	if err != nil {
-		t.Skip("tmux not installed — integration test skipped (accepted debt, docs/handoff/open/terminal.md)")
+	// LookPath from inside a guarded PiCode pane finds the intercept wrapper
+	// first (~/.picode/bin/tmux leads the injected PATH). Building the
+	// fixture PATH around a wrapper makes two guard generations resolve each
+	// other as "$real" and exec in a loop — TestTmuxGuardAgainstRealServer
+	// hung 8m56s, twice (2026-09-17). A real tmux is one that is not a
+	// PiCode wrapper: check the bytes, not the directory.
+	for _, dir := range filepath.SplitList(os.Getenv("PATH")) {
+		if dir == "" {
+			continue
+		}
+		p := filepath.Join(dir, "tmux")
+		info, err := os.Stat(p)
+		if err != nil || info.IsDir() || info.Mode()&0o111 == 0 {
+			continue
+		}
+		f, err := os.Open(p)
+		if err != nil {
+			continue
+		}
+		head := make([]byte, 512)
+		n, _ := f.Read(head)
+		_ = f.Close()
+		if bytes.Contains(head[:n], []byte("PiCode intercept")) {
+			continue
+		}
+		return p
 	}
-	return p
+	t.Skip("no unwrapped tmux on PATH — integration test skipped (accepted debt, docs/handoff/open/terminal.md)")
+	return ""
 }
 
 // scrubbedTmuxEnv is os.Environ with every variable that could retarget a

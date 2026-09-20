@@ -12,7 +12,7 @@ scrolls); in regular mode it is a full-height overlay drawn straight
 through `tui.showOverlay(…, { nonCapturing: true })`. Both are owned by a
 zero-height `ctx.ui.setWidget` slot, re-set on every refresh — never through
 `ctx.ui.custom()`, whose `ui_prompt_*` lifecycle would read as "waiting
-for user" to the guest-TUI sensors (ADR-0056). The package runs git
+for user" to the CLI-TUI sensors (ADR-0056). The package runs git
 itself and never calls the daemon; PiCode has no code path for it. In
 `--mode rpc` only the footer total survives; the Files and Changes pane
 (ADR-0074) is the diff view there.

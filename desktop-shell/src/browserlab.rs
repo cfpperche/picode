@@ -39,6 +39,83 @@ pub fn webview_profile() -> PathBuf {
         .unwrap_or_else(|_| std::env::temp_dir().join("PiCode-WebView2"))
 }
 
+// An installed web app (ADR-0153) gets its own user-data folder: logins
+// and clear-data stay inside the app. The folder derives from the tab id
+// the UI already sends (`app-<webappId>`, the shell half of the stable
+// `w:app-<id>`); ids that do not match the store's minting shape fall
+// back to the shared profile — a webview is never pointed at a path
+// built from an unvalidated string.
+pub fn webapp_profile(webapp_id: &str) -> Option<PathBuf> {
+    let mut chars = webapp_id.chars();
+    match chars.next() {
+        Some(first) if first.is_ascii_lowercase() || first.is_ascii_digit() => {}
+        _ => return None,
+    }
+    if webapp_id.len() > 80
+        || !webapp_id
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    {
+        return None;
+    }
+    std::env::var("LOCALAPPDATA")
+        .map(|root| {
+            PathBuf::from(root)
+                .join("PiCode")
+                .join("WebView2")
+                .join("webapps")
+                .join(webapp_id)
+        })
+        .ok()
+}
+
+// The folder an id runs in: installed web apps partition (ADR-0153);
+// every other tab — work browser, lab, management — shares the profile.
+pub fn profile_for(id: &str) -> PathBuf {
+    app_partition(id).unwrap_or_else(webview_profile)
+}
+
+// The partition folder of an installed-app tab id, when the id is one
+// (`app-<webappId>` in the minted shape). None for anything else — the
+// containment guarantee behind "clear this app's data": the folder it
+// names is always under WebView2\webapps\<validated id>.
+pub fn app_partition(id: &str) -> Option<PathBuf> {
+    webapp_profile(id.strip_prefix("app-")?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn installed_app_tabs_partition_by_webapp_id() {
+        let p = profile_for("app-mail-abc123");
+        assert!(p.ends_with(std::path::Path::new("webapps").join("mail-abc123")));
+        assert!(webapp_profile("mail-abc123")
+            .unwrap()
+            .ends_with(std::path::Path::new("webapps").join("mail-abc123")));
+    }
+
+    #[test]
+    fn work_tabs_and_bad_ids_share_the_work_profile() {
+        assert_eq!(profile_for("7"), webview_profile());
+        assert_eq!(profile_for("app-Bad/Path"), webview_profile());
+        assert_eq!(profile_for("app-"), webview_profile());
+        assert_eq!(profile_for("app-has space"), webview_profile());
+        assert_eq!(profile_for("app-.."), webview_profile());
+    }
+
+    #[test]
+    fn app_partition_names_only_installed_app_ids() {
+        assert!(app_partition("app-mail-abc123")
+            .unwrap()
+            .ends_with(std::path::Path::new("webapps").join("mail-abc123")));
+        assert!(app_partition("7").is_none());
+        assert!(app_partition("app-Bad/Path").is_none());
+        assert!(app_partition("app-").is_none());
+    }
+}
+
 pub fn init(app: &tauri::App) {
     let win = match tauri::window::WindowBuilder::new(app, "browserlab")
         .title("PiCode — Browser lab")

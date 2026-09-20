@@ -124,6 +124,8 @@ func dispatch(cmd string, args []string) bool {
 		fmt.Println("picode " + version.Build())
 	case cmd == "token":
 		runToken(args)
+	case cmd == "mcp":
+		runMCP(args)
 	case cmd == "gateway":
 		runGateway(args)
 	case cmd == "users":
@@ -156,6 +158,7 @@ Usage:
     --json          progress and outcome as JSON lines (picode-desktop clean reads it)
   picode pair                 print a one-time link to pair another device
   picode token [rotate]       print the install token path, or rotate it
+  picode mcp <family…>        serve PiCode's tools to an agent CLI over MCP on stdio (computer, browser)
   picode install [--env K=V]  copy to ~/.local/bin and start on Linux login (systemd --user)
     --env KEY=VALUE   service environment (repeatable), e.g. --env PICODE_DATA=/srv/picode;
                       written to ~/.config/systemd/user/picode.service.d/env.conf
@@ -627,6 +630,11 @@ func serve() {
 	// meterable provider warm so #/providers can show a true number
 	// without eight vendor calls on every page load.
 	go server.StartUsageRefresh(backupCtx, deps, providerusage.DefaultRefresh)
+
+	// Dashboard stats (dash-perf Fase 1): warm the parse + range cache in
+	// the background so the first dashboard open is warm (~100-200ms)
+	// instead of a cold ~8s parse. Delayed 5s so traffic wins the boot.
+	server.StartSessionStatsWarmup(backupCtx)
 
 	// Automations scheduler (ADR-0045): lives with the process, not the
 	// HTTP server, so a rebind never drops a schedule.

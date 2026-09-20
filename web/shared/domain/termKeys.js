@@ -102,7 +102,7 @@ function trackKeydown(ev) {
 // paneLeaveKey(ev): Shift+Escape hands the keyboard back to the app — the
 // The Canvas focuses the panel's chrome (docs/architecture/canvas.md). A bare
 // Escape still reaches the TUI, which may need it; xterm encodes
-// Shift+Escape as the same \x1b, so no guest could tell the two apart and
+// Shift+Escape as the same \x1b, so no CLI could tell the two apart and
 // none loses a key it had.
 export function paneLeaveKey(ev) {
   return !!ev && ev.type === "keydown" && ev.key === "Escape" && !!ev.shiftKey && !ev.ctrlKey && !ev.altKey && !ev.metaKey;

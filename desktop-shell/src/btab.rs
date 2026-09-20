@@ -3,14 +3,16 @@
 // editor tab ("w:<id>"). The React side renders the toolbar and reports the
 // viewport rect of the page region (ResizeObserver); this module positions
 // the native webview there. ADR-0128: one shared profile, no debug port in
-// this path, popups adopt as new tabs.
+// this path, `target=_blank` and unsized `window.open` adopt as new tabs — a
+// sized popup opens as a real window (OAuth needs `window.opener`).
 
 use std::cell::RefCell;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use picode_shell::{cdppolicy, origins};
+use picode_shell::{cdppolicy, origins, permissions};
 use windows::core::Interface;
 use tauri::webview::{NewWindowResponse, WebviewBuilder};
 use tauri::WebviewUrl;
@@ -30,7 +32,8 @@ fn grants() -> &'static Mutex<HashMap<String, Vec<String>>> {
     GRANTS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 use webview2_com::Microsoft::Web::WebView2::Win32::{
-    ICoreWebView2DevToolsProtocolEventReceiver, COREWEBVIEW2_DOWNLOAD_STATE,
+    ICoreWebView2Deferral, ICoreWebView2DevToolsProtocolEventReceiver,
+    ICoreWebView2PermissionRequestedEventArgs, COREWEBVIEW2_DOWNLOAD_STATE,
     COREWEBVIEW2_DOWNLOAD_STATE_COMPLETED, COREWEBVIEW2_DOWNLOAD_STATE_INTERRUPTED,
     COREWEBVIEW2_PERMISSION_KIND, COREWEBVIEW2_PERMISSION_KIND_AUTOPLAY,
     COREWEBVIEW2_PERMISSION_KIND_CAMERA, COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ,
@@ -38,13 +41,18 @@ use webview2_com::Microsoft::Web::WebView2::Win32::{
     COREWEBVIEW2_PERMISSION_KIND_LOCAL_FONTS, COREWEBVIEW2_PERMISSION_KIND_MICROPHONE,
     COREWEBVIEW2_PERMISSION_KIND_MIDI_SYSTEM_EXCLUSIVE_MESSAGES,
     COREWEBVIEW2_PERMISSION_KIND_NOTIFICATIONS, COREWEBVIEW2_PERMISSION_KIND_OTHER_SENSORS,
-    COREWEBVIEW2_PERMISSION_STATE_ALLOW, COREWEBVIEW2_PERMISSION_STATE_DENY,
+    COREWEBVIEW2_PERMISSION_STATE_ALLOW, COREWEBVIEW2_PERMISSION_STATE_DEFAULT,
+    COREWEBVIEW2_PERMISSION_STATE_DENY,
 };
 
 #[derive(Default)]
 pub struct BtabState {
     // Bounds the UI reported before the webview existed (first navigate).
     pub pending: Mutex<HashMap<String, (f64, f64, f64, f64)>>,
+    // Tabs created without a reported rect: born hidden, so a page can never
+    // paint at the placeholder rect over the pane's own empty state until the
+    // first bounds call places it (owner report 2026-09-17).
+    pub unplaced: Mutex<HashSet<String>>,
     // Per-tab CDP event rings. The event handlers run on the UI thread and
     // append here; btab_cdp_events drains them by sequence number.
     rings: Arc<Mutex<HashMap<String, Ring>>>,
@@ -113,7 +121,7 @@ fn subscribe(
     };
     use windows::core::{HSTRING, PWSTR};
 
-    let wv = app.get_webview(&label(id)).ok_or("tab not open")?;
+    let wv = find_webview(app, id).ok_or("tab not open")?;
     let (tx, rx) = mpsc::channel::<Result<(), String>>();
     let tab = id.to_string();
     let sent = tx.clone();
@@ -200,6 +208,18 @@ fn normalize(url: &str) -> Result<tauri::Url, String> {
     full.parse().map_err(|_| "invalid URL".to_string())
 }
 
+// find_webview resolves a tab id to its native webview. The app's own tab id
+// may carry a prefix the shell never saw (`w:2` vs `2`) because `ensure` names
+// the webview from the id it was given — so the id's tail is tried too. Every
+// command that needs "the webview of this tab" goes through here: a caller
+// that passed the prefixed id used to miss it and fail silently in a
+// `.catch` (the annotation crop, 2026-09-19).
+fn find_webview(app: &AppHandle, id: &str) -> Option<tauri::Webview> {
+    let tail = id.rsplit(':').next().unwrap_or(id);
+    app.get_webview(&label(id))
+        .or_else(|| app.get_webview(&label(tail)))
+}
+
 // ensure creates the webview on first navigate — a browser tab with no URL
 // yet is pure UI (the start card), no native surface wasted on it.
 fn ensure(app: &AppHandle, id: &str, url: &str) -> Result<(), String> {
@@ -210,19 +230,49 @@ fn ensure(app: &AppHandle, id: &str, url: &str) -> Result<(), String> {
     let win = app.get_window("main").ok_or("main window is gone")?;
     let parsed = normalize(url)?;
     let (mut x, mut y, mut w, mut h) = (120.0, 120.0, 900.0, 640.0);
-    if let Some(b) = app.state::<BtabState>().pending.lock().unwrap().remove(id) {
+    let placed = if let Some(b) = app.state::<BtabState>().pending.lock().unwrap().remove(id) {
         (x, y, w, h) = b;
-    }
+        true
+    } else {
+        // No host rect yet. The decision table for the first frame:
+        //
+        //   rect reported before creation  → created at it, visible
+        //   no rect yet                    → created hidden at the placeholder,
+        //                                    shown by the first btab_bounds
+        //   an explicit btab_visibility    → wins over that (the flag drops)
+        //   tab closed before any of them  → nothing to show
+        false
+    };
     let emitter = app.clone();
     let page = WebviewBuilder::new(label, WebviewUrl::External(parsed))
-        .data_directory(super::browserlab::webview_profile())
-        .on_new_window(move |url, _features| {
-            // Popups adopt as new editor tabs (the UI listens on this event).
+        .data_directory(super::browserlab::profile_for(id))
+        .on_new_window(move |url, features| {
+            // A `window.open` that names a size or position is a popup
+            // window, not a tab — this is where OAuth lives: Google Identity
+            // Services opens `accounts.google.com` sized and posts the
+            // credential back through `window.opener`, and adopting that URL
+            // as a tab severs the opener, leaving the flow dead-ended on a
+            // blank bridge page (x.com login, 2026-09-15). Allow leaves the
+            // request to the runtime, which opens its own popup window on
+            // the same profile. A request without features (`target=_blank`,
+            // plain `window.open`) still adopts as an editor tab.
+            if features.size().is_some() || features.position().is_some() {
+                return NewWindowResponse::Allow;
+            }
             let _ = emitter.emit("btab://new", url.to_string());
             NewWindowResponse::Deny
         });
-    win.add_child(page, LogicalPosition::new(x, y), LogicalSize::new(w, h))
+    let child = win
+        .add_child(page, LogicalPosition::new(x, y), LogicalSize::new(w, h))
         .map_err(|e| e.to_string())?;
+    if !placed {
+        let _ = child.hide();
+        app.state::<BtabState>()
+            .unplaced
+            .lock()
+            .unwrap()
+            .insert(id.to_string());
+    }
     attach_navigation_gate(app, id);
     attach_download_handler(app, id);
     attach_permission_handler(app, id);
@@ -311,12 +361,19 @@ pub async fn btab_bounds(
     h: f64,
 ) -> Result<(), String> {
     match app.get_webview(&label(&id)) {
-        Some(wv) => wv
-            .set_bounds(tauri::Rect {
+        Some(wv) => {
+            wv.set_bounds(tauri::Rect {
                 position: LogicalPosition::new(x, y).into(),
                 size: LogicalSize::new(w, h).into(),
             })
-            .map_err(|e| e.to_string()),
+            .map_err(|e| e.to_string())?;
+            // The first placement of a tab that was born hidden: this is what
+            // makes the page appear, now that it is where it belongs.
+            if app.state::<BtabState>().unplaced.lock().unwrap().remove(&id) {
+                let _ = wv.show();
+            }
+            Ok(())
+        }
         None => {
             // No webview yet — remember where it goes for the first navigate.
             state.pending.lock().unwrap().insert(id, (x, y, w, h));
@@ -327,6 +384,10 @@ pub async fn btab_bounds(
 
 #[tauri::command]
 pub async fn btab_visibility(app: AppHandle, id: String, visible: bool) -> Result<(), String> {
+    // An explicit call is the UI's will: it also settles a tab that was born
+    // waiting for its first placement, so bounds never shows it behind the
+    // caller's back afterwards.
+    app.state::<BtabState>().unplaced.lock().unwrap().remove(&id);
     match app.get_webview(&label(&id)) {
         Some(wv) => {
             if visible {
@@ -394,12 +455,31 @@ pub async fn btab_cdp_call(
     params_json: Option<String>,
     tier: String,
     domains: Option<Vec<String>>,
+    raw: Option<bool>,
 ) -> Result<serde_json::Value, String> {
     use webview2_com::CallDevToolsProtocolMethodCompletedHandler;
     use windows::core::HSTRING;
 
     let tier = cdppolicy::Tier::parse(&tier)?;
-    cdppolicy::allows(tier, &method)?;
+    // Two doors, and only two. The catalog (ADR-0128) is the narrow one; a
+    // raw call (ADR-0144) is the one the owner opened on this machine, and it
+    // needs the full tier here as well — the daemon checked both, and neither
+    // process grants what the other refuses.
+    if raw.unwrap_or(false) {
+        if !*developer_mode().lock().unwrap() {
+            return Err(format!(
+                "{method}: raw CDP is off — turn on Developer mode in Settings ▸ Browser"
+            ));
+        }
+        if tier != cdppolicy::Tier::Full {
+            return Err(format!(
+                "{method}: raw CDP needs the full tier — this command carried {}",
+                tier.name()
+            ));
+        }
+    } else {
+        cdppolicy::allows(tier, &method)?;
+    };
     let name = method.trim().to_string();
     let params = params_json.unwrap_or_else(|| "{}".to_string());
     if serde_json::from_str::<serde_json::Value>(&params).is_err() {
@@ -491,32 +571,22 @@ pub async fn btab_cdp_events(
 // Slice 2.1 (read tier seed): "Take a screenshot". Native CapturePreview
 // (not CDP) — the PNG comes back base64 for the UI to save.
 #[tauri::command]
-pub async fn btab_screenshot(app: AppHandle, id: String) -> Result<String, String> {
-    use std::sync::mpsc;
+// Capture the tab's visible page to a PNG file. "Take a screenshot" (saved
+// to Pictures) and the menu's still (a temp file read back as bytes) both go
+// through here. Data-URL downloads are blocked inside WebView2, so the PNG
+// always lands on disk first.
+async fn capture_png(app: &AppHandle, id: &str, path: &std::path::Path) -> Result<(), String> {
     use webview2_com::CapturePreviewCompletedHandler;
     use webview2_com::Microsoft::Web::WebView2::Win32::COREWEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT_PNG;
     use windows::core::HSTRING;
     use windows::Win32::Storage::FileSystem::FILE_ATTRIBUTE_NORMAL;
     use windows::Win32::System::Com::{STGM_CREATE, STGM_READWRITE, STGM_SHARE_DENY_WRITE};
 
-    let wv = app.get_webview(&label(&id)).ok_or("tab not open")?;
+    let wv = app.get_webview(&label(id)).ok_or("tab not open")?;
     let (tx, rx) = mpsc::channel::<Result<(), String>>();
     let tx_err = tx.clone();
-    // Data-URL downloads are blocked inside WebView2, so the shell writes
-    // the PNG straight to the user's Pictures folder and the UI shows the
-    // saved path.
-    let dir = std::env::var("USERPROFILE")
-        .map(|home| std::path::PathBuf::from(home).join("Pictures").join("PiCode"))
-        .unwrap_or_else(|_| std::env::temp_dir());
-    let _ = std::fs::create_dir_all(&dir);
-    let ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or_default();
-    let path = dir.join(format!("picode-{id}-{ms}.png"));
-    let shot_path = path.clone();
-
-    wv.with_webview(move |platform| unsafe {
+    let shot_path = path.to_path_buf();
+    let _ = wv.with_webview(move |platform| unsafe {
         let core = match platform.controller().CoreWebView2() {
             Ok(c) => c,
             Err(e) => {
@@ -546,13 +616,261 @@ pub async fn btab_screenshot(app: AppHandle, id: String) -> Result<String, Strin
             let _ = tx_err.send(Err(format!("CapturePreview: {e}")));
         }
     });
+    match rx.recv_timeout(Duration::from_secs(8)) {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(e)) => Err(e),
+        Err(_) => Err("capture timed out".into()),
+    }
+}
 
-    match rx.recv_timeout(std::time::Duration::from_secs(8)) {
+#[tauri::command]
+pub async fn btab_screenshot(app: AppHandle, id: String) -> Result<String, String> {
+    // The PNG goes to the user's Pictures folder and the UI shows the saved
+    // path.
+    let dir = std::env::var("USERPROFILE")
+        .map(|home| std::path::PathBuf::from(home).join("Pictures").join("PiCode"))
+        .unwrap_or_else(|_| std::env::temp_dir());
+    let _ = std::fs::create_dir_all(&dir);
+    let ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or_default();
+    let path = dir.join(format!("picode-{id}-{ms}.png"));
+    capture_png(&app, &id, &path).await?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+// The options menu opens over the page: a native WebView2 is a sibling that
+// paints over HTML, so the tab hides it and shows this PNG in its place. Raw
+// bytes, not a data URL — base64 would inflate them by a third across IPC,
+// and Tauri hands the frontend an ArrayBuffer.
+#[tauri::command]
+pub async fn btab_preview(app: AppHandle, id: String) -> Result<tauri::ipc::Response, String> {
+    let path = std::env::temp_dir().join(format!(
+        "picode-preview-{}-{}.png",
+        std::process::id(),
+        id
+    ));
+    capture_png(&app, &id, &path).await?;
+    let bytes = std::fs::read(&path).map_err(|e| format!("preview: {e}"))?;
+    let _ = std::fs::remove_file(&path);
+    // A capture can resolve with zero bytes when the page has not composited
+    // a frame yet. The tab treats any answered IPC as a still worth hiding
+    // the live page behind — an empty blob URL hides it behind nothing
+    // (owner report 2026-09-16: uniform gray where x.com should freeze).
+    if bytes.is_empty() {
+        return Err("preview: empty capture — the page has not painted".into());
+    }
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+// The runtime's own print dialog for this tab.
+#[tauri::command]
+pub async fn btab_print(app: AppHandle, id: String) -> Result<(), String> {
+    use webview2_com::Microsoft::Web::WebView2::Win32::{
+        COREWEBVIEW2_PRINT_DIALOG_KIND_BROWSER, ICoreWebView2_16,
+    };
+    let wv = app.get_webview(&label(&id)).ok_or("tab not open")?;
+    let (tx, rx) = mpsc::channel::<Result<(), String>>();
+    let done = tx.clone();
+    let sent = wv.with_webview(move |platform| unsafe {
+        let Ok(core) = platform.controller().CoreWebView2() else {
+            let _ = done.send(Err("the page's webview is gone".into()));
+            return;
+        };
+        let core16: ICoreWebView2_16 = match core.cast() {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = done.send(Err(format!("this WebView2 runtime cannot print ({e})")));
+                return;
+            }
+        };
+        let _ = done.send(
+            core16
+                .ShowPrintUI(COREWEBVIEW2_PRINT_DIALOG_KIND_BROWSER)
+                .map_err(|e| format!("print: {e}")),
+        );
+    });
+    sent.map_err(|e| format!("with_webview: {e}"))?;
+    match rx.recv_timeout(Duration::from_secs(10)) {
+        Ok(result) => result,
+        Err(_) => Ok(()),
+    }
+}
+
+// The tab's zoom factor, as the options menu shows it (1.0 = 100%).
+#[tauri::command]
+pub async fn btab_zoom(app: AppHandle, id: String) -> Result<f64, String> {
+    let wv = app.get_webview(&label(&id)).ok_or("tab not open")?;
+    let (tx, rx) = mpsc::channel::<Result<f64, String>>();
+    let done = tx.clone();
+    let sent = wv.with_webview(move |platform| unsafe {
+        let controller = platform.controller();
+        let mut z = 1.0f64;
+        let _ = done.send(
+            controller
+                .ZoomFactor(&mut z)
+                .map(|_| z)
+                .map_err(|e| format!("zoom: {e}")),
+        );
+    });
+    sent.map_err(|e| format!("with_webview: {e}"))?;
+    match rx.recv_timeout(Duration::from_secs(5)) {
+        Ok(result) => result,
+        Err(_) => Err("zoom: no answer".into()),
+    }
+}
+
+// Set the tab's zoom factor. The range matches the reference's own steps.
+#[tauri::command]
+pub async fn btab_set_zoom(app: AppHandle, id: String, factor: f64) -> Result<f64, String> {
+    if !(0.25..=5.0).contains(&factor) {
+        return Err(format!("{factor} is outside the zoom range (25%–500%)"));
+    }
+    let wv = app.get_webview(&label(&id)).ok_or("tab not open")?;
+    let (tx, rx) = mpsc::channel::<Result<f64, String>>();
+    let done = tx.clone();
+    let sent = wv.with_webview(move |platform| unsafe {
+        let controller = platform.controller();
+        let _ = done.send(
+            controller
+                .SetZoomFactor(factor)
+                .map(|_| factor)
+                .map_err(|e| format!("zoom: {e}")),
+        );
+    });
+    sent.map_err(|e| format!("with_webview: {e}"))?;
+    match rx.recv_timeout(Duration::from_secs(5)) {
+        Ok(result) => result,
+        Err(_) => Err("zoom: no answer".into()),
+    }
+}
+
+// Find in page through the runtime's find session. `forward` = None starts a
+// fresh search (the input changed), Some(true|false) steps next/previous, and
+// an empty query stops the session and clears the highlights. Returns the
+// match state the menu shows as "2/7".
+#[tauri::command]
+pub async fn btab_find(
+    app: AppHandle,
+    id: String,
+    query: String,
+    forward: Option<bool>,
+) -> Result<serde_json::Value, String> {
+    use webview2_com::FindStartCompletedHandler;
+    use webview2_com::Microsoft::Web::WebView2::Win32::{
+        ICoreWebView2Environment15, ICoreWebView2Find, ICoreWebView2FindOptions, ICoreWebView2_28,
+    };
+    use windows::core::HSTRING;
+
+    let wv = app.get_webview(&label(&id)).ok_or("tab not open")?;
+    let query = query.trim().to_string();
+    let fresh = forward.is_none() && !query.is_empty();
+    let (tx, rx) = mpsc::channel::<Result<(), String>>();
+    let done = tx.clone();
+    let (start_tx, start_rx) = mpsc::channel::<Result<(), String>>();
+    let sent = wv.with_webview(move |platform| unsafe {
+        let Ok(core) = platform.controller().CoreWebView2() else {
+            let _ = done.send(Err("the page's webview is gone".into()));
+            return;
+        };
+        let core28: ICoreWebView2_28 = match core.cast() {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = done.send(Err(format!("this WebView2 runtime has no Find API ({e})")));
+                return;
+            }
+        };
+        let find: ICoreWebView2Find = match core28.Find() {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = done.send(Err(format!("find: {e}")));
+                return;
+            }
+        };
+        let result = if query.is_empty() {
+            find.Stop().map_err(|e| format!("find: {e}"))
+        } else if let Some(forward) = forward {
+            (if forward { find.FindNext() } else { find.FindPrevious() })
+                .map_err(|e| format!("find: {e}"))
+        } else {
+            // FindOptions are minted by the environment (_15), not the
+            // webview — the environment comes back through _2.
+            let environment = match core28.Environment() {
+                Ok(env) => env,
+                Err(e) => {
+                    let _ = done.send(Err(format!("find: {e}")));
+                    return;
+                }
+            };
+            let Ok(environment15) = environment.cast::<ICoreWebView2Environment15>() else {
+                let _ = done.send(Err("this WebView2 runtime has no Find API".into()));
+                return;
+            };
+            let options: ICoreWebView2FindOptions = match environment15.CreateFindOptions() {
+                Ok(v) => v,
+                Err(e) => {
+                    let _ = done.send(Err(format!("find: {e}")));
+                    return;
+                }
+            };
+            let _ = options.SetFindTerm(&HSTRING::from(query.as_str()));
+            let _ = options.SetShouldHighlightAllMatches(true);
+            let handler = FindStartCompletedHandler::create(Box::new(move |hr| {
+                let _ = start_tx.send(hr.map_err(|e| format!("find: {e}")));
+                Ok(())
+            }));
+            find.Start(&options, &handler)
+                .map_err(|e| format!("find: {e}"))
+        };
+        let _ = done.send(result);
+    });
+    sent.map_err(|e| format!("with_webview: {e}"))?;
+    match rx.recv_timeout(Duration::from_secs(5)) {
         Ok(Ok(())) => {}
         Ok(Err(e)) => return Err(e),
-        Err(_) => return Err("capture timed out".into()),
+        Err(_) => return Err("find: no answer".into()),
     }
-    Ok(path.to_string_lossy().to_string())
+    if fresh {
+        match start_rx.recv_timeout(Duration::from_secs(3)) {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => return Err(e),
+            Err(_) => return Err("find: the search did not finish".into()),
+        }
+    }
+    if forward.is_some() {
+        // The match counters update on the runtime's own schedule; a short
+        // beat is enough for the menu's read.
+        std::thread::sleep(Duration::from_millis(80));
+    }
+    // The COM objects are thread-bound, so the state is read in a second
+    // pass on the UI thread — this command already runs off it.
+    let (tx2, rx2) = mpsc::channel::<Result<serde_json::Value, String>>();
+    let done2 = tx2.clone();
+    let sent2 = wv.with_webview(move |platform| unsafe {
+        let Ok(core) = platform.controller().CoreWebView2() else {
+            let _ = done2.send(Err("the page's webview is gone".into()));
+            return;
+        };
+        let Ok(core28) = core.cast::<ICoreWebView2_28>() else {
+            let _ = done2.send(Ok(serde_json::json!({ "count": 0, "active": 0 })));
+            return;
+        };
+        let Ok(find) = core28.Find() else {
+            let _ = done2.send(Ok(serde_json::json!({ "count": 0, "active": 0 })));
+            return;
+        };
+        let mut count = 0i32;
+        let mut active = 0i32;
+        let _ = find.MatchCount(&mut count);
+        let _ = find.ActiveMatchIndex(&mut active);
+        let _ = done2.send(Ok(serde_json::json!({ "count": count, "active": active })));
+    });
+    sent2.map_err(|e| format!("with_webview: {e}"))?;
+    match rx2.recv_timeout(Duration::from_secs(3)) {
+        Ok(result) => result,
+        Err(_) => Ok(serde_json::json!({ "count": 0, "active": 0 })),
+    }
 }
 
 #[tauri::command]
@@ -561,21 +879,105 @@ pub async fn btab_close(
     state: State<'_, BtabState>,
     id: String,
 ) -> Result<(), String> {
-    if let Some(wv) = app.get_webview(&label(&id)) {
+    close_inner(&app, &state, &id)
+}
+
+// The body of btab_close, shared with the per-app data clear: a webview
+// must be closed before its partition folder can be removed, and closing
+// is the same ceremony either way.
+fn close_inner(
+    app: &AppHandle,
+    state: &BtabState,
+    id: &str,
+) -> Result<(), String> {
+    if let Some(wv) = app.get_webview(&label(id)) {
         // Drop this tab's event receivers on the UI thread before the webview
-        // goes: a receiver kept past its page would keep the page alive.
-        let tab = id.clone();
+        // goes: a receiver kept past its page would keep the page alive. A
+        // held Ask dies with it — every deferral is completed (denied) so a
+        // closed page is not pinned by one.
+        let tab = id.to_string();
         let _ = wv.with_webview(move |_| {
             RECEIVERS.with(|r| {
                 r.borrow_mut().remove(&tab);
             });
+            // The annotate channel dies with its page too: a receiver kept
+            // past the webview is exactly what made a later tab under the
+            // same id look dead (the arm path used to skip subscribing).
+            ANNOTATE_RECEIVERS.with(|r| {
+                r.borrow_mut().remove(&tab);
+            });
+            ANNOTATE_NAV.with(|r| {
+                r.borrow_mut().remove(&tab);
+            });
+            if let Ok(mut tabs) = annotate_tabs().lock() {
+                tabs.remove(&tab);
+            }
+            PENDING_PERMISSIONS.with(|p| {
+                let mut map = p.borrow_mut();
+                let asks: Vec<u64> = map
+                    .iter()
+                    .filter(|(_, v)| v.tab == tab)
+                    .map(|(k, _)| *k)
+                    .collect();
+                for ask in asks {
+                    if let Some(v) = map.remove(&ask) {
+                        unsafe {
+                            let _ = v.args.SetState(COREWEBVIEW2_PERMISSION_STATE_DENY);
+                            let _ = v.deferral.Complete();
+                        }
+                    }
+                }
+            });
         });
         wv.close().map_err(|e| e.to_string())?;
     }
-    state.pending.lock().unwrap().remove(&id);
-    state.rings.lock().unwrap().remove(&id);
-    grants().lock().unwrap().remove(&id);
+    state.pending.lock().unwrap().remove(id);
+    state.unplaced.lock().unwrap().remove(id);
+    state.rings.lock().unwrap().remove(id);
+    grants().lock().unwrap().remove(id);
     Ok(())
+}
+
+// Clear one installed web app's own storage (ADR-0153): close its webview
+// (the folder is in use while it lives) and remove the partition folder.
+// Only ids that name a partition qualify — browserlab::app_partition is
+// the containment, so the folder removed is always the app's own.
+#[tauri::command]
+pub async fn btab_clear_app_data(
+    app: AppHandle,
+    state: State<'_, BtabState>,
+    id: String,
+) -> Result<(), String> {
+    let folder = super::browserlab::app_partition(&id)
+        .ok_or_else(|| "only installed web apps have their own data to clear".to_string())?;
+    close_inner(&app, &state, &id)?;
+    if !folder.exists() {
+        return Ok(());
+    }
+    // Closing a webview tears its browser process down asynchronously; the
+    // first removal attempt can still meet a locked file. Three tries, a
+    // breath between, then the honest failure.
+    // Closing a webview tears its browser process down asynchronously; the
+    // folder stays locked past the close for a while (the app's tab is
+    // usually open when someone asks for the clear — 2026-09-18, owner run:
+    // three 300ms retries lost that race and the dialog swallowed the real
+    // reason behind a generic message). Give the engine a real budget — ten
+    // seconds — then the honest failure.
+    let mut last = String::new();
+    for attempt in 0..20 {
+        match std::fs::remove_dir_all(&folder) {
+            Ok(()) => return Ok(()),
+            Err(e) => {
+                last = e.to_string();
+                if attempt < 19 {
+                    std::thread::sleep(std::time::Duration::from_millis(500));
+                }
+            }
+        }
+    }
+    Err(format!(
+        "could not clear the app's data — its files were still in use: {last}"
+    ))
 }
 
 // Open a URL in the system default browser — the "Default browser" side of
@@ -584,17 +986,288 @@ pub async fn btab_close(
 // else can ride this command into an arbitrary shell verb.
 #[tauri::command]
 pub async fn btab_open_external(url: String) -> Result<(), String> {
-    let ok = url.starts_with("http://") || url.starts_with("https://");
-    if !ok {
-        return Err("only http and https URLs can be handed to the system browser".into());
-    }
+    // The allowlist and its decision table live in external.rs, where its
+    // tests run without cargo: http(s) for links that leave the app, and
+    // `ms-settings:` for the OS screens PiCode does not reimplement (v2d).
+    let target = crate::external::external_target(&url).ok_or_else(|| {
+        "only http, https and ms-settings: targets can be handed to the system".to_string()
+    })?;
     use std::os::windows::process::CommandExt;
     std::process::Command::new("cmd")
-        .args(["/C", "start", "", &url])
+        .args(["/C", "start", "", &target])
         .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
         .spawn()
         .map(|_| ())
         .map_err(|e| format!("open external: {e}"))
+}
+
+// --- Annotate mode (v2c) ----------------------------------------------------
+
+// The script is injected into the live page (never over it: WebView2 forbids
+// painting HTML over a native child), so the page keeps running and the
+// overlay is the page's own DOM. The mode's state lives in the page (the
+// script instance), in the receiver maps below, and in the set of armed
+// tabs — every one of them pruned on close, because a stale entry is what
+// taught the arm path to skip a subscription and leave a page silent.
+
+// Tabs whose annotate mode is on: a completed navigation means a new
+// document, and the re-injection below reads this to know whether the mode
+// should survive it.
+fn annotate_tabs() -> &'static std::sync::Mutex<std::collections::HashSet<String>> {
+    static TABS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<String>>> =
+        std::sync::OnceLock::new();
+    TABS.get_or_init(|| std::sync::Mutex::new(std::collections::HashSet::new()))
+}
+
+thread_local! {
+    // One message receiver per annotate-enabled tab, with the token that
+    // unsubscribes it. COM interfaces are not Send, so they live on the UI
+    // thread beside RECEIVERS. Keying on the tab id alone was the bug: a
+    // webview can be recreated under the same id (a closed pane reopened
+    // restores its tab), and the arm path skipped the subscription because
+    // the id was already in the map — the page then worked (card, chips)
+    // while every message went nowhere, silently (owner 2026-09-18: a saved
+    // chip and a Send that never lit up).
+    static ANNOTATE_RECEIVERS: std::cell::RefCell<std::collections::HashMap<String, (webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2WebMessageReceivedEventHandler, i64)>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+
+    // The navigation hook that keeps the mode alive across a full page load
+    // (the script belongs to the document, and a new document has none):
+    // REINJECT_SCRIPT, which is the same idempotent script, is executed on
+    // every completed navigation while the tab is armed.
+    static ANNOTATE_NAV: std::cell::RefCell<std::collections::HashMap<String, (webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2NavigationCompletedEventHandler, i64)>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+/// btab_annotate_mode turns the in-page annotate mode on or off for one tab.
+/// On: enable WebView2's message channel for the tab, (re)subscribe to its
+/// messages, and inject the script into the page that is already loaded.
+/// Off: tell the page to take its overlay down. Nothing here goes through
+/// CDP, so no tier applies — this is the human's own UI.
+#[tauri::command]
+pub async fn btab_annotate_mode(app: AppHandle, id: String, on: bool) -> Result<(), String> {
+    // A work tab is a child Webview under the main window (WebviewBuilder in
+    // `ensure`), never a WebviewWindow: looking it up as a window answers "no
+    // such tab" for every tab that exists. The app's own tab id may carry a
+    // prefix the shell never saw (`w:2` vs `2`), so the id's tail is tried too
+    // — `ensure` is what named the webview, and it is named once.
+    let wv = find_webview(&app, &id).ok_or_else(|| format!("no such tab: {id}"))?;
+    let emitter = app.clone();
+    let tab = id.clone();
+    let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
+    let _ = wv.with_webview(move |platform| unsafe {
+        use webview2_com::WebMessageReceivedEventHandler;
+        use windows::core::{HSTRING, PWSTR};
+        let core = match platform.controller().CoreWebView2() {
+            Ok(core) => core,
+            Err(e) => {
+                let _ = tx.send(Err(format!("CoreWebView2: {e}")));
+                return;
+            }
+        };
+        if let Ok(settings) = core.Settings() {
+            let _ = settings.SetIsWebMessageEnabled(true);
+        }
+        // (Re)subscribe every arm: the old registrations (if any) are removed
+        // first, so a webview recreated under the same id gets a live channel
+        // instead of inheriting the map's stale key, and a re-arm never
+        // double-delivers. Removal on a dead core fails harmlessly.
+        let previous = ANNOTATE_RECEIVERS.with(|r| r.borrow_mut().remove(&tab));
+        if let Some((_handler, token)) = previous {
+            let _ = core.remove_WebMessageReceived(token);
+        }
+        let previous_nav = ANNOTATE_NAV.with(|r| r.borrow_mut().remove(&tab));
+        if let Some((_handler, token)) = previous_nav {
+            let _ = core.remove_NavigationCompleted(token);
+        }
+        if on {
+            let emitter = emitter.clone();
+            let tab_for_handler = tab.clone();
+            let handler = WebMessageReceivedEventHandler::create(Box::new(move |_sender, args| {
+                if let Some(args) = args {
+                    let mut raw = PWSTR::null();
+                    if args.WebMessageAsJson(&mut raw).is_ok() {
+                        let payload = unsafe { raw.to_string().unwrap_or_default() };
+                        // The UI matches the tab: {id, raw} keeps the page's own
+                        // JSON intact instead of re-encoding it here.
+                        let outer = serde_json::json!({ "id": tab_for_handler, "raw": payload });
+                        let _ = emitter.emit("btab://annotate", outer.to_string());
+                    }
+                }
+                Ok(())
+            }));
+            let mut token = 0i64;
+            if let Err(e) = core.add_WebMessageReceived(&handler, &mut token) {
+                let _ = tx.send(Err(format!("add_WebMessageReceived: {e}")));
+                return;
+            }
+            ANNOTATE_RECEIVERS.with(|r| {
+                r.borrow_mut().insert(tab.clone(), (handler, token));
+            });
+            // The mode lives in the document, and a navigation is a new
+            // document: without this the overlay vanished while the strip
+            // still said it was on (the REINJECT_SCRIPT debt, 2026-09-19).
+            // The script is idempotent and its enter() re-reports the state,
+            // so re-executing it on every completed navigation is safe.
+            let nav_core = core.clone();
+            let nav_tab = tab.clone();
+            let nav = webview2_com::NavigationCompletedEventHandler::create(Box::new(move |_sender, _args| {
+                let armed = annotate_tabs()
+                    .lock()
+                    .map(|s| s.contains(&nav_tab))
+                    .unwrap_or(false);
+                if armed {
+                    let _ = unsafe {
+                        nav_core.ExecuteScript(&HSTRING::from(crate::annotate::REINJECT_SCRIPT), None)
+                    };
+                }
+                Ok(())
+            }));
+            let mut nav_token = 0i64;
+            if let Err(e) = core.add_NavigationCompleted(&nav, &mut nav_token) {
+                let _ = tx.send(Err(format!("add_NavigationCompleted: {e}")));
+                return;
+            }
+            ANNOTATE_NAV.with(|r| {
+                r.borrow_mut().insert(tab.clone(), (nav, nav_token));
+            });
+        }
+        let script = if on {
+            crate::annotate::SCRIPT
+        } else {
+            crate::annotate::EXIT_SCRIPT
+        };
+        match core.ExecuteScript(&HSTRING::from(script), None) {
+            Ok(_) => {}
+            Err(e) => {
+                let _ = tx.send(Err(format!("ExecuteScript: {e}")));
+                return;
+            }
+        }
+        let _ = tx.send(Ok(()));
+    });
+    let out = rx.recv().unwrap_or_else(|_| Err("the shell did not answer".into()));
+    out?;
+    // The set the navigation hook reads. Written only after the webview's
+    // thread did its part, so a navigation that lands in between sees the
+    // mode as still off and the next arm re-injects anyway.
+    let mut tabs = annotate_tabs().lock().unwrap();
+    if on {
+        tabs.insert(id);
+    } else {
+        tabs.remove(&id);
+    }
+    Ok(())
+}
+
+/// btab_annotate_clear discards annotations in one tab's loaded document
+/// without leaving the mode: everything (the strip's trash) or just the most
+/// recent pin (the strip's undo, `last`). It reuses the mode's ExecuteScript
+/// path (no CDP, no tier): both snippets are guarded no-ops when the document
+/// never armed the mode, so a click after a navigation that dropped the
+/// script clears nothing and fails nothing.
+#[tauri::command]
+pub async fn btab_annotate_clear(app: AppHandle, id: String, last: Option<bool>) -> Result<(), String> {
+    let wv = find_webview(&app, &id).ok_or_else(|| format!("no such tab: {id}"))?;
+    let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
+    let _ = wv.with_webview(move |platform| unsafe {
+        use windows::core::HSTRING;
+        let core = match platform.controller().CoreWebView2() {
+            Ok(core) => core,
+            Err(e) => {
+                let _ = tx.send(Err(format!("CoreWebView2: {e}")));
+                return;
+            }
+        };
+        match core.ExecuteScript(
+            &HSTRING::from(if last.unwrap_or(false) {
+                crate::annotate::DROP_LAST_SCRIPT
+            } else {
+                crate::annotate::CLEAR_SCRIPT
+            }),
+            None,
+        ) {
+            Ok(_) => {
+                let _ = tx.send(Ok(()));
+            }
+            Err(e) => {
+                let _ = tx.send(Err(format!("ExecuteScript: {e}")));
+            }
+        }
+    });
+    rx.recv().unwrap_or_else(|_| Err("the shell did not answer".into()))
+}
+
+/// btab_annotate_overlay hides or shows the in-page annotation overlay. The
+/// chrome brackets a page capture with it: pins, chips and the card live in
+/// the page, so without this the picture sent to the agent is a photograph of
+/// our own UI over the element it is meant to show (owner 2026-09-19).
+#[tauri::command]
+pub async fn btab_annotate_overlay(app: AppHandle, id: String, on: bool) -> Result<(), String> {
+    let wv = find_webview(&app, &id).ok_or_else(|| format!("no such tab: {id}"))?;
+    let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
+    let _ = wv.with_webview(move |platform| unsafe {
+        use windows::core::HSTRING;
+        let core = match platform.controller().CoreWebView2() {
+            Ok(core) => core,
+            Err(e) => {
+                let _ = tx.send(Err(format!("CoreWebView2: {e}")));
+                return;
+            }
+        };
+        let script = if on {
+            crate::annotate::SHOW_SCRIPT
+        } else {
+            crate::annotate::HIDE_SCRIPT
+        };
+        match core.ExecuteScript(&HSTRING::from(script), None) {
+            Ok(_) => {
+                let _ = tx.send(Ok(()));
+            }
+            Err(e) => {
+                let _ = tx.send(Err(format!("ExecuteScript: {e}")));
+            }
+        }
+    });
+    rx.recv().unwrap_or_else(|_| Err("the shell did not answer".into()))
+}
+
+/// btab_annotate_state pulls one tab's annotation state through the host→page
+/// direction, which needs no page-side bridge: ExecuteScript's return value
+/// comes back on the command's own result. The strip polls this while the
+/// mode is on, so Send lights up even in a document whose `postMessage`
+/// channel is dead (owner 2026-09-19: the page worked, every message
+/// vanished). Empty string when the document never armed the mode.
+#[tauri::command]
+pub async fn btab_annotate_state(app: AppHandle, id: String) -> Result<String, String> {
+    let wv = find_webview(&app, &id).ok_or_else(|| format!("no such tab: {id}"))?;
+    let (tx, rx) = std::sync::mpsc::channel::<Result<String, String>>();
+    let _ = wv.with_webview(move |platform| unsafe {
+        use webview2_com::ExecuteScriptCompletedHandler;
+        use windows::core::HSTRING;
+        let core = match platform.controller().CoreWebView2() {
+            Ok(core) => core,
+            Err(e) => {
+                let _ = tx.send(Err(format!("CoreWebView2: {e}")));
+                return;
+            }
+        };
+        // The error path reports through a second sender: the handler takes
+        // the first one by move.
+        let fail = tx.clone();
+        let handler = ExecuteScriptCompletedHandler::create(Box::new(move |_err, result| {
+            // `result` is the script's value as JSON: the page returned a
+            // JSON string, so it arrives quoted. Decode once here and the
+            // app receives the payload itself.
+            let payload: String = serde_json::from_str(&result).unwrap_or_default();
+            let _ = tx.send(Ok(payload));
+            Ok(())
+        }));
+        if let Err(e) = core.ExecuteScript(&HSTRING::from(crate::annotate::STATE_SCRIPT), &handler) {
+            let _ = fail.send(Err(format!("ExecuteScript: {e}")));
+        }
+    });
+    rx.recv().unwrap_or_else(|_| Err("the shell did not answer".into()))
 }
 
 // The work profile's autofill prefs (slice 3): password autosave and
@@ -987,14 +1660,13 @@ fn attach_download_handler(app: &AppHandle, id: &str) {
 
 // --- site permissions (slice 3, Browser permissions) ------------------------
 
-// The policy the user set per kind, in the Settings dialog: kind name →
-// allow. A kind with no entry follows the platform's own default (which is
-// to deny). The prompt ("ask") lands with the Site settings dialog; until
-// then a request without a policy is answered the way an unhandled request
-// always was, and the outcome is reported so the dialog can show it.
-fn permission_policy() -> &'static Mutex<std::collections::HashMap<String, bool>> {
-    static POLICY: OnceLock<Mutex<std::collections::HashMap<String, bool>>> = OnceLock::new();
-    POLICY.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+// The policy the user set per kind (the every-site entry) or per site (an
+// "Always allow" answer from the Ask prompt): see picode_shell::permissions
+// for the decision table. A kind with no entry follows the platform's own
+// default (which is to deny).
+fn permission_policy() -> &'static Mutex<HashMap<String, String>> {
+    static POLICY: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+    POLICY.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 // The platform's kind as the daemon names it (the store's closed list).
@@ -1014,36 +1686,233 @@ fn permission_kind_name(kind: i32) -> &'static str {
     }
 }
 
-// What the user decided for a kind: allow, deny, or the platform default.
+// The platform's kind for the name the dialog and the Ask prompt write — the
+// reverse of `permission_kind_name`, over the store's closed vocabulary.
+fn permission_kind_of(name: &str) -> Option<COREWEBVIEW2_PERMISSION_KIND> {
+    Some(match name.trim().to_ascii_lowercase().as_str() {
+        "camera" => COREWEBVIEW2_PERMISSION_KIND_CAMERA,
+        "microphone" => COREWEBVIEW2_PERMISSION_KIND_MICROPHONE,
+        "location" => COREWEBVIEW2_PERMISSION_KIND_GEOLOCATION,
+        "notifications" => COREWEBVIEW2_PERMISSION_KIND_NOTIFICATIONS,
+        "clipboard" => COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ,
+        "autoplay" => COREWEBVIEW2_PERMISSION_KIND_AUTOPLAY,
+        "sensors" => COREWEBVIEW2_PERMISSION_KIND_OTHER_SENSORS,
+        "midi" => COREWEBVIEW2_PERMISSION_KIND_MIDI_SYSTEM_EXCLUSIVE_MESSAGES,
+        "fonts" => COREWEBVIEW2_PERMISSION_KIND_LOCAL_FONTS,
+        "filesystem" => COREWEBVIEW2_PERMISSION_KIND_FILE_READ_WRITE,
+        _ => return None,
+    })
+}
+
+// The engine keeps its own per-origin memory of a decision (the permission
+// manager behind `SetPermissionState`), so a standing we forget in our map
+// would keep working until the app restarts — and the dialog's Reset would be
+// a control that does not do what it says. Every write that names a concrete
+// origin tells the engine too. The profile is shared, so one call covers
+// every tab, including the ones created later; the main window's profile is
+// reachable even with no browser tab open. A `*` origin has no engine
+// equivalent — that policy is ours alone.
+fn apply_engine_state(app: &AppHandle, kind: &str, origin: Option<&str>, state: &str) {
+    let Some(origin) = origin
+        .map(str::trim)
+        .filter(|o| !o.is_empty() && *o != permissions::ANY_SITE)
+    else {
+        return;
+    };
+    let Some(platform_kind) = permission_kind_of(kind) else {
+        return;
+    };
+    let target = match state.trim().to_ascii_lowercase().as_str() {
+        "allow" => COREWEBVIEW2_PERMISSION_STATE_ALLOW,
+        "deny" => COREWEBVIEW2_PERMISSION_STATE_DENY,
+        _ => COREWEBVIEW2_PERMISSION_STATE_DEFAULT,
+    };
+    let origin = origin.to_string();
+    for (name, wv) in app.webview_windows() {
+        if !name.starts_with("btab-") && name != "main" {
+            continue;
+        }
+        let origin = origin.clone();
+        let _ = wv.with_webview(move |platform| unsafe {
+            let Ok(core) = platform.controller().CoreWebView2() else {
+                return;
+            };
+            let Ok(core13) =
+                core.cast::<webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_13>()
+            else {
+                return;
+            };
+            let Ok(profile) = core13.Profile() else {
+                return;
+            };
+            let Ok(profile4) = profile
+                .cast::<webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Profile4>()
+            else {
+                return;
+            };
+            let wide: Vec<u16> = origin.encode_utf16().chain(std::iter::once(0)).collect();
+            // The engine completes it asynchronously; nothing waits on it —
+            // the next request from that origin is the only thing that can
+            // tell whether it landed, and it re-asks either way.
+            let handler =
+                webview2_com::SetPermissionStateCompletedHandler::create(Box::new(|_| Ok(())));
+            let _ = profile4.SetPermissionState(
+                platform_kind,
+                windows::core::PCWSTR(wide.as_ptr()),
+                target,
+                &handler,
+            );
+        });
+    }
+}
+
+/// How long an unanswered Ask holds the page's request before the shell
+/// denies it. A held request with no answer hangs the site, so a prompt the
+/// user never sees expires instead of pinning the deferral forever.
+const PERMISSION_ASK_TTL: Duration = Duration::from_secs(60);
+
+// One held request: the platform args and its deferral, plus what the prompt
+// and the report need. COM interfaces are not Send, so this lives in a
+// thread_local on the UI thread (the same rule as RECEIVERS), and the answer
+// command is sync for the same reason.
+struct PendingPermission {
+    tab: String,
+    origin: String,
+    kind: String,
+    args: ICoreWebView2PermissionRequestedEventArgs,
+    deferral: ICoreWebView2Deferral,
+}
+
+thread_local! {
+    static PENDING_PERMISSIONS: RefCell<HashMap<u64, PendingPermission>> = RefCell::new(HashMap::new());
+}
+
+fn next_ask_id() -> u64 {
+    static SEQ: AtomicU64 = AtomicU64::new(0);
+    SEQ.fetch_add(1, Ordering::Relaxed) + 1
+}
+
+// Every decision the shell makes is reported, so Settings ▸ Browser can list
+// what each site got. `standing` marks a decision that is (or refreshes) a
+// saved per-site standing rather than a one-off answer; `ask` names the
+// prompt an answer belongs to, which the tab uses to drop its bar.
+fn report_permission(
+    app: &AppHandle,
+    origin: &str,
+    kind: &str,
+    allow: bool,
+    standing: bool,
+    ask: Option<u64>,
+) {
+    let mut payload = serde_json::json!({
+        "origin": origin,
+        "kind": kind,
+        "decision": if allow { "allow" } else { "deny" },
+        "standing": standing,
+    });
+    if let Some(id) = ask {
+        payload["ask"] = serde_json::json!(id);
+    }
+    let _ = app.emit("btab://permission", payload);
+}
+
+// The watchdog behind PERMISSION_ASK_TTL: sleep off the UI thread, then run
+// the denial where the pending COM objects live.
+fn expire_permission_ask(app: &AppHandle, ask: u64) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(PERMISSION_ASK_TTL);
+        let main = app.clone();
+        let _ = app.run_on_main_thread(move || {
+            let pending = PENDING_PERMISSIONS.with(|p| p.borrow_mut().remove(&ask));
+            let Some(p) = pending else {
+                return;
+            };
+            unsafe {
+                let _ = p.args.SetState(COREWEBVIEW2_PERMISSION_STATE_DENY);
+                let _ = p.deferral.Complete();
+            }
+            report_permission(&main, &p.origin, &p.kind, false, false, Some(ask));
+        });
+    });
+}
+
+// What the user decided for a kind — for every site (no origin), or for one
+// site (an Ask prompt's "Always", relayed back on load): allow, deny, ask,
+// or "default" to forget the entry.
 #[tauri::command]
-pub async fn btab_set_permission_policy(kind: String, state: String) -> Result<(), String> {
-    let kind = kind.trim().to_lowercase();
-    if kind.is_empty() {
-        return Err("a permission kind is required".into());
+pub async fn btab_set_permission_policy(
+    app: AppHandle,
+    kind: String,
+    state: String,
+    origin: Option<String>,
+) -> Result<(), String> {
+    {
+        let mut policy = permission_policy().lock().unwrap();
+        permissions::set(&mut policy, origin.as_deref(), &kind, &state)?;
     }
-    let mut policy = permission_policy().lock().unwrap();
-    match state.trim().to_lowercase().as_str() {
-        "allow" => {
-            policy.insert(kind, true);
-        }
-        "deny" => {
-            policy.insert(kind, false);
-        }
-        "default" => {
-            policy.remove(&kind);
-        }
-        other => return Err(format!("{other:?} is not a permission state")),
+    // A site's entry is also the engine's: forgetting one must make the next
+    // request ask again, instead of waiting for a restart.
+    apply_engine_state(&app, &kind, origin.as_deref(), &state);
+    Ok(())
+}
+
+// Answer a held Ask prompt. Sync on purpose: the pending deferrals are COM
+// objects on the UI thread (a sync command runs there), and `remember` is
+// the prompt's "Always" — it writes the site's standing so the next request
+// from it does not ask again.
+#[tauri::command]
+pub fn btab_permission_answer(
+    app: AppHandle,
+    id: u64,
+    state: String,
+    remember: bool,
+) -> Result<(), String> {
+    let allow = match state.trim().to_ascii_lowercase().as_str() {
+        "allow" => true,
+        "deny" => false,
+        other => return Err(format!("{other:?} is not a permission answer")),
+    };
+    let pending = PENDING_PERMISSIONS.with(|p| p.borrow_mut().remove(&id));
+    let Some(p) = pending else {
+        return Err("that request is no longer waiting".into());
+    };
+    unsafe {
+        let _ = p.args.SetState(if allow {
+            COREWEBVIEW2_PERMISSION_STATE_ALLOW
+        } else {
+            COREWEBVIEW2_PERMISSION_STATE_DENY
+        });
+        let _ = p.deferral.Complete();
     }
+    if remember {
+        {
+            let mut policy = permission_policy().lock().unwrap();
+            permissions::set(
+                &mut policy,
+                Some(&p.origin),
+                &p.kind,
+                if allow { permissions::ALLOW } else { permissions::DENY },
+            )?;
+        }
+        // "Always" is a standing for the site, so the engine's own memory
+        // agrees with ours — and survives a relaunch of the app.
+        apply_engine_state(&app, &p.kind, Some(&p.origin), if allow { "allow" } else { "deny" });
+    }
+    report_permission(&app, &p.origin, &p.kind, allow, remember, Some(id));
     Ok(())
 }
 
 // Every tab answers permission requests from that policy and reports the
-// outcome, so the Site settings dialog can list what each site got.
+// outcome, so the Site settings dialog can list what each site got. The
+// "ask" state holds the request through a deferral and prompts in the tab;
+// every other state answers immediately.
 fn attach_permission_handler(app: &AppHandle, id: &str) {
     let Some(wv) = app.get_webview(label(id).as_str()) else {
         return;
     };
     let emitter = app.clone();
+    let tab = id.to_string();
     let _ = wv.with_webview(move |platform| unsafe {
         let Ok(core) = platform.controller().CoreWebView2() else {
             return;
@@ -1063,33 +1932,82 @@ fn attach_permission_handler(app: &AppHandle, id: &str) {
                     String::new()
                 }
             };
-            let decided = permission_policy().lock().unwrap().get(name).copied();
-            let allow = match decided {
-                Some(v) => {
-                    let _ = args.SetState(if v {
-                        COREWEBVIEW2_PERMISSION_STATE_ALLOW
-                    } else {
-                        COREWEBVIEW2_PERMISSION_STATE_DENY
-                    });
-                    v
+            let (decided, standing) = {
+                let policy = permission_policy().lock().unwrap();
+                match permissions::decide(&policy, &origin, name) {
+                    permissions::Decision::Site(state) => (Some(state.to_string()), true),
+                    permissions::Decision::Kind(state) => (Some(state.to_string()), false),
+                    permissions::Decision::None => (None, false),
                 }
+            };
+            match decided.as_deref() {
+                Some("allow") => {
+                    let _ = args.SetState(COREWEBVIEW2_PERMISSION_STATE_ALLOW);
+                    report_permission(&emitter, &origin, name, true, standing, None);
+                }
+                Some("deny") => {
+                    let _ = args.SetState(COREWEBVIEW2_PERMISSION_STATE_DENY);
+                    report_permission(&emitter, &origin, name, false, standing, None);
+                }
+                Some("ask") => match args.GetDeferral() {
+                    Ok(deferral) => {
+                        let ask = next_ask_id();
+                        PENDING_PERMISSIONS.with(|p| {
+                            p.borrow_mut().insert(
+                                ask,
+                                PendingPermission {
+                                    tab: tab.clone(),
+                                    origin: origin.clone(),
+                                    kind: name.to_string(),
+                                    args: args.clone(),
+                                    deferral,
+                                },
+                            );
+                        });
+                        let _ = emitter.emit(
+                            "btab://permission-ask",
+                            serde_json::json!({
+                                "id": ask,
+                                "tab": tab,
+                                "origin": origin,
+                                "kind": name,
+                            }),
+                        );
+                        expire_permission_ask(&emitter, ask);
+                    }
+                    // No deferral: the request cannot wait, so it is denied
+                    // now instead of hanging the page.
+                    Err(_) => {
+                        let _ = args.SetState(COREWEBVIEW2_PERMISSION_STATE_DENY);
+                        report_permission(&emitter, &origin, name, false, false, None);
+                    }
+                },
                 // No policy: the request falls through to the platform's own
                 // default, which denies. Reported so it is visible.
-                None => false,
-            };
-            let _ = emitter.emit(
-                "btab://permission",
-                serde_json::json!({
-                    "origin": origin,
-                    "kind": name,
-                    "decision": if allow { "allow" } else { "deny" },
-                }),
-            );
+                _ => report_permission(&emitter, &origin, name, false, false, None),
+            }
             Ok(())
         }));
         let mut token: i64 = 0;
         let _ = core.add_PermissionRequested(&handler, &mut token);
     });
+}
+
+// --- Raw CDP (ADR-0144) ----------------------------------------------------
+
+// Developer mode, as the page last told us. The daemon owns the setting and
+// refuses first; this copy is the shell's own gate, so a command that arrived
+// with a raw flag while the owner has the mode off is refused here too.
+// Off unless the page said otherwise.
+fn developer_mode() -> &'static Mutex<bool> {
+    static DEVELOPER: OnceLock<Mutex<bool>> = OnceLock::new();
+    DEVELOPER.get_or_init(|| Mutex::new(false))
+}
+
+#[tauri::command]
+pub async fn btab_set_developer_mode(enabled: bool) -> Result<(), String> {
+    *developer_mode().lock().unwrap() = enabled;
+    Ok(())
 }
 
 // --- JavaScript (slice 3, Browser permissions) ------------------------------
@@ -1132,6 +2050,12 @@ fn apply_scripts(app: &AppHandle, id: &str) {
         };
         if let Ok(settings) = core.Settings() {
             let _ = settings.SetIsScriptEnabled(enabled);
+            // Web messages ON at creation, not only when annotate mode is
+            // armed: the injected annotate script posts its picks and its
+            // state to the host, and a document created before the setting
+            // was applied never gets the channel back — the page worked
+            // (card, chips) while every message vanished (owner 2026-09-19).
+            let _ = settings.SetIsWebMessageEnabled(true);
         }
     });
 }

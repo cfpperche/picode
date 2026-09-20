@@ -180,3 +180,21 @@ keeps PiCode unframed by anyone else, and the alternative — extending the
 preview origin (ADR-0136/0137) to live servers — would have proxied a dev
 server and broken its HMR. The desktop shell is unaffected in kind: its pages
 are native WebView2 children, not frames.
+
+## Amendment 2026-09-18 — Tauri IPC on the desktop shell
+
+Covering `/desktop/` with the app policy (amendment 2026-09-15) blocked every
+Tauri `invoke()` on Windows. WebView2 talks to the host through
+`http://ipc.localhost/plugin:…` (`ipc:` / `https://ipc.localhost` on other
+schemes). `connect-src` named only `'self'` and the daemon's WebSocket, so
+`plugin:window|is_maximized` and `plugin:event|listen` — the caption buttons
+in `WindowControls.jsx` — and every other native command died in the console.
+The 2026-09-15 session recorded the blind spot: the Windows shell itself was
+not verified.
+
+`connect-src` on `/desktop/` and `/desktop/management.html` now also lists
+`ipc: http://ipc.localhost https://ipc.localhost`. The browser and mobile
+shells keep the narrower policy: they are not a WebView2 host. Tauri's own
+`csp` stays `null`; the daemon is the only policy on the page. Anchored by
+`TestDesktopShellAllowsTauriIPC` (desktop paths contain the tokens; `/`,
+`/browser/` and `/mobile/` do not) and `TestDesktopShellPath`.

@@ -46,12 +46,16 @@ func Catalog() []CLI {
 	return []CLI{
 		{"pi", "Pi", "pi", "https://pi.dev", ""},
 		{"claude-code", "Claude Code", "claude", "https://code.claude.com/docs/en/setup", ""},
-		{"codex", "Codex", "codex", "https://developers.openai.com/codex/cli", ""},
-		{"grok", "Grok", "grok", "https://grok.com/build", ""},
+		{"codex", "Codex", "codex", "https://learn.chatgpt.com/docs/codex/cli", ""},
+		{"grok", "Grok", "grok", "https://docs.x.ai/build/cli/reference", ""},
 		{"hermes", "Hermes Agent", "hermes", "https://hermes-agent.nousresearch.com/docs/getting-started/installation", ""},
 		{"opencode", "OpenCode", "opencode", "https://opencode.ai/docs", ""},
-		{"muse", "Muse Code", "muse", "https://ai.developer.meta.com/docs/muse-code/", ""},
+		{"muse", "Muse Code", "muse", "https://dev.meta.ai/docs/muse-code", ""},
 		{"agy", "Antigravity", "agy", "https://antigravity.google/docs/cli/", ""},
+		// Omp (oh-my-pi, a Pi fork) is a full row since the omp-adapter
+		// slice: launch settings, PATH wrapper, activity extension, sessions
+		// and lifecycle.
+		{"omp", "Omp", "omp", "https://omp.sh/docs", ""},
 	}
 }
 
@@ -70,6 +74,10 @@ type Config struct {
 	Env         map[string]string `json:"env"`
 	Path        []string          `json:"path"`
 	Integration bool              `json:"integration"`
+	// Tools names the PiCode tool families (ADR-0154: computer, browser)
+	// injected as MCP servers into launches made from PiCode — the CLI agent's
+	// per-agent scope. Empty means none; the file scopes are the CLI's own.
+	Tools []string `json:"tools"`
 }
 
 type Overrides struct {
@@ -78,11 +86,13 @@ type Overrides struct {
 	Env         map[string]*string `json:"env,omitempty"`
 	Path        *[]string          `json:"path,omitempty"`
 	Integration *bool              `json:"integration,omitempty"`
+	Tools       *[]string          `json:"tools,omitempty"`
 }
 
 func Resolve(base Config, v Overrides) Config {
 	base.Args = append([]string{}, base.Args...)
 	base.Path = append([]string{}, base.Path...)
+	base.Tools = append([]string{}, base.Tools...)
 	env := map[string]string{}
 	for k, x := range base.Env {
 		env[k] = x
@@ -107,8 +117,13 @@ func Resolve(base Config, v Overrides) Config {
 	if v.Integration != nil {
 		base.Integration = *v.Integration
 	}
+	if v.Tools != nil {
+		base.Tools = append([]string{}, (*v.Tools)...)
+	}
 	return base
 }
+
+var toolName = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
 
 var envKey = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
@@ -130,11 +145,19 @@ func Validate(c Config) error {
 			return fmt.Errorf("PATH entries must be absolute directories without colons.")
 		}
 	}
+	if len(c.Tools) > 8 {
+		return fmt.Errorf("Too many PiCode tools.")
+	}
+	for _, t := range c.Tools {
+		if !toolName.MatchString(t) {
+			return fmt.Errorf("PiCode tools are named computer, browser, … — not %q.", t)
+		}
+	}
 	for k, v := range c.Env {
 		if !envKey.MatchString(k) || !check(v) {
 			return fmt.Errorf("Environment variables need a valid name and a single-line value.")
 		}
-		if strings.HasPrefix(k, "PICODE_") || k == "PATH" || k == "HOME" || k == "SHELL" || k == "GROK_HOME" || k == "HERMES_HOME" || k == "OPENCODE_CONFIG" {
+		if strings.HasPrefix(k, "PICODE_") || k == "PATH" || k == "HOME" || k == "SHELL" || k == "GROK_HOME" || k == "HERMES_HOME" || k == "OPENCODE_CONFIG" || k == "PI_CODING_AGENT_DIR" {
 			return fmt.Errorf("%s is managed by the launcher.", k)
 		}
 	}
@@ -157,6 +180,7 @@ type Snapshot struct {
 	EnvKeys     []string         `json:"envKeys"`
 	Path        []string         `json:"path"`
 	Integration bool             `json:"integration"`
+	Tools       []string         `json:"tools,omitempty"`
 	Fingerprint string           `json:"fingerprint"`
 	StartedAt   string           `json:"startedAt"`
 	Injection   *IntegrationPlan `json:"injection,omitempty"`
@@ -185,5 +209,5 @@ func Describe(c Config, executable, at string) Snapshot {
 			}
 		}
 	}
-	return Snapshot{Executable: executable, Args: args, EnvKeys: keys, Path: c.Path, Integration: c.Integration, Fingerprint: Fingerprint(c), StartedAt: at}
+	return Snapshot{Executable: executable, Args: args, EnvKeys: keys, Path: c.Path, Integration: c.Integration, Tools: append([]string{}, c.Tools...), Fingerprint: Fingerprint(c), StartedAt: at}
 }

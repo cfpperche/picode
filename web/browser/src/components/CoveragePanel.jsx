@@ -3,7 +3,7 @@ import { measured, REPORTED, PARTIAL, NOT_REPORTED } from "@picode/shared/domain
 // What each agent CLI can and cannot tell this dashboard (ADR-0097).
 //
 // This panel is the reason every other number on the surface can be read at
-// face value. Six vendors record wildly different things — Claude Code
+// face value. Nine vendors record wildly different things — Claude Code
 // counts lines changed and never quota, Codex reports quota and never a
 // price, Grok writes prompt history and nothing else — and a dashboard that
 // silently summed whatever it found would be confidently wrong. So the

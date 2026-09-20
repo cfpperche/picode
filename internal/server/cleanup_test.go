@@ -30,6 +30,10 @@ func cleanupServer(t *testing.T) (ts *httptest.Server, dataDir, home string) {
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_DATA_HOME", "")
+	// Muse resolves its settings via XDG_CONFIG_HOME first: without this,
+	// every cleanupServer test shares the process XDG dir and one's hook
+	// path reads as foreign in the next (measured 2026-09-16).
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 
 	st, err := store.Open(filepath.Join(dataDir, "picode.db"))
 	if err != nil {

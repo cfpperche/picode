@@ -6,6 +6,7 @@
 // after every click. One function, one shape.
 
 export const DEFAULT_BROWSER_PREFS = {
+  annotationShots: "ask",
   showFullUrl: true,
   webOpenDest: "app",
   localOpenDest: "app",
@@ -13,7 +14,9 @@ export const DEFAULT_BROWSER_PREFS = {
   generalAutofill: true,
   askDownload: false,
   scriptsEnabled: true,
+  historyAccess: "never",
   agentAccess: true,
+  developerMode: false,
 };
 
 // readBrowserPrefs folds a payload into the shape the page holds: missing
@@ -28,6 +31,14 @@ export function readBrowserPrefs(payload) {
     generalAutofill: p.generalAutofill !== false,
     askDownload: p.askDownload === true,
     scriptsEnabled: p.scriptsEnabled !== false,
+    // Fail closed (ADR-0146): a payload without the field is never, not a
+    // permission the page invented.
+    historyAccess: p.historyAccess === "allow" ? "allow" : "never",
     agentAccess: p.agentAccess !== false,
+    // Fail closed like the daemon does (ADR-0144): a payload that omits it
+    // must not read as "raw CDP is on".
+    // The annotation screenshot policy (v2c): always | ask (the default) | never.
+    annotationShots: p.annotationShots === "always" || p.annotationShots === "never" ? p.annotationShots : "ask",
+    developerMode: p.developerMode === true,
   };
 }

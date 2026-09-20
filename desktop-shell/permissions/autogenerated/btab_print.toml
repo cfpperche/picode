@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-btab-print"
+description = "Enables the btab_print command without any pre-configured scope."
+commands.allow = ["btab_print"]
+
+[[permission]]
+identifier = "deny-btab-print"
+description = "Denies the btab_print command without any pre-configured scope."
+commands.deny = ["btab_print"]

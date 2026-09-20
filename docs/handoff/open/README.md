@@ -5,7 +5,13 @@ is accepted but not paid. `make handoff` (ADR-0123, ADR-0131, ADR-0140) reads ev
 here into `docs/handoff.md`; edit the topic file, never the board.
 
 Bullets are the unit: one line, no sub-lists, and `Plan: docs/plans/<x>.md`
-when a plan carries the detail. Bullets carry their proof: name the branch,
+when a plan carries the detail. The board renders the **first two** `## Next`
+bullets and the **open** debt count (ADR-0145), so order is meaning here: the
+top bullet is the one being worked.
+
+A debt carries its state: `- [ ]` (or a plain bullet) is open, `- [x]` is paid
+— flip the box in the branch that paid it, and the record stays. The board
+drops paid ones; the file keeps them. Bullets carry their proof: name the branch,
 test, or command that pays the item, so a future prune is a check, not
 archaeology. Delete a bullet in the branch that paid it — in this file *and*
 in any older session note still echoing it; that deletion is the record.

@@ -8,8 +8,8 @@ function theme() {
 }
 
 // The shell root owns the visual viewport and the safe areas (ADR-0044):
-// a body portal is fixed to the layout viewport, which on iOS (viewport-fit
-// = cover, black-translucent) sits under the status bar and leaves the
+// a body portal is fixed to the layout viewport, which on iOS
+// (viewport-fit=cover) can sit under the status bar and leave the
 // home-indicator strip unpainted — the pad's header overlapped the clock
 // and the drawing area broke past the usable screen. #m-app is `position:
 // fixed` with overflow hidden, so an absolute child fills exactly the area

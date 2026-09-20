@@ -223,6 +223,10 @@ func NewRuntime(agentCmd string, st *store.Store, onExit func(string)) *Runtime 
 	}
 }
 
+// ErrManagedPiOnly is returned by Start when the agent is not a Pi runtime
+// (ADR-0160): managed RPC is `pi --mode rpc`. CLI agents run interactive only.
+var ErrManagedPiOnly = errors.New("rpc: managed mode is only for Pi agents")
+
 // Start launches the ordinary managed agent and begins consuming its task
 // queue (delivery engine).
 func (r *Runtime) Start(agentID, path string) error {
@@ -231,6 +235,15 @@ func (r *Runtime) Start(agentID, path string) error {
 }
 
 func (r *Runtime) start(agentID, path string, drain bool) (*ManagedAgent, error) {
+	if r.store != nil {
+		if a, err := r.store.GetAgent(agentID); err == nil && !a.IsPi() {
+			cli := strings.TrimSpace(a.CLI)
+			if cli == "" {
+				cli = "unknown"
+			}
+			return nil, fmt.Errorf("%w (%s)", ErrManagedPiOnly, cli)
+		}
+	}
 	r.mu.Lock()
 	_, running := r.agents[agentID]
 	_, starting := r.starting[agentID]

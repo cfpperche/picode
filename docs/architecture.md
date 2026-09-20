@@ -15,13 +15,15 @@ there is still only one session writer. A broker routes messages between
 agents through a Go MCP server (`picode-communication`), so agents talk to
 each other using the MCP tool protocol.
 
-Agent CLIs (ADR-0069) is a separate terminal manager for installed Pi, Claude
-Code, Codex, Grok, Hermes Agent and OpenCode commands. It reuses terminal records, tmux, invocation
-wrappers and the event feed. Muse Code and Antigravity open a terminal with
-no adapter behind them: detection, version, update check and New terminal,
-without activity, launch settings, sessions or lifecycle jobs. These are not Agent records: structured chat,
-JSON-RPC, packages, orchestration and session ownership remain Pi-only until
-a future decision supplies those contracts for another CLI.
+Agent CLIs (ADR-0069) is the **interactive** stack for installed Pi, Claude
+Code, Codex, Grok, Hermes Agent, OpenCode, Muse Code, Antigravity and Omp:
+catalog, launch, tmux, sensors, pins. A workspace *instance* of a launchable
+CLI is an **agent** (`agents.cli`, ADR-0160) — the same class as Pi, with
+only interactive mode until that CLI gets a managed adapter. Structured
+chat, JSON-RPC and Pi packages stay Pi-only (ADR-0091). `Runtime.Start`
+(`pi --mode rpc`) refuses a non-Pi agent. Unbound `#/clis/new` terminals
+and project shells stay terminals, not agents. Leftover `managed_clis`
+rows (ADR-0159) migrated onto `agents` (Fatia C) and the table is gone.
 
 `picode install` (ADR-0018) enables a systemd **user** unit so it starts with
 this Linux session (WSL included). Its `KillMode=process` leaves tmux-owned
@@ -81,7 +83,10 @@ dance) and an interactive user-logon task with limited privileges. The shell
 (`picode-shell.exe`, Tauri) is the resident since ADR-0142: it holds the VM
 open with a supervised `sleep infinity` child, learns the address from
 `server.json`, and polls `/api/health` over HTTP rather than spawning
-`wsl.exe` on a timer. `wsl.exe` answers in UTF-16LE **without a BOM**, so its
+`wsl.exe` on a timer. The main window disables Tauri's native drag-drop
+handler (`disable_drag_drop_handler`), which is required for the HTML5
+drag and drop the UI's tab reorder and file drop depend on — on Windows
+the native handler otherwise swallows those events before the webview. `wsl.exe` answers in UTF-16LE **without a BOM**, so its
 output is decoded by inspecting the bytes.
 
 `picode-desktop disk` reports the one number a Windows user cannot get
@@ -239,6 +244,8 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [Model roles (ADR-0028, ADR-0033)](architecture/model-roles.md) | `docs/architecture/model-roles.md` |
 | [MCP (Model Context Protocol) support](architecture/mcp.md) | `docs/architecture/mcp.md` |
 | [Integrations (ADR-0075)](architecture/integrations.md) | `docs/architecture/integrations.md` |
+| [Computer tool (ADR-0148)](architecture/computer-tool.md) | `docs/architecture/computer-tool.md` |
+| [picode-mcp (ADR-0154)](architecture/picode-mcp.md) | `docs/architecture/picode-mcp.md` |
 | [Pins](architecture/pins.md) | `docs/architecture/pins.md` |
 | [Snippets (ADR-0130)](architecture/snippets.md) | `docs/architecture/snippets.md` |
 | [Canvas (ADR-0108, ADR-0118)](architecture/canvas.md) | `docs/architecture/canvas.md` |
@@ -248,6 +255,7 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [Security model (ADR-0007)](architecture/security-model.md) | `docs/architecture/security-model.md` |
 | [Shared box: the gateway (ADR-0051)](architecture/gateway.md) | `docs/architecture/gateway.md` |
 | [Chrome extension (ADR-0043)](architecture/chrome-extension.md) | `docs/architecture/chrome-extension.md` |
+| [Work browser (ADRs 0128/0132/0134/0135/0143/0144/0146/0152)](architecture/work-browser.md) | `docs/architecture/work-browser.md` |
 | [Docker App and sysadmin tools (ADR-0065)](architecture/docker-app.md) | `docs/architecture/docker-app.md` |
 | [Docker maintenance and health (ADRs 0067/0068)](architecture/docker-maintenance.md) | `docs/architecture/docker-maintenance.md` |
 | [tmux app (ADR-0133)](architecture/tmux-app.md) | `docs/architecture/tmux-app.md` |
@@ -313,6 +321,7 @@ One file per subsystem under `docs/architecture/` (ADR-0105). A handler, store o
 
 | Subsystem | File |
 |---|---|
+| Managed CLI principals | [managed-principals.md](architecture/managed-principals.md) |
 
 ## Explicit non-goals
 

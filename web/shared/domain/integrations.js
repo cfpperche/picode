@@ -1,6 +1,92 @@
 // Headless contracts only; desktop and mobile own their presentation.
-export const CLI_CONNECTORS = [{ id: "pi", name: "Pi" }];
-export const supportsCliConnectors = (id) => CLI_CONNECTORS.some((cli) => cli.id === id);
+// A CLI is connector-capable only when a driver declares its capabilities
+// here (ADR-0150). The pane renders what a driver declares and nothing more:
+// status "configured" never claims live state, toggle "none" removes the
+// switch entirely (Claude Code turns servers on/off in its own interface).
+// signIn is the vendor's own sign-in path shown to CLI agents: command renders
+// as copyable code (a terminal command by default, or the TUI named in
+// `where`); text renders as a plain sentence when no command exists.
+export const CONNECTOR_DRIVERS = {
+  pi: {
+    id: "pi",
+    name: "Pi",
+    status: "live", // live | configured — what the pane may honestly claim
+    auth: ["oauth", "bearer"],
+    toggle: "entry", // per-entry enable/disable, not stub-overlay
+  },
+  // id matches the CLI catalog id so #/clis/<id>/connectors highlights the
+  // right roster entry (AgentClis selected = find(c.id === route.id)).
+  "claude-code": {
+    id: "claude-code",
+    name: "Claude Code",
+    status: "live", // `claude mcp list` health-checks servers (✓/✘ tails)
+
+    auth: ["oauth"],
+    toggle: "none", // sign-in and on/off live inside Claude Code
+    signIn: { command: "claude mcp login {name}" },
+  },
+  codex: {
+    id: "codex",
+    name: "Codex",
+    status: "configured",
+    auth: ["oauth", "bearer"],
+    toggle: "entry", // [mcp_servers.<name>] enabled flag
+    signIn: { command: "codex mcp login {name}" },
+  },
+  omp: {
+    id: "omp",
+    name: "Omp",
+    status: "configured",
+    auth: ["oauth"],
+    toggle: "entry", // entry's enabled flag
+    signIn: { command: "/mcp reauth {name}", where: "the Omp TUI" }, // OAuth is TUI-only
+  },
+  agy: {
+    id: "agy",
+    name: "Antigravity",
+    status: "configured",
+    auth: ["oauth"],
+    toggle: "entry", // entry's disabled flag
+    signIn: { text: "Authenticate in Antigravity (Agent Settings → Authenticate)" },
+  },
+  opencode: {
+    id: "opencode",
+    name: "OpenCode",
+    status: "live", // `opencode mcp list` reports per-server status
+
+    auth: ["oauth"],
+    toggle: "entry", // entry's enabled flag in the opencode.json mcp block
+    signIn: { command: "opencode mcp auth {name}" },
+  },
+  grok: {
+    id: "grok",
+    name: "Grok",
+    status: "configured",
+    auth: ["oauth"],
+    toggle: "entry", // [mcp_servers.<name>] enabled flag + disabled_mcp_servers overlay
+    signIn: { text: "Sign in happens on first use inside Grok" },
+  },
+  muse: {
+    id: "muse",
+    name: "Muse Code",
+    status: "configured",
+    auth: ["oauth"],
+    toggle: "entry", // entry's enabled flag in settings.json mcp_servers
+    signIn: { command: "muse mcp login {name}" },
+  },
+  hermes: {
+    id: "hermes",
+    name: "Hermes Agent",
+    status: "live", // `hermes mcp list` reports per-server status
+
+    auth: ["oauth"],
+    toggle: "entry", // entry's enabled flag in config.yaml mcp_servers
+    signIn: { command: "hermes mcp login {name}" },
+  },
+};
+export const CLI_CONNECTORS = Object.values(CONNECTOR_DRIVERS);
+export const connectorDriver = (id) => CONNECTOR_DRIVERS[id] || null;
+export const supportsCliConnectors = (id) => !!connectorDriver(id);
 
 export function cliConnectorsHash(cli = "pi", { workspaceId = "", agentId = "", scope = "user" } = {}) {
   const query = new URLSearchParams();
@@ -54,38 +140,53 @@ export function destinationLabel(raw) {
   catch { return "Webhook"; }
 }
 
-// Import standard MCP configuration, not a second runtime/package format.
-// Reviewing one server at a time makes command/token permissions explicit.
-// Catalog tabs for the Add-connector card: the fixed catalog first, then one
-// tab per agent CLI whose configuration actually contains MCP servers.
-export function connectorTabs(found) {
-  const hosts = (found || [])
-    .filter((h) => h && h.kind && h.label && Array.isArray(h.servers) && h.servers.length)
-    .map((h) => ({ id: h.kind, label: h.label, servers: h.servers }));
-  hosts.sort((a, b) => a.label.localeCompare(b.label));
-  return [{ id: "catalog", label: "Catalog", fixed: true }, ...hosts];
+// Config files PiCode could not read (ADR-0150): one line per blocked layer
+// names the file instead of a pane-wide error. `file` names the document,
+// `path` keeps the full location for the Open tooltip.
+export function blockedLayers(data) {
+  const layers = (data && Array.isArray(data.layers)) ? data.layers : [];
+  return layers
+    .filter((l) => l && l.error)
+    .map((l) => ({ scope: l.scope || "user", error: l.error, path: l.path || "", file: fileName(l.path) }));
 }
 
-export function readConnectorDefinition(text) {
-  if (text.length > 65536) throw new Error("Choose a connector file smaller than 64 KB.");
-  let data;
-  try { data = JSON.parse(text); } catch { throw new Error("Choose a JSON connector definition."); }
-  const entries = Object.entries(data?.mcpServers || {});
-  if (entries.length !== 1) throw new Error("Choose a definition containing one MCP server.");
-  const [name, entry] = entries[0];
-  if (!entry || typeof entry !== "object" || Array.isArray(entry) || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(name)) throw new Error("The connector needs a valid name and server configuration.");
-  if (entry.disabled || entry.cwd || entry.socket || entry.transport || entry.type && !["http", "sse", "stdio"].includes(entry.type)) throw new Error("This definition has options that cannot be imported here. Use MCP configuration instead.");
-  const allowed = ["command", "args", "url", "env", "headers", "auth", "bearerToken", "type", "disabled"];
-  if (Object.keys(entry).some(key => !allowed.includes(key))) throw new Error("This definition has unsupported options. Use MCP configuration instead.");
-  if (!!entry.url === !!entry.command) throw new Error("Choose either a server URL or a local command.");
-  if (entry.url && (typeof entry.url !== "string" || !/^https?:\/\//.test(entry.url))) throw new Error("Use an HTTP or HTTPS server URL.");
-  if (entry.command && typeof entry.command !== "string") throw new Error("Use a valid local command.");
-  if (entry.args && (!Array.isArray(entry.args) || entry.args.some(arg => typeof arg !== "string"))) throw new Error("Arguments must be a list of strings.");
-  for (const key of ["env", "headers"]) {
-    if (entry[key] && (typeof entry[key] !== "object" || Array.isArray(entry[key]) || Object.values(entry[key]).some(v => typeof v !== "string"))) throw new Error("Connector settings must contain text values.");
+function fileName(p) {
+  const s = String(p || "");
+  const i = Math.max(s.lastIndexOf("/"), s.lastIndexOf("\\"));
+  return i >= 0 ? s.slice(i + 1) : s;
+}
+
+// Marketplace (ADR-0157): a gallery hit becomes the same POST /api/mcp entry
+// the preset rows wrote — name is the catalog id, transport fields follow the
+// hit's kind, auth passes through. Entries only: credentials never ride the
+// catalog.
+export function connectorAddBody(hit) {
+  const h = hit || {};
+  const stdio = h.kind === "stdio";
+  return {
+    name: String(h.id || ""),
+    url: stdio ? "" : String(h.url || ""),
+    command: stdio ? String(h.command || "") : "",
+    args: stdio && Array.isArray(h.args) ? h.args.map(String) : [],
+    auth: String(h.auth || ""),
+  };
+}
+
+// A catalog entry is "Added" when the selected layer already has it; another
+// layer's copy is not this one (docs/plans/connectors-ux.md).
+export function connectorScopeNames(servers, scope) {
+  const list = Array.isArray(servers) ? servers : [];
+  return new Set(list.filter((s) => s && s.scope === scope).map((s) => s.name));
+}
+
+// connectorDocsUrl is the card's Docs href: http(s) only. Missing, blank,
+// or javascript: values hide the link rather than rendering a dead control.
+export function connectorDocsUrl(hit) {
+  try {
+    const parsed = new URL(String(hit && hit.docsUrl || "").trim());
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+    return parsed.href;
+  } catch {
+    return "";
   }
-  if (entry.url && entry.env || entry.command && (entry.headers || entry.auth || entry.bearerToken)) throw new Error("Use environment variables for commands or headers for URLs.");
-  if (entry.auth && !["oauth", "bearer"].includes(entry.auth) || entry.bearerToken && typeof entry.bearerToken !== "string") throw new Error("Use supported sign-in settings.");
-  if (entry.url && [entry.bearerToken, ...Object.values(entry.headers || {})].some(v => typeof v === "string" && v.startsWith("!") && !v.startsWith("!!"))) throw new Error("Remote connector definitions cannot run credential commands. Configure those explicitly in MCP settings.");
-  return { name, ...entry };
 }

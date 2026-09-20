@@ -16,5 +16,3 @@ Slice 3 increment 3.2a: the Show full URL pref.
 
 - 3.2b: the address-bar history dropdown (typed URLs first; the store
   and endpoints are live).
-- 3.3: downloads (DownloadStarting), full Clear browsing data
-  (ClearBrowsingDataAsync), password/autofill toggles.

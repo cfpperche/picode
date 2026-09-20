@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/cfpperche/picode/internal/grant"
 	"github.com/cfpperche/picode/internal/store"
 )
 
@@ -61,10 +62,10 @@ func tierOrder(tier string) (int, bool) {
 	return 0, false
 }
 
-// TerminalPrefix names a terminal principal's grant (ADR-0143): a CLI running
-// in a PiCode terminal has no agent id of its own, and the prefix keeps the
-// two namespaces apart in the same setting table.
-const TerminalPrefix = "term:"
+// TerminalPrefix names a terminal principal's grant (ADR-0143). The rule
+// lives in package grant so the computer tool (ADR-0148) keys its grants the
+// same way; this alias keeps the browser's callers unchanged.
+const TerminalPrefix = grant.TerminalPrefix
 
 // ResolveCaller applies the house identity rule (ADR-0143, the same one
 // pi-inbox and pi-checklist use): a managed agent id wins, a terminal id is
@@ -72,13 +73,11 @@ const TerminalPrefix = "term:"
 // always. A terminal that never got a grant therefore reads the tab on
 // screen, exactly like an agent without one.
 func ResolveCaller(st *store.Store, agentID, termID string) Policy {
-	if id := strings.TrimSpace(agentID); id != "" {
-		return Resolve(st, id)
+	key := grant.Key(agentID, termID)
+	if key == "" {
+		return Default()
 	}
-	if term := strings.TrimSpace(termID); term != "" {
-		return Resolve(st, TerminalPrefix+term)
-	}
-	return Default()
+	return Resolve(st, key)
 }
 
 // Save writes one agent's grant (slice 4's editor is the writer).

@@ -12,12 +12,14 @@ Connectors. PiCode writes the files the **MCP adapter** package reads.
 Canonical: [pi-mcp-adapter](https://github.com/mariozechner/pi-mcp) (install as `npm:pi-mcp-adapter`).
 
 1. Agent CLIs → Pi → **Packages** → This machine → install `npm:pi-mcp-adapter`.
-2. Agent CLIs → Pi → **Connectors** → **Add connector**. The dialog lists the
-   catalog; search it, set **Save to** (machine, workspace or agent), and press
-   **Add**. **Custom server…** takes a command or URL by hand; **Import a
-   file…** reads a connector definition JSON and asks you to review it first.
-3. Servers another app already has (Claude Code, Cursor, Codex, …) show up
-   under **Source** in the same dialog; adding one asks before it writes.
+2. Agent CLIs → Pi → **Connectors** → **Marketplace**. Search the catalog, set
+   **Save to** (machine, workspace or agent), and press **Add**. **Docs** on a
+   card opens that connector's own page (PiCode's cookbook for the seed;
+   the vendor site or repository for the rest). PiCode's own connectors sit
+   at the top; the rest is a curated slice of the official MCP Registry.
+   **Custom server…** takes a command or URL by hand.
+3. Every agent CLI has the same Connectors pane — **Agent CLIs → \<cli\> →
+   Connectors** writes that CLI's own config file.
 4. A row shows **Live** or **Failed** while an agent is running; with the agent
    stopped the pane says so once instead of guessing. **Sign in** appears on the
    row until the login exists; **•••** holds **Sign out** and **Remove** (the
@@ -36,18 +38,19 @@ Clicking an agent in the sidebar leaves this page and opens that agent.
 |---|---|---|
 | Adapter | `pi install npm:pi-mcp-adapter` | Packages |
 | Servers | edit JSON | Agent CLIs → Connectors |
-| Import Cursor/Claude/Codex | adapter CLI | **Use from…** (mirror, pick servers) |
+| Import Cursor/Claude/Codex | adapter CLI | the CLI has its own Connectors pane — add the same service there |
 
 No adapter → Connectors is one line and **Open packages**. It does not write files.
 The page works with a terminal selected; it does not need an agent open.
 
 ## Cookbook
 
-The connectors PiCode ships a path for. Each page is install, sign-in if any, and how to revoke. Anything else: **Custom server…** or **Import a file…** above.
+The connectors PiCode ships a path for. Each page is install, sign-in if any, and how to revoke. Anything else: **Custom server…** in Marketplace.
 
 | Connector | What it is |
 |---|---|
 | [Gmail](/guide/mcp-gmail) | Read, draft and send mail. Credentials stay in `~/.gmail-mcp/`, not in PiCode. |
 | [DeepWiki](/guide/mcp-deepwiki) | Public GitHub documentation. No account. |
+| [PiCode · Computer, PiCode · Browser](/guide/picode-mcp) | PiCode's own tools for Claude Code, Codex and the other CLIs. No account; the switch is in Settings. |
 
 Webhooks are not MCP: [Integrations](/guide/integrations).

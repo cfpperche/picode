@@ -112,6 +112,23 @@ written to either CLI's store.
   muse has no push surface (serve deferred to managed agents per owner).
   No hooks.json decision hook: it gates tools. Only on a confirmed surface;
   otherwise `Open` stays and the docs say so.
+- **Fatia 6 — muse activity. BLOCKED by measurement, 2026-09-16.** R3233
+  grew real hooks (`.muse/hooks.json` + `hooks` block, Claude-shaped
+  stdin, verified live), but the CLI scrubs the hook environment down
+  to PATH alone — no `PICODE_TERM_*`, and `managed_hooks_env_vars` is
+  enterprise-policy tier, undeclared from userland. A settings reporter
+  therefore cannot attribute a report to a terminal, and the daemon
+  contract is per-terminal by design. Shipped instead from this slice:
+  session reports without a runtime fall back to plain states (this
+  retro-fixes Antigravity daemon-side activity, which 409ed the same
+  way), and the server test suite runs under an isolated HOME. Muse
+  keeps launch parity + managed update/reinstall and stays honestly
+  Open until a vendor surface carries identity (MSP serve).
+- **Fatia 7 — PATH wrapper for muse and agy (owner-ordered).** Same
+  shape as every other CLI: presence lease, native runtime, no
+  `needsWrapper` carve-out. Reporting unchanged (agy via title, muse
+  honestly Open). Maintenance subcommands skip the lease
+  (MUSE_MAINT/AGY_MAINT lists). Seed bump v2→v3 (muse joins seeding).
 
 Open questions for the slices: full muse hook event list; agy lock
 staleness; whether `agy --model` ids stay stable enough to offer in

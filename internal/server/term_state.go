@@ -25,7 +25,7 @@ import (
 )
 
 // Terminal state vocabulary — the same words agent.state uses, so tier 2
-// (guest agents, ADR-0056) can re-anchor the UI without a new language.
+// (CLI agents, ADR-0056) can re-anchor the UI without a new language.
 const (
 	TermWorking  = "working"
 	TermNeedsYou = "needs-you"
@@ -52,7 +52,7 @@ const (
 	TermAttentionAnswered = "answered"
 )
 
-// TermState is a terminal's last reported guest-CLI state.
+// TermState is a terminal's last reported CLI state.
 type TermState struct {
 	SessionID  string    `json:"sessionId,omitempty"`
 	SessionSeq int64     `json:"sessionSeq,omitempty"`
@@ -63,7 +63,7 @@ type TermState struct {
 	At         time.Time `json:"at"`
 }
 
-// TermStates holds live guest state per terminal id.
+// TermStates holds live CLI state per terminal id.
 type TermStates struct {
 	mu sync.Mutex
 	m  map[string]TermState
@@ -241,6 +241,9 @@ func reportTermStateForRun(deps Deps, id, state, cli, runID, attention string, n
 		}
 		deps.Feed.Ephemeral("terminal.state", data)
 	}
+	if changed {
+		syncManagedCLIInbox(deps, id, st.State)
+	}
 	return st
 }
 
@@ -331,11 +334,27 @@ func handleSetTerminalState(deps Deps) http.HandlerFunc {
 			return
 		}
 		var st TermState
+		nativeErr := error(nil)
 		if req.SessionID != "" {
-			if err := recordNativeTerminalObservation(deps, id, req.CLI, req.RunID, req.SessionID, req.SessionPath, req.SessionSeq, req.State, req.Source, req.Attention); err != nil {
+			nativeErr = recordNativeTerminalObservation(deps, id, req.CLI, req.RunID, req.SessionID, req.SessionPath, req.SessionSeq, req.State, req.Source, req.Attention)
+		}
+		if nativeErr != nil {
+			// Wrapper-less observers (agy title reporter, muse settings
+			// hooks) never start a native runtime, so a session report
+			// with no runtime entry has no identity fence to protect:
+			// report it plainly instead of dropping the signal (which
+			// left those CLIs stuck Open). A terminal WITH a runtime
+			// keeps the strict conflict.
+			hasRuntime := false
+			if req.SessionID != "" && deps.TermRuntimes != nil {
+				_, hasRuntime = deps.TermRuntimes.Get(id)
+			}
+			if hasRuntime {
 				writeErr(w, http.StatusConflict, "Native conversation report is stale or invalid.")
 				return
 			}
+			st = reportTermStateForRun(deps, id, req.State, strings.TrimSpace(req.CLI), runID, req.Attention, time.Now())
+		} else if req.SessionID != "" {
 			st, _ = deps.TermStates.Get(id)
 			if deps.Feed != nil {
 				data := map[string]any{"termId": id, "state": st.State, "cli": st.CLI, "runId": st.RunID, "at": st.At}

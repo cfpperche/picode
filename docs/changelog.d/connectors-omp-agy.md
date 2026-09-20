@@ -1,0 +1,2 @@
+### Added
+- **Connectors for Omp and Antigravity.** Manage their MCP servers from the same pane: Omp in `~/.omp/agent/mcp.json` (and your workspace's `.omp/mcp.json`), Antigravity in `~/.gemini/config/mcp_config.json` (and your workspace's `.agents/mcp_config.json`). Each CLI keeps its own settings, servers switch on and off per entry, and sign-in follows the vendor — the Omp TUI command, or Antigravity's Agent Settings.

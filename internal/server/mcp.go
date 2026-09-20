@@ -3,27 +3,45 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/cfpperche/picode/internal/connectors"
 	"github.com/cfpperche/picode/internal/mcp"
+	"github.com/cfpperche/picode/internal/mcpcatalog"
 	"github.com/cfpperche/picode/internal/pipkg"
 	"github.com/cfpperche/picode/internal/store"
 )
 
 func registerMCPRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/mcp", handleMCPGet(deps))
+	mux.HandleFunc("GET /api/connectors/gallery", handleConnectorsGallery(deps))
 	mux.HandleFunc("POST /api/mcp", handleMCPAdd(deps))
-	mux.HandleFunc("POST /api/mcp/import", handleMCPImport(deps))
 	mux.HandleFunc("POST /api/mcp/auth", handleMCPAuth(deps))
 	mux.HandleFunc("GET /api/mcp/auth/status", handleMCPAuthStatus(deps))
 	mux.HandleFunc("POST /api/mcp/auth/reply", handleMCPAuthReply(deps))
 	mux.HandleFunc("POST /api/mcp/auth/logout", handleMCPAuthLogout(deps))
 	mux.HandleFunc("PATCH /api/mcp", handleMCPToggle(deps))
 	mux.HandleFunc("DELETE /api/mcp", handleMCPRemove(deps))
+	mux.HandleFunc("POST /api/mcp/reveal", handleMCPReveal(deps))
+}
+
+// connectorDrivers declares which agent CLI a /api/mcp request drives.
+// Pi ships the adapter driver below; every other catalog CLI dispatches to
+// its CLI driver in internal/connectors (ADR-0150). A request naming any
+// other CLI fails loudly instead of silently writing Pi's files.
+var connectorDrivers = map[string]bool{"pi": true, "claude-code": true, "codex": true, "omp": true, "agy": true, "opencode": true, "grok": true, "muse": true, "hermes": true}
+
+func requireConnectorDriver(cli string) error {
+	if cli == "" || connectorDrivers[cli] {
+		return nil
+	}
+	return fmt.Errorf("connectors for %s are not available yet", cli)
 }
 
 type mcpMutateReq struct {
+	CLI         string            `json:"cli"`
 	Scope       string            `json:"scope"`
 	WorkspaceID string            `json:"workspaceId"`
 	AgentID     string            `json:"agentId"`
@@ -36,15 +54,64 @@ type mcpMutateReq struct {
 	Headers     map[string]string `json:"headers"`
 	Auth        string            `json:"auth"`
 	BearerToken string            `json:"bearerToken"`
-	Kinds       []string          `json:"kinds"`
-	Picks       []mcp.ImportPick  `json:"picks"`
 	ID          string            `json:"id"`
 	Value       string            `json:"value"`
 	Cancelled   bool              `json:"cancelled"`
 }
 
+// connectorPaths resolves the workspace folder a CLI driver edits. CLI
+// drivers have no per-agent layer in phase 1; a stale workspace id resolves
+// to no project layer rather than failing the pane.
+func connectorPaths(deps Deps, workspaceID string) (connectors.Paths, error) {
+	p := connectors.Paths{}
+	if workspaceID == "" || deps.Store == nil {
+		return p, nil
+	}
+	ws, err := deps.Store.GetWorkspace(workspaceID)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return p, nil
+		}
+		return p, err
+	}
+	p.Cwd = ws.Path
+	return p, nil
+}
+
+// writeConnector answers a CLI mutation with the same Report shape as
+// /api/mcp, so the pane does not branch on the driver.
+func writeConnector(w http.ResponseWriter, deps Deps, d connectors.Driver, p connectors.Paths) {
+	// Native files stay authoritative; this only invalidates views.
+	announceMCPConfig(deps)
+	rep, err := d.List(p)
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+		return
+	}
+	writeJSON(w, http.StatusOK, rep)
+}
+
 func handleMCPGet(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		cli := r.URL.Query().Get("cli")
+		if err := requireConnectorDriver(cli); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if d := connectors.For(cli); d != nil {
+			p, err := connectorPaths(deps, r.URL.Query().Get("workspace"))
+			if err != nil {
+				writeErr(w, statusForStore(err), err.Error())
+				return
+			}
+			rep, err := d.List(p)
+			if err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, rep)
+			return
+		}
 		p, sources, err := mcpPaths(deps, r.URL.Query().Get("workspace"), r.URL.Query().Get("agent"))
 		if err != nil {
 			writeErr(w, statusForStore(err), err.Error())
@@ -56,47 +123,64 @@ func handleMCPGet(deps Deps) http.HandlerFunc {
 			return
 		}
 		rep.Adapter.Installed = mcp.AdapterConfigured(sources)
+		// Pi has the packages; the tool cards are for CLI agents (ADR-0154).
+		rep.Presets = mcp.WithoutToolPresets(rep.Presets)
 		applyMCPLive(deps, r.URL.Query().Get("agent"), &rep)
 		mcp.ApplySigned(&rep)
 		writeJSON(w, http.StatusOK, rep)
 	}
 }
 
-func handleMCPImport(deps Deps) http.HandlerFunc {
+// handleConnectorsGallery serves the curated marketplace catalog
+// (ADR-0157): seed cards pinned first, then the filtered registry sync.
+// It always answers — the seed alone when offline — and kicks one
+// background registry refresh when the cache is stale.
+func handleConnectorsGallery(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		store := deps.Connectors
+		if store == nil {
+			store = mcpcatalog.NewStore(deps.DataDir)
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"hits": store.Search(r.Context(), r.URL.Query().Get("q"))})
+	}
+}
+
+// handleMCPReveal opens one driver config layer in the host file manager —
+// the blocked-layer "Open" action when a config file does not parse. The
+// path never comes from the client: it is recomputed from the driver's own
+// layer list, so only a real vendor config location can be revealed.
+func handleMCPReveal(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req mcpMutateReq
-		_ = json.NewDecoder(r.Body).Decode(&req)
-		p, sources, err := mcpPaths(deps, req.WorkspaceID, req.AgentID)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		d := connectors.For(req.CLI)
+		if d == nil {
+			writeErr(w, http.StatusBadRequest, "connectors reveal needs a CLI agent")
+			return
+		}
+		p, err := connectorPaths(deps, req.WorkspaceID)
 		if err != nil {
 			writeErr(w, statusForStore(err), err.Error())
 			return
 		}
-		if !mcp.AdapterConfigured(sources) {
-			writeErr(w, http.StatusConflict, "install pi-mcp-adapter first")
-			return
+		scope := req.Scope
+		if scope == "" {
+			scope = "user"
 		}
-		picks := req.Picks
-		if picks == nil && req.Kinds != nil {
-			writeErr(w, http.StatusBadRequest, "choose which servers")
-			return
+		for _, layer := range d.Layers(p) {
+			if layer.Scope == scope && layer.Path != "" {
+				if err := revealFn(layer.Path); err != nil {
+					writeErr(w, http.StatusBadRequest, err.Error())
+					return
+				}
+				writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+				return
+			}
 		}
-		if picks == nil {
-			writeErr(w, http.StatusBadRequest, "choose which servers")
-			return
-		}
-		res, err := mcp.ImportHosts(p, picks)
-		if err != nil {
-			writeErr(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		rep, err := mcp.List(p)
-		if err != nil {
-			writeErr(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		rep.Adapter.Installed = mcp.AdapterConfigured(sources)
-		announceMCPConfig(deps)
-		writeJSON(w, http.StatusOK, map[string]any{"import": res, "adapter": rep.Adapter, "layers": rep.Layers, "servers": rep.Servers, "presets": rep.Presets, "imports": rep.Imports, "found": rep.Found, "connectorPackages": rep.ConnectorPackages})
+		writeErr(w, http.StatusBadRequest, "no config file for that scope")
 	}
 }
 
@@ -105,6 +189,24 @@ func handleMCPAdd(deps Deps) http.HandlerFunc {
 		var req mcpMutateReq
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if err := requireConnectorDriver(req.CLI); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if d := connectors.For(req.CLI); d != nil {
+			p, err := connectorPaths(deps, req.WorkspaceID)
+			if err != nil {
+				writeErr(w, statusForStore(err), err.Error())
+				return
+			}
+			entry := mcp.Entry{Command: req.Command, Args: req.Args, URL: req.URL, Env: req.Env, Headers: req.Headers, Auth: req.Auth, BearerToken: req.BearerToken}
+			if err := d.Add(p, req.Scope, req.Name, entry); err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			writeConnector(w, deps, d, p)
 			return
 		}
 		p, sources, err := mcpPaths(deps, req.WorkspaceID, req.AgentID)
@@ -136,6 +238,23 @@ func handleMCPToggle(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "disabled is required")
 			return
 		}
+		if err := requireConnectorDriver(req.CLI); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if d := connectors.For(req.CLI); d != nil {
+			p, err := connectorPaths(deps, req.WorkspaceID)
+			if err != nil {
+				writeErr(w, statusForStore(err), err.Error())
+				return
+			}
+			if err := d.Toggle(p, req.Scope, req.Name, *req.Disabled); err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			writeConnector(w, deps, d, p)
+			return
+		}
 		p, sources, err := mcpPaths(deps, req.WorkspaceID, req.AgentID)
 		if err != nil {
 			writeErr(w, statusForStore(err), err.Error())
@@ -159,6 +278,7 @@ func handleMCPRemove(deps Deps) http.HandlerFunc {
 		name := r.URL.Query().Get("name")
 		wsID := r.URL.Query().Get("workspace")
 		agentID := r.URL.Query().Get("agent")
+		cli := r.URL.Query().Get("cli")
 		if name == "" {
 			var req mcpMutateReq
 			_ = json.NewDecoder(r.Body).Decode(&req)
@@ -172,6 +292,24 @@ func handleMCPRemove(deps Deps) http.HandlerFunc {
 			if agentID == "" {
 				agentID = req.AgentID
 			}
+			cli = req.CLI
+		}
+		if err := requireConnectorDriver(cli); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if d := connectors.For(cli); d != nil {
+			p, err := connectorPaths(deps, wsID)
+			if err != nil {
+				writeErr(w, statusForStore(err), err.Error())
+				return
+			}
+			if err := d.Remove(p, scope, name); err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			writeConnector(w, deps, d, p)
+			return
 		}
 		p, sources, err := mcpPaths(deps, wsID, agentID)
 		if err != nil {
@@ -199,6 +337,18 @@ func handleMCPAuth(deps Deps) http.HandlerFunc {
 		}
 		if err := mcp.ValidName(req.Name); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if err := requireConnectorDriver(req.CLI); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		// CLI sign-in never runs through PiCode's flow: the vendor is
+		// the only authority for its own credentials (ADR-0150). The
+		// refusal carries the driver's own hint — a terminal command, a
+		// TUI command, or the vendor's settings path.
+		if d := connectors.For(req.CLI); d != nil {
+			writeErr(w, http.StatusBadRequest, d.AuthHint(req.Name).Text)
 			return
 		}
 		if deps.Runtime == nil {
@@ -296,6 +446,15 @@ func handleMCPAuthLogout(deps Deps) http.HandlerFunc {
 		}
 		if err := mcp.ValidName(req.Name); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if err := requireConnectorDriver(req.CLI); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		// CLI tokens live in the CLI's own store; PiCode never clears them.
+		if d := connectors.For(req.CLI); d != nil {
+			writeErr(w, http.StatusBadRequest, req.CLI+" keeps its own sign-ins; manage them with the "+d.Bin()+" CLI")
 			return
 		}
 		if err := mcp.ClearOAuthTokens(req.Name); err != nil {

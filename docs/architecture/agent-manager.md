@@ -5,9 +5,12 @@
 Owns agent lifecycle via the SQLite store (`internal/store`): workspaces
 workspaces start empty (ADR-0027) and own zero or more agents; tmux
 session names derive from the agent id.
-An agent runs as `pi` (ADR-0003, user-installed) in a named tmux session.
-Per-agent provider/model/thinking is stored on `agents` and passed as
-`pi --provider/--model/--thinking` on start (ADR-0009). Auth stays in
+An agent names a catalog runtime (`agents.cli`, default `pi`, ADR-0160).
+Pi runs as `pi` (ADR-0003, user-installed) in a named tmux session
+(interactive) or as `pi --mode rpc` (managed). Other launchable CLIs are
+interactive-only until they get a managed adapter; `Runtime.Start` refuses
+them. Per-agent provider/model/thinking is stored on `agents` and passed as
+`pi --provider/--model/--thinking` on Pi start (ADR-0009). Auth stays in
 `~/.pi/agent/auth.json`; PiCode never collects keys.
 `GET /api/providers/{id}/usage` (ADR-0031) reads the active slot.
 `GET /api/providers/{id}/accounts/{aid}/usage` reads that vault row
@@ -34,6 +37,10 @@ HTTP API (Go 1.22 method patterns):
   version response includes `semver`, display `version`, and `release`, which
   tells the shells whether the bundled What’s New notes may auto-open
   (ADR-0063).
+- `POST /api/workspaces/{id}/agents` `{name, cli?, …}` — create an agent in
+  that folder (ADR-0160). `cli` defaults to Pi; a launchable catalog CLI
+  creates the agent plus its interactive terminal, not a managed RPC
+  process.
 - `GET/POST /api/workspaces` — list (with live `running` flag) / add.
   Add registers the folder only (ADR-0027): the 201 carries `agents: []`
   and no `agent` key; an idempotent re-add answers with the real agents

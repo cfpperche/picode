@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-btab-annotate-clear"
+description = "Enables the btab_annotate_clear command without any pre-configured scope."
+commands.allow = ["btab_annotate_clear"]
+
+[[permission]]
+identifier = "deny-btab-annotate-clear"
+description = "Denies the btab_annotate_clear command without any pre-configured scope."
+commands.deny = ["btab_annotate_clear"]

@@ -8,6 +8,7 @@ const CLI_ALIASES = Object.freeze({
   pi: "pi",
   muse: "muse",
   agy: "agy",
+  omp: "omp",
 });
 
 const CLI_LABELS = Object.freeze({
@@ -19,6 +20,7 @@ const CLI_LABELS = Object.freeze({
   pi: "Pi",
   muse: "Muse Code",
   agy: "Antigravity",
+  omp: "Omp",
 });
 
 const CLI_MARKS = Object.freeze({
@@ -30,6 +32,7 @@ const CLI_MARKS = Object.freeze({
   pi: "π",
   muse: "Mu",
   agy: "Ag",
+  omp: "Om",
 });
 
 // Keep runtime identity on the vendor's own mark rather than a home-made
@@ -80,6 +83,13 @@ const CLI_FAVICONS = Object.freeze({
     // antigravity.svg is not in the 1.73.0 pin the other marks use.
     "https://unpkg.com/@lobehub/icons-static-svg@1.95.0/icons/antigravity.svg",
     "https://antigravity.google/favicon.ico",
+  ]),
+  // Omp ships no transparent glyph: its own mark is a rounded dark tile
+  // that reads as an app icon on the dark UI. The vendor's SVG first, its
+  // raster fallbacks after.
+  omp: Object.freeze([
+    "https://omp.sh/favicon.svg",
+    "https://omp.sh/favicon.ico",
   ]),
   // pi has no lobehub mark; pi.dev serves a transparent SVG.
   pi: Object.freeze(["https://pi.dev/favicon.svg"]),

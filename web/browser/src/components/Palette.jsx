@@ -82,7 +82,7 @@ function buildActions(workspaces, apps, focusable, snips, agentId) {
     out.push({ id: "app-" + a.id, label: "Open " + a.name, group: "apps", kind: "app", appId: a.id });
   }
   for (const ws of workspaces) {
-    out.push({ id: "cli-new-" + ws.id, label: "New CLI terminal · " + ws.name, group: ws.name, kind: "cli-new", wsId: ws.id });
+    out.push({ id: "cli-new-" + ws.id, label: "New agent · " + ws.name, group: ws.name, kind: "cli-new", wsId: ws.id });
     const mode = ws.agent ? ws.agent.mode : "stopped";
     out.push({ id: "open-" + ws.id, label: "Open " + ws.name, group: ws.name, kind: "open", wsId: ws.id });
     out.push({ id: "files-" + ws.id, label: "Files · " + ws.name, group: ws.name, kind: "files", wsId: ws.id, wsName: ws.name });

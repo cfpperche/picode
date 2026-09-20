@@ -1,0 +1,8 @@
+# 2026-09-17 — claude-grok-retry: correlation passes; grok 1.0.34 footer + claude ghost captured
+
+Shipped: (1) the post-paste Enter footer accepts Grok 1.0.34's long shape (`Shift+Enter/Alt+Enter:newline`) for pasted text only; (2) the claude-code guard recognizes its dim ghost suggestion (`TestPeerClaudeGhostSuggestion`, live capture). Both found natively while closing the last open correlation.
+Verified: `make ci-scoped` green. Native on scratch `localhost:8471`: `check_OXO4VYUIMMLORYT2B6UXUQFVOU` (claude → grok) **passed** — claude sent with the check id (no id-invention), grok read, correlated reply, both ACKs. The run also showed: quota-exhausted Claude is correctly refused (unknown limit footer, zero messages); an unattributed 166→80 pane resize truncates the long footer and the guards refuse safely (restored, no product code resizes panes); a resumed grok session replayed stale intent and burned ~25k scratch tokens before I cancelled it — resume sensitive sessions with care. Evidence: `var/qa/claude-grok-finale/`.
+visual-review: n/a (server behavior, no UI)
+Operational notes for the next native run: scratch daemons now use their own tmux socket (`<qa>/data/tmux.sock`, ADR-0139) — plain `tmux` commands cannot see scratch panes; never `pkill -f` a pattern containing the qa path (it kills your own shell, the daemon, and any TUI whose wrapper cmdline contains the path — kill exact PIDs); prefer stop+start or binary swap with manual daemon restart over pkill.
+Not done / debts: `open/communication.md` onboarding bullet retired (every correlation passed natively at least once); vendor behavior and standing limits remain.
+Merge: fast-forward ready (`make land`).

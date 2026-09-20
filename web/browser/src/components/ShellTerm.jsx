@@ -29,11 +29,15 @@ export function closeShellTerm(agentId) {
 // passes false unless it is the one focused panel (plan §4.6): every
 // visible panel re-claims its pane on reveal, exactly one calls
 // term.focus().
-export default function ShellTerm({ agentId, session, active, autoFocus = true, cwd, cwdKind, onOpenFile }) {
+export default function ShellTerm({ agentId, session, active, autoFocus = true, cwd, cwdKind, onOpenFile, onOpenLink }) {
   const hostRef = useRef(null);
   const cwdRef = useRef(cwd);
   const fileRef = useRef(onOpenFile);
   fileRef.current = onOpenFile;
+  // Where a printed http(s) link opens is the app's decision (its own
+  // preference), so the pane hands the URL up instead of calling window.open.
+  const linkRef = useRef(onOpenLink);
+  linkRef.current = onOpenLink;
   const focusRef = useRef(autoFocus);
   focusRef.current = autoFocus;
   // The pane carries its own live cwd: the right-click menu resolves the
@@ -76,7 +80,7 @@ export default function ShellTerm({ agentId, session, active, autoFocus = true, 
         scheduleTermFit(entry, true);
         if (active && focusRef.current && entry.term) entry.term.focus();
         if (entry.term && !entry.unwireLinks) {
-          entry.unwireLinks = wireTermLinks(entry.term, () => cwdRef.current, onFile, liveCwd);
+          entry.unwireLinks = wireTermLinks(entry.term, () => cwdRef.current, onFile, liveCwd, (href) => linkRef.current?.(href));
         }
         return () => park(entry.paneEl);
       }
@@ -116,7 +120,7 @@ export default function ShellTerm({ agentId, session, active, autoFocus = true, 
     wireTermKeys(term, sendBytes, (ev) => matchGlobalAction(ev) || paneLeaveKey(ev));
     wireTermClipboard(term, { onError: () => toast.error("The browser refused the copy — select and press Ctrl+C instead.") });
     wireTermFit(entry);
-    entry.unwireLinks = wireTermLinks(term, () => cwdRef.current, onFile, liveCwd);
+    entry.unwireLinks = wireTermLinks(term, () => cwdRef.current, onFile, liveCwd, (href) => linkRef.current?.(href));
     // Key and resize handlers live on the term once — they survive a
     // reattach and read the current socket through entry.sock.
     term.onData((data) => {

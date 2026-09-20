@@ -57,11 +57,14 @@ test("a topic file carries its title, a note its date and branch", () => {
 });
 
 // ADR-0140 supersedes ADR-0131's "debts are durable": a session note is
-// transient, so its Debts leave the board with its Next after 30 days. A
+// transient, so its Debts leave the board with its Next after 7 days (ADR-0145). A
 // debt that still matters past that belongs in docs/handoff/open/<topic>.md;
 // the note's own text stays in git either way.
-test("stale notes contribute neither next-up items nor debts", () => {
+test("a note is a handoff, not a ledger: it leaves the board after 7 days", () => {
   const now = Date.parse("2026-09-12T12:00:00Z");
+  // Five days old: still a handoff for whoever picks the work up.
+  const recent = parseNote(`# 2026-09-10 — recent\n\n## Next up\n\n- fresh idea\n`, "2026-09-10-recent.md");
+  assert.match(render({ worktrees: [{ isRoot: true }], topics: [], notes: [recent], now }).text, /fresh idea/);
   const old = parseNote(`# 2026-01-01 — stale\n\n## Next up\n\n- old idea\n\n## Debts\n\n- old debt\n`, "2026-01-01-stale.md");
   const { text } = render({ worktrees: [{ isRoot: true }], topics: [], notes: [old], now, idleHours: 24 });
   assert.doesNotMatch(text, /old debt/);
@@ -83,7 +86,7 @@ test("every bullet is attributed to the file that owns it", () => {
     idleHours: 24,
   });
   assert.match(text, /^- Tab strip: keyboard close of `\.mtab-close` continues on the next line\. — \*terminal\*$/m);
-  assert.match(text, /1 debt\(s\) — \*terminal\* — open `docs\/handoff\/open\/terminal.md`/);
+  assert.match(text, /1 open debt\(s\) — \*terminal\* — open `docs\/handoff\/open\/terminal.md`/);
   assert.match(text, /Physical keyboard spot-check on the tablet — \*2026-09-12-settings-layers\*/);
   assert.match(text, /The pane tab resets the sub-tab \(plain navigation\)\. — \*2026-09-12-settings-layers\*/);
   assert.match(text, /`feat\/x` — 2 ahead, 0 behind, 1 dirty file\(s\), last commit just now, gates green just now/);
@@ -92,13 +95,44 @@ test("every bullet is attributed to the file that owns it", () => {
   assert.ok(stats.lines < 100);
 });
 
-test("the budget names the files that overflow instead of truncating silently", () => {
+// ADR-0145: the view is bounded by construction. A topic with 130 bullets
+// renders two of them plus a pointer, and the render never fails on size — the
+// targets below can only warn, which is what the old cap got wrong (the only
+// way to meet it was deleting another session's prose).
+test("a topic longer than its quota truncates with a pointer, and still renders", () => {
   const bullets = Array.from({ length: 130 }, (_, i) => `- step ${i}`);
   const big = parseTopicFile(`# Big\n\n## Next\n\n${bullets.join("\n")}\n`, "big");
   const small = parseTopicFile(topic, "terminal");
-  const { over, stats } = render({ worktrees: [{ isRoot: true }], topics: [big, small], notes: [], now: Date.now() });
-  assert.ok(stats.lines > 120, `expected over 120 lines, got ${stats.lines}`);
-  assert.equal(over[0].stem, "big");
+  const { text, stats } = render({ worktrees: [{ isRoot: true }], topics: [big, small], notes: [], now: Date.now() });
+  assert.ok(stats.lines <= 120, `expected <= 120 lines, got ${stats.lines}`);
+  assert.ok(stats.bytes <= 12 * 1024, `expected <= 12 KB, got ${stats.bytes}`);
+  assert.match(text, /^- step 0 — \*big\*$/m);
+  assert.match(text, /^- step 1 — \*big\*$/m);
+  assert.doesNotMatch(text, /^- step 2 — \*big\*$/m);
+  assert.match(text, /…\+128 more in `docs\/handoff\/open\/big\.md`/);
+  assert.ok(stats.hidden >= 128, `expected the hidden count, got ${stats.hidden}`);
+});
+
+// One verbose topic cannot blow the view up at all: the quota is per topic, so
+// there is nothing to warn about and nothing to trim by hand.
+test("one verbose topic is not an overflow", () => {
+  const bullets = Array.from({ length: 400 }, (_, i) => `- step ${i}`);
+  const big = parseTopicFile(`# Big\n\n## Next\n\n${bullets.join("\n")}\n`, "big");
+  const { text, over, stats } = render({ worktrees: [{ isRoot: true }], topics: [big], notes: [], now: Date.now() });
+  assert.ok(text.includes("# Handoff"));
+  assert.deepEqual(over, []);
+  assert.ok(stats.lines < 120);
+});
+
+// What can still grow is the number of *sources*. Then the generator names the
+// biggest and writes anyway: `make close` is never blocked by how much the team
+// wrote down, which is what the old cap got wrong.
+test("many topics warn by name and still render", () => {
+  const topics = Array.from({ length: 200 }, (_, i) => parseTopicFile(`# T${i}\n\n## Next\n\n- a step\n- another\n\n## Debts\n\n- a debt\n`, `t${i}`));
+  const { text, over, stats } = render({ worktrees: [{ isRoot: true }], topics, notes: [], now: Date.now() });
+  assert.ok(text.includes("# Handoff"));
+  assert.ok(over.length > 0);
+  assert.ok(stats.lines > 120);
 });
 
 // ADR-0131 A: a file whose bullets are all outside the two headings used to
@@ -121,6 +155,6 @@ test("a fully invisible topic file is refused, by name", () => {
 test("debts render as a per-topic ledger with its plan", () => {
   const t = parseTopicFile(`# Terminal\n\n## Debts\n\n- a debt\n- another debt\n\nPlan: docs/plans/terminal.md\n`, "terminal");
   const { text } = render({ worktrees: [{ isRoot: true }], topics: [t], notes: [], now: Date.now() });
-  assert.match(text, /2 debt\(s\) — \*terminal\* — open `docs\/handoff\/open\/terminal.md` — Plan: `docs\/plans\/terminal.md`/);
+  assert.match(text, /2 open debt\(s\) — \*terminal\* — open `docs\/handoff\/open\/terminal.md` — Plan: `docs\/plans\/terminal.md`/);
   assert.doesNotMatch(text, /^- a debt$/m);
 });

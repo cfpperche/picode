@@ -28,8 +28,9 @@ certificate the desktop uses — see [Getting started](/guide/getting-started).
 - **Work** — the same three views as the desktop sidebar: **Workspaces**
   (each folder with its agents and terminals; **+ Agent** / **+ Terminal**
   beside each workspace), **Agents** (free agents, outside any workspace) and
-  **Terminals** (free terminals, outside any workspace). **Start** / **Stop** on an agent row,
-  **Remove** on a terminal row; **New** creates whatever the view shows.
+  **Terminals** (free terminals, outside any workspace). **Start** / **Stop** on an agent row.
+  A terminal's **⋯** is Rename, Continue in… when a conversation is pinned,
+  Start or Restart/Stop, and Remove. **New** creates whatever the view shows.
 - **More** — search grouped tools: **Tools** (Pins, Agent CLIs including
   Providers, Settings and Packages, Automations, Apps, llama.cpp,
   Integrations) and **PiCode** (Preferences, Notifications, Devices,

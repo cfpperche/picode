@@ -43,6 +43,13 @@ agent can read the page open in PiCode's work browser (snapshot, screenshot,
 events). Read is the default and the ceiling until you grant an agent `act`.
 Guide: [Browser tools for pi](/guide/browser-tool).
 
+Computer use: install `packages/pi-computer` — an extension, not core — so an
+agent can use the Windows desktop through the desktop app: screenshots,
+mouse, keyboard, windows, the clipboard, opening programs. Off until you
+switch the agent on in Settings ▸ Computer; on, the agent acts with your own
+permissions on your desktop, without a sandbox.
+Guide: [Computer use for pi](/guide/computer-tool).
+
 Docker sysadmin: install `packages/pi-sysadmin` to give an agent Docker
 inspection and operation tools. The Docker App works independently of the
 package. Guide: [Docker and sysadmin](/guide/docker).

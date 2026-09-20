@@ -69,7 +69,7 @@ func (m CodexMeter) Meter(req Request) (Window, error) {
 	if _, err := os.Stat(root); err != nil {
 		return absentWindow(m, req), nil
 	}
-	acc := newGuestAcc(req, m.CLI())
+	acc := newCliAcc(req, m.CLI())
 	var limits []LimitWindow
 	var newestLimit time.Time
 
@@ -94,7 +94,7 @@ var codexCan = map[Signal]bool{
 	SigTurns: true, SigTools: true, SigLimits: true,
 }
 
-func codexCoverage(m CodexMeter, b Billing, acc *guestAcc, sawLimits bool) CoverageRow {
+func codexCoverage(m CodexMeter, b Billing, acc *cliAcc, sawLimits bool) CoverageRow {
 	return CoverageRow{
 		CLI: m.CLI(), Label: m.Label(), Billing: b,
 		Signals: acc.evidence(codexCan, map[Signal]bool{SigLimits: sawLimits}),
@@ -218,7 +218,7 @@ func codexParse(path string) *parsed {
 
 	cwd, provider, model, id := "", "", "", ""
 	var pendingTools []string
-	add := func(e guestEntry) {
+	add := func(e cliEntry) {
 		out.ents = append(out.ents, e)
 		out.units += e.toks.Input + e.toks.Output + e.toks.CacheRead + e.toks.CacheWrite
 	}
@@ -273,7 +273,7 @@ func codexParse(path string) *parsed {
 			// every TUI prompt on this machine. Items older than the metadata (no kinds at all) are
 			// counted — there is nothing to tell them apart by.
 			if p.Type == "message" && p.Role == "user" && !codexInjected(p.Meta) {
-				add(guestEntry{at: at, key: codexKey(path, id), cwd: cwd, role: "user"})
+				add(cliEntry{at: at, key: codexKey(path, id), cwd: cwd, role: "user"})
 			}
 		case "event_msg":
 			switch p.Type {
@@ -288,7 +288,7 @@ func codexParse(path string) *parsed {
 				// last_token_usage is the turn that just finished — the one
 				// windowable token figure Codex writes. The cumulative
 				// total beside it would double-count on every line.
-				e := guestEntry{
+				e := cliEntry{
 					at: at, key: codexKey(path, id), cwd: cwd,
 					role: "assistant", model: model, prov: provider,
 					toks: session.TokenTotals{
@@ -303,7 +303,7 @@ func codexParse(path string) *parsed {
 				pendingTools = nil
 				add(e)
 			case "turn_aborted":
-				add(guestEntry{at: at, key: codexKey(path, id), cwd: cwd, role: "assistant", model: model, prov: provider, abort: true})
+				add(cliEntry{at: at, key: codexKey(path, id), cwd: cwd, role: "assistant", model: model, prov: provider, abort: true})
 			}
 		}
 	}

@@ -198,14 +198,12 @@ func registerPeerOnboarding(mux Registrar, deps Deps) {
 						writeErr(w, 409, e.Error())
 						return
 					}
-					args := terminalResumeArgs(launch.LastSession)
-					if len(args) == 0 {
+					resumed := launchWithPinnedSession(launch)
+					if resumed == launch {
 						writeErr(w, 409, "This conversation cannot be resumed.")
 						return
 					}
-					copy := *launch
-					copy.Overrides.Args = &args
-					launch = &copy
+					launch = resumed
 				}
 				prepared, e := prepareCLITerminal(deps, t.Cwd, launch)
 				if e != nil {
@@ -588,10 +586,11 @@ func applyPeerParticipant(ctx context.Context, deps Deps, p store.PeerParticipan
 	if c.CLI == "claude-code" && !peerClaudeResumable(rt.SessionPath, c.SessionKey) {
 		return "waiting", "Send the first message in this conversation to finish connecting."
 	}
-	resume := *launch
-	args := terminalResumeArgs(launch.LastSession)
-	resume.Overrides.Args = &args
-	prepared, e := prepareCLITerminal(deps, t.Cwd, &resume)
+	resumed := launchWithPinnedSession(launch)
+	if resumed == launch {
+		return "error", "This conversation cannot be resumed."
+	}
+	prepared, e := prepareCLITerminal(deps, t.Cwd, resumed)
 	if e != nil {
 		return "error", e.Error()
 	}

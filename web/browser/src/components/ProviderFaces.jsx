@@ -1,9 +1,27 @@
 import { useState } from "react";
 import { faceSlice, providerFaviconUrl, providerId, providerLetter } from "@picode/shared/domain/providerIcon.js";
+import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
 import { terminalDisplayCli, terminalCliFaviconUrls, terminalCliLabel, terminalCliMark } from "@picode/shared/domain/terminalCli.js";
 import { collapseFaceItems } from "../lib/collapseFaces.js";
 
+// Every agent wears its CLI's favicon (ADR-0160) — pi included, the same
+// art the terminal rows wear — falling back to the vendor mark. The
+// provider face below stays for explicit provider ids.
+function CliAgentFace({ cli, name }) {
+  const favicons = terminalCliFaviconUrls(cli);
+  const [failed, setFailed] = useState(0);
+  const src = failed < favicons.length ? favicons[failed] : "";
+  const title = name || terminalCliLabel(cli);
+  if (src) {
+    return <img className="ws-face" src={src} alt="" title={title} onError={() => setFailed((n) => n + 1)} />;
+  }
+  return <span className="ws-face" title={title}>{terminalCliMark(cli)}</span>;
+}
+
 export function ProviderFace({ agent, id }) {
+  if (!id && agent) {
+    return <CliAgentFace cli={agentIsPi(agent) ? "pi" : agent.cli} name={agent.name} />;
+  }
   const pid = (id || providerId(agent)).toLowerCase();
   const src = providerFaviconUrl(pid);
   const letter = providerLetter(pid || (agent && agent.name));

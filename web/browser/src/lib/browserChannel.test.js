@@ -125,3 +125,35 @@ test("close stops the stream from answering", async () => {
   channel.close();
   assert.equal(source.listening, false);
 });
+
+test("a computer frame goes to the computer runner, never to the tab bridge", async () => {
+  const source = fakeSource();
+  const calls = { invoke: [], post: [], computer: [] };
+  createBrowserChannel({
+    activeTabId: () => "w:7",
+    invoke: async (cmd, args) => {
+      calls.invoke.push([cmd, args]);
+      return {};
+    },
+    source,
+    post: async (r) => calls.post.push(r),
+    runComputer: async (cmd) => {
+      calls.computer.push(cmd.method);
+      return { output: { ok: true } };
+    },
+  });
+  source.frame(JSON.stringify({ id: "k1", kind: "computer", method: "screenshot", principal: "agent-1" }));
+  await settle();
+  assert.deepEqual(calls.invoke, []);
+  assert.deepEqual(calls.computer, ["screenshot"]);
+  assert.deepEqual(calls.post, [{ id: "k1", output: { ok: true } }]);
+});
+
+test("a computer frame on a page without a runner is answered, not hung", async () => {
+  const { source, calls } = harness();
+  source.frame(JSON.stringify({ id: "k2", kind: "computer", method: "screenshot", principal: "agent-1" }));
+  await settle();
+  assert.deepEqual(calls.invoke, []);
+  assert.equal(calls.post.length, 1);
+  assert.match(calls.post[0].error, /^not_connected/);
+});

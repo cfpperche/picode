@@ -2,7 +2,7 @@
    Mobile owns its frame and copied presentation. Shared theme tokens
    supply colors and fonts; these rules supply touch targets and safe areas.
    Targets: 44px controls and 56px rows. */
-:root { --sa-bottom: env(safe-area-inset-bottom, 0px); --m-nav: 56px; }
+:root { --sa-bottom: env(safe-area-inset-bottom, 0px); --m-nav: 56px; --letterbox: 0px; }
 /* iOS standalone (Add to Home Screen, WebKit 313800/254868): the platform
    parks a status-bar-sized strip BELOW the layout viewport that no element
    can reach, and still reports env(bottom) inside it — a double count.
@@ -90,10 +90,19 @@ html[data-standalone][data-pushed="1"], html[data-standalone][data-pushed="1"] b
    the layout viewport ends right below the nav, so every scrap of nav
    padding under the labels is dead reach. "edge" pushes the whole shell
    into the letterbox strip — some iOS versions paint it, some clip it;
-   it is the user's dial, not a default. */
-html[data-bottombar="low"] .m-tab { justify-content: flex-end; padding-bottom: 5px; }
-html[data-bottombar="low"] .m-tab::before { top: auto; bottom: 1px; height: 41px; }
-html[data-bottombar="edge"] #m-app { bottom: calc(-1 * env(safe-area-inset-top, 0px)); }
+   "low" is the fallback that keeps the buttons in the layout viewport. */
+html[data-bottombar="low"] .m-tab,
+html[data-bottombar="edge"] .m-tab { justify-content: flex-end; padding-bottom: 5px; }
+html[data-bottombar="low"] .m-tab::before,
+html[data-bottombar="edge"] .m-tab::before { top: auto; bottom: 1px; height: 41px; }
+html[data-bottombar="edge"] #m-app { bottom: calc(-1 * var(--letterbox)); }
+/* A pushed screen has no tab bar, so the letterbox is just empty canvas.
+   Grow the shell into it even when Layout is "low", so a terminal is not
+   sitting above a blank strip. Auto on a letterboxed install resolves to
+   edge, which docks the tab bar the same way. */
+html[data-standalone] #m-app.is-pushed { bottom: calc(-1 * var(--letterbox)); }
+html[data-standalone] #m-app.is-pushed.kb-open,
+html[data-bottombar="edge"] #m-app.kb-open { bottom: auto; }
 .m-tab-icon, .m-tab-label { position: relative; }
 .m-tab.on .m-tab-label { font-weight: 650; }
 .m-tab-icon { display: inline-flex; }
@@ -105,12 +114,16 @@ html[data-bottombar="edge"] #m-app { bottom: calc(-1 * env(safe-area-inset-top, 
   font-variant-numeric: tabular-nums;
 }
 
-/* ---- pushed-screen header ---- */
+/* ---- pushed-screen header ----
+   Opaque fill, no backdrop-filter: iOS 26 Liquid Glass frosted a
+   translucent status bar over this strip and washed the title (~132 vs
+   --text-primary 236). The PWA meta is black/default, not black-translucent. */
 .m-head {
   flex: none; display: grid; grid-template-columns: var(--m-tap) minmax(0, 1fr) auto; align-items: center; gap: 6px;
   min-height: calc(52px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) var(--m-pad) 0 4px;
   margin: 0 calc(-1 * var(--m-pad)) 0; background: var(--bg-panel); border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 5;
+  color: var(--text-primary);
 }
 .m-head-back, .m-head-spacer {
   width: var(--m-tap); height: var(--m-tap); display: inline-flex; align-items: center; justify-content: center;

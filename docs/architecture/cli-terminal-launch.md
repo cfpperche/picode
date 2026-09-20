@@ -3,7 +3,10 @@
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
 `internal/clilaunch` holds a small catalog and configuration resolution; it
-does not implement an agent runtime. SQLite tables `cli_configs` and
+does not implement an agent runtime. A workspace instance of a launchable CLI is an agent (`agents.cli`,
+ADR-0160). The launch stack here is that agent's interactive mode — see
+[managed-principals.md](managed-principals.md) (0159 binding is
+transitional). Launch is not a second identity. SQLite tables `cli_configs` and
 `terminal_launches` store defaults and terminal overrides. First boot imports
 catalog rows: Activity reporting defaults **on** unless `enabled.json`
 explicitly lists the CLI as false. A missing key is not false — that freeze
@@ -32,26 +35,38 @@ Old generations are reclaimed after a successful new launch; Remove deletes
 only that terminal's private launch files, not native CLI data.
 
 `GET /api/clis` resolves installation without starting a conversation;
+A vendor self-update rewrites its launcher or symlink in place, so one
+`Stat` can land inside that swap window and read the CLI as absent — the
+resolver retries once (~150 ms) before declaring a CLI not installed
+(2026-09-18: four rows flipped their lifecycle off for a single request
+while grok, hermes, muse and omp updated themselves).
 `POST /api/clis/<cli>/check` explicitly runs bounded `--version` and checks
 reporter prerequisites. It does not certify authentication or every hook.
 `GET /api/clis/<cli>/sessions?cwd=` lists a CLI's on-disk sessions read-only
 (ADR-0079 phase 2; `internal/clisession`): pi reads its JSONL root, Claude
 Code its `~/.claude/projects` transcripts, Codex its `~/.codex/sessions`
 rollouts, Grok its `~/.grok/sessions` prompt history, Hermes Agent its
-`~/.hermes/state.db` (or `$HERMES_HOME/state.db`) SQLite rows, and OpenCode
+`~/.hermes/state.db` (or `$HERMES_HOME/state.db`) SQLite rows, OpenCode
 its `~/.local/share/opencode/opencode.db` (or `$XDG_DATA_HOME/opencode/opencode.db`)
-SQLite rows, each parsed defensively (malformed files are skipped, missing
-roots are an empty list). Hermes listing is the active home only (no
-`profiles/` scan), `source` cli/tui with a folder and at least one message;
-preview is the session title. OpenCode listing skips child sessions
-(`parent_id`), archived rows and empty transcripts; timestamps are
-milliseconds; preview is the session title. The OpenCode CLI's own
-`session list` is project-scoped and is not used.
+SQLite rows, Muse Code its index, Antigravity its summaries DB, and Omp its
+`~/.omp/agent/sessions` JSONL (pi's bucket-per-cwd layout with omp's own
+encoding, `$PI_CODING_AGENT_DIR` honored; XDG relocation via
+`omp config init-xdg` not followed yet), each parsed defensively (malformed
+files are skipped, missing roots are an empty list). Hermes listing is the
+active home only (no `profiles/` scan), `source` cli/tui with a folder and
+at least one message; preview is the session title. OpenCode listing skips
+child sessions (`parent_id`), archived rows and empty transcripts;
+timestamps are milliseconds; preview is the session title. The OpenCode
+CLI's own `session list` is project-scoped and is not used. Omp listing
+reads the schema-v3 header for id/cwd, the newest `title` record, the
+provider-qualified `model_change`, and the first user text as preview; a
+file with no header or no message is not a session.
 Rows carry the server-verified resume arguments for that CLI (verified
 2026-09 against each CLI's `--help`: `claude --resume <id>`, `codex resume
 <id>` positional, `grok --resume <id>`, `hermes --resume <id>` on Hermes
-Agent v0.18.2, `opencode --session <id>` on OpenCode 1.18.29); pi's row carries none — pi resumes
-through its own chat flow. Cost is pi-only on this surface: guest formats
+Agent v0.18.2, `opencode --session <id>` on OpenCode 1.18.29, `omp --resume
+<id>` on omp 18.2.4); pi's row carries none — pi resumes
+through its own chat flow. Cost is pi-only on this surface: CLI formats
 are not shown with per-session spend. Non-Pi sessions open through
 `POST /api/clis/<cli>/terminals` with the resume arguments as launch
 argument overrides — no transcript replay, no writes, no deletes for other
@@ -62,8 +77,12 @@ in-use guards) stays on its own endpoints.
 `restart` and `remove` POST routes serialize per terminal. Start is idempotent
 while live, Stop retains configuration, and active destructive actions require
 confirmation. Restart validates the next executable and directory before
-ending the current session. A CLI exit returns to an interactive shell;
-browser/daemon reconnect only reconciles, never restarts work automatically.
+ending the current session. When a conversation is pinned, Restart prepares
+that session's verified resume arguments for the next generation (ADR-0158;
+same one-shot recipe as `start` with `resume: true`); without a pin it
+applies current settings to a fresh conversation. A CLI exit returns to an
+interactive shell; browser/daemon reconnect only reconciles, never restarts
+work automatically.
 
 Manual CLI commands in ordinary terminals retain session-local wrapper
 instrumentation. Launch defaults apply to the central manager, not to commands
@@ -122,17 +141,42 @@ error text is shown for genuine failures.
 defaults) and `POST …/update-check` against the vendor's channel JSON —
 Muse Code's release channel and Antigravity's per-platform release manifest
 (`manifests/<os>_<arch>[_musl].json`, the same file its installer reads; only
-`version` is used). They seed no Activity, install no intercept wrapper, expose no launch
-settings (`PUT /api/clis/{cli}` is refused), no session source and no
-lifecycle jobs (`POST …/lifecycle` reaches the plan and is refused as
-unmanaged). The surface derives that from two capabilities the server sends:
-`integrationCapable` (activity, launch settings, setup panes) and `launchable`
-(New terminal); `cliPanes` maps them to the pane list. `surface: detect`
-remains for a row that must not launch at all, and `TestCatalogCapabilities`
-pins which catalog rows launch and which integrate. `muse --version` runs
+`version` is used). Lifecycle jobs run the vendors' own commands: `agy
+update` for Antigravity, and Muse's launcher as its own updater
+(`MUSE_LAUNCHER_INSTALL=1` on a bare run — it exits 0 before arg parsing,
+so the plan carries env instead of argv); neither ships an uninstaller, so
+both uninstall guided with the vendor docs link. Muse still reports no
+Activity: R3233 grew real hooks, but the CLI scrubs the hook environment
+to PATH alone (measured; `managed_hooks_env_vars` is enterprise-policy
+tier), so a settings reporter cannot attribute a report to a terminal —
+Open stays honest until a vendor surface carries identity. Antigravity reports
+through its title command. `muse --version` runs
 with `MUSE_NO_AUTO_UPDATE=1` so the launcher does not background-update.
 Every installed row reaches Check for updates through the same ⋯ menu, so a
 channel-backed CLI needs no bespoke button.
+
+**Omp is a full row.** Omp (oh-my-pi, a Pi fork) launched as terminal-only,
+gained sessions, then its adapter in the omp-adapter slice: editable launch
+defaults, the PATH wrapper (presence lease; maintenance subcommands and the
+protocol modes `--mode rpc|json|acp|rpc-ui` exec or mark non-TUI), and
+activity through the omp-shaped terminal-state extension injected with
+`-e` — the same extension load mechanism as pi, but omp's own event set
+(measured live on 18.2.4: `agent_end` settles the run, and the approval
+dialog emits no extension event, so omp reports Ready and Working and
+never needs-you — approvals happen in its own terminal). `Check setup`
+runs `omp --version`, which needs
+Bun ≥ 1.3.14 on PATH; an older Bun dies with a syntax error from its
+bundle. Lifecycle mirrors pi with the real npm package
+(`@oh-my-pi/pi-coding-agent`), split by install method — each measured:
+npm installs update/reinstall/uninstall through npm (a deterministic
+target; run from a bun install, the vendor updater resolved by PATH and
+updated an npm copy), native installs run `omp update` / `omp update
+--force` with the vendor's own check (`omp update --check`, output
+measured), a bun-global install is honestly unknown (no deterministic
+mutation target), and a missing omp installs through npm like pi. One measured foot-gun guards both preview and
+prepare: omp refuses a run outright when a `--trusted-extension` launch
+argument meets the injected `-e`, so that combination is a named problem,
+never a broken launch.
 
 **One launch surface, read-only without an adapter.** A CLI with no adapter
 keeps the *same* launch screens, with the launcher's own data and nothing to
@@ -147,15 +191,18 @@ settings. The preview is the server's real plan
 (`POST /api/clis/<cli>/preview`), including the blocked state: an uninstalled
 CLI reads *Not found* and the plan's problem line instead of an empty grid.
 
-**Editable launch without activity (Muse Code).** Muse left the
-no-adapter group with its launch editable but no hook surface in its
-build, so the plan carries a summary and nothing to install or inject.
+**Presence lease without activity (Muse Code).** Muse launches through
+the PATH wrapper like every other CLI, so presence and pins work — but
+its hook reports carry no terminal identity (env scrubbed to PATH), so
+there is nothing to report through and activity stays Open.
 
-**Activity without a wrapper (Antigravity).** The CLI reports its own
+**Activity through the settings reporter (Antigravity).** The CLI reports its own
 lifecycle through the `title` command in its settings file
 (`agent_state: idle | thinking | working | tool_use | initializing`), so
 PiCode installs a reporter script there — merged into the user's file,
-foreign blocks refused, ours removed on toggle-off. The reporter posts
+foreign blocks refused, ours removed on toggle-off — and launches the CLI
+through the PATH wrapper like every other surface (presence lease and
+precise pins; the lease skips maintenance subcommands). The reporter posts
 through `picode-hook` (the shared mapper learned the `agent_state`
 dialect) and prints the short title the CLI renders. No `hooks.json`
 decision hook ships: a PreToolUse command gates tools, and a bad one
@@ -205,7 +252,8 @@ Snapshots include injected branches/files and executable identity. Pending
 state detects configuration and binary changes; the editor compares next and
 last-applied settings and lists terminals affected by a defaults edit. Restart
 prepares all launch artifacts before stopping the existing process, then uses
-that exact generation. Spawn failure after stopping is reported without claiming
+that exact generation — including the pinned session's resume recipe when one
+exists (ADR-0158). Spawn failure after stopping is reported without claiming
 rollback. Workspace deletion holds terminal locks and collects exact private
 launch directories; native CLI data and unrelated terminal directories survive.
 
@@ -215,6 +263,23 @@ navigation through a hash guard installed before route observers, use shared
 Zod schemas, and preview after edits with a debounce (not periodic API polling).
 Feed invalidation keeps profiles and checks current.
 Workspace menus and the palette open the shared terminal editor with context.
+
+**Quick launch settings** (2026-09-17, benchmark note
+`docs/benchmarks/2026-09-17-cli-launch-quick-presets.md`): for pi,
+Claude Code, Codex, Grok, Hermes Agent, OpenCode and Omp the launch editors
+render verified per-CLI controls — model, additional folders
+(`--add-dir`, repeatable), approvals/permission mode,
+thinking or reasoning effort, sandbox, and the vendors' skip-everything
+flags (codex `--yolo`, hermes `--yolo`, grok `--always-approve`) — above an
+**Advanced** reveal of the raw fields. Each control patches the draft
+argument array in place (`web/shared/domain/cliLaunchPresets.js`): the
+generated flag is replaced at its position, every other argument keeps its
+order, and an emptied control removes the flag. Codex's yolo/sandbox/
+approval controls form an exclusivity group (the CLI refuses the
+combination); picking one clears the others. No new persistence — Save,
+preview, overrides and profiles keep their contracts. A dangerous pick
+shows a one-line warning inline. Muse Code and Antigravity have no adapter
+and keep their read-only launch screens.
 
 
 ADR-0107 amends session pinning for communication: Grok/Hermes pins use native

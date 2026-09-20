@@ -1,4 +1,5 @@
-// Ctrl/Cmd+click in xterm: http → browser; path under cwd → file tab.
+// Ctrl/Cmd+click in xterm: http → the caller's opener (the app routes it
+// through its own preference, `lib/openLink.js`); path under cwd → file tab.
 // No modifier = select. Paths outside cwd are not links.
 // Activate asks tmux for the live pane cwd (Track 3). Underlines may lag.
 
@@ -151,7 +152,7 @@ export function findLinks(line, cwd) {
   return hits;
 }
 
-export function wireTermLinks(term, getCwd, onFile, getLiveCwd) {
+export function wireTermLinks(term, getCwd, onFile, getLiveCwd, openHttp) {
   if (!term || typeof term.registerLinkProvider !== "function") return () => {};
   const cwdOf = () => (typeof getCwd === "function" ? getCwd() : getCwd);
   const activate = (ev, text) => {
@@ -168,7 +169,11 @@ export function wireTermLinks(term, getCwd, onFile, getLiveCwd) {
       if (ev && ev.preventDefault) ev.preventDefault();
       if (ev && ev.stopImmediatePropagation) ev.stopImmediatePropagation();
       if (hit.kind === "http") {
-        window.open(hit.href, "_blank", "noopener,noreferrer");
+        // Where a printed link lands is the caller's call — PiCode's own
+        // browser surface or the system browser, per the human's preference.
+        // A bare terminal (no opener) keeps the platform's behavior.
+        if (typeof openHttp === "function") openHttp(hit.href);
+        else window.open(hit.href, "_blank", "noopener,noreferrer");
         return true;
       }
       if (hit.kind === "file" && onFile) onFile(hit.path);

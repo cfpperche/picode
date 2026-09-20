@@ -19,7 +19,8 @@ import (
 // the Vite bundle, the service worker, the fonts. Exceptions are the ones
 // the app actually uses: provider icons from unpkg (img), data/blob URLs
 // for screenshots and recordings, WebAssembly (model-viewer, excalidraw),
-// and inline style attributes (React).
+// inline style attributes (React), and — on /desktop/ only — Tauri 2's
+// IPC host so the Windows WebView2 can invoke native commands.
 //
 // The policy rides the HTML responses only; assets and API answers carry
 // none, so a same-origin worker (excalidraw's font subsetter uses `new
@@ -76,6 +77,19 @@ func hashInline(html []byte) string {
 	return strings.Join(out, " ")
 }
 
+// tauriIPCConnect is what Tauri 2's WebView2 fetch uses for plugin
+// commands (plugin:window|is_maximized, plugin:event|listen, …). Without
+// these, covering /desktop/ with the app policy blocks every invoke().
+const tauriIPCConnect = " ipc: http://ipc.localhost https://ipc.localhost"
+
+// desktopShellPath is the Windows Tauri shell (ADR-0120): the main window
+// loads /desktop/, management loads /desktop/management.html. Browser and
+// mobile shells never talk to ipc.localhost, so they keep the narrower
+// connect-src.
+func desktopShellPath(p string) bool {
+	return p == "/desktop" || strings.HasPrefix(p, "/desktop/")
+}
+
 // appCSP is the app shell's policy for the host the browser used, so
 // WebSockets to this same server pass in every browser, and for the request
 // path, so the script hash names the file that path actually serves.
@@ -84,13 +98,17 @@ func appCSP(host, requestPath string) string {
 	if h := strings.TrimSpace(host); h != "" {
 		ws = " ws://" + h + " wss://" + h
 	}
+	connect := "connect-src 'self'" + ws
+	if desktopShellPath(requestPath) {
+		connect += tauriIPCConnect
+	}
 	return strings.Join([]string{
 		"default-src 'self'",
 		"script-src 'self' 'wasm-unsafe-eval' " + inlineScriptHashes(requestPath),
 		"style-src 'self' 'unsafe-inline'",
 		"img-src 'self' data: blob: https:",
 		"font-src 'self' data:",
-		"connect-src 'self'" + ws,
+		connect,
 		"media-src 'self' blob: data:",
 		"worker-src 'self' blob:",
 		// The work browser's frame fallback (dev-server preview) may show a page

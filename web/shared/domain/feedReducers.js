@@ -60,7 +60,7 @@ export function applyFleet(state, ev) {
   switch (ev.type) {
     case "workspace.added": {
       if (!d.id || workspaces.some((w) => w.id === d.id)) return state;
-      return { ...state, workspaces: byName([...workspaces, { ...d, agents: [] }]) };
+      return { ...state, workspaces: byName([...workspaces, { ...d, agents: [], managedClis: [] }]) };
     }
     case "workspace.deleted":
       return {
@@ -146,8 +146,36 @@ export function applyFleet(state, ev) {
     case "terminal.launch":
     case "cli.updated":
       return null;
+    case "managed_cli.added": {
+      if (!d.id || !d.workspaceId) return state;
+      const home = workspaces.find((w) => w.id === d.workspaceId);
+      if (!home) return null;
+      if ((home.managedClis || []).some((m) => m.id === d.id)) return state;
+      return {
+        ...state,
+        workspaces: workspaces.map((w) =>
+          w.id === home.id ? { ...w, managedClis: [...(w.managedClis || []), d] } : w,
+        ),
+      };
+    }
+    case "managed_cli.removed":
+      if (!d.id) return state;
+      return {
+        ...state,
+        workspaces: workspaces.map((w) => ({
+          ...w,
+          managedClis: (w.managedClis || []).filter((m) => m.id !== d.id),
+        })),
+      };
     case "terminal.deleted":
-      return { ...state, terminals: terminals.filter((t) => t.id !== d.id) };
+      return {
+        ...state,
+        terminals: terminals.filter((t) => t.id !== d.id),
+        workspaces: workspaces.map((w) => ({
+          ...w,
+          managedClis: (w.managedClis || []).filter((m) => m.terminalId !== d.id),
+        })),
+      };
     case "terminal.last_session": {
       // The pin (ADR-0084) is what Continue in… and Resume last session
       // read. The event used to carry only ids, so a live terminal never

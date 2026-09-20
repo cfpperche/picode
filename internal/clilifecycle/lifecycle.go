@@ -46,14 +46,17 @@ const (
 // vectors were verified against each vendor's --help output on 2026-09-06;
 // the tests assert the recorded shapes.
 type Plan struct {
-	CLI           string        `json:"cli"`
-	Method        Method        `json:"method"`
-	NpmPackage    string        `json:"npmPackage,omitempty"`
-	LatestFrom    string        `json:"latestFrom"` // "npm" or "vendor"
-	UpdateViaNpm  bool          `json:"updateViaNpm,omitempty"`
-	CheckArgs     []string      `json:"checkArgs,omitempty"`
-	UpdateArgs    []string      `json:"updateArgs,omitempty"`
-	ReinstallArgs []string      `json:"reinstallArgs,omitempty"`
+	CLI           string   `json:"cli"`
+	Method        Method   `json:"method"`
+	NpmPackage    string   `json:"npmPackage,omitempty"`
+	LatestFrom    string   `json:"latestFrom"` // "npm" or "vendor"
+	UpdateViaNpm  bool     `json:"updateViaNpm,omitempty"`
+	CheckArgs     []string `json:"checkArgs,omitempty"`
+	UpdateArgs    []string `json:"updateArgs,omitempty"`
+	ReinstallArgs []string `json:"reinstallArgs,omitempty"`
+	// UpdateEnv overlays env for update and reinstall (Muse's launcher
+	// entrypoint). An action is offered when its argv OR env is present.
+	UpdateEnv     []string      `json:"updateEnv,omitempty"`
 	Uninstall     UninstallKind `json:"uninstall"`
 	UninstallArgs []string      `json:"uninstallArgs,omitempty"`
 	Docs          string        `json:"docs,omitempty"`
@@ -63,10 +66,17 @@ type spec struct {
 	npmPackage    string
 	updateArgs    []string
 	reinstallArgs []string
+	// updateEnv overlays process env for update and reinstall. Muse ships
+	// no update argv: its launcher updates when MUSE_LAUNCHER_INSTALL=1
+	// (verified against the installed launcher script, 2026-09-16).
+	updateEnv     []string
 	uninstall     UninstallKind
 	uninstallArgs []string
 	docs          string
 	latestFrom    string // "channel" for HTTP version checks without a vendor command
+	// checkArgs is the vendor's own check command for LatestFrom
+	// "vendor" (omp update --check, measured 2026-09-17).
+	checkArgs []string
 	// npmUpdateOnly marks CLIs whose vendor update command refuses on
 	// npm-managed installs (claude update → "use npm"). Their update and
 	// reinstall go through npm instead.
@@ -86,6 +96,22 @@ var plans = map[string]spec{
 		updateArgs:    []string{"update"},
 		reinstallArgs: []string{"update", "--force"},
 	},
+	"omp": {
+		// Same shape as pi — omp is its fork — with the real npm package
+		// name. npm installs update through npm (deterministic target; the
+		// vendor updater's npm shim handling is a known weak spot), native
+		// installs through the vendor's own updater, whose update check
+		// output is measured: "Current version: X" plus "New version
+		// available: Y" when one exists.
+		npmPackage:    "@oh-my-pi/pi-coding-agent",
+		updateArgs:    []string{"update"},
+		reinstallArgs: []string{"update", "--force"},
+		uninstall:     UninstallGuided,
+		docs:          "https://omp.sh/docs",
+		npmUpdateOnly: true,
+		latestFrom:    "vendor",
+		checkArgs:     []string{"update", "--check"},
+	},
 	"claude-code": {
 		npmPackage:    "@anthropic-ai/claude-code",
 		updateArgs:    []string{"update"},
@@ -103,7 +129,7 @@ var plans = map[string]spec{
 		updateArgs:    []string{"update"},
 		reinstallArgs: []string{"update", "--force-reinstall"},
 		uninstall:     UninstallGuided,
-		docs:          "https://grok.com/build",
+		docs:          "https://docs.x.ai/build/cli/reference",
 	},
 	"hermes": {
 		updateArgs:    []string{"update", "--yes"},
@@ -121,9 +147,18 @@ var plans = map[string]spec{
 	},
 	"muse": {
 		latestFrom: "channel",
+		// No update argv: MUSE_LAUNCHER_INSTALL=1 turns a bare run into
+		// the vendor updater (it exits 0 before arg parsing).
+		updateEnv: []string{"MUSE_LAUNCHER_INSTALL=1"},
+		uninstall: UninstallGuided,
+		docs:      "https://dev.meta.ai/docs/muse-code",
 	},
 	"agy": {
-		latestFrom: "channel",
+		latestFrom:    "channel",
+		updateArgs:    []string{"update"},
+		reinstallArgs: []string{"update"},
+		uninstall:     UninstallGuided,
+		docs:          "https://antigravity.google/docs/cli/",
 	},
 }
 
@@ -157,10 +192,23 @@ func DetectMethod(path string) Method {
 
 func classifyMethod(p string) Method {
 	switch {
+	case strings.Contains(p, "/.bun/") && strings.Contains(p, "/@oh-my-pi/"):
+		// Measured 2026-09-17: a bun-global omp's realpath carries
+		// node_modules, so the npm pattern below would claim it — but npm
+		// commands miss the bun copy, and the vendor updater resolves its
+		// target by PATH (run from a bun install it updated an npm copy).
+		// No deterministic mutation target: honestly unknown. (OpenCode's
+		// bun installs keep classifying npm: its vendor commands are
+		// installer-aware.)
+		return MethodUnknown
 	case strings.Contains(p, "/node_modules/"):
 		return MethodNpm
 	case strings.Contains(p, "/.local/share/claude/"), strings.Contains(p, "/claude/versions/"):
 		return MethodNative
+	case strings.Contains(p, "/.local/bin/omp"):
+		// The vendor curl installer lands a single native binary here
+		// (PI_INSTALL_DIR can move it; this is the measured default).
+		return MethodVendor
 	case strings.Contains(p, "/.grok/"):
 		return MethodVendor
 	case strings.Contains(p, "/.hermes/"):
@@ -236,6 +284,7 @@ func For(cliID string, m Method) (Plan, bool) {
 	if s.latestFrom != "" {
 		p.LatestFrom = s.latestFrom
 	}
+	p.CheckArgs = s.checkArgs
 	switch cliID {
 	case "grok":
 		p.LatestFrom = "vendor"
@@ -246,8 +295,20 @@ func For(cliID string, m Method) (Plan, bool) {
 	}
 	p.UpdateArgs = s.updateArgs
 	p.ReinstallArgs = s.reinstallArgs
+	p.UpdateEnv = s.updateEnv
 	p.UninstallArgs = s.uninstallArgs
 	return p, true
+}
+
+// CanUpdate reports whether the plan offers an update. Muse offers an
+// env-only entrypoint, so env presence counts alongside argv.
+func (p Plan) CanUpdate() bool {
+	return len(p.UpdateArgs) > 0 || len(p.UpdateEnv) > 0
+}
+
+// CanReinstall reports whether the plan offers a reinstall.
+func (p Plan) CanReinstall() bool {
+	return len(p.ReinstallArgs) > 0 || len(p.UpdateEnv) > 0
 }
 
 // Args returns the argv for one action, or an error when the plan does not
@@ -261,12 +322,12 @@ func (p Plan) Args(a Action) ([]string, error) {
 		}
 		return []string{"install", "-g", p.NpmPackage + "@latest"}, nil
 	case ActionUpdate:
-		if len(p.UpdateArgs) == 0 {
+		if !p.CanUpdate() {
 			return nil, fmt.Errorf("%s cannot be updated through PiCode for this install.", p.CLI)
 		}
 		return p.UpdateArgs, nil
 	case ActionReinstall:
-		if len(p.ReinstallArgs) == 0 {
+		if !p.CanReinstall() {
 			return nil, fmt.Errorf("%s cannot be reinstalled through PiCode for this install.", p.CLI)
 		}
 		return p.ReinstallArgs, nil
@@ -333,13 +394,13 @@ func ForMissing(cliID string) (Plan, bool) {
 func InstallDocs(cliID string) string {
 	switch cliID {
 	case "grok":
-		return "https://grok.com/build"
+		return "https://docs.x.ai/build/cli/reference"
 	case "hermes":
 		return "https://hermes-agent.nousresearch.com/docs/getting-started/installation"
 	case "claude-code":
 		return "https://code.claude.com/docs/en/setup"
 	case "muse":
-		return "https://ai.developer.meta.com/docs/muse-code/"
+		return "https://dev.meta.ai/docs/muse-code"
 	case "agy":
 		return "https://antigravity.google/docs/cli/"
 	default:
@@ -389,6 +450,30 @@ func ParseHermesCheck(out string) (bool, error) {
 	default:
 		return false, fmt.Errorf("hermes update --check returned unrecognized output")
 	}
+}
+
+// ParseOmpCheck reads `omp update --check` text (measured on omp 18.2.4,
+// 2026-09-17):
+//
+//	Current version: 18.2.4\n✔ Already up to date
+//	Current version: 18.2.3\nNew version available: 18.2.4
+//
+// The latest version appears only when one exists; an up-to-date check
+// returns ("", nil).
+func ParseOmpCheck(out string) (string, error) {
+	for _, line := range strings.Split(out, "\n") {
+		if v, ok := strings.CutPrefix(line, "New version available: "); ok {
+			v = strings.TrimSpace(v)
+			if v == "" {
+				return "", fmt.Errorf("omp update --check returned an empty version")
+			}
+			return v, nil
+		}
+	}
+	if !strings.Contains(out, "Already up to date") {
+		return "", fmt.Errorf("omp update --check returned unreadable output")
+	}
+	return "", nil
 }
 
 // MuseChannelURL is the stable Muse Code release channel (verified 2026-09-14).

@@ -262,7 +262,7 @@ func TestPIListAdaptsProviderAndModel(t *testing.T) {
 
 func TestSourcesRegistry(t *testing.T) {
 	all := Sources()
-	for _, cli := range []string{"pi", "claude-code", "codex", "grok", "hermes", "opencode", "muse", "agy"} {
+	for _, cli := range []string{"pi", "claude-code", "codex", "grok", "hermes", "opencode", "muse", "agy", "omp"} {
 		if _, ok := all[cli]; !ok {
 			t.Errorf("source %q missing from registry", cli)
 		}

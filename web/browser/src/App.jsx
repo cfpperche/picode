@@ -4,7 +4,9 @@ import { bashLine } from "@picode/shared/domain/bashLine.js";
 import { applyTheme, persistTheme, readThemeMode } from "@picode/shared/domain/theme.js";
 import { readContextMenuPrefs, modifierHeld } from "./lib/contextMenuPrefs.js";
 import { openBrowserChannel } from "./lib/browserChannel.js";
+import { enabledKeys } from "./lib/computerChannel.js";
 import { matchAction } from "./lib/appKeys.js";
+import { DESKTOP_REQUIRED, webappTabId, webappIdFromTab, webappOpenPlan, webappChromeless, watchWebapps, removedWebappTabs, webappBadge, updateWebappMeta } from "./lib/webapps.js";
 import { applyTermChrome } from "@picode/shared/domain/termTheme.js";
 import { closeTerm } from "./lib/terms.js";
 import { termWorkspaceId, workspaceForTerminal } from "./lib/termGroups.js";
@@ -31,6 +33,7 @@ import GitGraphSurface from "./components/GitGraphSurface.jsx";
 import FileTreeSurface from "./components/FileTreeSurface.jsx";
 import Settings from "./components/Settings.jsx";
 import BrowserPage from "./components/BrowserPage.jsx";
+import ComputerPage from "./components/ComputerPage.jsx";
 import AgentClis from "./components/AgentClis.jsx";
 import { cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 import System from "./components/System.jsx";
@@ -56,6 +59,8 @@ import { planAsk, paneCapabilities } from "./lib/termMenu.js";
 import SessionTree from "./components/SessionTree.jsx";
 import SessionInfo from "./components/SessionInfo.jsx";
 import CreateForm from "./components/CreateForm.jsx";
+import NewCliPrincipal from "./components/NewCliPrincipal.jsx";
+import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
 import { ownerLetter, parseRoute, go, agentRoute, workspaceHash, termRoute, termHash, termTabId, isTermTab, tabTermId, fileRoute, fileHash, fileTabId, isFileTab, parseFileTab, gitRoute, gitHash, gitTabId, gitTabKey, isGitTab, isAgentTab, treeRoute, treeHash, treeTabId, treeTabRoot, isTreeTab, appRoute, appHash, appPath, appTabId, isAppTab, tabAppId, renamedAppHash, isWebTab, tabWebId, webHash, webRoute, boundWorkTab } from "./lib/routes.js";
 import { linkOpenTarget } from "./lib/openLink.js";
 import AppSurface from "./components/AppSurface.jsx";
@@ -167,6 +172,9 @@ export default function App({ shellChrome = false } = {}) {
   const [semver, setSemver] = useState("");
   const [releaseBuild, setReleaseBuild] = useState(false);
   const [bootstrapped, setBootstrapped] = useState(false);
+  const [webapps, setWebapps] = useState([]);
+  const [webappsErr, setWebappsErr] = useState("");
+  const [iconVersions, setIconVersions] = useState({});
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [whatsNewMode, setWhatsNewMode] = useState("manual");
   const [whatsNewSeen, setWhatsNewSeen] = useState(readSeenVersion);
@@ -247,6 +255,7 @@ export default function App({ shellChrome = false } = {}) {
   const [catalog, setCatalog] = useState({ providers: [], thinking: [] });
   const [newCfg, setNewCfg] = useState({ provider: "", model: "", thinking: "" });
   const [showForm, setShowForm] = useState(false);
+  const [cliPrincipalWs, setCliPrincipalWs] = useState(null);
   const [formError, setFormError] = useState("");
   const [formBusy, setFormBusy] = useState(false);
   const [termWanted, setTermWanted] = useState(() => new Set(readTermWanted()));
@@ -506,7 +515,7 @@ export default function App({ shellChrome = false } = {}) {
 
   useEffect(() => {
     // A right-click inside a pane costs the user their selection before any
-    // `contextmenu` listener runs: xterm drops it on mousedown when the guest
+    // `contextmenu` listener runs: xterm drops it on mousedown when the CLI
     // has mouse reporting on (every agent TUI does), and rightClickSelectsWord
     // then replaces whatever is left with the word under the cursor. So the
     // selection is read on the mousedown capture — the earliest hook there is
@@ -964,6 +973,26 @@ export default function App({ shellChrome = false } = {}) {
   const fleetRef = useRef({ workspaces: [], freeAgents: [], terminals: [] });
   fleetRef.current = { workspaces, freeAgents, terminals };
   useEffect(() => startFeed(), []);
+  const webappsWatchRef = useRef(null);
+  const [webappsLoaded, setWebappsLoaded] = useState(false);
+  useEffect(() => {
+    const watcher = watchWebapps({
+      api,
+      subscribe: subscribeFeed,
+      onList: (list) => { setWebapps(list); setWebappsLoaded(true); },
+      onError: setWebappsErr,
+      onRemoved: (id) => {
+        setWebapps((list) => list.filter((a) => a.id !== id));
+        closeInstalledTab(webappTabId(id));
+      },
+    });
+    webappsWatchRef.current = watcher;
+    return () => { watcher.stop(); webappsWatchRef.current = null; };
+  }, []);
+  useEffect(() => {
+    if (!webappsLoaded || !tabsReady) return;
+    removedWebappTabs(tabs, webapps).forEach(closeInstalledTab);
+  }, [webapps, webappsLoaded, tabs, tabsReady]);
   useEffect(() => subscribeFeed((ev) => {
     if (ev.type === "feed.open" || ev.type === "feed.reset" || (ev.type && ev.type.startsWith("cli."))) {
       api("/api/clis").then((d) => setClis(d.clis || [])).catch(() => {});
@@ -1650,6 +1679,11 @@ export default function App({ shellChrome = false } = {}) {
   // reads the address back from WebView2 instead (lib/openTabs.js).
   const [webTabs, setWebTabs] = useState(readWebTabUrls);
   useEffect(() => { writeWebTabUrls(webTabs); }, [webTabs]);
+  // The Ask prompts the shell is holding (slice 3, Browser permissions): one
+  // entry per held request, shown in its own tab and answered through
+  // btab_permission_answer. The shell times an unanswered prompt out and
+  // reports the outcome with the same ask id, which drops the bar.
+  const [permissionAsks, setPermissionAsks] = useState([]);
   // Agent split (ADR-0135): an agent tab can host a work-browser pane beside
   // it. agentId (or "term:<id>") -> web id; ratios/max are the layout, and
   // both the layout and the last url per pane are persisted, so a shell
@@ -1689,7 +1723,10 @@ export default function App({ shellChrome = false } = {}) {
   }
   function closeAgentSplit(key) {
     const wid = agentPanesRef.current[key];
-    if (wid) window.__TAURI__?.core.invoke("btab_close", { id: wid }).catch(() => {});
+    if (wid) {
+      window.__TAURI__?.core.invoke("btab_close", { id: wid }).catch(() => {});
+      setPermissionAsks((cur) => cur.filter((a) => a.tab !== wid));
+    }
     setAgentPanes(({ [key]: _gone, ...rest }) => rest);
   }
   function openWebTab(url) {
@@ -1704,6 +1741,71 @@ export default function App({ shellChrome = false } = {}) {
   }
   const openWebTabRef = useRef(openWebTab);
   openWebTabRef.current = openWebTab;
+
+  function closeInstalledTab(tab) {
+    if (!webappIdFromTab(tab)) return;
+    const id = tab.slice(2);
+    const next = tabsRef.current.filter((t) => t !== tab);
+    tabsRef.current = next;
+    setTabs((tabs) => tabs.filter((t) => t !== tab));
+    setSelectedId((selected) => selected === tab ? next.at(-1) || null : selected);
+    setWebTabs(({ [id]: _gone, ...rest }) => rest);
+    setPermissionAsks((asks) => asks.filter((ask) => ask.tab !== id));
+    window.__TAURI__?.core.invoke("btab_close", { id }).catch((error) => toastError(error));
+  }
+
+  function savedWebapp(app) {
+    setWebapps((list) => [...list.filter((a) => a.id !== app.id), app]);
+    webappsWatchRef.current?.refresh();
+  }
+
+  async function removeWebapp(app) {
+    // The partition folder lives on the shell: best effort to remove it
+    // with the rest (a browser-UI removal cannot — an orphan folder is
+    // the accepted leftover, reclaimed on re-install).
+    try {
+      await window.__TAURI__?.core.invoke("btab_clear_app_data", { id: "app-" + app.id });
+    } catch { /* row removal proceeds regardless */ }
+    await api("/api/webapps/" + encodeURIComponent(app.id), { method: "DELETE" });
+    setWebapps((list) => list.filter((a) => a.id !== app.id));
+    closeInstalledTab(webappTabId(app.id));
+    webappsWatchRef.current?.refresh();
+  }
+
+  async function refreshWebapp(app) {
+    const updated = await api("/api/webapps/" + encodeURIComponent(app.id) + "/refresh", { method: "POST" });
+    setWebapps((list) => list.map((a) => (a.id === app.id ? updated : a)));
+    setIconVersions((v) => ({ ...v, [app.id]: Date.now() }));
+    webappsWatchRef.current?.refresh();
+    toast.ok(app.name + " updated");
+  }
+
+  async function clearWebappData(app) {
+    await window.__TAURI__?.core.invoke("btab_clear_app_data", { id: "app-" + app.id });
+    setIconVersions((v) => ({ ...v, [app.id]: Date.now() }));
+    toast.ok(app.name + "'s data cleared — sign in again next time");
+  }
+
+  function openWebapp(app) {
+    const plan = webappOpenPlan(app, tabsRef.current, shellChrome && !!window.__TAURI__);
+    if (plan.action === "invalid") return;
+    if (plan.action === "desktop-required") {
+      toast.info(DESKTOP_REQUIRED);
+      return;
+    }
+    if (plan.action === "focus") {
+      setSelectedId(plan.tab);
+      if (parseRoute(location.hash) !== "workspace") location.hash = "#/";
+      return;
+    }
+    if (parseRoute(location.hash) !== "workspace") location.hash = "#/";
+    tabsRef.current = [...tabsRef.current, plan.tab];
+    setTabs((t) => (t.includes(plan.tab) ? t : [...t, plan.tab]));
+    setSelectedId(plan.tab);
+    setWebTabs((m) => ({ ...m, [plan.id]: { url: plan.url, title: "" } }));
+    window.__TAURI__?.core.invoke("btab_navigate", { id: plan.id, url: plan.url }).catch(toastError);
+  }
+
   useEffect(() => {
     if (!shellChrome || !window.__TAURI__) return undefined;
     const un = window.__TAURI__.event.listen("btab://new", (e) => {
@@ -1712,9 +1814,10 @@ export default function App({ shellChrome = false } = {}) {
       let host = "";
       try { host = new URL(url).hostname.toLowerCase(); } catch { /* fall through to the app */ }
       const isLocal = ["localhost", "127.0.0.1", "::1"].includes(host);
-      // Open destinations (slice 3): the pref decides whether a popup adopts
-      // as a tab or hands off to the system default browser. One fresh read
-      // per popup — popups are rare and the pref must be current.
+      // Open destinations (slice 3): the pref decides whether a new-tab
+      // request adopts as a tab or hands off to the system default browser.
+      // One fresh read per request — a `target=_blank` is rare and the pref
+      // must be current.
       fetch("/api/browser/prefs")
         .then((r) => r.json())
         .then((p) => {
@@ -1741,18 +1844,45 @@ export default function App({ shellChrome = false } = {}) {
     return () => un.then((f) => f());
   }, [shellChrome]);
 
-  // Site permissions: the shell reports every decision it made (policy or
-  // platform default). The standing lives in the daemon's store, so the
-  // report goes through the API and Settings ▸ Browser reads it back.
+  // Site permissions: the shell reports every decision it made (policy,
+  // platform default, or an answered Ask prompt). The row lives in the
+  // daemon's store, so the report goes through the API and Settings ▸
+  // Browser reads it back. An answered prompt also carries its ask id,
+  // which dismisses the bar even when the shell's own timeout was the one
+  // that answered.
   useEffect(() => {
     if (!shellChrome || !window.__TAURI__) return undefined;
     const un = window.__TAURI__.event.listen("btab://permission", (e) => {
       const p = e.payload ?? {};
+      if (p.ask) setPermissionAsks((cur) => cur.filter((x) => x.id !== p.ask));
       if (!p.origin || !p.kind) return;
       fetch("/api/browser/permissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p) }).catch(() => {});
     });
     return () => un.then((f) => f());
   }, [shellChrome]);
+
+  // The Ask prompt's other half: the shell holds a site's request and names
+  // it here, the tab renders the bar, and the answer command completes the
+  // deferral. "Always allow" is `remember` — the shell writes the site's
+  // standing, which lands back in the store through the report above.
+  useEffect(() => {
+    if (!shellChrome || !window.__TAURI__) return undefined;
+    const un = window.__TAURI__.event.listen("btab://permission-ask", (e) => {
+      const a = e.payload ?? {};
+      if (!a.id || !a.tab) return;
+      setPermissionAsks((cur) => [
+        ...cur.filter((x) => x.id !== a.id),
+        { id: a.id, tab: String(a.tab), origin: String(a.origin || ""), kind: String(a.kind || "unknown") },
+      ]);
+    });
+    return () => un.then((f) => f());
+  }, [shellChrome]);
+
+  const answerPermission = (ask, state, remember) => {
+    setPermissionAsks((cur) => cur.filter((x) => x.id !== ask.id));
+    window.__TAURI__?.core.invoke("btab_permission_answer", { id: ask.id, state, remember })
+      .catch((e) => toast("Answering the permission failed: " + (e?.message || e)));
+  };
 
   // The daemon's work-browser command channel (ADR-0132): one stream per shell
   // window. A command runs against the work-browser tab on screen; the ref
@@ -1762,6 +1892,26 @@ export default function App({ shellChrome = false } = {}) {
   useEffect(() => {
     if (!shellChrome) return undefined;
     return openBrowserChannel(() => boundWorkTab(selectedTabRef.current, agentPanesRef.current));
+  }, [shellChrome]);
+  // ADR-0148: the shell keeps a mirror of the computer grants (one bit per
+  // principal) and refuses on its own copy too. Pushed at load and whenever a
+  // setting changes; the daemon stays the decision point.
+  useEffect(() => {
+    if (!shellChrome || !window.__TAURI__) return undefined;
+    const push = async () => {
+      try {
+        const r = await fetch("/api/computer/policies");
+        if (!r.ok) return;
+        const data = await r.json();
+        await window.__TAURI__.core.invoke("computer_set_grants", { keys: enabledKeys(data.policies) });
+      } catch {
+        /* the next setting change retries */
+      }
+    };
+    push();
+    return subscribeFeed((ev) => {
+      if (ev.type === "setting.updated") push();
+    });
   }, [shellChrome]);
 
   async function closeTab(id) {
@@ -1773,7 +1923,12 @@ export default function App({ shellChrome = false } = {}) {
       delete next[id];
       return next;
     });
-    if (isWebTab(id)) window.__TAURI__?.core.invoke("btab_close", { id: tabWebId(id) }).catch(() => {});
+    if (isWebTab(id)) {
+      const wid = tabWebId(id);
+      window.__TAURI__?.core.invoke("btab_close", { id: wid }).catch(() => {});
+      setPermissionAsks((cur) => cur.filter((a) => a.tab !== wid));
+      setWebTabs(({ [wid]: _gone, ...rest }) => rest);
+    }
     if (isTermTab(id)) closeShellTerm(tabTermId(id));
     if (isGitTab(id)) {
       setGitOwners((m) => {
@@ -2208,6 +2363,15 @@ export default function App({ shellChrome = false } = {}) {
       return;
     }
     try {
+      if (!agentIsPi(loc.agent) && loc.agent.terminalId) {
+        await api("/api/terminals/" + encodeURIComponent(loc.agent.terminalId) + "/launch/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ confirm: false }),
+        });
+        await openTermTab(loc.agent.terminalId);
+        return;
+      }
       await api(`/api/agents/${loc.agent.id}/managed/start`, { method: "POST" });
       const list = await refreshFleetFallback();
       openTab(loc.agent.id, list);
@@ -2319,7 +2483,7 @@ export default function App({ shellChrome = false } = {}) {
       // settings, "Local development sites"), so it decides here too: the
       // decision table lives in lib/openLink.js. Anything not local, and any
       // file path, behaves exactly as before.
-      const first = linkOpenTarget(ctx.link, "app");
+      const first = linkOpenTarget(ctx.link, "app", "app");
       if (!first) return;
       if (first.action === "file") { openFileTab(ctx.kind === "agent" ? "agent" : "term", ctx.id, first.path); return; }
       if (first.action === "external") { window.open(first.url, "_blank", "noopener,noreferrer"); return; }
@@ -2329,7 +2493,7 @@ export default function App({ shellChrome = false } = {}) {
       fetch("/api/browser/prefs")
         .then((r) => r.json())
         .then((p) => {
-          const dest = linkOpenTarget(ctx.link, p.localOpenDest);
+          const dest = linkOpenTarget(ctx.link, p.localOpenDest, p.webOpenDest);
           if (dest.action === "external") window.open(dest.url, "_blank", "noopener,noreferrer");
           else openWebTab(dest.url);
         })
@@ -2402,15 +2566,47 @@ export default function App({ shellChrome = false } = {}) {
   // launch endpoint the Agent CLIs list uses, so one terminal answers to
   // one set of actions from either surface. The fleet feed patches the
   // sidebar in place; start opens the terminal like the CLIs list does.
-  async function launchTerminalAction(t, op) {
+  async function launchTerminalAction(t, op, agent) {
+    if (agent && agentIsPi(agent)) {
+      if (!(await askConfirm({
+        title: `${op === "restart" ? "Restart" : "Stop"} ${agent.name || "agent"}?`,
+        message: op === "restart"
+          ? "This interrupts the current work and restarts the agent in the same mode."
+          : "This interrupts the agent's current work.",
+        confirmLabel: op === "restart" ? "Restart agent" : "Stop agent",
+        danger: true,
+      }))) return;
+      const pending = notify({ level: "busy", title: op === "restart" ? "Restarting agent…" : "Stopping agent…", duration: Infinity });
+      try {
+        if (op === "restart" && agent.mode === "interactive") {
+          await openInteractive(agent.id, { restart: true, throwErrors: true });
+        } else {
+          await stopAgent(agent.id, { throwErrors: true });
+          if (op === "restart") await startManaged(agent.id, { throwErrors: true });
+        }
+        toast.ok(op === "restart" ? "Agent restarted." : "Agent stopped.");
+      } catch (err) { toastError(err); }
+      finally { dismissNotice(pending); }
+      return;
+    }
     if (!t || !op) return;
+    const noun = agent ? "agent" : "terminal";
     const destructive = op === "remove" || (t.running && op !== "start");
     if (destructive && !(await askConfirm({
-      title: `${op === "stop" ? "Stop" : op === "restart" ? "Restart" : "Remove"} ${t.name || "terminal"}?`,
-      message: t.running ? "This ends the processes running in this terminal." : "Remove this saved terminal and its launch settings?",
-      confirmLabel: op === "stop" ? "Stop terminal" : op === "restart" ? "Restart terminal" : "Remove terminal",
+      title: `${op === "stop" ? "Stop" : op === "restart" ? "Restart" : "Remove"} ${agent?.name || t.name || noun}?`,
+      message: agent
+        ? (op === "restart"
+          ? (t.lastSession ? "This interrupts the agent's current work, then reopens the same conversation." : "This interrupts the current work and restarts the agent.")
+          : "This interrupts the agent's current work.")
+        : op === "restart"
+        ? (t.lastSession
+          ? "This ends the processes running in this terminal, then reopens the same conversation."
+          : "This ends the processes running in this terminal.")
+        : t.running ? "This ends the processes running in this terminal." : "Remove this saved terminal and its launch settings?",
+      confirmLabel: `${op === "stop" ? "Stop" : op === "restart" ? "Restart" : "Remove"} ${noun}`,
       danger: true,
     }))) return;
+    const pending = agent ? notify({ level: "busy", title: op === "restart" ? "Restarting agent…" : "Stopping agent…", duration: Infinity }) : null;
     try {
       await api(`/api/terminals/${encodeURIComponent(t.id)}/launch/${op}`, {
         method: "POST",
@@ -2418,8 +2614,9 @@ export default function App({ shellChrome = false } = {}) {
         body: JSON.stringify({ confirm: destructive }),
       });
       if (op === "start") location.hash = termHash(t.id);
-      else toast.ok(op === "stop" ? "Terminal stopped." : op === "restart" ? "Terminal restarted." : "Terminal removed.");
+      else toast.ok(`${agent ? "Agent" : "Terminal"} ${op === "stop" ? "stopped" : op === "restart" ? "restarted" : "removed"}.`);
     } catch (err) { toastError(err); }
+    finally { dismissNotice(pending); }
   }
 
   async function openInteractive(id, opts) {
@@ -2452,6 +2649,15 @@ export default function App({ shellChrome = false } = {}) {
       return;
     }
     try {
+      if (!agentIsPi(loc.agent) && loc.agent.terminalId) {
+        await api("/api/terminals/" + encodeURIComponent(loc.agent.terminalId) + "/launch/stop", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ confirm: true }),
+        });
+        await refreshFleetFallback();
+        return;
+      }
       await api(`/api/agents/${loc.agent.id}/close`, { method: "POST" });
       closeShellTerm(loc.agent.id);
       if (panelRef.current && panelRef.current.agentId === loc.agent.id) panelRef.current.stopped = true;
@@ -2527,11 +2733,19 @@ export default function App({ shellChrome = false } = {}) {
     if (!choice) return;
     try {
       await api("/api/agents/" + ag.id + choice.query, { method: "DELETE" });
-      closeShellTerm(ag.id);
-      setTabs((t) => t.filter((x) => x !== ag.id));
-      if (selectedId === ag.id) setSelectedId(null);
-      await refreshFleetFallback();
-    } catch (err) { toastError(err); }
+    } catch (err) {
+      // The server may have completed the delete before the response was
+      // lost (a second click, a flaky moment): "not found" means the agent
+      // is gone — drop the row instead of scolding the operator twice.
+      const msg = err && err.message ? err.message : String(err);
+      if (!/not found/i.test(msg)) { toastError(err); return; }
+    }
+    closeShellTerm(ag.id);
+    setTabs((t) => t.filter((x) => x !== ag.id));
+    if (selectedId === ag.id) setSelectedId(null);
+    // A removal is rare and final: refetch even when the feed is live, so
+    // the row leaves on this answer and not only on the next event.
+    await loadWorkspaces();
   }
 
   async function removeWorkspace(ws) {
@@ -3075,11 +3289,51 @@ export default function App({ shellChrome = false } = {}) {
     } catch (e) { if (reportError) toastError(e); else throw e; }
   }
 
+  // A link printed in a terminal is a browsing action inside PiCode: Ctrl+click
+  // and the pane menu's Open both land here, and the human's own preference
+  // decides (Browser settings — local dev sites vs web URLs, both defaulting to
+  // PiCode's surface). The system browser stays reachable by setting either to
+  // "Default browser"; before 2026-09-17 every non-loopback link left the app
+  // from the terminal, which is the one door that ignored that preference.
+  const openTermLink = useCallback((href) => {
+    const url = String(href || "").trim();
+    if (!url) return;
+    fetch("/api/browser/prefs")
+      .then((r) => r.json())
+      .then((p) => {
+        const target = linkOpenTarget({ kind: "http", href: url }, p.localOpenDest, p.webOpenDest);
+        if (!target) return;
+        if (target.action === "external") window.open(target.url, "_blank", "noopener,noreferrer");
+        else openWebTab(target.url);
+      })
+      .catch(() => openWebTab(url));
+  }, []);
+
+  // The wordmark's one action, shared by the shell's top row and the
+  // browser's sidebar: show the dashboard. Pinning alone was not enough.
+  //  - The dashboard is rendered inside the workspace view, which the
+  //    non-workspace routes keep hidden, so from Agent CLIs, Browser,
+  //    Preferences or Devices the click looked dead until the human
+  //    navigated back on their own. It now comes back to the workspace
+  //    route (the hash a tab already owns is left alone).
+  //  - In the shell the brand is a button inside a drag region; nothing
+  //    inside it may carry data-tauri-drag-region, or Tauri answers the
+  //    mousedown with a native window drag and the click never fires
+  //    (2026-09-17: the wordmark dragged the window instead of opening
+  //    the dashboard).
+  const openDashboard = useCallback(() => {
+    setDashboardPinned(true);
+    setNavigationOpen(false);
+    if (parseRoute() !== "workspace") go("workspace");
+  }, []);
+
   const onPane = route !== "workspace";
   const missing = !!goneId;
   const noTabs = tabs.length === 0 && !missing;
   const hasData = (workspaces.length + freeAgents.length + terminals.length) > 0;
   const showHome = (noTabs || dashboardPinned) && hasData && !isWebTab(selectedId);
+  const badgeTabs = tabsRef.current;
+  const webappsBadged = webapps.map((a) => ({ ...a, badge: webappBadge(a, badgeTabs, webTabs) }));
 
   const tabsStrip = (
 <AgentTabs
@@ -3088,6 +3342,7 @@ export default function App({ shellChrome = false } = {}) {
     freeAgents={freeAgents}
     terminals={terminals}
     apps={apps}
+    webapps={webapps}
     webTabs={webTabs}
     selectedId={selectedId}
     onSelect={(id) => openTab(id)}
@@ -3115,10 +3370,13 @@ export default function App({ shellChrome = false } = {}) {
       {shellChrome && (
         <header className="shell-row" data-tauri-drag-region>
           <div className="shell-brand-cluster" data-tauri-drag-region>
-            <button type="button" className="shell-brand" title="Dashboard"
-                    onClick={() => { setDashboardPinned(true); setNavigationOpen(false); }}>
-              <span className="shell-mark" data-tauri-drag-region><IconBrandMark /></span>
-              <span className="shell-name" data-tauri-drag-region>PiCode</span>
+            {/* No data-tauri-drag-region inside this button: Tauri starts
+                a window drag on the element the mousedown lands on, and a
+                span carrying the attribute swallows the click before the
+                button sees it. The row around it stays draggable. */}
+            <button type="button" className="shell-brand" title="Dashboard" onClick={openDashboard}>
+              <span className="shell-mark"><IconBrandMark /></span>
+              <span className="shell-name">PiCode</span>
             </button>
             <RailTabs tab={sideTab} selectTab={selectSideTab} apps={apps} pkgUpdates={pkgUpdates} onOpenClis={() => { go("clis"); setNavigationOpen(false); }} />
           </div>
@@ -3146,7 +3404,10 @@ export default function App({ shellChrome = false } = {}) {
         selectedId={selectedId}
         onNew={() => { setFormKind("workspace"); setShowForm(true); }}
         onNewFree={() => { setFormKind("free"); setShowForm(true); }}
-        onNewAgent={(id) => { setFormKind("agent"); setFormWs(id); setShowForm(true); }}
+        onNewAgent={(id) => {
+          const ws = workspaces.find((w) => w.id === id);
+          if (ws && ws.id !== "ws_free") setCliPrincipalWs(ws);
+        }}
         onSelect={(id) => revealAgent(id)}
         onRun={startManaged}
         onStop={stopAgent}
@@ -3170,11 +3431,22 @@ export default function App({ shellChrome = false } = {}) {
         onRenameTerm={renameTerminal}
         onGitGraph={openGitTab}
         onFileTree={openTreeTab}
-        onOpenDashboard={() => { setDashboardPinned(true); setNavigationOpen(false); }}
+        onOpenDashboard={openDashboard}
         onOpenClis={() => { go("clis"); setNavigationOpen(false); }}
         apps={apps}
         nativeApps={NATIVE_APPS}
         onOpenApp={(id) => { openTab(appTabId(id)); if (parseRoute() !== "workspace") location.hash = appHash(id); }}
+        webapps={webappsBadged}
+        webappsErr={webappsErr}
+        webappsLoaded={webappsLoaded}
+        onRetryWebapps={() => webappsWatchRef.current?.refresh()}
+        onOpenWebapp={openWebapp}
+        onSavedWebapp={savedWebapp}
+        onRemoveWebapp={removeWebapp}
+        onRefreshWebapp={refreshWebapp}
+        onClearWebappData={clearWebappData}
+        iconVersions={iconVersions}
+        desktop={shellChrome && !!window.__TAURI__}
         onChat={(id) => {
           revealAgent(id);
           setTermWanted((s) => {
@@ -3244,6 +3516,7 @@ export default function App({ shellChrome = false } = {}) {
                 hidden={selectedId !== id}
                 error={selectedId === id ? termError : ""}
                 onOpenFile={(p) => openFileTab("term", tid, p)}
+                onOpenLink={openTermLink}
                 attach={termAttach && termAttach.id === tid ? termAttach : null}
                 onAttachClose={() => setTermAttach(null)}
                 find={termFind === tid}
@@ -3251,18 +3524,25 @@ export default function App({ shellChrome = false } = {}) {
               />
             );
           })}
-          {tabs.filter(isWebTab).map((id) => (
-            <WebTabSurface
-              key={id}
-              tabId={id}
-              url={(webTabs[tabWebId(id)] && webTabs[tabWebId(id)].url) || ""}
-              active={selectedId === id}
-              hidden={selectedId !== id}
-              onMeta={(m) => setWebTabs((cur) => ({ ...cur, [tabWebId(id)]: { ...cur[tabWebId(id)], ...m } }))}
-              onNew={() => openWebTab("")}
-              onBrowserSettings={() => go("browser")}
-            />
-          ))}
+          {tabs.filter(isWebTab).map((id) => {
+            const app = webapps.find((a) => a.id === webappIdFromTab(id));
+            return (
+              <WebTabSurface
+                key={id}
+                tabId={id}
+                url={(webTabs[tabWebId(id)] && webTabs[tabWebId(id)].url) || app?.url || ""}
+                active={selectedId === id}
+                hidden={selectedId !== id || onPane}
+                chromeless={!!app && webappChromeless(app.display)}
+                asks={permissionAsks.filter((a) => a.tab === tabWebId(id))}
+                onAnswerAsk={answerPermission}
+                onMeta={(m) => setWebTabs((cur) => updateWebappMeta(cur, tabsRef.current, id, m))}
+                onNew={() => openWebTab("")}
+                onBrowserSettings={() => go("browser")}
+              />
+            );
+          })}
+
           <FileSurface
             owner={fileTabInfo}
             path={fileTabInfo ? fileTabInfo.path : ""}
@@ -3385,6 +3665,11 @@ export default function App({ shellChrome = false } = {}) {
                   if (g.startsWith("agent:")) openInteractive(g.slice("agent:".length));
                   // A reminder's "Open pin" lands in the studio (ADR-0100).
                   if (g.startsWith("pin:")) location.hash = "#/pins/" + encodeURIComponent(g.slice("pin:".length));
+                  if (g.startsWith("term:")) {
+                    const tid = g.slice("term:".length);
+                    openTermTab(tid);
+                    location.hash = termHash(tid);
+                  }
                 }}
               />
             );
@@ -3585,7 +3870,7 @@ export default function App({ shellChrome = false } = {}) {
             }}
           />
 
-          {agentPanes[selectedId] ? (
+          {agentPanes[selectedId] && !webappIdFromTab(selectedId) ? (
             <>
               <div
                 className="split-divider"
@@ -3616,9 +3901,13 @@ export default function App({ shellChrome = false } = {}) {
                 <WebTabSurface
                   key={"split-" + selectedId}
                   tabId={"w:" + agentPanes[selectedId]}
+                  boundSession={selectedId}
                   active={true}
-                  hidden={noTabs || missing || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId)}
+                  hidden={noTabs || missing || isFileTab(selectedId) || isGitTab(selectedId) || isTreeTab(selectedId) || isAppTab(selectedId) || isWebTab(selectedId) || onPane}
                   expanded={!!paneMax[selectedId]}
+                  asks={permissionAsks.filter((a) => a.tab === agentPanes[selectedId])}
+                  onAnswerAsk={answerPermission}
+                  onBrowserSettings={() => go("browser")}
                   onToggleExpand={() => setPaneMax((p) => ({ ...p, [selectedId]: !p[selectedId] }))}
                   onClose={() => closeAgentSplit(selectedId)}
                   onMeta={(m) => {
@@ -3644,6 +3933,7 @@ export default function App({ shellChrome = false } = {}) {
                   term={{ id: agent.id, session: "picode-" + agent.id, name: agent.name + " · TUI", cwd: agent.workPath || (selected && selected.path) }}
                   cwdKind="agent"
                   onOpenFile={(p) => openFileTab("agent", agent.id, p)}
+                  onOpenLink={openTermLink}
                   attach={termAttach && termAttach.id === agent.id ? termAttach : null}
                   onAttachClose={() => setTermAttach(null)}
                   find={termFind === agent.id}
@@ -3681,6 +3971,7 @@ export default function App({ shellChrome = false } = {}) {
         <Integrations hidden={route !== "integrations"} />
         <Devices hidden={route !== "devices"} />
         <BrowserPage hidden={route !== "browser"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setFormKind("free"); setShowForm(true); }} />
+        <ComputerPage hidden={route !== "computer"} onCreateAgent={() => { selectSideTab("agents"); go("workspace"); setFormKind("free"); setShowForm(true); }} />
         <Automations hidden={route !== "automations"} catalog={catalog} workspaces={workspaces} freeAgents={freeAgents} system={system} />
         <Snippets hidden={route !== "snippets"} />
         <TermSettingsPage hidden={route !== "termset"} terminals={terminals} />
@@ -3712,6 +4003,15 @@ export default function App({ shellChrome = false } = {}) {
           const id = openWebTab(url || "");
           if (title) setWebTabs((m) => ({ ...m, [tabWebId(id)]: { ...m[tabWebId(id)], title } }));
         }}
+        onOpenOwner={(owner) => {
+          // The Servers panel's "Show terminal": the row already answered
+          // whose process holds the port, so this only brings that owner's
+          // tab forward — no lookup, no guessing by name.
+          if (!owner || !owner.id) return;
+          if (owner.kind === "agent") { revealAgent(owner.id); return; }
+          openTermTab(owner.id);
+          if (parseRoute() !== "workspace") location.hash = termHash(owner.id);
+        }}
       />
 
       <FocusEdges zones={focus.zones} />
@@ -3728,7 +4028,14 @@ export default function App({ shellChrome = false } = {}) {
           if (a.kind === "whats-new") { openWhatsNew(); return; }
           if (a.kind === "inspector") { toggleInspector(); return; }
           if (a.kind === "fullscreen") { focus.toggle(); return; }
-          if (a.kind === "cli-new") { location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : ""); return; }
+          if (a.kind === "cli-new") {
+            if (a.wsId) {
+              const ws = workspacesRef.current.find((w) => w.id === a.wsId);
+              if (ws && ws.id !== "ws_free") { setCliPrincipalWs(ws); return; }
+            }
+            location.hash = "#/clis/new/pi" + (a.wsId ? "?workspace=" + encodeURIComponent(a.wsId) : "");
+            return;
+          }
           if (a.kind === "settings" || a.kind === "preferences" || a.kind === "clis" || a.kind === "system" || a.kind === "providers" || a.kind === "mcps" || a.kind === "connectors" || a.kind === "integrations" || a.kind === "packages" || a.kind === "devices" || a.kind === "automations" || a.kind === "snippets") { go(a.kind, agent?.id, { workspaceId: paneWs?.id }); return; }
           if (a.kind === "snip-run") {
             const loc = locate(workspacesRef.current, freeAgentsRef.current, a.target && a.target.id);
@@ -3829,6 +4136,31 @@ export default function App({ shellChrome = false } = {}) {
         onSubmit={submitNew}
         onClose={() => { setShowForm(false); setFormError(""); }}
         busy={formBusy}
+      />
+      <NewCliPrincipal
+        open={!!cliPrincipalWs}
+        workspace={cliPrincipalWs}
+        onClose={() => setCliPrincipalWs(null)}
+        onCreated={async (created) => {
+          setCliPrincipalWs(null);
+          if (!created || !created.id) return;
+          if (agentIsPi(created) || !created.terminalId) {
+            await refreshFleetFallback();
+            openTab(created.id);
+            return;
+          }
+          try {
+            await api("/api/terminals/" + encodeURIComponent(created.terminalId) + "/launch/start", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ confirm: false }),
+            });
+          } catch (err) {
+            toastError(err);
+          }
+          await openTermTab(created.terminalId);
+          location.hash = termHash(created.terminalId);
+        }}
       />
       <SessionInfo
         open={sessionOpen}

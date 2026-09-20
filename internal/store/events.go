@@ -152,6 +152,27 @@ func (s *Store) RecentEvents(limit int) ([]Event, error) {
 	return s.queryEvents(`SELECT id, agent_id, workspace_id, type, data, created_at FROM events ORDER BY id DESC LIMIT ?`, limit)
 }
 
+// EventsOfType reads the newest events of one type — the reader behind the
+// raw-CDP audit (ADR-0144), where the question is "what did the agent do with
+// the door open", not "what happened on this machine lately".
+func (s *Store) EventsOfType(eventType string, limit int) ([]Event, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	return s.queryEvents(`SELECT id, agent_id, workspace_id, type, data, created_at FROM events WHERE type = ? ORDER BY id DESC LIMIT ?`, eventType, limit)
+}
+
+// EventsOfTypeBetween returns the events of one type created in [from, to),
+// oldest first. created_at is RFC3339 UTC text, so the comparison is the
+// string one. The dashboard's desktop counters read computer.step this way.
+func (s *Store) EventsOfTypeBetween(eventType string, from, to time.Time, limit int) ([]Event, error) {
+	if limit <= 0 {
+		limit = 10000
+	}
+	return s.queryEvents(`SELECT id, agent_id, workspace_id, type, data, created_at FROM events WHERE type = ? AND created_at >= ? AND created_at < ? ORDER BY id ASC LIMIT ?`,
+		eventType, from.UTC().Format(time.RFC3339Nano), to.UTC().Format(time.RFC3339Nano), limit)
+}
+
 // AgentEvents returns the newest events for one agent.
 func (s *Store) AgentEvents(agentID string, limit int) ([]Event, error) {
 	if limit <= 0 {

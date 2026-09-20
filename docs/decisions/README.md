@@ -13,7 +13,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0009](0009-lifecycle-surfaces.md) | Catalog from pi; auth via `/login`; MCP not in wizard | accepted |
 | [0010](0010-pi-packages.md) | Packages via `pi install`; no in-app marketplace | accepted |
 | [0005](0005-sqlite-store.md) | SQLite (pure Go) store — orchestration data only | accepted |
-| [0006](0006-run-modes.md) | Agent run modes — one live pi process per agent | accepted, session-visibility clause amended by 0039 |
+| [0006](0006-run-modes.md) | Agent run modes — one live process per agent | accepted, session-visibility clause amended by 0039, process-per-CLI amended by 0160 |
 | [0007](0007-https-mkcert-runtime-port.md) | HTTPS by default with mkcert trust; port configurable at runtime | accepted — "no app-level auth" superseded by 0049 |
 | [0011](0011-workspaces-and-agents.md) | Workspaces contain many agents; unbound agents in `ws_free` | accepted, amended by 0026, 0027 |
 | [0012](0012-settings-vs-preferences.md) | `#/preferences` = PiCode; `#/settings` = pi GUI | accepted |
@@ -73,7 +73,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0066](0066-docker-project-groups.md) | Docker project groups inside the App, with saved disclosures and search | accepted |
 | [0067](0067-docker-maintenance-plans.md) | Reviewed project operations, selected resource removal, shared jobs and supervised procedures | accepted |
 | [0068](0068-docker-health-monitoring.md) | Opt-in project sampling, deduplicated incidents and supervised diagnosis | accepted |
-| [0069](0069-agent-cli-terminals.md) | Dedicated CLI terminal control, inherited launch settings and invocation-scoped integration | accepted |
+| [0069](0069-agent-cli-terminals.md) | Dedicated CLI terminal control, inherited launch settings and invocation-scoped integration | accepted, Restart-without-resume amended by [0158](0158-cli-restart-resumes-session.md) |
 | [0070](0070-cli-launch-inspection.md) | Inspect launch defaults, copy terminal profiles and separate setup from observed activity | accepted |
 | [0071](0071-desktop-task-reliability.md) | Explicit resident Windows task policy, read-only startup checks and scoped repair | accepted, extends 0020 |
 | [0072](0072-independent-web-applications.md) | Independent desktop/mobile builds and presentation; explicit shared contracts and stable PWA identity | accepted; file/Git scope superseded by 0095 |
@@ -88,7 +88,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0081](0081-terminal-checklists.md) | The internal checklist follows the agent into its terminal: publish target falls back to PICODE_TERM_ID, terminal cards and panes carry the same line | accepted, extends 0055 and 0069 |
 | [0082](0082-browser-capture-sidecar.md) | Browser capture as a standalone sidecar extension: bounded frames over RPC, no patched agent | accepted, supersedes the emitter placement of 0076 |
 | [0083](0083-llama-operation-jobs.md) | Durable model operations, progress, cancellation and reconnect | accepted |
-| [0084](0084-cli-terminal-session-recovery.md) | CLI terminal session recovery — pin the native conversation while alive, resume it in one click after a stop or restart | accepted, extends 0069 and 0079; native communication pinning amended by ADR-0107 |
+| [0084](0084-cli-terminal-session-recovery.md) | CLI terminal session recovery — pin the native conversation while alive, resume it in one click after a stop or restart | accepted, extends 0069 and 0079; native communication pinning amended by ADR-0107; Restart menu resumes the pin (ADR-0158) |
 | [0085](0085-session-forensics.md) | Session forensics — shutdown snapshot + boot diff, SIGHUP-immune pane roots, deploy log | accepted, extends 0084 |
 | [0086](0086-process-cost.md) | The rite around a change costs less than the change: batched guarded deploys, scoped gates, `make close`, a 100-line handoff with per-session files, advisory capture parity | accepted, amends 0018 and 0084/0085; amended 2026-09-08 (docs site path `www/` renamed to `docs-site/`); amended by 0105 (deploy on request, no timer; captures at deploy; changelog fragments; byte cap); amended 2026-09-11 (the readiness guard ignores the pane that is asking) |
 | [0087](0087-cli-lifecycle.md) | CLI lifecycle — update check, update, reinstall, uninstall by orchestrating the vendors' own commands as durable jobs | accepted, extends 0069 and 0083 |
@@ -109,7 +109,7 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0102](0102-packages-under-agent-clis.md) | Native Packages under Agent CLIs, explicit scopes and compatibility redirects | accepted; supersedes 0010/0099 navigation |
 | [0103](0103-providers-under-agent-clis.md) | Native Providers under Agent CLIs: `#/clis/<cli>/providers`; old `#/clis/providers*` and `#/providers*` redirect | accepted; supersedes 0058 navigation; amended 2026-09-11 (pane, not strip tab) |
 | [0104](0104-peer-communication.md) | Embedded MCP for direct session messages | accepted |
-| [0105](0105-process-cost-second-review.md) | The rite runs in a fresh context, the living docs stop conflicting, deploy is the owner's call: one branch one session, changelog fragments, handoff without shipped work (100 lines and 8 KB), no deploy timer, captures at deploy, sharded server tests, `make adr` with a boundary line, architecture split per subsystem | accepted, amends 0086 |
+| [0105](0105-process-cost-second-review.md) | The rite runs in a fresh context, the living docs stop conflicting, deploy is the owner's call: one branch one session, changelog fragments, handoff without shipped work (100 lines and 8 KB), no deploy timer, captures at deploy, sharded server tests, `make adr` with a boundary line, architecture split per subsystem | accepted, amends 0086; amended by 0149 (a correction to a handoff note that already landed, and a new topic file, are allowed on `main`; fragments and new notes still travel with the branch) |
 | [0106](0106-conversation-launch-setup.md) | Private communication setup on conversation resume | accepted; amended by 0107 |
 | [0107](0107-unified-native-messages.md) | One mailbox with CLI and native TUI integrations | accepted |
 | [0108](0108-matrix-persistence.md) | Matrix persistence: one row per panel, six feed events, a subset layout patch under ifUpdatedAt | accepted; amended by 0113; amended 2026-09-12 (a text panel keeps its words on the panel row) |
@@ -148,3 +148,20 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0141](0141-instance-stamp-and-the-reap-scope.md) | The instance stamp — one PiCode does not reap another's sessions | accepted |
 | [0142](0142-retire-go-tray.md) | retire-go-tray | proposed |
 | [0143](0143-terminal-agents-as-principals.md) | terminal-agents-as-principals | accepted |
+| [0144](0144-developer-mode-cdp.md) | Developer mode — raw CDP for a full-tier agent | accepted |
+| [0145](0145-board-bounded-view.md) | The handoff board is a bounded view | accepted |
+| [0146](0146-agent-history-access.md) | agent-history-access | accepted |
+| [0147](0147-user-installed-webapps.md) | user-installed-webapps | accepted |
+| [0148](0148-computer-tool.md) | Computer use for agents — one grant, the whole desktop, refinements later | accepted |
+| [0149](0149-post-land-note.md) | A post-merge correction to an existing handoff note lands on main | accepted, amends 0105 |
+| [0150](0150-connectors-for-every-agent-cli.md) | connectors-for-every-agent-cli | proposed |
+| [0151](0151-devservers-stop.md) | devservers-stop — the panel may end what it started | accepted |
+| [0152](0152-annotation-delivery.md) | annotation-delivery — one staged file, its path in the prompt door | accepted |
+| [0153](0153-webapp-partitions.md) | webapp-partitions | proposed |
+| [0154](0154-picode-mcp.md) | picode-mcp — PiCode tools for every agent CLI over MCP; one server per pi package, scope and toggle are the CLI's, guests' agent scope is launch injection | proposed |
+| [0155](0155-distro-keepalive-task.md) | The distro keepalive is a scheduled task, not the shell's child | proposed |
+| [0156](0156-computer-foreground-guard.md) | computer-foreground-guard — input acts only in the window the agent last saw (amends ADR-0148, refinement d) | proposed |
+| [0157](0157-curated-connector-catalog.md) | curated-connector-catalog | proposed |
+| [0158](0158-cli-restart-resumes-session.md) | Restart an Agent CLI terminal resumes its pinned conversation | accepted, amends 0069 and 0084 |
+| [0159](0159-managed-cli-principals.md) | CLI terminals as managed principals — bind a guest TUI to a workspace without an agent row or chat | superseded by 0160 |
+| [0160](0160-cli-runtimes-are-agents.md) | CLI runtimes are agents — catalog `cli` on `agents`; managed RPC stays Pi-only | accepted, supersedes 0159's never-an-agent-row, amends 0006/0011/0069 |

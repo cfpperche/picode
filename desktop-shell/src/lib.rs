@@ -11,8 +11,13 @@
 //! - `Text`  — any single-line string
 //! - `Enum`  — one of a fixed list of values
 
+pub mod axfmt;
+pub mod b64;
 pub mod cdppolicy;
+pub mod geometry;
+pub mod keys;
 pub mod origins;
+pub mod permissions;
 
 use std::collections::BTreeMap;
 

@@ -16,6 +16,7 @@ import (
 func registerInboxRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("POST /api/inbox", handleCreateInboxItem(deps))
 	mux.HandleFunc("GET /api/inbox", handleListInbox(deps))
+	mux.HandleFunc("GET /api/inbox/{id}", handleGetInboxItem(deps))
 	mux.HandleFunc("POST /api/inbox/{id}/respond", handleRespondInbox(deps))
 	mux.HandleFunc("POST /api/inbox/{id}/state", handleInboxState(deps))
 	mux.HandleFunc("DELETE /api/inbox/{id}", handleDeleteInboxItem(deps))
@@ -74,6 +75,19 @@ func handleListInbox(deps Deps) http.HandlerFunc {
 	}
 }
 
+// handleGetInboxItem is one item by id — what `picode mcp inbox` polls
+// while `ask_human` waits for the human (ADR-0154, N1).
+func handleGetInboxItem(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		it, err := deps.Store.GetInboxItem(r.PathValue("id"))
+		if err != nil {
+			writeStoreErr(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, it)
+	}
+}
+
 func handleRespondInbox(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
@@ -95,7 +109,7 @@ func handleRespondInbox(deps Deps) http.HandlerFunc {
 		// exception: it sends nothing, so it closes the item locally like an
 		// agent's ignore does, however the terminal looks right now.
 		if it, err := deps.Store.GetInboxItem(id); err == nil && it.SourceKind == store.InboxFromTerminal && req.Verb != store.VerbIgnore {
-			if _, err := deps.DeliverTerminalReply(id, req.Verb, req.Text); err != nil {
+			if _, err := deps.AnswerTerminalQuestion(id, req.Verb, req.Text); err != nil {
 				if errors.Is(err, store.ErrNotFound) {
 					writeErr(w, http.StatusConflict, "terminal no longer exists — reply not delivered; the item stays open")
 					return

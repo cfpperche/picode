@@ -115,14 +115,21 @@ Mapping to our stack noted inline; slices 1–4 at the end of this section.
 - [ ] Back / forward / reload cluster (slice 1)
 - [ ] Empty state: "Start browsing — Enter a URL to open a page" — one line
   + the action, never a blank well (slice 1)
-- [ ] History dropdown from the address bar (typed URLs first) (slice 3)
-- [ ] New tab / close per tab; target=_blank and OAuth popups adopt as new
-  tabs, not external windows (slice 1; WebView2 NewWindowRequested)
-- [ ] Find in page (WebView2 Find API, our highlight UI) (slice 1)
-- [ ] Print (ShowPrintUI) and Zoom (± / 100% / reset, ZoomFactor) (slice 1)
+- [x] History dropdown from the address bar (typed URLs first) (slice 3 —
+  landed 2026-09-19; the bar's own copy no longer promises a search we do not
+  run: see the topic file's owner-calls table)
+- [ ] New tab / close per tab; target=_blank and unsized `window.open` adopt
+  as new tabs, while a sized popup opens as a real window — OAuth flows post
+  back through `window.opener` (slice 1 + fix 2026-09-15; WebView2
+  NewWindowRequested)
+- [x] Find in page (WebView2 Find API + our bar; landed 2026-09-15)
+- [x] Print (ShowPrintUI) and Zoom (± / 100% / reset, ZoomFactor) (landed
+  2026-09-15)
 - [ ] **Take a screenshot** button (CapturePreview) — also what the agent's
   screenshot tier uses (slice 2)
-- [ ] **Device toolbar**: responsive viewport — Dimensions dropdown,
+- [ ] **Device toolbar** (owner's call 2026-09-19: the native half first —
+  bounds + zoom, honestly named "Responsive width"; CDP emulation needs an
+  ADR): responsive viewport — Dimensions dropdown,
   width × height, zoom %; off by default (slice 3; controller bounds +
   CDP Emulation)
 - [ ] Detach to window / panel⇄tab (v2 — editor tab is the v1 surface)
@@ -131,7 +138,19 @@ Mapping to our stack noted inline; slices 1–4 at the end of this section.
 Show device toolbar · Take a screenshot · Import cookies and passwords… ·
 Passwords and autofill › · Downloads · History · Clear browsing data ·
 Browser settings (opens Preferences ▸ Browser) — every entry maps to an
-item above.
+item above. Landed 2026-09-15 without *Show device toolbar* and *Import
+cookies and passwords…* (neither exists yet; a dead item is worse than a
+missing one). *Import cookies and passwords…* is now **refused** (owner
+2026-09-19: passwords have no WebView2 write API and would need PiCode's own
+vault — a security-model arc; cookies via CDP are fragile under Chrome's
+app-bound encryption), so the entry is not coming: the topic file carries
+the call. *Show device toolbar* is the native half first. The menu opens
+**over** the page (native view hidden
+behind a still) instead of sliding it down. Since 2026-09-16 that rule is
+general — *any* floating layer that intersects a work tab parks the native
+view (`web/browser/src/lib/floatingLayers.js` over the shared layer list in
+`web/shared/domain/overlayAudit.js`), so the command palette, the editor's
+tab menus, dialogs and toasts behave the same way.
 
 **Settings ▸ Browser (Preferences page section):**
 - [ ] Master toggle: "Let the agent control the built-in browser" — per
@@ -169,10 +188,13 @@ item above.
   tier (read/act), Downloads/Uploads are `full`-tier scopes; "Requires
   approval" = the v2 ask-on-first-use prompt; v1 ships the manual editor
   (slice 4)
-- [ ] **Developer mode — Enable full CDP access**, labeled "Elevated risk",
+- [x] **Developer mode — Enable full CDP access**, labeled "Elevated risk",
   off by default: unlocks raw CDP beyond the curated command catalog. Ours:
-  ADR-0128's opt-in loopback port toggle (same semantics: elevated risk,
-  owner's call, everything else keeps working without it) (slice 2)
+  ADR-0144 — the daemon grows one `cdp` verb that needs the machine setting
+  *and* the `full` tier, the shell re-checks both from its own copy of the
+  setting, and every call (allowed or refused) lands in an audit the card
+  lists. The loopback port stays an env var, deliberately not a UI row.
+  (landed 2026-09-16)
 
 **Non-goals kept from the benchmark:** Chrome extensions in the panel
 (delegated to the user's real browser — our `ext/`+browserhost until
@@ -233,7 +255,10 @@ Increment 4.1 (2026-09-13, `feat/browser-grants`): the act vocabulary and the
 destination rule. `evaluate` (`Runtime.evaluate`) and `navigate`
 (`Page.navigate`) are the first act verbs, so a grant now buys something real:
 `browser.AllowsOrigin` — http/https only, exact host, `*.example.com` or
-`.example.com` for subdomains, port ignored; the table is written in
+`.example.com` for subdomains, `*` for any host (2026-09-16: the owner's
+"any site", one token, still web-only — and the field now says what each
+entry covers, naming the entries that would open nothing), port ignored; the
+table is written in
 `internal/browser/domains.go` and every row of it is a test — and the route
 checks the one verb with a destination before the command leaves. Params now
 travel from the tool to the shell (`Command.Params` was already in the

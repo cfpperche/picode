@@ -134,6 +134,8 @@ func normalizeTerminalCLI(id string) string {
 		return "opencode"
 	case "pi":
 		return "pi"
+	case "omp":
+		return "omp"
 	default:
 		return ""
 	}

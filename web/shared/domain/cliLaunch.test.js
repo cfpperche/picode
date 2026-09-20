@@ -77,7 +77,7 @@ test("legacy Sessions tab addresses rewrite onto the selected CLI's pane (ADR-00
 });
 
 test("launch overrides inherit untouched fields and preserve explicit clearing", () => {
-  const base = { executable: "", args: ["--flag"], path: ["/base"], env: { KEEP: "one", DROP: "two" }, integration: true };
+  const base = { executable: "", args: ["--flag"], path: ["/base"], env: { KEEP: "one", DROP: "two" }, integration: true, tools: [] };
   const next = { ...base, args: [], env: { KEEP: "one", ADD: "three" }, integration: false };
   const patch = launchOverrides(base, next);
   assert.deepEqual(patch, { args: [], integration: false, env: { DROP: null, ADD: "three" } });
@@ -163,4 +163,22 @@ test("catalog capabilities decide what a CLI's surface shows", () => {
   assert.deepEqual(cliCapabilities(null), { launch: false, integration: false, sessions: false });
   assert.deepEqual(cliPanes({ id: "muse", integrationCapable: false, launchable: true, sessions: { list: true } }), ["launch", "terminals", "sessions", "providers", "settings", "keyboard", "packages", "connectors"]);
   assert.deepEqual(cliPanes({ id: "pi", integrationCapable: true, launchable: true, sessions: { list: true } }), ["launch", "terminals", "sessions", "providers", "settings", "keyboard", "packages", "connectors"]);
+});
+
+// ADR-0154: a CLI agent's per-agent scope for PiCode tools is the launch. A
+// config saved before the key existed reads as no tools and never diffs.
+test("launch tools ride the draft, the config and the overrides", () => {
+  const base = defaultLaunchConfig(false);
+  const legacy = { executable: "", args: [], path: [], env: {}, integration: false };
+  assert.deepEqual(launchDraft(legacy).tools, []);
+  assert.deepEqual(launchOverrides(legacy, base), {});
+  const next = { ...base, tools: ["computer", "browser"] };
+  assert.deepEqual(launchOverrides(base, next), { tools: ["computer", "browser"] });
+  assert.deepEqual(launchConfig(launchDraft(next)), next);
+  assert.deepEqual(resolveLaunch(legacy, { tools: ["browser"] }).tools, ["browser"]);
+  assert.deepEqual(profileOverrides(base, next).tools, ["computer", "browser"]);
+  assert.deepEqual(editLaunchOverrides(base, { tools: ["computer"] }, { ...base, tools: [] }), { tools: [] });
+  assert.equal(parseForm(cliLaunchSchema, { ...launchDraft(base), tools: ["Computer Use"] }).ok, false);
+  assert.equal(parseForm(cliLaunchSchema, { ...launchDraft(base), tools: ["computer"] }).ok, true);
+  assert.deepEqual(parseForm(cliLaunchSchema, launchDraft(legacy)).value.tools, []);
 });

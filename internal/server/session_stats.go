@@ -1,6 +1,8 @@
 package server
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"sync"
@@ -13,6 +15,47 @@ import (
 type sessionStatsView struct {
 	climetrics.FleetStats
 	Range string `json:"range"` // the clamped value actually used, not the raw query
+	// Desktop is the computer tool's share of the window (ADR-0148): steps
+	// the shell ran, time they took, and the calls it refused. Absent when
+	// the store is closed; zero when nothing happened.
+	Desktop *desktopStats `json:"desktop,omitempty"`
+}
+
+type desktopStats struct {
+	Steps   int   `json:"steps"`
+	Ms      int64 `json:"ms"`
+	Refused int   `json:"refused"`
+	Failed  int   `json:"failed"`
+}
+
+// desktopStatsFor counts the computer.step rows in the window — a cheap
+// indexed read, so it is not part of the fingerprint cache.
+func desktopStatsFor(deps Deps, from, to time.Time) *desktopStats {
+	if deps.Store == nil {
+		return nil
+	}
+	rows, err := deps.Store.EventsOfTypeBetween("computer.step", from, to, 0)
+	if err != nil {
+		return nil
+	}
+	out := &desktopStats{}
+	for _, ev := range rows {
+		var data struct {
+			Outcome string `json:"outcome"`
+			Ms      int64  `json:"ms"`
+		}
+		_ = json.Unmarshal(ev.Data, &data)
+		switch data.Outcome {
+		case "allowed":
+			out.Steps++
+			out.Ms += data.Ms
+		case "refused":
+			out.Refused++
+		case "failed":
+			out.Failed++
+		}
+	}
+	return out
 }
 
 // statsCache memoises one WindowStats per (root, range). An entry is served
@@ -64,25 +107,56 @@ func (c *statsCache) reset() {
 func handleSessionStats(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rng := normalizeRange(r.URL.Query().Get("range"))
-		from, to, priorFrom := statsWindow(rng, time.Now(), time.Local)
-		meters := climetrics.Meters()
-
-		fp := climetrics.Fingerprint(meters)
-		key := session.Root() + "|" + rng
-		st, hit := sessionStats.get(key, fp, from, to)
-		if !hit {
-			st = climetrics.Aggregate(climetrics.Request{
-				From: from, To: to, PriorFrom: priorFrom,
-				Loc: time.Local,
-				// A day window draws one bar if it is bucketed by day, which is
-				// the whole chart (2026-09-13). Hours are what "today" asks.
-				Hourly: rng == "today",
-			}, meters)
-			sessionStats.put(key, fp, from, to, st)
-		}
+		st := statsForRange(rng)
 		st.WindowStats = labelWorkspaces(deps, st.WindowStats)
-		writeJSON(w, http.StatusOK, sessionStatsView{FleetStats: st, Range: rng})
+		from, to, _ := statsWindow(rng, time.Now(), time.Local)
+		writeJSON(w, http.StatusOK, sessionStatsView{FleetStats: st, Range: rng, Desktop: desktopStatsFor(deps, from, to)})
 	}
+}
+
+// statsForRange is the fingerprint-cached aggregation behind the handler,
+// factored out so the boot warmup can fill the same cache without HTTP.
+func statsForRange(rng string) climetrics.FleetStats {
+	from, to, priorFrom := statsWindow(rng, time.Now(), time.Local)
+	meters := climetrics.Meters()
+
+	fp := climetrics.Fingerprint(meters)
+	key := session.Root() + "|" + rng
+	if st, hit := sessionStats.get(key, fp, from, to); hit {
+		return st
+	}
+	st := climetrics.Aggregate(climetrics.Request{
+		From: from, To: to, PriorFrom: priorFrom,
+		Loc: time.Local,
+		// A day window draws one bar if it is bucketed by day, which is
+		// the whole chart (2026-09-13). Hours are what "today" asks.
+		Hourly: rng == "today",
+	}, meters)
+	sessionStats.put(key, fp, from, to, st)
+	return st
+}
+
+// StartSessionStatsWarmup fills the parse cache and the range cache in the
+// background shortly after boot, so the first dashboard open is warm
+// (~100-200ms) instead of a cold ~8s sequential parse. It runs once, at low
+// urgency: a 5s delay lets the HTTP server accept traffic first, and a
+// cancelled context skips the work (tests, minimal embeddings).
+func StartSessionStatsWarmup(ctx context.Context) {
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(5 * time.Second):
+		}
+		for _, rng := range []string{"7d", "today"} {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			statsForRange(rng)
+		}
+	}()
 }
 
 // claimedDirs is every workspace folder, canonicalised, used to label a

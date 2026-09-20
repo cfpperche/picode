@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/clilifecycle"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
@@ -312,14 +313,16 @@ func TestDetectOnlyCLIsAndMuseChannelCheck(t *testing.T) {
 	// defaults (Fatia 3a), but Activity reporting stays refused — 1.3.0
 	// offers no hook surface.
 	cliRequest(t, ts, "PUT", "/api/clis/muse", map[string]any{"executable": muse}, 200)
-	cliRequest(t, ts, "PUT", "/api/clis/muse", map[string]any{"executable": muse, "integration": true}, 400)
+	// Wrapper slice: the PATH wrapper is a mechanism, so Activity saves.
+	cliRequest(t, ts, "PUT", "/api/clis/muse", map[string]any{"executable": muse, "integration": true}, 200)
 	// Same for Antigravity (Fatia 3b): editable defaults, no activity.
 	cliRequest(t, ts, "PUT", "/api/clis/agy", map[string]any{"executable": filepath.Join(bin, "agy")}, 200)
 	// Fatia 5: the title reporter is a mechanism, so Activity saves (files
 	// land on repair, which is a separate notice, not a refusal).
 	cliRequest(t, ts, "PUT", "/api/clis/agy", map[string]any{"executable": filepath.Join(bin, "agy"), "integration": true}, 200)
-	// Lifecycle jobs stay refused: no managed update for this install.
-	cliRequest(t, ts, "POST", "/api/clis/muse/lifecycle", map[string]any{"action": "update", "requestKey": "x"}, 400)
+	// Lifecycle jobs are managed now: the launcher entrypoint updates (the
+	// fake wrapper exits 0 on a bare run, exactly like INSTALL=1 does).
+	cliRequest(t, ts, "POST", "/api/clis/muse/lifecycle", map[string]any{"action": "update", "requestKey": "x"}, 202)
 
 	// New terminal is the one new door: the CLI runs in a PiCode terminal
 	// with no integration files behind it.
@@ -340,8 +343,12 @@ func TestDetectOnlyCLIsAndMuseChannelCheck(t *testing.T) {
 				if row["launchCli"] != "muse" {
 					t.Fatalf("launched terminal = %+v", row)
 				}
-				if applied, _ := row["launchApplied"].(map[string]any); applied != nil && applied["injection"] != nil {
-					t.Fatalf("muse terminal carries an integration plan: %+v", applied)
+				// The wrapper slice: integration is on, so the terminal
+				// launches through the PATH wrapper with the presence
+				// lease plan behind it.
+				applied, _ := row["launchApplied"].(map[string]any)
+				if applied == nil || applied["injection"] == nil {
+					t.Fatalf("muse terminal carries no integration plan: %+v", row)
 				}
 			}
 		}
@@ -379,13 +386,13 @@ func TestDetectOnlyCLIsAndMuseChannelCheck(t *testing.T) {
 		t.Fatalf("muse update-check = %+v", upd)
 	}
 	lifecycle := catalogCLI(t, ts, "muse")["lifecycle"].(map[string]any)
-	if lifecycle["canCheckUpdate"] != true || lifecycle["canUpdate"] != false {
+	if lifecycle["canCheckUpdate"] != true || lifecycle["canUpdate"] != true || lifecycle["canReinstall"] != true || lifecycle["uninstall"] != "guided" {
 		t.Fatalf("muse lifecycle = %+v", lifecycle)
 	}
 
 	// Antigravity reads the vendor's release manifest: same shape, same menu.
 	agyUpdLife := catalogCLI(t, ts, "agy")["lifecycle"].(map[string]any)
-	if agyUpdLife["canCheckUpdate"] != true || agyUpdLife["canUpdate"] != false || agyUpdLife["canReinstall"] != false {
+	if agyUpdLife["canCheckUpdate"] != true || agyUpdLife["canUpdate"] != true || agyUpdLife["canReinstall"] != true || agyUpdLife["uninstall"] != "guided" {
 		t.Fatalf("agy lifecycle = %+v", agyUpdLife)
 	}
 	// The update check needs the installed version first, exactly as the
@@ -404,4 +411,76 @@ func TestDetectOnlyCLIsAndMuseChannelCheck(t *testing.T) {
 	if !seen["https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/"+clilifecycle.AntigravityPlatform(runtime.GOOS, runtime.GOARCH, false)+".json"] {
 		t.Fatalf("agy manifest was never read: %v", seen)
 	}
+}
+
+func TestResolveLifecycleExecParity(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(filepath.Join(dir, "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	deps := Deps{Store: st, DataDir: dir}
+	bin := filepath.Join(dir, "bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	muse := filepath.Join(bin, "muse")
+	if err := os.WriteFile(muse, []byte("#!/bin/sh\n# muse-code/launcher\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	agy := filepath.Join(bin, "agy")
+	if err := os.WriteFile(agy, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetCLIConfig("muse", clilaunch.Config{Executable: muse}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetCLIConfig("agy", clilaunch.Config{Executable: agy}); err != nil {
+		t.Fatal(err)
+	}
+	museCLI := clilaunch.CLI{ID: "muse", Command: "muse", Name: "Muse Code"}
+	agyCLI := clilaunch.CLI{ID: "agy", Command: "agy", Name: "Antigravity"}
+
+	mu, err := resolveLifecycleExec(deps, museCLI, clilifecycle.ActionUpdate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mu.Args) != 0 || mu.Exe != muse {
+		t.Fatalf("muse update exec = %+v, want bare launcher run", mu)
+	}
+	if n := countEnv(mu.Env, "MUSE_LAUNCHER_INSTALL=1"); n != 1 {
+		t.Fatalf("muse update env carries %d launcher flags, want exactly 1", n)
+	}
+
+	au, err := resolveLifecycleExec(deps, agyCLI, clilifecycle.ActionUpdate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(au.Args) != 1 || au.Args[0] != "update" || au.Exe != agy {
+		t.Fatalf("agy update exec = %+v, want `agy update`", au)
+	}
+	for _, kv := range au.Env {
+		if k, _, _ := strings.Cut(kv, "="); k == "MUSE_LAUNCHER_INSTALL" {
+			t.Fatalf("agy update env leaks the muse entrypoint: %q", kv)
+		}
+	}
+
+	mr, err := resolveLifecycleExec(deps, museCLI, clilifecycle.ActionReinstall)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := countEnv(mr.Env, "MUSE_LAUNCHER_INSTALL=1"); n != 1 {
+		t.Fatalf("muse reinstall env carries %d launcher flags, want exactly 1", n)
+	}
+}
+
+func countEnv(env []string, want string) int {
+	n := 0
+	for _, kv := range env {
+		if kv == want {
+			n++
+		}
+	}
+	return n
 }

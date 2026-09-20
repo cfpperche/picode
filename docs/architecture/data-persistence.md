@@ -14,7 +14,8 @@ from a full-payload, post-task-timestamp user row before deciding whether to
 reopen them), `messages` (reserved M4 broker inbox),
 `events` (orchestration audit),
 `settings`,
-`snips` (ADR-0130: user prompt/shell templates; not the conversation fence runner). Embedded sequential migrations; the M1 JSON registry is imported
+`snips` (ADR-0130: user prompt/shell templates; not the conversation fence runner),
+`webapps` (ADR-0147: user-installed web app shortcuts — name, normalized URL with its fragment (duplicates allowed since migration 057 — each row is one account; the unique constraint is gone) the manifest's `start_url`/`scope`/`display`/`theme_color` when the site is a PWA, icon bytes ≤256 KB, creation time, `partitioned` (ADR-0153: installs born after it get their own WebView2 user-data folder); `webapp.installed/updated/removed` in the same transaction). Embedded sequential migrations; the M1 JSON registry is imported
 once and retired (`workspaces.json.migrated`).
 
 Local backup destinations are checked against both live data trees before any

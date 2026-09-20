@@ -139,7 +139,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
   };
   const action = async (t, op) => {
     const destructive = op === "remove" || (t.running && op !== "start");
-    if (destructive && !(await askConfirm({ title: `${op === "remove" ? "Remove" : op === "stop" ? "Stop" : "Restart"} ${t.name}?`, message: t.running ? "This ends the processes running in this terminal." : "Remove this saved terminal and its launch settings?", confirmLabel: op === "remove" ? "Remove terminal" : op === "stop" ? "Stop terminal" : "Restart terminal", danger: true }))) return;
+    if (destructive && !(await askConfirm({ title: `${op === "remove" ? "Remove" : op === "stop" ? "Stop" : "Restart"} ${t.name}?`, message: op === "restart" ? (t.lastSession ? "This ends the processes running in this terminal, then reopens the same conversation." : "This ends the processes running in this terminal.") : t.running ? "This ends the processes running in this terminal." : "Remove this saved terminal and its launch settings?", confirmLabel: op === "remove" ? "Remove terminal" : op === "stop" ? "Stop terminal" : "Restart terminal", danger: true }))) return;
     try {
       await run(t.id + ":" + op, async () => {
         await api(`/api/terminals/${encodeURIComponent(t.id)}/launch/${op}`, json("POST", { confirm: destructive }));
@@ -163,8 +163,8 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
       <div className="cli-detail" key={selected.id}>
         <div className="cli-heading"><div><h3>{selected.name}</h3><p>{selected.diagnostic?.version || (selected.installed ? "Version not checked" : "Not installed")}{selected.diagnostic?.stale ? " · check out of date" : ""}{selected.diagnostic?.updateAvailable ? ` · update available${selected.diagnostic.latest ? " to " + selected.diagnostic.latest : ""}` : ""}</p>{updateLine ? <p>{updateLine}</p> : selected.diagnostic ? <p>Checked {new Date(selected.diagnostic.checkedAt).toLocaleString()}</p> : null}</div><div className="cli-actions" data-align-row data-align-wrap>
           <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={() => { run("check:" + selected.id, async () => { const d = await api(`/api/clis/${selected.id}/check`, json("POST", {})); if (d.error) toastError(new Error(d.error)); }).catch(() => {}); }}>{busy === "check:" + selected.id ? "Checking…" : "Check setup"}</button>
-          {!cap.integration && !selected.installed && selected.lifecycle?.canInstall ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("install")}>{lifecycleBusy ? "Working…" : "Install"}</button> : null}
-          {!cap.integration && selected.installed && selected.lifecycle?.canUpdate && selected.diagnostic?.updateAvailable ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("update")}>{lifecycleBusy ? "Working…" : "Update"}</button> : null}
+          {!selected.installed && selected.lifecycle?.canInstall ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("install")}>{lifecycleBusy ? "Working…" : "Install"}</button> : null}
+          {selected.installed && selected.lifecycle?.canUpdate && selected.diagnostic?.updateAvailable ? <button className="btn btn-primary btn-sm" disabled={!!lifecycleBusy} onClick={() => startLifecycle("update")}>{lifecycleBusy ? "Working…" : "Update"}</button> : null}
           {cap.launch ? <button className="btn btn-primary btn-sm" disabled={!data.terminalAvailable} onClick={() => navigate("/new/" + selected.id)}>New terminal</button> : null}
           {selected.installed && (selected.lifecycle?.canUpdate || selected.lifecycle?.canCheckUpdate || selected.lifecycle?.canReinstall || selected.lifecycle?.uninstall) ? <DropdownMenu.Root><DropdownMenu.Trigger asChild><button className="btn btn-ghost btn-sm cli-more" aria-label={"Lifecycle actions for " + selected.name} disabled={!!lifecycleBusy}>•••</button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="um-popover" align="end" sideOffset={5} collisionPadding={12}>
             <DropdownMenu.Item className="um-item" onSelect={checkUpdates}>Check for updates</DropdownMenu.Item>
@@ -268,6 +268,7 @@ function ConnectorsPane({ route, onReload }) {
   const workspace = ctx.workspace, agent = ctx.agent;
   return <Mcps
     hidden={false}
+    cli={route.id || "pi"}
     scope={route.scope}
     onScopeChange={(scope) => { location.hash = cliConnectorsHash(route.id || "pi", { workspaceId: route.workspaceId, agentId: route.agentId, scope }); }}
     workspaceId={workspace?.id || ""}
@@ -359,7 +360,7 @@ function TerminalEditor({ route, data, run, busy }) {
         {!existing ? <><label>Name<input autoComplete="off" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label><label>Workspace<select value={form.workspaceId} onChange={(e) => setForm({ ...form, workspaceId: e.target.value, cwd: "" })}><option value="">Free terminal</option>{data.workspaces.filter((w) => w.id !== "ws_free").map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label><label>Folder<input placeholder={form.workspaceId ? "Use workspace folder" : "Use home folder"} value={form.cwd} onChange={(e) => setForm({ ...form, cwd: e.target.value })} /></label></> : null}
         {cap.integration ? <label className="cli-checkbox"><input type="checkbox" checked={custom} onChange={async (e) => { const checked = e.target.checked; if (!checked && dirty && !(await confirmDiscard())) return; setCustom(checked); if (!checked) { setDraft(launchDraft(cli.config)); setProfileId(""); setOriginalOverrides({}); } }} />Customize this terminal</label> : null}
       </div>
-      {cap.integration ? (custom ? <LaunchFields draft={draft} setDraft={setDraft} includeIntegration /> : <p className="cli-muted">Uses {cli.name} launch defaults.</p>) : <p className="cli-muted">{cli.name} keeps its own launch settings: no extra arguments, no PATH and no activity reporting.</p>}
+      {cap.integration ? (custom ? <LaunchFields draft={draft} setDraft={setDraft} includeIntegration cli={cli} /> : <p className="cli-muted">Uses {cli.name} launch defaults.</p>) : <p className="cli-muted">{cli.name} keeps its own launch settings: no extra arguments, no PATH and no activity reporting.</p>}
       {existing?.launchAttempt?.error ? <Notice danger action="Back to terminals" onAction={back}>{existing.launchAttempt.error}</Notice> : null}
       {error ? <p className="cli-field-error" role="alert">{error}</p> : null}
       <div className="cli-actions" data-align-row data-align-wrap><button type="submit" className="btn btn-primary btn-sm" disabled={busy || (!existing && !data.terminalAvailable)}>{busy ? (existing ? "Saving…" : "Opening terminal…") : existing ? "Save launch settings" : "Open terminal"}</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={back}>Cancel</button></div>

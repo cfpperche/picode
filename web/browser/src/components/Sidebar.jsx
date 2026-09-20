@@ -4,7 +4,7 @@ import { parseRoute, appRoute } from "../lib/routes.js";
 import UserMenu from "./UserMenu.jsx";
 import RailTabs from "./RailTabs.jsx";
 import ShareDrawer, { OPEN_EVENT } from "./ShareDrawer.jsx";
-import { IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconGit, IconX, IconChevronRight, IconPin, IconSession, IconSettings, IconGrid, IconCli } from "./Icons.jsx";
+import { IconTerminal, IconPlus, IconFolder, IconFolders, IconAgent, IconGit, IconX, IconChevronRight, IconPin, IconSession, IconSettings, IconGrid } from "./Icons.jsx";
 import Pins from "./Pins.jsx";
 import AppsGrid from "./AppsGrid.jsx";
 import { agentsOf, displayAgentName } from "@picode/shared/domain/tree.js";
@@ -50,7 +50,7 @@ export default function Sidebar({
   onFileTree,
   onOpenDashboard,
   onOpenClis,
-  apps, nativeApps, onOpenApp,
+  apps, nativeApps, onOpenApp, webapps, webappsErr, webappsLoaded, onRetryWebapps, onOpenWebapp, onSavedWebapp, onRemoveWebapp, onRefreshWebapp, onClearWebappData, desktop,
 }) {
   const [width, setWidth] = useState(() => {
     const n = parseInt(localStorage.getItem(SIDE_KEY) || "", 10);
@@ -113,17 +113,22 @@ export default function Sidebar({
   }
 
   function agentRow(ag, ws) {
+    const selected = ag.terminalId && selectedId === "t:" + ag.terminalId ? ag.id : selectedId;
     return (
       <AgentRow
         key={ag.id}
         agent={ag} ws={ws}
-        selectedId={selectedId} onSelect={onSelect}
+        selectedId={selected} onSelect={(id) => {
+          if (ag.terminalId) onSelectTerm && onSelectTerm(ag.terminalId);
+          else onSelect(id);
+        }}
         workingId={workingId} workingIds={workingIds} waitingId={waitingId} checklists={checklists}
         onFileTree={onFileTree} onGitGraph={onGitGraph}
         onRenameAgent={onRenameAgent}
         onRun={onRun} onStop={onStop}
         onRemoveAgent={onRemoveAgent} onRemove={onRemove}
         onChat={onChat} onTerm={onTerm} termView={termView}
+        clis={clis} terms={terminals} onLaunchAction={onLaunchAction} onContinueTerm={onContinueTerm}
       />
     );
   }
@@ -166,7 +171,7 @@ export default function Sidebar({
       {tab === "pins" ? (
         <Pins />
       ) : tab === "apps" ? (
-        <AppsGrid apps={apps} nativeApps={nativeApps} onOpen={onOpenApp} />
+        <AppsGrid apps={apps} nativeApps={nativeApps} onOpen={onOpenApp} webapps={webapps} webappsErr={webappsErr} webappsLoaded={webappsLoaded} onRetryWebapps={onRetryWebapps} onOpenWebapp={onOpenWebapp} onSavedWebapp={onSavedWebapp} onRemoveWebapp={onRemoveWebapp} onRefreshWebapp={onRefreshWebapp} onClearWebappData={onClearWebappData} desktop={desktop} />
       ) : tab === "terms" ? (
       <div className="side-section">
         <div className="pins-head">
@@ -208,12 +213,13 @@ export default function Sidebar({
         ) : (
         <ul id="ws-list" className="ws-list">
           {workspaces.map((ws) => {
-            const wsTerms = workspaceTerminals(terminals, ws.id);
+            const wsAgents = agentsOf(ws);
+            const ownedTerms = new Set(wsAgents.map((a) => a.terminalId).filter(Boolean));
+            const wsTerms = workspaceTerminals(terminals, ws.id).filter((t) => !ownedTerms.has(t.id));
             // Not a line on the card any more (the rows below already carry
             // path and branch); the menu still asks whether this folder is a
             // repository before offering its history.
             const wsRepo = wsLine(ws);
-            const wsAgents = agentsOf(ws);
             return (
             <li key={ws.id} className="ws-group">
               <div className="ws-group-head" onClick={() => toggleWs(ws.id)}>
@@ -229,7 +235,6 @@ export default function Sidebar({
                   <DropdownMenu.Root><DropdownMenu.Trigger asChild><button type="button" className="ws-icon-btn" title="New in this folder" aria-label={"New in " + ws.name}><IconPlus /></button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content className="um-popover" side="bottom" align="end" sideOffset={6} collisionPadding={12}>
                     <DropdownMenu.Item className="um-item" onSelect={() => onNewAgent && onNewAgent(ws.id)}>Agent</DropdownMenu.Item>
                     <DropdownMenu.Item className="um-item" onSelect={() => onNewTerm?.(ws.id)}>Shell terminal</DropdownMenu.Item>
-                    <DropdownMenu.Item className="um-item" onSelect={() => { location.hash = "#/clis/new/pi?workspace=" + encodeURIComponent(ws.id); }}>Agent CLI terminal</DropdownMenu.Item>
                   </DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>
                   <RowMenu label={ws.name}>
                     <RowMenuItem onSelect={() => { location.hash = "#/clis/messages/" + encodeURIComponent("workspace:" + ws.id); }}><IconSession size={13} /> Communication</RowMenuItem>

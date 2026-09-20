@@ -25,6 +25,19 @@ test("fleet: workspaces and agents are added, updated and removed in place", () 
   assert.equal(applyFleet(s, { type: "pin.created", data: {} }), s, "unrelated events leave state untouched");
 });
 
+test("fleet: managed CLI principals bind and unbind without touching agents", () => {
+  let s = { workspaces: [ws("a")], freeAgents: [], terminals: [{ id: "t1", workspaceId: "a" }] };
+  s = applyFleet(s, {
+    type: "managed_cli.added",
+    data: { id: "m1", workspaceId: "a", cli: "claude-code", terminalId: "t1", name: "Claude" },
+  });
+  assert.equal(s.workspaces[0].managedClis.length, 1);
+  assert.equal(s.workspaces[0].agents.length, 0);
+  assert.equal(applyFleet(s, { type: "managed_cli.added", data: { id: "m2", workspaceId: "missing" } }), null);
+  s = applyFleet(s, { type: "managed_cli.removed", data: { id: "m1", terminalId: "t1", workspaceId: "a" } });
+  assert.equal(s.workspaces[0].managedClis.length, 0);
+});
+
 test("fleet: status and live state", () => {
   const s = { workspaces: [ws("a", [ag("x", "a", { running: true, mode: "managed", streaming: true })])], freeAgents: [], terminals: [] };
   assert.equal(applyFleet(s, { type: "agent.status", data: { id: "x", lastStatus: "running" } }), null, "a start without mode → refetch");
@@ -56,7 +69,7 @@ test("fleet: terminals", () => {
   assert.equal(s.terminals.length, 0);
 });
 
-test("fleet: terminal.state (guest CLI, ADR-0056 tier 1)", () => {
+test("fleet: terminal.state (CLI, ADR-0056 tier 1)", () => {
   let s = { workspaces: [], freeAgents: [], terminals: [{ id: "t1", name: "T" }] };
   s = applyFleet(s, { type: "terminal.state", data: { termId: "t1", state: "working", cli: "claude-code", at: "2026-09-04T10:00:00Z" } });
   assert.equal(s.terminals[0].state, "working");

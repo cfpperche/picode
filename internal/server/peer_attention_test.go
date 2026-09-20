@@ -54,6 +54,48 @@ func TestPeerInputDecisionTable(t *testing.T) {
 	}
 }
 
+// Claude Code's predicted follow-up renders dim after an empty cursor.
+// Typed (bright) text, a cursor inside the text and a changed frame still
+// refuse; the ghost is never treated as submitted text.
+func TestPeerClaudeGhostSuggestion(t *testing.T) {
+	raw, err := os.ReadFile("testdata/claude-ghost-suggestion.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var native tmux.InputSnapshot
+	if err = json.Unmarshal(raw, &native); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name   string
+		change func(*tmux.InputSnapshot)
+		want   bool
+	}{
+		{name: "captured ghost suggestion", want: true},
+		{name: "typed bright text", change: func(s *tmux.InputSnapshot) { s.Lines[s.CursorY] = terminalSGR.ReplaceAllString(s.Lines[s.CursorY], "") }},
+		{name: "italic instead of dim", change: func(s *tmux.InputSnapshot) {
+			s.Lines[s.CursorY] = strings.Replace(s.Lines[s.CursorY], "\x1b[2m", "\x1b[3m", 1)
+		}},
+		{name: "cursor moved into the text", change: func(s *tmux.InputSnapshot) { s.CursorX = 8 }},
+		{name: "copy mode", change: func(s *tmux.InputSnapshot) { s.InMode = true }},
+		{name: "status footer changed", change: func(s *tmux.InputSnapshot) { s.Lines[s.CursorY+2] = "  something else" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := native
+			s.Lines = append([]string(nil), native.Lines...)
+			if tc.change != nil {
+				tc.change(&s)
+			}
+			if got := peerInputMatches("claude-code", s, ""); got != tc.want {
+				t.Fatalf("empty editor: got %v want %v", got, tc.want)
+			}
+			if peerInputMatches("claude-code", s, peerCLIPointer) {
+				t.Fatal("unaccepted suggestion treated as submitted pointer")
+			}
+		})
+	}
+}
+
 func TestPeerClaudeNarrowFooter(t *testing.T) {
 	for _, tc := range []struct {
 		name, input, expected, shortcut string
@@ -114,6 +156,16 @@ func TestPeerGrokBorderedComposer(t *testing.T) {
 		{name: "exact pointer after paste", expected: peerCLIPointer, want: true, change: func(s *tmux.InputSnapshot) {
 			s.Lines[1] = "  │ ❯ " + peerCLIPointer + strings.Repeat(" ", s.Width-9-len(peerCLIPointer)) + "│"
 			s.Lines[4] = "  Enter:send  │  Shift+Tab:mode  │  Ctrl+x:shortcuts"
+			s.CursorX = 6 + len(peerCLIPointer)
+		}},
+		{name: "1.0.34 Enter footer after paste", expected: peerCLIPointer, want: true, change: func(s *tmux.InputSnapshot) {
+			s.Lines[1] = "  │ ❯ " + peerCLIPointer + strings.Repeat(" ", s.Width-9-len(peerCLIPointer)) + "│"
+			s.Lines[4] = "  Enter:send  │  Shift+Enter/Alt+Enter:newline  │  Shift+Tab:mode  │  Ctrl+x:shortcuts"
+			s.CursorX = 6 + len(peerCLIPointer)
+		}},
+		{name: "wrong Enter footer variant after paste", expected: peerCLIPointer, change: func(s *tmux.InputSnapshot) {
+			s.Lines[1] = "  │ ❯ " + peerCLIPointer + strings.Repeat(" ", s.Width-9-len(peerCLIPointer)) + "│"
+			s.Lines[4] = "  Enter:send  │  Ctrl+x:shortcuts"
 			s.CursorX = 6 + len(peerCLIPointer)
 		}},
 		{name: "typed after paste", expected: peerCLIPointer, change: func(s *tmux.InputSnapshot) {

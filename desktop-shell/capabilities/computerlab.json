@@ -1,0 +1,18 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "computer-lab",
+  "description": "Computer lab (ADR-0148, M1): the local page that drives the computer tool's commands by hand for the owner's acceptance on Windows. It gets exactly the computer commands and nothing else.",
+  "windows": [
+    "computerlab"
+  ],
+  "permissions": [
+    "core:default",
+    "allow-computer-displays",
+    "allow-computer-windows",
+    "allow-computer-call",
+    "allow-computer-set-grants",
+    "allow-computer-preview",
+    "allow-computer-embed",
+    "allow-computer-unembed"
+  ]
+}

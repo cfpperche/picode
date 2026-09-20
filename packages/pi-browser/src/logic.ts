@@ -105,9 +105,17 @@ export function summarizeAx(output: unknown, max = MAX_LINES): { lines: string[]
 	return { lines, dropped };
 }
 
-/** screenshotPath names the file one capture writes, outside the repo. */
-export function screenshotPath(dir: string, now: number): string {
-	return `${dir.replace(/\/+$/, "")}/picode-browser-${now}.png`;
+/** ImageBlock is pi's image content: what the model sees instead of a path. */
+export type ImageBlock = { type: "image"; data: string; mimeType: string };
+
+/**
+ * imageBlock turns the daemon's screenshot answer ({data: base64 PNG}) into
+ * the image block pi hands the model, or null when nothing was captured.
+ */
+export function imageBlock(output: unknown): ImageBlock | null {
+	const data = (output as { data?: unknown } | null)?.data;
+	if (typeof data !== "string" || data === "") return null;
+	return { type: "image", data, mimeType: "image/png" };
 }
 
 /** summarizeEvents renders the tab's recorded ring for the events verb. */
@@ -124,4 +132,62 @@ export function summarizeEvents(output: unknown, max = 40): string[] {
 	const last = (output as { last?: unknown })?.last;
 	if (typeof last === "number" && lines.length === 0) lines.push(`nothing since the cursor (last #${last})`);
 	return lines;
+}
+// --- the act verbs' answers --------------------------------------------------
+
+// Found by using the tool with a full grant (2026-09-17): `evaluate`,
+// `navigate` and `cdp` all ran, and all three were then rendered by the
+// accessibility-tree formatter — the agent got "The page has no accessible
+// content" for a call that worked. Each verb answers with its own payload, so
+// each gets its own line.
+
+/** summarizeEvaluate renders Runtime.evaluate's answer: the value, or the page's own exception. */
+export function summarizeEvaluate(output: unknown): string {
+	const result = (output as { result?: unknown })?.result as { value?: unknown; description?: unknown; type?: unknown } | undefined;
+	const exception = (output as { exceptionDetails?: unknown })?.exceptionDetails as
+		| { text?: unknown; exception?: { description?: unknown } }
+		| undefined;
+	if (exception) {
+		// The page threw: that is an answer about the page, not a tool failure,
+		// so it reads as one line instead of an error.
+		const detail = exception.exception?.description ?? exception.text;
+		return `the page threw: ${typeof detail === "string" ? detail.split("\n")[0] : "an exception"}`;
+	}
+	if (!result) return "evaluate returned nothing";
+	if (result.type === "undefined") return "undefined";
+	if (result.value !== undefined) return typeof result.value === "string" ? result.value : JSON.stringify(result.value);
+	if (typeof result.description === "string") return result.description;
+	return JSON.stringify(result);
+}
+
+/** summarizeNavigate renders Page.navigate's answer: where it went, or why it did not. */
+export function summarizeNavigate(output: unknown, url = ""): string {
+	const error = (output as { errorText?: unknown })?.errorText;
+	if (typeof error === "string" && error !== "") return `navigate failed: ${error}`;
+	return url ? `navigated to ${url}` : "navigated";
+}
+
+/** summarizeCdp renders a raw method's answer as JSON, capped so a big payload cannot flood the context. */
+export function summarizeCdp(output: unknown, max = 4000): string {
+	let text: string;
+	try {
+		text = JSON.stringify(output) ?? String(output);
+	} catch {
+		text = String(output);
+	}
+	return text.length > max ? `${text.slice(0, max)}… (${text.length - max} more chars)` : text;
+}
+
+/** summarizeHistory renders the visits the daemon returned: newest first, one line each. */
+export function summarizeHistory(output: unknown, max = 60): string {
+	const visits = (output as { visits?: { url?: string; title?: string; visitedAt?: string }[] })?.visits;
+	if (!Array.isArray(visits) || visits.length === 0) return "No visits match.";
+	const shown = visits.slice(0, max);
+	const lines = shown.map((v) => {
+		const when = v.visitedAt ? new Date(v.visitedAt).toISOString().replace("T", " ").slice(0, 16) : "";
+		const title = v.title && v.title !== v.url ? v.title + " — " : "";
+		return `${when}  ${title}${v.url || ""}`.trim();
+	});
+	const extra = visits.length > shown.length ? `, ${visits.length - shown.length} more` : "";
+	return lines.join("\n") + `\n(${visits.length} visit${visits.length === 1 ? "" : "s"}${extra})`;
 }

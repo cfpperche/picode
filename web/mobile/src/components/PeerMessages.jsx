@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { participantKey, participantState, participantOptions, selectedWorkspace } from "@picode/shared/domain/peerParticipants.js";
+import { principalLabel } from "@picode/shared/domain/managedPrincipal.js";
 import { peerParticipantsSchema } from "@picode/shared/contracts/schemas.js";
 import { useWorkspaceCommunication } from "../lib/useWorkspaceCommunication.js";
 import { askConfirm } from "../lib/confirm.js";
@@ -70,7 +71,7 @@ function WorkspaceMessages({ hidden, route }) {
           const p = preference(o), c = current(o), state = status(o);
           const picked = checked(o), on = enabled(o), editing = picked !== selected(o);
           return <li key={participantKey(o)} className={`peer-participant is-${state.kind}`}>
-            <label className="peer-participant-choice"><input type="checkbox" checked={picked} disabled={!!m.busy} onChange={e => setEdits(v => ({ ...v, [participantKey(o)]: e.target.checked }))} /><span><strong>{o.label}</strong><small>{o.kind === "agent" ? "Pi agent" : o.cli}</small></span></label>
+            <label className="peer-participant-choice"><input type="checkbox" checked={picked} disabled={!!m.busy} onChange={e => setEdits(v => ({ ...v, [participantKey(o)]: e.target.checked }))} /><span><strong>{o.label}</strong><small>{o.kind === "agent" ? principalLabel(o) : o.cli}</small></span></label>
             <span className="peer-participant-state" role="status">{editing ? (picked ? "Will connect" : "Will disconnect") : <><span>{state.label}</span>{state.connection && <small>{state.connection}{state.verified ? " · Test passed" : ""}</small>}</>}</span>
             {(on || c) && <button className="btn btn-ghost" type="button" disabled={!!m.busy} onClick={() => open(o)}>{m.busy === "open" ? "Opening…" : m.data.live?.[participantKey(o)] ? "Open" : "Open and connect"}</button>}
             {on && (state.reason === "restart-required" || state.reason === "unobserved" || state.reason === "no-conversation" || (p?.problem && !["stopped","connected"].includes(p.phase))) ? <div className="peer-participant-problem"><span>{state.reason === "restart-required" ? "State recording failed. Restore storage access, then restart this CLI using its terminal controls." : state.reason === "unobserved" ? "Confirm the conversation in the terminal. It reconnects when its identity is available." : state.reason === "no-conversation" ? "Start a conversation in the terminal to connect." : p.problem}</span>{state.action === "terminal-controls" ? <a className="btn btn-ghost" href={`#/clis/${encodeURIComponent(o.cli)}/terminals`}>Terminal controls</a> : state.action === "packages" ? <a href="#/clis/pi/packages">Open Packages</a> : state.action === "reconnect" ? <button type="button" className="btn btn-ghost" disabled={!!m.busy} onClick={() => reconnect(o)}>Reconnect</button> : state.action === "retry" ? <button type="button" className="btn btn-ghost" disabled={!!m.busy} onClick={() => apply([o])}>Retry setup</button> : null}</div> : null}

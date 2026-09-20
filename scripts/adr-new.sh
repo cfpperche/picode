@@ -14,8 +14,11 @@ slug=$(printf '%s' "$name" | tr 'A-Z' 'a-z' | tr -c 'a-z0-9\n' '-' | sed -E 's/-
 
 # Every checkout counts: the root and each linked worktree. From inside a
 # worktree .worktrees/ is not visible, so the list comes from git itself.
+# A listed worktree whose directory is gone (a pruned /tmp scratchpad) must
+# not fail the allocation — its names simply contribute nothing.
 last=$(git worktree list --porcelain | awk '/^worktree /{ sub(/^worktree /, ""); print $0 "/docs/decisions" }' \
-  | xargs -d '\n' ls 2>/dev/null | grep -oE '^[0-9]{4}' | sort -u | tail -1)
+  | while IFS= read -r d; do ls "$d" 2>/dev/null || true; done \
+  | grep -oE '^[0-9]{4}' | sort -u | tail -1)
 next=$(printf '%04d' $((10#${last:-0} + 1)))
 file="docs/decisions/$next-$slug.md"
 [ -e "$file" ] && { echo "adr: $file exists" >&2; exit 1; }

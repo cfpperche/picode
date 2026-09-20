@@ -4,6 +4,29 @@
 //     compare bootId: a change means a new binary → reload immediately.
 // Any unexpected WS close should call window.__picodeKickHealth() so case 2
 // is caught within ~1s instead of the next poll.
+//
+// Both reloads are gated: during a restart window the page itself can
+// answer 404, and reloading into that body leaves the shell parked on it
+// forever (2026-09-18, back-to-back deploys bricked the desktop app). The
+// reload waits — bounded — for this page's own path to answer 200 again.
+
+export async function pageServing(fetchImpl = fetch, path) {
+  try {
+    const target = path ?? (typeof location === "undefined" ? "/" : location.pathname);
+    const res = await fetchImpl(target, { cache: "no-store" });
+    return !!res && res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function reloadWhenServing(reload, probe, waitMs) {
+  for (let i = 0; i < 20; i++) {
+    if (await probe()) break;
+    await new Promise((r) => setTimeout(r, waitMs));
+  }
+  reload();
+}
 
 export async function pingHealth(fetchImpl = fetch) {
   try {
@@ -22,11 +45,14 @@ export async function pingHealth(fetchImpl = fetch) {
 export function startReconnectWatch({
   ping = pingHealth,
   reload = defaultReload,
+  probe,
+  waitMs = 750,
   onState,
   downAfter = 1,
   okMs = 2500,
   downMs = 800,
 } = {}) {
+  const reloadServing = () => reloadWhenServing(reload, probe, waitMs);
   let fails = 0;
   let down = false;
   let timer = 0;
@@ -45,12 +71,12 @@ export function startReconnectWatch({
       } else if (res !== boot) {
         // Fast restart: never saw downtime, but this is a new process.
         if (onState) onState("up");
-        reload();
+        reloadServing();
         return;
       }
       if (down) {
         if (onState) onState("up");
-        reload();
+        reloadServing();
         return;
       }
       if (onState) onState("ok");

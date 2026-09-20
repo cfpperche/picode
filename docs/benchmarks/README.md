@@ -24,6 +24,9 @@ are dated notes with receipts. Closed-source claims are marked inference.
 | [Provider/account managers](2026-09-03-providers-view-v2.md) | Providers-view study: agent IDEs (Kilo, Roo, Zed, Cursor), account switchers (cc-switch, claude-swap), quota monitors (ccusage, CodexBar), credential dashboards (OpenRouter, Vercel, Stripe, Zapier) | Roster row spec, quota inline, credential origin, Verify, blast radius, fallback order | Open repos + live docs, 2026-09-03 |
 | [SSH terminal access](2026-09-07-ssh-terminal.md) | Who reaches dev/agent terminals over SSH: Coder `coder ssh`, Codespaces `gh cs ssh`, Ona/Gitpod (SSH-first), VS Code Remote-SSH, Tailscale SSH; Terminal-Bench/Daytona as the no-SSH contrast | The second door to the PTYs ADR-0002 already owns — who ships it, who refuses it, what users get | Live docs, 2026-09-07 |
 | [akitaonrails/ai-memory](https://github.com/akitaonrails/ai-memory) | Long-term memory server + optional `ai-memory run` launcher for many coding CLIs | Wiki brief vs native transcript Continue (ADR-0088). Complementary, not a substitute | Open repo v2.2.1 — study [2026-09-13](2026-09-13-ai-memory.md) |
+| [Design mode / annotations](2026-09-18-annotation-design-mode.md) | Who ships element annotate → agent: Orca (live docs), Lovable (live docs), bolt.diy (source), ChatGPT Work (owner-only) | The grammar four products converged on, and the PiCode adaptation for v2c: frozen-page picker, capture pack, staged file + path through the prompt door | Live docs + upstream source, 2026-09-18 |
+| [Computer-use agents](2026-09-16-computer-use.md) | Benchmarks (OSWorld/2.0, WAA, WindowsWorld, WebArena-Verified, ScreenSpot-Pro, OS-Harm), vendor tool contracts (Anthropic/OpenAI/Google/Microsoft), open actuators (Cua, Windows-MCP, Terminator, UFO2), Windows agentic surfaces | The `computer` tool beside `browser`: same vocabulary the vendors converged on, shell as the Rust actuator, tiers × window binding × Ask classes, and where the agent's desktop lives — study [2026-09-16](2026-09-16-computer-use.md) | Official OSWorld results workbook + vendor docs + GitHub/crates.io metadata, fetched 2026-09-16 |
+| [2026-09-18 — Embedding Windows apps in a PiCode pane (spike)](2026-09-18-embed-windows-apps.md) | reparenting works for Terminal and Electron, not for WinUI Notepad or Explorer; recommendation: mirror first, capture + input later |
 
 **Adaptation rule** (same as Cursor): borrow a pattern when it improves agent
 or CLI-terminal control. ADR-0069 records the owner's multi-CLI direction:
@@ -35,6 +38,8 @@ configuration and availability patterns cited in ADR-0069.
 
 ## Studies
 
+- [2026-09-18 — Design mode / annotations: the grammar four products converged on, and what PiCode adapts](2026-09-18-annotation-design-mode.md)
+- [2026-09-16 — Computer use for agents: benchmarks, vendor contracts, OS primitives, and the policy around them](2026-09-16-computer-use.md)
 - [2026-09-14 — LibreChat docs as the public-docs product bar](2026-09-14-librechat-docs.md)
 - [2026-09-13 — Reusable prompt/command templates (Snippets)](2026-09-13-snippets.md)
 - [2026-09-13 — ai-memory as a cross-CLI handoff (wiki brief vs native transcript)](2026-09-13-ai-memory.md)

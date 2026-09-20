@@ -30,6 +30,7 @@ struct Inner {
     compacting: bool,
     distro: Option<String>,
     child: Option<Child>,
+    task: keepalive::TaskEnsure,
 }
 
 impl Default for Inner {
@@ -44,6 +45,7 @@ impl Default for Inner {
             compacting: false,
             distro: None,
             child: None,
+            task: keepalive::TaskEnsure::default(),
         }
     }
 }
@@ -167,16 +169,24 @@ impl Board {
 
     /// Starts the keepalive when the distro is known and no live child
     /// holds it. A dead child (wsl --terminate took it with the distro) is
-    /// re-armed, never mourned.
+    /// re-armed, never mourned. The scheduled task (ADR-0154) is the
+    /// primary holder — it outlives this process — and the child spawn is
+    /// the fallback for a machine where the task machinery fails.
     pub fn ensure_keepalive(&self) {
         let mut inner = self.inner.lock().expect("board");
+        let distro = inner.distro.clone();
+        if let Some(distro) = distro.as_deref() {
+            if inner.task.ensure(Some(distro)) {
+                return;
+            }
+        }
         if let Some(c) = inner.child.as_mut() {
             if matches!(c.try_wait(), Ok(None)) {
                 return;
             }
             inner.child = None;
         }
-        let Some(distro) = inner.distro.clone() else {
+        let Some(distro) = distro else {
             return;
         };
         match keepalive::start(&distro) {
@@ -194,6 +204,12 @@ impl Board {
         let Some(distro) = inner.distro.clone() else {
             return;
         };
+        // A deliberate terminate ended the task's sleep with the distro;
+        // forget the registration so the next ensure rebuilds it.
+        inner.task.forget();
+        if inner.task.ensure(Some(&distro)) {
+            return;
+        }
         match keepalive::start(&distro) {
             Ok(c) => inner.child = Some(c),
             Err(e) => eprintln!("keepalive: cannot re-arm on {distro}: {e}"),

@@ -57,7 +57,7 @@ func (m HermesMeter) Meter(req Request) (Window, error) {
 	if err != nil {
 		return Window{}, err
 	}
-	acc := newGuestAcc(req, m.CLI())
+	acc := newCliAcc(req, m.CLI())
 	stated, err := hermesMessages(db, sessions, acc)
 	if err != nil {
 		return Window{}, err
@@ -91,7 +91,7 @@ var hermesCan = map[Signal]bool{
 	SigTurns: true, SigTools: true, SigErrors: true,
 }
 
-func hermesCoverage(m HermesMeter, b Billing, stated bool, costed, included int, acc *guestAcc) CoverageRow {
+func hermesCoverage(m HermesMeter, b Billing, stated bool, costed, included int, acc *cliAcc) CoverageRow {
 	note := "Totals are per session; cost and tokens are spread over that session's messages by token share."
 	if stated {
 		note += " Billing mode comes from its own record, not the operator's setting."
@@ -180,7 +180,7 @@ func hermesBilling(mode string) Billing {
 
 // hermesMessages dates each session's aggregate. It returns the billing
 // mode Hermes stated, if any session stated one.
-func hermesMessages(db *sql.DB, sessions map[string]*hermesSession, acc *guestAcc) (Billing, error) {
+func hermesMessages(db *sql.DB, sessions map[string]*hermesSession, acc *cliAcc) (Billing, error) {
 	cols, err := clisession.SQLiteTableColumns(db, "messages")
 	if err != nil || !cols["session_id"] || !cols["timestamp"] {
 		return "", err
@@ -250,7 +250,7 @@ func hermesMessages(db *sql.DB, sessions map[string]*hermesSession, acc *guestAc
 			} else if len(msgs) > 0 {
 				share = 1 / float64(len(msgs)) // no token counts: split evenly
 			}
-			e := guestEntry{
+			e := cliEntry{
 				at: m.at, key: sid, cwd: s.cwd, name: s.title,
 				role: m.role, model: s.model, prov: "hermes",
 				cost:    s.cost * share,

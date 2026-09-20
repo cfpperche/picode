@@ -48,6 +48,24 @@ type Command struct {
 	Params  json.RawMessage `json:"params,omitempty"`
 	Tier    string          `json:"tier"`
 	Domains []string        `json:"domains,omitempty"`
+	// Raw marks a method the catalog did not name (ADR-0144): the shell lets
+	// it past its own table only when its copy of the developer-mode setting
+	// is on and the tier above is full.
+	Raw bool `json:"raw,omitempty"`
+	// Kind names the command family (ADR-0148). Empty is the work browser:
+	// Method is a CDP method for the tab on screen. "computer" is a desktop
+	// action the shell runs itself, with Method naming the action. The page
+	// dispatches on it; a page that predates the field pushes every command
+	// through the browser bridge, whose deny-by-default catalog refuses an
+	// unknown method at once instead of hanging the call.
+	Kind string `json:"kind,omitempty"`
+	// Principal is the grant key (ADR-0143) the daemon resolved for the
+	// caller, carried so the shell can keep per-principal state (the last
+	// image it returned) without a second identity of its own.
+	Principal string `json:"principal,omitempty"`
+	// Timeout overrides the hub's wait for this one command; zero means the
+	// hub's own. It never travels: the shell has its own clocks.
+	Timeout time.Duration `json:"-"`
 }
 
 // Result is the shell's answer to one command. Error is the shell's refusal
@@ -130,7 +148,10 @@ func (h *Hub) Dispatch(ctx context.Context, cmd Command) (json.RawMessage, error
 		return nil, ErrBusy
 	}
 
-	timeout := h.Timeout
+	timeout := cmd.Timeout
+	if timeout <= 0 {
+		timeout = h.Timeout
+	}
 	if timeout <= 0 {
 		timeout = DefaultTimeout
 	}

@@ -7,16 +7,22 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/session"
 )
 
 func stringsTrimSpace(s string) string { return strings.TrimSpace(s) }
 
-// Agent is a configured pi instance in a workspace.
+// CLIPi is the catalog id for the Pi runtime (ADR-0160).
+const CLIPi = "pi"
+
+// Agent is a configured runtime in a workspace (ADR-0160): Pi by default,
+// or any launchable catalog CLI. Managed RPC (`Runtime.Start`) is Pi-only.
 type Agent struct {
 	ID               string   `json:"id"`
 	WorkspaceID      string   `json:"workspaceId"`
 	Name             string   `json:"name"`
+	CLI              string   `json:"cli"`
 	CreatedAt        string   `json:"createdAt"`
 	Provider         *string  `json:"provider"`
 	Model            *string  `json:"model"`
@@ -31,21 +37,53 @@ type Agent struct {
 	WorkPath         *string  `json:"workPath"`
 	Packages         []string `json:"packages"`
 	PackagesIsolated bool     `json:"packagesIsolated"`
+	TerminalID       *string  `json:"terminalId,omitempty"`
 }
 
-const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, session_path, last_started_at, last_status, last_status_at, work_path, packages, packages_isolated, checklist`
+const agentCols = `id, workspace_id, name, created_at, provider, model, thinking, extra_prompt, op_mode, session_path, last_started_at, last_status, last_status_at, work_path, packages, packages_isolated, checklist, cli, terminal_id`
 
 func scanAgent(row interface{ Scan(...any) error }, a *Agent) error {
 	var pkgs string
 	var isolated int
+	var termID sql.NullString
 	err := row.Scan(&a.ID, &a.WorkspaceID, &a.Name, &a.CreatedAt, &a.Provider, &a.Model,
-		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath, &pkgs, &isolated, &a.Checklist)
+		&a.Thinking, &a.ExtraPrompt, &a.OpMode, &a.SessionPath, &a.LastStartedAt, &a.LastStatus, &a.LastStatusAt, &a.WorkPath, &pkgs, &isolated, &a.Checklist, &a.CLI, &termID)
 	if err != nil {
 		return err
 	}
 	a.Packages = decodePackages(pkgs)
 	a.PackagesIsolated = isolated != 0
+	if strings.TrimSpace(a.CLI) == "" {
+		a.CLI = CLIPi
+	}
+	if termID.Valid && strings.TrimSpace(termID.String) != "" {
+		id := strings.TrimSpace(termID.String)
+		a.TerminalID = &id
+	} else {
+		a.TerminalID = nil
+	}
 	return nil
+}
+
+// IsPi is true when managed RPC (`pi --mode rpc`) may start this agent.
+func (a Agent) IsPi() bool {
+	c := strings.TrimSpace(a.CLI)
+	return c == "" || strings.EqualFold(c, CLIPi)
+}
+
+func normalizeAgentCLI(cli string) (string, error) {
+	cli = strings.TrimSpace(cli)
+	if cli == "" {
+		cli = CLIPi
+	}
+	entry, ok := clilaunch.Find(cli)
+	if !ok {
+		return "", invalidError{"Unknown CLI."}
+	}
+	if !entry.Launchable() {
+		return "", invalidError{"That CLI cannot run as an agent."}
+	}
+	return entry.ID, nil
 }
 
 func decodePackages(raw string) []string {
@@ -133,6 +171,24 @@ func (s *Store) GetAgent(id string) (Agent, error) {
 	return a, nil
 }
 
+// AgentByTerminal returns the agent bound to this terminal, if any
+// (ADR-0160 Fatia C: the CLI agent's TUI lives on agents.terminal_id).
+func (s *Store) AgentByTerminal(terminalID string) (Agent, error) {
+	terminalID = strings.TrimSpace(terminalID)
+	if terminalID == "" {
+		return Agent{}, ErrNotFound
+	}
+	var a Agent
+	row := s.db.QueryRow(`SELECT `+agentCols+` FROM agents WHERE terminal_id = ?`, terminalID)
+	if err := scanAgentInto(row, &a); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Agent{}, ErrNotFound
+		}
+		return Agent{}, fmt.Errorf("store: agent by terminal: %w", err)
+	}
+	return a, nil
+}
+
 // AgentStatus values (cached view of runtime truth; see ADR-0005).
 const (
 	StatusNeverStarted = "never_started"
@@ -187,6 +243,7 @@ type AgentPatch struct {
 	SessionPath      *string
 	ExtraPrompt      *string
 	PackagesIsolated *bool
+	TerminalID       *string
 }
 
 // UpdateAgent applies a patch. Returns the row after the write.
@@ -234,13 +291,19 @@ func (s *Store) UpdateAgent(id string, p AgentPatch) (Agent, error) {
 	if p.PackagesIsolated != nil {
 		a.PackagesIsolated = *p.PackagesIsolated
 	}
+	if p.TerminalID != nil {
+		a.TerminalID = emptyToNil(*p.TerminalID)
+	}
 	iso := 0
 	if a.PackagesIsolated {
 		iso = 1
 	}
-	_, err = s.db.Exec(`UPDATE agents SET name=?, provider=?, model=?, thinking=?, extra_prompt=?, op_mode=?, session_path=?, packages_isolated=?, checklist=? WHERE id=?`,
-		a.Name, a.Provider, a.Model, a.Thinking, a.ExtraPrompt, a.OpMode, a.SessionPath, iso, a.Checklist, id)
+	_, err = s.db.Exec(`UPDATE agents SET name=?, provider=?, model=?, thinking=?, extra_prompt=?, op_mode=?, session_path=?, packages_isolated=?, checklist=?, terminal_id=? WHERE id=?`,
+		a.Name, a.Provider, a.Model, a.Thinking, a.ExtraPrompt, a.OpMode, a.SessionPath, iso, a.Checklist, a.TerminalID, id)
 	if err != nil {
+		if isUniqueConstraint(err) {
+			return Agent{}, conflictError{"That terminal already belongs to an agent."}
+		}
 		return Agent{}, fmt.Errorf("store: update agent: %w", err)
 	}
 	if p.SessionPath != nil && a.SessionPath != nil {
@@ -401,9 +464,27 @@ func emptyToNil(s string) *string {
 	return &s
 }
 
-// AddAgent creates an agent in a workspace (use FreeWorkspaceID for unbound).
+// AddAgent creates a Pi agent in a workspace (use FreeWorkspaceID for unbound).
 func (s *Store) AddAgent(workspaceID, name, workPath string) (Agent, error) {
+	if stringsTrimSpace(name) == "" {
+		return Agent{}, fmt.Errorf("store: name is required")
+	}
+	return s.AddAgentWithCLI(workspaceID, CLIPi, name, workPath)
+}
+
+// AddAgentWithCLI creates an agent for a launchable catalog CLI (ADR-0160).
+// Empty cli is Pi. Name may be empty: the catalog name is used.
+func (s *Store) AddAgentWithCLI(workspaceID, cli, name, workPath string) (Agent, error) {
+	cli, err := normalizeAgentCLI(cli)
+	if err != nil {
+		return Agent{}, err
+	}
 	name = stringsTrimSpace(name)
+	if name == "" {
+		if e, ok := clilaunch.Find(cli); ok {
+			name = e.Name
+		}
+	}
 	if name == "" {
 		return Agent{}, fmt.Errorf("store: name is required")
 	}
@@ -417,15 +498,16 @@ func (s *Store) AddAgent(workspaceID, name, workPath string) (Agent, error) {
 		ID:          newID(name, "agent"),
 		WorkspaceID: workspaceID,
 		Name:        name,
+		CLI:         cli,
 		CreatedAt:   nowUTC(),
 		LastStatus:  StatusNeverStarted,
 		WorkPath:    emptyToNil(workPath),
 	}
-	if _, err := s.db.Exec(`INSERT INTO agents (id, workspace_id, name, created_at, last_status, work_path) VALUES (?, ?, ?, ?, ?, ?)`,
-		a.ID, a.WorkspaceID, a.Name, a.CreatedAt, a.LastStatus, a.WorkPath); err != nil {
+	if _, err := s.db.Exec(`INSERT INTO agents (id, workspace_id, name, created_at, last_status, work_path, cli) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		a.ID, a.WorkspaceID, a.Name, a.CreatedAt, a.LastStatus, a.WorkPath, a.CLI); err != nil {
 		return Agent{}, fmt.Errorf("store: insert agent: %w", err)
 	}
-	a, err := s.GetAgent(a.ID)
+	a, err = s.GetAgent(a.ID)
 	if err != nil {
 		return Agent{}, err
 	}
@@ -481,6 +563,17 @@ func (s *Store) ListAllAgents() ([]Agent, error) {
 
 // DeleteAgent removes one agent. Workspace is kept.
 func (s *Store) DeleteAgent(id string) error {
+	a, err := s.GetAgent(id)
+	if err != nil {
+		return err
+	}
+	// An open needs-you prompt names this agent (ADR-0160 Fatia E); with
+	// the agent gone it has no addressee, so it closes.
+	if open, err := s.ActiveInboxBySourceReason(InboxFromAgent, id, InboxNeedsYouReason); err == nil {
+		for _, it := range open {
+			_, _ = s.SetInboxItemState(it.ID, InboxDone, nil)
+		}
+	}
 	_, _ = s.db.Exec(`DELETE FROM agent_checklists WHERE agent_id = ?`, id)
 	res, err := s.db.Exec(`DELETE FROM agents WHERE id = ?`, id)
 	if err != nil {
@@ -490,5 +583,16 @@ func (s *Store) DeleteAgent(id string) error {
 		return ErrNotFound
 	}
 	s.note("agent.deleted", nil, nil, idData(id))
+	if a.TerminalID != nil && strings.TrimSpace(*a.TerminalID) != "" {
+		_ = s.DeleteTerminal(*a.TerminalID)
+	}
 	return nil
+}
+
+func isUniqueConstraint(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "unique constraint") || strings.Contains(msg, "constraint failed")
 }

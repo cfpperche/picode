@@ -1126,7 +1126,7 @@ back.
 | Inside the pane | Does |
 |---|---|
 | `Shift`+`Esc` | leave: the wrapper (or the maximize layer) takes focus back, `engaged` off |
-| every other key, `Esc` included | the guest's — xterm writes it to the shell; `Shift`+`Esc` is the only chord the app takes, and xterm encodes it as the same `\x1b`, so no TUI loses a key it had |
+| every other key, `Esc` included | the CLI's — xterm writes it to the shell; `Shift`+`Esc` is the only chord the app takes, and xterm encodes it as the same `\x1b`, so no TUI loses a key it had |
 
 **Maximize** is host-level state on the surface, not a transform on the
 node: the maximized panel's body renders in a layer over the plane

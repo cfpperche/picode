@@ -162,6 +162,29 @@ func (deps Deps) askTerminal(id, cwd, text string) (askResult, error) {
 // deliberately no task row — the task queue belongs to agents (ADR-0089) —
 // so reopen goes through store.ReopenInboxItem and a daemon death between
 // park and JSONL row is the accepted terminal-ask gap.
+// AnswerTerminalQuestion is the one rule for a human's answer to a
+// question a terminal filed (ADR-0154, N1): a terminal running pi gets the
+// reply delivered through its receiver; any other terminal — a CLI agent
+// asking through `picode mcp inbox` and polling the item — has the answer
+// recorded on the item and the item closed. Both the inbox route and the
+// Inbox app go through here.
+func (deps Deps) AnswerTerminalQuestion(itemID, verb, text string) (termID string, err error) {
+	it, err := deps.Store.GetInboxItem(itemID)
+	if err != nil {
+		return "", err
+	}
+	if it.SourceKind != store.InboxFromTerminal || strings.TrimSpace(it.SourceID) == "" {
+		return "", fmt.Errorf("this item has no terminal")
+	}
+	if termHostsPi(deps, it.SourceID) {
+		return deps.DeliverTerminalReply(itemID, verb, text)
+	}
+	if _, err := deps.Store.RespondInboxItem(itemID, verb, text); err != nil {
+		return it.SourceID, err
+	}
+	return it.SourceID, nil
+}
+
 func (deps Deps) DeliverTerminalReply(itemID, verb, text string) (termID string, err error) {
 	it, err := deps.Store.GetInboxItem(itemID)
 	if err != nil {

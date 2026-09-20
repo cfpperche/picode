@@ -26,6 +26,8 @@ editor and footer, excluding conversation history. No new protocol or dependency
 | Post-paste frame not settled at the first sample (render lag under load) | Poll the exact same guards inside a bounded 1.2 s window; Enter only on a full-frame match | `TestPeerPasteSettleWindow`, `TestPeerAttentionFailureReasons` |
 | Frame still unsettled when the window expires, or a draft appears mid-window | Refuse uncertain, never retry, no draft touched | `TestPeerPasteSettleWindow` |
 | Unaccepted suggestion, Grok 1.0.30 restyle (styled border/gutter/prompt, italic + dim-gray text, styled closing border) | Recognize as empty together with the exact suggestion footer, empty cursor and complete frame — same as the 1.0.25 shape | `TestPeerGrokNativeSuggestion1030`; native `check_NZ2UPKO3QEVF37…` passed with the suggestion visible |
+| Post-paste footer, Grok 1.0.34 (appends `Shift+Enter/Alt+Enter:newline`) | Accept the exact long shape for pasted text only; empty/suggestion/welcome keep single footers | `TestPeerGrokBorderedComposer` 1.0.34 rows; native `check_OXO4VYUIMMLORYT2B6UXUQFVOU` passed |
+| Claude ghost suggestion (predicted follow-up dim after the empty cursor) | Recognize the exact captured shape only; bright text, moved cursor and changed frame still refuse | `TestPeerClaudeGhostSuggestion`; unblocked the claude → grok sender natively |
 | Live draft before the paste | Leave pending, refuse silently before any claim | `TestPeerAttentionFailureReasons`; native `check_74DN3QWOTQS7HOGY2J7VTRNCZX` expired with the draft byte-identical |
 
 ## Native acceptance

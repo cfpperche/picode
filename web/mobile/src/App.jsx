@@ -1,9 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
-import { applyTheme, persistTheme, readThemeMode } from "@picode/shared/domain/theme.js";
+import { applyTheme, persistTheme, readThemeMode, resolvedTheme } from "@picode/shared/domain/theme.js";
 import { startPresence } from "@picode/shared/client/device.js";
 import { startFeed, subscribeFeed } from "@picode/shared/client/feed.js";
 import { applyTui, touches } from "@picode/shared/domain/feedReducers.js";
+import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
 import { applyChecklists, indexChecklists } from "@picode/shared/domain/checklist.js";
 import { startReconnectWatch } from "@picode/shared/client/reconnect.js";
 import { normalizeManifests, nativeApp } from "@picode/shared/contracts/appPrimitives.js";
@@ -16,14 +17,19 @@ import { closeTerm } from "./lib/terms.js";
 import { mobileHash, toolHash, tabOf, readWorkSection, writeWorkSection } from "./lib/mobileRoutes.js";
 import { agentOwnerWs, termOwnerWs } from "./lib/workBack.js";
 import { askConfirm } from "./lib/confirm.js";
+import { askPrompt } from "./lib/prompt.js";
+import { sessionFromTerminal, terminalHandoffSourceCli } from "@picode/shared/domain/sessionHandoff.js";
 import Reconnect from "./components/Reconnect.jsx";
 import ShareDrawer, { OPEN_EVENT } from "./components/ShareDrawer.jsx";
 import Toasts from "./components/Toasts.jsx";
 import ConfirmDialog from "./components/ConfirmDialog.jsx";
+import PromptDialog from "./components/PromptDialog.jsx";
+import SessionHandoffDialog from "./components/SessionHandoffDialog.jsx";
 import WhatsNew from "./components/WhatsNew.jsx";
 import RELEASE_NOTES from "@picode/shared/data/whats-new.json";
 import TabBar from "./components/TabBar.jsx";
 import CreateSheet from "./components/CreateSheet.jsx";
+import NewCliPrincipal from "./components/NewCliPrincipal.jsx";
 import { agentState } from "./components/StateChip.jsx";
 import Now from "./screens/Now.jsx";
 const Inbox = lazy(() => import("./screens/Inbox.jsx"));
@@ -64,6 +70,8 @@ export default function MobileApp() {
   const route = useHashRoute();
   const [themeMode, setThemeMode] = useState(readThemeMode);
   const [catalog, setCatalog] = useState(null);
+  const [clis, setClis] = useState([]);
+  const [termHandoff, setTermHandoff] = useState(null);
   const [system, setSystem] = useState(null);
   const [version, setVersion] = useState("");
   const [semver, setSemver] = useState("");
@@ -87,6 +95,7 @@ export default function MobileApp() {
     return () => window.removeEventListener(OPEN_EVENT, on);
   }, []);
   const [create, setCreate] = useState(null); // { kind, workspace } | null
+  const [cliPrincipalWs, setCliPrincipalWs] = useState(null);
   // Recovery links inside the sheet navigate to a full screen. Close it
   // only after navigation succeeds, so route guards can still cancel it.
   useEffect(() => { setCreate(null); }, [route]);
@@ -98,7 +107,13 @@ export default function MobileApp() {
   const { workspaces, freeAgents, terminals, loaded, error: fleetError, reload } = fleet;
   const [workSection, setWorkSection] = useState(readWorkSection);
 
-  useEffect(() => { applyTheme(themeMode); }, [themeMode]);
+  useEffect(() => {
+    applyTheme(themeMode);
+    // iOS 26 frosts a translucent status bar over the header. Opaque
+    // (black / default) keeps the title at --text-primary.
+    const bar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (bar) bar.setAttribute("content", resolvedTheme(themeMode) === "light" ? "default" : "black");
+  }, [themeMode]);
   useEffect(() => startPresence(), []);
   useEffect(() => startFeed(), []);
   // Zoom lock (owner): a supervision console is read at one scale. The
@@ -133,6 +148,10 @@ export default function MobileApp() {
         setReleaseBuild(!!ver.release);
       } catch { /* offline */ }
       await loadCatalog();
+      try {
+        const d = await api("/api/clis");
+        setClis(d.clis || []);
+      } catch { /* Agent CLIs catalog is optional for Work */ }
     })();
   }, []);
 
@@ -259,6 +278,7 @@ export default function MobileApp() {
     const value = String(goto || "");
     if (value.startsWith("agent:")) openAgent(value.slice("agent:".length));
     if (value.startsWith("pin:")) push("#/pins/" + encodeURIComponent(value.slice("pin:".length)));
+    if (value.startsWith("term:")) openTerm(value.slice("term:".length));
   }
   function openChanges(kind, id, title) {
     if (id) push(mobileHash("changes", id, kind));
@@ -317,18 +337,101 @@ export default function MobileApp() {
     } catch (e) { toastError(e); } finally { setBusyId(""); }
   }
 
+  async function renameTerminal(t) {
+    if (!t) return;
+    const name = await askPrompt({ title: "Rename terminal", defaultValue: t.name || "Terminal", confirmLabel: "Save" });
+    if (!name) return;
+    setBusyId(t.id);
+    try {
+      await api("/api/terminals/" + encodeURIComponent(t.id), {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }),
+      });
+      await reload({ force: true });
+    } catch (e) { toastError(e); } finally { setBusyId(""); }
+  }
+
+  async function launchTerminalAction(t, op) {
+    if (!t || !op) return;
+    const destructive = t.running && op !== "start";
+    if (destructive && !(await askConfirm({
+      title: `${op === "stop" ? "Stop" : "Restart"} ${t.name || "terminal"}?`,
+      message: op === "restart"
+        ? (t.lastSession
+          ? "This ends the processes running in this terminal, then reopens the same conversation."
+          : "This ends the processes running in this terminal.")
+        : "This ends the processes running in this terminal.",
+      confirmLabel: op === "stop" ? "Stop terminal" : "Restart terminal",
+      danger: true,
+    }))) return;
+    setBusyId(t.id);
+    try {
+      await api(`/api/terminals/${encodeURIComponent(t.id)}/launch/${op}`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm: destructive }),
+      });
+      await reload({ force: true });
+      if (op === "start") openTerm(t.id);
+      else toast.ok(op === "stop" ? "Terminal stopped." : "Terminal restarted.");
+    } catch (e) { toastError(e); } finally { setBusyId(""); }
+  }
+
+  function openTermHandoff(term, target) {
+    const session = sessionFromTerminal(term);
+    const sourceCli = terminalHandoffSourceCli(term);
+    if (!session || !sourceCli || !target || (target.landing !== "agent" && !target.installed)) return;
+    const source = clis.find((c) => c.id === sourceCli);
+    setTermHandoff({
+      session,
+      sourceCli,
+      sourceName: (source && source.name) || sourceCli,
+      target,
+    });
+  }
+
+  function onTermHandoffDone(res, target) {
+    setTermHandoff(null);
+    const next = res && res.terminal;
+    const adopted = res && res.agent;
+    if (next && next.launchError) {
+      toastError(new Error(next.launchError));
+    } else if (next && next.id) {
+      toast.ok(target.name + " is opening with this conversation.");
+      openTerm(next.id);
+    } else if (adopted && adopted.id) {
+      toast.ok(res.brief ? "Continued as a Pi agent: " + adopted.name + ". Its first message reads the brief." : "Continued as a Pi agent: " + adopted.name + ".");
+      openAgent(adopted.id);
+    } else {
+      toast.ok("Handoff recorded.");
+    }
+  }
+
+  function onTermAction(term, id, extra) {
+    if (id === "rename") return renameTerminal(term);
+    if (id === "remove") return removeTerminal(term);
+    if (id === "handoff") return openTermHandoff(term, extra);
+    if (id === "start" || id === "restart" || id === "stop") return launchTerminalAction(term, id);
+  }
+
   async function withBusy(agent, fn) {
     setBusyId(agent.id);
     try { await fn(); await reload({ force: true }); } catch (e) { toastError(e); } finally { setBusyId(""); }
   }
 
+  function agentTerm(agent) {
+    return terminals.find((t) => t.id === agent.terminalId) || { id: agent.terminalId, name: agent.name };
+  }
+
   function startAgent(agent, workspace) {
+    // A CLI agent's process is its bound terminal (ADR-0160): start the CLI
+    // launch, not the managed runtime — and open the TUI, which is the
+    // conversation.
+    if (!agentIsPi(agent) && agent.terminalId) return launchTerminalAction(agentTerm(agent), "start");
     return withBusy(agent, async () => {
       await api("/api/agents/" + agent.id + "/managed/start", { method: "POST" });
     });
   }
 
   function stopAgent(agent, workspace) {
+    if (!agentIsPi(agent) && agent.terminalId) return launchTerminalAction(agentTerm(agent), "stop");
     return withBusy(agent, async () => {
       if (agent.mode === "interactive") {
         // Agent-scoped control matters in multi-agent workspaces; the
@@ -440,8 +543,8 @@ export default function MobileApp() {
     body = (
       <Work section={section} focusWs={section === "workspaces" ? route.id : ""} onSection={setSection} loaded={loaded} error={fleetError} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals}
         workingIds={tuiWorking} busyId={busyId} checklists={checklists}
-        onOpenAgent={(a) => openAgent(a.id)} onOpenTerm={(t) => openTerm(t.id)} onStart={startAgent} onStop={stopAgent} onRemoveTerm={removeTerminal}
-        onCreate={(kind, ws) => setCreate({ kind, workspace: ws || (kind === "agent" ? (workspaces[0] || null) : null) })} onNewTerm={newTerminal}
+        onOpenAgent={(a) => openAgent(a.id)} onOpenTerm={(t) => openTerm(t.id)} onStart={startAgent} onStop={stopAgent} onTermAction={onTermAction} clis={clis}
+        onCreate={(kind, ws) => setCreate({ kind, workspace: ws || (kind === "agent" ? (workspaces[0] || null) : null) })} onNewTerm={newTerminal} onNewCliPrincipal={setCliPrincipalWs}
         onOpenChanges={openChanges} onOpenFiles={openFiles} onOpenGit={openGit} onRefresh={refreshAll} />
     );
   } else if (route.screen === "more") {
@@ -466,11 +569,44 @@ export default function MobileApp() {
       {pushed ? null : <TabBar active={tab} badges={badges} />}
       <CreateSheet open={!!create} kind={create ? create.kind : "workspace"} workspace={create ? create.workspace : null} catalog={catalog}
         onClose={() => setCreate(null)} onCreated={onCreated} />
+      <NewCliPrincipal
+        open={!!cliPrincipalWs}
+        workspace={cliPrincipalWs}
+        onClose={() => setCliPrincipalWs(null)}
+        onCreated={async (created) => {
+          setCliPrincipalWs(null);
+          if (!created || !created.id) return;
+          if (created.cli && created.cli !== "pi" && created.terminalId) {
+            try {
+              await api("/api/terminals/" + encodeURIComponent(created.terminalId) + "/launch/start", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ confirm: false }),
+              });
+            } catch (e) { toastError(e); }
+            await reload({ force: true });
+            openTerm(created.terminalId);
+            return;
+          }
+          await reload({ force: true });
+          openAgent(created.id);
+        }}
+      />
       <ShareDrawer open={shareOpen} onClose={() => setShareOpen(false)} />
       <Toasts />
       {reconnect ? <Reconnect onReload={() => location.reload()} /> : null}
       <WhatsNew open={whatsNewOpen} onClose={closeWhatsNew} currentSemver={whatsNewCurrent} seenVersion={whatsNewSeen} notes={RELEASE_NOTES} unseenOnly={whatsNewMode === "auto"} />
       <ConfirmDialog />
+      <PromptDialog />
+      <SessionHandoffDialog
+        open={!!termHandoff}
+        session={termHandoff ? termHandoff.session : null}
+        sourceCli={termHandoff ? termHandoff.sourceCli : ""}
+        sourceName={termHandoff ? termHandoff.sourceName : ""}
+        target={termHandoff ? termHandoff.target : null}
+        onClose={() => setTermHandoff(null)}
+        onDone={onTermHandoffDone}
+      />
     </div>
   );
 }

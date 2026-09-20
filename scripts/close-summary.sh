@@ -36,6 +36,7 @@ if ! git diff --name-only "$base"..HEAD | grep -q '^docs/changelog\.d/'; then
 fi
 if ! git diff --name-only "$base"..HEAD | grep -q '^docs/handoff/'; then
   echo "- docs/handoff/$today-$slug.md: not written — one file, ≤ 25 lines (see .pi/skills/handoff-update/SKILL.md)"
+  echo "  (a \`## Debts\` bullet there rides the board for 7 days — name the topic file that owns each durable one, ADR-0145)"
   owed=1
 fi
 if git diff --name-only "$base"..HEAD | grep -qE '^docs/decisions/[0-9]{4}-'; then

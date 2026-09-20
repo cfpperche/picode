@@ -13,6 +13,8 @@ import (
 //
 //   - only http and https: an agent may not follow file:, data: or
 //     javascript: anywhere, listed or not;
+//   - the entry `*` matches any host — the owner's deliberate "this agent may
+//     go anywhere", which the scheme rule above still narrows to the web;
 //   - the entry `example.com` matches that host exactly;
 //   - the entry `*.example.com` (or `.example.com`) also matches its
 //     subdomains;
@@ -39,6 +41,11 @@ func AllowsOrigin(domains []string, rawURL string) bool {
 		want := strings.ToLower(strings.TrimSpace(entry))
 		if want == "" {
 			continue
+		}
+		if want == "*" {
+			// Any host. The scheme check above already ran: this is the web,
+			// not a way to reach file:// or a data: page.
+			return true
 		}
 		// Both spellings of "this host and its subdomains": *.example.com and
 		// the leading-dot .example.com are the same promise.

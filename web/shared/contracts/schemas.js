@@ -13,6 +13,19 @@ import { parseSnip, utf8Bytes, SNIP_LIMITS } from "../domain/snipDraft.js";
 
 const required = (label) => z.string().trim().min(1, label + " is required.");
 
+export const webappUrlSchema = z.object({
+  url: required("URL").max(2048, "Use a URL up to 2048 characters.").refine((raw) => {
+    try {
+      const u = new URL(raw.includes("://") ? raw : "https://" + raw);
+      return ["http:", "https:"].includes(u.protocol) && !!u.hostname && !u.username && !u.password && !/[\s\\]/.test(raw);
+    } catch { return false; }
+  }, "Use an HTTP or HTTPS address without a username or password."),
+});
+export const webappNameSchema = z.object({
+  name: required("Name").refine((name) => [...name].length <= 200, "Use up to 200 characters for the name."),
+});
+export const webappInstallSchema = webappUrlSchema.extend(webappNameSchema.shape);
+
 export const webhookSchema = z.object({
   url: z.string().trim().max(2048).refine((raw) => {
     try { const u = new URL(raw); return ["http:", "https:"].includes(u.protocol) && !!u.hostname && !u.username && !u.password && !u.hash; } catch { return false; }
@@ -41,6 +54,7 @@ export const cliLaunchSchema = z.object({
   pathText: z.string().max(8192),
   envText: z.string().max(32768),
   integration: z.boolean(),
+  tools: z.array(z.string().regex(/^[a-z][a-z0-9-]{0,31}$/, "PiCode tools are named computer, browser, …")).max(8, "Too many PiCode tools.").default([]),
 }).superRefine((v, ctx) => {
   const fail = (message) => ctx.addIssue({ code: "custom", message });
   if (Object.values(v).some((x) => typeof x === "string" && /[\0\r]/.test(x))) fail("Launch settings contain an invalid character.");
@@ -62,6 +76,13 @@ export const cliTerminalSchema = z.object({
   name: required("Name").max(80, "Use up to 80 characters for the name."),
   workspaceId: z.string(),
   cwd: z.string(),
+});
+
+// Workspace catalog picker (ADR-0159 Fatia 3): bind a launchable CLI as a
+// managed principal. Empty name lets the server use the catalog name.
+export const managedPrincipalSchema = z.object({
+  cli: required("CLI").max(64, "Unknown CLI."),
+  name: z.string().trim().max(80, "Use up to 80 characters for the name."),
 });
 
 export const cliProfileSchema = z.object({ name: required("Profile name").max(80, "Use up to 80 characters for the name.") });
@@ -592,6 +613,39 @@ export const packageDescribeSchema = z.object({
       ctx.addIssue({ code: "custom", message: `Field "${f.key}": min is above max.`, path: ["fields", i, "min"] });
     }
   }
+});
+
+// Every permission kind the daemon stores and the shell maps (the store's
+// closed list, `internal/store/browser_permissions.go`). The dialog shows a
+// titled subset and lets the rest be authored by name: a control nobody can
+// reach is worse than a longer list.
+export const BROWSER_PERMISSION_KINDS = [
+  "camera",
+  "microphone",
+  "location",
+  "notifications",
+  "clipboard",
+  "autoplay",
+  "sensors",
+  "midi",
+  "fonts",
+  "filesystem",
+];
+
+// One site exception, authored by hand in Settings ▸ Browser (the reference's
+// "+ Add"): a site or pattern, a kind, and the decision to remember. The
+// normalization mirrors browserGrantSchema, and `*` is every site — those are
+// the two spellings the store and the shell already match.
+export const browserSiteSchema = z.object({
+  site: z.string().transform((raw) => {
+    let host = String(raw || "").trim().toLowerCase().replace(/^https?:\/\//, "").split("/")[0];
+    return host.startsWith("[") ? host.slice(1).split("]")[0] : host.split(":")[0];
+  }).refine(
+    (host) => host === "*" || /^[a-z0-9*.\-]+$/.test(host),
+    "Use a site like example.com, a pattern like *.example.com, or * for every site.",
+  ),
+  kind: z.enum(BROWSER_PERMISSION_KINDS),
+  decision: z.enum(["allow", "deny", "ask"]),
 });
 
 // A browser grant (ADR-0128) as the editor edits it: the tier plus the

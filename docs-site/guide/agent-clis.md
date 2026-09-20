@@ -14,6 +14,18 @@ when idle) through a reporter PiCode installs as its title command — it
 never reports needs-you, approvals still happen in its own terminal. Muse
 Code reports nothing yet (its terminals read Open).
 
+Omp (oh-my-pi, a fork of Pi) works like the rest: editable launch settings,
+an Activity reporting toggle (it shares pi's extension API, so it reports
+Ready and Working), Sessions with resume, and Check for updates. It joins
+**Continue in…** both ways: its own sessions move to another CLI, and other
+CLIs' conversations arrive as native omp sessions you resume with
+`--resume <id>`. It is a
+Bun program and needs Bun 1.3.14 or newer on PATH — an older Bun fails
+Check setup with a syntax error from its bundle. One conflict to know:
+omp refuses to start if your launch arguments carry `--trusted-extension`
+while Activity reporting is on, so PiCode names that combination in the
+launch preview instead of starting a broken terminal.
+
 Every CLI's pane carries the same tabs — Launch, Terminals, Sessions,
 Providers, Settings, Keyboard, Packages and Connectors. The tabs a CLI has no
 native editors for (today everything but Pi) say so: *in development — coming
@@ -39,7 +51,8 @@ PiCode does not install CLIs for the first time or manage their credentials
 here — with one exception: **Install** appears for pi, Codex and Claude Code
 when the CLI is missing and npm is available, running the same npm command
 the reinstall action uses. Grok and Hermes Agent install through their own
-guides; their cards link to them. A missing executable also offers
+guides; Omp installs through npm like pi, Codex and Claude Code. A missing
+executable also offers
 **Customize**; the CLI's documentation link explains its installation.
 Checking setup runs `--version`, without starting a conversation.
 
@@ -106,6 +119,27 @@ Navigation asks before discarding unsaved edits.
 **Restore defaults** clears launch overrides in the editor and keeps the
 activity-reporting switch unchanged. Review the preview and save to apply.
 New launches use the saved settings; existing processes keep running.
+
+**Common controls** sit above an **Advanced** reveal of the fields below.
+They write the CLI's own documented flags into the same argument list —
+everything you typed there stays, and clearing a control removes its flag.
+Each CLI offers what its installed flags support:
+
+| Control | Flag it writes | Offered for |
+|---|---|---|
+| Model | `--model` | Pi, Claude Code, Codex, Grok, Hermes Agent, OpenCode, Omp |
+| Additional folders | `--add-dir` | Claude Code, Codex, Omp |
+| Thinking / Reasoning effort | `--thinking`, `--effort`, `--reasoning`, `-c model_reasoning_effort=…` | Pi, Codex, Grok, Hermes Agent |
+| Approvals | `--permission-mode`, `--ask-for-approval` | Claude Code, Codex, Grok |
+| Sandbox | `--sandbox` | Codex, Grok |
+| YOLO | `--yolo`, `--always-approve` | Codex, Hermes Agent, Grok (auto-approve) |
+
+Codex refuses YOLO together with a sandbox or approval choice, so picking
+one clears the others (and vice versa). Skipping prompts or granting full
+access shows a one-line warning on the control. The Grok sandbox offers the
+built-in profiles (`workspace`, `devbox`, `read-only`, `strict`) and
+accepts a custom profile name typed in the field. Muse Code and
+Antigravity have no editable launch settings.
 
 | Setting | Meaning |
 |---|---|
@@ -218,9 +252,11 @@ before continuing, since its newest turns may not be on disk yet.
 
 ## Reuse launch profiles
 
-Expand **Launch profiles** for a CLI, then select **New profile**. Name it,
-edit its launch settings and save. **Use** opens a new-terminal form with that
-profile selected. Profiles can also be selected while creating a terminal.
+**Launch profiles** holds a CLI's reusable settings and opens by default
+once a profile exists. Select **New profile**. Name it,
+edit its launch settings (quick controls included) and save. **Use** opens
+a new-terminal form with that profile selected. Profiles can also be
+selected while creating a terminal.
 
 A profile is copied, not linked. Changing or removing it leaves existing
 terminals unchanged. Its explicit empty arguments and automatic executable
@@ -265,9 +301,9 @@ that CLI keep the old version until you restart them; PiCode asks before it
 touches a CLI with live terminals.
 
 When a CLI is **not installed**, its detail page offers **Install** for pi,
-Codex and Claude Code (needs npm on the machine). Grok and Hermes Agent
-install through their own guides — the card links to them and PiCode never
-runs their install scripts.
+Codex, Claude Code and Omp (needs npm on the machine). Grok and Hermes
+Agent install through their own guides — the card links to them and PiCode
+never runs their install scripts.
 
 **Uninstall** runs the CLI's own uninstall command (Hermes Agent, OpenCode)
 or npm's for npm-installed tools, after you type the CLI's name. Grok and a native
@@ -325,7 +361,7 @@ names for cleanup.
 | Resume last session | Start the terminal and reopen the conversation it was running, using each CLI's verified resume arguments (Claude Code `--resume <id>`, Codex `resume <id>`, Grok `--resume <id>`, Hermes Agent `--resume <id>`, OpenCode `--session <id>`, pi `--session <file>`). Offered on the stopped terminal surface when a conversation is pinned; the surface names the CLI, the conversation and when it last moved. |
 | Continue in… | Open this terminal's conversation in another CLI. The original terminal stays; a new terminal opens, or a stopped Pi agent when you pick "Pi agent · in the app". Offered when a conversation is pinned. |
 | Stop terminal | End its processes but keep the saved terminal and settings. |
-| Restart terminal | Prepare the next launch, end its processes and launch again. This does not automatically resume a conversation. |
+| Restart terminal | Prepare the next launch, end its processes and launch again. A pinned conversation is reopened with that CLI's verified resume arguments (the same recipe as Resume last session). Without a pin, Restart starts a fresh conversation. |
 | Remove terminal | End its processes and remove its PiCode record and launch files. Native CLI data stays yours. |
 
 The action menu names the terminal. Interrupting a live terminal requires
@@ -345,8 +381,9 @@ terminal, its surface offers **Resume last session** — the CLI comes back
 in the same conversation. The pin records what was running, so the button
 shows the recovered work even after the process is gone, and the surface
 names it: the CLI, the conversation and how long ago it last moved (hover
-for the opening words and the exact time). Nothing resumes
-automatically: a plain Start still opens a fresh conversation. Terminals
+for the opening words and the exact time). Nothing resumes automatically after a crash or daemon restart: a plain Start
+still opens a fresh conversation. **Restart terminal** on a live Agent CLI
+is the attended path — it reopens the pinned conversation (ADR-0158). Terminals
 stopped before this feature shipped have no pin; their conversations stay
 reachable in that CLI's Sessions pane via "Open in terminal", and their
 surface says *no session to resume* instead of offering a button it cannot

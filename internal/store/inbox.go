@@ -71,6 +71,11 @@ const (
 	InboxFromPin        = "pin" // ADR-0100: source_id is the pin
 )
 
+// InboxNeedsYouReason marks a CLI agent's "the CLI is waiting on you" item
+// (ADR-0160 Fatia E): filed for the agent, closed when the CLI moves on or
+// the agent goes away.
+const InboxNeedsYouReason = "cli-needs-you"
+
 const (
 	maxInboxTitle = 200
 	maxInboxBody  = 100_000
@@ -290,6 +295,25 @@ func (s *Store) ListInboxItems(f InboxFilter) ([]InboxItem, error) {
 		var it InboxItem
 		if err := scanInboxItem(rows, &it); err != nil {
 			return nil, fmt.Errorf("store: scan inbox item: %w", err)
+		}
+		out = append(out, it)
+	}
+	return out, rows.Err()
+}
+
+// ActiveInboxBySourceReason lists not-done items for one source and reason.
+func (s *Store) ActiveInboxBySourceReason(sourceKind, sourceID, reason string) ([]InboxItem, error) {
+	rows, err := s.db.Query(`SELECT `+inboxCols+` FROM inbox_items WHERE source_kind = ? AND source_id = ? AND reason = ? AND state != ? ORDER BY created_at`,
+		sourceKind, sourceID, reason, InboxDone)
+	if err != nil {
+		return nil, fmt.Errorf("store: inbox by source: %w", err)
+	}
+	defer rows.Close()
+	out := []InboxItem{}
+	for rows.Next() {
+		var it InboxItem
+		if err := scanInboxItem(rows, &it); err != nil {
+			return nil, err
 		}
 		out = append(out, it)
 	}

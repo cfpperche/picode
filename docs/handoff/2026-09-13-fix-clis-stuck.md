@@ -15,8 +15,3 @@ Not done / debts: none on this branch. Root cause was load-shaped, not a
 regression: 72 tmux sessions + 10 managed terminals + ~1.5 terminal.state
 events/s made the sequential list slower than the event cadence.
 Merge: fast-forward ready (main merged in, gates re-run).
-
-## Next up
-
-- Watch the list endpoint on production after deploy; if p99 still spikes,
-  cache the gitinfo facts per cwd with a short TTL (server-side, no UI change).

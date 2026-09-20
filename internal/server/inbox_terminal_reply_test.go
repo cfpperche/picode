@@ -501,3 +501,52 @@ func TestInboxTerminalReplyReopensWhenTheRowNeverAppears(t *testing.T) {
 	}
 	t.Fatal("the item never reopened after the terminal ignored the reply")
 }
+
+// A question from a terminal that is not running pi (a CLI agent asking
+// through picode mcp inbox, ADR-0154 N1) has no receiver: the answer is
+// recorded on the item and the item closes, so the asker's poll reads it.
+func TestInboxTerminalQuestionWithoutPiRecordsTheAnswer(t *testing.T) {
+	ts, deps, st, term, _, sessionPath := piTerminalFixture(t)
+	// Neither the launch record nor a running process says pi.
+	deps.TermRuntimes.Drop(term.ID)
+	if err := st.SetTerminalLaunch(term.ID, "claude-code", clilaunch.Overrides{}); err != nil {
+		t.Fatal(err)
+	}
+	it := terminalQuestion(t, st, term.ID, sessionPath)
+	code, body := postRaw(t, ts, "/api/inbox/"+it.ID+"/respond", `{"verb":"respond","text":"use port 8445"}`)
+	if code != http.StatusOK {
+		t.Fatalf("respond: %d %v", code, body)
+	}
+	res, err := ts.Client().Get(ts.URL + "/api/inbox/" + it.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	var got store.InboxItem
+	if err := json.NewDecoder(res.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got.State != store.InboxDone || got.Response == nil || *got.Response != "respond: use port 8445" {
+		t.Fatalf("item = state %s response %v", got.State, got.Response)
+	}
+	if r, _ := ts.Client().Get(ts.URL + "/api/inbox/nope"); r.StatusCode != http.StatusNotFound {
+		t.Fatalf("unknown item = %d", r.StatusCode)
+	}
+	// The Inbox app answers through the same rule (it does not go through
+	// the route): recorded for a CLI terminal, delivered (and here
+	// refused for want of a receiver) for a pi one.
+	it2 := terminalQuestion(t, st, term.ID, sessionPath)
+	if id, err := deps.AnswerTerminalQuestion(it2.ID, store.VerbRespond, "again"); err != nil || id != term.ID {
+		t.Fatalf("app answer for a CLI terminal = %q %v", id, err)
+	}
+	if after, _ := st.GetInboxItem(it2.ID); after.State != store.InboxDone || after.Response == nil || *after.Response != "respond: again" {
+		t.Fatalf("app answer not recorded: %+v", after)
+	}
+	if err := st.SetTerminalLaunch(term.ID, "pi", clilaunch.Overrides{}); err != nil {
+		t.Fatal(err)
+	}
+	it3 := terminalQuestion(t, st, term.ID, sessionPath)
+	if _, err := deps.AnswerTerminalQuestion(it3.ID, store.VerbRespond, "hi"); err == nil || !strings.Contains(err.Error(), "not running pi") {
+		t.Fatalf("a pi terminal still goes through delivery: %v", err)
+	}
+}

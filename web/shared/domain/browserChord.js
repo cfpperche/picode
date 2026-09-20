@@ -5,7 +5,7 @@
 // in-page preventDefault can stop it. The cancelable class (Ctrl+F, Ctrl+P,
 // Alt+Left, F3, …) does fire keydown and is the page's to cancel — inside
 // a terminal pane xterm.js already cancels and encodes every chord it maps
-// (termKeys.js), so the reserved set is the only real gap for a guest CLI
+// (termKeys.js), so the reserved set is the only real gap for a CLI
 // like Codex's Ctrl+T. Nothing in the app closes that gap: the Keyboard
 // Lock API could, but only while the page itself asked the browser for
 // fullscreen, and PiCode's fullscreen mode stopped doing that on

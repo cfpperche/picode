@@ -148,12 +148,28 @@ export function cliLocation(hash = "", legacy = {}) {
   return loc;
 }
 
+// PICODE_TOOL_FAMILIES are PiCode's own tool families a CLI agent can
+// receive at launch as MCP servers (ADR-0154): the CLI agent's per-agent scope.
+// The server validates the names; this list is what the form offers.
+export const PICODE_TOOL_FAMILIES = [
+  { id: "computer", label: "Computer", hint: "Use the Windows desktop through the desktop app. Off until you switch this terminal on in Settings ▸ Computer." },
+  { id: "browser", label: "Browser", hint: "Read the page open in the work browser. Acting needs a grant in Settings ▸ Browser." },
+  { id: "inbox", label: "Inbox", hint: "File notes and questions into your Inbox; a question waits for your answer there." },
+  { id: "checklist", label: "Checklist", hint: "The agent's plan for the task, shown as the current step on this terminal's card." },
+];
+
+const toolList = (tools) => Array.isArray(tools) ? tools.filter((t) => typeof t === "string" && t) : [];
+
 export function launchDraft(c = {}) {
   return { executable: c.executable || "", argsText: (c.args || []).map((a) => !a.trim() || a.startsWith('"') ? JSON.stringify(a) : a).join("\n"), pathText: (c.path || []).join("\n"),
-    envText: Object.entries(c.env || {}).map(([k, v]) => `${k}=${v}`).join("\n"), integration: !!c.integration };
+    envText: Object.entries(c.env || {}).map(([k, v]) => `${k}=${v}`).join("\n"), integration: !!c.integration, tools: toolList(c.tools) };
 }
 
 export const launchLines = (text) => String(text || "").split("\n").filter((line) => line.trim());
+
+// launchArgs parses the args textarea into argv entries; a line that starts
+// with a quote is JSON-decoded (the same encoding argLine writes back).
+export const launchArgs = (text) => launchLines(text).map((a) => { if (a.startsWith('"')) { try { const s = JSON.parse(a); if (typeof s === "string") return s; } catch { /* literal argument */ } } return a; });
 
 export function launchConfig(v) {
   const env = {};
@@ -161,8 +177,7 @@ export function launchConfig(v) {
     const i = line.indexOf("=");
     env[line.slice(0, i).trim()] = line.slice(i + 1);
   }
-  const args = launchLines(v.argsText).map((a) => { if (a.startsWith('"')) { try { const s = JSON.parse(a); if (typeof s === "string") return s; } catch { /* literal argument */ } } return a; });
-  return { executable: v.executable.trim(), args, path: launchLines(v.pathText).map((p) => p.trim()), env, integration: v.integration };
+  return { executable: v.executable.trim(), args: launchArgs(v.argsText), path: launchLines(v.pathText).map((p) => p.trim()), env, integration: v.integration, tools: toolList(v.tools) };
 }
 
 export function resolveLaunch(base, patch = {}) {
@@ -176,6 +191,8 @@ export function launchOverrides(base, next) {
   for (const key of ["executable", "args", "path", "integration"]) {
     if (JSON.stringify(base[key]) !== JSON.stringify(next[key])) patch[key] = next[key];
   }
+  // A config saved before ADR-0154 has no tools key: read it as none.
+  if (JSON.stringify(toolList(base.tools)) !== JSON.stringify(toolList(next.tools))) patch.tools = toolList(next.tools);
   const env = {};
   for (const key of new Set([...Object.keys(base.env || {}), ...Object.keys(next.env || {})])) {
     if (base.env?.[key] !== next.env?.[key]) env[key] = next.env?.[key] ?? null;
@@ -195,7 +212,7 @@ export function terminalLaunchCLI(terminal, requested = "") {
   return terminal?.launchCli || terminal?.tui?.cli || terminal?.cli || requested;
 }
 
-export const defaultLaunchConfig = (integration) => ({ executable: "", args: [], path: [], env: {}, integration: !!integration });
+export const defaultLaunchConfig = (integration) => ({ executable: "", args: [], path: [], env: {}, integration: !!integration, tools: [] });
 export const cliWorkspaceList = (response) => Array.isArray(response) ? response : response?.workspaces || [];
 
 export function launchChanged(applied, next) {
@@ -205,7 +222,7 @@ export function launchChanged(applied, next) {
 // Presets are copied, not linked. Explicit values (even empty) remain pinned.
 export function profileOverrides(base, config) {
   const env = Object.fromEntries(Object.keys(base.env || {}).map((k) => [k, null]));
-  return { ...config, args: [...config.args || []], path: [...config.path || []], env: { ...env, ...config.env } };
+  return { ...config, args: [...config.args || []], path: [...config.path || []], tools: toolList(config.tools), env: { ...env, ...config.env } };
 }
 
 export function editLaunchOverrides(base, previous, next) {
