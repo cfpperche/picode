@@ -6,6 +6,20 @@ reviewed by the owner against the reference, one item at a time.
 
 ## Next
 
+### Next execution handoff (2026-09-20)
+
+- **COM capture:** add Windows coverage for valid, empty, failed, not-painted,
+  timeout, and native hide/restore paths; require non-empty pixels.
+- **Responsive width:** implement the native device-toolbar half (bounds,
+  width/height presets, zoom, reset, per-tab state); CDP emulation needs an ADR.
+- **Prompt endpoints:** finish wire tests for agent→terminal, stopped terminal,
+  unknown terminal, and mismatched agent/terminal identity.
+- **Declaration order:** add a static component check plus a regression fixture
+  for the blank-window/use-before-declaration class.
+
+Windows Ask acceptance is paid: site reset, Allow once, and reopening the tab
+were verified by the owner on 2026-09-20 after the profile reset fix.
+
 - **The address bar suggests the pages you visited** (typed URLs first, the
   spec's slice 3, landed 2026-09-19): `WebTabAddress.jsx` + `rankVisits`, one
   component for both panes (the desktop one offers every visit; the pane with
