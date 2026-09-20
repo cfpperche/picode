@@ -113,7 +113,7 @@ func TestForDecisionTable(t *testing.T) {
 		uninstall         UninstallKind
 		uninstallArgs     []string
 	}{
-		{"pi", "npm", true, "npm", []string{"update"}, []string{"install", "-g", "@earendil-works/pi-coding-agent@latest"}, nil, "npm", []string{"remove", "-g", "@earendil-works/pi-coding-agent"}},
+		{"pi", "npm", true, "npm", []string{"install", "-g", "@earendil-works/pi-coding-agent@latest"}, []string{"install", "-g", "@earendil-works/pi-coding-agent@latest"}, nil, "npm", []string{"remove", "-g", "@earendil-works/pi-coding-agent"}},
 		{"pi", "unknown", false, "", nil, nil, nil, "", nil},
 		{"codex", "npm", true, "npm", []string{"update"}, []string{"install", "-g", "@openai/codex@latest"}, nil, "npm", []string{"remove", "-g", "@openai/codex"}},
 		{"claude-code", "native", true, "npm", []string{"update"}, []string{"install"}, nil, "guided", nil},

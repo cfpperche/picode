@@ -359,6 +359,7 @@ func handleAgentLogin(deps Deps) http.HandlerFunc {
 				writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 				return
 			}
+			go deps.bindInteractiveSession(id)
 			_ = deps.Store.SetAgentRuntimeMode(id, store.StatusRunning, "interactive")
 		}
 		cmd := "/login"
@@ -424,6 +425,7 @@ func handleAgentCommand(deps Deps) http.HandlerFunc {
 				writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
 				return
 			}
+			go deps.bindInteractiveSession(id)
 			_ = deps.Store.SetAgentRuntimeMode(id, store.StatusRunning, "interactive")
 		}
 		if err := deps.Tmux.SendKeys(r.Context(), name, req.Text, "Enter"); err != nil {
@@ -752,9 +754,37 @@ func (deps Deps) openAgentTUI(ctx context.Context, agentID string, restart bool)
 		_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusStopped)
 		return false, fmt.Errorf("start agent: %w", err)
 	}
+	// Pi creates its JSONL file just after the tmux command returns. Resolve
+	// the pre-minted session id in the background so the sidebar can expose
+	// Continue in… as soon as the conversation exists, without waiting for
+	// the user to open the Sessions view.
+	go deps.bindInteractiveSession(agent.ID)
 	_ = deps.Store.SetAgentRuntimeMode(agent.ID, store.StatusRunning, "interactive")
 	_ = deps.Store.AppendEvent("agent_started", &agent.ID, &wk.ID, map[string]string{"session": name})
 	return false, nil
+}
+
+func (deps Deps) bindInteractiveSession(agentID string) {
+	if deps.Store == nil || agentID == "" {
+		return
+	}
+	// The first Pi render can take several seconds while extensions and the
+	// provider registry initialize, so keep the retry window longer than the
+	// tmux launch itself while remaining strictly bounded.
+	deadline := time.NewTimer(10 * time.Second)
+	defer deadline.Stop()
+	tick := time.NewTicker(50 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		if path := deps.Store.ResolvePendingAgentSession(agentID); path != "" {
+			return
+		}
+		select {
+		case <-deadline.C:
+			return
+		case <-tick.C:
+		}
+	}
 }
 
 func handleAgentClose(deps Deps) http.HandlerFunc {

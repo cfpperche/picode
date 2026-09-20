@@ -845,6 +845,27 @@ func pinTerminalLastSession(deps Deps, termID string, runtime TermRuntime) {
 		return
 	}
 	s, err := clisession.Latest(runtime.CLI, t.Cwd, runtime.StartedAt)
+	// Muse updates its SQLite index asynchronously after the terminal exits.
+	// Give that indexer a short, bounded window before treating the session as
+	// absent; otherwise a completed Muse conversation loses Continue in… until
+	// the next terminal refresh.
+	if runtime.CLI == "muse" && s == nil && err == nil {
+		deadline := time.NewTimer(2 * time.Second)
+		tick := time.NewTicker(100 * time.Millisecond)
+		defer deadline.Stop()
+		defer tick.Stop()
+		for s == nil {
+			select {
+			case <-deadline.C:
+				return
+			case <-tick.C:
+				s, err = clisession.Latest(runtime.CLI, t.Cwd, runtime.StartedAt)
+				if err != nil {
+					return
+				}
+			}
+		}
+	}
 	if err != nil || s == nil {
 		return
 	}
