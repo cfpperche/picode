@@ -76,3 +76,11 @@ Evidence is retained under
 `/home/goat/picode/var/screenshots/continue-demo-validation/`, including copied
 screenshots and `continue-*.jsonl` measurements. No product fix or deployment
 is claimed. Follow-up debts belong to `docs/handoff/open/sessions.md`.
+
+Cleanup stopped all 11 test agents through the scratch API (HTTP 200), removed
+nine bound terminals through the scratch script, and stopped the daemon; the
+exact scratch tmux socket then reported no server. The empty demo directory was
+removed with `rmdir`. Screenshots, JSONL logs and probe scripts were preserved
+in the evidence directory above. Authentication/configuration copies remained
+inside the ignored task-worktree scratch home for normal post-landing worktree
+removal; none were committed. The documentation branch passed `make close`.

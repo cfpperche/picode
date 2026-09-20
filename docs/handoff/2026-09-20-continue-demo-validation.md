@@ -12,5 +12,8 @@ visual-review: PASS for captured layout, hover and overlay audits; Pi automatic
 binding and Muse menu availability FAIL, recorded without claiming a fix.
 Cross-CLI handoff was not executed; excluded setup/auth failures are in the report.
 Evidence: /home/goat/picode/var/screenshots/continue-demo-validation/.
+Cleanup: all 11 test agents stopped; nine bound terminals and scratch daemon
+removed/stopped, tmux socket has no server, empty demo directory removed.
+make close passed for this documentation-only branch.
 No changelog: validation-only documentation; no deployment performed.
 Merge: fast-forward ready at close-summary against main 1889244a.
