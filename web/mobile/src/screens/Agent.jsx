@@ -1,6 +1,7 @@
 import { cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import * as Sheet from "../components/MobileSheet.jsx";
+import { toast } from "../lib/toast.js";
 import ProjectToolsSheet from "../components/ProjectToolsSheet.jsx";
 import PiSettings from "../components/PiSettings.jsx";
 import ScreenHeader from "../components/ScreenHeader.jsx";
@@ -44,7 +45,7 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
   const termHostRef = useRef(null);
   const nearBottom = useRef(true);
 
-  const keys = useTermAccessory(termHostRef, () => terms.get(id), view === "term" && agent && agent.mode === "interactive" ? id : "");
+  const keys = useTermAccessory(termHostRef, () => terms.get(id), view === "term" && agent && agent.mode === "interactive" ? id : "", () => { toast.warn("Terminal reconnecting — tap the pane, then try again."); });
   const mode = (agent && agent.mode) || "stopped";
   const stopped = mode === "stopped";
   const interactive = mode === "interactive";
