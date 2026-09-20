@@ -67,6 +67,7 @@ const AGENT_ROW_MENU_ICONS = {
   stop: <IconStop size={13} />,
   restart: <IconReload size={13} />,
   launch: <IconSettings size={14} />,
+  handoff: <IconChat size={13} />,
   chat: <IconChat size={14} />,
   term: <IconTerminal size={14} />,
   rename: <IconPencil size={13} />,
@@ -140,7 +141,7 @@ export function AgentRow({
   onFileTree, onGitGraph,
   actions = true, meta = false,
   onRenameAgent, onRun, onStop, onRemoveAgent, onRemove, onChat, onTerm, termView,
-  clis, terms, onLaunchAction,
+  clis, terms, onLaunchAction, onContinueTerm,
 }) {
   const mode = ag.mode || "stopped";
   const cliAgent = !agentIsPi(ag);
@@ -193,7 +194,49 @@ export function AgentRow({
         </div>
         {actions ? (
           <RowMenu label={label}>
-            {agentRowMenu(ag, { clis, term }).map((r) => (
+            {agentRowMenu(ag, { clis, term }).map((r, i) => r.sep ? <RowMenuSep key={"sep" + i} /> : r.sub ? (
+              <DropdownMenu.Sub key={r.id}>
+                <DropdownMenu.SubTrigger className="ws-row-menu-item" title={r.title}>
+                  {AGENT_ROW_MENU_ICONS[r.id] || null} {r.label}
+                  <IconChevronRight size={13} className="um-chev" />
+                </DropdownMenu.SubTrigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.SubContent className="ws-row-menu" sideOffset={4} alignOffset={-4} collisionPadding={8}>
+                    {r.sub.map((s) => s.sub ? (
+                      <DropdownMenu.Sub key={s.id}>
+                        <DropdownMenu.SubTrigger className="ws-row-menu-item" title={s.title}>
+                          {s.label}
+                          <IconChevronRight size={13} className="um-chev" />
+                        </DropdownMenu.SubTrigger>
+                        <DropdownMenu.Portal>
+                          <DropdownMenu.SubContent className="ws-row-menu" sideOffset={4} alignOffset={-4} collisionPadding={8}>
+                            {s.sub.map((s2) => (
+                              <DropdownMenu.Item
+                                key={s2.id}
+                                className="ws-row-menu-item"
+                                title={s2.title}
+                                onSelect={() => onContinueTerm && onContinueTerm(term, s2.target)}
+                              >
+                                {s2.label}
+                              </DropdownMenu.Item>
+                            ))}
+                          </DropdownMenu.SubContent>
+                        </DropdownMenu.Portal>
+                      </DropdownMenu.Sub>
+                    ) : (
+                      <DropdownMenu.Item
+                        key={s.id}
+                        className="ws-row-menu-item"
+                        title={s.title}
+                        onSelect={() => onContinueTerm && onContinueTerm(term, s.target)}
+                      >
+                        {s.label}
+                      </DropdownMenu.Item>
+                    ))}
+                  </DropdownMenu.SubContent>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Sub>
+            ) : (
               <RowMenuItem key={r.id} title={r.title} danger={r.danger} onSelect={() => onMenuItem(r)}>
                 {AGENT_ROW_MENU_ICONS[r.id]} {r.label}
               </RowMenuItem>

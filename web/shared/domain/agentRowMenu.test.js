@@ -3,10 +3,16 @@ import assert from "node:assert/strict";
 import { agentRowMenu } from "./agentRowMenu.js";
 import { agentSubtitle, principalLabel } from "./managedPrincipal.js";
 
-const ids = (rows) => rows.map((r) => r.id);
+const ids = (rows) => rows.filter((r) => !r.sep).map((r) => r.id);
 const row = (rows, id) => rows.find((r) => r.id === id);
 const RUNNING = { id: "t1", running: true, state: "idle", cli: "claude-code" };
 const STOPPED = { id: "t1", running: false };
+const PINNED = { id: "t1", running: false, lastSession: { cli: "claude-code", sessionId: "s1", path: "/p", cwd: "/w" } };
+const CATALOG = [
+  { id: "pi", name: "Pi", installed: true, sessions: { list: true, read: true, write: true, prompt: true, agent: true } },
+  { id: "claude-code", name: "Claude Code", installed: true, sessions: { list: true, read: true, write: true, prompt: true } },
+  { id: "codex", name: "Codex", installed: true, sessions: { list: true, read: true, write: true, prompt: true } },
+];
 
 // Decision table (ADR-0160): the menu is a function of kind × terminal
 // state × adapter.
@@ -70,4 +76,26 @@ test("peer owner labels: CLI agents name the CLI, Pi and terminals keep their wo
   assert.equal(principalLabel({ kind: "agent" }), "Pi agent");
   assert.equal(principalLabel({ kind: "terminal", cli: "claude-code" }), "Pi agent");
   assert.equal(principalLabel(null), "Pi agent");
+});
+
+// ADR-0088 on an agent row: a conversation pinned on the bound terminal
+// continues in another CLI — the same submenu the terminal row offers.
+test("a CLI agent with a pinned conversation offers Continue in…", () => {
+  const rows = agentRowMenu({ cli: "claude-code", terminalId: "t1" }, { clis: CATALOG, term: PINNED });
+  const handoff = row(rows, "handoff");
+  if (!handoff || !Array.isArray(handoff.sub) || !handoff.sub.length) {
+    assert.fail("no handoff submenu: " + JSON.stringify(rows));
+  }
+  assert.equal(handoff.label, "Continue in…");
+  const targets = handoff.sub.map((s) => s.target.id);
+  assert.ok(targets.includes("pi"), "pi is a handoff target");
+  assert.ok(!targets.includes("claude-code"), "the source is not its own target");
+  // The submenu rides before the lifecycle, separated by a divider.
+  assert.ok(rows.findIndex((r) => r.sep) > rows.findIndex((r) => r.id === "handoff"), "divider after the submenu");
+});
+
+test("no pin, no Continue in… — the row stays flat", () => {
+  const rows = agentRowMenu({ cli: "claude-code", terminalId: "t1" }, { clis: CATALOG, term: STOPPED });
+  assert.equal(rows.some((r) => r.id === "handoff"), false);
+  assert.equal(rows.some((r) => r.sep), false);
 });

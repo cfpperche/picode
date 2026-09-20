@@ -17,6 +17,7 @@
 // the node test runner.
 
 import { agentIsPi } from "./managedPrincipal.js";
+import { terminalHandoffMenu } from "./sessionHandoff.js";
 import { terminalStatus } from "./terminalCli.js";
 
 export function agentRowMenu(ag = {}, { clis, term } = {}) {
@@ -37,7 +38,11 @@ export function agentRowMenu(ag = {}, { clis, term } = {}) {
   // A CLI with no adapter has no launch settings to edit (Muse Code,
   // Antigravity): the row drops that item rather than opening an empty form.
   const launch = !!ag.terminalId && (!cli || cli.integrationCapable !== false);
+  // A conversation pinned on the bound terminal can continue in another
+  // CLI (ADR-0088) — the same submenu the terminal row offers.
+  const handoff = term ? terminalHandoffMenu(term, clis) : null;
   return [
+    ...(handoff ? [handoff, { sep: true }] : []),
     ...(running
       ? [
           { id: "restart", label: "Restart terminal", title: "Stop and relaunch this CLI in the same conversation." },

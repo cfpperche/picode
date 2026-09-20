@@ -128,7 +128,7 @@ export default function Sidebar({
         onRun={onRun} onStop={onStop}
         onRemoveAgent={onRemoveAgent} onRemove={onRemove}
         onChat={onChat} onTerm={onTerm} termView={termView}
-        clis={clis} terms={terminals} onLaunchAction={onLaunchAction}
+        clis={clis} terms={terminals} onLaunchAction={onLaunchAction} onContinueTerm={onContinueTerm}
       />
     );
   }

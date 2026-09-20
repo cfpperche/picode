@@ -2704,11 +2704,19 @@ export default function App({ shellChrome = false } = {}) {
     if (!choice) return;
     try {
       await api("/api/agents/" + ag.id + choice.query, { method: "DELETE" });
-      closeShellTerm(ag.id);
-      setTabs((t) => t.filter((x) => x !== ag.id));
-      if (selectedId === ag.id) setSelectedId(null);
-      await refreshFleetFallback();
-    } catch (err) { toastError(err); }
+    } catch (err) {
+      // The server may have completed the delete before the response was
+      // lost (a second click, a flaky moment): "not found" means the agent
+      // is gone — drop the row instead of scolding the operator twice.
+      const msg = err && err.message ? err.message : String(err);
+      if (!/not found/i.test(msg)) { toastError(err); return; }
+    }
+    closeShellTerm(ag.id);
+    setTabs((t) => t.filter((x) => x !== ag.id));
+    if (selectedId === ag.id) setSelectedId(null);
+    // A removal is rare and final: refetch even when the feed is live, so
+    // the row leaves on this answer and not only on the next event.
+    await loadWorkspaces();
   }
 
   async function removeWorkspace(ws) {
