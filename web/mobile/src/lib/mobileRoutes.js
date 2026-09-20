@@ -59,7 +59,10 @@ export function mobileRoute(hash) {
   if (h.split("?")[0] === "/providers/llama" || h.split("?")[0] === "/more/providers/llama") return { screen: "more", id: "", section: "llama" };
   if (h === "/preferences/status") return { screen: "more", id: "", section: "clis" };
   const agentId = agentRoute("#" + h);
-  if (agentId) return { screen: "agent", id: agentId, section: "" };
+  if (agentId) {
+    const view = new URLSearchParams(h.split("?")[1] || "").get("view");
+    return { screen: "agent", id: agentId, section: "", ...(view === "terminal" ? { view } : {}) };
+  }
   const termId = termRoute("#" + h);
   if (termId) return { screen: "term", id: termId, section: "" };
   const [toolPath, toolQuery = ""] = h.split("?");
@@ -111,11 +114,11 @@ export function mobileRoute(hash) {
   return { screen: "now", id: "", section: "" };
 }
 
-export function mobileHash(screen, id, section) {
+export function mobileHash(screen, id, section, view = "") {
   switch (screen) {
     case "inbox": return id ? "#/inbox/" + encodeURIComponent(id) : "#/inbox";
     case "work": return id ? "#/work/" + encodeURIComponent(id) : "#/work";
-    case "agent": return workspaceHash(id);
+    case "agent": return workspaceHash(id, view);
     case "term": return termHash(id);
     case "files": return toolHash("files", { kind: section, id });
     case "git": return toolHash("git", { kind: section, id });

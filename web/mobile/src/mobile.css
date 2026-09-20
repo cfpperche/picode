@@ -293,8 +293,6 @@ html[data-bottombar="edge"] #m-app.kb-open { bottom: auto; }
 /* ---- agent screen ---- */
 .m-agent { padding-bottom: 0; gap: 0; overflow: hidden;
   -webkit-overflow-scrolling: auto; overscroll-behavior: none; scrollbar-width: none; }
-.m-agent-state { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; }
-.m-agent-state .m-seg .dash-range-face { height: 32px; padding: 0 12px; } /* Work's segment keeps --ctl-h, level with New */
 .m-chat { flex: 1; min-height: 0; position: relative; display: flex; margin: 0 calc(-1 * var(--m-pad)); }
 .m-chat .chat-main { flex: 1; min-width: 0; position: relative; display: flex; flex-direction: column; }
 .m-chat .conversation { padding: 0 var(--m-pad) 120px; }
@@ -369,7 +367,6 @@ html[data-bottombar="edge"] #m-app.kb-open { bottom: auto; }
 .m-pull { flex: none; margin: -6px 0 0; text-align: center; font-size: 12px; color: var(--text-secondary); min-height: 18px; }
 .m-pull.is-armed { color: var(--accent); }
 .m-changes-btn { display: inline-flex; gap: 4px; }
-.m-agent-state .m-changes-btn { margin-left: auto; }
 .m-changes { padding: 0 0 24px; gap: 0; }
 .m-changes .m-head { margin: 0; }
 .m-changes .gg-detail { width: auto; max-width: none; border: 0; border-radius: 0; margin: 0; }

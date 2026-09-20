@@ -5,13 +5,14 @@ const PREF_SECTIONS = ["appearance", "layout", "shortcuts", "notifications", "se
 
 export function agentRoute(hash) {
   const h = (hash || (typeof location !== "undefined" ? location.hash : "") || "").replace(/^#/, "") || "/";
-  const m = /^\/agent\/([^/]+)$/.exec(h);
+  const m = /^\/agent\/([^/?]+)(?:\?[^#]*)?$/.exec(h);
   if (!m) return null;
   try { return decodeURIComponent(m[1]); } catch { return m[1]; }
 }
 
-export function workspaceHash(agentId) {
-  return agentId ? "#/agent/" + encodeURIComponent(agentId) : "#/";
+export function workspaceHash(agentId, view = "") {
+  if (!agentId) return "#/";
+  return "#/agent/" + encodeURIComponent(agentId) + (view === "terminal" ? "?view=terminal" : "");
 }
 
 export function termRoute(hash) {

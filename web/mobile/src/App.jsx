@@ -267,9 +267,9 @@ export default function MobileApp() {
     try { localStorage.setItem(LAST_AGENT_KEY, route.id); } catch { /* per-viewer nicety */ }
   }, [route.screen, route.id]);
 
-  function openAgent(id) {
+  function openAgent(id, view = "") {
     if (!id) { goTab("work"); return; }
-    push(mobileHash("agent", id));
+    push(mobileHash("agent", id, "", view));
   }
   function openTerm(id) {
     if (id) push(mobileHash("term", id));
@@ -519,6 +519,8 @@ export default function MobileApp() {
         catalog={catalog}
         workingIds={tuiWorking}
         busy={!!current && busyId === current.agent.id}
+        initialView={route.view}
+        onViewChange={(view) => { history.replaceState(history.state, "", mobileHash("agent", route.id, "", view)); }}
         onBack={() => goBack(route, agentOwnerWs(current))}
         onStart={startAgent}
         onStop={stopAgent}

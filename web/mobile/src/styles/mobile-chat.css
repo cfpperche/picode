@@ -3,9 +3,21 @@
 .m-agent .m-head-sub { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .m-agent .m-head-sub .m-state { flex: none; }
 .m-agent-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.m-agent .m-head-right { gap: 8px; }
-.m-agent .m-agent-state { justify-content: flex-end; padding: 4px 0; }
-.m-agent .m-agent-state .dash-range-face { height: var(--ctl-h); }
+.m-agent .m-head-right { gap: 6px; }
+.m-view-switch {
+  display: inline-flex; align-items: center; gap: 0; height: var(--ctl-h);
+  margin: 0; padding: 2px; border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  background: var(--bg-subtle); min-width: 0;
+}
+.m-view-switch-option { position: relative; display: inline-flex; height: 100%; }
+.m-view-switch-option input { position: absolute; opacity: 0; pointer-events: none; }
+.m-view-switch-option span {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 54px; height: 100%;
+  padding: 0 8px; border-radius: calc(var(--radius-ctl) - 2px); color: var(--text-secondary);
+  font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.m-view-switch-option input:checked + span { background: var(--accent-soft); color: var(--accent); }
+.m-view-switch-option input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
 .m-agent .m-chat .chat-main { min-height: 0; }
 .m-agent .m-chat .conversation { position: relative; inset: auto; flex: 1; min-height: 0; height: auto; padding: 8px var(--m-pad) 16px; }
 .m-agent .m-chat .composer-wrap {

@@ -32,6 +32,7 @@ describe("mobileRoute", () => {
     assert.deepEqual(mobileRoute("#/work/nope"), { screen: "work", id: "", section: "" });
     assert.deepEqual(mobileRoute("#/agents"), { screen: "work", id: "", section: "agents" });
     assert.deepEqual(mobileRoute("#/agent/ag%3A1"), { screen: "agent", id: "ag:1", section: "" });
+    assert.deepEqual(mobileRoute("#/agent/ag%3A1?view=terminal"), { screen: "agent", id: "ag:1", section: "", view: "terminal" });
     assert.deepEqual(mobileRoute("#/term/t%201"), { screen: "term", id: "t 1", section: "" });
     assert.deepEqual(mobileRoute("#/changes/a/ag1"), { screen: "changes", id: "ag1", section: "agent" });
     assert.deepEqual(mobileRoute("#/changes/w/ws%201"), { screen: "changes", id: "ws 1", section: "workspace" });
@@ -58,6 +59,7 @@ describe("mobileRoute", () => {
       else assert.equal(r.id, id);
     }
     assert.equal(mobileHash("agent", "a1"), "#/agent/a1");
+    assert.equal(mobileHash("agent", "a1", "", "terminal"), "#/agent/a1?view=terminal");
     assert.equal(mobileHash("term", "t1"), "#/term/t1");
   });
   it("lights the parent tab for pushed screens and knows where Back lands", () => {

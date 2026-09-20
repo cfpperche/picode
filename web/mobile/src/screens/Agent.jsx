@@ -30,11 +30,11 @@ import "../styles/mobile-tools.css";
 // the mobile Conversation with its ask card, and the mobile Composer
 // whose own Stop button is the abort. Start/Stop the agent from the
 // header; one screen, no tabs of its own.
-export default function Agent({ agent, workspace, catalog, workingIds, busy, onBack, onStart, onStop, onOpenFiles, onOpenGit, onAgentConfig }) {
+export default function Agent({ agent, workspace, catalog, workingIds, busy, initialView = "", onViewChange, onBack, onStart, onStop, onOpenFiles, onOpenGit, onAgentConfig }) {
   const id = agent && agent.id;
   const sock = useAgentSocket(agent, workspace?.id || "ws_free");
   const draft = useSyncExternalStore(agentDrafts.subscribe, () => agentDrafts.read(id));
-  const [view, setView] = useState("chat");
+  const [view, setView] = useState(initialView === "terminal" ? "term" : "chat");
   const [toolsOpen, setToolsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [bar, setBar] = useState(null);
@@ -52,7 +52,14 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
   const state = agentState(agent, workingIds);
   const name = agent ? displayAgentName(agent, workspace) : "";
 
-  useEffect(() => { setView(interactive ? "term" : "chat"); }, [id, interactive]);
+  useEffect(() => {
+    setView(initialView === "terminal" && interactive ? "term" : (interactive ? "term" : "chat"));
+  }, [id, interactive, initialView]);
+
+  function changeView(next) {
+    setView(next);
+    if (onViewChange) onViewChange(next === "term" ? "terminal" : "chat");
+  }
 
   useEffect(() => {
     if (!id || stopped) { setSlashExtra([]); return; }
@@ -94,8 +101,21 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
     workspace ? workspace.name : "free agent",
   ].filter(Boolean).join(" · ");
 
+  const viewSwitch = interactive ? (
+    <fieldset className="m-view-switch" aria-label="Agent view">
+      <legend className="sr-only">Agent view</legend>
+      {[['chat', 'Chat'], ['term', 'Terminal']].map(([value, label]) => (
+        <label key={value} className="m-view-switch-option">
+          <input type="radio" name="m-agent-view" value={value} checked={view === value} onChange={() => changeView(value)} />
+          <span>{label}</span>
+        </label>
+      ))}
+    </fieldset>
+  ) : null;
+
   const right = (
     <>
+      {viewSwitch}
       <button type="button" className="btn btn-sm m-changes-btn" title="Project tools" aria-label="Project tools" aria-haspopup="dialog" aria-expanded={toolsOpen} onClick={() => setToolsOpen(true)}><IconFolder size={16} /></button>
       {interactive && view === "term" ? (
         <button type="button" className={"btn btn-sm m-keys-btn" + (keys.visible ? " on" : "")} title={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-label={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-pressed={keys.visible} onPointerDown={(e) => { if (keys.visible) e.preventDefault(); }} onClick={() => { keys.visible ? keys.hide() : keys.show(); }}>
@@ -111,8 +131,8 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
   return (
     <div className="m-screen m-agent">
       <ScreenHeader title={name} sub={<><StateChip state={state} /><span className="m-agent-meta" title={meta}>{meta}</span></>} onBack={onBack} right={right} />
-      {interactive ? (
-        <div className="m-agent-state">
+      {false && interactive ? (
+        <div className="m-agent-state legacy-view-switch">
           <div className="dash-range m-seg" role="radiogroup" aria-label="View">
             {[["chat", "Chat"], ["term", "Terminal"]].map(([v, label]) => (
               <label key={v} className="dash-range-opt">
@@ -137,7 +157,7 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
             {interactive ? (
               <div className="m-cta">
                 <p className="m-empty-line">Continue this conversation in the terminal.</p>
-                <button type="button" className="btn btn-primary" onClick={() => setView("term")}>Open terminal</button>
+                <button type="button" className="btn btn-primary" onClick={() => changeView("term")}>Open terminal</button>
               </div>
             ) : null}
             {!interactive && !sock.state.items.length ? <div className="m-chat-empty"><p>{stopped ? "Send a message to start this agent." : "Start a conversation with this agent."}</p><button type="button" className="btn btn-ghost" onClick={() => document.getElementById("task-input")?.focus()}>Write a message</button></div> : null}
@@ -168,7 +188,7 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, onB
               streaming={sock.state.streaming}
               waiting={sock.state.waiting}
               stopped={stopped || interactive}
-              onToggleDock={() => { if (interactive) setView("term"); }}
+              onToggleDock={() => { if (interactive) changeView("term"); }}
               onStop={() => onStop(agent, workspace)}
               onAbort={sock.abort}
               agentId={id}
