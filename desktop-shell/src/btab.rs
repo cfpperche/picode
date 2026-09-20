@@ -1731,7 +1731,11 @@ fn apply_engine_state(app: &AppHandle, kind: &str, origin: Option<&str>, state: 
         "deny" => COREWEBVIEW2_PERMISSION_STATE_DENY,
         _ => COREWEBVIEW2_PERMISSION_STATE_DEFAULT,
     };
-    let origin = origin.to_string();
+    // WebView2 may report the requesting document URI, while
+    // SetPermissionState addresses a site origin. Keep both operations on
+    // the same scheme+authority key so Reset and Allow once actually clear
+    // the profile entry that Allow previously created.
+    let origin = permissions::site_of(origin);
     for (name, wv) in app.webviews() {
         if !name.starts_with("btab-") && name != "main-content" {
             continue;
@@ -1902,6 +1906,12 @@ pub fn btab_permission_answer(
         // "Always" is a standing for the site, so the engine's own memory
         // agrees with ours — and survives a relaunch of the app.
         apply_engine_state(&app, &p.kind, Some(&p.origin), if allow { "allow" } else { "deny" });
+    } else {
+        // SetState answers this request, but WebView2 may retain the decision
+        // in the profile when the page has already negotiated the capability.
+        // Allow once must not turn into a site standing: explicitly restore
+        // the profile's DEFAULT state after completing the deferral.
+        apply_engine_state(&app, &p.kind, Some(&p.origin), "default");
     }
     report_permission(&app, &p.origin, &p.kind, allow, remember, Some(id));
     Ok(())
