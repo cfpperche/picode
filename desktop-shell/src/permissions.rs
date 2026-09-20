@@ -36,7 +36,7 @@ fn key(origin: &str, kind: &str) -> String {
 /// page's full URI, and a standing is about the site: a permission given on
 /// one path must cover the next one on the same host. A string without
 /// `://` is taken as the site itself (a bare host stays a bare host).
-fn site_of(origin: &str) -> String {
+pub(crate) fn site_of(origin: &str) -> String {
     let trimmed = origin.trim();
     let start = trimmed.find("://").map(|i| i + 3).unwrap_or(0);
     let tail = &trimmed[start..];
