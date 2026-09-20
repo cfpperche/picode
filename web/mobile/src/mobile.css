@@ -285,6 +285,10 @@ html[data-bottombar="edge"] #m-app.kb-open { bottom: auto; }
   font: 600 12px var(--sans); letter-spacing: .02em; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;
+  /* A key tap is a keypress, never a gesture (iOS IME fix): no double-tap
+     zoom, no selection, no long-press callout — touchstart preventDefault
+     in KeyBar.jsx does the rest. */
+  touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
 }
 .m-key-mod.on { color: var(--accent); background: var(--accent-soft); }
 .m-key:active { filter: brightness(1.08); }
