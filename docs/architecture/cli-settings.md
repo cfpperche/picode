@@ -92,7 +92,32 @@ per layer with the keys that layer sets; `PATCH /api/cli-settings` takes
 Both publish an ephemeral `cli.settings` event — the file stays authoritative
 (ADR-0048 invalidates views, it does not carry the config).
 
-## Pi (ADR-0101)
+## Pi (ADR-0101, machine rows added 2026-09-20)
+
+Pi keeps its own API (`/api/pi-settings`), its three layers, its trust rule and
+its live-apply. What it gained is the rest of its own settings file: pi
+persists about forty keys and the pane showed eight, so a machine set to
+`theme: dark` and `hideThinkingBlock` saw neither.
+
+Five more rows now sit on the **This machine** layer, the only place pi writes
+them (`globalSettings.*` in its own settings manager): `theme`,
+`hideThinkingBlock`, `quietStartup`, `defaultProjectTrust` and `shellPath`.
+Each name and value domain was read out of the installed pi bundle before it
+was declared — `defaultProjectTrust` carries exactly `ask | always | never`
+because pi's getter resolves anything else to `ask`, and the row would
+otherwise never look set. `npmCommand` is deliberately absent: pi stores it as
+an argv array, and this pane writes scalars only.
+
+A machine-only key sent to the workspace or agent layer is refused by name
+before trust or path resolution answers, so the message says what is wrong
+rather than blaming the folder.
+
+Two differences from the guest pane remain, both pre-existing: Pi's writer
+re-encodes the document (`json.MarshalIndent` of a map), so key order is
+normalised rather than preserved, and `web/shared/domain/resolveLayer.js` is a
+named list — a key added to the API is invisible in the pane until it is added
+there too, which is how the Theme row first rendered empty.
+
 
 The workspace agent menu separates **Launch settings** (the bound terminal's
 common launch editor) from **Settings** (this agent's model, reasoning, tools

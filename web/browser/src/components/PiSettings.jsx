@@ -178,6 +178,10 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
             ) : (
               <LayerKnobs
                 key={active.id}
+                // pi keeps these five in its machine file and nowhere else, so
+                // the rows appear on that layer only rather than writing a key
+                // pi would never read there.
+                machine={active.id === "global"}
                 prefix={active.id === "global" ? "g" : "w"}
                 draft={drafts[active.id] || ""}
                 onDraft={(value) => setDrafts((current) => ({ ...current, [active.id]: value }))}
@@ -204,7 +208,23 @@ function inheritedLabel(workspace) {
   return workspace ? "this folder" : "This machine";
 }
 
-function LayerKnobs({ prefix, values, own, parentLabel, catalog, saving, onSave, onReset, draft, onDraft }) {
+// The rows pi keeps in its machine file. Each name and value domain was read
+// out of the installed pi bundle on 2026-09-20 before it was declared; a row
+// whose value pi resolves away (defaultProjectTrust) carries the exact domain
+// its getter enforces, so "Set here" is never a lie.
+const PI_MACHINE_ROWS = [
+  { key: "theme", label: "Theme", kind: "text", group: "Interface", fallback: "Pi default", help: "A built-in name (dark, light) or one of your own themes." },
+  { key: "hideThinkingBlock", label: "Hide thinking", kind: "bool", group: "Interface", fallback: "Off" },
+  { key: "quietStartup", label: "Quiet startup", kind: "bool", group: "Interface", fallback: "Off" },
+  { key: "defaultProjectTrust", label: "New folders", kind: "select", group: "Approvals", fallback: "Ask", options: [
+    { value: "ask", label: "Ask each time" },
+    { value: "always", label: "Trust automatically" },
+    { value: "never", label: "Never trust" },
+  ] },
+  { key: "shellPath", label: "Shell", kind: "text", group: "Approvals", fallback: "Pi default", help: "The shell pi runs commands in." },
+];
+
+function LayerKnobs({ prefix, values, own, parentLabel, catalog, saving, onSave, onReset, draft, onDraft, machine }) {
   if (!values) {
     return (
       <div className="set-rows" aria-busy="true">
@@ -309,6 +329,71 @@ function LayerKnobs({ prefix, values, own, parentLabel, catalog, saving, onSave,
           {isSet(["defaultTools"]) ? reset(["defaultTools"]) : null}
         </div>
       </div>
+      {machine ? PI_MACHINE_ROWS.map((f) => (
+        <MachineRow
+          key={f.key}
+          field={f}
+          value={values[f.key]}
+          setHere={isSet([f.key])}
+          parentLabel={parentLabel}
+          saving={saving}
+          onSave={(v) => onSave({ [f.key]: v })}
+          onReset={() => onReset([f.key])}
+        />
+      )) : null}
+    </div>
+  );
+}
+
+// One machine-only row. Same vocabulary as every other row in this pane and in
+// the guest CLIs' pane: provenance on the left, the CLI's own default on the
+// control when nobody set the key.
+function MachineRow({ field, value, setHere, parentLabel, saving, onSave, onReset }) {
+  const [draft, setDraft] = useState(value === undefined || value === null ? "" : String(value));
+  useEffect(() => { setDraft(value === undefined || value === null ? "" : String(value)); }, [value]);
+  const unset = value === undefined || value === null || value === "";
+  let control;
+  if (field.kind === "bool") {
+    // The same Radix switch Auto-compact uses two rows up: one pane, one
+    // control for a boolean. The source line carries "Set here" or "Pi
+    // default", so the switch does not have to express unset.
+    control = (
+      <Switch.Root className="rx-switch" checked={value === true} disabled={saving} onCheckedChange={(v) => onSave(v)} aria-label={field.label}>
+        <Switch.Thumb className="rx-switch-thumb" />
+      </Switch.Root>
+    );
+  } else if (field.kind === "select") {
+    control = (
+      <select className="set-wide" value={unset ? "" : String(value)} disabled={saving} onChange={(e) => onSave(e.target.value)}>
+        <option value="" disabled>{field.fallback}</option>
+        {field.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    );
+  } else {
+    const commit = () => { const next = draft.trim(); if (next !== String(value ?? "")) onSave(next); };
+    control = (
+      <input
+        className="set-text"
+        value={draft}
+        placeholder={field.fallback}
+        disabled={saving}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } }}
+      />
+    );
+  }
+  return (
+    <div className={"set-row" + (setHere ? " is-set" : "")}>
+      <span className="set-label">
+        {field.label}
+        <span className="set-src">{setHere ? "Set here" : parentLabel}</span>
+        {field.help ? <span className="set-src">{field.help}</span> : null}
+      </span>
+      <span className="set-ctl">
+        {control}
+        {setHere ? <button type="button" className="btn btn-ghost btn-sm" disabled={saving} onClick={onReset}>Use inherited</button> : null}
+      </span>
     </div>
   );
 }
