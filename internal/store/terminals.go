@@ -168,6 +168,12 @@ func (s *Store) DeleteTerminal(id string) error {
 	// A guest agent's TUI is this terminal (ADR-0160). Drop the agent row
 	// first so DeleteAgent cannot recurse into DeleteTerminal.
 	if a, err := s.AgentByTerminal(id); err == nil {
+		// Its open needs-you prompt closes with it (ADR-0160 Fatia E).
+		if open, err := s.ActiveInboxBySourceReason(InboxFromAgent, a.ID, InboxNeedsYouReason); err == nil {
+			for _, it := range open {
+				_, _ = s.SetInboxItemState(it.ID, InboxDone, nil)
+			}
+		}
 		_, _ = s.db.Exec(`DELETE FROM agent_checklists WHERE agent_id = ?`, a.ID)
 		if _, err := s.db.Exec(`DELETE FROM agents WHERE id = ?`, a.ID); err != nil {
 			return fmt.Errorf("store: delete guest agent with terminal: %w", err)

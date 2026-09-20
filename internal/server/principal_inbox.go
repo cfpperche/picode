@@ -8,9 +8,8 @@ import (
 
 // Reason on Inbox items filed when a guest agent reports needs-you
 // (ADR-0159 Fatia 1; lookup is agents.terminal_id since ADR-0160 Fatia C).
-// Dedup and auto-done key off this, not the title. Rekey onto the agent id
-// is Fatia E.
-const cliNeedsYouReason = "cli-needs-you"
+// Dedup and auto-done key off this, not the title. The item is the agent's
+// (Fatia E): source agent, keyed InboxNeedsYouReason.
 
 // syncManagedCLIInbox files one Inbox item when a guest agent's TUI asks
 // for the human, and marks it done when the CLI is no longer waiting.
@@ -24,7 +23,9 @@ func syncManagedCLIInbox(deps Deps, termID, state string) {
 	if err != nil || a.IsPi() {
 		return
 	}
-	open, err := deps.Store.ActiveInboxBySourceReason(store.InboxFromTerminal, termID, cliNeedsYouReason)
+	// The item belongs to the agent (ADR-0160 Fatia E): one conversation
+	// with the human per agent, surviving terminal rebinds.
+	open, err := deps.Store.ActiveInboxBySourceReason(store.InboxFromAgent, a.ID, store.InboxNeedsYouReason)
 	if err != nil {
 		log.Printf("managed CLI inbox: list: %v", err)
 		return
@@ -39,10 +40,10 @@ func syncManagedCLIInbox(deps Deps, termID, state string) {
 		}
 		_, err := deps.Store.CreateInboxItem(store.InboxItemParams{
 			Kind:        store.InboxFYI,
-			SourceKind:  store.InboxFromTerminal,
-			SourceID:    termID,
+			SourceKind:  store.InboxFromAgent,
+			SourceID:    a.ID,
 			WorkspaceID: a.WorkspaceID,
-			Reason:      cliNeedsYouReason,
+			Reason:      store.InboxNeedsYouReason,
 			Title:       name + " needs you",
 			Body:        "Open the terminal to continue. PiCode cannot answer inside this CLI's own prompt.",
 			Blocking:    true,

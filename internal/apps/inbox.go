@@ -357,6 +357,15 @@ func (a inboxApp) itemView(h Host, id string) (View, error) {
 			// to abandon. Declining forwards the refusal to the agent.
 			acts = append(acts, Action{ID: "decline", Label: "Decline", Args: map[string]string{"item": it.ID}})
 		}
+		// A guest's "needs you" names the agent (ADR-0160 Fatia E); the way
+		// in is still the terminal its TUI lives on. ADR-0060 keeps Pi
+		// agent items free of this escape hatch — the reply itself goes
+		// into the agent's terminal.
+		if it.SourceKind == store.InboxFromAgent && it.SourceID != "" {
+			if a, err := h.Store.GetAgent(it.SourceID); err == nil && !a.IsPi() && a.TerminalID != nil && *a.TerminalID != "" {
+				acts = append(acts, Action{ID: "open-terminal", Label: "Open terminal", Icon: "terminal", Primary: true, Args: map[string]string{"item": it.ID}})
+			}
+		}
 		if it.Blocking {
 			// Ignore is the destructive out on a blocking item: the agent
 			// gets no reply. It goes last and asks first.
@@ -436,10 +445,23 @@ func (a inboxApp) Action(_ context.Context, h Host, req ActionRequest) (ActionRe
 		if err != nil {
 			return ActionResult{}, err
 		}
-		if it.SourceKind != store.InboxFromTerminal || it.SourceID == "" {
-			return ActionResult{}, fmt.Errorf("inbox: not a terminal item")
+		switch it.SourceKind {
+		case store.InboxFromTerminal:
+			if it.SourceID == "" {
+				return ActionResult{}, fmt.Errorf("inbox: not a terminal item")
+			}
+			return ActionResult{Goto: "term:" + it.SourceID}, nil
+		case store.InboxFromAgent:
+			// The item follows the agent (ADR-0160 Fatia E); the pane is the
+			// terminal its TUI lives on. A Pi agent keeps ADR-0060's rule:
+			// the reply goes through the agent's own surface.
+			a, err := h.Store.GetAgent(it.SourceID)
+			if err != nil || a.IsPi() || a.TerminalID == nil || *a.TerminalID == "" {
+				return ActionResult{}, fmt.Errorf("inbox: that agent has no terminal")
+			}
+			return ActionResult{Goto: "term:" + *a.TerminalID}, nil
 		}
-		return ActionResult{Goto: "term:" + it.SourceID}, nil
+		return ActionResult{}, fmt.Errorf("inbox: not a terminal item")
 	case "snooze":
 		until := time.Now().UTC().Add(time.Hour).Format(time.RFC3339)
 		if _, err := h.Store.SetInboxItemState(id, "", &until); err != nil {

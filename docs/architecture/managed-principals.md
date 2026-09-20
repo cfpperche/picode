@@ -41,18 +41,20 @@ Workspace list/get carry `agents` only. The change feed patches
 `agent.added` / `agent.deleted`. Structured chat, JSON-RPC, ACP and
 `SendTurn` for guests are out of scope (ADR-0091).
 When a guest TUI reports `needs-you`, PiCode files one blocking Inbox FYI
-(`reason=cli-needs-you`, source the terminal — Fatia E rekeys onto the
-agent id). Push rides `inbox.created`. Leaving `needs-you` marks that
-item done. Unbound terminals stay chips-only.
+(`reason=cli-needs-you`, source the agent — Fatia E). The item closes when
+the CLI moves on or the agent (with its terminal) is deleted. Push rides
+`inbox.created`. Unbound terminals stay chips-only.
 The Inbox action **Open terminal** focuses the pane (`goto: term:<id>`).
 No composer. Deploy readiness already treats any working terminal as busy.
 
 A guest agent is the opt-in for `picode mcp` at launch (ADR-0154): Claude
 Code, Codex and OpenCode get every family (`computer`, `browser`, `inbox`,
 `checklist`) when Tools was unset. An explicit Tools list, including
-empty, is left alone. Other CLIs stay Connectors-only. Grants are still
-Settings ▸ Computer / Browser keyed `term:<id>` until Fatia E; the MCP
-server never invents identity (`PICODE_TERM_ID` → `grant.FromIDs`).
+empty, is left alone. Other CLIs stay Connectors-only. Every guest launch
+carries `PICODE_AGENT_ID` alongside `PICODE_TERM_ID` (Fatia E), so
+`grant.FromIDs` resolves the agent principal and the grants given to the
+agent in Settings ▸ Computer / Browser match without per-terminal
+configuration — the same spelling Pi agents get from `Agent.SpawnEnv`.
 
 A workspace **New → Agent** picker POSTs `/api/workspaces/{id}/agents`
 `{cli}` (Fatia B). Pi is always listed; other CLIs must be installed.

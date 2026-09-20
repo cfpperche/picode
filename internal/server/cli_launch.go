@@ -910,6 +910,22 @@ func recordCLILaunchAttempt(deps Deps, id string, err error) {
 	_ = deps.Store.SetTerminalLaunchAttempt(id, a)
 }
 
+// launchIdentityEnv is the caller identity a CLI launch carries (ADR-0160
+// Fatia E): PICODE_TERM_ID always, plus PICODE_AGENT_ID when the terminal is
+// bound to an agent. picode mcp resolves principal with agent-wins
+// (grant.FromIDs), so grants given to the guest agent in Settings ▸
+// Computer / Browser match without per-terminal configuration — the same
+// spelling Pi agents already get from Agent.SpawnEnv.
+func launchIdentityEnv(deps Deps, termID string) []string {
+	env := []string{tmux.MarkerTermEnv + "=" + termID}
+	if deps.Store != nil {
+		if a, err := deps.Store.AgentByTerminal(termID); err == nil && a.ID != "" {
+			env = append(env, tmux.MarkerAgentEnv+"="+a.ID)
+		}
+	}
+	return env
+}
+
 type preparedCLILaunch struct {
 	dir, script, id string
 	environment     []string
@@ -1138,7 +1154,8 @@ func (p *preparedCLILaunch) startSized(deps Deps, r *http.Request, name, cwd str
 	if blocked, e := peerStopPending(deps, p.id); e != nil || blocked {
 		return errors.New("The previous process has not finished closing. Try again after it exits.")
 	}
-	env := append(append([]string{}, p.environment...), tmux.MarkerTermEnv+"="+p.id, tmux.MarkerURLEnv+"="+loopbackURL(deps))
+	env := append(append([]string{}, p.environment...), launchIdentityEnv(deps, p.id)...)
+	env = append(env, tmux.MarkerURLEnv+"="+loopbackURL(deps))
 	if b := interceptBinEnv(deps.DataDir); b != "" {
 		env = append(env, b)
 	}

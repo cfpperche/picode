@@ -31,6 +31,6 @@ free CLI terminal, not an agent.
 | **B** | `POST /api/workspaces/{id}/agents` `{cli}` creates a guest agent + launch terminal; one New → Agent picker. `#/clis` hub stays (install, Launch, Sessions, Providers, Settings, Packages, Connectors). |
 | **C** | Migrate `managed_clis` → `agents`; principals list = agents; drop the table — this branch |
 | **D** | Guest rows speak CLI: subtitle, terminal status, Launch settings + lifecycle in the agent menu (desktop and mobile); remaining "Pi agent" labels in peer contact lists |
-| **E** | Rekey Inbox / `picode mcp` / grants onto the agent id |
+| **E** (this branch) | Rekey Inbox / `picode mcp` / grants onto the agent id |
 | **F** | Automations and Inspector ask through the prompt door (old Fatia 4) |
 | **∞** | Managed mode per CLI — out until ADR-0091 is re-measured |

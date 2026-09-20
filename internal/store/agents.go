@@ -567,6 +567,13 @@ func (s *Store) DeleteAgent(id string) error {
 	if err != nil {
 		return err
 	}
+	// An open needs-you prompt names this agent (ADR-0160 Fatia E); with
+	// the agent gone it has no addressee, so it closes.
+	if open, err := s.ActiveInboxBySourceReason(InboxFromAgent, id, InboxNeedsYouReason); err == nil {
+		for _, it := range open {
+			_, _ = s.SetInboxItemState(it.ID, InboxDone, nil)
+		}
+	}
 	_, _ = s.db.Exec(`DELETE FROM agent_checklists WHERE agent_id = ?`, id)
 	res, err := s.db.Exec(`DELETE FROM agents WHERE id = ?`, id)
 	if err != nil {

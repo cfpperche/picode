@@ -711,3 +711,78 @@ func TestInboxTerminalSourcedReplyRoutesToTheTerminal(t *testing.T) {
 		t.Fatalf("system-sourced item closed")
 	}
 }
+
+// ADR-0160 Fatia E: a guest's needs-you names the agent, and the way in is
+// the terminal its TUI lives on. A Pi agent keeps ADR-0060: no escape
+// hatch, the reply goes through the agent's own surface.
+func TestInboxGuestItemOpensTheGuestTerminal(t *testing.T) {
+	h := inboxHost(t)
+	app := inboxApp{}
+	ctx := context.Background()
+	ws, _ := h.Store.AddWorkspace("ws", t.TempDir())
+
+	guest, _ := h.Store.AddAgentWithCLI(ws.ID, "claude-code", "Claude", "")
+	guestTerm, _ := h.Store.CreateTerminalIn(ws.ID, "Claude", t.TempDir())
+	if _, err := h.Store.UpdateAgent(guest.ID, store.AgentPatch{TerminalID: &guestTerm.ID}); err != nil {
+		t.Fatal(err)
+	}
+	n := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromAgent, SourceID: guest.ID, Reason: "cli-needs-you", Title: "Claude needs you", Blocking: true})
+
+	detail, err := app.View(ctx, h, "item/"+n.ID)
+	if err != nil {
+		t.Fatalf("guest detail: %v", err)
+	}
+	found := false
+	ignoreFirst := false
+	for _, b := range detail.Blocks {
+		if b.Type != "actions" {
+			continue
+		}
+		for _, act := range b.Actions {
+			if act.ID == "open-terminal" {
+				found = true
+			}
+			if act.ID == "ignore" && !found {
+				ignoreFirst = true
+			}
+		}
+	}
+	if !found || ignoreFirst {
+		t.Fatalf("guest item actions wrong (found=%v ignoreFirst=%v): %+v", found, ignoreFirst, detail.Blocks)
+	}
+	res, err := app.Action(ctx, h, ActionRequest{Action: "open-terminal", Args: map[string]string{"item": n.ID}})
+	if err != nil || res.Goto != "term:"+guestTerm.ID {
+		t.Fatalf("open-terminal = %+v %v", res, err)
+	}
+
+	pi, _ := h.Store.AddAgent(ws.ID, "Pi", "")
+	piTerm, _ := h.Store.CreateTerminalIn(ws.ID, "pi", t.TempDir())
+	if _, err := h.Store.UpdateAgent(pi.ID, store.AgentPatch{TerminalID: &piTerm.ID}); err != nil {
+		t.Fatal(err)
+	}
+	pq := mustItem(t, h, store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: pi.ID, Reason: "r", Title: "pi q", Body: "?"})
+	detail, err = app.View(ctx, h, "item/"+pq.ID)
+	if err != nil {
+		t.Fatalf("pi detail: %v", err)
+	}
+	for _, b := range detail.Blocks {
+		if b.Type != "actions" {
+			continue
+		}
+		for _, act := range b.Actions {
+			if act.ID == "open-terminal" {
+				t.Fatalf("pi item offers Open terminal: %+v", b.Actions)
+			}
+		}
+	}
+	if _, err := app.Action(ctx, h, ActionRequest{Action: "open-terminal", Args: map[string]string{"item": pq.ID}}); err == nil {
+		t.Fatalf("pi item accepted open-terminal")
+	}
+
+	// An unbound guest's item offers no way into a terminal that is gone.
+	freeGuest, _ := h.Store.AddAgentWithCLI(ws.ID, "codex", "Codex", "")
+	fn := mustItem(t, h, store.InboxItemParams{Kind: store.InboxFYI, SourceKind: store.InboxFromAgent, SourceID: freeGuest.ID, Reason: "r", Title: "codex note"})
+	if _, err := app.Action(ctx, h, ActionRequest{Action: "open-terminal", Args: map[string]string{"item": fn.ID}}); err == nil {
+		t.Fatalf("unbound guest accepted open-terminal")
+	}
+}

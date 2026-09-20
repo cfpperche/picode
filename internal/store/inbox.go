@@ -71,6 +71,11 @@ const (
 	InboxFromPin        = "pin" // ADR-0100: source_id is the pin
 )
 
+// InboxNeedsYouReason marks a guest's "the CLI is waiting on you" item
+// (ADR-0160 Fatia E): filed for the agent, closed when the CLI moves on or
+// the agent goes away.
+const InboxNeedsYouReason = "cli-needs-you"
+
 const (
 	maxInboxTitle = 200
 	maxInboxBody  = 100_000
