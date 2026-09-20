@@ -2791,6 +2791,17 @@ export default function App({ shellChrome = false } = {}) {
     }
     closeAgentShell(ag);
     setTabs((t) => t.filter((x) => x !== ag.id));
+    // A CLI agent's process is its bound terminal (ADR-0160): the delete
+    // above only nulls terminal_id, which would leave the terminal — and
+    // the live CLI inside it — as an orphan Work card. The row menu
+    // promises both go away. Pi keeps its terminal (its menu says so).
+    if (!agentIsPi(ag) && ag.terminalId) {
+      try {
+        await api("/api/terminals/" + encodeURIComponent(ag.terminalId), { method: "DELETE" });
+      } catch { /* already gone */ }
+      closeShellTerm(ag.terminalId);
+      setTabs((t) => t.filter((x) => x !== termTabId(ag.terminalId)));
+    }
     if (selectedId === ag.id) setSelectedId(null);
     // A removal is rare and final: refetch even when the feed is live, so
     // the row leaves on this answer and not only on the next event.

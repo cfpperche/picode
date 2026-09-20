@@ -13,6 +13,17 @@ import "path/filepath"
 // rules (ADR-0101); ADR-0163 amends only the registry that said Pi was the
 // single CLI with any editor at all.
 
+// Every boolean declares what its CLI does when nobody sets it, because the
+// switch has to draw that value. Where it came from, read 2026-09-20:
+//
+//	claude autoMemoryEnabled      on   — gated only by an explicit `=== false`
+//	codex  features.memories      off  — an opt-in `[features]` flag
+//	codex  memories.generate/use  on   — on while the feature above is on
+//	grok   cli.auto_update        on   — its own config template says so
+//	grok   ui.yolo, ui.compact    off  — opt-in behaviours; no source line
+//	hermes memory.*_enabled       on   — hermes_cli/config_defaults.py
+//	hermes display.show_reasoning on   — same file; this pane had it wrong
+//	hermes display.compact        off  — same file
 const (
 	groupModel    = "Model"
 	groupApproval = "Approvals"
@@ -67,7 +78,7 @@ var catalog = []spec{
 				[2]string{"dontAsk", "Deny unless allowed"},
 				[2]string{"bypassPermissions", "Skip all prompts"},
 			), Danger: "bypassPermissions", DangerNote: "Runs without permission prompts. For containers or disposable VMs."},
-			{Key: "autoMemoryEnabled", Label: "Auto memory", Kind: KindBool, Group: groupMemory, Fallback: "On", Help: "Claude writes its own notes between sessions."},
+			{Key: "autoMemoryEnabled", Label: "Auto memory", Kind: KindBool, Group: groupMemory, Fallback: "On", DefaultOn: true, Help: "Claude writes its own notes between sessions."},
 			{Key: "autoMemoryDirectory", Label: "Memory folder", Kind: KindText, Group: groupMemory, Fallback: "~/.claude/projects/<project>/memory", Help: "Where those notes are kept."},
 			{Key: "cleanupPeriodDays", Label: "Keep transcripts for", Kind: KindNumber, Group: groupUpdates, Fallback: "30 days", Help: "Days before old session transcripts are removed. Memory files are never swept."},
 		},
@@ -94,8 +105,8 @@ var catalog = []spec{
 				[2]string{"danger-full-access", "Full access"},
 			), Danger: "danger-full-access", DangerNote: "No sandbox: full file and network access."},
 			{Key: "features.memories", Label: "Memories", Kind: KindBool, Group: groupMemory, Fallback: "Off", Help: "Codex turns finished chats into local notes."},
-			{Key: "memories.generate_memories", Label: "Write new memories", Kind: KindBool, Group: groupMemory, Fallback: "On while memories are on"},
-			{Key: "memories.use_memories", Label: "Read memories back", Kind: KindBool, Group: groupMemory, Fallback: "On while memories are on"},
+			{Key: "memories.generate_memories", Label: "Write new memories", Kind: KindBool, Group: groupMemory, Fallback: "On while memories are on", DefaultOn: true},
+			{Key: "memories.use_memories", Label: "Read memories back", Kind: KindBool, Group: groupMemory, Fallback: "On while memories are on", DefaultOn: true},
 		},
 	},
 	{
@@ -116,7 +127,7 @@ var catalog = []spec{
 			), Danger: "always-approve", DangerNote: "Edits and commands go through without a prompt."},
 			{Key: "ui.yolo", Label: "Auto-approve tools", Kind: KindBool, Group: groupApproval, Fallback: "Off", Danger: "true", DangerNote: "Every tool call is approved without asking."},
 			{Key: "ui.compact_mode", Label: "Compact display", Kind: KindBool, Group: groupSurface, Fallback: "Off"},
-			{Key: "cli.auto_update", Label: "Update automatically", Kind: KindBool, Group: groupUpdates, Fallback: "On"},
+			{Key: "cli.auto_update", Label: "Update automatically", Kind: KindBool, Group: groupUpdates, Fallback: "On", DefaultOn: true},
 		},
 	},
 	{
@@ -127,11 +138,11 @@ var catalog = []spec{
 		fields: []Field{
 			{Key: "model.default", Label: "Model", Kind: KindText, Group: groupModel, Fallback: "Hermes default"},
 			{Key: "model.provider", Label: "Provider", Kind: KindText, Group: groupModel, Fallback: "Hermes default"},
-			{Key: "agent.max_turns", Label: "Turn limit", Kind: KindNumber, Group: groupApproval, Fallback: "Hermes default", Help: "How many turns one run may take before it stops."},
+			{Key: "agent.max_turns", Label: "Turn limit", Kind: KindNumber, Group: groupApproval, Fallback: "20", Help: "How many turns one run may take before it stops."},
 			{Key: "display.compact", Label: "Compact display", Kind: KindBool, Group: groupSurface, Fallback: "Off"},
-			{Key: "display.show_reasoning", Label: "Show reasoning", Kind: KindBool, Group: groupSurface, Fallback: "Off"},
-			{Key: "memory.memory_enabled", Label: "Agent notes", Kind: KindBool, Group: groupMemory, Fallback: "On", Help: "What Hermes learned about this environment."},
-			{Key: "memory.user_profile_enabled", Label: "Profile of you", Kind: KindBool, Group: groupMemory, Fallback: "On"},
+			{Key: "display.show_reasoning", Label: "Show reasoning", Kind: KindBool, Group: groupSurface, Fallback: "On", DefaultOn: true},
+			{Key: "memory.memory_enabled", Label: "Agent notes", Kind: KindBool, Group: groupMemory, Fallback: "On", DefaultOn: true, Help: "What Hermes learned about this environment."},
+			{Key: "memory.user_profile_enabled", Label: "Profile of you", Kind: KindBool, Group: groupMemory, Fallback: "On", DefaultOn: true},
 			{Key: "memory.memory_char_limit", Label: "Notes size limit", Kind: KindNumber, Group: groupMemory, Fallback: "2200 characters"},
 			{Key: "memory.user_char_limit", Label: "Profile size limit", Kind: KindNumber, Group: groupMemory, Fallback: "1375 characters"},
 		},

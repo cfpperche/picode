@@ -44,10 +44,17 @@ saying what it needs and no form: hiding it made a link carrying
 `?layer=project` silently edit the machine file instead (found in live QA,
 2026-09-20).
 
-**A row says what happens if you leave it alone.** A key the file does not set
-shows the CLI's own default as its source line, and an unset switch is drawn
-indeterminate wearing that default — an empty checkbox beside a row reading
-"On while memories are on" told the reader the opposite of the truth. A
+**A row says what happens if you leave it alone.** A boolean is the Radix
+switch every pane uses (owner's call, 2026-09-20: one control for one job). A
+switch has no third state, so an unset key is drawn at **the CLI's own
+default**, which every boolean field declares and
+`TestEveryBooleanDeclaresItsDefault` holds against a table of where each value
+was read from. The source line carries the provenance instead — "Set here",
+"From This machine", or "<CLI> default" — and a default that is conditional
+("On while memories are on") stays as the row's help line. Declaring a default
+is a claim about someone else's software: Hermes' `display.show_reasoning`
+shipped as "Off" here while its own `config_defaults.py` says `True`, which is
+the failure this table exists to catch. A
 dangerous value carries its own one-line cost, not a shared sentence: two rows
 in one group printed the same seventeen words twice, and
 `TestDangerNotesAreDistinctWithinAGroup` now refuses that.

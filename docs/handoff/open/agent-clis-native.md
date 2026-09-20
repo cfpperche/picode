@@ -7,12 +7,6 @@
 
 ## Debts
 
-- **A boolean still looks different in Pi's pane and the guests'.** Pi uses
-  the Radix switch its Auto-compact row always used; the guest pane uses a
-  checkbox because it needs a third state — an unset key must not read as
-  "Off" when the CLI's own default is on, and a switch cannot show that. One
-  of the two has to give: either the guests gain a tri-state control, or the
-  unset state moves entirely into the source line and both become switches.
 - **`resolveLayer` is a named list.** A key added to `/api/pi-settings` is
   invisible in the pane until it is added there too — that is how the Theme
   row first rendered empty while the file said `dark` (2026-09-20). Pi's pane

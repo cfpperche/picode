@@ -74,6 +74,12 @@ type Field struct {
 	// Secret marks a field whose value is credential-shaped and is reported
 	// as set without reporting what it is.
 	Secret bool `json:"secret,omitempty"`
+	// DefaultOn is what the CLI does with a boolean nobody set. The pane
+	// draws an unset switch at this value, so leaving a row alone shows the
+	// truth rather than "off" (owner's call, 2026-09-20: one control for a
+	// boolean in every pane, which means the switch has to carry the
+	// effective value because it cannot show a third state).
+	DefaultOn bool `json:"defaultOn,omitempty"`
 }
 
 func (f Field) path() []string { return strings.Split(f.Key, ".") }
