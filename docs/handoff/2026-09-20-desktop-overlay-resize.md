@@ -15,3 +15,5 @@ Native QA isolation: the initial port-8471 attempt reached another scratch insta
 Scope: physical multi-monitor, IME and the broader overlay acceptance matrix remain tracked in `docs/handoff/open/live-desktop-overlays.md`; unit tests are not physical DPI acceptance.
 Deployment: owner-authorized forced deploy and supported desktop restart completed at 11:04 local time. Production serves 0.3.1+b6c9f19 with healthy boot c84109a6995ea49c; Windows shell process 20352 responds and its installed executable matches the build hash.
 Merge: b6c9f190 fast-forwarded to main and full `make ci` passed. Task-owned scratch, fixture and Windows QA processes were stopped; the merged worktree was removed. Evidence is retained under `var/screenshots/desktop-overlay-resize/` and `var/qa/desktop-overlay-resize-results/`.
+
+Owner acceptance: on 2026-09-20, the owner tested maximizing the deployed desktop and confirmed it works. This confirmation covers maximizing only.
