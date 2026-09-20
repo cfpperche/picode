@@ -12,10 +12,11 @@ import { formatChord, primaryChord } from "../lib/appKeys.js";
 import { useEdgeResize } from "../lib/resizeEdge.js";
 import {
   INSPECTOR_MIN, blockedMessage, changeTotals, defaultOpen, describeAnchor,
-  inspectorLayout, maxInspectorWidth, normalizeTouched, prTabLabel, scopeChanges,
+  inspectorLayout, maxInspectorWidth, prTabLabel,
   branchChip, gitActionCommand, gitActions, askableAgents, askChannelHint, askGitPrompt,
+  sessionGroups, resolveSessionView,
 } from "../lib/inspector.js";
-import InspectorChanges from "./InspectorChanges.jsx";
+import InspectorSessionChanges from "./InspectorSessionChanges.jsx";
 import InspectorFiles from "./InspectorFiles.jsx";
 import InspectorPR, { usePullRequest } from "./InspectorPR.jsx";
 import InspectorServers from "./InspectorServers.jsx";
@@ -25,7 +26,7 @@ import { ProviderFace } from "./ProviderFaces.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 
 const REVEAL_STALE_MS = 10_000;
-const EMPTY_STATUS = { git: false, changes: [], totals: null, branch: "", worktree: "", upstream: "", ahead: 0, behind: 0, detached: false, repoRoot: "" };
+const EMPTY_STATUS = { git: false, changes: [], totals: null, branch: "", worktree: "", upstream: "", ahead: 0, behind: 0, detached: false, repoRoot: "", worktrees: [], worktreesTruncated: 0 };
 
 // useInspectorLayout measures the shell and decides whether the rail fits.
 // The left sidebar's width is read from the DOM rather than lifted out of
@@ -82,7 +83,7 @@ function AnchorFace({ info }) {
 // retarget. Data flow, guards and refresh idioms mirror FileTreeSurface.
 export default function Inspector({
   hidden, anchor, workspaces, freeAgents, terminals, touchedPaths,
-  tab, onTab, width, maxWidth, onWidth, activePath,
+  tab, onTab, width, maxWidth, onWidth, activePath, activeWorktree = "",
   onOpenFile, onOpenDiff, onOpenGraph, onOpenTree, onOpenTerminal, onChanges,
   runMode, onRunMode, onAskAgent, onOpenUrl, onOpenOwner,
 }) {
@@ -99,6 +100,8 @@ export default function Inspector({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [scope, setScope] = useState("all");
+  const [followedRef, setFollowedRef] = useState("");
+  const [dismissed, setDismissed] = useState(false);
   const [liveWidth, setLiveWidth] = useState(null);
   const [nonce, setNonce] = useState(0);
   const [commitDialog, setCommitDialog] = useState(null);
@@ -110,6 +113,7 @@ export default function Inspector({
   const expandedRef = useRef(expanded);
   const lastLoadRef = useRef(0);
   const queueRef = useRef(null);
+  const shownRootsRef = useRef([]);
   const onChangesRef = useRef(onChanges);
   hiddenRef.current = hidden;
   expandedRef.current = expanded;
@@ -177,6 +181,8 @@ export default function Inspector({
             branch: st.branch || "", worktree: st.worktree || "", upstream: st.upstream || "",
             ahead: Number(st.ahead) || 0, behind: Number(st.behind) || 0, detached: !!st.detached,
             repoRoot: st.repoRoot || "",
+            worktrees: Array.isArray(st.worktrees) ? st.worktrees : [],
+            worktreesTruncated: Number(st.worktreesTruncated) || 0,
           }
           : EMPTY_STATUS);
       } catch (e) {
@@ -211,6 +217,8 @@ export default function Inspector({
     setError("");
     setBusy(false);
     setScope("all");
+    setFollowedRef("");
+    setDismissed(false);
     if (queueRef.current) queueRef.current.stop();
     queueRef.current = createRefreshQueue(() => loadRef.current(false));
     if (owner && !hiddenRef.current) void loadRef.current(false);
@@ -221,7 +229,8 @@ export default function Inspector({
   // open/reset reconcile like every other list (ADR-0048). Bursts coalesce.
   useEffect(() => subscribeFeed((ev) => {
     if (hiddenRef.current || !rootRef.current || !queueRef.current) return;
-    const hit = ev.type === "git.updated" && ev.data && ev.data.path === rootRef.current;
+    const shown = shownRootsRef.current || [];
+    const hit = ev.type === "git.updated" && ev.data && (ev.data.path === rootRef.current || shown.includes(ev.data.path));
     const reconcile = ev.type === "feed.open" || ev.type === "feed.reset";
     if (hit || reconcile) void queueRef.current.request();
   }), []);
@@ -251,10 +260,19 @@ export default function Inspector({
     void queueRef.current.request();
   }, [termDirty, termCwd, anchorKind]);
 
+  const groups = useMemo(() => (status.git ? sessionGroups(status, root) : []), [status, root]);
+  const view = useMemo(() => resolveSessionView({ groups, followedRef, dismissed }), [groups, followedRef, dismissed]);
+  shownRootsRef.current = (view.shown || []).map((g) => g.path);
+
   useEffect(() => {
     if (!onChangesRef.current) return;
-    onChangesRef.current({ owner, root, paths: new Set((status.changes || []).map((c) => c.path)) });
-  }, [status, root, owner]);
+    onChangesRef.current({
+      owner,
+      root,
+      paths: new Set((status.changes || []).map((c) => c.path)),
+      worktrees: (view.shown || []).filter((g) => !g.isRoot).map((g) => ({ root: g.path, paths: new Set((g.changes || []).map((c) => c.path)) })),
+    });
+  }, [status, root, owner, view]);
 
   async function toggle(path) {
     if (!owner) return;
@@ -297,9 +315,17 @@ export default function Inspector({
   const pull = usePullRequest({ owner, root, branch: status.branch, enabled: !!status.git && !hidden, nonce });
   const changes = status.git ? status.changes : [];
   const scopable = anchorKind === "agent" && Array.isArray(touchedPaths);
-  const touched = scopable && scope === "agent" ? normalizeTouched(touchedPaths, root) : null;
-  const scoped = scopeChanges(changes, touched);
-  const totals = touched ? changeTotals(scoped) : status.totals || changeTotals(changes);
+  // While the rail follows a sibling checkout, the branch chip and every Git
+  // action (prepare, run, ask, commit dialog) address that checkout — the
+  // terminal is born in its folder and the ask text names it. The PR tab and
+  // the askable set stay on the anchor: one is the anchor branch's PR, the
+  // other a repository-level question.
+  const actionStatus = view.pill
+    ? { ...status, branch: view.pill.branch, upstream: view.pill.upstream, ahead: view.pill.ahead, behind: view.pill.behind, detached: view.pill.detached, worktree: view.pill.worktree }
+    : status;
+  const actionRoot = view.pill ? view.pill.path : root;
+  const sessionFiles = (status.git ? status.changes.length : 0)
+    + (status.worktrees || []).reduce((n, wt) => n + ((wt.changes || []).length), 0);
   const kinds = useMemo(() => changeKinds(changes), [changes]);
   const dirtyDirs = useMemo(() => changedDirs(changes), [changes]);
   const rows = useMemo(() => flattenTree(levels || {}, expanded), [levels, expanded]);
@@ -308,14 +334,14 @@ export default function Inspector({
   const name = info ? info.name : "Inspector";
   const shownPath = root || (info && info.path) || "";
   const shownWidth = liveWidth == null ? width : liveWidth;
-  const refresh = () => { setNonce((n) => n + 1); return loadRef.current(true); };
-  const chip = branchChip(status);
-  const actions = owner ? gitActions(status) : [];
+  const refresh = () => { setNonce((n) => n + 1); setDismissed(false); return loadRef.current(true); };
+  const chip = branchChip(actionStatus);
+  const actions = owner ? gitActions(actionStatus) : [];
   // Git actions prepare the exact command in the owner's terminal; the human
   // submits it there (ADR-0078). Nothing here runs git.
   const runGit = (action) => {
     if (!onOpenTerminal || !owner) return;
-    onOpenTerminal(owner, root, gitActionCommand(action, { branch: status.branch, upstream: status.upstream }), { run: !!runMode });
+    onOpenTerminal(owner, actionRoot, gitActionCommand(action, { branch: actionStatus.branch, upstream: actionStatus.upstream }), { run: !!runMode });
   };
   // Stage 3 (ADR-0078): agents running in this repository can be asked
   // instead — a prompt through their own channel. Nothing here runs git.
@@ -325,7 +351,7 @@ export default function Inspector({
   );
   const askGit = (who, action) => {
     if (!onAskAgent) return;
-    onAskAgent(who, askGitPrompt(action, { root, branch: status.branch, upstream: status.upstream }), root, action);
+    onAskAgent(who, askGitPrompt(action, { root: actionRoot, branch: actionStatus.branch, upstream: actionStatus.upstream }), actionRoot, action);
   };
   function onTabKey(e) {
     if (order.length < 2 || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
@@ -442,7 +468,7 @@ export default function Inspector({
           <nav className="insp-tabs" role="tablist" aria-label="Inspector view" onKeyDown={onTabKey}>
             {status.git ? (
               <button type="button" role="tab" className="ft-tab" data-panel="changes" tabIndex={panel === "changes" ? 0 : -1} aria-selected={panel === "changes"} onClick={() => onTab("changes")}>
-                Changes{changes.length > 0 ? <span className="ft-tab-badge">{changes.length}</span> : null}
+                Changes{sessionFiles > 0 ? <span className="ft-tab-badge">{sessionFiles}</span> : null}
               </button>
             ) : null}
             <button type="button" role="tab" className="ft-tab" data-panel="files" tabIndex={panel === "files" ? 0 : -1} aria-selected={panel === "files"} onClick={() => onTab("files")}>Files</button>
@@ -493,9 +519,15 @@ export default function Inspector({
             onTerminal={onOpenTerminal ? (command) => onOpenTerminal(owner, root, command) : undefined}
           />
         ) : panel === "changes" ? (
-          <InspectorChanges
-            changes={scoped} totals={totals} scope={scope} onScope={setScope} scopable={scopable}
-            activePath={activePath} onOpen={(path) => onOpenDiff(owner, path)} onViewFiles={() => onTab("files")}
+          <InspectorSessionChanges
+            view={view} truncated={status.worktreesTruncated || 0}
+            backLabel={status.branch ? `Back to ${status.branch}` : `Back to ${shortPath(root)}`}
+            scope={scope} onScope={setScope} scopable={scopable} touchedPaths={touchedPaths}
+            activePath={activePath} activeWorktree={activeWorktree}
+            onOpen={(group, path) => onOpenDiff(owner, path, group && !group.isRoot ? { ref: group.ref, root: group.path, branch: group.branch } : null)}
+            onViewFiles={() => onTab("files")}
+            onFollow={(ref) => { setFollowedRef(ref); setDismissed(false); }}
+            onBack={() => { setFollowedRef(""); setDismissed(true); }}
           />
         ) : (
           <InspectorFiles
@@ -505,11 +537,11 @@ export default function Inspector({
         )}
       </div>
       <InspectorCommitDialog
-        open={!!commitDialog} push={!!(commitDialog && commitDialog.push)} status={status} run={!!runMode}
-        ask={(commitDialog && commitDialog.ask) || null} root={root}
+        open={!!commitDialog} push={!!(commitDialog && commitDialog.push)} status={actionStatus} run={!!runMode}
+        ask={(commitDialog && commitDialog.ask) || null} root={actionRoot}
         onClose={() => setCommitDialog(null)}
-        onPrepare={(command) => { setCommitDialog(null); if (onOpenTerminal && owner) onOpenTerminal(owner, root, command, { run: !!runMode }); }}
-        onAsk={(text, action) => { const who = commitDialog && commitDialog.ask; setCommitDialog(null); if (who && onAskAgent) onAskAgent(who, text, root, action); }}
+        onPrepare={(command) => { setCommitDialog(null); if (onOpenTerminal && owner) onOpenTerminal(owner, actionRoot, command, { run: !!runMode }); }}
+        onAsk={(text, action) => { const who = commitDialog && commitDialog.ask; setCommitDialog(null); if (who && onAskAgent) onAskAgent(who, text, actionRoot, action); }}
       />
     </aside>
   );

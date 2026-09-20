@@ -111,7 +111,7 @@ import { extraSlash } from "@picode/shared/domain/slash.js";
 import { isAutomateCommand, automatePrompt, parseAutomateReply } from "./lib/automateDraft.js";
 import { writeAutomationDraft } from "./lib/automationDraft.js";
 import { isValidCron } from "@picode/shared/domain/cron.js";
-import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners, readAgentSplits, writeAgentSplits, writeAgentSplitUrls, filterAgentSplits, readWebTabUrls, writeWebTabUrls } from "./lib/openTabs.js";
+import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners, readAgentSplits, writeAgentSplits, writeAgentSplitUrls, filterAgentSplits, readWebTabUrls, writeWebTabUrls, readFileWorktrees, writeFileWorktrees } from "./lib/openTabs.js";
 import { anchorFor, askedNote, ownerExists, readInspectorPrefs, runFallbackNote, writeInspectorPrefs, INSPECTOR_MIN, maxInspectorWidth } from "./lib/inspector.js";
 import { sessionsHash } from "./lib/routes.js";
 import Hotkeys from "./components/Hotkeys.jsx";
@@ -191,6 +191,10 @@ export default function App({ shellChrome = false } = {}) {
   const [inspectorPrefs, setInspectorPrefs] = useState(readInspectorPrefs);
   const [inspectorAnchor, setInspectorAnchor] = useState(null);
   const [fileViews, setFileViews] = useState({});
+  // Which checkout each file tab reads through (a sibling worktree's {ref,
+  // root}, or nothing for the anchor folder). Persisted beside the strip: a
+  // reload must reopen the same checkout, not the same path in another tree.
+  const [fileWorktrees, setFileWorktrees] = useState(readFileWorktrees);
   const [inspectorChanged, setInspectorChanged] = useState(null);
   const inspectorLayout = useInspectorLayout({ open: inspectorPrefs.open, width: inspectorPrefs.width, narrow });
   const inspectorWantOpenRef = useRef(inspectorLayout.wantOpen);
@@ -375,11 +379,14 @@ export default function App({ shellChrome = false } = {}) {
     setInspectorAnchor((last) => anchorFor(selectedId, { workspaces, freeAgents, terminals, gitOwners, treeOwners, appSubjects }, last));
   }, [selectedId, workspaces, freeAgents, terminals, gitOwners, treeOwners, appSubjects]);
   const fileTabInfo = isFileTab(selectedId) ? parseFileTab(selectedId) : null;
+  const fileTabWT = fileTabInfo ? fileWorktrees[selectedId] || null : null;
   const fileTabOnAnchor = !!(fileTabInfo && inspectorAnchor && fileTabInfo.kind === inspectorAnchor.kind && fileTabInfo.id === inspectorAnchor.id);
   const inspectorActivePath = fileTabOnAnchor ? fileTabInfo.path : "";
   const fileTabChanged = !!(fileTabInfo && inspectorChanged && inspectorChanged.owner
     && inspectorChanged.owner.kind === fileTabInfo.kind && inspectorChanged.owner.id === fileTabInfo.id
-    && inspectorChanged.paths.has(fileTabInfo.path));
+    && (fileTabWT && fileTabWT.root
+      ? (inspectorChanged.worktrees || []).some((w) => w.root === fileTabWT.root && w.paths.has(fileTabInfo.path))
+      : inspectorChanged.paths.has(fileTabInfo.path)));
   // Paths this session's edit/write tools named — the Inspector's "This
   // agent" scope intersects the working tree with them.
   const touchedPaths = useMemo(() => {
@@ -824,6 +831,12 @@ export default function App({ shellChrome = false } = {}) {
         };
         const next = filterOpenTabs(readOpenTabs(), exists);
         setTabs(next.ids);
+        setFileWorktrees((cur) => {
+          const keep = new Set(next.ids);
+          const pruned = {};
+          for (const [id, wt] of Object.entries(cur)) if (keep.has(id)) pruned[id] = wt;
+          return Object.keys(pruned).length === Object.keys(cur).length ? cur : pruned;
+        });
         // A split pane only lives while its host tab does: an agent that did
         // not come back takes its pane with it, and the pane's url goes too.
         // The webviews are recreated later — once the host tab is actually on
@@ -1048,6 +1061,9 @@ export default function App({ shellChrome = false } = {}) {
   useEffect(() => {
     writeTermWanted([...termWanted]);
   }, [termWanted]);
+  useEffect(() => {
+    writeFileWorktrees(fileWorktrees);
+  }, [fileWorktrees]);
   // ADR-0118: #/app/matrix[/<id>] is the Canvas app's old address. Replaced,
   // never pushed — the way ADR-0101/0102/0103 moved their surfaces and the
   // way #/sessions* still lands on #/clis/<cli>/sessions* — so a bookmark costs the
@@ -1388,11 +1404,23 @@ export default function App({ shellChrome = false } = {}) {
     }
   }
 
-  function openFileTab(kind, ownerId, path, view = "file") {
+  function openFileTab(kind, ownerId, path, view = "file", wt = null) {
     setDashboardPinned(false);
     if (!ownerId || !path) return;
     const id = fileTabId(kind, ownerId, path);
     setFileViews((v) => (v[id] === view ? v : { ...v, [id]: view }));
+    // The checkout is set-or-cleared on every open: a tab id is owner+path,
+    // so reopening the same path from another checkout must retarget the
+    // tab, never inherit a stale one.
+    setFileWorktrees((v) => {
+      const cur = v[id] || null;
+      const same = (!cur && !wt) || (!!cur && !!wt && cur.ref === wt.ref && cur.root === wt.root);
+      if (same) return v;
+      const next = { ...v };
+      if (wt && wt.ref && wt.root) next[id] = { ref: wt.ref, root: wt.root, branch: wt.branch || "" };
+      else delete next[id];
+      return next;
+    });
     setGoneId("");
     setSelectedId(id);
     setTabs((t) => (t.includes(id) ? t : [...t, id]));
@@ -1918,6 +1946,12 @@ export default function App({ shellChrome = false } = {}) {
     const guard = treeCloseGuards.current.get(id);
     if (guard && !await guard()) return;
     setFileViews((v) => {
+      if (!(id in v)) return v;
+      const next = { ...v };
+      delete next[id];
+      return next;
+    });
+    setFileWorktrees((v) => {
       if (!(id in v)) return v;
       const next = { ...v };
       delete next[id];
@@ -3344,6 +3378,7 @@ export default function App({ shellChrome = false } = {}) {
     apps={apps}
     webapps={webapps}
     webTabs={webTabs}
+    fileWorktrees={fileWorktrees}
     selectedId={selectedId}
     onSelect={(id) => openTab(id)}
     onClose={closeTab}
@@ -3550,6 +3585,8 @@ export default function App({ shellChrome = false } = {}) {
             view={fileViews[selectedId] || "file"}
             onView={(view) => setFileViews((v) => ({ ...v, [selectedId]: view }))}
             changed={fileTabChanged}
+            root={(fileTabWT && fileTabWT.root) || ""}
+            worktree={(fileTabWT && fileTabWT.ref) || ""}
           />
           {/* Same rule as the trees below: the loaded history, the open
               commit, the search and the branch filter belong to the tab. */}
@@ -3990,8 +4027,9 @@ export default function App({ shellChrome = false } = {}) {
         maxWidth={inspectorLayout.maxWidth}
         onWidth={(width) => rememberInspector({ width })}
         activePath={inspectorActivePath}
+        activeWorktree={(fileTabWT && fileTabWT.ref) || ""}
         onOpenFile={(o, path) => openFileTab(o.kind, o.id, path, "file")}
-        onOpenDiff={(o, path) => openFileTab(o.kind, o.id, path, "diff")}
+        onOpenDiff={(o, path, wt) => openFileTab(o.kind, o.id, path, "diff", wt || null)}
         onOpenGraph={(o, name) => openGitTab(o.kind, o.id, name)}
         onOpenTree={(o, name) => openTreeTab(o.kind, o.id, name)}
         onOpenTerminal={typeIntoTerminal}

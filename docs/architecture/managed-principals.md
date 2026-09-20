@@ -13,11 +13,33 @@ house spelling ADR-0143 already uses: the agent id, or `term:<id>`.
 `grant.Key(agentID, termID)` is `FromIDs(…).Key()` — agent wins.
 
 A CLI agent's interactive process is `agents.terminal_id` (unique).
+Pi also uses this binding for newly opened interactive processes (ADR-0162).
+It is allocated lazily and atomically with its terminal and launch configuration;
+RPC-only Pi agents do not need a terminal. Existing live legacy Pi panes retain
+their original address until explicitly stopped or restarted. The resolver keeps
+old agent terminal URLs working after migration.
+
+Pi's shared launch preserves agent model/provider/thinking, packages and their
+isolation, prompt, readonly tools, roles, checklist and compaction identity, cwd
+and private session directory. Native session reports update both the terminal
+pin and agent session ownership. Agent routes keep the Ask receiver/proof and
+prompt/drop contracts; bound Pi terminal doors route through that agent identity.
+The active mode selects the activity source: terminal events for interactive,
+RPC snapshots for managed. The terminal is not a second fleet entry. Agent
+menus retain Pi settings and expose the bound terminal's launch settings.
+
+Agent lifecycle routes and bound-terminal lifecycle routes use the agent lock.
+Preparation precedes replacement; shutdown captures owned processes, verifies
+exit and keeps a durable refusal receipt when a writer outlives the pane.
+Terminal launch refuses a live RPC or legacy TUI rather than creating a second
+writer. No deployment or browser reconnect migrates a live process.
+
 Binding does not start a process and does not call `Runtime.Start`.
 Deleting the agent deletes that terminal; deleting the terminal deletes
 the CLI agent row (announced `agent.deleted` then `terminal.deleted`).
-Because `runMode` never sees the terminal's tmux session, the row reads
-its state from the bound terminal: the subtitle names the CLI
+The address resolver exposes the bound tmux session to `runMode`; activity
+still comes from the bound terminal, not the process-presence flag. For
+non-Pi agents the subtitle names the CLI
 (`agentSubtitle`), the status pill and the Start/Restart/Stop menu act on
 the terminal (`agentRowMenu`, shared with the node tests), and Launch
 settings opens `#/clis/terminal/<terminalId>` — the same screens the

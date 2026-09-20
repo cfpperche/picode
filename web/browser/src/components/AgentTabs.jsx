@@ -13,11 +13,12 @@ import { IconGlobe } from "./Icons.jsx";
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import { terminalCli, terminalCliLabel, terminalDisplayCli, terminalStatus } from "@picode/shared/domain/terminalCli.js";
+import { agentRowStatus } from "@picode/shared/domain/agentStatus.js";
 
 // One description per tab id, shared by the strip and the "All tabs"
 // list so both show the same face, name and status. Null means the tab
 // has nothing to render yet (a terminal the client has not received).
-function describeTab(id, { terms, appList, workspaces, freeAgents, webTabs, webapps }) {
+function describeTab(id, { terms, appList, workspaces, freeAgents, webTabs, webapps, fileWorktrees }) {
   const installedId = webappIdFromTab(id);
   const installed = installedId ? (webapps || []).find((a) => a.id === installedId) : null;
   if (installed) {
@@ -53,7 +54,9 @@ function describeTab(id, { terms, appList, workspaces, freeAgents, webTabs, weba
     const f = parseFileTab(id);
     if (!f) return null;
     const name = (f.path || "").split("/").pop() || f.path || "File";
-    return { icon: <IconFile size={13} />, label: name, title: f.path, status: null, closeTitle: "Close tab" };
+    const wt = fileWorktrees && fileWorktrees[id];
+    const title = wt && wt.branch ? `${f.path} · ${wt.branch}` : f.path;
+    return { icon: <IconFile size={13} />, label: name, title, status: null, closeTitle: "Close tab" };
   }
   if (isGitTab(id)) {
     // The tab is the repository (ADR-0022), so its name comes from the
@@ -80,12 +83,12 @@ function describeTab(id, { terms, appList, workspaces, freeAgents, webTabs, weba
   // favicon — the agent's provider face, the same mark the sidebar wears —
   // and the trailing dot carries activity: needs-you is the user's move
   // (accent), running gets the green working dot.
-  const mode = ag.mode || "stopped";
+  const status = agentRowStatus(ag, { term: (terms || []).find(t => t.id === ag.terminalId) });
   return {
     icon: <ProviderFace agent={ag} />,
     label: displayAgentName(ag, loc.workspace),
     title: "",
-    status: ag.waiting ? "attn" : mode !== "stopped" ? "running" : null,
+    status: status === "needs-you" ? "attn" : status === "working" ? "running" : null,
     closeTitle: "Close tab (agent keeps running)",
   };
 }
@@ -96,8 +99,8 @@ function StatusDot({ status }) {
   return null;
 }
 
-export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, apps, webapps, webTabs, selectedId, onSelect, onClose, onReorder, sessionSlot, endSlot, keepVisible }) {
-  const ctx = { terms: terminals || [], appList: apps || [], workspaces, freeAgents, webTabs, webapps };
+export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, apps, webapps, webTabs, fileWorktrees, selectedId, onSelect, onClose, onReorder, sessionSlot, endSlot, keepVisible }) {
+  const ctx = { terms: terminals || [], appList: apps || [], workspaces, freeAgents, webTabs, webapps, fileWorktrees };
   const entries = tabs.map((id) => ({ id, d: describeTab(id, ctx) })).filter((e) => e.d);
   const ids = entries.map((e) => e.id);
   const stripRef = useRef(null);

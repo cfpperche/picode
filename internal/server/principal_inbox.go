@@ -20,7 +20,7 @@ func syncManagedCLIInbox(deps Deps, termID, state string) {
 		return
 	}
 	a, err := deps.Store.AgentByTerminal(termID)
-	if err != nil || a.IsPi() {
+	if err != nil || (deps.Runtime != nil && deps.Runtime.Active(a.ID)) {
 		return
 	}
 	// The item belongs to the agent (ADR-0160 Fatia E): one conversation
@@ -33,6 +33,18 @@ func syncManagedCLIInbox(deps Deps, termID, state string) {
 	if state == TermNeedsYou {
 		if len(open) > 0 {
 			return
+		}
+		if a.IsPi() {
+			blocking := true
+			items, e := deps.Store.ListInboxItems(store.InboxFilter{Blocking: &blocking, IncludeSnoozed: true})
+			if e != nil {
+				return
+			}
+			for _, it := range items {
+				if it.SourceKind == store.InboxFromAgent && it.SourceID == a.ID {
+					return
+				}
+			}
 		}
 		name := a.Name
 		if name == "" {

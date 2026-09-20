@@ -55,6 +55,14 @@ function staleRuntimeStart(current, incoming) {
 
 // applyFleet({workspaces, freeAgents, terminals}, ev) -> next | null | same
 export function applyFleet(state, ev) {
+  const next = applyFleetRaw(state, ev);
+  if (!next || next === state) return next;
+  const terms = new Map((next.terminals || []).map(t => [t.id,t]));
+  const patch = a => a.terminalId ? { ...a, terminal: terms.get(a.terminalId) || a.terminal } : a;
+  return { ...next, freeAgents: (next.freeAgents || []).map(patch), workspaces: (next.workspaces || []).map(w => ({ ...w, agents: (w.agents || []).map(patch) })) };
+}
+
+function applyFleetRaw(state, ev) {
   const { workspaces = [], freeAgents = [], terminals = [] } = state || {};
   const d = ev && ev.data ? ev.data : {};
   switch (ev.type) {
@@ -80,6 +88,8 @@ export function applyFleet(state, ev) {
       return { ...state, workspaces: workspaces.map((w) => (w.id === ws.id ? { ...w, agents: [...(w.agents || []), agentView(d)] } : w)) };
     }
     case "agent.updated": {
+      const previous = [...freeAgents, ...workspaces.flatMap(w => w.agents || [])].find(a => a.id === d.id);
+      if (previous && previous.terminalId !== d.terminalId) return null;
       let found = false;
       const patch = (a) => { if (a.id !== d.id) return a; found = true; return agentView(d, a); };
       const next = {
@@ -101,6 +111,7 @@ export function applyFleet(state, ev) {
         freeAgents: freeAgents.filter((a) => a.id !== d.id),
       };
     case "agent.status": {
+      if ([...freeAgents, ...workspaces.flatMap(w => w.agents || [])].some(a => a.id === d.id && a.legacyInteractive)) return null;
       // A start carries the mode the server started it in (managed |
       // interactive); a start without one cannot be applied faithfully.
       const running = d.lastStatus === "running";

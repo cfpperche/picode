@@ -104,6 +104,9 @@ type dropBody struct {
 
 func handleTerminalDrop(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if routeBoundPi(deps, w, r, handleAgentDrop(deps)) {
+			return
+		}
 		t, err := deps.Store.GetTerminal(r.PathValue("id"))
 		if err != nil {
 			writeStoreErr(w, err)
@@ -140,6 +143,9 @@ type promptBody struct {
 
 func handleTerminalPrompt(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if routeBoundPi(deps, w, r, handleAgentPrompt(deps)) {
+			return
+		}
 		t, err := deps.Store.GetTerminal(r.PathValue("id"))
 		if err != nil {
 			writeStoreErr(w, err)
@@ -165,26 +171,34 @@ func handleTerminalPrompt(deps Deps) http.HandlerFunc {
 			return
 		}
 		payload := buildPromptPaste(req.Message, rels)
-		status, body := pasteToTerminal(deps, r.Context(), t, payload)
+		status, body := doorDeliver(deps, r.Context(), t, payload)
 		if status != http.StatusOK {
 			writeJSON(w, status, body)
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "typed": true})
+		writeJSON(w, http.StatusOK, body)
 	}
 }
 
-// pasteToTerminal is the one delivery path of the ADR-0089 door: tmux
-// present, session alive, one in-flight paste per terminal, bracketed
-// paste + Enter, `terminal.prompt` announced. Callers validate their own
-// inputs first; this only delivers. A non-200 status comes with the JSON
-// body to write (with a reason the UI can name).
-func pasteToTerminal(deps Deps, ctx context.Context, t store.Terminal, payload string) (int, map[string]any) {
+// doorDeliver is the one delivery path of the ADR-0089 door: tmux present,
+// session alive, one in-flight paste per terminal, payload into the TUI,
+// `terminal.prompt` announced. Callers validate their own inputs first;
+// this only delivers. A non-200 status comes with the JSON body to write
+// (with a reason the UI can name).
+//
+// For CLIs with a measured input reader (peer_attention.go) delivery is
+// gated and verified, Fatia F: the composer must read empty before, and
+// read empty again after Enter — every other outcome comes back named
+// (working, needs-you, occupied, busy, closed, unobservable) instead of a
+// blind paste that can interrupt a turn or land on a human draft. CLIs
+// without a reader keep the bracketed paste and say so: delivery
+// "unverified". The response carries `delivery` either way.
+func doorDeliver(deps Deps, ctx context.Context, t store.Terminal, payload string) (int, map[string]any) {
 	if deps.Tmux == nil || !deps.Tmux.Available() {
 		return http.StatusServiceUnavailable, map[string]any{"error": "Need tmux to send to a terminal."}
 	}
 	session := tmux.ShellSessionName(t.ID)
-	cctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	cctx, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
 	has, err := deps.Tmux.HasSession(cctx, session)
 	if err != nil {
@@ -197,13 +211,122 @@ func pasteToTerminal(deps Deps, ctx context.Context, t store.Terminal, payload s
 		return http.StatusConflict, map[string]any{"error": "Already sending to this terminal.", "reason": "busy"}
 	}
 	defer unlockPrompt(t.ID)
-	if err := deps.Tmux.PasteText(cctx, session, payload); err != nil {
+	if st, ok := deps.TermStates.Get(t.ID); ok && (st.State == TermWorking || st.State == TermNeedsYou) {
+		return http.StatusConflict, map[string]any{
+			"error": "The CLI is " + st.State + ". Try again when it is your turn.", "reason": st.State,
+		}
+	}
+	cli := terminalLaunchCLI(deps, t.ID)
+	if !doorReaderCLI[cli] {
+		if err := deps.Tmux.PasteText(cctx, session, payload); err != nil {
+			return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
+		}
+		announceDoorPrompt(deps, t.ID, "unverified")
+		return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "unverified"}
+	}
+	before, err := deps.Tmux.InputSnapshot(cctx, session)
+	if err != nil {
+		// The pane cannot be read here — degrade to the blind paste and say
+		// the delivery is unverified instead of refusing a working terminal.
+		if perr := deps.Tmux.PasteText(cctx, session, payload); perr != nil {
+			return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
+		}
+		announceDoorPrompt(deps, t.ID, "unverified")
+		return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "unverified"}
+	}
+	if !peerInputMatches(cli, before, "") {
+		return http.StatusConflict, map[string]any{
+			"error": "Finish or clear the draft in the terminal first.", "reason": "occupied",
+		}
+	}
+	if err := deps.Tmux.PasteOnly(ctx, before.PaneID, payload); err != nil {
 		return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
 	}
-	if deps.Feed != nil {
-		deps.Feed.Ephemeral("terminal.prompt", map[string]any{"termId": t.ID, "typed": true})
+	time.Sleep(doorComposerLag)
+	if err := deps.Tmux.SubmitPane(ctx, before.PaneID); err != nil {
+		return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
 	}
-	return http.StatusOK, nil
+	// The row reads empty again once the payload left the composer. A line
+	// still staged after the first Enter gets exactly one more — a lost
+	// Enter is retried, a second paste is never sent (it would duplicate).
+	deadline := time.Now().Add(doorSettleWindow)
+	for {
+		snap, e := deps.Tmux.InputSnapshot(cctx, session)
+		if e != nil {
+			// The pane was verifiable before the paste and is not now: say so
+			// instead of pressing Enter on an unreadable pane.
+			announceDoorPrompt(deps, t.ID, "unconfirmed")
+			return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "unconfirmed", "reason": "unreadable"}
+		}
+		if snap.PaneID == before.PaneID && snap.PanePID == before.PanePID {
+			if peerInputMatches(cli, snap, "") {
+				announceDoorPrompt(deps, t.ID, "verified")
+				return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "verified"}
+			}
+			if doorRowHoldsTail(cli, snap, payload) {
+				// A lost Enter: our line still sits at the row. One more
+				// Enter — a second paste is never sent (it would duplicate).
+				if err := deps.Tmux.SubmitPane(ctx, before.PaneID); err != nil {
+					return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
+				}
+			}
+		}
+		if time.Now().Add(doorSettleInterval).After(deadline) {
+			announceDoorPrompt(deps, t.ID, "unconfirmed")
+			return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "unconfirmed", "reason": "staged"}
+		}
+		time.Sleep(doorSettleInterval)
+		if err := deps.Tmux.SubmitPane(ctx, before.PaneID); err != nil {
+			return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
+		}
+	}
+}
+
+// doorReaderCLI names the CLIs whose input row peer_attention.go can read.
+// Anything else gets the blind paste and an "unverified" receipt.
+var doorReaderCLI = map[string]bool{
+	"pi": true, "claude-code": true, "codex": true,
+	"grok": true, "hermes": true, "opencode": true,
+}
+
+const (
+	doorComposerLag    = 250 * time.Millisecond
+	doorSettleWindow   = 1500 * time.Millisecond
+	doorSettleInterval = 150 * time.Millisecond
+)
+
+// doorRowHoldsTail reports whether the payload's last line still sits at
+// the input row (a lost Enter). Only single-line tails are classifiable; a
+// wrapped or multi-line tail answers false and the caller degrades.
+func doorRowHoldsTail(cli string, s tmux.InputSnapshot, payload string) bool {
+	tail := strings.TrimSpace(payload)
+	if i := strings.LastIndex(tail, "\n"); i >= 0 {
+		tail = strings.TrimSpace(tail[i+1:])
+	}
+	if tail == "" {
+		return false
+	}
+	return peerInputMatches(cli, s, tail)
+}
+
+func terminalLaunchCLI(deps Deps, id string) string {
+	if deps.Store != nil {
+		if v, err := deps.Store.TerminalLaunch(id); err == nil && v != nil {
+			return strings.TrimSpace(v.CLI)
+		}
+	}
+	if deps.TermRuntimes != nil {
+		if rt, ok := deps.TermRuntimes.Get(id); ok {
+			return strings.TrimSpace(rt.CLI)
+		}
+	}
+	return ""
+}
+
+func announceDoorPrompt(deps Deps, termID, delivery string) {
+	if deps.Feed != nil {
+		deps.Feed.Ephemeral("terminal.prompt", map[string]any{"termId": termID, "typed": true, "delivery": delivery})
+	}
 }
 
 func decodeDropData(data string) ([]byte, error) {

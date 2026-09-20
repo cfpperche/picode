@@ -267,6 +267,11 @@ func (m *Manager) ServerInfo(ctx context.Context) ServerInfo {
 			if info.SocketPath == "" {
 				info.SocketPath = old.SocketPath
 			}
+			// The legacy server is the one answering, so its version and
+			// keyboard mode are the ones in use — not the primary's, which
+			// has no server behind it yet.
+			info.Version = old.Version
+			info.ExtendedKeysFormat = old.ExtendedKeysFormat
 		}
 	}
 	return info

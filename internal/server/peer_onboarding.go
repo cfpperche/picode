@@ -222,6 +222,8 @@ func registerPeerOnboarding(mux Registrar, deps Deps) {
 				writeErr(w, 503, "Agent control is unavailable.")
 				return
 			}
+			unlock := terminalLock(deps, "agent:"+p.OwnerID)
+			defer unlock()
 			release, e := deps.Replies.Controls.TryBeginMutation(p.OwnerID)
 			if e != nil {
 				writeErr(w, 409, e.Error())
@@ -267,7 +269,7 @@ func registerPeerOnboarding(mux Registrar, deps Deps) {
 					writeErr(w, 409, e.Error())
 					return
 				}
-				if e = deps.Runtime.Start(p.OwnerID, cwd); e != nil {
+				if e = deps.startAgentRPC(r.Context(), p.OwnerID, cwd); e != nil {
 					writeErr(w, 409, e.Error())
 					return
 				}

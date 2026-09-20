@@ -32,7 +32,10 @@ func StartTuiWatch(ctx context.Context, deps Deps, every time.Duration) {
 		}
 		cur := map[string]bool{}
 		for _, a := range agents {
-			name := tmux.SessionName(a.ID)
+			name := deps.agentSession(a.ID)
+			if a.TerminalID != nil && name == tmux.ShellSessionName(*a.TerminalID) {
+				continue
+			}
 			has, err := deps.Tmux.HasSession(ctx, name)
 			if err != nil || !has {
 				continue

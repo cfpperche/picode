@@ -41,6 +41,7 @@ export function agentRowMenu(ag = {}, { clis, term } = {}) {
         : { id: "start", label: "Start agent", title: "Start this agent." },
       ...(running ? [{ id: "stop", label: "Stop agent", title: "Stop this agent's current run." }] : []),
       { id: "launch", label: "Launch settings", title: "Configure this agent's settings.", href: "#/clis/pi/settings?agentId=" + encodeURIComponent(ag.id) },
+      ...(ag.terminalId ? [{ id: "terminal-settings", label: "Terminal settings", title: "Configure this agent's terminal launch.", href: "#/clis/terminal/" + encodeURIComponent(ag.terminalId) }] : []),
       { id: "chat", label: "Open chat", title: "Open this agent's chat panel." },
       { id: "term", label: "Open terminal", title: "Open this agent's terminal pane." },
       { id: "rename", label: "Rename", title: "Change this agent's name." },

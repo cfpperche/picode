@@ -7,19 +7,23 @@ export function withFileRoot(url, root) {
 }
 
 // root is a precondition, never a filesystem address to read through.
-export function ownerFileURL(owner, resource, path = "", root = "") {
+// worktree names a sibling checkout of the owner's repository (a branch, or
+// a commit hash when detached): the server resolves it against `git worktree
+// list`, so no filesystem path ever travels in the URL.
+export function ownerFileURL(owner, resource, path = "", root = "", worktree = "") {
   const query = new URLSearchParams();
   if (path) query.set(resource === "browse" ? "dir" : "path", path);
   if (root) query.set("root", root);
+  if (worktree) query.set("worktree", worktree);
   return `${treeApiBase(owner.kind)}${encodeURIComponent(owner.id)}/${resource}${query.size ? "?" + query : ""}`;
 }
 
-export async function readFile(owner, path, root, signal) {
+export async function readFile(owner, path, root, signal, worktree = "") {
   if (!isBlobKind(previewKind(path))) {
-    const page = await api(ownerFileURL(owner, "text", path, root), { signal });
+    const page = await api(ownerFileURL(owner, "text", path, root, worktree), { signal });
     return { ...page, kind: "text", text: page.text || "" };
   }
-  const res = await fetch(ownerFileURL(owner, "blob", path, root), { signal });
+  const res = await fetch(ownerFileURL(owner, "blob", path, root, worktree), { signal });
   if (!res.ok) {
     let message = res.statusText;
     try { message = (await res.json()).error || message; } catch { /* keep status */ }

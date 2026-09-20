@@ -2,6 +2,16 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { agentRowStatus, agentStatusLabel } from "./agentStatus.js";
 
+test("bound Pi uses terminal activity, while RPC ignores it", () => {
+  const agent = { id:"pi", cli:"pi", terminalId:"t", mode:"interactive", streaming:true };
+  for (const [state,want] of [["working","working"],["needs-you","needs-you"],["idle","ready"],["","open"]]) {
+    const terminal = { id:"t", running:true, cli:"pi", state };
+    assert.equal(agentRowStatus({...agent,terminal}),want);
+    assert.equal(agentRowStatus({...agent,terminal,mode:"managed"}),"working");
+  }
+  assert.equal(agentRowStatus({...agent,terminal:{id:"t",running:false}}),"stopped");
+});
+
 // The sidebar's derivation, one row per word: a dialog beats streaming,
 // streaming beats the mode, and the mode decides the rest.
 test("agentRowStatus: needs-you > working > mode", () => {

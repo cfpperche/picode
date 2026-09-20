@@ -32,5 +32,5 @@ free CLI terminal, not an agent.
 | **C** | Migrate `managed_clis` → `agents`; principals list = agents; drop the table — this branch |
 | **D** | CLI agent rows speak CLI: subtitle, terminal status, Launch settings + lifecycle in the agent menu (desktop and mobile); remaining "Pi agent" labels in peer contact lists |
 | **E** (this branch) | Rekey Inbox / `picode mcp` / grants onto the agent id |
-| **F** | Automations and Inspector ask through the prompt door (old Fatia 4) |
+| **F** (this branch) | Automations deliver to CLI agents through the prompt door with receipts; pane/graph ask for non-pi CLIs rides the door; door gains gated/verified deliveries |
 | **∞** | Managed mode per CLI — out until ADR-0091 is re-measured |

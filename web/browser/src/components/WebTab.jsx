@@ -119,6 +119,8 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
   const [annotItems, setAnnotItems] = useState([]);
   const [annotShots, setAnnotShots] = useState(true);
   const [annotSending, setAnnotSending] = useState(false);
+  const [annotTargets, setAnnotTargets] = useState([]);
+  const [annotTarget, setAnnotTarget] = useState("");
   const annotOnRef = useRef(false);
   // Did this tab's page answer the arm? Any message (enter/state/pick) proves
   // the channel; the arm's watchdog reads it once.
@@ -261,7 +263,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
       // A pane open on a session delivers to THAT session (owner
       // 2026-09-18) — a bound miss never falls through to a stranger's
       // terminal; a standalone tab keeps the first-running fallback.
-      const target = resolveSendTarget({ boundSession, terminals });
+      const target = resolveSendTarget({ boundSession, terminals, selectedTarget: annotTarget });
       if (target.none) { toast(target.reason); return; }
       const live = { id: target.kind === "agent" ? target.terminalId : target.id, name: target.name };
       const prefs = await fetch("/api/browser/prefs").then((r) => (r.ok ? r.json() : null)).catch(() => null);
@@ -408,9 +410,17 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     }
     annotOnRef.current = true;
     annotSeenRef.current = false;
+    setAnnotTarget("");
     setAnnotOn(true);
     armAnnotate();
   };
+  useEffect(() => {
+    if (!annotOn || boundSession) return;
+    fetch("/api/terminals").then((r) => r.ok ? r.json() : null).then((data) => {
+      const list = Array.isArray(data) ? data : data?.terminals || [];
+      setAnnotTargets(list.filter((t) => t?.running).map((t) => ({ id: t.id, name: t.name || t.id })));
+    }).catch(() => setAnnotTargets([]));
+  }, [annotOn, boundSession]);
   useEffect(() => {
     const onKey = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === ".") { e.preventDefault(); toggleAnnotate(); }
@@ -777,6 +787,11 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
               onUndo={undoAnnotate}
               onToggleShots={() => setAnnotShots((v) => !v)}
               onHint={() => toast.ok("Click an element to pin it · Enter saves · Esc exits.")}
+              targetOptions={boundSession ? [] : annotTargets}
+              targetValue={boundSession ? boundSession : annotTarget}
+              onTargetChange={setAnnotTarget}
+              targetPicker={!boundSession}
+              targetLabel={boundSession ? "this session" : ""}
               onSend={sendAll}
             />
           ) : (

@@ -18,7 +18,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/cfpperche/picode/internal/store"
-	"github.com/cfpperche/picode/internal/tmux"
 )
 
 const (
@@ -100,7 +99,7 @@ func liveAgentCwd(deps Deps, r *http.Request, agent store.Agent) (string, error)
 	}
 	if deps.Tmux != nil && deps.Tmux.Available() {
 		ctx := r.Context()
-		if p, err := deps.Tmux.PaneCwd(ctx, tmux.SessionName(agent.ID)); err == nil && strings.TrimSpace(p) != "" {
+		if p, err := deps.Tmux.PaneCwd(ctx, deps.agentSession(agent.ID)); err == nil && strings.TrimSpace(p) != "" {
 			return p, nil
 		}
 	}
@@ -149,6 +148,10 @@ func handleAgentFile(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
+		cwd, ok := resolveGitWorktree(w, r, cwd)
+		if !ok {
+			return
+		}
 		out, err := readAgentImage(cwd, r.URL.Query().Get("path"))
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
@@ -191,6 +194,10 @@ func handleAgentText(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
+		cwd, ok := resolveGitWorktree(w, r, cwd)
+		if !ok {
+			return
+		}
 		if !checkFileRoot(w, r, cwd) {
 			return
 		}
@@ -223,6 +230,10 @@ func handlePutAgentText(deps Deps) http.HandlerFunc {
 		}
 		if req.Path == "" {
 			req.Path = r.URL.Query().Get("path")
+		}
+		cwd, ok := resolveGitWorktree(w, r, cwd)
+		if !ok {
+			return
 		}
 		if !checkFileRoot(w, r, cwd) {
 			return

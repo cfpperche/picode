@@ -51,6 +51,7 @@ function agentState(ag, live) {
   if (status === "needs-you") return FLEET_NEEDS_YOU;
   if (status === "working") return FLEET_WORKING;
   if (status === "stopped") return "";
+  if (status === "open") return FLEET_UNREPORTED;
   // "interactive" is a TUI sitting open with no turn running: ready, the
   // same as a managed agent that is neither streaming nor blocked.
   return FLEET_IDLE;
@@ -92,6 +93,8 @@ function emptyCounts() {
 //   units   — one row per live agent and CLI terminal, attention first
 //
 export function fleetStats(workspaces, freeAgents, terminals, live) {
+  const bound = new Set();
+  const termByID = new Map((terminals || []).map(t => [t.id,t]));
   const out = {
     agents: emptyCounts(),
     terminals: emptyCounts(),
@@ -106,6 +109,7 @@ export function fleetStats(workspaces, freeAgents, terminals, live) {
 
   const addAgent = (ag, ws) => {
     if (!ag) return;
+    if (ag.terminalId) { bound.add(ag.terminalId); ag = { ...ag, terminal: termByID.get(ag.terminalId) || ag.terminal }; }
     out.agents.total++;
     const state = agentState(ag, live);
     if (!state) return;
@@ -127,6 +131,7 @@ export function fleetStats(workspaces, freeAgents, terminals, live) {
 
   for (const term of terminals || []) {
     if (!term) continue;
+    if (bound.has(term.id)) continue;
     const cli = terminalDisplayCli(term);
     const bucket = cli ? out.terminals : out.shells;
     bucket.total++;

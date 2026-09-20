@@ -14,7 +14,6 @@ import (
 
 	"github.com/cfpperche/picode/internal/gitinfo"
 	"github.com/cfpperche/picode/internal/store"
-	"github.com/cfpperche/picode/internal/tmux"
 )
 
 // registerAgentRoutes wires managed-mode control (ADR-0006): one live pi
@@ -63,7 +62,7 @@ func (deps Deps) runMode(r *http.Request, agentID string) agentRunMode {
 		if r != nil {
 			ctx = r.Context()
 		}
-		if has, err := deps.Tmux.HasSession(ctx, tmux.SessionName(agentID)); err == nil && has {
+		if has, err := deps.Tmux.HasSession(ctx, deps.agentSession(agentID)); err == nil && has {
 			return modeInteractive
 		}
 	}
@@ -82,7 +81,7 @@ func (deps Deps) agentInteractive(ctx context.Context, agentID string) bool {
 	if deps.Tmux == nil || !deps.Tmux.Available() {
 		return false
 	}
-	has, err := deps.Tmux.HasSession(ctx, tmux.SessionName(agentID))
+	has, err := deps.Tmux.HasSession(ctx, deps.agentSession(agentID))
 	return err == nil && has
 }
 
@@ -105,10 +104,12 @@ func handleManagedStart(deps Deps) http.HandlerFunc {
 
 		// ADR-0006: exclusive run mode — stop interactive first. The reply
 		// guard blocks a concurrent send while the tmux session tears down.
+		unlockAgent := terminalLock(deps, "agent:"+agentID)
+		defer unlockAgent()
 		release := deps.Replies.Controls.BeginMutation(agentID)
 		defer release()
-		if deps.runMode(r, agentID) == modeInteractive {
-			if err := deps.Tmux.KillSession(r.Context(), tmux.SessionName(agentID)); err != nil {
+		if deps.runMode(r, agentID) == modeInteractive || agent.TerminalID != nil {
+			if err := deps.stopAgentInteractive(r.Context(), agentID); err != nil {
 				writeErr(w, http.StatusInternalServerError, "stop interactive: "+err.Error())
 				return
 			}
@@ -128,7 +129,7 @@ func handleManagedStart(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		if err := deps.Runtime.Start(agentID, cwd); err != nil {
+		if err := deps.startAgentRPC(r.Context(), agentID, cwd); err != nil {
 			writeErr(w, http.StatusInternalServerError, "start managed: "+err.Error())
 			return
 		}
@@ -145,6 +146,8 @@ func handleManagedStop(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusNotFound, "agent not found")
 			return
 		}
+		unlockAgent := terminalLock(deps, "agent:"+agentID)
+		defer unlockAgent()
 		release := deps.Replies.Controls.BeginMutation(agentID)
 		defer release()
 		if !deps.Runtime.Stop(agentID) {
@@ -289,6 +292,8 @@ func handlePatchAgent(deps Deps) http.HandlerFunc {
 			return
 		}
 		if req.SessionPath != nil {
+			unlockAgent := terminalLock(deps, "agent:"+id)
+			defer unlockAgent()
 			release := deps.Replies.Controls.BeginMutation(id)
 			defer release()
 		}
@@ -318,6 +323,8 @@ func handleAgentLogin(deps Deps) http.HandlerFunc {
 			Provider string `json:"provider"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&req)
+		unlockAgent := terminalLock(deps, "agent:"+id)
+		defer unlockAgent()
 		release := deps.Replies.Controls.BeginMutation(id)
 		defer release()
 
@@ -330,38 +337,12 @@ func handleAgentLogin(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		wk, err := deps.Store.GetWorkspace(agent.WorkspaceID)
-		if err != nil {
+		if _, err := deps.openAgentTUILocked(r.Context(), agent.ID, false); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		if !deps.Tmux.Available() {
-			writeErr(w, http.StatusServiceUnavailable, "tmux is not installed")
-			return
-		}
-		if deps.automationRunOn(id) {
-			writeErr(w, http.StatusConflict, runInFlightMsg)
-			return
-		}
-		deps.Runtime.Stop(id)
-		name := tmux.SessionName(id)
-		has, err := deps.Tmux.HasSession(r.Context(), name)
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		if !has {
-			if _, err := exec.LookPath(deps.AgentCmd); err != nil {
-				writeErr(w, http.StatusServiceUnavailable, "pi is not installed or not on PATH")
-				return
-			}
-			if err := deps.startAgentTUI(r.Context(), name, store.AgentCwd(wk, agent), agent); err != nil {
-				writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
-				return
-			}
-			go deps.bindInteractiveSession(id)
-			_ = deps.Store.SetAgentRuntimeMode(id, store.StatusRunning, "interactive")
-		}
+		name := deps.agentSession(id)
+
 		cmd := "/login"
 		if req.Provider != "" {
 			cmd = "/login " + req.Provider
@@ -389,6 +370,8 @@ func handleAgentCommand(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "only slash commands")
 			return
 		}
+		unlockAgent := terminalLock(deps, "agent:"+id)
+		defer unlockAgent()
 		release := deps.Replies.Controls.BeginMutation(id)
 		defer release()
 		agent, err := deps.Store.GetAgent(id)
@@ -400,34 +383,12 @@ func handleAgentCommand(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		wk, err := deps.Store.GetWorkspace(agent.WorkspaceID)
-		if err != nil {
+		if _, err := deps.openAgentTUILocked(r.Context(), agent.ID, false); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		if !deps.Tmux.Available() {
-			writeErr(w, http.StatusServiceUnavailable, "tmux is not installed")
-			return
-		}
-		if deps.automationRunOn(id) {
-			writeErr(w, http.StatusConflict, runInFlightMsg)
-			return
-		}
-		deps.Runtime.Stop(id)
-		name := tmux.SessionName(id)
-		has, err := deps.Tmux.HasSession(r.Context(), name)
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		if !has {
-			if err := deps.startAgentTUI(r.Context(), name, store.AgentCwd(wk, agent), agent); err != nil {
-				writeErr(w, http.StatusInternalServerError, "start agent: "+err.Error())
-				return
-			}
-			go deps.bindInteractiveSession(id)
-			_ = deps.Store.SetAgentRuntimeMode(id, store.StatusRunning, "interactive")
-		}
+		name := deps.agentSession(id)
+
 		if err := deps.Tmux.SendKeys(r.Context(), name, req.Text, "Enter"); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
@@ -453,13 +414,18 @@ func handleAgentCompact(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		unlockAgent := terminalLock(deps, "agent:"+id)
+		defer unlockAgent()
 		release := deps.Replies.Controls.BeginMutation(id)
 		defer release()
 		if deps.runMode(r, id) == modeInteractive {
-			_ = deps.Tmux.KillSession(r.Context(), tmux.SessionName(id))
+			if err := deps.stopAgentInteractive(r.Context(), id); err != nil {
+				writeErr(w, 500, err.Error())
+				return
+			}
 		}
 		if deps.Runtime.Get(id) == nil {
-			if err := deps.Runtime.Start(id, store.AgentCwd(wk, agent)); err != nil {
+			if err := deps.startAgentRPC(r.Context(), id, store.AgentCwd(wk, agent)); err != nil {
 				writeErr(w, http.StatusInternalServerError, err.Error())
 				return
 			}
@@ -518,7 +484,7 @@ func handleListFreeAgents(deps Deps) http.HandlerFunc {
 				cwd = *a.WorkPath
 			}
 			st, wt, dl := deps.liveState(a.ID)
-			out = append(out, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode), Git: gitinfo.Inspect(cwd), Streaming: st, Waiting: wt, Dialog: dl})
+			out = append(out, agentView{Agent: a, Running: mode != modeStopped, Mode: string(mode), Git: gitinfo.Inspect(cwd), Streaming: st, Waiting: wt, Dialog: dl, Terminal: deps.agentTerminalView(r, a), LegacyInteractive: deps.legacyAgentInteractive(a)})
 		}
 		writeJSON(w, http.StatusOK, out)
 	}
@@ -652,6 +618,8 @@ func patchNewAgent(deps Deps, agent store.Agent, provider, model, thinking strin
 func handleDeleteAgent(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
+		unlock := terminalLock(deps, "agent:"+id)
+		defer unlock()
 		agent, err := deps.Store.GetAgent(id)
 		if errors.Is(err, store.ErrNotFound) {
 			writeErr(w, http.StatusNotFound, "agent not found")
@@ -666,7 +634,10 @@ func handleDeleteAgent(deps Deps) http.HandlerFunc {
 			return
 		}
 		preview := deps.previewCleanup(cwd, map[string]bool{agent.ID: true})
-		deps.stopAgent(r.Context(), id)
+		if err := deps.stopAgentLocked(r.Context(), id); err != nil {
+			writeErr(w, 500, err.Error())
+			return
+		}
 		if err := deps.Store.DeleteAgent(id); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
@@ -692,7 +663,7 @@ func handleAgentOpen(deps Deps) http.HandlerFunc {
 			}
 			return
 		}
-		name := tmux.SessionName(r.PathValue("id"))
+		name := deps.agentSession(r.PathValue("id"))
 		if running {
 			writeJSON(w, http.StatusOK, map[string]any{"running": true, "alreadyRunning": true, "session": name})
 			return
@@ -709,7 +680,13 @@ var errAgentCmdMissing = errors.New("pi is not installed or not on PATH — inst
 // tmux. Used by the HTTP handler above. restart deliberately replaces an
 // existing pane whose terminal is gone; otherwise an existing session is
 // preserved.
-func (deps Deps) openAgentTUI(ctx context.Context, agentID string, restart bool) (alreadyRunning bool, err error) {
+func (deps Deps) openAgentTUI(ctx context.Context, agentID string, restart bool) (bool, error) {
+	unlock := terminalLock(deps, "agent:"+agentID)
+	defer unlock()
+	return deps.openAgentTUILocked(ctx, agentID, restart)
+}
+
+func (deps Deps) openAgentTUILocked(ctx context.Context, agentID string, restart bool) (alreadyRunning bool, err error) {
 	agent, err := deps.Store.GetAgent(agentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return false, fmt.Errorf("%w: agent not found", store.ErrNotFound)
@@ -717,7 +694,7 @@ func (deps Deps) openAgentTUI(ctx context.Context, agentID string, restart bool)
 	if err != nil {
 		return false, err
 	}
-	name := tmux.SessionName(agent.ID)
+	name := deps.agentSession(agent.ID)
 	if deps.automationRunOn(agent.ID) {
 		return false, errAgentTUIInFlight
 	}
@@ -733,7 +710,6 @@ func (deps Deps) openAgentTUI(ctx context.Context, agentID string, restart bool)
 	if err != nil {
 		return false, err
 	}
-	deps.Runtime.Stop(agent.ID)
 	has, hasErr := deps.Tmux.HasSession(ctx, name)
 	if hasErr == nil && has && !restart {
 		_ = deps.Store.SetAgentRuntimeMode(agent.ID, store.StatusRunning, "interactive")
@@ -742,17 +718,25 @@ func (deps Deps) openAgentTUI(ctx context.Context, agentID string, restart bool)
 	if restart && hasErr != nil {
 		return false, fmt.Errorf("inspect terminal before restart: %w", hasErr)
 	}
-	if _, err := exec.LookPath(deps.AgentCmd); err != nil {
-		return false, errAgentCmdMissing
+	prepared, bound, err := deps.preparePiInteractive(ctx, agent, cwd)
+	if err != nil {
+		return false, err
 	}
+	defer prepared.discard()
 	if has && restart {
-		if err := deps.Tmux.KillSession(ctx, name); err != nil {
+		if err := deps.stopAgentInteractive(ctx, agent.ID); err != nil {
 			return false, fmt.Errorf("restart terminal: %w", err)
 		}
 	}
-	if err := deps.startAgentTUI(ctx, name, cwd, agent); err != nil {
+	deps.Runtime.Stop(agent.ID)
+	r, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost/", nil)
+	name = deps.agentSession(bound.ID)
+	if err := prepared.start(deps, r, name, cwd); err != nil {
 		_ = deps.Store.SetAgentRuntime(agent.ID, store.StatusStopped)
 		return false, fmt.Errorf("start agent: %w", err)
+	}
+	if t, err := deps.Store.GetTerminal(*bound.TerminalID); err == nil {
+		publishTerminalState(deps, r, t, true)
 	}
 	// Pi creates its JSONL file just after the tmux command returns. Resolve
 	// the pre-minted session id in the background so the sidebar can expose
@@ -799,11 +783,13 @@ func handleAgentClose(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		unlockAgent := terminalLock(deps, "agent:"+id)
+		defer unlockAgent()
 		release := deps.Replies.Controls.BeginMutation(id)
 		defer release()
 		deps.Runtime.Stop(id)
 		if deps.Tmux.Available() {
-			if err := deps.Tmux.KillSession(r.Context(), tmux.SessionName(id)); err != nil {
+			if err := deps.stopAgentInteractive(r.Context(), id); err != nil {
 				writeErr(w, http.StatusInternalServerError, "stop agent: "+err.Error())
 				return
 			}

@@ -34,6 +34,67 @@ func TestVersionParses(t *testing.T) {
 	}
 }
 
+func TestServerVersionAsksTheServerItsOwnVersion(t *testing.T) {
+	m := NewWithSocket("/tmp/picode-version-test.sock")
+	var got [][]string
+	m.exec = func(_ context.Context, _ string, args ...string) ([]byte, error) {
+		got = append(got, append([]string(nil), args...))
+		return []byte("3.6\n"), nil
+	}
+	v, err := m.ServerVersion(context.Background())
+	if err != nil {
+		t.Fatalf("ServerVersion: %v", err)
+	}
+	if v != "3.6" {
+		t.Errorf("ServerVersion() = %q, want 3.6", v)
+	}
+	want := "-S /tmp/picode-version-test.sock display-message -p #{version}"
+	if len(got) != 1 || strings.Join(got[0], " ") != want {
+		t.Errorf("argv = %v, want [%s]", got, want)
+	}
+}
+
+// The skew case ADR-0164 is about: with a server behind the socket a report
+// names the server's version — the installed binary may be newer.
+func TestVersionInUseFollowsTheAnsweringServer(t *testing.T) {
+	requireTmux(t)
+	dir := t.TempDir()
+	iso := NewWithSocket(filepath.Join(dir, "tmux.sock"))
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	installed, err := iso.Version()
+	if err != nil {
+		t.Fatalf("Version: %v", err)
+	}
+	if got := iso.VersionInUse(ctx); got != installed {
+		t.Fatalf("VersionInUse() with no server = %q, want the installed %q", got, installed)
+	}
+
+	name := SessionName("ver-" + time.Now().Format("150405-000000000"))
+	if err := iso.NewSessionEnvSize(ctx, name, dir, 100, 30, nil, "sleep", "30"); err != nil {
+		t.Fatalf("NewSessionEnvSize: %v", err)
+	}
+	// Its own context: the test's is canceled before cleanups run, and a tmux
+	// call made with it fails silently and leaks the session (2026-09-15).
+	t.Cleanup(func() {
+		killCtx, killCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer killCancel()
+		_ = iso.KillSession(killCtx, name)
+	})
+
+	server, err := iso.ServerVersion(ctx)
+	if err != nil {
+		t.Fatalf("ServerVersion: %v", err)
+	}
+	if server == "" || strings.Contains(server, "tmux") {
+		t.Errorf("ServerVersion() = %q, want a bare version like 3.7c", server)
+	}
+	if got := iso.VersionInUse(ctx); got != server {
+		t.Errorf("VersionInUse() = %q, want the server's %q", got, server)
+	}
+}
+
 func TestNewSessionPreservesGeometryWithoutBrowser(t *testing.T) {
 	m := requireTmux(t)
 	ctx := context.Background()

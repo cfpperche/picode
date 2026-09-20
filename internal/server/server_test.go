@@ -55,6 +55,7 @@ func newTestServer(t *testing.T, agentCmd string) *httptest.Server {
 		Tmux:     tmux.New(),
 		Runtime:  rpc.NewRuntime(agentCmd, st, nil),
 		AgentCmd: agentCmd,
+		DataDir:  t.TempDir(),
 	}).Handler)
 	t.Cleanup(ts.Close)
 	return ts
@@ -354,7 +355,8 @@ func TestOpenCloseLifecycle(t *testing.T) {
 	// Open.
 	resOpen := do(t, client, mustPost(t, ts.URL+"/api/workspaces/"+wk.ID+"/open"))
 	if resOpen.StatusCode != http.StatusCreated {
-		t.Fatalf("open status = %d, want 201", resOpen.StatusCode)
+		body, _ := io.ReadAll(resOpen.Body)
+		t.Fatalf("open status = %d, want 201: %s", resOpen.StatusCode, body)
 	}
 
 	// Idempotent open.

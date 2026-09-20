@@ -18,7 +18,10 @@ import (
 // dependency UX instead of hard failures).
 type systemReport struct {
 	Tmux struct {
-		Installed          bool   `json:"installed"`
+		Installed bool `json:"installed"`
+		// Version is the tmux in use: the running server's, or the installed
+		// binary's when no server answers. Never the client binary's while an
+		// older server still owns the panes (ADR-0164).
 		Version            string `json:"version,omitempty"`
 		ExtendedKeysFormat string `json:"extendedKeysFormat,omitempty"`
 	} `json:"tmux"`
@@ -57,7 +60,10 @@ func handleSystem(deps Deps) http.HandlerFunc {
 
 		if deps.Tmux.Available() {
 			rep.Tmux.Installed = true
-			if v, err := deps.Tmux.Version(); err == nil {
+			// The version in use, not `tmux -V`: after an upgrade the new client
+			// talks to the old server until it exits, and only the server's
+			// version says which tmux owns the panes (ADR-0164).
+			if v := deps.Tmux.VersionInUse(r.Context()); v != "" {
 				rep.Tmux.Version = v
 			}
 			// Best effort: requires a running tmux server.

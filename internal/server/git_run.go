@@ -91,8 +91,16 @@ func agentBusy(ctx context.Context, deps Deps, a store.Agent) (bool, string) {
 	if deps.automationRunOn(a.ID) {
 		return true, "running an automation"
 	}
+	if a.TerminalID != nil && deps.agentSession(a.ID) == tmux.ShellSessionName(*a.TerminalID) {
+		if deps.Runtime != nil && deps.Runtime.Active(a.ID) {
+			return false, ""
+		}
+		if t, e := deps.Store.GetTerminal(*a.TerminalID); e == nil {
+			return terminalBusy(ctx, deps, t)
+		}
+	}
 	if deps.Tmux != nil && deps.Tmux.Available() {
-		name := tmux.SessionName(a.ID)
+		name := deps.agentSession(a.ID)
 		if has, err := deps.Tmux.HasSession(ctx, name); err == nil && has {
 			if tail, err := deps.Tmux.CaptureTail(ctx, name, 8); err == nil && tmux.LooksWorking(tail) {
 				return true, "working in its terminal"

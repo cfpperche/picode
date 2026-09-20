@@ -46,9 +46,11 @@ export default function Work({ section, focusWs, onSection, loaded, error, works
   }, [focusWs, loaded, workspaces]);
   const setQuery = value => { rememberedQuery = value; updateQuery(value); };
   const sec = WORK_SECTIONS.includes(section) ? section : "workspaces";
-  const groups = searchWorkspaceGroups(workspaces, terminals, query);
+  const owned = new Set([...(freeAgents || []), ...(workspaces || []).flatMap(ws => ws.agents || [])].map(a => a.terminalId).filter(Boolean));
+  const unbound = (terminals || []).filter(t => !owned.has(t.id));
+  const groups = searchWorkspaceGroups(workspaces, unbound, query);
   const agents = (freeAgents || []).filter(agent => agentMatchesSearch(agent, query));
-  const terms = freeTerminals(terminals).filter(term => terminalMatchesSearch(term, query));
+  const terms = freeTerminals(unbound).filter(term => terminalMatchesSearch(term, query));
   const rows = sec === "workspaces" ? groups : sec === "agents" ? agents : terms;
   const searching = Boolean(query.trim());
   const create = () => sec === "terminals" ? onNewTerm(null) : onCreate(sec === "agents" ? "free" : "workspace");

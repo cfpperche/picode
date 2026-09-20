@@ -5,8 +5,12 @@
 // the id whose dialog is on screen.
 //   agentRowStatus(agent, live) -> "needs-you" | "working" | "interactive" | "stopped" | "ready"
 //   agentStatusLabel(status)    -> the chip's copy
+import { terminalStatus } from "./terminalCli.js";
+
 export function agentRowStatus(ag, live = {}) {
   const mode = (ag && ag.mode) || "stopped";
+  const term = live.term || (ag && ag.terminal);
+  if (ag?.terminalId && !ag.legacyInteractive && mode !== "managed" && term) return terminalStatus(term);
   const waiting = !!(ag && (ag.waiting || (live.waitingId && ag.id === live.waitingId)));
   const working = !waiting && !!(ag && (ag.streaming || (live.workingId && ag.id === live.workingId) || (live.workingIds || []).includes(ag.id)));
   if (waiting) return "needs-you";
@@ -20,6 +24,7 @@ export function agentStatusLabel(status) {
   if (status === "needs-you") return "Needs you";
   if (status === "working") return "Working";
   if (status === "interactive") return "In terminal";
+  if (status === "open") return "Open";
   if (status === "stopped") return "Stopped";
   return "Ready";
 }

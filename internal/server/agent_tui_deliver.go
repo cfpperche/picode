@@ -7,7 +7,6 @@ import (
 
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/store"
-	"github.com/cfpperche/picode/internal/tmux"
 )
 
 const (
@@ -36,7 +35,7 @@ func (deps Deps) deliverToInteractiveAgent(ctx context.Context, agent store.Agen
 	if deps.Tmux == nil || !deps.Tmux.Available() {
 		return http.StatusServiceUnavailable, map[string]any{"error": "Need tmux to send to a terminal."}
 	}
-	has, err := deps.Tmux.HasSession(ctx, tmux.SessionName(agent.ID))
+	has, err := deps.Tmux.HasSession(ctx, deps.agentSession(agent.ID))
 	if err != nil || !has {
 		return http.StatusConflict, map[string]any{"error": "agent is not running", "reason": "stopped"}
 	}

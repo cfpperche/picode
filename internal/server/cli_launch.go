@@ -323,6 +323,18 @@ func registerCLIRoutes(mux Registrar, deps Deps) {
 			return
 		}
 		merged := clilaunch.Resolve(c, v.Overrides)
+		if a, e := deps.Store.AgentByTerminal(id); e == nil {
+			if v.CLI != a.CLI {
+				writeErr(w, 400, "Choose a new agent to use a different CLI.")
+				return
+			}
+			if a.IsPi() {
+				if err := validatePiAgentArgs(merged.Args); err != nil {
+					writeErr(w, 400, err.Error())
+					return
+				}
+			}
+		}
 		if err := clilaunch.Validate(merged); err != nil {
 			writeErr(w, 400, err.Error())
 			return
@@ -609,6 +621,11 @@ func resolvedTerminalLaunch(deps Deps, v *store.TerminalLaunch) (clilaunch.CLI, 
 	if err != nil {
 		return cli, c, "", err
 	}
+	if cli.ID == "pi" && c.Executable == "" && deps.Store != nil {
+		if a, e := deps.Store.AgentByTerminal(v.TerminalID); e == nil && a.IsPi() {
+			c.Executable = deps.AgentCmd
+		}
+	}
 	p, c := launchPlan(deps, cli, c, v.Overrides, filepath.Join(deps.DataDir, "cli-launch", v.TerminalID, "run-{next}"))
 	if p.Problem != "" {
 		return cli, c, "", errors.New(p.Problem)
@@ -619,6 +636,12 @@ func resolvedTerminalLaunch(deps Deps, v *store.TerminalLaunch) (clilaunch.CLI, 
 func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, action := r.PathValue("id"), r.PathValue("action")
+		unlockAgent := boundAgentLock(deps, id)
+		defer unlockAgent()
+		if a, e := deps.Store.AgentByTerminal(id); e == nil && deps.Replies != nil {
+			release := deps.Replies.Controls.BeginMutation(a.ID)
+			defer release()
+		}
 		if action != "start" && action != "stop" && action != "restart" && action != "remove" {
 			writeErr(w, 404, "Unknown terminal action.")
 			return
@@ -671,7 +694,7 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 				writeErr(w, 400, "No previous session recorded for this terminal yet.")
 				return
 			}
-			prepared, perr := prepareCLITerminal(deps, t.Cwd, launchWithPinnedSession(launch))
+			prepared, perr := prepareCLITerminal(deps, t.Cwd, agentAwareResumeLaunch(deps, launch))
 			if perr != nil {
 				recordCLILaunchAttempt(deps, id, perr)
 				writeErr(w, 400, perr.Error())
@@ -700,7 +723,7 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 				return
 			}
 			if launch != nil {
-				prepared, err = prepareCLITerminal(deps, t.Cwd, launchWithPinnedSession(launch))
+				prepared, err = prepareCLITerminal(deps, t.Cwd, agentAwareResumeLaunch(deps, launch))
 				if err != nil {
 					recordCLILaunchAttempt(deps, id, err)
 					writeErr(w, 400, err.Error())
@@ -708,12 +731,21 @@ func handleCLITerminalAction(deps Deps) http.HandlerFunc {
 				}
 				defer prepared.discard()
 			}
-			if st, err := os.Stat(t.Cwd); err != nil || !st.IsDir() {
+			if st, err := os.Stat(agentTerminalCwd(deps, id, t.Cwd)); err != nil || !st.IsDir() {
 				writeErr(w, 400, "That folder no longer exists.")
 				return
 			}
 		}
 		if action != "start" {
+			if a, e := deps.Store.AgentByTerminal(id); e == nil && a.IsPi() {
+				if err := deps.stopAgentInteractive(r.Context(), a.ID); err != nil {
+					writeErr(w, 500, err.Error())
+					return
+				}
+				if action == "remove" && deps.Runtime != nil {
+					deps.Runtime.Stop(a.ID)
+				}
+			}
 			// Last chance to pin the native conversation before the pane goes
 			// away (ADR-0084).
 			if action != "remove" {
@@ -947,6 +979,14 @@ func launchIdentityEnv(deps Deps, termID string) []string {
 	return env
 }
 
+// ompAgentSessionDir is durable across terminal generations, but lives in
+// PiCode's data directory so it is owned by the workspace agent rather than
+// by Omp's shared default home. The directory contains transcripts only;
+// Omp authentication and configuration remain in the user's normal profile.
+func ompAgentSessionDir(dataDir, agentID string) string {
+	return filepath.Join(dataDir, "omp-sessions", agentID)
+}
+
 type preparedCLILaunch struct {
 	dir, script, id string
 	environment     []string
@@ -961,12 +1001,43 @@ func (p *preparedCLILaunch) discard() {
 }
 
 func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*preparedCLILaunch, error) {
+	cwd = agentTerminalCwd(deps, v.TerminalID, cwd)
 	if st, err := os.Stat(cwd); err != nil || !st.IsDir() {
 		return nil, errors.New("That folder no longer exists.")
 	}
 	cli, c, binary, err := resolvedTerminalLaunch(deps, v)
 	if err != nil {
 		return nil, err
+	}
+	var piAgent *store.Agent
+	piFingerprint := ""
+	if cli.ID == "pi" {
+		if a, e := deps.Store.AgentByTerminal(v.TerminalID); e == nil && a.IsPi() {
+			if err := validatePiAgentArgs(c.Args); err != nil {
+				return nil, err
+			}
+			piAgent = &a
+			piFingerprint = piAgentLaunchFingerprint(c, a)
+			flags := deps.piSpawnFlags(a, !c.Integration)
+			c.Args = append(c.Args, flags...)
+			for _, entry := range a.SpawnEnv() {
+				k, value, _ := strings.Cut(entry, "=")
+				c.Env[k] = value
+			}
+			c.Env["PICODE_DATA"] = deps.DataDir
+		}
+	}
+	// Omp exposes a native session-storage boundary. Keep each workspace
+	// agent's `/resume` picker inside its own durable directory, while leaving
+	// Omp's shared auth/configuration untouched. Free-standing Omp terminals
+	// retain the vendor default because they have no agent owner to scope.
+	if cli.ID == "omp" {
+		if a, e := deps.Store.AgentByTerminal(v.TerminalID); e == nil && a.CLI == "omp" {
+			if err := os.MkdirAll(ompAgentSessionDir(deps.DataDir, a.ID), 0o700); err != nil {
+				return nil, err
+			}
+			c.Args = append(c.Args, "--session-dir", ompAgentSessionDir(deps.DataDir, a.ID))
+		}
 	}
 	root := filepath.Join(deps.DataDir, "cli-launch", v.TerminalID)
 	if err := os.MkdirAll(root, 0o700); err != nil {
@@ -1060,6 +1131,12 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 				return nil, err
 			}
 			peerOptions.Env["OPENCODE_CONFIG_CONTENT"] = merged
+		}
+	}
+	if piAgent != nil {
+		peerOptions, err = communication.AgentOptions(deps.Store, deps.DataDir, piAgent.ID)
+		if err != nil {
+			return nil, err
 		}
 	}
 	if c.Integration && cli.ID == "pi" && len(peerOptions.Args) == 0 {
@@ -1157,6 +1234,9 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 		return nil, err
 	}
 	snapshot := clilaunch.Describe(c, binary, "")
+	if piFingerprint != "" {
+		snapshot.Fingerprint = piFingerprint
+	}
 	snapshot.CLI = cli.ID
 	snapshot.Identity = executableIdentity(binary)
 	if c.Integration {
@@ -1172,6 +1252,18 @@ func (p *preparedCLILaunch) start(deps Deps, r *http.Request, name, cwd string) 
 }
 
 func (p *preparedCLILaunch) startSized(deps Deps, r *http.Request, name, cwd string, width, height int) error {
+	cwd = agentTerminalCwd(deps, p.id, cwd)
+	if a, e := deps.Store.AgentByTerminal(p.id); e == nil && a.IsPi() && deps.Tmux != nil {
+		if blocked, e := peerStopPending(deps, a.ID); e != nil || blocked {
+			return errAgentTUIInFlight
+		}
+		if has, e := deps.Tmux.HasSession(r.Context(), tmux.SessionName(a.ID)); e != nil || has {
+			return errors.New("This agent still has an open terminal. Close it through the agent before starting another.")
+		}
+	}
+	if a, e := deps.Store.AgentByTerminal(p.id); e == nil && a.IsPi() && deps.Runtime != nil && deps.Runtime.Active(a.ID) {
+		return errors.New("This agent is running in chat. Open its terminal through the agent to switch modes.")
+	}
 	if blocked, e := peerStopPending(deps, p.id); e != nil || blocked {
 		return errors.New("The previous process has not finished closing. Try again after it exits.")
 	}
@@ -1185,7 +1277,16 @@ func (p *preparedCLILaunch) startSized(deps Deps, r *http.Request, name, cwd str
 	}
 	p.snapshot.StartedAt = time.Now().UTC().Format(time.RFC3339Nano)
 	if err := deps.Store.SetTerminalLaunchApplied(p.id, p.snapshot); err != nil {
-		_ = deps.Tmux.KillSession(r.Context(), name)
+		if p.snapshot.CLI == "pi" {
+			// The failing store cannot be trusted to resolve ownership now.
+			// This prepared launch already owns the exact pane and receipt key.
+			if stopErr := stopInteractivePane(r.Context(), deps, name, p.id); stopErr != nil {
+				p.started = true // retain files referenced by the unconfirmed writer
+				return errors.Join(err, stopErr)
+			}
+		} else {
+			_ = deps.Tmux.KillSession(r.Context(), name)
+		}
 		return err
 	}
 	p.started = true
@@ -1208,12 +1309,13 @@ func applyTerminalLaunch(deps Deps, view map[string]any, id string) {
 	if v.LastSession != nil {
 		view["lastSession"] = v.LastSession
 	}
-	c, err := cliConfig(deps, v.CLI)
+	_, effective, binary, err := resolvedTerminalLaunch(deps, v)
 	if err == nil && v.Applied != nil {
-		effective := clilaunch.Resolve(c, v.Overrides)
-		cli, _ := clilaunch.Find(v.CLI)
-		binary, _ := resolveCLIExecutable(cli, effective)
-		view["launchPending"] = v.Applied.CLI != v.CLI || v.Applied.Fingerprint != clilaunch.Fingerprint(effective) || binary != v.Applied.Executable || (v.Applied.Identity != "" && v.Applied.Identity != executableIdentity(binary))
+		fingerprint := clilaunch.Fingerprint(effective)
+		if a, e := deps.Store.AgentByTerminal(id); e == nil && a.IsPi() {
+			fingerprint = piAgentLaunchFingerprint(effective, a)
+		}
+		view["launchPending"] = v.Applied.CLI != v.CLI || v.Applied.Fingerprint != fingerprint || binary != v.Applied.Executable || (v.Applied.Identity != "" && v.Applied.Identity != executableIdentity(binary))
 	}
 }
 

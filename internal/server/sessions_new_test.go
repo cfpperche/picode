@@ -16,6 +16,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/cfpperche/picode/internal/rpc"
@@ -232,19 +233,39 @@ func TestNewSessionFreeAgentTUIRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	tm := tmux.New()
-	t.Cleanup(func() { _ = tm.KillSession(context.Background(), tmux.SessionName(av.ID)) })
+	var sessionName string
+	t.Cleanup(func() {
+		if sessionName != "" {
+			res := postJSON(t, ts, "/api/agents/"+av.ID+"/close", map[string]string{})
+			if res.StatusCode != http.StatusOK {
+				t.Errorf("cleanup close = %d", res.StatusCode)
+			}
+		}
+	})
 
 	// Open the agent's TUI (interactive mode), then New.
-	if r := postJSON(t, ts, "/api/agents/"+av.ID+"/open", map[string]string{}); r.StatusCode != http.StatusCreated {
+	r := postJSON(t, ts, "/api/agents/"+av.ID+"/open", map[string]string{})
+	if r.StatusCode != http.StatusCreated {
 		t.Fatalf("open TUI = %d", r.StatusCode)
 	}
-	if has, err := tm.HasSession(context.Background(), tmux.SessionName(av.ID)); err != nil || !has {
+	var opened struct {
+		Session string `json:"session"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&opened); err != nil {
+		t.Fatal(err)
+	}
+	r.Body.Close()
+	sessionName = opened.Session
+	if !strings.HasPrefix(sessionName, "picode-sh-") {
+		t.Fatalf("not a shared terminal: %s", sessionName)
+	}
+	if has, err := tm.HasSession(context.Background(), sessionName); err != nil || !has {
 		t.Fatalf("tmux session after open: has=%v err=%v", has, err)
 	}
 	if r := postJSON(t, ts, "/api/workspaces/"+store.FreeWorkspaceID+"/sessions/new?agent="+av.ID, map[string]string{}); r.StatusCode != http.StatusOK {
 		t.Fatalf("new on a free agent with a TUI open = %d", r.StatusCode)
 	}
-	if has, err := tm.HasSession(context.Background(), tmux.SessionName(av.ID)); err != nil || !has {
+	if has, err := tm.HasSession(context.Background(), sessionName); err != nil || !has {
 		t.Fatalf("tmux session after New: has=%v err=%v", has, err)
 	}
 }

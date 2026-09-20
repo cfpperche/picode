@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"net/http"
 	"os/exec"
 	"strings"
 	"sync"
@@ -14,7 +15,6 @@ import (
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
-	"github.com/cfpperche/picode/internal/tmux"
 )
 
 // errAutomationDisabled: a schedule or webhook hit a disabled automation.
@@ -130,7 +130,7 @@ func (r automationRunner) mode(ctx context.Context, agentID string) agentRunMode
 		return modeManaged
 	}
 	if deps.Tmux != nil && deps.Tmux.Available() {
-		if has, err := deps.Tmux.HasSession(ctx, tmux.SessionName(agentID)); err == nil && has {
+		if has, err := deps.Tmux.HasSession(ctx, deps.agentSession(agentID)); err == nil && has {
 			return modeInteractive
 		}
 	}
@@ -204,6 +204,9 @@ func (r automationRunner) messageRun(ctx context.Context, a store.Automation, f 
 	if err != nil {
 		return store.Run{}, err
 	}
+	if !agent.IsPi() {
+		return r.doorRun(ctx, a, f, body, agent)
+	}
 	wasRunning := deps.Runtime.Get(agent.ID) != nil
 	if ma := deps.Runtime.Get(agent.ID); ma != nil && ma.Observed() {
 		// Another automation's run is on this agent right now.
@@ -244,6 +247,66 @@ func (r automationRunner) messageRun(ctx context.Context, a store.Automation, f 
 		return deps.Store.GetRun(run.ID)
 	}
 	return run, nil
+}
+
+// doorRun delivers an automation's prompt to a CLI agent through the
+// ADR-0089 door (Fatia F): the agent's launch terminal is the process, so
+// the run rides the door's receipt instead of the managed runtime. The
+// receipt maps to run status — delivered runs finish done with the door's
+// own words, refusals skip with the named reason, and an unconfirmed
+// delivery fails honestly rather than pretending the CLI saw the prompt.
+func (r automationRunner) doorRun(ctx context.Context, a store.Automation, f automate.Firing, body string, agent store.Agent) (store.Run, error) {
+	deps := r.deps
+	if agent.TerminalID == nil || strings.TrimSpace(*agent.TerminalID) == "" {
+		run, err := deps.Store.CreateRun(store.RunParams{AutomationID: a.ID, ScheduleID: f.ScheduleID, Trigger: f.Trigger, Status: store.RunFailed, Reason: "this agent has no launch terminal"})
+		if err == nil {
+			r.notify(a, store.InboxFYI, "this agent has no launch terminal", a.Name+" failed", failBody("this agent has no launch terminal"))
+		}
+		return run, err
+	}
+	t, err := deps.Store.GetTerminal(*agent.TerminalID)
+	if err != nil {
+		return store.Run{}, err
+	}
+	run, err := deps.Store.CreateRun(store.RunParams{AutomationID: a.ID, ScheduleID: f.ScheduleID, Trigger: f.Trigger, Status: store.RunRunning})
+	if err != nil {
+		return store.Run{}, err
+	}
+	status, res := doorDeliver(deps, ctx, t, body)
+	runStatus, reason := mapDoorOutcome(status, res)
+	w := &runWatch{runner: r, a: a, run: run, agentID: agent.ID, started: time.Now()}
+	w.finish(runStatus, reason, runStatus == store.RunFailed)
+	return deps.Store.GetRun(run.ID)
+}
+
+// mapDoorOutcome translates the door's answer into a run outcome. The
+// receipt is the whole truth: a verified delivery is done; refusals skip
+// with the door's own named reason; an unconfirmed delivery fails honestly
+// instead of pretending the CLI saw the prompt.
+func mapDoorOutcome(status int, res map[string]any) (string, string) {
+	reason, _ := res["reason"].(string)
+	delivery, _ := res["delivery"].(string)
+	switch {
+	case status == http.StatusOK && delivery == "verified":
+		return store.RunDone, "Sent to the terminal."
+	case status == http.StatusOK:
+		if delivery == "unconfirmed" {
+			note := "Prompt delivered, but PiCode could not confirm it left the composer."
+			if reason != "" {
+				note += " (" + reason + ")"
+			}
+			return store.RunDone, note
+		}
+		return store.RunDone, "Sent to the terminal (unverified)."
+	case status == http.StatusConflict && reason != "":
+		return store.RunSkipped, reason
+	default:
+		msg, _ := res["error"].(string)
+		if msg == "" {
+			msg = "delivery failed"
+		}
+		return store.RunFailed, msg
+	}
 }
 
 func skipBody(reason string) string {

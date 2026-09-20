@@ -164,6 +164,11 @@ for (const [kind, family] of [["agent", "agents"], ["term", "terminals"], ["work
     const browse = new URL(ownerFileURL(owner, "browse", "a b", "/repo"), "http://local");
     assert.equal(browse.searchParams.get("dir"), "a b");
     assert.equal(browse.searchParams.has("path"), false);
+    const scoped = new URL(ownerFileURL(owner, "text", "a.txt", "/repo/side", "side"), "http://local");
+    assert.equal(scoped.searchParams.get("worktree"), "side");
+    assert.equal(scoped.searchParams.get("root"), "/repo/side");
+    const unscoped = new URL(ownerFileURL(owner, "text", "a.txt", "/repo"), "http://local");
+    assert.equal(unscoped.searchParams.has("worktree"), false);
     assert.equal(withFileRoot("", "/repo"), "");
     assert.equal(withFileRoot("/blob?path=a", "/repo"), "/blob?path=a&root=%2Frepo");
   });
