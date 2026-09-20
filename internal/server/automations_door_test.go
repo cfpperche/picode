@@ -107,8 +107,8 @@ func TestMapDoorOutcome(t *testing.T) {
 		t.Fatalf("verified = %q %q", verifiedStatus, verified)
 	}
 	unconfirmedStatus, unconfirmed := mapDoorOutcome(http.StatusOK, map[string]any{"delivery": "unconfirmed", "reason": "staged"})
-	if unconfirmedStatus != store.RunDone || unconfirmed == "" {
-		t.Fatalf("unconfirmed = %q %q", unconfirmedStatus, unconfirmed)
+	if unconfirmedStatus != store.RunFailed || unconfirmed == "" {
+		t.Fatalf("unconfirmed = %q %q; want failed — the work has not started", unconfirmedStatus, unconfirmed)
 	}
 	unverifiedStatus, unverified := mapDoorOutcome(http.StatusOK, map[string]any{"delivery": "unverified"})
 	if unverifiedStatus != store.RunDone || unverified == "" {

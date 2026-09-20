@@ -224,10 +224,24 @@ func doorDeliver(deps Deps, ctx context.Context, t store.Terminal, payload strin
 		announceDoorPrompt(deps, t.ID, "unverified")
 		return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "unverified"}
 	}
-	before, err := deps.Tmux.InputSnapshot(cctx, session)
-	if err != nil {
-		// The pane cannot be read here — degrade to the blind paste and say
-		// the delivery is unverified instead of refusing a working terminal.
+	// Read the composer before touching it. A capture can fail under
+	// transient load, so retry briefly before degrading to the blind paste —
+	// degrading is what skips the occupied gate, and that skip must be rare.
+	var before tmux.InputSnapshot
+	observable := true
+	for attempt := 0; ; attempt++ {
+		snap, e := deps.Tmux.InputSnapshot(cctx, session)
+		if e == nil {
+			before = snap
+			break
+		}
+		if attempt >= doorCaptureRetries {
+			observable = false
+			break
+		}
+		time.Sleep(doorSettleInterval)
+	}
+	if !observable {
 		if perr := deps.Tmux.PasteText(cctx, session, payload); perr != nil {
 			return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
 		}
@@ -248,9 +262,11 @@ func doorDeliver(deps Deps, ctx context.Context, t store.Terminal, payload strin
 	}
 	// The row reads empty again once the payload left the composer. A line
 	// still staged after the first Enter gets exactly one more — a lost
-	// Enter is retried, a second paste is never sent (it would duplicate).
+	// Enter is retried, a second paste is never sent (it would duplicate),
+	// and a composer that reads neither empty nor ours stops the sequence
+	// instead of risking someone else's draft.
 	deadline := time.Now().Add(doorSettleWindow)
-	for {
+	for extraEnter := 0; ; {
 		snap, e := deps.Tmux.InputSnapshot(cctx, session)
 		if e != nil {
 			// The pane was verifiable before the paste and is not now: say so
@@ -258,27 +274,28 @@ func doorDeliver(deps Deps, ctx context.Context, t store.Terminal, payload strin
 			announceDoorPrompt(deps, t.ID, "unconfirmed")
 			return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "unconfirmed", "reason": "unreadable"}
 		}
-		if snap.PaneID == before.PaneID && snap.PanePID == before.PanePID {
-			if peerInputMatches(cli, snap, "") {
-				announceDoorPrompt(deps, t.ID, "verified")
-				return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "verified"}
-			}
-			if doorRowHoldsTail(cli, snap, payload) {
-				// A lost Enter: our line still sits at the row. One more
-				// Enter — a second paste is never sent (it would duplicate).
-				if err := deps.Tmux.SubmitPane(ctx, before.PaneID); err != nil {
-					return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
-				}
-			}
+		if snap.PaneID != before.PaneID || snap.PanePID != before.PanePID {
+			announceDoorPrompt(deps, t.ID, "unconfirmed")
+			return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "unconfirmed", "reason": "pane-changed"}
 		}
-		if time.Now().Add(doorSettleInterval).After(deadline) {
+		if peerInputMatches(cli, snap, "") {
+			announceDoorPrompt(deps, t.ID, "verified")
+			return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "verified"}
+		}
+		if !doorRowHoldsTail(cli, snap, payload) {
+			// Neither empty nor ours: someone else owns the composer now.
+			announceDoorPrompt(deps, t.ID, "unconfirmed")
+			return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "unconfirmed", "reason": "diverged"}
+		}
+		if extraEnter >= doorMaxExtraEnters || time.Now().Add(doorSettleInterval).After(deadline) {
 			announceDoorPrompt(deps, t.ID, "unconfirmed")
 			return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "unconfirmed", "reason": "staged"}
 		}
-		time.Sleep(doorSettleInterval)
+		extraEnter++
 		if err := deps.Tmux.SubmitPane(ctx, before.PaneID); err != nil {
 			return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
 		}
+		time.Sleep(doorSettleInterval)
 	}
 }
 
@@ -293,6 +310,8 @@ const (
 	doorComposerLag    = 250 * time.Millisecond
 	doorSettleWindow   = 1500 * time.Millisecond
 	doorSettleInterval = 150 * time.Millisecond
+	doorCaptureRetries = 2
+	doorMaxExtraEnters = 1
 )
 
 // doorRowHoldsTail reports whether the payload's last line still sits at

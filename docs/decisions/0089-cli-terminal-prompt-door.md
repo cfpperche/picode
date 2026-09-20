@@ -190,9 +190,16 @@ provenance rides `terminal_ask_delivered`).
 | In-flight prompt | **409** `busy` |
 | Session absent | **409** `closed` |
 | Paste + Enter, row reads empty | 200 `verified` |
-| Paste + Enter, row still holds the tail (one extra Enter) then empty | 200 `verified` |
-| Paste + Enter, row never reads empty, or unreadable | 200 `unconfirmed` (`staged`/`unreadable`) |
+| Paste + Enter, row still holds the tail (at most one extra Enter, then empty) | 200 `verified` |
+| Paste + Enter, row never reads empty | 200 `unconfirmed` (`staged`) |
+| Capture works pre-paste but not after | 200 `unconfirmed` (`unreadable`) |
+| Composer reads neither empty nor ours (someone else typing) | 200 `unconfirmed` (`diverged`) |
+| Capture fails persistently before the paste | 200 `unverified` (blind paste) |
 | CLI without an input reader | 200 `unverified` |
+
+Bounded discipline: the payload is pasted exactly once; at most one extra
+Enter follows a lost-Enter observation. Unreadable and diverged stop the
+sequence instead of pressing again.
 
 Still true: this is delivery, never comprehension — the UI says "Sent to
 the terminal", never "the model saw it". Inspector type/run stay refused

@@ -2769,10 +2769,9 @@ export default function App({ shellChrome = false } = {}) {
       await api("/api/agents/" + ag.id + choice.query, { method: "DELETE" });
     } catch (err) {
       // The server may have completed the delete before the response was
-      // lost (a second click, a flaky moment): "not found" means the agent
-      // is gone — drop the row instead of scolding the operator twice.
-      const msg = err && err.message ? err.message : String(err);
-      if (!/not found/i.test(msg)) { toastError(err); return; }
+      // lost (a second click, a flaky moment): 404 means the agent is
+      // gone — drop the row instead of scolding the operator twice.
+      if (err && err.status !== 404) { toastError(err); return; }
     }
     closeShellTerm(ag.id);
     setTabs((t) => t.filter((x) => x !== ag.id));

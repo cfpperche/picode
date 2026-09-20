@@ -289,14 +289,16 @@ func mapDoorOutcome(status int, res map[string]any) (string, string) {
 	switch {
 	case status == http.StatusOK && delivery == "verified":
 		return store.RunDone, "Sent to the terminal."
-	case status == http.StatusOK:
-		if delivery == "unconfirmed" {
-			note := "Prompt delivered, but PiCode could not confirm it left the composer."
-			if reason != "" {
-				note += " (" + reason + ")"
-			}
-			return store.RunDone, note
+	case status == http.StatusOK && delivery == "unconfirmed":
+		// "staged"/"unreadable": the paste went in, but PiCode never saw it
+		// leave the composer — the automation's work has not started. Failing
+		// honestly beats a done that lies.
+		note := "Prompt delivered, but PiCode could not confirm it left the composer."
+		if reason != "" {
+			note += " (" + reason + ")"
 		}
+		return store.RunFailed, note
+	case status == http.StatusOK:
 		return store.RunDone, "Sent to the terminal (unverified)."
 	case status == http.StatusConflict && reason != "":
 		return store.RunSkipped, reason
