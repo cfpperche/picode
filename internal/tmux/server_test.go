@@ -131,13 +131,16 @@ func TestServerSessionsWithoutAServer(t *testing.T) {
 
 func TestServerInfoReadsTheServer(t *testing.T) {
 	s := &serverScript{replies: map[string]scriptedReply{
-		"display-message": {out: "/tmp/tmux-1000/default\n"},
+		"display-message": {out: "3.6\t/tmp/tmux-1000/default\n"},
 		"list-clients":    {out: "501\n502\n503\n"},
 		"show-options":    {out: "xterm\n"},
 	}}
 	info := managerOn(s).ServerInfo(context.Background())
 	if !info.Running || info.SocketPath != "/tmp/tmux-1000/default" {
 		t.Fatalf("info = %+v, want running with the socket path", info)
+	}
+	if info.Version != "3.6" {
+		t.Fatalf("version = %q, want the server's own 3.6, not the client binary's", info.Version)
 	}
 	if info.Clients != 3 {
 		t.Fatalf("clients = %d, want 3", info.Clients)
@@ -159,6 +162,22 @@ func TestServerInfoWithoutAServer(t *testing.T) {
 	}
 	if info.Clients != 0 {
 		t.Fatalf("clients = %d, want 0", info.Clients)
+	}
+	if info.Version != "" {
+		t.Fatalf("version = %q, want empty: the reported version is the server's, and none answers", info.Version)
+	}
+}
+
+// socket_path is the last field of the two-field read on purpose (the
+// paneListFormat rule): a tab inside a path must not split the version off.
+func TestServerInfoKeepsATabInsideTheSocketPath(t *testing.T) {
+	s := &serverScript{replies: map[string]scriptedReply{
+		"display-message": {out: "3.7c\t/tmp/odd\tpath/tmux.sock\n"},
+		"show-options":    {out: "xterm\n"},
+	}}
+	info := managerOn(s).ServerInfo(context.Background())
+	if info.Version != "3.7c" || info.SocketPath != "/tmp/odd\tpath/tmux.sock" {
+		t.Fatalf("info = %+v, want version 3.7c with the path intact", info)
 	}
 }
 

@@ -91,9 +91,14 @@ type AbsentTerminal struct {
 type ServerInfo struct {
 	// Running is false when no server answers on this socket — an honest
 	// state to draw, not an error (a machine with no terminals has no server).
-	Running            bool
-	SocketPath         string
-	Clients            int
+	Running    bool
+	SocketPath string
+	Clients    int
+	// Version is the version of the tmux that owns these panes: the running
+	// server's own (`#{version}`), empty when no server answers. It is not
+	// the installed binary's version (Manager.Version) — after an upgrade a
+	// new client talks to the old server until it exits, and only this value
+	// says which tmux interprets the panes (ADR-0164).
 	Version            string
 	ExtendedKeysFormat string
 }
@@ -213,19 +218,23 @@ func (m *Manager) serverSessions(ctx context.Context) ([]ServerSession, error) {
 }
 
 // ServerInfo reads the server's own facts: whether one answers, where its
-// socket is, how many clients are attached, the tmux version and the
+// socket is, how many clients are attached, the version in use and the
 // extended-keys format. Session counts belong to ServerSessions — this never
-// lists sessions, so the server read costs one call per fact.
+// lists sessions, so the server read stays one call per fact, with liveness
+// and the version sharing one.
 func (m *Manager) serverInfo(ctx context.Context) ServerInfo {
 	var info ServerInfo
-	// socket_path only answers with a server behind it, which is what makes
-	// this the liveness probe as well as the path read.
-	if out, err := m.run(ctx, "display-message", "-p", "#{socket_path}"); err == nil {
-		info.Running = true
-		info.SocketPath = strings.TrimSpace(out)
-	}
-	if v, err := m.Version(); err == nil {
-		info.Version = v
+	// One read carries liveness and the version: display-message fails when no
+	// server answers (and never starts one), and the two-field format only
+	// answers with a server behind the socket. socket_path comes last — the
+	// paneListFormat rule: the field that can contain a tab goes last, so a tab
+	// inside a path cannot shift the field before it.
+	if out, err := m.run(ctx, "display-message", "-p", "#{version}\t#{socket_path}"); err == nil {
+		if v, path, ok := strings.Cut(strings.TrimSpace(out), "\t"); ok {
+			info.Running = true
+			info.Version = v
+			info.SocketPath = path
+		}
 	}
 	if f, err := m.ExtendedKeysFormat(ctx); err == nil {
 		info.ExtendedKeysFormat = f
