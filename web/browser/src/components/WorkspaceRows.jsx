@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { IconChat, IconChevronRight, IconEllipsis, IconFolder, IconGit, IconMode, IconPencil, IconPlay, IconReload, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
@@ -140,7 +140,7 @@ export function AgentRow({
   workingId, workingIds, waitingId, checklists,
   onFileTree, onGitGraph,
   actions = true, meta = false,
-  onRenameAgent, onRun, onStop, onRemoveAgent, onRemove, onChat, onTerm, termView,
+  onRenameAgent, onRun, onRemoveAgent, onRemove, onChat, onTerm, termView,
   clis, terms, onLaunchAction, onContinueTerm,
 }) {
   const mode = ag.mode || "stopped";
@@ -160,9 +160,9 @@ export function AgentRow({
   const onMenuItem = (r) => {
     switch (r.id) {
       case "start": return onRun && onRun(ag.id);
-      case "stop": return cliAgent ? onLaunchAction && onLaunchAction(term, "stop") : onStop && onStop(ag.id);
-      case "restart": return onLaunchAction && onLaunchAction(term, "restart");
-      case "launch": location.hash = "#/clis/terminal/" + encodeURIComponent(ag.terminalId); return;
+      case "stop":
+      case "restart": return onLaunchAction && onLaunchAction(term, r.id, ag);
+      case "launch": location.hash = r.href; return;
       case "chat": return onChat && onChat(ag.id);
       case "term": return onTerm && onTerm(ag.id);
       case "rename": return onRenameAgent && onRenameAgent(ag, label);
@@ -194,53 +194,60 @@ export function AgentRow({
         </div>
         {actions ? (
           <RowMenu label={label}>
-            {agentRowMenu(ag, { clis, term }).map((r, i) => r.sep ? <RowMenuSep key={"sep" + i} /> : r.sub ? (
-              <DropdownMenu.Sub key={r.id}>
-                <DropdownMenu.SubTrigger className="ws-row-menu-item" title={r.title}>
-                  {AGENT_ROW_MENU_ICONS[r.id] || null} {r.label}
-                  <IconChevronRight size={13} className="um-chev" />
-                </DropdownMenu.SubTrigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.SubContent className="ws-row-menu" sideOffset={4} alignOffset={-4} collisionPadding={8}>
-                    {r.sub.map((s) => s.sub ? (
-                      <DropdownMenu.Sub key={s.id}>
-                        <DropdownMenu.SubTrigger className="ws-row-menu-item" title={s.title}>
+            {agentRowMenu(ag, { clis, term }).map((r, i) => {
+              if (r.sep) return <RowMenuSep key={"sep" + i} />;
+              if (r.sub) return (
+                <DropdownMenu.Sub key={r.id}>
+                  <DropdownMenu.SubTrigger className="ws-row-menu-item" title={r.title}>
+                    {AGENT_ROW_MENU_ICONS[r.id] || null} {r.label}
+                    <IconChevronRight size={13} className="um-chev" />
+                  </DropdownMenu.SubTrigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.SubContent className="ws-row-menu" sideOffset={4} alignOffset={-4} collisionPadding={8}>
+                      {r.sub.map((s) => s.sub ? (
+                        <DropdownMenu.Sub key={s.id}>
+                          <DropdownMenu.SubTrigger className="ws-row-menu-item" title={s.title}>
+                            {s.label}
+                            <IconChevronRight size={13} className="um-chev" />
+                          </DropdownMenu.SubTrigger>
+                          <DropdownMenu.Portal>
+                            <DropdownMenu.SubContent className="ws-row-menu" sideOffset={4} alignOffset={-4} collisionPadding={8}>
+                              {s.sub.map((s2) => (
+                                <DropdownMenu.Item
+                                  key={s2.id}
+                                  className="ws-row-menu-item"
+                                  title={s2.title}
+                                  onSelect={() => onContinueTerm && onContinueTerm(term, s2.target)}
+                                >
+                                  {s2.label}
+                                </DropdownMenu.Item>
+                              ))}
+                            </DropdownMenu.SubContent>
+                          </DropdownMenu.Portal>
+                        </DropdownMenu.Sub>
+                      ) : (
+                        <DropdownMenu.Item
+                          key={s.id}
+                          className="ws-row-menu-item"
+                          title={s.title}
+                          onSelect={() => onContinueTerm && onContinueTerm(term, s.target)}
+                        >
                           {s.label}
-                          <IconChevronRight size={13} className="um-chev" />
-                        </DropdownMenu.SubTrigger>
-                        <DropdownMenu.Portal>
-                          <DropdownMenu.SubContent className="ws-row-menu" sideOffset={4} alignOffset={-4} collisionPadding={8}>
-                            {s.sub.map((s2) => (
-                              <DropdownMenu.Item
-                                key={s2.id}
-                                className="ws-row-menu-item"
-                                title={s2.title}
-                                onSelect={() => onContinueTerm && onContinueTerm(term, s2.target)}
-                              >
-                                {s2.label}
-                              </DropdownMenu.Item>
-                            ))}
-                          </DropdownMenu.SubContent>
-                        </DropdownMenu.Portal>
-                      </DropdownMenu.Sub>
-                    ) : (
-                      <DropdownMenu.Item
-                        key={s.id}
-                        className="ws-row-menu-item"
-                        title={s.title}
-                        onSelect={() => onContinueTerm && onContinueTerm(term, s.target)}
-                      >
-                        {s.label}
-                      </DropdownMenu.Item>
-                    ))}
-                  </DropdownMenu.SubContent>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Sub>
-            ) : (
-              <RowMenuItem key={r.id} title={r.title} danger={r.danger} onSelect={() => onMenuItem(r)}>
-                {AGENT_ROW_MENU_ICONS[r.id]} {r.label}
-              </RowMenuItem>
-            ))}
+                        </DropdownMenu.Item>
+                      ))}
+                    </DropdownMenu.SubContent>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Sub>
+              );
+              return (
+                <Fragment key={r.id}>
+                  {r.danger ? <RowMenuSep /> : null}
+                  <RowMenuItem title={r.title} danger={r.danger} onSelect={() => onMenuItem(r)}>
+                    {AGENT_ROW_MENU_ICONS[r.id]} {r.label}
+                  </RowMenuItem>
+                </Fragment>
+              );
+            })}
           </RowMenu>
         ) : null}
       </div>

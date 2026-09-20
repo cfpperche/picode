@@ -2566,19 +2566,47 @@ export default function App({ shellChrome = false } = {}) {
   // launch endpoint the Agent CLIs list uses, so one terminal answers to
   // one set of actions from either surface. The fleet feed patches the
   // sidebar in place; start opens the terminal like the CLIs list does.
-  async function launchTerminalAction(t, op) {
+  async function launchTerminalAction(t, op, agent) {
+    if (agent && agentIsPi(agent)) {
+      if (!(await askConfirm({
+        title: `${op === "restart" ? "Restart" : "Stop"} ${agent.name || "agent"}?`,
+        message: op === "restart"
+          ? "This interrupts the current work and restarts the agent in the same mode."
+          : "This interrupts the agent's current work.",
+        confirmLabel: op === "restart" ? "Restart agent" : "Stop agent",
+        danger: true,
+      }))) return;
+      const pending = notify({ level: "busy", title: op === "restart" ? "Restarting agent…" : "Stopping agent…", duration: Infinity });
+      try {
+        if (op === "restart" && agent.mode === "interactive") {
+          await openInteractive(agent.id, { restart: true, throwErrors: true });
+        } else {
+          await stopAgent(agent.id, { throwErrors: true });
+          if (op === "restart") await startManaged(agent.id, { throwErrors: true });
+        }
+        toast.ok(op === "restart" ? "Agent restarted." : "Agent stopped.");
+      } catch (err) { toastError(err); }
+      finally { dismissNotice(pending); }
+      return;
+    }
     if (!t || !op) return;
+    const noun = agent ? "agent" : "terminal";
     const destructive = op === "remove" || (t.running && op !== "start");
     if (destructive && !(await askConfirm({
-      title: `${op === "stop" ? "Stop" : op === "restart" ? "Restart" : "Remove"} ${t.name || "terminal"}?`,
-      message: op === "restart"
+      title: `${op === "stop" ? "Stop" : op === "restart" ? "Restart" : "Remove"} ${agent?.name || t.name || noun}?`,
+      message: agent
+        ? (op === "restart"
+          ? (t.lastSession ? "This interrupts the agent's current work, then reopens the same conversation." : "This interrupts the current work and restarts the agent.")
+          : "This interrupts the agent's current work.")
+        : op === "restart"
         ? (t.lastSession
           ? "This ends the processes running in this terminal, then reopens the same conversation."
           : "This ends the processes running in this terminal.")
         : t.running ? "This ends the processes running in this terminal." : "Remove this saved terminal and its launch settings?",
-      confirmLabel: op === "stop" ? "Stop terminal" : op === "restart" ? "Restart terminal" : "Remove terminal",
+      confirmLabel: `${op === "stop" ? "Stop" : op === "restart" ? "Restart" : "Remove"} ${noun}`,
       danger: true,
     }))) return;
+    const pending = agent ? notify({ level: "busy", title: op === "restart" ? "Restarting agent…" : "Stopping agent…", duration: Infinity }) : null;
     try {
       await api(`/api/terminals/${encodeURIComponent(t.id)}/launch/${op}`, {
         method: "POST",
@@ -2586,8 +2614,9 @@ export default function App({ shellChrome = false } = {}) {
         body: JSON.stringify({ confirm: destructive }),
       });
       if (op === "start") location.hash = termHash(t.id);
-      else toast.ok(op === "stop" ? "Terminal stopped." : op === "restart" ? "Terminal restarted." : "Terminal removed.");
+      else toast.ok(`${agent ? "Agent" : "Terminal"} ${op === "stop" ? "stopped" : op === "restart" ? "restarted" : "removed"}.`);
     } catch (err) { toastError(err); }
+    finally { dismissNotice(pending); }
   }
 
   async function openInteractive(id, opts) {

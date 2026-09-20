@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { IconChevronRight, IconCollapse, IconEnter, IconExpand, IconGlobe, IconMonitor, IconReload, IconSettings, IconX } from "./Icons.jsx";
+import { IconChevronRight, IconCollapse, IconExpand, IconGlobe, IconMonitor, IconReload, IconSettings, IconX } from "./Icons.jsx";
 import { toast } from "../lib/toast.js";
 import { isLoopbackUrl } from "@picode/shared/client/devservers.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
@@ -10,6 +10,7 @@ import { requestBrowserDialog } from "../lib/browserDialogs.js";
 import { previewUrl, verifyPreviewUrl } from "../lib/previewStill.js";
 import { cropRect, stylesToCSS, stateItems, batchMessage, parseAnnotMessage, parseStatePayload, pastePaths, resolveSendTarget } from "../lib/annotate.js";
 import AnnotateStrip from "./AnnotateStrip.jsx";
+import WebTabAddress from "./WebTabAddress.jsx";
 import AnnotatePreview from "./AnnotatePreview.jsx";
 
 // Work browser tab surface (Phase 3 slice 1): the React side renders the
@@ -722,17 +723,13 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
       <section className="web-tab-surface" hidden={hidden} aria-label="Work browser">
         <div className="web-tab-toolbar">
           <button type="button" title="Reload" onClick={() => setFrameNonce((n) => n + 1)}>⟳</button>
-          <div className="web-tab-urlbar">
-            <input
-              ref={urlRef}
-              value={frameUrl}
-              onChange={(e) => setFrameUrl(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") setFrameNonce((n) => n + 1); }}
-              placeholder="Search or enter a URL"
-              spellCheck={false}
-            />
-            <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => setFrameNonce((n) => n + 1)}><IconEnter /></button>
-          </div>
+          <WebTabAddress
+            value={frameUrl}
+            onChange={setFrameUrl}
+            onOpen={(u) => { setFrameUrl(u); setFrameNonce((n) => n + 1); }}
+            inputRef={urlRef}
+            localOnly
+          />
           <button
             type="button"
             className="web-tab-annot-btn"
@@ -782,17 +779,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
               onSend={sendAll}
             />
           ) : (
-          <><div className="web-tab-urlbar">
-            <input
-              ref={urlRef}
-              value={urlDraft}
-              onChange={(e) => setUrlDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") go(); }}
-              placeholder="Search or enter a URL"
-              spellCheck={false}
-            />
-            <button type="button" className="web-tab-go" title="Open (Enter)" aria-label="Open" onClick={() => go()}><IconEnter /></button>
-          </div>
+          <><WebTabAddress value={urlDraft} onChange={setUrlDraft} onOpen={go} inputRef={urlRef} />
         <button
           type="button"
           className="web-tab-annot-btn"

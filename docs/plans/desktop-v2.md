@@ -115,7 +115,9 @@ Mapping to our stack noted inline; slices 1–4 at the end of this section.
 - [ ] Back / forward / reload cluster (slice 1)
 - [ ] Empty state: "Start browsing — Enter a URL to open a page" — one line
   + the action, never a blank well (slice 1)
-- [ ] History dropdown from the address bar (typed URLs first) (slice 3)
+- [x] History dropdown from the address bar (typed URLs first) (slice 3 —
+  landed 2026-09-19; the bar's own copy no longer promises a search we do not
+  run: see the topic file's owner-calls table)
 - [ ] New tab / close per tab; target=_blank and unsized `window.open` adopt
   as new tabs, while a sized popup opens as a real window — OAuth flows post
   back through `window.opener` (slice 1 + fix 2026-09-15; WebView2
@@ -125,7 +127,9 @@ Mapping to our stack noted inline; slices 1–4 at the end of this section.
   2026-09-15)
 - [ ] **Take a screenshot** button (CapturePreview) — also what the agent's
   screenshot tier uses (slice 2)
-- [ ] **Device toolbar**: responsive viewport — Dimensions dropdown,
+- [ ] **Device toolbar** (owner's call 2026-09-19: the native half first —
+  bounds + zoom, honestly named "Responsive width"; CDP emulation needs an
+  ADR): responsive viewport — Dimensions dropdown,
   width × height, zoom %; off by default (slice 3; controller bounds +
   CDP Emulation)
 - [ ] Detach to window / panel⇄tab (v2 — editor tab is the v1 surface)
@@ -136,7 +140,12 @@ Passwords and autofill › · Downloads · History · Clear browsing data ·
 Browser settings (opens Preferences ▸ Browser) — every entry maps to an
 item above. Landed 2026-09-15 without *Show device toolbar* and *Import
 cookies and passwords…* (neither exists yet; a dead item is worse than a
-missing one), and the menu opens **over** the page (native view hidden
+missing one). *Import cookies and passwords…* is now **refused** (owner
+2026-09-19: passwords have no WebView2 write API and would need PiCode's own
+vault — a security-model arc; cookies via CDP are fragile under Chrome's
+app-bound encryption), so the entry is not coming: the topic file carries
+the call. *Show device toolbar* is the native half first. The menu opens
+**over** the page (native view hidden
 behind a still) instead of sliding it down. Since 2026-09-16 that rule is
 general — *any* floating layer that intersects a work tab parks the native
 view (`web/browser/src/lib/floatingLayers.js` over the shared layer list in

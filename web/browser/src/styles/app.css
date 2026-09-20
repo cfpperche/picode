@@ -1960,8 +1960,38 @@ img.ws-face.term-cli-face {
 
 /* Address field (shadcn ButtonGroup): input and action share one pill —
    the button is the right cap, no separate borders. */
+/* The address bar and its suggestions. The wrap carries the flex so the
+   dropdown can hang BELOW the pill (the pill clips its own children, which
+   is how the Go button inherits its rounding). */
+.web-tab-address {
+  position: relative; flex: 1; min-width: 140px; display: flex; align-items: stretch;
+}
+.web-tab-suggest {
+  position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; right: 0;
+  margin: 0; padding: 4px; list-style: none;
+  background: var(--bg-elevated); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-panel); overflow: hidden;
+  box-shadow: 0 12px 32px color-mix(in srgb, #000 26%, transparent);
+}
+.web-tab-suggest[hidden] { display: none; }
+.web-tab-suggest-row {
+  display: flex; align-items: baseline; gap: 6px;
+  padding: 7px 10px; border-radius: var(--radius-ctl); cursor: pointer;
+  font-size: 12.5px; min-width: 0;
+}
+.web-tab-suggest-row.on { background: var(--bg-hover); }
+.web-tab-suggest-row .host { color: var(--text-primary); white-space: nowrap; }
+.web-tab-suggest-row .rest {
+  color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1; min-width: 0;
+}
+.web-tab-suggest-row .title {
+  color: var(--text-secondary); font-size: 11.5px; white-space: nowrap;
+  max-width: 42%; overflow: hidden; text-overflow: ellipsis; flex: none;
+}
+.web-tab-suggest-empty { padding: 9px 10px; color: var(--text-secondary); font-size: 12.5px; }
 .web-tab-urlbar {
-  flex: 1; min-width: 140px; display: flex; align-items: stretch;
+  flex: 1; min-width: 0; display: flex; align-items: stretch;
   height: var(--ctl-h, 36px);
   border: 1px solid var(--border); border-radius: 999px;
   background: var(--bg-base); overflow: hidden;
