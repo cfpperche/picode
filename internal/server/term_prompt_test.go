@@ -218,6 +218,10 @@ func TestTerminalPromptDecisionTable(t *testing.T) {
 		if code != http.StatusNotFound {
 			t.Fatalf("code=%d", code)
 		}
+		code, page := postRaw(t, ts, "/api/terminals/nope/prompt", `{"message":"hello"}`)
+		if code != http.StatusNotFound || !strings.Contains(page["error"].(string), "not found") {
+			t.Fatalf("prompt code=%d page=%v", code, page)
+		}
 	})
 
 	t.Run("plain shell refused", func(t *testing.T) {
@@ -280,6 +284,18 @@ func TestTerminalPromptDecisionTable(t *testing.T) {
 		code, page := postRaw(t, ts, "/api/terminals/"+term.ID+"/prompt", `{"message":"hi","paths":["a.png"]}`)
 		if code != http.StatusConflict {
 			t.Fatalf("%d %v", code, page)
+		}
+	})
+
+	t.Run("plain shell prompt refused", func(t *testing.T) {
+		st, ts, _ := promptHarness(t)
+		shell, err := st.CreateTerminal("sh", t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		code, page := postRaw(t, ts, "/api/terminals/"+shell.ID+"/prompt", `{"message":"hello"}`)
+		if code != http.StatusConflict || !strings.Contains(page["error"].(string), "Agent CLI") {
+			t.Fatalf("code=%d page=%v", code, page)
 		}
 	})
 
