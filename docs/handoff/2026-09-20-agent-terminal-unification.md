@@ -7,10 +7,10 @@ Verified: `npm run build:mobile`, `node --test web/mobile/src/lib/mobileRoutes.t
 Visual QA used 390x844 screenshots for Terminal and Chat; overlay audit was
 `ok: true`, with aligned 36px toolbar controls and no viewport overflow.
 visual-review: PASS
-Not done / debts: the remaining runtime extraction from Agent.jsx into the
-Agent CLIs terminal implementation, desktop toolbar parity, and physical
+Not done / debts: the runtime extraction from Agent.jsx into the Agent CLIs
+terminal implementation, desktop toolbar parity, and physical
 iPhone/PWA/IME acceptance remain for follow-up.
-Merge: fast-forward ready.
+Merge: fast-forward ready for this UI slice; not deploy-ready as the full runtime unification.
 
 ## Next up
 
