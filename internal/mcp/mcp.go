@@ -97,7 +97,7 @@ var envKeyRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 var headerNameRe = regexp.MustCompile(`^[A-Za-z0-9!#$%&'*+.^_` + "`" + `|~-]+$`)
 
 // ToolPresetPrefix names the presets that are PiCode's own tools served
-// over MCP (ADR-0154). They are for guest CLIs: pi has the packages.
+// over MCP (ADR-0154). They are for CLI agents: pi has the packages.
 const ToolPresetPrefix = "picode-"
 
 // IsToolPreset reports whether a preset (or a server named after one) is

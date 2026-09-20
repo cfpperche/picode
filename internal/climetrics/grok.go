@@ -84,7 +84,7 @@ func (m GrokMeter) Meter(req Request) (Window, error) {
 	if _, err := os.Stat(root); err != nil {
 		return absentWindow(m, req), nil
 	}
-	acc := newGuestAcc(req, m.CLI())
+	acc := newCliAcc(req, m.CLI())
 	seen := map[string]bool{}
 	_ = filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
@@ -137,7 +137,7 @@ var grokCan = map[Signal]bool{
 	SigTurns: true, SigTools: true, SigErrors: true, SigTiming: true,
 }
 
-func grokCoverage(m GrokMeter, b Billing, acc *guestAcc) CoverageRow {
+func grokCoverage(m GrokMeter, b Billing, acc *cliAcc) CoverageRow {
 	sig := acc.evidence(grokCan, map[Signal]bool{SigTiming: acc.timing != (Timing{})})
 	note := "Turns, tool calls and durations come from each session's events.jsonl; the model comes from summary.json; tokens and cost live only in usage.json, which Grok began writing in 1.0.x."
 	turns, tok, cost := acc.seen[SigTurns], acc.seen[SigTokens], acc.seen[SigCost]
@@ -184,7 +184,7 @@ func grokPromptParse(path string) *parsed {
 		if key == "" {
 			key = path
 		}
-		out.ents = append(out.ents, guestEntry{at: at, key: key, cwd: cwd, role: "user"})
+		out.ents = append(out.ents, cliEntry{at: at, key: key, cwd: cwd, role: "user"})
 	}
 	return out
 }
@@ -220,7 +220,7 @@ func grokSessionParse(dir string) *parsed {
 			continue
 		}
 		out.units++
-		out.ents = append(out.ents, guestEntry{
+		out.ents = append(out.ents, cliEntry{
 			at: t.at, key: out.key, cwd: cwd, name: title,
 			role: "assistant", model: t.model, prov: grokProvider,
 			cost: t.cost, toks: t.toks,

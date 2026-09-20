@@ -24,7 +24,7 @@ import (
 // Summary is one session of one CLI, enough for the sessions picker.
 // Cost is intentionally pi-only on this surface: Claude Code, Codex, Grok,
 // Hermes and OpenCode listings do not populate it. Hermes and OpenCode store
-// spend in SQLite, but the guest session row does not render cost.
+// spend in SQLite, but the CLI session row does not render cost.
 type Summary struct {
 	CLI        string   `json:"cli"`
 	ID         string   `json:"id"`

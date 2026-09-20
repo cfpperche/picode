@@ -29,7 +29,7 @@ func TestDriverIDsMatchCatalog(t *testing.T) {
 	}
 }
 
-// Guest sign-in hints: terminal commands for claude-code, codex, opencode,
+// CLI agent sign-in hints: terminal commands for claude-code, codex, opencode,
 // muse and hermes, the Omp TUI command, plain text for Antigravity
 // (settings) and Grok (first use inside the CLI). The command, when
 // present, is the copyable piece and must appear inside the refusal sentence.

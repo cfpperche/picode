@@ -19,7 +19,7 @@ type DayBucket struct {
 // ProviderBucket is one provider's totals in the current period.
 //
 // This breakdown answers "what did the credential PiCode holds cost", which
-// is narrower than the window's total spend: a guest CLI signs in with its
+// is narrower than the window's total spend: a CLI agent signs in with its
 // own account and contributes no row here, so ByProvider does not sum to
 // Current.Cost on a cross-CLI window. Billing records how that spend is
 // paid for, so a consumer can tell metered money from a plan's list price.

@@ -8,15 +8,15 @@ import (
 	"github.com/cfpperche/picode/internal/session"
 )
 
-// guestEntry is one message, normalised out of whatever dialect its CLI
-// wrote it in. Every guest adapter's job is to turn its own store into a
+// cliEntry is one message, normalised out of whatever dialect its CLI
+// wrote it in. Every CLI adapter's job is to turn its own store into a
 // stream of these; the windowing, bucketing and ranking below are then
 // identical for all of them, which is what keeps a sixth CLI cheap to add.
 //
 // Text is absent by construction. An adapter reads a transcript for counts,
 // names and identities — never for content — so no field here can carry a
 // message body into the payload.
-type guestEntry struct {
+type cliEntry struct {
 	at    time.Time
 	key   string // session identity: a file path or a row id
 	cwd   string
@@ -39,8 +39,8 @@ type guestEntry struct {
 	refusal bool
 }
 
-// guestAcc files entries into one CLI's window.
-type guestAcc struct {
+// cliAcc files entries into one CLI's window.
+type cliAcc struct {
 	req     Request
 	cli     string
 	loc     *time.Location
@@ -70,12 +70,12 @@ type guestAcc struct {
 	seen map[Signal]int
 }
 
-func newGuestAcc(req Request, cli string) *guestAcc {
+func newCliAcc(req Request, cli string) *cliAcc {
 	loc := req.Loc
 	if loc == nil {
 		loc = time.Local
 	}
-	return &guestAcc{
+	return &cliAcc{
 		req: req, cli: cli, loc: loc,
 		byModel:    map[[2]string]*session.ModelBucket{},
 		byFolder:   map[string]*session.WorkspaceBucket{},
@@ -90,7 +90,7 @@ func newGuestAcc(req Request, cli string) *guestAcc {
 // add files one entry into whichever window it falls in. Only the current
 // window gets breakdowns; the prior one exists solely for the headline
 // delta, exactly as pi's own scan does it.
-func (a *guestAcc) add(e guestEntry) {
+func (a *cliAcc) add(e cliEntry) {
 	if e.at.IsZero() {
 		return
 	}
@@ -202,7 +202,7 @@ func (a *guestAcc) add(e guestEntry) {
 
 // result is the uncapped window. Aggregate ranks and cuts once over the
 // union of every CLI, so nothing is sorted or truncated here.
-func (a *guestAcc) result() session.WindowStats {
+func (a *cliAcc) result() session.WindowStats {
 	st := session.WindowStats{
 		Current:   a.current,
 		Tokens:    a.toks,
@@ -231,7 +231,7 @@ func (a *guestAcc) result() session.WindowStats {
 		st.TopSessions = append(st.TopSessions, *f)
 	}
 	// No ByProvider rows: that breakdown answers "what did the credential
-	// PiCode holds cost", and a guest CLI signs in with its own account.
+	// PiCode holds cost", and a CLI agent signs in with its own account.
 	return st
 }
 
@@ -243,7 +243,7 @@ func (a *guestAcc) result() session.WindowStats {
 // actually saw the field — and an empty window answers from capability,
 // since there is nothing to have seen. extra carries the adapter-level
 // signals (impact, timing, limits) the accumulator never sees.
-func (a *guestAcc) evidence(can map[Signal]bool, extra map[Signal]bool) map[Signal]State {
+func (a *cliAcc) evidence(can map[Signal]bool, extra map[Signal]bool) map[Signal]State {
 	out := make(map[Signal]State, len(Signals))
 	active := a.current.Messages > 0
 	for _, sig := range Signals {

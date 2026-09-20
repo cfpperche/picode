@@ -242,7 +242,7 @@ func TestMCPAuthLogoutNeedsName(t *testing.T) {
 
 // ADR-0150: a request naming a CLI without a driver must fail loudly
 // instead of writing Pi's files. claude-code, codex, omp, agy, opencode and
-// grok ship drivers; every other guest CLI still has none.
+// grok ship drivers; every other CLI agent still has none.
 func TestMCPRejectsCLIWithoutDriver(t *testing.T) {
 	ts := newTestServer(t, "cat")
 
@@ -332,9 +332,9 @@ func writeFakeCLI(t *testing.T, name, listOut string) string {
 }
 
 // ADR-0150 phase 1: ?cli=claude-code|codex answers with the same Report shape as
-// Pi's /api/mcp, guest auth refuses with instructions, and guest
+// Pi's /api/mcp, CLI agent auth refuses with instructions, and CLI agent
 // mutations land in the CLI's native config.
-func TestMCPGuestDriversDispatch(t *testing.T) {
+func TestMCPCliAgentDriversDispatch(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
@@ -342,7 +342,7 @@ func TestMCPGuestDriversDispatch(t *testing.T) {
 	writeFakeCLI(t, "codex", "")
 	ts := newTestServer(t, "cat")
 
-	// GET ?cli=claude-code: Report shape with the guest adapter source.
+	// GET ?cli=claude-code: Report shape with the CLI adapter source.
 	res, err := ts.Client().Get(ts.URL + "/api/mcp?cli=claude-code")
 	if err != nil {
 		t.Fatal(err)
@@ -376,7 +376,7 @@ func TestMCPGuestDriversDispatch(t *testing.T) {
 		t.Fatalf("report shape = presets %d packs %v", len(rep.Presets), rep.Packs)
 	}
 
-	// Guest add (project scope, no binary needed) writes the native file and
+	// CLI agent add (project scope, no binary needed) writes the native file and
 	// answers with the full Report shape.
 	wsDir := t.TempDir()
 	wres := postJSON(t, ts, "/api/workspaces", map[string]any{"name": "ws", "path": wsDir})
@@ -392,7 +392,7 @@ func TestMCPGuestDriversDispatch(t *testing.T) {
 	})
 	if add.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(add.Body)
-		t.Fatalf("guest add = %d body %s", add.StatusCode, body)
+		t.Fatalf("CLI agent add = %d body %s", add.StatusCode, body)
 	}
 	var added map[string]any
 	if err := json.NewDecoder(add.Body).Decode(&added); err != nil {
@@ -439,7 +439,7 @@ func TestMCPGuestDriversDispatch(t *testing.T) {
 		t.Fatalf("codex user file: %s", tomlRaw)
 	}
 
-	// Guest toggle of the codex server flips enabled in place.
+	// CLI agent toggle of the codex server flips enabled in place.
 	off := mcpPatch(t, ts, map[string]any{"cli": "codex", "scope": "user", "name": "docs", "disabled": true})
 	if off.StatusCode != http.StatusOK {
 		t.Fatalf("codex toggle = %d", off.StatusCode)
@@ -457,7 +457,7 @@ func TestMCPGuestDriversDispatch(t *testing.T) {
 	}
 	off.Body.Close()
 
-	// Guest remove (user) deletes the table again.
+	// CLI agent remove (user) deletes the table again.
 	del, err := http.NewRequest(http.MethodDelete, ts.URL+"/api/mcp?cli=codex&scope=user&name=docs", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -478,10 +478,10 @@ func thisBody(res *http.Response) string {
 	return string(raw)
 }
 
-// ADR-0150 phase 2: ?cli=omp|agy answer through their guest drivers — the
+// ADR-0150 phase 2: ?cli=omp|agy answer through their CLI agent drivers — the
 // same Report shape, native files edited in place, the AGY legacy url-only
 // entry reported unowned and refused on write.
-func TestMCPGuestDriversPhase2(t *testing.T) {
+func TestMCPCliAgentDriversPhase2(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
@@ -617,7 +617,7 @@ func TestMCPGuestDriversPhase2(t *testing.T) {
 		t.Fatalf("agy rows = %+v", rep.Servers)
 	}
 
-	// Guest remove of the managed AGY entry works; the legacy row is kept.
+	// CLI agent remove of the managed AGY entry works; the legacy row is kept.
 	del, err := http.NewRequest(http.MethodDelete, ts.URL+"/api/mcp?cli=agy&scope=user&name=relay", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -633,9 +633,9 @@ func TestMCPGuestDriversPhase2(t *testing.T) {
 	}
 }
 
-// Guest auth refuses with the vendor instruction; logout points at
-// the CLI. The pi-mcp-adapter gate must not apply to guests.
-func TestMCPGuestAuthRefusals(t *testing.T) {
+// CLI agent auth refuses with the vendor instruction; logout points at
+// the CLI. The pi-mcp-adapter gate must not apply to CLI agents.
+func TestMCPCliAgentAuthRefusals(t *testing.T) {
 	ts := newTestServer(t, "cat")
 
 	auth := postJSON(t, ts, "/api/mcp/auth", map[string]any{"cli": "claude-code", "name": "docs"})
@@ -698,11 +698,11 @@ func TestMCPGuestAuthRefusals(t *testing.T) {
 	_ = logout.Body.Close()
 }
 
-// ADR-0150 phase 3: ?cli=opencode|grok answer through their guest drivers —
+// ADR-0150 phase 3: ?cli=opencode|grok answer through their CLI agent drivers —
 // the OpenCode `mcp` block of opencode.json (command arrays, per-entry
 // enabled flag) and Grok's TOML tables (toggle refused: no per-server
 // switch).
-func TestMCPGuestDriversPhase3(t *testing.T) {
+func TestMCPCliAgentDriversPhase3(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
@@ -813,7 +813,7 @@ func TestMCPGuestDriversPhase3(t *testing.T) {
 		t.Fatalf("grok project toggle touched the user config: %v", err)
 	}
 
-	// Guest remove deletes each entry again.
+	// CLI agent remove deletes each entry again.
 	del, err := http.NewRequest(http.MethodDelete, ts.URL+"/api/mcp?cli=opencode&scope=project&workspace="+wk.ID+"&name=docs", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -842,12 +842,12 @@ func TestMCPGuestDriversPhase3(t *testing.T) {
 	}
 }
 
-// ADR-0150 phase 4: ?cli=muse|hermes answer through their guest drivers —
+// ADR-0150 phase 4: ?cli=muse|hermes answer through their CLI agent drivers —
 // Muse's settings.json mcp_servers block (transport stdio|streamable_http,
 // per-entry enabled flag, schema_version and mode preserved) and Hermes's
 // config.yaml mcp_servers block (yaml.Node edits: comments and key order
 // survive). Both CLIs keep one config file, so project scope refuses.
-func TestMCPGuestDriversPhase4(t *testing.T) {
+func TestMCPCliAgentDriversPhase4(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
@@ -955,7 +955,7 @@ func TestMCPGuestDriversPhase4(t *testing.T) {
 	}
 	_ = proj.Body.Close()
 
-	// Guest removes clean up again.
+	// CLI agent removes clean up again.
 	for _, cli := range []string{"hermes", "muse"} {
 		del, err := http.NewRequest(http.MethodDelete, ts.URL+"/api/mcp?cli="+cli+"&scope=user&name=docs", nil)
 		if err != nil {
@@ -1081,7 +1081,7 @@ func mcpPatch(t *testing.T, ts *httptest.Server, body any) *http.Response {
 	return do(t, ts.Client(), req)
 }
 
-// A guest config file PiCode cannot parse must not fail GET /api/mcp: the
+// A CLI config file PiCode cannot parse must not fail GET /api/mcp: the
 // report still answers 200 with the layer blocked (exists + reason, no
 // servers from it) while a healthy layer keeps listing. The owner's actual
 // repro — OpenCode's JSONC-ish trailing comma — reads without blocking at
@@ -1099,7 +1099,7 @@ type mcpReportView struct {
 	Servers []any          `json:"servers"`
 }
 
-func TestMCPGuestMalformedLayerDegrades(t *testing.T) {
+func TestMCPCliAgentMalformedLayerDegrades(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)

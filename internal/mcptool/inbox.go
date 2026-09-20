@@ -12,7 +12,7 @@ import (
 // The inbox family (ADR-0037 over MCP, ADR-0154 N1): notify_human files an
 // FYI, ask_human files a blocking question. Text and payloads mirror
 // packages/pi-inbox. One difference by necessity: pi ends its turn and the
-// human's reply rides pi's receiver back; a guest CLI has no receiver, so
+// human's reply rides pi's receiver back; a CLI agent has no receiver, so
 // ask_human waits on the item — the daemon records the answer on a
 // question from a terminal that is not running pi — and hands the answer
 // back as the tool result, or says how to keep waiting.
@@ -127,7 +127,7 @@ func NotifyPayload(id Identity, title, body, reason string) (map[string]any, err
 	}, nil
 }
 
-// AskPayload is pi-inbox's buildAskPayload (no session path: a guest CLI
+// AskPayload is pi-inbox's buildAskPayload (no session path: a CLI agent
 // has no pi session to resume).
 func AskPayload(id Identity, question, context string) (map[string]any, error) {
 	question = strings.TrimSpace(question)

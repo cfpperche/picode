@@ -263,7 +263,7 @@ export function focusRowLabel(on) {
 }
 
 // The one first-run line: what happened, and how to get out. Esc leaves
-// the mode — unless a terminal pane owns it, where the guest gets the key
+// the mode — unless a terminal pane owns it, where the CLI gets the key
 // and the way out is the Leave control the top edge carries.
 export const FOCUS_FIRST_RUN =
   "Fullscreen. Left edge shows the sidebar, top edge the tabs and the way out. Esc leaves — a terminal pane keeps Esc.";

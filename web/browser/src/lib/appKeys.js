@@ -8,7 +8,7 @@ export const CATALOG = [
   { id: "app.terminal.new", group: "Global", label: "New terminal", defaults: ["ctrl+`", "super+`"] },
   { id: "app.inspector.toggle", group: "Global", label: "Toggle inspector", defaults: ["ctrl+.", "super+."] },
   // Ctrl+Shift+F, not Ctrl+F: the terminal's own family (Ctrl+Shift+C/V,
-  // termKeys.js) keeps the plain chord for the guest — `less`, `vim` and
+  // termKeys.js) keeps the plain chord for the CLI — `less`, `vim` and
   // readline all use Ctrl+F — and Ctrl+F still opens the browser's find
   // everywhere outside a pane. Windows Terminal and GNOME Terminal use the
   // same chord for find.

@@ -3,10 +3,10 @@ import { faceSlice, providerFaviconUrl, providerId, providerLetter } from "@pico
 import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
 import { terminalCliFaviconUrls, terminalCliLabel, terminalCliMark } from "@picode/shared/domain/terminalCli.js";
 
-// A guest agent has no provider identity — its face is the CLI it runs
+// A CLI agent has no provider identity — its face is the CLI it runs
 // (ADR-0160): the same favicon the terminal rows wear, falling back to the
 // vendor mark. Pi agents keep the provider face below.
-function GuestCliFace({ cli, name }) {
+function CliAgentFace({ cli, name }) {
   const favicons = terminalCliFaviconUrls(cli);
   const [failed, setFailed] = useState(0);
   const src = failed < favicons.length ? favicons[failed] : "";
@@ -19,7 +19,7 @@ function GuestCliFace({ cli, name }) {
 
 export function ProviderFace({ agent, id }) {
   if (agent && !agentIsPi(agent) && agent.cli) {
-    return <GuestCliFace cli={agent.cli} name={agent.name} />;
+    return <CliAgentFace cli={agent.cli} name={agent.name} />;
   }
   const pid = (id || providerId(agent)).toLowerCase();
   const src = providerFaviconUrl(pid);

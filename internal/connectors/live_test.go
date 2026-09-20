@@ -1,6 +1,6 @@
 package connectors
 
-// Live vendor parity (ADR-0150): every guest driver's add/toggle/remove is
+// Live vendor parity (ADR-0150): every CLI driver's add/toggle/remove is
 // exercised against the real vendor CLI in a sandbox HOME, and the vendor's
 // own commands are asked to confirm what PiCode wrote. This is a
 // measurement, not a CI gate: it shells out to the actual binaries, touches

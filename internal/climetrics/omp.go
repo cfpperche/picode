@@ -45,7 +45,7 @@ func (m OmpMeter) Meter(req Request) (Window, error) {
 		return Window{}, err
 	}
 
-	acc := newGuestAcc(req, m.CLI())
+	acc := newCliAcc(req, m.CLI())
 	for _, e := range ents {
 		if !e.IsDir() {
 			continue
@@ -89,7 +89,7 @@ var ompCan = map[Signal]bool{
 	SigTurns: true, SigTools: true, SigErrors: true, SigTiming: true,
 }
 
-func ompCoverage(m OmpMeter, b Billing, acc *guestAcc) CoverageRow {
+func ompCoverage(m OmpMeter, b Billing, acc *cliAcc) CoverageRow {
 	return CoverageRow{
 		CLI: m.CLI(), Label: m.Label(), Billing: b,
 		Signals: acc.evidence(ompCan, map[Signal]bool{SigTiming: acc.timing.SessionMs != 0}),
@@ -134,7 +134,7 @@ func ompParse(path string, mtime time.Time) *parsed {
 
 	out := &parsed{}
 	cwd, name, provider, model := "", "", "", ""
-	add := func(e guestEntry) {
+	add := func(e cliEntry) {
 		out.ents = append(out.ents, e)
 		out.units += e.toks.Input + e.toks.Output + e.toks.CacheRead + e.toks.CacheWrite
 	}
@@ -226,7 +226,7 @@ func ompParse(path string, mtime time.Time) *parsed {
 					tools = append(tools, b.Name)
 				}
 			}
-			e := guestEntry{
+			e := cliEntry{
 				at: t, key: path, cwd: cwd, name: name,
 				role: m.Role, model: mm, prov: prov,
 				cost: cost, split: split, toks: toks, tools: tools,

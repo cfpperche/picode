@@ -69,7 +69,7 @@ test("fleet: terminals", () => {
   assert.equal(s.terminals.length, 0);
 });
 
-test("fleet: terminal.state (guest CLI, ADR-0056 tier 1)", () => {
+test("fleet: terminal.state (CLI, ADR-0056 tier 1)", () => {
   let s = { workspaces: [], freeAgents: [], terminals: [{ id: "t1", name: "T" }] };
   s = applyFleet(s, { type: "terminal.state", data: { termId: "t1", state: "working", cli: "claude-code", at: "2026-09-04T10:00:00Z" } });
   assert.equal(s.terminals[0].state, "working");

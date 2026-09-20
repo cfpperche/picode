@@ -913,7 +913,7 @@ func recordCLILaunchAttempt(deps Deps, id string, err error) {
 // launchIdentityEnv is the caller identity a CLI launch carries (ADR-0160
 // Fatia E): PICODE_TERM_ID always, plus PICODE_AGENT_ID when the terminal is
 // bound to an agent. picode mcp resolves principal with agent-wins
-// (grant.FromIDs), so grants given to the guest agent in Settings ▸
+// (grant.FromIDs), so grants given to the CLI agent in Settings ▸
 // Computer / Browser match without per-terminal configuration — the same
 // spelling Pi agents already get from Agent.SpawnEnv.
 func launchIdentityEnv(deps Deps, termID string) []string {

@@ -224,7 +224,7 @@ func NewRuntime(agentCmd string, st *store.Store, onExit func(string)) *Runtime 
 }
 
 // ErrManagedPiOnly is returned by Start when the agent is not a Pi runtime
-// (ADR-0160): managed RPC is `pi --mode rpc`. Guest CLIs run interactive only.
+// (ADR-0160): managed RPC is `pi --mode rpc`. CLI agents run interactive only.
 var ErrManagedPiOnly = errors.New("rpc: managed mode is only for Pi agents")
 
 // Start launches the ordinary managed agent and begins consuming its task

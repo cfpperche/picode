@@ -71,7 +71,7 @@ func (m MuseMeter) Meter(req Request) (Window, error) {
 	if _, err := os.Stat(root); os.IsNotExist(err) {
 		return absentWindow(m, req), nil
 	}
-	acc := newGuestAcc(req, m.CLI())
+	acc := newCliAcc(req, m.CLI())
 	_ = filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() || d.Name() != "session.jsonl" {
 			return nil
@@ -102,7 +102,7 @@ var museCan = map[Signal]bool{
 	SigModel: true, SigMessages: true, SigTurns: true, SigTools: true,
 }
 
-func museCoverage(m MuseMeter, b Billing, acc *guestAcc) CoverageRow {
+func museCoverage(m MuseMeter, b Billing, acc *cliAcc) CoverageRow {
 	return CoverageRow{
 		CLI: m.CLI(), Label: m.Label(), Billing: b,
 		Signals: acc.evidence(museCan, nil),
@@ -153,7 +153,7 @@ func museParse(path string, mtime time.Time) *parsed {
 		case "runtime.user_intent.accepted":
 			// materialized intents are the same turns filed twice;
 			// accepted is the one count.
-			out.ents = append(out.ents, guestEntry{at: at, key: out.key, cwd: cwd, role: "user"})
+			out.ents = append(out.ents, cliEntry{at: at, key: out.key, cwd: cwd, role: "user"})
 			out.units++ // presence-weighted: muse writes no tokens to prorate by
 		case "runtime.session":
 			var p struct {
@@ -193,7 +193,7 @@ func museParse(path string, mtime time.Time) *parsed {
 					if strings.TrimSpace(p.Event.Text) == "" {
 						return
 					}
-					out.ents = append(out.ents, guestEntry{
+					out.ents = append(out.ents, cliEntry{
 						at: at, key: out.key, cwd: cwd,
 						role: "assistant", model: model, prov: "meta",
 					})

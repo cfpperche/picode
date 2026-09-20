@@ -7,7 +7,7 @@ import (
 )
 
 // ADR-0160 Fatia E: open "needs you" items rekey from the terminal onto the
-// guest agent; items whose terminal has no bound agent close — the process
+// CLI agent; items whose terminal has no bound agent close — the process
 // they were about is gone.
 func TestMigrateCLINeedsYouOntoAgents(t *testing.T) {
 	s := openTest(t)

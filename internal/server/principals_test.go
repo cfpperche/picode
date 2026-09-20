@@ -10,7 +10,7 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 )
 
-func TestPrincipalHTTPCreatesGuestAgent(t *testing.T) {
+func TestPrincipalHTTPCreatesCLIAgent(t *testing.T) {
 	ts := newTestServer(t, "cat")
 	proj := t.TempDir()
 	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App", "path": proj})

@@ -329,7 +329,7 @@ func (d Claude) Add(p Paths, scope, name string, entry mcp.Entry) error {
 	if err := claudeHeadersOK(entry); err != nil {
 		return err
 	}
-	sc, err := guestScope(scope)
+	sc, err := cliScope(scope)
 	if err != nil {
 		return err
 	}
@@ -399,7 +399,7 @@ func (Claude) Toggle(p Paths, scope, name string, disabled bool) error {
 	if err := mcp.ValidName(name); err != nil {
 		return err
 	}
-	if _, err := guestScope(scope); err != nil {
+	if _, err := cliScope(scope); err != nil {
 		return err
 	}
 	return fmt.Errorf(ToggleRefusal)
@@ -411,7 +411,7 @@ func (d Claude) Remove(p Paths, scope, name string) error {
 	if err := mcp.ValidName(name); err != nil {
 		return err
 	}
-	sc, err := guestScope(scope)
+	sc, err := cliScope(scope)
 	if err != nil {
 		return err
 	}

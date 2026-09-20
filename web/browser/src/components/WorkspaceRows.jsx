@@ -143,11 +143,11 @@ export function AgentRow({
   clis, terms, onLaunchAction,
 }) {
   const mode = ag.mode || "stopped";
-  const guest = !agentIsPi(ag);
-  // A guest's process is its bound terminal (ADR-0160): the status pill
+  const cliAgent = !agentIsPi(ag);
+  // A CLI agent's process is its bound terminal (ADR-0160): the status pill
   // and the lifecycle rows read the terminal, because runMode never sees
   // the terminal's tmux session.
-  const term = guest && ag.terminalId ? (terms || []).find((t) => t.id === ag.terminalId) : null;
+  const term = cliAgent && ag.terminalId ? (terms || []).find((t) => t.id === ag.terminalId) : null;
   const label = displayAgentName(ag, ws);
   const model = shortModel(ag.model || "");
   const title = model ? label + " — " + model : label;
@@ -159,7 +159,7 @@ export function AgentRow({
   const onMenuItem = (r) => {
     switch (r.id) {
       case "start": return onRun && onRun(ag.id);
-      case "stop": return guest ? onLaunchAction && onLaunchAction(term, "stop") : onStop && onStop(ag.id);
+      case "stop": return cliAgent ? onLaunchAction && onLaunchAction(term, "stop") : onStop && onStop(ag.id);
       case "restart": return onLaunchAction && onLaunchAction(term, "restart");
       case "launch": location.hash = "#/clis/terminal/" + encodeURIComponent(ag.terminalId); return;
       case "chat": return onChat && onChat(ag.id);
@@ -189,7 +189,7 @@ export function AgentRow({
             <span className="ws-title" title={title}>{label}</span>
             <span className="ws-subtitle">{model || agentSubtitle(ag)}</span>
           </span>
-          {guest && term ? <TerminalStatus term={term} /> : <AgentStatus status={status} stamp={stamp} />}
+          {cliAgent && term ? <TerminalStatus term={term} /> : <AgentStatus status={status} stamp={stamp} />}
         </div>
         {actions ? (
           <RowMenu label={label}>

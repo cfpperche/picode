@@ -32,11 +32,11 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
   const dataRef = useRef(null);
   dataRef.current = data;
   const driver = connectorDriver(cli) || connectorDriver("pi");
-  const guest = cli !== "pi" && !!driver;
+  const cliScoped = cli !== "pi" && !!driver;
 
   function listURL() {
     const q = [];
-    if (guest) q.push("cli=" + encodeURIComponent(cli));
+    if (cliScoped) q.push("cli=" + encodeURIComponent(cli));
     if (workspaceId) q.push("workspace=" + encodeURIComponent(workspaceId));
     if (agentId) q.push("agent=" + encodeURIComponent(agentId));
     return "/api/mcp" + (q.length ? "?" + q.join("&") : "");
@@ -79,10 +79,10 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
   useEffect(() => {
     if (!workspaceId && scope === "project") setScope("user");
     if (!agentWorkPath && scope === "agent") setScope("user");
-    // Guests have no per-agent layer in phase 1; a stale agent-scope link
+    // CLI agents have no per-agent layer in phase 1; a stale agent-scope link
     // falls back to the machine instead of a 400 on the next action.
-    if (guest && scope === "agent") setScope("user");
-  }, [workspaceId, agentWorkPath, scope, guest]);
+    if (cliScoped && scope === "agent") setScope("user");
+  }, [workspaceId, agentWorkPath, scope, cliScoped]);
 
   const loading = !hidden && data === null && !loadError;
   const installed = !!(data && data.adapter && data.adapter.installed);
@@ -130,7 +130,7 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
       scope,
       workspaceId: workspaceId || undefined,
       agentId: agentId || undefined,
-      ...(guest ? { cli } : {}),
+      ...(cliScoped ? { cli } : {}),
       ...extra,
     };
   }
@@ -181,7 +181,7 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
       setForm(emptyForm());
       setCustomOpen(false);
     }
-    if (auth === "oauth" && !guest) await signIn({ name, auth: "oauth", disabled: false }, { quiet: true });
+    if (auth === "oauth" && !cliScoped) await signIn({ name, auth: "oauth", disabled: false }, { quiet: true });
   }
 
   async function pullGallery() {
@@ -221,21 +221,21 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
   }
 
   function canSignIn(s) {
-    if (guest) return false;
+    if (cliScoped) return false;
     if (!s || s.disabled) return false;
     if (s.live === "live") return false;
     if (s.live === "signin") return true;
     return s.auth === "oauth" && !s.signedIn && !justSigned[s.name];
   }
 
-  // Guests never sign in through PiCode: the pane shows the vendor's own
+  // CLI agents never sign in through PiCode: the pane shows the vendor's own
   // path instead of a failing call (ADR-0150) — a copyable command (a
   // terminal one by default, or the vendor TUI) beside the controls, or a
   // plain sentence on its own line under the row when the vendor signs in
   // outside any command line (a sentence inline would squeeze the target
   // and unbalance the action row).
   function needsVendorSignIn(s) {
-    return guest && !s.disabled && s.transport === "url" && driver.auth.includes("oauth");
+    return cliScoped && !s.disabled && s.transport === "url" && driver.auth.includes("oauth");
   }
 
   function vendorSignIn(s) {
@@ -250,7 +250,7 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
   }
 
   function canSignOut(s) {
-    if (guest) return false;
+    if (cliScoped) return false;
     if (!s || s.disabled) return false;
     return !!(s.signedIn || justSigned[s.name]);
   }
@@ -362,7 +362,7 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
       name: s.name,
       scope: writeScope(s, scope),
     });
-    if (guest) q.set("cli", cli);
+    if (cliScoped) q.set("cli", cli);
     if (workspaceId) q.set("workspace", workspaceId);
     if (agentId) q.set("agent", agentId);
     await runJob("remove", s.name, () => api("/api/mcp?" + q.toString(), { method: "DELETE" }));
@@ -391,7 +391,7 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
         <div key={b.scope + ":" + b.path} className="mcp-blocked" role="status">
           <span className="mcp-blocked-text"><code title={b.path || undefined}>{b.file}</code> {b.error}.</span>
           <span className="mcp-row-actions" data-align-row>
-            {guest ? <button type="button" className="btn btn-ghost btn-sm" disabled={!!job} onClick={() => revealBlocked(b)}>Open</button> : null}
+            {cliScoped ? <button type="button" className="btn btn-ghost btn-sm" disabled={!!job} onClick={() => revealBlocked(b)}>Open</button> : null}
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => load()}>Retry</button>
           </span>
         </div>
@@ -407,7 +407,7 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
           <button type="button" className="btn btn-primary" onClick={() => { setLoadError(""); load(); }}>Retry</button>
         </div>
       ) : !installed ? (
-        guest ? (
+        cliScoped ? (
           <div className="mcp-empty">
             <p>{driver.name} is not installed on this machine.</p>
             <button type="button" className="btn btn-primary" onClick={() => load()}>Check again</button>
@@ -435,14 +435,14 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
               </section>}
               <section className="pkg-installed">
                 <h3>Configured services{servers.length ? <span className="mcp-count">{servers.length}</span> : null}</h3>
-                {!guest && !agentRunning && servers.length ? <p className="pkg-fine">Live status comes from a running agent.</p> : null}
+                {!cliScoped && !agentRunning && servers.length ? <p className="pkg-fine">Live status comes from a running agent.</p> : null}
                 {servers.length ? (
                   <ul className="mcp-list">
                     {servers.map((s) => {
                       // Pi rows stream live state from the adapter while an
-                      // agent runs; live-capable guests probe their vendor
+                      // agent runs; live-capable CLI agents probe their vendor
                       // CLI on the server, agent-independent (ADR-0150 d4).
-                      const word = agentRunning || (guest && driver.status === "live") ? rowLive(s) : "";
+                      const word = agentRunning || (cliScoped && driver.status === "live") ? rowLive(s) : "";
                       const state = word === "live" || word === "failed" ? word : "";
                       const menu = canSignOut(s) || s.owned;
                       const vendor = needsVendorSignIn(s) ? vendorSignIn(s) : null;
@@ -516,7 +516,7 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
                   disabled={!!job}
                   autoComplete="off"
                 />
-                {canProject || (canAgent && !guest) ? (
+                {canProject || (canAgent && !cliScoped) ? (
                   <div className="connector-scope">
                     <span className="mcp-group-label">Save to</span>
                     <div className="pkg-scope" role="radiogroup" aria-label="Save to">
@@ -531,7 +531,7 @@ export default function Mcps({ hidden, cli = "pi", workspaceId, workspaceName, w
                           onClick={() => setScope("project")}
                         >{workspaceName || "This workspace"}</button>
                       ) : null}
-                      {canAgent && !guest ? (
+                      {canAgent && !cliScoped ? (
                         <button
                           type="button"
                           role="radio"

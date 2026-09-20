@@ -75,7 +75,7 @@ type Config struct {
 	Path        []string          `json:"path"`
 	Integration bool              `json:"integration"`
 	// Tools names the PiCode tool families (ADR-0154: computer, browser)
-	// injected as MCP servers into launches made from PiCode — the guest's
+	// injected as MCP servers into launches made from PiCode — the CLI agent's
 	// per-agent scope. Empty means none; the file scopes are the CLI's own.
 	Tools []string `json:"tools"`
 }

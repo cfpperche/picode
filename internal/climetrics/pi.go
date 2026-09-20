@@ -13,10 +13,10 @@ import (
 // It adds no dialect knowledge: internal/session already parses pi's JSONL
 // for the v1 dashboard and carries its own tests, so this adapter drives
 // session.ParseFile and files the result through the same cache and
-// accumulator every guest CLI uses.
+// accumulator every CLI agent uses.
 //
 // Routing pi through the cache is not a tidiness point. Measured on this
-// machine once the five guests were cached, pi was 2.32 s of a 2.37 s warm
+// machine once the five CLIs were cached, pi was 2.32 s of a 2.37 s warm
 // refresh — 98% of the cost, because it alone re-read 437 MB on every poll.
 //
 // pi is the one CLI that records cost, tokens, tools and turns natively and
@@ -42,7 +42,7 @@ func (m PiMeter) Meter(req Request) (Window, error) {
 		return Window{}, err
 	}
 
-	acc := newGuestAcc(req, m.CLI())
+	acc := newCliAcc(req, m.CLI())
 	for _, e := range ents {
 		if !e.IsDir() {
 			continue
@@ -93,7 +93,7 @@ var piCan = map[Signal]bool{
 // billing is api unless the operator says otherwise, and that is a fact
 // rather than a default: pi runs on the credentials PiCode itself holds
 // (the same roster ByProvider feeds) and its cost comes from a metered
-// per-message usage.cost. Guest CLIs stay unknown until they state their
+// per-message usage.cost. CLI agents stay unknown until they state their
 // own mode or the operator sets one — a badge PiCode cannot back is worse
 // than no badge.
 func (m PiMeter) billing(req Request) Billing {
@@ -106,12 +106,12 @@ func (m PiMeter) billing(req Request) Billing {
 // piParse adapts session.ParseFile to the shared cache shape.
 func piParse(path string, mtime time.Time) *parsed {
 	fs := session.ParseFile(path, mtime)
-	out := &parsed{ents: make([]guestEntry, 0, len(fs.Entries))}
+	out := &parsed{ents: make([]cliEntry, 0, len(fs.Entries))}
 	for _, c := range fs.Compactions {
 		out.compactions = append(out.compactions, compaction{at: c.At, cwd: c.Cwd})
 	}
 	for _, e := range fs.Entries {
-		out.ents = append(out.ents, guestEntry{
+		out.ents = append(out.ents, cliEntry{
 			at: e.At, key: path, cwd: e.Cwd, name: e.Name,
 			role: e.Role, model: e.Model, prov: e.Provider,
 			cost: e.Cost, split: e.Split, toks: e.Usage, tools: e.Tools,
@@ -128,8 +128,8 @@ func piParse(path string, mtime time.Time) *parsed {
 
 // piProviders rebuilds the per-provider rows from the model breakdown. Only
 // pi contributes them: the Providers view joins these onto the credentials
-// PiCode holds, and a guest CLI signs in with its own account.
-func piProviders(acc *guestAcc, b Billing) []session.ProviderBucket {
+// PiCode holds, and a CLI agent signs in with its own account.
+func piProviders(acc *cliAcc, b Billing) []session.ProviderBucket {
 	byProv := map[string]*session.ProviderBucket{}
 	for _, m := range acc.byModel {
 		p := byProv[m.Provider]
@@ -147,7 +147,7 @@ func piProviders(acc *guestAcc, b Billing) []session.ProviderBucket {
 	return out
 }
 
-func piCoverage(m PiMeter, b Billing, acc *guestAcc) CoverageRow {
+func piCoverage(m PiMeter, b Billing, acc *cliAcc) CoverageRow {
 	return CoverageRow{
 		CLI: m.CLI(), Label: m.Label(), Billing: b,
 		Signals: acc.evidence(piCan, nil),

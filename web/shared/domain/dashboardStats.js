@@ -84,7 +84,7 @@ function emptyCounts() {
 // always done so: Spend and By CLI read every agent CLI's own session store.
 // This tile was the exception — it counted managed agents only, so a sidebar
 // of seven live Claude Code and Grok terminals sat beside "1 / 1 running".
-// Terminals are the fleet's other half (ADR-0056 hosts guest CLIs in them,
+// Terminals are the fleet's other half (ADR-0056 hosts CLI agents in them,
 // ADR-0062 gives them presence and activity), so they count here.
 //
 //   agents.running / terminals.running / shells.running — live, per kind

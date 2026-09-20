@@ -17,7 +17,7 @@ import (
 // a slice.
 type parsed struct {
 	key         string // the session identity every entry in this file carries
-	ents        []guestEntry
+	ents        []cliEntry
 	units       int64 // sum of ents' weights, the denominator for proration
 	byPresence  bool  // weigh each entry as 1 rather than its tokens (Grok)
 	impact      Impact
@@ -56,7 +56,7 @@ type cacheEntry struct {
 }
 
 // maxCachedEntries caps the cache at roughly 60–80 MB of parsed messages —
-// a guestEntry carries strings and a tools slice, so the first estimate of
+// a cliEntry carries strings and a tools slice, so the first estimate of
 // 45 MB was optimistic. The
 // common windows (today / 7d / 30d) hold their working set well inside it;
 // `all` may evict, and pays a full parse when it does — a deliberate trade,
@@ -146,7 +146,7 @@ func cachedParse(path string, parse func(string) *parsed) *parsed {
 // replay files a parse into a window. Proration of the file-lifetime
 // figures (lines changed, durations) happens here, against this window's
 // share of the file's tokens, so one parse serves every range.
-func replay(p *parsed, acc *guestAcc, req Request) (contributed bool) {
+func replay(p *parsed, acc *cliAcc, req Request) (contributed bool) {
 	if p == nil {
 		return false
 	}
@@ -196,7 +196,7 @@ type compaction struct {
 // turns. Weighing them by tokens would drop the durations of every session
 // Grok has not written a usage record for, which on this machine is all but
 // three of them.
-func (p *parsed) weight(e *guestEntry) int64 {
+func (p *parsed) weight(e *cliEntry) int64 {
 	if p.byPresence {
 		return 1
 	}

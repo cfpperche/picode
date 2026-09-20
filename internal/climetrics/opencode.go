@@ -12,9 +12,9 @@ import (
 )
 
 // OpenCodeMeter reports OpenCode from its SQLite store, the same file
-// clisession.OpenCodeSource lists. It is the richest guest: every assistant
+// clisession.OpenCodeSource lists. It is the richest of the set: every assistant
 // message row carries its own cost, token split, provider and model, so no
-// derivation is needed and no snapshot is missing — the one guest whose
+// derivation is needed and no snapshot is missing — the one CLI whose
 // cost is simply `reported`.
 //
 // The session table also carries summary_files, which makes OpenCode the
@@ -47,7 +47,7 @@ func (m OpenCodeMeter) Meter(req Request) (Window, error) {
 	if err != nil {
 		return Window{}, err
 	}
-	acc := newGuestAcc(req, m.CLI())
+	acc := newCliAcc(req, m.CLI())
 	if err := opencodeMessages(db, req, dirs, acc); err != nil {
 		return Window{}, err
 	}
@@ -68,7 +68,7 @@ var opencodeCan = map[Signal]bool{
 	SigTurns: true, SigErrors: true, SigImpact: true,
 }
 
-func opencodeCoverage(m OpenCodeMeter, b Billing, acc *guestAcc, hasImpact bool) CoverageRow {
+func opencodeCoverage(m OpenCodeMeter, b Billing, acc *cliAcc, hasImpact bool) CoverageRow {
 	return CoverageRow{
 		CLI: m.CLI(), Label: m.Label(), Billing: b,
 		Signals: acc.evidence(opencodeCan, map[Signal]bool{SigImpact: hasImpact}),
@@ -149,7 +149,7 @@ type opencodeMsg struct {
 	} `json:"tokens"`
 }
 
-func opencodeMessages(db *sql.DB, req Request, dirs map[string]string, acc *guestAcc) error {
+func opencodeMessages(db *sql.DB, req Request, dirs map[string]string, acc *cliAcc) error {
 	cols, err := clisession.SQLiteTableColumns(db, "message")
 	if err != nil || !cols["session_id"] || !cols["data"] {
 		return err
@@ -174,7 +174,7 @@ func opencodeMessages(db *sql.DB, req Request, dirs map[string]string, acc *gues
 		if json.Unmarshal(data, &m) != nil {
 			continue
 		}
-		e := guestEntry{
+		e := cliEntry{
 			at:    time.UnixMilli(created),
 			key:   sid,
 			cwd:   dir,

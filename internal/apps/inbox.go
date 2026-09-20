@@ -357,7 +357,7 @@ func (a inboxApp) itemView(h Host, id string) (View, error) {
 			// to abandon. Declining forwards the refusal to the agent.
 			acts = append(acts, Action{ID: "decline", Label: "Decline", Args: map[string]string{"item": it.ID}})
 		}
-		// A guest's "needs you" names the agent (ADR-0160 Fatia E); the way
+		// A CLI agent's "needs you" names the agent (ADR-0160 Fatia E); the way
 		// in is still the terminal its TUI lives on. ADR-0060 keeps Pi
 		// agent items free of this escape hatch — the reply itself goes
 		// into the agent's terminal.

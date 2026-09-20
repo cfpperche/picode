@@ -7,7 +7,7 @@ import (
 	"github.com/cfpperche/picode/internal/clilaunch"
 )
 
-func TestAgentByTerminalAndDeleteRemovesGuest(t *testing.T) {
+func TestAgentByTerminalAndDeleteRemovesCLIAgent(t *testing.T) {
 	s := openTest(t)
 	proj := t.TempDir()
 	w, err := s.AddWorkspace("App", proj)
@@ -42,7 +42,7 @@ func TestAgentByTerminalAndDeleteRemovesGuest(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := s.GetAgent(a.ID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("guest agent survived terminal delete: %v", err)
+		t.Fatalf("CLI agent survived terminal delete: %v", err)
 	}
 }
 

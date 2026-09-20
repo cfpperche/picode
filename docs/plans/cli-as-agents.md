@@ -1,6 +1,6 @@
 # CLI runtimes as agents
 
-Owner 2026-09-19: guest CLIs are the same class as Pi. Talk to them through
+Owner 2026-09-19: CLI runtimes are the same class as Pi. Talk to them through
 the TUI (interactive) until each CLI gets managed mode. ADR-0091 still
 holds. ADR-0160 supersedes 0159's "never an agents row".
 
@@ -28,9 +28,9 @@ free CLI terminal, not an agent.
 | Slice | Ships |
 |---|---|
 | **A** (this branch) | `agents.cli` (default `pi`); `Runtime.Start` refuses non-Pi; ADR-0160 |
-| **B** | `POST /api/workspaces/{id}/agents` `{cli}` creates a guest agent + launch terminal; one New → Agent picker. `#/clis` hub stays (install, Launch, Sessions, Providers, Settings, Packages, Connectors). |
+| **B** | `POST /api/workspaces/{id}/agents` `{cli}` creates a CLI agent + launch terminal; one New → Agent picker. `#/clis` hub stays (install, Launch, Sessions, Providers, Settings, Packages, Connectors). |
 | **C** | Migrate `managed_clis` → `agents`; principals list = agents; drop the table — this branch |
-| **D** | Guest rows speak CLI: subtitle, terminal status, Launch settings + lifecycle in the agent menu (desktop and mobile); remaining "Pi agent" labels in peer contact lists |
+| **D** | CLI agent rows speak CLI: subtitle, terminal status, Launch settings + lifecycle in the agent menu (desktop and mobile); remaining "Pi agent" labels in peer contact lists |
 | **E** (this branch) | Rekey Inbox / `picode mcp` / grants onto the agent id |
 | **F** | Automations and Inspector ask through the prompt door (old Fatia 4) |
 | **∞** | Managed mode per CLI — out until ADR-0091 is re-measured |

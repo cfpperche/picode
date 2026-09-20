@@ -12,17 +12,17 @@ never runs for a non-Pi agent.
 house spelling ADR-0143 already uses: the agent id, or `term:<id>`.
 `grant.Key(agentID, termID)` is `FromIDs(…).Key()` — agent wins.
 
-A guest agent's interactive process is `agents.terminal_id` (unique).
+A CLI agent's interactive process is `agents.terminal_id` (unique).
 Binding does not start a process and does not call `Runtime.Start`.
 Deleting the agent deletes that terminal; deleting the terminal deletes
-the guest agent row (announced `agent.deleted` then `terminal.deleted`).
+the CLI agent row (announced `agent.deleted` then `terminal.deleted`).
 Because `runMode` never sees the terminal's tmux session, the row reads
 its state from the bound terminal: the subtitle names the CLI
 (`agentSubtitle`), the status pill and the Start/Restart/Stop menu act on
 the terminal (`agentRowMenu`, shared with the node tests), and Launch
 settings opens `#/clis/terminal/<terminalId>` — the same screens the
 Agent CLIs hub offers. Its face is the CLI's favicon, the same one the
-terminal rows wear (`ProviderFace` → `GuestCliFace`); a guest never
+terminal rows wear (`ProviderFace` → `CliAgentFace`); a CLI agent never
 offers Open chat: the TUI is the conversation (owner 2026-09-19).
 
 HTTP:
@@ -32,25 +32,25 @@ HTTP:
   when the TUI is a terminal).
 - `POST /api/workspaces/{id}/principals` `{cli, name?, terminalId?}` —
   creates an agent (same class as `POST /agents`). Empty `terminalId`
-  attaches a new launch terminal for a guest; a given id binds that
+  attaches a new launch terminal for a CLI agent; a given id binds that
   workspace terminal. `ws_free` is 400.
 - `DELETE /api/managed-clis/{id}` — alias for `DELETE /api/agents/{id}`
-  (one-release compat). The terminal goes with the guest.
+  (one-release compat). The terminal goes with the agent.
 
 Workspace list/get carry `agents` only. The change feed patches
 `agent.added` / `agent.deleted`. Structured chat, JSON-RPC, ACP and
-`SendTurn` for guests are out of scope (ADR-0091).
-When a guest TUI reports `needs-you`, PiCode files one blocking Inbox FYI
+`SendTurn` for CLI agents are out of scope (ADR-0091).
+When a CLI agent TUI reports `needs-you`, PiCode files one blocking Inbox FYI
 (`reason=cli-needs-you`, source the agent — Fatia E). The item closes when
 the CLI moves on or the agent (with its terminal) is deleted. Push rides
 `inbox.created`. Unbound terminals stay chips-only.
 The Inbox action **Open terminal** focuses the pane (`goto: term:<id>`).
 No composer. Deploy readiness already treats any working terminal as busy.
 
-A guest agent is the opt-in for `picode mcp` at launch (ADR-0154): Claude
+A CLI agent is the opt-in for `picode mcp` at launch (ADR-0154): Claude
 Code, Codex and OpenCode get every family (`computer`, `browser`, `inbox`,
 `checklist`) when Tools was unset. An explicit Tools list, including
-empty, is left alone. Other CLIs stay Connectors-only. Every guest launch
+empty, is left alone. Other CLIs stay Connectors-only. Every CLI agent launch
 carries `PICODE_AGENT_ID` alongside `PICODE_TERM_ID` (Fatia E), so
 `grant.FromIDs` resolves the agent principal and the grants given to the
 agent in Settings ▸ Computer / Browser match without per-terminal

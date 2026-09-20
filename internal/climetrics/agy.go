@@ -49,7 +49,7 @@ func (m AgyMeter) Meter(req Request) (Window, error) {
 	}
 	defer db.Close()
 
-	acc := newGuestAcc(req, m.CLI())
+	acc := newCliAcc(req, m.CLI())
 	if err := agyConversations(db, acc); err != nil {
 		return Window{}, err
 	}
@@ -66,7 +66,7 @@ var agyCan = map[Signal]bool{
 	SigMessages: true, SigTurns: true,
 }
 
-func agyCoverage(m AgyMeter, b Billing, acc *guestAcc) CoverageRow {
+func agyCoverage(m AgyMeter, b Billing, acc *cliAcc) CoverageRow {
 	return CoverageRow{
 		CLI: m.CLI(), Label: m.Label(), Billing: b,
 		Signals: acc.evidence(agyCan, nil),
@@ -78,7 +78,7 @@ func agyCoverage(m AgyMeter, b Billing, acc *guestAcc) CoverageRow {
 // conversation's last-modified time. The keep rules mirror the picker's:
 // a row is a conversation when it has steps, a workspace and a time, and
 // nested (subagent) runs stay out.
-func agyConversations(db *sql.DB, acc *guestAcc) error {
+func agyConversations(db *sql.DB, acc *cliAcc) error {
 	cols, err := clisession.SQLiteTableColumns(db, "conversation_summaries")
 	if err != nil || !cols["conversation_id"] {
 		return err
@@ -117,7 +117,7 @@ func agyConversations(db *sql.DB, acc *guestAcc) error {
 			continue
 		}
 		for i := int64(0); i < steps; i++ {
-			acc.add(guestEntry{
+			acc.add(cliEntry{
 				at: at, key: id, cwd: folder,
 				name: strings.TrimSpace(row["title"]),
 				role: "assistant",

@@ -9,7 +9,7 @@ export function catalogForPrincipal(clis) {
 }
 
 // Workspace New → Agent (ADR-0160): Pi is always first (managed + TUI),
-// then every installed launchable CLI. Uninstalled guests stay off the
+// then every installed launchable CLI. Uninstalled CLIs stay off the
 // list; the Agent CLIs hub is how you install them.
 export function catalogForAgent(clis) {
   const rest = catalogForPrincipal(clis).filter((c) => c.id !== "pi");
@@ -23,7 +23,7 @@ export function agentIsPi(agent) {
   return !c || c === "pi";
 }
 
-// The row's fallback subtitle once the model is out of the way: a guest
+// The row's fallback subtitle once the model is out of the way: a CLI agent
 // names the CLI it runs (ADR-0160 — the row IS the agent, the CLI is its
 // face), Pi keeps the interactive/managed wording.
 export function agentSubtitle(agent) {
@@ -31,7 +31,7 @@ export function agentSubtitle(agent) {
   return ((agent && agent.mode) || "stopped") === "interactive" ? "Interactive session" : "Pi agent";
 }
 
-// Contact and participant lists label a peer owner by kind. A guest agent
+// Contact and participant lists label a peer owner by kind. A CLI agent
 // names its CLI (ADR-0160); Pi agents — and anything the caller already
 // narrows by kind — keep the "Pi agent" wording.
 export function principalLabel(owner) {

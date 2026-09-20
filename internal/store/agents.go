@@ -172,7 +172,7 @@ func (s *Store) GetAgent(id string) (Agent, error) {
 }
 
 // AgentByTerminal returns the agent bound to this terminal, if any
-// (ADR-0160 Fatia C: the guest TUI lives on agents.terminal_id).
+// (ADR-0160 Fatia C: the CLI agent's TUI lives on agents.terminal_id).
 func (s *Store) AgentByTerminal(terminalID string) (Agent, error) {
 	terminalID = strings.TrimSpace(terminalID)
 	if terminalID == "" {

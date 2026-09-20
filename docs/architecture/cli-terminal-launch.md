@@ -66,7 +66,7 @@ Rows carry the server-verified resume arguments for that CLI (verified
 <id>` positional, `grok --resume <id>`, `hermes --resume <id>` on Hermes
 Agent v0.18.2, `opencode --session <id>` on OpenCode 1.18.29, `omp --resume
 <id>` on omp 18.2.4); pi's row carries none — pi resumes
-through its own chat flow. Cost is pi-only on this surface: guest formats
+through its own chat flow. Cost is pi-only on this surface: CLI formats
 are not shown with per-session spend. Non-Pi sessions open through
 `POST /api/clis/<cli>/terminals` with the resume arguments as launch
 argument overrides — no transcript replay, no writes, no deletes for other

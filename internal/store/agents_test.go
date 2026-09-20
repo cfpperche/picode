@@ -115,7 +115,7 @@ func TestAgentTerminalBind(t *testing.T) {
 		t.Fatal(err)
 	}
 	if a.TerminalID != nil {
-		t.Fatalf("fresh guest has terminal %v", a.TerminalID)
+		t.Fatalf("fresh CLI agent has terminal %v", a.TerminalID)
 	}
 	tm, err := s.CreateTerminalIn(w.ID, "Claude", w.Path)
 	if err != nil {

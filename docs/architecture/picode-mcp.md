@@ -2,7 +2,7 @@
 
 > Part of [PiCode's architecture](../architecture.md) (ADR-0105: one file per subsystem). Edit here; the index only links.
 
-PiCode's own tools, spoken over the Model Context Protocol so a guest CLI
+PiCode's own tools, spoken over the Model Context Protocol so a CLI agent
 (Claude Code, Codex, OpenCode, …) gets what a pi agent gets from the
 packages under `packages/`. The server is `picode mcp <family…>`: a stdio
 JSON-RPC process inside the daemon's binary, stateless, that translates
@@ -48,7 +48,7 @@ the form which CLIs show the group; the PUT routes refuse the rest.
 
 ## ask_human over MCP
 
-pi ends its turn and the human's reply rides pi's receiver back; a guest CLI
+pi ends its turn and the human's reply rides pi's receiver back; a CLI agent
 has no receiver. So `ask_human` files the question and **waits**: it polls
 `GET /api/inbox/{id}` every 2 s for up to `PICODE_ASK_WAIT` seconds (8 h
 by default) and returns the answer as the tool result. A client's tool

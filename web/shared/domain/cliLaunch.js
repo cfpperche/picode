@@ -148,8 +148,8 @@ export function cliLocation(hash = "", legacy = {}) {
   return loc;
 }
 
-// PICODE_TOOL_FAMILIES are PiCode's own tool families a guest CLI can
-// receive at launch as MCP servers (ADR-0154): the guest's per-agent scope.
+// PICODE_TOOL_FAMILIES are PiCode's own tool families a CLI agent can
+// receive at launch as MCP servers (ADR-0154): the CLI agent's per-agent scope.
 // The server validates the names; this list is what the form offers.
 export const PICODE_TOOL_FAMILIES = [
   { id: "computer", label: "Computer", hint: "Use the Windows desktop through the desktop app. Off until you switch this terminal on in Settings ▸ Computer." },

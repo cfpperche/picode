@@ -107,7 +107,7 @@ func TestLaunchIdentityEnvCarriesTheBoundAgent(t *testing.T) {
 	}
 	want := []string{"PICODE_TERM_ID=" + tm.ID, "PICODE_AGENT_ID=" + a.ID}
 	if got := launchIdentityEnv(deps, tm.ID); len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
-		t.Fatalf("guest env = %q, want %q", got, want)
+		t.Fatalf("CLI agent env = %q, want %q", got, want)
 	}
 
 	// A Pi agent bound to a terminal gets the same treatment: the agent id

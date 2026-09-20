@@ -24,7 +24,7 @@ func TestPresetsAreComplete(t *testing.T) {
 	}
 }
 
-// PiCode's own tool cards (ADR-0154) lead the catalog for guests and are
+// PiCode's own tool cards (ADR-0154) lead the catalog for CLI agents and are
 // runnable as written: the daemon's binary, `mcp <family>`.
 func TestToolPresetsLeadTheCatalogAndPiHidesThem(t *testing.T) {
 	all := Presets()

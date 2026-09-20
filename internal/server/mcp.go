@@ -29,7 +29,7 @@ func registerMCPRoutes(mux Registrar, deps Deps) {
 
 // connectorDrivers declares which agent CLI a /api/mcp request drives.
 // Pi ships the adapter driver below; every other catalog CLI dispatches to
-// its guest driver in internal/connectors (ADR-0150). A request naming any
+// its CLI driver in internal/connectors (ADR-0150). A request naming any
 // other CLI fails loudly instead of silently writing Pi's files.
 var connectorDrivers = map[string]bool{"pi": true, "claude-code": true, "codex": true, "omp": true, "agy": true, "opencode": true, "grok": true, "muse": true, "hermes": true}
 
@@ -59,7 +59,7 @@ type mcpMutateReq struct {
 	Cancelled   bool              `json:"cancelled"`
 }
 
-// connectorPaths resolves the workspace folder a guest driver edits. Guest
+// connectorPaths resolves the workspace folder a CLI driver edits. CLI
 // drivers have no per-agent layer in phase 1; a stale workspace id resolves
 // to no project layer rather than failing the pane.
 func connectorPaths(deps Deps, workspaceID string) (connectors.Paths, error) {
@@ -78,7 +78,7 @@ func connectorPaths(deps Deps, workspaceID string) (connectors.Paths, error) {
 	return p, nil
 }
 
-// writeConnector answers a guest mutation with the same Report shape as
+// writeConnector answers a CLI mutation with the same Report shape as
 // /api/mcp, so the pane does not branch on the driver.
 func writeConnector(w http.ResponseWriter, deps Deps, d connectors.Driver, p connectors.Paths) {
 	// Native files stay authoritative; this only invalidates views.
@@ -123,7 +123,7 @@ func handleMCPGet(deps Deps) http.HandlerFunc {
 			return
 		}
 		rep.Adapter.Installed = mcp.AdapterConfigured(sources)
-		// Pi has the packages; the tool cards are for guests (ADR-0154).
+		// Pi has the packages; the tool cards are for CLI agents (ADR-0154).
 		rep.Presets = mcp.WithoutToolPresets(rep.Presets)
 		applyMCPLive(deps, r.URL.Query().Get("agent"), &rep)
 		mcp.ApplySigned(&rep)
@@ -158,7 +158,7 @@ func handleMCPReveal(deps Deps) http.HandlerFunc {
 		}
 		d := connectors.For(req.CLI)
 		if d == nil {
-			writeErr(w, http.StatusBadRequest, "connectors reveal needs a guest CLI")
+			writeErr(w, http.StatusBadRequest, "connectors reveal needs a CLI agent")
 			return
 		}
 		p, err := connectorPaths(deps, req.WorkspaceID)
@@ -343,7 +343,7 @@ func handleMCPAuth(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		// Guest sign-in never runs through PiCode's flow: the vendor is
+		// CLI sign-in never runs through PiCode's flow: the vendor is
 		// the only authority for its own credentials (ADR-0150). The
 		// refusal carries the driver's own hint — a terminal command, a
 		// TUI command, or the vendor's settings path.
@@ -452,7 +452,7 @@ func handleMCPAuthLogout(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		// Guest tokens live in the CLI's own store; PiCode never clears them.
+		// CLI tokens live in the CLI's own store; PiCode never clears them.
 		if d := connectors.For(req.CLI); d != nil {
 			writeErr(w, http.StatusBadRequest, req.CLI+" keeps its own sign-ins; manage them with the "+d.Bin()+" CLI")
 			return

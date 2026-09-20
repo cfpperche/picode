@@ -15,7 +15,7 @@ import (
 	"github.com/cfpperche/picode/internal/mcptool"
 )
 
-// PiCode tools at launch (ADR-0154). A guest CLI has no per-agent scope of
+// PiCode tools at launch (ADR-0154). A CLI agent has no per-agent scope of
 // its own, so the families named in its launch settings become MCP servers
 // the way ADR-0106 injects the peer-communication server: a private file
 // for Claude Code, process-local overrides for Codex, inline configuration

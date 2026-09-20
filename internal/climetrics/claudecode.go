@@ -47,7 +47,7 @@ func (ClaudeCodeMeter) Fingerprint() string {
 
 func (m ClaudeCodeMeter) Meter(req Request) (Window, error) {
 	root := clisession.ClaudeProjectsRoot()
-	acc := newGuestAcc(req, m.CLI())
+	acc := newCliAcc(req, m.CLI())
 	// A session is priced if any of its files carried a snapshot. Keyed by
 	// session rather than file because a subagent transcript (agent-*.jsonl)
 	// is a second file of the same session and never has one of its own —
@@ -120,7 +120,7 @@ var ccCan = map[Signal]bool{
 	SigImpact: true, SigTiming: true,
 }
 
-func ccCoverage(m ClaudeCodeMeter, b Billing, priced, unpriced, under int, acc *guestAcc) CoverageRow {
+func ccCoverage(m ClaudeCodeMeter, b Billing, priced, unpriced, under int, acc *cliAcc) CoverageRow {
 	sig := acc.evidence(ccCan, map[Signal]bool{
 		SigImpact: acc.impact != (Impact{}),
 		SigTiming: acc.timing != (Timing{}),
@@ -255,13 +255,13 @@ func ccPrice(key, cwd, name string, msgs []ccMsg, st ccState) *parsed {
 	}
 	rates, flat := ccRates(st.modelCost, observed, out.units)
 
-	out.ents = make([]guestEntry, 0, len(msgs))
+	out.ents = make([]cliEntry, 0, len(msgs))
 	for _, m := range msgs {
 		cost := flat * float64(m.units)
 		if r, ok := rates[ccModelKey(m.model)]; ok {
 			cost += r * float64(m.units)
 		}
-		out.ents = append(out.ents, guestEntry{
+		out.ents = append(out.ents, cliEntry{
 			at: m.at, key: key, cwd: cwd, name: name,
 			role: m.role, model: m.model, prov: ccProvider(m.model),
 			cost: cost, toks: m.tokens, tools: m.tools,

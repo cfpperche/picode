@@ -515,7 +515,7 @@ export default function App({ shellChrome = false } = {}) {
 
   useEffect(() => {
     // A right-click inside a pane costs the user their selection before any
-    // `contextmenu` listener runs: xterm drops it on mousedown when the guest
+    // `contextmenu` listener runs: xterm drops it on mousedown when the CLI
     // has mouse reporting on (every agent TUI does), and rightClickSelectsWord
     // then replaces whatever is left with the word under the cursor. So the
     // selection is read on the mousedown capture — the earliest hook there is

@@ -162,7 +162,7 @@ type CLIBucket struct {
 
 // Window is one CLI's uncapped contribution to a window. Stats holds the
 // facts that already have a home in session.WindowStats; the rest are the
-// families only guest CLIs record.
+// families only CLI agents record.
 type Window struct {
 	CLI      string
 	Stats    session.WindowStats
@@ -263,7 +263,7 @@ func Fingerprint(meters []Meter) string {
 
 // FleetStats is the merged answer: session.WindowStats as the dashboard
 // already knows it, now summed across every CLI, plus the families that
-// only exist because guest CLIs record more than pi does.
+// only exist because CLI agents record more than pi does.
 type FleetStats struct {
 	session.WindowStats
 	ByCLI    []CLIBucket   `json:"byCli"`
@@ -280,7 +280,7 @@ type FleetStats struct {
 // Meters run concurrently: each one parses its own store (JSONL, SQLite)
 // and the cold 7d window was 8.2s sequential (pi 4.5s + codex 2.7s +
 // claude-code 1.25s on this machine). The shared parseCache is mutex-guarded,
-// each guestAcc is per-meter, and merge is single-threaded over the finished
+// each cliAcc is per-meter, and merge is single-threaded over the finished
 // windows — so the wall time drops to the slowest meter, not the sum.
 func Aggregate(req Request, meters []Meter) FleetStats {
 	windows := make([]Window, len(meters))

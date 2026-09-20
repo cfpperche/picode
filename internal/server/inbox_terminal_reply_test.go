@@ -502,7 +502,7 @@ func TestInboxTerminalReplyReopensWhenTheRowNeverAppears(t *testing.T) {
 	t.Fatal("the item never reopened after the terminal ignored the reply")
 }
 
-// A question from a terminal that is not running pi (a guest CLI asking
+// A question from a terminal that is not running pi (a CLI agent asking
 // through picode mcp inbox, ADR-0154 N1) has no receiver: the answer is
 // recorded on the item and the item closes, so the asker's poll reads it.
 func TestInboxTerminalQuestionWithoutPiRecordsTheAnswer(t *testing.T) {
@@ -533,11 +533,11 @@ func TestInboxTerminalQuestionWithoutPiRecordsTheAnswer(t *testing.T) {
 		t.Fatalf("unknown item = %d", r.StatusCode)
 	}
 	// The Inbox app answers through the same rule (it does not go through
-	// the route): recorded for a guest terminal, delivered (and here
+	// the route): recorded for a CLI terminal, delivered (and here
 	// refused for want of a receiver) for a pi one.
 	it2 := terminalQuestion(t, st, term.ID, sessionPath)
 	if id, err := deps.AnswerTerminalQuestion(it2.ID, store.VerbRespond, "again"); err != nil || id != term.ID {
-		t.Fatalf("app answer for a guest terminal = %q %v", id, err)
+		t.Fatalf("app answer for a CLI terminal = %q %v", id, err)
 	}
 	if after, _ := st.GetInboxItem(it2.ID); after.State != store.InboxDone || after.Response == nil || *after.Response != "respond: again" {
 		t.Fatalf("app answer not recorded: %+v", after)

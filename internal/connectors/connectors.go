@@ -1,4 +1,4 @@
-// Package connectors manages guest agent CLIs' native MCP configuration
+// Package connectors manages CLI agents' native MCP configuration' native MCP configuration
 // (ADR-0150). Each CLI owns its config; PiCode edits it in place — merge by
 // key, atomic writes, unknown keys and ${VAR} placeholders preserved
 // verbatim — and keeps no second connection database (ADR-0075). Where a
@@ -53,7 +53,7 @@ type AuthHint struct {
 	Command string
 }
 
-// Driver is one guest CLI's native MCP management surface. Method shapes
+// Driver is one CLI agent's native MCP management surface. Method shapes
 // mirror internal/mcp so the /api/mcp handlers can dispatch without
 // translating payloads; reports reuse mcp.Report verbatim, so the pane sees
 // the exact response shape Pi produces. ID matches the CLI catalog id while
@@ -70,7 +70,7 @@ type Driver interface {
 	Remove(p Paths, scope, name string) error
 }
 
-// For returns the guest driver for cli, or nil when cli is Pi (its driver
+// For returns the CLI driver for cli, or nil when cli is Pi (its driver
 // is internal/mcp itself) or has no driver yet.
 func For(cli string) Driver {
 	switch cli {
@@ -95,9 +95,9 @@ func For(cli string) Driver {
 	}
 }
 
-// guestScope validates the scope a guest driver may write. Phase 1 has no
-// agent layer: guests keep user (machine) and project (workspace) files.
-func guestScope(scope string) (string, error) {
+// cliScope validates the scope a CLI driver may write. Phase 1 has no
+// agent layer: CLI drivers keep user (machine) and project (workspace) files.
+func cliScope(scope string) (string, error) {
 	switch strings.TrimSpace(scope) {
 	case "", "user":
 		return "user", nil
@@ -110,9 +110,9 @@ func guestScope(scope string) (string, error) {
 	}
 }
 
-// validEntry enforces the guest dialect of the add form: a command or a URL,
+// validEntry enforces the CLI dialect of the add form: a command or a URL,
 // never both; env travels with commands, headers with URLs. A bearer token
-// becomes the standard Authorization header — guests have no token vault of
+// becomes the standard Authorization header — CLI agents have no token vault of
 // their own (ADR-0150: credentials stay in each CLI's store).
 func validEntry(e mcp.Entry) error {
 	cmd := strings.TrimSpace(e.Command)
@@ -202,7 +202,7 @@ func installed(bin string) bool {
 	return err == nil
 }
 
-// runVendorCLI shells out to the guest CLI itself (ADR-0150 decision 2: the
+// runVendorCLI shells out to the CLI itself (ADR-0150 decision 2: the
 // vendor binary stays the authority wherever no plain file exists). Stderr
 // rides the error so a refusal from the CLI reaches the pane verbatim; the
 // subcommand is named but not the full argv, which can carry header secrets.

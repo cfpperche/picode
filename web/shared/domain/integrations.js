@@ -3,7 +3,7 @@
 // here (ADR-0150). The pane renders what a driver declares and nothing more:
 // status "configured" never claims live state, toggle "none" removes the
 // switch entirely (Claude Code turns servers on/off in its own interface).
-// signIn is the vendor's own sign-in path shown to guests: command renders
+// signIn is the vendor's own sign-in path shown to CLI agents: command renders
 // as copyable code (a terminal command by default, or the TUI named in
 // `where`); text renders as a plain sentence when no command exists.
 export const CONNECTOR_DRIVERS = {

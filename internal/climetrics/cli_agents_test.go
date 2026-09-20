@@ -47,7 +47,7 @@ func TestCacheEvictsToItsBudget(t *testing.T) {
 	c := &parseCache{max: 10}
 	dir := t.TempDir()
 	for i := 0; i < 8; i++ {
-		p := &parsed{ents: make([]guestEntry, 4)}
+		p := &parsed{ents: make([]cliEntry, 4)}
 		c.put(filepath.Join(dir, itoa(i)), 1, int64(i), p)
 	}
 	if c.entries > c.max+4 {

@@ -20,11 +20,11 @@ community **`pi-mcp-adapter`** extension (`pi install npm:pi-mcp-adapter`):
 Every agent CLI gets this pane at `#/clis/<cli>/connectors` (ADR-0150):
 one per-CLI driver behind `/api/mcp?cli=<id>` manages that CLI's native MCP
 config — Pi's driver is the adapter implementation below. Since phase 1
-(2026-09-17) the guest drivers for **Claude Code** and **Codex** live in
+(2026-09-17) the CLI drivers for **Claude Code** and **Codex** live in
 `internal/connectors` and answer through the same handlers with the same
 `Report` JSON shape: the pane does not branch on the CLI. Each driver
 mirrors `internal/mcp`'s types, preserves unknown keys and `${VAR}`
-placeholders verbatim, writes atomically, and reports honestly: a guest row
+placeholders verbatim, writes atomically, and reports honestly: a CLI row
 claims live state only when its vendor exposes a headless signal (below);
 otherwise the row stays honestly "configured".
 
@@ -160,7 +160,7 @@ Muse's mandatory `schema_version`. What cannot be exercised headlessly
 `docs/handoff/open/connectors-parity.md`, never faked.
 
 Reading and writing are held to different bars (ADR-0150, connectors-codec
-robustness). Every guest `List` reads leniently and writes strictly: the
+robustness). Every CLI `List` reads leniently and writes strictly: the
 JSON codec tries strict JSON first, then strips the JSONC escapes vendors
 hand-write (one trailing comma before a closer, `//` and `/* */` comments —
 OpenCode leaves both in `opencode.json`) and retries; a rewrite through Add
@@ -198,7 +198,7 @@ it on every pane load — the vendor's own verdict, never invented:
 Probes run per pane load with a 15s budget and a 60s cache (vendor CLIs fork;
 a hung or missing CLI is skipped and the row stays "configured" — degradation
 over invention). Codex, Grok, AGY, Muse and Omp expose no headless health and
-stay "configured"; guest live state refreshes on pane load, not through the
+stay "configured"; CLI live state refreshes on pane load, not through the
 feed (that stream remains the adapter's).
 
 ## Marketplace (ADR-0157, 2026-09-18)
@@ -222,7 +222,7 @@ Installed is the roster as built above; Marketplace is the add surface.
   page in the browser; a card without a URL hides the link. **Custom
   server…** stays as the manual escape hatch.
 - The definition-import endpoint (`POST /api/mcp/import`), the file reader,
-  and `Report.Found`/`Report.Imports` are gone, as are the guests'
+  and `Report.Found`/`Report.Imports` are gone, as are the CLI agents'
   "arrive in a later phase" refusals — there is no later phase.
 - The connector-packages section (packages declaring `pi.mcp`) stays on the
   Installed side, unchanged.

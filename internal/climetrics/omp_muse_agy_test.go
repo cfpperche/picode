@@ -96,7 +96,7 @@ func TestOmpParseReadsCostTokensToolsTiming(t *testing.T) {
 	if len(p.ents) != 2 {
 		t.Fatalf("entries = %d, want 2", len(p.ents))
 	}
-	var asst *guestEntry
+	var asst *cliEntry
 	for i := range p.ents {
 		if p.ents[i].role == "assistant" {
 			asst = &p.ents[i]
@@ -237,7 +237,7 @@ func TestMuseParseReadsEnvelopes(t *testing.T) {
 	if len(p.ents) != 2 {
 		t.Fatalf("entries = %d, want 1 user + 1 assistant", len(p.ents))
 	}
-	var user, asst *guestEntry
+	var user, asst *cliEntry
 	for i := range p.ents {
 		switch p.ents[i].role {
 		case "user":

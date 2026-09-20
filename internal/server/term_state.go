@@ -25,7 +25,7 @@ import (
 )
 
 // Terminal state vocabulary — the same words agent.state uses, so tier 2
-// (guest agents, ADR-0056) can re-anchor the UI without a new language.
+// (CLI agents, ADR-0056) can re-anchor the UI without a new language.
 const (
 	TermWorking  = "working"
 	TermNeedsYou = "needs-you"
@@ -52,7 +52,7 @@ const (
 	TermAttentionAnswered = "answered"
 )
 
-// TermState is a terminal's last reported guest-CLI state.
+// TermState is a terminal's last reported CLI state.
 type TermState struct {
 	SessionID  string    `json:"sessionId,omitempty"`
 	SessionSeq int64     `json:"sessionSeq,omitempty"`
@@ -63,7 +63,7 @@ type TermState struct {
 	At         time.Time `json:"at"`
 }
 
-// TermStates holds live guest state per terminal id.
+// TermStates holds live CLI state per terminal id.
 type TermStates struct {
 	mu sync.Mutex
 	m  map[string]TermState

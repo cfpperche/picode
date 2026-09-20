@@ -9,7 +9,7 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 )
 
-func TestAddWorkspaceAgentCLICreatesGuest(t *testing.T) {
+func TestAddWorkspaceAgentCLICreatesCLIAgent(t *testing.T) {
 	ts := newTestServer(t, "cat")
 	proj := t.TempDir()
 	res := postJSON(t, ts, "/api/workspaces", map[string]string{"name": "App", "path": proj})
@@ -28,7 +28,7 @@ func TestAddWorkspaceAgentCLICreatesGuest(t *testing.T) {
 	if res.StatusCode != http.StatusCreated {
 		b, _ := io.ReadAll(res.Body)
 		res.Body.Close()
-		t.Fatalf("add guest = %d %s", res.StatusCode, b)
+		t.Fatalf("add CLI agent = %d %s", res.StatusCode, b)
 	}
 	var ag agentView
 	if err := json.NewDecoder(res.Body).Decode(&ag); err != nil {
@@ -36,7 +36,7 @@ func TestAddWorkspaceAgentCLICreatesGuest(t *testing.T) {
 	}
 	res.Body.Close()
 	if ag.CLI != "claude-code" || ag.IsPi() || ag.TerminalID == nil || *ag.TerminalID == "" {
-		t.Fatalf("guest = %+v", ag)
+		t.Fatalf("CLI agent = %+v", ag)
 	}
 	if ag.Mode != string(modeStopped) {
 		t.Fatalf("mode=%s", ag.Mode)
@@ -53,7 +53,7 @@ func TestAddWorkspaceAgentCLICreatesGuest(t *testing.T) {
 	}
 	start := postJSON(t, ts, "/api/agents/"+ag.ID+"/managed/start", map[string]string{})
 	if start.StatusCode != http.StatusBadRequest {
-		t.Fatalf("managed start guest = %d", start.StatusCode)
+		t.Fatalf("managed start CLI agent = %d", start.StatusCode)
 	}
 	start.Body.Close()
 

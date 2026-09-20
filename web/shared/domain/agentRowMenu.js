@@ -5,11 +5,11 @@
 // node tests from drifting apart.
 //
 // A Pi agent keeps the managed lifecycle: Start/Stop agent and Open chat.
-// A guest (ADR-0160 — the CLI is the agent) has no managed runtime: its
+// A CLI agent (ADR-0160) has no managed runtime: its
 // process is the bound terminal, so the lifecycle rows act on that
 // terminal — Start / Restart / Stop terminal — and Launch settings opens
 // the same screens the Agent CLIs hub offers for the terminal
-// (`#/clis/terminal/<id>`). A guest has no chat panel: the row drops it,
+// (`#/clis/terminal/<id>`). A CLI agent has no chat panel: the row drops it,
 // not greys it. Remove stays dangerous; the calling surface owns its
 // confirm dialog.
 //

@@ -165,7 +165,7 @@ test("catalog capabilities decide what a CLI's surface shows", () => {
   assert.deepEqual(cliPanes({ id: "pi", integrationCapable: true, launchable: true, sessions: { list: true } }), ["launch", "terminals", "sessions", "providers", "settings", "keyboard", "packages", "connectors"]);
 });
 
-// ADR-0154: a guest's per-agent scope for PiCode tools is the launch. A
+// ADR-0154: a CLI agent's per-agent scope for PiCode tools is the launch. A
 // config saved before the key existed reads as no tools and never diffs.
 test("launch tools ride the draft, the config and the overrides", () => {
   const base = defaultLaunchConfig(false);

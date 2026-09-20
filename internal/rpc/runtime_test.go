@@ -538,10 +538,10 @@ func TestStartRefusesNonPiAgent(t *testing.T) {
 	}
 	rt := startRuntime(t, st)
 	if err := rt.Start(claude.ID, w.Path); !errors.Is(err, ErrManagedPiOnly) {
-		t.Fatalf("Start guest = %v, want ErrManagedPiOnly", err)
+		t.Fatalf("Start CLI agent = %v, want ErrManagedPiOnly", err)
 	}
 	if rt.Get(claude.ID) != nil {
-		t.Fatal("guest must not register as managed")
+		t.Fatal("CLI agent must not register as managed")
 	}
 	if err := rt.Start(pi.ID, w.Path); err != nil {
 		t.Fatalf("Start pi: %v", err)

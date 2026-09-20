@@ -55,7 +55,7 @@ func TestStripJSONCTable(t *testing.T) {
 // The owner's repro (connectors-parity debt): OpenCode writes JSONC-ish
 // config — trailing commas after a schema-only block, hand comments. Every
 // JSON-codec driver must read it; a rewrite through Add lands strict JSON.
-func TestGuestListToleratesJSONC(t *testing.T) {
+func TestConnectorListToleratesJSONC(t *testing.T) {
 	const server = `"docs": {"type": "remote", "url": "https://d.example/mcp",} // remote`
 	cases := []struct {
 		name     string
@@ -177,7 +177,7 @@ func TestGuestListToleratesJSONC(t *testing.T) {
 // A malformed file degrades: List answers nil error, the layer reports
 // exists + the reason, and it contributes no servers. Every codec gets the
 // same treatment (JSON, TOML, YAML — ADR-0150).
-func TestGuestListDegradesMalformedLayer(t *testing.T) {
+func TestConnectorListDegradesMalformedLayer(t *testing.T) {
 	cases := []struct {
 		name    string
 		seed    func(t *testing.T) (Paths, string)

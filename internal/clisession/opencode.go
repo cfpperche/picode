@@ -18,7 +18,7 @@ import (
 // Child sessions (parent_id), archived rows, empty directories and sessions
 // with no messages stay out of the coding-CLI picker. Preview is the
 // session title. Size stays 0: the SQLite file is shared across every row.
-// Cost is stored but omitted (guest listing policy).
+// Cost is stored but omitted (CLI listing policy).
 type OpenCodeSource struct{}
 
 func (OpenCodeSource) CLI() string { return "opencode" }

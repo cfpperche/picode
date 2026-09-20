@@ -164,7 +164,7 @@ func (deps Deps) askTerminal(id, cwd, text string) (askResult, error) {
 // park and JSONL row is the accepted terminal-ask gap.
 // AnswerTerminalQuestion is the one rule for a human's answer to a
 // question a terminal filed (ADR-0154, N1): a terminal running pi gets the
-// reply delivered through its receiver; any other terminal — a guest CLI
+// reply delivered through its receiver; any other terminal — a CLI agent
 // asking through `picode mcp inbox` and polling the item — has the answer
 // recorded on the item and the item closed. Both the inbox route and the
 // Inbox app go through here.

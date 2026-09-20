@@ -11,7 +11,7 @@ import (
 )
 
 // principalView is one workspace actor (ADR-0160): an agents row. Kind/id/key
-// match grant.Principal. Guests carry cli and the interactive terminal.
+// match grant.Principal. CLI agents carry cli and the interactive terminal.
 type principalView struct {
 	Kind        string `json:"kind"`
 	ID          string `json:"id"`
@@ -98,7 +98,7 @@ func handleAddWorkspacePrincipal(deps Deps) http.HandlerFunc {
 			return
 		}
 		if terminalID == "" {
-			bound, err := attachGuestTerminal(deps, wk, agent)
+			bound, err := attachAgentTerminal(deps, wk, agent)
 			if err != nil {
 				_ = deps.Store.DeleteAgent(agent.ID)
 				writeErr(w, storeStatus(err), err.Error())

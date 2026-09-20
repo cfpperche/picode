@@ -601,7 +601,7 @@ func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
 			return
 		}
 		if !agent.IsPi() {
-			agent, err = attachGuestTerminal(deps, wk, agent)
+			agent, err = attachAgentTerminal(deps, wk, agent)
 			if err != nil {
 				_ = deps.Store.DeleteAgent(agent.ID)
 				writeErr(w, storeStatus(err), err.Error())
@@ -618,9 +618,9 @@ func handleAddWorkspaceAgent(deps Deps) http.HandlerFunc {
 	}
 }
 
-// attachGuestTerminal gives a non-Pi agent its interactive process (ADR-0160):
+// attachAgentTerminal gives a non-Pi agent its interactive process (ADR-0160):
 // a workspace terminal with launch set, not Runtime.Start.
-func attachGuestTerminal(deps Deps, wk store.Workspace, agent store.Agent) (store.Agent, error) {
+func attachAgentTerminal(deps Deps, wk store.Workspace, agent store.Agent) (store.Agent, error) {
 	tm, err := deps.Store.CreateTerminalIn(wk.ID, agent.Name, wk.Path)
 	if err != nil {
 		return agent, err

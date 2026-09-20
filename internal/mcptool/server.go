@@ -1,5 +1,5 @@
 // Package mcptool is PiCode's own tools spoken over the Model Context
-// Protocol (ADR-0154): a stdio JSON-RPC server that a guest CLI (Claude
+// Protocol (ADR-0154): a stdio JSON-RPC server that a CLI agent (Claude
 // Code, Codex, OpenCode, …) launches as a child, exposing the same tools the
 // pi packages under packages/ give a pi agent — same names, parameters,
 // answers and refusals — by calling the daemon's routes. It is a

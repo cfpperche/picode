@@ -7,7 +7,7 @@ const DEBOUNCE_MS = 120;
 
 // Find inside the pane (@xterm/addon-search), floating over the terminal
 // rather than sitting in the layout: a search must not resize the pane, which
-// would send tmux a SIGWINCH and make the guest TUI redraw for nothing.
+// would send tmux a SIGWINCH and make the CLI TUI redraw for nothing.
 export default function TermFindBar({ termId, onClose }) {
   const inputRef = useRef(null);
   const [query, setQuery] = useState("");

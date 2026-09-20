@@ -116,7 +116,7 @@ func (d Grok) Add(p Paths, scope, name string, entry mcp.Entry) error {
 	if err := validEntry(entry); err != nil {
 		return err
 	}
-	sc, err := guestScope(scope)
+	sc, err := cliScope(scope)
 	if err != nil {
 		return err
 	}
@@ -147,7 +147,7 @@ func (d Grok) Toggle(p Paths, scope, name string, disabled bool) error {
 	if err := mcp.ValidName(name); err != nil {
 		return err
 	}
-	sc, err := guestScope(scope)
+	sc, err := cliScope(scope)
 	if err != nil {
 		return err
 	}
@@ -205,7 +205,7 @@ func (d Grok) Remove(p Paths, scope, name string) error {
 	if err := mcp.ValidName(name); err != nil {
 		return err
 	}
-	sc, err := guestScope(scope)
+	sc, err := cliScope(scope)
 	if err != nil {
 		return err
 	}
