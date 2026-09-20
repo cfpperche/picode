@@ -320,6 +320,21 @@ func TestPiLegacyAndRPC(t *testing.T) {
 	if e = p2.start(deps, req, tmux.ShellSessionName(*a.TerminalID), data); e == nil {
 		t.Fatal("terminal duplicated RPC")
 	}
+	reportTermState(deps, *a.TerminalID, TermNeedsYou, "pi", time.Now())
+	if items, _ := st.ActiveInboxBySourceReason(store.InboxFromAgent, a.ID, store.InboxNeedsYouReason); len(items) != 0 {
+		t.Fatal("stale terminal attention leaked into RPC")
+	}
+	if _, e = deps.openAgentTUI(ctx, a.ID, false); e != nil || deps.Runtime.Active(a.ID) {
+		t.Fatalf("RPC to TUI transition: %v", e)
+	}
+	if live, _ := tm.HasSession(ctx, tmux.ShellSessionName(*a.TerminalID)); !live {
+		t.Fatal("TUI did not replace RPC")
+	}
+	rec = httptest.NewRecorder()
+	handleManagedStart(deps)(rec, req)
+	if rec.Code != 201 || !deps.Runtime.Active(a.ID) {
+		t.Fatalf("return to RPC: %d", rec.Code)
+	}
 	req = httptest.NewRequest("DELETE", "/", nil)
 	req.SetPathValue("id", *a.TerminalID)
 	rec = httptest.NewRecorder()
@@ -402,6 +417,56 @@ func TestPiAgentLaunchReusesIntegrationAndIdentity(t *testing.T) {
 			if len(items) != 0 {
 				t.Fatal("attention remained open")
 			}
+			if _, err = st.CreateInboxItem(store.InboxItemParams{Kind: store.InboxQuestion, SourceKind: store.InboxFromAgent, SourceID: a.ID, Reason: "ask", Title: "Which option?", Body: "Choose an option.", Blocking: true}); err != nil {
+				t.Fatal(err)
+			}
+			reportTermState(deps, *a.TerminalID, TermNeedsYou, "pi", time.Now())
+			if items, _ = st.ActiveInboxBySourceReason(store.InboxFromAgent, a.ID, store.InboxNeedsYouReason); len(items) != 0 {
+				t.Fatal("generic attention duplicated the existing Ask")
+			}
 		})
+	}
+}
+
+func TestPiLaunchPersistenceFailureStopsWriter(t *testing.T) {
+	data := t.TempDir()
+	tm := tmux.NewWithSocket(filepath.Join(data, "tmux.sock"))
+	if !tm.Available() {
+		t.Skip("tmux unavailable")
+	}
+	st, err := store.Open(filepath.Join(data, "db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	a, _ := st.AddAgent(store.FreeWorkspaceID, "persistence", data)
+	a, err = st.EnsureAgentTerminal(a.ID, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := fakeBlockingAgentCmd(t)
+	if err = st.SetCLIConfig("pi", clilaunch.Config{Executable: cmd, Integration: true}); err != nil {
+		t.Fatal(err)
+	}
+	deps := Deps{Store: st, DataDir: data, Tmux: tm, AgentCmd: cmd}
+	v, _ := st.TerminalLaunch(*a.TerminalID)
+	p, err := prepareCLITerminal(deps, data, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.discard()
+	name := tmux.ShellSessionName(*a.TerminalID)
+	t.Cleanup(func() { _ = stopInteractivePane(context.Background(), deps, name, *a.TerminalID) })
+	if err = st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = p.start(deps, httptest.NewRequest("POST", "/", nil), name, data); err == nil {
+		t.Fatal("closed store accepted applied snapshot")
+	}
+	if live, _ := tm.HasSession(context.Background(), name); live {
+		t.Fatal("failed launch left pane live")
+	}
+	if pending, e := peerStopPending(deps, *a.TerminalID); pending || e != nil {
+		t.Fatalf("failed launch left writer: %v %v", pending, e)
 	}
 }

@@ -1257,8 +1257,10 @@ func (p *preparedCLILaunch) startSized(deps Deps, r *http.Request, name, cwd str
 	}
 	p.snapshot.StartedAt = time.Now().UTC().Format(time.RFC3339Nano)
 	if err := deps.Store.SetTerminalLaunchApplied(p.id, p.snapshot); err != nil {
-		if a, e := deps.Store.AgentByTerminal(p.id); e == nil && a.IsPi() {
-			if stopErr := deps.stopAgentInteractive(r.Context(), a.ID); stopErr != nil {
+		if p.snapshot.CLI == "pi" {
+			// The failing store cannot be trusted to resolve ownership now.
+			// This prepared launch already owns the exact pane and receipt key.
+			if stopErr := stopInteractivePane(r.Context(), deps, name, p.id); stopErr != nil {
 				p.started = true // retain files referenced by the unconfirmed writer
 				return errors.Join(err, stopErr)
 			}
