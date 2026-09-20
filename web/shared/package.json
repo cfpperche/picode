@@ -114,8 +114,11 @@
     "./domain/termRowMenu.js": "./domain/termRowMenu.js",
     "./domain/cliSettings.js": "./domain/cliSettings.js",
     "./domain/cliNative.js": "./domain/cliNative.js",
+    "./domain/piRows.js": "./domain/piRows.js",
     "./domain/cliPackages.js": "./domain/cliPackages.js",
     "./domain/cliProviders.js": "./domain/cliProviders.js",
+    "./domain/credentials.js": "./domain/credentials.js",
+    "./styles/credentials.css": "./styles/credentials.css",
     "./domain/peerParticipants.js": "./domain/peerParticipants.js"
   },
   "scripts": {

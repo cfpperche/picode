@@ -138,6 +138,7 @@ release:
 | OpenCode | `permission.asked`, `question.asked` | `permission.replied`, `question.replied` |
 | Hermes | `pre_approval_request` | `post_approval_response` |
 | Pi TUI | `ui_prompt_start` | `ui_prompt_end` |
+| Omp | `tool_approval_requested`; `tool_execution_start` with `toolName: "ask"` | `tool_approval_resolved`; `tool_result` |
 
 The map also accepts `PreToolUse` but no CLI registers it: it fires before the
 permission gate, so it reports work that may still be waiting for the human. A

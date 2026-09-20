@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import * as Switch from "@radix-ui/react-switch";
 import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
@@ -131,6 +132,7 @@ export default function CliNativeSettings({ route, workspaceId = "" }) {
               key={field.key}
               field={field}
               state={rowState(field, layers, current.scope)}
+              cliLabel={terminalCliLabel(cli)}
               busy={saving === field.key}
               disabled={!current.writable}
               onSet={(value) => save({ key: field.key, value })}
@@ -143,20 +145,24 @@ export default function CliNativeSettings({ route, workspaceId = "" }) {
   );
 }
 
-function Row({ field, state, busy, disabled, onSet, onReset }) {
+function Row({ field, state, cliLabel, busy, disabled, onSet, onReset }) {
   const { value, setHere, from } = state;
   // The sub-label answers "where does this value come from" and nothing else.
   // It used to fall back to the CLI's default, which the control already
   // shows — so an unset row printed the same sentence twice (visual review,
-  // 2026-09-20). Provenance here; the default lives on the control.
-  const source = setHere ? "Set here" : from ? "From " + from : "Not set";
+  // 2026-09-20). Provenance here; the default lives on the control, and for a
+  // switch that means the control reads the CLI's answer while this line says
+  // nobody has overridden it.
+  // The same three answers Pi's pane gives: this file set it, a parent layer
+  // set it, or nobody did and the CLI's own default is what runs.
+  const source = setHere ? "Set here" : from ? "From " + from : cliLabel + " default";
   const warn = dangerNote(field, value);
   return (
     <div className={"set-row" + (setHere ? " is-set" : "")}>
       <span className="set-label">
         {field.label}
         <span className="set-src">{source}</span>
-        {warn ? <span className="set-src set-warn">{warn}</span> : field.help ? <span className="set-src">{field.help}</span> : null}
+        {warn ? <span className="set-src set-warn">{warn}</span> : field.help ? <span className="set-src">{field.help}</span> : field.kind === "bool" && !setHere && field.fallback && field.fallback !== "On" && field.fallback !== "Off" ? <span className="set-src">{field.fallback}</span> : null}
       </span>
       <span className="set-ctl">
         <Control field={field} value={value} busy={busy} disabled={disabled} onSet={onSet} />
@@ -168,25 +174,26 @@ function Row({ field, state, busy, disabled, onSet, onReset }) {
   );
 }
 
-// A key the file does not set is not "Off": the CLI has its own default, and
-// drawing an empty box beside a row that says "On while memories are on" told
-// the reader the opposite of the truth (visual review, 2026-09-20). An unset
-// switch is indeterminate and wears the CLI's own answer.
+// One control for a boolean in every pane (owner's call, 2026-09-20): the
+// same Radix switch Pi's Auto-compact row has always used.
+//
+// A switch has no third state, so an unset key cannot be drawn as "off" — that
+// would tell the reader the opposite of the truth for a key whose CLI default
+// is on. It is drawn at the CLI's own default instead, which every boolean
+// field declares, and the row's source line carries whether this file is what
+// set it.
 function BoolControl({ field, value, busy, disabled, onSet }) {
-  const box = useRef(null);
-  const unset = value !== true && value !== false;
-  useEffect(() => { if (box.current) box.current.indeterminate = unset; }, [unset]);
+  const effective = value === true || value === false ? value : !!field.defaultOn;
   return (
-    <label className="set-check">
-      <input
-        ref={box}
-        type="checkbox"
-        checked={value === true}
-        disabled={busy || disabled}
-        onChange={(e) => onSet(e.target.checked)}
-      />
-      {unset ? field.fallback || "Not set" : value === true ? "On" : "Off"}
-    </label>
+    <Switch.Root
+      className="rx-switch"
+      checked={effective}
+      disabled={busy || disabled}
+      onCheckedChange={(v) => onSet(v)}
+      aria-label={field.label}
+    >
+      <Switch.Thumb className="rx-switch-thumb" />
+    </Switch.Root>
   );
 }
 

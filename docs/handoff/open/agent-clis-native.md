@@ -7,20 +7,16 @@
 
 ## Debts
 
-- **A boolean still looks different in Pi's pane and the guests'.** Pi uses
-  the Radix switch its Auto-compact row always used; the guest pane uses a
-  checkbox because it needs a third state — an unset key must not read as
-  "Off" when the CLI's own default is on, and a switch cannot show that. One
-  of the two has to give: either the guests gain a tri-state control, or the
-  unset state moves entirely into the source line and both become switches.
-- **`resolveLayer` is a named list.** A key added to `/api/pi-settings` is
-  invisible in the pane until it is added there too — that is how the Theme
-  row first rendered empty while the file said `dark` (2026-09-20). Pi's pane
-  is declarative in its rows now but not in its resolver.
-- **Pi persists about forty keys; the pane shows thirteen.** The five added on
-  2026-09-20 were the ones that change visible behaviour. `npmCommand` is an
-  argv array and needs list support before it can be a row; the rest are TUI
-  ergonomics nobody has asked for.
+- **`resolveLayer` is still a named list.** Pi's rows are a table now
+  (`web/shared/domain/piRows.js`), but the resolver that decides which value a
+  layer shows is not, so a new row is two lines rather than one — and a key
+  added to only one of them renders empty, which is how the Theme row first
+  shipped (2026-09-20).
+- **Pi persists about forty keys; the pane shows eleven rows over thirteen
+  keys.** The five added on 2026-09-20 were the ones that change visible
+  behaviour. `npmCommand` is an argv array and needs a list kind before it can
+  be a row; the rest are TUI ergonomics nobody has asked for. Adding one is
+  now a line in `piRows.js` plus its field in `internal/pisettings`.
 
 - **The Memory pane has no toggle and the 409 has no Replace control.** The
   docs now describe both honestly — the pane links to Settings, and `force`
