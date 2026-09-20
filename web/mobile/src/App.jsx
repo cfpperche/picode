@@ -6,6 +6,7 @@ import { startPresence } from "@picode/shared/client/device.js";
 import { startFeed, subscribeFeed } from "@picode/shared/client/feed.js";
 import { applyTui, touches } from "@picode/shared/domain/feedReducers.js";
 import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
+import { agentHandoffTerm } from "@picode/shared/domain/agentRowMenu.js";
 import { applyChecklists, indexChecklists } from "@picode/shared/domain/checklist.js";
 import { startReconnectWatch } from "@picode/shared/client/reconnect.js";
 import { normalizeManifests, nativeApp } from "@picode/shared/contracts/appPrimitives.js";
@@ -427,6 +428,49 @@ export default function MobileApp() {
     if (id === "start" || id === "restart" || id === "stop") return launchTerminalAction(term, id);
   }
 
+  async function onAgentAction(agent, id, extra) {
+    if (id === "chat") return openAgent(agent.id, "chat");
+    if (id === "term") return openAgent(agent.id, "terminal");
+    if (id === "start") return startAgent(agent);
+    if (id === "stop") return stopAgent(agent);
+    if (id === "restart") return agentIsPi(agent)
+      ? withBusy(agent, async () => {
+          await api("/api/agents/" + agent.id + "/managed/stop", { method: "POST" });
+          await api("/api/agents/" + agent.id + "/managed/start", { method: "POST" });
+        })
+      : launchTerminalAction(agentTerm(agent), "restart");
+    if (id === "rename") return renameAgent(agent);
+    if (id === "remove") return removeAgent(agent);
+    if (id === "handoff") {
+      const term = terminals.find((t) => t.id === agent.terminalId) || null;
+      return openTermHandoff(term || agentHandoffTerm(agent), extra);
+    }
+  }
+
+  async function renameAgent(agent) {
+    const name = await askPrompt({ title: "Rename agent", defaultValue: agent.name && agent.name !== "default" ? agent.name : "", confirmLabel: "Save" });
+    if (!name) return;
+    await withBusy(agent, async () => {
+      await api("/api/agents/" + encodeURIComponent(agent.id), {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }),
+      });
+    });
+  }
+
+  async function removeAgent(agent) {
+    const ok = await askConfirm({ title: "Remove " + (agent.name || "agent") + "?", message: "The agent and its terminal are removed. The project folder is not deleted.", confirmLabel: "Remove", danger: true });
+    if (!ok) return;
+    setBusyId(agent.id);
+    try {
+      await api("/api/agents/" + encodeURIComponent(agent.id), { method: "DELETE" });
+      if (agent.terminalId) closeTerm("sh:" + agent.terminalId);
+      await reload({ force: true });
+    } catch (e) {
+      // As with desktop: a 404 just means the agent is already gone.
+      if (!e || e.status !== 404) toastError(e);
+    } finally { setBusyId(""); }
+  }
+
   async function withBusy(agent, fn) {
     setBusyId(agent.id);
     try { await fn(); await reload({ force: true }); } catch (e) { toastError(e); } finally { setBusyId(""); }
@@ -566,7 +610,7 @@ export default function MobileApp() {
     body = (
       <Work section={section} focusWs={section === "workspaces" ? route.id : ""} onSection={setSection} loaded={loaded} error={fleetError} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals}
         workingIds={tuiWorking} busyId={busyId} checklists={checklists}
-        onOpenAgent={(a) => openAgent(a.id)} onOpenTerm={(t) => openTerm(t.id)} onStart={startAgent} onStop={stopAgent} onTermAction={onTermAction} clis={clis}
+        onOpenAgent={(a) => openAgent(a.id)} onOpenTerm={(t) => openTerm(t.id)} onTermAction={onTermAction} onAgentAction={onAgentAction} clis={clis}
         onCreate={(kind, ws) => setCreate({ kind, workspace: ws || (kind === "agent" ? (workspaces[0] || null) : null) })} onNewTerm={newTerminal} onNewCliPrincipal={setCliPrincipalWs}
         onOpenChanges={openChanges} onOpenFiles={openFiles} onOpenGit={openGit} onRefresh={refreshAll} />
     );
