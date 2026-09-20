@@ -8,10 +8,10 @@ export function emptyFleet() {
 // contain a missing resource must answer before absence is conclusive.
 export function fleetRouteReady(route, known, found = false) {
   if (found) return true;
-  const kind = ["changes", "files", "git"].includes(route.screen) ? route.section : route.screen;
+  const kind = ["inspector", "files", "git"].includes(route.screen) ? route.section : route.screen;
   if (kind === "agent") return !!(known.workspaces && known.freeAgents);
   if (kind === "term") return !!known.terminals;
-  if (["changes", "files", "git"].includes(route.screen)) return !!known.workspaces;
+  if (["inspector", "files", "git"].includes(route.screen)) return !!known.workspaces;
   return true;
 }
 

@@ -342,26 +342,71 @@ accounts (Codex, Grok) follow only after §2.4's rule is agreed in writing.
 ADR-0103's Pi-only capability is amended by the implementation (no new ADR);
 ADR-0058's "what this does not do" is respected — nothing switches by itself.
 
-## Open questions (owner)
+## What shipped (step 1, 2026-09-20)
 
-1. **Encryption**: key-file envelope as specified (recommended — no
-   dependency, no lockout, still protects copies), plain `0600` like
-   ADR-0013 and every CLI, a passphrase-wrapped key, or DPAPI delegation for
-   WSL only?
-2. **Concurrency**: may two terminals of one CLI hold two accounts at once
-   (needs account dirs, seeding and harvest — P6/P7) or is one active account
-   per CLI enough for the first cut (P3 only, and the pane's "Use for new
-   terminals" is the switch)?
-3. **Pi folds in**: one vault for pi and the guests (recommended, one
-   migration, one roster shape) or do guests get their own store?
-4. **Harvest**: read a CLI's refreshed credential back into the vault on
-   terminal stop (recommended — the stored copy stays usable) or treat the
-   CLI's own file as that account's source of truth forever?
-5. **Import semantics for a rotating-refresh login**: adoption with the
-   consequence named (recommended — one login, one consumer, honest warning)
-   or copy-with-a-stale-marking, leaving the person to log in twice for two
-   consumers?
-6. **One account per provider vs per CLI**: is an account added in the
-   `claude-code` pane automatically offered in `pi`'s, `opencode`'s and
-   `omp`'s for the same provider (recommended — one credential, many CLIs),
-   or is every pane's roster its own?
+The owner approved all six recommendations (encrypted vault with a key file
+beside it; concurrency staged by kind; pi folded into the same vault; harvest
+— step 2; import adoption for rotating logins; one account per provider across
+CLIs). Step 1 landed as ADR-0165 with:
+
+| Piece | Where |
+|---|---|
+| Encrypted store, key file, atomic writes, `ErrLocked`/`ErrCorrupt`, ADR-0013 absorption | `internal/credentials/` |
+| pi's `auth.json` slot and the public getters, now delegating to the vault | `internal/catalog/accounts.go`, `internal/catalog/cred.go` |
+| Per-CLI declarations (nine CLIs) and the readers for each vendor's own login | `internal/clicreds/` |
+| Roster + add/import/rename/pause/delete/verify | `internal/server/credentials.go` |
+| Pane for the eight guest CLIs, both apps | `web/{browser,mobile}/src/components/CliCredentials.jsx`, `web/shared/styles/credentials.css`, `web/shared/domain/credentials.js` |
+| Vault travels in a secrets snapshot; the key never does | `internal/backup/snapshot.go`, `internal/backup/restore.go` |
+| Architecture + guide + ADR | `docs/architecture/credentials.md`, `docs-site/guide/providers.md`, `docs/decisions/0165-credentials-vault.md` |
+
+Deliberate deviations from this plan, each with its reason:
+
+1. **No change-feed event for credential mutations.** The provider surface
+   that already existed (sign-in, pause, custom providers) has never published
+   one, and the pane refetches on the response and on window focus. One event
+   kind covering both surfaces is a follow-up; half-covering one of them would
+   be worse than neither.
+2. **Verify covers API-key rows only.** It spends one listing call to the
+   provider (anthropic, openai, openrouter, xai, google, zai, deepseek,
+   mistral, groq, cerebras, fireworks, together, nvidia, huggingface,
+   kimi-coding, moonshot, minimax, github-copilot) and hides itself where
+   there is no honest call. A subscription row's answer comes from its Usage
+   window today and from the step-2 terminal sign-in later.
+3. **Import covers pi, Claude Code, Codex, Grok, Hermes, OpenCode, Muse and
+   Antigravity.** Omp keeps its credentials in a live SQLite database PiCode
+   will not read, so its pane manages API keys and says so; so do the
+   subscription rows of Hermes, OpenCode, Muse and Antigravity, whose logins
+   live only in their own stores.
+4. **The vault's key never travels in a backup.** A snapshot carries
+   `credentials.json` and not `credentials.key`: a restore on this machine
+   works because the key never moved, and a snapshot taken elsewhere cannot be
+   decrypted. The pane names the missing file and the action when it sees that
+   state.
+
+Step 2 — binding a saved account to a launch, per-account directories, the
+guided vendor sign-in and harvest — is not started and needs its own ADR
+(process boundary), as this plan said.
+
+## Open questions (owner) — answered 2026-09-20
+
+Every one of them was decided the recommended way, and the six answers are the
+spec step 1 shipped against:
+
+1. **Encryption** — the key-file envelope: `credentials.json` plus
+   `credentials.key` beside it, both 0600. A passphrase and DPAPI delegation
+   stay named as follow-ups: the envelope leaves room for wrapping the same
+   key later.
+2. **Concurrency** — yes, staged by kind: API keys are per-launch through an
+   environment variable from the start; subscription logins follow where the
+   vendor ships a variable (Claude Code's `CLAUDE_CODE_OAUTH_TOKEN`) and
+   where only a directory works (Codex) in step 2.
+3. **Pi folds in** — one vault for pi and the guests; `accounts.json` was
+   absorbed at first start and `auth.json` remains pi's own slot.
+4. **Harvest** — read the CLI's refreshed credential back when a terminal
+   stops (step 2; the store already carries the tokens to write back).
+5. **Import of a rotating-refresh login** — adoption, with the consequence
+   named before the click. Codex and Hermes rotate single-use tokens; the
+   pane says so on the row rather than pretending a copy survives.
+6. **One account per provider** — an account added in one pane is offered in
+   every pane whose CLI can read that provider; the roster is one list
+   filtered per CLI, not one list per CLI.

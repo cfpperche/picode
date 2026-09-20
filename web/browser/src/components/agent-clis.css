@@ -293,11 +293,11 @@
   align-items: center; justify-content: end; gap: 8px;
 }
 #cli-settings-view .set-ctl > select,
-#cli-settings-view .set-ctl > input,
-#cli-settings-view .set-ctl > .set-check { width: 100%; min-width: 0; }
-/* Every control on the row is one height (shadcn h-9 / HIG), the switch
-   included — it measured 20px beside 36px selects. */
-#cli-settings-view .set-ctl > .set-check { justify-content: flex-start; height: var(--ctl-h); }
+#cli-settings-view .set-ctl > input { width: 100%; min-width: 0; }
+/* The boolean control is the same Radix switch Pi's pane uses. It is shorter
+   than a select by design (the token set sizes it), so it is centred in the
+   row's control column rather than stretched to --ctl-h. */
+#cli-settings-view .set-ctl > .rx-switch { justify-self: start; }
 #cli-settings-view .set-ctl > .btn { justify-self: start; }
 /* On a phone the label and the control share 390px, so the fixed column that
    straightens the desktop form has to let go. */

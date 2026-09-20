@@ -287,7 +287,7 @@ func PutAPIKey(provider, key string) error {
 	}); err != nil {
 		return err
 	}
-	return remember(provider, old, cred)
+	return rememberAuth(provider, old, cred)
 }
 
 // PutOAuth writes an oauth credential object. Never logs token values.
@@ -307,7 +307,7 @@ func PutOAuth(provider string, cred map[string]any) error {
 	}); err != nil {
 		return err
 	}
-	return remember(provider, old, raw)
+	return rememberAuth(provider, old, raw)
 }
 
 // PutLlama stores llama.cpp router URL (+ optional key) in auth.json, same shape as pi.
@@ -336,7 +336,7 @@ func PutLlama(serverURL, key string) error {
 	}); err != nil {
 		return err
 	}
-	return remember("llama.cpp", old, raw)
+	return rememberAuth("llama.cpp", old, raw)
 }
 
 // LlamaURL returns the stored router URL (never the key).

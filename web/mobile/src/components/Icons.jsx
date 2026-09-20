@@ -1,4 +1,4 @@
-import { Activity, Archive, ArchiveRestore, ArrowUp, AudioLines, Bold, Book, Bot, Boxes, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleCheck, ClipboardPaste, Clock, Cloud, Code, Copy, Download, Ellipsis, EllipsisVertical, ExternalLink, File, FlaskConical, Folder, Folders, GitBranch, HardDrive, Heading2, Home, Image, Inbox, Info, Italic, Keyboard, Layers, LayoutGrid, List, ListOrdered, Lock, Maximize2, MessageSquare, Mic, Minimize2, Monitor, Moon, OctagonX, Package, Paperclip, PenLine, Pencil, Pin, Play, Plug, Plus, QrCode, Quote, RotateCw, Search, Settings, SlidersHorizontal, Smartphone, Sparkles, Square, Sun, Terminal, Trash2, TriangleAlert, User, Volume2, VolumeX, X } from "lucide-react";
+import { Activity, Archive, ArchiveRestore, ArrowUp, AudioLines, Bold, Book, Bot, Boxes, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleCheck, ClipboardPaste, Clock, Cloud, Code, Copy, Download, Ellipsis, EllipsisVertical, ExternalLink, File, FlaskConical, Folder, Folders, GitBranch, HardDrive, Heading2, Home, Image, Inbox, Info, Italic, Keyboard, Layers, LayoutGrid, List, ListOrdered, Lock, Maximize2, MessageSquare, Mic, Minimize2, Monitor, Moon, OctagonX, Package, PanelRight, Paperclip, PenLine, Pencil, Pin, Play, Plug, Plus, QrCode, Quote, RotateCw, Search, Settings, SlidersHorizontal, Smartphone, Sparkles, Square, Sun, Terminal, Trash2, TriangleAlert, User, Volume2, VolumeX, X } from "lucide-react";
 
 function lucide(Icon, fallback) {
   return function Wrapped({ size = fallback, className, ...p }) {
@@ -33,6 +33,7 @@ export const IconPaste = lucide(ClipboardPaste, 13);
 export const IconReload = lucide(RotateCw, 13);
 export const IconDownload = lucide(Download, 13);
 export const IconGit = lucide(GitBranch, 12);
+export const IconPanelRight = lucide(PanelRight, 15);
 export const IconRemote = lucide(Cloud, 10);
 export const IconFolder = lucide(Folder, 13);
 export const IconFolders = lucide(Folders, 13);

@@ -45,7 +45,7 @@ const Agent = lazy(() => import("./screens/Agent.jsx"));
 const TerminalScreen = lazy(() => import("./screens/Terminal.jsx"));
 const Files = lazy(() => import("./screens/Files.jsx"));
 const Git = lazy(() => import("./screens/Git.jsx"));
-const Changes = lazy(() => import("./screens/Changes.jsx"));
+const Inspector = lazy(() => import("./screens/Inspector.jsx"));
 const More = lazy(() => import("./screens/More.jsx"));
 const AppSurface = lazy(() => import("./components/AppSurface.jsx"));
 import { useHashRoute, goTab, push, goBack } from "./hooks/useHashRoute.js";
@@ -294,8 +294,8 @@ export default function MobileApp() {
     if (value.startsWith("pin:")) push("#/pins/" + encodeURIComponent(value.slice("pin:".length)));
     if (value.startsWith("term:")) openTerm(value.slice("term:".length));
   }
-  function openChanges(kind, id, title) {
-    if (id) push(mobileHash("changes", id, kind));
+  function openInspector(owner, root = "") {
+    if (owner && owner.id) push(toolHash("inspector", owner, { root }));
   }
   function openFiles(owner, options = {}) { push(toolHash("files", owner, options)); }
   function openGit(owner, root = "") { push(toolHash("git", owner, { root })); }
@@ -547,11 +547,11 @@ export default function MobileApp() {
   const tab = tabOf(route);
   // A pushed screen (it has the ← header) owns the whole height: the tab
   // bar goes away, Back is the way out.
-  const pushed = route.screen === "app" || route.screen === "agent" || route.screen === "term" || ["changes", "files", "git", "pin", "pinEdit"].includes(route.screen) || (route.screen === "more" && !!route.section) || (route.screen === "inbox" && !!route.id);
+  const pushed = route.screen === "app" || route.screen === "agent" || route.screen === "term" || ["inspector", "files", "git", "pin", "pinEdit"].includes(route.screen) || (route.screen === "more" && !!route.section) || (route.screen === "inbox" && !!route.id);
   // iOS standalone: the unreachable bottom strip continues the surface it
   // sits under — the tab bar's panel, or plain content when pushed.
   useEffect(() => { document.documentElement.dataset.pushed = pushed ? "1" : ""; }, [pushed]);
-  const changeOwner = !["changes", "files", "git"].includes(route.screen) ? null : route.section === "agent" ? findAgent(workspaces, freeAgents, route.id)
+  const changeOwner = !["inspector", "files", "git"].includes(route.screen) ? null : route.section === "agent" ? findAgent(workspaces, freeAgents, route.id)
     : route.section === "term" ? { term: terminals.find((t) => t.id === route.id) }
     : { workspace: workspaces.find((w) => w.id === route.id) };
   const resourceFound = current || currentTerm || changeOwner?.agent || changeOwner?.term || changeOwner?.workspace;
@@ -571,11 +571,10 @@ export default function MobileApp() {
     body = route.screen === "files"
       ? <Files key={JSON.stringify([route.section, route.id, route.path, route.root, route.navigation])} owner={owner} title={title} root={route.root || ""} initialPath={route.path || ""} onBack={() => goBack(route)} onPathChange={(path, root) => { history.replaceState(history.state, "", toolHash("files", owner, { path, root })); }} onOpenGit={(target, root) => openGit(target || owner, root)} />
       : <Git key={JSON.stringify([route.section, route.id, route.root, route.commit, route.navigation])} owner={owner} title={title} root={route.root || ""} initialCommit={route.commit || ""} onBack={() => goBack(route)} onOpenFile={({ owner: target, path, root }) => openFiles(target || owner, { path, root })} onOpenTerminal={prepareGit} onAskAgent={askGit} onPickWorkspace={wsId => openGit({ kind: "workspace", id: wsId })} onOpen={(kind, id) => { location.hash = (kind === "term" ? "#/term/" : "#/agent/") + encodeURIComponent(id); }} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals} />;
-  } else if (route.screen === "changes") {
-    const owner = changeOwner;
-    const title = route.section === "agent" ? (owner && owner.agent ? (owner.agent.name && owner.agent.name !== "default" ? owner.agent.name : (owner.workspace ? owner.workspace.name : owner.agent.name)) : "")
-      : route.section === "term" ? (owner.term ? owner.term.name : "") : (owner.workspace ? owner.workspace.name : "");
-    body = <Changes kind={route.section} id={route.id} title={title} onBack={() => goBack(route)} />;
+  } else if (route.screen === "inspector") {
+    const owner = { kind: route.section, id: route.id };
+    const title = changeOwner?.agent?.name || changeOwner?.term?.name || changeOwner?.workspace?.name || "Project";
+    body = <Inspector key={JSON.stringify([route.section, route.id, route.root, route.view, route.navigation])} owner={owner} title={title} root={route.root || ""} initialView={route.view || ""} onBack={() => goBack(route)} onOpenFile={({ owner: target, path, root }) => openFiles(target || owner, { path, root })} onOpenTerminal={prepareGit} onAskAgent={askGit} workspaces={workspaces} freeAgents={freeAgents} terminals={terminals} />;
   } else if (route.screen === "term") {
     body = terminalAgent
       ? <div className="m-tool-state m-tool-loading" role="status" aria-busy="true"><p>Opening agent…</p><span className="gg-skel" /><span className="gg-skel" /></div>
@@ -596,6 +595,7 @@ export default function MobileApp() {
         onStop={stopAgent}
         onOpenFiles={openFiles}
         onOpenGit={openGit}
+        onOpenInspector={openInspector}
         onAgentConfig={patchAgent}
         onRemoveTerminal={removeTerminal}
       />
@@ -618,7 +618,7 @@ export default function MobileApp() {
         workingIds={tuiWorking} busyId={busyId} checklists={checklists}
         onOpenAgent={(a) => openAgent(a.id)} onOpenTerm={(t) => openTerm(t.id)} onTermAction={onTermAction} onAgentAction={onAgentAction} clis={clis}
         onCreate={(kind, ws) => setCreate({ kind, workspace: ws || (kind === "agent" ? (workspaces[0] || null) : null) })} onNewTerm={newTerminal} onNewCliPrincipal={setCliPrincipalWs}
-        onOpenChanges={openChanges} onOpenFiles={openFiles} onOpenGit={openGit} onRefresh={refreshAll} />
+        onOpenInspector={openInspector} onOpenFiles={openFiles} onOpenGit={openGit} onRefresh={refreshAll} />
     );
   } else if (route.screen === "more") {
     body = (

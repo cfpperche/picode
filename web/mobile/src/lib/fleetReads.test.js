@@ -42,9 +42,9 @@ test("invalid responses do not erase lists or falsely complete loading", () => {
 for (const [route, required] of [
   [{ screen: "agent" }, ["workspaces", "freeAgents"]],
   [{ screen: "term" }, ["terminals"]],
-  [{ screen: "changes", section: "agent" }, ["workspaces", "freeAgents"]],
-  [{ screen: "changes", section: "term" }, ["terminals"]],
-  [{ screen: "changes", section: "workspace" }, ["workspaces"]],
+  [{ screen: "inspector", section: "agent" }, ["workspaces", "freeAgents"]],
+  [{ screen: "inspector", section: "term" }, ["terminals"]],
+  [{ screen: "inspector", section: "workspace" }, ["workspaces"]],
   ...["files", "git"].flatMap(screen => [
     [{ screen, section: "agent" }, ["workspaces", "freeAgents"]],
     [{ screen, section: "term" }, ["terminals"]],

@@ -14,6 +14,10 @@
 @import "@picode/shared/tokens/theme.css";
 @import "@picode/browser/src/styles/app.css";
 @import "@picode/shared/styles/providers.css";
+/* The credential roster's own sheet loads after the roster it shares the page
+   with: it owns the .cred-* geometry (ADR-0165), and no app stylesheet may
+   out-rank it by load order. */
+@import "@picode/shared/styles/credentials.css";
 
 /* ADR-0161: only ancestors of a live native page clear their paint. The
    native chrome region keeps other content and floating layers interactive. */

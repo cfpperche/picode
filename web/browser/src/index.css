@@ -11,6 +11,10 @@
 /* The roster's own sheet loads last: it owns the .prov-* geometry, and an
    app stylesheet must not out-rank it by load order (see its header). */
 @import "@picode/shared/styles/providers.css";
+/* The credential roster's own sheet loads after the roster it shares the page
+   with: it owns the .cred-* geometry (ADR-0165), and no app stylesheet may
+   out-rank it by load order. */
+@import "@picode/shared/styles/credentials.css";
 
 /*
   Tailwind theme maps onto the existing CSS variables (app.css :root).

@@ -8,10 +8,10 @@ import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { api } from "@picode/shared/client/api.js";
 import { toast } from "../lib/toast.js";
 import { catalogBase, PI_TOOLS, resolveLayer } from "@picode/shared/domain/resolveLayer.js";
+import { piRowsFor, piRowState, rowKey, rowKeys } from "@picode/shared/domain/piRows.js";
 import { IconX } from "./Icons.jsx";
 import PiKeys from "./PiKeys.jsx";
 
-const MODES = ["one-at-a-time", "all"];
 
 export default function PiSettings({ hidden, agent: originalAgent, workspace, catalog, onAgentConfig, embedded = false, focus = "", disabled = false, layer = "", keys = false, onLayerChange = () => {} }) {
   const [rep, setRep] = useState(null);
@@ -172,7 +172,7 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
           </section>
           ) : (
           <fieldset className="pi-settings-fields" disabled={!rep || !!loadError} hidden={!rep && !!loadError}>
-          <section className="settings-section" data-layer={active.id}>
+          <div className="settings-layer-body" data-layer={active.id}>
             {!canProject && active.id === "project" ? (
               <div className="cli-notice" role="status"><span>This folder is not trusted.</span><a className="btn btn-ghost btn-sm" href={"#/agent/" + encodeURIComponent(agent.id)}>Open agent to trust</a></div>
             ) : (
@@ -194,7 +194,7 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
                 onReset={(keys) => save(active.id, { reset: keys }, "Back to inherited.")}
               />
             )}
-          </section>
+          </div>
           </fieldset>
           )}
           </fieldset>
@@ -207,22 +207,6 @@ export default function PiSettings({ hidden, agent: originalAgent, workspace, ca
 function inheritedLabel(workspace) {
   return workspace ? "this folder" : "This machine";
 }
-
-// The rows pi keeps in its machine file. Each name and value domain was read
-// out of the installed pi bundle on 2026-09-20 before it was declared; a row
-// whose value pi resolves away (defaultProjectTrust) carries the exact domain
-// its getter enforces, so "Set here" is never a lie.
-const PI_MACHINE_ROWS = [
-  { key: "theme", label: "Theme", kind: "text", group: "Interface", fallback: "Pi default", help: "A built-in name (dark, light) or one of your own themes." },
-  { key: "hideThinkingBlock", label: "Hide thinking", kind: "bool", group: "Interface", fallback: "Off" },
-  { key: "quietStartup", label: "Quiet startup", kind: "bool", group: "Interface", fallback: "Off" },
-  { key: "defaultProjectTrust", label: "New folders", kind: "select", group: "Approvals", fallback: "Ask", options: [
-    { value: "ask", label: "Ask each time" },
-    { value: "always", label: "Trust automatically" },
-    { value: "never", label: "Never trust" },
-  ] },
-  { key: "shellPath", label: "Shell", kind: "text", group: "Approvals", fallback: "Pi default", help: "The shell pi runs commands in." },
-];
 
 function LayerKnobs({ prefix, values, own, parentLabel, catalog, saving, onSave, onReset, draft, onDraft, machine }) {
   if (!values) {
@@ -237,164 +221,139 @@ function LayerKnobs({ prefix, values, own, parentLabel, catalog, saving, onSave,
       </div>
     );
   }
-  const isSet = (keys) => keys.some((k) => !!(own && own.has && own.has[k]));
-  // "Use inherited" clears exactly the keys this layer set, so a row that
-  // overrides one of its three fields hands back only that one.
-  const resetKeys = (keys) => keys.filter((k) => !!(own && own.has && own.has[k]));
-  const reset = (keys) => <button type="button" className="btn btn-ghost btn-sm" disabled={saving} onClick={() => onReset(resetKeys(keys))}>Use inherited</button>;
-  const source = (keys) => <span className="set-src">{isSet(keys) ? "Set here" : parentLabel}</span>;
-  const rowClass = (keys) => "set-row" + (isSet(keys) ? " is-set" : "");
+  // Every row comes from the table (web/shared/domain/piRows.js). Adding a
+  // setting pi gained is a line there, the way it already is for the eight
+  // guest CLIs — this pane used to be hand-written JSX, which is why pi
+  // persisted forty keys and showed eight.
+  const groups = piRowsFor(machine ? "global" : "project");
   return (
     <div className="set-rows">
-      <div className={rowClass(["compactionEnabled"])}>
-        <label className="set-label" htmlFor={prefix + "-compact"}>Auto-compact{source(["compactionEnabled"])}</label>
-        <div className="set-ctl">
-          <Switch.Root
-            id={prefix + "-compact"}
-            className="rx-switch"
-            checked={!!values.compactionEnabled}
-            onCheckedChange={(v) => onSave({ compactionEnabled: v })}
-          >
-            <Switch.Thumb className="rx-switch-thumb" />
-          </Switch.Root>
-          {isSet(["compactionEnabled"]) ? reset(["compactionEnabled"]) : null}
-        </div>
-      </div>
-      <div className={rowClass(["steeringMode"])}>
-        <label className="set-label" htmlFor={prefix + "-steer"}>Steering{source(["steeringMode"])}</label>
-        <div className="set-ctl">
-          <select id={prefix + "-steer"} value={values.steeringMode || "one-at-a-time"} onChange={(e) => onSave({ steeringMode: e.target.value })}>
-            {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
-          {isSet(["steeringMode"]) ? reset(["steeringMode"]) : null}
-        </div>
-      </div>
-      <div className={rowClass(["followUpMode"])}>
-        <label className="set-label" htmlFor={prefix + "-follow"}>Follow-up{source(["followUpMode"])}</label>
-        <div className="set-ctl">
-          <select id={prefix + "-follow"} value={values.followUpMode || "one-at-a-time"} onChange={(e) => onSave({ followUpMode: e.target.value })}>
-            {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
-          {isSet(["followUpMode"]) ? reset(["followUpMode"]) : null}
-        </div>
-      </div>
-      <div className={rowClass(["defaultProvider", "defaultModel", "defaultThinkingLevel"]) + " set-row-stack"}>
-        <span className="set-label">Defaults{source(["defaultProvider", "defaultModel", "defaultThinkingLevel"])}</span>
-        <div className="set-ctl">
-          <ConfigFields
-            catalog={catalog}
-            provider={values.defaultProvider || ""}
-            model={values.defaultModel || ""}
-            thinking={values.defaultThinkingLevel || ""}
-            onChange={(cfg) => onSave({
-              defaultProvider: cfg.provider,
-              defaultModel: cfg.model,
-              defaultThinkingLevel: cfg.thinking,
-            })}
-            idPrefix={prefix + "-def"}
-            row
-          />
-          {isSet(["defaultProvider", "defaultModel", "defaultThinkingLevel"]) ? reset(["defaultProvider", "defaultModel", "defaultThinkingLevel"]) : null}
-        </div>
-      </div>
-      <div className={rowClass(["enabledModels"]) + " set-row-stack"} id={prefix === "g" ? "scoped-models" : undefined}>
-        <span className="set-label">Scoped models{source(["enabledModels"])}</span>
-        <div className="set-ctl">
-          <PatternField list={values.enabledModels || []} draft={draft} onDraft={onDraft} onSave={(enabledModels) => onSave({ enabledModels })} />
-          {isSet(["enabledModels"]) ? reset(["enabledModels"]) : null}
-        </div>
-      </div>
-      <div className={rowClass(["defaultTools"]) + " set-row-stack"}>
-        <span className="set-label">Tools{source(["defaultTools"])}</span>
-        <div className="set-ctl set-ctl-stack">
-          <div className="set-tools" data-align-row data-align-wrap>
-            {PI_TOOLS.map((t) => {
-              const on = (values.defaultTools || []).includes(t);
-              return (
-                <label key={t} className="set-check">
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    onChange={() => {
-                      const cur = new Set(values.defaultTools || []);
-                      if (on) cur.delete(t); else cur.add(t);
-                      onSave({ defaultTools: PI_TOOLS.filter((x) => cur.has(x)) });
-                    }}
-                  />
-                  {t}
-                </label>
-              );
-            })}
-          </div>
-          {isSet(["defaultTools"]) ? reset(["defaultTools"]) : null}
-        </div>
-      </div>
-      {machine ? PI_MACHINE_ROWS.map((f) => (
-        <MachineRow
-          key={f.key}
-          field={f}
-          value={values[f.key]}
-          setHere={isSet([f.key])}
-          parentLabel={parentLabel}
-          saving={saving}
-          onSave={(v) => onSave({ [f.key]: v })}
-          onReset={() => onReset([f.key])}
-        />
-      )) : null}
+      {groups.map((group) => (
+        <section className="settings-section" key={group.name}>
+          <h3>{group.name}</h3>
+          {group.rows.map((row) => (
+            <PiRow
+              key={rowKeys(row).join("+")}
+              row={row}
+              state={piRowState(row, values, own, parentLabel)}
+              values={values}
+              prefix={prefix}
+              catalog={catalog}
+              saving={saving}
+              draft={draft}
+              onDraft={onDraft}
+              onSave={onSave}
+              onReset={onReset}
+            />
+          ))}
+        </section>
+      ))}
     </div>
   );
 }
 
-// One machine-only row. Same vocabulary as every other row in this pane and in
-// the guest CLIs' pane: provenance on the left, the CLI's own default on the
-// control when nobody set the key.
-function MachineRow({ field, value, setHere, parentLabel, saving, onSave, onReset }) {
-  const [draft, setDraft] = useState(value === undefined || value === null ? "" : String(value));
-  useEffect(() => { setDraft(value === undefined || value === null ? "" : String(value)); }, [value]);
-  const unset = value === undefined || value === null || value === "";
-  let control;
-  if (field.kind === "bool") {
-    // The same Radix switch Auto-compact uses two rows up: one pane, one
-    // control for a boolean. The source line carries "Set here" or "Pi
-    // default", so the switch does not have to express unset.
-    control = (
-      <Switch.Root className="rx-switch" checked={value === true} disabled={saving} onCheckedChange={(v) => onSave(v)} aria-label={field.label}>
-        <Switch.Thumb className="rx-switch-thumb" />
-      </Switch.Root>
-    );
-  } else if (field.kind === "select") {
-    control = (
-      <select className="set-wide" value={unset ? "" : String(value)} disabled={saving} onChange={(e) => onSave(e.target.value)}>
-        <option value="" disabled>{field.fallback}</option>
-        {field.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-    );
-  } else {
-    const commit = () => { const next = draft.trim(); if (next !== String(value ?? "")) onSave(next); };
-    control = (
-      <input
-        className="set-text"
-        value={draft}
-        placeholder={field.fallback}
-        disabled={saving}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } }}
-      />
-    );
+// One row, whatever its kind. The label, the provenance and "Use inherited"
+// are the same for all of them; only the control differs, and the three that
+// are not scalars (model defaults, scoped models, tools) keep the controls
+// they always had rather than being flattened into something they are not.
+function PiRow({ row, state, values, prefix, catalog, saving, draft, onDraft, onSave, onReset }) {
+  const { setHere, source, resetKeys, value } = state;
+  const key = rowKey(row);
+  const id = prefix + "-" + key;
+  const reset = setHere ? (
+    <button type="button" className="btn btn-ghost btn-sm" disabled={saving} onClick={() => onReset(resetKeys)}>Use inherited</button>
+  ) : null;
+  let control = null;
+  switch (row.kind) {
+    case "bool":
+      control = (
+        <Switch.Root id={id} className="rx-switch" checked={value === true || value === false ? value : !!row.defaultOn} disabled={saving} onCheckedChange={(v) => onSave({ [key]: v })} aria-label={row.label}>
+          <Switch.Thumb className="rx-switch-thumb" />
+        </Switch.Root>
+      );
+      break;
+    case "select":
+      control = (
+        <select id={id} value={value === undefined || value === null || value === "" ? (row.fallback || "") : String(value)} disabled={saving} onChange={(e) => onSave({ [key]: e.target.value })}>
+          {row.options.map((o) => <option key={o} value={o}>{(row.optionLabels && row.optionLabels[o]) || o}</option>)}
+        </select>
+      );
+      break;
+    case "text":
+      control = <PiTextField id={id} value={value} placeholder={row.fallback} saving={saving} onSave={(v) => onSave({ [key]: v })} />;
+      break;
+    case "model":
+      control = (
+        <ConfigFields
+          catalog={catalog}
+          provider={values.defaultProvider || ""}
+          model={values.defaultModel || ""}
+          thinking={values.defaultThinkingLevel || ""}
+          onChange={(cfg) => onSave({ defaultProvider: cfg.provider, defaultModel: cfg.model, defaultThinkingLevel: cfg.thinking })}
+          idPrefix={prefix + "-def"}
+          row
+        />
+      );
+      break;
+    case "patterns":
+      control = <PatternField list={values.enabledModels || []} draft={draft} onDraft={onDraft} onSave={(enabledModels) => onSave({ enabledModels })} />;
+      break;
+    case "tools":
+      control = (
+        <div className="set-tools" data-align-row data-align-wrap>
+          {PI_TOOLS.map((t) => {
+            const on = (values.defaultTools || []).includes(t);
+            return (
+              <label key={t} className="set-check">
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() => {
+                    const cur = new Set(values.defaultTools || []);
+                    if (on) cur.delete(t); else cur.add(t);
+                    onSave({ defaultTools: PI_TOOLS.filter((x) => cur.has(x)) });
+                  }}
+                />
+                {t}
+              </label>
+            );
+          })}
+        </div>
+      );
+      break;
+    default:
+      control = null;
   }
   return (
-    <div className={"set-row" + (setHere ? " is-set" : "")}>
-      <span className="set-label">
-        {field.label}
-        <span className="set-src">{setHere ? "Set here" : parentLabel}</span>
-        {field.help ? <span className="set-src">{field.help}</span> : null}
-      </span>
-      <span className="set-ctl">
+    <div className={"set-row" + (setHere ? " is-set" : "") + (row.stack ? " set-row-stack" : "")} id={row.anchor && prefix === "g" ? row.anchor : undefined}>
+      <label className="set-label" htmlFor={row.kind === "bool" || row.kind === "select" || row.kind === "text" ? id : undefined}>
+        {row.label}
+        <span className="set-src">{source}</span>
+        {row.help ? <span className="set-src">{row.help}</span> : null}
+      </label>
+      <div className={"set-ctl" + (row.kind === "tools" ? " set-ctl-stack" : "")}>
         {control}
-        {setHere ? <button type="button" className="btn btn-ghost btn-sm" disabled={saving} onClick={onReset}>Use inherited</button> : null}
-      </span>
+        {reset}
+      </div>
     </div>
+  );
+}
+
+// A text row commits on blur, so a half-typed path is never saved.
+function PiTextField({ id, value, placeholder, saving, onSave }) {
+  const [text, setText] = useState(value === undefined || value === null ? "" : String(value));
+  useEffect(() => { setText(value === undefined || value === null ? "" : String(value)); }, [value]);
+  return (
+    <input
+      id={id}
+      className="set-text"
+      value={text}
+      placeholder={placeholder}
+      disabled={saving}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => { const next = text.trim(); if (next !== String(value ?? "")) onSave(next); }}
+      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } }}
+    />
   );
 }
 

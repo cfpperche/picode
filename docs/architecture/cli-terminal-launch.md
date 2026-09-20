@@ -191,9 +191,11 @@ defaults, the PATH wrapper (presence lease; maintenance subcommands and the
 protocol modes `--mode rpc|json|acp|rpc-ui` exec or mark non-TUI), and
 activity through the omp-shaped terminal-state extension injected with
 `-e` — the same extension load mechanism as pi, but omp's own event set
-(measured live on 18.2.4: `agent_end` settles the run, and the approval
-dialog emits no extension event, so omp reports Ready and Working and
-never needs-you — approvals happen in its own terminal). `Check setup`
+(verified against the 18.2.6 bundle: `agent_start` opens the run,
+`agent_end` settles it only when `willContinue` is unset, approvals arrive
+as `tool_approval_requested`/`resolved` and the ask card as
+`tool_execution_start`/`tool_result`, so omp reports Ready, Working and
+needs-you; the pi events `agent_settled`/`ui_prompt_*` never fire). `Check setup`
 runs `omp --version`, which needs
 Bun ≥ 1.3.14 on PATH; an older Bun dies with a syntax error from its
 bundle. Lifecycle mirrors pi with the real npm package
