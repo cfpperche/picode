@@ -8,7 +8,7 @@ import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { api } from "@picode/shared/client/api.js";
 import { toast } from "../lib/toast.js";
 import { catalogBase, PI_TOOLS, resolveLayer } from "@picode/shared/domain/resolveLayer.js";
-import { piRowsFor, piRowState } from "@picode/shared/domain/piRows.js";
+import { piRowsFor, piRowState, rowKey, rowKeys } from "@picode/shared/domain/piRows.js";
 import { IconX } from "./Icons.jsx";
 import PiKeys from "./PiKeys.jsx";
 
@@ -233,7 +233,7 @@ function LayerKnobs({ prefix, values, own, parentLabel, catalog, saving, onSave,
           <h3>{group.name}</h3>
           {group.rows.map((row) => (
             <PiRow
-              key={row.key || row.keys.join("+")}
+              key={rowKeys(row).join("+")}
               row={row}
               state={piRowState(row, values, own, parentLabel)}
               values={values}
@@ -258,7 +258,8 @@ function LayerKnobs({ prefix, values, own, parentLabel, catalog, saving, onSave,
 // they always had rather than being flattened into something they are not.
 function PiRow({ row, state, values, prefix, catalog, saving, draft, onDraft, onSave, onReset }) {
   const { setHere, source, resetKeys, value } = state;
-  const id = prefix + "-" + (row.key || "def");
+  const key = rowKey(row);
+  const id = prefix + "-" + key;
   const reset = setHere ? (
     <button type="button" className="btn btn-ghost btn-sm" disabled={saving} onClick={() => onReset(resetKeys)}>Use inherited</button>
   ) : null;
@@ -266,20 +267,20 @@ function PiRow({ row, state, values, prefix, catalog, saving, draft, onDraft, on
   switch (row.kind) {
     case "bool":
       control = (
-        <Switch.Root id={id} className="rx-switch" checked={value === true || value === false ? value : !!row.defaultOn} disabled={saving} onCheckedChange={(v) => onSave({ [row.key]: v })} aria-label={row.label}>
+        <Switch.Root id={id} className="rx-switch" checked={value === true || value === false ? value : !!row.defaultOn} disabled={saving} onCheckedChange={(v) => onSave({ [key]: v })} aria-label={row.label}>
           <Switch.Thumb className="rx-switch-thumb" />
         </Switch.Root>
       );
       break;
     case "select":
       control = (
-        <select id={id} value={value === undefined || value === null || value === "" ? (row.fallback || "") : String(value)} disabled={saving} onChange={(e) => onSave({ [row.key]: e.target.value })}>
+        <select id={id} value={value === undefined || value === null || value === "" ? (row.fallback || "") : String(value)} disabled={saving} onChange={(e) => onSave({ [key]: e.target.value })}>
           {row.options.map((o) => <option key={o} value={o}>{(row.optionLabels && row.optionLabels[o]) || o}</option>)}
         </select>
       );
       break;
     case "text":
-      control = <PiTextField id={id} value={value} placeholder={row.fallback} saving={saving} onSave={(v) => onSave({ [row.key]: v })} />;
+      control = <PiTextField id={id} value={value} placeholder={row.fallback} saving={saving} onSave={(v) => onSave({ [key]: v })} />;
       break;
     case "model":
       control = (

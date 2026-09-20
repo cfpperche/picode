@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { resolveLayer, catalogBase } from "./resolveLayer.js";
+import { resolveLayer, catalogBase, PI_TOOLS } from "./resolveLayer.js";
 
 test("workspace wins over global like skills", () => {
   const global = { defaultProvider: "xai", defaultModel: "grok-4.6", compactionEnabled: true };
@@ -40,4 +40,18 @@ test("the resolver carries pi's machine-only keys", () => {
   const child = resolveLayer({ has: {} }, got);
   assert.equal(child.theme, "dark");
   assert.equal(child.hideThinkingBlock, true);
+});
+
+test("a layer that sets a value keeps it, even when the value is empty", () => {
+  // The subtlety the derived resolver had to preserve: an explicitly empty
+  // tool list means no tools, not the built-in set, and an explicit false is
+  // false rather than pi's default true.
+  const floor = catalogBase(null);
+  assert.deepEqual(resolveLayer({ has: { defaultTools: true }, defaultTools: [] }, floor).defaultTools, []);
+  assert.equal(resolveLayer({ has: { compactionEnabled: true }, compactionEnabled: false }, floor).compactionEnabled, false);
+  // And a layer that sets nothing inherits what the parent runs.
+  assert.equal(resolveLayer({ has: {} }, floor).compactionEnabled, true);
+  assert.equal(resolveLayer({ has: {} }, floor).defaultTools.length, PI_TOOLS.length);
+  const parent = resolveLayer({ has: { defaultTools: true }, defaultTools: ["read"] }, floor);
+  assert.deepEqual(resolveLayer({ has: {} }, parent).defaultTools, ["read"]);
 });

@@ -127,12 +127,23 @@ flattened: `model` is the three coupled selects the catalog feeds, `patterns`
 is the free list of scoped models, `tools` is the grid over pi's fixed tool
 set. A row marked `machine` is offered only on the This machine layer.
 
+`web/shared/domain/resolveLayer.js` is **derived** from that table
+(2026-09-20): every field declares its type and its `unset` value — what pi
+itself does when no layer sets the key — and the resolver walks the table
+instead of restating it. A row is one line, and the resolver cannot fall
+behind the pane, which is what let the Theme row ship rendering empty while
+the file said `dark`.
+
+The rule the derivation preserves: a layer that **sets** a key keeps its value
+even when that value is the type's zero — an explicitly empty tool list means
+no tools, not the built-in set, and an explicit `false` is false rather than
+pi's default `true`. A layer that sets nothing inherits its parent, and where
+the parent has nothing the field's `unset` runs. Handing a key back removes
+this layer's override; it does not restore a value the layer held before.
+
 One difference from the guest pane remains, and it is pre-existing: Pi's
 writer re-encodes the document (`json.MarshalIndent` of a map), so key order is
-normalised rather than preserved. `web/shared/domain/resolveLayer.js` is still
-a named list — a key added to the API is invisible until it is added there
-too, which is how the Theme row first rendered empty — so a new row means two
-lines, not one.
+normalised rather than preserved.
 
 
 The workspace agent menu separates **Launch settings** (the bound terminal's

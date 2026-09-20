@@ -7,16 +7,12 @@
 
 ## Debts
 
-- **`resolveLayer` is still a named list.** Pi's rows are a table now
-  (`web/shared/domain/piRows.js`), but the resolver that decides which value a
-  layer shows is not, so a new row is two lines rather than one — and a key
-  added to only one of them renders empty, which is how the Theme row first
-  shipped (2026-09-20).
 - **Pi persists about forty keys; the pane shows eleven rows over thirteen
   keys.** The five added on 2026-09-20 were the ones that change visible
   behaviour. `npmCommand` is an argv array and needs a list kind before it can
   be a row; the rest are TUI ergonomics nobody has asked for. Adding one is
-  now a line in `piRows.js` plus its field in `internal/pisettings`.
+  now a line in `piRows.js` plus its field in `internal/pisettings` — the
+  resolver follows the table on its own.
 
 - **The Memory pane has no toggle and the 409 has no Replace control.** The
   docs now describe both honestly — the pane links to Settings, and `force`
