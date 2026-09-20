@@ -6,6 +6,7 @@
 
 ## Debts
 
+- **`make ci` is red on `main` in `internal/server`** (measured 2026-09-20 on `5edcd82c`): 8+ tmux-backed terminal tests fail in every shard — `patch … = 400`, `GET /api/terminals/settings/catalog = 503`, `mouse=""` on a live session, `no server running on /tmp/picode-tmuxtest-*/tmux-1000/default`. Reproduced focused (`go test ./internal/server/ -run 'TestTerminalLiveCwd|TestAnArrayOptionRoundTripsAsABlock' -count=1`), with `TMUX`/`TMUX_PANE`/every `PICODE_*` scrubbed, PiCode's PATH entries removed, and in a detached tree at `027eda39^` — so it is pre-existing and not the shard-concurrency class. Two candidates, neither proven: the ADR-0139 per-instance socket (`-S <dataDir>/tmux.sock`) versus a fixture client on the default namespace, or a pane process exiting at once and taking its server with it (`exit-empty`). It made a docs-only land report `make ci FAILED on main` on 2026-09-20; that branch did not cause it.
 - Agent CLIs Terminals ⋯ on the phone is still hand-built (Launch settings / Restart / Stop / Remove), not `termRowMenu`. Work rows use the shared menu (`surface: "phone"`) since 2026-09-19.
 - Scrollbars: the web terminal draws none (a tmux client has no scrollback — `term-scrollbar.test.mjs`); a draggable bar means taking the tmux client off the alternate screen, a decision.
 
