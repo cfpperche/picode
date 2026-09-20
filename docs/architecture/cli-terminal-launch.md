@@ -23,6 +23,14 @@ GROK_HOME, HERMES_HOME and OPENCODE_CONFIG cannot be overridden through the envi
 may be a command name or absolute path; resolution skips PiCode's own wrappers.
 Argument and environment values are individually shell-quoted, never evaluated.
 
+Workspace agents backed by Omp get one additional native boundary: the launcher
+appends `--session-dir <data-dir>/omp-sessions/<agent-id>` and creates that
+directory with private permissions. The directory is durable across terminal
+generations and contains Omp transcripts only; Omp's normal authentication and
+configuration home is unchanged. Standalone Omp terminals have no agent owner,
+so they retain Omp's default session directory. This is the only non-Pi
+per-agent `/resume` isolation currently enabled.
+
 Each launch writes a private generation under `cli-launch/<terminal>/run-*`.
 Integration uses the existing CLI adapter with the resolved executable pinned
 in that generation. Shared executable reporters are replaced atomically.
@@ -49,9 +57,10 @@ rollouts, Grok its `~/.grok/sessions` prompt history, Hermes Agent its
 `~/.hermes/state.db` (or `$HERMES_HOME/state.db`) SQLite rows, OpenCode
 its `~/.local/share/opencode/opencode.db` (or `$XDG_DATA_HOME/opencode/opencode.db`)
 SQLite rows, Muse Code its index, Antigravity its summaries DB, and Omp its
-`~/.omp/agent/sessions` JSONL (pi's bucket-per-cwd layout with omp's own
-encoding, `$PI_CODING_AGENT_DIR` honored; XDG relocation via
-`omp config init-xdg` not followed yet), each parsed defensively (malformed
+`~/.omp/agent/sessions` JSONL (or the launcher's private Omp agent
+`--session-dir`, with pi's bucket-per-cwd layout and Omp's own encoding;
+`$PI_CODING_AGENT_DIR` is honored for ordinary Omp commands; XDG relocation via
+`omp config init-xdg` is not followed yet), each parsed defensively (malformed
 files are skipped, missing roots are an empty list). Hermes listing is the
 active home only (no `profiles/` scan), `source` cli/tui with a folder and
 at least one message; preview is the session title. OpenCode listing skips
