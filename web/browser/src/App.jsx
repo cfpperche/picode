@@ -1985,7 +1985,7 @@ export default function App({ shellChrome = false } = {}) {
     const ws = workspaces.find((w) => w.id === id);
     setTabs((t) => t.filter((x) => x !== id));
     setTermWanted((s) => { const n = new Set(s); n.delete(id); return n; });
-    if (ws && ws.agent) closeShellTerm(ws.agent.id);
+    if (ws && ws.agent) closeAgentShell(ws.agent);
     if (panelRef.current && ws && ws.agent && panelRef.current.agentId === ws.agent.id) closePanel();
     if (selectedRef.current === id) {
       setTabs((t) => {
@@ -2013,6 +2013,10 @@ export default function App({ shellChrome = false } = {}) {
     p.stopped = true;
     try { p.sock.close(); } catch { /* ignore */ }
     panelRef.current = null;
+  }
+
+  function closeAgentShell(ag) {
+    if (ag) closeShellTerm(ag.terminalId || ag.id);
   }
 
   function scrollConv() {
@@ -2775,7 +2779,7 @@ export default function App({ shellChrome = false } = {}) {
       // gone — drop the row instead of scolding the operator twice.
       if (err && err.status !== 404) { toastError(err); return; }
     }
-    closeShellTerm(ag.id);
+    closeAgentShell(ag);
     setTabs((t) => t.filter((x) => x !== ag.id));
     if (selectedId === ag.id) setSelectedId(null);
     // A removal is rare and final: refetch even when the feed is live, so
@@ -2807,7 +2811,8 @@ export default function App({ shellChrome = false } = {}) {
       const ids = (ws.agents || []).map((a) => a.id);
       if (ws.agent) ids.push(ws.agent.id);
       for (const id of [...new Set(ids)]) {
-        closeShellTerm(id);
+        const ownedAgent = (ws.agents || []).find((candidate) => candidate.id === id) || (ws.agent && ws.agent.id === id ? ws.agent : null);
+        closeAgentShell(ownedAgent || { id });
         if (panelRef.current && panelRef.current.agentId === id) closePanel();
       }
       // The workspace's terminals died with it (ADR-0026): drop them from

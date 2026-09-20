@@ -5,3 +5,4 @@
 ### Changed
 
 - Legacy unbound Pi interactive sessions retain their existing agent endpoint until restart; new sessions use the bound terminal identity.
+- Agent and workspace cleanup now closes bound terminal panes through the canonical terminal identity.

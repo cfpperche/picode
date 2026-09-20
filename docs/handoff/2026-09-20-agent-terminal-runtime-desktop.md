@@ -8,6 +8,7 @@
 - Added a Chat/Terminal toolbar visible in both Pi surfaces; removed the duplicate composer Open action.
 - Updated CLI terminal architecture docs and added a changelog fragment.
 - Added unit coverage for bound and legacy terminal resolution.
+- Adversarial review fixed agent/workspace removal paths to close canonical terminal panes by `terminalId`.
 - `make ci-scoped` passed after the adversarial review.
 - Scratch visual review passed: toolbar readable in Chat and Terminal, overlay audit `ok`, no console errors.
 
