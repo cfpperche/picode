@@ -273,6 +273,7 @@ fn ensure(app: &AppHandle, id: &str, url: &str) -> Result<(), String> {
             .unwrap()
             .insert(id.to_string());
     }
+    crate::layers::raise(app);
     attach_navigation_gate(app, id);
     attach_download_handler(app, id);
     attach_permission_handler(app, id);
@@ -371,6 +372,7 @@ pub async fn btab_bounds(
             // makes the page appear, now that it is where it belongs.
             if app.state::<BtabState>().unplaced.lock().unwrap().remove(&id) {
                 let _ = wv.show();
+                crate::layers::raise(&app);
             }
             Ok(())
         }
@@ -391,7 +393,9 @@ pub async fn btab_visibility(app: AppHandle, id: String, visible: bool) -> Resul
     match app.get_webview(&label(&id)) {
         Some(wv) => {
             if visible {
-                wv.show().map_err(|e| e.to_string())
+                wv.show().map_err(|e| e.to_string())?;
+                crate::layers::raise(&app);
+                Ok(())
             } else {
                 wv.hide().map_err(|e| e.to_string())
             }
@@ -1728,8 +1732,8 @@ fn apply_engine_state(app: &AppHandle, kind: &str, origin: Option<&str>, state: 
         _ => COREWEBVIEW2_PERMISSION_STATE_DEFAULT,
     };
     let origin = origin.to_string();
-    for (name, wv) in app.webview_windows() {
-        if !name.starts_with("btab-") && name != "main" {
+    for (name, wv) in app.webviews() {
+        if !name.starts_with("btab-") && name != "main-content" {
             continue;
         }
         let origin = origin.clone();

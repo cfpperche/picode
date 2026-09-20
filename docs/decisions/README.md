@@ -165,4 +165,5 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0158](0158-cli-restart-resumes-session.md) | Restart an Agent CLI terminal resumes its pinned conversation | accepted, amends 0069 and 0084 |
 | [0159](0159-managed-cli-principals.md) | CLI terminals as managed principals — bind a guest TUI to a workspace without an agent row or chat | superseded by 0160 |
 | [0160](0160-cli-runtimes-are-agents.md) | CLI runtimes are agents — catalog `cli` on `agents`; managed RPC stays Pi-only | accepted, supersedes 0159's never-an-agent-row, amends 0006/0011/0069 |
+| [0161](0161-live-desktop-overlays.md) | Live desktop overlays | accepted |
 | [0162](0162-pi-interactive-shared-runtime.md) | Pi uses the shared interactive runtime | accepted, amends 0160 and 0089 |

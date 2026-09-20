@@ -48,10 +48,10 @@ test("clipped top is fail", () => {
 // browser is invisible until the page gets out of the way. The tab marks its
 // host when it hides the view; a layer over an unmarked host is a defect the
 // review must catch by itself.
-function browserWin({ covered }) {
+function browserWin({ covered, nativeReady = false }) {
   const host = {
     getBoundingClientRect: () => ({ top: 80, left: 300, right: 1100, bottom: 700, width: 800, height: 620 }),
-    getAttribute: (name) => (name === "data-covered" && covered ? "1" : null),
+    getAttribute: (name) => (name === "data-native-layers-ready" && nativeReady ? "true" : name === "data-covered" && covered ? "1" : null),
   };
   const layer = {
     getBoundingClientRect: () => ({ top: 40, left: 700, right: 1090, bottom: 300, width: 390, height: 260 }),
@@ -96,4 +96,8 @@ for (const [name, wraps, rects, ok] of [
   };
   const report = overlayAudit(fakeWin({ top: 40, bottom: 200, left: 10, right: 300, rows: [row] }));
   assert.equal(report.ok, ok);
+});
+
+test("an acknowledged native chrome region allows overlays over a live page", () => {
+  assert.equal(overlayAudit(browserWin({ covered: false, nativeReady: true })).ok, true);
 });

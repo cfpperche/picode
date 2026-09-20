@@ -145,12 +145,11 @@ missing one). *Import cookies and passwords…* is now **refused** (owner
 vault — a security-model arc; cookies via CDP are fragile under Chrome's
 app-bound encryption), so the entry is not coming: the topic file carries
 the call. *Show device toolbar* is the native half first. The menu opens
-**over** the page (native view hidden
-behind a still) instead of sliding it down. Since 2026-09-16 that rule is
-general — *any* floating layer that intersects a work tab parks the native
-view (`web/browser/src/lib/floatingLayers.js` over the shared layer list in
-`web/shared/domain/overlayAudit.js`), so the command palette, the editor's
-tab menus, dialogs and toasts behave the same way.
+**over the live page** through the transparent native chrome surface
+(ADR-0161). Suggestions, menus, dialogs, toasts and the command palette
+share native paint/input regions; opening them does not hide or capture
+the page. The previous parking/still path remains only for an older shell
+without the native-layer protocol.
 
 **Settings ▸ Browser (Preferences page section):**
 - [ ] Master toggle: "Let the agent control the built-in browser" — per

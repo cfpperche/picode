@@ -15,6 +15,7 @@ pub mod axfmt;
 pub mod b64;
 pub mod cdppolicy;
 pub mod geometry;
+pub mod layer_geometry;
 pub mod keys;
 pub mod origins;
 pub mod permissions;

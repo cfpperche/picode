@@ -49,6 +49,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
   const [findOpen, setFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState("");
   const [findState, setFindState] = useState({ count: 0, active: 0 });
+  const liveLayers = !!window.__PICODE_LIVE_LAYERS__;
   const [overlayCover, setOverlayCover] = useState(false);
 
   // Any floating layer that reaches the page — the tab-strip menu, the
@@ -59,7 +60,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
   // surface is seen by both or by neither.
   useEffect(() => subscribeFloatingLayers((layers) => {
     const host = hostRef.current;
-    setOverlayCover(overlapsLayers(host ? rectOf(host) : null, layers));
+    if (!liveLayers) setOverlayCover(overlapsLayers(host ? rectOf(host) : null, layers));
   }), []);
 
   // The menu opens over the page, and a native WebView2 paints over HTML —
@@ -87,7 +88,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
     if (previewRef.current.url) URL.revokeObjectURL(previewRef.current.url);
   }, []);
   const grabPreview = (maxAge = 1200) => {
-    if (!invoke) return Promise.resolve("");
+    if (!invoke || liveLayers) return Promise.resolve("");
     const cur = previewRef.current;
     if (cur.url && Date.now() - cur.at < maxAge) return Promise.resolve(cur.url);
     if (cur.inflight) return cur.inflight;
@@ -432,7 +433,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
       return;
     }
     // A plain browser has no native page to cover: nothing to wait for.
-    if (!invoke) {
+    if (!invoke || liveLayers) {
       setMenuOpen(true);
       return;
     }
@@ -459,7 +460,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
       opened();
     });
   };
-  const covered = overlayCover || (menuOpen && (!!still || previewFailed));
+  const covered = !liveLayers && (overlayCover || (menuOpen && (!!still || previewFailed)));
   // Whatever the reason, a covered page shows the frozen frame instead of
   // the host's empty background. The menu prefetches on hover; every other
   // layer takes the capture when it first covers the page (cached, so the
@@ -881,7 +882,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
           </div>
         </div>
       ) : null}
-      <div className="web-tab-host" ref={hostRef} hidden={!started} data-covered={covered ? "1" : undefined}>
+      <div className="web-tab-host" ref={hostRef} hidden={!started} data-native-page={liveLayers && started && !hidden ? "true" : undefined} data-covered={covered ? "1" : undefined}>
         {still ? <img className="web-tab-still" src={still} alt="" aria-hidden="true" onError={() => { setStill(""); setPreviewFailed(true); }} /> : null}
       </div>
       {!started ? (

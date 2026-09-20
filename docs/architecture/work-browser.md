@@ -71,26 +71,36 @@ channel for a new push: the page already listens.
   receipt the UI paints from. Downloads land in the shell's download folder
   and are announced on the feed.
 
-## A layer never paints over a WebView2
+## Live native layers (ADR-0161)
 
-An HTML element cannot be stacked above a native webview sibling. The rule is
-**geometry**: `web/browser/src/lib/floatingLayers.js` collects every visible
-floating layer from the shared vocabulary (`OVERLAY_SELECTORS` in
-`web/shared/domain/overlayAudit.js`), and when any of them intersects the
-tab's rectangle the tab hides the native view and paints the frozen page
-(`btab_preview`, a raw PNG over IPC) underneath.
+The new shell hosts the trusted React document in `main-content`, a
+transparent native child above the work pages. Its Windows region is the
+window minus visible page rectangles plus the rectangles of floating HTML
+layers. The same geometry controls paint and pointer input: the page stays
+visible and interactive through the holes. A modal backdrop adds its whole
+region without freezing the page underneath.
 
-Consequences that bite:
+`web/browser/src/lib/nativeLayers.js` invalidates its region cache when viewport
+width, height or device pixel ratio changes, even with no active native page
+or floating overlay. This keeps the full chrome region current on maximize
+and restore. It observes geometry and serializes the
+`chrome_layers` IPC. `desktop-shell/src/layers.rs` validates the caller and
+bounds, applies the native region, and restores the chrome's stacking order
+after a page is shown. Native page ancestors clear their CSS backgrounds;
+all overlays remain the real React components, in the same document, with
+no DOM cloning or page injection.
 
-- A **new floating surface belongs in the shared vocabulary**, or both the
-  hide rule and the clipping audit lose sight of it (the command palette and
-  the editor's tab menus were invisible under the page until the 2026-09-16
-  sweep).
-- Anything that hides the view invalidates a **live capture**: a capture taken
-  while a layer (a toast is a layer) crosses the tab comes back empty. The
-  annotation crop retries on a ladder for exactly this reason.
-- `window.__picodeOverlayAudit()` is the proof for a visual review; a
-  geometry clip is a FAIL, not a nit.
+The bridge is restricted to the trusted `main-content` webview and the
+existing Tauri origin ACL. External pages never receive layer permissions.
+Tab/route changes still hide inactive pages. Explicit screenshots and
+annotation captures retain their own APIs; the new overlay path calls none
+of them. An older shell without the injected protocol marker keeps the
+legacy frozen-backdrop path until the shell is upgraded too.
+
+The shared overlay vocabulary still drives the geometry audit; native
+composition additionally includes modal backdrops, tooltips and focus-edge
+controls. A native screenshot is required to verify Windows stacking:
+`window.__picodeOverlayAudit()` alone cannot see sibling WebViews.
 
 ## Permissions: site × kind, tri-state
 

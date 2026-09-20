@@ -33,7 +33,16 @@ pub struct LabState(pub Mutex<bool>);
 // own folder — %LOCALAPPDATA%\PiCode\WebView2 — instead of letting each
 // surface grow its own app.picode.shell/PicodeShell/picode-shell sprawl
 // (three folders, 2026-09-13). One folder to back up, one to wipe.
+#[cfg(feature = "overlay-qa")]
+static QA_PROFILE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+
+#[cfg(feature = "overlay-qa")]
+pub fn set_qa_profile(path: PathBuf) { QA_PROFILE.set(path).expect("QA profile already set"); }
+
 pub fn webview_profile() -> PathBuf {
+    #[cfg(feature = "overlay-qa")]
+    if let Some(path) = QA_PROFILE.get() { return path.clone(); }
+
     std::env::var("LOCALAPPDATA")
         .map(|root| PathBuf::from(root).join("PiCode").join("WebView2"))
         .unwrap_or_else(|_| std::env::temp_dir().join("PiCode-WebView2"))
@@ -58,6 +67,8 @@ pub fn webapp_profile(webapp_id: &str) -> Option<PathBuf> {
     {
         return None;
     }
+    #[cfg(feature = "overlay-qa")]
+    if let Some(path) = QA_PROFILE.get() { return Some(path.join("webapps").join(webapp_id)); }
     std::env::var("LOCALAPPDATA")
         .map(|root| {
             PathBuf::from(root)
