@@ -2,6 +2,13 @@ package gitgraph
 
 import "strings"
 
+// ListWorktrees is the repository's checkouts in git's own order (the main
+// checkout first): every `git worktree list --porcelain` record with a path,
+// including bare and prunable entries — the caller decides what to skip.
+func ListWorktrees(dir string) []Worktree {
+	return loadWorktrees(dir)
+}
+
 // WorktreeOfRef maps a branch name, or a full commit hash for a detached
 // checkout, to the absolute path of the worktree of this repository where it
 // is checked out. It is how a URL can name a sibling worktree without ever

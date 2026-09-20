@@ -6,13 +6,13 @@ import { ownerFileURL } from "../lib/fileIO.js";
 import DiffLine from "./DiffLine.jsx";
 import GitAssetPreview from "./GitAssetPreview.jsx";
 
-export default function WorkingDiff({ owner, path, root = "", nonce, onClose, onOpenFile }) {
+export default function WorkingDiff({ owner, path, root = "", worktree = "", nonce, onClose, onOpenFile }) {
   const [result, setResult] = useState(null);
   const [failure, setFailure] = useState(null);
   const [retry, setRetry] = useState(0);
   const base = treeApiBase(owner?.kind);
   const ownerId = owner?.id || "";
-  const key = JSON.stringify([base, ownerId, root, path]);
+  const key = JSON.stringify([base, ownerId, root, worktree, path]);
   const diff = result?.key === key ? result.diff : null;
   const error = failure?.key === key ? failure.message : "";
   const clean = error === "no difference for this path";
@@ -21,7 +21,7 @@ export default function WorkingDiff({ owner, path, root = "", nonce, onClose, on
     if (!ownerId || !path) return;
     const request = new AbortController();
     setFailure(null);
-    api(ownerFileURL(owner, "gitdiff", path, root), { signal: request.signal })
+    api(ownerFileURL(owner, "gitdiff", path, root, worktree), { signal: request.signal })
       .then((data) => { if (!request.signal.aborted) setResult({ key, diff: data }); })
       .catch((e) => {
         if (!request.signal.aborted) {
@@ -30,7 +30,7 @@ export default function WorkingDiff({ owner, path, root = "", nonce, onClose, on
         }
       });
     return () => request.abort();
-  }, [key, nonce, retry]); // key includes owner, root and path
+  }, [key, nonce, retry]); // key includes owner, root, worktree and path
 
   if (!path) return null;
   const { add, del } = countOf(diff?.patch || "");
@@ -50,7 +50,7 @@ export default function WorkingDiff({ owner, path, root = "", nonce, onClose, on
         {!diff && !error ? <div className="file-skel"><span className="skel-line w-80" /><span className="skel-line w-50" /></div> : null}
         {diff?.truncated ? <p className="gg-warn">This diff is too large to show in full — the rest is cut off.</p> : null}
         {diff?.binary ? (
-          <GitAssetPreview base={base} ownerId={ownerId} path={path} root={root} oldPath={diff.oldPath} status={diff.status} fallback={<p className="diff-empty">Binary file — no text diff.</p>} />
+          <GitAssetPreview base={base} ownerId={ownerId} path={path} root={root} worktree={worktree} oldPath={diff.oldPath} status={diff.status} fallback={<p className="diff-empty">Binary file — no text diff.</p>} />
         ) : diff ? <div className="diff">{hunksFromDiff(diff.patch).hunks.map((h, i) => <DiffLine key={i} h={h} />)}</div> : null}
       </div>
     </section>

@@ -308,7 +308,8 @@ shim and discovery variables. Enabling an identified Codex conversation prepares
 private setup without replacing its process.
 
 The prompt door (ADR-0089) is the one place a user types into a CLI terminal
-**or** an interactive Pi agent TUI. The attach composer opens on demand —
+**or** an interactive Pi agent TUI — and, since Fatia F (ADR-0160), the one
+place automations deliver to a CLI agent. The attach composer opens on demand —
 the pane's context menu on the desktop (`Attach files…` / `Ask … about this`),
 the header paperclip on the phone — and stages up
 to four attachments (4 MB each) under `<cwd>/.picode/drop/` before
@@ -318,7 +319,15 @@ bracketed message. Never send an agent id to `/api/terminals/{id}/drop`. Its mes
 field is a textarea one control height tall that grows to four lines and then
 scrolls (`web/shared/domain/attachText.js`): on the desktop Enter sends and
 Shift+Enter keeps the newline; on a phone Enter is the newline key (a soft
-keyboard has no Shift) and Send or Ctrl/⌘+Enter submits. A **Sketch** button
+keyboard has no Shift) and Send or Ctrl/⌘+Enter submits. Deliveries to CLIs
+with a measured input reader are **gated and verified** (Fatia F): the
+composer must read empty before, and reads empty again after Enter — the
+response carries a `delivery` receipt (`verified` / `unconfirmed` /
+`unverified`) and refusals name themselves (`working`, `needs-you`,
+`occupied`, `busy`, `closed`). CLIs without a reader keep the blind paste
+and answer `unverified`. Automations aimed at a CLI agent deliver through
+this door on the agent's bound terminal and finish with the receipt as
+their reason. A **Sketch** button
 opens `SketchEditor.jsx` (one copy per shell) — an Excalidraw pad that borrows
 the dependency, not the pin studio: no background picture, no pin tables, no
 stored scene. The drawing leaves as `sketch.png` through the same drop route,

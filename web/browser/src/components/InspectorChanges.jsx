@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { shortPath } from "@picode/shared/domain/repoLine.js";
 import { changeKinds, flattenTree } from "../lib/fileTree.js";
 import { compactCount, groupChanges, totalsLabel } from "../lib/inspector.js";
 import FileTree from "./FileTree.jsx";
@@ -10,7 +11,7 @@ const NO_DIRS = new Set();
 // click opens the file's diff in the center. The scope chips narrow the
 // list to what one agent's tools touched — an attribution no benchmark
 // offers, and the one that matters when several agents share a folder.
-export default function InspectorChanges({ changes, totals, scope, onScope, scopable, activePath, onOpen, onViewFiles }) {
+export default function InspectorChanges({ changes, totals, scope, onScope, scopable, emptyWhere = "", activePath, onOpen, onViewFiles }) {
   const [collapsed, setCollapsed] = useState(() => new Set());
   const grouped = useMemo(() => groupChanges(changes), [changes]);
   const expanded = useMemo(() => new Set([...grouped.dirs].filter((d) => !collapsed.has(d))), [grouped, collapsed]);
@@ -42,7 +43,7 @@ export default function InspectorChanges({ changes, totals, scope, onScope, scop
       {changes.length === 0 ? (
         scope === "agent"
           ? <p className="insp-msg">No files from this agent yet. <button type="button" className="btn btn-sm" onClick={() => onScope("all")}>Show all</button></p>
-          : <p className="insp-msg">No changes. <button type="button" className="btn btn-sm" onClick={onViewFiles}>View files</button></p>
+          : <p className="insp-msg"><span>No changes{emptyWhere ? <> in <strong>{emptyWhere}</strong></> : null}.</span> <button type="button" className="btn btn-sm" onClick={onViewFiles}>View files</button></p>
       ) : (
         <FileTree
           rows={rows}
@@ -68,5 +69,49 @@ function Stat({ stat }) {
       {stat.add ? <span className="gg-add">+{compactCount(stat.add)}</span> : null}
       {stat.del ? <span className="gg-del">−{compactCount(stat.del)}</span> : null}
     </span>
+  );
+}
+
+// One checkout inside a grouped Changes view: a branch header with summed
+// counts, then the same folder tree the single view draws. No scope chips —
+// the parent renders them once above every group.
+export function InspectorChangeGroup({ group, changes, totals, activePath, onOpen }) {
+  const [collapsed, setCollapsed] = useState(() => new Set());
+  const grouped = useMemo(() => groupChanges(changes), [changes]);
+  const expanded = useMemo(() => new Set([...grouped.dirs].filter((d) => !collapsed.has(d))), [grouped, collapsed]);
+  const rows = useMemo(() => flattenTree(grouped.levels, expanded), [grouped, expanded]);
+  const kinds = useMemo(() => changeKinds(changes), [changes]);
+  const label = totalsLabel(totals);
+  function toggle(path) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }
+  return (
+    <section className="insp-group" aria-label={group.branch ? `Changes on ${group.branch}` : "Changes"}>
+      <div className="insp-group-head" title={group.path}>
+        <span className="insp-group-branch">{group.branch || shortPath(group.path)}</span>
+        {group.detached ? <span className="insp-branch-note">detached</span> : null}
+        {label ? (
+          <span className="insp-stat-counts">
+            {totals && totals.add ? <span className="gg-add">+{compactCount(totals.add)}</span> : null}
+            {totals && totals.del ? <span className="gg-del">−{compactCount(totals.del)}</span> : null}
+          </span>
+        ) : null}
+      </div>
+      <FileTree
+        rows={rows}
+        kinds={kinds}
+        dirtyDirs={NO_DIRS}
+        selectedPath={activePath}
+        onToggle={toggle}
+        onOpen={onOpen}
+        ariaLabel={group.branch ? `Changed files on ${group.branch}` : "Changed files"}
+        trailing={(row) => <Stat stat={grouped.stats.get(row.path)} />}
+      />
+    </section>
   );
 }

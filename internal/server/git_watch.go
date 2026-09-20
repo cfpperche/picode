@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cfpperche/picode/internal/gitgraph"
 	"github.com/cfpperche/picode/internal/gitinfo"
 	"github.com/cfpperche/picode/internal/store"
 )
@@ -16,7 +17,10 @@ import (
 // is one `git` subprocess set per directory per tick, for the whole
 // fleet, instead of every browser refetching the fleet or the file tree
 // after each commit. Terminal panes are not watched: their cwd is live
-// tmux state, their pills still refresh with the fleet.
+// tmux state, their pills still refresh with the fleet. Linked worktrees
+// of watched repositories are watched too (bounded per repo): the
+// Inspector follows dirty siblings, so their folders are read like any
+// anchor and their changes must arrive the same way.
 func StartGitWatch(ctx context.Context, deps Deps, every time.Duration) {
 	if deps.Feed == nil || deps.Store == nil {
 		return
@@ -80,6 +84,26 @@ func gitWatchTick(deps Deps, prev map[string]string) map[string]string {
 		}
 		cur[path] = key
 	}
+	// A linked worktree speaks with its anchor's group: it is that
+	// workspace's and that agent's repository family, and no pill names it.
+	wtAnchor := map[string]string{}
+	for _, path := range paths {
+		if infos[path] == nil {
+			continue
+		}
+		for _, wt := range linkedWorktreePaths(path) {
+			if dup := watchedDir(cur, wt); dup {
+				continue
+			}
+			var key string
+			if info := gitinfo.Inspect(wt); info != nil {
+				key = fmt.Sprintf("%s\x00%s\x00%d", info.Branch, info.Worktree, info.Dirty)
+				infos[wt] = info
+			}
+			cur[wt] = key
+			wtAnchor[wt] = path
+		}
+	}
 	for _, path := range diffGit(prev, cur) {
 		// A path that left the watch set this tick is a workspace or an agent
 		// that was just removed: it has no group to speak for, and nothing is
@@ -88,6 +112,11 @@ func gitWatchTick(deps Deps, prev map[string]string) map[string]string {
 		// without this check is what killed the daemon on every "Remove
 		// workspace" until 2026-09-13.
 		g, ok := groups[path]
+		if !ok {
+			if anchor, isWT := wtAnchor[path]; isWT {
+				g, ok = groups[anchor]
+			}
+		}
 		if !ok {
 			continue
 		}
@@ -111,6 +140,40 @@ type gitDir struct {
 	path        string
 	workspaceID string
 	agentID     string
+}
+
+// maxWatchedWorktrees bounds the per-repo sibling watch: each linked
+// worktree costs a full Inspect per tick, on top of the one `git worktree
+// list` that names them.
+const maxWatchedWorktrees = 8
+
+// linkedWorktreePaths is every healthy checkout of path's repository but
+// path's own, in git's list order. Bare and prunable entries are skipped:
+// a missing checkout has no state worth keying.
+func linkedWorktreePaths(repo string) []string {
+	out := []string{}
+	for _, wt := range gitgraph.ListWorktrees(repo) {
+		if wt.Bare || wt.Prunable || wt.Path == "" || sameDir(wt.Path, repo) {
+			continue
+		}
+		out = append(out, wt.Path)
+		if len(out) >= maxWatchedWorktrees {
+			break
+		}
+	}
+	return out
+}
+
+// watchedDir reports whether dir already has a key in the tick's map: an
+// agent bound inside a linked worktree is watched under its own path, and
+// must not be inspected twice under two spellings of one folder.
+func watchedDir(cur map[string]string, dir string) bool {
+	for path := range cur {
+		if sameDir(path, dir) {
+			return true
+		}
+	}
+	return false
 }
 
 // diffGit lists the paths whose key changed between two ticks: a branch

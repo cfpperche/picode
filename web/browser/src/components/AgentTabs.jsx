@@ -18,7 +18,7 @@ import { agentRowStatus } from "@picode/shared/domain/agentStatus.js";
 // One description per tab id, shared by the strip and the "All tabs"
 // list so both show the same face, name and status. Null means the tab
 // has nothing to render yet (a terminal the client has not received).
-function describeTab(id, { terms, appList, workspaces, freeAgents, webTabs, webapps }) {
+function describeTab(id, { terms, appList, workspaces, freeAgents, webTabs, webapps, fileWorktrees }) {
   const installedId = webappIdFromTab(id);
   const installed = installedId ? (webapps || []).find((a) => a.id === installedId) : null;
   if (installed) {
@@ -54,7 +54,9 @@ function describeTab(id, { terms, appList, workspaces, freeAgents, webTabs, weba
     const f = parseFileTab(id);
     if (!f) return null;
     const name = (f.path || "").split("/").pop() || f.path || "File";
-    return { icon: <IconFile size={13} />, label: name, title: f.path, status: null, closeTitle: "Close tab" };
+    const wt = fileWorktrees && fileWorktrees[id];
+    const title = wt && wt.branch ? `${f.path} · ${wt.branch}` : f.path;
+    return { icon: <IconFile size={13} />, label: name, title, status: null, closeTitle: "Close tab" };
   }
   if (isGitTab(id)) {
     // The tab is the repository (ADR-0022), so its name comes from the
@@ -97,8 +99,8 @@ function StatusDot({ status }) {
   return null;
 }
 
-export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, apps, webapps, webTabs, selectedId, onSelect, onClose, onReorder, sessionSlot, endSlot, keepVisible }) {
-  const ctx = { terms: terminals || [], appList: apps || [], workspaces, freeAgents, webTabs, webapps };
+export default function AgentTabs({ tabs, workspaces, freeAgents, terminals, apps, webapps, webTabs, fileWorktrees, selectedId, onSelect, onClose, onReorder, sessionSlot, endSlot, keepVisible }) {
+  const ctx = { terms: terminals || [], appList: apps || [], workspaces, freeAgents, webTabs, webapps, fileWorktrees };
   const entries = tabs.map((id) => ({ id, d: describeTab(id, ctx) })).filter((e) => e.d);
   const ids = entries.map((e) => e.id);
   const stripRef = useRef(null);
