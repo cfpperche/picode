@@ -59,10 +59,12 @@ var catalog = []spec{
 		},
 		fields: []Field{
 			{Key: "model", Label: "Model", Kind: KindText, Group: groupModel, Fallback: "Claude Code default", Help: "Alias or full model id."},
-			{Key: "permissions.defaultMode", Label: "Approvals", Kind: KindSelect, Group: groupApproval, Fallback: "Ask before edits", Options: opts(
+			{Key: "permissions.defaultMode", Label: "Approvals", Kind: KindSelect, Group: groupApproval, Fallback: "Auto", Options: opts(
+				[2]string{"auto", "Auto"},
 				[2]string{"default", "Ask before edits"},
 				[2]string{"acceptEdits", "Edit automatically"},
 				[2]string{"plan", "Plan only"},
+				[2]string{"dontAsk", "Deny unless allowed"},
 				[2]string{"bypassPermissions", "Skip all prompts"},
 			), Danger: "bypassPermissions", DangerNote: "Runs without permission prompts. For containers or disposable VMs."},
 			{Key: "autoMemoryEnabled", Label: "Auto memory", Kind: KindBool, Group: groupMemory, Fallback: "On", Help: "Claude writes its own notes between sessions."},
@@ -107,9 +109,10 @@ var catalog = []spec{
 			{Key: "models.default_reasoning_effort", Label: "Reasoning effort", Kind: KindText, Group: groupModel, Fallback: "Grok default", Help: "Effort level; the range depends on the model."},
 			{Key: "ui.permission_mode", Label: "Approvals", Kind: KindSelect, Group: groupApproval, Fallback: "Grok default", Options: opts(
 				[2]string{"default", "Ask before edits"},
-				[2]string{"acceptEdits", "Edit automatically"},
+				[2]string{"auto", "Edit automatically"},
 				[2]string{"plan", "Plan only"},
 				[2]string{"always-approve", "Approve everything"},
+				[2]string{"bypassPermissions", "Skip all prompts"},
 			), Danger: "always-approve", DangerNote: "Edits and commands go through without a prompt."},
 			{Key: "ui.yolo", Label: "Auto-approve tools", Kind: KindBool, Group: groupApproval, Fallback: "Off", Danger: "true", DangerNote: "Every tool call is approved without asking."},
 			{Key: "ui.compact_mode", Label: "Compact display", Kind: KindBool, Group: groupSurface, Fallback: "Off"},
@@ -142,7 +145,10 @@ var catalog = []spec{
 		fields: []Field{
 			{Key: "model", Label: "Model", Kind: KindText, Group: groupModel, Fallback: "OpenCode default", Help: "In provider/model form."},
 			{Key: "theme", Label: "Theme", Kind: KindText, Group: groupSurface, Fallback: "OpenCode default"},
-			{Key: "autoupdate", Label: "Update automatically", Kind: KindBool, Group: groupUpdates, Fallback: "On"},
+			// `autoupdate` is `true | false | "notify"` in OpenCode's own
+			// schema. A switch cannot hold the third value and its first
+			// toggle would destroy it, so PiCode does not offer the row
+			// (adversarial review, 2026-09-20).
 		},
 	},
 	{

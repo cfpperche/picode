@@ -505,3 +505,84 @@ func TestInsertedJSONMemberReadsLikeTheFile(t *testing.T) {
 		t.Fatalf("empty document: %q", got)
 	}
 }
+
+// TestYAMLNeverWritesASameNamedKeyAtAnotherDepth is the regression for the
+// worst defect the adversarial review found: `memory.memory_enabled` landed
+// on `foo.memory.memory_enabled` and left the key the pane showed untouched.
+// The reader resolves the dotted path correctly, so a mis-targeted write was
+// silent — the pane said saved and the CLI kept its old value.
+func TestYAMLNeverWritesASameNamedKeyAtAnotherDepth(t *testing.T) {
+	for _, tc := range []struct{ name, body, want string }{
+		{
+			name: "decoy block before the real one",
+			body: "foo:\n  memory:\n    memory_enabled: true\nmemory:\n  memory_enabled: true\n",
+			want: "foo:\n  memory:\n    memory_enabled: true\nmemory:\n  memory_enabled: false\n",
+		},
+		{
+			name: "decoy block after the real one",
+			body: "memory:\n  memory_enabled: true\nfoo:\n  memory:\n    memory_enabled: true\n",
+			want: "memory:\n  memory_enabled: false\nfoo:\n  memory:\n    memory_enabled: true\n",
+		},
+		{
+			name: "only a nested namesake: the root key is created, not hijacked",
+			body: "agent:\n  memory:\n    memory_enabled: true\n",
+			want: "agent:\n  memory:\n    memory_enabled: true\nmemory:\n  memory_enabled: false\n",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			path := filepath.Join(home, ".hermes", "config.yaml")
+			write(t, path, tc.body)
+			if err := Apply("hermes", Paths{Home: home}, Patch{Scope: "user", Set: map[string]any{"memory.memory_enabled": false}}); err != nil {
+				t.Fatal(err)
+			}
+			if got := read(t, path); got != tc.want {
+				t.Fatalf("got:\n%s\nwant:\n%s", got, tc.want)
+			}
+			rep, err := Read("hermes", Paths{Home: home})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if rep.Layers[0].Values["memory.memory_enabled"] != false {
+				t.Fatalf("the key the pane reads is not the key that was written: %#v", rep.Layers[0].Values)
+			}
+		})
+	}
+}
+
+// TestYAMLRefusesBlockValues: a key whose value is a block, a block scalar, an
+// anchor or an alias is not a scalar, so the writer inserts beside it rather
+// than splicing bytes into a structure it does not understand.
+func TestYAMLRefusesBlockValues(t *testing.T) {
+	for _, body := range []string{
+		"memory:\n  memory_enabled: |\n    a long\n    block\n",
+		"memory:\n  memory_enabled: &anchor true\n",
+		"memory:\n  memory_enabled:\n    nested: true\n",
+	} {
+		home := t.TempDir()
+		path := filepath.Join(home, ".hermes", "config.yaml")
+		write(t, path, body)
+		// The write must either refuse or leave the block intact; it must never
+		// splice into the middle of it.
+		_ = Apply("hermes", Paths{Home: home}, Patch{Scope: "user", Set: map[string]any{"memory.memory_enabled": false}})
+		got := read(t, path)
+		if _, err := decode([]byte(got), FormatYAML, path); err != nil {
+			t.Fatalf("the result does not parse:\n%s", got)
+		}
+	}
+}
+
+// TestYAMLInsertLandsInTheRightBlock: the same depth confusion in the insert
+// path would add a key under a namesake block.
+func TestYAMLInsertLandsInTheRightBlock(t *testing.T) {
+	home := t.TempDir()
+	path := filepath.Join(home, ".hermes", "config.yaml")
+	write(t, path, "foo:\n  memory:\n    other: 1\nmemory:\n  memory_enabled: true\n")
+	if err := Apply("hermes", Paths{Home: home}, Patch{Scope: "user", Set: map[string]any{"memory.user_char_limit": 900}}); err != nil {
+		t.Fatal(err)
+	}
+	want := "foo:\n  memory:\n    other: 1\nmemory:\n  memory_enabled: true\n  user_char_limit: 900\n"
+	if got := read(t, path); got != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
+	}
+}

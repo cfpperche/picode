@@ -122,7 +122,11 @@ func claudeMemoryDir(p Paths) (string, string) {
 	}
 	if p.Setting != nil {
 		if custom, ok := p.Setting("claude-code", "autoMemoryDirectory"); ok && strings.TrimSpace(custom) != "" {
-			return expand(custom, p.home()), ""
+			dir, why := boundedStore(expand(custom, p.home()), p.home())
+			if why != "" {
+				return "", why
+			}
+			return dir, ""
 		}
 	}
 	base := filepath.Join(p.home(), ".claude", "projects")
@@ -158,10 +162,10 @@ func grokWorkspaceDir(p Paths) (string, string) {
 	if err != nil {
 		return "", "Grok has not written workspace memory on this machine yet."
 	}
-	prefix := filepath.Base(p.Cwd) + "-"
+	want := regexp.MustCompile(`^` + regexp.QuoteMeta(filepath.Base(p.Cwd)) + `-[0-9a-f]{6,}$`)
 	var hits []string
 	for _, e := range entries {
-		if e.IsDir() && strings.HasPrefix(e.Name(), prefix) {
+		if e.IsDir() && want.MatchString(e.Name()) {
 			hits = append(hits, filepath.Join(base, e.Name()))
 		}
 	}
@@ -241,4 +245,21 @@ func expand(path, home string) string {
 		return filepath.Join(home, path[2:])
 	}
 	return path
+}
+
+// boundedStore keeps a store the user relocated inside their own home. The
+// setting is honoured because it is the CLI's own, but the memory pane reads
+// and writes whatever it names, so `/etc` or `/proc/self` would turn the pane
+// into a file browser. Outside the home directory PiCode says where to look
+// instead of looking there.
+func boundedStore(dir, home string) (string, string) {
+	if !filepath.IsAbs(dir) {
+		return "", "This CLI's memory folder setting is not an absolute path, so PiCode cannot open it."
+	}
+	clean := filepath.Clean(dir)
+	rel, err := filepath.Rel(home, clean)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", "This CLI's memory folder is outside your home directory, so PiCode does not open it here. Open it in Files."
+	}
+	return clean, ""
 }

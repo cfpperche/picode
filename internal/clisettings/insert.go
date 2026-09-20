@@ -163,11 +163,17 @@ func jsonInsert(text []byte, path []string, lit string) ([]byte, error) {
 	if len(bytes.TrimSpace(text)) == 0 {
 		text = []byte("{}\n")
 	}
-	// Find the deepest existing ancestor.
+	// Find the deepest existing ancestor that is an object. A parent that
+	// exists as a string, an array or null is not one to add a member to:
+	// falling back to the root appended a duplicate key that shadowed the
+	// user's value (adversarial review, 2026-09-20).
 	depth := len(path) - 1
 	for depth > 0 {
 		if _, _, ok := jsonObjectSpan(text, path[:depth]); ok {
 			break
+		}
+		if _, _, exists := jsonValueSpan(text, path[:depth]); exists {
+			return nil, fmt.Errorf("%s is not an object in this file, so %s cannot be added under it", strings.Join(path[:depth], "."), path[len(path)-1])
 		}
 		depth--
 	}
@@ -191,10 +197,7 @@ func jsonInsert(text []byte, path []string, lit string) ([]byte, error) {
 	// The comma belongs to the member before it, not to the line above the
 	// closing brace: inserting at closeAt put it alone on its own line
 	// (live QA, 2026-09-20). Anchor on the last non-space byte instead.
-	at := closeAt
-	for at > open+1 && isSpace(text[at-1]) {
-		at--
-	}
+	at := jsonLastMemberEnd(text, open, closeAt)
 	return spliceAt(text, at, ",\n"+inner+member), nil
 }
 
@@ -289,22 +292,22 @@ func quoteJSON(s string) string {
 }
 
 // tomlInsert appends `key = value` to its table, creating the table when the
-// file has none.
+// file has none. Every scan skips multi-line string bodies: a `[table]`-shaped
+// line inside one used to retarget the write.
 func tomlInsert(text []byte, path []string, lit string) ([]byte, error) {
 	table := strings.Join(path[:len(path)-1], ".")
 	key := path[len(path)-1]
 	line := key + " = " + lit + "\n"
 	if table == "" {
 		// A root key must precede the first table header.
-		lines := splitLines(string(text))
 		offset := 0
-		for _, l := range lines {
-			if strings.HasPrefix(strings.TrimSpace(l), "[") {
+		for _, l := range tomlLines(text) {
+			if !l.inString && l.header != "" {
 				break
 			}
-			offset += len(l)
+			offset = l.offset + len(l.text)
 		}
-		return spliceAt(text, offset, line), nil
+		return spliceNewline(text, offset, line), nil
 	}
 	start, end, found := tomlTableBody(text, table)
 	if !found {
@@ -318,36 +321,80 @@ func tomlInsert(text []byte, path []string, lit string) ([]byte, error) {
 		return []byte(body + "[" + table + "]\n" + line), nil
 	}
 	_ = start
-	return spliceAt(text, end, line), nil
+	return spliceNewline(text, end, line), nil
+}
+
+// spliceNewline inserts at an offset, terminating the previous line first when
+// the file did not end with a newline. Splicing straight onto an unterminated
+// last line produced `use_memories = truegenerate_memories = false`, which the
+// post-write check then refused — a file with no final newline could never
+// take a new key (adversarial review, 2026-09-20).
+func spliceNewline(text []byte, at int, insert string) []byte {
+	if at > 0 && at <= len(text) && text[at-1] != '\n' {
+		insert = "\n" + insert
+	}
+	return spliceAt(text, at, insert)
 }
 
 // tomlTableBody reports the offsets just after a table's header line and at
 // the end of its last non-blank line.
 func tomlTableBody(text []byte, table string) (start, end int, ok bool) {
-	lines := splitLines(string(text))
-	offset, inTable := 0, false
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		header := strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]")
-		if header {
-			name := strings.TrimSpace(strings.Trim(trimmed, "[]"))
+	inTable := false
+	for _, l := range tomlLines(text) {
+		if l.inString {
+			if inTable {
+				end = l.offset + len(l.text)
+			}
+			continue
+		}
+		if l.header != "" {
 			if inTable {
 				return start, end, true
 			}
-			if name == table {
+			if l.header == table && !l.isArray {
 				inTable = true
-				start = offset + len(line)
+				start = l.offset + len(l.text)
 				end = start
 			}
-			offset += len(line)
 			continue
 		}
-		offset += len(line)
-		if inTable && trimmed != "" {
-			end = offset
+		if inTable && strings.TrimSpace(l.text) != "" {
+			end = l.offset + len(l.text)
 		}
 	}
 	return start, end, inTable
+}
+
+// removeTOMLTable drops `[name]` and every line under it, stopping at the last
+// real key so a comment that follows the table keeps its place. Consuming the
+// blank and `#` lines after it deleted notes that belonged to whatever came
+// next (adversarial review, 2026-09-20).
+func removeTOMLTable(text []byte, name string) ([]byte, bool) {
+	start, end := -1, -1
+	for _, l := range tomlLines(text) {
+		if !l.inString && l.header != "" {
+			if start >= 0 {
+				break
+			}
+			if l.header == name && !l.isArray {
+				start = l.offset
+				end = l.offset + len(l.text)
+			}
+			continue
+		}
+		if start >= 0 && (l.inString || strings.TrimSpace(l.text) != "") && !strings.HasPrefix(strings.TrimSpace(l.text), "#") {
+			end = l.offset + len(l.text)
+		}
+	}
+	if start < 0 {
+		return nil, false
+	}
+	// Take one blank line before the header, the exact inverse of the blank
+	// line tomlInsert adds when it creates a table in a non-empty file.
+	if start >= 2 && text[start-1] == '\n' && text[start-2] == '\n' {
+		start--
+	}
+	return spliceOut(text, start, end), true
 }
 
 // yamlInsert appends `key: value` under its parent block, creating the block
@@ -375,54 +422,65 @@ func yamlInsert(text []byte, path []string, lit string) ([]byte, error) {
 		block += strings.Repeat("  ", len(parent)) + key + ": " + lit + "\n"
 		return []byte(body + block), nil
 	}
-	return spliceAt(text, end, indent+key+": "+lit+"\n"), nil
+	return spliceNewline(text, end, indent+key+": "+lit+"\n"), nil
 }
 
 // yamlBlockEnd reports the offset after the last line of the block the path
-// names, and the indentation its members use.
+// names, and the indentation its members use. It walks with yamlWalk, so a
+// same-named block nested elsewhere is never the one an insert lands in.
 func yamlBlockEnd(text []byte, path []string) (end int, indent string, ok bool) {
-	lines := splitLines(string(text))
-	offset, depth, parentIndent := 0, 0, -1
-	inBlock := false
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
+	lineStart, line, parentIndent, found := yamlWalk(text, path)
+	if !found {
+		return 0, "", false
+	}
+	end = lineStart + len(line)
+	offset := end
+	for _, l := range splitLines(string(text[end:])) {
+		trimmed := strings.TrimSpace(l)
 		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
-			offset += len(line)
+			offset += len(l)
 			continue
 		}
-		lineIndent := len(line) - len(strings.TrimLeft(line, " "))
-		if inBlock {
-			if lineIndent <= parentIndent {
-				return end, indent, true
-			}
-			if indent == "" {
-				indent = strings.Repeat(" ", lineIndent)
-			}
-			offset += len(line)
-			end = offset
-			continue
+		ind := len(l) - len(strings.TrimLeft(l, " \t"))
+		if ind <= parentIndent {
+			break
 		}
-		name, _, found := strings.Cut(trimmed, ":")
-		if found && name == path[depth] && lineIndent > parentIndent {
-			depth++
-			parentIndent = lineIndent
-			offset += len(line)
-			end = offset
-			if depth == len(path) {
-				inBlock = true
-				indent = ""
-			}
-			continue
-		}
-		offset += len(line)
-	}
-	if inBlock {
 		if indent == "" {
-			indent = strings.Repeat(" ", parentIndent+2)
+			indent = strings.Repeat(" ", ind)
 		}
-		return end, indent, true
+		offset += len(l)
+		end = offset
 	}
-	return 0, "", false
+	if indent == "" {
+		indent = strings.Repeat(" ", parentIndent+2)
+	}
+	return end, indent, true
+}
+
+// removeYAMLBlock drops `name:` and every line indented under it.
+func removeYAMLBlock(text []byte, path []string) ([]byte, bool) {
+	lineStart, line, headIndent, found := yamlWalk(text, path)
+	if !found {
+		return nil, false
+	}
+	end := lineStart + len(line)
+	offset := end
+	for _, l := range splitLines(string(text[end:])) {
+		trimmed := strings.TrimSpace(l)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			// A blank line or a comment may belong to whatever comes next, so
+			// it is not swallowed: consuming them emptied a whole file whose
+			// block was followed by commented-out config (adversarial review).
+			offset += len(l)
+			continue
+		}
+		if ind := len(l) - len(strings.TrimLeft(l, " \t")); ind <= headIndent {
+			break
+		}
+		offset += len(l)
+		end = offset
+	}
+	return spliceOut(text, lineStart, end), true
 }
 
 func spliceAt(text []byte, at int, insert string) []byte {
@@ -433,76 +491,60 @@ func spliceAt(text []byte, at int, insert string) []byte {
 	return out
 }
 
-// removeTOMLTable drops `[name]` and every line under it, plus one blank line
-// that only separated it from the next table.
-func removeTOMLTable(text []byte, name string) ([]byte, bool) {
-	lines := splitLines(string(text))
-	offset, start, end := 0, -1, -1
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		header := strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]")
-		if header {
-			if start >= 0 {
-				end = offset
-				break
-			}
-			if strings.TrimSpace(strings.Trim(trimmed, "[]")) == name {
-				start = offset
-			}
-		}
-		offset += len(line)
-	}
-	if start < 0 {
-		return nil, false
-	}
-	if end < 0 {
-		end = offset
-	}
-	// Take the blank line that preceded the header with it.
-	for start > 1 && text[start-1] == '\n' && (start < 2 || text[start-2] == '\n') {
-		start--
-	}
-	return append(append([]byte{}, text[:start]...), text[end:]...), true
-}
-
-// removeYAMLBlock drops `name:` and every line indented under it, plus one
-// blank line that only separated it from the next key.
-func removeYAMLBlock(text []byte, path []string) ([]byte, bool) {
-	lines := splitLines(string(text))
-	offset, depth, parentIndent := 0, 0, -1
-	start, headIndent := -1, 0
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
-			offset += len(line)
-			continue
-		}
-		indent := len(line) - len(strings.TrimLeft(line, " "))
-		if start >= 0 {
-			if indent > headIndent {
-				offset += len(line)
-				continue
-			}
-			return spliceOut(text, start, offset), true
-		}
-		name, _, found := strings.Cut(trimmed, ":")
-		if found && name == path[depth] && indent > parentIndent {
-			if depth == len(path)-1 {
-				start, headIndent = offset, indent
-				offset += len(line)
-				continue
-			}
-			depth++
-			parentIndent = indent
-		}
-		offset += len(line)
-	}
-	if start >= 0 {
-		return spliceOut(text, start, offset), true
-	}
-	return nil, false
-}
-
 func spliceOut(text []byte, start, end int) []byte {
 	return append(append([]byte{}, text[:start]...), text[end:]...)
+}
+
+// jsonLastMemberEnd reports the offset just after the last member's value in
+// the object that spans open..closeAt. Anchoring on the last non-space byte
+// put the comma inside a trailing `// comment`, so a JSONC file with a note
+// before its closing brace could never take a new key (adversarial review,
+// 2026-09-20).
+func jsonLastMemberEnd(text []byte, open, closeAt int) int {
+	scan := stripJSONC(text)
+	dec := json.NewDecoder(bytes.NewReader(scan[open : closeAt+1]))
+	depth, expectKey, last := 0, false, 0
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			break
+		}
+		if d, ok := tok.(json.Delim); ok {
+			switch d {
+			case '{', '[':
+				if depth == 1 && !expectKey {
+					if end := matchBrace(scan, open+int(dec.InputOffset())-1); end >= 0 {
+						last = end + 1
+					}
+				}
+				depth++
+				if d == '{' {
+					expectKey = true
+				}
+				continue
+			default:
+				depth--
+				if depth == 1 {
+					last = open + int(dec.InputOffset())
+					expectKey = true
+				}
+				continue
+			}
+		}
+		if depth == 1 {
+			if expectKey {
+				expectKey = false
+			} else {
+				last = open + int(dec.InputOffset())
+				expectKey = true
+			}
+		}
+	}
+	if last <= open {
+		last = closeAt
+		for last > open+1 && isSpace(text[last-1]) {
+			last--
+		}
+	}
+	return last
 }

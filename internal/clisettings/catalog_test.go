@@ -2,6 +2,7 @@ package clisettings
 
 import (
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -113,6 +114,64 @@ func TestDangerNotesAreDistinctWithinAGroup(t *testing.T) {
 				t.Errorf("%s: %s and %s print the same warning in group %q", cli, other, f.Key, f.Group)
 			}
 			seen[key] = f.Key
+		}
+	}
+}
+
+// TestOwnersRealValuesAreRenderable is the regression for the worst schema
+// defect the honesty audit found: the owner's own `~/.claude/settings.json`
+// carries `"defaultMode": "auto"`, and the select had no such option — the
+// control rendered blank beside a row that said "Set here", and picking any
+// offered value silently moved them off it.
+//
+// Every value a golden fixture sets for a select must be one of that select's
+// options, because the fixtures are shaped like the real files.
+func TestOwnersRealValuesAreRenderable(t *testing.T) {
+	for cli, file := range map[string]string{
+		"claude-code": "claude-code.settings.json",
+		"codex":       "codex.config.toml",
+		"grok":        "grok.config.toml",
+		"hermes":      "hermes.config.yaml",
+		"opencode":    "opencode.opencode.json",
+		"muse":        "muse.settings.json",
+		"agy":         "agy.settings.json",
+		"omp":         "omp.config.yml",
+	} {
+		home := t.TempDir()
+		s := For(cli)
+		path := s.layers[0].file(Paths{Home: home})
+		body, err := os.ReadFile(filepath.Join("testdata", file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, body, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		rep, err := Read(cli, Paths{Home: home})
+		if err != nil {
+			t.Fatal(err)
+		}
+		byKey := map[string]Field{}
+		for _, f := range s.fields {
+			byKey[f.Key] = f
+		}
+		for key, value := range rep.Layers[0].Values {
+			f := byKey[key]
+			if f.Kind != KindSelect {
+				continue
+			}
+			found := false
+			for _, o := range f.Options {
+				if o.Value == value {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("%s/%s: the file holds %v, which the select cannot render; options are %v", cli, key, value, f.Options)
+			}
 		}
 	}
 }

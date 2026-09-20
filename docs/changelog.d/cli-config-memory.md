@@ -9,10 +9,13 @@
   switcher and provenance on every row (ADR-0163).
 - **A Memory pane for every agent CLI** at `#/clis/<cli>/memory`, showing what
   the CLI has remembered between sessions. Claude Code, Hermes, Muse Code and
-  Omp can be read, edited and pruned from the browser; Grok and Codex are read
-  here and cleared with their own command, because they generate those files;
-  Pi and OpenCode say in one line that they keep no memory, and Antigravity
-  says PiCode cannot confirm one (ADR-0163).
+  Omp are read, edited and pruned from the browser wherever they keep plain
+  markdown; Grok and Codex are read here and cleared with their own command,
+  because they generate those files; Pi and OpenCode say in one line that they
+  keep no memory, and Antigravity says PiCode cannot confirm one (ADR-0163).
+  Omp writes nothing until its memory backend is turned on, and PiCode reads
+  its folder from two paths the vendor does not document, so that pane is
+  usually empty.
 
 ### Changed
 

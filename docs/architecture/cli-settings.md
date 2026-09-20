@@ -52,21 +52,31 @@ dangerous value carries its own one-line cost, not a shared sentence: two rows
 in one group printed the same seventeen words twice, and
 `TestDangerNotesAreDistinctWithinAGroup` now refuses that.
 
-**Reads parse, writes splice.** A read uses the real parser for the format. A
-write locates the byte span of exactly one scalar and replaces those bytes, so
-comments, key order, indentation and every key PiCode does not know come out
-unchanged — `TestGoldenSingleKeyWriteIsSurgical` compares the text, not the
+**Reads parse, writes splice.** A read uses the real parser for the format.
+Setting a value locates the byte span of exactly one scalar and replaces those
+bytes, so comments, key order, indentation and every key PiCode does not know
+come out unchanged — `TestGoldenSingleKeyWriteIsSurgical` compares the text, not the
 parsed tree. A key the file does not carry is inserted where the format expects
-it; a reset removes it and takes its container along when that was the last key
-in it (the ADR-0099 rule that an emptied object goes with its last key — the
-round-trip test caught a `[memories]` header and a `memory:` block left behind).
+it; Handing a key back (**Use inherited**) removes its whole line, so a comment
+*on that line* goes with it; comments and blank lines that follow the container
+stay, and an emptied container goes with its last key (the ADR-0099 rule). A
+container that still holds a subtable is not emptied and its header stays.
 The result must parse before it is written, the write is atomic (tmp + rename),
 and the file's mode is preserved. One accepted difference: appending to a file
 that had no final newline adds one, and a later reset cannot take it back.
 
+**What the writer refuses rather than guesses** (adversarial review,
+2026-09-20): a TOML array of tables, since its elements are user data no
+declared key can address; a JSON key that appears twice, since the writer would
+splice the one every parser ignores; a JSON path whose parent exists but is not
+an object; a YAML value that is a block, a block scalar, an anchor or an alias.
+TOML multi-line strings and YAML block scalars are located and stepped over, so
+a `[table]`-shaped line inside one no longer retargets a write.
+
 **Two writers.** The CLI writes these files too. Every layer carries a
 `revision`; a save built on an older read answers **409** and the file is
-untouched until the editor re-reads. `Force` is the deliberate override. A
+untouched until the editor re-reads — today the pane reports the refusal and
+reloads; the `force` override exists in the API and has no control yet. A
 document the parser rejects is reported with the layer marked unwritable and is
 never overwritten (ADR-0099 §4).
 

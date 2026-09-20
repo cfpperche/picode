@@ -130,7 +130,9 @@ func memoryPaths(cwd string) climemory.Paths {
 	return climemory.Paths{
 		Cwd: cwd,
 		Setting: func(cli, key string) (string, bool) {
-			rep, err := clisettings.Read(cli, clisettings.Paths{})
+			// The same workspace the memory request names, so a key set in the
+			// workspace layer is the one that wins here too.
+			rep, err := clisettings.Read(cli, clisettings.Paths{Cwd: cwd})
 			if err != nil {
 				return "", false
 			}

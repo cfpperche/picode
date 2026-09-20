@@ -216,6 +216,8 @@ func jsonValueSpan(text []byte, path []string) (int, int, bool) {
 		}
 		return true
 	}
+	hit := false
+	hitStart, hitEnd := 0, 0
 	// valueSeen records that a value was consumed at the current level, so an
 	// object frame expects a key again.
 	valueSeen := func() {
@@ -227,7 +229,8 @@ func jsonValueSpan(text []byte, path []string) (int, int, bool) {
 		before := dec.InputOffset()
 		tok, err := dec.Token()
 		if err != nil {
-			return 0, 0, false
+			// End of document: one unambiguous match is the answer.
+			return hitStart, hitEnd, hit
 		}
 		if d, ok := tok.(json.Delim); ok {
 			switch d {
@@ -235,11 +238,15 @@ func jsonValueSpan(text []byte, path []string) (int, int, bool) {
 				// A composite in value position: report it before descending,
 				// because its span is the whole brace pair.
 				if matches() {
-					open := valueStartAt(scan, int(before))
-					if closeAt := matchBrace(scan, open); closeAt >= 0 {
-						return open, closeAt + 1, true
+					if hit {
+						return 0, 0, false
 					}
-					return 0, 0, false
+					open := valueStartAt(scan, int(before))
+					closeAt := matchBrace(scan, open)
+					if closeAt < 0 {
+						return 0, 0, false
+					}
+					hit, hitStart, hitEnd = true, open, closeAt+1
 				}
 				frames = append(frames, frame{object: d == '{', expectKey: d == '{'})
 				keys = append(keys, "")
@@ -263,7 +270,14 @@ func jsonValueSpan(text []byte, path []string) (int, int, bool) {
 			continue
 		}
 		if matches() {
-			return valueStartAt(scan, int(before)), int(dec.InputOffset()), true
+			if hit {
+				// A second member with the same path: the writer would splice
+				// the one every parser ignores (adversarial review,
+				// 2026-09-20). Report ambiguity, not a guess.
+				return 0, 0, false
+			}
+			hit = true
+			hitStart, hitEnd = valueStartAt(scan, int(before)), int(dec.InputOffset())
 		}
 		valueSeen()
 	}
@@ -287,36 +301,44 @@ func valueStartAt(scan []byte, at int) int {
 }
 
 // tomlValueSpan finds `key = value` inside the table named by the path's
-// prefix. TOML is line-oriented, so the span ends before a trailing comment:
-// a user's `# why` note beside a value survives the write.
+// prefix, skipping every line that lives inside a multi-line string. TOML is
+// line-oriented, so the span ends before a trailing comment: a user's `# why`
+// note beside a value survives the write.
 func tomlValueSpan(text []byte, path []string) (int, int, bool) {
 	if len(path) == 0 {
 		return 0, 0, false
 	}
 	table := strings.Join(path[:len(path)-1], ".")
 	key := path[len(path)-1]
-	lines := splitLines(string(text))
 	current := ""
-	offset := 0
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
-			current = strings.TrimSpace(strings.Trim(trimmed, "[]"))
-			offset += len(line)
+	for _, l := range tomlLines(text) {
+		if l.inString {
 			continue
 		}
-		if current == table && !strings.HasPrefix(trimmed, "#") {
-			if name, rest, found := strings.Cut(line, "="); found && strings.TrimSpace(name) == key {
-				valueStart := offset + len(name) + 1
-				lead := len(rest) - len(strings.TrimLeft(rest, " \t"))
-				valueStart += lead
-				value := rest[lead:]
-				value = strings.TrimRight(value, "\r\n")
-				value = trimTrailingComment(value)
-				return valueStart, valueStart + len(strings.TrimRight(value, " \t")), true
+		if l.header != "" {
+			// An array of tables is not a table PiCode writes into: its
+			// elements are user data the schema cannot address, and the reader
+			// reports the key unset, so a toggle would edit an arbitrary
+			// element forever (adversarial review, 2026-09-20).
+			if l.isArray {
+				current = "\x00array:" + l.header
+			} else {
+				current = l.header
 			}
+			continue
 		}
-		offset += len(line)
+		if current != table || strings.HasPrefix(strings.TrimSpace(l.text), "#") {
+			continue
+		}
+		name, rest, found := strings.Cut(l.text, "=")
+		if !found || strings.TrimSpace(name) != key {
+			continue
+		}
+		valueStart := l.offset + len(name) + 1
+		lead := len(rest) - len(strings.TrimLeft(rest, " \t"))
+		valueStart += lead
+		value := trimTrailingComment(strings.TrimRight(rest[lead:], "\r\n"))
+		return valueStart, valueStart + len(strings.TrimRight(value, " \t")), true
 	}
 	return 0, 0, false
 }
@@ -328,7 +350,9 @@ func trimTrailingComment(value string) string {
 	for i := 0; i < len(value); i++ {
 		c := value[i]
 		switch {
-		case inString && c == '\\':
+		// Only a basic string has escapes; a literal string does not, and
+		// treating its backslash as one swallowed a trailing comment.
+		case inString && quote == '"' && c == '\\':
 			i++
 		case inString && c == quote:
 			inString = false
@@ -341,49 +365,81 @@ func trimTrailingComment(value string) string {
 	return value
 }
 
-// yamlValueSpan walks indented blocks to the key the path names. Only inline
-// scalars are located; a key whose value is a block is reported as absent so
-// the writer refuses instead of mangling it.
-func yamlValueSpan(text []byte, path []string) (int, int, bool) {
+// yamlWalk locates the line that defines a dotted path. Matching is strict
+// about depth: the first segment sits at the document's own top indent, and
+// every next segment must sit inside the block its parent opened. Without
+// that, a same-named key nested somewhere else was mistaken for the one the
+// path names — `memory.memory_enabled` landed on `foo.memory.memory_enabled`
+// and left the real key untouched (adversarial review, 2026-09-20).
+//
+// Sequence entries are skipped: no declared key addresses a list element, and
+// walking into one is how a path starts meaning something else.
+func yamlWalk(text []byte, path []string) (lineStart int, line string, indent int, ok bool) {
+	if len(path) == 0 {
+		return 0, "", 0, false
+	}
 	lines := splitLines(string(text))
-	offset := 0
-	depth := 0
-	parentIndent := -1
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
-			offset += len(line)
+	offset, depth := 0, 0
+	parentIndent, levelIndent := -1, -1
+	for _, l := range lines {
+		trimmed := strings.TrimSpace(l)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") || strings.HasPrefix(trimmed, "-") || strings.HasPrefix(trimmed, "%") || trimmed == "---" || trimmed == "..." {
+			offset += len(l)
 			continue
 		}
-		indent := len(line) - len(strings.TrimLeft(line, " "))
-		if indent <= parentIndent && depth > 0 {
-			// Left the block we were descending into without a match.
-			return 0, 0, false
+		ind := len(l) - len(strings.TrimLeft(l, " \t"))
+		if ind <= parentIndent {
+			// Left the block the parent opened without finding the key.
+			return 0, "", 0, false
 		}
-		name, rest, found := strings.Cut(trimmed, ":")
+		if levelIndent >= 0 && ind != levelIndent {
+			// Deeper than this level's own members: not a candidate.
+			offset += len(l)
+			continue
+		}
+		name, _, found := strings.Cut(trimmed, ":")
 		if !found {
-			offset += len(line)
+			offset += len(l)
 			continue
 		}
-		if name != path[depth] {
-			offset += len(line)
+		if levelIndent < 0 {
+			levelIndent = ind
+		}
+		if strings.TrimSpace(name) != path[depth] {
+			offset += len(l)
 			continue
 		}
 		if depth == len(path)-1 {
-			value := strings.TrimRight(rest, "\r\n")
-			value = trimTrailingComment(value)
-			lead := len(value) - len(strings.TrimLeft(value, " \t"))
-			if strings.TrimSpace(value) == "" {
-				return 0, 0, false
-			}
-			valueStart := offset + (len(line) - len(strings.TrimLeft(line, " "))) + len(name) + 1 + lead
-			return valueStart, valueStart + len(strings.TrimRight(value[lead:], " \t")), true
+			return offset, l, ind, true
 		}
 		depth++
-		parentIndent = indent
-		offset += len(line)
+		parentIndent, levelIndent = ind, -1
+		offset += len(l)
 	}
-	return 0, 0, false
+	return 0, "", 0, false
+}
+
+// yamlValueSpan reports the bytes of an inline scalar. A key whose value is a
+// block (or a block scalar) is reported as absent, so the writer refuses
+// instead of mangling it.
+func yamlValueSpan(text []byte, path []string) (int, int, bool) {
+	lineStart, line, indent, ok := yamlWalk(text, path)
+	if !ok {
+		return 0, 0, false
+	}
+	name, rest, found := strings.Cut(strings.TrimSpace(line), ":")
+	if !found {
+		return 0, 0, false
+	}
+	value := trimTrailingComment(strings.TrimRight(rest, "\r\n"))
+	lead := len(value) - len(strings.TrimLeft(value, " \t"))
+	body := strings.TrimSpace(value)
+	// `key:` alone opens a block; `key: |` and `key: >` open a block scalar.
+	if body == "" || body == "|" || body == ">" || strings.HasPrefix(body, "|") || strings.HasPrefix(body, ">") || strings.HasPrefix(body, "&") || strings.HasPrefix(body, "*") {
+		return 0, 0, false
+	}
+	start := lineStart + indent + len(name) + 1 + lead
+	return start, start + len(strings.TrimRight(value[lead:], " \t")), true
 }
 
 // splitLines keeps the line terminators so offsets stay exact.

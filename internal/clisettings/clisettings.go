@@ -277,6 +277,17 @@ func Apply(cli string, p Paths, patch Patch) error {
 			return err
 		}
 	}
+	if ls.format == FormatTOML {
+		// An array of tables cannot hold a declared key: writing into an
+		// element would edit arbitrary user data, and creating a `[name]`
+		// table beside `[[name]]` is a duplicate TOML refuses to parse.
+		for _, key := range append(keysOf(patch.Set), patch.Reset...) {
+			p := byKey[key].path()
+			if len(p) > 1 && tomlArrayTable(raw, strings.Join(p[:len(p)-1], ".")) {
+				return fmt.Errorf("%s is a list of %s entries in this file, which PiCode does not edit; change it in %s", strings.Join(p[:len(p)-1], "."), strings.Join(p[:len(p)-1], "."), path)
+			}
+		}
+	}
 
 	text := raw
 	// Deterministic order so a multi-key save is reproducible in tests and in
@@ -365,4 +376,13 @@ func redact(f Field, v any) any {
 		return "••••••"
 	}
 	return v
+}
+
+func keysOf(m map[string]any) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }

@@ -25,11 +25,11 @@ in three incompatible shapes (probed on the owner's machine 2026-09-20):
 | CLI | Store | Shape |
 |---|---|---|
 | Claude Code | `~/.claude/projects/<slug>/memory/` | `MEMORY.md` index + one topic file per memory, YAML frontmatter |
-| Hermes | `~/.hermes/memories/` | `MEMORY.md` (2200 chars), `USER.md` (1375 chars) |
-| Omp | agent dir, backend `local` | `MEMORY.md`, `learned.md`, `skills/<n>/SKILL.md` |
+| Hermes | `~/.hermes/memories/` (present, empty here) | `MEMORY.md`, `USER.md`, capped by `memory_char_limit` / `user_char_limit` |
+| Omp | agent dir, backend `local` (off here, folder not documented) | `MEMORY.md`, `learned.md`, `skills/<n>/SKILL.md` per the vendor |
 | Muse Code | `<ws>/.agents/memory/` | markdown |
 | Grok | `~/.grok/memory-v2/{global,workspaces/<slug>}/` | generated `MEMORY.md` + `topics/` + `observations/` + two SQLite files |
-| Codex | `~/.codex/memories/` | git-backed `MEMORY.md`, `memory_summary.md`, `raw_memories.md`, plus `memories_*.sqlite` |
+| Codex | `~/.codex/memories/` | git-backed `MEMORY.md`, `memory_summary.md`, `raw_memories.md`, with `memories_*.sqlite` beside the folder |
 
 Pi and OpenCode have no native memory. Antigravity's CLI keeps conversation
 transcripts and knowledge items under `~/.gemini/`, but no vendor
@@ -56,7 +56,8 @@ parsed document and re-serialising, preserving every key and structure it
 does not touch. Unknown keys survive, writes are atomic (tmp + rename), the
 file is re-read immediately before the write and a file that changed
 underneath is refused. A file the parser rejects is reported and never
-overwritten without an explicit Replace. A CLI declares exactly the layers
+overwritten; the API takes a `force` flag for that case and no pane sends it
+yet. A CLI declares exactly the layers
 it has: a CLI with a single config file gets no layer switcher and no
 invented project scope. Pi keeps its existing editor, API and trust rules
 (ADR-0101) untouched; this decision amends only the Pi-only registry.
@@ -90,8 +91,10 @@ JSON editor for a CLI without a declared schema (ADR-0099 §5).
 
 ## Consequences
 
-Users get one settings surface across all nine CLIs and one place to see
-what their agents have remembered, without leaving the browser. Every CLI
+Users get one settings surface across the eight guest CLIs and one place to see
+what their agents have remembered, without leaving the browser. Coverage is
+uneven by design and the pane shows only what each CLI declares: Antigravity
+has a single scalar, OpenCode three, Muse four. Every CLI
 adds a declaration — paths, format, fields — and a golden-file test, and a
 vendor that renames a key breaks that row at read time, visibly, rather than
 silently writing a key the CLI ignores. PiCode becomes a second writer of

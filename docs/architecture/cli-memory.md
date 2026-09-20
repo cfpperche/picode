@@ -47,22 +47,29 @@ memory**, so both refuse instead:
   one repo shares it. `repoRoot` follows a worktree's `.git` pointer file back
   to the repository, and `slugify` reproduces the vendor's name (the absolute
   path with every non-alphanumeric turned into a hyphen). If
-  `autoMemoryDirectory` is set in the user's own settings, that wins —
+  `autoMemoryDirectory` is set in the user's own settings, that wins, bounded to
+  an absolute path inside the user's home: the memory pane reads and writes
+  whatever that names, so `/etc` would make it a file browser.
   `Paths.Setting` is the callback the server wires to `internal/clisettings`.
 - **Grok** hashes the workspace path into the folder name and stores the hash
-  nowhere readable. PiCode matches on the folder name and reports *unresolved*
-  when the match is not unique.
+  nowhere readable. PiCode matches `<folder>-<hash>` anchored on the hash and
+  reports *unresolved* when the match is not unique. A bare prefix made
+  `picode` match `picode-companion-…`, so this repository's own pane was dark.
 
 A store PiCode cannot resolve reports `resolved: false` with one line saying
 why, and `List` / `Read` refuse rather than falling back to another folder.
 
 ## Reading is bounded, and masked
 
-`List` walks one folder, `*.md` only, at most 500 entries, and reads the first
+`List` walks one folder, ordinary `*.md` files only — a symlink or a FIFO named
+`notes.md` is skipped, because one was opened and its first line published and
+the other hung the pane — at most 500 entries, and reads the first
 4 KB of each file for its frontmatter `type`, its `description` and the
-generated banner. `Read` refuses a file over 512 KB and points at the Files
-view instead. Paths are resolved inside the store: a traversal, an absolute
-path and a symlink out are all refused.
+generated banner. `Read` refuses anything that is not an ordinary file (a pseudo-file and a device
+node both report size 0 and walked past the size guard) and a file over 512 KB,
+pointing at the Files view instead. Paths are resolved inside the store against
+its **deepest existing ancestor**, so a traversal, an absolute path and a
+symlink out are refused on writes and creations too, not only on reads.
 
 Memory holds whatever the agent learned, and an agent shown a token can have
 written it down. `mask` (`internal/climemory/mask.go`) replaces
@@ -96,8 +103,10 @@ keep the file's mode.
 
 ## The toggle is a setting
 
-Every store's on/off switch is a key in that CLI's own config, so the pane's
-toggle is a settings write, not a second mechanism:
+Four of the six stores have an on/off switch in that CLI's own config. The pane
+does not own a toggle: it links to Settings, where the key is edited like any
+other. Grok's switch is a launch flag (`--experimental-memory`) and Muse's is a
+runtime capability, so neither has a key to link to.
 
 | CLI | Key |
 |---|---|
