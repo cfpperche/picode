@@ -25,7 +25,19 @@ never depends on the socket — closing the tab ends only the attach.
 session id (used by restart-same-mode and the explicit dead-pane recovery).
 `PasteText` types text into a pane as a bracketed paste plus Enter — the
 ADR-0060 reply fallback. `PaneCommand` and `PaneSessionID` verify transitions. Resize propagates
-via `TIOCSWINSZ` on the attach PTY. Requires tmux ≥ 3.5; **3.7 or newer is
+via `TIOCSWINSZ` on the attach PTY.
+
+A project shell's child is `$SHELL` when it names an executable file, else
+`/bin/bash`, else `/bin/sh` — the daemon often has no `SHELL` at all
+(systemd, a container, a test binary), and `/bin/sh` is dash on
+Debian-family systems, where the intercept rcfile is not a valid argument:
+`ensureShell` passes `--rcfile` only when the shell resolves to bash
+(measured 2026-09-20 — dash answered `Illegal option --`, the pane died
+before its first prompt, a server with nothing else on it followed under
+`exit-empty`, and `new-session` still answered 0 while the API reported a
+live terminal). Creation now verifies the session is alive before it
+answers: a shell that exits at once is a 500 naming the shell, not a
+terminal that never lived. Requires tmux ≥ 3.5; **3.7 or newer is
 required to overlay anything on the panes** (floating panes; 3.8 adds modal
 ones), and what matters is the *server's* version — `tmux -V` reports the
 client binary, and after an upgrade the old server keeps interpreting the

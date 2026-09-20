@@ -1224,8 +1224,9 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 	if err != nil {
 		return nil, err
 	}
-	fmt.Fprintf(&body, "exec %s", shellQuote(defaultShell()))
-	if base := filepath.Base(defaultShell()); base == "bash" {
+	shell := defaultShell()
+	fmt.Fprintf(&body, "exec %s", shellQuote(shell))
+	if shellTakesRcfile(shell) {
 		fmt.Fprintf(&body, " --rcfile %s", shellQuote(rc))
 	}
 	body.WriteByte('\n')

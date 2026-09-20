@@ -513,3 +513,105 @@ func TestCreatedTerminalAnswersWithItsOwnFolder(t *testing.T) {
 		}
 	}
 }
+
+// A daemon with no SHELL — systemd, a container, a test binary — used to run
+// terminals on /bin/sh and hand it `--rcfile`, which dash (what /bin/sh is on
+// Debian-family systems) rejects with "Illegal option --": the pane exited
+// before anyone saw it, a server with nothing else on it exited with the
+// session under exit-empty, and the API still answered 201 running:true while
+// every later tmux call said "no server running" (measured 2026-09-20). The
+// fallback is bash, and the session must be alive when create answers.
+func TestTerminalOpensALiveSessionWithoutShell(t *testing.T) {
+	ts, _, home := cleanupServer(t)
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	t.Setenv("SHELL", "")
+	if got := defaultShell(); got != bashFallback {
+		t.Fatalf("defaultShell() = %q, want the bash fallback %q", got, bashFallback)
+	}
+	// A SHELL that names nothing is not a shell: the pane would die on exec,
+	// which is the same silent death this fallback exists to stop.
+	t.Setenv("SHELL", filepath.Join(t.TempDir(), "no-such-shell"))
+	if got := defaultShell(); got != bashFallback {
+		t.Fatalf("defaultShell() with a bogus SHELL = %q, want the bash fallback %q", got, bashFallback)
+	}
+	t.Setenv("SHELL", "")
+	if got := defaultShell(); got != bashFallback {
+		t.Fatalf("defaultShell() = %q, want the bash fallback %q", got, bashFallback)
+	}
+	made := postJSON(t, ts, "/api/terminals", map[string]any{"cwd": home})
+	defer made.Body.Close()
+	if made.StatusCode != http.StatusCreated {
+		t.Fatalf("create = %d", made.StatusCode)
+	}
+	var page map[string]any
+	_ = json.NewDecoder(made.Body).Decode(&page)
+	sess, _ := page["session"].(string)
+	t.Cleanup(func() { _ = tmux.New().KillSession(context.Background(), sess) })
+	if live, err := tmux.New().HasSession(context.Background(), sess); err != nil || !live {
+		t.Fatalf("session %s is not live after create (running=%v, err=%v)", sess, page["running"], err)
+	}
+}
+
+// The counterpart: a shell that exits at once is refused loudly. tmux answers
+// 0 for a pane that died in the same breath, so without the verification the
+// row would survive as a terminal that never lived.
+func TestTerminalRefusesAShellThatExitsAtOnce(t *testing.T) {
+	ts, _, home := cleanupServer(t)
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	goner := filepath.Join(t.TempDir(), "goner")
+	if err := os.WriteFile(goner, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SHELL", goner)
+	res := postJSON(t, ts, "/api/terminals", map[string]any{"cwd": home})
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("create = %d, want 500 — a terminal that never lived is not a terminal", res.StatusCode)
+	}
+	listed := do(t, ts.Client(), mustGet(t, ts.URL+"/api/terminals"))
+	var bag map[string]any
+	_ = json.NewDecoder(listed.Body).Decode(&bag)
+	listed.Body.Close()
+	if rows, _ := bag["terminals"].([]any); len(rows) != 0 {
+		t.Fatalf("terminals = %d, want the refused row rolled back", len(rows))
+	}
+}
+
+// The rcfile flag is bash's; /bin/sh is the ambiguous case (dash on Debian,
+// bash on macOS), so the answer follows the symlink chain rather than the name.
+func TestShellTakesRcfileFollowsTheSymlinkChain(t *testing.T) {
+	dir := t.TempDir()
+	bash := filepath.Join(dir, "bash")
+	dash := filepath.Join(dir, "dash")
+	for _, p := range []string{bash, dash} {
+		if err := os.WriteFile(p, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	shToDash := filepath.Join(dir, "sh")
+	shToBash := filepath.Join(dir, "sh2")
+	if err := os.Symlink(dash, shToDash); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(bash, shToBash); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		shell string
+		want  bool
+	}{
+		{bash, true},
+		{dash, false},
+		{shToBash, true},
+		{shToDash, false},
+		{filepath.Join(dir, "gone"), false},
+	} {
+		if got := shellTakesRcfile(tc.shell); got != tc.want {
+			t.Errorf("shellTakesRcfile(%s) = %v, want %v", tc.shell, got, tc.want)
+		}
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -31,11 +32,42 @@ func registerTerminalRoutes(mux Registrar, deps Deps) {
 	registerTermPromptRoutes(mux, deps)
 }
 
+// defaultShell is the shell a new terminal runs. $SHELL wins when it names a
+// file that exists — a daemon started by systemd, a container or a test
+// binary has no SHELL at all, and this used to fall back to /bin/sh, which on
+// Debian-family systems is dash: the pane then died on the first argument
+// (measured 2026-09-20, see shellTakesRcfile) and took the tmux server with
+// it under exit-empty, while the API reported a live terminal. bash is the
+// fallback because the intercept rcfile and the rc the CLI wrappers expect
+// are bash's.
 func defaultShell() string {
 	if s := strings.TrimSpace(os.Getenv("SHELL")); s != "" {
-		return s
+		if st, err := os.Stat(s); err == nil && !st.IsDir() && st.Mode()&0o111 != 0 {
+			return s
+		}
+	}
+	if st, err := os.Stat(bashFallback); err == nil && !st.IsDir() && st.Mode()&0o111 != 0 {
+		return bashFallback
 	}
 	return "/bin/sh"
+}
+
+const bashFallback = "/bin/bash"
+
+// shellTakesRcfile reports whether `shell --rcfile <file>` is a command the
+// shell will accept. bash is the only shell here that reads a replacement rc
+// file by that flag: dash (what /bin/sh is on Debian and Ubuntu) exits with
+// "Illegal option --" and status 2, so a pane given one dies before the user
+// sees it. Symlinks are resolved because /bin/sh is exactly the ambiguous
+// case — dash on Debian, bash on macOS, busybox elsewhere.
+func shellTakesRcfile(shell string) bool {
+	if filepath.Base(shell) == "bash" {
+		return true
+	}
+	if resolved, err := filepath.EvalSymlinks(shell); err == nil {
+		return filepath.Base(resolved) == "bash"
+	}
+	return false
 }
 
 func termView(t store.Terminal, session string, live bool) map[string]any {
@@ -519,14 +551,21 @@ func ensureShell(deps Deps, r *http.Request, name, termID, cwd string) (bool, er
 		}
 		cmd := defaultShell()
 		var args []string
-		base := filepath.Base(cmd)
-		if base == "bash" || base == "sh" {
+		if shellTakesRcfile(cmd) {
 			if rc, err := ensureInterceptBashrc(deps.DataDir); err == nil {
 				args = append(args, "--rcfile", rc)
 			}
 		}
 		if err := deps.Tmux.NewSessionEnv(r.Context(), name, cwd, env, cmd, args...); err != nil {
 			return false, err
+		}
+		// A pane whose command exits at once takes its session with it, and a
+		// server with nothing else on it exits too (exit-empty) — while
+		// new-session answers 0. Verify, or this reports a terminal that
+		// never lived and every later tmux call answers "no server running"
+		// (measured 2026-09-20: dash given --rcfile).
+		if live, err := deps.Tmux.HasSession(r.Context(), name); err != nil || !live {
+			return false, fmt.Errorf("The shell exited immediately (%s). Set SHELL to a shell that exists, or check the daemon's environment.", cmd)
 		}
 	}
 	// Everything PiCode manages — status bar, passthrough, mouse, extended
