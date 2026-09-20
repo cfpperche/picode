@@ -979,6 +979,14 @@ func launchIdentityEnv(deps Deps, termID string) []string {
 	return env
 }
 
+// ompAgentSessionDir is durable across terminal generations, but lives in
+// PiCode's data directory so it is owned by the workspace agent rather than
+// by Omp's shared default home. The directory contains transcripts only;
+// Omp authentication and configuration remain in the user's normal profile.
+func ompAgentSessionDir(dataDir, agentID string) string {
+	return filepath.Join(dataDir, "omp-sessions", agentID)
+}
+
 type preparedCLILaunch struct {
 	dir, script, id string
 	environment     []string
@@ -1017,6 +1025,18 @@ func prepareCLITerminal(deps Deps, cwd string, v *store.TerminalLaunch) (*prepar
 				c.Env[k] = value
 			}
 			c.Env["PICODE_DATA"] = deps.DataDir
+		}
+	}
+	// Omp exposes a native session-storage boundary. Keep each workspace
+	// agent's `/resume` picker inside its own durable directory, while leaving
+	// Omp's shared auth/configuration untouched. Free-standing Omp terminals
+	// retain the vendor default because they have no agent owner to scope.
+	if cli.ID == "omp" {
+		if a, e := deps.Store.AgentByTerminal(v.TerminalID); e == nil && a.CLI == "omp" {
+			if err := os.MkdirAll(ompAgentSessionDir(deps.DataDir, a.ID), 0o700); err != nil {
+				return nil, err
+			}
+			c.Args = append(c.Args, "--session-dir", ompAgentSessionDir(deps.DataDir, a.ID))
 		}
 	}
 	root := filepath.Join(deps.DataDir, "cli-launch", v.TerminalID)

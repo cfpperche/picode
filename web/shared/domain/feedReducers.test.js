@@ -248,6 +248,10 @@ test("fleet: git.updated patches the pills in place", () => {
   // Unknown path: untouched, not a refetch signal.
   const miss = applyFleet(state, { type: "git.updated", data: { path: "/elsewhere", branch: "x" } });
   assert.equal(miss, state);
+  // A linked worktree's path-only event (branch + dirty, no ids) is a miss
+  // too: pills describe the anchor folder, never the sibling checkout.
+  const sibling = applyFleet(state, { type: "git.updated", data: { path: "/repo/.worktrees/side", branch: "side", dirty: 3, worktree: "side" } });
+  assert.equal(sibling, state);
 });
 
 test("snips: create, patch, delete; unknown update refetches", () => {

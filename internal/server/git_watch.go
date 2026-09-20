@@ -20,12 +20,15 @@ import (
 // tmux state, their pills still refresh with the fleet. Linked worktrees
 // of watched repositories are watched too (bounded per repo): the
 // Inspector follows dirty siblings, so their folders are read like any
-// anchor and their changes must arrive the same way.
+// anchor and their changes must arrive the same way — as path-only events
+// that speak for no pill.
 func StartGitWatch(ctx context.Context, deps Deps, every time.Duration) {
 	if deps.Feed == nil || deps.Store == nil {
 		return
 	}
 	prev := map[string]string{}
+	wtKnown := map[string][]string{}
+	var tick uint
 	t := time.NewTicker(every)
 	defer t.Stop()
 	for {
@@ -34,22 +37,31 @@ func StartGitWatch(ctx context.Context, deps Deps, every time.Duration) {
 			return
 		case <-t.C:
 		}
-		prev = gitWatchTick(deps, prev)
+		tick++
+		prev, wtKnown = gitWatchTick(deps, prev, wtKnown, tick%worktreeRelistEvery == 0)
 	}
 }
 
+// worktreeRelistEvery is how often a listing pass re-runs `git worktree
+// list`: the set changes only when a checkout is added or removed, so the
+// per-tick work is the Inspects, not the listings. An anchor with no known
+// worktrees still lists every tick — the listing is milliseconds, and a
+// fresh `git worktree add` must be watched from its next tick.
+const worktreeRelistEvery = 10
+
 // gitWatchTick is one pass of the watcher: inspect every watched directory,
 // publish one ephemeral git.updated per changed path, and hand back the keys
-// the next pass compares against. The state is the caller's map rather than a
-// field so a test can drive two passes with a store that changed in between.
-func gitWatchTick(deps Deps, prev map[string]string) map[string]string {
+// the next pass compares against plus the worktree sets it listed. The state
+// is the caller's maps rather than fields so a test can drive two passes
+// with a store that changed in between.
+func gitWatchTick(deps Deps, prev map[string]string, wtKnown map[string][]string, relist bool) (map[string]string, map[string][]string) {
 	workspaces, err := deps.Store.ListWorkspaces()
 	if err != nil {
-		return prev
+		return prev, wtKnown
 	}
 	agents, err := deps.Store.ListAllAgents()
 	if err != nil {
-		return prev
+		return prev, wtKnown
 	}
 
 	// Group by path: one Inspect per directory, one event per changed
@@ -84,15 +96,38 @@ func gitWatchTick(deps Deps, prev map[string]string) map[string]string {
 		}
 		cur[path] = key
 	}
-	// A linked worktree speaks with its anchor's group: it is that
-	// workspace's and that agent's repository family, and no pill names it.
+	// A linked worktree is watched for path-matching readers (the
+	// Inspector's followed groups) only: its event carries no ids, so the
+	// fleet reducer leaves the anchor's pills alone. Carrying the anchor's
+	// group here once overwrote every pill with the sibling's branch.
 	wtAnchor := map[string]string{}
+	wtNext := map[string][]string{}
 	for _, path := range paths {
 		if infos[path] == nil {
 			continue
 		}
-		for _, wt := range linkedWorktreePaths(path) {
+		known, cached := wtKnown[path]
+		if !cached || relist || len(known) == 0 {
+			known = linkedWorktreePaths(path)
+		}
+		wtNext[path] = known
+		for _, wt := range known {
 			if dup := watchedDir(cur, wt); dup {
+				// Also watched under the anchor's own spelling (an
+				// agent bound inside this checkout): key the git
+				// spelling too, with the same key — readers know it
+				// under the name gitstatus gave them, which need not
+				// be the registered path's spelling.
+				for existing := range cur {
+					if sameDir(existing, wt) {
+						cur[wt] = cur[existing]
+						if info, has := infos[existing]; has {
+							infos[wt] = info
+						}
+						wtAnchor[wt] = path
+						break
+					}
+				}
 				continue
 			}
 			var key string
@@ -113,8 +148,8 @@ func gitWatchTick(deps Deps, prev map[string]string) map[string]string {
 		// workspace" until 2026-09-13.
 		g, ok := groups[path]
 		if !ok {
-			if anchor, isWT := wtAnchor[path]; isWT {
-				g, ok = groups[anchor]
+			if _, isWT := wtAnchor[path]; isWT {
+				g, ok = &gitGroup{}, true
 			}
 		}
 		if !ok {
@@ -128,7 +163,7 @@ func gitWatchTick(deps Deps, prev map[string]string) map[string]string {
 		}
 		deps.Feed.Ephemeral("git.updated", data)
 	}
-	return cur
+	return cur, wtNext
 }
 
 type gitGroup struct {

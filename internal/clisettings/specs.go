@@ -1,0 +1,192 @@
+package clisettings
+
+import "path/filepath"
+
+// The declarations. Every key below is the vendor's own name, verified on
+// 2026-09-20 against the config files of the nine CLIs installed on the
+// owner's machine, or against the vendor documentation fetched the same day
+// where the key was absent from the local file. A key PiCode could not verify
+// is not declared: a control that writes a name the CLI ignores is worse than
+// no control (the 2026-09-17 launch-presets rule, applied to files).
+//
+// Pi is absent on purpose. It keeps its own editor, API, layers and trust
+// rules (ADR-0101); ADR-0163 amends only the registry that said Pi was the
+// single CLI with any editor at all.
+
+const (
+	groupModel    = "Model"
+	groupApproval = "Approvals"
+	groupMemory   = "Memory"
+	groupSurface  = "Interface"
+	groupUpdates  = "Updates"
+)
+
+func opts(pairs ...[2]string) []Option {
+	out := make([]Option, 0, len(pairs))
+	for _, p := range pairs {
+		out = append(out, Option{Value: p[0], Label: p[1]})
+	}
+	return out
+}
+
+func plain(values ...string) []Option {
+	out := make([]Option, 0, len(values))
+	for _, v := range values {
+		out = append(out, Option{Value: v, Label: v})
+	}
+	return out
+}
+
+func userFile(parts ...string) func(Paths) string {
+	return func(p Paths) string { return filepath.Join(append([]string{p.home()}, parts...)...) }
+}
+
+func projectFile(parts ...string) func(Paths) string {
+	return func(p Paths) string {
+		if p.Cwd == "" {
+			return ""
+		}
+		return filepath.Join(append([]string{p.Cwd}, parts...)...)
+	}
+}
+
+var catalog = []spec{
+	{
+		id: "claude-code",
+		layers: []layerSpec{
+			{scope: "user", label: "This machine", format: FormatJSON, file: userFile(".claude", "settings.json")},
+			{scope: "project", label: "This workspace", format: FormatJSON, file: projectFile(".claude", "settings.json")},
+		},
+		fields: []Field{
+			{Key: "model", Label: "Model", Kind: KindText, Group: groupModel, Fallback: "Claude Code default", Help: "Alias or full model id."},
+			{Key: "permissions.defaultMode", Label: "Approvals", Kind: KindSelect, Group: groupApproval, Fallback: "Ask before edits", Options: opts(
+				[2]string{"default", "Ask before edits"},
+				[2]string{"acceptEdits", "Edit automatically"},
+				[2]string{"plan", "Plan only"},
+				[2]string{"bypassPermissions", "Skip all prompts"},
+			), Danger: "bypassPermissions", DangerNote: "Runs without permission prompts. For containers or disposable VMs."},
+			{Key: "autoMemoryEnabled", Label: "Auto memory", Kind: KindBool, Group: groupMemory, Fallback: "On", Help: "Claude writes its own notes between sessions."},
+			{Key: "autoMemoryDirectory", Label: "Memory folder", Kind: KindText, Group: groupMemory, Fallback: "~/.claude/projects/<project>/memory", Help: "Where those notes are kept."},
+			{Key: "cleanupPeriodDays", Label: "Keep transcripts for", Kind: KindNumber, Group: groupUpdates, Fallback: "30 days", Help: "Days before old session transcripts are removed. Memory files are never swept."},
+		},
+	},
+	{
+		id: "codex",
+		// Codex reads one file. There is no per-workspace config, so the pane
+		// shows no layer switcher rather than an empty second tab.
+		layers: []layerSpec{
+			{scope: "user", label: "This machine", format: FormatTOML, file: userFile(".codex", "config.toml")},
+		},
+		fields: []Field{
+			{Key: "model", Label: "Model", Kind: KindText, Group: groupModel, Fallback: "Codex default"},
+			{Key: "model_reasoning_effort", Label: "Reasoning effort", Kind: KindSelect, Group: groupModel, Fallback: "Codex default", Options: plain("minimal", "low", "medium", "high", "xhigh")},
+			{Key: "approval_policy", Label: "Approvals", Kind: KindSelect, Group: groupApproval, Fallback: "Codex default", Options: opts(
+				[2]string{"untrusted", "Ask before untrusted commands"},
+				[2]string{"on-request", "Ask when the agent requests"},
+				[2]string{"on-failure", "Ask after a command fails"},
+				[2]string{"never", "Never ask"},
+			), Danger: "never", DangerNote: "The agent runs commands without asking."},
+			{Key: "sandbox_mode", Label: "Sandbox", Kind: KindSelect, Group: groupApproval, Fallback: "Codex default", Options: opts(
+				[2]string{"read-only", "Read only"},
+				[2]string{"workspace-write", "Write inside the workspace"},
+				[2]string{"danger-full-access", "Full access"},
+			), Danger: "danger-full-access", DangerNote: "No sandbox: full file and network access."},
+			{Key: "features.memories", Label: "Memories", Kind: KindBool, Group: groupMemory, Fallback: "Off", Help: "Codex turns finished chats into local notes."},
+			{Key: "memories.generate_memories", Label: "Write new memories", Kind: KindBool, Group: groupMemory, Fallback: "On while memories are on"},
+			{Key: "memories.use_memories", Label: "Read memories back", Kind: KindBool, Group: groupMemory, Fallback: "On while memories are on"},
+		},
+	},
+	{
+		id: "grok",
+		layers: []layerSpec{
+			{scope: "user", label: "This machine", format: FormatTOML, file: userFile(".grok", "config.toml")},
+			{scope: "project", label: "This workspace", format: FormatTOML, file: projectFile(".grok", "config.toml")},
+		},
+		fields: []Field{
+			{Key: "models.default", Label: "Model", Kind: KindText, Group: groupModel, Fallback: "Grok default"},
+			{Key: "models.default_reasoning_effort", Label: "Reasoning effort", Kind: KindText, Group: groupModel, Fallback: "Grok default", Help: "Effort level; the range depends on the model."},
+			{Key: "ui.permission_mode", Label: "Approvals", Kind: KindSelect, Group: groupApproval, Fallback: "Grok default", Options: opts(
+				[2]string{"default", "Ask before edits"},
+				[2]string{"acceptEdits", "Edit automatically"},
+				[2]string{"plan", "Plan only"},
+				[2]string{"always-approve", "Approve everything"},
+			), Danger: "always-approve", DangerNote: "Edits and commands go through without a prompt."},
+			{Key: "ui.yolo", Label: "Auto-approve tools", Kind: KindBool, Group: groupApproval, Fallback: "Off", Danger: "true", DangerNote: "Every tool call is approved without asking."},
+			{Key: "ui.compact_mode", Label: "Compact display", Kind: KindBool, Group: groupSurface, Fallback: "Off"},
+			{Key: "cli.auto_update", Label: "Update automatically", Kind: KindBool, Group: groupUpdates, Fallback: "On"},
+		},
+	},
+	{
+		id: "hermes",
+		layers: []layerSpec{
+			{scope: "user", label: "This machine", format: FormatYAML, file: userFile(".hermes", "config.yaml")},
+		},
+		fields: []Field{
+			{Key: "model.default", Label: "Model", Kind: KindText, Group: groupModel, Fallback: "Hermes default"},
+			{Key: "model.provider", Label: "Provider", Kind: KindText, Group: groupModel, Fallback: "Hermes default"},
+			{Key: "agent.max_turns", Label: "Turn limit", Kind: KindNumber, Group: groupApproval, Fallback: "Hermes default", Help: "How many turns one run may take before it stops."},
+			{Key: "display.compact", Label: "Compact display", Kind: KindBool, Group: groupSurface, Fallback: "Off"},
+			{Key: "display.show_reasoning", Label: "Show reasoning", Kind: KindBool, Group: groupSurface, Fallback: "Off"},
+			{Key: "memory.memory_enabled", Label: "Agent notes", Kind: KindBool, Group: groupMemory, Fallback: "On", Help: "What Hermes learned about this environment."},
+			{Key: "memory.user_profile_enabled", Label: "Profile of you", Kind: KindBool, Group: groupMemory, Fallback: "On"},
+			{Key: "memory.memory_char_limit", Label: "Notes size limit", Kind: KindNumber, Group: groupMemory, Fallback: "2200 characters"},
+			{Key: "memory.user_char_limit", Label: "Profile size limit", Kind: KindNumber, Group: groupMemory, Fallback: "1375 characters"},
+		},
+	},
+	{
+		id: "opencode",
+		layers: []layerSpec{
+			{scope: "user", label: "This machine", format: FormatJSONC, file: userFile(".config", "opencode", "opencode.json")},
+			{scope: "project", label: "This workspace", format: FormatJSONC, file: projectFile("opencode.json")},
+		},
+		fields: []Field{
+			{Key: "model", Label: "Model", Kind: KindText, Group: groupModel, Fallback: "OpenCode default", Help: "In provider/model form."},
+			{Key: "theme", Label: "Theme", Kind: KindText, Group: groupSurface, Fallback: "OpenCode default"},
+			{Key: "autoupdate", Label: "Update automatically", Kind: KindBool, Group: groupUpdates, Fallback: "On"},
+		},
+	},
+	{
+		id: "muse",
+		layers: []layerSpec{
+			{scope: "user", label: "This machine", format: FormatJSON, file: userFile(".config", "muse", "settings.json")},
+		},
+		fields: []Field{
+			{Key: "model", Label: "Model", Kind: KindText, Group: groupModel, Fallback: "Muse Code default"},
+			{Key: "provider", Label: "Provider", Kind: KindText, Group: groupModel, Fallback: "Muse Code default"},
+			{Key: "reasoning_effort", Label: "Reasoning effort", Kind: KindText, Group: groupModel, Fallback: "Muse Code default"},
+			{Key: "permissions.default_profile", Label: "Permission profile", Kind: KindText, Group: groupApproval, Fallback: "Muse Code default"},
+		},
+	},
+	{
+		id: "agy",
+		// Antigravity keeps one settings file whose other keys are structures
+		// PiCode must not touch: `title` is the reporter PiCode itself
+		// installs, `trustedWorkspaces` is a list the CLI maintains. One
+		// declared scalar is thin, and it is what is true.
+		layers: []layerSpec{
+			{scope: "user", label: "This machine", format: FormatJSON, file: userFile(".gemini", "antigravity-cli", "settings.json")},
+		},
+		fields: []Field{
+			{Key: "model", Label: "Model", Kind: KindText, Group: groupModel, Fallback: "Antigravity default"},
+		},
+	},
+	{
+		id: "omp",
+		layers: []layerSpec{
+			{scope: "user", label: "This machine", format: FormatYAML, file: userFile(".omp", "agent", "config.yml")},
+			{scope: "project", label: "This workspace", format: FormatYAML, file: projectFile(".omp", "config.yml")},
+		},
+		fields: []Field{
+			{Key: "modelRoles.default", Label: "Model", Kind: KindText, Group: groupModel, Fallback: "Omp default"},
+			{Key: "memory.backend", Label: "Memory", Kind: KindSelect, Group: groupMemory, Fallback: "Off", Options: opts(
+				[2]string{"off", "Off"},
+				[2]string{"local", "On this machine"},
+				[2]string{"hindsight", "Hindsight server"},
+				[2]string{"mnemopi", "Mnemopi"},
+				[2]string{"sharpshooter", "Sharpshooter"},
+			), Help: "Where Omp keeps what it learns between sessions."},
+			{Key: "symbolPreset", Label: "Symbols", Kind: KindText, Group: groupSurface, Fallback: "Omp default"},
+			{Key: "theme.dark", Label: "Dark theme", Kind: KindText, Group: groupSurface, Fallback: "Omp default"},
+		},
+	},
+}

@@ -100,7 +100,7 @@ func TestGitWatchTickSurvivesARemovedWorkspace(t *testing.T) {
 	}
 
 	// First pass: the new folder's git state is news.
-	prev := gitWatchTick(deps, nil)
+	prev, wtKnown := gitWatchTick(deps, nil, nil, true)
 	if len(got) != 1 {
 		t.Fatalf("first pass published %d event(s), want 1: %+v", len(got), got)
 	}
@@ -110,7 +110,7 @@ func TestGitWatchTickSurvivesARemovedWorkspace(t *testing.T) {
 
 	// Second pass on an unchanged store: nothing moved, nothing said.
 	got = nil
-	prev = gitWatchTick(deps, prev)
+	prev, wtKnown = gitWatchTick(deps, prev, wtKnown, true)
 	if len(got) != 0 {
 		t.Fatalf("an unchanged pass published %+v, want nothing", got)
 	}
@@ -121,7 +121,7 @@ func TestGitWatchTickSurvivesARemovedWorkspace(t *testing.T) {
 		t.Fatalf("remove workspace: removed=%v err=%v", removed, err)
 	}
 	got = nil
-	prev = gitWatchTick(deps, prev)
+	prev, wtKnown = gitWatchTick(deps, prev, wtKnown, true)
 	if len(got) != 0 {
 		t.Fatalf("a removed workspace published %+v, want nothing (the removed event carries it)", got)
 	}
@@ -132,7 +132,7 @@ func TestGitWatchTickSurvivesARemovedWorkspace(t *testing.T) {
 	// And the next pass is a clean slate: the path is not remembered as a
 	// change to announce.
 	got = nil
-	gitWatchTick(deps, prev)
+	gitWatchTick(deps, prev, wtKnown, true)
 	if len(got) != 0 {
 		t.Fatalf("the pass after removal published %+v, want nothing", got)
 	}
@@ -146,8 +146,7 @@ func TestGitWatchTickPublishesLinkedWorktreeChanges(t *testing.T) {
 	repo := gitRepo(t)
 	side := filepath.Join(t.TempDir(), "side")
 	gitRun(t, repo, "worktree", "add", "-b", "side", side)
-	ws, err := st.AddWorkspace("watched", repo)
-	if err != nil {
+	if _, err := st.AddWorkspace("watched", repo); err != nil {
 		t.Fatalf("add workspace: %v", err)
 	}
 	f := &feed.Feed{Store: st}
@@ -155,24 +154,35 @@ func TestGitWatchTickPublishesLinkedWorktreeChanges(t *testing.T) {
 	f.Listen(func(ev store.Event) { got = append(got, ev) })
 	deps := Deps{Store: st, Feed: f}
 
-	prev := gitWatchTick(deps, nil)
+	prev, wtKnown := gitWatchTick(deps, nil, nil, true)
 	if paths := gitUpdatedPaths(t, got); !(paths[canonDir(repo)] && paths[canonDir(side)]) {
 		t.Fatalf("first pass published %v, want the anchor and its sibling", paths)
 	}
-	// The sibling speaks with the anchor's group.
+	// The sibling speaks for no pill: carrying the anchor's ids would let
+	// the fleet reducer overwrite the workspace's and agents' pills with
+	// the sibling's branch. Path-matching readers (the Inspector's
+	// followed groups) still match on the path.
+	sawSibling := false
 	for _, ev := range got {
 		var data struct {
 			Path         string   `json:"path"`
 			WorkspaceIDs []string `json:"workspaceIds"`
+			AgentIDs     []string `json:"agentIds"`
 		}
 		_ = json.Unmarshal(ev.Data, &data)
-		if sameDir(data.Path, side) && (len(data.WorkspaceIDs) != 1 || data.WorkspaceIDs[0] != ws.ID) {
-			t.Fatalf("sibling event carries %+v, want the anchor workspace", data.WorkspaceIDs)
+		if sameDir(data.Path, side) {
+			sawSibling = true
+			if len(data.WorkspaceIDs) != 0 || len(data.AgentIDs) != 0 {
+				t.Fatalf("sibling event carries ids %+v/%+v, want none", data.WorkspaceIDs, data.AgentIDs)
+			}
 		}
+	}
+	if !sawSibling {
+		t.Fatalf("no sibling event among %+v", got)
 	}
 
 	got = nil
-	prev = gitWatchTick(deps, prev)
+	prev, wtKnown = gitWatchTick(deps, prev, wtKnown, true)
 	if len(got) != 0 {
 		t.Fatalf("an unchanged pass published %+v, want nothing", got)
 	}
@@ -181,7 +191,7 @@ func TestGitWatchTickPublishesLinkedWorktreeChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	got = nil
-	gitWatchTick(deps, prev)
+	gitWatchTick(deps, prev, wtKnown, true)
 	paths := gitUpdatedPaths(t, got)
 	if len(paths) != 1 || !paths[canonDir(side)] {
 		t.Fatalf("sibling dirty flip published %v, want only the sibling", paths)
@@ -204,4 +214,91 @@ func gitUpdatedPaths(t *testing.T, evs []store.Event) map[string]bool {
 		out[canonDir(data.Path)] = true
 	}
 	return out
+}
+
+// A checkout watched under two spellings (an agent bound inside it through
+// a symlink) still publishes under the name git gives it: path-matching
+// readers know the worktree under the gitstatus spelling, not the
+// registered one.
+func TestGitWatchTickWorktreeAliasUnderSecondSpelling(t *testing.T) {
+	st := testStore(t)
+	repo := gitRepo(t)
+	side := filepath.Join(t.TempDir(), "side")
+	gitRun(t, repo, "worktree", "add", "-b", "side", side)
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(side, link); err != nil {
+		t.Fatal(err)
+	}
+	ws, err := st.AddWorkspace("watched", repo)
+	if err != nil {
+		t.Fatalf("add workspace: %v", err)
+	}
+	if _, err := st.AddAgent(ws.ID, "Side", link); err != nil {
+		t.Fatalf("add agent: %v", err)
+	}
+	f := &feed.Feed{Store: st}
+	var got []store.Event
+	f.Listen(func(ev store.Event) { got = append(got, ev) })
+	deps := Deps{Store: st, Feed: f}
+
+	_, _ = gitWatchTick(deps, nil, nil, true)
+	// Raw spellings, not canonical dirs: both names must be published,
+	// and canonDir would collapse them into one key.
+	raw := map[string]bool{}
+	for _, ev := range got {
+		var data struct {
+			Path string `json:"path"`
+		}
+		if err := json.Unmarshal(ev.Data, &data); err != nil {
+			t.Fatal(err)
+		}
+		raw[data.Path] = true
+	}
+	if !raw[side] {
+		t.Fatalf("first pass published %v, want the git spelling too", raw)
+	}
+	if !raw[link] {
+		t.Fatalf("first pass published %v, want the anchor spelling too", raw)
+	}
+}
+
+// The worktree set is listed on listing passes only; an anchor with no
+// known worktrees still lists every tick, so a fresh `git worktree add`
+// is watched from its next tick.
+func TestGitWatchTickCachesWorktreeList(t *testing.T) {
+	st := testStore(t)
+	repo := gitRepo(t)
+	if _, err := st.AddWorkspace("watched", repo); err != nil {
+		t.Fatalf("add workspace: %v", err)
+	}
+	f := &feed.Feed{Store: st}
+	var got []store.Event
+	f.Listen(func(ev store.Event) { got = append(got, ev) })
+	deps := Deps{Store: st, Feed: f}
+
+	prev, wtKnown := gitWatchTick(deps, nil, nil, false)
+	if len(wtKnown[canonDir(repo)]) != 0 && len(wtKnown[repo]) != 0 {
+		t.Fatalf("empty anchor cache = %+v, want no worktrees", wtKnown)
+	}
+
+	side := filepath.Join(t.TempDir(), "side")
+	gitRun(t, repo, "worktree", "add", "-b", "side", side)
+	got = nil
+	prev, wtKnown = gitWatchTick(deps, prev, wtKnown, false)
+	if paths := gitUpdatedPaths(t, got); !paths[canonDir(side)] {
+		t.Fatalf("fresh checkout published %v, want the sibling at once", paths)
+	}
+
+	docs := filepath.Join(t.TempDir(), "docs")
+	gitRun(t, repo, "worktree", "add", "-b", "docs", docs)
+	got = nil
+	prev, wtKnown = gitWatchTick(deps, prev, wtKnown, false)
+	if paths := gitUpdatedPaths(t, got); paths[canonDir(docs)] {
+		t.Fatalf("cached pass published %v, want no listing without relist", paths)
+	}
+	got = nil
+	_, _ = gitWatchTick(deps, prev, wtKnown, true)
+	if paths := gitUpdatedPaths(t, got); !paths[canonDir(docs)] {
+		t.Fatalf("listing pass published %v, want the new sibling", paths)
+	}
 }

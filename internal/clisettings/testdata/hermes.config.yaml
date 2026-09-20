@@ -1,0 +1,25 @@
+model:
+  default: glm-5.3-flash
+  provider: zai
+  base_url: https://api.z.ai/api/coding/paas/v4
+agent:
+  max_turns: 60
+  verify_on_stop: false
+  verbose: false
+terminal:
+  shell: bash
+display:
+  compact: false
+  busy_input_mode: interrupt
+  show_reasoning: false
+  streaming: true
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+  memory_char_limit: 2200
+  user_char_limit: 1375
+  nudge_interval: 10
+  flush_min_turns: 6
+delegation:
+  max_iterations: 250
+_config_version: 45
