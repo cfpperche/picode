@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import { relTime } from "@picode/shared/domain/relTime.js";
 import { ownerFileURL } from "../lib/fileIO.js";
-import { compactCount, prBlockedAction, prChecksLabel, prReviewLabel, prStateLabel } from "../lib/inspector.js";
+import { prBlockedAction, prChecksLabel, prReviewLabel, prStateLabel } from "../lib/inspector.js";
+import { compactCount } from "@picode/shared/domain/inspector.js";
 import { IconExternal } from "./Icons.jsx";
 
 // usePullRequest reads the anchor's pull request through the host's gh

@@ -2,7 +2,10 @@ package catalog
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
+
+	"github.com/cfpperche/picode/internal/credentials"
 )
 
 // OAuthCred is the active oauth slot. Access and refresh are secrets —
@@ -64,6 +67,30 @@ func ActiveLabel(provider string) string {
 		}
 	}
 	return "Default"
+}
+
+// peekCred is the credential pi's auth.json currently holds for a provider
+// (what the agent would use right now). Nil when the file or the key is
+// missing.
+func peekCred(provider string) json.RawMessage {
+	raw, err := os.ReadFile(AuthPath())
+	if err != nil {
+		return nil
+	}
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(raw, &obj) != nil {
+		return nil
+	}
+	return obj[provider]
+}
+
+// credType is the credential's shape as pi wrote it: "api_key" unless the
+// entry says otherwise.
+func credType(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return LoginAPIKey
+	}
+	return credentials.Type(raw)
 }
 
 func parseOAuth(raw json.RawMessage) (OAuthCred, bool) {
@@ -133,44 +160,41 @@ func ActiveAPIKey(provider string) (string, bool) {
 
 // VaultOAuth is the saved oauth cred for one vault row. Does not swap auth.json.
 func VaultOAuth(provider, accountID string) (OAuthCred, bool) {
-	a, ok := peekVaultAccount(provider, accountID)
-	if !ok {
+	row, ok, err := vault().Row(strings.TrimSpace(provider), strings.TrimSpace(accountID))
+	if err != nil || !ok {
 		return OAuthCred{}, false
 	}
-	return parseOAuth(a.Cred)
+	return parseOAuth(row.Cred)
 }
 
 // VaultAPIKey is the saved key for one vault row. Does not swap auth.json.
 func VaultAPIKey(provider, accountID string) (string, bool) {
-	a, ok := peekVaultAccount(provider, accountID)
-	if !ok {
+	row, ok, err := vault().Row(strings.TrimSpace(provider), strings.TrimSpace(accountID))
+	if err != nil || !ok {
 		return "", false
 	}
-	return parseAPIKey(a.Cred)
+	return parseAPIKey(row.Cred)
 }
 
 // VaultAuthType is api_key, oauth, or empty if the vault row is missing.
 func VaultAuthType(provider, accountID string) string {
-	a, ok := peekVaultAccount(provider, accountID)
-	if !ok {
+	row, ok, err := vault().Row(strings.TrimSpace(provider), strings.TrimSpace(accountID))
+	if err != nil || !ok {
 		return ""
 	}
-	if a.Type != "" {
-		return a.Type
+	if row.Type != "" {
+		return row.Type
 	}
-	return credType(a.Cred)
+	return credentials.Type(row.Cred)
 }
 
 // VaultLabel is the display name for a vault row, or "Default".
 func VaultLabel(provider, accountID string) string {
-	a, ok := peekVaultAccount(provider, accountID)
-	if !ok {
+	row, ok, err := vault().Row(strings.TrimSpace(provider), strings.TrimSpace(accountID))
+	if err != nil || !ok || row.Label == "" {
 		return "Default"
 	}
-	if a.Label != "" {
-		return a.Label
-	}
-	return "Default"
+	return row.Label
 }
 
 // UpdateOAuthTokens writes new access/refresh/expiry into the active slot,
@@ -203,48 +227,23 @@ func UpdateOAuthTokensAccount(provider, accountID, access, refresh string, expir
 	if accountID == "" {
 		return UpdateOAuthTokens(provider, access, refresh, expires)
 	}
-	v := loadVault()
-	slot := v[provider]
-	idx := -1
-	for i, a := range slot.Accounts {
-		if a.ID == accountID {
-			idx = i
-			break
-		}
-	}
-	if idx < 0 {
+	if _, ok, err := vault().Row(provider, accountID); err != nil || !ok {
 		return UpdateOAuthTokens(provider, access, refresh, expires)
 	}
-	raw := slot.Accounts[idx].Cred
-	var m map[string]any
-	if json.Unmarshal(raw, &m) != nil || m == nil {
-		m = map[string]any{}
-	}
-	m["type"] = LoginOAuth
-	if access != "" {
-		m["access"] = access
-	}
-	if refresh != "" {
-		m["refresh"] = refresh
-	}
-	if expires != 0 {
-		m["expires"] = expires
-	}
-	next, err := json.Marshal(m)
+	active, err := vault().UpdateTokens(provider, accountID, access, refresh, expires)
 	if err != nil {
 		return err
 	}
-	slot.Accounts[idx].Cred = next
-	slot.Accounts[idx].Type = LoginOAuth
-	v[provider] = slot
-	if err := saveVault(v); err != nil {
+	if !active {
+		return nil
+	}
+	row, _, err := vault().Row(provider, accountID)
+	if err != nil {
 		return err
 	}
-	if slot.Active == accountID {
-		return mutateAuth(func(obj map[string]json.RawMessage) error {
-			obj[provider] = next
-			return nil
-		})
-	}
-	return nil
+	cred := row.Cred
+	return mutateAuth(func(obj map[string]json.RawMessage) error {
+		obj[provider] = cred
+		return nil
+	})
 }

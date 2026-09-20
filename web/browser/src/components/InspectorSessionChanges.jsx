@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { shortPath } from "@picode/shared/domain/repoLine.js";
-import { changeTotals, compactCount, normalizeTouched, scopeChanges } from "../lib/inspector.js";
+import { changeTotals, compactCount, normalizeTouched, scopeChanges } from "@picode/shared/domain/inspector.js";
 import InspectorChanges, { InspectorChangeGroup } from "./InspectorChanges.jsx";
 
 // The Changes tab over every dirty checkout of the anchor's repository:

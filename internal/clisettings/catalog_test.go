@@ -175,3 +175,51 @@ func TestOwnersRealValuesAreRenderable(t *testing.T) {
 		}
 	}
 }
+
+// TestEveryBooleanDeclaresItsDefault: the pane draws a boolean as a switch,
+// which has no third state, so an unset key is drawn at the CLI's own default.
+// A field that does not declare one would be drawn off, which is the lie the
+// indeterminate checkbox existed to prevent (owner's call, 2026-09-20).
+func TestEveryBooleanDeclaresItsDefault(t *testing.T) {
+	// The value each CLI actually uses when nobody sets the key, read out of
+	// that CLI's own source or config template on 2026-09-20. A change here
+	// is a claim about someone else's software and needs the same evidence.
+	want := map[string]bool{
+		"claude-code/autoMemoryEnabled":      true,
+		"codex/features.memories":            false,
+		"codex/memories.generate_memories":   true,
+		"codex/memories.use_memories":        true,
+		"grok/ui.yolo":                       false,
+		"grok/ui.compact_mode":               false,
+		"grok/cli.auto_update":               true,
+		"hermes/display.compact":             false,
+		"hermes/display.show_reasoning":      true,
+		"hermes/memory.memory_enabled":       true,
+		"hermes/memory.user_profile_enabled": true,
+	}
+	seen := 0
+	for _, cli := range Supported() {
+		for _, f := range For(cli).fields {
+			if f.Kind != KindBool {
+				continue
+			}
+			seen++
+			id := cli + "/" + f.Key
+			expected, listed := want[id]
+			if !listed {
+				t.Errorf("%s is a switch with no recorded default; establish it from %s's own source before declaring it", id, cli)
+				continue
+			}
+			if f.DefaultOn != expected {
+				t.Errorf("%s declares DefaultOn=%v, the CLI's own default is %v", id, f.DefaultOn, expected)
+			}
+			// The fallback prose has to agree with the value the switch draws.
+			if f.Fallback == "" {
+				t.Errorf("%s has no fallback text to put beside the switch", id)
+			}
+		}
+	}
+	if seen != len(want) {
+		t.Errorf("the catalog has %d boolean fields and this table has %d", seen, len(want))
+	}
+}

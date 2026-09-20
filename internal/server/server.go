@@ -261,6 +261,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerPreviewRoutes(mux, deps)
 	registerDevServerRoutes(mux, deps)
 	registerTerminalRoutes(mux, deps)
+	registerCredentialRoutes(mux, deps)
 	registerTerminalWiringRoutes(mux, deps)
 	registerCLIRoutes(mux, deps)
 	registerTerminalSettingsRoutes(mux, deps)

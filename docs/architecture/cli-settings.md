@@ -44,10 +44,17 @@ saying what it needs and no form: hiding it made a link carrying
 `?layer=project` silently edit the machine file instead (found in live QA,
 2026-09-20).
 
-**A row says what happens if you leave it alone.** A key the file does not set
-shows the CLI's own default as its source line, and an unset switch is drawn
-indeterminate wearing that default — an empty checkbox beside a row reading
-"On while memories are on" told the reader the opposite of the truth. A
+**A row says what happens if you leave it alone.** A boolean is the Radix
+switch every pane uses (owner's call, 2026-09-20: one control for one job). A
+switch has no third state, so an unset key is drawn at **the CLI's own
+default**, which every boolean field declares and
+`TestEveryBooleanDeclaresItsDefault` holds against a table of where each value
+was read from. The source line carries the provenance instead — "Set here",
+"From This machine", or "<CLI> default" — and a default that is conditional
+("On while memories are on") stays as the row's help line. Declaring a default
+is a claim about someone else's software: Hermes' `display.show_reasoning`
+shipped as "Off" here while its own `config_defaults.py` says `True`, which is
+the failure this table exists to catch. A
 dangerous value carries its own one-line cost, not a shared sentence: two rows
 in one group printed the same seventeen words twice, and
 `TestDangerNotesAreDistinctWithinAGroup` now refuses that.
@@ -112,11 +119,31 @@ A machine-only key sent to the workspace or agent layer is refused by name
 before trust or path resolution answers, so the message says what is wrong
 rather than blaming the folder.
 
-Two differences from the guest pane remain, both pre-existing: Pi's writer
-re-encodes the document (`json.MarshalIndent` of a map), so key order is
-normalised rather than preserved, and `web/shared/domain/resolveLayer.js` is a
-named list — a key added to the API is invisible in the pane until it is added
-there too, which is how the Theme row first rendered empty.
+**Pi's rows are a table too** (2026-09-20). `web/shared/domain/piRows.js`
+declares all eleven — label, kind, group, order, and what each one reads — and
+the pane renders whatever the table says, the way the guest pane already did.
+Three of them are not scalars and are declared as their own kinds rather than
+flattened: `model` is the three coupled selects the catalog feeds, `patterns`
+is the free list of scoped models, `tools` is the grid over pi's fixed tool
+set. A row marked `machine` is offered only on the This machine layer.
+
+`web/shared/domain/resolveLayer.js` is **derived** from that table
+(2026-09-20): every field declares its type and its `unset` value — what pi
+itself does when no layer sets the key — and the resolver walks the table
+instead of restating it. A row is one line, and the resolver cannot fall
+behind the pane, which is what let the Theme row ship rendering empty while
+the file said `dark`.
+
+The rule the derivation preserves: a layer that **sets** a key keeps its value
+even when that value is the type's zero — an explicitly empty tool list means
+no tools, not the built-in set, and an explicit `false` is false rather than
+pi's default `true`. A layer that sets nothing inherits its parent, and where
+the parent has nothing the field's `unset` runs. Handing a key back removes
+this layer's override; it does not restore a value the layer held before.
+
+One difference from the guest pane remains, and it is pre-existing: Pi's
+writer re-encodes the document (`json.MarshalIndent` of a map), so key order is
+normalised rather than preserved.
 
 
 The workspace agent menu separates **Launch settings** (the bound terminal's

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { shortPath } from "@picode/shared/domain/repoLine.js";
 import { changeKinds, flattenTree } from "../lib/fileTree.js";
-import { compactCount, groupChanges, totalsLabel } from "../lib/inspector.js";
+import { compactCount, groupChanges, totalsLabel } from "@picode/shared/domain/inspector.js";
 import FileTree from "./FileTree.jsx";
 
 const NO_DIRS = new Set();
