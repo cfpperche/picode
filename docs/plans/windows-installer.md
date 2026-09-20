@@ -44,6 +44,11 @@ shell launched); `install-picode` stage; `install-runtime` stage
 installs; parent-waits-for-child elevation with install log and failure
 pause; table tests; desktop architecture doc updated.
 
+Status: **code landed 2026-09-19** (branches `feat/win-install-m1`, adopted
+after four idle days: the WIP that closes M1 is committed, and the plan
+itself is in git). The gate below is the part still open, and it is the
+owner's: nothing here can run those scenarios from Linux.
+
 Gate: `make ci` green on main; VM scenarios green (clean-machine path and
 adopted-Ubuntu `--user` path, idempotent re-runs) on `picode-test`
 (Hyper-V, checkpoint `clean`); `startup-check` clean.
