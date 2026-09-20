@@ -19,6 +19,7 @@ pub mod layer_geometry;
 pub mod keys;
 pub mod origins;
 pub mod permissions;
+pub mod preview;
 
 use std::collections::BTreeMap;
 

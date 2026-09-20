@@ -8,8 +8,15 @@ reviewed by the owner against the reference, one item at a time.
 
 ### Next execution handoff (2026-09-20)
 
-- **COM capture:** add Windows coverage for valid, empty, failed, not-painted,
-  timeout, and native hide/restore paths; require non-empty pixels.
+- **COM capture:** ~~add Windows coverage for valid, empty, failed,
+  not-painted, timeout, and native hide/restore paths; require non-empty
+  pixels~~ — **landed 2026-09-20** (`feat/browser-capture-tests`): the
+  decision half moved to pure `desktop-shell/src/preview.rs`
+  (`settle`, `read_still`) and the hide/restore table to `coverDecision`
+  (`previewStill.js`), both host-tested; a still is served only with
+  non-empty pixels, and a tab gone mid-capture no longer reports as a
+  timeout. The COM calls and the on-screen hide/restore themselves stay the
+  owner's live run on Windows.
 - **Responsive width:** implement the native device-toolbar half (bounds,
   width/height presets, zoom, reset, per-tab state); CDP emulation needs an ADR.
 - **Prompt endpoints:** finish wire tests for agent→terminal, stopped terminal,
@@ -356,9 +363,14 @@ gallery hit is worth a look before anyone installs it expecting this one.
   not looking at is denied when the 60 s watchdog fires. That is the
   limitation the Ask bar's own placement makes honest — nowhere else shows a
   waiting request.
-- The legacy-shell COM capture + native hide path has no
-  automated test (Windows-only); the JS decode gate is unit-tested
-  (`lib/previewStill.js`).
+- [x] The legacy-shell COM capture + native hide path has no
+  automated test (Windows-only) — **paid 2026-09-20** up to the host
+  boundary: the capture's decision rows (valid, empty, failed, not painted,
+  timeout, tab gone) live in `desktop-shell/src/preview.rs` and the
+  hide/restore table in `coverDecision` (`lib/previewStill.js`), both
+  host-tested with the non-empty-pixels rule pinned. The COM calls, the
+  file stream and the on-screen stacking remain owner-verified on Windows
+  (the architecture doc's evidence table says which layer proves what).
 - **Device toolbar** — the reference menu entry still missing; the owner's
   call is the native half first ("Responsive width": bounds + zoom, no ADR),
   with CDP device emulation a later ADR (2026-09-19).
