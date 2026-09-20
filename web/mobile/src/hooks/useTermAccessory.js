@@ -11,7 +11,9 @@ import {
 // Attach-time focus is not a tap — iOS will not open the IME. A bar tap
 // never steals focus (the caller preventDefault's pointerdown).
 
-export function useTermAccessory(hostRef, entryOf, attachKey) {
+export function useTermAccessory(hostRef, entryOf, attachKey, onDeadSock) {
+  const onDeadSockRef = useRef(onDeadSock);
+  onDeadSockRef.current = onDeadSock;
   const entryRef = useRef(entryOf);
   entryRef.current = entryOf;
   const [armed, setArmed] = useState({ ctrl: false, alt: false });
@@ -86,10 +88,19 @@ export function useTermAccessory(hostRef, entryOf, attachKey) {
 
   function sendKey(seq) {
     const entry = entryRef.current && entryRef.current();
-    const host = hostRef.current;
-    const hadFocus = !!(host && document.activeElement && host.contains(document.activeElement));
-    const out = sendTermSeq(entry, seq, hadFocus);
-    if (out.refocus && entry && entry.term) entry.term.focus();
+    // Refocus unconditionally: the whole point of a bar key is to keep the
+    // IME open while the TUI moves (owner report 2026-09-20 — a ▲ tap
+    // closed the keyboard on iOS). The focus call rides the tap's user
+    // gesture, so iOS reopens the IME instead of closing it.
+    const out = sendTermSeq(entry, seq, true);
+    if (entry && entry.term) {
+      try { entry.term.focus(); } catch { /* detached pane */ }
+    } else {
+      const host = hostRef.current;
+      const ta = host && host.querySelector("textarea");
+      if (ta) ta.focus();
+    }
+    if (!out.open && onDeadSockRef.current) onDeadSockRef.current();
   }
 
   function armKey(mod) {

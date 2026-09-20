@@ -5,6 +5,7 @@ import TermSurface from "../components/TermSurface.jsx";
 import { terms } from "../lib/terms.js";
 import { scheduleTermFit } from "@picode/shared/domain/termFit.js";
 import { api, humanizeError } from "@picode/shared/client/api.js";
+import { toast } from "../lib/toast.js";
 import { termLine } from "@picode/shared/domain/repoLine.js";
 import { IconKeyboard, IconGit, IconFolder, IconClip, IconMore, IconTrash, IconFile } from "../components/Icons.jsx";
 import { useTermAccessory } from "../hooks/useTermAccessory.js";
@@ -29,7 +30,9 @@ export default function TerminalScreen({ term, onBack, onRemove, busy, onOpenFil
   const id = term && term.id;
   const entryOf = () => terms.get("sh:" + id);
   const attached = !!(page && !error && id);
-  const keys = useTermAccessory(hostRef, entryOf, attached ? id : "");
+  const keys = useTermAccessory(hostRef, entryOf, attached ? id : "", () => {
+    toast.warn("Terminal reconnecting — tap the pane, then try again.");
+  });
 
   useEffect(() => {
     const host = hostRef.current;

@@ -1,6 +1,7 @@
 import { cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import * as Sheet from "../components/MobileSheet.jsx";
+import { toast } from "../lib/toast.js";
 import ProjectToolsSheet from "../components/ProjectToolsSheet.jsx";
 import PiSettings from "../components/PiSettings.jsx";
 import ScreenHeader from "../components/ScreenHeader.jsx";
@@ -54,7 +55,7 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
   // ShellTerm namespaces its xterm entries to avoid colliding with the
   // Pi-owned TerminalDock entry for the same agent identity.
   const terminalKey = cliTerminal ? "sh:" + cliTerminal.id : id;
-  const keys = useTermAccessory(termHostRef, () => terms.get(terminalKey), view === "term" && interactive ? terminalKey : "");
+  const keys = useTermAccessory(termHostRef, () => terms.get(terminalKey), view === "term" && interactive ? terminalKey : "", () => { toast.warn("Terminal reconnecting — tap the pane, then try again."); });
   const state = agentState(agent, workingIds);
   const name = agent ? displayAgentName(agent, workspace) : "";
 

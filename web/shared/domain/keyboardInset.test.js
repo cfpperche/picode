@@ -97,7 +97,7 @@ test("inputIsFocused recognises xterm's helper textarea", () => {
   assert.equal(inputIsFocused({ tagName: "DIV", isContentEditable: true }), true);
 });
 
-test("sendTermSeq applies sticky modifiers and refocuses only when the host had focus", () => {
+test("sendTermSeq applies sticky modifiers, always asks for refocus, and reports the socket truth", () => {
   const sent = [];
   const sticky = createSticky();
   sticky.arm("ctrl");
@@ -107,13 +107,21 @@ test("sendTermSeq applies sticky modifiers and refocuses only when the host had 
   };
   const focused = sendTermSeq(entry, "\x1b[A", true);
   assert.equal(focused.sent, true);
+  assert.equal(focused.open, true);
   assert.equal(focused.refocus, true);
   assert.equal(focused.bytes, "\x1b[1;5A");
   assert.equal(sent.length, 1);
 
-  const blurred = sendTermSeq({ sock: { readyState: 1, send: (b) => sent.push(b) } }, "\x1b", false);
-  assert.equal(blurred.refocus, false);
+  const blurred = sendTermSeq({ sock: { readyState: 1, send: (b) => sent.push(b) } }, "\x1b", true);
+  assert.equal(blurred.open, true);
+  assert.equal(blurred.refocus, true);
   assert.equal(blurred.bytes, "\x1b");
 
-  assert.deepEqual(sendTermSeq(null, "a", true), { sent: false, refocus: false, bytes: "" });
+  // A closed socket must be visible to the caller: the key was not sent.
+  const dead = sendTermSeq({ sock: { readyState: 3, send: () => {} } }, "\x1b", true);
+  assert.equal(dead.sent, false);
+  assert.equal(dead.open, false);
+  assert.equal(dead.refocus, true);
+
+  assert.deepEqual(sendTermSeq(null, "a", true), { sent: false, open: false, refocus: false, bytes: "" });
 });

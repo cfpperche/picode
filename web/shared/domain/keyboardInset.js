@@ -72,10 +72,13 @@ export function shellLayout({
 }
 
 export function sendTermSeq(entry, seq, hostHadFocus) {
-  if (!entry) return { sent: false, refocus: false, bytes: "" };
+  if (!entry) return { sent: false, open: false, refocus: false, bytes: "" };
   const bytes = entry.sticky ? entry.sticky.applyKey(seq) : seq;
-  if (entry.sock && entry.sock.readyState === 1) {
+  const open = !!(entry.sock && entry.sock.readyState === 1);
+  if (open) {
     entry.sock.send(typeof bytes === "string" ? new TextEncoder().encode(bytes) : bytes);
   }
-  return { sent: true, refocus: !!hostHadFocus, bytes };
+  // `open` is the honest one — a closed socket silently ate keys, and the
+  // caller must know instead of reporting a key that went nowhere.
+  return { sent: open, open, refocus: !!hostHadFocus, bytes };
 }
