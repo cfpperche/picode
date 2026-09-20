@@ -519,6 +519,7 @@ export default function MobileApp() {
         catalog={catalog}
         workingIds={tuiWorking}
         busy={!!current && busyId === current.agent.id}
+        terminal={current ? terminals.find((t) => t.id === current.agent.terminalId) || current.agent.terminal || null : null}
         initialView={route.view}
         onViewChange={(view) => { history.replaceState(history.state, "", mobileHash("agent", route.id, "", view)); }}
         onBack={() => goBack(route, agentOwnerWs(current))}

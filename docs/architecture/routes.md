@@ -95,7 +95,7 @@ Hash routes (ADR-0012). **Preferences** is PiCode-the-product.
 **Settings** lives under Agent CLIs (ADR-0101), initially editing Pi configuration. Packages follows the same area (ADR-0102). Auth and MCP
 stay on their own routes.
 
-Mobile may add `?view=terminal` to an agent route. Chat and Terminal are views of the same agent identity. The current Pi interactive pane remains on its existing attach path; the Agent CLIs terminal/session adapter migration is a follow-up. A bound terminal deep link should resolve to the owning agent view, while unbound terminals remain `#/term/<id>`.
+Mobile may add `?view=terminal` to an agent route. Chat and Terminal are views of the same agent identity. Non-Pi agent rows resolve their bound terminal through the Agent CLIs terminal surface; Pi interactive rows remain on their existing attach path until the managed-runtime adapter migration. A bound terminal deep link should resolve to the owning agent view, while unbound terminals remain `#/term/<id>`.
 
 | Hash | Surface | Owns |
 |---|---|---|

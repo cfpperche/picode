@@ -2,3 +2,5 @@
 
 - Mobile agent views now keep Chat and Terminal on one agent route, with the
   view switch in the contextual toolbar and a durable terminal deep link.
+- Non-Pi agent rows now attach their mobile Terminal view to the bound
+  Agent CLIs terminal surface, reusing the canonical terminal session path.

@@ -8,6 +8,7 @@ import StateChip, { agentState } from "../components/StateChip.jsx";
 import Conversation from "../components/Conversation.jsx";
 import Composer from "../components/Composer.jsx";
 import TerminalDock from "../components/TerminalDock.jsx";
+import TermSurface from "../components/TermSurface.jsx";
 import KeyBar from "../components/KeyBar.jsx";
 import { useAgentSocket } from "../hooks/useAgentSocket.js";
 import { usePoll } from "../hooks/usePoll.js";
@@ -22,6 +23,7 @@ import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { applyUsage } from "@picode/shared/domain/feedReducers.js";
 import { terms } from "../lib/terms.js";
 import { agentDrafts } from "../lib/agentDrafts.js";
+import { resolveAgentCliTerminal } from "../lib/agentTerminal.js";
 import "../styles/mobile-chat.css";
 import "../styles/mobile-tools.css";
 
@@ -30,7 +32,7 @@ import "../styles/mobile-tools.css";
 // the mobile Conversation with its ask card, and the mobile Composer
 // whose own Stop button is the abort. Start/Stop the agent from the
 // header; one screen, no tabs of its own.
-export default function Agent({ agent, workspace, catalog, workingIds, busy, initialView = "", onViewChange, onBack, onStart, onStop, onOpenFiles, onOpenGit, onAgentConfig }) {
+export default function Agent({ agent, workspace, terminal, catalog, workingIds, busy, initialView = "", onViewChange, onBack, onStart, onStop, onOpenFiles, onOpenGit, onAgentConfig }) {
   const id = agent && agent.id;
   const sock = useAgentSocket(agent, workspace?.id || "ws_free");
   const draft = useSyncExternalStore(agentDrafts.subscribe, () => agentDrafts.read(id));
@@ -44,11 +46,15 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, ini
   const termHostRef = useRef(null);
   const nearBottom = useRef(true);
 
-  const keys = useTermAccessory(termHostRef, () => terms.get(id), view === "term" && agent && agent.mode === "interactive" ? id : "");
   const mode = (agent && agent.mode) || "stopped";
   const stopped = mode === "stopped";
   const interactive = mode === "interactive";
   const managed = mode === "managed";
+  const cliTerminal = resolveAgentCliTerminal(agent, terminal);
+  // ShellTerm namespaces its xterm entries to avoid colliding with the
+  // Pi-owned TerminalDock entry for the same agent identity.
+  const terminalKey = cliTerminal ? "sh:" + cliTerminal.id : id;
+  const keys = useTermAccessory(termHostRef, () => terms.get(terminalKey), view === "term" && interactive ? terminalKey : "");
   const state = agentState(agent, workingIds);
   const name = agent ? displayAgentName(agent, workspace) : "";
 
@@ -131,23 +137,14 @@ export default function Agent({ agent, workspace, catalog, workingIds, busy, ini
   return (
     <div className="m-screen m-agent">
       <ScreenHeader title={name} sub={<><StateChip state={state} /><span className="m-agent-meta" title={meta}>{meta}</span></>} onBack={onBack} right={right} />
-      {false && interactive ? (
-        <div className="m-agent-state legacy-view-switch">
-          <div className="dash-range m-seg" role="radiogroup" aria-label="View">
-            {[["chat", "Chat"], ["term", "Terminal"]].map(([v, label]) => (
-              <label key={v} className="dash-range-opt">
-                <input type="radio" name="m-agent-view" value={v} checked={view === v} onChange={() => setView(v)} />
-                <span className="dash-range-face">{label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
       {view === "term" && interactive ? (
         <>
           <div className="m-term" ref={termHostRef}>
-            <TerminalDock key={"agent-term-" + id} open agent={agent} workspace={workspace} />
+            {cliTerminal ? (
+              <TermSurface key={"agent-cli-term-" + cliTerminal.id} term={cliTerminal} hidden={false} cwdKind="term" />
+            ) : (
+              <TerminalDock key={"agent-term-" + id} open agent={agent} workspace={workspace} />
+            )}
           </div>
           {keys.visible ? <KeyBar armed={keys.armed} onArm={keys.armKey} onKey={keys.sendKey} onHide={keys.hide} /> : null}
         </>
