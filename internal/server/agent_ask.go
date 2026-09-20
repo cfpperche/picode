@@ -21,7 +21,6 @@ import (
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
-	"github.com/cfpperche/picode/internal/tmux"
 )
 
 func registerAgentAskRoutes(mux Registrar, deps Deps) {
@@ -171,7 +170,7 @@ func (deps Deps) askTUI(ctx context.Context, agent store.Agent, cwd, text string
 	if deps.Tmux == nil || !deps.Tmux.Available() {
 		return askResult{}, errAskNoTmux
 	}
-	if has, err := deps.Tmux.HasSession(ctx, tmux.SessionName(agentID)); err != nil || !has {
+	if has, err := deps.Tmux.HasSession(ctx, deps.agentSession(agentID)); err != nil || !has {
 		return askResult{}, errAskStopped
 	}
 	sessionPath := deps.askSession(agent, cwd)

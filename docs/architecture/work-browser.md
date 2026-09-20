@@ -80,7 +80,10 @@ layers. The same geometry controls paint and pointer input: the page stays
 visible and interactive through the holes. A modal backdrop adds its whole
 region without freezing the page underneath.
 
-`web/browser/src/lib/nativeLayers.js` observes geometry and serializes the
+`web/browser/src/lib/nativeLayers.js` invalidates its region cache when viewport
+width, height or device pixel ratio changes, even with no active native page
+or floating overlay. This keeps the full chrome region current on maximize
+and restore. It observes geometry and serializes the
 `chrome_layers` IPC. `desktop-shell/src/layers.rs` validates the caller and
 bounds, applies the native region, and restores the chrome's stacking order
 after a page is shown. Native page ancestors clear their CSS backgrounds;

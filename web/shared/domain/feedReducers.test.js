@@ -2,6 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { applyFleet, applyInbox, applyAutomations, applyRuns, applySnips, applyTui, applyUsage, touches } from "./feedReducers.js";
 
+test("terminal events project onto the bound Pi without changing its mode", () => {
+  let s = {workspaces:[],freeAgents:[{id:"a",cli:"pi",terminalId:"t",mode:"managed"}],terminals:[{id:"t",running:true,cli:"pi"}]};
+  s = applyFleet(s,{type:"terminal.state",data:{termId:"t",state:"needs-you",cli:"pi"}});
+  assert.equal(s.freeAgents[0].terminal.state,"needs-you");
+  assert.equal(s.freeAgents[0].mode,"managed");
+});
+
 const ws = (id, agents = []) => ({ id, name: id, path: "/" + id, agents });
 const ag = (id, workspaceId, extra = {}) => ({ id, workspaceId, name: id, lastStatus: "never_started", running: false, mode: "stopped", streaming: false, waiting: false, ...extra });
 

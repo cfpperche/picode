@@ -28,7 +28,15 @@ func handleTuiWorking(deps Deps) http.HandlerFunc {
 			if id == "" {
 				continue
 			}
-			name := tmux.SessionName(id)
+			name := deps.agentSession(id)
+			if a, e := deps.Store.GetAgent(id); e == nil && a.TerminalID != nil && name == tmux.ShellSessionName(*a.TerminalID) {
+				view := map[string]any{}
+				applyTermState(deps, view, *a.TerminalID)
+				if view["state"] == TermWorking && deps.runMode(r, id) == modeInteractive {
+					out = append(out, id)
+				}
+				continue
+			}
 			has, err := deps.Tmux.HasSession(r.Context(), name)
 			if err != nil || !has {
 				continue

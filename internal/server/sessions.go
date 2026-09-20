@@ -13,7 +13,6 @@ import (
 
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
-	"github.com/cfpperche/picode/internal/tmux"
 )
 
 func handleListSessions(deps Deps) http.HandlerFunc {
@@ -154,6 +153,8 @@ func handleNewSession(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
+		unlockAgent := terminalLock(deps, "agent:"+agent.ID)
+		defer unlockAgent()
 		release := deps.Replies.Controls.BeginMutation(agent.ID)
 		defer release()
 		empty := ""
@@ -193,6 +194,8 @@ func handleResumeSession(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "session is not in this workspace")
 			return
 		}
+		unlockAgent := terminalLock(deps, "agent:"+agent.ID)
+		defer unlockAgent()
 		release := deps.Replies.Controls.BeginMutation(agent.ID)
 		defer release()
 		if _, err := deps.Store.UpdateAgent(agent.ID, store.AgentPatch{SessionPath: &req.Path}); err != nil {
@@ -231,6 +234,8 @@ func handleRenameSession(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "session is not in this workspace")
 			return
 		}
+		unlockAgent := terminalLock(deps, "agent:"+agent.ID)
+		defer unlockAgent()
 		release := deps.Replies.Controls.BeginMutation(agent.ID)
 		defer release()
 		if err := session.SetName(path, req.Name); err != nil {
@@ -316,10 +321,10 @@ func restartSameMode(ctx context.Context, deps Deps, wk store.Workspace, agentID
 	switch mode {
 	case modeManaged:
 		deps.Runtime.Stop(agentID)
-		return deps.Runtime.Start(agentID, cwd)
+		return deps.startAgentRPC(ctx, agentID, cwd)
 	case modeInteractive:
-		_ = deps.Tmux.KillSession(ctx, tmux.SessionName(agentID))
-		return deps.startAgentTUI(ctx, tmux.SessionName(agentID), cwd, ag)
+		_, err := deps.openAgentTUILocked(ctx, agentID, true)
+		return err
 	default:
 		return nil
 	}
@@ -335,6 +340,10 @@ func restartSameMode(ctx context.Context, deps Deps, wk store.Workspace, agentID
 // Every spawned TUI also gets the Inbox reply receiver (ADR-0060):
 // best-effort write, and without it the tmux paste fallback carries replies.
 func (deps Deps) spawnFlags(agent store.Agent) []string {
+	return deps.piSpawnFlags(agent, true)
+}
+
+func (deps Deps) piSpawnFlags(agent store.Agent, receiver bool) []string {
 	fresh := false
 	if agent.SessionPath == nil || strings.TrimSpace(*agent.SessionPath) == "" {
 		if p := deps.Store.ResolvePendingAgentSession(agent.ID); p != "" {
@@ -346,8 +355,10 @@ func (deps Deps) spawnFlags(agent store.Agent) []string {
 	if fresh {
 		flags = agent.CLIFlagsForSpawn(deps.Store.NewPendingAgentSession(agent.ID))
 	}
-	if path, err := ensurePiReplyExtension(deps.DataDir); err == nil {
-		flags = append(flags, "-e", path)
+	if receiver {
+		if path, err := ensurePiReplyExtension(deps.DataDir); err == nil {
+			flags = append(flags, "-e", path)
+		}
 	}
 	return flags
 }

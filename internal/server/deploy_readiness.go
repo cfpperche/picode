@@ -38,6 +38,9 @@ func deployBusy(ctx context.Context, deps Deps) []busyOwner {
 	}
 	if terms, err := deps.Store.ListTerminals(); err == nil {
 		for _, t := range terms {
+			if _, e := deps.Store.AgentByTerminal(t.ID); e == nil {
+				continue
+			}
 			if busy, why := terminalBusyFn(ctx, deps, t); busy {
 				out = append(out, busyOwner{Kind: "terminal", ID: t.ID, Name: t.Name, Why: why})
 			}

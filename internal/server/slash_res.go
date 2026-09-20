@@ -139,6 +139,8 @@ func handleAgentExport(deps Deps) http.HandlerFunc {
 
 func handleAgentImport(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		unlock := terminalLock(deps, "agent:"+r.PathValue("id"))
+		defer unlock()
 		agent, err := deps.Store.GetAgent(r.PathValue("id"))
 		if err != nil {
 			writeStoreErr(w, err)
