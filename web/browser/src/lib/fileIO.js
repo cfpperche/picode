@@ -34,7 +34,7 @@ export async function readFile(owner, path, root, signal, worktree = "") {
 
 export function fileMessage(raw = "") {
   if (/changed on disk/i.test(raw)) return "This file changed on disk.";
-  if (/gone|not found|no such file/i.test(raw)) return "That file is gone.";
+  if (/gone|not found|no such file|no worktree/i.test(raw)) return "That file is gone.";
   if (/too large/i.test(raw)) return "This file is too large to display.";
   if (/not available|can't show|can't write|unsupported/i.test(raw)) return "Can't display this file.";
   if (/escapes/i.test(raw)) return "That path is outside this project.";

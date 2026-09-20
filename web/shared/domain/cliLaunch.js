@@ -3,7 +3,7 @@ import { cliPackagesLocation } from "./cliPackages.js";
 import { cliKeysLocation, cliSettingsLocation } from "./cliSettings.js";
 import { cliConnectorsLocation } from "./integrations.js";
 
-const CLI_PANES = new Set(["launch", "terminals", "sessions", "providers", "settings", "keyboard", "packages", "connectors"]);
+const CLI_PANES = new Set(["launch", "terminals", "sessions", "providers", "settings", "keyboard", "memory", "packages", "connectors"]);
 
 // cliCapabilities reads what the server says one catalog row can do.
 // launch: New terminal exists. integration: activity, launch settings and
@@ -31,7 +31,7 @@ export function cliPanes(cli) {
   // The setup tabs ride along for every CLI: the ones without a native
   // integration render them as in-development placeholders instead of
   // pretending the feature exists (owner, 2026-09-15).
-  return ["launch", "terminals", ...sessions, "providers", "settings", "keyboard", "packages", "connectors"];
+  return ["launch", "terminals", ...sessions, "providers", "settings", "keyboard", "memory", "packages", "connectors"];
 }
 
 // Setup panes (Settings / Packages / Connectors) read identity from the
@@ -60,6 +60,7 @@ export function cliPaneHash(cli = "", pane = "launch", workspace = "") {
   if (pane === "providers") return "#/clis/" + id + "/providers";
   if (pane === "settings") return "#/clis/" + id + "/settings";
   if (pane === "keyboard") return "#/clis/" + id + "/keyboard";
+  if (pane === "memory") return "#/clis/" + id + "/memory";
   if (pane === "packages") return "#/clis/" + id + "/packages";
   if (pane === "connectors") return "#/clis/" + id + "/connectors";
   return "#/clis/" + id;
@@ -119,6 +120,10 @@ export function cliLocation(hash = "", legacy = {}) {
     else if (rest === "custom" && rest2 && !parts[5]) { loc.custom = "edit"; loc.customId = rest2; }
     else if (rest) loc.invalid = true;
     if (["agentId", "workspaceId", "scope"].some((key) => params.has(key))) loc.scoped = true;
+  }
+  if (pane === "memory") {
+    loc.workspaceId = params.get("workspaceId") || "";
+    loc.scope = params.get("scope") === "workspace" || params.get("scope") === "global" ? params.get("scope") : "";
   }
   if (pane === "settings") {
     loc.agentId = params.get("agentId") || "";

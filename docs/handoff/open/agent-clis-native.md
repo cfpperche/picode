@@ -7,6 +7,23 @@
 
 ## Debts
 
+- **Omp's memory folder is probed, not documented.** The local backend's path
+  is not in the vendor docs, so `climemory` looks in `<ws>/.omp/memories` and
+  `~/.omp/agent/memories` and otherwise reports memory as off. If Omp writes
+  somewhere else, the pane says off while memory is on. Fix by reading the
+  path out of a real `memory.backend: local` run (ADR-0163).
+- **Antigravity's memory tier is `unknown`.** No vendor documentation confirms
+  a memory the CLI manages; the transcripts under `~/.gemini/…/brain/` are
+  session history. Whoever gets a confirmation promotes the tier.
+- **Guest CLIs have machine and workspace layers only** — no per-agent
+  settings layer, the same phase-1 limit connectors carry (ADR-0150).
+  The Keyboard pane stays Pi-only: no guest CLI exposes a key map PiCode can
+  write.
+- **The mobile panes have no physical-device acceptance.** Both mount and
+  render at a real 390x844 viewport with no horizontal overflow, and the
+  editable memory box, its actions and the Codex Memory group were captured
+  there. A real iPhone, the PWA and IME behaviour remain external.
+
 - **A flake in the gate, seen once (2026-09-19).** `TestCLIAdapterPreviewMatchesExecution`
   failed in a parallel `make ci` shard with `TempDir RemoveAll cleanup: unlinkat
   …/data/native-observations: directory not empty` — a writer still touching the

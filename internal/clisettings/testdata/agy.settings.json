@@ -1,0 +1,12 @@
+{
+  "model": "Gemini 3.8 Flash (Medium)",
+  "title": {
+    "type": "command",
+    "command": "/home/example/.picode/intercept/agy-title.sh",
+    "enabled": true
+  },
+  "trustedWorkspaces": [
+    "/home/example",
+    "/home/example/picode"
+  ]
+}

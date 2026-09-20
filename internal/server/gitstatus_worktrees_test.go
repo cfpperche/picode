@@ -287,24 +287,133 @@ func TestWorktreeScopedTextSave(t *testing.T) {
 		defer res.Body.Close()
 		return res.StatusCode
 	}
-	fi, err := os.Stat(filepath.Join(side, "messy.txt"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	saved := `{"path":"messy.txt","text":"through the sibling\n","mtime":` + strconv.FormatInt(fi.ModTime().UnixMilli(), 10) + `}`
-	if code := put(t, "/api/agents/"+agent.ID+"/text?worktree=side", saved); code != http.StatusOK {
-		t.Fatalf("agent scoped save = %d", code)
-	}
-	if got, _ := os.ReadFile(filepath.Join(side, "messy.txt")); string(got) != "through the sibling\n" {
-		t.Fatalf("sibling file = %q", got)
+	for name, base := range map[string]string{
+		"agent":     "/api/agents/" + agent.ID,
+		"terminal":  "/api/terminals/" + term.ID,
+		"workspace": "/api/workspaces/" + ws.ID,
+	} {
+		fi, err := os.Stat(filepath.Join(side, "messy.txt"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		saved := `{"path":"messy.txt","text":"through the sibling (` + name + `)\n","mtime":` + strconv.FormatInt(fi.ModTime().UnixMilli(), 10) + `}`
+		if code := put(t, base+"/text?worktree=side", saved); code != http.StatusOK {
+			t.Fatalf("%s scoped save = %d", name, code)
+		}
+		want := "through the sibling (" + name + ")\n"
+		if got, _ := os.ReadFile(filepath.Join(side, "messy.txt")); string(got) != want {
+			t.Fatalf("%s sibling file = %q", name, got)
+		}
 	}
 	if _, err := os.Stat(filepath.Join(repo, "messy.txt")); !os.IsNotExist(err) {
 		t.Fatal("save leaked into the owner's checkout")
 	}
+	fi, err := os.Stat(filepath.Join(side, "messy.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved := `{"path":"messy.txt","text":"nope\n","mtime":` + strconv.FormatInt(fi.ModTime().UnixMilli(), 10) + `}`
 	if code := put(t, "/api/terminals/"+term.ID+"/text?worktree=nosuch", saved); code != http.StatusNotFound {
 		t.Fatalf("terminal bad worktree save = %d, want 404", code)
 	}
 	if code := put(t, "/api/workspaces/"+ws.ID+"/text?worktree=side&root="+url.QueryEscape(canonDir(repo)), saved); code != http.StatusConflict {
 		t.Fatalf("workspace stale root save = %d, want 409", code)
+	}
+}
+
+// A worktree whose checkout is gone (prunable in git's list) never appears:
+// the status read stays 200 with no worktrees field instead of failing or
+// lying about a folder that is not there.
+func TestGitStatusSkipsPrunableWorktree(t *testing.T) {
+	repo := gitRepo(t)
+	side := filepath.Join(t.TempDir(), "side")
+	gitRun(t, repo, "worktree", "add", "-b", "side", side)
+	if err := os.WriteFile(filepath.Join(side, "messy.txt"), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(side); err != nil {
+		t.Fatal(err)
+	}
+
+	st := testStore(t)
+	_, agent, err := storeWorkspaceWithAgent(st, "App", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := graphServer(t, st)
+	res := do(t, ts.Client(), mustGet(t, ts.URL+"/api/agents/"+agent.ID+"/gitstatus"))
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("gitstatus = %d", res.StatusCode)
+	}
+	var raw map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&raw); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := raw["worktrees"]; ok {
+		t.Fatalf("prunable checkout listed: %+v", raw["worktrees"])
+	}
+}
+
+// A bare repository has checkouts but no working tree of its own: the page
+// is git:false, with no worktrees field to misread.
+func TestGitStatusBareRepository(t *testing.T) {
+	repo := gitRepo(t)
+	bare := filepath.Join(t.TempDir(), "bare.git")
+	gitRun(t, repo, "clone", "--bare", "--quiet", repo, bare)
+
+	st := testStore(t)
+	ws, err := st.AddWorkspace("Bare", bare)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agent, err := st.AddAgent(ws.ID, "Bare", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := graphServer(t, st)
+	res := do(t, ts.Client(), mustGet(t, ts.URL+"/api/agents/"+agent.ID+"/gitstatus"))
+	defer res.Body.Close()
+	var raw map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&raw); err != nil {
+		t.Fatal(err)
+	}
+	if raw["git"] != false {
+		t.Fatalf("bare page = %+v, want git:false", raw)
+	}
+	if _, ok := raw["worktrees"]; ok {
+		t.Fatalf("bare page lists worktrees: %+v", raw["worktrees"])
+	}
+}
+
+// The image-meta route reads through the sibling checkout too: a file that
+// exists only there resolves scoped and errors unscoped.
+func TestWorktreeScopedImageMeta(t *testing.T) {
+	repo := gitRepo(t)
+	side := filepath.Join(t.TempDir(), "side")
+	gitRun(t, repo, "worktree", "add", "-b", "side", side)
+	if err := os.WriteFile(filepath.Join(side, "dot.png"), pngBytes, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	st := testStore(t)
+	ws, agent, err := storeWorkspaceWithAgent(st, "App", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := graphServer(t, st)
+	for name, base := range map[string]string{"agent": "/api/agents/" + agent.ID, "workspace": "/api/workspaces/" + ws.ID} {
+		code, body := getBody(t, ts, base+"/file?worktree=side&path=dot.png")
+		if code != http.StatusOK || !strings.Contains(body, `"name":"dot.png"`) {
+			t.Fatalf("%s scoped image = %d, want the sibling's meta: %s", name, code, body)
+		}
+		// The image route maps read errors to 400 (its own contract);
+		// the point stands: unscoped, the sibling-only file is not there.
+		if code, _ := getBody(t, ts, base+"/file?path=dot.png"); code != http.StatusBadRequest {
+			t.Fatalf("%s unscoped read = %d, want 400", name, code)
+		}
+		if code, _ := getBody(t, ts, base+"/file?worktree=nosuch&path=dot.png"); code != http.StatusNotFound {
+			t.Fatalf("%s bad worktree = %d, want 404", name, code)
+		}
 	}
 }

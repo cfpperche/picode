@@ -34,6 +34,7 @@ it works for any CLI, shell terminal, and project.
 | 8 | scope = this agent | any | — | intersect each group with touched paths; hide emptied groups, all-empty keeps "Show all" |
 | 9 | `git.updated` for a shown root | — | — | coalesced refetch (existing queue) |
 | 10 | non-git root | — | — | unchanged (Files only) |
+| 11 | follow active | — | following | branch chip, Git menu and commit dialog address the followed checkout; PR tab and askable set stay on the anchor |
 
 Back fixes the anchor until Refresh/manual View; View sets follow. The PR
 tab stays on the anchor (pill copy is scoped to Changes). File tabs carry

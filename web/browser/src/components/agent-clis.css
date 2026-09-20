@@ -216,3 +216,95 @@
    native view, which WebView2 forbids covering. */
 .web-tab-annot-btn { height: var(--ctl-h); min-width: var(--ctl-h); padding: 0 8px; margin-right: 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: inherit; cursor: pointer; }
 .web-tab-annot-btn.on { border-color: var(--accent, #4a9eff); color: var(--accent, #4a9eff); }
+
+/* Native settings for a guest CLI (ADR-0163) reuse the Pi pane's layer
+   language, so the accent bar that means "set in this file" has to reach the
+   rows this pane draws too. */
+#cli-settings-view .set-row { padding-left: 8px; border-left: 2px solid transparent; }
+#cli-settings-view .set-row.is-set { border-left-color: var(--accent); }
+#cli-settings-view .set-warn { color: var(--danger); }
+#cli-settings-view .settings-section + .settings-section { margin-top: 16px; }
+.set-text {
+  background: var(--bg-base); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  height: var(--ctl-h); padding: 0 8px; font: inherit; font-size: 12.5px;
+  box-sizing: border-box; min-width: 12rem;
+}
+
+/* Memory (ADR-0163): what the CLI wrote down between sessions. Rows collapse
+   to one line and open in place — the activity-feed shape from
+   docs/benchmark-cursor.md, not a second page. */
+.cli-memory-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 12px; }
+/* One control height (shadcn h-9 / HIG): the store switcher sits beside the
+   filter, so its pills carry --ctl-h like the Pi settings layer switcher. A
+   28px pill next to a 36px input is an uneven row, an instant FAIL. */
+.cli-memory-bar .pkg-scope { margin: 0; }
+.cli-memory-bar .pkg-scope-btn { height: var(--ctl-h); min-height: var(--ctl-h); }
+.cli-memory-filter { display: flex; align-items: center; gap: 8px; }
+.cli-memory-filter .set-text { min-width: 10rem; }
+.cli-memory-note { margin: 0 0 12px; font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+.cli-memory-note code { font-family: var(--mono); font-size: 11.5px; }
+.cli-memory-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.cli-memory-item { border-top: 1px solid var(--border); }
+.cli-memory-item:last-child { border-bottom: 1px solid var(--border); }
+.cli-memory-head {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  min-height: 32px; padding: 6px 4px; background: none; border: 0;
+  color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.cli-memory-head:hover { background: var(--bg-hover, var(--bg-base)); }
+.cli-memory-title { font-size: 13px; font-weight: 550; color: var(--text-primary); flex: none; }
+.cli-memory-tag {
+  flex: none; font-size: 11px; color: var(--text-secondary);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl); padding: 1px 6px;
+}
+.cli-memory-sum {
+  min-width: 0; flex: 1; font-size: 12px; color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cli-memory-body { padding: 4px 4px 14px; display: flex; flex-direction: column; gap: 10px; }
+.cli-memory-text {
+  margin: 0; padding: 10px 12px; background: var(--bg-base);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  /* Read-only: recedes, and never looks like a field you can type into. */
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.5;
+  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 420px; overflow: auto;
+}
+/* Editable: a field, visibly. Without this it was pixel-identical to the
+   read-only box above, so nothing on screen said the text could be typed. */
+.cli-memory-edit {
+  width: 100%; box-sizing: border-box; min-height: 220px; resize: vertical;
+  background: var(--bg-panel); color: var(--text-primary);
+  border: 1px solid var(--text-secondary); border-radius: var(--radius-ctl);
+  padding: 10px 12px; font-family: var(--mono); font-size: 11.5px; line-height: 1.5;
+}
+.cli-memory-edit:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.cli-memory-label { font-size: 11px; color: var(--text-secondary); }
+
+/* Controls in one column: selects size to their longest option and inputs to
+   their attribute, so without a shared width the left edges step by up to
+   100px down the form. */
+/* Two fixed columns, so a row without "Use inherited" does not slide its
+   control into the button's space: measured 871 with the button and 999
+   without it, on adjacent rows of one group (visual review, 2026-09-20).
+   The button column stays empty rather than collapsing. */
+#cli-settings-view .set-ctl {
+  display: grid; grid-template-columns: 14rem 7.5rem;
+  align-items: center; justify-content: end; gap: 8px;
+}
+#cli-settings-view .set-ctl > select,
+#cli-settings-view .set-ctl > input,
+#cli-settings-view .set-ctl > .set-check { width: 100%; min-width: 0; }
+/* Every control on the row is one height (shadcn h-9 / HIG), the switch
+   included — it measured 20px beside 36px selects. */
+#cli-settings-view .set-ctl > .set-check { justify-content: flex-start; height: var(--ctl-h); }
+#cli-settings-view .set-ctl > .btn { justify-self: start; }
+/* On a phone the label and the control share 390px, so the fixed column that
+   straightens the desktop form has to let go. */
+@media (max-width: 720px) {
+  #cli-settings-view .set-ctl { grid-template-columns: minmax(0, 1fr); justify-content: stretch; }
+  #cli-settings-view .set-ctl > .btn { justify-self: end; }
+  #cli-settings-view .set-row { flex-wrap: wrap; }
+  .cli-memory-filter .set-text { min-width: 0; width: 100%; }
+}
+.cli-memory-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
