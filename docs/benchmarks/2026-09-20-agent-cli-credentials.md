@@ -180,9 +180,11 @@ multi-account alone.
 
 ### 6. Verification and health
 
-- Vendor status commands where they exist (`pi auth check --json --no-refresh`
-  is already wired; the same question for guests needs a per-CLI command or a
-  probe).
+- Vendor status commands where they exist: `pi auth check --json --no-refresh`
+  (already wired), `codex login status` (exits 0 when authed),
+  `hermes auth status [provider]`, `opencode auth list`. Claude Code has no
+  standalone one (its `/status` is in-REPL), and Grok, Muse and Antigravity
+  publish none — those get the probe below.
 - Minimal probes: OpenAI/Anthropic `GET /v1/models` (401 = invalid),
   OpenRouter `GET /api/v1/key` (validity **plus** credits), Google
   `GET /v1beta/models?key=`. PiCode already ships this class of call in
@@ -194,9 +196,10 @@ multi-account alone.
 
 ## Patterns the field agrees on
 
-1. **One account per CLI is the status quo everywhere; the pool is the
-   differentiator.** Only omp (and proxy pools) ship multiple accounts; every
-   other CLI needs a launcher or a swapper to get there.
+1. **One account per CLI is the status quo; a pool is the differentiator.**
+   Only omp and Hermes Agent ship multiple accounts natively (omp with
+   ranking and blocks, Hermes with a priority pool); every other CLI needs a
+   launcher or a swapper to get there.
 2. **Config-dir isolation is the safest swap primitive.** It beats file
    mutation (no race with a running agent) and beats a proxy (no third party
    in the token path) — but only when the *process launcher* sets it, which
@@ -226,8 +229,9 @@ multi-account alone.
 
 **One vault, one roster, one injector — for all nine CLIs.**
 
-- **Store**: `<DataDir>/credentials.json` (0600, atomic replace, locked),
-  holding accounts keyed by **provider** with `kind: api_key | oauth`,
+- **Store**: `<DataDir>/credentials.json` (0600, atomic replace, the daemon
+  is the only writer), holding accounts keyed by **provider** with
+  `kind: api_key | oauth`,
   `label`, cached vendor `identity`, `paused`, `health{state,at,message}`,
   `createdAt`, `lastUsedAt` — the shapes omp proved out (`identity_key`,
   `disabled_cause`) expressed as fields PiCode can render. `~/.picode/accounts.json`
