@@ -122,6 +122,13 @@ function InspectorView({ owner, title, root: initialRoot = "", initialView = "",
   const sessionFiles = (status?.git ? (status.changes || []).length : 0) + (status?.worktrees || []).reduce((n, wt) => n + ((wt.changes || []).length), 0);
   const prPage = prRead.data;
   const prLabel = prPage?.status === "ok" && prPage.pr?.number ? `PR #${prPage.pr.number}` : "PR";
+  // While the viewer follows a sibling checkout, every Git action addresses
+  // that checkout — branch, upstream and distance come from the pill, the
+  // terminal is born in its folder. The PR tab and the askable set stay on
+  // the anchor (desktop parity, Inspector.jsx).
+  const actionStatus = view.pill
+    ? { ...status, branch: view.pill.branch, upstream: view.pill.upstream, ahead: view.pill.ahead, behind: view.pill.behind, detached: view.pill.detached, worktree: view.pill.worktree }
+    : status;
   const actionRoot = view.pill ? view.pill.path : root;
 
   const current = trail.at(-1);
@@ -179,7 +186,7 @@ function InspectorView({ owner, title, root: initialRoot = "", initialView = "",
         <InspectorFiles owner={owner} root={root} blocked={!!blocked} enabled onOpen={openFile} onMoved={markMoved} />
       </> : null}
     </main>
-    <GitActionsSheet owner={owner} root={actionRoot} status={status} agents={agents} open={actions} blocked={!!blocked} onClose={() => setActions(false)} onOpenTerminal={onOpenTerminal} onAskAgent={onAskAgent} />
+    <GitActionsSheet owner={owner} root={actionRoot} status={actionStatus} agents={agents} open={actions} blocked={!!blocked} onClose={() => setActions(false)} onOpenTerminal={onOpenTerminal} onAskAgent={onAskAgent} />
   </div>;
 }
 
@@ -207,14 +214,14 @@ function InspectorChanges({ shown, view, scopable, scope, onScope, onDismiss, on
         <button type="button" key={id} className="m-insp-chip" aria-pressed={scope === id} onClick={() => onScope(id)}>{label}</button>
       ))}
     </div> : null}
-    {shown.map(({ group, changes, totals }) => <InspectorGroup key={group.key} group={group} changes={changes} totals={totals} onSelect={onSelect} />)}
+    {shown.map(({ group, changes, totals }) => <InspectorGroup key={group.key} group={group} changes={changes} totals={totals} multi={shown.length > 1} onSelect={onSelect} />)}
   </section>;
 }
 
-function InspectorGroup({ group, changes, totals, onSelect }) {
+function InspectorGroup({ group, changes, totals, multi, onSelect }) {
   const sections = useMemo(() => folderSections(changes), [changes]);
   return <div className="m-insp-group">
-    {!group.isRoot ? <p className="m-git-hint">{group.branch || "Detached"} · {shortPath(group.path)}</p> : null}
+    {(!group.isRoot || multi) ? <p className="m-git-hint">{group.branch || "Detached"} · {shortPath(group.path)}</p> : null}
     <div className="m-git-section-head"><h2>{totals.files ? `${totals.files} changed ${totals.files === 1 ? "file" : "files"}` : "Working tree"}</h2>{totals.files ? <span><span className="m-git-add">+{compactCount(totals.add)}</span> <span className="m-git-del">−{compactCount(totals.del)}</span></span> : null}</div>
     {sections.map((section) => <div key={section.dir || "."} className="m-insp-folder">
       {section.dir ? <p className="m-insp-dir"><span>{section.dir}</span>{section.add || section.del ? <span className="m-insp-dir-counts">{section.add ? <span className="m-git-add">+{compactCount(section.add)}</span> : null}{section.del ? <span className="m-git-del">−{compactCount(section.del)}</span> : null}</span> : null}</p> : null}
