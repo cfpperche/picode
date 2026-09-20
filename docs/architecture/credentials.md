@@ -84,6 +84,34 @@ providers have never published one): the pane refetches on the response and on
 window focus. A single event kind covering both surfaces is a follow-up, not a
 half-covered one here.
 
+## Activation (ADR-0166)
+
+**Use** writes the chosen row into the CLI's own credential file — the pi model
+generalized. No HOME change, no per-account directory, no config-directory
+variable: the CLI is launched exactly as it is, and only the file it reads
+differs. `internal/clicreds.RenderLogin` renders one vault credential into that
+file's own shape, merging and preserving every key PiCode does not own; a file
+that does not parse is never clobbered (the write fails instead).
+
+| Rule | Where it lives |
+|---|---|
+| Refuse while a terminal of that CLI runs (`409`, the count named) | `handleCredentialActivate` + `liveTerminalsFor` (ADR-0062 presence) |
+| Keep the replaced file once, at `<DataDir>/credfiles/<cli>-<unix>.bak` | `keepCredentialBackup` |
+| Refuse what cannot be written faithfully (omp, a Grok file with no session, Hermes/Muse API keys, a kind the renderer does not support) | `RenderLogin` returning false → `400` with a reason |
+| Write atomically at 0600 | `writeInterceptFile` (temp + rename) |
+| The CLI's file is the truth about what is in use | the roster fingerprints what the file holds and marks that row `active` |
+
+`active` therefore means two different things by endpoint, on purpose: in
+pi's roster it is pi's `auth.json` slot (ADR-0013), and in a guest CLI's roster
+it is "the file this CLI reads holds this account right now". A login made in a
+CLI's own TUI shows up as the active row on the next load, and a row PiCode
+never activated shows as inactive.
+
+`singleOAuth` on a provider means its login carries no account name (Claude,
+Muse, Antigravity), so the vault keeps **one** subscription row per provider
+there — ADR-0013's fingerprint rule, said out loud in the pane instead of
+letting a second import look like it vanished.
+
 ## Backup
 
 A snapshot with secrets carries `picode/credentials.json` and **not**
@@ -104,6 +132,7 @@ snapshot has and the migration absorbs the legacy shape.
 | Per-CLI declarations and native readers | `internal/clicreds/` |
 | HTTP surface | `internal/server/credentials.go` |
 | Pane (both apps) | `web/{browser,mobile}/src/components/CliCredentials.jsx`, `web/shared/styles/credentials.css`, `web/shared/domain/credentials.js` |
+| Activation renderers + the file path per CLI | `internal/clicreds/render.go`, `internal/clicreds.CredentialPath` |
 
 Tests: `internal/credentials/credentials_test.go` (encryption round-trip, a
 flipped byte, a missing key, migration-once, pause/remove promotion, token

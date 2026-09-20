@@ -1,9 +1,10 @@
 // Package clicreds declares, per agent CLI, which provider credentials it can
-// use and where it keeps its own login (ADR-0165). It reads; it never writes a
-// CLI's files. Step 1 of the credential work uses it to answer three
-// questions in the Providers pane — which accounts this CLI could use, whether
-// it is already logged in by itself, and how to verify a stored key — and step
-// 2 uses the same declarations to inject an account into a launch.
+// use and where it keeps its own login (ADR-0165). It reads a CLI's store to
+// answer the roster's questions — which accounts this CLI could use, whether
+// it is already logged in by itself, how to verify a stored key — and, since
+// ADR-0166, RenderLogin writes one account back into that same file when the
+// person clicks Use. Nothing here touches a CLI's home or its config
+// directory: the file the CLI already reads is the only thing PiCode writes.
 //
 // One declaration per CLI, the vendor's own names, verified against the
 // installed CLIs (docs/benchmarks/2026-09-20-agent-cli-credentials.md) — a
@@ -67,6 +68,19 @@ type Native struct {
 	// Seed lists the entries a per-account directory links back to the real
 	// home so settings, sessions and memory survive the isolation.
 	Seed []string `json:"seed,omitempty"`
+}
+
+// IdentityBearing reports whether a declared format carries something that
+// tells two accounts of one provider apart — an account id (Codex, Hermes) or
+// an email (Grok). Where it does not, the vault keeps a single oauth row per
+// provider: ADR-0013's fingerprint buckets every rotating oauth credential
+// together, because the tokens themselves are not an identity.
+func IdentityBearing(format string) bool {
+	switch format {
+	case "codex", "grok", "hermes":
+		return true
+	}
+	return false
 }
 
 // Login is what reading a CLI's own store found: a credential in the vault's
@@ -145,22 +159,53 @@ func Detect(cli string) (Login, bool) {
 		return Login{}, false
 	}
 	for _, p := range spec.Providers {
-		if p.Native == nil {
-			continue
-		}
-		path := expandPath(p.Native.Path)
-		if path == "" {
-			continue
-		}
-		raw, err := os.ReadFile(path)
-		if err != nil || len(raw) == 0 {
-			continue
-		}
-		if login, ok := parseLogin(p.Native.Format, p.Provider, raw); ok {
+		if login, ok := DetectProvider(cli, p.Provider); ok {
 			return login, true
 		}
 	}
 	return Login{}, false
+}
+
+// DetectProvider reads one provider's login out of the CLI's own store — the
+// file the CLI reads, which is the truth about what that CLI is using.
+func DetectProvider(cli, provider string) (Login, bool) {
+	spec, ok := For(cli)
+	if !ok {
+		return Login{}, false
+	}
+	for _, p := range spec.Providers {
+		if p.Provider != provider || p.Native == nil {
+			continue
+		}
+		path := expandPath(p.Native.Path)
+		if path == "" {
+			return Login{}, false
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil || len(raw) == 0 {
+			return Login{}, false
+		}
+		if login, ok := parseLogin(p.Native.Format, provider, raw); ok {
+			return login, true
+		}
+	}
+	return Login{}, false
+}
+
+// CredentialPath is the file a CLI keeps its login in, for the providers this
+// package declares (empty when the CLI has no such file). It is the path an
+// activation writes; nothing else in PiCode writes it.
+func CredentialPath(cli, provider string) string {
+	spec, ok := For(cli)
+	if !ok {
+		return ""
+	}
+	for _, p := range spec.Providers {
+		if p.Provider == provider && p.Native != nil {
+			return expandPath(p.Native.Path)
+		}
+	}
+	return ""
 }
 
 // expandPath resolves a declaration's path: $HOME, $XDG_DATA_HOME, $XDG_CONFIG_HOME.
