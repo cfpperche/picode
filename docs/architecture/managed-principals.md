@@ -35,6 +35,12 @@ unbound terminal menus retain terminal wording. Pi restart preserves its
 current mode: interactive uses `open?restart=1`, managed closes then starts
 the managed run. Both interrupt current work and require confirmation.
 
+When an interactive Pi TUI starts without a stored session path, launch mints a
+pending session id. A short background resolver watches for the JSONL file and
+binds it to the agent as soon as Pi creates it, emitting the normal agent update
+so `Continue in…` appears without opening the Sessions view. The resolver is
+bounded and harmless when Pi exits before writing a session.
+
 | Agent / state | Lifecycle actions | Settings / chat |
 |---|---|---|
 | Pi stopped | Start agent | Scoped Pi settings / chat |
