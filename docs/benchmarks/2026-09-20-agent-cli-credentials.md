@@ -286,9 +286,15 @@ multi-account alone.
 4. **Harvest**: after a CLI refreshes tokens inside an account dir, does the
    vault read the file back on terminal stop (keeping the stored copy valid)
    or keep the CLI's file authoritative for that account only?
-5. **Pi itself**: does the Pi vault fold into the new store (one vault, one
+5. **Import semantics for a rotating-refresh login**: adoption with the
+   consequence named (one login, one consumer) or a copy that is marked
+   stale the moment the CLI refreshes it?
+6. **Pi itself**: does the Pi vault fold into the new store (one vault, one
    migration) and does per-agent pinning (the 2026-09-03 study's open
    question) come with it, or stay separate?
+
+The plan that turns this study into work — step 1 (storage) and step 2
+(guided use) — is [../plans/agent-cli-credentials.md](../plans/agent-cli-credentials.md).
 
 ## Sources
 
