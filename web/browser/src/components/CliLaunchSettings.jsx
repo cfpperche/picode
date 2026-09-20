@@ -58,9 +58,9 @@ function QuickListField({ spec, values, onApply }) {
 // overrides and launch profiles. When the CLI has verified quick controls
 // (cliLaunchPresets.js) they render first, patching the same argument
 // array the Advanced reveal exposes; without them the form is unchanged.
-export function LaunchFields({ draft, setDraft, includeIntegration = false, cli }) {
+export function LaunchFields({ draft, setDraft, includeIntegration = false, cli, agentBound = false }) {
   const field = (key) => ({ value: draft[key], onChange: (e) => setDraft({ ...draft, [key]: e.target.value }) });
-  const specs = cli ? quickSettingsFor(cli.id) : null;
+  const specs = cli ? quickSettingsFor(cli.id, { agentBound }) : null;
   const args = launchArgs(draft.argsText);
   const setQuick = (spec, value) => setDraft({ ...draft, argsText: applyQuickSetting(args, specs, spec, value).map(argLine).join("\n") });
   const quick = specs?.map((spec) => {

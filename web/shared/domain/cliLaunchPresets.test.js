@@ -13,6 +13,14 @@ const SANDBOX = { key: "sandbox", type: "select", flags: ["--sandbox", "-s"], gr
 const APPROVAL = { key: "approval", type: "select", flags: ["--ask-for-approval", "-a"], group: "codex" };
 const CODEX_SPECS = quickSettingsFor("codex");
 
+test("bound Pi launch controls cannot generate reserved agent flags", () => {
+  assert.deepEqual(quickSettingsFor("pi", { agentBound: true }), []);
+  assert.deepEqual(quickSettingsFor("pi").map((s) => s.key), ["model", "thinking"]);
+  for (const cli of ["codex", "claude-code", "grok", "omp", "muse"]) {
+    assert.deepEqual(quickSettingsFor(cli, { agentBound: true }), quickSettingsFor(cli));
+  }
+});
+
 test("quick settings exist only for CLIs with verified flags", () => {
   for (const id of ["pi", "claude-code", "codex", "grok", "hermes", "opencode", "omp"]) assert.ok(quickSettingsFor(id), id);
   for (const id of ["muse", "agy", "unknown"]) assert.equal(quickSettingsFor(id), null, id);

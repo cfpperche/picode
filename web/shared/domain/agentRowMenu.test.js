@@ -18,21 +18,32 @@ const CATALOG = [
 // state × adapter.
 // | CLI agent | bound terminal  | integrationCapable | lifecycle + launch        |
 // | ----- | --------------- | ------------------ | ------------------------- |
-// | Pi stopped | —         | —                  | Start, launch, chat       |
-// | Pi managed/interactive | — | —               | Restart/Stop, launch, chat |
+// | Pi stopped | —         | —                  | Start, settings, chat     |
+// | Pi managed/interactive | — | —               | Restart/Stop, settings, chat |
+// | Pi any mode | present  | —                  | launch + settings         |
 // | yes   | stopped/missing | true               | Start agent + launch      |
 // | yes   | running         | true               | Restart/Stop + launch     |
 // | yes   | any             | false              | lifecycle, no launch      |
 
-test("Pi offers lifecycle actions in both modes and scoped settings", () => {
-  assert.deepEqual(ids(agentRowMenu({ cli: "pi", mode: "stopped" })), ["start", "launch", "chat", "term", "rename", "remove"]);
+test("Pi without a bound terminal offers scoped settings, not launch settings", () => {
+  assert.deepEqual(ids(agentRowMenu({ cli: "pi", mode: "stopped" })), ["start", "settings", "chat", "term", "rename", "remove"]);
   for (const mode of ["managed", "interactive"]) {
     const rows = agentRowMenu({ id: "pi/qa", cli: "pi", mode });
-    assert.deepEqual(ids(rows), ["restart", "stop", "launch", "chat", "term", "rename", "remove"]);
+    assert.deepEqual(ids(rows), ["restart", "stop", "settings", "chat", "term", "rename", "remove"]);
     assert.equal(row(rows, "restart").label, "Restart agent");
-    assert.equal(row(rows, "launch").href, "#/clis/pi/settings?agentId=pi%2Fqa");
+    assert.equal(row(rows, "settings").href, "#/clis/pi/settings?agentId=pi%2Fqa");
   }
   assert.equal(row(agentRowMenu({ cli: "pi", mode: "managed" }), "stop").label, "Stop agent");
+});
+
+test("Pi bound terminals use the same launch route in every mode, with no duplicate", () => {
+  for (const mode of ["stopped", "managed", "interactive"]) {
+    const rows = agentRowMenu({ id: "pi/qa", cli: "pi", mode, terminalId: "term/qa" });
+    assert.equal(row(rows, "launch").href, "#/clis/terminal/term%2Fqa");
+    assert.equal(row(rows, "settings").href, "#/clis/pi/settings?agentId=pi%2Fqa");
+    assert.equal(row(rows, "terminal-settings"), undefined);
+    assert.equal(rows.filter((r) => r.label === "Launch settings").length, 1);
+  }
 });
 
 test("a stopped CLI agent offers Start agent and Launch settings", () => {

@@ -220,6 +220,13 @@ export function terminalLaunchCLI(terminal, requested = "") {
 export const defaultLaunchConfig = (integration) => ({ executable: "", args: [], path: [], env: {}, integration: !!integration, tools: [] });
 export const cliWorkspaceList = (response) => Array.isArray(response) ? response : response?.workspaces || [];
 
+// Resolve by the persisted binding, never the selected agent or route context.
+export function terminalLaunchAgent(terminalId, workspaces = [], freeAgents = []) {
+  if (!terminalId) return null;
+  return [...workspaces.flatMap((w) => w.agents || []), ...freeAgents]
+    .find((agent) => agent.terminalId === terminalId) || null;
+}
+
 export function launchChanged(applied, next) {
   return applied.cli !== next.cli || applied.fingerprint !== next.fingerprint || applied.executable !== next.executable || !!(applied.identity && applied.identity !== next.identity);
 }

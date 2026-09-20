@@ -42,6 +42,17 @@ Pending changes compare effective settings and CLI identity, not activity.
 Old generations are reclaimed after a successful new launch; Remove deletes
 only that terminal's private launch files, not native CLI data.
 
+Pi and other agents use the same contextual terminal launch editor. The
+desktop agent menu offers Launch settings only after a terminal is bound,
+without a duplicate Terminal settings entry for Pi. Both app editors resolve
+ownership from workspace and free-agent bindings, including on direct links,
+and show the agent's CLI as read-only. Bound Pi terminals omit the model and
+thinking quick flags, which `validatePiAgentArgs` reserves for agent Settings;
+the editor links there without losing the unsaved-change guard. Defaults,
+profiles and standalone Pi terminals retain those controls. Saving launch
+overrides applies to the next interactive launch, never restarts a process or
+changes a managed run. This adapts the progressive disclosure pattern in
+`docs/benchmarks/2026-09-17-cli-launch-quick-presets.md`.
 `GET /api/clis` resolves installation without starting a conversation;
 A vendor self-update rewrites its launcher or symlink in place, so one
 `Stat` can land inside that swap window and read the CLI as absent — the
