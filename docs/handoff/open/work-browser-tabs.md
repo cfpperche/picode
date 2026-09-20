@@ -10,8 +10,8 @@ reviewed by the owner against the reference, one item at a time.
   spec's slice 3, landed 2026-09-19): `WebTabAddress.jsx` + `rankVisits`, one
   component for both panes (the desktop one offers every visit; the pane with
   no desktop shell only what it can frame). The list is a `role="listbox"`
-  layer, so the app's own vocabulary parks the native view behind it — the
-  same rule the ⋮ menu follows. The placeholder says **Enter a URL**: it said
+  layer; the updated shell composites it above the live native page through
+  ADR-0161, using the same region manager as the ⋮ menu. The placeholder says **Enter a URL**: it said
   "Search or enter a URL" while the shell only prefixes `https://`, which
   turned a typed phrase into "invalid URL". Search from the bar is a decision
   of its own (which provider, whose eyes on the query) and is not built.
@@ -53,13 +53,13 @@ toolbar and Import cookies and passwords… stay out until they exist.
 
 Two facts the slice established:
 
-- **Everything opens over the page now, by geometry.** Any visible floating
-  layer that intersects the tab (the shared vocabulary in
-  `floatingLayers.js`) hides the native view and shows the frozen page
-  (`btab_preview`, raw PNG over IPC). It began with the options menu
-  (2026-09-15) and the "New workspace" dialog cut in half by the page; the
-  class-only `.dlg` observer that fixed those missed the command palette and
-  the editor's own tab menus, which is the 2026-09-16 sweep.
+- **Everything opens over the live page, by geometry (ADR-0161).** The
+  transparent `main-content` native child keeps existing React controls
+  above page siblings. Page rectangles cut input/paint holes; floating
+  rectangles restore chrome regions. Older shells retain the earlier
+  hide/capture path until upgraded. Current acceptance and remaining
+  Windows checks live in `live-desktop-overlays.md`.
+
 
 Find drives the WebView2 Find API (`ICoreWebView2Find` via the environment's
 `CreateFindOptions`); Zoom/Print are the controller's `ZoomFactor` and
@@ -277,26 +277,16 @@ decision, ADR before code.
   handlers come ready-made.
 - COM interfaces are not `Send`: keep event receivers on the UI thread (the
   `RECEIVERS` thread-local in `btab.rs`), never in Tauri state.
-- **An HTML layer can never paint over a WebView2 sibling.** The rule is
-  geometry, not a memory of which overlays exist: `floatingLayers.js` collects
-  every visible layer from the shared vocabulary (`OVERLAY_SELECTORS` in
-  `web/shared/domain/overlayAudit.js` — role+state for Radix, the app's own
-  classes for the rest) and the tab hides the native view when any of them
-  intersects its rectangle, showing the frozen page behind (`btab_preview`).
-  The old `MENU_H` slide is gone (2026-09-16: the owner's editor tab menu came
-  up invisible under the page — a class-only list never saw the palette
-  either). A new floating surface belongs in the shared list, or both the hide
-  rule and the clipping audit lose sight of it.
+- **HTML z-index does not order native siblings.** ADR-0161 replaces the
+  previous hide/capture workaround with a transparent chrome WebView above
+  native pages. `nativeLayers.js` shares the floating-layer vocabulary with
+  the geometry audit; a new floating surface must be represented there.
+  Native regions need the shadow extent as well as the layout rectangle.
 - **A sized popup must stay a window.** `window.open(url, name,
   "width=…,height=…")` carries window features; adopting it as a tab severs
   `window.opener`, and the OAuth popup dead-ends on a blank bridge page
   (x.com + Google, 2026-09-15). `on_new_window` allows feature-sized requests
   to the runtime and adopts only unsized ones as tabs.
-- **A windowed WebView2 cannot be painted over.** Any HTML overlay that
-  should cover a work tab must hide the native view first: the menu freezes
-  the page into a still (`btab_preview`) and hides it; an open `.dlg` hides
-  it through `appOverlays.js`. Bounds tricks (sliding the page) are the old
-  workaround and are refused now.
 - **The agent split renders WebTabSurface too.** A prop added to the tab
   instance must be added there as well (2026-09-16: `onBrowserSettings` was
   tabs-only, so every settings link in the split's ⋮ menu silently no-op'd
@@ -351,7 +341,7 @@ gallery hit is worth a look before anyone installs it expecting this one.
   not looking at is denied when the 60 s watchdog fires. That is the
   limitation the Ask bar's own placement makes honest — nowhere else shows a
   waiting request.
-- The COM capture + native hide half of the still/overlay path has no
+- The legacy-shell COM capture + native hide path has no
   automated test (Windows-only); the JS decode gate is unit-tested
   (`lib/previewStill.js`).
 - **Device toolbar** — the reference menu entry still missing; the owner's
