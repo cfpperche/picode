@@ -13,4 +13,6 @@ no longer sends a key (it scrolls instead — that is the point).
 
 ## Next up
 
-- Owner device confirmation (scroll feel + keyboard persistence).
+- ~~Owner device confirmation~~ — **confirmed by the owner live on iOS
+  2026-09-20**: keys move the TUI, the IME stays open until Hide, and
+  the bar scrolls with momentum. Saga closed (ios → ime → scroll).
