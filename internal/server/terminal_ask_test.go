@@ -101,7 +101,8 @@ func TestTerminalAskRefusals(t *testing.T) {
 	if code, reason := ask("/api/terminals/"+term.ID+"/ask", repo); code != http.StatusConflict || reason != "stopped" {
 		t.Errorf("pi down: %d %q; want 409 stopped", code, reason)
 	}
-	// A plain shell, or another CLI, is never asked — ADR-0062 stands.
+	// A plain shell is never asked — it is not an agent (ADR-0062). A
+	// non-pi CLI terminal is asked through the prompt door (Fatia F).
 	plain, err := st.CreateTerminalIn(term.WorkspaceID, "sh", repo)
 	if err != nil {
 		t.Fatal(err)

@@ -220,9 +220,13 @@ func doorDeliver(deps Deps, ctx context.Context, t store.Terminal, payload strin
 	}
 	before, err := deps.Tmux.InputSnapshot(cctx, session)
 	if err != nil {
-		return http.StatusConflict, map[string]any{
-			"error": "PiCode cannot read this terminal's input state right now.", "reason": "unobservable",
+		// The pane cannot be read here — degrade to the blind paste and say
+		// the delivery is unverified instead of refusing a working terminal.
+		if perr := deps.Tmux.PasteText(cctx, session, payload); perr != nil {
+			return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
 		}
+		announceDoorPrompt(deps, t.ID, "unverified")
+		return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "unverified"}
 	}
 	if !peerInputMatches(cli, before, "") {
 		return http.StatusConflict, map[string]any{
@@ -242,17 +246,23 @@ func doorDeliver(deps Deps, ctx context.Context, t store.Terminal, payload strin
 	deadline := time.Now().Add(doorSettleWindow)
 	for {
 		snap, e := deps.Tmux.InputSnapshot(cctx, session)
-		if e == nil && snap.PaneID == before.PaneID && snap.PanePID == before.PanePID {
+		if e != nil {
+			// The pane was verifiable before the paste and is not now: say so
+			// instead of pressing Enter on an unreadable pane.
+			announceDoorPrompt(deps, t.ID, "unconfirmed")
+			return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "unconfirmed", "reason": "unreadable"}
+		}
+		if snap.PaneID == before.PaneID && snap.PanePID == before.PanePID {
 			if peerInputMatches(cli, snap, "") {
 				announceDoorPrompt(deps, t.ID, "verified")
 				return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "verified"}
 			}
-			if !doorRowHoldsTail(cli, snap, payload) && deadline.Sub(time.Now()) > doorSettleWindow/2 {
-				// Neither empty nor holding our tail line: the composer is
-				// not classifiable — report instead of pressing Enter again
-				// on a pane someone else may be typing into.
-				announceDoorPrompt(deps, t.ID, "unconfirmed")
-				return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "unconfirmed", "reason": "unreadable"}
+			if doorRowHoldsTail(cli, snap, payload) {
+				// A lost Enter: our line still sits at the row. One more
+				// Enter — a second paste is never sent (it would duplicate).
+				if err := deps.Tmux.SubmitPane(ctx, before.PaneID); err != nil {
+					return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
+				}
 			}
 		}
 		if time.Now().Add(doorSettleInterval).After(deadline) {

@@ -415,6 +415,11 @@ func (deps Deps) askByDoor(id, cwd, text string) (askResult, error) {
 	if deps.Store == nil {
 		return askResult{}, errAskNoTmux
 	}
+	if !termHoldsCLI(deps, id) {
+		// A plain shell is not an agent (ADR-0062): nothing to ask, nothing
+		// to paste into.
+		return askResult{}, errAskNotPi
+	}
 	t, err := deps.Store.GetTerminal(id)
 	if err != nil {
 		return askResult{}, err
