@@ -52,6 +52,16 @@ func TestNextStage(t *testing.T) {
 			want:  StageCreateUser,
 		},
 		{
+			name:  "--user root on a root-only distro skips account creation",
+			state: MachineState{WSLPresent: true, Distros: []Distro{ubuntu}, TargetUser: "root", PicodeVersion: "0.3.1"},
+			want:  StageProvision,
+		},
+		{
+			name:  "--user root with no picode installs it as root",
+			state: MachineState{WSLPresent: true, Distros: []Distro{ubuntu}, TargetUser: "root"},
+			want:  StageInstallPicode,
+		},
+		{
 			name:  "a ready machine goes straight to provisioning",
 			state: MachineState{WSLPresent: true, Distros: []Distro{ubuntu}, DefaultUser: "goat", PicodeVersion: "0.3.1"},
 			want:  StageProvision,
@@ -244,7 +254,7 @@ func TestSetDefaultUserCommandKeepsAnExistingSetting(t *testing.T) {
 
 func TestDetectOnAMachineWithoutWSL(t *testing.T) {
 	r := &fakeRunner{errs: []error{errors.New("not found"), errors.New("not found")}}
-	got := Detect(r, "")
+	got := Detect(r, "", "")
 	if got.WSLPresent {
 		t.Error("WSL reported as present when both probes failed")
 	}
@@ -258,7 +268,7 @@ func TestDetectOnAMachineWithWSLButNoDistro(t *testing.T) {
 		replies: [][]byte{utf16le("WSL version: 2.0.0\n"), nil},
 		errs:    []error{nil, errors.New("no distributions")},
 	}
-	got := Detect(r, "")
+	got := Detect(r, "", "")
 	if !got.WSLPresent {
 		t.Error("WSL not detected despite --version answering")
 	}
@@ -267,8 +277,38 @@ func TestDetectOnAMachineWithWSLButNoDistro(t *testing.T) {
 	}
 }
 
+func TestDetectProbesAsTheExplicitUser(t *testing.T) {
+	list := "  NAME              STATE           VERSION\r\n" +
+		"* Ubuntu            Running         2\r\n"
+	r := &fakeRunner{replies: [][]byte{
+		utf16le("WSL version: 2.0.0\n"),
+		utf16le(list),
+		utf16le("goat\n"),
+		[]byte(fullProbe),
+	}}
+	got := Detect(r, "", "cfpp")
+	if got.DefaultUser != "goat" {
+		t.Errorf("DefaultUser = %q, want the distro's own", got.DefaultUser)
+	}
+	if got.TargetUser != "cfpp" {
+		t.Errorf("TargetUser = %q, want the explicit flag", got.TargetUser)
+	}
+	if len(got.Missing) != 2 {
+		t.Errorf("Missing = %q, want the probe's two", got.Missing)
+	}
+	if len(r.calls) != 4 {
+		t.Fatalf("%d wsl calls, want version, list, whoami and probe", len(r.calls))
+	}
+	if joined := strings.Join(r.calls[2], " "); !strings.Contains(joined, "whoami") {
+		t.Errorf("the default lookup was skipped: %q", joined)
+	}
+	if joined := strings.Join(r.calls[3], " "); !strings.Contains(joined, "-u cfpp") {
+		t.Errorf("the probe did not run as the explicit user: %q", joined)
+	}
+}
+
 func TestDescribeCoversEveryStage(t *testing.T) {
-	for _, s := range []Stage{StageInstallWSL, StageReboot, StageInstallDistro, StageCreateUser, StageProvision} {
+	for _, s := range []Stage{StageInstallWSL, StageReboot, StageInstallDistro, StageCreateUser, StageInstallPicode, StageInstallRuntime, StageProvision} {
 		if got := Describe(s, ""); got == "" || strings.Contains(got, string(s)) {
 			t.Errorf("Describe(%q) = %q, want a sentence rather than the stage name", s, got)
 		}

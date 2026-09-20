@@ -163,8 +163,8 @@ func TestRunInstallPicodeSkipsMatching(t *testing.T) {
 	stamp(t, "0.3.1", "release")
 	stub := &diskStub{}
 	a := &app{runner: stub}
-	state := desktop.MachineState{Distros: []desktop.Distro{testUbuntu}, DefaultUser: "goat", PicodeVersion: "0.3.1"}
-	if err := runInstallPicode(a, state, ""); err != nil {
+	state := desktop.MachineState{Distros: []desktop.Distro{testUbuntu}, DefaultUser: "goat", TargetUser: "goat", PicodeVersion: "0.3.1"}
+	if err := runInstallPicode(a, state, "", ""); err != nil {
 		t.Fatal(err)
 	}
 	if len(stub.calls) != 0 {
@@ -196,7 +196,7 @@ func piRegistry(t *testing.T, engines string) {
 
 func runtimeState(missing []string, nodeMajor, family string, registered bool) desktop.MachineState {
 	return desktop.MachineState{
-		Distros: []desktop.Distro{testUbuntu}, DefaultUser: "goat",
+		Distros: []desktop.Distro{testUbuntu}, DefaultUser: "goat", TargetUser: "goat",
 		PicodeVersion: "0.3.1", Missing: missing, NodeMajor: nodeMajor,
 		Family: family, RegisteredByDesktop: registered,
 	}
@@ -204,7 +204,7 @@ func runtimeState(missing []string, nodeMajor, family string, registered bool) d
 
 func TestRunInstallRuntimeNothingMissing(t *testing.T) {
 	stub := &diskStub{}
-	if err := runInstallRuntime(&app{runner: stub}, runtimeState(nil, "22", "ubuntu", true), "", false, nil); err != nil {
+	if err := runInstallRuntime(&app{runner: stub}, runtimeState(nil, "22", "ubuntu", true), "", "", false, nil); err != nil {
 		t.Fatal(err)
 	}
 	if len(stub.calls) != 0 {
@@ -214,7 +214,7 @@ func TestRunInstallRuntimeNothingMissing(t *testing.T) {
 
 func TestRunInstallRuntimeNonUbuntuStops(t *testing.T) {
 	stub := &diskStub{}
-	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux"}, "", "debian", false), "", true, nil)
+	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux"}, "", "debian", false), "", "", true, nil)
 	if err == nil || !strings.Contains(err.Error(), "not Ubuntu") {
 		t.Fatalf("err = %v", err)
 	}
@@ -230,7 +230,7 @@ func TestRunInstallRuntimeRegisteredNeedsNoAsking(t *testing.T) {
 		errs:    []error{nil, nil, errors.New("mkcert absent"), nil, nil},
 	}
 	// nil stdin: registered distros must never consult it.
-	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux", "pi"}, "22", "ubuntu", true), "", false, nil)
+	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux", "pi"}, "22", "ubuntu", true), "", "", false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -248,7 +248,7 @@ func TestRunInstallRuntimeRegisteredNeedsNoAsking(t *testing.T) {
 func TestRunInstallRuntimeAdoptedAsks(t *testing.T) {
 	piRegistry(t, ">=22.19.0")
 	stub := &diskStub{}
-	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux"}, "22", "ubuntu", false), "", false, strings.NewReader("n\n"))
+	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux"}, "22", "ubuntu", false), "", "", false, strings.NewReader("n\n"))
 	if err == nil || !strings.Contains(err.Error(), "--yes") {
 		t.Fatalf("err = %v", err)
 	}
@@ -259,7 +259,7 @@ func TestRunInstallRuntimeAdoptedAsks(t *testing.T) {
 
 func TestRunInstallRuntimeAdoptedEOFRefuses(t *testing.T) {
 	stub := &diskStub{}
-	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux"}, "22", "ubuntu", false), "", false, strings.NewReader(""))
+	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux"}, "22", "ubuntu", false), "", "", false, strings.NewReader(""))
 	if err == nil || !strings.Contains(err.Error(), "--yes") {
 		t.Fatalf("err = %v", err)
 	}
@@ -268,7 +268,7 @@ func TestRunInstallRuntimeAdoptedEOFRefuses(t *testing.T) {
 func TestRunInstallRuntimeYesSkipsTheQuestion(t *testing.T) {
 	piRegistry(t, ">=22.19.0")
 	stub := &diskStub{replies: [][]byte{nil, nil, nil, nil, []byte(probeClean)}}
-	if err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux", "pi"}, "22", "ubuntu", false), "", true, nil); err != nil {
+	if err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux", "pi"}, "22", "ubuntu", false), "", "", true, nil); err != nil {
 		t.Fatal(err)
 	}
 	if len(stub.calls) == 0 {
@@ -279,7 +279,7 @@ func TestRunInstallRuntimeYesSkipsTheQuestion(t *testing.T) {
 func TestRunInstallRuntimeUpgradesOldNode(t *testing.T) {
 	piRegistry(t, ">=22.19.0")
 	stub := &diskStub{replies: [][]byte{nil, nil, nil, nil, nil, []byte(probeClean)}}
-	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"pi"}, "18", "ubuntu", true), "", false, nil)
+	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"pi"}, "18", "ubuntu", true), "", "", false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +292,7 @@ func TestRunInstallRuntimeReportsLeftovers(t *testing.T) {
 	piRegistry(t, ">=22.19.0")
 	stillMissing := "@@tools@@\nmissing:tmux\nv22.1.0\n"
 	stub := &diskStub{replies: [][]byte{nil, nil, nil, []byte(stillMissing)}}
-	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux"}, "22", "ubuntu", true), "", false, nil)
+	err := runInstallRuntime(&app{runner: stub}, runtimeState([]string{"tmux"}, "22", "ubuntu", true), "", "", false, nil)
 	if err == nil || !strings.Contains(err.Error(), "still missing") {
 		t.Fatalf("err = %v", err)
 	}
@@ -304,4 +304,61 @@ func callStrings(calls [][]string) []string {
 		out = append(out, strings.Join(c, " "))
 	}
 	return out
+}
+
+func TestRunInstallRuntimeUserModeInstallsPiAsTheUser(t *testing.T) {
+	piRegistry(t, ">=22.19.0")
+	stub := &diskStub{replies: [][]byte{[]byte("1000\n"), nil, nil, []byte(probeClean)}}
+	st := runtimeState([]string{"pi"}, "22", "ubuntu", true)
+	st.TargetUser = "cfpp"
+	if err := runInstallRuntime(&app{runner: stub}, st, "", "cfpp", false, nil); err != nil {
+		t.Fatal(err)
+	}
+	var sawUserPi, sawRootNpm bool
+	for _, c := range callStrings(stub.calls) {
+		if strings.Contains(c, "npm install -g") {
+			if strings.Contains(c, "-u cfpp") {
+				sawUserPi = true
+			}
+			if strings.Contains(c, "-u root") {
+				sawRootNpm = true
+			}
+		}
+	}
+	if !sawUserPi {
+		t.Errorf("no user-mode pi install:\n%s", strings.Join(callStrings(stub.calls), "\n"))
+	}
+	if sawRootNpm {
+		t.Errorf("pi installed as root despite --user:\n%s", strings.Join(callStrings(stub.calls), "\n"))
+	}
+	last := strings.Join(stub.calls[len(stub.calls)-1], " ")
+	if !strings.Contains(last, "-u cfpp") {
+		t.Errorf("verify probe did not run as the user: %q", last)
+	}
+}
+
+func TestRunInstallRuntimeUnknownUserStops(t *testing.T) {
+	stub := &diskStub{errs: []error{errors.New("exit status 1")}}
+	st := runtimeState([]string{"pi"}, "22", "ubuntu", true)
+	st.TargetUser = "ghost"
+	err := runInstallRuntime(&app{runner: stub}, st, "", "ghost", false, nil)
+	if err == nil || !strings.Contains(err.Error(), "ghost") {
+		t.Fatalf("err = %v, want the unknown account named", err)
+	}
+	if len(stub.calls) != 1 {
+		t.Errorf("%d calls, want only the account check", len(stub.calls))
+	}
+}
+
+func TestRunInstallPicodeUnknownUserStops(t *testing.T) {
+	stub := &diskStub{errs: []error{errors.New("exit status 1")}}
+	a := &app{runner: stub}
+	state := desktop.MachineState{Distros: []desktop.Distro{testUbuntu}, DefaultUser: "goat", TargetUser: "ghost", PicodeVersion: "0.2.0"}
+	err := runInstallPicode(a, state, "", "ghost")
+	if err == nil || !strings.Contains(err.Error(), "ghost") {
+		t.Fatalf("err = %v, want the unknown account named", err)
+	}
+	if len(stub.calls) != 1 {
+		t.Errorf("%d calls, want only the account check", len(stub.calls))
+	}
 }

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cfpperche/picode/internal/pipkg"
 	"github.com/cfpperche/picode/internal/version"
 )
 
@@ -180,7 +181,7 @@ func TestNodeSourceScript(t *testing.T) {
 		"Signed-By: /usr/share/keyrings/nodesource.gpg",
 		"Pin-Priority: 600",
 		"apt-get install -y nodejs",
-		`"$arch"`,
+		"dpkg --print-architecture | grep",
 	} {
 		if !strings.Contains(script, want) {
 			t.Errorf("script lacks %q", want)
@@ -207,11 +208,83 @@ func TestSetRegisteredCommand(t *testing.T) {
 	}
 }
 
+// No `$` crosses the wsl.exe boundary intact (see WSLArgs): a dollar in
+// argv reaches the distro shell eaten or wrong. Every script built here is
+// asserted literally, so a `$VAR` reintroduction fails here instead of on a
+// clean machine with a misleadingly successful exit status.
+func TestNoDollarCrossesTheWSLBoundary(t *testing.T) {
+	script, err := NodeSourceScript("22")
+	if err != nil {
+		t.Fatal(err)
+	}
+	scripts := map[string]string{
+		"probe":   strings.Join(ProbeArgs(), " "),
+		"create":  strings.Join(CreateUserCommand("goat"), " "),
+		"default": strings.Join(SetDefaultUserCommand("goat"), " "),
+		"nodesrc": script,
+		"place":   PlacePicodeScript("/mnt/c/x"),
+		"marker":  strings.Join(SetRegisteredCommand(), " "),
+		"userpi":  UserPiInstallScript(),
+	}
+	for name, script := range scripts {
+		if strings.Contains(script, "$") {
+			t.Errorf("%s script carries a `$` across wsl.exe:\n%s", name, script)
+		}
+	}
+	// ServerURL and ExportCA build argv at call time, so their calls are
+	// captured through the fake runner instead of asserted as strings.
+	r := &fakeRunner{replies: [][]byte{
+		utf16le(`{"url":"https://localhost:8445"}`),
+		utf16le("/home/goat/.local/share/mkcert\n"),
+		utf16le("pretend-pem"),
+	}}
+	if _, err := ServerURL(r, "Ubuntu", "goat"); err != nil {
+		t.Fatal(err)
+	}
+	for _, call := range r.calls {
+		if joined := strings.Join(call, " "); strings.Contains(joined, "$") {
+			t.Errorf("ServerURL argv carries a `$`: %q", joined)
+		}
+	}
+	ca := &fakeRunner{replies: [][]byte{
+		utf16le("/home/goat/.local/share/mkcert\n"),
+		utf16le("pretend-pem"),
+	}}
+	if _, err := ExportCA(ca, "Ubuntu", "goat"); err == nil {
+		t.Error("a pem without a certificate was accepted")
+	}
+	if len(ca.calls) != 2 {
+		t.Fatalf("%d wsl calls, want CAROOT read plus cat", len(ca.calls))
+	}
+	for _, call := range ca.calls {
+		if joined := strings.Join(call, " "); strings.Contains(joined, "$") {
+			t.Errorf("ExportCA argv carries a `$`: %q", joined)
+		}
+	}
+}
+
 func TestPlacePicodeScript(t *testing.T) {
 	got := PlacePicodeScript("/mnt/c/Users/a b/Temp/x")
 	for _, want := range []string{"mkdir -p ~/.local/bin", "'/mnt/c/Users/a b/Temp/x'", "~/.local/bin/picode", "chmod +x"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("script lacks %q:\n%s", want, got)
 		}
+	}
+}
+
+func TestUserPiInstallScript(t *testing.T) {
+	got := UserPiInstallScript()
+	for _, want := range []string{
+		"mkdir -p ~/.npm-global ~/.local/bin",
+		"npm config set prefix ~/.npm-global",
+		"npm install -g " + pipkg.PiPackage + "@latest",
+		"ln -sf ~/.npm-global/bin/pi ~/.local/bin/pi",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("script lacks %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "$") {
+		t.Errorf("user pi script carries a `$` across wsl.exe:\n%s", got)
 	}
 }

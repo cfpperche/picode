@@ -22,11 +22,11 @@ const maxStages = 10
 //
 // It returns false when the machine needs a Windows restart; setup continues
 // on its own at the next logon.
-func bootstrap(a *app, distroFlag string, yes bool) (ready bool, err error) {
+func bootstrap(a *app, distroFlag, userFlag string, yes bool) (ready bool, err error) {
 	var last desktop.Stage
 
 	for i := 0; i < maxStages; i++ {
-		state := desktop.Detect(a.runner, distroFlag)
+		state := desktop.Detect(a.runner, distroFlag, userFlag)
 		stage := desktop.NextStage(state)
 
 		if stage == desktop.StageProvision {
@@ -58,17 +58,17 @@ func bootstrap(a *app, distroFlag string, yes bool) (ready bool, err error) {
 			}
 
 		case desktop.StageCreateUser:
-			if err := createAccount(a, state, distroFlag); err != nil {
+			if err := createAccount(a, state, distroFlag, userFlag); err != nil {
 				return false, err
 			}
 
 		case desktop.StageInstallPicode:
-			if err := runInstallPicode(a, state, distroFlag); err != nil {
+			if err := runInstallPicode(a, state, distroFlag, userFlag); err != nil {
 				return false, err
 			}
 
 		case desktop.StageInstallRuntime:
-			if err := runInstallRuntime(a, state, distroFlag, yes, os.Stdin); err != nil {
+			if err := runInstallRuntime(a, state, distroFlag, userFlag, yes, os.Stdin); err != nil {
 				return false, err
 			}
 		}
@@ -90,12 +90,19 @@ func runMaybeReboot(a *app, args []string) (reboot bool, err error) {
 // name follows the Windows account so the owner keeps their own, and the
 // password is left locked: PiCode reaches root through `wsl -u root` and never
 // needs sudo, so setting a password here would be an unasked-for decision.
-func createAccount(a *app, state desktop.MachineState, distroFlag string) error {
+func createAccount(a *app, state desktop.MachineState, distroFlag, userFlag string) error {
 	picked, err := desktop.Pick(state.Distros, distroFlag)
 	if err != nil {
 		return err
 	}
-	name := desktop.LinuxUserName(windowsUser())
+	name := userFlag
+	if name == "" {
+		name = desktop.LinuxUserName(windowsUser())
+	} else if desktop.LinuxUserName(name) != name {
+		// The name lands inside a root shell script, so anything the
+		// sanitizer would change is refused instead of quoted and hoped.
+		return fmt.Errorf("account %q is not a simple Linux name (lowercase letters, digits, _ and -)", name)
+	}
 
 	if err := a.runner.Run(desktop.WSLExe,
 		desktop.WSLArgs(picked.Name, "root", desktop.CreateUserCommand(name)...)...); err != nil {

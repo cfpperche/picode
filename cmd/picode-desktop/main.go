@@ -44,7 +44,7 @@ func main() {
 
 	fs := flag.NewFlagSet("picode-desktop", flag.ExitOnError)
 	distro := fs.String("distro", "", "WSL distribution (default: the only WSL 2 one, else the default)")
-	user := fs.String("user", "", "Linux account to provision (default: the distro's own)")
+	user := fs.String("user", "", "Linux account to provision (default: the distro's own; with install: also owns the picode binary and, unless root, the pi install)")
 	// Kept parsing so a pre-migration logon task fails with the retired
 	// message below instead of an unknown-flag dump.
 	tray := fs.Bool("tray", false, "retired with the Go tray (ADR-0142)")
@@ -76,7 +76,16 @@ func main() {
 	case cmd == "startup-repair":
 		exit(runStartupRepair(*retargetShell))
 	case cmd == "install":
-		exit(runInstall(*distro, *user, *yes))
+		installErr := runInstall(*distro, *user, *yes)
+		if installErr != nil {
+			// The elevated window owns the full output; the log keeps
+			// the last line where the parent (and automation) can read
+			// it, and the pause keeps the window readable for a human.
+			// A closed stdin ends the pause at once — no hang.
+			_ = logInstallError(InstallLogPath(), installErr)
+			pauseForEnter(os.Stdout, os.Stdin)
+		}
+		exit(installErr)
 	case cmd == "uninstall":
 		exit(runUninstall())
 	case cmd == "update":
@@ -198,7 +207,7 @@ func resolve(distroFlag, userFlag string) (app, error) {
 func runDoctor(distroFlag, userFlag string) error {
 	// On a machine without WSL there is no distro to resolve, so the state of
 	// the machine itself is the report.
-	if stage := desktop.NextStage(desktop.Detect(osRunner{}, distroFlag)); stage != desktop.StageProvision {
+	if stage := desktop.NextStage(desktop.Detect(osRunner{}, distroFlag, userFlag)); stage != desktop.StageProvision {
 		fmt.Println("This machine is not set up for PiCode yet.")
 		fmt.Println()
 		fmt.Printf("  %-6s %s\n", "todo", desktop.Describe(stage, distroFlag))
@@ -255,7 +264,7 @@ func runInstall(distroFlag, userFlag string, yes bool) error {
 	// A clean machine has no distro to resolve yet, so the bootstrap runs
 	// first and only then is there something to name.
 	pre := app{runner: osRunner{}}
-	ready, err := bootstrap(&pre, distroFlag, yes)
+	ready, err := bootstrap(&pre, distroFlag, userFlag, yes)
 	if err != nil {
 		return err
 	}

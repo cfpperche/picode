@@ -39,6 +39,10 @@ type MachineState struct {
 	// DefaultUser is the distro's login account, empty when the distro has
 	// only root — which is what `--no-launch` leaves behind.
 	DefaultUser string
+	// TargetUser is the account the runtime stages install for: the
+	// explicit --user flag when set, the default account otherwise. The
+	// probe runs as this account so a pi only it can see still converges.
+	TargetUser string
 	// PicodeVersion is the picode inside the picked distro ("" when
 	// missing); WantPicode is the release install-picode converges on (""
 	// for an unstamped tool, where presence is enough).
@@ -66,7 +70,7 @@ func NextStage(s MachineState) Stage {
 		return StageReboot
 	case !hasUsableDistro(s.Distros):
 		return StageInstallDistro
-	case s.DefaultUser == "" || s.DefaultUser == "root":
+	case (s.DefaultUser == "" || s.DefaultUser == "root") && s.TargetUser != "root":
 		return StageCreateUser
 	case PicodeWanted(s.PicodeVersion, s.WantPicode):
 		return StageInstallPicode
@@ -186,31 +190,34 @@ func fold(r rune) rune { return folded[r] }
 // idempotent, and it deliberately leaves the password **locked**: PiCode never
 // needs sudo (provisioning reaches root through `wsl -u root`), so setting a
 // password — or granting passwordless sudo — would be a security decision the
-// installer has no business making on someone's behalf.
+// installer has no business making on someone's behalf. The groups are
+// unrolled rather than looped: no `$` crosses the wsl.exe boundary intact.
 func CreateUserCommand(name string) []string {
 	script := `set -e
 if ! id -u ` + name + ` >/dev/null 2>&1; then
   useradd -m -s /bin/bash ` + name + `
 fi
-for g in sudo wheel; do
-  if getent group "$g" >/dev/null 2>&1; then usermod -aG "$g" ` + name + `; fi
-done`
+if getent group sudo >/dev/null 2>&1; then usermod -aG sudo ` + name + `; fi
+if getent group wheel >/dev/null 2>&1; then usermod -aG wheel ` + name + `; fi`
 	return []string{"sh", "-c", script}
 }
 
 // SetDefaultUserCommand writes [user] default=<name> into the distro's
 // wsl.conf. The merge is the same line editor provisioning uses, so a distro
-// that already has settings keeps every one of them.
+// that already has settings keeps every one of them. The path is spelled
+// out instead of held in a variable: no `$` crosses the wsl.exe boundary
+// intact.
 func SetDefaultUserCommand(name string) []string {
 	// Done in the distro with a here-doc-free shell so nothing depends on the
 	// quoting rules of wsl.exe's argument passing.
 	script := `set -e
-conf=/etc/wsl.conf
-if [ -f "$conf" ] && grep -qi '^[[:space:]]*default[[:space:]]*=' "$conf"; then exit 0; fi
-if [ -f "$conf" ] && grep -qi '^[[:space:]]*\[user\]' "$conf"; then
-  printf 'default=%s\n' ` + name + ` >> "$conf"
+if [ -f /etc/wsl.conf ] && grep -qi '^[[:space:]]*default[[:space:]]*=' /etc/wsl.conf; then exit 0; fi
+if [ -f /etc/wsl.conf ] && grep -qi '^[[:space:]]*\[user\]' /etc/wsl.conf; then
+  echo 'default=` + name + `' >> /etc/wsl.conf
 else
-  printf '\n[user]\ndefault=%s\n' ` + name + ` >> "$conf"
+  echo '' >> /etc/wsl.conf
+  echo '[user]' >> /etc/wsl.conf
+  echo 'default=` + name + `' >> /etc/wsl.conf
 fi`
 	return []string{"sh", "-c", script}
 }
@@ -218,7 +225,11 @@ fi`
 // Detect reads what can be observed about this machine. Every probe failing is
 // itself information — an absent WSL, an empty distro list, a distro with only
 // root — so nothing here is an error; NextStage turns the picture into work.
-func Detect(r Runner, preferred string) MachineState {
+// The user flag names the account the install is for; empty means the
+// distro's own. The default lookup runs either way: the stage gate needs the
+// distro's account, and skipping it on an adopted distro would re-run account
+// creation (and its registered marker) where it does not belong.
+func Detect(r Runner, preferred, userFlag string) MachineState {
 	var s MachineState
 
 	if _, err := r.Output(WSLExe, "--version"); err != nil {
@@ -240,6 +251,10 @@ func Detect(r Runner, preferred string) MachineState {
 		return s
 	}
 	user, err := DefaultUser(r, picked.Name)
+	s.TargetUser = user
+	if userFlag != "" {
+		s.TargetUser = userFlag
+	}
 	if err != nil {
 		return s
 	}
@@ -250,7 +265,7 @@ func Detect(r Runner, preferred string) MachineState {
 	// One observation call for everything below the account. A failing
 	// probe degrades to "missing" inside the parse, never to an error.
 	s.WantPicode = WantPicode()
-	if out, err := r.Output(WSLExe, WSLArgs(picked.Name, user, ProbeArgs()...)...); err == nil {
+	if out, err := r.Output(WSLExe, WSLArgs(picked.Name, s.TargetUser, ProbeArgs()...)...); err == nil {
 		probe := ParseProbe(out)
 		s.PicodeVersion = probe.Picode
 		s.Missing = probe.Missing

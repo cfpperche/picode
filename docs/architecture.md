@@ -64,7 +64,14 @@ registers the logon task. `install` walks a state machine
 resumes): WSL, distro, account, then — since ADR-0098's stages landed — the
 picode binary (the tool's own release, verified) and the runtime (tmux, git,
 curl, Node.js from NodeSource, pi; Ubuntu only), asking first on a distro
-PiCode did not register, and ends with the shell running. It drives the distro through
+PiCode did not register, and ends with the shell running. `--user <name>`
+aims both at one account (the binary in its `~/.local/bin`, pi in its own npm
+prefix linked there); without it pi is a system-wide root install while the
+binary still lands in the distro's default account, and the observation probe
+runs as the target account so a pi only it can see still converges. The
+launcher waits for the elevated child and reports a failing exit code instead
+of exiting 0; the last error line lands in `%ProgramData%\PiCode
+Desktop\install.log` and the window pauses for Enter on failure. It drives the distro through
 **two** `picode provision --json` calls — `-u root` for `wsl.conf` and
 lingering, then `-u <owner>` for the unit, certificate and data dir, because
 installing those as root would put PiCode in `/root`. The merged view keeps

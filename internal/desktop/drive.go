@@ -22,6 +22,16 @@ var WSLExe = "wsl.exe"
 
 // WSLArgs builds `wsl.exe -d <distro> [-u <user>] -- <command...>`. An empty
 // user means the distro's default account.
+//
+// No `$` crosses this boundary intact: a `$VAR` or `$(...)` in argv reaches
+// the distro shell eaten or wrong (measured 2026-09-15, same result from a
+// Windows-native spawn and through interop: `v=1; echo v=$v` prints `v=`).
+// `$HOME` happens to resolve, but nothing here may lean on it. Write argv
+// accordingly: `~` and absolute literals for paths, unrolled loops, `if`
+// instead of `$?`, `which` (a binary, honest rc) instead of `command -v`
+// (this Ubuntu's dash answers rc 0 for a missing command), and a separate
+// read-back call instead of substitution. `;`, newlines and `&&`/`||`
+// chains pass through fine.
 func WSLArgs(distro, user string, command ...string) []string {
 	args := []string{"-d", distro}
 	if user != "" {

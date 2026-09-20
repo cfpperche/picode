@@ -38,11 +38,14 @@ var BasePackages = []string{"tmux", "git", "curl", "ca-certificates", "gnupg"}
 // failing probe cannot corrupt another's parse.
 const probeScript = `set -e
 echo "@@picode@@"
-command -v picode >/dev/null 2>&1 && picode --version || echo MISSING
+which picode >/dev/null 2>&1 && picode --version || echo MISSING
 echo "@@tools@@"
-for t in tmux git curl node npm pi; do
-  command -v "$t" >/dev/null 2>&1 || echo "missing:$t"
-done
+which tmux >/dev/null 2>&1 || echo "missing:tmux"
+which git >/dev/null 2>&1 || echo "missing:git"
+which curl >/dev/null 2>&1 || echo "missing:curl"
+which node >/dev/null 2>&1 || echo "missing:node"
+which npm >/dev/null 2>&1 || echo "missing:npm"
+which pi >/dev/null 2>&1 || echo "missing:pi"
 node --version 2>/dev/null || echo "nodeversion:"
 echo "@@family@@"
 grep ^ID= /etc/os-release 2>/dev/null || echo ID=unknown
@@ -266,7 +269,10 @@ func NodeOlder(installed, required string) bool {
 // NodeSource's own setup script as our argv instead of piping their script
 // (ADR-0093 refuses executing a vendor's curl|bash on the user's behalf),
 // and ends with the install so one wsl call converges node end to end.
-// Runs as root; major must be digits.
+// Runs as root; major must be digits. No `$`: the architecture gates the
+// run through a bare grep (anything else fails closed under set -e), and
+// the source file omits Architectures — without it apt resolves the native
+// arch, which the gate just proved supported.
 func NodeSourceScript(major string) (string, error) {
 	if major == "" {
 		return "", fmt.Errorf("node major is empty")
@@ -277,14 +283,19 @@ func NodeSourceScript(major string) (string, error) {
 		}
 	}
 	return fmt.Sprintf(`set -e
+dpkg --print-architecture | grep -qxE '(amd64|arm64)'
 mkdir -p /usr/share/keyrings
 rm -f /usr/share/keyrings/nodesource.gpg /etc/apt/sources.list.d/nodesource.list /etc/apt/sources.list.d/nodesource.sources
 curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg
 chmod 644 /usr/share/keyrings/nodesource.gpg
-arch=$(dpkg --print-architecture)
-case "$arch" in amd64|arm64) ;; *) echo "unsupported architecture: $arch" >&2; exit 1;; esac
-printf 'Types: deb\nURIs: https://deb.nodesource.com/node_%s.x\nSuites: nodistro\nComponents: main\nArchitectures: %%s\nSigned-By: /usr/share/keyrings/nodesource.gpg\n' "$arch" > /etc/apt/sources.list.d/nodesource.sources
-printf 'Package: nodejs\nPin: origin deb.nodesource.com\nPin-Priority: 600\n' > /etc/apt/preferences.d/nodejs
+echo 'Types: deb' > /etc/apt/sources.list.d/nodesource.sources
+echo 'URIs: https://deb.nodesource.com/node_%s.x' >> /etc/apt/sources.list.d/nodesource.sources
+echo 'Suites: nodistro' >> /etc/apt/sources.list.d/nodesource.sources
+echo 'Components: main' >> /etc/apt/sources.list.d/nodesource.sources
+echo 'Signed-By: /usr/share/keyrings/nodesource.gpg' >> /etc/apt/sources.list.d/nodesource.sources
+echo 'Package: nodejs' > /etc/apt/preferences.d/nodejs
+echo 'Pin: origin deb.nodesource.com' >> /etc/apt/preferences.d/nodejs
+echo 'Pin-Priority: 600' >> /etc/apt/preferences.d/nodejs
 apt-get update
 apt-get install -y nodejs
 `, major), nil
@@ -293,6 +304,22 @@ apt-get install -y nodejs
 // PiInstallArgs is the exact argv ADR-0093 runs for pi.
 func PiInstallArgs() []string {
 	return []string{"install", "-g", pipkg.PiPackage + "@latest"}
+}
+
+// UserPiInstallScript installs pi for one account instead of the machine.
+// A global npm install as anyone but root fails against root-owned prefix
+// directories, so the script gives the account its own prefix first; the
+// ~/.profile edit a prefix normally needs is skipped in favor of a symlink
+// into ~/.local/bin, which every login shell already carries — no `$`
+// survives the wsl.exe boundary to write an export line with. Runs as the
+// account (never root); the login-shell probe sees the link.
+func UserPiInstallScript() string {
+	return `set -e
+mkdir -p ~/.npm-global ~/.local/bin
+npm config set prefix ~/.npm-global
+npm install -g ` + pipkg.PiPackage + `@latest
+ln -sf ~/.npm-global/bin/pi ~/.local/bin/pi
+`
 }
 
 // PlacePicodeScript moves a staged binary into ~/.local/bin/picode. inside

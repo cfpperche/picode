@@ -18,16 +18,37 @@ import (
 // the two stages the bootstrap loop routes to. Each one checks first, fixes
 // second, verifies third; re-running a finished stage changes nothing.
 
+// ensureTargetUser resolves the account a stage installs for and proves it
+// exists before anything is downloaded: `id` as root is both the existence
+// check and the name validator (a hostile --user arrives as one argv element,
+// and id refuses it the same way it refuses a ghost).
+func ensureTargetUser(a *app, distro string, state desktop.MachineState, userFlag string) (string, error) {
+	target := state.TargetUser
+	if target == "" {
+		target = state.DefaultUser
+	}
+	if userFlag == "" {
+		return target, nil
+	}
+	if _, err := a.runner.Output(desktop.WSLExe, desktop.WSLArgs(distro, "root", "id", "-u", userFlag)...); err != nil {
+		return "", fmt.Errorf("unknown Linux account %q on %s", userFlag, distro)
+	}
+	return userFlag, nil
+}
+
 // runInstallPicode delivers the Linux binary into the distro: the release
 // matching this build (latest when unstamped), verified, staged through a
 // temp file the distro reads over /mnt, and version-checked through a login
 // shell — the same shell PicodePath resolves through later.
-func runInstallPicode(a *app, state desktop.MachineState, distroFlag string) error {
+func runInstallPicode(a *app, state desktop.MachineState, distroFlag, userFlag string) error {
 	picked, err := desktop.Pick(state.Distros, distroFlag)
 	if err != nil {
 		return err
 	}
-	user := state.DefaultUser
+	user, err := ensureTargetUser(a, picked.Name, state, userFlag)
+	if err != nil {
+		return err
+	}
 	asset, err := desktop.LinuxAssetName(runtime.GOARCH)
 	if err != nil {
 		return err
@@ -131,12 +152,19 @@ func picodeVersionOf(out []byte) string {
 // pi. Ubuntu only: any other family gets the missing list and stops. On a
 // distro this program did not register, anything that would change asks
 // first (yes skips the question); a stage with nothing to do never asks.
-func runInstallRuntime(a *app, state desktop.MachineState, distroFlag string, yes bool, stdin io.Reader) error {
+func runInstallRuntime(a *app, state desktop.MachineState, distroFlag, userFlag string, yes bool, stdin io.Reader) error {
 	picked, err := desktop.Pick(state.Distros, distroFlag)
 	if err != nil {
 		return err
 	}
-	user := state.DefaultUser
+	user, err := ensureTargetUser(a, picked.Name, state, userFlag)
+	if err != nil {
+		return err
+	}
+	// Root is the default: an explicit non-root --user is what moves the
+	// pi install into one account. An explicit --user root is root spelled
+	// out, not user mode.
+	userMode := userFlag != "" && userFlag != "root"
 	if len(state.Missing) == 0 {
 		fmt.Printf("  ok     tmux, git, curl, node, npm and pi are already in %s\n", picked.Name)
 		return nil
@@ -180,10 +208,15 @@ func runInstallRuntime(a *app, state desktop.MachineState, distroFlag string, ye
 		if needNode {
 			actions = append(actions, "nodejs "+nodeMajor+" from the NodeSource repository")
 		}
-		if needPi {
-			actions = append(actions, "npm install -g "+pipkg.PiPackage+"@latest")
+		piLine := "npm install -g " + pipkg.PiPackage + "@latest"
+		asLine := "Run as root inside %s:"
+		if needPi && userMode {
+			actions = append(actions, piLine+" as "+user)
+			asLine = "Run inside %s (apt and node as root, pi as " + user + "):"
+		} else if needPi {
+			actions = append(actions, piLine)
 		}
-		ok, err := confirm(stdin, fmt.Sprintf("%s is your distro, not one PiCode created.\nRun as root inside %s:\n  %s\nProceed?", picked.Name, picked.Name, strings.Join(actions, "\n  ")))
+		ok, err := confirm(stdin, fmt.Sprintf("%s is your distro, not one PiCode created.\n"+asLine+"\n  %s\nProceed?", picked.Name, picked.Name, strings.Join(actions, "\n  ")))
 		if err != nil {
 			return fmt.Errorf("confirm the runtime install: %w (or re-run with --yes)", err)
 		}
@@ -228,10 +261,22 @@ func runInstallRuntime(a *app, state desktop.MachineState, distroFlag string, ye
 		// PATH the daemon resolves pi through. Trade-off, flagged for the
 		// owner: in-UI pi updates run as the owner and will need their own
 		// answer for a root-owned install.
-		if err := asRoot(append([]string{"npm"}, desktop.PiInstallArgs()...)...); err != nil {
-			return fmt.Errorf("npm install -g %s: %w", pipkg.PiPackage, err)
+		if !userMode {
+			if err := asRoot(append([]string{"npm"}, desktop.PiInstallArgs()...)...); err != nil {
+				return fmt.Errorf("npm install -g %s: %w", pipkg.PiPackage, err)
+			}
+			fmt.Printf("  ok     %s installed\n", pipkg.PiPackage)
+		} else {
+			// Per account: its own npm prefix plus a link into the
+			// ~/.local/bin the login shell carries, so no profile edit.
+			asUser := func(command ...string) error {
+				return a.runner.Run(desktop.WSLExe, desktop.WSLArgs(picked.Name, user, command...)...)
+			}
+			if err := asUser("sh", "-c", desktop.UserPiInstallScript()); err != nil {
+				return fmt.Errorf("npm install -g %s as %s: %w", pipkg.PiPackage, user, err)
+			}
+			fmt.Printf("  ok     %s installed for %s\n", pipkg.PiPackage, user)
 		}
-		fmt.Printf("  ok     %s installed\n", pipkg.PiPackage)
 	}
 
 	out, err := a.runner.Output(desktop.WSLExe, desktop.WSLArgs(picked.Name, user, desktop.ProbeArgs()...)...)

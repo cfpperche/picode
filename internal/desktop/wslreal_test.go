@@ -59,13 +59,16 @@ func TestListDistrosAgainstRealWSL(t *testing.T) {
 	t.Logf("picked %q (state %s, WSL %d)", picked.Name, picked.State, picked.Version)
 }
 
-// A machine that already has WSL, a WSL 2 distro and a real account must be
-// recognised as needing none of the clean-machine stages. Getting this wrong
-// would make the installer try to reinstall WSL on a working setup.
+// A machine that already has WSL, a WSL 2 distro and a real account must
+// never be sent back below what exists: no WSL reinstall, no second distro,
+// no second account, no picode reinstall over a matching binary. Routing to
+// install-picode or install-runtime is correct when the observation behind
+// it is genuine (a developer box with pi outside the login shell really is
+// missing pi as far as the daemon is concerned).
 func TestDetectAgainstRealWSL(t *testing.T) {
 	r := realWSL(t)
 
-	state := Detect(r, "")
+	state := Detect(r, "", "")
 	if !state.WSLPresent {
 		t.Fatal("WSL not detected on a machine that is running it")
 	}
@@ -75,9 +78,19 @@ func TestDetectAgainstRealWSL(t *testing.T) {
 	if state.DefaultUser == "" || state.DefaultUser == "root" {
 		t.Fatalf("DefaultUser = %q, want a real account", state.DefaultUser)
 	}
-	if got := NextStage(state); got != StageProvision {
-		t.Errorf("NextStage = %q, want %q — a ready machine must skip every setup stage",
-			got, StageProvision)
+	switch got := NextStage(state); got {
+	case StageProvision:
+	case StageInstallPicode:
+		if !PicodeWanted(state.PicodeVersion, state.WantPicode) {
+			t.Errorf("routed to install-picode with picode %q already at want %q",
+				state.PicodeVersion, state.WantPicode)
+		}
+	case StageInstallRuntime:
+		if len(state.Missing) == 0 {
+			t.Error("routed to install-runtime with nothing missing")
+		}
+	default:
+		t.Errorf("NextStage = %q — a working setup must never regress below provision", got)
 	}
 	t.Logf("ready: WSL present, %d distro(s), account %q", len(state.Distros), state.DefaultUser)
 }

@@ -18,10 +18,40 @@ import (
 // only after access denied.
 
 var (
-	shell32          = syscall.NewLazyDLL("shell32.dll")
-	procShellExecute = shell32.NewProc("ShellExecuteW")
-	procIsUserAdmin  = shell32.NewProc("IsUserAnAdmin")
+	shell32            = syscall.NewLazyDLL("shell32.dll")
+	procShellExecuteEx = shell32.NewProc("ShellExecuteExW")
+	procIsUserAdmin    = shell32.NewProc("IsUserAnAdmin")
+	kernel32           = syscall.NewLazyDLL("kernel32.dll")
+	procWaitForSingle  = kernel32.NewProc("WaitForSingleObject")
+	procGetExitCode    = kernel32.NewProc("GetExitCodeProcess")
 )
+
+const (
+	seeMaskNoCloseProcess = 0x40
+	errCancelled          = 1223 // ERROR_CANCELLED: the user declined the prompt
+	infinite              = 0xFFFFFFFF
+	swShowNormal          = 1
+)
+
+// shellExecuteInfo mirrors SHELLEXECUTEINFOW. Field order is the layout:
+// Go's alignment matches the C struct on amd64 and arm64.
+type shellExecuteInfo struct {
+	cbSize       uint32
+	fMask        uint32
+	hwnd         uintptr
+	lpVerb       *uint16
+	lpFile       *uint16
+	lpParameters *uint16
+	lpDirectory  *uint16
+	nShow        int32
+	hInstApp     uintptr
+	lpIDList     uintptr
+	lpClass      *uint16
+	hkeyClass    uintptr
+	dwHotKey     uint32
+	hIconOrMon   uintptr
+	hProcess     uintptr
+}
 
 // isAdmin reports whether this process is already elevated.
 func isAdmin() bool {
@@ -30,8 +60,10 @@ func isAdmin() bool {
 }
 
 // elevate re-launches this program with the same arguments through the "runas"
-// verb, which is what raises the UAC prompt. It returns true when a child was
-// started and this process should simply exit.
+// verb, which is what raises the UAC prompt. It returns true when a child took
+// over and this process should simply exit. The parent waits for the child
+// and reports a failing exit code: returning before the install finished is
+// how a failure once hid behind an exit 0.
 func elevate() (bool, error) {
 	if isAdmin() {
 		return false, nil
@@ -45,25 +77,35 @@ func elevate() (bool, error) {
 	file, _ := syscall.UTF16PtrFromString(exe)
 	args, _ := syscall.UTF16PtrFromString(quoteArgs(os.Args[1:]))
 
-	const swShowNormal = 1
-	ret, _, callErr := procShellExecute.Call(
-		0,
-		uintptr(unsafe.Pointer(verb)),
-		uintptr(unsafe.Pointer(file)),
-		uintptr(unsafe.Pointer(args)),
-		0,
-		swShowNormal,
-	)
-	// ShellExecuteW returns >32 on success. Anything at or below that is an
-	// error code, and 5 (ERROR_ACCESS_DENIED) is specifically the user
-	// declining the prompt — worth saying plainly rather than as a number.
-	if ret <= 32 {
-		if ret == 5 {
+	info := shellExecuteInfo{
+		fMask:        seeMaskNoCloseProcess,
+		lpVerb:       verb,
+		lpFile:       file,
+		lpParameters: args,
+		nShow:        swShowNormal,
+	}
+	info.cbSize = uint32(unsafe.Sizeof(info))
+
+	ret, _, callErr := procShellExecuteEx.Call(uintptr(unsafe.Pointer(&info)))
+	if ret == 0 {
+		// A declined prompt deserves plain words rather than a number.
+		if errno, ok := callErr.(syscall.Errno); ok && errno == errCancelled {
 			return false, fmt.Errorf("administrator rights were declined")
 		}
-		return false, fmt.Errorf("could not ask for administrator rights (code %d): %v", ret, callErr)
+		return false, fmt.Errorf("could not ask for administrator rights: %v", callErr)
 	}
-	return true, nil
+	defer syscall.CloseHandle(syscall.Handle(info.hProcess))
+
+	// The return value is the signal for both calls; the last error is
+	// only meaningful when the call itself reports failure.
+	if waited, _, _ := procWaitForSingle.Call(info.hProcess, infinite); waited == 0xFFFFFFFF {
+		return true, fmt.Errorf("setup ran elevated, but waiting for it failed")
+	}
+	var code uint32
+	if ok, _, callErr := procGetExitCode.Call(info.hProcess, uintptr(unsafe.Pointer(&code))); ok == 0 {
+		return true, fmt.Errorf("setup ran elevated, but its result is unknown: %v", callErr)
+	}
+	return true, childExitError(code)
 }
 
 // quoteArgs rebuilds a command line, quoting anything containing a space so a

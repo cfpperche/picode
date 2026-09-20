@@ -55,7 +55,9 @@ func CATrusted(out []byte) bool {
 // is cached by the caller and polled over HTTP afterwards, which is far
 // cheaper than spawning wsl.exe on a timer.
 func ServerURL(r Runner, distro, user string) (string, error) {
-	out, err := r.Output(WSLExe, WSLArgs(distro, user, "cat", "$HOME/.picode/server.json")...)
+	// Through a shell for the `~`: no `$` crosses the wsl.exe boundary
+	// intact, so `$HOME` is not spelled even though it happens to resolve.
+	out, err := r.Output(WSLExe, WSLArgs(distro, user, "sh", "-c", "cat ~/.picode/server.json")...)
 	if err != nil {
 		return "", fmt.Errorf("read server.json: %w", err)
 	}
@@ -175,14 +177,21 @@ func DefaultUser(r Runner, distro string) (string, error) {
 	return name, nil
 }
 
-// caReadCommand streams the mkcert root out of the distro. Reading it through
-// wsl.exe means nothing has to guess the Windows account name, which is what
-// scripts/setup-cert.sh does when it copies into /mnt/c/Users/<name>.
-var caReadCommand = []string{"sh", "-c", `cat "$(mkcert -CAROOT)/rootCA.pem"`}
-
 // ExportCA writes the distro's mkcert root to a file Windows can import.
+// Reading it through wsl.exe means nothing has to guess the Windows account
+// name, which is what scripts/setup-cert.sh does when it copies into
+// /mnt/c/Users/<name>. Two calls on purpose: substitution never survives
+// the wsl.exe boundary, so the CAROOT is read back and joined here.
 func ExportCA(r Runner, distro, user string) (string, error) {
-	out, err := r.Output(WSLExe, WSLArgs(distro, user, caReadCommand...)...)
+	caOut, err := r.Output(WSLExe, WSLArgs(distro, user, "mkcert", "-CAROOT")...)
+	if err != nil {
+		return "", fmt.Errorf("read the mkcert root (is mkcert installed in the distro?): %w", err)
+	}
+	caroot := strings.TrimSpace(DecodeWindows(caOut))
+	if caroot == "" || strings.ContainsAny(caroot, " \t\r\n") {
+		return "", fmt.Errorf("mkcert -CAROOT answered %q", caroot)
+	}
+	out, err := r.Output(WSLExe, WSLArgs(distro, user, "cat", caroot+"/rootCA.pem")...)
 	if err != nil {
 		return "", fmt.Errorf("read the mkcert root (is mkcert installed in the distro?): %w", err)
 	}

@@ -49,7 +49,7 @@ func repairStartup(r desktop.Runner, requestElevation func() (bool, error), w io
 		if relaunched, elevateErr := requestElevation(); elevateErr != nil {
 			return elevateErr
 		} else if relaunched {
-			fmt.Fprintln(w, "Administrator approval requested. Run startup-check afterward to verify the result.")
+			fmt.Fprintln(w, "Repaired with administrator rights. Run startup-check afterward to verify the result.")
 			return nil
 		}
 	}
