@@ -28,6 +28,8 @@ import SessionBar from "./components/SessionBar.jsx";
 import ChatSurface from "./components/ChatSurface.jsx";
 import TermSurface from "./components/TermSurface.jsx";
 import AgentViewToolbar from "./components/AgentViewToolbar.jsx";
+import { initialAgentView } from "@picode/shared/domain/agentTerminal.js";
+import { readChatWanted, writeChatWanted } from "./lib/openTabs.js";
 import FileSurface from "./components/FileSurface.jsx";
 import Inspector, { InspectorToggle, useInspectorLayout } from "./components/Inspector.jsx";
 import GitGraphSurface from "./components/GitGraphSurface.jsx";
@@ -83,6 +85,7 @@ import Reconnect from "./components/Reconnect.jsx";
 import { setShell } from "@picode/shared/client/shell.js";
 import { dismissNotice, notify, toast, toastError } from "./lib/toast.js";
 import { resolveInteractiveTerminal } from "./lib/agentTerminalView.js";
+import { terminalHost, agentPaneKeys, fleetAgents, closingPaneKeys } from "./lib/terminalHost.js";
 import { watchReminders } from "@picode/shared/client/reminders.js";
 import { agentFinishNotice, asksOnSurface, needsYouPlan } from "@picode/shared/domain/notice.js";
 import { groupTurns } from "@picode/shared/domain/turns.js";
@@ -265,6 +268,7 @@ export default function App({ shellChrome = false } = {}) {
   const [formError, setFormError] = useState("");
   const [formBusy, setFormBusy] = useState(false);
   const [termWanted, setTermWanted] = useState(() => new Set(readTermWanted()));
+  const [chatWanted, setChatWanted] = useState(() => new Set(readChatWanted()));
   const [termEpochs, setTermEpochs] = useState({});
   const [tuiWorking, setTuiWorking] = useState([]);
   const [checklists, setChecklists] = useState({});
@@ -413,7 +417,7 @@ export default function App({ shellChrome = false } = {}) {
   // the chat says so instead of reading as idle.
   const tuiBusy = !!(agent && agent.mode === "interactive" && tuiWorking.includes(agent.id));
   const interactive = !!(agent && agent.mode === "interactive");
-  const termView = !!(selectedId && termWanted.has(selectedId));
+  const termView = !!agent && initialAgentView(agent, chatWanted.has(agent.id) ? "chat" : (termWanted.has(agent.id) ? "terminal" : "")) === "term";
   const atAgents = useMemo(
     () => mentionAgents(workspaces, freeAgents, selectedId),
     [workspaces, freeAgents, selectedId],
@@ -555,9 +559,11 @@ export default function App({ shellChrome = false } = {}) {
       // in the app gets the generic menu.
       const pane = paneAt(e.target);
       if (pane) {
-        const termRecord = pane.kind === "term" ? terminalsRef.current.find((t) => t.id === pane.id) || null : null;
-        const loc = pane.kind === "agent" ? locate(workspacesRef.current, freeAgentsRef.current, pane.id) : null;
-        const splitOn = pane.kind === "agent" ? !!agentPanesRef.current[pane.id] : !!agentPanesRef.current[termTabId(pane.id)];
+        const owners = fleetAgents({ freeAgents: freeAgentsRef.current, workspaces: workspacesRef.current });
+        const mapping = terminalHost(pane, owners, tabsRef.current);
+        const termRecord = pane.kind === "term" ? terminalsRef.current.find((t) => t.id === pane.id) || (mapping.agent?.terminal?.id === pane.id ? mapping.agent.terminal : null) : null;
+        const loc = mapping.agent ? locate(workspacesRef.current, freeAgentsRef.current, mapping.agent.id) : null;
+        const splitOn = !!agentPanesRef.current[mapping.tabId];
         setCtxMenu({
           x: e.clientX,
           y: e.clientY,
@@ -565,7 +571,9 @@ export default function App({ shellChrome = false } = {}) {
           selection: paneSelection(pane.entry) || held,
           link: paneLink(pane.entry, e, pane.cwd),
           term: paneCapabilities({
+            ...mapping,
             host: pane.kind,
+            localScrollback: pane.entry?.term?.buffer?.active?.type !== "alternate",
             termRecord,
             agent: loc && loc.agent,
             workspace: loc && loc.workspace,
@@ -1063,6 +1071,7 @@ export default function App({ shellChrome = false } = {}) {
   useEffect(() => {
     writeTermWanted([...termWanted]);
   }, [termWanted]);
+  useEffect(() => { writeChatWanted([...chatWanted]); }, [chatWanted]);
   useEffect(() => {
     writeFileWorktrees(fileWorktrees);
   }, [fileWorktrees]);
@@ -1965,7 +1974,7 @@ export default function App({ shellChrome = false } = {}) {
       setPermissionAsks((cur) => cur.filter((a) => a.tab !== wid));
       setWebTabs(({ [wid]: _gone, ...rest }) => rest);
     }
-    if (isTermTab(id)) closeShellTerm(tabTermId(id));
+    for (const key of closingPaneKeys(id, fleetAgents({ workspaces, freeAgents }), tabs)) closeShellTerm(key);
     if (isGitTab(id)) {
       setGitOwners((m) => {
         const next = { ...m };
@@ -2016,7 +2025,7 @@ export default function App({ shellChrome = false } = {}) {
   }
 
   function closeAgentShell(ag) {
-    if (ag) closeShellTerm(ag.terminalId || ag.id);
+    for (const id of agentPaneKeys(ag)) closeShellTerm(id);
   }
 
   function scrollConv() {
@@ -2540,8 +2549,8 @@ export default function App({ shellChrome = false } = {}) {
         .catch(() => openWebTab(first.url));
     },
     rename: (ctx) => {
-      if (ctx.kind === "agent") {
-        const loc = locate(workspacesRef.current, freeAgentsRef.current, ctx.id);
+      if (ctx.ownerKind === "agent") {
+        const loc = locate(workspacesRef.current, freeAgentsRef.current, ctx.ownerId);
         if (loc && loc.agent) renameAgent(loc.agent);
         return;
       }
@@ -2551,17 +2560,17 @@ export default function App({ shellChrome = false } = {}) {
       location.hash = ctx.kind === "agent" ? "#/termset" : "#/termset/" + encodeURIComponent(ctx.id);
     },
     files: (ctx) => openTreeTab(ctx.kind === "agent" ? "agent" : "term", ctx.id, ctx.record ? ctx.record.name : ""),
-    "close-tab": (ctx) => closeTab(ctx.kind === "agent" ? ctx.id : termTabId(ctx.id)),
+    "close-tab": (ctx) => closeTab(ctx.tabId),
     remove: (ctx) => {
-      if (ctx.kind === "agent") {
-        const loc = locate(workspacesRef.current, freeAgentsRef.current, ctx.id);
+      if (ctx.ownerKind === "agent") {
+        const loc = locate(workspacesRef.current, freeAgentsRef.current, ctx.ownerId);
         if (loc && loc.agent) removeAgent(loc.agent);
         return;
       }
       removeTerminal(ctx.record);
     },
-    "open-browser": (ctx) => openAgentSplit(ctx.kind === "agent" ? ctx.id : termTabId(ctx.id)),
-    "close-browser": (ctx) => closeAgentSplit(ctx.kind === "agent" ? ctx.id : termTabId(ctx.id)),
+    "open-browser": (ctx) => openAgentSplit(ctx.tabId),
+    "close-browser": (ctx) => closeAgentSplit(ctx.tabId),
   };
 
   async function renameTerminal(t) {
@@ -2668,14 +2677,15 @@ export default function App({ shellChrome = false } = {}) {
     try {
       const forceRestart = !!(opts && opts.restart);
       const restart = forceRestart ? "?restart=1" : "";
-      if (forceRestart) closeShellTerm(loc.agent.terminalId || loc.agent.id);
       await api(`/api/agents/${loc.agent.id}/open${restart}`, { method: "POST" });
       if (forceRestart) {
+        closeAgentShell(loc.agent);
         setTermEpochs((cur) => ({ ...cur, [loc.agent.id]: (cur[loc.agent.id] || 0) + 1 }));
       }
       const list = await refreshFleetFallback();
       openTab(loc.agent.id, list);
       if (!opts || opts.dock !== false) {
+        setChatWanted((s) => { const next = new Set(s); next.delete(loc.agent.id); return next; });
         setTermWanted((s) => new Set(s).add(loc.agent.id));
       }
     } catch (err) { if (opts?.throwErrors) throw err; toastError(err); }
@@ -2699,7 +2709,7 @@ export default function App({ shellChrome = false } = {}) {
         return;
       }
       await api(`/api/agents/${loc.agent.id}/close`, { method: "POST" });
-      closeShellTerm(loc.agent.terminalId || loc.agent.id);
+      closeAgentShell(loc.agent);
       if (panelRef.current && panelRef.current.agentId === loc.agent.id) panelRef.current.stopped = true;
       optimisticRef.current = false;
       setStreaming(false);
@@ -3244,12 +3254,14 @@ export default function App({ shellChrome = false } = {}) {
 
   function showTerm() {
     if (!selectedId) return;
+    setChatWanted(s => { const n = new Set(s); n.delete(selectedId); return n; });
     setTermWanted((s) => new Set(s).add(selectedId));
     if (!interactive) openInteractive(selectedId);
   }
 
   function showChat() {
     if (!selectedId) return;
+    setChatWanted(s => new Set(s).add(selectedId));
     setTermWanted((s) => { const n = new Set(s); n.delete(selectedId); return n; });
   }
 
@@ -3390,8 +3402,10 @@ export default function App({ shellChrome = false } = {}) {
     onClose={closeTab}
     onReorder={(from, to) => setTabs((t) => moveTab(t, from, to))}
     keepVisible={focus.on}
-    endSlot={narrow ? null : (
+    endSlot={(
       <>
+        <AgentViewToolbar agent={agent} view={termView ? "terminal" : "chat"} onView={(next) => next === "terminal" ? showTerm() : showChat()} />
+        {!narrow ? <>
         <button type="button" className="insp-toggle" aria-label="New browser tab" title="New browser tab" onClick={() => openWebTab("")}>
           <IconGlobe />
         </button>
@@ -3401,6 +3415,7 @@ export default function App({ shellChrome = false } = {}) {
           onToggle={toggleInspector}
         />
         {focus.on ? <FocusLeave onLeave={focus.leave} /> : null}
+        </> : null}
       </>
     )}
   />
@@ -3490,6 +3505,7 @@ export default function App({ shellChrome = false } = {}) {
         desktop={shellChrome && !!window.__TAURI__}
         onChat={(id) => {
           revealAgent(id);
+          setChatWanted(s => new Set(s).add(id));
           setTermWanted((s) => {
             const n = new Set(s);
             n.delete(id);
@@ -3498,6 +3514,7 @@ export default function App({ shellChrome = false } = {}) {
         }}
         onTerm={(id) => {
           revealAgent(id);
+          setChatWanted(s => { const n = new Set(s); n.delete(id); return n; });
           setTermWanted((s) => new Set(s).add(id));
           const loc = locate(workspaces, freeAgents, id);
           if (loc && loc.agent && loc.agent.mode !== "interactive") openInteractive(id);
@@ -3546,12 +3563,6 @@ export default function App({ shellChrome = false } = {}) {
 
           {showHome ? <DashboardView workspaces={workspaces} freeAgents={freeAgents} terminals={terminals} workingIds={tuiWorking} waitingId={waiting ? selectedId : null} onOpen={(id) => openTab(id)} inboxWaiting={inboxWaiting} onOpenApp={(id) => { openTab(appTabId(id)); if (parseRoute() !== "workspace") location.hash = appHash(id); }} /> : null}
 
-          <AgentViewToolbar
-            agent={agent}
-            view={termView ? "terminal" : "chat"}
-            onView={(next) => next === "terminal" ? showTerm() : showChat()}
-          />
-
           {tabs.filter(isTermTab).map((id) => {
             const tid = tabTermId(id);
             const t = terminals.find((x) => x.id === tid);
@@ -3560,6 +3571,7 @@ export default function App({ shellChrome = false } = {}) {
               <TermSurface
                 key={id}
                 term={t}
+                tabId={id}
                 hidden={selectedId !== id}
                 error={selectedId === id ? termError : ""}
                 onOpenFile={(p) => openFileTab("term", tid, p)}
@@ -3679,11 +3691,13 @@ export default function App({ shellChrome = false } = {}) {
                       // `loaded` says the boot fetch is done: before it, an
                       // empty fleet means "not read yet", not "deleted" — a
                       // native surface must not draw gone rows over it.
-                      fleet: { workspaces, freeAgents, terminals, loaded: bootstrapped },
+                      fleet: { workspaces, freeAgents, terminals, termEpochs, loaded: bootstrapped },
                       openTabs: tabs,
                       openTab, openInteractive, revealAgent, openFileTab,
                       feed: subscribeFeed,
                       termAttach,
+                      termFind,
+                      onFindClose: (id) => { setTermFind(""); focusPane(id); },
                       onAttachClose: () => setTermAttach(null),
                       // The app says what it has in focus; the host decides
                       // what follows from that (ADR-0109, amendment
@@ -3975,15 +3989,17 @@ export default function App({ shellChrome = false } = {}) {
           ) : null}
 
           {termView && !onPane && agent ? (
-            agent.mode === "interactive" ? (
+            agent.mode !== "managed" && (agent.mode === "interactive" || agent.terminalId) ? (
               (() => {
                 const resolved = resolveInteractiveTerminal(agent, terminals, selected && selected.path);
+                if (!resolved) return <section className="term-surface"><p className="file-pane-msg">Terminal unavailable. <button type="button" className="btn btn-sm" onClick={() => openInteractive(agent.id)}>Open terminal</button></p></section>;
                 const term = resolved.term;
                 const termId = resolved.id;
                 return (
                   <TermSurface
                     key={"agterm-" + termId + "-" + (termEpochs[agent.id] || 0)}
                     term={term}
+                    tabId={agent.id}
                     cwdKind={resolved.cwdKind}
                     onOpenFile={(p) => openFileTab(resolved.canonical ? "term" : "agent", termId, p)}
                     onOpenLink={openTermLink}

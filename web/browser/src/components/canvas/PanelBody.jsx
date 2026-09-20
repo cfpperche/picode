@@ -38,7 +38,7 @@ function Line({ text, action, onAction, primary = false }) {
 // socket. Re-exported here because this is where the components already ask.
 export { hasChat, hasPane };
 
-export default function PanelBody({ model, loaded, body = "live", hidden, focused, onOpen, onRemove, onRun, onOpenFile, attach, onAttachClose, onDirty, onSaveText }) {
+export default function PanelBody({ model, loaded, body = "live", hidden, focused, onOpen, onRemove, onRun, onOpenFile, attach, onAttachClose, find, onFindClose, onDirty, onSaveText }) {
   switch (model.state) {
     case "terminal-gone": return <Line text="That terminal is gone." action="Remove" onAction={onRemove} />;
     case "agent-gone": return <Line text="That agent is gone." action="Remove" onAction={onRemove} />;
@@ -78,6 +78,7 @@ export default function PanelBody({ model, loaded, body = "live", hidden, focuse
     </div>
   );
   if (!loaded) return placeholder;
+  if (model.kind === "agent" && !model.runtimeId) return <Line text="Terminal unavailable." action="Open" onAction={onOpen} />;
   // Text is the one body with nothing to fetch: its words came down with the
   // panel row, so it never shows the placeholder and never waits.
   if (model.kind === "text") return <TextPanel panelId={model.id} content={model.content} onSave={onSaveText} />;
@@ -92,8 +93,10 @@ export default function PanelBody({ model, loaded, body = "live", hidden, focuse
   }
   return (
     <TerminalPanel
+      key={(model.runtimeId || model.ref) + ":" + (model.runtimeEpoch || 0)}
       kind={model.kind}
       target={model.target}
+      terminals={model.terminals}
       cwd={model.cwd}
       hidden={hidden}
       focused={focused}
@@ -101,6 +104,8 @@ export default function PanelBody({ model, loaded, body = "live", hidden, focuse
       onOpenFile={onOpenFile}
       attach={attach}
       onAttachClose={onAttachClose}
+      find={find}
+      onFindClose={onFindClose}
       placeholder={placeholder}
     />
   );

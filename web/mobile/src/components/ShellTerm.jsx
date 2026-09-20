@@ -1,15 +1,12 @@
-import { createSticky } from "@picode/shared/domain/termSticky.js";
+import { wireTerminalRuntime } from "@picode/shared/client/terminalRuntime.js";
 import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { terms, parkTerm, closeTerm } from "../lib/terms.js";
-import { wireTermWheel } from "@picode/shared/domain/termWheel.js";
-import { wireTermKeys, termDataFilter } from "@picode/shared/domain/termKeys.js";
-import { scheduleTermFit, wireTermFit } from "@picode/shared/domain/termFit.js";
+import { scheduleTermFit } from "@picode/shared/domain/termFit.js";
 import { wireTermLinks } from "@picode/shared/domain/termLinks.js";
-import { wireTermClipboard } from "@picode/shared/domain/termClipboard.js";
 import { api, wsURL } from "@picode/shared/client/api.js";
-import { connectTermSocket, kickTermSocket } from "@picode/shared/client/termSocket.js";
+import { kickTermSocket } from "@picode/shared/client/termSocket.js";
 import { toast } from "../lib/toast.js";
 import { xtermOptions, applyXtermOptions } from "@picode/shared/domain/termTheme.js";
 import "@xterm/xterm/css/xterm.css";
@@ -41,8 +38,12 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
       } catch { /* keep cache */ }
       return cwdRef.current;
     };
+    const cached = terms.get(id);
+    if (cached && cached.session !== session) closeTerm(id);
     if (terms.has(id)) {
       const entry = terms.get(id);
+      if (entry.unwireLinks) entry.unwireLinks();
+      entry.unwireLinks = wireTermLinks(entry.term, () => cwdRef.current, onFile, liveCwd);
       const live = entry.sock && entry.sock.readyState === WebSocket.OPEN;
       if (live) {
         if (entry.paneEl.parentElement !== hostRef.current) hostRef.current.appendChild(entry.paneEl);
@@ -69,44 +70,12 @@ export default function ShellTerm({ agentId, session, active, cwd, cwdKind, onOp
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(paneEl);
-    const entry = { term, fit, paneEl, sock: null, closedByUser: false, sticky: createSticky() };
-    const sendBytes = (bytes) => {
-      if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(bytes);
-    };
-    wireTermWheel(term, sendBytes);
-    wireTermKeys(term, sendBytes);
-    wireTermClipboard(term, { onError: () => toast.error("The browser refused the copy — select and press Ctrl+C instead.") });
-    wireTermFit(entry);
+    const entry = { term, fit, paneEl, session, sock: null, closedByUser: false };
     entry.unwireLinks = wireTermLinks(term, () => cwdRef.current, onFile, liveCwd);
-    // Key and resize handlers live on the term once — they survive a
-    // reattach and read the current socket through entry.sock.
-    term.onData((data) => {
-      const out = entry.sticky.apply(termDataFilter(data)); // phone Ctrl/Alt, armed from the key bar
-      if (out === "") return;
-      sendBytes(new TextEncoder().encode(out));
-    });
-    term.onResize(() => {
-      if (entry.sock && entry.sock.readyState === WebSocket.OPEN && term.cols > 1 && term.rows > 1) {
-        entry.sock.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
-      }
-    });
-    connectTermSocket(entry, wsURL("/ws/term?session=" + encodeURIComponent(session)), {
-      onOpen: () => scheduleTermFit(entry, true), // resize the fresh tmux attach
-      onMessage: (ev) => {
-        if (typeof ev.data === "string") {
-          try {
-            const msg = JSON.parse(ev.data);
-            if (msg.type === "error") term.writeln("\r\n\x1b[31m" + msg.message + "\x1b[0m");
-          } catch { /* ignore */ }
-          return;
-        }
-        term.write(new Uint8Array(ev.data));
-      },
-      onState: () => {
-        term.writeln("\r\n\x1b[90m— detached —\x1b[0m");
-        if (window.__picodeKickHealth) window.__picodeKickHealth();
-      },
-      onGiveUp: () => term.writeln("\r\n\x1b[90mSession ended. Reopen the terminal.\x1b[0m"),
+    wireTerminalRuntime(entry, {
+      url: wsURL("/ws/term?session=" + encodeURIComponent(session)),
+      onClipboardError: () => toast.error("The browser refused the copy — select and press Ctrl+C instead."),
+      onDetached: () => window.__picodeKickHealth?.(),
     });
     terms.set(id, entry);
     return () => parkTerm(paneEl);

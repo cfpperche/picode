@@ -310,7 +310,7 @@ const EDGE_TYPES = { [EDGE_TYPE]: Link };
 
 // The node's data object is kept when nothing in it changed, so React Flow's
 // own memo holds and a neighbour's drag never re-renders a body.
-const DATA_KEYS = ["model", "loaded", "hidden", "focused", "engaged", "maximized", "tabStop", "bodyKind", "still", "note", "pointer", "connectable", "links"];
+const DATA_KEYS = ["model", "loaded", "hidden", "focused", "engaged", "maximized", "tabStop", "bodyKind", "still", "note", "pointer", "connectable", "links", "handlers"];
 function sameData(a, b) {
   return !!a && !!b && DATA_KEYS.every((k) => a[k] === b[k]);
 }
@@ -460,7 +460,7 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
   // with the bodies that are about to stop being live, before it emits.
   useEffect(() => {
     loader.beforeChange = (prev, next) => {
-      const refs = modelsRef.current.filter((m) => prev[m.id] === "live" && next[m.id] !== "live").map((m) => m.ref);
+      const refs = modelsRef.current.filter((m) => prev[m.id] === "live" && next[m.id] !== "live").map((m) => m.runtimeId).filter(Boolean);
       if (!refs.length) return;
       captureStills(refs);
       setStillTick((n) => n + 1);
@@ -498,13 +498,14 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
     const out = new Map();
     for (const m of models) {
       const kind = bodies[m.id] || (loaded.has(m.id) ? "live" : "off");
-      const still = kind === "still" ? readStill(m.ref) : null;
+      const still = kind === "still" ? readStill(m.runtimeId) : null;
       // A still says how old it is only when the feed has seen the panel do
       // something since: an age on a screen nothing has touched is noise.
       const note = still && m.stamp && Date.parse(m.stamp) > still.at
         ? "Still · " + relTime(new Date(still.at).toISOString())
         : "";
       out.set(m.id, {
+        handlers,
         model: m,
         connectable: EDGE_KINDS.includes(m.kind),
         loaded: loaded.has(m.id),
@@ -526,7 +527,7 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
       });
     }
     return out;
-  }, [models, loaded, bodies, hidden, focusedId, engaged, maximizedId, tabStopId, pointer, stillTick, links]);
+  }, [models, loaded, bodies, hidden, focusedId, engaged, maximizedId, tabStopId, pointer, stillTick, links, handlers]);
 
   useEffect(() => {
     setNodes((cur) => {
@@ -655,7 +656,7 @@ function Flow({ canvasId, models, loaded, bodies, hidden, focusedId, engaged, ma
   // capturable, and filling the gaps is the same 0.02 ms.
   const fillStills = useCallback(() => {
     let got = 0;
-    for (const m of modelsRef.current) if (!readStill(m.ref) && captureStill(m.ref)) got += 1;
+    for (const m of modelsRef.current) if (m.runtimeId && !readStill(m.runtimeId) && captureStill(m.runtimeId)) got += 1;
     if (got) setStillTick((n) => n + 1);
   }, []);
   // enterZoom: the camera arrived somewhere — restored, fitted or switched

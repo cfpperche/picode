@@ -2,14 +2,15 @@ import { memo, useEffect, useRef, useState } from "react";
 import { api, humanizeError } from "@picode/shared/client/api.js";
 import TermSurface from "../TermSurface.jsx";
 import { claimPane, releasePane } from "./paneOwnership.js";
+import { resolveInteractiveTerminal } from "../../lib/agentTerminalView.js";
 
 // TerminalPanel — the loaded body of a terminal or interactive-agent panel:
 // the real xterm through TermSurface, the same instance the tab shows
 // (docs/plans/matrix-app.md §2.2). A terminal starts the way its tab does:
 // POST /open ensures the tmux shell and answers the live record (session
 // name, running) that fleet rows do not carry, and the placeholder stays
-// up until it does — no blank flash. An agent's TUI attaches straight to
-// its session. Unmounting is unloading (paneOwnership.js): a pane nobody's
+// up until it does — no blank flash. An agent's TUI resolves the same runtime
+// as its tab. Unmounting is unloading (paneOwnership.js): a pane nobody's
 // tab holds has its socket suspended; loading again mounts TermSurface,
 // whose ShellTerm kicks the suspended socket itself.
 // The last answer of `POST /open` per terminal. Maximizing moves the body
@@ -19,8 +20,9 @@ import { claimPane, releasePane } from "./paneOwnership.js";
 // the server answers.
 const liveRecords = new Map();
 
-const TerminalPanel = memo(function TerminalPanel({ kind, target, cwd, hidden, focused, owned, onOpenFile, attach, onAttachClose, placeholder }) {
-  const id = target.id;
+const TerminalPanel = memo(function TerminalPanel({ kind, target, terminals, cwd, hidden, focused, owned, onOpenFile, attach, onAttachClose, find, onFindClose, placeholder }) {
+  const resolved = kind === "agent" ? resolveInteractiveTerminal(target, terminals, cwd) : null;
+  const id = kind === "agent" ? resolved?.id : target.id;
   const [live, setLive] = useState(() => liveRecords.get(id) || null);
   const [error, setError] = useState("");
   // The tab closing while this panel shows the pane disposes the xterm
@@ -41,12 +43,13 @@ const TerminalPanel = memo(function TerminalPanel({ kind, target, cwd, hidden, f
     return () => { stop = true; };
   }, [kind, id, epoch]);
   useEffect(() => {
+    if (!id) return undefined;
     claimPane(id);
     return () => releasePane(id, ownedRef.current);
   }, [id]);
 
   const term = kind === "agent"
-    ? { id, session: "picode-" + id, name: (target.name || "Agent") + " · TUI", cwd }
+    ? resolved?.term
     : live ? { ...target, ...live } : null;
   if (error) {
     return (
@@ -65,10 +68,12 @@ const TerminalPanel = memo(function TerminalPanel({ kind, target, cwd, hidden, f
       term={term}
       hidden={!!hidden}
       autoFocus={!!focused}
-      cwdKind={kind === "agent" ? "agent" : undefined}
+      cwdKind={resolved?.cwdKind}
       onOpenFile={onOpenFile}
       attach={attach}
       onAttachClose={onAttachClose}
+      find={find}
+      onFindClose={() => onFindClose?.(id)}
     />
   );
 });

@@ -60,6 +60,8 @@ describe("mobileRoute", () => {
     }
     assert.equal(mobileHash("agent", "a1"), "#/agent/a1");
     assert.equal(mobileHash("agent", "a1", "", "terminal"), "#/agent/a1?view=terminal");
+    assert.equal(mobileHash("agent", "a1", "", "chat"), "#/agent/a1?view=chat");
+    assert.equal(mobileRoute("#/agent/a1?view=chat").view, "chat");
     assert.equal(mobileHash("term", "t1"), "#/term/t1");
   });
   it("lights the parent tab for pushed screens and knows where Back lands", () => {

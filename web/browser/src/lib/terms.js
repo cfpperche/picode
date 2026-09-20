@@ -27,6 +27,8 @@ export function closeTerm(id) {
   if (!t) return;
   t.closedByUser = true;
   dropTermSocket(t);
+  if (t.unwireFit) t.unwireFit();
+  if (t.unwireTouch) t.unwireTouch();
   if (t.unwireLinks) try { t.unwireLinks(); } catch { /* ignore */ }
   t.term.dispose();
   t.paneEl.remove();

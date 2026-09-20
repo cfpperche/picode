@@ -1,31 +1,25 @@
 import { cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import * as Sheet from "../components/MobileSheet.jsx";
-import { toast } from "../lib/toast.js";
 import ProjectToolsSheet from "../components/ProjectToolsSheet.jsx";
 import PiSettings from "../components/PiSettings.jsx";
 import ScreenHeader from "../components/ScreenHeader.jsx";
 import StateChip, { agentState } from "../components/StateChip.jsx";
 import Conversation from "../components/Conversation.jsx";
 import Composer from "../components/Composer.jsx";
-import TerminalDock from "../components/TerminalDock.jsx";
-import TermSurface from "../components/TermSurface.jsx";
-import KeyBar from "../components/KeyBar.jsx";
+import TerminalScreen from "./Terminal.jsx";
 import { useAgentSocket } from "../hooks/useAgentSocket.js";
 import { usePoll } from "../hooks/usePoll.js";
-import { useTermAccessory } from "../hooks/useTermAccessory.js";
 import { api } from "@picode/shared/client/api.js";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { extraSlash } from "@picode/shared/domain/slash.js";
 import { stuckToBottom } from "@picode/shared/domain/stickScroll.js";
-import { IconClip, IconFolder, IconKeyboard } from "../components/Icons.jsx";
+import { IconChat, IconTerminal, IconFolder } from "../components/Icons.jsx";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { applyUsage } from "@picode/shared/domain/feedReducers.js";
-import { terms } from "../lib/terms.js";
 import { agentDrafts } from "../lib/agentDrafts.js";
-import { resolveAgentTerminal } from "../lib/agentTerminal.js";
-import TermAttachSheet from "../components/TermAttachSheet.jsx";
+import { resolveAgentTerminalView, initialAgentView } from "@picode/shared/domain/agentTerminal.js";
 import "../styles/mobile-chat.css";
 import "../styles/mobile-tools.css";
 
@@ -34,36 +28,30 @@ import "../styles/mobile-tools.css";
 // the mobile Conversation with its ask card, and the mobile Composer
 // whose own Stop button is the abort. Start/Stop the agent from the
 // header; one screen, no tabs of its own.
-export default function Agent({ agent, workspace, terminal, catalog, workingIds, busy, initialView = "", onViewChange, onBack, onStart, onStop, onOpenFiles, onOpenGit, onAgentConfig }) {
+export default function Agent({ agent, workspace, terminal, catalog, workingIds, busy, initialView = "", onViewChange, onBack, onStart, onStop, onOpenFiles, onOpenGit, onAgentConfig, onRemoveTerminal }) {
   const id = agent && agent.id;
   const sock = useAgentSocket(agent, workspace?.id || "ws_free");
   const draft = useSyncExternalStore(agentDrafts.subscribe, () => agentDrafts.read(id));
-  const [view, setView] = useState(initialView === "terminal" ? "term" : "chat");
+  const [view, setView] = useState(() => initialAgentView(agent, initialView));
   const [toolsOpen, setToolsOpen] = useState(false);
-  const [attachOpen, setAttachOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [bar, setBar] = useState(null);
   const [slashExtra, setSlashExtra] = useState([]);
   const [snipExtra, setSnipExtra] = useState([]);
   const convRef = useRef(null);
-  const termHostRef = useRef(null);
   const nearBottom = useRef(true);
 
   const mode = (agent && agent.mode) || "stopped";
   const stopped = mode === "stopped";
   const interactive = mode === "interactive";
-  const managed = mode === "managed";
-  const cliTerminal = resolveAgentTerminal(agent, terminal);
-  // ShellTerm namespaces its xterm entries to avoid colliding with the
-  // Pi-owned TerminalDock entry for the same agent identity.
-  const terminalKey = cliTerminal ? "sh:" + cliTerminal.id : id;
-  const keys = useTermAccessory(termHostRef, () => terms.get(terminalKey), view === "term" && interactive ? terminalKey : "", () => { toast.warn("Terminal reconnecting — tap the pane, then try again."); });
+  const resolved = resolveAgentTerminalView(agent, terminal, workspace?.path);
+  const hasTerminal = mode !== "managed" && !!(agent?.terminalId || interactive);
   const state = agentState(agent, workingIds);
   const name = agent ? displayAgentName(agent, workspace) : "";
 
   useEffect(() => {
-    setView(initialView === "terminal" && interactive ? "term" : (interactive ? "term" : "chat"));
-  }, [id, interactive, initialView]);
+    setView(initialAgentView(agent, initialView));
+  }, [id, mode, agent?.terminalId, initialView]);
 
   function changeView(next) {
     setView(next);
@@ -110,13 +98,13 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
     workspace ? workspace.name : "free agent",
   ].filter(Boolean).join(" · ");
 
-  const viewSwitch = interactive ? (
+  const viewSwitch = hasTerminal && (!agent.cli || agent.cli === "pi") ? (
     <fieldset className="m-view-switch" aria-label="Agent view">
       <legend className="sr-only">Agent view</legend>
-      {[['chat', 'Chat'], ['term', 'Terminal']].map(([value, label]) => (
+      {[['chat', 'Chat', IconChat], ['term', 'Terminal', IconTerminal]].map(([value, label, Icon]) => (
         <label key={value} className="m-view-switch-option">
-          <input type="radio" name="m-agent-view" value={value} checked={view === value} onChange={() => changeView(value)} />
-          <span>{label}</span>
+          <input type="radio" name="m-agent-view" aria-label={label} value={value} checked={view === value} onChange={() => changeView(value)} />
+          <span title={label}><Icon size={16} /></span>
         </label>
       ))}
     </fieldset>
@@ -126,37 +114,31 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
     <>
       {viewSwitch}
       <button type="button" className="btn btn-sm m-changes-btn" title="Project tools" aria-label="Project tools" aria-haspopup="dialog" aria-expanded={toolsOpen} onClick={() => setToolsOpen(true)}><IconFolder size={16} /></button>
-      {interactive && view === "term" && cliTerminal ? (
-        <button type="button" className="btn btn-sm m-changes-btn" title="Attach to terminal" aria-label="Attach to terminal" onClick={() => setAttachOpen(true)}>
-          <IconClip size={16} />
-        </button>
-      ) : null}
-      {interactive && view === "term" ? (
-        <button type="button" className={"btn btn-sm m-keys-btn" + (keys.visible ? " on" : "")} title={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-label={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-pressed={keys.visible} onPointerDown={(e) => { if (keys.visible) e.preventDefault(); }} onClick={() => { keys.visible ? keys.hide() : keys.show(); }}>
-          <IconKeyboard size={16} />
-        </button>
-      ) : null}
       {stopped
         ? <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => onStart(agent, workspace)}>Start</button>
         : <button type="button" className="btn btn-sm" disabled={busy} onClick={() => onStop(agent, workspace)}>Stop</button>}
     </>
   );
 
+  if (view === "term" && hasTerminal) {
+    return <TerminalScreen
+      key={resolved ? resolved.owner.kind + ":" + resolved.term.id : id}
+      term={resolved?.term}
+      owner={resolved?.owner}
+      title={name}
+      viewControl={viewSwitch}
+      onBack={onBack}
+      onRemove={resolved?.canonical ? onRemoveTerminal : undefined}
+      onStop={!stopped ? () => onStop(agent, workspace) : undefined}
+      busy={busy}
+      onOpenFiles={onOpenFiles}
+      onOpenGit={onOpenGit}
+    />;
+  }
+
   return (
     <div className="m-screen m-agent">
       <ScreenHeader title={name} sub={<><StateChip state={state} /><span className="m-agent-meta" title={meta}>{meta}</span></>} onBack={onBack} right={right} />
-      {view === "term" && interactive ? (
-        <>
-          <div className="m-term" ref={termHostRef}>
-            {cliTerminal ? (
-              <TermSurface key={"agent-cli-term-" + cliTerminal.id} term={cliTerminal} hidden={false} cwdKind="term" />
-            ) : (
-              <TerminalDock key={"agent-term-" + id} open agent={agent} workspace={workspace} />
-            )}
-          </div>
-          {keys.visible ? <KeyBar armed={keys.armed} onArm={keys.armKey} onKey={keys.sendKey} onHide={keys.hide} /> : null}
-        </>
-      ) : (
         <div className="m-chat chat-body">
           <div className="chat-main">
             {interactive ? (
@@ -205,9 +187,7 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
             /> : null}
           </div>
         </div>
-      )}
-      <ProjectToolsSheet open={toolsOpen} onOpenChange={setToolsOpen} title={name} onAttach={interactive && view === "term" && cliTerminal ? () => setAttachOpen(true) : null} onFiles={() => onOpenFiles({ kind: "agent", id })} onGit={() => onOpenGit({ kind: "agent", id })} />
-      {cliTerminal ? <TermAttachSheet term={cliTerminal} open={attachOpen} onClose={() => setAttachOpen(false)} /> : null}
+      <ProjectToolsSheet open={toolsOpen} onOpenChange={setToolsOpen} title={name} onFiles={() => onOpenFiles({ kind: "agent", id })} onGit={() => onOpenGit({ kind: "agent", id })} />
       <Sheet.Root open={settingsOpen} onOpenChange={setSettingsOpen}>
         <Sheet.Portal>
           <Sheet.Overlay className="dlg-overlay" />

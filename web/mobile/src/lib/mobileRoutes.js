@@ -61,7 +61,7 @@ export function mobileRoute(hash) {
   const agentId = agentRoute("#" + h);
   if (agentId) {
     const view = new URLSearchParams(h.split("?")[1] || "").get("view");
-    return { screen: "agent", id: agentId, section: "", ...(view === "terminal" ? { view } : {}) };
+    return { screen: "agent", id: agentId, section: "", ...(view === "terminal" || view === "chat" ? { view } : {}) };
   }
   const termId = termRoute("#" + h);
   if (termId) return { screen: "term", id: termId, section: "" };

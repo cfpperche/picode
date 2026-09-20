@@ -9,7 +9,7 @@ test("Pi interactive view uses the bound terminal record", () => {
 });
 
 test("legacy Pi interactive view keeps the agent address until restart", () => {
-  const resolved = resolveInteractiveTerminal({ id: "agent-pi", name: "Pi", workPath: "" }, [], "/tmp");
+  const resolved = resolveInteractiveTerminal({ id: "agent-pi", mode: "interactive", name: "Pi", workPath: "" }, [], "/tmp");
   assert.equal(resolved.id, "agent-pi");
   assert.equal(resolved.cwdKind, "agent");
   assert.equal(resolved.canonical, false);

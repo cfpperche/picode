@@ -4,7 +4,7 @@
 .m-tool-toolbar { display: flex; align-items: center; }
 .m-tool-icon {
   display: inline-flex; align-items: center; justify-content: center;
-  flex: none; width: 44px; height: 44px; padding: 0;
+  flex: none; width: var(--ctl-h); height: var(--ctl-h); padding: 0;
   border: 0; border-radius: var(--radius-ctl); background: transparent;
   color: var(--text-secondary); cursor: pointer;
 }
@@ -24,6 +24,9 @@
 .m-tool-action-count { margin-left: auto; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .m-tool-state { display: flex; align-items: flex-start; flex-direction: column; gap: 12px; padding: 16px var(--m-pad, 14px); color: var(--text-secondary); font-size: 13px; }
 .m-tool-state p { margin: 0; overflow-wrap: anywhere; }
+.term-attach-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.term-attach-heading .dlg-title { margin: 0; }
+.term-attach-row .term-attach-choice { width: auto; flex: 1; gap: 4px; padding: 0 4px; font-size: 11px; white-space: nowrap; }
 /* The terminal pane with no terminal in it (TermSurface): a stopped CLI
    terminal, or one that refused to open. It was a sentence and a button in
    the top-left corner; it is an empty state now, the same simulated
