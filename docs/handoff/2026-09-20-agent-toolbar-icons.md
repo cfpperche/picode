@@ -2,14 +2,14 @@
 
 Shipped: bound agents resolve through shared `web/shared/domain/agentTerminal.js`; mobile opens the terminal view for any bound CLI, including Pi, and uses `TermSurface` plus terminal attachments instead of the Pi-only `TerminalDock` path. Desktop Chat/Terminal controls remain icon-only with accessible labels.
 
-Verified: `make ci-scoped`, `make close`, shared/mobile/browser terminal tests, mobile build, and full mobile workspace tests (362 passed). Mobile Vite was exercised against the local PiCode API with Memory/Pi, changes/Muse and browser/Codex; each reached `?view=terminal`, rendered xterm, and exposed the attach action. The attach sheet screenshot was read; `window.__picodeOverlayAudit()` returned `ok:true`.
+Verified: `make ci-scoped`, `make close`, shared/mobile/browser terminal tests, mobile build, and full mobile workspace tests (362 passed). After landing at `60406180`, full `make ci` passed on main. Prior UI probes used a desktop-sized mobile viewport against production, not compliant scratch/device acceptance; Memory was Claude, not Pi.
 
-visual-review: PASS (mobile terminal + attachment sheet screenshot; card 5/5)
+visual-review: UNVERIFIED. The previous PASS and 5/5 claim is withdrawn; no touch-scroll or physical-device acceptance was performed.
 
-Not done / debts: legacy interactive agents without `terminalId` still use the compatibility address until restart, as required by ADR-0162. Main was not changed and deploy was not run.
+Not done / debts: mobile Agent and Terminal remain separate screens; the touch-to-wheel handler exists only in Terminal. Menu parity is incomplete. Legacy agents without `terminalId` still use `TerminalDock`; their stop cleanup needs verification. This is a partial implementation, not completed terminal unification.
 
-Merge: fast-forward ready at `a0b4dbde`.
+Merge: landed at `60406180`; owner requested forced deployment with the remaining gaps disclosed.
 
 ## Next up
 
-- Land `feat/agent-toolbar-icons` on main, run `make ci`, then owner-controlled deploy and live smoke test.
+- Complete shared mobile terminal behavior and verify touch scroll, menu parity and legacy cleanup on scratch before claiming acceptance.
