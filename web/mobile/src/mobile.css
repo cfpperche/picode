@@ -243,7 +243,7 @@ html[data-bottombar="edge"] #m-app.kb-open { bottom: auto; }
 .m-ws-actions { display: flex; gap: 8px; }
 .m-ws-actions .btn { flex: 1; display: inline-flex; gap: 4px; }
 .m-term-row .m-row-face { color: var(--text-secondary); }
-.m-term-row .m-state { max-width: 92px; overflow: hidden; text-overflow: ellipsis; }
+.m-term-row .m-state, .m-agent-row .m-state { max-width: 92px; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- terminal screen: xterm + the keys a soft keyboard lacks ---- */
 .m-term-screen { padding-bottom: 0; gap: 0; overflow: hidden; position: relative;

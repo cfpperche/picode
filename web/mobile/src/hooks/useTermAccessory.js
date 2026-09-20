@@ -9,7 +9,7 @@ import {
 // Extra keys travel with the software keyboard: visible after a user
 // tap focuses the terminal (or the header keyboard icon), gone on blur.
 // Attach-time focus is not a tap — iOS will not open the IME. A bar tap
-// never steals focus (the caller preventDefault's pointerdown).
+// never steals focus (KeyBar preventDefaults the touch and acts on release).
 
 export function useTermAccessory(hostRef, entryOf, attachKey, onDeadSock) {
   const onDeadSockRef = useRef(onDeadSock);

@@ -463,7 +463,13 @@ export default function MobileApp() {
     setBusyId(agent.id);
     try {
       await api("/api/agents/" + encodeURIComponent(agent.id), { method: "DELETE" });
-      if (agent.terminalId) closeTerm("sh:" + agent.terminalId);
+      if (agent.terminalId) {
+        // Deleting the agent only nulls its terminal_id: the bound
+        // terminal — and the CLI process inside it — would survive as an
+        // orphan Work card. The menu promises both go away.
+        await api("/api/terminals/" + encodeURIComponent(agent.terminalId), { method: "DELETE" }).catch(() => {});
+        closeTerm("sh:" + agent.terminalId);
+      }
       await reload({ force: true });
     } catch (e) {
       // As with desktop: a 404 just means the agent is already gone.

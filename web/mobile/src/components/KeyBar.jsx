@@ -61,6 +61,7 @@ export default function KeyBar({ armed, onArm, onKey, onHide }) {
     };
 
     const onTouchStart = (e) => {
+      e.preventDefault(); // even a stray second finger must not blur xterm
       if (e.touches.length !== 1) { touch = null; return; }
       const t = e.touches[0];
       const btn = e.target.closest("button[data-act]");
@@ -75,9 +76,6 @@ export default function KeyBar({ armed, onArm, onKey, onHide }) {
       lastX = t.clientX;
       lastT = performance.now();
       vel = 0;
-      // Keeps focus (and the IME) on the terminal; the native pan is
-      // cancelled with it, so touchmove scrolls by hand below.
-      e.preventDefault();
     };
 
     const onTouchMove = (e) => {
@@ -106,7 +104,7 @@ export default function KeyBar({ armed, onArm, onKey, onHide }) {
       if (!was.dragging) {
         if (was.act) dispatch(was.act, was.arg);
       } else if (Math.abs(vel) > 0.3) {
-        glide(-vel); // scroll velocity is the finger velocity, negated
+        glide(vel); // glide() negates: the bar keeps moving against the finger
       }
     };
 
