@@ -6,4 +6,5 @@ Reviewed: independent lifecycle review covered process exit, legacy receipt migr
 Verified: `make ci-scoped` passed on d1f82cbb (fmt, vet, hooks, Go, JS, embedded build and docs); `make close` reused that green tree. Isolated Linux tmux tests cover both mode transitions, shutdown receipts, native session fences, Inbox deduplication and launch rollback. Darwin arm64/Windows amd64 cross-builds passed; hosted runtime behavior was not exercised.
 visual-review: PASS, reported by the independent scratch screenshot reviewer for desktop/mobile states and overlays.
 Limits: the scratch provider credential was invalid, so no successful live LLM completion is claimed. Durable validation gaps are tracked in `docs/handoff/open/pi-interactive-runtime.md`.
+Integration: fast-forwarded into `main` at 9b16e187; full `make ci` passed there (67 Go packages, four server shards, JS tests, embedded build, docs and repository gates).
 Deployment: not performed; deployment remains the owner's action.
