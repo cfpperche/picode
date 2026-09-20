@@ -188,10 +188,10 @@ Rules that are load-bearing:
 | Layer | Evidence |
 |---|---|
 | Daemon (policy, verbs, hub, domains) | Go tests: `internal/browser/*_test.go`, the decision tables in `policy_test.go` and `domains_test.go` |
-| The shell's re-checks and catalogs | host tests where they are pure (`permissions.rs`, `origins.rs`, `annotate.rs` — run with `rustc --edition 2021 --test src/<file>.rs`; host `cargo test` is broken here) and `cargo xwin build` for the whole shell |
-| The page's logic | `web/browser/src/lib/*.test.js` (channel, prefs, annotations, overlay vocabulary) |
+| The shell's re-checks and catalogs | host tests where they are pure (`permissions.rs`, `origins.rs`, `annotate.rs`, `preview.rs` — run with `rustc --edition 2021 --test src/<file>.rs`; host `cargo test` is broken here) and `cargo xwin build` for the whole shell |
+| The page's logic | `web/browser/src/lib/*.test.js` (channel, prefs, annotations, overlay vocabulary, the legacy still/cover decisions) |
 | The injected overlay | a real browser harness (`scripts/fixtures/annotate-hotkey.html` + the script injected) — behavior, screenshots, key shields |
-| Windows-only paths | the owner's live run: the COM capture/hide half of the still, the Ask deferral and its watchdog, the navigation re-inject hook. Cross-build + static guards + the harness are what exists here |
+| Windows-only paths | the owner's live run: the COM capture and native hide behind `preview.rs`'s decisions, the Ask deferral and its watchdog, the navigation re-inject hook. The capture's decision rows (valid, empty, failed, not painted, timeout, tab gone) and the hide/restore table (`coverDecision`) are host-tested; the COM calls and the on-screen stacking are not |
 
 ## Traps (architecture-level; the dated list is in the topic file)
 
