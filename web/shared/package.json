@@ -113,6 +113,7 @@
     "./domain/termRowMenu.js": "./domain/termRowMenu.js",
     "./domain/cliSettings.js": "./domain/cliSettings.js",
     "./domain/cliNative.js": "./domain/cliNative.js",
+    "./domain/piRows.js": "./domain/piRows.js",
     "./domain/cliPackages.js": "./domain/cliPackages.js",
     "./domain/cliProviders.js": "./domain/cliProviders.js",
     "./domain/peerParticipants.js": "./domain/peerParticipants.js"

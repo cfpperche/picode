@@ -119,11 +119,20 @@ A machine-only key sent to the workspace or agent layer is refused by name
 before trust or path resolution answers, so the message says what is wrong
 rather than blaming the folder.
 
-Two differences from the guest pane remain, both pre-existing: Pi's writer
-re-encodes the document (`json.MarshalIndent` of a map), so key order is
-normalised rather than preserved, and `web/shared/domain/resolveLayer.js` is a
-named list — a key added to the API is invisible in the pane until it is added
-there too, which is how the Theme row first rendered empty.
+**Pi's rows are a table too** (2026-09-20). `web/shared/domain/piRows.js`
+declares all eleven — label, kind, group, order, and what each one reads — and
+the pane renders whatever the table says, the way the guest pane already did.
+Three of them are not scalars and are declared as their own kinds rather than
+flattened: `model` is the three coupled selects the catalog feeds, `patterns`
+is the free list of scoped models, `tools` is the grid over pi's fixed tool
+set. A row marked `machine` is offered only on the This machine layer.
+
+One difference from the guest pane remains, and it is pre-existing: Pi's
+writer re-encodes the document (`json.MarshalIndent` of a map), so key order is
+normalised rather than preserved. `web/shared/domain/resolveLayer.js` is still
+a named list — a key added to the API is invisible until it is added there
+too, which is how the Theme row first rendered empty — so a new row means two
+lines, not one.
 
 
 The workspace agent menu separates **Launch settings** (the bound terminal's
