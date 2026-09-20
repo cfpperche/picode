@@ -78,6 +78,15 @@ if [ -n "$SCOPE_WEB" ] || [ -n "$SCOPE_PACKAGES" ]; then
   make --no-print-directory test-js
   ran+=("test-js")
 fi
+if [ -n "$SCOPE_DESKTOP" ]; then
+  # The shell is a Rust crate: its pure half host-tests in seconds, and the
+  # whole crate must cross-compile for Windows — the gate that would have
+  # caught 8117fd50's pub(crate) break the day it landed.
+  make --no-print-directory desktop-test
+  ran+=("desktop-test")
+  make --no-print-directory desktop-shell
+  ran+=("xwin")
+fi
 if [ -n "$SCOPE_WEB" ]; then
   make --no-print-directory build
   ran+=("build")

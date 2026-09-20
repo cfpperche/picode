@@ -72,6 +72,11 @@ export function coveredRoots({ paths = [], packages = [], full = false } = {}) {
     roots.add("packages/");
     roots.add(".pi/");
   }
+  if (scope.desktop) {
+    // desktop-test compiles the pure crate standalone and the xwin gate the
+    // whole crate — both read everything under desktop-shell/.
+    roots.add("desktop-shell/");
+  }
   if (scope.docs) {
     // docs-check re-generates OpenAPI (`go run ./cmd/picode-openapi`) and runs
     // scripts/ as child processes; `docs/` itself feeds no gate (ADR-0124).
