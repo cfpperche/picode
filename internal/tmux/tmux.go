@@ -189,7 +189,9 @@ func (m *Manager) Available() bool {
 	return err == nil
 }
 
-// Version returns the tmux version string (e.g. "3.6").
+// Version returns the installed tmux binary's version (e.g. "3.6") — what
+// `tmux -V` answers. The binary and the running server are different things:
+// VersionInUse is the one reports name.
 func (m *Manager) Version() (string, error) {
 	out, err := exec.Command("tmux", "-V").Output()
 	if err != nil {
@@ -197,6 +199,39 @@ func (m *Manager) Version() (string, error) {
 	}
 	v := strings.TrimSpace(string(out))
 	return strings.TrimPrefix(v, "tmux "), nil
+}
+
+// ServerVersion returns the version of the tmux server answering on this
+// Manager's socket (`#{version}`) — the tmux that owns the panes. Version()
+// reports the installed client binary instead, and the two differ right after
+// an upgrade: a new client talks to the old server until it exits (tmux's
+// PROTOCOL_VERSION is stable across 3.6-3.8), so only this value says which
+// tmux is interpreting the panes' escape sequences. An error means no server
+// is running yet.
+func (m *Manager) ServerVersion(ctx context.Context) (string, error) {
+	out, err := m.run(ctx, "display-message", "-p", "#{version}")
+	if err != nil {
+		return "", fmt.Errorf("tmux display-message: %s", strings.TrimSpace(out))
+	}
+	v := strings.TrimSpace(out)
+	if v == "" {
+		return "", errors.New("tmux display-message: empty version")
+	}
+	return v, nil
+}
+
+// VersionInUse is the version of the tmux a report should name: the running
+// server's when one answers on this socket, the installed binary's otherwise.
+// Reports use this, never Version(), so a client/server skew after an upgrade
+// is reported as what serves the panes (ADR-0164).
+func (m *Manager) VersionInUse(ctx context.Context) string {
+	if v, err := m.ServerVersion(ctx); err == nil {
+		return v
+	}
+	if v, err := m.Version(); err == nil {
+		return v
+	}
+	return ""
 }
 
 // OwnedSessionName reports whether name is a syntactically valid,
