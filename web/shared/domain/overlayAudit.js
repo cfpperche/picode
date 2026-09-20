@@ -3,9 +3,9 @@
 //
 //   - `overlayAudit` checks them for clipping (the visual-review gate);
 //   - the work browser's tab uses the same list to decide when the native
-//     WebView2 must get out of the way (a native child window always paints
-//     over HTML, so an overlay that intersects it is invisible until the page
-//     hides — `web/browser/src/lib/floatingLayers.js`).
+//     WebView2 must get out of the way on legacy shells. New shells use the
+//     same vocabulary for native chrome regions above live page siblings
+//     (`web/browser/src/lib/nativeLayers.js`, ADR-0161).
 //
 // A new floating surface belongs here, or both checks lose sight of it.
 //
@@ -62,8 +62,8 @@ export function overlayAudit(win = globalThis) {
       });
     }
   }
-  // A floating layer over the work browser must have the native view out of
-  // the way; the tab says so by marking its host (`.web-tab-host[data-covered]`).
+  // A floating layer needs an acknowledged native chrome region, or the
+  // legacy shell must have parked the page (`data-covered`).
   const uncovered = [];
   for (const host of doc.querySelectorAll(".web-tab-host")) {
     const hs = win.getComputedStyle(host);
@@ -71,6 +71,7 @@ export function overlayAudit(win = globalThis) {
     const r = host.getBoundingClientRect();
     if (r.width < 2 || r.height < 2) continue;
     if (host.getAttribute?.("data-covered") === "1") continue;
+    if (host.getAttribute?.("data-native-layers-ready") === "true") continue;
     if (layerRectsOver(doc, win).some((layer) => intersects(r, layer))) {
       uncovered.push({ sel: ".web-tab-host", top: Math.round(r.top), bottom: Math.round(r.bottom) });
     }

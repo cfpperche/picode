@@ -45,3 +45,12 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+# Isolated native UI acceptance; excluded from the installed resident build.
+[features]
+overlay-qa = []
+
+[[example]]
+name = "overlay_product_qa"
+path = "src/main.rs"
+required-features = ["overlay-qa"]

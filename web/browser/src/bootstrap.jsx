@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { overlayAudit } from "@picode/shared/domain/overlayAudit.js";
+import { installNativeLayers } from "./lib/nativeLayers.js";
 import App from "./App.jsx";
 import PairingScreen from "./components/PairingScreen.jsx";
 import { consoleEgg } from "./lib/consoleEgg.js";
@@ -11,6 +12,7 @@ import { installShellExternalLinks } from "./lib/externalLinks.js";
 // agent websockets must not double-mount.
 export function boot(rootEl, { shellChrome = false } = {}) {
   window.__picodeOverlayAudit = overlayAudit;
+  if (shellChrome) installNativeLayers({ window, document });
   consoleEgg();
   installHashGuard();
   // The shell has no second window: without this, every _blank link and

@@ -12,6 +12,9 @@
 // took over.
 
 mod btab;
+mod layers;
+#[cfg(feature = "overlay-qa")]
+mod overlayqa;
 mod external;
 mod annotate;
 mod board;
@@ -43,7 +46,7 @@ use std::sync::OnceLock;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager, WebviewUrl, WebviewWindowBuilder,
+    Emitter, Manager, WebviewUrl,
 };
 use tauri_plugin_notification::NotificationExt;
 
@@ -52,12 +55,12 @@ use tauri_plugin_notification::NotificationExt;
 /// logon task with `--hidden`, while the native window was alive and
 /// perfectly showable — which is exactly the state where Open PiCode must
 /// still work (2026-09-16, Tauri 2.11.5).
-static MAIN_WINDOW: OnceLock<tauri::WebviewWindow> = OnceLock::new();
+static MAIN_WINDOW: OnceLock<tauri::Window> = OnceLock::new();
 
 /// The main window for modules that need its native handle (embed.rs):
 /// the kept handle first, the registry as a fallback — see MAIN_WINDOW.
-pub fn main_window(app: &tauri::AppHandle) -> Option<tauri::WebviewWindow> {
-    MAIN_WINDOW.get().cloned().or_else(|| app.get_webview_window("main"))
+pub fn main_window(app: &tauri::AppHandle) -> Option<tauri::Window> {
+    MAIN_WINDOW.get().cloned().or_else(|| app.get_window("main"))
 }
 
 fn main() {
@@ -78,6 +81,13 @@ fn main() {
     // The logon task starts the resident hidden: sign-in never pops a window,
     // the tray holds the service, and a second launch brings the window up
     // through the single-instance handler below.
+    #[cfg(feature = "overlay-qa")]
+    if let Some(url) = std::env::args().find_map(|a| a.strip_prefix("--overlay-qa=").map(str::to_owned)) {
+        overlayqa::run(&url);
+        return;
+    }
+    #[cfg(feature = "overlay-qa")]
+    assert!(env!("CARGO_BIN_NAME") != "overlay_product_qa", "QA example requires --overlay-qa=<scratch URL>");
     let hidden = std::env::args().any(|a| a == "--hidden");
     // The shell loads its own bundle, not the launcher's pick: /desktop/ is
     // composed for the shell only (ADR-0122), /browser/ is what a browser gets.
@@ -85,6 +95,7 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
+            layers::chrome_layers,
             btab::btab_navigate,
             btab::btab_bounds,
             btab::btab_visibility,
@@ -563,7 +574,7 @@ fn management_url(app: &tauri::AppHandle) -> tauri::Url {
 
 fn open_management_window(app: &tauri::AppHandle) {
     if let Some(win) = app.get_webview_window("management") {
-        show(&win);
+        show(&win.as_ref().window());
         return;
     }
     let mut url = discover_server()
@@ -614,17 +625,16 @@ fn main_target() -> WebviewUrl {
 fn build_main_window(
     app: &tauri::AppHandle,
     target: WebviewUrl,
-) -> tauri::Result<tauri::WebviewWindow> {
-    // Undecorated, single webview: the /desktop/ bundle renders the
+) -> tauri::Result<tauri::Window> {
+    // Undecorated window with a transparent chrome child: /desktop/ renders the
     // merged top row itself — brand, rail tabs, agent tabs and the
     // Windows caption buttons (ADR-0122). The shell only strips the
     // native frame.
-    let win = WebviewWindowBuilder::new(app, "main", target)
+    let win = tauri::window::WindowBuilder::new(app, "main")
         .title("PiCode")
         .inner_size(1360.0, 880.0)
         .min_inner_size(720.0, 480.0)
         .decorations(false)
-        .disable_drag_drop_handler()
         // One creation path for both starts: build visible, hide right after
         // when the logon task asked for --hidden (same setup turn, before
         // first paint, so sign-in stays pop-free). Measured 2026-09-16: at
@@ -632,8 +642,17 @@ fn build_main_window(
         // what actually broke Open PiCode was the missed handle lookup, not
         // the build order.
         .visible(true)
-        .data_directory(browserlab::webview_profile())
         .build()?;
+    win.add_child(
+        tauri::webview::WebviewBuilder::new("main-content", target)
+            .data_directory(browserlab::webview_profile())
+            .disable_drag_drop_handler()
+            .transparent(true)
+            .initialization_script("window.__PICODE_LIVE_LAYERS__ = true;")
+            .auto_resize(),
+        tauri::LogicalPosition::new(0., 0.),
+        win.inner_size()?.to_logical::<f64>(win.scale_factor()?),
+    )?;
     // Remember the handle here, where both the first build and a rebuild
     // land: show_main drives this one, not a registry lookup that has been
     // observed to miss.
@@ -661,7 +680,7 @@ fn show_main(app: &tauri::AppHandle) {
         show(win);
         return;
     }
-    match app.get_webview_window("main") {
+    match app.get_window("main") {
         Some(win) => show(&win),
         None => match build_main_window(app, main_target()) {
             Ok(win) => show(&win),
@@ -673,7 +692,7 @@ fn show_main(app: &tauri::AppHandle) {
     }
 }
 
-fn show(win: &tauri::WebviewWindow) {
+fn show(win: &tauri::Window) {
     let _ = win.unminimize();
     let _ = win.show();
     let _ = win.set_focus();

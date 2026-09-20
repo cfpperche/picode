@@ -1,4 +1,5 @@
-// When must the work browser get out of the way?
+// Legacy shells: when must the work browser get out of the way?
+// Current shells use nativeLayers.js (ADR-0161); rectOf remains shared.
 //
 // A WebView2 is a native child window: it paints over every HTML pixel in the
 // same region, whatever the z-index says. So an HTML layer that intersects the
