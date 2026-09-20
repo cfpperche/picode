@@ -105,6 +105,12 @@ func TestSnapshotRestoreCanvas(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(data, "accounts.json"), []byte(`{"k":1}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(data, "credentials.json"), []byte(`{"alg":"AES-256-GCM"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(data, "credentials.key"), []byte("0123456789abcdef0123456789abcdef"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	pinDir := filepath.Join(data, "pins", "p1")
 	if err := os.MkdirAll(pinDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -142,6 +148,14 @@ func TestSnapshotRestoreCanvas(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(snap.Path, "pi", "auth.json")); err != nil {
 		t.Fatal("secrets missing")
+	}
+	// The vault travels; the key that opens it never does (ADR-0165) — a
+	// snapshot copied elsewhere must not decrypt on its own.
+	if _, err := os.Stat(filepath.Join(snap.Path, "picode", "credentials.json")); err != nil {
+		t.Fatal("vault missing from a secrets snapshot")
+	}
+	if _, err := os.Stat(filepath.Join(snap.Path, "picode", "credentials.key")); !os.IsNotExist(err) {
+		t.Fatal("the vault key was copied into the snapshot")
 	}
 	if _, err := os.Stat(filepath.Join(snap.Path, "pi", "sessions", "s", "a.jsonl")); err != nil {
 		t.Fatal("sessions missing")
@@ -189,6 +203,9 @@ func TestSnapshotRestoreCanvas(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(noSec.Path, "picode", "accounts.json")); !os.IsNotExist(err) {
 		t.Fatal("accounts should be omitted")
 	}
+	if _, err := os.Stat(filepath.Join(noSec.Path, "picode", "credentials.json")); !os.IsNotExist(err) {
+		t.Fatal("vault should be omitted")
+	}
 
 	// dest inside data refused
 	if _, err := e.Snapshot(true, true, filepath.Join(data, "nope")); err == nil {
@@ -209,6 +226,9 @@ func TestSnapshotRestoreCanvas(t *testing.T) {
 	got, err := os.ReadFile(filepath.Join(pi, "settings.json"))
 	if err != nil || string(got) != `{"a":1}` {
 		t.Fatalf("settings after restore = %s %v", got, err)
+	}
+	if _, err := os.Stat(filepath.Join(data, "credentials.json")); err != nil {
+		t.Fatalf("vault not restored: %v", err)
 	}
 	if _, err := e.Store.GetWorkspace((func() string {
 		ws, _ := e.Store.ListWorkspaces()

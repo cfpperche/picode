@@ -351,8 +351,9 @@ func piTerminalStateExtensionFile(dataDir string) string {
 
 // ompTerminalStateExtensionFile is the omp reporter: a pi fork whose
 // extension API accepts the same load mechanism, but a different event set
-// (measured 2026-09-17, live TUI: session events fire, PICODE_TERM_ID
-// survives — and the pi events agent_settled / ui_prompt_start /
+// (verified against the 18.2.6 bundle: agent_start/agent_end with
+// willContinue, tool_approval_requested/resolved, tool_execution_start and
+// tool_result — while the pi events agent_settled / ui_prompt_start /
 // ui_prompt_end never fire, so pi's template left omp stuck on Working).
 func ompTerminalStateExtensionFile(dataDir string) string {
 	return filepath.Join(interceptDir(dataDir), "omp-terminal-state.ts")
@@ -412,11 +413,13 @@ export default function (pi) {
 }
 `
 
-// omp fires pi's session_start/agent_start/session_shutdown, but — measured
-// live on 18.2.4 (2026-09-17) — never agent_settled and never the
-// ui_prompt_* pair: agent_end is the only settle point, and the approval
-// dialog emits no extension event, so omp never reports needs-you
-// (approvals happen in its own terminal). turn_start/turn_end fire many
+// omp shares pi's extension load mechanism but not its event set — verified
+// against the 18.2.6 bundle: agent_start is always emitted, agent_end
+// carries willContinue (mid-run turns must not settle), and approvals and
+// the ask question card arrive as tool_approval_requested/resolved and
+// tool_execution_start{toolName:"ask"}/tool_result. The pi events
+// agent_settled and ui_prompt_* never fire, so pi's template left omp stuck
+// on Working and blind to every approval. turn_start/turn_end fire many
 // times per run and carry no state.
 const ompTerminalStateExtensionTmpl = `import { spawn } from "node:child_process";
 
@@ -440,7 +443,16 @@ function report(state, ctx) {
 export default function (pi) {
   pi.on("session_start", async (_event, ctx) => report("idle", ctx));
   pi.on("agent_start", async (_event, ctx) => report("working", ctx));
-  pi.on("agent_end", async (_event, ctx) => report("idle", ctx));
+  pi.on("tool_approval_requested", async (_event, ctx) => report("needs-you", ctx));
+  pi.on("tool_approval_resolved", async (_event, ctx) => report("working", ctx));
+  pi.on("tool_execution_start", async (_event, ctx) => {
+    if (_event && _event.toolName === "ask") return report("needs-you", ctx);
+  });
+  pi.on("tool_result", async (_event, ctx) => report("working", ctx));
+  pi.on("agent_end", async (_event, ctx) => {
+    if (_event && _event.willContinue) return;
+    return report("idle", ctx);
+  });
   pi.on("session_shutdown", async (_event, ctx) => report("idle", ctx));
 }
 `

@@ -149,11 +149,15 @@ func TestWrapperInstallShape(t *testing.T) {
 			if !strings.Contains(string(ext), `"omp"`) || !strings.Contains(string(ext), "session_start") {
 				t.Error("omp extension not shaped for omp or not named omp")
 			}
-			// omp's measured event set: agent_end settles; agent_settled and
-			// ui_prompt_* never fire — their absence is what stuck a finished
-			// session on Working.
-			if !strings.Contains(string(ext), `"agent_end"`) {
-				t.Error("omp extension lacks the agent_end settle point")
+			// omp's measured event set: agent_end settles (only when the run is
+			// really over — willContinue marks a mid-run turn), approvals arrive
+			// as tool_approval_requested/resolved and the ask card as
+			// tool_execution_start/tool_result; agent_settled and ui_prompt_*
+			// never fire.
+			for _, want := range []string{`"agent_end"`, "willContinue", `"tool_approval_requested"`, `"tool_approval_resolved"`, `"tool_execution_start"`, `"tool_result"`} {
+				if !strings.Contains(string(ext), want) {
+					t.Errorf("omp extension lacks %s", want)
+				}
 			}
 			if strings.Contains(string(ext), "agent_settled") || strings.Contains(string(ext), "ui_prompt_start") {
 				t.Error("omp extension listens to pi events omp never fires")

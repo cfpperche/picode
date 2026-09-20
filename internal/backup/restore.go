@@ -53,9 +53,12 @@ func (e *Engine) Restore(dest, id string, currentSchema int) error {
 			return fmt.Errorf("backup: restore pins: %w", err)
 		}
 	}
-	srcAcc := filepath.Join(snap.Path, "picode", "accounts.json")
-	if _, err := os.Stat(srcAcc); err == nil {
-		if err := copyRegular(srcAcc, filepath.Join(dataDir, "accounts.json"), 0o600); err != nil {
+	for _, name := range []string{"credentials.json", "accounts.json"} {
+		src := filepath.Join(snap.Path, "picode", name)
+		if _, err := os.Stat(src); err != nil {
+			continue
+		}
+		if err := copyRegular(src, filepath.Join(dataDir, name), 0o600); err != nil {
 			return err
 		}
 	}
