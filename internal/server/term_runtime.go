@@ -258,7 +258,7 @@ func processStartToken(pid int) string {
 	}
 	raw, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
 	if err != nil {
-		return ""
+		return platformProcessStartToken(pid)
 	}
 	// comm may contain spaces and ')' characters. The final ')' before the
 	// state field is the safe delimiter; field 22 is index 19 after it.
@@ -276,6 +276,12 @@ func processStartToken(pid int) string {
 func processAlive(runtime TermRuntime) bool {
 	if runtime.PID <= 0 {
 		return false
+	}
+	if raw, e := os.ReadFile("/proc/" + strconv.Itoa(runtime.PID) + "/stat"); e == nil {
+		end := strings.LastIndexByte(string(raw), ')')
+		if end >= 0 && end+2 < len(raw) && raw[end+2] == 'Z' {
+			return false
+		}
 	}
 	if token := processStartToken(runtime.PID); token != "" {
 		return runtime.ProcStart == "" || token == runtime.ProcStart

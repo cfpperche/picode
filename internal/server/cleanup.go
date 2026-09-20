@@ -182,18 +182,27 @@ func (deps Deps) applyCleanup(p cleanupPreview, purgeSessions, purgeWork bool) {
 	}
 }
 
-func (deps Deps) stopAgent(ctx context.Context, id string) {
+func (deps Deps) stopAgent(ctx context.Context, id string) error {
 	// Destructive removal still honours the one-writer rule: the mutation
 	// guard blocks a concurrent reply send while the pane is killed.
+	unlockAgent := terminalLock(deps, "agent:"+id)
+	defer unlockAgent()
+	return deps.stopAgentLocked(ctx, id)
+}
+
+func (deps Deps) stopAgentLocked(ctx context.Context, id string) error {
 	release := deps.Replies.Controls.BeginMutation(id)
 	defer release()
 	if deps.Runtime != nil {
 		deps.Runtime.Stop(id)
 	}
 	if deps.Tmux != nil && deps.Tmux.Available() {
-		_ = deps.Tmux.KillSession(ctx, tmux.SessionName(id))
+		if err := deps.stopAgentInteractive(ctx, id); err != nil {
+			return err
+		}
 		_ = deps.Tmux.KillSession(ctx, tmux.ShellSessionName(id))
 	}
+	return nil
 }
 
 func handleAgentCleanup(deps Deps) http.HandlerFunc {

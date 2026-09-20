@@ -6,6 +6,14 @@ import { deltaPercent, fleetStats, rangeLabel, compareLabel, formatTokens, perce
   FLEET_WORKING, FLEET_NEEDS_YOU, FLEET_IDLE, FLEET_UNREPORTED, FLEET_ORDER, FLEET_LABELS } from "./dashboardStats.js";
 
 describe("deltaPercent", () => {
+  it("counts bound Pi once and keeps unreported activity unknown", () => {
+    const term = {id:"t",running:true,cli:"pi"};
+    const a = {id:"a",cli:"pi",terminalId:"t",mode:"interactive"};
+    const stats = fleetStats([], [a], [term], {});
+    assert.equal(stats.live,1);
+    assert.equal(stats[FLEET_UNREPORTED],1);
+    assert.equal(stats.terminals.total,0);
+  });
   it("is null with no prior or a zero prior", () => {
     assert.equal(deltaPercent(10, null), null);
     assert.equal(deltaPercent(10, 0), null);

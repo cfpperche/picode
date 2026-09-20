@@ -24,6 +24,8 @@ func recordNativeTerminalObservation(deps Deps, term, cli, run, id, path string,
 	if deps.TermRuntimes == nil || run == "" || id == "" || len(id) > 256 || len(path) > 4096 || strings.ContainsAny(id, "\r\n\x00") || seq <= 0 || seq > time.Now().Add(5*time.Second).UnixNano() {
 		return errors.New("invalid native identity")
 	}
+	unlock := boundAgentLock(deps, term)
+	defer unlock()
 	r := deps.TermRuntimes
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -75,6 +77,13 @@ func recordNativeTerminalObservation(deps Deps, term, cli, run, id, path string,
 			}
 			if err := deps.Store.SetTerminalLastSession(term, last); err != nil {
 				return err
+			}
+			if cli == "pi" {
+				if a, e := deps.Store.AgentByTerminal(term); e == nil && a.IsPi() && (a.SessionPath == nil || *a.SessionPath != path) {
+					if _, e = deps.Store.UpdateAgent(a.ID, store.AgentPatch{SessionPath: &path}); e != nil {
+						return e
+					}
+				}
 			}
 		}
 		live.SessionID, live.SessionPath, live.SessionSeq = id, path, seq

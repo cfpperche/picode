@@ -119,7 +119,7 @@ export default function Sidebar({
         key={ag.id}
         agent={ag} ws={ws}
         selectedId={selected} onSelect={(id) => {
-          if (ag.terminalId) onSelectTerm && onSelectTerm(ag.terminalId);
+          if (ag.terminalId && ag.cli && ag.cli !== "pi") onSelectTerm && onSelectTerm(ag.terminalId);
           else onSelect(id);
         }}
         workingId={workingId} workingIds={workingIds} waitingId={waitingId} checklists={checklists}

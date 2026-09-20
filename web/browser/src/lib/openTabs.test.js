@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { filterAgentSplits, filterOpenTabs, moveTab, readAgentSplits, readGitOwners, readOpenTabs, readTermWanted, readWebTabUrls, writeAgentSplitUrls, writeAgentSplits, writeGitOwners, writeOpenTabs, writeTermWanted, writeWebTabUrls } from "./openTabs.js";
+import { filterAgentSplits, filterOpenTabs, moveTab, readAgentSplits, readFileWorktrees, readGitOwners, readOpenTabs, readTermWanted, readWebTabUrls, writeAgentSplitUrls, writeAgentSplits, writeFileWorktrees, writeGitOwners, writeOpenTabs, writeTermWanted, writeWebTabUrls } from "./openTabs.js";
 
 test("filterOpenTabs drops missing agents", () => {
   const got = filterOpenTabs(
@@ -146,6 +146,30 @@ test("web tab addresses round-trip for shells without a webview", () => {
     // Corrupt storage is not a crash: the strip opens empty tabs instead.
     localStorage.setItem("picode-webtab-urls", "{not json");
     assert.deepEqual(readWebTabUrls(), {});
+  } finally {
+    globalThis.localStorage = original;
+  }
+});
+
+test("file worktrees roundtrip and drop malformed entries", () => {
+  const store = new Map();
+  const original = globalThis.localStorage;
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+  };
+  try {
+    writeFileWorktrees({ "f:a:1:x": { ref: "side", root: "/w/side", branch: "side" } });
+    assert.deepEqual(readFileWorktrees(), { "f:a:1:x": { ref: "side", root: "/w/side", branch: "side" } });
+    localStorage.setItem("picode-file-worktrees", JSON.stringify({
+      ok: { ref: "d", root: "/w/d" },
+      "no-ref": { root: "/w/x" },
+      "no-root": { ref: "x" },
+      junk: "x",
+    }));
+    assert.deepEqual(readFileWorktrees(), { ok: { ref: "d", root: "/w/d", branch: "" } });
+    localStorage.setItem("picode-file-worktrees", "{not json");
+    assert.deepEqual(readFileWorktrees(), {});
   } finally {
     globalThis.localStorage = original;
   }

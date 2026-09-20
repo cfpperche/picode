@@ -306,6 +306,34 @@ export function dashboardStatsAge(at) {
 
 export { DASH_STATS_TTL_MS };
 
+const FILE_WT_KEY = "picode-file-worktrees";
+
+// Which checkout each file tab reads through: a tab id is owner+path, so a
+// worktree tab's {ref, root} lives beside it. Persisted, not derived — after
+// a reload the tab must read the same checkout, never the same relative path
+// through the anchor folder (one path, two different files).
+export function readFileWorktrees() {
+  try {
+    const j = JSON.parse(localStorage.getItem(FILE_WT_KEY) || "null");
+    if (!j || typeof j !== "object") return {};
+    const out = {};
+    for (const [id, v] of Object.entries(j)) {
+      if (id && v && typeof v.ref === "string" && v.ref && typeof v.root === "string" && v.root) {
+        out[id] = { ref: v.ref, root: v.root, branch: typeof v.branch === "string" ? v.branch : "" };
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+export function writeFileWorktrees(map) {
+  try {
+    localStorage.setItem(FILE_WT_KEY, JSON.stringify(map || {}));
+  } catch { /* preference is optional */ }
+}
+
 const DASH_SCOPE_KEY = "picode-dash-scope";
 
 // The dashboard scope picker (machine|picode) retired with ADR-0127 — the

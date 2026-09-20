@@ -122,3 +122,35 @@ test('native updates serialize layout changes and dispose transparent state', as
   assert.equal(attrs.has('data-native-layers-ready'),false);
   mutation();assert.equal(callbacks.size,0);
 });
+
+for (const [name, update] of [
+  ['maximize', win => { win.innerWidth = 1920; win.innerHeight = 1080; }],
+  ['restore', win => { win.innerWidth = 800; win.innerHeight = 600; }],
+  ['DPI change', win => { win.devicePixelRatio = 2; }],
+]) {
+  test(`empty native chrome refreshes its region on ${name}`, async () => {
+    let scheduled, resize;
+    const calls = [];
+    const doc = {documentElement:{}, querySelectorAll:()=>[],
+      addEventListener(){},removeEventListener(){}};
+    const win = {
+      innerWidth:1360,innerHeight:880,devicePixelRatio:1.5,
+      __PICODE_LIVE_LAYERS__:true,
+      __TAURI__:{core:{invoke:async (cmd,payload)=>calls.push({cmd,payload})}},
+      getComputedStyle:()=>({getPropertyValue:()=> '#0e0e11'}),
+      MutationObserver:class {observe(){}disconnect(){}},
+      ResizeObserver:class {observe(){}disconnect(){}},
+      requestAnimationFrame:fn=>{scheduled=fn;return 1;},cancelAnimationFrame(){},
+      addEventListener:(name,fn)=>{if(name==='resize')resize=fn;},removeEventListener(){},
+    };
+    const dispose=installNativeLayers({window:win,document:doc});
+    await scheduled();
+    resize();await scheduled();
+    assert.equal(calls.length,1,'unchanged geometry is coalesced');
+    update(win);resize();await scheduled();
+    assert.equal(calls.length,2,'window geometry alone must refresh the native region');
+    assert.deepEqual(calls[1].payload.pages,[]);
+    assert.deepEqual(calls[1].payload.overlays,[]);
+    dispose();
+  });
+}

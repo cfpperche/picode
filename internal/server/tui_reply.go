@@ -24,7 +24,6 @@ import (
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
-	"github.com/cfpperche/picode/internal/tmux"
 )
 
 const (
@@ -343,7 +342,7 @@ func (deps Deps) DeliverReply(ctx context.Context, itemID, verb, text string) (a
 	available := deps.Tmux != nil && deps.Tmux.Available()
 	hasSession := false
 	if available {
-		hasSession, _ = deps.Tmux.HasSession(ctx, tmux.SessionName(agentID))
+		hasSession, _ = deps.Tmux.HasSession(ctx, deps.agentSession(agentID))
 	}
 	sessionPath, sessionOK := deps.resolveReplySession(agent, it, cwd)
 	deps.Replies.mu.Lock()
@@ -490,7 +489,7 @@ func (deps Deps) deliverViaReceiver(agentID, sessionPath string, task store.Task
 // pane's current session cannot be verified — the JSONL row proof still
 // gates whether the item stays done.
 func (deps Deps) deliverViaPaste(ctx context.Context, agentID, sessionPath string, task store.Task, baseline rpc.DeliveryBaseline, settle deliverySettle) error {
-	if err := deps.Tmux.PasteText(ctx, tmux.SessionName(agentID), task.Payload); err != nil {
+	if err := deps.Tmux.PasteText(ctx, deps.agentSession(agentID), task.Payload); err != nil {
 		return err
 	}
 	if settle.rowWait <= 0 {

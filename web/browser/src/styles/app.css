@@ -2065,6 +2065,21 @@ img.ws-face.term-cli-face {
   flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   padding: 0 8px; font-size: 12px; color: var(--text-secondary);
 }
+.annot-target select {
+  height: var(--ctl-h, 36px);
+  max-width: 180px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  padding: 0 8px;
+  font: inherit;
+}
+.annot-target-fixed {
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+}
 .annot-strip .annot-send {
   flex: none; height: 28px; min-width: 0; padding: 0 14px;
   border: none; border-radius: 999px;
@@ -6056,6 +6071,24 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   border-bottom: 1px solid var(--border); background: var(--bg-panel); flex: none;
 }
 .insp-notice > span { flex: 1; min-width: 0; }
+/* Session Changes: the Following pill, one header per dirty checkout, and
+   the truncation note. The pill is state, not an alert, so it reads lighter
+   than insp-notice: a bordered row that wraps instead of clipping. */
+.insp-pill {
+  margin: 6px 4px 0; padding: 6px 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 12px; color: var(--text-secondary);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl); background: var(--bg-panel); flex: none;
+}
+.insp-pill-label strong { color: var(--text-primary); }
+.insp-pill-also { display: inline-flex; align-items: center; gap: 6px; }
+.insp-group + .insp-group { margin-top: 2px; border-top: 1px solid var(--border); padding-top: 2px; }
+.insp-group-head {
+  display: flex; align-items: center; gap: 6px; padding: 6px 4px 2px;
+  font-size: 12px; min-width: 0;
+}
+.insp-group-branch { font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+.insp-group-head .insp-stat-counts { margin-left: auto; flex: none; }
+.insp-note { font-style: italic; }
 #inspector .ft-name { flex: 1 1 auto; min-width: 0; }
 .insp-count { display: inline-flex; gap: 6px; flex: none; font-size: 11px; font-variant-numeric: tabular-nums; }
 .insp-count-bin { color: var(--text-secondary); font-style: italic; }

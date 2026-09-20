@@ -25,6 +25,16 @@ func TestEveryMutationAppendsAnEvent(t *testing.T) {
 		want []string
 	}
 	cases := []tc{
+		{"EnsureAgentTerminal", func(s *Store) {
+			a, _ := s.AddAgent(FreeWorkspaceID, "pi", "")
+			s.OnEvent = recorder(s)
+			if _, err := s.EnsureAgentTerminal(a.ID, proj); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.EnsureAgentTerminal(a.ID, proj); err != nil {
+				t.Fatal(err)
+			}
+		}, []string{"terminal.created", "terminal.launch", "agent.updated"}},
 		{"SetPeerParticipants", func(s *Store) {
 			p, _, _, _ := peerFixture(t, s)
 			s.OnEvent = recorder(s)

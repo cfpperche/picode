@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -277,6 +278,8 @@ func composeTabPrompt(tab *extensionTab, message string) string {
 // startManaged brings the agent up in managed mode without touching a live
 // TUI session. The extension refuses interactive agents before calling this.
 func (deps Deps) startManaged(agent store.Agent) error {
+	unlock := terminalLock(deps, "agent:"+agent.ID)
+	defer unlock()
 	if deps.Runtime.Get(agent.ID) != nil {
 		return nil
 	}
@@ -287,7 +290,7 @@ func (deps Deps) startManaged(agent store.Agent) error {
 	if err != nil {
 		return err
 	}
-	if err := deps.Runtime.Start(agent.ID, cwd); err != nil {
+	if err := deps.startAgentRPC(context.Background(), agent.ID, cwd); err != nil {
 		return fmt.Errorf("start managed: %w", err)
 	}
 	_ = deps.Store.SetAgentRuntimeMode(agent.ID, store.StatusRunning, "managed")

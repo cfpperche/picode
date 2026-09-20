@@ -25,7 +25,7 @@ const FILE_KEY = "picode-file-w";
 // Without it the document is this component's, as it has always been.
 // `onDirty` reports that text upward: the canvas pins a dirty editor so the
 // viewport never unmounts it silently.
-export default function FilePane({ agentId, termId, wsId, path, onClose, variant, root = "", nonce = 0, hidden = false, controllerRef, docKey = "", onDirty, onSaved, onViewDiff, onRefreshRoot }) {
+export default function FilePane({ agentId, termId, wsId, path, onClose, variant, root = "", worktree = "", nonce = 0, hidden = false, controllerRef, docKey = "", onDirty, onSaved, onViewDiff, onRefreshRoot }) {
   const ownerKind = termId ? "term" : wsId ? "workspace" : "agent";
   const ownerId = termId || wsId || agentId;
   const savedRef = useRef(onSaved);
@@ -33,9 +33,9 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
   const doc = useMemo(() => {
     const owner = { kind: ownerKind, id: ownerId };
     const make = () => createFileDocument({
-      read: (signal) => readFile(owner, path, root, signal),
+      read: (signal) => readFile(owner, path, root, signal, worktree),
       write: async (text, mtime) => {
-        const page = await api(ownerFileURL(owner, "text", "", root), {
+        const page = await api(ownerFileURL(owner, "text", "", root, worktree), {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ path, text, mtime }),
@@ -46,7 +46,7 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
       release: (page) => { if (page.src) URL.revokeObjectURL(page.src); },
     });
     return docKey ? holdDocument(docKey, make) : make();
-  }, [ownerKind, ownerId, path, root, docKey]);
+  }, [ownerKind, ownerId, path, root, worktree, docKey]);
   const view = useSyncExternalStore(doc.subscribe, doc.getSnapshot);
   const rootRef = useKeptScroll(hidden, [".cm-scroller", ".file-preview"]);
   const [width, setWidth] = useState(() => {
@@ -69,6 +69,7 @@ export default function FilePane({ agentId, termId, wsId, path, onClose, variant
     ownerId,
     path,
     root,
+    worktree,
     text: view.text,
     dirty: view.dirty,
     enabled: kind === "html" && mode === "preview" && (previewOnly || !previewEmpty(view.text)),

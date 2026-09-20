@@ -301,6 +301,9 @@ func (deps Deps) DeliverTerminalReply(itemID, verb, text string) (termID string,
 
 func handleTerminalAsk(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if routeBoundPi(deps, w, r, handleAgentAsk(deps)) {
+			return
+		}
 		id := r.PathValue("id")
 		t, err := deps.Store.GetTerminal(id)
 		if err != nil {

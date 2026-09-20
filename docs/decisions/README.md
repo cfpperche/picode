@@ -166,3 +166,5 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0159](0159-managed-cli-principals.md) | CLI terminals as managed principals — bind a guest TUI to a workspace without an agent row or chat | superseded by 0160 |
 | [0160](0160-cli-runtimes-are-agents.md) | CLI runtimes are agents — catalog `cli` on `agents`; managed RPC stays Pi-only | accepted, supersedes 0159's never-an-agent-row, amends 0006/0011/0069 |
 | [0161](0161-live-desktop-overlays.md) | Live desktop overlays | accepted |
+| [0162](0162-pi-interactive-shared-runtime.md) | Pi uses the shared interactive runtime | accepted, amends 0160 and 0089 |
+| [0164](0164-tmux-substrate-3-7.md) | The tmux substrate requires 3.7 for floating overlays, and reports name the running server's version | accepted |

@@ -266,7 +266,7 @@ export function parseAnnotMessage(outer) {
 // | agent tab            | missing / stopped    | { none, reason } — keep notes         |
 // | none (standalone)    | any running          | { kind: "terminal", first running }   |
 // | none (standalone)    | none running         | { none, "Nothing to send to…" }       |
-export function resolveSendTarget({ boundSession, terminals }) {
+export function resolveSendTarget({ boundSession, terminals, selectedTarget }) {
   const list = Array.isArray(terminals) ? terminals : [];
   const live = (id) => list.find((t) => t && t.id === id);
   if (boundSession) {
@@ -281,9 +281,12 @@ export function resolveSendTarget({ boundSession, terminals }) {
     if (t && t.running) return { kind: "agent", agentId: boundSession, terminalId: t.id, name: t.name || t.id };
     return { none: true, reason: "That agent has no running terminal — open it in a terminal and Send again." };
   }
-  const first = list.find((t) => t && t.running);
-  if (first) return { kind: "terminal", id: first.id, name: first.name || first.id };
-  return { none: true, reason: "Nothing to send to: no agent terminal is running." };
+  if (selectedTarget) {
+    const chosen = live(selectedTarget);
+    if (chosen && chosen.running) return { kind: "terminal", id: chosen.id, name: chosen.name || chosen.id };
+    return { none: true, reason: "That destination is no longer running — choose another and Send again." };
+  }
+  return { none: true, reason: "Choose an agent terminal before sending." };
 }
 
 // parseStatePayload reads the pull door's answer: the shell hands back the

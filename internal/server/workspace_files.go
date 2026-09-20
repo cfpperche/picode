@@ -59,6 +59,10 @@ func handleWorkspaceFile(deps Deps) http.HandlerFunc {
 		if !ok {
 			return
 		}
+		cwd, ok = resolveGitWorktree(w, r, cwd)
+		if !ok {
+			return
+		}
 		out, err := readAgentImage(cwd, r.URL.Query().Get("path"))
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
@@ -71,6 +75,10 @@ func handleWorkspaceFile(deps Deps) http.HandlerFunc {
 func handleWorkspaceText(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cwd, ok := workspaceFilesCwd(deps, w, r.PathValue("id"))
+		if !ok {
+			return
+		}
+		cwd, ok = resolveGitWorktree(w, r, cwd)
 		if !ok {
 			return
 		}
@@ -99,6 +107,10 @@ func handlePutWorkspaceText(deps Deps) http.HandlerFunc {
 		}
 		if req.Path == "" {
 			req.Path = r.URL.Query().Get("path")
+		}
+		cwd, ok = resolveGitWorktree(w, r, cwd)
+		if !ok {
+			return
 		}
 		if !checkFileRoot(w, r, cwd) {
 			return

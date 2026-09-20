@@ -15,7 +15,6 @@ import (
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
-	"github.com/cfpperche/picode/internal/tmux"
 )
 
 // errAutomationDisabled: a schedule or webhook hit a disabled automation.
@@ -131,7 +130,7 @@ func (r automationRunner) mode(ctx context.Context, agentID string) agentRunMode
 		return modeManaged
 	}
 	if deps.Tmux != nil && deps.Tmux.Available() {
-		if has, err := deps.Tmux.HasSession(ctx, tmux.SessionName(agentID)); err == nil && has {
+		if has, err := deps.Tmux.HasSession(ctx, deps.agentSession(agentID)); err == nil && has {
 			return modeInteractive
 		}
 	}

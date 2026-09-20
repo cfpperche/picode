@@ -104,6 +104,9 @@ type dropBody struct {
 
 func handleTerminalDrop(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if routeBoundPi(deps, w, r, handleAgentDrop(deps)) {
+			return
+		}
 		t, err := deps.Store.GetTerminal(r.PathValue("id"))
 		if err != nil {
 			writeStoreErr(w, err)
@@ -140,6 +143,9 @@ type promptBody struct {
 
 func handleTerminalPrompt(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if routeBoundPi(deps, w, r, handleAgentPrompt(deps)) {
+			return
+		}
 		t, err := deps.Store.GetTerminal(r.PathValue("id"))
 		if err != nil {
 			writeStoreErr(w, err)

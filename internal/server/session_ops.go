@@ -87,6 +87,8 @@ func handleAgentClone(deps Deps) http.HandlerFunc {
 }
 
 func ensureChat(r *http.Request, deps Deps, id string) (*rpc.ManagedAgent, error) {
+	unlock := terminalLock(deps, "agent:"+id)
+	defer unlock()
 	agent, err := deps.Store.GetAgent(id)
 	if err != nil {
 		return nil, err
@@ -99,7 +101,7 @@ func ensureChat(r *http.Request, deps Deps, id string) (*rpc.ManagedAgent, error
 		return nil, errors.New("switch to chat (not terminal) to fork or clone")
 	}
 	if deps.Runtime.Get(id) == nil {
-		if err := deps.Runtime.Start(id, cwd); err != nil {
+		if err := deps.startAgentRPC(r.Context(), id, cwd); err != nil {
 			return nil, err
 		}
 		_ = deps.Store.SetAgentRuntimeMode(id, store.StatusRunning, "managed")

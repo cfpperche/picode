@@ -29,7 +29,7 @@ import {
 // changed on disk emits `change`, and this hook bumps a frame nonce so the
 // parent reloads the iframe — the page itself is never injected into and its
 // isolation stays exactly as it was.
-export function usePreviewTicket({ ownerKind, ownerId, path, root, text, dirty, enabled }) {
+export function usePreviewTicket({ ownerKind, ownerId, path, root, worktree = "", text, dirty, enabled }) {
   const [state, setState] = useState({
     status: "idle",
     mode: "sandbox",
@@ -46,7 +46,7 @@ export function usePreviewTicket({ ownerKind, ownerId, path, root, text, dirty, 
   // new origin, and the page's storage would be gone.
   const mintedKey = useRef("");
   const refreshRef = useRef(null);
-  const ticketKey = [ownerKind, ownerId, path, root].join("\u0000");
+  const ticketKey = [ownerKind, ownerId, path, root, worktree].join("\u0000");
   // overlayWrites sequences the overlay PUT/DELETE: a slow answer from a
   // write the user has already replaced may not bump the frame.
   const overlayWrites = useRef(0);
@@ -55,7 +55,7 @@ export function usePreviewTicket({ ownerKind, ownerId, path, root, text, dirty, 
     const mine = ++gen.current;
     setState((s) => ({ ...s, status: "loading", error: "" }));
     try {
-      const mint = await mintPreview({ kind: ownerKind, id: ownerId }, path, root);
+      const mint = await mintPreview({ kind: ownerKind, id: ownerId }, path, root, undefined, worktree);
       if (mine !== gen.current) return;
       const forms = previewForms(mint);
       const originOffered = forms.some((f) => f.mode === "origin");

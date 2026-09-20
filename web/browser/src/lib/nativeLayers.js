@@ -103,7 +103,12 @@ export function installNativeLayers({ window: win, document: doc }) {
         cleared = clear;
         const background = backgroundRGB(win.getComputedStyle(doc.documentElement).getPropertyValue('--bg-base'));
         const payload = { pages, overlays, background };
-        const fingerprint = JSON.stringify(payload);
+        // Native clipping also depends on the whole client area. Empty pages
+        // and overlays stay [] when maximizing a terminal-only window;
+        // comparing payload alone would leave its old window region installed.
+        const fingerprint = JSON.stringify({ ...payload, viewport: [
+          win.innerWidth, win.innerHeight, win.devicePixelRatio || 1,
+        ] });
         if (fingerprint === last) continue;
         try {
           for (const host of acknowledged) host.removeAttribute('data-native-layers-ready');

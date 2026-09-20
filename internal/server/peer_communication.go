@@ -204,15 +204,5 @@ func registerPeerCommunication(mux Registrar, deps Deps) {
 }
 
 func (deps Deps) startAgentTUI(ctx context.Context, name, cwd string, agent store.Agent) error {
-	flags := deps.spawnFlags(agent)
-	peerOptions, err := communication.AgentOptions(deps.Store, deps.DataDir, agent.ID)
-	if err != nil {
-		return err
-	}
-	flags = append(flags, peerOptions.Args...)
-	env := agent.SpawnEnv()
-	for k, v := range peerOptions.Env {
-		env = append(env, k+"="+v)
-	}
-	return deps.Tmux.NewSessionEnv(ctx, name, cwd, env, deps.AgentCmd, flags...)
+	return deps.startPiInteractive(ctx, agent, cwd)
 }

@@ -1,6 +1,9 @@
 package server
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"sort"
 	"testing"
 
@@ -133,4 +136,72 @@ func TestGitWatchTickSurvivesARemovedWorkspace(t *testing.T) {
 	if len(got) != 0 {
 		t.Fatalf("the pass after removal published %+v, want nothing", got)
 	}
+}
+
+// Linked worktrees of watched repositories are watched too: the Inspector
+// follows dirty siblings, so a sibling's dirty flip must arrive as
+// git.updated naming the sibling — speaking with its anchor's group.
+func TestGitWatchTickPublishesLinkedWorktreeChanges(t *testing.T) {
+	st := testStore(t)
+	repo := gitRepo(t)
+	side := filepath.Join(t.TempDir(), "side")
+	gitRun(t, repo, "worktree", "add", "-b", "side", side)
+	ws, err := st.AddWorkspace("watched", repo)
+	if err != nil {
+		t.Fatalf("add workspace: %v", err)
+	}
+	f := &feed.Feed{Store: st}
+	var got []store.Event
+	f.Listen(func(ev store.Event) { got = append(got, ev) })
+	deps := Deps{Store: st, Feed: f}
+
+	prev := gitWatchTick(deps, nil)
+	if paths := gitUpdatedPaths(t, got); !(paths[canonDir(repo)] && paths[canonDir(side)]) {
+		t.Fatalf("first pass published %v, want the anchor and its sibling", paths)
+	}
+	// The sibling speaks with the anchor's group.
+	for _, ev := range got {
+		var data struct {
+			Path         string   `json:"path"`
+			WorkspaceIDs []string `json:"workspaceIds"`
+		}
+		_ = json.Unmarshal(ev.Data, &data)
+		if sameDir(data.Path, side) && (len(data.WorkspaceIDs) != 1 || data.WorkspaceIDs[0] != ws.ID) {
+			t.Fatalf("sibling event carries %+v, want the anchor workspace", data.WorkspaceIDs)
+		}
+	}
+
+	got = nil
+	prev = gitWatchTick(deps, prev)
+	if len(got) != 0 {
+		t.Fatalf("an unchanged pass published %+v, want nothing", got)
+	}
+
+	if err := os.WriteFile(filepath.Join(side, "messy.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got = nil
+	gitWatchTick(deps, prev)
+	paths := gitUpdatedPaths(t, got)
+	if len(paths) != 1 || !paths[canonDir(side)] {
+		t.Fatalf("sibling dirty flip published %v, want only the sibling", paths)
+	}
+}
+
+func gitUpdatedPaths(t *testing.T, evs []store.Event) map[string]bool {
+	t.Helper()
+	out := map[string]bool{}
+	for _, ev := range evs {
+		if ev.Type != "git.updated" {
+			t.Fatalf("published %q, want git.updated", ev.Type)
+		}
+		var data struct {
+			Path string `json:"path"`
+		}
+		if err := json.Unmarshal(ev.Data, &data); err != nil {
+			t.Fatal(err)
+		}
+		out[canonDir(data.Path)] = true
+	}
+	return out
 }

@@ -39,6 +39,11 @@ export default function AnnotateStrip({
   onToggleShots,
   onHint,
   onSend,
+  targetOptions = [],
+  targetValue = "",
+  onTargetChange,
+  targetPicker = false,
+  targetLabel = "",
 }) {
   const saved = Number(count) || 0;
   const all = Number(total) || 0;
@@ -68,12 +73,22 @@ export default function AnnotateStrip({
       >{ICONS.camera}</button>
       <button type="button" className="annot-ic" title="Annotate shortcuts" aria-label="Annotate shortcuts" onClick={onHint}>{ICONS.kbd}</button>
       <span className="annot-hint">{hint}</span>
+      {targetPicker ? (
+        <label className="annot-target">
+          <span className="sr-only">Send annotations to</span>
+          <select value={targetValue} onChange={(e) => onTargetChange?.(e.target.value)} aria-label="Send annotations to">
+            <option value="">Send to…</option>
+            {targetOptions.map((target) => <option key={target.id} value={target.id}>{target.name}</option>)}
+          </select>
+        </label>
+      ) : null}
+      {!targetPicker && targetLabel ? <span className="annot-target-fixed" aria-label={`Annotations will be sent to ${targetLabel}`}>To: {targetLabel}</span> : null}
       <button
         type="button"
         className="annot-send"
         title={saved === 0 ? "Pin a note first — click any element" : `Send ${saved} annotation${saved === 1 ? "" : "s"} to the agent`}
         aria-label={sendLabel(saved)}
-        disabled={saved === 0 || sending}
+        disabled={saved === 0 || sending || (targetPicker && !targetValue)}
         onClick={onSend}
       >{sending ? "Sending…" : sendLabel(saved)}</button>
     </div>
