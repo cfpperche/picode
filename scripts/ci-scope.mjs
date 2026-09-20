@@ -33,6 +33,13 @@ export function pathScope(rawPath) {
     return "metadata";
   }
 
+  // The Windows shell is a Rust crate the Go and web gates never read. Its
+  // pure half is host-tested (`make desktop-test`, rustc only); the COM half
+  // cross-compiles locally (`make desktop-shell`, cargo xwin) and at release.
+  if (path.startsWith("desktop-shell/")) {
+    return "desktop";
+  }
+
   return "full";
 }
 
@@ -49,6 +56,14 @@ export function classifyPaths(rawPaths) {
   if (scopes.has("docs")) {
     return { scope: "docs", full: false, docs: true, paths };
   }
+  if (scopes.has("desktop")) {
+    // A shell-only change runs the shell job alone; mixed with anything else
+    // it fails safe to the complete matrix (whose desktop job runs too).
+    if (scopes.size === 1) {
+      return { scope: "desktop", full: false, docs: false, desktop: true, paths };
+    }
+    return { scope: "full", full: true, docs: true, paths };
+  }
   return { scope: "metadata", full: false, docs: false, paths };
 }
 
@@ -59,7 +74,7 @@ export function classifyPaths(rawPaths) {
 // full. Go paths are returned so the caller can pick affected packages.
 export function localScope(rawPaths) {
   const paths = [...new Set(rawPaths.map(normalizePath).filter(Boolean))];
-  const s = { full: false, go: false, web: false, packages: false, docs: false, metadata: false, goPaths: [], paths };
+  const s = { full: false, go: false, web: false, packages: false, docs: false, metadata: false, desktop: false, goPaths: [], paths };
   if (paths.length === 0) {
     s.full = true;
     return s;
@@ -91,6 +106,7 @@ export function localScope(rawPaths) {
     if (/^scripts\/.*\.(m?js|ts)$/.test(p) || p.startsWith("packages/") || p.startsWith(".pi/")) s.packages = true;
     if (kind === "docs") s.docs = true;
     else if (kind === "metadata") s.metadata = true;
+    else if (kind === "desktop") s.desktop = true;
     else if (!s.packages) s.full = true;
   }
   return s;
@@ -106,6 +122,7 @@ function localMain() {
   console.log(`SCOPE_PACKAGES=${flag(s.packages)}`);
   console.log(`SCOPE_DOCS=${flag(s.docs)}`);
   console.log(`SCOPE_METADATA=${flag(s.metadata)}`);
+  console.log(`SCOPE_DESKTOP=${flag(s.desktop)}`);
   console.log(`SCOPE_GO_PATHS='${s.goPaths.join(" ")}'`);
   console.log(`SCOPE_COUNT=${s.paths.length}`);
 }
@@ -146,7 +163,7 @@ function main() {
 
   const output = process.env.GITHUB_OUTPUT;
   if (output) {
-    appendFileSync(output, `scope=${result.scope}\nfull=${result.full}\ndocs=${result.docs}\n`);
+    appendFileSync(output, `scope=${result.scope}\nfull=${result.full}\ndocs=${result.docs}\ndesktop=${result.desktop ?? false}\n`);
   }
   const summary = process.env.GITHUB_STEP_SUMMARY;
   if (summary) appendFileSync(summary, markdownSummary(result));

@@ -62,6 +62,10 @@ test("covered roots follow the scope the run actually exercised", () => {
   const metadata = coveredRoots({ paths: ["docs/handoff/2026-09-12-x.md"] });
   assert.deepEqual(metadata, ["docs/handoff/2026-09-12-x.md"], "a note covers itself, nothing else");
 
+  const desktop = coveredRoots({ paths: ["desktop-shell/src/btab.rs"] });
+  assert.ok(desktop.includes("desktop-shell/"), "both shell gates read the whole crate");
+  assert.ok(desktop.includes("desktop-shell/src/btab.rs"));
+
   const webBranch = coveredRoots({ paths: ["web/browser/src/App.jsx"] });
   assert.ok(webBranch.includes("cmd/"), "`make build` compiles the binary whatever changed");
 
