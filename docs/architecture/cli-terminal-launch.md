@@ -112,7 +112,8 @@ ADR-0087 adds a lifecycle layer in `internal/clilifecycle` and
 (npm, native, vendor, git, unknown) and a per-CLI plan pins the exact argv:
 checks read the npm registry (reusing `pipkg`) or the vendor's own `--check`
 command, and mutations run the vendors' update/reinstall/uninstall commands —
-npm only where the vendor has no command. Update facts (`Latest`,
+npm where the vendor has no command, or where the vendor command refuses on
+npm-managed installs (pi, claude-code, omp). Update facts (`Latest`,
 `UpdateAvailable`, `UpdateCheckedAt`, `InstallMethod`) live in the
 `cli_checks` diagnostic; `POST /api/clis/<cli>/update-check` refreshes them
 on demand and the surface triggers it once when the stored check is older

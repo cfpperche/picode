@@ -211,12 +211,12 @@ func TestCLILifecycleDecisionTable(t *testing.T) {
 	}
 	// Unknown action refuses before reserving a job.
 	cliRequest(t, ts, "POST", "/api/clis/pi/lifecycle", map[string]any{"action": "explode", "requestKey": "x0"}, 400)
-	// A valid update job runs the vendor command (pi update) and reaches
-	// succeeded.
+	// A valid update job runs npm (pi update refuses an unwritable npm
+	// prefix) and reaches succeeded.
 	j := cliRequest(t, ts, "POST", "/api/clis/pi/lifecycle", map[string]any{"action": "update", "requestKey": "u1"}, 202)
 	done := waitForJobState(t, ts, j["id"].(string), "succeeded")
-	if !strings.Contains(done["output"].(string), "pi update ran") {
-		t.Fatalf("vendor argv: %v", done["output"])
+	if !strings.Contains(done["output"].(string), "install -g @earendil-works/pi-coding-agent@latest") {
+		t.Fatalf("npm argv: %v", done["output"])
 	}
 	// Reinstall is npm-backed under the npm method and prints the npm argv.
 	rj := cliRequest(t, ts, "POST", "/api/clis/pi/lifecycle", map[string]any{"action": "reinstall", "requestKey": "u2"}, 202)

@@ -92,9 +92,15 @@ type spec struct {
 // filled per method in For(); vendor entries stay nil there.
 var plans = map[string]spec{
 	"pi": {
+		// npm installs update through npm. Measured 2026-09-20: `pi update`
+		// on an npm-global copy refuses when the package dir is not W_OK
+		// (a sudo npm install into an nvm prefix) and prints the npm
+		// command instead of running it. Same npmUpdateOnly shape as
+		// claude-code / omp.
 		npmPackage:    "@earendil-works/pi-coding-agent",
 		updateArgs:    []string{"update"},
 		reinstallArgs: []string{"update", "--force"},
+		npmUpdateOnly: true,
 	},
 	"omp": {
 		// Same shape as pi — omp is its fork — with the real npm package

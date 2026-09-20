@@ -283,8 +283,9 @@ means unverified, even when a CLI process is present.
 
 When a newer release exists, the CLI's row shows an **Update** badge and its
 detail page offers **Update**. PiCode runs each CLI's own update command —
-`pi update`, `claude update`, `codex update`, `grok update`,
-`hermes update`, `opencode upgrade` — plus npm for npm-installed tools. Update checks refresh on
+`claude update`, `codex update`, `grok update`,
+`hermes update`, `opencode upgrade` — plus npm for npm-installed Pi,
+Claude Code, Codex and Omp. Update checks refresh on
 demand and when the saved check is older than six hours.
 
 | What you see | What it means |
