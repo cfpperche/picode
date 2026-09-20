@@ -342,6 +342,82 @@ export function prBlockedAction(reason) {
   }
 }
 
+// --- Session groups (one repo, several dirty checkouts) --------------------
+
+// sessionGroups folds a gitstatus page into what the Changes tab draws: the
+// anchor folder first, then every dirty linked worktree in git's list order.
+// The root group carries the pinned browse root (not the repo toplevel), so
+// feed matching and touched-path scoping keep working exactly as before.
+export function sessionGroups(status, root) {
+  const out = [{
+    key: "root",
+    isRoot: true,
+    path: String(root || ""),
+    ref: "",
+    branch: (status && status.branch) || "",
+    detached: !!(status && status.detached),
+    worktree: (status && status.worktree) || "",
+    upstream: (status && status.upstream) || "",
+    ahead: Number(status && status.ahead) || 0,
+    behind: Number(status && status.behind) || 0,
+    changes: (status && status.changes) || [],
+    totals: (status && status.totals) || null,
+  }];
+  for (const wt of (status && status.worktrees) || []) {
+    if (!wt || !wt.path || !wt.ref) continue;
+    out.push({
+      key: "wt:" + wt.path,
+      isRoot: false,
+      path: String(wt.path),
+      ref: String(wt.ref),
+      branch: wt.branch || "",
+      detached: !!wt.detached,
+      worktree: wt.worktree || "",
+      upstream: wt.upstream || "",
+      ahead: Number(wt.ahead) || 0,
+      behind: Number(wt.behind) || 0,
+      changes: wt.changes || [],
+      totals: wt.totals || null,
+    });
+  }
+  return out;
+}
+
+function groupDirty(g) {
+  return !!(g && g.changes && g.changes.length);
+}
+
+// resolveSessionView decides which groups the Changes tab shows and whether
+// the rail is following one of them (docs/plans/inspector-session-changes.md
+// decision table). follow when empty, suggest when not: an explicit follow
+// (or one clean root with one dirty sibling) shows that sibling with a pill
+// back to the anchor; anything messier shows groups or a switcher line, and
+// a stale follow — the checkout went clean or missing — falls through to
+// the same rules as no follow at all.
+export function resolveSessionView({ groups, followedRef = "", dismissed = false } = {}) {
+  const list = groups || [];
+  const root = list.find((g) => g.isRoot) || null;
+  const dirtyWTs = list.filter((g) => !g.isRoot && groupDirty(g));
+  const rootDirty = groupDirty(root);
+  const followed = followedRef ? list.find((g) => !g.isRoot && g.ref === followedRef) || null : null;
+  if (followed && groupDirty(followed)) {
+    return { mode: "follow", shown: [followed], pill: followed, switcher: dirtyWTs.filter((g) => g !== followed) };
+  }
+  if (!dismissed && !rootDirty && dirtyWTs.length === 1) {
+    return { mode: "follow", shown: dirtyWTs, pill: dirtyWTs[0], switcher: [] };
+  }
+  if (rootDirty && dirtyWTs.length > 0) {
+    return { mode: "groups", shown: [root, ...dirtyWTs], pill: null, switcher: [] };
+  }
+  if (!rootDirty && dirtyWTs.length > 1) {
+    return { mode: "groups", shown: [...dirtyWTs], pill: null, switcher: [] };
+  }
+  if (!rootDirty && dirtyWTs.length === 1 && dismissed) {
+    return { mode: "root", shown: root ? [root] : [], pill: null, switcher: dirtyWTs };
+  }
+  return { mode: "root", shown: root ? [root] : [], pill: null, switcher: [] };
+}
+
 // --- Git actions ----------------------------------------------------------
 
 // The composer moved to @picode/shared/domain/gitCommands.js when the git

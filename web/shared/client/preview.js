@@ -13,9 +13,10 @@ function ownerPair(owner) {
 // ways to open it (ADR-0137): `sandbox` (the path form, always present) and
 // `origin` (the ticket's own `<label>.localhost` origin, present only when
 // the minting browser is on this machine's loopback).
-export async function mintPreview(owner, path, root, signal) {
+export async function mintPreview(owner, path, root, signal, worktree = "") {
   const { kind, id } = ownerPair(owner);
-  return api("/api/previews", {
+  const url = worktree ? `/api/previews?worktree=${encodeURIComponent(worktree)}` : "/api/previews";
+  return api(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ kind, id, path: path || "", root: root || "" }),

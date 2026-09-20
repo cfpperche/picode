@@ -412,7 +412,10 @@ func handleGetTerminalText(deps Deps) http.HandlerFunc {
 			writeStoreErr(w, err)
 			return
 		}
-		cwd := liveTermCwd(deps, r, term)
+		cwd, ok := resolveGitWorktree(w, r, liveTermCwd(deps, r, term))
+		if !ok {
+			return
+		}
 		if !checkFileRoot(w, r, cwd) {
 			return
 		}
@@ -440,7 +443,10 @@ func handlePutTerminalText(deps Deps) http.HandlerFunc {
 		if req.Path == "" {
 			req.Path = r.URL.Query().Get("path")
 		}
-		cwd := liveTermCwd(deps, r, term)
+		cwd, ok := resolveGitWorktree(w, r, liveTermCwd(deps, r, term))
+		if !ok {
+			return
+		}
 		if !checkFileRoot(w, r, cwd) {
 			return
 		}
