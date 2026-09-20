@@ -11,11 +11,11 @@ import { toastError } from "../lib/toast.js";
 import { formatChord, primaryChord } from "../lib/appKeys.js";
 import { useEdgeResize } from "../lib/resizeEdge.js";
 import {
-  INSPECTOR_MIN, blockedMessage, changeTotals, defaultOpen, describeAnchor,
+  INSPECTOR_MIN, blockedMessage, defaultOpen, describeAnchor,
   inspectorLayout, maxInspectorWidth, prTabLabel,
   branchChip, gitActionCommand, gitActions, askableAgents, askChannelHint, askGitPrompt,
-  sessionGroups, resolveSessionView,
 } from "../lib/inspector.js";
+import { changeTotals, sessionGroups, resolveSessionView } from "@picode/shared/domain/inspector.js";
 import InspectorSessionChanges from "./InspectorSessionChanges.jsx";
 import InspectorFiles from "./InspectorFiles.jsx";
 import InspectorPR, { usePullRequest } from "./InspectorPR.jsx";

@@ -2,6 +2,7 @@ import { cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import * as Sheet from "../components/MobileSheet.jsx";
 import ProjectToolsSheet from "../components/ProjectToolsSheet.jsx";
+import AgentInspectorGlance from "../components/AgentInspectorGlance.jsx";
 import PiSettings from "../components/PiSettings.jsx";
 import ScreenHeader from "../components/ScreenHeader.jsx";
 import StateChip, { agentState } from "../components/StateChip.jsx";
@@ -19,6 +20,7 @@ import { IconChat, IconTerminal, IconFolder } from "../components/Icons.jsx";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { applyUsage } from "@picode/shared/domain/feedReducers.js";
 import { agentDrafts } from "../lib/agentDrafts.js";
+import { setAgentTouched } from "../lib/agentTouched.js";
 import { resolveAgentTerminalView, initialAgentView } from "@picode/shared/domain/agentTerminal.js";
 import "../styles/mobile-chat.css";
 import "../styles/mobile-tools.css";
@@ -28,7 +30,7 @@ import "../styles/mobile-tools.css";
 // the mobile Conversation with its ask card, and the mobile Composer
 // whose own Stop button is the abort. Start/Stop the agent from the
 // header; one screen, no tabs of its own.
-export default function Agent({ agent, workspace, terminal, catalog, workingIds, busy, initialView = "", onViewChange, onBack, onStart, onStop, onOpenFiles, onOpenGit, onAgentConfig, onRemoveTerminal }) {
+export default function Agent({ agent, workspace, terminal, catalog, workingIds, busy, initialView = "", onViewChange, onBack, onStart, onStop, onOpenFiles, onOpenGit, onOpenInspector, onAgentConfig, onRemoveTerminal }) {
   const id = agent && agent.id;
   const sock = useAgentSocket(agent, workspace?.id || "ws_free");
   const draft = useSyncExternalStore(agentDrafts.subscribe, () => agentDrafts.read(id));
@@ -77,6 +79,13 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
     setBar(await api("/api/workspaces/" + encodeURIComponent(wsId) + "/status?agent=" + encodeURIComponent(id)));
   }, 15000, !!id && !stopped);
   useEffect(() => subscribeFeed((ev) => { if (ev.type === "agent.usage" && ev.data && ev.data.agentId === id) setBar((bar) => applyUsage(bar, ev.data)); }), [id]);
+
+  // The Inspector's "This agent" scope intersects the working tree with the
+  // paths this session's edit/write tools named — the same derivation the
+  // desktop rail reads off its conversation (ADR-0078).
+  useEffect(() => {
+    setAgentTouched(id, sock.state.items.filter(it => it && it.kind === "tool" && it.change && it.change.path).map(it => it.change.path));
+  }, [id, sock.state.items]);
 
   useEffect(() => {
     const el = convRef.current;
@@ -139,6 +148,7 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
   return (
     <div className="m-screen m-agent">
       <ScreenHeader title={name} sub={<><StateChip state={state} /><span className="m-agent-meta" title={meta}>{meta}</span></>} onBack={onBack} right={right} />
+      <AgentInspectorGlance agentId={id} onOpen={root => onOpenInspector?.({ kind: "agent", id }, root)} />
         <div className="m-chat chat-body">
           <div className="chat-main">
             {interactive ? (
@@ -187,7 +197,9 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
             /> : null}
           </div>
         </div>
-      <ProjectToolsSheet open={toolsOpen} onOpenChange={setToolsOpen} title={name} onFiles={() => onOpenFiles({ kind: "agent", id })} onGit={() => onOpenGit({ kind: "agent", id })} />
+      <ProjectToolsSheet open={toolsOpen} onOpenChange={setToolsOpen} title={name}
+        onInspect={() => onOpenInspector?.({ kind: "agent", id }, "")}
+        onFiles={() => onOpenFiles({ kind: "agent", id })} onGit={() => onOpenGit({ kind: "agent", id })} />
       <Sheet.Root open={settingsOpen} onOpenChange={setSettingsOpen}>
         <Sheet.Portal>
           <Sheet.Overlay className="dlg-overlay" />

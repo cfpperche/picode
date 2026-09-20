@@ -66,21 +66,25 @@ export function mobileRoute(hash) {
   const termId = termRoute("#" + h);
   if (termId) return { screen: "term", id: termId, section: "" };
   const [toolPath, toolQuery = ""] = h.split("?");
-  const toolMatch = /^\/(file|tree|files|git)\/(a|t|w)\/([^/]+)(?:\/(.+))?$/.exec(toolPath);
+  const toolMatch = /^\/(file|tree|files|git|inspector)\/(a|t|w)\/([^/]+)(?:\/(.+))?$/.exec(toolPath);
   if (toolMatch && (toolMatch[1] === "file" ? !!toolMatch[4] : !toolMatch[4])) {
     const params = new URLSearchParams(toolQuery);
-    return { screen: toolMatch[1] === "git" ? "git" : "files", id: dec(toolMatch[3]), section: { a: "agent", t: "term", w: "workspace" }[toolMatch[2]],
+    const view = params.get("view");
+    return { screen: toolMatch[1] === "git" ? "git" : toolMatch[1] === "inspector" ? "inspector" : "files", id: dec(toolMatch[3]), section: { a: "agent", t: "term", w: "workspace" }[toolMatch[2]],
       ...(toolMatch[4] ? { path: dec(toolMatch[4]) } : {}),
       ...(params.get("root") ? { root: params.get("root") } : {}),
-      ...(toolMatch[1] === "git" && params.get("commit") ? { commit: params.get("commit") } : {}) };
+      ...(toolMatch[1] === "git" && params.get("commit") ? { commit: params.get("commit") } : {}),
+      ...(toolMatch[1] === "inspector" && (view === "files" || view === "pr") ? { view } : {}) };
   }
   const parts = h.split("/").filter(Boolean);
   const head = parts[0] || "";
   if (!head) return { screen: "now", id: "", section: "" };
   if (head === "inbox") return { screen: "inbox", id: parts[1] ? dec(parts[1]) : "", section: "" };
   if (head === "changes" && parts[1] && parts[2]) {
+    // The pre-Inspector changes screen retired into the Inspector's
+    // Changes segment; old links keep working by parsing onto it.
     const kind = { a: "agent", t: "term", w: "workspace" }[parts[1]];
-    if (kind) return { screen: "changes", id: dec(parts[2]), section: kind };
+    if (kind) return { screen: "inspector", id: dec(parts[2]), section: kind, view: "changes" };
   }
   if (head === "work") {
     const sec = parts[1] ? dec(parts[1]) : "";
@@ -122,7 +126,7 @@ export function mobileHash(screen, id, section, view = "") {
     case "term": return termHash(id);
     case "files": return toolHash("files", { kind: section, id });
     case "git": return toolHash("git", { kind: section, id });
-    case "changes": return "#/changes/" + ({ agent: "a", term: "t", workspace: "w" }[section] || "a") + "/" + encodeURIComponent(id);
+    case "inspector": return toolHash("inspector", { kind: section, id }, { view });
     case "more": return id ? "#/more/" + encodeURIComponent(id) : "#/more";
     case "app": return "#/app/" + encodeURIComponent(id);
     case "pin": return "#/pins/" + encodeURIComponent(id);
@@ -137,7 +141,7 @@ export function mobileHash(screen, id, section, view = "") {
 // parent tab lit so the user always knows where Back will land.
 export function tabOf(route) {
   if (!route) return "now";
-  if (route.screen === "agent" || route.screen === "term" || route.screen === "work" || ["changes", "files", "git"].includes(route.screen)) return "work";
+  if (route.screen === "agent" || route.screen === "term" || route.screen === "work" || ["inspector", "files", "git"].includes(route.screen)) return "work";
   if (route.screen === "inbox") return "inbox";
   if (route.screen === "more" || route.screen === "app" || route.screen === "pin" || route.screen === "pinEdit" || route.screen === "snip" || route.screen === "snipEdit") return "more";
   return "now";
@@ -160,7 +164,7 @@ export function parentHash(route, wsId) {
     if (wsId) return "#/work/workspaces/" + encodeURIComponent(wsId);
     return "#/work/terminals";
   }
-  if (["changes", "files", "git"].includes(route.screen)) {
+  if (["inspector", "files", "git"].includes(route.screen)) {
     if (route.section === "agent") return workspaceHash(route.id);
     if (route.section === "term") return termHash(route.id);
     return "#/work";
@@ -175,12 +179,13 @@ export function parentHash(route, wsId) {
 }
 
 // Compatible desktop links, with the optional folder equality precondition.
-export function toolHash(screen, owner, { path = "", root = "", commit = "" } = {}) {
+export function toolHash(screen, owner, { path = "", root = "", commit = "", view = "" } = {}) {
   const kind = { agent: "a", term: "t", workspace: "w" }[owner.kind];
   if (!kind || !owner.id) return "#/work";
-  const head = screen === "git" ? "git" : path ? "file" : "tree";
+  const head = screen === "git" ? "git" : screen === "inspector" ? "inspector" : path ? "file" : "tree";
   const params = new URLSearchParams();
   if (root) params.set("root", root);
   if (screen === "git" && commit) params.set("commit", commit);
+  if (screen === "inspector" && view) params.set("view", view);
   return "#/" + head + "/" + kind + "/" + encodeURIComponent(owner.id) + (head === "file" ? "/" + encodeURIComponent(path) : "") + (params.size ? "?" + params : "");
 }

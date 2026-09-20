@@ -143,3 +143,24 @@
 .m-git-ws-hint { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: 12px; }
 .m-git-ws-check { flex: none; width: 16px; display: inline-flex; justify-content: flex-end; color: var(--accent); }
 .m-git-ws-note { display: flex; align-items: center; gap: 6px; margin: 14px 0 0; color: var(--text-secondary); font-size: 12px; }
+
+/* The Inspector (ADR-0078 re-shaped for the phone): one pushed review
+   screen anchored to an owner — Changes / Files / PR. */
+.m-insp-badge { margin-left: 6px; padding: 1px 6px; border-radius: 9px; background: var(--bg-hover); color: var(--text-secondary); font-size: 11px; font-family: var(--mono); }
+.m-insp-following { color: var(--text-primary); }
+.m-insp-pill { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-ctl); color: var(--text-secondary); font-size: 12px; }
+.m-insp-pill strong { color: var(--text-primary); font-weight: 500; overflow-wrap: anywhere; }
+.m-insp-scope { display: flex; gap: 8px; margin-bottom: 14px; }
+.m-insp-chip { min-height: var(--ctl-h); padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--text-secondary); font: inherit; font-size: 12px; cursor: pointer; }
+.m-insp-chip[aria-pressed="true"] { border-color: var(--accent); color: var(--text-primary); background: var(--bg-hover); }
+.m-insp-group { margin-bottom: 22px; }
+.m-insp-dir { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 14px 0 0; padding-top: 10px; border-top: 1px solid var(--border); color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
+.m-insp-dir-counts { flex: none; font-family: var(--mono); font-size: 11px; }
+.m-insp-up { display: inline-flex; align-items: center; gap: 4px; min-height: var(--ctl-h); margin: 0 0 10px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--text-secondary); font: inherit; font-size: 13px; cursor: pointer; }
+.m-insp-up:hover, .m-insp-up:active { background: var(--bg-hover); color: var(--text-primary); }
+/* The Files segment is a doorway, not a list of changes: compact rows,
+   folders visibly tappable. */
+.m-insp-browse .m-git-file-row { align-items: center; min-height: 44px; padding: 9px 0; }
+.m-insp-browse .m-git-file-row .m-git-file-name strong { font-weight: 400; }
+.m-insp-dir-row { color: var(--text-primary); }
+.m-insp-dir-row svg { flex: none; color: var(--text-secondary); }

@@ -9,14 +9,17 @@ function checksLabel(checks = {}) {
   return groups.join(" · ") || "No checks";
 }
 
-export default function GitPullRequest({ owner, root, nonce, onMoved, onOpenTerminal, blocked }) {
+export default function GitPullRequest({ owner, root, nonce, onMoved, onOpenTerminal, blocked, read = null }) {
   const [retry, setRetry] = useState(0);
   const [sending, setSending] = useState(false);
   const submitting = useRef(false);
   const [actionError, setActionError] = useState("");
-  const { data, error, loading } = useGitRead(gitURL(owner, "pr", { root, refresh: !!nonce || !!retry }), `${nonce}:${retry}`, onMoved, blocked);
+  // A host that already reads the PR (the Inspector, for its tab label)
+  // passes its read; the component then skips its own fetch.
+  const self = useGitRead(read ? "" : gitURL(owner, "pr", { root, refresh: !!nonce || !!retry }), `${nonce}:${retry}`, onMoved, blocked);
+  const { data, error, loading } = read || self;
   useEffect(() => { setActionError(""); }, [data?.status, data?.reason]);
-  const retryRead = () => setRetry(n => n + 1);
+  const retryRead = read ? (read.onRetry || (() => {})) : () => setRetry(n => n + 1);
   async function prepare(command) {
     if (submitting.current || blocked) return;
     submitting.current = true;

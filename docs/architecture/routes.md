@@ -38,12 +38,17 @@ See the [acceptance matrix](../plans/agent-tui-unification.md).
 
 Mobile owns four tabs: **Now** (needs-you queue, activity and results),
 **Inbox**, **Work** (workspaces, agents, terminals) and **More** (settings and
-Apps). Pushed agent, terminal, changes and app-detail screens retain the
+Apps). Pushed agent, terminal, inspector and app-detail screens retain the
 existing API behavior and compatible agent/terminal hashes. Conversation,
 composer, terminal, settings and preview components are mobile-owned copies;
 secondary screens load on demand and offer retry on loading failure. Mobile
 has no desktop sidebar or Pin Studio. ADR-0095 adds mobile-owned Files and Git
-tools, one full-screen view at a time. Its dialogs
+tools, one full-screen view at a time. The Inspector (ADR-0078's rail
+re-shaped for the phone) is one pushed screen per owner — Changes
+(folder-grouped sums, the `All | This agent` session scope, multi-worktree
+following), Files and PR — with a glance line on the agent screen; the
+change-shape logic is shared in `@picode/shared/domain/inspector.js`, and the
+legacy `#/changes` screen parses onto it. Its dialogs
 are always sheets, including wide previews; desktop keeps responsive dialogs.
 The v2 composer keeps its primary message and Send/Stop row compact; message
 options (kind, attachments, voice and expansion) open on demand. Per-agent

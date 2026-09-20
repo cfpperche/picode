@@ -64,6 +64,7 @@
     "./domain/graphActions.js": "./domain/graphActions.js",
     "./domain/highlight.js": "./domain/highlight.js",
     "./domain/integrations.js": "./domain/integrations.js",
+    "./domain/inspector.js": "./domain/inspector.js",
     "./domain/listSearch.js": "./domain/listSearch.js",
     "./domain/managedPrincipal.js": "./domain/managedPrincipal.js",
     "./domain/mdSafe.js": "./domain/mdSafe.js",
