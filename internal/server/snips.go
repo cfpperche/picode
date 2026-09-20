@@ -455,7 +455,7 @@ func runSnipIntoTerminal(deps Deps, r *http.Request, p store.Snip, req snipRunRe
 	if len(missing) > 0 {
 		return http.StatusBadRequest, map[string]any{"error": "Fill in the missing fields.", "missing": missing}
 	}
-	status, body := pasteToTerminal(deps, r.Context(), t, text)
+	status, body := doorDeliver(deps, r.Context(), t, text)
 	if status == http.StatusOK {
 		return http.StatusOK, map[string]any{"ok": true, "typed": true, "text": text}
 	}

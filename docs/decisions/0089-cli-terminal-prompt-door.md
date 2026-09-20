@@ -161,3 +161,40 @@ Sibling door:
 | Interactive + `{message, paths}` | Paste caption + `@path` after `/drop` |
 | Interactive + in-flight paste/receiver | **409** `busy` |
 | Interactive + no tmux session | **409** `stopped` |
+
+## Amendment (2026-09-20, Fatia F / ADR-0160): the door gains receipts, and automations may deliver through it
+
+The door's paste is no longer blind. For the CLIs whose input row
+`peer_attention.go` can read (pi, Claude Code, Codex, Grok, Hermes,
+OpenCode), `POST /api/terminals/{id}/prompt` now gates and verifies: the
+composer must read empty before (occupied is refused), a live
+`working`/`needs-you` sensor state is refused, and after Enter the input
+row must read empty again. The response carries a `delivery` receipt —
+`verified`, `unconfirmed` (named: `staged`, `unreadable`) or `unverified`
+(CLI without a reader, blind bracketed paste as before). A lost Enter is
+retried once; a second paste is never sent, because it would duplicate.
+
+**Automations** (ADR-0045) may now target a CLI agent: the run delivers
+through this door on the agent's bound terminal, and the receipt is the
+run's outcome — `verified` → done ("Sent to the terminal."), refused →
+skipped with the named reason (`working`, `occupied`, `busy`, `closed` —
+a stopped agent is never auto-started), `unconfirmed` → failed honestly,
+no terminal → failed. A graph/Inspector **ask** on a non-pi CLI terminal
+is delivered the same way (fire and forget; no reply file is created;
+provenance rides `terminal_ask_delivered`).
+
+| Conditions | Action |
+|---|---|
+| Sensor `working` / `needs-you` | **409** named |
+| Composer holds a draft (input row not empty) | **409** `occupied` |
+| In-flight prompt | **409** `busy` |
+| Session absent | **409** `closed` |
+| Paste + Enter, row reads empty | 200 `verified` |
+| Paste + Enter, row still holds the tail (one extra Enter) then empty | 200 `verified` |
+| Paste + Enter, row never reads empty, or unreadable | 200 `unconfirmed` (`staged`/`unreadable`) |
+| CLI without an input reader | 200 `unverified` |
+
+Still true: this is delivery, never comprehension — the UI says "Sent to
+the terminal", never "the model saw it". Inspector type/run stay refused
+(ADR-0078); the Inspector *ask* on a CLI pane is now this door, not a
+type control.

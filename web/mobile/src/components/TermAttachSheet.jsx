@@ -89,8 +89,12 @@ export default function TermAttachSheet({ term, open, onClose }) {
         paths.push(d.path);
       }
       // No success toast: the user is looking at the terminal and sees the
-      // message land. Toasts stay reserved for failures (toastError below).
-      await api("/api/terminals/" + encodeURIComponent(term.id) + "/prompt", json({ message: text, paths }));
+      // message land. Toasts stay reserved for failures and for the one
+      // receipt the pane cannot show: a prompt PiCode could not confirm.
+      const res = await api("/api/terminals/" + encodeURIComponent(term.id) + "/prompt", json({ message: text, paths }));
+      if (res && res.delivery === "unconfirmed") {
+        toast.warn("Sent, but PiCode could not confirm it left the composer. Check the terminal.");
+      }
       setItems([]);
       setText("");
       onClose();

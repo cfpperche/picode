@@ -108,7 +108,11 @@ func (deps Deps) askTerminal(id, cwd, text string) (askResult, error) {
 		return askResult{}, errAskNoTmux
 	}
 	if !termHostsPi(deps, id) {
-		return askResult{}, errAskNotPi
+		// Fatia F: a CLI agent that is not pi has no receiver — the ask is
+		// delivered through the prompt door as a plain paste, fire and
+		// forget. The receipt says how much PiCode knows; no reply file is
+		// ever created for it.
+		return deps.askByDoor(id, cwd, text)
 	}
 	if _, live := deps.TermRuntimes.Get(id); !live {
 		return askResult{}, errAskStopped
@@ -402,4 +406,35 @@ func recoverPiReceiverRuntime(ctx context.Context, deps Deps, id, run string, pi
 	}
 	recoverNativeRuntime(ctx, deps, id, "pi", run, wrapperPID)
 	reconcileNativeObservation(ctx, deps, id)
+}
+
+// askByDoor delivers an ask to a non-pi CLI terminal through the ADR-0089
+// door (Fatia F): fire and forget by design — the CLI has no receiver, so
+// no reply file is created and the delivery receipt is the whole truth.
+func (deps Deps) askByDoor(id, cwd, text string) (askResult, error) {
+	if deps.Store == nil {
+		return askResult{}, errAskNoTmux
+	}
+	t, err := deps.Store.GetTerminal(id)
+	if err != nil {
+		return askResult{}, err
+	}
+	t.Cwd = cwd
+	status, res := doorDeliver(deps, context.Background(), t, text)
+	if status != http.StatusOK {
+		reason, _ := res["reason"].(string)
+		switch reason {
+		case "closed":
+			return askResult{}, errAskStopped
+		case "working", "needs-you", "occupied", "busy":
+			return askResult{}, errAskBusy
+		}
+		msg, _ := res["error"].(string)
+		return askResult{}, fmt.Errorf("%s", msg)
+	}
+	delivery, _ := res["delivery"].(string)
+	_ = deps.Store.AppendEvent("terminal_ask_delivered", nil, nil, map[string]any{
+		"terminalId": id, "delivery": delivery,
+	})
+	return askResult{Mode: "interactive", Via: "paste", Proof: delivery == "verified"}, nil
 }
