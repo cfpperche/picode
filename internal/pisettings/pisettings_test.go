@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -187,5 +188,64 @@ func TestResetWithSetWins(t *testing.T) {
 	}
 	if !layer.Has["steeringMode"] || layer.SteeringMode != "one-at-a-time" {
 		t.Fatalf("layer = %+v", layer)
+	}
+}
+
+// TestMachineKeysRoundTrip covers the five keys the Pi pane gained on
+// 2026-09-20. Each name was read out of pi 0.86.1's own setter before it was
+// declared; `defaultProjectTrust` carries the value domain its getter
+// enforces, because pi resolves anything else to "ask" and the row would
+// never look set.
+func TestMachineKeysRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "settings.json")
+	if err := os.WriteFile(path, []byte(`{"defaultModel":"opus","packages":["npm:pi-roles"]}`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	theme, shell, trust := "dark", "/bin/zsh", "always"
+	hide, quiet := true, true
+	if err := Apply(path, Patch{
+		Theme: &theme, ShellPath: &shell, DefaultProjectTrust: &trust,
+		HideThinkingBlock: &hide, QuietStartup: &quiet,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	rep, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Theme != "dark" || rep.ShellPath != "/bin/zsh" || rep.DefaultProjectTrust != "always" {
+		t.Fatalf("strings: %#v", rep)
+	}
+	if !rep.HideThinkingBlock || !rep.QuietStartup {
+		t.Fatalf("bools: %#v", rep)
+	}
+	for _, key := range []string{"theme", "shellPath", "defaultProjectTrust", "hideThinkingBlock", "quietStartup"} {
+		if !rep.Has[key] {
+			t.Errorf("%s is set but not reported as set here", key)
+		}
+	}
+	// A key PiCode does not manage survives untouched.
+	raw, _ := os.ReadFile(path)
+	if !strings.Contains(string(raw), "pi-roles") {
+		t.Fatalf("an unknown key was dropped:\n%s", raw)
+	}
+	// A value outside the domain pi resolves is refused, not written.
+	bad := "maybe"
+	if err := Apply(path, Patch{DefaultProjectTrust: &bad}); err == nil {
+		t.Fatal("want a refusal for a trust value pi would resolve to ask")
+	}
+	// Reset hands every one of them back.
+	if err := Apply(path, Patch{Reset: []string{"theme", "shellPath", "defaultProjectTrust", "hideThinkingBlock", "quietStartup"}}); err != nil {
+		t.Fatal(err)
+	}
+	rep, _ = Load(path)
+	for _, key := range []string{"theme", "shellPath", "defaultProjectTrust", "hideThinkingBlock", "quietStartup"} {
+		if rep.Has[key] {
+			t.Errorf("%s survived a reset", key)
+		}
+	}
+	if rep.DefaultModel != "opus" {
+		t.Fatalf("a sibling key was lost: %#v", rep)
 	}
 }

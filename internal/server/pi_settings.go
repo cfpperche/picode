@@ -53,6 +53,15 @@ func handlePutPiSettings(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusBadRequest, "invalid json")
 			return
 		}
+		// A machine-only key on another layer would write a name pi never
+		// reads there. The reason is the key, not the folder, so this answers
+		// before trust or path resolution can blame something else.
+		if req.Layer != "" && req.Layer != "global" {
+			if bad := machineOnlyInPatch(req.Patch); bad != "" {
+				writeErr(w, http.StatusBadRequest, bad+" is kept for this machine only; edit it on the This machine layer")
+				return
+			}
+		}
 		path, code, msg := piSettingsPath(deps, req.Layer, req.AgentID)
 		if code != 0 {
 			writeErr(w, code, msg)
@@ -179,4 +188,25 @@ func liveApply(ctx context.Context, ma interface {
 	if p.FollowUpMode != nil {
 		_ = ma.SetFollowUpMode(ctx, *p.FollowUpMode)
 	}
+}
+
+// machineOnlyInPatch names the first machine-only field a patch touches, or "".
+func machineOnlyInPatch(p pisettings.Patch) string {
+	for key, set := range map[string]bool{
+		"theme":               p.Theme != nil,
+		"hideThinkingBlock":   p.HideThinkingBlock != nil,
+		"defaultProjectTrust": p.DefaultProjectTrust != nil,
+		"shellPath":           p.ShellPath != nil,
+		"quietStartup":        p.QuietStartup != nil,
+	} {
+		if set {
+			return key
+		}
+	}
+	for _, key := range p.Reset {
+		if pisettings.MachineOnly(key) {
+			return key
+		}
+	}
+	return ""
 }

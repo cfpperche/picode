@@ -13,17 +13,26 @@ import (
 
 // Layer is the GUI view of one settings file.
 type Layer struct {
-	Path                 string          `json:"path"`
-	Exists               bool            `json:"exists"`
-	CompactionEnabled    bool            `json:"compactionEnabled"`
-	SteeringMode         string          `json:"steeringMode"`
-	FollowUpMode         string          `json:"followUpMode"`
-	DefaultProvider      string          `json:"defaultProvider,omitempty"`
-	DefaultModel         string          `json:"defaultModel,omitempty"`
-	DefaultThinkingLevel string          `json:"defaultThinkingLevel,omitempty"`
-	EnabledModels        []string        `json:"enabledModels,omitempty"`
-	DefaultTools         []string        `json:"defaultTools,omitempty"`
-	Has                  map[string]bool `json:"has,omitempty"`
+	Path                 string   `json:"path"`
+	Exists               bool     `json:"exists"`
+	CompactionEnabled    bool     `json:"compactionEnabled"`
+	SteeringMode         string   `json:"steeringMode"`
+	FollowUpMode         string   `json:"followUpMode"`
+	DefaultProvider      string   `json:"defaultProvider,omitempty"`
+	DefaultModel         string   `json:"defaultModel,omitempty"`
+	DefaultThinkingLevel string   `json:"defaultThinkingLevel,omitempty"`
+	EnabledModels        []string `json:"enabledModels,omitempty"`
+	DefaultTools         []string `json:"defaultTools,omitempty"`
+	// Keys pi writes to the machine file only (`globalSettings.*` in its own
+	// manager). Verified against the installed pi 0.86.1 bundle on
+	// 2026-09-20: a control that writes a name the CLI ignores is worse than
+	// no control, so each one was read out of its own setter.
+	Theme               string          `json:"theme,omitempty"`
+	HideThinkingBlock   bool            `json:"hideThinkingBlock"`
+	DefaultProjectTrust string          `json:"defaultProjectTrust,omitempty"`
+	ShellPath           string          `json:"shellPath,omitempty"`
+	QuietStartup        bool            `json:"quietStartup"`
+	Has                 map[string]bool `json:"has,omitempty"`
 }
 
 // Patch is an allowlisted update. Nil pointer = leave alone.
@@ -36,6 +45,11 @@ type Patch struct {
 	DefaultThinkingLevel *string   `json:"defaultThinkingLevel"`
 	EnabledModels        *[]string `json:"enabledModels"`
 	DefaultTools         *[]string `json:"defaultTools"`
+	Theme                *string   `json:"theme"`
+	HideThinkingBlock    *bool     `json:"hideThinkingBlock"`
+	DefaultProjectTrust  *string   `json:"defaultProjectTrust"`
+	ShellPath            *string   `json:"shellPath"`
+	QuietStartup         *bool     `json:"quietStartup"`
 	// Reset removes these keys from this layer's file, so the parent layer (or
 	// Pi's own default) applies again. Unknown names are refused rather than
 	// ignored: a silent no-op would report "inherited" while the override
@@ -53,7 +67,23 @@ var resetKeys = map[string][]string{
 	"defaultThinkingLevel": {"defaultThinkingLevel"},
 	"enabledModels":        {"enabledModels"},
 	"defaultTools":         {"defaultTools"},
+	"theme":                {"theme"},
+	"hideThinkingBlock":    {"hideThinkingBlock"},
+	"defaultProjectTrust":  {"defaultProjectTrust"},
+	"shellPath":            {"shellPath"},
+	"quietStartup":         {"quietStartup"},
 }
+
+// machineOnly names the keys pi keeps in its machine file and nowhere else.
+// Offering them on the workspace or agent layer would write a key pi never
+// reads there, which is the failure this package exists to avoid.
+var machineOnly = map[string]bool{
+	"theme": true, "hideThinkingBlock": true, "defaultProjectTrust": true,
+	"shellPath": true, "quietStartup": true,
+}
+
+// MachineOnly reports whether a field may only be set in the machine layer.
+func MachineOnly(key string) bool { return machineOnly[key] }
 
 // UserFile is ~/.pi/agent/settings.json.
 func UserFile() string {
@@ -145,6 +175,21 @@ func fill(out *Layer, doc map[string]any) {
 	markStr(out, doc, "defaultThinkingLevel", &out.DefaultThinkingLevel)
 	markStrs(out, doc, "enabledModels", &out.EnabledModels)
 	markStrs(out, doc, "defaultTools", &out.DefaultTools)
+	markStr(out, doc, "theme", &out.Theme)
+	markStr(out, doc, "defaultProjectTrust", &out.DefaultProjectTrust)
+	markStr(out, doc, "shellPath", &out.ShellPath)
+	markBool(out, doc, "hideThinkingBlock", &out.HideThinkingBlock)
+	markBool(out, doc, "quietStartup", &out.QuietStartup)
+}
+
+func markBool(out *Layer, doc map[string]any, key string, dest *bool) {
+	if _, ok := doc[key]; !ok {
+		return
+	}
+	out.Has[key] = true
+	if v, ok := doc[key].(bool); ok {
+		*dest = v
+	}
 }
 
 func markStr(out *Layer, doc map[string]any, key string, dest *string) {
@@ -199,6 +244,23 @@ func merge(doc map[string]any, p Patch) error {
 	}
 	if p.DefaultTools != nil {
 		doc["defaultTools"] = *p.DefaultTools
+	}
+	setOrDelete(doc, "theme", p.Theme)
+	setOrDelete(doc, "shellPath", p.ShellPath)
+	if p.DefaultProjectTrust != nil {
+		// pi resolves anything that is not "always" or "never" to "ask", so a
+		// third value would read back as the default and the row would never
+		// look set.
+		if s := *p.DefaultProjectTrust; s != "" && s != "ask" && s != "always" && s != "never" {
+			return fmt.Errorf("pi settings: bad project trust %q", s)
+		}
+		setOrDelete(doc, "defaultProjectTrust", p.DefaultProjectTrust)
+	}
+	if p.HideThinkingBlock != nil {
+		doc["hideThinkingBlock"] = *p.HideThinkingBlock
+	}
+	if p.QuietStartup != nil {
+		doc["quietStartup"] = *p.QuietStartup
 	}
 	return nil
 }

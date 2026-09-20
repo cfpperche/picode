@@ -11,6 +11,15 @@ export function resolveLayer(layer, parent) {
     defaultThinkingLevel: has.defaultThinkingLevel ? l.defaultThinkingLevel : (p.defaultThinkingLevel || ""),
     enabledModels: has.enabledModels ? (l.enabledModels || []) : (p.enabledModels || []),
     defaultTools: has.defaultTools ? (l.defaultTools || []) : (p.defaultTools || PI_TOOLS),
+    // The keys pi keeps in its machine file. They land here for the same
+    // reason as the rest: a resolver that names a fixed list drops whatever
+    // it was not told about, and the Theme row rendered empty while the file
+    // said `dark` (2026-09-20).
+    theme: has.theme ? l.theme : (p.theme || ""),
+    hideThinkingBlock: has.hideThinkingBlock ? !!l.hideThinkingBlock : !!p.hideThinkingBlock,
+    quietStartup: has.quietStartup ? !!l.quietStartup : !!p.quietStartup,
+    defaultProjectTrust: has.defaultProjectTrust ? l.defaultProjectTrust : (p.defaultProjectTrust || "ask"),
+    shellPath: has.shellPath ? l.shellPath : (p.shellPath || ""),
   };
 }
 
@@ -28,5 +37,11 @@ export function catalogBase(catalog) {
     defaultThinkingLevel: "medium",
     enabledModels: [],
     defaultTools: PI_TOOLS,
+    theme: "",
+    hideThinkingBlock: false,
+    quietStartup: false,
+    // pi resolves anything that is not "always" or "never" to "ask".
+    defaultProjectTrust: "ask",
+    shellPath: "",
   };
 }
