@@ -7,7 +7,7 @@ import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { askTitle } from "../lib/browserPermissions.js";
 import { subscribeFloatingLayers, overlapsLayers, rectOf } from "../lib/floatingLayers.js";
 import { requestBrowserDialog } from "../lib/browserDialogs.js";
-import { previewUrl, verifyPreviewUrl } from "../lib/previewStill.js";
+import { coverDecision, previewUrl, verifyPreviewUrl } from "../lib/previewStill.js";
 import { cropRect, stylesToCSS, stateItems, batchMessage, parseAnnotMessage, parseStatePayload, pastePaths, resolveSendTarget } from "../lib/annotate.js";
 import AnnotateStrip from "./AnnotateStrip.jsx";
 import WebTabAddress from "./WebTabAddress.jsx";
@@ -470,7 +470,7 @@ export default function WebTabSurface({ tabId, url = "", active, hidden, classNa
       opened();
     });
   };
-  const covered = !liveLayers && (overlayCover || (menuOpen && (!!still || previewFailed)));
+  const covered = coverDecision({ liveLayers, overlayCover, menuOpen, still, previewFailed });
   // Whatever the reason, a covered page shows the frozen frame instead of
   // the host's empty background. The menu prefetches on hover; every other
   // layer takes the capture when it first covers the page (cached, so the

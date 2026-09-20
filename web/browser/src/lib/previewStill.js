@@ -55,3 +55,27 @@ export function verifyPreviewUrl(url, timeoutMs = 2500) {
     img.src = url;
   });
 }
+
+// The legacy hide/restore decision (shells without the live-layers protocol,
+// pre-ADR-0161): the native page must hide — and, uncovering, restore —
+// exactly for these rows. The restore side is the same rows read backwards:
+// uncover the page the moment no row holds, and never park it behind a still
+// or a failure that outlived its menu.
+//
+// covered =
+// | live layers | overlay cover | menu | verified still | capture failed | decision |
+// | ----------- | ------------- | ---- | -------------- | -------------- | -------- |
+// | yes         | —             | —    | —              | —              | never (ADR-0161: geometry, not hiding) |
+// | no          | yes           | —    | —              | —              | covered (a dialog or toast needs the page out of the way) |
+// | no          | no            | open | yes            | —              | covered (the frozen page sits behind the menu) |
+// | no          | no            | open | no             | no             | **visible** (the menu waits for the capture) |
+// | no          | no            | open | no             | yes            | covered (host gray; the menu still works) |
+// | no          | no            | shut | —              | —              | visible (restore, even with a stale still) |
+//
+// What stays in the component: the capture itself, the 600 ms open-wait, and
+// parking the cover state when the tab hides without unmounting.
+export function coverDecision({ liveLayers, overlayCover, menuOpen, still, previewFailed }) {
+  if (liveLayers) return false;
+  if (overlayCover) return true;
+  return !!(menuOpen && (still || previewFailed));
+}

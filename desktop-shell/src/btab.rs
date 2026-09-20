@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use picode_shell::{cdppolicy, origins, permissions};
+use picode_shell::{cdppolicy, origins, permissions, preview};
 use windows::core::Interface;
 use tauri::webview::{NewWindowResponse, WebviewBuilder};
 use tauri::WebviewUrl;
@@ -620,10 +620,13 @@ async fn capture_png(app: &AppHandle, id: &str, path: &std::path::Path) -> Resul
             let _ = tx_err.send(Err(format!("CapturePreview: {e}")));
         }
     });
-    match rx.recv_timeout(Duration::from_secs(8)) {
-        Ok(Ok(())) => Ok(()),
-        Ok(Err(e)) => Err(e),
-        Err(_) => Err("capture timed out".into()),
+    // The decision half (which answer, which silence means what) is
+    // preview.rs's, table-tested on any host.
+    match preview::settle(rx, Duration::from_secs(8)) {
+        preview::Settled::Painted => Ok(()),
+        preview::Settled::Failed(e) => Err(e),
+        preview::Settled::TimedOut => Err("capture timed out".into()),
+        preview::Settled::Gone => Err("capture: the tab closed while the capture was in flight".into()),
     }
 }
 
@@ -656,15 +659,13 @@ pub async fn btab_preview(app: AppHandle, id: String) -> Result<tauri::ipc::Resp
         id
     ));
     capture_png(&app, &id, &path).await?;
-    let bytes = std::fs::read(&path).map_err(|e| format!("preview: {e}"))?;
-    let _ = std::fs::remove_file(&path);
-    // A capture can resolve with zero bytes when the page has not composited
-    // a frame yet. The tab treats any answered IPC as a still worth hiding
-    // the live page behind — an empty blob URL hides it behind nothing
-    // (owner report 2026-09-16: uniform gray where x.com should freeze).
-    if bytes.is_empty() {
-        return Err("preview: empty capture — the page has not painted".into());
-    }
+    // Read-back + the non-empty-pixels gate: preview.rs's, table-tested on
+    // any host. A capture can resolve with zero bytes when the page has not
+    // composited a frame yet, and the tab hides the live page behind
+    // whatever an answered IPC hands it — an empty blob hides it behind
+    // nothing (owner report 2026-09-16: uniform gray where x.com should
+    // freeze).
+    let bytes = preview::read_still(&path)?;
     Ok(tauri::ipc::Response::new(bytes))
 }
 
