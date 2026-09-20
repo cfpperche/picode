@@ -1,3 +1,5 @@
+import { agentTerminalKeys } from "@picode/shared/domain/agentTerminal.js";
+
 // Match desktop configuration semantics: only a changed tool mode restarts
 // a running agent, preserving its managed/interactive runtime.
 export async function saveAgentConfig(agent, patch, request, closeTerminal = () => {}) {
@@ -9,7 +11,7 @@ export async function saveAgentConfig(agent, patch, request, closeTerminal = () 
   const interactive = agent.mode === "interactive";
   try {
     await request(base + (interactive ? "/close" : "/managed/stop"), { method: "POST" });
-    if (interactive) closeTerminal(agent.id);
+    if (interactive) agentTerminalKeys(agent).forEach(closeTerminal);
     await request(base + (interactive ? "/open" : "/managed/start"), { method: "POST" });
   } catch (error) {
     throw new Error("Settings saved, but the agent could not restart. Check its state and use Start. " + error.message);

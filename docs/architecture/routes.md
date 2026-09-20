@@ -17,11 +17,24 @@ Explicit app paths win at every width. Rotation does not replace the app or
 its connections. The desktop remains responsive, with a navigation disclosure
 above the canvas on narrow screens. Both outputs ship atomically in one binary.
 
-Bound interactive agents use the same terminal identity across the two
-surfaces: `agents.terminalId` resolves to the terminal record before either
-application mounts its terminal view. Mobile therefore uses `TermSurface` for
-Pi and every Agent CLI, with the same scroll/resize/socket contract and an
-attach action; a managed agent remains chat-only until it is opened as TUI.
+TUI agents and Agent CLIs use one terminal engine:
+`web/shared/client/terminalRuntime.js` owns input, wheel/touch translation,
+clipboard, resizing and socket wiring. Each independent app supplies xterm
+and its own presentation, never an agent-specific terminal implementation.
+`agentTerminal.js` resolves the runtime identity and HTTP owner for every
+CLI. A live legacy Pi process wins over a newly allocated binding after a
+failed restart (ADR-0162); only its address differs, not its renderer or
+controls. Missing bound records never invent a legacy session.
+
+Mobile agent terminal views render the same `TerminalScreen` as Agent CLIs:
+toolbar, attachments, Files/Git, prompt snippets, keyboard accessory, loading,
+retry and stopped states. Bound terminal links canonicalize to the owning
+agent view. Pi's Chat/Terminal icons live in that toolbar; managed Pi stays
+chat-only and non-Pi agents do not acquire a managed composer (ADR-0091).
+Both old `TerminalDock` implementations are removed. Browser and desktop
+use the same browser bundle; Canvas and tabs resolve the same runtime key
+while keeping containing-tab and agent lifecycle ownership separate.
+See the [acceptance matrix](../plans/agent-tui-unification.md).
 
 Mobile owns four tabs: **Now** (needs-you queue, activity and results),
 **Inbox**, **Work** (workspaces, agents, terminals) and **More** (settings and
@@ -101,7 +114,10 @@ Hash routes (ADR-0012). **Preferences** is PiCode-the-product.
 **Settings** lives under Agent CLIs (ADR-0101), initially editing Pi configuration. Packages follows the same area (ADR-0102). Auth and MCP
 stay on their own routes.
 
-Mobile may add `?view=terminal` to an agent route. Chat and Terminal are views of the same agent identity. Non-Pi agent rows resolve their bound terminal through the Agent CLIs terminal surface; Pi interactive rows remain on their existing attach path until the managed-runtime adapter migration. A bound terminal deep link should resolve to the owning agent view, while unbound terminals remain `#/term/<id>`.
+Mobile may add `?view=terminal` to an agent route. An explicit Pi
+`?view=chat` is respected instead of being reset to Terminal on every
+render. Bound terminals resolve to their owning agent; unbound terminals
+remain `#/term/<id>`. Changing a view never starts a second writer.
 
 | Hash | Surface | Owns |
 |---|---|---|

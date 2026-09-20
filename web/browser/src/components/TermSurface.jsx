@@ -66,7 +66,7 @@ function TermWindow({ title, titleFull, children }) {
 
 // autoFocus (default true): the visible pane takes the keyboard. The Canvas
 // passes false for every panel but the focused one (ShellTerm).
-export default function TermSurface({ term, error, hidden, autoFocus = true, onOpenFile, onOpenLink, cwdKind, attach, onAttachClose, find, onFindClose }) {
+export default function TermSurface({ term, error, hidden, autoFocus = true, onOpenFile, onOpenLink, cwdKind, tabId, attach, onAttachClose, find, onFindClose }) {
   const [resuming, setResuming] = useState(false);
   const [resumeError, setResumeError] = useState("");
   // The message bar takes height from the pane; tmux hears about it in the
@@ -143,7 +143,7 @@ export default function TermSurface({ term, error, hidden, autoFocus = true, onO
       ) : (
         <>
           <div className="term-body">
-            <ShellTerm agentId={term.id} session={term.session} active={!hidden} autoFocus={autoFocus} cwd={term.cwd} cwdKind={cwdKind} onOpenFile={onOpenFile} onOpenLink={onOpenLink} />
+            <ShellTerm agentId={term.id} session={term.session} active={!hidden} autoFocus={autoFocus} cwd={term.cwd} cwdKind={cwdKind} tabId={tabId} onOpenFile={onOpenFile} onOpenLink={onOpenLink} />
             {find ? <TermFindBar termId={term.id} onClose={onFindClose} /> : null}
           </div>
           {attach ? (

@@ -28,6 +28,7 @@ export function paneAt(target) {
   const id = el.dataset.termId;
   return {
     id,
+    tabId: el.dataset.termTabId || "",
     kind: el.dataset.termKind === "agent" ? "agent" : "term",
     cwd: el.dataset.termCwd || "",
     entry: terms.get(key(id)) || null,

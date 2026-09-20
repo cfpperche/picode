@@ -6,6 +6,7 @@ import { api } from "@picode/shared/client/api.js";
 import { planAttachFiles, readAttachFile, MAX_ATTACH } from "@picode/shared/domain/termPrompt.js";
 import { fitAttachField } from "@picode/shared/domain/attachText.js";
 import { sceneHasInk } from "@picode/shared/domain/composerImage.js";
+import { terminalOwnerBase } from "@picode/shared/domain/agentTerminal.js";
 import { isSubmitKey } from "../lib/agentDrafts.js";
 import { toast, toastError } from "../lib/toast.js";
 
@@ -14,7 +15,8 @@ const SketchEditor = lazy(() => import("./SketchEditor.jsx"));
 
 const json = (body) => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
-export default function TermAttachSheet({ term, open, onClose }) {
+export default function TermAttachSheet({ term, owner = { kind: "term", id: term.id }, open, onClose }) {
+  const base = terminalOwnerBase(owner);
   const imgPick = useRef(null);
   const filePick = useRef(null);
   const fieldRef = useRef(null);
@@ -86,13 +88,13 @@ export default function TermAttachSheet({ term, open, onClose }) {
       const paths = [];
       for (const it of items) {
         if (it.path) { paths.push(it.path); continue; }
-        const d = await api("/api/terminals/" + encodeURIComponent(term.id) + "/drop", json({ name: it.name, mime: it.mime, data: it.data }));
+        const d = await api(base + "/drop", json({ name: it.name, mime: it.mime, data: it.data }));
         paths.push(d.path);
       }
       // No success toast: the user is looking at the terminal and sees the
       // message land. Toasts stay reserved for failures and for the one
       // receipt the pane cannot show: a prompt PiCode could not confirm.
-      const res = await api("/api/terminals/" + encodeURIComponent(term.id) + "/prompt", json({ message: text, paths }));
+      const res = await api(base + "/prompt", json({ message: text, paths }));
       if (res && res.delivery === "unconfirmed") {
         toast.warn("Sent, but PiCode could not confirm it left the composer. Check the terminal.");
       }
@@ -119,9 +121,12 @@ export default function TermAttachSheet({ term, open, onClose }) {
       <Dialog.Portal>
         <Dialog.Overlay className="dlg-overlay" />
         <Dialog.Content className="dlg dlg-sheet" onCloseAutoFocus={(e) => e.preventDefault()}>
-          <Dialog.Title className="dlg-title">Send to the terminal</Dialog.Title>
+          <div className="term-attach-heading">
+            <Dialog.Title className="dlg-title">Send to the terminal</Dialog.Title>
+            <button type="button" className="m-tool-icon" aria-label="Close attachments" title="Close attachments" onClick={onClose}><IconX size={16} /></button>
+          </div>
           {sendError ? <p className="dlg-body" role="alert" style={{ color: "var(--danger)", margin: "0 0 8px" }}>{sendError}</p> : null}
-          <WorkspaceAttach open={pick} termId={term.id} onPick={addWorkspace} onClose={() => setPick(false)} />
+          <WorkspaceAttach open={pick} termId={owner.kind === "term" ? owner.id : undefined} agentId={owner.kind === "agent" ? owner.id : undefined} onPick={addWorkspace} onClose={() => setPick(false)} />
           {items.length ? (
             <div className="term-attach-chips">
               {items.map((it) => (
@@ -146,10 +151,10 @@ export default function TermAttachSheet({ term, open, onClose }) {
             <input ref={imgPick} type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/*" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
             <input ref={filePick} type="file" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
             <div className="term-attach-row" data-align-row>
-              <button type="button" className="icon-btn composer-attach" title="Attach image" aria-label="Attach image" onClick={() => imgPick.current && imgPick.current.click()}><IconImage /></button>
-              <button type="button" className="icon-btn composer-attach" title="Attach file" aria-label="Attach file" onClick={() => filePick.current && filePick.current.click()}><IconFile /></button>
-              <button type="button" className="icon-btn composer-attach" title="Attach from folder" aria-label="Attach from folder" onClick={() => setPick(true)}><IconClip /></button>
-              <button type="button" className="icon-btn composer-attach" title="Sketch" aria-label="Sketch" onClick={() => openSketch()}><IconSketch /></button>
+              <button type="button" className="icon-btn composer-attach term-attach-choice" title="Attach image" aria-label="Attach image" onClick={() => imgPick.current && imgPick.current.click()}><IconImage /><span>Photo</span></button>
+              <button type="button" className="icon-btn composer-attach term-attach-choice" title="Attach file" aria-label="Attach file" onClick={() => filePick.current && filePick.current.click()}><IconFile /><span>File</span></button>
+              <button type="button" className="icon-btn composer-attach term-attach-choice" title="Attach from folder" aria-label="Attach from folder" onClick={() => setPick(true)}><IconClip /><span>Folder</span></button>
+              <button type="button" className="icon-btn composer-attach term-attach-choice" title="Sketch" aria-label="Sketch" onClick={() => openSketch()}><IconSketch /><span>Sketch</span></button>
             </div>
             {/* Not a [data-align-row]: the field grows by design
                 (overlayAudit's equal-height rule is for fixed controls). */}

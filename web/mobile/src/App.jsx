@@ -1,3 +1,4 @@
+import { agentTerminalKeys, agentTerminalActionTarget } from "@picode/shared/domain/agentTerminal.js";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import { applyTheme, persistTheme, readThemeMode, resolvedTheme } from "@picode/shared/domain/theme.js";
@@ -253,6 +254,7 @@ export default function MobileApp() {
 
   const current = route.screen === "agent" ? findAgent(workspaces, freeAgents, route.id) : null;
   const currentTerm = route.screen === "term" ? terminals.find((t) => t.id === route.id) || null : null;
+  const terminalAgent = route.screen === "term" ? flatAgents(workspaces, freeAgents).find(({ agent }) => agent.terminalId === route.id) : null;
   const section = route.screen === "work" ? (route.section || workSection) : workSection;
   useEffect(() => {
     if (route.screen === "work" && route.section && route.section !== workSection) {
@@ -261,6 +263,13 @@ export default function MobileApp() {
     }
   }, [route.screen, route.section, workSection]);
   const last = findAgent(workspaces, freeAgents, lastAgentId) || (running[0] || null);
+
+  // Agent CLI links and agent links are entrances to the same owning view.
+  useEffect(() => {
+    if (route.screen !== "term") return;
+    const owner = flatAgents(workspaces, freeAgents).find(({ agent }) => agent.terminalId === route.id);
+    if (owner) location.replace(mobileHash("agent", owner.agent.id, "", "terminal"));
+  }, [route.screen, route.id, workspaces, freeAgents]);
 
   useEffect(() => {
     if (route.screen !== "agent" || !route.id) return;
@@ -275,6 +284,8 @@ export default function MobileApp() {
     push(mobileHash("agent", id, "", initial));
   }
   function openTerm(id) {
+    const owner = flatAgents(workspaces, freeAgents).find(({ agent }) => agent.terminalId === id);
+    if (owner) { openAgent(owner.agent.id, "terminal"); return; }
     if (id) push(mobileHash("term", id));
   }
   async function onAppGoto(goto) {
@@ -329,14 +340,17 @@ export default function MobileApp() {
   }
 
   async function removeTerminal(t) {
-    const ok = await askConfirm({ title: "Remove terminal?", message: "This stops the tmux session.", confirmLabel: "Remove", danger: true });
+    const bound = flatAgents(workspaces, freeAgents).some(({ agent }) => agent.terminalId === t.id);
+    const ok = await askConfirm({ title: bound ? "Remove agent and terminal?" : "Remove terminal?", message: bound ? "This stops the terminal and removes its agent." : "This stops the terminal session.", confirmLabel: "Remove", danger: true });
     if (!ok) return;
     setBusyId(t.id);
     try {
       await api("/api/terminals/" + encodeURIComponent(t.id), { method: "DELETE" });
       closeTerm("sh:" + t.id);
+      if (current?.agent.terminalId === t.id) agentTerminalKeys(current.agent).forEach(closeTerm);
       await reload({ force: true });
       if (route.screen === "term" && route.id === t.id) goBack(route, termOwnerWs(t));
+      if (route.screen === "agent" && current?.agent.terminalId === t.id) goBack(route, agentOwnerWs(current));
     } catch (e) { toastError(e); } finally { setBusyId(""); }
   }
 
@@ -463,7 +477,7 @@ export default function MobileApp() {
   }
 
   function agentTerm(agent) {
-    return terminals.find((t) => t.id === agent.terminalId) || { id: agent.terminalId, name: agent.name };
+    return agentTerminalActionTarget(agent, terminals.find((t) => t.id === agent.terminalId));
   }
 
   function startAgent(agent, workspace) {
@@ -476,14 +490,15 @@ export default function MobileApp() {
     });
   }
 
-  function stopAgent(agent, workspace) {
+  async function stopAgent(agent, workspace) {
     if (!agentIsPi(agent) && agent.terminalId) return launchTerminalAction(agentTerm(agent), "stop");
+    if (agent.mode === "interactive" && !(await askConfirm({ title: "Stop agent?", message: "This ends the processes running in this terminal.", confirmLabel: "Stop", danger: true }))) return;
     return withBusy(agent, async () => {
       if (agent.mode === "interactive") {
         // Agent-scoped control matters in multi-agent workspaces; the
         // workspace endpoint only targets its default.
         await api("/api/agents/" + agent.id + "/close", { method: "POST" });
-        closeTerm("sh:" + (agent.terminalId || agent.id));
+        agentTerminalKeys(agent).forEach(closeTerm);
       } else {
         await api("/api/agents/" + agent.id + "/managed/stop", { method: "POST" });
       }
@@ -556,7 +571,9 @@ export default function MobileApp() {
       : route.section === "term" ? (owner.term ? owner.term.name : "") : (owner.workspace ? owner.workspace.name : "");
     body = <Changes kind={route.section} id={route.id} title={title} onBack={() => goBack(route)} />;
   } else if (route.screen === "term") {
-    body = <TerminalScreen term={currentTerm} onBack={() => goBack(route, termOwnerWs(currentTerm))} onRemove={removeTerminal} busy={!!currentTerm && busyId === currentTerm.id} onOpenFiles={openFiles} onOpenGit={openGit} />;
+    body = terminalAgent
+      ? <div className="m-tool-state m-tool-loading" role="status" aria-busy="true"><p>Opening agent…</p><span className="gg-skel" /><span className="gg-skel" /></div>
+      : <TerminalScreen key={route.id} term={currentTerm} onBack={() => goBack(route, termOwnerWs(currentTerm))} onRemove={removeTerminal} busy={!!currentTerm && busyId === currentTerm.id} onOpenFiles={openFiles} onOpenGit={openGit} />;
   } else if (route.screen === "agent") {
     body = (
       <Agent
@@ -564,16 +581,17 @@ export default function MobileApp() {
         workspace={current ? current.workspace : null}
         catalog={catalog}
         workingIds={tuiWorking}
-        busy={!!current && busyId === current.agent.id}
+        busy={!!current && (busyId === current.agent.id || busyId === current.agent.terminalId)}
         terminal={current ? terminals.find((t) => t.id === current.agent.terminalId) || current.agent.terminal || null : null}
         initialView={route.view}
-        onViewChange={(view) => { history.replaceState(history.state, "", mobileHash("agent", route.id, "", view)); }}
+        onViewChange={(view) => { location.replace(mobileHash("agent", route.id, "", view)); }}
         onBack={() => goBack(route, agentOwnerWs(current))}
         onStart={startAgent}
         onStop={stopAgent}
         onOpenFiles={openFiles}
         onOpenGit={openGit}
         onAgentConfig={patchAgent}
+        onRemoveTerminal={removeTerminal}
       />
     );
   } else if (route.screen === "pin") {

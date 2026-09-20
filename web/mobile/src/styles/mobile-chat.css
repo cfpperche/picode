@@ -12,8 +12,8 @@
 .m-view-switch-option { position: relative; display: inline-flex; height: 100%; }
 .m-view-switch-option input { position: absolute; opacity: 0; pointer-events: none; }
 .m-view-switch-option span {
-  display: inline-flex; align-items: center; justify-content: center; min-width: 54px; height: 100%;
-  padding: 0 8px; border-radius: calc(var(--radius-ctl) - 2px); color: var(--text-secondary);
+  display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 100%;
+  padding: 0 6px; border-radius: calc(var(--radius-ctl) - 2px); color: var(--text-secondary);
   font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
 }
 .m-view-switch-option input:checked + span { background: var(--accent-soft); color: var(--accent); }

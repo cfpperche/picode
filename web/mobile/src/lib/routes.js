@@ -12,7 +12,7 @@ export function agentRoute(hash) {
 
 export function workspaceHash(agentId, view = "") {
   if (!agentId) return "#/";
-  return "#/agent/" + encodeURIComponent(agentId) + (view === "terminal" ? "?view=terminal" : "");
+  return "#/agent/" + encodeURIComponent(agentId) + (view === "terminal" || view === "chat" ? "?view=" + view : "");
 }
 
 export function termRoute(hash) {

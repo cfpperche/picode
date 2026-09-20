@@ -2362,8 +2362,7 @@ img.ws-face.term-cli-face {
   flex: none;
   display: flex;
   justify-content: flex-end;
-  padding: 8px 16px 0;
-  background: var(--bg-panel);
+  padding: 0;
 }
 .agent-view-switch {
   display: inline-flex;
@@ -6134,9 +6133,9 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .insp-count { display: inline-flex; gap: 6px; flex: none; font-size: 11px; font-variant-numeric: tabular-nums; }
 .insp-count-bin { color: var(--text-secondary); font-style: italic; }
 .main-tabs-end { margin-left: auto; display: flex; align-items: center; padding: 0 6px; flex: none; }
+.main-tabs-end > button { width: var(--ctl-h); height: var(--ctl-h); }
 @media (max-width: 767px) {
   #inspector { display: none !important; }
-  .main-tabs-end { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .insp-spin { animation: none; }

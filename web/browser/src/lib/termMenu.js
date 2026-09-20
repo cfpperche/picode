@@ -36,22 +36,25 @@ export const TERM_MENU_KEYS = {
 // promptDoor is the HTTP door, never a fake cli/running on an agent pane.
 export function paneCapabilities({
   host, termRecord, agent, workspace, paneCwd, tabs, clis,
-  selection, link, focus, focusable, focusKey, findKey, splitOn,
+  selection, link, focus, focusable, focusKey, findKey, splitOn, ownerKind, ownerId, tabId: containingTab, localScrollback,
 } = {}) {
   const interactive = host === "agent" && agent && agent.mode === "interactive";
   const cliRunning = host === "term" && termRecord && termRecord.launchCli && termRecord.running;
   const found = host === "term" ? !!termRecord : !!agent;
-  const tabId = host === "agent" ? (agent && agent.id) : (termRecord && ("t:" + termRecord.id));
+  const tabId = containingTab || (host === "agent" ? (agent && agent.id) : (termRecord && ("t:" + termRecord.id)));
   return {
     host,
     kind: host, // live handlers still read ctx.kind (open-link, open-browser)
     id: host === "agent" ? (agent && agent.id) : (termRecord && termRecord.id),
-    selection, link, focus, focusable, focusKey, findKey, splitOn, clis,
+    ownerKind: ownerKind || host,
+    ownerId: ownerId || (host === "agent" ? agent?.id : termRecord?.id),
+    tabId,
+    selection, link, focus, focusable, focusKey, findKey, splitOn, clis, localScrollback,
     promptDoor: cliRunning ? "cli" : interactive ? "tui" : null,
     cliLabel: cliRunning ? terminalCliLabel(termRecord.launchCli) : (interactive ? "Pi" : ""),
     running: !!(cliRunning || interactive),
     shell: host === "term" && !!termRecord && !termRecord.launchCli && !terminalCli(termRecord),
-    lifecycle: found ? host : null,
+    lifecycle: found ? (ownerKind || host) : null,
     filesOwner: found ? host : null,
     settings: !found ? null : (host === "term" ? "per-terminal" : "global"),
     tabOpen: !!(tabId && (tabs || []).includes(tabId)),
@@ -101,7 +104,7 @@ export function buildTermMenu(ctx = {}) {
 
   const view = [
     { id: "find", label: "Find…", icon: "search", key: ctx.findKey || TERM_MENU_KEYS.find },
-    { id: "scroll-end", label: "Go to the end", icon: "end" },
+    ...(ctx.localScrollback === false ? [] : [{ id: "scroll-end", label: "Go to the end", icon: "end" }]),
     {
       id: "text-size",
       label: "Text size",

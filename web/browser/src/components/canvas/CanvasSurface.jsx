@@ -26,6 +26,7 @@ import PatternSwatch from "./PatternSwatch.jsx";
 import NameDialog from "./NameDialog.jsx";
 import { ChunkLoader } from "./chunkLoader.js";
 import { forgetPane, ownedByTab } from "./paneOwnership.js";
+import { canvasTerminalHost, canvasTerminalTools } from "../../lib/terminalHost.js";
 import { forgetDocument, heldDocumentDirty } from "../../lib/fileDocs.js";
 import "../../styles/canvas.css";
 
@@ -161,7 +162,7 @@ function ownerFolder(kind, row, fleet) {
 // leave it out and the model is judged unchanged when the words change, the
 // memoized wrapper keeps the old object, and the box renders the old string.
 // Which is exactly what happened the first time (2026-09-12).
-const MODEL_KEYS = ["id", "kind", "ref", "x", "y", "w", "h", "pending", "state", "target", "name", "hint", "cwd", "status", "label", "stamp", "owned", "dirty", "wsId", "ask", "content"];
+const MODEL_KEYS = ["id", "kind", "ref", "x", "y", "w", "h", "pending", "state", "target", "name", "hint", "cwd", "status", "label", "stamp", "owned", "dirty", "wsId", "ask", "content", "runtimeId", "runtimeEpoch", "terminals"];
 function sameModel(a, b) {
   return !!a && MODEL_KEYS.every((k) => a[k] === b[k]);
 }
@@ -268,9 +269,13 @@ function buildModel(panel, fleet, workingIds, openTabs, dirtyIds, prev) {
     status = "needs-you";
     label = "Unsaved";
   }
+  const runtime = panel.kind === "agent" || panel.kind === "terminal"
+    ? canvasTerminalHost(panel.kind, target, cwd, fleet, openTabs) : {};
+  const runtimeId = runtime.id;
+  const owned = !!runtime.owned;
   const next = {
     id: panel.id, kind: panel.kind, ref: panel.ref, x: panel.x, y: panel.y, w: panel.w, h: panel.h, pending: !!panel.pending,
-    state, target, name, hint, cwd, status, label, stamp, dirty, wsId, ask, owned: ownedByTab(panel.kind, panel.ref, openTabs),
+    state, target, name, hint, cwd, status, label, stamp, dirty, wsId, ask, owned, runtimeId, runtimeEpoch: runtime.epoch, terminals: fleet.terminals,
     content: panel.content || "",
   };
   return sameModel(prev, next) ? prev : next;
@@ -531,7 +536,11 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
       if (ev.type === "terminal.deleted" || ev.type === "agent.deleted") {
         const gone = ev.data && ev.data.id;
         const kind = ev.type === "terminal.deleted" ? "terminal" : "agent";
-        if (gone) forgetPane(gone, ownedByTab(kind, gone, (hostRef.current && hostRef.current.openTabs) || NO_PANELS));
+        if (gone) {
+          const models = [...modelsRef.current.values()].filter((m) => m.kind === kind && m.ref === gone);
+          for (const model of models) if (model.runtimeId) forgetPane(model.runtimeId, model.owned);
+          forgetPane(gone, ownedByTab(kind, gone, (hostRef.current && hostRef.current.openTabs) || NO_PANELS));
+        }
         return;
       }
       // A note follows its pin: the feed carries the summary, so the list
@@ -1185,16 +1194,13 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
     // onOpenFile(model, path): a path the body found — a terminal's OSC 8
     // link, or the diff body's own **Open file**. The owner is the panel's
     // binding, which for a file or a diff is inside the ref.
-    attachFor: (model) => {
-      const a = (hostRef.current || {}).termAttach;
-      if (!a || !a.id) return null;
-      const id = (model && model.target && model.target.id) || (model && model.ref);
-      return a.id === id ? a : null;
-    },
+    attachFor: (model) => canvasTerminalTools(model, hostRef.current).attach,
     onAttachClose: () => {
       const h = hostRef.current || {};
       if (h.onAttachClose) h.onAttachClose();
     },
+    findFor: (model) => canvasTerminalTools(model, hostRef.current).find,
+    onFindClose: (id) => hostRef.current?.onFindClose?.(id),
     onOpenFile: (model, path) => {
       const h = hostRef.current || {};
       if (!h.openFileTab) return;
@@ -1231,7 +1237,7 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
         .catch(toastError);
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), []);
+  }), [host?.termAttach, host?.termFind]);
 
   // ---- maximize (plan §4.6: the panel takes the surface, layout untouched)
   // Esc on any chrome restores — the layer's head, the surface header, the
@@ -1627,6 +1633,8 @@ export default function CanvasSurface({ manifest, hidden, onClose, host, initial
                 onOpenFile={(path) => handlers.onOpenFile(maxModel, path)}
                 attach={handlers.attachFor ? handlers.attachFor(maxModel) : null}
                 onAttachClose={handlers.onAttachClose}
+                find={handlers.findFor(maxModel)}
+                onFindClose={handlers.onFindClose}
                 onDirty={(dirty) => handlers.onDirty(maxModel, dirty)}
                 onSaveText={(text) => handlers.onSaveText(maxModel, text)}
               />

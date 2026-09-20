@@ -16,7 +16,7 @@ for (const [mode, patch, actions] of [
   assert.deepEqual(JSON.parse(calls[0].body), patch);
   assert.equal(calls[0].method, "PATCH");
   assert.ok(calls.slice(1).every(c => c.method === "POST"));
-  assert.deepEqual(closed, mode === "interactive" && actions.length > 1 ? ["a/b"] : []);
+  assert.deepEqual(closed, mode === "interactive" && actions.length > 1 ? ["sh:a/b"] : []);
 });
 for (const failure of ["", "/managed/stop", "/managed/start"]) test(`failure at ${failure || "save"} stops the sequence and reports partial success honestly`, async () => {
   const calls = [];
@@ -28,4 +28,15 @@ for (const failure of ["", "/managed/stop", "/managed/start"]) test(`failure at 
 });
 test("missing agent never writes", async () => {
   await assert.rejects(() => saveAgentConfig(null, {}, () => assert.fail("unexpected write")), /Select an agent/);
+});
+
+for (const failure of ["", "/close", "/open"]) test("legacy configuration migration cleanup: " + (failure || "success"), async () => {
+  const closed = [], calls = [];
+  const run = () => saveAgentConfig({ id: "a", terminalId: "t", mode: "interactive", legacyInteractive: true }, { opMode: "readonly" }, async url => {
+    calls.push(url);
+    if (failure && url.endsWith(failure)) throw Error("Offline");
+  }, key => closed.push(key));
+  if (failure) await assert.rejects(run, /Settings saved, but/); else await run();
+  assert.deepEqual(closed, failure === "/close" ? [] : ["sh:a", "sh:t"]);
+  if (failure === "/close") assert.equal(calls.some(url => url.endsWith("/open")), false);
 });

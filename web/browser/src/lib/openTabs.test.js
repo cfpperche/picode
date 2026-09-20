@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { readChatWanted, writeChatWanted } from "./openTabs.js";
 import { filterAgentSplits, filterOpenTabs, moveTab, readAgentSplits, readFileWorktrees, readGitOwners, readOpenTabs, readTermWanted, readWebTabUrls, writeAgentSplitUrls, writeAgentSplits, writeFileWorktrees, writeGitOwners, writeOpenTabs, writeTermWanted, writeWebTabUrls } from "./openTabs.js";
 
 test("filterOpenTabs drops missing agents", () => {
@@ -53,6 +54,16 @@ test("term view roundtrip and dedupe", () => {
   assert.deepEqual(readTermWanted(), ["a", "b"]);
   writeTermWanted([]);
   assert.deepEqual(readTermWanted(), []);
+});
+
+test("explicit Chat preference survives reload without changing TUI defaults", () => {
+  const store = {};
+  globalThis.localStorage = { getItem: key => store[key], setItem: (key, value) => { store[key] = value; } };
+  assert.deepEqual(readChatWanted(), []);
+  writeChatWanted(["pi", "pi"]);
+  assert.deepEqual(readChatWanted(), ["pi"]);
+  store["picode-chat-wanted"] = "{invalid";
+  assert.deepEqual(readChatWanted(), []);
 });
 
 test("git owners survive a round trip and reject junk", () => {

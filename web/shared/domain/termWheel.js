@@ -45,3 +45,41 @@ export function wireTermWheel(term, send) {
     return false;
   });
 }
+
+// The Agent CLIs touch gesture belongs to the terminal pane, not its route.
+// Keep native xterm mouse reporting/scrollback arbitration in wireTermWheel.
+export function wireTermTouch(host) {
+  let lastY = null;
+  let acc = 0;
+  const reset = () => { lastY = null; acc = 0; };
+  const start = e => { lastY = e.touches.length === 1 ? e.touches[0].clientY : null; acc = 0; };
+  const move = e => {
+    if (e.touches.length !== 1) { reset(); return; }
+    if (lastY === null) return;
+    const y = e.touches[0].clientY;
+    acc += lastY - y;
+    lastY = y;
+    const target = host.querySelector(".xterm-screen") || host.querySelector(".xterm");
+    if (!target) return;
+    while (Math.abs(acc) >= 16) {
+      const direction = acc > 0 ? 1 : -1;
+      acc -= direction * 16;
+      target.dispatchEvent(new WheelEvent("wheel", {
+        deltaY: direction * 40, deltaMode: 0,
+        clientX: e.touches[0].clientX, clientY: y,
+        bubbles: true, cancelable: true,
+      }));
+    }
+    e.preventDefault();
+  };
+  host.addEventListener("touchstart", start, { passive: true });
+  host.addEventListener("touchmove", move, { passive: false });
+  host.addEventListener("touchend", reset);
+  host.addEventListener("touchcancel", reset);
+  return () => {
+    host.removeEventListener("touchstart", start);
+    host.removeEventListener("touchmove", move);
+    host.removeEventListener("touchend", reset);
+    host.removeEventListener("touchcancel", reset);
+  };
+}

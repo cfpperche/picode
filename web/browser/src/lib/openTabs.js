@@ -96,6 +96,19 @@ export function writeTermWanted(ids) {
   localStorage.setItem(TERM_KEY, JSON.stringify(clean));
 }
 
+// Absence of a preference now means "use the runtime's natural view".
+// Remember explicit Chat separately so a live Pi defaults to TUI without
+// overriding a reader who deliberately chose Chat.
+export function readChatWanted() {
+  try {
+    const rows = JSON.parse(localStorage.getItem("picode-chat-wanted") || "[]");
+    return Array.isArray(rows) ? rows.filter(id => typeof id === "string" && id) : [];
+  } catch { return []; }
+}
+export function writeChatWanted(ids) {
+  try { localStorage.setItem("picode-chat-wanted", JSON.stringify([...new Set(ids)])); } catch { /* viewer preference */ }
+}
+
 const GIT_KEY = "picode-git-owners";
 
 // A git tab is identified by its repository (ADR-0022), but a reload has to

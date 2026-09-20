@@ -1,17 +1,15 @@
-import { createSticky } from "@picode/shared/domain/termSticky.js";
+import { wireTerminalRuntime } from "@picode/shared/client/terminalRuntime.js";
 import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
 import { terms, parkTerm, closeTerm } from "../lib/terms.js";
-import { wireTermWheel } from "@picode/shared/domain/termWheel.js";
-import { paneLeaveKey, termDataFilter, wireTermKeys } from "@picode/shared/domain/termKeys.js";
+import { paneLeaveKey } from "@picode/shared/domain/termKeys.js";
 import { matchGlobalAction } from "../lib/appKeys.js";
-import { scheduleTermFit, wireTermFit } from "@picode/shared/domain/termFit.js";
+import { scheduleTermFit } from "@picode/shared/domain/termFit.js";
 import { wireTermLinks } from "@picode/shared/domain/termLinks.js";
-import { wireTermClipboard } from "@picode/shared/domain/termClipboard.js";
 import { api, wsURL } from "@picode/shared/client/api.js";
-import { connectTermSocket, kickTermSocket } from "@picode/shared/client/termSocket.js";
+import { kickTermSocket } from "@picode/shared/client/termSocket.js";
 import { toast } from "../lib/toast.js";
 import { xtermOptions, applyXtermOptions } from "@picode/shared/domain/termTheme.js";
 import "@xterm/xterm/css/xterm.css";
@@ -29,8 +27,9 @@ export function closeShellTerm(agentId) {
 // passes false unless it is the one focused panel (plan §4.6): every
 // visible panel re-claims its pane on reveal, exactly one calls
 // term.focus().
-export default function ShellTerm({ agentId, session, active, autoFocus = true, cwd, cwdKind, onOpenFile, onOpenLink }) {
+export default function ShellTerm({ agentId, session, active, autoFocus = true, cwd, cwdKind, tabId = "", onOpenFile, onOpenLink }) {
   const hostRef = useRef(null);
+  const bindLinksRef = useRef(null);
   const cwdRef = useRef(cwd);
   const fileRef = useRef(onOpenFile);
   fileRef.current = onOpenFile;
@@ -71,17 +70,27 @@ export default function ShellTerm({ agentId, session, active, autoFocus = true, 
       } catch { /* keep cache */ }
       return cwdRef.current;
     };
+    bindLinksRef.current = (entry) => {
+      entry.unwireLinks?.();
+      entry.unwireLinks = wireTermLinks(entry.term, () => cwdRef.current, onFile, liveCwd, (href) => {
+        if (linkRef.current) linkRef.current(href);
+        else window.open(href, "_blank", "noopener,noreferrer");
+      });
+    };
+    const cached = terms.get(id);
+    if (cached && cached.session !== session) closeTerm(id);
     if (terms.has(id)) {
       const entry = terms.get(id);
+      // A hidden duplicate host must not steal the pane from its visible tab.
+      if (!active) return () => park(entry.paneEl);
+      entry.paneEl.dataset.termTabId = tabId;
+      bindLinksRef.current(entry);
       const live = entry.sock && entry.sock.readyState === WebSocket.OPEN;
       if (live) {
         if (entry.paneEl.parentElement !== hostRef.current) hostRef.current.appendChild(entry.paneEl);
         entry.paneEl.classList.add("active");
         scheduleTermFit(entry, true);
         if (active && focusRef.current && entry.term) entry.term.focus();
-        if (entry.term && !entry.unwireLinks) {
-          entry.unwireLinks = wireTermLinks(entry.term, () => cwdRef.current, onFile, liveCwd, (href) => linkRef.current?.(href));
-        }
         return () => park(entry.paneEl);
       }
       // The attach dropped while we were away. Reattach the SAME instance
@@ -101,6 +110,7 @@ export default function ShellTerm({ agentId, session, active, autoFocus = true, 
     paneEl.dataset.termId = agentId;
     paneEl.dataset.termKind = cwdKind === "agent" ? "agent" : "term";
     paneEl.dataset.termCwd = cwdRef.current || "";
+    paneEl.dataset.termTabId = tabId;
     hostRef.current.appendChild(paneEl);
     const term = new Terminal(xtermOptions());
     const fit = new FitAddon();
@@ -110,49 +120,14 @@ export default function ShellTerm({ agentId, session, active, autoFocus = true, 
     const search = new SearchAddon();
     term.loadAddon(search);
     term.open(paneEl);
-    const entry = { term, fit, search, paneEl, sock: null, closedByUser: false, sticky: createSticky() };
-    const sendBytes = (bytes) => {
-      if (entry.sock && entry.sock.readyState === WebSocket.OPEN) entry.sock.send(bytes);
-    };
-    wireTermWheel(term, sendBytes);
-    // The app's global chords and Shift+Esc (the Canvas's "leave the
-    // pane" key) bubble out of the pane instead of reaching the shell.
-    wireTermKeys(term, sendBytes, (ev) => matchGlobalAction(ev) || paneLeaveKey(ev));
-    wireTermClipboard(term, { onError: () => toast.error("The browser refused the copy — select and press Ctrl+C instead.") });
-    wireTermFit(entry);
-    entry.unwireLinks = wireTermLinks(term, () => cwdRef.current, onFile, liveCwd, (href) => linkRef.current?.(href));
-    // Key and resize handlers live on the term once — they survive a
-    // reattach and read the current socket through entry.sock.
-    term.onData((data) => {
-      const out = entry.sticky.apply(termDataFilter(data)); // phone Ctrl/Alt, armed from the key bar
-      if (out === "") return;
-      sendBytes(new TextEncoder().encode(out));
-    });
-    term.onResize(() => {
-      if (entry.sock && entry.sock.readyState === WebSocket.OPEN && term.cols > 1 && term.rows > 1) {
-        entry.sock.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
-      }
-    });
-    connectTermSocket(entry, wsURL("/ws/term?session=" + encodeURIComponent(session)), {
-      onOpen: () => {
-        scheduleTermFit(entry, true); // resize the fresh tmux attach
-        if (active && focusRef.current) term.focus();
-      },
-      onMessage: (ev) => {
-        if (typeof ev.data === "string") {
-          try {
-            const msg = JSON.parse(ev.data);
-            if (msg.type === "error") term.writeln("\r\n\x1b[31m" + msg.message + "\x1b[0m");
-          } catch { /* ignore */ }
-          return;
-        }
-        term.write(new Uint8Array(ev.data));
-      },
-      onState: () => {
-        term.writeln("\r\n\x1b[90m— detached —\x1b[0m");
-        if (window.__picodeKickHealth) window.__picodeKickHealth();
-      },
-      onGiveUp: () => term.writeln("\r\n\x1b[90mSession ended. Reopen the terminal.\x1b[0m"),
+    const entry = { term, fit, search, paneEl, session, sock: null, closedByUser: false };
+    bindLinksRef.current(entry);
+    wireTerminalRuntime(entry, {
+      url: wsURL("/ws/term?session=" + encodeURIComponent(session)),
+      onClipboardError: () => toast.error("The browser refused the copy — select and press Ctrl+C instead."),
+      onDetached: () => window.__picodeKickHealth?.(),
+      reservedKey: ev => matchGlobalAction(ev) || paneLeaveKey(ev),
+      onOpen: () => { if (active && focusRef.current) term.focus(); },
     });
     terms.set(id, entry);
     return () => park(paneEl);
@@ -162,6 +137,8 @@ export default function ShellTerm({ agentId, session, active, autoFocus = true, 
     if (!active || !agentId) return;
     const entry = terms.get(shellKey(agentId));
     if (!entry || !entry.term) return;
+    bindLinksRef.current?.(entry);
+    entry.paneEl.dataset.termTabId = tabId;
     // The pane follows the visible host (ADR-0109): shown in a native
     // app's panel and then revealed in its own tab, it comes back here
     // instead of staying in the hidden host — the tab would be empty.
@@ -169,7 +146,7 @@ export default function ShellTerm({ agentId, session, active, autoFocus = true, 
     entry.paneEl.classList.add("active");
     scheduleTermFit(entry, true);
     if (autoFocus) entry.term.focus();
-  }, [active, autoFocus, agentId]);
+  }, [active, autoFocus, agentId, tabId]);
 
   useEffect(() => {
     function apply() {
