@@ -2,17 +2,30 @@ import { useEffect, useState } from "react";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { api } from "@picode/shared/client/api.js";
 import { cliSettingsHash, supportsCliSettings, loadPiSettingsContext } from "@picode/shared/domain/cliSettings.js";
+import { supportsNativeSettings } from "@picode/shared/domain/cliNative.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 import PiSettings from "./PiSettings.jsx";
+import CliNativeSettings from "./CliNativeSettings.jsx";
 
 const EDITORS = { pi: { Editor: PiSettings, loadContext: loadPiSettingsContext } };
 
-export default function CliSettings({ hidden, route, catalog, onAgentConfig, pane = "settings" }) {
-  const supported = supportsCliSettings(route.id);
-  return <section id="cli-settings-view" hidden={hidden}>
-    {route.invalid || !supported ? <div className="cli-notice" role="status"><span>{route.invalid ? "This settings link is invalid." : (pane === "keyboard" ? "Keyboard settings for " : "Settings for ") + terminalCliLabel(route.id) + " are in development — coming soon."}</span></div>
-      : !hidden ? <SettingsEditor key={route.id + ":" + route.agentId} route={route} catalog={catalog} onAgentConfig={onAgentConfig} pane={pane} /> : null}
-  </section>;
+// Two editors behind one pane. Pi keeps its own API, layers and trust rules
+// (ADR-0101); every other managed CLI is edited through its own config file by
+// the schema-driven editor (ADR-0163). The keyboard map stays Pi's: no guest
+// CLI exposes a key map PiCode can write.
+export default function CliSettings({ hidden, route, catalog, onAgentConfig, pane = "settings", workspaceId = "" }) {
+  const native = pane === "settings" && supportsNativeSettings(route.id);
+  const supported = supportsCliSettings(route.id) || native;
+  const body = () => {
+    if (route.invalid) return <div className="cli-notice" role="status"><span>This settings link is invalid.</span></div>;
+    if (!supported) {
+      return <div className="cli-notice" role="status"><span>{(pane === "keyboard" ? "Keyboard settings for " : "Settings for ") + terminalCliLabel(route.id) + " are in development — coming soon."}</span></div>;
+    }
+    if (hidden) return null;
+    if (native) return <CliNativeSettings key={route.id + ":" + route.layer} route={route} workspaceId={workspaceId} />;
+    return <SettingsEditor key={route.id + ":" + route.agentId} route={route} catalog={catalog} onAgentConfig={onAgentConfig} pane={pane} />;
+  };
+  return <section id="cli-settings-view" hidden={hidden}>{body()}</section>;
 }
 
 function SettingsEditor({ route, catalog, onAgentConfig, pane = "settings" }) {

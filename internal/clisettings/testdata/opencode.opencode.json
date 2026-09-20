@@ -1,0 +1,7 @@
+{
+  // the team's shared default
+  "$schema": "https://opencode.ai/config.json",
+  "model": "anthropic/claude-sonnet-4.6",
+  "autoupdate": true,
+  "mcp": {}
+}

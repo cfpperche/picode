@@ -1,0 +1,143 @@
+// Native settings and native memory for the guest agent CLIs (ADR-0163).
+//
+// Pi is not here. It keeps its own editor, its own API and its own trust rules
+// (ADR-0101); this module covers the eight CLIs whose settings PiCode edits by
+// writing their own config files, and the memory view every CLI answers for —
+// including the ones whose honest answer is "none".
+
+// The CLIs with a settings declaration in internal/clisettings. The server is
+// the authority; this list keeps the pane from asking for an editor that does
+// not exist, and the test below keeps the two in step.
+export const NATIVE_SETTINGS_CLIS = ["claude-code", "codex", "grok", "hermes", "opencode", "muse", "agy", "omp"];
+
+export const supportsNativeSettings = (id) => NATIVE_SETTINGS_CLIS.includes(id);
+
+// Every CLI has a memory pane: four tiers, and three of them are a sentence.
+export const MEMORY_TIERS = ["editable", "readonly", "none", "unknown"];
+
+// The route says `layer`, the driver says `scope`. One vocabulary each, mapped
+// here rather than in a component, so a link and a request cannot drift.
+export function layerToScope(layer) {
+  return layer === "project" ? "project" : "user";
+}
+
+export function scopeToLayer(scope) {
+  return scope === "project" ? "project" : "global";
+}
+
+// The layer the pane opens on: the one the route names when the CLI has it,
+// otherwise the first layer the CLI declares.
+export function defaultLayer(layers = [], routeLayer = "") {
+  const wanted = layerToScope(routeLayer);
+  if (routeLayer && layers.some((l) => l.scope === wanted)) return routeLayer;
+  const first = layers[0];
+  return first ? scopeToLayer(first.scope) : "global";
+}
+
+// Fields in declaration order, grouped by their declared group. A CLI that
+// declares no group gets one unnamed section rather than a header saying
+// nothing.
+export function groupFields(fields = []) {
+  const out = [];
+  for (const field of fields) {
+    const name = field.group || "";
+    let group = out.find((g) => g.name === name);
+    if (!group) {
+      group = { name, fields: [] };
+      out.push(group);
+    }
+    group.fields.push(field);
+  }
+  return out;
+}
+
+// What one row shows: the value in force for this layer, whether this layer is
+// the one that sets it, and where it comes from otherwise. `fallback` is the
+// CLI's own behaviour when nobody sets the key — the honest answer to "what
+// happens if I leave this alone".
+export function rowState(field, layers = [], scope = "user") {
+  const here = layers.find((l) => l.scope === scope);
+  const setHere = !!here && Object.prototype.hasOwnProperty.call(here.values || {}, field.key);
+  if (setHere) return { value: here.values[field.key], setHere: true, from: "" };
+  // Layers arrive in the vendor's precedence order, last wins; a row this
+  // layer does not set inherits from the nearest layer before it that does.
+  const index = layers.findIndex((l) => l.scope === scope);
+  for (let i = (index < 0 ? layers.length : index) - 1; i >= 0; i -= 1) {
+    const layer = layers[i];
+    if (layer && Object.prototype.hasOwnProperty.call(layer.values || {}, field.key)) {
+      return { value: layer.values[field.key], setHere: false, from: layer.label };
+    }
+  }
+  return { value: undefined, setHere: false, from: "" };
+}
+
+// The one-line warning a dangerous choice carries. Danger is named, never
+// hidden (docs/benchmarks.md).
+export function dangerNote(field, value) {
+  if (!field.danger) return "";
+  const dangerous = field.danger === "true" ? value === true : String(value) === field.danger;
+  if (!dangerous) return "";
+  // Each dangerous choice says what it specifically costs. One shared sentence
+  // printed the same words twice inside one group (visual review 2026-09-20).
+  return field.dangerNote || "This turns off a safety check.";
+}
+
+// Values arrive from a config file, so a number field can hold a string and a
+// switch can hold anything. Coerce to the kind the field declares, and refuse
+// to send a value the field cannot hold.
+export function coerce(field, raw) {
+  if (field.kind === "bool") return !!raw;
+  if (field.kind === "number") {
+    const n = Number(String(raw).trim());
+    return Number.isFinite(n) ? n : null;
+  }
+  return String(raw);
+}
+
+// Memory item titles come from the file name; the pane shows the CLI's own
+// frontmatter kind when a file declares one.
+export const MEMORY_KIND_LABELS = {
+  user: "About you",
+  feedback: "Feedback",
+  project: "Project",
+  reference: "Reference",
+};
+
+export function memoryKindLabel(kind) {
+  return MEMORY_KIND_LABELS[kind] || kind || "";
+}
+
+// One line for each tier that has nothing to list, plus the action that
+// changes it. Chrome carries state and the next action, never an essay
+// (.pi/skills/uiux-review).
+export function memoryEmptyLine(report, store) {
+  if (!report) return { line: "", action: "" };
+  if (report.tier === "none" || report.tier === "unknown") {
+    return { line: report.note || "", action: "" };
+  }
+  if (store && !store.resolved) return { line: store.note || "", action: report.toggle ? "settings" : "" };
+  if (store && !store.exists) return { line: "Nothing remembered yet.", action: report.toggle ? "settings" : "" };
+  return { line: "Nothing remembered yet.", action: report.toggle ? "settings" : "" };
+}
+
+export function cliMemoryHash(cli, { workspaceId = "", scope = "" } = {}) {
+  const query = new URLSearchParams();
+  if (workspaceId) query.set("workspaceId", workspaceId);
+  if (scope) query.set("scope", scope);
+  return "#/clis/" + encodeURIComponent(cli || "") + "/memory" + (query.size ? "?" + query : "");
+}
+
+export function cliMemoryLocation(hash = "") {
+  const [path, query = ""] = String(hash).replace(/^#/, "").split("?");
+  const match = /^\/clis\/([^/]+)\/memory$/.exec(path);
+  if (!match) return null;
+  let cli = "";
+  try {
+    cli = decodeURIComponent(match[1]);
+  } catch {
+    cli = "";
+  }
+  const params = new URLSearchParams(query);
+  const scope = params.get("scope") === "workspace" || params.get("scope") === "global" ? params.get("scope") : "";
+  return { view: "clis", pane: "memory", id: cli, workspaceId: params.get("workspaceId") || "", scope };
+}

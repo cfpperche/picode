@@ -1,0 +1,8 @@
+modelRoles:
+  default: zai/glm-5.3-flash
+symbolPreset: ascii
+composer:
+  shape: band
+theme:
+  dark: titanium
+setupVersion: 2

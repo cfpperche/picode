@@ -161,8 +161,10 @@ test("catalog capabilities decide what a CLI's surface shows", () => {
   assert.deepEqual(cliCapabilities({ id: "pi", integrationCapable: true, launchable: true, sessions: { list: true } }), { launch: true, integration: true, sessions: true });
   assert.deepEqual(cliCapabilities({ id: "muse", integrationCapable: false, launchable: true, sessions: { list: false } }), { launch: true, integration: false, sessions: false });
   assert.deepEqual(cliCapabilities(null), { launch: false, integration: false, sessions: false });
-  assert.deepEqual(cliPanes({ id: "muse", integrationCapable: false, launchable: true, sessions: { list: true } }), ["launch", "terminals", "sessions", "providers", "settings", "keyboard", "packages", "connectors"]);
-  assert.deepEqual(cliPanes({ id: "pi", integrationCapable: true, launchable: true, sessions: { list: true } }), ["launch", "terminals", "sessions", "providers", "settings", "keyboard", "packages", "connectors"]);
+  // Memory joined the setup group with ADR-0163: every CLI carries the tab,
+  // and the ones with no native memory answer it in one line.
+  assert.deepEqual(cliPanes({ id: "muse", integrationCapable: false, launchable: true, sessions: { list: true } }), ["launch", "terminals", "sessions", "providers", "settings", "keyboard", "memory", "packages", "connectors"]);
+  assert.deepEqual(cliPanes({ id: "pi", integrationCapable: true, launchable: true, sessions: { list: true } }), ["launch", "terminals", "sessions", "providers", "settings", "keyboard", "memory", "packages", "connectors"]);
 });
 
 // ADR-0154: a CLI agent's per-agent scope for PiCode tools is the launch. A
