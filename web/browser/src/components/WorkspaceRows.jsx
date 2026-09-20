@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { IconChat, IconChevronRight, IconEllipsis, IconFolder, IconGit, IconMode, IconPencil, IconPlay, IconReload, IconSettings, IconStop, IconTerminal, IconX } from "./Icons.jsx";
 import { displayAgentName } from "@picode/shared/domain/tree.js";
@@ -139,7 +139,7 @@ export function AgentRow({
   workingId, workingIds, waitingId, checklists,
   onFileTree, onGitGraph,
   actions = true, meta = false,
-  onRenameAgent, onRun, onStop, onRemoveAgent, onRemove, onChat, onTerm, termView,
+  onRenameAgent, onRun, onRemoveAgent, onRemove, onChat, onTerm, termView,
   clis, terms, onLaunchAction,
 }) {
   const mode = ag.mode || "stopped";
@@ -159,9 +159,9 @@ export function AgentRow({
   const onMenuItem = (r) => {
     switch (r.id) {
       case "start": return onRun && onRun(ag.id);
-      case "stop": return cliAgent ? onLaunchAction && onLaunchAction(term, "stop") : onStop && onStop(ag.id);
-      case "restart": return onLaunchAction && onLaunchAction(term, "restart");
-      case "launch": location.hash = "#/clis/terminal/" + encodeURIComponent(ag.terminalId); return;
+      case "stop":
+      case "restart": return onLaunchAction && onLaunchAction(term, r.id, ag);
+      case "launch": location.hash = r.href; return;
       case "chat": return onChat && onChat(ag.id);
       case "term": return onTerm && onTerm(ag.id);
       case "rename": return onRenameAgent && onRenameAgent(ag, label);
@@ -194,9 +194,12 @@ export function AgentRow({
         {actions ? (
           <RowMenu label={label}>
             {agentRowMenu(ag, { clis, term }).map((r) => (
-              <RowMenuItem key={r.id} title={r.title} danger={r.danger} onSelect={() => onMenuItem(r)}>
-                {AGENT_ROW_MENU_ICONS[r.id]} {r.label}
-              </RowMenuItem>
+              <Fragment key={r.id}>
+                {r.danger ? <RowMenuSep /> : null}
+                <RowMenuItem title={r.title} danger={r.danger} onSelect={() => onMenuItem(r)}>
+                  {AGENT_ROW_MENU_ICONS[r.id]} {r.label}
+                </RowMenuItem>
+              </Fragment>
             ))}
           </RowMenu>
         ) : null}

@@ -25,6 +25,28 @@ Agent CLIs hub offers. Its face is the CLI's favicon, the same one the
 terminal rows wear (`ProviderFace` → `CliAgentFace`); a CLI agent never
 offers Open chat: the TUI is the conversation (owner 2026-09-19).
 
+Workspace menus name lifecycle actions **Start / Restart / Stop agent**
+for every CLI. Order is lifecycle, Launch settings, chat (Pi only),
+terminal, rename, then separated removal. Pi settings open
+`#/clis/pi/settings?agentId=<id>`; other CLIs keep the launch editor above,
+hidden when there is no binding or the adapter does not support it.
+Stop/restart confirmations and completion messages use the agent wording;
+unbound terminal menus retain terminal wording. Pi restart preserves its
+current mode: interactive uses `open?restart=1`, managed closes then starts
+the managed run. Both interrupt current work and require confirmation.
+
+| Agent / state | Lifecycle actions | Settings / chat |
+|---|---|---|
+| Pi stopped | Start agent | Scoped Pi settings / chat |
+| Pi interactive | Restart agent (interactive), Stop agent | Scoped Pi settings / chat |
+| Pi managed | Restart agent (managed), Stop agent | Scoped Pi settings / chat |
+| Other CLI, running terminal | Restart agent, Stop agent | Bound launch settings when supported / no chat |
+| Other CLI, stopped or missing terminal | Start agent | Bound launch settings when supported / no chat |
+| Other CLI, no binding or unsupported adapter | Lifecycle as above | No launch settings / no chat |
+
+Menu coverage: `web/shared/domain/agentRowMenu.test.js`; browser QA exercises
+confirmation cancellation, mode-specific restart routing and failure feedback.
+
 HTTP:
 
 - `GET /api/workspaces/{id}/principals` — the workspace's agents as

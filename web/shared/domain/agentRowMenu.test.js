@@ -12,28 +12,36 @@ const STOPPED = { id: "t1", running: false };
 // state × adapter.
 // | CLI agent | bound terminal  | integrationCapable | lifecycle + launch        |
 // | ----- | --------------- | ------------------ | ------------------------- |
-// | no    | —               | —                  | Start/Stop agent, chat    |
-// | yes   | stopped/missing | true               | Start terminal + launch   |
+// | Pi stopped | —         | —                  | Start, launch, chat       |
+// | Pi managed/interactive | — | —               | Restart/Stop, launch, chat |
+// | yes   | stopped/missing | true               | Start agent + launch      |
 // | yes   | running         | true               | Restart/Stop + launch     |
 // | yes   | any             | false              | lifecycle, no launch      |
 
-test("a Pi agent keeps the managed menu with Open chat", () => {
-  assert.deepEqual(ids(agentRowMenu({ cli: "pi", mode: "stopped" })), ["start", "chat", "term", "rename", "remove"]);
-  assert.deepEqual(ids(agentRowMenu({ cli: "pi", mode: "managed" })), ["stop", "chat", "term", "rename", "remove"]);
+test("Pi offers lifecycle actions in both modes and scoped settings", () => {
+  assert.deepEqual(ids(agentRowMenu({ cli: "pi", mode: "stopped" })), ["start", "launch", "chat", "term", "rename", "remove"]);
+  for (const mode of ["managed", "interactive"]) {
+    const rows = agentRowMenu({ id: "pi/qa", cli: "pi", mode });
+    assert.deepEqual(ids(rows), ["restart", "stop", "launch", "chat", "term", "rename", "remove"]);
+    assert.equal(row(rows, "restart").label, "Restart agent");
+    assert.equal(row(rows, "launch").href, "#/clis/pi/settings?agentId=pi%2Fqa");
+  }
   assert.equal(row(agentRowMenu({ cli: "pi", mode: "managed" }), "stop").label, "Stop agent");
 });
 
-test("a stopped CLI agent offers Start terminal and Launch settings", () => {
+test("a stopped CLI agent offers Start agent and Launch settings", () => {
   const rows = agentRowMenu({ cli: "claude-code", terminalId: "t1" }, { clis: [{ id: "claude-code" }], term: STOPPED });
   assert.deepEqual(ids(rows), ["start", "launch", "term", "rename", "remove"]);
-  assert.equal(row(rows, "start").label, "Start terminal");
+  assert.equal(row(rows, "start").label, "Start agent");
   assert.equal(row(rows, "launch").label, "Launch settings");
+  assert.equal(row(rows, "launch").href, "#/clis/terminal/t1");
 });
 
 test("a running CLI agent swaps the lifecycle for restart and stop", () => {
   const rows = agentRowMenu({ cli: "claude-code", terminalId: "t1" }, { clis: [], term: RUNNING });
   assert.deepEqual(ids(rows), ["restart", "stop", "launch", "term", "rename", "remove"]);
-  assert.equal(row(rows, "stop").label, "Stop terminal");
+  assert.equal(row(rows, "stop").label, "Stop agent");
+  assert.equal(row(rows, "restart").label, "Restart agent");
 });
 
 test("a CLI agent with no terminal in the list degrades to Start", () => {
@@ -55,6 +63,21 @@ test("a CLI agent never offers Open chat; remove is the only danger row", () => 
     assert.equal(rows.filter((r) => r.danger).length, 1);
     assert.equal(row(rows, "remove").danger, true);
   }
+});
+
+test("all CLI agents share lifecycle wording and ordering", () => {
+  for (const cli of ["codex", "claude-code", "grok", "hermes", "opencode", "omp", "muse", "agy"]) {
+    for (const term of [RUNNING, STOPPED]) {
+      const rows = agentRowMenu({ cli, terminalId: "t1" }, { term });
+      assert.deepEqual(rows.filter((r) => ["start", "restart", "stop"].includes(r.id)).map((r) => r.label),
+        term.running ? ["Restart agent", "Stop agent"] : ["Start agent"]);
+      assert.equal(rows.at(-1).id, "remove");
+    }
+  }
+});
+
+test("an unbound CLI agent does not offer launch settings", () => {
+  assert.equal(row(agentRowMenu({ cli: "codex" }), "launch"), undefined);
 });
 
 test("the CLI agent subtitle names the CLI; Pi keeps the old wording", () => {

@@ -4,14 +4,10 @@
 // renderer, and this module is the contract that keeps the sidebar and the
 // node tests from drifting apart.
 //
-// A Pi agent keeps the managed lifecycle: Start/Stop agent and Open chat.
-// A CLI agent (ADR-0160) has no managed runtime: its
-// process is the bound terminal, so the lifecycle rows act on that
-// terminal — Start / Restart / Stop terminal — and Launch settings opens
-// the same screens the Agent CLIs hub offers for the terminal
-// (`#/clis/terminal/<id>`). A CLI agent has no chat panel: the row drops it,
-// not greys it. Remove stays dangerous; the calling surface owns its
-// confirm dialog.
+// Lifecycle labels describe the agent (ADR-0160), whatever runs it.
+// Pi reads its run mode; other CLIs read their bound terminal. Settings
+// use the existing scoped Pi editor or the bound terminal launch editor.
+// Only Pi offers chat. Remove stays last, separated and dangerous.
 //
 // Icons are the renderer's business, so this module stays importable by
 // the node test runner.
@@ -24,8 +20,10 @@ export function agentRowMenu(ag = {}, { clis, term } = {}) {
     const running = ((ag && ag.mode) || "stopped") !== "stopped";
     return [
       running
-        ? { id: "stop", label: "Stop agent", title: "Stop the managed run." }
-        : { id: "start", label: "Start agent", title: "Start a managed run." },
+        ? { id: "restart", label: "Restart agent", title: "Restart this agent in its current mode." }
+        : { id: "start", label: "Start agent", title: "Start this agent." },
+      ...(running ? [{ id: "stop", label: "Stop agent", title: "Stop this agent's current run." }] : []),
+      { id: "launch", label: "Launch settings", title: "Configure this agent's settings.", href: "#/clis/pi/settings?agentId=" + encodeURIComponent(ag.id) },
       { id: "chat", label: "Open chat", title: "Open this agent's chat panel." },
       { id: "term", label: "Open terminal", title: "Open this agent's terminal pane." },
       { id: "rename", label: "Rename", title: "Change this agent's name." },
@@ -40,12 +38,12 @@ export function agentRowMenu(ag = {}, { clis, term } = {}) {
   return [
     ...(running
       ? [
-          { id: "restart", label: "Restart terminal", title: "Stop and relaunch this CLI in the same conversation." },
-          { id: "stop", label: "Stop terminal", title: "End the processes in this terminal; the launch stays saved." },
+          { id: "restart", label: "Restart agent", title: "Stop and relaunch this agent." },
+          { id: "stop", label: "Stop agent", title: "Stop this agent's current run; its launch stays saved." },
         ]
-      : [{ id: "start", label: "Start terminal", title: "Launch this agent's CLI in its terminal." }]),
+      : [{ id: "start", label: "Start agent", title: "Launch this agent in its terminal." }]),
     ...(launch
-      ? [{ id: "launch", label: "Launch settings", title: "CLI, profile and environment this agent launches with." }]
+      ? [{ id: "launch", label: "Launch settings", title: "CLI, profile and environment this agent launches with.", href: "#/clis/terminal/" + encodeURIComponent(ag.terminalId) }]
       : []),
     { id: "term", label: "Open terminal", title: "Open this agent's terminal pane." },
     { id: "rename", label: "Rename", title: "Change this agent's name." },
