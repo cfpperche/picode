@@ -27,6 +27,7 @@ import DashboardView from "./components/DashboardView.jsx";
 import SessionBar from "./components/SessionBar.jsx";
 import ChatSurface from "./components/ChatSurface.jsx";
 import TermSurface from "./components/TermSurface.jsx";
+import AgentViewToolbar from "./components/AgentViewToolbar.jsx";
 import FileSurface from "./components/FileSurface.jsx";
 import Inspector, { InspectorToggle, useInspectorLayout } from "./components/Inspector.jsx";
 import GitGraphSurface from "./components/GitGraphSurface.jsx";
@@ -81,6 +82,7 @@ import { workspaceStatusPath } from "@picode/shared/domain/statusbar.js";
 import Reconnect from "./components/Reconnect.jsx";
 import { setShell } from "@picode/shared/client/shell.js";
 import { dismissNotice, notify, toast, toastError } from "./lib/toast.js";
+import { resolveInteractiveTerminal } from "./lib/agentTerminalView.js";
 import { watchReminders } from "@picode/shared/client/reminders.js";
 import { agentFinishNotice, asksOnSurface, needsYouPlan } from "@picode/shared/domain/notice.js";
 import { groupTurns } from "@picode/shared/domain/turns.js";
@@ -2662,7 +2664,7 @@ export default function App({ shellChrome = false } = {}) {
     try {
       const forceRestart = !!(opts && opts.restart);
       const restart = forceRestart ? "?restart=1" : "";
-      if (forceRestart) closeShellTerm(loc.agent.id);
+      if (forceRestart) closeShellTerm(loc.agent.terminalId || loc.agent.id);
       await api(`/api/agents/${loc.agent.id}/open${restart}`, { method: "POST" });
       if (forceRestart) {
         setTermEpochs((cur) => ({ ...cur, [loc.agent.id]: (cur[loc.agent.id] || 0) + 1 }));
@@ -2693,7 +2695,7 @@ export default function App({ shellChrome = false } = {}) {
         return;
       }
       await api(`/api/agents/${loc.agent.id}/close`, { method: "POST" });
-      closeShellTerm(loc.agent.id);
+      closeShellTerm(loc.agent.terminalId || loc.agent.id);
       if (panelRef.current && panelRef.current.agentId === loc.agent.id) panelRef.current.stopped = true;
       optimisticRef.current = false;
       setStreaming(false);
@@ -3539,6 +3541,12 @@ export default function App({ shellChrome = false } = {}) {
 
           {showHome ? <DashboardView workspaces={workspaces} freeAgents={freeAgents} terminals={terminals} workingIds={tuiWorking} waitingId={waiting ? selectedId : null} onOpen={(id) => openTab(id)} inboxWaiting={inboxWaiting} onOpenApp={(id) => { openTab(appTabId(id)); if (parseRoute() !== "workspace") location.hash = appHash(id); }} /> : null}
 
+          <AgentViewToolbar
+            agent={agent}
+            view={termView ? "terminal" : "chat"}
+            onView={(next) => next === "terminal" ? showTerm() : showChat()}
+          />
+
           {tabs.filter(isTermTab).map((id) => {
             const tid = tabTermId(id);
             const t = terminals.find((x) => x.id === tid);
@@ -3963,19 +3971,24 @@ export default function App({ shellChrome = false } = {}) {
 
           {termView && !onPane && agent ? (
             agent.mode === "interactive" ? (
-              <>
-                <TermSurface
-                  key={"agterm-" + agent.id + "-" + (termEpochs[agent.id] || 0)}
-                  term={{ id: agent.id, session: "picode-" + agent.id, name: agent.name + " · TUI", cwd: agent.workPath || (selected && selected.path) }}
-                  cwdKind="agent"
-                  onOpenFile={(p) => openFileTab("agent", agent.id, p)}
-                  onOpenLink={openTermLink}
-                  attach={termAttach && termAttach.id === agent.id ? termAttach : null}
-                  onAttachClose={() => setTermAttach(null)}
-                  find={termFind === agent.id}
-                  onFindClose={() => { setTermFind(""); focusPane(agent.id); }}
-                />
-              </>
+              (() => {
+                const resolved = resolveInteractiveTerminal(agent, terminals, selected && selected.path);
+                const term = resolved.term;
+                const termId = resolved.id;
+                return (
+                  <TermSurface
+                    key={"agterm-" + termId + "-" + (termEpochs[agent.id] || 0)}
+                    term={term}
+                    cwdKind={resolved.cwdKind}
+                    onOpenFile={(p) => openFileTab(resolved.canonical ? "term" : "agent", termId, p)}
+                    onOpenLink={openTermLink}
+                    attach={termAttach && termAttach.id === termId ? termAttach : null}
+                    onAttachClose={() => setTermAttach(null)}
+                    find={termFind === termId}
+                    onFindClose={() => { setTermFind(""); focusPane(termId); }}
+                  />
+                );
+              })()
             ) : (
               <section className="term-surface" aria-label="Agent terminal">
                 <p className="file-pane-msg">
