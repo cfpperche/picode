@@ -231,6 +231,7 @@ Two independent React apps, the launcher, the route table and the native CLI pag
 | [Agent CLI memory (ADR-0163)](architecture/cli-memory.md) | `docs/architecture/cli-memory.md` |
 | [Native CLI packages (ADR-0102)](architecture/cli-packages.md) | `docs/architecture/cli-packages.md` |
 | [Native CLI providers (ADR-0103)](architecture/cli-providers.md) | `docs/architecture/cli-providers.md` |
+| [Credentials (ADR-0165)](architecture/credentials.md) | `docs/architecture/credentials.md` |
 | [CLI terminal launch settings (ADR-0069)](architecture/cli-terminal-launch.md) | `docs/architecture/cli-terminal-launch.md` |
 | [Cross-CLI session handoff (ADR-0088)](architecture/cli-session-handoff.md) | `docs/architecture/cli-session-handoff.md` |
 | [llama.cpp manager (ADR-0080)](architecture/llama-manager.md) | `docs/architecture/llama-manager.md` |

@@ -2,6 +2,22 @@
 export const CLI_PROVIDERS = [{ id: "pi", name: "Pi" }];
 export const supportsCliProviders = id => CLI_PROVIDERS.some(cli => cli.id === id);
 
+// The vault roster (ADR-0165) serves the eight guest CLIs; pi keeps its own
+// editor, because its rows are the ones that write auth.json. Keys and names
+// are the launch catalog's ids and terminalCli's labels, so one CLI never has
+// two spellings in the product.
+export const CLI_CREDENTIALS = [
+  { id: "claude-code", name: "Claude Code" },
+  { id: "codex", name: "Codex" },
+  { id: "grok", name: "Grok" },
+  { id: "hermes", name: "Hermes Agent" },
+  { id: "opencode", name: "OpenCode" },
+  { id: "muse", name: "Muse Code" },
+  { id: "agy", name: "Antigravity" },
+  { id: "omp", name: "Omp" },
+];
+export const supportsCliCredentials = id => CLI_CREDENTIALS.some(cli => cli.id === id);
+
 export function cliProvidersHash(cli = "pi", { add = false, custom = false, customId = "" } = {}) {
   const tail = custom ? "/custom" + (customId ? "/" + encodeURIComponent(customId) : "") : add ? "/new" : "";
   return "#/clis/" + encodeURIComponent(cli || "pi") + "/providers" + tail;

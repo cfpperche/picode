@@ -22,6 +22,51 @@ The column template drops the identity column below a 1000 px container and
 folds the cells into a stacked card below 840 px, so one markup serves the
 desktop window, a squeezed window and the phone.
 
+**The credential vault pane (ADR-0165).** The store, the API and the backup
+rules have their own file ([credentials.md](credentials.md)); this is the pane.
+The route now serves nine CLIs: pi keeps the editor above (its rows are the
+ones that write `auth.json`), and the other eight render `CliCredentials.jsx`
+from `GET /api/credentials?cli=<id>`. `supportsCliCredentials` in
+`web/shared/domain/cliProviders.js` names those eight, and the pane's words —
+provider names for the vault's ids, the kind and source chips, a Verify
+answer as a label with a tone, the row order — live in
+`web/shared/domain/credentials.js` so both apps say one thing (ADR-0072).
+Each provider the CLI declares renders its saved accounts as rows
+(`label · identity · kind chip · source chip · masked hint · health chip with
+the vendor's own line · one menu`): the menu carries Rename, Verify — only
+where the provider has a verifier, and the item names the cost ("Verify with
+the provider (1 request)"), because the click spends one listing call —
+Pause/Resume and Sign out behind a confirmation that names the account.
+Accounts in play sort first, then by the name the person gave them, with the
+id as tie-break; the vault's `active` slot is pi's alone and never reorders a
+guest CLI's rows.
+
+A login the CLI already holds is not a vault row and is not counted as one:
+it renders as the provider's own highlighted line ("me@example.com is signed
+in here") with the single action **Import into the vault**, and the row
+disappears as the account appears above it. **Add API key** is the pane's one
+primary action (a provider `<select>` limited to that CLI's providers, the
+key field with the line that says the key stays on this machine, Save); a
+provider with no accounts shows `Name · No accounts yet.` plus its own Add,
+never an empty well, and a provider whose declaration carries a `note` shows
+that one line instead of a Verify control that could not answer.
+`#/clis/<cli>/providers/new` opens the dialog, and closing it rewrites the
+hash back to the pane. Every server error lands in the form that caused it —
+a toast would leave the sheet looking fine.
+
+Honest states: a load skeleton with the real shape; a failed load is one line
+with **Try again**, and the last good roster stays on screen; a vault that
+cannot be read is one line carrying the vault's own problem and **no
+controls at all** (nothing there could succeed); a CLI the server declares no
+credential mechanism for is one line, with no Add button. Geometry lives in
+`web/shared/styles/credentials.css`, imported after `providers.css` by both
+apps' `index.css`: one container query drops the masked-hint column, a second
+folds the same cells into a stacked card — the pane's container tops out near
+940 px inside Agent CLIs, so the aligned row is what a desktop window usually
+shows and the card is what a phone gets. The pane never activates a
+credential for pi, never writes another CLI's file, and never returns a
+secret: the masked hint is all the server sends.
+
 **Custom providers (ADR-0129).** Add provider's picker carries a fixed
 **Custom provider** door onto its own page (`#/clis/pi/providers/custom`,
 `#/clis/pi/providers/custom/<id>` for Edit — benchmarks.md refuses modals

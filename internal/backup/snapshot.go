@@ -63,9 +63,18 @@ func (e *Engine) snapshotLocked(sessions, secrets bool, dest string) (Snapshot, 
 		prevPicode = filepath.Join(prev, "picode")
 	}
 	if secrets {
-		acc := filepath.Join(dataDir, "accounts.json")
-		if _, err := os.Stat(acc); err == nil {
-			if err := putFile(acc, filepath.Join(picodeDst, "accounts.json"), join(prevPicode, "accounts.json"), 0o600, &files); err != nil {
+		// The credential vault (ADR-0165) travels; the key that opens it does
+		// not. A restore on this machine keeps working — the key file stays
+		// where it is — while a snapshot copied to another machine cannot be
+		// decrypted, which is the point of storing credentials encrypted in
+		// the first place. accounts.json is still copied when it exists: it is
+		// what an older release wrote and what the migration absorbs.
+		for _, name := range []string{"credentials.json", "accounts.json"} {
+			src := filepath.Join(dataDir, name)
+			if _, err := os.Stat(src); err != nil {
+				continue
+			}
+			if err := putFile(src, filepath.Join(picodeDst, name), join(prevPicode, name), 0o600, &files); err != nil {
 				e.setLast(false, 0, err)
 				return Snapshot{}, err
 			}
