@@ -1,0 +1,12 @@
+# 2026-09-20 — switch-parity: one control for a boolean, and a default that was wrong
+
+Why this branch exists: the owner looked at Pi's Settings beside the guests' and picked the switch. Pi's pane used the Radix switch its Auto-compact row always had; the eight guest panes used a checkbox. Same inconsistency as the one the previous branch fixed, one layer down.
+What made it more than a swap: the checkbox was there for a reason. It could draw a third state, and an unset key must not read as "Off" when the CLI turns that feature on — that was a finding of the 2026-09-20 visual review. A switch has no third state, so the switch now draws the *effective* value (this layer's if it sets the key, the CLI's own default if nobody does) and the source line carries the provenance the control can no longer show: "Set here", "From This machine", or "<CLI> default". A conditional default ("On while memories are on") stays as the row's help line.
+What that turned up: declaring a default is a claim about someone else's software, and the first pass found one already shipped wrong. Hermes' `display.show_reasoning` was declared "Off" while `hermes_cli/config_defaults.py` says `True`, so a row nobody had touched was telling the owner the opposite of what Hermes does. `agent.max_turns` gained its real number (20) instead of a vague "Hermes default".
+Every boolean now declares its default and `TestEveryBooleanDeclaresItsDefault` holds the set against a table recording where each value was read from — claude's gate, codex's `[features]` block, grok's own config template, hermes' defaults module. A new boolean without that evidence fails the gate rather than shipping a guess.
+Verified live on a scratch instance rather than only in tests: with Hermes' two display keys removed from the file, Compact display drew unchecked and Show reasoning drew **checked**, both labelled "Hermes Agent default" — the exact row that was lying before. Codex's three memory switches read Set here / Codex default / Codex default with the conditional line beneath. No horizontal overflow at 390px; the overlay audit is clean.
+State: `make close` green, `main` can fast-forward. The debt this closes ("a boolean still looks different in the two panes") is removed from `docs/handoff/open/agent-clis-native.md`.
+
+## Next up
+
+- Pi's own pane still reads its rows from a hand-written form and a named resolver list; the guests read theirs from a table. Moving Pi's six original rows onto the same declaration is what would stop this class of drift for good.
