@@ -1,10 +1,11 @@
-# Managed CLI principals → agents (ADR-0160)
+# Managed principals → agents (ADR-0160)
 
 Plan: `docs/plans/cli-as-agents.md`
 
 ## Next
 
-- Fatia E: rekey Inbox / `picode mcp` / grants onto the agent id.
-- Fatia D: copy polish if any "Agent CLI" labels remain outside the hub.
+- Fatia F: automations and Inspector reach CLI agents through the prompt
+  door (ADR-0089/0107) — the last planned slice.
+- ∞ (deferred): managed mode per CLI, until ADR-0091 is re-measured.
 
 ## Debts
