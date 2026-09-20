@@ -822,3 +822,62 @@ func TestPreviewOriginNotOfferedOffLoopback(t *testing.T) {
 		}
 	}
 }
+
+// A mint scoped by ?worktree= serves the sibling checkout's document: the
+// same relative path exists in both trees with different bytes, and the
+// sandbox URL must carry the sibling's.
+func TestPreviewMintWorktreeScoped(t *testing.T) {
+	repo := gitRepo(t)
+	side := filepath.Join(t.TempDir(), "side")
+	gitRun(t, repo, "worktree", "add", "-b", "side", side)
+	if err := os.WriteFile(filepath.Join(repo, "page.html"), []byte("<p>OWNER</p>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(side, "page.html"), []byte("<p>SIBLING</p>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	st := testStore(t)
+	ws, err := st.AddWorkspace("preview", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps := Deps{Store: st, Previews: preview.NewStore(time.Hour)}
+	ts := httptest.NewServer(New("127.0.0.1:0", deps).Handler)
+	t.Cleanup(ts.Close)
+
+	mint := func(query string) (int, map[string]any) {
+		t.Helper()
+		body := fmt.Sprintf(`{"kind":"workspace","id":%q,"path":"page.html"}`, ws.ID)
+		req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/previews"+query, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		res, err := ts.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		var out map[string]any
+		_ = json.NewDecoder(res.Body).Decode(&out)
+		return res.StatusCode, out
+	}
+	code, out := mint("?worktree=side")
+	if code != http.StatusOK {
+		t.Fatalf("scoped mint = %d (%v)", code, out)
+	}
+	box, _ := out["sandbox"].(map[string]any)
+	u, _ := box["url"].(string)
+	if u == "" {
+		t.Fatalf("mint has no sandbox url: %v", out)
+	}
+	res, err := ts.Client().Get(ts.URL + u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	served, _ := io.ReadAll(res.Body)
+	if !strings.Contains(string(served), "SIBLING") || strings.Contains(string(served), "OWNER") {
+		t.Fatalf("sandbox serves %q, want the sibling's document", served)
+	}
+	if code, _ := mint("?worktree=nosuch"); code != http.StatusNotFound {
+		t.Fatalf("bad worktree mint = %d, want 404", code)
+	}
+}

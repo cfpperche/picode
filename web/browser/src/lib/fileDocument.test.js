@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createDocumentGuard, createFileDocument } from "./fileDocument.js";
-import { ownerFileURL, withFileRoot } from "./fileIO.js";
+import { fileMessage, ownerFileURL, withFileRoot } from "./fileIO.js";
 
 const deferred = () => {
   let resolve, reject;
@@ -173,3 +173,8 @@ for (const [kind, family] of [["agent", "agents"], ["term", "terminals"], ["work
     assert.equal(withFileRoot("/blob?path=a", "/repo"), "/blob?path=a&root=%2Frepo");
   });
 }
+
+test("fileMessage maps a stale worktree ref to the gone line", () => {
+  assert.equal(fileMessage("no worktree of this repository is checked out at that branch or commit"), "That file is gone.");
+  assert.equal(fileMessage("that file is gone"), "That file is gone.");
+});
