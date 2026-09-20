@@ -334,9 +334,10 @@ gallery hit is worth a look before anyone installs it expecting this one.
 - [x] The work browser's `docs/architecture/` file — **paid 2026-09-19**:
   `docs/architecture/work-browser.md` (who decides what, the line, tabs, the
   overlay rule, permissions, annotations, evidence, architectural traps).
-- The Ask deferral/answer/watchdog path has never run outside Windows:
-  `cargo xwin build` plus the pure decision table are the evidence here; the
-  owner's live check is the first run.
+- [x] The Ask deferral/answer/watchdog path was accepted on Windows (owner,
+  2026-09-20): Camera Ask, site reset, Allow once, and reopening the tab all
+  behaved correctly after the allow-once profile reset fix. `cargo xwin build`
+  and the pure decision table remain the always-on evidence.
 - An Ask waits only in the tab that asked: a request from a tab the user is
   not looking at is denied when the 60 s watchdog fires. That is the
   limitation the Ask bar's own placement makes honest — nowhere else shows a
