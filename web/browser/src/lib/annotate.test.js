@@ -213,15 +213,18 @@ test("Send delivers to the bound session, never to a stranger", () => {
   );
   // agent-bound with none: named reason, NO fallback
   assert.equal(resolveSendTarget({ boundSession: "ghost", terminals: terms }).none, true);
-  // standalone tab: first running, as before
+  // standalone tab: explicit destination is required; never guess
   assert.deepEqual(
-    resolveSendTarget({ boundSession: "", terminals: terms }),
+    resolveSendTarget({ boundSession: "", terminals: terms, selectedTarget: "desktop" }),
     { kind: "terminal", id: "desktop", name: "desktop" },
   );
+  const unselected = resolveSendTarget({ boundSession: "", terminals: terms });
+  assert.equal(unselected.none, true);
+  assert.ok(unselected.reason.includes("Choose an agent terminal"));
   // standalone, nothing running
   const empty = resolveSendTarget({ boundSession: "", terminals: [{ id: "a", running: false }] });
   assert.equal(empty.none, true);
-  assert.ok(empty.reason.includes("Nothing to send to"));
+  assert.ok(empty.reason.includes("Choose an agent terminal"));
   assert.equal(resolveSendTarget({}).none, true);
 });
 
