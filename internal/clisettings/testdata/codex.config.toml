@@ -1,0 +1,21 @@
+model = "gpt-6-astra"
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+model_reasoning_effort = "medium"
+personality = "pragmatic"
+service_tier = "default"
+
+[projects."/srv/example"]
+trust_level = "trusted"
+
+[features]
+terminal_resize_reflow = true
+memories = true
+
+[hooks.state]
+
+[hooks.state."/srv/example/.codex/config.toml:pre_tool_use:0:0"]
+trusted_hash = "sha256:c8430d3539143e546766b38ea911f788c1555b7acde34c5df2ae41173c107734"
+
+[plugins."github@openai-curated"]
+enabled = true

@@ -166,3 +166,4 @@ an ADR requires a new ADR. Template: [template.md](template.md).
 | [0159](0159-managed-cli-principals.md) | CLI terminals as managed principals — bind a guest TUI to a workspace without an agent row or chat | superseded by 0160 |
 | [0160](0160-cli-runtimes-are-agents.md) | CLI runtimes are agents — catalog `cli` on `agents`; managed RPC stays Pi-only | accepted, supersedes 0159's never-an-agent-row, amends 0006/0011/0069 |
 | [0161](0161-live-desktop-overlays.md) | Live desktop overlays | accepted |
+| [0163](0163-cli-native-config-and-memory.md) | Native settings and native memory for every agent CLI — one generic file driver per config shape plus a per-CLI declaration; memory reported in four honest tiers (editable, read-only, none, unknown); no PiCode memory store, no cross-CLI transfer | accepted, extends 0150, amends 0101's Pi-only registry |

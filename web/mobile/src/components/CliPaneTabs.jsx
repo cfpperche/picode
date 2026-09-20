@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
 import { cliSettingsHash, cliSettingsQuery } from "@picode/shared/domain/cliSettings.js";
 import { cliPackagesHash } from "@picode/shared/domain/cliPackages.js";
+import { cliMemoryHash } from "@picode/shared/domain/cliNative.js";
 import { cliConnectorsHash } from "@picode/shared/domain/integrations.js";
 
 const RUN = [
@@ -15,6 +16,9 @@ const SETUP = [
   // "Keyboard", not "Keys": the pane next door configures providers, where
   // "keys" means credentials (owner picked the name, 2026-09-12).
   { id: "keyboard", label: "Keyboard" },
+  // What the CLI has remembered between sessions (ADR-0163). Every CLI has
+  // the tab; the ones with no native memory answer in one line.
+  { id: "memory", label: "Memory" },
   { id: "packages", label: "Packages" },
   { id: "connectors", label: "Connectors" },
 ];
@@ -27,6 +31,7 @@ export function cliSetupHref(cli, pane, ctx = {}, workspace = "") {
   // The keyboard map is machine-wide, but the link keeps the settings context:
   // going there and back must not move the reader to another agent or layer.
   if (pane === "keyboard") return cliPaneHash(cli, "keyboard") + cliSettingsQuery({ agentId: ctx.agentId || "", layer: ctx.layer || "" });
+  if (pane === "memory") return cliMemoryHash(cli, { workspaceId: ctx.workspaceId || "", scope: ctx.scope === "workspace" || ctx.scope === "global" ? ctx.scope : "" });
   if (pane === "packages") return cliPackagesHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: ctx.scope || "user" });
   if (pane === "connectors") return cliConnectorsHash(cli, { workspaceId: ctx.workspaceId || "", agentId: ctx.agentId || "", scope: ctx.scope || "user" });
   return cliPaneHash(cli, pane, pane === "sessions" ? workspace : "");

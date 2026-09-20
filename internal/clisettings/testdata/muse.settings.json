@@ -1,0 +1,10 @@
+{
+  "model": "muse-spark-1.3-contributor",
+  "permissions": {
+    "default_profile": ":unrestricted",
+    "schema_version": 1
+  },
+  "provider": "meta",
+  "reasoning_effort": "max",
+  "schema_version": 1
+}

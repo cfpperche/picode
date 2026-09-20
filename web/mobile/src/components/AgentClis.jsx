@@ -14,6 +14,7 @@ import { termHash } from "../lib/routes.js";
 import AgentClisFrame from "./AgentClisFrame.jsx";
 import CliTabs from "./CliTabs.jsx";
 import CliSettings from "./CliSettings.jsx";
+import CliMemory from "./CliMemory.jsx";
 import PeerMessages from "./PeerMessages.jsx";
 import CliProviders from "./CliProviders.jsx";
 import CliPackages from "./CliPackages.jsx";
@@ -238,7 +239,8 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
           customId={route.customId || ""}
           onCatalogChange={onCatalogChange}
         /> : null}
-        {pane === "settings" || pane === "keyboard" ? <CliSettings pane={pane} hidden={false} route={route} catalog={catalog} onAgentConfig={onAgentConfig} /> : null}
+        {pane === "settings" || pane === "keyboard" ? <CliSettings pane={pane} hidden={false} route={route} catalog={catalog} onAgentConfig={onAgentConfig} workspaceId={setupCtx.workspaceId} /> : null}
+        {pane === "memory" ? <CliMemory route={route} workspaceId={route.workspaceId || setupCtx.workspaceId || ""} /> : null}
         {pane === "packages" ? <CliPackages hidden={false} route={route} catalog={catalog} onPackageUpdates={onPackageUpdates} /> : null}
         {pane === "connectors" ? <ConnectorsPane route={route} onReload={onReloadAgent} /> : null}
       </div>

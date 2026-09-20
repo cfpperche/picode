@@ -3203,6 +3203,129 @@
         ]
       }
     },
+    "/api/cli-memory": {
+      "get": {
+        "operationId": "getApiCli-memory",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-memory"
+        ]
+      }
+    },
+    "/api/cli-memory/item": {
+      "delete": {
+        "operationId": "deleteApiCli-memoryItem",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-memory"
+        ]
+      },
+      "get": {
+        "operationId": "getApiCli-memoryItem",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-memory"
+        ]
+      },
+      "put": {
+        "operationId": "putApiCli-memoryItem",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-memory"
+        ]
+      }
+    },
+    "/api/cli-settings": {
+      "get": {
+        "operationId": "getApiCli-settings",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-settings"
+        ]
+      },
+      "patch": {
+        "operationId": "patchApiCli-settings",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-settings"
+        ]
+      }
+    },
     "/api/clis": {
       "get": {
         "operationId": "getApiClis",
@@ -10380,6 +10503,12 @@
     },
     {
       "name": "cli-jobs"
+    },
+    {
+      "name": "cli-memory"
+    },
+    {
+      "name": "cli-settings"
     },
     {
       "name": "clis"
