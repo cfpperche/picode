@@ -5,8 +5,8 @@
 // node tests from drifting apart.
 //
 // Lifecycle labels describe the agent (ADR-0160), whatever runs it.
-// Pi reads its run mode; other CLIs read their bound terminal. Settings
-// use the existing scoped Pi editor or the bound terminal launch editor.
+// Pi reads its run mode; other CLIs read their bound terminal. Launch
+// settings always edit the bound terminal; Pi's own settings stay separate.
 // Only Pi offers chat. Remove stays last, separated and dangerous.
 //
 // Continue in… (ADR-0088): a pinned conversation — pi's own session pin,
@@ -40,8 +40,8 @@ export function agentRowMenu(ag = {}, { clis, term } = {}) {
         ? { id: "restart", label: "Restart agent", title: "Restart this agent in its current mode." }
         : { id: "start", label: "Start agent", title: "Start this agent." },
       ...(running ? [{ id: "stop", label: "Stop agent", title: "Stop this agent's current run." }] : []),
-      { id: "launch", label: "Launch settings", title: "Configure this agent's settings.", href: "#/clis/pi/settings?agentId=" + encodeURIComponent(ag.id) },
-      ...(ag.terminalId ? [{ id: "terminal-settings", label: "Terminal settings", title: "Configure this agent's terminal launch.", href: "#/clis/terminal/" + encodeURIComponent(ag.terminalId) }] : []),
+      ...(ag.terminalId ? [{ id: "launch", label: "Launch settings", title: "Configure this agent's next interactive launch.", href: "#/clis/terminal/" + encodeURIComponent(ag.terminalId) }] : []),
+      { id: "settings", label: "Settings", title: "Configure this agent's model, tools and checklist.", href: "#/clis/pi/settings?agentId=" + encodeURIComponent(ag.id) },
       { id: "chat", label: "Open chat", title: "Open this agent's chat panel." },
       { id: "term", label: "Open terminal", title: "Open this agent's terminal pane." },
       { id: "rename", label: "Rename", title: "Change this agent's name." },

@@ -66,6 +66,7 @@ const AGENT_ROW_MENU_ICONS = {
   stop: <IconStop size={13} />,
   restart: <IconReload size={13} />,
   launch: <IconSettings size={14} />,
+  settings: <IconSettings size={14} />,
   handoff: <IconChat size={13} />,
   chat: <IconChat size={14} />,
   term: <IconTerminal size={14} />,
@@ -160,7 +161,7 @@ export function AgentRow({
       case "start": return onRun && onRun(ag.id);
       case "stop":
       case "restart": return onLaunchAction && onLaunchAction(term, r.id, ag);
-      case "terminal-settings":
+      case "settings":
       case "launch": location.hash = r.href; return;
       case "chat": return onChat && onChat(ag.id);
       case "term": return onTerm && onTerm(ag.id);

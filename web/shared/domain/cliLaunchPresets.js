@@ -97,8 +97,11 @@ export const CLI_QUICK_SETTINGS = {
 
 // quickSettingsFor returns the control specs for a CLI id, or null when the
 // CLI has no verified quick controls.
-export function quickSettingsFor(cliId) {
-  return CLI_QUICK_SETTINGS[cliId] || null;
+export function quickSettingsFor(cliId, { agentBound = false } = {}) {
+  const specs = CLI_QUICK_SETTINGS[cliId] || null;
+  // Pi agent model/thinking come from agent.CLIFlags(), not launch overrides
+  // (validatePiAgentArgs). Defaults, profiles and unbound terminals keep them.
+  return cliId === "pi" && agentBound ? specs.filter((spec) => !["model", "thinking"].includes(spec.key)) : specs;
 }
 
 // matchFlag reports how arg matches one of the spec's flags: joined

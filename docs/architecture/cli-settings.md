@@ -94,6 +94,12 @@ Both publish an ephemeral `cli.settings` event — the file stays authoritative
 
 ## Pi (ADR-0101)
 
+The workspace agent menu separates **Launch settings** (the bound terminal's
+common launch editor) from **Settings** (this agent's model, reasoning, tools
+and checklist). An agent without a terminal offers Settings only. The launch
+editor links back to the scoped Settings route; native settings links keep
+their existing meaning.
+
 The native settings view does not load terminal inventory or installation jobs.
 Explicit agent IDs are validated against Pi's report before looking up their
 workspace. Free agents have no project layer; missing identities and unsupported

@@ -109,6 +109,15 @@ chord. You can change every key here under **Settings → Shortcuts**.
 
 ## Launch settings
 
+In a workspace agent's **⋮** menu, choose **Launch settings** to edit its
+terminal launch. Pi uses the same editor as Claude Code, Codex and the other
+integrated CLIs. The action appears once the agent has a linked terminal.
+Saving takes effect on its next interactive launch; it does not restart the
+agent or switch it out of chat mode.
+
+For a Pi agent's model, reasoning, tools or checklist, choose **Settings** in
+the same menu or follow the **Settings** link in the launch editor.
+
 On a CLI's page, **Launch**, **Terminals** and **Sessions** are panes of
 that CLI. **Launch** shows the resolved executable, additional arguments,
 PATH additions, environment names and PiCode's injected integration. Automatic

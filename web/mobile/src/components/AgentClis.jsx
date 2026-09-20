@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as Switch from "@radix-ui/react-switch";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { api } from "@picode/shared/client/api.js";
+import { terminalLaunchAgent } from "@picode/shared/domain/cliLaunch.js";
+import { cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
+import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { askConfirm } from "../lib/confirm.js";
 import { toast, toastError } from "../lib/toast.js";
@@ -50,9 +53,9 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
   const refresh = useCallback(async () => {
     const seq = ++request.current;
     try {
-      const [catalog, terms, work, presets, jobs] = await Promise.all([api("/api/clis"), api("/api/terminals"), api("/api/workspaces"), api("/api/clis/profiles"), api("/api/cli-jobs").catch(() => ({ jobs: [] }))]);
+      const [catalog, terms, work, presets, jobs, freeAgents] = await Promise.all([api("/api/clis"), api("/api/terminals"), api("/api/workspaces"), api("/api/clis/profiles"), api("/api/cli-jobs").catch(() => ({ jobs: [] })), api("/api/agents?free=1")]);
       if (seq !== request.current || !active.current) return;
-      setData({ ...catalog, terminals: terms.terminals || [], workspaces: cliWorkspaceList(work), profiles: presets.profiles || [], jobs: jobs.jobs || [] }); setError("");
+      setData({ ...catalog, terminals: terms.terminals || [], workspaces: cliWorkspaceList(work), freeAgents, profiles: presets.profiles || [], jobs: jobs.jobs || [] }); setError("");
     } catch (e) { if (seq === request.current && active.current) setError(e.message); }
   }, []);
   useEffect(() => {
@@ -86,7 +89,7 @@ export default function AgentClis({ hidden = false, catalog, onCatalogChange, le
     }).catch(() => {});
     let timer;
     const unsub = subscribeFeed((e) => {
-      if (/^(cli\.|terminal\.|workspace\.|feed\.(open|reset))/.test(e.type)) {
+      if (/^(cli\.|terminal\.|agent\.|workspace\.|feed\.(open|reset))/.test(e.type)) {
         clearTimeout(timer); timer = setTimeout(refresh, 80);
       }
     });
@@ -309,6 +312,8 @@ function TerminalList({ terminals, workspaces, busy, onAction, onNew, cliName, h
 
 function TerminalEditor({ route, data, run, busy }) {
   const existing = route.view === "terminal" ? data.terminals.find((t) => t.id === route.id) : null;
+  const agent = terminalLaunchAgent(existing?.id, data.workspaces, data.freeAgents);
+  const piAgent = agent && agentIsPi(agent);
   const [cliId, setCliId] = useState(() => terminalLaunchCLI(existing, route.id));
   const cli = data.clis.find((c) => c.id === cliId) || data.clis[0];
   const [initialProfile] = useState(() => data.profiles.find((p) => p.id === route.profile && p.cli === cli.id));
@@ -357,12 +362,13 @@ function TerminalEditor({ route, data, run, busy }) {
       }); } catch (e) { setError(e.message); }
     }}>
       <div className="cli-fields">
-        <label>CLI<CliCombo ariaLabel="CLI" value={cli.id} options={data.clis.filter((c) => cliCapabilities(c).launch)} onChange={async (id) => { const c = data.clis.find((x) => x.id === id); if (!c || (custom && dirty && !(await confirmDiscard()))) return; setCliId(c.id); setDraft(launchDraft(c.config)); setCustom(false); setProfileId(""); setOriginalOverrides({}); }} /></label>
+        <label>CLI{agent ? <input aria-label="CLI" value={cli.name} readOnly /> : <CliCombo ariaLabel="CLI" value={cli.id} options={data.clis.filter((c) => cliCapabilities(c).launch)} onChange={async (id) => { const c = data.clis.find((x) => x.id === id); if (!c || (custom && dirty && !(await confirmDiscard()))) return; setCliId(c.id); setDraft(launchDraft(c.config)); setCustom(false); setProfileId(""); setOriginalOverrides({}); }} />}</label>
         {cap.integration && !existing && data.profiles.some((p) => p.cli === cli.id) ? <label>Launch profile<select value={profileId} onChange={async (e) => { const id = e.target.value; if (custom && dirty && !(await confirmDiscard())) return; const p = data.profiles.find((p) => p.id === id); setProfileId(id); setDraft(launchDraft(p?.config || cli.config)); setCustom(!!p); setOriginalOverrides({}); }}>{<option value="">CLI defaults</option>}{data.profiles.filter((p) => p.cli === cli.id).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label> : null}
         {!existing ? <><label>Name<input autoComplete="off" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label><label>Workspace<select value={form.workspaceId} onChange={(e) => setForm({ ...form, workspaceId: e.target.value, cwd: "" })}><option value="">Free terminal</option>{data.workspaces.filter((w) => w.id !== "ws_free").map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label><label>Folder<input placeholder={form.workspaceId ? "Use workspace folder" : "Use home folder"} value={form.cwd} onChange={(e) => setForm({ ...form, cwd: e.target.value })} /></label></> : null}
         {cap.integration ? <label className="cli-checkbox"><input type="checkbox" checked={custom} onChange={async (e) => { const checked = e.target.checked; if (!checked && dirty && !(await confirmDiscard())) return; setCustom(checked); if (!checked) { setDraft(launchDraft(cli.config)); setProfileId(""); setOriginalOverrides({}); } }} />Customize this terminal</label> : null}
       </div>
-      {cap.integration ? (custom ? <LaunchFields draft={draft} setDraft={setDraft} includeIntegration cli={cli} /> : <p className="cli-muted">Uses {cli.name} launch defaults.</p>) : <p className="cli-muted">{cli.name} keeps its own launch settings: no extra arguments, no PATH and no activity reporting.</p>}
+      {piAgent ? <p className="cli-muted">Model, reasoning, tools and checklist: <a href={cliSettingsHash("pi", { agentId: agent.id })}>Settings</a>. Launch changes apply to the next interactive session.</p> : null}
+      {cap.integration ? (custom ? <LaunchFields draft={draft} setDraft={setDraft} includeIntegration cli={cli} agentBound={!!agent} /> : <p className="cli-muted">Uses {cli.name} launch defaults.</p>) : <p className="cli-muted">{cli.name} keeps its own launch settings: no extra arguments, no PATH and no activity reporting.</p>}
       {existing?.launchAttempt?.error ? <Notice danger action="Back to terminals" onAction={back}>{existing.launchAttempt.error}</Notice> : null}
       {error ? <p className="cli-field-error" role="alert">{error}</p> : null}
       <div className="cli-actions" data-align-row data-align-wrap><button type="submit" className="btn btn-primary btn-sm" disabled={busy || (!existing && !data.terminalAvailable)}>{busy ? (existing ? "Saving…" : "Opening terminal…") : existing ? "Save launch settings" : "Open terminal"}</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={back}>Cancel</button></div>
