@@ -25,6 +25,7 @@
     "./contracts/schemas.js": "./contracts/schemas.js",
     "./data/whats-new.json": "./data/whats-new.json",
     "./domain/agentStatus.js": "./domain/agentStatus.js",
+    "./domain/agentTerminal.js": "./domain/agentTerminal.js",
     "./domain/agentRowMenu.js": "./domain/agentRowMenu.js",
     "./domain/appGroups.js": "./domain/appGroups.js",
     "./domain/appRefreshQueue.js": "./domain/appRefreshQueue.js",

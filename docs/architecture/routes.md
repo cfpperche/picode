@@ -17,6 +17,12 @@ Explicit app paths win at every width. Rotation does not replace the app or
 its connections. The desktop remains responsive, with a navigation disclosure
 above the canvas on narrow screens. Both outputs ship atomically in one binary.
 
+Bound interactive agents use the same terminal identity across the two
+surfaces: `agents.terminalId` resolves to the terminal record before either
+application mounts its terminal view. Mobile therefore uses `TermSurface` for
+Pi and every Agent CLI, with the same scroll/resize/socket contract and an
+attach action; a managed agent remains chat-only until it is opened as TUI.
+
 Mobile owns four tabs: **Now** (needs-you queue, activity and results),
 **Inbox**, **Work** (workspaces, agents, terminals) and **More** (settings and
 Apps). Pushed agent, terminal, changes and app-detail screens retain the

@@ -2377,9 +2377,10 @@ img.ws-face.term-cli-face {
 .agent-view-tab {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
   height: var(--ctl-h);
-  padding: 0 12px;
+  width: 42px;
+  padding: 0;
   border: 0;
   border-right: 1px solid var(--border);
   background: transparent;

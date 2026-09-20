@@ -269,7 +269,9 @@ export default function MobileApp() {
 
   function openAgent(id, view = "") {
     if (!id) { goTab("work"); return; }
-    push(mobileHash("agent", id, "", view));
+    const target = findAgent(workspaces, freeAgents, id);
+    const initial = view || (target && target.agent && target.agent.terminalId ? "terminal" : "");
+    push(mobileHash("agent", id, "", initial));
   }
   function openTerm(id) {
     if (id) push(mobileHash("term", id));
@@ -437,7 +439,7 @@ export default function MobileApp() {
         // Agent-scoped control matters in multi-agent workspaces; the
         // workspace endpoint only targets its default.
         await api("/api/agents/" + agent.id + "/close", { method: "POST" });
-        closeTerm(agent.id);
+        closeTerm("sh:" + (agent.terminalId || agent.id));
       } else {
         await api("/api/agents/" + agent.id + "/managed/stop", { method: "POST" });
       }

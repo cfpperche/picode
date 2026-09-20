@@ -19,12 +19,13 @@ import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { extraSlash } from "@picode/shared/domain/slash.js";
 import { stuckToBottom } from "@picode/shared/domain/stickScroll.js";
-import { IconFolder, IconKeyboard } from "../components/Icons.jsx";
+import { IconClip, IconFolder, IconKeyboard } from "../components/Icons.jsx";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { applyUsage } from "@picode/shared/domain/feedReducers.js";
 import { terms } from "../lib/terms.js";
 import { agentDrafts } from "../lib/agentDrafts.js";
-import { resolveAgentCliTerminal } from "../lib/agentTerminal.js";
+import { resolveAgentTerminal } from "../lib/agentTerminal.js";
+import TermAttachSheet from "../components/TermAttachSheet.jsx";
 import "../styles/mobile-chat.css";
 import "../styles/mobile-tools.css";
 
@@ -39,6 +40,7 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
   const draft = useSyncExternalStore(agentDrafts.subscribe, () => agentDrafts.read(id));
   const [view, setView] = useState(initialView === "terminal" ? "term" : "chat");
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [attachOpen, setAttachOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [bar, setBar] = useState(null);
   const [slashExtra, setSlashExtra] = useState([]);
@@ -51,7 +53,7 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
   const stopped = mode === "stopped";
   const interactive = mode === "interactive";
   const managed = mode === "managed";
-  const cliTerminal = resolveAgentCliTerminal(agent, terminal);
+  const cliTerminal = resolveAgentTerminal(agent, terminal);
   // ShellTerm namespaces its xterm entries to avoid colliding with the
   // Pi-owned TerminalDock entry for the same agent identity.
   const terminalKey = cliTerminal ? "sh:" + cliTerminal.id : id;
@@ -124,6 +126,11 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
     <>
       {viewSwitch}
       <button type="button" className="btn btn-sm m-changes-btn" title="Project tools" aria-label="Project tools" aria-haspopup="dialog" aria-expanded={toolsOpen} onClick={() => setToolsOpen(true)}><IconFolder size={16} /></button>
+      {interactive && view === "term" && cliTerminal ? (
+        <button type="button" className="btn btn-sm m-changes-btn" title="Attach to terminal" aria-label="Attach to terminal" onClick={() => setAttachOpen(true)}>
+          <IconClip size={16} />
+        </button>
+      ) : null}
       {interactive && view === "term" ? (
         <button type="button" className={"btn btn-sm m-keys-btn" + (keys.visible ? " on" : "")} title={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-label={keys.visible ? "Hide keyboard" : "Show keyboard"} aria-pressed={keys.visible} onPointerDown={(e) => { if (keys.visible) e.preventDefault(); }} onClick={() => { keys.visible ? keys.hide() : keys.show(); }}>
           <IconKeyboard size={16} />
@@ -199,7 +206,8 @@ export default function Agent({ agent, workspace, terminal, catalog, workingIds,
           </div>
         </div>
       )}
-      <ProjectToolsSheet open={toolsOpen} onOpenChange={setToolsOpen} title={name} onFiles={() => onOpenFiles({ kind: "agent", id })} onGit={() => onOpenGit({ kind: "agent", id })} />
+      <ProjectToolsSheet open={toolsOpen} onOpenChange={setToolsOpen} title={name} onAttach={interactive && view === "term" && cliTerminal ? () => setAttachOpen(true) : null} onFiles={() => onOpenFiles({ kind: "agent", id })} onGit={() => onOpenGit({ kind: "agent", id })} />
+      {cliTerminal ? <TermAttachSheet term={cliTerminal} open={attachOpen} onClose={() => setAttachOpen(false)} /> : null}
       <Sheet.Root open={settingsOpen} onOpenChange={setSettingsOpen}>
         <Sheet.Portal>
           <Sheet.Overlay className="dlg-overlay" />

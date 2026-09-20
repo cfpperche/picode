@@ -9,13 +9,11 @@ export default function AgentViewToolbar({ agent, view, onView }) {
   return (
     <div className="agent-view-toolbar" role="toolbar" aria-label="Agent view">
       <div className="agent-view-switch" role="tablist" aria-label="Agent view">
-        <button type="button" role="tab" aria-selected={view === "chat"} className="agent-view-tab" data-active={view === "chat" ? "true" : undefined} onClick={() => onView("chat")}>
+        <button type="button" role="tab" aria-label="Chat" title="Chat" aria-selected={view === "chat"} className="agent-view-tab" data-active={view === "chat" ? "true" : undefined} onClick={() => onView("chat")}>
           <IconChat size={14} />
-          Chat
         </button>
-        <button type="button" role="tab" aria-selected={view === "terminal"} className="agent-view-tab" data-active={view === "terminal" ? "true" : undefined} onClick={() => onView("terminal")}>
+        <button type="button" role="tab" aria-label="Terminal" title="Terminal" aria-selected={view === "terminal"} className="agent-view-tab" data-active={view === "terminal" ? "true" : undefined} onClick={() => onView("terminal")}>
           <IconTerminal size={14} />
-          Terminal
         </button>
       </div>
     </div>
