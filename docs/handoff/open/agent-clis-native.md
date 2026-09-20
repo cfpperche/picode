@@ -19,9 +19,10 @@
   settings layer, the same phase-1 limit connectors carry (ADR-0150).
   The Keyboard pane stays Pi-only: no guest CLI exposes a key map PiCode can
   write.
-- **The mobile panes were captured at desktop width.** Both mount and render
-  in the mobile app, but narrow-viewport and physical-device acceptance for
-  Settings and Memory is not done.
+- **The mobile panes have no physical-device acceptance.** Both mount and
+  render at a real 390x844 viewport with no horizontal overflow, and the
+  editable memory box, its actions and the Codex Memory group were captured
+  there. A real iPhone, the PWA and IME behaviour remain external.
 
 - **A flake in the gate, seen once (2026-09-19).** `TestCLIAdapterPreviewMatchesExecution`
   failed in a parallel `make ci` shard with `TempDir RemoveAll cleanup: unlinkat
