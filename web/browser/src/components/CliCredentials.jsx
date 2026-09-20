@@ -161,6 +161,24 @@ export default function CliCredentials({ hidden, cli, add = false }) {
       () => toast.ok(paused ? "Paused. The credential is kept." : "Resumed."));
   }
 
+
+  // Use writes the chosen account into the CLI's own login file (ADR-0166):
+  // the file the CLI already reads, never a new home and never an env var.
+  // The confirm says what is replaced; the first write keeps a copy of it.
+  async function use(provider, account) {
+    const label = account.label || providerName(provider.id);
+    const ok = await askConfirm({
+      title: "Use " + label + " in " + cliName + "?",
+      message: cliName + "’s own login file is replaced. The first time, PiCode keeps a copy of what is in it now.",
+      confirmLabel: "Use",
+    });
+    if (!ok) return;
+    await run("use:" + account.id, async () => {
+      const res = await api(credPath(provider.id, account.id, "/activate"), json("POST", { cli }));
+      return res;
+    }, (res) => toast.ok(res && res.backup ? "Now using " + label + ". Original kept at " + res.backup : "Now using " + label + "."));
+  }
+
   async function signOut(provider, account) {
     const identity = identityLine(account);
     const ok = await askConfirm({
@@ -252,6 +270,11 @@ export default function CliCredentials({ hidden, cli, add = false }) {
                   </div>
                 ) : null}
                 {nativeError[p.id] ? <p className="cred-note is-error" role="alert">{nativeError[p.id]}</p> : null}
+                {/* Its subscription login has no account name to tell two
+                    apart, so the vault keeps one per provider here. */}
+                {p.singleOAuth && rows.some((a) => a.type === "oauth" && !a.paused) ? (
+                  <p className="cred-note">{"This login carries no account name, so " + name + " keeps one subscription login per provider here."}</p>
+                ) : null}
 
                 {rows.length ? (
                   <ul className="cred-rows">
@@ -263,6 +286,7 @@ export default function CliCredentials({ hidden, cli, add = false }) {
                         note={note}
                         busy={busy}
                         onRename={() => rename(p, a)}
+                        onUse={() => use(p, a)}
                         onVerify={() => verify(p, a)}
                         onPause={() => pause(p, a)}
                         onSignOut={() => signOut(p, a)}
@@ -324,7 +348,7 @@ export default function CliCredentials({ hidden, cli, add = false }) {
   );
 }
 
-function AccountRow({ provider, account, note, busy, onRename, onVerify, onPause, onSignOut }) {
+function AccountRow({ provider, account, note, busy, onRename, onUse, onVerify, onPause, onSignOut }) {
   const identity = identityLine(account);
   const kind = kindLabel(account.type);
   const source = sourceLabel(account.origin);
@@ -344,6 +368,7 @@ function AccountRow({ provider, account, note, busy, onRename, onVerify, onPause
       <span className="cred-cell cred-chips">
         {kind ? <span className="cred-chip">{kind}</span> : null}
         {source ? <span className="cred-chip">{source}</span> : null}
+        {account.active ? <span className="cred-chip is-accent">In use</span> : null}
         {account.paused ? <span className="cred-chip is-muted">Paused</span> : null}
       </span>
       {/* The masked echo of the stored key — never the key. */}
@@ -361,6 +386,9 @@ function AccountRow({ provider, account, note, busy, onRename, onVerify, onPause
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content className="prov-menu cred-menu" align="end" sideOffset={6} collisionPadding={8}>
+              {account.activatable && !account.active ? (
+                <DropdownMenu.Item className="prov-menu-item" onSelect={onUse}>Use</DropdownMenu.Item>
+              ) : null}
               <DropdownMenu.Item className="prov-menu-item" onSelect={onRename}>Rename</DropdownMenu.Item>
               {/* Verify spends a listing call; the button names its cost. A
                   provider with a note has no honest check, so it hides. */}

@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -32,6 +34,7 @@ func registerCredentialRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("PATCH /api/credentials/{provider}/{id}", handleCredentialRename(deps))
 	mux.HandleFunc("POST /api/credentials/{provider}/{id}/pause", handleCredentialPause(deps))
 	mux.HandleFunc("POST /api/credentials/{provider}/{id}/verify", handleCredentialVerify(deps))
+	mux.HandleFunc("POST /api/credentials/{provider}/{id}/activate", handleCredentialActivate(deps))
 	mux.HandleFunc("DELETE /api/credentials/{provider}/{id}", handleCredentialDelete(deps))
 }
 
@@ -43,7 +46,22 @@ type providerView struct {
 	Note     string            `json:"note,omitempty"`
 	Verifier bool              `json:"verifier"`
 	Native   *nativeView       `json:"native,omitempty"`
-	Accounts []catalog.Account `json:"accounts"`
+	Accounts []accountView     `json:"accounts"`
+	// SingleOAuth says this CLI's login carries no account name, so the vault
+	// keeps one subscription row per provider here (ADR-0013's rule). The pane
+	// says so instead of letting a second import look like it vanished.
+	SingleOAuth bool `json:"singleOAuth,omitempty"`
+}
+
+// accountView is one vault row as this CLI sees it. Active means "the file
+// this CLI reads holds this account right now": the file is the truth, so a
+// login made in the CLI's own TUI shows up here without PiCode remembering a
+// click. Activatable says whether Use could write it (ADR-0166) — a row whose
+// shape this CLI's file cannot hold offers no control instead of one that
+// always fails.
+type accountView struct {
+	catalog.Account
+	Activatable bool `json:"activatable"`
 }
 
 type nativeView struct {
@@ -67,22 +85,46 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 		out := map[string]any{"cli": spec.CLI, "cliName": spec.Name}
 		out["vault"] = vaultState()
 		providers := []providerView{}
+		isPi := spec.CLI == "pi"
 		for _, p := range spec.Providers {
+			// The CLI's own file, read once: it decides which row is in use and
+			// whether Use could write each row.
+			var existing []byte
+			if path := clicreds.CredentialPath(spec.CLI, p.Provider); path != "" {
+				existing, _ = os.ReadFile(path)
+			}
+			inUse := ""
+			if login, found := clicreds.DetectProvider(spec.CLI, p.Provider); found {
+				fp := credentials.Fingerprint(login.Cred)
+				inUse = fp[:12]
+			}
+			rows := accountsFor(p.Provider)
+			views := make([]accountView, 0, len(rows))
+			for _, a := range rows {
+				view := accountView{Account: a}
+				if !isPi {
+					// pi's roster is its own endpoint, where Active is pi's slot.
+					view.Active = inUse != "" && a.ID == inUse
+				}
+				if p.Native != nil {
+					if row, ok, err := credentials.Default().Row(p.Provider, a.ID); err == nil && ok {
+						_, view.Activatable = clicreds.RenderLogin(p.Native.Format, p.Provider, row.Cred, existing)
+					}
+				}
+				views = append(views, view)
+			}
 			view := providerView{
 				ID: p.Provider, Kinds: p.Kinds, Env: p.Env, Note: p.Note,
-				Verifier: probeFor(p.Provider) != nil,
-				Accounts: accountsFor(p.Provider),
+				Verifier:    probeFor(p.Provider) != nil,
+				Accounts:    views,
+				SingleOAuth: p.Native != nil && !clicreds.IdentityBearing(p.Native.Format),
 			}
-			if p.Native != nil {
-				nv := &nativeView{}
-				if login, found := clicreds.Detect(spec.CLI); found && login.Provider == p.Provider {
-					nv.Detected = true
-					nv.Kind = login.Kind
-					nv.Label = login.Label
-					nv.Imported = importedAlready(p.Provider, login.Cred)
-				}
-				if nv.Detected {
-					view.Native = nv
+			if p.Native != nil && inUse != "" {
+				if login, found := clicreds.DetectProvider(spec.CLI, p.Provider); found {
+					view.Native = &nativeView{
+						Detected: true, Kind: login.Kind, Label: login.Label,
+						Imported: importedAlready(p.Provider, login.Cred),
+					}
 				}
 			}
 			providers = append(providers, view)
@@ -219,6 +261,105 @@ func handleCredentialPause(deps Deps) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"id": r.PathValue("id"), "paused": req.Paused})
 	}
+}
+
+// handleCredentialActivate writes a saved account into the CLI's own
+// credential file — the pi model generalized (ADR-0166). It refuses while a
+// terminal of that CLI is live, keeps the file it replaces, and never invents
+// a shape the CLI's file cannot hold.
+func handleCredentialActivate(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			CLI string `json:"cli"`
+		}
+		if !readCLIJSON(w, r, &req) {
+			return
+		}
+		cli := strings.TrimSpace(req.CLI)
+		spec, ok := clicreds.For(cli)
+		if !ok {
+			writeErr(w, http.StatusNotFound, "Unknown CLI.")
+			return
+		}
+		provider, id := r.PathValue("provider"), r.PathValue("id")
+		var decl *clicreds.Provider
+		for i := range spec.Providers {
+			if spec.Providers[i].Provider == provider {
+				decl = &spec.Providers[i]
+				break
+			}
+		}
+		if decl == nil {
+			writeErr(w, http.StatusBadRequest, spec.Name+" does not use that provider.")
+			return
+		}
+		if decl.Native == nil {
+			writeErr(w, http.StatusBadRequest, spec.Name+" keeps its logins where PiCode does not write.")
+			return
+		}
+		row, found, err := credentials.Default().Row(provider, id)
+		if err != nil {
+			writeVaultErr(w, err)
+			return
+		}
+		if !found {
+			writeErr(w, http.StatusNotFound, "Unknown account.")
+			return
+		}
+		if n := liveTerminalsFor(deps, cli); n > 0 {
+			writeErr(w, http.StatusConflict, fmt.Sprintf(
+				"Close the %d running %s terminal(s) first — writing a login under a running agent can corrupt its session.", n, spec.Name))
+			return
+		}
+		path := clicreds.CredentialPath(cli, provider)
+		if path == "" {
+			writeErr(w, http.StatusBadRequest, "PiCode does not know where "+spec.Name+" keeps that login.")
+			return
+		}
+		existing, readErr := os.ReadFile(path)
+		if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
+			writeErr(w, http.StatusInternalServerError, readErr.Error())
+			return
+		}
+		out, ok := clicreds.RenderLogin(decl.Native.Format, provider, row.Cred, existing)
+		if !ok {
+			writeErr(w, http.StatusBadRequest, "PiCode will not write this login into "+spec.Name+"'s file — it cannot do that faithfully.")
+			return
+		}
+		backup, err := keepCredentialBackup(deps.DataDir, cli, path, existing)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if err := writeInterceptFile(path, out, 0o600); err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "path": path, "backup": backup})
+	}
+}
+
+// keepCredentialBackup keeps the file PiCode is about to replace, once per
+// CLI: the first activation copies it to <DataDir>/credfiles/<cli>-<unix>.bak
+// and later activations leave that copy alone, because it is the *original*
+// login the person may want back.
+func keepCredentialBackup(dataDir, cli, path string, existing []byte) (string, error) {
+	if len(existing) == 0 || dataDir == "" {
+		return "", nil
+	}
+	dir := filepath.Join(dataDir, "credfiles")
+	matches, _ := filepath.Glob(filepath.Join(dir, cli+"-*.bak"))
+	if len(matches) > 0 {
+		return matches[0], nil
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	name := filepath.Join(dir, fmt.Sprintf("%s-%d.bak", cli, time.Now().Unix()))
+	if err := writeInterceptFile(name, existing, 0o600); err != nil {
+		return "", err
+	}
+	return name, nil
 }
 
 func handleCredentialDelete(deps Deps) http.HandlerFunc {
