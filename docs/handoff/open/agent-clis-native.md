@@ -7,6 +7,16 @@
 
 ## Debts
 
+- **The Memory pane has no toggle and the 409 has no Replace control.** The
+  docs now describe both honestly — the pane links to Settings, and `force`
+  exists in the API with nothing sending it. Whoever wants the controls ships
+  them; until then the sentences stay as they are (ADR-0163, adversarial
+  review 2026-09-20).
+- **Two of the six memory stores have no config key at all.** Grok's switch is
+  `--experimental-memory` / `GROK_MEMORY=1` and Muse's is a runtime capability,
+  so their panes cannot link anywhere. Wiring a launch flag into the pane is a
+  different mechanism and needs its own decision.
+
 - **Omp's memory folder is probed, not documented.** The local backend's path
   is not in the vendor docs, so `climemory` looks in `<ws>/.omp/memories` and
   `~/.omp/agent/memories` and otherwise reports memory as off. If Omp writes
