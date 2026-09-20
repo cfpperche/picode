@@ -5,7 +5,6 @@ import { displayAgentName } from "@picode/shared/domain/tree.js";
 import { shortModel } from "@picode/shared/domain/chip.js";
 import { repoLine, termLine } from "@picode/shared/domain/repoLine.js";
 import { relTime, absTime } from "@picode/shared/domain/relTime.js";
-import { agentIsPi } from "@picode/shared/domain/managedPrincipal.js";
 import { ProviderFace } from "./ProviderFaces.jsx";
 import PiSpinner from "./PiSpinner.jsx";
 import { checklistLine, checklistProgress, checklistRows, countDone } from "@picode/shared/domain/checklist.js";
@@ -144,24 +143,24 @@ export function AgentRow({
   clis, terms, onLaunchAction, onContinueTerm,
 }) {
   const mode = ag.mode || "stopped";
-  const cliAgent = !agentIsPi(ag);
   // A CLI agent's process is its bound terminal (ADR-0160): the status pill
   // and the lifecycle rows read the terminal, because runMode never sees
   // the terminal's tmux session.
-  const term = cliAgent && ag.terminalId ? (terms || []).find((t) => t.id === ag.terminalId) : null;
+  const term = !ag.legacyInteractive && ag.mode !== "managed" && ag.terminalId ? (terms || []).find((t) => t.id === ag.terminalId) || ag.terminal : null;
   const label = displayAgentName(ag, ws);
   const model = shortModel(ag.model || "");
   const title = model ? label + " — " + model : label;
   const repo = repoLine(ag, ws);
   const stamp = term && terminalActivityStamp(term) || ag.lastStatusAt || ag.lastStartedAt || ag.createdAt;
   const check = checklists && checklists[ag.id];
-  const status = agentRowStatus(ag, { workingId, workingIds, waitingId });
+  const status = agentRowStatus(ag, { workingId, workingIds, waitingId, term });
   const select = () => onSelect(ag.id);
   const onMenuItem = (r) => {
     switch (r.id) {
       case "start": return onRun && onRun(ag.id);
       case "stop":
       case "restart": return onLaunchAction && onLaunchAction(term, r.id, ag);
+      case "terminal-settings":
       case "launch": location.hash = r.href; return;
       case "chat": return onChat && onChat(ag.id);
       case "term": return onTerm && onTerm(ag.id);
@@ -190,7 +189,7 @@ export function AgentRow({
             <span className="ws-title" title={title}>{label}</span>
             <span className="ws-subtitle">{model || agentSubtitle(ag)}</span>
           </span>
-          {cliAgent && term ? <TerminalStatus term={term} /> : <AgentStatus status={status} stamp={stamp} />}
+          {term ? <TerminalStatus term={term} /> : <AgentStatus status={status} stamp={stamp} />}
         </div>
         {actions ? (
           <RowMenu label={label}>

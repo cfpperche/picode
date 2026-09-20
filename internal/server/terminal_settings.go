@@ -57,11 +57,13 @@ func ownSessions(deps Deps) []string {
 			out = append(out, tmux.ShellSessionName(t.ID))
 		}
 	}
-	// Agents have no per-terminal overrides, but their TUI runs in a session
-	// that takes the same global defaults, so a change has to reach it too.
+	// Legacy unbound agents also receive global defaults. Bound runtimes
+	// already appear above; do not apply their settings twice.
 	if agents, err := deps.Store.ListAllAgents(); err == nil {
 		for _, a := range agents {
-			out = append(out, tmux.SessionName(a.ID))
+			if a.TerminalID == nil || deps.legacyAgentInteractive(a) {
+				out = append(out, deps.agentSession(a.ID))
+			}
 		}
 	}
 	return out

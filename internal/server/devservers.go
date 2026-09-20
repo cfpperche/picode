@@ -428,7 +428,7 @@ func devServerOwners(ctx context.Context, deps Deps) (map[int]devServerOwner, bo
 	if agents, err := deps.Store.ListAllAgents(); err == nil {
 		for _, a := range agents {
 			owner := devServerOwner{kind: "agent", id: a.ID, name: a.Name, workspace: workspaceNames[a.WorkspaceID]}
-			for _, name := range []string{tmux.SessionName(a.ID), tmux.ShellSessionName(a.ID)} {
+			for _, name := range []string{deps.agentSession(a.ID), tmux.ShellSessionName(a.ID)} {
 				pid, err := deps.Tmux.PanePID(ctx, name)
 				if err != nil || pid <= 0 {
 					continue

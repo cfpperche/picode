@@ -24,6 +24,16 @@ does not interrupt them. See [Agent CLIs](agent-clis) for launch settings.
 
 ## States
 
+Pi agents opened in a terminal use the same activity reporting as other coding
+CLIs. **Launch settings** keeps the Pi agent's model and packages; **Terminal
+settings** opens its executable, environment and activity options after its
+first terminal launch. Chat mode continues to report its own activity.
+
+An older Pi terminal that was already open keeps running during an upgrade.
+Use **Restart agent** when you are ready to load the shared integration; this
+interrupts the current turn and resumes the agent's conversation. Changing
+activity settings never restarts a conversation automatically.
+
 | Presence / state | Meaning | Where you see it |
 |---|---|---|
 | `Terminal open` | tmux is open, but no supported CLI was confirmed | quiet terminal row |

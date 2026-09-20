@@ -223,6 +223,8 @@ func handleCreateTerminal(deps Deps) http.HandlerFunc {
 
 func handleOpenTerminal(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		unlockAgent := boundAgentLock(deps, r.PathValue("id"))
+		defer unlockAgent()
 		unlock := terminalLock(deps, r.PathValue("id"))
 		defer unlock()
 		t, err := deps.Store.GetTerminal(r.PathValue("id"))
@@ -300,7 +302,20 @@ func handleRenameTerminal(deps Deps) http.HandlerFunc {
 
 func handleDeleteTerminal(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		unlockAgent := boundAgentLock(deps, r.PathValue("id"))
+		defer unlockAgent()
 		id := r.PathValue("id")
+		if a, e := deps.Store.AgentByTerminal(id); e == nil && a.IsPi() {
+			release := deps.Replies.Controls.BeginMutation(a.ID)
+			defer release()
+			if err := deps.stopAgentInteractive(r.Context(), a.ID); err != nil {
+				writeErr(w, 500, err.Error())
+				return
+			}
+			if deps.Runtime != nil {
+				deps.Runtime.Stop(a.ID)
+			}
+		}
 		unlock := terminalLock(deps, id)
 		defer unlock()
 		if _, err := deps.Store.GetTerminal(id); errors.Is(err, store.ErrNotFound) {

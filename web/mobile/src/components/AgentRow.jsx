@@ -5,19 +5,16 @@ import { shortModel } from "@picode/shared/domain/chip.js";
 import { shortPath } from "@picode/shared/domain/repoLine.js";
 import StateChip, { agentState } from "./StateChip.jsx";
 import { checklistLine } from "@picode/shared/domain/checklist.js";
-import { agentIsPi, agentSubtitle } from "@picode/shared/domain/managedPrincipal.js";
-import { terminalStatus } from "@picode/shared/domain/terminalCli.js";
+import { agentSubtitle } from "@picode/shared/domain/managedPrincipal.js";
 
 // Mobile keeps the same identity → activity → location hierarchy as the
 // desktop rail, but retains a 44px Start/Stop target at the edge.
 export default function AgentRow({ agent, workspace, workingIds, checklist, onOpen, onStart, onStop, busy, terms }) {
-  const state = agentState(agent, workingIds);
+  const state = agentState({ ...agent, terminal: (terms || []).find(t => t.id === agent.terminalId) || agent.terminal }, workingIds);
   // A CLI agent's process is its bound terminal (ADR-0160); runMode never sees
   // the terminal's tmux session, so the chip and the Start/Stop button read
   // the terminal when there is one.
-  const cliTerm = !agentIsPi(agent) && agent.terminalId ? (terms || []).find((t) => t.id === agent.terminalId) : null;
-  const cliRunning = !!cliTerm && terminalStatus(cliTerm) !== "stopped";
-  const effective = cliRunning ? "idle" : state;
+  const effective = state;
   const name = displayAgentName(agent, workspace);
   const model = shortModel(agent.model || "");
   const check = checklistLine(checklist);

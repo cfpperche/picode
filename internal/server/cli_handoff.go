@@ -16,7 +16,6 @@ import (
 	"github.com/cfpperche/picode/internal/clisession"
 	"github.com/cfpperche/picode/internal/session"
 	"github.com/cfpperche/picode/internal/store"
-	"github.com/cfpperche/picode/internal/tmux"
 	"github.com/cfpperche/picode/internal/transcript"
 )
 
@@ -623,7 +622,7 @@ func liveHolderFor(deps Deps, cli string, ref clisession.Ref, full transcript.Ti
 				return &liveHolder{Kind: "agent", ID: u.AgentID, Name: u.AgentName}
 			}
 			if deps.Tmux != nil && deps.Tmux.Available() {
-				if has, err := deps.Tmux.HasSession(context.Background(), tmux.SessionName(u.AgentID)); err == nil && has {
+				if has, err := deps.Tmux.HasSession(context.Background(), deps.agentSession(u.AgentID)); err == nil && has {
 					return &liveHolder{Kind: "agent", ID: u.AgentID, Name: u.AgentName}
 				}
 			}

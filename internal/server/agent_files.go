@@ -18,7 +18,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/cfpperche/picode/internal/store"
-	"github.com/cfpperche/picode/internal/tmux"
 )
 
 const (
@@ -100,7 +99,7 @@ func liveAgentCwd(deps Deps, r *http.Request, agent store.Agent) (string, error)
 	}
 	if deps.Tmux != nil && deps.Tmux.Available() {
 		ctx := r.Context()
-		if p, err := deps.Tmux.PaneCwd(ctx, tmux.SessionName(agent.ID)); err == nil && strings.TrimSpace(p) != "" {
+		if p, err := deps.Tmux.PaneCwd(ctx, deps.agentSession(agent.ID)); err == nil && strings.TrimSpace(p) != "" {
 			return p, nil
 		}
 	}

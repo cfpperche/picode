@@ -123,7 +123,12 @@ func handleBackupRestore(deps Deps) http.HandlerFunc {
 		}
 		agents, _ := deps.Store.ListAllAgents()
 		for _, a := range agents {
-			deps.stopAgent(r.Context(), a.ID)
+			unlock := terminalLock(deps, "agent:"+a.ID)
+			defer unlock()
+			if err := deps.stopAgentLocked(r.Context(), a.ID); err != nil {
+				writeErr(w, 500, err.Error())
+				return
+			}
 		}
 		if err := backupEngine(deps).Restore(s.Dir, req.ID, schema); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
