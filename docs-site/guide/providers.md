@@ -4,13 +4,18 @@ description: API keys and account logins for Pi on this machine.
 
 # Providers
 
-Accounts apply to this machine. PiCode reads and writes the same
-`~/.pi/agent/auth.json` as the pi TUI. Keys are never shown again after save.
+Accounts apply to this machine. Everything PiCode saves here lives in one
+encrypted vault: `~/.picode/credentials.json` next to the key that opens it
+(`credentials.key`). Keys are never shown again after save.
 
-- **Where:** **Agent CLIs**, pick **Pi**, then **Providers** (`#/clis/pi/providers`).
-- **Not this:** not [Connectors](/guide/mcp) and not [Settings](/guide/settings). Older Providers links redirect here; other CLIs appear when their provider integration is available.
+- **Where:** **Agent CLIs**, pick a CLI, then **Providers** — `#/clis/pi/providers`
+  for Pi, `#/clis/codex/providers` for Codex, and so on for Claude Code,
+  OpenCode, Grok, Hermes, Muse, Antigravity and Omp.
+- **Not this:** not [Connectors](/guide/mcp) and not [Settings](/guide/settings). Older Providers links redirect here.
 
-Canonical: [pi Providers](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/providers.md).
+Pi keeps its own file (`~/.pi/agent/auth.json`) and PiCode reads and writes
+exactly that, like the pi TUI. Canonical:
+[pi Providers](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/providers.md).
 
 ## Sign in
 
@@ -24,7 +29,9 @@ Canonical: [pi Providers](https://github.com/earendil-works/pi/blob/main/package
 
 Account login opens a browser tab (Claude, Codex) or shows a device code (Copilot, Kimi, xAI). Radius account login stays in the TUI (needs a gateway URL).
 
-**Add account** keeps extra logins in PiCode (`~/.picode/accounts.json`). pi still sees **one** active slot in `auth.json` — **Use** copies that login into the slot. Two agents cannot use two Claude logins at the same time (pi limitation).
+**Add account** keeps extra logins in the vault. pi still sees **one** active
+slot in `auth.json` — **Use** copies that login into the slot. Two agents
+cannot use two Claude logins at the same time (pi limitation).
 
 **Pause** keeps a login but takes it out of play. The credential stays; the
 account stops being offered. Pausing the one you are using promotes another;
@@ -32,6 +39,29 @@ the last live account cannot be paused — that is **Sign out**.
 
 Sign out says what it breaks: the confirm names the agents and automations
 configured on that provider.
+
+## Other agent CLIs
+
+Claude Code, Codex, OpenCode, Grok, Hermes, Muse, Antigravity and Omp have the
+same pane for the providers they can use, with four actions:
+
+| Action | What it does |
+|---|---|
+| **Import** | reads the login that CLI already has on this machine and stores a copy in the vault. The CLI's own file is never changed, and nothing is activated by importing |
+| **Add API key** | stores a key for a provider this CLI can use |
+| **Verify** | spends exactly one listing call to the provider with the stored key — the button says so — and remembers the answer with its age |
+| **Sign out** | removes that account from the vault |
+
+Some limits are the vendors', not PiCode's, and the pane says so on the row:
+
+- **Omp** keeps its accounts in its own database, which PiCode does not read.
+  Its pane manages API keys; a subscription login stays with Omp.
+- **Muse Code** and **Antigravity** publish no credential file, so their
+  panes list what exists here and name what they cannot do.
+- A subscription login that a CLI renews by itself may only have one live
+  copy on a machine. Importing it while the CLI keeps using it will end with
+  one of the two asking for a fresh sign-in; the pane warns before that
+  happens.
 
 ## Custom provider
 
@@ -72,6 +102,10 @@ this page.
 **Verify with pi** in a row's ⋯ menu asks pi whether it could use that
 provider right now (`pi auth check`). It costs nothing: no model call, no
 token, and an expired login is reported rather than refreshed.
+
+The other CLIs' panes verify differently — one listing call to the provider,
+named on the button — because those CLIs have no equivalent command. See
+[Other agent CLIs](#other-agent-clis).
 
 ## Usage
 

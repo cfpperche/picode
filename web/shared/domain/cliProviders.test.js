@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CLI_PROVIDERS, cliProvidersHash, cliProvidersLocation, cliProvidersReturnTo, supportsCliProviders } from "./cliProviders.js";
+import { CLI_CREDENTIALS, CLI_PROVIDERS, cliProvidersHash, cliProvidersLocation, cliProvidersReturnTo, supportsCliCredentials, supportsCliProviders } from "./cliProviders.js";
 import { cliLocation } from "./cliLaunch.js";
+import { normalizeTerminalCli, terminalCliLabel } from "./terminalCli.js";
 
 test("provider list/new URLs normalize legacy links without adding agent scope", () => {
   for (const prefix of ["#/providers", "#/more/providers"]) {
@@ -26,6 +27,24 @@ test("provider list/new URLs normalize legacy links without adding agent scope",
   assert.equal(cliProvidersHash("pi", { custom: true, customId: "a b" }), "#/clis/pi/providers/custom/a%20b");
   assert.deepEqual(cliLocation(cliProvidersHash("pi", { custom: true })), { view: "clis", id: "pi", pane: "providers", custom: "new" });
   assert.deepEqual(cliLocation(cliProvidersHash("pi", { custom: true, customId: "cheap" })), { view: "clis", id: "pi", pane: "providers", custom: "edit", customId: "cheap" });
+});
+
+test("the vault roster covers the eight guest CLIs and never pi", () => {
+  assert.deepEqual(CLI_CREDENTIALS.map((cli) => cli.id), ["claude-code", "codex", "grok", "hermes", "opencode", "muse", "agy", "omp"]);
+  for (const row of CLI_CREDENTIALS) {
+    // A launch-catalog id with terminalCli's own label: one spelling per CLI,
+    // so the pane's heading and the terminal badge never disagree.
+    assert.equal(normalizeTerminalCli(row.id), row.id, row.id);
+    assert.equal(terminalCliLabel(row.id), row.name, row.id);
+    assert.equal(supportsCliCredentials(row.id), true, row.id);
+    assert.equal(supportsCliProviders(row.id), false, row.id);
+  }
+  // pi keeps its own provider editor: its rows are the ones that write
+  // auth.json, and the vault pane must not pretend to be that.
+  assert.equal(supportsCliCredentials("pi"), false);
+  for (const unknown of ["", "unknown", "claude", "%ZZ", null, undefined]) {
+    assert.equal(supportsCliCredentials(unknown), false, String(unknown));
+  }
 });
 
 test("provider support does not follow launch support or malformed paths", () => {
