@@ -186,7 +186,8 @@ provenance rides `terminal_ask_delivered`).
 | Conditions | Action |
 |---|---|
 | Sensor `working` / `needs-you` | **409** named |
-| Composer holds a draft (input row not empty) | **409** `occupied` |
+| Composer recognized as holding a draft (bright text past the marker) | **409** `occupied` |
+| Composer unclassifiable (render drift, dialog, no frame) | delivers, `unverified` — unknown is never a refusal (2026-09-20 owner report: clean composers were blocked on every agent terminal) |
 | In-flight prompt | **409** `busy` |
 | Session absent | **409** `closed` |
 | Paste + Enter, row reads empty | 200 `verified` |

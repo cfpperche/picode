@@ -248,10 +248,23 @@ func doorDeliver(deps Deps, ctx context.Context, t store.Terminal, payload strin
 		announceDoorPrompt(deps, t.ID, "unverified")
 		return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "unverified"}
 	}
-	if !peerInputMatches(cli, before, "") {
+	// Gate on positive evidence only (Fatia F follow-up): a recognized
+	// draft is refused, but a composer the reader cannot classify delivers
+	// with a demoted receipt — failing closed here blocked clean composers
+	// whenever a CLI shipped a new render.
+	state, known := peerComposerState(cli, before)
+	if known && state == "occupied" {
 		return http.StatusConflict, map[string]any{
 			"error": "Finish or clear the draft in the terminal first.", "reason": "occupied",
 		}
+	}
+	if !known {
+		// Unknown composer: the pre-Fatia-F blind paste is the whole truth.
+		if perr := deps.Tmux.PasteText(cctx, session, payload); perr != nil {
+			return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}
+		}
+		announceDoorPrompt(deps, t.ID, "unverified")
+		return http.StatusOK, map[string]any{"ok": true, "typed": true, "delivery": "unverified"}
 	}
 	if err := deps.Tmux.PasteOnly(ctx, before.PaneID, payload); err != nil {
 		return http.StatusConflict, map[string]any{"error": "Open the terminal first, then try again.", "reason": "closed"}

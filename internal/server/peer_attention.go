@@ -682,3 +682,76 @@ func peerAttentionReason(err error) string {
 	}
 	return "native receiver or control rejected delivery"
 }
+
+// peerComposerState classifies a CLI pane's input row for the prompt door
+// (Fatia F follow-up, owner report 2026-09-20: clean composers were
+// refused on every agent terminal). Three answers:
+//
+//   - "empty": the recognized empty-input row — delivery proceeds and can
+//     be verified.
+//   - "occupied": positive evidence of a draft (the row carries visible
+//     text past the prompt marker) — delivery is refused.
+//   - "unknown": the row cannot be classified (rendering drift, dialog,
+//     narrow pane). Delivery proceeds — the pre-Fatia-F behaviour — with
+//     the receipt demoted, because refusing every unclassifiable pane
+//     blocked clean composers the moment a CLI shipped a new render.
+//
+// Falls back to the strict empty matcher for the known-empty answer, so
+// the two never disagree about a pane either of them can classify.
+func peerComposerState(cli string, s tmux.InputSnapshot) (string, bool) {
+	if peerInputMatches(cli, s, "") {
+		return "empty", true
+	}
+	if peerComposerHoldsDraft(cli, s) {
+		return "occupied", true
+	}
+	return "unknown", false
+}
+
+func peerComposerHoldsDraft(cli string, s tmux.InputSnapshot) bool {
+	if s.InMode || s.CursorY < 0 || s.CursorY >= len(s.Lines) {
+		return false
+	}
+	raw := s.Lines[s.CursorY]
+	line := strings.TrimRight(strings.ReplaceAll(terminalSGR.ReplaceAllString(raw, ""), "\u00a0", " "), " \t")
+	switch cli {
+	case "claude-code":
+		// Positive draft: the prompt glyph followed by bright text. Dim
+		// content is the vendor's own suggestion, never a draft (measured:
+		// typed input carries no dim), so a dim row is unknown, not
+		// occupied — rendering drift must deliver, not block.
+		if strings.HasPrefix(line, "❯") {
+			if strings.Contains(raw, "\x1b[2m") {
+				return false
+			}
+			return strings.TrimSpace(strings.TrimPrefix(line, "❯")) != ""
+		}
+	case "codex", "hermes":
+		for _, marker := range []string{"›", "❯"} {
+			if strings.HasPrefix(line, marker) {
+				if strings.Contains(raw, "\x1b[2m") {
+					return false
+				}
+				return strings.TrimSpace(strings.TrimPrefix(line, marker)) != ""
+			}
+		}
+	case "grok":
+		// Bordered composer: content between the gutter and the border.
+		if strings.HasPrefix(strings.TrimSpace(terminalSGR.ReplaceAllString(raw, "")), "│") {
+			if strings.Contains(line, "❯") {
+				body := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(line, "│ ❯"), "│"))
+				return body != "" && !grokEmptySuggestion.MatchString(raw) && !grokEmptySuggestion1030.MatchString(raw)
+			}
+		}
+	case "pi":
+		// Frame region: content between the two rules at the cursor.
+		y := s.CursorY
+		if y < 1 || y+1 >= len(s.Lines) {
+			return false
+		}
+		clean := func(n int) string { return strings.TrimSpace(terminalSGR.ReplaceAllString(s.Lines[n], "")) }
+		rule := strings.Repeat("─", s.Width)
+		return clean(y-1) == rule && clean(y+1) == rule && clean(y) != ""
+	}
+	return false
+}
