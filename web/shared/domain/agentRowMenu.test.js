@@ -103,6 +103,20 @@ test("peer owner labels: CLI agents name the CLI, Pi and terminals keep their wo
 
 // ADR-0088 on an agent row: a conversation pinned on the bound terminal
 // continues in another CLI — the same submenu the terminal row offers.
+test("a Pi agent with a pinned session offers Continue in… toward other CLIs", () => {
+  const rows = agentRowMenu({ cli: "pi", sessionPath: "/p/s.jsonl", mode: "interactive" }, { clis: CATALOG });
+  const handoff = row(rows, "handoff");
+  if (!handoff || !Array.isArray(handoff.sub)) assert.fail("no handoff for pinned pi");
+  assert.ok(!handoff.sub.map((s) => s.target.id).includes("pi"), "pi is the source, not a target");
+  assert.equal(row(rows, "chat").label, "Open chat");
+});
+
+test("a Pi agent without a pinned session stays flat", () => {
+  const rows = agentRowMenu({ cli: "pi", mode: "interactive" }, { clis: CATALOG });
+  assert.equal(rows.some((r) => r.id === "handoff"), false);
+  assert.equal(rows.some((r) => r.sep), false);
+});
+
 test("a CLI agent with a pinned conversation offers Continue in…", () => {
   const rows = agentRowMenu({ cli: "claude-code", terminalId: "t1" }, { clis: CATALOG, term: PINNED });
   const handoff = row(rows, "handoff");

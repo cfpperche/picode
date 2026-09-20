@@ -12,7 +12,7 @@ import { checklistLine, checklistProgress, checklistRows, countDone } from "@pic
 import TerminalCliBadge from "./TerminalCliBadge.jsx";
 import { terminalActivityStamp, terminalCli, terminalCliLabel, terminalDisplayCli, terminalStatus, terminalStatusLabel } from "@picode/shared/domain/terminalCli.js";
 import { agentRowStatus, agentStatusLabel } from "@picode/shared/domain/agentStatus.js";
-import { agentRowMenu } from "@picode/shared/domain/agentRowMenu.js";
+import { agentRowMenu, agentHandoffTerm } from "@picode/shared/domain/agentRowMenu.js";
 import { agentSubtitle } from "@picode/shared/domain/managedPrincipal.js";
 import { termRowMenu } from "../lib/termRowMenu.js";
 
@@ -217,7 +217,7 @@ export function AgentRow({
                                   key={s2.id}
                                   className="ws-row-menu-item"
                                   title={s2.title}
-                                  onSelect={() => onContinueTerm && onContinueTerm(term, s2.target)}
+                                  onSelect={() => onContinueTerm && onContinueTerm(term || agentHandoffTerm(ag), s2.target)}
                                 >
                                   {s2.label}
                                 </DropdownMenu.Item>
@@ -230,7 +230,7 @@ export function AgentRow({
                           key={s.id}
                           className="ws-row-menu-item"
                           title={s.title}
-                          onSelect={() => onContinueTerm && onContinueTerm(term, s.target)}
+                          onSelect={() => onContinueTerm && onContinueTerm(term || agentHandoffTerm(ag), s.target)}
                         >
                           {s.label}
                         </DropdownMenu.Item>
