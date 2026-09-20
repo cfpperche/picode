@@ -9,6 +9,17 @@ import InspectorChanges, { InspectorChangeGroup } from "./InspectorChanges.jsx";
 // ({mode, shown, pill, switcher}) is resolved by pure logic; this component
 // only renders it: a Following pill with Back, a switcher line with View,
 // or one tree per group with the scope chips rendered once above them.
+
+// The cap note in plain words ("copies of the project", not "worktrees"),
+// with the real term taught in the hover title.
+function TruncatedNote({ n }) {
+  if (!(n > 0)) return null;
+  return (
+    <p className="insp-msg insp-note" title="This repository has more linked checkouts (git worktrees) than PiCode scans — the first 8 are covered.">
+      +{n} more {n === 1 ? "copy" : "copies"} of the project not scanned.
+    </p>
+  );
+}
 export default function InspectorSessionChanges({
   view, truncated = 0, backLabel,
   scope, onScope, scopable, touchedPaths,
@@ -52,7 +63,7 @@ export default function InspectorSessionChanges({
         {visible.length === 0 ? (
           <p className="insp-msg">No files from this agent yet. <button type="button" className="btn btn-sm" onClick={() => onScope("all")}>Show all</button></p>
         ) : null}
-        {truncated > 0 ? <p className="insp-msg insp-note">+{truncated} more worktree{truncated === 1 ? "" : "s"} not scanned.</p> : null}
+        <TruncatedNote n={truncated} />
       </>
     );
   }
@@ -95,7 +106,7 @@ export default function InspectorSessionChanges({
           <button type="button" className="btn btn-sm" onClick={() => onFollow(g.ref)}>View</button>
         </p>
       ))}
-      {truncated > 0 ? <p className="insp-msg insp-note">+{truncated} more worktree{truncated === 1 ? "" : "s"} not scanned.</p> : null}
+      <TruncatedNote n={truncated} />
     </>
   );
 }

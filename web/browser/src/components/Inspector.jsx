@@ -335,6 +335,11 @@ export default function Inspector({
   const shownPath = root || (info && info.path) || "";
   const shownWidth = liveWidth == null ? width : liveWidth;
   const refresh = () => { setNonce((n) => n + 1); setDismissed(false); return loadRef.current(true); };
+  // The menu hints stay short (long branch names would blow the popover
+  // out); each carries the exact prepared command as a hover title.
+  const pushCmd = gitActionCommand("push", { branch: actionStatus.branch, upstream: actionStatus.upstream });
+  const commitCmd = gitActionCommand("commit", { message: "<message>" });
+  const commitPushCmd = gitActionCommand("commit-push", { branch: actionStatus.branch, upstream: actionStatus.upstream, message: "<message>" });
   const chip = branchChip(actionStatus);
   const actions = owner ? gitActions(actionStatus) : [];
   // Git actions prepare the exact command in the owner's terminal; the human
@@ -389,15 +394,15 @@ export default function Inspector({
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
                 <DropdownMenu.Content className="composer-more-pop insp-git-pop" side="bottom" align="end" sideOffset={6} collisionPadding={8}>
-                  <DropdownMenu.Item className="composer-more-item" onSelect={() => runGit("fetch")}><span>Fetch</span><span className="insp-menu-cmd">git fetch --prune</span></DropdownMenu.Item>
-                  {actions.includes("pull") ? <DropdownMenu.Item className="composer-more-item" onSelect={() => runGit("pull")}><span>Pull</span><span className="insp-menu-cmd">git pull --ff-only</span></DropdownMenu.Item> : null}
-                  {actions.includes("push") ? <DropdownMenu.Item className="composer-more-item" onSelect={() => runGit("push")}><span>Push</span><span className="insp-menu-cmd">{status.upstream ? "git push" : "git push -u origin …"}</span></DropdownMenu.Item> : null}
+                  <DropdownMenu.Item className="composer-more-item" onSelect={() => runGit("fetch")}><span>Fetch</span><span className="insp-menu-cmd" title="git fetch --prune">git fetch --prune</span></DropdownMenu.Item>
+                  {actions.includes("pull") ? <DropdownMenu.Item className="composer-more-item" onSelect={() => runGit("pull")}><span>Pull</span><span className="insp-menu-cmd" title="git pull --ff-only">git pull --ff-only</span></DropdownMenu.Item> : null}
+                  {actions.includes("push") ? <DropdownMenu.Item className="composer-more-item" onSelect={() => runGit("push")}><span>Push</span><span className="insp-menu-cmd" title={pushCmd}>{actionStatus.upstream ? "git push" : "git push -u origin …"}</span></DropdownMenu.Item> : null}
                   <DropdownMenu.Separator className="um-divider" />
-                  <DropdownMenu.Item className="composer-more-item" onSelect={() => setCommitDialog({ push: false })}><span>Commit…</span><span className="insp-menu-cmd">git add -A && git commit</span></DropdownMenu.Item>
-                  {actions.includes("commit-push") ? <DropdownMenu.Item className="composer-more-item" onSelect={() => setCommitDialog({ push: true })}><span>Commit and push…</span><span className="insp-menu-cmd">… && git push</span></DropdownMenu.Item> : null}
+                  <DropdownMenu.Item className="composer-more-item" onSelect={() => setCommitDialog({ push: false })}><span>Commit…</span><span className="insp-menu-cmd" title={commitCmd}>git add -A && git commit</span></DropdownMenu.Item>
+                  {actions.includes("commit-push") ? <DropdownMenu.Item className="composer-more-item" onSelect={() => setCommitDialog({ push: true })}><span>Commit and push…</span><span className="insp-menu-cmd" title={commitPushCmd}>… && git push</span></DropdownMenu.Item> : null}
                   {pull.page && pull.page.status !== "ok" ? <>
                     <DropdownMenu.Separator className="um-divider" />
-                    <DropdownMenu.Item className="composer-more-item" onSelect={() => runGit("pr")}><span>Create pull request</span><span className="insp-menu-cmd">gh pr create --fill</span></DropdownMenu.Item>
+                    <DropdownMenu.Item className="composer-more-item" onSelect={() => runGit("pr")}><span>Create pull request</span><span className="insp-menu-cmd" title="gh pr create --fill">gh pr create --fill</span></DropdownMenu.Item>
                   </> : null}
                   {onRunMode ? <>
                     <DropdownMenu.Separator className="um-divider" />
