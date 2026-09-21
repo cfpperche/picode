@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { appTile } from "../lib/nativeApps.js";
 import { visibleApps } from "../lib/appsGrid.js";
 import { webappError, submitWebappForm } from "../lib/webapps.js";
 import { toast } from "../lib/toast.js";
 import { api } from "@picode/shared/client/api.js";
+import { subscribeFeed } from "@picode/shared/client/feed.js";
+import { SortableList, SortableRow } from "./SortableRows.jsx";
 import AppIcon from "./AppIcon.jsx";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import { Alert as AlertDialog } from "./ResponsiveDialog.jsx";
@@ -142,6 +144,28 @@ export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsL
   const [clearing, setClearing] = useState(null);
   const [clearBusy, setClearBusy] = useState(false);
   const [clearError, setClearError] = useState("");
+  const [order, setOrder] = useState(null);
+  useEffect(() => {
+    let stop = false;
+    function load() {
+      api("/api/apps/order").then((d) => { if (!stop) setOrder((d && d.ids) || []); }).catch(() => { if (!stop) setOrder([]); });
+    }
+    load();
+    const unsub = subscribeFeed((ev) => {
+      if (ev.type === "setting.updated" && ev.data && ev.data.key === "apps.grid.order") load();
+    });
+    return () => { stop = true; unsub(); };
+  }, []);
+  async function commitOrder(ids) {
+    const prev = order;
+    setOrder(ids);
+    try {
+      await api("/api/apps/order", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
+    } catch (e) {
+      setOrder(prev);
+      toast(webappError(e));
+    }
+  }
   async function refresh(a) {
     if (refreshingId) return;
     setRefreshingId(a.id);
@@ -165,10 +189,13 @@ export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsL
     catch (e) { setRemoveError(webappError(e)); }
     finally { setRemoveBusy(false); }
   }
-  const shown = visibleApps(apps || [], q);
-  const webShown = visibleApps(webapps || [], q);
+  const catalog = [
+    ...(apps || []).filter((a) => a && a.id).map((a) => ({ ...a, key: "app:" + a.id, kind: "app" })),
+    ...(webapps || []).filter((a) => a && a.id).map((a) => ({ ...a, key: "web:" + a.id, kind: "web" })),
+  ];
+  const tiles = visibleApps(catalog.map((t) => ({ id: t.key, name: t.name, tile: t })), q, order || []);
   const searching = !!q.trim();
-  const empty = webappsLoaded && shown.length === 0 && webShown.length === 0;
+  const empty = webappsLoaded && tiles.length === 0;
   return (
     <div className="side-section">
       <div className="pins-head">
@@ -199,17 +226,67 @@ export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsL
           <button type="button" className="side-empty-act" onClick={() => setAdding(true)}>Add a web app</button>
         </p>
       ) : (
+        <SortableList ids={tiles.map((t) => t.id)} grid onReorder={(ids) => { if (!searching) commitOrder(ids); }}>
         <div className="app-grid" role="list">
-          {shown.map((a) => {
+          {tiles.map((row) => {
+            const a = row.tile;
+            if (a.kind === "web") return (
+              <SortableRow key={a.key} id={a.key}>
+              {(drag) => (
+              <div
+                ref={drag.setNodeRef}
+                style={drag.style}
+                data-drag-id={a.key}
+                className={"app-tile-wrap" + (drag.isDragging ? " is-placeholder" : "")}
+                role="listitem"
+              >
+                <button
+                  type="button"
+                  className="app-tile"
+                  title={a.url}
+                  onPointerDown={searching ? undefined : drag.onPointerDown}
+                  onClick={() => onOpenWebapp(a)}
+                >
+                  <span className="app-tile-face">
+                    <AppIcon name="globe" label={a.name} size={20} iconUrl={a.hasIcon ? webappIconURL(a.id, iconVersions[a.id]) : null} />
+                    {a.badge > 0 ? <span className="app-tile-badge">{a.badge > 99 ? "99+" : a.badge}</span> : null}
+                  </span>
+                  <span className="app-tile-name">{a.name}</span>
+                </button>
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger asChild>
+                    <button type="button" className="app-tile-menu" aria-label={"Actions for " + a.name} title="Actions"><IconEllipsis size={13} /></button>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.Content className="ws-row-menu" side="right" align="start" sideOffset={4} collisionPadding={8}>
+                      <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => onOpenWebapp(a)}>Open</DropdownMenu.Item>
+                      <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => refresh(a)} disabled={refreshingId === a.id}><IconReload size={13} /> {refreshingId === a.id ? "Refreshing…" : "Refresh"}</DropdownMenu.Item>
+                      <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setAnotherFor(a)}>Add another account</DropdownMenu.Item>
+                      <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setRenaming(a)}><IconPencil size={13} /> Rename</DropdownMenu.Item>
+                      {desktop && <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => { setClearError(""); setClearing(a); }}><IconTrash size={13} /> Clear data</DropdownMenu.Item>}
+                      <DropdownMenu.Separator className="ws-row-menu-sep" />
+                      <DropdownMenu.Item className="ws-row-menu-item danger" onSelect={() => { setRemoveError(""); setRemoving(a); }}><IconTrash size={13} /> Remove</DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Root>
+              </div>
+              )}
+              </SortableRow>
+            );
             const tile = appTile(a, nativeApps);
             const ok = tile.ok;
             return (
+              <SortableRow key={a.key} id={a.key}>
+              {(drag) => (
               <button
-                key={a.id}
+                ref={drag.setNodeRef}
+                style={drag.style}
+                data-drag-id={a.key}
                 type="button"
                 role="listitem"
-                className={"app-tile" + (ok ? "" : " app-tile-unsupported")}
+                className={"app-tile" + (ok ? "" : " app-tile-unsupported") + (drag.isDragging ? " is-placeholder" : "")}
                 title={tile.title}
+                onPointerDown={searching ? undefined : drag.onPointerDown}
                 onClick={() => { if (ok && onOpen) onOpen(a.id); }}
               >
                 <span className="app-tile-face">
@@ -218,41 +295,12 @@ export default function AppsGrid({ apps, webapps = [], webappsErr = "", webappsL
                 </span>
                 <span className="app-tile-name">{a.name}</span>
               </button>
+              )}
+              </SortableRow>
             );
           })}
-          {webShown.map((a) => (
-            <div key={a.id} className="app-tile-wrap" role="listitem">
-              <button
-                type="button"
-                className="app-tile"
-                title={a.url}
-                onClick={() => onOpenWebapp(a)}
-              >
-                <span className="app-tile-face">
-                  <AppIcon name="globe" label={a.name} size={20} iconUrl={a.hasIcon ? webappIconURL(a.id, iconVersions[a.id]) : null} />
-                  {a.badge > 0 ? <span className="app-tile-badge">{a.badge > 99 ? "99+" : a.badge}</span> : null}
-                </span>
-                <span className="app-tile-name">{a.name}</span>
-              </button>
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger asChild>
-                  <button type="button" className="app-tile-menu" aria-label={"Actions for " + a.name} title="Actions"><IconEllipsis size={13} /></button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.Content className="ws-row-menu" side="right" align="start" sideOffset={4} collisionPadding={8}>
-                    <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => onOpenWebapp(a)}>Open</DropdownMenu.Item>
-                    <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => refresh(a)} disabled={refreshingId === a.id}><IconReload size={13} /> {refreshingId === a.id ? "Refreshing…" : "Refresh"}</DropdownMenu.Item>
-                    <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setAnotherFor(a)}>Add another account</DropdownMenu.Item>
-                    <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => setRenaming(a)}><IconPencil size={13} /> Rename</DropdownMenu.Item>
-                    {desktop && <DropdownMenu.Item className="ws-row-menu-item" onSelect={() => { setClearError(""); setClearing(a); }}><IconTrash size={13} /> Clear data</DropdownMenu.Item>}
-                    <DropdownMenu.Separator className="ws-row-menu-sep" />
-                    <DropdownMenu.Item className="ws-row-menu-item danger" onSelect={() => { setRemoveError(""); setRemoving(a); }}><IconTrash size={13} /> Remove</DropdownMenu.Item>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Root>
-            </div>
-          ))}
         </div>
+        </SortableList>
       )}
       </div>
       {adding && (

@@ -5502,6 +5502,12 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   font-size: 11px; color: var(--text-secondary);
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.app-tile.is-placeholder, .app-tile-wrap.is-placeholder {
+  background: var(--accent-soft);
+  outline: 1px dashed color-mix(in srgb, var(--accent) 50%, var(--border));
+  border-radius: var(--radius-ctl);
+}
+.app-tile.is-placeholder > *, .app-tile-wrap.is-placeholder > * { visibility: hidden; }
 .app-icon-letter { font-weight: 700; line-height: 1; }
 .app-icon-img { object-fit: contain; }
 .app-tile-wrap { position: relative; min-width: 0; }
