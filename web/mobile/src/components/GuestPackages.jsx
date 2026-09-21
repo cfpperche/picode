@@ -429,12 +429,13 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
       ) : null}
 
       {!report && loading && !problem && !needsWorkspace ? (
-        <div className="gpkg-skel" role="status" aria-label="Loading plugins">
-          {Array.from({ length: 3 }, (_, index) => (
-            <div key={"skel-" + index} className="gpkg-row" aria-hidden="true">
-              <div className="gpkg-row-head"><div className="skel-line w-40" /></div>
+        <div className="gpkg-grid gpkg-skel" role="status" aria-label="Loading plugins">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div key={"skel-" + index} className="gpkg-card" aria-hidden="true">
+              <div className="gpkg-card-head"><div className="skel-line w-50" /></div>
               <div className="skel-line w-90" />
               <div className="skel-line w-70" />
+              <div className="gpkg-card-foot"><div className="skel-line w-40" /></div>
             </div>
           ))}
         </div>
@@ -540,37 +541,39 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
               ) : shown.length === 0 ? (
                 <p className="pkg-fine">{"No installed plugin matches “" + installedFilter + "”."} <button type="button" className="btn btn-ghost btn-sm" onClick={() => setInstalledFilter("")}>Clear filter</button></p>
               ) : (
-                <ul className="gpkg-list" role="tabpanel" aria-busy={guard ? "true" : undefined}>
+                <ul className="gpkg-grid" role="tabpanel" aria-busy={guard ? "true" : undefined}>
                   {shown.map(row => (
-                    <li key={keyOf(row)} className={"gpkg-row" + (row.enabled === false ? " is-off" : "")}>
-                      <div className="gpkg-row-head">
-                        <span className="gpkg-row-name" title={row.source || row.name || row.id}>{row.name || row.id}</span>
+                    <li key={keyOf(row)} className={"gpkg-card" + (row.enabled === false ? " is-off" : "")}>
+                      <div className="gpkg-card-head">
+                        <span className="gpkg-card-name" title={row.source || row.name || row.id}>{row.name || row.id}</span>
                         {row.version ? <span className="pkg-type">{row.version}</span> : null}
-                        {row.updateAvailable && row.latest ? <span className="pkg-type is-update">{"→ " + row.latest}</span> : null}
+                        {row.updateAvailable && row.latest ? <span className="pkg-type is-update" title={"The CLI's catalog offers " + row.latest}>{"\u2192 " + row.latest}</span> : null}
+                      </div>
+                      {row.description ? <p className="gpkg-card-desc" title={row.description}>{row.description}</p> : null}
+                      {row.note ? <p className="gpkg-row-note" title={row.note}>{row.note}</p> : null}
+                      <div className="gpkg-card-meta">
                         {row.scope ? <span className="pkg-type">{row.scope}</span> : null}
                         {row.status ? <span className="gpkg-status">{row.status}</span> : null}
-                        {row.managedByPiCode ? <span className="pkg-type is-picode">Installed by PiCode</span> : null}
-                        <span className="pkg-foot-spacer" />
-                        <span className="gpkg-row-actions">
-                          {caps.toggle ? (
-                            <button type="button" className="btn btn-sm" disabled={guard} onClick={() => toggle(row, !row.enabled)}>
-                              {verbFor(row) === "toggle" ? busy.label : row.enabled ? "Disable" : "Enable"}
-                            </button>
-                          ) : null}
-                          {rowUpdateState(caps, row, !!checkedAt) === "update" ? (
-                            <button type="button" className="btn btn-sm" disabled={guard} title={"Update to " + row.latest} onClick={() => update(row)}>{verbFor(row) === "update" ? busy.label : "Update"}</button>
-                          ) : null}
-                          {caps.inspect ? (
-                            <button type="button" className="btn btn-ghost btn-sm" disabled={guard} onClick={() => openInspect(row)}>{verbFor(row) === "inspect" ? busy.label : "Inspect"}</button>
-                          ) : null}
-                          {caps.remove ? (
-                            <button type="button" className="btn btn-ghost btn-sm" disabled={guard} onClick={() => remove(row)}>{verbFor(row) === "remove" ? busy.label : "Remove"}</button>
-                          ) : null}
-                        </span>
+                        {row.managedByPiCode ? <span className="is-picode">Installed by PiCode</span> : null}
+                        {row.source ? <span className="gpkg-card-src" title={row.source}>{row.source}</span> : null}
                       </div>
-                      {row.source ? <p className="gpkg-row-src" title={row.source}>{row.source}</p> : null}
-                      {row.note ? <p className="gpkg-row-note" title={row.note}>{row.note}</p> : null}
                       <Problem entry={rowError[keyOf(row)]} />
+                      <div className="gpkg-card-foot">
+                        {caps.toggle ? (
+                          <button type="button" className="btn btn-sm" disabled={guard} onClick={() => toggle(row, !row.enabled)}>
+                            {verbFor(row) === "toggle" ? busy.label : row.enabled ? "Disable" : "Enable"}
+                          </button>
+                        ) : null}
+                        {rowUpdateState(caps, row, !!checkedAt) === "update" ? (
+                          <button type="button" className="btn btn-sm" disabled={guard} title={"Update to " + row.latest} onClick={() => update(row)}>{verbFor(row) === "update" ? busy.label : "Update"}</button>
+                        ) : null}
+                        {caps.inspect ? (
+                          <button type="button" className="btn btn-ghost btn-sm" disabled={guard} onClick={() => openInspect(row)}>{verbFor(row) === "inspect" ? busy.label : "Inspect"}</button>
+                        ) : null}
+                        {caps.remove ? (
+                          <button type="button" className="btn btn-ghost btn-sm" disabled={guard} onClick={() => remove(row)}>{verbFor(row) === "remove" ? busy.label : "Remove"}</button>
+                        ) : null}
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -631,12 +634,13 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
               </section>
 
               {marketLoading && !marketRows.length ? (
-                <div className="gpkg-skel" role="status" aria-label="Loading the marketplace">
-                  {Array.from({ length: 3 }, (_, index) => (
-                    <div key={"mskel-" + index} className="gpkg-row" aria-hidden="true">
-                      <div className="gpkg-row-head"><div className="skel-line w-40" /></div>
+                <div className="gpkg-grid gpkg-skel" role="status" aria-label="Loading the marketplace">
+                  {Array.from({ length: 4 }, (_, index) => (
+                    <div key={"mskel-" + index} className="gpkg-card" aria-hidden="true">
+                      <div className="gpkg-card-head"><div className="skel-line w-50" /></div>
                       <div className="skel-line w-90" />
                       <div className="skel-line w-70" />
+                      <div className="gpkg-card-foot"><div className="skel-line w-40" /></div>
                     </div>
                   ))}
                 </div>
@@ -656,15 +660,20 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
               ) : null}
 
               {shownMarket.length ? (
-                <ul className="gpkg-list" role="tabpanel" aria-busy={marketLoading ? "true" : undefined}>
+                <ul className="gpkg-grid" role="tabpanel" aria-busy={marketLoading ? "true" : undefined}>
                   {shownMarket.map(row => (
-                    <li key={keyOf(row)} className="gpkg-row">
-                      <div className="gpkg-row-head">
-                        <span className="gpkg-row-name" title={row.source || row.name}>{row.name || row.id}</span>
+                    <li key={keyOf(row)} className="gpkg-card">
+                      <div className="gpkg-card-head">
+                        <span className="gpkg-card-name" title={row.source || row.name || row.id}>{row.name || row.id}</span>
                         {row.version ? <span className="pkg-type">{row.version}</span> : null}
-                        {row.updateAvailable && row.latest ? <span className="pkg-type is-update">{"→ " + row.latest}</span> : null}
                         {row.marketplace ? <span className="pkg-type">{row.marketplace}</span> : null}
-                        <span className="pkg-foot-spacer" />
+                      </div>
+                      {row.description ? <p className="gpkg-card-desc" title={row.description}>{row.description}</p> : null}
+                      <div className="gpkg-card-meta">
+                        {row.source ? <span className="gpkg-card-src" title={row.source}>{row.source}</span> : null}
+                      </div>
+                      <Problem entry={rowError[keyOf(row)]} />
+                      <div className="gpkg-card-foot">
                         {row.installed ? (
                           <span className="gpkg-status is-on">Installed</span>
                         ) : catalogRowAction(caps, row) === "install" ? (
@@ -673,9 +682,6 @@ export default function GuestPackages({ hidden, route, onScopeChange = () => {} 
                           </button>
                         ) : null}
                       </div>
-                      {row.description ? <p className="gpkg-row-desc">{row.description}</p> : null}
-                      {row.source ? <p className="gpkg-row-src" title={row.source}>{row.source}</p> : null}
-                      <Problem entry={rowError[keyOf(row)]} />
                     </li>
                   ))}
                 </ul>

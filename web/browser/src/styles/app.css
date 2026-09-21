@@ -994,8 +994,13 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
 .pkg-fine { margin: 6px 0 0; font-size: 11.5px; color: var(--text-secondary); }
 .pkg-src { font-family: var(--mono); font-size: 12px; }
 /* Guest CLI plugins (ADR-0167): the capability-driven pane for the eight CLIs
-   whose vendor owns the plugin store. Rows, not cards — a vendor plugin has no
-   screenshot, and the vendor's own status word is what the row is for. */
+   whose vendor owns the plugin store. Cards in the same two-column grid as Pi's
+   packages, without Pi's preview frame: a vendor plugin has no screenshot, and
+   an empty frame would be decoration with nothing behind it. The card's content
+   is the vendor's own (name, version, status word, origin), its description is
+   clamped so cards stay comparable, and the actions sit on a footer the grid
+   aligns across a row (`margin-top: auto`, so a two-line and a five-line
+   neighbour still line their buttons up). */
 .gpkg-scope {
   /* One control height: the label stretches to the radios' 28px so the tagged
      row measures even (overlayAudit: [data-align-row] children within 1px). */
@@ -1014,34 +1019,47 @@ button.mcp-live:disabled { opacity: 0.45; cursor: default; text-decoration: none
   display: flex; flex-direction: column; gap: 4px;
   font-size: 11.5px; line-height: 1.45; color: var(--text-secondary);
 }
-.gpkg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.gpkg-skel { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
-.gpkg-row {
-  display: flex; flex-direction: column; gap: 6px; min-width: 0;
-  padding: 10px 12px;
-  background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-ctl);
+.gpkg-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 900px) {
+  .gpkg-grid { grid-template-columns: 1fr 1fr; }
 }
-.gpkg-row.is-off { opacity: 0.72; }
-.gpkg-row-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: var(--ctl-h); }
-.gpkg-row-name {
-  font-family: var(--mono); font-size: 13.5px; font-weight: 650;
-  min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.gpkg-skel { padding: 0; }
+.gpkg-card {
+  display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 132px;
+  padding: 14px 16px;
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel);
 }
+/* A plugin the CLI reports as off keeps its actions at full strength: Enable is
+   the thing to do about it, and dimming the button that fixes the state is how a
+   pane hides its own next step. */
+.gpkg-card.is-off .gpkg-card-head,
+.gpkg-card.is-off .gpkg-card-desc,
+.gpkg-card.is-off .gpkg-card-meta { opacity: 0.62; }
+.gpkg-card-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.gpkg-card-name {
+  font-family: var(--mono); font-size: 13.5px; font-weight: 650; flex: 1;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.gpkg-card-desc {
+  margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--text-secondary);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.gpkg-card-meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+  font-size: 11px; color: var(--text-secondary); min-width: 0;
+}
+.gpkg-card-meta .is-picode { color: var(--accent); }
+.gpkg-card-src {
+  font-family: var(--mono); font-size: 11.5px; color: var(--text-secondary);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.gpkg-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: auto; padding-top: 4px; }
+.gpkg-card-foot .btn { height: var(--ctl-h); min-height: var(--ctl-h); }
 .gpkg-status { font-size: 11px; color: var(--text-secondary); }
 .gpkg-status.is-on { color: var(--ok); }
-.gpkg-row-actions { display: flex; align-items: center; gap: 6px; flex: none; }
-.gpkg-row-actions .btn { height: var(--ctl-h); min-height: var(--ctl-h); }
-.gpkg-row-src {
-  margin: 0; font-family: var(--mono); font-size: 11.5px; color: var(--text-secondary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.gpkg-row-desc {
-  margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--text-secondary);
-  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
-}
 .gpkg-row-note {
   margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--text-secondary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .gpkg-row-note.is-error { color: var(--danger); }
 .pkg-type.is-picode { color: var(--accent); border-color: var(--border-strong); }
