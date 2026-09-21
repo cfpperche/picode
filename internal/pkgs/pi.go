@@ -107,6 +107,32 @@ func (p piDriver) CheckUpdates(ctx context.Context, q Query) (Report, error) {
 	return Report{CLI: p.ID(), Rows: rows}, nil
 }
 
+// Pi's mutations are not on this interface yet. They exist here so that Pi is a
+// driver like any other, and every one of them refuses with ErrNoMutation: Pi
+// installs, removes and updates packages today through pipkg on its own route
+// (ADR-0176 moves that in a later slice), and no route of either family reaches
+// these verbs for Pi — the guest routes refuse Pi by name before any verb. A
+// caller that reaches one is told the truth rather than handed a command PiCode
+// would not run.
+func (piDriver) Install(context.Context, Query, Target) (Command, error) {
+	return Command{}, ErrNoMutation
+}
+func (piDriver) Remove(context.Context, Query, Target) (Command, error) {
+	return Command{}, ErrNoMutation
+}
+func (piDriver) Update(context.Context, Query, Target) (Command, error) {
+	return Command{}, ErrNoMutation
+}
+func (piDriver) Toggle(context.Context, Query, Target) (Command, error) {
+	return Command{}, ErrNoMutation
+}
+func (piDriver) Inspect(context.Context, Query, Target) (Command, string, error) {
+	return Command{}, "", ErrNoMutation
+}
+func (piDriver) Marketplace(context.Context, Query, MarketRequest) (Command, error) {
+	return Command{}, ErrNoMutation
+}
+
 // SourceName is what a pane prints for a package source: the npm name without
 // its prefix, the folder for a path, the last segment otherwise.
 func SourceName(source string) string {

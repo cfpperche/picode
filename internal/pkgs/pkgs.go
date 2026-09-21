@@ -4,10 +4,12 @@
 // package knows a vendor's argv or its roster shape, and each driver keeps its
 // own engine (pipkg for Pi, clipkgs for the guests) behind the interface.
 //
-// This is the read half of the interface. The mutation verbs (install, remove,
-// update, toggle, inspect) and the surfaces that call them arrive with the
-// slices that rewire them; a verb is added here when something reaches it, so
-// nothing in this package is speculative.
+// The interface is what a surface needs: the reads every driver answers
+// (List, Available, Marketplaces, CheckUpdates) and the mutation verbs that
+// change a CLI's own list (Install, Remove, Update, Toggle, Inspect,
+// Marketplace). A verb is added here when something reaches it, so nothing in
+// this package is speculative; a verb a driver's CLI does not expose refuses
+// with the same fact its Caps declares.
 //
 // Scope is the caller's vocabulary, not the vendor's: Machine, Workspace and
 // Agent are classes, and each driver keeps the CLI's own word in Vendor
@@ -156,6 +158,47 @@ type Query struct {
 	Fresh         bool
 }
 
+// Target is one plugin a mutation names: the CLI's own name (or spec) for it,
+// the source a removal takes back, and — for a toggle — the state asked for.
+// The layer travels in Query, because the class cannot say everything the CLI's
+// own command takes (Claude Code's `local` is a workspace-class layer with its
+// own word).
+type Target struct {
+	Name   string
+	Source string
+	On     bool
+}
+
+// MarketRequest is one marketplace-source action: what to do (add, remove,
+// update), the source it names, and the revision a fetch pins.
+type MarketRequest struct {
+	Action string
+	Source string
+	Name   string
+	Ref    string
+}
+
+// Command is one mutation as it can be run: the vendor executable with its argv
+// and the directory it runs in, plus the exact line a pane hands a person who
+// has to run it themselves — a refusal only a terminal can answer (ADR-0167:
+// Grok's `--trust`, Claude's marketplace-declared command). Both halves come
+// from one builder, so the line a pane copies is a command PiCode would run.
+//
+// A vendor command is what the job lane runs (ADR-0087); a mutation a CLI only
+// offers through its own config file has no argv at all — Exe and Line are then
+// empty, and the verb that carries it runs in process.
+type Command struct {
+	Exe  string
+	Args []string
+	Dir  string
+	Line string
+}
+
+// ErrNoMutation is the refusal a driver answers for a mutation its surface has
+// not reached yet. It is a fact about this interface, never about the CLI: Pi
+// installs and removes packages today, through its own engine on its own route.
+var ErrNoMutation = errors.New("this driver's mutations are not on this interface yet")
+
 // ErrNoUpdateCheck is the refusal a caller that asks for an update check its
 // CLI does not have gets. Caps.Update is the pane's gate; this is the same fact
 // as a sentence, so a route that cannot draw the control has something to say
@@ -197,6 +240,32 @@ type Driver interface {
 	// Caps.Update is false declares no such read and refuses with
 	// ErrNoUpdateCheck or the vendor's own reason.
 	CheckUpdates(ctx context.Context, q Query) (Report, error)
+	// Install, Remove, Update and Marketplace answer the command one mutation
+	// runs. They build it and never run it: an install or a fetch is a durable
+	// job in the lane ADR-0087 built, which reserves the job first and executes
+	// afterwards — after a restart too — so the argv has to travel as data. A
+	// CLI whose only change path is a write of its own config file has no
+	// command for that lane and refuses, by name, with its engine's own reason.
+	Install(ctx context.Context, q Query, t Target) (Command, error)
+	Remove(ctx context.Context, q Query, t Target) (Command, error)
+	Update(ctx context.Context, q Query, t Target) (Command, error)
+	// Marketplace answers the command one marketplace-source action runs. An
+	// add and an update fetch, so they are the job lane's and build only; a
+	// removal is a local change — the caller answers the CLI's remaining
+	// sources — so it runs here.
+	Marketplace(ctx context.Context, q Query, r MarketRequest) (Command, error)
+	// Toggle turns one plugin on or off through the vendor's own verb, or —
+	// where the CLI's plugin list is its own config file — the write its
+	// declaration carries. It is a local state change, so it runs here and the
+	// caller answers the CLI's fresh list. It returns the command it ran, which
+	// is empty where the vendor offers none, beside the vendor's refusal
+	// verbatim.
+	Toggle(ctx context.Context, q Query, t Target) (Command, error)
+	// Inspect runs the CLI's own inspection verb and answers its output
+	// verbatim — a pane shows the vendor's words, not a PiCode summary — with
+	// the command that produced it, so a refusal can hand a person the line to
+	// run.
+	Inspect(ctx context.Context, q Query, t Target) (Command, string, error)
 }
 
 // DriverFor resolves a CLI to its driver. "" is Pi, the default surface.

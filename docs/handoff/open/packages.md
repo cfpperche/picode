@@ -80,3 +80,15 @@
   is *not* the answer — for a local package its scope is the machine
   (`--scope=project` wrote nothing into the project; the flag is marketplace
   installs only), which breaks the workspace-scope model.
+
+- [ ] **OpenCode's removal is unreachable from the pane.** Its declaration says
+  `Remove: true`, because OpenCode's plugin list is its own config array and
+  `clipkgs.Run` writes it in process — but every removal goes to the durable job
+  lane, which runs an argv, and OpenCode's removal has none. So
+  `POST /api/cli-packages/remove` answers 400 *"this CLI does not expose that
+  operation: opencode remove"* while the pane draws the button (`Caps.Remove`
+  is true), and no route removes an OpenCode plugin. Measured 2026-09-21
+  (`feat/packages-mut`, slice 2b: the driver answers the lane's verbs with the
+  engine's own refusal, byte-identical to the handlers it replaced). Closes when
+  a mutation can be an in-process write on the lane, or OpenCode's removal moves
+  to the synchronous path its toggle already uses.

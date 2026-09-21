@@ -854,20 +854,15 @@ func bindAndServe(cfg config.Config, deps server.Deps) (*http.Server, int, error
 // address a client on this machine uses (localhost unless the bind is a
 // specific address); publicUrl is the configured origin for everyone
 // else (ADR-0050), "" when none.
-//
-// revision and boot are the running artifact's identity (D2 publication
-// observation): revision is the full VCS stamp when the binary has one, and
-// boot names this process. The deploy producer reads both around its restart
-// to record what was running before and what answers after.
 func writeServerJSON(dataDir string, cfg config.Config, port int) {
 	host := advertiseHost(cfg.Host)
 	scheme := "https"
 	if cfg.Insecure {
 		scheme = "http"
 	}
-	body := fmt.Sprintf(`{"url":%q,"scheme":%q,"host":%q,"bind":%q,"port":%d,"publicUrl":%q,"pid":%d,"time":%q,"revision":%q,"boot":%q}`,
+	body := fmt.Sprintf(`{"url":%q,"scheme":%q,"host":%q,"bind":%q,"port":%d,"publicUrl":%q,"pid":%d,"time":%q}`,
 		fmt.Sprintf("%s://%s:%d", scheme, host, port), scheme, host, cfg.Host, port, cfg.PublicURL, os.Getpid(),
-		time.Now().UTC().Format(time.RFC3339), version.Revision(), server.BootID())
+		time.Now().UTC().Format(time.RFC3339))
 	_ = os.MkdirAll(dataDir, 0o755)
 	_ = os.WriteFile(filepath.Join(dataDir, "server.json"), []byte(body+"\n"), 0o644)
 }

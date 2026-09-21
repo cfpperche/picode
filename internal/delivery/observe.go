@@ -61,24 +61,22 @@ type Change struct {
 	SourceStatus string     `json:"sourceStatus"`
 	Integration  string     `json:"integration"`
 	Validation   string     `json:"validation"`
-	Publication  string     `json:"publication"`
 	Checkout     string     `json:"checkout"`
 	Evidence     []Evidence `json:"evidence"`
 	Agents       []string   `json:"agents"`
 	Worktree     string     `json:"-"`
 }
 type Snapshot struct {
-	SchemaVersion int           `json:"schemaVersion"`
-	RepositoryKey string        `json:"repositoryKey"`
-	Root          string        `json:"root"`
-	ObservedAt    string        `json:"observedAt"`
-	Target        string        `json:"target"`
-	TargetOID     string        `json:"targetOid"`
-	Targets       []string      `json:"targets"`
-	Changes       []Change      `json:"changes"`
-	Environments  []Environment `json:"environments"`
-	Issues        []string      `json:"issues"`
-	Complete      bool          `json:"complete"`
+	SchemaVersion int      `json:"schemaVersion"`
+	RepositoryKey string   `json:"repositoryKey"`
+	Root          string   `json:"root"`
+	ObservedAt    string   `json:"observedAt"`
+	Target        string   `json:"target"`
+	TargetOID     string   `json:"targetOid"`
+	Targets       []string `json:"targets"`
+	Changes       []Change `json:"changes"`
+	Issues        []string `json:"issues"`
+	Complete      bool     `json:"complete"`
 }
 type cappedBuffer struct {
 	bytes.Buffer
@@ -280,7 +278,7 @@ func Observe(parent context.Context, cwd, repo, target string, decl []Declaratio
 	return s
 }
 func collect(ctx context.Context, cwd, repo, target string, decl []Declaration) Snapshot {
-	s := Snapshot{SchemaVersion: 1, RepositoryKey: repo, Root: cwd, ObservedAt: time.Now().UTC().Format(time.RFC3339Nano), Target: target, Targets: []string{}, Changes: []Change{}, Environments: []Environment{}, Issues: []string{}}
+	s := Snapshot{SchemaVersion: 1, RepositoryKey: repo, Root: cwd, ObservedAt: time.Now().UTC().Format(time.RFC3339Nano), Target: target, Targets: []string{}, Changes: []Change{}, Issues: []string{}}
 	refsText, err := git(ctx, cwd, "for-each-ref", "--format=%(refname:short) %(objectname)", "refs/heads/")
 	if err != nil {
 		s.Issues = append(s.Issues, "Repository unavailable")
@@ -374,7 +372,6 @@ func collect(ctx context.Context, cwd, repo, target string, decl []Declaration) 
 		c.SourceStatus = "current"
 		c.Integration = "unknown"
 		c.Validation = "unknown"
-		c.Publication = "unknown"
 		c.Checkout = dirty[c.Branch]
 		c.Worktree = worktrees[c.Branch]
 		if c.Checkout == "" {

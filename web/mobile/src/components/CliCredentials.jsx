@@ -141,17 +141,18 @@ export default function CliCredentials({ hidden, cli, add = false, custom = "", 
   // equivalent for, linked rather than hidden behind a menu item (ADR-0169).
   const customDoor = data && data.custom && data.custom.available ? (data.custom.href || cliProvidersHash("pi", { custom: true })) : "";
   const total = providers.reduce((n, p) => n + ((p.accounts || []).length), 0);
-  // With one provider, the bar's Add already says everything a per-provider
-  // one would: the same dialog, the same preselection. It is only when a CLI
-  // has several that a per-provider Add earns its place.
-  const multiProvider = providers.length > 1;
   const canAddKey = addKind === "key" && providers.length > 0;
-  const perProviderAdd = canAddKey && multiProvider ? addLabel : "";
+  // The bar's primary exists wherever the CLI can add anything: pi opens its
+  // catalog dialog, a guest opens the key dialog whose select lists the CLI's
+  // own providers. With that button up in the bar, a per-provider Add would
+  // say the same thing one row below it — so it only earns its place when the
+  // bar cannot offer a primary at all (no providers, or nothing to add).
+  const barPrimary = !!addSpec && providers.length > 0;
+  const perProviderAdd = canAddKey && !barPrimary ? addLabel : "";
   // The bar outlives an empty roster only where Add can work on its own: pi's
   // dialog also carries the custom-provider door, so it needs no provider to
   // already exist.
   const bar = providers.length > 0 || addKind === "provider";
-  const barPrimary = !!addSpec && (addKind === "provider" || (providers.length > 0 && !multiProvider));
   // The legend names columns: with no rows under it there is nothing to name.
   const anyRows = providers.some((p) => (p.accounts || []).length > 0);
 

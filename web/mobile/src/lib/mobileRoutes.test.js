@@ -127,21 +127,6 @@ it("opens editor/tree/Git links with owner identity and folder preconditions", (
   assert.equal(mobileRoute("#/git/x/nope").screen, "work");
 });
 
-it("opens Git's Delivery view on the lens its hash names (ADR-0170 D2)", () => {
-  const owner = { kind: "workspace", id: "w1" };
-  assert.deepEqual(mobileRoute("#/git/w/w1?view=delivery"), { screen: "git", id: "w1", section: "workspace", view: "delivery" });
-  assert.deepEqual(mobileRoute("#/git/w/w1?view=delivery&lane=deployment"), { screen: "git", id: "w1", section: "workspace", view: "delivery", lane: "deployment" });
-  assert.deepEqual(mobileRoute(toolHash("git", owner, { view: "delivery", lane: "deployment" })), { screen: "git", id: "w1", section: "workspace", view: "delivery", lane: "deployment" });
-  assert.deepEqual(mobileRoute(toolHash("git", owner, { root: "/w/app", commit: "abc123", view: "delivery", lane: "deployment" })), { screen: "git", id: "w1", section: "workspace", root: "/w/app", commit: "abc123", view: "delivery", lane: "deployment" });
-  // A lens with no Delivery view, an unknown lens and the other views carry
-  // none of it: the lane names a lens of the Delivery view or nothing.
-  assert.deepEqual(mobileRoute("#/git/w/w1?lane=deployment"), { screen: "git", id: "w1", section: "workspace" });
-  assert.deepEqual(mobileRoute("#/git/w/w1?view=delivery&lane=integration"), { screen: "git", id: "w1", section: "workspace", view: "delivery" });
-  assert.deepEqual(mobileRoute("#/git/w/w1?view=changes"), { screen: "git", id: "w1", section: "workspace" });
-  assert.equal(toolHash("git", owner, { lane: "deployment" }), "#/git/w/w1");
-  assert.equal(toolHash("git", owner, { view: "delivery" }), "#/git/w/w1?view=delivery");
-});
-
 it("snippets on the phone mirror the pins map (ADR-0130)", () => {
   assert.deepEqual(mobileRoute("#/snippets/deploy-abc123"), { screen: "snip", id: "deploy-abc123", section: "" });
   assert.deepEqual(mobileRoute("#/snippets/new"), { screen: "snipEdit", id: "", section: "" });
