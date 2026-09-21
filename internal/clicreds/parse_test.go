@@ -1,6 +1,7 @@
 package clicreds
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"reflect"
 	"strconv"
@@ -10,6 +11,15 @@ import (
 
 // itoa renders a millisecond expectation inside a fixture string.
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
+
+// jwt builds a synthetic three-segment token around a payload, the shape the
+// vendors' files carry. Only the payload is ever read, so the header and the
+// signature are filler.
+func jwt(payload string) string {
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"RS256","typ":"JWT"}`))
+	body := base64.RawURLEncoding.EncodeToString([]byte(payload))
+	return header + "." + body + ".c2ln"
+}
 
 // formats is every reader parseLogin dispatches to, the list the garbage and
 // no-credential sweeps below run against.
@@ -39,7 +49,12 @@ func TestParseLogin(t *testing.T) {
 	const (
 		grokExpiry = "2027-01-02T03:04:05.123456789Z"
 		agyExpiry  = "2027-01-02T03:04:05.123456789-03:00"
+		museExpiry = "2027-01-02T03:04:05.123Z"
 	)
+	// Antigravity's own file carries the vendor's JWT; the account's sub and
+	// email are what the reader names the row after.
+	agyIDToken := jwt(`{"iss":"https://accounts.google.com","sub":"106452103326095890968","email":"who@example.com"}`)
+	agyEmailToken := jwt(`{"iss":"https://accounts.google.com","email":"who@example.com"}`)
 	at := func(s string) int64 {
 		ts, err := time.Parse(time.RFC3339Nano, s)
 		if err != nil {
@@ -57,6 +72,10 @@ func TestParseLogin(t *testing.T) {
 		wantProvider string
 		wantKind     string
 		wantLabel    string
+		// wantIdentity is the account the file names, empty where it names
+		// none. IdentityBearing's claim is checked against these in
+		// specs_test.go, so a format that starts filling one changes here too.
+		wantIdentity string
 		wantCred     string
 	}{
 		{
@@ -80,6 +99,12 @@ func TestParseLogin(t *testing.T) {
 		{
 			name: "pi oauth without a refresh token", format: "pi", provider: "xai",
 			raw: `{"xai":{"type":"oauth","access":"access-1","expires":1799000000}}`,
+		},
+		{
+			name: "pi oauth keeps its account id in the credential", format: "pi", provider: "openai-codex",
+			raw:    `{"openai-codex":{"type":"oauth","access":"access-1","refresh":"refresh-1","expires":1799000000,"accountId":"acct-1"}}`,
+			wantOK: true, wantProvider: "openai-codex", wantKind: KindOAuth,
+			wantCred: `{"type":"oauth","access":"access-1","refresh":"refresh-1","expires":1799000000000,"accountId":"acct-1"}`,
 		},
 		{
 			name: "pi entry without a key", format: "pi", provider: "zai",
@@ -142,7 +167,7 @@ func TestParseLogin(t *testing.T) {
 		{
 			name: "codex chatgpt tokens", format: "codex", provider: "openai-codex",
 			raw:    `{"auth_mode":"chatgpt","OPENAI_API_KEY":null,"tokens":{"id_token":"id-1","access_token":"access-1","refresh_token":"refresh-1","account_id":"acct-3"},"last_refresh":"2027-01-02T03:04:05Z"}`,
-			wantOK: true, wantProvider: "openai-codex", wantKind: KindOAuth,
+			wantOK: true, wantProvider: "openai-codex", wantKind: KindOAuth, wantIdentity: "acct-3",
 			wantCred: `{"type":"oauth","access":"access-1","refresh":"refresh-1","accountId":"acct-3"}`,
 		},
 		{
@@ -156,13 +181,19 @@ func TestParseLogin(t *testing.T) {
 		{
 			name: "grok oauth with an ISO expiry", format: "grok", provider: "xai",
 			raw:    `{"https://auth.x.ai::cli-1":{"key":"access-1","auth_mode":"oidc","refresh_token":"refresh-1","expires_at":"` + grokExpiry + `","email":"who@example.com","user_id":"u-1"}}`,
-			wantOK: true, wantProvider: "xai", wantKind: KindOAuth, wantLabel: "who@example.com",
+			wantOK: true, wantProvider: "xai", wantKind: KindOAuth, wantLabel: "who@example.com", wantIdentity: "u-1",
+			wantCred: `{"type":"oauth","access":"access-1","refresh":"refresh-1","expires":` + itoa(at(grokExpiry)) + `}`,
+		},
+		{
+			name: "grok principal id wins over the user id and the email", format: "grok", provider: "xai",
+			raw:    `{"https://auth.x.ai::cli-1":{"key":"access-1","refresh_token":"refresh-1","expires_at":"` + grokExpiry + `","email":"who@example.com","user_id":"u-1","principal_id":"p-1"}}`,
+			wantOK: true, wantProvider: "xai", wantKind: KindOAuth, wantLabel: "who@example.com", wantIdentity: "p-1",
 			wantCred: `{"type":"oauth","access":"access-1","refresh":"refresh-1","expires":` + itoa(at(grokExpiry)) + `}`,
 		},
 		{
 			name: "grok picks the entry it can use", format: "grok", provider: "xai",
 			raw:    `{"https://auth.x.ai::aaa-old":{"key":"access-old","expires_at":"` + grokExpiry + `"},"https://auth.x.ai::newer":{"key":"access-new","refresh_token":"refresh-new","expires_at":"` + grokExpiry + `","email":"new@example.com"}}`,
-			wantOK: true, wantProvider: "xai", wantKind: KindOAuth, wantLabel: "new@example.com",
+			wantOK: true, wantProvider: "xai", wantKind: KindOAuth, wantLabel: "new@example.com", wantIdentity: "new@example.com",
 			wantCred: `{"type":"oauth","access":"access-new","refresh":"refresh-new","expires":` + itoa(at(grokExpiry)) + `}`,
 		},
 		{
@@ -180,7 +211,7 @@ func TestParseLogin(t *testing.T) {
 		{
 			name: "hermes providers oauth", format: "hermes", provider: "openai-codex",
 			raw:    `{"version":2,"providers":{"openai-codex":{"tokens":{"id_token":"id-1","access_token":"access-1","refresh_token":"refresh-1","account_id":"acct-4"},"last_refresh":"2027-01-02T03:04:05Z","auth_mode":"chatgpt"}},"credential_pool":{"openai-codex":[]}}`,
-			wantOK: true, wantProvider: "openai-codex", wantKind: KindOAuth,
+			wantOK: true, wantProvider: "openai-codex", wantKind: KindOAuth, wantIdentity: "acct-4",
 			wantCred: `{"type":"oauth","access":"access-1","refresh":"refresh-1","accountId":"acct-4"}`,
 		},
 		{
@@ -218,6 +249,43 @@ func TestParseLogin(t *testing.T) {
 			wantCred: `{"type":"api_key","key":"meta-key-synthetic"}`,
 		},
 		{
+			// `muse login`'s account login, as the launcher inside the Muse
+			// binary reads it: mechanism "oauth", access_token, expires_at.
+			name: "muse account login", format: "muse", provider: "meta-ai",
+			raw:    `{"schema_version":1,"providers":{"meta":{"mechanism":"oauth","access_token":"access-1","refresh_token":"refresh-1","expires_at":"` + museExpiry + `","obtained_via":"device_code","user_email":"who@example.com"}}}`,
+			wantOK: true, wantProvider: "meta-ai", wantKind: KindOAuth, wantIdentity: "who@example.com",
+			wantCred: `{"type":"oauth","access":"access-1","refresh":"refresh-1","expires":` + itoa(at(museExpiry)) + `}`,
+		},
+		{
+			name: "muse account login with a numeric expiry", format: "muse", provider: "meta-ai",
+			raw:    `{"schema_version":1,"providers":{"meta":{"mechanism":"oauth","access_token":"access-1","refresh_token":"refresh-1","expires_at":1799000000}}}`,
+			wantOK: true, wantProvider: "meta-ai", wantKind: KindOAuth,
+			wantCred: `{"type":"oauth","access":"access-1","refresh":"refresh-1","expires":1799000000000}`,
+		},
+		{
+			// Both shapes in one object: Muse reads the key first, and so does
+			// this reader — the account login is not what is in use.
+			name: "muse key wins over the account login", format: "muse", provider: "meta-ai",
+			raw:    `{"schema_version":1,"providers":{"meta":{"api_key":"meta-key-synthetic","mechanism":"oauth","access_token":"access-1","refresh_token":"refresh-1","expires_at":"` + museExpiry + `","user_email":"who@example.com"}}}`,
+			wantOK: true, wantProvider: "meta-ai", wantKind: KindAPIKey,
+			wantCred: `{"type":"api_key","key":"meta-key-synthetic"}`,
+		},
+		{
+			// Muse's own reader — the launcher inside the binary — reads
+			// mechanism, access_token and expires_at and no refresh token at
+			// all, so an access token alone is the whole credential here.
+			// Requiring one would hide a real subscription: the defect
+			// ADR-0168 exists to fix.
+			name: "muse account login without a refresh token", format: "muse", provider: "meta-ai",
+			raw:    `{"schema_version":1,"providers":{"meta":{"mechanism":"oauth","access_token":"access-1","expires_at":1798859045}}}`,
+			wantOK: true, wantProvider: "meta-ai", wantKind: KindOAuth,
+			wantCred: `{"type":"oauth","access":"access-1","expires":1798859045000}`,
+		},
+		{
+			name: "muse entry that is not an account login", format: "muse", provider: "meta-ai",
+			raw: `{"schema_version":1,"providers":{"meta":{"mechanism":"api_key","access_token":"access-1","refresh_token":"refresh-1"}}}`,
+		},
+		{
 			name: "muse provider without a key", format: "muse", provider: "meta-ai",
 			raw: `{"schema_version":1,"providers":{"meta":{}}}`,
 		},
@@ -227,7 +295,19 @@ func TestParseLogin(t *testing.T) {
 		},
 		{
 			name: "agy oauth with an offset expiry", format: "agy", provider: "google",
-			raw:    `{"token":{"access_token":"access-1","token_type":"Bearer","refresh_token":"refresh-1","expiry":"` + agyExpiry + `"},"auth_method":"consumer","id_token":"id-1"}`,
+			raw:    `{"token":{"access_token":"access-1","token_type":"Bearer","refresh_token":"refresh-1","expiry":"` + agyExpiry + `"},"auth_method":"consumer","id_token":"` + agyIDToken + `"}`,
+			wantOK: true, wantProvider: "google", wantKind: KindOAuth, wantIdentity: "106452103326095890968",
+			wantCred: `{"type":"oauth","access":"access-1","refresh":"refresh-1","expires":` + itoa(at(agyExpiry)) + `}`,
+		},
+		{
+			name: "agy id_token without a subject falls back to the email", format: "agy", provider: "google",
+			raw:    `{"token":{"access_token":"access-1","refresh_token":"refresh-1","expiry":"` + agyExpiry + `"},"id_token":"` + agyEmailToken + `"}`,
+			wantOK: true, wantProvider: "google", wantKind: KindOAuth, wantIdentity: "who@example.com",
+			wantCred: `{"type":"oauth","access":"access-1","refresh":"refresh-1","expires":` + itoa(at(agyExpiry)) + `}`,
+		},
+		{
+			name: "agy malformed id_token", format: "agy", provider: "google",
+			raw:    `{"token":{"access_token":"access-1","refresh_token":"refresh-1","expiry":"` + agyExpiry + `"},"id_token":"not-a-token"}`,
 			wantOK: true, wantProvider: "google", wantKind: KindOAuth,
 			wantCred: `{"type":"oauth","access":"access-1","refresh":"refresh-1","expires":` + itoa(at(agyExpiry)) + `}`,
 		},
@@ -258,10 +338,46 @@ func TestParseLogin(t *testing.T) {
 				t.Fatalf("login = %s/%s label %q, want %s/%s label %q",
 					login.Provider, login.Kind, login.Label, tc.wantProvider, tc.wantKind, tc.wantLabel)
 			}
+			if login.Identity != tc.wantIdentity {
+				t.Fatalf("identity = %q, want %q", login.Identity, tc.wantIdentity)
+			}
 			if got, want := cred(t, login.Cred), wantJSON(t, tc.wantCred); !reflect.DeepEqual(got, want) {
 				t.Fatalf("cred = %v, want %v", got, want)
 			}
 		})
+	}
+}
+
+// TestJWTClaimReadsThePayloadAndNothingElse holds the Antigravity identity
+// reader to its claim: the payload of the vendor's own token is decoded without
+// any verification, and everything that is not a readable payload is no claim
+// rather than a panic — a truncated file, a bad base64 alphabet, a payload that
+// is not a JSON object, a claim of the wrong type.
+func TestJWTClaimReadsThePayloadAndNothingElse(t *testing.T) {
+	padded := func(payload string) string {
+		body := base64.URLEncoding.EncodeToString([]byte(payload))
+		return "header." + body + ".c2ln"
+	}
+	cases := []struct {
+		name, token, claim, want string
+	}{
+		{"subject", jwt(`{"sub":"106452103326095890968","email":"who@example.com"}`), "sub", "106452103326095890968"},
+		{"email", jwt(`{"sub":"106452103326095890968","email":"who@example.com"}`), "email", "who@example.com"},
+		{"padded payload", padded(`{"sub":"1064"}`), "sub", "1064"},
+		{"absent claim", jwt(`{"email":"who@example.com"}`), "sub", ""},
+		{"numeric claim", jwt(`{"sub":1064}`), "sub", ""},
+		{"empty", "", "sub", ""},
+		{"one segment", "a-token", "sub", ""},
+		{"bad base64", "header.!!!not-base64!!!.c2ln", "sub", ""},
+		{"payload is not json", jwt(`not json`), "sub", ""},
+		{"payload is an array", jwt(`["sub"]`), "sub", ""},
+		{"payload is null", jwt(`null`), "sub", ""},
+		{"two segments", "header." + base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"1064"}`)), "sub", ""},
+	}
+	for _, tc := range cases {
+		if got := jwtClaim(tc.token, tc.claim); got != tc.want {
+			t.Fatalf("%s: jwtClaim = %q, want %q", tc.name, got, tc.want)
+		}
 	}
 }
 

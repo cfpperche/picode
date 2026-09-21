@@ -16,6 +16,7 @@ import (
 
 	"github.com/cfpperche/picode/internal/catalog"
 	"github.com/cfpperche/picode/internal/clicreds"
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/credentials"
 )
 
@@ -31,6 +32,7 @@ func registerCredentialRoutes(mux Registrar, deps Deps) {
 	mux.HandleFunc("GET /api/credentials", handleCredentials(deps))
 	mux.HandleFunc("POST /api/credentials", handleCredentialAdd(deps))
 	mux.HandleFunc("POST /api/credentials/import", handleCredentialImport(deps))
+	mux.HandleFunc("POST /api/credentials/signin", handleCredentialSignin(deps))
 	mux.HandleFunc("PATCH /api/credentials/{provider}/{id}", handleCredentialRename(deps))
 	mux.HandleFunc("POST /api/credentials/{provider}/{id}/pause", handleCredentialPause(deps))
 	mux.HandleFunc("POST /api/credentials/{provider}/{id}/verify", handleCredentialVerify(deps))
@@ -93,18 +95,22 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 			if path := clicreds.CredentialPath(spec.CLI, p.Provider); path != "" {
 				existing, _ = os.ReadFile(path)
 			}
-			inUse := ""
-			if login, found := clicreds.DetectProvider(spec.CLI, p.Provider); found {
-				fp := credentials.Fingerprint(login.Cred)
-				inUse = fp[:12]
-			}
 			rows := accountsFor(p.Provider)
+			// The CLI's own store, read once: what it holds decides which row
+			// is in use and whether Use could write each row. "Detected" is the
+			// store having a login at all; "live" is that login already being
+			// one of the rows below.
+			login, detected := clicreds.DetectProvider(spec.CLI, p.Provider)
+			liveID := ""
+			if detected {
+				liveID = liveRowID(p.Provider, rows, login)
+			}
 			views := make([]accountView, 0, len(rows))
 			for _, a := range rows {
 				view := accountView{Account: a}
 				if !isPi {
 					// pi's roster is its own endpoint, where Active is pi's slot.
-					view.Active = inUse != "" && a.ID == inUse
+					view.Active = liveID != "" && a.ID == liveID
 				}
 				if p.Native != nil {
 					if row, ok, err := credentials.Default().Row(p.Provider, a.ID); err == nil && ok {
@@ -119,17 +125,20 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 				Accounts:    views,
 				SingleOAuth: p.Native != nil && !clicreds.IdentityBearing(p.Native.Format),
 			}
-			if p.Native != nil && inUse != "" {
-				if login, found := clicreds.DetectProvider(spec.CLI, p.Provider); found {
-					view.Native = &nativeView{
-						Detected: true, Kind: login.Kind, Label: login.Label,
-						Imported: importedAlready(p.Provider, login.Cred),
-					}
+			if p.Native != nil && detected {
+				view.Native = &nativeView{
+					Detected: true, Kind: login.Kind, Label: login.Label,
+					Imported: liveID != "",
 				}
 			}
 			providers = append(providers, view)
 		}
 		out["providers"] = providers
+		if spec.Login != nil {
+			out["signin"] = map[string]any{"available": true, "hint": spec.Login.Hint}
+		} else {
+			out["signin"] = map[string]any{"available": false}
+		}
 		writeJSON(w, http.StatusOK, out)
 	}
 }
@@ -154,18 +163,6 @@ func accountsFor(provider string) []catalog.Account {
 		accounts = []catalog.Account{}
 	}
 	return accounts
-}
-
-// importedAlready reports whether this exact credential is already a row, so
-// the pane offers Import once instead of on every load.
-func importedAlready(provider string, cred json.RawMessage) bool {
-	fp := credentials.Fingerprint(cred)
-	for _, a := range accountsFor(provider) {
-		if a.ID == fp[:12] {
-			return true
-		}
-	}
-	return false
 }
 
 func handleCredentialAdd(deps Deps) http.HandlerFunc {
@@ -193,7 +190,7 @@ func handleCredentialAdd(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		row, err := credentials.Default().Import(provider, cred, strings.TrimSpace(req.Label), "vault")
+		row, err := credentials.Default().Import(provider, cred, strings.TrimSpace(req.Label), "vault", "")
 		if err != nil {
 			writeVaultErr(w, err)
 			return
@@ -206,6 +203,11 @@ func handleCredentialImport(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			CLI string `json:"cli"`
+			// As is the person's own name for this login, sent when a second
+			// sign-in of a store that carries no account name has to be kept
+			// beside the first instead of replacing it (ADR-0166's rule: the
+			// vault never silently eats a login).
+			As string `json:"as"`
 		}
 		if !readCLIJSON(w, r, &req) {
 			return
@@ -216,17 +218,140 @@ func handleCredentialImport(deps Deps) http.HandlerFunc {
 			writeErr(w, http.StatusNotFound, "No saved login was found for this CLI on this machine.")
 			return
 		}
-		row, err := credentials.Default().Import(login.Provider, login.Cred, "", "imported:"+cli)
+		// What this login is called, in the order that keeps rows honest: the
+		// name the person gave, the account the store itself names (Grok's
+		// principal, Codex's account id), else the account the vendor's own
+		// profile endpoint answers with on this explicit click. An unnamed
+		// login is one row per provider, and the pane says so.
+		who := login.Label
+		if who == "" {
+			who = deps.usageClient().Identity(r.Context(), login.Provider, accessTokenOf(login.Cred))
+		}
+		identity := strings.TrimSpace(req.As)
+		if identity == "" {
+			identity = login.Identity
+		}
+		if identity == "" {
+			identity = who
+		}
+		before, _ := credentials.Default().Accounts(login.Provider)
+		var row credentials.Row
+		var err error
+		if strings.TrimSpace(req.As) != "" {
+			// Naming a login re-keys the row that holds it; it never leaves a
+			// copy of the same credential behind.
+			row, err = credentials.Default().Adopt(login.Provider, identity, login.Cred)
+		} else {
+			row, err = credentials.Default().Import(login.Provider, login.Cred, "", "imported:"+cli, identity)
+		}
 		if err != nil {
 			writeVaultErr(w, err)
 			return
 		}
-		if login.Label != "" {
-			// The vendor volunteered an identity (an email): store it as the
-			// row's identity, never as the user's label.
-			_ = credentials.Default().SetIdentity(login.Provider, row.ID, login.Label, "")
+		if who != "" {
+			_ = credentials.Default().SetIdentity(login.Provider, row.ID, who, "")
 		}
-		writeJSON(w, http.StatusCreated, rowView(row))
+		// Created means the roster grew. Naming a login re-keys the row that
+		// holds it, so an id comparison would call that a new row.
+		after, _ := credentials.Default().Accounts(login.Provider)
+		created := len(after) > len(before)
+		out := rowView(row)
+		out["who"] = who
+		out["identity"] = row.Identity
+		out["created"] = created
+		writeJSON(w, http.StatusCreated, out)
+	}
+}
+
+// liveRowID names the vault row a CLI's own store currently holds — the id the
+// pane marks in use, or the empty string when none of the rows is in that file
+// (the pane then offers Import). The key is usually enough: the store names its
+// account and the roster recomputes the same key with no call. Rows keyed by a
+// name the file does not carry (the vendor's profile, or the person's) are
+// matched by the token they were saved with — local, exact, and honest when it
+// stops matching, which is why nothing here guesses.
+func liveRowID(provider string, rows []catalog.Account, login clicreds.Login) string {
+	key := credentials.Key(login.Cred, login.Identity)[:12]
+	for _, a := range rows {
+		if a.ID == key {
+			return a.ID
+		}
+	}
+	var live struct {
+		Access string `json:"access"`
+	}
+	if json.Unmarshal(login.Cred, &live) != nil || live.Access == "" {
+		return ""
+	}
+	for _, a := range rows {
+		row, ok, err := credentials.Default().Row(provider, a.ID)
+		if err != nil || !ok {
+			continue
+		}
+		var saved struct {
+			Access string `json:"access"`
+		}
+		if json.Unmarshal(row.Cred, &saved) != nil || saved.Access == "" {
+			continue
+		}
+		if saved.Access == live.Access {
+			return a.ID
+		}
+	}
+	return ""
+}
+
+// accessTokenOf reads the OAuth access token out of a vault credential, for
+// the callers that need to ask a vendor who the account is.
+func accessTokenOf(cred json.RawMessage) string {
+	var m struct {
+		Access string `json:"access"`
+	}
+	if json.Unmarshal(cred, &m) != nil {
+		return ""
+	}
+	return strings.TrimSpace(m.Access)
+}
+
+// handleCredentialSignin opens a terminal running the CLI's own sign-in (its
+// binary, its client id) and answers with the hint to show while it runs.
+// PiCode does not perform another tool's OAuth: it opens the door and imports
+// the result (ADR-0166's shape, ADR-0167's flow).
+func handleCredentialSignin(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			CLI string `json:"cli"`
+		}
+		if !readCLIJSON(w, r, &req) {
+			return
+		}
+		spec, ok := clicreds.For(strings.TrimSpace(req.CLI))
+		if !ok {
+			writeErr(w, http.StatusNotFound, "Unknown CLI.")
+			return
+		}
+		if spec.Login == nil {
+			writeErr(w, http.StatusBadRequest, spec.Name+" publishes no sign-in PiCode can start — use Import once its own login is done.")
+			return
+		}
+		cli, ok := clilaunch.Find(spec.CLI)
+		if !ok || !cli.Launchable() {
+			writeErr(w, http.StatusBadRequest, "This CLI cannot be launched here.")
+			return
+		}
+		args := append([]string{}, spec.Login.Args...)
+		v := cliTerminalRequest{
+			Name:      spec.Name + " sign-in",
+			Overrides: clilaunch.Overrides{Args: &args},
+		}
+		t, view, status, err := createCLITerminal(deps, r, cli, v)
+		if err != nil {
+			writeErr(w, status, err.Error())
+			return
+		}
+		writeJSON(w, status, map[string]any{
+			"terminalId": t.ID, "hint": spec.Login.Hint, "terminal": view,
+		})
 	}
 }
 

@@ -1,6 +1,7 @@
 package clicreds
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"sort"
 	"strings"
@@ -91,10 +92,40 @@ func loginAPIKey(provider, key, label string) (Login, bool) {
 	return Login{Provider: provider, Kind: KindAPIKey, Cred: cred, Label: label}, true
 }
 
+// loginMuse builds Muse's account login, which is the one oauth login here
+// that stands without a refresh token: the vendor's own reader — the launcher
+// inside the binary — reads `mechanism`, `access_token` and `expires_at` and
+// nothing else, so an access token alone is the whole credential, and requiring
+// a refresh token would hide a real subscription (the defect that started
+// ADR-0168). A refresh token the file *does* carry is kept — dropping one the
+// CLI wrote would degrade the credential on the way back in. `expires_at` is a
+// number of unix seconds there; expiresAnyMillis takes either that or a
+// timestamp. A login with no expiry is still a login.
+func loginMuse(provider, access, refresh string, expires int64, identity string) (Login, bool) {
+	access = strings.TrimSpace(access)
+	if access == "" {
+		return Login{}, false
+	}
+	m := map[string]any{"type": KindOAuth, "access": access, "expires": expires}
+	if refresh = strings.TrimSpace(refresh); refresh != "" {
+		m["refresh"] = refresh
+	}
+	cred, err := json.Marshal(m)
+	if err != nil {
+		return Login{}, false
+	}
+	return Login{
+		Provider: provider, Kind: KindOAuth, Cred: cred,
+		Identity: strings.TrimSpace(identity),
+	}, true
+}
+
 // loginOAuth builds an oauth Login. A missing refresh token is a missing
 // credential — an access token alone expires and cannot be renewed, so it is
-// reported as no login, never as a half-usable row.
-func loginOAuth(provider, access, refresh string, expires int64, accountID, label string) (Login, bool) {
+// reported as no login, never as a half-usable row. identity is the account the
+// store named, when it named one: empty is "this file does not say", never a
+// guess.
+func loginOAuth(provider, access, refresh string, expires int64, accountID, label, identity string) (Login, bool) {
 	access, refresh = strings.TrimSpace(access), strings.TrimSpace(refresh)
 	if access == "" || refresh == "" {
 		return Login{}, false
@@ -112,7 +143,13 @@ func loginOAuth(provider, access, refresh string, expires int64, accountID, labe
 	if err != nil {
 		return Login{}, false
 	}
-	return Login{Provider: provider, Kind: KindOAuth, Cred: cred, Label: label}, true
+	return Login{
+		Provider: provider,
+		Kind:     KindOAuth,
+		Cred:     cred,
+		Label:    label,
+		Identity: strings.TrimSpace(identity),
+	}, true
 }
 
 // object is the decoded JSON document every reader walks.
@@ -171,6 +208,55 @@ func isoMillis(s string) int64 {
 	return t.UnixMilli()
 }
 
+// expiresAnyMillis reads an expiry a file spells either as a number (unix
+// seconds or milliseconds) or as an RFC 3339 string. Muse's store is the one
+// that can hold either, so the choice is made here rather than in a reader.
+func expiresAnyMillis(v any) int64 {
+	if s, ok := v.(string); ok {
+		return isoMillis(strings.TrimSpace(s))
+	}
+	return expiresMillis(v)
+}
+
+// firstText is the first non-empty string among the keys, in the order given.
+// Vendor stores repeat one fact under several names — Grok's principal_id,
+// user_id and email all name the same account — and that order is the
+// preference: the stable id first, the human address last. Nothing is
+// synthesized when none is present.
+func firstText(doc object, keys ...string) string {
+	for _, key := range keys {
+		if s := text(doc, key); s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+// jwtClaim reads one claim out of the payload of an unverified JWT. The
+// signature is deliberately not checked: the token comes out of the vendor's
+// own file, PiCode never presents it anywhere, and it only reads a name off it.
+// A malformed token — not three segments, not base64url, not a JSON object — is
+// no claim rather than a failure.
+func jwtClaim(token, claim string) string {
+	segments := strings.Split(strings.TrimSpace(token), ".")
+	if len(segments) < 3 {
+		return ""
+	}
+	payload := strings.TrimSpace(segments[1])
+	raw, err := base64.RawURLEncoding.DecodeString(payload)
+	if err != nil {
+		// A padded segment is legal base64url too, and some issuers pad.
+		if raw, err = base64.URLEncoding.DecodeString(payload); err != nil {
+			return ""
+		}
+	}
+	claims, ok := decode(raw)
+	if !ok {
+		return ""
+	}
+	return text(claims, claim)
+}
+
 // candidateIDs is the declared provider id first, then the CLI's own names for
 // it, in the order the file's entry is picked.
 func candidateIDs(provider string, aliases map[string][]string) []string {
@@ -200,8 +286,11 @@ func parseProviderMap(raw []byte, provider string, aliases map[string][]string) 
 	case "api_key", "api":
 		return loginAPIKey(provider, text(entry, "key"), "")
 	case "oauth":
+		// No Identity here on purpose: these two files carry the account id
+		// inside the credential (`accountId`, passed through below), which is
+		// where the vault's Fingerprint reads it — see IdentityBearing.
 		return loginOAuth(provider, text(entry, "access"), text(entry, "refresh"),
-			expiresMillis(entry["expires"]), text(entry, "accountId"), "")
+			expiresMillis(entry["expires"]), text(entry, "accountId"), "", "")
 	}
 	return Login{}, false
 }
@@ -212,7 +301,10 @@ func parseProviderMap(raw []byte, provider string, aliases map[string][]string) 
 //
 // The file also carries vendor plugin OAuth (mcpOAuth) that is not Claude's own
 // login, so only claudeAiOauth is read. The subscription type is a plan name,
-// not an identity, so it is not a Label.
+// not an identity, so it is not a Label — and nothing else here names the
+// account either, so Identity stays empty (IdentityBearing is false for this
+// format): two Claude Code logins of one provider are told apart only by the
+// tokens, which rotate.
 func parseClaude(raw []byte, provider string) (Login, bool) {
 	doc, ok := decode(raw)
 	if !ok {
@@ -223,7 +315,7 @@ func parseClaude(raw []byte, provider string) (Login, bool) {
 		return Login{}, false
 	}
 	return loginOAuth(provider, text(oauth, "accessToken"), text(oauth, "refreshToken"),
-		expiresMillis(oauth["expiresAt"]), "", "")
+		expiresMillis(oauth["expiresAt"]), "", "", "")
 }
 
 // parseCodex reads Codex's `$CODEX_HOME/auth.json`:
@@ -233,7 +325,8 @@ func parseClaude(raw []byte, provider string) (Login, bool) {
 // A key wins when both are present — that is what Codex itself prefers — and
 // the ChatGPT tokens are the oauth row with the account id that names the
 // workspace. Codex carries no expiry field (it lives inside the JWTs), so the
-// oauth row has none either.
+// oauth row has none either. The account id is the row's Identity as well as
+// its credential's accountId: one place for callers to look.
 func parseCodex(raw []byte, provider string) (Login, bool) {
 	doc, ok := decode(raw)
 	if !ok {
@@ -246,15 +339,17 @@ func parseCodex(raw []byte, provider string) (Login, bool) {
 	if !ok {
 		return Login{}, false
 	}
+	account := text(tokens, "account_id")
 	return loginOAuth(provider, text(tokens, "access_token"), text(tokens, "refresh_token"),
-		0, text(tokens, "account_id"), "")
+		0, account, "", account)
 }
 
 // parseGrok reads Grok's `$GROK_HOME/auth.json`, a map keyed
 // "<oidc_issuer>::<oidc_client_id>", each entry holding `key` (the access
-// token), `refresh_token`, `expires_at` (RFC 3339) and the account's `email`.
-// The email is a vendor-volunteered label, which is why it is the one Label a
-// reader sets.
+// token), `refresh_token`, `expires_at` (RFC 3339) and the account's
+// `principal_id`, `user_id` and `email`. The email is a vendor-volunteered
+// label, which is why it is the one Label a reader sets; the identity is the
+// principal id, the user id, and only then the email — the stable name first.
 func parseGrok(raw []byte, provider string) (Login, bool) {
 	doc, ok := decode(raw)
 	if !ok {
@@ -271,7 +366,8 @@ func parseGrok(raw []byte, provider string) (Login, bool) {
 			continue
 		}
 		if login, ok := loginOAuth(provider, text(entry, "key"), text(entry, "refresh_token"),
-			isoMillis(text(entry, "expires_at")), "", text(entry, "email")); ok {
+			isoMillis(text(entry, "expires_at")), "",
+			text(entry, "email"), firstText(entry, "principal_id", "user_id", "email")); ok {
 			return login, true
 		}
 	}
@@ -283,11 +379,11 @@ func parseGrok(raw []byte, provider string) (Login, bool) {
 //	{"providers":{"<id>":{"tokens":{"access_token","refresh_token","account_id"},"auth_mode"}},
 //	 "credential_pool":{"<id>":[{"auth_type","key"?}]}}
 //
-// The providers document is the login Hermes itself used (oauth); the pool is
-// its native multi-credential list, whose api_key entries are read only when
-// the providers document has nothing for that provider — the pool's
-// secret_fingerprint is a hash, not a key, so an entry without one is no
-// credential rather than a guessed one.
+// The providers document is the login Hermes itself used (oauth), and its
+// account_id is the row's Identity; the pool is its native multi-credential
+// list, whose api_key entries are read only when the providers document has
+// nothing for that provider — the pool's secret_fingerprint is a hash, not a
+// key, so an entry without one is no credential rather than a guessed one.
 func parseHermes(raw []byte, provider string) (Login, bool) {
 	doc, ok := decode(raw)
 	if !ok {
@@ -303,8 +399,9 @@ func parseHermes(raw []byte, provider string) (Login, bool) {
 			if !ok {
 				continue
 			}
+			account := text(tokens, "account_id")
 			if login, ok := loginOAuth(provider, text(tokens, "access_token"),
-				text(tokens, "refresh_token"), 0, text(tokens, "account_id"), ""); ok {
+				text(tokens, "refresh_token"), 0, account, "", account); ok {
 				return login, true
 			}
 		}
@@ -335,9 +432,22 @@ func parseHermes(raw []byte, provider string) (Login, bool) {
 // parseMuse reads Muse Code's `~/.config/muse/auth.json`:
 //
 //	{"schema_version":1,"providers":{"meta":{"api_key"}}}
+//	{"schema_version":1,"providers":{"meta":{"mechanism":"oauth","access_token","refresh_token"?,
+//	                                          "expires_at"?, "user_email"?}}}
 //
 // Muse signs in with Meta only, and `muse auth set --provider` accepts `meta`
-// alone; the entry is the one credential the file can hold.
+// alone; the entry is the one credential the file can hold. It is one object in
+// two shapes: an API key, and the Meta account login `muse login` leaves behind
+// (the launcher inside the Muse binary reads the login as `mechanism: "oauth"`
+// with `access_token` and an optional `expires_at`). Muse prefers the key —
+// META_API_KEY above both — so a key present and usable is the answer, exactly
+// as the CLI would resolve it.
+//
+// The account login's `user_email` is the identity the file volunteers; the key
+// shape carries none, and the email of the *login* is not the key's (see
+// IdentityBearing and renderMuse, which clears one shape when it writes the
+// other). expires_at is spelled either way in the wild, so it is read either
+// way.
 func parseMuse(raw []byte, provider string) (Login, bool) {
 	doc, ok := decode(raw)
 	if !ok {
@@ -351,7 +461,14 @@ func parseMuse(raw []byte, provider string) (Login, bool) {
 	if !ok {
 		return Login{}, false
 	}
-	return loginAPIKey(provider, text(meta, "api_key"), "")
+	if login, ok := loginAPIKey(provider, text(meta, "api_key"), ""); ok {
+		return login, true
+	}
+	if !strings.EqualFold(text(meta, "mechanism"), KindOAuth) {
+		return Login{}, false
+	}
+	return loginMuse(provider, text(meta, "access_token"), text(meta, "refresh_token"),
+		expiresAnyMillis(meta["expires_at"]), text(meta, "user_email"))
 }
 
 // parseAgy reads Antigravity's
@@ -359,8 +476,11 @@ func parseMuse(raw []byte, provider string) (Login, bool) {
 //
 //	{"token":{"access_token","refresh_token","expiry"(RFC 3339)},"auth_method"?,"id_token"?}
 //
-// The Google account's email lives in the id_token, which is not parsed here:
-// reading claims out of an unsigned string would be a claim of its own.
+// The Google account's own name lives in the id_token: the file carries the
+// vendor's own JWT, and its payload names the account — `sub` (Google's account
+// id) first, then `email`. The signature is not checked, because the file is
+// Antigravity's and PiCode only reads a name out of it (it is never presented
+// as a token); a token that does not decode simply gives the row no identity.
 func parseAgy(raw []byte, provider string) (Login, bool) {
 	doc, ok := decode(raw)
 	if !ok {
@@ -370,8 +490,13 @@ func parseAgy(raw []byte, provider string) (Login, bool) {
 	if !ok {
 		return Login{}, false
 	}
+	idToken := text(doc, "id_token")
+	identity := jwtClaim(idToken, "sub")
+	if identity == "" {
+		identity = jwtClaim(idToken, "email")
+	}
 	return loginOAuth(provider, text(token, "access_token"), text(token, "refresh_token"),
-		isoMillis(text(token, "expiry")), "", "")
+		isoMillis(text(token, "expiry")), "", "", identity)
 }
 
 // sortedKeys is a document's keys in a fixed order, so a file holding several

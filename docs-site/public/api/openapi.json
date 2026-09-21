@@ -4318,6 +4318,32 @@
         ]
       }
     },
+    "/api/credentials/signin": {
+      "post": {
+        "operationId": "postApiCredentialsSignin",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "credentials"
+        ]
+      }
+    },
     "/api/credentials/{provider}/{id}": {
       "delete": {
         "operationId": "deleteApiCredentials",

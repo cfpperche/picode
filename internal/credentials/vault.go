@@ -41,6 +41,11 @@ type Row struct {
 	// own login), "imported:<cli>" (read out of a CLI's own store, ADR-0013's
 	// import) or "migrated" (absorbed from accounts.json).
 	Origin string `json:"origin,omitempty"`
+	// Identity is the vendor's own account identity when the CLI's store
+	// carries one (an account id, a principal, an email). It is what lets two
+	// subscriptions of one provider be two rows instead of one that keeps
+	// being replaced.
+	Identity string `json:"identity,omitempty"`
 	// Hint is a masked echo of the credential, stored at write time so the
 	// roster can say *which* key a row holds without ever returning it.
 	Hint string `json:"hint,omitempty"`
@@ -106,18 +111,111 @@ func (f File) Find(provider, id string) (Row, bool) {
 // oauth rows (their refresh tokens rotate, so the stored bytes are not an
 // identity — the same trap ADR-0013 documented).
 func Fingerprint(raw json.RawMessage) string {
+	sum := sha256.Sum256([]byte(tag(raw)))
+	return hex.EncodeToString(sum[:])
+}
+
+// tag is what a credential is identified by before hashing: the vendor's own
+// account id when there is one (Codex), else the key itself, else a constant
+// for the shapes whose bytes are not an identity — an oauth entry's tokens
+// rotate (ADR-0013), and an env-shaped api_key is the same string for the
+// whole provider.
+func tag(raw json.RawMessage) string {
 	var m map[string]any
 	_ = json.Unmarshal(raw, &m)
-	s := string(raw)
 	if id, ok := m["accountId"].(string); ok && id != "" {
-		s = "id:" + id
-	} else if k, ok := m["key"].(string); ok && k != "" {
-		s = "k:" + k
-	} else if t, _ := m["type"].(string); t == "oauth" {
-		s = "oauth"
+		return "id:" + id
 	}
-	sum := sha256.Sum256([]byte(s))
-	return hex.EncodeToString(sum[:])
+	if k, ok := m["key"].(string); ok && k != "" {
+		return "k:" + k
+	}
+	switch t, _ := m["type"].(string); t {
+	case "oauth":
+		return "oauth"
+	case "api_key":
+		// An api_key entry with no `key` of its own — llama.cpp's env-shaped
+		// credential — is not identifiable by its bytes: hashing them minted a
+		// new row every time the endpoint changed (the pi roster showed two
+		// "Account 2" rows, both active, on 2026-09-20).
+		return "api_key"
+	}
+	return string(raw)
+}
+
+// Key is the row identity for a credential: the vendor's own account identity
+// when the store carries one, else the credential's fingerprint. Two
+// subscriptions of a provider whose file has no account name collapse into one
+// row, which is the limit this function exists to remove.
+func Key(raw json.RawMessage, identity string) string {
+	fp := Fingerprint(raw)
+	// Only where the bytes cannot tell two accounts apart: an oauth entry with
+	// no accountId and an env-shaped api_key are the same string for the whole
+	// provider. Everywhere else the fingerprint wins, so rows saved before
+	// identities existed keep their ids.
+	if id := trim(identity); id != "" && unkeyed(raw) {
+		sum := sha256.Sum256([]byte("who:" + id))
+		return hex.EncodeToString(sum[:])
+	}
+	return fp
+}
+
+// unkeyed reports the credentials whose own bytes name no account.
+func unkeyed(raw json.RawMessage) bool {
+	t := tag(raw)
+	return t == "oauth" || t == "api_key"
+}
+
+// Exact reports whether Key names one account — that is, whether a caller can
+// match a live file to a row by the key alone. False only for a credential
+// whose bytes say nothing and which nobody has named: the one-per-provider
+// case the pane states on screen.
+func Exact(raw json.RawMessage, identity string) bool {
+	if unkeyed(raw) {
+		return trim(identity) != ""
+	}
+	return true
+}
+
+// Adopt gives the unnamed row that holds this credential the name the person
+// gave it, instead of adding a row beside it: "name the login that is live".
+// A row that is already named, or a credential with no row, falls through to
+// Import — the name is never applied to some other account's row.
+func (s *Store) Adopt(provider, identity string, cred json.RawMessage) (Row, error) {
+	identity = trim(identity)
+	if identity == "" {
+		return s.Import(provider, cred, "", "vault", "")
+	}
+	var out Row
+	err := s.Update(func(f *File) error {
+		slot, ok := f.Providers[provider]
+		if !ok {
+			return nil
+		}
+		unnamed := Fingerprint(cred)
+		named := Key(cred, identity)
+		if unnamed == named {
+			return nil
+		}
+		for i, r := range slot.Accounts {
+			if r.FP != unnamed || r.Identity != "" {
+				continue
+			}
+			slot.Accounts[i].FP = named
+			slot.Accounts[i].ID = named[:12]
+			slot.Accounts[i].Identity = identity
+			slot.Accounts[i].Type = Type(cred)
+			slot.Accounts[i].Hint = Hint(cred)
+			slot.Accounts[i].Cred = cred
+			out = slot.Accounts[i]
+			f.Providers[provider] = slot
+			return nil
+		}
+		return nil
+	})
+	if err != nil || out.ID != "" {
+		return out, err
+	}
+	return s.Import(provider, cred, "", "vault", identity)
 }
 
 // Type is the credential's kind: "api_key" or "oauth" (the two shapes pi and
@@ -228,20 +326,24 @@ func (s *Store) Remember(provider string, old, next json.RawMessage, origin stri
 
 // Import saves a credential read from somewhere else (a CLI's own store, or
 // the pane's key field) without touching any active slot — importing is not
-// using. An identical credential updates the row it already belongs to.
-func (s *Store) Import(provider string, cred json.RawMessage, label, origin string) (Row, error) {
+// using. An identical credential updates the row it already belongs to;
+// identity, when the store volunteers one, decides what "identical" means.
+func (s *Store) Import(provider string, cred json.RawMessage, label, origin, identity string) (Row, error) {
 	var out Row
 	if len(cred) == 0 {
 		return out, fmt.Errorf("credentials: empty credential")
 	}
 	err := s.Update(func(f *File) error {
 		slot := f.Providers[provider]
-		fp := Fingerprint(cred)
+		fp := Key(cred, identity)
 		for i, r := range slot.Accounts {
 			if r.FP == fp {
 				slot.Accounts[i].Cred = cred
 				slot.Accounts[i].Type = Type(cred)
 				slot.Accounts[i].Hint = Hint(cred)
+				if identity != "" {
+					slot.Accounts[i].Identity = trim(identity)
+				}
 				if label != "" && label != r.Label {
 					slot.Accounts[i].Label = label
 				}
@@ -253,7 +355,8 @@ func (s *Store) Import(provider string, cred json.RawMessage, label, origin stri
 		row := Row{
 			ID: fp[:12], Label: label, Type: Type(cred), FP: fp,
 			Cred: cred, Origin: origin, Hint: Hint(cred), CreatedAt: now(),
-			Health: &Health{State: "unknown", At: now()},
+			Identity: trim(identity),
+			Health:   &Health{State: "unknown", At: now()},
 		}
 		if row.Label == "" {
 			row.Label = nextLabel(len(slot.Accounts))

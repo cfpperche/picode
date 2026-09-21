@@ -54,6 +54,33 @@ that one line instead of a Verify control that could not answer.
 hash back to the pane. Every server error lands in the form that caused it —
 a toast would leave the sheet looking fine.
 
+**Sign in (ADR-0168).** The pane starts the CLI's *own* login: `POST
+/api/credentials/signin` creates a terminal running that CLI's login argv
+(`codex login`, `grok login`, `muse login`, `opencode auth login`, `hermes auth
+add`; the CLIs whose login lives in their TUI get no arguments and a hint
+naming the command inside it — `/login`). PiCode performs no vendor OAuth and
+presents no other product's client id. The roster carries
+`signin: {available, hint}` so the button exists only where it is honest, and
+the pane shows the hint plus **Check now** — one click that runs the import and
+files the result. A sign-in whose credential the store cannot name (Claude
+Code, Muse, offline) would replace the unnamed row, so the pane asks for a name
+and `Store.Adopt` re-keys that row instead of leaving a second copy of one
+credential. A vendor CLI's own login is one of the four actions' worth of
+material for the vault, and the least surprising one: the person uses the flow
+the vendor documents, PiCode files it.
+
+Identity is what the roster matches on. A row's key is the account the store
+names (Grok's `principal_id` for `Identity`, Codex's `tokens.account_id`,
+Hermes' `account_id`, Antigravity's `id_token` subject), else the name the
+person gave, else the fingerprint — which for a credential whose bytes name
+nothing (`oauth` without an account id, an env-shaped `api_key`) is a constant,
+one row per provider. The vendor's profile endpoint
+(`usage.Identity`, Anthropic today) answers the email for the row's second
+line and nothing else: a key the roster cannot recompute offline would cost the
+pane its "in use" line on every load. For rows keyed by a name the offline
+reader cannot compute, `inUseID` matches the live file by the token the row was
+saved with, and matches nothing when the store says nothing — never a guess.
+
 Honest states: a load skeleton with the real shape; a failed load is one line
 with **Try again**, and the last good roster stays on screen; a vault that
 cannot be read is one line carrying the vault's own problem and **no
@@ -64,8 +91,9 @@ apps' `index.css`: one container query drops the masked-hint column, a second
 folds the same cells into a stacked card — the pane's container tops out near
 940 px inside Agent CLIs, so the aligned row is what a desktop window usually
 shows and the card is what a phone gets. The pane never activates a
-credential for pi, never writes another CLI's file, and never returns a
-secret: the masked hint is all the server sends.
+credential for pi (that stays the editor above; for a guest CLI, **Use** writes
+that CLI's own file under ADR-0166), and never returns a secret: the masked
+hint is all the server sends.
 
 **Custom providers (ADR-0129).** Add provider's picker carries a fixed
 **Custom provider** door onto its own page (`#/clis/pi/providers/custom`,

@@ -1,0 +1,3 @@
+### Changed
+
+- **Providers**: a guided **Sign in** starts a CLI's own login (its binary, its browser or device-code flow) from the pane — finish it, press **Check now**, and the account lands in the vault. Muse's subscription login is read and written correctly (its own file shape), a second subscription of a store that names no account can be kept by naming it, and Codex, Grok, Hermes and Antigravity keep two subscriptions apart automatically from the account their own files carry. Vault rows a CLI's file cannot name are matched by the token they were saved with — no network call in a pane load.

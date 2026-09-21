@@ -44,6 +44,7 @@ import (
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/term"
 	"github.com/cfpperche/picode/internal/tmux"
+	"github.com/cfpperche/picode/internal/usage"
 	"github.com/cfpperche/picode/internal/version"
 	"github.com/cfpperche/picode/internal/web"
 	"github.com/cfpperche/picode/internal/webhooks"
@@ -57,6 +58,11 @@ type Deps struct {
 	Tmux         *tmux.Manager
 	Runtime      *rpc.Runtime
 	AgentCmd     string // command spawned per workspace ("pi" — ADR-0003)
+
+	// Usage is the vendor-call client (quota listings, account identity).
+	// Nil means usage.Default; tests point it at a local server so no test
+	// reaches a vendor.
+	Usage *usage.Client
 
 	// Port management (ADR-0007). BindHost is the configured host;
 	// Rebind signals the main loop to re-read the port setting;
@@ -92,6 +98,16 @@ type Deps struct {
 	CLIs         *CLITerminals   // terminal launch settings and operation locks (ADR-0069)
 	CLIJobs      *clijob.Service // durable CLI lifecycle jobs (ADR-0087); nil-safe = 503 on the routes
 	Auth         *auth.Service   // request gate (ADR-0049); nil = ungated (tests, dev)
+}
+
+// usageClient is the vendor-call client this server uses: the one it was built
+// with, or the package default. Tests hand it a client aimed at a local
+// server, so no test (and no offline instance) reaches a vendor.
+func (d Deps) usageClient() *usage.Client {
+	if d.Usage != nil {
+		return d.Usage
+	}
+	return usage.Default
 }
 
 // New builds the picode *http.Server. Addr handling stays with the caller

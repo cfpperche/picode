@@ -35,6 +35,9 @@ export default function CliCredentials({ hidden, cli, add = false }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [nativeError, setNativeError] = useState({});
+  // A sign-in in flight: the CLI's own login runs in a PiCode terminal, and
+  // this holds the hint plus whatever the last check answered.
+  const [signin, setSignin] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({ provider: "", key: "" });
   const [formError, setFormError] = useState("");
@@ -65,6 +68,10 @@ export default function CliCredentials({ hidden, cli, add = false }) {
     window.addEventListener("focus", load);
     return () => { live.current = false; sequence.current++; window.removeEventListener("focus", load); };
   }, [load]);
+
+  // The pane survives a CLI switch without remounting; a sign-in in flight
+  // belongs to the CLI it was started for, so it goes with it.
+  useEffect(() => { setSignin(null); }, [cli]);
 
   const providers = data && Array.isArray(data.providers) ? data.providers : [];
   const cliName = (data && data.cliName) || terminalCliLabel(cli);
@@ -133,6 +140,48 @@ export default function CliCredentials({ hidden, cli, add = false }) {
     } catch (ex) {
       // The CLI's own row owns this failure — it is what the person clicked.
       setNativeError((prev) => ({ ...prev, [provider.id]: ex.message }));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function startSignin() {
+    setBusy("signin");
+    try {
+      const started = await api("/api/credentials/signin", json("POST", { cli }));
+      setSignin({ hint: started.hint || "", error: "", launched: true });
+    } catch (ex) {
+      toastError(ex);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  // The CLI's own login writes its own store; this is the one click that
+  // notices and files it. Nothing here performs the vendor's OAuth.
+  async function checkSignin() {
+    setBusy("check");
+    try {
+      let row = await api("/api/credentials/import", json("POST", { cli }));
+      // A store that carries no account name would have this sign-in replace
+      // the row already there. Ask, then keep both.
+      if (row.created === false && !row.identity) {
+        const name = await askPrompt({
+          title: "Name this login",
+          message: "This CLI's store carries no account name, so its logins cannot be told apart. Name this one and the next sign-in is kept beside it instead of on top of it.",
+          defaultValue: row.who || "",
+          confirmLabel: "Name it",
+        });
+        if (name) row = await api("/api/credentials/import", json("POST", { cli, as: name }));
+      }
+      setSignin(null);
+      toast.ok(row.who ? "Signed in as " + row.who + "." : "Saved to the vault.");
+      await load();
+    } catch (ex) {
+      setSignin((prev) => ({
+        ...(prev || {}),
+        error: ex.status === 404 ? "Nothing saved yet — finish the sign-in in the terminal, then check again." : ex.message,
+      }));
     } finally {
       setBusy("");
     }
@@ -235,11 +284,29 @@ export default function CliCredentials({ hidden, cli, add = false }) {
         {providers.length ? (
           <div className="set-row cred-bar" data-align-row>
             {total ? <span className="cred-count">{total === 1 ? "1 account" : total + " accounts"}</span> : null}
+            {data.signin && data.signin.available ? (
+              <button type="button" className="btn btn-ghost btn-sm" disabled={busy === "signin"} onClick={startSignin}>
+                {busy === "signin" ? "Opening…" : "Sign in"}
+              </button>
+            ) : null}
             <button type="button" className="btn btn-primary btn-sm" onClick={() => openAdd("")}>Add API key</button>
           </div>
         ) : (
           <p className="cred-empty"><span>{"No provider credentials for " + cliName + " yet."}</span></p>
         )}
+
+        {/* The sign-in is in flight in a terminal of its own: one line, and
+            the one action that files the result. */}
+        {signin ? (
+          <div className="cli-notice cred-signin" role="status">
+            <span className="cred-signin-hint">{signin.hint || "Finish the sign-in in the terminal."}</span>
+            {signin.error ? <span className="cred-signin-error" role="alert">{signin.error}</span> : null}
+            <button type="button" className="btn btn-ghost btn-sm" disabled={busy === "check"} onClick={checkSignin}>
+              {busy === "check" ? "Checking…" : "Check now"}
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSignin(null)}>Dismiss</button>
+          </div>
+        ) : null}
 
         <section className="cred-pane" aria-label={cliName + " accounts"}>
           {providers.map((p) => {
@@ -277,7 +344,7 @@ export default function CliCredentials({ hidden, cli, add = false }) {
                 {/* Its subscription login has no account name to tell two
                     apart, so the vault keeps one per provider here. */}
                 {p.singleOAuth && rows.some((a) => a.type === "oauth" && !a.paused) ? (
-                  <p className="cred-note">{"This login carries no account name, so " + name + " keeps one subscription login per provider here."}</p>
+                  <p className="cred-note">{"This login carries no account name, so " + name + " keeps one here — a second sign-in can be kept by naming it when asked."}</p>
                 ) : null}
 
                 {rows.length ? (
