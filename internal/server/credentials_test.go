@@ -547,4 +547,8 @@ func TestUnnamedSecondSubscriptionIsNamedNotDuplicated(t *testing.T) {
 	if row := accounts[0].(map[string]any); row["active"] != true {
 		t.Fatalf("named row = %v, want it matched as the live one", row)
 	}
+	// The name the person typed is what the row shows.
+	if label := accounts[0].(map[string]any)["label"]; label != "work@example.com" {
+		t.Fatalf("label = %v, want the person's name", label)
+	}
 }
