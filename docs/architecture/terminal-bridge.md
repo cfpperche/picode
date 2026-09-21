@@ -204,7 +204,11 @@ isolated). **`$TMUX` outranks `TMUX_TMPDIR`**: a client started inside a
 tmux session talks to the server named in `$TMUX` no matter what
 `TMUX_TMPDIR` says, so "isolated" scratch work runs against production. The
 guard is on by default (`enabled.json` key `tmux-guard`; only an explicit
-opt-out disables it) and the wrapper resolves the real binary with pure
+opt-out disables it). The switch lives on **Agent CLIs**, above the CLI
+catalog, on desktop and mobile — not on Terminal defaults. That page is
+font, color and tmux options a terminal inherits; the guard is a PATH
+wrapper for every terminal opened from then on, and it is not a setting of
+the CLI selected under it. The wrapper resolves the real binary with pure
 shell (`${0%/*}`) — a guard that shells out to `dirname` under a minimal
 PATH found itself in its own bin dir and exec'd in an endless loop, caught
 by its own test suite on 2026-09-15.

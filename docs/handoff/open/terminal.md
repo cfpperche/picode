@@ -13,7 +13,7 @@
 ## Traps
 
 - **`$TMUX` beats `TMUX_TMPDIR`** (measured 2026-09-15): a client inside a session talks to the server in `$TMUX` regardless of `TMUX_TMPDIR`. Use `tmux -L` for scratch; scrub `TMUX`/`TMUX_PANE`, assert `#{socket_path}` in fixtures (ADR-0138).
-- The tmux guard's toggle is **desktop-only** (Preferences ▸ Terminal ▸ Safety): the mobile shell has no terminal-settings page, so the guard stays default-on there. The server-loss watch (phase 1 of the plan) closed the other gap — a mass death now lands in the journal and the feed while it happens.
+- The tmux guard's toggle lives on **Agent CLIs**, above the CLI catalog (desktop and mobile). It is not a Terminal defaults control: that page is font, color and tmux options a terminal inherits, and the guard is a PATH wrapper for every terminal opened from then on. The server-loss watch (phase 1 of the plan) records a mass death in the journal and the feed while it happens.
 
 - Tab strip backlog: keyboard close of `.mtab-close`; live needs-you arrow; `scrollbar-width: thin` vs webkit.
 - CLI pane-death (ADR-0085): an owned OpenCode QA stop left two processes after its pane closed; ADR-0084 pins nothing for terminals stopped before it.
