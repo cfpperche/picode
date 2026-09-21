@@ -37,6 +37,10 @@ writer. No deployment or browser reconnect migrates a live process.
 Binding does not start a process and does not call `Runtime.Start`.
 Deleting the agent deletes that terminal; deleting the terminal deletes
 the CLI agent row (announced `agent.deleted` then `terminal.deleted`).
+A bound terminal borrows its agent's name at bind time; renaming the
+agent renames the terminal in the same mutation (announced
+`terminal.updated`), so surfaces that label the process with `term.name`
+— the tab strip, the dashboard fleet — follow the rename.
 The address resolver exposes the bound tmux session to `runMode`; activity
 still comes from the bound terminal, not the process-presence flag. For
 non-Pi agents the subtitle names the CLI

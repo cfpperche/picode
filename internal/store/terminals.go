@@ -140,13 +140,21 @@ func (s *Store) CountTerminals() (int, error) {
 	return n, nil
 }
 
-func (s *Store) RenameTerminal(id, name string) (Terminal, error) {
+// normalizeTerminalName applies RenameTerminal's rules to any name that
+// lands in terminals.name — the rename route and the agent rename that
+// propagates to a bound terminal write through the same shape.
+func normalizeTerminalName(name string) string {
 	name = strings.TrimSpace(name)
-	if name == "" {
-		return Terminal{}, fmt.Errorf("name is required")
-	}
 	if len(name) > 80 {
 		name = name[:80]
+	}
+	return name
+}
+
+func (s *Store) RenameTerminal(id, name string) (Terminal, error) {
+	name = normalizeTerminalName(name)
+	if name == "" {
+		return Terminal{}, fmt.Errorf("name is required")
 	}
 	res, err := s.db.Exec(`UPDATE terminals SET name = ? WHERE id = ?`, name, id)
 	if err != nil {
