@@ -128,10 +128,20 @@ func TestReceiptConfinement(t *testing.T) {
 			case "symlink-directory":
 				os.Remove(p)
 				os.Remove(d)
-				os.Symlink(t.TempDir(), d)
+				if err := os.Symlink(t.TempDir(), d); err != nil {
+					if runtime.GOOS == "windows" {
+						t.Skipf("symlink privilege unavailable: %v", err)
+					}
+					t.Fatal(err)
+				}
 			case "symlink-file":
 				os.Remove(p)
-				os.Symlink(filepath.Join(dir, "outside"), p)
+				if err := os.Symlink(filepath.Join(dir, "outside"), p); err != nil {
+					if runtime.GOOS == "windows" {
+						t.Skipf("symlink privilege unavailable: %v", err)
+					}
+					t.Fatal(err)
+				}
 			case "malformed":
 				os.WriteFile(p, []byte("{"), 0600)
 			case "oversized":

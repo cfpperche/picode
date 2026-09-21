@@ -892,7 +892,6 @@ export default function App({ shellChrome = false } = {}) {
           else { setGoneId(provisionalTreeId(fromTree.kind, fromTree.id)); setSelectedId(null); }
         } else if (fromGit) {
           if (ownerAlive(fromGit)) openGitTab(fromGit.kind, fromGit.id, "", fromGit.view);
-        else if ((known[1].view || "") !== (fromGit.view || "")) setGitOwners(m => ({ ...m, [known[0]]: { ...m[known[0]], view: fromGit.view || "" } }));
           else { setGoneId(provisionalGitId(fromGit.kind, fromGit.id)); setSelectedId(null); }
         } else if (fromTerm) {
           if (terms.some((t) => t.id === fromTerm)) openTermTab(fromTerm);
@@ -1703,7 +1702,7 @@ export default function App({ shellChrome = false } = {}) {
     const known = Object.entries(treeOwners).find(([, o]) => o && o.kind === kind && o.id === ownerId);
     const id = known ? known[0] : provisionalTreeId(kind, ownerId);
     setTreeOwners((m) => {
-      const next = { ...m, [id]: { kind, id: ownerId, name: ownerName || "", view } };
+      const next = { ...m, [id]: { kind, id: ownerId, name: ownerName || "" } };
       writeTreeOwners(next);
       return next;
     });

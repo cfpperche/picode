@@ -38,8 +38,9 @@ server principal and refusal tables; command-through-daemon test; shared MCP
 identity and transport failure tests; mutation event invariant. Vendor processes
 and real deployments are outside this automated evidence.
 
-Next: observation and desktop/mobile presentation follow
-[the delivery plan](../plans/delivery-flow.md). No new polling or UI is introduced.
+D1a introduced declarations only. D1b adds the observation and desktop/mobile
+presentation described below; publication remains the next separate slice in
+[the delivery plan](../plans/delivery-flow.md).
 
 ## Integration observation (ADR-0170, D1b)
 

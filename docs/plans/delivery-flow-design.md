@@ -180,7 +180,8 @@ returns `schemaVersion`, `repositoryKey`, `target {ref, oid}`, `observedAt`,
 observations with `status: known|unknown|stale|unsupported` and `reasonCode`.
 Zero/false are real values, not substitutes for unknown. Source and target OIDs
 are read before/after; one retry then unstable. D1b implements this read route; the current target fields are `target` and
-`targetOid`, while publication is deferred to D2.
+`targetOid`, with coverage exposed as `complete` and `issues`. Publication is
+deferred to D2.
 
 A change contains an observation ID (repository/ref/source OID), source OID,
 worktree presence/dirty status, integration and validation facts, associated
@@ -241,7 +242,7 @@ until explicit operation events exist in D3/D4.
 ## D1a implementation clarification
 
 The common [agent interface](delivery-agent-interface.md) records explicit
-declarations independently of discovered Git candidates. A future observation
-view must distinguish these, correlate by repository/ref/revision and retain the
+declarations independently of discovered Git candidates. The observation
+view distinguishes these, correlates by repository/ref/revision and retains the
 stable declaration ID across updates. `review: requested` is attributed intent
 for the recorded revision, never human approval or queue enrollment. D1b now implements the integration read endpoint and screen above.
