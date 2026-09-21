@@ -3746,6 +3746,11 @@ export default function App({ shellChrome = false } = {}) {
                 hidden={selectedId !== id}
                 manifest={manifest}
                 onClose={() => closeTab(id)}
+                // External http(s) links clicked inside the surface open as
+                // work-browser tabs — the same flow the address bar uses,
+                // which also flips to the workspace pane — never as
+                // navigation of this document (2026-09-20/21 incident).
+                onOpenUrl={openWebTab}
                 onGoto={(g) => {
                   // Apps can focus an agent's existing tab; "agent:" opens its
                   // interactive TUI (replies land in the terminal itself now).

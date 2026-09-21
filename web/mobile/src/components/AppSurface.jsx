@@ -12,6 +12,7 @@ import { filterListBlocks, countListItems } from "@picode/shared/domain/appSearc
 import AppIcon from "./AppIcon.jsx";
 import { IconChevronLeft, IconChevronRight, IconCheck, IconClock, IconInbox, IconTrash, IconPackage, IconEllipsis } from "./Icons.jsx";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
+import { surfaceLinkClick } from "@picode/shared/client/surfaceLinks.js";
 import { touches } from "@picode/shared/domain/feedReducers.js";
 import { createRefreshQueue } from "@picode/shared/domain/appRefreshQueue.js";
 import { appFormSchema, parseForm } from "@picode/shared/contracts/schemas.js";
@@ -34,8 +35,11 @@ const REVEAL_STALE_MS = 10_000;
 // header; an action that returns to the root calls onClose). Undefined
 // stacks the list above the detail. onGoto receives an action's goto directive
 // ("agent:<id>"); each shell opens its
-// own agent terminal surface.
-export default function AppSurface({ appId, hidden, manifest, onClose, initialPath, onPathChange, refreshKey, paneMode, onOpenItem, onGoto }) {
+// own agent terminal surface. onOpenUrl (optional) receives an external
+// http(s) URL clicked inside the surface; without it — the phone has no
+// work browser — the link opens a new browser tab instead, never a
+// navigation of the hosting document (2026-09-20/21 desktop incident).
+export default function AppSurface({ appId, hidden, manifest, onClose, initialPath, onPathChange, refreshKey, paneMode, onOpenItem, onGoto, onOpenUrl }) {
   // Native radio `name` grouping is document-wide, not component-scoped —
   // without a per-mount id, a second open app (or the same app reopened)
   // would fight this one over which segment shows checked.
@@ -62,6 +66,10 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
   // Leaving the tab must not close the item the reader opened: the surface
   // stays mounted, so `path` and the loaded view survive the switch.
   const rootRef = useKeptScroll(hidden, [".app-body", ".app-pane-list"]);
+  // The one link guard (shared/client/surfaceLinks.js), delegated on this
+  // root in the capture phase — the markdown detail blocks mint plain
+  // anchors, and an external link must never navigate this document.
+  const onSurfaceLinkClick = surfaceLinkClick({ origin: window.location.origin, shell: !!window.__TAURI__, onOpenUrl });
   const loadRef = useRef(() => {});
   const pathRef = useRef("");
   // Mounting counts as a read: the effect below loads immediately, and the
@@ -209,7 +217,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
 
   if (paneMode === "detail") {
     return (
-      <section className="app-surface app-surface-detail" aria-label={title} hidden={!!hidden} ref={rootRef}>
+      <section className="app-surface app-surface-detail" aria-label={title} hidden={!!hidden} ref={rootRef} onClickCapture={onSurfaceLinkClick}>
         <PendingNotice text={pending} />
         {unsupported || badVersion ? (
           <p className="ft-msg">This app needs a newer PiCode.</p>
@@ -231,7 +239,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
   }
   const listOnly = paneMode === "list";
   return (
-    <section className={"app-surface" + (split && !listOnly ? " app-surface-split" : "")} aria-label={title} hidden={!!hidden} ref={rootRef}>
+    <section className={"app-surface" + (split && !listOnly ? " app-surface-split" : "")} aria-label={title} hidden={!!hidden} ref={rootRef} onClickCapture={onSurfaceLinkClick}>
       <header className="ft-head">
         {path && !split ? (
           <button type="button" className="btn btn-sm btn-ghost app-back" title="Back" onClick={() => changePath("")}>

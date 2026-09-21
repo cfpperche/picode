@@ -10,6 +10,7 @@ import { toast, toastError } from "../lib/toast.js";
 import { filterListBlocks, countListItems } from "@picode/shared/domain/appSearch.js";
 import { IconChevronLeft, IconChevronRight, IconCheck, IconClock, IconTrash, IconPackage } from "./Icons.jsx";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
+import { surfaceLinkClick } from "@picode/shared/client/surfaceLinks.js";
 import { touches } from "@picode/shared/domain/feedReducers.js";
 import { createRefreshQueue } from "@picode/shared/domain/appRefreshQueue.js";
 import { appFormSchema, parseForm } from "@picode/shared/contracts/schemas.js";
@@ -45,7 +46,11 @@ const LIST_KEY = "picode-app-split-w";
 // own agent terminal surface. nativeSurfaces is the shell's registry of
 // native app ids (ADR-0109): a native app this build did not compile in
 // reaches this surface only by deep link and gets the honest line.
-export default function AppSurface({ appId, hidden, manifest, onClose, initialPath, onPathChange, refreshKey, paneMode, onOpenItem, onGoto, nativeSurfaces }) {
+// onOpenUrl receives an external http(s) URL clicked inside the surface —
+// the shell opens it as a work-browser tab (2026-09-20/21: an Inbox github
+// link navigated this whole document and took the shell with it; an app
+// surface never navigates its host).
+export default function AppSurface({ appId, hidden, manifest, onClose, initialPath, onPathChange, refreshKey, paneMode, onOpenItem, onGoto, nativeSurfaces, onOpenUrl }) {
   // initialPath (ADR-0044): a deep link — the phone's #/inbox/<id> — lands
   // on that item instead of the list. Later changes to it navigate too.
   const [path, setPath] = useState(initialPath || "");
@@ -75,6 +80,12 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
   // Leaving the tab must not close the item the reader opened: the surface
   // stays mounted, so `path` and the loaded view survive the switch.
   const rootRef = useKeptScroll(hidden, [".app-body", ".app-pane-list"]);
+  // The one link guard (shared/client/surfaceLinks.js), delegated on this
+  // root in the capture phase: every block renderer is covered — above all
+  // the markdown that mints plain anchors — present and future. External
+  // http(s) links open as work-browser tabs (onOpenUrl) in the shell, or a
+  // _blank tab outside it; the hosting document never navigates.
+  const onSurfaceLinkClick = surfaceLinkClick({ origin: window.location.origin, shell: !!window.__TAURI__, onOpenUrl });
   const loadRef = useRef(() => {});
   const pathRef = useRef("");
   // Mounting counts as a read: the effect below loads immediately, and the
@@ -269,7 +280,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
 
   if (paneMode === "detail") {
     return (
-      <section className="app-surface" aria-label={title} hidden={!!hidden} ref={rootRef}>
+      <section className="app-surface" aria-label={title} hidden={!!hidden} ref={rootRef} onClickCapture={onSurfaceLinkClick}>
         <div className="settings-wrap">
           <div className="settings-card app-card">
             <PendingNotice text={pending} />
@@ -298,7 +309,7 @@ export default function AppSurface({ appId, hidden, manifest, onClose, initialPa
   // keeps the list in view, so it does not.
   const backToRoot = !!path && !split && paneMode !== "list";
   return (
-    <section className={"app-surface" + (split && !listOnly ? " app-surface-split" : "")} aria-label={title} hidden={!!hidden} ref={rootRef}>
+    <section className={"app-surface" + (split && !listOnly ? " app-surface-split" : "")} aria-label={title} hidden={!!hidden} ref={rootRef} onClickCapture={onSurfaceLinkClick}>
       <div className="settings-wrap">
         <header className="settings-head">
           <h2 className="app-page-title" title={title}>{title}</h2>
