@@ -83,3 +83,19 @@ until D2 exists, and no land/deploy button is introduced.
 
 On Windows, native ACL inheritance applies; POSIX mode-bit checks are skipped.
 The Linux scratch checks do not establish Windows ACL or physical UI acceptance.
+
+### Shared Git workspace selection
+
+The desktop Git surface owns one workspace selector before the History and
+Delivery tabs. Both views use that same owner and eligible repository list;
+History's inner toolbar contains only its own filters and actions. Selecting a
+workspace preserves the current History/Delivery view while the existing Git
+picker resolves the destination repository and tab (ADR-0022).
+
+| Workspace pick | Result | Verification |
+|---|---|---|
+| Sibling worktree, new repository or already-open repository | Existing tab resolution applies; retain History/Delivery | `workspacePicker.test.js` resolution table; scratch browser checks for both views |
+| Failed lookup or no repository key | Keep the current owner and view; show the error | `workspacePicker.test.js` failure rows; scratch failed-lookup check |
+
+Visual checks cover the shared selector in both views, its open and no-results
+menu, and Delivery's empty and missing-target states.
