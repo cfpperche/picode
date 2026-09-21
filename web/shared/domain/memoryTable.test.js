@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { agoLabel, blastRadius, bytesLabel, columnsFor, facets, filterItems, health, indexBudget, sortItems } from "./memoryTable.js";
+import { agoLabel, blastRadius, bytesLabel, columnsFor, facets, filterItems, health, historyLine, indexBudget, sortItems } from "./memoryTable.js";
 
 const idx = { id: "MEMORY.md", title: "Index", index: true, bytes: 100, modified: "2026-09-01T00:00:00Z" };
 const rows = [
@@ -95,4 +95,23 @@ test("the delete confirm names what it breaks, as a sentence", () => {
   assert.equal(blastRadius(1, 1, 0), "1 link in another memory will point at nothing.");
   assert.equal(blastRadius(3, 0, 2), "The index still names 2 of them.");
   assert.equal(blastRadius(3, 4, 1), "4 links in other memories will point at nothing; the index still names 1 of them.");
+});
+
+test("a versioned store says when its content last changed", () => {
+  const now = Date.parse("2026-09-20T23:00:00Z");
+  assert.equal(historyLine(null), null);
+  assert.equal(historyLine({ revisions: 0 }), null);
+
+  const clean = historyLine({ revisions: 1, lastAt: "2026-09-20T12:10:59Z", subject: "Initialize Codex git baseline" }, now);
+  assert.equal(clean.head, "1 revision, today");
+  assert.equal(clean.tail, "Nothing has changed since.");
+  assert.equal(clean.drifted, false);
+
+  const drifted = historyLine({ revisions: 47, lastAt: "2026-09-17T12:00:00Z", changed: ["raw_memories.md"] }, now);
+  assert.equal(drifted.head, "47 revisions, 3d");
+  assert.equal(drifted.tail, "1 file has changed since.");
+  assert.equal(drifted.drifted, true);
+
+  const many = historyLine({ revisions: 2, lastAt: "2026-09-20T12:00:00Z", changed: ["a.md", "b.md"] }, now);
+  assert.equal(many.tail, "2 files have changed since.");
 });

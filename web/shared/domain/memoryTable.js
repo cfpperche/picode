@@ -125,6 +125,25 @@ function matches(item, needle) {
     .includes(needle);
 }
 
+// historyLine is the one sentence a versioned store can say that its rows
+// cannot: when its content last changed, and whether it has moved since. Codex
+// is the CLI that keeps its memory folder under git, and its mtimes move
+// without the content changing, so the revision is the truer date.
+export function historyLine(history, now = Date.now()) {
+  if (!history || !history.revisions) return null;
+  const changed = history.changed || [];
+  const when = agoLabel(history.lastAt, now);
+  return {
+    head: (history.revisions === 1 ? "1 revision" : history.revisions + " revisions") + (when ? ", " + when : ""),
+    tail: changed.length === 0
+      ? "Nothing has changed since."
+      : (changed.length === 1 ? "1 file has changed since." : changed.length + " files have changed since."),
+    drifted: changed.length > 0,
+    changed,
+    subject: history.subject || "",
+  };
+}
+
 // blastRadius says what a delete costs in this store, before it happens:
 // how many citations in other memories it breaks, and how many rows in the
 // index will be left pointing at nothing. Naming it is the difference

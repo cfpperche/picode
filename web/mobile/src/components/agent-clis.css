@@ -210,14 +210,40 @@
 /* Memory (ADR-0163): what the CLI wrote down between sessions. Rows collapse
    to one line and open in place — the activity-feed shape from
    docs/benchmark-cursor.md, not a second page. */
-.cli-memory-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 12px; }
+/* The pane sat flush against the tabs bar: every sibling view carries
+   `padding: 12px 0 0` through its section id and Memory never had one
+   (owner, 2026-09-20). The padding rides the pane itself, so it applies
+   wherever the component mounts. */
+.cli-memory { padding-top: 12px; }
+/* One cluster, not two edges — the rule the Providers roster already sets
+   for a toolbar. `space-between` pushed the filter to the far right against
+   an empty spacer, so a CLI with no store switcher showed a search box alone
+   in the corner with the whole pane of dead space beside it. */
+.cli-memory-bar { display: flex; align-items: center; justify-content: flex-start; gap: 8px; margin: 0 0 12px; }
 /* One control height (shadcn h-9 / HIG): the store switcher sits beside the
    filter, so its pills carry --ctl-h like the Pi settings layer switcher. A
    28px pill next to a 36px input is an uneven row, an instant FAIL. */
 .cli-memory-bar .pkg-scope { margin: 0; }
 .cli-memory-bar .pkg-scope-btn { height: var(--ctl-h); min-height: var(--ctl-h); }
-.cli-memory-filter { display: flex; align-items: center; gap: 8px; }
-.cli-memory-filter .set-text { min-width: 10rem; }
+.cli-memory-search {
+  flex: 1 1 auto; min-width: 8rem; max-width: 22rem;
+  height: var(--ctl-h); box-sizing: border-box; padding: 0 10px;
+  background: var(--bg-base); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-ctl);
+  font: inherit; font-size: 12.5px; outline: none;
+}
+.cli-memory-search:focus { border-color: var(--accent); }
+/* A store the CLI keeps under version control. Sits with the path, because
+   both answer "where does this live and what has happened to it". */
+.cli-memory-history { margin: -6px 0 12px; font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+.cli-memory-history.is-drifted { color: var(--warn); }
+/* The command has to read as a command: the whole pane is already mono, so
+   without a chip it is just more of the sentence. */
+.cli-notice code {
+  font-family: var(--mono); font-size: 11.5px;
+  padding: 1px 5px; border-radius: 4px;
+  background: var(--bg-hover, var(--bg-panel)); color: var(--text-primary);
+}
 .cli-memory-note { margin: 0 0 12px; font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
 .cli-memory-note code { font-family: var(--mono); font-size: 11.5px; }
 .cli-memory-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
@@ -264,8 +290,11 @@
 }
 /* Sort and select sit on one row under the filter; both carry --ctl-h, so
    the select and the button do not step (shadcn h-9 / HIG). */
+/* Filter, sort and Select on one line. Every child carries --ctl-h so the
+   row stays one height; the select is allowed to shrink and truncate its
+   option rather than push the button off 390px. */
 .cli-memory-tools { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
-.cli-memory-tools .set-text { flex: 1; min-width: 0; height: var(--ctl-h); }
+.cli-memory-tools > .cli-memory-search, .cli-memory-tools > .set-text { flex: 1 1 0; min-width: 0; height: var(--ctl-h); }
 .cli-memory-tools .btn { height: var(--ctl-h); flex: none; }
 /* The index budget: a documented vendor limit nobody can see from the CLI,
    so the meter is the only warning before lines start being dropped. */
@@ -342,6 +371,7 @@
   #cli-settings-view .set-ctl { grid-template-columns: minmax(0, 1fr); justify-content: stretch; }
   #cli-settings-view .set-ctl > .btn { justify-self: end; }
   #cli-settings-view .set-row { flex-wrap: wrap; }
-  .cli-memory-filter .set-text { min-width: 0; width: 100%; }
+  .cli-memory { padding-top: 8px; }
+  .cli-memory-search { min-width: 0; max-width: none; }
 }
 .cli-memory-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

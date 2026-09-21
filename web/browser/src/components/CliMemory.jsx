@@ -3,7 +3,7 @@ import { api } from "@picode/shared/client/api.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { cliSettingsHash } from "@picode/shared/domain/cliSettings.js";
 import { cliMemoryHash, memoryEmptyLine, memoryKindLabel } from "@picode/shared/domain/cliNative.js";
-import { agoLabel, blastRadius, bytesLabel, columnsFor, facets, filterItems, health, indexBudget, sortItems } from "@picode/shared/domain/memoryTable.js";
+import { agoLabel, blastRadius, bytesLabel, columnsFor, facets, filterItems, health, historyLine, indexBudget, sortItems } from "@picode/shared/domain/memoryTable.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
 
 // What an agent CLI has remembered between sessions (ADR-0163). The pane can
@@ -90,6 +90,8 @@ export default function CliMemory({ route, workspaceId = "" }) {
   const running = data?.running || [];
   const empty = memoryEmptyLine(report, active);
   const narrowed = Boolean(filter.trim() || kinds.length);
+  const showFilter = Boolean(all.length || filter.trim());
+  const versioned = historyLine(data?.history);
 
   // Selection covers what this pane may actually delete: never the index the
   // CLI loads, never a file the CLI regenerates.
@@ -141,40 +143,61 @@ export default function CliMemory({ route, workspaceId = "" }) {
 
   return (
     <div className="cli-memory">
-      <div className="cli-memory-bar" data-align-row>
-        {stores.length > 1 ? (
-          <div className="pkg-scope" role="radiogroup" aria-label="Which memory to show">
-            {stores.map((s) => (
-              <a
-                key={s.scope}
-                className="pkg-scope-btn"
-                role="radio"
-                aria-checked={s.scope === active?.scope}
-                href={cliMemoryHash(cli, { workspaceId, scope: s.scope })}
-                onClick={() => { setScope(s.scope); setOpen(""); setPicked([]); }}
-              >{s.label}</a>
-            ))}
-          </div>
-        ) : <span />}
-        {all.length || filter.trim() ? (
-          <div className="cli-memory-filter">
+      {/* One cluster, not two edges (the Providers roster sets the house rule
+          for a toolbar). The bar used to push the filter to the far right
+          against an empty spacer, so a pane with no store switcher showed a
+          search box floating alone in the corner. */}
+      {stores.length > 1 || showFilter ? (
+        <div className="cli-memory-bar" data-align-row>
+          {stores.length > 1 ? (
+            <div className="pkg-scope" role="radiogroup" aria-label="Which memory to show">
+              {stores.map((s) => (
+                <a
+                  key={s.scope}
+                  className="pkg-scope-btn"
+                  role="radio"
+                  aria-checked={s.scope === active?.scope}
+                  href={cliMemoryHash(cli, { workspaceId, scope: s.scope })}
+                  onClick={() => { setScope(s.scope); setOpen(""); setPicked([]); }}
+                >{s.label}</a>
+              ))}
+            </div>
+          ) : null}
+          {showFilter ? (
             <input
-              className="set-text"
+              className="cli-memory-search"
               type="search"
               placeholder="Filter"
               value={filter}
               aria-label="Filter memories"
               onChange={(e) => { setFilter(e.target.value); setPicked([]); }}
             />
-          </div>
-        ) : <span />}
-      </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {active?.path ? <p className="settings-file">Kept in {active.path}</p> : null}
 
+      {versioned ? (
+        <p
+          className={"cli-memory-history" + (versioned.drifted ? " is-drifted" : "")}
+          title={"A git repository in this folder. " + terminalCliLabel(cli) + " writes a revision when it reorganises these files"
+            + (versioned.subject ? "; the last one is \u201c" + versioned.subject + "\u201d" : "")
+            + (versioned.changed.length ? ". Changed since: " + versioned.changed.join(", ") : "") + "."}
+        >
+          {terminalCliLabel(cli)} keeps a version history here — {versioned.head}. {versioned.tail}
+        </p>
+      ) : null}
+
       {!editable ? (
         <div className="cli-notice" role="status">
-          <span>{report.note}</span>
+          {/* The command belongs in the sentence, not on the button: the
+              button read "Copy grok memory clear", which parses as an
+              instruction rather than as a command to copy. */}
+          <span>
+            {report.note}
+            {report.clear ? <> Clear them with <code>{report.clear}</code>.</> : null}
+          </span>
           {report.clear ? <CopyCommand command={report.clear} /> : null}
         </div>
       ) : null}
@@ -365,7 +388,7 @@ function CopyCommand({ command }) {
         }
         setTimeout(() => setState(""), 2000);
       }}
-    >{state || "Copy " + command}</button>
+    >{state || "Copy"}</button>
   );
 }
 
