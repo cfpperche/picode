@@ -87,11 +87,9 @@ export function promptDoorFor({ kind, agentMode, term } = {}) {
   if (kind === "agent" && agentMode === "interactive") return true;
   return termHasPromptDoor(term);
 }
-
 // clipboardText(clipboardData): the text riding alongside a paste, if any.
 // A files-paste that also carries text seeds the attach message with it
-// instead of dropping it (the keydown path's late text is claimed away by
-// termPasteClaim.js, so the message is the text's only landing).
+// instead of dropping it.
 export function clipboardText(clipboardData) {
   try {
     if (clipboardData && typeof clipboardData.getData === "function") {
@@ -101,4 +99,52 @@ export function clipboardText(clipboardData) {
     return "";
   }
   return "";
+}
+// pastedFileName(mime, n): clipboard files arrive nameless — the drop door
+// needs a name with a truthful extension so the CLI reads it as an image.
+function pastedFileName(mime, n) {
+  const ext = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp" }[(mime || "").toLowerCase()] || "bin";
+  return `pasted-image-${n}.${ext}`;
+}
+
+// readPasteClipboard(clip): the clipboard as a paste event would carry it —
+// files plus text. read() sees images; readText() sees text only. Falls
+// back to text-only when read() is unavailable or refused. `blocked` is
+// true when nothing could be read at all (no API, or every read refused),
+// so the caller can tell "empty clipboard" (silent) from "blocked" (toast).
+// `clip` injects the clipboard for tests; by default the page's own.
+export async function readPasteClipboard(clip = (typeof navigator !== "undefined" && navigator.clipboard) || null) {
+  const out = { files: [], text: "", blocked: !clip };
+  if (out.blocked) return out;
+  if (typeof clip.read === "function") {
+    try {
+      let n = 0;
+      for (const item of (await clip.read()) || []) {
+        for (const type of item.types || []) {
+          if (type === "text/plain" && !out.text) {
+            try {
+              const blob = await item.getType(type);
+              out.text = String((blob && typeof blob.text === "function" ? await blob.text() : "") || "");
+            } catch { /* this type is unreadable; keep the rest */ }
+          } else if (type.startsWith("image/") && out.files.length < MAX_ATTACH) {
+            try {
+              const blob = await item.getType(type);
+              if (blob) { n += 1; out.files.push(new File([blob], pastedFileName(type, n), { type })); }
+            } catch { /* this type is unreadable; keep the rest */ }
+          }
+        }
+      }
+      out.blocked = false;
+      return out;
+    } catch { /* refused — fall through to text */ }
+  }
+  try {
+    if (typeof clip.readText === "function") {
+      out.text = String((await clip.readText()) || "");
+      out.blocked = false;
+      return out;
+    }
+  } catch { /* blocked — the caller toasts */ }
+  out.blocked = true;
+  return out;
 }

@@ -234,9 +234,11 @@ caption plus `@path` into `picode-sh-<id>`. Proof is tmux accept ("Sent
 to the terminal"), not model delivery. Inspector type/run/Ask still must
 not target a CLI TUI (ADR-0078). Plain shells have no attach bar.
 Pasting files (Ctrl+V / Ctrl+Shift+V with screenshots or files on the
-clipboard) opens the same bar seeded with the staged files, and any
-accompanying text becomes the message; text-only pastes keep the native
-paste. The
+clipboard, or the PiCode menu's Paste row) opens the same bar seeded with
+the staged files, and any accompanying text becomes the message;
+text-only pastes keep the native paste. The keydown re-reads the clipboard
+and fires an equivalent paste event, because stopping xterm's ^V also stops
+the browser's own. The
 staging folder stays inside the project deliberately — the CLI reads the
 path itself, confined to its own cwd — but is never global-data material
 and never touches the project's own tracked `.gitignore`: a nested,

@@ -2518,6 +2518,7 @@ export default function App({ shellChrome = false } = {}) {
     fullscreen: () => focus.toggle(),
     ask: (ctx) => openTermAttach(ctx, ctx.selection),
     attach: (ctx) => openTermAttach(ctx, ""),
+    pasteFiles: (ctx, files, text) => openTermAttachFiles(ctx.id, files, text),
     snippet: (ctx) => setSnipRun({
       target: { type: ctx.kind === "agent" ? "agent" : "terminal", id: ctx.id },
       targetName: ctx.record && ctx.record.name,

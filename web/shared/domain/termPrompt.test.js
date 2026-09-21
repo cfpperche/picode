@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isImageFile, planAttachFiles, clipboardFiles, termHasPromptDoor, promptDoorFor, clipboardText, MAX_ATTACH, MAX_ATTACH_BYTES } from "./termPrompt.js";
+import { isImageFile, planAttachFiles, clipboardFiles, termHasPromptDoor, promptDoorFor, clipboardText, readPasteClipboard, MAX_ATTACH, MAX_ATTACH_BYTES } from "./termPrompt.js";
 
 test("isImageFile", () => {
   assert.equal(isImageFile({ type: "image/png", name: "a.png" }), true);
@@ -55,4 +55,32 @@ test("clipboardText", () => {
   assert.equal(clipboardText({ getData: () => "hello" }), "hello");
   assert.equal(clipboardText({ getData: () => null }), "");
   assert.equal(clipboardText({ getData: () => { throw new Error("denied"); } }), "");
+});
+
+test("readPasteClipboard", async () => {
+  assert.deepEqual(await readPasteClipboard(null), { files: [], text: "", blocked: true });
+  assert.deepEqual(await readPasteClipboard({}), { files: [], text: "", blocked: true });
+  assert.deepEqual(await readPasteClipboard({ readText: async () => "hi" }), { files: [], text: "hi", blocked: false });
+  assert.deepEqual(
+    await readPasteClipboard({ readText: async () => { throw new Error("denied"); } }),
+    { files: [], text: "", blocked: true },
+  );
+  const img = { types: ["image/png"], getType: async () => new Blob(["x"], { type: "image/png" }) };
+  const got = await readPasteClipboard({ read: async () => [img] });
+  assert.equal(got.files.length, 1);
+  assert.ok(got.files[0] instanceof File);
+  assert.equal(got.files[0].name, "pasted-image-1.png");
+  assert.equal(got.text, "");
+  assert.equal(got.blocked, false);
+  const txt = { types: ["text/plain"], getData: undefined, getType: async () => new Blob(["cap"], { type: "text/plain" }) };
+  const both = await readPasteClipboard({ read: async () => [img, txt] });
+  assert.equal(both.files.length, 1);
+  assert.equal(both.text, "cap");
+  const denied = await readPasteClipboard({
+    read: async () => { throw new Error("denied"); },
+    readText: async () => "fallback",
+  });
+  assert.deepEqual([denied.files, denied.text, denied.blocked], [[], "fallback", false]);
+  const many = await readPasteClipboard({ read: async () => [img, img, img, img, img, img] });
+  assert.equal(many.files.length, MAX_ATTACH);
 });
