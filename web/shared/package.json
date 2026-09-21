@@ -20,6 +20,7 @@
     "./client/reminders.js": "./client/reminders.js",
     "./client/reconnect.js": "./client/reconnect.js",
     "./client/shell.js": "./client/shell.js",
+    "./client/surfaceLinks.js": "./client/surfaceLinks.js",
     "./client/termSocket.js": "./client/termSocket.js",
     "./client/terminalRuntime.js": "./client/terminalRuntime.js",
     "./contracts/appPrimitives.js": "./contracts/appPrimitives.js",
