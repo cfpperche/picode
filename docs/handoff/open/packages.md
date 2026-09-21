@@ -1,13 +1,19 @@
 # Packages and manifests
 
-- [ ] **Muse Code's plugin roster is still read tolerantly.** The installed
-  build (Muse Code 1.3.0) exits 2 with "plugins are not available in this
-  build" for every plugin verb, so its non-empty JSON could not be observed;
-  `parseVendorRows` maps field names by candidate and refuses an unknown shape.
-  Grok, Omp, Hermes, Claude Code, Codex, Antigravity and OpenCode were all
-  measured non-empty offline (fixtures in `internal/clipkgs/testdata/`, harness
-  in `live_test.go`, `PICODE_PKGS_LIVE=1`). Re-run the harness on a Muse build
-  that ships plugins and pin the row shape.
+- [ ] **Muse Code: the installed roster is measured, the catalog is not.** The
+  installed shape is pinned (`testdata/muse.list.json`, Muse Code 1.3.0,
+  2026-09-21) after the tolerant reader was found to skip every row — the id
+  lives in each row's `record`, so a machine with plugins got a refusal instead
+  of a list. What is still unmeasured is the `--available` row shape: Muse's
+  marketplace spec requires an `install.transport` declaration the harness
+  could not satisfy ('marketplace transport … is not supported'), so catalog
+  rows are read tolerantly. Also recorded: Muse gates its plugin surface per
+  machine through its own cached feature config
+  (`~/.local/share/muse/feature-config/`); with the gate off every verb answers
+  "plugins are not available in this build", which is a property of the machine
+  and *not* of the build — an earlier run of the live harness read it as
+  "unmeasurable" (fixed: the harness now seeds the gate from the machine's own
+  cache).
 - [ ] **A consent refusal shows the vendor's words but no copy button.**
   Plan §6 said "refusal verbatim + copyable command"; v1 ships the verbatim
   half. Grok is where it bites: `grok plugin install <local dir>` refuses

@@ -1,0 +1,50 @@
+{
+  "plugins": [
+    {
+      "active": true,
+      "active_scope": "installed-plugin",
+      "diagnostics": [],
+      "plugin": {
+        "capabilities": {
+          "commands": [],
+          "hooks": [],
+          "mcp_servers": [],
+          "reminders": [],
+          "skills": [
+            {
+              "enabled_default": true,
+              "id": "probe",
+              "path": "skills/probe/SKILL.md",
+              "source_path": "/tmp/tmp.klcZIX6UbJ/.local/share/muse/plugins/cache/local/picode-probe/5094893bdc2434d269d4a35153f288880270acdc9f10683323ffa3aa8b431eee/package/skills/probe/SKILL.md"
+            }
+          ]
+        },
+        "description": "probe",
+        "display_name": null,
+        "id": "picode-probe",
+        "manifest_family": "native",
+        "version": "0.1.0"
+      },
+      "record": {
+        "cache_path": "/tmp/tmp.klcZIX6UbJ/.local/share/muse/plugins/cache/local/picode-probe/5094893bdc2434d269d4a35153f288880270acdc9f10683323ffa3aa8b431eee/package",
+        "description": "probe",
+        "display_name": null,
+        "enabled": true,
+        "id": "picode-probe",
+        "installed_at": "2026-09-21T12:51:27.855688912Z",
+        "manifest_family": "native",
+        "manifest_sha256": "sha256:b451393937f12c47cdaf6c0bcec17805985e46cf341fd244b297be81687edab2",
+        "package_sha256": "sha256:5094893bdc2434d269d4a35153f288880270acdc9f10683323ffa3aa8b431eee",
+        "source": {
+          "path": "/tmp/tmp.klcZIX6UbJ/bundle",
+          "provenance": "native-local"
+        },
+        "trust": "user-local",
+        "updated_at": null,
+        "version": "0.1.0"
+      },
+      "valid": true,
+      "warning": null
+    }
+  ]
+}

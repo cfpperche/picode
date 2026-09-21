@@ -289,6 +289,112 @@ func hermesEnabled(status string) bool {
 	return false
 }
 
+// parseMuse reads `muse plugins list --json` (installed) and
+// `muse plugins list --available --json` (catalog). Measured 2026-09-21 on
+// Muse Code 1.3.0 (1.3.0-R3401.1) in a sandbox HOME whose vendor feature gate
+// was on, with one local bundle installed:
+//
+//	{"plugins":[{"active":true,"active_scope":"installed-plugin","diagnostics":[],
+//	             "plugin":{id,version,display_name,description,manifest_family,capabilities},
+//	             "record":{id,version,display_name,description,enabled,installed_at,
+//	                       cache_path,manifest_family,manifest_sha256,package_sha256,
+//	                       trust,source:{path,provenance}}}]}
+//
+// The id is *not* on the row: it lives in `record` (the installed state) and in
+// `plugin` (the manifest). The tolerant reader skipped these rows entirely —
+// there is no id/name key at the outer level — so a machine with Muse plugins
+// got a refusal instead of a roster. `active` is the vendor's own word for
+// whether the plugin loaded in this session; it is reported as the row's
+// status rather than folded into enabled (which `record.enabled` owns).
+//
+// The vendor gates the whole plugin surface per machine: with the gate off,
+// every verb answers "plugins are not available in this build" on the error
+// stream, which is what a fresh HOME produces (measured 2026-09-21). PiCode
+// never flips that gate — it shows the vendor's sentence.
+func parseMuse(out string, available bool) ([]Row, string, error) {
+	var envelope struct {
+		Plugins   []map[string]any `json:"plugins"`
+		Available []map[string]any `json:"available"`
+		Skipped   []map[string]any `json:"skipped"`
+		Warnings  []any            `json:"warnings"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &envelope); err != nil {
+		return nil, "", fmt.Errorf("%w: %s", ErrRosterShape, firstLine(out))
+	}
+	if !available {
+		rows := make([]Row, 0, len(envelope.Plugins))
+		for _, entry := range envelope.Plugins {
+			record, _ := entry["record"].(map[string]any)
+			if record == nil {
+				continue
+			}
+			manifest, _ := entry["plugin"].(map[string]any)
+			row := museRecordRow(record, manifest)
+			if row.ID == "" {
+				continue
+			}
+			if active, ok := entry["active"].(bool); ok && !active {
+				row.Note = "Installed but not active in this session."
+			}
+			rows = append(rows, row)
+		}
+		note := ""
+		if len(envelope.Warnings) > 0 {
+			note = "The CLI reported warnings alongside this list."
+		}
+		return rows, note, nil
+	}
+	rows := make([]Row, 0, len(envelope.Available))
+	for _, entry := range envelope.Available {
+		row, ok := mapVendorRow(entry)
+		if !ok {
+			continue
+		}
+		row.Installed = truthy(entry["installed"])
+		rows = append(rows, row)
+	}
+	// `skipped` entries are marketplace plugins the CLI could not read; they
+	// are named so the pane can say the catalog was partial, and are not rows
+	// a user can install from.
+	note := ""
+	if len(envelope.Skipped) > 0 {
+		note = fmt.Sprintf("%d marketplace plugin(s) could not be read.", len(envelope.Skipped))
+	}
+	return rows, note, nil
+}
+
+// museRecordRow maps one installed plugin: `record` is the store record (id,
+// enabled, version, where it came from) and `manifest` the manifest it came
+// with (display name, description).
+func museRecordRow(record, manifest map[string]any) Row {
+	source := ""
+	kind := ""
+	if sm, ok := record["source"].(map[string]any); ok {
+		source = firstText(sm["path"], sm["url"], sm["id"], sm["repository"])
+		kind = text(sm["provenance"])
+	}
+	if kind == "" {
+		kind = kindOfSource(source, "")
+	}
+	row := Row{
+		ID:          text(record["id"]),
+		Name:        firstText(record["display_name"], manifest["display_name"], record["id"]),
+		Version:     text(record["version"]),
+		Description: firstText(record["description"], manifest["description"]),
+		Scope:       "user",
+		Enabled:     truthy(record["enabled"]),
+		Installed:   true,
+		InstallPath: text(record["cache_path"]),
+		Source:      source,
+		SourceKind:  kind,
+		Status:      text(record["trust"]),
+	}
+	if row.Source == "" {
+		row.Source = row.ID
+	}
+	return row
+}
+
 // parseAgy reads `agy plugin list`. The CLI has no --json flag, and its
 // subcommands read a leading flag as the plugin name (measured: `agy plugin
 // uninstall --help` really tried to uninstall a plugin called `--help`), but

@@ -8,8 +8,10 @@ package clipkgs
 //
 // Run it like this (the sandbox HOME is what the vendor CLIs themselves
 // resolve, so their stores land there and the real user's files are never read
-// or written — except one read-only `claude plugin list` used to capture the
-// fixture in testdata/claude-code.list.json):
+// or written — with two read-only exceptions on the machine's own home: one
+// `claude plugin list` used to capture testdata/claude-code.list.json, and
+// Muse's feature config, copied into the sandbox so its plugin surface is
+// measurable at all instead of answering "not available in this build"):
 //
 //	SB=$(mktemp -d)
 //	env HOME=$SB XDG_CONFIG_HOME=$SB/.config \
@@ -18,8 +20,8 @@ package clipkgs
 //
 // What counts as a failure, and what does not:
 //
-//   - A vendor that refuses (no sign-in, no network, a build without the
-//     feature) is a *measurement*: its exit status and the first 200
+//   - A vendor that refuses (no sign-in, no network, a feature its own config
+//     turns off — Muse's plugin gate) is a *measurement*: its exit status and the first 200
 //     characters of stdout and stderr are logged, and the test goes on. The
 //     one thing such a refusal may never do is come back from clipkgs as an
 //     empty roster with no error — that is the failure the whole pane rests on
@@ -42,6 +44,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -194,8 +197,28 @@ func liveFind(rows []Row, id string) *Row {
 	return nil
 }
 
+// liveRealHome is the machine's own home. It cannot come from the environment:
+// the recipe in this file's header swaps HOME for the whole test process, so a
+// vendor whose feature surface is gated by its own cached config (Muse — every
+// plugin verb answers "not available in this build" without it) would be
+// measured with the gate off, which is the wrong conclusion. os/user reads the
+// account record instead. This is the one read outside the sandbox, and it is
+// one directory of the vendor's own cache.
+var liveRealHome = func() string {
+	u, err := user.Current()
+	if err != nil {
+		return ""
+	}
+	return u.HomeDir
+}()
+
 func TestLiveVendorParity(t *testing.T) {
 	sb := liveSkip(t)
+	if liveSeedMuseGate(t, sb) {
+		// The sandbox now answers the same plugin surface a configured machine
+		// does, so every phase below measures the vendor and not the gate.
+		defer t.Log("MEASURED muse plugin surface enabled in the sandbox")
+	}
 	t.Setenv("HOME", sb)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(sb, ".config"))
 	if err := os.MkdirAll(filepath.Join(sb, ".config"), 0o755); err != nil {
@@ -375,6 +398,56 @@ func liveProbeBundle(t *testing.T, dir, manifest string) string {
 	return dir
 }
 
+// liveSeedMuseGate copies Muse's own feature config from the real home into
+// the sandbox. Without it the vendor answers every plugin verb with "plugins
+// are not available in this build", which is a property of the machine's
+// configuration, not of the build — the wrong conclusion an earlier run of
+// this harness drew. Answers false when the real home has no such config, so
+// the caller can skip with the reason instead of reporting a refusal shape.
+func liveSeedMuseGate(t *testing.T, sandboxHome string) bool {
+	t.Helper()
+	if liveRealHome == "" {
+		return false
+	}
+	src := filepath.Join(liveRealHome, ".local", "share", "muse", "feature-config")
+	entries, err := os.ReadDir(src)
+	if err != nil || len(entries) == 0 {
+		return false
+	}
+	dir := filepath.Join(sandboxHome, ".local", "share", "muse", "feature-config")
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(src, e.Name()))
+		if err != nil {
+			t.Fatalf("read Muse feature config: %v", err)
+		}
+		liveWrite(t, filepath.Join(dir, e.Name()), string(b))
+	}
+	t.Logf("MEASURED muse feature config seeded from %s (%d file(s))", src, len(entries))
+	return true
+}
+
+// liveMuseBundle writes the smallest bundle `muse plugins validate` accepts
+// (measured 2026-09-21): a manifest declaring schemaVersion 1, the manifest
+// directory it lives in, and one capability — a plugin whose manifest declares
+// no capability is refused at install with "no supported behavior
+// capabilities".
+func liveMuseBundle(t *testing.T, dir string) string {
+	t.Helper()
+	liveWrite(t, filepath.Join(dir, ".muse-plugin", "plugin.json"), `{
+  "schemaVersion": 1,
+  "name": "picode-probe",
+  "version": "0.1.0",
+  "description": "PiCode live probe",
+  "compat": {"manifestDir": ".muse-plugin"},
+  "capabilities": {"skills": [{"id": "probe", "path": "skills/probe/SKILL.md"}]}
+}`)
+	liveWrite(t, filepath.Join(dir, "skills", "probe", "SKILL.md"), "# PiCode live probe\n")
+	return dir
+}
+
 // liveAddMarketplace adds a marketplace source, tolerating one that is already
 // configured: a person re-runs this harness against the same sandbox (Omp
 // answers "Marketplace … already exists" and fails, measured 2026-09-20).
@@ -551,16 +624,40 @@ func liveSeedAndRead(t *testing.T, cli string, p Paths) {
 		}
 
 	case "muse":
-		// The build installed here refuses every plugin verb, so there is no
-		// non-empty shape to observe: `muse plugins list --json` itself exits
-		// 2 with "plugins are not available in this build".
-		out, err := Run(ctx, cli, VerbInstall, p, Target{Name: "picode-probe", Source: liveProbeBundle(t, liveFixtureDir(t, p.Home, cli), "plugin.json")})
-		t.Logf("MEASURED %s plugin install: %v (%s)", cli, err, liveHead(out))
+		// Muse gates its whole plugin surface per machine through the vendor's
+		// own feature config, so a fresh HOME answers "plugins are not
+		// available in this build" for every verb — measured 2026-09-21, and
+		// the reason an earlier run of this harness read Muse as unmeasurable.
+		// The harness copies that config from the real home into the sandbox
+		// (the CLI's own cache, not a fixture PiCode ships) and then installs
+		// the smallest bundle Muse's own validator accepts.
+		if _, err := os.Stat(filepath.Join(p.Home, ".local", "share", "muse", "feature-config")); err != nil {
+			t.Skip("this machine's Muse carries no feature config, so its plugin surface is off in any sandbox: nothing to measure")
+		}
+		bundle := liveMuseBundle(t, liveFixtureDir(t, p.Home, cli))
+		out, err := Run(ctx, cli, VerbInstall, p, Target{Name: "picode-probe", Source: bundle, Scope: "user"})
+		if err != nil {
+			t.Fatalf("install: %v (%s)", err, liveHead(out))
+		}
 		rep, err := List(ctx, cli, p, "user", true)
-		if err == nil {
-			t.Logf("MEASURED %s roster: %+v", cli, rep.Rows)
-		} else {
-			t.Logf("MEASURED %s roster refused: %v", cli, err)
+		if err != nil {
+			t.Fatalf("roster after install: %v", err)
+		}
+		liveLogRows(t, cli+" after install", rep.Rows)
+		row := liveFind(rep.Rows, "picode-probe")
+		if row == nil {
+			t.Fatalf("the plugin the vendor just installed is not in the roster: %+v", rep.Rows)
+		}
+		if !row.Installed || !row.Enabled || row.Version != "0.1.0" {
+			t.Errorf("installed row = %+v", *row)
+		}
+		if row.InstallPath == "" || row.Source == "" {
+			t.Errorf("installed row = %+v, want the vendor's own cache path and origin", *row)
+		}
+		// A plugin Muse installed is `user-local` trust from a local path; the
+		// provenance word is the vendor's, not a PiCode classification.
+		if row.SourceKind != "native-local" {
+			t.Errorf("source kind = %q, want the vendor's provenance word", row.SourceKind)
 		}
 
 	case "opencode":

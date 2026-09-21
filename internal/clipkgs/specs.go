@@ -524,7 +524,7 @@ func museRoster(ctx context.Context, p Paths, scope string, available bool) ([]R
 	if err != nil {
 		return nil, "", err
 	}
-	return parseVendorRows("muse", out, available)
+	return parseMuse(out, available)
 }
 
 func agyRoster(ctx context.Context, p Paths, scope string, available bool) ([]Row, string, error) {

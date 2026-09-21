@@ -63,7 +63,7 @@ The roster comes from the CLI itself:
 | Grok | `grok plugin list --json` (+ `--available`) | |
 | Hermes | `hermes plugins list --json`, catalog via `plugins search --json` | `picode-native` is PiCode's own integration |
 | OpenCode | its own configs and plugin directories | no list, remove, disable or marketplace command exists |
-| Muse Code | `muse plugins list --json` (+ `--available`) | capability trust stays with the user |
+| Muse Code | `muse plugins list --json` (+ `--available`) | the id lives in the row's `record`, not on the row; capability trust stays with the user. The CLI gates its whole plugin surface per machine through its own cached feature config — where that gate is off, every verb answers *"plugins are not available in this build"* and the pane shows that sentence (measured 2026-09-21) |
 | Antigravity | `agy plugin list` (a JSON envelope once plugins exist, one sentence while none do) | its subcommands take no flags: a leading `--help` is read as the plugin name (measured 2026-09-20) |
 | Omp | `omp plugin list --json` | marketplace sources, no availability list PiCode has verified |
 

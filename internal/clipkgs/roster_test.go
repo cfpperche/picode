@@ -549,3 +549,85 @@ func TestOpencodeFixtureRoster(t *testing.T) {
 		t.Errorf("local row scope = %q", file.Scope)
 	}
 }
+
+// TestMuseRealRoster pins the shape `muse plugins list --json` really prints
+// (measured 2026-09-21 on Muse Code 1.3.0 in a sandbox whose vendor feature
+// gate was on, one local bundle installed). The id is not on the row — it
+// lives in `record` — which is exactly what the tolerant reader could not
+// read, so a machine with plugins got a refusal instead of a roster.
+func TestMuseRealRoster(t *testing.T) {
+	rows, note, err := parseMuse(fixture(t, "muse.list.json"), false)
+	if err != nil {
+		t.Fatalf("parseMuse: %v", err)
+	}
+	if note != "" {
+		t.Errorf("note = %q, want empty for a clean installed roster", note)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("rows = %d, want the one installed plugin: %+v", len(rows), rows)
+	}
+	row := rows[0]
+	if row.ID != "picode-probe" || row.Name != "picode-probe" || row.Version != "0.1.0" {
+		t.Errorf("row = %+v", row)
+	}
+	if !row.Installed || !row.Enabled || row.Scope != "user" {
+		t.Errorf("row = %+v, want an installed, enabled, user-scope plugin", row)
+	}
+	if row.Description != "probe" || !strings.Contains(row.InstallPath, "plugins/cache/local/picode-probe") {
+		t.Errorf("row description/path = %q / %q", row.Description, row.InstallPath)
+	}
+	if row.SourceKind != "native-local" || row.Status != "user-local" {
+		t.Errorf("row source kind/status = %q / %q, want the vendor's own provenance and trust words", row.SourceKind, row.Status)
+	}
+	if !strings.Contains(row.Source, "bundle") {
+		t.Errorf("row source = %q, want the path the bundle was installed from", row.Source)
+	}
+}
+
+// TestMuseEmptyAndCatalogFixtures: an empty install and the catalog envelope
+// the same CLI prints with nothing configured (`available`/`skipped`/
+// `warnings`, none of which is a plugin row).
+func TestMuseEmptyAndCatalogFixtures(t *testing.T) {
+	rows, _, err := parseMuse(fixture(t, "muse.empty.json"), false)
+	if err != nil {
+		t.Fatalf("parseMuse(empty): %v", err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("rows = %+v, want none", rows)
+	}
+	cat, note, err := parseMuse(fixture(t, "muse.available.json"), true)
+	if err != nil {
+		t.Fatalf("parseMuse(catalog): %v", err)
+	}
+	if len(cat) != 0 || note != "" {
+		t.Fatalf("catalog rows/note = %+v / %q, want an empty catalog with no warning", cat, note)
+	}
+	mps, err := parseMarketplaces(fixture(t, "muse.marketplaces.json"))
+	if err != nil {
+		t.Fatalf("parseMarketplaces: %v", err)
+	}
+	if len(mps) != 0 {
+		t.Fatalf("marketplaces = %+v, want none (the envelope's other keys are not sources)", mps)
+	}
+}
+
+// TestMuseInactivePluginSaysSo: `active` is the vendor's own word for whether
+// the plugin loaded in this session; a disabled one must not read as active.
+func TestMuseInactivePluginSaysSo(t *testing.T) {
+	body := `{"plugins":[{"active":false,"active_scope":"disabled","plugin":{"id":"x","version":"1.0.0"},"record":{"id":"x","version":"1.0.0","enabled":false,"cache_path":"/c"}}]}`
+	rows, _, err := parseMuse(body, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].Enabled || !strings.Contains(rows[0].Note, "not active") {
+		t.Fatalf("row = %+v", rows)
+	}
+}
+
+// TestMuseRefusesAnUnknownEnvelope: a shape mismatch is an error, never a
+// silent empty roster.
+func TestMuseRefusesAnUnknownEnvelope(t *testing.T) {
+	if _, _, err := parseMuse(`[{"id":"x"}]`, false); err == nil {
+		t.Fatal("a shape PiCode does not recognize must be refused")
+	}
+}
