@@ -274,6 +274,7 @@ func registerAll(mux Registrar, deps Deps) {
 	registerServerRoutes(mux, deps)
 	registerPiSettingsRoutes(mux, deps)
 	registerPiKeysRoutes(mux)
+	registerCLIKeysRoutes(mux)
 	registerSessionOps(mux, deps)
 	registerSlashOps(mux, deps)
 	registerSlashRes(mux, deps)

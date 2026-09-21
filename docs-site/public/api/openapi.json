@@ -3443,6 +3443,47 @@
         ]
       }
     },
+    "/api/cli-keys": {
+      "get": {
+        "operationId": "getApiCli-keys",
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-keys"
+        ]
+      },
+      "put": {
+        "operationId": "putApiCli-keys",
+        "parameters": null,
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Not paired"
+          }
+        },
+        "tags": [
+          "cli-keys"
+        ]
+      }
+    },
     "/api/cli-memory": {
       "get": {
         "operationId": "getApiCli-memory",
@@ -11450,6 +11491,9 @@
     },
     {
       "name": "cli-jobs"
+    },
+    {
+      "name": "cli-keys"
     },
     {
       "name": "cli-memory"

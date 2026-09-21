@@ -45,6 +45,7 @@
     "./domain/canvasGrants.js": "./domain/canvasGrants.js",
     "./domain/checklist.js": "./domain/checklist.js",
     "./domain/chip.js": "./domain/chip.js",
+    "./domain/cliKeys.js": "./domain/cliKeys.js",
     "./domain/cliLaunch.js": "./domain/cliLaunch.js",
     "./domain/cliLaunchPresets.js": "./domain/cliLaunchPresets.js",
     "./domain/cloneUrl.js": "./domain/cloneUrl.js",

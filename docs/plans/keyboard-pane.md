@@ -249,6 +249,30 @@ no boundary: a UI refinement and a report envelope, so they update
 `docs/architecture/cli-settings.md` only (the `resetAll` field extends
 ADR-0101's own patch contract, the way `patch.reset` did).
 
+## P1 shipped (2026-09-21, `feat/keyboard-envelope`)
+
+The envelope is live and Pi answers through it: `internal/clikeys.Registry` (nine
+rows, each citing where its vendor facts were read), `GET/PUT /api/cli-keys`, and
+`web/shared/domain/cliKeys.js` (the copy + the seam test). Pi's report is wrapped
+rather than restated, `/api/pi-keys` is untouched, and the pane now talks only to
+the envelope — the six keyboard rows of `qa-cli-settings.mjs` pass through it on
+both apps, writing with one door and reading with the other.
+
+Two things it added beyond the plan, both because the work asked for them:
+
+- **`make keys-drift`** — the probe the P1 row named. It re-reads the installed
+  pi's own `docs/keybindings.md` and compares ids *and* defaults with
+  `pikeys.Catalog`, skipping loudly on a machine without pi. Run here against pi
+  0.87.0: 90 actions, 10 unbound, no drift — and it fails on a deliberately
+  broken catalog, so it is not a probe that always says yes.
+- **A tenth registry row's worth of honesty**: a CLI whose editor has not shipped
+  answers with `state` and `writable: false` and *no* file and *no* actions. The
+  pane can then say "Codex keeps its own key map; PiCode's editor for it has not
+  shipped yet" instead of promising one, which is what P5 was going to have to
+  invent copy for anyway.
+
+P2 is next: the adapters, Omp first, and the ADR above.
+
 ## 7. Verification
 
 1. `make ci-scoped` while iterating, `make close` at the end, `make ci` on
