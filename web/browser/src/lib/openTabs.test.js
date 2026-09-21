@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readChatWanted, writeChatWanted } from "./openTabs.js";
-import { filterAgentSplits, filterOpenTabs, moveTab, readAgentSplits, readFileWorktrees, readGitOwners, readOpenTabs, readTermWanted, readWebTabUrls, writeAgentSplitUrls, writeAgentSplits, writeFileWorktrees, writeGitOwners, writeOpenTabs, writeTermWanted, writeWebTabUrls } from "./openTabs.js";
+import { filterAgentSplits, filterOpenTabs, moveTab, pickNextTab, readAgentSplits, readFileWorktrees, readGitOwners, readOpenTabs, readTermWanted, readWebTabUrls, writeAgentSplitUrls, writeAgentSplits, writeFileWorktrees, writeGitOwners, writeOpenTabs, writeTermWanted, writeWebTabUrls } from "./openTabs.js";
 
 test("filterOpenTabs drops missing agents", () => {
   const got = filterOpenTabs(
@@ -17,6 +17,30 @@ test("moveTab reorders and no-ops on bad ids", () => {
   assert.deepEqual(moveTab(["a", "b", "c"], "c", "a"), ["c", "a", "b"]);
   assert.deepEqual(moveTab(["a", "b"], "a", "a"), ["a", "b"]);
   assert.deepEqual(moveTab(["a", "b"], "z", "a"), ["a", "b"]);
+});
+
+test("pickNextTab lands on the right neighbour", () => {
+  assert.equal(pickNextTab(["a", "b", "c"], ["b"]), "c");
+});
+
+test("pickNextTab falls back to the left neighbour at the strip's end", () => {
+  assert.equal(pickNextTab(["a", "b", "c"], ["c"]), "b");
+});
+
+test("pickNextTab skips a contiguous removal block", () => {
+  // An agent's removal takes its terminal tab with it; both sit side by side.
+  assert.equal(pickNextTab(["a", "a-term", "b", "c"], ["a", "a-term"]), "b");
+  assert.equal(pickNextTab(["a", "b", "c", "c-term"], ["c", "c-term"]), "b");
+});
+
+test("pickNextTab returns null when the strip empties", () => {
+  assert.equal(pickNextTab(["a"], ["a"]), null);
+  assert.equal(pickNextTab([], ["a"]), null);
+  assert.equal(pickNextTab(["a", "b"], []), null);
+});
+
+test("pickNextTab returns null when nothing removed is on the strip", () => {
+  assert.equal(pickNextTab(["a", "b"], ["gone"]), null);
 });
 
 test("roundtrip", () => {

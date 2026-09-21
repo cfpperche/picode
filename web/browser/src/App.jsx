@@ -117,7 +117,7 @@ import { extraSlash } from "@picode/shared/domain/slash.js";
 import { isAutomateCommand, automatePrompt, parseAutomateReply } from "./lib/automateDraft.js";
 import { writeAutomationDraft } from "./lib/automationDraft.js";
 import { isValidCron } from "@picode/shared/domain/cron.js";
-import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners, readAgentSplits, writeAgentSplits, writeAgentSplitUrls, filterAgentSplits, readWebTabUrls, writeWebTabUrls, readFileWorktrees, writeFileWorktrees } from "./lib/openTabs.js";
+import { readOpenTabs, writeOpenTabs, filterOpenTabs, moveTab, pickNextTab, readTermWanted, writeTermWanted, readGitOwners, writeGitOwners, readTreeOwners, writeTreeOwners, readAgentSplits, writeAgentSplits, writeAgentSplitUrls, filterAgentSplits, readWebTabUrls, writeWebTabUrls, readFileWorktrees, writeFileWorktrees } from "./lib/openTabs.js";
 import { anchorFor, askedNote, ownerExists, readInspectorPrefs, runFallbackNote, writeInspectorPrefs, INSPECTOR_MIN, maxInspectorWidth } from "./lib/inspector.js";
 import { sessionsHash } from "./lib/routes.js";
 import Hotkeys from "./components/Hotkeys.jsx";
@@ -1954,6 +1954,18 @@ export default function App({ shellChrome = false } = {}) {
     });
   }, [shellChrome]);
 
+  // Select a surviving tab after one left the strip (closeTab, removeAgent,
+  // removeWorkspace): terminals go through openTermTab so the shell pane
+  // comes back, agent tabs prepare their surface like a click would, and
+  // null means none survived — the dashboard takes over (showHome).
+  function adoptTab(id) {
+    if (!id) { setSelectedId(null); return; }
+    if (isTermTab(id)) { openTermTab(tabTermId(id)); return; }
+    setSelectedId(id);
+    const loc = locate(workspaces, freeAgents, id);
+    if (loc && loc.agent) prepareSurface(loc.agent);
+  }
+
   async function closeTab(id) {
     const guard = treeCloseGuards.current.get(id);
     if (guard && !await guard()) return;
@@ -1993,28 +2005,14 @@ export default function App({ shellChrome = false } = {}) {
       });
     }
     const ws = workspaces.find((w) => w.id === id);
+    // The neighbour is picked from the strip as the reader sees it — before
+    // the filter below lands — so the answer anchors on `id`'s position.
+    const next = selectedRef.current === id ? pickNextTab(tabsRef.current, [id]) : null;
     setTabs((t) => t.filter((x) => x !== id));
     setTermWanted((s) => { const n = new Set(s); n.delete(id); return n; });
     if (ws && ws.agent) closeAgentShell(ws.agent);
     if (panelRef.current && ws && ws.agent && panelRef.current.agentId === ws.agent.id) closePanel();
-    if (selectedRef.current === id) {
-      setTabs((t) => {
-        const next = t[t.length - 1];
-        if (next) {
-          if (isTermTab(next)) openTermTab(tabTermId(next));
-          else if (isFileTab(next) || isGitTab(next) || isTreeTab(next) || isAppTab(next)) {
-            setSelectedId(next);
-          } else {
-            setSelectedId(next);
-            const loc = locate(workspaces, freeAgents, next);
-            if (loc && loc.agent) prepareSurface(loc.agent);
-          }
-        } else {
-          setSelectedId(null);
-        }
-        return t;
-      });
-    }
+    if (selectedRef.current === id) adoptTab(next);
   }
 
   function closePanel() {
@@ -2792,6 +2790,11 @@ export default function App({ shellChrome = false } = {}) {
       path: "/api/agents/" + ag.id + "/cleanup",
     });
     if (!choice) return;
+    // An agent's removal can take two tabs (its own and, for a CLI agent,
+    // its bound terminal's — ADR-0160). The neighbour is picked before any
+    // filter lands, while the strip still anchors the reader's place.
+    const removedTabs = [ag.id, ag.terminalId ? termTabId(ag.terminalId) : ""].filter(Boolean);
+    const next = removedTabs.includes(selectedRef.current) ? pickNextTab(tabsRef.current, removedTabs) : null;
     try {
       await api("/api/agents/" + ag.id + choice.query, { method: "DELETE" });
     } catch (err) {
@@ -2813,7 +2816,7 @@ export default function App({ shellChrome = false } = {}) {
       closeShellTerm(ag.terminalId);
       setTabs((t) => t.filter((x) => x !== termTabId(ag.terminalId)));
     }
-    if (selectedId === ag.id) setSelectedId(null);
+    if (removedTabs.includes(selectedRef.current)) adoptTab(next);
     // A removal is rare and final: refetch even when the feed is live, so
     // the row leaves on this answer and not only on the next event.
     await loadWorkspaces();
@@ -2842,14 +2845,19 @@ export default function App({ shellChrome = false } = {}) {
       await api("/api/workspaces/" + ws.id + choice.query, { method: "DELETE" });
       const ids = (ws.agents || []).map((a) => a.id);
       if (ws.agent) ids.push(ws.agent.id);
+      // The workspace's terminals died with it (ADR-0026): drop them from
+      // the list and close their tabs, like removeTerminal does.
+      const deadTerms = terminals.filter((t) => termWorkspaceId(t) === ws.id);
+      // The neighbour is picked before any filter lands, while the strip
+      // still anchors the reader's place: workspace tab, its agents' tabs
+      // and its terminals' tabs all leave together.
+      const removedTabs = [ws.id, ...ids, ...deadTerms.map((t) => termTabId(t.id))];
+      const next = removedTabs.includes(selectedRef.current) ? pickNextTab(tabsRef.current, removedTabs) : null;
       for (const id of [...new Set(ids)]) {
         const ownedAgent = (ws.agents || []).find((candidate) => candidate.id === id) || (ws.agent && ws.agent.id === id ? ws.agent : null);
         closeAgentShell(ownedAgent || { id });
         if (panelRef.current && panelRef.current.agentId === id) closePanel();
       }
-      // The workspace's terminals died with it (ADR-0026): drop them from
-      // the list and close their tabs, like removeTerminal does.
-      const deadTerms = terminals.filter((t) => termWorkspaceId(t) === ws.id);
       setTerminals((cur) => cur.filter((t) => termWorkspaceId(t) !== ws.id));
       for (const t of deadTerms) {
         setTabs((cur) => cur.filter((id) => {
@@ -2859,7 +2867,7 @@ export default function App({ shellChrome = false } = {}) {
         closeTab(termTabId(t.id));
       }
       setTabs((t) => t.filter((x) => x !== ws.id && !ids.includes(x)));
-      if (selectedId === ws.id || ids.includes(selectedId)) setSelectedId(null);
+      if (removedTabs.includes(selectedRef.current)) adoptTab(next);
       await refreshFleetFallback();
     } catch (err) { toastError(err); }
   }
