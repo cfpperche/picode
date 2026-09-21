@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,9 +11,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/rpc"
 	"github.com/cfpperche/picode/internal/store"
 	"github.com/cfpperche/picode/internal/tmux"
+	"github.com/cfpperche/picode/internal/usage"
 )
 
 func TestCredentialsRosterAndWrites(t *testing.T) {
@@ -402,5 +405,146 @@ func TestCredentialActivateRefusesWhatItCannotWrite(t *testing.T) {
 	}
 	if body, _ := res["body"].(map[string]any); body == nil || !strings.Contains(fmt.Sprint(body["error"]), "does not use that provider") {
 		t.Fatalf("refusal does not say why: %v", res)
+	}
+}
+
+// The guided sign-in opens a terminal running the CLI's own login. The stub
+// binary is what makes the argv observable: it is the whole contract.
+func TestCredentialSigninRunsTheCLIsOwnLogin(t *testing.T) {
+	if !tmux.New().Available() {
+		t.Skip("tmux not installed")
+	}
+	ts, _, _ := cleanupServer(t)
+	cliRequest(t, ts, "PUT", "/api/clis/codex", clilaunch.Config{Executable: "/bin/cat", Args: []string{}}, 200)
+
+	started := cliRequest(t, ts, "POST", "/api/credentials/signin", map[string]any{"cli": "codex"}, 201)
+	id, _ := started["terminalId"].(string)
+	if id == "" {
+		t.Fatalf("no terminal for the sign-in: %v", started)
+	}
+	t.Cleanup(func() {
+		_ = tmux.New().KillSession(context.Background(), tmux.ShellSessionName(id))
+	})
+	if hint, _ := started["hint"].(string); strings.TrimSpace(hint) == "" {
+		t.Fatalf("no hint to show while the sign-in runs: %v", started)
+	}
+	launch := cliRequest(t, ts, "GET", "/api/terminals/"+id+"/launch", nil, 200)
+	if !strings.Contains(fmt.Sprint(launch), "login") {
+		t.Fatalf("the CLI's own login did not reach the launch: %v", launch)
+	}
+	// A CLI PiCode knows nothing about is refused, not opened.
+	cliRequest(t, ts, "POST", "/api/credentials/signin", map[string]any{"cli": "nope"}, 404)
+}
+
+// The roster tells the pane whether a guided sign-in exists at all, so the
+// button is honest before it is clicked.
+func TestCredentialRosterOffersSigninOnlyWhereItExists(t *testing.T) {
+	ts, _, _ := cleanupServer(t)
+	roster := cliRequest(t, ts, "GET", "/api/credentials?cli=codex", nil, 200)
+	signin, _ := roster["signin"].(map[string]any)
+	if signin["available"] != true || strings.TrimSpace(fmt.Sprint(signin["hint"])) == "" {
+		t.Fatalf("codex sign-in = %v, want one available with a hint", signin)
+	}
+}
+
+// credentialsServerWithUsage is credentialsServer plus a vendor client aimed
+// at a stub, so an import that asks who the account is never leaves the
+// machine.
+func credentialsServerWithUsage(t *testing.T, profile http.HandlerFunc) (*httptest.Server, string) {
+	t.Helper()
+	ts, dataDir, home := cleanupServer(t)
+	ts.Close()
+	stub := httptest.NewServer(profile)
+	t.Cleanup(stub.Close)
+	st, err := store.Open(filepath.Join(dataDir, "picode.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	client := usage.NewClient(&http.Client{})
+	client.Endpoints["anthropic.profile"] = stub.URL
+	next := httptest.NewServer(New("127.0.0.1:0", Deps{
+		Store: st, Tmux: tmux.New(), Runtime: rpc.NewRuntime("cat", st, nil), AgentCmd: "cat",
+		DataDir: dataDir, TermRuntimes: NewTermRuntimes(), Usage: client,
+	}).Handler)
+	t.Cleanup(next.Close)
+	return next, home
+}
+
+func writeClaudeLogin(t *testing.T, home, access, refresh string) {
+	t.Helper()
+	dir := filepath.Join(home, ".claude")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	body := fmt.Sprintf(`{"claudeAiOauth":{"accessToken":%q,"refreshToken":%q,"expiresAt":4102444800000}}`, access, refresh)
+	if err := os.WriteFile(filepath.Join(dir, ".credentials.json"), []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A store that names no account (Claude Code's file) still keeps two
+// subscriptions apart: the vendor's own account identity names the second row,
+// and the roster matches the live file to it without a call of its own.
+func TestSecondSubscriptionIsKeptByItsOwnAccount(t *testing.T) {
+	calls := 0
+	ts, home := credentialsServerWithUsage(t, func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		_, _ = fmt.Fprintf(w, `{"account":{"email":"account-%d@example.com"}}`, calls)
+	})
+	writeClaudeLogin(t, home, "access-one", "refresh-one")
+	first := cliRequest(t, ts, "POST", "/api/credentials/import", map[string]any{"cli": "claude-code"}, 201)
+	if first["created"] != true || first["who"] != "account-1@example.com" {
+		t.Fatalf("first import = %v, want a new row named by the vendor", first)
+	}
+	// The CLI logs into a second account by itself.
+	writeClaudeLogin(t, home, "access-two", "refresh-two")
+	second := cliRequest(t, ts, "POST", "/api/credentials/import", map[string]any{"cli": "claude-code"}, 201)
+	if second["created"] != true {
+		t.Fatalf("second import = %v, want a row of its own", second)
+	}
+	provider := rosterFor(t, ts, "claude-code", "anthropic")
+	accounts := provider["accounts"].([]any)
+	if len(accounts) != 2 {
+		t.Fatalf("accounts = %d, want both subscriptions kept", len(accounts))
+	}
+	active, email := 0, ""
+	for _, a := range accounts {
+		row := a.(map[string]any)
+		if row["active"] == true {
+			active++
+			email, _ = row["email"].(string)
+		}
+	}
+	if active != 1 || email != "account-2@example.com" {
+		t.Fatalf("active rows = %d (%q), want exactly the live login", active, email)
+	}
+}
+
+// Offline, or on a store the vendor says nothing about, the pane's own name is
+// the identity — and naming the login re-keys the row that holds it instead of
+// leaving a second copy of one credential behind.
+func TestUnnamedSecondSubscriptionIsNamedNotDuplicated(t *testing.T) {
+	ts, home := credentialsServerWithUsage(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	writeClaudeLogin(t, home, "access-one", "refresh-one")
+	cliRequest(t, ts, "POST", "/api/credentials/import", map[string]any{"cli": "claude-code"}, 201)
+	writeClaudeLogin(t, home, "access-two", "refresh-two")
+	second := cliRequest(t, ts, "POST", "/api/credentials/import", map[string]any{"cli": "claude-code"}, 201)
+	if second["created"] != false || second["identity"] != "" {
+		t.Fatalf("second import = %v, want the replace the pane asks about", second)
+	}
+	named := cliRequest(t, ts, "POST", "/api/credentials/import", map[string]any{"cli": "claude-code", "as": "work@example.com"}, 201)
+	if named["created"] != false || named["identity"] != "work@example.com" {
+		t.Fatalf("named import = %v, want the live row named", named)
+	}
+	provider := rosterFor(t, ts, "claude-code", "anthropic")
+	accounts := provider["accounts"].([]any)
+	if len(accounts) != 1 {
+		t.Fatalf("accounts = %d, want the named login alone", len(accounts))
+	}
+	if row := accounts[0].(map[string]any); row["active"] != true {
+		t.Fatalf("named row = %v, want it matched as the live one", row)
 	}
 }

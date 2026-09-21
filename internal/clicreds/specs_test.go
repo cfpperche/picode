@@ -321,6 +321,107 @@ func TestNotesWhereARowCannotBeInjected(t *testing.T) {
 	}
 }
 
+// TestLoginCommands: every CLI either declares how to start its own sign-in or
+// carries the comment in specs.go saying why it cannot — agy, whose CLI
+// publishes no login subcommand. The hint is user-facing copy, so it is held to
+// what the pane can show: one plain line, always present, and naming the
+// command to type when the sign-in is the CLI's own TUI (empty argv).
+func TestLoginCommands(t *testing.T) {
+	wantArgs := map[string][]string{
+		"codex":       {"login"},
+		"grok":        {"login"},
+		"muse":        {"login"},
+		"opencode":    {"auth", "login"},
+		"hermes":      {"auth", "add"},
+		"pi":          nil,
+		"claude-code": nil,
+		"omp":         nil,
+	}
+	for _, spec := range Declarations() {
+		if spec.CLI == "agy" {
+			// The one CLI whose sign-in PiCode cannot start: agy publishes no
+			// login subcommand (see the comment on its declaration).
+			if spec.Login != nil {
+				t.Fatalf("agy declares a sign-in (%+v), but its CLI publishes no login subcommand", spec.Login)
+			}
+			continue
+		}
+		args, ok := wantArgs[spec.CLI]
+		if !ok {
+			t.Fatalf("%s has no expected sign-in here", spec.CLI)
+		}
+		if spec.Login == nil {
+			t.Fatalf("%s declares no sign-in command", spec.CLI)
+		}
+		if !equal(spec.Login.Args, args) {
+			t.Fatalf("%s sign-in args = %v, want %v", spec.CLI, spec.Login.Args, args)
+		}
+		if hint := spec.Login.Hint; hint == "" || strings.ContainsAny(hint, "\n\r") {
+			t.Fatalf("%s sign-in hint = %q, want one line", spec.CLI, hint)
+		}
+		if len(args) == 0 && !strings.Contains(spec.Login.Hint, "/login") {
+			t.Fatalf("%s starts the CLI's own TUI, so the hint must name the command inside it: %q",
+				spec.CLI, spec.Login.Hint)
+		}
+	}
+	if len(wantArgs) != len(clis)-1 {
+		t.Fatalf("%d expected sign-ins for %d CLIs", len(wantArgs), len(clis))
+	}
+}
+
+// TestIdentityBearingMatchesTheReaders checks IdentityBearing against the
+// parsers rather than against another list: for every format a declaration
+// names, a fixture of the shape that CLI's store writes (synthetic values only)
+// must parse, and the flag must agree with what the parser read out of it. A
+// format that starts filling Identity — or stops — fails here until the flag
+// and its comment in clicreds.go follow.
+func TestIdentityBearingMatchesTheReaders(t *testing.T) {
+	cases := map[string]struct {
+		provider     string
+		raw          string
+		wantIdentity string
+	}{
+		// pi and OpenCode carry an account id inside the credential itself,
+		// which Fingerprint keys on; Identity stays empty for them.
+		"pi":       {"anthropic", `{"anthropic":{"type":"oauth","access":"access-1","refresh":"refresh-1","accountId":"acct-pi"}}`, ""},
+		"opencode": {"openai-codex", `{"openai":{"type":"oauth","access":"access-1","refresh":"refresh-1","accountId":"acct-oc"}}`, ""},
+		// Claude Code's file names no account at all.
+		"claude": {"anthropic", `{"claudeAiOauth":{"accessToken":"access-1","refreshToken":"refresh-1","expiresAt":1799100000000,"subscriptionType":"max"}}`, ""},
+		"codex":  {"openai-codex", `{"tokens":{"access_token":"access-1","refresh_token":"refresh-1","account_id":"acct-3"}}`, "acct-3"},
+		"grok":   {"xai", `{"https://auth.x.ai::cli-1":{"key":"access-1","refresh_token":"refresh-1","email":"who@example.com","user_id":"u-1","principal_id":"p-1"}}`, "p-1"},
+		"hermes": {"openai-codex", `{"providers":{"openai-codex":{"tokens":{"access_token":"access-1","refresh_token":"refresh-1","account_id":"acct-4"}}}}`, "acct-4"},
+		"muse":   {"meta-ai", `{"schema_version":1,"providers":{"meta":{"mechanism":"oauth","access_token":"access-1","refresh_token":"refresh-1","expires_at":"2027-01-02T03:04:05Z","user_email":"who@example.com"}}}`, "who@example.com"},
+		"agy":    {"google", `{"token":{"access_token":"access-1","refresh_token":"refresh-1","expiry":"2027-01-02T03:04:05Z"},"id_token":"` + jwt(`{"sub":"106452103326095890968","email":"who@example.com"}`) + `"}`, "106452103326095890968"},
+	}
+	declared := map[string]bool{}
+	for _, spec := range Declarations() {
+		for _, p := range spec.Providers {
+			if p.Native != nil {
+				declared[p.Native.Format] = true
+			}
+		}
+	}
+	if len(declared) != len(cases) {
+		t.Fatalf("%d formats declared, %d fixtures here", len(declared), len(cases))
+	}
+	for format := range declared {
+		tc, ok := cases[format]
+		if !ok {
+			t.Fatalf("%s is declared but has no fixture here", format)
+		}
+		login, ok := parseLogin(format, tc.provider, []byte(tc.raw))
+		if !ok {
+			t.Fatalf("the %s fixture did not parse: %s", format, tc.raw)
+		}
+		if login.Identity != tc.wantIdentity {
+			t.Fatalf("%s identity = %q, want %q", format, login.Identity, tc.wantIdentity)
+		}
+		if got := IdentityBearing(format); got != (login.Identity != "") {
+			t.Fatalf("IdentityBearing(%q) = %v, but its parser read identity %q", format, got, login.Identity)
+		}
+	}
+}
+
 // TestDeclarationsIsTheTable keeps the accessor and the table one object.
 func TestDeclarationsIsTheTable(t *testing.T) {
 	specs := Declarations()

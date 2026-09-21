@@ -101,6 +101,9 @@ func TestRenderLoginRoundTrip(t *testing.T) {
 		cred     json.RawMessage
 		existing string
 		label    string
+		// wholeSeconds marks a store whose wire format carries the expiry in
+		// seconds: the round trip lands on the second.
+		wholeSeconds bool
 	}{
 		{
 			name: "pi api key into an empty file", format: "pi", provider: "anthropic",
@@ -169,6 +172,17 @@ func TestRenderLoginRoundTrip(t *testing.T) {
 			existing: `{"schema_version":1,"providers":{"meta":{"api_key":"old-key"}}}`,
 		},
 		{
+			// The guided flow's own write: `muse login`'s account login lands
+			// in the object that held the API key, and the key has to go.
+			// wholeSeconds: Muse's store carries expires_at in unix seconds, so
+			// a login that goes through it comes back on the second — the
+			// vendor's precision, not a rounding choice here.
+			name: "muse account login over an existing key", format: "muse", provider: "meta-ai",
+			cred:         isoCred,
+			wholeSeconds: true,
+			existing:     `{"schema_version":1,"providers":{"meta":{"api_key":"old-key","api_base_url":"https://api.meta.ai","user_email":"who@example.com"}}}`,
+		},
+		{
 			name: "agy oauth with a millisecond expiry", format: "agy", provider: "google",
 			cred:     isoCred,
 			existing: `{"token":{"access_token":"old-access","token_type":"Bearer","refresh_token":"old-refresh","expiry":"2026-01-02T03:04:05Z"},"auth_method":"consumer","id_token":"id-1"}`,
@@ -190,7 +204,11 @@ func TestRenderLoginRoundTrip(t *testing.T) {
 				t.Fatalf("read back %s/%s label %q, want %s/%s label %q",
 					login.Provider, login.Kind, login.Label, tc.provider, wantKind, tc.label)
 			}
-			if got, want := cred(t, login.Cred), cred(t, tc.cred); !reflect.DeepEqual(got, want) {
+			want := cred(t, tc.cred)
+			if tc.wholeSeconds {
+				want["expires"] = float64(isoMS / 1000 * 1000)
+			}
+			if got := cred(t, login.Cred); !reflect.DeepEqual(got, want) {
 				t.Fatalf("cred round trip = %v, want %v", got, want)
 			}
 		})
@@ -451,7 +469,6 @@ func TestRenderLoginRefuses(t *testing.T) {
 		{name: "claude api key", format: "claude", provider: "anthropic", cred: apiKeyCred},
 		{name: "hermes api key", format: "hermes", provider: "xai", cred: json.RawMessage(`{"type":"api_key","key":"xai-key-synthetic"}`)},
 		{name: "agy api key", format: "agy", provider: "google", cred: json.RawMessage(`{"type":"api_key","key":"google-key"}`)},
-		{name: "muse oauth", format: "muse", provider: "meta-ai", cred: oauthCred},
 		{
 			name: "grok api key", format: "grok", provider: "xai",
 			cred:     json.RawMessage(`{"type":"api_key","key":"xai-key-synthetic"}`),
@@ -573,6 +590,86 @@ func TestRenderLoginWritesCodexModes(t *testing.T) {
 	}
 	if refreshed.Before(start.Add(-time.Minute)) {
 		t.Fatalf("last_refresh = %q, want the activation's own time", stamp)
+	}
+}
+
+// TestRenderLoginWritesMuseShapes covers the one file that holds two credential
+// shapes in a single object and reads the key first: a write of either shape
+// must clear the other's fields. An api key left beside an account login wins
+// (Muse prefers it), so the activation would silently do nothing; a mechanism,
+// access token, refresh token and expiry left beside a key claim a session the
+// file no longer has.
+func TestRenderLoginWritesMuseShapes(t *testing.T) {
+	existing := []byte(`{"schema_version":1,"providers":{"meta":{"api_key":"old-key",` +
+		`"api_base_url":"https://api.meta.ai","user_email":"other@example.com"}}}`)
+
+	out, ok := RenderLogin("muse", "meta-ai", isoCred, existing)
+	if !ok {
+		t.Fatal("an account login into Muse's file was refused")
+	}
+	doc := outDoc(t, out)
+	for _, tc := range []struct {
+		path []string
+		want any
+	}{
+		{[]string{"providers", "meta", "mechanism"}, KindOAuth},
+		{[]string{"providers", "meta", "access_token"}, "access-1"},
+		{[]string{"providers", "meta", "refresh_token"}, "refresh-1"},
+		// Muse's own reader takes expires_at only as a number of unix seconds
+		// (`json_type == number` in its launcher), so a string here — however
+		// ISO — would be a shape the vendor ignores.
+		{[]string{"providers", "meta", "expires_at"}, float64(isoMS / 1000)},
+		{[]string{"providers", "meta", "api_base_url"}, "https://api.meta.ai"},
+		{[]string{"providers", "meta", "user_email"}, "other@example.com"},
+		// The key that would otherwise win must be gone, not null: Muse's own
+		// key shape has no null spelling.
+		{[]string{"providers", "meta", "api_key"}, nil},
+		{[]string{"schema_version"}, float64(1)},
+	} {
+		if got := dig(doc, tc.path); got != tc.want {
+			t.Fatalf("after an account login, %v = %v, want %v\n%s", tc.path, got, tc.want, out)
+		}
+	}
+	if login, ok := parseLogin("muse", "meta-ai", out); !ok || login.Kind != KindOAuth {
+		t.Fatalf("Muse would not read the login back: %+v ok=%v", login, ok)
+	}
+
+	// The other direction: a key lands in an object that held an account login.
+	existing = []byte(`{"schema_version":1,"providers":{"meta":{"mechanism":"oauth","access_token":"old-access",` +
+		`"refresh_token":"old-refresh","expires_at":"2026-01-02T03:04:05Z","obtained_via":"device_code",` +
+		`"user_email":"who@example.com"}}}`)
+	out, ok = RenderLogin("muse", "meta-ai", apiKeyCred, existing)
+	if !ok {
+		t.Fatal("an api key into Muse's file was refused")
+	}
+	doc = outDoc(t, out)
+	for _, tc := range []struct {
+		path []string
+		want any
+	}{
+		{[]string{"providers", "meta", "api_key"}, "sk-ant-synthetic"},
+		{[]string{"providers", "meta", "user_email"}, "who@example.com"},
+		{[]string{"providers", "meta", "mechanism"}, nil},
+		{[]string{"providers", "meta", "access_token"}, nil},
+		{[]string{"providers", "meta", "refresh_token"}, nil},
+		{[]string{"providers", "meta", "expires_at"}, nil},
+	} {
+		if got := dig(doc, tc.path); got != tc.want {
+			t.Fatalf("after an api key, %v = %v, want %v\n%s", tc.path, got, tc.want, out)
+		}
+	}
+	if login, ok := parseLogin("muse", "meta-ai", out); !ok || login.Kind != KindAPIKey {
+		t.Fatalf("Muse would not read the key back: %+v ok=%v", login, ok)
+	}
+
+	// And the resolution the reader owes the CLI: a file holding both shapes —
+	// what a machine that signed in and then set a key has — is the key.
+	both := []byte(`{"schema_version":1,"providers":{"meta":{"api_key":"meta-key-synthetic",` +
+		`"mechanism":"oauth","access_token":"access-1","refresh_token":"refresh-1",` +
+		`"expires_at":"2027-01-02T03:04:05Z","user_email":"who@example.com"}}}`)
+	login, ok := parseLogin("muse", "meta-ai", both)
+	if !ok || login.Kind != KindAPIKey {
+		t.Fatalf("a key beside an account login read as %+v ok=%v, want the key", login, ok)
 	}
 }
 

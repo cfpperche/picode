@@ -275,7 +275,7 @@ func TestUpdateTokensKeepsExtraFieldsAndReportsActive(t *testing.T) {
 
 func TestImportDoesNotTakeOverTheSlot(t *testing.T) {
 	s := New(t.TempDir())
-	row, err := s.Import("anthropic", keyCred("sk-imported"), "From Claude Code", "imported:claude-code")
+	row, err := s.Import("anthropic", keyCred("sk-imported"), "From Claude Code", "imported:claude-code", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -286,7 +286,7 @@ func TestImportDoesNotTakeOverTheSlot(t *testing.T) {
 		t.Fatalf("active = %q, want nothing — importing is not using", active)
 	}
 	// The same credential imported twice updates one row.
-	again, err := s.Import("anthropic", keyCred("sk-imported"), "", "imported:claude-code")
+	again, err := s.Import("anthropic", keyCred("sk-imported"), "", "imported:claude-code", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -349,5 +349,111 @@ func TestHintMasksBothEnds(t *testing.T) {
 		if got := Hint(tc.cred); got != tc.want {
 			t.Errorf("Hint(%s) = %q, want %q", tc.cred, got, tc.want)
 		}
+	}
+}
+
+// A provider whose store carries an account name (Grok's principal, Codex's
+// account id): two subscriptions are two rows, and re-importing one updates
+// that row, not its sibling.
+func TestImportKeepsTwoSubscriptionsApart(t *testing.T) {
+	s := New(t.TempDir())
+	first, err := s.Import("xai", oauthCred("a1", "r1", 5, ""), "", "imported:grok", "principal-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := s.Import("xai", oauthCred("a2", "r2", 5, ""), "", "imported:grok", "principal-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.ID == first.ID {
+		t.Fatalf("ids = %q and %q, want two rows", first.ID, second.ID)
+	}
+	again, err := s.Import("xai", oauthCred("a1b", "r1b", 9, ""), "", "imported:grok", "principal-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.ID != first.ID {
+		t.Fatalf("re-import id = %q, want %q", again.ID, first.ID)
+	}
+	if rows, _ := s.Accounts("xai"); len(rows) != 2 {
+		t.Fatalf("rows = %d, want two", len(rows))
+	}
+	// The identity rides on the row, so the roster can show who it is.
+	if again.Identity != "principal-1" {
+		t.Fatalf("identity = %q", again.Identity)
+	}
+}
+
+// No account name in the store (Claude Code): the fingerprint is still the
+// key, so one row per provider — the limit the pane states on screen.
+func TestImportWithoutIdentityStaysOneRow(t *testing.T) {
+	s := New(t.TempDir())
+	first, err := s.Import("anthropic", oauthCred("a1", "r1", 5, ""), "", "imported:claude-code", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := s.Import("anthropic", oauthCred("a2", "r2", 5, ""), "", "imported:claude-code", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.ID != first.ID {
+		t.Fatalf("ids = %q and %q, want the constant oauth fingerprint", first.ID, second.ID)
+	}
+}
+
+// llama.cpp stores an env-shaped api_key with no `key` of its own: hashing
+// its bytes minted a new row every time the endpoint changed (the pi roster
+// showed two active "Account 2" rows this way). One per provider instead.
+func TestEnvShapedAPIKeyFingerprintIsStable(t *testing.T) {
+	a := json.RawMessage(`{"type":"api_key","env":{"LLAMA_BASE_URL":"http://127.0.0.1:8080"}}`)
+	b := json.RawMessage(`{"type":"api_key","env":{"LLAMA_BASE_URL":"http://192.168.1.9:9999"}}`)
+	if Fingerprint(a) != Fingerprint(b) {
+		t.Fatalf("fingerprints differ: %q and %q", Fingerprint(a), Fingerprint(b))
+	}
+	if Fingerprint(a) == Fingerprint(keyCred("sk-real")) {
+		t.Fatal("an env-shaped entry must not collide with a key of its own")
+	}
+}
+
+// Naming a login re-keys the row that holds it: "keep both" must not leave two
+// rows holding one credential. After that, a sign-in to the unnamed slot is a
+// row of its own — which is the whole point of naming it.
+func TestAdoptNamesTheLiveRowInsteadOfDuplicatingIt(t *testing.T) {
+	s := New(t.TempDir())
+	first, err := s.Import("anthropic", oauthCred("a1", "r1", 5, ""), "", "imported:claude-code", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := s.Import("anthropic", oauthCred("a2", "r2", 5, ""), "", "imported:claude-code", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.ID != first.ID {
+		t.Fatal("an unnamed store is one row per provider until a login is named")
+	}
+	named, err := s.Adopt("anthropic", "work@example.com", oauthCred("a2", "r2", 5, ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if named.ID == first.ID || named.Identity != "work@example.com" {
+		t.Fatalf("adopted row = %+v", named)
+	}
+	if rows, _ := s.Accounts("anthropic"); len(rows) != 1 {
+		t.Fatalf("rows = %d, want the live login named rather than copied", len(rows))
+	}
+	later, err := s.Import("anthropic", oauthCred("a3", "r3", 5, ""), "", "imported:claude-code", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if later.ID == named.ID {
+		t.Fatal("the unnamed slot is free again: the next login must not land on the named row")
+	}
+	if rows, _ := s.Accounts("anthropic"); len(rows) != 2 {
+		t.Fatalf("rows = %d, want two", len(rows))
+	}
+	// A credential with no row to adopt falls through to an import.
+	fresh, err := s.Adopt("openai", "me@example.com", oauthCred("b1", "r1", 5, ""))
+	if err != nil || fresh.Identity != "me@example.com" {
+		t.Fatalf("fresh adopt = %+v (%v)", fresh, err)
 	}
 }

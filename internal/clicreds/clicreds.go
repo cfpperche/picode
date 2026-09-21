@@ -29,6 +29,19 @@ type Spec struct {
 	CLI       string     `json:"cli"`
 	Name      string     `json:"name"`
 	Providers []Provider `json:"providers"`
+	// Login is how this CLI's own sign-in starts, when PiCode can start it:
+	// the guided flow opens a terminal on that command and imports what it
+	// leaves behind. Nil where the CLI publishes no such command.
+	Login *LoginCommand `json:"login,omitempty"`
+}
+
+// LoginCommand is how this CLI's own sign-in starts, for the guided flow.
+type LoginCommand struct {
+	// Args is the argv after the executable, e.g. ["login"]; empty means the
+	// CLI's own TUI.
+	Args []string `json:"args,omitempty"`
+	// Hint is the one line the pane shows while that terminal runs.
+	Hint string `json:"hint"`
 }
 
 // Provider is one provider this CLI can talk to.
@@ -70,14 +83,21 @@ type Native struct {
 	Seed []string `json:"seed,omitempty"`
 }
 
-// IdentityBearing reports whether a declared format carries something that
-// tells two accounts of one provider apart — an account id (Codex, Hermes) or
-// an email (Grok). Where it does not, the vault keeps a single oauth row per
-// provider: ADR-0013's fingerprint buckets every rotating oauth credential
-// together, because the tokens themselves are not an identity.
+// IdentityBearing reports whether a declared format's parser can fill Login's
+// Identity — the vendor's own name for the account: Codex's and Hermes'
+// account_id, Grok's principal_id, Muse's user_email, Antigravity's id_token
+// subject. Where it cannot, the vault keeps a single oauth row per provider:
+// ADR-0013's fingerprint buckets every rotating oauth credential together,
+// because the tokens themselves are not an identity.
+//
+// pi and OpenCode are in that second group on purpose: their account id —
+// `accountId` — already rides inside the credential, where Fingerprint keys on
+// it, so Identity stays empty for those two and the pane keeps its note that
+// their other subscription logins (pi's ANTHROPIC oauth, say) have no account
+// name at all. Claude Code's file carries none either.
 func IdentityBearing(format string) bool {
 	switch format {
-	case "codex", "grok", "hermes":
+	case "codex", "grok", "hermes", "muse", "agy":
 		return true
 	}
 	return false
@@ -92,6 +112,11 @@ type Login struct {
 	// Label is a vendor-volunteered name (an email), when the file carries
 	// one. Never typed by PiCode.
 	Label string
+	// Identity is the account the store's own login belongs to — the most
+	// stable identifier the file carries, an id before an email — when the
+	// format has one (see IdentityBearing). Empty elsewhere, never guessed:
+	// it is what tells two accounts of one provider apart.
+	Identity string
 }
 
 // Declarations returns every CLI's declaration.

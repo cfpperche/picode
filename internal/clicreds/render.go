@@ -283,13 +283,20 @@ func renderHermes(doc object, provider string, c vaultCred) bool {
 	return true
 }
 
-// renderMuse writes Muse Code's `providers.meta.api_key` — the one credential
-// that file holds. An oauth row is refused: `muse login`'s Meta session works
-// only inside Muse and is not this field.
+// renderMuse writes Muse Code's `providers.meta` — one object in the two shapes
+// the CLI's own file holds, and the two parseMuse reads:
+//
+//	{"mechanism":"oauth","access_token":…,"refresh_token":…,"expires_at":(RFC 3339)?}
+//	{"api_key":…}
+//
+// Each write clears the other shape's fields, and that is the point of the
+// function: Muse prefers the key (its own launcher reads the account login only
+// under `mechanism: "oauth"`, and META_API_KEY wins over both), so an api key
+// left beside an account login would silently defeat the activation, and a
+// mechanism/access_token/refresh_token/expires_at left beside a key would be a
+// session the file no longer has. Everything else the object holds — its
+// api_base_url, its user_email — is kept.
 func renderMuse(doc object, c vaultCred) bool {
-	if c.kind != KindAPIKey {
-		return false
-	}
 	providers, ok := child(doc, "providers")
 	if !ok {
 		providers = object{}
@@ -298,7 +305,35 @@ func renderMuse(doc object, c vaultCred) bool {
 	if !ok {
 		meta = object{}
 	}
-	meta["api_key"] = c.key
+	switch c.kind {
+	case KindAPIKey:
+		meta["api_key"] = c.key
+		for _, field := range []string{"mechanism", "access_token", "refresh_token", "expires_at"} {
+			delete(meta, field)
+		}
+	case KindOAuth:
+		meta["mechanism"] = KindOAuth
+		meta["access_token"] = c.access
+		// Muse's own reader (the launcher inside the binary) reads mechanism,
+		// access_token and expires_at and nothing else — no refresh token
+		// anywhere — and it takes expires_at only as a number of unix seconds
+		// (`json_type == number`, digits, or it is ignored). Writing a string
+		// there, or a refresh token Muse never asked for, would be PiCode
+		// guessing at a shape the vendor already published.
+		if c.refresh != "" {
+			meta["refresh_token"] = c.refresh
+		} else {
+			delete(meta, "refresh_token")
+		}
+		if c.expires > 0 {
+			meta["expires_at"] = c.expires / 1000
+		} else {
+			delete(meta, "expires_at")
+		}
+		delete(meta, "api_key")
+	default:
+		return false
+	}
 	providers["meta"] = meta
 	doc["providers"] = providers
 	return true

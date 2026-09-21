@@ -395,19 +395,46 @@ at `<DataDir>/credfiles/<cli>-<unix>.bak`.
 
 Still open after ADR-0166:
 
-- **Guided vendor sign-in** (a terminal with the vendor's own login, then import
-  the result) — not started; today a subscription login is imported from what
-  the CLI already has.
 - **Harvest** (read a refreshed token back into the vault) — not started; the
   vault copy goes stale after the CLI renews it, and re-importing is the manual
   workaround.
-- **Identity for nameless logins**: a Claude/Muse/Antigravity subscription
-  carries no account name, so the vault keeps one row per provider there
-  (`singleOAuth`). Reading the vendor's profile endpoint at import time (the
-  adapters in `internal/usage` already do this for pi's roster) is the fix.
 - **Env-var injection at launch** (`ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`,
   `{PROVIDER}_API_KEY`) — the declarations carry the names; not wired to the
   launcher yet, and it does not touch HOME.
+- **Automatic identity for Claude Code** — the file names no account; the vault
+  asks the person to name a second login, and the vendor's profile endpoint
+  only fills the row's second line (ADR-0168 keeps the network out of the key).
+
+## What shipped (guided sign-in + identity, 2026-09-20)
+
+Landed as **ADR-0168**, amending 0165/0166 — the two open items above that
+gated the owner's "as many accounts per provider as the person has":
+
+- **Sign in** — `POST /api/credentials/signin` opens a terminal running the
+  CLI's own login (`clicreds.Spec.Login`: `codex login`, `grok login`,
+  `muse login`, `opencode auth login`, `hermes auth add`; TUI logins get a hint
+  naming `/login`); the roster carries `signin: {available, hint}`, and
+  **Check now** files the result. PiCode performs no vendor OAuth and presents
+  no other product's client id.
+- **Identity** — a row is named by the store (Codex's `account_id`, Grok's
+  `principal_id`, Hermes' `account_id`, Antigravity's `id_token` subject) or by
+  the person (`as`, offered when an unnamed row would be replaced; `Store.Adopt`
+  re-keys the live row instead of copying it). The vendor's profile endpoint
+  (`usage.Identity`) fills the row's second line only — never the key, so the
+  roster never calls out to match a file to a row; a named row is matched by
+  the token it was saved with.
+- **Muse reads and writes both shapes** — the API key and the account login
+  (`mechanism: "oauth"`, `access_token`, `expires_at` as *unix seconds* — the
+  launcher inside the vendor's binary demands a number — with a carried
+  `refresh_token` kept), and a key present beside a login still wins, as the
+  CLI itself decides it. An access-token-only login is a whole credential here,
+  because the vendor's reader has no refresh token in it.
+- **The env-shaped api_key fingerprint is a constant** — llama.cpp's entries
+  stopped minting a row per endpoint change (the pi roster showed two active
+  "Account 2" rows).
+
+Where the gap remains: a Claude/Muse/pi subscription still keeps one row unless
+named; naming is one prompt and the pane says so on the row (`singleOAuth`).
 
 ## Open questions (owner) — answered 2026-09-20
 

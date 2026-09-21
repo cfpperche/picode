@@ -140,6 +140,10 @@ var catalog = []Spec{
 			{Provider: "kimi-coding", Kinds: []string{KindAPIKey, KindOAuth}, Env: envs(KindAPIKey, "KIMI_API_KEY"), Native: nativePi},
 			{Provider: "llama.cpp", Kinds: []string{KindAPIKey}, Env: envs(KindAPIKey, "LLAMA_API_KEY"), Native: nativePi},
 		},
+		// pi publishes no login subcommand — its `pi auth` only prints stored
+		// credentials and checks provider readiness — so its sign-in is
+		// `/login` inside its TUI, and the guided flow opens pi itself.
+		Login: &LoginCommand{Hint: "Type /login at the prompt in Pi, then come back here."},
 	},
 	{
 		CLI: "claude-code", Name: "Claude Code",
@@ -149,6 +153,10 @@ var catalog = []Spec{
 			// no file and no keychain.
 			{Provider: "anthropic", Kinds: []string{KindAPIKey, KindOAuth}, Env: envs(KindAPIKey, "ANTHROPIC_API_KEY", KindOAuth, "CLAUDE_CODE_OAUTH_TOKEN"), Native: nativeClaude},
 		},
+		// Claude Code signs in from its own TUI (`/login`), which is why the
+		// command is empty and the hint names the command inside it. The CLI
+		// also ships `claude auth login`; the TUI is the sign-in this declares.
+		Login: &LoginCommand{Hint: "Type /login at the prompt in Claude Code, then come back here."},
 	},
 	{
 		CLI: "codex", Name: "Codex",
@@ -158,12 +166,18 @@ var catalog = []Spec{
 			// survive the isolation while sessions and logs regenerate.
 			{Provider: "openai-codex", Kinds: []string{KindAPIKey, KindOAuth}, Env: envs(KindAPIKey, "OPENAI_API_KEY"), Native: nativeCodex},
 		},
+		// `codex login` opens a browser and writes $CODEX_HOME/auth.json.
+		Login: &LoginCommand{Args: []string{"login"}, Hint: "Finish the sign-in in the browser it opens, then come back here."},
 	},
 	{
 		CLI: "grok", Name: "Grok",
 		Providers: []Provider{
 			{Provider: "xai", Kinds: []string{KindAPIKey, KindOAuth}, Env: envs(KindAPIKey, "XAI_API_KEY"), Native: nativeGrok, Note: noteGrokKey},
 		},
+		// `grok login` is Grok's own OAuth sign-in; it also takes --device-auth
+		// for headless machines, but the plain command is the one that works
+		// here and is what the person is told to finish in the browser.
+		Login: &LoginCommand{Args: []string{"login"}, Hint: "Finish the sign-in in the browser it opens, then come back here."},
 	},
 	{
 		CLI: "hermes", Name: "Hermes Agent",
@@ -186,6 +200,9 @@ var catalog = []Spec{
 			{Provider: "zai", Kinds: []string{KindAPIKey}, Env: envs(KindAPIKey, "ZAI_API_KEY"), Native: nativeHermes},
 			{Provider: "kimi-coding", Kinds: []string{KindAPIKey}, Env: envs(KindAPIKey, "KIMI_API_KEY"), Native: nativeHermes},
 		},
+		// `hermes auth add` asks for the provider on its own prompt, so no
+		// provider id is passed: answering that prompt is part of the sign-in.
+		Login: &LoginCommand{Args: []string{"auth", "add"}, Hint: "Answer the provider Hermes asks for, then finish the sign-in here."},
 	},
 	{
 		CLI: "opencode", Name: "OpenCode",
@@ -212,6 +229,8 @@ var catalog = []Spec{
 			// this is the API-key path, not the Muse subscription.
 			{Provider: "meta-ai", Kinds: []string{KindAPIKey}, Env: envs(KindAPIKey, "META_MODEL_API_KEY"), Native: nativeOpencode},
 		},
+		// `opencode auth login` asks which provider and which method first.
+		Login: &LoginCommand{Args: []string{"auth", "login"}, Hint: "Pick the provider OpenCode asks for, sign in, then come back here."},
 	},
 	{
 		CLI: "muse", Name: "Muse Code",
@@ -220,6 +239,10 @@ var catalog = []Spec{
 			// the key row is injectable; the Meta session itself is not.
 			{Provider: "meta-ai", Kinds: []string{KindAPIKey, KindOAuth}, Env: envs(KindAPIKey, "META_API_KEY"), Native: nativeMuse, Note: noteMuseLogin},
 		},
+		// `muse login` is Meta's device-code flow: it prints a code, the person
+		// approves it in a browser, and the launcher stores the account login
+		// in providers.meta beside the api key.
+		Login: &LoginCommand{Args: []string{"login"}, Hint: "Approve the code in your browser, then come back here."},
 	},
 	{
 		CLI: "agy", Name: "Antigravity",
@@ -228,6 +251,11 @@ var catalog = []Spec{
 			// confirm, so their rows are read-and-import only.
 			{Provider: "google", Kinds: []string{KindOAuth}, Native: nativeAgy, Note: noteAgyLogin},
 		},
+		// No LoginCommand: `agy`'s subcommands on this machine are agent,
+		// changelog, install, mcp, mic-serve, models, plugin, remote-control and
+		// update — there is no sign-in command to open. Its Google login
+		// happens inside the CLI itself (see the row's Note), so the pane
+		// offers Import and not Sign in, and this comment is the reason.
 	},
 	{
 		CLI: "omp", Name: "Omp",
@@ -254,5 +282,11 @@ var catalog = []Spec{
 			// LLAMA_API_KEY — the same key, one name per CLI.
 			{Provider: "llama.cpp", Kinds: []string{KindAPIKey}, Env: envs(KindAPIKey, "LLAMA_CPP_API_KEY")},
 		},
+		// Omp publishes no login subcommand either — its `auth-broker` and
+		// `auth-gateway` commands manage a credential vault and a proxy, they
+		// do not sign in — so its sign-in is `/login` inside the TUI, and what
+		// it stores goes to the SQLite database this package does not read: the
+		// guided flow ends at Import.
+		Login: &LoginCommand{Hint: "Type /login at the prompt in Omp, then come back here."},
 	},
 }

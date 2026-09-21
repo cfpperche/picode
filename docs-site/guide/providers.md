@@ -43,15 +43,23 @@ configured on that provider.
 ## Other agent CLIs
 
 Claude Code, Codex, OpenCode, Grok, Hermes, Muse, Antigravity and Omp have the
-same pane for the providers they can use, with four actions:
+same pane for the providers they can use, with five actions:
 
 | Action | What it does |
 |---|---|
+| **Sign in** | opens a terminal running that CLI's own login (its binary, its browser or device-code flow). Finish it there, press **Check now**, and the account appears above |
 | **Import** | reads the login that CLI already has on this machine and stores a copy in the vault. The CLI's own file is never changed, and nothing is activated by importing |
 | **Add API key** | stores a key for a provider this CLI can use |
 | **Verify** | spends exactly one listing call to the provider with the stored key — the button says so — and remembers the answer with its age |
 | **Use** | writes that account into the CLI's own login file, so the CLI runs on it — the same thing **Use** does for Pi |
 | **Sign out** | removes that account from the vault |
+
+Signing in a **second** account works wherever the CLI's own file says who the
+account is (Codex, Grok, Hermes, Antigravity): you get two rows and **Use**
+switches between them. Claude Code and Muse keep no name in their file, so
+PiCode asks you to name a second login; with a name, the next sign-in is kept
+beside it instead of on top of it. Accounts in the vault are unaffected by
+naming, and the CLI's file still holds one login at a time.
 
 **Use** never changes where the CLI keeps its state: no new folder, no
 `HOME`-style variable, nothing about settings, sessions or memory moves. It
