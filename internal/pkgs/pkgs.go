@@ -16,6 +16,7 @@ package pkgs
 
 import (
 	"context"
+	"errors"
 	"strings"
 )
 
@@ -106,15 +107,22 @@ type Report struct {
 	Isolated bool `json:"isolated,omitempty"`
 }
 
-// Query is one read. AgentSources is how the caller hands the agent scope in:
-// the engine does not reach the store, so Pi's per-agent list travels as data.
+// Query is one read. AgentSources and AgentIsolated are how the caller hands
+// the agent scope in: the engine does not reach the store, so Pi's per-agent
+// list — and its "only this agent's packages" switch — travel as data.
 type Query struct {
 	Scope         Scope
 	Vendor        string
 	WorkspacePath string
 	AgentSources  []string
+	AgentIsolated bool
 	Fresh         bool
 }
+
+// ErrNoUpdateCheck is a driver's answer when its CLI has no catalog check to
+// run. Caps.Update is the pane's gate; this is the read's own refusal, so a
+// caller that asks anyway gets a reason instead of an invented empty list.
+var ErrNoUpdateCheck = errors.New("this CLI has no update check")
 
 // Driver is the read surface: what the CLI declares, and what it holds.
 type Driver interface {
@@ -122,6 +130,11 @@ type Driver interface {
 	Scopes() []ScopeRow
 	Caps() Caps
 	List(ctx context.Context, q Query) (Report, error)
+	// CheckUpdates is the badge read: the rows whose catalog has published a
+	// higher version than the one installed (Row.Version, Row.Behind). It is
+	// a read, never the Update mutation. A driver whose Caps.Update is false
+	// answers ErrNoUpdateCheck.
+	CheckUpdates(ctx context.Context, q Query) ([]Row, error)
 }
 
 // DriverFor resolves a CLI to its driver. "" is Pi, the default surface.
