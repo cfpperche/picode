@@ -28,7 +28,7 @@ renders plain text, `Block.Empty` names an empty list, and busy metadata adds
 motion to pending jobs. The host prevents repeated clicks while submitting.
 The phone's More → Apps grid opens the shared AppSurface at `#/app/<id>`;
 Inbox keeps its specialized route. Public instructions live in the
-[Docker guide](../docs-site/guide/docker.md).
+[Docker guide](../../docs-site/guide/docker.md).
 
 Docker inventory groups containers by their exact Compose project label
 (ADR-0066); unlabeled containers appear last under Standalone containers.

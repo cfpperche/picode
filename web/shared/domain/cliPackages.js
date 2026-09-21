@@ -161,6 +161,90 @@ export function rowUpdateState(caps, row, checked) {
   return checked ? "current" : "unknown";
 }
 
+// matchParts splits text around every occurrence of the filter's needle, so a
+// filtered card can show *why* it matched instead of just surviving the filter.
+// The needle is compared literally (a `(` in a filter must not break the pane)
+// and case-insensitively.
+export function matchParts(text, needle) {
+  const full = String(text == null ? "" : text);
+  const want = String(needle == null ? "" : needle).trim();
+  if (!want) return [{ text: full, hit: false }];
+  const hay = full.toLowerCase();
+  const pin = want.toLowerCase();
+  const out = [];
+  let at = 0;
+  for (;;) {
+    const found = hay.indexOf(pin, at);
+    if (found < 0) break;
+    if (found > at) out.push({ text: full.slice(at, found), hit: false });
+    out.push({ text: full.slice(found, found + want.length), hit: true });
+    at = found + want.length;
+  }
+  if (!out.length) return [{ text: full, hit: false }];
+  if (at < full.length) out.push({ text: full.slice(at), hit: false });
+  return out;
+}
+
+// SOURCE_GROUPS names where an installed plugin came from, in the order the
+// list shows them. The keys are the vendors' own provenance words
+// (`sourceKind`), so a list that mixes them — Hermes' bundled rows beside yours,
+// Claude's claude.ai-managed ones beside the machine's — reads as groups instead
+// of one undifferentiated column.
+export const SOURCE_GROUPS = [
+  { key: "picode", label: "Added by PiCode" },
+  { key: "marketplace", label: "From a marketplace" },
+  { key: "npm", label: "From npm" },
+  { key: "git", label: "From a Git source" },
+  { key: "path", label: "From a local path" },
+  { key: "local", label: "Local plugin files" },
+  { key: "user", label: "Installed by you" },
+  { key: "bundled", label: "Ships with the CLI" },
+  { key: "synced", label: "Managed by claude.ai" },
+  { key: "imported", label: "Imported from another CLI" },
+  { key: "other", label: "Other" },
+];
+
+// sourceGroupKey maps one row onto its group. PiCode's own integration wins (a
+// reader should find it without knowing which vendor installed it), then the
+// vendor's own word — the *specific* ones before the marketplace fallback, since
+// Claude Code names a synced plugin's marketplace "synced" too, which filed it
+// under marketplaces. Only a row whose vendor said nothing about the kind falls
+// back on what the row shows.
+export function sourceGroupKey(row) {
+  const r = row || {};
+  if (r.managedByPiCode) return "picode";
+  const kind = String(r.sourceKind || "").toLowerCase();
+  if (kind.startsWith("marketplace")) return "marketplace";
+  if (kind === "bundled") return "bundled";
+  if (kind === "synced") return "synced";
+  if (kind === "import") return "imported";
+  if (kind === "local-file") return "local";
+  if (kind === "npm") return "npm";
+  if (kind === "git") return "git";
+  if (kind === "path" || kind === "native-local") return "path";
+  if (kind === "user") return "user";
+  if (kind) return "other";
+  if (r.marketplace) return "marketplace";
+  if (r.installPath && r.source) return "path";
+  return "other";
+}
+
+// groupInstalledRows groups the visible rows, keeping the group order of
+// SOURCE_GROUPS and the row order inside each group. One group is the whole
+// list, so it gets no header: chrome that explains nothing is noise.
+export function groupInstalledRows(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const byKey = new Map();
+  for (const row of list) {
+    const key = sourceGroupKey(row);
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(row);
+  }
+  if (byKey.size < 2) return [];
+  return SOURCE_GROUPS.filter(group => byKey.has(group.key))
+    .map(group => ({ key: group.key, label: group.label, rows: byKey.get(group.key) }));
+}
+
 // refusalCommand reads the command a refusal carries. The server attaches it
 // (rendered by the same builder it executed) when the CLI refused and only a
 // person in a terminal can answer — Grok's `--trust`, Claude's
