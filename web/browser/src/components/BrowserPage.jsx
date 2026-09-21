@@ -10,7 +10,7 @@ import { takeBrowserDialog } from "../lib/browserDialogs.js";
 import { IconWarn } from "./Icons.jsx";
 import { relTime } from "@picode/shared/domain/relTime.js";
 import PageFrame from "./PageFrame.jsx";
-import { AuditList, Item, SwitchCtl, WsTag } from "./settingsControls.jsx";
+import { AuditList, Item, SwitchCtl, WsTag, distinctOutcomes } from "./settingsControls.jsx";
 import { BROWSER_PERMISSION_KINDS, browserGrantSchema, browserSiteSchema } from "@picode/shared/contracts/schemas.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { toast } from "../lib/toast.js";
@@ -755,7 +755,6 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     setGrantTier("all");
     setGrantLimit(GRANT_PAGE);
   };
-  const grantFiltersActive = grantQuery !== "" || grantWs !== "all" || grantTier !== "all";
   // Raw-calls audit (Linear/Stripe language): search across method and actor,
   // outcome filter, paged at AUDIT_PAGE.
   const filteredAudit = useMemo(() => {
@@ -769,6 +768,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
       return true;
     }).map((call) => ({ ...call, key: call.id }));
   }, [devAudit, auditQuery, auditOutcome]);
+  const auditOutcomes = useMemo(() => distinctOutcomes(devAudit), [devAudit]);
   const shownAudit = filteredAudit.slice(0, auditLimit);
   const auditFiltersActive = auditQuery !== "" || auditOutcome !== "all";
 
@@ -1002,8 +1002,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
                 aria-label="Filter by outcome"
               >
                 <option value="all">All outcomes</option>
-                <option value="allowed">Allowed</option>
-                <option value="refused">Refused</option>
+                {auditOutcomes.map((out) => <option key={out} value={out}>{out.charAt(0).toUpperCase() + out.slice(1)}</option>)}
               </select>
               <span className="set-count">{filteredAudit.length} of {devAudit === null ? 0 : devAudit.length}</span>
             </div>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import PageFrame from "./PageFrame.jsx";
-import { AuditList, Item, SwitchCtl, WsTag } from "./settingsControls.jsx";
+import { AuditList, Item, SwitchCtl, WsTag, distinctOutcomes } from "./settingsControls.jsx";
 import { IconWarn } from "./Icons.jsx";
 import { relTime } from "@picode/shared/domain/relTime.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
@@ -134,14 +134,7 @@ export default function ComputerPage({ hidden, onCreateAgent }) {
     setGrantLimit(GRANT_PAGE);
   };
 
-  const stepOutcomes = useMemo(() => {
-    const seen = [];
-    for (const s of steps) {
-      const out = String(s.outcome || "").toLowerCase();
-      if (out && !seen.includes(out)) seen.push(out);
-    }
-    return seen;
-  }, [steps]);
+  const stepOutcomes = useMemo(() => distinctOutcomes(steps), [steps]);
   const filteredSteps = useMemo(() => {
     const q = auditQuery.trim().toLowerCase();
     return steps.filter((s) => {
@@ -264,7 +257,7 @@ export default function ComputerPage({ hidden, onCreateAgent }) {
                 aria-label="Filter by outcome"
               >
                 <option value="all">All outcomes</option>
-                {stepOutcomes.map((out) => <option key={out} value={out}>{out}</option>)}
+                {stepOutcomes.map((out) => <option key={out} value={out}>{out.charAt(0).toUpperCase() + out.slice(1)}</option>)}
               </select>
               <span className="set-count">{filteredSteps.length} of {steps.length}</span>
             </div>
