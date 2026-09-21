@@ -4,12 +4,7 @@
 
 - Package config descriptors (ADR-0119; C0–C5 shipped). Backlog (owner):
   upstream `picode.config` proposal. Plan: `docs/plans/package-config-manifest.md`.
-- **Omp's marketplace availability list is unverified**: `omp plugin marketplace
-  list --json` printed prose for the empty case (2026-09-20), so the pane
-  manages marketplace *sources* for Omp and offers no catalog tab. Measure a
-  configured marketplace before promoting `available` in its declaration. Muse
-  is the precedent for how this goes wrong: its catalog *was* measurable, and
-  only the TUI showed it.
+- Guest packages: nothing queued — what is left is under `## Debts`.
 
 ## Debts
 
@@ -23,20 +18,20 @@
   Whoever builds the availability signal promotes the action in
   `internal/clipkgs/specs.go` — the argv builders already exist for Claude
   Code, Grok, Hermes, Muse and Omp.
-- [ ] **A consent refusal shows the vendor's words but no copy button.** Plan
-  §6 said "refusal verbatim + copyable command"; v1 ships the verbatim half.
-  Grok is where it bites: `grok plugin install <git URL|local dir>` refuses
-  without `--trust`, which PiCode never passes (ADR-0167), so the row carries
-  the vendor's refusal and the user retypes the command — an Install button
-  that cannot succeed from the pane. The command is already known server-side
-  (`clipkgs.Argv`); returning it beside the refusal, and saying the answer has
-  to be given in a terminal, is the work. Claude's marketplace-declared
-  command (`--accept-command`, a sha256 only a person should confirm) is the
-  second case.
-- [ ] **Reads and the OpenCode splice disagree about a `plugin` string.**
-  `opencodeModules` reads `"plugin": "pkg"` as one module (the vendor's schema
-  says array), while `removeArrayElement` refuses to splice it (409). Honest,
-  but a user who hand-wrote the string form cannot remove it from the pane.
+- [x] **A consent refusal carried no command.** Paid 2026-09-21
+  (`feat/pkgs-polish`): `clipkgs.Command`/`MarketCommand` render the exact line
+  from the same builder the request executes (with URL credentials redacted),
+  every synchronous refusal returns it, a failed package job carries it too
+  (`GET /api/cli-jobs` and the 202 answer), and both panes show **Copy command**
+  beside the vendor's words with "Run it in a terminal." — Grok's `--trust` and
+  Claude's marketplace-declared command are the cases it exists for.
+- [x] **Reads and the OpenCode splice disagreed about a `plugin` string.**
+  Paid 2026-09-21 by measuring the vendor instead of guessing: OpenCode refuses
+  that document itself — running its own `opencode plugin <module>` against
+  `"plugin": "is-odd"` prints *"Configuration is invalid … Expected array |
+  undefined"* and writes nothing. The read now fails loudly naming the file and
+  the form the vendor expects (`feat/pkgs-polish`), instead of listing a module
+  the CLI never loads and then refusing to remove it.
 - [ ] **Muse Code's built-in first-party plugins are outside every surface
   PiCode may read.** Its TUI `/plugins` panel lists one (`TBH Reminders`,
   `built-in`/`product`) that no CLI command reports — not `plugins list

@@ -77,8 +77,9 @@ var claude = &spec{
 		{ID: "project", Label: "This workspace", Note: "Declared in the repository's .claude/settings.json, so it travels with the checkout."},
 		{ID: "local", Label: "This workspace (local)", Note: "Kept in .claude/settings.local.json, which is not committed."},
 	},
-	roster:    claudeRoster,
-	available: true,
+	roster:         claudeRoster,
+	available:      true,
+	catalogInstall: true,
 	argv: map[Verb]func(Paths, Target) (string, []string, error){
 		VerbInstall: func(p Paths, t Target) (string, []string, error) {
 			dir, err := dirForScope(p, t.Scope)
@@ -130,8 +131,9 @@ var codex = &spec{
 	scopes: []Scope{
 		{ID: "user", Label: "This machine"},
 	},
-	roster:    codexRoster,
-	available: true,
+	roster:         codexRoster,
+	available:      true,
+	catalogInstall: true,
 	argv: map[Verb]func(Paths, Target) (string, []string, error){
 		VerbInstall: func(_ Paths, t Target) (string, []string, error) {
 			return "", verbArgs([]string{"plugin", "add"}, t.Source, "--json"), nil
@@ -177,8 +179,9 @@ var grok = &spec{
 	scopes: []Scope{
 		{ID: "user", Label: "This machine"},
 	},
-	roster:    grokRoster,
-	available: true,
+	roster:         grokRoster,
+	available:      true,
+	catalogInstall: true,
 	argv: map[Verb]func(Paths, Target) (string, []string, error){
 		VerbInstall: func(_ Paths, t Target) (string, []string, error) {
 			return "", verbArgs([]string{"plugin", "install"}, t.Source), nil
@@ -227,8 +230,9 @@ var hermes = &spec{
 	scopes: []Scope{
 		{ID: "user", Label: "This machine"},
 	},
-	roster:    hermesRoster,
-	available: true,
+	roster:         hermesRoster,
+	available:      true,
+	catalogInstall: true,
 	argv: map[Verb]func(Paths, Target) (string, []string, error){
 		VerbInstall: func(_ Paths, t Target) (string, []string, error) {
 			// --no-enable is the conservative half of the vendor's own prompt:
@@ -305,8 +309,9 @@ var muse = &spec{
 		{ID: "user", Label: "This machine"},
 		{ID: "project", Label: "This workspace"},
 	},
-	roster:    museRoster,
-	available: true,
+	roster:         museRoster,
+	available:      true,
+	catalogInstall: true,
 	// Measured 2026-09-21: an installed plugin keeps reading
 	// `status: "available"` in Muse's catalog, so the join is what keeps the
 	// pane from offering Install for it.
@@ -406,7 +411,17 @@ var omp = &spec{
 		{ID: "user", Label: "This machine"},
 		{ID: "project", Label: "This workspace", Note: "Omp applies a project scope to marketplace installs; a local path or npm package installs for the machine."},
 	},
-	roster: ompRoster,
+	roster:    ompRoster,
+	available: true,
+	// Measured 2026-09-21: `omp plugin discover` lists what the configured
+	// marketplaces offer as `<name>@<version>` plus a description line, and
+	// never says which source provides it; `omp plugin install <name>` without
+	// a marketplace resolves through npm instead (it 404s on the registry). So
+	// the catalog is offered as information, and only the installed list — plus
+	// the catalog join, since discover keeps listing an installed plugin — is
+	// acted on.
+	catalogInstall:     false,
+	catalogNeedsRoster: true,
 	argv: map[Verb]func(Paths, Target) (string, []string, error){
 		VerbInstall: func(p Paths, t Target) (string, []string, error) {
 			dir, err := dirForScope(p, t.Scope)
@@ -540,6 +555,15 @@ func agyRoster(ctx context.Context, p Paths, scope string, available bool) ([]Ro
 }
 
 func ompRoster(ctx context.Context, p Paths, scope string, available bool) ([]Row, string, error) {
+	if available {
+		// Measured 2026-09-21: `omp plugin discover` is the catalog and
+		// `--json` changes nothing about it (it prints the same prose).
+		out, err := runVendor(ctx, binOmp, "", "plugin", "discover")
+		if err != nil {
+			return nil, "", err
+		}
+		return parseOmpDiscover(out)
+	}
 	out, err := runVendor(ctx, binOmp, "", "plugin", "list", "--json")
 	if err != nil {
 		return nil, "", err

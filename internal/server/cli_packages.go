@@ -174,6 +174,65 @@ func statusForPackageErr(err error) int {
 	return http.StatusBadGateway
 }
 
+// writePackageErr answers a mutation that failed. When the CLI refused and the
+// fix is a command a person has to run in a terminal (ADR-0167: Grok's
+// `--trust`, Claude's marketplace-declared command), the exact command rides
+// the answer — rendered by the same builder Run executed, so the pane can never
+// print something PiCode would not run.
+func writePackageErr(w http.ResponseWriter, err error, command string) {
+	status := statusForPackageErr(err)
+	if strings.TrimSpace(command) == "" {
+		writeErr(w, status, err.Error())
+		return
+	}
+	writeJSON(w, status, map[string]string{"error": err.Error(), "command": command})
+}
+
+// cliJobView is the job row plus the command a failed package job ran, so the
+// pane's copy affordance works for the asynchronous half too.
+type cliJobView struct {
+	store.CLIJob
+	Command string `json:"command,omitempty"`
+}
+
+func cliJobViewOf(j store.CLIJob) cliJobView {
+	return cliJobView{CLIJob: j, Command: packageJobCommand(j)}
+}
+
+// packageJobCommand renders the command one package job ran, from the payload
+// the job carries.
+func packageJobCommand(j store.CLIJob) string {
+	if !isPackageAction(j.Action) || strings.TrimSpace(j.Payload) == "" {
+		return ""
+	}
+	var p packageJobPayload
+	if err := json.Unmarshal([]byte(j.Payload), &p); err != nil {
+		return ""
+	}
+	paths := clipkgs.Paths{Cwd: p.Cwd}
+	switch j.Action {
+	case "pkg-marketplace-add", "pkg-marketplace-update":
+		cmd, err := clipkgs.MarketCommand(j.CLI, p.Action, paths, clipkgs.MarketRequest{
+			Action: p.Action, Source: p.Source, Name: p.Name, Ref: p.Ref,
+		})
+		if err != nil {
+			return ""
+		}
+		return cmd
+	}
+	verb, ok := packageVerb(j.Action)
+	if !ok {
+		return ""
+	}
+	cmd, err := clipkgs.Command(j.CLI, verb, paths, clipkgs.Target{
+		Name: p.Name, Source: p.Source, Scope: p.Scope, On: true,
+	})
+	if err != nil {
+		return ""
+	}
+	return cmd
+}
+
 func cliPackagesViewOf(cli string, rep clipkgs.Report) cliPackagesView {
 	rows := rep.Rows
 	if rows == nil {
@@ -293,7 +352,7 @@ func handleCLIPackageJob(deps Deps, action string) http.HandlerFunc {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return
 		}
-		writeJSON(w, http.StatusAccepted, j)
+		writeJSON(w, http.StatusAccepted, cliJobViewOf(j))
 	}
 }
 
@@ -316,12 +375,12 @@ func handleCLIPackageToggle(deps Deps) http.HandlerFunc {
 		if on {
 			verb = clipkgs.VerbEnable
 		}
+		target := clipkgs.Target{Name: v.Name, Source: v.Source, Scope: v.Scope, On: on}
+		command, _ := clipkgs.Command(v.CLI, verb, paths, target)
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
-		if _, err := clipkgs.Run(ctx, v.CLI, verb, paths, clipkgs.Target{
-			Name: v.Name, Source: v.Source, Scope: v.Scope, On: on,
-		}); err != nil {
-			writeErr(w, statusForPackageErr(err), err.Error())
+		if _, err := clipkgs.Run(ctx, v.CLI, verb, paths, target); err != nil {
+			writePackageErr(w, err, command)
 			return
 		}
 		// A synchronous mutation still has to reach every other open pane: the
@@ -363,8 +422,9 @@ func handleCLIPackageMarketplace(deps Deps) http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
 		if action == "remove" {
+			command, _ := clipkgs.MarketCommand(v.CLI, action, paths, req)
 			if _, err := clipkgs.Market(ctx, v.CLI, action, paths, req); err != nil {
-				writeErr(w, statusForPackageErr(err), err.Error())
+				writePackageErr(w, err, command)
 				return
 			}
 			publishPackageChange(deps, v.CLI, "pkg-marketplace-remove")
@@ -393,7 +453,7 @@ func handleCLIPackageMarketplace(deps Deps) http.HandlerFunc {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return
 		}
-		writeJSON(w, http.StatusAccepted, j)
+		writeJSON(w, http.StatusAccepted, cliJobViewOf(j))
 	}
 }
 
@@ -416,9 +476,11 @@ func handleCLIPackageInspect(deps Deps) http.HandlerFunc {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 		defer cancel()
-		out, err := clipkgs.Inspect(ctx, v.CLI, paths, clipkgs.Target{Name: name, Scope: v.Scope})
+		target := clipkgs.Target{Name: name, Scope: v.Scope}
+		command, _ := clipkgs.Command(v.CLI, clipkgs.VerbInspect, paths, target)
+		out, err := clipkgs.Inspect(ctx, v.CLI, paths, target)
 		if err != nil {
-			writeErr(w, statusForPackageErr(err), err.Error())
+			writePackageErr(w, err, command)
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"cli": v.CLI, "output": out})

@@ -613,6 +613,72 @@ func proseMarketplaces(out string) ([]Row, bool) {
 	return rows, true
 }
 
+// parseOmpDiscover reads `omp plugin discover`, which prints a plain list and
+// ignores `--json` (measured 2026-09-21, two marketplaces configured, one
+// plugin installed):
+//
+//	Available Plugins:
+//
+//	  picode-spare@0.2.0
+//	    spare
+//
+// The name@version pair is the row and the deeper-indented line under it is
+// its description. Two measured facts decide how the pane may use it: the list
+// never says which marketplace provides a plugin (`omp plugin install <name>`
+// without one resolves through npm — it 404s on the registry), and it keeps
+// listing a plugin that is installed. So Omp's declaration serves this as
+// information only (`catalogInstall: false`) and joins it with the CLI's own
+// roster (`catalogNeedsRoster: true`).
+func parseOmpDiscover(out string) ([]Row, string, error) {
+	trimmed := strings.TrimSpace(out)
+	if trimmed == "" || isNoneLine(trimmed) {
+		return []Row{}, "", nil
+	}
+	rows := []Row{}
+	rowIndent := -1
+	for _, raw := range strings.Split(out, "\n") {
+		line := strings.TrimRight(raw, "\r")
+		body := strings.TrimSpace(line)
+		if body == "" || strings.HasSuffix(body, ":") {
+			continue
+		}
+		indent := len(line) - len(strings.TrimLeft(line, " "))
+		if rowIndent < 0 {
+			rowIndent = indent
+		}
+		if indent > rowIndent {
+			// The line under a row is that row's description.
+			if len(rows) > 0 && rows[len(rows)-1].Description == "" {
+				rows[len(rows)-1].Description = body
+			}
+			continue
+		}
+		if indent < rowIndent {
+			continue
+		}
+		// The measured row is `name@version`. A line without that shape is not
+		// a row PiCode may invent one from (an unknown header is skipped, and a
+		// list that yields nothing at all is refused below).
+		at := strings.LastIndex(body, "@")
+		if at <= 0 || !looksLikeVersion(body[at+1:]) {
+			continue
+		}
+		name, version := body[:at], body[at+1:]
+		rows = append(rows, Row{
+			ID:         name,
+			Name:       name,
+			Version:    version,
+			Scope:      "user",
+			Status:     "available",
+			SourceKind: "marketplace",
+		})
+	}
+	if len(rows) == 0 {
+		return nil, "", fmt.Errorf("%w: omp printed %s", ErrRosterShape, firstLine(trimmed))
+	}
+	return rows, "Omp lists what its marketplaces offer without saying which one provides it: install with name@marketplace.", nil
+}
+
 // parseVendorRows is the tolerant reader behind Grok and Omp. Both shapes are
 // measured now — Grok's installed and available rows (status/name/version/
 // path/source/marketplace), and Omp's {npm:[…], marketplace:[…]} envelope,

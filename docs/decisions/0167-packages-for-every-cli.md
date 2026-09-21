@@ -21,7 +21,7 @@ launches each ship a plugin system, verified on this machine 2026-09-20:
 | OpenCode | `opencode plugin <npm module> [-g]` writes config; **no list, no remove, no marketplace** | its config `plugin` array + two plugin directories | global, project |
 | Muse Code | `muse plugins {install,list,inspect,approve,reject,enable,disable,update,remove,validate,marketplace}` | `list --json`, `--available` (the id lives in each row's `record`; the CLI gates the whole surface per machine through its own feature config) | user, project |
 | Antigravity | `agy plugin {list,import,install,uninstall,enable,disable,validate,link}` | `list` prints a JSON envelope once plugins exist, one sentence while none do (no flag) | machine |
-| Omp | `omp plugin {install,uninstall,list,link,doctor,features,config,enable,disable,marketplace,discover,upgrade}` | `list --json` | user, project |
+| Omp | `omp plugin {install,uninstall,list,link,doctor,features,config,enable,disable,marketplace,discover,upgrade}` | `list --json`; the catalog is `discover`, which names no source and so is shown as information | user, project |
 
 Two accepted decisions stand in the way and are amended by name: ADR-0069
 (no other CLI's package manager) and ADR-0102's alternatives ("one generic

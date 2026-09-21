@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cliPackagesHash, cliPackagesLocation, supportsCliPackages, loadPiPackagesContext, packageContextKey, GUEST_PACKAGES, usesGuestPackages, guestPackagesApi, guestPackagesNotes } from "./cliPackages.js";
+import { cliPackagesHash, cliPackagesLocation, supportsCliPackages, loadPiPackagesContext, packageContextKey, GUEST_PACKAGES, usesGuestPackages, guestPackagesApi, guestPackagesNotes, catalogRowAction, refusalCommand } from "./cliPackages.js";
 import { cliLocation } from "./cliLaunch.js";
 
 test("canonical links round-trip CLI, package, scope and explicit context", () => {
@@ -171,4 +171,28 @@ test("absence notes speak once per missing verb, then for the concepts left over
 test("a note missing for an absent verb invents nothing", () => {
   assert.deepEqual(guestPackagesNotes({ install: true, remove: true }, {}), []);
   assert.deepEqual(guestPackagesNotes({}, { install: "" }), []);
+});
+
+test("a catalog row offers Install only when its CLI names the spec", () => {
+  // Muse: the row carries name@marketplace, so the pane may install from it.
+  assert.equal(catalogRowAction({ catalogInstall: true }, { source: "picode-spare@mp" }), "install");
+  assert.equal(catalogRowAction({ catalogInstall: true }, { installed: true, source: "x@mp" }), "installed");
+  // Omp: discover prints a name and a version and never the marketplace, so an
+  // install from the row would run `omp plugin install <name>` — which resolves
+  // through npm. The row stays information.
+  assert.equal(catalogRowAction({ catalogInstall: false }, { source: "" }), "none");
+  assert.equal(catalogRowAction({}, { source: "x@mp" }), "none");
+});
+
+test("a refusal carries the command a person has to run", () => {
+  const ex = Object.assign(new Error("grok plugin install failed: refusing without --trust"), {
+    status: 409,
+    body: { error: "grok plugin install failed: refusing without --trust", command: "grok plugin install owner/repo" },
+  });
+  assert.deepEqual(refusalCommand(ex), {
+    message: "grok plugin install failed: refusing without --trust",
+    command: "grok plugin install owner/repo",
+  });
+  assert.deepEqual(refusalCommand(new Error("plain")), { message: "plain", command: "" });
+  assert.deepEqual(refusalCommand(null), { message: "", command: "" });
 });
