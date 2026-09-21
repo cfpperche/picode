@@ -33,15 +33,26 @@ notices.
 
 `TestEveryExportedMutationAnnouncesOrIsListed`
 (`internal/store/mutation_coverage_test.go`) is the invariant itself: it
-parses the package, finds every exported `*Store` method whose body writes
-to a table, and requires each one to append an event — directly or through
-a helper on the same receiver — or to appear in `silentMutators` **with a
-reason**. An entry without a reason fails, so "I could not think of the
-event" cannot pass as a decision, and a companion test removes a name that
-stopped being a mutator.
+parses the package, finds every exported `*Store` method that writes to a
+table, and requires each one to append an event — or to appear in
+`silentMutators` **with a reason**. An entry without a reason fails, so "I
+could not think of the event" cannot pass as a decision, and a companion
+test removes a name that stopped being a mutator.
 
-The thirteen deliberate exceptions are the event log's own pruning, auth
-last-seen and expiry housekeeping, Web Push delivery marks, the extension's
-actuation batches (ADR-0053/0054 — the panel polls for its own batch, so
-the feed has no subscriber for it) and the ADR-0039 session-identity
-bookkeeping, whose visible change is carried by `agent.updated`.
+**Both signals follow calls on the receiver**, and the first version of
+this test followed only one of them. Scanning a method's own body for SQL
+missed every exported mutator that delegates the write — `AddAgent` through
+`AddAgentWithCLI`, `CreateTerminal`, `EnablePeer`, `ReplaceFrom` and
+thirteen more: seventeen writes waved through because the literal lived one
+call away. Fourteen of them did announce, so the gate was right by luck
+rather than by construction. Bodies are also read with line comments
+stripped, since "we deliberately do not AppendEvent here" must not be the
+thing that satisfies the check.
+
+The sixteen deliberate exceptions are the event log's own machinery
+(`AppendEvent` and `AppendEventTx` *are* announcing; pruning would refill
+what it emptied), a restore's whole-database swap, auth last-seen and
+expiry housekeeping, Web Push delivery marks, the extension's actuation
+batches (ADR-0053/0054 — the panel polls for its own batch, so the feed has
+no subscriber for it) and the ADR-0039 session-identity bookkeeping, whose
+visible change is carried by `agent.updated`.

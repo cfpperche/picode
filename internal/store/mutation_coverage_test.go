@@ -26,8 +26,17 @@ import (
 // nothing. Each needs a reason, not just a name: an entry without one
 // fails, so "I could not think of the event" cannot pass as a decision.
 var silentMutators = map[string]string{
-	// Bookkeeping on the event log itself.
-	"PruneEvents": "prunes the event log; an event about it would refill what it just emptied",
+	// Bookkeeping on the event log itself. AppendEvent and AppendEventTx
+	// are the announcement mechanism: requiring them to announce their own
+	// write is the circle this whole rule is built on.
+	"AppendEvent":   "writes the events table; it is what announcing *is*",
+	"AppendEventTx": "writes the events table; it is what announcing *is*",
+	"PruneEvents":   "prunes the event log; an event about it would refill what it just emptied",
+
+	// A restore swaps the whole database underneath every subscriber, so
+	// there is no row left for an event to describe; the feed resets and
+	// clients refetch (internal/backup/restore.go).
+	"ReplaceFrom": "replaces the entire database during a restore; the feed resets and every client refetches",
 
 	// Auth housekeeping. Devices are read through /api/auth/sessions on
 	// demand, so a feed event here would be one row per authenticated
@@ -60,6 +69,12 @@ var silentMutators = map[string]string{
 var (
 	sqlWrite  = regexp.MustCompile(`(?i)\b(INSERT\s+INTO|INSERT\s+OR\s+\w+\s+INTO|UPDATE\s+[a-z_]+\s+SET|DELETE\s+FROM|REPLACE\s+INTO)\b`)
 	announces = regexp.MustCompile(`AppendEvent`)
+
+	callsOnReceiver = regexp.MustCompile(`\bs\.([A-Za-z]\w*)\(`)
+	// A body is read with its line comments stripped: "we deliberately do
+	// not AppendEvent here" is a sentence somebody would write, and it must
+	// not be what satisfies the check.
+	lineComment = regexp.MustCompile(`(?m)//[^\n]*`)
 )
 
 // storeMethods returns every method on *Store in this package, exported
@@ -99,7 +114,7 @@ func storeMethods(t *testing.T) map[string]string {
 			if !ok || id.Name != "Store" {
 				continue
 			}
-			out[fn.Name.Name] = string(b[int(fn.Body.Pos())-base : int(fn.Body.End())-base])
+			out[fn.Name.Name] = lineComment.ReplaceAllString(string(b[int(fn.Body.Pos())-base:int(fn.Body.End())-base]), "")
 		}
 	}
 	if len(out) == 0 {
@@ -108,9 +123,16 @@ func storeMethods(t *testing.T) map[string]string {
 	return out
 }
 
-// emits reports whether a method appends an event, directly or through a
+// reaches reports whether a method matches re, directly or through a
 // helper on the same receiver.
-func emits(bodies map[string]string, name string, seen map[string]bool) bool {
+//
+// Both signals need this walk, and at first only the event one had it.
+// Scanning a method's own body for SQL missed every exported mutator that
+// delegates its write — AddAgent through AddAgentWithCLI, CreateTerminal,
+// EnablePeer, ReplaceFrom and thirteen others: seventeen writes the gate
+// waved through because the literal lived one call away. Fourteen of them
+// did announce, so the gate was right by luck, not by construction.
+func reaches(bodies map[string]string, re *regexp.Regexp, name string, seen map[string]bool) bool {
 	if seen[name] {
 		return false
 	}
@@ -119,26 +141,34 @@ func emits(bodies map[string]string, name string, seen map[string]bool) bool {
 	if !ok {
 		return false
 	}
-	if announces.MatchString(body) {
+	if re.MatchString(body) {
 		return true
 	}
-	for _, m := range regexp.MustCompile(`\bs\.([A-Za-z]\w*)\(`).FindAllStringSubmatch(body, -1) {
-		if emits(bodies, m[1], seen) {
+	for _, m := range callsOnReceiver.FindAllStringSubmatch(body, -1) {
+		if reaches(bodies, re, m[1], seen) {
 			return true
 		}
 	}
 	return false
 }
 
+func writes(bodies map[string]string, name string) bool {
+	return reaches(bodies, sqlWrite, name, map[string]bool{})
+}
+
+func emits(bodies map[string]string, name string) bool {
+	return reaches(bodies, announces, name, map[string]bool{})
+}
+
 func TestEveryExportedMutationAnnouncesOrIsListed(t *testing.T) {
 	bodies := storeMethods(t)
 
 	var silent []string
-	for name, body := range bodies {
-		if !ast.IsExported(name) || !sqlWrite.MatchString(body) {
+	for name := range bodies {
+		if !ast.IsExported(name) || !writes(bodies, name) {
 			continue
 		}
-		if emits(bodies, name, map[string]bool{}) {
+		if emits(bodies, name) {
 			if _, listed := silentMutators[name]; listed {
 				t.Errorf("%s announces its change but is still listed in silentMutators — remove the line", name)
 			}
@@ -164,12 +194,11 @@ func TestEveryExportedMutationAnnouncesOrIsListed(t *testing.T) {
 func TestSilentMutatorListHasNoStaleEntries(t *testing.T) {
 	bodies := storeMethods(t)
 	for name := range silentMutators {
-		body, ok := bodies[name]
-		if !ok {
+		if _, ok := bodies[name]; !ok {
 			t.Errorf("silentMutators lists %q, which is not a method on *Store any more", name)
 			continue
 		}
-		if !sqlWrite.MatchString(body) {
+		if !writes(bodies, name) {
 			t.Errorf("silentMutators lists %q, which no longer writes to a table — remove the line", name)
 		}
 	}

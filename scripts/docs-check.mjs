@@ -116,8 +116,17 @@ if (existsSync(indexPath)) {
     // "amended …" are richer than the file's header and stay. The one
     // direction that is always wrong is an accepted decision the index
     // still presents as a proposal.
-    const own = /^\s*-\s*\*\*Status\*\*?:?\*?\*?:?\s*(\w+)/im.exec(readFileSync(join(decisionsDir, f), "utf8"));
-    if (own && own[1].toLowerCase() === "accepted" && /^proposed\b/i.test(row.status)) {
+    // Both spellings are in the corpus: "- **Status:** x" (the colon inside
+    // the bold) and "- **Status**: x". Dropping the asterisks first matches
+    // either, and matching neither is a failure rather than a skip — the
+    // first version of this check silently passed the ten files written the
+    // first way, which is the whole failure mode it exists to stop.
+    const own = /^\s*-\s*Status\s*:\s*(\w+)/im.exec(
+      readFileSync(join(decisionsDir, f), "utf8").replaceAll("*", ""),
+    );
+    if (!own) {
+      fails.push(`ADR ${n}: no "- **Status:** …" line this check can read — it would go unchecked`);
+    } else if (own[1].toLowerCase() === "accepted" && /^proposed\b/i.test(row.status)) {
       fails.push(`ADR ${n} is accepted in its own file but "proposed" in the index — update docs/decisions/README.md`);
     }
   }
