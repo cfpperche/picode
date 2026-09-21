@@ -1,6 +1,7 @@
 package store
 
 import (
+	"crypto/rand"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -123,7 +124,7 @@ func (s *Store) ApplyDelivery(repo, principal string, m DeliveryMutation) (Deliv
 		if n >= 1000 {
 			return d, ErrDeliveryCapacity
 		}
-		d = Delivery{ID: newID("delivery", "delivery"), Principal: principal, Version: 1, Review: "not-requested", CreatedAt: nowUTC()}
+		d = Delivery{ID: "delivery_" + rand.Text(), Principal: principal, Version: 1, Review: "not-requested", CreatedAt: nowUTC()}
 	} else {
 		var raw string
 		err = tx.QueryRow(`SELECT body FROM delivery_intents WHERE id=? AND repo=? AND principal=?`, m.ID, repo, principal).Scan(&raw)
