@@ -20,11 +20,12 @@ export const MENU_SECTIONS = [
   ["computer", "Computer", "Agents using this computer"],
   ["devices", "Devices", "Who is connected"],
   ["system", "System", "Version, host, paths"],
+  ["termset", "Terminal defaults", "Font, colors, cursor, tmux guard"],
 ];
 
 export const MENU_GROUPS = [
   ["Tools", ["automations", "snippets", "llama"]],
-  ["PiCode", ["preferences", "browser", "computer", "devices", "system", "integrations"]],
+  ["PiCode", ["preferences", "browser", "computer", "devices", "system", "integrations", "termset"]],
 ];
 
 export const MENU_ACTIONS = [
