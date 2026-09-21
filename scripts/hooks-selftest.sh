@@ -117,6 +117,18 @@ if [ -f docs/changelog.d/wt.md ] && printf '# Changelog\n\n## [Unreleased]\n\n##
 if (printf '# Changelog\n\n## [Unreleased]\n\n- typed on main\n' > CHANGELOG.md && git add CHANGELOG.md && git commit -q -m "changelog on main" 2>/dev/null); then bad "bare CHANGELOG edit on main refused" "main took a direct changelog edit"; else ok "bare CHANGELOG edit on main refused"; fi
 git reset -q; git checkout -q -- CHANGELOG.md 2>/dev/null
 if (printf '# Changelog\n\n## [Unreleased]\n\n## [0.2.0] - 2026-09-10\n\n### Added\n\n- a thing\n' > CHANGELOG.md && git add CHANGELOG.md && git commit -q -m "release 0.2.0" 2>/dev/null); then ok "release cut on main allowed"; else bad "release cut on main allowed" "the hook blocks the version heading the release process writes"; fi
+git reset -q; git checkout -q -- CHANGELOG.md 2>/dev/null
+# The preamble above the first "## [" heading is prose about the file, not
+# an entry: correcting it is neither an assembly nor a release cut, and it
+# is how the "add an entry to [Unreleased]" contradiction got fixed. The
+# entries below the heading must survive untouched, or this is an edit.
+released='## [Unreleased]\n\n## [0.2.0] - 2026-09-10\n\n### Added\n\n- a thing\n'
+if (printf "# Changelog\n\nAssembled from fragments; entries live in docs/changelog.d/.\n\n$released" > CHANGELOG.md && git add CHANGELOG.md && git commit -q -m "changelog preamble" 2>/dev/null); then ok "CHANGELOG preamble edit allowed"; else bad "CHANGELOG preamble edit allowed" "the hook blocks a correction to the file's own prose"; fi
+git reset -q; git checkout -q -- CHANGELOG.md 2>/dev/null
+# ...and the exception must not become a door for entries: a change that
+# also reaches past the first heading is still refused.
+if (printf "# Changelog\n\nPreamble line.\n\n$released\n- typed past the heading\n" > CHANGELOG.md && git add CHANGELOG.md && git commit -q -m "entry via preamble" 2>/dev/null); then bad "entry below the heading still refused" "the preamble exception let an entry through"; else ok "entry below the heading still refused"; fi
+git reset -q; git checkout -q -- CHANGELOG.md 2>/dev/null
 
 # 2g. Handoff state reaches main by fast-forward — and, since ADR-0149, a
 #     correction to what already landed reaches it directly, next to the

@@ -18,19 +18,37 @@ import (
 
 // Auth routes (ADR-0049). The middleware in server.New already gates
 // them; these only read or change principals.
+//
+// Registration is unconditional. It used to return early on a nil gate,
+// which quietly emptied the OpenAPI spec: Routes() records registerAll
+// against a zero Deps, so every /api/auth route and /pair was missing
+// from docs-site/public/api/openapi.json while the real binary served
+// them all. The nil case now answers at request time instead, and
+// TestRoutesCoverEveryRegisteredPattern keeps the two in step.
 func registerAuthRoutes(mux Registrar, deps Deps) {
-	if deps.Auth == nil {
-		return
+	gated := func(h func(Deps) http.HandlerFunc) http.HandlerFunc {
+		if deps.Auth == nil {
+			return authDisabled
+		}
+		return h(deps)
 	}
-	mux.HandleFunc("GET /api/auth/session", handleAuthSession(deps))
-	mux.HandleFunc("GET /api/auth/sessions", handleAuthSessions(deps))
-	mux.HandleFunc("DELETE /api/auth/sessions/{id}", handleAuthRevoke(deps))
-	mux.HandleFunc("POST /api/auth/pairings", handleAuthPairing(deps))
-	mux.HandleFunc("POST /api/auth/logout", handleAuthLogout(deps))
-	mux.HandleFunc("PUT /api/auth/mode", handleAuthMode(deps))
-	mux.HandleFunc("POST /api/auth/token/rotate", handleAuthRotate(deps))
-	mux.HandleFunc("GET /pair", handlePairPage(deps))
-	mux.HandleFunc("POST /pair", handlePair(deps))
+	mux.HandleFunc("GET /api/auth/session", gated(handleAuthSession))
+	mux.HandleFunc("GET /api/auth/sessions", gated(handleAuthSessions))
+	mux.HandleFunc("DELETE /api/auth/sessions/{id}", gated(handleAuthRevoke))
+	mux.HandleFunc("POST /api/auth/pairings", gated(handleAuthPairing))
+	mux.HandleFunc("POST /api/auth/logout", gated(handleAuthLogout))
+	mux.HandleFunc("PUT /api/auth/mode", gated(handleAuthMode))
+	mux.HandleFunc("POST /api/auth/token/rotate", gated(handleAuthRotate))
+	mux.HandleFunc("GET /pair", gated(handlePairPage))
+	mux.HandleFunc("POST /pair", gated(handlePair))
+}
+
+// authDisabled answers the auth surface on a daemon built without a gate
+// (tests, and the ungated wiring Deps.Auth documents). Before, these
+// patterns were simply absent and the request fell through to the SPA,
+// so a caller got an HTML page where it asked for JSON.
+func authDisabled(w http.ResponseWriter, _ *http.Request) {
+	writeErr(w, http.StatusNotFound, "This server runs without the pairing gate.")
 }
 
 func handleAuthSession(deps Deps) http.HandlerFunc {

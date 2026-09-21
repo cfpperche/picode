@@ -28,6 +28,7 @@ Each page says what the capability is and where to click. First run is
 | [Session messages](/guide/communication) | Connect agents in a workspace so they can talk |
 | [Inbox tools](/guide/inbox-tools) | Questions and finished work from a terminal session |
 | [Checklist](/guide/checklist) | The agent writes a plan; the sidebar follows it |
+| [Pins and reminders](/guide/pins) | Notes with attachments, sketches and reminders |
 | [Compact earlier](/guide/compact) | Summarize before the context window is full |
 | [Diff panel](/guide/diff-panel) | What the agent changed, beside its terminal |
 
@@ -41,6 +42,8 @@ Each page says what the capability is and where to click. First run is
 | [Integrations](/guide/integrations) | CLI connectors and PiCode webhooks |
 | [tmux sessions](/guide/tmux) | The server those sessions live on, including orphans |
 | [CLI activity reporting](/guide/terminal-status) | Working / needs you for a CLI in a terminal |
+| [Dev servers](/guide/dev-servers) | What is listening on this machine, and what PiCode may do about it |
 | [Keyboard and browser keys](/guide/keyboard) | What the browser keeps, what PiCode can bind |
 
-Keys and models: [Configure](/guide/configure). Host it: [Run](/guide/remote-server).
+Keys and models: [Configure](/guide/configure). Snapshots of your setup:
+[Backup and restore](/guide/backup). Host it: [Run](/guide/remote-server).

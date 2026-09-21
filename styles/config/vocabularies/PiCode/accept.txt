@@ -106,3 +106,8 @@ oh-my-pi
 excalidraw
 figma
 whatsapp
+
+# generic technical English the base dictionary lacks
+dev
+decrypted
+WebSockets

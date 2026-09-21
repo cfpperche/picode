@@ -146,7 +146,7 @@ export default function SnippetEdit({ snipId, onBack, onSaved }) {
     <div className="m-screen m-pin-edit">
       <ScreenHeader title={snipId ? "Edit snippet" : "New snippet"} onBack={onBack} right={<button type="button" className="m-head-btn m-head-btn-text" disabled={busy || !loaded || invalid || slugState === "taken"} onClick={save}>Save</button>} />
       {loaded ? (
-        <form className="m-pin-form" onSubmit={(e) => { e.preventDefault(); save(); }}>
+        <form noValidate className="m-pin-form" onSubmit={(e) => { e.preventDefault(); save(); }}>
           {restored ? <div className="m-pin-restored" role="status">Unsaved changes restored. <button type="button" className="btn btn-sm btn-ghost" onClick={() => { clearDraft(storage(), key); setRestored(false); setF(base ? { ...base } : formFromSnip(null)); }}>Discard</button></div> : null}
           {err ? <p className="form-error" role="alert">{err}</p> : null}
           <select className="dlg-input" value={f.kind || "prompt"} aria-label="Kind" onChange={(e) => set({ kind: e.target.value })}>

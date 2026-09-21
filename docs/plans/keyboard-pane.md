@@ -240,6 +240,15 @@ editor that hides rows lies about it.
 Each phase ends with the rite; P0 ships alone and is the one the owner can
 judge by eye.
 
+**P2 owes one ADR** (`make adr NAME=guest-keymaps`): it adds an endpoint and
+writes into other vendors' configuration directories — a protocol and a
+persistence/security boundary, on the model ADR-0163 set for settings. It must
+state the per-CLI keymap write contract, what the writer refuses, and that the
+revision/atomic guarantees are inherited rather than re-derived. P0 and P1 cross
+no boundary: a UI refinement and a report envelope, so they update
+`docs/architecture/cli-settings.md` only (the `resetAll` field extends
+ADR-0101's own patch contract, the way `patch.reset` did).
+
 ## 7. Verification
 
 1. `make ci-scoped` while iterating, `make close` at the end, `make ci` on
@@ -284,3 +293,65 @@ judge by eye.
 4. **`Reset all changed`**: one new field on `PUT /api/pi-keys` for the whole
    map (VS Code has it) or leave 89 rows as the only way back? Recommended:
    ship it behind a confirm, since it is the only bulk undo.
+
+## What P0 shipped, and where it differs from this plan (2026-09-21)
+
+The owner approved P0 alone, and answered the four questions as recommended:
+the pane first; Grok and Muse get one line + one action; sequences stay
+read-only; `Reset all` ships behind a confirm.
+
+**Shipped** (branch `feat/keyboard-ui`): the row anatomy (32px grid, a keycap
+at its own `--kbd-h` instead of `--ctl-h`, the row's own actions in a fixed
+column, revealed on hover/`:focus-within` and always on a touch surface); the
+toolbar (filter, **Find by key**, counting facets `Changed`/`Shared`/`Off`, the
+row count, **Reset all**); the changed bar; the capture strip with the existing
+chips kept in view and `aria-live` on the result; the reserved-chord warning;
+the platform alternates; `Reset all` over a new `{resetAll: true}`; and the two
+catalog fixes — `app.thinking.save` and nine `Alt` rows read out of pi's own
+docs — held by `TestAltDeclaresEachPlatformItCovers` and
+`TestAlternatesDifferFromTheBaseDefault`. The map is 90 actions in 12 groups
+now, not 89.
+
+Differences from the plan above, and why:
+
+- **The toolbar sticks; the group headers do not.** The bar pins to the top of
+  the CLI page's own scroller (`#agent-clis-view`, `overflow-y: auto`), so the
+  filter and the facets stay reachable 90 rows down — verified in a scrolled
+  capture (`top: 0`, audit ok). The first attempt was reverted on a bad
+  measurement: a probe scrolled `window`, which this app never scrolls, and the
+  bar "travelled with the content", so the rule looked inert. It was not; the
+  note is kept here so nobody re-derives the same wrong reason. Group headers
+  would need a hard-coded offset equal to this bar's height, which changes when
+  the bar wraps — refused for *that*, not for the scroller.
+- **The pane's rules are scoped to `.key-pane`.** AppKeys (Preferences →
+  Keyboard — PiCode's own chords) shares every one of these class names and keeps
+  the older, more compact language; rewriting the base block would have
+  redesigned a surface this plan does not own, so the new rules are prefixed
+  under `.key-pane` and the base block stands exactly as it was. Two languages
+  for one name is a cost, paid knowingly: unifying them is a later task, and it
+  needs AppKeys' store (localStorage) to stop being the exception.
+- **The facet is `Shared`, never `Conflicts`** (the plan argues why; this is the
+  as-built name), and a row pi ships unbound says `Unbound` while a row the
+  reader turned off says `Off`.
+- **The capture commits on the keypress**, as it did before: the server refuses
+  a chord it cannot use, so a rejection writes nothing. No Save button, no
+  countdown (both refused in §2).
+- **The mobile keycap is 28px, not 24px** — a touch row, with the row's actions
+  always visible (`@media (hover: none)` covers the desktop's touch cases too).
+- **The harness rows landed in `scripts/qa-cli-settings.mjs`'s keyboard block**
+  as planned, and the script gained a `catch` that records the rows that passed
+  when a later row fails — a failing run used to leave no record at all. The
+  `-keyboard-reset` screenshot is not audited: a bottom-anchored toast whose
+  exit animation is frozen by a throttled page reads as a clipped overlay that
+  no reader ever sees, and the audited states (`-keyboard`, `-keyboard-off`,
+  `-keyboard-clear`, `-keyboard-reset-all`) are the ones that matter.
+- **Four stale rows elsewhere in that script were repaired** (they died in the
+  native-settings landing, not here): `layerOf()` reads `[data-layer]` on the
+  body wrapper, `#g-compact` is `#g-compactionEnabled`, the "unsupported CLI"
+  row waits on the pane because every managed CLI now has an editor, and the
+  audited captures wait for a bottom-anchored overlay to settle. The post-loop
+  untrusted/trust/free-agent matrix still stops on a `ready()` precondition the
+  blocked project layer does not meet; it is named as a debt in
+  `docs/handoff/open/agent-clis-native.md` rather than re-pointed blind.
+
+P1–P5 are unchanged; the envelope (§4) is still the next step.

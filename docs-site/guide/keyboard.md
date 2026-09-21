@@ -33,11 +33,17 @@ Everything else — `Ctrl+C`, `Ctrl+F`, `Ctrl+P`, `Alt+←`, `F3`, … — reach
 the page, and inside a terminal pane it goes straight to the CLI running
 there. Copy, interrupt, line-editing keys and function keys already work.
 
+The agent's own map (**Agent CLIs → that CLI → Keyboard**) marks every row
+that uses a chord from the reserved list above, so a binding that can never
+fire in a browser tab is visible rather than mysterious — five of pi's own
+defaults are in that list today.
+
 ## When a CLI wants a key the browser keeps
 
 There is no way for a web page to take `Ctrl+T` back. Where a CLI's own
 chord collides with one of these, give the CLI a different chord if it
-allows one, or run it in a terminal outside the browser. Everything
+allows one — the Keyboard pane is where you do it, and the marked rows say
+which ones — or run it in a terminal outside the browser. Everything
 outside the reserved list above already reaches the terminal untouched.
 
 ## Fullscreen mode hides PiCode, not your window
@@ -70,8 +76,9 @@ the exit button at the right end of the revealed tab strip.
 
 PiCode's own chords stay out of the browser's reserved set so they work
 everywhere: `Ctrl+K` for the command palette, `` Ctrl+` `` for a new
-terminal, `Alt+[` / `Alt+]` to cycle tabs. Rebind them in **Settings →
-Keyboard**, and the agent's own key map in **Settings → Keys**.
+terminal, `Alt+[` / `Alt+]` to cycle tabs. Rebind them in **Preferences →
+Keyboard**, and the agent's own key map in **Agent CLIs → that CLI →
+Keyboard**.
 
 | Keys | Action |
 |---|---|

@@ -91,7 +91,7 @@ export default function PinEdit({ pinId, onBack, onSaved }) {
     <div className="m-screen m-pin-edit">
       <ScreenHeader title={pinId ? "Edit pin" : "New pin"} onBack={onBack} right={<button type="button" className="m-head-btn m-head-btn-text" disabled={busy || !loaded} onClick={save}>Save</button>} />
       {loaded ? (
-        <form className="m-pin-form" onSubmit={(e) => { e.preventDefault(); save(); }}>
+        <form noValidate className="m-pin-form" onSubmit={(e) => { e.preventDefault(); save(); }}>
           {restored ? <div className="m-pin-restored" role="status">Unsaved changes restored. <button type="button" className="btn btn-sm btn-ghost" onClick={() => { clearDraft(storage(), key); setRestored(false); setDraft(base ? { title: base.title, tagsText: tagsText(base.tags), body: base.body } : { title: "", tagsText: "", body: "" }); }}>Discard</button></div> : null}
           <input className="dlg-input" value={draft.title} maxLength={PIN_LIMITS.title} placeholder="Pin title" aria-label="Pin title" autoFocus={!pinId} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
           <input className="dlg-input" value={draft.tagsText} placeholder="Tags, separated by commas" aria-label="Tags" onChange={(e) => setDraft({ ...draft, tagsText: e.target.value })} />

@@ -449,6 +449,7 @@ export default function PinStudio() {
     <PageFrame id="pin-studio" title={info.mode === "edit" ? "Edit pin" : "New pin"}>
       {loaded ? (
         <form
+          noValidate
           className={"pin-form pin-studio-form" + (drag ? " pin-drop" : "")}
           onSubmit={(e) => { e.preventDefault(); save(); }}
           onPaste={(e) => {
