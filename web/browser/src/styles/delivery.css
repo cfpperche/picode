@@ -20,3 +20,6 @@
 @media (prefers-reduced-motion: reduce) { .delivery * { animation: none !important; } }
 
 .delivery-actions { display: flex; gap: 8px; align-items: center; }
+
+.git-workspace-control, .git-view-tabs { display: flex; align-items: center; gap: 8px; }
+.delivery-tabs .btn { height: var(--ctl-h); }

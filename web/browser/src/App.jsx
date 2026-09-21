@@ -1610,7 +1610,7 @@ export default function App({ shellChrome = false } = {}) {
     if (!isGitTab(tabId)) return;
     const ws = workspaces.find((w) => w && w.id === wsId);
     if (!ws) return;
-    const owner = { kind: "workspace", id: wsId, name: ws.name || "" };
+    const owner = { kind: "workspace", id: wsId, name: ws.name || "", view: gitOwners[tabId]?.view || "" };
     // The resolution and its two failure rows (a request that throws, an answer
     // that names no repository) live in the pure module, where they are tests.
     const { key, action, error } = await pickTarget({
