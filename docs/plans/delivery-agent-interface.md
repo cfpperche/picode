@@ -36,6 +36,7 @@ inside the same launch retains the principal. No messages connection is created.
 | Conditions | Result | Test |
 |---|---|---|
 | Known launch + local branch/revision/target | Register version 1, one event | NativePrincipals; CLIThroughDaemon |
+| Bound agent+terminal / bound terminal alone | Same agent principal, mutation ownership and retry receipt | BoundPrincipal |
 | No identity / removed or unknown identity / disagreeing agent+terminal | Refuse | RefusalTable; ScopeAndSourceChanges; CLIUsageAndIdentity |
 | No Git repository / missing target / invalid source ref / wrong revision | Refuse without a receipt | RefusalTable; ScopeAndSourceChanges |
 | Same repository, other principal | Read allowed; mutation refused | ScopeAndSourceChanges; MutationDecisionTable |

@@ -62,8 +62,9 @@ PiCode has no registered identity and is refused. The identity names a launch,
 not a particular conversation inside the vendor's CLI.
 
 `picode mcp delivery` exposes the same actions as an optional MCP tool. Existing
-PiCode launch configuration supports MCP injection for Claude Code, Codex and
-OpenCode; other clients may use the command. Automated compatibility tests cover
+PiCode managed launches with default tool selection include this family for Claude
+Code, Codex and OpenCode. Explicit tool selections remain unchanged; other clients
+may use the command. Automated compatibility tests cover
 the nine catalog identifiers and a generic terminal, not real authenticated
 sessions with all nine vendors. Explicit tool selections must include delivery
 through their MCP configuration; the current tool picker has no delivery option.

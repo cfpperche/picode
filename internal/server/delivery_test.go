@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/cfpperche/picode/internal/store"
 )
 
 func TestDeliveryToolNativePrincipals(t *testing.T) {
@@ -169,5 +171,50 @@ func TestDeliveryScopeAndSourceChanges(t *testing.T) {
 	res, out = inboxPost(t, ts, "/api/delivery/tool", fmt.Sprintf(`{"agent":%q,"action":"show","id":%q}`, other.ID, id))
 	if res.StatusCode != 200 {
 		t.Fatalf("history lost: %d %v", res.StatusCode, out)
+	}
+}
+
+func TestDeliveryToolBoundPrincipal(t *testing.T) {
+	ts, st := newInboxServer(t)
+	repo := gitRepo(t)
+	ws, a, err := storeWorkspaceWithAgent(st, "delivery", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tm, err := st.CreateTerminalIn(ws.ID, "bound", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = st.UpdateAgent(a.ID, store.AgentPatch{TerminalID: &tm.ID}); err != nil {
+		t.Fatal(err)
+	}
+	for _, identity := range []string{fmt.Sprintf(`"agent":%q,"term":%q`, a.ID, tm.ID), fmt.Sprintf(`"term":%q`, tm.ID)} {
+		res, out := inboxPost(t, ts, "/api/delivery/tool", `{`+identity+`,"action":"capabilities"}`)
+		if res.StatusCode != 200 || out["principal"] != a.ID {
+			t.Fatalf("%d %v", res.StatusCode, out)
+		}
+	}
+	head := strings.TrimSpace(gitOut(t, repo, "rev-parse", "HEAD"))
+	payload := fmt.Sprintf(`"action":"register","requestId":"create","title":"Bound","branch":"main","revision":%q,"target":"main"`, head)
+	res, out := inboxPost(t, ts, "/api/delivery/tool", fmt.Sprintf(`{"agent":%q,"term":%q,%s}`, a.ID, tm.ID, payload))
+	if res.StatusCode != 200 {
+		t.Fatalf("%d %v", res.StatusCode, out)
+	}
+	d := out["delivery"].(map[string]any)
+	id := d["id"].(string)
+	if d["principal"] != a.ID {
+		t.Fatalf("%v", d)
+	}
+	res, out = inboxPost(t, ts, "/api/delivery/tool", fmt.Sprintf(`{"term":%q,%s}`, tm.ID, payload))
+	if res.StatusCode != 200 || out["replayed"] != true || out["delivery"].(map[string]any)["id"] != id {
+		t.Fatalf("%d %v", res.StatusCode, out)
+	}
+	res, out = inboxPost(t, ts, "/api/delivery/tool", fmt.Sprintf(`{"term":%q,"action":"request-review","id":%q,"expectedVersion":1,"requestId":"review"}`, tm.ID, id))
+	if res.StatusCode != 200 || out["delivery"].(map[string]any)["review"] != "requested" {
+		t.Fatalf("%d %v", res.StatusCode, out)
+	}
+	res, out = inboxPost(t, ts, "/api/delivery/tool", fmt.Sprintf(`{"agent":%q,"term":%q,"action":"withdraw-review","id":%q,"expectedVersion":2,"requestId":"withdraw"}`, a.ID, tm.ID, id))
+	if res.StatusCode != 200 || out["delivery"].(map[string]any)["review"] != "not-requested" {
+		t.Fatalf("%d %v", res.StatusCode, out)
 	}
 }
