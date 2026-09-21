@@ -3555,7 +3555,7 @@ export default function App({ shellChrome = false } = {}) {
       </div>
 
       <main id="main">
-        <div id="workspace-view" className={"workspace-view" + (isTermTab(selectedId) ? " term-on" : "") + (isFileTab(selectedId) ? " file-on" : "") + (isGitTab(selectedId) ? " git-on" : "") + (isTreeTab(selectedId) ? " tree-on" : "") + (isAppTab(selectedId) ? " app-on" : "") + (showHome ? " dashboard-on" : "") + (agentPanes[selectedId] ? " agent-split-on" : "") + (agentPanes[selectedId] && paneMax[selectedId] ? " agent-split-max" : "")} hidden={onPane}>
+        <div id="workspace-view" className={"workspace-view" + (isTermTab(selectedId) ? " term-on" : "") + (isFileTab(selectedId) ? " file-on" : "") + (isGitTab(selectedId) ? " git-on" : "") + (isTreeTab(selectedId) ? " tree-on" : "") + (isAppTab(selectedId) ? " app-on" : "") + (showHome ? " dashboard-on" : "") + (agentPanes[selectedId] ? " agent-split-on" : "") + (agentPanes[selectedId] && paneMax[selectedId] ? " agent-split-max" : "")} hidden={onPane} style={agentPanes[selectedId] ? { "--split-w": (paneMax[selectedId] ? 100 : (paneRatios[selectedId] ?? 50)) + "%" } : undefined}>
           {!shellChrome && tabsStrip}
 
           <div id="empty" className="empty" hidden={!(missing || (noTabs && !hasData))}>
@@ -3989,7 +3989,7 @@ export default function App({ shellChrome = false } = {}) {
                   window.addEventListener("pointerup", up);
                 }}
               />
-              <div className="agent-split-pane" style={{ flexBasis: paneMax[selectedId] ? "100%" : (paneRatios[selectedId] ?? 50) + "%" }}>
+              <div className="agent-split-pane">
                 <WebTabSurface
                   key={"split-" + selectedId}
                   tabId={"w:" + agentPanes[selectedId]}

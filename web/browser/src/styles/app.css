@@ -1926,11 +1926,25 @@ img.ws-face.term-cli-face {
 .composer-more-item.is-danger svg { color: var(--danger); }
 /* Agent split (ADR-0135 slice 1): the agent pane and its bound work-browser
    pane share the tab side by side; both stay visible while either has
-   focus. Hidden surfaces keep display:none, so row layout only ever sees
-   the active agent pane and the browser pane. */
-.workspace-view.agent-split-on { flex-direction: row; }
+   focus. A grid, not a row: the /browser/ web app renders its tab strip
+   inside this view (the desktop shell owns its own top row), and a row
+   dragged the strip into the split — crushing the terminal to a sliver
+   and pushing the browser off-screen (2026-09-20). The strip spans the
+   top; the agent pane, the divider and the browser pane share the row
+   below. Hidden surfaces keep display:none, so the grid only ever sees
+   the strip, the active agent pane, the divider and the browser pane. */
+.workspace-view.agent-split-on {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto var(--split-w, 50%);
+}
+.workspace-view.agent-split-on .main-tabs { grid-column: 1 / -1; grid-row: 1; }
 .workspace-view.agent-split-on .chat-surface,
-.workspace-view.agent-split-on .term-surface { flex: 1 1 0; min-width: 0; }
+.workspace-view.agent-split-on .term-surface { grid-column: 1; grid-row: 2; min-width: 0; min-height: 0; }
+.workspace-view.agent-split-on .split-divider { grid-column: 2; grid-row: 2; width: 5px; }
+.workspace-view.agent-split-on .agent-split-pane { grid-column: 3; grid-row: 2; min-height: 0; }
+.agent-split-pane { min-width: 0; display: flex; flex-direction: column; }
+.agent-split-pane .web-tab-surface { flex: 1 1 auto; }
 .split-divider { flex: 0 0 5px; cursor: col-resize; background: transparent; border-left: 1px solid var(--border, #232329); touch-action: none; }
 .split-divider:hover, .split-divider.dragging { background: var(--accent); opacity: .45; }
 /* Expanded (max) mode: the browser owns the tab; the agent pane and the
@@ -1938,8 +1952,6 @@ img.ws-face.term-cli-face {
 .workspace-view.agent-split-max .chat-surface,
 .workspace-view.agent-split-max .term-surface,
 .workspace-view.agent-split-max .split-divider { display: none; }
-.agent-split-pane { flex: 0 0 auto; min-width: 0; display: flex; flex-direction: column; }
-.agent-split-pane .web-tab-surface { flex: 1 1 auto; }
 .web-tab-toolbar {
   display: flex; align-items: center; gap: 6px; flex: none;
   padding: 5px 8px; border-bottom: 1px solid var(--border);
