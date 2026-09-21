@@ -99,6 +99,8 @@ func dispatch(cmd string, args []string) bool {
 		runBrowserHost()
 	case cmd == "messages":
 		runMessages(args)
+	case cmd == "inbox":
+		runInbox(args)
 	case cmd == "disk":
 		runDisk(args)
 	case cmd == "clean":
@@ -149,6 +151,11 @@ Usage:
   picode [flags]              start the server
   picode version              print the build identity (--version, -v)
   picode messages             direct conversation messages (contacts, send, read, ack)
+  picode inbox notify --title T [--body B] [--reason R]
+                              file an FYI into the Inbox; prints the item id
+  picode inbox ask --question Q [--context C] [--wait] [--timeout D]
+                              file a blocking question; with --wait, polls until you
+                              answer in the Inbox and prints the answer on stdout
   picode disk [--json]        what occupies this machine, and what is safe to reclaim
     --json          emit the measurement as JSON (picode-desktop disk reads it)
   picode clean                prune the caches that picode disk measures - never data
