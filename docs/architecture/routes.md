@@ -46,8 +46,9 @@ has no desktop sidebar or Pin Studio. ADR-0095 adds mobile-owned Files and Git
 tools, one full-screen view at a time. The Inspector (ADR-0078's rail
 re-shaped for the phone) is one pushed screen per owner — Changes
 (folder-grouped sums, the `All | This agent` session scope, multi-worktree
-following), Files and PR — and, on the agent screen, a header toggle opens
-it as a right drawer over the conversation (Back or the overlay returns to
+following), Files and PR — and, on the agent screen (chat and terminal
+views) and the terminal screen, a header toggle opens
+it as a right drawer over the content (Back or the overlay returns to
 the agent); the change-shape logic is shared in
 `@picode/shared/domain/inspector.js`, and the legacy `#/changes` screen
 parses onto it. Its dialogs

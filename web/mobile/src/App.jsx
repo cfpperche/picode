@@ -283,7 +283,7 @@ export default function MobileApp() {
   }, [route.screen, route.id]);
 
   useEffect(() => {
-    if (route.screen !== "agent") setInspDrawer(null);
+    if (route.screen !== "agent" && route.screen !== "term") setInspDrawer(null);
   }, [route.screen]);
   function openAgent(id, view = "") {
     if (!id) { goTab("work"); return; }
@@ -586,7 +586,7 @@ export default function MobileApp() {
   } else if (route.screen === "term") {
     body = terminalAgent
       ? <div className="m-tool-state m-tool-loading" role="status" aria-busy="true"><p>Opening agent…</p><span className="gg-skel" /><span className="gg-skel" /></div>
-      : <TerminalScreen key={route.id} term={currentTerm} onBack={() => goBack(route, termOwnerWs(currentTerm))} onRemove={removeTerminal} busy={!!currentTerm && busyId === currentTerm.id} onOpenFiles={openFiles} onOpenGit={openGit} />;
+      : <TerminalScreen key={route.id} term={currentTerm} onBack={() => goBack(route, termOwnerWs(currentTerm))} onRemove={removeTerminal} busy={!!currentTerm && busyId === currentTerm.id} onOpenFiles={openFiles} onOpenGit={openGit} onOpenInspector={() => setInspDrawer({ owner: { kind: "term", id: route.id }, root: "", title: currentTerm ? currentTerm.name : "Inspector" })} />;
   } else if (route.screen === "agent") {
     body = (
       <Agent
