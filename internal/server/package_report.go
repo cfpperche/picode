@@ -13,10 +13,8 @@ import (
 // panes merge onto, so both engines answer through one interface here.
 func handlePackageReport(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cli := strings.TrimSpace(r.URL.Query().Get("cli"))
-		if !pkgs.Known(cli) {
-			writeErr(w, http.StatusBadRequest,
-				"no packages driver for "+cli+" — use "+strings.Join(pkgs.CLIs(), ", "))
+		driver, ok := packageReadDriver(w, r)
+		if !ok {
 			return
 		}
 		q := pkgs.Query{
@@ -39,7 +37,7 @@ func handlePackageReport(deps Deps) http.HandlerFunc {
 				q.AgentSources = a.Packages
 			}
 		}
-		rep, err := pkgs.DriverFor(cli).List(r.Context(), q)
+		rep, err := driver.List(r.Context(), q)
 		if err != nil {
 			writeErr(w, statusForPackageErr(err), err.Error())
 			return

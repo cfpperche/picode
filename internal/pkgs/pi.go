@@ -48,8 +48,10 @@ func (p piDriver) List(_ context.Context, q Query) (Report, error) {
 		Catalog:      CatalogGallery,
 		Gallery:      legacy.Gallery,
 		Capabilities: map[string]bool{"webSearch": legacy.Capabilities.WebSearch},
-		Isolated:     legacy.Isolated,
-		Rows:         make([]Row, 0, len(legacy.Packages)),
+		// The switch lives on PiCode's agent row, not in a settings file, so
+		// it arrives with the agent's list (Query.AgentIsolated).
+		Isolated: q.AgentIsolated,
+		Rows:     make([]Row, 0, len(legacy.Packages)),
 	}
 	for _, pkg := range legacy.Packages {
 		rep.Rows = append(rep.Rows, Row{
@@ -67,6 +69,28 @@ func (p piDriver) List(_ context.Context, q Query) (Report, error) {
 		})
 	}
 	return rep, nil
+}
+
+// CheckUpdates asks npm which of Pi's rows the registry has moved ahead of —
+// the badge read. The engine keeps the rules: path, git, agent and pinned
+// npm:@ver rows are skipped, a registry miss skips that row and the rest
+// still answer.
+func (p piDriver) CheckUpdates(ctx context.Context, q Query) ([]Row, error) {
+	legacy, err := pipkg.CheckUpdates(ctx, pipkg.UserDir(), q.WorkspacePath)
+	if err != nil {
+		return nil, err
+	}
+	rows := make([]Row, 0, len(legacy.Updates))
+	for _, u := range legacy.Updates {
+		rows = append(rows, Row{
+			CLI:     p.ID(),
+			Source:  u.Source,
+			Vendor:  u.Scope,
+			Version: u.Current,
+			Behind:  u.Latest,
+		})
+	}
+	return rows, nil
 }
 
 // SourceName is what a pane prints for a package source: the npm name without
