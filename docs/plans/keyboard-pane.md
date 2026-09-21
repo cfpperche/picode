@@ -271,7 +271,65 @@ Two things it added beyond the plan, both because the work asked for them:
   shipped yet" instead of promising one, which is what P5 was going to have to
   invent copy for anyway.
 
-P2 is next: the adapters, Omp first, and the ADR above.
+P2 is next: the adapters, Omp first, and the ADR above. Its inputs were measured
+before the first line of the adapter, so the next session starts with no
+unknowns — and the first measurement corrected this plan.
+
+## P2's inputs (measured 2026-09-21)
+
+**Omp, read out of the installed bundle** (`@oh-my-pi/pi-coding-agent` 18.2.8,
+which pins `@oh-my-pi/pi-tui` 18.2.8 — the inlined keybinding module, whose
+published sources match the bundle string-for-string):
+
+- **One file, machine-level**, in the agent dir (`~/.omp/agent`, `PI_CONFIG_DIR`,
+  or the active profile's dir): `keybindings.yml`, else `keybindings.yaml`, else
+  legacy `keybindings.json`. A legacy JSON file is read and then written back as
+  YAML into `keybindings.yml`, so a JSON file never stays the live one. **The
+  adapter edits whichever file exists, in that precedence order, and creates
+  `keybindings.yml` when none does** — writing `.yml` beside an existing `.json`
+  would shadow the user's own values.
+- **Flat, no contexts**: `Record<action, chord | [chord] | undefined>`; chords
+  are lowercase `mod+base`, modifiers ordered `ctrl, shift, alt, super`; reading
+  is case-insensitive and folds `esc`→`escape`, `return`→`enter`; `[]` unbinds
+  (the CLI prints `Disabled`); an absent key means "use the default".
+- **70 action ids, not 116**: 32 `tui.*` + 38 `app.*`, every one carrying a
+  `description` (which is the pane's label). The 116 in the first draft of this
+  plan was a grep artifact — a regex over the bundle for dotted identifiers also
+  matches settings keys and event names; the registry said 116 for a day and is
+  corrected. The id namespace (`tui.editor`, `tui.input`, `tui.select`, `app`) is
+  the only grouping the CLI has.
+- **A platform default exists**: `app.clipboard.pasteImage` is `ctrl+v` on Linux,
+  `ctrl+v`/`alt+v` on Windows, `ctrl+v`/`super+v` on macOS. The catalog's `Alt`
+  map takes the CLI's own platform names (`linux`/`win32`/`darwin`), and WSL
+  reports `linux` to the CLI.
+- **Pickup: still unknown.** `KeybindingsManager.reload()` exists and re-reads
+  the files, but nothing user-facing is documented to call it. The registry says
+  unknown and the pane will say so.
+- **Where the tables live**: the bundle's module is one region of `dist/cli.js`
+  (the minified bundle is ~26 MB, so cite the region, not a line per fact), and
+  the same text is published at `@oh-my-pi/pi-tui@18.2.8/src/keybindings.ts` (the
+  32-row TUI table, the manager) and `.../src/app-keybindings.ts` (the 38-row
+  table, the path resolver, the parser, the display formatter). A drift probe for
+  Omp reads those.
+
+**What the first adapter is**: a flat-document reader/writer (read a decoded
+document into `action → chords`, splice one action's list literal, insert when
+absent, refuse when the key exists in a shape the format layer will not rewrite,
+atomic write, revision/409) over the exported format layer; the Omp catalog; the
+`omp` registry row moving from `planned` to `shipped`; the pane taking the CLI
+from the route; and the harness rows for a guest pane. Then Hermes' three scalar
+keys, which need no key-map engine at all.
+
+**The other four** (`claude-code`, `codex`, `agy`, `opencode`) keep their
+registry rows and their `planned` answer until each adapter lands, with the
+shapes already named in §4: inverted contexts for Claude Code, nested tables for
+Codex, `tui.json` with `<leader>` sequences for OpenCode, and Antigravity's flat
+`id → [chord]` with its own key names.
+
+**Claude Code's adapter owns one thing the others do not**: its file keys
+*chords* to actions, so "add a key to this row" is a different edit — a
+`bindings[]` block for that context gains or loses a chord key — which is why its
+shape is declared apart rather than squeezed into the flat writer.
 
 ## 7. Verification
 
