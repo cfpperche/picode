@@ -17,9 +17,18 @@ Pi keeps its own file (`~/.pi/agent/auth.json`) and PiCode reads and writes
 exactly that, like the pi TUI. Canonical:
 [pi Providers](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/providers.md).
 
+## One pane, every CLI
+
+All nine CLIs share one Providers pane (`Agent CLIs` → pick a CLI →
+**Providers**), with the same columns and the same words: the account's name,
+who it is, its **Usage** windows and what your sessions spent on that provider
+in the last 7 days. Which CLIs appear where, and what each action does, is
+below.
+
 ## Sign in
 
-**Add provider** (or `/login`) → pick a provider.
+**Add provider** (or `/login`) → pick a provider. This is pi's own door: the
+login runs through pi, and the key or token lands in `~/.pi/agent/auth.json`.
 
 | Method | In PiCode |
 |---|---|
@@ -40,10 +49,12 @@ the last live account cannot be paused — that is **Sign out**.
 Sign out says what it breaks: the confirm names the agents and automations
 configured on that provider.
 
-## Other agent CLIs
+## The same pane for the other CLIs
 
-Claude Code, Codex, OpenCode, Grok, Hermes, Muse, Antigravity and Omp have the
-same pane for the providers they can use, with five actions:
+Claude Code, Codex, OpenCode, Grok, Hermes, Muse, Antigravity and Omp keep the
+same pane for the providers they can use. They carry every column pi has,
+including **Usage** and **7d spend**, wherever the vendor and the account allow
+it — plus the five actions that belong to a CLI whose login is its own file:
 
 | Action | What it does |
 |---|---|
@@ -91,8 +102,8 @@ Some limits are the vendors', not PiCode's, and the pane says so on the row:
 
 ## Custom provider
 
-**Add provider → Custom provider** opens a page that adds a gateway pi
-does not know out of the box — OpenRouter-style aggregators, prepaid wallets,
+**Add provider → Custom provider** (in pi's pane) opens a page that adds a
+gateway pi does not know out of the box — OpenRouter-style aggregators, prepaid wallets,
 self-hosted routers. The form asks for a name, the base URL, the API key and
 the model ids exactly as the gateway spells them. Use lowercase letters,
 digits and dashes for the name — it becomes the provider id.
@@ -129,15 +140,17 @@ this page.
 provider right now (`pi auth check`). It costs nothing: no model call, no
 token, and an expired login is reported rather than refreshed.
 
-The other CLIs' panes verify differently — one listing call to the provider,
-named on the button — because those CLIs have no equivalent command. See
-[Other agent CLIs](#other-agent-clis).
+The other CLIs verify differently — one listing call to the provider, named on
+the button, on each of their account rows — because those CLIs have no
+equivalent command.
 
 ## Usage
 
 Claude, Codex, Copilot, Kimi and xAI rows signed in with an **account** show
 plan windows. ZAI, OpenCode Go, OpenRouter and MiniMax show them for an
-**API key**. A provider without a plan meter shows none.
+**API key**. A provider without a plan meter shows none. This is the same for
+every CLI: the window belongs to the account, not to the tool that holds it, so
+a Claude subscription imported from Claude Code shows the same numbers as pi's.
 
 The windows are on the row itself:
 

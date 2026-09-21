@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CLI_CREDENTIALS, CLI_PROVIDERS, cliProvidersHash, cliProvidersLocation, cliProvidersReturnTo, supportsCliCredentials, supportsCliProviders } from "./cliProviders.js";
+import { CLI_PROVIDERS, cliProvidersHash, cliProvidersLocation, cliProvidersReturnTo, supportsCliProviders } from "./cliProviders.js";
 import { cliLocation } from "./cliLaunch.js";
 import { normalizeTerminalCli, terminalCliLabel } from "./terminalCli.js";
 
@@ -29,31 +29,28 @@ test("provider list/new URLs normalize legacy links without adding agent scope",
   assert.deepEqual(cliLocation(cliProvidersHash("pi", { custom: true, customId: "cheap" })), { view: "clis", id: "pi", pane: "providers", custom: "edit", customId: "cheap" });
 });
 
-test("the vault roster covers the eight guest CLIs and never pi", () => {
-  assert.deepEqual(CLI_CREDENTIALS.map((cli) => cli.id), ["claude-code", "codex", "grok", "hermes", "opencode", "muse", "agy", "omp"]);
-  for (const row of CLI_CREDENTIALS) {
+test("the one providers pane covers all nine CLIs, pi included", () => {
+  assert.deepEqual(CLI_PROVIDERS.map((cli) => cli.id),
+    ["pi", "claude-code", "codex", "grok", "hermes", "opencode", "muse", "agy", "omp"]);
+  for (const row of CLI_PROVIDERS) {
     // A launch-catalog id with terminalCli's own label: one spelling per CLI,
     // so the pane's heading and the terminal badge never disagree.
     assert.equal(normalizeTerminalCli(row.id), row.id, row.id);
     assert.equal(terminalCliLabel(row.id), row.name, row.id);
-    assert.equal(supportsCliCredentials(row.id), true, row.id);
-    assert.equal(supportsCliProviders(row.id), false, row.id);
+    assert.equal(supportsCliProviders(row.id), true, row.id);
   }
-  // pi keeps its own provider editor: its rows are the ones that write
-  // auth.json, and the vault pane must not pretend to be that.
-  assert.equal(supportsCliCredentials("pi"), false);
   for (const unknown of ["", "unknown", "claude", "%ZZ", null, undefined]) {
-    assert.equal(supportsCliCredentials(unknown), false, String(unknown));
+    assert.equal(supportsCliProviders(unknown), false, String(unknown));
   }
 });
 
 test("provider support does not follow launch support or malformed paths", () => {
-  assert.deepEqual(CLI_PROVIDERS.map(cli => cli.id), ["pi"]);
-  assert.equal(supportsCliProviders("pi"), true);
-  for (const cli of ["codex", "claude", "unknown", "%ZZ", "", "pi%2Fextra"]) {
+  // codex is a declared provider pane now, so the sweep uses ids that are not
+  // (the malformed ones keep their own assertion below).
+  for (const cli of ["unknown", "%ZZ", "", "pi%2Fextra"]) {
     const route = cliProvidersLocation("#/clis/providers/" + cli);
     assert.equal(supportsCliProviders(route.id), false, cli);
-    if (cli === "codex" || cli === "claude" || cli === "unknown") {
+    if (cli === "unknown") {
       assert.equal(route.redirect, cliProvidersHash(cli));
     }
   }

@@ -31,21 +31,6 @@
 .prov-id { font-family: var(--mono); flex: 1; min-width: 0; }
 .prov-auth { color: var(--text-secondary); font-size: 11.5px; }
 .prov-auth.in { color: var(--ok); }
-/* A one-line pointer to another surface hugs its own text: the button next
-   to it is the next action, not the far edge of the page. */
-.prov-llama-link { justify-content: flex-start; }
-.prov-llama-link .prov-id { flex: 0 1 auto; color: var(--text-secondary); }
-
-/* Toolbar: search and the primary action are one cluster, not two edges. */
-.prov-bar { margin-bottom: 12px; gap: 8px; justify-content: flex-start; }
-.prov-search {
-  flex: 1; min-width: 200px; max-width: 520px;
-  height: var(--ctl-h); box-sizing: border-box; padding: 0 10px;
-  background: var(--bg-base); color: var(--text-primary);
-  border: 1px solid var(--border); border-radius: var(--radius-ctl);
-  font: inherit; font-size: 12.5px; outline: none;
-}
-.prov-search:focus { border-color: var(--accent); }
 
 /* One row per account. Every track is fixed or fr — never auto: an auto
    track resolves against the row's own content, which would move the fixed
@@ -89,25 +74,9 @@
 .prov-tr.cont .prov-provider { padding-left: 32px; }
 .prov-tr.cont .prov-provider .prov-id { color: var(--text-secondary); }
 .prov-account { gap: 8px; flex-wrap: wrap; }
-.prov-account .prov-acc-label, .prov-account .prov-acc-input {
-  flex: 0 1 auto; max-width: 180px;
-}
 /* The pill is state, not a label: it never shrinks, the alias yields to it
    and truncates instead. */
 .prov-account .prov-auth { flex: none; }
-.prov-acc-label {
-  text-align: left; cursor: text;
-  background: none; border: 1px solid transparent; color: inherit; font: inherit;
-  padding: 2px 6px; border-radius: 4px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.prov-acc-label:hover { background: var(--bg-hover); }
-.prov-acc-input {
-  min-width: 0; height: 24px;
-  background: var(--bg-base); color: var(--text-primary);
-  border: 1px solid var(--accent); border-radius: 4px;
-  padding: 0 6px; font: inherit;
-}
 .prov-acc-fixed {
   font-family: var(--mono); font-size: 12px;
   flex: 0 1 auto; min-width: 0;
@@ -206,29 +175,6 @@
 }
 .quota-live { font-size: 11px; color: var(--ok); flex: none; }
 .quota-refresh:disabled { cursor: default; opacity: .7; }
-
-/* Recently used: a line of chips, not another list of cards. */
-.prov-chips { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.prov-chip {
-  display: inline-flex; align-items: center; overflow: hidden;
-  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 999px;
-}
-.prov-chip-main {
-  display: inline-flex; align-items: center; gap: 8px;
-  height: var(--ctl-h); padding: 0 10px 0 8px;
-  background: none; border: 0; color: var(--text-primary);
-  font: inherit; font-size: 12.5px; cursor: pointer;
-}
-.prov-chip-main:hover { background: var(--bg-hover); }
-.prov-chip-main .ws-face { width: 20px; height: 20px; margin-left: 0; padding: 2px; font-size: 10px; }
-.prov-chip-id { font-family: var(--mono); }
-.prov-chip-act { color: var(--accent); }
-.prov-chip-x {
-  height: var(--ctl-h); width: 30px; box-sizing: border-box;
-  background: none; border: 0; border-left: 1px solid var(--border);
-  color: var(--text-secondary); font-size: 14px; line-height: 1; cursor: pointer;
-}
-.prov-chip-x:hover { background: var(--bg-hover); color: var(--text-primary); }
 
 /* Add-provider and pick menus. */
 .prov-methods { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }

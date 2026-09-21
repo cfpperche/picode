@@ -49,8 +49,6 @@
 #m-app .m-more-page .mcp-empty { align-items: flex-start; text-align: left; padding: 8px 0; gap: 12px; }
 #m-app .m-more-page .prov-accounts { padding-left: 0; }
 #m-app .m-more-page .prov-acc-top { flex-wrap: wrap; gap: 6px; }
-#m-app .m-more-page .prov-bar { gap: 8px; }
-#m-app .m-more-page .prov-search { min-width: 0; flex: 1; }
 #m-app .m-more-page .prov-row { gap: 8px; }
 #m-app .m-more-page .prov-head .prov-id { font-family: var(--sans); font-size: 14px; }
 #m-app .m-more-page .sys-row { gap: 12px; }

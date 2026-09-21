@@ -18,6 +18,7 @@ import (
 	"github.com/cfpperche/picode/internal/clicreds"
 	"github.com/cfpperche/picode/internal/clilaunch"
 	"github.com/cfpperche/picode/internal/credentials"
+	"github.com/cfpperche/picode/internal/usage"
 )
 
 // The credential vault's own surface (ADR-0165): every provider account for
@@ -42,18 +43,32 @@ func registerCredentialRoutes(mux Registrar, deps Deps) {
 
 // providerView is one provider the CLI can use, with the vault rows it holds.
 type providerView struct {
-	ID       string            `json:"id"`
-	Kinds    []string          `json:"kinds"`
-	Env      map[string]string `json:"env,omitempty"`
-	Note     string            `json:"note,omitempty"`
-	Verifier bool              `json:"verifier"`
-	Native   *nativeView       `json:"native,omitempty"`
-	Accounts []accountView     `json:"accounts"`
+	ID    string            `json:"id"`
+	Kinds []string          `json:"kinds"`
+	Env   map[string]string `json:"env,omitempty"`
+	Note  string            `json:"note,omitempty"`
+	// Custom marks a provider defined in pi's models.json (ADR-0129): the pane
+	// offers Edit provider for it, not only Add.
+	Custom bool `json:"custom,omitempty"`
+	// Verify is how this CLI answers "does this credential still work":
+	// verifyByProvider for pi, whose own check answers for a whole provider, or
+	// verifyByRow for a guest CLI, whose check is a listing call with one row's
+	// key. Empty where the CLI has no honest check for that provider, so the
+	// pane offers no Verify rather than one that always fails.
+	Verify   string        `json:"verify,omitempty"`
+	Native   *nativeView   `json:"native,omitempty"`
+	Accounts []accountView `json:"accounts"`
 	// SingleOAuth says this CLI's login carries no account name, so the vault
 	// keeps one subscription row per provider here (ADR-0013's rule). The pane
 	// says so instead of letting a second import look like it vanished.
 	SingleOAuth bool `json:"singleOAuth,omitempty"`
 }
+
+// The two ways a CLI can check a credential (providerView.Verify).
+const (
+	verifyByProvider = "provider"
+	verifyByRow      = "row"
+)
 
 // accountView is one vault row as this CLI sees it. Active means "the file
 // this CLI reads holds this account right now": the file is the truth, so a
@@ -64,6 +79,10 @@ type providerView struct {
 type accountView struct {
 	catalog.Account
 	Activatable bool `json:"activatable"`
+	// Usage is the cached report for this row. The key is absent when the
+	// cache holds none: a pane load never calls a vendor, and the pane renders
+	// "unknown" with Check instead of a guessed bar (ADR-0031).
+	Usage *usage.Entry `json:"usage,omitempty"`
 }
 
 type nativeView struct {
@@ -73,9 +92,27 @@ type nativeView struct {
 	Imported bool   `json:"imported,omitempty"`
 }
 
+// rosterSource is one provider a CLI can use, from wherever that CLI keeps its
+// list: pi's catalog (the /login set, the models it lists and the models.json
+// definitions) or a guest CLI's clicreds declaration.
+type rosterSource struct {
+	ID          string
+	Kinds       []string
+	Env         map[string]string
+	Note        string
+	Custom      bool
+	Native      *clicreds.Native
+	Verify      string
+	SingleOAuth bool
+}
+
 // handleCredentials answers the roster for one CLI: which providers it can
 // read, and which saved accounts exist for each. The vault's own state is
 // reported honestly — a locked vault says so instead of looking empty.
+//
+// One roster for every CLI (ADR-0169): pi's providers come from the catalog,
+// a guest's from its declaration, and both carry the same rows with the cached
+// usage report each one has.
 func handleCredentials(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cli := strings.TrimSpace(r.URL.Query().Get("cli"))
@@ -86,53 +123,24 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 		}
 		out := map[string]any{"cli": spec.CLI, "cliName": spec.Name}
 		out["vault"] = vaultState()
-		providers := []providerView{}
-		isPi := spec.CLI == "pi"
-		for _, p := range spec.Providers {
-			// The CLI's own file, read once: it decides which row is in use and
-			// whether Use could write each row.
-			var existing []byte
-			if path := clicreds.CredentialPath(spec.CLI, p.Provider); path != "" {
-				existing, _ = os.ReadFile(path)
+		var sources []rosterSource
+		if spec.CLI == "pi" {
+			fromCatalog, err := catalogSources(deps)
+			if err != nil {
+				writeErr(w, http.StatusServiceUnavailable, err.Error())
+				return
 			}
-			rows := accountsFor(p.Provider)
-			// The CLI's own store, read once: what it holds decides which row
-			// is in use and whether Use could write each row. "Detected" is the
-			// store having a login at all; "live" is that login already being
-			// one of the rows below.
-			login, detected := clicreds.DetectProvider(spec.CLI, p.Provider)
-			liveID := ""
-			if detected {
-				liveID = liveRowID(p.Provider, rows, login)
-			}
-			views := make([]accountView, 0, len(rows))
-			for _, a := range rows {
-				view := accountView{Account: a}
-				if !isPi {
-					// pi's roster is its own endpoint, where Active is pi's slot.
-					view.Active = liveID != "" && a.ID == liveID
-				}
-				if p.Native != nil {
-					if row, ok, err := credentials.Default().Row(p.Provider, a.ID); err == nil && ok {
-						_, view.Activatable = clicreds.RenderLogin(p.Native.Format, p.Provider, row.Cred, existing)
-					}
-				}
-				views = append(views, view)
-			}
-			view := providerView{
-				ID: p.Provider, Kinds: p.Kinds, Env: p.Env, Note: p.Note,
-				Verifier:    probeFor(p.Provider) != nil,
-				Accounts:    views,
-				SingleOAuth: p.Native != nil && !clicreds.IdentityBearing(p.Native.Format),
-			}
-			if p.Native != nil && detected {
-				view.Native = &nativeView{
-					Detected: true, Kind: login.Kind, Label: login.Label,
-					Imported: liveID != "",
-				}
-			}
-			providers = append(providers, view)
+			sources = fromCatalog
+			// The bar's primary opens pi's own dialog — OAuth or a key — and
+			// the custom-endpoint page hangs off this pane (ADR-0169).
+			out["add"] = map[string]any{"kind": "provider", "label": "Add provider"}
+			out["custom"] = map[string]any{"available": true, "href": "#/clis/pi/providers/custom"}
+		} else {
+			sources = declarationSources(spec)
+			out["add"] = map[string]any{"kind": "key", "label": "Add API key"}
 		}
+		providers := providerViews(spec, sources)
+		attachRowUsage(providers, time.Now())
 		out["providers"] = providers
 		if spec.Login != nil {
 			out["signin"] = map[string]any{"available": true, "hint": spec.Login.Hint}
@@ -141,6 +149,171 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, out)
 	}
+}
+
+// catalogSources is pi's provider list, read from the catalog (ADR-0169). The
+// catalog is the authority on what pi can talk to — its /login set, the models
+// it lists, and the custom definitions in models.json; pi's declaration still
+// says which credential shapes it takes and which variable each kind is passed
+// in for the providers it names, and a provider only the model list knows
+// carries the catalog's own answer.
+func catalogSources(deps Deps) ([]rosterSource, error) {
+	rep, err := loadCatalog(deps)
+	if err != nil {
+		return nil, err
+	}
+	spec, _ := clicreds.For("pi")
+	out := make([]rosterSource, 0, len(rep.Providers))
+	for _, p := range rep.Providers {
+		s := rosterSource{ID: p.ID, Custom: p.Custom, Verify: verifyByProvider}
+		if d := declaredProvider(spec, p.ID); d != nil {
+			s.Kinds, s.Env, s.Note, s.Native = d.Kinds, d.Env, d.Note, d.Native
+			s.SingleOAuth = d.Native != nil && !clicreds.IdentityBearing(d.Native.Format)
+		} else {
+			s.Kinds = kindsOfLogin(p.Login)
+			s.Env = envOfProvider(p.ID)
+		}
+		out = append(out, s)
+	}
+	return out, nil
+}
+
+// declarationSources is a guest CLI's provider list: its own declaration, in
+// declaration order, with the check that CLI can actually run.
+func declarationSources(spec clicreds.Spec) []rosterSource {
+	out := make([]rosterSource, 0, len(spec.Providers))
+	for _, p := range spec.Providers {
+		s := rosterSource{
+			ID: p.Provider, Kinds: p.Kinds, Env: p.Env, Note: p.Note, Native: p.Native,
+			SingleOAuth: p.Native != nil && !clicreds.IdentityBearing(p.Native.Format),
+		}
+		if probeFor(p.Provider) != nil {
+			s.Verify = verifyByRow
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
+// providerViews turns a provider list into the roster's rows, reading the
+// CLI's own credential file once per provider: it decides whether Use could
+// write each row, and whether the CLI is already signed in by itself.
+func providerViews(spec clicreds.Spec, sources []rosterSource) []providerView {
+	isPi := spec.CLI == "pi"
+	out := make([]providerView, 0, len(sources))
+	for _, s := range sources {
+		var existing []byte
+		if path := clicreds.CredentialPath(spec.CLI, s.ID); path != "" {
+			existing, _ = os.ReadFile(path)
+		}
+		rows := accountsFor(s.ID)
+		// The CLI's own store, read once: what it holds decides which row is
+		// in use and whether Use could write each row. "Detected" is the
+		// store having a login at all; "live" is that login already being one
+		// of the rows below.
+		login, detected := clicreds.DetectProvider(spec.CLI, s.ID)
+		liveID := ""
+		if detected {
+			liveID = liveRowID(s.ID, rows, login)
+		}
+		views := make([]accountView, 0, len(rows))
+		for _, a := range rows {
+			view := accountView{Account: a}
+			if !isPi {
+				// pi's rows are marked in use by the vault's own active slot,
+				// which mirrors auth.json (ADR-0013).
+				view.Active = liveID != "" && a.ID == liveID
+			}
+			if s.Native != nil {
+				if row, ok, err := credentials.Default().Row(s.ID, a.ID); err == nil && ok {
+					_, view.Activatable = clicreds.RenderLogin(s.Native.Format, s.ID, row.Cred, existing)
+				}
+			}
+			views = append(views, view)
+		}
+		view := providerView{
+			ID: s.ID, Kinds: s.Kinds, Env: s.Env, Note: s.Note, Custom: s.Custom,
+			Verify: s.Verify, Accounts: views, SingleOAuth: s.SingleOAuth,
+		}
+		if s.Native != nil && detected {
+			view.Native = &nativeView{
+				Detected: true, Kind: login.Kind, Label: login.Label,
+				Imported: liveID != "",
+			}
+		}
+		out = append(out, view)
+	}
+	return out
+}
+
+// attachRowUsage fills each row's usage from the cache. The rows themselves
+// are handed to usage.Summary, so the entry is the JSON /api/providers/usage
+// serves, and Lookup decides presence: a row the cache never saw keeps no
+// usage key at all. Nothing here reaches a vendor (ADR-0031).
+func attachRowUsage(providers []providerView, now time.Time) {
+	rows := make([]catalog.Provider, 0, len(providers))
+	for _, p := range providers {
+		if len(p.Accounts) == 0 {
+			continue
+		}
+		signed := catalog.Provider{ID: p.ID, SignedIn: true}
+		for _, a := range p.Accounts {
+			signed.Accounts = append(signed.Accounts, a.Account)
+		}
+		rows = append(rows, signed)
+	}
+	index := map[[2]string]usage.Entry{}
+	for _, e := range usage.Summary(rows, now) {
+		if _, _, cached := usage.Lookup(e.Provider, e.AccountID); !cached {
+			continue
+		}
+		index[[2]string{e.Provider, e.AccountID}] = e
+	}
+	for i := range providers {
+		for j := range providers[i].Accounts {
+			a := &providers[i].Accounts[j]
+			e, ok := index[[2]string{providers[i].ID, a.ID}]
+			if !ok {
+				continue
+			}
+			entry := e
+			a.Usage = &entry
+		}
+	}
+}
+
+// declaredProvider is the CLI's own row for a provider, where it declares one.
+func declaredProvider(spec clicreds.Spec, provider string) *clicreds.Provider {
+	for i := range spec.Providers {
+		if spec.Providers[i].Provider == provider {
+			return &spec.Providers[i]
+		}
+	}
+	return nil
+}
+
+// kindsOfLogin is the catalog's /login method as the roster's credential
+// shapes.
+func kindsOfLogin(login string) []string {
+	switch login {
+	case catalog.LoginOAuth:
+		return []string{clicreds.KindOAuth}
+	case catalog.LoginBoth:
+		return []string{clicreds.KindAPIKey, clicreds.KindOAuth}
+	default:
+		return []string{clicreds.KindAPIKey}
+	}
+}
+
+// envOfProvider is the variable pi reads for a provider it never declared.
+// The catalog lists pi's names in the order pi reads them; anthropic is the
+// only provider with more than one, and pi declares it.
+func envOfProvider(provider string) map[string]string {
+	names := catalog.APIKeyEnvVars[provider]
+	if len(names) == 0 {
+		return nil
+	}
+	return map[string]string{clicreds.KindAPIKey: names[0]}
 }
 
 // vaultState reports whether the vault can be read at all.
@@ -407,13 +580,7 @@ func handleCredentialActivate(deps Deps) http.HandlerFunc {
 			return
 		}
 		provider, id := r.PathValue("provider"), r.PathValue("id")
-		var decl *clicreds.Provider
-		for i := range spec.Providers {
-			if spec.Providers[i].Provider == provider {
-				decl = &spec.Providers[i]
-				break
-			}
-		}
+		decl := declaredProvider(spec, provider)
 		if decl == nil {
 			writeErr(w, http.StatusBadRequest, spec.Name+" does not use that provider.")
 			return

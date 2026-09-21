@@ -142,15 +142,27 @@ func runningOnWSL() bool {
 
 func handleCatalog(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		rep, err := catalog.Load(deps.AgentCmd)
+		rep, err := loadCatalog(deps)
 		if err != nil {
 			writeErr(w, http.StatusServiceUnavailable, err.Error())
 			return
 		}
-		attachLlamaModels(&rep)
-		attachProviderRefs(deps, &rep)
 		writeJSON(w, http.StatusOK, rep)
 	}
+}
+
+// loadCatalog is pi's catalog with everything a pane shows beside it — the
+// llama models, and how many agents and automations name each provider — so
+// "the catalog" has one definition here. The credential roster reads pi's
+// provider list from the same place (ADR-0169).
+func loadCatalog(deps Deps) (catalog.Report, error) {
+	rep, err := catalog.Load(deps.AgentCmd)
+	if err != nil {
+		return rep, err
+	}
+	attachLlamaModels(&rep)
+	attachProviderRefs(deps, &rep)
+	return rep, nil
 }
 
 // handlePiSelfUpdate runs `pi update --self` (the button in System).

@@ -131,7 +131,7 @@ snapshot has and the migration absorbs the legacy shape.
 | pi's slot + the public getters usage and the server read | `internal/catalog/accounts.go`, `internal/catalog/cred.go` |
 | Per-CLI declarations and native readers | `internal/clicreds/` |
 | HTTP surface | `internal/server/credentials.go` |
-| Pane (both apps) | `web/{browser,mobile}/src/components/CliCredentials.jsx`, `web/shared/styles/credentials.css`, `web/shared/domain/credentials.js` |
+| Pane (both apps), one surface for all nine CLIs (ADR-0169) | `web/{browser,mobile}/src/components/CliCredentials.jsx` (+ `AddProviderDialog.jsx` for pi's own door), `web/shared/styles/credentials.css` and the roster grid in `providers.css`, `web/shared/domain/credentials.js` |
 | Activation renderers + the file path per CLI | `internal/clicreds/render.go`, `internal/clicreds.CredentialPath` |
 
 **Tests must never see the live vault.** Its directory is `PICODE_DATA` first

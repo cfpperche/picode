@@ -2,23 +2,35 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as Dialog from "./ResponsiveDialog.jsx";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import PageFrame from "./PageFrame.jsx";
+import AddProviderDialog from "./AddProviderDialog.jsx";
+import CustomEndpointPage from "./CustomEndpointPage.jsx";
+import QuotaStrip from "./QuotaStrip.jsx";
+import { ProviderFace } from "./ProviderFaces.jsx";
 import { api } from "@picode/shared/client/api.js";
 import { toast, toastError } from "../lib/toast.js";
 import { askConfirm } from "../lib/confirm.js";
 import { askPrompt } from "../lib/prompt.js";
 import { apiKeySchema, parseForm } from "@picode/shared/contracts/schemas.js";
 import { cliPaneHash } from "@picode/shared/domain/cliLaunch.js";
+import { cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { terminalCliLabel } from "@picode/shared/domain/terminalCli.js";
-import { identityLine } from "@picode/shared/domain/providerRows.js";
+import { usagePath } from "@picode/shared/domain/providerUsage.js";
+import { formatSpend, identityLine, spendByProvider } from "@picode/shared/domain/providerRows.js";
 import { vaultProblemText } from "@picode/shared/domain/credentials.js";
 import { healthChip, kindLabel, orderAccounts, providerName, sourceLabel, VERIFY_LABEL } from "@picode/shared/domain/credentials.js";
 
-// The vault roster for a guest CLI (ADR-0165): every account this CLI can use,
-// the login it already has of its own, and the four verbs — Import, Add API
-// key, Verify, Sign out — plus rename and pause. This pane never activates a
-// credential for pi: pi's own editor writes auth.json, this one writes the
-// shared vault. Both apps carry this file (ADR-0072), so the only difference
-// between them is the modal primitive on line 2.
+// The providers surface for all nine agent CLIs (ADR-0169). One roster
+// (GET /api/credentials?cli=), one grid — providers.css owns the columns and
+// the 840px card fold, this file owns the state — and one vocabulary for pi
+// and for the eight guests. It carries pi's two readings (Usage, 7d spend) to
+// every CLI and renders only the doors the roster's flags allow: the bar's
+// Add, the per-provider Add, Import, Sign in, Verify (pi's own `auth check` at
+// the provider, a guest's listing probe on the row), Check usage, Rename,
+// Pause/Resume, Sign out, Edit provider. A number we did not fetch is never
+// drawn as one (ADR-0031): a row with no report says so, and the one action
+// that would get it sits next to the word. Both apps carry this file
+// (ADR-0072), so the only difference between them is the modal primitive on
+// line 2.
 
 const credPath = (provider, id, suffix = "") =>
   "/api/credentials/" + encodeURIComponent(provider) + "/" + encodeURIComponent(id) + suffix;
@@ -29,27 +41,46 @@ const json = (method, body) => ({
   body: JSON.stringify(body),
 });
 
-export default function CliCredentials({ hidden, cli, add = false }) {
+export default function CliCredentials({ hidden, cli, add = false, custom = "", customId = "", onCatalogChange }) {
   const [data, setData] = useState(null);
   const [problem, setProblem] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Our own 7-day spend by provider, from the session files: one call for the
+  // whole pane, never a vendor (ADR-0031). Empty means "we do not know", and
+  // the column says so.
+  const [spend, setSpend] = useState(() => new Map());
   const [busy, setBusy] = useState("");
+  const [verdicts, setVerdicts] = useState({});
   const [nativeError, setNativeError] = useState({});
   // A sign-in in flight: the CLI's own login runs in a PiCode terminal, and
   // this holds the hint plus whatever the last check answered.
   const [signin, setSignin] = useState(null);
+  // pi's provider + model catalog (ADR-0129): the Add-provider dialog reads it,
+  // and so does the app's model picker through onCatalogChange. No other CLI
+  // has one to fetch.
+  const [catalog, setCatalog] = useState(null);
+  const [catalogError, setCatalogError] = useState("");
+  const [addProviderOpen, setAddProviderOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({ provider: "", key: "" });
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const live = useRef(false);
   const sequence = useRef(0);
+  const catalogSeq = useRef(0);
+  const notify = useRef(onCatalogChange);
+  notify.current = onCatalogChange;
 
   // The vault is the daemon's file, not a vendor's: a load is one local
   // request, and a refresh keeps the last good roster on screen.
   const load = useCallback(async () => {
     const request = ++sequence.current;
     setLoading(true);
+    // Fired with the roster, once per pane load: a local aggregate, so the
+    // column costs the pane nothing and a failure just leaves its dash.
+    api("/api/sessions/stats?range=7d")
+      .then((stats) => { if (live.current) setSpend(spendByProvider(stats)); })
+      .catch(() => {});
     try {
       const next = await api("/api/credentials?cli=" + encodeURIComponent(cli));
       if (!live.current || request !== sequence.current) return;
@@ -62,12 +93,34 @@ export default function CliCredentials({ hidden, cli, add = false }) {
     }
   }, [cli]);
 
+  const loadCatalog = useCallback(async () => {
+    if (cli !== "pi") return;
+    const request = ++catalogSeq.current;
+    try {
+      const next = await api("/api/catalog");
+      if (!Array.isArray(next?.providers)) throw new Error("Invalid provider catalog.");
+      if (!live.current || request !== catalogSeq.current) return;
+      setCatalog(next);
+      setCatalogError("");
+      notify.current?.(next);
+    } catch {
+      if (live.current && request === catalogSeq.current) setCatalogError("Couldn’t load the provider catalog.");
+    }
+  }, [cli]);
+
+  const refresh = useCallback(() => { load(); loadCatalog(); }, [load, loadCatalog]);
+
   useEffect(() => {
     live.current = true;
-    load();
-    window.addEventListener("focus", load);
-    return () => { live.current = false; sequence.current++; window.removeEventListener("focus", load); };
-  }, [load]);
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => {
+      live.current = false;
+      sequence.current++;
+      catalogSeq.current++;
+      window.removeEventListener("focus", refresh);
+    };
+  }, [refresh]);
 
   // The pane survives a CLI switch without remounting; a sign-in in flight
   // belongs to the CLI it was started for, so it goes with it.
@@ -79,6 +132,33 @@ export default function CliCredentials({ hidden, cli, add = false }) {
   // The server knows no credential mechanism for this CLI: the pane is one
   // line, and any roster a previous load left on screen goes with it.
   const missing = !!(problem && problem.missing);
+  // What the bar's primary opens, straight from the roster: pi adds a provider
+  // through its own login, a guest adds a key to a provider it already reads.
+  const addSpec = data && data.add ? data.add : null;
+  const addKind = addSpec && addSpec.kind === "provider" ? "provider" : addSpec ? "key" : "";
+  const addLabel = (addSpec && addSpec.label) || (addKind === "provider" ? "Add provider" : "Add API key");
+  // pi's models.json page: the one provider surface a guest CLI has no
+  // equivalent for, linked rather than hidden behind a menu item (ADR-0169).
+  const customDoor = data && data.custom && data.custom.available ? (data.custom.href || cliProvidersHash("pi", { custom: true })) : "";
+  const total = providers.reduce((n, p) => n + ((p.accounts || []).length), 0);
+  // With one provider, the bar's Add already says everything a per-provider
+  // one would: the same dialog, the same preselection. It is only when a CLI
+  // has several that a per-provider Add earns its place.
+  const multiProvider = providers.length > 1;
+  const canAddKey = addKind === "key" && providers.length > 0;
+  const perProviderAdd = canAddKey && multiProvider ? addLabel : "";
+  // The bar outlives an empty roster only where Add can work on its own: pi's
+  // dialog also carries the custom-provider door, so it needs no provider to
+  // already exist.
+  const bar = providers.length > 0 || addKind === "provider";
+  const barPrimary = !!addSpec && (addKind === "provider" || (providers.length > 0 && !multiProvider));
+  // The legend names columns: with no rows under it there is nothing to name.
+  const anyRows = providers.some((p) => (p.accounts || []).length > 0);
+
+  function openPrimary() {
+    if (addKind === "provider") setAddProviderOpen(true);
+    else openAdd("");
+  }
 
   function openAdd(provider) {
     setForm({ provider: provider || (providers[0] && providers[0].id) || "", key: "" });
@@ -93,10 +173,22 @@ export default function CliCredentials({ hidden, cli, add = false }) {
     if (add && typeof location !== "undefined") location.hash = cliPaneHash(cli, "providers");
   }
 
+  function closeAddProvider() {
+    // The route is what opened this door, so closing it clears the route. The
+    // dialog's own custom-provider item closes first and then moves, so the
+    // move writes the last hash and wins.
+    setAddProviderOpen(false);
+    if (add && typeof location !== "undefined") location.hash = cliPaneHash(cli, "providers");
+  }
+
   useEffect(() => {
-    if (add && data && !unreadable) openAdd("");
+    if (!add || !data || unreadable) return;
+    // The route asked for the door the bar's primary opens; the roster is what
+    // says which that is, and pi's catalog is what fills the provider list.
+    if (addKind === "provider") { if (catalog) setAddProviderOpen(true); return; }
+    if (addKind === "key") openAdd("");
     // The route asked for the dialog; the roster is what fills its provider list.
-  }, [add, !!data, unreadable]);
+  }, [add, !!data, unreadable, addKind, !!catalog]);
 
   async function run(key, action, done) {
     setBusy(key);
@@ -204,12 +296,35 @@ export default function CliCredentials({ hidden, cli, add = false }) {
     await run("verify:" + account.id, () => api(credPath(provider.id, account.id, "/verify"), { method: "POST" }));
   }
 
+  // pi's own check: pi is what runs the agent, so pi's answer is the one that
+  // matters, and for a built-in it costs nothing. A custom endpoint is the
+  // exception — pi only reports that a credential is present, so its row is
+  // verified with one minimal real request (the action names the cost).
+  async function verifyProvider(provider) {
+    setBusy("verify:" + provider.id);
+    try {
+      const res = await api("/api/providers/" + encodeURIComponent(provider.id) + "/verify", { method: "POST" });
+      setVerdicts((prev) => ({ ...prev, [provider.id]: res }));
+      if (res && res.ok) toast.ok(res.label ? provider.id + ": " + res.label + "." : cliName + " can use " + providerName(provider.id) + ".");
+      else toast.error(provider.id + ": " + ((res && (res.reason || res.status)) || "not ready"));
+    } catch (ex) {
+      toastError(ex);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  // One vendor call, on this click, under ADR-0129's rule: the roster comes
+  // back carrying the report (and whatever identity the vendor volunteered).
+  async function checkUsage(provider, account) {
+    await run("check:" + account.id, () => api(usagePath(provider.id, account.id)));
+  }
+
   async function pause(provider, account) {
     const paused = !account.paused;
     await run("pause:" + account.id, () => api(credPath(provider.id, account.id, "/pause"), json("POST", { paused })),
       () => toast.ok(paused ? "Paused. The credential is kept." : "Resumed."));
   }
-
 
   // Use writes the chosen account into the CLI's own login file (ADR-0166):
   // the file the CLI already reads, never a new home and never an env var.
@@ -229,7 +344,7 @@ export default function CliCredentials({ hidden, cli, add = false }) {
   }
 
   async function signOut(provider, account) {
-    const identity = identityLine(account);
+    const identity = identityLine(account, account.usage);
     const ok = await askConfirm({
       title: "Sign out " + (account.label || providerName(provider.id)),
       message: "Removes this login from the vault." + (identity ? " " + identity + "." : ""),
@@ -241,11 +356,32 @@ export default function CliCredentials({ hidden, cli, add = false }) {
       () => toast.ok("Signed out."));
   }
 
-  const total = providers.reduce((n, p) => n + ((p.accounts || []).length), 0);
-  // With one provider, the header's Add already says everything a second
-  // button would: the same dialog, the same preselection. It is only when a
-  // CLI has several that a per-provider Add earns its place.
-  const multiProvider = providers.length > 1;
+  // A custom provider is the one row whose definition lives somewhere else
+  // (models.json): the edit is that page, and the route is pi's own.
+  function editProvider(provider) {
+    if (typeof location !== "undefined") location.hash = cliProvidersHash("pi", { custom: true, customId: provider.id });
+  }
+
+  // The custom-endpoint page (ADR-0129) is pi's sub-page of this pane: it
+  // renders its own head and needs the same catalog the Add-provider dialog
+  // does, so it is rendered here rather than one level up.
+  if (custom && cli === "pi") {
+    if (catalog) return <CustomEndpointPage catalog={catalog} onRefresh={loadCatalog} editId={custom === "edit" ? customId : ""} />;
+    return (
+      <section id="cli-credentials-view" hidden={hidden} aria-label="Custom provider">
+        {catalogError ? (
+          <div className="cli-notice is-error" role="alert">
+            <span>{catalogError}</span>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={loadCatalog}>Try again</button>
+          </div>
+        ) : null}
+        <div className="cred-loading" aria-label="Loading the provider catalog" role="status">
+          <div className="cred-skel-head" />
+          <div className="cred-skel-row" />
+        </div>
+      </section>
+    );
+  }
 
   return (
     <PageFrame id="cli-credentials-view" title="Providers" hidden={hidden} embedded>
@@ -259,9 +395,17 @@ export default function CliCredentials({ hidden, cli, add = false }) {
       {problem && !problem.missing ? (
         <div className="cli-notice is-error" role="alert">
           <span>{problem.message}</span>
-          <button type="button" className="btn btn-ghost btn-sm" disabled={loading} onClick={load}>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={loading} onClick={refresh}>
             {loading ? "Retrying…" : "Try again"}
           </button>
+        </div>
+      ) : null}
+      {/* pi's roster is built from the catalog, so a catalog that did not load
+          is a door that would open empty — say so instead of pretending. */}
+      {catalogError && !missing ? (
+        <div className="cli-notice is-error" role="alert">
+          <span>{catalogError}</span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={loadCatalog}>Try again</button>
         </div>
       ) : null}
       {/* The server knows no credential mechanism for this CLI: one line, and
@@ -281,7 +425,7 @@ export default function CliCredentials({ hidden, cli, add = false }) {
       ) : null}
 
       {data && !unreadable && !missing ? <>
-        {providers.length ? (
+        {bar ? (
           <div className="set-row cred-bar" data-align-row>
             {total ? <span className="cred-count">{total === 1 ? "1 account" : total + " accounts"}</span> : null}
             {/* The bar's controls are one group at the end of the row, never a
@@ -294,14 +438,13 @@ export default function CliCredentials({ hidden, cli, add = false }) {
                   {busy === "signin" ? "Opening…" : "Sign in"}
                 </button>
               ) : null}
-              {multiProvider ? null : (
-                <button type="button" className="btn btn-primary btn-sm" onClick={() => openAdd("")}>Add API key</button>
-              )}
+              {customDoor ? <a className="btn btn-ghost btn-sm cred-bar-custom" href={customDoor}>Custom provider</a> : null}
+              {barPrimary ? (
+                <button type="button" className="btn btn-primary btn-sm" onClick={openPrimary}>{addLabel}</button>
+              ) : null}
             </span>
           </div>
-        ) : (
-          <p className="cred-empty"><span>{"No provider credentials for " + cliName + " yet."}</span></p>
-        )}
+        ) : null}
 
         {/* The sign-in is in flight in a terminal of its own: one line, and
             the one action that files the result. */}
@@ -318,75 +461,104 @@ export default function CliCredentials({ hidden, cli, add = false }) {
           </div>
         ) : null}
 
-        <section className="cred-pane" aria-label={cliName + " accounts"}>
-          {providers.map((p) => {
-            const name = providerName(p.id);
-            const note = String(p.note || "").trim();
-            const rows = orderAccounts(p.accounts);
-            return (
-              <div key={p.id} className="cred-provider">
-                <div className="cred-provider-head">
-                  <h3 className="cred-provider-name">{name}</h3>
-                  {name === p.id ? null : <span className="cred-provider-id">{p.id}</span>}
-                  {rows.length && multiProvider ? (
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => openAdd(p.id)}>Add API key</button>
-                  ) : null}
-                </div>
-                {/* A provider that cannot take a credential says why, once. */}
-                {note ? <p className="cred-note">{note}</p> : null}
-
-                {/* The CLI's own login is not a vault row yet: one action. */}
-                {p.native && !p.native.imported ? (
-                  <div className="cred-native">
-                    <span className="cred-native-text">{(p.native.label || cliName) + " is signed in here"}</span>
-                    {kindLabel(p.native.kind) ? <span className="cred-chip">{kindLabel(p.native.kind)}</span> : null}
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      disabled={busy === "import"}
-                      onClick={() => importLogin(p)}
-                    >
-                      {busy === "import" ? "Importing…" : "Import into the vault"}
-                    </button>
-                  </div>
-                ) : null}
-                {nativeError[p.id] ? <p className="cred-note is-error" role="alert">{nativeError[p.id]}</p> : null}
-                {/* Its subscription login has no account name to tell two
-                    apart, so the vault keeps one per provider here. */}
-                {p.singleOAuth && rows.some((a) => a.type === "oauth" && !a.paused) ? (
-                  <p className="cred-note">{"This login carries no account name, so " + name + " keeps one here — a second sign-in can be kept by naming it when asked."}</p>
-                ) : null}
-
-                {rows.length ? (
-                  <ul className="cred-rows">
-                    {rows.map((a) => (
-                      <AccountRow
-                        key={a.id}
-                        provider={p}
-                        account={a}
-                        note={note}
-                        busy={busy}
-                        onRename={() => rename(p, a)}
-                        onUse={() => use(p, a)}
-                        onVerify={() => verify(p, a)}
-                        onPause={() => pause(p, a)}
-                        onSignOut={() => signOut(p, a)}
-                      />
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="cred-empty">
-                    <span>{name + " · No accounts yet."}</span>
-                    {multiProvider ? (
-                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => openAdd(p.id)}>Add API key</button>
-                    ) : null}
-                  </p>
-                )}
+        {providers.length ? (
+          <div className="prov-table">
+            {/* The column labels are the roster's legend: two readings are only
+                comparable if the eye can name the columns they sit under. */}
+            {anyRows ? (
+              <div className="prov-th" aria-hidden="true">
+                <span>Provider</span>
+                <span>Account</span>
+                <span>Identity</span>
+                <span>Usage</span>
+                <span className="prov-num">7d spend</span>
+                <span />
               </div>
-            );
-          })}
-        </section>
+            ) : null}
+            {providers.map((p) => {
+              const name = providerName(p.id);
+              const note = String(p.note || "").trim();
+              const rows = orderAccounts(p.accounts);
+              const rowSpend = spend.get(p.id);
+              const verdict = verdicts[p.id];
+              const money = formatSpend(rowSpend);
+              return (
+                <div key={p.id} className="cred-provider">
+                  {/* A provider that cannot take a credential says why, once. */}
+                  {note ? <p className="cred-note">{note}</p> : null}
+
+                  {/* The CLI's own login is not a vault row yet: one action. */}
+                  {p.native && !p.native.imported ? (
+                    <div className="cred-native">
+                      <span className="cred-native-text">{(p.native.label || cliName) + " is signed in here"}</span>
+                      {kindLabel(p.native.kind) ? <span className="cred-chip">{kindLabel(p.native.kind)}</span> : null}
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        disabled={busy === "import"}
+                        onClick={() => importLogin(p)}
+                      >
+                        {busy === "import" ? "Importing…" : "Import into the vault"}
+                      </button>
+                    </div>
+                  ) : null}
+                  {nativeError[p.id] ? <p className="cred-note is-error" role="alert">{nativeError[p.id]}</p> : null}
+                  {/* Its subscription login has no account name to tell two
+                      apart, so the vault keeps one per provider here. */}
+                  {p.singleOAuth && rows.some((a) => a.type === "oauth" && !a.paused) ? (
+                    <p className="cred-note">{"This login carries no account name, so " + name + " keeps one here — a second sign-in can be kept by naming it when asked."}</p>
+                  ) : null}
+
+                  {rows.length ? (
+                    <ul className="prov-rows">
+                      {rows.map((a, i) => (
+                        <AccountRow
+                          key={a.id}
+                          provider={p}
+                          account={a}
+                          first={i === 0}
+                          cliName={cliName}
+                          money={money}
+                          verdict={verdict}
+                          busy={busy}
+                          addLabel={perProviderAdd}
+                          onUse={() => use(p, a)}
+                          onRename={() => rename(p, a)}
+                          onVerify={() => verify(p, a)}
+                          onVerifyProvider={() => verifyProvider(p)}
+                          onCheck={() => checkUsage(p, a)}
+                          onPause={() => pause(p, a)}
+                          onSignOut={() => signOut(p, a)}
+                          onEdit={() => editProvider(p)}
+                          onAdd={() => openAdd(p.id)}
+                        />
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="cred-empty">
+                      <span>{name + " · No accounts yet."}</span>
+                      {perProviderAdd ? (
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => openAdd(p.id)}>{perProviderAdd}</button>
+                      ) : null}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="cred-empty"><span>{"No provider credentials for " + cliName + " yet."}</span></p>
+        )}
       </> : null}
+
+      {/* pi's own door: OAuth and API keys through pi's login (ADR-0169). The
+          catalog it reads is the one this pane fetched for the model picker. */}
+      <AddProviderDialog
+        open={addProviderOpen}
+        catalog={catalog}
+        onClose={closeAddProvider}
+        onSaved={async () => { await load(); await loadCatalog(); }}
+      />
 
       <Dialog.Root open={addOpen} onOpenChange={(open) => { if (!open) closeAdd(); }}>
         <Dialog.Portal>
@@ -431,41 +603,81 @@ export default function CliCredentials({ hidden, cli, add = false }) {
   );
 }
 
-function AccountRow({ provider, account, note, busy, onRename, onUse, onVerify, onPause, onSignOut }) {
-  const identity = identityLine(account);
+// One account, one row: what it is, whose it is, what a vendor says is left,
+// what it cost us, and a menu holding only the verbs this roster's flags allow.
+function AccountRow({
+  provider, account, first, cliName, money, verdict, busy, addLabel,
+  onUse, onRename, onVerify, onVerifyProvider, onCheck, onPause, onSignOut, onEdit, onAdd,
+}) {
+  const name = providerName(provider.id);
+  const label = account.label || name;
+  const identity = identityLine(account, account.usage);
   const kind = kindLabel(account.type);
   const source = sourceLabel(account.origin);
   const chip = healthChip(account.health);
-  const label = account.label || providerName(provider.id);
-  const title = chip
+  const state = [kind, account.paused ? "paused" : account.active ? "in use" : ""].filter(Boolean).join(" · ");
+  const checked = chip
     ? [chip.message, chip.age ? (chip.age === "now" ? "Checked just now." : "Checked " + chip.age + " ago.") : ""].filter(Boolean).join(" ")
     : "";
+  const note = String(provider.note || "").trim();
+  // Verify spends a call, and it is asked of whoever can answer: pi checks at
+  // the provider, a guest probes the row's credential (ADR-0129). A provider
+  // with a note has no honest probe, so its rows hide the item.
+  const rowVerify = provider.verify === "row" && !note;
+  const providerVerify = provider.verify === "provider";
+  const checking = busy === "check:" + account.id;
   return (
-    <li className={"cred-row" + (account.paused ? " is-paused" : "")}>
-      <span className="cred-cell">
+    <li className={"prov-tr" + (account.active && !account.paused ? "" : " muted") + (first ? "" : " cont")}>
+      <span className="prov-cell prov-provider">
+        {first ? <ProviderFace id={provider.id} /> : null}
+        {first && provider.custom ? <span className="prov-custom">custom</span> : null}
+        {first ? <span className="cred-provider-name" title={name === provider.id ? undefined : provider.id}>{name}</span> : null}
+      </span>
+      <span className="prov-cell prov-account">
         <span className="cred-label" title={label}>{label}</span>
-      </span>
-      <span className="cred-cell cred-ident" data-empty={identity ? undefined : true} title={identity || undefined}>
-        {identity || <span className="cred-none">—</span>}
-      </span>
-      <span className="cred-cell cred-chips">
-        {kind ? <span className="cred-chip">{kind}</span> : null}
+        {state ? <span className={"prov-auth" + (account.active && !account.paused ? " in" : "")}>{state}</span> : null}
         {source ? <span className="cred-chip">{source}</span> : null}
-        {account.active ? <span className="cred-chip is-accent">In use</span> : null}
-        {account.paused ? <span className="cred-chip is-muted">Paused</span> : null}
+        {chip ? <span className={"cred-chip is-" + chip.tone} title={checked || undefined}>{chip.label}</span> : null}
+        {verdict ? (
+          <span className={"prov-verdict " + (verdict.ok ? "ok" : "bad")} title={verdict.reason || verdict.status}>
+            {verdict.ok ? verdict.label || cliName + " can use this" : verdict.reason || verdict.status}
+          </span>
+        ) : null}
       </span>
-      {/* The masked echo of the stored key — never the key. */}
-      <span className="cred-cell cred-hint" data-empty={account.hint ? undefined : true} title={account.hint || undefined}>
-        {account.hint || ""}
+      <span className="prov-cell prov-ident" data-empty={identity ? undefined : true} title={identity || undefined}>
+        {identity || <span className="prov-none">—</span>}
       </span>
-      <span className="cred-cell cred-health">
-        {chip ? <span className={"cred-chip is-" + chip.tone} title={title || undefined}>{chip.label}</span> : null}
-        {chip && chip.message ? <span className="cred-health-msg" title={chip.message}>{chip.message}</span> : null}
+      {/* The reading a vendor returned (QuotaStrip, unchanged), or the honest
+          word for not having one plus the one click that would get it. Nothing
+          here draws a bar we did not fetch (ADR-0031). */}
+      <span className="prov-cell prov-left" title="Usage comes from the provider — one request per check.">
+        {account.usage ? (
+          <QuotaStrip entry={account.usage} busy={checking} onRefresh={onCheck} />
+        ) : (
+          <span className="quota-strip quota-empty">
+            <span className="quota-note">unknown</span>
+            <button
+              type="button"
+              className="quota-refresh"
+              disabled={checking}
+              title={"Asks " + name + " once for this account's usage."}
+              onClick={onCheck}
+            >
+              {checking ? "Checking" : "Check"}
+            </button>
+          </span>
+        )}
       </span>
-      <span className="cred-actions">
+      <span className="prov-cell prov-spend" title="What your sessions spent on this provider in the last 7 days">
+        {money || <span className="prov-none">—</span>}
+      </span>
+      <span className="prov-cell prov-actions">
+        {/* With several providers the per-provider Add is the only one left:
+            the bar would say the same thing one row above it. */}
+        {addLabel ? <button type="button" className="btn btn-ghost btn-sm" onClick={onAdd}>{addLabel}</button> : null}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
-            <button type="button" className="btn btn-ghost btn-sm cred-more" aria-label={"More actions for " + label}>⋯</button>
+            <button type="button" className="btn btn-ghost btn-sm prov-more" aria-label={"More actions for " + label}>⋯</button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content className="prov-menu cred-menu" align="end" sideOffset={6} collisionPadding={8}>
@@ -473,12 +685,21 @@ function AccountRow({ provider, account, note, busy, onRename, onUse, onVerify, 
                 <DropdownMenu.Item className="prov-menu-item" onSelect={onUse}>Use</DropdownMenu.Item>
               ) : null}
               <DropdownMenu.Item className="prov-menu-item" onSelect={onRename}>Rename</DropdownMenu.Item>
-              {/* Verify spends a listing call; the button names its cost. A
-                  provider with a note has no honest check, so it hides. */}
-              {provider.verifier && !note ? (
+              {rowVerify ? (
                 <DropdownMenu.Item className="prov-menu-item" onSelect={onVerify}>
                   {busy === "verify:" + account.id ? "Verifying…" : VERIFY_LABEL}
                 </DropdownMenu.Item>
+              ) : null}
+              {/* pi's check answers for the provider, not for this row, so
+                  every row of that provider offers it (the item names pi, and
+                  the verdict lands in every row of the group). */}
+              {providerVerify ? (
+                <DropdownMenu.Item className="prov-menu-item" onSelect={onVerifyProvider}>
+                  {busy === "verify:" + provider.id ? "Checking…" : provider.custom ? VERIFY_LABEL : "Verify with " + cliName}
+                </DropdownMenu.Item>
+              ) : null}
+              {first && provider.custom ? (
+                <DropdownMenu.Item className="prov-menu-item" onSelect={onEdit}>Edit provider</DropdownMenu.Item>
               ) : null}
               <DropdownMenu.Item className="prov-menu-item" onSelect={onPause}>
                 {account.paused ? "Resume" : "Pause"}

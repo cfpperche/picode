@@ -13,21 +13,25 @@ canonical list; closed/unmounted editors ignore late login completions.
 Native provider APIs, the active Pi auth slot, extra-account vault and quota
 semantics remain unchanged. The llama.cpp manager keeps its separate route.
 
-The roster renders **one row per account**, grouped under the provider that
-owns it, as a six-column grid (`Provider · Account · Identity · Usage ·
-7d spend · actions`). Its geometry lives in
+One pane serves all nine CLIs (ADR-0169): pi's own editor is gone and this
+roster renders **one row per account**, grouped under the provider that owns
+it, as a grid (`Provider · Account · Usage · 7d spend · actions`) — the same
+columns for pi and for a guest, with the identity chips (`Subscription · in
+use`, `API key · Vault`, `Unverified`) inside the Account cell. Its geometry lives in
 `web/shared/styles/providers.css`, imported last by both apps' `index.css`:
 the two components stay per-app (ADR-0072), the roster's layout does not.
 The column template drops the identity column below a 1000 px container and
 folds the cells into a stacked card below 840 px, so one markup serves the
 desktop window, a squeezed window and the phone.
 
-**The credential vault pane (ADR-0165).** The store, the API and the backup
+**The pane (ADR-0165, unified by ADR-0169).** The store, the API and the backup
 rules have their own file ([credentials.md](credentials.md)); this is the pane.
-The route now serves nine CLIs: pi keeps the editor above (its rows are the
-ones that write `auth.json`), and the other eight render `CliCredentials.jsx`
-from `GET /api/credentials?cli=<id>`. `supportsCliCredentials` in
-`web/shared/domain/cliProviders.js` names those eight, and the pane's words —
+All nine CLIs render `CliCredentials.jsx` from
+`GET /api/credentials?cli=<id>`, which serves pi's providers from the catalog
+(native and custom) and a guest's from the `clicreds` declarations, with the
+same account rows either way. `supportsCliCredentials` in
+`web/shared/domain/cliProviders.js` names the eight that read the vault, and
+the pane's words —
 provider names for the vault's ids, the kind and source chips, a Verify
 answer as a label with a tone, the row order — live in
 `web/shared/domain/credentials.js` so both apps say one thing (ADR-0072).
@@ -44,8 +48,10 @@ guest CLI's rows.
 A login the CLI already holds is not a vault row and is not counted as one:
 it renders as the provider's own highlighted line ("me@example.com is signed
 in here") with the single action **Import into the vault**, and the row
-disappears as the account appears above it. **Add API key** is the pane's one
-primary action (a provider `<select>` limited to that CLI's providers, the
+disappears as the account appears above it. The bar's primary action is
+per CLI (`add` in the roster): **Add provider** for pi — the dialog that runs
+pi's own OAuth or stores a key, and the door to the custom-endpoint page —
+**Add API key** for a guest (a provider `<select>` limited to that CLI's providers, the
 key field with the line that says the key stays on this machine, Save); a
 provider with no accounts shows `Name · No accounts yet.` plus its own Add,
 never an empty well, and a provider whose declaration carries a `note` shows
@@ -69,6 +75,15 @@ credential. A vendor CLI's own login is one of the four actions' worth of
 material for the vault, and the least surprising one: the person uses the flow
 the vendor documents, PiCode files it.
 
+**Usage and 7d spend travel with the account, not the CLI.** Each row carries
+`usage` when the cache has a report for that provider+account
+(`internal/usage`, no vendor call on a load — ADR-0031), rendered by the same
+`QuotaStrip` pi's table used, and **Check** spends one listing call through
+`GET /api/providers/{provider}/accounts/{id}/usage`. 7d spend is PiCode's own
+number: one `/api/sessions/stats?range=7d` per pane load through
+`spendByProvider`. A row with no source says `unknown` and offers Check; a
+provider with no session spend shows a dash, never `$0.00`.
+
 Identity is what the roster matches on. A row's key is the account the store
 names (Grok's `principal_id` for `Identity`, Codex's `tokens.account_id`,
 Hermes' `account_id`, Antigravity's `id_token` subject), else the name the
@@ -90,10 +105,10 @@ credential mechanism for is one line, with no Add button. Geometry lives in
 apps' `index.css`: one container query drops the masked-hint column, a second
 folds the same cells into a stacked card — the pane's container tops out near
 940 px inside Agent CLIs, so the aligned row is what a desktop window usually
-shows and the card is what a phone gets. The pane never activates a
-credential for pi (that stays the editor above; for a guest CLI, **Use** writes
-that CLI's own file under ADR-0166), and never returns a secret: the masked
-hint is all the server sends.
+shows and the card is what a phone gets. **Use** writes the CLI's own
+file for every CLI under ADR-0166 — `auth.json` for pi, the vendor's file for a
+guest — and the pane never returns a secret: the masked hint is all the server
+sends.
 
 **Custom providers (ADR-0129).** Add provider's picker carries a fixed
 **Custom provider** door onto its own page (`#/clis/pi/providers/custom`,

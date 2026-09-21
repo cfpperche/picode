@@ -1,0 +1,286 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import * as Dialog from "./ResponsiveDialog.jsx";
+import { Command } from "cmdk";
+import { api } from "@picode/shared/client/api.js";
+import { toast, toastError } from "../lib/toast.js";
+import { apiKeySchema, llamaLoginSchema, parseForm } from "@picode/shared/contracts/schemas.js";
+import { go } from "../lib/routes.js";
+import { cliProvidersReturnTo } from "@picode/shared/domain/cliProviders.js";
+
+import { ProviderFace } from "./ProviderFaces.jsx";
+import { pushRecent } from "@picode/shared/domain/providerRecents.js";
+
+// The Add-provider dialog, on its own so more than one pane can open it.
+// It owns the whole add flow — pick a provider, choose a method, paste a key
+// or finish an account login in the browser — against the catalog the parent
+// already fetched, and reports back twice: onSaved once a credential landed
+// (the parent reloads its roster) and onClose when the dialog is dismissed.
+// The sign-in recents it writes are the app-wide store, not parent state.
+export default function AddProviderDialog({ open, catalog, onClose, onSaved }) {
+  // A login in flight is abandoned by closing or going back, never by a
+  // late status poll landing on the step the user has already left.
+  const oauthAttempt = useRef(0);
+  useEffect(() => () => { oauthAttempt.current++; }, []);
+  const [step, setStep] = useState("pick"); // pick | method | key | oauth | llama
+  const [pick, setPick] = useState(null);
+  const [key, setKey] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [waiting, setWaiting] = useState(false);
+  const [userCode, setUserCode] = useState("");
+  const [llamaUrl, setLlamaUrl] = useState("http://127.0.0.1:8080");
+
+  const list = catalog && catalog.providers ? catalog.providers : [];
+  const available = useMemo(
+    () => list.filter((p) => !p.signedIn).sort((a, b) => a.id.localeCompare(b.id)),
+    [list],
+  );
+
+  function reset() {
+    setStep("pick");
+    setPick(null);
+    setKey("");
+    setErr("");
+    setUserCode("");
+    setLlamaUrl("http://127.0.0.1:8080");
+    setBusy(false);
+    setWaiting(false);
+  }
+
+  // Every open starts at the picker; every close abandons whatever the
+  // dialog was waiting on, including a poll that is still ticking.
+  useEffect(() => {
+    oauthAttempt.current++;
+    if (!open) { setWaiting(false); setBusy(false); return; }
+    reset();
+  }, [open]);
+
+  function close() {
+    oauthAttempt.current++;
+    reset();
+    if (onClose) onClose();
+  }
+
+  // A write landed: the dialog is done with the provider, the parent is not.
+  // Close first — the old close-then-refresh order — so a roster that is
+  // slow to reload never holds an open modal.
+  async function saved() {
+    reset();
+    if (onClose) onClose();
+    if (onSaved) await onSaved();
+  }
+
+  function goBack() {
+    oauthAttempt.current++;
+    setWaiting(false);
+    setBusy(false);
+    if ((step === "key" || step === "oauth") && pick && pick.login === "both") {
+      setStep("method");
+      return;
+    }
+    setPick(null);
+    setStep("pick");
+  }
+
+  function chooseProvider(p) {
+    setPick(p);
+    setErr("");
+    if (p.id === "llama.cpp") { setStep("llama"); return; }
+    // An unsigned custom definition has a row nowhere: picking it from the
+    // picker opens the Edit form so a wrong URL/model can be fixed, instead
+    // of a key-only sign-in into a broken endpoint.
+    if (p.custom && !p.signedIn) { editCustom(p); return; }
+    if (p.login === "oauth") { setStep("oauth"); return; }
+    if (p.login === "both") { setStep("method"); return; }
+    setStep("key");
+  }
+
+  async function save(e) {
+    e.preventDefault();
+    const parsed = parseForm(apiKeySchema, { key });
+    if (!parsed.ok) { setErr(parsed.error); return; }
+    setBusy(true);
+    setErr("");
+    try {
+      await api("/api/providers/" + encodeURIComponent(pick.id), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: parsed.value.key }),
+      });
+      pushRecent(pick.id);
+      toast.ok("Signed in to " + pick.id + ".");
+      await saved();
+    } catch (ex) {
+      toastError(ex);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveLlama(e) {
+    e.preventDefault();
+    const parsed = parseForm(llamaLoginSchema, { url: llamaUrl, key });
+    if (!parsed.ok) { setErr(parsed.error); return; }
+    setBusy(true);
+    setErr("");
+    try {
+      await api("/api/providers/llama.cpp", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: parsed.value.url, key: parsed.value.key || "" }),
+      });
+      pushRecent("llama.cpp");
+      toast.ok("Signed in to llama.cpp.");
+      await saved();
+    } catch (ex) {
+      toastError(ex);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function startAccount() {
+    if (!pick) return;
+    const attempt = ++oauthAttempt.current;
+    const current = () => attempt === oauthAttempt.current;
+    setBusy(true);
+    setErr("");
+    try {
+      const res = await api("/api/oauth/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: pick.id, returnTo: cliProvidersReturnTo(location.href) }),
+      });
+      if (!current()) return;
+      if (res && res.userCode) setUserCode(res.userCode);
+      if (res && res.url) window.open(res.url, "_blank", "noopener");
+      setWaiting(true);
+      const t0 = Date.now();
+      while (Date.now() - t0 < 5 * 60 * 1000) {
+        await new Promise((r) => setTimeout(r, 1000));
+        if (!current()) return;
+        const st = await api("/api/oauth/status");
+        if (!current()) return;
+        if (st && st.done) {
+          setWaiting(false);
+          if (st.error) { setErr(st.error); return; }
+          toast.ok("Signed in to " + pick.id + ".");
+          pushRecent(pick.id);
+          await saved();
+          return;
+        }
+        if (st && !st.pending && !st.done) break;
+      }
+      setWaiting(false);
+    } catch (ex) {
+      if (!current()) return;
+      setErr(ex.message);
+      setWaiting(false);
+    } finally {
+      if (current()) setBusy(false);
+    }
+  }
+
+  const canAccount = pick && ["anthropic", "openai-codex", "github-copilot", "kimi-coding", "xai"].includes(String(pick.id).toLowerCase());
+  const title = !pick ? "Add provider" : step === "method" || step === "oauth" || step === "llama" ? pick.id : "API key · " + pick.id;
+
+  // Custom endpoint (ADR-0129) lives on its own page (CustomEndpointPage):
+  // the form outgrew the dialog. These entries close the dialog and navigate;
+  // the close lands first, so the page being left is not left holding an open
+  // modal.
+  function startCustom() {
+    close();
+    go("providers-custom");
+  }
+
+  function editCustom(p) {
+    close();
+    go("providers-custom", "", { customId: p.id });
+  }
+
+  return (
+    <Dialog.Root open={open} onOpenChange={(o) => { if (!o) close(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="dlg-overlay" />
+        <Dialog.Content className="dlg dlg-create" onCloseAutoFocus={(e) => e.preventDefault()}>
+          <Dialog.Title className="dlg-title">{title}</Dialog.Title>
+          <Dialog.Description className="dlg-body">
+            {step === "pick" ? "Pick a provider." : step === "method" ? "Choose how to sign in." : step === "llama" ? "Router URL. API key is optional." : step === "oauth" ? (userCode ? "Enter this code in the browser tab." : canAccount ? "Finish sign-in in the browser tab." : "Account login is not available here. Use an API key.") : "Paste the key. It is not shown again."}
+          </Dialog.Description>
+
+          {step === "pick" ? (
+            <Command loop className="prov-pick">
+              <Command.Input className="combo-input" placeholder="Search providers" />
+              <Command.List className="prov-pick-list">
+                <Command.Empty className="combo-empty">No matches</Command.Empty>
+                {/* forceMount: the custom door survives any search — typing
+                    a name the catalog does not know is exactly when it is
+                    needed. */}
+                <Command.Item forceMount value="custom provider endpoint gateway openai compatible base url" className="cockpit-opt" onSelect={startCustom}>
+                  <span className="ws-face" aria-hidden="true">+</span>
+                  <span>Custom provider</span>
+                  <span className="combo-hint">any OpenAI-compatible gateway</span>
+                </Command.Item>
+                {available.map((p) => (
+                  <Command.Item key={p.id} value={p.id + " " + p.login} className="cockpit-opt" onSelect={() => chooseProvider(p)}>
+                    <ProviderFace id={p.id} />
+                    <span>{p.id}</span>
+                    <span className="combo-hint">{p.id === "llama.cpp" ? "local router" : p.custom ? "custom provider" : p.login === "both" ? "account or api key" : p.login === "oauth" ? "account" : "api key"}</span>
+                  </Command.Item>
+                ))}
+              </Command.List>
+            </Command>
+          ) : null}
+
+          {step === "method" ? (
+            <div className="prov-methods">
+              <button type="button" className="btn btn-primary" onClick={() => setStep("key")}>Sign in with an API key</button>
+              <button type="button" className="btn btn-ghost" onClick={() => setStep("oauth")}>Sign in with an account</button>
+              <div className="dlg-actions" data-align-row data-align-wrap>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>Back</button>
+              </div>
+            </div>
+          ) : null}
+
+          {step === "oauth" ? (
+            <div>
+              {userCode ? <p className="oauth-code">{userCode}</p> : null}
+              <p className="form-error" hidden={!err}>{err}</p>
+              <div className="dlg-actions" data-align-row data-align-wrap>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>Back</button>
+                {canAccount ? (
+                  <button type="button" className="btn btn-primary btn-sm" disabled={busy || waiting} onClick={startAccount}>{waiting ? "Waiting…" : "Continue in browser"}</button>
+                ) : (
+                  <button type="button" className="btn btn-primary btn-sm" onClick={close}>Close</button>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {step === "llama" ? (
+            <form className="form-new" noValidate onSubmit={saveLlama}>
+              <input type="url" autoComplete="off" placeholder="http://127.0.0.1:8080" value={llamaUrl} onChange={(e) => setLlamaUrl(e.target.value)} />
+              <input type="password" autoComplete="off" placeholder="API key (optional)" value={key} onChange={(e) => setKey(e.target.value)} />
+              <p className="form-error" hidden={!err}>{err}</p>
+              <div className="dlg-actions" data-align-row data-align-wrap>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>Back</button>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>Save</button>
+              </div>
+            </form>
+          ) : null}
+
+          {step === "key" ? (
+            <form className="form-new" noValidate onSubmit={save}>
+              <input type="password" autoComplete="off" placeholder="sk-…" value={key} onChange={(e) => setKey(e.target.value)} />
+              <p className="form-error" hidden={!err}>{err}</p>
+              <div className="dlg-actions" data-align-row data-align-wrap>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={goBack}>Back</button>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>Save</button>
+              </div>
+            </form>
+          ) : null}
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
