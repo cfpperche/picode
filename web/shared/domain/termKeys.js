@@ -24,7 +24,7 @@
 // Ctrl+Shift+C/V still copy/paste.
 
 import { readTermPrefs, TERM_NEWLINES } from "./termTheme.js";
-import { keyPasteSuppressed } from "./termPasteClaim.js";
+import { readPasteClipboard } from "./termPrompt.js";
 
 const SEQ = {
   "shift-enter": "\x1b[27;2;13~",
@@ -129,16 +129,14 @@ export function wireTermKeys(term, send, passthrough) {
       return false;
     }
     if (clip === "paste") {
-      if (navigator.clipboard && navigator.clipboard.readText) {
-        // The paste *event* may claim this gesture for the attach bar
-        // (files-paste); its claim lands synchronously, this text
-        // asynchronously — so the claim wins and no stray text reaches the
-        // composer's draft. Text-only pastes never claim: this path stays
-        // the fallback where the native paste does not deliver.
-        const el = (ev && ev.target) || null;
-        navigator.clipboard.readText().then((t) => { if (t && term.paste && !keyPasteSuppressed(el)) term.paste(t); }).catch(() => {});
-      }
+      // The preventDefault below kills the browser's own paste — stopping
+      // xterm's ^V — but that killed event is the one that carries files.
+      // So re-read the clipboard and fire an equivalent paste on the
+      // textarea: files route to the attach bar through the normal capture
+      // path, text-only pastes exactly once below. Whatever the clipboard
+      // refuses, the fallbacks keep today's behavior.
       if (typeof ev.preventDefault === "function") ev.preventDefault();
+      redispatchPaste(ev, term);
       return false;
     }
     const seq = newlineSeq(ev, prefs.newlineKey);
@@ -150,4 +148,25 @@ export function wireTermKeys(term, send, passthrough) {
     }
     return false;
   });
+}
+
+async function redispatchPaste(ev, term) {
+  const el = ev && ev.target;
+  const { files, text } = await readPasteClipboard();
+  if (!files.length) {
+    if (text && term && term.paste) term.paste(text);
+    return;
+  }
+  try {
+    if (!el || typeof el.dispatchEvent !== "function") throw new Error("no-target");
+    const dt = new DataTransfer();
+    for (const f of files) dt.items.add(f);
+    if (text) dt.setData("text/plain", text);
+    el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+  } catch {
+    // No synthetic-paste support: keep the text, like today's fallback.
+    // Files have no App bridge at this layer — the PiCode menu's Paste row
+    // stages them instead, and it names itself.
+    if (text && term && term.paste) term.paste(text);
+  }
 }
