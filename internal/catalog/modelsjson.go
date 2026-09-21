@@ -151,15 +151,24 @@ func ModelsPath() string {
 // id — a custom definition never shadows a native provider. Override of a
 // built-in's baseUrl is a separate, deliberately unsupported action.
 func ValidateCustomID(id string) error {
+	if err := validateCustomIDShape(id); err != nil {
+		return err
+	}
+	if _, builtin := LoginMethods[strings.TrimSpace(id)]; builtin {
+		return fmt.Errorf("%s is a built-in provider; pick another name", strings.TrimSpace(id))
+	}
+	return nil
+}
+
+// validateCustomIDShape is the id grammar both writers share: non-empty,
+// lowercase slug (customIDPattern). The built-in sets differ per CLI.
+func validateCustomIDShape(id string) error {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return fmt.Errorf("name required")
 	}
 	if !customIDPattern.MatchString(id) {
 		return fmt.Errorf("name must be lowercase letters, digits and dashes")
-	}
-	if _, builtin := LoginMethods[id]; builtin {
-		return fmt.Errorf("%s is a built-in provider; pick another name", id)
 	}
 	return nil
 }

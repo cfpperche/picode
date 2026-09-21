@@ -53,6 +53,11 @@ type providerView struct {
 	// Custom marks a provider defined in pi's models.json (ADR-0129): the pane
 	// offers Edit provider for it, not only Add.
 	Custom bool `json:"custom,omitempty"`
+	// Definition carries a custom provider's editable shape for the CLIs
+	// whose definitions ride this roster (omp's models.yml; pi's Edit reads
+	// /api/catalog). The key never travels — Keyed inside the row is the only
+	// statement about it.
+	Definition *catalog.CustomRow `json:"definition,omitempty"`
 	// Verify is how this CLI answers "does this credential still work":
 	// verifyByProvider for pi, whose own check answers for a whole provider, or
 	// verifyByRow for a guest CLI, whose check is a listing call with one row's
@@ -141,8 +146,17 @@ func handleCredentials(deps Deps) http.HandlerFunc {
 		} else {
 			sources = declarationSources(spec)
 			out["add"] = map[string]any{"kind": "key", "label": "Add API key"}
+			// omp keeps provider definitions of its own in models.yml (the
+			// owner's amendment to ADR-0169): the same custom door pi has,
+			// with the definitions riding this roster as rows below.
+			if spec.CLI == "omp" {
+				out["custom"] = map[string]any{"available": true, "href": "#/clis/omp/providers/custom"}
+			}
 		}
 		providers := providerViews(spec, sources)
+		if spec.CLI == "omp" {
+			providers = appendOMPDefinitions(providers)
+		}
 		attachRowUsage(providers, time.Now())
 		out["providers"] = providers
 		if spec.Login != nil {
@@ -196,6 +210,27 @@ func declarationSources(spec clicreds.Spec) []rosterSource {
 		out = append(out, s)
 	}
 	return out
+}
+
+// appendOMPDefinitions appends omp's models.yml definitions as roster rows,
+// after the declared ones, in id order (the file's order is the map's secret;
+// a pane that reshuffles between loads reads as a bug). The row carries the
+// editable shape and the keyed flag — never the key.
+func appendOMPDefinitions(providers []providerView) []providerView {
+	defs := catalog.OMPLoadCustomDefinitions()
+	ids := make([]string, 0, len(defs))
+	for id := range defs {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		row := defs[id]
+		providers = append(providers, providerView{
+			ID: id, Kinds: []string{clicreds.KindAPIKey}, Custom: true,
+			Accounts: []accountView{}, Definition: &row,
+		})
+	}
+	return providers
 }
 
 // providerViews turns a provider list into the roster's rows, reading the

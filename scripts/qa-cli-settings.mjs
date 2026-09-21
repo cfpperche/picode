@@ -55,6 +55,20 @@ writeFileSync((await api("/api/pi-settings")).global.path, "{}\n");
 // manual probe on this fixture, otherwise leaves one behind).
 await api("/api/pi-keys", "PUT", { resetAll: true });
 const compactRowSet = () => evaluate('[...document.querySelectorAll("#pi-settings-view .set-row")].find(r=>r.querySelector("#g-compactionEnabled"))?.classList.contains("is-set") === true');
+// Toasts are the app's, not the pane's: a save two steps earlier leaves a stack
+// at the viewport's bottom edge, which on a phone lands on top of whatever the
+// next pane draws there. Wait for them to leave before judging a capture.
+// On a phone the pane sits below the CLI's header and the shell scrolls its own
+// column (.m-screen.m-more-page, 844px tall with 1042 of content), so a capture
+// at scrollTop 0 photographs the header and the pane's edge. Center it first —
+// the same reason every other mobile target in this file is centered.
+const centerPane = (cli) => evaluate(`(() => { const p = document.querySelector('#cli-settings-view .key-pane[data-cli="${cli}"]'); p.scrollIntoView({ block: "center" }); return true; })()`);
+const settleToasts = async () => {
+  for (let i = 0; i < 40; i++) {
+    if (evaluate('!document.querySelector("[data-sonner-toast]")')) return;
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+};
 const results = [];
 async function capture(name, audit = false) {
   // Let native controls finish painting before judging pixels.
@@ -106,7 +120,9 @@ try {
     assert.equal(evaluate('document.querySelectorAll("#pi-settings-view .pkg-tabs, #pi-settings-view .settings-layer").length'), 0);
     const keyReport = await api("/api/pi-keys");
     assert.equal(evaluate('document.querySelectorAll("#pi-settings-view .key-row").length'), keyReport.actions.length);
-    assert.match(evaluate('document.querySelector("#pi-settings-view .settings-desc code").textContent'), /keybindings\.json$/, "the pane names the file it writes");
+    // The period rides inside the code box with the path (the P0 visual fix), so
+    // the assertion accepts it rather than the end of the string.
+    assert.match(evaluate('document.querySelector("#pi-settings-view .settings-desc code").textContent'), /keybindings\.json\.?$/, "the pane names the file it writes");
     assert.equal(evaluate('document.querySelector("#pi-settings-view .key-bar .key-facet").textContent'), "All" + keyReport.actions.length);
     // A chord is a value, not a control: the keycap is its own height (24px on
     // a pointer, 28px on a phone), never the 36px --ctl-h it shipped with.
@@ -194,6 +210,40 @@ try {
     navigate("#/clis/pi/settings?agentId=" + encodeURIComponent(id) + "&tab=keys");
     browser("wait", "--fn", 'location.hash.endsWith("/keyboard") && !!document.querySelector("#keys-filter")');
     results.push(app + ": the keyboard map is its own pane, and the old sub-tab link lands on it");
+
+    // Every CLI the registry knows answers its own Keyboard pane (ADR-0174): a
+    // guest gets its state and one action, and never Pi's rows — which is what
+    // a pane that only knew one CLI used to render behind "coming soon".
+    for (const [cli, want] of [["hermes", /a few keys/], ["grok", /built in/], ["codex", /has not shipped yet/]]) {
+      navigate(`#/clis/${cli}/keyboard`);
+      browser("wait", "--fn", `!!document.querySelector('#cli-settings-view .key-pane[data-cli="${cli}"] .cli-notice a')`);
+      assert.match(evaluate(`document.querySelector('#cli-settings-view .key-pane[data-cli="${cli}"] .cli-notice span').textContent`), want, cli + " must state its own case");
+      assert.equal(evaluate('document.querySelectorAll("#cli-settings-view .key-row").length'), 0, cli + " must not render Pi's rows");
+      assert.equal(evaluate('!!document.querySelector("#pi-settings-view")'), false, cli + " must not borrow Pi's frame");
+      if (cli !== "grok") { centerPane(cli); await settleToasts(); await capture(app + "-keyboard-" + cli); }   // grok is captured below with the overlay audit
+    }
+    // The action is a real control, and which kind it is shows in how it opens:
+    // a vendor's page is a new tab, an in-app route is navigation. Both are
+    // asserted, because a note whose action does nothing is not an action.
+    navigate("#/clis/grok/keyboard");
+    browser("wait", "--fn", '!!document.querySelector("#cli-settings-view .key-pane[data-cli=grok] .cli-notice a")');
+    assert.equal(evaluate('document.querySelector("#cli-settings-view .key-pane[data-cli=grok] .cli-notice a").getAttribute("target")'), "_blank", "a vendor's page opens in a new tab");
+    centerPane("grok");
+    await settleToasts();
+    await capture(app + "-keyboard-grok", true);
+    navigate("#/clis/hermes/keyboard");
+    browser("wait", "--fn", '!!document.querySelector("#cli-settings-view .key-pane[data-cli=hermes] .cli-notice a")');
+    assert.equal(evaluate('document.querySelector("#cli-settings-view .key-pane[data-cli=hermes] .cli-notice a").getAttribute("href")'), "#/clis/hermes/settings");
+    assert.equal(evaluate('document.querySelector("#cli-settings-view .key-pane[data-cli=hermes] .cli-notice a").getAttribute("target")'), null, "an in-app route stays in the tab");
+    evaluate('document.querySelector("#cli-settings-view .key-pane[data-cli=hermes] .cli-notice a").click(); true');
+    browser("wait", "--fn", 'location.hash === "#/clis/hermes/settings"');
+    // Hermes' three rebindable keys are a group in its Settings pane, which is
+    // where its Keyboard pane sends the reader.
+    browser("wait", "--fn", '!!document.querySelector("#cli-settings-view .settings-section h3")');
+    assert.ok(evaluate('[...document.querySelectorAll("#cli-settings-view .settings-section")].some(s => s.querySelector("h3")?.textContent === "Keyboard" && s.querySelectorAll(".set-row").length === 3)'), "hermes must show its three keyboard rows");
+    results.push(app + ": a CLI with no key-map editor gets its state and one action, and its own keys are rows");
+    navigate(globalHash);
+    ready();
     paneClick("Settings");
     browser("wait", "--fn", '!!document.querySelector("#pi-settings-view .settings-layer")');
 

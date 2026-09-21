@@ -73,17 +73,29 @@ func handleProviderVerify(deps Deps) http.HandlerFunc {
 		// Dispatch: a body carrying a base URL is the dialog verifying what the
 		// form holds (the definition may not be saved yet), and a saved custom
 		// definition is the roster's row. Everything else is a built-in, which
-		// only pi can answer for.
+		// only pi can answer for. omp's definitions live in models.yml, so its
+		// customs resolve the saved key there — and its built-ins have no
+		// provider-level check at all (the roster never offers one).
 		var req struct {
 			BaseURL string `json:"baseUrl"`
 			API     string `json:"api"`
 			Key     string `json:"key"`
 			Model   string `json:"model"`
+			CLI     string `json:"cli"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&req)
+		if strings.TrimSpace(req.CLI) == "omp" {
+			row, isCustom := catalog.OMPLoadCustomDefinitions()[id]
+			if isCustom || strings.TrimSpace(req.BaseURL) != "" {
+				verifyCustomEndpoint(w, r.Context(), id, ompRowDefinition(row), req.BaseURL, req.API, req.Key, req.Model, catalog.OMPCustomAPIKey)
+				return
+			}
+			writeErr(w, http.StatusBadRequest, "Nothing to verify this provider with yet.")
+			return
+		}
 		def, isCustom := catalog.LoadCustomDefinitions()[id]
 		if isCustom || strings.TrimSpace(req.BaseURL) != "" {
-			verifyCustomEndpoint(w, r.Context(), id, def, req.BaseURL, req.API, req.Key, req.Model)
+			verifyCustomEndpoint(w, r.Context(), id, def, req.BaseURL, req.API, req.Key, req.Model, catalog.ActiveAPIKey)
 			return
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
@@ -122,8 +134,11 @@ func handleProviderVerify(deps Deps) http.HandlerFunc {
 // verifyCustomEndpoint spends one minimal real request on a custom endpoint and
 // reports what the endpoint said. It answers with the same shape the roster's
 // verify uses ({ok, status, reason}) plus what was actually spent, so the row
-// renders it without knowing which path ran.
-func verifyCustomEndpoint(w http.ResponseWriter, ctx context.Context, id string, def catalog.CustomDefinition, bodyBaseURL, bodyAPI, bodyKey, bodyModel string) {
+// renders it without knowing which path ran. savedKey resolves the credential
+// the CLI already holds when the body does not carry one (pi's auth.json,
+// omp's models.yml); it never decides where the key goes from here — only
+// which gateway receives it.
+func verifyCustomEndpoint(w http.ResponseWriter, ctx context.Context, id string, def catalog.CustomDefinition, bodyBaseURL, bodyAPI, bodyKey, bodyModel string, savedKey func(string) (string, bool)) {
 	baseURL := strings.TrimSpace(bodyBaseURL)
 	if baseURL == "" {
 		baseURL = def.BaseURL
@@ -134,7 +149,7 @@ func verifyCustomEndpoint(w http.ResponseWriter, ctx context.Context, id string,
 	}
 	key := strings.TrimSpace(bodyKey)
 	if key == "" {
-		if saved, ok := catalog.ActiveAPIKey(id); ok {
+		if saved, ok := savedKey(id); ok {
 			key = saved
 		}
 	}
@@ -174,6 +189,13 @@ func verifyCustomEndpoint(w http.ResponseWriter, ctx context.Context, id string,
 		"inputTokens":  res.InputTokens,
 		"outputTokens": res.OutputTokens,
 	})
+}
+
+// ompRowDefinition lifts a roster CustomRow into the shape the verify and
+// listing paths read (baseUrl, api, first model). Compat flags do not travel:
+// the probe speaks the wire API, not the flags.
+func ompRowDefinition(row catalog.CustomRow) catalog.CustomDefinition {
+	return catalog.CustomDefinition{BaseURL: row.BaseURL, API: row.API, Models: row.Definitions}
 }
 
 // probeSuccessLabel is what the row shows after a real request: the model that

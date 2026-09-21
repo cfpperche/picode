@@ -1,18 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { KEYBOARD_CLIS, blockNote, keyboardRow, keyboardState, pickupLine, supportsKeyboard } from "./cliKeys.js";
+import { KEYBOARD_CLIS, blockNote, keyboardRow, noteIsExternal, pickupLine } from "./cliKeys.js";
 
 test("every registry CLI answers, in sidebar order", () => {
   assert.equal(KEYBOARD_CLIS.length, 9);
   assert.equal(KEYBOARD_CLIS[0].id, "pi");
   assert.equal(KEYBOARD_CLIS.at(-1).id, "omp");
   for (const cli of KEYBOARD_CLIS) {
-    assert.ok(supportsKeyboard(cli.id), cli.id);
     assert.equal(keyboardRow(cli.id), cli);
     assert.ok(cli.label.length > 1, cli.id + " has no label");
   }
-  assert.equal(supportsKeyboard("nonesuch"), false);
-  assert.equal(keyboardState("nonesuch"), "");
+  assert.equal(keyboardRow("nonesuch"), undefined);
   assert.equal(pickupLine("nonesuch"), "");
 });
 
@@ -46,6 +44,17 @@ test("a pane with no editor carries one line and one action", () => {
   assert.equal(codex.action, "Open the documentation");
   assert.match(codex.href, /^https:\/\//);
 
+  // A CLI with no key map file at all is not waiting for an adapter: its three
+  // keys are rows PiCode already edits, so the action is navigation, not a
+  // vendor's page.
+  const hermes = blockNote("hermes");
+  assert.match(hermes.line, /a few keys/);
+  assert.match(hermes.line, /built in/);
+  assert.equal(hermes.action, "Open Settings");
+  assert.equal(hermes.href, "#/clis/hermes/settings");
+  assert.equal(noteIsExternal(hermes), false, "an in-app route is not a new tab");
+  assert.equal(noteIsExternal(codex), true);
+
   assert.equal(blockNote("pi"), null, "a shipped CLI has no blocked note");
   assert.equal(blockNote("nonesuch"), null);
 });
@@ -57,6 +66,6 @@ test("every row that cannot be edited links somewhere", () => {
     if (cli.state === "shipped") continue;
     const note = blockNote(cli.id);
     assert.ok(note, cli.id + " has no note");
-    assert.match(note.href, /^https:\/\//, cli.id + " has no link");
+    assert.match(note.href, /^(https:\/\/|#\/)/, cli.id + " has no link");
   }
 });

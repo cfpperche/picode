@@ -25,6 +25,7 @@ func handleCustomProviderModels(w http.ResponseWriter, r *http.Request) {
 		API     string `json:"api"`
 		Key     string `json:"key"`
 		ID      string `json:"id"`
+		CLI     string `json:"cli"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid JSON body")
@@ -33,8 +34,13 @@ func handleCustomProviderModels(w http.ResponseWriter, r *http.Request) {
 	baseURL := strings.TrimSpace(req.BaseURL)
 	key := strings.TrimSpace(req.Key)
 	if key == "" && strings.TrimSpace(req.ID) != "" {
-		// Editing: the stored credential is what the endpoint expects.
-		if saved, ok := catalog.ActiveAPIKey(strings.TrimSpace(req.ID)); ok {
+		// Editing: the stored credential is what the endpoint expects — pi's
+		// auth.json slot, or omp's models.yml apiKey for that CLI's file.
+		savedKey := catalog.ActiveAPIKey
+		if strings.TrimSpace(req.CLI) == "omp" {
+			savedKey = catalog.OMPCustomAPIKey
+		}
+		if saved, ok := savedKey(strings.TrimSpace(req.ID)); ok {
 			key = saved
 		}
 	}

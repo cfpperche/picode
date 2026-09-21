@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { api } from "@picode/shared/client/api.js";
 import { toast, toastError } from "../lib/toast.js";
-import { go } from "../lib/routes.js";
 import { cliProvidersHash } from "@picode/shared/domain/cliProviders.js";
 import { DOCS_BASE } from "../lib/commandDocs.js";
 import { IconBack, IconChevronRight, IconDocs } from "./Icons.jsx";
 import { validateCustomProvider, customProviderPayload, customProviderForm, customTakenIds, customModelIds, syncModelLimits, modelLimitRow, THINKING_LEVELS, THINKING_FORMAT_NEEDS, CUSTOM_INPUT_MODALITIES } from "@picode/shared/domain/customProviders.js";
 import { loadModelsFor, modelLoadChanges, loadingLine } from "@picode/shared/client/modelLoad.js";
-import { CUSTOM_PROVIDER_APIS, CUSTOM_THINKING_FORMATS, customApiHint } from "@picode/shared/contracts/schemas.js";
+import { CUSTOM_PROVIDER_APIS, CUSTOM_THINKING_FORMATS, OMP_THINKING_FORMATS, customApiHint } from "@picode/shared/contracts/schemas.js";
 import { pushRecent } from "@picode/shared/domain/providerRecents.js";
 
 // Custom endpoint (ADR-0129) as a page, not a dialog step: benchmarks.md
@@ -17,17 +16,32 @@ import { pushRecent } from "@picode/shared/domain/providerRecents.js";
 // the pick flow stays a dialog, the definition form gets the full pane.
 // Teaching copy lives in guide/providers.md — the page carries state and
 // actions only.
-export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) {
-  const list = catalog && catalog.providers ? catalog.providers : [];
+export default function CustomEndpointPage({ catalog, rosterProviders, cli = "pi", onRefresh, editId = "" }) {
+  // The definitions each CLI reads from its own file: pi's catalog serves
+  // models.json, omp's roster carries models.yml rows (ADR-0129 and the
+  // ADR-0169 amendment).
+  const list = cli === "pi"
+    ? (catalog && catalog.providers ? catalog.providers : [])
+    : (Array.isArray(rosterProviders) ? rosterProviders : []);
   const editing = editId ? list.find((p) => p.id === editId && p.custom) || null : null;
+  // pi's catalog row carries the editable shape on top; omp's roster nests it
+  // under definition beside the row's own id.
+  const editingShape = editing && cli !== "pi" ? { id: editing.id, ...(editing.definition || {}) } : editing;
   const isEdit = !!editId;
-  const [cf, setCf] = useState(() => customProviderForm(editing));
+  const [cf, setCf] = useState(() => customProviderForm(editingShape));
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [load, setLoad] = useState({ state: "idle", text: "", tone: "hint" });
   const [verify, setVerify] = useState({ state: "idle", text: "", tone: "hint" });
   const title = isEdit ? "Edit provider" : "Custom provider";
-  const back = cliProvidersHash("pi");
+  const back = cliProvidersHash(cli);
+  // omp's models.yml accepts a narrower advanced set than pi: no include_usage
+  // switch, five thinking formats, no chat-template objects and no per-model
+  // level map. The controls that would write keys omp's schema refuses are
+  // not rendered — the server refuses them too, but a control that cannot
+  // work is a lie the form should not tell.
+  const isPi = cli === "pi";
+  const formats = isPi ? CUSTOM_THINKING_FORMATS : CUSTOM_THINKING_FORMATS.filter((f) => OMP_THINKING_FORMATS.has(f.value));
 
   // The id list drives the per-model limit rows: a row appears with its id and
   // disappears with it, and the numbers already typed survive the trip.
@@ -85,7 +99,7 @@ export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) 
     if (load.state === "loading") return;
     setLoad({ state: "loading", text: loadingLine(cf.baseUrl), tone: "hint" });
     try {
-      const res = await loadModelsFor({ baseUrl: cf.baseUrl, api: cf.api, key: cf.key, id: cf.id });
+      const res = await loadModelsFor({ baseUrl: cf.baseUrl, api: cf.api, key: cf.key, id: cf.id, cli });
       const { changes, line } = modelLoadChanges(res, cf);
       setCf((f) => ({ ...f, ...changes }));
       setLoad({ state: "done", text: line, tone: "hint" });
@@ -110,7 +124,7 @@ export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) 
       const res = await api("/api/providers/" + encodeURIComponent(cf.id || "endpoint") + "/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ baseUrl: cf.baseUrl, api: cf.api, key: cf.key, model }),
+        body: JSON.stringify({ baseUrl: cf.baseUrl, api: cf.api, key: cf.key, model, cli }),
       });
       if (res && res.ok) setVerify({ state: "done", tone: "hint", text: (res.label || "The provider answered") + " — the key works." });
       else setVerify({ state: "failed", tone: "bad", text: (res && (res.reason || res.status)) || "The provider could not be verified." });
@@ -131,12 +145,14 @@ export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) 
       await api("/api/providers/custom/" + encodeURIComponent(parsed.value.id), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(customProviderPayload(parsed.value)),
+        body: JSON.stringify({ ...customProviderPayload(parsed.value), cli }),
       });
-      toast.ok(isEdit ? "Provider updated." : "Provider added to pi.");
-      pushRecent(parsed.value.id);
+      toast.ok(isEdit ? "Provider updated." : "Provider added to " + (cli === "pi" ? "pi" : "omp") + ".");
+      if (cli === "pi") pushRecent(parsed.value.id);
       if (onRefresh) await onRefresh();
-      go("providers");
+      // pi returns to its canonical providers route; omp back to its own pane
+      // (go("providers") is pi's legacy alias and would land on the wrong CLI).
+      if (typeof location !== "undefined") location.hash = cliProvidersHash(cli);
     } catch (ex) {
       toastError(ex);
     } finally {
@@ -243,7 +259,7 @@ export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) 
           {modelIds.length ? (
             <div className="prov-set">
               <span className="prov-legend">Model details</span>
-              <p className="prov-help">Blank leaves pi's default. Cost is USD per 1M tokens — fill all four rates or leave them blank.</p>
+              <p className="prov-help">Blank leaves the default. Cost is USD per 1M tokens — fill all four rates or leave them blank.</p>
               <div className="prov-limits">
                 {modelIds.map((id) => {
                   const row = modelLimitRow(cf.modelLimits, id);
@@ -324,10 +340,12 @@ export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) 
                 <input type="checkbox" checked={cf.compatReasoning} onChange={setCheck("compatReasoning")} />
                 <span><code>reasoning_effort</code> — reasoning models only</span>
               </label>
-              <label className="prov-check">
-                <input type="checkbox" checked={cf.compatStreaming} onChange={setCheck("compatStreaming")} />
-                <span><code>include_usage</code> in streams — token counts ride the stream</span>
-              </label>
+              {isPi ? (
+                <label className="prov-check">
+                  <input type="checkbox" checked={cf.compatStreaming} onChange={setCheck("compatStreaming")} />
+                  <span><code>include_usage</code> in streams — token counts ride the stream</span>
+                </label>
+              ) : null}
             </div>
           </div>
           <div className="prov-set">
@@ -340,12 +358,12 @@ export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) 
                 onChange={setField("thinkingFormat")}
                 aria-label="Thinking format"
               >
-                {CUSTOM_THINKING_FORMATS.map((f) => (
+                {formats.map((f) => (
                   <option key={f.value} value={f.value}>{f.label}</option>
                 ))}
               </select>
             </div>
-            {THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" || THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "args" ? (
+            {isPi && (THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" || THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "args") ? (
               <div className="prov-field">
                 <label className="prov-label" htmlFor="cf-json">
                   {THINKING_FORMAT_NEEDS[cf.thinkingFormat] === "kwargs" ? "Chat template kwargs" : "Chat template args"}
@@ -369,10 +387,10 @@ export default function CustomEndpointPage({ catalog, onRefresh, editId = "" }) 
             <div className="prov-checks">
               <label className="prov-check">
                 <input type="checkbox" checked={cf.reasoningModel} onChange={setCheck("reasoningModel")} />
-                <span>Reasoning model — lets you pick thinking levels</span>
+                <span>Reasoning model{isPi ? " — lets you pick thinking levels" : ""}</span>
               </label>
             </div>
-            {cf.reasoningModel ? (
+            {cf.reasoningModel && isPi ? (
               <div className="prov-field">
                 <label className="prov-label">Thinking levels</label>
                 <div className="prov-levels" role="group" aria-label="Thinking levels">

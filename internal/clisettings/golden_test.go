@@ -50,7 +50,7 @@ func TestGoldenReadFindsEveryDeclaredKeyThatIsSet(t *testing.T) {
 		"claude-code": {"model", "permissions.defaultMode"},
 		"codex":       {"model", "approval_policy", "sandbox_mode", "model_reasoning_effort", "features.memories"},
 		"grok":        {"models.default", "models.default_reasoning_effort", "ui.permission_mode", "ui.yolo", "ui.compact_mode", "cli.auto_update"},
-		"hermes":      {"model.default", "model.provider", "agent.max_turns", "display.compact", "display.show_reasoning", "memory.memory_enabled", "memory.user_profile_enabled", "memory.memory_char_limit", "memory.user_char_limit"},
+		"hermes":      {"model.default", "model.provider", "agent.max_turns", "display.compact", "display.show_reasoning", "display.busy_input_mode", "memory.memory_enabled", "memory.user_profile_enabled", "memory.memory_char_limit", "memory.user_char_limit"},
 		"opencode":    {"model"},
 		"muse":        {"model", "provider", "reasoning_effort", "permissions.default_profile"},
 		"agy":         {"model"},

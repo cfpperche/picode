@@ -16,6 +16,11 @@ export const CLI_PROVIDERS = [
 ];
 export const supportsCliProviders = id => CLI_PROVIDERS.some(cli => cli.id === id);
 
+// Custom provider definitions live in each CLI's own file; today pi
+// (models.json, ADR-0129) and omp (models.yml, the ADR-0169 amendment) read
+// them. The roster's `custom` door only appears where the server can write.
+export const supportsCustomProviders = id => id === "pi" || id === "omp";
+
 export function cliProvidersHash(cli = "pi", { add = false, custom = false, customId = "" } = {}) {
   const tail = custom ? "/custom" + (customId ? "/" + encodeURIComponent(customId) : "") : add ? "/new" : "";
   return "#/clis/" + encodeURIComponent(cli || "pi") + "/providers" + tail;
