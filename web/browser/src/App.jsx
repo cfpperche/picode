@@ -2813,6 +2813,54 @@ export default function App({ shellChrome = false } = {}) {
     } catch (err) { toastError(err); }
   }
 
+  // Best-effort reversal of removeAgent: the old row's id is gone for good
+  // (automations pointing at it stay broken), but the agent comes back in
+  // the same workspace with the same name, cli and config, and its session
+  // history re-attached — unless the dialog's purge was picked, in which
+  // case the sessions are already deleted and nothing pretends otherwise.
+  // Per-agent package selection rides the packages surface, not PATCH, so
+  // it is the one setting this cannot carry over.
+  async function undoRemoveAgent(snap) {
+    try {
+      let created;
+      if (snap.workspaceId && snap.workspaceId !== "ws_free") {
+        created = await api("/api/workspaces/" + snap.workspaceId + "/agents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cli: snap.cli, name: snap.name, workPath: snap.workPath || "",
+            provider: snap.provider || "", model: snap.model || "", thinking: snap.thinking || "",
+          }),
+        });
+      } else {
+        created = await api("/api/agents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: snap.name, path: snap.workPath || "" }),
+        });
+      }
+      const patch = {};
+      if (snap.opMode) patch.opMode = snap.opMode;
+      if (snap.checklist) patch.checklist = snap.checklist;
+      if (snap.extraPrompt) patch.extraPrompt = snap.extraPrompt;
+      if (snap.packagesIsolated) patch.packagesIsolated = true;
+      if (!snap.sessionsPurged && snap.sessionPath) patch.sessionPath = snap.sessionPath;
+      if (Object.keys(patch).length) {
+        await api("/api/agents/" + created.id, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        });
+      }
+      // The feed may not have delivered the brand-new row yet (and
+      // refreshFleetFallback returns nothing when it is live), so undo
+      // refetches and hands the fresh list to openTab itself.
+      const list = await loadWorkspaces();
+      openTab(created.id, list);
+      toast.ok(`"${snap.name}" is back.`);
+    } catch (err) { toastError(err); }
+  }
+
   async function removeAgent(ag) {
     const choice = await confirmCleanup({
       title: "Remove agent",
@@ -2825,6 +2873,21 @@ export default function App({ shellChrome = false } = {}) {
     // filter lands, while the strip still anchors the reader's place.
     const removedTabs = [ag.id, ag.terminalId ? termTabId(ag.terminalId) : ""].filter(Boolean);
     const next = removedTabs.includes(selectedRef.current) ? pickNextTab(tabsRef.current, removedTabs) : null;
+    const undoSnapshot = {
+      workspaceId: ag.workspaceId || "",
+      cli: ag.cli || "pi",
+      name: ag.name,
+      workPath: ag.workPath || "",
+      provider: ag.provider || "",
+      model: ag.model || "",
+      thinking: ag.thinking || "",
+      opMode: ag.opMode || "",
+      checklist: ag.checklist || "",
+      sessionPath: ag.sessionPath || "",
+      extraPrompt: ag.extraPrompt || "",
+      packagesIsolated: !!ag.packagesIsolated,
+      sessionsPurged: (choice.query || "").includes("sessions=1"),
+    };
     try {
       await api("/api/agents/" + ag.id + choice.query, { method: "DELETE" });
     } catch (err) {
@@ -2850,6 +2913,13 @@ export default function App({ shellChrome = false } = {}) {
     // A removal is rare and final: refetch even when the feed is live, so
     // the row leaves on this answer and not only on the next event.
     await loadWorkspaces();
+    // Feedback + the way back. An action carries the notice model's floor
+    // (8s), so the Undo is readable without pinning the screen.
+    notify({
+      level: "ok",
+      title: `Removed "${ag.name}".`,
+      actions: [{ label: "Undo", primary: true, run: () => undoRemoveAgent(undoSnapshot) }],
+    });
   }
 
   async function removeWorkspace(ws) {
