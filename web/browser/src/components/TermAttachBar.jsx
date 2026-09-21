@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import WorkspaceAttach from "./WorkspaceAttach.jsx";
 import { IconClip, IconFile, IconImage, IconSend, IconSketch, IconX } from "./Icons.jsx";
 import { api } from "@picode/shared/client/api.js";
+import { focusPane } from "../lib/termActions.js";
 import { planAttachFiles, readAttachFile, MAX_ATTACH } from "@picode/shared/domain/termPrompt.js";
 import { fitAttachField, isAttachSendKey } from "@picode/shared/domain/attachText.js";
 import { sceneHasInk } from "@picode/shared/domain/composerImage.js";
@@ -124,6 +125,11 @@ export default function TermAttachBar({ term, seed, ownerKind, onClose }) {
       setItems([]);
       setText("");
       setSendError("");
+      // The send landed: close the bar and hand the pane its keyboard back.
+      // Failures return above through the catch, which keeps the bar open
+      // with the text staged and the reason inside it.
+      if (onClose) onClose();
+      focusPane(term.id);
     } catch (e) {
       // Door refusals (working, occupied, busy, closed) name their fix in
       // the message — show them here, inside the card, where the Send
