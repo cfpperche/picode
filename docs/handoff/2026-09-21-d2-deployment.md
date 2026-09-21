@@ -25,7 +25,12 @@ Linux headless Chromium, and the deploy producer's real path runs only on the
 owner's `picode deploy` (its tests fake the systemctl boundary); remote
 environments stay unknown by design.
 
-visual-review: PENDING
+visual-review: PASS (14 captures read in a subagent: every state's copy
+contract-exact, no safe/ready/approved/queued wording, the integration row
+marks Not published and its detail carries three verdict tiles, dark theme
+legible, phone without overflow; overlayAudit ok, every control row 36px. The
+read's one suggestion — a failed attempt in plain body text — was fixed with
+the danger tint before closing.)
 Not done / debts: `docs/handoff/open/delivery-flow.md` — the producer's first
 live run, remote environments unknown, and `web/browser/src/lib/mobileRoutes.js`
 (a dead duplicate: no importer) left for a one-line cutover.
