@@ -78,3 +78,27 @@ export function clipboardFiles(clipboardData) {
 export function termHasPromptDoor(term) {
   return !!(term && term.launchCli && term.running);
 }
+// promptDoorFor({kind, agentMode, term}): the one door predicate every
+// terminal surface answers — the same rule the context menu uses
+// (termMenu.js paneCapabilities): an interactive agent pane, or a running
+// CLI. Plain and stopped shells have no door, whatever record they arrive
+// with (a bound store record carries no launch fields).
+export function promptDoorFor({ kind, agentMode, term } = {}) {
+  if (kind === "agent" && agentMode === "interactive") return true;
+  return termHasPromptDoor(term);
+}
+
+// clipboardText(clipboardData): the text riding alongside a paste, if any.
+// A files-paste that also carries text seeds the attach message with it
+// instead of dropping it (the keydown path's late text is claimed away by
+// termPasteClaim.js, so the message is the text's only landing).
+export function clipboardText(clipboardData) {
+  try {
+    if (clipboardData && typeof clipboardData.getData === "function") {
+      return String(clipboardData.getData("text/plain") || "");
+    }
+  } catch {
+    return "";
+  }
+  return "";
+}

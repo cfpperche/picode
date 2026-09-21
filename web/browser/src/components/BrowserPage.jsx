@@ -10,7 +10,7 @@ import { takeBrowserDialog } from "../lib/browserDialogs.js";
 import { IconWarn } from "./Icons.jsx";
 import { relTime } from "@picode/shared/domain/relTime.js";
 import PageFrame from "./PageFrame.jsx";
-import { Item, SwitchCtl } from "./settingsControls.jsx";
+import { AuditList, Item, SwitchCtl, WsTag } from "./settingsControls.jsx";
 import { BROWSER_PERMISSION_KINDS, browserGrantSchema, browserSiteSchema } from "@picode/shared/contracts/schemas.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { toast } from "../lib/toast.js";
@@ -43,6 +43,11 @@ const DESTS = [
 ];
 
 const domainsText = (row) => (row.domains ?? []).join(", ");
+
+// Grants/audit paging (Carbon table language): a page renders free, the
+// footer pages the rest instead of virtualizing a settings surface.
+const GRANT_PAGE = 100;
+const AUDIT_PAGE = 50;
 
 // Clear browsing data: the time ranges and the kinds the dialog offers.
 // Each kind names the WebView2 browsing-data mask half the shell applies;
@@ -190,6 +195,16 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   // The raw-CDP audit (ADR-0144): null while loading, [] when empty, so the
   // card can tell "nothing yet" from "not read yet".
   const [devAudit, setDevAudit] = useState(null);
+  // Grants toolbar: search + workspace/tier filters, paged at GRANT_PAGE.
+  const [grantQuery, setGrantQuery] = useState("");
+  const [grantWs, setGrantWs] = useState("all");
+  const [grantTier, setGrantTier] = useState("all");
+  const [grantLimit, setGrantLimit] = useState(GRANT_PAGE);
+  const [wsNames, setWsNames] = useState({});
+  // Raw-calls audit: search + outcome filter, paged at AUDIT_PAGE.
+  const [auditQuery, setAuditQuery] = useState("");
+  const [auditOutcome, setAuditOutcome] = useState("all");
+  const [auditLimit, setAuditLimit] = useState(AUDIT_PAGE);
 
   // The work-tab options menu asks for one of these dialogs (option A, owner
   // 2026-09-15): the request rode the route change, and this page opens it
@@ -243,12 +258,31 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   // allowed or refused, newest first (ADR-0144).
   const loadDevAudit = useCallback(async () => {
     try {
-      const r = await fetch("/api/browser/developer/audit?limit=20");
+      const r = await fetch("/api/browser/developer/audit?limit=100");
       if (!r.ok) throw new Error(String(r.status));
       const data = await r.json();
       setDevAudit(data.calls ?? []);
     } catch {
       setDevAudit([]);
+    }
+  }, []);
+
+  // Workspace names for the provenance chips (id → name; the raw id stays
+  // in the chip's title). Loaded once per mount, not per feed event.
+  const loadWs = useCallback(async () => {
+    try {
+      const r = await fetch("/api/workspaces");
+      if (!r.ok) return;
+      const data = await r.json();
+      const names = {};
+      for (const w of Array.isArray(data) ? data : (data.workspaces ?? [])) {
+        const id = w.id ?? w.ID;
+        const name = w.name ?? w.Name;
+        if (id) names[id] = name || id;
+      }
+      setWsNames(names);
+    } catch {
+      /* chips fall back to the raw id */
     }
   }, []);
 
@@ -287,6 +321,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   useEffect(() => {
     if (!hidden) {
       load();
+      loadWs();
       loadHistory();
       loadDownloads();
       loadStands();
@@ -308,7 +343,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
         })
         .catch(() => {});
     }
-  }, [hidden, load, loadHistory]);
+  }, [hidden, load, loadHistory, loadWs]);
 
   const invoke = typeof window !== "undefined" && window.__TAURI__ ? window.__TAURI__.core.invoke : null;
 
@@ -688,6 +723,55 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
     }
   };
 
+  // Grants toolbar (Carbon table language): search across name and ids,
+  // workspace and tier filters, paged client-side at GRANT_PAGE.
+  const grantWsOptions = useMemo(() => {
+    const seen = new Map();
+    for (const row of rows || []) {
+      if (row.workspaceId && !seen.has(row.workspaceId)) {
+        seen.set(row.workspaceId, wsNames[row.workspaceId] || row.workspaceId);
+      }
+    }
+    return [...seen.entries()].sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+  }, [rows, wsNames]);
+  const filteredGrants = useMemo(() => {
+    const q = grantQuery.trim().toLowerCase();
+    return (rows || []).filter((row) => {
+      if (grantWs === "none") {
+        if (row.workspaceId) return false;
+      } else if (grantWs !== "all" && row.workspaceId !== grantWs) return false;
+      if (grantTier !== "all" && row.tier !== grantTier) return false;
+      if (q) {
+        const hay = ((row.name || "") + " " + (row.agentId || "") + " " + (row.termId || "")).toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [rows, grantQuery, grantWs, grantTier]);
+  const shownGrants = filteredGrants.slice(0, grantLimit);
+  const clearGrantFilters = () => {
+    setGrantQuery("");
+    setGrantWs("all");
+    setGrantTier("all");
+    setGrantLimit(GRANT_PAGE);
+  };
+  const grantFiltersActive = grantQuery !== "" || grantWs !== "all" || grantTier !== "all";
+  // Raw-calls audit (Linear/Stripe language): search across method and actor,
+  // outcome filter, paged at AUDIT_PAGE.
+  const filteredAudit = useMemo(() => {
+    const q = auditQuery.trim().toLowerCase();
+    return (devAudit || []).filter((call) => {
+      if (auditOutcome !== "all" && String(call.outcome).toLowerCase() !== auditOutcome) return false;
+      if (q) {
+        const hay = ((call.method || "") + " " + (call.agentId || "") + " " + (call.termId || "")).toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    }).map((call) => ({ ...call, key: call.id }));
+  }, [devAudit, auditQuery, auditOutcome]);
+  const shownAudit = filteredAudit.slice(0, auditLimit);
+  const auditFiltersActive = auditQuery !== "" || auditOutcome !== "all";
+
   return (
     <PageFrame id="browser-view" title="Browser" hidden={hidden}>
       <div className="set-page">
@@ -794,6 +878,38 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
         <section className="set-group">
           <h2 className="set-grouph">Agent permissions</h2>
           <p className="set-groupdesc">Which agents and terminals may use the built-in browser, and on which sites.</p>
+          {rows !== null && rows.length > 0 ? (
+            <div className="set-toolbar" role="search">
+              <input
+                type="search"
+                className="set-search"
+                placeholder="Search agents…"
+                value={grantQuery}
+                onChange={(e) => { setGrantQuery(e.target.value); setGrantLimit(GRANT_PAGE); }}
+                aria-label="Search agents"
+              />
+              <select
+                className="set-select"
+                value={grantWs}
+                onChange={(e) => { setGrantWs(e.target.value); setGrantLimit(GRANT_PAGE); }}
+                aria-label="Filter by workspace"
+              >
+                <option value="all">All workspaces</option>
+                {grantWsOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                <option value="none">No workspace</option>
+              </select>
+              <select
+                className="set-select"
+                value={grantTier}
+                onChange={(e) => { setGrantTier(e.target.value); setGrantLimit(GRANT_PAGE); }}
+                aria-label="Filter by access level"
+              >
+                <option value="all">All tiers</option>
+                {TIERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+              <span className="set-count">{filteredGrants.length} of {rows.length}</span>
+            </div>
+          ) : null}
           <div className="set-panel">
             {rows === null ? (
               <div className="set-item"><div className="mcp-skel" aria-hidden="true"><span className="skel-line w-40" /><span className="skel-line w-70" /></div></div>
@@ -807,11 +923,22 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
                   <button type="button" className="set-btn" onClick={onCreateAgent}>Create an agent</button>
                 </div>
               </div>
+            ) : shownGrants.length === 0 ? (
+              <div className="set-item">
+                <div className="set-item-body">
+                  <span className="set-item-t">No grants match</span>
+                  <span className="set-item-d">No agent or terminal matches the current search and filters.</span>
+                </div>
+                <div className="set-item-ctl">
+                  <button type="button" className="set-btn" onClick={clearGrantFilters}>Clear search</button>
+                </div>
+              </div>
             ) : (
-              rows.map((row) => (
+              shownGrants.map((row) => (
                 <GrantRow
                   key={keyOf(row)}
                   row={row}
+                  wsName={row.workspaceId ? (wsNames[row.workspaceId] || null) : null}
                   draft={draftOf(row)}
                   onDraft={(next) => setDraft(keyOf(row), next)}
                   onSave={() => save(row)}
@@ -819,6 +946,13 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
                 />
               ))
             )}
+            {filteredGrants.length > shownGrants.length ? (
+              <div className="set-more">
+                <span className="set-count">Showing {shownGrants.length} of {filteredGrants.length}</span>
+                <button type="button" className="set-btn" onClick={() => setGrantLimit((l) => l + GRANT_PAGE)}>Show more</button>
+                <button type="button" className="set-btn" onClick={() => setGrantLimit(filteredGrants.length)}>Show all</button>
+              </div>
+            ) : null}
           </div>
           <p className="set-groupdesc">
             Read — sees the tab you have on screen, nothing else. Act — also opens and drives pages in its own pane, inside the domains you list. Full — everything Act does, plus developer access.
@@ -851,28 +985,67 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
               </div>
             </div>
           </div>
+          {(devAudit !== null && devAudit.length > 0) || auditFiltersActive ? (
+            <div className="set-toolbar" role="search">
+              <input
+                type="search"
+                className="set-search"
+                placeholder="Search calls…"
+                value={auditQuery}
+                onChange={(e) => { setAuditQuery(e.target.value); setAuditLimit(AUDIT_PAGE); }}
+                aria-label="Search raw calls"
+              />
+              <select
+                className="set-select"
+                value={auditOutcome}
+                onChange={(e) => { setAuditOutcome(e.target.value); setAuditLimit(AUDIT_PAGE); }}
+                aria-label="Filter by outcome"
+              >
+                <option value="all">All outcomes</option>
+                <option value="allowed">Allowed</option>
+                <option value="refused">Refused</option>
+              </select>
+              <span className="set-count">{filteredAudit.length} of {devAudit === null ? 0 : devAudit.length}</span>
+            </div>
+          ) : null}
           <div className="set-panel">
             <div className="set-item set-item-col">
               <div className="set-item-body">
                 <span className="set-item-t">Raw calls</span>
                 {devAudit === null ? (
                   <span className="set-item-d">Reading…</span>
-                ) : devAudit.length === 0 ? (
+                ) : devAudit.length === 0 && !auditFiltersActive ? (
                   <span className="set-item-d">No raw calls yet. Every call an agent makes with the switch on is listed here, allowed or refused.</span>
+                ) : shownAudit.length === 0 ? (
+                  <>
+                    <span className="set-item-d">No calls match the current search and filters.</span>
+                    <span><button type="button" className="set-btn" onClick={() => { setAuditQuery(""); setAuditOutcome("all"); setAuditLimit(AUDIT_PAGE); }}>Clear search</button></span>
+                  </>
                 ) : (
-                  <ul className="set-audit">
-                    {devAudit.map((call) => (
-                      <li key={call.id} className="set-audit-row">
-                        <code className="set-audit-method">{call.method}</code>
-                        <span className={"set-audit-outcome" + (call.outcome === "allowed" ? " is-ok" : "")}>{call.outcome}</span>
-                        <span className="set-audit-actor">{call.agentId || call.termId || "unknown"}</span>
-                        <span className="set-audit-when">{relTime(call.calledAt)}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <AuditList
+                    rows={shownAudit}
+                    method={(call) => call.method}
+                    outcome={(call) => call.outcome}
+                    actor={(call) => call.agentId || call.termId || "unknown"}
+                    when={(call) => relTime(call.calledAt)}
+                    detail={(call) => (
+                      <>
+                        <div className="set-audit-detail-row"><span className="set-audit-detail-k">Method</span><code>{call.method}</code></div>
+                        <div className="set-audit-detail-row"><span className="set-audit-detail-k">Actor</span><code>{call.agentId || call.termId || "unknown"}</code></div>
+                        <div className="set-audit-detail-row"><span className="set-audit-detail-k">Called</span><span>{new Date(call.calledAt).toLocaleString()} ({relTime(call.calledAt)})</span></div>
+                      </>
+                    )}
+                  />
                 )}
               </div>
             </div>
+            {filteredAudit.length > shownAudit.length ? (
+              <div className="set-more">
+                <span className="set-count">Showing {shownAudit.length} of {filteredAudit.length}</span>
+                <button type="button" className="set-btn" onClick={() => setAuditLimit((l) => l + AUDIT_PAGE)}>Show more</button>
+                <button type="button" className="set-btn" onClick={() => setAuditLimit(filteredAudit.length)}>Show all</button>
+              </div>
+            ) : null}
           </div>
         </section>
       </div>
@@ -1308,7 +1481,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   );
 }
 
-function GrantRow({ row, draft, onDraft, onSave, flash }) {
+function GrantRow({ row, draft, onDraft, onSave, flash, wsName }) {
   const parsed = browserGrantSchema.safeParse({ tier: draft.tier, domains: draft.domainsText });
   const valid = parsed.success;
   const dirty = draft.tier !== row.tier || draft.domainsText !== domainsText(row);
@@ -1326,6 +1499,8 @@ function GrantRow({ row, draft, onDraft, onSave, flash }) {
         <span className="set-item-t">
           {row.name}
           {row.saved ? <span className="devs-tag">custom</span> : <span className="devs-tag devs-tag-off">default</span>}
+          <WsTag id={row.workspaceId} name={wsName} />
+          <span className="devs-tag devs-tag-off">{row.kind === "terminal" ? "terminal" : "managed"}</span>
         </span>
         {!valid && actLike ? <span className="set-item-d" style={{ color: "var(--danger)" }}>{parsed.error.issues[0].message}</span> : null}
         {actLike && valid ? (
