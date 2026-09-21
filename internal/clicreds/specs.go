@@ -143,7 +143,7 @@ var catalog = []Spec{
 		// pi publishes no login subcommand — its `pi auth` only prints stored
 		// credentials and checks provider readiness — so its sign-in is
 		// `/login` inside its TUI, and the guided flow opens pi itself.
-		Login: &LoginCommand{Hint: "Type /login at the prompt in Pi, then come back here."},
+		Login: &LoginCommand{Hint: "In the terminal: finish what it asks, type /login, then come back here."},
 	},
 	{
 		CLI: "claude-code", Name: "Claude Code",
@@ -156,7 +156,10 @@ var catalog = []Spec{
 		// Claude Code signs in from its own TUI (`/login`), which is why the
 		// command is empty and the hint names the command inside it. The CLI
 		// also ships `claude auth login`; the TUI is the sign-in this declares.
-		Login: &LoginCommand{Hint: "Type /login at the prompt in Claude Code, then come back here."},
+		// A fresh install opens on its theme picker, not on a prompt — the person
+		// who clicked Sign in and found no place to type /login was looking at
+		// exactly that (2026-09-21). The hint names the step.
+		Login: &LoginCommand{Hint: "In the terminal: finish its setup if it asks (a fresh install offers a theme), then type /login."},
 	},
 	{
 		CLI: "codex", Name: "Codex",
@@ -287,6 +290,6 @@ var catalog = []Spec{
 		// do not sign in — so its sign-in is `/login` inside the TUI, and what
 		// it stores goes to the SQLite database this package does not read: the
 		// guided flow ends at Import.
-		Login: &LoginCommand{Hint: "Type /login at the prompt in Omp, then come back here."},
+		Login: &LoginCommand{Hint: "In the terminal: finish what it asks, type /login, then come back here."},
 	},
 }
