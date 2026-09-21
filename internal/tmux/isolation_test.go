@@ -91,7 +91,7 @@ func TestKillServerEndsTheManagersOwnServer(t *testing.T) {
 	if !New().Available() {
 		t.Skip("tmux not installed")
 	}
-	dir := t.TempDir()
+	dir := socketDir(t)
 	m := NewWithSocket(filepath.Join(dir, "tmux.sock"))
 	ctx := context.Background()
 	if err := m.NewSession(ctx, SessionName("kill-server-test"), dir, "sleep", "30"); err != nil {
@@ -116,7 +116,7 @@ func TestKillServerEndsTheManagersOwnServer(t *testing.T) {
 // The refusal is the safety property, not a formality: no caller may talk a
 // Manager into killing the server the human is working in.
 func TestKillServerRefusesTheUsersServer(t *testing.T) {
-	attached := filepath.Join(t.TempDir(), "sock")
+	attached := filepath.Join(socketDir(t), "sock")
 	for _, tc := range []struct {
 		name string
 		m    *Manager

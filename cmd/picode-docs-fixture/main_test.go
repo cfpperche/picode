@@ -41,7 +41,15 @@ func TestShutdownEndsTheServerBeforeTheDirectory(t *testing.T) {
 	if !tmux.New().Available() {
 		t.Skip("tmux not installed")
 	}
-	dir := t.TempDir()
+	// The socket path is what the kernel binds, and t.TempDir() honours TMPDIR
+	// (50 characters on a macOS runner before Go appends the test name), so the
+	// socket gets a short directory of its own — internal/tmux/socketdir_test.go
+	// measures the same hazard for the package that owns the manager.
+	dir, err := os.MkdirTemp("/tmp", "pxs")
+	if err != nil {
+		t.Fatalf("socket dir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	m := tmux.NewWithSocket(filepath.Join(dir, "tmux.sock"))
 	ctx := context.Background()
 	name := tmux.SessionName("fixture-shutdown-test")
