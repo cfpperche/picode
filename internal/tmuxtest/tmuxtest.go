@@ -27,7 +27,9 @@ package tmuxtest
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"runtime"
+	"strconv"
 	"testing"
 	"time"
 
@@ -39,7 +41,7 @@ import (
 // tmux binary must not fail the suite, and a cleanup failure must not
 // replace the suite's own verdict.
 func Main(m *testing.M) int {
-	dir, err := os.MkdirTemp(socketBase(), "pctm")
+	dir, err := os.MkdirTemp(namespaceBase(), "picode-tmuxtest-")
 	if err != nil {
 		return m.Run() // no isolation available; run as before
 	}
@@ -67,27 +69,30 @@ func Main(m *testing.M) int {
 	return code
 }
 
-// socketBase is where the private namespace goes: somewhere short.
+// namespaceBase is TMPDIR, unless a socket under it would not fit.
 //
-// The default (TMPDIR, via os.MkdirTemp's empty dir) is what broke every
-// tmux test on the macOS runner. There TMPDIR is
-// /var/folders/<2>/<28>/T/ — about 50 characters before anything of ours
-// is appended — and tmux then binds <dir>/tmux-<uid>/default, which lands
-// past the kernel's sun_path limit (108 bytes on Linux, 104 on
-// macOS/BSD). The failure reads `error connecting to … (File name too
-// long)`, which looks like a tmux fault and is a path-length one; it
-// reproduces on Linux with a long TMPDIR.
-//
-// /tmp keeps the whole namespace around 30 characters. Where it is not
-// usable, TMPDIR is still better than failing to isolate at all — a
-// suite that cannot bind its own socket is a suite that would otherwise
-// land on the user's server.
-func socketBase() string {
-	if runtime.GOOS == "windows" {
-		return os.TempDir()
+// tmux binds <namespace>/tmux-<uid>/default, and the kernel's sun_path is
+// 108 bytes on Linux and 104 on macOS/BSD. On a macOS runner TMPDIR is
+// /var/folders/<2>/<28>/T/ — 49 characters — and the namespace socket
+// lands at 92, which fits; the tests that failed there built their own
+// deeper socket paths and are fixed in the package's own fixtures. So
+// this stays on TMPDIR wherever it already works, and only falls back
+// when it genuinely does not: forcing /tmp unconditionally changed the
+// namespace on runners that never had a problem, and internal/tmux went
+// red on ubuntu for it.
+func namespaceBase() string {
+	base := os.TempDir()
+	if len(filepath.Join(base, "picode-tmuxtest-1234567890", "tmux-"+strconv.Itoa(os.Getuid()), "default")) <= sunPathLimit {
+		return base
 	}
-	if st, err := os.Stat("/tmp"); err == nil && st.IsDir() {
-		return "/tmp"
+	if runtime.GOOS != "windows" {
+		if st, err := os.Stat("/tmp"); err == nil && st.IsDir() {
+			return "/tmp"
+		}
 	}
-	return os.TempDir()
+	return base
 }
+
+// sunPathLimit is the smaller of the two platform ceilings, so the check
+// above is conservative everywhere.
+const sunPathLimit = 104

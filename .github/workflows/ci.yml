@@ -195,9 +195,14 @@ jobs:
       # the native tray/native-host boundary. Running the Linux daemon suite
       # against Windows path and permission semantics tests an unsupported
       # topology rather than the shipped Windows product (ADR-0020).
+      # Sharded, because the race detector puts internal/server past the
+      # 10-minute default timeout in a single process: every run of
+      # `go test -race ./...` died with `panic: test timed out after 10m0s`
+      # and took the whole gate with it, whatever else passed. The script is
+      # the same one `make ci` uses (ADR-0105); -race is what CI adds.
       - name: Test daemon
         if: matrix.os != 'windows-latest'
-        run: go test -race ./...
+        run: GO_TEST_FLAGS=-race ./scripts/go-test.sh ./...
 
       - name: Compile Windows packages and tests
         if: matrix.os == 'windows-latest'
