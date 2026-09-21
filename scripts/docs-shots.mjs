@@ -63,6 +63,12 @@ const externalBase = process.argv.includes("--base")
 // waitText must be VIEW-SPECIFIC and is checked inside `scope` (both mobile
 // screens render the seeded question's title, so the container decides).
 const surfaces = [
+  // The unified Providers pane: pi's grid with the seeded usage bars, and
+  // Claude Code's pane with its native strip — the two states the guide's
+  // sign-in walkthrough walks through. catalog.Load shells out to
+  // `pi --list-models --offline`, so these settle longer.
+  { name: "app-providers-pi", profile: DOC_SCREENSHOT_SURFACES["app-providers-pi"], path: "/browser/#/clis/pi/providers", w: 1440, h: 900, settle: 8000, waitText: "Add provider" },
+  { name: "app-providers", profile: DOC_SCREENSHOT_SURFACES["app-providers"], path: "/browser/#/clis/claude-code/providers", w: 1440, h: 900, settle: 6000, waitText: "is signed in here" },
   { name: "app-fleet", profile: DOC_SCREENSHOT_SURFACES["app-fleet"], path: "/browser/", w: 1440, h: 900, settle: 4000, waitText: "Atlas" },
   // The Inspector rail beside Atlas's conversation: the fixture seeds a dirty
   // repository under the picode workspace, so Changes lists real counts. The
