@@ -1,4 +1,31 @@
-# Register deliveries from an agent
+# Follow changes in Delivery
+
+Open a project's **Git** view and choose **Delivery**. Choose the target branch
+(`main` is the common choice), then read each change using two separate facts:
+
+| Label | Meaning |
+|---|---|
+| Integrated | The target branch already contains this revision. It does not mean published. |
+| Not integrated | The target branch does not contain this revision yet. |
+| Update needed | The change and target moved independently; inspect the history before integrating. |
+| Checks passed | A clean full-project check covers the selected revision. |
+| Relevant checks passed | The recorded checks cover only part of the project. |
+| Checks not recorded | PiCode found no check evidence; it does not prove that no one ran checks. |
+| Checked X seconds ago | When PiCode read Git and local evidence, not when tests ran. |
+
+`Needs attention` filters the list; it does not create or order a work queue.
+`View details` shows the revision and recorded evidence. `Open history` opens
+the commit history for inspection. **Integrated** and **Checks passed** describe
+the source and validation state; neither status confirms publication. This screen
+does not say what is running in production. Publication observation is a separate
+step.
+
+An **Observed branch** was found in Git automatically. A **Registered delivery**
+was declared by an agent through the command below. **Association not recorded**
+means PiCode could not connect the current checkout to an active agent; it does
+not identify the author.
+
+## Register a delivery from an agent
 
 An agent can register a proposed change and ask for review using
 `picode delivery`. The record names the branch, exact commit and target branch.
@@ -77,13 +104,11 @@ and each principal up to 10,000 mutation receipts per repository.
 `picode delivery --help` lists the actions. Successful calls print JSON; failures
 return a nonzero exit status. No action merges code, runs checks or publishes it.
 
-## Follow integrations
+## Refresh and limits
 
-Open a project's Git view and choose **Delivery**. Select the branch changes will
-join. Each row keeps integration separate from checks: a change may already be
-integrated while the project checks have failed. **View details** shows the exact
-revision and evidence; **Review changes** opens Git history. Registered deliveries
-keep their ID; other local branches appear as observed candidates.
+Each row keeps integration separate from checks: a change may already be
+integrated while the project checks have failed. Registered deliveries keep their
+ID; other local branches appear as observed candidates.
 
 The view refreshes while visible and keeps the last result if a read fails.
 **Follow folder** explicitly adopts a moved project; a failed read never means the

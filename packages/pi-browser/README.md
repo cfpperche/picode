@@ -1,24 +1,27 @@
 # pi-browser
 
-Read the web page the human has open in **PiCode's work browser** (the desktop
-app) — the `browser` tool (ADR-0132, ADR-0134).
+Drive the browser tab beside the agent's session in the **PiCode desktop app**
+— the `browser` tool (ADR-0132, ADR-0172).
 
-| Verb | What it returns | Tier |
+| Verb | What it returns | Who |
 |---|---|---|
-| `snapshot` | the page as an accessibility tree: `role "name"` lines | read |
-| `screenshot` | the page on screen as an image the model sees | read |
-| `events` | what the tab recorded: navigation, console, network | read |
-| `evaluate` | the result of a JavaScript expression | act |
-| `navigate` | the page after a navigation, inside the grant's domains | act |
-| `cdp` | one Chrome DevTools Protocol method by name — needs Developer mode **and** the Full tier | full |
+| `open` | opens the split beside this session, optional url | any identified caller |
+| `snapshot` | the page as an accessibility tree: `role "name"` lines | the session tab |
+| `screenshot` | the page on screen as an image the model sees | the session tab |
+| `events` | what the tab recorded: navigation, console, network | the session tab |
+| `click` | clicks a selector, or a point | the session tab |
+| `type` | inserts text, optionally into a selector | the session tab |
+| `press` | a key: Enter, Tab, Escape, an arrow, or one character | the session tab |
+| `evaluate` | the result of a JavaScript expression | the session tab |
+| `navigate` | the page after a navigation, any http(s) URL | the session tab |
+| `cdp` | one Chrome DevTools Protocol method by name — needs Developer mode **and** the Full tier | grant |
+| `history` | where the human has been — off until Settings ▸ Browser allows it | setting |
 
-Read-only unless granted: the tool names a verb, the daemon maps it to a CDP
-method the shell's catalog allows at that tier, and the default policy is
-**read on the tab on screen** — with no grant it cannot click, type or
-navigate. Acting needs a grant (Settings ▸ Browser). Each verb answers in its
-own shape: `snapshot` as `role "name"` lines, `events` as the recorded ring,
-`evaluate` as the value (or `the page threw: …`), `navigate` as where it went,
-`cdp` as the method's JSON.
+This is not a headless browser. Unattended browsing stays on the runtime's
+own tool. An identified caller does not need a stored grant to drive the
+tab beside its session; closing the split stops it. A caller with no
+identity cannot drive a tab. Raw CDP stays behind Developer mode and the
+Full tier.
 
 `cdp` is the one verb that names a protocol method itself, and it is the one
 the owner opens deliberately: with **Developer mode** off (the default) the

@@ -1,2 +1,0 @@
-### Added
-- **Connectors for OpenCode and Grok.** The same Connectors pane now manages their native MCP configs: OpenCode's `opencode.json` (`mcp` block, command arrays, per-server on/off; `XDG_CONFIG_HOME` respected) and Grok's `.grok/config.toml` (`[mcp_servers.*]` tables edited with a surgical splice that keeps comments and `${VAR}` placeholders byte-for-byte; Grok has no per-server switch, so rows show none).

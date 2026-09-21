@@ -41,7 +41,7 @@ export default function Sidebar({
   tab, selectTab,
   workspaces, selectedId,
   onNew, onSelect, onRun, onStop, onRemove,
-  userMenu, termView, onChat, onTerm,
+  userMenu, termView, onChat, onTerm, onOpenDocs,
   freeAgents, onNewFree, onNewAgent, onRemoveAgent, onRenameAgent,
   workingId,
   workingIds,
@@ -332,7 +332,7 @@ export default function Sidebar({
 
       <div className="sr-only" aria-live="polite">{orderLive}</div>
       <footer className="side-foot">
-        <UserMenu {...userMenu} onShare={() => setShareOpen(true)} />
+        <UserMenu {...userMenu} onShare={() => setShareOpen(true)} onDocs={onOpenDocs} />
       </footer>
       <div id="sidebar-sizer" className="sidebar-sizer" title="Drag to resize" onPointerDown={onSizerDown} />
       <ShareDrawer open={shareOpen} onClose={() => setShareOpen(false)} />

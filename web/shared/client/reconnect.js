@@ -9,6 +9,8 @@
 // answer 404, and reloading into that body leaves the shell parked on it
 // forever (2026-09-18, back-to-back deploys bricked the desktop app). The
 // reload waits — bounded — for this page's own path to answer 200 again.
+// That gate is the `probe` default, so a call site never has to pass it:
+// passing none built a watch whose reload path threw (2026-09-21).
 
 export async function pageServing(fetchImpl = fetch, path) {
   try {
@@ -20,9 +22,15 @@ export async function pageServing(fetchImpl = fetch, path) {
   }
 }
 
+// The wait is bounded and fail-open, and a probe that *throws* counts as a
+// page that is not serving yet — never as a reason to give up. A rejection
+// escaping here used to kill the tick loop: no reload, no reschedule, and
+// the Reconnecting overlay up forever (2026-09-21, every deploy).
 async function reloadWhenServing(reload, probe, waitMs) {
   for (let i = 0; i < 20; i++) {
-    if (await probe()) break;
+    let serving = false;
+    try { serving = await probe(); } catch { serving = false; }
+    if (serving) break;
     await new Promise((r) => setTimeout(r, waitMs));
   }
   reload();
@@ -45,7 +53,7 @@ export async function pingHealth(fetchImpl = fetch) {
 export function startReconnectWatch({
   ping = pingHealth,
   reload = defaultReload,
-  probe,
+  probe = pageServing,
   waitMs = 750,
   onState,
   downAfter = 1,

@@ -12,4 +12,4 @@ Verified: `make close` green, scoped. visual-review: n/a — no UI diff. Nothing
 
 ## Debts
 
-- The mutation gate reads source text, not types: a write assembled from a package-level constant, or a table name with a digit, would still evade it. Neither exists today (checked); `docs/handoff/open/process.md` owns it if one appears.
+- ~~The mutation gate reads source text, not types: a write assembled from a package-level constant, or a table name with a digit, would still evade it.~~ **Paid the same day by `feat/gate-union` (51e19c3c):** a write is now either SQL the test can read or a call that runs one, which between them have no gap. Filing this was an unmeasured guess about cost — the fix was three lines.

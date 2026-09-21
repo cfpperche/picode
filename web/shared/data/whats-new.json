@@ -122,5 +122,56 @@
         "summary": "The shell no longer opens a terminal window next to its tray icon on every start."
       }
     ]
+  },
+  {
+    "version": "0.4.0",
+    "date": "2026-09-21",
+    "highlights": [
+      {
+        "icon": "terminal",
+        "title": "Every agent CLI, managed like Pi was",
+        "summary": "Claude Code, Codex, Grok, Hermes, OpenCode, Muse Code, Antigravity and Omp each get a real Settings, Memory, Packages and Providers pane that edits the CLI's own files — the vendor's own keys, named as the vendor names them."
+      },
+      {
+        "icon": "agent",
+        "title": "One vault for every sign-in",
+        "summary": "See which accounts this machine holds, import the login a CLI already has, add an API key, verify it or sign out. One account per provider or ten, encrypted at rest."
+      },
+      {
+        "icon": "inbox",
+        "title": "PiCode's own tools reach the other CLIs",
+        "summary": "Inbox, Checklist, Browser and Computer now serve over MCP with the same names and answers the pi packages give, switchable per launch."
+      },
+      {
+        "icon": "inbox",
+        "title": "Any script can ask you a question and wait",
+        "summary": "`picode inbox ask --question \"…\" --wait` files the question in your Inbox and blocks until you answer — hours if needed — then prints your reply. No MCP configuration."
+      },
+      {
+        "icon": "agent",
+        "title": "An agent can drive the desktop",
+        "summary": "Switch Computer on for one agent and it can see the screen, click, type, use the clipboard and open programs with your permissions. Every call, allowed or refused, is listed. Off by default."
+      },
+      {
+        "icon": "terminal",
+        "title": "Know what is listening, and stop it",
+        "summary": "The Inspector's Servers tab names what each port actually answered, who started it and how long it has been up — and offers Open, Show terminal and Stop for the ones PiCode can attribute."
+      },
+      {
+        "icon": "workspace",
+        "title": "Web apps keep their own logins",
+        "summary": "Each installed web app has its own session store, so a second account of the same service is a second tile — and either can be cleared or forgotten on its own."
+      },
+      {
+        "icon": "phone",
+        "title": "The Inspector came to the phone",
+        "summary": "Changes, Files and the diff view now open on mobile, and Changes follows a dirty linked worktree instead of describing the wrong checkout."
+      },
+      {
+        "icon": "workspace",
+        "title": "Windows setup finishes on a clean machine",
+        "summary": "`picode-desktop install` now delivers the Linux binary and the runtime — tmux, git, curl, Node.js — so a fresh Windows box reaches a working PiCode without a manual WSL session."
+      }
+    ]
   }
 ]

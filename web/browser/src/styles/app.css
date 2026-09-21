@@ -4427,11 +4427,20 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
    changes when the bar wraps. */
 .key-pane .key-bar {
   position: sticky; top: 0; z-index: 2;
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 8px;
   margin: 0 0 6px; padding: 8px 0 10px;
   background: var(--bg-panel);
 }
-.key-pane .key-filter { margin: 0; flex: 0 1 20rem; min-width: 11rem; }
+/* The toolbar's policy (visual review, 2026-09-21, twice): it wraps rather than
+   clip. A fixed `nowrap` squeezed the facet labels at 1024px, and letting the
+   filter shrink past the placeholder's own width cut the placeholder mid-word
+   while the row count spilled out of the card. So the filter owns a width the
+   placeholder fits in and never shrinks below it, the facets shrink and scroll
+   instead of squeezing, and nothing else gives up width. Wrapping is then only
+   what happens when the line genuinely cannot hold the controls — and at 1365
+   or 1024 it does. Below 1140px the row count steps aside because the `All N`
+   chip already carries it. */
+.key-pane .key-filter { margin: 0; flex: 1 1 10rem; min-width: 10rem; max-width: 16rem; }
 .key-pane .key-filter input {
   width: 100%; height: var(--ctl-h); box-sizing: border-box;
   padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius-ctl);
@@ -4441,6 +4450,9 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 /* Find by key: press a chord, the list narrows to the actions that answer to
    it. The facets, the key filter and the button are one control language —
    pills at control height, checked in accent. */
+.key-pane .key-find {
+  flex: none;
+}
 .key-pane .key-find, .key-pane .key-facet {
   display: inline-flex; align-items: center; gap: 6px;
   height: var(--ctl-h); box-sizing: border-box; padding: 0 10px;
@@ -4450,7 +4462,8 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 }
 .key-pane .key-find:hover, .key-pane .key-facet:hover { color: var(--text-primary); background: var(--bg-hover); }
 .key-pane .key-find.is-on, .key-pane .key-find[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
-.key-pane .key-facets { display: inline-flex; gap: 4px; min-width: 0; }
+.key-pane .key-facets { display: inline-flex; flex: 0 1 auto; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.key-pane .key-facet { flex: none; }
 .key-pane .key-facet[aria-checked="true"] { color: var(--accent); border-color: var(--border-strong); background: var(--bg-base); }
 .key-pane .key-facet-n { font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .key-pane .key-facet[aria-checked="true"] .key-facet-n { color: var(--accent); }
@@ -4458,8 +4471,9 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .key-pane .key-facet-x { color: var(--text-secondary); font-size: 13px; line-height: 1; }
 .key-pane .key-facet:hover .key-facet-x { color: var(--danger); }
 .key-pane .key-count {
-  display: inline-flex; align-items: center; height: var(--ctl-h); margin-left: auto;
+  display: inline-flex; flex: none; align-items: center; height: var(--ctl-h); margin-left: auto;
   font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .key-pane code {
   font-family: var(--mono); font-size: 11.5px;
@@ -4475,9 +4489,14 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
    (right-aligned, so the column of keys reads as one column), and the row's
    own actions in a fixed column — which is why the Add buttons stop chasing
    the chip widths. The row's notes span all three. */
+/* Four columns, not three: the label is bounded (18rem) and the keycaps follow
+   it, so a 1240px card does not leave the chord 700px away from the action it
+   belongs to — the void the owner photographed (2026-09-21). The note fills
+   the space between the keycaps and the row's own actions, which is where the
+   air was; a row with no note leaves one gap, before its actions. */
 .key-pane .key-row {
   display: grid;
-  grid-template-columns: minmax(10rem, 1fr) auto minmax(96px, 108px);
+  grid-template-columns: minmax(9rem, 18rem) minmax(0, auto) minmax(8rem, 1fr) auto;
   align-items: center; column-gap: 12px; row-gap: 2px;
   min-height: 32px; padding: 2px 0 2px 8px;
   border-left: 2px solid transparent;
@@ -4487,10 +4506,19 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
    guest settings rows use for "set in this file" (agent-clis.css). */
 .key-pane .key-row.is-changed { border-left-color: var(--accent); }
 .key-pane .key-row:hover { background: var(--bg-hover); }
-.key-pane .key-name { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.key-pane .key-label { font-size: 13px; color: var(--text-primary); }
+.key-pane .key-name { grid-column: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; min-height: 0; }
+/* Each cell is placed, not auto-flowed: a row with no note would otherwise
+   shift its actions into the flexible column (and a second note push them onto
+   the next line) — measured 2026-09-21, rows 32 → 229px. */
+/* `flex: none` and `padding-top: 0` are a RESET, not decoration. The base
+   .key-label rule (still AppKeys') carries `flex: 0 1 12rem` from the layout
+   where the label sat in a row: a basis of 12rem is a *width* there. Inside
+   this column it is a height, and the label — and with it the cell, the grid
+   row and the whole 216px-tall row — inflated to 192px (owner's screenshot,
+   2026-09-21; the harness only measured the keycap, so nothing caught it). */
+.key-pane .key-label { font-size: 13px; color: var(--text-primary); flex: none; padding-top: 0; min-width: 0; }
 .key-pane .key-alt { font-size: 11px; color: var(--text-secondary); }
-.key-pane .key-keys { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; }
+.key-pane .key-keys { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 .key-pane .key-chip {
   display: inline-flex; align-items: center; gap: 2px;
   height: var(--kbd-h); padding: 0 2px 0 6px;
@@ -4511,7 +4539,7 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .key-pane .key-x:hover { color: var(--danger); background: var(--bg-hover); }
 .key-pane .key-x:disabled { cursor: default; }
 .key-pane .key-none { display: inline-flex; align-items: center; height: var(--kbd-h); font-size: 12px; color: var(--text-secondary); }
-.key-pane .key-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+.key-pane .key-actions { grid-column: 4; display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
 .key-pane .key-act {
   height: var(--kbd-h); padding: 0 8px; border: 1px solid transparent; border-radius: 6px;
   background: none; color: var(--text-secondary); font: inherit; font-size: 12px;
@@ -4521,7 +4549,7 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 .key-pane .key-row:hover .key-act, .key-pane .key-row:focus-within .key-act, .key-pane .key-act:focus-visible { opacity: 1; }
 .key-pane .key-act:hover { color: var(--text-primary); background: var(--bg-hover); border-color: var(--border); }
 .key-pane .key-act:disabled { opacity: .45; cursor: default; }
-.key-pane .key-note { grid-column: 1 / -1; margin: 0; font-size: 11px; line-height: 1.5; color: var(--text-secondary); }
+.key-pane .key-note { grid-column: 3; margin: 0; font-size: 11px; line-height: 1.5; color: var(--text-secondary); }
 .key-pane .key-note.is-warn { color: var(--warn); }
 .key-pane .key-note.is-live { color: var(--accent); }
 .key-pane .key-show {
@@ -4531,6 +4559,11 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
 /* A touch surface has no hover to reveal anything on. */
 @media (hover: none) {
   .key-pane .key-act, .key-pane .key-x { opacity: 1; }
+}
+@media (max-width: 1139px) {
+  .key-pane .key-count { display: none; }
+  .key-pane .key-facet { padding: 0 7px; }
+  .key-pane .key-find { padding: 0 8px; }
 }
 .key-pane .key-skel {
   height: 32px; margin: 4px 0; border-radius: var(--radius-ctl);
@@ -5502,6 +5535,12 @@ button.ws-check-line.is-done .ws-check-text, button.ws-check-line.is-done .ws-ch
   font-size: 11px; color: var(--text-secondary);
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.app-tile.is-placeholder, .app-tile-wrap.is-placeholder {
+  background: var(--accent-soft);
+  outline: 1px dashed color-mix(in srgb, var(--accent) 50%, var(--border));
+  border-radius: var(--radius-ctl);
+}
+.app-tile.is-placeholder > *, .app-tile-wrap.is-placeholder > * { visibility: hidden; }
 .app-icon-letter { font-weight: 700; line-height: 1; }
 .app-icon-img { object-fit: contain; }
 .app-tile-wrap { position: relative; min-width: 0; }

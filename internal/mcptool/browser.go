@@ -10,20 +10,20 @@ import (
 	"github.com/cfpperche/picode/internal/browser"
 )
 
-// The browser family (ADR-0132/0134 over MCP): one tool, the daemon's
+// The browser family (ADR-0132, ADR-0172 over MCP): one tool, the daemon's
 // verbs. Text mirrors packages/pi-browser/extensions/browser.ts and the
 // answers mirror its src/logic.ts.
 
-const browserDescription = "Read the web page the human has open in PiCode's work browser (the desktop app). " +
-	"Verbs: snapshot (the page as an accessibility tree — roles and names), screenshot (the page as an image you see), " +
-	"events (what the tab recorded: navigation, console, network), cdp (one Chrome DevTools Protocol method by name; needs Developer mode), history (where the human has been; off until they allow it in Settings). " +
-	"Read-only by default: it cannot click, type or navigate."
+const browserDescription = "Drive the browser tab beside your session in the PiCode desktop app. " +
+	"open launches that split (optional url). navigate, click, type, press, evaluate, snapshot, screenshot and events run in that tab — the human sees the same page and can click and sign in. " +
+	"This is not a headless browser. Unattended browsing stays on the runtime's own headless tool. Do not launch Chromium for a page the human should watch. " +
+	"cdp needs Developer mode and the Full tier. history is off until Settings ▸ Browser allows it."
 
 var browserGuidelines = []string{
-	"Use snapshot to read the page's structure, screenshot when the visual matters, events for what happened since the last poll.",
-	"This reads the tab the human has on screen; if they are looking elsewhere, say which page you read.",
-	"It cannot act on the page: clicking and navigation need a per-agent grant (Settings ▸ Browser).",
-	"cdp names one protocol method and needs two things the human controls: Developer mode on, and the Full tier for this agent. A refusal says which is missing — do not retry around it.",
+	"Call open to put the browser beside this session, then navigate, click and type in that tab.",
+	"The human is looking at the same tab and can click and sign in. Do not launch Chromium, Chrome, Playwright or xdg-open for this page.",
+	"Headless work is a different tool. Do not use this browser for an unattended run.",
+	"cdp names one protocol method and needs Developer mode and the Full tier. A refusal says which is missing — do not retry around it.",
 }
 
 // browserVerbs is the daemon's catalog, sorted, for the schema enum.
@@ -42,12 +42,17 @@ func browserSchema() map[string]any {
 		"type":     "object",
 		"required": []string{"verb"},
 		"properties": map[string]any{
-			"verb":       map[string]any{"type": "string", "enum": browserVerbs(), "description": "snapshot | screenshot | events | evaluate | navigate | cdp (evaluate/navigate need a grant; cdp needs Developer mode and the Full tier)"},
+			"verb":       map[string]any{"type": "string", "enum": browserVerbs(), "description": "open | navigate | click | type | press | snapshot | screenshot | events | evaluate | cdp | history. cdp needs Developer mode and the Full tier."},
 			"since":      map[string]any{"type": "number", "description": "events only: the last sequence number you saw"},
 			"expression": map[string]any{"type": "string", "description": "evaluate only: the JavaScript expression to run"},
 			"query":      map[string]any{"type": "string", "description": "history only: a search over url and title"},
 			"limit":      map[string]any{"type": "number", "description": "history only: how many visits to return (default 100, max 200)"},
-			"url":        map[string]any{"type": "string", "description": "navigate only: the destination; its origin must be in the grant"},
+			"url":        map[string]any{"type": "string", "description": "open or navigate: an http(s) URL"},
+			"selector":   map[string]any{"type": "string", "description": "click or type: a CSS selector in the session tab"},
+			"x":          map[string]any{"type": "number", "description": "click only: viewport x, used when there is no selector"},
+			"y":          map[string]any{"type": "number", "description": "click only: viewport y, used when there is no selector"},
+			"text":       map[string]any{"type": "string", "description": "type only: the text to insert"},
+			"key":        map[string]any{"type": "string", "description": "press only: Enter, Tab, Escape, Backspace, an arrow, or one character"},
 			"method":     map[string]any{"type": "string", "description": "cdp only: the full protocol method name, e.g. Network.getAllCookies"},
 			"params":     map[string]any{"type": "string", "description": "cdp only: the method's parameters as a JSON object, e.g. {\"urls\":true}"},
 		},
@@ -75,6 +80,11 @@ func browserCall(ctx context.Context, c *Caller, args json.RawMessage, now time.
 		Query      string   `json:"query"`
 		Limit      *float64 `json:"limit"`
 		URL        string   `json:"url"`
+		Selector   string   `json:"selector"`
+		X          *float64 `json:"x"`
+		Y          *float64 `json:"y"`
+		Text       string   `json:"text"`
+		Key        string   `json:"key"`
 		Method     string   `json:"method"`
 		Params     string   `json:"params"`
 	}
@@ -95,6 +105,21 @@ func browserCall(ctx context.Context, c *Caller, args json.RawMessage, now time.
 	}
 	if p.URL != "" {
 		params["url"] = p.URL
+	}
+	if p.Selector != "" {
+		params["selector"] = p.Selector
+	}
+	if p.X != nil {
+		params["x"] = *p.X
+	}
+	if p.Y != nil {
+		params["y"] = *p.Y
+	}
+	if p.Text != "" {
+		params["text"] = p.Text
+	}
+	if p.Key != "" {
+		params["key"] = p.Key
 	}
 	if p.Method != "" {
 		params["method"] = p.Method

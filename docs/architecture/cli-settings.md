@@ -210,7 +210,53 @@ chord drawn as a keycap at its own height rather than `--ctl-h`, the row's own
 **Add key** / **Reset** in a fixed right column instead of an Add button
 chasing the chips, and a toolbar with the filter, **Find by key** (press a
 chord; the list narrows to the actions that answer to it) and counting facets
-— **Changed**, **Shared**, **Off**. Two things it deliberately does not claim:
+— **Changed**, **Shared**, **Off**.
+
+**The row is four cells, each placed by `grid-column`, never auto-flowed**:
+`label (minmax(9rem, 18rem)) | keycaps (minmax(0, auto)) | note (minmax(8rem,
+1fr)) | actions (auto)`. The label is bounded so the keycaps follow it instead
+of floating at the card's far edge; the note — a shared chord, or a chord a
+browser keeps — takes the space the keycaps leave and is the row's only air.
+Two traps worth knowing before editing this CSS:
+
+- The base `.key-label` rule (AppKeys' language, kept verbatim) carries
+  `flex: 0 1 12rem` from the layout where the label sat in a *row*, where a
+  12rem basis is a width. Inside the pane's `.key-name` column the same basis
+  is a height, and the label — with its cell, its grid row and the whole row —
+  measured 192-216px. The pane resets it (`flex: none; padding-top: 0`).
+- A conditional note before the actions column shifts the actions into the
+  flexible column when there is no note (and onto the next line when there are
+  two). Hence the explicit placement.
+
+Measured: rows 32-90px (a note wraps on the longest rows), 3 199px for all 90,
+12px between the label and the first keycap; the phone 44-106px and 5 058px.
+`qa-cli-settings.mjs` asserts the shape now — a label cell one line tall, the
+action and its keycap on one line, the keycaps within 48px of the label, and a
+row/total height ceiling per app.
+
+**Two doors, one screen** (P1, 2026-09-21): `/api/pi-keys` stays pi's own store
+and contract, and `/api/cli-keys?cli=<id>` answers the pane for any CLI the
+registry knows (`internal/clikeys`). Pi's report is *wrapped* into that envelope
+— never restated, so the catalog and the write path stay in one place — and a
+CLI whose editor has not shipped answers with its state and nothing else: no
+file, no actions, and a `PUT` refused by name ("PiCode cannot write Codex's key
+map yet" versus "Grok does not allow its keys to be remapped"). The envelope
+carries what a guest editor will need and pi does not use yet: `state`,
+`keymap`, `pickup`, `vocab` and `contexts`. The pane talks only to the envelope,
+so a guest's editor is a server-side declaration, not a second component.
+
+The registry declares each CLI's vendor facts — the map's shape, when the CLI
+picks an edit up, its contexts — and every row cites where those were read,
+because that is a claim about software PiCode does not own. `unknown` is a
+first-class pickup: nothing vendor-published says, so the pane promises nothing.
+`web/shared/domain/cliKeys.js` holds the copy (the pickup sentence per state,
+and one line + one action for a pane with no editor);
+`TestJSListMatchesTheKeyboardRegistry` holds its ids, states and pickups equal to
+the Go registry's, and `make keys-drift` re-reads the installed pi's own
+`docs/keybindings.md` against `pikeys.Catalog` — the probe that would have caught
+the 89-of-90 catalog and the nine platform defaults.
+
+Two things the pane deliberately does not claim:
 
 - **A shared key is not a conflict.** 52 of pi's 90 actions share a chord with
   another: pi's contexts overlap and pi does not declare them, so calling them

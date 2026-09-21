@@ -249,6 +249,88 @@ no boundary: a UI refinement and a report envelope, so they update
 `docs/architecture/cli-settings.md` only (the `resetAll` field extends
 ADR-0101's own patch contract, the way `patch.reset` did).
 
+## P1 shipped (2026-09-21, `feat/keyboard-envelope`)
+
+The envelope is live and Pi answers through it: `internal/clikeys.Registry` (nine
+rows, each citing where its vendor facts were read), `GET/PUT /api/cli-keys`, and
+`web/shared/domain/cliKeys.js` (the copy + the seam test). Pi's report is wrapped
+rather than restated, `/api/pi-keys` is untouched, and the pane now talks only to
+the envelope — the six keyboard rows of `qa-cli-settings.mjs` pass through it on
+both apps, writing with one door and reading with the other.
+
+Two things it added beyond the plan, both because the work asked for them:
+
+- **`make keys-drift`** — the probe the P1 row named. It re-reads the installed
+  pi's own `docs/keybindings.md` and compares ids *and* defaults with
+  `pikeys.Catalog`, skipping loudly on a machine without pi. Run here against pi
+  0.87.0: 90 actions, 10 unbound, no drift — and it fails on a deliberately
+  broken catalog, so it is not a probe that always says yes.
+- **A tenth registry row's worth of honesty**: a CLI whose editor has not shipped
+  answers with `state` and `writable: false` and *no* file and *no* actions. The
+  pane can then say "Codex keeps its own key map; PiCode's editor for it has not
+  shipped yet" instead of promising one, which is what P5 was going to have to
+  invent copy for anyway.
+
+P2 is next: the adapters, Omp first, and the ADR above. Its inputs were measured
+before the first line of the adapter, so the next session starts with no
+unknowns — and the first measurement corrected this plan.
+
+## P2's inputs (measured 2026-09-21)
+
+**Omp, read out of the installed bundle** (`@oh-my-pi/pi-coding-agent` 18.2.8,
+which pins `@oh-my-pi/pi-tui` 18.2.8 — the inlined keybinding module, whose
+published sources match the bundle string-for-string):
+
+- **One file, machine-level**, in the agent dir (`~/.omp/agent`, `PI_CONFIG_DIR`,
+  or the active profile's dir): `keybindings.yml`, else `keybindings.yaml`, else
+  legacy `keybindings.json`. A legacy JSON file is read and then written back as
+  YAML into `keybindings.yml`, so a JSON file never stays the live one. **The
+  adapter edits whichever file exists, in that precedence order, and creates
+  `keybindings.yml` when none does** — writing `.yml` beside an existing `.json`
+  would shadow the user's own values.
+- **Flat, no contexts**: `Record<action, chord | [chord] | undefined>`; chords
+  are lowercase `mod+base`, modifiers ordered `ctrl, shift, alt, super`; reading
+  is case-insensitive and folds `esc`→`escape`, `return`→`enter`; `[]` unbinds
+  (the CLI prints `Disabled`); an absent key means "use the default".
+- **70 action ids, not 116**: 32 `tui.*` + 38 `app.*`, every one carrying a
+  `description` (which is the pane's label). The 116 in the first draft of this
+  plan was a grep artifact — a regex over the bundle for dotted identifiers also
+  matches settings keys and event names; the registry said 116 for a day and is
+  corrected. The id namespace (`tui.editor`, `tui.input`, `tui.select`, `app`) is
+  the only grouping the CLI has.
+- **A platform default exists**: `app.clipboard.pasteImage` is `ctrl+v` on Linux,
+  `ctrl+v`/`alt+v` on Windows, `ctrl+v`/`super+v` on macOS. The catalog's `Alt`
+  map takes the CLI's own platform names (`linux`/`win32`/`darwin`), and WSL
+  reports `linux` to the CLI.
+- **Pickup: still unknown.** `KeybindingsManager.reload()` exists and re-reads
+  the files, but nothing user-facing is documented to call it. The registry says
+  unknown and the pane will say so.
+- **Where the tables live**: the bundle's module is one region of `dist/cli.js`
+  (the minified bundle is ~26 MB, so cite the region, not a line per fact), and
+  the same text is published at `@oh-my-pi/pi-tui@18.2.8/src/keybindings.ts` (the
+  32-row TUI table, the manager) and `.../src/app-keybindings.ts` (the 38-row
+  table, the path resolver, the parser, the display formatter). A drift probe for
+  Omp reads those.
+
+**What the first adapter is**: a flat-document reader/writer (read a decoded
+document into `action → chords`, splice one action's list literal, insert when
+absent, refuse when the key exists in a shape the format layer will not rewrite,
+atomic write, revision/409) over the exported format layer; the Omp catalog; the
+`omp` registry row moving from `planned` to `shipped`; the pane taking the CLI
+from the route; and the harness rows for a guest pane. Then Hermes' three scalar
+keys, which need no key-map engine at all.
+
+**The other four** (`claude-code`, `codex`, `agy`, `opencode`) keep their
+registry rows and their `planned` answer until each adapter lands, with the
+shapes already named in §4: inverted contexts for Claude Code, nested tables for
+Codex, `tui.json` with `<leader>` sequences for OpenCode, and Antigravity's flat
+`id → [chord]` with its own key names.
+
+**Claude Code's adapter owns one thing the others do not**: its file keys
+*chords* to actions, so "add a key to this row" is a different edit — a
+`bindings[]` block for that context gains or loses a chord key — which is why its
+shape is declared apart rather than squeezed into the flat writer.
+
 ## 7. Verification
 
 1. `make ci-scoped` while iterating, `make close` at the end, `make ci` on
@@ -300,17 +382,46 @@ The owner approved P0 alone, and answered the four questions as recommended:
 the pane first; Grok and Muse get one line + one action; sequences stay
 read-only; `Reset all` ships behind a confirm.
 
-**Shipped** (branch `feat/keyboard-ui`): the row anatomy (32px grid, a keycap
-at its own `--kbd-h` instead of `--ctl-h`, the row's own actions in a fixed
-column, revealed on hover/`:focus-within` and always on a touch surface); the
-toolbar (filter, **Find by key**, counting facets `Changed`/`Shared`/`Off`, the
-row count, **Reset all**); the changed bar; the capture strip with the existing
-chips kept in view and `aria-live` on the result; the reserved-chord warning;
-the platform alternates; `Reset all` over a new `{resetAll: true}`; and the two
-catalog fixes — `app.thinking.save` and nine `Alt` rows read out of pi's own
-docs — held by `TestAltDeclaresEachPlatformItCovers` and
+**Shipped** (branch `feat/keyboard-ui`, corrected in `feat/keyboard-row`): the
+row anatomy (32px grid — 48px with a note — a keycap at its own `--kbd-h`
+instead of `--ctl-h`, the row's own actions in a fixed column, revealed on
+hover/`:focus-within` and always on a touch surface); the toolbar (filter,
+**Find by key**, counting facets `Changed`/`Shared`/`Off`, the row count,
+**Reset all**); the changed bar; the capture strip with the existing chips kept
+in view and `aria-live` on the result; the reserved-chord warning; the platform
+alternates; `Reset all` over a new `{resetAll: true}`; and the two catalog
+fixes — `app.thinking.save` and nine `Alt` rows read out of pi's own docs —
+held by `TestAltDeclaresEachPlatformItCovers` and
 `TestAlternatesDifferFromTheBaseDefault`. The map is 90 actions in 12 groups
 now, not 89.
+
+**The row is four columns, not three** (owner's screenshot, 2026-09-21, then
+re-measured): `label (bounded 9-18rem) | keycaps | note (flexible) | actions`,
+each cell placed by `grid-column` rather than auto-flowed. Two defects the first
+build shipped, both caught only by looking:
+
+- **A leaked flex shorthand.** The base `.key-label` rule (still AppKeys') says
+  `flex: 0 1 12rem`, a *width* basis where the label sat in a row. Inside the
+  new `.key-name` column the same basis is a *height*: the label, its cell and
+  with it every row measured 192-216px. The pane now resets it
+  (`flex: none; padding-top: 0`).
+- **Auto-flow shifting the actions.** With the note conditional, a row without
+  one moved its actions into the flexible column, and a row with two notes
+  pushed them onto the next line — rows 32 → 229px. Every cell is placed now.
+
+Density is asserted from that day on (`qa-cli-settings.mjs`): no label cell over
+one line, the action and its keycap on one line, the keycaps within 48px of the
+label, and 90 rows under 96px each / 4 000px total on desktop (128/6 200 on the
+phone). Measured: 32-90px rows, 3 199px of list, 12px between the label and the
+first keycap; the phone 44-106px and 5 058px.
+
+**The toolbar is one line, and only the filter shrinks.** Wrapping it put the
+row count and `Reset all` on a near-empty second line the moment a facet gained
+a count; `nowrap` alone then squeezed the facet labels at 1024px and on the
+phone, which is worse. Everything but the filter is `flex: none` and the facet
+group scrolls if the line still runs out; the phone wraps on purpose (the count
+is dropped there — its chips carry it). Measured: 54px at 1365 and 1024 with all
+three chips complete, 90px and three lines at 390px, no page overflow at either.
 
 Differences from the plan above, and why:
 

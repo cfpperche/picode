@@ -5,6 +5,12 @@ import { askConfirm } from "../lib/confirm.js";
 import { isReservedChord } from "@picode/shared/domain/browserChord.js";
 import { effectiveKeys, isOverride, matchKeys, platformAlternates, fromEvent } from "@picode/shared/domain/piKey.js";
 import { formatChord } from "../lib/appKeys.js";
+import { KEYBOARD_CLIS, pickupLine } from "@picode/shared/domain/cliKeys.js";
+
+// The pane's own CLI. Today only Pi ships an editor, so this constant is the
+// only thing that would move when a guest's adapter lands (P2): the report
+// carries the rest — the file, the host's platform, the catalog.
+const CLI = KEYBOARD_CLIS[0];
 
 // The keyboard map of the agent CLI this pane belongs to. Pi is the only CLI
 // whose map PiCode can write today; the report carries the file it writes, the
@@ -24,7 +30,7 @@ export default function PiKeys({ disabled = false }) {
 
   function load() {
     setErr("");
-    api("/api/pi-keys").then(setRep).catch((e) => { setRep(null); setErr(e.message || "Can't load keys."); });
+    api("/api/cli-keys?cli=" + CLI.id).then(setRep).catch((e) => { setRep(null); setErr(e.message || "Can't load keys."); });
   }
 
   useEffect(() => { load(); }, []);
@@ -96,10 +102,10 @@ export default function PiKeys({ disabled = false }) {
     const before = rep;
     setRep({ ...rep, user: nextUser });
     try {
-      const next = await api("/api/pi-keys", {
+      const next = await api("/api/cli-keys", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ cli: CLI.id, ...body }),
       });
       setRep(next);
       toast.ok(done);
@@ -186,8 +192,15 @@ export default function PiKeys({ disabled = false }) {
     <section className="settings-section key-pane">
       <h3>Keyboard</h3>
       <p className="settings-desc">
-        This machine. Writes <code>{rep.file}</code>{rep.exists ? "" : " (not created yet)"}. Pi applies a change on{" "}
-        <code>/reload</code> or the next run.
+        {/* The period rides inside the code box: that box has padding, so a
+            period after </code> sits one padding-width from the path and reads
+            as a stray mark (visual review, 2026-09-21). A path that is not
+            there yet carries its own sentence instead. */}
+        This machine. Writes{" "}
+        {rep.exists
+          ? <code>{rep.file}.</code>
+          : <><code>{rep.file}</code> (not created yet).</>}{" "}
+        {pickupLine(rep.cli || CLI.id)}
       </p>
 
       <div className="key-bar" data-align-row data-align-wrap>
@@ -196,7 +209,10 @@ export default function PiKeys({ disabled = false }) {
             id="keys-filter"
             type="search"
             aria-label="Filter actions by name, group or key"
-            placeholder="Filter by action, group or key"
+            // Short on purpose: the pane is ~474px wide at a 1024 window, and a
+            // longer hint is cut at that width (visual review, 2026-09-21). The
+            // aria-label carries what the field actually matches.
+            placeholder="Filter keys"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -294,20 +310,10 @@ export default function PiKeys({ disabled = false }) {
                     <span className="key-none">{changed ? "Off" : "Unbound"}</span>
                   ) : null}
                 </div>
-                {/* Reset first, Add key last: the column is right-aligned, so
-                    the action every row has keeps the slot the reader has
-                    learned. With Add first, the rows that also offer Reset
-                    shifted it ~58px left (visual review, 2026-09-21). */}
-                <div className="key-actions" data-align-row>
-                  {changed && !waiting ? (
-                    <button type="button" className="key-act" disabled={disabled} onClick={() => reset(a.id)}>Reset</button>
-                  ) : null}
-                  {waiting ? (
-                    <button type="button" className="key-act" onClick={() => setListen("")}>Cancel</button>
-                  ) : (
-                    <button type="button" className="key-act" disabled={disabled} onClick={() => setListen(a.id)}>Add key</button>
-                  )}
-                </div>
+                {/* The note sits BETWEEN the keycaps and the row's actions: the
+                    grid's flexible column, so the space a row with no note
+                    leaves is the only air in the row (owner's screenshot,
+                    2026-09-21). */}
                 {waiting ? (
                   <p className="key-note is-live" aria-live="polite">
                     Press the chord to add. Esc cancels · a plain letter needs Ctrl, Alt or Cmd.
@@ -329,6 +335,20 @@ export default function PiKeys({ disabled = false }) {
                     >Show</button>
                   </p>
                 ) : null}
+                {/* Reset first, Add key last: the column is right-aligned, so
+                    the action every row has keeps the slot the reader has
+                    learned. With Add first, the rows that also offer Reset
+                    shifted it ~58px left (visual review, 2026-09-21). */}
+                <div className="key-actions" data-align-row>
+                  {changed && !waiting ? (
+                    <button type="button" className="key-act" disabled={disabled} onClick={() => reset(a.id)}>Reset</button>
+                  ) : null}
+                  {waiting ? (
+                    <button type="button" className="key-act" onClick={() => setListen("")}>Cancel</button>
+                  ) : (
+                    <button type="button" className="key-act" disabled={disabled} onClick={() => setListen(a.id)}>Add key</button>
+                  )}
+                </div>
               </div>
             );
           })}

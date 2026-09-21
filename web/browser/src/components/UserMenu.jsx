@@ -2,6 +2,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useRef, useState } from "react";
 import { IconUser, IconChevronUp, IconSun, IconMonitor, IconMoon, IconPhone, IconChevronRight, IconExternal, IconQR, IconMode, IconSettings, IconDrive, IconProvider, IconMcp, IconPackage, IconClock, IconSparkles, IconCli, IconModel, IconFile, IconGlobe } from "./Icons.jsx";
 import { menuGroups, menuActions, menuHasResults } from "../lib/userMenuModel.js";
+import { DOCS_BASE } from "../lib/commandDocs.js";
 import InstallButton from "./InstallButton.jsx";
 
 const SECTION_ICONS = {
@@ -24,7 +25,7 @@ const SECTION_ICONS = {
 
 const ACTION_ICONS = { "whats-new": IconSparkles, share: IconQR, docs: IconExternal };
 
-export default function UserMenu({ host, version, inShell = false, themeMode, onTheme, onNavigate, onShare, onWhatsNew, whatsNewUnread, pkgUpdates }) {
+export default function UserMenu({ host, version, inShell = false, themeMode, onTheme, onNavigate, onShare, onWhatsNew, whatsNewUnread, pkgUpdates, onDocs }) {
   const [query, setQuery] = useState("");
   const contentRef = useRef(null);
   const hasPkgUp = !!(pkgUpdates && pkgUpdates.length);
@@ -59,16 +60,17 @@ export default function UserMenu({ host, version, inShell = false, themeMode, on
   const renderAction = (action) => {
     const Icon = ACTION_ICONS[action.id];
     if (action.id === "docs") {
+      // In-app browser tab when the app can open one (ADR-0169's pane taught
+      // the route); the system browser remains the no-shell fallback, where
+      // the shell bridge used to catch this very anchor.
       return (
-        <DropdownMenu.Item asChild key={action.id}>
-          <a className="um-item" id="um-docs" href="https://cfpperche.github.io/picode/" target="_blank" rel="noopener noreferrer">
-            <Icon className="um-item-ico" />
-            <span className="um-item-text">
-              <span className="um-item-name">{action.title}</span>
-              <span className="um-row-sub">{action.sub}</span>
-            </span>
-            <IconExternal />
-          </a>
+        <DropdownMenu.Item className="um-item" id="um-docs" onSelect={() => (onDocs ? onDocs() : window.open(DOCS_BASE + "/", "_blank", "noopener,noreferrer"))}>
+          <Icon className="um-item-ico" />
+          <span className="um-item-text">
+            <span className="um-item-name">{action.title}</span>
+            <span className="um-row-sub">{action.sub}</span>
+          </span>
+          <IconExternal />
         </DropdownMenu.Item>
       );
     }

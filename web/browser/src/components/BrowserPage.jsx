@@ -4,14 +4,14 @@ import * as Dialog from "./ResponsiveDialog.jsx";
 import FolderPicker from "./FolderPicker.jsx";
 import { DEFAULT_BROWSER_PREFS, readBrowserPrefs } from "../lib/browserPrefs.js";
 import { openWindowsSignIn, shellInvoke } from "../lib/windowsSettings.js";
-import { describeDomainField } from "../lib/browserDomains.js";
+
 import { ALL_SITES, permissionPush } from "../lib/browserPermissions.js";
 import { takeBrowserDialog } from "../lib/browserDialogs.js";
 import { IconWarn } from "./Icons.jsx";
 import { relTime } from "@picode/shared/domain/relTime.js";
 import PageFrame from "./PageFrame.jsx";
 import { AuditList, Item, SwitchCtl, WsTag, distinctOutcomes } from "./settingsControls.jsx";
-import { BROWSER_PERMISSION_KINDS, browserGrantSchema, browserSiteSchema } from "@picode/shared/contracts/schemas.js";
+import { BROWSER_PERMISSION_KINDS, browserSiteSchema } from "@picode/shared/contracts/schemas.js";
 import { subscribeFeed } from "@picode/shared/client/feed.js";
 import { toast } from "../lib/toast.js";
 
@@ -25,16 +25,13 @@ import { toast } from "../lib/toast.js";
 // rows that carry a title + description on the left with the control
 // pinned right, divided by hairlines. The chrome around the page stays
 // PiCode's. `.set-page` and friends in styles/app.css are that shape.
-//
-// Agent grants (slice 4, ADR-0134): one row per managed agent. Read is
-// the default (the tab on screen); Act and Full name the domains the
-// agent may reach in its own pane. Saving goes through
-// /api/browser/policy → browser.Save and announces itself on the feed.
+// Agent rows (ADR-0172): every identified principal can drive the browser
+// beside its session. The only per-principal grant left is raw protocol,
+// which still needs Developer mode and the full tier (ADR-0144).
 
-const TIERS = [
-  { value: "read", label: "Read" },
-  { value: "act", label: "Act" },
-  { value: "full", label: "Full" },
+const RAW_FILTERS = [
+  { value: "full", label: "Raw protocol" },
+  { value: "session", label: "Session only" },
 ];
 
 const DESTS = [
@@ -42,7 +39,6 @@ const DESTS = [
   { value: "external", label: "Default browser" },
 ];
 
-const domainsText = (row) => (row.domains ?? []).join(", ");
 
 // Grants/audit paging (Carbon table language): a page renders free, the
 // footer pages the rest instead of virtualizing a settings surface.
@@ -161,7 +157,6 @@ const toPickerPath = (p) => {
 
 export default function BrowserPage({ hidden, onCreateAgent }) {
   const [rows, setRows] = useState(null); // null = first load: skeleton
-  const [drafts, setDrafts] = useState({}); // agentId -> { tier, domainsText }
   const [flash, setFlash] = useState("");
   const [history, setHistory] = useState(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -695,29 +690,20 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   // carries which — the same namespace rule the daemon keys grants with.
   const keyOf = (row) => (row.termId ? "term:" + row.termId : row.agentId);
 
-  const draftOf = (row) => drafts[keyOf(row)] ?? { tier: row.tier, domainsText: domainsText(row) };
-  const setDraft = (id, next) => setDrafts((d) => ({ ...d, [id]: next }));
 
-  const save = async (row) => {
-    const d = draftOf(row);
-    const parsed = browserGrantSchema.safeParse({ tier: d.tier, domains: d.domainsText });
-    if (!parsed.success) return;
+
+  const saveRaw = async (row, on) => {
     try {
       const r = await fetch("/api/browser/policy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(row.termId
-          ? { term: row.termId, tier: parsed.data.tier, domains: parsed.data.domains }
-          : { agent: row.agentId, tier: parsed.data.tier, domains: parsed.data.domains }),
+          ? { term: row.termId, tier: on ? "full" : "read", domains: [] }
+          : { agent: row.agentId, tier: on ? "full" : "read", domains: [] }),
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.error || String(r.status));
       setFlash(keyOf(row));
       setTimeout(() => setFlash((cur) => (cur === keyOf(row) ? "" : cur)), 2000);
-      setDrafts((dd) => {
-        const next = { ...dd };
-        delete next[keyOf(row)];
-        return next;
-      });
     } catch (e) {
       toast("Saving the grant failed: " + (e?.message || e));
     }
@@ -740,7 +726,8 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
       if (grantWs === "none") {
         if (row.workspaceId) return false;
       } else if (grantWs !== "all" && row.workspaceId !== grantWs) return false;
-      if (grantTier !== "all" && row.tier !== grantTier) return false;
+      if (grantTier === "full" && row.tier !== "full") return false;
+      if (grantTier === "session" && row.tier === "full") return false;
       if (q) {
         const hay = ((row.name || "") + " " + (row.agentId || "") + " " + (row.termId || "")).toLowerCase();
         if (!hay.includes(q)) return false;
@@ -877,7 +864,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
 
         <section className="set-group">
           <h2 className="set-grouph">Agent permissions</h2>
-          <p className="set-groupdesc">Which agents and terminals may use the built-in browser, and on which sites.</p>
+          <p className="set-groupdesc">Which agents and terminals may drive the built-in browser, and on what terms.</p>
           {rows !== null && rows.length > 0 ? (
             <div className="set-toolbar" role="search">
               <input
@@ -902,10 +889,10 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
                 className="set-select"
                 value={grantTier}
                 onChange={(e) => { setGrantTier(e.target.value); setGrantLimit(GRANT_PAGE); }}
-                aria-label="Filter by access level"
+                aria-label="Filter by raw protocol"
               >
-                <option value="all">All tiers</option>
-                {TIERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                <option value="all">All</option>
+                {RAW_FILTERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
               <span className="set-count">{filteredGrants.length} of {rows.length}</span>
             </div>
@@ -917,7 +904,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
               <div className="set-item">
                 <div className="set-item-body">
                   <span className="set-item-t">No agents or terminals yet</span>
-                  <span className="set-item-d">Grants are given per principal; anything without one reads the tab on screen.</span>
+                  <span className="set-item-d">An agent opens a browser beside its session. Raw protocol is the only extra grant.</span>
                 </div>
                 <div className="set-item-ctl">
                   <button type="button" className="set-btn" onClick={onCreateAgent}>Create an agent</button>
@@ -939,9 +926,7 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
                   key={keyOf(row)}
                   row={row}
                   wsName={row.workspaceId ? (wsNames[row.workspaceId] || null) : null}
-                  draft={draftOf(row)}
-                  onDraft={(next) => setDraft(keyOf(row), next)}
-                  onSave={() => save(row)}
+                  onRaw={(on) => saveRaw(row, on)}
                   flash={flash === keyOf(row)}
                 />
               ))
@@ -955,10 +940,10 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
             ) : null}
           </div>
           <p className="set-groupdesc">
-            Read — sees the tab you have on screen, nothing else. Act — also opens and drives pages in its own pane, inside the domains you list. Full — everything Act does, plus developer access.
+            An agent can open a browser beside its session and drive that tab — navigate, click, type. You see the same page and can click and sign in. Closing the split stops it. This is not a headless browser.
           </p>
           <p className="set-groupdesc">
-            Terminals you started in PiCode get a row too — a CLI agent there is a principal like any other. A <code>pi</code> started outside PiCode has no identity at all and always reads the tab on screen.
+            Raw protocol lets that agent name any Chrome DevTools Protocol method. It needs Developer mode, below. A pi started outside PiCode has no identity and cannot drive a tab.
           </p>
         </section>
 
@@ -1480,20 +1465,9 @@ export default function BrowserPage({ hidden, onCreateAgent }) {
   );
 }
 
-function GrantRow({ row, draft, onDraft, onSave, flash, wsName }) {
-  const parsed = browserGrantSchema.safeParse({ tier: draft.tier, domains: draft.domainsText });
-  const valid = parsed.success;
-  const dirty = draft.tier !== row.tier || draft.domainsText !== domainsText(row);
-  const actLike = draft.tier !== "read";
-  // What the field currently means, in words (browserDomains.js is the same
-  // reading the matchers do — a hint, never a check). An entry that opens
-  // nothing is named here instead of being saved in silence.
-  const covers = actLike ? describeDomainField(draft.domainsText) : [];
-  // A row that carries a domain list stacks (name and hints, then the
-  // controls): side by side, the field was squeezed to a stub and the select
-  // wrapped above it (seen in review, 2026-09-15).
+function GrantRow({ row, onRaw, flash, wsName }) {
   return (
-    <div className={"set-item" + (actLike ? " set-item-stack" : "")}>
+    <div className="set-item">
       <div className="set-item-body">
         <span className="set-item-t">
           {row.name}
@@ -1501,48 +1475,11 @@ function GrantRow({ row, draft, onDraft, onSave, flash, wsName }) {
           <WsTag id={row.workspaceId} name={wsName} />
           <span className="devs-tag devs-tag-off">{row.kind === "terminal" ? "terminal" : "managed"}</span>
         </span>
-        {!valid && actLike ? <span className="set-item-d" style={{ color: "var(--danger)" }}>{parsed.error.issues[0].message}</span> : null}
-        {actLike && valid ? (
-          covers.length === 0 ? (
-            <span className="set-item-d">
-              No sites yet — this agent can only read the tab you have on screen. Add a host, or * for any site.
-            </span>
-          ) : (
-            <ul className="grant-covers">
-              {covers.map((c) => (
-                <li key={c.entry} className={"grant-cover" + (c.kind === "dead" ? " is-dead" : "")}>
-                  <span className="grant-cover-label">{c.label}</span>
-                  {c.covers ? <span className="grant-cover-d"> — {c.covers}</span> : null}
-                  {c.kind === "dead" ? <span className="grant-cover-d"> — {c.miss}</span> : null}
-                </li>
-              ))}
-            </ul>
-          )
-        ) : null}
+        <span className="set-item-d">Drives the browser beside its session. Raw protocol is separate, and needs Developer mode.</span>
       </div>
       <div className="set-item-ctl">
-        <select
-          className="set-select"
-          value={draft.tier}
-          onChange={(e) => onDraft({ ...draft, tier: e.target.value })}
-          aria-label={"Access level for " + row.name}
-        >
-          {TIERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-        </select>
-        {actLike && (
-          <input
-            className={"grant-domains" + (valid ? "" : " grant-domains-bad")}
-            placeholder="example.com, *.example.com, *"
-            value={draft.domainsText}
-            onChange={(e) => onDraft({ ...draft, domainsText: e.target.value })}
-            aria-label={"Allowed domains for " + row.name}
-          />
-        )}
-        {flash ? (
-          <span className="devs-tag">saved</span>
-        ) : dirty && valid ? (
-          <button type="button" className="set-btn" onClick={onSave}>Save</button>
-        ) : null}
+        <SwitchCtl checked={row.tier === "full"} onChange={onRaw} label={"Raw protocol for " + row.name} />
+        {flash ? <span className="devs-tag">saved</span> : null}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useState } from "react";
 import { DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSensors } from "@dnd-kit/core";
-import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { SortableContext, rectSortingStrategy, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { reorderIds } from "../lib/sidebarOrder.js";
 
@@ -9,6 +9,8 @@ import { reorderIds } from "../lib/sidebarOrder.js";
 // full-width row. A translateX widens the scrollport: overflow-y: auto
 // computes overflow-x to auto, and the bar in the screenshot is that width.
 const restrictToVerticalAxis = ({ transform }) => ({ ...transform, x: 0 });
+
+const DragAxis = createContext("vertical");
 
 // One list, one context, so a row cannot drop into a neighbouring list
 // (agents stay agents, terminals stay terminals, workspace groups stay
@@ -61,10 +63,11 @@ function swallowFollowingClick(event) {
   target.addEventListener("click", stop, true);
 }
 
-export function SortableList({ ids, onReorder, children }) {
+export function SortableList({ ids, onReorder, grid = false, children }) {
   const sensorList = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const [activeId, setActiveId] = useState(null);
   const quiet = reducedMotion();
+  const modifiers = grid ? [] : [restrictToVerticalAxis];
   function endDrag(event) {
     swallowFollowingClick(event);
     document.body.classList.remove("is-row-dragging");
@@ -77,7 +80,7 @@ export function SortableList({ ids, onReorder, children }) {
     <DndContext
       sensors={sensorList}
       collisionDetection={closestCenter}
-      modifiers={[restrictToVerticalAxis]}
+      modifiers={modifiers}
       // Vertical autoscroll only. threshold.x 0 divides by zero and scrolls
       // sideways; layout-shift compensation on x does the same when a row
       // sticks out (dnd-kit 6.1+).
@@ -93,11 +96,13 @@ export function SortableList({ ids, onReorder, children }) {
       }}
       onDragEnd={endDrag}
     >
-      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+      <DragAxis.Provider value={grid ? "grid" : "vertical"}>
+      <SortableContext items={ids} strategy={grid ? rectSortingStrategy : verticalListSortingStrategy}>
         {children}
       </SortableContext>
+      </DragAxis.Provider>
       <DragOverlay
-        modifiers={[restrictToVerticalAxis]}
+        modifiers={modifiers}
         zIndex={40}
         dropAnimation={quiet ? null : { duration: 160, easing: ROW_EASE.easing }}
       >
@@ -108,15 +113,15 @@ export function SortableList({ ids, onReorder, children }) {
 }
 
 export function SortableRow({ id, children }) {
+  const axis = useContext(DragAxis);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     transition: reducedMotion() ? null : ROW_EASE,
   });
   const style = {
-    // Translate, not Transform: scaleX on a full-width row also overflows.
-    // x stays 0 even if a modifier is skipped. With an overlay mounted, this
-    // transform slides the placeholder into the slot, not the lifted card.
-    transform: CSS.Translate.toString(transform ? { ...transform, x: 0 } : null),
+    // Translate, not Transform: scale on a full-width row overflows.
+    // A vertical list drops x. A grid keeps both axes so tiles can change column.
+    transform: CSS.Translate.toString(transform ? { ...transform, x: axis === "grid" ? transform.x : 0 } : null),
     transition: reducedMotion() ? "none" : transition,
   };
   return children({

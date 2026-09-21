@@ -1,2 +1,0 @@
-### Added
-- **Connectors for Muse Code and Hermes Agent — all nine CLIs covered.** The Connectors pane now manages Muse's `~/.config/muse/settings.json` (`mcp_servers` block, `streamable_http` transport, per-server on/off; `schema_version` and `mode` preserved) and Hermes's `~/.hermes/config.yaml` (`mcp_servers` block edited as a YAML node tree so comments, key order and `${VAR}` placeholders survive; malformed files refuse without writing). Both CLIs keep a single config file, so "this folder" scope points at it instead of inventing one.
