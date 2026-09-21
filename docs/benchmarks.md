@@ -5,6 +5,8 @@
 > `/skill:uiux-review`. Update it when a benchmark stops serving us —
 > explicitly, with rationale (it's a decision, see ADR process).
 
+Delivery-flow research: [observing and governing agent delivery](benchmarks/2026-09-21-delivery-governance.md) compares review readiness, integration queues and deployment evidence; [execution baseline](plans/delivery-flow.md).
+
 ## Engineering benchmarks
 
 Inspired by: **Google** (code review culture, small CLs), **Stripe**

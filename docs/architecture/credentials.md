@@ -134,6 +134,16 @@ snapshot has and the migration absorbs the legacy shape.
 | Pane (both apps) | `web/{browser,mobile}/src/components/CliCredentials.jsx`, `web/shared/styles/credentials.css`, `web/shared/domain/credentials.js` |
 | Activation renderers + the file path per CLI | `internal/clicreds/render.go`, `internal/clicreds.CredentialPath` |
 
+**Tests must never see the live vault.** Its directory is `PICODE_DATA` first
+and `$HOME/.picode` second (`defaultDir`), and the agent runtime exports
+`PICODE_DATA` to every PiCode terminal (`internal/rpc/runtime.go`) — so a suite
+run from one wrote fixtures into the owner's real vault on 2026-09-21 (30 rows
+across 15 providers, reported by the owner as "what are all these accounts?").
+Three layers keep it out: `scripts/go-test.sh` runs every package with
+`PICODE_DATA` unset, the `internal/server` and `internal/catalog` test mains pin
+it to a throwaway directory, and each package has a guardrail test
+(`TestSuiteIsVaultIsolated`) that fails if the pin is ever dropped.
+
 Tests: `internal/credentials/credentials_test.go` (encryption round-trip, a
 flipped byte, a missing key, migration-once, pause/remove promotion, token
 merge, import-vs-activate, hints), `internal/clicreds/parse_test.go` (one case
