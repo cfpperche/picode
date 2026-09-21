@@ -199,25 +199,39 @@ func List(cli string, p Paths, scope string) ([]Item, error) {
 // citation graph and the index's own health. A memory nothing points at, a
 // citation that leads nowhere and an index past the size its CLI will read are
 // all invisible from the file alone.
-func Survey(cli string, p Paths, scope string) ([]Item, IndexHealth, error) {
+// Audit is what the folder says that no single file can: the index's health
+// where the CLI declares one, and the store's own revision history where the
+// CLI keeps one. A CLI that answers neither returns a zero Audit rather than
+// zeroed numbers, so the pane can drop the column instead of printing a zero
+// that reads as a finding.
+type Audit struct {
+	Index   IndexHealth `json:"index"`
+	History *History    `json:"history,omitempty"`
+}
+
+func Survey(cli string, p Paths, scope string) ([]Item, Audit, error) {
 	s := For(cli)
 	if s == nil {
-		return nil, IndexHealth{}, fmt.Errorf("PiCode has no memory driver for %q", cli)
+		return nil, Audit{}, fmt.Errorf("PiCode has no memory driver for %q", cli)
 	}
 	dir, err := storeDir(cli, p, scope)
 	if err != nil {
-		return nil, IndexHealth{}, err
+		return nil, Audit{}, err
 	}
 	items, err := list(dir)
 	if err != nil {
-		return nil, IndexHealth{}, err
+		return nil, Audit{}, err
 	}
-	if !s.indexLinks {
-		// No declared index convention: counting citations would report zero
-		// for every row, which reads as a finding rather than an absence.
-		return items, IndexHealth{}, nil
+	out := Audit{History: history(dir)}
+	if s.indexLinks {
+		// Without a declared index convention, counting citations would report
+		// zero for every row, which reads as a finding rather than an absence.
+		items, out.Index, err = survey(dir, items, s)
+		if err != nil {
+			return nil, Audit{}, err
+		}
 	}
-	return survey(dir, items, s)
+	return out.History.stamp(items), out, nil
 }
 
 // Read returns one memory's text. id is a path relative to the store and is

@@ -180,14 +180,19 @@ func handleCLIMemoryGet(deps Deps) http.HandlerFunc {
 		}
 		if scope != "" {
 			body["scope"] = scope
-			items, health, err := climemory.Survey(cli, p, scope)
+			items, audit, err := climemory.Survey(cli, p, scope)
 			if err == nil {
 				body["items"] = items
 				// The index the CLI loads every session, measured against the
 				// limits that CLI applies — a reader cannot see them anywhere
 				// else (2026-09-20).
-				if health.Exists {
-					body["index"] = health
+				if audit.Index.Exists {
+					body["index"] = audit.Index
+				}
+				// A store the CLI keeps under version control answers when its
+				// content actually changed; Codex is the one that does.
+				if audit.History != nil {
+					body["history"] = audit.History
 				}
 			} else {
 				body["itemsError"] = err.Error()

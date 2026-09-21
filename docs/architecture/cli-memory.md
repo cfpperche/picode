@@ -118,14 +118,55 @@ of its byte budget.
 back to the filesystem's; `modifiedFrom` says which, because a date a backup
 touched is not evidence of anything.
 
+## A store the CLI keeps under version control
+
+`~/.codex/memories` is a git repository: its first commit is the baseline Codex
+wrote, and every later revision is Codex reorganising the same three files.
+`internal/climemory/gitstore.go` reads it, and it is the only thing that store
+can answer which the others cannot — Codex has no citation graph, no declared
+index budget and no frontmatter kinds, so its rows carried a size and a date
+and nothing else.
+
+It is also the truer date. The filesystem's mtime moves when the CLI rewrites
+a file with the same bytes: on the day this shipped all three of Codex's files
+reported "today" while their content had not changed since the 12:10 baseline.
+So `modified` now prefers, in order:
+
+| `modifiedFrom` | Source | Why it ranks there |
+|---|---|---|
+| `memory` | the CLI's own frontmatter date | the CLI's statement about its own memory |
+| `git` | the revision that last changed the file | when the content actually changed |
+| `file` | the filesystem's mtime | everything else, and any file with uncommitted changes — it is newer than any revision |
+
+Only a repository whose `.git` sits **directly** in the store folder counts.
+Muse keeps its memory in `<workspace>/.agents/memory`, inside the user's own
+repository; walking up would report the project's history as the memory's,
+which is a different thing entirely, and `TestHistoryIsTheStoresOwnOrNothing`
+holds that line.
+
+Every call is bounded: a three-second timeout, at most 500 revisions walked,
+`GIT_OPTIONAL_LOCKS=0` so a read never takes the index lock while the CLI is
+writing, and any failure at all reports no history rather than half of one.
+The pane says it in one sentence under the path — *"Codex keeps a version
+history here — 1 revision, today. Nothing has changed since."* — and wears the
+warning colour when files have moved since the last revision.
+
 ## The pane's copy
 
 Chrome carries state and the next action. The read-only tier says one sentence
-("Grok writes these files itself.") and offers the vendor command as a **copy
-button**, not as a string to retype; how the store is built lives in this file
-instead. The filter is absent when there is nothing to filter, the store
-switcher and the filter share `--ctl-h` on one row, and an opened row drops its
-own one-line preview so the same sentence is not printed twice. An editable
+("Grok writes these files itself.") and names the vendor command **inside that
+sentence**, with a plain **Copy** button beside it — the button used to read
+"Copy grok memory clear", which parses as an instruction rather than as a
+command to copy. How the store is built lives in this file instead.
+
+The toolbar is one cluster anchored left, the rule the Providers roster already
+sets: `space-between` pushed the filter to the far right against an empty
+spacer, so a CLI with no store switcher showed a search box alone in the corner.
+The bar is absent entirely when there is neither a switcher nor anything to
+filter, and the pane carries its own `padding-top` — every sibling view gets it
+from a section id, and Memory had none, so it sat flush against the tabs bar.
+The store switcher and the filter share `--ctl-h` on one row, and an opened row
+drops its own one-line preview so the same sentence is not printed twice. An editable
 memory is a visibly focusable field with its file named above it — it used to
 be pixel-identical to the read-only box, so nothing said it could be typed in.
 
@@ -186,7 +227,7 @@ runtime capability, so neither has a key to link to.
 
 | Route | Does |
 |---|---|
-| `GET /api/cli-memory?cli=&workspace=&scope=` | the report, one store's surveyed items, the index's health, and the running terminals |
+| `GET /api/cli-memory?cli=&workspace=&scope=` | the report, one store's surveyed items, the index's health, the store's revision history where it has one, and the running terminals |
 | `GET /api/cli-memory/item?cli=&scope=&id=` | one memory's text, masked |
 | `PUT /api/cli-memory/item` | replace one memory (`editable` only) |
 | `DELETE /api/cli-memory/item?cli=&scope=&id=` | remove one memory (`editable` only, never the index) |
